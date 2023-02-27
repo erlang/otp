@@ -64,7 +64,8 @@
          stacktrace0/0,
          stacktrace1/0,
          in_cons/0,
-         make_fun/0]).
+         make_fun/0,
+         gh6925/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -74,7 +75,7 @@ transformable0(L) ->
 
 transformable0([H|T], Acc) ->
 %ssa% (_, A) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, A, _, _, _, B, ...) { aliased => [B], unique => [A] }.
+%ssa% _ = bs_create_bin(append, _, A, _, _, _, B, ...) { aliased => [B], unique => [A], first_fragment_dies => true }.
     transformable0(T, <<Acc/binary, H:8>>);
 transformable0([], Acc) ->
     Acc.
@@ -84,7 +85,7 @@ transformable1(L) ->
 
 transformable1(L, start) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     transformable1(L, <<>>);
 transformable1([H|T], Acc) ->
     transformable1(T, <<Acc/binary, H:8>>);
@@ -97,7 +98,7 @@ transformable1b(L) ->
 transformable1b([H|T], X) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% Phi = phi({Arg1, _}, {_, _}, ...),
-%ssa% _ = bs_create_bin(append, _, Phi, _, _, _, X, _) { aliased => [X], unique => [Phi] }.
+%ssa% _ = bs_create_bin(append, _, Phi, _, _, _, X, _) { aliased => [X], unique => [Phi], first_fragment_dies => true }.
     Acc = case X of
 	      start ->
 		  <<>>;
@@ -114,7 +115,7 @@ transformable2(L) ->
 
 transformable2([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% A = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1] },
+%ssa% A = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true },
 %ssa% _ = call(fun transformable2/2, _, A).
     case ex:f() of
 	true ->
@@ -130,7 +131,7 @@ transformable3(L) ->
 
 transformable3([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     R = case ex:f() of
 	    true ->
 		<<Acc/binary, H:8>>;
@@ -147,7 +148,7 @@ transformable4(L) ->
 transformable4([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% Phi = phi({_, _}, {Arg1, _}, ...),
-%ssa% _ = bs_create_bin(append, _, Phi, _, _, _, X, _) { aliased => [X], unique => [Phi] }.
+%ssa% _ = bs_create_bin(append, _, Phi, _, _, _, X, _) { aliased => [X], unique => [Phi], first_fragment_dies => true }.
     R = case ex:f() of
 	    true ->
 		Acc;
@@ -164,7 +165,7 @@ transformable5(L) ->
 
 transformable5([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     does_not_escape(Acc),
     transformable5(T, <<Acc/binary, H:8>>);
 transformable5([], Acc) ->
@@ -181,7 +182,7 @@ transformable7(L) ->
 transformable7([H|T], [Acc|N]) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_hd(Arg1),
-%ssa% _ = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A] }.
+%ssa% _ = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A], first_fragment_dies => true }.
     transformable7(T, [<<Acc/binary, H:8>>|N+1]);
 transformable7([], Acc) ->
     Acc.
@@ -193,7 +194,7 @@ transformable8(L) ->
 
 transformable8(L, start) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     transformable8(L, <<>>);
 transformable8([H|T], Acc) ->
     transformable8b(T, <<Acc/binary, H:8>>);
@@ -202,7 +203,7 @@ transformable8([], Acc) ->
 
 transformable8b(T, Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, ...) { unique => [Arg1] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, ...) { unique => [Arg1], first_fragment_dies => true }.
     transformable8(T, <<Acc/binary, 16#ff:8>>).
 
 %% Check that the analysis works across mutually recursive functions.
@@ -211,14 +212,14 @@ transformable9(L) ->
 
 transformable9a([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, _, _, _, _, X, _) { aliased => [X], unique => [Arg1] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, _, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     transformable9b(T, <<Acc/binary, 0:8, H:8>>);
 transformable9a([], Acc) ->
     Acc.
 
 transformable9b([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, _, _, _, _, X, _) { aliased => [X], unique => [Arg1] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, _, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     transformable9a(T, <<Acc/binary, 1:8, H:8>>);
 transformable9b([], Acc) ->
     Acc.
@@ -230,7 +231,7 @@ transformable10(L) ->
 transformable10([H|T], {Acc,N}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
-%ssa% _ = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A] }.
+%ssa% _ = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A], first_fragment_dies => true }.
     transformable10(T, {<<Acc/binary, H:8>>,N+1});
 transformable10([], Acc) ->
     Acc.
@@ -241,9 +242,9 @@ transformable11(L) ->
 
 transformable11([H|T], Acc) when H =:= 0 ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% A = bs_create_bin(append, _, Arg1, ...) { unique => [Arg1] },
+%ssa% A = bs_create_bin(append, _, Arg1, ...) { unique => [Arg1], first_fragment_dies => true },
 %ssa% _ = call(fun transformable11/2, _, A),
-%ssa% B = bs_create_bin(append, _, Arg1, ...) { unique => [Arg1] },
+%ssa% B = bs_create_bin(append, _, Arg1, ...) { unique => [Arg1], first_fragment_dies => true },
 %ssa% _ = call(fun transformable11/2, _, B).
     transformable11(T, <<Acc/binary, 0:8>>);
 transformable11([_|T], Acc)->
@@ -261,8 +262,8 @@ transformable12b(L) ->
 %% The type analysis can't handle the list yet
 transformable12([H|T], {Acc}) ->
 %ssa% (_, _) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, A, _, _, _, B, _) { aliased => [B, A] },
-%ssa% _ = bs_create_bin(append, _, C, _, _, _, D, _) { aliased => [D, C] }.
+%ssa% _ = bs_create_bin(append, _, A, _, _, _, B, _) { aliased => [B, A], first_fragment_dies => true },
+%ssa% _ = bs_create_bin(append, _, C, _, _, _, D, _) { aliased => [D, C], first_fragment_dies => true }.
     transformable12([H|T], {<<Acc/binary,H:8>>});
 transformable12([H|T], [Acc]) ->
     transformable12([H|T], [<<Acc/binary,H:8>>]);
@@ -277,7 +278,7 @@ transformable13(L) ->
 
 transformable13([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     transformable13(T, <<Acc/binary, H:8>>);
 transformable13([], Acc) ->
     Acc.
@@ -294,7 +295,7 @@ transformable14(L) ->
 
 transformable14([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     transformable14(T, <<Acc/binary, H:8>>);
 transformable14([], Acc) ->
     Acc.
@@ -309,8 +310,8 @@ transformable15(L) ->
 
 transformable15([A,B|T], Acc0, Acc1) ->
 %ssa% (_, Arg1, Arg2) when post_ssa_opt ->
-%ssa% A = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1] },
-%ssa% B = bs_create_bin(append, _, Arg2, _, _, _, Y, _) { aliased => [Y], unique => [Arg2] },
+%ssa% A = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true },
+%ssa% B = bs_create_bin(append, _, Arg2, _, _, _, Y, _) { aliased => [Y], unique => [Arg2], first_fragment_dies => true },
 %ssa% _ = call(fun transformable15/3, _, A, B).
 
     transformable15(T, <<Acc0/binary, A:8>>, <<Acc1/binary, B:8>>);
@@ -326,9 +327,9 @@ transformable16([A,B|T], {{Acc0}, Acc1}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = get_tuple_element(A, 0),
-%ssa% C = bs_create_bin(append, _, B, _, _, _, X, _) { aliased => [X], unique => [B] },
+%ssa% C = bs_create_bin(append, _, B, _, _, _, X, _) { aliased => [X], unique => [B], first_fragment_dies => true },
 %ssa% D = get_tuple_element(Arg1, 1),
-%ssa% E = bs_create_bin(append, _, D, _, _, _, Y, _) { aliased => [Y], unique => [D] },
+%ssa% E = bs_create_bin(append, _, D, _, _, _, Y, _) { aliased => [Y], unique => [D], first_fragment_dies => true },
 %ssa% F = put_tuple(C),
 %ssa% G = put_tuple(F, E),
 %ssa% _ = call(fun transformable16/2, _, G).
@@ -342,7 +343,7 @@ transformable17(L) ->
 transformable17([H|T], [N|Acc]) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tl(Arg1),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A]  },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A], first_fragment_dies => true },
 %ssa% C = put_list(_, B),
 %ssa% _ = call(fun transformable17/2, _, C).
     transformable17(T, [N+1|<<Acc/binary, H:8>>]);
@@ -358,7 +359,7 @@ transformable18(L, X) when is_integer(X), X < 256 ->
 transformable18b([H|T], {Acc,X}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [A], unique => [X] },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [A], unique => [X], first_fragment_dies => true },
 %ssa% C = put_tuple(B, _),
 %ssa% _ = call(fun transformable18b/2, _, C).
     transformable18b(T, {<<Acc/binary, (H+X):8>>, X});
@@ -380,7 +381,7 @@ transformable19b([H|T], {Acc,X}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X, A] },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X, A], first_fragment_dies => true },
 %ssa% C = put_tuple(B, _),
 %ssa% _ = call(fun transformable19b/2, _, C).
     transformable19b(T, {<<Acc/binary, (H+X):8>>, X});
@@ -401,7 +402,7 @@ transformable20(L) ->
 transformable20b([H|T], [Acc|X]) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_hd(Arg1),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X, A] },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X, A], first_fragment_dies => true },
 %ssa% C = put_list(B, _),
 %ssa% _ = call(fun transformable20b/2, _, C).
     transformable20b(T, [<<Acc/binary, (H+X):8>>|X+1]);
@@ -416,9 +417,9 @@ transformable21(L) ->
 transformable21([H|T], {AccA,AccB}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A] },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A], first_fragment_dies => true },
 %ssa% C = get_tuple_element(Arg1, 1),
-%ssa% D = bs_create_bin(append, _, C, _, _, _, _, _) { unique => [C] },
+%ssa% D = bs_create_bin(append, _, C, _, _, _, _, _) { unique => [C], first_fragment_dies => true },
 %ssa% E = put_tuple(B, D),
 %ssa% _ = call(fun transformable21/2, _, E).
     transformable21(T, {<<AccA/binary, H:8>>,<<AccB/binary, 17:8>>});
@@ -435,8 +436,8 @@ transformable22([H|T], [AccA|AccB]) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_hd(Arg1),
 %ssa% B = get_tl(Arg1),
-%ssa% C = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A] },
-%ssa% D = bs_create_bin(append, _, B, _, _, _, _, _) { unique => [B] },
+%ssa% C = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A], first_fragment_dies => true },
+%ssa% D = bs_create_bin(append, _, B, _, _, _, _, _) { unique => [B], first_fragment_dies => true },
 %ssa% E = put_list(C, D),
 %ssa% _ = call(fun transformable22/2, _, E).
     transformable22(T, [<<AccA/binary, H:8>>|<<AccB/binary, 17:8>>]);
@@ -450,10 +451,10 @@ transformable23(L) ->
 transformable23([H|T], {AccA,{AccB},X}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A] },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A], first_fragment_dies => true },
 %ssa% C = get_tuple_element(Arg1, 1),
 %ssa% D = get_tuple_element(C, 0),
-%ssa% E = bs_create_bin(append, _, D, _, _, _, _, _) { unique => [D] },
+%ssa% E = bs_create_bin(append, _, D, _, _, _, _, _) { unique => [D], first_fragment_dies => true },
 %ssa% F = put_tuple(E),
 %ssa% G = put_tuple(B, F, _),
 %ssa% _ = call(fun transformable23/2, _, G).
@@ -470,7 +471,7 @@ transformable24(L) ->
 transformable24([H|T], {Acc,X}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [A], unique => [X] },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [A], unique => [X], first_fragment_dies => true },
 %ssa% C = put_tuple(B, _),
 %ssa% _ = call(fun transformable24/2, _, C).
     transformable24(T, {<<Acc/binary, (H+X):8>>, X});
@@ -485,9 +486,9 @@ transformable25(L) ->
 transformable25([H|T], {AccA,AccB}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A] },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A], first_fragment_dies => true },
 %ssa% C = get_tuple_element(Arg1, 1),
-%ssa% D = bs_create_bin(append, _, C, _) { unique => [C] },
+%ssa% D = bs_create_bin(append, _, C, _) { unique => [C], first_fragment_dies => true },
 %ssa% E = put_tuple(B, D),
 %ssa% _ = call(fun transformable25/2, _, E).
     transformable25(T, {<<AccA/binary, H:8>>,<<AccB/binary>>});
@@ -503,11 +504,11 @@ transformable26(L) ->
 transformable26([H|T], {AccA,AccB,AccC}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A] },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [X], unique => [A], first_fragment_dies => true },
 %ssa% C = get_tuple_element(Arg1, 1),
-%ssa% D = bs_create_bin(append, _, C, _, _, _, Y, _) { aliased => [Y], unique => [C] },
+%ssa% D = bs_create_bin(append, _, C, _, _, _, Y, _) { aliased => [Y], unique => [C], first_fragment_dies => true },
 %ssa% E = get_tuple_element(Arg1, 2),
-%ssa% F = bs_create_bin(append, _, E, _, _, _, Z, _) { aliased => [Z], unique => [E] },
+%ssa% F = bs_create_bin(append, _, E, _, _, _, Z, _) { aliased => [Z], unique => [E], first_fragment_dies => true },
 %ssa% G = put_tuple(B, D, F),
 %ssa% _ = call(fun transformable26/2, _, G).
     transformable26(T, {<<AccA/binary, H:8>>,
@@ -522,7 +523,7 @@ transformable26([], Acc) ->
 
 not_transformable1([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [Arg1, X] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [Arg1, X], first_fragment_dies => true }.
     not_transformable1(T, <<Acc/binary, H:8>>);
 not_transformable1([], Acc) ->
     Acc.
@@ -532,7 +533,7 @@ not_transformable2(L) ->
 
 not_transformable2([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [Arg1, X] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [Arg1, X], first_fragment_dies => true }.
     ex:escape(Acc),
     not_transformable2(T, <<Acc/binary, H:8>>);
 not_transformable2([], Acc) ->
@@ -543,7 +544,7 @@ not_transformable3(L) ->
 
 not_transformable3([H|T], Acc, Ls) ->
 %ssa% (_, Arg1, _) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [Arg1, X] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [Arg1, X], first_fragment_dies => false }.
     not_transformable3(T, <<Acc/binary, H:8>>, [Acc|Ls]);
 not_transformable3([], Acc, Ls) ->
     {Acc, Ls}.
@@ -555,7 +556,7 @@ not_transformable4(L) ->
 
 not_transformable4([H|T], X=[Acc|Ls]) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, X, _, _, _, Y, _) { aliased => [Y, X] }.
+%ssa% _ = bs_create_bin(append, _, X, _, _, _, Y, _) { aliased => [Y, X], first_fragment_dies => true }.
     Tmp = case ex:f() of
 	      true ->
 		  [Q|_] = X,
@@ -575,14 +576,14 @@ not_transformable5(L) ->
 
 not_transformable5a([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, _, _, _, _, X, _) { aliased => [Arg1, X] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, _, _, _, _, X, _) { aliased => [Arg1, X], first_fragment_dies => true }.
     not_transformable5b(T, <<Acc/binary, 0:8, H:8>>);
 not_transformable5a([], Acc) ->
     Acc.
 
 not_transformable5b([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, _, _, _, _, X, _) { aliased => [Arg1, X] }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, _, _, _, _, X, _) { aliased => [Arg1, X], first_fragment_dies => true }.
     ex:alias(Acc),
     not_transformable5a(T, <<Acc/binary, 1:8, H:8>>);
 not_transformable5b([], Acc) ->
@@ -658,5 +659,16 @@ make_fun(List, Indent) ->
 
 make_fun1(X, Indent) ->
 %ssa% (_, A) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, A, ...) { aliased => [A] }.
+%ssa% _ = bs_create_bin(append, _, A, ...) { aliased => [A], first_fragment_dies => true }.
     make_fun(X, <<Indent/binary,"    ">>).
+
+
+%% Check that the alias analysis detects that the first fragment to
+%% doesn't die with the second bs_create_bin, GH-6925.
+gh6925() ->
+%ssa% () when post_ssa_opt ->
+%ssa% A = bs_create_bin(private_append, ...),
+%ssa% B = bs_create_bin(append, ...) { first_fragment_dies => false }.
+    A = << <<"x">> || true >>,
+    B = <<A/binary, "z">>,
+    {A, B}.
