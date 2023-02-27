@@ -56,7 +56,7 @@
     missing_scope_join/1,
     disconnected_start/1,
     forced_sync/0, forced_sync/1,
-    group_leave/1,
+    group_leave/1, node_type/1,
     monitor_nonempty_scope/0, monitor_nonempty_scope/1,
     monitor_scope/0, monitor_scope/1,
     monitor/1,
@@ -93,7 +93,7 @@ groups() ->
         {performance, [], [thundering_herd]},
         {cluster, [parallel], [process_owner_check, two, initial, netsplit, trisplit, foursplit,
             exchange, nolocal, double, scope_restart, missing_scope_join, empty_group_by_remote_leave,
-            disconnected_start, forced_sync, group_leave]},
+            disconnected_start, forced_sync, group_leave, node_type]},
         {monitor, [parallel], [monitor_nonempty_scope, monitor_scope, monitor]},
         {old_release, [parallel], [process_owner_check, two, overlay_missing,
                                    empty_group_by_remote_leave, initial, netsplit,
@@ -194,7 +194,7 @@ dyn_distribution(Config) when is_list(Config) ->
     %%  distributed, and calling net_kernel:start/1, however
     %%  the effect is still the same as simply sending nodeup,
     %%  which is also documented.
-    ?FUNCTION_NAME ! {nodeup, node()},
+    ?FUNCTION_NAME ! {nodeup, node(), #{}},
     %%
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, self())),
     ?assertEqual([self()], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
@@ -387,7 +387,7 @@ netsplit(Config) when is_list(Config) ->
     1 = erlang:trace(PgPid, true, ['receive']),
     pong = net_adm:ping(Node),
     receive
-        {trace, PgPid, 'receive', {nodeup, Node}} -> ok
+        {trace, PgPid, 'receive', {nodeup, Node, _}} -> ok
     end,
     1 = erlang:trace(PgPid, false, ['receive']),
 
@@ -546,7 +546,7 @@ disconnected_start(Config) when is_list(Config) ->
     end.
 
 disconnected_start_test(Config) when is_list(Config) ->
-    {Peer, Node} = spawn_disconnected_node(?FUNCTION_NAME, ?FUNCTION_NAME, Config),
+    {Peer, Node} = spawn_disconnected_node(?FUNCTION_NAME, ?FUNCTION_NAME, Config, []),
     ?assertNot(lists:member(Node, nodes())),
     ?assertEqual(ok, peer:call(Peer, gen_server, stop, [?FUNCTION_NAME])),
     ?assertMatch({ok, _Pid}, peer:call(Peer, pg, start,[?FUNCTION_NAME])),
@@ -620,11 +620,55 @@ group_leave(Config) when is_list(Config) ->
     1 = erlang:trace(PgPid, true, ['receive']),
     peer:stop(Peer),
     receive
-        {trace, PgPid, 'receive', {nodedown, Node}} -> ok
+        {trace, PgPid, 'receive', {nodedown, Node, _}} -> ok
     end,
     1 = erlang:trace(PgPid, false, ['receive']),
     sync(?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, two)),
+    ok.
+
+node_type(Config) when is_list(Config) ->
+    NodeTypeDefault = ?FUNCTION_NAME,
+    NodeTypeVisible = node_type_visible,
+    NodeTypeHidden = node_type_hidden,
+    NodeTypeAll = node_type_all,
+    Scopes = [NodeTypeDefault, NodeTypeVisible, NodeTypeHidden, NodeTypeAll],
+
+    {ok, _} = pg:start_link(NodeTypeVisible, #{node_type => visible}),
+    {ok, _} = pg:start_link(NodeTypeHidden, #{node_type => hidden}),
+    {ok, _} = pg:start_link(NodeTypeAll, #{node_type => all}),
+
+    Pid = erlang:spawn(forever()),
+    [?assertEqual(ok, pg:join(Scope, key, Pid)) || Scope <- Scopes],
+
+    {Peer, Node} = spawn_disconnected_node(NodeTypeDefault, node_type_visible, Config, []),
+    {ok, _} = peer:call(Peer, pg, start, [NodeTypeVisible, #{node_type => visible}]),
+    {ok, _} = peer:call(Peer, pg, start, [NodeTypeHidden, #{node_type => hidden}]),
+    {ok, _} = peer:call(Peer, pg, start, [NodeTypeAll, #{node_type => all}]),
+    true = net_kernel:connect_node(Node),
+    [begin sync({Scope, Node}), sync(Scope) end || Scope <- Scopes],
+
+    ?assertEqual([Pid], rpc:call(Node, pg, get_members, [NodeTypeDefault, key])),
+    ?assertEqual([Pid], rpc:call(Node, pg, get_members, [NodeTypeVisible, key])),
+    ?assertEqual([], rpc:call(Node, pg, get_members, [NodeTypeHidden, key])),
+    ?assertEqual([Pid], rpc:call(Node, pg, get_members, [NodeTypeAll, key])),
+
+    {HiddenPeer, HiddenNode} =
+        spawn_disconnected_node(NodeTypeDefault, node_type_hidden, Config, ["-hidden"]),
+
+    {ok, _} = peer:call(HiddenPeer, pg, start, [NodeTypeVisible, #{node_type => visible}]),
+    {ok, _} = peer:call(HiddenPeer, pg, start, [NodeTypeHidden, #{node_type => hidden}]),
+    {ok, _} = peer:call(HiddenPeer, pg, start, [NodeTypeAll, #{node_type => all}]),
+    true = net_kernel:connect_node(HiddenNode),
+    [begin sync({Scope, HiddenNode}), sync(Scope) end || Scope <- Scopes],
+
+    ?assertEqual([], rpc:call(HiddenNode, pg, get_members, [NodeTypeDefault, key])),
+    ?assertEqual([], rpc:call(HiddenNode, pg, get_members, [NodeTypeVisible, key])),
+    ?assertEqual([Pid], rpc:call(HiddenNode, pg, get_members, [NodeTypeHidden, key])),
+    ?assertEqual([Pid], rpc:call(HiddenNode, pg, get_members, [NodeTypeAll, key])),
+
+    peer:stop(Peer),
+    peer:stop(HiddenPeer),
     ok.
 
 monitor_nonempty_scope() ->
@@ -916,15 +960,15 @@ sleeper_mfa() ->
     [erlang, hibernate, [?MODULE,dummy,[]]].
 
 spawn_node(TestCase, Config) ->
-    {Peer, Node} = spawn_disconnected_node(TestCase, TestCase, Config),
+    {Peer, Node} = spawn_disconnected_node(TestCase, TestCase, Config, []),
     true = net_kernel:connect_node(Node),
     {Peer, Node}.
 
-spawn_disconnected_node(Scope, TestCase, Config) ->
+spawn_disconnected_node(Scope, TestCase, Config, Args) ->
     Opts = #{name => ?CT_PEER_NAME(TestCase),
              connection => 0,
              args => ["-connect_all", "false",
-                      "-kernel", "dist_auto_connect", "never"]},
+                      "-kernel", "dist_auto_connect", "never" | Args]},
     {ok, Peer, Node} =
         case proplists:get_value(otp_release, Config) of
             undefined ->

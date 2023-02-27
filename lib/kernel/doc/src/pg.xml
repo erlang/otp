@@ -131,6 +131,41 @@
     </func>
 
     <func>
+      <name name="start" arity="2" since="OTP 26.0"/>
+      <name name="start_link" arity="2" since="OTP 26.0"/>
+      <fsummary>Start additional scope with options.</fsummary>
+      <desc>
+        <p>Starts additional scope.</p>
+        <p><c>Options</c> is a map where the following associations
+        are allowed:</p>
+        <taglist>
+          <tag><c>node_type => <anno>NodeType</anno></c></tag>
+          <item>
+            <p>Valid values for <c>NodeType</c>:</p>
+            <taglist>
+              <tag><c>visible</c></tag>
+              <item><p>The groups in this scope are exchanged between visible
+               nodes only (the nodes returned by <c>nodes()</c>).</p></item>
+              <tag><c>hidden</c></tag>
+              <item><p>The groups in this scope are exchanged between hidden
+               nodes only.</p></item>
+              <tag><c>all</c></tag>
+              <item><p>The groups in this scope are exchanged between all
+               nodes.</p></item>
+            </taglist>
+            <p>
+              It defaults to <c>visible</c>. If the <c>node_type</c> is set
+              for a given scope, then the same scope on all nodes must have
+              a matching <c>node_type</c>. If the values are different,
+              different nodes may have different views of which processes
+              belong to the scope and the overall the behaviour is unspecified.
+            </p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
       <name name="join" arity="2" since="OTP 23.0"/>
       <name name="join" arity="3" since="OTP 23.0"/>
       <fsummary>Join a process or a list of processes to a group.</fsummary>

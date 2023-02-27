@@ -74,8 +74,8 @@
 
 %% Scoped API: overlay networks
 -export([
-    start/1,
-    start_link/1,
+    start/1, start/2,
+    start_link/1, start_link/2,
 
     join/3,
     leave/3,
@@ -106,20 +106,34 @@
 %% Uses default scope, which is the same as as the module name.
 -spec start_link() -> {ok, pid()} | {error, any()}.
 start_link() ->
-    start_link(?DEFAULT_SCOPE).
+    start_link(?DEFAULT_SCOPE, #{}).
 
 %% @doc
 %% Starts the server outside of supervision hierarchy.
 -spec start(Scope :: atom()) -> {ok, pid()} | {error, any()}.
 start(Scope) when is_atom(Scope) ->
-    gen_server:start({local, Scope}, ?MODULE, [Scope], []).
+    start(Scope, #{}).
+
+%% @doc
+%% Starts the server outside of supervision hierarchy with options.
+-spec start(Scope :: atom(), Options :: start_options()) -> {ok, pid()} | {error, any()}.
+start(Scope, Options) when is_atom(Scope), is_map(Options) ->
+    gen_server:start({local, Scope}, ?MODULE, {Scope, Options}, []).
 
 %% @doc
 %% Starts the server and links it to calling process.
 %% Scope name is supplied.
 -spec start_link(Scope :: atom()) -> {ok, pid()} | {error, any()}.
 start_link(Scope) when is_atom(Scope) ->
-    gen_server:start_link({local, Scope}, ?MODULE, [Scope], []).
+    start_link(Scope, #{}).
+
+%% @doc
+%% Starts the server and links it to calling process.
+%% Scope name and options are supplied.
+-spec start_link(Scope :: atom(), Options :: start_options()) -> {ok, pid()} | {error, any()}.
+start_link(Scope, Options) when is_atom(Scope), is_map(Options) ->
+    gen_server:start_link({local, Scope}, ?MODULE, {Scope, Options}, []).
+
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -267,14 +281,21 @@ which_local_groups(Scope) when is_atom(Scope) ->
 }).
 
 -type state() :: #state{}.
+-type node_type() :: visible | hidden | all.
+-type start_options() :: #{node_type => node_type()}.
 
--spec init([Scope :: atom()]) -> {ok, state()}.
-init([Scope]) ->
-    ok = net_kernel:monitor_nodes(true),
+-spec init({Scope :: atom(), start_options()}) -> {ok, state()}.
+init({Scope, StartOptions}) ->
+    NodeType = maps:get(node_type, StartOptions, visible),
+    ok = net_kernel:monitor_nodes(true, #{node_type => NodeType}),
     %% discover all nodes running this scope in the cluster
-    broadcast([{Scope, Node} || Node <- nodes()], {discover, self()}),
+    broadcast([{Scope, Node} || Node <- node_type_to_nodes(NodeType)], {discover, self()}),
     Scope = ets:new(Scope, [set, protected, named_table, {read_concurrency, true}]),
     {ok, #state{scope = Scope}}.
+
+node_type_to_nodes(visible) -> nodes(visible);
+node_type_to_nodes(hidden) -> nodes(hidden);
+node_type_to_nodes(all) -> nodes(connected).
 
 -spec handle_call(Call :: {join_local, Group :: group(), Pid :: pid()}
                         | {leave_local, Group :: group(), Pid :: pid()}
@@ -355,7 +376,7 @@ handle_cast(_, _State) ->
     {join, Peer :: pid(), group(), pid() | [pid()]} |
     {leave, Peer :: pid(), pid() | [pid()], [group()]} |
     {'DOWN', reference(), process, pid(), term()} |
-    {nodedown, node()} | {nodeup, node()}, State :: state()) -> {noreply, state()}.
+    {nodedown, node(), map()} | {nodeup, node(), map()}, State :: state()) -> {noreply, state()}.
 
 %% remote pid or several pids joining the group
 handle_info({join, Peer, Group, PidOrPids}, #state{scope = Scope, remote = Remote, scope_monitors = ScopeMon,
@@ -427,13 +448,13 @@ handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, remote = 
     end;
 
 %% nodedown: ignore, and wait for 'DOWN' signal for monitored process
-handle_info({nodedown, _Node}, State) ->
+handle_info({nodedown, _Node, _Info}, State) ->
     {noreply, State};
 
 %% nodeup: discover if remote node participates in the overlay network
-handle_info({nodeup, Node}, State) when Node =:= node() ->
+handle_info({nodeup, Node, _Info}, State) when Node =:= node() ->
     {noreply, State};
-handle_info({nodeup, Node}, #state{scope = Scope} = State) ->
+handle_info({nodeup, Node, _Info}, #state{scope = Scope} = State) ->
     erlang:send({Scope, Node}, {discover, self()}, [noconnect]),
     {noreply, State};
 
