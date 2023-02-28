@@ -1017,6 +1017,9 @@ action_function(set_tcw,1) -> true;
 action_function(silent,1) -> true;
 action_function(trace,2) -> true;
 action_function(trace,3) -> true;
+action_function(caller_line,0) -> true;
+action_function(current_stacktrace,0) -> true;
+action_function(current_stacktrace,1) -> true;
 action_function(_,_) -> false.
 
 bool_operator('and',2) ->

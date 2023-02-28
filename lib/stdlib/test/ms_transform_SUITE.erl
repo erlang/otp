@@ -859,6 +859,16 @@ action_function(Config) when is_list(Config) ->
 	    "silent(true), "
 	    "trace([send], [procs]), "
 	    "trace(Y, [procs], [send])  end)">>),
+    [{['$1','$2'],
+             [],
+             [{caller_line},
+              {current_stacktrace},
+              {current_stacktrace,3}]}] =
+        compile_and_run
+          (<<"dbg:fun2ms(fun([X,Y]) -> "
+             "caller_line(),"
+             "current_stacktrace(),"
+             "current_stacktrace(3) end)">>),
     ok.
 
 
