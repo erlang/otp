@@ -261,7 +261,11 @@ function_parameter_completion(Config) ->
                             elems:=[#{title:="types",
                                     elems:=[{"integer()",[]}],
                                     options:=[{hide,title}]}],
-                            options:=[{highlight_param,1}]}],
+                            options:=[{highlight_param,1}]},
+                            #{title:=
+                                "complete_function_parameter:multi_arity_fun()",
+                            options:=[],
+                            elems:=[")"]}],
                 options:=[highlight_all]}]} = do_expand("complete_function_parameter:multi_arity_fun("),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"true",[]},{"false",[]}]}]}]}]} = do_expand("complete_function_parameter:multi_arity_fun(1,"),
     {no,[],
