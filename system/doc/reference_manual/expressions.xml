@@ -1985,29 +1985,31 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
     marker="stdlib:maps#iterator/2">maps:iterator/2</seemfa>.</p>
 
     <p>A <em>filter</em> is an expression that evaluates to
-    <c>true</c> or <c>false</c>, or a
-    <seeguide marker="#guard_expressions">guard expression</seeguide>.
-    If the filter is not a guard expression and evaluates
-    to a non-Boolean value <c>Val</c>, an exception
-    <c>{bad_filter, Val}</c> is triggered at runtime.</p>
+    <c>true</c> or <c>false</c>.</p>
 
     <p>The variables in the generator patterns shadow previously bound variables,
     including variables bound in a previous generator pattern.</p>
 
-    <p>A list comprehension returns a list, where the lists elements are the
+    <p>Variables bound in a generator expression are not visible outside the expression:</p>
+
+    <pre>
+1> <input>[{E,L} || E &lt;- L=[1,2,3]].</input>
+* 1:5: variable 'L' is unbound</pre>
+
+    <p>A <strong>list comprehension</strong> returns a list, where the list elements are the
     result of evaluating <c>Expr</c> for each combination of generator
     elements for which all filters are true.</p>
 
-    <p>A bit string comprehension returns a bit string, which is
+    <p>A <strong>bit string comprehension</strong> returns a bit string, which is
     created by concatenating the results of evaluating <c>BitStringExpr</c> for
     each combination of bit string generator elements for which all
     filters are true.</p>
 
-    <p>A map comprehension returns a map, where the map elements are
-    the result of evaluating <c>KeyExpr</c> and <c>ValueExpr</c> for
-    each combination of generator elements for which all filters are
-    true. If the key expressions are not unique, the last occurrence
-    is stored in the map.</p>
+    <p>A <strong>map comprehension</strong> returns a map, where the
+    map elements are the result of evaluating <c>KeyExpr</c> and
+    <c>ValueExpr</c> for each combination of generator elements for
+    which all filters are true. If the key expressions are not unique,
+    the last occurrence is stored in the map.</p>
 
     <p><strong>Examples:</strong></p>
 
@@ -2059,6 +2061,10 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
 [{a,1},{a,2},{b,1},{b,2},{c,1},{c,2}]
 </pre>
 
+    <p>More examples are provided in
+    <seeguide marker="system/programming_examples:list_comprehensions">
+    Programming Examples.</seeguide></p>
+
     <p>When there are no generators, a comprehension returns either a
     term constructed from a single element (the result of evaluating
     <c>Expr</c>) if all filters are true, or a term constructed from
@@ -2072,9 +2078,49 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
 2> <input>[x || is_integer(x)].</input>
 []</pre>
 
-    <p>More examples are provided in
-    <seeguide marker="system/programming_examples:list_comprehensions">
-    Programming Examples.</seeguide></p>
+    <p>What happens when the filter expression does not evaluate to
+    a boolean value depends on the expression:</p>
+
+    <list>
+      <item><p>If the expression is a <seeguide
+      marker="#guard_expressions">guard expression</seeguide>, failure
+      to evaluate or evaluating to a non-boolean value is equivalent
+      to evaluating to <c>false</c>.</p></item>
+
+      <item><p>If the expression is not a guard expression and
+      evaluates to a non-Boolean value <c>Val</c>, an exception
+      <c>{bad_filter, Val}</c> is triggered at runtime. If the
+      evaluation of the expression raises an exception, it is not
+      caught by the comprehension.</p></item>
+    </list>
+
+    <p><strong>Examples</strong> (using a guard expression as filter):</p>
+
+    <pre>
+1> <input>List = [1,2,a,b,c,3,4].</input>
+[1,2,a,b,c,3,4]
+2> <input>[E || E &lt;- List, E rem 2].</input>
+[]
+3> <input>[E || E &lt;- List, E rem 2 =:= 0].</input>
+[2,4]</pre>
+
+    <p><strong>Examples</strong> (using a non-guard expression as filter):</p>
+
+    <pre>
+1> <input>List = [1,2,a,b,c,3,4].</input>
+[1,2,a,b,c,3,4]
+2> <input>FaultyIsEven = fun(E) -> E rem 2 end.</input>
+#Fun&lt;erl_eval.42.17316486&gt;
+3> <input>[E || E &lt;- List, FaultyIsEven(E)].</input>
+** exception error: bad filter 1
+4> <input>IsEven = fun(E) -> E rem 2 =:= 0 end.</input>
+#Fun&lt;erl_eval.42.17316486&gt;
+5> <input>[E || E &lt;- List, IsEven(E)].</input>
+** exception error: an error occurred when evaluating an arithmetic expression
+     in operator  rem/2
+        called as a rem 2
+6> <input>[E || E &lt;- List, is_integer(E), IsEven(E)].</input>
+[2,4]</pre>
   </section>
 
   <section>
