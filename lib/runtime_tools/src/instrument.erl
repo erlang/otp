@@ -97,9 +97,9 @@ alloc_hist_merge_hist(Index, A, B) ->
                    InPool :: boolean(),
                    TotalSize :: non_neg_integer(),
                    UnscannedSize :: non_neg_integer(),
-                   Allocations :: {Type :: atom(),
-                                   Count :: non_neg_integer(),
-                                   Size :: non_neg_integer()},
+                   Allocations :: [{Type :: atom(),
+                                    Count :: non_neg_integer(),
+                                    Size :: non_neg_integer()}],
                    FreeBlocks :: block_histogram()}]}.
 
 -spec carriers() -> {ok, Result} | {error, Reason} when
