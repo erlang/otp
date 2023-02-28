@@ -992,10 +992,11 @@ change_size_rot(#rotate_handle{maxB = MaxB, maxF = MaxF, file = FName} = Handle,
     {MaxB, MaxF1} = get_size(MaxB, MaxF),
     if
         NewMaxF > MaxF1 ->
-            remove_files(rotate, FName, MaxF, NewMaxF),
+            remove_files(rotate, FName, MaxF1, NewMaxF),
             {ok, Handle#rotate_handle{maxB = NewMaxB, maxF = NewMaxF}};
         NewMaxF < MaxF1 ->
-            {ok, Handle#rotate_handle{maxB = NewMaxB, maxF = {NewMaxF, MaxF1}}};
+            remove_files(rotate, FName, NewMaxF, MaxF1),
+            {ok, Handle#rotate_handle{maxB = NewMaxB, maxF = NewMaxF}};
         true ->
             {ok, Handle#rotate_handle{maxB = NewMaxB, maxF = NewMaxF}}
     end.
@@ -1015,7 +1016,6 @@ open_rot_log_file(FileName, Size, Head) ->
 						   cur_fdc = FdC,
 						   maxB = MaxB,
 						   maxF = MaxF,
-						   %curB = CurSize,
 						   curB = FileSize,
                                                    firstPos = FileSize,
 						   inode = INode},

@@ -778,6 +778,11 @@
 	      is an integer. Each wrap log also has two files called
               <c><![CDATA[<base_name>.idx]]></c> and <c><![CDATA[<base_name>.siz]]></c>.
               </p>
+	    <p>For rotate logs, this is the name of the active log file. Upon rotation the
+              file is compressed and renamed to <c><![CDATA[<base_name>.N.gz]]></c>, where
+              <c>N</c> is an integer. Note that the smallest index corresponds to the latest
+              compressed log file.
+              </p>
           </item>
 	  <tag><c>{linkto, <anno>LinkTo</anno>}</c><marker id="linkto"></marker></tag>
           <item>
