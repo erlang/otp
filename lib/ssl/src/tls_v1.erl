@@ -173,7 +173,12 @@ master_secret(PrfAlgo, PreMasterSecret, ClientRandom, ServerRandom) ->
 	[ClientRandom, ServerRandom], 48).
 %% TLS 1.0 -1.2  ---------------------------------------------------
 
--spec finished(client | server, integer(), integer(), binary(), [binary()]) -> binary().
+-spec finished(Role, Version, PrfAlgo, MasterSecret, Handshake) -> binary() when
+      Role :: client | server,
+      Version :: {non_neg_integer(), non_neg_integer()},
+      PrfAlgo :: integer(),
+      MasterSecret :: binary(),
+      Handshake    :: [binary()].
 %% TLS 1.0 -1.1  ---------------------------------------------------
 finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
   when Version == ?'TLS-1.0'; Version == ?'TLS-1.1'; PrfAlgo == ?MD5SHA ->
@@ -206,7 +211,10 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
 
 %% TODO 1.3 finished
 
--spec certificate_verify(md5sha | sha, integer(), [binary()]) -> binary().
+-spec certificate_verify(HashAlgo, Version, Handshake) -> binary() when
+      HashAlgo :: md5sha | sha,
+      Version  :: {non_neg_integer(), non_neg_integer()},
+      Handshake :: [binary()].
 %% TODO: remove 'Version', not used
 %% TLS 1.0 -1.1  ---------------------------------------------------
 certificate_verify(md5sha, _Version, Handshake) ->
@@ -1138,7 +1146,9 @@ is_pair(_,_,_) ->
 
 %% TODO: remove 'Version' since it is not used
 %% list ECC curves in preferred order
--spec ecc_curves(?'TLS-1.0' | ?'TLS-1.1' | ?'TLS-1.2' | all) -> [named_curve()].
+-spec ecc_curves(TLS | DTLS | all) -> [named_curve()] when
+      TLS :: ?'TLS-1.0' | ?'TLS-1.1' | ?'TLS-1.2',
+      DTLS :: ?'DTLS-1.X'.
 ecc_curves(all) ->
     [sect571r1,sect571k1,secp521r1,brainpoolP512r1,
      sect409k1,sect409r1,brainpoolP384r1,secp384r1,

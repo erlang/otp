@@ -58,7 +58,7 @@
 
 -export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
--type ssl_version()       :: {integer(), integer()}.
+-type ssl_version()       :: {non_neg_integer(), non_neg_integer()}.
 -type ssl_atom_version() :: tls_record:tls_atom_version().
 -type connection_states() :: map(). %% Map
 -type connection_state() :: map(). %% Map
