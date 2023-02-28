@@ -59,7 +59,7 @@
 	 large_raw/1,large_raw_getbin/1,combined/1,combined_getbin/1,
 	 ipv6_v6only_udp/1, ipv6_v6only_tcp/1, ipv6_v6only_sctp/1,
 	 use_ipv6_v6only_udp/1,
-	 type_errors/1]).
+	 type_errors/1, windows_reuseaddr/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -75,7 +75,7 @@ all() ->
      large_raw_getbin, combined, combined_getbin,
      ipv6_v6only_udp, ipv6_v6only_tcp, ipv6_v6only_sctp,
      use_ipv6_v6only_udp,
-     type_errors].
+     type_errors, windows_reuseaddr].
 
 groups() -> 
     [].
@@ -804,6 +804,57 @@ type_errors(Config) when is_list(Config) ->
     gen_tcp:close(Sock1),
     gen_tcp:close(Sock2),
     ok.
+
+windows_reuseaddr(Config) when is_list(Config) ->
+    %% Check that emulation of reuseaddr and reuseport on Windows
+    %% works as expected. That is, only set SO_REUSEADDR if both
+    %% reuseaddr and reuseport are set.
+    case os:type() of
+        {win32, _} ->
+            Port = start_helper(Config),
+            Def = {ask_helper(Port,?C_GET_SOL_SOCKET),
+                   ask_helper(Port,?C_GET_SO_REUSEADDR)},
+            stop_helper(Port),
+            {false, false} = windows_reuseaddr_test(Def,
+                                                    [{reuseaddr,false},{reuseport,false}],
+                                                    [{reuseaddr,false},{reuseport,false}]),
+            {false, false} = windows_reuseaddr_test(Def,
+                                                    [{reuseaddr,true},{reuseport,false}],
+                                                    [{reuseaddr,true},{reuseport,false}]),
+            {false, false} = windows_reuseaddr_test(Def,
+                                                    [{reuseaddr,false},{reuseport,true}],
+                                                    [{reuseaddr,false},{reuseport,true}]),
+            {true, true} = windows_reuseaddr_test(Def,
+                                                  [{reuseaddr,true},{reuseport,true}],
+                                                  [{reuseaddr,true},{reuseport,true}]),
+            ok;
+        _ ->
+            {skipped, "Test for Windows only"}
+    end.
+
+windows_reuseaddr_test({SolSocket, SoReuseaddr}, LOpts, COpts) ->
+    OptNames = fun (Opts) ->
+                       lists:map(fun ({Name,_}) -> Name end, Opts)
+               end,
+    {L,A,C} = create_socketpair_init(LOpts, COpts),
+    {ok, LOpts} = inet:getopts(L, OptNames(LOpts)),
+    {ok, COpts} = inet:getopts(L, OptNames(COpts)),
+    RawOpts = [{raw, SolSocket, SoReuseaddr, 4}],
+    {ok,[{raw,SolSocket,SoReuseaddr,LRes}]} = inet:getopts(L, RawOpts),
+    LReuseaddr = case nintbin2int(LRes) of
+                     0 -> false;
+                     _ -> true
+                 end,
+    {ok,[{raw,SolSocket,SoReuseaddr,CRes}]} = inet:getopts(L, RawOpts),
+    CReuseaddr = case nintbin2int(CRes) of
+                     0 -> false;
+                     _ -> true
+                 end,
+    gen_tcp:close(L),
+    gen_tcp:close(A),
+    gen_tcp:close(C),
+    {LReuseaddr, CReuseaddr}.
+
 
 all_ok([]) ->
     true;
