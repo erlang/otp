@@ -71,7 +71,8 @@
 	 not_transformable10/1,
          not_transformable11/0,
          not_transformable12/1,
-         not_transformable13/1]).
+         not_transformable13/1,
+         not_transformable14/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -934,3 +935,14 @@ not_transformable13([H|T], [N|Acc]) ->
     not_transformable13(T, [N+1|<<Acc/binary, H:8>>]);
 not_transformable13([], Acc) ->
     Acc.
+
+%% Check that we don't try to transform appends into private_appends
+%% when the first fragment doesn't die with the
+%% bs_create_bin. GH-6925.
+not_transformable14() ->
+%ssa% () when post_ssa_opt ->
+%ssa% A = bs_create_bin(private_append, ...),
+%ssa% B = bs_create_bin(append, ...).
+    A = << <<"x">> || true >>,
+    B = <<A/binary, "z">>,
+    {A, B}.

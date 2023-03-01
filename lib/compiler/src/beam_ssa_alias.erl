@@ -350,7 +350,7 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args}=St,
 %% Main entry point for the alias analysis
 aa_blocks([{L,#b_blk{is=Is0,last=T0}=Blk}|Bs0], SS0, AAS0) ->
     {Is,SS1,AAS1} = aa_is(Is0, SS0, [], AAS0),
-    {T,SS2} = aa_terminator(T0, SS1),
+    {T,SS2} = aa_terminator(T0, SS1, AAS1),
     {Bs,SS,AAS} = aa_blocks(Bs0, SS2, AAS1),
     {[{L,Blk#b_blk{is=Is,last=T}}|Bs],SS,AAS};
 aa_blocks([], SS, AAS) ->
@@ -481,14 +481,14 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, Acc, AAS0) ->
             _ ->
                 exit({unknown_instruction, I})
         end,
-    aa_is(Is, SS, [aa_update_annotation(I, SS1)|Acc], AAS);
+    aa_is(Is, SS, [aa_update_annotation(I, SS1, AAS)|Acc], AAS);
 aa_is([], SS, Acc, AAS) ->
     {reverse(Acc), SS, AAS}.
 
-aa_terminator(T=#b_br{anno=Anno0}, SS0) ->
-    Anno = aa_update_annotation(Anno0, SS0),
+aa_terminator(T=#b_br{anno=Anno0}, SS0, AAS) ->
+    Anno = aa_update_annotation(Anno0, SS0, AAS),
     {T#b_br{anno=Anno}, SS0};
-aa_terminator(T=#b_ret{arg=Arg,anno=Anno0}, SS0) ->
+aa_terminator(T=#b_ret{arg=Arg,anno=Anno0}, SS0, AAS) ->
     Type = maps:get(result_type, Anno0, any),
     Status0 = aa_get_status(Arg, SS0),
     ?DP("Returned ~p:~p:~p~n", [Arg, Status0, Type]),
@@ -502,9 +502,9 @@ aa_terminator(T=#b_ret{arg=Arg,anno=Anno0}, SS0) ->
     Type2Status = Type2Status0#{ Type => Status },
     ?DP("new status map: ~p~n", [Type2Status]),
     SS = SS0#{ returns => Type2Status},
-    {aa_update_annotation(T, SS), SS};
-aa_terminator(T=#b_switch{anno=Anno0}, SS0) ->
-    Anno = aa_update_annotation(Anno0, SS0),
+    {aa_update_annotation(T, SS, AAS), SS};
+aa_terminator(T=#b_switch{anno=Anno0}, SS0, AAS) ->
+    Anno = aa_update_annotation(Anno0, SS0, AAS),
     {T#b_switch{anno=Anno}, SS0}.
 
 %% Add a new ssa variable to the alias state and set its status.
@@ -538,7 +538,7 @@ aa_set_status([X|T], Status, State) ->
 aa_set_status([], _, State) ->
     State.
 
-aa_update_annotation(I=#b_set{anno=Anno0,args=Args}, SS) ->
+aa_update_annotation(I=#b_set{anno=Anno0,args=Args,op=Op}, SS, AAS) ->
     {Aliased,Unique} =
         foldl(fun(#b_var{}=V, {As,Us}) ->
                       case aa_get_status(V, SS) of
@@ -554,12 +554,30 @@ aa_update_annotation(I=#b_set{anno=Anno0,args=Args}, SS) ->
                 [] -> maps:remove(aliased, Anno0);
                 _ -> Anno0#{aliased => Aliased}
             end,
-    Anno = case Unique of
-               [] -> maps:remove(unique, Anno1);
-               _ -> Anno1#{unique => Unique}
+    Anno2 = case Unique of
+                [] -> maps:remove(unique, Anno1);
+                _ -> Anno1#{unique => Unique}
+            end,
+    Anno = case {Op,Args} of
+               {bs_create_bin,[#b_literal{val=append},_,Var|_]} ->
+                   %% Alias analysis indicate the alias status of the
+                   %% instruction arguments before the instruction is
+                   %% executed. For the private-append optimization we
+                   %% need to know if the first fragment dies with
+                   %% this instruction or not. Adding an annotation
+                   %% here, during alias analysis, is more efficient
+                   %% than trying to reconstruct information in the
+                   %% kill map during the private-append pass.
+                   #aas{caller=Caller,kills=KillsMap} = AAS,
+                   #b_set{dst=Dst} = I,
+                   KillMap = map_get(Caller, KillsMap),
+                   Dies = sets:is_element(Var, map_get(Dst, KillMap)),
+                   Anno2#{first_fragment_dies => Dies};
+               _ ->
+                   Anno2
            end,
     I#b_set{anno=Anno};
-aa_update_annotation(I=#b_ret{arg=#b_var{}=V,anno=Anno0}, SS) ->
+aa_update_annotation(I=#b_ret{arg=#b_var{}=V,anno=Anno0}, SS, _AAS) ->
     Anno = case aa_get_status(V, SS) of
                aliased ->
                    maps:remove(unique, Anno0#{aliased=>[V]});
@@ -567,7 +585,7 @@ aa_update_annotation(I=#b_ret{arg=#b_var{}=V,anno=Anno0}, SS) ->
                    maps:remove(aliased, Anno0#{unique=>[V]})
            end,
     I#b_ret{anno=Anno};
-aa_update_annotation(I, _SS) ->
+aa_update_annotation(I, _SS, _AAS) ->
     %% For now we don't care about the other terminators.
     I.
 

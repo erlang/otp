@@ -87,8 +87,10 @@ find_appends_blk([], _, Found) ->
 
 find_appends_is([#b_set{dst=Dst, op=bs_create_bin,
                         args=[#b_literal{val=append},SegmentInfo,Var|_],
-                        anno=Anno}|Is], Fun, Found0) ->
-    case is_unique(Var, Anno) andalso is_appendable(Anno, SegmentInfo) of
+                        anno=#{first_fragment_dies:=Dies}=Anno}|Is],
+                Fun, Found0) ->
+    case Dies andalso is_unique(Var, Anno)
+        andalso is_appendable(Anno, SegmentInfo) of
         true ->
             AlreadyFound = maps:get(Fun, Found0, []),
             Found = Found0#{Fun => [{append,Dst,Var}|AlreadyFound]},
