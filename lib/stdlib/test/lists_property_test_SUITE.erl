@@ -35,6 +35,7 @@ all() ->
         duplicate_case,
         enumerate_1_case,
         enumerate_2_case,
+        enumerate_3_case,
         filter_case,
         filtermap_case,
         flatlength_case,
@@ -158,6 +159,9 @@ enumerate_1_case(Config) ->
 
 enumerate_2_case(Config) ->
     do_proptest(prop_enumerate_2, Config).
+
+enumerate_3_case(Config) ->
+    do_proptest(prop_enumerate_3, Config).
 
 filter_case(Config) ->
     do_proptest(prop_filter, Config).

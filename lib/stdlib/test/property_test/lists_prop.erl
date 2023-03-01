@@ -240,6 +240,28 @@ prop_enumerate_2() ->
         lists:enumerate(StartIndex, InList) =:= ExpList
     ).
 
+%% enumerate/3
+prop_enumerate_3() ->
+    ?FORALL(
+        {StartIndex, Step, InList, ExpList},
+        ?LET(
+	    {N, S},
+	    {integer(), integer()},
+            ?LET(
+                {L, {_, EL}},
+                gen_list_fold(
+                    gen_any(),
+                    fun(T, {I, Acc}) ->
+                        {I + S, Acc ++ [{I, T}]}
+                    end,
+                    {N, []}
+                ),
+                {N, S, L, EL}
+            )
+        ),
+        lists:enumerate(StartIndex, Step, InList) =:= ExpList
+    ).
+
 %% filter/2
 prop_filter() ->
     ?FORALL(
