@@ -116,10 +116,11 @@ args([]) ->
     [].
 
 print([#{control_char := C, width := F, adjust := Ad, precision := P,
-         pad_char := Pad, encoding := Encoding, strings := Strings,
-         maps_order := MapsOrder} | Cs]) ->
+         pad_char := Pad, encoding := Encoding, strings := Strings
+        } = Map | Cs]) ->
+    MapsOrder = maps:get(maps_order, Map, undefined),
     print(C, F, Ad, P, Pad, Encoding, Strings, MapsOrder) ++ print(Cs);
-print([C | Cs]) ->
+print([C | Cs]) when is_integer(C) ->
     [C | print(Cs)];
 print([]) ->
     [].
