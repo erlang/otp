@@ -4266,6 +4266,16 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
             BIF_RET(am_ok);
         }
 #endif
+        else if (ERTS_IS_ATOM_STR("pid_ref_table_size", BIF_ARG_1)) {
+            Uint size = erts_pid_ref_table_size();
+	    if (IS_SSMALL(size))
+		BIF_RET(make_small(size));
+	    else {
+		Uint hsz = BIG_UWORD_HEAP_SIZE(size);
+		Eterm *hp = HAlloc(BIF_P, hsz);
+		BIF_RET(uword_to_big(size, hp));
+	    }
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);

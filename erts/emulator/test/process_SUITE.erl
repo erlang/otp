@@ -94,6 +94,7 @@
          alias_bif/1,
          monitor_alias/1,
          spawn_monitor_alias/1,
+         alias_process_exit/1,
          monitor_tag/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
@@ -180,7 +181,7 @@ groups() ->
        gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled,
        otp_16436, otp_16642]},
      {alias, [],
-      [alias_bif, monitor_alias, spawn_monitor_alias]}].
+      [alias_bif, monitor_alias, spawn_monitor_alias, alias_process_exit]}].
 
 init_per_suite(Config) ->
     A0 = case application:start(sasl) of
@@ -199,9 +200,15 @@ end_per_suite(Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),
     Config.
 
+init_per_group(alias, Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
+end_per_group(alias, Config) ->
+    erts_debug:set_internal_state(available_internal_state, false),
+    Config;
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -4575,11 +4582,25 @@ otp_16642(Config) when is_list(Config) ->
     false = is_process_alive(Pid),
     ok.
 
+pid_ref_table_size() ->
+    erts_debug:get_internal_state(pid_ref_table_size).
+
+check_pid_ref_table_size(PRTSz) ->
+    receive after 500 -> ok end,
+    case pid_ref_table_size() of
+        PRTSz ->
+            ok;
+        NewPRTSz ->
+            ct:fail({port_ref_table_size_mismatch, PRTSz, NewPRTSz})
+    end.
+
 alias_bif(Config) when is_list(Config) ->
+    PRTSz = pid_ref_table_size(),
     alias_bif_test(node()),
     {ok, Peer, Node} = ?CT_PEER(),
     alias_bif_test(Node),
     stop_node(Peer, Node),
+    check_pid_ref_table_size(PRTSz),
     ok.
 
 alias_bif_test(Node) ->
@@ -4624,10 +4645,12 @@ alias_bif_test(Node) ->
              
 
 monitor_alias(Config) when is_list(Config) ->
+    PRTSz = pid_ref_table_size(),
     monitor_alias_test(node()),
     {ok, Peer, Node} = ?CT_PEER(),
     monitor_alias_test(Node),
     stop_node(Peer, Node),
+    check_pid_ref_table_size(PRTSz),
     ok.
 
 monitor_alias_test(Node) ->
@@ -4711,6 +4734,7 @@ monitor_alias_test(Node) ->
 spawn_monitor_alias(Config) when is_list(Config) ->
     %% Exit signals with immediate exit reasons are sent
     %% in a different manner than compound exit reasons.
+    PRTSz = pid_ref_table_size(),
     spawn_monitor_alias_test(undefined, node(), spawn_opt, normal),
     spawn_monitor_alias_test(undefined, node(), spawn_opt, make_ref()),
     spawn_monitor_alias_test(undefined, node(), spawn_request, normal),
@@ -4723,6 +4747,7 @@ spawn_monitor_alias(Config) when is_list(Config) ->
     spawn_monitor_alias_test(Peer3, Node3, spawn_request, normal),
     {ok, Peer4, Node4} = ?CT_PEER(),
     spawn_monitor_alias_test(Peer4, Node4, spawn_request, make_ref()),
+    check_pid_ref_table_size(PRTSz),
     ok.
 
 spawn_monitor_alias_test(Peer, Node, SpawnType, ExitReason) ->
@@ -4862,6 +4887,28 @@ spawn_monitor_alias_test(Peer, Node, SpawnType, ExitReason) ->
     
             ok
     end.
+
+alias_process_exit(Config) when is_list(Config) ->
+    Tester = self(),
+    CreatedAliases = make_ref(),
+    PRTSz = pid_ref_table_size(),
+    P = spawn_link(fun () ->
+                           A0 = alias([explicit_unalias]),
+                           A1 = alias([reply]),
+                           A2 = monitor(process, Tester, [{alias, explicit_unalias}]),
+                           A3 = monitor(process, Tester, [{alias, demonitor}]),
+                           A4 = monitor(process, Tester, [{alias, reply_demonitor}]),
+                           Tester ! CreatedAliases,
+                           receive after infinity -> ok end,
+                           some_module:some_function([A0, A1, A2, A3, A4])
+                   end),
+    receive CreatedAliases -> ok end,
+    PRTSz = erts_debug:get_internal_state(pid_ref_table_size) - 5,
+    unlink(P),
+    exit(P, kill),
+    false = is_process_alive(P),
+    check_pid_ref_table_size(PRTSz),
+    ok.
 
 monitor_tag(Config) when is_list(Config) ->
     %% Exit signals with immediate exit reasons are sent
