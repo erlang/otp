@@ -1094,6 +1094,16 @@ erts_monitor_destroy__(ErtsMonitorData *mdp)
                    || ((mdp->origin.flags & ERTS_ML_FLGS_SAME)
                        == (mdp->u.target.flags & ERTS_ML_FLGS_SAME)));
 
+    if (mdp->origin.flags & ERTS_ML_STATE_ALIAS_MASK) {
+        ASSERT(mdp->origin.type == ERTS_MON_TYPE_ALIAS
+               || mdp->origin.type == ERTS_MON_TYPE_PROC
+               || mdp->origin.type == ERTS_MON_TYPE_PORT
+               || mdp->origin.type == ERTS_MON_TYPE_TIME_OFFSET
+               || mdp->origin.type == ERTS_MON_TYPE_DIST_PROC
+               || mdp->origin.type == ERTS_MON_TYPE_DIST_PORT);
+        erts_pid_ref_delete(mdp->ref);
+    }
+
     switch (mdp->origin.type) {
     case ERTS_MON_TYPE_ALIAS:
         ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_TAG));
