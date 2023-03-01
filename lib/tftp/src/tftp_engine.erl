@@ -714,7 +714,9 @@ pre_terminate(Config, Req, Result) ->
     if
         Req#tftp_msg_req.local_filename =/= undefined,
         Config#config.parent_pid =/= undefined ->
-            proc_lib:init_ack(Result),
+            %% Ugly trick relying on that we will exit soon;
+            %% the parent will wait for us to exit before returning Result
+            _ = catch proc_lib:init_fail(Result, {throw, ok}),
             unlink(Config#config.parent_pid),
             Config#config{parent_pid = undefined, polite_ack = true};
         true ->
@@ -739,7 +741,9 @@ terminate(Config, Req, Result) ->
         Req#tftp_msg_req.local_filename =/= undefined  ->
             %% Client
             close_port(Config, client, Req),
-            proc_lib:init_ack(Result2),
+            %% Ugly trick relying on that we will exit soon;
+            %% the parent will wait for us to exit before returning Result
+            _ = catch proc_lib:init_fail(Result2, {throw, ok}),
             unlink(Config#config.parent_pid),
             exit(normal);
         true ->

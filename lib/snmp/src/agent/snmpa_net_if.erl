@@ -237,10 +237,10 @@ init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 	    end;
 	{error, Reason} ->
 	    config_err("failed starting net-if: ~n~p", [Reason]),
-	    proc_lib:init_ack({error, Reason});
+	    proc_lib:init_fail({error, Reason}, {exit, normal});
 	Error ->
 	    config_err("failed starting net-if: ~n~p", [Error]),
-	    proc_lib:init_ack({error, Error})
+	    proc_lib:init_fail({error, Error}, {exit, normal})
     end.
 
 do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
