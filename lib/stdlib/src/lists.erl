@@ -196,8 +196,12 @@ reverse([A, B | L]) ->
       T :: term().
 
 nth(1, [H|_]) -> H;
-nth(N, [_|T]) when N > 1 ->
-    nth(N - 1, T).
+nth(N, [_|_]=L) when is_integer(N), N > 1 ->
+    nth_1(N, L).
+
+nth_1(1, [H|_]) -> H;
+nth_1(N, [_|T]) ->
+    nth_1(N - 1, T).
 
 -spec nthtail(N, List) -> Tail when
       N :: non_neg_integer(),
@@ -205,10 +209,15 @@ nth(N, [_|T]) when N > 1 ->
       Tail :: [T],
       T :: term().
 
+nthtail(0, []) -> [];
+nthtail(0, [_|_]=L) -> L;
 nthtail(1, [_|T]) -> T;
-nthtail(N, [_|T]) when N > 1 ->
-    nthtail(N - 1, T);
-nthtail(0, L) when is_list(L) -> L.
+nthtail(N, [_|_]=L) when is_integer(N), N > 1 ->
+    nthtail_1(N, L).
+
+nthtail_1(1, [_|T]) -> T;
+nthtail_1(N, [_|T]) ->
+    nthtail_1(N - 1, T).
 
 %% prefix(Prefix, List) -> (true | false)
 
