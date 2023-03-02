@@ -43,7 +43,8 @@
 	 rwspinlock/1,
 	 rwmutex/1,
 	 atomic/1,
-	 dw_atomic_massage/1]).
+	 dw_atomic_massage/1,
+	 thread_name/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -65,7 +66,8 @@ all() ->
      rwspinlock,
      rwmutex,
      atomic,
-     dw_atomic_massage].
+     dw_atomic_massage,
+     thread_name].
 
 init_per_testcase(Case, Config) ->
     case inet:gethostname() of
@@ -157,6 +159,10 @@ atomic(Config) ->
 %% Massage double word atomics
 dw_atomic_massage(Config) ->
     run_case(Config, "dw_atomic_massage", "").
+
+%% Tests thread names.
+thread_name(Config) ->
+    run_case(Config, "thread_name", "").
 
 %%
 %%

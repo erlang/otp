@@ -2473,7 +2473,7 @@ init_sys_msg_dispatcher(void)
 {
     erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
-    thr_opts.name = "sys_msg_dispatcher";
+    thr_opts.name = "erts_smsg_disp";
     init_smq_element_alloc();
     sys_message_queue = NULL;
     sys_message_queue_end = NULL;
