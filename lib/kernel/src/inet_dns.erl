@@ -236,6 +236,9 @@ decode_rr_section(Bin, N, Buffer, RRs) ->
            RR =
                case Type of
                    ?S_OPT ->
+                       %% RFC 6891: 6.1.1. FORMERR if more than one dns_rr_opt
+                       lists:keymember(dns_rr_opt, 1, RRs) andalso
+                        throw(?DECODE_ERROR),
                        <<ExtRcode,Version,DO:1,Z:15>> = TTL,
                        DnssecOk = (DO =/= 0),
                        #dns_rr_opt{

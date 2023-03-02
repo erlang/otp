@@ -32,7 +32,7 @@
 	 init_per_testcase/2, end_per_testcase/2
         ]).
 -export([basic/1, name_addr_and_cached/1, resolve/1,
-         edns0/1, txt_record/1, files_monitor/1,
+         edns0/1, edns0_multi_formerr/1, txt_record/1, files_monitor/1,
 	 nxdomain_reply/1, last_ms_answer/1, intermediate_error/1,
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
          label_compression_limit/1
@@ -73,7 +73,7 @@ suite() ->
 
 all() -> 
     [basic, resolve, name_addr_and_cached,
-     edns0, txt_record, files_monitor,
+     edns0, edns0_multi_formerr, txt_record, files_monitor,
      nxdomain_reply, last_ms_answer,
      intermediate_error,
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
@@ -129,6 +129,7 @@ zone_dir(TC) ->
 	name_addr_and_cached -> otptest;
 	resolve              -> otptest;
 	edns0                -> otptest;
+	edns0_multi_formerr  -> otptest;
 	files_monitor        -> otptest;
 	nxdomain_reply       -> otptest;
 	last_ms_answer       -> otptest;
@@ -1113,6 +1114,16 @@ inet_res_filter(Anlist, Class, Type) ->
     [inet_dns:rr(RR, data) || RR <- Anlist,
 			      inet_dns:rr(RR, type) =:= Type,
 			      inet_dns:rr(RR, class) =:= Class].
+
+%% Test EDNS we catch multiple dns_opt_rr as FORMERR (RFC 6891: 6.1.1)
+edns0_multi_formerr(Config) when is_list(Config) ->
+    Domain = "otptest",
+    Opts = [{nameservers,[ns(Config)]},{edns,0}],
+    {ok,DnsRec0} = inet_res:resolve(Domain, in, soa, Opts),
+    [EDNS|_] = [ X || X <- DnsRec0#dns_rec.arlist, is_record(X, dns_rr_opt) ],
+    DnsRec = DnsRec0#dns_rec{ arlist = [EDNS|DnsRec0#dns_rec.arlist] },
+    {error,formerr} = inet_dns:decode(inet_dns:encode(DnsRec)),
+    ok.
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
