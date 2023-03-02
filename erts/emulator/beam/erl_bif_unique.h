@@ -42,7 +42,7 @@ void erts_magic_ref_save_bin__(Eterm ref);
 ErtsMagicBinary *erts_magic_ref_lookup_bin__(Uint32 refn[ERTS_REF_NUMBERS]);
 void erts_pid_ref_delete(Eterm ref);
 Eterm erts_pid_ref_lookup__(Uint32 refn[ERTS_REF_NUMBERS]);
-
+Uint erts_pid_ref_table_size(void);
 
 /* strict monotonic counter */
 

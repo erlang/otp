@@ -701,6 +701,27 @@ init_pid_ref_tables(void)
     }
 }
 
+
+Uint
+erts_pid_ref_table_size(void)
+{
+    int i;
+    Uint sz = 0;
+
+    for (i = 0; i <= erts_no_schedulers; i++) {
+        HashInfo hi;
+	ErtsPidRefTable *tblp = &pid_ref_table[i].u.table;
+        erts_rwmtx_rlock(&tblp->rwmtx);
+        hash_get_info(&hi, &tblp->hash);
+        erts_rwmtx_runlock(&tblp->rwmtx);
+        sz += (Uint) hi.objs;
+    }
+
+    return sz;
+}
+
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Unique Integer                                                    *
 \*                                                                   */
