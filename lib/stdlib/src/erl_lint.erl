@@ -678,7 +678,7 @@ start(File, Opts) ->
     Enabled = ordsets:from_list(Enabled1),
     Calls = case ordsets:is_element(unused_function, Enabled) of
 		true ->
-		    maps:from_list([{{module_info,1},pseudolocals()}]);
+		    #{{module_info,1} => pseudolocals()};
 		false ->
 		    undefined
 	    end,
@@ -1414,7 +1414,7 @@ check_unused_records(Forms, St0) ->
                                          maps:remove(Used, Recs)
                                  end, St1#lint.records, UsedRecords),
             Unused = [{Name,Anno} ||
-                         {Name,{Anno,_Fields}} <- maps:to_list(URecs),
+                         Name := {Anno,_Fields} <- URecs,
                          element(1, loc(Anno, St1)) =:= FirstFile],
             foldl(fun ({N,Anno}, St) ->
                           add_warning(Anno, {unused_record, N}, St)
@@ -3349,7 +3349,7 @@ check_unused_types_1(Forms, #lint{types=Ts}=St) ->
 
 reached_types(#lint{usage = Usage}) ->
     Es = [{From, {type, To}} ||
-             {To, UsedTs} <- maps:to_list(Usage#usage.used_types),
+             To := UsedTs <- Usage#usage.used_types,
              #used_type{at = From} <- UsedTs],
     Initial = initially_reached_types(Es),
     G = sofs:family_to_digraph(sofs:rel2fam(sofs:relation(Es))),

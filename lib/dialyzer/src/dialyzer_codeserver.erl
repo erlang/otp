@@ -315,10 +315,7 @@ finalize_records(#codeserver{temp_records = TmpRecords,
 lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   when is_atom(Mod) ->
   Keys = ets:lookup_element(ContDict, Mod, 2, []),
-  maps:from_list([get_file_contract(Key, ContDict) || Key <- Keys]).
-
-get_file_contract(Key, ContDict) ->
-  {Key, ets:lookup_element(ContDict, Key, 2)}.
+  #{Key => ets:lookup_element(ContDict, Key, 2) || Key <- Keys}.
 
 -spec lookup_mfa_contract(mfa(), codeserver()) ->
          'error' | {'ok', dialyzer_contracts:file_contract()}.

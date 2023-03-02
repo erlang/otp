@@ -386,11 +386,9 @@ get_all_contracts(#plt{contracts = ETSContracts}) ->
 %% Returns all callbacks stored in the PLT
 -spec get_all_callbacks(plt()) -> #{mfa() => #contract{}}.
 get_all_callbacks(#plt{callbacks = ETSCallbacks}) ->
-  CallbacksList =
-      [Cb ||
-        {_M, Cbs} <- ets:tab2list(ETSCallbacks),
-        Cb <- Cbs],
-  maps:from_list(CallbacksList).
+  #{K => V ||
+    {_M, Cbs} <- ets:tab2list(ETSCallbacks),
+    {K, V} <- Cbs}.
 
 %% Returns all types stored in the PLT
 -spec get_all_types(plt()) -> #{module() => erl_types:type_table()}.

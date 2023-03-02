@@ -104,7 +104,7 @@ liveness([], _StMap) ->
 
 liveness_fun(F, StMap0) ->
     #opt_st{ssa=SSA} = map_get(F, StMap0),
-    State0 = maps:from_list([ {Lbl, #liveness_st{}} || {Lbl,_} <- SSA]),
+    State0 = #{Lbl => #liveness_st{} || {Lbl,_} <- SSA},
     liveness_blks_fixp(reverse(SSA), State0, false).
 
 liveness_blks_fixp(_SSA, State0, State0) ->
@@ -186,7 +186,7 @@ is_nif(F, StMap) ->
                st_map()) -> kills_map().
 
 killsets(Liveness, StMap) ->
-    maps:from_list([{F, kills_fun(F, StMap, Live)} || {F, Live} <- Liveness]).
+    #{F => kills_fun(F, StMap, Live) || {F, Live} <- Liveness}.
 
 %%%
 %%% Calculate the killset for a function. The killset allows us to

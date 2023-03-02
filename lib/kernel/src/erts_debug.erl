@@ -447,7 +447,7 @@ lc_graph_to_dot(OutFile, InFile) ->
     {ok, [LL0]} = file:consult(InFile),
 
     [{"NO LOCK",0} | LL] = LL0,
-    Map = maps:from_list([{Id, Name} || {Name, Id, _, _} <- LL]),
+    Map = #{Id => Name || {Name, Id, _, _} <- LL},
 
     case file:open(OutFile, [exclusive]) of
         {ok, Out} ->

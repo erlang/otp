@@ -159,10 +159,9 @@ gen_encode_choice(Erules,TypeName,D) when is_record(D,type) ->
 		    {Rl,El} -> Rl ++ El;
 		    _ -> CompList
 		end,
-    {choice,maps:from_list(
-              [{AltName,AltType}||
-                  {AltName,AltType,_OptOrMand} <- 
-                      gen_enc_comptypes(Erules,TypeName,CompList1,0,0,[])])}.
+    {choice,#{AltName => AltType ||
+                {AltName,AltType,_OptOrMand} <-
+                    gen_enc_comptypes(Erules,TypeName,CompList1,0,0,[])}}.
 
 gen_decode_choice(_,_,_) -> ok.
 
