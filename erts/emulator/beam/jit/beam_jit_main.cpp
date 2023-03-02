@@ -577,7 +577,7 @@ extern "C"
     void beamasm_patch_import(void *instance,
                               char *rw_base,
                               int index,
-                              BeamInstr import) {
+                              const Export *import) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         ba->patchImport(rw_base, index, import);
     }
@@ -593,7 +593,7 @@ extern "C"
     void beamasm_patch_lambda(void *instance,
                               char *rw_base,
                               int index,
-                              BeamInstr fe) {
+                              const ErlFunEntry *fe) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         ba->patchLambda(rw_base, index, fe);
     }

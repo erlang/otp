@@ -93,6 +93,12 @@ int beam_load_prepare_emit(LoaderState *stp) {
         init_label(&stp->labels[i]);
     }
 
+    stp->lambda_literals = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                      stp->beam.lambdas.count * sizeof(SWord));
+    for (i = 0; i < stp->beam.lambdas.count; i++) {
+        stp->lambda_literals[i] = ERTS_SWORD_MAX;
+    }
+
     stp->import_patches =
         erts_alloc(ERTS_ALC_T_PREPARED_CODE,
                    stp->beam.imports.count * sizeof(BeamInstr));
@@ -182,6 +188,11 @@ int beam_load_prepared_dtor(Binary* magic)
         }
         erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->labels);
         stp->labels = NULL;
+    }
+
+    if (stp->lambda_literals != NULL) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->lambda_literals);
+        stp->lambda_literals = NULL;
     }
 
     if (stp->import_patches != NULL) {
@@ -610,6 +621,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
      */
     if (stp->beam.lambdas.count) {
         BeamFile_LambdaTable *lambda_table;
+        ErtsLiteralArea *literal_area;
         ErlFunEntry **fun_entries;
         LambdaPatch* lp;
         int i;
@@ -617,6 +629,8 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
         lambda_table = &stp->beam.lambdas;
         fun_entries = erts_alloc(ERTS_ALC_T_LOADER_TMP,
                                  sizeof(ErlFunEntry*) * lambda_table->count);
+
+        literal_area = (stp->code_hdr)->literal_area;
 
         for (i = 0; i < lambda_table->count; i++) {
             BeamFile_LambdaEntry *lambda;
@@ -637,6 +651,29 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                  * instance's fun entries, so we need to undo the reference
                  * bump in `erts_put_fun_entry2` to make fun purging work. */
                 erts_refc_dectest(&fun_entry->refc, 1);
+            }
+
+            /* Finalize the literal we've created for this lambda, if any,
+             * converting it from an external fun to a local one with the newly
+             * created fun entry. */
+            if (stp->lambda_literals[i] != ERTS_SWORD_MAX) {
+                ErlFunThing *funp;
+                Eterm literal;
+
+                literal = beamfile_get_literal(&stp->beam,
+                                               stp->lambda_literals[i]);
+                funp = (ErlFunThing *)fun_val(literal);
+                ASSERT(funp->creator == am_external);
+
+                funp->entry.fun = fun_entry;
+
+                funp->next = literal_area->off_heap;
+                literal_area->off_heap = (struct erl_off_heap_header *)funp;
+
+                ASSERT(erts_init_process_id != ERTS_INVALID_PID);
+                funp->creator = erts_init_process_id;
+
+                erts_refc_inc(&fun_entry->refc, 2);
             }
 
             erts_set_fun_code(fun_entry,

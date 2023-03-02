@@ -431,25 +431,25 @@ unsigned BeamModuleAssembler::patchCatches(char *rw_base) {
 
 void BeamModuleAssembler::patchImport(char *rw_base,
                                       unsigned index,
-                                      BeamInstr I) {
+                                      const Export *import) {
     for (const auto &patch : imports[index].patches) {
         auto offset = code.labelOffsetFromBase(patch.where);
         auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
 
         ASSERT(LLONG_MAX == *where);
-        *where = I + patch.val_offs;
+        *where = reinterpret_cast<Eterm>(import) + patch.val_offs;
     }
 }
 
 void BeamModuleAssembler::patchLambda(char *rw_base,
                                       unsigned index,
-                                      BeamInstr I) {
+                                      const ErlFunEntry *fe) {
     for (const auto &patch : lambdas[index].patches) {
         auto offset = code.labelOffsetFromBase(patch.where);
         auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
 
         ASSERT(LLONG_MAX == *where);
-        *where = I + patch.val_offs;
+        *where = reinterpret_cast<Eterm>(fe) + patch.val_offs;
     }
 }
 

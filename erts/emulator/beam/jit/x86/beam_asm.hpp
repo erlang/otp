@@ -1243,9 +1243,9 @@ public:
     const ErtsCodeInfo *getOnLoad(void);
 
     unsigned patchCatches(char *rw_base);
-    void patchLambda(char *rw_base, unsigned index, BeamInstr I);
+    void patchLambda(char *rw_base, unsigned index, const ErlFunEntry *fe);
     void patchLiteral(char *rw_base, unsigned index, Eterm lit);
-    void patchImport(char *rw_base, unsigned index, BeamInstr I);
+    void patchImport(char *rw_base, unsigned index, const Export *import);
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
