@@ -6931,7 +6931,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
         case INET_OPT_EXCLUSIVEADDRUSE:
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
-                  "inet_set_opts(reuseaddr) -> %s\r\n",
+                  "inet_set_opts(exclusiveaddruse) -> %s\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
 #ifdef __WIN32__
             type = SO_EXCLUSIVEADDRUSE;
@@ -6979,25 +6979,25 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                   __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
 #ifdef __WIN32__
             {
-                int old_ra, new_ra, compat;
+                int old_ra, new_ra, compat, ra_bits, opt_bit;
                 /*
                  * We only set SO_REUSEADDR on Windows if both 'reuseaddr' and
                  * 'reuseport' has been passed as options, since SO_REUSEADDR
                  * on Windows behaves like SO_REUSEADDR|SO_REUSEPORT does on BSD.
                  */
+                ra_bits = (1<<INET_OPT_REUSEADDR) | (1<<INET_OPT_REUSEPORT);
+                opt_bit = (1<<opt);
                 compat = desc->bsd_compat;
-                old_ra = ((compat & (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT))
-                          == (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT));
+                old_ra = (compat & ra_bits) == ra_bits;
                 if (ival) {
-                    bsd_compat_set = opt;
-                    compat |= opt;
+                    bsd_compat_set = opt_bit;
+                    compat |= opt_bit;
                 }
                 else {
-                    bsd_compat_unset = opt;
-                    compat &= ~opt;
+                    bsd_compat_unset = opt_bit;
+                    compat &= ~opt_bit;
                 }
-                new_ra = ((compat & (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT))
-                          == (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT));
+                new_ra = (compat & ra_bits) == ra_bits;
                 desc->bsd_compat = compat;
                 if (old_ra == new_ra)
                     continue;
@@ -8020,25 +8020,25 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
                   __LINE__, desc->s, driver_caller(desc->port)) );
 #ifdef __WIN32__
             {
-                int old_ra, new_ra, compat;
+                int old_ra, new_ra, compat, ra_bits, opt_bit;
                 /*
                  * We only set SO_REUSEADDR on Windows if both 'reuseaddr' and
                  * 'reuseport' has been passed as options, since SO_REUSEADDR
                  * on Windows behaves like SO_REUSEADDR|SO_REUSEPORT does on BSD.
                  */
+                ra_bits = (1<<INET_OPT_REUSEADDR) | (1<<INET_OPT_REUSEPORT);
+                opt_bit = (1<<opt);
                 compat = desc->bsd_compat;
-                old_ra = ((compat & (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT))
-                          == (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT));
+                old_ra = (compat & ra_bits) == ra_bits;
                 if (ival) {
-                    bsd_compat_set = opt;
-                    compat |= opt;
+                    bsd_compat_set = opt_bit;
+                    compat |= opt_bit;
                 }
                 else {
-                    bsd_compat_unset = opt;
-                    compat &= ~opt;
+                    bsd_compat_unset = opt_bit;
+                    compat &= ~opt_bit;
                 }
-                new_ra = ((compat & (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT))
-                          == (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT));
+                new_ra = (compat & ra_bits) == ra_bits;
                 desc->bsd_compat = compat;
                 if (old_ra == new_ra)
                     continue;
@@ -8937,7 +8937,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 #endif
 	case INET_OPT_REUSEADDR: {
 #if defined(__WIN32__)
-            int res = !!(desc->bsd_compat & INET_OPT_REUSEADDR);
+            int res = !!(desc->bsd_compat & (1<<INET_OPT_REUSEADDR));
 	    *ptr++ = opt;
 	    put_int32(res, ptr);
             continue;
@@ -8962,7 +8962,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
         }
 	case INET_OPT_REUSEPORT: {
 #if defined(__WIN32__)
-            int res = !!(desc->bsd_compat & INET_OPT_REUSEPORT);
+            int res = !!(desc->bsd_compat & (1<<INET_OPT_REUSEPORT));
 	    *ptr++ = opt;
 	    put_int32(res, ptr);
             continue;
@@ -9637,7 +9637,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    case INET_OPT_REUSEPORT:
 	    {
 #if defined(__WIN32__)
-                res = !!(desc->bsd_compat & INET_OPT_REUSEPORT);
+                res = !!(desc->bsd_compat & (1<<INET_OPT_REUSEPORT));
 		is_int = 0;
 		tag    = am_reuseaddr;
                 goto form_result;
@@ -9654,7 +9654,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    case INET_OPT_REUSEADDR:
 	    {
 #if defined(__WIN32__)
-                res = !!(desc->bsd_compat & INET_OPT_REUSEADDR);
+                res = !!(desc->bsd_compat & (1<<INET_OPT_REUSEADDR));
 		is_int = 0;
 		tag    = am_reuseaddr;
                 goto form_result;

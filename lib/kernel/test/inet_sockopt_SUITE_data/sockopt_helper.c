@@ -40,6 +40,7 @@
 #define C_GET_SO_REUSEADDR        14
 #define C_GET_SO_KEEPALIVE        15
 #define C_GET_SO_LINGER           16
+#define C_GET_SO_DONTROUTE          17
 
 #define C_GET_LINGER_SIZE         21
 #define C_GET_TCP_INFO_SIZE       22
@@ -134,6 +135,11 @@ int main(void){
 	case C_GET_LINGER_SIZE: 
 	    res = sizeof(struct linger);
 	    break;        
+#endif
+#ifdef SO_DONTROUTE
+	case C_GET_SO_DONTROUTE: 
+	    res = SO_DONTROUTE;
+	    break;       
 #endif
 #if defined(TCP_INFO) && defined(HAVE_LINUX_TCP_H)
 	case C_GET_TCP_INFO_SIZE: 
