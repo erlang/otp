@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       ## We create an initial comment with some useful help to the user
-      - uses: actions/github-script@v5
+      - uses: actions/github-script@v5.1.1
         with:
           script: |
             const script = require('./.github/scripts/pr-comment.js');
@@ -107,7 +107,7 @@ jobs:
              "${{ needs.pr-number.outputs.result }}"
 
       - name: Deploy to github pages 🚀
-        uses: JamesIves/github-pages-deploy-action@v4.2.2
+        uses: JamesIves/github-pages-deploy-action@v4.4.1
         with:
           token: ${{ secrets.ERLANG_TOKEN }}
           branch: master # The branch the action should deploy to.
@@ -117,7 +117,7 @@ jobs:
 
         ## Append some usefull links and tips to the test results posted by
         ## Publish CT Test Results
-      - uses: actions/github-script@v5
+      - uses: actions/github-script@v5.1.1
         if: always()
         with:
           script: |
