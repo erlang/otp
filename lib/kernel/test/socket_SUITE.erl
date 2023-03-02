@@ -7842,20 +7842,40 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            case socket:accept(LSock, Nowait) of
                                {select, {select_info, Tag, Ref}}
                                  when Nowait =:= nowait ->
-                                   ?SEV_IPRINT("accept select nowait: "
+                                   ?SEV_IPRINT("select accept message: "
                                                "~n   Tag: ~p"
                                                "~n   Ref: ~p", [Tag, Ref]),
-                                   {ok, State#{accept_stag => Tag,
+                                   {ok, State#{sorc        => select,
+                                               accept_stag => Tag,
                                                accept_sref => Ref}};
                                {select, {select_info, Tag, Nowait}}
                                  when is_reference(Nowait) ->
-                                   ?SEV_IPRINT("accept select ref: "
+                                   ?SEV_IPRINT("select accept result: "
                                                "~n   Tag: ~p"
                                                "~n   Ref: ~p", [Tag, Nowait]),
-                                   {ok, State#{accept_stag => Tag,
+                                   {ok, State#{sorc        => select,
+                                               accept_stag => Tag,
                                                accept_sref => Nowait}};
+
+                               {completion, {completion_info, Tag, Ref}}
+                                 when Nowait =:= nowait ->
+                                   ?SEV_IPRINT("completion accept result: "
+                                               "~n   Tag: ~p"
+                                               "~n   Ref: ~p", [Tag, Ref]),
+                                   {ok, State#{sorc        => completion,
+                                               accept_stag => Tag,
+                                               accept_sref => Ref}};
+                               {completion, {completion_info, Tag, Nowait}}
+                                 when is_reference(Nowait) ->
+                                   ?SEV_IPRINT("completion accept result: "
+                                               "~n   Tag: ~p"
+                                               "~n   Ref: ~p", [Tag, Nowait]),
+                                   {ok, State#{sorc        => completion,
+                                               accept_stag => Tag,
+                                               accept_sref => Nowait}};
+
                                {ok, X} ->
-                                   {error, {unexpected_select_info, X}};
+                                   {error, {unexpected_success, X}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -7865,11 +7885,25 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            ?SEV_ANNOUNCE_READY(Tester, accept_select),
                            ok
                    end},
-         #{desc => "await select message",
-           cmd  => fun(#{lsock := Sock, accept_sref := Ref}) ->
+         #{desc => "await select|completion message",
+           cmd  => fun(#{lsock := Sock, accept_sref := Ref} = State) ->
                            receive
                                {'$socket', Sock, select, Ref} ->
-                                   ok
+                                   ?SEV_IPRINT("select message: "
+                                               "ready for accept"),
+                                   ok;
+                               {'$socket', Sock, completion,
+                                {Ref, {ok, CSock}}} ->
+                                   ?SEV_IPRINT("completion message: accepted: "
+                                               "~n   CSock: ~p", [Sock]),
+                                   {ok, State#{csock => CSock}}
+                           after 5000 ->
+                                   ?SEV_EPRINT("select|completion message timeout:"
+                                               "~n   Sock:          ~p"
+                                               "~n   Ref:           ~p"
+                                               "~n   Message Queue: ~p",
+                                               [Sock, Ref, mq()]),
+                                   {error, timeout}
                            end
                    end},
          #{desc => "announce ready (select)",
@@ -7877,8 +7911,9 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            ?SEV_ANNOUNCE_READY(Tester, select),
                            ok
                    end},
-         #{desc => "await connection (again)",
-           cmd  => fun(#{lsock := LSock} = State) ->
+         #{desc => "try accept (again)",
+           cmd  => fun(#{lsock := LSock, sorc := select} = State) ->
+                           ?SEV_IPRINT("try accept again"),
                            case socket:accept(LSock, nowait) of
                                {ok, Sock} ->
                                    ?SEV_IPRINT("accepted: "
@@ -7886,7 +7921,10 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                                    {ok, State#{csock => Sock}};
                                {error, _} = ERROR ->
                                    ERROR
-                           end
+                           end;
+                       (#{sorc := completion})->
+                           ?SEV_IPRINT("already accepted"),
+                           ok
                    end},
          #{desc => "announce ready (accept)",
            cmd  => fun(#{tester := Tester}) ->
@@ -7899,8 +7937,8 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, recv_req)
                    end},
          #{desc => "try recv request (with nowait, expect select)",
-           cmd  => fun(#{csock := Sock,
-                         recv := Recv,
+           cmd  => fun(#{csock     := Sock,
+                         recv      := Recv,
                          recv_sref := SR} = State) ->
                            case Recv(Sock) of
                                {select, {select_info, Tag, Ref}}
@@ -7916,8 +7954,23 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                                                "~n   Tag: ~p"
                                                "~n   Ref: ~p", [Tag, SR]),
                                    {ok, State#{recv_stag => Tag}};
+
+                               {completion, {completion_info, Tag, Ref}}
+                                 when SR =:= nowait ->
+                                   ?SEV_IPRINT("recv completion nowait: "
+                                               "~n   Tag: ~p"
+                                               "~n   Ref: ~p", [Tag, Ref]),
+                                   {ok, State#{recv_stag => Tag,
+                                               recv_sref => Ref}};
+                               {completion, {completion_info, Tag, SR}}
+                                 when is_reference(SR) ->
+                                   ?SEV_IPRINT("recv completion ref: "
+                                               "~n   Tag: ~p"
+                                               "~n   Ref: ~p", [Tag, SR]),
+                                   {ok, State#{recv_stag => Tag}};
+
                                {ok, X} ->
-                                   {error, {unexpected_select_info, X}};
+                                   {error, {unexpected_success, X}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -7927,11 +7980,20 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            ?SEV_ANNOUNCE_READY(Tester, recv_select),
                            ok
                    end},
-         #{desc => "await select message",
+         #{desc => "await select|completion message",
            cmd  => fun(#{csock := Sock, recv_sref := RecvRef}) ->
                            receive
                                {'$socket', Sock, select, RecvRef} ->
-                                   ok
+                                   ok;
+                               {'$socket', Sock, completion,
+                                {RecvRef, {ok, ?BASIC_REQ}}} ->
+                                   ?SEV_IPRINT("received expected data"),
+                                   ok;
+                               {'$socket', Sock, completion,
+                                {RecvRef, {error, Reason} = ERROR}} ->
+                                   ?SEV_EPRINT("received unexpected error: "
+                                               "~n   ~p", [Reason]),
+                                   ERROR
                            end
                    end},
          #{desc => "announce ready (select)",
@@ -7940,13 +8002,19 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            ok
                    end},
          #{desc => "now read the data (request)",
-           cmd  => fun(#{csock := Sock, recv := Recv} = _State) ->
+           cmd  => fun(#{sorc  := select,
+                         csock := Sock,
+                         recv  := Recv} = _State) ->
                            case Recv(Sock) of
                                {ok, ?BASIC_REQ} ->
+                                   ?SEV_IPRINT("read expected data"),
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
-                           end
+                           end;
+                      (#{sorc := completion}) ->
+                           ?SEV_IPRINT("already received"),
+                           ok
                    end},
          #{desc => "announce ready (recv request)",
            cmd  => fun(#{tester := Tester}) ->
@@ -8066,7 +8134,7 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            ok
                    end},
 
-         #{desc => "try recv reply (with nowait, expect select)",
+         #{desc => "try recv reply (with nowait, expect select|completion)",
            cmd  => fun(#{sock := Sock,
                          recv := Recv,
                          recv_sref := SR} = State) ->
@@ -8076,16 +8144,35 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                                    ?SEV_IPRINT("recv select nowait: "
                                                "~n   Tag: ~p"
                                                "~n   Ref: ~p", [Tag, Ref]),
-                                   {ok, State#{recv_stag => Tag,
+                                   {ok, State#{sorc      => select,
+                                               recv_stag => Tag,
                                                recv_sref => Ref}};
                                {select, {select_info, Tag, SR}}
                                  when is_reference(SR) ->
                                    ?SEV_IPRINT("recv select ref: "
                                                "~n   Tag: ~p"
                                                "~n   Ref: ~p", [Tag, SR]),
-                                   {ok, State#{recv_stag => Tag}};
+                                   {ok, State#{sorc      => select,
+                                               recv_stag => Tag}};
+
+                               {completion, {completion_info, Tag, Ref}}
+                                 when SR =:= nowait ->
+                                   ?SEV_IPRINT("recv completion nowait: "
+                                               "~n   Tag: ~p"
+                                               "~n   Ref: ~p", [Tag, Ref]),
+                                   {ok, State#{sorc      => completion,
+                                               recv_stag => Tag,
+                                               recv_sref => Ref}};
+                               {completion, {completion_info, Tag, SR}}
+                                 when is_reference(SR) ->
+                                   ?SEV_IPRINT("recv completion ref: "
+                                               "~n   Tag: ~p"
+                                               "~n   Ref: ~p", [Tag, SR]),
+                                   {ok, State#{sorc      => completion,
+                                               recv_stag => Tag}};
+
                                {ok, X} ->
-                                   {error, {unexpected_select_info, X}};
+                                   {error, {unexpected_success, X}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -8099,6 +8186,10 @@ api_a_send_and_recv_tcp(Config, InitState) ->
            cmd  => fun(#{sock := Sock, recv_sref := RecvRef}) ->
                            receive
                                {'$socket', Sock, select, RecvRef} ->
+                                   ok;
+                               {'$socket', Sock, completion,
+                                {RecvRef, {ok, ?BASIC_REP}}} ->
+                                   ?SEV_IPRINT("received expected reply"),
                                    ok
                            end
                    end},
@@ -8108,8 +8199,13 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            ok
                    end},
          #{desc => "now read the data (reply)",
-           cmd  => fun(#{sock := Sock, recv := Recv}) ->
+           cmd  => fun(#{sorc := select, sock := Sock, recv := Recv}) ->
                            {ok, ?BASIC_REP} = Recv(Sock),
+                           ?SEV_IPRINT("[select] received expected reply"),
+                           ok;
+                      (#{sorc := completion}) ->
+                           ?SEV_IPRINT("[completion] "
+                                       "expected reply already received"),
                            ok
                    end},
          #{desc => "announce ready (recv reply)",
@@ -40582,14 +40678,6 @@ tpp_tcp_send_msg(Sock, Send, Msg, AccSz) when is_binary(Msg) ->
 %% size_of_iovec([B|IOVec], Sz) ->
 %%     size_of_iovec(IOVec, Sz+size(B)).
 
-mq() ->
-    mq(self()).
-
-mq(Pid) when is_pid(Pid) ->
-    Tag = messages,
-    {Tag, Msgs} = process_info(Pid, Tag),
-    Msgs.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -48857,6 +48945,16 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
     end.
 
             
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+mq() ->
+    mq(self()).
+
+mq(Pid) when is_pid(Pid) ->
+    {messages, MQ} = process_info(Pid, messages),
+    MQ.
+
+             
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 nowait(Config) ->
