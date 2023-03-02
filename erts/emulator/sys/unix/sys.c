@@ -1057,7 +1057,7 @@ init_smp_sig_notify(void)
 {
     erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
-    thr_opts.name = "sys_sig_dispatcher";
+    thr_opts.name = "sig_dispatcher";
 
     if (pipe(sig_notify_fds) < 0) {
 	erts_exit(ERTS_ABORT_EXIT,
