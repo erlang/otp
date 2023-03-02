@@ -35,7 +35,12 @@ this very same file (lib/stdlib/uc_spec/README-UPDATE.txt).
 Remember to update these instructions if a new file is added or any other change
 is required for future version updates.
 
-6. Run the test for the Unicode suite from the OTP repository root dir.
+6. Check if the test file needs to be updated:
+   (cd $ERL_TOP/lib/stdlib/uc_spec; escript gen_unicode_mod.escript update_tests)
+   If ../test/unicode_util_SUITE_data/unicode_table.bin is updated include it in
+   the commit.
+
+7. Run the test for the Unicode suite from the OTP repository root dir.
    $ export ERL_TOP=$PWD
    $ export PATH=$ERL_TOP/bin:$PATH
    $ ./otp_build all -a && ./otp_build tests
