@@ -1178,7 +1178,7 @@ M4 = #{{"w", 1} => f()}.  % compound key associated with an evaluated expression
 	  </p>
 	  <p>
 		  If key <c>K</c> does not match any existing keys in map <c>M</c>, an exception
-		  of type <c>badarg</c> is triggered at runtime. If a matching key <c>K</c>
+		  of type <c>badkey</c> is triggered at runtime. If a matching key <c>K</c>
 		  is present in map <c>M</c>, its associated value is replaced by the new
 		  value <c>V</c>, and the evaluated map expression returns a new map.
 	  </p>
