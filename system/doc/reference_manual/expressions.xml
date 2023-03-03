@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2022</year>
+      <year>2003</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -376,13 +376,13 @@ spawn(m, init, [])</code>
     being auto-imported. In certain situations, such a compile-directive
     is mandatory.</p>
 
-    <warning><p>Before OTP R14A (ERTS version 5.8), an implicitly
+    <change><p>Before OTP R14A (ERTS version 5.8), an implicitly
     qualified function call to a function having the same name as an
     auto-imported BIF always resulted in the BIF being called. In
     newer versions of the compiler, the local function is called instead.
     This is to avoid that future additions to the
     set of auto-imported BIFs do not silently change the behavior
-    of old code.</p>
+    of old code.</p></change>
 
     <p>However, to avoid that old (pre R14) code changed its
     behavior when compiled with OTP version R14A or later, the
@@ -392,7 +392,7 @@ spawn(m, init, [])</code>
     your code, you either need to explicitly remove the auto-import
     using a compiler directive, or replace the call with a fully
     qualified function call. Otherwise you get a compilation
-    error. See the following example:</p> </warning>
+    error. See the following example:</p>
 
     <code type="none">
 -export([length/1,f/1]).
@@ -505,13 +505,13 @@ is_valid_signal(Signal) ->
   <section>
     <marker id="maybe"></marker>
     <title>Maybe</title>
-    <note><p><c>maybe</c> is an experimental new <seeguide
+    <change><p><c>maybe</c> is an experimental <seeguide
     marker="system/reference_manual:features#features">feature</seeguide>
-    introduced in OTP 25. By default, it is disabled. To enable
+    introduced in Erlang/OTP 25. By default, it is disabled. To enable
     <c>maybe</c>, either use the <c>-feature(maybe_expr,enable)</c>
     directive (from within source code), or the compiler option
     <c>{feature,maybe_expr,enable}</c>.</p>
-    </note>
+    </change>
 
     <code type="erl"><![CDATA[
 maybe
@@ -1044,16 +1044,21 @@ case A >= -1.0 andalso math:sqrt(A+1) > B of</pre>
 OnlyOne = is_atom(L) orelse
          (is_list(L) andalso length(L) == 1),</pre>
 
-    <p>From Erlang/OTP R13A, <c>Expr2</c> is no longer required to evaluate to a
-    Boolean value. As a consequence, <c>andalso</c> and <c>orelse</c>
-    are now tail-recursive.  For instance, the following function is
-    tail-recursive in Erlang/OTP R13A and later:</p>
+    <p><c>Expr2</c> is not required to evaluate to a Boolean
+    value. Because of that, <c>andalso</c> and <c>orelse</c> are
+    tail-recursive.</p>
 
+    <p><em>Example 3 (tail-recursive function):</em></p>
     <pre>
 all(Pred, [Hd|Tail]) ->
     Pred(Hd) andalso all(Pred, Tail);
 all(_, []) ->
     true.</pre>
+
+    <change><p>Before Erlang/OTP R13A, <c>Expr2</c> was required to
+    evaluate to a Boolean value, and as consequence, <c>andalso</c>
+    and <c>orelse</c> were <strong>not</strong>
+    tail-recursive.</p></change>
   </section>
 
   <section>
@@ -1173,7 +1178,7 @@ M4 = #{{"w", 1} => f()}.  % compound key associated with an evaluated expression
 	  </p>
 	  <p>
 		  If key <c>K</c> does not match any existing keys in map <c>M</c>, an exception
-		  of type <c>badarg</c> is triggered at runtime. If a matching key <c>K</c>
+		  of type <c>badkey</c> is triggered at runtime. If a matching key <c>K</c>
 		  is present in map <c>M</c>, its associated value is replaced by the new
 		  value <c>V</c>, and the evaluated map expression returns a new map.
 	  </p>
@@ -1233,9 +1238,9 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  with the key <c>K</c>, which must exist in the map <c>M</c>. If the variable
 		  <c>V</c> is bound, it must match the value associated with <c>K</c> in <c>M</c>.
 	  </p>
-	  <note><p>Before OTP 23, the expression defining the key
+	  <change><p>Before Erlang/OTP 23, the expression defining the key
 	  <c>K</c> was restricted to be either a single variable or a
-	  literal.</p></note>
+	  literal.</p></change>
 	  <p><em>Example:</em></p>
 <pre>
 1> <input>M = #{"tuple" => {1,2}}.</input>
@@ -1373,8 +1378,8 @@ Ei = Value |
     that evaluates to an integer. All variables in the guard expression
     must be already bound.</p>
 
-    <note><p>Before OTP 23, <c>Size</c> was restricted to be an
-    integer or a variable bound to an integer.</p></note>
+    <change><p>Before Erlang/OTP 23, <c>Size</c> was restricted to be an
+    integer or a variable bound to an integer.</p></change>
 
     <p>The value of <c>Size</c> specifies the size of the segment in
     units (see below). The default value depends on the type (see
@@ -1385,14 +1390,27 @@ Ei = Value |
       <item>For <c>binary</c> and <c>bitstring</c> it is
       the whole binary or bit string.</item>
     </list>
-    <p>In matching, this default value is only
-    valid for the last element. All other bit string or binary
-    elements in the matching must have a size specification.</p>
+    <p>In matching, the default value for a binary or bit string
+    segment is only valid for the last element. All other bit string
+    or binary elements in the matching must have a size
+    specification.</p>
+
+    <p><strong>Example:</strong></p>
+
+    <pre>
+1> <input>&lt;&lt;A/binary, B/binary>> = &lt;&lt;"abcde">>.</input>
+* 1:3: a binary field without size is only allowed at the end of a binary pattern
+2> <input>&lt;&lt;A:3/binary, B/binary>> = &lt;&lt;"abcde">>.</input>
+&lt;&lt;"abcde">>
+3> <input>A.</input>
+&lt;&lt;"abc">>
+4> <input>B.</input>
+&lt;&lt;"de">></pre>
 
     <p>For the <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> types,
     <c>Size</c> must not be given. The size of the segment is implicitly
     determined by the type and value itself.</p>
-    
+
     <p><c>TypeSpecifierList</c> is a list of type specifiers, in any
     order, separated by hyphens (-). Default values are used for any
     omitted type specifiers.</p>
@@ -1418,60 +1436,156 @@ Ei = Value |
        </item>
 
       <tag><c>Unit</c>= <c>unit:IntegerLiteral</c></tag>
-      <item>The allowed range is 1..256. Defaults to 1 for <c>integer</c>,
-       <c>float</c>, and <c>bitstring</c>, and to 8 for <c>binary</c>.
-       No unit specifier must be given for the types 
-       <c>utf8</c>, <c>utf16</c>, and <c>utf32</c>.
-       </item>
+      <item>The allowed range is 1 through 256. Defaults to 1 for <c>integer</c>,
+      <c>float</c>, and <c>bitstring</c>, and to 8 for <c>binary</c>.
+      For types <c>bitstring</c>, <c>bits</c>, and <c>bytes</c>, it is not allowed
+      to specify a unit value different from the default value.
+      No unit specifier must be given for the types <c>utf8</c>, <c>utf16</c>,
+      and <c>utf32</c>.
+      </item>
     </taglist>
-    <p>The value of <c>Size</c> multiplied with the unit gives
-      the number of bits. A segment of type <c>binary</c> must have 
-      a size that is evenly divisible by 8. For a segment of type <c>float</c>
-      the size must be either 64, 32, or 16.</p>
 
-    <note><p>When constructing binaries, if the size <c>N</c> of an integer
-    segment is too small to contain the given integer, the most significant
-    bits of the integer are silently discarded and only the <c>N</c> least
-    significant bits are put into the binary.</p></note>
+    <section>
+      <title>Integer segments</title>
+      <p>The value of <c>Size</c> multiplied with the unit gives the
+      size of the segment in bits.</p>
 
-    <p>The types <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> specifies
-    encoding/decoding of the <em>Unicode Transformation Format</em>s UTF-8, UTF-16,
-    and UTF-32, respectively.</p>
+      <p>When constructing binaries, if the size <c>N</c> of an integer
+      segment is too small to contain the given integer, the most significant
+      bits of the integer are silently discarded and only the <c>N</c> least
+      significant bits are put into the binary. For example, <c>&lt;&lt;16#ff:4&gt;&gt;</c>
+      will result in the binary <c>&lt;&lt;15:4&gt;&gt;</c>.</p>
+    </section>
 
-    <p>When constructing a segment of a <c>utf</c> type, <c>Value</c>
-    must be an integer in the range 0..16#D7FF or
-    16#E000....16#10FFFF. Construction
-    fails with a <c>badarg</c> exception if <c>Value</c> is
-    outside the allowed ranges. The size of the resulting binary
-    segment depends on the type or <c>Value</c>, or both:</p>
-     <list type="bulleted">
-      <item>For <c>utf8</c>, <c>Value</c> is encoded in 1-4 bytes.</item>
-      <item>For <c>utf16</c>, <c>Value</c> is encoded in 2 or 4 bytes.</item>
-      <item>For <c>utf32</c>, <c>Value</c> is always be encoded in 4 bytes.</item>
-    </list>
+    <section>
+      <title>Float segments</title>
+      <p>The value of <c>Size</c> multiplied with the unit gives
+      the size of the segment in bits. The size of a float segment in bits must be
+      one of 16, 32, or 64.</p>
 
-    <p>When constructing, a literal string can be given followed
-    by one of the UTF types, for example: <c><![CDATA[<<"abc"/utf8>>]]></c>
-    which is syntactic sugar for
-    <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
+      <p>When constructing binaries, if the size of a float segment is too small
+      to contain the representation of the given float value, an exception is raised.</p>
 
-    <p>A successful match of a segment of a <c>utf</c> type, results
-    in an integer in the range 0..16#D7FF or  16#E000..16#10FFFF.
-    The match fails if the returned value falls outside those ranges.</p>
+      <p>When matching binaries, matching of float segments fails if the bits of the segment
+      does not contain the representation of a finite floating point value.</p>
+    </section>
 
-    <p>A segment of type <c>utf8</c> matches 1-4 bytes in the binary,
-    if the binary at the match position contains a valid UTF-8 sequence.
-    (See RFC-3629 or the Unicode standard.)</p>
+    <section>
+      <title>Binary segments</title>
+      <p>In this section, the phrase "binary segment" refers to any
+      one of the segment types <c>binary</c>, <c>bitstring</c>,
+      <c>bytes</c>, and <c>bits</c>.</p>
 
-    <p>A segment of type <c>utf16</c> can match 2 or 4 bytes in the binary.
-    The match fails if the binary at the match position does not contain
-    a legal UTF-16 encoding of a Unicode code point. (See RFC-2781 or
-    the Unicode standard.)</p>
+      <p>When constructing binaries and no size is specified for a
+      binary segment, the entire binary value is interpolated into the
+      binary being constructed. However, the size in bits of the
+      binary being interpolated must be evenly divisible by the unit
+      value for the segment; otherwise an exception is raised.</p>
 
-    <p>A segment of type <c>utf32</c> can match 4 bytes in the binary in the
-    same way as an <c>integer</c> segment matches 32 bits.
-    The match fails if the resulting integer is outside the legal ranges
-    mentioned above.</p>
+      <p>For example, the following examples all succeed:</p>
+
+      <pre>
+1> <input>&lt;&lt;(&lt;&lt;"abc">>)/bitstring>>.</input>
+&lt;&lt;"abc">>
+2> <input>&lt;&lt;(&lt;&lt;"abc">>)/binary-unit:1>>.</input>
+&lt;&lt;"abc">>
+3> <input>&lt;&lt;(&lt;&lt;"abc">>)/binary>>.</input>
+&lt;&lt;"abc">></pre>
+
+      <p>The first two examples have a unit value of 1 for the segment,
+      while the third segment has a unit value of 8.</p>
+
+      <p>Attempting to interpolate a bit string of size 1 into a
+      binary segment with unit 8 (the default unit for <c>binary</c>)
+      fails as shown in this example:</p>
+
+      <pre>
+<input>1> &lt;&lt;(&lt;&lt;1:1&gt;&gt;)/binary&gt;&gt;.</input>
+** exception error: bad argument</pre>
+
+      <p>For the construction to succeed, the unit value of the
+      segment must be 1:</p>
+
+      <pre>
+2> <input>&lt;&lt;(&lt;&lt;1:1>>)/bitstring>>.</input>
+&lt;&lt;1:1>>
+3> <input>&lt;&lt;(&lt;&lt;1:1>>)/binary-unit:1>>.</input>
+&lt;&lt;1:1>></pre>
+
+      <p>Similarly, when matching a binary segment with no size
+      specified, the match succeeds if and only if the size in bits of
+      the rest of the binary is evenly divisible by the unit
+      value:</p>
+
+      <pre>
+1> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"">>.</input>
+&lt;&lt;>>
+2> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"a">>.</input>
+** exception error: no match of right hand side value &lt;&lt;"a">>
+3> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"ab">>.</input>
+&lt;&lt;"ab">>
+4> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"abc">>.</input>
+** exception error: no match of right hand side value &lt;&lt;"abc">>
+5> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"abcd">>.</input>
+&lt;&lt;"abcd">></pre>
+
+      <p>When a size is explicitly specified for a binary segment,
+      the segment size in bits is the value of <c>Size</c> multiplied
+      by the default or explicit unit value.</p>
+
+      <p>When constructing binaries, the size of the binary being interpolated
+      into the constructed binary must be at least as large as the size of
+      the binary segment.</p>
+
+      <p><strong>Examples:</strong></p>
+      <pre>
+1> <input>&lt;&lt;(&lt;&lt;"abc">>):2/binary>>.</input>
+&lt;&lt;"ab">>
+2> <input>&lt;&lt;(&lt;&lt;"a">>):2/binary>>.</input>
+** exception error: construction of binary failed
+        *** segment 1 of type 'binary': the value &lt;&lt;"a">> is shorter than the size of the segment</pre>
+    </section>
+
+    <section>
+      <title>Unicode segments</title>
+      <p>The types <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> specifies
+      encoding/decoding of the <em>Unicode Transformation Format</em>s UTF-8, UTF-16,
+      and UTF-32, respectively.</p>
+
+      <p>When constructing a segment of a <c>utf</c> type,
+      <c>Value</c> must be an integer in the range 0 through 16#D7FF
+      or 16#E000 through 16#10FFFF. Construction fails with a
+      <c>badarg</c> exception if <c>Value</c> is outside the allowed
+      ranges. The sizes of the encoded values are as follows:</p>
+      <list type="bulleted">
+        <item>For <c>utf8</c>, <c>Value</c> is encoded in 1-4 bytes.</item>
+        <item>For <c>utf16</c>, <c>Value</c> is encoded in 2 or 4 bytes.</item>
+        <item>For <c>utf32</c>, <c>Value</c> is encoded in 4 bytes.</item>
+      </list>
+
+      <p>When constructing, a literal string can be given followed
+      by one of the UTF types, for example: <c><![CDATA[<<"abc"/utf8>>]]></c>
+      which is syntactic sugar for
+      <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
+
+      <p>A successful match of a segment of a <c>utf</c> type, results
+      in an integer in the range 0 through 16#D7FF or 16#E000 through 16#10FFFF.
+      The match fails if the returned value falls outside those ranges.</p>
+
+      <p>A segment of type <c>utf8</c> matches 1-4 bytes in the binary,
+      if the binary at the match position contains a valid UTF-8 sequence.
+      (See RFC-3629 or the Unicode standard.)</p>
+
+      <p>A segment of type <c>utf16</c> can match 2 or 4 bytes in the binary.
+      The match fails if the binary at the match position does not contain
+      a legal UTF-16 encoding of a Unicode code point. (See RFC-2781 or
+      the Unicode standard.)</p>
+
+      <p>A segment of type <c>utf32</c> can match 4 bytes in the binary in the
+      same way as an <c>integer</c> segment matches 32 bits.
+      The match fails if the resulting integer is outside the legal ranges
+      previously mentioned.</p>
+    </section>
 
     <p><em>Examples:</em></p>
     <pre>
@@ -1555,14 +1669,15 @@ fun Module:Name/Arity</pre>
       syntactic sugar for:</p>
     <pre>
 fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
-    <p>In <c>Module:Name/Arity</c>, <c>Module</c>, and <c>Name</c> are atoms
-      and <c>Arity</c> is an integer. Starting from Erlang/OTP R15,
-      <c>Module</c>, <c>Name</c>, and <c>Arity</c> can also be variables.
-      A fun defined in this way refers to the function <c>Name</c>
-      with arity <c>Arity</c> in the <em>latest</em> version of module
-      <c>Module</c>. A fun defined in this way is not dependent on
-      the code for the module in which it is defined.
-      </p>
+    <p>In <c>Module:Name/Arity</c>, <c>Module</c>, and <c>Name</c> are
+    atoms and <c>Arity</c> is an integer. <c>Module</c>, <c>Name</c>,
+    and <c>Arity</c> can also be variables. A fun defined in this way
+    refers to the function <c>Name</c> with arity <c>Arity</c> in the
+    <em>latest</em> version of module <c>Module</c>. A fun defined in
+    this way is not dependent on the code for the module in which it
+    is defined.</p>
+    <change><p>Before Erlang/OTP R15, <c>Module</c>, <c>Name</c>, and <c>Arity</c> were
+    not allowed to be variables.</p></change>
     <p>More examples are provided in
       <seeguide marker="system/programming_examples:funs">
       Programming Examples</seeguide>.</p>
@@ -1808,107 +1923,204 @@ end</pre>
 
   <section>
     <marker id="lcs"></marker>
-    <title>List Comprehensions</title>
-    <p>List comprehensions is a feature of many modern functional
-      programming languages. Subject to certain rules, they provide a
-      succinct notation for generating elements in a list.</p>
-    <p>List comprehensions are analogous to set comprehensions in
-      Zermelo-Frankel set theory and are called ZF expressions in
-      Miranda. They are analogous to the <c>setof</c> and
-      <c>findall</c> predicates in Prolog.</p>
-    <p>List comprehensions are written with the following syntax:</p>
+    <title>Comprehensions</title>
+    <p>Comprehensions provide a succinct notation for iterating over
+    one or more terms and constructing a new term. Comprehensions come
+    in three different flavors, depending on the type of term they
+    build.</p>
+    <p>List comprehensions construct lists. They have the following syntax:</p>
     <pre>
-[Expr || Qualifier1,...,QualifierN]</pre>
+[Expr || Qualifier1, . . ., QualifierN]</pre>
     <p>Here, <c>Expr</c> is an arbitrary expression, and each
-      <c>Qualifier</c> is either a generator or a filter.</p>
-    <list type="bulleted">
-      <item>A <em>generator</em> is written as:      <br></br>
+    <c>Qualifier</c> is either a <strong>generator</strong> or a
+    <strong>filter</strong>.</p>
 
-       &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
-<c>ListExpr</c> must be an expression, which evaluates to a
-       list of terms.</item>
-<item>A <em>bit string generator</em> is written as:      <br></br>
+    <p>Bit string comprehensions construct bit strings or binaries.
+    They have the following syntax:</p>
+    <pre>
+&lt;&lt; BitStringExpr || Qualifier1, . . ., QualifierN &gt;&gt;</pre>
 
-       &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
-<c>BitStringExpr</c> must be an expression, which evaluates to a
-       bitstring.</item>
-      <item>A <em>filter</em> is an expression, which evaluates to
-      <c>true</c> or <c>false</c>, or a
-      <seeguide marker="#guard_expressions">guard expression</seeguide>.
-      If the filter is not a guard expression and evaluates
-      to a non-Boolean value <c>Val</c>, an exception
-      <c>{bad_filter, Val}</c> is triggered at runtime.</item>
-    </list>
+    <p><c>BitStringExpr</c> is an expression that evaluates to a bit string.
+    If <c>BitStringExpr</c> is a function call, it must be
+    enclosed in parentheses.  Each <c>Qualifier</c> is either a
+    <strong>generator</strong> or a <strong>filter</strong>.</p>
+
+    <p>Map comprehensions construct maps. They have the following syntax:</p>
+    <pre>
+#{KeyExpr => ValueExpr || Qualifier1, . . ., QualifierN}</pre>
+    <p>Here, <c>KeyExpr</c> and <c>ValueExpr</c> are arbitrary
+    expressions, and each <c>Qualifier</c> is either a
+    <strong>generator</strong> or a <strong>filter</strong>.</p>
+
+    <change><p>Map comprehensions and map generators were introduced
+    in Erlang/OTP 26.</p></change>
+
+    <p>There are three kinds of generators.</p>
+
+    <p>A <em>list generator</em> has the following syntax:</p>
+
+<pre>
+Pattern &lt;- ListExpr</pre>
+
+    <p>where <c>ListExpr</c> is an expression that evaluates to a
+    list of terms.</p>
+
+    <p>A <em>bit string generator</em> has the following syntax:</p>
+
+    <pre>
+BitstringPattern &lt;= BitStringExpr</pre>
+
+    <p>where <c>BitStringExpr</c> is an expression that evaluates to a
+    bit string.</p>
+
+    <p>A <em>map generator</em> has the following syntax:</p>
+
+    <pre>
+KeyPattern := ValuePattern &lt;- MapExpression</pre>
+
+    <p>where <c>MapExpr</c> is an expression that evaluates to a map,
+    or a map iterator obtained by calling <seemfa
+    marker="stdlib:maps#iterator/1">maps:iterator/1</seemfa> or
+    <seemfa
+    marker="stdlib:maps#iterator/2">maps:iterator/2</seemfa>.</p>
+
+    <p>A <em>filter</em> is an expression that evaluates to
+    <c>true</c> or <c>false</c>.</p>
+
     <p>The variables in the generator patterns shadow previously bound variables,
     including variables bound in a previous generator pattern.</p>
-    <p>A list comprehension returns a list, where the elements are the
+
+    <p>Variables bound in a generator expression are not visible outside the expression:</p>
+
+    <pre>
+1> <input>[{E,L} || E &lt;- L=[1,2,3]].</input>
+* 1:5: variable 'L' is unbound</pre>
+
+    <p>A <strong>list comprehension</strong> returns a list, where the list elements are the
     result of evaluating <c>Expr</c> for each combination of generator
-    list elements and bit string generator elements, for which all
+    elements for which all filters are true.</p>
+
+    <p>A <strong>bit string comprehension</strong> returns a bit string, which is
+    created by concatenating the results of evaluating <c>BitStringExpr</c> for
+    each combination of bit string generator elements for which all
     filters are true.</p>
-    <p><em>Example:</em></p>
+
+    <p>A <strong>map comprehension</strong> returns a map, where the
+    map elements are the result of evaluating <c>KeyExpr</c> and
+    <c>ValueExpr</c> for each combination of generator elements for
+    which all filters are true. If the key expressions are not unique,
+    the last occurrence is stored in the map.</p>
+
+    <p><strong>Examples:</strong></p>
+
+    <p>Multiplying each element in a list by two:</p>
     <pre>
 1> <input>[X*2 || X &lt;- [1,2,3]].</input>
 [2,4,6]</pre>
-    <p>When there are no generators or bit string generators, a list comprehension
-    returns either a list with one element (the result of evaluating <c>Expr</c>)
-    if all filters are true or an empty list otherwise.</p>
+
+    <p>Multiplying each byte in a binary by two, returning a list:</p>
+    <pre>
+1> <input>[X*2 || &lt;&lt;X&gt;&gt; &lt;= &lt;&lt;1,2,3&gt;&gt; &gt;&gt;.</input>
+[2,4,6]</pre>
+
+    <p>Multiplying each byte in a binary by two:</p>
+
+    <pre>
+1> <input>&lt;&lt; &lt;&lt;(X*2)&gt;&gt; || &lt;&lt;X&gt;&gt; &lt;= &lt;&lt;1,2,3&gt;&gt; &gt;&gt;.</input>
+&lt;&lt;2,4,6&gt;&gt;</pre>
+
+    <p>Multiplying each element in a list by two, returning a binary:</p>
+
+    <pre>
+1> <input>&lt;&lt; &lt;&lt;(X*2)&gt;&gt; || X &lt;- [1,2,3]].</input>
+&lt;&lt;2,4,6&gt;&gt;</pre>
+
+    <p>Creating a mapping from an integer to its square:</p>
+    <pre>
+1> <input>#{X => X*X || X &lt;- [1,2,3]}.</input>
+#{1 => 1,2 => 4,3 => 9}</pre>
+
+    <p>Multiplying the value of each element in a map by two:</p>
+    <pre>
+1> <input>#{K => 2*V || K := V &lt;- #{a => 1,b => 2,c => 3}}.</input>
+#{a => 2,b => 4,c => 6}</pre>
+
+    <p>Filtering a list, keeping odd numbers:</p>
+    <pre>
+1> <input>[X || X &lt;- [1,2,3,4,5], X rem 2 =:= 1].</input>
+[1,3,5]</pre>
+
+    <p>Filtering a list, keeping only elements that match:</p>
+    <pre>
+1> <input>[X || {_,_}=X &lt;- [{a,b}, [a], {x,y,z}, {1,2}]].</input>
+[{a,b},{1,2}]</pre>
+
+    <p>Combining elements from two list generators:</p>
+    <pre>
+1> <input>[{P,Q} || P &lt;- [a,b,c], Q &lt;- [1,2]].</input>
+[{a,1},{a,2},{b,1},{b,2},{c,1},{c,2}]
+</pre>
+
+    <p>More examples are provided in
+    <seeguide marker="system/programming_examples:list_comprehensions">
+    Programming Examples.</seeguide></p>
+
+    <p>When there are no generators, a comprehension returns either a
+    term constructed from a single element (the result of evaluating
+    <c>Expr</c>) if all filters are true, or a term constructed from
+    no elements (that is, <c>[]</c> for list comprehension,
+    <c>&lt;&lt;&gt;&gt;</c> for a bit string comprehension, and
+    <c>#{}</c> for a map comprehension).</p>
     <p><em>Example:</em></p>
     <pre>
 1> <input>[2 || is_integer(2)].</input>
 [2]
 2> <input>[x || is_integer(x)].</input>
 []</pre>
-    <p>More examples are provided in
-    <seeguide marker="system/programming_examples:list_comprehensions">
-    Programming Examples.</seeguide></p>
 
-  </section>
+    <p>What happens when the filter expression does not evaluate to
+    a boolean value depends on the expression:</p>
 
-<section>
-    <title>Bit String Comprehensions</title> 
-   
-    <p>Bit string comprehensions are
-    analogous to List Comprehensions. They are used to generate bit strings
-    efficiently and succinctly.</p> 
-    <p>Bit string comprehensions are written with
-    the following syntax:</p>
-    <pre>
-&lt;&lt; BitStringExpr || Qualifier1,...,QualifierN &gt;&gt;</pre>
-    <p><c>BitStringExpr</c> is an expression that evaluates to a bit
-    string. If <c>BitStringExpr</c> is a function call, it must be
-    enclosed in parentheses.  Each <c>Qualifier</c> is either a
-    generator, a bit string generator or a filter.</p>
-    <list type="bulleted">
- <item>A <em>generator</em> is written as:      <br></br>
-      &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
-       <c>ListExpr</c> must be an expression that evaluates to a
-       list of terms.</item>
-      <item>A <em>bit string generator</em> is written as:      <br></br>
+    <list>
+      <item><p>If the expression is a <seeguide
+      marker="#guard_expressions">guard expression</seeguide>, failure
+      to evaluate or evaluating to a non-boolean value is equivalent
+      to evaluating to <c>false</c>.</p></item>
 
-       &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
-<c>BitStringExpr</c> must be an expression that evaluates to a
-       bitstring.</item>
-      <item>A <em>filter</em> is an expression, which evaluates to
-      <c>true</c> or <c>false</c>, or a
-      <seeguide marker="#guard_expressions">guard expression</seeguide>.
-      If the filter is not a guard expression and evaluates
-      to a non-Boolean value <c>Val</c>, an exception
-      <c>{bad_filter, Val}</c> is triggered at runtime.</item>
+      <item><p>If the expression is not a guard expression and
+      evaluates to a non-Boolean value <c>Val</c>, an exception
+      <c>{bad_filter, Val}</c> is triggered at runtime. If the
+      evaluation of the expression raises an exception, it is not
+      caught by the comprehension.</p></item>
     </list>
-    <p>The variables in the generator patterns shadow previously bound variables,
-    including variables bound in a previous generator pattern.</p>
-    <p>A bit string comprehension returns a bit string, which is 
-      created by concatenating the results of evaluating <c>BitString</c> 
-      for each combination of bit string generator elements, for which all
-      filters are true.</p>
-    <p><em>Example:</em></p>
+
+    <p><strong>Examples</strong> (using a guard expression as filter):</p>
+
     <pre>
-1> <input>&lt;&lt; &lt;&lt; (X*2) &gt;&gt; ||
-&lt;&lt;X&gt;&gt; &lt;= &lt;&lt; 1,2,3 &gt;&gt; &gt;&gt;.</input>
-&lt;&lt;2,4,6&gt;&gt;</pre>
-    <p>More examples are provided in
-    <seeguide marker="system/programming_examples:bit_syntax">
-    Programming Examples.</seeguide></p>
+1> <input>List = [1,2,a,b,c,3,4].</input>
+[1,2,a,b,c,3,4]
+2> <input>[E || E &lt;- List, E rem 2].</input>
+[]
+3> <input>[E || E &lt;- List, E rem 2 =:= 0].</input>
+[2,4]</pre>
+
+    <p><strong>Examples</strong> (using a non-guard expression as filter):</p>
+
+    <pre>
+1> <input>List = [1,2,a,b,c,3,4].</input>
+[1,2,a,b,c,3,4]
+2> <input>FaultyIsEven = fun(E) -> E rem 2 end.</input>
+#Fun&lt;erl_eval.42.17316486&gt;
+3> <input>[E || E &lt;- List, FaultyIsEven(E)].</input>
+** exception error: bad filter 1
+4> <input>IsEven = fun(E) -> E rem 2 =:= 0 end.</input>
+#Fun&lt;erl_eval.42.17316486&gt;
+5> <input>[E || E &lt;- List, IsEven(E)].</input>
+** exception error: an error occurred when evaluating an arithmetic expression
+     in operator  rem/2
+        called as a rem 2
+6> <input>[E || E &lt;- List, is_integer(E), IsEven(E)].</input>
+[2,4]</pre>
   </section>
 
   <section>

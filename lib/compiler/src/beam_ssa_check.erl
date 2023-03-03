@@ -196,7 +196,7 @@ post_args([PA|PArgs], [AA|AArgs], Env) ->
 post_args([], [], Env) ->
     Env;
 post_args(Pattern, Args, _Env) ->
-    io:format("Failed to match ~p <-> ~p~n", [Pattern, Args]),
+    io:format("Failed to match ~kp <-> ~kp~n", [Pattern, Args]),
     error({internal_pattern_match_error,post_args}).
 
 post_phi_args([{'...',_}], _, Env) ->
@@ -339,7 +339,7 @@ build_map_key({list,_,Elems}) ->
 build_map_key({tuple,_,Elems}) ->
     list_to_tuple([build_map_key(E) || E <- Elems]);
 build_map_key({map,_,Elems}) ->
-    maps:from_list([{build_map_key(K),build_map_key(V)} || {K,V} <- Elems]);
+    #{build_map_key(K) => build_map_key(V) || {K,V} <- Elems};
 build_map_key(_Key) ->
     ?DP("Failed to match ~p~n", [_Key]),
     error({internal_pattern_match_error,build_map_key}).

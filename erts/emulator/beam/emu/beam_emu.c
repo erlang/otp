@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -138,9 +138,9 @@ ErtsCodePtr beam_return_trace;
 static BeamInstr beam_exception_trace_[1];
 ErtsCodePtr beam_exception_trace;
 
-/* OpCode(i_return_time_trace) */
-static BeamInstr beam_return_time_trace_[1];
-ErtsCodePtr beam_return_time_trace;
+/* OpCode(i_call_trace_return) */
+static BeamInstr beam_call_trace_return_[1];
+ErtsCodePtr beam_call_trace_return;
 
 /* The address field of every fun that has no loaded code will point to
  * beam_unloaded_fun[]. The -1 in beam_unloaded_fun[0] will be interpreted
@@ -633,7 +633,7 @@ static void install_bifs(void) {
 
         ep = erts_export_put(entry->module, entry->name, entry->arity);
 
-        ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+        ep->info.u.op = BeamOpCodeAddr(op_i_func_info_IaaI);
         ep->info.mfa.module = entry->module;
         ep->info.mfa.function = entry->name;
         ep->info.mfa.arity = entry->arity;
@@ -696,8 +696,8 @@ init_emulator_finish(void)
     beam_exception_trace_[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
     beam_exception_trace = (ErtsCodePtr)&beam_exception_trace_[0];
 
-    beam_return_time_trace_[0] = BeamOpCodeAddr(op_i_return_time_trace);
-    beam_return_time_trace = (ErtsCodePtr)&beam_return_time_trace_[0];
+    beam_call_trace_return_[0] = BeamOpCodeAddr(op_i_call_trace_return);
+    beam_call_trace_return = (ErtsCodePtr)&beam_call_trace_return_[0];
 
     install_bifs();
 }

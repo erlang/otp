@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2022. All Rights Reserved.
+# Copyright Ericsson AB 2022-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,6 +69,7 @@ my @beam_global_funcs = qw(
     i_bor_guard_shared
     i_bnot_body_shared
     i_bnot_guard_shared
+    i_breakpoint_trampoline_shared
     i_bsl_guard_shared
     i_bsl_body_shared
     i_bsr_guard_shared

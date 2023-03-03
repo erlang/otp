@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -207,8 +207,8 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
 
-    Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
-                            #b_var{}=Var <- Args]),
+    Ds = #{Var => FakeCall#b_set{dst=Var} ||
+             #b_var{}=Var <- Args},
 
     Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
             0 => {incoming, Ts} },
@@ -438,14 +438,14 @@ opt_continue(Linear0, Args, Anno, FuncDb) when FuncDb =/= #{} ->
         #{ Id := #func_info{exported=true} } ->
             %% We can't infer the parameter types of exported functions, but
             %% running the pass again could still help other functions.
-            Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
+            Ts = #{V => any || #b_var{}=V <- Args},
             opt_function(Linear0, Args, Id, Ts, FuncDb)
     end;
 opt_continue(Linear0, Args, Anno, _FuncDb) ->
     %% Module-level optimization is disabled, pass an empty function database
     %% so we only perform local optimizations.
     Id = get_func_id(Anno),
-    Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
+    Ts = #{V => any || #b_var{}=V <- Args},
     {Linear, _} = opt_function(Linear0, Args, Id, Ts, #{}),
     {Linear, #{}}.
 
@@ -491,8 +491,8 @@ do_opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache) ->
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
 
-    Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
-                            #b_var{}=Var <- Args]),
+    Ds = #{Var => FakeCall#b_set{dst=Var} ||
+             #b_var{}=Var <- Args},
 
     Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
             0 => {incoming, Ts} },
@@ -958,12 +958,27 @@ simplify_terminator(#b_switch{arg=Arg0,fail=Fail,list=List0}=Sw0,
         #b_br{}=Br ->
             simplify_terminator(Br, Ts, Ds, Sub)
     end;
-simplify_terminator(#b_ret{arg=Arg}=Ret, Ts, Ds, Sub) ->
+simplify_terminator(#b_ret{arg=Arg,anno=Anno0}=Ret0, Ts, Ds, Sub) ->
     %% Reducing the result of a call to a literal (fairly common for 'ok')
     %% breaks tail call optimization.
-    case Ds of
-        #{ Arg := #b_set{op=call}} -> Ret;
-        #{} -> Ret#b_ret{arg=simplify_arg(Arg, Ts, Sub)}
+    Ret = case Ds of
+              #{ Arg := #b_set{op=call}} -> Ret0;
+              #{} -> Ret0#b_ret{arg=simplify_arg(Arg, Ts, Sub)}
+          end,
+    %% Annotate the terminator with the type it returns, skip the
+    %% annotation if nothing is yet known about the variable. The
+    %% annotation is used by the alias analysis pass.
+    Type = case {Arg, Ts} of
+               {#b_literal{},_} -> concrete_type(Arg, Ts);
+               {_,#{Arg:=_}} -> concrete_type(Arg, Ts);
+               _ -> any
+           end,
+    case Type of
+        any ->
+            Ret;
+        _ ->
+            Anno = Anno0#{ result_type => Type },
+            Ret#b_ret{anno=Anno}
     end.
 
 %%
@@ -1039,7 +1054,12 @@ simplify(#b_set{op=bs_create_bin=Op,dst=Dst,args=Args0,anno=Anno}=I0,
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = I0#b_set{args=Args},
     #t_bitstring{size_unit=Unit} = T = type(Op, Args, Anno, Ts0, Ds0),
-    I = beam_ssa:add_anno(unit, Unit, I1),
+    I2 = case T of
+             #t_bitstring{appendable=true} ->
+                 beam_ssa:add_anno(result_type, T, I1);
+             _ -> I1
+         end,
+    I = beam_ssa:add_anno(unit, Unit, I2),
     Ts = Ts0#{ Dst => T },
     Ds = Ds0#{ Dst => I },
     {I, Ts, Ds};
@@ -2062,10 +2082,23 @@ type({bif,Bif}, Args, _Anno, Ts, _Ds) ->
     end;
 type(bs_create_bin, Args, _Anno, Ts, _Ds) ->
     SizeUnit = bs_size_unit(Args, Ts),
-    #t_bitstring{size_unit=SizeUnit};
+    Appendable = case Args of
+                     [#b_literal{val=private_append}|_] ->
+                         true;
+                     [#b_literal{val=append},_,Var|_] ->
+                         case argument_type(Var, Ts) of
+                             #t_bitstring{appendable=A} -> A;
+                             #t_union{other=#t_bitstring{appendable=A}} -> A;
+                             _ -> false
+                         end;
+                     _ ->
+                         false
+                 end,
+    #t_bitstring{size_unit=SizeUnit,appendable=Appendable};
 type(bs_extract, [Ctx], _Anno, Ts, Ds) ->
-    #b_set{op=bs_match,args=Args} = map_get(Ctx, Ds),
-    bs_match_type(Args, Ts);
+    #b_set{op=bs_match,
+           args=[#b_literal{val=Type}, _OrigCtx | Args]} = map_get(Ctx, Ds),
+    bs_match_type(Type, Args, Ts);
 type(bs_start_match, [_, Src], _Anno, Ts, _Ds) ->
     case beam_types:meet(#t_bs_matchable{}, concrete_type(Src, Ts)) of
         none ->
@@ -2084,16 +2117,21 @@ type(bs_match, [#b_literal{val=binary}, Ctx, _Flags,
     OpType = #t_bs_context{tail_unit=OpUnit},
 
     beam_types:meet(CtxType, OpType);
-type(bs_match, Args, _Anno, Ts, _Ds) ->
-    [_, Ctx | _] = Args,
+type(bs_match, Args0, _Anno, Ts, _Ds) ->
+    [#b_literal{val=Type}, Ctx | Args] = Args0, %Assertion.
+    case bs_match_type(Type, Args, Ts) of
+        none ->
+            none;
+        _ ->
+            %% Matches advance the current position without testing the tail
+            %% unit. We try to retain unit information by taking the GCD of our
+            %% current unit and the increments we know the match will advance
+            %% by.
+            #t_bs_context{tail_unit=CtxUnit} = concrete_type(Ctx, Ts),
+            OpUnit = bs_match_stride(Type, Args, Ts),
 
-    %% Matches advance the current position without testing the tail unit. We
-    %% try to retain unit information by taking the GCD of our current unit and
-    %% the increments we know the match will advance by.
-    #t_bs_context{tail_unit=CtxUnit} = concrete_type(Ctx, Ts),
-    OpUnit = bs_match_stride(Args, Ts),
-
-    #t_bs_context{tail_unit=gcd(OpUnit, CtxUnit)};
+            #t_bs_context{tail_unit=gcd(OpUnit, CtxUnit)}
+    end;
 type(bs_get_tail, [Ctx], _Anno, Ts, _Ds) ->
     #t_bs_context{tail_unit=Unit} = concrete_type(Ctx, Ts),
     #t_bitstring{size_unit=Unit};
@@ -2318,17 +2356,14 @@ bs_size_unit([], _Ts, FixedSize, Unit) ->
 
 %% We seldom know how far a match operation may advance, but we can often tell
 %% which increment it will advance by.
-bs_match_stride([#b_literal{val=Type} | Args], Ts) ->
-    bs_match_stride(Type, Args, Ts).
-
-bs_match_stride(_, [_,_,Size,#b_literal{val=Unit}], Ts) ->
+bs_match_stride(_, [_,Size,#b_literal{val=Unit}], Ts) ->
     case concrete_type(Size, Ts) of
         #t_integer{elements={Sz, Sz}} when is_integer(Sz) ->
             Sz * Unit;
         _ ->
             Unit
     end;
-bs_match_stride(string, [_,#b_literal{val=String}], _) ->
+bs_match_stride(string, [#b_literal{val=String}], _) ->
     bit_size(String);
 bs_match_stride(utf8, _, _) ->
     8;
@@ -2341,38 +2376,50 @@ bs_match_stride(_, _, _) ->
 
 -define(UNICODE_MAX, (16#10FFFF)).
 
-bs_match_type([#b_literal{val=Type}|Args], Ts) ->
-    bs_match_type(Type, Args, Ts).
-
 bs_match_type(binary, Args, _Ts) ->
-    [_,_,_,#b_literal{val=U}] = Args,
+    [_,_,#b_literal{val=U}] = Args,
     #t_bitstring{size_unit=U};
-bs_match_type(float, _, _Ts) ->
+bs_match_type(float, _Args, _Ts) ->
     #t_float{};
 bs_match_type(integer, Args, Ts) ->
-    [_,#b_literal{val=Flags},Size,#b_literal{val=Unit}] = Args,
-    SizeType = beam_types:meet(concrete_type(Size, Ts), #t_integer{}),
-    case SizeType of
-        #t_integer{elements={_,SizeMax}}
-          when is_integer(SizeMax), SizeMax >= 0, SizeMax * Unit < 64 ->
-            NumBits = SizeMax * Unit,
-            Max = (1 bsl NumBits) - 1,
-            case member(unsigned, Flags) of
-                true ->
-                    beam_types:make_integer(0, Max);
-                false ->
-                    Min = -(Max + 1),
-                    beam_types:make_integer(Min, Max)
+    [#b_literal{val=Flags},Size,#b_literal{val=Unit}] = Args,
+    case beam_types:meet(concrete_type(Size, Ts), #t_integer{}) of
+        #t_integer{elements=Bounds} ->
+            case beam_bounds:bounds('*', Bounds, {Unit, Unit}) of
+                {_, MaxBits} when is_integer(MaxBits),
+                                  MaxBits >= 1,
+                                  MaxBits =< 64 ->
+                    case member(unsigned, Flags) of
+                        true ->
+                            Max = (1 bsl MaxBits) - 1,
+                            beam_types:make_integer(0, Max);
+                        false ->
+                            Max = (1 bsl (MaxBits - 1)) - 1,
+                            Min = -(Max + 1),
+                            beam_types:make_integer(Min, Max)
+                    end;
+                {_, 0} ->
+                    beam_types:make_integer(0);
+                _ ->
+                    case member(unsigned, Flags) of
+                        true -> #t_integer{elements={0,'+inf'}};
+                        false -> #t_integer{}
+                    end
             end;
-        _ ->
-            #t_integer{}
+        none ->
+            none
     end;
-bs_match_type(utf8, _, _) ->
+
+bs_match_type(utf8, _Args, _Ts) ->
     beam_types:make_integer(0, ?UNICODE_MAX);
-bs_match_type(utf16, _, _) ->
+bs_match_type(utf16, _Args, _Ts) ->
     beam_types:make_integer(0, ?UNICODE_MAX);
-bs_match_type(utf32, _, _) ->
-    beam_types:make_integer(0, ?UNICODE_MAX).
+bs_match_type(utf32, _Args, _Ts) ->
+    beam_types:make_integer(0, ?UNICODE_MAX);
+bs_match_type(string, _Args, _Ts) ->
+    %% Cannot actually be extracted, but we'll return 'any' to signal that the
+    %% associated `bs_match` may succeed.
+    any.
 
 normalized_types(Values, Ts) ->
     [normalized_type(Val, Ts) || Val <- Values].
@@ -2508,11 +2555,13 @@ infer_relop(Op, [Arg1,Arg2], Types0) ->
 infer_relop(Op, [#t_integer{elements=R1},
                  #t_integer{elements=R2}]) ->
     case beam_bounds:infer_relop_types(Op, R1, R2) of
-        any ->
-            any;
         {NewR1,NewR2} ->
             {#t_integer{elements=NewR1},
-             #t_integer{elements=NewR2}}
+             #t_integer{elements=NewR2}};
+        none ->
+            {none, none};
+        any ->
+            any
     end;
 infer_relop(Op0, [Type1,Type2]) ->
     Op = case Op0 of
@@ -2530,11 +2579,13 @@ infer_relop(Op0, [Type1,Type2]) ->
         {R1,R2} ->
             %% Both operands are numeric types.
             case beam_bounds:infer_relop_types(Op, R1, R2) of
-                any ->
-                    any;
                 {NewR1,NewR2} ->
                     {#t_number{elements=NewR1},
-                     #t_number{elements=NewR2}}
+                     #t_number{elements=NewR2}};
+                none ->
+                    {none, none};
+                any ->
+                    any
             end
     end.
 
@@ -2704,15 +2755,6 @@ infer_success_type({bif,Op}, Args, Ts, _Ds) ->
 infer_success_type(call, [#b_var{}=Fun|Args], _Ts, _Ds) ->
     T = {Fun, #t_fun{arity=length(Args)}},
     {[T], []};
-infer_success_type(call, [#b_remote{mod=#b_literal{val=Mod},
-                                    name=#b_literal{val=Name}}|Args],
-                   Ts, _Ds) ->
-    ArgTypes = concrete_types(Args, Ts),
-
-    {_, PosTypes0, _CanSubtract} = beam_call_types:types(Mod, Name, ArgTypes),
-    PosTypes = zip(Args, PosTypes0),
-
-    {PosTypes, []};
 infer_success_type(bs_start_match, [_, #b_var{}=Src], _Ts, _Ds) ->
     T = {Src,#t_bs_matchable{}},
     {[T], [T]};

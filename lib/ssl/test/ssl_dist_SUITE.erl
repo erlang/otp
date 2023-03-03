@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(ssl_dist_SUITE).
+-feature(maybe_expr, enable).
 
 -behaviour(ct_suite).
 
@@ -152,26 +153,39 @@ init_per_suite(Config0) ->
 end_per_suite(_Config) ->
     application:stop(crypto).
 
-init_per_testcase(Case, Config)
+
+init_per_testcase(Case, Config) ->
+    try init_per_tc(Case, Config)
+    catch
+        Class : Reason : Stacktrace ->
+            {fail, {Class, Reason, Stacktrace}}
+    end.
+
+init_per_tc(embedded, Config) ->
+    LibDir = code:lib_dir(),
+    case
+        lists:all(
+          fun ({App,_,VSN}) ->
+                  filelib:is_dir(
+                    filename:join(
+                      LibDir, atom_to_list(App)++"-"++VSN))
+          end, application_controller:which_applications())
+    of
+        false ->
+            {skip, "Must be run from a real Erlang installation"};
+        true ->
+            Config
+    end;
+init_per_tc(Case, Config)
   when Case =:= ktls_verify, is_list(Config) ->
-    %% We need a connected socket
-    {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
-    {ok, Port} = inet:port(Listen),
-    {ok, Client} =
-        gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
-    {ok, Server} = gen_tcp:accept(Listen),
-    try ktls_encrypt_decrypt(Client, Server, false) of
+    case ktls_encrypt_decrypt(false) of
         ok ->
             common_init(Case, Config);
-        Other ->
-            Other
-    after
-        _ = gen_tcp:close(Server),
-        _ = gen_tcp:close(Client),
-        _ = gen_tcp:close(Listen)
+        Skip ->
+            Skip
     end;
 %%
-init_per_testcase(Case, Config) when is_list(Config) ->
+init_per_tc(Case, Config) when is_list(Config) ->
     common_init(Case, Config).
 
 common_init(Case, Config) ->
@@ -262,109 +276,70 @@ embedded(Config) when is_list(Config) ->
 ktls_encrypt_decrypt() ->
     [{doc,"Test that kTLS encryption offloading works"}].
 ktls_encrypt_decrypt(Config) when is_list(Config) ->
+    ktls_encrypt_decrypt(true);
+%%
+%%  ktls_encrypt_decrypt(false) is used by init_per_tc(ktls_verify, _)
+%%
+ktls_encrypt_decrypt(Test) when is_boolean(Test) ->
+    %%
     %% We need a connected socket
     {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port} = inet:port(Listen),
     {ok, Client} =
         gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
     {ok, Server} = gen_tcp:accept(Listen),
-    try ktls_encrypt_decrypt(Client, Server, true)
+    try
+        maybe
+            {ok, OS} ?= ssl_test_lib:ktls_os(),
+            ok ?= ssl_test_lib:ktls_set_ulp(Client, OS),
+            ok ?= ssl_test_lib:ktls_set_cipher(Client, OS, tx, 11),
+            case Test of
+                false ->
+                    ok;
+                true ->
+                    ktls_encrypt_decrypt(Client, Server)
+            end
+        else
+            {error, Reason} ->
+                {skip, Reason}
+        end
     after
         _ = gen_tcp:close(Server),
         _ = gen_tcp:close(Client),
         _ = gen_tcp:close(Listen)
     end.
 
-ktls_encrypt_decrypt(Client, Server, Test) ->
-    Done = make_ref(),
-    try
-        case {os:type(), os:version()} of
-            {{unix,linux}, OsVersion} when {5,2,0} =< OsVersion ->
-                ok;
-            OS ->
-                throw({Done, skip, {os,OS}})
-        end,
-        %%
-        %% Test and verify setup of Client TX encryption
-        %%
-        SOL_TCP = 6, TCP_ULP = 31,
-        TLS_VER    = ((3 bsl 8) bor 4),
-        TLS_CIPHER = 52,
-        TLS_SALT   = <<1,1,1,1>>,
-        TLS_IV     = <<2,2,2,2,2,2,2,2>>,
-        TLS_KEY    =
-            <<3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-              3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3>>,
-        TLS_crypto_info =
-            <<TLS_VER:16/native, TLS_CIPHER:16/native,
-              TLS_IV/binary, TLS_KEY/binary, TLS_SALT/binary,
-              0:64/native>>,
-        SOL_TLS = 282, TLS_TX = 1, TLS_RX = 2,
-        %%
-        inet:setopts(Client, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}])
-            =:= ok
-            orelse
-            throw({Done, skip, set_ulp}),
-        (GetULP =
-             inet:getopts(Client, [{raw, SOL_TCP, TCP_ULP, 4}]))
-            =:= {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]}
-            orelse
-            throw({Done, skip, {get_ulp, GetULP}}),
-        %%
-        RawOptTX = {raw, SOL_TLS, TLS_TX, TLS_crypto_info},
-        RawOptRX = {raw, SOL_TLS, TLS_RX, TLS_crypto_info},
-        (SetoptsResult = inet:setopts(Client, [RawOptTX])) =:= ok
-            orelse throw({Done, skip, {setopts_error,SetoptsResult}}),
-        (GetCryptoInfo =
-             inet:getopts(
-               Client,
-               [{raw, SOL_TLS, TLS_TX, byte_size(TLS_crypto_info)}]))
-            =:= {ok, [RawOptTX]}
-            orelse throw({Done, skip, {get_crypto_info,GetCryptoInfo}}),
-        %%
-        %%
-        %%
-        Test orelse throw(Done),
-        %%
-        %%
-        %%
-        %% Test to transfer encrypted data,
-        %% and also to not activate RX encryption and transfer data.
-        %%
-        Data = "The quick brown fox jumps over a lazy dog 0123456789",
-        %% Send encrypted from Client before Server has activated decryption
-        ok = gen_tcp:send(Client, Data),
-        receive after 500 -> ok end, % Give time for data to arrive
-        %%
-        %% Activate Server TX encryption
-        ok = inet:setopts(Server, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
-        ok = inet:setopts(Server, [RawOptTX]),
-        %% Send encrypted from Server
-        ok = gen_tcp:send(Server, Data),
-        %% Receive encrypted data without decryption
-        case gen_tcp:recv(Client, 0, 1000) of
-            {ok, Data} ->
-                ct:fail(recv_cleartext_data);
-            {ok, RandomData} when length(Data) < length(RandomData) ->
-                %% A TLS block should be longer than Data
-                ok
-        end,
-        %% Finally, activate Server decryption
-        ok = inet:setopts(Server, [RawOptRX]),
-        %% Receive and decrypt the data that was first sent
-        {ok, Data} = gen_tcp:recv(Server, 0, 1000),
-        ok
-    catch
-        Done ->
-            ok;
-        {Done, skip,SkipReason} ->
-            {skip,
-             lists:flatten(
-               io_lib:format("kTLS not supported: ~p", [SkipReason]))}
-    end.
-
-
-
+ktls_encrypt_decrypt(Client, Server) ->
+    %%
+    %% Test to transfer encrypted data,
+    %% and also to not activate RX encryption and transfer data.
+    %%
+    Data = "The quick brown fox jumps over a lazy dog 0123456789",
+    %%
+    %% Send encrypted from Client before Server has activated decryption
+    ok = gen_tcp:send(Client, Data),
+    receive after 500 -> ok end, % Give time for data to arrive
+    %%
+    %% Activate Server TX encryption
+    {ok, OS} = ssl_test_lib:ktls_os(),
+    ok = ssl_test_lib:ktls_set_ulp(Server, OS),
+    ok = ssl_test_lib:ktls_set_cipher(Server, OS, tx, 17),
+    %% Send encrypted from Server
+    ok = gen_tcp:send(Server, Data),
+    %% Receive encrypted data without decryption
+    case gen_tcp:recv(Client, 0, 1000) of
+        {ok, Data} ->
+            ct:fail(recv_cleartext_data);
+        {ok, RandomData} when length(Data) < length(RandomData) ->
+            ct:log("Received ~p", [RandomData]),
+            %% A TLS block should be longer than Data
+            ok
+    end,
+    %% Finally, activate Server decryption
+    ok = ssl_test_lib:ktls_set_cipher(Server, OS, rx, 11),
+    %% Receive and decrypt the data that was first sent
+    {ok, Data} = gen_tcp:recv(Server, 0, 1000),
+    ok.
 
 %%--------------------------------------------------------------------
 ktls_verify() ->
@@ -421,16 +396,20 @@ payload(Config) when is_list(Config) ->
 dist_port_overload() ->
     [{doc, "Test that TLS distribution connections can be accepted concurrently"}].
 dist_port_overload(Config) when is_list(Config) ->
+    (RequiredConcurrency = 2) =< erlang:system_info(schedulers_online)
+        orelse
+        throw({skip, "Not enough schedulers online"}),
+    %%
     %% Start a node, and get the port number it's listening on.
     #node_handle{nodename = NodeName} = NH1 = start_ssl_node(Config),
     [Name, Host] = string:lexemes(atom_to_list(NodeName), "@"),
     {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
     {Name, Port} = lists:keyfind(Name, 1, NodesPorts),
-    %% Run 4 connections concurrently. When TLS handshake is not concurrent,
-    %%  and with default net_setuptime of 7 seconds, only one connection per 7
-    %%  seconds is closed from server side. With concurrent accept, all 7 will
-    %%  be dropped in 7 seconds
-    RequiredConcurrency = 4,
+    %% Run RequiredConcurrency connections concurrently.
+    %% When TLS handshake is not concurrent,
+    %% and with default net_setuptime of 7 seconds,
+    %% only one connection per 7 seconds is closed from server side.
+    %% With concurrent accept they will be closed in parallel.
     Started = [connect(self(), Host, Port) || _ <- lists:seq(1, RequiredConcurrency)],
     %% give 10 seconds (more than 7, less than 2x7 seconds)
     Responded = barrier(RequiredConcurrency, [], erlang:system_time(millisecond) + 10000),
@@ -1036,18 +1015,18 @@ setup_certs(Config) ->
     DerConfig =
         public_key:pkix_test_data(
           #{server_chain =>
-                #{root => [rsa_root_key(1)],
+                #{root => [rsa_root_key(1), {digest,sha256}],
                   intermediates => [rsa_intermediate_conf(2)],
-                  peer => [rsa_peer_key(3), Extensions]},
+                  peer => [rsa_peer_key(3),  {digest, sha256}, Extensions]},
             client_chain =>
-                #{root => [rsa_root_key(1)],
+                #{root => [rsa_root_key(1),  {digest, sha256}],
                   intermediates => [rsa_intermediate_conf(5)],
-                  peer => [rsa_peer_key(6), Extensions]}}),
+                  peer => [rsa_peer_key(6), {digest, sha256}, Extensions]}}),
     ClientBase = filename:join([PrivDir, "rsa"]),
     ServerBase =  filename:join([PrivDir, "rsa"]),
     _  = x509_test:gen_pem_config_files(DerConfig, ClientBase, ServerBase).
 
-setup_tls_opts(Config) ->    
+setup_tls_opts(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     SC = filename:join([PrivDir, "rsa_server_cert.pem"]),
     SK = filename:join([PrivDir, "rsa_server_key.pem"]),
@@ -1102,6 +1081,7 @@ add_ssl_opts_config(Config) ->
 	{ok, _} = file:read_file_info(KrnlDir),
 	SSL_VSN = get_app_vsn(ssl),
 	VSN_CRYPTO = get_app_vsn(crypto),
+	VSN_ASN1 = get_app_vsn(asn1),
 	VSN_PKEY = get_app_vsn(public_key),
 
 	SslDir = filename:join([LibDir, "ssl-" ++ SSL_VSN]),
@@ -1116,6 +1096,7 @@ add_ssl_opts_config(Config) ->
 		  " [{kernel, \"~s\"},~n"
 		  "  {stdlib, \"~s\"},~n"
 		  "  {crypto, \"~s\"},~n"
+		  "  {asn1, \"~s\"},~n"
 		  "  {public_key, \"~s\"},~n"
 		  "  {ssl, \"~s\"}]}.~n",
 		  [case catch erlang:system_info(otp_release) of
@@ -1126,13 +1107,23 @@ add_ssl_opts_config(Config) ->
 		   KRNL_VSN,
 		   STDL_VSN,
 		   VSN_CRYPTO,
+                   VSN_ASN1,
 		   VSN_PKEY,
 		   SSL_VSN]),
 	ok = file:close(RelFile),
-	ok = systools:make_script(Script, []),
+        ct:pal("Bootscript: ~p", [Script]),
+	case systools:make_script(Script, []) of
+            ok ->
+                ok;
+            NotOk ->
+                ct:pal("Bootscript problem: ~p", [NotOk]),
+                erlang:error(NotOk)
+        end,
 	[{app_opts, "-boot " ++ Script} | Config]
     catch
-	_:_ ->
+	Class : Reason : Stacktrace ->
+            ct:pal("Exception while generating bootscript:~n~p",
+                   [{Class, Reason, Stacktrace}]),
 	    [{app_opts, "-pa \"" ++ filename:dirname(code:which(ssl))++"\""}
 	     | add_comment_config(
 		 "Bootscript wasn't used since the test wasn't run on an "
@@ -1233,7 +1224,7 @@ rsa_peer_key(N) ->
     {key, ssl_test_lib:hardcode_rsa_key(N)}.
 
 rsa_intermediate_conf(N) ->
-    [{key, ssl_test_lib:hardcode_rsa_key(N)}].
+    [{key, ssl_test_lib:hardcode_rsa_key(N)}, {digest, sha256}].
 
 
 maybe_quote_tuple_list(String) ->

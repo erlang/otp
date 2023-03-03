@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -497,17 +497,21 @@ ls() ->
       "\"test\" directory. We assume that ls never fails, since "
       "it's output is meant to be read by humans. "}].
 ls(Config0) ->
-    Config = set_state([reset,{mkdir,"test"}], Config0),
+    TestFileName = "testing-file",
+    Config = set_state([reset,{mkdir,"test"},{mkfile, TestFileName, TestFileName}], Config0),
     Pid = proplists:get_value(ftp, Config),
     {ok, _R1} = ftp:ls(Pid),
     {ok, _R2} = ftp:ls(Pid, id2ftp("test",Config)),
+    {ok, _R3} = ftp:nlist(Pid, id2ftp(TestFileName, Config)),
+    {ok, []} = ftp:nlist(Pid, id2ftp("non-existing-folder",Config)),
+    {ok, []} = ftp:nlist(Pid, id2ftp("test/non-existing-file",Config)),
     %% neither nlist nor ls operates on a directory
     %% they operate on a pathname, which *can* be a
     %% directory, but can also be a filename or a group
     %% of files (including wildcards).
     case proplists:get_value(wildcard_support, Config) of
         true ->
-            {ok, _R3} = ftp:ls(Pid, id2ftp("te*",Config));
+            {ok, _R4} = ftp:ls(Pid, id2ftp("te*",Config));
         _ ->
             ok
     end.
@@ -519,17 +523,21 @@ nlist() ->
                "operating systems. On some it is an error to have an empty "
                "directory."}].
 nlist(Config0) ->
-    Config = set_state([reset,{mkdir,"test"}], Config0),
+    TestFileName = "testing-file",
+    Config = set_state([reset,{mkdir,"test"},{mkfile, TestFileName, TestFileName}], Config0),
     Pid = proplists:get_value(ftp, Config),
     {ok, _R1} = ftp:nlist(Pid),
     {ok, _R2} = ftp:nlist(Pid, id2ftp("test",Config)),
+    {ok, _R3} = ftp:nlist(Pid, id2ftp(TestFileName, Config)),
+    {ok, []} = ftp:nlist(Pid, id2ftp("non-existing-folder",Config)),
+    {ok, []} = ftp:nlist(Pid, id2ftp("test/non-existing-file",Config)),
     %% neither nlist nor ls operates on a directory
     %% they operate on a pathname, which *can* be a
     %% directory, but can also be a filename or a group
     %% of files (including wildcards).
     case proplists:get_value(wildcard_support, Config) of
         true ->
-            {ok, _R3} = ftp:nlist(Pid, id2ftp("te*",Config));
+            {ok, _R4} = ftp:nlist(Pid, id2ftp("te*",Config));
         _ ->
             ok
     end.
@@ -1061,7 +1069,7 @@ error_ehost(_Config) ->
 %%%----------------------------------------------------------------
 error_datafail() ->
     [{doc, "Test that failure to open data channel captures "
-     "error emitted on ctrl chanenel"}].
+     "error emitted on ctrl channel"}].
 
 error_datafail(Config) ->
     Self = self(),
@@ -1070,10 +1078,10 @@ error_datafail(Config) ->
     % and erlang:group_leader/2 does not work under ct
     dbg:start(),
     dbg:tracer(process, {fun
-        ({trace,P,call,{ftp,verbose,[M,_,'receive']}}, ok) when P == Pid -> Self ! M, ok;
+        ({trace,P,call,{ftp_internal,verbose,[M,_,'receive']}}, ok) when P == Pid -> Self ! M, ok;
         (_, ok) -> ok
     end, ok}),
-    dbg:tpl(ftp, verbose, []),
+    dbg:tpl(ftp_internal, verbose, []),
     dbg:p(Pid, [call]),
     {error,_} = ftp:ls(Pid),
     dbg:stop_clear(),

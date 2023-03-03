@@ -989,9 +989,15 @@ pp_map(Node, Ctxt, Cont) ->
 	       prettypr:beside(Cont(Arg,Ctxt),
 			       prettypr:floating(prettypr:text("#{")))
 	   end,
+  MapEs = case cerl:is_literal(Node) of
+            true ->
+              lists:sort(cerl:map_es(Node));
+            false ->
+              cerl:map_es(Node)
+          end,
   prettypr:beside(
     Before, prettypr:beside(
-	      prettypr:par(seq(cerl:map_es(Node),
+	      prettypr:par(seq(MapEs,
 			       prettypr:floating(prettypr:text(",")),
 			       Ctxt, Cont)),
 	      prettypr:floating(prettypr:text("}")))).
@@ -1103,7 +1109,7 @@ refold_concrete_pat(Val) ->
       %% N.B.: The key in a map pattern is an expression, *not* a pattern.
       label(cerl:c_map_pattern([cerl:c_map_pair_exact(cerl:abstract(K),
 						      refold_concrete_pat(V))
-				|| {K, V} <- maps:to_list(M)]));
+				|| K := V <- M]));
     _ ->
       cerl:abstract(Val)
   end.

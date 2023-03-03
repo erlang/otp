@@ -1120,6 +1120,15 @@ public:
   inline uint32_t redZoneSize() const noexcept { return _redZoneSize; }
   //! Returns the size of 'SpillZone'.
   inline uint32_t spillZoneSize() const noexcept { return _spillZoneSize; }
+
+  //! Resets the size of red zone, which would disable it entirely.
+  //!
+  //! \note Red zone is currently only used by an AMD64 SystemV calling convention, which expects 128
+  //! bytes of stack to be accessible below stack pointer. These bytes are then accessible within the
+  //! function and Compiler can use this space as a spill area. However, sometimes it's better to
+  //! disallow the use of red zone in case that a user wants to use this stack for a custom purpose.
+  inline void resetRedZone() noexcept { _redZoneSize = 0; }
+
   //! Returns natural stack alignment (guaranteed stack alignment upon entry).
   inline uint32_t naturalStackAlignment() const noexcept { return _naturalStackAlignment; }
   //! Returns natural stack alignment (guaranteed stack alignment upon entry).
@@ -1127,7 +1136,7 @@ public:
 
   //! Tests whether the callee must adjust SP before returning (X86-STDCALL only)
   inline bool hasCalleeStackCleanup() const noexcept { return _calleeStackCleanup != 0; }
-  //! Returns home many bytes of the stack the the callee must adjust before returning (X86-STDCALL only)
+  //! Returns home many bytes of the stack the callee must adjust before returning (X86-STDCALL only)
   inline uint32_t calleeStackCleanup() const noexcept { return _calleeStackCleanup; }
 
   //! Returns call stack alignment.

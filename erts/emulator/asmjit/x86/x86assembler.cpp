@@ -493,11 +493,11 @@ static ASMJIT_FORCE_INLINE uint32_t x86GetMovAbsInstSize64Bit(uint32_t regSize, 
 static ASMJIT_FORCE_INLINE bool x86ShouldUseMovabs(Assembler* self, X86BufferWriter& writer, uint32_t regSize, InstOptions options, const Mem& rmRel) noexcept {
   if (self->is32Bit()) {
     // There is no relative addressing, just decide whether to use MOV encoded with MOD R/M or absolute.
-    return !Support::test(options, InstOptions::kX86_ModMR | InstOptions::kX86_ModMR);
+    return !Support::test(options, InstOptions::kX86_ModMR | InstOptions::kX86_ModRM);
   }
   else {
     // If the addressing type is REL or MOD R/M was specified then absolute mov won't be used.
-    if (rmRel.addrType() == Mem::AddrType::kRel || Support::test(options, InstOptions::kX86_ModMR))
+    if (rmRel.addrType() == Mem::AddrType::kRel || Support::test(options, InstOptions::kX86_ModMR | InstOptions::kX86_ModRM))
       return false;
 
     int64_t addrValue = rmRel.offset();
@@ -2259,7 +2259,7 @@ CaseX86PushPop_Gp:
               goto EmitX86OpReg;
             }
             else {
-              // Encode 'xchg eax, eax' by by using a generic path.
+              // Encode 'xchg eax, eax' by using a generic path.
             }
           }
           else if (!Support::test(options, InstOptions::kLongForm)) {
@@ -2716,7 +2716,7 @@ CaseExtRm:
 
     case InstDB::kEncodingExtRm_P:
       if (isign3 == ENC_OPS2(Reg, Reg)) {
-        opcode.add66hIf(Reg::isXmm(o0) | Reg::isXmm(o1));
+        opcode.add66hIf(unsigned(Reg::isXmm(o0)) | unsigned(Reg::isXmm(o1)));
 
         opReg = o0.id();
         rbReg = o1.id();
@@ -2760,7 +2760,7 @@ CaseExtRm:
 
     case InstDB::kEncodingExtRmRi_P:
       if (isign3 == ENC_OPS2(Reg, Reg)) {
-        opcode.add66hIf(Reg::isXmm(o0) | Reg::isXmm(o1));
+        opcode.add66hIf(unsigned(Reg::isXmm(o0)) | unsigned(Reg::isXmm(o1)));
 
         opReg = o0.id();
         rbReg = o1.id();
@@ -2812,7 +2812,7 @@ CaseExtRm:
       immSize = 1;
 
       if (isign3 == ENC_OPS3(Reg, Reg, Imm)) {
-        opcode.add66hIf(Reg::isXmm(o0) | Reg::isXmm(o1));
+        opcode.add66hIf(unsigned(Reg::isXmm(o0)) | unsigned(Reg::isXmm(o1)));
 
         opReg = o0.id();
         rbReg = o1.id();
@@ -3040,7 +3040,7 @@ CaseVexMri:
       goto CaseVexRm;
 
     case InstDB::kEncodingVexRm_Wx:
-      opcode.addWIf(Reg::isGpq(o0) | Reg::isGpq(o1));
+      opcode.addWIf(unsigned(Reg::isGpq(o0)) | unsigned(Reg::isGpq(o1)));
       goto CaseVexRm;
 
     case InstDB::kEncodingVexRm_Lx_Narrow:
@@ -3110,7 +3110,7 @@ CaseVexRm:
     }
 
     case InstDB::kEncodingVexRmi_Wx:
-      opcode.addWIf(Reg::isGpq(o0) | Reg::isGpq(o1));
+      opcode.addWIf(unsigned(Reg::isGpq(o0)) | unsigned(Reg::isGpq(o1)));
       goto CaseVexRmi;
 
     case InstDB::kEncodingVexRmi_Lx:
@@ -3159,7 +3159,7 @@ CaseVexRvm_R:
     }
 
     case InstDB::kEncodingVexRvm_Wx: {
-      opcode.addWIf(Reg::isGpq(o0) | (o2.size() == 8));
+      opcode.addWIf(unsigned(Reg::isGpq(o0)) | unsigned((o2.size() == 8)));
       goto CaseVexRvm;
     }
 
@@ -3261,7 +3261,7 @@ VexRvmi:
     }
 
     case InstDB::kEncodingVexRmv_Wx:
-      opcode.addWIf(Reg::isGpq(o0) | Reg::isGpq(o2));
+      opcode.addWIf(unsigned(Reg::isGpq(o0)) | unsigned(Reg::isGpq(o2)));
       ASMJIT_FALLTHROUGH;
 
     case InstDB::kEncodingVexRmv:
@@ -3614,7 +3614,7 @@ VexRvmi:
       break;
 
     case InstDB::kEncodingVexVm_Wx:
-      opcode.addWIf(Reg::isGpq(o0) | Reg::isGpq(o1));
+      opcode.addWIf(unsigned(Reg::isGpq(o0)) | unsigned(Reg::isGpq(o1)));
       ASMJIT_FALLTHROUGH;
 
     case InstDB::kEncodingVexVm:
@@ -4950,10 +4950,7 @@ EmitDone:
 #endif
   }
 
-  resetExtraReg();
-  resetInstOptions();
-  resetInlineComment();
-
+  resetState();
   writer.done(this);
   return kErrorOk;
 
@@ -4987,9 +4984,7 @@ Failed:
 #ifndef ASMJIT_NO_LOGGING
   return EmitterUtils::logInstructionFailed(this, err, instId, options, o0, o1, o2, opExt);
 #else
-  resetExtraReg();
-  resetInstOptions();
-  resetInlineComment();
+  resetState();
   return reportError(err);
 #endif
 }

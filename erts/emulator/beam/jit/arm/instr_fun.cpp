@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2021-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -407,8 +407,8 @@ void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
         mov_imm(ARG3, Arity.get());
 
         auto target = emit_call_fun(
-                always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
-                masked_types(Func, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN,
+                always_one_of<BeamTypeId::AlwaysBoxed>(Func),
+                masked_types<BeamTypeId::MaybeBoxed>(Func) == BeamTypeId::Fun,
                 Tag.as<ArgAtom>().get() == am_safe);
 
         erlang_call(target);
@@ -428,8 +428,8 @@ void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
         mov_imm(ARG3, Arity.get());
 
         auto target = emit_call_fun(
-                always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
-                masked_types(Func, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN,
+                always_one_of<BeamTypeId::AlwaysBoxed>(Func),
+                masked_types<BeamTypeId::MaybeBoxed>(Func) == BeamTypeId::Fun,
                 Tag.as<ArgAtom>().get() == am_safe);
 
         emit_deallocate(Deallocate);

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1080,16 +1080,10 @@ class BeamModuleAssembler : public BeamAssembler {
 
     BeamGlobalAssembler *ga;
 
-    Label codeHeader;
+    Label code_header;
 
     /* Used by emit to populate the labelToMFA map */
-    Label currLabel;
-
-    /* Special shared fragments that must reside in each module. */
-    Label funcInfo;
-    Label genericBPTramp;
-    Label yieldReturn;
-    Label yieldEnter;
+    Label current_label;
 
     /* The module's on_load function, if any. */
     Label on_load;
@@ -1195,6 +1189,10 @@ class BeamModuleAssembler : public BeamAssembler {
         }
     }
 
+    /* Maps code pointers to thunks that jump to them, letting us treat global
+     * fragments as if they were local. */
+    std::unordered_map<void (*)(), Label> _dispatchTable;
+
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
@@ -1251,31 +1249,55 @@ public:
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
-    int getTypeUnion(const ArgSource &arg) const {
+    const auto &getTypeEntry(const ArgSource &arg) const {
         auto typeIndex =
                 arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
-
         ASSERT(typeIndex < beam->types.count);
-        return beam->types.entries[typeIndex].type_union;
+        return beam->types.entries[typeIndex];
     }
 
-    int getExtendedTypeUnion(const ArgSource &arg) const {
-        if (arg.isLiteral()) {
-            Eterm literal =
-                    beamfile_get_literal(beam, arg.as<ArgLiteral>().get());
-            if (is_binary(literal)) {
-                return BEAM_TYPE_BITSTRING;
-            } else if (is_list(literal)) {
-                return BEAM_TYPE_CONS;
-            } else if (is_tuple(literal)) {
-                return BEAM_TYPE_TUPLE;
-            } else if (is_map(literal)) {
-                return BEAM_TYPE_MAP;
-            } else {
-                return BEAM_TYPE_ANY;
-            }
-        } else {
-            return getTypeUnion(arg);
+    auto getTypeUnion(const ArgSource &arg) const {
+        if (arg.isRegister()) {
+            return static_cast<BeamTypeId>(getTypeEntry(arg).type_union);
+        }
+
+        Eterm constant =
+                arg.isImmed()
+                        ? arg.as<ArgImmed>().get()
+                        : beamfile_get_literal(beam,
+                                               arg.as<ArgLiteral>().get());
+
+        switch (tag_val_def(constant)) {
+        case ATOM_DEF:
+            return BeamTypeId::Atom;
+        case BINARY_DEF:
+            return BeamTypeId::Bitstring;
+        case FLOAT_DEF:
+            return BeamTypeId::Float;
+        case FUN_DEF:
+            return BeamTypeId::Fun;
+        case BIG_DEF:
+        case SMALL_DEF:
+            return BeamTypeId::Integer;
+        case LIST_DEF:
+            return BeamTypeId::Cons;
+        case MAP_DEF:
+            return BeamTypeId::Map;
+        case NIL_DEF:
+            return BeamTypeId::Nil;
+        case EXTERNAL_PID_DEF:
+        case PID_DEF:
+            return BeamTypeId::Pid;
+        case EXTERNAL_PORT_DEF:
+        case PORT_DEF:
+            return BeamTypeId::Port;
+        case EXTERNAL_REF_DEF:
+        case REF_DEF:
+            return BeamTypeId::Reference;
+        case TUPLE_DEF:
+            return BeamTypeId::Tuple;
+        default:
+            ERTS_ASSERT(!"tag_val_def error");
         }
     }
 
@@ -1284,11 +1306,8 @@ protected:
             Sint value = arg.as<ArgSmall>().getSigned();
             return std::make_pair(value, value);
         } else {
-            auto typeIndex =
-                    arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+            const auto &entry = getTypeEntry(arg);
 
-            ASSERT(typeIndex < beam->types.count);
-            const auto &entry = beam->types.entries[typeIndex];
             if (entry.min <= entry.max) {
                 return std::make_pair(entry.min, entry.max);
             } else if (IS_SSMALL(entry.min) && !IS_SSMALL(entry.max)) {
@@ -1302,55 +1321,41 @@ protected:
     }
 
     int getSizeUnit(const ArgSource &arg) const {
-        auto typeIndex =
-                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
-
-        ASSERT(typeIndex < beam->types.count);
-        ASSERT(beam->types.entries[typeIndex].type_union ==
-               BEAM_TYPE_BITSTRING);
-        return beam->types.entries[typeIndex].size_unit;
+        const auto &entry = getTypeEntry(arg);
+        ASSERT(maybe_one_of<BeamTypeId::Bitstring>(arg));
+        return entry.size_unit;
     }
 
     bool hasLowerBound(const ArgSource &arg) const {
-        auto typeIndex =
-                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
-        ASSERT(typeIndex < beam->types.count);
-        const auto &entry = beam->types.entries[typeIndex];
+        const auto &entry = getTypeEntry(arg);
         return IS_SSMALL(entry.min) && !IS_SSMALL(entry.max);
     }
 
     bool hasUpperBound(const ArgSource &arg) const {
-        auto typeIndex =
-                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
-        ASSERT(typeIndex < beam->types.count);
-        const auto &entry = beam->types.entries[typeIndex];
+        const auto &entry = getTypeEntry(arg);
         return !IS_SSMALL(entry.min) && IS_SSMALL(entry.max);
     }
 
     bool always_small(const ArgSource &arg) const {
         if (arg.isSmall()) {
             return true;
+        } else if (!exact_type<BeamTypeId::Integer>(arg)) {
+            return false;
         }
 
-        auto typeIndex =
-                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
-        ASSERT(typeIndex < beam->types.count);
-        const auto &entry = beam->types.entries[typeIndex];
-        return entry.type_union == BEAM_TYPE_INTEGER && entry.min <= entry.max;
+        const auto &entry = getTypeEntry(arg);
+        return entry.min <= entry.max;
     }
 
     bool always_immediate(const ArgSource &arg) const {
-        if (arg.isImmed() || always_small(arg)) {
-            return true;
-        }
-
-        int type_union = getTypeUnion(arg);
-        return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
+        return always_one_of<BeamTypeId::AlwaysImmediate>(arg) ||
+               always_small(arg);
     }
 
     bool always_same_types(const ArgSource &lhs, const ArgSource &rhs) const {
-        int lhs_types = getExtendedTypeUnion(lhs);
-        int rhs_types = getExtendedTypeUnion(rhs);
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto lhs_types = static_cast<integral>(getTypeUnion(lhs));
+        auto rhs_types = static_cast<integral>(getTypeUnion(rhs));
 
         /* We can only be certain that the types are the same when there's
          * one possible type. For example, if one is a number and the other
@@ -1362,41 +1367,69 @@ protected:
         return false;
     }
 
-    bool always_one_of(const ArgSource &arg, int types) const {
-        if (arg.isImmed()) {
-            if (arg.isSmall()) {
-                return !!(types & BEAM_TYPE_INTEGER);
-            } else if (arg.isAtom()) {
-                return !!(types & BEAM_TYPE_ATOM);
-            } else if (arg.isNil()) {
-                return !!(types & BEAM_TYPE_NIL);
-            }
-
-            return false;
-        } else {
-            int type_union = getTypeUnion(arg);
-            return type_union == (type_union & types);
-        }
+    template<BeamTypeId... Types>
+    bool never_one_of(const ArgSource &arg) const {
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto types = static_cast<integral>(BeamTypeIdUnion<Types...>::value());
+        auto type_union = static_cast<integral>(getTypeUnion(arg));
+        return static_cast<BeamTypeId>(type_union & types) == BeamTypeId::None;
     }
 
-    int masked_types(const ArgSource &arg, int mask) const {
-        if (arg.isImmed()) {
-            if (arg.isSmall()) {
-                return mask & BEAM_TYPE_INTEGER;
-            } else if (arg.isAtom()) {
-                return mask & BEAM_TYPE_ATOM;
-            } else if (arg.isNil()) {
-                return mask & BEAM_TYPE_NIL;
-            }
-
-            return BEAM_TYPE_NONE;
-        } else {
-            return getTypeUnion(arg) & mask;
-        }
+    template<BeamTypeId... Types>
+    bool maybe_one_of(const ArgSource &arg) const {
+        return !never_one_of<Types...>(arg);
     }
 
-    bool exact_type(const ArgSource &arg, int type_id) const {
-        return always_one_of(arg, type_id);
+    template<BeamTypeId... Types>
+    bool always_one_of(const ArgSource &arg) const {
+        /* Providing a single type to this function is not an error per se, but
+         * `exact_type` provides a bit more error checking for that use-case,
+         * so we want to encourage its use. */
+        static_assert(!BeamTypeIdUnion<Types...>::is_single_typed(),
+                      "always_one_of expects a union of several primitive "
+                      "types, use exact_type instead");
+
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto types = static_cast<integral>(BeamTypeIdUnion<Types...>::value());
+        auto type_union = static_cast<integral>(getTypeUnion(arg));
+        return type_union == (type_union & types);
+    }
+
+    template<BeamTypeId Type>
+    bool exact_type(const ArgSource &arg) const {
+        /* Rejects `exact_type<BeamTypeId::List>(...)` and similar, as it's
+         * almost always an error to exactly match a union of several types.
+         *
+         * On the off chance that you _do_ need to match a union exactly, use
+         * `masked_types<T>(arg) == T` instead. */
+        static_assert(BeamTypeIdUnion<Type>::is_single_typed(),
+                      "exact_type expects exactly one primitive type, use "
+                      "always_one_of instead");
+
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto type_union = static_cast<integral>(getTypeUnion(arg));
+        return type_union == (type_union & static_cast<integral>(Type));
+    }
+
+    template<BeamTypeId Mask>
+    BeamTypeId masked_types(const ArgSource &arg) const {
+        static_assert((Mask != BeamTypeId::AlwaysBoxed &&
+                       Mask != BeamTypeId::AlwaysImmediate),
+                      "using masked_types with AlwaysBoxed or AlwaysImmediate "
+                      "is almost always an error, use exact_type, "
+                      "maybe_one_of, or never_one_of instead");
+        static_assert((Mask == BeamTypeId::MaybeBoxed ||
+                       Mask == BeamTypeId::MaybeImmediate ||
+                       Mask == BeamTypeId::AlwaysBoxed ||
+                       Mask == BeamTypeId::AlwaysImmediate),
+                      "masked_types expects a mask type like MaybeBoxed or "
+                      "MaybeImmediate, use exact_type, maybe_one_of, or"
+                      "never_one_of instead");
+
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto mask = static_cast<integral>(Mask);
+        auto type_union = static_cast<integral>(getTypeUnion(arg));
+        return static_cast<BeamTypeId>(type_union & mask);
     }
 
     bool is_sum_small_if_args_are_small(const ArgSource &LHS,
@@ -1473,7 +1506,7 @@ protected:
                        const ArgVal &Arg,
                        x86::Gp Src,
                        Distance dist = dLong) {
-        if (always_one_of(Arg, BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Arg)) {
             comment("skipped box test since argument is always boxed");
             return;
         }
@@ -1582,6 +1615,14 @@ protected:
                                  Eterm succ_value);
 
     void emit_cond_to_bool(uint32_t instId, const ArgRegister &Dst);
+    void emit_bif_is_ge_lt(uint32_t instId,
+                           const ArgSource &LHS,
+                           const ArgSource &RHS,
+                           const ArgRegister &Dst);
+    void emit_bif_min_max(uint32_t instId,
+                          const ArgSource &LHS,
+                          const ArgSource &RHS,
+                          const ArgRegister &Dst);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);
@@ -1605,6 +1646,24 @@ protected:
 
     const Label &resolve_beam_label(const ArgLabel &Lbl) const {
         return rawLabels.at(Lbl.get());
+    }
+
+    /* Resolves a shared fragment, creating a trampoline that loads the
+     * appropriate address before jumping there. */
+    const Label &resolve_fragment(void (*fragment)());
+
+    void safe_fragment_call(void (*fragment)()) {
+        emit_assert_redzone_unused();
+        a.call(resolve_fragment(fragment));
+    }
+
+    template<typename FuncPtr>
+    void aligned_call(FuncPtr(*target)) {
+        BeamAssembler::aligned_call(resolve_fragment(target));
+    }
+
+    void aligned_call(Label target) {
+        BeamAssembler::aligned_call(target);
     }
 
     void make_move_patch(x86::Gp to,

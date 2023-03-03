@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -159,12 +159,12 @@ void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
 
     a.bind(not_small);
     {
-        if (masked_types(Src, BEAM_TYPE_FLOAT) == BEAM_TYPE_NONE) {
+        if (never_one_of<BeamTypeId::Float>(Src)) {
             comment("skipped float path since source cannot be a float");
         } else {
             /* If the source is always a number, we can skip the box test when
              * it's not a small. */
-            if (always_one_of(Src, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+            if (always_one_of<BeamTypeId::Number>(Src)) {
                 comment("skipped box test since source is always a number");
             } else {
                 emit_is_boxed(fallback, Src, src.reg);
@@ -222,8 +222,9 @@ void BeamModuleAssembler::emit_i_fnegate(const ArgFRegister &Src,
     auto src = load_source(Src, a64::d0);
     auto dst = init_destination(Dst, a64::d1);
 
+    /* Note that there is no need to check for errors since flipping the sign
+     * of a finite float is guaranteed to produce a finite float. */
     a.fneg(a64::d0, src.reg);
-    fragment_call(ga->get_check_float_error());
     a.mov(dst.reg, a64::d0);
     flush_var(dst);
 }

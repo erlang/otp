@@ -41,7 +41,6 @@ MODULES= \
 	fprof                \
 	cprof                \
 	lcnt                 \
-	instrument           \
 	make		     \
 	tags		     \
 	xref		     \

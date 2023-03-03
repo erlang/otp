@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -349,7 +349,10 @@ init_children(State, StartSpec) ->
         {ok, Children} ->
             case start_children(Children, SupName) of
                 {ok, NChildren} ->
-                    {ok, State#state{children = NChildren}};
+                    %% Static supervisor are not expected to
+                    %% have much work to do so hibernate them
+                    %% to improve memory handling.
+                    {ok, State#state{children = NChildren}, hibernate};
                 {error, NChildren, Reason} ->
                     _ = terminate_children(NChildren, SupName),
                     {stop, {shutdown, Reason}}
@@ -361,6 +364,9 @@ init_children(State, StartSpec) ->
 init_dynamic(State, [StartSpec]) ->
     case check_startspec([StartSpec], State#state.auto_shutdown) of
         {ok, Children} ->
+            %% Simple one for one supervisors are expected to
+            %% have many children coming and going so do not
+            %% hibernate.
 	    {ok, dyn_init(State#state{children = Children})};
         Error ->
             {stop, {start_spec, Error}}

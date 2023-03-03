@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -294,7 +294,7 @@ d(F, Eq, V) ->
         end.
 
 z(B) ->
-    Sz = size(B),
+    Sz = byte_size(B),
     <<0:Sz/unit:8>>.
 
 %% values/1

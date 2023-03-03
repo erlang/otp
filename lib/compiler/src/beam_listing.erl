@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,19 +41,18 @@ module(File, #c_module{}=Core) ->
 module(File, #k_mdef{}=Kern) ->
     %% This is a kernel module.
     io:put_chars(File, v3_kernel_pp:format(Kern));
-    %%io:put_chars(File, io_lib:format("~p~n", [Kern]));
 module(File, #b_module{name=Mod,exports=Exp,attributes=Attr,body=Fs}) ->
     io:format(File, "module ~p.\n", [Mod]),
     io:format(File, "exports ~p.\n", [Exp]),
-    io:format(File, "attributes ~p.\n\n", [Attr]),
+    io:format(File, "attributes ~kp.\n\n", [Attr]),
     PP = [beam_ssa_pp:format_function(F) || F <- Fs],
     io:put_chars(File, lists:join($\n, PP));
 module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
     %% This is output from v3_codegen.
-    io:format(Stream, "{module, ~p}.  %% version = ~w\n",
+    io:format(Stream, "{module, ~kp}.  %% version = ~w\n",
 	      [Mod, beam_opcodes:format_number()]),
     io:format(Stream, "\n{exports, ~p}.\n", [Exp]),
-    io:format(Stream, "\n{attributes, ~p}.\n", [Attr]),
+    io:format(Stream, "\n{attributes, ~kp}.\n", [Attr]),
     io:format(Stream, "\n{labels, ~p}.\n", [NumLabels]),
     Lbl2Fun = foldl(fun({function,Name,Arity,Entry,_}, Map) ->
                             Map#{ Entry => {Name,Arity} }
@@ -66,7 +65,7 @@ module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
       end, Code);
 module(Stream, [_|_]=Fs) ->
     %% Form-based abstract format.
-    foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Fs).
+    foreach(fun (F) -> io:format(Stream, "~kp.\n", [F]) end, Fs).
 
 format_asm([{label,L}|Is], Lbl2Fun) ->
     [io_lib:format("  {label,~p}.\n", [L])|format_asm(Is, Lbl2Fun)];
@@ -75,7 +74,7 @@ format_asm([I={Call,_,L}|Is], Lbl2Fun) when Call =:= call; Call =:= call_only ->
 format_asm([I={call_last,_,L,_}|Is], Lbl2Fun) ->
     format_asm_call(L, I, Is, Lbl2Fun);
 format_asm([I|Is], Lbl2Fun) ->
-    [io_lib:format("    ~p", [I]),".\n"|format_asm(Is, Lbl2Fun)];
+    [io_lib:format("    ~kp", [I]),".\n"|format_asm(Is, Lbl2Fun)];
 format_asm([], _) -> [].
 
 format_asm_call({f,L}, I, Is, Lbl2Fun) ->

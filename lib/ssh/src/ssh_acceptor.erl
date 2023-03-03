@@ -93,7 +93,7 @@ acceptor_init(Parent, SystemSup,
                             Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
                             acceptor_loop(Port, Address, Opts1, NewLSock, AcceptTimeout, SystemSup);
                         {error,Error} ->
-                            proc_lib:init_ack(Parent, {error,Error})
+                            proc_lib:init_fail(Parent, {error,Error}, {exit, normal})
                     end
             end;
 
@@ -104,7 +104,7 @@ acceptor_init(Parent, SystemSup,
                     proc_lib:init_ack(Parent, {ok, self()}),
                     acceptor_loop(Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
                 {error,Error} ->
-                    proc_lib:init_ack(Parent, {error,Error})
+                    proc_lib:init_fail(Parent, {error,Error}, {exit, normal})
             end
     end.
 

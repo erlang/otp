@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -183,10 +183,10 @@ cipher(?AES_CBC, CipherState, Mac, Fragment, Version) ->
 		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment, Version).
 
 aead_encrypt(Type, Key, Nonce, Fragment, AdditionalData, TagLen) ->
-    crypto:crypto_one_time_aead(aead_type(Type,size(Key)), Key, Nonce, Fragment, AdditionalData, TagLen, true).
+    crypto:crypto_one_time_aead(aead_type(Type,byte_size(Key)), Key, Nonce, Fragment, AdditionalData, TagLen, true).
 
 aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AdditionalData) ->
-    crypto:crypto_one_time_aead(aead_type(Type,size(Key)), Key, Nonce, CipherText, AdditionalData, CipherTag, false).
+    crypto:crypto_one_time_aead(aead_type(Type,byte_size(Key)), Key, Nonce, CipherText, AdditionalData, CipherTag, false).
 
 aead_type(?AES_GCM, 16) ->
     aes_128_gcm;

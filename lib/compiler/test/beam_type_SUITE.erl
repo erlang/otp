@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
-         not_equal/1,infer_relops/1,binary_unit/1]).
+         not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -70,7 +70,8 @@ groups() ->
        min_max_mixed_types,
        not_equal,
        infer_relops,
-       binary_unit
+       binary_unit,
+       premature_concretization
       ]}].
 
 init_per_suite(Config) ->
@@ -679,6 +680,9 @@ tuple(_Config) ->
     {'EXIT',{function_clause,_}} = catch gh_6458(id({42})),
     {'EXIT',{function_clause,_}} = catch gh_6458(id(a)),
 
+    {'EXIT',{badarg,_}} = catch gh_6927(id({a,b})),
+    {'EXIT',{badarg,_}} = catch gh_6927(id([])),
+
     ok.
 
 do_tuple() ->
@@ -709,6 +713,15 @@ gh_6458({X}) when X; (X orelse false) ->
 
 gh_6458() ->
     true.
+
+gh_6927(X) ->
+    %% beam_validator would complain because beam_call_types:will_succeed/3
+    %% said `maybe`, but beam_call_types:types/3 returned the type `none`.
+    element(42,
+            case X of
+                {_,_} -> X;
+                _ -> ok
+            end).
 
 -record(x, {a}).
 
@@ -1278,6 +1291,8 @@ infer_relops(_Config) ->
     {'EXIT',{badarith,_}} = catch infer_relops_1(),
     {'EXIT',{badarith,_}} = catch infer_relops_2(),
     {'EXIT',{badarith,_}} = catch infer_relops_3(id(0)),
+    infer_relops_4(),
+
     ok.
 
 %% GH-6568: Type inference for relational operations returned erroneous results
@@ -1297,6 +1312,18 @@ infer_relops_3(X) ->
             ]) andalso ok
     >>.
 
+infer_relops_4() ->
+    [
+     ok
+     || <<X>> <= <<>>,
+        <<Y:X>> <= <<>>,
+        0 > Y,
+        [
+         Y
+         || _ <- []
+        ]
+    ].
+
 %% GH-6593: the type pass would correctly determine that the tail unit of
 %% <<0:integer/8,I:integer/8>> was 16, but would fail to see that after
 %% optimizing it to <<"\0",I:integer/8>>
@@ -1313,6 +1340,28 @@ binary_unit_1() ->
         I = hd([Y || Y <- X, _ <- X, (Foo >= ok)]),
         <<0, I>>
     end.
+
+%% ERIERL-918: A call to a local function (in this case `pm_concretization_3`)
+%% forced the extracted type of `Tagged` to be concretized before we checked
+%% `Status`, passing an unknown type to `pm_concretization_4`.
+premature_concretization(_Config) ->
+    ok = pm_concretization_1(id(tagged), id({tagged, foo})),
+    error = pm_concretization_1(id(flurb), id({tagged, foo})),
+    ok.
+
+pm_concretization_1(Frobnitz, Tagged) ->
+    {Status, NewTagged} = pm_concretization_2(Frobnitz, Tagged),
+    pm_concretization_3(NewTagged),
+    case Status of
+        ok -> pm_concretization_4(NewTagged);
+        error -> error
+    end.
+
+pm_concretization_2(tagged, {tagged, _Nonsense}=T) -> {ok, T};
+pm_concretization_2(_, Tagged) -> {error, Tagged}.
+
+pm_concretization_3(_) -> ok.
+pm_concretization_4(_) -> ok.
 
 id(I) ->
     I.

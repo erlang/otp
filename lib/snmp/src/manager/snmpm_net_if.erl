@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -814,7 +814,7 @@ maybe_handle_recv_msg_mt(
     
 
 handle_recv_msg(Domain, Addr, Bytes, #state{server = Pid})
-  when is_binary(Bytes) andalso (size(Bytes) =:= 0) ->
+  when is_binary(Bytes) andalso (byte_size(Bytes) =:= 0) ->
     Pid ! {snmp_error, {empty_message, Domain, Addr}, Domain, Addr};
 %%
 handle_recv_msg(

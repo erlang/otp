@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ opt_writable(Bs0, L, Blk, Blks, ParamInfo, Count0, Acc0) ->
                        last=CallLast}}|_]} ->
             ensure_not_match_context(Call, ParamInfo),
 
-            ArgTypes = maps:from_list([{Arg,{arg,Arg}} || Arg <- Args]),
+            ArgTypes = #{Arg => {arg,Arg} || Arg <- Args},
             Bs = maps:merge(ArgTypes, Bs0),
             Result = map_get(Dst, call_size_func(Call, Bs)),
             {Expr,Annos} = make_expr_tree(Result),

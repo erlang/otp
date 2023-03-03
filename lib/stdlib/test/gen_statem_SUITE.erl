@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, state_enter, event_order,
+     shutdown, loop_start_fail, stop_and_reply, state_enter, event_order,
      state_timeout, timeout_cancel_and_update,
      event_types, generic_timers, code_change,
      {group, sys},
@@ -61,7 +61,7 @@ groups() ->
      {format_log, [], tcs(format_log)}].
 
 tcs(start) ->
-    [start1, start2, start3, start4, start5, start6, start7,
+    [start1, start2, start3, start4, start5a, start5b, start6, start7,
      start8, start9, start10, start11, start12, next_events];
 tcs(stop) ->
     [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10];
@@ -210,10 +210,20 @@ start4(Config) ->
     ok = verify_empty_msgq().
 
 %% anonymous with stop
-start5(Config) ->
+start5a(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     {error,stopped} = gen_statem:start(?MODULE, start_arg(Config, stop), []),
+
+    process_flag(trap_exit, OldFl),
+    ok = verify_empty_msgq().
+
+%% anonymous with shutdown
+start5b(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    {error, foobar} =
+        gen_statem:start(?MODULE, start_arg(Config, {error, foobar}), []),
 
     process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
@@ -674,6 +684,53 @@ shutdown(Config) ->
     after 500 ->
 	    ok
     end.
+
+
+loop_start_fail(Config) ->
+    _ = process_flag(trap_exit, true),
+    loop_start_fail(
+      Config,
+      [{start, []}, {start, [link]},
+       {start_link, []},
+       {start_monitor, [link]}, {start_monitor, []}]).
+
+loop_start_fail(_Config, []) ->
+    ok;
+loop_start_fail(Config, [{Start, Opts} | Start_Opts]) ->
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, {stop, failed_to_start}}}, Opts,
+      fun ({error, failed_to_start}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, ignore}}, Opts,
+      fun (ignore) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, 4711}}, Opts,
+      fun ({error, {bad_return_from_init, 4711}}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {crash, error, bailout}}, Opts,
+      fun ({error, bailout}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {crash, exit, bailout}}, Opts,
+      fun ({error, bailout}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {wait, 1000, void}}, [{timeout, 200} | Opts],
+      fun ({error, timeout}) -> ok end),
+    loop_start_fail(Config, Start_Opts).
+
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun) ->
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, 5).
+%%
+loop_start_fail(_GenStartFun, _Arg, _Opts, _ValidateFun, 0) ->
+    ok;
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N) ->
+    ok = ValidateFun(GenStartFun(?MODULE, Arg, Opts)),
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N - 1).
 
 
 
@@ -2753,25 +2810,37 @@ start_arg(Config, Arg) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(ignore) ->
+    io:format("init(ignore)~n", []),
     ignore;
 init(stop) ->
+    io:format("init(stop)~n", []),
     {stop,stopped};
+init({error, Reason}) ->
+    io:format("init(error) -> Reason: ~p~n", [Reason]),
+    {error, Reason};
 init(stop_shutdown) ->
+    io:format("init(stop_shutdown)~n", []),
     {stop,shutdown};
 init(sleep) ->
+    io:format("init(sleep)~n", []),
     ct:sleep(1000),
     init_sup({ok,idle,data});
 init(hiber) ->
+    io:format("init(hiber)~n", []),
     init_sup({ok,hiber_idle,[]});
 init(hiber_now) ->
+    io:format("init(hiber_now)~n", []),
     init_sup({ok,hiber_idle,[],[hibernate]});
 init({data, Data}) ->
+    io:format("init(data)~n", []),
     init_sup({ok,idle,Data});
 init({callback_mode,CallbackMode,Arg}) ->
+    io:format("init(callback_mode)~n", []),
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,CallbackMode}),
     init(Arg);
 init({map_statem,#{init := Init}=Machine,Modes}) ->
+    io:format("init(map_statem)~n", []),
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,[handle_event_function|Modes]}),
     case Init() of
@@ -2782,7 +2851,19 @@ init({map_statem,#{init := Init}=Machine,Modes}) ->
 	Other ->
 	    init_sup(Other)
     end;
+init({ets, InitResult}) ->
+    ?MODULE = ets:new(?MODULE, [named_table]),
+    init_sup(
+      case InitResult of
+          {return, Value} ->
+              Value;
+          {crash, Class, Reason} ->
+              erlang:Class(Reason);
+          {wait, Time, Value} ->
+              receive after Time -> Value end
+      end);
 init([]) ->
+    io:format("init~n", []),
     init_sup({ok,idle,data}).
 
 %% Supervise state machine parent i.e the test case, and if it dies

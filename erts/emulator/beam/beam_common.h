@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -290,7 +290,7 @@ extern ErtsCodePtr beam_unloaded_fun;
 extern ErtsCodePtr beam_return_to_trace;   /* OpCode(i_return_to_trace) */
 extern ErtsCodePtr beam_return_trace;      /* OpCode(i_return_trace) */
 extern ErtsCodePtr beam_exception_trace;   /* OpCode(i_exception_trace) */
-extern ErtsCodePtr beam_return_time_trace; /* OpCode(i_return_time_trace) */
+extern ErtsCodePtr beam_call_trace_return; /* OpCode(i_call_trace_return) */
 
 /** @brief Inspects an Erlang stack frame, returning the base of the data
  *         (first Y register).

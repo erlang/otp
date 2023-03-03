@@ -61,7 +61,7 @@ class BaseEmitter;
 //!   SimpleErrorHandler eh;
 //!
 //!   CodeHolder code;
-//!   code.init(rt.environment());
+//!   code.init(rt.environment(), rt.cpuFeatures());
 //!   code.setErrorHandler(&eh);
 //!
 //!   // Try to emit instruction that doesn't exist.
@@ -117,7 +117,7 @@ class BaseEmitter;
 //!   ThrowableErrorHandler eh;
 //!
 //!   CodeHolder code;
-//!   code.init(rt.environment());
+//!   code.init(rt.environment(), rt.cpuFeatures());
 //!   code.setErrorHandler(&eh);
 //!
 //!   x86::Assembler a(&code);
@@ -166,7 +166,7 @@ class BaseEmitter;
 //!   LongJmpErrorHandler eh;
 //!
 //!   CodeHolder code;
-//!   code.init(rt.rt.environment());
+//!   code.init(rt.environment(), rt.cpuFeatures());
 //!   code.setErrorHandler(&eh);
 //!
 //!   x86::Assembler a(&code);

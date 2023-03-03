@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2597,17 +2597,11 @@ update_types(_, _, Sub) -> Sub.
 %%  Kill any entries that references the variable,
 %%  either in the key or in the value.
 
-kill_types(V, Tdb) ->
-    maps:from_list(kill_types2(V,maps:to_list(Tdb))).
-
-kill_types2(V, [{V,_}|Tdb]) ->
-    kill_types2(V, Tdb);
-kill_types2(V, [{_,#c_tuple{}=Tuple}=Entry|Tdb]) ->
-    case core_lib:is_var_used(V, Tuple) of
-	false -> [Entry|kill_types2(V, Tdb)];
-	true -> kill_types2(V, Tdb)
-    end;
-kill_types2(_, []) -> [].
+kill_types(Var, Tdb) ->
+    #{Key => Value ||
+         Key := Value <- Tdb,
+         Key =/= Var,
+         not core_lib:is_var_used(Var, Value)}.
 
 %% copy_type(DestVar, SrcVar, Tdb) -> Tdb'
 %%  If the SrcVar has a type, assign it to DestVar.

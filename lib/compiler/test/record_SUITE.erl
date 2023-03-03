@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -237,6 +237,14 @@ record_test_2(Config) when is_list(Config) ->
     [x,[],{a,b}] = [X || X <- MyList,
 			 begin not is_record(X, foo) or
 				   is_reference(X) end],
+
+    Map = id(#{a => 1, b => #foo{a=2}, c => 3, d => #bar{d=4},
+               e => 5, f => #foo{a=6}, h => 7}),
+    [#foo{a=2},#foo{a=6}] = lists:sort([X || _ := X <- Map, is_record(X, foo)]),
+    [#bar{d=4}] = [X || _ := X <- Map, is_record(X, bar)],
+    [1,3,5,7,#foo{a=2},#foo{a=6}] =
+	lists:sort([X || _ := X <- Map, not is_record(X, bar)]),
+    [2,6] = lists:sort([A || _ := #foo{a=A} <- Map]),
 
     %% Call is_record/2 with illegal arguments.
     [] = [X || X <- [], is_record(t, id(X))],

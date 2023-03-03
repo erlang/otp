@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2021. All Rights Reserved.
+# Copyright Ericsson AB 1999-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,9 +102,7 @@ PDFREFDIR= pdf
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 TOPDOC=true
 
-sp :=
-
-sp +=
+sp := $(subst ,, )
 
 ## qs translates ' ' to '\ ', sq translates '\ ' to ' '
 ## These function are used when the make target is a path that can

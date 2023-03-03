@@ -62,6 +62,6 @@
 			  "erts-@OTP-17932@",
 			  "kernel-@OTP-17932@",
 			  "public_key-1.6.1",
-                          "stdlib-@OTP-17932@",
+                          "stdlib-@OTP-18490@","stdlib-@OTP-17932@",
                           "runtime_tools-1.15.1"
 			 ]}]}.

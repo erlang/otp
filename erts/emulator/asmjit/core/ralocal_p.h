@@ -57,6 +57,9 @@ public:
   //! TiedReg's total counter.
   RARegCount _tiedCount;
 
+  //! Temporary workToPhysMap that can be used freely by the allocator.
+  WorkToPhysMap* _tmpWorkToPhysMap;
+
   //! \name Construction & Destruction
   //! \{
 
@@ -113,9 +116,7 @@ public:
 
   Error makeInitialAssignment() noexcept;
 
-  Error replaceAssignment(
-    const PhysToWorkMap* physToWorkMap,
-    const WorkToPhysMap* workToPhysMap) noexcept;
+  Error replaceAssignment(const PhysToWorkMap* physToWorkMap) noexcept;
 
   //! Switch to the given assignment by reassigning all register and emitting code that reassigns them.
   //! This is always used to switch to a previously stored assignment.
@@ -123,12 +124,7 @@ public:
   //! If `tryMode` is true then the final assignment doesn't have to be exactly same as specified by `dstPhysToWorkMap`
   //! and `dstWorkToPhysMap`. This mode is only used before conditional jumps that already have assignment to generate
   //! a code sequence that is always executed regardless of the flow.
-  Error switchToAssignment(
-    PhysToWorkMap* dstPhysToWorkMap,
-    WorkToPhysMap* dstWorkToPhysMap,
-    const ZoneBitVector& liveIn,
-    bool dstReadOnly,
-    bool tryMode) noexcept;
+  Error switchToAssignment(PhysToWorkMap* dstPhysToWorkMap, const ZoneBitVector& liveIn, bool dstReadOnly, bool tryMode) noexcept;
 
   inline Error spillRegsBeforeEntry(RABlock* block) noexcept {
     return spillScratchGpRegsBeforeEntry(block->entryScratchGpRegs());

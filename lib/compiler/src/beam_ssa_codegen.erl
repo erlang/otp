@@ -489,7 +489,8 @@ prefer_xregs_is([#cg_set{op=Op}=I|Is], St, Copies0, Acc)
   when Op =:= bs_checked_get;
        Op =:= bs_checked_skip;
        Op =:= bs_checked_get_tail;
-       Op =:= bs_ensure ->
+       Op =:= bs_ensure;
+       Op =:= bs_match_string ->
     Copies = prefer_xregs_prune(I, Copies0, St),
     prefer_xregs_is(Is, St, Copies, [I|Acc]);
 prefer_xregs_is([#cg_set{args=Args0}=I0|Is], St, Copies0, Acc) ->
@@ -1175,8 +1176,14 @@ cg_block([#cg_set{op=bs_create_bin,dst=Dst0,args=Args0,anno=Anno}=I,
                _ ->
                    Unit0
            end,
+    TypeInfo = case Anno of
+                   #{result_type := #t_bitstring{appendable=true}=Type} ->
+                       [{'%',{var_info,Dst,[{type,Type}]}}];
+                   _ ->
+                       []
+               end,
     Is = [Line,{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Args}}],
-    {Is,St};
+    {Is++TypeInfo,St};
 cg_block([#cg_set{op=bs_start_match,
                   dst=Ctx0,
                   args=[#b_literal{val=new},Bin0]}=I,

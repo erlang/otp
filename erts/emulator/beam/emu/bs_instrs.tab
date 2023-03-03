@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2021. All Rights Reserved.
+// Copyright Ericsson AB 2017-2023. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -125,13 +125,14 @@ BS_GET_UNCHECKED_FIELD_SIZE(Bits, Unit, Fail, Dst) {
 TEST_BIN_VHEAP(VNh, Nh, Live) {
     Uint need = $Nh;
     if ((E - HTOP < (need + S_RESERVED)) ||
-         (MSO(c_p).overhead + $VNh >= BIN_VHEAP_SZ(c_p))) {
+        (MSO(c_p).overhead + $VNh >= c_p->bin_vheap_sz)) {
         $GC_SWAPOUT();
         PROCESS_MAIN_CHK_LOCKS(c_p);
         FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live, FCALLS);
         ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
         PROCESS_MAIN_CHK_LOCKS(c_p);
         SWAPIN;
+        $MAYBE_EXIT_AFTER_GC();
     }
     HEAP_SPACE_VERIFIED(need);
 }

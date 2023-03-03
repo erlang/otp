@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +14,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet_tcp_dist).
+-feature(maybe_expr, enable).
 
 %% Handles the connection setup phase with other Erlang nodes.
 
@@ -30,8 +31,11 @@
 %% Generalized dist API
 -export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_select/2, gen_address/1]).
+-export([fam_select/2, fam_address/1, fam_listen/4, fam_setup/4]).
 %% OTP internal (e.g ssl)
 -export([gen_hs_data/2, nodelay/0]).
+
+-export([merge_options/2, merge_options/3]).
 
 %% internal exports
 
@@ -44,6 +48,7 @@
 -include("dist.hrl").
 -include("dist_util.hrl").
 
+-define(DRIVER, inet_tcp).
 -define(PROTOCOL, tcp).
 
 %% ------------------------------------------------------------
@@ -52,14 +57,19 @@
 %% ------------------------------------------------------------
 
 select(Node) ->
-    gen_select(inet_tcp, Node).
+    gen_select(?DRIVER, Node).
 
 gen_select(Driver, Node) ->
+    fam_select(Driver:family(), Node).
+
+fam_select(Family, Node) ->
     case dist_util:split_node(Node) of
 	{node, Name, Host} ->
-            case call_epmd_function(
-                   net_kernel:epmd_module(), address_please,
-                   [Name, Host, Driver:family()]) of
+            EpmdMod = net_kernel:epmd_module(),
+            case
+                call_epmd_function(
+                  EpmdMod, address_please, [Name, Host, Family])
+            of
                 {ok, _Addr} -> true;
                 {ok, _Addr, _Port, _Creation} -> true;
                 _ -> false
@@ -71,14 +81,25 @@ gen_select(Driver, Node) ->
 %% Get the address family that this distribution uses
 %% ------------------------------------------------------------
 address() ->
-    gen_address(inet_tcp).
+    gen_address(?DRIVER).
+
 gen_address(Driver) ->
-    get_tcp_address(Driver).
+    fam_address(Driver:family()).
+
+fam_address(Family) ->
+    {ok, Host} = inet:gethostname(),
+    #net_address{
+       host = Host,
+       protocol = ?PROTOCOL,
+       family = Family
+      }.
 
 %% ------------------------------------------------------------
 %% Set up the general fields in #hs_data{}
 %% ------------------------------------------------------------
 gen_hs_data(Driver, Socket) ->
+    %% The only thing Driver actually is used for is to
+    %% implement non-blocking send of distribution tick
     Nodelay = nodelay(),
     #hs_data{
        socket = Socket,
@@ -108,38 +129,67 @@ gen_hs_data(Driver, Socket) ->
 %% node is accessible through.
 %% ------------------------------------------------------------
 
-listen(Name, Host) ->
-    gen_listen(inet_tcp, Name, Host).
-
-%% Keep this clause for third-party dist controllers reusing this API
+%% Keep this function for third-party dist controllers reusing this API
 listen(Name) ->
     {ok, Host} = inet:gethostname(),
     listen(Name, Host).
 
+listen(Name, Host) ->
+    gen_listen(?DRIVER, Name, Host).
+
 gen_listen(Driver, Name, Host) ->
-    ErlEpmd = net_kernel:epmd_module(),
-    case gen_listen(ErlEpmd, Name, Host, Driver) of
-	{ok, Socket} ->
-	    TcpAddress = get_tcp_address(Driver, Socket),
-	    {_,Port} = TcpAddress#net_address.address,
-	    case ErlEpmd:register_node(Name, Port, Driver) of
-		{ok, Creation} ->
-		    {ok, {Socket, TcpAddress, Creation}};
-		Error ->
-		    Error
-	    end;
-	Error ->
-	    Error
+    ForcedOptions = [{active, false}, {packet,2}, {nodelay, true}],
+    ListenFun =
+        fun (First, Last, ListenOptions) ->
+                listen_loop(
+                  Driver, First, Last,
+                  merge_options(ListenOptions, ForcedOptions))
+        end,
+    Family = Driver:family(),
+    maybe
+        %%
+        {ok, {ListenSocket, Address, Creation}} ?=
+            fam_listen(Family, Name, Host, ListenFun),
+        NetAddress =
+            #net_address{
+               host = Host,
+               protocol = ?PROTOCOL,
+               family = Family,
+               address = Address},
+        {ok, {ListenSocket, NetAddress, Creation}}
     end.
 
-gen_listen(ErlEpmd, Name, Host, Driver) ->
-    ListenOptions = listen_options(),
-    case call_epmd_function(ErlEpmd, listen_port_please, [Name, Host]) of
-        {ok, 0} ->
-            {First,Last} = get_port_range(),
-            do_listen(Driver, First, Last, ListenOptions);
-        {ok, Prt} ->
-            do_listen(Driver, Prt, Prt, ListenOptions)
+listen_loop(_Driver, First, Last, _Options) when First > Last ->
+    {error,eaddrinuse};
+listen_loop(Driver, First, Last, Options) ->
+    case Driver:listen(First, Options) of
+        {error, eaddrinuse} ->
+	    listen_loop(Driver, First+1, Last, Options);
+        Other ->
+            Other
+    end.
+
+
+fam_listen(Family, Name, Host, ListenFun) ->
+    maybe
+        EpmdMod = net_kernel:epmd_module(),
+        %%
+        {ok, ListenSocket} ?=
+            case
+                call_epmd_function(
+                  EpmdMod, listen_port_please, [Name, Host])
+            of
+                {ok, 0} ->
+                    {First,Last} = get_port_range(),
+                    ListenFun(First, Last, listen_options());
+                {ok, PortNum} ->
+                    ListenFun(PortNum, PortNum, listen_options())
+            end,
+        {ok, {_IP,Port} = Address} = inet:sockname(ListenSocket),
+        %%
+        {ok, Creation} ?=
+            EpmdMod:register_node(Name, Port, Family),
+        {ok, {ListenSocket, Address, Creation}}
     end.
 
 get_port_range() ->
@@ -155,70 +205,89 @@ get_port_range() ->
             {0,0}
     end.
 
-do_listen(_Driver, First,Last,_) when First > Last ->
-    {error,eaddrinuse};
-do_listen(Driver, First,Last,Options) ->
-    case Driver:listen(First, Options) of
-	{error, eaddrinuse} ->
-	    do_listen(Driver, First+1,Last,Options);
-	Other ->
-	    Other
-    end.
 
 listen_options() ->
     DefaultOpts = [{reuseaddr, true}, {backlog, 128}],
     ForcedOpts =
-        [{active, false}, {packet,2} |
-         case application:get_env(kernel, inet_dist_use_interface) of
-             {ok, Ip}  -> [{ip, Ip}];
-             undefined -> []
-         end],
-    Force = maps:from_list(ForcedOpts),
+        case application:get_env(kernel, inet_dist_use_interface) of
+            {ok, Ip}  -> [{ip, Ip}];
+            undefined -> []
+        end,
     InetDistListenOpts =
         case application:get_env(kernel, inet_dist_listen_options) of
             {ok, Opts} -> Opts;
             undefined  -> []
         end,
-    ListenOpts = listen_options(InetDistListenOpts, ForcedOpts, Force),
-    Seen =
-        maps:from_list(
-          lists:filter(
-            fun ({_,_}) -> true;
-                (_)     -> false
-            end, ListenOpts)),
-    lists:filter(
-      fun ({OptName,_}) when is_map_key(OptName, Seen) ->
-              false;
-          (_) ->
-              true
-      end, DefaultOpts) ++ ListenOpts.
+    merge_options(InetDistListenOpts, ForcedOpts, DefaultOpts).
 
-%% Pass through all but forced
-listen_options([Opt | Opts], ForcedOpts, Force) ->
-    case Opt of
-        {OptName,_} ->
-            case is_map_key(OptName, Force) of
+
+merge_options(Opts, ForcedOpts) ->
+    merge_options(Opts, ForcedOpts, []).
+%%
+merge_options(Opts, ForcedOpts, DefaultOpts) ->
+    Forced = merge_options(ForcedOpts),
+    Default = merge_options(DefaultOpts),
+    ForcedOpts ++ merge_options(Opts, Forced, DefaultOpts, Default).
+
+%% Collect expanded 2-tuple options in a map
+merge_options(Opts) ->
+    lists:foldr(
+      fun (Opt, Acc) ->
+              case expand_option(Opt) of
+                  {OptName, OptVal} ->
+                      maps:put(OptName, OptVal, Acc);
+                  _ ->
+                      Acc
+              end
+      end, #{}, Opts).
+
+%% Pass through all options that are not forced,
+%% which we already have prepended,
+%% and remove options that we see from the Default map
+%%
+merge_options([Opt | Opts], Forced, DefaultOpts, Default) ->
+    case expand_option(Opt) of
+        {OptName, _} ->
+            %% Remove from the Default map
+            Default_1 = maps:remove(OptName, Default),
+            if
+                is_map_key(OptName, Forced) ->
+                    %% Forced option - do not pass through
+                    merge_options(Opts, Forced, DefaultOpts, Default_1);
                 true ->
-                    listen_options(Opts, ForcedOpts, Force);
-                false ->
+                    %% Pass through
                     [Opt |
-                     listen_options(Opts, ForcedOpts, Force)]
+                     merge_options(Opts, Forced, DefaultOpts, Default_1)]
             end;
         _ ->
-            [Opt |
-             listen_options(Opts, ForcedOpts, Force)]
+            %% Unhandled options e.g {raw, ...} - pass through
+            [Opt | merge_options(Opts, Forced, DefaultOpts, Default)]
     end;
-listen_options([], ForcedOpts, _Force) ->
-    %% Append forced
-    ForcedOpts.
+merge_options([], _Forced, DefaultOpts, Default) ->
+    %% Append the needed default options (that we have not seen)
+    [Opt ||
+        Opt <- DefaultOpts,
+        is_map_key(element(1, expand_option(Opt)), Default)].
 
+%% Expand an atom option into its tuple equivalence,
+%% pass through others
+expand_option(Opt) ->
+    if
+        Opt =:= list; Opt =:= binary ->
+            {mode, Opt};
+        Opt =:= inet; Opt =:= inet6; Opt =:= local ->
+            %% 'family' is not quite an option name, but could/should be
+            {family, Opt};
+        true ->
+            Opt
+    end.
 
 %% ------------------------------------------------------------
 %% Accepts new connection attempts from other Erlang nodes.
 %% ------------------------------------------------------------
 
 accept(Listen) ->
-    gen_accept(inet_tcp, Listen).
+    gen_accept(?DRIVER, Listen).
 
 gen_accept(Driver, Listen) ->
     spawn_opt(?MODULE, accept_loop, [Driver, self(), Listen], [link, {priority, max}]).
@@ -262,7 +331,7 @@ flush_controller(Pid, Socket) ->
 %% ------------------------------------------------------------
 
 accept_connection(AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
-    gen_accept_connection(inet_tcp, AcceptPid, Socket, MyNode, Allowed, SetupTime).
+    gen_accept_connection(?DRIVER, AcceptPid, Socket, MyNode, Allowed, SetupTime).
 
 gen_accept_connection(Driver, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     spawn_opt(?MODULE, do_accept,
@@ -336,105 +405,109 @@ get_remote_id(Family, Socket, Node) ->
 %% ------------------------------------------------------------
 
 setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
-    gen_setup(inet_tcp, Node, Type, MyNode, LongOrShortNames, SetupTime).
+    gen_setup(?DRIVER, Node, Type, MyNode, LongOrShortNames, SetupTime).
 
 gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
-    spawn_opt(?MODULE, do_setup, 
+    spawn_opt(?MODULE, do_setup,
 	      [Driver, self(), Node, Type, MyNode, LongOrShortNames, SetupTime],
 	      dist_util:net_ticker_spawn_options()).
 
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
-    ?trace("~p~n",[{inet_tcp_dist,self(),setup,Node}]),
-    [Name, Address] = splitnode(Driver, Node, LongOrShortNames),
-    AddressFamily = Driver:family(),
-    ErlEpmd = net_kernel:epmd_module(),
+    ?trace("~p~n",[{?MODULE,self(),setup,Node}]),
     Timer = dist_util:start_timer(SetupTime),
-    case call_epmd_function(ErlEpmd,address_please,[Name, Address, AddressFamily]) of
+    Family = Driver:family(),
+    {#net_address{ address = {Ip, TcpPort} } = NetAddress,
+     ConnectOptions,
+     Version} =
+        fam_setup(
+          Family, Node, LongOrShortNames, fun Driver:parse_address/1),
+    dist_util:reset_timer(Timer),
+    case Driver:connect(Ip, TcpPort, ConnectOptions) of
+        {ok, Socket} ->
+            HSData =
+                (gen_hs_data(Driver, Socket))
+                #hs_data{
+                  kernel_pid = Kernel,
+                  other_node = Node,
+                  this_node = MyNode,
+                  timer = Timer,
+                  this_flags = 0,
+                  other_version = Version,
+                  f_address =
+                      fun(_,_) ->
+                              NetAddress
+                      end,
+                  request_type = Type},
+            dist_util:handshake_we_started(HSData);
+        _ ->
+            %% Other Node may have closed since
+            %% discovery !
+            ?trace("other node (~p) "
+                   "closed since discovery (port_please).~n",
+                   [Node]),
+            ?shutdown(Node)
+    end.
+
+fam_setup(Family, Node, LongOrShortNames, ParseAddress) ->
+    ?trace("~p~n",[{?MODULE,self(),?FUNCTION_NAME,Node}]),
+    [Name, Host] = splitnode(ParseAddress, Node, LongOrShortNames),
+    ErlEpmd = net_kernel:epmd_module(),
+    case
+        call_epmd_function(
+          ErlEpmd, address_please, [Name, Host, Family])
+    of
 	{ok, Ip, TcpPort, Version} ->
-		?trace("address_please(~p) -> version ~p~n",
-			[Node,Version]),
-		do_setup_connect(Driver, Kernel, Node, Address, AddressFamily,
-		                 Ip, TcpPort, Version, Type, MyNode, Timer);
-	{ok, Ip} ->
+            ?trace("address_please(~p) -> version ~p~n", [Node,Version]),
+            fam_setup(Family, Host, Ip, TcpPort, Version);
+        {ok, Ip} ->
 	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
-		    ?trace("port_please(~p) -> version ~p~n", 
+		    ?trace("port_please(~p) -> version ~p~n",
 			   [Node,Version]),
-			do_setup_connect(Driver, Kernel, Node, Address, AddressFamily,
-			                 Ip, TcpPort, Version, Type, MyNode, Timer);
+                    fam_setup(Family, Host, Ip, TcpPort, Version);
 		_ ->
 		    ?trace("port_please (~p) failed.~n", [Node]),
 		    ?shutdown(Node)
 	    end;
 	_Other ->
-	    ?trace("inet_getaddr(~p) "
-		   "failed (~p).~n", [Node,_Other]),
+	    ?trace("inet_getaddr(~p) failed (~p).~n", [Node,_Other]),
 	    ?shutdown(Node)
     end.
 
-%%
-%% Actual setup of connection
-%%
-do_setup_connect(Driver, Kernel, Node, Address, AddressFamily,
-                 Ip, TcpPort, Version, Type, MyNode, Timer) ->
-	dist_util:reset_timer(Timer),
-	case
-	Driver:connect(
-	  Ip, TcpPort,
-	  connect_options([{active, false}, {packet, 2}]))
-	of
-	{ok, Socket} ->
-                HSData =
-                    (gen_hs_data(Driver, Socket))
-                    #hs_data{
-                      kernel_pid = Kernel,
-                      other_node = Node,
-                      this_node = MyNode,
-                      timer = Timer,
-                      this_flags = 0,
-                      other_version = Version,
-                      f_address =
-                          fun(_,_) ->
-                                  #net_address{
-                                     address = {Ip,TcpPort},
-                                     host = Address,
-                                     protocol = ?PROTOCOL,
-                                     family = AddressFamily}
-                          end,
-                      request_type = Type},
-		dist_util:handshake_we_started(HSData);
-	_ ->
-		%% Other Node may have closed since
-		%% discovery !
-		?trace("other node (~p) "
-		   "closed since discovery (port_please).~n",
-		   [Node]),
-		?shutdown(Node)
-	end.
+fam_setup(Family, Host, Ip, TcpPort, Version) ->
+    NetAddress =
+        #net_address{
+           address = {Ip, TcpPort},
+           host = Host,
+           protocol = ?PROTOCOL,
+           family = Family},
+    {NetAddress, connect_options(), Version}.
 
-connect_options(Opts) ->
-    case application:get_env(kernel, inet_dist_connect_options) of
-	{ok,ConnectOpts} ->
-	    ConnectOpts ++ Opts;
-	_ ->
-	    Opts
-    end.
+connect_options() ->
+    merge_options(
+      case application:get_env(kernel, inet_dist_connect_options) of
+          {ok, ConnectOpts} ->
+              ConnectOpts;
+          _ ->
+              []
+      end, [{active, false}, {packet, 2}]).
+
 
 %%
 %% Close a socket.
 %%
 close(Socket) ->
-    inet_tcp:close(Socket).
+    ?DRIVER:close(Socket).
 
 
 %% If Node is illegal terminate the connection setup!!
-splitnode(Driver, Node, LongOrShortNames) ->
+splitnode(ParseAddress, Node, LongOrShortNames) ->
     case split_node(atom_to_list(Node), $@, []) of
 	[Name|Tail] when Tail =/= [] ->
 	    Host = lists:append(Tail),
 	    case split_node(Host, $., []) of
 		[_] when LongOrShortNames =:= longnames ->
-                    case Driver:parse_address(Host) of
+                    case ParseAddress(Host) of
                         {ok, _} ->
                             [Name, Host];
                         _ ->
@@ -466,21 +539,6 @@ splitnode(Driver, Node, LongOrShortNames) ->
 split_node([Chr|T], Chr, Ack) -> [lists:reverse(Ack)|split_node(T, Chr, [])];
 split_node([H|T], Chr, Ack)   -> split_node(T, Chr, [H|Ack]);
 split_node([], _, Ack)        -> [lists:reverse(Ack)].
-
-%% ------------------------------------------------------------
-%% Fetch local information about a Socket.
-%% ------------------------------------------------------------
-get_tcp_address(Driver, Socket) ->
-    {ok, Address} = inet:sockname(Socket),
-    NetAddr = get_tcp_address(Driver),
-    NetAddr#net_address{ address = Address }.
-get_tcp_address(Driver) ->
-    {ok, Host} = inet:gethostname(),
-    #net_address {
-		  host = Host,
-		  protocol = ?PROTOCOL,
-		  family = Driver:family()
-		 }.
 
 %% ------------------------------------------------------------
 %% Determine if EPMD module supports the called functions.

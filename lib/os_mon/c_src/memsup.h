@@ -30,6 +30,8 @@
 /* Extended memory statistics */
 /*IG*/ #define SHOW_SYSTEM_MEM 2
 
+#define EXIT 3
+
 /* Tags for the extended statistics */
 /*IG*/ #define SHOW_SYSTEM_MEM_END 0
 /*IG*/ #define MEM_SYSTEM_TOTAL 1

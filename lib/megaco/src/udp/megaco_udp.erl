@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -223,7 +223,7 @@ send_message(SH, Data) when is_record(SH, send_handle) ->
     _ = case Res of
             ok ->
                 incNumOutMessages(SH),
-                incNumOutOctets(SH, size(Data));
+                incNumOutOctets(SH, byte_size(Data));
             _ ->
                 ok
         end,

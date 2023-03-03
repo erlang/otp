@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,12 +40,8 @@ server(Ancestors, Drv, Shell, Options) ->
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
-    ExpandFun = case proplists:get_value(expand_fun, Options,
-        fun edlin_expand:expand/2) of
-            Fun when is_function(Fun, 1) -> fun(X,_) -> Fun(X) end;
-            Fun -> Fun
-        end,
-    put(expand_fun,ExpandFun),
+    ExpandFun = normalize_expand_fun(Options, fun edlin_expand:expand/2),
+    put(expand_fun, ExpandFun),
     put(echo, proplists:get_value(echo, Options, true)),
     put(expand_below, proplists:get_value(expand_below, Options, true)),
 
@@ -396,7 +392,7 @@ check_valid_opts(_) ->
     false.
 
 do_setopts(Opts, Drv, Buf) ->
-    put(expand_fun, proplists:get_value(expand_fun, Opts, get(expand_fun))),
+    put(expand_fun, normalize_expand_fun(Opts, get(expand_fun))),
     put(echo, proplists:get_value(echo, Opts, get(echo))),
     case proplists:get_value(encoding,Opts) of
 	Valid when Valid =:= unicode; Valid =:= utf8 ->
@@ -418,6 +414,12 @@ do_setopts(Opts, Drv, Buf) ->
 	    {ok,ok,Buf};
 	_ ->
 	    {ok,ok,Buf}
+    end.
+
+normalize_expand_fun(Options, Default) ->
+    case proplists:get_value(expand_fun, Options, Default) of
+	Fun when is_function(Fun, 1) -> fun(X,_) -> Fun(X) end;
+	Fun -> Fun
     end.
 
 getopts(Drv,Buf) ->
@@ -516,8 +518,10 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, Line, Encoding) ->
 
 get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
     try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
+        {stop,Result,eof} ->
+            {ok,Result,eof};
         {stop,Result,Rest} ->
-            {ok, Result, Rest};
+            {ok,Result,append(Rest, [], Encoding)};
         State1 ->
             case get_chars_echo_off(Pbs, Drv, Shell) of
                 interrupted ->

@@ -82,6 +82,12 @@ public:
       size_t size = sizeOf(count);
       memcpy(this, other, size);
     }
+
+    inline void unassign(RegGroup group, uint32_t physId, uint32_t indexInWorkIds) noexcept {
+      assigned.clear(group, Support::bitMask(physId));
+      dirty.clear(group, Support::bitMask(physId));
+      workIds[indexInWorkIds] = kWorkNone;
+    }
   };
 
   struct WorkToPhysMap {
@@ -302,6 +308,28 @@ public:
     std::swap(_workToPhysMap, other._workToPhysMap);
     std::swap(_physToWorkMap, other._physToWorkMap);
     _physToWorkIds.swap(other._physToWorkIds);
+  }
+
+  inline void assignWorkIdsFromPhysIds() noexcept {
+    memset(_workToPhysMap, uint8_t(BaseReg::kIdBad), WorkToPhysMap::sizeOf(_layout.workCount));
+
+    for (RegGroup group : RegGroupVirtValues{}) {
+      uint32_t physBaseIndex = _layout.physIndex[group];
+      Support::BitWordIterator<RegMask> it(_physToWorkMap->assigned[group]);
+
+      while (it.hasNext()) {
+        uint32_t physId = it.next();
+        uint32_t workId = _physToWorkMap->workIds[physBaseIndex + physId];
+
+        ASMJIT_ASSERT(workId != kWorkNone);
+        _workToPhysMap->physIds[workId] = uint8_t(physId);
+      }
+    }
+  }
+
+  inline void copyFrom(const PhysToWorkMap* physToWorkMap) noexcept {
+    memcpy(_physToWorkMap, physToWorkMap, PhysToWorkMap::sizeOf(_layout.physTotal));
+    assignWorkIdsFromPhysIds();
   }
 
   inline void copyFrom(const PhysToWorkMap* physToWorkMap, const WorkToPhysMap* workToPhysMap) noexcept {

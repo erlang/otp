@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2016-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2016-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,20 +130,17 @@ erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
     nep->trampoline.info.mfa.module = mod;
     nep->trampoline.info.mfa.function = func;
     nep->trampoline.info.mfa.arity = (Uint) argc;
-#ifdef BEAMASM
-    nep->trampoline.trace[0] = (BeamInstr) instr; /* call_bif || call_nif */
-#endif
-    nep->trampoline.call_op = (BeamInstr) instr; /* call_bif || call_nif */
     nep->trampoline.dfunc = (BeamInstr) dfunc;
     nep->func = ifunc;
     used_proc->arity = argc;
     used_proc->freason = TRAP;
-#ifndef BEAMASM
-    used_proc->i = (ErtsCodePtr)&nep->trampoline.call_op;
-#else
-    ERTS_CT_ASSERT(sizeof(nep->trampoline.trace) == BEAM_ASM_FUNC_PROLOGUE_SIZE);
-    used_proc->i = (ErtsCodePtr)&nep->trampoline.trace;
+
+    /* call_bif || call_nif */
+    ERTS_CT_ASSERT(sizeof(nep->trampoline.call_bif_nif) >= sizeof(instr));
+    sys_memcpy(&nep->trampoline.call_bif_nif, &instr, sizeof(instr));
+
+    used_proc->i = (ErtsCodePtr)&nep->trampoline.call_bif_nif;
     ASSERT_MFA(erts_code_to_codemfa(used_proc->i));
-#endif
+
     return nep;
 }

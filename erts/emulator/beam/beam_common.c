@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -415,11 +415,11 @@ ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) {
         erts_inspect_frame(scanner, &return_address);
 
         if (BeamIsReturnTrace(return_address)) {
-            scanner += CP_SIZE + 2;
-        } else if (BeamIsReturnTimeTrace(return_address)) {
-            scanner += CP_SIZE + 1;
+            scanner += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+        } else if (BeamIsReturnCallAccTrace(return_address)) {
+            scanner += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
         } else if (BeamIsReturnToTrace(return_address)) {
-            scanner += CP_SIZE;
+            scanner += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
         } else {
             return return_address;
         }
@@ -622,15 +622,14 @@ next_catch(Process* c_p, Eterm *reg) {
                     ASSERT_MFA(mfa);
                     erts_trace_exception(c_p, mfa, reg[3], reg[1], tracer);
                 }
-
-                ptr += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_address)) {
-                ptr += CP_SIZE + 1;
+                ptr += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+            } else if (BeamIsReturnCallAccTrace(return_address)) {
+                ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
                 have_return_to_trace = 1; /* Record next cp */
                 return_to_trace_address = NULL;
 
-                ptr += CP_SIZE;
+                ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
                 /* This is an ordinary call frame: if the previous frame was a
                  * return_to trace we should record this CP as a return_to
@@ -801,11 +800,11 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
             erts_inspect_frame(ptr, &return_address);
 
             if (BeamIsReturnTrace(return_address)) {
-                ptr += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_address)) {
-                ptr += CP_SIZE + 1;
+                ptr += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+            } else if (BeamIsReturnCallAccTrace(return_address)) {
+                ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
-                ptr += CP_SIZE;
+                ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
                 if (return_address != prev) {
                     ErtsCodePtr adjusted_address;
@@ -2186,7 +2185,7 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	Sint c;
 
 	key = *old_keys;
-	if ((c = (key == new_key) ? 0 : CMP_TERM(key, new_key)) < 0) {
+	if ((c = (key == new_key) ? 0 : erts_cmp_flatmap_keys(key, new_key)) < 0) {
 	    /* Copy old key and value */
 	    *kp++ = key;
 	    *hp++ = *old_vals;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -180,8 +180,7 @@
                                      des_cbc |
                                      '3des_ede_cbc'.
 
--type hash()                     :: sha |
-                                    sha2() |
+-type hash()                     :: sha2() |
                                     legacy_hash(). % exported
 
 -type sha2()                    ::  sha224 |
@@ -189,7 +188,7 @@
                                     sha384 |
                                     sha512.
 
--type legacy_hash()             :: md5.
+-type legacy_hash()             :: sha | md5.
 
 -type sign_algo()               :: rsa | dsa | ecdsa | eddsa. % exported
 
@@ -402,6 +401,7 @@
 -type middlebox_comp_mode()      :: boolean().
 -type client_early_data()        :: binary().
 -type server_early_data()        :: disabled | enabled.
+-type use_srtp()                 :: #{protection_profiles := [binary()], mki => binary()}.
 -type spawn_opts()               :: [erlang:spawn_opt_option()].
 
 %% -------------------------------------------------------------------------------------------------------
@@ -423,7 +423,8 @@
                                 {certificate_authorities, client_certificate_authorities()} |
                                 {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()} |
-                                {early_data, client_early_data()}.
+                                {early_data, client_early_data()} |
+                                {use_srtp, use_srtp()}.
                                 %% {ocsp_stapling, ocsp_stapling()} |
                                 %% {ocsp_responder_certs, ocsp_responder_certs()} |
                                 %% {ocsp_nonce, ocsp_nonce()}.
@@ -475,7 +476,8 @@
                                 {stateless_tickets_seed, stateless_tickets_seed()} |
                                 {anti_replay, anti_replay()} |
                                 {cookie, cookie()} |
-                                {early_data, server_early_data()}.
+                                {early_data, server_early_data()} |
+                                {use_srtp, use_srtp()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()] | [public_key:combined_cert()].
 -type server_cafile()            :: file:filename().
@@ -1551,6 +1553,7 @@ ssl_options() ->
      srp_identity,
      supported_groups,
      use_ticket,
+     use_srtp,
      user_lookup_fun,
      verify, verify_fun,
      versions
@@ -1583,7 +1586,8 @@ process_options(UserSslOpts, SslOpts0, Env) ->
     SslOpts15 = opt_supported_groups(UserSslOptsMap, SslOpts14, Env),
     SslOpts16 = opt_crl(UserSslOptsMap, SslOpts15, Env),
     SslOpts17 = opt_handshake(UserSslOptsMap, SslOpts16, Env),
-    SslOpts = opt_process(UserSslOptsMap, SslOpts17, Env),
+    SslOpts18 = opt_use_srtp(UserSslOptsMap, SslOpts17, Env),
+    SslOpts = opt_process(UserSslOptsMap, SslOpts18, Env),
     SslOpts.
 
 -spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
@@ -2233,6 +2237,44 @@ opt_handshake(UserOpts, Opts, _Env) ->
 
     Opts#{handshake => HS, max_handshake_size => MHSS}.
 
+opt_use_srtp(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
+    UseSRTP = case get_opt_map(use_srtp, undefined, UserOpts, Opts) of
+                  {old, UseSRTP0} ->
+                      UseSRTP0;
+                  {default, undefined} ->
+                      undefined;
+                  {new, UseSRTP1} ->
+                      assert_protocol_dep(use_srtp, Protocol, [dtls]),
+                      validate_use_srtp(UseSRTP1)
+              end,
+    case UseSRTP of
+        #{} -> Opts#{use_srtp => UseSRTP};
+        _ -> Opts
+    end.
+
+validate_use_srtp(#{protection_profiles := [_|_] = PPs} = UseSRTP) ->
+    case maps:keys(UseSRTP) -- [protection_profiles, mki] of
+        [] -> ok;
+        Extra -> option_error(use_srtp, {unknown_parameters, Extra})
+    end,
+    IsValidProfile = fun(<<_, _>>) -> true; (_) -> false end,
+    case lists:all(IsValidProfile, PPs) of
+        true -> ok;
+        false -> option_error(use_srtp, {invalid_protection_profiles, PPs})
+    end,
+    case UseSRTP of
+        #{mki := MKI} when not is_binary(MKI) ->
+            option_error(use_srtp, {invalid_mki, MKI});
+        #{mki := _} ->
+            UseSRTP;
+        #{} ->
+            UseSRTP#{mki => <<>>}
+    end;
+
+validate_use_srtp(#{} = UseSRTP) ->
+    option_error(use_srtp, {no_protection_profiles, UseSRTP}).
+
+
 opt_process(UserOpts, Opts0, _Env) ->
     Opts1 = set_opt_list(receiver_spawn_opts, [], UserOpts, Opts0),
     Opts2 = set_opt_list(sender_spawn_opts, [], UserOpts, Opts1),
@@ -2315,6 +2357,12 @@ set_opt_bool(Opt, Default, UserOpts, Opts) ->
         Default -> Opts;
         Value when is_boolean(Value) -> Opts#{Opt => Value};
         Value -> option_error(Opt, Value)
+    end.
+
+get_opt_map(Opt, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {new, Err} when not is_map(Err) -> option_error(Opt, Err);
+        Res -> Res
     end.
 
 set_opt_int(Opt, Min, Max, Default, UserOpts, Opts) ->
@@ -2419,6 +2467,12 @@ option_error(Tag, What) ->
 -spec throw_error(_) -> no_return().
 throw_error(Err) ->
     throw({error, Err}).
+
+assert_protocol_dep(Option, Protocol, AllowedProtos) ->
+    case lists:member(Protocol, AllowedProtos) of
+        true -> ok;
+        false -> option_incompatible([Option, {protocol, Protocol}])
+    end.
 
 assert_version_dep(Option, Vsns, AllowedVsn) ->
     assert_version_dep(true, Option, Vsns, AllowedVsn).
@@ -2629,9 +2683,10 @@ handle_supported_groups_option(Value, Version) when is_list(Value) ->
                      | InetError
                      | OtherReason) -> string()
               when
-      FileType   :: cacertfile | certfile | keyfile | dhfile,
-      OtherReason     :: term(),
-      InetError :: inet:posix() | system_limit.
+      FileType    :: cacertfile | certfile | keyfile | dhfile,
+      OtherReason :: term(),
+      Error       :: term(),
+      InetError   :: inet:posix() | system_limit.
 
 do_format_error(Reason) when is_list(Reason) ->
     Reason;
@@ -2665,7 +2720,7 @@ unexpected_format(Error) ->
 
 file_error_format({error, Error})->
     case file:format_error(Error) of
-	"unknown POSIX error" ->
+	"unknown POSIX error" ++ _ ->
 	    "decoding error";
 	Str ->
 	    Str

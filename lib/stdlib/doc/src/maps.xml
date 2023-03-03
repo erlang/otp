@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2013</year><year>2022</year>
+      <year>2013</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,16 +42,42 @@
       <desc>
         <p>An iterator representing the associations in a map with keys of type
           <c><anno>Key</anno></c> and values of type <c><anno>Value</anno></c>.</p>
-        <p>Created using <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>.</p>
-        <p>Consumed by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>,
-          <seemfa marker="#filter/2"><c>maps:filter/2</c></seemfa>,
-          <seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa> and
-          <seemfa marker="#map/2"><c>maps:map/2</c></seemfa>.</p>
+        <p>Created using <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa> or
+          <seemfa marker="#iterator/2"><c>maps:iterator/2</c></seemfa>.</p>
+        <p>Consumed by:</p>
+        <list type="bulleted">
+          <item><seemfa marker="#next/1"><c>maps:next/1</c></seemfa></item>
+          <item><seemfa marker="#filter/2"><c>maps:filter/2</c></seemfa></item>
+          <item><seemfa marker="#filtermap/2"><c>maps:filtermap/2</c></seemfa></item>
+          <item><seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa></item>
+          <item><seemfa marker="#foreach/2"><c>maps:foreach/2</c></seemfa></item>
+          <item><seemfa marker="#map/2"><c>maps:map/2</c></seemfa></item>
+          <item><seemfa marker="#to_list/1"><c>maps:to_list/1</c></seemfa></item>
+        </list>
       </desc>
     </datatype>
 
     <datatype>
       <name name="iterator" n_vars="0"/>
+    </datatype>
+
+    <datatype>
+      <name name="iterator_order" n_vars="1"/>
+      <desc>
+        <p>Key-based iterator order option that can be one of <c>undefined</c>
+          (default for <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>),
+          <c>ordered</c> (sorted in map-key order), <c>reversed</c>,
+          or a custom sorting function.</p>
+        <p>Used by <seemfa marker="#iterator/2"><c>maps:iterator/2</c></seemfa>.</p>
+        <p>The
+        <seeguide
+            marker="system/reference_manual:expressions#term-comparisons">
+          Expressions section</seeguide> contains descriptions of how terms are ordered.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="iterator_order" n_vars="0"/>
     </datatype>
   </datatypes>
 
@@ -369,6 +395,59 @@ none</code>
     </func>
 
     <func>
+      <name name="iterator" arity="2" since="OTP 26.0"/>
+      <fsummary>Create a map iterator.</fsummary>
+      <desc>
+        <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
+          be used by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>
+          to traverse the key-value associations in a map sorted by key using
+          the given <c><anno>Order</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map or if <c><anno>Order</anno></c>
+          is invalid.</p>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is </em><c>ordered</c><em>):</em></p>
+        <code type="none"><![CDATA[
+> M = #{ a => 1, b => 2 }.
+#{a => 1,b => 2}
+> OrdI = maps:iterator(M, ordered), ok.
+ok
+> {K1, V1, OrdI2} = maps:next(OrdI), {K1, V1}.
+{a,1}
+> {K2, V2, OrdI3} = maps:next(OrdI2),{K2, V2}.
+{b,2}
+> maps:next(OrdI3).
+none
+     ]]></code>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is </em><c>reversed</c><em>):</em></p>
+        <code type="none"><![CDATA[
+> M = #{ a => 1, b => 2 }.
+#{a => 1,b => 2}
+> RevI = maps:iterator(M, reversed), ok.
+ok
+> {K2, V2, RevI2} = maps:next(RevI), {K2, V2}.
+{b,2}
+> {K1, V1, RevI3} = maps:next(RevI2),{K1, V1}.
+{a,1}
+> maps:next(RevI3).
+none
+     ]]></code>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is an arithmetic sorting function):</em></p>
+        <code type="none"><![CDATA[
+> M = #{ -1 => a, -1.0 => b, 0 => c, 0.0 => d }.
+#{-1 => a,0 => c,-1.0 => b,0.0 => d}
+> ArithOrdI = maps:iterator(M, fun(A, B) -> A =< B end), ok.
+ok
+> maps:to_list(ArithOrdI).
+[{-1,a},{-1.0,b},{0,c},{0.0,d}]
+> ArithRevI = maps:iterator(M, fun(A, B) -> B < A end), ok.
+ok
+> maps:to_list(ArithRevI).
+[{0.0,d},{0,c},{-1.0,b},{-1,a}]
+     ]]></code>
+      </desc>
+    </func>
+
+    <func>
       <name name="keys" arity="1" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
@@ -582,15 +661,24 @@ error</code>
       <fsummary></fsummary>
       <desc>
         <p>Returns a list of pairs representing the key-value associations of
-          <c><anno>Map</anno></c>, where the pairs
+          <c><anno>MapOrIterator</anno></c>, where the pairs
           <c>[{K1,V1}, ..., {Kn,Vn}]</c> are returned in arbitrary order.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
-          <c><anno>Map</anno></c> is not a map.</p>
+        <c><anno>MapOrIterator</anno></c> is not a map or an iterator obtained
+        by a call to <seemfa marker="#iterator/1">iterator/1</seemfa> or
+        <seemfa marker="#iterator/2">iterator/2</seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
   maps:to_list(Map).
 [{42,value_three},{1337,"value two"},{"a",1}]</code>
+        <p><em>Example (using </em><seemfa marker="#iterator/2">iterator/2</seemfa><em>):</em></p>
+<code type="none"><![CDATA[
+> Map = #{ z => 1, y => 2, x => 3 }.
+#{x => 3,y => 2,z => 1}
+> maps:to_list(maps:iterator(Map, ordered)).
+[{x,3},{y,2},{z,1}]
+     ]]></code>
       </desc>
     </func>
 

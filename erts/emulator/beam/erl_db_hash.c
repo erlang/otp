@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -726,7 +726,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
 static void
 db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 static void* db_eterm_to_dbterm_hash(int compress, int keypos, Eterm obj);
-static void* db_dbterm_list_prepend_hash(void* list, void* db_term);
+static void* db_dbterm_list_append_hash(void* last_term, void* db_term);
 static void* db_dbterm_list_remove_first_hash(void** list);
 static int db_put_dbterm_hash(DbTable* tb,
                               void* obj,
@@ -866,7 +866,7 @@ DbTableMethod db_hash =
     db_lookup_dbterm_hash,
     db_finalize_dbterm_hash,
     db_eterm_to_dbterm_hash,
-    db_dbterm_list_prepend_hash,
+    db_dbterm_list_append_hash,
     db_dbterm_list_remove_first_hash,
     db_put_dbterm_hash,
     db_free_dbterm_hash,
@@ -3877,6 +3877,7 @@ Ldone:
     handle->flags = flags;
     handle->new_size = b->dbterm.size;
     handle->u.hash.lck_ctr = lck_ctr;
+    handle->old_tpl = NULL;
     return 1;
 }
 
@@ -4170,11 +4171,11 @@ static void* db_eterm_to_dbterm_hash(int compress, int keypos, Eterm obj)
     return term;
 }
 
-static void* db_dbterm_list_prepend_hash(void* list, void* db_term)
+static void* db_dbterm_list_append_hash(void* last_term, void* db_term)
 {
-    HashDbTerm* l = list;
+    HashDbTerm* l = last_term;
     HashDbTerm* t = db_term;
-    t->next = l;
+    l->next = t;
     return t;
 }
 

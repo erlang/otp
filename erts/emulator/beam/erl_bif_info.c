@@ -1519,10 +1519,15 @@ process_info_aux(Process *c_p,
 	break;
 
     case ERTS_PI_IX_STATUS: {
-        erts_aint32_t state = erts_atomic32_read_nob(&rp->state);
+        erts_aint32_t state;
+        if (!rp_locks)
+            state = erts_atomic32_read_mb(&rp->state);
+        else
+            state = erts_atomic32_read_nob(&rp->state);
         res = erts_process_state2status(state);
-        if (res == am_running && (state & ERTS_PSFLG_RUNNING_SYS)) {
-            ASSERT(c_p == rp);
+        if (res == am_running
+            && c_p == rp
+            && (state & ERTS_PSFLG_RUNNING_SYS)) {
             ASSERT(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER);
             if (!(state & (ERTS_PSFLG_ACTIVE
                            | ERTS_PSFLG_SIG_Q
@@ -1866,21 +1871,16 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_MIN_BIN_VHEAP_SIZE: {
 	Uint hsz = 0;
-	(void) erts_bld_uint(NULL, &hsz, MIN_VHEAP_SIZE(rp));
+	(void) erts_bld_uint(NULL, &hsz, rp->min_vheap_size);
         hp = erts_produce_heap(hfact, hsz, reserve_size);
-	res = erts_bld_uint(&hp, NULL, MIN_VHEAP_SIZE(rp));
+	res = erts_bld_uint(&hp, NULL, rp->min_vheap_size);
 	break;
     }
 
     case ERTS_PI_IX_MAX_HEAP_SIZE: {
-	Uint hsz = 0;
-	(void) erts_max_heap_size_map(MAX_HEAP_SIZE_GET(rp),
-                                      MAX_HEAP_SIZE_FLAGS_GET(rp),
-                                      NULL, &hsz);
-        hp = erts_produce_heap(hfact, hsz, reserve_size);
-	res = erts_max_heap_size_map(MAX_HEAP_SIZE_GET(rp),
-                                     MAX_HEAP_SIZE_FLAGS_GET(rp),
-                                     &hp, NULL);
+	res = erts_max_heap_size_map(hfact,
+                                     MAX_HEAP_SIZE_GET(rp),
+                                     MAX_HEAP_SIZE_FLAGS_GET(rp));
 	break;
     }
 
@@ -1937,12 +1937,12 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_GARBAGE_COLLECTION: {
         DECL_AM(minor_gcs);
-        Eterm t;
-        Uint map_sz = 0;
+        Eterm t, mhs_map;
 
-        erts_max_heap_size_map(MAX_HEAP_SIZE_GET(rp), MAX_HEAP_SIZE_FLAGS_GET(rp), NULL, &map_sz);
+        mhs_map = erts_max_heap_size_map(hfact, MAX_HEAP_SIZE_GET(rp),
+                                         MAX_HEAP_SIZE_FLAGS_GET(rp));
 
-        hp = erts_produce_heap(hfact, 3+2 + 3+2 + 3+2 + 3+2 + 3+2 + map_sz, reserve_size);
+        hp = erts_produce_heap(hfact, 5*(3+2), reserve_size);
 
 	t = TUPLE2(hp, AM_minor_gcs, make_small(GEN_GCS(rp))); hp += 3;
 	res = CONS(hp, t, NIL); hp += 2;
@@ -1951,12 +1951,10 @@ process_info_aux(Process *c_p,
 
 	t = TUPLE2(hp, am_min_heap_size, make_small(MIN_HEAP_SIZE(rp))); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
-	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(MIN_VHEAP_SIZE(rp))); hp += 3;
+	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(rp->min_vheap_size)); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 
-        t = erts_max_heap_size_map(MAX_HEAP_SIZE_GET(rp), MAX_HEAP_SIZE_FLAGS_GET(rp), &hp, NULL);
-
-	t = TUPLE2(hp, am_max_heap_size, t); hp += 3;
+	t = TUPLE2(hp, am_max_heap_size, mhs_map); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 	break;
     }
@@ -2748,10 +2746,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = TUPLE2(hp, am_min_heap_size,make_small(H_MIN_SIZE));
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_max_heap_size) {
-        Uint sz = 0;
-        erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, NULL, &sz);
-	hp = HAlloc(BIF_P, sz);
-	res = erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, &hp, NULL);
+        ErtsHeapFactory factory;
+        erts_factory_proc_init(&factory, BIF_P);
+	res = erts_max_heap_size_map(&factory, H_MAX_SIZE, H_MAX_FLAGS);
+        erts_factory_close(&factory);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_min_bin_vheap_size) {
 	hp = HAlloc(BIF_P, 3);

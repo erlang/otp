@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1898,8 +1898,8 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_max_heap_size) {
-       Eterm *hp;
-       Uint sz = 0, max_heap_size, max_heap_flags;
+       ErtsHeapFactory factory;
+       Uint max_heap_size, max_heap_flags;
 
        if (!erts_max_heap_size(BIF_ARG_2, &max_heap_size, &max_heap_flags))
            goto error;
@@ -1907,9 +1907,11 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        if ((max_heap_size < MIN_HEAP_SIZE(BIF_P) && max_heap_size != 0))
 	   goto error;
 
-       erts_max_heap_size_map(MAX_HEAP_SIZE_GET(BIF_P), MAX_HEAP_SIZE_FLAGS_GET(BIF_P), NULL, &sz);
-       hp = HAlloc(BIF_P, sz);
-       old_value = erts_max_heap_size_map(MAX_HEAP_SIZE_GET(BIF_P), MAX_HEAP_SIZE_FLAGS_GET(BIF_P), &hp, NULL);
+       erts_factory_proc_init(&factory, BIF_P);
+       old_value = erts_max_heap_size_map(&factory,
+                                          MAX_HEAP_SIZE_GET(BIF_P),
+                                          MAX_HEAP_SIZE_FLAGS_GET(BIF_P));
+       erts_factory_close(&factory);
        MAX_HEAP_SIZE_SET(BIF_P, max_heap_size);
        MAX_HEAP_SIZE_FLAGS_SET(BIF_P, max_heap_flags);
        BIF_RET(old_value);
@@ -3363,6 +3365,9 @@ BIF_RETTYPE string_list_to_integer_1(BIF_ALIST_1)
      case LTI_NO_INTEGER:
 	 hp = HAlloc(BIF_P,3);
 	 BIF_RET(TUPLE2(hp, am_error, am_no_integer));
+     case LTI_SYSTEM_LIMIT:
+	 hp = HAlloc(BIF_P,3);
+	 BIF_RET(TUPLE2(hp, am_error, am_system_limit));
      default:
 	 hp = HAlloc(BIF_P,3);
 	 BIF_RET(TUPLE2(hp, res, tail));
@@ -3371,25 +3376,27 @@ BIF_RETTYPE string_list_to_integer_1(BIF_ALIST_1)
 
 BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
  {
-   /* Using erts_list_to_integer is about twice as fast as using
-      erts_chars_to_integer because we do not have to copy the 
-      entire list */
+     /* Using erts_list_to_integer() is about twice as fast as using
+      * erts_chars_to_integer() because we do not have to copy the
+      * entire list. */
      Eterm res;
      Eterm dummy;
      /* must be a list */
-     if (erts_list_to_integer(BIF_P, BIF_ARG_1, 10,
-                              &res, &dummy) != LTI_ALL_INTEGER) {
-	 BIF_ERROR(BIF_P,BADARG);
+     switch (erts_list_to_integer(BIF_P, BIF_ARG_1, 10, &res, &dummy)) {
+     case LTI_ALL_INTEGER:
+         BIF_RET(res);
+     case LTI_SYSTEM_LIMIT:
+	 BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+     default:
+	 BIF_ERROR(BIF_P, BADARG);
      }
-     BIF_RET(res);
  }
 
 BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
 {
-  /* Bif implementation is about 50% faster than pure erlang,
-     and since we have erts_chars_to_integer now it is simpler
-     as well. This could be optimized further if we did not have to
-     copy the list to buf. */
+    /* The BIF implementation is about 50% faster than pure Erlang,
+     * and since we now have erts_list_to_integer() it is simpler as
+     * well. */
     Sint i;
     Eterm res, dummy;
     int base;
@@ -3405,11 +3412,14 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (erts_list_to_integer(BIF_P, BIF_ARG_1, base,
-                             &res, &dummy) != LTI_ALL_INTEGER) {
-        BIF_ERROR(BIF_P,BADARG);
+    switch (erts_list_to_integer(BIF_P, BIF_ARG_1, base, &res, &dummy)) {
+    case LTI_ALL_INTEGER:
+        BIF_RET(res);
+    case LTI_SYSTEM_LIMIT:
+        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    default:
+        BIF_ERROR(BIF_P, BADARG);
     }
-    BIF_RET(res);
 }
 
 /**********************************************************************/
@@ -5080,9 +5090,9 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 
 	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_max_heap_size) {
-
-        Eterm *hp, old_value;
-        Uint sz = 0, max_heap_size, max_heap_flags;
+        ErtsHeapFactory factory;
+        Eterm old_value;
+        Uint max_heap_size, max_heap_flags;
 
         if (!erts_max_heap_size(BIF_ARG_2, &max_heap_size, &max_heap_flags))
             goto error;
@@ -5090,9 +5100,9 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
         if (max_heap_size < H_MIN_SIZE && max_heap_size != 0)
             goto error;
 
-        erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, NULL, &sz);
-        hp = HAlloc(BIF_P, sz);
-        old_value = erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, &hp, NULL);
+        erts_factory_proc_init(&factory, BIF_P);
+        old_value = erts_max_heap_size_map(&factory, H_MAX_SIZE, H_MAX_FLAGS);
+        erts_factory_close(&factory);
 
         erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
         erts_thr_progress_block();
@@ -5518,7 +5528,6 @@ void erts_init_trap_export(Export *ep, Eterm m, Eterm f, Uint a,
 #endif
 
     ep->bif_number = -1;
-    ep->info.op = op_i_func_info_IaaI;
     ep->info.mfa.module = m;
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
@@ -5597,11 +5606,7 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
     (void) erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				    mfa, pc,
-#ifdef BEAMASM
-                                    op_call_bif_W,
-#else
                                     BeamOpCodeAddr(op_call_bif_W),
-#endif
 				    dfunc, ifunc,
 				    module, function,
 				    argc, argv);

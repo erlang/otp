@@ -698,25 +698,25 @@ static const Support::Array<uint8_t, 32> commonHiRegIdOfType = {{
 #undef V
 
 static inline bool checkValidRegs(const Operand_& o0) noexcept {
-  return ((o0.id() < 31) | (o0.id() == commonHiRegIdOfType[o0.as<Reg>().type()]));
+  return bool(unsigned(o0.id() < 31) | unsigned(o0.id() == commonHiRegIdOfType[o0.as<Reg>().type()]));
 }
 
 static inline bool checkValidRegs(const Operand_& o0, const Operand_& o1) noexcept {
-  return ((o0.id() < 31) | (o0.id() == commonHiRegIdOfType[o0.as<Reg>().type()])) &
-         ((o1.id() < 31) | (o1.id() == commonHiRegIdOfType[o1.as<Reg>().type()])) ;
+  return bool((unsigned(o0.id() < 31) | unsigned(o0.id() == commonHiRegIdOfType[o0.as<Reg>().type()])) &
+              (unsigned(o1.id() < 31) | unsigned(o1.id() == commonHiRegIdOfType[o1.as<Reg>().type()])));
 }
 
 static inline bool checkValidRegs(const Operand_& o0, const Operand_& o1, const Operand_& o2) noexcept {
-  return ((o0.id() < 31) | (o0.id() == commonHiRegIdOfType[o0.as<Reg>().type()])) &
-         ((o1.id() < 31) | (o1.id() == commonHiRegIdOfType[o1.as<Reg>().type()])) &
-         ((o2.id() < 31) | (o2.id() == commonHiRegIdOfType[o2.as<Reg>().type()])) ;
+  return bool((unsigned(o0.id() < 31) | unsigned(o0.id() == commonHiRegIdOfType[o0.as<Reg>().type()])) &
+              (unsigned(o1.id() < 31) | unsigned(o1.id() == commonHiRegIdOfType[o1.as<Reg>().type()])) &
+              (unsigned(o2.id() < 31) | unsigned(o2.id() == commonHiRegIdOfType[o2.as<Reg>().type()])));
 }
 
 static inline bool checkValidRegs(const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_& o3) noexcept {
-  return ((o0.id() < 31) | (o0.id() == commonHiRegIdOfType[o0.as<Reg>().type()])) &
-         ((o1.id() < 31) | (o1.id() == commonHiRegIdOfType[o1.as<Reg>().type()])) &
-         ((o2.id() < 31) | (o2.id() == commonHiRegIdOfType[o2.as<Reg>().type()])) &
-         ((o3.id() < 31) | (o3.id() == commonHiRegIdOfType[o3.as<Reg>().type()])) ;
+  return bool((unsigned(o0.id() < 31) | unsigned(o0.id() == commonHiRegIdOfType[o0.as<Reg>().type()])) &
+              (unsigned(o1.id() < 31) | unsigned(o1.id() == commonHiRegIdOfType[o1.as<Reg>().type()])) &
+              (unsigned(o2.id() < 31) | unsigned(o2.id() == commonHiRegIdOfType[o2.as<Reg>().type()])) &
+              (unsigned(o3.id() < 31) | unsigned(o3.id() == commonHiRegIdOfType[o3.as<Reg>().type()])));
 }
 
 // a64::Assembler - Construction & Destruction
@@ -4993,13 +4993,11 @@ EmitDone:
   if (Support::test(options, InstOptions::kReserved)) {
 #ifndef ASMJIT_NO_LOGGING
     if (_logger)
-      EmitterUtils::logInstructionEmitted(this, instId, options, o0, o1, o2, opExt, 0, 0, writer.cursor());
+      EmitterUtils::logInstructionEmitted(this, BaseInst::composeARMInstId(instId, instCC), options, o0, o1, o2, opExt, 0, 0, writer.cursor());
 #endif
   }
 
-  resetExtraReg();
-  resetInstOptions();
-  resetInlineComment();
+  resetState();
 
   writer.done(this);
   return kErrorOk;
@@ -5025,9 +5023,7 @@ Failed:
 #ifndef ASMJIT_NO_LOGGING
   return EmitterUtils::logInstructionFailed(this, err, instId, options, o0, o1, o2, opExt);
 #else
-  resetExtraReg();
-  resetInstOptions();
-  resetInlineComment();
+  resetState();
   return reportError(err);
 #endif
 }

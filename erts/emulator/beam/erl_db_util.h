@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,6 +101,12 @@ typedef struct {
             int current_level;
         } catree;
     } u;
+    Eterm* old_tpl;
+#ifdef DEBUG
+    Eterm old_tpl_dflt[2];
+#else
+    Eterm old_tpl_dflt[8];
+#endif
 } DbUpdateHandle;
 
 /* How safe are we from double-hits or missed objects
@@ -237,7 +243,7 @@ typedef struct db_table_method
     ** not DB_ERROR_NONE, the object is removed from the table. */
     void (*db_finalize_dbterm)(int cret, DbUpdateHandle* handle);
     void* (*db_eterm_to_dbterm)(int compress, int keypos, Eterm obj);
-    void* (*db_dbterm_list_prepend)(void* list, void* db_term);
+    void* (*db_dbterm_list_append)(void* last_term, void* db_term);
     void* (*db_dbterm_list_remove_first)(void** list);
     int (*db_put_dbterm)(DbTable* tb, /* [in out] */
                          void* obj,
@@ -400,10 +406,10 @@ ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 					      Eterm** hpp, ErlOffHeap* off_heap)
 {
     if (tb->compress) {
-	return db_copy_from_comp(tb, bp, hpp, off_heap);
+        return db_copy_from_comp(tb, bp, hpp, off_heap);
     }
     else {
-	return copy_shallow(bp->tpl, bp->size, hpp, off_heap);
+        return make_tuple(copy_shallow(bp->tpl, bp->size, hpp, off_heap));
     }
 }
 

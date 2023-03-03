@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -172,4 +172,4 @@ message_1(exfull) -> <<"message tables full">>;
 message_1(nxdomain) -> <<"non-existing domain">>;
 message_1(exbadport) -> <<"inet_drv bad port state">>;
 message_1(exbadseq) -> <<"inet_drv bad request sequence">>;
-message_1(_) -> <<"unknown POSIX error">>.
+message_1(Other) -> <<"unknown POSIX error: ", (atom_to_binary(Other))/binary>>.

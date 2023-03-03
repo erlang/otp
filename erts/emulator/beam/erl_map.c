@@ -438,7 +438,9 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
 
 	idx = size;
 
-	while(idx > 0 && (c = CMP_TERM(key,ks[idx-1])) < 0) { idx--; }
+	while(idx > 0 && (c = erts_cmp_flatmap_keys(key,ks[idx-1])) < 0) {
+            idx--;
+        }
 
 	if (c == 0) {
 	    /* last compare was equal,
@@ -747,21 +749,6 @@ Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Ui
     }
     return res;
 }
-
-Eterm erts_map_from_sorted_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
-                                     Uint n, Eterm *key_tuple)
-{
-#ifdef DEBUG
-    Uint i; 
-    /* verify that key array contains unique and sorted keys... */
-    for (i = 1; i < n; i++) {
-        ASSERT(CMP_TERM(ks[i-1], ks[i]) < 0);
-    }
-#endif
-
-    return from_ks_and_vs(factory, ks, vs, n, key_tuple, NULL);
-}
-
 
 Eterm erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
                                         Eterm *ks, Eterm *vs, Uint n,
@@ -1383,7 +1370,7 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     vs2 = flatmap_get_values(mp2);
 
     while(i1 < n1 && i2 < n2) {
-	c = (ks1[i1] == ks2[i2]) ? 0 : CMP_TERM(ks1[i1],ks2[i2]);
+	c = (ks1[i1] == ks2[i2]) ? 0 : erts_cmp_flatmap_keys(ks1[i1],ks2[i2]);
 	if (c == 0) {
 	    /* use righthand side arguments map value,
 	     * but advance both maps */
@@ -2161,7 +2148,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	ASSERT(n >= 0);
 
 	/* copy map in order */
-	while (n && ((c = CMP_TERM(*ks, key)) < 0)) {
+	while (n && ((c = erts_cmp_flatmap_keys(*ks, key)) < 0)) {
 	    *shp++ = *ks++;
 	    *hp++  = *vs++;
 	    n--;
@@ -3059,7 +3046,7 @@ int erts_validate_and_sort_flatmap(flatmap_t* mp)
 
     for (ix = 1; ix < sz; ix++) {
 	jx = ix;
-	while( jx > 0 && (c = CMP_TERM(ks[jx],ks[jx-1])) <= 0 ) {
+	while( jx > 0 && (c = erts_cmp_flatmap_keys(ks[jx],ks[jx-1])) <= 0 ) {
 	    /* identical key -> error */
 	    if (c == 0) return 0;
 
@@ -3090,7 +3077,7 @@ void erts_usort_flatmap(flatmap_t* mp)
 
     for (ix = 1; ix < sz; ix++) {
 	jx = ix;
-	while( jx > 0 && (c = CMP_TERM(ks[jx],ks[jx-1])) <= 0 ) {
+	while( jx > 0 && (c = erts_cmp_flatmap_keys(ks[jx],ks[jx-1])) <= 0 ) {
 	    /* identical key -> remove it */
 	    if (c == 0) {
                 sys_memmove(ks+jx-1,ks+jx,(sz-ix)*sizeof(Eterm));
@@ -3499,6 +3486,60 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
         type = list;
     } else {
         BIF_ERROR(BIF_P, BADARG);
+    }
+
+    /* Handle an ordered iterator. */
+    if (type == iterator && (is_list(path) || is_nil(path))) {
+#ifdef DEBUG
+#define ORDERED_ITER_FACTOR 200
+#else
+#define ORDERED_ITER_FACTOR 32
+#endif
+        int orig_elems = MAX(1, ERTS_BIF_REDS_LEFT(BIF_P) / ORDERED_ITER_FACTOR);
+        int elems = orig_elems;
+        Uint needed = 4 * elems + 2;
+        Eterm *hp = HAlloc(BIF_P, needed);
+        Eterm *hp_end = hp + needed;
+        Eterm result = am_none;
+        Eterm *patch_ptr = &result;
+
+        while (is_list(path) && elems > 0) {
+            Eterm *lst = list_val(path);
+            Eterm key = CAR(lst);
+            Eterm res = make_tuple(hp);
+            const Eterm *value = erts_maps_get(key, map);
+            if (!value) {
+            ordered_badarg:
+                HRelease(BIF_P, hp_end, hp);
+                BIF_ERROR(BIF_P, BADARG);
+            }
+            hp[0] = make_arityval(3);
+            hp[1] = key;
+            hp[2] = *value;
+            *patch_ptr = res;
+            patch_ptr = &hp[3];
+            hp += 4;
+            path = CDR(lst);
+            elems--;
+        }
+
+        if (is_list(path)) {
+            Eterm next = CONS(hp, path, map);
+            hp += 2;
+            ASSERT(hp == hp_end);
+            *patch_ptr = next;
+            BUMP_ALL_REDS(BIF_P);
+            ASSERT(is_tuple(result));
+            BIF_RET(result);
+        } else if (is_nil(path)) {
+            HRelease(BIF_P, hp_end, hp);
+            *patch_ptr = am_none;
+            BUMP_REDS(BIF_P, ORDERED_ITER_FACTOR * (orig_elems - elems));
+            ASSERT(result == am_none || is_tuple(result));
+            BIF_RET(result);
+        } else {
+            goto ordered_badarg;
+        }
     }
 
     if (is_flatmap(map)) {

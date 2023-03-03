@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2022</year>
+      <year>2006</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -86,8 +86,8 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
          [--error_location flag] [files_or_dirs] [--fullpath]
          [--get_warnings] [--gui] [--help] [-I include_dir]*
-         [--incremental] [--no_check_plt] [--no_indentation] [-o outfile]
-         [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
+         [--incremental] [--no_check_plt] [--no_indentation] [--no_spec]
+         [-o outfile] [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
          [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
          [--shell] [--src] [--statistics] [--verbose] [--version]
          [-Wwarn]*</code>
@@ -208,6 +208,11 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
       <item>
 	<p>Do not insert line breaks in types, contracts, and Erlang
 	  Code when formatting warnings.</p>
+      </item>
+      <tag><c>--no_spec</c></tag>
+      <item>
+	<p>Ignore functions specs. This is useful for debugging when
+	one suspects that some specs are incorrect.</p>
       </item>
       <tag><c>-o outfile</c> (or
         <c>--output outfile</c>)</tag>
@@ -386,19 +391,17 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <item>
         <p>Suppress warnings for unused functions.</p>
       </item>
+      <tag><c>-Wno_unknown</c></tag>
+      <item>
+        <p>Suppress warnings about unknown functions and types. The default is to
+     warn about unknown functions and types when setting the exit
+     status. When using Dialyzer from Erlang, warnings about unknown functions
+     and types are returned.</p>
+      </item>
       <tag><c>-Wunderspecs</c> (***)</tag>
       <item>
         <p>Warn about underspecified functions (the specification is strictly
           more allowing than the success typing).</p>
-      </item>
-      <tag><c>-Wunknown</c> (***)</tag>
-      <item>
-        <p>Let warnings about unknown functions and types affect the
-          exit status of the command-line version. The default is to ignore
-          warnings about unknown functions and types when setting the exit
-          status. When using Dialyzer from Erlang, warnings about unknown
-          functions and types are returned; the default is not to return
-          these warnings.</p>
       </item>
       <tag><c>-Wunmatched_returns</c> (***)</tag>
       <item>
@@ -531,11 +534,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     <p>For help on the warning options, use <c>dialyzer -Whelp</c>. The
       options are also enumerated, see type <seetype marker="#warn_option">
       <c>warn_option()</c></seetype>.</p>
-
-    <note>
-      <p>Warning option <c>-Wrace_conditions</c> has no effect when
-        set in source files.</p>
-    </note>
 
     <p>Attribute <c>-dialyzer()</c> can also be used for turning on
       warnings. For example, if a module has been fixed regarding

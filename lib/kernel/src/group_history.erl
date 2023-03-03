@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -310,10 +310,7 @@ disk_log_info(Tag) ->
     Value.
 
 find_wrap_values() ->
-    ConfSize = case application:get_env(kernel, shell_history_file_bytes) of
-        undefined -> ?DEFAULT_SIZE;
-        {ok, S} -> S
-    end,
+    ConfSize = application:get_env(kernel, shell_history_file_bytes, ?DEFAULT_SIZE),
     SizePerFile = max(?MIN_HISTORY_SIZE, ConfSize div ?MAX_HISTORY_FILES),
     FileCount = if SizePerFile > ?MIN_HISTORY_SIZE ->
                        ?MAX_HISTORY_FILES

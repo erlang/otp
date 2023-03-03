@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -295,8 +295,8 @@ read_chunk(Fd, _Fname, _Sofar) ->
 
 -ifndef(no_bitsyntax).
 
-find_good_split(Bin, F, Exception, Fd, Fname, T, S) ->
-    find_good_split(size(Bin)-1, Bin, F, Exception, Fd, Fname, T, S).
+find_good_split(Bin, F, Exception, Fd, Fname, T, S) when is_binary(Bin) ->
+    find_good_split(byte_size(Bin)-1, Bin, F, Exception, Fd, Fname, T, S).
 
 find_good_split(0, B, F, Exception, Fd, Fname, T, S) ->
     cont2(F, Exception, B, Fd, Fname, T, S);
@@ -312,8 +312,8 @@ find_good_split(Size, B, F, Exception, Fd, Fname, T, S) ->
 
 -else.
 
-find_good_split(Bin, F, Exception, Fd, Fname, T, S) ->
-    find_good_split(size(Bin), Bin, F, Exception, Fd, Fname, T, S).
+find_good_split(Bin, F, Exception, Fd, Fname, T, S) when is_binary(Bin) ->
+    find_good_split(byte_size(Bin), Bin, F, Exception, Fd, Fname, T, S).
 
 find_good_split(0, B, F, Exception, Fd, Fname, T, S) ->
     cont2(F, Exception, B, Fd, Fname, T, S);

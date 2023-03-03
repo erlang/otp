@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -689,17 +689,18 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
         flags |= BSF_LITTLE;
     }
 
-    if (Sz.isSmall() &&
-        (size = Sz.as<ArgSmall>().getUnsigned()) < 8 * sizeof(Uint)) {
+    if (Sz.isSmall() && Sz.as<ArgSmall>().getUnsigned() < 8 * sizeof(Uint) &&
+        (size = Sz.as<ArgSmall>().getUnsigned() * Unit.get()) <
+                8 * sizeof(Uint)) {
         /* Segment of a fixed size supported by bs_match. */
         const ArgVal match[] = {ArgAtom(am_ensure_at_least),
                                 ArgWord(size),
-                                Unit,
+                                ArgWord(1),
                                 ArgAtom(am_integer),
                                 Live,
                                 ArgWord(flags),
                                 ArgWord(size),
-                                Unit,
+                                ArgWord(1),
                                 Dst};
 
         const Span<ArgVal> args(match, sizeof(match) / sizeof(match[0]));
@@ -1136,8 +1137,10 @@ void BeamGlobalAssembler::emit_bs_get_utf8_short_shared() {
         a.pop(x86::rcx);
     }
 
-    a.test(RET, RET);
-    a.short_().jns(ascii);
+    /* `test rax, rax` is a shorter instruction but can cause a warning
+     * in valgrind if there are any uninitialized bits in rax. */
+    a.bt(RET, imm(63));
+    a.short_().jnc(ascii);
 
     /* The bs_get_utf8_shared fragment expects the contents in RETd. */
     a.shr(RET, imm(32));
@@ -2377,20 +2380,20 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
          */
         switch (seg.type) {
         case am_append:
-            if (!(exact_type(seg.src, BEAM_TYPE_BITSTRING) &&
+            if (!(exact_type<BeamTypeId::Bitstring>(seg.src) &&
                   std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit)) {
                 need_error_handler = true;
             }
             break;
         case am_binary:
             if (!(seg.size.isAtom() && seg.size.as<ArgAtom>().get() == am_all &&
-                  exact_type(seg.src, BEAM_TYPE_BITSTRING) &&
+                  exact_type<BeamTypeId::Bitstring>(seg.src) &&
                   std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit)) {
                 need_error_handler = true;
             }
             break;
         case am_integer:
-            if (!always_one_of(seg.src, BEAM_TYPE_INTEGER)) {
+            if (!exact_type<BeamTypeId::Integer>(seg.src)) {
                 need_error_handler = true;
             }
             break;
@@ -2548,7 +2551,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             mov_arg(ARG1, seg.src);
 
-            if (exact_type(seg.src, BEAM_TYPE_BITSTRING)) {
+            if (exact_type<BeamTypeId::Bitstring>(seg.src)) {
                 auto unit = getSizeUnit(seg.src);
                 bool is_bitstring = unit == 0 || std::gcd(unit, 8) != 8;
                 x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
@@ -2622,8 +2625,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
 
             if (always_small(seg.size)) {
                 comment("skipped test for small size since it is always small");
-            } else if (always_one_of(seg.size,
-                                     BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+            } else if (always_one_of<BeamTypeId::Number>(seg.size)) {
                 comment("simplified test for small size since it is a number");
                 a.test(ARG1.r8(), imm(TAG_PRIMARY_LIST));
                 a.je(error);
@@ -2671,9 +2673,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 if (always_small(seg.src)) {
                     comment("skipped test for small value since it is always "
                             "small");
-                } else if (always_one_of(seg.src,
-                                         BEAM_TYPE_INTEGER |
-                                                 BEAM_TYPE_MASK_BOXED)) {
+                } else if (always_one_of<BeamTypeId::Integer,
+                                         BeamTypeId::AlwaysBoxed>(seg.src)) {
                     comment("simplified test for small operand since other "
                             "types are boxed");
                     emit_is_not_boxed(error, ARG1);
@@ -2781,7 +2782,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         load_x_reg_array(ARG2);
         runtime_call<6>(erts_bs_append_checked);
 
-        if (exact_type(seg.src, BEAM_TYPE_BITSTRING) &&
+        if (exact_type<BeamTypeId::Bitstring>(seg.src) &&
             std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
             /* There is no way the call can fail with a system_limit
              * exception on a 64-bit architecture. */
@@ -2884,7 +2885,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
                                                              BSC_VALUE_FVALUE);
-                if (exact_type(seg.src, BEAM_TYPE_BITSTRING) &&
+                if (exact_type<BeamTypeId::Bitstring>(seg.src) &&
                     std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
                     comment("skipped test for success because units are "
                             "compatible");
@@ -2969,9 +2970,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 mov_arg(ARG1, seg.src);
 
                 if (!always_small(seg.src)) {
-                    if (always_one_of(seg.src,
-                                      BEAM_TYPE_INTEGER |
-                                              BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+                    if (always_one_of<BeamTypeId::Integer,
+                                      BeamTypeId::AlwaysBoxed>(seg.src)) {
                         comment("simplified small test since all other types "
                                 "are boxed");
                         emit_is_boxed(value_is_small, seg.src, ARG1);
@@ -2985,7 +2985,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                     /* The value is boxed. If it is a bignum, extract the
                      * least significant 64 bits. */
                     safe_fragment_call(ga->get_get_sint64_shared());
-                    if (always_one_of(seg.src, BEAM_TYPE_INTEGER)) {
+                    if (exact_type<BeamTypeId::Integer>(seg.src)) {
                         a.short_().jmp(accumulate);
                     } else {
                         a.short_().jne(accumulate);
@@ -3212,7 +3212,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                     mov_imm(ARG4, seg.flags);
                     load_erl_bits_state(ARG1);
                     runtime_call<4>(erts_new_bs_put_integer);
-                    if (exact_type(seg.src, BEAM_TYPE_INTEGER)) {
+                    if (exact_type<BeamTypeId::Integer>(seg.src)) {
                         comment("skipped test for success because construction "
                                 "can't fail");
                     } else {
@@ -3302,7 +3302,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         /* Try to keep track whether the next segment is byte
          * aligned. */
         if (seg.type == am_append || seg.type == am_private_append) {
-            if (!exact_type(seg.src, BEAM_TYPE_BITSTRING) ||
+            if (!exact_type<BeamTypeId::Bitstring>(seg.src) ||
                 std::gcd(getSizeUnit(seg.src), 8) != 8) {
                 is_byte_aligned = false;
             }
@@ -3783,8 +3783,12 @@ void BeamModuleAssembler::emit_extract_binary(const x86::Gp bitdata,
     a.mov(x86::qword_ptr(HTOP, sizeof(Eterm)), imm(num_bytes));
     a.mov(RET, bitdata);
     a.bswap(RET);
-    a.mov(x86::qword_ptr(HTOP, 2 * sizeof(Eterm)), RET);
-    a.add(HTOP, imm(sizeof(Eterm[3])));
+    if (num_bytes == 0) {
+        a.add(HTOP, imm(sizeof(Eterm[2])));
+    } else {
+        a.mov(x86::qword_ptr(HTOP, 2 * sizeof(Eterm)), RET);
+        a.add(HTOP, imm(sizeof(Eterm[3])));
+    }
 }
 
 static std::vector<BsmSegment> opt_bsm_segments(

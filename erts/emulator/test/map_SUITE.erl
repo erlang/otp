@@ -780,6 +780,45 @@ t_map_get(Config) when is_list(Config) ->
         (T) when map_get(x, T) =:= 1 -> ok;
         (T) -> false = is_map(T)
     end),
+
+    %% Test unions of maps with some other type.
+
+    M3 = id(M2),
+    if
+        is_map(M3) -> ok;
+        is_atom(M3) -> ok
+    end,
+    %% M3 is now known to be either a map or an atom
+    1 = map_get(a, M3),
+
+    M4 = id(M3),
+    if
+        is_map(M4) -> ok;
+        is_atom(M4) -> ok
+    end,
+    %% M4 is now known to be either a map or an atom
+    if
+        map_get(a, M4) =:= 1 -> ok
+    end,
+
+    M5 = id(M4),
+    if
+        is_map(M5) -> ok;
+        is_tuple(M5) -> ok
+    end,
+    %% M5 is now known to be either a map or a tuple
+    1 = map_get(a, M5),
+
+    M6 = id(M5),
+    if
+        is_map(M6) -> ok;
+        is_tuple(M6) -> ok
+    end,
+    %% M6 is now known to be either a map or a tuple
+    if
+        map_get(a, M6) =:= 1 -> ok
+    end,
+
     ok.
 
 t_is_map_key(Config) when is_list(Config) ->
@@ -1699,6 +1738,7 @@ t_map_compare(Config) when is_list(Config) ->
     repeat(100, fun(_) -> float_int_compare() end, []),
     repeat(100, fun(_) -> recursive_compare() end, []),
     repeat(10, fun(_) -> atoms_compare() end, []),
+    repeat(10, fun(_) -> atoms_plus_compare() end, []),
     ok.
 
 float_int_compare() ->
@@ -1721,6 +1761,31 @@ atoms_compare() ->
               M1 = map_gen(Pairs, Size),
               M2 = map_gen(Pairs, Size),
               %%io:format("Atom maps to compare: ~p AND ~p\n", [M1, M2]),
+              do_cmp(M1, M2)
+      end,
+      lists:seq(1,length(Atoms))),
+    ok.
+
+atoms_plus_compare() ->
+    Atoms = [true, false, ok, '', ?MODULE, list_to_atom(id("a new atom"))],
+    Pairs = lists:map(fun(K) -> list_to_tuple([{K,V} || V <- Atoms]) end,
+                      Atoms),
+    Small = 17,
+    Big1 = 1 bsl 64,
+    Big2 = erts_debug:copy_shared(Big1),
+    Float1 = float(Big1),
+    Float2 = float(Big2),
+    Others = {Small, -Small, Big1, -Big1, Big2, Float1, Float2,
+              [], {}, #{}, self(), make_ref(),
+              ok, yes, no, lists, maps, seq},
+    RandOther = fun() -> element(rand:uniform(size(Others)), Others) end,
+
+    lists:foreach(
+      fun(Size) ->
+              M = map_gen(Pairs, Size),
+              M1 = M#{RandOther() => RandOther()},
+              M2 = M#{RandOther() => RandOther()},
+              %%io:format("Maps to compare:\nM1 = ~p\nM2 = ~p\n", [M1, M2]),
               do_cmp(M1, M2)
       end,
       lists:seq(1,length(Atoms))),
@@ -2967,6 +3032,10 @@ t_erts_internal_order(_Config) when is_list(_Config) ->
     -1 = erts_internal:cmp_term(0,2147483648),
     0  = erts_internal:cmp_term(2147483648,2147483648),
     1  = erts_internal:cmp_term(2147483648,0),
+
+    %% Make sure it's not the internal flatmap order
+    %% where low indexed 'true' < 'a'.
+    -1  = erts_internal:cmp_term(a,true),
 
     M = #{0 => 0,2147483648 => 0},
     true = M =:= binary_to_term(term_to_binary(M)),

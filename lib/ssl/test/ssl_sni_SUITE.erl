@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -197,8 +197,8 @@ sni_no_match_fun(Config) ->
 
 dns_name(Config) ->
     Hostname = "OTP.test.server",
-    #{server_config := ServerConf,
-      client_config := ClientConf} =
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0} =
         public_key:pkix_test_data(#{server_chain =>
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
@@ -211,6 +211,9 @@ dns_name(Config) ->
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
+    ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
     unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config),
     successfull_connect(ServerConf, [{verify, verify_peer},
                                      {server_name_indication, Hostname} | ClientConf], undefined, Config),
@@ -223,8 +226,8 @@ ip_fallback(Config) ->
     Hostname = net_adm:localhost(),
     {ok, #hostent{h_addr_list = [IP |_]}} = inet:gethostbyname(net_adm:localhost()),
     IPStr = tuple_to_list(IP),
-    #{server_config := ServerConf,
-      client_config := ClientConf} =
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0} =
         public_key:pkix_test_data(#{server_chain =>
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
@@ -238,14 +241,17 @@ ip_fallback(Config) ->
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
+    ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config).
 
 no_ip_fallback(Config) ->
     Hostname = net_adm:localhost(),
     {ok, #hostent{h_addr_list = [IP |_]}} = inet:gethostbyname(net_adm:localhost()),
-    #{server_config := ServerConf,
-      client_config := ClientConf} =
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0} =
         public_key:pkix_test_data(#{server_chain =>
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
@@ -259,13 +265,16 @@ no_ip_fallback(Config) ->
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
+    ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
     unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config).
 
 dns_name_reuse(Config) ->
     SNIHostname = "OTP.test.server",
-    #{server_config := ServerConf,
-      client_config := ClientConf} =
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0} =
         public_key:pkix_test_data(#{server_chain =>
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
@@ -280,39 +289,42 @@ dns_name_reuse(Config) ->
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
-    
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
+    ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
+
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config),
-    
-    Server = 
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib, session_info_result, []}},
 				   {options, ServerConf}]),
     Port = ssl_test_lib:inet_port(Server),
     Client0 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
+	ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
 				   {mfa, {ssl_test_lib, no_result, []}},
-                                   {from, self()}, {options, [{verify, verify_peer}, 
-                                                              {server_name_indication, SNIHostname} | ClientConf]}]),   
+                                   {from, self()}, {options, [{verify, verify_peer},
+                                                              {server_name_indication, SNIHostname} | ClientConf]}]),
     receive
         {Server, _} ->
             ok
     end,
-    
+
     Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
-    
+
     %% Make sure session is registered
     ct:sleep(1000),
-    
+
     Client1 =
 	ssl_test_lib:start_client_error([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_info_result, []}},
                                          {from, self()},  {options, [{verify, verify_peer} | ClientConf]}]),
-    
+
     ssl_test_lib:check_client_alert(Client1, handshake_failure),
     ssl_test_lib:close(Client0).
 

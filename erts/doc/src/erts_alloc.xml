@@ -573,7 +573,7 @@
         <item>
           <p>Adds a small tag to each allocated block that contains basic
             information about what it is and who allocated it. Use the
-            <seeerl marker="tools:instrument"><c>instrument</c></seeerl>
+            <seeerl marker="runtime_tools:instrument"><c>instrument</c></seeerl>
             module to inspect this information.</p>
 
           <p>The runtime overhead is one word per allocation when enabled. This
@@ -913,7 +913,7 @@
       <seeerl marker="erlang"><c>erlang(3)</c></seeerl>,
       <seeerl marker="runtime_tools:erts_alloc_config">
       <c>erts_alloc_config(3)</c></seeerl>,
-      <seeerl marker="tools:instrument">
+      <seeerl marker="runtime_tools:instrument">
       <c>instrument(3)</c></seeerl></p>
   </section>
 </cref>

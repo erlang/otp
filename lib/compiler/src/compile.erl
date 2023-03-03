@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1951,9 +1951,8 @@ output_encoding(F, #compile{encoding = Encoding}) ->
 
 diffable(Code0, St) ->
     {Mod,Exp,Attr,Fs0,NumLabels} = Code0,
-    EntryLabels0 = [{Entry,{Name,Arity}} ||
-                       {function,Name,Arity,Entry,_} <- Fs0],
-    EntryLabels = maps:from_list(EntryLabels0),
+    EntryLabels = #{Entry => {Name,Arity} ||
+                      {function,Name,Arity,Entry,_} <- Fs0},
     Fs = [diffable_fix_function(F, EntryLabels) || F <- Fs0],
     Code = {Mod,Exp,Attr,Fs,NumLabels},
     {ok,Code,St}.
@@ -2102,6 +2101,7 @@ pre_load() ->
 	 beam_kernel_to_ssa,
 	 beam_opcodes,
 	 beam_ssa,
+	 beam_ssa_alias,
 	 beam_ssa_bc_size,
 	 beam_ssa_bool,
 	 beam_ssa_bsm,
@@ -2109,6 +2109,7 @@ pre_load() ->
 	 beam_ssa_dead,
 	 beam_ssa_opt,
 	 beam_ssa_pre_codegen,
+	 beam_ssa_private_append,
 	 beam_ssa_recv,
 	 beam_ssa_share,
 	 beam_ssa_throw,

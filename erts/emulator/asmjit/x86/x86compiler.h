@@ -38,7 +38,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Runtime specialized for JIT code execution.
 //!   CodeHolder code;                  // Holds code and relocation information.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Compiler cc(&code);          // Create and attach x86::Compiler to code.
 //!
 //!   cc.addFunc(FuncSignatureT<int>());// Begin a function of `int fn(void)` signature.
@@ -82,7 +83,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Runtime specialized for JIT code execution.
 //!   CodeHolder code;                  // Holds code and relocation information.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Compiler cc(&code);          // Create and attach x86::Compiler to code.
 //!
 //!   FuncNode* funcNode = cc.addFunc(  // Begin the function of the following signature:
@@ -164,7 +166,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Runtime specialized for JIT code execution.
 //!   CodeHolder code;                  // Holds code and relocation information.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Compiler cc(&code);          // Create and attach x86::Compiler to code.
 //!
 //!   FuncNode* funcNode = cc.addFunc(FuncSignatureT<void, void*>());
@@ -222,7 +225,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Runtime specialized for JIT code execution.
 //!   CodeHolder code;                  // Holds code and relocation information.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Compiler cc(&code);          // Create and attach x86::Compiler to code.
 //!
 //!   FuncNode* funcNode = cc.addFunc(  // Begin of the Fibonacci function, addFunc()
@@ -290,7 +294,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Runtime specialized for JIT code execution.
 //!   CodeHolder code;                  // Holds code and relocation information.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Compiler cc(&code);          // Create and attach x86::Compiler to code.
 //!
 //!   cc.addFunc(FuncSignatureT<int>());// Create a function that returns int.

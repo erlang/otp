@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,9 +83,14 @@
 -define(CERTIFICATE_VERIFY, 15).
 -define(CLIENT_KEY_EXCHANGE, 16).
 -define(FINISHED, 20).
-
 -define(MAX_UNIT24, 8388607).
--define(DEFAULT_MAX_HANDSHAKE_SIZE,  (256*1024)).
+
+%% Usually the biggest handshake message will be the message conveying the
+%% certificate chain. This size should be sufficient for usual certificate
+%% chains, certificates without special extensions have a typical size of
+%%  1-2kB. By dividing the old default value by 2 we still have a slightly
+%% bigger margin than OpenSSL
+-define(DEFAULT_MAX_HANDSHAKE_SIZE, ((256*1024) div 2)).
 
 -record(random, {
 	  gmt_unix_time, % uint32
@@ -369,6 +374,17 @@
 %% RFC 8422 compliant implementations MUST not support the two formats below
 -define(ECPOINT_ANSIX962_COMPRESSED_PRIME, 1).
 -define(ECPOINT_ANSIX962_COMPRESSED_CHAR2, 2).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 5764 section 4 Datagram Transport Layer Security (DTLS) Extensions
+%% for SRTP (Secure Real-time Transport Protocol) Key Establishment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-define(USE_SRTP_EXT, 14).
+
+-record(use_srtp, {
+    protection_profiles,
+    mki
+   }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ECC RFC 4492 Handshake Messages, Section 5

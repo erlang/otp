@@ -420,8 +420,8 @@ help_message() ->
                 [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
                 [--error_location flag] [files_or_dirs] [--fullpath]
                 [--get_warnings] [--gui] [--help] [-I include_dir]*
-                [--incremental] [--no_check_plt] [--no_indentation] [-o outfile]
-                [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
+                [--incremental] [--no_check_plt] [--no_indentation] [--no_spec]
+                [-o outfile] [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
                 [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
                 [--shell] [--src] [--statistics] [--verbose] [--version]
                 [-Wwarn]*
@@ -550,6 +550,9 @@ Options:
   --no_indentation
       Do not indent contracts and success typings. Note that this option has
       no effect when combined with the --raw option.
+  --no_spec
+      Ignore functions specs. This is useful for debugging when one suspects
+      that some specs are incorrect.
   --gui
       Use the GUI.
 
@@ -594,6 +597,11 @@ warning_options_msg() ->
   -Wno_undefined_callbacks
      Suppress warnings about behaviours that have no -callback attributes for
      their callbacks.
+  -Wno_unknown
+     Suppress warnings about unknown functions and types. The default is to
+     warn about unknown functions and types when setting the exit
+     status. When using Dialyzer from Erlang, warnings about unknown functions
+     and types are returned.
   -Wunmatched_returns ***
      Include warnings for function calls which ignore a structured return
      value or do not match against one of many possible return value(s).
@@ -610,13 +618,6 @@ warning_options_msg() ->
      of the specification.
   -Woverlapping_contract ***
      Warn about overloaded functions whose specification include types that overlap.
-  -Wunknown ***
-     Let warnings about unknown functions and types affect the
-     exit status of the command line version. The default is to ignore
-     warnings about unknown functions and types when setting the exit
-     status. When using the Dialyzer from Erlang, warnings about unknown
-     functions and types are returned; the default is not to return
-     such warnings.
 
 The following options are also available but their use is not recommended:
 (they are mostly for Dialyzer developers and internal debugging)

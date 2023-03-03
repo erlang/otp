@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -199,9 +199,7 @@ user_hello(Type, Msg, State) ->
 start(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-start(internal = Type, #change_cipher_spec{} = Msg,
-      #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+start(internal = Type, #change_cipher_spec{} = Msg, State) ->
    tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                     ?FUNCTION_NAME, State);
 start(internal,
@@ -260,9 +258,7 @@ start(Type, Msg, State) ->
 wait_sh(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_sh(internal = Type, #change_cipher_spec{} = Msg,
-        #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+wait_sh(internal = Type, #change_cipher_spec{} = Msg, State)->
    tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                     ?FUNCTION_NAME, State);
 wait_sh(internal, #server_hello{extensions = Extensions},
@@ -292,9 +288,8 @@ wait_sh(internal, #server_hello{} = Hello,
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, wait_sh, State0);
         {State1 = #state{}, start, ServerHello} ->
-            %% hello_retry_request : assert middlebox before going back to start
-            {next_state, hello_retry_middlebox_assert,
-             State1, [{next_event, internal, ServerHello}]};
+            %% hello_retry_request
+            {next_state, start, State1, [{next_event, internal, ServerHello}]};
         {State1, wait_ee} when IsRetry == true ->
             tls_gen_connection:next_event(wait_ee, no_record, State1);
         {State1, wait_ee} when IsRetry == false ->
@@ -329,7 +324,7 @@ hello_middlebox_assert(Type, Msg, State) ->
 hello_retry_middlebox_assert(enter, _, State) ->
     {keep_state, State};
 hello_retry_middlebox_assert(internal, #change_cipher_spec{}, State) ->
-    tls_gen_connection:next_event(start, no_record, State);
+    tls_gen_connection:next_event(wait_sh, no_record, State);
 hello_retry_middlebox_assert(internal, #server_hello{}, State) ->
     tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State, [postpone]);
 hello_retry_middlebox_assert(info, Msg, State) ->
@@ -346,9 +341,7 @@ hello_retry_middlebox_assert(Type, Msg, State) ->
 wait_ee(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_ee(internal = Type, #change_cipher_spec{} = Msg,
-        #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+wait_ee(internal = Type, #change_cipher_spec{} = Msg, State) ->
    tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                     ?FUNCTION_NAME, State);
 wait_ee(internal, #encrypted_extensions{extensions = Extensions}, State0) ->
@@ -371,9 +364,7 @@ wait_ee(Type, Msg, State) ->
 wait_cert_cr(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_cert_cr(internal = Type, #change_cipher_spec{} = Msg,
-             #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+wait_cert_cr(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                      ?FUNCTION_NAME, State);
 wait_cert_cr(internal, #certificate_1_3{} = Certificate, State0) ->
@@ -432,9 +423,7 @@ wait_cv(Type, Msg, State) ->
 wait_finished(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_finished(internal = Type, #change_cipher_spec{} = Msg,
-              #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+wait_finished(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                      ?FUNCTION_NAME, State);
 wait_finished(internal,
@@ -517,6 +506,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
                                         ocsp_stapling_state = OcspState},
          connection_env = #connection_env{negotiated_version =
                                               NegotiatedVersion},
+         protocol_specific = PS,
          ssl_options = #{ciphers := ClientCiphers,
                          supported_groups := ClientGroups0,
                          use_ticket := UseTicket,
@@ -608,8 +598,17 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
                       HsEnv#handshake_env{tls_handshake_history = HHistory},
                   key_share = ClientKeyShare},
 
-        {State, wait_sh}
-
+        %% If it is a hello_retry and middlebox mode is
+        %% used assert the change_cipher_spec  message
+        %% that the server should send next
+        case (maps:get(hello_retry, PS, false)) andalso
+            (maps:get(middlebox_comp_mode, SslOpts, true))
+        of
+            true ->
+                {State, hello_retry_middlebox_assert};
+            false ->
+                {State, wait_sh}
+        end
     catch
         {Ref, #alert{} = Alert} ->
             Alert
@@ -671,7 +670,6 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
                                                           PSK, State2),
         State4 = ssl_record:step_encryption_state_read(State3),
         {State4, wait_ee}
-
     catch
         {Ref, {State, StateName, ServerHello}} ->
             {State, StateName, ServerHello};

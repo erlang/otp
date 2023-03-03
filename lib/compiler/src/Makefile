@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2022. All Rights Reserved.
+# Copyright Ericsson AB 1996-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ MODULES =  \
 	beam_listing \
 	beam_opcodes \
 	beam_ssa \
+	beam_ssa_alias \
 	beam_ssa_bc_size \
 	beam_ssa_bool \
 	beam_ssa_bsm \
@@ -70,6 +71,7 @@ MODULES =  \
 	beam_ssa_opt \
 	beam_ssa_pp \
 	beam_ssa_pre_codegen \
+	beam_ssa_private_append \
 	beam_ssa_recv \
 	beam_ssa_share \
 	beam_ssa_throw \
@@ -212,6 +214,7 @@ $(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
 $(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl \
      beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_alias_opt.beam: beam_ssa_opt.hrl beam_types.hrl
 $(EBIN)/beam_ssa_bsm.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_bool.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_check.beam: beam_ssa.hrl beam_types.hrl

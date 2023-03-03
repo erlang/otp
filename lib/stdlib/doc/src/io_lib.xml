@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -91,6 +91,10 @@
         </item>
         <item><p><c>strings</c> is set to <c>false</c> if modifier
           <c>l</c> is present.</p>
+        </item>
+        <item><p><c>maps_order</c> is set to <c>undefined</c> by default,
+          <c>ordered</c> if modifier <c>k</c> is present, or <c>reversed</c>
+          or <c>CmpFun</c> if modifier <c>K</c> is present.</p>
         </item>
       </list>
       </desc>

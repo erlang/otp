@@ -1606,7 +1606,7 @@ map_es(#c_literal{anno=As,val=M}) when is_map(M) ->
     [ann_c_map_pair(As,
                     #c_literal{anno=As,val='assoc'},
                     #c_literal{anno=As,val=K},
-                    #c_literal{anno=As,val=V}) || {K,V} <- maps:to_list(M)];
+                    #c_literal{anno=As,val=V}) || K := V <- M];
 map_es(#c_map{es = Es}) ->
     Es.
 

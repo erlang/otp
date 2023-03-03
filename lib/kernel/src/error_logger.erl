@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -578,11 +578,9 @@ limit_term(Term) ->
 -spec get_format_depth() -> 'unlimited' | pos_integer().
 
 get_format_depth() ->
-    case application:get_env(kernel, error_logger_format_depth) of
-	{ok, Depth} when is_integer(Depth) ->
+    case application:get_env(kernel, error_logger_format_depth, unlimited) of
+	Depth when is_integer(Depth) ->
 	    max(10, Depth);
-        {ok, unlimited} ->
-            unlimited;
-	undefined ->
-	    unlimited
+        unlimited ->
+            unlimited
     end.

@@ -1801,16 +1801,17 @@ bind_guard(Guard, Map, Env, Eval, State) ->
       {Map, Type};
     var ->
       ?debug("Looking for var(~w)...", [cerl_trees:get_label(Guard)]),
-      case maps:find(get_label(Guard), Env) of
-	error ->
+      GuardLabel = get_label(Guard),
+      case Env of
+        #{GuardLabel := Tree} ->
+	  ?debug("Found it\n", []),
+	  {Map1, Type} = bind_guard(Tree, Map, Env, Eval, State),
+	  {enter_type(Guard, Type, Map1), Type};
+        #{} ->
 	  ?debug("Did not find it\n", []),
 	  Type = lookup_type(Guard, Map),
 	  Inf = guard_eval_inf(Eval, Type),
-	  {enter_type(Guard, Inf, Map), Inf};
-	{ok, Tree} ->
-	  ?debug("Found it\n", []),
-	  {Map1, Type} = bind_guard(Tree, Map, Env, Eval, State),
-	  {enter_type(Guard, Type, Map1), Type}
+	  {enter_type(Guard, Inf, Map), Inf}
       end;
     call ->
       handle_guard_call(Guard, Map, Env, Eval, State)
@@ -2710,19 +2711,19 @@ enter_type(Key, Val, MS) ->
 	false ->
           #map{map = Map, subst = Subst} = MS,
 	  KeyLabel = get_label(Key),
-	  case maps:find(KeyLabel, Subst) of
-	    {ok, NewKey} ->
+          case Subst of
+            #{KeyLabel := NewKey} ->
 	      ?debug("Binding ~p to ~p\n", [KeyLabel, NewKey]),
 	      enter_type(NewKey, Val, MS);
-	    error ->
+	    #{} ->
 	      ?debug("Entering ~p :: ~ts\n", [KeyLabel, t_to_string(Val)]),
-	      case maps:find(KeyLabel, Map) of
-		{ok, Value} ->
+              case Map of
+                #{KeyLabel := Value} ->
                   case erl_types:t_is_equal(Val, Value) of
                     true -> MS;
                     false -> store_map(KeyLabel, Val, MS)
                   end;
-		error -> store_map(KeyLabel, Val, MS)
+		#{} -> store_map(KeyLabel, Val, MS)
 	      end
 	  end
       end
@@ -2731,7 +2732,7 @@ enter_type(Key, Val, MS) ->
 store_map(Key, Val, #map{map = Map, ref = undefined} = MapRec) ->
   MapRec#map{map = maps:put(Key, Val, Map)};
 store_map(Key, Val, #map{map = Map, modified = Mod} = MapRec) ->
-  MapRec#map{map = maps:put(Key, Val, Map), modified = [Key | Mod]}.
+  MapRec#map{map = Map#{Key => Val}, modified = [Key | Mod]}.
 
 enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
   KeyLabel = get_label(Key),
@@ -2744,10 +2745,10 @@ enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
 	false -> MS;
 	true ->
 	  ValLabel = get_label(Val),
-	  case maps:find(ValLabel, Subst) of
-	    {ok, NewVal} ->
+          case Subst of
+            #{ValLabel := NewVal} ->
 	      enter_subst(Key, NewVal, MS);
-	    error ->
+	    #{} ->
 	      if KeyLabel =:= ValLabel -> MS;
 		 true ->
 		  ?debug("Subst: storing ~p = ~p\n", [KeyLabel, ValLabel]),
@@ -2760,7 +2761,7 @@ enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
 store_subst(Key, Val, #map{subst = S, ref = undefined} = Map) ->
   Map#map{subst = maps:put(Key, Val, S)};
 store_subst(Key, Val, #map{subst = S, modified = Mod} = Map) ->
-  Map#map{subst = maps:put(Key, Val, S), modified = [Key | Mod]}.
+  Map#map{subst = S#{Key => Val}, modified = [Key | Mod]}.
 
 lookup_type(Key, #map{map = Map, subst = Subst}) ->
   lookup(Key, Map, Subst, t_none()).
@@ -2770,13 +2771,14 @@ lookup(Key, Map, Subst, AnyNone) ->
     true -> literal_type(Key);
     false ->
       Label = get_label(Key),
-      case maps:find(Label, Subst) of
-	{ok, NewKey} -> lookup(NewKey, Map, Subst, AnyNone);
-	error ->
-	  case maps:find(Label, Map) of
-	    {ok, Val} -> Val;
-	    error -> AnyNone
-	  end
+      case Subst of
+        #{Label := NewKey} ->
+          lookup(NewKey, Map, Subst, AnyNone);
+	#{} ->
+          case Map of
+            #{Label := Val} -> Val;
+            #{} -> AnyNone
+          end
       end
   end.
 

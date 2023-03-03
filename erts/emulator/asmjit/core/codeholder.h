@@ -356,7 +356,7 @@ struct OffsetFormat {
   //! Returns the size of the region/instruction where the offset is encoded.
   inline uint32_t regionSize() const noexcept { return _regionSize; }
 
-  //! Returns the the offset of the word relative to the start of the region where the offset is.
+  //! Returns the offset of the word relative to the start of the region where the offset is.
   inline uint32_t valueOffset() const noexcept { return _valueOffset; }
 
   //! Returns the size of the data-type (word) that contains the offset, in bytes.
@@ -640,6 +640,8 @@ public:
 
   //! Environment information.
   Environment _environment;
+  //! CPU features of the target architecture.
+  CpuFeatures _cpuFeatures;
   //! Base address or \ref Globals::kNoBaseAddress.
   uint64_t _baseAddress;
 
@@ -698,6 +700,8 @@ public:
 
   //! Initializes CodeHolder to hold code described by the given `environment` and `baseAddress`.
   ASMJIT_API Error init(const Environment& environment, uint64_t baseAddress = Globals::kNoBaseAddress) noexcept;
+  //! Initializes CodeHolder to hold code described by the given `environment`, `cpuFeatures`, and `baseAddress`.
+  ASMJIT_API Error init(const Environment& environment, const CpuFeatures& cpuFeatures, uint64_t baseAddress = Globals::kNoBaseAddress) noexcept;
   //! Detaches all code-generators attached and resets the `CodeHolder`.
   ASMJIT_API void reset(ResetPolicy resetPolicy = ResetPolicy::kSoft) noexcept;
 
@@ -735,6 +739,9 @@ public:
   inline Arch arch() const noexcept { return environment().arch(); }
   //! Returns the target sub-architecture.
   inline SubArch subArch() const noexcept { return environment().subArch(); }
+
+  //! Returns the minimum CPU features of the target architecture.
+  inline const CpuFeatures& cpuFeatures() const noexcept { return _cpuFeatures; }
 
   //! Tests whether a static base-address is set.
   inline bool hasBaseAddress() const noexcept { return _baseAddress != Globals::kNoBaseAddress; }

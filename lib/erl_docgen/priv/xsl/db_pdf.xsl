@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2021. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2023. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -1149,7 +1149,7 @@
   <xsl:template match="change">
     <xsl:param name="partnum"/>
     <fo:block xsl:use-attribute-sets="note-warning">
-      <fo:block xsl:use-attribute-sets="note-title">
+      <fo:block xsl:use-attribute-sets="change-title">
 	<xsl:text>Change:</xsl:text>
       </fo:block>
       <fo:block xsl:use-attribute-sets="note-warning-content">

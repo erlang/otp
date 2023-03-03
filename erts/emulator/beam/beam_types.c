@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2021-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,9 @@ int beam_types_decode_type_otp_26(const byte *data, BeamType *out) {
     if (types == BEAM_TYPE_NONE) {
         return -1;
     }
-    out->type_union = types;
+
+    /* The "extra data" aren't part of the type union proper. */
+    out->type_union = types & BEAM_TYPE_ANY;
 
     if (types & BEAM_TYPE_HAS_LOWER_BOUND) {
         extra += 8;

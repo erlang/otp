@@ -126,6 +126,12 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& cf, RAInstBuilder& i
     bool hasGpbHiConstraint = false;
     uint32_t singleRegOps = 0;
 
+    // Copy instruction RW flags to instruction builder except kMovOp, which is propagated manually later.
+    ib.addInstRWFlags(rwInfo.instFlags() & ~InstRWFlags::kMovOp);
+
+    // Mask of all operand types used by the instruction - can be used as an optimization later.
+    uint32_t opTypesMask = 0u;
+
     if (opCount) {
       // The mask is for all registers, but we are mostly interested in AVX-512 registers at the moment. The mask
       // will be combined with all available registers of the Compiler at the end so we it never use more registers
@@ -166,6 +172,8 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& cf, RAInstBuilder& i
       for (uint32_t i = 0; i < opCount; i++) {
         const Operand& op = opArray[i];
         const OpRWInfo& opRwInfo = rwInfo.operand(i);
+
+        opTypesMask |= 1u << uint32_t(op.opType());
 
         if (op.isReg()) {
           // Register Operand
@@ -212,9 +220,11 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& cf, RAInstBuilder& i
               }
             }
 
-            // Do not use RegMem flag if changing Reg to Mem requires additional CPU feature that may not be enabled.
+            // Do not use RegMem flag if changing Reg to Mem requires a CPU feature that is not available.
             if (rwInfo.rmFeature() && Support::test(flags, RATiedFlags::kUseRM | RATiedFlags::kOutRM)) {
-              flags &= ~(RATiedFlags::kUseRM | RATiedFlags::kOutRM);
+              if (!cc()->code()->cpuFeatures().has(rwInfo.rmFeature())) {
+                flags &= ~(RATiedFlags::kUseRM | RATiedFlags::kOutRM);
+              }
             }
 
             RegGroup group = workReg->group();
@@ -391,6 +401,24 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& cf, RAInstBuilder& i
         RegGroup group = inst->extraReg().group();
         if (group == RegGroup::kX86_K && inst->extraReg().id() != 0)
           singleRegOps = 0;
+      }
+    }
+
+    // If this instruction has move semantics then check whether it could be eliminated if all virtual registers
+    // are allocated into the same register. Take into account the virtual size of the destination register as that's
+    // more important than a physical register size in this case.
+    if (rwInfo.hasInstFlag(InstRWFlags::kMovOp) && !inst->hasExtraReg() && Support::bitTest(opTypesMask, uint32_t(OperandType::kReg))) {
+      // AVX+ move instructions have 3 operand form - the first two operands must be the same to guarantee move semantics.
+      if (opCount == 2 || (opCount == 3 && opArray[0] == opArray[1])) {
+        uint32_t vIndex = Operand::virtIdToIndex(opArray[0].as<Reg>().id());
+        if (vIndex < Operand::kVirtIdCount) {
+          const VirtReg* vReg = _cc->virtRegByIndex(vIndex);
+          const OpRWInfo& opRwInfo = rwInfo.operand(0);
+
+          uint64_t remainingByteMask = vReg->workReg()->regByteMask() & ~opRwInfo.writeByteMask();
+          if (remainingByteMask == 0u || (remainingByteMask & opRwInfo.extendByteMask()) == 0)
+            ib.addInstRWFlags(InstRWFlags::kMovOp);
+        }
       }
     }
 
@@ -1251,6 +1279,10 @@ ASMJIT_FAVOR_SPEED Error X86RAPass::_rewrite(BaseNode* first, BaseNode* stop) no
 
       // Rewrite virtual registers into physical registers.
       if (raInst) {
+        // This data is allocated by Zone passed to `runOnFunction()`, which will be reset after the RA pass finishes.
+        // So reset this data to prevent having a dead pointer after the RA pass is complete.
+        node->resetPassData();
+
         // If the instruction contains pass data (raInst) then it was a subject for register allocation and must be
         // rewritten to use physical regs.
         RATiedReg* tiedRegs = raInst->tiedRegs();
@@ -1274,16 +1306,25 @@ ASMJIT_FAVOR_SPEED Error X86RAPass::_rewrite(BaseNode* first, BaseNode* stop) no
           }
         }
 
+        // Transform VEX instruction to EVEX when necessary.
         if (raInst->isTransformable()) {
           if (maxRegId > 15) {
-            // Transform VEX instruction to EVEX.
             inst->setId(transformVexToEvex(inst->id()));
           }
         }
 
-        // This data is allocated by Zone passed to `runOnFunction()`, which will be reset after the RA pass finishes.
-        // So reset this data to prevent having a dead pointer after the RA pass is complete.
-        node->resetPassData();
+        // Remove moves that do not do anything.
+        //
+        // Usually these moves are inserted during code generation and originally they used different registers. If RA
+        // allocated these into the same register such redundant mov would appear.
+        if (raInst->hasInstRWFlag(InstRWFlags::kMovOp) && !inst->hasExtraReg()) {
+          if (inst->opCount() == 2) {
+            if (inst->op(0) == inst->op(1)) {
+              cc()->removeNode(node);
+              goto Next;
+            }
+          }
+        }
 
         if (ASMJIT_UNLIKELY(node->type() != NodeType::kInst)) {
           // FuncRet terminates the flow, it must either be removed if the exit label is next to it (optimization) or
@@ -1327,6 +1368,7 @@ ASMJIT_FAVOR_SPEED Error X86RAPass::_rewrite(BaseNode* first, BaseNode* stop) no
       }
     }
 
+Next:
     node = next;
   }
 

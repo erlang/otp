@@ -59,6 +59,25 @@ void BeamModuleAssembler::emit_i_call_last(const ArgLabel &CallTarget,
     emit_i_call_only(CallTarget);
 }
 
+void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
+                                              const ArgRegister &Dst,
+                                              const ArgLabel &CallTarget,
+                                              const ArgWord &Deallocate) {
+    auto src_index = Src.get();
+    Sint deallocate = Deallocate.get() * sizeof(Eterm);
+
+    if (src_index == 0 && Support::isInt9(deallocate)) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(deallocate);
+        a.ldr(dst.reg, src_ref);
+        flush_var(dst);
+    } else {
+        mov_arg(Dst, Src);
+        emit_deallocate(Deallocate);
+    }
+    emit_i_call_only(CallTarget);
+}
+
 void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
     emit_leave_erlang_frame();
     a.b(resolve_beam_label(CallTarget, disp128MB));
@@ -109,6 +128,25 @@ void BeamModuleAssembler::emit_i_call_ext_only(const ArgExport &Exp) {
 void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
                                                const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
+    emit_i_call_ext_only(Exp);
+}
+
+void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
+                                                  const ArgRegister &Dst,
+                                                  const ArgExport &Exp,
+                                                  const ArgWord &Deallocate) {
+    auto src_index = Src.get();
+    Sint deallocate = Deallocate.get() * sizeof(Eterm);
+
+    if (src_index == 0 && Support::isInt9(deallocate)) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(deallocate);
+        a.ldr(dst.reg, src_ref);
+        flush_var(dst);
+    } else {
+        mov_arg(Dst, Src);
+        emit_deallocate(Deallocate);
+    }
     emit_i_call_ext_only(Exp);
 }
 

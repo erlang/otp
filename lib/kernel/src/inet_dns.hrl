@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@
 -define(T_SRV,          33).            %% services
 %% NAPTR (RFC 2915)
 -define(T_NAPTR,        35).            %% naming authority pointer
--define(T_OPT,          41).            %% EDNS pseudo-rr RFC2671(7)
+-define(T_OPT,          41).            %% EDNS pseudo-rr RFC6891(7)
 %% SPF (RFC 4408)
 -define(T_SPF,          99).            %% server policy framework
 %%      non standard
@@ -118,7 +118,7 @@
 -define(S_SRV,          srv).           %% services
 %% NAPTR (RFC 2915)
 -define(S_NAPTR,        naptr).         %% naming authority pointer
--define(S_OPT,          opt).           %% EDNS pseudo-rr RFC2671(7)
+-define(S_OPT,          opt).           %% EDNS pseudo-rr RFC6891(7)
 %% SPF (RFC 4408)
 -define(S_SPF,          spf).           %% server policy framework
 %%      non standard
@@ -201,15 +201,16 @@
 
 -define(DNS_UDP_PAYLOAD_SIZE, 1280).
 
--record(dns_rr_opt,           %% EDNS RR OPT (RFC2671), dns_rr{type=opt}
+-record(dns_rr_opt,           %% EDNS RR OPT (RFC6891), dns_rr{type=opt}
 	{
 	  domain = "",        %% should be the root domain
 	  type = opt,
-	  udp_payload_size = ?DNS_UDP_PAYLOAD_SIZE, %% RFC2671(4.5 CLASS)
-	  ext_rcode = 0,      %% RFC2671(4.6 EXTENDED-RCODE)
-	  version = 0,        %% RFC2671(4.6 VERSION)
-	  z = 0,              %% RFC2671(4.6 Z)
-	  data = []           %% RFC2671(4.4)
+	  udp_payload_size = ?DNS_UDP_PAYLOAD_SIZE, %% RFC6891(6.2.3 CLASS)
+	  ext_rcode = 0,      %% RFC6891(6.1.3 EXTENDED-RCODE)
+	  version = 0,        %% RFC6891(6.1.3 VERSION)
+	  z = 0,              %% RFC6891(6.1.3 Z)
+	  data = [],          %% RFC6891(6.1.2 RDATA)
+          do = false          %% RFC6891(6.1.3 DO)
 	 }).
 
 -record(dns_query,

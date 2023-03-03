@@ -594,10 +594,12 @@ Error BaseBuilder::_emit(InstId instId, const Operand_& o0, const Operand_& o1, 
       Error err = _funcs.validate(arch(), BaseInst(instId, options, _extraReg), opArray, opCount, validationFlags);
 
       if (ASMJIT_UNLIKELY(err)) {
-        resetInstOptions();
-        resetExtraReg();
-        resetInlineComment();
+#ifndef ASMJIT_NO_LOGGING
+        return EmitterUtils::logInstructionFailed(this, err, instId, options, o0, o1, o2, opExt);
+#else
+        resetState();
         return reportError(err);
+#endif
       }
     }
 #endif

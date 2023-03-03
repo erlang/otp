@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -119,6 +119,10 @@ void BeamGlobalAssembler::emit_garbage_collect() {
 
     emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
     emit_leave_runtime_frame();
+
+    a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, state.value)));
+    a.tst(TMP1, imm(ERTS_PSFLG_EXITING));
+    a.b_ne(labels[do_schedule]);
 
     a.ret(a64::x30);
 }

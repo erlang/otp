@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,6 +95,8 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
 /* ARG3 = (HTOP + S_RESERVED + bytes needed) !!
  * ARG4 = Live registers */
 void BeamGlobalAssembler::emit_garbage_collect() {
+    Label exiting = a.newLabel();
+
     emit_enter_frame();
 
     /* Convert ARG3 to words needed and move it to the correct argument slot.
@@ -126,9 +128,21 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     a.sub(FCALLS, RET);
 
     emit_leave_runtime<Update::eStack | Update::eHeap>();
-    emit_leave_frame();
 
+#ifdef WIN32
+    a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.value)));
+#else
+    a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.counter)));
+#endif
+    a.test(ARG1d, imm(ERTS_PSFLG_EXITING));
+    a.short_().jne(exiting);
+
+    emit_leave_frame();
     a.ret();
+
+    a.bind(exiting);
+    emit_unwind_frame();
+    a.jmp(labels[do_schedule]);
 }
 
 /* Handles trapping to exports from C code, setting registers up in the same
@@ -258,7 +272,7 @@ void BeamModuleAssembler::emit_raise_exception(x86::Gp I,
     }
 #endif
 
-    abs_jmp(ga->get_raise_exception_shared());
+    a.jmp(resolve_fragment(ga->get_raise_exception_shared()));
 }
 
 void BeamGlobalAssembler::emit_process_exit() {

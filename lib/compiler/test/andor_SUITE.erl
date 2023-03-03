@@ -209,7 +209,13 @@ t_and_or(Config) when is_list(Config) ->
 	    {'EXIT',{badarg,_}} = (catch true and Tuple)
     end,
 
+    %% Cover code in beam_ssa_codegen when type optimizations are disabled.
+    {'EXIT',{badarg,_}} = catch bad_and(true),
+
     ok.
+
+bad_and(A) ->
+    (not not ok) and id(A).
 
 t_andalso(Config) when is_list(Config) ->
     Bs = [true,false],
@@ -244,6 +250,9 @@ t_andalso(Config) when is_list(Config) ->
 
     %% Cover conversion to right associativity.
     true = (is_list(Config) andalso is_list(Bs)) andalso is_list(Ps),
+
+    %% Cover beam_ssa_dead:will_succeed_vars/4.
+    false = fun(V) -> V == V andalso not (V == V) end(a),
 
     ok.
 

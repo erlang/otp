@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,8 +51,7 @@ start_link() ->
 init([]) ->
     %% We don't want the current directory in the code path.
     %% Remove it.
-    Path = [D || D <- code:get_path(), D =/= "."],
-    true = code:set_path(Path),
+    _ = code:del_path("."),
     Config = init_config(),
     {ok, #st{config=Config}, ?IDLE_TIMEOUT}.
 

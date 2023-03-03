@@ -107,9 +107,14 @@ obtain_plt(PltFilename) ->
 
 build_plt(PltFilename) ->
     io:format("Building plt from scratch:"),
+
+    %% build_plt/1 builds the plt using default warning options; -Wunknown is
+    %% enabled by default, so tests that do not satisfy -Wunknown will break.
+    %% for this reason, we must pass no_unknown in this analysis.
+    DefaultWarnings = {warnings, [no_unknown]},
     try dialyzer:run([{analysis_type, plt_build},
 		      {apps, ?required_modules},
-		      {output_plt, PltFilename}]) of
+		      {output_plt, PltFilename}, DefaultWarnings]) of
 	[] ->
 	    io:format("Successfully created plt!"),
 	    ok

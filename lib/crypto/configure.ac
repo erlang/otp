@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2018-2022. All Rights Reserved.
+dnl Copyright Ericsson AB 2018-2023. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -812,21 +812,15 @@ AS_CASE(["$with_ssl_rpath"],
                   ],
                   [test "$CRYPTO_APP" = ""],
                   [
-                      AS_IF([test "$with_ssl_rpath" = yes],
-                            [AC_MSG_ERROR([runtime library path requested by user, but could not be set since no crypto library was found])])
-                      AC_MSG_RESULT([])
+                      AC_MSG_ERROR([runtime library path requested by user, but could not be set since no crypto library was found])
                   ],
                   [test "$ded_ld_rflg" = ""],
                   [
-                      AS_IF([test "$with_ssl_rpath" = yes],
-                            [AC_MSG_ERROR([runtime library path requested by user, but cannot be set on this platform])])
-                      AC_MSG_RESULT([])
+                      AC_MSG_ERROR([runtime library path requested by user, but cannot be set on this platform])
                   ],
                   [test "$SSL_DYNAMIC_ONLY" != "yes"],
                   [
-                      AS_IF([test "$with_ssl_rpath" = yes],
-                            [AC_MSG_WARN([runtime library path requested by user, but dynamic linking will not be used])],
-                            [AC_MSG_RESULT([])])
+                      AC_MSG_WARN([runtime library path requested by user, but dynamic linking will not be used])
                   ],
                   [
                       # Check that it links...

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -4316,7 +4316,7 @@ is_process_alive(P2Pid),
             <p>The total amount of memory currently allocated for
               the emulator that is not directly related to any Erlang
               process. Memory presented as <c>processes</c> is not
-              included in this memory. <seeerl marker="tools:instrument">
+              included in this memory. <seeerl marker="runtime_tools:instrument">
               <c>instrument(3)</c></seeerl> can be used to
               get a more detailed breakdown of what memory is part
               of this type.</p>
@@ -4358,7 +4358,7 @@ is_process_alive(P2Pid),
               when the emulator is run with instrumentation.</p>
             <p>For information on how to run the emulator with
               instrumentation, see
-              <seeerl marker="tools:instrument">
+              <seeerl marker="runtime_tools:instrument">
               <c>instrument(3)</c></seeerl>
               and/or <seecom marker="erl"><c>erl(1)</c></seecom>.</p>
           </item>
@@ -6467,6 +6467,26 @@ receive_replies(ReqId, N, Acc) ->
               <seecom marker="erl#+hmaxel">+hmaxel</seecom> int <c>erl(1)</c>,
               or <seeerl marker="#system_flag_max_heap_size">
               <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
+          </item>
+          <tag><c>include_shared_binaries</c></tag>
+          <item>
+            <p>
+	      When set to <c>true</c>, off-heap binaries are included in the
+	      total sum compared against the <c>size</c> limit. Off-heap binaries
+	      are typically larger binaries that may be shared between
+	      processes. The size of a shared binary is included by all
+	      processes that are referring it. Also, the entire size of a large
+	      binary may be included even if only a smaller part of it is
+	      referred by the process.
+            </p>
+	    <p>
+	      If <c>include_shared_binaries</c> is not defined in the map, the
+	      system default is used. The default system default is <c>false</c>.
+              It can be changed by either the option
+              <seecom marker="erl#+hmaxib">+hmaxib</seecom> in <c>erl(1)</c>,
+              or <seeerl marker="#system_flag_max_heap_size">
+              <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seeerl>.
+            </p>
           </item>
         </taglist>
         <p>The heap size of a process is quite hard to predict, especially the
@@ -10415,8 +10435,10 @@ Metadata = #{ pid => pid(),
               system-wide maximum heap size settings for spawned processes.
               This setting can be set using the command-line flags
               <seecom marker="erl#+hmax"><c>+hmax</c></seecom>,
-              <seecom marker="erl#+hmaxk"><c>+hmaxk</c></seecom> and
-              <seecom marker="erl#+hmaxel"><c>+hmaxel</c></seecom> in
+              <seecom marker="erl#+hmaxk"><c>+hmaxk</c></seecom>,
+              <seecom marker="erl#+hmaxel"><c>+hmaxel</c></seecom> and
+	      <seecom marker="erl#+hmaxib"><c>+hmaxibl</c></seecom> in
+
               <c>erl(1)</c>. It can also be changed at runtime using
               <seeerl marker="#system_flag_max_heap_size">
               <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seeerl>.
@@ -12921,6 +12943,21 @@ improper_end</pre>
               <seemfa marker="#trace_pattern/3">
               <c>erlang:trace_pattern/3</c></seemfa>.</p>
           </item>
+          <tag><c>call_memory</c></tag>
+          <item>
+            <p>Returns the accumulated number of words allocated by this function.
+              Accumulation stops at the next memory traced function: if there
+              are <c>outer</c>, <c>middle</c> and <c>inner</c> functions each
+              allocating 3 words, but only <c>outer</c> is traced, it will report
+              9 allocated words. If <c>outer</c> and <c>inner</c> are traced,
+              6 words are reported for <c>outer</c> and 3 for <c>inner</c>.
+              When function is not traced, <c>false</c> is returned.
+              Returned tuple is <c>[{Pid, Count, Words}]</c>,
+              for each process that executed the function.</p>
+            <p>See also
+              <seemfa marker="#trace_pattern/3">
+              <c>erlang:trace_pattern/3</c></seemfa>.</p>
+          </item>
           <tag><c>all</c></tag>
           <item>
             <p>Returns a list containing the
@@ -13223,15 +13260,15 @@ improper_end</pre>
           </item>
           <tag><c>restart</c></tag>
           <item>
-            <p>For the <c><anno>FlagList</anno></c> options <c>call_count</c>
-              and <c>call_time</c>: restarts
+            <p>For the <c><anno>FlagList</anno></c> options <c>call_count</c>,
+              <c>call_time</c> and <c>call_memory</c>: restarts
               the existing counters. The behavior is undefined
               for other <c><anno>FlagList</anno></c> options.</p>
           </item>
           <tag><c>pause</c></tag>
           <item>
             <p>For the <c><anno>FlagList</anno></c> options
-              <c>call_count</c> and <c>call_time</c>: pauses
+              <c>call_count</c>, <c>call_time</c> and <c>call_memory</c>: pauses
               the existing counters. The behavior is undefined for
               other <c><anno>FlagList</anno></c> options.</p>
           </item>
@@ -13300,6 +13337,20 @@ improper_end</pre>
               The counters are stored for each call traced process.</p>
             <p>If call time tracing is started while already running,
               the count and time restart from zero. To pause
+              running counters, use <c><anno>MatchSpec</anno> == pause</c>.
+              Paused and running counters can be restarted from zero with
+              <c><anno>MatchSpec</anno> == restart</c>.</p>
+            <p>To read the counter value, use
+              <seemfa marker="#trace_info/2">
+              <c>erlang:trace_info/2</c></seemfa>.</p>
+          </item>
+          <tag><c>call_memory</c></tag>
+          <item>
+            <p>Starts (<c><anno>MatchSpec</anno> == true</c>) or stops
+              (<c><anno>MatchSpec</anno> == false</c>) call memory
+              tracing for all types of function calls.</p>
+            <p>If call memory tracing is started while already running,
+              counters and allocations restart from zero. To pause
               running counters, use <c><anno>MatchSpec</anno> == pause</c>.
               Paused and running counters can be restarted from zero with
               <c><anno>MatchSpec</anno> == restart</c>.</p>

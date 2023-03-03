@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
     /* Our actual return address is valid (and word-aligned), but it points
      * just after the trampoline word so we'll need to skip that to find our
      * ErtsCodeInfo. */
-    a.sub(ARG2, ARG2, imm(BEAM_ASM_BP_RETURN_OFFSET + sizeof(ErtsCodeInfo)));
+    a.sub(ARG2, ARG2, imm(BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(ErtsCodeInfo)));
 
     emit_enter_runtime_frame();
     emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
@@ -99,7 +99,7 @@ void BeamGlobalAssembler::emit_debug_bp() {
 
     /* Read and adjust the return address we saved in generic_bp_local. */
     a.ldr(ARG2, TMP_MEM1q);
-    a.sub(ARG2, ARG2, imm(BEAM_ASM_BP_RETURN_OFFSET + sizeof(ErtsCodeMFA)));
+    a.sub(ARG2, ARG2, imm(BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(ErtsCodeMFA)));
 
     emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
@@ -154,28 +154,29 @@ void BeamModuleAssembler::emit_return_trace() {
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 2));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_TRACE_FRAME_SZ));
     emit_return();
 }
 
-void BeamModuleAssembler::emit_i_return_time_trace() {
+void BeamModuleAssembler::emit_i_call_trace_return() {
     /* Pass prev_info if present (is a CP), otherwise null. */
     a.ldr(ARG2, getYRef(0));
-    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
 
     a.tst(ARG2, imm(_CPMASK));
     a.sub(ARG2, ARG2, imm(sizeof(ErtsCodeInfo)));
-    a.csel(ARG2, ARG2, ARG3, arm::CondCode::kEQ);
+    a.csel(ARG2, ARG2, ARG4, arm::CondCode::kEQ);
+    a.ldr(ARG3, getYRef(1));
 
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
     emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_trace_time_return);
+    runtime_call<3>(erts_call_trace_return);
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 1));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ));
     emit_return();
 }
 
@@ -188,7 +189,7 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 0));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_TO_TRACE_FRAME_SZ));
     emit_return();
 }
 

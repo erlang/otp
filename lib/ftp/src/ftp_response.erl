@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@
 %% Make sure we received the first 4 bytes so we know how to parse
 %% the FTP server response e.i. is the response composed of one
 %% or multiple lines.
-parse_lines(Bin, Lines, start) when size(Bin) < 4 ->
+parse_lines(Bin, Lines, start) when is_binary(Bin), byte_size(Bin) < 4 ->
     {continue, {Bin, Lines, start}};
 %% Multiple lines exist
 parse_lines(<<C1, C2, C3, $-, Rest/binary>>, Lines, start) ->

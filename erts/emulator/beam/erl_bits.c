@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1380,9 +1380,13 @@ static ERTS_INLINE
 void increase_proc_bin_sz(Process* p, ProcBin* pb, Uint new_size)
 {
     if (new_size > pb->size) {
+        const Uint incr = (new_size / sizeof(Eterm) -
+                           pb->size / sizeof(Eterm));
         if (ErtsInBetween(pb, OLD_HEAP(p), OLD_HTOP(p))) {
-            BIN_OLD_VHEAP(p) += (new_size / sizeof(Eterm) -
-                                 pb->size / sizeof(Eterm));
+            p->bin_old_vheap += incr;
+        }
+        else {
+            OH_OVERHEAD(&MSO(p), incr);
         }
         pb->size = new_size;
     }

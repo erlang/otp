@@ -1933,7 +1933,7 @@ enum class RoundImm : uint8_t {
   kUp            = 0x02u,       //!< Round to up toward +INF (ceil).
   kTrunc         = 0x03u,       //!< Round toward zero (truncate).
   kCurrent       = 0x04u,       //!< Round to the current rounding mode set (ignores other RC bits).
-  kSuppress      = 0x08u        //!< Supress exceptions (avoids inexact exception, if set).
+  kSuppress      = 0x08u        //!< Suppress exceptions (avoids inexact exception, if set).
 };
 ASMJIT_DEFINE_ENUM_FLAGS(RoundImm)
 

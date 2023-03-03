@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,9 +94,9 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
             if
                 is_list(Val) ->
                     do_parse_config(Tail, Config#config{udp_host = Val});
-                is_tuple(Val), size(Val) =:= 4 ->
+                tuple_size(Val) =:= 4 ->
                     do_parse_config(Tail, Config#config{udp_host = Val});
-                is_tuple(Val), size(Val) =:= 8 ->
+                tuple_size(Val) =:= 8 ->
                     do_parse_config(Tail, Config#config{udp_host = Val});
                 true ->
                     exit({badarg, {Key, Val}})

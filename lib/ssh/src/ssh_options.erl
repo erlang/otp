@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -176,8 +176,7 @@ handle_options(Role, PropList0) ->
 handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                          is_list(OptsList0) ->
     OptsList1 = proplists:unfold(
-                  lists:foldr(fun(T,Acc) when is_tuple(T),
-                                              size(T) =/= 2-> [{special_trpt_args,T} | Acc];
+                  lists:foldr(fun(T,Acc) when tuple_size(T) =/= 2 -> [{special_trpt_args,T} | Acc];
                                  (X,Acc) -> [X|Acc]
                               end,
                               [], OptsList0)),
@@ -1079,7 +1078,7 @@ check_modify_algorithms(M) when is_list(M) ->
     [error_in_check(Op_KVs, "Bad modify_algorithms")
      || Op_KVs <- M,
         not is_tuple(Op_KVs)
-            orelse (size(Op_KVs) =/= 2)
+            orelse (tuple_size(Op_KVs) =/= 2)
             orelse (not lists:member(element(1,Op_KVs), [append,prepend,rm]))],
     {true, [{Op,normalize_mod_algs(KVs,false)} || {Op,KVs} <- M]};
 check_modify_algorithms(_) ->
@@ -1191,7 +1190,7 @@ check_input_ok(Algs) ->
     [error_in_check(KVs, "Bad preferred_algorithms")
      || KVs <- Algs,
         not is_tuple(KVs)
-            orelse (size(KVs) =/= 2)].
+            orelse (tuple_size(KVs) =/= 2)].
 
 %%%----------------------------------------------------------------
 final_preferred_algorithms(Options0) ->

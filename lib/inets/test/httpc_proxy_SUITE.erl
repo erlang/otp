@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2012-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -512,14 +512,14 @@ make_cert_files(Config) ->
     ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
     GenCertData =
         public_key:pkix_test_data(#{server_chain =>
-                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}],
-                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}]],
-                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}, {digest, sha256}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}, {digest, sha256}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}, {digest, sha256}
                                                   ]},
                                     client_chain =>
-                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}],
-                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}]],
-                                          peer => [{key, inets_test_lib:hardcode_rsa_key(6)}]}}),
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)},{digest, sha256}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}, {digest, sha256}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(6)}, {digest, sha256}]}}),
     inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
     ok.
 

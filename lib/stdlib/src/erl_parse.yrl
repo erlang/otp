@@ -31,6 +31,7 @@ pat_expr pat_expr_max map_pat_expr record_pat_expr
 pat_argument_list pat_exprs
 list tail
 list_comprehension lc_expr lc_exprs
+map_comprehension
 binary_comprehension
 tuple
 record_expr record_tuple record_field record_fields
@@ -276,6 +277,7 @@ expr_max -> atomic : '$1'.
 expr_max -> list : '$1'.
 expr_max -> binary : '$1'.
 expr_max -> list_comprehension : '$1'.
+expr_max -> map_comprehension : '$1'.
 expr_max -> binary_comprehension : '$1'.
 expr_max -> tuple : '$1'.
 expr_max -> '(' expr ')' : '$2'.
@@ -349,12 +351,15 @@ bit_size_expr -> expr_max : '$1'.
 
 list_comprehension -> '[' expr '||' lc_exprs ']' :
 	{lc,?anno('$1'),'$2','$4'}.
+map_comprehension -> '#' '{' map_field_assoc '||' lc_exprs '}' :
+	{mc,?anno('$1'),'$3','$5'}.
 binary_comprehension -> '<<' expr_max '||' lc_exprs '>>' :
 	{bc,?anno('$1'),'$2','$4'}.
 lc_exprs -> lc_expr : ['$1'].
 lc_exprs -> lc_expr ',' lc_exprs : ['$1'|'$3'].
 
 lc_expr -> expr : '$1'.
+lc_expr -> map_field_exact '<-' expr : {m_generate,?anno('$2'),'$1','$3'}.
 lc_expr -> expr '<-' expr : {generate,?anno('$2'),'$1','$3'}.
 lc_expr -> binary '<=' expr : {b_generate,?anno('$2'),'$1','$3'}.
 
@@ -832,6 +837,7 @@ Erlang code.
                        | af_local_call()
                        | af_remote_call()
                        | af_list_comprehension()
+                       | af_map_comprehension()
                        | af_binary_comprehension()
                        | af_block()
                        | af_if()
@@ -865,6 +871,9 @@ Erlang code.
 -type af_list_comprehension() ::
         {'lc', anno(), af_template(), af_qualifier_seq()}.
 
+-type af_map_comprehension() ::
+        {'mc', anno(), af_assoc(abstract_expr()), af_qualifier_seq()}.
+
 -type af_binary_comprehension() ::
         {'bc', anno(), af_template(), af_qualifier_seq()}.
 
@@ -875,6 +884,7 @@ Erlang code.
 -type af_qualifier() :: af_generator() | af_filter().
 
 -type af_generator() :: {'generate', anno(), af_pattern(), abstract_expr()}
+                      | {'m_generate', anno(), af_assoc_exact(af_pattern()), abstract_expr()}
                       | {'b_generate', anno(), af_pattern(), abstract_expr()}.
 
 -type af_filter() :: abstract_expr().

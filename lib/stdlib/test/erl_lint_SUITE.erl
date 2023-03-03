@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@
 
 -export([all/0, suite/0, groups/0]).
 
--export([unused_vars_warn_basic/1,
+-export([singleton_type_var_errors/1,
+         unused_vars_warn_basic/1,
          unused_vars_warn_lc/1,
          unused_vars_warn_rec/1,
          unused_vars_warn_fun/1,
@@ -80,7 +81,8 @@
          unused_record/1,
          unused_type2/1,
          eep49/1,
-         redefined_builtin_type/1]).
+         redefined_builtin_type/1,
+         tilde_k/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -109,7 +111,9 @@ all() ->
      inline_nifs, warn_missing_spec, otp_16824,
      underscore_match, unused_record, unused_type2,
      eep49,
-     redefined_builtin_type].
+     redefined_builtin_type,
+     tilde_k,
+     singleton_type_var_errors].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -898,6 +902,110 @@ unused_import(Config) when is_list(Config) ->
            ">>,
 	   [warn_unused_import],
 	   {warnings,[{{1,22},erl_lint,{unused_import,{{foldl,3},lists}}}]}}],
+    [] = run(Config, Ts),
+    ok.
+
+%% Test singleton type variables
+singleton_type_var_errors(Config) when is_list(Config) ->
+    Ts = [ {singleton_error1
+           , <<"-spec test_singleton_typevars_in_union(Opts) -> term() when
+                      Opts :: {ok, Unknown} | {error, Unknown}.
+                test_singleton_typevars_in_union(_) ->
+                  error.
+             ">>
+           , []
+           , {  errors
+             , [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]
+             , []
+             }
+           }
+         , { singleton_error2
+           , <<"-spec test_singleton_list_typevars_in_union([Opts]) -> term() when
+                      Opts :: {ok, Unknown} | {error, Unknown}.
+                test_singleton_list_typevars_in_union(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]
+             , []
+             }
+           }
+         , { singleton_error3
+           , <<"-spec test_singleton_list_typevars_in_list([Opts]) -> term() when
+                      Opts :: {ok, Unknown}.
+                test_singleton_list_typevars_in_list(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]
+             , []
+             }
+           }
+         , { singleton_error4
+           , <<"-spec test_singleton_list_typevars_in_list_with_type_subst([{ok, Unknown}]) -> term().
+                test_singleton_list_typevars_in_list_with_type_subst(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{1,86},erl_lint,{singleton_typevar,'Unknown'}}]
+             , []
+             }
+           }
+         , { singleton_error5
+           , <<"-spec test_singleton_buried_typevars_in_union(Opts) -> term() when
+                      Opts :: {ok, Foo} | {error, Foo},
+                      Foo  :: {true, X} | {false, X}.
+                test_singleton_buried_typevars_in_union(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{3,38},erl_lint,{singleton_typevar,'X'}}]
+             , []
+             }
+           }
+         , { singleton_error6
+           , <<"-spec test_multiple_subtypes_to_same_typevar(Opts) -> term() when
+                      Opts :: {Foo, Bar} | Y,
+                      Foo  :: X,
+                      Bar  :: X,
+                      Y    :: Z.
+                test_multiple_subtypes_to_same_typevar(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{5,31},erl_lint,{singleton_typevar,'Z'}}]
+             , []
+             }
+           }
+         , { singleton_error7
+           , <<"-spec test_duplicate_non_terminal_var_in_union(Opts) -> term() when
+                      Opts :: {ok, U, U} | {error, U, U},
+                      U    :: Foo.
+                test_duplicate_non_terminal_var_in_union(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{3,31},erl_lint,{singleton_typevar,'Foo'}}]
+             , []
+             }
+           }
+         , { singleton_ok1
+           , <<"-spec test_multiple_occurrences_singleton(Opts) -> term() when
+                      Opts :: {Foo, Foo}.
+                test_multiple_occurrences_singleton(_) ->
+                    ok.">>
+           , []
+           , []
+           }
+         , { singleton_ok2
+           , <<"-spec id(X) -> X.
+                id(X) ->
+                    X.">>
+           , []
+           , []
+           }
+
+         ],
     [] = run(Config, Ts),
     ok.
 
@@ -4325,8 +4433,8 @@ otp_14323(Config) ->
 
               -dialyzer(nowarn_function). % unknown option
               -dialyzer(1). % badly formed
-              -dialyzer(malformed). % unkonwn option
-              -dialyzer({malformed,f/0}). % unkonwn option
+              -dialyzer(malformed). % unknown option
+              -dialyzer({malformed,f/0}). % unknown option
               -dialyzer({nowarn_function,a/1}). % undefined function
               -dialyzer({nowarn_function,{a,-1}}). % badly formed
 
@@ -4991,6 +5099,53 @@ redefined_builtin_type(Config) ->
          ],
     [] = run(Config, Ts),
     ok.
+
+tilde_k(Config) ->
+    Ts = [{tilde_k_1,
+           <<"t(Map) ->
+                  io:format(\"~kp\n\", [Map]),
+                  io:format(\"~kP\n\", [Map,10]),
+                  io:format(\"~kw\n\", [Map]),
+                  io:format(\"~kW\n\", [Map,5]),
+                  io:format(\"~tkp\n\", [Map]),
+                  io:format(\"~klp\n\", [Map]),
+                  RevCmpFun = fun erlang:'>='/2,
+                  io:format(\"~Kp\n\", [RevCmpFun,Map]),
+                  io:format(\"~KP\n\", [RevCmpFun,Map,10]),
+                  io:format(\"~Kw\n\", [RevCmpFun,Map]),
+                  io:format(\"~KW\n\", [RevCmpFun,Map,5]),
+                  ok.">>,
+           [],
+           []},
+          {tilde_k_2,
+           <<"t(Map) ->
+                  io:format(\"~kkp\n\", [Map]),
+                  io:format(\"~kKp\n\", [Map]),
+                  io:format(\"~ks\n\", [Map]),
+                  ok.">>,
+           [],
+           {warnings,
+            [{{2,29},
+              erl_lint,
+              {format_error,{"format string invalid (~ts)",
+                             ["repeated modifier k"]}}},
+             {{4,29},
+              erl_lint,
+              {format_error,{"format string invalid (~ts)",
+                             ["conflicting modifiers ~Kkp"]}}},
+             {{6,29},
+              erl_lint,
+              {format_error,{"format string invalid (~ts)",
+                             ["invalid modifier/control combination ~ks"]}}}]}
+          }
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+%%%
+%%% Common utilities.
+%%%
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).

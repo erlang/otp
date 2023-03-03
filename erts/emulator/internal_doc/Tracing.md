@@ -148,7 +148,7 @@ through when adding a new breakpoint.
 
 7. Wait for thread progress.
 
-8. Commit the breadpoint by switching `erts_active_bp_index`.
+8. Commit the breakpoint by switching `erts_active_bp_index`.
 
 9. Wait for thread progress.
 
@@ -203,7 +203,7 @@ and removing breakpoints.
 
 6. Wait for thread progress.
 
-7. Commit all staged breadpoints by switching `erts_active_bp_index`.
+7. Commit all staged breakpoints by switching `erts_active_bp_index`.
 
 8. Wait for thread progress.
 

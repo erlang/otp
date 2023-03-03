@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,29 +44,29 @@
 
 -record(timers, 
         {
-          request_timers = [] :: [reference()],
-          queue_timer         :: reference() | 'undefined'
+          request_timers = [] :: [reference() | {reference(), term()}],
+          queue_timer         :: reference() | undefined
          }).
 
 -record(state, 
         {
-          request                   :: request() | undefined,
-          session                   :: session() | undefined,
-          status_line               :: tuple()   | undefined,     % {Version, StatusCode, ReasonPharse}
-          headers                   :: http_response_h() | undefined,
-          body                      :: binary() | undefined,
-          mfa                       :: {atom(), atom(), term()} | undefined, % {Module, Function, Args}
-          pipeline = queue:new()    :: queue:queue(),
-          keep_alive = queue:new()  :: queue:queue(),
-          status                    :: undefined | new | pipeline | keep_alive | close | {ssl_tunnel, request()},
-          canceled = [],             % [RequestId]
-          max_header_size = nolimit :: nolimit | integer(),
-          max_body_size = nolimit   :: nolimit | integer(),
-          options                   :: options(),
-          timers = #timers{}        :: #timers{},
-          profile_name              :: atom(), % id of httpc_manager process.
-          once = inactive           :: inactive | once
-         }).
+         request                   :: request() | undefined,
+         session                   :: session() | undefined,
+         status_line               :: tuple()   | undefined,     % {Version, StatusCode, ReasonPharse}
+         headers                   :: http_response_h() | undefined,
+         body                      :: binary() | undefined,
+         mfa                       :: {atom(), atom(), term()} | undefined, % {Module, Function, Args}
+         pipeline = queue:new()    :: queue:queue(),
+         keep_alive = queue:new()  :: queue:queue(),
+         status                    :: undefined | new | pipeline | keep_alive | close | {ssl_tunnel, request()},
+         canceled = []             :: [RequestId::reference()],
+         max_header_size = nolimit :: nolimit | integer(),
+         max_body_size = nolimit   :: nolimit | integer(),
+         options                   :: options(),
+         timers = #timers{}        :: #timers{},
+         profile_name              :: atom(), % id of httpc_manager process.
+         once = inactive           :: inactive | once
+        }).
 
 
 %%====================================================================
@@ -321,8 +321,7 @@ terminate(normal,
     %% Cancel timers
     cancel_timers(Timers),
 
-    %% Maybe deliver answers to requests
-    deliver_answer(Request),
+    maybe_deliver_answer(Request, State),
 
     %% And, just in case, close our side (**really** overkill)
     http_transport:close(SocketType, Socket);
@@ -605,7 +604,7 @@ do_handle_info({Proto, Socket, Data},
 %% whole body is now sent instead of sending a length
 %% indicator. In this case the length indicator will be
 %% -1.
-do_handle_info({Info, _}, State = #state{mfa = {_, whole_body, Args}})
+do_handle_info({Info, _}, #state{mfa = {_, whole_body, Args}} = State)
   when Info =:= tcp_closed orelse
        Info =:= ssl_closed ->
     case lists:last(Args) of
@@ -616,25 +615,18 @@ do_handle_info({Info, _}, State = #state{mfa = {_, whole_body, Args}})
     end;
 
 %%% Server closes idle pipeline
-do_handle_info({tcp_closed, _}, State = #state{request = undefined}) ->
+do_handle_info({tcp_closed, _}, #state{request = undefined} = State) ->
     {stop, normal, State};
-do_handle_info({ssl_closed, _}, State = #state{request = undefined}) ->
+do_handle_info({ssl_closed, _}, #state{request = undefined} = State) ->
     {stop, normal, State};
 
 %%% Error cases
-do_handle_info({tcp_closed, _}, #state{session = Session0} = State) ->
-    Socket  = Session0#session.socket,
+do_handle_info({Closed, _}, #state{session = #session{socket = Socket}=Session0} = State)
+  when Closed == tcp_closed; Closed == ssl_closed ->
     Session = Session0#session{socket = {remote_close, Socket}},
     %% {stop, session_remotly_closed, State};
     {stop, normal, State#state{session = Session}};
-do_handle_info({ssl_closed, _}, #state{session = Session0} = State) ->
-    Socket  = Session0#session.socket,
-    Session = Session0#session{socket = {remote_close, Socket}},
-    %% {stop, session_remotly_closed, State};
-    {stop, normal, State#state{session = Session}};
-do_handle_info({tcp_error, _, _} = Reason, State) ->
-    {stop, Reason, State};
-do_handle_info({ssl_error, _, _} = Reason, State) ->
+do_handle_info({Error, _, _} = Reason, State) when Error == tcp_error; Error == ssl_error ->
     {stop, Reason, State};
 
 %% Timeouts
@@ -675,7 +667,7 @@ do_handle_info({timeout, RequestId},
                                   keep_alive = KeepAlive}}
     end;
 
-do_handle_info(timeout_queue, State = #state{request = undefined}) ->
+do_handle_info(timeout_queue, #state{request = undefined} = State) ->
     {stop, normal, State};
 
 %% Timing was such as the queue_timeout was not canceled!
@@ -685,12 +677,12 @@ do_handle_info(timeout_queue, #state{timers = Timers} = State) ->
 
 %% Setting up the connection to the server somehow failed. 
 do_handle_info({init_error, Reason, ClientErrMsg},
-            State = #state{request = Request}) ->
+               #state{request = Request} = State) ->
     NewState = answer_request(Request, ClientErrMsg, State),
     {stop, {shutdown, Reason}, NewState};
 
 %%% httpc_manager process dies. 
-do_handle_info({'EXIT', _, _}, State = #state{request = undefined}) ->
+do_handle_info({'EXIT', _, _}, #state{request = undefined} = State) ->
     {stop, normal, State};
 %%Try to finish the current request anyway,
 %% there is a fairly high probability that it can be done successfully.
@@ -713,24 +705,26 @@ call(Msg, Pid) ->
 cast(Msg, Pid) ->
     gen_server:cast(Pid, Msg).
 
-maybe_retry_queue(Q, State) ->
-    case queue:is_empty(Q) of 
-        false ->
+maybe_retry_queue(Q, #state{status = new} = State) ->
+    retry_pipeline(queue:to_list(Q), State);
+maybe_retry_queue(Q, #state{request = Request} = State) ->
+    case Request of
+        undefined ->
             retry_pipeline(queue:to_list(Q), State);
-        true ->
-            ok
+        _ ->
+            retry_pipeline(queue:to_list(queue:cons(Request, Q)), State)
     end.
-    
+
 maybe_send_answer(#request{from = answer_sent}, _Reason, State) ->
     State;
 maybe_send_answer(Request, Answer, State) ->
     answer_request(Request, Answer, State).
 
-deliver_answer(#request{from = From} = Request) 
+maybe_deliver_answer(#request{from = From} = Request, #state{status = new})
   when From =/= answer_sent ->
     Response = httpc_response:error(Request, socket_closed_remotely),
     httpc_response:send(From, Response);
-deliver_answer(_Request) ->
+maybe_deliver_answer(_,_) ->
     ok.
 
 %%%--------------------------------------------------------------------
@@ -878,7 +872,7 @@ connect_and_send_upgrade_request(Address, Request, #state{options = Options0} = 
     end.
 
 handler_info(#state{request     = Request, 
-		    session     = Session, 
+		    session     = #session{socket = Socket}=Session,
 		    status_line = _StatusLine, 
 		    pipeline    = Pipeline, 
 		    keep_alive  = KeepAlive, 
@@ -906,8 +900,7 @@ handler_info(#state{request     = Request,
 			  queue:len(KeepAlive)
 		  end,
     Scheme     = Session#session.scheme, 
-    Socket     = Session#session.socket, 
-    SocketType = Session#session.socket_type, 
+    SocketType = Session#session.socket_type,
 
     SocketOpts  = http_transport:getopts(SocketType, Socket), 
     SocketStats = http_transport:getstat(SocketType, Socket), 
@@ -983,11 +976,10 @@ handle_http_body(Body, #state{headers = Headers,
 handle_http_body(_Body, #state{request = #request{method = head}} = State) ->
     handle_response(State#state{body = <<>>});
 
-handle_http_body(Body, #state{headers       = Headers, 
+handle_http_body(Body, #state{headers       = #http_response_h{'transfer-encoding' = TransferEnc}=Headers,
 			      max_body_size = MaxBodySize,
 			      status_line   = {_,Code, _},
 			      request       = Request} = State) ->
-    TransferEnc = Headers#http_response_h.'transfer-encoding',
     case case_insensitive_header(TransferEnc) of
         "chunked" ->
 	    try http_chunk:decode(Body, State#state.max_body_size, 
@@ -1064,7 +1056,7 @@ handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
     handle_cookies(Headers, Request, Options, ProfileName), 
     case httpc_response:result({StatusLine, Headers, Body}, Request) of
 	%% 100-continue
-	continue -> 
+	continue ->
 	    %% Send request body
 	    {_, RequestBody} = Request#request.content,
 	    send_raw(Session, RequestBody),
@@ -1080,7 +1072,7 @@ handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
 
 	%% Ignore unexpected 100-continue response and receive the
 	%% actual response that the server will send right away. 
-	{ignore, Data} -> 
+	{ignore, Data} ->
 	    Relaxed = (Request#request.settings)#http_options.relaxed,
 	    MFA     = {httpc_response, parse,
 		       [State#state.max_header_size, Relaxed]}, 
@@ -1116,8 +1108,7 @@ handle_cookies(_,_, #options{cookies = disabled}, _) ->
 %% so the user will have to call a store command.
 handle_cookies(_,_, #options{cookies = verify}, _) ->
     ok;
-handle_cookies(Headers, Request, #options{cookies = enabled}, ProfileName) ->
-    {Host, _ } = Request#request.address,
+handle_cookies(Headers, #request{address = {Host, _}}=Request, #options{cookies = enabled}, ProfileName) ->
     Cookies = httpc_cookie:cookies(Headers#http_response_h.other, 
 				  Request#request.path, Host),
     httpc_manager:store_cookies(Cookies, Request#request.address,
@@ -1135,7 +1126,7 @@ handle_queue(#state{status = pipeline} = State, Data) ->
     handle_pipeline(State, Data).
 
 handle_pipeline(#state{status       = pipeline, 
-		       session      = Session,
+		       session      = #session{}=Session,
 		       profile_name = ProfileName,
 		       options      = #options{pipeline_timeout = TimeOut}} = State,
 		Data) ->

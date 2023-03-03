@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2022</year>
+      <year>1997</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1092,6 +1092,22 @@ get_tcpi_sacked(Sock) ->
               <seemfa marker="gen_tcp#shutdown/2"><c>gen_tcp:shutdown/2</c></seemfa>
               to shut down the write side.</p>
           </item>
+          <tag><c>{exclusiveaddruse, Boolean}</c>
+          <marker id="option-exclusiveaddruse"/></tag>
+          <item>
+            <p>
+              Enables/disables exclusive address/port usage on Windows. That
+              is, by enabling this option you can prevent other sockets from
+              binding to the same address/port. By default this option is
+              disabled. That is, other sockets may use the same address/port
+              by setting <seeerl marker="#option-reuseaddr"><c>{reuseaddr,
+              true}</c></seeerl> in combination with
+              <seeerl marker="#option-reuseport"><c>{reuseport,
+              true}</c></seeerl> unless <c>{exclusiveaddruse, true}</c>
+              has been set on <c><anno>Socket</anno></c>. On non-Windows
+              systems this option is silently ignored.
+            </p>
+          </item>
           <tag><c>{header, Size}</c></tag>
           <item>
             <p>This option is only meaningful if option <c>binary</c>
@@ -1566,18 +1582,109 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      option.
 	    </p>
           </item>
-          <tag><c>{reuseaddr, Boolean}</c></tag>
+          <tag><c>{reuseaddr, Boolean}</c><marker id="option-reuseaddr"/></tag>
           <item>
             <p>
-              Allows or disallows local reuse of address. By
-              default, reuse is disallowed.
+              Allows or disallows reuse of local address. By default, reuse
+              is disallowed.
             </p>
-            <note><p>
-              On Windows this option will be ignored unless
-              <c><anno>Socket</anno></c> is an UDP socket. This since the
-              behavior of <c>reuseaddr</c> is very different on Windows
-              compared to other system.
-            </p></note>
+            <note>
+              <p>
+                On windows <c>{reuseaddr, true}</c> will have no effect unless
+                also <seeerl marker="#option-reuseport"><c>{reuseport,
+                true}</c></seeerl> is set. If both are set, the
+                <c>SO_REUSEADDR</c> Windows socket option will be enabled.
+                This since setting <c>SO_REUSEADDR</c> on Windows more or less
+                has the same behavior as setting both <c>SO_REUSEADDR</c> and
+                <c>SO_REUSEPORT</c> on BSD. This behavior was introduced as
+                of OTP @OTP-18344@.
+              </p>
+              <change>
+                <p>
+                  Previous behavior on Windows:
+                </p>
+                <list>
+                  <item>
+                    Prior to OTP 25.0, the <c>{reuseaddr, true}</c> option was
+                    silently ignored.
+                  </item>
+                  <item>
+                    Between OTP 25.0 and up to the predecessor of OTP 25.2,
+                    the underlying <c>SO_REUSEADDR</c> socket option was set
+                    if <c>{reuseaddr, true}</c> was set.
+                  </item>
+                  <item>
+                    Between OTP 25.2 and up to the predecessor of OTP @OTP-18344@,
+                    the underlying <c>SO_REUSEADDR</c> socket option was only
+                    set on UDP sockets if <c>{reuseaddr, true}</c> was set, and
+                    silently ignored on other sockets.
+                  </item>
+                </list>
+              </change>
+              <p>
+                See also the
+                <seeerl marker="#option-exclusiveaddruse"><c>exclusiveaddruse</c></seeerl>
+                option.
+              </p>
+            </note>
+          </item>
+          <tag><c>{reuseport, Boolean}</c><marker id="option-reuseport"/></tag>
+          <item>
+            <p>
+              Allows or disallows reuse of local port which <i>may or may not</i>
+              have load balancing depending on the underlying OS. By default,
+              reuse is disallowed. See also
+              <seeerl marker="#option-reuseport_lb"><c>reuseport_lb</c></seeerl>.
+            </p>
+            <note>
+              <p>
+                On windows <c>{reuseport, true}</c> will have no effect unless
+                also <seeerl marker="#option-reuseaddr"><c>{reuseaddr,
+                true}</c></seeerl> is set. If both are set, the
+                <c>SO_REUSEADDR</c> Windows socket option will be enabled.
+                This since setting <c>SO_REUSEADDR</c> on Windows more or less
+                has the same behavior as setting both <c>SO_REUSEADDR</c> and
+                <c>SO_REUSEPORT</c> on BSD. The <c>reuseport</c> option was
+                introduced as of OTP @OTP-18344@.
+              </p>
+              <p>
+                See also the
+                <seeerl marker="#option-exclusiveaddruse"><c>exclusiveaddruse</c></seeerl>
+                option.
+              </p>
+            </note>
+            <note>
+              <p>
+                <c>reuseport</c> <i>may or may not</i> be the same underlying
+                option as
+                <seeerl marker="#option-reuseport_lb"><c>reuseport_lb</c></seeerl>
+                depending on the underlying OS. They, for example, are on Linux.
+                When they are the same underlying option, operating on both may
+                cause them to interact in surprising ways. For example,
+                by enabling <c>reuseport</c> and then disabling
+                <c>reuseport_lb</c> both will end up being disabled.
+              </p>
+            </note>
+          </item>
+          <tag><c>{reuseport_lb, Boolean}</c><marker id="option-reuseport_lb"/></tag>
+          <item>
+            <p>
+              Allows or disallows reuse of local port <i>with</i> load balancing.
+              By default, reuse is disallowed. See also
+              <seeerl marker="#option-reuseport"><c>reuseport</c></seeerl>.
+            </p>
+            <note>
+              <p>
+                <c>reuseport_lb</c> <i>may or may not</i> be the same underlying
+                option as
+                <seeerl marker="#option-reuseport"><c>reuseport</c></seeerl>
+                depending on the underlying OS. They, for example, are on Linux.
+                When they are the same underlying option, operating on both may
+                cause them to interact in surprising ways. For example,
+                by enabling <c>reuseport_lb</c> and then disabling
+                <c>reuseport</c> both will end up being disabled.
+              </p>
+            </note>
           </item>
           <tag><c>{send_timeout, Integer}</c></tag>
           <item>

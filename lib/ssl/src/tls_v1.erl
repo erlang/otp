@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -888,11 +888,8 @@ default_signature_algs([{3, 3} = Version |_]) ->
                rsa_pss_rsae_sha256,
                {sha256, rsa},
                {sha224, ecdsa},
-               {sha224, rsa},
-               %% SHA
-               {sha, ecdsa},
-               {sha, rsa},
-               {sha, dsa}],
+               {sha224, rsa}
+              ],
     signature_algs(Version, Default);
 default_signature_algs(_) ->
     undefined.
@@ -906,13 +903,9 @@ default_pre_1_3_signature_algs_only() ->
                {sha256, ecdsa},
                {sha256, rsa},
                {sha224, ecdsa},
-               {sha224, rsa},
-               %% SHA
-               {sha, ecdsa},
-               {sha, rsa},
-               {sha, dsa}],
+               {sha224, rsa}
+              ],
     signature_algs({3,3}, Default).
-
 
 signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
                                                   andalso Version >= {3, 3} ->
@@ -1001,9 +994,7 @@ legacy_signature_schemes(Version) ->
     LegacySchemes = 
         [rsa_pkcs1_sha512,
          rsa_pkcs1_sha384,
-         rsa_pkcs1_sha256,
-         ecdsa_sha1,
-         rsa_pkcs1_sha1],
+         rsa_pkcs1_sha256],
     signature_schemes(Version, LegacySchemes).
 
 rsa_schemes() ->

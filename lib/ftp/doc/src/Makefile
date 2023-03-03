@@ -54,6 +54,10 @@ XML_FILES = \
 	$(XML_REF3_FILES)    \
 	$(XML_APPLICATION_FILES)
 
+SPEC_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+TOP_SPECS_FILE = specs.xml
+
+
 # IMAGE_FILES = ftp.gif
 
 include $(ERL_TOP)/make/doc.mk

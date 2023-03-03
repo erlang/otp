@@ -176,43 +176,33 @@
 
     <func>
       <name name="enumerate" arity="1" since="OTP 25.0"/>
+      <name name="enumerate" arity="2" since="OTP 25.0"/>
+      <name name="enumerate" arity="3" since="OTP @OTP-18495@"/>
       <fsummary>Annotates elements with their index.</fsummary>
       <desc>
         <p>Returns <c><anno>List1</anno></c> with each element
-        <c>H</c> replaced by a tuple of form <c>{I, H}</c> where
-        <c>I</c> is the position of <c>H</c> in
-        <c><anno>List1</anno></c>. The enumeration starts with 1 and
-        increases by 1 in each step.</p>
-        <p>That is, <c>enumerate/1</c> behaves as if it had been defined as follows:</p>
+          <c>H</c> replaced by a tuple of form <c>{I, H}</c> where
+          <c>I</c> is the position of <c>H</c> in
+          <c><anno>List1</anno></c>. The enumeration starts with
+          <c><anno>Index</anno></c> and increases by <c><anno>Step</anno></c>
+          in each step.</p>
+        <p>That is, <c>enumerate/3</c> behaves as if it had been defined as follows:</p>
         <code type="erl">
-enumerate(List) ->
-  {List1, _ } = lists:mapfoldl(fun(T, Acc) -> {{Acc, T}, Acc+1} end, 1, List),
+enumerate(I, S, List) ->
+  {List1, _ } = lists:mapfoldl(fun(T, Acc) -> {{Acc, T}, Acc+S} end, I, List),
   List1.</code>
-        <p><em>Example:</em></p>
+        <p>The default values for <c><anno>Index</anno></c> and
+	  <c><anno>Step</anno></c> are both <c>1</c>.</p>
+        <p><em>Examples:</em></p>
         <pre>
 > <input>lists:enumerate([a,b,c]).</input>
 [{1,a},{2,b},{3,c}]</pre>
-      </desc>
-    </func>
-    
-    <func>
-      <name name="enumerate" arity="2" since="OTP 25.0"/>
-      <fsummary>Annotates elements with their index.</fsummary>
-      <desc>
-        <p>Returns <c><anno>List1</anno></c> with each element
-        <c>H</c> replaced by a tuple of form <c>{I, H}</c> where
-        <c>I</c> is the position of <c>H</c> in
-        <c><anno>List1</anno></c>. The enumeration starts with
-        <c><anno>Index</anno></c> and increases by 1 in each step.</p>
-        <p>That is, <c>enumerate/2</c> behaves as if it had been defined as follows:</p>
-        <code type="erl">
-enumerate(I, List) ->
-  {List1, _ } = lists:mapfoldl(fun(T, Acc) -> {{Acc, T}, Acc+1} end, I, List),
-  List1.</code>
-        <p><em>Example:</em></p>
         <pre>
 > <input>lists:enumerate(10, [a,b,c]).</input>
 [{10,a},{11,b},{12,c}]</pre>
+        <pre>
+> <input>lists:enumerate(0, -2, [a,b,c]).</input>
+[{0,a},{-2,b},{-4,c}]</pre>
       </desc>
     </func>
     

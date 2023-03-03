@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@
          bs_saved_position_units/1,empty_matches/1,
          trim_bs_start_match_resume/1,
          gh_6410/1,bs_match/1,
-         binary_aliases/1]).
+         binary_aliases/1,gh_6923/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -92,7 +92,8 @@ groups() ->
        many_clauses,combine_empty_segments,hangs_forever,
        bs_saved_position_units,empty_matches,
        trim_bs_start_match_resume,
-       gh_6410,bs_match,binary_aliases]}].
+       gh_6410,bs_match,binary_aliases,
+       gh_6923]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -859,6 +860,12 @@ coverage(Config) when is_list(Config) ->
     %% Cover code in beam_ssa_codegen.
     ok = coverage_beam_ssa_codegen(<<2>>),
 
+    %% Cover code in beam_ssa_pre_codegen.
+    {'EXIT',{function_clause,_}} = catch coverage_beam_ssa_pre_codegen(<<>>),
+
+    %% Cover code in beam_ssa_bsm.
+    {'EXIT',{{badarg,<<>>},_}} = catch coverage_beam_ssa_bsm_error(id(<<>>)),
+
     ok.
 
 coverage_fold(Fun, Acc, <<H,T/binary>>) ->
@@ -1008,6 +1015,12 @@ coverage_beam_ssa_codegen(Bin) ->
             << <<0>> || <<2>> <= Bin >>
     end,
     ok.
+
+coverage_beam_ssa_pre_codegen(<<V0:0, V1:(V0 div V0), _:(V0 bsl V1)/bits>>) ->
+    ok.
+
+coverage_beam_ssa_bsm_error(<<B/bitstring>>) ->
+    B andalso ok.
 
 multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),
@@ -1415,6 +1428,8 @@ bad_size(Config) when is_list(Config) ->
 
     error = bad_size_3(<<>>),
     error = bad_size_3(<<0>>),
+
+    <<>> = id(<<_V1 || <<_V0/float, _V1:_V0>> <= <<>>>>),
 
     ok.
 
@@ -2688,6 +2703,8 @@ bs_match(_Config) ->
     <<"abc">> = do_bs_match_gh_6660(id(<<"abc">>)),
     {'EXIT', {{try_clause,abc},_}} = catch do_bs_match_gh_6660(id(abc)),
 
+    {'EXIT',{{case_clause,_},_}} = catch do_bs_match_gh_6755(id(<<"1000">>)),
+
     ok.
 
 do_bs_match_1(_, X) ->
@@ -2745,6 +2762,18 @@ do_bs_match_gh_6660(X) ->
             Y
     after
         ok
+    end.
+
+do_bs_match_gh_6755(B) ->
+    C = case B of
+            <<"1000">> -> test;
+            <<"1001">> -> test2
+        end,
+
+    _ = atom_to_list(C),
+
+    case B of
+        <<"b">> -> b
     end.
 
 %% GH-6348/OTP-18297: Allow aliases for binaries.
@@ -3099,6 +3128,54 @@ gh6415_match_f(<<_:(true andalso 0), Size, Var:Size>> =
     Var;
 gh6415_match_f(_) ->
     error.
+
+gh_6923(_Config) ->
+    Mod = list_to_atom(?MODULE_STRING ++ "_" ++ atom_to_list(?FUNCTION_NAME)),
+
+    %% The second clause of match_route/1 has lower line numbers than
+    %% the first clause.
+    %%
+    %% -module(bs_match_SUITE_gh_6923).                     %Line 29
+    %% -export([match_route/1]).                            %Line 29
+    %% match_route([<<"prefix">>, <<"action">>]) -> first;  %Line 4
+    %% match_route([<<"prefix">>, _Ignore]) -> second.      %Line 2
+    Forms =
+        [{attribute,29,module,Mod},
+         {attribute,29,export,[{match_route,1}]},
+         {function,4,match_route,1,
+          [{clause,4,
+            [{cons,4,
+              {bin,4,[{bin_element,4,{string,4,"prefix"},default,default}]},
+              {cons,4,
+               {bin,4,
+                [{bin_element,4,
+                  {string,4,"action"},
+                  default,default}]},
+               {nil,4}}}],
+            [],
+            [{atom,4,first}]},
+           {clause,2,
+            [{cons,2,
+              {bin,2,[{bin_element,2,{string,2,"prefix"},default,default}]},
+              {cons,2,{var,2,'_Ignore'},{nil,2}}}],
+            [],
+            [{atom,2,second}]}]}],
+    Opts = test_lib:opt_opts(?MODULE),
+    {ok, Mod, Beam} = compile:forms(Forms, Opts),
+    {module, Mod} = code:load_binary(Mod, "", Beam),
+    first = Mod:match_route([<<"prefix">>, <<"action">>]),
+    second = Mod:match_route([<<"prefix">>, whatever]),
+    _ = code:delete(Mod),
+    _ = code:purge(Mod),
+
+    %% For coverage.
+    first = do_gh_6923([id(<<"abc">>), id(42)]),
+    second = do_gh_6923([id(<<"abc">>), id({a,b,c})]),
+
+    ok.
+
+do_gh_6923([<<"abc">>, A]) when is_integer(A) -> first;
+do_gh_6923([<<"abc">>, A]) when is_tuple(A) -> second.
 
 %%% Utilities.
 

@@ -1785,35 +1785,36 @@ analyze_and_print_solaris_host_info(Version) ->
                        NumPhysCPU, NumVCPU,
                        SysConf, MemSz,
                        str_num_schedulers()]),
-    io:format("TS Scale Factor:         ~w~n"
-              "TS Extra Platform Label: ~s~n",
-              [timetrap_scale_factor(), Label]),
-    MemFactor =
+    AddMemFactor =
         try string:tokens(MemSz, [$ ]) of
             [SzStr, "Mega" ++ _] ->
                 try list_to_integer(SzStr) of
-                    Sz when Sz > 8192 ->
+                    Sz when Sz > 16384 ->
                         0;
-                    Sz when Sz > 4096 ->
+                    Sz when Sz > 8192 ->
                         1;
+                    Sz when Sz > 4096 ->
+                        4;
                     Sz when Sz > 2048 ->
-                        2;
+                        8;
                     _ -> 
-                        5
+                        12
                 catch
                     _:_:_ ->
                         10
                 end;
             [SzStr, "Giga" ++ _] ->
                 try list_to_integer(SzStr) of
-                    Sz when Sz > 8 ->
+                    Sz when Sz > 16 ->
                         0;
-                    Sz when Sz > 4 ->
+                    Sz when Sz > 8 ->
                         1;
+                    Sz when Sz > 4 ->
+                        4;
                     Sz when Sz > 2 ->
-                        2;
+                        8;
                     _ -> 
-                        5
+                        12
                 catch
                     _:_:_ ->
                         10
@@ -1824,19 +1825,36 @@ analyze_and_print_solaris_host_info(Version) ->
             _:_:_ ->
                 10
         end,
-    {try erlang:system_info(schedulers) of
-         1 ->
-             10;
-         2 ->
-             5;
-         N when (N =< 6) ->
-             2;
-         _ ->
-             1
-     catch
-         _:_:_ ->
-             10
-     end + MemFactor + AddLabelFactor, []}.    
+    %% We don't really have enough info about the CPU to calculate the
+    %% base factor based on that, so we just use the number of schedulers.
+    BaseFactor =
+        try erlang:system_info(schedulers) of
+            1 ->
+                12;
+            2 ->
+                8;
+            N when (N =:= 3) orelse (N =:= 4) ->
+	        4;
+            N when (N =< 6) ->
+                3;
+            _ ->
+                2
+        catch
+            _:_:_ ->
+               12
+        end,
+    TSScaleFactor = ts_scale_factor(),
+    io:format("Factor calc:"
+              "~n      Base Factor:             ~w"
+              "~n      Label Factor:            ~w"
+              "~n      Mem Factor:              ~w"
+              "~n      TS Scale Factor:         ~w"
+              "~n      TS Extra Platform Label: ~s"
+              "~n~n",
+              [BaseFactor, AddLabelFactor, AddMemFactor,
+	       TSScaleFactor, Label]),
+    {BaseFactor + AddMemFactor + AddLabelFactor + TSScaleFactor,
+     [{label, Label}]}.    
 
 analyze_and_print_win_host_info(Version) ->
     Label          = ts_extra_platform_label(),

@@ -62,21 +62,25 @@ format_case(Name, InitialSize, AddedSize, NoofElements, fixed) ->
     Expected = gcd(gcd(InitialSize, 256), AddedSize),
     Es = make_elements(AddedSize, NoofElements, 0),
     {Vars, Elements} = unzip(Es),
+    Appendable = appendable(InitialSize),
     Comment = [io_lib:format("%% Adding ~p bits to initial accumulator"
                              " of ~p bits using ~p elements.~n",
                              [AddedSize, InitialSize, NoofElements]),
                io_lib:format("%% Expected unit size is ~p~n", [Expected])],
-    {[Name, "/1"], body(Comment, Name, Vars, Expected, InitialSize, Elements)};
+    {[Name, "/1"],
+     body(Comment, Name, Vars, Expected, InitialSize, Elements, Appendable)};
 format_case(Name, InitialSize, _, NoofElements, variable) ->
     InitialUnit = gcd(InitialSize, 256),
     {Vars, Elements, Unit} =
 	make_varsize_elements(NoofElements, 0, InitialUnit),
+    Appendable = appendable(InitialSize),
     Comment = [io_lib:format("%% Adding a variable number of bits to initial"
                              " accumulator of ~p bits using~n%% both fixed size"
                              " and variable sized elements.~n",
                              [InitialSize]),
                io_lib:format("%% Expected unit size is ~p~n", [Unit])],
-    {[Name, "/1"], body(Comment, Name, Vars, Unit, InitialSize, Elements)};
+    {[Name, "/1"],
+     body(Comment, Name, Vars, Unit, InitialSize, Elements, Appendable)};
 format_case(Name, InitialSize, AddedSize, NoofElements, mixed) ->
     InitialUnit = gcd(InitialSize, 256),
     Es = make_elements(AddedSize, NoofElements, 0),
@@ -85,19 +89,22 @@ format_case(Name, InitialSize, AddedSize, NoofElements, mixed) ->
 	make_varsize_elements(NoofElements, NoofElements, InitialUnit),
     Unit = gcd(gcd(InitialUnit, AddedSize), Unit1),
     Elements = shuffle(FixedElements ++ VariableElements),
+    Appendable = appendable(InitialSize),
     Vars = VaribleVars ++ FixedVars,
     Comment = [io_lib:format("%% Adding a variable number of bits to initial"
                              " accumulator of ~p bits~n%% using ~p elements.~n",
                              [InitialSize, NoofElements]),
                io_lib:format("%% Expected unit size is ~p~n", [Unit])],
-    {[Name, "/1"], body(Comment, Name, Vars, Unit, InitialSize, Elements)}.
+    {[Name, "/1"],
+     body(Comment, Name, Vars, Unit, InitialSize, Elements, Appendable)}.
 
-body(Comment, Name, Vars, Unit, InitialSize, Elements) ->
+body(Comment, Name, Vars, Unit, InitialSize, Elements, Appendable) ->
     [Comment,
      Name, "(Xs) ->\n",
      "%%ssa% (_) when post_ssa_opt ->\n",
      "%%ssa% _ = call(fun ", Name, "/2, _, A)"
-     " { result_type => {t_bitstring,", integer_to_list(Unit), "} }.\n",
+     " { result_type => {t_bitstring,",
+     integer_to_list(Unit), Appendable, "} }.\n",
      "    ", Name, "(Xs, ", "<<0:", integer_to_list(InitialSize), ">>", ").\n\n",
      Name, "([_", Vars, "|Xs], Acc) ->\n",
      "    ", Name, "(Xs, ", "<<Acc/bitstring", Elements, ">>", ");\n",
@@ -116,6 +123,12 @@ make_elements(Size, NoofElements, Id) when Size > NoofElements ->
     ElemSize = rand:uniform(MaxSize),
     [format_element_of_size(ElemSize, Id)
     |make_elements(Size - ElemSize, NoofElements - 1, Id + 1)].
+
+appendable(InitialSize) ->
+    case InitialSize of
+	0 -> ", true";
+	_ -> ", false"
+    end.
 
 format_element_of_size(Size, Id) ->
     case rand:uniform(2) of

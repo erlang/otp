@@ -83,11 +83,11 @@
                        | {'unused', [mfa()]},
       NoDebugInfoResult :: {'deprecated', [xmfa()]}
                          | {'undefined', [xmfa()]},
-      Reason :: {'cover_compiled', Module}
+      Reason :: {'cover_compiled', Module :: module()}
               | {'file_error', file(), file_error()}
-              | {'interpreted', Module}
+              | {'interpreted', Module :: module()}
               | {'invalid_filename', term()}
-              | {'no_such_module', Module}
+              | {'no_such_module', Module :: module()}
               | beam_lib:chnk_rsn().
 
 %% No user variables have been assigned digraphs, so there is no

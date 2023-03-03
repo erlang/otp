@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1091,8 +1091,10 @@ handle_event(info, {Proto, Sock, Info}, {hello,_}, #data{socket = Sock,
     end;
 
 
-handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
-								 transport_protocol = Proto}) ->
+handle_event(info, {Proto, Sock, NewData}, StateName,
+             D0 = #data{socket = Sock,
+                        transport_protocol = Proto,
+                        ssh_params = SshParams}) ->
     try ssh_transport:handle_packet_part(
 	  D0#data.decrypted_data_buffer,
 	  <<(D0#data.encrypted_data_buffer)/binary, NewData/binary>>,
@@ -1139,10 +1141,11 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 				    ]}
 	    catch
 		C:E:ST  ->
-                    {Shutdown, D} =  
+                    MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
+                    {Shutdown, D} =
                         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
-                                                       [C,E,ST]),
+                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~P",
+                                                       [C,E,ST,MaxLogItemLen]),
                                          StateName, D1),
                     {stop, Shutdown, D}
 	    end;
@@ -1173,9 +1176,11 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
             {stop, Shutdown, D}
     catch
 	C:E:ST ->
-            {Shutdown, D} =  
+            MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
+            {Shutdown, D} =
                 ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",[C,E,ST]),
+                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~P",
+                                               [C,E,ST,MaxLogItemLen]),
                                  StateName, D0),
             {stop, Shutdown, D}
     end;
@@ -1184,7 +1189,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 %%%==== 
 handle_event(internal, prepare_next_packet, _StateName, D) ->
     Enough =  erlang:max(8, D#data.ssh_params#ssh.decrypt_block_size),
-    case size(D#data.encrypted_data_buffer) of
+    case byte_size(D#data.encrypted_data_buffer) of
 	Sz when Sz >= Enough ->
 	    self() ! {D#data.transport_protocol, D#data.socket, <<>>};
 	_ ->

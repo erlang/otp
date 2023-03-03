@@ -38,7 +38,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create a runtime specialized for JIT.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Decide between 32-bit CDECL, WIN64, and SysV64 calling conventions:
@@ -131,7 +132,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create a runtime specialized for JIT.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Enable strict validation.
@@ -187,7 +189,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create a runtime specialized for JIT.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Let's get these registers from x86::Assembler.
@@ -346,7 +349,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create JIT Runtime.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Decide which registers will be mapped to function arguments. Try changing
@@ -453,7 +457,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create a runtime specialized for JIT.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Let's get these registers from x86::Assembler.

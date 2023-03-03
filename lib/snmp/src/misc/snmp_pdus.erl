@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -828,8 +828,8 @@ enint(N, Acc) ->
  
 enc_oct_str_tag(OStr) when is_list(OStr) ->
     lists:append([4|elength(length(OStr))],OStr);
-enc_oct_str_tag(OBin) ->
-    [4 | elength(size(OBin))] ++ binary_to_list(OBin).
+enc_oct_str_tag(OBin) when is_binary(OBin) ->
+    [4 | elength(byte_size(OBin))] ++ binary_to_list(OBin).
 
 
 enc_oct_str_notag(OStr) -> OStr.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -217,7 +217,7 @@ encode_action_replies(#conn_data{protocol_version = V,
 		      [AR|ARs], Size, Acc) ->
     case (catch Mod:encode_action_reply(Conf, V, AR)) of
 	{ok, Bin} when is_binary(Bin) ->
-	    encode_action_replies(CD, ARs, Size + size(Bin), [Bin|Acc]);
+	    encode_action_replies(CD, ARs, Size + byte_size(Bin), [Bin|Acc]);
         {'EXIT', {undef, _}} ->
             throw({error, not_implemented});
 	{error, not_implemented} = Error1 ->

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -295,6 +295,7 @@ typedef enum {
     matchTrace2,
     matchTrace3,
     matchCallerLine,
+    matchCurrentStacktrace
 } MatchOps;
 
 /*
@@ -2507,7 +2508,8 @@ restart:
 		top = HAllocX(build_proc, sz, HEAP_XTRA);
 		if (in_flags & ERTS_PAM_CONTIGUOUS_TUPLE) {
 		    ASSERT(is_tuple(term));
-		    *esp++ = copy_shallow(tuple_val(term), sz, &top, &MSO(build_proc));
+		    *esp++ = make_tuple(copy_shallow(tuple_val(term), sz, &top,
+                                                     &MSO(build_proc)));
 		}
 		else {
 		    *esp++ = copy_struct(term, sz, &top, &MSO(build_proc));
@@ -2804,6 +2806,64 @@ restart:
                }
             }
             break;
+        case matchCurrentStacktrace: {
+            Uint sz;
+            Uint heap_size;
+            Eterm mfa;
+            Eterm res;
+            struct StackTrace *s;
+            int depth;
+            FunctionInfo* stk;
+            FunctionInfo* stkp;
+
+            ASSERT(c_p == self);
+
+            depth = unsigned_val(esp[-1]);
+            esp--;
+
+            sz = offsetof(struct StackTrace, trace) + sizeof(ErtsCodePtr) * depth;
+            s = (struct StackTrace *) erts_alloc(ERTS_ALC_T_TMP, sz);
+            s->depth = 0;
+            s->pc = NULL;
+
+            erts_save_stacktrace(c_p, s, depth);
+
+            depth = s->depth;
+            stk = stkp = (FunctionInfo *) erts_alloc(ERTS_ALC_T_TMP,
+                                                     depth*sizeof(FunctionInfo));
+
+            heap_size = 0;
+            for (i = 0; i < depth; i++) {
+                erts_lookup_function_info(stkp, s->trace[i], 1);
+                if (stkp->mfa) {
+                    heap_size += stkp->needed + 2;
+                    stkp++;
+                }
+            }
+
+            res = NIL;
+
+            if (heap_size > 0) {
+                int count = stkp - stk;
+
+                ASSERT(count > 0 && count <= MAX_BACKTRACE_SIZE);
+
+                ehp = HAllocX(build_proc, heap_size, HEAP_XTRA);
+
+                for (i = count - 1; i >= 0; i--) {
+                    ehp = erts_build_mfa_item(&stk[i], ehp, am_true, &mfa, NIL);
+                    res = CONS(ehp, mfa, res);
+                    ehp += 2;
+                }
+            }
+
+            *esp++ = res;
+
+            erts_free(ERTS_ALC_T_TMP, stk);
+            erts_free(ERTS_ALC_T_TMP, s);
+
+            break;
+        }
         case matchSilent:
             ASSERT(c_p == self);
 	    --esp;
@@ -3137,9 +3197,27 @@ both_size_set:
 
     handle->new_size = handle->new_size - oldval_sz + newval_sz;
 
-    /* write new value in old dbterm, finalize will make a flat copy */
+    /*
+     * Write new value in old dbterm, finalize will make a flat copy.
+     */
+    if (!(handle->flags & DB_MUST_RESIZE)) {
+        const size_t nbytes = (arityval(handle->dbterm->tpl[0]) + 1) * sizeof(Eterm);
+        /*
+         * First time here. Save the original tuple array in order to make
+         * fast size calculations of untouched elements.
+         */
+        ASSERT(!handle->tb->common.compress);
+        ASSERT(!handle->old_tpl);
+        if (nbytes > sizeof(handle->old_tpl_dflt)) {
+            handle->old_tpl = erts_alloc(ERTS_ALC_T_TMP, nbytes);
+        } else {
+            handle->old_tpl = handle->old_tpl_dflt;
+        }
+        sys_memcpy(handle->old_tpl, handle->dbterm->tpl, nbytes);
+        handle->flags |= DB_MUST_RESIZE;
+    }
+    ASSERT(!!handle->old_tpl != !!handle->tb->common.compress);
     handle->dbterm->tpl[position] = newval;
-    handle->flags |= DB_MUST_RESIZE;
 }
 
 static ERTS_INLINE byte* db_realloc_term(DbTableCommon* tb, void* old,
@@ -3293,6 +3371,38 @@ static void* copy_to_comp(int keypos, Eterm obj, DbTerm* dest,
     return top.cp;
 }
 
+static ERTS_INLINE
+Eterm copy_ets_element(Eterm obj, int sz, Eterm **hpp, ErlOffHeap *off_heap)
+{
+#ifdef DEBUG
+    const Eterm* const hp_start = *hpp;
+#endif
+    Eterm copy;
+
+    if (sz == 0) {
+        ASSERT(is_immed(obj) || obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+        return obj;
+    }
+    ASSERT(is_not_immed(obj));
+
+    if (is_list(obj) && is_immed(CAR(list_val(obj)))) {
+        /* copy_struct() would put this last,
+           but we need the top term to be first in block */
+        Eterm* src = list_val(obj);
+        Eterm* dst = *hpp;
+
+        CAR(dst) = CAR(src);
+        *hpp += 2;
+        CDR(dst) = copy_struct(CDR(src), sz-2, hpp, off_heap);
+        copy = make_list(dst);
+    }
+    else {
+        copy = copy_struct(obj, sz, hpp, off_heap);
+    }
+    ASSERT(ptr_val(copy) == hp_start);
+    return copy;
+}
+
 /*
 ** Copy the object into a possibly new DbTerm, 
 ** offset is the offset of the DbTerm from the start
@@ -3305,8 +3415,24 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
     byte* basep;
     DbTerm* newp;
     Eterm* top;
-    int size = size_object(obj);
+    Eterm* source_ptr;
+    Eterm* dest_ptr;
+    int arity, i, size;
     ErlOffHeap tmp_offheap;
+    Uint elem_sizes_dflt[8];
+    Uint* elem_sizes = elem_sizes_dflt;
+
+    /* Calculate sizes of all elements and total size */
+    source_ptr = tuple_val(obj);
+    arity = arityval(*source_ptr);
+    if (arity > sizeof(elem_sizes_dflt) / sizeof(elem_sizes_dflt[0])) {
+        elem_sizes = erts_alloc(ERTS_ALC_T_TMP, arity * sizeof(*elem_sizes));
+    }
+    size = arity + 1;
+    for (i = 0; i < arity; i++) {
+        elem_sizes[i] = size_object(source_ptr[i+1]);
+        size += elem_sizes[i];
+    }
 
     if (old != 0) {
 	basep = ((byte*) old) - offset;
@@ -3329,14 +3455,26 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
 			      (offset + sizeof(DbTerm) + sizeof(Eterm)*(size-1)));
 	newp = (DbTerm*) (basep + offset);
     }
+
+    /*
+     * Do the actual copy. Lay out elements in order after the top tuple.
+     * This is relied upon by db_copy_element_from_ets.
+     */
     newp->size = size;
     top = newp->tpl;
-    tmp_offheap.first  = NULL;
-    copy_struct(obj, size, &top, &tmp_offheap);
+    tmp_offheap.first = NULL;
+    *top++ = *source_ptr++; // copy the header
+    dest_ptr = top + arity;
+    for (i = 0; i < arity; ++i) {
+        *top++ = copy_ets_element(source_ptr[i], elem_sizes[i], &dest_ptr,
+                                  &tmp_offheap);
+    }
     newp->first_oh = tmp_offheap.first;
 #ifdef DEBUG_CLONE
     newp->debug_clone = NULL;
 #endif
+    if (elem_sizes != elem_sizes_dflt)
+        erts_free(ERTS_ALC_T_TMP, elem_sizes);
     return basep;
 }
 
@@ -3379,6 +3517,7 @@ void* db_store_term_comp(DbTableCommon *tb, /* May be NULL */
     return basep;
 }
 
+static Uint db_element_size(DbTerm *obj, Eterm* tpl, Uint pos);
 
 void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
 {
@@ -3390,6 +3529,8 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
 	 sizeof(DbTerm)+sizeof(Eterm)*(handle->new_size-1));
     byte* newp = erts_db_alloc(ERTS_ALC_T_DB_TERM, tbl, alloc_sz);
     byte* oldp = *(handle->bp);
+
+    ASSERT(handle->flags & DB_MUST_RESIZE);
 
     sys_memcpy(newp, oldp, offset);  /* copy only hash/tree header */
     *(handle->bp) = newp;
@@ -3408,16 +3549,36 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
     }
     else {
 	ErlOffHeap tmp_offheap;
-	Eterm* tpl = handle->dbterm->tpl;
-	Eterm* top = newDbTerm->tpl;
+	DbTerm* src = handle->dbterm;
+        const Uint arity = arityval(src->tpl[0]);
+        Eterm* top = &newDbTerm->tpl[arity+1];
+        int i;
+
+        ASSERT(handle->old_tpl);
 
 	tmp_offheap.first = NULL;
+        newDbTerm->tpl[0] = src->tpl[0];
+        for (i = 1; i <= arity; ++i) {
+            Uint sz;
+            if (is_immed(src->tpl[i])) {
+                newDbTerm->tpl[i] = src->tpl[i];
+            }
+            else {
+                if (src->tpl[i] != handle->old_tpl[i]) {
+                    sz = size_object(src->tpl[i]);
+                }
+                else {
+                    sz = db_element_size(src, handle->old_tpl, i);
+                }
+                newDbTerm->tpl[i] = copy_ets_element(src->tpl[i], sz, &top,
+                                                     &tmp_offheap);
+            }
+        }
+        ASSERT((byte*)top == (newp + alloc_sz));
+        newDbTerm->first_oh = tmp_offheap.first;
 
-	{
-	    copy_struct(make_tuple(tpl), handle->new_size, &top, &tmp_offheap);
-	    newDbTerm->first_oh = tmp_offheap.first;
-	    ASSERT((byte*)top == (newp + alloc_sz));
-	}
+        if (handle->old_tpl != handle->old_tpl_dflt)
+            erts_free(ERTS_ALC_T_TMP, handle->old_tpl);
     }
 }
 
@@ -3458,36 +3619,78 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
     return make_tuple(hp);
 }
 
-Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p,
-			       DbTerm* obj, Uint pos,
-			       Eterm** hpp, Uint extra)
-{
+Eterm db_copy_element_from_ets(DbTableCommon *tb, Process *p, DbTerm *obj,
+                               Uint pos, Eterm **hpp, Uint extra) {
     if (is_immed(obj->tpl[pos])) {
-	*hpp = HAlloc(p, extra);
-	return obj->tpl[pos];
+        *hpp = HAlloc(p, extra);
+        return obj->tpl[pos];
     }
-    if (tb->compress && pos != tb->keypos) {
-	byte* ext = elem2ext(obj->tpl, pos);
-	Sint sz = erts_decode_ext_size_ets(ext, db_alloced_size_comp(obj)) + extra;
-	Eterm copy;
-        ErtsHeapFactory factory;
+    if (tb->compress) {
+        if (pos == tb->keypos) {
+            Uint sz = size_object(obj->tpl[pos]);
+            *hpp = HAlloc(p, sz + extra);
+            return copy_struct(obj->tpl[pos], sz, hpp, &MSO(p));
+        }
+        else {
+            byte *ext = elem2ext(obj->tpl, pos);
+            Sint sz =
+                erts_decode_ext_size_ets(ext, db_alloced_size_comp(obj)) + extra;
+            Eterm copy;
+            ErtsHeapFactory factory;
 
-        erts_factory_proc_prealloc_init(&factory, p, sz);
-        copy = erts_decode_ext_ets(&factory, ext);
-	*hpp = erts_produce_heap(&factory, extra, 0);
-        erts_factory_close(&factory);
+            erts_factory_proc_prealloc_init(&factory, p, sz);
+            copy = erts_decode_ext_ets(&factory, ext);
+            *hpp = erts_produce_heap(&factory, extra, 0);
+            erts_factory_close(&factory);
 #ifdef DEBUG_CLONE
-	ASSERT(EQ(copy, obj->debug_clone[pos]));
+            ASSERT(EQ(copy, obj->debug_clone[pos]));
 #endif
-	return copy;
-    }
-    else {
-	Uint sz = size_object(obj->tpl[pos]);
-	*hpp = HAlloc(p, sz + extra);
-	return copy_struct(obj->tpl[pos], sz, hpp, &MSO(p));
+            return copy;
+        }
+    } else {
+        Uint sz = db_element_size(obj, obj->tpl, pos);
+        *hpp = HAlloc(p, sz + extra);
+        return copy_shallow_obj(obj->tpl[pos], sz, hpp, &MSO(p));
     }
 }
 
+/*
+ * Return the size of an element of an uncompressed ETS record.
+ * Relies on each element of the ETS record being laid out contiguously,
+ * and starting with the top term.
+ */
+static Uint db_element_size(DbTerm *obj, Eterm* tpl, Uint pos) {
+    Eterm *start_ptr;
+    Eterm *end_ptr;
+    Eterm elem;
+    Uint arity, i, sz;
+
+    elem = tpl[pos];
+    if (is_zero_sized(elem))
+        return 0;
+
+    ASSERT(is_boxed(elem) || is_list(elem));
+    start_ptr = ptr_val(elem);
+    ASSERT(!erts_is_literal(elem, start_ptr));
+
+    arity = arityval(tpl[0]);
+    for (i = pos + 1; i <= arity; ++i) {
+        elem = tpl[i];
+        if (!is_zero_sized(elem)) {
+            ASSERT(is_boxed(elem) || is_list(elem));
+            end_ptr = ptr_val(elem);
+            ASSERT(!erts_is_literal(elem, end_ptr));
+            goto done;
+        }
+    }
+    end_ptr = obj->tpl + obj->size;
+
+done:
+    sz = end_ptr - start_ptr;
+    ASSERT(sz == size_object(tpl[pos]));
+    return sz;
+
+}
 
 /* Our own "cleanup_offheap"
  * as refc-binaries may be unaligned in compressed terms
@@ -4970,6 +5173,57 @@ static DMCRet dmc_caller_line(DMCContext *context,
     return retOk;
 }
 
+static DMCRet dmc_current_stacktrace(DMCContext *context,
+                                    DMCHeap *heap,
+                                    DMC_STACK_TYPE(UWord) *text,
+                                    Eterm t,
+                                    int *constant)
+{
+    Eterm *p = tuple_val(t);
+    Uint a = arityval(*p);
+    DMCRet ret;
+    int depth;
+
+    if (!check_trace("current_stacktrace", context, constant,
+                    (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), 0, &ret))
+        return ret;
+
+    switch (a) {
+    case 1:
+        *constant = 0;
+        do_emit_constant(context, text, make_small(erts_backtrace_depth));
+        DMC_PUSH(*text, matchCurrentStacktrace);
+        break;
+    case 2:
+        *constant = 0;
+
+        if (!is_small(p[2])) {
+            RETURN_ERROR("Special form 'current_stacktrace' called with non "
+                         "small argument.", context, *constant);
+        }
+
+        depth = signed_val(p[2]);
+
+        if (depth < 0) {
+            RETURN_ERROR("Special form 'current_stacktrace' called with "
+                         "negative integer argument.", context, *constant);
+        }
+
+        if (depth > erts_backtrace_depth) {
+            p[2] = make_small(erts_backtrace_depth);
+        }
+
+        do_emit_constant(context, text, p[2]);
+        DMC_PUSH(*text, matchCurrentStacktrace);
+        break;
+    default:
+        RETURN_TERM_ERROR("Special form 'current_stacktrace' called with wrong "
+                          "number of arguments in %T.", t, context,
+                          *constant);
+    }
+    return retOk;
+}
+
 static DMCRet dmc_silent(DMCContext *context,
  			 DMCHeap *heap,
 			 DMC_STACK_TYPE(UWord) *text,
@@ -5058,6 +5312,8 @@ static DMCRet dmc_fun(DMCContext *context,
 	return dmc_caller(context, heap, text, t, constant);
     case am_caller_line:
 	return dmc_caller_line(context, heap, text, t, constant);
+    case am_current_stacktrace:
+	return dmc_current_stacktrace(context, heap, text, t, constant);
     case am_silent:
  	return dmc_silent(context, heap, text, t, constant);
     case am_set_tcw:
@@ -6125,6 +6381,10 @@ void db_match_dis(Binary *bp)
 	case matchCallerLine:
 	    ++t;
 	    erts_printf("CallerLine\n");
+	    break;
+	case matchCurrentStacktrace:
+	    ++t;
+	    erts_printf("CurrentStacktrace\n");
 	    break;
 	default:
 	    erts_printf("??? (0x%bpx)\n", *t);

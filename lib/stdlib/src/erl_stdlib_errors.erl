@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,8 +77,13 @@ format_binary_error(encode_hex, [Subject, Case], _) ->
     [must_be_binary(Subject), must_be_hex_case(Case)];
 format_binary_error(decode_hex, [Subject], _) ->
     if
-        is_binary(Subject), byte_size(Subject) rem 2 == 1 ->
-            ["must contain an even number of bytes"];
+        is_binary(Subject) ->
+            if
+                byte_size(Subject) rem 2 =:= 1 ->
+                    [<<"must contain an even number of bytes">>];
+                true ->
+                    [<<"must only contain hex digits 0-9, A-F, and a-f">>]
+            end;
         true ->
             [must_be_binary(Subject)]
     end;
@@ -239,8 +244,10 @@ format_maps_error(intersect_with, [Combiner, Map1, Map2]) ->
     [must_be_fun(Combiner, 3), must_be_map(Map1), must_be_map(Map2)];
 format_maps_error(is_key, _Args) ->
     [[], not_map];
-format_maps_error(iterator, _Args) ->
-    [not_map];
+format_maps_error(iterator, [Map]) ->
+    [must_be_map(Map)];
+format_maps_error(iterator, [Map, Order]) ->
+    [must_be_map(Map), must_be_map_iterator_order(Order)];
 format_maps_error(keys, _Args) ->
     [not_map];
 format_maps_error(map, [Pred, Map]) ->
@@ -249,10 +256,10 @@ format_maps_error(merge, [Map1, Map2]) ->
     [must_be_map(Map1), must_be_map(Map2)];
 format_maps_error(merge_with, [Combiner, Map1, Map2]) ->
     [must_be_fun(Combiner, 3), must_be_map(Map1), must_be_map(Map2)];
-format_maps_error(put, _Args) ->
-    [[], [], not_map];
 format_maps_error(next, _Args) ->
     [bad_iterator];
+format_maps_error(put, _Args) ->
+    [[], [], not_map];
 format_maps_error(remove, _Args) ->
     [[], not_map];
 format_maps_error(size, _Args) ->
@@ -260,7 +267,7 @@ format_maps_error(size, _Args) ->
 format_maps_error(take, _Args) ->
     [[], not_map];
 format_maps_error(to_list, _Args) ->
-    [not_map];
+    [not_map_or_iterator];
 format_maps_error(update, _Args) ->
     [[], [], not_map];
 format_maps_error(update_with, [_Key, Fun, Map]) ->
@@ -508,7 +515,7 @@ format_io_error_cause(_, _, _, _HasDevice) ->
 
 maybe_posix_message(Cause, HasDevice) ->
     case erl_posix_msg:message(Cause) of
-        "unknown POSIX error" ->
+        "unknown POSIX error" ++ _ ->
             unknown;
         PosixStr when HasDevice ->
             [io_lib:format("~ts (~tp)",[PosixStr, Cause])];
@@ -968,14 +975,21 @@ must_be_list(_) ->
 must_be_map(#{}) -> [];
 must_be_map(_) -> not_map.
 
+must_be_map_iterator_order(undefined) ->
+    [];
+must_be_map_iterator_order(ordered) ->
+    [];
+must_be_map_iterator_order(CmpFun) when is_function(CmpFun, 2) ->
+    [];
+must_be_map_iterator_order(_) ->
+    not_map_iterator_order.
+
 must_be_map_or_iter(Map) when is_map(Map) ->
     [];
 must_be_map_or_iter(Iter) ->
-    try maps:next(Iter) of
-        _ -> []
-    catch
-        error:_ ->
-            not_map_or_iterator
+    case maps:is_iterator_valid(Iter) of
+        true -> [];
+        false -> not_map_or_iterator
     end.
 
 must_be_number(N) ->
@@ -1079,7 +1093,7 @@ expand_error(not_atom) ->
 expand_error(not_binary) ->
     <<"not a binary">>;
 expand_error(bad_hex_case) ->
-    <<"not uppercase or lowercase">>;
+    <<"not 'uppercase' or 'lowercase'">>;
 expand_error(not_compiled_regexp) ->
     <<"not a compiled regular expression">>;
 expand_error(not_iodata) ->
@@ -1094,6 +1108,8 @@ expand_error(not_integer) ->
     <<"not an integer">>;
 expand_error(not_list) ->
     <<"not a list">>;
+expand_error(not_map_iterator_order) ->
+    <<"not 'undefined', 'ordered', or a fun that takes two arguments">>;
 expand_error(not_map_or_iterator) ->
     <<"not a map or an iterator">>;
 expand_error(not_number) ->

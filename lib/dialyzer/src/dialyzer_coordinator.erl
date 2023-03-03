@@ -1,3 +1,4 @@
+%% -*- erlang-indent-level: 2 -*-
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,22 +136,20 @@ parallel_job(Mode, Jobs, InitData, Timing) ->
 
 %% Helper for 'sigtype' and 'dataflow' workers.
 wait_for_success_typings(Labels, {_Collector, _Regulator, JobLabelsToPid}) ->
-  F =
-    fun(JobLabel) ->
-      %% The jobs that job depends on have always been started.
-      try ets:lookup_element(JobLabelsToPid, JobLabel, 2) of
-        Pid when is_pid(Pid) ->
-          Ref = erlang:monitor(process, Pid),
-          receive
-            {'DOWN', Ref, process, Pid, _Info} ->
+  F = fun(JobLabel) ->
+          %% The jobs that job depends on have always been started.
+          case ets:lookup_element(JobLabelsToPid, JobLabel, 2, ok) of
+            Pid when is_pid(Pid) ->
+              Ref = erlang:monitor(process, Pid),
+              receive
+                {'DOWN', Ref, process, Pid, _Info} ->
+                  ok
+              end;
+            ok ->
+              %% Already finished.
               ok
           end
-      catch
-        _:_ ->
-          %% Already finished.
-          ok
-      end
-    end,
+      end,
   lists:foreach(F, Labels).
 
 

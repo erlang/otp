@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2390,7 +2390,7 @@ reserve_yregs_1(L, #st{ssa=Blocks0,cnt=Count0,res=Res0}=St) ->
 reserve_try_tags(L, Blocks) ->
     Seen = gb_sets:empty(),
     {Res0,_} = reserve_try_tags_1([L], Blocks, Seen, #{}),
-    Res1 = [maps:to_list(M) || {_,M} <- maps:to_list(Res0)],
+    Res1 = [maps:to_list(M) || M <- maps:values(Res0)],
     Res = [{V,{y,Y}} || {V,Y} <- append(Res1)],
     ordsets:from_list(Res).
 

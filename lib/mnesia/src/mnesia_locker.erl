@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -761,12 +761,14 @@ do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
 	    exit({aborted, Reason});
 	{?MODULE, N, not_stuck} ->
 	    not_stuck(Tid, Store, Tab, Key, Oid, Lock, N),
+            ?ets_insert(Store, {sticky, true}),
 	    dirty_sticky_lock(Tab, Key, [N], Lock);
 	{mnesia_down, Node} ->
 	    EMsg = {aborted, {node_not_running, Node}},
 	    flush_remaining([N], Node, EMsg);
 	{?MODULE, N, {stuck_elsewhere, _N2}} ->
 	    stuck_elsewhere(Tid, Store, Tab, Key, Oid, Lock),
+            ?ets_insert(Store, {sticky, true}),
 	    dirty_sticky_lock(Tab, Key, [N], Lock)
     end.
 

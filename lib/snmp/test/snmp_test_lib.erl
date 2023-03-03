@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -397,10 +397,10 @@ which_addr(Family, [{_Name, IfOpts} | IfList]) ->
 which_addr2(_Family, []) ->
     {error, not_found};
 which_addr2(Family, [{addr, Addr}|_]) 
-  when (Family =:= inet) andalso (size(Addr) =:= 4) ->
+  when (Family =:= inet) andalso (tuple_size(Addr) =:= 4) ->
     {ok, Addr};
 which_addr2(Family, [{addr, Addr}|_]) 
-  when (Family =:= inet6) andalso (size(Addr) =:= 8) ->
+  when (Family =:= inet6) andalso (tuple_size(Addr) =:= 8) ->
     {ok, Addr};
 which_addr2(Family, [_|IfOpts]) ->
     which_addr2(Family, IfOpts).
@@ -409,7 +409,7 @@ which_addr2(Family, [_|IfOpts]) ->
 sz(L) when is_list(L) ->
     length(L);
 sz(B) when is_binary(B) ->
-    size(B);
+    byte_size(B);
 sz(O) ->
     {unknown_size,O}.
 
@@ -683,7 +683,7 @@ old_has_support_ipv6() ->
 
 old_has_support_ipv6(Hostname) ->
     case inet:getaddr(Hostname, inet6) of
-        {ok, Addr} when (size(Addr) =:= 8) andalso
+        {ok, Addr} when (tuple_size(Addr) =:= 8) andalso
                         (element(1, Addr) =/= 0) andalso
                         (element(1, Addr) =/= 16#fe80) ->
             true;

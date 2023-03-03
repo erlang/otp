@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,17 +26,15 @@
 %% some implementation details.  See also related modules: code_*.erl
 %% in this directory.
 
--export([objfile_extension/0, 
-	 set_path/1, 
-	 get_path/0, 
+-export([objfile_extension/0,
+	 set_path/1, set_path/2,
+	 get_path/0,
 	 load_file/1,
 	 ensure_loaded/1,
 	 ensure_modules_loaded/1,
 	 load_abs/1,
 	 load_abs/2,
 	 load_binary/3,
-	 load_native_partial/2,
-	 load_native_sticky/3,
 	 atomic_load/1,
 	 prepare_loading/1,
 	 finish_loading/1,
@@ -59,14 +57,16 @@
 	 unstick_mod/1,
 	 is_sticky/1,
 	 get_object_code/1,
-	 add_path/1,
-	 add_pathsz/1,
-	 add_paths/1,
-	 add_pathsa/1,
-	 add_patha/1,
-	 add_pathz/1,
+	 add_paths/1, add_paths/2,
+     add_path/1, add_path/2,
+	 add_pathsa/1, add_pathsa/2,
+     add_pathsz/1, add_pathsz/2,
+	 add_patha/1, add_patha/2,
+	 add_pathz/1, add_pathz/2,
 	 del_path/1,
-	 replace_path/2,
+     del_paths/1,
+     clear_cache/0,
+	 replace_path/2,replace_path/3,
 	 rehash/0,
 	 start_link/0,
 	 which/1,
@@ -94,6 +94,8 @@
 %% Some types for basic exported functions of this module
 %%----------------------------------------------------------------------------
 
+-define(is_cache(T), T =:= cache orelse T =:= nocache).
+-type cache() :: cache | nocache.
 -type load_error_rsn() :: 'badfile'
                         | 'nofile'
                         | 'not_purged'
@@ -184,7 +186,10 @@ objfile_extension() ->
 -spec load_file(Module) -> load_ret() when
       Module :: module().
 load_file(Mod) when is_atom(Mod) ->
-    call({load_file,Mod}).
+    case get_object_code(Mod) of
+        error -> {error,nofile};
+        {Mod,Binary,File} -> load_module(Mod, File, Binary, false, false)
+    end.
 
 -spec ensure_loaded(Module) -> {module, Module} | {error, What} when
       Module :: module(),
@@ -192,20 +197,36 @@ load_file(Mod) when is_atom(Mod) ->
 ensure_loaded(Mod) when is_atom(Mod) ->
     case erlang:module_loaded(Mod) of
         true -> {module, Mod};
-        false -> call({ensure_loaded,Mod})
+        false ->
+            case get_object_code(Mod) of
+                error -> call({sync_ensure_on_load, Mod});
+                {Mod,Binary,File} ->
+                    load_module(Mod, File, Binary, false, true)
+            end
     end.
 
 %% XXX File as an atom is allowed only for backwards compatibility.
 -spec load_abs(Filename) -> load_ret() when
       Filename :: file:filename().
 load_abs(File) when is_list(File); is_atom(File) ->
-    Mod = list_to_atom(filename:basename(File)),
-    call({load_abs,File,Mod}).
+    load_abs(File, list_to_atom(filename:basename(File))).
 
 %% XXX Filename is also an atom(), e.g. 'cover_compiled'
 -spec load_abs(Filename :: loaded_filename(), Module :: module()) -> load_ret().
 load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
-    call({load_abs,File,M}).
+    case modp(File) of
+        true ->
+            FileName0 = lists:concat([File, objfile_extension()]),
+            FileName = code_server:absname(FileName0),
+            case erl_prim_loader:get_file(FileName) of
+                {ok,Bin,_} ->
+                    load_module(M, FileName, Bin, false, false);
+                error ->
+                    {error, nofile}
+            end;
+        false ->
+            {error,badarg}
+    end.
 
 %% XXX Filename is also an atom(), e.g. 'cover_compiled'
 -spec load_binary(Module, Filename, Binary) ->
@@ -216,17 +237,26 @@ load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
       What :: badarg | load_error_rsn().
 load_binary(Mod, File, Bin)
   when is_atom(Mod), (is_list(File) orelse is_atom(File)), is_binary(Bin) ->
-    call({load_binary,Mod,File,Bin}).
+    case modp(File) of
+        true -> load_module(Mod, File, Bin, true, false);
+        false -> {error,badarg}
+    end.
 
--spec load_native_partial(Module :: module(), Binary :: binary()) -> load_ret().
-load_native_partial(Mod, Bin) when is_atom(Mod), is_binary(Bin) ->
-    call({load_native_partial,Mod,Bin}).
+load_module(Mod, File, Bin, Purge, EnsureLoaded) ->
+    case erlang:prepare_loading(Mod, Bin) of
+        {error,_}=Error ->
+            Error;
+        Prepared ->
+            call({load_module, Prepared, Mod, File, Purge, EnsureLoaded})
+    end.
 
--spec load_native_sticky(Module :: module(), Binary :: binary(), WholeModule :: 'false' | binary()) -> load_ret().
-load_native_sticky(Mod, Bin, WholeModule)
-  when is_atom(Mod), is_binary(Bin),
-       (is_binary(WholeModule) orelse WholeModule =:= false) ->
-    call({load_native_sticky,Mod,Bin,WholeModule}).
+modp(Atom) when is_atom(Atom) -> true;
+modp(List) when is_list(List) -> int_list(List);
+modp(_)                       -> false.
+
+int_list([H|T]) when is_integer(H) -> int_list(T);
+int_list([_|_])                    -> false;
+int_list([])                       -> true.
 
 -spec delete(Module) -> boolean() when
       Module :: module().
@@ -243,7 +273,8 @@ soft_purge(Mod) when is_atom(Mod) -> call({soft_purge,Mod}).
 -spec is_loaded(Module) -> {'file', Loaded} | false when
       Module :: module(),
       Loaded :: loaded_filename().
-is_loaded(Mod) when is_atom(Mod) -> call({is_loaded,Mod}).
+is_loaded(Mod) when is_atom(Mod) ->
+    code_server:is_loaded(Mod).
 
 -spec get_object_code(Module) -> {Module, Binary, Filename} | error when
       Module :: module(),
@@ -346,12 +377,18 @@ unstick_mod(Mod) when is_atom(Mod) -> call({unstick_mod,Mod}).
 
 -spec is_sticky(Module) -> boolean() when
       Module :: module().
-is_sticky(Mod) when is_atom(Mod) -> call({is_sticky,Mod}).
+is_sticky(Mod) when is_atom(Mod) ->
+    code_server:is_sticky(Mod).
 
--spec set_path(Path) -> 'true' | {'error', What} when
-      Path :: [Dir :: file:filename()],
-      What :: 'bad_directory'.
-set_path(PathList) when is_list(PathList) -> call({set_path,PathList}).
+-type set_path_ret() :: 'true' | {'error', 'bad_directory'}.
+-spec set_path(Path) -> set_path_ret() when
+      Path :: [Dir :: file:filename()].
+set_path(PathList) -> set_path(PathList, nocache).
+
+-spec set_path(Path, cache()) -> set_path_ret() when
+      Path :: [Dir :: file:filename()].
+set_path(PathList, Cache) when is_list(PathList), ?is_cache(Cache) ->
+    call({set_path,PathList,Cache}).
 
 -spec get_path() -> Path when
       Path :: [Dir :: file:filename()].
@@ -360,27 +397,51 @@ get_path() -> call(get_path).
 -type add_path_ret() :: 'true' | {'error', 'bad_directory'}.
 -spec add_path(Dir) -> add_path_ret() when
       Dir :: file:filename().
-add_path(Dir) when is_list(Dir) -> call({add_path,last,Dir}).
+add_path(Dir) -> add_path(Dir, nocache).
+
+-spec add_path(Dir, cache()) -> add_path_ret() when
+      Dir :: file:filename().
+add_path(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> call({add_path,last,Dir,Cache}).
 
 -spec add_pathz(Dir) -> add_path_ret() when
       Dir :: file:filename().
-add_pathz(Dir) when is_list(Dir) -> call({add_path,last,Dir}).
+add_pathz(Dir) -> add_pathz(Dir, nocache).
+
+-spec add_pathz(Dir, cache()) -> add_path_ret() when
+      Dir :: file:filename().
+add_pathz(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> call({add_path,last,Dir,Cache}).
 
 -spec add_patha(Dir) -> add_path_ret() when
       Dir :: file:filename().
-add_patha(Dir) when is_list(Dir) -> call({add_path,first,Dir}).
+add_patha(Dir) -> add_patha(Dir, nocache).
+
+-spec add_patha(Dir, cache()) -> add_path_ret() when
+      Dir :: file:filename().
+add_patha(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> call({add_path,first,Dir,Cache}).
 
 -spec add_paths(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_paths(Dirs) when is_list(Dirs) -> call({add_paths,last,Dirs}).
+add_paths(Dirs) -> add_paths(Dirs, nocache).
+
+-spec add_paths(Dirs, cache()) -> 'ok' when
+      Dirs :: [Dir :: file:filename()].
+add_paths(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> call({add_paths,last,Dirs,Cache}).
 
 -spec add_pathsz(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_pathsz(Dirs) when is_list(Dirs) -> call({add_paths,last,Dirs}).
+add_pathsz(Dirs) -> add_pathsz(Dirs, nocache).
+
+-spec add_pathsz(Dirs, cache()) -> 'ok' when
+      Dirs :: [Dir :: file:filename()].
+add_pathsz(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> call({add_paths,last,Dirs,Cache}).
 
 -spec add_pathsa(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_pathsa(Dirs) when is_list(Dirs) -> call({add_paths,first,Dirs}).
+add_pathsa(Dirs) -> add_pathsa(Dirs, nocache).
+
+-spec add_pathsa(Dirs, cache()) -> 'ok' when
+      Dirs :: [Dir :: file:filename()].
+add_pathsa(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> call({add_paths,first,Dirs,Cache}).
 
 -spec del_path(NameOrDir) -> boolean() | {'error', What} when
       NameOrDir :: Name | Dir,
@@ -389,13 +450,26 @@ add_pathsa(Dirs) when is_list(Dirs) -> call({add_paths,first,Dirs}).
       What :: 'bad_name'.
 del_path(Name) when is_list(Name) ; is_atom(Name) -> call({del_path,Name}).
 
--spec replace_path(Name, Dir) -> 'true' | {'error', What} when
+-spec del_paths(NamesOrDirs) -> 'ok' when
+      NamesOrDirs :: [Name | Dir],
+      Name :: atom(),
+      Dir :: file:filename().
+del_paths(Dirs) when is_list(Dirs) -> call({del_paths,Dirs}).
+
+-type replace_path_ret() :: 'true' |
+                            {'error', 'bad_directory' | 'bad_name' | {'badarg',_}}.
+-spec replace_path(Name, Dir) -> replace_path_ret() when
       Name:: atom(),
-      Dir :: file:filename(),
-      What :: 'bad_directory' | 'bad_name' | {'badarg',_}.
-replace_path(Name, Dir) when (is_atom(Name) orelse is_list(Name)),
-			     (is_atom(Dir) orelse is_list(Dir)) ->
-    call({replace_path,Name,Dir}).
+      Dir :: file:filename().
+replace_path(Name, Dir) ->
+    replace_path(Name, Dir, nocache).
+
+-spec replace_path(Name, Dir, cache()) -> replace_path_ret() when
+      Name:: atom(),
+      Dir :: file:filename().
+replace_path(Name, Dir, Cache) when (is_atom(Name) orelse is_list(Name)),
+                 (is_atom(Dir) orelse is_list(Dir)), ?is_cache(Cache) ->
+    call({replace_path,Name,Dir,Cache}).
 
 -spec rehash() -> 'ok'.
 rehash() ->
@@ -404,6 +478,9 @@ rehash() ->
 
 -spec get_mode() -> 'embedded' | 'interactive'.
 get_mode() -> call(get_mode).
+
+-spec clear_cache() -> ok.
+clear_cache() -> call(clear_cache).
 
 %%%
 %%% Loading of several modules in parallel.
@@ -432,8 +509,8 @@ ensure_modules_loaded_1(Ms0) ->
 	     end,
     ensure_modules_loaded_2(OnLoad, Error1).
 
-ensure_modules_loaded_2([{M,_}|Ms], Errors) ->
-    case ensure_loaded(M) of
+ensure_modules_loaded_2([{M,{Prepared,File}}|Ms], Errors) ->
+    case call({load_module, Prepared, M, File, false, true}) of
 	{module,M} ->
 	    ensure_modules_loaded_2(Ms, Errors);
 	{error,Err} ->
@@ -579,12 +656,12 @@ prepare_check_uniq_1([], [_|_]=Errors) ->
     {error,Errors}.
 
 partition_on_load(Prep) ->
-    P = fun({_,{PC,_,_}}) ->
+    P = fun({_,{PC,_}}) ->
 		erlang:has_prepared_code_on_load(PC)
 	end,
     lists:partition(P, Prep).
 
-verify_prepared([{M,{Prep,Name,_Native}}|T])
+verify_prepared([{M,{Prep,Name}}|T])
   when is_atom(M), is_list(Name) ->
     try erlang:has_prepared_code_on_load(Prep) of
 	false ->
@@ -600,62 +677,35 @@ verify_prepared([]) ->
 verify_prepared(_) ->
     error.
 
-finish_loading(Prepared0, EnsureLoaded) ->
-    Prepared = [{M,{Bin,File}} || {M,{Bin,File,_}} <- Prepared0],
-    Native0 = [{M,Code} || {M,{_,_,Code}} <- Prepared0,
-			   Code =/= undefined],
-    case call({finish_loading,Prepared,EnsureLoaded}) of
-	ok ->
-	    finish_loading_native(Native0);
-	{error,Errors}=E when EnsureLoaded ->
-	    S0 = sofs:relation(Errors),
-	    S1 = sofs:domain(S0),
-	    R0 = sofs:relation(Native0),
-	    R1 = sofs:drestriction(R0, S1),
-	    Native = sofs:to_external(R1),
-	    finish_loading_native(Native),
-	    E;
-	{error,_}=E ->
-	    E
-    end.
-
-finish_loading_native([{Mod,Code}|Ms]) ->
-    _ = load_native_partial(Mod, Code),
-    finish_loading_native(Ms);
-finish_loading_native([]) ->
-    ok.
+finish_loading(Prepared, EnsureLoaded) ->
+    call({finish_loading,Prepared,EnsureLoaded}).
 
 load_mods([]) ->
     {[],[]};
 load_mods(Mods) ->
-    Path = get_path(),
-    F = prepare_loading_fun(),
-    {ok,{Succ,Error0}} = erl_prim_loader:get_modules(Mods, F, Path),
-    Error = [case E of
-		 badfile -> {M,E};
-		 _ -> {M,nofile}
-	     end || {M,E} <- Error0],
-    {Succ,Error}.
+    F = fun(Mod) ->
+        case get_object_code(Mod) of
+            {Mod, Beam, File} -> prepare_loading(Mod, File, Beam);
+            error -> {error, nofile}
+        end
+    end,
+    do_par(F, Mods).
 
 load_bins([]) ->
     {[],[]};
 load_bins(BinItems) ->
-    F = prepare_loading_fun(),
+    F = fun({Mod, File, Beam}) -> prepare_loading(Mod, File, Beam) end,
     do_par(F, BinItems).
 
--type prep_fun_type() :: fun((module(), file:filename(), binary()) ->
-				    {ok,_} | {error,_}).
+-spec prepare_loading(module(), file:filename(), binary()) ->
+                     {ok,_} | {error,_}.
 
--spec prepare_loading_fun() -> prep_fun_type().
-
-prepare_loading_fun() ->
-    fun(Mod, FullName, Beam) ->
-	    case erlang:prepare_loading(Mod, Beam) of
-		{error,_}=Error ->
-		    Error;
-		Prepared ->
-		    {ok,{Prepared,FullName,undefined}}
-	    end
+prepare_loading(Mod, FullName, Beam) ->
+    case erlang:prepare_loading(Mod, Beam) of
+	{error,_}=Error ->
+	    Error;
+	Prepared ->
+	    {ok,{Prepared,FullName}}
     end.
 
 do_par(Fun, L) ->
@@ -665,31 +715,36 @@ do_par(Fun, L) ->
 	    Res
     end.
 
--spec do_par_fun(prep_fun_type(), list()) -> fun(() -> no_return()).
+-type par_fun_type() :: fun((module() | {module(), file:filename(), binary()}) ->
+                            {ok,_} | {error,_}).
+
+-spec do_par_fun(par_fun_type(), list()) -> fun(() -> no_return()).
 
 do_par_fun(Fun, L) ->
     fun() ->
-	    _ = [spawn_monitor(do_par_fun_2(Fun, Item)) ||
-		    Item <- L],
-	    exit(do_par_recv(length(L), [], []))
+	_ = [spawn_monitor(do_par_fun_each(Fun, Item)) || Item <- L],
+	exit(do_par_recv(length(L), [], []))
     end.
 
--spec do_par_fun_2(prep_fun_type(),
-		   {module(),file:filename(),binary()}) ->
+-spec do_par_fun_each(par_fun_type(), term()) ->
 			  fun(() -> no_return()).
 
-do_par_fun_2(Fun, Item) ->
+do_par_fun_each(Fun, Mod) when is_atom(Mod) ->
+    do_par_fun_each(Fun, Mod, Mod);
+do_par_fun_each(Fun, {Mod, _, _} = Item) ->
+    do_par_fun_each(Fun, Mod, Item).
+
+do_par_fun_each(Fun, Mod, Item) ->
     fun() ->
-	    {Mod,Filename,Bin} = Item,
-	    try Fun(Mod, Filename, Bin) of
-		{ok,Res} ->
-		    exit({good,{Mod,Res}});
-		{error,Error} ->
-		    exit({bad,{Mod,Error}})
-	    catch
-		_:Error ->
-		    exit({bad,{Mod,Error}})
-	    end
+        try Fun(Item) of
+            {ok,Res} ->
+                exit({good,{Mod,Res}});
+            {error,Error} ->
+                exit({bad,{Mod,Error}})
+        catch
+            _:Error ->
+                exit({bad,{Mod,Error}})
+        end
     end.
 
 do_par_recv(0, Good, Bad) ->

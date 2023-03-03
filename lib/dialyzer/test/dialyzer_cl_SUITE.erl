@@ -9,14 +9,16 @@
 
 %% Test cases must be exported.
 -export([
+    can_add_multiple_plts_to_another_plt/1,
     unknown_function_warning_includes_callsite/1,
     call_to_missing_warning_includes_callsite/1
 ]).
 
-suite() -> [{timetrap, {minutes, 1}}].
+suite() -> [{timetrap, {minutes, 3}}].
 
 all() ->
     [
+        can_add_multiple_plts_to_another_plt,
         unknown_function_warning_includes_callsite,
         call_to_missing_warning_includes_callsite
     ].
@@ -56,7 +58,8 @@ call_to_missing_warning_includes_callsite(Config) when is_list(Config) ->
     {ok, BeamFileForPlt} = compile(Config, previously_defined, []),
     [] = dialyzer:run([{analysis_type, plt_build},
                       {files, [BeamFileForPlt]},
-                      {output_plt, Plt}]),
+                      {output_plt, Plt},
+                       {warnings, [no_unknown]}]),
 
     {ok, Beam} = compile(Config, call_to_missing_example, []),
     Opts =
@@ -116,6 +119,30 @@ unknown_function_warning_includes_callsite(Config) when is_list(Config) ->
             }
         ]},
         Res),
+
+    ok.
+
+% See GitHub issue erlang/OTP #6850
+can_add_multiple_plts_to_another_plt(Config) when is_list(Config) ->
+
+    PrivDir = proplists:get_value(priv_dir,Config),
+
+    StdlibPlt = filename:join(PrivDir, "stdlib.plt"),
+    ErtsPlt = filename:join(PrivDir, "erts.plt"),
+    OutputPlt = filename:join(PrivDir, "merged.plt"),
+
+    _ = dialyzer:run([{analysis_type, plt_build},
+                      {apps, [stdlib]},
+                      {output_plt, StdlibPlt}]),
+    _ = dialyzer:run([{analysis_type, plt_build},
+                      {apps, [erts]},
+                      {output_plt, ErtsPlt}]),
+    ?assertEqual(
+       [],
+       dialyzer:run([{analysis_type, plt_add},
+                     {apps, [erts, stdlib]},
+                     {plts, [ErtsPlt, StdlibPlt]},
+                     {output_plt, OutputPlt}])),
 
     ok.
 

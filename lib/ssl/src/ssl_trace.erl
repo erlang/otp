@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -358,7 +358,7 @@ trace_pid(T) when element(1,T)==trace
 
 %% Pick last element, the Time Stamp, and format it
 trace_ts(T) when  element(1,T)==trace_ts ->
-    ts( element(size(T), T) ).
+    ts( element(tuple_size(T), T) ).
 
 ts({_,_,Usec}=Now) when is_integer(Usec) ->
     {_Date,{HH,MM,SS}} = calendar:now_to_local_time(Now),

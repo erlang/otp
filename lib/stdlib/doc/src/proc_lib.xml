@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -178,16 +178,34 @@
       <name name="init_ack" arity="2" since=""/>
       <fsummary>Used by a process when it has started.</fsummary>
       <desc>
-        <p>This function must be used by a process that has been started by
-          a <seemfa marker="#start/3"><c>start[_link]/3,4,5</c></seemfa>
+        <p>
+          This function must only be used by a process
+          that has been started by a
+          <seemfa marker="#start/3"><c>start[_link|_monitor]/3,4,5</c></seemfa>
           function. It tells <c><anno>Parent</anno></c> that the process has
-          initialized itself, has started, or has failed to initialize
-          itself.</p>
+          initialized itself and started.
+        </p>
         <p>Function <c>init_ack/1</c> uses the parent value
           previously stored by the start function used.</p>
-        <p>If this function is not called, the start function
-          returns an error tuple (if a link and/or a time-out is used) or
-          hang otherwise.</p>
+        <p>
+          If neither this function nor
+          <seemfa marker="#init_fail/2"><c>init_fail/2,3</c></seemfa>
+          is called by the started process, the start function
+          returns an error tuple when the started process exits,
+          or when the start function time-out (if used) has passed,
+          see <seemfa marker="#start/3"><c>start/3,4,5</c></seemfa>.
+        </p>
+        <warning>
+          <p>
+            Do not use this function to return an error indicating
+            that the process start failed.  When doing so
+            the start function can return before the failing
+            process has exited, which may block VM resources
+            required for a new start attempt to succeed. Use
+            <seemfa marker="#init_fail/2"><c>init_fail/2,3</c></seemfa>
+            for that purpose.
+          </p>
+        </warning>
         <p>The following example illustrates how this function and
           <c>proc_lib:start_link/3</c> are used:</p>
         <code type="none">
@@ -204,6 +222,76 @@ init(Parent) ->
             proc_lib:init_ack(Parent, {ok, self()});
         {error, Reason} ->
             exit(Reason)
+    end,
+    loop().
+
+...</code>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP-26.0">init_fail(Ret, Exception) -> no_return()</name>
+      <name since="OTP-26.0">init_fail(Parent, Ret, Exception) -> no_return()</name>
+      <fsummary>Used by a process that fails to start.</fsummary>
+      <type>
+        <v>Parent = <seetype marker="erts:erlang#pid">pid()</seetype></v>
+        <v>Ret = <seetype marker="erts:erlang#term">term()</seetype></v>
+        <v>Exception = {Class, Reason} | {Class, Reason, Stacktrace}</v>
+      </type>
+      <desc>
+        <p>
+          This function must only be used by a process
+          that has been started by a
+          <seemfa marker="#start/3"><c>start[_link|_monitor]/3,4,5</c></seemfa>
+          function. It tells <c>Parent</c> that the process has failed to
+          initialize, and immediately raises an exception
+          according to <c>Exception</c>.
+          The start function then returns <c>Ret</c>.
+        </p>
+        <p>
+          See
+          <seemfa marker="erts:erlang#raise/3"><c>erlang:raise/3</c></seemfa>
+          for a description of <c>Class</c>, <c>Reason</c>
+          and <c>Stacktrace</c>.
+        </p>
+        <p>
+          Function <c>init_fail/2</c> uses the parent value
+          previously stored by the start function used.
+        </p>
+        <warning>
+          <p>
+            Do not consider catching the exception from this function.
+            That would defeat its purpose.  A process started by a
+            <seemfa marker="#start/3"><c>start[_link|_monitor]/3,4,5</c></seemfa>
+            function should end in a value (that will be ignored)
+            or an exception that will be handled by this module.
+            See <seeerl marker="#description">Description</seeerl>.
+          </p>
+        </warning>
+        <p>
+          If neither this function nor
+          <seemfa marker="#init_ack/1"><c>init_ack/1,2</c></seemfa>
+          is called by the started process, the start function
+          returns an error tuple when the started process exits,
+          or when the start function time-out (if used) has passed,
+          see <seemfa marker="#start/3"><c>start/3,4,5</c></seemfa>.
+        </p>
+        <p>The following example illustrates how this function and
+          <c>proc_lib:start_link/3</c> can be used:</p>
+        <code type="none">
+-module(my_proc).
+-export([start_link/0]).
+-export([init/1]).
+
+start_link() ->
+    proc_lib:start_link(my_proc, init, [self()]).
+
+init(Parent) ->
+    case do_initialization() of
+        ok ->
+            proc_lib:init_ack(Parent, {ok, self()});
+        {error, Reason} = Error ->
+            proc_lib:init_fail(Parent, Error, {exit, normal})
     end,
     loop().
 
@@ -304,17 +392,42 @@ init(Parent) ->
       <name name="start" arity="5" since=""/>
       <fsummary>Start a new process synchronously.</fsummary>
       <desc>
-        <p>Starts a new process synchronously. Spawns the process and
-          waits for it to start. When the process has started, it
-          <em>must</em> call
+        <p>
+          Starts a new process synchronously. Spawns the process and
+          waits for it to start.
+        </p>
+        <p>
+          To indicate a succesful start,
+          the started process <em>must</em> call
           <seemfa marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seemfa>
-          or <seemfa marker="#init_ack/1"><c>init_ack(Ret)</c></seemfa>,
-          where <c>Parent</c> is the process that evaluates this
-          function. At this time, <c>Ret</c> is returned.</p>
+          where <c>Parent</c> is the process that evaluates this function,
+          or <seemfa marker="#init_ack/1"><c>init_ack(Ret)</c></seemfa>.
+          <c>Ret</c> is then returned by this function.
+        </p>
+        <p>
+          If the process fails to start, it <em>must</em> fail;
+          preferably by calling
+          <seemfa marker="#init_fail/3">
+            <c>init_fail(Parent, Ret, Exception)</c>
+          </seemfa>
+          where <c>Parent</c> is the process that evaluates this function,
+          or <seemfa marker="#init_fail/2"><c>init_fail(Ret, Exception)</c></seemfa>.
+          <c>Ret</c> is then returned by this function,
+          and the started process fails with <c>Exception</c>.
+        </p>
+        <p>
+          If the process instead fails before calling
+          <c>init_ack/1,2</c> or <c>init_fail/2,3</c>,
+          this function returns <c>{error, Reason}</c>
+          where <c>Reason</c> depends a bit on the exception
+          just like for a process link <c>{'EXIT',Pid,Reason}</c>
+          message.
+        </p>
         <p>If <c><anno>Time</anno></c> is specified as an integer, this
           function waits for <c><anno>Time</anno></c> milliseconds for the
-          new process to call <c>init_ack</c>, or <c>Ret = {error, timeout}</c>
-	  will be returned, and the process is killed.</p>
+          new process to call <c>init_ack/1,2</c> or <c>init_fail/2,3</c>,
+          otherwise the process gets killed
+          and <c>Ret = {error, timeout}</c> is returned.</p>
         <p>Argument <c><anno>SpawnOpts</anno></c>, if specified, is passed
           as the last argument to the <seemfa marker="erts:erlang#spawn_opt/2">
           <c>spawn_opt/2,3,4,5</c></seemfa> BIF.</p>
@@ -322,6 +435,11 @@ init(Parent) ->
           <p>Using spawn option <c>monitor</c> is not
             allowed. It causes the function to fail with reason
             <c>badarg</c>.</p>
+          <p>
+            Using spawn option <c>link</c> will set a link to
+            the spawned process, just like
+            <seemfa marker="#start_link/3">start_link/3,4,5</seemfa>.
+          </p>
         </note>
       </desc>
     </func>
@@ -335,22 +453,31 @@ init(Parent) ->
         <p>
 	  Starts a new process synchronously. Spawns the process and
           waits for it to start. A link is atomically set on the
-	  newly spawned process. When the process has started, it
-          <em>must</em> call
-          <seemfa marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seemfa>
-          or <seemfa marker="#init_ack/1"><c>init_ack(Ret)</c></seemfa>,
-          where <c>Parent</c> is the process that evaluates this
-          function. At this time, <c>Ret</c> is returned.</p>
-        <p>If <c><anno>Time</anno></c> is specified as an integer, this
-          function waits for <c><anno>Time</anno></c> milliseconds for the
-          new process to call <c>init_ack</c>, or <c>Ret = {error, timeout}</c>
-	  will be returned, and the process is killed.</p>
-        <p>If the process crashes before it has called <c>init_ack/1,2</c>,
-          <c>Ret = {error, <anno>Reason</anno>}</c> will be returned if
-	  the calling process traps exits.</p>
-        <p>Argument <c><anno>SpawnOpts</anno></c>, if specified, is passed
-          as the last argument to the <seemfa marker="erts:erlang#spawn_opt/2">
-          <c>spawn_opt/2,3,4,5</c></seemfa> BIF.</p>
+	  newly spawned process.
+        </p>
+        <note>
+          <p>
+            If the started process gets killed or crashes with a reason
+            that is not `normal`, the process link will kill the calling
+            process so this function does not return,
+            unless the calling process traps exits.
+            For example, if this function times out it will kill
+            the spawned process, and then the link might kill
+            the calling process.
+          </p>
+        </note>
+        <p>
+          Besides setting a link on the spawned process
+          this function behaves like
+          <seemfa marker="#start/3">start/3,4,5</seemfa>.
+        </p>
+	<p>
+          When the calling process traps exits;
+          if this function returns due to the spawned process exiting
+          (any error return), this function receives (consumes)
+          the <c>'EXIT'</c> message, also when this function times out
+          and kills the spawned process.
+	</p>
         <note>
           <p>Using spawn option <c>monitor</c> is not
             allowed. It causes the function to fail with reason
@@ -368,34 +495,36 @@ init(Parent) ->
         <p>
 	  Starts a new process synchronously. Spawns the process and
           waits for it to start. A monitor is atomically set on the
-	  newly spawned process. When the process has started, it
-          <em>must</em> call
-          <seemfa marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seemfa>
-          or <seemfa marker="#init_ack/1"><c>init_ack(Ret)</c></seemfa>,
-          where <c>Parent</c> is the process that evaluates this
-          function. At this time, <c>Ret</c> is returned.</p>
-        <p>If <c><anno>Time</anno></c> is specified as an integer, this
-          function waits for <c><anno>Time</anno></c> milliseconds for the
-          new process to call <c>init_ack</c>, or <c>Ret = {error, timeout}</c>
-	  will be returned, and the process is killed.</p>
+	  newly spawned process.
+        </p>
+        <p>
+          Besides setting a monitor on the spawned process
+          this function behaves like
+          <seemfa marker="#start/3">start/3,4,5</seemfa>.
+        </p>
 	<p>
 	  The return value is <c>{Ret, Mon}</c> where <c>Ret</c> corresponds
-	  to the <c>Ret</c> argument in the call to <c>init_ack()</c>, and
-	  <c>Mon</c> is the monitor reference of the monitor that has been
-	  set up.
+	  to the <c>Ret</c> argument in the call to <c>init_ack/1,2</c>
+          or <c>init_fail/2,3</c>, and <c>Mon</c> is the monitor reference
+          of the monitor that has been set up.
 	</p>
 	<p>
-	  A <c>'DOWN'</c> message will be delivered to the caller if
-	  this function returns, and the spawned process terminates. This is
-	  true also in the case when the operation times out.
+          If this function returns due to the spawned process exiting,
+          that is returns any error value,
+          a <c>'DOWN'</c> message will be delivered to the calling process,
+          also when this function times out and kills the spawned process.
 	</p>
-        <p>Argument <c><anno>SpawnOpts</anno></c>, if specified, is passed
-          as the last argument to the <seemfa marker="erts:erlang#spawn_opt/2">
-          <c>spawn_opt/2,3,4,5</c></seemfa> BIF.</p>
         <note>
-          <p>Using spawn option <c>monitor</c> is not
+          <p>
+            Using spawn option <c>monitor</c> is not
             allowed. It causes the function to fail with reason
-            <c>badarg</c>.</p>
+            <c>badarg</c>.
+          </p>
+          <p>
+            Using spawn option <c>link</c> will set a link to
+            the spawned process, just like
+            <seemfa marker="#start_link/3">start_link/3,4,5</seemfa>.
+          </p>
         </note>
       </desc>
     </func>

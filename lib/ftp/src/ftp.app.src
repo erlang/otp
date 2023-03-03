@@ -12,6 +12,7 @@
              ftp,
              ftp_app,
              ftp_progress,
+             ftp_internal,
              ftp_response,
              ftp_sup
             ]},

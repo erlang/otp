@@ -861,7 +861,8 @@ struct InstNameIndex {
 // ====================
 
 #ifndef ASMJIT_NO_TEXT
-extern const char _nameData[];
+extern const uint32_t _instNameIndexTable[];
+extern const char _instNameStringTable[];
 extern const InstNameIndex instNameIndex[26];
 #endif // !ASMJIT_NO_TEXT
 

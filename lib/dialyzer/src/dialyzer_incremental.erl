@@ -232,7 +232,8 @@ write_module_to_path_lookup(#options{module_lookup_file = none}, _ModuleToPathLo
     ok;
 
 write_module_to_path_lookup(#options{module_lookup_file = LookupFile}, ModuleToPathLookup) ->
-    Output = [ io_lib:fwrite("~ts, ~ts\n", [atom_to_list(ModuleName), ModulePath]) || {ModuleName, ModulePath} <- maps:to_list(ModuleToPathLookup)],
+    Output = [io_lib:fwrite("~ts, ~ts\n", [atom_to_list(ModuleName), ModulePath]) ||
+                 ModuleName := ModulePath <- ModuleToPathLookup],
     case file:write_file(LookupFile, Output) of
         ok -> ok;
         {error, Reason} ->

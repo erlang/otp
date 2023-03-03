@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3451,9 +3451,9 @@ pid2name(Config) when is_list(Config) ->
     %%
     {ok, Pid} = file:open(Name1, [write]),
     {ok, Name2} = file:pid2name(Pid),
-    undefined = file:pid2name(self()),
+    Dead = spawn(fun() -> ok end),
+    undefined = file:pid2name(Dead),
     ok = file:close(Pid),
-    ct:sleep(1000),
     false = is_process_alive(Pid),
     undefined = file:pid2name(Pid),
     ok.

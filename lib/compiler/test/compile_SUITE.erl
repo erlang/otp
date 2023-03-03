@@ -38,7 +38,8 @@
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
          compile_attribute/1, message_printing/1, other_options/1,
-         transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1
+         transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1,
+         annotations_pp/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -58,7 +59,7 @@ all() ->
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
      compile_attribute, message_printing, other_options, transforms,
-     erl_compile_api, types_pp, bs_init_writable].
+     erl_compile_api, types_pp, bs_init_writable, annotations_pp].
 
 groups() -> 
     [].
@@ -2073,24 +2074,30 @@ types_pp(Config) when is_list(Config) ->
     ok = file:del_dir_r(TargetDir),
     ok.
 
-%% We assume that a call starts with a "Result type:"-line followed by
-%% a type line, which is followed by an optional annotation before the
-%% actual call.
+%% Parsing for result types. Remember the last seen "Result type"
+%% annotation and apply it to calls when we see them to a call when we
+%% see them.
 get_result_types(Lines) ->
-    get_result_types(Lines, #{}).
+    get_result_types(Lines, none, #{}).
 
-get_result_types(["  %% Result type:"++_,"  %%    "++TypeLine|Lines], Acc) ->
+get_result_types(["  %% Result type:"++_,"  %%    "++TypeLine|Lines], _, Acc) ->
     get_result_types(Lines, TypeLine, Acc);
-get_result_types([_|Lines], Acc) ->
-    get_result_types(Lines, Acc);
-get_result_types([], Acc) ->
+get_result_types([Line|Lines], TypeLine, Acc0) ->
+    Split = string:split(Line, "="),
+    Acc = case Split of
+              [_, " call" ++ Rest] ->
+                  case string:split(Rest, "`", all) of
+                      [_,Callee,_] ->
+                          Acc0#{ Callee => TypeLine };
+                      _ ->
+                          Acc0
+                  end;
+              _ ->
+                  Acc0
+          end,
+    get_result_types(Lines, TypeLine, Acc);
+get_result_types([], _, Acc) ->
     Acc.
-
-get_result_types(["  %% Anno: "++_|Lines], TypeLine, Acc) ->
-    get_result_types(Lines, TypeLine, Acc);
-get_result_types([CallLine|Lines], TypeLine, Acc) ->
-    [_,Callee,_] = string:split(CallLine, "`", all),
-    get_result_types(Lines, Acc#{ Callee => TypeLine }).
 
 %% Check that the beam_ssa_type pass knows about bs_init_writable.
 bs_init_writable(Config) ->
@@ -2109,6 +2116,42 @@ bs_init_writable(Config) ->
     nomatch = re:run(Listing, "({test,is_binary,.+})", Os),
     ok = file:del_dir_r(OutDir).
 
+
+%% Check that an SSA listing contains pretty printed annotations, this
+%% blindly checks that the expected annotation occurs the expected
+%% number of times. Checking that the annotations are correctly placed
+%% and contains the correct information is done in
+%% beam_ssa_check_SUITE.
+annotations_pp(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    TargetDir = filename:join(PrivDir, types_pp),
+    File = filename:join(DataDir, "annotations_pp.erl"),
+    Listing = filename:join(TargetDir, "annotations_pp.ssaopt"),
+    ok = file:make_dir(TargetDir),
+
+    {ok,_} = compile:file(File, [dssaopt, {outdir, TargetDir}]),
+    {ok, Data} = file:read_file(Listing),
+    Lines = string:split(binary_to_list(Data), "\n", all),
+
+    ResultTypes = get_annotations("  %% Result type:", Lines),
+    10 = length(ResultTypes),
+
+    Uniques = get_annotations("  %% Unique:", Lines),
+    10 = length(Uniques),
+
+    Aliased = get_annotations("  %% Aliased:", Lines),
+    17 = length(Aliased),
+
+    ok = file:del_dir_r(TargetDir),
+    ok.
+
+get_annotations(Key, [Key,"  %%    "++Anno|Lines]) ->
+    [Anno|get_annotations(Key, Lines)];
+get_annotations(Key, [_|Lines]) ->
+    get_annotations(Key, Lines);
+get_annotations(_, []) ->
+    [].
 
 %%%
 %%% Utilities.

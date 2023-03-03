@@ -1,7 +1,7 @@
 % This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
 	     beam_listing,
 	     beam_opcodes,
              beam_ssa,
+             beam_ssa_alias,
              beam_ssa_bc_size,
              beam_ssa_bool,
              beam_ssa_bsm,
@@ -46,6 +47,7 @@
              beam_ssa_opt,
              beam_ssa_pp,
              beam_ssa_pre_codegen,
+             beam_ssa_private_append,
              beam_ssa_recv,
              beam_ssa_share,
              beam_ssa_throw,
@@ -82,5 +84,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-4.0","kernel-8.4","erts-13.0",
+  {runtime_dependencies, ["stdlib-@OTP-18414@","kernel-8.4","erts-13.0",
 			  "crypto-5.1"]}]}.

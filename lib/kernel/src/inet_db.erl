@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@
 -export([set_cache_size/1, set_cache_refresh/1]).
 -export([set_timeout/1, set_retry/1, set_servfail_retry_timeout/1,
          set_inet6/1, set_usevc/1]).
--export([set_edns/1, set_udp_payload_size/1]).
+-export([set_edns/1, set_udp_payload_size/1, set_dnssec_ok/1]).
 -export([set_resolv_conf/1, set_hosts_file/1, get_hosts_file/0]).
 -export([tcp_module/0, set_tcp_module/1]).
 -export([udp_module/0, set_udp_module/1]).
@@ -227,6 +227,8 @@ set_edns(Version) -> res_option(edns, Version).
 
 set_udp_payload_size(Size) -> res_option(udp_payload_size, Size).
 
+set_dnssec_ok(DnssecOk) -> res_option(dnssec_ok, DnssecOk).
+
 set_resolv_conf(Fname) when is_list(Fname) ->
     res_option(resolv_conf, Fname).
 
@@ -312,7 +314,7 @@ valid_lookup() -> [dns, file, yp, nis, nisplus, native].
 get_rc() -> 
     get_rc([hosts, domain, nameservers, search, alt_nameservers,
 	    timeout, retry, servfail_retry_timeout, inet6, usevc,
-	    edns, udp_payload_size, resolv_conf, hosts_file,
+	    edns, udp_payload_size, dnssec_ok, resolv_conf, hosts_file,
 	    socks5_server,  socks5_port, socks5_methods, socks5_noproxy,
 	    udp, sctp, tcp, host, cache_size, cache_refresh, lookup], []).
 
@@ -360,6 +362,10 @@ get_rc([K | Ks], Ls) ->
 	udp_payload_size       -> get_rc(udp_payload_size,
                                          res_udp_payload_size,
                                          ?DNS_UDP_PAYLOAD_SIZE,
+                                         Ks, Ls);
+	dnssec_ok              -> get_rc(dnssec_ok,
+                                         res_res_dnssec_ok,
+                                         false,
                                          Ks, Ls);
 	resolv_conf            -> get_rc(resolv_conf,
                                          res_resolv_conf,
@@ -483,6 +489,7 @@ res_optname(inet6) -> res_inet6;
 res_optname(usevc) -> res_usevc;
 res_optname(edns) -> res_edns;
 res_optname(udp_payload_size) -> res_udp_payload_size;
+res_optname(dnssec_ok) -> res_dnssec_ok;
 res_optname(resolv_conf) -> res_resolv_conf;
 res_optname(resolv_conf_name) -> res_resolv_conf;
 res_optname(hosts_file) -> res_hosts_file;
@@ -517,6 +524,7 @@ res_check_option(inet6, Bool) when is_boolean(Bool) -> true;
 res_check_option(usevc, Bool) when is_boolean(Bool) -> true;
 res_check_option(edns, V) when V =:= false; V =:= 0 -> true;
 res_check_option(udp_payload_size, S) when is_integer(S), S >= 512 -> true;
+res_check_option(dnssec_ok, D) when is_boolean(D) -> true;
 res_check_option(resolv_conf, "") -> true;
 res_check_option(resolv_conf, F) ->
     res_check_option_absfile(F);
@@ -881,6 +889,7 @@ take_socket_type(MRef) ->
 %% res_usevc      Bool            - use Virtual Circuit (TCP)
 %% res_edns       false|Integer   - false or EDNS version
 %% res_udp_payload_size Integer   - size for EDNS, both query and reply
+%% res_dnssec_ok  Bool            - the DO bit in RFC6891 & RFC3225
 %% res_resolv_conf Filename       - file to watch for resolver config i.e
 %%                                  {res_ns, res_search}
 %% res_hosts_file Filename        - file to watch for hosts config
@@ -958,6 +967,7 @@ reset_db(Db) ->
        {res_inet6, false},
        {res_edns, false},
        {res_udp_payload_size, ?DNS_UDP_PAYLOAD_SIZE},
+       {res_dnssec_ok, false},
        {cache_size, ?CACHE_LIMIT},
        {cache_refresh_interval,?CACHE_REFRESH},
        {socks5_server, ""},
@@ -1641,6 +1651,7 @@ is_res_set(inet6) -> true;
 is_res_set(usevc) -> true;
 is_res_set(edns) -> true;
 is_res_set(udp_payload_size) -> true;
+is_res_set(dnssec_ok) -> true;
 is_res_set(resolv_conf) -> true;
 is_res_set(hosts_file) -> true;
 is_res_set(_) -> false.

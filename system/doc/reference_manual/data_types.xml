@@ -305,9 +305,10 @@ adam
       in STDLIB.</p>
     <p>Read more about maps in <seeguide marker="expressions#map_expressions">
       Map Expressions</seeguide>.</p>
-  <note>
-    <p>Maps are considered to be experimental during Erlang/OTP R17.</p>
-  </note>
+  <change>
+    <p>Maps were introduced as an experimental feature in Erlang/OTP R17. Their
+    functionality was extended and became fully supported in Erlang/OTP 18.</p>
+  </change>
   </section>
 
   <section>
@@ -520,10 +521,10 @@ true</pre>
     </table>
 
 
-    <note><p>As of Erlang/OTP 26, the value of <c>$\^?</c> has been
+    <change><p>As of Erlang/OTP 26, the value of <c>$\^?</c> has been
     changed to be 127 (Delete), instead of 31. Previous releases
     would allow any character following <c>$\^</c>; as of Erlang/OTP
-    26, only the documented characters are allowed.</p></note>
+    26, only the documented characters are allowed.</p></change>
   </section>
 
   <section>

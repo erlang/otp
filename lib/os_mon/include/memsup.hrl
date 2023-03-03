@@ -26,6 +26,7 @@
 
 -define( SHOW_MEM , 1 ).
 -define( SHOW_SYSTEM_MEM , 2 ).
+-define( EXIT , 3 ).
 -define( SHOW_SYSTEM_MEM_END , 8#0 ).
 %% tags for extended statistics
 -define( MEM_SYSTEM_TOTAL , 1 ).

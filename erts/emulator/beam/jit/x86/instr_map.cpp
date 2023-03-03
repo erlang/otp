@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -396,7 +396,7 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
 
-    if (masked_types(Key, BEAM_TYPE_MASK_IMMEDIATE) != BEAM_TYPE_NONE &&
+    if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key) &&
         hasCpuFeature(CpuFeatures::X86::kBMI2)) {
         safe_fragment_call(ga->get_i_get_map_element_shared());
         a.jne(resolve_beam_label(Fail));

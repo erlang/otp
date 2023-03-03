@@ -534,9 +534,9 @@ old_release() ->
 old_release(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     %% don't expect OTP 10 to be available
-    ?assertEqual(not_available, ?CT_PEER([], "10", PrivDir)),
+    ?assertEqual(not_available, ?CT_PEER_REL([], "10", PrivDir)),
     PrevRel = integer_to_list(list_to_integer(erlang:system_info(otp_release)) - 2),
-    case ?CT_PEER([], PrevRel, PrivDir) of
+    case ?CT_PEER_REL([], PrevRel, PrivDir) of
         not_available ->
             {skip, "OTP " ++ PrevRel ++ " not found"};
         {ok, Peer, Node} ->
@@ -690,7 +690,7 @@ cntrl_channel_handler_crash_old_release(Config) ->
            end,
     PrivDir = proplists:get_value(priv_dir, Config),
     OldRel = integer_to_list(list_to_integer(erlang:system_info(otp_release)) - 2),
-    case ?CT_PEER(Opts, OldRel, PrivDir) of
+    case ?CT_PEER_REL(Opts, OldRel, PrivDir) of
         not_available ->
             {skip, "No OTP " ++ OldRel ++ " installation found"};
         {ok, _Peer, Node} ->

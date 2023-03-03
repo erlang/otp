@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2015</year>
-      <year>2022</year>
+      <year>2023</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -327,8 +327,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>C</em></cell>
+        <cell align="left" valign="middle">26.0</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -466,8 +466,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>C</em></cell>
+        <cell align="left" valign="middle">26.0</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -594,6 +594,12 @@
 	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
+        <cell align="left" valign="middle"><em>C</em></cell>
+        <cell align="left" valign="middle">26.0</cell>
+      </row>
 
       <row>
         <cell align="left" valign="middle"></cell>
@@ -624,6 +630,12 @@
         <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
+        <cell align="left" valign="middle"><em>C</em></cell>
+        <cell align="left" valign="middle">26.0</cell>
       </row>
 
       <row>
@@ -910,14 +922,14 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em>Client</em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">24.3</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>24.3</em></cell>
       </row>
 
       <row>
@@ -1254,8 +1266,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">application_layer_protocol_negotiation (RFC7301)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">23.0</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1275,13 +1287,6 @@
 	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>23.3</em></cell>
       </row>
-      <row>
-        <cell align="left" valign="middle"></cell>
-        <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
-      </row>
-
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
@@ -1321,8 +1326,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">application_layer_protocol_negotiation (RFC7301)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">23.0</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1342,13 +1347,6 @@
 	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>23.3</em></cell>
       </row>
-      <row>
-        <cell align="left" valign="middle"></cell>
-        <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
-      </row>
-
       <row>
         <cell align="left" valign="middle">
 	  <url href="https://tools.ietf.org/html/rfc8446#section-4.3.2">

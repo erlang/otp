@@ -141,21 +141,29 @@ my_binary_to_list(<<>>) -> [].]]></code>
 
   <section>
     <title>Constructing Binaries</title>
-    <p>Appending to a binary or bitstring
-    is specially optimized by the <em>runtime system</em>:</p>
+    <p>Appending to a binary or bitstring in the following way
+    is specially optimized to avoid copying the binary:</p>
 
-  <code type="erl"><![CDATA[
+    <code type="erl"><![CDATA[
 <<Binary/binary, ...>>
+%% - OR -
 <<Binary/bitstring, ...>>]]></code>
 
-    <p>As the runtime system handles the optimization (instead of
-    the compiler), there are very few circumstances in which the optimization
-    does not work.</p>
+    <p>This optimization is applied by the runtime system in a way
+    that makes it effective in most circumstances (for exceptions,
+    see <seeguide marker="#forced_copying">Circumstances That Force
+    Copying</seeguide>). The optimization in its basic form does not
+    need any help from the compiler. However, the compiler add hints
+    to the runtime system when it is safe to apply the optimization in
+    a more efficient way.</p>
 
-    <p>To explain how it works, let us examine the following code line
-    by line:</p>
+    <change><p>The compiler support for making the optimization more
+    efficient was added in Erlang/OTP 26.</p></change>
 
-  <code type="erl"><![CDATA[
+    <p>To explain how the basic optimization works, let us examine the
+    following code line by line:</p>
+
+    <code type="erl"><![CDATA[
 Bin0 = <<0>>,                    %% 1
 Bin1 = <<Bin0/binary,1,2,3>>,    %% 2
 Bin2 = <<Bin1/binary,4,5,6>>,    %% 3
@@ -163,50 +171,94 @@ Bin3 = <<Bin2/binary,7,8,9>>,    %% 4
 Bin4 = <<Bin1/binary,17>>,       %% 5 !!!
 {Bin4,Bin3}                      %% 6]]></code>
 
-  <list type="bulleted">
-    <item>Line 1 (marked with the <c>%% 1</c> comment), assigns
-    a <seeguide marker="#heap_binary">heap binary</seeguide> to
-    the <c>Bin0</c> variable.</item>
+    <list type="bulleted">
+      <item><p>Line 1 (marked with the <c>%% 1</c> comment), assigns
+      a <seeguide marker="#heap_binary">heap binary</seeguide> to
+      the <c>Bin0</c> variable.</p></item>
 
-    <item>Line 2 is an append operation. As <c>Bin0</c>
-    has not been involved in an append operation,
-    a new <seeguide marker="#refc_binary">refc binary</seeguide>
-    is created and the contents of <c>Bin0</c> is copied
-    into it. The <em>ProcBin</em> part of the refc binary has
-    its size set to the size of the data stored in the binary, while
-    the binary object has extra space allocated.
-    The size of the binary object is either twice the
-    size of <c>Bin1</c> or 256, whichever is larger. In this case
-    it is 256.</item>
+      <item><p>Line 2 is an append operation. As <c>Bin0</c>
+      has not been involved in an append operation,
+      a new <seeguide marker="#refc_binary">refc binary</seeguide>
+      is created and the contents of <c>Bin0</c> is copied
+      into it. The <em>ProcBin</em> part of the refc binary has
+      its size set to the size of the data stored in the binary, while
+      the binary object has extra space allocated.
+      The size of the binary object is either twice the
+      size of <c>Bin1</c> or 256, whichever is larger. In this case
+      it is 256.</p></item>
 
-    <item>Line 3 is more interesting.
-    <c>Bin1</c> <em>has</em> been used in an append operation,
-    and it has 252 bytes of unused storage at the end, so the 3 new
-    bytes are stored there.</item>
+      <item><p>Line 3 is more interesting.
+      <c>Bin1</c> <em>has</em> been used in an append operation,
+      and it has 252 bytes of unused storage at the end, so the 3 new
+      bytes are stored there.</p></item>
 
-    <item>Line 4. The same applies here. There are 249 bytes left,
-    so there is no problem storing another 3 bytes.</item>
+      <item><p>Line 4. The same applies here. There are 249 bytes left,
+      so there is no problem storing another 3 bytes.</p></item>
 
-    <item>Line 5. Here, something <em>interesting</em> happens. Notice
-    that the result is not appended to the previous result in <c>Bin3</c>,
-    but to <c>Bin1</c>. It is expected that <c>Bin4</c> will be assigned
-    the value <c>&lt;&lt;0,1,2,3,17&gt;&gt;</c>. It is also expected that
-    <c>Bin3</c> will retain its value
-    (<c>&lt;&lt;0,1,2,3,4,5,6,7,8,9&gt;&gt;</c>).
-    Clearly, the runtime system cannot write byte <c>17</c> into the binary,
-    because that would change the value of <c>Bin3</c> to
-    <c>&lt;&lt;0,1,2,3,4,17,6,7,8,9&gt;&gt;</c>.</item>
-  </list>
+      <item><p>Line 5. Here something <em>interesting</em> happens. Notice
+      that the result is not appended to the previous result in <c>Bin3</c>,
+      but to <c>Bin1</c>. It is expected that <c>Bin4</c> will be assigned
+      the value <c>&lt;&lt;0,1,2,3,17&gt;&gt;</c>. It is also expected that
+      <c>Bin3</c> will retain its value
+      (<c>&lt;&lt;0,1,2,3,4,5,6,7,8,9&gt;&gt;</c>).
+      Clearly, the runtime system cannot write byte <c>17</c> into the binary,
+      because that would change the value of <c>Bin3</c> to
+      <c>&lt;&lt;0,1,2,3,4,17,6,7,8,9&gt;&gt;</c>.</p>
 
-    <p>The runtime system sees that <c>Bin1</c> is the result
-    from a previous append operation (not from the latest append operation),
-    so it <em>copies</em> the contents of <c>Bin1</c> to a new binary,
-    reserve extra storage, and so on. (Here is not explained how the
-    runtime system can know that it is not allowed to write into <c>Bin1</c>;
-    it is left as an exercise to the curious reader to figure out how it is
-    done by reading the emulator sources, primarily <c>erl_bits.c</c>.)</p>
+      <p>To ensure that the value of <c>Bin3</c> is retained, the
+      runtime system <em>copies</em> the contents of <c>Bin1</c> to a
+      new refc binary before storing the <c>17</c> byte.</p>
+
+      <p>Here is not explained how the runtime system can know that it
+      is not allowed to write into <c>Bin1</c>; it is left as an
+      exercise to the curious reader to figure out how it is done by
+      reading the emulator sources, primarily <c>erl_bits.c</c>.</p>
+      </item>
+    </list>
+    <section>
+      <title>Compiler Support For Constructing Binaries</title>
+
+      <change><p>The compiler support for making the optimization more
+      efficient was added in Erlang/OTP 26.</p></change>
+
+      <p>In the example in the previous section, it was shown that
+      the runtime system can handle an append operation to a heap
+      binary by copying it to a refc binary (line 2), and also handle
+      an append operation to a previous version of the binary by
+      copying it (line 5). The support for doing that does not come
+      for free. For example, to make it possible to know when it is
+      necessary to copy the binary, for every append operation, the
+      runtime system must create a sub binary.</p>
+
+      <p>When the compiler can determine that none of those situations
+      need to be handled and that the append operation cannot possibly
+      fail, the compiler generates code that causes the runtime system to
+      apply a more efficient variant of the optimization.</p>
+
+      <p><strong>Example:</strong></p>
+
+      <code type="erl"><![CDATA[
+-module(repack).
+-export([repack/1]).
+
+repack(Bin) when is_binary(Bin) ->
+    repack(Bin, <<>>).
+
+repack(<<C:8,T/binary>>, Result) ->
+    repack(T, <<Result/binary,C:16>>);
+repack(<<>>, Result) ->
+    Result.]]></code>
+    </section>
+
+    <p>The <c>repack/2</c> function only keeps a single version of the
+    binary, so there is never any need to copy the binary. The
+    compiler rewrites the creation of the empty binary in
+    <c>repack/1</c> to instead create a refc binary with 256 bytes
+    already reserved; thus, the append operation in <c>repack/2</c>
+    never needs to handle a binary not prepared for appending.</p>
 
     <section>
+      <marker id="forced_copying"></marker>
       <title>Circumstances That Force Copying</title>
 
       <p>The optimization of the binary append operation requires that

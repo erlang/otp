@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ initial_state(Role, Sender, Host, Port, Socket,
        start_or_recv_from = undefined,
        flight_buffer = [],
        protocol_specific = #{sender => Sender,
-                             active_n => internal_active_n(SSLOptions),
+                             active_n => internal_active_n(SSLOptions, Socket),
                              active_n_toggle => true
                             }
       }.
@@ -195,12 +195,11 @@ handle_change_cipher_spec(Type, Msg, StateName,
             ssl_gen_statem:handle_common_event(Type, Msg, StateName, State)
     end.
 
-handle_middlebox(#state{session = #session{session_id = Id},
-                        protocol_specific = PS} = State0)
-  when Id =/= ?EMPTY_ID ->
-    State0#state{protocol_specific = PS#{change_cipher_spec => ignore}};
-handle_middlebox(State) ->
-    State.
+handle_middlebox(#state{protocol_specific = PS} = State0) ->
+    %% Always be prepared to ignore one change cipher spec
+    %% for maximum interopablility, even if middlebox mode
+    %% is not enabled.
+    State0#state{protocol_specific = PS#{change_cipher_spec => ignore}}.
 
 handle_resumption(State, undefined) ->
     State;
@@ -362,7 +361,10 @@ init_max_early_data_size(client) ->
 init_max_early_data_size(server) ->
     ssl_config:get_max_early_data_size().
 
-internal_active_n(#{erl_dist := true}) ->
+internal_active_n(#{ktls := true}, Socket) ->
+    inet:setopts(Socket, [{packet, ssl_tls}]),
+    1;
+internal_active_n(#{erl_dist := true}, _) ->
     %% Start with a random number between 1 and ?INTERNAL_ACTIVE_N
     %% In most cases distribution connections are established all at
     %%  the same time, and flow control engages with ?INTERNAL_ACTIVE_N for
@@ -371,7 +373,7 @@ internal_active_n(#{erl_dist := true}) ->
     %%  a random number between 1 and ?INTERNAL_ACTIVE_N helps to spread the
     %%  spike.
     erlang:system_time() rem ?INTERNAL_ACTIVE_N + 1;
-internal_active_n(_) ->
+internal_active_n(_,_) ->
     case application:get_env(ssl, internal_active_n) of
         {ok, N} when is_integer(N) ->
             N;

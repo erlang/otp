@@ -51,6 +51,8 @@ obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(erlang, phash, 2) ->
     {deprecated, "use erlang:phash2/2 instead"};
+obsolete(file, pid2name, 1) ->
+    {deprecated, "this functionality is no longer supported", "OTP 27"};
 obsolete(ftp, start_service, 1) ->
     {deprecated, "use ftp:open/2 instead", "OTP 26"};
 obsolete(ftp, stop_service, 1) ->

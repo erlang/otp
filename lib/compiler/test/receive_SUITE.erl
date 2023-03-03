@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -200,7 +200,7 @@ coverage(Config) when is_list(Config) ->
 
 receive_in_called_function() ->
     RefA = make_ref(),
-    RefB = make_ref(),
+    RefB = returns_reference(),
 
     self() ! hello,
     self() ! RefA,
@@ -221,6 +221,9 @@ receive_in_called_function() ->
     ricf_1(Foo, Bar),
 
     ok.
+
+returns_reference() ->
+    make_ref().
 
 ricf_1(A, B) ->
     %% Both A and B are fed a reference at least once, so both of these loops

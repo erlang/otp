@@ -60,8 +60,8 @@ will_succeed(erlang, Op, [LHS, RHS]) when Op =:= '+';
                                           Op =:= '-';
                                           Op =:= '*' ->
     succeeds_if_smallish(LHS, RHS);
-will_succeed(erlang, Op, [LHS, RHS]) when Op =:= 'div';
-                                          Op =:= 'rem' ->
+will_succeed(erlang, Op, [LHS, RHS]=Args) when Op =:= 'div';
+                                               Op =:= 'rem' ->
     case {meet(LHS, #t_integer{}), meet(RHS, #t_integer{})} of
         {#t_integer{elements={_,_}}=LHS,
          #t_integer{elements={Min,Max}}=RHS}
@@ -69,28 +69,28 @@ will_succeed(erlang, Op, [LHS, RHS]) when Op =:= 'div';
                is_integer(Max), Max < -1 ->
             'yes';
         {#t_integer{}, #t_integer{}} ->
-            'maybe';
+            fails_on_conflict(erlang, Op, Args);
         {_, _} ->
             no
     end;
-will_succeed(erlang, 'bsr', [LHS, RHS]) ->
+will_succeed(erlang, 'bsr'=Op, [LHS, RHS]=Args) ->
     case {meet(LHS, #t_integer{}), meet(RHS, #t_integer{})} of
         {#t_integer{elements={_,_}}=LHS,
          #t_integer{elements={Shift,_}}=RHS}
           when is_integer(Shift), Shift >= 0 ->
             'yes';
         {#t_integer{}, #t_integer{}} ->
-            'maybe';
+            fails_on_conflict(erlang, Op, Args);
         {_, _} ->
             no
     end;
-will_succeed(erlang, 'bsl', [LHS, RHS]) ->
+will_succeed(erlang, 'bsl'=Op, [LHS, RHS]=Args) ->
     case {meet(LHS, #t_integer{}), meet(RHS, #t_integer{})} of
         {LHS, #t_integer{elements={Shift,_}}=RHS}
           when is_integer(Shift), Shift < 64 ->
             succeeds_if_smallish(LHS);
         {#t_integer{}, #t_integer{}} ->
-            'maybe';
+            fails_on_conflict(erlang, Op, Args);
         {_, _} ->
             no
     end;
@@ -115,21 +115,20 @@ will_succeed(erlang, element, [Pos, Tuple]=Args) ->
             case meet(Pos, #t_integer{elements={1,Sz}}) of
                 Pos -> yes;
                 none when Exact -> no;
-                _ -> 'maybe'
+                _ -> fails_on_conflict(erlang, element, Args)
+
             end;
         _ ->
-            Required = [#t_integer{elements={1,?MAX_TUPLE_SIZE}},
-                        #t_tuple{size=1}],
-            fails_on_conflict(Args, Required)
+            fails_on_conflict(erlang, element, Args)
     end;
 will_succeed(erlang, hd, [Arg]) ->
     succeeds_if_type(Arg, #t_cons{});
-will_succeed(erlang, is_function, [_, Arity]) ->
+will_succeed(erlang, is_function, [_, Arity]=Args) ->
     case meet(Arity, #t_integer{}) of
         #t_integer{elements={Min,_}}=Arity when is_integer(Min), Min >= 0 ->
             yes;
         #t_integer{} ->
-            'maybe';
+            fails_on_conflict(erlang, is_function, Args);
         _ ->
             no
     end;
@@ -149,7 +148,7 @@ will_succeed(erlang, 'or', [_, _]=Args) ->
     succeeds_if_types(Args, beam_types:make_boolean());
 will_succeed(erlang, 'xor', [_, _]=Args) ->
     succeeds_if_types(Args, beam_types:make_boolean());
-will_succeed(erlang, setelement, [Pos, Tuple0, _Value]) ->
+will_succeed(erlang, setelement, [Pos, Tuple0, _Value]=Args) ->
     PosRange = #t_integer{elements={1,?MAX_TUPLE_SIZE}},
     case {meet(Pos, PosRange), meet(Tuple0, #t_tuple{size=1})} of
         {none, _} ->
@@ -169,10 +168,10 @@ will_succeed(erlang, setelement, [Pos, Tuple0, _Value]) ->
                 true ->
                     %% We may or may not have a tuple, and the index may or may
                     %% not be in range if we do.
-                    'maybe'
+                    fails_on_conflict(erlang, setelement, Args)
             end;
         {_, _} ->
-            'maybe'
+            fails_on_conflict(erlang, setelement, Args)
     end;
 will_succeed(erlang, size, [Arg]) ->
     ArgType = join(#t_tuple{}, #t_bitstring{}),
@@ -197,14 +196,7 @@ will_succeed(Mod, Func, Args) ->
                 true ->
                     no;
                 false ->
-                    %% While we can't infer success for functions outside the
-                    %% 'erlang' module (see above comment), it's safe to infer
-                    %% failure when we know they return none or if the
-                    %% arguments must have certain types.
-                    case types(Mod, Func, Args) of
-                        {none, _, _} -> no;
-                        {_, ArgTypes, _} -> fails_on_conflict(Args, ArgTypes)
-                    end
+                    fails_on_conflict(Mod, Func, Args)
             end
     end.
 
@@ -217,12 +209,23 @@ max_tuple_size(#t_tuple{exact=true,size=Size}) ->
 max_tuple_size(#t_tuple{exact=false}) ->
     ?MAX_TUPLE_SIZE.
 
-fails_on_conflict([ArgType | Args], [Required | Types]) ->
+%% While we can't infer success for functions outside the 'erlang'
+%% module, it's safe to infer failure when we know they return `none` or
+%% if the arguments must have certain types.
+%%
+%% Returns: 'maybe' or 'no'
+fails_on_conflict(Mod, Func, Args) ->
+    case types(Mod, Func, Args) of
+        {none, _, _} -> no;
+        {_, ArgTypes, _} -> fails_on_conflict_1(Args, ArgTypes)
+    end.
+
+fails_on_conflict_1([ArgType | Args], [Required | Types]) ->
     case meet(ArgType, Required) of
         none -> no;
-        _ -> fails_on_conflict(Args, Types)
+        _ -> fails_on_conflict_1(Args, Types)
     end;
-fails_on_conflict([], []) ->
+fails_on_conflict_1([], []) ->
     'maybe'.
 
 succeeds_if_types([LHS, RHS], Required) ->
@@ -396,15 +399,18 @@ types(erlang, 'band', [_,_]=Args) ->
 types(erlang, 'bor', [_,_]=Args) ->
     sub_unsafe(beam_bounds_type('bor', #t_integer{}, Args),
                [#t_integer{}, #t_integer{}]);
-types(erlang, 'bxor', [_,_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
-types(erlang, 'bsl', [_,_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
+types(erlang, 'bxor', [_,_]=Args) ->
+    sub_unsafe(beam_bounds_type('bxor', #t_integer{}, Args),
+               [#t_integer{}, #t_integer{}]);
+types(erlang, 'bsl', [_,_]=Args) ->
+    sub_unsafe(beam_bounds_type('bsl', #t_integer{}, Args),
+               [#t_integer{}, #t_integer{}]);
 types(erlang, 'bsr', [_,_]=Args) ->
     sub_unsafe(beam_bounds_type('bsr', #t_integer{}, Args),
                [#t_integer{}, #t_integer{}]);
-types(erlang, 'bnot', [_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}]);
+types(erlang, 'bnot', [_]=Args) ->
+    sub_unsafe(beam_bounds_type('bnot', #t_integer{}, Args),
+               [#t_integer{}]);
 
 %% Fixed-type arithmetic
 types(erlang, 'float', [_]) ->
@@ -1081,6 +1087,17 @@ beam_bounds_type(Op, Type, [LHS, RHS]) ->
             #t_integer{elements=beam_bounds:bounds(Op, R1, R2)};
         {number, R1, R2} ->
             #t_number{elements=beam_bounds:bounds(Op, R1, R2)}
+    end;
+beam_bounds_type(Op, Type, [Arg]) ->
+    case beam_types:meet(Arg, Type) of
+        #t_float{elements=R} ->
+            #t_float{elements=beam_bounds:bounds(Op, R)};
+        #t_integer{elements=R} ->
+            #t_integer{elements=beam_bounds:bounds(Op, R)};
+        #t_number{elements=R} ->
+            #t_number{elements=beam_bounds:bounds(Op, R)};
+        none ->
+            none
     end.
 
 get_range(LHS, RHS, Type) ->

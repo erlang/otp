@@ -670,9 +670,11 @@ t_string_to_integer(Config) when is_list(Config) ->
                    {"10",''}                    %Base 20
                   ]),
 
-    %% log2 calculation overflow bug in do_integer_to_list (OTP-12624).
-    %% Would crash with segmentation fault.
-    0 = list_to_integer(lists:duplicate(10000000,$0)),
+    %% System limit
+    Digits = lists:duplicate(11_000_000, $9),
+    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits),
+    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits, 16),
+    {error,system_limit} = string:to_integer(Digits),
 
     ok.
 

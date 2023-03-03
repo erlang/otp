@@ -101,7 +101,7 @@
     <p>When looking at memory usage in a running system the most basic function
       to get information from is <seemfa marker="erts:erlang#memory/0"><c>
       erlang:memory()</c></seemfa>. It returns the current memory usage
-      of the system. <seeerl marker="tools:instrument"><c>instrument(3)</c></seeerl>
+      of the system. <seeerl marker="runtime_tools:instrument"><c>instrument(3)</c></seeerl>
       can be used to get a more detailed breakdown of where memory is used.</p>
     <p>Processes, ports and ets tables can then be inspected using their
       respective info functions, i.e.

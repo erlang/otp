@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1517,5 +1517,5 @@ check_config(_) ->
 %% this function is also a test. When logger.hrl used non-qualified
 %%  apply/3 call, any module that was implementing apply/3 could
 %%  not use any logging macro
-apply(_Any, _Any, _Any) ->
+apply(_, _, _) ->
     ok.

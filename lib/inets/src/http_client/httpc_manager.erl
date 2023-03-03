@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -474,9 +474,9 @@ handle_call({which_cookies, Url, Options}, _,
     ?hcrv("which cookies", [{url, Url}, {options, Options}]),
     case uri_parse(Url) of
 	{ok, {Scheme, Host, Port, Path}} ->
-	    CookieHeaders = 
+	    CookieHeader =
 		httpc_cookie:header(CookieDb, erlang:list_to_existing_atom(Scheme), {Host, Port}, Path),
-	    {reply, CookieHeaders, State};
+	    {reply, CookieHeader, State};
 	{error, _} = ERROR ->
 	    {reply, ERROR, State}
     end;

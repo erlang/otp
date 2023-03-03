@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,9 @@
 -export([t_update_with_3/1, t_update_with_4/1,
          t_get_3/1, t_filter_2/1, t_filtermap_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1, t_foreach_2/1,
-         t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
+         t_iterator_1/1, t_iterator_2/1,
+         t_iterator_valid/1,
+         t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
          t_merge_with/1, t_from_keys/1,
@@ -57,7 +59,9 @@ all() ->
     [t_update_with_3,t_update_with_4,
      t_get_3,t_filter_2,t_filtermap_2,
      t_fold_3,t_map_2,t_size_1,t_foreach_2,
-     t_iterator_1,t_put_opt,t_merge_opt,
+     t_iterator_1,t_iterator_2,
+     t_iterator_valid,
+     t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
      t_merge_with, t_from_keys,
@@ -394,7 +398,8 @@ t_filter_2(Config) when is_list(Config) ->
     #{a := 2,c := 4} = maps:filter(Pred1,maps:iterator(M)),
     #{"b" := 2,"c" := 4} = maps:filter(Pred2,maps:iterator(M)),
     %% error case
-    ?badmap(a,filter,[_,a]) = (catch maps:filter(fun(_,_) -> ok end,id(a))),
+    ?badmap(a,filter,[_,a]) = (catch maps:filter(fun(_,_) -> true end,id(a))),
+    ?badmap({a,b,c},filter,[_,{a,b,c}]) = (catch maps:filter(fun(_,_) -> true end,id({a,b,c}))),
     ?badarg(filter,[<<>>,#{}]) = (catch maps:filter(id(<<>>),#{})),
     ok.
 
@@ -408,7 +413,8 @@ t_filtermap_2(Config) when is_list(Config) ->
     false = maps:is_key(20, M1),
     true = M1 =:= M2,
     %% error case
-    ?badmap(a,filtermap,[_,a]) = (catch maps:filtermap(fun(_,_) -> ok end,id(a))),
+    ?badmap(a,filtermap,[_,a]) = (catch maps:filtermap(fun(_,_) -> true end,id(a))),
+    ?badmap({a,b,c},filtermap,[_,{a,b,c}]) = (catch maps:filtermap(fun(_,_) -> true end,id({a,b,c}))),
     ?badarg(filtermap,[<<>>,#{}]) = (catch maps:filtermap(id(<<>>),#{})),
     ok.
 
@@ -424,6 +430,7 @@ t_fold_3(Config) when is_list(Config) ->
 
     %% error case
     ?badmap(a,fold,[_,0,a]) = (catch maps:fold(fun(_,_,_) -> ok end,0,id(a))),
+    ?badmap({a,b,c},fold,[_,0,{a,b,c}]) = (catch maps:fold(fun(_,_,_) -> ok end,0,id({a,b,c}))),
     ?badarg(fold,[<<>>,0,#{}]) = (catch maps:fold(id(<<>>),0,#{})),
     ok.
 
@@ -438,6 +445,7 @@ t_map_2(Config) when is_list(Config) ->
 
     %% error case
     ?badmap(a,map,[_,a]) = (catch maps:map(fun(_,_) -> ok end, id(a))),
+    ?badmap({a,b,c},map,[_,{a,b,c}]) = (catch maps:map(fun(_,_) -> ok end, id({a,b,c}))),
     ?badarg(map,[<<>>,#{}]) = (catch maps:map(id(<<>>),#{})),
     ok.
 
@@ -448,6 +456,7 @@ t_foreach_2(Config) when is_list(Config) ->
     ?badmap({},foreach,[_,{}]) = (catch maps:foreach(fun(_,_) -> ok end, id({}))),
     ?badmap(42,foreach,[_,42]) = (catch maps:foreach(fun(_,_) -> ok end, id(42))),
     ?badmap(<<>>,foreach,[_,<<>>]) = (catch maps:foreach(fun(_,_) -> ok end, id(<<>>))),
+    ?badmap({a,b,c},foreach,[_,{a,b,c}]) = (catch maps:foreach(fun(_,_) -> ok end, id({a,b,c}))),
 
     ?badarg(foreach,[<<>>,#{}]) = (catch maps:foreach(id(<<>>),#{})),
     F0 = fun() -> ok end,
@@ -471,12 +480,15 @@ t_iterator_1(Config) when is_list(Config) ->
 
     KVList = lists:sort([{K1,V1},{K2,V2}]),
     KVList = lists:sort(maps:to_list(M0)),
+    KList = lists:sort([K1,K2]),
+    KList = lists:sort(maps:keys(M0)),
 
     %% Large map test
 
     Vs2 = lists:seq(1,200),
     M2 = maps:from_list([{{k,I},I}||I<-Vs2]),
     KVList2 = lists:sort(iter_kv(maps:iterator(M2))),
+    KVList2 = lists:sort(maps:to_list(maps:iterator(M2))),
     KVList2 = lists:sort(maps:to_list(M2)),
 
     %% Larger map test
@@ -484,7 +496,99 @@ t_iterator_1(Config) when is_list(Config) ->
     Vs3 = lists:seq(1,10000),
     M3 = maps:from_list([{{k,I},I}||I<-Vs3]),
     KVList3 = lists:sort(iter_kv(maps:iterator(M3))),
+    KVList3 = lists:sort(maps:to_list(maps:iterator(M3))),
     KVList3 = lists:sort(maps:to_list(M3)),
+    ok.
+
+t_iterator_2(Config) when is_list(Config) ->
+
+    AOrdCmpFun = fun(A, B) -> A =< B end,
+    ARevCmpFun = fun(A, B) -> B =< A end,
+
+    %% Small map test
+    M0 = #{ a => 1, b => 2 },
+    TOrdI0 = maps:iterator(M0, ordered),
+    {K1 = a, V1 = 1, TOrdI1} = maps:next(TOrdI0),
+    {K2 = b, V2 = 2, TOrdI2} = maps:next(TOrdI1),
+    none = maps:next(TOrdI2),
+
+    TRevI0 = maps:iterator(M0, reversed),
+    {K2 = b, V2 = 2, TRevI1} = maps:next(TRevI0),
+    {K1 = a, V1 = 1, TRevI2} = maps:next(TRevI1),
+    none = maps:next(TRevI2),
+
+    AOrdI0 = maps:iterator(M0, AOrdCmpFun),
+    {K1 = a, V1 = 1, AOrdI1} = maps:next(AOrdI0),
+    {K2 = b, V2 = 2, AOrdI2} = maps:next(AOrdI1),
+    none = maps:next(AOrdI2),
+
+    ARevI0 = maps:iterator(M0, ARevCmpFun),
+    {K2 = b, V2 = 2, ARevI1} = maps:next(ARevI0),
+    {K1 = a, V1 = 1, ARevI2} = maps:next(ARevI1),
+    none = maps:next(ARevI2),
+
+    OrdKVList = [{K1, V1}, {K2, V2}],
+    OrdKVList = maps:to_list(TOrdI0),
+    OrdKVList = maps:to_list(AOrdI0),
+
+    RevKVList = [{K2, V2}, {K1, V1}],
+    RevKVList = maps:to_list(TRevI0),
+    RevKVList = maps:to_list(ARevI0),
+
+    %% Large map test
+
+    Vs2 = lists:seq(1, 200),
+    OrdKVList2 = [{{k, I}, I} || I <- Vs2],
+    M2 = maps:from_list(OrdKVList2),
+    ok = iterator_2_check_order(M2, ordered, reversed),
+    ok = iterator_2_check_order(M2, AOrdCmpFun, ARevCmpFun),
+
+    %% Larger map test
+
+    Vs3 = lists:seq(1, 10000),
+    OrdKVList3 = [{{k, I}, I} || I <- Vs3],
+    M3 = maps:from_list(OrdKVList3),
+    ok = iterator_2_check_order(M3, ordered, reversed),
+    ok = iterator_2_check_order(M3, AOrdCmpFun, ARevCmpFun),
+
+    %% Float and integer keys
+
+    M4 = #{-1.0 => a, 0.0 => b, -1 => c, 0 => d},
+    OrdIter4 = maps:iterator(M4, ordered),
+    [{-1, c}, {0, d}, {-1.0, a}, {0.0, b}] = maps:to_list(OrdIter4),
+    ok = iterator_2_check_order(M4, ordered, reversed),
+
+    ok.
+
+iterator_2_option_to_fun(ordered) ->
+    fun(A, B) -> erts_internal:cmp_term(A, B) =< 0 end;
+iterator_2_option_to_fun(reversed) ->
+    fun(A, B) -> erts_internal:cmp_term(B, A) =< 0 end;
+iterator_2_option_to_fun(F) when is_function(F, 2) ->
+    F.
+
+iterator_2_check_order(M, OrdOption, RevOption) ->
+    OrdCmpFun = iterator_2_option_to_fun(OrdOption),
+    RevCmpFun = iterator_2_option_to_fun(RevOption),
+    OrdKVCmpFun = fun({A, _}, {B, _}) -> OrdCmpFun(A, B) end,
+    RevKVCmpFun = fun({A, _}, {B, _}) -> RevCmpFun(A, B) end,
+
+    OrdKVList = lists:sort(OrdKVCmpFun, maps:to_list(M)),
+    RevKVList = lists:sort(RevKVCmpFun, maps:to_list(M)),
+    RevKVList = lists:reverse(OrdKVList),
+
+    Iter = maps:iterator(M, undefined),
+    OrdIter = maps:iterator(M, OrdOption),
+    RevIter = maps:iterator(M, RevOption),
+
+    OrdKVList = lists:sort(OrdKVCmpFun, iter_kv(Iter)),
+    OrdKVList = lists:sort(OrdKVCmpFun, maps:to_list(Iter)),
+    OrdKVList = iter_kv(OrdIter),
+    OrdKVList = maps:to_list(OrdIter),
+
+    RevKVList = iter_kv(RevIter),
+    RevKVList = maps:to_list(RevIter),
+
     ok.
 
 iter_kv(I) ->
@@ -494,6 +598,59 @@ iter_kv(I) ->
         {K,V,NI} ->
             [{K,V} | iter_kv(NI)]
     end.
+
+t_iterator_valid(Config) when is_list(Config) ->
+    %% good iterators created via maps:iterator
+    true = maps:is_iterator_valid(maps:iterator(#{})),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b})),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d})),
+    true = maps:is_iterator_valid(maps:iterator(#{}, undefined)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b}, undefined)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d}, undefined)),
+    true = maps:is_iterator_valid(maps:iterator(#{}, ordered)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b}, ordered)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d}, ordered)),
+    true = maps:is_iterator_valid(maps:iterator(#{}, reversed)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b}, reversed)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d}, reversed)),
+    true = maps:is_iterator_valid(maps:iterator(#{}, fun erlang:'=<'/2)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b}, fun erlang:'=<'/2)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d}, fun erlang:'=<'/2)),
+
+    %% good makeshift iterators
+    true = maps:is_iterator_valid(none),
+    true = maps:is_iterator_valid({a, b, none}),
+    true = maps:is_iterator_valid({a, b, {c, d, none}}),
+    true = maps:is_iterator_valid({a, b, {c, d, {e, f, none}}}),
+    true = maps:is_iterator_valid({a, b, maps:iterator(#{})}),
+    true = maps:is_iterator_valid({a, b, maps:iterator(#{c => d})}),
+
+    %% not iterators
+    false = maps:is_iterator_valid(no_iter),
+    false = maps:is_iterator_valid(1),
+    false = maps:is_iterator_valid(1.0),
+    false = maps:is_iterator_valid([]),
+    false = maps:is_iterator_valid("foo"),
+    false = maps:is_iterator_valid(<<"foo">>),
+    false = maps:is_iterator_valid(fun() -> ok end),
+    false = maps:is_iterator_valid(self()),
+    false = maps:is_iterator_valid(make_ref()),
+    false = maps:is_iterator_valid(#{}),
+    false = maps:is_iterator_valid({}),
+    false = maps:is_iterator_valid({a}),
+    false = maps:is_iterator_valid({a, b}),
+    false = maps:is_iterator_valid({a, b, c, d}),
+
+    %% bad makeshift iterators that only fail on later (ie, subsequent) calls to maps:next/1
+    %%    maps:next({a, b, c}) -> {a, b, c}
+    %%    maps:next(c) -> badarg
+    false = maps:is_iterator_valid({a, b, c}),
+    %%    maps:next({a, b, {c, d, e}}) -> {a, b, {c, d, e}}
+    %%    maps:next({c, d, e}) -> {c, d, e}
+    %%    maps:next(e) -> badarg
+    false = maps:is_iterator_valid({a, b, {c, d, e}}),
+
+    ok.
 
 t_put_opt(Config) when is_list(Config) ->
     Value = id(#{complex => map}),
@@ -784,15 +941,22 @@ t_groups_from_list(_Config) ->
 
 error_info(_Config) ->
     BadIterator = [-1|#{}],
+    BadIterator2 = {x, y, z},
     GoodIterator = maps:iterator(#{}),
+    BadOrder = fun(_) -> true end,
+    GoodOrder = fun(A, B) -> A =< B end,
 
-    L = [{filter, [fun(_, _) -> true end, abc]},
+    L = [
+         {filter, [fun(_, _) -> true end, abc]},
          {filter, [fun(_, _) -> true end, BadIterator]},
+         {filter, [fun(_, _) -> true end, BadIterator2]},
          {filter, [bad_fun, BadIterator],[{1,".*"},{2,".*"}]},
+         {filter, [bad_fun, BadIterator2],[{1,".*"},{2,".*"}]},
          {filter, [bad_fun, GoodIterator]},
 
          {filtermap, [fun(_, _) -> true end, abc]},
          {filtermap, [fun(_, _) -> true end, BadIterator]},
+         {filtermap, [fun(_, _) -> true end, BadIterator2]},
          {filtermap, [fun(_) -> true end, GoodIterator]},
          {filtermap, [fun(_) -> ok end, #{}]},
 
@@ -800,11 +964,13 @@ error_info(_Config) ->
 
          {fold, [fun(_, _, _) -> true end, init, abc]},
          {fold, [fun(_, _, _) -> true end, init, BadIterator]},
+         {fold, [fun(_, _, _) -> true end, init, BadIterator2]},
          {fold, [fun(_) -> true end, init, GoodIterator]},
          {fold, [fun(_) -> ok end, init, #{}]},
 
          {foreach, [fun(_, _) -> ok end, no_map]},
          {foreach, [fun(_, _) -> ok end, BadIterator]},
+         {foreach, [fun(_, _) -> ok end, BadIterator2]},
          {foreach, [fun(_) -> ok end, GoodIterator]},
          {foreach, [fun(_) -> ok end, #{}]},
 
@@ -834,14 +1000,26 @@ error_info(_Config) ->
          {intersect_with, [fun(_, _, _) -> ok end, x, y],[{2,".*"},{3,".*"}]},
          {intersect_with, [fun(_, _) -> ok end, #{}, #{}]},
 
+         {is_iterator_valid, [GoodIterator], [no_fail]},
+         {is_iterator_valid, [BadIterator], [no_fail]},
+         {is_iterator_valid, [BadIterator2], [no_fail]},
+
          {is_key,[key, no_map]},
 
          {iterator,[{no,map}]},
+
+         {iterator, [{no,map}, undefined], [{1, ".*"}]},
+         {iterator, [{no,map}, ordered], [{1, ".*"}]},
+         {iterator, [{no,map}, reversed], [{1, ".*"}]},
+         {iterator, [{no,map}, GoodOrder], [{1, ".*"}]},
+         {iterator, [#{a => b}, BadOrder], [{2, ".*"}]},
+         {iterator, [{no,map}, BadOrder], [{1, ".*"}, {2, ".*"}]},
 
          {keys, [{no,map}]},
 
          {map, [fun(_, _) -> true end, abc]},
          {map, [fun(_, _) -> true end, BadIterator]},
+         {map, [fun(_, _) -> true end, BadIterator2]},
          {map, [fun(_) -> true end, GoodIterator]},
          {map, [fun(_) -> ok end, #{}]},
 
@@ -853,6 +1031,7 @@ error_info(_Config) ->
          {merge_with, [a, b, c],[{1,".*"},{2,".*"},{3,".*"}]},
 
          {next,[no_iterator]},
+         {next,[BadIterator]},
 
          {put, [key, value, {no,map}]},
 
@@ -863,6 +1042,8 @@ error_info(_Config) ->
          {take, [key, no_map]},
 
          {to_list,[xyz]},
+         {to_list,[BadIterator]},
+         {to_list,[BadIterator2]},
 
          {update,[key, value, no_map]},
 

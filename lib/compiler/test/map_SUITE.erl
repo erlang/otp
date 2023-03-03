@@ -17,6 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(map_SUITE).
+-feature(maybe_expr, enable).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	init_per_group/2,end_per_group/2
     ]).
@@ -89,7 +90,8 @@
          t_conflicting_destinations/1,
          t_cse_assoc/1,
          shared_key_tuples/1,
-         map_aliases/1
+         map_aliases/1,
+         coverage/1
         ]).
 
 -define(badmap(V, F, Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -165,7 +167,8 @@ all() ->
      t_conflicting_destinations,
      t_cse_assoc,
      shared_key_tuples,
-     map_aliases
+     map_aliases,
+     coverage
     ].
 
 groups() -> [].
@@ -2604,6 +2607,21 @@ map_aliases(_Config) ->
     {'EXIT',{{badmatch,#{key := value}},_}} = catch F6(id(#{key => value})),
 
     ok.
+
+coverage(_Config) ->
+    {'EXIT',{{badmatch,ok},_}} = catch coverage_1(),
+
+    ok.
+
+coverage_1() ->
+    %% Cover beam_block:simplify_get_map_elements/4 when the type
+    %% optimization pass is disabled.
+    try #{ok := _V5, ok := _V4} = (maybe ok end) of
+        #{ok := _V7, _V5 := _V7, ok := _V6, _V4 := _V6}  ->
+            ok
+    after
+        ok
+    end.
 
 %% aux
 

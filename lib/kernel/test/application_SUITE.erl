@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 	 otp_1586/1, otp_2078/1, otp_2012/1, otp_2718/1, otp_2973/1,
 	 otp_3002/1, otp_3184/1, otp_4066/1, otp_4227/1, otp_5363/1,
 	 otp_5606/1,
-	 start_phases/1, get_key/1, get_env/1,
+	 start_phases/1, get_key/1, get_env/1, get_supervisor/1,
 	 set_env/1, set_env_persistent/1, set_env_errors/1, optional_applications/1,
 	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1, otp_16504/1]).
@@ -58,7 +58,7 @@ all() ->
      load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env, ensure_all_started,
-     set_env, set_env_persistent, set_env_errors,
+     set_env, set_env_persistent, set_env_errors, get_supervisor,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
      shutdown_deadlock, config_relative_paths, optional_applications,
      persistent_env, handle_many_config_files, format_log_1, format_log_2,
@@ -960,9 +960,13 @@ ensure_started(_Conf) ->
     ok = application:unload(app1),
     ok.
 
-%% Test application:ensure_all_started/1-2.
+%% Test application:ensure_all_started/1-2-3.
 ensure_all_started(_Conf) ->
+    do_ensure_all_started(serial),
+    do_ensure_all_started(concurrent),
+    ok.
 
+do_ensure_all_started(Mode) ->
     {ok, Fd1} = file:open("app1.app", [write]),
     w_app1(Fd1),
     file:close(Fd1),
@@ -981,9 +985,10 @@ ensure_all_started(_Conf) ->
 
     %% Single app start/stop
     false = lists:keyfind(app1, 1, application:which_applications()),
-    {ok, [app1]} = application:ensure_all_started(app1), % app1 started
+    {ok, [app1]} = application:ensure_all_started(app1, temporary, Mode), % app1 started
     {app1, _, _} = lists:keyfind(app1, 1, application:which_applications()),
-    {ok, []} = application:ensure_all_started(app1), % no start needed
+    {ok, []} = application:ensure_all_started(app1, temporary), % no start needed
+    {ok, []} = application:ensure_all_started(app1, permanent), % no start needed
     ok = application:stop(app1),
     false = lists:keyfind(app1, 1, application:which_applications()),
     ok = application:unload(app1),
@@ -995,13 +1000,26 @@ ensure_all_started(_Conf) ->
 
     %% Start dependencies.
     {error, {not_started, app9}} = application:start(app10),
-    {ok, [app9,app10]} = application:ensure_all_started(app10, temporary),
+    {ok, [app9,app10]} = application:ensure_all_started(app10, temporary, Mode),
     {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
     {app10, _, _} = lists:keyfind(app10, 1, application:which_applications()),
     %% Only report apps/dependencies that actually needed to start
     ok = application:stop(app10),
     ok = application:unload(app10),
-    {ok, [app10]} = application:ensure_all_started(app10, temporary),
+    {ok, [app10]} = application:ensure_all_started(app10, temporary, Mode),
+    ok = application:stop(app9),
+    ok = application:unload(app9),
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+
+    %% Starts several
+    {ok, StartedSeveral} = application:ensure_all_started([app1, app10], temporary, Mode),
+    [app1,app10,app9] = lists:sort(StartedSeveral),
+    {app1, _, _} = lists:keyfind(app1, 1, application:which_applications()),
+    {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
+    {app10, _, _} = lists:keyfind(app10, 1, application:which_applications()),
+    ok = application:stop(app1),
+    ok = application:unload(app1),
     ok = application:stop(app9),
     ok = application:unload(app9),
     ok = application:stop(app10),
@@ -1016,16 +1034,16 @@ ensure_all_started(_Conf) ->
     %% nor app10 running after failing to start
     %% hopefully_not_an_existing_app
     {error, {hopefully_not_an_existing_app, {"no such file or directory", _}}}=
-	application:ensure_all_started(app_chain_error),
+	application:ensure_all_started(app_chain_error, temporary, Mode),
     false = lists:keyfind(app9, 1, application:which_applications()),
     false = lists:keyfind(app10, 1, application:which_applications()),
-    false = lists:keyfind(app_chain_error2,1,application:which_applications()),
+    false = lists:keyfind(app_chain_error2, 1, application:which_applications()),
     false = lists:keyfind(app_chain_error, 1, application:which_applications()),
     %% Here we will have app9 already running, and app10 should be
     %% able to boot fine.
     %% In this dependency failing, we expect app9 to still be running, but
     %% not app10 after failing to start hopefully_not_an_existing_app
-    {ok, [app9]} = application:ensure_all_started(app9, temporary),
+    {ok, [app9]} = application:ensure_all_started(app9, temporary, Mode),
     {error, {hopefully_not_an_existing_app, {"no such file or directory", _}}}=
 	application:ensure_all_started(app_chain_error),
     {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
@@ -1650,6 +1668,12 @@ get_env(Conf) when is_list(Conf) ->
     undefined = application:get_env(undefined_app, a),
     undefined = application:get_env(kernel, error_logger_xyz),
     default   = application:get_env(kernel, error_logger_xyz, default),
+    ok.
+
+get_supervisor(Conf) when is_list(Conf) ->
+    undefined = application:get_supervisor(stdlib),
+    {ok, Pid} = application:get_supervisor(kernel),
+    Pid = erlang:whereis(kernel_sup),
     ok.
 
 %%-----------------------------------------------------------------

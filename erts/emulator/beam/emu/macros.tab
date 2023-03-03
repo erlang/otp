@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2021. All Rights Reserved.
+// Copyright Ericsson AB 2017-2023. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,6 +74,12 @@ GC_SWAPOUT() {
     c_p->i = I;
 }
 
+MAYBE_EXIT_AFTER_GC() {
+    if (ERTS_PSFLG_EXITING & erts_atomic32_read_nob(&c_p->state)) {
+        goto context_switch3;
+    }
+}
+
 GC_TEST(Ns, Nh, Live) {
     Uint need = $Nh + $Ns;
     if (ERTS_UNLIKELY((E - HTOP) < (need + S_RESERVED))) {
@@ -83,6 +89,7 @@ GC_TEST(Ns, Nh, Live) {
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
        PROCESS_MAIN_CHK_LOCKS(c_p);
        SWAPIN;
+       $MAYBE_EXIT_AFTER_GC();
     }
     HEAP_SPACE_VERIFIED($Nh);
 }
@@ -98,6 +105,7 @@ GC_TEST_PRESERVE(NeedHeap, Live, PreserveTerm) {
        PROCESS_MAIN_CHK_LOCKS(c_p);
        $PreserveTerm = reg[$Live];
        SWAPIN;
+       $MAYBE_EXIT_AFTER_GC();
     }
     HEAP_SPACE_VERIFIED($NeedHeap);
 }

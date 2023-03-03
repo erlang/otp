@@ -171,11 +171,37 @@ $> erl
           to query terms, like <c>enif_is_atom</c>, <c>enif_is_identical</c>,
           and <c>enif_compare</c>.</p>
         <p>All terms of type <c>ERL_NIF_TERM</c> belong to an environment of
-          type <seecref marker="#ErlNifEnv"><c>ErlNifEnv</c></seecref>. The
-          lifetime of a term is controlled by the lifetime of its environment
-          object. All API functions that read or write terms has the
-          environment that the term belongs to as the first function
-          argument.</p>
+          type <seecref marker="#ErlNifEnv"><c>ErlNifEnv</c></seecref>,
+          except atoms created during loading (by callbacks
+          <seecref marker="#load"><c>load</c></seecref> or
+          <seecref marker="#upgrade"><c>upgrade</c></seecref>). The lifetime of
+          a term is controlled by the lifetime of its environment object. All
+          API functions that read or write terms have the environment that the
+          term belongs to as the first function argument. However, the atoms
+          created during loading can be referred as a term in any <c>ErlNifEnv</c>.
+          That is, the best practice it to create all your atoms during
+          loading and store them in static/global variables, for example:</p>
+          <code type="none"><![CDATA[
+#include <erl_nif.h>
+
+ERL_NIF_TERM world_atom;
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    world_atom = enif_make_atom(env, "world");
+    return 0;
+}
+
+static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM hello_string = enif_make_string(env, "Hello", ERL_NIF_LATIN1);
+    return enif_make_tuple2(env, hello_string, world_atom);
+}
+
+static ErlNifFunc nif_funcs[] = { { "hello", 0, hello } };
+
+ERL_NIF_INIT(niftest, nif_funcs, load, NULL, NULL, NULL)
+]]></code>
       </item>
       <tag>Binaries</tag>
       <item>

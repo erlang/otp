@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2018. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2023. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -325,6 +325,23 @@
     <xsl:attribute name="padding-right">1mm</xsl:attribute>
     <xsl:attribute name="margin-left">1mm</xsl:attribute>
     <xsl:attribute name="margin-right">1mm</xsl:attribute>
+  </xsl:attribute-set>
+
+  <xsl:attribute-set name="change-title">
+    <xsl:attribute name="space-before">0.5em</xsl:attribute>
+    <xsl:attribute name="border-style">solid</xsl:attribute>
+    <xsl:attribute name="border-bottom-width">0mm</xsl:attribute>
+    <xsl:attribute name="border-color">#495057</xsl:attribute>
+    <xsl:attribute name="background-color">#4682b4</xsl:attribute>
+    <xsl:attribute name="font-weight">bold</xsl:attribute>
+    <xsl:attribute name="color">#fefefe</xsl:attribute>
+    <xsl:attribute name="padding-before">1mm</xsl:attribute>
+    <xsl:attribute name="padding-after">0.5mm</xsl:attribute>
+    <xsl:attribute name="padding-left">1mm</xsl:attribute>
+    <xsl:attribute name="padding-right">1mm</xsl:attribute>
+    <xsl:attribute name="margin-left">1mm</xsl:attribute>
+    <xsl:attribute name="margin-right">1mm</xsl:attribute>
+    <xsl:attribute name="font-size">1.33em</xsl:attribute>
   </xsl:attribute-set>
 
   <xsl:attribute-set name="module-header">

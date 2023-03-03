@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -274,10 +274,14 @@ client_auth_seelfsigned_peer(Config) when is_list(Config) ->
     #{cert := Cert,
       key := Key} = public_key:pkix_test_root_cert("OTP test server ROOT", [{key, ssl_test_lib:hardcode_rsa_key(6)},
                                                                             {extensions, Ext}]),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
     DerKey = public_key:der_encode('RSAPrivateKey', Key),
-    ssl_test_lib:basic_alert(ssl_test_lib:ssl_options(extra_client, [{verify, verify_peer}, {cacerts , [Cert]}], Config),
+    ssl_test_lib:basic_alert(ssl_test_lib:ssl_options(extra_client, [{verify, verify_peer}, {cacerts , [Cert]}] ++
+                                                          ssl_test_lib:sig_algs(rsa, Version), Config),
                              ssl_test_lib:ssl_options(extra_server, [{cert, Cert},
-                                                                     {key, {'RSAPrivateKey', DerKey}}], Config), Config, bad_certificate).
+                                                                     {key, {'RSAPrivateKey', DerKey}}] ++
+                                                          ssl_test_lib:sig_algs(rsa, Version), Config),
+                             Config, bad_certificate).
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
      [{doc,"Test that the client succeeds if the ROOT CA is unknown in verify_none mode"}].
@@ -285,7 +289,7 @@ missing_root_cert_no_auth() ->
 missing_root_cert_no_auth(Config) ->
     ClientOpts = [{verify, verify_none} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
     ServerOpts =  [{verify, verify_none} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
-    
+
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------

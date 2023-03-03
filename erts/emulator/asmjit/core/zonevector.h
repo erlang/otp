@@ -480,7 +480,7 @@ public:
   //! Returns the capacity of the `BitWord[]` array in `BitWord` units.
   inline uint32_t capacityInBitWords() const noexcept { return _wordsPerBits(_capacity); }
 
-  //! REturns bit-vector data as `BitWord[]`.
+  //! Returns bit-vector data as `BitWord[]`.
   inline BitWord* data() noexcept { return _data; }
   //! \overload
   inline const BitWord* data() const noexcept { return _data; }

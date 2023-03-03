@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -173,7 +173,7 @@ send(Request, Opts) ->
 %% Message packing
 
 pack(Data) ->
-    <<(size(Data)):32/unsigned-big-integer, Data/binary>>.
+    <<(byte_size(Data)):32/unsigned-big-integer, Data/binary>>.
 
 %% SSH Agent message encoding
 

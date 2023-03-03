@@ -8,7 +8,9 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-Target::Target() noexcept : _environment() {}
+Target::Target() noexcept
+  : _environment{},
+    _cpuFeatures{} {}
 Target::~Target() noexcept {}
 
 ASMJIT_END_NAMESPACE

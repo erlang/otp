@@ -38,7 +38,6 @@ XML_REF3_FILES = \
 	fprof.xml \
 	cprof.xml \
 	lcnt.xml \
-	instrument.xml \
 	make.xml \
 	tags.xml \
 	xref.xml \

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 -define(C_GET_SO_REUSEADDR,14).
 -define(C_GET_SO_KEEPALIVE,15).
 -define(C_GET_SO_LINGER,16).
+-define(C_GET_SO_DONTROUTE,17).
 
 -define(C_GET_LINGER_SIZE,21).
 -define(C_GET_TCP_INFO_SIZE,22).
@@ -58,7 +59,7 @@
 	 large_raw/1,large_raw_getbin/1,combined/1,combined_getbin/1,
 	 ipv6_v6only_udp/1, ipv6_v6only_tcp/1, ipv6_v6only_sctp/1,
 	 use_ipv6_v6only_udp/1,
-	 type_errors/1]).
+	 type_errors/1, windows_reuseaddr/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -74,7 +75,7 @@ all() ->
      large_raw_getbin, combined, combined_getbin,
      ipv6_v6only_udp, ipv6_v6only_tcp, ipv6_v6only_sctp,
      use_ipv6_v6only_udp,
-     type_errors].
+     type_errors, windows_reuseaddr].
 
 groups() -> 
     [].
@@ -127,10 +128,12 @@ simple(Config) when is_list(Config) ->
 %% Loop through all socket options and check that they work.
 loop_all(Config) when is_list(Config) ->
     ListenFailures =
-	lists:foldr(make_check_fun(listen,1),[],all_listen_options()),
+	lists:foldr(make_check_fun(listen),[],all_listen_options()),
+    AcceptFailures =
+	lists:foldr(make_check_fun(accept),[],all_accept_options()),
     ConnectFailures =
-	lists:foldr(make_check_fun(connect,2),[],all_connect_options()),
-    case ListenFailures++ConnectFailures of
+	lists:foldr(make_check_fun(connect),[],all_connect_options()),
+    case ListenFailures++AcceptFailures++ConnectFailures of
 	[] ->
 	    ok;
 	Failed ->
@@ -206,56 +209,56 @@ do_multiple_raw(Config, Binary) ->
     SoKeepalive = ask_helper(Port, ?C_GET_SO_KEEPALIVE),
     SoKeepaliveTrue = {raw,SolSocket,SoKeepalive,<<1:32/native>>},
     SoKeepaliveFalse = {raw,SolSocket,SoKeepalive,<<0:32/native>>},
-    SoReuseaddr = ask_helper(Port, ?C_GET_SO_REUSEADDR),
-    SoReuseaddrTrue = {raw,SolSocket,SoReuseaddr,<<1:32/native>>},
-    SoReuseaddrFalse = {raw,SolSocket,SoReuseaddr,<<0:32/native>>},
+    SoDontroute = ask_helper(Port, ?C_GET_SO_DONTROUTE),
+    SoDontrouteTrue = {raw,SolSocket,SoDontroute,<<1:32/native>>},
+    SoDontrouteFalse = {raw,SolSocket,SoDontroute,<<0:32/native>>},
     {S1,S2} =
 	create_socketpair(
-	  [SoReuseaddrFalse,SoKeepaliveTrue],
-	  [SoKeepaliveFalse,SoReuseaddrTrue]),
-    {ok,[{reuseaddr,false},{keepalive,true}]} =
-	inet:getopts(S1, [reuseaddr,keepalive]),
+	  [SoDontrouteFalse,SoKeepaliveTrue],
+	  [SoKeepaliveFalse,SoDontrouteTrue]),
+    {ok,[{dontroute,false},{keepalive,true}]} =
+	inet:getopts(S1, [dontroute,keepalive]),
     {ok,
-     [{raw,SolSocket,SoReuseaddr,S1R1},
+     [{raw,SolSocket,SoDontroute,S1R1},
       {raw,SolSocket,SoKeepalive,S1K1}]} =
 	inet:getopts(
 	  S1,
-	  [{raw,SolSocket,SoReuseaddr,binarify(4, Binary)},
+	  [{raw,SolSocket,SoDontroute,binarify(4, Binary)},
 	   {raw,SolSocket,SoKeepalive,binarify(4, Binary)}]),
     true = nintbin2int(S1R1) =:= 0,
     true = nintbin2int(S1K1) =/= 0,
-    {ok,[{keepalive,false},{reuseaddr,true}]} =
-	inet:getopts(S2, [keepalive,reuseaddr]),
+    {ok,[{keepalive,false},{dontroute,true}]} =
+	inet:getopts(S2, [keepalive,dontroute]),
     {ok,
      [{raw,SolSocket,SoKeepalive,S2K1},
-      {raw,SolSocket,SoReuseaddr,S2R1}]} =
+      {raw,SolSocket,SoDontroute,S2R1}]} =
 	inet:getopts(
 	  S2,
 	  [{raw,SolSocket,SoKeepalive,binarify(4, Binary)},
-	   {raw,SolSocket,SoReuseaddr,binarify(4, Binary)}]),
+	   {raw,SolSocket,SoDontroute,binarify(4, Binary)}]),
     true = nintbin2int(S2K1) =:= 0,
     true = nintbin2int(S2R1) =/= 0,
     %%
     ok = inet:setopts(
-	   S1, [SoReuseaddrTrue,SoKeepaliveFalse]),
+	   S1, [SoDontrouteTrue,SoKeepaliveFalse]),
     ok = inet:setopts(
-	   S2, [SoKeepaliveTrue,SoReuseaddrFalse]),
+	   S2, [SoKeepaliveTrue,SoDontrouteFalse]),
     {ok,
-     [{raw,SolSocket,SoReuseaddr,S1R2},
+     [{raw,SolSocket,SoDontroute,S1R2},
       {raw,SolSocket,SoKeepalive,S1K2}]} =
 	inet:getopts(
 	  S1,
-	  [{raw,SolSocket,SoReuseaddr,binarify(4, Binary)},
+	  [{raw,SolSocket,SoDontroute,binarify(4, Binary)},
 	   {raw,SolSocket,SoKeepalive,binarify(4, Binary)}]),
     true = nintbin2int(S1R2) =/= 0,
     true = nintbin2int(S1K2) =:= 0,
     {ok,
      [{raw,SolSocket,SoKeepalive,S2K2},
-      {raw,SolSocket,SoReuseaddr,S2R2}]} =
+      {raw,SolSocket,SoDontroute,S2R2}]} =
 	inet:getopts(
 	  S2,
 	  [{raw,SolSocket,SoKeepalive,binarify(4, Binary)},
-	   {raw,SolSocket,SoReuseaddr,binarify(4, Binary)}]),
+	   {raw,SolSocket,SoDontroute,binarify(4, Binary)}]),
     true = nintbin2int(S2K2) =/= 0,
     true = nintbin2int(S2R2) =:= 0,
     %%
@@ -802,6 +805,57 @@ type_errors(Config) when is_list(Config) ->
     gen_tcp:close(Sock2),
     ok.
 
+windows_reuseaddr(Config) when is_list(Config) ->
+    %% Check that emulation of reuseaddr and reuseport on Windows
+    %% works as expected. That is, only set SO_REUSEADDR if both
+    %% reuseaddr and reuseport are set.
+    case os:type() of
+        {win32, _} ->
+            Port = start_helper(Config),
+            Def = {ask_helper(Port,?C_GET_SOL_SOCKET),
+                   ask_helper(Port,?C_GET_SO_REUSEADDR)},
+            stop_helper(Port),
+            {false, false} = windows_reuseaddr_test(Def,
+                                                    [{reuseaddr,false},{reuseport,false}],
+                                                    [{reuseaddr,false},{reuseport,false}]),
+            {false, false} = windows_reuseaddr_test(Def,
+                                                    [{reuseaddr,true},{reuseport,false}],
+                                                    [{reuseaddr,true},{reuseport,false}]),
+            {false, false} = windows_reuseaddr_test(Def,
+                                                    [{reuseaddr,false},{reuseport,true}],
+                                                    [{reuseaddr,false},{reuseport,true}]),
+            {true, true} = windows_reuseaddr_test(Def,
+                                                  [{reuseaddr,true},{reuseport,true}],
+                                                  [{reuseaddr,true},{reuseport,true}]),
+            ok;
+        _ ->
+            {skipped, "Test for Windows only"}
+    end.
+
+windows_reuseaddr_test({SolSocket, SoReuseaddr}, LOpts, COpts) ->
+    OptNames = fun (Opts) ->
+                       lists:map(fun ({Name,_}) -> Name end, Opts)
+               end,
+    {L,A,C} = create_socketpair_init(LOpts, COpts),
+    {ok, LOpts} = inet:getopts(L, OptNames(LOpts)),
+    {ok, COpts} = inet:getopts(L, OptNames(COpts)),
+    RawOpts = [{raw, SolSocket, SoReuseaddr, 4}],
+    {ok,[{raw,SolSocket,SoReuseaddr,LRes}]} = inet:getopts(L, RawOpts),
+    LReuseaddr = case nintbin2int(LRes) of
+                     0 -> false;
+                     _ -> true
+                 end,
+    {ok,[{raw,SolSocket,SoReuseaddr,CRes}]} = inet:getopts(L, RawOpts),
+    CReuseaddr = case nintbin2int(CRes) of
+                     0 -> false;
+                     _ -> true
+                 end,
+    gen_tcp:close(L),
+    gen_tcp:close(A),
+    gen_tcp:close(C),
+    {LReuseaddr, CReuseaddr}.
+
+
 all_ok([]) ->
     true;
 all_ok([H|T]) when H >= 0 ->
@@ -810,14 +864,23 @@ all_ok(_) ->
     false.
 
 
-make_check_fun(Type,Element) ->
+make_check_fun(Type) ->
     fun({Name,V1,V2,Mand,Chang},Acc) ->
-	    {LO1,CO1} = setelement(Element,{[],[]}, [{Name,V1}]),
-	    {LO2,CO2} = setelement(Element,{[],[]}, [{Name,V2}]),
-	    {X1,Y1} = create_socketpair(LO1,CO1),
-	    {X2,Y2} = create_socketpair(LO2,CO2),
-	    S1 = element(Element,{X1,Y1}),
-	    S2 = element(Element,{X2,Y2}),
+            {LO1,CO1} = case Type of
+                            connect -> {[],[{Name,V1}]};
+                            _ -> {[{Name,V1}],[]}
+                        end,
+            {LO2,CO2} = case Type of
+                            connect -> {[],[{Name,V2}]};
+                            _ -> {[{Name,V2}],[]}
+                        end,
+	    {X1,Y1,Z1} = create_socketpair_init(LO1,CO1),
+	    {X2,Y2,Z2} = create_socketpair_init(LO2,CO2),
+            {S1,S2} = case Type of
+                          listen -> {X1,X2};
+                          accept -> {Y1,Y2};
+                          connect -> {Z1,Z2}
+                      end,
 	    {ok,[{Name,R1}]} = inet:getopts(S1,[Name]),
 	    {ok,[{Name,R2}]} = inet:getopts(S2,[Name]),
 	    NewAcc =
@@ -856,16 +919,23 @@ make_check_fun(Type,Element) ->
 		end,
 	    gen_tcp:close(X1),
 	    gen_tcp:close(Y1),
+	    gen_tcp:close(Z1),
 	    gen_tcp:close(X2),
 	    gen_tcp:close(Y2),
+	    gen_tcp:close(Z2),
 	    NewAcc
     end.
 
 %% {OptionName,Value1,Value2,Mandatory,Changeable}
 all_listen_options() ->
+    OsType = os:type(),
+    OsVersion = os:version(),
     [{tos,0,1,false,true}, 
      {priority,0,1,false,true}, 
-     {reuseaddr,false,true,false,true}, 
+     {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),false},
+     {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),false},
+     {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),false},
+     {exclusiveaddruse,false,true,mandatory_exclusiveaddruse(OsType,OsVersion),false},
      {keepalive,false,true,true,true}, 
      {linger, {false,10}, {true,10},true,true},
      {sndbuf,2048,4096,false,true}, 
@@ -887,10 +957,22 @@ all_listen_options() ->
      {delay_send,false,true,true,true}, 
      {packet_size,0,4,true,true}
     ].
+
+all_accept_options() ->
+    A0 = lists:keydelete(exclusiveaddruse, 1, all_listen_options()),
+    A1 = lists:keydelete(reuseaddr, 1, A0),
+    A2 = lists:keydelete(reuseport, 1, A1),
+    lists:keydelete(reuseport_lb, 1, A2).
+
 all_connect_options() ->
+    OsType = os:type(),
+    OsVersion = os:version(),
     [{tos,0,1,false,true}, 
      {priority,0,1,false,true}, 
-     {reuseaddr,false,true,false,true}, 
+     {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),false},
+     {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),false},
+     {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),false},
+     {exclusiveaddruse,false,true,mandatory_exclusiveaddruse(OsType,OsVersion),false},
      {keepalive,false,true,true,true}, 
      {linger, {false,10}, {true,10},true,true},
      {sndbuf,2048,4096,false,true}, 
@@ -914,11 +996,55 @@ all_connect_options() ->
     ].
 
 
-create_socketpair(ListenOptions,ConnectOptions) ->
+%% Mandatory on a lot of system other than those listed below. Please add more...
+mandatory_reuseaddr({unix, linux}, _OsVersion) ->
+    true;
+mandatory_reuseaddr({unix, freebsd}, _OsVersion) ->
+    true;
+mandatory_reuseaddr({unix, darwin}, _OsVersion) ->
+    true;
+mandatory_reuseaddr({win32, _}, _OsVersion) ->
+    true; %% reuseaddr and reuseport are emulated by the inet-driver
+mandatory_reuseaddr(_OsType, _OsVersion) ->
+    false.
+
+%% Mandatory an a lot of system other than those listed below. Please add more...
+mandatory_reuseport({win32, _}, _OsVersion) ->
+    true; %% reuseaddr and reuseport are emulated by the inet-driver
+mandatory_reuseport({unix, linux}, {X,Y,_Z}) when X > 4 orelse X == 4 andalso Y >= 6 ->
+    true;
+mandatory_reuseport({unix, freebsd}, {X,Y,_Z}) when X > 11 orelse X == 11 andalso Y >= 4 ->
+    %% I know that it is available on 11.4, but it may be available earlier...
+    true;
+mandatory_reuseport({unix, darwin}, {X,Y,_Z}) when X > 26 orelse X == 26 andalso Y >= 6 ->
+    %% I know that it is available on 26.6, but it may be available earlier...
+    true;
+mandatory_reuseport(_OsType, _OsVersion) ->
+    false.
+
+%% Perhaps mandatory an system other than those listed below. Please add more...
+mandatory_reuseport_lb({unix, linux}, {X,Y,_Z}) when X > 4 orelse X == 4 andalso Y >= 6 ->
+    true;
+mandatory_reuseport_lb({unix, freebsd}, {X,Y,_Z}) when X > 13 orelse X == 13 andalso Y >= 1 ->
+    %% I know that it is available on 13.1, but it may be available earlier...
+    true;
+mandatory_reuseport_lb(_OsType, _OsVersion) ->
+    false.
+
+mandatory_exclusiveaddruse({win32, _}, {X,Y,_Z}) when X > 5 orelse X == 5 andalso Y >= 2 ->
+    true;
+mandatory_exclusiveaddruse(_OsType, _OsVersion) ->
+    false.
+
+create_socketpair_init(ListenOptions,ConnectOptions) ->
     {ok,LS}=gen_tcp:listen(0,ListenOptions),
     {ok,Port}=inet:port(LS),
     {ok,CS}=gen_tcp:connect(localhost,Port,ConnectOptions),
     {ok,AS}=gen_tcp:accept(LS),
+    {LS,AS,CS}.
+
+create_socketpair(ListenOptions,ConnectOptions) ->
+    {LS,AS,CS} = create_socketpair_init(ListenOptions,ConnectOptions),
     gen_tcp:close(LS),
     {AS,CS}.
 

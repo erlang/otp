@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -243,8 +243,8 @@
     <<0:48>>;
 
 'Address'(decode, <<A:16, B/binary>>, _)
-  when 1 == A,  4 == size(B);
-       2 == A, 16 == size(B) ->
+  when 1 == A,  4 == byte_size(B);
+       2 == A, 16 == byte_size(B) ->
     list_to_tuple([N || <<N:A/unit:8>> <= B]);
 
 %% Bytes for non-IP address types are left for the user to interpret.
