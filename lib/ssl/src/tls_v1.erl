@@ -31,7 +31,7 @@
 
 -export([master_secret/4,
          finished/5,
-         certificate_verify/3,
+         certificate_verify/2,
          mac_hash/7,
          hmac_hash/3,
          setup_keys/8,
@@ -211,20 +211,18 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
 
 %% TODO 1.3 finished
 
--spec certificate_verify(HashAlgo, Version, Handshake) -> binary() when
+-spec certificate_verify(HashAlgo, Handshake) -> binary() when
       HashAlgo :: md5sha | sha,
-      Version  :: {non_neg_integer(), non_neg_integer()},
       Handshake :: [binary()].
-%% TODO: remove 'Version', not used
 %% TLS 1.0 -1.1  ---------------------------------------------------
-certificate_verify(md5sha, _Version, Handshake) ->
+certificate_verify(md5sha, Handshake) ->
     MD5 = crypto:hash(md5, Handshake),
     SHA = crypto:hash(sha, Handshake),
     {digest, <<MD5/binary, SHA/binary>>};
 %% TLS 1.0 -1.1  ---------------------------------------------------
 
 %% TLS 1.2 ---------------------------------------------------
-certificate_verify(_HashAlgo, _Version, Handshake) ->
+certificate_verify(_HashAlgo, Handshake) ->
     %% crypto:hash(HashAlgo, Handshake).
     %% Optimization: Let crypto calculate the hash in sign/verify call
     Handshake.

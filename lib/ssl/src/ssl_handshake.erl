@@ -2331,8 +2331,8 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
     end.
 
 -spec calc_certificate_verify(ssl_record:ssl_version(), md5sha | sha, _, [binary()]) -> binary().
-calc_certificate_verify(?'TLS-1.X'=Version, HashAlgo, _MasterSecret, Handshake) ->
-    tls_v1:certificate_verify(HashAlgo, Version, lists:reverse(Handshake)).
+calc_certificate_verify(?'TLS-1.X', HashAlgo, _MasterSecret, Handshake) ->
+    tls_v1:certificate_verify(HashAlgo, lists:reverse(Handshake)).
 
 calc_finished(?'TLS-1.X'=Version, Role, PrfAlgo, MasterSecret, Handshake) ->
     tls_v1:finished(Role, Version, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
