@@ -1384,9 +1384,15 @@ pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt)
     pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer,
                        ResponderCerts, NonceExt);
 pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) ->
-    case ocsp_responses(OcspRespDer, ResponderCerts, NonceExt) of
+    case pubkey_ocsp:verify_ocsp_response(
+           OcspRespDer, ResponderCerts, NonceExt) of
         {ok, Responses} ->
-            ocsp_status(Cert, IssuerCert, Responses);
+            case pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses) of
+                {ok, #'SingleResponse'{certStatus = CertStatus}} ->
+                    pubkey_ocsp:ocsp_status(CertStatus);
+                {error, no_matched_response = Reason} ->
+                    {bad_cert, {revocation_status_undetermined, Reason}}
+            end;
         {error, Reason} ->
             {bad_cert, {revocation_status_undetermined, Reason}}
     end.
@@ -2036,17 +2042,6 @@ format_details([]) ->
     no_relevant_crls;
 format_details(Details) ->
     Details.
-
-ocsp_status(Cert, IssuerCert, Responses) ->
-    case pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses) of
-        {ok, #'SingleResponse'{certStatus = CertStatus}} ->
-            pubkey_ocsp:ocsp_status(CertStatus);
-        {error, no_matched_response = Reason} ->
-            {bad_cert, {revocation_status_undetermined, Reason}}
-    end.
-
-ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
-    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, ResponderCerts, Nonce).
 
 subject_public_key_info(Alg, PubKey) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
