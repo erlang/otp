@@ -228,14 +228,12 @@ certificate_verify(_HashAlgo, Handshake) ->
     Handshake.
 
 %% TLS 1.2 ---------------------------------------------------
-%% TODO: replace Version :: integer() to tuple()
--spec setup_keys(integer(), integer(), binary(), binary(), binary(), integer(),
+-spec setup_keys(ssl_record:ssl_version(), integer(), binary(), binary(), binary(), integer(),
 		 integer(), integer()) -> {binary(), binary(), binary(),
 					  binary(), binary(), binary()}.
 %% TLS v1.0  ---------------------------------------------------
-setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
-	   KeyMatLen, IVSize)
-  when Version == 1 ->
+setup_keys(?'TLS-1.0', _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+	   KeyMatLen, IVSize) ->
     %% RFC 2246 - 6.3. Key calculation
     %% key_block = PRF(SecurityParameters.master_secret,
     %%                      "key expansion",
@@ -260,9 +258,8 @@ setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize
 %% TLS v1.0  ---------------------------------------------------
 
 %% TLS v1.1 ---------------------------------------------------
-setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
-	   KeyMatLen, IVSize)
-  when Version == 2 ->
+setup_keys(?'TLS-1.1', _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+	   KeyMatLen, IVSize) ->
     %% RFC 4346 - 6.3. Key calculation
     %% key_block = PRF(SecurityParameters.master_secret,
     %%                      "key expansion",
@@ -288,9 +285,9 @@ setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize
 %% TLS v1.1 ---------------------------------------------------
 
 %% TLS v1.2  ---------------------------------------------------
-setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+setup_keys(?'TLS-1.X'=Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 	   KeyMatLen, IVSize)
-  when Version == 3; Version == 4 ->
+  when Version == ?'TLS-1.2'; Version == ?'TLS-1.3' ->
     %% RFC 5246 - 6.3. Key calculation
     %% key_block = PRF(SecurityParameters.master_secret,
     %%                      "key expansion",
