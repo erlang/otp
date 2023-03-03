@@ -52,7 +52,6 @@
          rsa_exclusive/1,
          prf/5,
          ecc_curves/1,
-         ecc_curves/2,
          oid_to_enum/1,
          enum_to_oid/1,
          default_signature_algs/1,
@@ -1139,11 +1138,13 @@ is_pair(Hash, rsa, Hashs) ->
 is_pair(_,_,_) ->
     false.
 
-%% TODO: remove 'Version' since it is not used
+%% Should we create a new function for ecc_curves(Version)
+%% and another explicit one for ecc_curve_named([TLSCurves])?
 %% list ECC curves in preferred order
 -spec ecc_curves(TLS | DTLS | all) -> [named_curve()] when
       TLS :: ?'TLS-1.0' | ?'TLS-1.1' | ?'TLS-1.2',
-      DTLS :: ?'DTLS-1.X'.
+      DTLS :: ?'DTLS-1.X';
+                ([named_curve()]) -> [named_curve()].
 ecc_curves(all) ->
     [sect571r1,sect571k1,secp521r1,brainpoolP512r1,
      sect409k1,sect409r1,brainpoolP384r1,secp384r1,
@@ -1152,13 +1153,11 @@ ecc_curves(all) ->
      sect193r1,sect193r2,secp192k1,secp192r1,sect163k1,
      sect163r1,sect163r2,secp160k1,secp160r1,secp160r2];
 
-ecc_curves(Version) ->
+ecc_curves(Version) when is_tuple(Version) ->
     TLSCurves = ecc_curves(all),
-    ecc_curves(Version, TLSCurves).
+    ecc_curves(TLSCurves);
 
-%% TODO: remove 'Version' since it is not used
--spec ecc_curves(?'TLS-1.0' | ?'TLS-1.1' | ?'TLS-1.2', [named_curve()]) -> [named_curve()].
-ecc_curves(_Version, TLSCurves) ->
+ecc_curves(TLSCurves) when is_list(TLSCurves) ->
     CryptoCurves = crypto:ec_curves(),
     lists:foldr(fun(Curve, Curves) ->
 			case proplists:get_bool(Curve, CryptoCurves) of

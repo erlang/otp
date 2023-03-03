@@ -189,7 +189,7 @@ handle_client_hello(Version,
 	    TLSVersion = dtls_v1:corresponding_tls_version(Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, TLSVersion),
-	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, TLSVersion, ECCOrder),
+	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite,
                             own_certificates = [OwnCert |_]} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, 

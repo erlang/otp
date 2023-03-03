@@ -2663,7 +2663,7 @@ tuple_to_map_mac(_, MAC) ->
 
 handle_eccs_option(Value, Version0) when is_list(Value) ->
     Version1 = tls_version(Version0),
-    try tls_v1:ecc_curves(Version1, Value) of
+    try tls_v1:ecc_curves(Version1) of
         Curves ->
             option_error(Curves =:= [], eccs, none_valid),
             #elliptic_curves{elliptic_curve_list = Curves}
