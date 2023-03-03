@@ -877,27 +877,27 @@ static const struct ioctl_flag {
 
 /* *** Windows macros *** */
 
-#define sock_accept(s, addr, len) \
-    make_noninheritable_handle(accept((s), (addr), (len)))
+/* #define sock_accept(s, addr, len)                            \
+   make_noninheritable_handle(accept((s), (addr), (len))) */
 // #define sock_bind(s, addr, len)        bind((s), (addr), (len))
 #define sock_close(s)                  closesocket((s))
 // #define sock_close_event(e)            WSACloseEvent(e)
 // #define sock_connect(s, addr, len)     connect((s), (addr), (len))
-#define sock_create_event(s)           WSACreateEvent()
+// #define sock_create_event(s)           WSACreateEvent()
 #define sock_errno()                   WSAGetLastError()
 #define sock_getopt(s,l,o,v,ln)        getsockopt((s),(l),(o),(v),(ln))
-#define sock_htons(x)                  htons((x))
-#define sock_htonl(x)                  htonl((x))
+// #define sock_htons(x)                  htons((x))
+// #define sock_htonl(x)                  htonl((x))
 #define sock_listen(s, b)              listen((s), (b))
 #define sock_name(s, addr, len)        getsockname((s), (addr), (len))
-#define sock_ntohs(x)                  ntohs((x))
-#define sock_open(domain, type, proto)                             \
-    make_noninheritable_handle(socket((domain), (type), (proto)))
+// #define sock_ntohs(x)                  ntohs((x))
+/* #define sock_open(domain, type, proto)                               \
+   make_noninheritable_handle(socket((domain), (type), (proto))) */
 #define sock_peer(s, addr, len)    getpeername((s), (addr), (len))
-#define sock_recv(s,buf,len,flag)  recv((s),(buf),(len),(flag))
+// #define sock_recv(s,buf,len,flag)  recv((s),(buf),(len),(flag))
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
     recvfrom((s),(buf),(blen),(flag),(addr),(alen))
-#define sock_send(s,buf,len,flag)      send((s),(buf),(len),(flag))
+/* #define sock_send(s,buf,len,flag)      send((s),(buf),(len),(flag)) */
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
     sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_setopt(s,l,o,v,ln)        setsockopt((s),(l),(o),(v),(ln))
@@ -933,14 +933,14 @@ static unsigned long one_value  = 1;
 #define sock_close(s)                   close((s))
 // #define sock_close_event(e)             /* do nothing */
 // #define sock_connect(s, addr, len)      connect((s), (addr), (len))
-#define sock_create_event(s)            (s) /* return file descriptor */
+// #define sock_create_event(s)            (s) /* return file descriptor */
 #define sock_errno()                    errno
 #define sock_getopt(s,t,n,v,l)          getsockopt((s),(t),(n),(v),(l))
-#define sock_htons(x)                   htons((x))
-#define sock_htonl(x)                   htonl((x))
+// #define sock_htons(x)                   htons((x))
+// #define sock_htonl(x)                   htonl((x))
 #define sock_listen(s, b)               listen((s), (b))
 #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
-#define sock_ntohs(x)                   ntohs((x))
+// #define sock_ntohs(x)                   ntohs((x))
 // #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
 // #define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
@@ -1120,6 +1120,11 @@ typedef struct {
     ESockIOGetopt                getopt;
     ESockIOGetoptNative          getopt_native;
     ESockIOGetoptOtp             getopt_otp;
+
+    /* Socket ioctl callback functions */
+    ESockIOIoctl_2               ioctl_2;
+    ESockIOIoctl_3               ioctl_3;
+    ESockIOIoctl_4               ioctl_4;
 
     /* (socket) NIF resource callback functions */
     ESockIODTor                  dtor;
@@ -1307,14 +1312,14 @@ static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
 /* And here comes the functions that does the actual work (for the most part) */
 
-static ERL_NIF_TERM esock_ioctl1(ErlNifEnv*       env,
+static ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
 				 unsigned long    req);
-static ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
+static ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
 				 unsigned long    req,
 				 ERL_NIF_TERM     arg);
-static ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
+static ERL_NIF_TERM esock_ioctl4(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
 				 unsigned long    req,
 				 ERL_NIF_TERM     ename,
@@ -2842,8 +2847,20 @@ static ESockIoBackend io_backend = {0};
      io_backend.getopt_native((ENV), (D), (L), (O), (VS)) :    \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_GETOPT_OTP(ENV, D, EO)                 \
-    ((io_backend.getopt_otp != NULL) ?                      \
+    ((io_backend.getopt_otp != NULL) ?                  \
      io_backend.getopt_otp((ENV), (D), (EO)) :          \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_IOCTL_2(ENV, D, R)                     \
+    ((io_backend.ioctl_2 != NULL) ?                     \
+     io_backend.ioctl_2((ENV), (D), (R)) :              \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_IOCTL_3(ENV, D, R, A)                  \
+    ((io_backend.ioctl_3 != NULL) ?                     \
+     io_backend.ioctl_3((ENV), (D), (R), (A)) :         \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_IOCTL_4(ENV, D, R, A1, A2)                \
+    ((io_backend.ioctl_4 != NULL) ?                        \
+     io_backend.ioctl_4((ENV), (D), (R), (A1), (A2)) :     \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
 
 #define ESOCK_IO_DTOR(ENV, D)                           \
@@ -10061,49 +10078,54 @@ ERL_NIF_TERM nif_ioctl(ErlNifEnv*         env,
 	 ("SOCKET", "nif_ioctl(%T) {%d} -> ioctl request %d"
 	  "\r\n", argv[0], descP->sock, req) );
 
+  /* Is this really enough? Why not the write mutex also? */
   MLOCK(descP->readMtx);
 
   if (! IS_OPEN(descP->readState)) {
     res = esock_make_error_closed(env);
   } else {
 
-    if (argc == 2) {
+      switch (argc) {
+      case 2:
+          /* Only one request with this number of arguments: gifconf
+           * Socket and request (=gifconf)
+           */
 
-      /* Only one request with this number of arguments: gifconf
-       * Socket and request (=gifconf)
-       */
+          /* Two arguments: socket and request */
+          res = ESOCK_IO_IOCTL_2(env, descP, req);
+          break;
 
-      /* Two arguments: Socket and get request */
-      res = esock_ioctl1(env, descP, req);
+      case 3:
+          /* (Currently) All *other* get requests has 3 arguments
+           * Socket, request and name/index
+           */
+          {
+              ERL_NIF_TERM earg = argv[2];
 
-    } else if (argc == 3) {
+              /* Three arguments: socket, request and arg */
+              res = ESOCK_IO_IOCTL_3(env, descP, req, earg);
+          }
+          break;
 
-      /* (Currently) All *other* get requests has 3 arguments
-       * Socket, request and name/index
-       */
+      case 4:
+          /* (Currently) Set requests has 4 arguments
+           * Socket, request, name and value
+           */
+          {
+              ERL_NIF_TERM earg1 = argv[2]; // (currently) Name
+              ERL_NIF_TERM earg2 = argv[3]; // Value
 
-      ERL_NIF_TERM earg = argv[2];
+              res = ESOCK_IO_IOCTL_4(env, descP, req, earg1, earg2);
+          }
+          break;
 
-      /* Two arguments: request and arg */
-      res = esock_ioctl2(env, descP, req, earg);
-
-    } else if (argc == 4) {
-
-      /* (Currently) Set requests has 4 arguments
-       * Socket, request, name and value
-       */
-
-      ERL_NIF_TERM earg1 = argv[2]; // (currently) Name
-      ERL_NIF_TERM earg2 = argv[3]; // Value
-
-      /* Three arguments: request, arg1 (name) and arg2 (value) */
-      res = esock_ioctl3(env, descP, req, earg1, earg2);
-
-    } else {
-
-        res = esock_make_error(env, esock_atom_einval);
-
-    }
+      default:
+          /* This is just to protect against programming errors,
+           * since we have an assert above!
+           */
+          res = esock_make_error(env, esock_atom_einval);
+          break;
+      }
   }
 
   MUNLOCK(descP->readMtx);
@@ -10121,7 +10143,7 @@ ERL_NIF_TERM nif_ioctl(ErlNifEnv*         env,
 #ifndef __WIN32__
 
 static
-ERL_NIF_TERM esock_ioctl1(ErlNifEnv*       env,
+ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
 			  ESockDescriptor* descP,
 			  unsigned long    req)
 {
@@ -10159,7 +10181,7 @@ ERL_NIF_TERM esock_ioctl1(ErlNifEnv*       env,
  * giftxqlen   name      string
  */
 static
-ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
+ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 			  ESockDescriptor* descP,
 			  unsigned long    req,
 			  ERL_NIF_TERM     arg)
@@ -10258,7 +10280,7 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
  * giftxqlen   name      string       Len      integer()
  */
 static
-ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
+ERL_NIF_TERM esock_ioctl4(ErlNifEnv*       env,
 			  ESockDescriptor* descP,
 			  unsigned long    req,
 			  ERL_NIF_TERM     ename,
@@ -14575,6 +14597,10 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.getopt_native  = esock_getopt_native;
     io_backend.getopt_otp     = esock_getopt_otp;
 
+    io_backend.ioctl_2        = NULL;
+    io_backend.ioctl_3        = NULL;
+    io_backend.ioctl_4        = NULL;
+
     io_backend.dtor           = esaio_dtor;
     io_backend.stop           = esaio_stop;
     io_backend.down           = esaio_down;
@@ -14620,6 +14646,10 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.getopt         = esock_getopt;
     io_backend.getopt_native  = esock_getopt_native;
     io_backend.getopt_otp     = esock_getopt_otp;
+
+    io_backend.ioctl_2        = esock_ioctl2;
+    io_backend.ioctl_3        = esock_ioctl3;
+    io_backend.ioctl_4        = esock_ioctl4;
 
     io_backend.dtor           = essio_dtor;
     io_backend.stop           = essio_stop;

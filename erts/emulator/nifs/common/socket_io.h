@@ -207,6 +207,19 @@ typedef ERL_NIF_TERM (*ESockIOGetoptOtp)(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
                                          int              eOpt);
 
+typedef ERL_NIF_TERM (*ESockIOIoctl_2)(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       unsigned long    req);
+typedef ERL_NIF_TERM (*ESockIOIoctl_3)(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       unsigned long    req,
+                                       ERL_NIF_TERM     arg);
+typedef ERL_NIF_TERM (*ESockIOIoctl_4)(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       unsigned long    req,
+                                       ERL_NIF_TERM     arg1,
+                                       ERL_NIF_TERM     arg2);
+
 typedef void (*ESockIODTor)(ErlNifEnv*       env,
                             ESockDescriptor* descP);
 typedef void (*ESockIOStop)(ErlNifEnv*       env,
