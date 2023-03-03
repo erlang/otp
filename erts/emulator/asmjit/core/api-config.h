@@ -13,7 +13,7 @@
 //! \{
 
 //! AsmJit library version in `(Major << 16) | (Minor << 8) | (Patch)` format.
-#define ASMJIT_LIBRARY_VERSION 0x010900 /* 1.9.0 */
+#define ASMJIT_LIBRARY_VERSION 0x010A00 /* 1.10.0 */
 
 //! \def ASMJIT_ABI_NAMESPACE
 //!
@@ -24,7 +24,7 @@
 //! default, which makes it possible to use use multiple AsmJit libraries within a single project, totally controlled
 //! by the users. This is useful especially in cases in which some of such library comes from a third party.
 #ifndef ASMJIT_ABI_NAMESPACE
-  #define ASMJIT_ABI_NAMESPACE _abi_1_9
+  #define ASMJIT_ABI_NAMESPACE _abi_1_10
 #endif
 
 //! \}
@@ -586,7 +586,7 @@ namespace asmjit {
 //! \def ASMJIT_DEFINE_ENUM_COMPARE(T)
 //!
 //! Defines comparison operations for enumeration flags.
-#ifdef _DOXYGEN
+#if defined(_DOXYGEN) || (defined(_MSC_VER) && _MSC_VER <= 1900)
   #define ASMJIT_DEFINE_ENUM_COMPARE(T)
 #else
   #define ASMJIT_DEFINE_ENUM_COMPARE(T)                                                \

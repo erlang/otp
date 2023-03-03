@@ -26,6 +26,10 @@ enum class JitAllocatorOptions : uint32_t {
   //! The first buffer has read and execute permissions and the second buffer has read+write permissions.
   //!
   //! See \ref VirtMem::allocDualMapping() for more details about this feature.
+  //!
+  //! \remarks Dual mapping would be automatically turned on by \ref JitAllocator in case of hardened runtime that
+  //! enforces `W^X` policy, so specifying this flag is essentually forcing to use dual mapped pages even when RWX
+  //! pages can be allocated and dual mapping is not necessary.
   kUseDualMapping = 0x00000001u,
 
   //! Enables the use of multiple pools with increasing granularity instead of a single pool. This flag would enable

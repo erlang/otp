@@ -38,7 +38,9 @@ Error RALocalAllocator::init() noexcept {
 
   physToWorkMap = _pass->newPhysToWorkMap();
   workToPhysMap = _pass->newWorkToPhysMap();
-  if (!physToWorkMap || !workToPhysMap)
+  _tmpWorkToPhysMap = _pass->newWorkToPhysMap();
+
+  if (!physToWorkMap || !workToPhysMap || !_tmpWorkToPhysMap)
     return DebugUtils::errored(kErrorOutOfMemory);
 
   _tmpAssignment.initLayout(_pass->_physRegCount, _pass->workRegs());
@@ -122,26 +124,18 @@ Error RALocalAllocator::makeInitialAssignment() noexcept {
   return kErrorOk;
 }
 
-Error RALocalAllocator::replaceAssignment(
-  const PhysToWorkMap* physToWorkMap,
-  const WorkToPhysMap* workToPhysMap) noexcept {
-
-  _curAssignment.copyFrom(physToWorkMap, workToPhysMap);
+Error RALocalAllocator::replaceAssignment(const PhysToWorkMap* physToWorkMap) noexcept {
+  _curAssignment.copyFrom(physToWorkMap);
   return kErrorOk;
 }
 
-Error RALocalAllocator::switchToAssignment(
-  PhysToWorkMap* dstPhysToWorkMap,
-  WorkToPhysMap* dstWorkToPhysMap,
-  const ZoneBitVector& liveIn,
-  bool dstReadOnly,
-  bool tryMode) noexcept {
-
+Error RALocalAllocator::switchToAssignment(PhysToWorkMap* dstPhysToWorkMap, const ZoneBitVector& liveIn, bool dstReadOnly, bool tryMode) noexcept {
   RAAssignment dst;
   RAAssignment& cur = _curAssignment;
 
   dst.initLayout(_pass->_physRegCount, _pass->workRegs());
-  dst.initMaps(dstPhysToWorkMap, dstWorkToPhysMap);
+  dst.initMaps(dstPhysToWorkMap, _tmpWorkToPhysMap);
+  dst.assignWorkIdsFromPhysIds();
 
   if (tryMode)
     return kErrorOk;
@@ -329,24 +323,27 @@ Cleared:
 
   if (!tryMode) {
     // Here is a code that dumps the conflicting part if something fails here:
-    //   if (!dst.equals(cur)) {
-    //     uint32_t physTotal = dst._layout.physTotal;
-    //     uint32_t workCount = dst._layout.workCount;
+    // if (!dst.equals(cur)) {
+    //   uint32_t physTotal = dst._layout.physTotal;
+    //   uint32_t workCount = dst._layout.workCount;
     //
-    //     for (uint32_t physId = 0; physId < physTotal; physId++) {
-    //       uint32_t dstWorkId = dst._physToWorkMap->workIds[physId];
-    //       uint32_t curWorkId = cur._physToWorkMap->workIds[physId];
-    //       if (dstWorkId != curWorkId)
-    //         fprintf(stderr, "[PhysIdWork] PhysId=%u WorkId[DST(%u) != CUR(%u)]\n", physId, dstWorkId, curWorkId);
-    //     }
+    //   fprintf(stderr, "Dirty    DST=0x%08X CUR=0x%08X\n", dst.dirty(RegGroup::kGp), cur.dirty(RegGroup::kGp));
+    //   fprintf(stderr, "Assigned DST=0x%08X CUR=0x%08X\n", dst.assigned(RegGroup::kGp), cur.assigned(RegGroup::kGp));
     //
-    //     for (uint32_t workId = 0; workId < workCount; workId++) {
-    //       uint32_t dstPhysId = dst._workToPhysMap->physIds[workId];
-    //       uint32_t curPhysId = cur._workToPhysMap->physIds[workId];
-    //       if (dstPhysId != curPhysId)
-    //         fprintf(stderr, "[WorkToPhys] WorkId=%u PhysId[DST(%u) != CUR(%u)]\n", workId, dstPhysId, curPhysId);
-    //     }
+    //   for (uint32_t physId = 0; physId < physTotal; physId++) {
+    //     uint32_t dstWorkId = dst._physToWorkMap->workIds[physId];
+    //     uint32_t curWorkId = cur._physToWorkMap->workIds[physId];
+    //     if (dstWorkId != curWorkId)
+    //       fprintf(stderr, "[PhysIdWork] PhysId=%u WorkId[DST(%u) != CUR(%u)]\n", physId, dstWorkId, curWorkId);
     //   }
+    //
+    //   for (uint32_t workId = 0; workId < workCount; workId++) {
+    //     uint32_t dstPhysId = dst._workToPhysMap->physIds[workId];
+    //     uint32_t curPhysId = cur._workToPhysMap->physIds[workId];
+    //     if (dstPhysId != curPhysId)
+    //       fprintf(stderr, "[WorkToPhys] WorkId=%u PhysId[DST(%u) != CUR(%u)]\n", workId, dstPhysId, curPhysId);
+    //   }
+    // }
     ASMJIT_ASSERT(dst.equals(cur));
   }
 
@@ -839,6 +836,34 @@ Error RALocalAllocator::allocInst(InstNode* node) noexcept {
     // STEP 9
     // ------
     //
+    // Vector registers can be cloberred partially by invoke - find if that's the case and clobber when necessary.
+
+    if (node->isInvoke() && group == RegGroup::kVec) {
+      const InvokeNode* invokeNode = node->as<InvokeNode>();
+
+      RegMask maybeClobberedRegs = invokeNode->detail().callConv().preservedRegs(group) & _curAssignment.assigned(group);
+      if (maybeClobberedRegs) {
+        uint32_t saveRestoreVecSize = invokeNode->detail().callConv().saveRestoreRegSize(group);
+        Support::BitWordIterator<RegMask> it(maybeClobberedRegs);
+
+        do {
+          uint32_t physId = it.next();
+          uint32_t workId = _curAssignment.physToWorkId(group, physId);
+
+          RAWorkReg* workReg = workRegById(workId);
+          uint32_t virtSize = workReg->virtReg()->virtSize();
+
+          if (virtSize > saveRestoreVecSize) {
+            ASMJIT_PROPAGATE(onSpillReg(group, workId, physId));
+          }
+
+        } while (it.hasNext());
+      }
+    }
+
+    // STEP 10
+    // -------
+    //
     // Assign OUT registers.
 
     if (outPending) {
@@ -981,12 +1006,7 @@ Error RALocalAllocator::allocBranch(InstNode* node, RABlock* target, RABlock* co
 
   // Use TryMode of `switchToAssignment()` if possible.
   if (target->hasEntryAssignment()) {
-    ASMJIT_PROPAGATE(switchToAssignment(
-      target->entryPhysToWorkMap(),
-      target->entryWorkToPhysMap(),
-      target->liveIn(),
-      target->isAllocated(),
-      true));
+    ASMJIT_PROPAGATE(switchToAssignment(target->entryPhysToWorkMap(), target->liveIn(), target->isAllocated(), true));
   }
 
   ASMJIT_PROPAGATE(allocInst(node));
@@ -997,12 +1017,7 @@ Error RALocalAllocator::allocBranch(InstNode* node, RABlock* target, RABlock* co
     BaseNode* prevCursor = _cc->setCursor(injectionPoint);
 
     _tmpAssignment.copyFrom(_curAssignment);
-    ASMJIT_PROPAGATE(switchToAssignment(
-      target->entryPhysToWorkMap(),
-      target->entryWorkToPhysMap(),
-      target->liveIn(),
-      target->isAllocated(),
-      false));
+    ASMJIT_PROPAGATE(switchToAssignment(target->entryPhysToWorkMap(), target->liveIn(), target->isAllocated(), false));
 
     BaseNode* curCursor = _cc->cursor();
     if (curCursor != injectionPoint) {
@@ -1060,7 +1075,6 @@ Error RALocalAllocator::allocJumpTable(InstNode* node, const RABlocks& targets, 
   if (!sharedAssignment.empty()) {
     ASMJIT_PROPAGATE(switchToAssignment(
       sharedAssignment.physToWorkMap(),
-      sharedAssignment.workToPhysMap(),
       sharedAssignment.liveIn(),
       true,  // Read-only.
       false  // Try-mode.

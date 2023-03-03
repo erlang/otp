@@ -117,7 +117,7 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
       case TypeId::kUInt32:
       case TypeId::kInt64:
       case TypeId::kUInt64:
-        return emitter->mov(src.as<Gp>().x(), dst.as<Gp>().x());
+        return emitter->mov(dst.as<Gp>().x(), src.as<Gp>().x());
 
       default: {
         if (TypeUtils::isFloat32(typeId) || TypeUtils::isVec32(typeId))

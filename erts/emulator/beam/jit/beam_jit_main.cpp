@@ -120,33 +120,47 @@ static void install_bifs(void) {
     }
 }
 
-static JitAllocator *create_allocator(JitAllocator::CreateParams *params) {
+static auto create_allocator(const JitAllocator::CreateParams &params) {
     void *test_ro, *test_rw;
+    bool single_mapped;
     Error err;
 
 #if defined(__APPLE__) && defined(__aarch64__)
-    /* Using a single map will not work on Apple Silicon. */
-    if (params->options == JitAllocatorOptions::kNone) {
-        return nullptr;
+    /* Using a single map will not work on Apple Silicon. The allocation may
+     * succeed but be unusable. */
+    if (!(params->options & JitAllocatorOptions::kDualMapping)) {
+        return std::make_pair((JitAllocator *)nullptr, false);
     }
 #endif
 
-    auto *allocator = new JitAllocator(params);
+    auto *allocator = new JitAllocator(&params);
 
     err = allocator->alloc(&test_ro, &test_rw, 1);
+
+    if (err == ErrorCode::kErrorOk) {
+        /* We can get dual-mapped memory when asking for single-mapped memory
+         * if the latter is not possible: return whether that happened. */
+        single_mapped = (test_ro == test_rw);
+    }
+
     allocator->release(test_ro);
 
     if (err == ErrorCode::kErrorOk) {
-        return allocator;
+        return std::make_pair(allocator, single_mapped);
     }
 
     delete allocator;
-    return nullptr;
+    return std::make_pair((JitAllocator *)nullptr, false);
 }
 
 static JitAllocator *pick_allocator() {
-    JitAllocator::CreateParams single_params;
-    single_params.reset();
+    JitAllocator::CreateParams params;
+    JitAllocator *allocator;
+    bool single_mapped;
+
+#if defined(VALGRIND)
+    erts_jit_single_map = 1;
+#endif
 
 #if defined(HAVE_LINUX_PERF_SUPPORT)
     /* `perf` has a hard time showing symbols for dual-mapped memory, so we'll
@@ -156,17 +170,6 @@ static JitAllocator *pick_allocator() {
     }
 #endif
 
-    if (erts_jit_single_map) {
-        if (auto *alloc = create_allocator(&single_params)) {
-            return alloc;
-        }
-
-        ERTS_INTERNAL_ERROR("jit: Failed to allocate executable+writable "
-                            "memory. Either allow this or disable both the "
-                            "'+JPperf' and '+JMsingle' options.");
-    }
-
-#if !defined(VALGRIND)
     /* Default to dual-mapped memory with separate executable and writable
      * regions of the same code. This is required for platforms that enforce
      * W^X, and we prefer it when available to catch errors sooner.
@@ -176,28 +179,34 @@ static JitAllocator *pick_allocator() {
      * file descriptor per block on most platforms. The block sizes do grow
      * over time, but we don't want to waste half a dozen fds just to get to
      * the shell on platforms that are very fd-constrained. */
-    JitAllocator::CreateParams dual_params;
+    params.reset();
+    params.blockSize = 4 << 20;
 
-    dual_params.reset();
-    dual_params.options = JitAllocatorOptions::kUseDualMapping,
-    dual_params.blockSize = 4 << 20;
+    allocator = nullptr;
+    single_mapped = false;
 
-    if (auto *alloc = create_allocator(&dual_params)) {
-        return alloc;
-    } else if (auto *alloc = create_allocator(&single_params)) {
-        return alloc;
+    if (!erts_jit_single_map) {
+        params.options = JitAllocatorOptions::kUseDualMapping;
+        std::tie(allocator, single_mapped) = create_allocator(params);
     }
 
-    ERTS_INTERNAL_ERROR("jit: Cannot allocate executable memory. Use the "
-                        "interpreter instead.");
-#elif defined(VALGRIND)
-    if (auto *alloc = create_allocator(&single_params)) {
-        return alloc;
+    if (allocator == nullptr) {
+        params.options &= ~JitAllocatorOptions::kUseDualMapping;
+        std::tie(allocator, single_mapped) = create_allocator(params);
     }
 
-    ERTS_INTERNAL_ERROR("jit: the valgrind emulator requires the ability to "
-                        "allocate executable+writable memory.");
-#endif
+    if (erts_jit_single_map && !single_mapped) {
+        ERTS_INTERNAL_ERROR("jit: Failed to allocate executable+writable "
+                            "memory. Either allow this or disable both the "
+                            "'+JPperf' and '+JMsingle' options.");
+    }
+
+    if (allocator == nullptr) {
+        ERTS_INTERNAL_ERROR("jit: Cannot allocate executable memory. Use the "
+                            "interpreter instead.");
+    }
+
+    return allocator;
 }
 
 void beamasm_init() {

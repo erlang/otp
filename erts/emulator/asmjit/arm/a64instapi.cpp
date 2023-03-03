@@ -8,7 +8,7 @@
 
 #include "../core/cpuinfo.h"
 #include "../core/misc_p.h"
-#include "../core/support.h"
+#include "../core/support_p.h"
 #include "../arm/a64instapi_p.h"
 #include "../arm/a64instdb_p.h"
 #include "../arm/a64operand.h"
@@ -26,8 +26,11 @@ Error InstInternal::instIdToString(Arch arch, InstId instId, String& output) noe
   if (ASMJIT_UNLIKELY(!Inst::isDefinedId(realId)))
     return DebugUtils::errored(kErrorInvalidInstruction);
 
-  const InstDB::InstInfo& info = InstDB::infoById(realId);
-  return output.append(InstDB::_nameData + info._nameDataIndex);
+
+  char nameData[32];
+  size_t nameSize = Support::decodeInstName(nameData, InstDB::_instNameIndexTable[realId], InstDB::_instNameStringTable);
+
+  return output.append(nameData, nameSize);
 }
 
 InstId InstInternal::stringToInstId(Arch arch, const char* s, size_t len) noexcept {
@@ -46,30 +49,28 @@ InstId InstInternal::stringToInstId(Arch arch, const char* s, size_t len) noexce
   if (ASMJIT_UNLIKELY(prefix > 'z' - 'a'))
     return Inst::kIdNone;
 
-  uint32_t index = InstDB::instNameIndex[prefix].start;
-  if (ASMJIT_UNLIKELY(!index))
+  size_t base = InstDB::instNameIndex[prefix].start;
+  size_t end = InstDB::instNameIndex[prefix].end;
+
+  if (ASMJIT_UNLIKELY(!base))
     return Inst::kIdNone;
 
-  const char* nameData = InstDB::_nameData;
-  const InstDB::InstInfo* table = InstDB::_instInfoTable;
+  char nameData[32];
+  for (size_t lim = end - base; lim != 0; lim >>= 1) {
+    size_t instId = base + (lim >> 1);
+    size_t nameSize = Support::decodeInstName(nameData, InstDB::_instNameIndexTable[instId], InstDB::_instNameStringTable);
 
-  const InstDB::InstInfo* base = table + index;
-  const InstDB::InstInfo* end  = table + InstDB::instNameIndex[prefix].end;
+    int result = Support::compareStringViews(s, len, nameData, nameSize);
+    if (result < 0)
+      continue;
 
-  for (size_t lim = (size_t)(end - base); lim != 0; lim >>= 1) {
-    const InstDB::InstInfo* cur = base + (lim >> 1);
-    int result = Support::cmpInstName(nameData + cur[0]._nameDataIndex, s, len);
-
-    if (result < 0) {
-      base = cur + 1;
+    if (result > 0) {
+      base = instId + 1;
       lim--;
       continue;
     }
 
-    if (result > 0)
-      continue;
-
-    return uint32_t((size_t)(cur - table));
+    return InstId(instId);
   }
 
   return Inst::kIdNone;
@@ -139,7 +140,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
   if (ASMJIT_UNLIKELY(!Inst::isDefinedId(realId)))
     return DebugUtils::errored(kErrorInvalidInstruction);
 
-  out->_instFlags = 0;
+  out->_instFlags = InstRWFlags::kNone;
   out->_opCount = uint8_t(opCount);
   out->_rmFeature = 0;
   out->_extraReg.reset();
