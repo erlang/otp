@@ -153,6 +153,13 @@ static ERL_NIF_TERM essio_cancel_send_waiting(ErlNifEnv*       env,
                                               ESockDescriptor* descP,
                                               ERL_NIF_TERM     opRef,
                                               const ErlNifPid* selfP);
+static ERL_NIF_TERM essio_cancel_recv_current(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM essio_cancel_recv_waiting(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     opRef,
+                                              const ErlNifPid* selfP);
 
 static ERL_NIF_TERM essio_accept_listening_error(ErlNifEnv*       env,
                                                  ESockDescriptor* descP,
@@ -2883,7 +2890,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
         /* Inform the waiting Writers (in the same way) */
 
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "do_stop {%d} -> handle waiting writer(s)\r\n",
                 descP->sock) );
 
@@ -2941,7 +2948,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
         /* Inform the Readers (in the same way) */
 
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "do_stop {%d} -> handle waiting reader(s)\r\n",
                 descP->sock) );
 
@@ -2979,7 +2986,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
         /* Inform the waiting Acceptor (in the same way) */
 
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "do_stop {%d} -> handle waiting acceptors(s)\r\n",
                 descP->sock) );
 
@@ -3152,7 +3159,8 @@ ERL_NIF_TERM essio_cancel_connect(ErlNifEnv*       env,
 
 
 
-/* *** esock_cancel_accept ***
+/* ========================================================================
+ * Cancel accept request
  *
  * We have two different cases:
  *   *) Its the current acceptor
@@ -3271,7 +3279,8 @@ ERL_NIF_TERM essio_cancel_accept_waiting(ErlNifEnv*       env,
 
 
 
-/* *** esock_cancel_send ***
+/* ========================================================================
+ * Cancel send request
  *
  * Cancel a send operation.
  * Its either the current writer or one of the waiting writers.
@@ -3361,10 +3370,10 @@ ERL_NIF_TERM essio_cancel_send_current(ErlNifEnv*       env,
 }
 
 
+
 /* These processes have not performed a select, so we can simply
  * remove them from the writer queue.
  */
-
 static
 ERL_NIF_TERM essio_cancel_send_waiting(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
@@ -3379,6 +3388,118 @@ ERL_NIF_TERM essio_cancel_send_waiting(ErlNifEnv*       env,
         return esock_atom_not_found;
     }
 }
+
+
+
+/* ========================================================================
+ * Cancel receive request
+ *
+ * Cancel a read operation.
+ * Its either the current reader or one of the waiting readers.
+ */
+extern
+ERL_NIF_TERM essio_cancel_recv(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     opRef)
+{
+    ERL_NIF_TERM res;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_recv(%T), {%d,0x%X} -> entry with"
+            "\r\n   opRef: %T"
+            "\r\n   %s"
+            "\r\n",
+            sockRef,  descP->sock, descP->readState,
+            opRef,
+            ((descP->currentReaderP == NULL)
+             ? "without reader" : "with reader")) );
+
+    if (! IS_OPEN(descP->readState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if (descP->currentReaderP == NULL) {
+
+        res =  esock_atom_not_found;
+
+    } else {
+        ErlNifPid self;
+
+        ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+        if (COMPARE_PIDS(&self, &descP->currentReader.pid) == 0) {
+            if (COMPARE(opRef, descP->currentReader.ref) == 0)
+                res = essio_cancel_recv_current(env, descP, sockRef);
+            else
+                res =  esock_atom_not_found;
+        } else {
+            res = essio_cancel_recv_waiting(env, descP, opRef, &self);
+        }
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_recv(%T) {%d} -> done with result:"
+            "\r\n   %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+
+    return res;
+
+}
+
+
+/* The current reader process has an ongoing select we first must
+ * cancel. Then we must re-activate the "first" (the first
+ * in the reader queue).
+ */
+static
+ERL_NIF_TERM essio_cancel_recv_current(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM res;
+
+    ESOCK_ASSERT( DEMONP("essio_cancel_recv_current -> current reader",
+                         env, descP, &descP->currentReader.mon) == 0);
+    res = esock_cancel_read_select(env, descP, descP->currentReader.ref);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_recv_current(%T) {%d} -> cancel res: %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+    if (!esock_activate_next_reader(env, descP, sockRef)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_cancel_recv_current(%T) {%d} -> no more readers"
+                "\r\n", sockRef, descP->sock) );
+
+        descP->currentReaderP = NULL;
+    }
+
+    return res;
+}
+
+
+/* These processes have not performed a select, so we can simply
+ * remove them from the reader queue.
+ */
+static
+ERL_NIF_TERM essio_cancel_recv_waiting(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     opRef,
+                                       const ErlNifPid* selfP)
+{
+    /* unqueue request from (reader) queue */
+
+    if (esock_reader_unqueue(env, descP, &opRef, selfP)) {
+        return esock_atom_ok;
+    } else {
+        return esock_atom_not_found;
+    }
+}
+
 
 
 

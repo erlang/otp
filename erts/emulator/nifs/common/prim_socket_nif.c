@@ -1543,6 +1543,7 @@ static ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					int              ivalue);
 
+/*
 static ERL_NIF_TERM esock_cancel_recv_current(ErlNifEnv*       env,
                                               ESockDescriptor* descP,
                                               ERL_NIF_TERM     sockRef);
@@ -1550,7 +1551,7 @@ static ERL_NIF_TERM esock_cancel_recv_waiting(ErlNifEnv*       env,
                                               ESockDescriptor* descP,
                                               ERL_NIF_TERM     opRef,
                                               const ErlNifPid* selfP);
-
+*/
 
 /* *** esock_activate_next_acceptor ***
  * *** esock_activate_next_writer   ***
@@ -1974,10 +1975,12 @@ static ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
                                  ERL_NIF_TERM     op,
                                  ERL_NIF_TERM     sockRef,
                                  ERL_NIF_TERM     opRef);
+/*
 static ERL_NIF_TERM esock_cancel_recv(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     opRef);
+*/
 static ERL_NIF_TERM esock_listen(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  int              backlog);
@@ -11393,125 +11396,6 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
 }
 
 
-
-/* *** esock_cancel_recv ***
- *
- * Cancel a read operation.
- * Its either the current reader or one of the waiting readers.
- */
-static
-ERL_NIF_TERM esock_cancel_recv(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ERL_NIF_TERM     sockRef,
-                               ERL_NIF_TERM     opRef)
-{
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
-    ERL_NIF_TERM res;
-
-    SSDBG( descP,
-           ("SOCKET",
-            "esock_cancel_recv(%T), {%d,0x%X} -> entry with"
-            "\r\n   opRef: %T"
-            "\r\n   %s"
-            "\r\n",
-            sockRef,  descP->sock, descP->readState,
-            opRef,
-            ((descP->currentReaderP == NULL)
-             ? "without reader" : "with reader")) );
-
-    if (! IS_OPEN(descP->readState)) {
-
-        res = esock_make_error_closed(env);
-
-    } else if (descP->currentReaderP == NULL) {
-
-        res =  esock_atom_not_found;
-
-    } else {
-        ErlNifPid self;
-
-        ESOCK_ASSERT( enif_self(env, &self) != NULL );
-
-        if (COMPARE_PIDS(&self, &descP->currentReader.pid) == 0) {
-            if (COMPARE(opRef, descP->currentReader.ref) == 0)
-                res = esock_cancel_recv_current(env, descP, sockRef);
-            else
-                res =  esock_atom_not_found;
-        } else {
-            res = esock_cancel_recv_waiting(env, descP, opRef, &self);
-        }
-    }
-
-    SSDBG( descP,
-           ("SOCKET", "esock_cancel_recv(%T) {%d} -> done with result:"
-            "\r\n   %T"
-            "\r\n", sockRef, descP->sock, res) );
-
-
-    return res;
-
-#endif // #ifdef __WIN32__  #else
-}
-
-
-/* The current reader process has an ongoing select we first must
- * cancel. Then we must re-activate the "first" (the first
- * in the reader queue).
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_cancel_recv_current(ErlNifEnv*       env,
-                                       ESockDescriptor* descP,
-                                       ERL_NIF_TERM     sockRef)
-{
-    ERL_NIF_TERM res;
-
-    ESOCK_ASSERT( DEMONP("esock_cancel_recv_current -> current reader",
-                         env, descP, &descP->currentReader.mon) == 0);
-    res = esock_cancel_read_select(env, descP, descP->currentReader.ref);
-
-    SSDBG( descP,
-           ("SOCKET", "esock_cancel_recv_current(%T) {%d} -> cancel res: %T"
-            "\r\n", sockRef, descP->sock, res) );
-
-    if (!esock_activate_next_reader(env, descP, sockRef)) {
-        SSDBG( descP,
-               ("SOCKET",
-                "esock_cancel_recv_current(%T) {%d} -> no more readers"
-                "\r\n", sockRef, descP->sock) );
-
-        descP->currentReaderP = NULL;
-    }
-
-    return res;
-}
-#endif // #ifndef __WIN32__
-
-
-/* These processes have not performed a select, so we can simply
- * remove them from the reader queue.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_cancel_recv_waiting(ErlNifEnv*       env,
-                                       ESockDescriptor* descP,
-                                       ERL_NIF_TERM     opRef,
-                                       const ErlNifPid* selfP)
-{
-    /* unqueue request from (reader) queue */
-
-    if (esock_reader_unqueue(env, descP, &opRef, selfP)) {
-        return esock_atom_ok;
-    } else {
-        return esock_atom_not_found;
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-
 #ifndef __WIN32__
 extern
 ERL_NIF_TERM esock_cancel_read_select(ErlNifEnv*       env,
@@ -14728,7 +14612,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.cancel_connect = essio_cancel_connect;
     io_backend.cancel_accept  = essio_cancel_accept;
     io_backend.cancel_send    = essio_cancel_send;
-    io_backend.cancel_recv    = esock_cancel_recv;
+    io_backend.cancel_recv    = essio_cancel_recv;
 
     io_backend.setopt         = esock_setopt;
     io_backend.setopt_native  = esock_setopt_native;

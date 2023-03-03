@@ -139,6 +139,10 @@ extern ERL_NIF_TERM essio_cancel_send(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     opRef);
+extern ERL_NIF_TERM essio_cancel_recv(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     opRef);
 
 extern void essio_dtor(ErlNifEnv*       env,
                        ESockDescriptor* descP);
