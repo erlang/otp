@@ -1422,13 +1422,14 @@ parse_t2b_opts(Eterm opts, Uint *flagsp, int *levelp, int *iovecp, Uint *fsizep)
 	    if (tp[1] == am_minor_version && is_small(tp[2])) {
 		switch (signed_val(tp[2])) {
 		case 0:
-		    flags = TERM_TO_BINARY_DFLAGS & ~DFLAG_NEW_FLOATS;
+		    flags = (TERM_TO_BINARY_DFLAGS
+                             & ~(DFLAG_NEW_FLOATS | DFLAG_UTF8_ATOMS));
 		    break;
 		case 1: /* Current default... */
-		    flags = TERM_TO_BINARY_DFLAGS;
+		    flags = TERM_TO_BINARY_DFLAGS & ~DFLAG_UTF8_ATOMS;
                     break;
                 case 2:
-                    flags = TERM_TO_BINARY_DFLAGS | DFLAG_UTF8_ATOMS;
+                    flags = TERM_TO_BINARY_DFLAGS;
 		    break;
 		default:
                     return 0; /* badarg */
