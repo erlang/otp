@@ -721,7 +721,7 @@ elliptic_curves(Version) when Version < ?'TLS-1.3' ->
 
 %% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
 supported_groups(?'TLS-1.X'=Version) when Version >= ?'TLS-1.3' ->
-    SupportedGroups = tls_v1:groups(Version),
+    SupportedGroups = tls_v1:groups(),
     #supported_groups{supported_groups = SupportedGroups}.
 
 

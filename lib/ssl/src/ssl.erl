@@ -1141,14 +1141,14 @@ eccs_filter_supported(Curves) ->
 %% Description: returns all supported groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
 groups() ->
-    tls_v1:groups(?'TLS-1.3').
+    tls_v1:groups().
 
 %%--------------------------------------------------------------------
 -spec groups(default) -> [group()].
 %% Description: returns the default groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
 groups(default) ->
-    tls_v1:default_groups(?'TLS-1.3').
+    tls_v1:default_groups().
 
 %%--------------------------------------------------------------------
 -spec getopts(SslSocket, OptionNames) ->
@@ -2674,7 +2674,7 @@ handle_eccs_option(Value, Version0) when is_list(Value) ->
 
 handle_supported_groups_option(Value, Version0) when is_list(Value) ->
     Version1 = tls_version(Version0),
-    try tls_v1:groups(Version1, Value) of
+    try tls_v1:groups(Version1) of
         Groups ->
             option_error(Groups =:= [], supported_groups, none_valid),
             #supported_groups{supported_groups = Groups}

@@ -58,11 +58,11 @@
          signature_algs/2,
          signature_schemes/2,
          rsa_schemes/0,
+         groups/0,
          groups/1,
-         groups/2,
          group_to_enum/1,
          enum_to_group/1,
-         default_groups/1]).
+         default_groups/0]).
 
 -export([derive_secret/4,
          hkdf_expand_label/5,
@@ -1166,7 +1166,11 @@ ecc_curves(TLSCurves) when is_list(TLSCurves) ->
 			end
 		end, [], TLSCurves).
 
--spec groups(?'TLS-1.3' | all | default) -> [group()].
+groups() ->
+    TLSGroups = groups(all),
+    groups(TLSGroups).
+
+-spec groups(all | default | TLSGroups :: list()) -> [group()].
 groups(all) ->
     [x25519,
      x448,
@@ -1183,20 +1187,13 @@ groups(default) ->
      x448,
      secp256r1,
      secp384r1];
-groups(Version) ->
-    TLSGroups = groups(all),
-    groups(Version, TLSGroups).
-%%
-%% TODO: Version is not used. remove it.
--spec groups(?'TLS-1.3', [group()]) -> [group()].
-groups(_Version, TLSGroups) ->
+groups(TLSGroups) when is_list(TLSGroups) ->
     CryptoGroups = supported_groups(),
     lists:filter(fun(Group) -> proplists:get_bool(Group, CryptoGroups) end, TLSGroups).
 
-%% TODO: 'Version' is not used, so why pass it at all?
-default_groups(Version) ->
+default_groups() ->
     TLSGroups = groups(default),
-    groups(Version, TLSGroups).
+    groups(TLSGroups).
 
 supported_groups() ->
     %% TODO: Add new function to crypto?
