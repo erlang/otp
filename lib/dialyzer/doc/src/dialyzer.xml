@@ -86,8 +86,8 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
          [--error_location flag] [files_or_dirs] [--fullpath]
          [--get_warnings] [--gui] [--help] [-I include_dir]*
-         [--incremental] [--no_check_plt] [--no_indentation] [-o outfile]
-         [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
+         [--incremental] [--no_check_plt] [--no_indentation] [--no_spec]
+         [-o outfile] [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
          [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
          [--shell] [--src] [--statistics] [--verbose] [--version]
          [-Wwarn]*</code>
@@ -208,6 +208,11 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
       <item>
 	<p>Do not insert line breaks in types, contracts, and Erlang
 	  Code when formatting warnings.</p>
+      </item>
+      <tag><c>--no_spec</c></tag>
+      <item>
+	<p>Ignore functions specs. This is useful for debugging when
+	one suspects that some specs are incorrect.</p>
       </item>
       <tag><c>-o outfile</c> (or
         <c>--output outfile</c>)</tag>

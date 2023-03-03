@@ -279,8 +279,10 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
       OldVal = Options#options.include_dirs,
       NewVal = ordsets:union(ordsets:from_list(Value), OldVal),
       build_options(Rest, Options#options{include_dirs = NewVal});
-    use_spec ->
+    use_spec when is_boolean(Value) ->
       build_options(Rest, Options#options{use_contracts = Value});
+    no_spec when is_boolean(Value) ->
+      build_options(Rest, Options#options{use_contracts = not Value});
     old_style ->
       bad_option("Analysis type is no longer supported", old_style);
     output_file ->
