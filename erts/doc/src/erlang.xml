@@ -2545,6 +2545,15 @@ of Floating Point Numbers</seeguide>.</p>
               <c>Fun</c> was statically allocated when module was
               loaded (this optimisation is performed for local
               functions that do not capture the environment).</p>
+            <change>
+              <p>In Erlang/OTP 27, we plan to change the return value so that
+                it always points to the local <c>init</c> process, regardless
+                of which process or node the fun was originally created on. See
+                <seeguide marker="system/general_info:upcoming_incompatibilities#fun_creator_pid">
+                  Upcoming Potential Incompatibilities
+                </seeguide>.
+              </p>
+            </change>
           </item>
           <tag><c>{index, Index}</c></tag>
           <item>
