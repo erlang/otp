@@ -71,11 +71,10 @@
  * More useful links:
  * * https://learn.microsoft.com/en-us/windows/win32/api/mswsock/nf-mswsock-acceptex
  * * https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-wsaioctl
- *
+ * * https://learn.microsoft.com/en-us/windows/win32/winsock/socket-options-and-ioctls-2
  *
  * Note:
- * We should have a "general" function that returns an info term
- * about this implementation: esaio_info()
+ * -
  */
 
 
@@ -2644,6 +2643,90 @@ ERL_NIF_TERM esaio_cancel_send(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_cancel_send(%T) -> done with result:"
+            "\r\n   %T"
+            "\r\n", sockRef, res) );
+
+    return res;
+}
+
+
+
+
+/* *** esock_cancel_recv ***
+ *
+ * We have three different cases:
+ *   *) Socket is closed:
+ *      return error: closed
+ *   *) Active receive (found in the request store):
+ *      Cancel the completion request!
+ *      Success will trigger an event (delivered) to the
+ *      (completion) worker threads.
+ *   *) Not found (in the request store):
+ *      This request has already completed (race):
+ *      return: not_found
+ *
+ */
+extern
+ERL_NIF_TERM esaio_cancel_recv(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     opRef)
+{
+    ERL_NIF_TERM   res;
+    ESockRequestor req;
+    ErlNifPid      caller;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_cancel_recv(%T), {%d,0x%X} ->"
+            "\r\n   opRef: %T"
+            "\r\n", sockRef, descP->sock, descP->readState, opRef) );
+
+    ESOCK_ASSERT( enif_self(env, &caller) != NULL );
+
+    if (! IS_OPEN(descP->readState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if (esock_reader_get(env, descP, &opRef, &caller, &req)) {
+
+        ESOCK_ASSERT( DEMONP("esaio_cancel_recv -> reader",
+                             env, descP, &req.mon) == 0);
+
+         SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_cancel_recv {%d} -> try cancel send I/O request\r\n",
+                descP->sock) );
+
+       if (! CancelIoEx((HANDLE) descP->sock, (OVERLAPPED*) req.dataP)) {
+
+            /* What does this mean?
+             * One of the possible reasons is that the recv succeeded.
+             * In which case, one of the threads in the thread-pool will
+             * be triggered (eventually).
+             */
+
+            int save_errno = sock_errno();
+            res = esock_make_error_errno(env, save_errno);
+
+        } else {
+
+            res = esock_atom_ok;
+
+        }
+
+        /* Request cleanup (demonitor already done above) */
+        esock_clear_env("esaio_cancel_recv -> req cleanup", req.env);
+        esock_free_env("esaio_cancel_recv -> req cleanup", req.env);
+
+    } else {
+
+        res = esock_make_error(env, esock_atom_not_found);
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_cancel_recv(%T) -> done with result:"
             "\r\n   %T"
             "\r\n", sockRef, res) );
 
