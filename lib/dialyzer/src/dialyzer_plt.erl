@@ -311,10 +311,9 @@ ets_table_delete_list(Tab, []) ->
   Tab.
 
 ets_table_lookup(Plt, Obj) ->
-  try ets:lookup_element(Plt, Obj, 2) of
+  case ets:lookup_element(Plt, Obj, 2, '$missing_key') of
+      '$missing_key' -> none;
       Val -> {value, Val}
-  catch
-    _:_ -> none
   end.
 
 table_lookup_module(Tab, Mod) ->

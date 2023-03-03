@@ -97,10 +97,9 @@
 %%--------------------------------------------------------------------
 
 ets_dict_find(Key, Table) ->
-  try ets:lookup_element(Table, Key, 2) of
+  try ets:lookup_element(Table, Key, 2, '$missing') of
+      '$missing' -> error;
       Val -> {ok, Val}
-  catch
-    _:_ -> error
   end.
 
 ets_map_store(Key, Element, Table) ->

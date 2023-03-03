@@ -2236,11 +2236,7 @@ do_read_table_property(Tab, Key) ->
     end.
 
 dirty_read_table_property(Tab, Key) ->
-    try ets:lookup_element(mnesia_gvar, {Tab,user_property,Key}, 2)
-    catch
-	error:_ ->
-	    undefined
-    end.
+    ets:lookup_element(mnesia_gvar, {Tab,user_property,Key}, 2, undefined).
 
 
 %% perhaps a misnomer. How could also be delete_property... never mind.

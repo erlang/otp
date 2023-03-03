@@ -447,14 +447,12 @@ loop(Mode,TestData,StartDir) ->
 					node=node(),
 					data=Time}),
 	    Callbacks =
-		try ets:lookup_element(?suite_table,
-				       ct_hooks,
-				       #suite_data.value) of
-		    CTHMods -> CTHMods
-		catch
-		    %% this is because ct_util failed in init
-		    error:badarg -> []
-		end,
+		ets:lookup_element(
+                    ?suite_table,
+                    ct_hooks,
+                    #suite_data.value,
+                    %% default case: this is because ct_util failed in init
+                    []),
 	    ct_hooks:terminate(Callbacks),
 
 	    close_connections(ets:tab2list(?conn_table)),

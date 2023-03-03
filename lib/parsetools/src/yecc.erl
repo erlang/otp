@@ -1363,11 +1363,12 @@ compute_closure1(Nil, _, _RpInfo) ->
 
 %% Check if some old state is a superset of our NewState
 check_states(NewState, StateId, StateTab, #tabs{state_id = StateIdTab}) ->
-    try ets:lookup_element(StateIdTab, StateId, 2) of
+    case ets:lookup_element(StateIdTab, StateId, 2, add) of
+        add ->
+          add;
         N ->
             {_N, OldState} = lookup_state(StateTab, N),
             check_state1(NewState, OldState, [], N)
-    catch error:_ -> add
     end.
 
 check_state1([#item{look_ahead = Lookahead1, rhs = Rhs} | Items1],
