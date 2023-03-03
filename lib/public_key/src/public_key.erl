@@ -2046,9 +2046,7 @@ ocsp_status(Cert, IssuerCert, Responses) ->
     end.
 
 ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
-    DecodedResponderCerts = [pkix_decode_cert(C, plain) || C <- ResponderCerts],
-    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, DecodedResponderCerts,
-                                     Nonce).
+    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, ResponderCerts, Nonce).
 
 subject_public_key_info(Alg, PubKey) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
@@ -2066,10 +2064,6 @@ handle_trace(csp,
              {return_from, {?MODULE, ocsp_responder_id, 1}, Return},
              Stack) ->
     {io_lib:format("OCSP Responder ID = ~P", [Return, 10]), Stack};
-handle_trace(csp,
-             {call, {?MODULE, ocsp_responses, _Args}}, Stack) ->
-    {io_lib:format("[pkix_decode_cert(C, plain) || C <- ResponderCerts]", []),
-     Stack};
 handle_trace(crt,
              {call, {?MODULE, pkix_decode_cert, [Cert, _Type]}}, Stack) ->
     {io_lib:format("Cert = ~W", [Cert, 5]), Stack};
