@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,6 +72,8 @@
 -define(T_MX,		15).		%% mail routing information
 -define(T_TXT,		16).		%% text strings
 -define(T_AAAA,         28).            %% ipv6 address
+%% LOC (RFC 1876)
+-define(T_LOC,          29).            %% location information
 %% SRV (RFC 2052)
 -define(T_SRV,          33).            %% services
 %% NAPTR (RFC 2915)
@@ -114,6 +116,8 @@
 -define(S_MX,		mx).		%% mail routing information
 -define(S_TXT,		txt).		%% text strings
 -define(S_AAAA,         aaaa).          %% ipv6 address
+%% LOC (RFC 1876)
+-define(S_LOC,          loc).           %% location information
 %% SRV (RFC 2052)
 -define(S_SRV,          srv).           %% services
 %% NAPTR (RFC 2915)
