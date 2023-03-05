@@ -1387,7 +1387,7 @@ ets:select(Table, MatchSpec),</code>
             </note>
             <marker id="new_2_read_concurrency"></marker>
           </item>
-          <tag><c>{read_concurrency,boolean()}</c></tag>
+          <tag since="OTP R14B"><c>{read_concurrency,boolean()}</c></tag>
           <item>
             <p>Performance tuning. Defaults to <c>false</c>. When set to
               <c>true</c>, the table is optimized for concurrent read
@@ -1412,7 +1412,7 @@ ets:select(Table, MatchSpec),</code>
               read bursts and large concurrent write bursts are common.</p>
             <marker id="new_2_decentralized_counters"></marker>
           </item>
-          <tag><c>{decentralized_counters,boolean()}</c></tag>
+          <tag since="OTP 23.0"><c>{decentralized_counters,boolean()}</c></tag>
           <item>
             <p>
               Performance tuning. Defaults to <c>true</c> for all
@@ -1447,7 +1447,7 @@ ets:select(Table, MatchSpec),</code>
             </p>
               <marker id="new_2_compressed"></marker>
           </item>
-          <tag><c>compressed</c></tag>
+          <tag since="OTP R14B01"><c>compressed</c></tag>
           <item>
             <p>If this option is present, the table data is stored in a more
               compact format to consume less memory. However, it will make
