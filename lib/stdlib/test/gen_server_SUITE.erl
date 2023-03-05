@@ -50,7 +50,8 @@
 	 undef_handle_continue/1,
 
          format_log_1/1, format_log_2/1,
-         reply_by_alias_with_payload/1
+         reply_by_alias_with_payload/1,
+         reply_by_untagged_alias_with_payload/1
 	]).
 
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
@@ -99,7 +100,8 @@ all() ->
      get_state, replace_state,
      call_with_huge_message_queue, {group, undef_callbacks},
      undef_in_terminate, undef_in_handle_info,
-     format_log_1, format_log_2, reply_by_alias_with_payload].
+     format_log_1, format_log_2, reply_by_alias_with_payload,
+     reply_by_untagged_alias_with_payload].
 
 groups() -> 
     [{stop, [],
@@ -2665,6 +2667,35 @@ reply_by_alias_with_payload(Config) when is_list(Config) ->
                end),
     receive
         {[[alias|Alias2]|_] = Tag2, Reply2} ->
+            ok
+    end.
+
+reply_by_untagged_alias_with_payload(Config) when is_list(Config) ->
+    %% Untagged version not used by Erlang/OTP, but make sure
+    %% gen_server:reply/2 works with it...
+    %%
+    %% Whitebox...
+    Reply = make_ref(),
+    Alias = alias(),
+    Tag = [untagged_alias|Alias],
+    spawn_link(fun () ->
+                       gen_server:reply({undefined, Tag},
+                                        Reply)
+               end),
+    receive
+        {Alias, Reply} ->
+            ok
+    end,
+    %% Check gen:reply/2 and nested as well...
+    Reply2 = make_ref(),
+    Alias2 = alias(),
+    Tag2 = [[untagged_alias|Alias2], "payload"],
+    spawn_link(fun () ->
+                       gen:reply({undefined, Tag2},
+                                 Reply2)
+               end),
+    receive
+        {Alias2, Reply2} ->
             ok
     end.
 

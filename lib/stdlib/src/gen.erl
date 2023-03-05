@@ -542,10 +542,23 @@ reqids_to_list(_) ->
 %%
 %% Send a reply to the client.
 %%
+%% The untagged_alias is not used by Erlang/OTP but
+%% needed by languages like Elixir which provide
+%% features like send_request/receive_response and
+%% require the reply to be an untagged reference.
+%%
+%% The nested cons are defined forwards compatibility
+%% reasons in case more metadata needs to be added to
+%% the tag.
+%%
 reply({_To, [alias|Alias] = Tag}, Reply) when is_reference(Alias) ->
     Alias ! {Tag, Reply}, ok;
 reply({_To, [[alias|Alias] | _] = Tag}, Reply) when is_reference(Alias) ->
     Alias ! {Tag, Reply}, ok;
+reply({_To, [untagged_alias|Alias]}, Reply) when is_reference(Alias) ->
+    Alias ! {Alias, Reply}, ok;
+reply({_To, [[untagged_alias|Alias] | _]}, Reply) when is_reference(Alias) ->
+    Alias ! {Alias, Reply}, ok;
 reply({To, Tag}, Reply) ->
     try To ! {Tag, Reply}, ok catch _:_ -> ok end.
 
