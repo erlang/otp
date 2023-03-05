@@ -872,10 +872,16 @@ render_element({li,[],Content},[l | _] = State, Pos, Ind,D) ->
 
 render_element({dl,_,Content},State,Pos,Ind,D) ->
     render_docs(Content, [dl|State], Pos, Ind,D);
-render_element({dt,_,Content},[dl | _] = State,Pos,Ind,D) ->
+render_element({dt,Since,Content},[dl | _] = State,Pos,Ind,D) ->
+    Suffix = case Since of
+                 [{since, Vsn}] ->
+                     ":     (since " ++ unicode:characters_to_list(Vsn) ++ ")\n";
+                 _ ->
+                     ":\n"
+             end,
     Underline = sansi(underline),
     {Docs, _NewPos} = render_docs(Content, [li | State], Pos, Ind, D),
-    {[Underline,Docs,ransi(underline),":","\n"], 0};
+    {[Underline,Docs,ransi(underline),Suffix], 0};
 render_element({dd,_,Content},[dl | _] = State,Pos,Ind,D) ->
     trimnlnl(render_docs(Content, [li | State], Pos, Ind + 2, D));
 

@@ -1251,10 +1251,15 @@
 
   <xsl:template match="taglist/tag">
     <xsl:param name="chapnum"/>
-    <dt>
+    <dt class="title-link">
       <strong>
         <xsl:apply-templates/>
       </strong>
+      <xsl:if test="string-length(@since) > 0">
+	<div class="title-since since">
+	  <xsl:value-of select="@since"/>
+	</div>
+      </xsl:if>
     </dt>
   </xsl:template>
 
