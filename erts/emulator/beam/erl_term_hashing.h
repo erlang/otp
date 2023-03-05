@@ -22,16 +22,52 @@
 #define ERL_TERM_HASHING_H__
 
 #include "sys.h"
+#include "erl_drv_nif.h"
 
 #if (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32)) ||                 \
     (defined(__x86_64__) && defined(__SSE4_2__))
 #   define ERL_INTERNAL_HASH_CRC32C
 #endif
 
+typedef struct {
+    Uint32 a,b,c;
+} ErtsBlockHashHelperCtx;
+
+typedef struct {
+    ErtsBlockHashHelperCtx hctx;
+    const byte *ptr;
+    Uint len;
+    Uint tot_len;
+} ErtsBlockHashState;
+
+typedef struct {
+    ErtsBlockHashHelperCtx hctx;
+    SysIOVec* iov;
+    Uint vlen;
+    Uint tot_len;
+    int vix;
+    int ix;
+} ErtsIovBlockHashState;
+
 Uint32 make_hash2(Eterm);
 Uint32 trapping_make_hash2(Eterm, Eterm*, struct process*);
 Uint32 make_hash(Eterm);
 Uint32 make_internal_hash(Eterm, Uint32 salt);
 Uint32 make_map_hash(Eterm key, int level);
+void erts_block_hash_init(ErtsBlockHashState *state,
+                          const byte *ptr,
+                          Uint len,
+                          Uint32 initval);
+int erts_block_hash(Uint32 *hashp,
+                    Uint *sizep,
+                    ErtsBlockHashState *state);
+void erts_iov_block_hash_init(ErtsIovBlockHashState *state,
+                              SysIOVec *iov,
+                              Uint vlen,
+                              Uint32 initval);
+int erts_iov_block_hash(Uint32 *hashp,
+                        Uint *sizep,
+                        ErtsIovBlockHashState *state);
+
 
 #endif

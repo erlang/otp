@@ -3324,7 +3324,7 @@ first</pre>
         </list>
         <p>A node
         can also be alive if it has got a name from a call to <seemfa
-        marker="kernel:net_kernel#start/1"><c>net_kernel:start/1</c></seemfa>
+        marker="kernel:net_kernel#start/2"><c>net_kernel:start/2</c></seemfa>
         and has not been stopped by a call to <seemfa
         marker="kernel:net_kernel#stop/0"><c>net_kernel:stop/0</c></seemfa>.</p>
       </desc>
@@ -11846,60 +11846,192 @@ hello
       <desc>
         <p>Returns a binary data object that is the result of encoding
           <c><anno>Term</anno></c> according to the Erlang external
-          term format.</p>
-        <p>If option <c>compressed</c> is provided, the external term
-          format is compressed. The compressed format is automatically
-          recognized by <c>binary_to_term/1</c> as from Erlang/OTP R7B.</p>
-        <p>A compression level can be specified by giving option
-          <c>{compressed, <anno>Level</anno>}</c>.
-          <c><anno>Level</anno></c> is an integer
-          with range 0..9, where:</p>
-        <list type="bulleted">
-          <item><p><c>0</c> - No compression is done (it is the same as
-            giving no <c>compressed</c> option).</p></item>
-          <item><p><c>1</c> - Takes least time but may not compress
-            as well as the higher levels.</p></item>
-          <item><p><c>6</c> - Default level when option <c>compressed</c>
-            is provided.</p></item>
-          <item><p><c>9</c> - Takes most time and tries to produce a smaller
-            result. Notice "tries" in the preceding sentence; depending
-            on the input term, level 9 compression either does or does
-            not produce a smaller result than level 1 compression.</p></item>
-        </list>
-        <p>Option <c>{minor_version, <anno>Version</anno>}</c>
-          can be used to control some
-          encoding details. This option was introduced in Erlang/OTP R11B-4.
-          The valid values for <c><anno>Version</anno></c> are:</p>
-	  <taglist>
-	    <tag><c>0</c></tag>
-	    <item>
-              <p>Floats are encoded using a textual representation.</p>
-	      <p>Atoms that can be represented by a latin1 string are encoded
-	      using latin1 while only atoms that cannot be represented by latin1
-	      are encoded using utf8.</p>
-	    </item>
-	    <tag><c>1</c></tag>
-	    <item>
-              <p>Floats are encoded in a more space-efficient and exact way
-	      (namely in the 64-bit IEEE format, rather than converted to a
-	      textual representation). As from Erlang/OTP R11B-4,
-	      <c>binary_to_term/1</c> can decode this representation.</p>
-	      <p>Atoms that can be represented by a latin1 string are encoded
-	      using latin1 while only atoms that cannot be represented by latin1
-	      are encoded using utf8.</p>
-	    </item>
-	    <tag><c>2</c></tag>
-	    <item>
-              <p>This is as of Erlang/OTP 26.0 the <em>default</em>. Atoms are
-	      unconditionally encoded using utf8. Erlang/OTP systems as of R16B
-	      can decode this representation.</p>
-	    </item>
-	  </taglist>
-          <p>Option <c>deterministic</c> (introduced in OTP 24.1) can
-          be used to ensure that within the same major release of Erlang/OTP,
-          the same encoded representation is returned for the same
-          term. There is still no guarantee that the encoded representation
-          remains the same between major releases of Erlang/OTP.</p>
+        term format.</p>
+        <p>Currently supported options:</p>
+        <taglist>
+          <tag><c>compressed</c></tag>
+          <item>
+            <p>
+              Compress the external term format. The compressed
+              format is automatically recognized by <c>binary_to_term/1</c>
+              as from Erlang/OTP R7B.
+            </p>
+          </item>
+          <tag><c>{compressed, <anno>Level</anno>}</c></tag>
+          <item>
+            <p>
+              Compress the external term format to a given level.
+              The compression level is specified by <c><anno>Level</anno></c>
+              which is an integer in the range 0..9, where:
+            </p>
+            <taglist>
+              <tag><c>0</c></tag>
+              <item><p>
+                No compression is done (it is the same as giving no
+                <c>compressed</c> option).
+              </p></item>
+              <tag><c>1</c></tag>
+              <item><p>
+                Takes least time but may not compress as well as the higher
+                levels.
+              </p></item>
+              <tag><c>6</c></tag>
+              <item><p>
+                Default level when option <c>compressed</c> is provided.
+              </p></item>
+              <tag><c>9</c></tag>
+              <item><p>
+                Takes most time and tries to produce a smaller result.
+                Notice "tries" in the preceding sentence; depending
+                on the input term, level 9 compression either does or does
+                not produce a smaller result than level 1 compression.
+              </p></item>
+            </taglist>
+          </item>
+          <tag since="R11B-4"><c>{minor_version, <anno>Version</anno>}</c></tag>
+          <item>
+            <p>
+              The option can be used to control some encoding details. Valid
+              values for <c><anno>Version</anno></c> are:
+            </p>
+	    <taglist>
+	      <tag><c>0</c></tag>
+	      <item>
+                <p>Floats are encoded using a textual representation.</p>
+	        <p>Atoms that can be represented by a latin1 string are encoded
+	        using latin1 while only atoms that cannot be represented by latin1
+	        are encoded using utf8.</p>
+	      </item>
+	      <tag><c>1</c></tag>
+	      <item>
+                <p>Floats are encoded in a more space-efficient and exact way
+	        (namely in the 64-bit IEEE format, rather than converted to a
+	        textual representation). As from Erlang/OTP R11B-4,
+	        <c>binary_to_term/1</c> can decode this representation.</p>
+	        <p>Atoms that can be represented by a latin1 string are encoded
+	        using latin1 while only atoms that cannot be represented by latin1
+	        are encoded using utf8.</p>
+	      </item>
+	      <tag><c>2</c></tag>
+	      <item>
+                <p>This is as of Erlang/OTP 26.0 the <em>default</em>. Atoms are
+	        unconditionally encoded using utf8. Erlang/OTP systems as of R16B
+	        can decode this representation.</p>
+	      </item>
+	    </taglist>
+          </item>
+          <tag since="OTP 24.1"><c>deterministic</c></tag>
+          <item>
+            <p>
+              This option can be used to ensure that, within the same major
+              release of Erlang/OTP, the same encoded representation is returned
+              for the same term. There is still no guarantee that the encoded
+              representation remains the same between major releases of
+              Erlang/OTP.
+            </p>
+            <p>
+              This option cannot be combined with the <c>local</c> option.
+            </p>
+          </item>
+          <tag since="OTP @OTP-18477@"><c>local</c>
+          <marker id="term_to_binary_local"/></tag>
+          <item>
+            <p>
+              This option will cause encoding of <c><anno>Term</anno></c>
+              to an alternative local version of the external term format which
+              when decoded by the same runtime system instance will produce a
+              term identical to the encoded term even when the node name and/or
+              <seeerl marker="#system_info_creation">creation</seeerl> of the
+              current runtime system instance have changed between encoding
+              and decoding. When encoding without the <c>local</c> option,
+              local identifiers such as <seetype marker="#pid">pids</seetype>,
+              <seetype marker="#port">ports</seetype> and
+              <seetype marker="#reference">references</seetype> will not
+              be the same if node name and/or creation of the current runtime
+              system instance changed between encoding and decoding. This since
+              such identifiers refer to a specific node by node name and
+              creation.
+            </p>
+            <p>
+              Node name and creation of a runtime system instance change
+              when the distribution is started or stopped. The distribution is
+              started when the runtime system is started using the
+              <seecom marker="erl#name"><c>-name</c></seecom> or
+              <seecom marker="erl#sname"><c>-sname</c></seecom> command line
+              arguments. Note that the actual start of the distribution happens
+              after other code in the startup phase has begun executing. The
+              distribution can also be started by calling
+              <seemfa marker="kernel:net_kernel#start/2"><c>net_kernel:start/2</c></seemfa>
+              and stopped by calling
+              <seemfa marker="kernel:net_kernel#stop/0"><c>net_kernel:stop/1</c></seemfa>
+              if it has not been started via the command line.
+            </p>
+            <p>
+              The decoding of a term encoded with the <c>local</c> option,
+              using for example
+              <seemfa marker="#term_to_binary/1"><c>binary_to_term()</c></seemfa>,
+              will try to verify that the term actually was encoded by the same
+              runtime system instance, and will in the vast majority of cases
+              fail if the encoding was performed by another runtime system
+              instance. You should however <em>not</em> trust that this
+              verification will work in all cases. You <em>should</em> make
+              sure to <em>only</em> decode terms encoded with the <c>local</c>
+              option on the same Erlang runtime system instance as the one that
+              encoded the terms.
+            </p>
+            <p>
+              Since it is only the runtime system that encoded a term using
+              the <c>local</c> option that can decode it, the local encoding
+              is typically pieced together with something else to produce a
+              reply to where the <c>local</c> encoding originates from.
+              If a term encoded using the <c>local</c> option is stripped of
+              its leading version number, it can be added as part
+              of a larger term (for example as an element in a tuple) when
+              encoding on the external term format using, for example,
+              <seecref marker="erl_interface:ei">ei</seecref>. In the <c>ei</c>
+              case, you would strip it of the version number using
+              <seecref marker="erl_interface:ei#ei_decode_version"><c>ei_decode_version()</c></seecref>
+              and then add the remaining local encoding to what you are encoding
+              using for example
+              <seecref marker="erl_interface:ei#ei_x_append_buf"><c>ei_x_append_buf()</c></seecref>.
+            </p>
+            <p>
+              A good example of when you want to use the <c>local</c> option, is
+              when you want to make a request from a process to a port
+              <seecref marker="erl_driver">driver</seecref> and utilize the
+              <seeguide marker="system/efficiency_guide:processes#receiving-messages">selective
+	      receive optimization</seeguide> when receiving the reply. In
+              this scenario you want to create a reference, serialize the
+              reference on the external term format using the <c>local</c>
+              option, pass this to the driver in the request, and then wait
+              for the reply message in a selective receive matching on the
+              reference. The driver should send the reply using either
+              <seecref marker="erl_driver#erl_drv_output_term"><c>erl_drv_output_term()</c></seecref>
+              or
+              <seecref marker="erl_driver#erl_drv_send_term"><c>erl_drv_send_term()</c></seecref>
+              using the term type
+              <seecref marker="erl_driver#ERL_DRV_EXT2TERM"><c>ERL_DRV_EXT2TERM</c></seecref>
+              for the, in the request, previously received reference on the
+              external term format. Note that you should not strip the
+              leading version number from the local encoding when using the
+              term type <c>ERL_DRV_EXT2TERM</c> of this functionality. If you
+              in this example do not encode the reference using the <c>local</c>
+              option, and the distribution is started or stopped while the
+              request is ongoing, the process that made the request will hang
+              indefinitely since the reference in the reply message will never
+              match.
+            </p>
+            <p>
+              This option cannot be combined with the <c>deterministic</c>
+              option.
+            </p>
+            <p>
+              For more information see the
+              <seeguide marker="erl_ext_dist#LOCAL_EXT"><c>LOCAL_EXT</c></seeguide>
+              tag in the documentation of the external term format.
+            </p>
+          </item>
+        </taglist>
         <p>See also <seemfa marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seemfa>.</p>
       </desc>

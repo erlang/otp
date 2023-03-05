@@ -974,7 +974,11 @@ external_size(_Term) ->
 %% external_size/2
 -spec erlang:external_size(Term, Options) -> non_neg_integer() when
       Term :: term(),
-      Options :: [{minor_version, Version :: non_neg_integer()}].
+      Options :: [compressed |
+         {compressed, Level :: 0..9} |
+         deterministic |
+         {minor_version, Version :: 0..2} |
+         local ].
 external_size(_Term, _Options) ->
     erlang:nif_error(undefined).
 
@@ -2768,7 +2772,8 @@ term_to_binary(_Term) ->
       Options :: [compressed |
          {compressed, Level :: 0..9} |
          deterministic |
-         {minor_version, Version :: 0..2} ].
+         {minor_version, Version :: 0..2} |
+         local ].
 term_to_binary(_Term, _Options) ->
     erlang:nif_error(undefined).
 
@@ -2782,7 +2787,8 @@ term_to_iovec(_Term) ->
       Options :: [compressed |
          {compressed, Level :: 0..9} |
          deterministic |
-         {minor_version, Version :: 0..2} ].
+         {minor_version, Version :: 0..2} |
+         local ].
 term_to_iovec(_Term, _Options) ->
     erlang:nif_error(undefined).
 

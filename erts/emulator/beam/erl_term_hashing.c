@@ -424,10 +424,6 @@ tail_recur:
 
 #define HCONST 0x9e3779b9UL /* the golden ratio; an arbitrary value */
 
-typedef struct {
-    Uint32 a,b,c;
-} ErtsBlockHashHelperCtx;
-
 #define BLOCK_HASH_BYTES_PER_ITER 12
 
 /* The three functions below are separated into different functions even
@@ -507,6 +503,192 @@ block_hash(byte *block, Uint block_length, Uint32 initval)
                                   block_length,
                                   &ctx);
 }
+
+/*
+ * Note! erts_block_hash() and erts_iov_block_hash() *must* produce
+ * the same result if the I/O vector is flattened and contain the
+ * same bytes as the array.
+ */
+
+void
+erts_block_hash_init(ErtsBlockHashState *state, const byte *ptr,
+                     Uint len, Uint32 initval)
+{
+    block_hash_setup(initval, &state->hctx);
+    state->ptr = ptr;
+    state->len = len;
+    state->tot_len = len;
+}
+
+int
+erts_block_hash(Uint32 *hashp, Uint *sizep, ErtsBlockHashState *state)
+{
+    byte *ptr = (byte *) state->ptr;
+    Uint len = state->len;
+    Sint flen;
+    Uint llen;
+
+    do {
+
+        if (*sizep < len) {
+            llen = *sizep;
+            llen -= llen % BLOCK_HASH_BYTES_PER_ITER;
+            if (len > llen + BLOCK_HASH_BYTES_PER_ITER) {
+                llen += BLOCK_HASH_BYTES_PER_ITER;
+                flen = -1;
+                break;
+            }
+        }
+
+        /* do it all... */
+        flen = len % BLOCK_HASH_BYTES_PER_ITER;
+        llen = len - flen;
+
+    } while (0);
+
+    block_hash_buffer(ptr, llen, &state->hctx);
+
+    ptr += llen;
+
+    if (flen < 0) {
+        state->ptr = ptr;
+        state->len -= llen;
+        *sizep = llen;
+        return 0; /* yield */
+    }
+
+    *hashp = block_hash_final_bytes(ptr, (Uint) flen,
+                                    state->tot_len, &state->hctx);
+
+    *sizep = llen + flen;
+
+    state->ptr = ptr + flen;
+    state->len = 0;
+
+    return !0; /* done */
+}
+
+/*
+ * Note! erts_block_hash() and erts_iov_block_hash() *must* produce
+ * the same result if the I/O vector is flattened and contain the
+ * same bytes as the array.
+ */
+
+void
+erts_iov_block_hash_init(ErtsIovBlockHashState *state, SysIOVec *iov,
+                         Uint vlen, Uint32 initval)
+{
+    block_hash_setup(initval, &state->hctx);
+    state->iov = iov;
+    state->vlen = vlen;
+    state->tot_len = 0;
+    state->vix = 0;
+    state->ix = 0;
+}
+
+int
+erts_iov_block_hash(Uint32 *hashp, Uint *sizep, ErtsIovBlockHashState *state)
+{
+    byte buf[BLOCK_HASH_BYTES_PER_ITER];
+    ErtsBlockHashHelperCtx *hctx = &state->hctx;
+    SysIOVec *iov = state->iov;
+    Uint vlen = state->vlen;
+    int vix = state->vix;
+    int ix = state->ix;
+    Uint cix = 0;
+    byte *final_bytes;
+    Uint no_final_bytes;
+    Uint chunk_sz = (*sizep
+                     - *sizep % BLOCK_HASH_BYTES_PER_ITER
+                     + BLOCK_HASH_BYTES_PER_ITER);
+
+    do {
+        Uint bsz, csz;
+        int left;
+        byte *ptr;
+
+        ASSERT((cix % BLOCK_HASH_BYTES_PER_ITER) == 0);
+
+        /*
+         * We may have empty vectors...
+         */
+        while (ix == iov[vix].iov_len) {
+            vix++;
+            if (vix == vlen) {
+                final_bytes = NULL;
+                no_final_bytes = 0;
+                goto finalize;
+            }
+            ix = 0;
+        }
+
+        csz = chunk_sz - cix;
+        left = iov[vix].iov_len - ix;
+        ptr = iov[vix].iov_base;
+
+        if (left >= BLOCK_HASH_BYTES_PER_ITER) {
+            if (csz <= left)
+                bsz = csz;
+            else
+                bsz = left - (left % BLOCK_HASH_BYTES_PER_ITER);
+            block_hash_buffer(ptr + ix, bsz, hctx);
+            cix += bsz;
+            ix += bsz;
+        }
+        else {
+            int bix = 0;
+            bsz = left;
+            while (!0) {
+                sys_memcpy(&buf[bix], ptr + ix, bsz);
+                bix += bsz;
+                cix += bsz;
+                ix += bsz;
+                if (bix == BLOCK_HASH_BYTES_PER_ITER) {
+                    block_hash_buffer(&buf[0],
+                                      (Uint) BLOCK_HASH_BYTES_PER_ITER,
+                                      hctx);
+                    break;
+                }
+                ASSERT(ix == iov[vix].iov_len);
+                vix++;
+                if (vix == vlen) {
+                    final_bytes = &buf[0];
+                    no_final_bytes = (Uint) bsz;
+                    goto finalize;
+                }
+                ix = 0;
+                ptr = iov[vix].iov_base;
+                bsz = iov[vix].iov_len;
+                if (bsz > BLOCK_HASH_BYTES_PER_ITER - bix)
+                    bsz = BLOCK_HASH_BYTES_PER_ITER - bix;
+            }
+        }
+
+    } while (cix < chunk_sz);
+
+    ASSERT((cix % BLOCK_HASH_BYTES_PER_ITER) == 0);
+
+    /* yield */
+
+    *sizep = cix;
+
+    state->tot_len += cix;
+    state->vix = vix;
+    state->ix = ix;
+
+    return 0;
+
+finalize:
+
+    state->tot_len += cix;
+    *sizep = cix;
+
+    *hashp = block_hash_final_bytes(final_bytes, no_final_bytes,
+                                    state->tot_len, hctx);
+    return !0; /* done */
+}
+
+
 
 typedef enum {
     tag_primary_list,
