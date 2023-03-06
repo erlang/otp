@@ -17,6 +17,7 @@ No subfolder should be created.
   - UnicodeData.txt
   - auxiliary/GraphemeBreakProperty.txt
   - emoji/emoji-data.txt
+  - EastAsianWidth.txt
 
 2. Copy the following test files to lib/stdlib/test/unicode_util_SUITE_data/
 replacing existing ones. No subfolder should be created.
