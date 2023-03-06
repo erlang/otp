@@ -2122,8 +2122,7 @@ path_validation_alert({bad_cert, unknown_critical_extension}) ->
 path_validation_alert({bad_cert, {revoked, _}}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
 path_validation_alert({bad_cert, {revocation_status_undetermined, Details}}) ->
-    Alert = ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE),
-    Alert#alert{reason = Details};
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, Details);
 path_validation_alert({bad_cert, selfsigned_peer}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_ca}) ->
