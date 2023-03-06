@@ -901,6 +901,9 @@ grab_bag(_Config) ->
 
     {'EXIT',{if_clause,[_|_]}} = catch grab_bag_20(),
 
+    6 = grab_bag_21(id(64)),
+    {'EXIT',{badarith,_}} = catch grab_bag_21(id(a)),
+
     ok.
 
 grab_bag_1() ->
@@ -1163,6 +1166,19 @@ grab_bag_20() ->
          error:_ ->
              error
      end}.
+
+%% With the `no_copt` and `no_ssa_opt` options, an internal
+%% consistency error would be reported:
+%%
+%% Internal consistency check failed - please report this bug.
+%% Instruction: {test_heap,2,2}
+%% Error:       {{x,0},not_live}:
+grab_bag_21(A) ->
+    _ = id(0),
+    grab_bag_21(ok, A div 10, node(), [-1]).
+
+grab_bag_21(_, D, _, _) ->
+    D.
 
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
