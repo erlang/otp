@@ -19,27 +19,15 @@
 %%
 
 -module(pubkey_ocsp).
-
 -include("public_key.hrl").
 
--export([otp_cert/1,
-         get_ocsp_responder_id/1,
-         get_nonce_extn/1,
-         verify_ocsp_response/3,
+-export([find_single_response/3,
          get_acceptable_response_types_extn/0,
-         find_single_response/3,
-         ocsp_status/1]).
-
-%% Test related exports
--export([decode_ocsp_response/1]).
-
-otp_cert(#'OTPCertificate'{} = Cert) ->
-    Cert;
-otp_cert(#'Certificate'{} = Cert) ->
-    public_key:pkix_decode_cert(
-        public_key:der_encode('Certificate', Cert), otp);
-otp_cert(CertDer) when is_binary(CertDer) ->
-    public_key:pkix_decode_cert(CertDer, otp).
+         get_nonce_extn/1,
+         get_ocsp_responder_id/1,
+         ocsp_status/1,
+         verify_ocsp_response/3,
+         decode_ocsp_response/1]).
 
 -spec get_ocsp_responder_id(#'Certificate'{}) -> binary().
 get_ocsp_responder_id(#'Certificate'{tbsCertificate = TbsCert}) ->
@@ -113,8 +101,7 @@ match_single_response(IssuerName, IssuerKey, SerialNum,
             match_single_response(IssuerName, IssuerKey, SerialNum, Responses)
     end.
 
-get_serial_num(Cert) ->
-    #'OTPCertificate'{tbsCertificate = TbsCert} = otp_cert(Cert),
+get_serial_num(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     TbsCert#'OTPTBSCertificate'.serialNumber.
 
 decode_response_bytes(#'ResponseBytes'{
@@ -124,25 +111,22 @@ decode_response_bytes(#'ResponseBytes'{
 decode_response_bytes(#'ResponseBytes'{responseType = RespType}) ->
     {error, {ocsp_response_type_not_supported, RespType}}.
 
-do_verify_ocsp_response({ok, #'BasicOCSPResponse'{
-                                tbsResponseData = ResponseData,
-                                signatureAlgorithm = SignatureAlgo,
-                                signature = Signature,
-                                certs = Certs}},
+do_verify_ocsp_response(#'BasicOCSPResponse'{
+                           tbsResponseData = ResponseData,
+                           signatureAlgorithm = SignatureAlgo,
+                           signature = Signature},
                         ResponderCerts, Nonce) ->
     #'ResponseData'{responderID = ResponderID} = ResponseData,
     case verify_ocsp_signature(
            public_key:der_encode('ResponseData', ResponseData),
            SignatureAlgo#'AlgorithmIdentifier'.algorithm,
-           Signature, Certs ++ ResponderCerts,
+           Signature, ResponderCerts,
            ResponderID) of
         ok ->
             verify_ocsp_nonce(ResponseData, Nonce);
         {error, Reason} ->
             {error, Reason}
-    end;
-do_verify_ocsp_response({error, Reason}, _ResponderCerts, _Nonce) ->
-    {error, Reason}.
+    end.
 
 verify_ocsp_nonce(ResponseData, Nonce) ->
     #'ResponseData'{responses = Responses, responseExtensions = ResponseExtns} =
@@ -187,29 +171,6 @@ find_responder_cert(ResponderID, [Cert | TCerts]) ->
             find_responder_cert(ResponderID, TCerts)
     end.
 
-is_responder({byName, Name}, Cert) ->
-    public_key:der_encode('Name', Name) == get_subject_name(Cert);
-is_responder({byKey, Key}, Cert) ->
-    Key == crypto:hash(sha, get_public_key(Cert)).
-
-get_subject_name(#'Certificate'{} = Cert) ->
-    get_subject_name(otp_cert(Cert));
-get_subject_name(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
-    public_key:pkix_encode('Name', TbsCert#'OTPTBSCertificate'.subject, otp).
-
-get_public_key(#'Certificate'{} = Cert) ->
-    get_public_key(otp_cert(Cert));
-get_public_key(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
-    PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    enc_pub_key(PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey).
-
-enc_pub_key(Key = #'RSAPublicKey'{}) ->
-    public_key:der_encode('RSAPublicKey', Key);
-enc_pub_key({DsaInt, #'Dss-Parms'{}}) when is_integer(DsaInt) ->
-    public_key:der_encode('DSAPublicKey', DsaInt);
-enc_pub_key({#'ECPoint'{point = Key}, _ECParam}) ->
-    Key.
-
 do_verify_ocsp_signature(ResponseDataDer, Signature, AlgorithmID, Cert) ->
     {DigestType, _SignatureType} = public_key:pkix_sign_types(AlgorithmID),
     case public_key:verify(
@@ -221,9 +182,25 @@ do_verify_ocsp_signature(ResponseDataDer, Signature, AlgorithmID, Cert) ->
             {error, ocsp_response_bad_signature}
     end.
 
-get_public_key_rec(#'Certificate'{} = Cert) ->
-    get_public_key_rec(otp_cert(Cert));
 get_public_key_rec(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey.
 
+is_responder({byName, Name}, Cert) ->
+    public_key:der_encode('Name', Name) == get_subject_name(Cert);
+is_responder({byKey, Key}, Cert) ->
+    Key == crypto:hash(sha, get_public_key(Cert)).
+
+get_subject_name(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
+    public_key:pkix_encode('Name', TbsCert#'OTPTBSCertificate'.subject, otp).
+
+get_public_key(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
+    PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    enc_pub_key(PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey).
+
+enc_pub_key(Key = #'RSAPublicKey'{}) ->
+    public_key:der_encode('RSAPublicKey', Key);
+enc_pub_key({DsaInt, #'Dss-Parms'{}}) when is_integer(DsaInt) ->
+    public_key:der_encode('DSAPublicKey', DsaInt);
+enc_pub_key({#'ECPoint'{point = Key}, _ECParam}) ->
+    Key.

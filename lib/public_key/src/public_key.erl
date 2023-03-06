@@ -77,7 +77,6 @@
           {ssh_hostkey_fingerprint,1, "use ssh:hostkey_fingerprint/1 instead"},
           {ssh_hostkey_fingerprint,2, "use ssh:hostkey_fingerprint/2 instead"}
          ]).
-
 -export([ssh_curvename2oid/1, oid2ssh_curvename/1]).
 %% When removing for OTP-25.0, remember to also remove
 %%   - most of pubkey_ssh.erl except
@@ -1382,7 +1381,7 @@ pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt)
     pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer,
                        ResponderCerts, NonceExt);
 pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) ->
-    case  ocsp_responses(OcspRespDer, ResponderCerts, NonceExt) of
+    case ocsp_responses(OcspRespDer, ResponderCerts, NonceExt) of
         {ok, Responses} ->
             ocsp_status(Cert, IssuerCert, Responses);
         {error, Reason} ->
@@ -1622,7 +1621,9 @@ otp_cert(Der) when is_binary(Der) ->
 otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert;
 otp_cert(#cert{otp = OtpCert}) ->
-    OtpCert.
+    OtpCert;
+otp_cert(#'Certificate'{} = Cert) ->
+    pkix_decode_cert(der_encode('Certificate', Cert), otp).
 
 der_cert(#'OTPCertificate'{} = Cert) ->
     pkix_encode('OTPCertificate', Cert, otp);
@@ -2031,9 +2032,10 @@ format_details([]) ->
     no_relevant_crls;
 format_details(Details) ->
     Details.
-  
+
 ocsp_status(Cert, IssuerCert, Responses) ->
-    case pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses) of
+    case pubkey_ocsp:find_single_response(otp_cert(Cert), otp_cert(IssuerCert),
+                                          Responses) of
         {ok, #'SingleResponse'{certStatus = CertStatus}} ->
             pubkey_ocsp:ocsp_status(CertStatus);
         {error, no_matched_response = Reason} ->
@@ -2041,9 +2043,20 @@ ocsp_status(Cert, IssuerCert, Responses) ->
     end.
 
 ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
-    DecodedResponderCerts = [pkix_decode_cert(C, plain) || C <- ResponderCerts],
-    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, DecodedResponderCerts,
-                                     Nonce).
+    DecodedOCSPResponseDer = pubkey_ocsp:decode_ocsp_response(OCSPResponseDer),
+    case DecodedOCSPResponseDer of
+        {ok, BasicOCSPResponse = #'BasicOCSPResponse'{certs = Certs}} ->
+            DecodedOtpCerts = [otp_cert(C) || C <- Certs],
+            DecodedResponderOtpCerts =
+                [otp_cert(pkix_decode_cert(C, plain)) || C <- ResponderCerts],
+            pubkey_ocsp:verify_ocsp_response(
+              BasicOCSPResponse,
+              DecodedOtpCerts ++ DecodedResponderOtpCerts,
+              Nonce);
+        {error, Reason} ->
+            {error, Reason}
+    end.
+
 
 subject_public_key_info(Alg, PubKey) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
