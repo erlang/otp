@@ -5325,7 +5325,7 @@ receive_replies(ReqId, N, Acc) ->
               <c><anno>Val</anno></c> must be strings. The one
               exception is <c><anno>Val</anno></c> being the atom
               <c>false</c> (in analogy with
-              <seemfa marker="kernel:os#getenv/1"><c>os:getenv/1</c></seemfa>,
+              <seemfa marker="kernel:os#getenv/1"><c>os:getenv/1</c></seemfa>),
               which removes the environment variable.
 	    </p>
 	    <p>
