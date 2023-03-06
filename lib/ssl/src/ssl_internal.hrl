@@ -201,11 +201,7 @@
         }).
 
 -define(DEFAULT_DEPTH, 10).
-
-
+-define(DEFAULT_OCSP_STAPLING, false).
+-define(DEFAULT_OCSP_NONCE, true).
+-define(DEFAULT_OCSP_RESPONDER_CERTS, []).
 -endif. % -ifdef(ssl_internal).
-
-
-
-
-

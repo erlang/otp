@@ -814,10 +814,15 @@ update_encryption_state(client, State) ->
 
 
 validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
-                           #{ocsp_responder_certs := OcspResponderCerts
-                            } = SslOptions, CRLDbHandle, Role, Host, OcspState0) ->
+                           SslOptions, CRLDbHandle, Role, Host, OcspState0) ->
     {Certs, CertExt, OcspState} = split_cert_entries(CertEntries, OcspState0),
-
+    OcspResponderCerts =
+        case maps:get(ocsp_stapling, SslOptions, disabled) of
+            #{ocsp_responder_certs := V} ->
+                V;
+            disabled ->
+                ?DEFAULT_OCSP_RESPONDER_CERTS
+        end,
     ssl_handshake:certify(#certificate{asn1_certificates = Certs}, CertDbHandle, CertDbRef,
                           SslOptions, CRLDbHandle, Role, Host, {3,4},
                           #{cert_ext => CertExt,
