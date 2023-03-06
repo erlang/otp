@@ -42,7 +42,7 @@
          bs_saved_position_units/1,parent_container/1,
          container_performance/1,
          infer_relops/1,
-         not_equal_inference/1,bad_bin_unit/1]).
+         not_equal_inference/1,bad_bin_unit/1,singleton_inference/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -78,7 +78,7 @@ groups() ->
        missing_return_type,will_succeed,
        bs_saved_position_units,parent_container,
        container_performance,infer_relops,
-       not_equal_inference,bad_bin_unit]}].
+       not_equal_inference,bad_bin_unit,singleton_inference]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1099,6 +1099,20 @@ bad_bin_unit_2() ->
        || <<X:(is_number(<<(<<(0 bxor 0)>>)>>) orelse 1)>> <= <<>>,
        #{X := _} <- ok
    ].
+
+%% GH-6962: Type inference with singleton types in registers was weaker than
+%% inference on their corresponding literals.
+singleton_inference(Config) ->
+    Mod = ?FUNCTION_NAME,
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "singleton_inference.erl"),
+
+    {ok, Mod} = compile:file(File, [no_copt, no_bool_opt, no_ssa_opt]),
+
+    ok = Mod:test(),
+
+    ok.
 
 id(I) ->
     I.
