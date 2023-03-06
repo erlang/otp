@@ -798,7 +798,7 @@ setup() ->
 
 setup(Opts) ->
     Pid = spawn_opt(fun() -> loop() end,
-                   [link, {max_heap_size, 10000}]),
+                   [link, {max_heap_size, 12000}]),
     1 = erlang:trace(Pid, true, [call|Opts]),
     Pid.
 

@@ -527,7 +527,7 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         hp = name_heap;
         name = erts_atom_to_string(&hp, beam->module, suffix);
 
-        lines->names[0] = beamfile_add_literal(beam, name);
+        lines->names[0] = beamfile_add_literal(beam, name, 1);
 
         for (i = 1; i < name_count; i++) {
             Uint num_chars, num_built, num_eaten;
@@ -563,7 +563,7 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
                 ASSERT(num_built == num_chars);
                 ASSERT(num_eaten == name_length);
 
-                lines->names[i] = beamfile_add_literal(beam, name);
+                lines->names[i] = beamfile_add_literal(beam, name, 1);
 
                 if (name_heap != default_name_buf) {
                     erts_free(ERTS_ALC_T_LOADER_TMP, name_heap);
@@ -1179,7 +1179,7 @@ void beamfile_free(BeamFile *beam) {
     }
 }
 
-Sint beamfile_add_literal(BeamFile *beam, Eterm term) {
+Sint beamfile_add_literal(BeamFile *beam, Eterm term, int deduplicate) {
     BeamFile_LiteralTable *literals;
     BeamFile_LiteralEntry *entries;
 
@@ -1191,22 +1191,17 @@ Sint beamfile_add_literal(BeamFile *beam, Eterm term) {
     literals = &beam->dynamic_literals;
     entries = literals->entries;
 
-    if (entries == NULL) {
-        literals->allocated = 32;
-
-        entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                             literals->allocated * sizeof(*entries));
-
-        literals->entries = entries;
-    } else {
-        /* Return a matching index if this literal already exists. We search
-         * backwards since duplicates tend to be used close to one another,
-         * and skip searching static literals as the chances of overlap are
-         * pretty slim. */
-        for (i = literals->count - 1; i >= 0; i--) {
-            if (EQ(term, entries[i].value)) {
-                /* Dynamic literal indexes are negative, starting at -1 */
-                return ~i;
+    if (entries != NULL) {
+        if (deduplicate) {
+            /* Return a matching index if this literal already exists.
+             * We search backwards since duplicates tend to be used close to
+             * one another, and skip searching static literals as the chances
+             * of overlap are pretty slim. */
+            for (i = literals->count - 1; i >= 0; i--) {
+                if (EQ(term, entries[i].value)) {
+                    /* Dynamic literal indexes are negative, starting at -1 */
+                    return ~i;
+                }
             }
         }
 
@@ -1218,6 +1213,13 @@ Sint beamfile_add_literal(BeamFile *beam, Eterm term) {
 
             literals->entries = entries;
         }
+    } else {
+        literals->allocated = 32;
+
+        entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                             literals->allocated * sizeof(*entries));
+
+        literals->entries = entries;
     }
 
     term_size = size_object(term);
@@ -1464,7 +1466,8 @@ static int marshal_integer(BeamCodeReader *code_reader, TaggedNumber *value) {
             value->tag = TAG_q;
             value->size = 0;
 
-            value->word_value = beamfile_add_literal(code_reader->file, term);
+            value->word_value = beamfile_add_literal(code_reader->file,
+                                                     term, 1);
         } else {
             /* Result doesn't fit into a bignum. */
             value->tag = TAG_o;

@@ -359,7 +359,7 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
         *dst++ = Rest[i + 1];
     }
 
-    lit = beamfile_add_literal(&S->beam, keys);
+    lit = beamfile_add_literal(&S->beam, keys, 1);
     erts_free(ERTS_ALC_T_LOADER_TMP, tmp);
 
     op->a[0] = Dst;

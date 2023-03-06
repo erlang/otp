@@ -77,11 +77,15 @@ int beam_load_prepare_emit(LoaderState *stp) {
         init_label(&stp->labels[i]);
     }
 
+    stp->lambda_literals = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                      stp->beam.lambdas.count * sizeof(SWord));
+
     for (i = 0; i < stp->beam.lambdas.count; i++) {
         BeamFile_LambdaEntry *lambda = &stp->beam.lambdas.entries[i];
 
         if (stp->labels[lambda->label].lambda_index == INVALID_LAMBDA_INDEX) {
             stp->labels[lambda->label].lambda_index = i;
+            stp->lambda_literals[i] = ERTS_SWORD_MAX;
         } else {
             beam_load_report_error(__LINE__,
                                    stp,
@@ -175,6 +179,11 @@ int beam_load_prepared_dtor(Binary *magic) {
     if (stp->labels) {
         erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->labels);
         stp->labels = NULL;
+    }
+
+    if (stp->lambda_literals) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->lambda_literals);
+        stp->lambda_literals = NULL;
     }
 
     if (stp->bif_imports) {
@@ -926,17 +935,16 @@ void beam_load_finalize_code(LoaderState *stp,
      * the module may remote-call itself*/
     for (i = 0; i < stp->beam.imports.count; i++) {
         BeamFile_ImportEntry *entry = &stp->beam.imports.entries[i];
-        BeamInstr import;
+        Export *import;
 
-        import = (BeamInstr)erts_export_put(entry->module,
-                                            entry->function,
-                                            entry->arity);
+        import = erts_export_put(entry->module, entry->function, entry->arity);
 
         beamasm_patch_import(stp->ba, stp->native_module_rw, i, import);
     }
 
     /* Patch fun creation. */
     if (stp->beam.lambdas.count) {
+        ErtsLiteralArea *literal_area = (stp->code_hdr)->literal_area;
         BeamFile_LambdaTable *lambda_table = &stp->beam.lambdas;
 
         for (i = 0; i < lambda_table->count; i++) {
@@ -963,10 +971,30 @@ void beam_load_finalize_code(LoaderState *stp,
                               staging_ix,
                               beamasm_get_lambda(stp->ba, i));
 
-            beamasm_patch_lambda(stp->ba,
-                                 stp->native_module_rw,
-                                 i,
-                                 (BeamInstr)fun_entry);
+            /* Finalize the literal we've created for this lambda, if any,
+             * converting it from an external fun to a local one with the newly
+             * created fun entry. */
+            if (stp->lambda_literals[i] != ERTS_SWORD_MAX) {
+                ErlFunThing *funp;
+                Eterm literal;
+
+                literal = beamfile_get_literal(&stp->beam,
+                                               stp->lambda_literals[i]);
+                funp = (ErlFunThing *)fun_val(literal);
+                ASSERT(funp->creator == am_external);
+
+                funp->entry.fun = fun_entry;
+
+                funp->next = literal_area->off_heap;
+                literal_area->off_heap = (struct erl_off_heap_header *)funp;
+
+                ASSERT(erts_init_process_id != ERTS_INVALID_PID);
+                funp->creator = erts_init_process_id;
+
+                erts_refc_inc(&fun_entry->refc, 2);
+            }
+
+            beamasm_patch_lambda(stp->ba, stp->native_module_rw, i, fun_entry);
         }
     }
 

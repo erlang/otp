@@ -23,6 +23,7 @@
 
 #    include "sys.h"
 #    include "bif.h"
+#    include "erl_fun.h"
 #    include "erl_process.h"
 #    include "beam_code.h"
 #    include "beam_file.h"
@@ -73,9 +74,15 @@ void beamasm_embed_rodata(void *ba,
 void beamasm_embed_bss(void *ba, char *labelName, size_t size);
 
 unsigned int beamasm_patch_catches(void *ba, char *rw_base);
-void beamasm_patch_import(void *ba, char *rw_base, int index, BeamInstr import);
+void beamasm_patch_import(void *ba,
+                          char *rw_base,
+                          int index,
+                          const Export *import);
 void beamasm_patch_literal(void *ba, char *rw_base, int index, Eterm lit);
-void beamasm_patch_lambda(void *ba, char *rw_base, int index, BeamInstr fe);
+void beamasm_patch_lambda(void *ba,
+                          char *rw_base,
+                          int index,
+                          const ErlFunEntry *fe);
 void beamasm_patch_strings(void *ba, char *rw_base, const byte *strtab);
 
 void beamasm_emit_call_nif(const ErtsCodeInfo *info,
