@@ -30,6 +30,8 @@
          get_acceptable_response_types_extn/0,
          find_single_response/3,
          ocsp_status/1]).
+%% Tracing
+-export([handle_trace/3]).
 
 ocsp_status({good, _}) ->
     valid;
@@ -316,4 +318,16 @@ match_single_response(IssuerName, IssuerKey, SerialNum,
         false ->
             match_single_response(IssuerName, IssuerKey, SerialNum, Responses)
     end.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, is_responder, [Id, Cert]}}, Stack) ->
+    {io_lib:format("~nId = ~P~nCert = ~P", [Id, 10, Cert, 10]), Stack};
+handle_trace(csp,
+             {return_from, {?MODULE, is_responder, 2}, Return},
+             Stack) ->
+    {io_lib:format("Return = ~p", [Return]), Stack}.
 

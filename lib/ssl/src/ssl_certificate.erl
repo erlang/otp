@@ -833,11 +833,14 @@ cert_auth_member(ChainSubjects, CertAuths) ->
 %%%#
 handle_trace(crt,
              {call, {?MODULE, validate, [Cert, StatusOrExt| _]}}, Stack) ->
+    %% {io_lib:format("(~s) StatusOrExt = ~W",
+    %%                [ssl_test_lib:format_cert(Cert), StatusOrExt, 10]), Stack};
     {io_lib:format("[~W] StatusOrExt = ~W", [Cert, 3, StatusOrExt, 10]), Stack};
 handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
                           [Cert,
                            _UserState,
                            [], _Context]}}, Stack) ->
+    %% {io_lib:format(" no more extensions (~s)", [ssl_test_lib:format_cert(Cert)]), Stack};
     {io_lib:format(" no more extensions [~W]", [Cert, 3]), Stack};
 handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
                           [Cert,
@@ -846,10 +849,14 @@ handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
                              issuer := Issuer} = _UserState,
                            [#certificate_status{response = OcspResponsDer} |
                             _Exts], _Context]}}, Stack) ->
+    %% {io_lib:format("#2 OcspState = ~W Issuer = (~s) OcspResponsDer = ~W (~s)",
+    %%                [OcspState, 10, ssl_test_lib:format_cert(Issuer),
+    %%                 OcspResponsDer, 2, ssl_test_lib:format_cert(Cert)]),
     {io_lib:format("#2 OcspState = ~W Issuer = [~W] OcspResponsDer = ~W [~W]",
                    [OcspState, 10, Issuer, 3, OcspResponsDer, 2, Cert, 3]),
      Stack};
 handle_trace(crt, {return_from,
                    {ssl_certificate, verify_cert_extensions, 4},
                    {valid, #{issuer := Issuer}}}, Stack) ->
+    %% {io_lib:format(" extensions valid Issuer = ~s", [ssl_test_lib:format_cert(Issuer)]), Stack}.
     {io_lib:format(" extensions valid Issuer = ~W", [Issuer, 3]), Stack}.

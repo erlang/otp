@@ -69,6 +69,8 @@
          cacerts_load/1,
          cacerts_clear/0
 	]).
+%% Tracing
+-export([handle_trace/3]).
 
 %%----------------
 %% Moved to ssh
@@ -1382,7 +1384,7 @@ pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt)
     pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer,
                        ResponderCerts, NonceExt);
 pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) ->
-    case  ocsp_responses(OcspRespDer, ResponderCerts, NonceExt) of
+    case ocsp_responses(OcspRespDer, ResponderCerts, NonceExt) of
         {ok, Responses} ->
             ocsp_status(Cert, IssuerCert, Responses);
         {error, Reason} ->
@@ -2034,7 +2036,7 @@ format_details([]) ->
     no_relevant_crls;
 format_details(Details) ->
     Details.
-  
+
 ocsp_status(Cert, IssuerCert, Responses) ->
     case pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses) of
         {ok, #'SingleResponse'{certStatus = CertStatus}} ->
@@ -2044,10 +2046,38 @@ ocsp_status(Cert, IssuerCert, Responses) ->
     end.
 
 ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
-    %% FIXME decode responder cert here?
     DecodedResponderCerts = [pkix_decode_cert(C, plain) || C <- ResponderCerts],
     pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, DecodedResponderCerts,
                                      Nonce).
 
 subject_public_key_info(Alg, PubKey) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, ocsp_responder_id, [Cert]}}, Stack) ->
+    {io_lib:format("pkix_decode_cert(Cert, plain) = ~W", [Cert, 5]),
+    %% {io_lib:format("pkix_decode_cert(Cert, plain) = ~s", [ssl_test_lib:format_cert(Cert)]),
+     Stack};
+handle_trace(csp,
+             {return_from, {?MODULE, ocsp_responder_id, 1}, Return},
+             Stack) ->
+    {io_lib:format("OCSP Responder ID = ~P", [Return, 10]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, ocsp_responses, _Args}}, Stack) ->
+    {io_lib:format("[pkix_decode_cert(C, plain) || C <- ResponderCerts]", []),
+     Stack};
+handle_trace(crt,
+             {call, {?MODULE, pkix_decode_cert, [Cert, _Type]}}, Stack) ->
+    {io_lib:format("Cert = ~W", [Cert, 5]), Stack};
+    %% {io_lib:format("Cert = ~s", [ssl_test_lib:format_cert(Cert)]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, pkix_ocsp_validate, _Args}}, Stack) ->
+    {io_lib:format("#2 OCSP validation started", []), Stack};
+handle_trace(csp,
+             {return_from, {?MODULE, pkix_ocsp_validate, 5}, Return},
+             Stack) ->
+    {io_lib:format("#2 OCSP validation result = ~p", [Return]), Stack}.
