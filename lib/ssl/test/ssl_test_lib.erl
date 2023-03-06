@@ -1464,7 +1464,9 @@ format_cert(#'OTPCertificate'{tbsCertificate = Cert} = OtpCert) ->
                 {error, _} ->
                     io_lib:format("~.3w:~s ->    :~s", [Nr, format_subject(Subject), format_subject(Issuer)])
             end
-    end.
+    end;
+format_cert(Cert) ->
+    io_lib:format("Format failed for ~p", [Cert]).
 
 format_subject({rdnSequence, Seq}) ->
     format_subject(Seq);

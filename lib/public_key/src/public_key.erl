@@ -69,6 +69,8 @@
          cacerts_load/1,
          cacerts_clear/0
 	]).
+%% Tracing
+-export([handle_trace/3]).
 
 %%----------------
 %% Moved to ssh
@@ -2060,3 +2062,40 @@ ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
 
 subject_public_key_info(Alg, PubKey) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, ocsp_responder_id, [Cert]}}, Stack) ->
+    {io_lib:format("pkix_decode_cert(Cert, plain) = ~W", [Cert, 5]),
+    %% {io_lib:format("pkix_decode_cert(Cert, plain) = ~s", [ssl_test_lib:format_cert(Cert)]),
+     Stack};
+handle_trace(csp,
+             {return_from, {?MODULE, ocsp_responder_id, 1}, Return},
+             Stack) ->
+    {io_lib:format("OCSP Responder ID = ~P", [Return, 10]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, ocsp_responses, _Args}}, Stack) ->
+    {io_lib:format("[pkix_decode_cert(C, plain) || C <- ResponderCerts]", []),
+     Stack};
+handle_trace(crt,
+             {call, {?MODULE, pkix_decode_cert, [Cert, _Type]}}, Stack) ->
+    {io_lib:format("Cert = ~W", [Cert, 5]), Stack};
+    %% {io_lib:format("Cert = ~s", [ssl_test_lib:format_cert(Cert)]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, pkix_ocsp_validate, [Cert, IssuerCert | _]}}, Stack) ->
+    {io_lib:format("#2 OCSP validation started~nCert = ~W IssuerCert = ~W",
+                   [Cert, 7, IssuerCert, 7]), Stack};
+    %% {io_lib:format("#2 OCSP validation started~nCert = ~s IssuerCert = ~s",
+    %%                [ssl_test_lib:format_cert(Cert),
+    %%                 ssl_test_lib:format_cert(IssuerCert)]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, otp_cert, [Cert]}}, Stack) ->
+    {io_lib:format("Cert = ~W", [Cert, 5]), Stack};
+    %% {io_lib:format("Cert = ~s", [ssl_test_lib:format_cert(otp_cert(Cert))]), Stack};
+handle_trace(csp,
+             {return_from, {?MODULE, pkix_ocsp_validate, 5}, Return},
+             Stack) ->
+    {io_lib:format("#2 OCSP validation result = ~p", [Return]), Stack}.

@@ -28,6 +28,8 @@
          ocsp_status/1,
          verify_ocsp_response/3,
          decode_ocsp_response/1]).
+%% Tracing
+-export([handle_trace/3]).
 
 -spec get_ocsp_responder_id(#'Certificate'{}) -> binary().
 get_ocsp_responder_id(#'Certificate'{tbsCertificate = TbsCert}) ->
@@ -204,3 +206,36 @@ enc_pub_key({DsaInt, #'Dss-Parms'{}}) when is_integer(DsaInt) ->
     public_key:der_encode('DSAPublicKey', DsaInt);
 enc_pub_key({#'ECPoint'{point = Key}, _ECParam}) ->
     Key.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, do_verify_ocsp_response, [BasicOcspResponse | _]}}, Stack) ->
+    #'BasicOCSPResponse'{
+       tbsResponseData =
+           #'ResponseData'{responderID = ResponderID,
+                           producedAt = ProducedAt}} = BasicOcspResponse,
+    {io_lib:format("ResponderId = ~W producedAt = ~p", [ResponderID, 5, ProducedAt]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, match_single_response,
+                     [_IssuerName, _IssuerKey, _SerialNum,
+                     [#'SingleResponse'{thisUpdate = ThisUpdate,
+                                        nextUpdate = NextUpdate}]]}}, Stack) ->
+    {io_lib:format("ThisUpdate = ~p NextUpdate = ~p", [ThisUpdate, NextUpdate]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, is_responder, [Id, Cert]}}, Stack) ->
+    {io_lib:format("~nId = ~P~nCert = ~P", [Id, 10, Cert, 10]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, find_single_response, [Cert, IssuerCert | _]}}, Stack) ->
+    {io_lib:format("#2 OCSP validation started~nCert = ~W IssuerCert = ~W",
+                   [Cert, 7, IssuerCert, 7]), Stack};
+    %% {io_lib:format("#2 OCSP validation started~nCert = ~s IssuerCert = ~s",
+    %%                [ssl_test_lib:format_cert(Cert),
+    %%                 ssl_test_lib:format_cert(IssuerCert)]), Stack};
+
+handle_trace(csp,
+             {return_from, {?MODULE, is_responder, 2}, Return},
+             Stack) ->
+    {io_lib:format("Return = ~p", [Return]), Stack}.
