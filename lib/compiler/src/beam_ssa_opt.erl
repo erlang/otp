@@ -990,7 +990,7 @@ cse_successors([#b_set{op={succeeded,_},args=[Src]},Bif|_], Blk, EsSucc, M0) ->
             %% We must remove the substitution for Src from the failure branch.
             #b_blk{last=#b_br{succ=Succ,fail=Fail}} = Blk,
             M = cse_successors_1([Succ], EsSucc, M0),
-            EsFail = maps:filter(fun(_, Val) -> Val =/= Src end, EsSucc),
+            EsFail = #{Var => Val || Var := Val <- EsSucc, Val =/= Src},
             cse_successors_1([Fail], EsFail, M);
         false ->
             %% There can't be any replacement for Src in EsSucc. No need for

@@ -515,10 +515,8 @@ prefer_xregs_prune(#cg_set{anno=#{clobbers:=true}}, _, _) ->
     #{};
 prefer_xregs_prune(#cg_set{dst=Dst}, Copies, St) ->
     DstReg = beam_arg(Dst, St),
-    F = fun(_, Alias) ->
-                beam_arg(Alias, St) =/= DstReg
-        end,
-    maps:filter(F, Copies).
+    #{V => Alias || V := Alias <- Copies,
+                    beam_arg(Alias, St) =/= DstReg}.
 
 %% prefer_xregs_call(Instruction, Copies, St) -> Instruction.
 %%  Given a 'call' or 'old_make_fun' instruction rewrite the arguments
@@ -548,12 +546,11 @@ do_prefer_xreg(#b_var{}=A, Copies, St) ->
 do_prefer_xreg(A, _, _) -> A.
 
 merge_copies(Copies0, Copies1) when map_size(Copies0) =< map_size(Copies1) ->
-    maps:filter(fun(K, V) ->
-                        case Copies1 of
-                            #{K:=V} -> true;
-                            #{} -> false
-                        end
-                end, Copies0);
+    #{K => V || K := V <- Copies0,
+                case Copies1 of
+                    #{K := V} -> true;
+                    #{} -> false
+                end};
 merge_copies(Copies0, Copies1) ->
     merge_copies(Copies1, Copies0).
 

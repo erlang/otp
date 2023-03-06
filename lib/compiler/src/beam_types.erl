@@ -1137,7 +1137,7 @@ lub_bs_matchable(UnitA, UnitB) ->
 
 lub_tuple_elements(MinSize, EsA, EsB) ->
     Es0 = lub_elements(EsA, EsB),
-    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
+    #{Index => Type || Index := Type <- Es0, Index =< MinSize}.
 
 lub_elements(Es1, Es2) ->
     Keys = if
