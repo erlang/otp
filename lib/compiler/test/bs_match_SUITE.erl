@@ -127,7 +127,11 @@ verify_highest_opcode(_Config) ->
                     ok;
                 TooHigh ->
                     ct:fail({too_high_opcode_for_21,TooHigh})
-            end;
+            end,
+
+            %% Cover min/max for OTP 25.
+            10 = max(0, min(10, id(42))),
+            ok;
         _ ->
             ok
     end.
@@ -869,6 +873,10 @@ coverage(Config) when is_list(Config) ->
     %% Cover code in beam_ssa_bsm.
     {'EXIT',{{badarg,<<>>},_}} = catch coverage_beam_ssa_bsm_error(id(<<>>)),
 
+    %% Cover code for merging registers in beam_validator.
+    42 = coverage_beam_validator(id(fun() -> 42 end)),
+    ok = coverage_beam_validator(id(fun() -> throw(whatever) end)),
+
     ok.
 
 coverage_fold(Fun, Acc, <<H,T/binary>>) ->
@@ -1024,6 +1032,19 @@ coverage_beam_ssa_pre_codegen(<<V0:0, V1:(V0 div V0), _:(V0 bsl V1)/bits>>) ->
 
 coverage_beam_ssa_bsm_error(<<B/bitstring>>) ->
     B andalso ok.
+
+coverage_beam_validator(F) ->
+    coverage_beam_validator(ok, ok, ok,
+       try
+           F()
+       catch
+           <<V:ok/binary>> ->
+               V;
+           _ ->
+               ok
+       end).
+
+coverage_beam_validator(_, _, _, Result) -> Result.
 
 multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),

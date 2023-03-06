@@ -182,7 +182,13 @@ mixed(Config) when is_list(Config) ->
 
     {'EXIT',{{bad_filter,<<>>},_}} = catch inconsistent_types_2(),
 
+    %% Cover some code in beam_ssa_pre_codegen.
+    [] = fun(A) ->
+                 [] = [ok || <<A:A, _:(A bsr 1)>> <= A]
+         end(id(<<>>)),
+
     cs_end().
+
 
 mixed_nested(L) ->
     << << << << E:16 >> || E <- L >> || true >>/binary, 99:(id(8))>>.
