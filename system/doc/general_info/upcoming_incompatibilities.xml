@@ -36,37 +36,6 @@
   </section>
 
   <section>
-    <title>OTP 25</title>
-    <section>
-      <title>Distribution flags will become mandatory</title>
-      <p>In OTP 25, more <seeguide
-      marker="erts:erl_dist_protocol#dflags">distribution
-      flags</seeguide> will become mandatory. That is, Erlang nodes
-      will refuse to connect to nodes not implementing all of the
-      mandatory distribution flags. If you implement the Erlang
-      distribution protocol yourself, you will need to implement
-      support for all mandatory distribution flags in order to
-      communicate with Erlang nodes running OTP 25.</p>
-      <p>The following distribution flags will become mandatory in OTP
-      25:</p>
-      <taglist>
-        <tag><c>DFLAG_BIT_BINARIES</c></tag>
-        <item>Support for bitstrings.</item>
-        <tag><c>DFLAG_EXPORT_PTR_TAG</c></tag>
-        <item>Support for external funs (<c>fun Module:Name/Arity</c>).</item>
-        <tag><c>DFLAG_MAP_TAGS</c></tag>
-        <item>Support for maps.</item>
-        <tag><c>DFLAG_NEW_FLOATS</c></tag>
-        <item>Support for the new encoding of floats.</item>
-        <tag><c>DFLAG_FUN_TAGS</c></tag>
-        <item>Support for funs, but only in the new format
-        (<c>NEW_FUN_EXT</c>) because <c>DFLAG_NEW_FUN_TAGS</c> is also
-        mandatory.</item>
-      </taglist>
-    </section>
-  </section>
-
-  <section>
     <title>OTP 26</title>
 
     <section>
@@ -115,7 +84,7 @@
 
     <section>
       <marker id="fun_creator_pid"/>
-      <title>Fun creator pid will be removed</title>
+      <title>Fun creator pid will always be local init process</title>
       <p>
         As of OTP 27, the functions
         <seemfa marker="erts:erlang#fun_info/1">
@@ -124,7 +93,56 @@
         node the fun was originally created on.
       </p>
       <p>
-        In OTP 28, the <c>{pid,_}</c>element will be removed altogether.
+        In OTP 28, the <c>{pid,_}</c>element will be removed altogether.</p>
+    </section>
+
+    <section>
+      <title>Feature maybe_expr will be enabled by default</title>
+      <p>
+	As of OTP 27, the <c>maybe_expr</c> feature will be approved
+	and enabled by default. That means that code that uses the
+	unquoted atom <c>maybe</c> will fail to compile. All uses of
+	<c>maybe</c> as an atom will need to be quoted. Alternatively, as a
+	short-term solution, the <c>maybe_expr</c> feature can be
+	disabled.
+      </p>
+      <p>
+        It is recommend to quote all uses of the atom <c>maybe</c> as soon as
+        possible. The compiler option <c>warn_keywords</c> can be used to emit
+        warnings about all occurrences of <c>maybe</c> without quotes.
+      </p>
+    </section>
+  </section>
+
+  <section>
+    <title>OTP 28</title>
+
+    <section>
+      <marker id="fun_creator_pid"/>
+      <title>Fun creator pid will be removed</title>
+      <p>
+        As of OTP 28, the function <seemfa
+        marker="erts:erlang#fun_info/1"><c>erlang:fun_info/1</c></seemfa>
+        will no include the <c>{pid,_}</c> element and the function
+        <seemfa marker="erts:erlang#fun_info/2"><c>erlang:fun_info/2</c></seemfa>
+        will no longer accept <c>pid</c> as the second argument.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>OTP 29</title>
+
+    <section>
+      <title>It will no longer be possible to disable feature maybe_expr</title>
+      <p>
+	As of OTP 29, the <c>maybe_expr</c> feature will become
+	permanent and no longer possible to disable. All uses of
+	<c>maybe</c> as an atom will need to be	quoted.
+      </p>
+      <p>
+        It is recommend to quote all uses of the atom <c>maybe</c> as soon as
+        possible. The compiler option <c>warn_keywords</c> can be used to emit
+        warnings about all occurrences of <c>maybe</c> without quotes.
       </p>
     </section>
   </section>
