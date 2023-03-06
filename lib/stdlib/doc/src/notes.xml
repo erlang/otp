@@ -31,6 +31,49 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that would cause analysis to crash.</p>
+          <p>
+	    Own Id: OTP-18372 Aux Id: GH-6580 </p>
+        </item>
+        <item>
+	    <p>Fixed a crash when formatting stack traces for error
+	    reports.</p>
+          <p>
+	    Own Id: OTP-18375 Aux Id: GH-6591 </p>
+        </item>
+        <item>
+	    <p>Instead of crashing, the <c>list_to_integer/1</c> and
+	    <c>list_to_integer/2</c> BIFs now raise the
+	    <c>system_limit</c> exception for overlong lists that
+	    can't be converted to integers. Similarly, the
+	    <c>string:to_integer/1</c> BIF now returns
+	    <c>{error,system_limit}</c> for overlong lists.</p>
+          <p>
+	    Own Id: OTP-18475 Aux Id: PR-6897 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removal of non-necessary <c>undefined</c> types added to
+	    the state's <c>supervisor</c> record.</p>
+          <p>
+	    Own Id: OTP-18393 Aux Id: PR-6666 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

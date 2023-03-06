@@ -38,7 +38,21 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.9</title>
+  <section><title>Reltool 0.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that would cause analysis to crash.</p>
+          <p>
+	    Own Id: OTP-18372 Aux Id: GH-6580 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.9</title>
 
     <section><title>Improvements and New Features</title>
       <list>

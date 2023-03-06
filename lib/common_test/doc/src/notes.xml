@@ -33,6 +33,22 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.24</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Renamed undocumented macro <c>CT_PEER/3</c> to
+	    <c>CT_PEER_REL/3</c>.</p>
+          <p>
+	    Own Id: OTP-18460</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.23.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The port programs used by <c>cpu_sup</c> and
+	    <c>memsup</c> are now gracefully shut down when
+	    <c>cpu_sup</c> and <c>memsup</c> are shut down.</p>
+          <p>
+	    Own Id: OTP-18469 Aux Id: PR-6689 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.8</title>
 
     <section><title>Improvements and New Features</title>

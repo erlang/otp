@@ -6154,7 +6154,7 @@ receive_replies(ReqId, N, Acc) ->
 
     <func>
       <name name="process_flag" arity="2" clause_i="1"
-	    anchor="process_flag_async_dist" since="OTP @OTP-18374@"/>
+	    anchor="process_flag_async_dist" since="OTP 25.3"/>
       <fsummary>
         Enable or disable fully asynchronous distributed signaling
         for the calling process.
@@ -6655,7 +6655,7 @@ receive_replies(ReqId, N, Acc) ->
             <c>{async_dist, Enabled}</c>
           </tag>
           <item>
-            <p>Since: OTP @OTP-18374@</p>
+            <p>Since: OTP 25.3</p>
             <p>
               Current value of the
               <seeerl marker="erlang#process_flag_async_dist">
@@ -7910,7 +7910,7 @@ true</pre>
             <c>{async_dist, Enabled}</c>
           </tag>
           <item>
-            <p>Since: OTP @OTP-18374@</p>
+            <p>Since: OTP 25.3</p>
             <p>
               Set the
               <seeerl marker="erlang#process_flag_async_dist">
@@ -10951,7 +10951,7 @@ Metadata = #{ pid => pid(),
 
     <func>
       <name name="system_info" arity="1" clause_i="79"
-	    anchor="system_info_async_dist" since="OTP @OTP-18374@"/>  <!-- async_dist -->
+	    anchor="system_info_async_dist" since="OTP 25.3"/>  <!-- async_dist -->
       <name name="system_info" arity="1" clause_i="14"
 	    anchor="system_info_dist" since=""/>  <!-- creation -->
       <name name="system_info" arity="1" clause_i="16" since="OTP 18.0"/>  <!-- delayed_node_table_gc -->
@@ -10966,7 +10966,7 @@ Metadata = #{ pid => pid(),
         <taglist>
           <tag><marker id="system_info_async_dist"/><c>async_dist</c></tag>
           <item>
-            <p>Since: OTP @OTP-18374@</p>
+            <p>Since: OTP 25.3</p>
             <p>
               Returns the value of the command line argument
               <seecom marker="erl#+pad">+pad &lt;boolean&gt;</seecom>

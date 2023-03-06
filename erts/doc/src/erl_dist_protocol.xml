@@ -560,7 +560,7 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
 	A bug introduced in OTP 25.0 may cause OTP 25 nodes to reject connection
 	attempts from OTP 23 and 24 nodes that are not using <c>epmd</c> to gain
 	version information about the remote node.
-	This is fixed in OTP @OTP-18404@.
+	This is fixed in OTP 25.3.
       </p>
     </note>
     <section>
