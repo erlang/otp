@@ -105,22 +105,23 @@ liveness([], _StMap) ->
 liveness_fun(F, StMap0) ->
     #opt_st{ssa=SSA} = map_get(F, StMap0),
     State0 = #{Lbl => #liveness_st{} || {Lbl,_} <- SSA},
-    liveness_blks_fixp(reverse(SSA), State0, false).
+    UseDefCache = liveness_make_cache(SSA),
+    liveness_blks_fixp(reverse(SSA), State0, false, UseDefCache).
 
-liveness_blks_fixp(_SSA, State0, State0) ->
+liveness_blks_fixp(_SSA, State0, State0, _UseDefCache) ->
     State0;
-liveness_blks_fixp(SSA, State0, _Old) ->
-    State = liveness_blks(SSA, State0),
-    liveness_blks_fixp(SSA, State, State0).
+liveness_blks_fixp(SSA, State0, _Old, UseDefCache) ->
+    State = liveness_blks(SSA, State0, UseDefCache),
+    liveness_blks_fixp(SSA, State, State0, UseDefCache).
 
-liveness_blks([{Lbl,Blk}|Blocks], State0) ->
+liveness_blks([{Lbl,Blk}|Blocks], State0, UseDefCache) ->
     OutOld = get_live_out(Lbl, State0),
-    Defs = blk_defs(Blk),
-    Uses = blk_effective_uses(Blk),
+    #{Lbl:={Defs,Uses}} = UseDefCache,
     In = sets:union(Uses, sets:subtract(OutOld, Defs)),
     Out = successor_live_ins(Blk, State0),
-    liveness_blks(Blocks, set_block_liveness(Lbl, In, Out, State0));
-liveness_blks([], State0) ->
+    liveness_blks(Blocks, set_block_liveness(Lbl, In, Out, State0),
+                  UseDefCache);
+liveness_blks([], State0, _UseDefCache) ->
     State0.
 
 get_live_in(Lbl, State) ->
@@ -163,6 +164,17 @@ blk_effective_uses([I|Is], Uses0) ->
     blk_effective_uses(Is, sets:union(Uses, LocalUses));
 blk_effective_uses([], Uses) ->
     Uses.
+
+liveness_make_cache(SSA) ->
+    liveness_make_cache(SSA, #{}).
+
+liveness_make_cache([{Lbl,Blk}|Blocks], Cache0) ->
+    Defs = blk_defs(Blk),
+    Uses = blk_effective_uses(Blk),
+    Cache = Cache0#{Lbl=>{Defs,Uses}},
+    liveness_make_cache(Blocks, Cache);
+liveness_make_cache([], Cache) ->
+    Cache.
 
 %%%
 %%% Predicate to check if a function is the stub for a nif.
