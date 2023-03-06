@@ -1399,12 +1399,12 @@ ocsp_extensions(Nonce) ->
              erlang:is_record(Extn, 'Extension')].
 
 %%--------------------------------------------------------------------
--spec ocsp_responder_id(#'Certificate'{}) -> binary().
+-spec ocsp_responder_id(binary()) -> binary().
 %%
 %% Description: Get the OCSP responder ID der
 %%--------------------------------------------------------------------
-ocsp_responder_id(Cert) ->
-    pubkey_ocsp:get_ocsp_responder_id(Cert).
+ocsp_responder_id(CertDer) ->
+    pubkey_ocsp:get_ocsp_responder_id(pkix_decode_cert(CertDer, plain)).
 
 %%--------------------------------------------------------------------
 -spec cacerts_get() -> [combined_cert()].
@@ -2041,8 +2041,9 @@ ocsp_status(Cert, IssuerCert, Responses) ->
     end.
 
 ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
-    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, 
-                                     ResponderCerts, Nonce).
+    DecodedResponderCerts = [pkix_decode_cert(C, plain) || C <- ResponderCerts],
+    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, DecodedResponderCerts,
+                                     Nonce).
 
 subject_public_key_info(Alg, PubKey) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.

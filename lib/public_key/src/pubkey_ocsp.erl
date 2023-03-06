@@ -55,11 +55,10 @@ get_nonce_extn(Nonce) when is_binary(Nonce) ->
         extnValue = Nonce
     }.
 
--spec verify_ocsp_response(binary(), list(), undefined | binary()) ->
+-spec verify_ocsp_response(#'BasicOCSPResponse'{}, list(), undefined | binary()) ->
     {ok, term()} | {error, term()}.
-verify_ocsp_response(OCSPResponseDer, ResponderCerts, Nonce) ->
-    do_verify_ocsp_response(
-      decode_ocsp_response(OCSPResponseDer), ResponderCerts, Nonce).
+verify_ocsp_response(OCSPResponse, ResponderCerts, Nonce) ->
+    do_verify_ocsp_response(OCSPResponse, ResponderCerts, Nonce).
 
 -spec get_acceptable_response_types_extn() -> #'Extension'{}.
 get_acceptable_response_types_extn() ->
