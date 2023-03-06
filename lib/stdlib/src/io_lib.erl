@@ -125,7 +125,8 @@
            pad_char     := char(),
            encoding     := 'unicode' | 'latin1',
            strings      := boolean(),
-           maps_order   := maps:iterator_order()
+           % `maps_order` has been added since OTP26 and is optional
+           maps_order   => maps:iterator_order()
          }.
 
 %%----------------------------------------------------------------------
