@@ -548,7 +548,8 @@ static inline int mmMapJitFromMemoryFlags(MemoryFlags memoryFlags) noexcept {
   // Always use MAP_JIT flag if user asked for it (could be used for testing on non-hardened processes) and detect
   // whether it must be used when the process is actually hardened (in that case it doesn't make sense to rely on
   // user `memoryFlags`).
-  bool useMapJit = Support::test(memoryFlags, MemoryFlags::kMMapEnableMapJit) || hasHardenedRuntime();
+  bool useMapJit = (Support::test(memoryFlags, MemoryFlags::kMMapEnableMapJit) || hasHardenedRuntime())
+    && !Support::test(memoryFlags, MemoryFlags::kMapShared);
   if (useMapJit)
     return hasMapJitSupport() ? int(MAP_JIT) : 0;
   else

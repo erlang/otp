@@ -125,14 +125,6 @@ static auto create_allocator(const JitAllocator::CreateParams &params) {
     bool single_mapped;
     Error err;
 
-#if defined(__APPLE__) && defined(__aarch64__)
-    /* Using a single map will not work on Apple Silicon. The allocation may
-     * succeed but be unusable. */
-    if (!(params->options & JitAllocatorOptions::kDualMapping)) {
-        return std::make_pair((JitAllocator *)nullptr, false);
-    }
-#endif
-
     auto *allocator = new JitAllocator(&params);
 
     err = allocator->alloc(&test_ro, &test_rw, 1);
@@ -145,7 +137,13 @@ static auto create_allocator(const JitAllocator::CreateParams &params) {
 
     allocator->release(test_ro);
 
+#if defined(__APPLE__) && defined(__aarch64__)
+    /* Using a single map will not work on Apple Silicon. The allocation
+     * succeeds but crashes later on. */
+    if (err == ErrorCode::kErrorOk && !single_mapped) {
+#else
     if (err == ErrorCode::kErrorOk) {
+#endif
         return std::make_pair(allocator, single_mapped);
     }
 
