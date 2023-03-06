@@ -98,9 +98,9 @@
 
 %% We KNOW that `error` is not a valid value in the table.
 ets_dict_find(Key, Table) ->
-  case ets:lookup_element(Table, Key, 2, '$missing') of
-      '$missing' -> error;
-      Val -> {ok, Val}
+  case ets:lookup_element(Table, Key, 2, error) of
+    error -> error;
+    Val -> {ok, Val}
   end.
 
 ets_map_store(Key, Element, Table) ->
