@@ -3081,9 +3081,6 @@ cancel_timer(TimeoutType, Timers) ->
 %% Return a list of all pending timeouts
 list_timeouts(Timers) ->
     {maps:size(Timers) - 1, % Subtract fixed key 't0q'
-     maps:fold(
-       fun (t0q, _, Acc) ->
-               Acc;
-           (TimeoutType, {_TimerRef,TimeoutMsg}, Acc) ->
-               [{TimeoutType,TimeoutMsg}|Acc]
-       end, [], Timers)}.
+     [{TimeoutType, TimeoutMsg}
+      || TimeoutType := {_TimerRef, TimeoutMsg} <- Timers,
+         TimeoutType =/= t0q]}.
