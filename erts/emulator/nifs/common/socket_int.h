@@ -228,6 +228,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(autoclose);                \
     GLOBAL_ATOM_DEF(automedia);                \
     GLOBAL_ATOM_DEF(bad_data);                 \
+    GLOBAL_ATOM_DEF(base_addr);                \
     GLOBAL_ATOM_DEF(bindtodevice);             \
     GLOBAL_ATOM_DEF(block_source);             \
     GLOBAL_ATOM_DEF(broadcast);                \
@@ -260,6 +261,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(dgram);                    \
     GLOBAL_ATOM_DEF(disable_fragments);        \
     GLOBAL_ATOM_DEF(dlci);                     \
+    GLOBAL_ATOM_DEF(dma);                      \
     GLOBAL_ATOM_DEF(domain);                   \
     GLOBAL_ATOM_DEF(dontfrag);                 \
     GLOBAL_ATOM_DEF(dontroute);                \
@@ -321,6 +323,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(ipcomp_level);             \
     GLOBAL_ATOM_DEF(ipip);                     \
     GLOBAL_ATOM_DEF(ipv6);                     \
+    GLOBAL_ATOM_DEF(irq);                      \
     GLOBAL_ATOM_DEF(i_want_mapped_v4_addr);    \
     GLOBAL_ATOM_DEF(join_group);               \
     GLOBAL_ATOM_DEF(keepalive);                \
@@ -333,9 +336,9 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(level);                    \
     GLOBAL_ATOM_DEF(linger);                   \
     GLOBAL_ATOM_DEF(link);                     \
-    GLOBAL_ATOM_DEF(link0);                     \
-    GLOBAL_ATOM_DEF(link1);                     \
-    GLOBAL_ATOM_DEF(link2);                     \
+    GLOBAL_ATOM_DEF(link0);                    \
+    GLOBAL_ATOM_DEF(link1);                    \
+    GLOBAL_ATOM_DEF(link2);                    \
     GLOBAL_ATOM_DEF(local);                    \
     GLOBAL_ATOM_DEF(localtlk);                 \
     GLOBAL_ATOM_DEF(local_auth_chunks);        \
@@ -347,6 +350,8 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(maxburst);                 \
     GLOBAL_ATOM_DEF(maxseg);                   \
     GLOBAL_ATOM_DEF(md5sig);                   \
+    GLOBAL_ATOM_DEF(mem_end);                  \
+    GLOBAL_ATOM_DEF(mem_start);                \
     GLOBAL_ATOM_DEF(metricom);                 \
     GLOBAL_ATOM_DEF(mincost);                  \
     GLOBAL_ATOM_DEF(minttl);                   \
@@ -480,6 +485,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(sndbufforce);              \
     GLOBAL_ATOM_DEF(sndlowat);                 \
     GLOBAL_ATOM_DEF(sndtimeo);                 \
+    GLOBAL_ATOM_DEF(sockaddr);                 \
     GLOBAL_ATOM_DEF(socket);                   \
     GLOBAL_ATOM_DEF(socket_tag);               \
     GLOBAL_ATOM_DEF(spec_dst);                 \
@@ -500,6 +506,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(ttl);                      \
     GLOBAL_ATOM_DEF(tunnel);                   \
     GLOBAL_ATOM_DEF(tunnel6);                  \
+    GLOBAL_ATOM_DEF(txqlen);                   \
     GLOBAL_ATOM_DEF(type);                     \
     GLOBAL_ATOM_DEF(udp);                      \
     GLOBAL_ATOM_DEF(unblock_source);           \

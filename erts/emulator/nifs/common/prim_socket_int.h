@@ -331,7 +331,12 @@ typedef struct {
 typedef struct {
     int           flag;
     ERL_NIF_TERM* name;
-} ESockMsgFlag;
+} ESockFlag;
+
+extern const ESockFlag esock_msg_flags[];
+extern const int       esock_msg_flags_length;
+extern const ESockFlag esock_ioctl_flags[];
+extern const int       esock_ioctl_flags_length;
 
 
 /* ********************************************************************* *

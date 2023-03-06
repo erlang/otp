@@ -144,6 +144,19 @@ extern ERL_NIF_TERM essio_cancel_recv(ErlNifEnv*       env,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     opRef);
 
+extern ERL_NIF_TERM essio_ioctl2(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 unsigned long    req);
+extern ERL_NIF_TERM essio_ioctl3(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 unsigned long    req,
+                                 ERL_NIF_TERM     arg);
+extern ERL_NIF_TERM essio_ioctl4(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 unsigned long    req,
+                                 ERL_NIF_TERM     ename,
+                                 ERL_NIF_TERM     eval);
+
 extern void essio_dtor(ErlNifEnv*       env,
                        ESockDescriptor* descP);
 extern void essio_stop(ErlNifEnv*       env,
