@@ -77,7 +77,7 @@
           {ssh_hostkey_fingerprint,1, "use ssh:hostkey_fingerprint/1 instead"},
           {ssh_hostkey_fingerprint,2, "use ssh:hostkey_fingerprint/2 instead"}
          ]).
-
+-export([otp_cert/1]).
 -export([ssh_curvename2oid/1, oid2ssh_curvename/1]).
 %% When removing for OTP-25.0, remember to also remove
 %%   - most of pubkey_ssh.erl except
@@ -1623,7 +1623,9 @@ otp_cert(Der) when is_binary(Der) ->
 otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert;
 otp_cert(#cert{otp = OtpCert}) ->
-    OtpCert.
+    OtpCert;
+otp_cert(#'Certificate'{} = Cert) ->
+    pkix_decode_cert(der_encode('Certificate', Cert), otp).
 
 der_cert(#'OTPCertificate'{} = Cert) ->
     pkix_encode('OTPCertificate', Cert, otp);

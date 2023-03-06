@@ -23,8 +23,7 @@
 -include("public_key.hrl").
 -include_lib("/home/ejakwit/src/tools/src/tools.hrl").
 
--export([otp_cert/1,
-         get_ocsp_responder_id/1,
+-export([get_ocsp_responder_id/1,
          get_nonce_extn/1,
          decode_ocsp_response/1,
          verify_ocsp_response/3,
@@ -198,7 +197,7 @@ do_verify_ocsp_signature(ResponseDataDer, Signature, AlgorithmID, Cert) ->
 %% Description: Get the subject public key field
 %%--------------------------------------------------------------------
 get_public_key_rec(#'Certificate'{} = Cert) ->
-    get_public_key_rec(otp_cert(Cert));
+    get_public_key_rec(public_key:otp_cert(Cert));
 get_public_key_rec(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey.
@@ -215,20 +214,6 @@ is_responder({byKey, Key}, Cert) ->
     Key == crypto:hash(sha, get_public_key(Cert)).
 
 %%--------------------------------------------------------------------
--spec otp_cert(#'Certificate'{} | #'OTPCertificate'{} | binary()) ->
-    #'OTPCertificate'{}.
-%%
-%% Description: Convert to #'OTPCertificate'{}
-%%--------------------------------------------------------------------
-otp_cert(#'OTPCertificate'{} = Cert) ->
-    Cert;
-otp_cert(#'Certificate'{} = Cert) ->
-    public_key:pkix_decode_cert(
-        public_key:der_encode('Certificate', Cert), otp);
-otp_cert(CertDer) when is_binary(CertDer) ->
-    public_key:pkix_decode_cert(CertDer, otp).
-
-%%--------------------------------------------------------------------
 -spec get_ocsp_responder_id(#'Certificate'{}) -> binary().
 %%
 %% Description: Get the OCSP responder ID der
@@ -243,7 +228,7 @@ get_ocsp_responder_id(#'Certificate'{tbsCertificate = TbsCert}) ->
 %% Description: Get the subject der from cert
 %%--------------------------------------------------------------------
 get_subject_name(#'Certificate'{} = Cert) ->
-    get_subject_name(otp_cert(Cert));
+    get_subject_name(public_key:otp_cert(Cert));
 get_subject_name(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     public_key:pkix_encode('Name', TbsCert#'OTPTBSCertificate'.subject, otp).
 
@@ -253,7 +238,7 @@ get_subject_name(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
 %% Description: Get the public key from cert
 %%--------------------------------------------------------------------
 get_public_key(#'Certificate'{} = Cert) ->
-    get_public_key(otp_cert(Cert));
+    get_public_key(public_key:otp_cert(Cert));
 get_public_key(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     enc_pub_key(PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey).
@@ -297,7 +282,7 @@ get_acceptable_response_types_extn() ->
 %% Description: Get the serial number of a certificate
 %%--------------------------------------------------------------------
 get_serial_num(Cert) ->
-    #'OTPCertificate'{tbsCertificate = TbsCert} = otp_cert(Cert),
+    #'OTPCertificate'{tbsCertificate = TbsCert} = public_key:otp_cert(Cert),
     TbsCert#'OTPTBSCertificate'.serialNumber.
 
 
