@@ -157,13 +157,11 @@ assert_exception_block(Blocks) ->
 add_parameter_annos([{label, _}=Entry | Body], Anno) ->
     ParamTypes = maps:get(parameter_info, Anno, #{}),
 
-    Annos = maps:fold(
-        fun(K, V, Acc) when is_map_key(K, ParamTypes) ->
-                Info = map_get(K, ParamTypes),
-                [{'%', {var_info, V, Info}} | Acc];
-           (_K, _V, Acc) ->
-                Acc
-        end, [], maps:get(registers, Anno)),
+    Annos = [begin
+                 Info = map_get(K, ParamTypes),
+                 {'%', {var_info, V, Info}}
+             end || K := V <- map_get(registers, Anno),
+                    is_map_key(K, ParamTypes)],
 
     [Entry | sort(Annos)] ++ Body.
 

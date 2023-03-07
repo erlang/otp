@@ -1368,12 +1368,11 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
     %% union). 'any' is prohibited since it's implicit and should never be
     %% present in the map, and a 'none' element ought to have reduced the
     %% entire tuple to 'none'.
-    maps:fold(fun(Index, Element, _) when is_integer(Index),
-                                          1 =< Index, Index =< Size,
-                                          Index =< ?TUPLE_ELEMENT_LIMIT,
-                                          Element =/= any, Element =/= none ->
-                      verified_type(Element)
-              end, [], Es),
+    _ = [verified_type(Element) ||
+            Index := Element <- Es,
+            is_integer(Index), 1 =< Index, Index =< Size,
+            Index =< ?TUPLE_ELEMENT_LIMIT,
+            Element =/= any, Element =/= none],
     T.
 
 %%%

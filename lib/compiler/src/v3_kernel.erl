@@ -1565,9 +1565,7 @@ group_value(_, Us, Cs) ->
     Map = group_values(Cs, #{}),
     %% We must sort the grouped values to ensure consistent
     %% order from compilation to compilation.
-    sort(maps:fold(fun (_, Vcs, Css) ->
-                           [{Us,reverse(Vcs)}|Css]
-                   end, [], Map)).
+    sort([{Us,reverse(Vcs)} || _ := Vcs <- Map]).
 
 group_values([C|Cs], Acc) ->
     Val = clause_val(C),
