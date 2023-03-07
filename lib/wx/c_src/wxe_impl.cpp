@@ -120,20 +120,36 @@ void send_msg(const char * type, const wxString * msg) {
   rt.send(emsg);
 }
 
+void wx_print_term(ErlNifEnv * env, ERL_NIF_TERM t)
+{
+  if(enif_is_binary(env, t)) {
+    ErlNifBinary bin;
+    enif_inspect_binary(env, t, &bin);
+    if(bin.size > 128) {
+      enif_fprintf(stderr, "<<...LARGE BIN>");
+    } else {
+      enif_fprintf(stderr, "%T", t);
+    }
+  } else {
+    enif_fprintf(stderr, "%T", t);
+  }
+}
+
+
+
 void print_cmd(wxeCommand& event)
 {
   int i;
   wxe_fns_t *func = &wxe_fns[event.op];
   enif_fprintf(stderr, "  %T %d %s::%s(", event.caller, event.op, func->cname, func->fname);
-  for(i=0; i < event.argc-1; i++) {
-    enif_fprintf(stderr, "%T,", event.args[i]);
+  for(i=0; i < event.argc; i++) {
+    wx_print_term(event.env, event.args[i]);
+    if(i < event.argc - 1)
+      enif_fprintf(stderr, ", ");
   }
-  if(i > 0) {
-    enif_fprintf(stderr, "%T)\r\n", event.args[i]);
-  } else {
-    enif_fprintf(stderr, ")\r\n");
-  }
+  enif_fprintf(stderr, ")\r\n");
 }
+ 
 
 /* ************************************************************
  *  Init WxeApp the application emulator

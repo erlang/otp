@@ -43,8 +43,11 @@ wxeReturn::~wxeReturn () {
 int wxeReturn::send(ERL_NIF_TERM msg) {
   int res;
   if(wxe_debug) {
-    if(isResult)
-      enif_fprintf(stderr, "return to %T:  %T\r\n", caller, msg);
+    if(isResult) {
+      enif_fprintf(stderr, "return to %T: ", caller);
+      wx_print_term(env, msg);
+      enif_fprintf(stderr, "\r\n");
+    }
   }
   if(isResult) {
     res = enif_send(NULL, &caller, env,
