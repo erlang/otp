@@ -25,12 +25,15 @@
 -export([otp_cert/1,
          get_ocsp_responder_id/1,
          get_nonce_extn/1,
-         decode_ocsp_response/1,
          verify_ocsp_response/3,
          get_acceptable_response_types_extn/0,
          find_single_response/3,
          ocsp_status/1]).
 
+%% Test related exports
+-export([decode_ocsp_response/1]).
+
+-spec ocsp_status({atom(), term()}) -> atom() | {atom(), {atom(), term()}}
 ocsp_status({good, _}) ->
     valid;
 ocsp_status({unknown, Reason}) ->
@@ -38,23 +41,12 @@ ocsp_status({unknown, Reason}) ->
 ocsp_status({revoked, Reason}) ->
     {bad_cert, {revoked, Reason}}.
 
-%%--------------------------------------------------------------------
 -spec verify_ocsp_response(binary(), list(), undefined | binary()) ->
     {ok, term()} | {error, term()}.
-%%
-%% Description: Verify the OCSP response to get the certificate status
-%%--------------------------------------------------------------------
 verify_ocsp_response(OCSPResponseDer, ResponderCerts, Nonce) ->
     do_verify_ocsp_response(
       decode_ocsp_response(OCSPResponseDer), ResponderCerts, Nonce).
 
-%%--------------------------------------------------------------------
--spec do_verify_ocsp_response({ok, #'BasicOCSPResponse'{}} | {error, term()},
-                              list(), undefined | binary()) ->
-    {ok, term()} | {error, term()}.
-%%
-%% Description: Verify the OCSP response to get the certificate status
-%%--------------------------------------------------------------------
 do_verify_ocsp_response({ok, #'BasicOCSPResponse'{
                                 tbsResponseData = ResponseData,
                                 signatureAlgorithm = SignatureAlgo,
@@ -75,12 +67,6 @@ do_verify_ocsp_response({ok, #'BasicOCSPResponse'{
 do_verify_ocsp_response({error, Reason}, _ResponderCerts, _Nonce) ->
     {error, Reason}.
 
-%%--------------------------------------------------------------------
--spec verify_ocsp_nonce(#'ResponseData'{}, undefined | binary()) ->
-    {ok, term()} | {error, nonce_mismatch}.
-%%
-%% Description: Check if the nonces matches in OCSP response
-%%--------------------------------------------------------------------
 verify_ocsp_nonce(ResponseData, Nonce) ->
     #'ResponseData'{responses = Responses, responseExtensions = ResponseExtns} =
         ResponseData,
@@ -91,12 +77,6 @@ verify_ocsp_nonce(ResponseData, Nonce) ->
             {error, nonce_mismatch}
     end.
 
-%%--------------------------------------------------------------------
--spec get_nonce_value(asn1_NOVALUE | list()) ->
-    undefined | binary().
-%%
-%% Description: Get the nonce value from extensions
-%%--------------------------------------------------------------------
 %% no extensions present in response
 get_nonce_value(asn1_NOVALUE) ->
     undefined;
@@ -110,14 +90,8 @@ get_nonce_value([#'Extension'{
 get_nonce_value([_Extn | Rest]) ->
     get_nonce_value(Rest).
 
-%%--------------------------------------------------------------------
--spec decode_ocsp_response(binary()) ->
-    {ok, #'BasicOCSPResponse'{}} | {error, term()}.
-%%
-%% Description: Decode the OCSP response der
-%%--------------------------------------------------------------------
-decode_ocsp_response(Response) ->
-    Resp = public_key:der_decode('OCSPResponse', Response),
+decode_ocsp_response(ResponseDer) ->
+    Resp = public_key:der_decode('OCSPResponse', ResponseDer),
     case Resp#'OCSPResponse'.responseStatus of
         successful ->
              decode_response_bytes(
@@ -127,12 +101,6 @@ decode_ocsp_response(Response) ->
             {error, Error}
     end.
 
-%%--------------------------------------------------------------------
--spec decode_response_bytes(#'ResponseBytes'{}) ->
-    {ok, #'BasicOCSPResponse'{}} | {error, term()}.
-%%
-%% Description: Get basic ocsp response field
-%%--------------------------------------------------------------------
 decode_response_bytes(#'ResponseBytes'{
                           responseType = ?'id-pkix-ocsp-basic',
                           response = Data}) ->
@@ -140,12 +108,6 @@ decode_response_bytes(#'ResponseBytes'{
 decode_response_bytes(#'ResponseBytes'{responseType = RespType}) ->
     {error, {ocsp_response_type_not_supported, RespType}}.
 
-%%--------------------------------------------------------------------
--spec verify_ocsp_signature(binary(), term(), term(), list(), term()) ->
-    ok | {error, term()}.
-%%
-%% Description: Verify the signature of OCSP response
-%%--------------------------------------------------------------------
 verify_ocsp_signature(ResponseDataDer, SignatureAlgo, Signature,
                       Certs, ResponderID) ->
     case find_responder_cert(ResponderID, Certs) of
@@ -156,12 +118,6 @@ verify_ocsp_signature(ResponseDataDer, SignatureAlgo, Signature,
             {error, Reason}
     end.
 
-%%--------------------------------------------------------------------
--spec find_responder_cert(term(), list()) ->
-    {ok, #'Certificate'{} | #'OTPCertificate'{}} | {error, term()}.
-%%
-%% Description: Find the OCSP responder's cert in input list
-%%--------------------------------------------------------------------
 find_responder_cert(_ResponderID, []) ->
     {error, ocsp_responder_cert_not_found};
 find_responder_cert(ResponderID, [Cert | TCerts]) ->
@@ -172,13 +128,6 @@ find_responder_cert(ResponderID, [Cert | TCerts]) ->
             find_responder_cert(ResponderID, TCerts)
     end.
 
-%%--------------------------------------------------------------------
--spec do_verify_ocsp_signature(
-        binary(), term(), term(), #'Certificate'{} | #'OTPCertificate'{}) ->
-    ok | {error, term()}.
-%%
-%% Description: Verify the signature of OCSP response
-%%--------------------------------------------------------------------
 do_verify_ocsp_signature(ResponseDataDer, Signature, AlgorithmID, Cert) ->
     {DigestType, _SignatureType} = public_key:pkix_sign_types(AlgorithmID),
     case public_key:verify(
@@ -190,35 +139,17 @@ do_verify_ocsp_signature(ResponseDataDer, Signature, AlgorithmID, Cert) ->
             {error, ocsp_response_bad_signature}
     end.
 
-%%--------------------------------------------------------------------
--spec get_public_key_rec(#'Certificate'{} | #'OTPCertificate'{}) ->
-    term().
-%%
-%% Description: Get the subject public key field
-%%--------------------------------------------------------------------
 get_public_key_rec(#'Certificate'{} = Cert) ->
     get_public_key_rec(otp_cert(Cert));
 get_public_key_rec(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey.
 
-%%--------------------------------------------------------------------
--spec is_responder(tuple(), #'Certificate'{} | #'OTPCertificate'{}) ->
-    boolean().
-%%
-%% Description: Check if is OCSP responder's cert
-%%--------------------------------------------------------------------
 is_responder({byName, Name}, Cert) ->
     public_key:der_encode('Name', Name) == get_subject_name(Cert);
 is_responder({byKey, Key}, Cert) ->
     Key == crypto:hash(sha, get_public_key(Cert)).
 
-%%--------------------------------------------------------------------
--spec otp_cert(#'Certificate'{} | #'OTPCertificate'{} | binary()) ->
-    #'OTPCertificate'{}.
-%%
-%% Description: Convert to #'OTPCertificate'{}
-%%--------------------------------------------------------------------
 otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert;
 otp_cert(#'Certificate'{} = Cert) ->
@@ -227,11 +158,7 @@ otp_cert(#'Certificate'{} = Cert) ->
 otp_cert(CertDer) when is_binary(CertDer) ->
     public_key:pkix_decode_cert(CertDer, otp).
 
-%%--------------------------------------------------------------------
 -spec get_ocsp_responder_id(#'Certificate'{}) -> binary().
-%%
-%% Description: Get the OCSP responder ID der
-%%--------------------------------------------------------------------
 get_ocsp_responder_id(#'Certificate'{tbsCertificate = TbsCert}) ->
     public_key:der_encode(
         'ResponderID', {byName, TbsCert#'TBSCertificate'.subject}).
@@ -264,11 +191,7 @@ enc_pub_key({DsaInt, #'Dss-Parms'{}}) when is_integer(DsaInt) ->
 enc_pub_key({#'ECPoint'{point = Key}, _ECParam}) ->
     Key.
 
-%%--------------------------------------------------------------------
 -spec get_nonce_extn(undefined | binary()) -> undefined | #'Extension'{}.
-%%
-%% Description: Get an OCSP nonce der
-%%--------------------------------------------------------------------
 get_nonce_extn(undefined) ->
     undefined;
 get_nonce_extn(Nonce) when is_binary(Nonce) ->
@@ -277,11 +200,7 @@ get_nonce_extn(Nonce) when is_binary(Nonce) ->
         extnValue = Nonce
     }.
 
-%%--------------------------------------------------------------------
 -spec get_acceptable_response_types_extn() -> #'Extension'{}.
-%%
-%% Description: Get an acceptable response types der
-%%--------------------------------------------------------------------
 get_acceptable_response_types_extn() ->
     #'Extension'{
         extnID    = ?'id-pkix-ocsp-response',
@@ -289,24 +208,13 @@ get_acceptable_response_types_extn() ->
             'AcceptableResponses', [?'id-pkix-ocsp-basic'])
     }.
 
-%%--------------------------------------------------------------------
--spec get_serial_num(binary | #'Certificate'{} | #'OTPCertificate'{}) ->
-    term().
-%%
-%% Description: Get the serial number of a certificate
-%%--------------------------------------------------------------------
 get_serial_num(Cert) ->
     #'OTPCertificate'{tbsCertificate = TbsCert} = otp_cert(Cert),
     TbsCert#'OTPTBSCertificate'.serialNumber.
 
-
-%%--------------------------------------------------------------------
-%% -spec find_single_response(#'OTPCertificate'{}, #'OTPCertificate'{},
-%%                            [#'SingleResponse'{}]) ->
-%%           #'SingleResponse'{} | {error, no_matched_response}.
-%% %%
-%% Description: Find the matched single response.
-%%--------------------------------------------------------------------
+-spec find_single_response(#'OTPCertificate'{}, #'OTPCertificate'{},
+                           [#'SingleResponse'{}]) ->
+          #'SingleResponse'{} | {error, no_matched_response}.
 find_single_response(Cert, IssuerCert, SingleResponseList) ->
     IssuerName = get_subject_name(IssuerCert),
     IssuerKey = get_public_key(IssuerCert),
@@ -321,10 +229,8 @@ match_single_response(IssuerName, IssuerKey, SerialNum,
                            Response | Responses]) ->
     HashType = public_key:pkix_hash_type(Algo#'AlgorithmIdentifier'.algorithm),
     case (SerialNum == CertID#'CertID'.serialNumber) andalso
-         (crypto:hash(HashType, IssuerName) ==
-              CertID#'CertID'.issuerNameHash) andalso
-         (crypto:hash(HashType, IssuerKey) ==
-              CertID#'CertID'.issuerKeyHash) of
+        (crypto:hash(HashType, IssuerName) == CertID#'CertID'.issuerNameHash) andalso
+        (crypto:hash(HashType, IssuerKey) == CertID#'CertID'.issuerKeyHash) of
         true ->
             {ok, Response};
         false ->
