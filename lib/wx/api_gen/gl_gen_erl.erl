@@ -88,8 +88,8 @@ gl_api(Fs, _GluNifs) ->
 
     w("-on_load(init_nif/0).~n",[]),
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
-    w("-export([get_interface/0, rec/1, lookup_func/0]).\n",[]),
-    w("-nifs([lookup_func/0]).\n",[]),
+    w("-export([get_interface/0, rec/1, lookup_func/1]).\n",[]),
+    w("-nifs([lookup_func_nif/1]).\n",[]),
     w("-define(nif_stub,nif_stub_error(?LINE)).~n", []),
     w("%% @hidden~n", []),
     w("nif_stub_error(Line) ->~n"
@@ -118,7 +118,9 @@ gl_api(Fs, _GluNifs) ->
     w("            error_logger:error_report([{gl, error}, {message, lists:flatten(Err)}]),~n", []),
     w("            rec(Op)~n", []),
     w("    end.~n~n", []),
-    w("lookup_func() -> ?nif_stub.\n\n",[]),
+    w("lookup_func(functions) -> lookup_func_nif(1);\n",[]),
+    w("lookup_func(function_names) -> lookup_func_nif(2).\n\n",[]),
+    w("lookup_func_nif(_Func) -> ?nif_stub.\n\n",[]),
     w("~n", []),
     w("~n", []),
 

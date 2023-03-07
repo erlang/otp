@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -299,8 +299,8 @@
   bindAttribLocationARB/3,getActiveAttribARB/3,getAttribLocationARB/2,
   blendBarrierKHR/0,maxShaderCompilerThreadsKHR/1,depthBoundsEXT/2]).
 
--export([get_interface/0, rec/1, lookup_func/0]).
--nifs([lookup_func/0]).
+-export([get_interface/0, rec/1, lookup_func/1]).
+-nifs([lookup_func_nif/1]).
 -define(nif_stub,nif_stub_error(?LINE)).
 %% @hidden
 nif_stub_error(Line) ->
@@ -332,7 +332,10 @@ rec(Op) ->
             rec(Op)
     end.
 
-lookup_func() -> ?nif_stub.
+lookup_func(functions) -> lookup_func_nif(1);
+lookup_func(function_names) -> lookup_func_nif(2).
+
+lookup_func_nif(_Func) -> ?nif_stub.
 
 
 
