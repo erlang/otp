@@ -48,7 +48,7 @@
               b_ret/0,b_br/0,b_switch/0,terminator/0,
               b_var/0,b_literal/0,b_remote/0,b_local/0,
               value/0,argument/0,label/0,
-              var_name/0,var_base/0,literal_value/0,
+              var_name/0,literal_value/0,
               op/0,anno/0,block_map/0,dominator_map/0,
               rename_map/0,rename_proplist/0,usage_map/0,
               definition_map/0,predecessor_map/0]).
@@ -78,8 +78,7 @@
 -type argument()   :: value() | b_remote() | b_local() | phi_value().
 -type label()      :: non_neg_integer().
 
--type var_name()   :: var_base() | {var_base(),non_neg_integer()}.
--type var_base()   :: atom() | non_neg_integer().
+-type var_name()   :: atom() | non_neg_integer().
 
 -type literal_value() :: atom() | integer() | float() | list() |
                          nil() | tuple() | map() | binary() | fun().
@@ -446,7 +445,7 @@ successors(L, Blocks) ->
 -spec def(Ls, Blocks) -> Def when
       Ls :: [label()],
       Blocks :: block_map(),
-      Def :: ordsets:ordset(var_name()).
+      Def :: ordsets:ordset(b_var()).
 
 def(Ls, Blocks) when is_map(Blocks) ->
     Blks = [map_get(L, Blocks) || L <- Ls],
@@ -454,10 +453,10 @@ def(Ls, Blocks) when is_map(Blocks) ->
 
 -spec def_unused(Ls, Used, Blocks) -> {Def,Unused} when
       Ls :: [label()],
-      Used :: ordsets:ordset(var_name()),
+      Used :: ordsets:ordset(b_var()),
       Blocks :: block_map(),
-      Def :: ordsets:ordset(var_name()),
-      Unused :: ordsets:ordset(var_name()).
+      Def :: ordsets:ordset(b_var()),
+      Unused :: ordsets:ordset(b_var()).
 
 def_unused(Ls, Unused, Blocks) when is_map(Blocks) ->
     Blks = [map_get(L, Blocks) || L <- Ls],
@@ -687,7 +686,7 @@ trim_unreachable(Blocks) when is_map(Blocks) ->
 trim_unreachable([_|_]=Blocks) ->
     trim_unreachable_1(Blocks, sets:from_list([0], [{version, 2}])).
 
--spec used(b_blk() | b_set() | terminator()) -> [var_name()].
+-spec used(b_blk() | b_set() | terminator()) -> [b_var()].
 
 used(#b_blk{is=Is,last=Last}) ->
     used_1([Last|Is], ordsets:new());

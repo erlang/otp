@@ -619,9 +619,8 @@ patch_literal_tuple([], [], Patched, Extra, _, Cnt0) ->
     I = #b_set{op=put_tuple,dst=V,args=reverse(Patched)},
     {V, [I|Extra], Cnt}.
 
-%% As beam_ssa_opt:new_var/2, but with a hard-coded base
 new_var(Count) ->
-    {#b_var{name={alias_opt,Count}},Count+1}.
+    {#b_var{name=Count},Count+1}.
 
 %% Done with an accumulator to reverse the reversed block order from
 %% patch_appends_f/5.

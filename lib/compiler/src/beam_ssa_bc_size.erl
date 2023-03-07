@@ -572,10 +572,10 @@ cg_size_calc_1(L0, {Op0,Args0}, Annos, CallLast, FailBlk0, Count0, Acc0) ->
                                                    FailBlk0, Count0, Acc0, []),
     {BadGenL,FailBlk,Count2} = cg_bad_generator(Args, Annos, CallLast,
                                                 FailBlk1, Count1),
-    {Dst,Count3} = new_var('@ssa_tmp', Count2),
+    {Dst,Count3} = new_var(Count2),
     case Op0 of
         {safe,Op} ->
-            {OpDst,Count4} = new_var('@ssa_size', Count3),
+            {OpDst,Count4} = new_var(Count3),
             {[OpSuccL,OpFailL,PhiL,NextL],Count5} = new_blocks(4, Count4),
             I = #b_set{op=Op,args=Args,dst=OpDst},
             {Blk,Count} = cg_succeeded(I, OpSuccL, OpFailL, Count5),
@@ -610,9 +610,9 @@ cg_bad_generator([Arg|_], Annos, CallLast, FailBlk, Count) ->
 
 cg_bad_generator_1(Anno, Arg, CallLast, FailBlk, Count0) ->
     {L,Count1} = new_block(Count0),
-    {TupleDst,Count2} = new_var('@ssa_tuple', Count1),
-    {SuccDst,Count3} = new_var('@ssa_bool', Count2),
-    {Ret,Count4} = new_var('@ssa_ret', Count3),
+    {TupleDst,Count2} = new_var(Count1),
+    {SuccDst,Count3} = new_var(Count2),
+    {Ret,Count4} = new_var(Count3),
     MFA = #b_remote{mod=#b_literal{val=erlang},
                     name=#b_literal{val=error},
                     arity=1},
@@ -634,7 +634,7 @@ cg_bad_generator_1(Anno, Arg, CallLast, FailBlk, Count0) ->
     {L,[{L,Blk}|FailBlk],Count4}.
 
 cg_succeeded(#b_set{dst=OpDst}=I, Succ, Fail, Count0) ->
-    {Bool,Count} = new_var('@ssa_bool', Count0),
+    {Bool,Count} = new_var(Count0),
     SuccI = #b_set{op={succeeded,guard},args=[OpDst],dst=Bool},
     Blk = #b_blk{is=[I,SuccI],last=#b_br{bool=Bool,succ=Succ,fail=Fail}},
     {Blk,Count}.
@@ -662,8 +662,8 @@ cg_atomic_args([A|As], L, Annos, CallLast, FailBlk0, Count0, BlkAcc0, Acc) ->
 cg_atomic_args([], NextBlk, _Annos, _CallLast, FailBlk, Count, BlkAcc, Acc) ->
     {reverse(Acc),BlkAcc,NextBlk,FailBlk,Count}.
 
-new_var(Base, Count) ->
-    {#b_var{name={Base,Count}},Count+1}.
+new_var(Count) ->
+    {#b_var{name=Count},Count+1}.
 
 new_blocks(N, Count) ->
     new_blocks(N, Count, []).

@@ -71,7 +71,7 @@
 -include("beam_ssa.hrl").
 -include("beam_asm.hrl").
 
--import(lists, [all/2,any/2,append/1,duplicate/2,
+-import(lists, [all/2,any/2,append/1,
                 foldl/3,last/1,member/2,partition/2,
                 reverse/1,reverse/2,seq/2,sort/1,sort/2,
                 usort/1,zip/2]).
@@ -255,7 +255,7 @@ make_bs_getpos_map([], _, Count, Acc) ->
     {maps:from_list(Acc),Count}.
 
 make_bs_setpos_map([{Bef,{Ctx,_}=Ps}|T], SavePoints, Count, Acc) ->
-    Ignored = #b_var{name={'@ssa_ignored',Count}},
+    Ignored = #b_var{name=Count},
     Args = [Ctx, get_savepoint(Ps, SavePoints)],
     I = #b_set{op=bs_set_position,dst=Ignored,args=Args},
     make_bs_setpos_map(T, SavePoints, Count+1, [{Bef,I}|Acc]);
@@ -263,7 +263,7 @@ make_bs_setpos_map([], _, Count, Acc) ->
     {maps:from_list(Acc),Count}.
 
 get_savepoint({_,_}=Ps, SavePoints) ->
-    Name = {'@ssa_bs_position', map_get(Ps, SavePoints)},
+    Name = map_get(Ps, SavePoints),
     #b_var{name=Name}.
 
 make_bs_pos_dict([{Ctx,Pts}|T], Count0, Acc0) ->
@@ -703,7 +703,7 @@ sanitize_is([#b_set{op=get_map_element,args=Args0}=I0|Is],
     case sanitize_args(Args0, Values) of
         [#b_literal{}=Map,Key] ->
             %% Bind the literal map to a variable.
-            {MapVar,Count} = new_var('@ssa_map', Count0),
+            {MapVar,Count} = new_var(Count0),
             I = I0#b_set{args=[MapVar,Key]},
             Copy = #b_set{op=copy,dst=MapVar,args=[Map]},
             sanitize_is(Is, Last, InBlocks, Blocks, Count,
@@ -1030,7 +1030,7 @@ expand_mf_instr(#b_set{args=[#b_literal{val=badrecord} | _Args]}=I,
 expand_mf_instr(#b_set{args=[#b_literal{}|_]=Args}=I0, Is, Count0, Acc) ->
     %% We don't have a specialized instruction for this: simulate it with
     %% `erlang:error/1` instead.
-    {Tuple, Count} = new_var('@match_fail', Count0),
+    {Tuple, Count} = new_var(Count0),
     Put = #b_set{op=put_tuple,dst=Tuple,args=Args},
     Call = I0#b_set{op=call,
                     args=[#b_remote{mod=#b_literal{val=erlang},
@@ -1144,7 +1144,7 @@ expand_update_tuple_list_1([], _Src, Count, Acc) ->
 expand_update_tuple_list_1([Index0, Value | Updates], Src, Count0, Acc) ->
     %% Change to the 0-based indexing used by `set_tuple_element`.
     Index = #b_literal{val=(Index0#b_literal.val - 1)},
-    {Dst, Count} = new_var('@ssa_dummy', Count0),
+    {Dst, Count} = new_var(Count0),
     SetOp = #b_set{op=set_tuple_element,
                    dst=Dst,
                    args=[Value, Src, Index]},
@@ -1526,11 +1526,10 @@ rce_reroute_terminator(#b_switch{list=List0}=Last, Exit, New) ->
 %%  in the exit block following the receive.
 
 recv_fix_common([Msg0|T], Exit, Rm, Blocks0, Count0) ->
-    {Msg,Count1} = new_var('@recv', Count0),
+    {Msg,Count1} = new_var(Count0),
     RPO = beam_ssa:rpo([Exit], Blocks0),
     Blocks1 = beam_ssa:rename_vars(#{Msg0=>Msg}, RPO, Blocks0),
-    N = length(Rm),
-    {MsgVars,Count} = new_vars(duplicate(N, '@recv'), Count1),
+    {MsgVars,Count} = new_vars(length(Rm), Count1),
     PhiArgs = fix_exit_phi_args(MsgVars, Rm, Exit, Blocks1),
     Phi = #b_set{op=phi,dst=Msg,args=PhiArgs},
     ExitBlk0 = map_get(Exit, Blocks1),
@@ -1578,7 +1577,7 @@ fix_receive([L|Ls], Defs, Blocks0, Count0) ->
     {RmDefs,Unused} = beam_ssa:def_unused(RPO, Defs, Blocks0),
     Def = ordsets:subtract(Defs, RmDefs),
     Used = ordsets:subtract(Def, Unused),
-    {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Used], Count0),
+    {NewVars,Count} = new_vars(length(Used), Count0),
     Ren = zip(Used, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk1 = map_get(L, Blocks1),
@@ -1697,8 +1696,8 @@ find_rm_act([]) ->
 %%% Find out which variables need to be stored in Y registers.
 %%%
 
--record(dk, {d :: ordsets:ordset(var_name()),
-             k :: sets:set(var_name())
+-record(dk, {d :: ordsets:ordset(b_var()),
+             k :: sets:set(b_var())
             }).
 
 %% find_yregs(St0) -> St.
@@ -1968,12 +1967,12 @@ copy_retval_is([#b_set{}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
 copy_retval_is([#b_set{},#b_set{op=succeeded}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
-copy_retval_is([#b_set{op=Op,dst=#b_var{name=RetName}=Dst}=I0|Is], RC, Yregs,
+copy_retval_is([#b_set{op=Op,dst=#b_var{}=Dst}=I0|Is], RC, Yregs,
            Copy0, Count0, Acc0) when Op =:= call; Op =:= old_make_fun ->
     {I1,Count1,Acc} = place_retval_copy(I0, Yregs, Copy0, Count0, Acc0),
     case sets:is_element(Dst, Yregs) of
         true ->
-            {NewVar,Count} = new_var(RetName, Count1),
+            {NewVar,Count} = new_var(Count1),
             Copy = #b_set{op=copy,dst=Dst,args=[NewVar]},
             I = I1#b_set{dst=NewVar},
             copy_retval_is(Is, RC, Yregs, Copy, Count, [I|Acc]);
@@ -2071,10 +2070,10 @@ place_retval_copy(#b_set{args=[F|Args0]}=I0, Yregs0, RetCopy, Count0, Acc0) ->
 copy_func_args(Args, Yregs, Acc, Count) ->
     copy_func_args_1(reverse(Args), Yregs, Acc, [], Count).
 
-copy_func_args_1([#b_var{name=AName}=A|As], Yregs, InstrAcc, ArgAcc, Count0) ->
+copy_func_args_1([#b_var{}=A|As], Yregs, InstrAcc, ArgAcc, Count0) ->
     case sets:is_element(A, Yregs) of
         true ->
-            {NewVar,Count} = new_var(AName, Count0),
+            {NewVar,Count} = new_var(Count0),
             Copy = #b_set{op=copy,dst=NewVar,args=[A]},
             copy_func_args_1(As, Yregs, [Copy|InstrAcc], [NewVar|ArgAcc], Count);
         false ->
@@ -2440,7 +2439,7 @@ update_act_map([], _, ActMap) -> ActMap.
 rename_vars([], _, _, Blocks, Count) ->
     {[],Blocks,Count};
 rename_vars(Vs, L, RPO, Blocks0, Count0) ->
-    {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Vs], Count0),
+    {NewVars,Count} = new_vars(length(Vs), Count0),
     Ren = zip(Vs, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk0 = map_get(L, Blocks1),
@@ -3229,14 +3228,10 @@ is_yreg({x,_}) -> false;
 is_yreg({z,_}) -> false;
 is_yreg({fr,_}) -> false.
 
-new_vars([Base|Vs0], Count0) ->
-    {V,Count1} = new_var(Base, Count0),
-    {Vs,Count} = new_vars(Vs0, Count1),
-    {[V|Vs],Count};
-new_vars([], Count) -> {[],Count}.
+new_vars(N, Count0) when is_integer(N), N >= 0 ->
+    Count = Count0 + N,
+    Vars = [#b_var{name=I} || I <- lists:seq(Count0, Count-1)],
+    {Vars,Count}.
 
-new_var({Base,Int}, Count)  ->
-    true = is_integer(Int),                     %Assertion.
-    {#b_var{name={Base,Count}},Count+1};
-new_var(Base, Count) ->
-    {#b_var{name={Base,Count}},Count+1}.
+new_var(Count) ->
+    {#b_var{name=Count},Count+1}.

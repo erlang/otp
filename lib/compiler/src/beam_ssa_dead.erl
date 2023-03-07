@@ -30,7 +30,7 @@
 -import(lists, [append/1,foldl/3,keymember/3,last/1,member/2,
                 reverse/1,reverse/2,takewhile/2]).
 
--type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:var_name())}.
+-type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:b_var())}.
 
 -type basic_type_test() :: atom() | {'is_tagged_tuple',pos_integer(),atom()}.
 -type type_test() :: basic_type_test() | {'not',basic_type_test()}.

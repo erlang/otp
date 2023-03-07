@@ -64,7 +64,7 @@
 
 -type metadata() :: #metadata{}.
 -type meta_cache() :: #{ func_id() => metadata() }.
--type type_db() :: #{ beam_ssa:var_name() := ssa_type() }.
+-type type_db() :: #{ beam_ssa:b_var() := ssa_type() }.
 
 %% The types are the same as in 'beam_types.hrl', with the addition of
 %% `(fun(type_db()) -> type())` that defers figuring out the type until it's
