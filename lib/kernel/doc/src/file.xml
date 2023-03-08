@@ -1413,13 +1413,16 @@ f.txt:  {person, "kalle", 25}.
     </func>
     <func>
       <name name="read_file" arity="1" since=""/>
+      <name name="read_file" arity="2" since=""/>
       <fsummary>Read a file.</fsummary>
+      <type name="read_file_option"/>
       <desc>
         <p>Returns <c>{ok, <anno>Binary</anno>}</c>, where
           <c><anno>Binary</anno></c> is a binary
           data object that contains the contents of
           <c><anno>Filename</anno></c>, or
           <c>{error, <anno>Reason</anno>}</c> if an error occurs.</p>
+        <p>If the option <c>raw</c> is set, the file server is not called.</p>
         <p>Typical error reasons:</p>
         <taglist>
           <tag><c>enoent</c></tag>

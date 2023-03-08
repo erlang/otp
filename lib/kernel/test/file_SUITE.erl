@@ -535,6 +535,9 @@ read_write_file(Config) when is_list(Config) ->
     {error, enoent} = ?FILE_MODULE:read_file(Name2),
     {error, enoent} = ?FILE_MODULE:read_file(""),
     {error, enoent} = ?FILE_MODULE:read_file(''),
+    {error, enoent} = ?FILE_MODULE:read_file(Name2, [raw]),
+    {error, enoent} = ?FILE_MODULE:read_file("", [raw]),
+    {error, enoent} = ?FILE_MODULE:read_file('', [raw]),
 
     %% Try writing to a bad filename
     {error, enoent} = do_read_write_file("", Bin2),
@@ -559,12 +562,15 @@ do_read_write_file(Name, Data) ->
 	ok ->
 	    BinData = iolist_to_binary(Data),
 	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name, [raw]),
 
 	    ok = ?FILE_MODULE:write_file(Name, Data, []),
 	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name, [raw]),
 
 	    ok = ?FILE_MODULE:write_file(Name, Data, [raw]),
 	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name, [raw]),
 
 	    ok;
 	{error,_}=Res ->
