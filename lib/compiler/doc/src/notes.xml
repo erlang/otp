@@ -32,6 +32,46 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that would cause the compiler to hang.</p>
+          <p>
+	    Own Id: OTP-18378 Aux Id: GH-6604 </p>
+        </item>
+        <item>
+	    <p>Fixed a crash when compiling code that contained
+	    <c>maybe</c> expressions.</p>
+          <p>
+	    Own Id: OTP-18381 Aux Id: GH-6601 </p>
+        </item>
+        <item>
+	    <p>Constructing a binary with an explicit size of
+	    <c>all</c> for a binary segment would crash the
+	    compiler.</p>
+          <p>
+	    Own Id: OTP-18407 Aux Id: GH-6707 </p>
+        </item>
+        <item>
+	    <p>The compiler would generate incorrect code for the
+	    following type of expression:</p>
+	    <p><c>Pattern = BoundVar1 = . . . = BoundVarN =
+	    Expression</c></p>
+	    <p>An exception should be raised if any of the bound
+	    variables have different values than <c>Expression</c>.
+	    The compiler would generate code that would cause the
+	    bound variables to be bound to the value of
+	    <c>Expression</c>whether the value matched or not.</p>
+          <p>
+	    Own Id: OTP-18470 Aux Id: GH-6873, PR-6877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

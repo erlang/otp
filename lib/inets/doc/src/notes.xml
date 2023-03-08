@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2022</year>
+      <year>2002</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,7 +33,69 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.2.2</title>
+  <section><title>Inets 8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, handling of URI to a folder, with
+	    missing trailing / and a query component present is
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-18472 Aux Id: DAFH-1592 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Adds more type information to the <c>inets</c> app, thus
+	    improving the errors that static analysis tools can
+	    detect.</p>
+          <p>
+	    The addition of type information to records and the
+	    updates to function heads help static analysis tools to
+	    understand that some values in the records cannot be
+	    <c>'undefined'</c>, thus making static tools to type
+	    check correctly more modules in the <c>inets</c> app</p>
+          <p>
+	    Own Id: OTP-18390 Aux Id: PR-6661 </p>
+        </item>
+        <item>
+          <p>
+	    Replace size/1 with either tuple_size/1 or byte_size/1</p>
+          <p>
+	    The <c>size/1</c> BIF is not optimized by the JIT, and
+	    its use can result in worse types for Dialyzer.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    tuple, <c>tuple_size/1</c> should always be preferred.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    binary, <c>byte_size/1</c> should be preferred. However,
+	    <c>byte_size/1</c> also accepts a bitstring (rounding up
+	    size to a whole number of bytes), so one must make sure
+	    that the call to <c>byte_size/</c> is preceded by a call
+	    to <c>is_binary/1</c> to ensure that bitstrings are
+	    rejected. Note that the compiler removes redundant calls
+	    to <c>is_binary/1</c>, so if one is not sure whether
+	    previous code had made sure that the argument is a
+	    binary, it does not harm to add an <c>is_binary/1</c>
+	    test immediately before the call to <c>byte_size/1</c>.</p>
+          <p>
+	    Own Id: OTP-18432 Aux Id:
+	    GH-6672,PR-6793,PR-6784,PR-6787,PR-6785,PR-6682,PR-6800,PR-6797,PR-6798,PR-6799,PR-6796,PR-6813,PR-6671,PR-6673,PR-6684,PR-6694,GH-6677,PR-6696,PR-6670,PR-6674 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

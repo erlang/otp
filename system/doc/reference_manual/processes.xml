@@ -701,7 +701,7 @@ spawn(Module, Name, Args) -> pid()
 	    that if you do raise the limit like this, you need to take care
 	    of flow control yourself to ensure that you do not get into a
 	  situation with excessive memory usage.</p>
-          <change><p>As of OTP @OTP-18454@ it is
+          <change><p>As of OTP 25.3 it is
             also possible to enable <i>fully asynchronous distributed
             signaling</i> on a per process level using
             <seeerl marker="erts:erlang#process_flag_async_dist">

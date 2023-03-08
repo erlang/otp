@@ -1,1 +1,1 @@
-KERNEL_VSN = 8.5.3
+KERNEL_VSN = 8.5.4

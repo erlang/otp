@@ -1081,7 +1081,7 @@ $ <input>erl \
       </item>
       <tag><marker id="+pad"/><c>+pad true|false</c></tag>
       <item>
-        <p>Since: OTP @OTP-18374@</p>
+        <p>Since: OTP 25.3</p>
         <p>
           The boolean value used with the <c>+pad</c> parameter determines
           the default value of the

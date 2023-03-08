@@ -31,6 +31,170 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug on Windows where
+	    <c>file:read_file_info/1</c> would fail for files with
+	    corrupt metadata.</p>
+          <p>
+	    Own Id: OTP-18348 Aux Id: GH-6356 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>process_info(_, binary)</c> to again include
+	    "writable binaries" which were lost in OTP-25.0. Writable
+	    binaries are an optimization used when binaries are
+	    appended upon in a loop.</p>
+          <p>
+	    Own Id: OTP-18373 Aux Id: PR-6574, GH-6573 </p>
+        </item>
+        <item>
+          <p>
+	    Fix rare race when receiving fragmented messages on a
+	    terminating connection. Could potentially cause memory
+	    leaks as well as double free crashes. Bug exists since
+	    OTP 22.0.</p>
+          <p>
+	    Own Id: OTP-18382 Aux Id: PR-6585 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug that could maybe cause problems when a file
+	    descriptor number is closed by a linked in driver and
+	    then opened (reused) and passed to <c>enif_select</c> by
+	    a NIF. No actual symptoms seen, only failed internal
+	    assertions in debug build.</p>
+          <p>
+	    Own Id: OTP-18391</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system could crash when tracing a process
+	    executing on a dirty scheduler.</p>
+          <p>
+	    Own Id: OTP-18398 Aux Id: PR-6495, GH-6448, GH-5984 </p>
+        </item>
+        <item>
+	    <p>In the binary syntax, attempting to match out integers
+	    with size exceeding 2 GiB could crash the runtime
+	    system.</p>
+          <p>
+	    Own Id: OTP-18406 Aux Id: GH-6701 </p>
+        </item>
+        <item>
+	    <p>Fixed edge case in floating-point negation where <c>A
+	    = 0.0, B = -A</c> did not produce <c>B = -0.0</c> on
+	    x86_64 JIT.</p>
+          <p>
+	    Own Id: OTP-18411 Aux Id: GH-6717 </p>
+        </item>
+        <item>
+	    <p>Fixed an issue in the JIT that could crash the
+	    emulator on some platforms.</p>
+          <p>
+	    Own Id: OTP-18418</p>
+        </item>
+        <item>
+          <p>
+	    Added meta data to the windows installer.</p>
+          <p>
+	    Own Id: OTP-18429 Aux Id: PR-6587 GH-4232 GH-6537 </p>
+        </item>
+        <item>
+	    <p>Fixed ETS insertion order into <c>bag</c> and
+	    <c>duplicate_bag</c> of tuples with identical keys when
+	    passed in a list to <c>ets:insert/2</c>. The insert order
+	    has been head-to-tail but was accidentally changed in OTP
+	    23.0. For <c>bag</c> it was reverted (tail-to-head),
+	    while for <c>duplicate_bag</c> it was sometimes reverted
+	    depending on the length of the list and number of
+	    "reductions" left for the calling process.</p> <p>This
+	    fix changes the insert order of <c>ets:insert/2</c> back
+	    to always be head-to-tail of the list argument.</p>
+          <p>
+	    Own Id: OTP-18434 Aux Id: PR-6752 </p>
+        </item>
+        <item>
+	    <p>With the JIT for AArch64 (AMD64), calling <c>bxor</c>
+	    in with non-integer arguments in a guard would crash the
+	    runtime system.</p>
+          <p>
+	    Own Id: OTP-18454 Aux Id: PR-6839 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug regarding process flag <c>max_heap_size</c>.
+	    Could cause strange behavior when a process was killed
+	    due to exceeding the limit.</p>
+          <p>
+	    Own Id: OTP-18457 Aux Id: PR-6816 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed binary comprehensions to be similar to other
+	    creation of binary data with respect to its contribution
+	    of triggering garbage collection.</p>
+          <p>
+	    Own Id: OTP-18458</p>
+        </item>
+        <item>
+	    <p>In rare circumstances, when a process exceeded its
+	    allowed heap size set by option <c>max_heap_size</c>, it
+	    would not be killed as it should be, but instead enter a
+	    kind of zombie state it would never get out of.</p>
+          <p>
+	    Own Id: OTP-18463 Aux Id: PR-6858 </p>
+        </item>
+        <item>
+	    <p>Instead of crashing, the <c>list_to_integer/1</c> and
+	    <c>list_to_integer/2</c> BIFs now raise the
+	    <c>system_limit</c> exception for overlong lists that
+	    can't be converted to integers. Similarly, the
+	    <c>string:to_integer/1</c> BIF now returns
+	    <c>{error,system_limit}</c> for overlong lists.</p>
+          <p>
+	    Own Id: OTP-18475 Aux Id: PR-6897 </p>
+        </item>
+        <item>
+          <p>
+	    Active process aliases of a process at its termination
+	    leaked memory.</p>
+          <p>
+	    Own Id: OTP-18496 Aux Id: GH-6947, PR-6953 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for fully asynchronous distributed signaling
+	    where send operations <em>never</em> block. This
+	    functionality is by default disabled and can be enabled
+	    per process. For more information see the documentation
+	    of <seeerl
+	    marker="erts:erlang#process_flag_async_dist"><c>process_flag(async_dist,
+	    Bool)</c></seeerl>.</p>
+          <p>
+	    Own Id: OTP-18374 Aux Id: PR-6632 </p>
+        </item>
+        <item>
+	    <p>Added the <c>+JPperf no_fp</c> option to explicitly
+	    disable Erlang frame pointers otherwise added when using
+	    the <c>+JPperf map</c> option.</p>
+          <p>
+	    Own Id: OTP-18426</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
