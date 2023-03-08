@@ -3022,6 +3022,8 @@ collect_arg_literals([V|Vs], Info, X, Acc0) ->
 collect_arg_literals([], _Info, _X, Acc) ->
     Acc.
 
+unfold_literals([?EXCEPTION_BLOCK|Ls], LitMap, SafeMap, Blocks) ->
+    unfold_literals(Ls, LitMap, SafeMap,Blocks);
 unfold_literals([L|Ls], LitMap, SafeMap0, Blocks0) ->
     {Blocks,Safe} =
         case map_get(L, SafeMap0) of
