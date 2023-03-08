@@ -78,7 +78,7 @@
     </p>
 
     <taglist>
-      <tag><c>exsss</c></tag>
+      <tag since="OTP 22.0"><c>exsss</c></tag>
       <item>
         <p>Xorshift116**, 58 bits precision and period of 2^116-1</p>
         <p>Jump function: equivalent to 2^64 calls</p>
@@ -104,7 +104,7 @@
           thanks to its statistical qualities.
 	</p>
       </item>
-      <tag><c>exro928ss</c></tag>
+      <tag since="OTP 22.0"><c>exro928ss</c></tag>
       <item>
         <p>Xoroshiro928**, 58 bits precision and a period of 2^928-1</p>
         <p>Jump function: equivalent to 2^512 calls</p>
@@ -127,17 +127,17 @@
 	  the 58 bit adaption.
 	</p>
       </item>
-      <tag><c>exrop</c></tag>
+      <tag since="OTP 20.0"><c>exrop</c></tag>
       <item>
         <p>Xoroshiro116+, 58 bits precision and period of 2^116-1</p>
         <p>Jump function: equivalent to 2^64 calls</p>
       </item>
-      <tag><c>exs1024s</c></tag>
+      <tag since="OTP 20.0"><c>exs1024s</c></tag>
       <item>
         <p>Xorshift1024*, 64 bits precision and a period of 2^1024-1</p>
         <p>Jump function: equivalent to 2^512 calls</p>
       </item>
-      <tag><c>exsp</c></tag>
+      <tag since="OTP 20.0"><c>exsp</c></tag>
       <item>
         <p>Xorshift116+, 58 bits precision and period of 2^116-1</p>
         <p>Jump function: equivalent to 2^64 calls</p>
