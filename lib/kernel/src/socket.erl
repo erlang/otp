@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3578,27 +3578,31 @@ recvfrom(Socket, BufSz) ->
              ?ESOCK_RECV_FLAGS_DEFAULT,
              ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
--spec recvfrom(Socket, Flags, SelectHandle :: 'nowait') ->
+-spec recvfrom(Socket, Flags, Handle :: 'nowait') ->
                       {'ok', {Source, Data}} |
                       {'select', SelectInfo} |
+                      {'completion', CompletionInfo} |
                       {'error', Reason} when
-      Socket     :: socket(),
-      Flags      :: [msg_flag() | integer()],
-      Source     :: sockaddr_recv(),
-      Data       :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Flags          :: [msg_flag() | integer()],
+      Source         :: sockaddr_recv(),
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-              (Socket, Flags, SelectHandle :: select_handle()) ->
+              (Socket, Flags, Handle :: select_handle() | completion_handle()) ->
                       {'ok', {Source, Data}} |
                       {'select', SelectInfo} |
+                      {'completion', CompletionInfo} |
                       {'error', Reason} when
-      Socket       :: socket(),
-      Flags        :: [msg_flag() | integer()],
-      Source       :: sockaddr_recv(),
-      Data         :: binary(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Flags          :: [msg_flag() | integer()],
+      Source         :: sockaddr_recv(),
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
               (Socket, Flags, Timeout :: 'infinity') ->
                       {'ok', {Source, Data}} |
@@ -3628,27 +3632,31 @@ recvfrom(Socket, BufSz) ->
       Data   :: binary(),
       Reason :: posix() | 'closed' | invalid();
 
-              (Socket, BufSz, SelectHandle :: 'nowait') ->
+              (Socket, BufSz, Handle :: 'nowait') ->
                       {'ok', {Source, Data}} |
                       {'select', SelectInfo} |
+                      {'completion', CompletionInfo} |
                       {'error', Reason} when
-      Socket     :: socket(),
-      BufSz      :: non_neg_integer(),
-      Source     :: sockaddr_recv(),
-      Data       :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      BufSz          :: non_neg_integer(),
+      Source         :: sockaddr_recv(),
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-              (Socket, BufSz, SelectHandle :: select_handle()) ->
+              (Socket, BufSz, Handle :: select_handle() | completion_handle()) ->
                       {'ok', {Source, Data}} |
                       {'select', SelectInfo} |
+                      {'completion', CompletionInfo} |
                       {'error', Reason} when
-      Socket       :: socket(),
-      BufSz        :: non_neg_integer(),
-      Source       :: sockaddr_recv(),
-      Data         :: binary(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      BufSz          :: non_neg_integer(),
+      Source         :: sockaddr_recv(),
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
               (Socket, BufSz, Timeout :: 'infinity') ->
                       {'ok', {Source, Data}} |
@@ -3675,29 +3683,33 @@ recvfrom(Socket, BufSz, Flags) when is_list(Flags) ->
 recvfrom(Socket, BufSz, Timeout) ->
     recvfrom(Socket, BufSz, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
 
--spec recvfrom(Socket, BufSz, Flags, SelectHandle :: 'nowait') ->
+-spec recvfrom(Socket, BufSz, Flags, Handle :: 'nowait') ->
                       {'ok', {Source, Data}} |
                       {'select', SelectInfo} |
+                      {'completion', CompletionInfo} |
                       {'error', Reason} when
-      Socket     :: socket(),
-      BufSz      :: non_neg_integer(),
-      Flags      :: [msg_flag() | integer()],
-      Source     :: sockaddr_recv(),
-      Data       :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      BufSz          :: non_neg_integer(),
+      Flags          :: [msg_flag() | integer()],
+      Source         :: sockaddr_recv(),
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-              (Socket, BufSz, Flags, SelectHandle :: select_handle()) ->
+              (Socket, BufSz, Flags, Handle :: select_handle() | completion_handle()) ->
                       {'ok', {Source, Data}} |
                       {'select', SelectInfo} |
+                      {'completion', CompletionInfo} |
                       {'error', Reason} when
-      Socket       :: socket(),
-      BufSz        :: non_neg_integer(),
-      Flags        :: [msg_flag() | integer()],
-      Source       :: sockaddr_recv(),
-      Data         :: binary(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      BufSz          :: non_neg_integer(),
+      Flags          :: [msg_flag() | integer()],
+      Source         :: sockaddr_recv(),
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
               (Socket, BufSz, Flags, Timeout :: 'infinity') ->
                       {'ok', {Source, Data}} |
@@ -3727,11 +3739,11 @@ recvfrom(?socket(SockRef), BufSz, Flags, Timeout)
         invalid ->
             erlang:error({invalid, {timeout, Timeout}});
         nowait ->
-            SelectHandle = make_ref(),
-            recvfrom_nowait(SockRef, BufSz, SelectHandle, Flags);
+            Handle = make_ref(),
+            recvfrom_nowait(SockRef, BufSz, Handle, Flags);
         handle ->
-            SelectHandle = Timeout,
-            recvfrom_nowait(SockRef, BufSz, SelectHandle, Flags);
+            Handle = Timeout,
+            recvfrom_nowait(SockRef, BufSz, Handle, Flags);
         zero ->
             case prim_socket:recvfrom(SockRef, BufSz, Flags, zero) of
                 ok ->
@@ -3745,30 +3757,48 @@ recvfrom(?socket(SockRef), BufSz, Flags, Timeout)
 recvfrom(Socket, BufSz, Flags, Timeout) ->
     erlang:error(badarg, [Socket, BufSz, Flags, Timeout]).
 
-recvfrom_nowait(SockRef, BufSz, SelectHandle, Flags) ->
-    case prim_socket:recvfrom(SockRef, BufSz, Flags, SelectHandle) of
+recvfrom_nowait(SockRef, BufSz, Handle, Flags) ->
+    case prim_socket:recvfrom(SockRef, BufSz, Flags, Handle) of
         select ->
-            {select, ?SELECT_INFO(recvfrom, SelectHandle)};
+            {select, ?SELECT_INFO(recvfrom, Handle)};
+        completion ->
+            {select, ?COMPLETION_INFO(recvfrom, Handle)};
         Result ->
             recvfrom_result(Result)
     end.
 
 recvfrom_deadline(SockRef, BufSz, Flags, Deadline) ->
-    SelectHandle = make_ref(),
-    case prim_socket:recvfrom(SockRef, BufSz, Flags, SelectHandle) of
+    Handle = make_ref(),
+    case prim_socket:recvfrom(SockRef, BufSz, Flags, Handle) of
         select ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(?socket(SockRef), select, SelectHandle) ->
+                ?socket_msg(?socket(SockRef), select, Handle) ->
                     recvfrom_deadline(SockRef, BufSz, Flags, Deadline);
-                ?socket_msg(_Socket, abort, {SelectHandle, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     {error, Reason}
             after Timeout ->
-                    _ = cancel(SockRef, recvfrom, SelectHandle),
+                    _ = cancel(SockRef, recvfrom, Handle),
                     {error, timeout}
             end;
+
+        completion ->
+            %% There is nothing just now, but we will be notified when there
+            %% is something to read (a completion message).
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(?socket(SockRef), completion,
+                            {Handle, CompletionStatus}) ->
+                    recvfrom_result(CompletionStatus);
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    {error, Reason}
+            after Timeout ->
+                    _ = cancel(SockRef, recvfrom, Handle),
+                    {error, timeout}
+            end;
+
         Result ->
             recvfrom_result(Result)
     end.

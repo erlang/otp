@@ -894,8 +894,8 @@ const int esock_ioctl_flags_length = NUM(esock_ioctl_flags);
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
     recvfrom((s),(buf),(blen),(flag),(addr),(alen))
 /* #define sock_send(s,buf,len,flag)      send((s),(buf),(len),(flag)) */
-#define sock_sendto(s,buf,blen,flag,addr,alen) \
-    sendto((s),(buf),(blen),(flag),(addr),(alen))
+/* #define sock_sendto(s,buf,blen,flag,addr,alen) \
+   sendto((s),(buf),(blen),(flag),(addr),(alen)) */
 #define sock_setopt(s,l,o,v,ln)        setsockopt((s),(l),(o),(v),(ln))
 #define sock_shutdown(s, how)          shutdown((s), (how))
 
@@ -5890,9 +5890,6 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef, recvRef;
     ErlNifUInt64     elen;
@@ -5927,8 +5924,7 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
 
         if (! a1ok)
             return esock_make_error_integer_range(env, argv[1]);
-        return
-            esock_make_error_integer_range(env, argv[2]);
+        return esock_make_error_integer_range(env, argv[2]);
     }
     len = (ssize_t) elen;
     if (elen != (ErlNifUInt64) len)
@@ -5968,7 +5964,6 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return res;
-#endif // #ifdef __WIN32__  #else
 }
 
 
@@ -13195,7 +13190,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.sendfile_cont  = NULL;
     io_backend.sendfile_dc    = NULL;
     io_backend.recv           = esaio_recv;
-    io_backend.recvfrom       = NULL;
+    io_backend.recvfrom       = esaio_recvfrom;
     io_backend.recvmsg        = NULL;
     io_backend.close          = esaio_close;
     io_backend.fin_close      = esaio_fin_close;
