@@ -71,13 +71,15 @@
 	 bif/1, nif/1]).
 
 init_per_testcase(_Case, Config) ->
-    erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_time,call_count]),
+    erlang:trace_pattern({'_','_','_'}, false,
+                         [local,meta,call_time,call_count,call_memory]),
     erlang:trace_pattern(on_load, false, [local,meta,call_time,call_count]),
     timer:now_diff(now(),now()),
     Config.
 
 end_per_testcase(_Case, _Config) ->
-    erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_time,call_count]),
+    erlang:trace_pattern({'_','_','_'}, false,
+                         [local,meta,call_time,call_count,call_memory]),
     erlang:trace_pattern(on_load, false, [local,meta,call_time,call_count]),
     erlang:trace(all, false, [all]),
     ok.
