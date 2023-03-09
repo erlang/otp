@@ -663,10 +663,9 @@ return_value(#cl_state{code_server = CodeServer,
     end,
   case ErlangMode of
     false ->
-      print_warnings(State),
-      print_ext_calls(State),
-      print_ext_types(State),
-      maybe_close_output_file(State),
+      Fns = [ fun print_warnings/1, fun print_ext_calls/1
+            , fun print_ext_types/1, fun maybe_close_output_file/1],
+      lists:foreach(fun (F) -> F(State) end, Fns),
       {RetValue, []};
     true ->
       ResultingWarnings = process_warnings(StoredWarnings ++ UnknownWarnings),
