@@ -46,7 +46,7 @@
          more_add/1,
          open_ret_val_error/1,
          open_ret_val_success/1,
-         plain_ldap_conn_info_error/1,
+         plain_ldap_socket_info/1,
          search_filter_and/1,
          search_filter_and_not/1,
          search_filter_equalityMatch/1,
@@ -64,8 +64,7 @@
          search_extensible_match_without_dn/1,
          search_paged_results/1,
          ssl_connection/1,
-         ssl_conn_info/1,
-         ssl_conn_info_items/1,
+         ssl_conn_socket_info/1,
          start_tls_on_ssl_should_fail/1,
          start_tls_twice_should_fail/1,
          tcp_connection/1,
@@ -163,9 +162,8 @@ connection_tests() ->
      client_side_add_timeout,
      client_side_search_timeout,
      close_after_tcp_error,
-     ssl_conn_info,
-     ssl_conn_info_items,
-     plain_ldap_conn_info_error
+     ssl_conn_socket_info,
+     plain_ldap_socket_info
     ].
 
 
@@ -265,7 +263,7 @@ end_per_group(start_tls_api, Config) -> clear_db(Config);
 end_per_group(_Group, Config) -> Config.
 
 
-init_per_testcase(TC, Config) when TC == ssl_connection; TC == ssl_conn_info; TC == ssl_conn_info_items ->
+init_per_testcase(TC, Config) when TC == ssl_connection; TC == ssl_conn_socket_info ->
     case proplists:get_value(ssl_available,Config) of
 	true ->
 	    SSL_Port = 9999,
@@ -429,7 +427,7 @@ ssl_connection(Config) ->
     end.
 
 %%%----------------------------------------------------------------
-ssl_conn_info(Config) ->
+ssl_conn_socket_info(Config) ->
     Host = proplists:get_value(listen_host, Config),
     Port = proplists:get_value(ssl_listen_port, Config),
     Opts = proplists:get_value(tcp_connect_opts, Config),
@@ -439,36 +437,21 @@ ssl_conn_info(Config) ->
 			     {timeout,5000},
 			     {sslopts,SSLOpts}|Opts]) of
 	{ok,H} ->
-            ?assertMatch({ok, _Data}, eldap:conn_info(H));
+            #{socket := Socket, socket_type := ssl} = eldap:info(H),
+            ?assertMatch({ok, _Data}, ssl:connection_information(Socket));
 	Other -> ct:fail("eldap:open failed: ~p",[Other])
     end.
 
 %%%----------------------------------------------------------------
-ssl_conn_info_items(Config) ->
-    Host = proplists:get_value(listen_host, Config),
-    Port = proplists:get_value(ssl_listen_port, Config),
-    Opts = proplists:get_value(tcp_connect_opts, Config),
-    SSLOpts = proplists:get_value(ssl_connect_opts, Config),
-    case eldap:open([Host], [{port,Port},
-			     {ssl,true},
-			     {timeout,5000},
-			     {sslopts,SSLOpts}|Opts]) of
-	{ok,H} ->
-            ?assertEqual({ok, [{protocol, 'tlsv1.3'}, {session_resumption, false}]},
-                          eldap:conn_info(H, [protocol, session_resumption]));
-	Other -> ct:fail("eldap:open failed: ~p",[Other])
-    end.
-
-%%%----------------------------------------------------------------
-plain_ldap_conn_info_error(Config) ->
+plain_ldap_socket_info(Config) ->
     Host = proplists:get_value(listen_host, Config),
     Port = proplists:get_value(listen_port, Config),
     Opts = proplists:get_value(tcp_connect_opts, Config),
     T = 1000,
     case eldap:open([Host], [{timeout,T},{port,Port}|Opts]) of
         {ok,H} ->
-            ?assertMatch({error, "Not an SSL connection"},
-                          eldap:conn_info(H));
+            ?assertMatch(#{socket := _, socket_type := tcp},
+                          eldap:info(H));
         Other -> ct:fail("eldap:open failed: ~p",[Other])
     end.
 
