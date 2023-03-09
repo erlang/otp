@@ -378,11 +378,7 @@ init_sig_st(StMap, FuncDb) ->
              wl=wl_defer_list(Roots, wl_new()) }.
 
 init_sig_roots(FuncDb) ->
-    maps:fold(fun(Id, #func_info{exported=true}, Acc) ->
-                      [Id | Acc];
-                 (_, _, Acc) ->
-                      Acc
-              end, [], FuncDb).
+    [Id || Id := #func_info{exported=true} <- FuncDb].
 
 init_sig_args([Root | Roots], StMap, Acc) ->
     #opt_st{args=Args0} = map_get(Root, StMap),

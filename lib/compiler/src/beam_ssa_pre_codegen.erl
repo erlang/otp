@@ -2993,8 +2993,8 @@ init_free(Res) ->
     #{x:=Xs0} = Free1 = maps:from_list(Free0),
     Xs = init_xregs(Xs0),
     Free = Free1#{x:=Xs},
-    Next = maps:fold(fun(K, V, A) -> [{{next,K},length(V)}|A] end, [], Free),
-    maps:merge(Free, maps:from_list(Next)).
+    Next = #{{next,K} => length(V) || K := V <- Free},
+    maps:merge(Free, Next).
 
 init_free_1([{_,{prefer,{x,_}=Reg}}|Res]) ->
     [{x,Reg}|init_free_1(Res)];

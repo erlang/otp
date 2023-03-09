@@ -2073,7 +2073,7 @@ init_stack(Tag, Y, Vst) ->
     init_stack(Tag, Y - 1, create_tag(Tag, allocate, [], {y,Y}, Vst)).
 
 trim_stack(From, To, Top, #st{ys=Ys0}=St) when From =:= Top ->
-    Ys = maps:filter(fun({y,Y}, _) -> Y < To end, Ys0),
+    Ys = #{Reg => Val || {y,Y}=Reg := Val <- Ys0, Y < To},
     St#st{numy=To,ys=Ys};
 trim_stack(From, To, Top, St0) ->
     Src = {y, From},
@@ -2128,9 +2128,7 @@ prune_x_regs(Live, #vst{current=St0}=Vst) when is_integer(Live) ->
                              ({y,_}) ->
                                   true
                          end, Fragile0),
-    Xs = maps:filter(fun({x,X}, _) ->
-                             X < Live
-                     end, Xs0),
+    Xs = #{Reg => Val || {x,X}=Reg := Val <- Xs0, X < Live},
     St = St0#st{fragile=Fragile,xs=Xs},
     Vst#vst{current=St}.
 

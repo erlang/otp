@@ -1137,7 +1137,7 @@ lub_bs_matchable(UnitA, UnitB) ->
 
 lub_tuple_elements(MinSize, EsA, EsB) ->
     Es0 = lub_elements(EsA, EsB),
-    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
+    #{Index => Type || Index := Type <- Es0, Index =< MinSize}.
 
 lub_elements(Es1, Es2) ->
     Keys = if
@@ -1368,12 +1368,11 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
     %% union). 'any' is prohibited since it's implicit and should never be
     %% present in the map, and a 'none' element ought to have reduced the
     %% entire tuple to 'none'.
-    maps:fold(fun(Index, Element, _) when is_integer(Index),
-                                          1 =< Index, Index =< Size,
-                                          Index =< ?TUPLE_ELEMENT_LIMIT,
-                                          Element =/= any, Element =/= none ->
-                      verified_type(Element)
-              end, [], Es),
+    _ = [verified_type(Element) ||
+            Index := Element <- Es,
+            is_integer(Index), 1 =< Index, Index =< Size,
+            Index =< ?TUPLE_ELEMENT_LIMIT,
+            Element =/= any, Element =/= none],
     T.
 
 %%%

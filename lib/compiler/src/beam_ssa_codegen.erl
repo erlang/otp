@@ -157,13 +157,11 @@ assert_exception_block(Blocks) ->
 add_parameter_annos([{label, _}=Entry | Body], Anno) ->
     ParamTypes = maps:get(parameter_info, Anno, #{}),
 
-    Annos = maps:fold(
-        fun(K, V, Acc) when is_map_key(K, ParamTypes) ->
-                Info = map_get(K, ParamTypes),
-                [{'%', {var_info, V, Info}} | Acc];
-           (_K, _V, Acc) ->
-                Acc
-        end, [], maps:get(registers, Anno)),
+    Annos = [begin
+                 Info = map_get(K, ParamTypes),
+                 {'%', {var_info, V, Info}}
+             end || K := V <- map_get(registers, Anno),
+                    is_map_key(K, ParamTypes)],
 
     [Entry | sort(Annos)] ++ Body.
 
@@ -515,10 +513,8 @@ prefer_xregs_prune(#cg_set{anno=#{clobbers:=true}}, _, _) ->
     #{};
 prefer_xregs_prune(#cg_set{dst=Dst}, Copies, St) ->
     DstReg = beam_arg(Dst, St),
-    F = fun(_, Alias) ->
-                beam_arg(Alias, St) =/= DstReg
-        end,
-    maps:filter(F, Copies).
+    #{V => Alias || V := Alias <- Copies,
+                    beam_arg(Alias, St) =/= DstReg}.
 
 %% prefer_xregs_call(Instruction, Copies, St) -> Instruction.
 %%  Given a 'call' or 'old_make_fun' instruction rewrite the arguments
@@ -548,12 +544,11 @@ do_prefer_xreg(#b_var{}=A, Copies, St) ->
 do_prefer_xreg(A, _, _) -> A.
 
 merge_copies(Copies0, Copies1) when map_size(Copies0) =< map_size(Copies1) ->
-    maps:filter(fun(K, V) ->
-                        case Copies1 of
-                            #{K:=V} -> true;
-                            #{} -> false
-                        end
-                end, Copies0);
+    #{K => V || K := V <- Copies0,
+                case Copies1 of
+                    #{K := V} -> true;
+                    #{} -> false
+                end};
 merge_copies(Copies0, Copies1) ->
     merge_copies(Copies1, Copies0).
 
