@@ -340,10 +340,16 @@ init([Prio, Parent, Ref, Options]) ->
        "~n   Options: ~p", [Prio, Parent, Ref, Options]),
     case (catch do_init(Prio, Parent, Ref, Options)) of
 	{ok, State} ->
-	    ?vdebug("started",[]),
+	    ?vdebug("started"),
 	    {ok, State};
+	{error, {net_if, info, Reason}} ->
+	    info_msg("Failed starting agent: "
+                     "~n   Net If error: ~p", [Reason]),
+            %% {shutdown, Reason};
+            exit(Reason);
 	{error, Reason} ->
-	    config_err("failed starting agent: ~n~p", [Reason]),
+	    config_err("Failed starting agent: "
+                       "~n   ~p", [Reason]),
 	    {stop, Reason}
     end.
 
@@ -410,15 +416,18 @@ start_note_store(Prio, Ref, Options) ->
 	{ok, Pid} ->
 	    ?vdebug("start_note_store -> Pid: ~p", [Pid]),
 	    Pid;
-	{error, Reason} -> 
-	    ?vinfo("error starting note store: ~n~p",[Reason]),
-	    throw({error, {note_store_error, Reason}});
-	{'EXIT', Reason} ->
-	    ?vinfo("exit starting note store: ~n~p",[Reason]),
-	    throw({error, {note_store_exit, Reason}});
+	{error, {Reason, _ChildSpec}} -> 
+	    ?vinfo("error starting note store: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {note_store, error, Reason}});
+	{'EXIT', {Reason, _ChildSpec}} ->
+	    ?vinfo("exit starting note store: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {note_store, exit, Reason}});
 	Error ->
-	    ?vinfo("failed starting note store: ~n~p",[Error]),
-	    throw({error, {note_store_failed, Error}})
+	    ?vinfo("failed starting note store: "
+                   "~n   ~p", [Error]),
+	    throw({error, {note_store, failed, Error}})
     end.
     
 
@@ -437,18 +446,25 @@ start_net_if(none, Prio, Ref, Vsns, NoteStore, Options) ->
 
     case (catch snmpa_misc_sup:start_net_if(Prio, NoteStore, Ref, self(),
 					    Mod, NiOpts)) of
-	{ok, Pid} -> 
+	{ok, Pid} ->
 	    ?vdebug("start_net_if -> Pid: ~p", [Pid]),
 	    {master_agent, Pid, Mod};
-	{error, Reason} -> 
-	    ?vinfo("error starting net if: ~n~p",[Reason]),
-	    throw({error, {net_if_error, Reason}});
+	{error, {{Class, udp_open, PortNo, Reason}, _ChildSpec}} ->
+	    ?vinfo("error starting net if: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {net_if, Class, {udp_open, PortNo, Reason}}});
+	{error, {Reason, _ChildSpec}} ->
+	    ?vinfo("error starting net if: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {net_if, error, Reason}});
 	{'EXIT', Reason} ->
-	    ?vinfo("exit starting net if: ~n~p",[Reason]),
-	    throw({error, {net_if_exit, Reason}});
+	    ?vinfo("exit starting net if: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {net_if, exit, Reason}});
 	Error ->
-	    ?vinfo("failed starting net if: ~n~p",[Error]),
-	    throw({error, {net_if_failed, Error}})
+	    ?vinfo("failed starting net if: "
+                   "~n   ~p", [Error]),
+	    throw({error, {net_if, failed, Error}})
     end;
 start_net_if(Parent, _Prio, _Ref, _Vsns, _NoteStore, _Options) 
   when is_pid(Parent) ->
@@ -470,15 +486,18 @@ start_mib_server(Prio, Ref, Mibs, Options) ->
 	{ok, Pid} ->
 	    ?vdebug("start_mib_server -> Pid: ~p", [Pid]),
 	    Pid;
-	{error, Reason} -> 
-	    ?vinfo("error starting mib server: ~n~p",[Reason]),
-	    throw({error, {mib_server_error, Reason}});
+	{error, {Reason, _ChildSpec}} ->
+	    ?vinfo("error starting mib server: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {mib_server, error, Reason}});
 	{'EXIT', Reason} ->
-	    ?vinfo("exit starting mib server: ~n~p",[Reason]),
-	    throw({error, {mib_server_exit, Reason}});
+	    ?vinfo("exit starting mib server: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {mib_server, exit, Reason}});
 	Error ->
-	    ?vinfo("failed starting mib server: ~n~p",[Error]),
-	    throw({error, {mib_server_failed, Error}})
+	    ?vinfo("failed starting mib server: "
+                   "~n   ~p", [Error]),
+	    throw({error, {mib_server, failed, Error}})
     end.
 
 
@@ -3204,8 +3223,8 @@ get_stats_counters([Counter|Counters], Acc) ->
 
 %% ---------------------------------------------------------------------
 
-%% info_msg(F, A) ->
-%%     ?snmpa_info(F, A).
+info_msg(F, A) ->
+    ?snmpa_info(F, A).
 
 warning_msg(F, A) ->
     ?snmpa_warning(F, A).
