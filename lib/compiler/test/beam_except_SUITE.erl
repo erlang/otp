@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 multiple_allocs/1,bs_get_tail/1,coverage/1,
-         binary_construction_allocation/1]).
+         binary_construction_allocation/1,unfold_literals/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -34,7 +34,8 @@ groups() ->
       [multiple_allocs,
        bs_get_tail,
        coverage,
-       binary_construction_allocation]}].
+       binary_construction_allocation,
+       unfold_literals]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -176,6 +177,19 @@ do_binary_construction_allocation(Req) ->
              "POST" -> {error, <<"BAD METHOD ", Req/binary>>, Req};
              _ -> ok
          end.
+
+unfold_literals(_Config) ->
+    a = do_unfold_literals(badarg, id({a,b})),
+    {'EXIT',{badarg,_}} = catch do_unfold_literals(badarg, id(a)),
+
+    ok.
+
+do_unfold_literals(_BadArg, T) ->
+    %% The call `erlang:error(badarg)` in ?EXCEPTION_BLOCK would be
+    %% rewritten to `erlang:error(_BadArg)` by
+    %% beam_ssa_opt:unfold_literals/1, which would cause
+    %% beam_ssa_codegen:assert_exception_block/1 to fail.
+    element(1, T).
 
 id(I) -> I.
 
