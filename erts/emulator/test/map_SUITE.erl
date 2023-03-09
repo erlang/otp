@@ -1981,12 +1981,7 @@ t_bif_map_merge(Config) when is_list(Config) ->
 
     M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
 	4 => number, 18446744073709551629 => wat},
-
-    #{ "hi" := "hello", int := 3, <<"key">> := <<"value">>,
-	4 := number, 18446744073709551629 := wat} = maps:merge(#{}, M0),
-
-    #{ "hi" := "hello", int := 3, <<"key">> := <<"value">>,
-	4 := number, 18446744073709551629 := wat} = maps:merge(M0, #{}),
+    merge_with_empty(M0),
 
     M1 = #{ "hi" => "hello again", float => 3.3, {1,2} => "tuple", 4 => integer },
 
@@ -2001,6 +1996,7 @@ t_bif_map_merge(Config) when is_list(Config) ->
     Is = lists:seq(1,N),
     M2 = maps:from_list([{I,I}||I<-Is]),
     150000 = maps:size(M2),
+    merge_with_empty(M2),
     M3 = maps:from_list([{<<I:32>>,I}||I<-Is]),
     150000 = maps:size(M3),
     M4 = maps:merge(M2,M3),
@@ -2039,6 +2035,28 @@ t_bif_map_merge(Config) when is_list(Config) ->
     M11 = maps:merge(M9,M10),
     ok = check_keys_exist(Ks1 ++ Ks2, M11),
 
+    %% Verify map and/or key tuple reuse
+
+    MS = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>},
+    merge_with_empty(MS),
+    MS_keys = erts_internal:map_to_tuple_keys(MS),
+
+    %% key tuple reuse
+    MS_a = maps:merge(MS, #{int => 4}),
+    true = erts_debug:same(erts_internal:map_to_tuple_keys(MS_a), MS_keys),
+    %% map reuse
+    MS_b = maps:merge(#{int => 4}, MS),
+    true = erts_debug:same(MS_b, MS),
+
+    %% mutated map reuse with literal key tuple
+    MS_c = maps:put(int, 4, maps:remove(int, MS)),
+    false = erts_debug:same(erts_internal:map_to_tuple_keys(MS_c), MS_keys),
+    MS_cc = maps:merge(MS, MS_c),
+    true = erts_debug:same(MS_cc, MS_c),
+
+    MS_d = maps:merge(MS_c, MS),
+    true = erts_debug:same(MS_d, MS),
+
     %% error case
     do_badmap(fun(T) ->
 		      {'EXIT',{{badmap,T},[{maps,merge,_,_}|_]}} =
@@ -2050,6 +2068,15 @@ t_bif_map_merge(Config) when is_list(Config) ->
 	      end),
     ok.
 
+merge_with_empty(M0) ->
+    M0_1 = maps:merge(#{}, M0),
+    M0 = M0_1,
+    true = erts_debug:same(M0, M0_1),
+
+    M0_2 = maps:merge(M0, #{}),
+    M0 = M0_2,
+    true = erts_debug:same(M0, M0_2),
+    ok.
 
 t_bif_map_put(Config) when is_list(Config) ->
     M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,

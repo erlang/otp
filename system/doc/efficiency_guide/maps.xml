@@ -37,6 +37,7 @@
   finally the functions in the <seeerl
   marker="stdlib:maps">maps</seeerl> module.</p>
 
+  <marker id="terminology"/>
   <p>Terminology used in this chapter:</p>
   <list type="bulleted">
     <item>A map with at most 32 elements will informally be called a
@@ -500,7 +501,8 @@ get(Key, Map, Default) ->
       <p>Therefore, a call <c>maps:get/3</c> is more expensive than a
       call to <c>maps:get/2</c>.</p>
 
-      <p>If a small map is used as alternative to using a record,
+      <p>If a <seeguide marker="#terminology">small map</seeguide>
+      is used as alternative to using a record,
       instead of calling <c>maps:get/3</c> multiple times to handle
       default values, consider putting the default values in a map and
       merging that map with the other map:</p>
@@ -580,7 +582,17 @@ get(Key, Map, Default) ->
     <section>
       <title>maps:merge/2</title>
       <p><seemfa marker="stdlib:maps#merge/2">maps:merge/2</seemfa>
-      is implemented in C.</p>
+      is implemented in C. For <seeguide marker="#terminology">small
+      maps</seeguide>, the key tuple may be shared with any of the argument
+      maps if that argument map contains all the keys. Literal key tuples are
+      prefered if possible.</p>
+      <note>
+	<p>
+	  The sharing of key tuples by <c>maps:merge/2</c> was introduced in
+	  OTP @OTP-18503@. Older versions always contructed a new key tuple on
+	  the callers heap.
+	</p>
+      </note>
     </section>
 
     <section>
@@ -613,7 +625,7 @@ get(Key, Map, Default) ->
       <p>If the keys are constants known at compile-time, using the
       map update syntax with the <c>=></c> operator is more
       efficient than multiple calls to <c>maps:put/3</c>,
-      especially for small maps.</p>
+      especially for <seeguide marker="#terminology">small maps</seeguide>.</p>
     </section>
 
     <section>
@@ -660,7 +672,7 @@ get(Key, Map, Default) ->
       <p>If the keys are constants known at compile-time, using the
       map update syntax with the <c>:=</c> operator is more
       efficient than multiple calls to <c>maps:update/3</c>,
-      especially for small maps.</p>
+      especially for <seeguide marker="#terminology">small maps</seeguide>.</p>
     </section>
 
     <section>
