@@ -1348,32 +1348,46 @@ handle_call(change, From, #{ state := start } = S) ->
   <section>
     <marker id="bit_syntax"></marker>
     <title>Bit Syntax Expressions</title>
-    <code type="none"><![CDATA[<<>>
+    <p>
+      The bit syntax operates on <em>bit strings</em>.
+      A bit string is a sequence of bits ordered
+      from the most significant bit to the least significant bit.
+    </p>
+    <code type="none"><![CDATA[<<>>  % The empty bit string, zero length
+<<E1>>
 <<E1,...,En>>]]></code>
-    <p>Each element <c>Ei</c> specifies a <em>segment</em> of
-      the bit string. Each element <c>Ei</c> is a value, followed by an
-      optional <em>size expression</em> and an optional <em>type specifier list</em>.</p>
+    <p>
+      Each element <c>Ei</c> specifies a <em>segment</em> of
+      the bit string.  The segments are ordered left to right
+      from the most significant bit to the least significant bit
+      of the bit string.
+    </p>
+    <p>
+      Each segment specification <c>Ei</c> is a value, followed by an
+      optional <em>size expression</em>
+      and an optional <em>type specifier list</em>.
+    </p>
     <pre>
 Ei = Value |
      Value:Size |
      Value/TypeSpecifierList |
      Value:Size/TypeSpecifierList</pre>
-    <p>Used in a bit string construction, <c>Value</c> is an expression
+    <p>When used in a bit string construction, <c>Value</c> is an expression
     that is to evaluate to an integer, float, or bit string.  If the
     expression is not a single literal or variable, it
     is to be enclosed in parentheses.</p>
 
-    <p>Used in a bit string matching, <c>Value</c> must be a variable,
+    <p>When used in a bit string matching, <c>Value</c> must be a variable,
     or an integer, float, or string.</p>
 
     <p>Notice that, for example, using a string literal as in
     <c><![CDATA[<<"abc">>]]></c> is syntactic sugar for
     <c><![CDATA[<<$a,$b,$c>>]]></c>.</p>
 
-    <p>Used in a bit string construction, <c>Size</c> is an expression
+    <p>When used in a bit string construction, <c>Size</c> is an expression
     that is to evaluate to an integer.</p>
     
-    <p>Used in a bit string matching, <c>Size</c> must be a
+    <p>When used in a bit string matching, <c>Size</c> must be a
     <seeguide marker="#guard_expressions">guard expression</seeguide>
     that evaluates to an integer. All variables in the guard expression
     must be already bound.</p>
@@ -1395,8 +1409,26 @@ Ei = Value |
     or binary elements in the matching must have a size
     specification.</p>
 
-    <p><strong>Example:</strong></p>
+    <marker id="binaries"></marker>
+    <p><strong>Binaries</strong></p>
+    <p>
+      A bit string with a length that is a multiple of 8 bits
+      is known as a <em>binary</em>, which is the most
+      common and useful type of bit string.
+    </p>
+    <p>
+      A binary has a canonical representation in memory.
+      Here follows a sequence of bytes where each byte&apos;s
+      value is its sequence number:
+    </p>
+    <pre>&lt;&lt;1, 2, 3, 4, 5, 6, 7, 8, 9, 10&gt;&gt;</pre>
+    <p>
+      Bit strings are a later generalization of binaries,
+      so many texts and much information about binaries
+      apply just as well for bit strings.
+    </p>
 
+    <p><strong>Example:</strong></p>
     <pre>
 1> <input>&lt;&lt;A/binary, B/binary>> = &lt;&lt;"abcde">>.</input>
 * 1:3: a binary field without size is only allowed at the end of a binary pattern
@@ -1428,12 +1460,15 @@ Ei = Value |
       The default is <c>unsigned</c>.</item>
 
       <tag><c>Endianness</c>= <c>big</c> | <c>little</c> | <c>native</c></tag>
-      <item>Native-endian means that the endianness is resolved at load
-       time to be either big-endian or little-endian, depending on
-       what is native for the CPU that the Erlang machine is run on.
-       Endianness only matters when the Type is either <c>integer</c>,
-       <c>utf16</c>, <c>utf32</c>, or <c>float</c>. The default is <c>big</c>.
-       </item>
+      <item>
+        Specifies byte level (octet level) endianness (byte order).
+        Native-endian means that the endianness is resolved at load
+        time to be either big-endian or little-endian, depending on
+        what is native for the CPU that the Erlang machine is run on.
+        Endianness only matters when the Type is either <c>integer</c>,
+        <c>utf16</c>, <c>utf32</c>, or <c>float</c>. The default is <c>big</c>.
+        <pre>&lt;&lt;16#1234:16/little>> = &lt;&lt;16#3412:16>> = &lt;&lt;16#34:8, 16#12:8>></pre>
+      </item>
 
       <tag><c>Unit</c>= <c>unit:IntegerLiteral</c></tag>
       <item>The allowed range is 1 through 256. Defaults to 1 for <c>integer</c>,
@@ -1450,11 +1485,11 @@ Ei = Value |
       <p>The value of <c>Size</c> multiplied with the unit gives the
       size of the segment in bits.</p>
 
-      <p>When constructing binaries, if the size <c>N</c> of an integer
+      <p>When constructing bit strings, if the size <c>N</c> of an integer
       segment is too small to contain the given integer, the most significant
       bits of the integer are silently discarded and only the <c>N</c> least
-      significant bits are put into the binary. For example, <c>&lt;&lt;16#ff:4&gt;&gt;</c>
-      will result in the binary <c>&lt;&lt;15:4&gt;&gt;</c>.</p>
+      significant bits are put into the bit string. For example, <c>&lt;&lt;16#ff:4&gt;&gt;</c>
+      will result in the bit string <c>&lt;&lt;15:4&gt;&gt;</c>.</p>
     </section>
 
     <section>
@@ -1463,10 +1498,10 @@ Ei = Value |
       the size of the segment in bits. The size of a float segment in bits must be
       one of 16, 32, or 64.</p>
 
-      <p>When constructing binaries, if the size of a float segment is too small
+      <p>When constructing bit strings, if the size of a float segment is too small
       to contain the representation of the given float value, an exception is raised.</p>
 
-      <p>When matching binaries, matching of float segments fails if the bits of the segment
+      <p>When matching bit strings, matching of float segments fails if the bits of the segment
       does not contain the representation of a finite floating point value.</p>
     </section>
 
@@ -1475,6 +1510,11 @@ Ei = Value |
       <p>In this section, the phrase "binary segment" refers to any
       one of the segment types <c>binary</c>, <c>bitstring</c>,
       <c>bytes</c>, and <c>bits</c>.</p>
+
+      <p>
+        See also the paragraphs about
+        <seeguide marker="#binaries">Binaries</seeguide>.
+      </p>
 
       <p>When constructing binaries and no size is specified for a
       binary segment, the entire binary value is interpolated into the
@@ -1572,16 +1612,16 @@ Ei = Value |
       in an integer in the range 0 through 16#D7FF or 16#E000 through 16#10FFFF.
       The match fails if the returned value falls outside those ranges.</p>
 
-      <p>A segment of type <c>utf8</c> matches 1-4 bytes in the binary,
-      if the binary at the match position contains a valid UTF-8 sequence.
+      <p>A segment of type <c>utf8</c> matches 1-4 bytes in the bit string,
+      if the bit string at the match position contains a valid UTF-8 sequence.
       (See RFC-3629 or the Unicode standard.)</p>
 
-      <p>A segment of type <c>utf16</c> can match 2 or 4 bytes in the binary.
-      The match fails if the binary at the match position does not contain
+      <p>A segment of type <c>utf16</c> can match 2 or 4 bytes in the bit string.
+      The match fails if the bit string at the match position does not contain
       a legal UTF-16 encoding of a Unicode code point. (See RFC-2781 or
       the Unicode standard.)</p>
 
-      <p>A segment of type <c>utf32</c> can match 4 bytes in the binary in the
+      <p>A segment of type <c>utf32</c> can match 4 bytes in the bit string in the
       same way as an <c>integer</c> segment matches 32 bits.
       The match fails if the resulting integer is outside the legal ranges
       previously mentioned.</p>
@@ -1593,6 +1633,7 @@ Ei = Value |
 &lt;&lt;1,17,42&gt;&gt;
 2> <input>Bin2 = &lt;&lt;"abc"&gt;&gt;.</input>
 &lt;&lt;97,98,99&gt;&gt;
+
 3> <input>Bin3 = &lt;&lt;1,17,42:16&gt;&gt;.</input>
 &lt;&lt;1,17,0,42&gt;&gt;
 4> <input>&lt;&lt;A,B,C:16&gt;&gt; = &lt;&lt;1,17,42:16&gt;&gt;.</input>
@@ -1613,8 +1654,14 @@ Ei = Value |
 &lt;&lt;1,17,2,10:4&gt;&gt;
 12> <input>J.</input>
 &lt;&lt;17,2,10:4&gt;&gt;
+
 13> <input>&lt;&lt;1024/utf8&gt;&gt;.</input>
 &lt;&lt;208,128&gt;&gt;
+
+14> <input>&lt;&lt;1:1,0:7&gt;&gt;.</input>
+&lt;&lt;128&gt;&gt;
+15> <input>&lt;&lt;16#123:12/little&gt;&gt; = &lt;&lt;16#231:12&gt;&gt; = &lt;&lt;2:4, 3:4, 1:4&gt;&gt;.</input>
+&lt;&lt;35,1:4&gt;&gt;
 </pre>
     <p>Notice that bit string patterns cannot be nested.</p>
     <p>Notice also that "<c><![CDATA[B=<<1>>]]></c>" is interpreted as
