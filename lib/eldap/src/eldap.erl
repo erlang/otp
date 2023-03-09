@@ -31,8 +31,7 @@
 	 paged_result_control/1,
 	 paged_result_control/2,
 	 paged_result_cookie/1,
-         conn_info/1,
-         conn_info/2]).
+         info/1]).
 
 -export([neverDerefAliases/0, derefInSearching/0,
          derefFindingBaseObj/0, derefAlways/0]).
@@ -157,13 +156,10 @@ controlling_process(Handle, Pid) when is_pid(Handle), is_pid(Pid)  ->
     recv(Handle).
 
 %%% --------------------------------------------------------------------
-%%% Return LDAP connection information
+%%% Return LDAP socket information
 %%% --------------------------------------------------------------------
-conn_info(Handle) when is_pid(Handle) ->
-    conn_info(Handle, []).
-
-conn_info(Handle, Items) when is_pid(Handle) ->
-    send(Handle, {conn_info, Items}),
+info(Handle) when is_pid(Handle) ->
+    send(Handle, info),
     recv(Handle).
 
 %%% --------------------------------------------------------------------
@@ -620,13 +616,13 @@ loop(Cpid, Data) ->
 	    send(From, Result),
 	    ?MODULE:loop(Cpid, Data);
 
-        {From, {conn_info, Items}} ->
+        {From, info} ->
             Res =
                 case Data#eldap.ldaps of
                     true ->
-                        get_ssl_conn_info(Data#eldap.fd, Items);
+                        #{socket => Data#eldap.fd, socket_type => ssl};
                     false ->
-                        {error, "Not an SSL connection"} 
+                        #{socket => Data#eldap.fd, socket_type => tcp} 
                 end,
             send(From, Res),
             ?MODULE:loop(Cpid, Data);
@@ -640,11 +636,6 @@ loop(Cpid, Data) ->
 	    ?MODULE:loop(Cpid, Data)
 
     end.
-
-get_ssl_conn_info(SockFd, []) ->
-    ssl:connection_information(SockFd);
-get_ssl_conn_info(SockFd, Items) ->
-    ssl:connection_information(SockFd, Items).
 
 %%% --------------------------------------------------------------------
 %%% startTLS Request

@@ -549,29 +549,14 @@ Control2 = eldap:paged_result_control(PageSize, Cookie1),
       </desc>
     </func>
     <func>
-      <name since="@OTP-XXXX@">conn_info(Handle) -> {ok, Data} | {error, Reason}</name>
-      <fsummary>When LDAP is run over TLS, returns information about the TLS connection.
+      <name since="@OTP-XXXX@">info(Handle) -> #{socket := Socket, socket_type := tcp | ssl}</name>
+      <fsummary>Returns the SSL or TCP socket for LDAP connection.
       </fsummary>
       <type>
-	<v>Handle = handle()</v>
-	<v>Data = ssl:connection_info()</v>
+	<v>Socket = ssl:sslsocket() | gen_tcp:socket()</v>
       </type>
-      <desc><p>Returns the most relevant information for SSL connection to an LDAP server.
-      See also ssl:connection_information/1.</p>
-      </desc>
-    </func>
-    <func>
-      <name since="@OTP-XXXX@">conn_info(Handle, Items) -> {ok, Data} | {error, Reason}</name>
-      <fsummary>When LDAP is run over TLS, returns requested information items about the TLS
-      connection.
-      </fsummary>
-      <type>
-	<v>Handle = handle()</v>
-	<v>Items = ssl:connection_info_items()</v>
-	<v>Data = ssl:connection_info()</v>
-      </type>
-      <desc><p>Returns the requested information items about the SSL connection to LDAP server,
-      if they are defined. See also ssl:connection_information/2.</p>
+      <desc><p>Returns the socket type and socket for a TCP/SSL connection
+      to an LDAP server</p>
       </desc>
     </func>
 
