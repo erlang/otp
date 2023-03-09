@@ -255,9 +255,10 @@ abbreviated(internal,
                    handshake_env = HsEnv} = State) ->
     ConnectionStates1 =
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
-    Connection:next_event(?FUNCTION_NAME, no_record, State#state{connection_states = 
-                                                                     ConnectionStates1,                                                   
-                                                                 handshake_env = HsEnv#handshake_env{expecting_finished = true}});
+    Connection:next_event(?FUNCTION_NAME, no_record,
+                          State#state{connection_states =
+                                          ConnectionStates1,
+                                      handshake_env = HsEnv#handshake_env{expecting_finished = true}});
 abbreviated(info, Msg, State) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 abbreviated(internal, #hello_request{}, _) ->
@@ -278,24 +279,28 @@ wait_ocsp_stapling(internal, #certificate{},
 %% Receive OCSP staple message
 wait_ocsp_stapling(internal, #certificate_status{} = CertStatus,
                    #state{static_env = #static_env{protocol_cb = _Connection},
-                          handshake_env = #handshake_env{
-                                             ocsp_stapling_state = OcspState} = HsEnv} = State) ->
-    {next_state, certify, State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =
-                                                                              OcspState#{ocsp_expect => stapled,
-                                                                                         ocsp_response => CertStatus}}}};
+                          handshake_env =
+                              #handshake_env{ocsp_stapling_state = OcspState} = HsEnv} = State) ->
+    {next_state, certify,
+     State#state{handshake_env =
+                     HsEnv#handshake_env{ocsp_stapling_state =
+                                             OcspState#{ocsp_expect => stapled,
+                                                        ocsp_response => CertStatus}}}};
 %% Server did not send OCSP staple message
-wait_ocsp_stapling(internal, Msg, #state{static_env = #static_env{protocol_cb = _Connection},
-                                         handshake_env = #handshake_env{
-                                                            ocsp_stapling_state = OcspState} = HsEnv} = State)
+wait_ocsp_stapling(internal, Msg,
+                   #state{static_env = #static_env{protocol_cb = _Connection},
+                          handshake_env = #handshake_env{
+                                             ocsp_stapling_state = OcspState} = HsEnv} = State)
   when is_record(Msg, server_key_exchange) orelse
        is_record(Msg, hello_request) orelse
        is_record(Msg, certificate_request) orelse
        is_record(Msg, server_hello_done) orelse
        is_record(Msg, client_key_exchange) ->
-    {next_state, certify, State#state{handshake_env =
-                                          HsEnv#handshake_env{ocsp_stapling_state = OcspState#{ocsp_expect => undetermined}}},
+    {next_state, certify,
+     State#state{handshake_env =
+                     HsEnv#handshake_env{ocsp_stapling_state =
+                                             OcspState#{ocsp_expect => undetermined}}},
      [{postpone, true}]};
-
 wait_ocsp_stapling(internal, #hello_request{}, _) ->
     keep_state_and_data;
 wait_ocsp_stapling(Type, Event, State) ->

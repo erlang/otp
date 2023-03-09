@@ -300,7 +300,7 @@ hello(internal, #client_hello{cookie = <<>>,
     catch throw:#alert{} = Alert ->
             alert_or_reset_connection(Alert, ?FUNCTION_NAME, State0)
     end;
-hello(internal, #hello_verify_request{cookie = Cookie}, 
+hello(internal, #hello_verify_request{cookie = Cookie},
       #state{static_env = #static_env{role = client,
                                       host = Host,
                                       port = Port},
@@ -317,17 +317,16 @@ hello(internal, #hello_verify_request{cookie = Cookie},
     Hello = dtls_handshake:client_hello(Host, Port, Cookie, ConnectionStates0,
 					SslOpts, Id, Renegotiation, OcspNonce),
     Version = Hello#client_hello.client_version,
-    State1 = prepare_flight(State0#state{handshake_env =  
-                                             HsEnv#handshake_env{tls_handshake_history
-                                                                 = ssl_handshake:init_handshake_history(),
-                                                                 ocsp_stapling_state = 
-                                                                     OcspState0#{ocsp_nonce => OcspNonce}}}),
-    
-    {State2, Actions} = dtls_gen_connection:send_handshake(Hello, State1), 
-
-    State = State2#state{connection_env = CEnv#connection_env{negotiated_version = Version}, % RequestedVersion
-			 protocol_specific = PS#{current_cookie_secret => Cookie}
-                        },
+    State1 =
+        prepare_flight(
+          State0#state{handshake_env =
+                           HsEnv#handshake_env{
+                             tls_handshake_history = ssl_handshake:init_handshake_history(),
+                             ocsp_stapling_state = OcspState0#{ocsp_nonce => OcspNonce}}}),
+    {State2, Actions} = dtls_gen_connection:send_handshake(Hello, State1),
+    State = State2#state{connection_env =
+                             CEnv#connection_env{negotiated_version = Version}, % RequestedVersion
+			 protocol_specific = PS#{current_cookie_secret => Cookie}},
     dtls_gen_connection:next_event(?FUNCTION_NAME, no_record, State, Actions);
 hello(internal, #client_hello{extensions = Extensions} = Hello,
       #state{handshake_env = #handshake_env{continue_status = pause},
@@ -375,11 +374,11 @@ hello(internal, #server_hello{} = Hello,
     try
         {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} =
             dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId),
-        tls_dtls_connection:handle_session(Hello,
-                                           Version, NewId, ConnectionStates, ProtoExt, Protocol,
-                                           State#state{handshake_env =
-                                                           HsEnv#handshake_env{
-                                                             ocsp_stapling_state = maps:merge(OcspState0,OcspState)}})
+        tls_dtls_connection:handle_session(
+          Hello, Version, NewId, ConnectionStates, ProtoExt, Protocol,
+          State#state{handshake_env =
+                          HsEnv#handshake_env{
+                            ocsp_stapling_state = maps:merge(OcspState0,OcspState)}})
     catch throw:#alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
     end;

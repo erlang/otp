@@ -442,15 +442,16 @@ process_certificate(#certificate_1_3{
     {error, {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}};
 process_certificate(#certificate_1_3{certificate_list = CertEntries},
                     #state{ssl_options = SslOptions,
-                       static_env =
-                           #static_env{
-                              role = Role,
-                              host = Host,
-                              cert_db = CertDbHandle,
-                              cert_db_ref = CertDbRef,
-                              crl_db = CRLDbHandle},
-                           handshake_env = #handshake_env{
-                                              ocsp_stapling_state = OcspState}} = State0) ->
+                           static_env =
+                               #static_env{
+                                  role = Role,
+                                  host = Host,
+                                  cert_db = CertDbHandle,
+                                  cert_db_ref = CertDbRef,
+                                  crl_db = CRLDbHandle},
+                           handshake_env =
+                               #handshake_env{
+                                  ocsp_stapling_state = OcspState}} = State0) ->
     case validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                                     SslOptions, CRLDbHandle, Role, Host, OcspState) of
         #alert{} = Alert ->
@@ -828,13 +829,13 @@ store_peer_cert(#state{session = Session,
     State#state{session = Session#session{peer_certificate = PeerCert},
                 handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo}}.
 
-
 split_cert_entries(CertEntries, OcspState) ->
     split_cert_entries(CertEntries, OcspState, [], #{}).
+
 split_cert_entries([], OcspState, Chain, Ext) ->
     {lists:reverse(Chain), Ext, OcspState};
-split_cert_entries([#certificate_entry{data = DerCert,
-                                       extensions = Extensions0} | CertEntries], OcspState0, Chain, Ext) ->
+split_cert_entries([#certificate_entry{data = DerCert, extensions = Extensions0} | CertEntries],
+                   OcspState0, Chain, Ext) ->
     Id = public_key:pkix_subject_id(DerCert),
     Extensions = [ExtValue || {_, ExtValue} <- maps:to_list(Extensions0)],
     OcspState = case maps:get(status_request, Extensions0, undefined) of
@@ -844,7 +845,6 @@ split_cert_entries([#certificate_entry{data = DerCert,
                         OcspState0#{ocsp_expect => stapled}
                 end,
     split_cert_entries(CertEntries, OcspState, [DerCert | Chain], Ext#{Id => Extensions}).
-
 
 %% 4.4.1.  The Transcript Hash
 %%
@@ -1868,23 +1868,24 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                   ocsp_responder_certs := OcspResponderCerts,
                   ocsp_state := OcspState}) ->
     ValidationFunAndState =
-        ssl_handshake:validation_fun_and_state(VerifyFun, #{role => Role,
-                                                            certdb => CertDbHandle,
-                                                            certdb_ref => CertDbRef,
-                                                            server_name => ServerName,
-                                                            customize_hostname_check =>
-                                                                CustomizeHostnameCheck,
-                                                            crl_check => CrlCheck,
-                                                            crl_db => CRLDbHandle,
-                                                            signature_algs => filter_tls13_algs(SignAlgos),
-                                                            signature_algs_cert =>
-                                                                filter_tls13_algs(SignAlgosCert),
-                                                            version => Version,
-                                                            issuer => TrustedCert,
-                                                            cert_ext => CertExt,
-                                                            ocsp_responder_certs => OcspResponderCerts,
-                                                            ocsp_state => OcspState
-                                                           },
+        ssl_handshake:validation_fun_and_state(VerifyFun,
+                                               #{role => Role,
+                                                 certdb => CertDbHandle,
+                                                 certdb_ref => CertDbRef,
+                                                 server_name => ServerName,
+                                                 customize_hostname_check =>
+                                                     CustomizeHostnameCheck,
+                                                 crl_check => CrlCheck,
+                                                 crl_db => CRLDbHandle,
+                                                 signature_algs => filter_tls13_algs(SignAlgos),
+                                                 signature_algs_cert =>
+                                                     filter_tls13_algs(SignAlgosCert),
+                                                 version => Version,
+                                                 issuer => TrustedCert,
+                                                 cert_ext => CertExt,
+                                                 ocsp_responder_certs => OcspResponderCerts,
+                                                 ocsp_state => OcspState
+                                                },
                                                Path, LogLevel),
     Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
                {verify_fun, ValidationFunAndState}],

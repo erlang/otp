@@ -219,19 +219,21 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
 			HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation, HashSign) ->
     {Session, ConnectionStates, Protocol, ServerHelloExt} =
         ssl_handshake:handle_client_hello_extensions(dtls_record, Random, CipherSuites,
-                                                     HelloExt, dtls_v1:corresponding_tls_version(Version),
-                                                     SslOpts, Session0, 
+                                                     HelloExt,
+                                                     dtls_v1:corresponding_tls_version(Version),
+                                                     SslOpts, Session0,
                                                      ConnectionStates0, Renegotiation,
                                                      Session0#session.is_resumable),
     {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}.
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-			       Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
+			       Compression, HelloExt, SslOpt, ConnectionStates0,
+                               Renegotiation, IsNew) ->
     {ConnectionStates, ProtoExt, Protocol, OcspState} =
-        ssl_handshake:handle_server_hello_extensions(dtls_record, Random, CipherSuite,
-                                                     Compression, HelloExt,
-                                                     dtls_v1:corresponding_tls_version(Version),
-                                                     SslOpt, ConnectionStates0, Renegotiation, IsNew),
+        ssl_handshake:handle_server_hello_extensions(
+          dtls_record, Random, CipherSuite, Compression, HelloExt,
+          dtls_v1:corresponding_tls_version(Version), SslOpt, ConnectionStates0,
+          Renegotiation, IsNew),
     {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}.
 
 %%--------------------------------------------------------------------
