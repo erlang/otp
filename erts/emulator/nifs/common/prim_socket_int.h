@@ -792,6 +792,18 @@ extern void esock_inform_waiting_procs(ErlNifEnv*         env,
                                        ESockRequestQueue* q,
                                        ERL_NIF_TERM       reason);
 
+
+/* *** Control Message 'stuff' ***
+ */
+extern void* esock_init_cmsghdr(struct cmsghdr* cmsgP,
+                                size_t          rem,  // Remaining space
+                                size_t          size, // Size of data
+                                size_t*         usedP);
+extern ESockCmsgSpec* esock_lookup_cmsg_table(int level, size_t *num);
+extern ESockCmsgSpec* esock_lookup_cmsg_spec(ESockCmsgSpec* table,
+                                             size_t         num,
+                                             ERL_NIF_TERM   eType);
+
 /* *** Sendfile 'stuff' ***
  */
 #ifdef HAVE_SENDFILE

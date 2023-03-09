@@ -632,6 +632,8 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define REALLOC_BIN(SZ, BP)       enif_realloc_binary((SZ), (BP))
 #define FREE_BIN(BP)              enif_release_binary((BP))
 
+#define FREE_IOVEC(IV)            enif_free_iovec((IV))
+
 /* Copy term T into environment E */
 #define CP_TERM(E, T) enif_make_copy((E), (T))
 

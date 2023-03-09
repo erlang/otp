@@ -125,6 +125,10 @@ ERL_NIF_INIT(prim_socket, esock_funcs, on_load, NULL, NULL, NULL)
  *                                                                        *
  * vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv */
 
+#define ESOCK_CMSG_SPACE(l) WSA_CMSG_SPACE((l))
+#define ESOCK_CMSG_LEN(l)   WSA_CMSG_LEN((l))
+#define ESOCK_CMSG_DATA(p)  WSA_CMSG_DATA((p))
+
 
 #define STRNCASECMP               strncasecmp
 #define INCL_WINSOCK_API_TYPEDEFS 1
@@ -166,6 +170,10 @@ ERL_NIF_INIT(prim_socket, esock_funcs, on_load, NULL, NULL, NULL)
  * Start of non-__WIN32__ section a.k.a UNIX section                      *
  *                                                                        *
  * vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv */
+
+#define ESOCK_CMSG_SPACE(l) CMSG_SPACE((l))
+#define ESOCK_CMSG_LEN(l)   CMSG_LEN((l))
+#define ESOCK_CMSG_DATA(p)  CMSG_DATA((p))
 
 
 #include <sys/time.h>
@@ -5492,6 +5500,7 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
  * Msg          - Message - map() with data and (maybe) control and dest
  * Flags        - Send flags as an integer().
  * SendRef      - A unique id reference() for this (send) request.
+ * IOV          - List of binaries
  */
 
 static
@@ -5499,9 +5508,6 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ERL_NIF_TERM     res, sockRef, sendRef, eMsg, eIOV;
     ESockDescriptor* descP;
     int              flags;
@@ -5554,7 +5560,6 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
 
     return res;
 
-#endif // #ifdef __WIN32__  #else
 }
 
 
@@ -9397,11 +9402,11 @@ ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
  * Some platforms (seen on ppc Linux 2.6.29-3.ydl61.3)
  * may return 0 as the cmsg_len if the cmsg is to be ignored.
  */
-#define LEN_CMSG_DATA(__CMSG__)                                             \
-    ((__CMSG__)->cmsg_len < sizeof (struct cmsghdr) ? 0 :                   \
-     (__CMSG__)->cmsg_len - ((char*)CMSG_DATA(__CMSG__) - (char*)(__CMSG__)))
-#define NEXT_CMSG_HDR(__CMSG__)                                              \
-    ((struct cmsghdr*)(((char*)(__CMSG__)) + CMSG_SPACE(LEN_CMSG_DATA(__CMSG__))))
+#define ESOCK_LEN_CMSG_DATA(__CMSG__)                                   \
+    ((__CMSG__)->cmsg_len < sizeof (struct cmsghdr) ? 0 :               \
+     (__CMSG__)->cmsg_len - ((char*)ESOCK_CMSG_DATA(__CMSG__) - (char*)(__CMSG__)))
+#define ESOCK_NEXT_CMSG_HDR(__CMSG__)                                   \
+    ((struct cmsghdr*)(((char*)(__CMSG__)) + ESOCK_CMSG_SPACE(ESOCK_LEN_CMSG_DATA(__CMSG__))))
 
 static
 ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
@@ -9433,8 +9438,8 @@ ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
     for (endOfBuf = (struct cmsghdr*)(cmsgs.data + cmsgs.size),
 	 currentP = (struct cmsghdr*)(cmsgs.data);
 	 (currentP != NULL) && (currentP < endOfBuf);
-	 currentP = NEXT_CMSG_HDR(currentP)) {
-      unsigned char* dataP   = UCHARP(CMSG_DATA(currentP));
+	 currentP = ESOCK_NEXT_CMSG_HDR(currentP)) {
+      unsigned char* dataP   = UCHARP(ESOCK_CMSG_DATA(currentP));
       size_t         dataPos = dataP - cmsgs.data;
       size_t         dataLen = (UCHARP(currentP) + currentP->cmsg_len) - dataP;
 
@@ -10189,7 +10194,6 @@ void esock_encode_msg_flags(ErlNifEnv*       env,
 #endif
 
 
-#ifndef __WIN32__
 #ifdef SCM_TIMESTAMP
 static
 BOOLEAN_T esock_cmsg_encode_timeval(ErlNifEnv     *env,
@@ -10223,10 +10227,8 @@ static BOOLEAN_T esock_cmsg_decode_timeval(ErlNifEnv *env,
     return TRUE;
 }
 #endif
-#endif
 
 
-#ifndef __WIN32__
 #if defined(IP_TOS) || defined(IP_RECVTOS)
 static
 BOOLEAN_T esock_cmsg_encode_ip_tos(ErlNifEnv     *env,
@@ -10263,9 +10265,8 @@ static BOOLEAN_T esock_cmsg_decode_ip_tos(ErlNifEnv *env,
     return TRUE;
 }
 #endif // #ifdef IP_TOS
-#endif // #ifdef __WIN32__
 
-#ifndef __WIN32__
+
 #if defined(IP_TTL) || \
     defined(IPV6_HOPLIMIT) || \
     defined(IPV6_TCLASS) || defined(IPV6_RECVTCLASS)
@@ -10296,18 +10297,16 @@ BOOLEAN_T esock_cmsg_decode_int(ErlNifEnv*      env,
     if (! GET_INT(env, eValue, &value))
         return FALSE;
 
-    if ((valueP = esock_init_cmsghdr(cmsgP, rem,
-                                     sizeof(*valueP), usedP)) == NULL)
+    valueP = esock_init_cmsghdr(cmsgP, rem, sizeof(*valueP), usedP);
+    if (valueP == NULL)
         return FALSE;
 
     *valueP = value;
     return TRUE;
 }
 #endif
-#endif
 
 
-#ifndef __WIN32__
 extern
 BOOLEAN_T esock_cmsg_decode_bool(ErlNifEnv*      env,
                                  ERL_NIF_TERM    eValue,
@@ -10328,10 +10327,8 @@ BOOLEAN_T esock_cmsg_decode_bool(ErlNifEnv*      env,
     *valueP = v? 1 : 0;
     return TRUE;
 }
-#endif
 
 
-#ifndef __WIN32__
 #ifdef IP_RECVTTL
 static
 BOOLEAN_T esock_cmsg_encode_uchar(ErlNifEnv     *env,
@@ -10348,15 +10345,15 @@ BOOLEAN_T esock_cmsg_encode_uchar(ErlNifEnv     *env,
     return TRUE;
 }
 #endif
-#endif
 
-#ifndef __WIN32__
+
 #ifdef IP_PKTINFO
 static
 BOOLEAN_T esock_cmsg_encode_in_pktinfo(ErlNifEnv     *env,
                                        unsigned char *data,
                                        size_t         dataLen,
-                                       ERL_NIF_TERM  *eResult) {
+                                       ERL_NIF_TERM  *eResult)
+{
     struct in_pktinfo* pktInfoP = (struct in_pktinfo*) data;
     ERL_NIF_TERM       ifIndex;
     ERL_NIF_TERM       specDst, addr;
@@ -10365,14 +10362,23 @@ BOOLEAN_T esock_cmsg_encode_in_pktinfo(ErlNifEnv     *env,
         return FALSE;
 
     ifIndex  = MKUI(env, pktInfoP->ipi_ifindex);
+#ifndef __WIN32__
+    /* On Windows, the field ipi_spec_dst does not exist */
     esock_encode_in_addr(env, &pktInfoP->ipi_spec_dst, &specDst);
+#endif
     esock_encode_in_addr(env, &pktInfoP->ipi_addr, &addr);
 
     {
         ERL_NIF_TERM keys[] = {esock_atom_ifindex,
                                esock_atom_spec_dst,
                                esock_atom_addr};
-        ERL_NIF_TERM vals[] = {ifIndex, specDst, addr};
+        ERL_NIF_TERM vals[] = {ifIndex,
+#ifndef __WIN32__
+                               specDst,
+#else
+                               esock_atom_undefined,
+#endif
+                               addr};
         unsigned int numKeys = NUM(keys);
         unsigned int numVals = NUM(vals);
 
@@ -10382,7 +10388,7 @@ BOOLEAN_T esock_cmsg_encode_in_pktinfo(ErlNifEnv     *env,
     return TRUE;
 }
 #endif
-#endif
+
 
 #ifndef __WIN32__
 #ifdef IP_ORIGDSTADDR
@@ -10404,6 +10410,7 @@ BOOLEAN_T esock_cmsg_encode_sockaddr(ErlNifEnv     *env,
 }
 #endif
 #endif
+
 
 #ifndef __WIN32__
 #ifdef HAVE_LINUX_ERRQUEUE_H
@@ -10668,7 +10675,6 @@ BOOLEAN_T esock_cmsg_encode_recverr(ErlNifEnv                *env,
 #endif // #ifdef HAVE_LINUX_ERRQUEUE_H
 #endif // #ifndef __WIN32__
 
-#ifndef __WIN32__
 #ifdef IPV6_PKTINFO
 static
 BOOLEAN_T esock_cmsg_encode_in6_pktinfo(ErlNifEnv     *env,
@@ -10694,11 +10700,8 @@ BOOLEAN_T esock_cmsg_encode_in6_pktinfo(ErlNifEnv     *env,
     return TRUE;
 }
 #endif
-#endif
 
 
-
-#ifndef __WIN32__
 
 static int cmpESockCmsgSpec(const void *vpa, const void *vpb) {
     ESockCmsgSpec *a, *b;
@@ -10707,8 +10710,14 @@ static int cmpESockCmsgSpec(const void *vpa, const void *vpb) {
     return COMPARE(*(a->nameP), *(b->nameP));
 }
 
-static ESockCmsgSpec
-    cmsgLevelSocket[] =
+
+#if defined(SCM_CREDENTIALS) || defined(SCM_RIGHTS) || defined(SCM_TIMESTAMP)
+#define HAVE_ESOCK_CMSG_SOCKET
+#endif
+
+
+#if defined(HAVE_ESOCK_CMSG_SOCKET)
+static ESockCmsgSpec cmsgLevelSocket[] =
     {
 #if defined(SCM_CREDENTIALS)
         {SCM_CREDENTIALS, NULL, NULL,
@@ -10728,9 +10737,10 @@ static ESockCmsgSpec
          &esock_cmsg_encode_timeval, esock_cmsg_decode_timeval,
          &esock_atom_timestamp},
 #endif
-    },
+    };
+#endif
 
-    cmsgLevelIP[] =
+static ESockCmsgSpec cmsgLevelIP[] =
     {
 #if defined(IP_TOS)
         {IP_TOS, esock_cmsg_encode_ip_tos, esock_cmsg_decode_ip_tos,
@@ -10810,9 +10820,14 @@ static ESockCmsgSpec cmsgLevelIPv6[] =
     };
 #endif // #ifdef HAVE_IPV6
 
-static void initCmsgTables(void) {
+static void initCmsgTables(void)
+{
+#if defined(HAVE_ESOCK_CMSG_SOCKET)
     ESOCK_SORT_TABLE(cmsgLevelSocket, cmpESockCmsgSpec);
+#endif
+
     ESOCK_SORT_TABLE(cmsgLevelIP,     cmpESockCmsgSpec);
+
 #ifdef HAVE_IPV6
     ESOCK_SORT_TABLE(cmsgLevelIPv6,   cmpESockCmsgSpec);
 #endif
@@ -10823,9 +10838,11 @@ ESockCmsgSpec* esock_lookup_cmsg_table(int level, size_t *num)
 {
     switch (level) {
 
+#if defined(HAVE_ESOCK_CMSG_SOCKET)
     case SOL_SOCKET:
         *num = NUM(cmsgLevelSocket);
         return cmsgLevelSocket;
+#endif
 
 #ifdef SOL_IP
     case SOL_IP:
@@ -10862,32 +10879,32 @@ ESockCmsgSpec* esock_lookup_cmsg_spec(ESockCmsgSpec* table,
     return bsearch(&key, table, num, sizeof(*table), cmpESockCmsgSpec);
 }
 
-#endif // #ifdef __WIN32__
 
 
 
 /* Clear the CMSG space and init the ->cmsg_len member,
  * return the position for the data, and the total used space
  */
-#ifndef __WIN32__
 extern
 void* esock_init_cmsghdr(struct cmsghdr* cmsgP,
                          size_t          rem,  // Remaining space
                          size_t          size, // Size of data
                          size_t*         usedP)
 {
-    size_t space = CMSG_SPACE(size);
+    size_t space = ESOCK_CMSG_SPACE(size);
+    void*  dataP;
 
     if (rem < space)
         return NULL; // Not enough space
 
     sys_memzero(cmsgP, space);
-    cmsgP->cmsg_len = CMSG_LEN(size);
+    cmsgP->cmsg_len = ESOCK_CMSG_LEN(size);
 
     *usedP = space;
-    return CMSG_DATA(cmsgP);
+    dataP  = ESOCK_CMSG_DATA(cmsgP);
+
+    return dataP;
 }
-#endif
 
 
 /* +++ decode the ip socket option TOS +++
@@ -13185,7 +13202,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.accept         = esaio_accept;
     io_backend.send           = esaio_send;
     io_backend.sendto         = esaio_sendto;
-    io_backend.sendmsg        = NULL;
+    io_backend.sendmsg        = esaio_sendmsg;
     io_backend.sendfile_start = NULL;
     io_backend.sendfile_cont  = NULL;
     io_backend.sendfile_dc    = NULL;

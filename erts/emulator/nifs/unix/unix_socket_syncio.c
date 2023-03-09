@@ -2123,7 +2123,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
     }
     SSDBG( descP,
            ("UNIX-ESSIO",
-            "essio_sendmsg {%d} ->"
+            "essio_sendmsg {%d} -> iovec size verified"
             "\r\n   iov length: %lu"
             "\r\n   data size:  %u"
             "\r\n",
@@ -2179,13 +2179,14 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
                             sockRef, sendRef);
 
  done_free_iovec:
-    enif_free_iovec(iovec);
+    FREE_IOVEC( iovec );
     if (ctrlBuf != NULL) FREE(ctrlBuf);
 
     SSDBG( descP,
-           ("UNIX-ESSIO", "essio_sendmsg {%d} ->"
+           ("UNIX-ESSIO", "essio_sendmsg {%d} -> done"
             "\r\n   %T"
             "\r\n", descP->sock, res) );
+
     return res;
 
 }
@@ -5005,7 +5006,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 
             res = send_check_retry(env, descP, written, sockRef, sendRef);
         } else if (dataInTail) {
-            /* Not the entire package */
+            /* We sent all we could, but not everything (data in tail) */
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "send_check_result(%T) {%d} -> "
@@ -5293,7 +5294,7 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
  * or a (erlang) binary that just needs to be appended to the control
  * buffer.
  *
- * Our "problem" is that we have no idea much memory we actually need.
+ * Our "problem" is that we have no idea how much memory we actually need.
  *
  */
 

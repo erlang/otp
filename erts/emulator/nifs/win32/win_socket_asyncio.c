@@ -45,6 +45,7 @@
  *      SIO_GET_EXTENSION_FUNCTION_POINTER opcode specified.
  *      The input buffer passed to the WSAIoctl function must contain
  *      WSAID_CONNECTEX).
+ *   * WSASendMsg & WSARecvMsg are actually *also* function pointers!!
  *
  * But since we want them to "behave" the same way, we need to add 
  * some wrapper code to simulate the "completion behaviour".
@@ -110,8 +111,9 @@
 #define ESAIO_ERR_FSOCK_CREATE       0x0003
 #define ESAIO_ERR_IOCTL_ACCEPT_GET   0x0004
 #define ESAIO_ERR_IOCTL_CONNECT_GET  0x0005
-#define ESAIO_ERR_THREAD_OPTS_CREATE 0x0006
-#define ESAIO_ERR_THREAD_CREATE      0x0007
+#define ESAIO_ERR_IOCTL_SENDMSG_GET  0x0006
+#define ESAIO_ERR_THREAD_OPTS_CREATE 0x0011
+#define ESAIO_ERR_THREAD_CREATE      0x0012
 
 #define ERRNO_BLOCK                  WSAEWOULDBLOCK
 
@@ -136,11 +138,15 @@
     WSASocket((domain), (type), (proto), NULL, 0, WSA_FLAG_OVERLAPPED)
 #define sock_recv_O(s,buf,flag,ol)                      \
     WSARecv((s), (buf), 1, NULL, (flag), (ol), NULL)
-#define sock_recvfrom_O(s,buf,flag,fa,fal,ol)                   \
+#define sock_recvfrom_O(s,buf,flag,fa,fal,ol)                           \
     WSARecvFrom((s), (buf), 1, NULL, (flag), (fa), (fal), (ol), NULL)
 #define sock_send_O(s,buf,flag,o)                       \
     WSASend((s), (buf), 1, NULL, (flag), (o), NULL)
-#define sock_sendto_O(s,buf,flag,ta,tal,o)                      \
+/* #define sock_sendmsg_O(s,buf,flag,ol)                   \ */
+/*     WSASendMsg((s), (buf), (flag), NULL, (ol), NULL) */
+#define sock_sendmsg_O(s,buf,flag,ol)                   \
+    ctrl.sendmsg((s), (buf), (flag), NULL, (ol), NULL)
+#define sock_sendto_O(s,buf,flag,ta,tal,o)              \
     WSASendTo((s), (buf), 1, NULL, (flag), (ta), (tal), (o), NULL)
 #define sock_setopt(s,l,o,v,ln)        setsockopt((s),(l),(o),(v),(ln))
 
@@ -216,6 +222,7 @@ typedef struct {
     SOCKET         dummy; // Used for extracting AcceptEx and ConnectEx
     LPFN_ACCEPTEX  accept;
     LPFN_CONNECTEX connect;
+    LPFN_WSASENDMSG sendmsg;
 
     /* Thread pool stuff.
      * The size of the pool is configurable. */
@@ -256,6 +263,7 @@ typedef struct __ESAIOOperation {
     /* Commands for sending */
 #define ESAIO_OP_SEND         0x0021  // WSASend
 #define ESAIO_OP_SENDTO       0x0022  // WSASendTo
+#define ESAIO_OP_SENDMSG      0x0023  // WSASendMsg
     /* Commands for receiving */
 #define ESAIO_OP_RECV         0x0031  // WSARecv
 #define ESAIO_OP_RECVFROM     0x0032  // WSARecvFrom
@@ -334,6 +342,19 @@ typedef struct __ESAIOOperation {
             ERL_NIF_TERM sendRef; /* The (unique) reference (ID)
                                    * of the send req */
         } sendto;
+
+        /* +++ sendmsg +++ */
+        struct {
+            /* WSASendMsg */
+            ErlNifPid    pid;     /* Caller of 'sendto' */
+            WSAMSG       msg;
+            ErlNifIOVec* iovec;
+            char*        ctrlBuf;
+            ESockAddress addr;
+            ERL_NIF_TERM sockRef;
+            ERL_NIF_TERM sendRef; /* The (unique) reference (ID)
+                                   * of the send req */
+        } sendmsg;
 
         /* +++ recv +++ */
         struct {
@@ -419,6 +440,50 @@ static ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                                     ESAIOOperation*  opP,
                                     int              saveErrno,
                                     ERL_NIF_TERM     sockRef);
+
+static BOOLEAN_T init_sendmsg_sockaddr(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eMsg,
+                                       WSAMSG*          msgP,
+                                       ESockAddress*    addrP);
+static BOOLEAN_T verify_sendmsg_iovec_size(const ESockData* dataP,
+                                           ESockDescriptor* descP,
+                                           ErlNifIOVec*     iovec);
+static BOOLEAN_T verify_sendmsg_iovec_tail(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM*    tail);
+static BOOLEAN_T check_sendmsg_iovec_overflow(ESockDescriptor* descP,
+                                              ErlNifIOVec*     iovec,
+                                              ssize_t*         dataSize);
+static BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     eCMsg,
+                                 char*            cmsgHdrBufP,
+                                 size_t           cmsgHdrBufLen,
+                                 size_t*          cmsgHdrBufUsed);
+static BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     eCMsg,
+                                char*            bufP,
+                                size_t           rem,
+                                size_t*          used);
+static BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      int              level,
+                                      ERL_NIF_TERM     eType,
+                                      ERL_NIF_TERM     eValue,
+                                      char*            dataP,
+                                      size_t           dataLen,
+                                      size_t*          dataUsedP);
+static BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              level,
+                                     ERL_NIF_TERM     eType,
+                                     ERL_NIF_TERM     eData,
+                                     char*            dataP,
+                                     size_t           dataLen,
+                                     size_t*          dataUsedP);
+
 static ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
                                   ESAIOOperation*  opP,
@@ -498,13 +563,11 @@ static void esaio_completion_send_completed(ErlNifEnv*       env,
 static ERL_NIF_TERM esaio_completion_send_done(ErlNifEnv*       env,
                                                ESockDescriptor* descP,
                                                ERL_NIF_TERM     sockRef,
-                                               DWORD            written,
-                                               DWORD            flags);
+                                               DWORD            written);
 static ERL_NIF_TERM esaio_completion_send_partial(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
                                                   ERL_NIF_TERM     sockRef,
-                                                  DWORD            written,
-                                                  DWORD            flags);
+                                                  DWORD            written);
 static void esaio_completion_send_not_active(int error);
 static void esaio_completion_send_closed(ESockDescriptor* descP,
                                          int              error);
@@ -512,6 +575,10 @@ static BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
                                          ESockDescriptor* descP,
                                          ESAIOOperation*  opP,
                                          int              error);
+static BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
+                                          ESockDescriptor* descP,
+                                          ESAIOOperation*  opP,
+                                          int              error);
 static BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
                                        ESockDescriptor* descP,
                                        ESAIOOperation*  opP,
@@ -563,6 +630,22 @@ static ERL_NIF_TERM esaio_completion_recvfrom_partial(ErlNifEnv*       env,
 static ERL_NIF_TERM esaio_completion_get_ovl_result_fail(ErlNifEnv*       env,
                                                          ESockDescriptor* descP,
                                                          int              error);
+
+static BOOL get_send_ovl_result(SOCKET      sock,
+                                OVERLAPPED* ovl,
+                                DWORD*      written);
+static BOOL get_recv_ovl_result(SOCKET      sock,
+                                OVERLAPPED* ovl,
+                                DWORD*      read,
+                                DWORD*      flags);
+static BOOL get_recvmsg_ovl_result(SOCKET      sock,
+                                   OVERLAPPED* ovl,
+                                   DWORD*      read);
+static BOOL get_ovl_result(SOCKET      sock,
+                           OVERLAPPED* ovl,
+                           DWORD*      transfer,
+                           DWORD*      flags);
+
 static void esaio_completion_inc(ESAIOThreadData* dataP);
 
 static int esaio_add_socket(ESockDescriptor* descP);
@@ -652,6 +735,7 @@ int esaio_init(unsigned int     numThreads,
     DWORD        dummy;
     GUID         guidAcceptEx  = WSAID_ACCEPTEX;
     GUID         guidConnectEx = WSAID_CONNECTEX;
+    GUID         guidSendMsg   = WSAID_WSASENDMSG;
 
     /* Enabling this results in a core dump when calling socket:accept
      * multiple times (the second call fails in env alloc).!
@@ -749,7 +833,8 @@ int esaio_init(unsigned int     numThreads,
                         ires, erl_errno_id(save_errno), save_errno);
 
         (void) sock_close(ctrl.dummy);
-        ctrl.dummy = INVALID_SOCKET;
+        ctrl.dummy  = INVALID_SOCKET;
+        ctrl.accept = NULL;
 
         WSACleanup();
 
@@ -777,6 +862,30 @@ int esaio_init(unsigned int     numThreads,
 
         WSACleanup();
         return ESAIO_ERR_IOCTL_CONNECT_GET;
+    }
+    
+
+    /* Basically the same as for AcceptEx above */
+    SGDBG( ("WIN-ESAIO", "esaio_init -> try extract 'sendmsg' function\r\n") );
+    ires = WSAIoctl(ctrl.dummy, SIO_GET_EXTENSION_FUNCTION_POINTER,
+                    &guidSendMsg, sizeof (guidSendMsg), 
+                    &ctrl.sendmsg, sizeof (ctrl.sendmsg), 
+                    &dummy, NULL, NULL);
+    if (ires == SOCKET_ERROR) {
+        save_errno = sock_errno();
+
+        esock_error_msg("Failed extracting 'sendmsg' function: %d"
+                        "\r\n   %s (%d)"
+                        "\r\n",
+                        ires, erl_errno_id(save_errno), save_errno);
+
+        (void) sock_close(ctrl.dummy);
+        ctrl.dummy   = INVALID_SOCKET;
+        ctrl.accept  = NULL;
+        ctrl.connect = NULL;
+
+        WSACleanup();
+        return ESAIO_ERR_IOCTL_SENDMSG_GET;
     }
     
 
@@ -1985,7 +2094,7 @@ ERL_NIF_TERM esaio_sendto(ErlNifEnv*       env,
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_tries, &descP->writeTries, 1);
 
-    wres = sock_sendto_O(descP->sock, &opP->data.send.wbuf, f,
+    wres = sock_sendto_O(descP->sock, &opP->data.sendto.wbuf, f,
                          (struct sockaddr*) toAddrP, toAddrLen,
                          (OVERLAPPED*) opP);
 
@@ -1993,6 +2102,743 @@ ERL_NIF_TERM esaio_sendto(ErlNifEnv*       env,
                              wres, toWrite, FALSE,
                              sockRef, sendRef);
 }
+
+
+
+/* ========================================================================
+ * Do the actual sendmsg.
+ * Do some initial writer checks, do the actual send and then
+ * analyze the result.
+ *
+ * The following flöags are valid:
+ *
+ *        MSG_DONTROUTE, MSG_PARTIAL, and MSG_OOB
+ *
+ * "Explicit binding is discouraged for client applications."
+ *
+ * Also, according to Microsoft documentation:
+ *
+ *      "can only be used with datagrams and raw sockets."
+ *
+ * So, should we check, or let the user crash and burn?
+ */
+
+extern
+ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ERL_NIF_TERM     sockRef,
+                           ERL_NIF_TERM     sendRef,
+                           ERL_NIF_TERM     eMsg,
+                           int              flags,
+                           ERL_NIF_TERM     eIOV,
+                           const ESockData* dataP)
+{
+    ErlNifPid       caller;
+    ERL_NIF_TERM    eres;
+    int             wres;
+    ERL_NIF_TERM    tail;
+    ERL_NIF_TERM    res, eAddr, eCtrl;
+    ssize_t         dataSize;
+    size_t          ctrlBufLen,  ctrlBufUsed;
+    WSABUF*         wbufs = NULL;
+    ESAIOOperation* opP   = NULL;
+
+    ESOCK_ASSERT( enif_self(env, &caller) != NULL );
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write can not be simultaneous? */
+    if (descP->connectorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    /* Ensure that this caller does not *already* have a
+     * (send) request waiting */
+    if (esock_writer_search4pid(env, descP, &caller)) {
+        /* Sender already in queue */
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    opP = MALLOC( sizeof(ESAIOOperation) );
+    ESOCK_ASSERT( opP != NULL);
+    sys_memzero((char*) opP, sizeof(ESAIOOperation));
+
+    opP->tag = ESAIO_OP_SENDMSG;
+
+    if (! init_sendmsg_sockaddr(env, descP, eMsg,
+                                &opP->data.sendmsg.msg,
+                                &opP->data.sendmsg.addr)) {
+
+        FREE( opP );
+
+        return esock_make_invalid(env, esock_atom_addr);
+    }
+
+    /* Its a bit annoying that we have to alloc an env and then
+     * copy the ref *before* we know that we actually need it.
+     * How much does this cost?
+     */
+    opP->env = esock_alloc_env("esaio-sendmsg - operation");
+
+    /* Extract the *mandatory* 'iov', which must be an erlang:iovec(),
+     * from which we take at most IOV_MAX binaries.
+     * The env *cannot* be NULL because we don't actually know if 
+     * the send succeeds *now*. It could be sceduled!
+     */
+    if ((! enif_inspect_iovec(opP->env,
+                              dataP->iov_max, eIOV, &tail,
+                              &opP->data.sendmsg.iovec))) {
+
+        SSDBG( descP, ("WIN-ESAIO",
+                       "essaio_sendmsg {%d} -> not an iov\r\n",
+                       descP->sock) );
+
+        esock_free_env("esaio-sendmsg - iovec failure", opP->env);
+        FREE( opP );
+
+        return esock_make_error_invalid(env, esock_atom_iov);
+    }
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg {%d} ->"
+                   "\r\n   iovcnt: %lu"
+                   "\r\n   tail:   %s"
+                   "\r\n", descP->sock,
+                   (unsigned long) opP->data.sendmsg.iovec->iovcnt,
+                   B2S(! enif_is_empty_list(opP->env, tail))) );
+
+
+    /* We now have an allocated iovec - verify vector size */
+
+    if (! verify_sendmsg_iovec_size(dataP, descP, opP->data.sendmsg.iovec)) {
+
+        /* We can not send the whole packet in one sendmsg() call */
+        SSDBG( descP, ("WIN-ESAIO",
+                       "esaio_sendmsg {%d} -> iovcnt > iov_max\r\n",
+                       descP->sock) );
+
+        // No need - belongs to op env: FREE_IOVEC( opP->data.sendmsg.iovec );
+        esock_free_env("esaio-sendmsg - iovec failure", opP->env);
+        FREE( opP );
+
+        return esock_make_error_invalid(env, esock_atom_iov);
+    }
+
+
+    /* Verify that we can send the entire message.
+     * On DGRAM the tail must be "empty" (= everything must fit in one message).
+     */
+    if (! verify_sendmsg_iovec_tail(opP->env, descP, &tail)) {
+
+        // No need - belongs to op env: FREE_IOVEC( opP->data.sendmsg.iovec );
+        esock_free_env("esaio-sendmsg - iovec tail failure", opP->env);
+        FREE( opP );
+
+        return esock_make_error_invalid(env, esock_atom_iov);
+
+    }
+    
+    if (! check_sendmsg_iovec_overflow(descP,
+                                       opP->data.sendmsg.iovec, &dataSize)) {
+
+        // No need - belongs to op env: FREE_IOVEC( opP->data.sendmsg.iovec );
+        esock_free_env("esaio-sendmsg - iovec size failure", opP->env);
+        FREE( opP );
+
+        return esock_make_error_invalid(env, esock_atom_iov);
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_sendmsg {%d} -> iovec size verified"
+            "\r\n   iov length: %lu"
+            "\r\n   data size:  %u"
+            "\r\n",
+            descP->sock,
+            (unsigned long) opP->data.sendmsg.iovec->iovcnt,
+            (long) dataSize) );
+
+    wbufs = MALLOC(opP->data.sendmsg.iovec->iovcnt * sizeof(WSABUF));
+    ESOCK_ASSERT( wbufs != NULL );
+    for (int i = 0; i < opP->data.sendmsg.iovec->iovcnt; i++) {
+        wbufs[i].len = opP->data.sendmsg.iovec->iov[i].iov_len;
+        wbufs[i].buf = opP->data.sendmsg.iovec->iov[i].iov_base;
+    }
+    
+    opP->data.sendmsg.msg.lpBuffers     = wbufs;
+    opP->data.sendmsg.msg.dwBufferCount = opP->data.sendmsg.iovec->iovcnt;
+
+    /* And now for the control headers - some default first */
+    eCtrl                     = esock_atom_undefined;
+    ctrlBufLen                = 0;
+    opP->data.sendmsg.ctrlBuf = NULL;
+
+    /* Extract the *optional* 'ctrl' out of the eMsg map */
+    if (GET_MAP_VAL(env, eMsg, esock_atom_ctrl, &eCtrl)) {
+        ctrlBufLen                = descP->wCtrlSz;
+        opP->data.sendmsg.ctrlBuf = (char*) MALLOC(ctrlBufLen);
+        ESOCK_ASSERT( opP->data.sendmsg.ctrlBuf != NULL );
+    }
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg {%d} -> optional ctrl: "
+                   "\r\n   ctrlBuf:    %p"
+                   "\r\n   ctrlBufLen: %lu"
+                   "\r\n   eCtrl:      %T"
+                   "\r\n", descP->sock,
+                   opP->data.sendmsg.ctrlBuf,
+                   (unsigned long) ctrlBufLen, eCtrl) );
+
+    if (opP->data.sendmsg.ctrlBuf != NULL) {
+        if (! decode_cmsghdrs(env, descP,
+                              eCtrl,
+                              opP->data.sendmsg.ctrlBuf, ctrlBufLen,
+                              &ctrlBufUsed)) {
+
+            FREE( opP->data.sendmsg.ctrlBuf );
+            FREE( opP->data.sendmsg.msg.lpBuffers );
+            // No need - belongs to op env: FREE_IOVEC( opP->data.sendmsg.iovec );
+            esock_free_env("esaio-sendmsg - iovec size failure", opP->env);
+            FREE( opP );
+
+            return esock_make_invalid(env, esock_atom_ctrl);
+        }
+    } else {
+         ctrlBufUsed = 0;
+    }
+    opP->data.sendmsg.msg.Control.len = ctrlBufUsed;
+    opP->data.sendmsg.msg.Control.buf = opP->data.sendmsg.ctrlBuf;
+
+    /* We do not yet handle the flags (see function header above),
+     * so zero it just in case. */
+    opP->data.sendmsg.msg.dwFlags = 0;
+
+    opP->tag                  = ESAIO_OP_SENDMSG;
+    opP->data.sendmsg.pid     = caller;
+    opP->data.sendmsg.sockRef = CP_TERM(opP->env, sockRef);
+    opP->data.sendmsg.sendRef = CP_TERM(opP->env, sendRef);
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
+
+    wres = sock_sendmsg_O(descP->sock, &opP->data.sendmsg.msg, flags,
+                           (OVERLAPPED*) opP);
+
+    /* We do not need this anymore.
+     * If we succeeded "directly", the data is sent and we can free this now.
+     * If the op was scheduled, the "system" copied the info in these buffers
+     * before returning (from sendmsg), so we can free this now.
+     * => We can free this now!
+     */
+    FREE( opP->data.sendmsg.msg.lpBuffers );
+
+    res = send_check_result(env, descP, opP, caller,
+                            wres, dataSize,
+                            (! enif_is_empty_list(opP->env, tail)),
+                            sockRef, sendRef);
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendmsg {%d} -> done"
+            "\r\n   %T"
+            "\r\n", descP->sock, res) );
+
+    return res;
+}
+
+
+static
+BOOLEAN_T init_sendmsg_sockaddr(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     eMsg,
+                                WSAMSG*          msgP,
+                                ESockAddress*    addrP)
+{
+    ERL_NIF_TERM eAddr;
+
+    if (! GET_MAP_VAL(env, eMsg, esock_atom_addr, &eAddr)) {
+
+        SSDBG( descP, ("WIN-ESAIO",
+                       "init_sendmsg_sockaddr {%d} -> no address\r\n",
+                       descP->sock) );
+
+        msgP->name    = NULL;
+        msgP->namelen = 0;
+
+    } else {
+
+        SSDBG( descP, ("WIN-ESAIO", "init_sendmsg_sockaddr {%d} ->"
+                       "\r\n   address: %T"
+                       "\r\n", descP->sock, eAddr) );
+
+        msgP->name    = (void*) addrP;
+        msgP->namelen = sizeof(ESockAddress);
+        sys_memzero((char *) msgP->name, msgP->namelen);
+
+        if (! esock_decode_sockaddr(env, eAddr,
+                                    (ESockAddress*) msgP->name,
+                                    (SOCKLEN_T*) &msgP->namelen)) {
+
+            SSDBG( descP, ("WIN-ESAIO",
+                           "init_sendmsg_sockaddr {%d} -> invalid address\r\n",
+                           descP->sock) );
+
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+
+}
+                             
+
+
+static
+BOOLEAN_T verify_sendmsg_iovec_size(const ESockData* dataP,
+                                    ESockDescriptor* descP,
+                                    ErlNifIOVec*     iovec)
+{
+    if (iovec->iovcnt > dataP->iov_max) {
+        if (descP->type == SOCK_STREAM) {
+            iovec->iovcnt = dataP->iov_max;
+        } else {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+
+
+static
+BOOLEAN_T verify_sendmsg_iovec_tail(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM*    tail)
+{
+    ERL_NIF_TERM h, t, tmp = *tail;
+    ErlNifBinary bin;
+
+    /* Find out if there is remaining data in the tail.
+     * Skip empty binaries otherwise break.
+     * If 'tail' after loop exit is the empty list
+     * there was no more data.  Otherwise there is more
+     * data or the 'iov' is invalid.
+     */
+
+    for (;;) {
+        if (enif_get_list_cell(env, tmp, &h, &t) &&
+            enif_inspect_binary(env, h, &bin) &&
+            (bin.size == 0)) {
+            tmp = t;
+            continue;
+        } else
+            break;
+    }
+
+    *tail = tmp;
+
+    if ((! enif_is_empty_list(env, tmp)) &&
+        (descP->type != SOCK_STREAM)) {
+
+        /* We can not send the whole packet in one sendmsg() call */
+        SSDBG( descP, ("WIN-ESAIO",
+                       "essio_sendmsg {%d} -> invalid tail\r\n",
+                       descP->sock) );
+
+        return FALSE;
+    }
+
+    return TRUE;
+    
+}
+
+
+
+static
+BOOLEAN_T check_sendmsg_iovec_overflow(ESockDescriptor* descP,
+                                       ErlNifIOVec*     iovec,
+                                       ssize_t*         dataSize)
+{
+    ssize_t dsz = 0;
+    size_t  i;
+
+    for (i = 0;  i < iovec->iovcnt;  i++) {
+        size_t len = iovec->iov[i].iov_len;
+        dsz += len;
+        if (dsz < len) {
+
+            /* Overflow */
+
+            SSDBG( descP, ("WIN-ESAIO",
+                           "verify_sendmsg_iovec_size {%d} -> Overflow"
+                           "\r\n   i:         %lu"
+                           "\r\n   len:       %lu"
+                           "\r\n   dataSize:  %ld"
+                           "\r\n", descP->sock, (unsigned long) i,
+                           (unsigned long) len, (long) dsz) );
+
+            *dataSize = dsz;
+
+            return FALSE;
+
+        }
+    }
+
+    *dataSize = dsz;
+
+    return TRUE;
+    
+}
+
+
+
+/* *** Control message utility functions *** */
+
+/* +++ decode_cmsghdrs +++
+ *
+ * Decode a list of cmsg(). There can be 0 or more "blocks".
+ *
+ * Each element can either be a (erlang) map that needs to be decoded,
+ * or a (erlang) binary that just needs to be appended to the control
+ * buffer.
+ *
+ * Our "problem" is that we have no idea how much memory we actually need.
+ *
+ */
+
+static
+BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     eCMsg,
+                          char*            cmsgHdrBufP,
+                          size_t           cmsgHdrBufLen,
+                          size_t*          cmsgHdrBufUsed)
+{
+    ERL_NIF_TERM elem, tail, list;
+    char*        bufP;
+    size_t       rem, used, totUsed = 0;
+    unsigned int len;
+    int          i;
+
+    SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdrs {%d} -> entry with"
+                   "\r\n   eCMsg:      %T"
+                   "\r\n   cmsgHdrBufP:   0x%lX"
+                   "\r\n   cmsgHdrBufLen: %d"
+                   "\r\n", descP->sock,
+                   eCMsg, cmsgHdrBufP, cmsgHdrBufLen) );
+
+    if (! GET_LIST_LEN(env, eCMsg, &len))
+        return FALSE;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "decode_cmsghdrs {%d} -> list length: %d\r\n",
+            descP->sock, len) );
+
+    for (i = 0, list = eCMsg, rem  = cmsgHdrBufLen, bufP = cmsgHdrBufP;
+         i < len; i++) {
+            
+        SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdrs {%d} -> process elem %d:"
+                       "\r\n   (buffer) rem:     %u"
+                       "\r\n   (buffer) totUsed: %u"
+                       "\r\n", descP->sock, i, rem, totUsed) );
+
+        /* Extract the (current) head of the (cmsg hdr) list */
+        if (! GET_LIST_ELEM(env, list, &elem, &tail))
+            return FALSE;
+            
+        used = 0; // Just in case...
+        if (! decode_cmsghdr(env, descP, elem, bufP, rem, &used))
+            return FALSE;
+
+#ifdef __WIN32__
+        bufP     = CHARP( bufP + used );
+#else
+        bufP     = CHARP( ULONG(bufP) + used );
+#endif
+        rem      = SZT( rem - used );
+        list     = tail;
+        totUsed += used;
+
+    }
+
+    *cmsgHdrBufUsed = totUsed;
+
+    SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdrs {%d} -> done"
+                   "\r\n   all %u ctrl headers processed"
+                   "\r\n   totUsed = %lu\r\n",
+                   descP->sock, len, (unsigned long) totUsed) );
+
+    return TRUE;
+}
+
+
+
+/* +++ decode_cmsghdr +++
+ *
+ * Decode one cmsg(). Put the "result" into the buffer and advance the
+ * pointer (of the buffer) afterwards. Also update 'rem' accordingly.
+ * But before the actual decode, make sure that there is enough room in 
+ * the buffer for the cmsg header (sizeof(*hdr) < rem).
+ *
+ * The eCMsg should be a map with three fields:
+ *
+ *     level :: socket | protocol() | integer()
+ *     type  :: atom() | integer()
+ *                                What values are valid depend on the level
+ *     data  :: binary() | integer() | boolean()
+ *                                The type of the data depends on
+ *     or                         level and type, but can be a binary,
+ *                                which means that the data is already coded.
+ *     value :: term()            Which is a term matching the decode function
+ */
+
+static
+BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         ERL_NIF_TERM     eCMsg,
+                         char*            bufP,
+                         size_t           rem,
+                         size_t*          used)
+{
+    ERL_NIF_TERM eLevel, eType, eData, eValue;
+    int          level;
+
+    SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdr {%d} -> entry with"
+                   "\r\n   eCMsg: %T"
+                   "\r\n", descP->sock, eCMsg) );
+
+    // Get 'level' field
+    if (! GET_MAP_VAL(env, eCMsg, esock_atom_level, &eLevel))
+        return FALSE;
+    SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdr {%d} -> eLevel: %T"
+                   "\r\n", descP->sock, eLevel) );
+
+    // Get 'type' field
+    if (! GET_MAP_VAL(env, eCMsg, esock_atom_type, &eType))
+        return FALSE;
+    SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdr {%d} -> eType:  %T"
+                   "\r\n", descP->sock, eType) );
+
+    // Decode Level
+    if (! esock_decode_level(env, eLevel, &level))
+        return FALSE;
+    SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdr {%d}-> level:  %d\r\n",
+                   descP->sock, level) );
+
+    // Get 'data' field
+    if (! GET_MAP_VAL(env, eCMsg, esock_atom_data, &eData)) {
+
+        // Get 'value' field
+        if (! GET_MAP_VAL(env, eCMsg, esock_atom_value, &eValue))
+            return FALSE;
+        SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdr {%d} -> eValue:  %T"
+                   "\r\n", descP->sock, eValue) );
+
+        // Decode Value
+        if (! decode_cmsghdr_value(env, descP, level, eType, eValue,
+                                   bufP, rem, used))
+            return FALSE;
+
+    } else {
+
+        // Verify no 'value' field
+        if (GET_MAP_VAL(env, eCMsg, esock_atom_value, &eValue))
+            return FALSE;
+
+        SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdr {%d} -> eData:  %T"
+                   "\r\n", descP->sock, eData) );
+
+        // Decode Data
+        if (! decode_cmsghdr_data(env, descP, level, eType, eData,
+                                  bufP, rem, used))
+            return FALSE;
+    }
+
+    SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdr {%d}-> used:  %lu\r\n",
+                   descP->sock, (unsigned long) *used) );
+
+    return TRUE;
+}
+
+
+static
+BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*   env,
+                               ESockDescriptor* descP,
+                               int          level,
+                               ERL_NIF_TERM eType,
+                               ERL_NIF_TERM eValue,
+                               char*        bufP,
+                               size_t       rem,
+                               size_t*      usedP)
+{
+    int type;
+    struct cmsghdr* cmsgP     = (struct cmsghdr *) bufP;
+    ESockCmsgSpec*  cmsgTable;
+    ESockCmsgSpec*  cmsgSpecP = NULL;
+    size_t          num       = 0;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "decode_cmsghdr_value {%d} -> entry  \r\n"
+            "   eType:  %T\r\n"
+            "   eValue: %T\r\n",
+            descP->sock, eType, eValue) );
+
+    // We have decode functions only for symbolic (atom) types
+    if (! IS_ATOM(env, eType)) {
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "decode_cmsghdr_value {%d} -> FALSE:\r\n"
+                "   eType not an atom\r\n",
+                descP->sock) );
+        return FALSE;
+    }
+
+    /* Try to look up the symbolic type
+     */
+    if (((cmsgTable = esock_lookup_cmsg_table(level, &num)) == NULL) ||
+        ((cmsgSpecP = esock_lookup_cmsg_spec(cmsgTable, num, eType)) == NULL) ||
+        (cmsgSpecP->decode == NULL)) {
+
+        /* We found no table for this level,
+         * we found no symbolic type in the level table,
+         * or no decode function for this type
+         */
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "decode_cmsghdr_value {%d} -> FALSE:\r\n"
+                "   cmsgTable:  %p\r\n"
+                "   cmsgSpecP:  %p\r\n",
+                descP->sock, cmsgTable, cmsgSpecP) );
+
+        return FALSE;
+    }
+
+    if (! cmsgSpecP->decode(env, eValue, cmsgP, rem, usedP)) {
+        // Decode function failed
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "decode_cmsghdr_value {%d} -> FALSE:\r\n"
+                "   decode function failed\r\n",
+                descP->sock) );
+        return FALSE;
+    }
+
+    // Successful decode
+
+    type = cmsgSpecP->type;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "decode_cmsghdr_value {%d} -> TRUE:\r\n"
+            "   level:   %d\r\n"
+            "   type:    %d\r\n",
+            "   *usedP:  %lu\r\n",
+            descP->sock, level, type, (unsigned long) *usedP) );
+
+    cmsgP->cmsg_level = level;
+    cmsgP->cmsg_type = type;
+    return TRUE;
+}
+
+
+static
+BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              int              level,
+                              ERL_NIF_TERM     eType,
+                              ERL_NIF_TERM     eData,
+                              char*            bufP,
+                              size_t           rem,
+                              size_t*          usedP)
+{
+    int             type;
+    ErlNifBinary    bin;
+    struct cmsghdr* cmsgP     = (struct cmsghdr *) bufP;
+    ESockCmsgSpec*  cmsgSpecP = NULL;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "decode_cmsghdr_data {%d} -> entry  \r\n"
+            "   eType: %T\r\n"
+            "   eData: %T\r\n",
+            descP->sock, eType, eData) );
+
+    // Decode Type
+    if (! GET_INT(env, eType, &type)) {
+        ESockCmsgSpec* cmsgTable = NULL;
+        size_t         num       = 0;
+
+        /* Try to look up the symbolic (atom) type
+         */
+        if ((! IS_ATOM(env, eType)) ||
+            ((cmsgTable = esock_lookup_cmsg_table(level, &num)) == NULL) ||
+            ((cmsgSpecP = esock_lookup_cmsg_spec(cmsgTable, num, eType)) == NULL)) {
+            /* Type was not an atom,
+             * we found no table for this level,
+             * or we found no symbolic type in the level table
+             */
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "decode_cmsghdr_data {%d} -> FALSE:\r\n"
+                    "   cmsgTable:  %p\r\n"
+                    "   cmsgSpecP:  %p\r\n",
+                    descP->sock, cmsgTable, cmsgSpecP) );
+            return FALSE;
+        }
+
+        type = cmsgSpecP->type;
+    }
+
+    // Decode Data
+    if (GET_BIN(env, eData, &bin)) {
+        void *p;
+
+        p = esock_init_cmsghdr(cmsgP, rem, bin.size, usedP);
+        if (p == NULL) {
+            /* No room for the data
+             */
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "decode_cmsghdr_data {%d} -> FALSE:\r\n"
+                    "   rem:      %lu\r\n"
+                    "   bin.size: %lu\r\n",
+                    descP->sock,
+                    (unsigned long) rem,
+                    (unsigned long) bin.size) );
+            return FALSE;
+        }
+
+        // Copy the binary data
+        sys_memcpy(p, bin.data, bin.size);
+
+    } else if ((! esock_cmsg_decode_int(env, eData, cmsgP, rem, usedP)) &&
+               (! esock_cmsg_decode_bool(env, eData, cmsgP, rem, usedP))) {
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "decode_cmsghdr_data {%d} -> FALSE\r\n",
+                descP->sock) );
+        return FALSE;
+    }
+
+    // Successful decode
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "decode_cmsghdr_data {%d} -> TRUE:\r\n"
+            "   level:   %d\r\n"
+            "   type:    %d\r\n"
+            "   *usedP:  %lu\r\n",
+            descP->sock, level, type, (unsigned long) *usedP) );
+
+    cmsgP->cmsg_level = level;
+    cmsgP->cmsg_type = type;
+    return TRUE;
+}
+
 
 
 
@@ -2165,8 +3011,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
            ("WIN-ESAIO",
             "recv_check_ok -> try get overlapped result\r\n") );
 
-    if (WSAGetOverlappedResult(descP->sock, (OVERLAPPED*) opP,
-                               &read, FALSE, &flags)) {
+    if (get_recv_ovl_result(descP->sock, (OVERLAPPED*) opP, &read, &flags)) {
 
         SSDBG( descP,
                ("WIN-ESAIO",
@@ -2451,8 +3296,7 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
            ("WIN-ESAIO",
             "recvfrom_check_ok -> try get overlapped result\r\n") );
 
-    if (WSAGetOverlappedResult(descP->sock, (OVERLAPPED*) opP,
-                               &read, FALSE, &flags)) {
+    if (get_recv_ovl_result(descP->sock, (OVERLAPPED*) opP, &read, &flags)) {
 
         ERL_NIF_TERM eSockAddr;
 
@@ -3297,6 +4141,12 @@ void* esaio_completion_main(void* threadDataP)
             done = esaio_completion_sendto(dataP, descP, opP, save_errno);
             break;
 
+        case ESAIO_OP_SENDMSG:
+            SGDBG( ("WIN-ESAIO",
+                    "esaio_completion_main -> received sendmsg cmd\r\n") );
+            done = esaio_completion_sendmsg(dataP, descP, opP, save_errno);
+            break;
+
         case ESAIO_OP_RECV:
             SGDBG( ("WIN-ESAIO",
                     "esaio_completion_main -> received recv cmd\r\n") );
@@ -4063,6 +4913,95 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
 
 
 
+/* *** esaio_completion_sendmsg ***
+ *
+ * Handle a completed 'sendmsg' (completion) request.
+ * Send a 'completion' message (to requestor) with the request status.
+ *
+ * Completion message: 
+ *     {'socket tag', socket(), completion, CompletionInfo}
+ *
+ *     CompletionInfo:   {CompletionHandle, CompletionStatus}
+ *     CompletionHandle: reference()
+ *     Result:           ok | {error, Reason}
+ *
+ *
+ * There is a possibillity of a race here. That is, if the user
+ * calls socket:sendto(Socket, ..., nowait), the send is scheduled,
+ * and then just as it has completed, but before this
+ * thread has been activated to handle the 'send completed'
+ * the user calls socket:close(Socket) (or exits).
+ * Then when this function is called, the socket is closed.
+ * What to do?
+ *
+ * We need to use 'WSAGetOverlappedResult' to actually figure out the
+ * "transfer result" (how much was sent).
+ */
+static
+BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
+                                   ESockDescriptor* descP,
+                                   ESAIOOperation*  opP,
+                                   int              error)
+{
+    ErlNifEnv* env = dataP->env;
+
+    MLOCK(descP->writeMtx);
+
+    SGDBG( ("WIN-ESAIO", "esaio_completion_sendmsg -> verify open\r\n") );
+
+    if (IS_OPEN(descP->writeState)) {
+
+        ESockRequestor req;
+
+        /* Is "this" send still valid? */
+        if (esock_writer_get(env, descP,
+                             &opP->data.sendto.sendRef, &opP->data.sendto.pid,
+                             &req)) {
+
+            DWORD toWrite = 0;
+
+            /* Calculate how much data *in total* we was supposed to write */
+            for (int i = 0; i < opP->data.sendmsg.iovec->iovcnt; i++) {
+                toWrite += opP->data.sendmsg.iovec->iov[i].iov_len;
+            }
+
+            esaio_completion_send_completed(env, descP,
+                                            (OVERLAPPED*) opP,
+                                            opP->env,
+                                            &opP->data.sendto.pid,
+                                            opP->data.sendto.sockRef,
+                                            opP->data.sendto.sendRef,
+                                            toWrite,
+                                            &req, error);
+
+        } else {
+
+            esaio_completion_send_not_active(error);
+
+        }
+    } else {
+
+        esaio_completion_send_closed(descP, error);
+
+    }
+
+    MUNLOCK(descP->writeMtx);
+
+    SGDBG( ("WIN-ESAIO",
+            "esaio_completion_sendmsg -> clear and delete op env\r\n") );
+
+    /* No need for this "stuff" anymore */
+    esock_clear_env("esaio_completion_sendmsg - op cleanup", opP->env);
+    esock_free_env("esaio_completion_sendmsg - op cleanup", opP->env);
+    FREE( opP );    
+    
+    SGDBG( ("WIN-ESAIO", "esaio_completion_sendmsg -> done\r\n") );
+
+    return FALSE;
+}
+
+
+
 /* *** esaio_completion_send_completed ***
  * The send request has completed.
  */
@@ -4084,7 +5023,7 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
                          env, descP, &reqP->mon) == 0);
 
     if (error == NO_ERROR) {
-        DWORD written, flags;
+        DWORD written = 0;
 
         /* Success, but we need to check how much we actually got.
          * Also the 'flags' (which we currentöy ignore)
@@ -4100,15 +5039,14 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
                 "esaio_completion_send_completed ->"
                 "success - try get overlapped result\r\n") );
 
-        if (WSAGetOverlappedResult(descP->sock, ovl, &written, FALSE, &flags)) {
+        if (get_send_ovl_result(descP->sock, ovl, &written)) {
 
             SSDBG( descP,
                    ("WIN-ESAIO",
                     "esaio_completion_send_completed -> overlapped result: "
                     "\r\n   written:     %d"
                     "\r\n   buffer size: %d"
-                    "\r\n   flags:       %d"
-                    "\r\n", written, toWrite, flags) );
+                    "\r\n", written, toWrite) );
 
             if (written == toWrite) {
 
@@ -4116,7 +5054,7 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
 
                 completionStatus = esaio_completion_send_done(env,
                                                               descP, sockRef,
-                                                              written, flags);
+                                                              written);
 
             } else {
 
@@ -4127,8 +5065,7 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
                 completionStatus = esaio_completion_send_partial(env,
                                                                  descP,
                                                                  sockRef,
-                                                                 written,
-                                                                 flags);
+                                                                 written);
             }
 
         } else {
@@ -4220,11 +5157,8 @@ static
 ERL_NIF_TERM esaio_completion_send_done(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
                                         ERL_NIF_TERM     sockRef,
-                                        DWORD            written,
-                                        DWORD            flags)
+                                        DWORD            written)
 {
-    (void) flags;
-
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_pkg, &descP->writePkgCnt, 1);
     ESOCK_CNT_INC(env, descP, sockRef,
@@ -4232,18 +5166,6 @@ ERL_NIF_TERM esaio_completion_send_done(ErlNifEnv*       env,
 
     if (written > descP->writePkgMax)
         descP->writePkgMax = written;
-
-    /* We ignore the flags *for now*.
-     * Needs to be passed up eventually!
-     *
-     * This should eventually be something like:
-     *
-     *                {ok, Flags}
-     *
-     * But for now we skip the 'flags' part:
-     *
-     *                ok
-     */
 
     return esock_atom_ok;
 }
@@ -4259,11 +5181,8 @@ static
 ERL_NIF_TERM esaio_completion_send_partial(ErlNifEnv*       env,
                                            ESockDescriptor* descP,
                                            ERL_NIF_TERM     sockRef,
-                                           DWORD            written,
-                                           DWORD            flags)
+                                           DWORD            written)
 {
-    (void) flags;
-
     if (written > 0) {
 
         ESOCK_CNT_INC(env, descP, sockRef,
@@ -4275,18 +5194,6 @@ ERL_NIF_TERM esaio_completion_send_partial(ErlNifEnv*       env,
             descP->writePkgMax = written;
 
     }
-
-    /* We ignore the flags *for now*.
-     * Needs to be passed up eventually!
-     *
-     * This should eventually be something like:
-     *
-     *                {ok, {Flags, Written}}
-     *
-     * But for now we skip the 'flags' part:
-     *
-     *                {ok, Written}
-     */
 
     return esock_make_ok2(env, MKI64(env, written));
 
@@ -4462,8 +5369,8 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                 "esaio_completion_recv_completed ->"
                 "success - try get overlapped result\r\n") );
 
-        if (WSAGetOverlappedResult(descP->sock, (OVERLAPPED*) opP,
-                                   &read, FALSE, &flags)) {
+        if (get_recv_ovl_result(descP->sock, (OVERLAPPED*) opP,
+                                &read, &flags)) {
 
             SSDBG( descP,
                    ("WIN-ESAIO",
@@ -4952,8 +5859,8 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*       env,
                 "esaio_completion_recvfrom_completed ->"
                 "success - try get overlapped result\r\n") );
 
-        if (WSAGetOverlappedResult(descP->sock, (OVERLAPPED*) opP,
-                                   &read, FALSE, &flags)) {
+        if (get_recv_ovl_result(descP->sock, (OVERLAPPED*) opP,
+                                &read, &flags)) {
 
             SSDBG( descP,
                    ("WIN-ESAIO",
@@ -5884,6 +6791,75 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
  * ==================================================================== *
  */
 
+/* *** get_send_ovl_result ***
+ *
+ * Used for all send 'overlapped' operations; send, sendto and sendmsg.
+ */
+static
+BOOL get_send_ovl_result(SOCKET      sock,
+                         OVERLAPPED* ovl,
+                         DWORD*      written)
+{
+    DWORD flags  = 0;
+    BOOL  result = get_ovl_result(sock, ovl, written, &flags);
+
+    (void) flags;
+
+    return result;
+}
+
+
+/* *** get_recv_ovl_result ***
+ *
+ * Used for recv *and* recvfrom 'overlapped' operations.
+ */
+static
+BOOL get_recv_ovl_result(SOCKET      sock,
+                         OVERLAPPED* ovl,
+                         DWORD*      read,
+                         DWORD*      flags)
+{
+    return get_ovl_result(sock, ovl, read, flags);
+}
+
+
+/* *** get_send_ovl_result ***
+ *
+ * Used for all recvmsg 'overlapped' operations.
+ */
+static
+BOOL get_recvmsg_ovl_result(SOCKET      sock,
+                            OVERLAPPED* ovl,
+                            DWORD*      read)
+{
+    DWORD flags  = 0;
+    BOOL  result = get_ovl_result(sock, ovl, read, &flags);
+
+    (void) flags;
+
+    return result;
+}
+
+
+/* *** get_ovl_result ***
+ *
+ * Simple wrapper function for WSAGetOverlappedResult.
+ */
+static
+BOOL get_ovl_result(SOCKET      sock,
+                    OVERLAPPED* ovl,
+                    DWORD*      transfer,
+                    DWORD*      flags)
+{
+    return WSAGetOverlappedResult(sock, ovl, transfer, FALSE, flags);
+}
+
+
+
+/* *** esaio_add_socket ***
+ *
+ * Add socket to I/O completion port.
+ */
 static
 int esaio_add_socket(ESockDescriptor* descP)
 {
