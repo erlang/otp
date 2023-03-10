@@ -218,15 +218,15 @@ expr(#c_tuple{anno=Anno,es=Es0}=Tuple, Ctxt, Sub) ->
 	    ann_c_tuple(Anno, Es)
     end;
 expr(#c_map{anno=Anno,arg=V0,es=Es0}=Map, Ctxt, Sub) ->
-    Es = pair_list(Es0, Ctxt, descend(Map, Sub)),
+    %% Warn for useless building, but always build the map
+    %% anyway to preserve a possible exception.
     case Ctxt of
-	effect ->
-            warn_useless_building(Map, Sub),
-	    make_effect_seq(Es, Sub);
-	value ->
-	    V = expr(V0, Ctxt, Sub),
-	    ann_c_map(Anno,V,Es)
-    end;
+        effect -> warn_useless_building(Map, Sub);
+        value -> ok
+    end,
+    Es = pair_list(Es0, descend(Map, Sub)),
+    V = expr(V0, value, Sub),
+    ann_c_map(Anno, V, Es);
 expr(#c_binary{segments=Ss}=Bin0, Ctxt, Sub) ->
     %% Warn for useless building, but always build the binary
     %% anyway to preserve a possible exception.
@@ -486,14 +486,12 @@ ifes_list(_FVar, [], _Safe) ->
 expr_list(Es, Ctxt, Sub) ->
     [expr(E, Ctxt, Sub) || E <- Es].
 
-pair_list(Es, Ctxt, Sub) ->
-    [pair(E, Ctxt, Sub) || E <- Es].
+pair_list(Es, Sub) ->
+    [pair(E, Sub) || E <- Es].
 
-pair(#c_map_pair{key=K,val=V}, effect, Sub) ->
-    make_effect_seq([K,V], Sub);
-pair(#c_map_pair{key=K0,val=V0}=Pair, value=Ctxt, Sub) ->
-    K = expr(K0, Ctxt, Sub),
-    V = expr(V0, Ctxt, Sub),
+pair(#c_map_pair{key=K0,val=V0}=Pair, Sub) ->
+    K = expr(K0, value, Sub),
+    V = expr(V0, value, Sub),
     Pair#c_map_pair{key=K,val=V}.
 
 bitstr_list(Es, Sub) ->

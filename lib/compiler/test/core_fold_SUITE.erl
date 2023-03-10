@@ -30,7 +30,8 @@
 	 no_no_file/1,configuration/1,supplies/1,
          redundant_stack_frame/1,export_from_case/1,
          empty_values/1,cover_letrec_effect/1,
-         receive_effect/1,nested_lets/1]).
+         receive_effect/1,nested_lets/1,
+         map_effect/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -51,8 +52,8 @@ groups() ->
        no_no_file,configuration,supplies,
        redundant_stack_frame,export_from_case,
        empty_values,cover_letrec_effect,
-       receive_effect,nested_lets]}].
-
+       receive_effect,nested_lets,
+       map_effect]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -856,5 +857,22 @@ nested_lets_6() ->
         ok
     end.
 
+map_effect(_Config) ->
+    {'EXIT',{{badkey,key},_}} = catch map_effect_1(),
+
+    {'EXIT',{{badkey,key},_}} = catch map_effect_2(#{}),
+    {'EXIT',{{badmap,no_map},_}} = catch map_effect_2(no_map),
+
+    ok.
+
+map_effect_1() ->
+    #{}#{key := value},
+    ok.
+
+map_effect_2(Map) ->
+    Map#{key := value},
+    ok.
+
 %%% Common utility functions.
+
 id(I) -> I.
