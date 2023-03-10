@@ -1119,9 +1119,8 @@ typedef union {
 #endif
 
 typedef struct {
-    ErlDrvTermData  caller;
-    char           *tag_buf;
-    ErlDrvSizeT     tag_len;
+    ErlDrvSizeT  tag_len;
+    char        *tag_buf;
 } CallerRef;
 
 typedef int (MultiTimerFunction)(ErlDrvData drv_data, ErlDrvTermData caller);
@@ -1199,9 +1198,8 @@ typedef struct {
     int bsd_compat;             /* State for Windows compatibility with BSD */
 #endif
 
-    CallerRef caller_ref;       /* recipient of sync reply */
-    CallerRef busy_caller_ref;  /* recipient of sync reply when caller busy.
-				 * Only valid while INET_F_BUSY. */
+    ErlDrvTermData  caller;     /* recipient of sync reply */
+    CallerRef       caller_ref;
 
     inet_async_op* oph;          /* queue head or NULL */
     inet_async_op* opt;          /* queue tail or NULL */
@@ -1746,32 +1744,33 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
   ((i)+LOAD_EXT_CNT))
 
 
-static void iov_memmove(char *buf, SysIOVec **iov, ErlDrvSizeT size) {
+static void iov_memmove(char *buf, SysIOVec **iov_pp, ErlDrvSizeT size) {
     int i;
     for (i = 0;  size != 0;  i++) {
-        if ((*iov)[i].iov_len < size) {
-            if ((*iov)[i].iov_len == 0) continue;
-            sys_memcpy(buf, (*iov)[i].iov_base, (*iov)[i].iov_len);
-            buf += (*iov)[i].iov_len;
-            size -= (*iov)[i].iov_len;
-            (*iov)[i].iov_base =
-                (char*)((*iov)[i].iov_base) + (*iov)[i].iov_len;
-            (*iov)[i].iov_len = 0;
+        if ((*iov_pp)[i].iov_len < size) {
+            if ((*iov_pp)[i].iov_len == 0) continue;
+            sys_memcpy(buf, (*iov_pp)[i].iov_base, (*iov_pp)[i].iov_len);
+            buf += (*iov_pp)[i].iov_len;
+            size -= (*iov_pp)[i].iov_len;
+            (*iov_pp)[i].iov_base =
+                (char*)((*iov_pp)[i].iov_base) + (*iov_pp)[i].iov_len;
+            (*iov_pp)[i].iov_len = 0;
         }
         else {
-            sys_memcpy(buf, (*iov)[i].iov_base, size);
-            (*iov)[i].iov_base = (char*)((*iov)[i].iov_base) + size;
-            (*iov)[i].iov_len -= size;
+            sys_memcpy(buf, (*iov_pp)[i].iov_base, size);
+            (*iov_pp)[i].iov_base = (char*)((*iov_pp)[i].iov_base) + size;
+            (*iov_pp)[i].iov_len -= size;
             break;
         }
     }
 }
 
 /* Returns TRUE on success, FALSE on failure */
-static int init_caller_iov(CallerRef    *cref,
-                           ErlDrvPort    port,
-                           SysIOVec    **iov,
-                           ErlDrvSizeT  *size) {
+static int init_caller_iov(ErlDrvTermData *caller_p,
+                           CallerRef      *cref_p,
+                           ErlDrvPort      port,
+                           SysIOVec      **iov_pp,
+                           ErlDrvSizeT    *size_p) {
     ErlDrvTermData  caller;
     char            buf[2];
     ErlDrvUInt      n;
@@ -1780,24 +1779,25 @@ static int init_caller_iov(CallerRef    *cref,
     if (is_not_internal_pid(caller)) {
         return TRUE;
     }
-    if (*size < 2) return FALSE;
-    iov_memmove(buf, iov, 2);
-    *size -= 2;
+    *caller_p = caller;
+    if (*size_p < 2) return FALSE;
+    iov_memmove(buf, iov_pp, 2);
+    *size_p -= 2;
     n = get_int16(buf);
-    if (*size < n) return FALSE;
-    cref->tag_buf = ALLOC(n);
-    iov_memmove(cref->tag_buf, iov, n);
-    *size -= n;
-    cref->tag_len = n;
-    cref->caller = caller;
+    if (*size_p < n) return FALSE;
+    cref_p->tag_buf = ALLOC(n);
+    iov_memmove(cref_p->tag_buf, iov_pp, n);
+    *size_p -= n;
+    cref_p->tag_len = n;
     return TRUE;
 }
 
 /* Returns TRUE on success, FALSE on failure */
-static int init_caller(CallerRef    *cref,
-                       ErlDrvPort    port,
-                       char        **buf,
-                       ErlDrvSizeT  *size) {
+static int init_caller(ErlDrvTermData *caller_p,
+                       CallerRef      *cref_p,
+                       ErlDrvPort      port,
+                       char          **buf_p,
+                       ErlDrvSizeT    *size_p) {
     ErlDrvTermData  caller;
     ErlDrvUInt      n;
     /**/
@@ -1805,28 +1805,28 @@ static int init_caller(CallerRef    *cref,
     if (is_not_internal_pid(caller)) {
         return TRUE;
     }
-    if (*size < 2) return FALSE;
-    n = get_int16(*buf);
-    *buf += 2;
-    *size -= 2;
-    if (*size < n) return FALSE;
-    cref->tag_buf = ALLOC(n);
-    sys_memcpy(cref->tag_buf, *buf, n);
-    *buf += n;
-    *size -= n;
-    cref->tag_len = n;
-    cref->caller = caller;
-    return n;
+    *caller_p = caller;
+    if (*size_p < 2) return FALSE;
+    n = get_int16(*buf_p);
+    *buf_p += 2;
+    *size_p -= 2;
+    if (*size_p < n) return FALSE;
+    cref_p->tag_buf = ALLOC(n);
+    sys_memcpy(cref_p->tag_buf, *buf_p, n);
+    *buf_p += n;
+    *size_p -= n;
+    cref_p->tag_len = n;
+    return TRUE;
 }
 
-static CallerRef no_caller(void) {
-    CallerRef ret = {am_undefined, NULL, 0};
+static CallerRef no_caller_ref(void) {
+    CallerRef ret = {0, NULL};
     return ret;
 }
 
-static void end_caller(CallerRef *cref) {
-    if (cref->tag_buf != NULL) FREE(cref->tag_buf);
-    *cref = no_caller();
+static void end_caller_ref(CallerRef *cref_p) {
+    if (cref_p->tag_buf != NULL) FREE(cref_p->tag_buf);
+    *cref_p = no_caller_ref();
 }
 
 
@@ -2571,19 +2571,21 @@ static int
 inet_reply_finish(inet_descriptor *desc, ErlDrvTermData *spec, int i) {
     int          ret;
     ErlDrvSizeT  tuple_size;
-    CallerRef   *cref;
+    CallerRef   *cref_p;
     /**/
     ret = 0;
-    cref = &desc->caller_ref;
+    cref_p = &desc->caller_ref;
     if (i == 0) goto done;
-    if (cref->tag_buf != NULL) {
+    if (cref_p->tag_buf != NULL) {
         tuple_size = spec[i - 1];
-        i = LOAD_EXT(spec, i - LOAD_TUPLE_CNT, cref->tag_buf, cref->tag_len);
+        i = LOAD_EXT(spec, i - LOAD_TUPLE_CNT,
+                     cref_p->tag_buf, cref_p->tag_len);
         i = LOAD_TUPLE(spec, i, tuple_size + 1);
     }
-    ret = erl_drv_send_term(desc->dport, cref->caller, spec, i);
+    ret = erl_drv_send_term(desc->dport, desc->caller, spec, i);
  done:
-    end_caller(cref);
+    desc->caller = am_undefined;
+    end_caller_ref(cref_p);
     return ret;
 }
 
@@ -2597,7 +2599,7 @@ static int inet_reply_ok(inet_descriptor* desc)
              LOAD_EXT_CNT];
     int i = 0;
 
-    if (is_not_internal_pid(desc->caller_ref.caller)) goto done;
+    if (is_not_internal_pid(desc->caller)) goto done;
 
     i = LOAD_ATOM(spec, i, am_inet_reply);
     i = LOAD_PORT(spec, i, desc->dport);
@@ -2616,7 +2618,7 @@ static int inet_reply_ok_port(inet_descriptor* desc, ErlDrvTermData dport)
              LOAD_EXT_CNT];
     int i = 0;
 
-    if (is_not_internal_pid(desc->caller_ref.caller)) goto done;
+    if (is_not_internal_pid(desc->caller)) goto done;
 
     i = LOAD_ATOM(spec, i, am_inet_reply);
     i = LOAD_PORT(spec, i, desc->dport);
@@ -2640,7 +2642,7 @@ static int inet_reply_error_am(inet_descriptor* desc, ErlDrvTermData reason)
              LOAD_EXT_CNT];
     int i = 0;
 
-    if (is_not_internal_pid(desc->caller_ref.caller)) goto done;
+    if (is_not_internal_pid(desc->caller)) goto done;
 
     i = LOAD_ATOM(spec, i, am_inet_reply);
     i = LOAD_PORT(spec, i, desc->dport);
@@ -2651,7 +2653,7 @@ static int inet_reply_error_am(inet_descriptor* desc, ErlDrvTermData reason)
     ASSERT(i == sizeof(spec)/sizeof(*spec) - LOAD_EXT_CNT);
 
     DEBUGF(("inet_reply_error_am %ld %ld\r\n",
-            desc->caller_ref.caller, reason));
+            desc->caller, reason));
  done:
     return inet_reply_finish(desc, spec, i);
 }
@@ -3773,7 +3775,7 @@ inet_async_binary_data
 {
     unsigned int hsz = desc->hsz + phsz;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
-    ErlDrvTermData caller = desc->caller_ref.caller;
+    ErlDrvTermData caller;
     int aid;
     int req;
     int i = 0;
@@ -3875,7 +3877,8 @@ inet_async_binary_data
     i = LOAD_TUPLE(spec, i, 4);
 
     ASSERT(i <= PACKET_ERL_DRV_TERM_DATA_LEN);
-    end_caller(&desc->caller_ref);
+    desc->caller = am_undefined;
+    end_caller_ref(&desc->caller_ref);
     return erl_drv_send_term(desc->dport, caller, spec, i);
 }
 
@@ -7159,7 +7162,8 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                   __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
 	    break;
 
-	case INET_OPT_SNDBUF:    type = SO_SNDBUF;             DDBG(desc,
+	case INET_OPT_SNDBUF:    type = SO_SNDBUF;
+            DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "inet_set_opts(sndbuf) -> %d\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), ival) );
@@ -10539,8 +10543,8 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->opt = NULL;
     desc->op_ref = 0;
 
-    desc->caller_ref      = no_caller();
-    desc->busy_caller_ref = no_caller();
+    desc->caller     = am_undefined;
+    desc->caller_ref = no_caller_ref();
 
     desc->peer_ptr = NULL;
     desc->name_ptr = NULL;
@@ -11875,7 +11879,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 		async_error_am(INETP(desc), am_timeout);
 	    else {
 		if (timeout != INET_INFINITY)
-                    add_multi_timer(desc, INETP(desc)->port, 0,
+                    add_multi_timer(desc, INETP(desc)->port, am_undefined,
                                     timeout, &tcp_inet_recv_timeout);
 		if (!INET_IGNORED(INETP(desc)))
 		    sock_select(INETP(desc),(FD_READ|FD_CLOSE),1);
@@ -11994,8 +11998,6 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 
         desc->sendfile.ioq_skip = driver_sizeq(desc->inet.port);
         desc->sendfile.bytes_sent = 0;
-
-        desc->inet.caller_ref.caller = driver_caller(desc->inet.port);
         desc->tcp_add_flags |= TCP_ADDF_SENDFILE;
 
         /* See if we can finish sending without selecting & rescheduling. */
@@ -12026,7 +12028,6 @@ static int tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
     tcp_descriptor* desc = (tcp_descriptor*)e;
     ASSERT(IS_BUSY(INETP(desc)));
     ASSERT(desc->busy_on_send);
-    desc->inet.caller_ref = desc->inet.busy_caller_ref;
     desc->inet.state &= ~INET_F_BUSY;
     desc->busy_on_send = 0;
     set_busy_port(desc->inet.port, 0);
@@ -12118,8 +12119,8 @@ static void tcp_inet_command(ErlDrvData e, char *buf, ErlDrvSizeT len)
     tcp_descriptor  *desc    = (tcp_descriptor*)e;
     inet_descriptor *inetp   = INETP(desc);
 
-    if (! init_caller(&inetp->caller_ref, inetp->port,
-                      &buf, &len)) {
+    if (! init_caller(&inetp->caller, &inetp->caller_ref,
+                      inetp->port, &buf, &len)) {
 	inet_reply_error(inetp, EINVAL);
 	return;
     }
@@ -12127,7 +12128,7 @@ static void tcp_inet_command(ErlDrvData e, char *buf, ErlDrvSizeT len)
     DDBG(inetp,
          ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
           "tcp_inet_command -> entry\r\n",
-          __LINE__, inetp->s, inetp->caller_ref.caller) );
+          __LINE__, inetp->s, inetp->caller) );
 
     if (!IS_CONNECTED(inetp))
 	inet_reply_error(inetp, ENOTCONN);
@@ -12137,7 +12138,7 @@ static void tcp_inet_command(ErlDrvData e, char *buf, ErlDrvSizeT len)
     DDBG(inetp,
          ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
           "tcp_inet_command -> done\r\n",
-          __LINE__, inetp->s, inetp->caller_ref.caller) );
+          __LINE__, inetp->s, inetp->caller) );
 
 }
 
@@ -12145,20 +12146,24 @@ static void tcp_inet_commandv(ErlDrvData e, ErlIOVec *ev)
 {
     tcp_descriptor  *desc    = (tcp_descriptor*)e;
     inet_descriptor *inetp   = INETP(desc);
+#ifdef INET_DRV_DEBUG
+    ErlDrvTermData   caller;
+#endif
 
-    if (! init_caller_iov(&inetp->caller_ref, inetp->port,
-                          &ev->iov, &ev->size)) {
+    if (! init_caller_iov(&inetp->caller, &inetp->caller_ref,
+                          inetp->port, &ev->iov, &ev->size)) {
         inet_reply_error(inetp, EINVAL);
         return;
     }
 
 #ifdef INET_DRV_DEBUG
+    caller  = inetp->caller;
     /* This function is just called to much to be part of this     *
      * by default. Atleast as long as there are no 'debug levels'. */
     DDBG(inetp,
          ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
           "tcp_inet_commandv -> entry\r\n",
-          __LINE__, inetp->s, inetp->caller_ref.caller) );
+          __LINE__, inetp->s, caller) );
 #endif
 
     if (!IS_CONNECTED(INETP(desc))) {
@@ -12183,7 +12188,7 @@ static void tcp_inet_commandv(ErlDrvData e, ErlIOVec *ev)
 #ifdef INET_DRV_DEBUG
     DDBG(INETP(desc),
          ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] tcp_inet_commandv -> done\r\n",
-          __LINE__, inetp->s, inetp->caller_ref.caller) );
+          __LINE__, inetp->s, caller) );
 #endif
 
 }
@@ -12273,7 +12278,6 @@ static int tcp_recv_closed(tcp_descriptor* desc)
 	    port, desc->inet.s, __LINE__));
     if (IS_BUSY(INETP(desc))) {
 	/* A send is blocked */
-	desc->inet.caller_ref = desc->inet.busy_caller_ref;
 	tcp_clear_output(desc);
 	if (desc->busy_on_send) {
             cancel_multi_timer(desc, INETP(desc)->port, &tcp_inet_send_timeout);
@@ -12335,7 +12339,6 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
     if (err != ERRNO_BLOCK) {
 	if (IS_BUSY(INETP(desc))) {
 	    /* A send is blocked */
-	    desc->inet.caller_ref = desc->inet.busy_caller_ref;
 	    tcp_clear_output(desc);
 	    if (desc->busy_on_send) {
                 cancel_multi_timer(desc, INETP(desc)->port, &tcp_inet_send_timeout);
@@ -13011,7 +13014,6 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
      * If the port is busy, we must do some clean-up before proceeding.
      */
     if (IS_BUSY(INETP(desc))) {
-	desc->inet.caller_ref = desc->inet.busy_caller_ref;
 	if (desc->busy_on_send) {
             cancel_multi_timer(desc, INETP(desc)->port, &tcp_inet_send_timeout);
 	    desc->busy_on_send = 0;
@@ -13037,7 +13039,7 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
             err_atom = am_closed;
 	}
         tcp_closed_message(desc);
-        if (!(desc->tcp_add_flags & TCP_ADDF_SENDFILE))
+        if (! (desc->tcp_add_flags & TCP_ADDF_SENDFILE))
             inet_reply_error_am(INETP(desc), err_atom);
 
 	if (desc->inet.exitf)
@@ -13047,21 +13049,19 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
     } else {
 	tcp_close_check(desc);
 
-	if (! is_not_internal_pid(desc->inet.caller_ref.caller)) {
-            if (!(desc->tcp_add_flags & TCP_ADDF_SENDFILE)) {
-                if (show_econnreset)
-                    inet_reply_error(INETP(desc), err);
-                else
-                    inet_reply_error_am(INETP(desc), am_closed);
-            }
-	}
-	else {
+        if (is_not_internal_pid(desc->inet.caller)) {
 	    /* No blocking send op to reply to right now.
 	     * If next op is a send, make sure it returns {error,closed}
 	     * rather than {error,enotconn}.
 	     */
 	    desc->tcp_add_flags |= TCP_ADDF_DELAYED_CLOSE_SEND;
-	}
+        }
+        else if (! (desc->tcp_add_flags & TCP_ADDF_SENDFILE)) {
+            if (show_econnreset)
+                inet_reply_error(INETP(desc), err);
+            else
+                inet_reply_error_am(INETP(desc), am_closed);
+        }
         tcp_desc_close(desc);
 
 	/*
@@ -13176,7 +13176,6 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 	    DEBUGF(("tcp_sendv(%p): s=%d, sender forced busy\r\n",
 		    desc->inet.port, desc->inet.s));
 	    desc->inet.state |= INET_F_BUSY;  /* mark for low-watermark */
-	    desc->inet.busy_caller_ref = desc->inet.caller_ref;
 	    set_busy_port(desc->inet.port, 1);
 	    if (desc->send_timeout != INET_INFINITY) {
 		desc->busy_on_send = 1;
@@ -13205,7 +13204,7 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 	    n = 0;
 	} else if (desc->tcp_add_flags & TCP_ADDF_DELAY_SEND) {
             driver_enqv(ix, ev, 0);
-            add_multi_timer(desc, INETP(desc)->port, 0,
+            add_multi_timer(desc, INETP(desc)->port, am_undefined,
                             0, &tcp_inet_delay_send);
 	    return 0;
 	} else if (IS_SOCKET_ERROR(sock_sendv(desc->inet.s, ev->iov,
@@ -13289,12 +13288,12 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	    DEBUGF(("tcp_send(%p): s=%d, sender forced busy\r\n",
 		    desc->inet.port, desc->inet.s));
 	    desc->inet.state |= INET_F_BUSY;  /* mark for low-watermark */
-	    desc->inet.busy_caller_ref = desc->inet.caller_ref;
 	    set_busy_port(desc->inet.port, 1);
 	    if (desc->send_timeout != INET_INFINITY) {
 		desc->busy_on_send = 1;
                 add_multi_timer(desc, INETP(desc)->port,
-                                0 /* arg */, desc->send_timeout /* timeout */,
+                                am_undefined /* caller */,
+                                desc->send_timeout /* timeout */,
                                 &tcp_inet_send_timeout);
 	    }
 	    return 1;
@@ -13401,7 +13400,6 @@ static int tcp_sendfile_completed(tcp_descriptor* desc) {
 
     if (driver_sizeq(desc->inet.port) <= desc->low) {
         if (IS_BUSY(INETP(desc))) {
-            desc->inet.caller_ref = desc->inet.busy_caller_ref;
             desc->inet.state &= ~INET_F_BUSY;
 
             set_busy_port(desc->inet.port, 0);
@@ -13746,7 +13744,6 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 	    }
 	    if (driver_deq(ix, n) <= desc->low) {
 		if (IS_BUSY(INETP(desc))) {
-		    desc->inet.caller_ref = desc->inet.busy_caller_ref;
 		    desc->inet.state &= ~INET_F_BUSY;
 		    set_busy_port(desc->inet.port, 0);
 		    /* if we have a timer then cancel and send ok to client */
@@ -13852,7 +13849,7 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s,
     copy_desc->inet.hsz      = desc->inet.hsz;
     copy_desc->inet.bufsz    = desc->inet.bufsz;
 
-    /* The new port will be linked and connected to the caller */
+    /* The new port will be linked and connected to the owner */
     port = driver_create_port(port, owner, "sctp_inet",
 			      (ErlDrvData) copy_desc);
     if ((long)port == -1) {
@@ -14318,10 +14315,12 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    SOCKET new_socket;
             ErlDrvTermData caller;
 
+            caller = driver_caller(desc->port);
+
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "packet_inet_ctl -> PEELOFF\r\n",
-                  __LINE__, desc->s, driver_caller(desc->port)) );
+                  __LINE__, desc->s, caller) );
 
 	    if (!IS_SCTP(desc))
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
@@ -14339,14 +14338,13 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		return ctl_error(sock_errno(), rbuf, rsize);
 	    }
 
-            caller = driver_caller(desc->port);
 	    if ((new_udesc =
                  sctp_inet_copy(udesc, new_socket, caller, &err)) == NULL) {
 		sock_close(new_socket);
 		return ctl_error(err, rbuf, rsize);
 	    }
             else {
-                desc->caller_ref.caller = caller;
+                desc->caller = caller;
             }
 	    new_udesc->inet.state = INET_STATE_CONNECTED;
 	    new_udesc->inet.stype = SOCK_STREAM;
@@ -14439,7 +14437,8 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     int code;
     inet_address other;
 
-    if (! init_caller(&desc->caller_ref, desc->port, &buf, &len)) {
+    if (! init_caller(&desc->caller, &desc->caller_ref,
+                      desc->port, &buf, &len)) {
 	inet_reply_error(desc, EINVAL);
 	return;
     }
