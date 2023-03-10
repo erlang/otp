@@ -167,16 +167,30 @@ get_results(SSA, Element, Fun, DefSt) ->
 get_results([{_,#b_blk{last=#b_ret{arg=#b_var{}=V}}}|Rest],
             Acc, Element, Fun, DefSt) ->
     get_results(Rest, [{V,Element}|Acc], Element, Fun, DefSt);
-get_results([{_,#b_blk{last=#b_ret{arg=#b_literal{val=Lit}}}}|Rest],
-            Acc, Element=self, Fun, DefSt) when not is_bitstring(Lit) ->
-    %% As value tracking is done without type information, we can
-    %% follow def chains which don't terminate in a bitstring. This is
-    %% harmless, but we should ignore them and not, later on, try to
-    %% patch them to a bs_writable_binary.
-    get_results(Rest, Acc, Element, Fun, DefSt);
-get_results([{Lbl,#b_blk{last=#b_ret{arg=#b_literal{}}}}|Rest],
+get_results([{Lbl,#b_blk{last=#b_ret{arg=#b_literal{val=Lit}}}}|Rest],
             Acc, Element, Fun, DefSt0) ->
-    DefSt = add_literal(Fun, {ret,Lbl,Element}, DefSt0),
+    %% As tracking doesn't make any attempt to use type information to
+    %% exclude execution paths not relevant when tracking an
+    %% appendable binary, it can happen that we encounter literals
+    %% which do not match the type of the element. We can safely stop
+    %% the tracking in that case.
+    Continue = case Element of
+                   {tuple_elements,_} ->
+                       is_tuple(Lit);
+                   {tuple_element,_,_} ->
+                       is_tuple(Lit);
+                   Elements when is_list(Elements) ->
+                       is_tuple(Lit);
+                   self ->
+                       is_bitstring(Lit);
+                   {hd,_} ->
+                       is_list(Lit) andalso (Lit =/= [])
+               end,
+    DefSt = if Continue ->
+                    add_literal(Fun, {ret,Lbl,Element}, DefSt0);
+               true ->
+                    DefSt0
+            end,
     get_results(Rest, Acc, Element, Fun, DefSt);
 get_results([_|Rest], Acc, Element, Fun, DefSt) ->
     get_results(Rest, Acc, Element, Fun, DefSt);

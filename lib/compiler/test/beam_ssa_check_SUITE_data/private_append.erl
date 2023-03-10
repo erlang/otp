@@ -58,6 +58,7 @@
 	 transformable31b/1,
          transformable32/0,
          transformable32/1,
+         transformable33/0,
 
 	 not_transformable1/2,
 	 not_transformable2/1,
@@ -748,6 +749,18 @@ transformable32(#{}) ->
     [];
 transformable32(_) ->
     <<>>.
+
+%% Check that we don't crash (Github issue #6999) while attempting to
+%% patch the empty list, but also that Dest is created with private_append.
+transformable33() ->
+%ssa% () when post_ssa_opt ->
+%ssa% _ = bs_create_bin(private_append, ...).
+    [F01] = [transformable33_inner(<<"0">>) || _ <- [1]],
+    Dest = <<F01/binary>>,
+    Dest.
+
+transformable33_inner(V) ->
+    << <<C>> || <<C:4>> <= V >>.
 
 % Should not be transformed as we can't know the alias status of Acc
 not_transformable1([H|T], Acc) ->
