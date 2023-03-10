@@ -718,15 +718,13 @@ encode_fragments(Type, Version, [Text|Data],
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 ciphers are
 %% not vulnerable to this attack.
 split_iovec(Data, Version, BCA, one_n_minus_one, MaxLength)
-  when (BCA =/= ?RC4) andalso (?'TLS-1.0' == Version orelse
-                               ?'SSL-3.0' == Version) ->
+  when BCA =/= ?RC4, ?'TLS-1.0' == Version ->
     {Part, RestData} = split_iovec(Data, 1, []),
     [Part|split_iovec(RestData, MaxLength)];
 %% 0/n splitting countermeasure for clients that are incompatible with 1/n-1
 %% splitting.
 split_iovec(Data, Version, BCA, zero_n, MaxLength)
-  when (BCA =/= ?RC4) andalso (?'TLS-1.0' == Version orelse
-                               ?'SSL-3.0' == Version) ->
+  when BCA =/= ?RC4, ?'TLS-1.0' == Version ->
     {Part, RestData} = split_iovec(Data, 0, []),
     [Part|split_iovec(RestData, MaxLength)];
 split_iovec(Data, _Version, _BCA, _BeatMitigation, MaxLength) ->

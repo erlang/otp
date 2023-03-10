@@ -174,7 +174,7 @@ master_secret(PrfAlgo, PreMasterSecret, ClientRandom, ServerRandom) ->
 
 -spec finished(Role, Version, PrfAlgo, MasterSecret, Handshake) -> binary() when
       Role :: client | server,
-      Version :: {non_neg_integer(), non_neg_integer()},
+      Version :: ssl_record:ssl_version(),
       PrfAlgo :: integer(),
       MasterSecret :: binary(),
       Handshake    :: [binary()].
@@ -211,7 +211,7 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
 %% TODO 1.3 finished
 
 -spec certificate_verify(HashAlgo, Handshake) -> binary() when
-      HashAlgo :: md5sha | sha,
+      HashAlgo :: md5sha | ssl:hash(),
       Handshake :: [binary()].
 %% TLS 1.0 -1.1  ---------------------------------------------------
 certificate_verify(md5sha, Handshake) ->
@@ -284,9 +284,8 @@ setup_keys(?'TLS-1.1', _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashS
 %% TLS v1.1 ---------------------------------------------------
 
 %% TLS v1.2  ---------------------------------------------------
-setup_keys(?'TLS-1.X'=Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
-	   KeyMatLen, IVSize)
-  when Version == ?'TLS-1.2'; Version == ?'TLS-1.3' ->
+setup_keys(?'TLS-1.2', PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+	   KeyMatLen, IVSize) ->
     %% RFC 5246 - 6.3. Key calculation
     %% key_block = PRF(SecurityParameters.master_secret,
     %%                      "key expansion",
@@ -509,8 +508,6 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 		     Fragment]),
     Mac.
 %% TLS 1.0 -1.2  ---------------------------------------------------
-
-%% TODO 1.3 same as above?
 
 -spec suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 

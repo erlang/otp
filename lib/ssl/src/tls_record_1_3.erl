@@ -288,7 +288,7 @@ encode_plain_text(#inner_plaintext{
     Encoded = cipher_aead(PlainText, BulkCipherAlgo, Key, Seq, IV, TagLen),
     %% 23 (application_data) for outward compatibility
     #tls_cipher_text{opaque_type = ?OPAQUE_TYPE,
-                     legacy_version = ?'TLS-1.2',
+                     legacy_version = ?LEGACY_VERSION,
                      encoded_record = Encoded};
 encode_plain_text(#inner_plaintext{
                      content = Data,

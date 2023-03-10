@@ -588,20 +588,12 @@ update_bytes_sent(_, #data{static = #static{bytes_sent = Sent} = Static} = State
 %% approximately 2^-57 for Authenticated Encryption (AE) security.  For
 %% ChaCha20/Poly1305, the record sequence number would wrap before the
 %% safety limit is reached.
-key_update_at(Version, #{security_parameters :=
+key_update_at(?'TLS-1.3', #{security_parameters :=
                              #security_parameters{
-                                bulk_cipher_algorithm = CipherAlgo}}, KeyUpdateAt)
-  when Version >= ?'TLS-1.3' ->
-    case CipherAlgo of
-        ?AES_GCM ->
-            KeyUpdateAt;
-        ?CHACHA20_POLY1305 ->
-            seq_num_wrap;
-        ?AES_CCM ->
-            KeyUpdateAt;
-        ?AES_CCM_8 ->
-            KeyUpdateAt
-    end;
+                                bulk_cipher_algorithm = ?CHACHA20_POLY1305}}, _KeyUpdateAt) ->
+    seq_num_wrap;
+key_update_at(?'TLS-1.3', _, KeyUpdateAt) ->
+    KeyUpdateAt;
 key_update_at(_, _, KeyUpdateAt) ->
     KeyUpdateAt.
 

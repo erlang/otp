@@ -33,6 +33,7 @@
 -include("ssl_alert.hrl").
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
+-include("tls_record_1_3.hrl").
 
 %% Setup
 -export([start_fsm/8,
@@ -831,7 +832,7 @@ next_record_done(#state{protocol_buffers = Buffers} = State, CipherTexts, Connec
 %% field in TLS-1.3 client hello). The versions are instead negotiated with an hello extension. When
 %% decoding the server_hello messages we want to go through TLS-1.3 decode functions to be able
 %% to handle TLS-1.3 extensions if TLS-1.3 will be the negotiated version.
-handle_unnegotiated_version(?'TLS-1.2' , #{versions := [?'TLS-1.3' = Version |_]} = Options, Data, Buffer, client, hello) ->
+handle_unnegotiated_version(?LEGACY_VERSION , #{versions := [?'TLS-1.3' = Version |_]} = Options, Data, Buffer, client, hello) ->
     %% The effective version for decoding the server hello message should be the TLS-1.3. Possible coalesced TLS-1.2
     %% server handshake messages should be decoded with the negotiated version in later state.
     <<_:8, ?UINT24(Length), _/binary>> = Data,

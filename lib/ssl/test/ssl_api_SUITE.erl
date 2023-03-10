@@ -24,7 +24,7 @@
 -behaviour(ct_suite).
 
 
--compile({inline,[exclusive_default_up_to_version/2]}).
+-compile({inline,[exclusive_default_up_to_version/1]}).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
@@ -3852,13 +3852,10 @@ active_n_common(S, N) ->
 ok({ok,V}) -> V.
 
 repeat(N, Fun) ->
-    repeat(N, N, Fun).
+    Repeat = fun F(Arg) when is_integer(Arg), Arg > 0 -> Fun(N - Arg), F(Arg - 1);
+                        F(_) -> ok end,
+    Repeat(N).
 
-repeat(N, T, Fun) when is_integer(N), N > 0 ->
-    Fun(T-N),
-    repeat(N-1, T, Fun);
-repeat(_, _, _) ->
-    ok.
 
 get_close(Pid, Where) ->
     receive

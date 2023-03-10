@@ -69,7 +69,7 @@
 
 %% Cipher suites handling
 -export([available_suites/2, available_signature_algs/2,  available_signature_algs/3,
-         cipher_suites/3, prf/6, select_session/9, supported_ecc/1,
+         cipher_suites/3, prf/6, select_session/9,
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %% Extensions handling
@@ -907,9 +907,8 @@ decode_handshake(_Version, ?CERTIFICATE_REQUEST,
 			 certificate_authorities = decode_cert_auths(EncCertAuths, [])};
 decode_handshake(_Version, ?SERVER_HELLO_DONE, <<>>) ->
     #server_hello_done{};
-decode_handshake(?'TLS-1.X'=Version, ?CERTIFICATE_VERIFY,<<HashSign:2/binary, ?UINT16(SignLen),
-                                                           Signature:SignLen/binary>>)
-  when Version >= ?'TLS-1.2' ->
+decode_handshake(?'TLS-1.2', ?CERTIFICATE_VERIFY,<<HashSign:2/binary, ?UINT16(SignLen),
+                                                           Signature:SignLen/binary>>) ->
     #certificate_verify{hashsign_algorithm = dec_hashsign(HashSign), signature = Signature};
 decode_handshake(_Version, ?CERTIFICATE_VERIFY,<<?UINT16(SignLen), Signature:SignLen/binary>>)->
     #certificate_verify{signature = Signature};
@@ -2329,7 +2328,7 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, premaster_encryption_failed))
     end.
 
--spec calc_certificate_verify(ssl_record:ssl_version(), md5sha | sha, _, [binary()]) -> binary().
+-spec calc_certificate_verify(ssl_record:ssl_version(), md5sha | ssl:hash(), _, [binary()]) -> binary().
 calc_certificate_verify(?'TLS-1.X', HashAlgo, _MasterSecret, Handshake) ->
     tls_v1:certificate_verify(HashAlgo, lists:reverse(Handshake)).
 
@@ -2366,7 +2365,8 @@ setup_keys({3,_}=Version, PrfAlgo, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
     tls_v1:setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 			KML, IVS).
-calc_master_secret(?'TLS-1.X', PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
+calc_master_secret(?'TLS-1.X'=Version, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
+  when Version < ?'TLS-1.3' ->
     tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 	
 %% Update pending connection states with parameters exchanged via

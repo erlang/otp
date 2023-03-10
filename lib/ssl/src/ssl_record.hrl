@@ -188,7 +188,6 @@
 -define('TLS-1.0', {3, 1}).
 -define('DTLS-1.X', {254, _}).
 -define('DTLS-1.0', {254, 255}).
--define('DTLS-1.1', {254, 254}).
 -define('DTLS-1.2', {254, 253}).
 -define('SSL-2.0', {2, 0}).
 -define('SSL-3.0', {3, 0}).

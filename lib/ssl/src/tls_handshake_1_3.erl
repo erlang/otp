@@ -106,7 +106,7 @@ server_hello(MsgType, SessionId, KeyShare, PSK, ConnectionStates) ->
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     Extensions = server_hello_extensions(MsgType, KeyShare, PSK),
-    #server_hello{server_version = ?'TLS-1.2', %% legacy_version
+    #server_hello{server_version = ?LEGACY_VERSION, %% legacy_version
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
                   compression_method = 0, %% legacy attribute
 		  random = server_hello_random(MsgType, SecParams),

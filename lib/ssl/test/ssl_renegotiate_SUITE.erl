@@ -90,11 +90,9 @@ all() ->
 groups() ->
     [{'dtlsv1.2', [], renegotiate_tests()},
      {'dtlsv1',   [], renegotiate_tests()},
-     {'tlsv1.3',  [], renegotiate_tests()},
      {'tlsv1.2',  [], renegotiate_tests()},
      {'tlsv1.1',  [], renegotiate_tests()},
-     {'tlsv1',    [], renegotiate_tests()},
-     {'sslv3',    [], ssl3_renegotiate_tests()}
+     {'tlsv1',    [], renegotiate_tests()}
     ].
 
 renegotiate_tests() ->
@@ -102,17 +100,6 @@ renegotiate_tests() ->
      server_renegotiate,
      client_secure_renegotiate,
      client_secure_renegotiate_fallback,
-     client_renegotiate_reused_session,
-     server_renegotiate_reused_session,
-     client_no_wrap_sequence_number,
-     server_no_wrap_sequence_number,
-     renegotiate_dos_mitigate_active,
-     renegotiate_dos_mitigate_passive,
-     renegotiate_dos_mitigate_absolute].
-
-ssl3_renegotiate_tests() ->
-    [client_renegotiate,
-     server_renegotiate,
      client_renegotiate_reused_session,
      server_renegotiate_reused_session,
      client_no_wrap_sequence_number,

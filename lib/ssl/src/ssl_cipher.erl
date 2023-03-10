@@ -214,8 +214,7 @@ build_cipher_block(BlockSz, Mac, Fragment) ->
     [Fragment, Mac, padding_with_len(TotSz, BlockSz)].
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
-	     Mac, Fragment, Version)
-  when Version == ?'SSL-3.0'; Version == ?'TLS-1.0' ->
+	     Mac, Fragment, ?'TLS-1.0') ->
     L = build_cipher_block(BlockSz, Mac, Fragment),
     T = Fun(Key, IV, L),
     NextIV = next_iv(T, IV),
@@ -326,13 +325,13 @@ suites(?'TLS-1.X'=Version) ->
 suites(?'DTLS-1.X'=Version) ->
     dtls_v1:suites(Version).
 all_suites(?'TLS-1.3' = Version) ->
-    suites(Version) ++ tls_testing_suites(?'TLS-1.2');
+    suites(Version) ++ tls_legacy_suites(?'TLS-1.2');
 all_suites(?'TLS-1.X' = Version) ->
-    suites(Version) ++ tls_testing_suites(Version);
+    suites(Version) ++ tls_legacy_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 
-tls_testing_suites(Version) ->
+tls_legacy_suites(Version) ->
     Tests = [ fun tls_v1:psk_suites/1
             , fun tls_v1:srp_suites/1
             , fun tls_v1:rsa_suites/1
@@ -685,7 +684,7 @@ mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 	 _Length, _Fragment) ->
     <<>>;
 mac_hash(?'TLS-1.X' = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)
-  when Version =/= ?'SSL-3.0' ->
+  when Version =< ?'TLS-1.2', Version =/= ?'SSL-3.0' ->
     tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
 		      Length, Fragment).
 
@@ -825,7 +824,7 @@ block_size(Cipher) when Cipher == aes_128_cbc;
 			Cipher == chacha20_poly1305 ->
     16.
 
-prf_algorithm(default_prf, ?'TLS-1.X'=Version) when Version >= ?'TLS-1.2' ->
+prf_algorithm(default_prf, ?'TLS-1.2') ->
     ?SHA256;
 prf_algorithm(default_prf, ?'TLS-1.X') ->
     ?MD5SHA;
@@ -930,8 +929,7 @@ signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS'
 %%   We return the original (possibly invalid) PadLength in any case.
 %%   An invalid PadLength will be caught by is_correct_padding/2
 %%
-generic_block_cipher_from_bin(Version, T, IV, HashSize)
-  when Version == ?'SSL-3.0'; Version == ?'TLS-1.0' ->
+generic_block_cipher_from_bin(?'TLS-1.0', T, IV, HashSize)->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength0)>> = T,
     PadLength = if
@@ -946,7 +944,7 @@ generic_block_cipher_from_bin(Version, T, IV, HashSize)
 			  next_iv = IV};
 
 generic_block_cipher_from_bin(Version, T, IV, HashSize)
-  when Version == ?'TLS-1.1'; Version == ?'TLS-1.2'; Version == ?'TLS-1.3' ->
+  when Version == ?'TLS-1.1'; Version == ?'TLS-1.2' ->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
     IVLength = byte_size(IV),
@@ -968,7 +966,7 @@ is_correct_padding(#generic_block_cipher{padding_length = Len,
 					 padding = Padding}, ?'SSL-3.0', _) ->
     Len == byte_size(Padding); %% Only length check is done in SSL 3.0 spec
 %% For interoperability reasons it is possible to disable
-%% the padding check when using TLS 1.0, as it is not strictly required 
+%% the padding check when using TLS 1.0 (mimicking SSL-3.0), as it is not strictly required
 %% in the spec (only recommended), however this makes TLS 1.0 vunrable to the Poodle attack 
 %% so by default this clause will not match
 is_correct_padding(GenBlockCipher, ?'TLS-1.0', false) ->
@@ -1052,12 +1050,12 @@ filter_suites_pubkey(ecdsa, Ciphers, _, OtpCert) ->
 
 filter_suites_signature(_, Ciphers, ?'TLS-1.X'=Version) when Version >= ?'TLS-1.2' ->
      Ciphers;
-filter_suites_signature(rsa, Ciphers, Version) ->
-    (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers, Version);
-filter_suites_signature(dsa, Ciphers, Version) ->
-    (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- rsa_signed_suites(Ciphers, Version);
-filter_suites_signature(ecdsa, Ciphers, Version) ->
-    (Ciphers -- rsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers, Version).
+filter_suites_signature(rsa, Ciphers, _Version) ->
+    (Ciphers -- ecdsa_signed_suites(Ciphers)) -- dsa_signed_suites(Ciphers);
+filter_suites_signature(dsa, Ciphers, _Version) ->
+    (Ciphers -- ecdsa_signed_suites(Ciphers)) -- rsa_signed_suites(Ciphers);
+filter_suites_signature(ecdsa, Ciphers, _Version) ->
+    (Ciphers -- rsa_signed_suites(Ciphers)) -- dsa_signed_suites(Ciphers).
 
 
 %% From RFC 5246 - Section  7.4.2.  Server Certificate
@@ -1076,15 +1074,7 @@ filter_suites_signature(ecdsa, Ciphers, Version) ->
 %% extension.  The names DH_DSS, DH_RSA, ECDH_ECDSA, and ECDH_RSA are
 %% historical.
 %% Note: DH_DSS and DH_RSA is not supported
-rsa_signed(?'TLS-1.X'=Version) when Version >= ?'TLS-1.2' ->
-    fun(rsa) -> true;
-       (dhe_rsa) -> true;
-       (ecdhe_rsa) -> true;
-       (rsa_psk) -> true;
-       (srp_rsa) -> true;
-       (_) -> false
-    end;
-rsa_signed(_) ->
+rsa_signed() ->
     fun(rsa) -> true;
        (dhe_rsa) -> true;
        (ecdhe_rsa) -> true;
@@ -1094,24 +1084,20 @@ rsa_signed(_) ->
        (_) -> false
     end.
 %% Cert should be signed by RSA
-rsa_signed_suites(Ciphers, Version) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [rsa_signed(Version)],
+rsa_signed_suites(Ciphers) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [rsa_signed()],
                              cipher_filters => [],
                              mac_filters => [],
                              prf_filters => []}).
-ecdsa_signed(?'TLS-1.X'=Version) when Version >= ?'TLS-1.2' ->
-    fun(ecdhe_ecdsa) -> true;
-       (_) -> false
-    end;
-ecdsa_signed(_) ->
+ecdsa_signed() ->
     fun(ecdhe_ecdsa) -> true;
        (ecdh_ecdsa) -> true;
        (_) -> false
     end. 
 
 %% Cert should be signed by ECDSA
-ecdsa_signed_suites(Ciphers, Version) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [ecdsa_signed(Version)],
+ecdsa_signed_suites(Ciphers) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [ecdsa_signed()],
                              cipher_filters => [],
                              mac_filters => [],
                              prf_filters => []}).
@@ -1161,12 +1147,12 @@ dss_keyed_suites(Ciphers) ->
                              prf_filters => []}).
 
 %% Cert should be signed by DSS (DSA)
-dsa_signed_suites(Ciphers, Version) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [dsa_signed(Version)],
+dsa_signed_suites(Ciphers) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [dsa_signed()],
                              cipher_filters => [],
                              mac_filters => [],
                              prf_filters => []}).
-dsa_signed(_) ->
+dsa_signed() ->
     fun(dhe_dss) -> true;
        (_) -> false
     end.
