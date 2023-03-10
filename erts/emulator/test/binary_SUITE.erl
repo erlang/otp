@@ -50,6 +50,7 @@
 	 t_split_binary/1, bad_split/1,
 	 terms/1, terms_float/1, float_middle_endian/1,
          b2t_used_big/1, t2b_deterministic/1,
+         t2b_minor_version/1,
 	 external_size/1, t_iolist_size/1,
          t_iolist_size_huge_list/1,
          t_iolist_size_huge_bad_arg_list/1,
@@ -93,6 +94,7 @@ all() ->
      t_iolist_size_huge_bad_arg_list,
      {group, iolist_size_benchmarks},
      b2t_used_big, t2b_deterministic,
+     t2b_minor_version,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      big_binary_to_term,
@@ -151,6 +153,15 @@ end_per_testcase(_Func, _Config) ->
     ok.
 
 -define(heap_binary_size, 64).
+
+-define(MAP_EXT, 116).
+-define(SMALL_INTEGER_EXT, 97).
+-define(SMALL_ATOM_UTF8_EXT, 119).
+-define(ATOM_EXT, 100).
+-define(NIL, 106).
+-define(MAP_SMALL_MAP_LIMIT, 32).
+-define(FLOAT_EXT, 99).
+-define(NEW_FLOAT_EXT, 70).
 
 copy_terms(Config) when is_list(Config) ->
     Self = self(),
@@ -688,6 +699,53 @@ float_middle_endian(Config) when is_list(Config) ->
     <<131,70,63,240,0,0,0,0,0,0>> = term_to_binary(1.0, [{minor_version,1}]),
     1.0 = binary_to_term_stress(<<131,70,63,240,0,0,0,0,0,0>>).
 
+t2b_minor_version(_Config) ->
+    Umlaut = "ätöm",
+    UmlautLatin1 = unicode:characters_to_binary(Umlaut, latin1, latin1),
+    UmlautUtf8   = unicode:characters_to_binary(Umlaut, latin1, utf8),
+    UmlautAtom = binary_to_atom(UmlautLatin1, latin1),
+    UmlautAtom = binary_to_atom(UmlautUtf8, utf8),
+    ExoticBin = <<"こんにちは"/utf8>>,
+    ExoticAtom = binary_to_atom(ExoticBin, utf8),
+
+    <<131, ?SMALL_ATOM_UTF8_EXT, 4, "atom">> = term_to_binary(atom),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 6, UmlautUtf8/binary>> =
+        term_to_binary(UmlautAtom),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 15, ExoticBin/binary>> =
+        term_to_binary(ExoticAtom),
+
+    <<131, ?SMALL_ATOM_UTF8_EXT, 4, "atom">> =
+        term_to_binary(atom, [{minor_version,2}]),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 6, UmlautUtf8/binary>> =
+        term_to_binary(UmlautAtom, [{minor_version,2}]),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 15, ExoticBin/binary>> =
+        term_to_binary(ExoticAtom, [{minor_version,2}]),
+
+    <<131, ?ATOM_EXT, 4:16, "atom">> =
+        term_to_binary(atom, [{minor_version,1}]),
+    <<131, ?ATOM_EXT, 4:16, UmlautLatin1/binary>> =
+        term_to_binary(UmlautAtom, [{minor_version,1}]),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 15, ExoticBin/binary>> =
+        term_to_binary(ExoticAtom, [{minor_version,1}]),
+
+    <<131, ?ATOM_EXT, 4:16, "atom">> =
+        term_to_binary(atom, [{minor_version,0}]),
+    <<131, ?ATOM_EXT, 4:16, UmlautLatin1/binary>> =
+        term_to_binary(UmlautAtom, [{minor_version,0}]),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 15, ExoticBin/binary>> =
+        term_to_binary(ExoticAtom, [{minor_version,0}]),
+
+    <<131,?NEW_FLOAT_EXT,64,9,30,184,81,235,133,31>> =
+        term_to_binary(3.14),
+    <<131,?NEW_FLOAT_EXT,64,9,30,184,81,235,133,31>> =
+        term_to_binary(3.14, [{minor_version, 2}]),
+    <<131,?NEW_FLOAT_EXT,64,9,30,184,81,235,133,31>> =
+        term_to_binary(3.14, [{minor_version, 1}]),
+    <<131,?FLOAT_EXT,FloatStr:31/binary>> =
+        term_to_binary(3.14, [{minor_version, 0}]),
+    3.14 = binary_to_float(FloatStr),
+    ok.
+
 %% Test term_to_binary(Term, [deterministic]).
 t2b_deterministic(_Config) ->
     _ = rand:uniform(),				%Seed generator
@@ -1108,10 +1166,6 @@ bad_bin_to_term(BadBin) ->
 bad_bin_to_term(BadBin,Opts) ->
     {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin,Opts)).
 
--define(MAP_EXT, 116).
--define(SMALL_INTEGER_EXT, 97).
--define(NIL, 106).
--define(MAP_SMALL_MAP_LIMIT, 32).
 
 %% OTP-18343: Decode unsorted flatmap as key in hashmap
 unsorted_map_in_map(Config) when is_list(Config) ->

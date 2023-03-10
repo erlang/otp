@@ -128,7 +128,8 @@
 #define DFLAG_DIST_STRICT_ORDER DFLAG_DIST_HDR_ATOM_CACHE
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
-#define TERM_TO_BINARY_DFLAGS DFLAG_NEW_FLOATS
+#define TERM_TO_BINARY_DFLAGS (DFLAG_NEW_FLOATS                  \
+                               | DFLAG_UTF8_ATOMS)
 
 /* opcodes used in distribution messages */
 enum dop {
