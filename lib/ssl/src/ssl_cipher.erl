@@ -328,7 +328,7 @@ suites(?'DTLS-1.X'=Version) ->
 all_suites(?'TLS-1.3' = Version) ->
     suites(Version) ++ tls_testing_suites(?'TLS-1.2');
 all_suites(?'TLS-1.X' = Version) ->
-    suites(Version) ++ tls_testing_suites(?'TLS-1.2');
+    suites(Version) ++ tls_testing_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 
