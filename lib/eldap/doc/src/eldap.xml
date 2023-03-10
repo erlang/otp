@@ -549,14 +549,15 @@ Control2 = eldap:paged_result_control(PageSize, Cookie1),
       </desc>
     </func>
     <func>
-      <name since="@OTP-XXXX@">info(Handle) -> #{socket := Socket, socket_type := tcp | ssl}</name>
-      <fsummary>Returns the SSL or TCP socket for LDAP connection.
+      <name since="@OTP-18480@">info(Handle) -> connection_info()</name>
+      <fsummary>Returns information about the LDAP connection.
       </fsummary>
       <type>
+	<v>connection_info() = #{socket := Socket, socket_type := tcp | ssl}</v>
 	<v>Socket = ssl:sslsocket() | gen_tcp:socket()</v>
       </type>
-      <desc><p>Returns the socket type and socket for a TCP/SSL connection
-      to an LDAP server</p>
+      <desc><p>Currently available information reveals the socket and the transport
+       protocol, TCP or TLS (SSL), used by the LDAP connection.</p>
       </desc>
     </func>
 
