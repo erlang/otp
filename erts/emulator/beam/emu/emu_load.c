@@ -566,6 +566,8 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
 
     inst_p->code_hdr = stp->code_hdr;
     inst_p->code_length = size;
+    inst_p->writable_region = (void*)inst_p->code_hdr;
+    inst_p->executable_region = inst_p->writable_region;
 
     staging_ix = erts_staging_code_ix();
 

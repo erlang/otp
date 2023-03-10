@@ -86,10 +86,12 @@ size_t BeamAssembler::getOffset() {
     return a.offset();
 }
 
-void BeamAssembler::_codegen(JitAllocator *allocator,
-                             const void **executable_ptr,
-                             void **writable_ptr) {
-    Error err = code.flatten();
+void BeamAssembler::codegen(JitAllocator *allocator,
+                            const void **executable_ptr,
+                            void **writable_ptr) {
+    Error err;
+
+    err = code.flatten();
     ERTS_ASSERT(!err && "Could not flatten code");
     err = code.resolveUnresolvedLinks();
     ERTS_ASSERT(!err && "Could not resolve all links");
@@ -120,6 +122,8 @@ void BeamAssembler::_codegen(JitAllocator *allocator,
     } else if (err) {
         ERTS_ASSERT("Failed to allocate module code");
     }
+
+    VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadWrite);
 
     code.relocateToBase((uint64_t)*executable_ptr);
     code.copyFlattenedData(*writable_ptr,
@@ -213,7 +217,7 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
     const BeamCodeHeader *code_hdr_exec;
     BeamCodeHeader *code_hdr_rw;
 
-    codegen(allocator, executable_ptr, writable_ptr);
+    BeamAssembler::codegen(allocator, executable_ptr, writable_ptr);
 
     {
         auto offset = code.labelOffsetFromBase(code_header);
@@ -236,6 +240,11 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
     char *module_end = (char *)code.baseAddress() + a.offset();
     code_hdr_rw->functions[functions.size()] = (ErtsCodeInfo *)module_end;
 
+    /* Note that we don't make the module executable yet since we're going to
+     * patch literals et cetera and it's pointless to ping-pong the page
+     * permissions. The user will call `beamasm_seal_module` to do so later
+     * on. */
+
     *out_exec_hdr = code_hdr_exec;
     *out_rw_hdr = code_hdr_rw;
 }
@@ -243,7 +252,8 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
 void BeamModuleAssembler::codegen(JitAllocator *allocator,
                                   const void **executable_ptr,
                                   void **writable_ptr) {
-    _codegen(allocator, executable_ptr, writable_ptr);
+    BeamAssembler::codegen(allocator, executable_ptr, writable_ptr);
+    VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
 }
 
 void BeamModuleAssembler::codegen(char *buff, size_t len) {
