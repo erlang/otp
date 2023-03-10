@@ -152,18 +152,18 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   send_analysis_done(Parent, Plt4, DocPlt).
 
 create_analysis_state({Plt, Analysis, Parent}, LegalWarnings, CServer) ->
-  #analysis_state{ codeserver = CServer
-                 , analysis_type = Analysis#analysis.type
-                 , defines = Analysis#analysis.defines
-                 , doc_plt = Analysis#analysis.doc_plt
-                 , include_dirs = Analysis#analysis.include_dirs
-                 , plt = Plt
-                 , parent = Parent
-                 , legal_warnings = LegalWarnings
-                 , start_from = Analysis#analysis.start_from
-                 , use_contracts = Analysis#analysis.use_contracts
-                 , timing_server = Analysis#analysis.timing_server
-                 , solvers = Analysis#analysis.solvers }.
+  #analysis_state{ codeserver = CServer,
+                   analysis_type = Analysis#analysis.type,
+                   defines = Analysis#analysis.defines,
+                   doc_plt = Analysis#analysis.doc_plt,
+                   include_dirs = Analysis#analysis.include_dirs,
+                   plt = Plt,
+                   parent = Parent,
+                   legal_warnings = LegalWarnings,
+                   start_from = Analysis#analysis.start_from,
+                   use_contracts = Analysis#analysis.use_contracts,
+                   timing_server = Analysis#analysis.timing_server,
+                   solvers = Analysis#analysis.solvers }.
 
 
 remote_type_postprocessing(TmpCServer, Args) ->

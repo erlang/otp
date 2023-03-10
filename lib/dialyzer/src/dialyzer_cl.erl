@@ -685,8 +685,8 @@ unknown_warnings_by_module(#cl_state{legal_warnings = LegalWarnings} = State) ->
 
 unknown_functions(#cl_state{ external_calls = Calls
                            , code_server = CodeServer}) ->
-  [{Mod, {?WARN_UNKNOWN, WarningInfo, {unknown_function, MFA}}} || {MFA, WarningInfo = {_, _, {Mod, _, _}=WarnMFA}} <- Calls,
-                                                                   {ok, [{nowarn_function, func}]} =/= dialyzer_codeserver:lookup_meta_info(WarnMFA, CodeServer)].
+  [{Mod, {?WARN_UNKNOWN, WarningInfo, {unknown_function, MFA}}} || { MFA, WarningInfo = {_, _, {Mod, _, _}=WarnMFA}} <- Calls
+                                                                   , not dialyzer_codeserver:is_member_meta_info(WarnMFA, CodeServer)].
 
 unknown_types(#cl_state{external_types = Types}) ->
   [{Mod, {?WARN_UNKNOWN, WarningInfo, {unknown_type, MFA}}} ||
