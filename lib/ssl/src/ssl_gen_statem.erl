@@ -1941,8 +1941,8 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
 
 security_info(#state{connection_states = ConnectionStates,
                      static_env = #static_env{role = Role},
-                     ssl_options = Opts}) ->
-
+                     ssl_options = Opts,
+                     protocol_specific = ProtocolSpecific}) ->
     ReadState = ssl_record:current_connection_state(ConnectionStates, read),
     #{security_parameters :=
 	  #security_parameters{client_random = ClientRand,
@@ -1958,10 +1958,12 @@ security_info(#state{connection_states = ConnectionStates,
             BaseSecurityInfo;
        true ->
             #{security_parameters :=
-                  #security_parameters{application_traffic_secret = AppTrafSecretWrite,
-                                       client_early_data_secret = ClientEarlyData
-                                      }} =
+                  #security_parameters{
+                     application_traffic_secret = AppTrafSecretWrite0,
+                     client_early_data_secret = ClientEarlyData}} =
                 ssl_record:current_connection_state(ConnectionStates, write),
+            Sender = maps:get(sender, ProtocolSpecific, undefined),
+            AppTrafSecretWrite = {Sender, AppTrafSecretWrite0},
             if Role == server ->
                     if ServerEarlyData =/= undefined ->
                             [{server_traffic_secret_0, AppTrafSecretWrite},
@@ -2165,8 +2167,25 @@ maybe_add_keylog({_, 'tlsv1.2'}, Info) ->
 maybe_add_keylog({_, 'tlsv1.3'}, Info) ->
     try
         {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
-        {client_traffic_secret_0, ClientTrafficSecret0Bin} = lists:keyfind(client_traffic_secret_0, 1, Info),
-        {server_traffic_secret_0, ServerTrafficSecret0Bin} = lists:keyfind(server_traffic_secret_0, 1, Info),
+        %% after traffic key update current traffic secret
+        %% is stored in tls_sender process state
+        MaybeUpdateTrafficSecret =
+            fun({Direction, {Sender, TrafficSecret0}}) ->
+                    TrafficSecret =
+                        case call(Sender, get_application_traffic_secret) of
+                            {ok, SenderAppTrafSecretWrite} ->
+                                SenderAppTrafSecretWrite;
+                            _ ->
+                                TrafficSecret0
+                        end,
+                    {Direction, TrafficSecret};
+               (TrafficSecret0) ->
+                    TrafficSecret0
+            end,
+        {client_traffic_secret_0, ClientTrafficSecret0Bin} =
+            MaybeUpdateTrafficSecret(lists:keyfind(client_traffic_secret_0, 1, Info)),
+        {server_traffic_secret_0, ServerTrafficSecret0Bin} =
+            MaybeUpdateTrafficSecret(lists:keyfind(server_traffic_secret_0, 1, Info)),
         {client_handshake_traffic_secret, ClientHSecretBin} = lists:keyfind(client_handshake_traffic_secret, 1, Info),
         {server_handshake_traffic_secret, ServerHSecretBin} = lists:keyfind(server_handshake_traffic_secret, 1, Info),
         {selected_cipher_suite, #{prf := Prf}} = lists:keyfind(selected_cipher_suite, 1, Info),

@@ -315,6 +315,13 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
               {next_event, internal,
                {application_packets, {self(),undefined}, Data}}]}
     end;
+connection({call, From}, get_application_traffic_secret, State) ->
+    CurrentWrite = maps:get(current_write, State#data.connection_states),
+    SecurityParams = maps:get(security_parameters, CurrentWrite),
+    ApplicationTrafficSecret =
+        SecurityParams#security_parameters.application_traffic_secret,
+    hibernate_after(?FUNCTION_NAME, State,
+                    [{reply, From, {ok, ApplicationTrafficSecret}}]);
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
 connection(internal, {post_handshake_data, From, HSData}, StateData) ->
