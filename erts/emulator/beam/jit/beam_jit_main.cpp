@@ -180,7 +180,7 @@ static JitAllocator *pick_allocator() {
      * over time, but we don't want to waste half a dozen fds just to get to
      * the shell on platforms that are very fd-constrained. */
     params.reset();
-    params.blockSize = 4 << 20;
+    params.blockSize = 32 << 20;
 
     allocator = nullptr;
     single_mapped = false;
