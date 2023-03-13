@@ -5095,7 +5095,39 @@ redefined_builtin_type(Config) ->
                       {{5,16},erl_lint,{redefine_builtin_type,{port,0}}},
                       {{6,16},erl_lint,{redefine_builtin_type,{float,0}}},
                       {{7,16},erl_lint,{redefine_builtin_type,{iodata,0}}}
-                     ]}}
+                     ]}},
+          {redef6,
+           <<"-spec bar(function()) -> bar().
+              bar({function, F}) -> F().
+              -type function() :: {function, fun(() -> bar())}.
+              -type bar() :: {bar, binary()}.
+             ">>,
+           [],
+           {warnings,[{{3,16},erl_lint,
+                       {redefine_builtin_type,{function,0}}}]}},
+          {redef7,
+           <<"-type function() :: {function, fun(() -> bar())}.
+              -type bar() :: {bar, binary()}.
+              -spec bar(function()) -> bar().
+              bar({function, F}) -> F().
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{function,0}}}]}},
+          {redef8,
+           <<"-type function() :: {function, fun(() -> atom())}.
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{function,0}}},
+                      {{1,22},erl_lint,
+                       {unused_type,{function,0}}}]}},
+          {redef9,
+           <<"-spec foo() -> fun().
+              foo() -> fun() -> ok end.
+             ">>,
+           [],
+           []}
          ],
     [] = run(Config, Ts),
     ok.
