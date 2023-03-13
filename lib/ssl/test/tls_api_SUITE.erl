@@ -296,7 +296,7 @@ tls_upgrade_new_opts_with_sni_fun() ->
     [{doc,"Test that you can upgrade an tcp connection to an ssl connection with new versions option provided by sni_fun"}].
 
 tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
@@ -322,8 +322,7 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
 				   {from, self()},
 				   {mfa, {?MODULE, upgrade_result, []}},
 				   {tcp_options, [binary]},
-				   {ssl_options,  [{verify, verify_peer},
-                                                   {versions,  [Version |NewVersions]},
+				   {ssl_options,  [{versions,  [Version |NewVersions]},
                                                    {ciphers, Ciphers},
                                                    {server_name_indication, Hostname} | ClientOpts]}]),
 

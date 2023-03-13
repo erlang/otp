@@ -183,10 +183,6 @@
          invalid_options_tls13/1,
          cookie/0,
          cookie/1,
-	 warn_verify_none/0,
-	 warn_verify_none/1,
-	 suppress_warn_verify_none/0,
-         suppress_warn_verify_none/1,
          check_random_nonce/0,
          check_random_nonce/1,
          cipher_listing/0,
@@ -321,8 +317,6 @@ gen_api_tests() ->
      cb_info,
      log_alert,
      getstat,
-     warn_verify_none,
-     suppress_warn_verify_none,
      check_random_nonce,
      cipher_listing
     ].
@@ -475,7 +469,7 @@ end_per_testcase(_TestCase, Config) ->
 peercert() ->
     [{doc,"Test API function peercert/1"}].
 peercert(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -509,8 +503,8 @@ peercert(Config) when is_list(Config) ->
 peercert_with_client_cert() ->
     [{doc,"Test API function peercert/1"}].
 peercert_with_client_cert(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
@@ -605,7 +599,7 @@ select_sha1_cert(Config) when is_list(Config) ->
 connection_information() ->
     [{doc,"Test the API function ssl:connection_information/1"}].
 connection_information(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -650,7 +644,7 @@ do_run_conn_info_srp_test(ErlangCipherSuite, Version, Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     SOpts = [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}}],
-    COpts = [{srp_identity, {"Test-User", "secret"}}],
+    COpts = [{verify, verify_none}, {srp_identity, {"Test-User", "secret"}}],
 
     ServerOpts = ssl_test_lib:ssl_options(SOpts, Config),
     ClientOpts = ssl_test_lib:ssl_options(COpts, Config),
@@ -683,7 +677,7 @@ do_run_conn_info_srp_test(ErlangCipherSuite, Version, Config) ->
 secret_connection_info() ->
     [{doc,"Test the API function ssl:connection_information/2"}].
 secret_connection_info(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -715,7 +709,7 @@ keylog_connection_info(Config) when is_list(Config) ->
     keylog_connection_info(Config, true),
     keylog_connection_info(Config, false).
 keylog_connection_info(Config, KeepSecrets) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -777,7 +771,7 @@ dh_params() ->
     [{doc,"Test to specify DH-params file in server."}].
 
 dh_params(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     DataDir = proplists:get_value(data_dir, Config),
     DHParamFile = filename:join(DataDir, "dHParam.pem"),
@@ -806,7 +800,7 @@ dh_params(Config) when is_list(Config) ->
 conf_signature_algs() ->
     [{doc,"Test to set the signature_algs option on both client and server"}].
 conf_signature_algs(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = 
@@ -838,7 +832,7 @@ no_common_signature_algs()  ->
     [{doc,"Set the signature_algs option so that there client and server does not share any hash sign algorithms"}].
 no_common_signature_algs(Config) when is_list(Config) ->
     
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -861,12 +855,13 @@ no_common_signature_algs(Config) when is_list(Config) ->
 handshake_continue() ->
     [{doc, "Test API function ssl:handshake_continue/3"}].
 handshake_continue(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
         ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {host, Hostname},
                                    {from, self()},
                                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                    {options, ssl_test_lib:ssl_options([{reuseaddr, true},
@@ -885,10 +880,10 @@ handshake_continue(Config) when is_list(Config) ->
                                    {from, self()},
                                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                    {options, ssl_test_lib:ssl_options([{handshake, hello},
-                                                                       {verify, verify_peer} | ClientOpts
+                                                                       {verify, verify_none} | ClientOpts
                                                                       ],
                                                                       Config)},
-                                   {continue_options,  proplists:delete(reuseaddr, ClientOpts)}]),
+                                   {continue_options,  [{verify, verify_peer} | ClientOpts]}]),
      
     ssl_test_lib:check_result(Server, ok, Client, ok),
     
@@ -899,7 +894,7 @@ handshake_continue(Config) when is_list(Config) ->
 handshake_continue_tls13_client() ->
     [{doc, "Test API function ssl:handshake_continue/3 with fixed TLS 1.3 client"}].
 handshake_continue_tls13_client(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     SCiphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
@@ -971,7 +966,7 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
 handshake_continue_timeout() ->
     [{doc, "Test API function ssl:handshake_continue/3 with short timeout"}].
 handshake_continue_timeout(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -979,9 +974,9 @@ handshake_continue_timeout(Config) when is_list(Config) ->
                                         {from, self()},
                                         {timeout, 1},
                                         {options, ssl_test_lib:ssl_options([{reuseaddr, true}, {handshake, hello},
-                                                                            {verify, verify_peer} | ServerOpts],
+                                                                            {verify, verify_none} | ServerOpts],
                                                                            Config)},
-                                        {continue_options, proplists:delete(reuseaddr, ServerOpts)}
+                                        {continue_options, [{verify, verify_peer} | ServerOpts]}
                                        ]),
 
     Port = ssl_test_lib:inet_port(Server),
@@ -999,7 +994,7 @@ handshake_continue_change_verify() ->
     [{doc, "Test API function ssl:handshake_continue with updated verify option. "
       "Use a verification that will fail to make sure verification is run"}].
 handshake_continue_change_verify(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -1019,7 +1014,8 @@ handshake_continue_change_verify(Config) when is_list(Config) ->
                 {from, self()},
                 {options, ssl_test_lib:ssl_options(
                             [{handshake, hello},
-                             {server_name_indication, "foobar"}
+                             {server_name_indication, "foobar"},
+                             {verify, verify_none}
                             | ClientOpts], Config)},
                 {continue_options, [{verify, verify_peer} | ClientOpts]}]),
     ssl_test_lib:check_client_alert(Client,  handshake_failure).
@@ -1028,16 +1024,17 @@ handshake_continue_change_verify(Config) when is_list(Config) ->
 hello_client_cancel() ->
     [{doc, "Test API function ssl:handshake_cancel/1 on the client side"}].
 hello_client_cancel(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
         ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {host, Hostname},
                                    {from, self()},
                                    {options, ssl_test_lib:ssl_options([{handshake, hello},
-                                                                       {verify, verify_peer} | ServerOpts], Config)},
-                                   {continue_options, proplists:delete(reuseaddr, ServerOpts)}]),
+                                                                       {verify, verify_none} | ServerOpts], Config)},
+                                   {continue_options, [{verify, verify_peer} | ServerOpts]}]),
     
     Port = ssl_test_lib:inet_port(Server),
 
@@ -1046,16 +1043,16 @@ hello_client_cancel(Config) when is_list(Config) ->
         ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                                    {host, Hostname},
                                    {from, self()},
-                                   {options, ssl_test_lib:ssl_options([{handshake, hello},
-                                                                       {verify, verify_peer} | ClientOpts], Config)},
+                                   {options, ssl_test_lib:ssl_options([{handshake, hello}
+                                                                      | ClientOpts], Config)},
                                    {continue_options, cancel}]),
     ssl_test_lib:check_server_alert(Server, user_canceled).
 %%--------------------------------------------------------------------
 hello_server_cancel() ->
     [{doc, "Test API function ssl:handshake_cancel/1 on the server side"}].
 hello_server_cancel(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
@@ -1092,7 +1089,7 @@ versions_option_based_on_sni() ->
     [{doc,"Test that SNI versions option is selected over default versions"}].
 
 versions_option_based_on_sni(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     TestVersion = ssl_test_lib:protocol_version(Config),
     {Version, Versions} = test_versions_for_option_based_on_sni(TestVersion),
@@ -1130,9 +1127,10 @@ active_n() ->
     [{doc,"Test {active,N} option"}].
 
 active_n(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Port = ssl_test_lib:inet_port(node()),
+    Host = net_adm:localhost(),
     N = 3,
     LS = ok(ssl:listen(Port, [{active,N}|ServerOpts])),
     [{active,N}] = ok(ssl:getopts(LS, [active])),
@@ -1146,7 +1144,7 @@ active_n(Config) when is_list(Config) ->
         ssl:controlling_process(S, Self),
         Self ! {server, S}
     end),
-    C = ok(ssl:connect("localhost", Port, [{active,N}|ClientOpts])),
+    C = ok(ssl:connect(Host, Port, [{active,N}|ClientOpts])),
     [{active,N}] = ok(ssl:getopts(C, [active])),
     S = receive
         {server, S0} -> S0
@@ -1214,7 +1212,7 @@ hibernate_client() ->
       "option hibernate_after indeed hibernates after inactivity"}].
 
 hibernate_client(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     StartServerOpts = [return_socket, {node, ServerNode},
@@ -1235,7 +1233,7 @@ hibernate_server() ->
       "Note: for DTLS test will not be stable, because cookie secret refresh "
       "mechanism might disturb hibernation of a server process."}].
 hibernate_server(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     StartServerOpts = [return_socket, {node, ServerNode}, {port, 0},
@@ -1321,8 +1319,8 @@ peername() ->
     [{doc,"Test API function peername/1"}].
 
 peername(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server(
@@ -1362,7 +1360,7 @@ recv_active() ->
     [{doc,"Test recv on active socket"}].
 
 recv_active(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = 
@@ -1388,7 +1386,7 @@ recv_active_once() ->
     [{doc,"Test recv on active (once) socket"}].
 
 recv_active_once(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = 
@@ -1414,7 +1412,7 @@ recv_active_n() ->
     [{doc,"Test recv on active (n) socket"}].
 
 recv_active_n(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server =
@@ -1440,7 +1438,7 @@ recv_timeout() ->
 
 recv_timeout(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -1466,7 +1464,7 @@ recv_timeout(Config) ->
 recv_close() ->
     [{doc,"Special case of call error handling"}].
 recv_close(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1490,7 +1488,7 @@ recv_no_active_msg() ->
     [{doc,"If we have a passive socket and do not call recv and peer closes we should no get"
       "receive an active message"}].
 recv_no_active_msg(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1512,7 +1510,7 @@ controlling_process() ->
     [{doc,"Test API function controlling_process/2"}].
 
 controlling_process(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     ClientMsg = "Server hello",
@@ -1549,7 +1547,7 @@ controlling_process(Config) when is_list(Config) ->
 controller_dies() ->
     [{doc,"Test that the socket is closed after controlling process dies"}].
 controller_dies(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     ClientMsg = "Hello server",
@@ -1640,7 +1638,7 @@ controlling_process_transport_accept_socket() ->
     [{doc,"Only ssl:handshake and ssl:controlling_process is allowed for transport_accept:sockets"}].
 controlling_process_transport_accept_socket(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server_transport_control([{node, ServerNode}, 
@@ -1660,7 +1658,7 @@ controlling_process_transport_accept_socket(Config) when is_list(Config) ->
 close_with_timeout() ->
       [{doc,"Test normal (not downgrade) ssl:close/2"}].
 close_with_timeout(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1688,7 +1686,7 @@ close_in_error_state(Config) when is_list(Config) ->
     _ = spawn(?MODULE, run_error_server_close, [[self() | ServerOpts]]),
     receive
         {_Pid, Port} ->
-            spawn_link(?MODULE, run_client_error, [[Port, ClientOpts]])
+            spawn_link(?MODULE, run_client_error, [[Port, [{verify, verify_none} | ClientOpts]]])
     end,
     receive
         ok ->
@@ -1707,7 +1705,7 @@ call_in_error_state(Config) when is_list(Config) ->
     Pid = spawn(?MODULE, run_error_server, [[self() | ServerOpts]]),
     receive
         {Pid, Port} ->
-            spawn_link(?MODULE, run_client_error, [[Port, ClientOpts]])
+            spawn_link(?MODULE, run_client_error, [[Port, [{verify, verify_none} | ClientOpts]]])
     end,
     receive
         {error, closed} ->
@@ -1741,7 +1739,7 @@ abuse_transport_accept_socket() ->
     [{doc,"Only ssl:handshake and ssl:controlling_process is allowed for transport_accept:sockets"}].
 abuse_transport_accept_socket(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server_transport_abuse_socket([{node, ServerNode}, 
@@ -1763,7 +1761,7 @@ abuse_transport_accept_socket(Config) when is_list(Config) ->
 invalid_keyfile() ->
     [{doc,"Test what happens with an invalid key file"}].
 invalid_keyfile(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     BadKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
 			      "badkey.pem"]),
@@ -1848,7 +1846,7 @@ ipv6(Config) when is_list(Config) ->
     
     case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
 	true ->
-	    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+	    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 	    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 	    {ClientNode, ServerNode, Hostname} = 
 		ssl_test_lib:run_where(Config, ipv6),
@@ -1895,7 +1893,7 @@ der_input(Config) when is_list(Config) ->
     SeverVerifyOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ServerCert, ServerKey, ServerCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
 								       SeverVerifyOpts]),
-    ClientVerifyOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientVerifyOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     {ClientCert, ClientKey, ClientCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
 								       ClientVerifyOpts]),
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
@@ -1954,7 +1952,7 @@ invalid_certfile() ->
     [{doc,"Test what happens with an invalid cert file"}].
 
 invalid_certfile(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     BadCertFile = filename:join([proplists:get_value(priv_dir, Config), 
                                  "badcert.pem"]),
@@ -1986,7 +1984,7 @@ invalid_cacertfile() ->
     [{doc,"Test what happens with an invalid cacert file"}].
 
 invalid_cacertfile(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     BadCACertFile = filename:join([proplists:get_value(priv_dir, Config), 
                                  "badcacert.pem"]),
@@ -2038,7 +2036,7 @@ invalid_cacertfile(Config) when is_list(Config) ->
 new_options_in_handshake() ->
     [{doc,"Test that you can set ssl options in handshake/3 and not only in tcp upgrade"}].
 new_options_in_handshake(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Version = ssl_test_lib:protocol_version(Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2085,7 +2083,7 @@ max_handshake_size() ->
     [{doc,"Test that we can set max_handshake_size to max value."}].
 
 max_handshake_size(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),  
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -3068,7 +3066,7 @@ cb_info() ->
     [{doc,"Test that we can set cb_info."}].
 
 cb_info(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Protocol = proplists:get_value(protocol, Config, tls),
     CbInfo =
@@ -3099,7 +3097,7 @@ log_alert() ->
       " that has replaced this option"}].
 
 log_alert(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -3494,65 +3492,6 @@ cookie() ->
 cookie(Config) when is_list(Config) ->
     cookie_extension(Config, true),
     cookie_extension(Config, false).
-
-warn_verify_none() ->
-    [{doc, "Test that verify_none default generates warning."}].
-warn_verify_none(Config) when is_list(Config)->
-    ok = logger:add_handler(?MODULE,?MODULE,#{config=>self()}),
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-                                        {options, ServerOpts},
-                                        {mfa, {ssl_test_lib, no_result, []}}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                                        {from, self()},
-                                        {host, Hostname},
-	                                {options, ClientOpts},
-					{mfa, {ssl_test_lib, no_result, []}}]),
-    receive
-        warning_generated ->
-            ok = logger:remove_handler(?MODULE)
-    after 500 ->
-            ok = logger:remove_handler(?MODULE),
-            ct:fail(no_warning)
-    end,
-    ssl_test_lib:close(Client),
-    ssl_test_lib:close(Server).
-
-suppress_warn_verify_none() ->
-    [{doc, "Test that explicit verify_none suppresses warning."}].
-suppress_warn_verify_none(Config) when is_list(Config)->
-    ok = logger:add_handler(?MODULE,?MODULE,#{config=>self()}),
-
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-                                        {from, self()},
-                                        {options, ServerOpts},
-					    {mfa, {ssl_test_lib, no_result, []}}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                                        {from, self()},
-				        {host, Hostname},
-				        {options, [{verify, verify_none} | ClientOpts]},
-			                {mfa, {ssl_test_lib, no_result, []}}]),
-     receive
-         warning_generated ->
-	     ok = logger:remove_handler(?MODULE),
-             ct:fail(warning)
-     after 500 ->
-	     ok = logger:remove_handler(?MODULE)
-     end,
-    ssl_test_lib:close(Client),
-    ssl_test_lib:close(Server).
 
 %%--------------------------------------------------------------------
 check_random_nonce() ->

@@ -285,7 +285,7 @@ do_init_per_group(Group, Config0) when Group == rsa;
                                        Group == rsa_1_3 ->
     Config1 = ssl_test_lib:make_rsa_cert(Config0),
     Config = ssl_test_lib:make_rsa_1024_cert(Config1),
-    COpts = proplists:get_value(client_rsa_opts, Config),
+    COpts = proplists:get_value(client_rsa_verify_opts, Config),
     SOpts = proplists:get_value(server_rsa_opts, Config),
     Version = proplists:get_value(version, Config),
     [{cert_key_alg, rsa},
@@ -347,7 +347,7 @@ do_init_per_group(Group, Config0) when Group == ecdsa;
     case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse lists:member(dh, PKAlg)) of
         true ->
             Config = ssl_test_lib:make_ecdsa_cert(Config0),
-            COpts = proplists:get_value(client_ecdsa_opts, Config),
+            COpts = proplists:get_value(client_ecdsa_verify_opts, Config),
             SOpts = proplists:get_value(server_ecdsa_opts, Config),
             [{cert_key_alg, ecdsa} |
              lists:delete(cert_key_alg,
@@ -412,11 +412,11 @@ end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(signature_algorithms_bad_curve_secp256r1, Config) ->
-    init_rsa_ecdsa_opts(Config, secp256r1);
+    init_ecdsa_opts(Config, secp256r1);
 init_per_testcase(signature_algorithms_bad_curve_secp384r1, Config) ->
-    init_rsa_ecdsa_opts(Config, secp384r1);
+    init_ecdsa_opts(Config, secp384r1);
 init_per_testcase(signature_algorithms_bad_curve_secp521r1, Config) ->
-    init_rsa_ecdsa_opts(Config, secp521r1);
+    init_ecdsa_opts(Config, secp521r1);
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
@@ -425,14 +425,14 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(_TestCase, Config) ->
     Config.
 
-init_rsa_ecdsa_opts(Config0, Curve) ->
+init_ecdsa_opts(Config0, Curve) ->
     Version = ssl_test_lib:n_version(proplists:get_value(version, Config0)),
     PKAlg = crypto:supports(public_keys),
     case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse lists:member(dh, PKAlg)) of
         true ->
             Config = ssl_test_lib:make_rsa_ecdsa_cert(Config0, Curve),
-            COpts = proplists:get_value(client_rsa_ecdsa_opts, Config),
-            SOpts = proplists:get_value(server_rsa_ecdsa_opts, Config),
+            COpts = proplists:get_value(client_ecdsa_verify_opts, Config),
+            SOpts = proplists:get_value(server_ecdsa_opts, Config),
             [{cert_key_alg, ecdsa} |
              lists:delete(cert_key_alg,
                           [{client_cert_opts, ssl_test_lib:sig_algs(ecdsa, Version) ++ COpts},
@@ -519,7 +519,7 @@ missing_root_cert_auth(Config) when is_list(Config) ->
 					      {options, no_reuse(Version) ++ [{verify, verify_peer}
                                                                              | ServerOpts]}]),
 
-    Error = {error, {options, incompatible, [{verify,verify_peer}, {cacerts,undefined}]}},
+    Error = {error, {options, {verify, {missing_dep_cacertfile_or_cacerts}}}},
     ssl_test_lib:check_result(Server, Error),
     
     ClientOpts =  proplists:delete(cacertfile, ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)),

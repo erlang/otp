@@ -149,7 +149,7 @@ init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
                                                 },
                         connection_env = #connection_env{cert_key_alts = CertKeyAlts},
                         ssl_options = SslOptions,
-                        session = Session0} = ssl_gen_statem:ssl_config(State0#state.ssl_options, Role, State0),
+                        session = Session0} = ssl_gen_statem:init_ssl_config(State0#state.ssl_options, Role, State0),
         State = case Role of
                     client ->
                         CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts),

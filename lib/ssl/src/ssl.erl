@@ -1599,9 +1599,7 @@ handle_options(Transport, Socket, Opts0, Role, Host) ->
     {UserSslOptsList, SockOpts0} = split_options(Opts0, ssl_options()),
 
     Env = #{role => Role, host => Host},
-    SslOptsPost = process_options(UserSslOptsList, #{}, Env),
-
-    SslOpts = maybe_client_warn_no_verify(SslOptsPost, Role),
+    SslOpts = process_options(UserSslOptsList, #{}, Env),
 
     %% Handle special options
     #{protocol := Protocol} = SslOpts,
@@ -1697,17 +1695,16 @@ validate_versions(dtls, Vsns0) ->
 
 opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
     {Verify, Opts} =
-        case get_opt_of(verify, [verify_none, verify_peer], verify_none, UserOpts, Opts0) of
-            {default, verify_none} when Role =:= client ->
-                {verify_none, Opts0#{warn_verify_none => true, verify => verify_none}};
+        case get_opt_of(verify, [verify_none, verify_peer], default_verify(Role), UserOpts, Opts0) of
             {_, verify_none} ->
-                {verify_none, Opts0#{verify => verify_none}};
+                {verify_none, Opts0#{verify => verify_none, verify_fun => {none_verify_fun(), []}}};
             {_, verify_peer} ->
                 %% If 'verify' is changed from verify_none to verify_peer, (via update_options/3)
                 %% the 'verify_fun' must also be changed to undefined.
-                %% i.e remove the default verify_none fun
+                %% i.e remove verify_none fun
                 {verify_peer, Opts0#{verify => verify_peer, verify_fun => undefined}}
         end,
+    assert_cacerts(Verify, maps:merge(UserOpts, Opts0)),
     {_, PartialChain} = get_opt_fun(partial_chain, 1, fun(_) -> unknown_ca end, UserOpts, Opts),
 
     {_, FailNoPeerCert} = get_opt_bool(fail_if_no_peer_cert, false, UserOpts, Opts),
@@ -1721,9 +1718,16 @@ opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
                                     fail_if_no_peer_cert => FailNoPeerCert},
                    Env).
 
+default_verify(client) ->
+    %% Server authenication is by default requiered
+    verify_peer;
+default_verify(server) ->
+    %% Client certification is an optional part of the protocol
+    verify_none.
+
 opt_verify_fun(UserOpts, Opts, _Env) ->
-    DefVerifyNoneFun = {default_verify_fun(), []},
-    VerifyFun = case get_opt(verify_fun, DefVerifyNoneFun, UserOpts, Opts) of
+    %%DefVerifyNoneFun = {default_verify_fun(), []},
+    VerifyFun = case get_opt(verify_fun, undefined, UserOpts, Opts) of
                     {_, {F,_} = FA} when is_function(F, 3); is_function(F, 4) ->
                         FA;
                     {_, UserFun} when is_function(UserFun, 1) ->
@@ -1735,22 +1739,22 @@ opt_verify_fun(UserOpts, Opts, _Env) ->
                 end,
     Opts#{verify_fun => VerifyFun}.
 
-default_verify_fun() ->
-    fun(_, {bad_cert, _}, UserState) ->
+none_verify_fun() ->
+     fun(_, {bad_cert, _}, UserState) ->
+             {valid, UserState};
+        (_, {extension, #'Extension'{critical = true}}, UserState) ->
+             %% This extension is marked as critical, so
+             %% certificate verification should fail if we don't
+             %% understand the extension.  However, this is
+             %% `verify_none', so let's accept it anyway.
+             {valid, UserState};
+        (_, {extension, _}, UserState) ->
+             {unknown, UserState};
+        (_, valid, UserState) ->
             {valid, UserState};
-       (_, {extension, #'Extension'{critical = true}}, UserState) ->
-            %% This extension is marked as critical, so
-            %% certificate verification should fail if we don't
-            %% understand the extension.  However, this is
-            %% `verify_none', so let's accept it anyway.
-            {valid, UserState};
-       (_, {extension, _}, UserState) ->
-            {unknown, UserState};
-       (_, valid, UserState) ->
-            {valid, UserState};
-       (_, valid_peer, UserState) ->
-            {valid, UserState}
-    end.
+        (_, valid_peer, UserState) ->
+             {valid, UserState}
+     end.
 
 convert_verify_fun() ->
     fun(_,{bad_cert, _} = Reason, OldFun) ->
@@ -2450,6 +2454,13 @@ role_error(true, ErrorDesc, Option)
   when ErrorDesc =:= client_only; ErrorDesc =:= server_only ->
     throw_error({option, ErrorDesc, Option}).
 
+assert_cacerts(verify_peer, Options) ->
+    CaCerts = maps:get(cacerts, Options, undefined),
+    CaCertsFile = maps:get(cacertfile, Options, undefined),
+    option_error((CaCerts == undefined) andalso (CaCertsFile == undefined), verify, {missing_dep_cacertfile_or_cacerts});
+assert_cacerts(verify_none,_) ->
+    ok.
+
 option_incompatible(false, _Options) -> ok;
 option_incompatible(true, Options) -> option_incompatible(Options).
 
@@ -2822,18 +2833,6 @@ add_filter(undefined, Filters) ->
     Filters;
 add_filter(Filter, Filters) ->
     [Filter | Filters].
-
-maybe_client_warn_no_verify(#{verify := verify_none,
-                             warn_verify_none := true,
-                             log_level := LogLevel} = Opts, client) ->
-    ssl_logger:log(warning, LogLevel,
-                   #{description => "Server authenticity is not verified since certificate path validation is not enabled",
-                     reason => "The option {verify, verify_peer} and one of the options 'cacertfile' or "
-                     "'cacerts' are required to enable this."}, ?LOCATION),
-    maps:without([warn_verify_none], Opts);
-maybe_client_warn_no_verify(Opts,_) ->
-    %% Warning not needed. Note client certificate validation is optional in TLS
-    Opts.
 
 unambiguous_path(Value) ->
     AbsName = filename:absname(Value),
