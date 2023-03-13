@@ -175,11 +175,7 @@ get_results([{Lbl,#b_blk{last=#b_ret{arg=#b_literal{val=Lit}}}}|Rest],
     %% which do not match the type of the element. We can safely stop
     %% the tracking in that case.
     Continue = case Element of
-                   {tuple_elements,_} ->
-                       is_tuple(Lit);
                    {tuple_element,_,_} ->
-                       is_tuple(Lit);
-                   Elements when is_list(Elements) ->
                        is_tuple(Lit);
                    self ->
                        is_bitstring(Lit);
