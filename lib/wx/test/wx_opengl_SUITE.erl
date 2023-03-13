@@ -93,23 +93,21 @@ canvas(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 canvas(Config) ->
     WX = ?mr(wx_ref, wx:new()),
     Frame = wxFrame:new(WX,1,"Hello 3D-World",[]),
-    Attrs = [{attribList, [?WX_GL_RGBA,
-			   ?WX_GL_DOUBLEBUFFER,
-			   ?WX_GL_MIN_RED,8,
-			   ?WX_GL_MIN_GREEN,8,
-			   ?WX_GL_MIN_BLUE,8,
-                           %% ?WX_GL_CORE_PROFILE,
-			   ?WX_GL_DEPTH_SIZE,24,0]}],
-    Canvas = ?mt(wxGLCanvas, wxGLCanvas:new(Frame, [{style,?wxFULL_REPAINT_ON_RESIZE}|Attrs])),
-    SetContext =
-        try %% 3.0 API
-            Context = wxGLContext:new(Canvas),
-            fun() -> ?m(true, wxGLCanvas:setCurrent(Canvas, Context)) end
-        catch _:Reason:ST -> %% 2.8 API
-                io:format("Using old api: ~p~n  ~p~n",[Reason, ST]),
-                ?m(false, wx:is_null(wxGLCanvas:getContext(Canvas))),
-                fun() -> ?m(ok, wxGLCanvas:setCurrent(Canvas)) end
-        end,
+    Attrs = [?WX_GL_RGBA,
+             ?WX_GL_DOUBLEBUFFER,
+             ?WX_GL_MIN_RED,8,
+             ?WX_GL_MIN_GREEN,8,
+             ?WX_GL_MIN_BLUE,8,
+             %% ?WX_GL_CORE_PROFILE,
+             ?WX_GL_DEPTH_SIZE,24,0],
+
+
+    true = wxGLCanvas:isDisplaySupported(Attrs),
+
+    Canvas = ?mt(wxGLCanvas, wxGLCanvas:new(Frame, [{style,?wxFULL_REPAINT_ON_RESIZE},
+                                                    {attribList, Attrs}])),
+    Context = wxGLContext:new(Canvas),
+    SetContext = fun() -> ?m(true, wxGLCanvas:setCurrent(Canvas, Context)) end,
 
     wxFrame:connect(Frame, show),
     ?m(true, wxWindow:show(Frame)),

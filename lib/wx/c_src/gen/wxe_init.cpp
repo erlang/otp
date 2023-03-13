@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -5895,17 +5895,17 @@ void WxeApp::init_consts(wxeMetaCommand& event) {
 #else
     { enif_make_atom(rt.env,"wxKeyCode"), "wxk_MEDIA_PLAY_PAUSE", WXE_ATOM_undefined },
 #endif
-#if wxCHECK_VERSION(3,1,0)
+#if wxCHECK_VERSION(3,2,0)
     { enif_make_atom(rt.env,"wxKeyCode"), "wxk_LAUNCH_MAIL", rt.make_int(WXK_LAUNCH_MAIL) },
 #else
     { enif_make_atom(rt.env,"wxKeyCode"), "wxk_LAUNCH_MAIL", WXE_ATOM_undefined },
 #endif
-#if wxCHECK_VERSION(3,1,0)
+#if wxCHECK_VERSION(3,2,0)
     { enif_make_atom(rt.env,"wxKeyCode"), "wxk_LAUNCH_APP1", rt.make_int(WXK_LAUNCH_APP1) },
 #else
     { enif_make_atom(rt.env,"wxKeyCode"), "wxk_LAUNCH_APP1", WXE_ATOM_undefined },
 #endif
-#if wxCHECK_VERSION(3,1,0)
+#if wxCHECK_VERSION(3,2,0)
     { enif_make_atom(rt.env,"wxKeyCode"), "wxk_LAUNCH_APP2", rt.make_int(WXK_LAUNCH_APP2) },
 #else
     { enif_make_atom(rt.env,"wxKeyCode"), "wxk_LAUNCH_APP2", WXE_ATOM_undefined },
