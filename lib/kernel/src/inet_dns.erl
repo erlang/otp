@@ -49,6 +49,7 @@
 	 make_dns_query/2, make_dns_query/3]).
 -include("inet_dns_record_adts.hrl").
 
+
 %% Function merge of #dns_rr{} and #dns_rr_opt{}
 %%
 
@@ -110,6 +111,10 @@ common_fields__rr__rr_opt() ->
 lists_member(_, []) -> false;
 lists_member(H, [H|_]) -> true;
 lists_member(H, [_|T]) -> lists_member(H, T).
+
+
+-define(in_range(Low, X, High), ((Low =< (X)) andalso ((X) =< High))).
+-define(is_decimal(X), (?in_range(0, (X), 9))).
 
 
 %% must match a clause in inet_res:query_nss_e?dns
@@ -364,6 +369,7 @@ decode_type(Type) ->
 	?T_MX -> ?S_MX;
 	?T_TXT -> ?S_TXT;
 	?T_AAAA -> ?S_AAAA;
+	?T_LOC -> ?S_LOC;
 	?T_SRV -> ?S_SRV;
 	?T_NAPTR -> ?S_NAPTR;
 	?T_OPT -> ?S_OPT;
@@ -405,6 +411,7 @@ encode_type(Type) ->
 	?S_MX -> ?T_MX;
 	?S_TXT -> ?T_TXT;
 	?S_AAAA -> ?T_AAAA;
+	?S_LOC -> ?T_LOC;
 	?S_SRV -> ?T_SRV;
 	?S_NAPTR -> ?T_NAPTR;
 	?S_OPT -> ?T_OPT;
@@ -543,6 +550,21 @@ decode_data(Data, ?S_MX, Buffer) ->
        Data,
        <<Prio:16,Dom/binary>>,
        {Prio,decode_domain(Dom, Buffer)});
+decode_data(Data, ?S_LOC, _) ->
+    ?MATCH_ELSE_DECODE_ERROR(
+       Data,
+       <<Version:8, SizeBase:4, SizeExp:4,
+         HorizPreBase:4, HorizPreExp:4, VertPreBase:4, VertPreExp:4,
+         Latitude:32, Longitude:32, Altitude:32>>,
+       ((Version =:= 0) andalso
+        ?is_decimal(SizeBase) andalso ?is_decimal(SizeExp) andalso
+        ?is_decimal(HorizPreBase) andalso ?is_decimal(HorizPreExp) andalso
+        ?is_decimal(VertPreBase) andalso ?is_decimal(VertPreExp)),
+       {{decode_loc_angle(Latitude), decode_loc_angle(Longitude)},
+        decode_loc_altitude(Altitude),
+        decode_loc_size(SizeBase, SizeExp),
+        {decode_loc_size(HorizPreBase, HorizPreExp),
+         decode_loc_size(VertPreBase, VertPreExp)}});
 decode_data(Data, ?S_SRV, Buffer) ->
     ?MATCH_ELSE_DECODE_ERROR(
        Data,
@@ -739,6 +761,25 @@ encode_data(Comp, Pos, ?S_MINFO, Data) ->
 encode_data(Comp, Pos, ?S_MX, Data) ->
     {Pref,Exch} = Data,
     encode_name(<<Pref:16>>, Comp, Pos+2, Exch);
+encode_data(Comp, _, ?S_LOC, Data) ->
+    %% Similar to the Master File Format in section 3 of RFC 1876
+    case Data of
+        {{Latitude, Longitude}, Altitude, Size, {HorizPre, VertPre}} ->
+            ok;
+        {{Latitude, Longitude}, Altitude, Size} ->
+            HorizPre = 10_000_00, VertPre = 10_00,
+            ok;
+        {{Latitude, Longitude}, Altitude} ->
+            Size = 1_00, HorizPre = 10_000_00, VertPre = 10_00,
+            ok
+    end,
+    Version = 0,
+    {<<Version:8, (encode_loc_size(Size))/binary,
+       (encode_loc_size(HorizPre))/binary, (encode_loc_size(VertPre))/binary,
+       (encode_loc_angle(Latitude)):32,
+       (encode_loc_angle(Longitude)):32,
+       (encode_loc_altitude(Altitude)):32>>,
+     Comp};
 encode_data(Comp, Pos, ?S_SRV, Data) ->
     {Prio,Weight,Port,Target} = Data,
     encode_name(<<Prio:16,Weight:16,Port:16>>, Comp, Pos+2+2+2, Target);
@@ -858,3 +899,51 @@ encode_labels(Bin, Comp0, Pos, [L|Ls]=Labels)
 	    %% Name compression - point to already encoded name
 	    {<<Bin/binary,3:2,Ptr:14>>,Comp0}
     end.
+
+
+decode_loc_angle(X) ->
+    (X - 16#8000_0000) / 3600_000.
+
+encode_loc_angle(X) when is_float(X) ->
+    %% Degrees (1/360 of a turn)
+    encode_loc_angle(round(X * 3600_000));
+encode_loc_angle(X)
+  when is_integer(X), -16#8000_0000 =< X, X =< 16#7FFF_FFFF ->
+    %% 1/1000:s of arc second
+    X + 16#8000_0000.  % Zero is encoded as 2^31
+
+
+decode_loc_altitude(X) ->
+    (X - 100_000_00) / 100.
+
+encode_loc_altitude(X) when is_float(X) ->
+    %% Meters
+    encode_loc_altitude(round(X * 100));
+encode_loc_altitude(X)
+  when is_integer(X), -100_000_00 =< X, X =< 16#FFFF_FFFF - 100_000_00 ->
+    %% Centimeters above a base level 100_000 m below
+    %% the GPS reference spheroid [DoD WGS-1984]
+    X + 100_000_00.
+
+
+decode_loc_size(Base, Exponent) ->
+    round(Base * math:pow(10, Exponent)) / 100.
+
+%% Return the smallest encoded value >= X;
+%% a bit like ceil(X) of encoded values
+%%
+encode_loc_size(X) when is_float(X) ->
+    %% Meters
+    encode_loc_size(round(X * 100));
+encode_loc_size(0) ->
+    0;
+encode_loc_size(X)
+  when is_integer(X), 0 =< X, X =< 9000_000_000 ->
+    %% Centimeters, to be encoded as Digit * 10^Exponent
+    %% with both Digit and Exponent in 0..9,
+    %% limiting the range to 0..9e9
+    %%
+    Exponent = floor(math:log10((X - 0.05) / 0.9)),
+    Multiplier = round(math:pow(10, Exponent)),
+    Base = (X + Multiplier - 1) div Multiplier,
+    <<Base:4, Exponent:4>>.
