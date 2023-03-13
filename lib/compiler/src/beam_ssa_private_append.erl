@@ -260,7 +260,16 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                                     Defs, ValuesInFun, DefSt0);
                 {put_list,_,_} ->
                     track_put_list(Args, Element, Rest, Fun, V, Work0,
-                                   Defs, ValuesInFun, DefSt0)
+                                   Defs, ValuesInFun, DefSt0);
+                {_,_,_} ->
+                    %% Above we have handled all operations through
+                    %% which we are able to track the value to its
+                    %% construction. All other operations are from
+                    %% execution paths not reachable when the actual
+                    %% type (at runtime) is a relevant bitstring.
+                    %% Thus we can safely abort the tracking here.
+                    track_value_in_fun(Rest, Fun, Work0,
+                                       Defs, ValuesInFun, DefSt0)
             end;
         #{V:={arg,Idx}} ->
             track_value_into_caller(Element, Idx, Rest, Fun, Work0, Defs,
