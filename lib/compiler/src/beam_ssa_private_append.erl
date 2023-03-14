@@ -175,11 +175,7 @@ get_results([{Lbl,#b_blk{last=#b_ret{arg=#b_literal{val=Lit}}}}|Rest],
     %% which do not match the type of the element. We can safely stop
     %% the tracking in that case.
     Continue = case Element of
-                   {tuple_elements,_} ->
-                       is_tuple(Lit);
                    {tuple_element,_,_} ->
-                       is_tuple(Lit);
-                   Elements when is_list(Elements) ->
                        is_tuple(Lit);
                    self ->
                        is_bitstring(Lit);
@@ -260,7 +256,16 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                                     Defs, ValuesInFun, DefSt0);
                 {put_list,_,_} ->
                     track_put_list(Args, Element, Rest, Fun, V, Work0,
-                                   Defs, ValuesInFun, DefSt0)
+                                   Defs, ValuesInFun, DefSt0);
+                {_,_,_} ->
+                    %% Above we have handled all operations through
+                    %% which we are able to track the value to its
+                    %% construction. All other operations are from
+                    %% execution paths not reachable when the actual
+                    %% type (at runtime) is a relevant bitstring.
+                    %% Thus we can safely abort the tracking here.
+                    track_value_in_fun(Rest, Fun, Work0,
+                                       Defs, ValuesInFun, DefSt0)
             end;
         #{V:={arg,Idx}} ->
             track_value_into_caller(Element, Idx, Rest, Fun, Work0, Defs,
