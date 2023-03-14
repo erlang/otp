@@ -12121,7 +12121,7 @@ static void tcp_inet_command(ErlDrvData e, char *buf, ErlDrvSizeT len)
 
     if (! init_caller(&inetp->caller, &inetp->caller_ref,
                       inetp->port, &buf, &len)) {
-	inet_reply_error(inetp, EINVAL);
+        driver_failure_posix(inetp->port, EINVAL);
 	return;
     }
 
@@ -12152,7 +12152,7 @@ static void tcp_inet_commandv(ErlDrvData e, ErlIOVec *ev)
 
     if (! init_caller_iov(&inetp->caller, &inetp->caller_ref,
                           inetp->port, &ev->iov, &ev->size)) {
-        inet_reply_error(inetp, EINVAL);
+        driver_failure_posix(inetp->port, EINVAL);
         return;
     }
 
@@ -14439,7 +14439,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 
     if (! init_caller(&desc->caller, &desc->caller_ref,
                       desc->port, &buf, &len)) {
-	inet_reply_error(desc, EINVAL);
+        driver_failure_posix(desc->port, EINVAL);
 	return;
     }
     ptr = buf;
