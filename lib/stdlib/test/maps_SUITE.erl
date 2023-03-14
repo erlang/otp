@@ -358,7 +358,8 @@ t_get_3(Config) when is_list(Config) ->
     DefaultValue = maps:get(key3, Map, DefaultValue),
 
     %% error case
-    ?badmap(a,get,[[a,b],a,def]) = (catch maps:get([a,b],id(a),def)),
+    {'EXIT', {{badmap,a}, _}} = (catch maps:get([a,b],id(a),def)),
+
     ok.
 
 t_without_2(_Config) ->

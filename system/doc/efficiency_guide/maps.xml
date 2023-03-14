@@ -107,10 +107,7 @@
       there are default values, sharing of keys between different
       instances of the map will be less effective, and it is not
       possible to match multiple elements having default values in one
-      go. The <c>maps:get/3</c> function is <seeguide
-      marker="#maps_get_3">implemented in Erlang</seeguide>, making it
-      less efficient than <c>maps:get/2</c> or the map matching
-      syntax.</p></item>
+      go.</p></item>
 
       <item><p>To avoid having to deal with a map that may lack some keys,
       <seemfa marker="stdlib:maps#merge/2">maps:merge/2</seemfa>
@@ -487,31 +484,43 @@ new() ->
     <section>
       <marker id="maps_get_3"/>
       <title>maps:get/3</title>
-      <p><seemfa marker="stdlib:maps#get/3">maps:get/3</seemfa>
-      is implemented in Erlang essentially like this:</p>
+      <p>As an optimization, the compiler will rewrite a call to <seemfa
+      marker="stdlib:maps#get/3">maps:get/3</seemfa> to Erlang code similar to
+      the following:</p>
 
       <code type="erl"><![CDATA[
-get(Key, Map, Default) ->
-    case Map of
-        #{Key := Value} -> Value;
-        #{} -> Default
-    end.]]></code>
+    Result = case Map of
+                 #{Key := Value} -> Value;
+                 #{} -> Default
+             end]]></code>
 
-      <p>Therefore, a call <c>maps:get/3</c> is more expensive than a
-      call to <c>maps:get/2</c>.</p>
+      <p>This is reasonably efficient, but if a small map is used as an
+        alternative to using a record it is often better not to rely on default
+        values as it prevents sharing of keys, which may in the end use more
+        memory than what you save from not storing default values in the
+        map.</p>
 
-      <p>If a small map is used as alternative to using a record,
-      instead of calling <c>maps:get/3</c> multiple times to handle
-      default values, consider putting the default values in a map and
-      merging that map with the other map:</p>
+      <p>If default values are nevertheless required, instead of calling
+        <c>maps:get/3</c> multiple times, consider putting the default values
+        in a map and merging that map with the other map:</p>
 
       <code type="erl"><![CDATA[
     DefaultMap = #{Key1 => Value2, Key2 => Value2, ..., KeyN => ValueN},
     MapWithDefaultsApplied = maps:merge(DefaultMap, OtherMap)]]></code>
 
-      <p>Whether that is faster than calling <c>maps:get/3</c>
-      multiple times depends on the size of the map and the number of
-      default values.</p>
+      <p>This helps share keys between the default map and the one you applied
+        defaults to, as long as the default map contains <em>all</em> the keys
+        that will ever be used and not just the ones with default values.
+        Whether this is faster than calling <c>maps:get/3</c> multiple times
+        depends on the size of the map and the number of default values.</p>
+
+      <change>
+        <p>
+          Before OTP @OTP-18502@ <c>maps:get/3</c> was implemented by calling
+          the function instead of rewriting it as an Erlang expression. It is
+          now slightly faster but can no longer be traced.
+        </p>
+      </change>
     </section>
 
     <section>
