@@ -565,7 +565,7 @@ peeloff(S, AssocId) ->
 send(S, Data, OptList) when is_port(S), is_list(OptList) ->
     ?DBG_FORMAT("prim_inet:send(~p, _, ~p)~n", [S,OptList]),
     Mref = monitor(port, S),
-    MrefBin = term_to_binary(Mref),
+    MrefBin = term_to_binary(Mref, [local]),
     MrefBinSize = byte_size(MrefBin),
     MrefBinSize = MrefBinSize band 16#FFFF,
     try
@@ -631,7 +631,7 @@ do_sendto(S, Address, AncOpts, Data) ->
                          enc_value(set, uint32, AncDataLen), AncData,
                          Data],
                     Ref = make_ref(),
-                    RefBin = term_to_binary(Ref),
+                    RefBin = term_to_binary(Ref, [local]),
                     RefBinSize = byte_size(RefBin),
                     RefBinSize = RefBinSize band 16#FFFF,
                     try
