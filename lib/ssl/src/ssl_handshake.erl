@@ -2205,11 +2205,6 @@ cert_status_check(_OtpCert,
                                     ocsp_expect := undetermined}},
                   _VerifyResult, _CertPath, _LogLevel) ->
     {bad_cert, {revocation_status_undetermined, not_stapled}};
-cert_status_check(OtpCert,
-                  #{ocsp_state := #{ocsp_stapling := best_effort, %% TODO support this ?
-                                    ocsp_expect := undetermined}} = SslState,
-                  VerifyResult, CertPath, LogLevel) ->
-    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
 cert_status_check(_OtpCert,
                   #{ocsp_state := #{ocsp_stapling := true,
                                     ocsp_expect := no_staple}},
