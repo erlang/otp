@@ -216,30 +216,31 @@ typedef struct {
 } ESAIOThread;
 
 typedef struct {
-    WSADATA        wsaData;
-    HANDLE         cport;
+    WSADATA         wsaData;
+    HANDLE          cport;
 
-    SOCKET         dummy; // Used for extracting AcceptEx and ConnectEx
-    LPFN_ACCEPTEX  accept;
-    LPFN_CONNECTEX connect;
+    SOCKET          dummy; // Used for extracting AcceptEx and ConnectEx
+
+    LPFN_ACCEPTEX   accept;
+    LPFN_CONNECTEX  connect;
     LPFN_WSASENDMSG sendmsg;
 
     /* Thread pool stuff.
      * The size of the pool is configurable. */
-    DWORD          numThreads;
-    ESAIOThread*   threads;
+    DWORD           numThreads;
+    ESAIOThread*    threads;
 
     /* Misc stuff */
-    BOOLEAN_T      dbg;
-    BOOLEAN_T      sockDbg;
+    BOOLEAN_T       dbg;
+    BOOLEAN_T       sockDbg;
 
     /* Counter stuff */
-    ErlNifMutex*   cntMtx;
-    ESockCounter   unexpectedAccepts;
-    ESockCounter   unexpectedWrites;
-    ESockCounter   unexpectedReads;
-    ESockCounter   genErrs;
-    ESockCounter   unknownCmds;
+    ErlNifMutex*    cntMtx;
+    ESockCounter    unexpectedAccepts;
+    ESockCounter    unexpectedWrites;
+    ESockCounter    unexpectedReads;
+    ESockCounter    genErrs;
+    ESockCounter    unknownCmds;
 
 } ESAIOControl;
 
@@ -436,10 +437,10 @@ static ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
                                       ssize_t          dataSize,
                                       BOOLEAN_T        dataInTail,
                                       ERL_NIF_TERM     sockRef,
-                                      ERL_NIF_TERM     sendRef);
+                                      ERL_NIF_TERM     sendRef,
+                                      BOOLEAN_T*       cleanup);
 static ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
-                                  ESAIOOperation*  opP,
                                   DWORD            written,
                                   ERL_NIF_TERM     sockRef);
 static ERL_NIF_TERM send_check_pending(ErlNifEnv*       env,
@@ -450,7 +451,6 @@ static ERL_NIF_TERM send_check_pending(ErlNifEnv*       env,
                                        ERL_NIF_TERM     sendRef);
 static ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
-                                    ESAIOOperation*  opP,
                                     int              saveErrno,
                                     ERL_NIF_TERM     sockRef);
 
@@ -1964,6 +1964,7 @@ ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
 {
     ErlNifPid       caller;
     ERL_NIF_TERM    eres;
+    BOOLEAN_T       cleanup = FALSE;
     int             wres;
     DWORD           toWrite;
     char*           buf;
@@ -1993,7 +1994,8 @@ ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
         return esock_make_error_invalid(env, esock_atom_data_size);    
 
     /* Once the send function has been called, this memory
-     * "belongs" to the "system" (so no need to free it).
+     * is "owned" by the system. That is, we cannot free it
+     * (or do anything with it) until the operation has completed.
      */
     buf = MALLOC( toWrite );
     ESOCK_ASSERT( buf != NULL );
@@ -2020,9 +2022,28 @@ ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
 
     wres = sock_send_O(descP->sock, &opP->data.send.wbuf, f, (OVERLAPPED*) opP);
 
-    return send_check_result(env, descP, opP, caller,
+    eres = send_check_result(env, descP, opP, caller,
                              wres, toWrite, FALSE,
-                             sockRef, sendRef);
+                             sockRef, sendRef, &cleanup);
+
+    if (cleanup) {
+
+        /* "Manually" allocated buffer */
+        FREE( opP->data.send.wbuf.buf );
+
+        esock_clear_env("esaio_send - cleanup", opP->env);
+        esock_free_env("esaio_send - cleanup", opP->env);
+
+        FREE( opP );
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_send {%d} -> done (%s)"
+            "\r\n   %T"
+            "\r\n", descP->sock, B2S(cleanup), eres) );
+
+    return eres;
 }
 
 
@@ -2047,6 +2068,7 @@ ERL_NIF_TERM esaio_sendto(ErlNifEnv*       env,
 {
     ErlNifPid       caller;
     ERL_NIF_TERM    eres;
+    BOOLEAN_T       cleanup = FALSE;
     int             wres;
     DWORD           toWrite;
     char*           buf;
@@ -2111,9 +2133,28 @@ ERL_NIF_TERM esaio_sendto(ErlNifEnv*       env,
                          (struct sockaddr*) toAddrP, toAddrLen,
                          (OVERLAPPED*) opP);
 
-    return send_check_result(env, descP, opP, caller,
+    eres = send_check_result(env, descP, opP, caller,
                              wres, toWrite, FALSE,
-                             sockRef, sendRef);
+                             sockRef, sendRef, &cleanup);
+
+    if (cleanup) {
+
+        /* "Manually" allocated buffer */
+        FREE( opP->data.sendto.wbuf.buf );
+
+        esock_clear_env("esaio_sendto - cleanup", opP->env);
+        esock_free_env("esaio_sendto - cleanup", opP->env);
+
+        FREE( opP );
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendto {%d} -> done (%s)"
+            "\r\n   %T"
+            "\r\n", descP->sock, B2S(cleanup), eres) );
+
+    return eres;
 }
 
 
@@ -2148,9 +2189,10 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
 {
     ErlNifPid       caller;
     ERL_NIF_TERM    eres;
+    BOOLEAN_T       cleanup = FALSE;
     int             wres;
     ERL_NIF_TERM    tail;
-    ERL_NIF_TERM    res, eAddr, eCtrl;
+    ERL_NIF_TERM    eAddr, eCtrl;
     ssize_t         dataSize;
     size_t          ctrlBufLen,  ctrlBufUsed;
     WSABUF*         wbufs = NULL;
@@ -2191,7 +2233,7 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
      * copy the ref *before* we know that we actually need it.
      * How much does this cost?
      */
-    opP->env = esock_alloc_env("esaio-sendmsg - operation");
+    opP->env = esock_alloc_env("esaio_sendmsg - operation");
 
     /* Extract the *mandatory* 'iov', which must be an erlang:iovec(),
      * from which we take at most IOV_MAX binaries.
@@ -2344,17 +2386,34 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
      */
     FREE( opP->data.sendmsg.msg.lpBuffers );
 
-    res = send_check_result(env, descP, opP, caller,
-                            wres, dataSize,
-                            (! enif_is_empty_list(opP->env, tail)),
-                            sockRef, sendRef);
+    eres = send_check_result(env, descP, opP, caller,
+                             wres, dataSize,
+                             (! enif_is_empty_list(opP->env, tail)),
+                             sockRef, sendRef, &cleanup);
+
+    if (cleanup) {
+        
+        /* "Manually" allocated buffers */
+        FREE( opP->data.sendmsg.msg.lpBuffers );
+        if (opP->data.sendmsg.ctrlBuf != NULL)
+            FREE( opP->data.sendmsg.ctrlBuf );
+
+        /* The i/o vector belongs to the op env,
+         * so it goes when the env goes.
+         */
+        esock_clear_env("esaio_sendto - cleanup", opP->env);
+        esock_free_env("esaio_sendto - cleanup", opP->env);
+
+        FREE( opP );
+
+    }
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_sendmsg {%d} -> done"
+           ("WIN-ESAIO", "esaio_sendmsg {%d} -> done (%s)"
             "\r\n   %T"
-            "\r\n", descP->sock, res) );
+            "\r\n", descP->sock, B2S(cleanup), eres) );
 
-    return res;
+    return eres;
 }
 
 
@@ -2989,6 +3048,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
          */
 
         if (err == WSA_IO_PENDING) {
+
             eres = recv_check_pending(env, descP, opP, caller,
                                       sockRef, recvRef);
         } else {
@@ -4833,6 +4893,9 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
     SGDBG( ("WIN-ESAIO",
             "esaio_completion_send -> clear and delete op env\r\n") );
 
+    /* "Manually" allocated buffer */
+    FREE( opP->data.send.wbuf.buf );
+
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_send - op cleanup", opP->env);
     esock_free_env("esaio_completion_send - op cleanup", opP->env);
@@ -4913,6 +4976,9 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
 
     SGDBG( ("WIN-ESAIO",
             "esaio_completion_sendto -> clear and delete op env\r\n") );
+
+    /* "Manually" allocated buffer */
+    FREE( opP->data.sendto.wbuf.buf );
 
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_sendto - op cleanup", opP->env);
@@ -5002,6 +5068,11 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
 
     SGDBG( ("WIN-ESAIO",
             "esaio_completion_sendmsg -> clear and delete op env\r\n") );
+
+    /* "Manually" allocated buffers */
+    FREE( opP->data.sendmsg.msg.lpBuffers );
+    if (opP->data.sendmsg.ctrlBuf != NULL)
+        FREE( opP->data.sendmsg.ctrlBuf );
 
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_sendmsg - op cleanup", opP->env);
@@ -6643,7 +6714,8 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
                                ssize_t          dataSize,
                                BOOLEAN_T        dataInTail,
                                ERL_NIF_TERM     sockRef,
-                               ERL_NIF_TERM     sendRef)
+                               ERL_NIF_TERM     sendRef,
+                               BOOLEAN_T*       cleanup)
 {
     ERL_NIF_TERM res;
     BOOLEAN_T    send_error;
@@ -6656,7 +6728,9 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
          * But we do need to clean up the overlapped structure.
          */
 
-        res = send_check_ok(env, descP, opP, dataSize, sockRef);
+        *cleanup = TRUE;
+
+        res = send_check_ok(env, descP, dataSize, sockRef);
 
     } else {
 
@@ -6675,11 +6749,15 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 
             /* We need to store the data in the queue! */
 
+            *cleanup = FALSE;
+
             res = send_check_pending(env, descP, opP, caller, sockRef, sendRef);
 
         } else {
 
-            res = send_check_fail(env, descP, opP, save_errno, sockRef);
+            *cleanup = TRUE;
+
+            res = send_check_fail(env, descP, save_errno, sockRef);
 
         }
     }
@@ -6702,7 +6780,6 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 static
 ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
                            ESockDescriptor* descP,
-                           ESAIOOperation*  opP,
                            DWORD            written,
                            ERL_NIF_TERM     sockRef)
 {
@@ -6721,10 +6798,6 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
     if (descP->writePkgMaxCnt > descP->writePkgMax)
         descP->writePkgMax = descP->writePkgMaxCnt;
     descP->writePkgMaxCnt = 0;
-
-    esock_clear_env("send_check_ok", opP->env);
-    esock_free_env("send_check_ok", opP->env);
-    FREE( opP );
 
     SSDBG( descP,
            ("WIN-ESAIO", "send_check_ok(%T) {%d} -> %ld written - done\r\n",
@@ -6773,7 +6846,6 @@ ERL_NIF_TERM send_check_pending(ErlNifEnv*       env,
 static
 ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                              ESockDescriptor* descP,
-                             ESAIOOperation*  opP,
                              int              saveErrno,
                              ERL_NIF_TERM     sockRef)
 {
@@ -6787,10 +6859,6 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO", "send_check_fail(%T) {%d} -> error: %d (%T)\r\n",
             sockRef, descP->sock, saveErrno, reason) );
-
-    esock_clear_env("send_check_fail", opP->env);
-    esock_free_env("send_check_fail", opP->env);
-    FREE( opP );
 
     return esock_make_error(env, reason);
 }

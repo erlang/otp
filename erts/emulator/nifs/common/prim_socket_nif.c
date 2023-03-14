@@ -5392,6 +5392,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     SGDBG( ("SOCKET", "nif_send -> done with result: "
             "\r\n   %T"
             "\r\n", res) );
+
     return res;
 
 }
