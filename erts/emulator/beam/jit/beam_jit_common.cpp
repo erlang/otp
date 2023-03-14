@@ -150,7 +150,11 @@ void BeamAssembler::handleError(Error err,
                                 const char *message,
                                 BaseEmitter *origin) {
     comment(message);
-    fflush(logger.file());
+
+    if (logger.file() != NULL) {
+        fflush(logger.file());
+    }
+
     ASSERT(0 && "Failed to encode instruction");
 }
 
