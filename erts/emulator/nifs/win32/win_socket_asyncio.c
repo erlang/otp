@@ -244,6 +244,101 @@ typedef struct {
 } ESAIOControl;
 
 
+typedef struct __ESAIOOpDataAccept {
+    /* The socket, sock, is created empty and then provided as an
+     * argumented to AcceptEx (together with the listen socket
+     * and the other arguments).
+     * When AcceptEx has completed successfully, the socket, s, is
+     * usable.
+     * But in order for the functions sockname and peername to work,
+     * the SO_UPDATE_ACCEPT_CONTEXT option must be set on the
+     * accepted socket, sock. */
+    SOCKET       lsock;    /* The listen socket */
+    SOCKET       asock;    /* The "accepted" socket.
+                            * This is created "in advance"
+                            * and then sent to AcceptEx as an argument.
+                            */
+    char*        buf;      /* Size depends on domain.
+                            * This is used for 'initial data', 
+                            * 'local address' and 'remote address'.
+                            * We use neither of these, but the 
+                            * AcceptEx function requires this argument!
+                            */
+    ERL_NIF_TERM lSockRef; /* The listen socket */
+    ERL_NIF_TERM accRef;   /* The (unique) reference (ID) of the accept */
+} ESAIOOpDataAccept;
+
+typedef struct __ESAIOOpDataConnect {
+    /* When ConnectEx has completed successfully, 
+     * the socket is usable.
+     * *But*, in order for the functions sockname and peername to work,
+     * the SO_UPDATE_CONNECT_CONTEXT option must be set on the socket.
+     */
+    ERL_NIF_TERM sockRef; /* The socket */
+} ESAIOOpDataConnect;
+
+typedef struct __ESAIOOpDataSend {
+    /* WSASend */
+    WSABUF        wbuf;    /* During ongoing sending, this buffer cannot
+                            * be de-allocated. */
+    ERL_NIF_TERM  sockRef; /* The socket */
+    ERL_NIF_TERM  sendRef; /* The (unique) reference (ID)
+                            * of the send request */
+} ESAIOOpDataSend;
+
+typedef struct __ESAIOOpDataSendTo {
+    /* WSASendTo */
+    WSABUF       wbuf;     /* During ongoing sending, this buffer cannot
+                            * be de-allocated. */
+
+    /* Do we actually need these (remote address)?
+     * Debugging/logging?
+     */
+    ESockAddress remoteAddr;
+    SOCKLEN_T    remoteAddrLen;
+
+    ERL_NIF_TERM sockRef; /* The socket */
+    ERL_NIF_TERM sendRef; /* The (unique) reference (ID)
+                           * of the send request */
+} ESAIOOpDataSendTo;
+
+typedef struct __ESAIOOpDataSendMsg {
+    /* WSASendMsg */
+    WSAMSG       msg;
+    ErlNifIOVec* iovec;
+    char*        ctrlBuf;
+    ESockAddress addr;
+    ERL_NIF_TERM sockRef; /* The socket */
+    ERL_NIF_TERM sendRef; /* The (unique) reference (ID)
+                           * of the send request */
+} ESAIOOpDataSendMsg;
+
+typedef struct __ESAIOOpDataRecv {
+    /* WSARecv */
+    DWORD         toRead;  /* Can be 0 (= zero)
+                            * "just to indicate: give me what you got"
+                            */
+    ErlNifBinary buf;
+    ERL_NIF_TERM sockRef; /* The socket */
+    ERL_NIF_TERM recvRef; /* The (unique) reference (ID)
+                           * of the recv request */
+} ESAIOOpDataRecv;
+
+typedef struct __ESAIOOpDataRecvFrom {
+    /* WSARecvFrom */
+    DWORD         toRead;  /* Can be 0 (= zero)
+                            * "just to indicate: give me what you got"
+                            */
+    ErlNifBinary  buf;
+
+    ESockAddress  fromAddr;
+    INT           addrLen; // SOCKLEN_T
+
+    ERL_NIF_TERM  sockRef; /* The socket */
+    ERL_NIF_TERM  recvRef; /* The (unique) reference (ID)
+                            * of the recv request */
+} ESAIOOpDataRecvFrom;
+
 /* An 'operation', recv/recvfrom/recvmsg and send/sendto/sendmsg,
  * accept or connect, is 'encoded' into this structure, which is
  * "passed around".
@@ -252,7 +347,7 @@ typedef struct __ESAIOOperation {
     /* Has to be first and is *only* used by I/O Completion Port framework */
     WSAOVERLAPPED        ol;
 
-    /* *** Commands *** */
+    /* *** Commands (=tags) *** */
 #define ESAIO_OP_NONE         0x0000  // None
     /* "system" commands */
 #define ESAIO_OP_TERMINATE    0x0001  // Terminate
@@ -268,11 +363,13 @@ typedef struct __ESAIOOperation {
 #define ESAIO_OP_RECV         0x0031  // WSARecv
 #define ESAIO_OP_RECVFROM     0x0032  // WSARecvFrom
 
-    unsigned int          tag;     // The 'tag' of the operation
+    unsigned int          tag;    /* The 'tag' of the operation */
 
-    /* Every request needs an environment */
-    ErlNifEnv*            env;
-    
+    ErlNifPid             caller; /* Almost every request (not connect)
+                                   * operations require a caller */
+    ErlNifEnv*            env;    /* Almost every request
+                                   * needs an environment */
+
     /* Generic "data" field.
      * This is different for each 'operation'!
      * Also, not all opererations have this!
@@ -280,109 +377,25 @@ typedef struct __ESAIOOperation {
 
     union {
         /* +++ accept +++ */
-        struct {
-            /* The socket, sock, is created empty and then provided as an
-             * argumented to AcceptEx (together with the listen socket
-             * and the other arguments).
-             * When AcceptEx has completed successfully, the socket, s, is
-             * usable.
-             * But in order for the functions sockname and peername to work,
-             * the SO_UPDATE_ACCEPT_CONTEXT option must be set on the
-             * accepted socket, sock. */
-            ErlNifPid     pid;    /* Caller of 'accept' */
-            SOCKET        lsock;  /* The listen socket */
-            SOCKET        asock;  /* The "accepted" socket.
-                                   * This is created "in advance"
-                                   * and then sent to AcceptEx as an argument.
-                                   */
-            char*         buf;    /* Size depends on domain.
-                                   * This is used for 'initial data', 
-                                   * 'local address' and 'remote address'.
-                                   * We use neither of these, but the 
-                                   * AcceptEx function requires this argument!
-                                   */
-            ERL_NIF_TERM  lSockRef; // The listen socket
-            ERL_NIF_TERM  accRef;   // The (unique) reference (ID) of the accept
-        } accept;
+        ESAIOOpDataAccept accept;
 
          /* +++ connect +++ */
-        struct {
-            /* When ConnectEx has completed successfully, 
-             * the socket is usable.
-             * *But*, in order for the functions sockname and peername to work,
-             * the SO_UPDATE_CONNECT_CONTEXT option must be set on the socket.
-             */
-
-            ERL_NIF_TERM sockRef; // The socket
-        } connect;
+        ESAIOOpDataConnect connect;
 
         /* +++ send +++ */
-        struct {
-            /* WSASend */
-            ErlNifPid     pid;     /* Caller of 'send' */
-            WSABUF        wbuf;    /* Once the WSASend has been called,
-                                    * this buffer "belongs to" the system */
-            ERL_NIF_TERM  sockRef;
-            ERL_NIF_TERM  sendRef; /* The (unique) reference (ID)
-                                    * of the send req */
-        } send;
+        ESAIOOpDataSend send;
 
         /* +++ sendto +++ */
-        struct {
-            /* WSASendTo */
-            ErlNifPid    pid;      /* Caller of 'sendto' */
-            WSABUF       wbuf;     /* Once the WSASendTo has been called,
-                                    * this buffer "belongs to" the system */
-            /* Do we actually need these (remote address)?
-             * Debugging/logging?
-             */
-            ESockAddress remoteAddr;
-            SOCKLEN_T    remoteAddrLen;
-            ERL_NIF_TERM sockRef;
-            ERL_NIF_TERM sendRef; /* The (unique) reference (ID)
-                                   * of the send req */
-        } sendto;
+        ESAIOOpDataSendTo sendto;
 
         /* +++ sendmsg +++ */
-        struct {
-            /* WSASendMsg */
-            ErlNifPid    pid;     /* Caller of 'sendto' */
-            WSAMSG       msg;
-            ErlNifIOVec* iovec;
-            char*        ctrlBuf;
-            ESockAddress addr;
-            ERL_NIF_TERM sockRef;
-            ERL_NIF_TERM sendRef; /* The (unique) reference (ID)
-                                   * of the send req */
-        } sendmsg;
+        ESAIOOpDataSendMsg sendmsg;
 
         /* +++ recv +++ */
-        struct {
-            /* WSARecv */
-            ErlNifPid     pid;     /* Caller of 'recv' */
-            DWORD         toRead;  /* Can be 0 (= zero)
-                                    * "just to indicate: give me what you got"
-                                    */
-            ErlNifBinary  buf;
-            ERL_NIF_TERM  sockRef;
-            ERL_NIF_TERM  recvRef; /* The (unique) reference (ID)
-                                    * of the recv req */
-        } recv;
+        ESAIOOpDataRecv recv;
 
         /* +++ recvfrom +++ */
-        struct {
-            /* WSARecvFrom */
-            ErlNifPid     pid;     /* Caller of 'recvfrom' */
-            DWORD         toRead;  /* Can be 0 (= zero)
-                                    * "just to indicate: give me what you got"
-                                    */
-            ErlNifBinary  buf;
-            ESockAddress  fromAddr;
-            INT           addrLen; // SOCKLEN_T
-            ERL_NIF_TERM  sockRef;
-            ERL_NIF_TERM  recvRef; /* The (unique) reference (ID)
-                                    * of the recv req */
-        } recvfrom;
+        ESAIOOpDataRecvFrom recvfrom;
 
     } data;
 
@@ -1690,7 +1703,7 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
     opP->data.accept.lSockRef = CP_TERM(opP->env, sockRef);
     opP->data.accept.accRef   = CP_TERM(opP->env, accRef);
     opP->data.accept.lsock    = descP->sock;
-    opP->data.accept.pid      = caller;
+    opP->caller               = caller;
 
     /* Create the accepting socket
      * domain   - should be AF_INET | AF_INET6 (sould we make sure?)
@@ -2000,7 +2013,7 @@ ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
     opP->data.send.sockRef  = CP_TERM(opP->env, sockRef);
     opP->data.send.wbuf.buf = buf;
     opP->data.send.wbuf.len = toWrite;
-    opP->data.send.pid      = caller;
+    opP->caller             = caller;
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_tries, &descP->writeTries, 1);
@@ -2089,7 +2102,7 @@ ERL_NIF_TERM esaio_sendto(ErlNifEnv*       env,
     opP->data.sendto.wbuf.len      = toWrite;
     opP->data.sendto.remoteAddr    = *toAddrP; // Do we need this?
     opP->data.sendto.remoteAddrLen = toAddrLen;// Do we need this?
-    opP->data.sendto.pid           = caller;
+    opP->caller                    = caller;
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_tries, &descP->writeTries, 1);
@@ -2313,7 +2326,7 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
     opP->data.sendmsg.msg.dwFlags = 0;
 
     opP->tag                  = ESAIO_OP_SENDMSG;
-    opP->data.sendmsg.pid     = caller;
+    opP->caller               = caller;
     opP->data.sendmsg.sockRef = CP_TERM(opP->env, sockRef);
     opP->data.sendmsg.sendRef = CP_TERM(opP->env, sendRef);
 
@@ -2914,7 +2927,7 @@ ERL_NIF_TERM esaio_recv(ErlNifEnv*       env,
     opP->env                = esock_alloc_env("esaio-recv - operation");
     opP->data.recv.recvRef  = CP_TERM(opP->env, recvRef);
     opP->data.recv.sockRef  = CP_TERM(opP->env, sockRef);
-    opP->data.recv.pid      = caller;
+    opP->caller             = caller;
 
     /* Allocate a buffer:
      * Either as much as we want to read or (if zero (0)) use the "default"
@@ -3194,7 +3207,7 @@ ERL_NIF_TERM esaio_recvfrom(ErlNifEnv*       env,
     opP->env                    = esock_alloc_env("esaio-recvfrom - operation");
     opP->data.recvfrom.recvRef  = CP_TERM(opP->env, recvRef);
     opP->data.recvfrom.sockRef  = CP_TERM(opP->env, sockRef);
-    opP->data.recvfrom.pid      = caller;
+    opP->caller                 = caller;
 
     /* Allocate a buffer:
      * Either as much as we want to read or (if zero (0)) use the "default"
@@ -4456,7 +4469,7 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
 
         /* Is "this" accept still valid? */
         if (esock_acceptor_get(env, descP,
-                               &opP->data.accept.accRef, &opP->data.accept.pid,
+                               &opP->data.accept.accRef, &opP->caller,
                                &req)) {
 
             esaio_completion_accept_completed(env, descP, opP, &req, error);
@@ -4586,7 +4599,7 @@ void esaio_completion_accept_completed(ErlNifEnv*       env,
                 enif_release_resource(accDescP);
                 accSocket = esock_mk_socket(env, accRef);
                 
-                accDescP->ctrlPid = opP->data.accept.pid;
+                accDescP->ctrlPid = opP->caller;
 
                 ESOCK_ASSERT( MONP("esaio_completion_accept_completed -> ctrl",
                                    env, accDescP,
@@ -4651,12 +4664,12 @@ void esaio_completion_accept_completed(ErlNifEnv*       env,
             "esaio_completion_accept_completed -> "
             "send completion message to %T with"
             "\r\n   CompletionInfo: %T"
-            "\r\n", MKPID(env, &opP->data.accept.pid), completionInfo) );
+            "\r\n", MKPID(env, &opP->caller), completionInfo) );
 
     /* Send a 'accept' completion message */
     esaio_send_completion_msg(env,                       // Send env
                               descP,                     // Descriptor
-                              &opP->data.accept.pid,     // Msg destination
+                              &opP->caller,              // Msg destination
                               opP->env,                  // Msg env
                               opP->data.accept.lSockRef, // Dest socket
                               completionInfo);           // Info
@@ -4792,13 +4805,13 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
 
         /* Is "this" send still valid? */
         if (esock_writer_get(env, descP,
-                             &opP->data.send.sendRef, &opP->data.send.pid,
+                             &opP->data.send.sendRef, &opP->caller,
                              &req)) {
 
             esaio_completion_send_completed(env, descP,
                                             (OVERLAPPED*) opP,
                                             opP->env,
-                                            &opP->data.send.pid,
+                                            &opP->caller,
                                             opP->data.send.sockRef,
                                             opP->data.send.sendRef,
                                             opP->data.send.wbuf.len,
@@ -4873,13 +4886,13 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
 
         /* Is "this" send still valid? */
         if (esock_writer_get(env, descP,
-                             &opP->data.sendto.sendRef, &opP->data.sendto.pid,
+                             &opP->data.sendto.sendRef, &opP->caller,
                              &req)) {
 
             esaio_completion_send_completed(env, descP,
                                             (OVERLAPPED*) opP,
                                             opP->env,
-                                            &opP->data.sendto.pid,
+                                            &opP->caller,
                                             opP->data.sendto.sockRef,
                                             opP->data.sendto.sendRef,
                                             opP->data.sendto.wbuf.len,
@@ -4955,7 +4968,7 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
 
         /* Is "this" send still valid? */
         if (esock_writer_get(env, descP,
-                             &opP->data.sendto.sendRef, &opP->data.sendto.pid,
+                             &opP->data.sendto.sendRef, &opP->caller,
                              &req)) {
 
             DWORD toWrite = 0;
@@ -4968,7 +4981,7 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
             esaio_completion_send_completed(env, descP,
                                             (OVERLAPPED*) opP,
                                             opP->env,
-                                            &opP->data.sendto.pid,
+                                            &opP->caller,
                                             opP->data.sendto.sockRef,
                                             opP->data.sendto.sendRef,
                                             toWrite,
@@ -5306,7 +5319,7 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
 
         /* Is "this" read still valid? */
         if (esock_reader_get(env, descP,
-                             &opP->data.recv.recvRef, &opP->data.recv.pid,
+                             &opP->data.recv.recvRef, &opP->caller,
                              &req)) {
 
             esaio_completion_recv_completed(env, descP, opP, &req, error);
@@ -5451,12 +5464,12 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
             "esaio_completion_recv_completed -> "
             "send completion message to %T with"
             "\r\n   CompletionInfo: %T"
-            "\r\n", MKPID(env, &opP->data.recv.pid), completionInfo) );
+            "\r\n", MKPID(env, &opP->caller), completionInfo) );
 
     /* Send a 'send' completion message */
     esaio_send_completion_msg(env,                    // Send env
                               descP,                  // Descriptor
-                              &opP->data.recv.pid,    // Msg destination
+                              &opP->caller,           // Msg destination
                               opP->env,               // Msg env
                               opP->data.recv.sockRef, // Dest socket
                               completionInfo);        // Info
@@ -5796,7 +5809,7 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
         /* Is "this" read still valid? */
         if (esock_reader_get(env, descP,
                              &opP->data.recvfrom.recvRef,
-                             &opP->data.recvfrom.pid,
+                             &opP->caller,
                              &req)) {
 
             esaio_completion_recvfrom_completed(env, descP, opP, &req, error);
@@ -5942,12 +5955,12 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*       env,
             "esaio_completion_recvfrom_completed -> "
             "send completion message to %T with"
             "\r\n   CompletionInfo: %T"
-            "\r\n", MKPID(env, &opP->data.recvfrom.pid), completionInfo) );
+            "\r\n", MKPID(env, &opP->caller), completionInfo) );
 
     /* Send a 'send' completion message */
     esaio_send_completion_msg(env,                        // Send env
                               descP,                      // Descriptor
-                              &opP->data.recvfrom.pid,    // Msg destination
+                              &opP->caller,    // Msg destination
                               opP->env,                   // Msg env
                               opP->data.recvfrom.sockRef, // Dest socket
                               completionInfo);            // Info
