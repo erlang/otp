@@ -79,7 +79,7 @@
       <p>
         As of OTP 28, the function <seemfa
         marker="erts:erlang#fun_info/1"><c>erlang:fun_info/1</c></seemfa>
-        will no include the <c>{pid,_}</c> element and the function
+        will not include the <c>{pid,_}</c> element and the function
         <seemfa marker="erts:erlang#fun_info/2"><c>erlang:fun_info/2</c></seemfa>
         will no longer accept <c>pid</c> as the second argument.</p>
     </section>
