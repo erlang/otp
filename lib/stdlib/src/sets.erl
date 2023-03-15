@@ -358,31 +358,51 @@ is_disjoint_1(Set, Iter) ->
       Set2 :: set(Element),
       Set3 :: set(Element).
 
-subtract(#{}=S1, #{}=S2) ->
-    Next = maps:next(maps:iterator(S1)),
-    subtract_heuristic(Next, [], [], floor(map_size(S1) * 0.75), S1, S2);
-subtract(S1, S2) ->
-    filter(fun (E) -> not is_element(E, S2) end, S1).
+subtract(#{}=LHS, #{}=RHS) ->
+    LSize = map_size(LHS),
+    RSize = map_size(RHS),
 
-%% If we are keeping more than 75% of the keys, then it is
-%% cheaper to delete them. Stop accumulating and start deleting.
+    case RSize =< (LSize div 4) of
+        true ->
+            %% If we're guaranteed to keep more than 75% of the keys, it's
+            %% always cheaper to delete them one-by-one from the start.
+            Next = maps:next(maps:iterator(RHS)),
+            subtract_decided(Next, LHS, RHS);
+        false ->
+            %% We might delete more than 25% of the keys. Dynamically
+            %% transition to deleting elements one-by-one if we can determine
+            %% that we'll keep more than 75%.
+            KeepThreshold = (LSize * 3) div 4,
+            Next = maps:next(maps:iterator(LHS)),
+            subtract_heuristic(Next, [], [], KeepThreshold, LHS, RHS)
+    end;
+subtract(LHS, RHS) ->
+    filter(fun (E) -> not is_element(E, RHS) end, LHS).
+
 subtract_heuristic(Next, _Keep, Delete, 0, Acc, Reference) ->
-  subtract_decided(Next, remove_keys(Delete, Acc), Reference);
-subtract_heuristic({Key, _Value, Iterator}, Keep, Delete, KeepCount, Acc, Reference) ->
+    %% We've kept more than 75% of the keys, transition to removing them
+    %% one-by-one.
+    subtract_decided(Next, remove_keys(Delete, Acc), Reference);
+subtract_heuristic({Key, _Value, Iterator}, Keep, Delete,
+                   KeepCount, Acc, Reference) ->
     Next = maps:next(Iterator),
     case Reference of
-        #{Key := _} ->
-            subtract_heuristic(Next, Keep, [Key | Delete], KeepCount, Acc, Reference);
+        #{ Key := _ } ->
+            subtract_heuristic(Next, Keep, [Key | Delete],
+                               KeepCount, Acc, Reference);
         _ ->
-            subtract_heuristic(Next, [Key | Keep], Delete, KeepCount - 1, Acc, Reference)
+            subtract_heuristic(Next, [Key | Keep], Delete,
+                               KeepCount - 1, Acc, Reference)
     end;
 subtract_heuristic(none, Keep, _Delete, _Count, _Acc, _Reference) ->
     maps:from_keys(Keep, ?VALUE).
 
 subtract_decided({Key, _Value, Iterator}, Acc, Reference) ->
     case Reference of
-        #{Key := _} ->
-            subtract_decided(maps:next(Iterator), maps:remove(Key, Acc), Reference);
+        #{ Key := _ } ->
+            subtract_decided(maps:next(Iterator),
+                             maps:remove(Key, Acc),
+                             Reference);
         _ ->
             subtract_decided(maps:next(Iterator), Acc, Reference)
     end;
