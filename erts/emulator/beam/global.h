@@ -1466,6 +1466,7 @@ Eterm erts_debug_persistent_term_xtra_info(Process* c_p);
 
 /* external.c */
 void erts_init_external(void);
+void erts_late_init_external(void);
 
 /* erl_map.c */
 void erts_init_map(void);

@@ -57,6 +57,7 @@
 #define ATOM_UTF8_EXT     'v'
 #define SMALL_ATOM_UTF8_EXT 'w'
 #define V4_PORT_EXT       'x'
+#define LOCAL_EXT         'y'
 
 #define DIST_HEADER       'D'
 #define DIST_FRAG_HEADER  'E'
@@ -187,7 +188,7 @@ int erts_encode_dist_ext(Eterm, byte **, Uint64, ErtsAtomCacheMap *,
                          struct TTBEncodeContext_ *, Uint *,
                          Sint *);
 ErtsExtSzRes erts_encode_ext_size(Eterm, Uint *szp);
-ErtsExtSzRes erts_encode_ext_size_2(Eterm, unsigned, Uint *szp);
+ErtsExtSzRes erts_encode_ext_size_2(Eterm, Uint64, Uint *szp);
 Uint erts_encode_ext_size_ets(Eterm);
 void erts_encode_ext(Eterm, byte **);
 byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_heap);

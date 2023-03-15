@@ -388,6 +388,7 @@ erl_init(int ncpu,
     erl_nif_init();
     erts_msacc_init();
     beamfile_init();
+    erts_late_init_external();
 }
 
 static Eterm

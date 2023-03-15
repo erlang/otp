@@ -63,6 +63,7 @@
 #define DFLAG_NAME_ME          (((Uint64)0x2) << 32)
 #define DFLAG_V4_NC            (((Uint64)0x4) << 32)
 #define DFLAG_ALIAS            (((Uint64)0x8) << 32)
+#define DFLAG_LOCAL_EXT        (((Uint64)0x10) << 32) /* internal */
 
 /*
  * In term_to_binary/2, we will use DFLAG_ATOM_CACHE to mean
@@ -282,10 +283,17 @@ typedef struct TTBEncodeContext_ {
     SysIOVec* iov;
     ErlDrvBinary** binv;
     Eterm *termv;
-    int iovec;
     Uint fragment_size;
     Sint frag_ix;
     ErlIOVec *fragment_eiovs;
+    int iovec;
+    int continue_make_lext_hash;
+    int lext_vlen;
+    byte *lext_hash;
+    union {
+        ErtsBlockHashState block;
+        ErtsIovBlockHashState iov_block;
+    } lext_state;
 #ifdef DEBUG
     int debug_fragments;
     int debug_vlen;
@@ -305,6 +313,8 @@ typedef struct TTBEncodeContext_ {
         (Ctx)->iov = NULL;                                      \
         (Ctx)->binv = NULL;                                     \
         (Ctx)->fragment_size = ~((Uint) 0);                     \
+        (Ctx)->continue_make_lext_hash = 0;                     \
+        (Ctx)->lext_vlen = -1;                                  \
         if ((Flags) & DFLAG_PENDING_CONNECT) {                  \
             (Ctx)->hopefull_flags = 0;                          \
             (Ctx)->hopefull_flagsp = NULL;                      \

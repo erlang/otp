@@ -847,6 +847,7 @@ int sys_double_to_chars(double, char*, size_t);
 int sys_double_to_chars_ext(double, char*, size_t, size_t);
 int sys_double_to_chars_fast(double, char*, int, int, int);
 void sys_get_pid(char *, size_t);
+int sys_get_hostname(char *buf, size_t size);
 
 /* erl_drv_get/putenv have been implicitly 8-bit for so long that we can't
  * change them without breaking things on Windows. Their return values are

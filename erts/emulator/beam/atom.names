@@ -59,10 +59,6 @@ atom nocatch
 atom undefined_function
 atom undefined_lambda
 
-# Secret internal atom that can never be found by string lookup
-# and should never leak out to be seen by the user.
-atom ErtsSecretAtom='3RT$'
-
 #
 # Other commonly used atoms.
 #

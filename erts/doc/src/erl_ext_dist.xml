@@ -1421,6 +1421,46 @@
       </note>
     </section>
 
+    <section>
+      <marker id="LOCAL_EXT"/>
+      <title>LOCAL_EXT</title>
+      <table align="left">
+	<row>
+	  <cell align="center">1</cell>
+	  <cell align="center">...</cell>
+	</row>
+	<row>
+	  <cell align="center"><c>121</c></cell>
+	  <cell align="center">...</cell>
+	</row>
+      <tcaption>LOCAL_EXT</tcaption></table>
+      <p>
+        Marks that this is encoded on an alternative local external term
+        format intended to only be decoded by a specific local decoder.
+        The bytes following from here on may contain any unspecified type
+        of encoding of terms. It is the responsibility of the user to only
+        attempt to decode terms on the local external term format which has
+        been produced by a matching encoder.
+      </p>
+      <p>
+        This tag is used by the Erlang runtime system upon encoding the local
+        external term format when the
+        <seeerl marker="erts:erlang#term_to_binary_local"><c>local</c></seeerl>
+        option is passed to
+        <seemfa marker="erts:erlang#term_to_binary/2"><c>term_to_binary/2</c></seemfa>,
+        but can be used by other encoders as well providing similar
+        functionality. The Erlang runtime system adds a hash immediately
+        following the <c>LOCAL_EXT</c> tag which is verified on decoding in
+        order to verify that encoder and decoder match which might be a good
+        practice. This will very likely catch mistakes made by users, but
+        is not guaranteed to, and is not intended to, prevent decoding of an
+        intentionally forged encoding on the local external term format.
+      </p>
+      <p>
+        <c>LOCAL_EXT</c> was introduced in OTP @OTP-18477@.
+      </p>
+    </section>
+
   </chapter>
 
 

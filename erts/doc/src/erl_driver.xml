@@ -2567,12 +2567,14 @@ ErlDrvTermData spec[] = {
     ERL_DRV_STRING_CONS, (ErlDrvTermData)"abc", 3,
 };
 erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));    ]]></code>
-	<p>The <c>ERL_DRV_EXT2TERM</c> term type is used for passing a
+	<p>
+          <marker id="ERL_DRV_EXT2TERM"/>
+          The <c>ERL_DRV_EXT2TERM</c> term type is used for passing a
 	  term encoded with the
 	  <seeguide marker="erl_ext_dist">external format</seeguide>,
 	  that is, a term that has been encoded by
 	  <seemfa marker="erlang#term_to_binary/2">
-	  <c>erlang:term_to_binary</c></seemfa>,
+	  <c>erlang:term_to_binary()</c></seemfa>,
 	  <seecref marker="erl_interface:ei"><c>erl_interface:ei(3)</c></seecref>,
 	  and so on.
 	  For example, if <c>binp</c> is a pointer to an <c>ErlDrvBinary</c>

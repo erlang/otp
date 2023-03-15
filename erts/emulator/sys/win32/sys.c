@@ -35,6 +35,10 @@
 #include "erl_cpu_topology.h"
 #include <malloc.h>
 
+#if defined(__WIN32__) && !defined(WINDOWS_H_INCLUDES_WINSOCK2_H)
+#include <winsock2.h>
+#endif
+
 void erts_sys_init_float(void);
 
 void erl_start(int, char**);
@@ -2765,6 +2769,11 @@ void sys_get_pid(char *buffer, size_t buffer_size){
     DWORD p = GetCurrentProcessId();
     /* The pid is scalar and is an unsigned long. */
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
+}
+
+int sys_get_hostname(char *buf, size_t size)
+{
+    return gethostname(buf, size);
 }
 
 void
