@@ -2549,6 +2549,8 @@ update_type(Merge, With, #value_ref{}=Ref, Vst0) ->
     case Merge(Current, With) of
         none ->
             throw({type_conflict, Current, With});
+        Current ->
+            Vst0;
         Type ->
             Vst = update_container_type(Type, Ref, Vst0),
             set_type(Type, Ref, Vst)

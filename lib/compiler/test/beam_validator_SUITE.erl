@@ -42,7 +42,8 @@
          bs_saved_position_units/1,parent_container/1,
          container_performance/1,
          infer_relops/1,
-         not_equal_inference/1,bad_bin_unit/1,singleton_inference/1]).
+         not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
+         inert_update_type/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -78,7 +79,8 @@ groups() ->
        missing_return_type,will_succeed,
        bs_saved_position_units,parent_container,
        container_performance,infer_relops,
-       not_equal_inference,bad_bin_unit,singleton_inference]}].
+       not_equal_inference,bad_bin_unit,singleton_inference,
+       inert_update_type]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1113,6 +1115,19 @@ singleton_inference(Config) ->
     ok = Mod:test(),
 
     ok.
+
+%% GH-6969: A type was made concrete even though that added no additional
+%% information.
+inert_update_type(_Config) ->
+    hello(<<"string">>, id(42)).
+
+hello(A, B) ->
+    mike([{sys_period, {A, B}}, {some_atom, B}]).
+
+mike([Head | _Rest]) -> joe(Head).
+
+joe({Name, 42}) -> Name;
+joe({sys_period, {A, _B}}) -> {41, 42, A}.
 
 id(I) ->
     I.
