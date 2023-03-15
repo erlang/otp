@@ -1953,6 +1953,11 @@ ERL_NIF_TERM esaio_accept_accepted(ErlNifEnv*       env,
  * Do the actual send.
  * Do some initial writer checks, do the actual send and then
  * analyze the result.
+ *
+ * The following flags are "valid":
+ *
+ *        MSG_DONTROUTE, MSG_PARTIAL, and MSG_OOB
+ *
  */
 extern
 ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
@@ -2052,6 +2057,10 @@ ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
  * Do the actual send.
  * Do some initial writer checks, do the actual send and then
  * analyze the result.
+ *
+ * The following flags are "valid":
+ *
+ *        MSG_DONTROUTE, MSG_PARTIAL, and MSG_OOB
  *
  * "Explicit binding is discouraged for client applications."
  */
@@ -2164,7 +2173,7 @@ ERL_NIF_TERM esaio_sendto(ErlNifEnv*       env,
  * Do some initial writer checks, do the actual send and then
  * analyze the result.
  *
- * The following flöags are valid:
+ * The following flags are "valid":
  *
  *        MSG_DONTROUTE, MSG_PARTIAL, and MSG_OOB
  *
