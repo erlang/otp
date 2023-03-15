@@ -624,7 +624,7 @@ loop(Cpid, Data) ->
                     false ->
                         tcp
                 end,
-            Res = #{socket => Data#eldap.fd, socket_type => SocketType} ,
+            Res = #{socket => Data#eldap.fd, socket_type => SocketType},
             send(From, Res),
             ?MODULE:loop(Cpid, Data);
 
