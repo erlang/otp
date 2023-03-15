@@ -617,13 +617,14 @@ loop(Cpid, Data) ->
 	    ?MODULE:loop(Cpid, Data);
 
         {From, info} ->
-            Res =
+            SocketType =
                 case Data#eldap.ldaps of
-                    true ->
-                        #{socket => Data#eldap.fd, socket_type => ssl};
-                    false ->
-                        #{socket => Data#eldap.fd, socket_type => tcp} 
+                    true -> 
+                        ssl;
+                    false -> 
+                        tcp
                 end,
+            Res = #{socket => Data#eldap.fd, socket_type => SocketType} ,
             send(From, Res),
             ?MODULE:loop(Cpid, Data);
 
