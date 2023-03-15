@@ -97,7 +97,6 @@ aes_decipher_good() ->
 aes_decipher_good(Config) when is_list(Config) ->
     HashSz = 32,
     CipherState = correct_cipher_state(),
-    decipher_check_good(HashSz, CipherState, ?'SSL-3.0'),
     decipher_check_good(HashSz, CipherState, ?'TLS-1.0'),
     decipher_check_good(HashSz, CipherState, ?'TLS-1.1'),
     decipher_check_good(HashSz, CipherState, ?'TLS-1.2').
@@ -109,7 +108,6 @@ aes_decipher_fail() ->
 aes_decipher_fail(Config) when is_list(Config) ->
     HashSz = 32,
     CipherState = incorrect_cipher_state(),
-    decipher_check_fail(HashSz, CipherState, ?'SSL-3.0'),
     decipher_check_fail(HashSz, CipherState, ?'TLS-1.0'),
     decipher_check_fail(HashSz, CipherState, ?'TLS-1.1'),
     decipher_check_fail(HashSz, CipherState, ?'TLS-1.2').
@@ -118,7 +116,6 @@ aes_decipher_fail(Config) when is_list(Config) ->
 padding_test(Config) when is_list(Config)  ->
     HashSz = 16,
     CipherState = correct_cipher_state(),
-    pad_test(HashSz, CipherState, ?'SSL-3.0'),
     pad_test(HashSz, CipherState, ?'TLS-1.0'),
     pad_test(HashSz, CipherState, ?'TLS-1.1'),
     pad_test(HashSz, CipherState, ?'TLS-1.2').
