@@ -144,9 +144,9 @@ init([Role, _Sender, _Host, _Port, _Socket, {TLSOpts, _, _},  _User, _CbInfo] = 
             ok
     end,
     case {Role, TLSOpts} of
-        {?CLIENT_ROLE, #{versions := [{3,4}]}} ->
+        {?CLIENT_ROLE, #{versions := [?TLS_1_3]}} ->
             tls_client_connection_1_3:init(InitArgs);
-        {?SERVER_ROLE, #{versions := [{3,4}]}} ->
+        {?SERVER_ROLE, #{versions := [?TLS_1_3]}} ->
             tls_server_connection_1_3:init(InitArgs);
         {_,_} ->
             tls_connection:init(InitArgs)
@@ -1167,7 +1167,7 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
                     connection_env = #connection_env{negotiated_version = Version},
-                    ssl_options = #{log_level := LogLevel}} = State) when Version < ?'TLS-1.3' ->
+                    ssl_options = #{log_level := LogLevel}} = State) when ?TLS_L(Version, ?TLS_1_3) ->
     log_alert(LogLevel, Role,
               Connection:protocol_name(), StateName,
               Alert#alert{role = opposite_role(Role)}),
@@ -1201,9 +1201,9 @@ handle_trusted_certs_db(#state{static_env = #static_env{cert_db_ref = Ref,
 	    ok
     end.
 
-maybe_invalidate_session(?'TLS-1.3',_, _, _, _, _) ->
+maybe_invalidate_session(?TLS_1_3,_, _, _, _, _) ->
     ok;
-maybe_invalidate_session(?'TLS-1.X'=Version, Type, Role, Host, Port, Session) when Version < ?'TLS-1.3' ->
+maybe_invalidate_session(Version, Type, Role, Host, Port, Session) when ?TLS_L(Version, ?TLS_1_3) ->
     maybe_invalidate_session(Type, Role, Host, Port, Session).
 
 maybe_invalidate_session({false, first}, server = Role, Host, Port, Session) ->
@@ -1285,14 +1285,14 @@ format_status(terminate, [_, StateName, State]) ->
 %%--------------------------------------------------------------------
 next_statem_state([Version], client) ->
     case ssl:tls_version(Version) of
-        ?'TLS-1.3' ->
+        ?TLS_1_3 ->
             wait_sh;
         _  ->
             hello
     end;
 next_statem_state([Version], server) ->
     case ssl:tls_version(Version) of
-        ?'TLS-1.3' ->
+        ?TLS_1_3 ->
             start;
         _  ->
             hello
@@ -2230,11 +2230,10 @@ keylog_secret(SecretBin, sha384) ->
 keylog_secret(SecretBin, sha512) ->
     io_lib:format("~128.16.0B", [binary:decode_unsigned(SecretBin)]).
 
-maybe_generate_client_shares(#{versions := [Version|_],
+maybe_generate_client_shares(#{versions := [?TLS_1_3|_],
                                supported_groups :=
                                    #supported_groups{
-                                      supported_groups = [Group|_]}})
-  when Version =:= ?'TLS-1.3' ->
+                                      supported_groups = [Group|_]}}) ->
     %% Generate only key_share entry for the most preferred group
     ssl_cipher:generate_client_shares([Group]);
 maybe_generate_client_shares(_) ->

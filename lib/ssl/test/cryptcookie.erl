@@ -32,6 +32,7 @@
 -export([ktls_info/1, ktls_info/0]).
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 
 -define(PROTOCOL, (?MODULE)).
@@ -52,7 +53,7 @@
 -define(HMAC, sha384).
 
 %% kTLS integration
--define(TLS_VERSION, {3,4}).
+-define(TLS_VERSION, ?TLS_1_3).
 -define(CIPHER_SUITE, (?TLS_AES_256_GCM_SHA384)).
 
 

@@ -54,7 +54,7 @@
 -define(TICKET_STORE_SIZE, 1).
 -define(MASTER_SECRET, "master_secret").
 -define(PRF, sha).
--define(VERSION, ?'TLS-1.3').
+-define(VERSION, ?TLS_1_3).
 -define(PSK, <<15,168,18,43,216,33,227,142,114,190,70,183,137,57,64,64,66,152,115,94>>).
 -define(WINDOW_SIZE, 1).
 -define(SEED, <<1,2,3,4,5>>).

@@ -214,15 +214,15 @@ build_cipher_block(BlockSz, Mac, Fragment) ->
     [Fragment, Mac, padding_with_len(TotSz, BlockSz)].
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
-	     Mac, Fragment, ?'TLS-1.0') ->
+	     Mac, Fragment, ?TLS_1_0) ->
     L = build_cipher_block(BlockSz, Mac, Fragment),
     T = Fun(Key, IV, L),
     NextIV = next_iv(T, IV),
     {T, CS0#cipher_state{iv=NextIV}};
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV, state = IV_Cache0} = CS0,
-	     Mac, Fragment, ?'TLS-1.X'=Version)
-  when Version == ?'TLS-1.1'; Version == ?'TLS-1.2'; Version == ?'TLS-1.3' ->
+	     Mac, Fragment, Version)
+  when ?TLS_G(Version, ?TLS_1_0)->
     IV_Size = byte_size(IV),
     <<NextIV:IV_Size/binary, IV_Cache/binary>> =
         case IV_Cache0 of
@@ -320,23 +320,23 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 %%
 %% Description: Returns a list of supported cipher suites.
 %%--------------------------------------------------------------------
-suites(?'TLS-1.X'=Version) ->
+suites(Version) when ?TLS_1_X(Version) ->
     tls_v1:suites(Version);
-suites(?'DTLS-1.X'=Version) ->
+suites(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:suites(Version).
-all_suites(?'TLS-1.3' = Version) ->
-    suites(Version) ++ tls_legacy_suites(?'TLS-1.2');
-all_suites(?'TLS-1.X' = Version) ->
+all_suites(?TLS_1_3 = Version) ->
+    suites(Version) ++ tls_legacy_suites(?TLS_1_2);
+all_suites(Version) when ?TLS_1_X(Version) ->
     suites(Version) ++ tls_legacy_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 
 tls_legacy_suites(Version) ->
-    Tests = [ fun tls_v1:psk_suites/1
-            , fun tls_v1:srp_suites/1
-            , fun tls_v1:rsa_suites/1
-            , fun tls_v1:des_suites/1
-            , fun tls_v1:rc4_suites/1],
+    Tests = [fun tls_v1:psk_suites/1,
+             fun tls_v1:srp_suites/1,
+             fun tls_v1:rsa_suites/1,
+             fun tls_v1:des_suites/1,
+             fun tls_v1:rc4_suites/1],
     lists:flatmap(fun (Fun) -> Fun(Version) end, Tests).
 
 %%--------------------------------------------------------------------
@@ -346,16 +346,16 @@ tls_legacy_suites(Version) ->
 %% if explicitly set by user. Intended only for testing.
 %%--------------------------------------------------------------------
 
-anonymous_suites(?'TLS-1.X'=Version) ->
+anonymous_suites(Version) when ?TLS_1_X(Version) ->
     SuitesToTest = anonymous_suite_to_test(Version),
     lists:flatmap(fun tls_v1:exclusive_anonymous_suites/1, SuitesToTest);
-anonymous_suites(?'DTLS-1.X'=Version) ->
+anonymous_suites(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:anonymous_suites(Version).
 
-anonymous_suite_to_test(?'TLS-1.0') -> [?'TLS-1.0'];
-anonymous_suite_to_test(?'TLS-1.1') -> [?'TLS-1.1', ?'TLS-1.0'];
-anonymous_suite_to_test(?'TLS-1.2') -> [?'TLS-1.2', ?'TLS-1.1', ?'TLS-1.0'];
-anonymous_suite_to_test(?'TLS-1.3') -> [?'TLS-1.3'].
+anonymous_suite_to_test(?TLS_1_0) -> [?TLS_1_0];
+anonymous_suite_to_test(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
+anonymous_suite_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
+anonymous_suite_to_test(?TLS_1_3) -> [?TLS_1_3].
 
 %%--------------------------------------------------------------------
 -spec filter(undefined | binary(), [ssl_cipher_format:cipher_suite()],
@@ -389,11 +389,11 @@ filter(DerCert, Ciphers0, Version) ->
 %% Description: Filter suites using supplied filter funs
 %%-------------------------------------------------------------------	
 filter_suites(Suites, Filters) ->
-    ApplyFilters = fun(Suite) ->
-                           filter_suite(Suite, Filters)
-                   end,
-    lists:filter(ApplyFilters, Suites).
-    
+    Fn = fun (Suite) when is_map_key(key_exchange, Suite) -> Suite;
+             (Suite) -> ssl_cipher_format:suite_bin_to_map(Suite)
+         end,
+    lists:filter(fun(Suite) -> filter_suite(Fn(Suite), Filters) end, Suites).
+
 filter_suite(#{key_exchange := KeyExchange, 
                cipher := Cipher, 
                mac := Hash,
@@ -402,12 +402,10 @@ filter_suite(#{key_exchange := KeyExchange,
                cipher_filters := CipherFilters, 
                mac_filters := HashFilters,
                prf_filters := PrfFilters}) ->
-    all_filters(KeyExchange, KeyFilters) andalso
-        all_filters(Cipher, CipherFilters) andalso
-        all_filters(Hash, HashFilters) andalso
-        all_filters(Prf, PrfFilters);
-filter_suite(Suite, Filters) ->
-    filter_suite(ssl_cipher_format:suite_bin_to_map(Suite), Filters).
+    KeyPairs = [{KeyExchange, KeyFilters}, {Cipher, CipherFilters},
+                {Hash, HashFilters}, {Prf, PrfFilters}],
+    lists:all(fun all_filters/1, KeyPairs).
+
 
 %%--------------------------------------------------------------------
 -spec filter_suites([ssl:erl_cipher_suite()] | [ssl_cipher_format:cipher_suite()]) -> 
@@ -419,15 +417,9 @@ filter_suites(Suites) ->
     Filters = crypto_support_filters(),
     filter_suites(Suites, Filters).
 
-all_filters(_, []) ->
-    true;
-all_filters(Value, [Filter| Rest]) ->
-    case Filter(Value) of
-        true ->
-            all_filters(Value, Rest);
-        false ->
-            false
-    end.
+all_filters({Value, Filters}) ->
+    lists:all(fun (FilterFn) -> FilterFn(Value) end, Filters).
+
 crypto_support_filters() ->
     Algos = crypto:supports(),
     Hashs =  proplists:get_value(hashs, Algos),
@@ -564,20 +556,17 @@ hash_size(sha384) ->
 hash_size(sha512) ->
     64.
 
-is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) -> %% PRE TLS-1.3
-    lists:member(SignAlgo, HashSigns) orelse
-        lists:member({Hash, rsa_pss_rsae}, HashSigns);
-is_supported_sign(rsa_pkcs1_sha256 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy
-    lists:member(SignAlgo, HashSigns) orelse
-        lists:member(rsa_pss_rsae_sha256, HashSigns);
-is_supported_sign(rsa_pkcs1_sha384 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy
-    lists:member(SignAlgo, HashSigns) orelse
-        lists:member(rsa_pss_rsae_sha384, HashSigns);
-is_supported_sign(rsa_pkcs1_sha512 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy
-    lists:member(SignAlgo, HashSigns) orelse
-        lists:member(rsa_pss_rsae_sha512, HashSigns);
-is_supported_sign(SignAlgo, HashSigns) -> %% PRE TLS-1.3 SignAlgo::tuple() TLS-1.3 SignAlgo::atom()
-    lists:member(SignAlgo, HashSigns).
+is_supported_sign(SignAlgo, HashSigns) ->
+    lists:any(fun (SignAlgo0) -> lists:member(SignAlgo0, HashSigns) end,
+              [SignAlgo, supported_signalgo(SignAlgo)]).
+
+supported_signalgo({_, rsa}) -> rsa_pss_rsae; %% PRE TLS-1.3
+supported_signalgo(rsa_pkcs1_sha256) -> rsa_pss_rsae_sha256; %% TLS-1.3 legacy
+supported_signalgo(rsa_pkcs1_sha384) -> rsa_pss_rsae_sha384; %% TLS-1.3 legacy
+supported_signalgo(rsa_pkcs1_sha512) -> rsa_pss_rsae_sha512; %% TLS-1.3 legacy
+supported_signalgo(_) -> skip_test. %% made up atom, PRE TLS-1.3 SignAlgo::tuple() TLS-1.3 SignAlgo::atom()
+
+
 
 signature_scheme(rsa_pkcs1_sha256) -> ?RSA_PKCS1_SHA256;
 signature_scheme(rsa_pkcs1_sha384) -> ?RSA_PKCS1_SHA384;
@@ -683,8 +672,8 @@ scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 	 _Length, _Fragment) ->
     <<>>;
-mac_hash(?'TLS-1.X' = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)
-  when Version =< ?'TLS-1.2', Version =/= ?'SSL-3.0' ->
+mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)
+  when ?TLS_LE(Version, ?TLS_1_2), Version =/= ?SSL_3_0 ->
     tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
 		      Length, Fragment).
 
@@ -824,9 +813,9 @@ block_size(Cipher) when Cipher == aes_128_cbc;
 			Cipher == chacha20_poly1305 ->
     16.
 
-prf_algorithm(default_prf, ?'TLS-1.2') ->
+prf_algorithm(default_prf, ?TLS_1_2) ->
     ?SHA256;
-prf_algorithm(default_prf, ?'TLS-1.X') ->
+prf_algorithm(default_prf, Version) when ?TLS_1_X(Version) ->
     ?MD5SHA;
 prf_algorithm(Algo, _) ->
     hash_algorithm(Algo).
@@ -929,7 +918,7 @@ signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS'
 %%   We return the original (possibly invalid) PadLength in any case.
 %%   An invalid PadLength will be caught by is_correct_padding/2
 %%
-generic_block_cipher_from_bin(?'TLS-1.0', T, IV, HashSize)->
+generic_block_cipher_from_bin(?TLS_1_0, T, IV, HashSize)->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength0)>> = T,
     PadLength = if
@@ -944,7 +933,7 @@ generic_block_cipher_from_bin(?'TLS-1.0', T, IV, HashSize)->
 			  next_iv = IV};
 
 generic_block_cipher_from_bin(Version, T, IV, HashSize)
-  when Version == ?'TLS-1.1'; Version == ?'TLS-1.2' ->
+  when Version == ?TLS_1_1; Version == ?TLS_1_2 ->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
     IVLength = byte_size(IV),
@@ -963,14 +952,14 @@ generic_stream_cipher_from_bin(T, HashSz) ->
 			   mac=Mac}.
 
 is_correct_padding(#generic_block_cipher{padding_length = Len,
-					 padding = Padding}, ?'SSL-3.0', _) ->
+					 padding = Padding}, ?SSL_3_0, _) ->
     Len == byte_size(Padding); %% Only length check is done in SSL 3.0 spec
 %% For interoperability reasons it is possible to disable
 %% the padding check when using TLS 1.0 (mimicking SSL-3.0), as it is not strictly required
 %% in the spec (only recommended), however this makes TLS 1.0 vunrable to the Poodle attack 
 %% so by default this clause will not match
-is_correct_padding(GenBlockCipher, ?'TLS-1.0', false) ->
-    is_correct_padding(GenBlockCipher, ?'SSL-3.0', false);
+is_correct_padding(GenBlockCipher, ?TLS_1_0, false) ->
+    is_correct_padding(GenBlockCipher, ?SSL_3_0, false);
 %% Padding must be checked in TLS 1.1 and after  
 is_correct_padding(#generic_block_cipher{padding_length = Len,
 					 padding = Padding}, _, _) ->
@@ -1048,7 +1037,7 @@ filter_suites_pubkey(ecdsa, Ciphers, _, OtpCert) ->
                                    ec_ecdhe_suites(Ciphers)),
     filter_keyuse_suites(keyAgreement, Uses, CiphersSuites, ec_ecdh_suites(Ciphers)).
 
-filter_suites_signature(_, Ciphers, ?'TLS-1.X'=Version) when Version >= ?'TLS-1.2' ->
+filter_suites_signature(_, Ciphers, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
      Ciphers;
 filter_suites_signature(rsa, Ciphers, Version) ->
     (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers);
@@ -1074,7 +1063,7 @@ filter_suites_signature(ecdsa, Ciphers, Version) ->
 %% extension.  The names DH_DSS, DH_RSA, ECDH_ECDSA, and ECDH_RSA are
 %% historical.
 %% Note: DH_DSS and DH_RSA is not supported
-rsa_signed(?'TLS-1.2') ->
+rsa_signed(?TLS_1_2) ->
     fun(rsa) -> true;
        (dhe_rsa) -> true;
        (ecdhe_rsa) -> true;
@@ -1098,7 +1087,7 @@ rsa_signed_suites(Ciphers, Version) ->
                              mac_filters => [],
                              prf_filters => []}).
 
-ecdsa_signed(Version) when Version >= ?'TLS-1.2' ->
+ecdsa_signed(Version) when ?TLS_GE(Version, ?TLS_1_2) ->
     fun(ecdhe_ecdsa) -> true;
        (_) -> false
     end;
@@ -1189,38 +1178,33 @@ ec_keyed(_) ->
 
 %% Certs key is an ECC key
 ec_keyed_suites(Ciphers) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [fun(Kex) -> ec_keyed(Kex) end],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
+    ec_generic_suites(Ciphers, fun(Kex) -> ec_keyed(Kex) end).
 
 %% EC Certs key usage keyAgreement
 ec_ecdh_suites(Ciphers)->
-    filter_suites(Ciphers, #{key_exchange_filters => [fun(ecdh_ecdsa) -> true;
-                                                         (_) -> false
-                                                      end],
+    ec_generic_suites(Ciphers, fun(ecdh_ecdsa) -> true;
+                                  (_) -> false
+                               end).
+
+%% EC Certs key usage digitalSignature
+ec_ecdhe_suites(Ciphers) ->
+    ec_generic_suites(Ciphers, fun(ecdhe_ecdsa) -> true;
+                                  (ecdhe_rsa) -> true;
+                                  (_) -> false
+                               end).
+%% RSA Certs key usage digitalSignature
+rsa_ecdhe_dhe_suites(Ciphers) ->
+    ec_generic_suites(Ciphers, fun(dhe_rsa) -> true;
+                                  (ecdhe_rsa) -> true;
+                                  (_) -> false
+                               end).
+
+ec_generic_suites(Ciphers, Fn) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [Fn],
                              cipher_filters => [],
                              mac_filters => [],
                              prf_filters => []}).
 
-%% EC Certs key usage digitalSignature
-ec_ecdhe_suites(Ciphers) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [fun(ecdhe_ecdsa) -> true;
-                                                         (ecdhe_rsa) -> true;
-                                                         (_) -> false
-                                                      end],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
-%% RSA Certs key usage digitalSignature
-rsa_ecdhe_dhe_suites(Ciphers) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [fun(dhe_rsa) -> true;
-                                                         (ecdhe_rsa) -> true;
-                                                         (_) -> false
-                                                      end],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
 
 key_uses(OtpCert) ->
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate, 
@@ -1252,21 +1236,12 @@ generate_server_share(Group) ->
                          key_exchange = Key
                         }}.
 
-generate_client_shares([]) ->
-    #key_share_client_hello{client_shares = []};
 generate_client_shares(Groups) ->
-    generate_client_shares(Groups, []).
-%%
-generate_client_shares([], Acc) ->
-    #key_share_client_hello{client_shares = lists:reverse(Acc)};
-generate_client_shares([Group|Groups], Acc) ->
-    Key = generate_key_exchange(Group),
-    KeyShareEntry = #key_share_entry{
-                       group = Group,
-                       key_exchange = Key
-                      },
-    generate_client_shares(Groups, [KeyShareEntry|Acc]).
-
+    KeyShareEntry = fun (Group) ->
+                        #key_share_entry{group = Group, key_exchange = generate_key_exchange(Group)}
+                    end,
+    ClientShares = lists:map(KeyShareEntry, Groups),
+    #key_share_client_hello{client_shares = ClientShares}.
 
 generate_key_exchange(secp256r1) ->
     public_key:generate_key({namedCurve, secp256r1});

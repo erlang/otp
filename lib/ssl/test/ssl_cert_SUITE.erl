@@ -1378,7 +1378,7 @@ rsa_alg(rsa_pss_pss_1_3) ->
 rsa_alg(Atom) ->
     Atom.
 
-no_reuse(?'TLS-1.3') ->
+no_reuse(?TLS_1_3) ->
     [];
 no_reuse(_) ->
     [{reuse_sessions, false}].

@@ -2337,17 +2337,17 @@ options_protocol(_Config) ->
     ok.
 
 options_version(_Config) ->
-    ?OK(#{versions := [_|_]}, [], client),  %% Hmm some machines still default only {3,3}
-    ?OK(#{versions := [{254,253}]}, [{protocol, dtls}], client),
+    ?OK(#{versions := [_|_]}, [], client),  %% Hmm some machines still default only ?TLS_1_2
+    ?OK(#{versions := [?DTLS_1_2]}, [{protocol, dtls}], client),
 
-    ?OK(#{versions := [{3,4},{3,3},{3,2},{3,1}]},
+    ?OK(#{versions := [?TLS_1_3,?TLS_1_2,?TLS_1_1,?TLS_1_0]},
         [{versions, ['tlsv1','tlsv1.1','tlsv1.2','tlsv1.3']}],
         client),
-    ?OK(#{versions := [{3,4}]}, [{versions, ['tlsv1.3']}], client),
+    ?OK(#{versions := [?TLS_1_3]}, [{versions, ['tlsv1.3']}], client),
 
-    ?OK(#{versions := [{254,253},{254,255}]},
+    ?OK(#{versions := [?DTLS_1_2,?DTLS_1_0]},
         [{protocol, dtls}, {versions, ['dtlsv1', 'dtlsv1.2']}],  client),
-    ?OK(#{versions := [{254,253}]}, [{protocol, dtls}, {versions, ['dtlsv1.2']}], client),
+    ?OK(#{versions := [?DTLS_1_2]}, [{protocol, dtls}, {versions, ['dtlsv1.2']}], client),
 
 
     %% Errors
@@ -2541,7 +2541,7 @@ options_certificate_authorities(_Config) ->
     ok.
 
 options_ciphers(_Config) ->
-    CipherSuite = ssl_test_lib:ecdh_dh_anonymous_suites({3,3}),
+    CipherSuite = ssl_test_lib:ecdh_dh_anonymous_suites(?TLS_1_2),
     ?OK(#{ciphers := [_|_]}, [], client),
     ?OK(#{ciphers := [_|_]}, [{ciphers, CipherSuite}], client),
     ?OK(#{ciphers := [_|_]}, [{ciphers, "RC4-SHA:RC4-MD5"}], client),
@@ -4020,47 +4020,53 @@ log(#{msg:={report,_Report}},#{config:=Pid}) ->
 log(_,_) ->
     ok.
 
-length_exclusive(?'TLS-1.X' = Version) ->
-    length(exclusive_default_up_to_version(Version, [])) +
-        length(exclusive_non_default_up_to_version(Version, []));
-length_exclusive(?'DTLS-1.X' = Version) ->
-    length(dtls_exclusive_default_up_to_version(Version, [])) +
-        length(dtls_exclusive_non_default_up_to_version(Version, [])).
+length_exclusive(Version) when ?TLS_1_X(Version) ->
+    length(exclusive_default_up_to_version(Version)) +
+        length(exclusive_non_default_up_to_version(Version));
+length_exclusive(Version) when ?DTLS_1_X(Version)->
+    length(dtls_exclusive_default_up_to_version(Version)) +
+        length(dtls_exclusive_non_default_up_to_version(Version)).
 
 length_all(Version) ->
     length(ssl:cipher_suites(all, Version)).
 
-exclusive_default_up_to_version(?'TLS-1.0', Acc) ->
+exclusive_default_up_to_version(Version) ->
     lists:flatmap(fun (Vsn) -> ssl:cipher_suites(exclusive, Vsn) end
-                 , [?'TLS-1.0' | Acc]);
-exclusive_default_up_to_version(?'TLS-1.1', Acc) ->
-    exclusive_default_up_to_version(?'TLS-1.0', [?'TLS-1.1' | Acc]);
-exclusive_default_up_to_version(?'TLS-1.2', Acc) ->
-    exclusive_default_up_to_version(?'TLS-1.1', [?'TLS-1.2' | Acc]);
-exclusive_default_up_to_version(?'TLS-1.3', Acc) ->
-    exclusive_default_up_to_version(?'TLS-1.2', [?'TLS-1.3' | Acc]).
+                 , exclusive_default_up_to_version_helper(Version)).
 
-dtls_exclusive_default_up_to_version(?'DTLS-1.0', Acc) ->
+exclusive_default_up_to_version_helper(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
+exclusive_default_up_to_version_helper(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
+exclusive_default_up_to_version_helper(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
+exclusive_default_up_to_version_helper(?TLS_1_0) -> [?TLS_1_0].
+
+
+
+dtls_exclusive_default_up_to_version(Version) ->
     lists:flatmap( fun (Vsn) -> ssl:cipher_suites(exclusive, Vsn) end
-                 , [?'DTLS-1.0' | Acc]);
-dtls_exclusive_default_up_to_version(?'DTLS-1.2', Acc) ->
-    dtls_exclusive_default_up_to_version(?'DTLS-1.0', [?'DTLS-1.2' | Acc]).
+                 , dtls_exclusive_default_up_to_version_helper(Version)).
 
-%% TODO: wip
-exclusive_non_default_up_to_version(?'TLS-1.0', Acc) ->
-    lists:flatmap(fun exclusive_non_default_version/1, [?'TLS-1.0' | Acc]);
-exclusive_non_default_up_to_version(?'TLS-1.1', Acc) ->
-    exclusive_non_default_up_to_version(?'TLS-1.0', [?'TLS-1.1' | Acc]);
-exclusive_non_default_up_to_version(?'TLS-1.2', Acc) ->
-    exclusive_non_default_up_to_version(?'TLS-1.1', [?'TLS-1.2' | Acc]);
-exclusive_non_default_up_to_version(?'TLS-1.3', Acc) ->
-    exclusive_non_default_up_to_version(?'TLS-1.2', Acc).
+dtls_exclusive_default_up_to_version_helper(?DTLS_1_2) -> [?DTLS_1_0, ?DTLS_1_2];
+dtls_exclusive_default_up_to_version_helper(?DTLS_1_0) -> [?DTLS_1_0].
 
 
-dtls_exclusive_non_default_up_to_version(?'DTLS-1.0', Acc) ->
-    lists:flatmap(fun dtls_exclusive_non_default_version/1, [?'DTLS-1.0' | Acc]);
-dtls_exclusive_non_default_up_to_version(?'DTLS-1.2', Acc) ->
-    dtls_exclusive_non_default_up_to_version(?'DTLS-1.0', [?'DTLS-1.2' | Acc]).
+
+exclusive_non_default_up_to_version(Version) ->
+    lists:flatmap(fun exclusive_non_default_version/1
+                 , exclusive_non_default_up_to_version_helper(Version)).
+
+exclusive_non_default_up_to_version_helper(?TLS_1_3) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
+exclusive_non_default_up_to_version_helper(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
+exclusive_non_default_up_to_version_helper(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
+exclusive_non_default_up_to_version_helper(?TLS_1_0) -> [?TLS_1_0].
+
+
+dtls_exclusive_non_default_up_to_version(Version) ->
+    lists:flatmap( fun dtls_exclusive_non_default_version/1
+                 , dtls_exclusive_non_default_up_to_version_helper(Version)).
+
+dtls_exclusive_non_default_up_to_version_helper(?DTLS_1_2) -> [?DTLS_1_0, ?DTLS_1_2];
+dtls_exclusive_non_default_up_to_version_helper(?DTLS_1_0) -> [?DTLS_1_0].
+
 
 exclusive_non_default_version(Version) ->
     Ls = [ fun tls_v1:psk_exclusive/1

@@ -1432,9 +1432,9 @@ format_error({error, Reason}) ->
 format_error(Reason) ->
     do_format_error(Reason).
 
-tls_version(?'TLS-1.X'=Version) ->
+tls_version(Version) when ?TLS_1_X(Version) ->
     Version;
-tls_version(?'DTLS-1.X' = Version) ->
+tls_version(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:corresponding_tls_version(Version).
 
 %%--------------------------------------------------------------------
@@ -1484,9 +1484,9 @@ str_to_suite(CipherSuiteName) ->
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
-supported_suites(exclusive, ?'TLS-1.X'=Version) ->
+supported_suites(exclusive, Version) when ?TLS_1_X(Version) ->
     tls_v1:exclusive_suites(Version);
-supported_suites(exclusive, ?'DTLS-1.X'=Version) ->
+supported_suites(exclusive, Version) when ?DTLS_1_X(Version) ->
     dtls_v1:exclusive_suites(Version);
 supported_suites(default, Version) ->  
     ssl_cipher:suites(Version);
@@ -1494,9 +1494,9 @@ supported_suites(all, Version) ->
     ssl_cipher:all_suites(Version);
 supported_suites(anonymous, Version) ->
     ssl_cipher:anonymous_suites(Version);
-supported_suites(exclusive_anonymous, ?'TLS-1.X'=Version) ->
+supported_suites(exclusive_anonymous, Version) when ?TLS_1_X(Version) ->
     tls_v1:exclusive_anonymous_suites(Version);
-supported_suites(exclusive_anonymous, ?'DTLS-1.X'=Version) ->
+supported_suites(exclusive_anonymous, Version) when ?DTLS_1_X(Version) ->
     dtls_v1:exclusive_anonymous_suites(Version).
 
 do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_gen_connection) ->
@@ -2011,7 +2011,7 @@ server_name_indication_default(_) ->
 opt_signature_algs(UserOpts, #{versions := Versions} = Opts, _Env) ->
     [TlsVersion|_] = TlsVsns = [tls_version(V) || V <- Versions],
     SA = case get_opt_list(signature_algs, undefined, UserOpts, Opts) of
-             {default, undefined} when TlsVersion >= {3,3} ->
+             {default, undefined} when ?TLS_GE(TlsVersion, ?TLS_1_2) ->
                  DefAlgs = tls_v1:default_signature_algs(TlsVsns),
                  handle_hashsigns_option(DefAlgs, TlsVersion);
              {new, Algs} ->
@@ -2077,7 +2077,7 @@ validate_protocols(true, Opt, List) ->
     lists:foreach(Check, List).
 
 opt_mitigation(UserOpts, #{versions := Versions} = Opts, _Env) ->
-    DefBeast = case lists:last(Versions) > {3,1} of
+    DefBeast = case ?TLS_G(lists:last(Versions), ?TLS_1_0) of
                    true -> disabled;
                    false -> one_n_minus_one
                end,
@@ -2530,19 +2530,16 @@ warn_override(_, _UserOpts, _NewOpt, _OldOpts, _LogLevel) ->
     ok.
 
 is_dtls_configured(Versions) ->
-    Fun = fun (Version) when Version =:= ?'DTLS-1.2' orelse
-                             Version =:= ?'DTLS-1.0' ->
-                  true;
-              (_) ->
-                  false
+    Fun = fun (Version) when ?DTLS_1_X(Version) -> true;
+              (_) -> false
           end,
     lists:any(Fun, Versions).
 
 handle_hashsigns_option(Value, Version) ->
     try
-        if Version >= ?'TLS-1.3' ->
+        if ?TLS_GE(Version, ?TLS_1_3) ->
                 tls_v1:signature_schemes(Version, Value);
-           Version =:= ?'TLS-1.2' ->
+           (Version =:= ?TLS_1_2) ->
                 tls_v1:signature_algs(Version, Value);
            true ->
                 undefined
@@ -2605,11 +2602,11 @@ handle_cipher_option(Value, Versions)  when is_list(Value) ->
 	    option_error(ciphers, Value)
     end.
 
-binary_cipher_suites([?'TLS-1.3'], []) ->
+binary_cipher_suites([?TLS_1_3], []) ->
     %% Defaults to all supported suites that does
     %% not require explicit configuration TLS-1.3
     %% only mode.
-    default_binary_suites(exclusive, ?'TLS-1.3');
+    default_binary_suites(exclusive, ?TLS_1_3);
 binary_cipher_suites([Version| _], []) -> 
     %% Defaults to all supported suites that does
     %% not require explicit configuration
@@ -2644,10 +2641,10 @@ default_binary_suites(exclusive, Version) ->
 default_binary_suites(default, Version) ->
     ssl_cipher:filter_suites(ssl_cipher:suites(Version)).
 
-all_suites([?'TLS-1.3']) ->
-    tls_v1:exclusive_suites(?'TLS-1.3');
-all_suites([?'TLS-1.3', Version1 |_]) ->
-    all_suites([?'TLS-1.3']) ++
+all_suites([?TLS_1_3]) ->
+    tls_v1:exclusive_suites(?TLS_1_3);
+all_suites([?TLS_1_3, Version1 |_]) ->
+    all_suites([?TLS_1_3]) ++
         ssl_cipher:all_suites(Version1) ++
         ssl_cipher:anonymous_suites(Version1);
 all_suites([Version|_]) ->

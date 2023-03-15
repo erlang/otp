@@ -346,14 +346,14 @@ available_cert_key_pairs(CertKeyGroups) ->
 
 %% Create the prioritized list of cert key pairs that
 %% are availble for use in the negotiated version
-available_cert_key_pairs(CertKeyGroups, ?'TLS-1.3') ->
+available_cert_key_pairs(CertKeyGroups, ?TLS_1_3) ->
     RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
-available_cert_key_pairs(CertKeyGroups, ?'TLS-1.2') ->
+available_cert_key_pairs(CertKeyGroups, ?TLS_1_2) ->
      RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
-available_cert_key_pairs(CertKeyGroups, ?'TLS-1.X'=Version)
-  when Version < ?'TLS-1.2'->
+available_cert_key_pairs(CertKeyGroups, Version)
+  when ?TLS_L(Version, ?TLS_1_2) ->
     RevAlgos = [dsa, rsa, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
 
@@ -598,22 +598,22 @@ verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
     %% Skip unknown extensions!
     verify_cert_extensions(Cert, UserState, Exts, Context).
 
-verify_sign(_, #{version := ?'TLS-1.X'=Version})
-            when Version < ?'TLS-1.2' ->
+verify_sign(_, #{version := Version})
+            when ?TLS_L(Version, ?TLS_1_2) ->
     %% This verification is not applicable pre TLS-1.2 
     true; 
-verify_sign(Cert, #{version := ?'TLS-1.2',
+verify_sign(Cert, #{version := ?TLS_1_2,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := ?'TLS-1.2',
+verify_sign(Cert, #{version := ?TLS_1_2,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := ?'TLS-1.3',
+verify_sign(Cert, #{version := ?TLS_1_3,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs);
-verify_sign(Cert, #{version := ?'TLS-1.3',
+verify_sign(Cert, #{version := ?TLS_1_3,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs).
 

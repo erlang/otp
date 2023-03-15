@@ -597,7 +597,7 @@ choose_tls_fsm(#{versions := Versions},
                                 }
                  }) ->
     case ssl_handshake:select_supported_version(ClientVersions, Versions) of
-        ?'TLS-1.3' ->
+        ?TLS_1_3 ->
             tls_1_3_fsm;
         _Else ->
             tls_1_0_to_1_2_fsm

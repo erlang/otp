@@ -283,7 +283,7 @@ session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSiz
                                                TicketStoreSize, MaxEarlyDataSize,
                                                AntiReplay, Seed]).
 
-session_id_tracker(_, #{versions := [?'TLS-1.3']}) ->
+session_id_tracker(_, #{versions := [?TLS_1_3]}) ->
     {ok, not_relevant};
 %% Regardless of the option reuse_sessions we need the session_id_tracker
 %% to generate session ids, but no sessions will be stored unless

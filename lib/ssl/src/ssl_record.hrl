@@ -163,9 +163,6 @@
 %% 	  minor   % unit 8
 %% 	 }).
 
--define(LOWEST_MAJOR_SUPPORTED_VERSION, 3).
-	
-
 -record(generic_stream_cipher, {
           content,  % opaque content[TLSCompressed.length];
           mac       % opaque MAC[CipherSpec.hash_size]; 
@@ -180,16 +177,33 @@
           next_iv  % opaque IV[SecurityParameters.record_iv_length];
          }). 
 
+-define(PROTOCOL_TO_BINARY_VERSION(Version), (Version)).
+-define(BINARY_PROTOCOL_TO_INTERNAL_REPRESENTATION(Version), (Version)).
 
--define('TLS-1.X', {3, _}).
--define('TLS-1.3', {3, 4}).
--define('TLS-1.2', {3, 3}).
--define('TLS-1.1', {3, 2}).
--define('TLS-1.0', {3, 1}).
--define('DTLS-1.X', {254, _}).
--define('DTLS-1.0', {254, 255}).
--define('DTLS-1.2', {254, 253}).
--define('SSL-2.0', {2, 0}).
--define('SSL-3.0', {3, 0}).
+-define(TLS_1_X(Version), (element(1,Version) == 3)).
+-define(DTLS_1_X(Version), (element(1,Version) == 254)).
+
+-define(TLS_GE(Version1, Version2), (Version1 >= Version2)).
+-define(TLS_G(Version1, Version2),  (Version1 > Version2)).
+-define(TLS_LE(Version1, Version2), (Version1 =< Version2)).
+-define(TLS_L(Version1, Version2),  (Version1 < Version2)).
+
+-define(DTLS_GE(Version1, Version2), (Version1 =< Version2)).
+-define(DTLS_G(Version1, Version2),  (Version1 < Version2)).
+-define(DTLS_LE(Version1, Version2), (Version >= Version2)).
+-define(DTLS_L(Version1, Version2),  (Version1 > Version2)).
+
+%% Atoms used to refer to protocols
+
+-define(TLS_1_3, {3,4}).
+-define(TLS_1_2, {3,3}).
+-define(TLS_1_1, {3,2}).
+-define(TLS_1_0, {3,1}).
+
+-define(DTLS_1_2, {254,253}).
+-define(DTLS_1_0, {254,255}).
+
+-define(SSL_3_0, {3,0}).
+-define(SSL_2_0, {2,0}).
 
 -endif. % -ifdef(ssl_record).

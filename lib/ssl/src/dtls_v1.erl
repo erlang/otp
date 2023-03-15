@@ -75,10 +75,10 @@ ecc_curves(Version) ->
     tls_v1:ecc_curves(corresponding_tls_version(Version)).
 
 
-corresponding_tls_version(?'DTLS-1.0') ->
-    ?'TLS-1.1';
-corresponding_tls_version(?'DTLS-1.2') ->
-    ?'TLS-1.2'.
+corresponding_tls_version(?DTLS_1_0) ->
+    ?TLS_1_1;
+corresponding_tls_version(?DTLS_1_2) ->
+    ?TLS_1_2.
 
 cookie_secret() ->
     crypto:strong_rand_bytes(32).
@@ -88,10 +88,10 @@ cookie_timeout() ->
     round(rand:uniform() * ?COOKIE_BASE_TIMEOUT/2).
 
 
-corresponding_dtls_version(?'TLS-1.1') ->
-    ?'DTLS-1.0';
-corresponding_dtls_version(?'TLS-1.2') ->
-    ?'DTLS-1.2'.
+corresponding_dtls_version(?TLS_1_1) ->
+    ?DTLS_1_0;
+corresponding_dtls_version(?TLS_1_2) ->
+    ?DTLS_1_2.
 
 is_acceptable_cipher(Suite) ->
     not ssl_cipher:is_stream_ciphersuite(Suite).

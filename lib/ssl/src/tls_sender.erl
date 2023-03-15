@@ -575,7 +575,7 @@ maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
 maybe_update_cipher_key(StateData, _) ->
     StateData.
 
-update_bytes_sent(Version, StateData, _) when Version < ?'TLS-1.3' ->
+update_bytes_sent(Version, StateData, _) when ?TLS_L(Version, ?TLS_1_3) ->
     StateData;
 %% Count bytes sent in TLS 1.3 for AES-GCM
 update_bytes_sent(_, #data{static = #static{key_update_at = seq_num_wrap}} = StateData, _) ->
@@ -588,11 +588,11 @@ update_bytes_sent(_, #data{static = #static{bytes_sent = Sent} = Static} = State
 %% approximately 2^-57 for Authenticated Encryption (AE) security.  For
 %% ChaCha20/Poly1305, the record sequence number would wrap before the
 %% safety limit is reached.
-key_update_at(?'TLS-1.3', #{security_parameters :=
+key_update_at(?TLS_1_3, #{security_parameters :=
                              #security_parameters{
                                 bulk_cipher_algorithm = ?CHACHA20_POLY1305}}, _KeyUpdateAt) ->
     seq_num_wrap;
-key_update_at(?'TLS-1.3', _, KeyUpdateAt) ->
+key_update_at(?TLS_1_3, _, KeyUpdateAt) ->
     KeyUpdateAt;
 key_update_at(_, _, KeyUpdateAt) ->
     KeyUpdateAt.
@@ -616,11 +616,11 @@ set_opts(SocketOptions, [{packet, N}]) ->
 
 time_to_rekey(Version, _Data,
               #{current_write := #{sequence_number := ?MAX_SEQUENCE_NUMBER}},
-              _, _, _) when Version >= ?'TLS-1.3' ->
+              _, _, _) when ?TLS_GE(Version, ?TLS_1_3) ->
     key_update;
-time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when Version >= ?'TLS-1.3' ->
+time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when ?TLS_GE(Version, ?TLS_1_3) ->
     false;
-time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when Version >= ?'TLS-1.3' ->
+time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when ?TLS_GE(Version, ?TLS_1_3) ->
     DataSize = iolist_size(Data),
     case (BytesSent + DataSize) > KeyUpdateAt of
         true ->

@@ -27,6 +27,7 @@
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 -export([clean_start/0,
          clean_start/1,
@@ -466,7 +467,7 @@ sig_algs(rsa_pss_rsae, _) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256]}];
-sig_algs(rsa, Version) when Version >= {3,3} ->
+sig_algs(rsa, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256,
@@ -475,13 +476,13 @@ sig_algs(rsa, Version) when Version >= {3,3} ->
                        {sha256, rsa},
                        {sha, rsa}
                       ]}];
-sig_algs(ecdsa, Version) when Version >= {3,3} ->
+sig_algs(ecdsa, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
     [{signature_algs, [
                        {sha512, ecdsa},
                        {sha384, ecdsa},
                        {sha256, ecdsa},
                        {sha, ecdsa}]}];
-sig_algs(dsa, Version) when Version >= {3,3} ->
+sig_algs(dsa, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
     [{signature_algs, [{sha,dsa}]}];
 sig_algs(_,_) ->
     [].
@@ -4242,7 +4243,7 @@ ktls_set_ulp(Socket, OS) ->
       OS).
 
 ktls_set_cipher(Socket, OS, TxRx, Seed) ->
-    TLS_version = {3,4},
+    TLS_version = ?TLS_1_3,
     TLS_cipher = ?TLS_AES_256_GCM_SHA384,
     TLS_IV   = binary:copy(<<(Seed + 0)>>, 8),
     TLS_KEY  = binary:copy(<<(Seed + 1)>>, 32),

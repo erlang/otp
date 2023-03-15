@@ -48,15 +48,15 @@
          accept_sslv3_record_hello/1
         ]).
 
--define(TLS_MAJOR,     (element(1, ?'TLS-1.2'))).
--define(SSL_3_0_MAJOR, (element(1, ?'SSL-3.0'))).
--define(SSL_3_0_MINOR, (element(2, ?'SSL-3.0'))).
--define(TLS_1_0_MINOR, (element(2, ?'TLS-1.0'))).
--define(TLS_1_1_MINOR, (element(2, ?'TLS-1.1'))).
--define(TLS_1_2_MINOR, (element(2, ?'TLS-1.2'))).
--define(TLS_1_3_MINOR, (element(2, ?'TLS-1.3'))).
--define(SSL_2_0_MAJOR, (element(1, ?'SSL-2.0'))).
--define(SSL_2_0_MINOR, (element(2, ?'SSL-2.0'))).
+-define(TLS_MAJOR,     (element(1, ?TLS_1_2))).
+-define(SSL_3_0_MAJOR, (element(1, ?SSL_3_0))).
+-define(SSL_3_0_MINOR, (element(2, ?SSL_3_0))).
+-define(TLS_1_0_MINOR, (element(2, ?TLS_1_0))).
+-define(TLS_1_1_MINOR, (element(2, ?TLS_1_1))).
+-define(TLS_1_2_MINOR, (element(2, ?TLS_1_2))).
+-define(TLS_1_3_MINOR, (element(2, ?TLS_1_3))).
+-define(SSL_2_0_MAJOR, (element(1, ?SSL_2_0))).
+-define(SSL_2_0_MINOR, (element(2, ?SSL_2_0))).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

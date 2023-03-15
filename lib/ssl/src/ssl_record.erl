@@ -59,9 +59,9 @@
 -export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
 -type ssl_version()       :: {non_neg_integer(), non_neg_integer()}.
--type ssl_atom_version() :: tls_record:tls_atom_version().
+-type ssl_atom_version()  :: tls_record:tls_atom_version().
 -type connection_states() :: map(). %% Map
--type connection_state() :: map(). %% Map
+-type connection_state()  :: map(). %% Map
 
 %%====================================================================
 %% Connection state handling
@@ -495,7 +495,7 @@ init_security_parameters(?SERVER, Version) ->
     #security_parameters{connection_end = ?SERVER,
                          server_random = make_random(Version)}.
 
-make_random(Version) when Version >= ?'TLS-1.3' ->
+make_random(Version) when ?TLS_GE(Version, ?TLS_1_3) ->
     ssl_cipher:random_bytes(32);
 make_random(_Version) ->
     Secs_since_1970 = calendar:datetime_to_gregorian_seconds(

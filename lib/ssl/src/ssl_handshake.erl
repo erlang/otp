@@ -59,7 +59,7 @@
 	]).
 
 %% Encode
--export([encode_handshake/2, encode_hello_extensions/2, encode_extensions/1, encode_extensions/2,
+-export([encode_handshake/2, encode_hello_extensions/1, encode_extensions/1, encode_extensions/2,
 	 encode_client_protocol_negotiation/2, encode_protocols_advertised_on_server/1]).
 %% Decode
 -export([decode_handshake/3, decode_vector/1, decode_hello_extensions/4, decode_extensions/3,
@@ -391,29 +391,29 @@ verify_signature(_, Msg, {HashAlgo, SignAlgo}, Signature,
                                                   SignAlgo == rsa_pss_pss ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
     public_key:verify(Msg, HashAlgo, Signature, PubKey, Options);
-verify_signature(?'TLS-1.X'=Version, Msg, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
-  when Version >= ?'TLS-1.2' ->
+verify_signature(Version, Msg, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
+  when ?TLS_GE(Version, ?TLS_1_2) ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
     public_key:verify(Msg, HashAlgo, Signature, PubKey, Options);
-verify_signature(?'TLS-1.X'=Version, {digest, Digest}, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
-  when Version =< ?'TLS-1.1' ->
+verify_signature(Version, {digest, Digest}, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
+  when ?TLS_LE(Version, ?TLS_1_1) ->
     case public_key:decrypt_public(Signature, PubKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
 	Digest -> true;
 	_   -> false
     end;
-verify_signature(?'TLS-1.3', Msg, {_, eddsa}, Signature, {?'id-Ed25519', PubKey, PubKeyParams}) ->
+verify_signature(?TLS_1_3, Msg, {_, eddsa}, Signature, {?'id-Ed25519', PubKey, PubKeyParams}) ->
     public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
-verify_signature(?'TLS-1.3', Msg, {_, eddsa}, Signature, {?'id-Ed448', PubKey, PubKeyParams}) ->
+verify_signature(?TLS_1_3, Msg, {_, eddsa}, Signature, {?'id-Ed448', PubKey, PubKeyParams}) ->
     public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
 verify_signature(_, Msg, {HashAlgo, _SignAlg}, Signature,
 		 {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
     public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams});
-verify_signature(?'TLS-1.X'=Version, _Msg, {_HashAlgo, anon}, _Signature, _)
-  when Version =< ?'TLS-1.2' ->
+verify_signature(Version, _Msg, {_HashAlgo, anon}, _Signature, _)
+  when ?TLS_1_X(Version), ?TLS_LE(Version, ?TLS_1_2) ->
     true;
-verify_signature(?'TLS-1.X'=Version, Msg, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})
-  when Version =< ?'TLS-1.2' ->
+verify_signature(Version, Msg, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})
+  when ?TLS_1_X(Version), ?TLS_LE(Version, ?TLS_1_2) ->
     public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
 
 %%--------------------------------------------------------------------
@@ -524,16 +524,12 @@ select_version(RecordCB, ClientVersion, Versions) ->
 %% Called by TLS 1.2/1.3 Server when "supported_versions" is present
 %% in ClientHello.
 %% Input lists are ordered (highest first)
-select_supported_version([], _ServerVersions) ->
-    undefined;
-select_supported_version([ClientVersion|T], ServerVersions) ->
-    case lists:member(ClientVersion, ServerVersions) of
-        true ->
-            ClientVersion;
-        false ->
-            select_supported_version(T, ServerVersions)
+select_supported_version(ClientVersions, ServerVersions) ->
+    Fn = fun (ClientVersion) -> lists:member(ClientVersion, ServerVersions) end,
+    case lists:search(Fn, ClientVersions) of
+        {value, ClientVersion} -> ClientVersion;
+        false -> undefined
     end.
-
 
 %%====================================================================
 %% Encode handshake 
@@ -543,14 +539,15 @@ encode_handshake(#next_protocol{selected_protocol = SelectedProtocol}, _Version)
     PaddingLength = 32 - ((byte_size(SelectedProtocol) + 2) rem 32),
     {?NEXT_PROTOCOL, <<?BYTE((byte_size(SelectedProtocol))), SelectedProtocol/binary,
                          ?BYTE(PaddingLength), 0:(PaddingLength * 8)>>};
-encode_handshake(#server_hello{server_version = {Major, Minor} = Version,
+encode_handshake(#server_hello{server_version = ServerVersion,
 			       random = Random,
 			       session_id = Session_ID,
 			       cipher_suite = CipherSuite,
 			       compression_method = Comp_method,
 			       extensions = Extensions}, _Version) ->
 			SID_length = byte_size(Session_ID),
-    ExtensionsBin = encode_hello_extensions(Extensions, Version),
+    {Major,Minor} = ServerVersion,
+    ExtensionsBin = encode_hello_extensions(Extensions),
     {?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		     ?BYTE(SID_length), Session_ID/binary,
                      CipherSuite/binary, ?BYTE(Comp_method), ExtensionsBin/binary>>};
@@ -567,7 +564,7 @@ encode_handshake(#server_key_params{params_bin = Keys, hashsign = HashSign,
 encode_handshake(#certificate_request{certificate_types = CertTypes,
                                       hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
                                       certificate_authorities = CertAuths},
-                 ?'TLS-1.2') ->
+                 ?TLS_1_2) ->
     HashSigns = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
 		       SignatureScheme <- HashSignAlgos >>,
     EncCertAuths = encode_cert_auths(CertAuths),
@@ -591,15 +588,15 @@ encode_handshake(#certificate_request{certificate_types = CertTypes,
     };
 encode_handshake(#server_hello_done{}, _Version) ->
     {?SERVER_HELLO_DONE, <<>>};
-encode_handshake(#client_key_exchange{exchange_keys = ExchangeKeys}, Version) ->
-    {?CLIENT_KEY_EXCHANGE, encode_client_key(ExchangeKeys, Version)};
+encode_handshake(#client_key_exchange{exchange_keys = ExchangeKeys}, _Version) ->
+    {?CLIENT_KEY_EXCHANGE, encode_client_key(ExchangeKeys)};
 encode_handshake(#certificate_verify{signature = BinSig, hashsign_algorithm = HashSign}, Version) ->
     EncSig = enc_sign(HashSign, BinSig, Version),
     {?CERTIFICATE_VERIFY, EncSig};
 encode_handshake(#finished{verify_data = VerifyData}, _Version) ->
     {?FINISHED, VerifyData}.
 
-encode_hello_extensions(Extensions, _) ->
+encode_hello_extensions(Extensions) ->
     encode_extensions(hello_extensions_list(Extensions), <<>>).
 
 encode_extensions(Exts) ->
@@ -833,14 +830,12 @@ encode_protocols_advertised_on_server(Protocols) ->
         extension_data = lists:foldl(fun encode_protocol/2, <<>>, Protocols)}.
 
 encode_cert_auths(Auths) ->
-    encode_cert_auths(Auths, []).
-
-encode_cert_auths([], Acc) -> 
-    list_to_binary(lists:reverse(Acc));
-encode_cert_auths([Auth | Auths], Acc) ->
-    DNEncodedBin = public_key:pkix_encode('Name', Auth, otp),   
-    DNEncodedLen = byte_size(DNEncodedBin),
-    encode_cert_auths(Auths, [<<?UINT16(DNEncodedLen), DNEncodedBin/binary>> | Acc]).
+    DNEncode = fun (Auth) ->
+                       DNEncodedBin = public_key:pkix_encode('Name', Auth, otp),
+                       DNEncodedLen = byte_size(DNEncodedBin),
+                       <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
+               end,
+    list_to_binary(lists:map(DNEncode, Auths)).
 
 %%====================================================================
 %% Decode handshake 
@@ -889,7 +884,7 @@ decode_handshake(_Version, ?CERTIFICATE_STATUS, <<?BYTE(?CERTIFICATE_STATUS_TYPE
         response = ASN1OcspResponse};
 decode_handshake(_Version, ?SERVER_KEY_EXCHANGE, Keys) ->
     #server_key_exchange{exchange_keys = Keys};
-decode_handshake(?'TLS-1.2' = Version, ?CERTIFICATE_REQUEST,
+decode_handshake(?TLS_1_2 = Version, ?CERTIFICATE_REQUEST,
                  <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
                    ?UINT16(HashSignsLen), HashSigns:HashSignsLen/binary,
                    ?UINT16(CertAuthsLen), EncCertAuths:CertAuthsLen/binary>>) ->
@@ -904,7 +899,7 @@ decode_handshake(_Version, ?CERTIFICATE_REQUEST,
 			 certificate_authorities = decode_cert_auths(EncCertAuths, [])};
 decode_handshake(_Version, ?SERVER_HELLO_DONE, <<>>) ->
     #server_hello_done{};
-decode_handshake(?'TLS-1.2', ?CERTIFICATE_VERIFY,<<HashSign:2/binary, ?UINT16(SignLen),
+decode_handshake(?TLS_1_2, ?CERTIFICATE_VERIFY,<<HashSign:2/binary, ?UINT16(SignLen),
                                                            Signature:SignLen/binary>>) ->
     #certificate_verify{hashsign_algorithm = dec_hashsign(HashSign), signature = Signature};
 decode_handshake(_Version, ?CERTIFICATE_VERIFY,<<?UINT16(SignLen), Signature:SignLen/binary>>)->
@@ -1014,11 +1009,11 @@ available_suites(ServerCert, UserSuites, Version, HashSigns, Curve) ->
 
 available_signature_algs(undefined, _)  ->
     undefined;
-available_signature_algs(SupportedHashSigns, Version) when Version >= ?'TLS-1.2' ->
+available_signature_algs(SupportedHashSigns, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
     case contains_scheme(SupportedHashSigns) of
         true ->
             case Version of 
-                ?'TLS-1.2' ->
+                ?TLS_1_2 ->
                     #hash_sign_algos{hash_sign_algos = ssl_cipher:signature_schemes_1_2(SupportedHashSigns)};
                 _ ->
                     #signature_algorithms{signature_scheme_list = SupportedHashSigns}
@@ -1030,12 +1025,12 @@ available_signature_algs(_, _) ->
     undefined.
 
 available_signature_algs(undefined, SupportedHashSigns, Version) when
-      Version >= ?'TLS-1.2' ->
+      ?TLS_GE(Version, ?TLS_1_2) ->
     SupportedHashSigns;
 available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns0, 
-                         Version) when Version >= ?'TLS-1.2' ->
+                         Version) when ?TLS_GE(Version, ?TLS_1_2) ->
     SupportedHashSigns =
-        case (Version == ?'TLS-1.2') andalso contains_scheme(SupportedHashSigns0) of
+        case (Version == ?TLS_1_2) andalso contains_scheme(SupportedHashSigns0) of
             true ->
                 ssl_cipher:signature_schemes_1_2(SupportedHashSigns0);
             false ->
@@ -1046,18 +1041,15 @@ available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, Su
 available_signature_algs(_, _, _) ->
     undefined.
 
-contains_scheme([]) ->
-    false;
-contains_scheme([Scheme | _]) when is_atom(Scheme) ->
-    true;
-contains_scheme([_| Rest]) ->
-    contains_scheme(Rest).
+contains_scheme(Schemes) ->
+    lists:any(fun erlang:is_atom/1, Schemes).
 
 cipher_suites(Suites, Renegotiation, true) ->
     %% TLS_FALLBACK_SCSV should be placed last -RFC7507
     cipher_suites(Suites, Renegotiation) ++ [?TLS_FALLBACK_SCSV];
 cipher_suites(Suites, Renegotiation, false) ->
     cipher_suites(Suites, Renegotiation).
+
 cipher_suites(Suites, false) ->
     [?TLS_EMPTY_RENEGOTIATION_INFO_SCSV | Suites];
 cipher_suites(Suites, true) ->
@@ -1068,7 +1060,8 @@ cipher_suites(Suites, true) ->
 %%
 %% Description: use the TLS PRF to generate key material
 %%--------------------------------------------------------------------
-prf(?'TLS-1.X', PRFAlgo, Secret, Label, Seed, WantedLength) ->
+prf(Version, PRFAlgo, Secret, Label, Seed, WantedLength)
+  when ?TLS_1_X(Version)->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
 select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, Session0, Version, SslOpts, CertKeyAlts) ->
@@ -1130,7 +1123,9 @@ server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, cert
             end
     end.
 
-is_acceptable_cert(Cert, HashSigns, ?'TLS-1.X'=Version) when Version >= ?'TLS-1.2' ->
+is_acceptable_cert(Cert, HashSigns, Version)
+  when ?TLS_1_X(Version),
+       ?TLS_GE(Version, ?TLS_1_2) ->
     {SignAlgo0, Param, _, _, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0, Param),
     is_acceptable_hash_sign(SignAlgo, HashSigns);
@@ -1262,7 +1257,7 @@ add_tls12_extensions(_Version,
      }.
 
 
-add_common_extensions(?'TLS-1.3',
+add_common_extensions(?TLS_1_3,
                       HelloExtensions,
                       _CipherSuites,
                       #{eccs := SupportedECCs,
@@ -1299,7 +1294,7 @@ add_common_extensions(Version,
                      signature_algs_cert =>
                          signature_algs_cert(SignatureCertSchemes)}.
 
-maybe_add_tls13_extensions(?'TLS-1.3',
+maybe_add_tls13_extensions(?TLS_1_3,
                            HelloExtensions0,
                            #{versions := SupportedVersions} = Opts,
                            KeyShare,
@@ -1332,13 +1327,7 @@ maybe_add_certificate_status_request(_Version, _SslOpts, _OcspNonce,
     HelloExtensions.
 
 get_ocsp_responder_list(ResponderCerts) ->
-    get_ocsp_responder_list(ResponderCerts, []).
-
-get_ocsp_responder_list([], Acc) ->
-    Acc;
-get_ocsp_responder_list([ResponderCert | T], Acc) ->
-    get_ocsp_responder_list(
-        T, [public_key:ocsp_responder_id(ResponderCert) | Acc]).
+    lists:map(fun public_key:ocsp_responder_id/1, ResponderCerts).
 
 %% TODO: Add support for PSK key establishment
 
@@ -1442,7 +1431,7 @@ add_alpn(Extensions, ALPN0) ->
     Extensions#{alpn => ALPN}.
 
 add_selected_version(Extensions) ->
-    SupportedVersions = #server_hello_selected_version{selected_version = ?'TLS-1.3'},
+    SupportedVersions = #server_hello_selected_version{selected_version = ?TLS_1_3},
     Extensions#{server_hello_selected_version => SupportedVersions}.
 
 kse_remove_private_key(#key_share_entry{
@@ -1631,12 +1620,12 @@ select_hashsign(_, _, KeyExAlgo, _, _Version) when KeyExAlgo == dh_anon;
 %% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
 %% negotiated a lower version.
 select_hashsign({ClientHashSigns, ClientSignatureSchemes},
-                Cert, KeyExAlgo, undefined, ?'TLS-1.2' = Version) ->
+                Cert, KeyExAlgo, undefined, ?TLS_1_2 = Version) ->
     select_hashsign({ClientHashSigns, ClientSignatureSchemes}, Cert, KeyExAlgo,
                     tls_v1:default_signature_algs([Version]), Version);
 select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
                  ClientSignatureSchemes0},
-                Cert, KeyExAlgo, SupportedHashSigns, ?'TLS-1.2') ->
+                Cert, KeyExAlgo, SupportedHashSigns, ?TLS_1_2) ->
     ClientSignatureSchemes = get_signature_scheme(ClientSignatureSchemes0),
     {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0, Param),
@@ -1693,7 +1682,7 @@ select_hashsign(#certificate_request{
                    certificate_types = Types},
                 Cert,
                 SupportedHashSigns,
-		?'TLS-1.2') ->
+		?TLS_1_2) ->
     {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
     SignAlgo = {_, KeyType} = sign_algo(SignAlgo0, Param),
     PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
@@ -1885,9 +1874,9 @@ get_signature_scheme(#signature_algorithms_cert{
 %%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
 
 %%--------------------------------------------------------------------
-select_hashsign_algs(HashSign, _, ?'TLS-1.2') when HashSign =/= undefined  ->
+select_hashsign_algs(HashSign, _, ?TLS_1_2) when HashSign =/= undefined  ->
     HashSign;
-select_hashsign_algs(undefined, ?rsaEncryption, ?'TLS-1.2')  ->
+select_hashsign_algs(undefined, ?rsaEncryption, ?TLS_1_2)  ->
     {sha, rsa};
 select_hashsign_algs(undefined,?'id-ecPublicKey', _) ->
     {sha, ecdsa};
@@ -1983,7 +1972,7 @@ int_to_bin(I) ->
 
 %% The end-entity certificate provided by the client MUST contain a
 %% key that is compatible with certificate_types.
-certificate_types(Version) when Version =< ?'TLS-1.2' ->
+certificate_types(Version) when ?TLS_LE(Version, ?TLS_1_2) ->
     ECDSA = supported_cert_type_or_empty(ecdsa, ?ECDSA_SIGN),
     RSA = supported_cert_type_or_empty(rsa, ?RSA_SIGN),
     DSS = supported_cert_type_or_empty(dss, ?DSS_SIGN),
@@ -2130,21 +2119,21 @@ digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 
-do_digitally_signed(?'TLS-1.X'=Version, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
-                                                 #'RSASSA-PSS-params'{}}, SignAlgo) when Version >= ?'TLS-1.2' ->
+do_digitally_signed(Version, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
+                                             #'RSASSA-PSS-params'{}}, SignAlgo) when ?TLS_GE(Version, ?TLS_1_2) ->
     Options = signature_options(SignAlgo, HashAlgo),
     public_key:sign(Msg, HashAlgo, Key, Options);
-do_digitally_signed(?'TLS-1.X'=Version, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when Version =< ?'TLS-1.1' ->
+do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when ?TLS_LE(Version, ?TLS_1_1) ->
     public_key:encrypt_private(Digest, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
-do_digitally_signed(?'TLS-1.X'=Version, {digest, Digest}, _,
-                    #{algorithm := rsa} = Engine, rsa) when Version =< ?'TLS-1.1' ->
+do_digitally_signed(Version, {digest, Digest}, _,
+                    #{algorithm := rsa} = Engine, rsa) when ?TLS_LE(Version, ?TLS_1_1) ->
     crypto:private_encrypt(rsa, Digest, maps:remove(algorithm, Engine),
                            rsa_pkcs1_padding);
 do_digitally_signed(_, Msg, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
     crypto:sign(Alg, HashAlgo, Msg, maps:remove(algorithm, Engine), Options);
-do_digitally_signed(?'TLS-1.X'=Version, {digest, _} = Msg , HashAlgo, Key, _) when Version =< ?'TLS-1.1' ->
+do_digitally_signed(Version, {digest, _} = Msg , HashAlgo, Key, _) when ?TLS_LE(Version,?TLS_1_1) ->
     public_key:sign(Msg, HashAlgo, Key);
 do_digitally_signed(_, Msg, HashAlgo, Key, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
@@ -2255,12 +2244,12 @@ crl_check_same_issuer(OtpCert, _, Dps, Options) ->
 
 dps_and_crls(OtpCert, Callback, CRLDbHandle, ext, LogLevel) ->
     case public_key:pkix_dist_points(OtpCert) of
-	[] ->
-	    no_dps;
-	DistPoints ->
-	    Issuer = OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.issuer,
-	    CRLs = distpoints_lookup(DistPoints, Issuer, Callback, CRLDbHandle, LogLevel),
-            dps_and_crls(DistPoints, CRLs, [])
+        [] ->
+            no_dps;
+        DistPoints ->
+            Issuer = OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.issuer,
+            CRLs = distpoints_lookup(DistPoints, Issuer, Callback, CRLDbHandle, LogLevel),
+            [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  DP <- DistPoints, CRL <- CRLs]
     end;
 
 dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer, LogLevel) ->    
@@ -2279,12 +2268,7 @@ dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer, LogLevel) ->
 			 end, GenNames),
     [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs].
 
-dps_and_crls([], _, Acc) ->
-    Acc;
-dps_and_crls([DP | Rest], CRLs, Acc) ->
-    DpCRL = [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs],
-    dps_and_crls(Rest, CRLs, DpCRL ++ Acc).
-    
+
 distpoints_lookup([],_, _, _, _) ->
     [];
 distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle, LogLevel) ->
@@ -2319,10 +2303,10 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
     end.
 
 -spec calc_certificate_verify(ssl_record:ssl_version(), md5sha | ssl:hash(), _, [binary()]) -> binary().
-calc_certificate_verify(?'TLS-1.X', HashAlgo, _MasterSecret, Handshake) ->
+calc_certificate_verify(Version, HashAlgo, _MasterSecret, Handshake) when ?TLS_1_X(Version) ->
     tls_v1:certificate_verify(HashAlgo, lists:reverse(Handshake)).
 
-calc_finished(?'TLS-1.X'=Version, Role, PrfAlgo, MasterSecret, Handshake) ->
+calc_finished(Version, Role, PrfAlgo, MasterSecret, Handshake) when ?TLS_1_X(Version) ->
     tls_v1:finished(Role, Version, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
 master_secret(Version, MasterSecret,
@@ -2351,12 +2335,12 @@ master_secret(Version, MasterSecret,
     {MasterSecret,
      ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState,
 					 ServerCipherState, Role)}.
-setup_keys({3,_}=Version, PrfAlgo, MasterSecret,
-	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
+setup_keys(Version, PrfAlgo, MasterSecret,
+	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) when ?TLS_1_X(Version)->
     tls_v1:setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 			KML, IVS).
-calc_master_secret(?'TLS-1.X'=Version, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
-  when Version < ?'TLS-1.3' ->
+calc_master_secret(Version, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
+  when ?TLS_L(Version, ?TLS_1_3) ->
     tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 	
 %% Update pending connection states with parameters exchanged via
@@ -2480,48 +2464,48 @@ encode_server_key(#server_srp_params{srp_n = N, srp_g = G,	srp_s = S, srp_b = B}
     <<?UINT16(NLen), N/binary, ?UINT16(GLen), G/binary,
       ?BYTE(SLen), S/binary, ?UINT16(BLen), B/binary>>.
 
-encode_client_key(#encrypted_premaster_secret{premaster_secret = PKEPMS}, _) ->
+encode_client_key(#encrypted_premaster_secret{premaster_secret = PKEPMS}) ->
     PKEPMSLen = byte_size(PKEPMS),
     <<?UINT16(PKEPMSLen), PKEPMS/binary>>;
-encode_client_key(#client_diffie_hellman_public{dh_public = DHPublic}, _) ->
+encode_client_key(#client_diffie_hellman_public{dh_public = DHPublic}) ->
     Len = byte_size(DHPublic),
     <<?UINT16(Len), DHPublic/binary>>;
-encode_client_key(#client_ec_diffie_hellman_public{dh_public = DHPublic}, _) ->
+encode_client_key(#client_ec_diffie_hellman_public{dh_public = DHPublic}) ->
     Len = byte_size(DHPublic),
     <<?BYTE(Len), DHPublic/binary>>;
-encode_client_key(#client_psk_identity{identity = undefined}, _) ->
+encode_client_key(#client_psk_identity{identity = undefined}) ->
     Id = <<"psk_identity">>,
     Len = byte_size(Id),
     <<?UINT16(Len), Id/binary>>;
-encode_client_key(#client_psk_identity{identity = Id}, _) ->
+encode_client_key(#client_psk_identity{identity = Id}) ->
     Len = byte_size(Id),
     <<?UINT16(Len), Id/binary>>;
-encode_client_key(Identity = #client_dhe_psk_identity{identity = undefined}, Version) ->
-    encode_client_key(Identity#client_dhe_psk_identity{identity = <<"psk_identity">>}, Version);
-encode_client_key(#client_dhe_psk_identity{identity = Id, dh_public = DHPublic}, _) ->
+encode_client_key(Identity = #client_dhe_psk_identity{identity = undefined}) ->
+    encode_client_key(Identity#client_dhe_psk_identity{identity = <<"psk_identity">>});
+encode_client_key(#client_dhe_psk_identity{identity = Id, dh_public = DHPublic}) ->
     Len = byte_size(Id),
     DHLen = byte_size(DHPublic),
     <<?UINT16(Len), Id/binary, ?UINT16(DHLen), DHPublic/binary>>;
-encode_client_key(Identity = #client_ecdhe_psk_identity{identity = undefined}, Version) ->
-    encode_client_key(Identity#client_ecdhe_psk_identity{identity = <<"psk_identity">>}, Version);
-encode_client_key(#client_ecdhe_psk_identity{identity = Id, dh_public = DHPublic}, _) ->
+encode_client_key(Identity = #client_ecdhe_psk_identity{identity = undefined}) ->
+    encode_client_key(Identity#client_ecdhe_psk_identity{identity = <<"psk_identity">>});
+encode_client_key(#client_ecdhe_psk_identity{identity = Id, dh_public = DHPublic}) ->
     Len = byte_size(Id),
     DHLen = byte_size(DHPublic),
     <<?UINT16(Len), Id/binary, ?BYTE(DHLen), DHPublic/binary>>;
-encode_client_key(Identity = #client_rsa_psk_identity{identity = undefined}, Version) ->
-    encode_client_key(Identity#client_rsa_psk_identity{identity = <<"psk_identity">>}, Version);
-encode_client_key(#client_rsa_psk_identity{identity = Id, exchange_keys = ExchangeKeys}, Version) ->
-    EncPMS = encode_client_key(ExchangeKeys, Version),
+encode_client_key(Identity = #client_rsa_psk_identity{identity = undefined}) ->
+    encode_client_key(Identity#client_rsa_psk_identity{identity = <<"psk_identity">>});
+encode_client_key(#client_rsa_psk_identity{identity = Id, exchange_keys = ExchangeKeys}) ->
+    EncPMS = encode_client_key(ExchangeKeys),
     Len = byte_size(Id),
     <<?UINT16(Len), Id/binary, EncPMS/binary>>;
-encode_client_key(#client_srp_public{srp_a = A}, _) ->
+encode_client_key(#client_srp_public{srp_a = A}) ->
     Len = byte_size(A),
     <<?UINT16(Len), A/binary>>.
 
 enc_sign({_, anon}, _Sign, _Version) ->
     <<>>;
-enc_sign({HashAlg, SignAlg}, Signature, ?'TLS-1.X'=Version)
-  when Version >= ?'TLS-1.2'->
+enc_sign({HashAlg, SignAlg}, Signature, Version)
+  when ?TLS_GE(Version, ?TLS_1_2)->
 	SignLen = byte_size(Signature),
 	HashSign = enc_hashsign(HashAlg, SignAlg),
 	<<HashSign/binary, ?UINT16(SignLen), Signature/binary>>;
@@ -2575,61 +2559,32 @@ encode_alpn(Protocols, _) ->
 
 
 encode_versions(Versions) ->
-    encode_versions(lists:reverse(Versions), <<>>).
-%%
-encode_versions([], Acc) ->
-    Acc;
-encode_versions([{M,N}|T], Acc) ->
-    encode_versions(T, <<?BYTE(M),?BYTE(N),Acc/binary>>).
+    << <<?BYTE(M),?BYTE(N)>> || {M,N} <- Versions>>.
 
 encode_client_shares(ClientShares) ->
-    encode_client_shares(ClientShares, <<>>).
-%%
-encode_client_shares([], Acc) ->
-    Acc;
-encode_client_shares([KeyShareEntry0|T], Acc) ->
-    KeyShareEntry = encode_key_share_entry(KeyShareEntry0),
-    encode_client_shares(T, <<Acc/binary,KeyShareEntry/binary>>).
+    << << (encode_key_share_entry(KeyShareEntry0))/binary >> || KeyShareEntry0 <- ClientShares >>.
 
-encode_key_share_entry(#key_share_entry{
-                          group = Group,
-                          key_exchange = KeyExchange}) ->
+encode_key_share_entry(#key_share_entry{group = Group,
+                                        key_exchange = KeyExchange}) ->
     Len = byte_size(KeyExchange),
     <<?UINT16((tls_v1:group_to_enum(Group))),?UINT16(Len),KeyExchange/binary>>.
 
 encode_psk_key_exchange_modes(KEModes) ->
-    encode_psk_key_exchange_modes(lists:reverse(KEModes), <<>>).
-%%
-encode_psk_key_exchange_modes([], Acc) ->
-    Acc;
-encode_psk_key_exchange_modes([psk_ke|T], Acc) ->
-    encode_psk_key_exchange_modes(T, <<?BYTE(?PSK_KE),Acc/binary>>);
-encode_psk_key_exchange_modes([psk_dhe_ke|T], Acc) ->
-    encode_psk_key_exchange_modes(T, <<?BYTE(?PSK_DHE_KE),Acc/binary>>).
-
+    << <<?BYTE((choose_psk_key(PskKey)))>> || PskKey <- KEModes>>.
+%
+choose_psk_key(psk_ke) -> ?PSK_KE;
+choose_psk_key(psk_dhe_ke) -> ?PSK_DHE_KE.
 
 encode_psk_identities(Identities) ->
-    encode_psk_identities(Identities, <<>>).
-%%
-encode_psk_identities([], Acc) ->
-    Len = byte_size(Acc),
-    <<?UINT16(Len), Acc/binary>>;
-encode_psk_identities([#psk_identity{
-                          identity = Identity,
-                          obfuscated_ticket_age = Age}|T], Acc) ->
-    IdLen = byte_size(Identity),
-    encode_psk_identities(T, <<Acc/binary,?UINT16(IdLen),Identity/binary,?UINT32(Age)>>).
-
+    Result = << << ?UINT16((byte_size(Identity))), Identity/binary,?UINT32(Age) >>
+                || #psk_identity{ identity = Identity, obfuscated_ticket_age = Age}  <- Identities >>,
+    Len = byte_size(Result),
+    <<?UINT16(Len), Result/binary>>.
 
 encode_psk_binders(Binders) ->
-    encode_psk_binders(Binders, <<>>).
-%%
-encode_psk_binders([], Acc) ->
-    Len = byte_size(Acc),
-    <<?UINT16(Len), Acc/binary>>;
-encode_psk_binders([Binder|T], Acc) ->
-    Len = byte_size(Binder),
-    encode_psk_binders(T, <<Acc/binary,?BYTE(Len),Binder/binary>>).
+    Result = << << ?BYTE((byte_size(Binder))),Binder/binary >> || Binder <- Binders >>,
+    Len = byte_size(Result),
+    <<?UINT16(Len), Result/binary>>.
 
 
 hello_extensions_list(HelloExtensions) ->
@@ -2749,27 +2704,27 @@ dec_server_key_params(Len, Keys, Version) ->
     dec_server_key_signature(Params, Signature, Version).
 
 dec_server_key_signature(Params, <<?BYTE(8), ?BYTE(SignAlgo),
-                                   ?UINT16(0)>>, ?'TLS-1.X'=Version)
-  when Version >= ?'TLS-1.2' ->
+                                   ?UINT16(0)>>, Version)
+  when ?TLS_GE(Version, ?TLS_1_2) ->
     <<?UINT16(Scheme0)>> = <<?BYTE(8), ?BYTE(SignAlgo)>>,
     Scheme = ssl_cipher:signature_scheme(Scheme0),
     {Hash, Sign, _} = ssl_cipher:scheme_to_components(Scheme),
     {Params, {Hash, Sign}, <<>>};
 dec_server_key_signature(Params, <<?BYTE(8), ?BYTE(SignAlgo),
-                                   ?UINT16(Len), Signature:Len/binary>>, ?'TLS-1.X'=Version)
-  when Version >= ?'TLS-1.2' ->
+                                   ?UINT16(Len), Signature:Len/binary>>, Version)
+  when ?TLS_GE(Version, ?TLS_1_2) ->
     <<?UINT16(Scheme0)>> = <<?BYTE(8), ?BYTE(SignAlgo)>>,
     Scheme = ssl_cipher:signature_scheme(Scheme0),
     {Hash, Sign, _} = ssl_cipher:scheme_to_components(Scheme),
     {Params, {Hash, Sign}, Signature};
 dec_server_key_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
-			    ?UINT16(0)>>, ?'TLS-1.X'=Version)
-  when Version >= ?'TLS-1.2' ->
+			    ?UINT16(0)>>, Version)
+  when ?TLS_GE(Version, ?TLS_1_2) ->
     HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
     {Params, HashSign, <<>>};
 dec_server_key_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
-			    ?UINT16(Len), Signature:Len/binary>>, ?'TLS-1.X'=Version)
-  when Version >= ?'TLS-1.2' ->
+			    ?UINT16(Len), Signature:Len/binary>>, Version)
+  when ?TLS_GE(Version, ?TLS_1_2) ->
     HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
     {Params, HashSign, Signature};
 dec_server_key_signature(Params, <<>>, _) ->
@@ -2855,7 +2810,7 @@ decode_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
 
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Version < ?'TLS-1.2' ->
+  when ?TLS_L(Version, ?TLS_1_2) ->
     SignAlgoListLen = Len - 2,
     <<?UINT16(SignAlgoListLen), SignAlgoList/binary>> = ExtData,
     HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
@@ -2865,8 +2820,7 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
                                #hash_sign_algos{hash_sign_algos =
                                                     HashSignAlgos}});
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Version =:= ?'TLS-1.2' ->
+		       ExtData:Len/binary, Rest/binary>>, ?TLS_1_2=Version, MessageType, Acc) ->
     SignSchemeListLen = Len - 2,
     <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
     HashSigns = decode_sign_alg(Version, SignSchemeList),
@@ -2875,8 +2829,7 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
                                #hash_sign_algos{
                                   hash_sign_algos = HashSigns}});
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Version =:= ?'TLS-1.3' ->
+		       ExtData:Len/binary, Rest/binary>>, ?TLS_1_3=Version, MessageType, Acc) ->
     SignSchemeListLen = Len - 2,
     <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
     SignSchemes = decode_sign_alg(Version, SignSchemeList),
@@ -2886,8 +2839,7 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
                                   signature_scheme_list = SignSchemes}});
 
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Version =:= ?'TLS-1.3' ->
+		       ExtData:Len/binary, Rest/binary>>, ?TLS_1_3=Version, MessageType, Acc) ->
     SignSchemeListLen = Len - 2,
     <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
     %% Ignore unknown signature algorithms
@@ -2938,7 +2890,7 @@ decode_extensions(<<?UINT16(?USE_SRTP_EXT), ?UINT16(Len),
 
 decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Version < ?'TLS-1.3' ->
+  when ?TLS_L(Version, ?TLS_1_3) ->
     <<?UINT16(_), EllipticCurveList/binary>> = ExtData,
     %% Ignore unknown curves
     Pick = fun(Enum) ->
@@ -2956,8 +2908,7 @@ decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
                                                     EllipticCurves}});
 
 decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Version =:= ?'TLS-1.3' ->
+		       ExtData:Len/binary, Rest/binary>>, ?TLS_1_3=Version, MessageType, Acc) ->
     <<?UINT16(_), GroupList/binary>> = ExtData,
     %% Ignore unknown curves
     Pick = fun(Enum) ->
@@ -3011,8 +2962,7 @@ decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
   when Len =:= 2, SelectedVersion =:= 16#0304 ->
     decode_extensions(Rest, Version, MessageType,
                       Acc#{server_hello_selected_version =>
-                               #server_hello_selected_version{selected_version =
-                                                                  ?'TLS-1.3'}});
+                               #server_hello_selected_version{selected_version = ?TLS_1_3}});
 
 decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
                        ExtData:Len/binary, Rest/binary>>,
@@ -3131,7 +3081,7 @@ decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>
 decode_extensions(_, _, _, Acc) ->
     Acc.
 
-decode_sign_alg(?'TLS-1.2', SignSchemeList) ->
+decode_sign_alg(?TLS_1_2, SignSchemeList) ->
     %% Ignore unknown signature algorithms
     Fun = fun(Elem) ->
                   case ssl_cipher:signature_scheme(Elem) of
@@ -3156,7 +3106,7 @@ decode_sign_alg(?'TLS-1.2', SignSchemeList) ->
           end,
     lists:filtermap(Fun, [SignScheme ||
                              <<?UINT16(SignScheme)>> <= SignSchemeList]);
-decode_sign_alg(?'TLS-1.3', SignSchemeList) ->
+decode_sign_alg(?TLS_1_3, SignSchemeList) ->
     %% Ignore unknown signature algorithms
     Fun = fun(Elem) ->
                   case ssl_cipher:signature_scheme(Elem) of
@@ -3170,7 +3120,7 @@ decode_sign_alg(?'TLS-1.3', SignSchemeList) ->
                              <<?UINT16(SignScheme)>> <= SignSchemeList]).
 
 dec_hashsign(Value) ->
-    [HashSign] = decode_sign_alg(?'TLS-1.2', Value),
+    [HashSign] = decode_sign_alg(?TLS_1_2, Value),
     HashSign.
 
 
@@ -3407,7 +3357,7 @@ filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], Has
     %% In this case hashsigns is not used as the kexchange is anonaymous
     filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]).
 
-do_filter_hashsigns(rsa = SignAlgo, Suite, Suites, Algos, HashSigns, ?'TLS-1.2' = Version, Acc) ->
+do_filter_hashsigns(rsa = SignAlgo, Suite, Suites, Algos, HashSigns, ?TLS_1_2 = Version, Acc) ->
     case (lists:keymember(SignAlgo, 2, HashSigns) orelse
           lists:keymember(rsa_pss_rsae, 2, HashSigns) orelse
           lists:keymember(rsa_pss_pss, 2, HashSigns)) of
@@ -3779,7 +3729,7 @@ cert_curve(Cert, ECCCurve0, CipherSuite) ->
 empty_extensions() ->
      #{}.
 
-empty_extensions(?'TLS-1.3', client_hello) ->
+empty_extensions(?TLS_1_3, client_hello) ->
     #{
       sni => undefined,
       %% max_frag_enum => undefined,
@@ -3803,8 +3753,8 @@ empty_extensions(?'TLS-1.3', client_hello) ->
       %% post_handshake_auth => undefined,
       signature_algs_cert => undefined
      };
-empty_extensions(?'TLS-1.2', client_hello) ->
-    Ext = empty_extensions(?'TLS-1.1', client_hello),
+empty_extensions(?TLS_1_2, client_hello) ->
+    Ext = empty_extensions(?TLS_1_1, client_hello),
     Ext#{signature_algs => undefined};
 empty_extensions(_, client_hello) ->
     #{renegotiation_info => undefined,
@@ -3814,12 +3764,12 @@ empty_extensions(_, client_hello) ->
       ec_point_formats => undefined,
       elliptic_curves => undefined,
       sni => undefined};
-empty_extensions(?'TLS-1.3', server_hello) ->
+empty_extensions(?TLS_1_3, server_hello) ->
     #{server_hello_selected_version => undefined,
       key_share => undefined,
       pre_shared_key => undefined
      };
-empty_extensions(?'TLS-1.3', hello_retry_request) ->
+empty_extensions(?TLS_1_3, hello_retry_request) ->
     #{server_hello_selected_version => undefined,
       key_share => undefined,
       pre_shared_key => undefined, %% TODO remove!
@@ -3909,7 +3859,7 @@ error_to_propagate({error, {bad_cert, root_cert_expired}} = Error, _) ->
 error_to_propagate(_, Error) ->
     Error.
 
-path_validation_cb(?'TLS-1.3') ->
+path_validation_cb(?TLS_1_3) ->
     tls_handshake_1_3;
 path_validation_cb(_) ->
     ?MODULE.

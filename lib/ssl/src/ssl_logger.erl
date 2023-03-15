@@ -291,19 +291,19 @@ get_server_version(Version, Extensions) ->
     end.
 
 -spec version(ssl_record:ssl_version()) -> string().
-version(?'TLS-1.3') ->
+version(?TLS_1_3) ->
     "TLS 1.3";
-version(?'TLS-1.2') ->
+version(?TLS_1_2) ->
     "TLS 1.2";
-version(?'TLS-1.1') ->
+version(?TLS_1_1) ->
     "TLS 1.1";
-version(?'TLS-1.0') ->
+version(?TLS_1_0) ->
     "TLS 1.0";
-version(?'SSL-3.0') ->
+version(?SSL_3_0) ->
     "SSL 3.0";
-version(?'DTLS-1.2') ->
+version(?DTLS_1_2) ->
     "DTLS 1.2";
-version(?'DTLS-1.0') ->
+version(?DTLS_1_0) ->
     "DTLS 1.0";
 version({M,N}) ->
     io_lib:format("TLS/DTLS [0x0~B0~B]", [M,N]).
