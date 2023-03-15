@@ -619,7 +619,7 @@ loop(Cpid, Data) ->
         {From, info} ->
             SocketType =
                 case Data#eldap.ldaps of
-                    true -> 
+                    true ->
                         ssl;
                     false -> 
                         tcp
