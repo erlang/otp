@@ -621,7 +621,7 @@ loop(Cpid, Data) ->
                 case Data#eldap.ldaps of
                     true ->
                         ssl;
-                    false -> 
+                    false ->
                         tcp
                 end,
             Res = #{socket => Data#eldap.fd, socket_type => SocketType} ,
