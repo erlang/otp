@@ -277,7 +277,7 @@ static void encode_msg(ErlNifEnv*       env,
                        struct msghdr*   msgHdrP,
                        ErlNifBinary*    dataBufP,
                        ErlNifBinary*    ctrlBufP,
-                       ERL_NIF_TERM*    eSockAddr);
+                       ERL_NIF_TERM*    eMsg);
 static void encode_cmsgs(ErlNifEnv*       env,
                          ESockDescriptor* descP,
                          ErlNifBinary*    cmsgBinP,
@@ -5644,7 +5644,7 @@ void encode_msg(ErlNifEnv*       env,
                 struct msghdr*   msgHdrP,
                 ErlNifBinary*    dataBufP,
                 ErlNifBinary*    ctrlBufP,
-                ERL_NIF_TERM*    eSockAddr)
+                ERL_NIF_TERM*    eMsg)
 {
     ERL_NIF_TERM addr, iov, ctrl, flags;
 
@@ -5714,7 +5714,7 @@ void encode_msg(ErlNifEnv*       env,
 
         if (msgHdrP->msg_namelen == 0)
             numKeys--; // No addr
-        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eSockAddr) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eMsg) );
 
         SSDBG( descP,
                ("UNIX-ESSIO",

@@ -6008,9 +6008,6 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef, recvRef;
     ErlNifUInt64     eBufSz,  eCtrlSz;
@@ -6098,7 +6095,6 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return res;
-#endif // #ifdef __WIN32__  #else
 }
 
 
@@ -10102,7 +10098,6 @@ ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
  * ----------------------------------------------------------------------
  */
 
-#ifndef __WIN32__
 extern
 BOOLEAN_T esock_encode_cmsg(ErlNifEnv*     env,
                             int            level,
@@ -10140,11 +10135,10 @@ BOOLEAN_T esock_encode_cmsg(ErlNifEnv*     env,
      * just return the type number as an erlang integer
      */
 
-
     *eType = MKI(env, type);
+
     return FALSE;
 }
-#endif
 
 
 /* +++ esock_encode_msg_flags +++
@@ -10153,7 +10147,6 @@ BOOLEAN_T esock_encode_cmsg(ErlNifEnv*     env,
  *
  */
 
-#ifndef __WIN32__
 extern
 void esock_encode_msg_flags(ErlNifEnv*       env,
                             ESockDescriptor* descP,
@@ -10192,7 +10185,6 @@ void esock_encode_msg_flags(ErlNifEnv*       env,
         TARRAY_TOLIST(ta, env, flags);
     }
 }
-#endif
 
 
 #ifdef SCM_TIMESTAMP
@@ -13209,7 +13201,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.sendfile_dc    = NULL;
     io_backend.recv           = esaio_recv;
     io_backend.recvfrom       = esaio_recvfrom;
-    io_backend.recvmsg        = NULL;
+    io_backend.recvmsg        = esaio_recvmsg;
     io_backend.close          = esaio_close;
     io_backend.fin_close      = esaio_fin_close;
     io_backend.shutdown       = esock_shutdown;

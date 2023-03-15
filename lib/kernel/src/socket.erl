@@ -155,6 +155,8 @@
 %% We need #file_descriptor{} for sendfile/2,3,4,5
 -include("file_int.hrl").
 
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
 
@@ -3849,20 +3851,24 @@ recvmsg(Socket) ->
              (Socket, Timeout :: 'nowait') ->
                      {'ok', Msg} |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket     :: socket(),
-      Msg        :: msg_recv(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Msg            :: msg_recv(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-             (Socket, SelectHandle :: select_handle()) ->
+             (Socket, Handle :: select_handle() | completion_handle()) ->
                      {'ok', Msg} |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket       :: socket(),
-      Msg          :: msg_recv(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Msg            :: msg_recv(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
              (Socket, Timeout :: 'infinity') ->
                      {'ok', Msg} |
@@ -3884,27 +3890,31 @@ recvmsg(Socket, Timeout) ->
     recvmsg(Socket, 0, 0, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
 
 
--spec recvmsg(Socket, BufSz, CtrlSz, SelectHandle :: 'nowait') ->
+-spec recvmsg(Socket, BufSz, CtrlSz, Timeout :: 'nowait') ->
                      {'ok', Msg} |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket     :: socket(),
-      BufSz      :: non_neg_integer(),
-      CtrlSz     :: non_neg_integer(),
-      Msg        :: msg_recv(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      BufSz          :: non_neg_integer(),
+      CtrlSz         :: non_neg_integer(),
+      Msg            :: msg_recv(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-             (Socket, BufSz, CtrlSz, SelectHandle :: select_handle()) ->
+             (Socket, BufSz, CtrlSz, Handle :: select_handle() | completion_handle()) ->
                      {'ok', Msg} |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket       :: socket(),
-      BufSz        :: non_neg_integer(),
-      CtrlSz       :: non_neg_integer(),
-      Msg          :: msg_recv(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      BufSz          :: non_neg_integer(),
+      CtrlSz         :: non_neg_integer(),
+      Msg            :: msg_recv(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
              (Socket, BufSz, CtrlSz, Timeout :: 'infinity') ->
                      {'ok', Msg} |
@@ -3931,22 +3941,26 @@ recvmsg(Socket, BufSz, CtrlSz, Timeout) ->
 -spec recvmsg(Socket, Flags, Timeout :: 'nowait') ->
                      {'ok', Msg} |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket     :: socket(),
-      Flags      :: [msg_flag() | integer()],
-      Msg        :: msg_recv(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Flags          :: [msg_flag() | integer()],
+      Msg            :: msg_recv(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-             (Socket, Flags, SelectHandle :: select_handle()) ->
+             (Socket, Flags, Handle :: select_handle() | completion_handle()) ->
                      {'ok', Msg} |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket       :: socket(),
-      Flags        :: [msg_flag() | integer()],
-      Msg          :: msg_recv(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Flags          :: [msg_flag() | integer()],
+      Msg            :: msg_recv(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
              (Socket, Flags, Timeout :: 'infinity') ->
                      {'ok', Msg} |
@@ -3980,29 +3994,33 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
             ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
 
--spec recvmsg(Socket, BufSz, CtrlSz, Flags, SelectHandle :: 'nowait') ->
+-spec recvmsg(Socket, BufSz, CtrlSz, Flags, Timeout :: 'nowait') ->
                      {'ok', Msg} |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket     :: socket(),
-      BufSz      :: non_neg_integer(),
-      CtrlSz     :: non_neg_integer(),
-      Flags      :: [msg_flag() | integer()],
-      Msg        :: msg_recv(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket        :: socket(),
+      BufSz          :: non_neg_integer(),
+      CtrlSz         :: non_neg_integer(),
+      Flags          :: [msg_flag() | integer()],
+      Msg            :: msg_recv(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-             (Socket, BufSz, CtrlSz, Flags, SelectHandle :: select_handle()) ->
+             (Socket, BufSz, CtrlSz, Flags, Handle :: select_handle() | completion_handle()) ->
                      {'ok', Msg} |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket       :: socket(),
-      BufSz        :: non_neg_integer(),
-      CtrlSz       :: non_neg_integer(),
-      Flags        :: [msg_flag() | integer()],
-      Msg          :: msg_recv(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      BufSz          :: non_neg_integer(),
+      CtrlSz         :: non_neg_integer(),
+      Flags          :: [msg_flag() | integer()],
+      Msg            :: msg_recv(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
              (Socket, BufSz, CtrlSz, Flags, Timeout :: 'infinity') ->
                      {'ok', Msg} |
@@ -4033,11 +4051,11 @@ recvmsg(?socket(SockRef), BufSz, CtrlSz, Flags, Timeout)
         invalid ->
             erlang:error({invalid, {timeout, Timeout}});
         nowait ->
-            SelectHandle = make_ref(),
-            recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, SelectHandle);
+            Handle = make_ref(),
+            recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, Handle);
         handle ->
-            SelectHandle = Timeout,
-            recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, SelectHandle);
+            Handle = Timeout,
+            recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, Handle);
         zero ->
             case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, zero) of
                 ok ->
@@ -4051,36 +4069,55 @@ recvmsg(?socket(SockRef), BufSz, CtrlSz, Flags, Timeout)
 recvmsg(Socket, BufSz, CtrlSz, Flags, Timeout) ->
     erlang:error(badarg, [Socket, BufSz, CtrlSz, Flags, Timeout]).
 
-recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, SelectHandle)  ->
-    case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, SelectHandle) of
+recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, Handle)  ->
+    case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, Handle) of
         select ->
-            {select, ?SELECT_INFO(recvmsg, SelectHandle)};
+            {select, ?SELECT_INFO(recvmsg, Handle)};
+        completion ->
+            {completion, ?COMPLETION_INFO(recvmsg, Handle)};
         Result ->
             recvmsg_result(Result)
     end.
 
 recvmsg_deadline(SockRef, BufSz, CtrlSz, Flags, Deadline)  ->
-    SelectHandle = make_ref(),
-    case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, SelectHandle) of
+    Handle = make_ref(),
+    case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, Handle) of
         select ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(?socket(SockRef), select, SelectHandle) ->
+                ?socket_msg(?socket(SockRef), select, Handle) ->
                     recvmsg_deadline(
                       SockRef, BufSz, CtrlSz, Flags, Deadline);
-                ?socket_msg(_Socket, abort, {SelectHandle, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     {error, Reason}
             after Timeout ->
-                    _ = cancel(SockRef, recvmsg, SelectHandle),
+                    _ = cancel(SockRef, recvmsg, Handle),
                     {error, timeout}
             end;
+
+        completion ->
+            %% There is nothing just now, but we will be notified when there
+            %% is something to read (a completion message).
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(?socket(SockRef), completion,
+                            {Handle, CompletionStatus}) ->
+                    recvmsg_result(CompletionStatus);
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    {error, Reason}
+            after Timeout ->
+                    _ = cancel(SockRef, recvmsg, Handle),
+                    {error, timeout}
+            end;
+
         Result ->
             recvmsg_result(Result)
     end.
 
 recvmsg_result(Result) ->
+    %% ?DBG([{result, Result}]),
     case Result of
         {ok, _Msg} = OK ->
             OK;
