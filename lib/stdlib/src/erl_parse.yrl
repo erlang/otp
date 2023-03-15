@@ -820,6 +820,7 @@ Erlang code.
 
 -type abstract_expr() :: af_literal()
                        | af_match(abstract_expr())
+                       | af_maybe_match()
                        | af_variable()
                        | af_tuple(abstract_expr())
                        | af_nil()
@@ -847,7 +848,9 @@ Erlang code.
                        | af_local_fun()
                        | af_remote_fun()
                        | af_fun()
-                       | af_named_fun().
+                       | af_named_fun()
+                       | af_maybe()
+                       | af_maybe_else().
 
 -type af_record_update(T) :: {'record',
                               anno(),
@@ -994,6 +997,9 @@ Erlang code.
 -type af_map_pattern() ::
         {'map', anno(), [af_assoc_exact(af_pattern())]}.
 
+-type af_maybe() :: {'maybe', anno(), af_body()}.
+-type af_maybe_else() :: {'maybe', anno(), af_body(), {'else', anno(), af_clause_seq()}}.
+
 -type abstract_type() :: af_annotated_type()
                        | af_atom()
                        | af_bitstring_type()
@@ -1104,6 +1110,8 @@ Erlang code.
 
 -type af_match(T) :: {'match', anno(), af_pattern(), T}.
 
+-type af_maybe_match() :: {'maybe_match', anno(), af_pattern(), abstract_expr()}.
+
 -type af_variable() :: {'var', anno(), atom()}. % | af_anon_variable()
 
 %-type af_anon_variable() :: {'var', anno(), '_'}.
@@ -1129,7 +1137,7 @@ Erlang code.
 -type binary_op() :: '/' | '*' | 'div' | 'rem' | 'band' | 'and' | '+' | '-'
                    | 'bor' | 'bxor' | 'bsl' | 'bsr' | 'or' | 'xor' | '++'
                    | '--' | '==' | '/=' | '=<' | '<'  | '>=' | '>' | '=:='
-                   | '=/='.
+                   | '=/=' | '!'.
 
 -type af_unary_op(T) :: {'op', anno(), unary_op(), T}.
 
