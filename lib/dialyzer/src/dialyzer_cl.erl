@@ -634,14 +634,15 @@ cl_error(State, Msg) ->
   maybe_close_output_file(State),
   throw({dialyzer_error, lists:flatten(Msg)}).
 
-return_value(State = #cl_state{code_server = CodeServer,
-                               erlang_mode = ErlangMode,
-			       mod_deps = ModDeps,
-			       output_plt = OutputPlt,
-			       plt_info = PltInfo,
-                               error_location = EOpt,
-			       stored_warnings = StoredWarnings},
-	     Plt) ->
+return_value(#cl_state{code_server = CodeServer,
+                       erlang_mode = ErlangMode,
+                       mod_deps = ModDeps,
+                       output_plt = OutputPlt,
+                       plt_info = PltInfo,
+                       error_location = EOpt,
+                       stored_warnings = StoredWarnings}=State,
+             Plt) ->
+  UnknownWarnings = unknown_warnings(State),
   %% Just for now:
   case CodeServer =:= none of
     true ->
@@ -655,7 +656,6 @@ return_value(State = #cl_state{code_server = CodeServer,
     false ->
       dialyzer_cplt:to_file(OutputPlt, Plt, ModDeps, PltInfo)
   end,
-  UnknownWarnings = unknown_warnings(State),
   RetValue =
     case StoredWarnings =:= [] andalso UnknownWarnings =:= [] of
       true -> ?RET_NOTHING_SUSPICIOUS;
@@ -663,10 +663,9 @@ return_value(State = #cl_state{code_server = CodeServer,
     end,
   case ErlangMode of
     false ->
-      print_warnings(State),
-      print_ext_calls(State),
-      print_ext_types(State),
-      maybe_close_output_file(State),
+      Fns = [ fun print_warnings/1, fun print_ext_calls/1
+            , fun print_ext_types/1, fun maybe_close_output_file/1],
+      lists:foreach(fun (F) -> F(State) end, Fns),
       {RetValue, []};
     true ->
       ResultingWarnings = process_warnings(StoredWarnings ++ UnknownWarnings),
@@ -684,8 +683,10 @@ unknown_warnings_by_module(#cl_state{legal_warnings = LegalWarnings} = State) ->
     false -> []
   end.
 
-unknown_functions(#cl_state{external_calls = Calls}) ->
-  [{Mod, {?WARN_UNKNOWN, WarningInfo, {unknown_function, MFA}}} || {MFA, WarningInfo = {_, _, {Mod, _, _}}} <- Calls].
+unknown_functions(#cl_state{ external_calls = Calls
+                           , code_server = CodeServer}) ->
+  [{Mod, {?WARN_UNKNOWN, WarningInfo, {unknown_function, MFA}}} || { MFA, WarningInfo = {_, _, {Mod, _, _}=WarnMFA}} <- Calls
+                                                                   , not dialyzer_codeserver:is_member_meta_info(WarnMFA, CodeServer)].
 
 unknown_types(#cl_state{external_types = Types}) ->
   [{Mod, {?WARN_UNKNOWN, WarningInfo, {unknown_type, MFA}}} ||

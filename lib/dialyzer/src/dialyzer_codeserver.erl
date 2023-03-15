@@ -22,40 +22,41 @@
 -module(dialyzer_codeserver).
 
 -export([delete/1,
-	 store_temp_contracts/4,
+         store_temp_contracts/4,
          give_away/2,
-	 finalize_contracts/1,
+         finalize_contracts/1,
          finalize_exported_types/2,
-	 finalize_records/1,
-	 get_contracts/1,
-	 get_callbacks/1,
+         finalize_records/1,
+         get_contracts/1,
+         get_callbacks/1,
          get_exported_types_table/1,
          extract_exported_types/1,
-	 get_exports/1,
-	 get_records_table/1,
+         get_exports/1,
+         get_records_table/1,
          extract_records/1,
-	 get_next_core_label/1,
+         get_next_core_label/1,
          get_temp_contracts/2,
          all_temp_modules/1,
          store_contracts/4,
          get_temp_exported_types/1,
          get_temp_records_table/1,
-	 lookup_temp_mod_records/2,
-	 insert/3,
-	 insert_exports/2,
+         lookup_temp_mod_records/2,
+         insert/3,
+         insert_exports/2,
          insert_temp_exported_types/2,
          insert_fun_meta_info/2,
-	 is_exported/2,
-	 lookup_mod_code/2,
-	 lookup_mfa_code/2,
-	 lookup_mfa_var_label/2,
-	 lookup_mod_records/2,
-	 lookup_mod_contracts/2,
-	 lookup_mfa_contract/2,
+         is_exported/2,
+         is_member_meta_info/2,
+         lookup_mod_code/2,
+         lookup_mfa_code/2,
+         lookup_mfa_var_label/2,
+         lookup_mod_records/2,
+         lookup_mod_contracts/2,
+         lookup_mfa_contract/2,
          lookup_meta_info/2,
-	 new/0,
-	 set_next_core_label/2,
-	 store_temp_records/3,
+         new/0,
+         set_next_core_label/2,
+         store_temp_records/3,
          translate_fake_file/3]).
 
 -export_type([codeserver/0, fun_meta_info/0, contracts/0]).
@@ -328,6 +329,11 @@ lookup_mfa_contract(MFA, #codeserver{contracts = ContDict}) ->
 
 lookup_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
   ets_dict_find(MorMFA, FunMetaInfo).
+
+-spec is_member_meta_info(module() | mfa(), codeserver()) -> boolean().
+
+is_member_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
+  ets_set_is_element(MorMFA, FunMetaInfo).
 
 -spec get_contracts(codeserver()) ->
                        dict:dict(mfa(), dialyzer_contracts:file_contract()).

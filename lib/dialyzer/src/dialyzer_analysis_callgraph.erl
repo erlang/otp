@@ -117,25 +117,16 @@ loop(#server_state{parent = Parent} = State,
 analysis_start(Parent, Analysis, LegalWarnings) ->
   CServer = dialyzer_codeserver:new(),
   Plt = Analysis#analysis.plt,
-  State = #analysis_state{codeserver = CServer,
-			  analysis_type = Analysis#analysis.type,
-			  defines = Analysis#analysis.defines,
-			  doc_plt = Analysis#analysis.doc_plt,
-			  include_dirs = Analysis#analysis.include_dirs,
-			  plt = Plt,
-			  parent = Parent,
-                          legal_warnings = LegalWarnings,
-			  start_from = Analysis#analysis.start_from,
-			  use_contracts = Analysis#analysis.use_contracts,
-			  timing_server = Analysis#analysis.timing_server,
-                          solvers = Analysis#analysis.solvers
-			 },
+  Args = {Plt, Analysis, Parent},
+  State = create_analysis_state(Args, LegalWarnings, CServer),
+
   Files = ordsets:from_list(Analysis#analysis.files),
   {Callgraph, ModCallDeps, Modules, TmpCServer0} = compile_and_store(Files, State),
-  %% Remote type postprocessing
-  Args = {Plt, Analysis, Parent},
+
+ %% Remote type postprocessing
   NewCServer = remote_type_postprocessing(TmpCServer0, Args),
   dump_callgraph(Callgraph, State, Analysis),
+
   %% Remove all old versions of the files being analyzed
   AllNodes = dialyzer_callgraph:all_nodes(Callgraph),
   Plt1_a = dialyzer_plt:delete_list(Plt, AllNodes),
@@ -159,6 +150,21 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   dialyzer_plt:delete(DummyPlt),
   Plt4 = dialyzer_plt:delete_list(Plt3, NonExportsList),
   send_analysis_done(Parent, Plt4, DocPlt).
+
+create_analysis_state({Plt, Analysis, Parent}, LegalWarnings, CServer) ->
+  #analysis_state{ codeserver = CServer,
+                   analysis_type = Analysis#analysis.type,
+                   defines = Analysis#analysis.defines,
+                   doc_plt = Analysis#analysis.doc_plt,
+                   include_dirs = Analysis#analysis.include_dirs,
+                   plt = Plt,
+                   parent = Parent,
+                   legal_warnings = LegalWarnings,
+                   start_from = Analysis#analysis.start_from,
+                   use_contracts = Analysis#analysis.use_contracts,
+                   timing_server = Analysis#analysis.timing_server,
+                   solvers = Analysis#analysis.solvers }.
+
 
 remote_type_postprocessing(TmpCServer, Args) ->
   Fun = fun() ->
