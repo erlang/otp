@@ -19,7 +19,7 @@
 %% This module tests that beam_ssa_alias_opt:opt/2 correctly annotates
 %% instructions with information about unique and aliased operands.
 %%
--compile(no_ssa_opt_private_append).
+-compile(no_ssa_opt_destructive_update).
 
 -module(alias).
 

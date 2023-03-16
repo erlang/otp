@@ -16,7 +16,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% This module tests that beam_ssa_alias_opt:to_private_append/3
+%% This module tests that the beam_ssa_destructive_update pass
 %% rewrites plain appends in bs_create_bin to private_append when
 %% appropriate.
 %%
@@ -1003,13 +1003,13 @@ bs_create_bin_on_literal() ->
       >>/binary
     >>.
 
-%% Check that the beam_ssa_private_append pass doesn't crash, if it,
-%% during initial value tracking, ends up in operations which do not
-%% create bit strings. This can happen as the initial value tracking
-%% in beam_ssa_private_append doesn't consider types. As the decision
-%% to apply the private append transform is using type information,
-%% tracking values into not type-compatible execution paths is
-%% harmless.
+%% Check that the beam_ssa_destructive_update pass doesn't crash, if
+%% it, during initial value tracking, ends up in operations which do
+%% not create bit strings. This can happen as the initial value
+%% tracking in beam_ssa_destructive_update doesn't consider types. As
+%% the decision to apply the private append transform is using type
+%% information, tracking values into not type-compatible execution
+%% paths is harmless.
 crash_in_value_tracking_inner(_, 1.0, _) ->
 %ssa% (_, _, _) when post_ssa_opt ->
 %ssa% _ = bs_init_writable(_).

@@ -35,7 +35,7 @@
 %% value created by `bs_writable_binary` and use `private_append` for
 %% `bs_create_bin`.
 
--module(beam_ssa_private_append).
+-module(beam_ssa_destructive_update).
 -moduledoc false.
 
 -export([opt/2]).

@@ -286,9 +286,9 @@ epilogue_module_passes(Opts) ->
             fun({StMap, FuncDb}) ->
                     beam_ssa_alias:opt(StMap, FuncDb)
             end},
-           {ssa_opt_private_append,
+           {ssa_opt_destructive_update,
             fun({StMap, FuncDb}) ->
-                    beam_ssa_private_append:opt(StMap, FuncDb)
+                    beam_ssa_destructive_update:opt(StMap, FuncDb)
             end}],
     passes_1(Ps0, Opts).
 

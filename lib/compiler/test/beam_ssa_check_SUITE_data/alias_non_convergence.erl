@@ -21,7 +21,7 @@
 %% MAX_REPETITIONS are required for the analysis to converge.
 %%
 
--compile(no_ssa_opt_private_append).
+-compile(no_ssa_opt_destructive_update).
 
 -module(alias_non_convergence).
 

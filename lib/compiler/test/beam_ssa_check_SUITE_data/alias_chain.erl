@@ -24,7 +24,7 @@
 %% analysis iteration limit if functions are visited naïvely in the
 %% order they occur in the module.
 %%
--compile(no_ssa_opt_private_append).
+-compile(no_ssa_opt_destructive_update).
 
 -module(alias_chain).
 

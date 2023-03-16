@@ -765,8 +765,8 @@ private_append(_Config) ->
 
     ok.
 
-%% GH-7121: Alias analysis would not mark fun arguments as aliased, fooling
-%% the beam_ssa_private_append pass.
+%% GH-7121: Alias analysis would not mark fun arguments as aliased,
+%% fooling the beam_ssa_destructive_update pass.
 private_append_1(M) when is_map(M) ->
     maps:fold(fun (K, V, Acc = <<>>) ->
                         <<Acc/binary, K/binary, "=\"", V/binary, "\"">>;
