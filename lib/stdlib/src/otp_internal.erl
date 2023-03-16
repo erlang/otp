@@ -43,6 +43,8 @@ obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
 obsolete(disk_log, accessible_logs, 0) ->
     {deprecated, "use disk_log:all/0 instead", "OTP 26"};
+obsolete(disk_log, inc_wrap_file, 1) ->
+    {deprecated, "use disk_log:next_file/1 instead"};
 obsolete(disk_log, lclose, 1) ->
     {deprecated, "use disk_log:close/1 instead", "OTP 26"};
 obsolete(disk_log, lclose, 2) ->
