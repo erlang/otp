@@ -3066,7 +3066,12 @@ check_type_2({type, Anno, TypeName, Args}, SeenVars, St) ->
                           add_warning(Anno, W, St)
                   end;
               _ ->
-                  St
+                  case is_default_type(TypePair) of
+                      true ->
+                          used_type(TypePair, Anno, St);
+                      false ->
+                          St
+                  end
           end,
     check_type_2({type, nowarn(), product, Args}, SeenVars, St1);
 check_type_2({user_type, A, TypeName, Args}, SeenVars, St) ->
