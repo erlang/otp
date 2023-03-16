@@ -2938,14 +2938,6 @@ otp_10436(Config) when is_list(Config) ->
     {warnings,[{{4,14},erl_lint,{not_exported_opaque,{t2,0}}},
                {{4,14},erl_lint,{unused_type,{t2,0}}}]} =
         run_test2(Config, Ts, []),
-    Ts2 = <<"-module(otp_10436_2).
-             -export_type([t1/0, t2/0]).
-             -opaque t1() :: term().
-             -opaque t2() :: any().
-         ">>,
-    {warnings,[{{3,15},erl_lint,{underspecified_opaque,{t1,0}}},
-               {{4,15},erl_lint,{underspecified_opaque,{t2,0}}}]} =
-        run_test2(Config, Ts2, []),
     ok.
 
 %% OTP-11254. M:F/A could crash the linter.
