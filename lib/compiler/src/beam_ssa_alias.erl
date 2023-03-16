@@ -1053,21 +1053,23 @@ aa_update_annotation1(ArgsStatus,
                 [] -> maps:remove(unique, Anno1);
                 _ -> Anno1#{unique => Unique}
             end,
+    %% Alias analysis indicate the alias status of the instruction
+    %% arguments before the instruction is executed. For transforms in
+    %% later stages, we need to know if a particular argument dies
+    %% with this instruction or not. As we have the kill map available
+    %% during this analysis pass, it is more efficient to add an
+    %% annotation now, instead of trying to reconstruct the
+    %% kill map during the later transform pass.
     Anno = case {Op,Args} of
                {bs_create_bin,[#b_literal{val=append},_,Var|_]} ->
-                   %% Alias analysis indicate the alias status of the
-                   %% instruction arguments before the instruction is
-                   %% executed. For the private-append optimization we
-                   %% need to know if the first fragment dies with
-                   %% this instruction or not. Adding an annotation
-                   %% here, during alias analysis, is more efficient
-                   %% than trying to reconstruct information in the
-                   %% kill map during the private-append pass.
-                   #aas{caller=Caller,kills=KillsMap} = AAS,
-                   #b_set{dst=Dst} = I,
-                   KillMap = maps:get(Caller, KillsMap),
-                   Dies = sets:is_element(Var, map_get(Dst, KillMap)),
-                   Anno2#{first_fragment_dies => Dies};
+                   %% For the private-append optimization we need to
+                   %% know if the first fragment dies.
+                   Anno2#{first_fragment_dies => dies_at(Var, I, AAS)};
+               {update_record,[_Hint,_Size,Src|_Updates]} ->
+                   %% One of the requirements for valid destructive
+                   %% record updates is that the source tuple dies
+                   %% with the update.
+                   Anno2#{source_dies => dies_at(Src, I, AAS)};
                _ ->
                    Anno2
            end,
@@ -1080,6 +1082,13 @@ aa_update_annotation1(Status, I=#b_ret{arg=#b_var{}=V,anno=Anno0}, _AAS) ->
                    maps:remove(aliased, Anno0#{unique=>[V]})
            end,
     I#b_ret{anno=Anno}.
+
+%% Return true if Var dies with its use (assumed, not checked) in the
+%% instruction.
+dies_at(Var, #b_set{dst=Dst}, AAS) ->
+    #aas{caller=Caller,kills=KillsMap} = AAS,
+    KillMap = map_get(Caller, KillsMap),
+    sets:is_element(Var, map_get(Dst, KillMap)).
 
 aa_set_aliased(Args, SS) ->
     aa_set_status(Args, aliased, SS).
