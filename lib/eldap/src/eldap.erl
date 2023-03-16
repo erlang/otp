@@ -30,7 +30,8 @@
 	 parse_ldap_url/1,
 	 paged_result_control/1,
 	 paged_result_control/2,
-	 paged_result_cookie/1]).
+	 paged_result_cookie/1,
+         info/1]).
 
 -export([neverDerefAliases/0, derefInSearching/0,
          derefFindingBaseObj/0, derefAlways/0]).
@@ -152,6 +153,13 @@ close(Handle) when is_pid(Handle) ->
 controlling_process(Handle, Pid) when is_pid(Handle), is_pid(Pid)  ->
     link(Pid),
     send(Handle, {cnt_proc, Pid}),
+    recv(Handle).
+
+%%% --------------------------------------------------------------------
+%%% Return LDAP socket information
+%%% --------------------------------------------------------------------
+info(Handle) when is_pid(Handle) ->
+    send(Handle, info),
     recv(Handle).
 
 %%% --------------------------------------------------------------------
@@ -608,6 +616,18 @@ loop(Cpid, Data) ->
 	    send(From, Result),
 	    ?MODULE:loop(Cpid, Data);
 
+        {From, info} ->
+            SocketType =
+                case Data#eldap.ldaps of
+                    true ->
+                        ssl;
+                    false ->
+                        tcp
+                end,
+            Res = #{socket => Data#eldap.fd, socket_type => SocketType},
+            send(From, Res),
+            ?MODULE:loop(Cpid, Data);
+
 	{Cpid, 'EXIT', Reason} ->
 	    ?PRINT("Got EXIT from Cpid, reason=~p~n",[Reason]),
 	    exit(Reason);
@@ -617,7 +637,6 @@ loop(Cpid, Data) ->
 	    ?MODULE:loop(Cpid, Data)
 
     end.
-
 
 %%% --------------------------------------------------------------------
 %%% startTLS Request
