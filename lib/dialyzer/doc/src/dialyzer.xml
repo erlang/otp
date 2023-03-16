@@ -86,11 +86,11 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
          [--error_location flag] [files_or_dirs] [--fullpath]
          [--get_warnings] [--gui] [--help] [-I include_dir]*
-         [--incremental] [--no_check_plt] [--no_indentation] [--no_spec]
-         [-o outfile] [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
-         [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
-         [--shell] [--src] [--statistics] [--verbose] [--version]
-         [-Wwarn]*</code>
+         [--incremental] [--metrics_file] [--no_check_plt] [--no_indentation]
+         [--no_spec] [-o outfile] [--output_plt file] [-pa dir]* [--plt plt]
+         [--plt_info] [--plts plt*] [--quiet] [-r dirs] [--raw]
+         [--remove_from_plt] [--shell] [--src] [--statistics] [--verbose]
+         [--version] [--warning_apps applications] [-Wwarn]*</code>
 
     <note>
       <p>* denotes that multiple occurrences of the option are possible.</p>
@@ -110,6 +110,18 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
           files.</p>
       </item>
       <tag><c>--apps applications</c></tag>
+      <item>
+        <p> By default, warnings will be reported to all applications given by
+          <c>--apps</c>. However, if <c>--warning_apps</c> is used, only those applications
+          given to <c>--warning_apps</c> will have warnings reported. All applications
+          given by <c>--apps</c>, but not <c>--warning_apps</c>, will be analysed to provide
+          context to the analysis, but warnings will not be reported for them.
+          For example, you may want to include libraries you depend on in the
+          analysis with <c>--apps</c> so discrepancies in their usage can be found,
+          but only include your own code with <c>--warning_apps</c> so that
+          discrepancies are only reported in code that you own.</p>
+      </item>
+      <tag><c>--warning_apps applications</c></tag>
       <item>
         <p>This option is typically used when building or modifying a PLT as
           in:</p>
@@ -219,6 +231,13 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
       <item>
         <p>When using Dialyzer from the command line, send the analysis
           results to the specified outfile rather than to <c>stdout</c>.</p>
+      </item>
+      <tag><c>--metrics_file file</c></tag>
+      <item>
+        <p> Write metrics about Dialyzer's incrementality (for example, total number of
+          modules considered, how many modules were changed since the PLT was
+          last updated, how many modules needed to be analyzed) to a file. This
+          can be useful for tracking and debugging Dialyzer's incrementality.</p>
       </item>
       <tag><c>--output_plt file</c></tag>
       <item>
