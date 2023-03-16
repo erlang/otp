@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -878,9 +878,12 @@ make_busy(Node, Time) when is_integer(Time) ->
     receive after Own -> ok end,
     until(fun () ->
                   case {DCtrl, process_info(Pid, status)} of
-                      {DPrt, {status, suspended}} when is_port(DPrt) -> true;
-                      {DPid, {status, waiting}} when is_pid(DPid) -> true;
-                      _ -> false
+                      {DPrt, {status, waiting}} when is_port(DPrt) ->
+                          verify_busy(DPrt);
+                      {DPid, {status, waiting}} when is_pid(DPid) ->
+                          true;
+                      _ ->
+                          false
                   end
           end),
     %% then dist entry
@@ -896,6 +899,28 @@ make_busy(Node, Opts, Data) ->
 unmake_busy(Pid) ->
     unlink(Pid),
     exit(Pid, bang).
+
+verify_busy(Port) ->
+    Parent = self(),
+    Pid =
+        spawn_link(
+          fun() ->
+                  port_command(Port, "Just some data"),
+                  Error = {not_busy, Port},
+                  exit(Parent, Error),
+                  error(Error)
+          end),
+    receive after 30 -> ok end,
+    case process_info(Pid, status) of
+        {status, suspended} ->
+            unlink(Pid),
+            exit(Pid, kill),
+            true;
+        {status, _} = WrongStatus ->
+            unlink(Pid),
+            exit(Pid, WrongStatus),
+            error(WrongStatus)
+    end.
 
 do_busy_test(Node, Fun) ->
     Busy = make_busy(Node, 1000),
@@ -2554,7 +2579,19 @@ ensure_dctrl(Node) ->
     end.
 
 dctrl_send(DPrt, Data) when is_port(DPrt) ->
-    port_command(DPrt, Data);
+    try prim_inet:send(DPrt, Data) of
+        ok ->
+            ok;
+        Result ->
+            io:format("~w/2: ~p~n", [?FUNCTION_NAME, Result]),
+            Result
+    catch
+        Class: Reason: Stacktrace ->
+            io:format(
+              "~w/2: ~p: ~p: ~p ~n",
+              [?FUNCTION_NAME, Class, Reason, Stacktrace]),
+            erlang:raise(Class, Reason, Stacktrace)
+    end;
 dctrl_send(DPid, Data) when is_pid(DPid) ->
     Ref = make_ref(),
     DPid ! {send, self(), Ref, Data},
@@ -3247,7 +3284,7 @@ is_alive_tester(Node) ->
             ok
     end.
 
-dyn_node_name_monitor_node(Config) ->
+dyn_node_name_monitor_node(_Config) ->
     %% Test that monitor_node() does not fail when erlang:is_alive() return true
     %% but we have not yet gotten a name...
     Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
@@ -3285,7 +3322,7 @@ dyn_node_name_monitor_node_test(StartOpts, TestNode) ->
     ok.
 
 
-dyn_node_name_monitor(Config) ->
+dyn_node_name_monitor(_Config) ->
     %% Test that monitor() does not fail when erlang:is_alive() return true
     %% but we have not yet gotten a name...
     Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
@@ -3599,7 +3636,7 @@ async_dist_test(Node) ->
 wait_until(Fun) ->
     wait_until(Fun, 24*60*60*1000).
 
-wait_until(Fun, Timeout) when Timeout < 0 ->
+wait_until(_Fun, Timeout) when Timeout < 0 ->
     timeout;
 wait_until(Fun, Timeout) ->
     case catch Fun() of
@@ -3770,8 +3807,8 @@ forever(Fun) ->
     Fun(),
     forever(Fun).
 
-abort(Why) ->
-    set_internal_state(abort, Why).
+%% abort(Why) ->
+%%     set_internal_state(abort, Why).
 
 
 start_busy_dist_port_tracer() ->
