@@ -1383,20 +1383,20 @@ pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt)
     pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer,
                        ResponderCerts, NonceExt);
 pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) ->
-    DecodedOcspResponseDer = pubkey_ocsp:decode_ocsp_response(OcspRespDer),
-    OcspResponses =
-        case DecodedOcspResponseDer of
+    OcspResponse = pubkey_ocsp:decode_ocsp_response(OcspRespDer),
+    OcspCertResponses =
+        case OcspResponse of
             {ok, BasicOcspResponse = #'BasicOCSPResponse'{certs = Certs}} ->
-                DecodedOtpCerts = [otp_cert(C) || C <- Certs],
-                DecodedResponderOtpCerts =
+                OcspResponseCerts = [otp_cert(C) || C <- Certs],
+                UserResponderCerts =
                     [otp_cert(pkix_decode_cert(C, plain)) || C <- ResponderCerts],
                 pubkey_ocsp:verify_ocsp_response(
-                  BasicOcspResponse, DecodedOtpCerts ++ DecodedResponderOtpCerts,
+                  BasicOcspResponse, OcspResponseCerts ++ UserResponderCerts,
                   NonceExt);
             {error, _} = Error ->
                 Error
         end,
-    case OcspResponses of
+    case OcspCertResponses of
         {ok, Responses} ->
             case pubkey_ocsp:find_single_response(
                    otp_cert(Cert), otp_cert(IssuerCert), Responses) of
