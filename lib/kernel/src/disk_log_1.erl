@@ -27,9 +27,9 @@
 	 mf_ext_inc/2, mf_int_chunk/4, mf_int_chunk_step/3,
 	 mf_sync/1, mf_write_cache/1]).
 -export([mf_ext_open/7, mf_ext_log/3, mf_ext_close/2]).
--export([open_rot_log_file/3, rotate_file/2,
-         rot_ext_log/3, rot_write_cache/1, rot_ext_close/1,
-         change_size_rot/2, get_rot_size/1]).
+-export([open_rotate_log_file/3, rotate_file/2,
+         rotate_ext_log/3, rotate_write_cache/1, rotate_ext_close/1,
+         change_size_rotate/2, get_rotate_size/1]).
 
 -export([print_index_file/1]).
 -export([read_index_file/1]).
@@ -988,7 +988,7 @@ change_size_wrap(#handle{filename = FName} = Handle, {NewMaxB, NewMaxF}, Version
             {ok, Handle#handle{maxB = NewMaxB, maxF = NewMaxF}}
     end.
 
-change_size_rot(#rotate_handle{maxB = MaxB, maxF = MaxF, file = FName} = Handle, {NewMaxB, NewMaxF}) ->
+change_size_rotate(#rotate_handle{maxB = MaxB, maxF = MaxF, file = FName} = Handle, {NewMaxB, NewMaxF}) ->
     {MaxB, MaxF1} = get_size(MaxB, MaxF),
     if
         NewMaxF > MaxF1 ->
@@ -1001,7 +1001,7 @@ change_size_rot(#rotate_handle{maxB = MaxB, maxF = MaxF, file = FName} = Handle,
             {ok, Handle#rotate_handle{maxB = NewMaxB, maxF = NewMaxF}}
     end.
 
-open_rot_log_file(FileName, Size, Head) ->
+open_rotate_log_file(FileName, Size, Head) ->
     try
         case filelib:ensure_dir(FileName) of
             ok ->
@@ -1036,7 +1036,7 @@ update_rotation(#rotate_handle{file = FName, maxF = MaxF}) ->
     maybe_update_compress(0, MaxF,FName).
 
 maybe_remove_archives(Count, FName) ->
-    Archive = rot_file_name(FName, Count),
+    Archive = rotate_file_name(FName, Count),
     case file:read_file_info(Archive,[raw]) of
         {error,enoent} ->
             ok;
@@ -1079,10 +1079,10 @@ rotate_files(FileName, 1) ->
     end,
     ok;
 rotate_files(FileName, Count) ->
-    _ = file:rename(rot_file_name(FileName, Count-2), rot_file_name(FileName, Count-1)),
+    _ = file:rename(rotate_file_name(FileName, Count-2), rotate_file_name(FileName, Count-1)),
     rotate_files(FileName, Count-1).
 
-rot_file_name(FileName, Count) ->
+rotate_file_name(FileName, Count) ->
     concat([FileName, ".", Count, ".gz"]).
 
 compress_file(FileName) ->
@@ -1110,12 +1110,12 @@ compress_data(Z,In,Out) ->
             ok
     end.
 
-rot_ext_log(Handle, Bin, Head) ->
-    rot_ext_log(Handle, Bin, Head, 0).
+rotate_ext_log(Handle, Bin, Head) ->
+    rotate_ext_log(Handle, Bin, Head, 0).
 
-rot_ext_log(Handle, [], _Head, N) ->
+rotate_ext_log(Handle, [], _Head, N) ->
     {ok, Handle, N};
-rot_ext_log(Handle, Bins, Head, N0) ->
+rotate_ext_log(Handle, Bins, Head, N0) ->
     #rotate_handle{file = FileName, maxB = MaxB, cur_fdc = CurFdC, 
             curB = CurB, firstPos = FirstPos} = Handle,
     {FirstBins, LastBins, NoBytes, N} = 
@@ -1123,13 +1123,13 @@ rot_ext_log(Handle, Bins, Head, N0) ->
     case FirstBins of
 	[] ->
             Handle1 = rotate_file(Handle, Head),
-	    rot_ext_log(Handle1, Bins, Head, N0);
+	    rotate_ext_log(Handle1, Bins, Head, N0);
 	_ ->
 	    case fwrite(CurFdC, FileName, FirstBins, NoBytes) of
                 {ok, NewCurFdC} ->
 		    Handle1 = Handle#rotate_handle{cur_fdc = NewCurFdC, 
                                             curB = CurB + NoBytes},
-		    rot_ext_log(Handle1, LastBins, Head, N0 + N);
+		    rotate_ext_log(Handle1, LastBins, Head, N0 + N);
 		{Error, NewCurFdC} ->
 		    Handle1 = Handle#rotate_handle{cur_fdc = NewCurFdC},
 		    {error, Error, Handle1}
@@ -1137,13 +1137,13 @@ rot_ext_log(Handle, Bins, Head, N0) ->
     end.
 
 %% -> {Reply, handle()}; Reply = ok | Error
-rot_write_cache(#rotate_handle{file = FName, cur_fdc = FdC} = Handle) ->
+rotate_write_cache(#rotate_handle{file = FName, cur_fdc = FdC} = Handle) ->
     erase(write_cache_timer_is_running),
     #cache{fd = Fd, c = C} = FdC,
     {Reply, NewFdC} = write_cache(Fd, FName, C),
     {Reply, Handle#rotate_handle{cur_fdc = NewFdC}}.
 
-rot_ext_close(#rotate_handle{file = FName, cur_fdc = CurFdC}) ->
+rotate_ext_close(#rotate_handle{file = FName, cur_fdc = CurFdC}) ->
     (catch fclose(CurFdC, FName)).
 
 ensure_open(Filename, Head) ->
@@ -1590,7 +1590,7 @@ remove_files(Type, FName, N, Max, Reply) ->
     FileName =
         case Type of
             wrap -> add_ext(FName, N);
-            rotate -> rot_file_name(FName, N)
+            rotate -> rotate_file_name(FName, N)
         end,
     NewReply = case file:delete(FileName) of
 		   ok -> Reply;
@@ -1603,7 +1603,7 @@ remove_files(Type, FName, N, Max, Reply) ->
 get_wrap_size(#handle{maxB = MaxB, maxF = MaxF}) ->
     get_size(MaxB, MaxF).
 
-get_rot_size(#rotate_handle{maxB = MaxB, maxF = MaxF}) ->
+get_rotate_size(#rotate_handle{maxB = MaxB, maxF = MaxF}) ->
     get_size(MaxB, MaxF).
 
 get_size(MaxB, MaxF) ->

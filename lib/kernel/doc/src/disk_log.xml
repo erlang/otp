@@ -51,9 +51,15 @@
 	the last file is filled up.</p></item>
 	<tag>rotate logs</tag>
         <item><p>Uses a sequence of rotate log files of limited size. As a
-        log file is filled up, it's rotated and then compressed. There's one active
+        log file is filled up, it is rotated and then compressed. There is one active
         log file and upto the configured number of compressed log files. Only externally 
-        formatted logs are supported.</p></item>
+        formatted logs are supported. It follows the same naming convention as the handler
+        logger_std_h for Logger. For more details about the naming convention check the file
+        parameter for
+        <seemfa marker="#open/1"><c>open/1</c></seemfa>.</p>
+        <p>It follows the same naming convention as that for the compressed files for Linux's
+        logrotate or BSD's newsyslog.</p>
+        </item>
       </taglist>
      <p>For efficiency reasons, items are always written to files as binaries.</p>
 
@@ -333,8 +339,8 @@
           </p>
         <p>For a wrap or rotate log, both the size and the number of files can 
           always be increased, as long as the number of files does not
-          exceed 65000. If the maximum number of files is decreased, the
-          change is not valid until the current file is full and the
+          exceed 65000. For wrap logs, if the maximum number of files is decreased,
+          the change is not valid until the current file is full and the
           log wraps to the next file.
           The redundant files are removed the next time the log wraps around,
           that is, starts to log to file number 1.
@@ -351,14 +357,16 @@
           file (that is, files 7 and 8) are removed the next time file 6
           is full.
           </p>
+        <p>For rotate logs, if the maximum number of files is decreased,
+          the redundant files are deleted instantly.
+          </p>
         <p>If the size of the files is decreased, the change immediately
           affects the current log. It does not change the
           size of log files already full until the next time they are used.
           </p>
         <p>If the log size is decreased, for example, to save space,
           function
-	  <seemfa marker="#inc_wrap_file/1"><c>inc_wrap_file/1</c></seemfa>,
-	  <seemfa marker="#inc_rot_file/1"><c>inc_rot_file/1</c></seemfa>
+	  <seemfa marker="#next_file/1"><c>next_file/1</c></seemfa>,
 	  can be used to force the log to wrap.
           </p>
       </desc>
@@ -489,17 +497,6 @@
           <c>format_error/1</c> in module
 	  <seemfa marker="file#format_error/1"><c>file</c></seemfa>
 	  is called.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="inc_rot_file" arity="1" since="OTP-26.0"/>
-      <fsummary>Rotate and compress the current log file, open a new log file.</fsummary>
-      <type name="inc_rot_error_rsn"/>
-      <type name="invalid_header"/>
-      <desc>
-        <p>Forces rotation of the currently active log file and then compresses it. A new 
-          file is opened which then becomes the active log file.
-          </p>
       </desc>
     </func>
     <func>
@@ -746,6 +743,26 @@
       </desc>
     </func>
     <func>
+      <name name="next_file" arity="1" since=""/>
+      <fsummary>Change to the next log file of a disk log.</fsummary>
+      <type name="next_file_error_rsn"/>
+      <type name="invalid_header"/>
+      <desc>
+        <p>For wrap logs, it forces the disk log to start logging to the
+          next log file. It can be used, for example, with
+          <c>change_size/2</c> to reduce the amount of disk space allocated
+          by the disk log.
+          </p>
+        <p>Owners subscribing to notifications normally receive a
+          <c>wrap</c> message, but if an error occurs with a reason tag
+          of <c>invalid_header</c> or <c>file_error</c>, an <c>error_status</c>
+          message is sent.</p>
+        <p>For rotate logs, it forces rotation of the currently active log
+           file, compresses it and opens a new active file for logging. 
+          </p>
+      </desc>
+    </func>
+    <func>
       <name name="open" arity="1" since=""/>
       <fsummary>Open a disk log file.</fsummary>
       <type name="dlog_options"/>
@@ -774,14 +791,16 @@
               the filename defaults to <c>lists:concat([<anno>Log</anno>, ".LOG"])</c>
 	      for halt logs.</p>
 	    <p>For wrap logs, this is the base name of the files. Each file in
-	      a wrap log is called <c><![CDATA[<base_name>.N]]></c>, where <c>N</c>
+	      a wrap log is called <c><![CDATA[<FileName>.N]]></c>, where <c>N</c>
 	      is an integer. Each wrap log also has two files called
-              <c><![CDATA[<base_name>.idx]]></c> and <c><![CDATA[<base_name>.siz]]></c>.
+              <c><![CDATA[<FileName>.idx]]></c> and <c><![CDATA[<FileName>.siz]]></c>.
               </p>
-	    <p>For rotate logs, this is the name of the active log file. Upon rotation the
-              file is compressed and renamed to <c><![CDATA[<base_name>.N.gz]]></c>, where
-              <c>N</c> is an integer. Note that the smallest index corresponds to the latest
-              compressed log file.
+	    <p>For rotate logs, this is the name of the active log file. The compressed
+               files are named as <c><![CDATA[<FileName>.N.gz]]></c>, where <c>N</c> is
+               an integer and <c><![CDATA[<FileName>.0.gz]]></c> is the latest compressed
+               log file. All the compressed files are renamed at each rotation so that the
+               latest files have the smallest index. The maximum value for N is the value of
+               <c><![CDATA[MaxNoFiles]]></c> minus 1.
               </p>
           </item>
 	  <tag><c>{linkto, <anno>LinkTo</anno>}</c><marker id="linkto"></marker></tag>
@@ -825,10 +844,10 @@
               log more items are rejected. Defaults to
               <c>infinity</c>, which for halt implies that there is no
               maximum size.</p>
-	    <p>For wrap logs, parameter <c><anno>Size</anno></c>
+	    <p>For wrap and rotate logs, parameter <c><anno>Size</anno></c>
               can be a pair
-              <c>{<anno>MaxNoBytes</anno>, <anno>MaxNoFiles</anno>}</c> or
-	      <c>infinity</c>.
+              <c>{<anno>MaxNoBytes</anno>, <anno>MaxNoFiles</anno>}</c>. For wrap logs
+	      it can also be <c>infinity</c>.
 	      In the latter case, if the files of an existing wrap log
               with the same name can be found, the size is read
               from the existing wrap log, otherwise an error is returned.</p>
@@ -859,6 +878,12 @@
                 opening an existing wrap log for the first time, that
                 is, when creating the disk log process.</p>
             </note>
+            <p>Rotate logs write at most <c><anno>MaxNoBytes</anno></c>
+              bytes on the active log file and keep the latest <c><anno>MaxNoFiles</anno></c>
+              compressed files. Regardless of <c><anno>MaxNoBytes</anno></c>,
+              at least the header (if there is one) and one
+              item are written on each rotate log file before rotation.
+              </p>
 	    <p>When opening an already open halt log, option <c>size</c>
 	      is ignored.</p>
           </item>

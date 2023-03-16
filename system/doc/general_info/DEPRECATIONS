@@ -18,6 +18,11 @@
 #
 
 #
+# Added in OTP 26.
+#
+disk_log:inc_wrap_file/1 since=26
+
+#
 # Added in OTP 25.
 #
 slave:_/_ since=25 remove=27
