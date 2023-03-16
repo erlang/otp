@@ -808,8 +808,8 @@ call(#c_call{args=As0}=Call0, #c_literal{val=M}=M0, #c_literal{val=N}=N0, Sub) -
                         Core -> expr(Core, Sub)
                     end
             end;
-        #c_case{}=Case ->
-            Case;
+        #c_let{}=Let ->
+            Let;
         #c_literal{}=Lit ->
             Lit
     end;
@@ -821,9 +821,10 @@ call(#c_call{args=As0}=Call, M, N, Sub) ->
 %% slightly at the cost of making tracing and stack traces incorrect.
 simplify_call(Call, maps, get, [Key, Map]) ->
     rewrite_call(Call, erlang, map_get, [Key, Map]);
-simplify_call(#c_call{anno=Anno0}, maps, get, [Key, Map, Default]) ->
+simplify_call(#c_call{anno=Anno0}, maps, get, [Key0, Map, Default]) ->
     Anno = [compiler_generated | Anno0],
 
+    Key = make_var(Anno),
     Value = make_var(Anno),
     Fail = make_var(Anno),
     Raise = #c_primop{name=#c_literal{val=match_fail},
@@ -845,7 +846,8 @@ simplify_call(#c_call{anno=Anno0}, maps, get, [Key, Map, Default]) ->
                     pats=[Fail],
                     guard=#c_literal{val=true},
                     body=Raise}],
-    #c_case{anno=Anno,arg=Map,clauses=Cs};
+
+    cerl:ann_c_let(Anno, [Key], Key0, #c_case{anno=Anno,arg=Map,clauses=Cs});
 simplify_call(Call, maps, is_key, [Key, Map]) ->
     rewrite_call(Call, erlang, is_map_key, [Key, Map]);
 simplify_call(_Call, maps, new, []) ->
