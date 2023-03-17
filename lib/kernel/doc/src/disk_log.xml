@@ -58,7 +58,7 @@
         parameter for
         <seemfa marker="#open/1"><c>open/1</c></seemfa>.</p>
         <p>It follows the same naming convention as that for the compressed files for Linux's
-        logrotate or BSD's newsyslog.</p>
+        logrotate and BSD's newsyslog.</p>
         </item>
       </taglist>
      <p>For efficiency reasons, items are always written to files as binaries.</p>
@@ -207,6 +207,9 @@
     </datatype>
     <datatype>
       <name name="file_error"/>
+    </datatype>
+    <datatype>
+      <name name="next_file_error_rsn"/>
     </datatype>
   </datatypes>
   <funcs>
