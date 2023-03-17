@@ -221,7 +221,8 @@
          portable_open_port/2,
          close_port/1,
          verify_early_data/1,
-         trace/0
+         trace/0,
+         ct_pal_file/1
         ]).
 %% Tracing
 -export([handle_trace/3]).
@@ -4256,3 +4257,13 @@ ktls_set_cipher(Socket, OS, TxRx, Seed) ->
            key = TLS_KEY,
            iv = <<TLS_SALT/binary, TLS_IV/binary>> },
     inet_tls_dist:set_ktls_cipher(KtlsInfo, OS, CipherState, 0, TxRx).
+
+ct_pal_file(FilePath) ->
+    case file:read_file(FilePath) of
+        {ok, Binary} ->
+            ?CT_PAL("~s ~pB~n~s",
+                    [FilePath, filelib:file_size(FilePath), Binary]);
+        _ ->
+            ?CT_PAL("Failed to log ~s", [FilePath]),
+            ok
+    end.

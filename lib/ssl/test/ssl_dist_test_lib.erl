@@ -94,13 +94,7 @@ stop_ssl_node(#node_handle{connection_handler = Handler,
 	    erlang:demonitor(Mon, [flush]),
 	    ct:pal("stop_ssl_node/1 ~s Warning ~p ~n", [Name,Error])
     end,
-    case file:read_file(LogPath) of
-        {ok, Binary} ->
-            ct:pal("LogPath(~pB) = ~p~n~s", [filelib:file_size(LogPath), LogPath,
-                                             Binary]);
-        _ ->
-            ok
-    end,
+    ssl_test_lib:ct_pal_file(LogPath),
     ct:pal("DumpPath(~pB) = ~p~n", [filelib:file_size(DumpPath), DumpPath]).
 
 start_ssl_node(Name, Args) ->

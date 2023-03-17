@@ -44,8 +44,9 @@
         ]).
 
 %% spawn export
--export([ocsp_responder_init/3]).
-
+-export([ocsp_responder_init/4]).
+-define(OCSP_RESPONDER_LOG, "ocsp_resp_log.txt").
+-define(DEBUG, false).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -71,7 +72,8 @@ ocsp_tests() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
-    Config = ssl_test_lib:init_per_suite(Config0, openssl),
+    Config = lists:merge([{debug, ?DEBUG}],
+                         ssl_test_lib:init_per_suite(Config0, openssl)),
     case ssl_test_lib:openssl_ocsp_support(Config) of
         true ->
             do_init_per_suite(Config);
@@ -87,7 +89,7 @@ do_init_per_suite(Config) ->
     {ok, _} = make_certs:all(DataDir, PrivDir),
 
     ResponderPort = get_free_port(),
-    Pid = start_ocsp_responder(ResponderPort, PrivDir),
+    Pid = start_ocsp_responder(ResponderPort, PrivDir, ?config(debug, Config)),
 
     NewConfig =
         lists:merge(
@@ -97,10 +99,10 @@ do_init_per_suite(Config) ->
 
     ssl_test_lib:cert_options(NewConfig).
 
-
 end_per_suite(Config) ->
     ResponderPid = proplists:get_value(responder_pid, Config),
     ssl_test_lib:close(ResponderPid),
+    [ssl_test_lib:ct_pal_file(?OCSP_RESPONDER_LOG) || ?config(debug, Config)],
     ssl_test_lib:end_per_suite(Config).
 
 %%--------------------------------------------------------------------
@@ -216,10 +218,11 @@ stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError) ->
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
-start_ocsp_responder(ResponderPort, PrivDir) ->
+start_ocsp_responder(ResponderPort, PrivDir, Debug) ->
     Starter = self(),
     Pid = erlang:spawn_link(
-            ?MODULE, ocsp_responder_init, [ResponderPort, PrivDir, Starter]),
+            ?MODULE, ocsp_responder_init,
+            [ResponderPort, PrivDir, Starter, Debug]),
     receive
         {started, Pid} ->
             Pid;
@@ -227,14 +230,18 @@ start_ocsp_responder(ResponderPort, PrivDir) ->
             throw({unable_to_start_ocsp_service, Reason})
     end.
 
-ocsp_responder_init(ResponderPort, PrivDir, Starter) ->
+ocsp_responder_init(ResponderPort, PrivDir, Starter, Debug) ->
     Index = filename:join(PrivDir, "otpCA/index.txt"),
     CACerts = filename:join(PrivDir, "b.server/cacerts.pem"),
     Cert = filename:join(PrivDir, "b.server/cert.pem"),
     Key = filename:join(PrivDir, "b.server/key.pem"),
-
+    DebugArgs = case Debug of
+                    true -> ["-text", "-out", ?OCSP_RESPONDER_LOG];
+                    _ -> []
+                end,
     Args = ["ocsp", "-index", Index, "-CA", CACerts, "-rsigner", Cert,
-            "-rkey", Key, "-port",  erlang:integer_to_list(ResponderPort)],
+            "-rkey", Key, "-port",  erlang:integer_to_list(ResponderPort)] ++
+        DebugArgs,
     process_flag(trap_exit, true),
     Port = ssl_test_lib:portable_open_port("openssl", Args),
     ocsp_responder_loop(Port, {new, Starter}).
