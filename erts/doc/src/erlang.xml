@@ -11131,14 +11131,13 @@ Metadata = #{ pid => pid(),
           <tag><marker id="system_info_creation"/>
             <c>creation</c></tag>
           <item>
-            <p>Returns the creation of the local node as an integer.
+            <p>Returns the "creation" value of the local node as an integer.
               The creation is changed when a node is restarted. The
               creation of a node is stored in process identifiers, port
-              identifiers, and references. This makes it (to some
-              extent) possible to distinguish between identifiers from
-              different incarnations of a node. The valid
-              creations are integers in the range 1..3, but this will
-              probably change in a future release. If the node is not
+              identifiers, and references. This makes it possible to distinguish
+	      between identifiers from different incarnations of a node.
+              Creation values are currently 32-bit positive integers, but this
+	      may change in future releases. If the node is not
               alive, <c>0</c> is returned.</p>
           </item>
           <tag><marker id="system_info_delayed_node_table_gc"/>
