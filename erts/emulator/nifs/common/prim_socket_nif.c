@@ -12409,12 +12409,10 @@ void esock_requestor_release(const char*      slogan,
                              ESockDescriptor* descP,
                              ESockRequestor*  reqP)
 {
-    if (reqP->dataP != NULL) {
-        FREE(reqP->dataP);
-        reqP->dataP = NULL;
-    }
+    reqP->dataP = NULL;
     enif_set_pid_undefined(&reqP->pid);
     (void) DEMONP(slogan, env, descP, &reqP->mon);
+    esock_clear_env(slogan, reqP->env);
     esock_free_env(slogan, reqP->env);
     reqP->env = NULL;
     reqP->ref = esock_atom_undefined;
