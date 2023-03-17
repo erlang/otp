@@ -32,7 +32,12 @@
     <file>binaryhandling.xml</file>
   </header>
 
-  <p>Binaries can be efficiently built in the following way:</p>
+  <p>This section gives a few examples on how to handle binaries in an
+  efficient way. The sections that follow take an in-depth look at how
+  binaries are implemented and how to best take advantages of the
+  optimizations done by the compiler and runtime system.</p>
+
+  <p>Binaries can be efficiently <em>built</em> in the following way:</p>
 
   <p><em>DO</em></p>
   <code type="erl"><![CDATA[
@@ -44,7 +49,50 @@ my_list_to_binary([H|T], Acc) ->
 my_list_to_binary([], Acc) ->
     Acc.]]></code>  
 
-  <p>Binaries can be efficiently matched like this:</p>
+  <p>Appending data to a binary as in the example is efficient because
+  it is specially optimized by the runtime system to avoid copying the
+  <c>Acc</c> binary every time.</p>
+
+  <p>Prepending data to a binary in a loop is not efficient:</p>
+
+  <p><em>DO NOT</em></p>
+  <code type="erl"><![CDATA[
+rev_list_to_binary(List) ->
+    rev_list_to_binary(List, <<>>).
+
+rev_list_to_binary([H|T], Acc) ->
+    rev_list_to_binary(T, <<H,Acc/binary>>);
+rev_list_to_binary([], Acc) ->
+    Acc.]]></code>
+
+  <p>This is not efficient for long lists because the <c>Acc</c>
+  binary is copied every time. One way to make the function more
+  efficient is like this:</p>
+
+  <p><em>DO NOT</em></p>
+  <code type="erl"><![CDATA[
+rev_list_to_binary(List) ->
+    rev_list_to_binary(lists:reverse(List), <<>>).
+
+rev_list_to_binary([H|T], Acc) ->
+    rev_list_to_binary(T, <<Acc/binary,H>>);
+rev_list_to_binary([], Acc) ->
+    Acc.]]></code>
+
+  <p>Another way to avoid copying the binary each time is like this:</p>
+
+  <p><em>DO</em></p>
+  <code type="erl"><![CDATA[
+rev_list_to_binary([H|T]) ->
+    RevTail = rev_list_to_binary(T),
+    <<RevTail/binary,H>>;
+rev_list_to_binary([]) ->
+    <<>>.]]></code>
+
+  <p>Note that in each of the <em>DO</em> examples, the binary to be
+  appended to is always given as the first segment.</p>
+
+  <p>Binaries can be efficiently <em>matched</em> in the following way:</p>
 
   <p><em>DO</em></p>
   <code type="erl"><![CDATA[
