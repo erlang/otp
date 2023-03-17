@@ -401,8 +401,8 @@ error_info(Config) ->
 
     ExhaustFDs =
         fun(M,F,A) ->
-                case os:type() of
-                    {unix, _} ->
+                case no_limit_for_opened_files() of
+                    false ->
                         {ok, Peer, Node} = ?CT_PEER(),
                         FN = filename:join(
                                proplists:get_value(priv_dir, Config),
@@ -426,7 +426,7 @@ error_info(Config) ->
                         after
                             peer:stop(Peer)
                         end;
-                    _ ->
+                    true ->
                         apply(M,F,A)
                 end
         end,
@@ -437,7 +437,7 @@ error_info(Config) ->
          {cmd, [{no, string}, no_map]},
          {cmd, ["echo 1"], [{general, "too many open files \\(emfile\\)"},
                             {wrapper, ExhaustFDs}] ++
-              [no_fail || win32 =:= element(1, os:type())]},
+              [no_fail || no_limit_for_opened_files()]},
 
          {find_executable, 1},                  %Not a BIF.
          {find_executable, 2},                  %Not a BIF.
@@ -468,6 +468,19 @@ error_info(Config) ->
          {unsetenv, [{bad,key}]}
         ],
     error_info_lib:test_error_info(os, L).
+
+no_limit_for_opened_files() ->
+    case os:type() of
+        {unix, freebsd} ->
+            %% At least some FreeBSD systems support about one million open
+            %% files, which means that we run out of Erlang processes before we
+            %% reach the open file limit.
+            true;
+        {unix, _} ->
+            false;
+        _ ->
+            true
+    end.
 
 %% Util functions
 

@@ -1748,9 +1748,9 @@ on_load_self_call(_Config) ->
     ok.
 
 on_load_do_load(Mod, Code) ->
-    spawn(fun() ->
-		  {module,Mod} = code:load_binary(Mod, "", Code)
-	  end),
+    spawn_link(fun() ->
+                       {module,Mod} = code:load_binary(Mod, "", Code)
+               end),
     receive
 	Any -> Any
     end.
@@ -1841,9 +1841,9 @@ on_load_deleted(_Config) ->
 			    "  receive _ -> ok end.\n"]),
 		 merl:print(Tree),
 		 {ok,Mod,Code} = merl:compile(Tree),
-		 spawn(fun() ->
-			       {module,Mod} = code:load_binary(Mod, "", Code)
-		       end),
+		 spawn_link(fun() ->
+                                    {module,Mod} = code:load_binary(Mod, "", Code)
+                            end),
 		 receive after 1 -> ok end,
 		 {module,OtherMod} = code:load_binary(OtherMod, "",
 						      OtherCode),
@@ -1866,10 +1866,10 @@ delete_before_reload(Mod, Reload) ->
     {ok,Mod,Code1} = merl:compile(Tree1),
 
     Self = self(),
-    spawn(fun() ->
-		  {module,Mod} = code:load_binary(Mod, "", Code1),
-		  Mod:f(Self)
-	  end),
+    spawn_link(fun() ->
+                       {module,Mod} = code:load_binary(Mod, "", Code1),
+                       Mod:f(Self)
+               end),
     receive started -> ok end,
 
     true = code:delete(Mod),
