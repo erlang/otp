@@ -71,13 +71,15 @@
 	 bif/1, nif/1]).
 
 init_per_testcase(_Case, Config) ->
-    erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_time,call_count]),
+    erlang:trace_pattern({'_','_','_'}, false,
+                         [local,meta,call_time,call_count,call_memory]),
     erlang:trace_pattern(on_load, false, [local,meta,call_time,call_count]),
     timer:now_diff(now(),now()),
     Config.
 
 end_per_testcase(_Case, _Config) ->
-    erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_time,call_count]),
+    erlang:trace_pattern({'_','_','_'}, false,
+                         [local,meta,call_time,call_count,call_memory]),
     erlang:trace_pattern(on_load, false, [local,meta,call_time,call_count]),
     erlang:trace(all, false, [all]),
     ok.
@@ -410,11 +412,21 @@ bif(Config) when is_list(Config) ->
     Pid = setup(),
     {L, Tot1} = execute(Pid, fun() -> with_bif(M) end),
 
-    {call_time,[{Pid,_,S,Us}]} = erlang:trace_info({?MODULE,with_bif,1}, call_time),
-    T1 = Tot1 - (S*1000000 + Us),
+    {call_time,[{Pid,_,S,Us}]}=WB = erlang:trace_info({?MODULE,with_bif,1}, call_time),
+    T1 = Tot1 - (S*1000_000 + Us),
 
-    ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M - 1, 0, 0}], T1/2),
-    ok = check_trace_info({erlang, term_to_binary, 1}, [{Pid, M - 1, 0, 0}], T1/2),
+    B2T = erlang:trace_info({erlang, binary_to_term, 1}, call_time),
+    T2B = erlang:trace_info({erlang, term_to_binary, 1}, call_time),
+    io:format("with_bif       = ~p\n", [WB]),
+    io:format("binary_to_term = ~p\n", [B2T]),
+    io:format("term_to_binary = ~p\n", [T2B]),
+    Sum = us(WB) + us(B2T) + us(T2B),
+    io:format("Sum  = ~p us\n", [Sum]),
+    io:format("Tot1 = ~p us  Diff = ~p us\n", [Tot1, Tot1-Sum]),
+    ok = check_trace_info_ret({erlang, binary_to_term, 1}, [{Pid, M-1, 0, 0}],
+                              T1/2, B2T),
+    ok = check_trace_info_ret({erlang, term_to_binary, 1}, [{Pid, M-1, 0, 0}],
+                              T1/2, T2B),
 
     % disable term2binary
 
@@ -429,6 +441,9 @@ bif(Config) when is_list(Config) ->
     P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     Pid ! quit,
     ok.
+
+us({call_time,[{_,_,S,Us}]}) ->
+    S*1000_000 + Us.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -710,23 +725,35 @@ seq_r(Start, Stop, Succ, R) ->
     seq_r(Succ(Start), Stop, Succ, [Start | R]).
 
 % Check call time tracing data and print mismatches
-check_trace_info(Mfa, [{Pid, ExpectedC,_,_}] = Expect, Time) ->
-    {call_time,[{Pid,C,S,Us}]} = erlang:trace_info(Mfa, call_time),
+check_trace_info(Mfa, Expect, Time) ->
+    check_trace_info_ret(Mfa, Expect, Time, erlang:trace_info(Mfa, call_time)).
+
+check_trace_info_ret(Mfa, [{Pid, ExpectedC,_,_}] = Expect, Time, TraceInfo) ->
+    {call_time,[{Pid,Cnt,S,Us}]} = TraceInfo,
+
     {Mod, Name, Arity} = Mfa,
     IsBuiltin = erlang:is_builtin(Mod, Name, Arity),
-    if
+    ok = if
         %% Call count on BIFs may exceed number of calls as they often trap to
         %% themselves.
-        IsBuiltin, C >= ExpectedC, S >= 0, Us >= 0,
-          abs(1 - Time/(S*1000000 + Us)) < ?R_ERROR;
-          abs(Time - S*1000000 - Us) < ?US_ERROR ->
+        IsBuiltin, Cnt >= ExpectedC ->
             ok;
-        not IsBuiltin, C =:= ExpectedC, S >= 0, Us >= 0,
-          abs(1 - Time/(S*1000000 + Us)) < ?R_ERROR;
-          abs(Time - S*1000000 - Us) < ?US_ERROR ->
+        not IsBuiltin, Cnt =:= ExpectedC ->
             ok;
         true ->
-            Sum = S*1000000 + Us,
+            io:format("Expected ~p -> {call_time, ~p}~n"
+                      " - got call count ~w~p",
+                      [Mfa, Expect, Cnt]),
+            count_error
+    end,
+
+    true = (S >= 0),
+    true = (Us >= 0),
+    Sum = S*1000_000 + Us,
+    if
+        abs(1 - Time/Sum) < ?R_ERROR; abs(Time - Sum) < ?US_ERROR ->
+            ok;
+        true ->
             io:format("Expected ~p -> {call_time, ~p (Time ~p us)}~n - got ~w "
                       "s. ~w us. = ~w us. - ~w -> delta ~w (ratio ~.2f, "
                       "should be 1.0)~n",
@@ -734,8 +761,8 @@ check_trace_info(Mfa, [{Pid, ExpectedC,_,_}] = Expect, Time) ->
                        S, Us, Sum, Time, Sum - Time, Time/Sum]),
             time_error
     end;
-check_trace_info(Mfa, Expect, _) ->
-    case erlang:trace_info(Mfa, call_time) of
+check_trace_info_ret(Mfa, Expect, _, TraceInfo) ->
+    case TraceInfo of
         {call_time, Expect} ->
             ok;
         Other ->
