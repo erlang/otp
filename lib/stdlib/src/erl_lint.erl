@@ -484,9 +484,6 @@ format_error({deprecated_builtin_type, {Name, Arity},
 format_error({not_exported_opaque, {TypeName, Arity}}) ->
     io_lib:format("opaque type ~tw~s is not exported",
                   [TypeName, gen_type_paren(Arity)]);
-format_error({underspecified_opaque, {TypeName, Arity}}) ->
-    io_lib:format("opaque type ~tw~s is underspecified and therefore meaningless",
-                  [TypeName, gen_type_paren(Arity)]);
 format_error({bad_dialyzer_attribute,Term}) ->
     io_lib:format("badly formed dialyzer attribute: ~tw", [Term]);
 format_error({bad_dialyzer_option,Term}) ->
@@ -2906,16 +2903,7 @@ type_def(Attr, Anno, TypeName, ProtoType, Args, St0) ->
                 true ->
                     add_error(Anno, {redefine_type, TypePair}, St0);
                 false ->
-                    St1 = case
-                              Attr =:= opaque andalso
-                              is_underspecified(ProtoType, Arity)
-                          of
-                              true ->
-                                  Warn = {underspecified_opaque, TypePair},
-                                  add_warning(Anno, Warn, St0);
-                              false -> St0
-                          end,
-                    StoreType(St1)
+                    StoreType(St0)
 	    end
     end.
 
@@ -2935,10 +2923,6 @@ warn_redefined_builtin_type(Anno, TypePair, #lint{compile=Opts}=St) ->
         false ->
             St
     end.
-
-is_underspecified({type,_,term,[]}, 0) -> true;
-is_underspecified({type,_,any,[]}, 0) -> true;
-is_underspecified(_ProtType, _Arity) -> false.
 
 check_type(Types, St) ->
     {SeenVars, St1} = check_type_1(Types, maps:new(), St),
