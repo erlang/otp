@@ -1334,34 +1334,31 @@ BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
     BIF_ERROR(BIF_P, BADMAP);
 }
 
-static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
+static Eterm flatmap_merge(Process *p, Eterm map1, Eterm map2) {
     Eterm *hp,*thp;
-    Eterm tup;
     Eterm *ks,*vs,*ks1,*vs1,*ks2,*vs2;
     flatmap_t *mp1,*mp2,*mp_new;
     Uint n,n1,n2,i1,i2,need,unused_size=0;
     Sint c = 0;
 
-    mp1  = (flatmap_t*)flatmap_val(nodeA);
-    mp2  = (flatmap_t*)flatmap_val(nodeB);
+    mp1  = (flatmap_t*)flatmap_val(map1);
+    mp2  = (flatmap_t*)flatmap_val(map2);
     n1   = flatmap_get_size(mp1);
     n2   = flatmap_get_size(mp2);
 
-    if (n1 == 0) return nodeB;
-    if (n2 == 0) return nodeA;
+    if (n1 == 0) return map2;
+    if (n2 == 0) return map1;
 
     need = MAP_HEADER_FLATMAP_SZ + 1 + 2 * (n1 + n2);
 
     hp     = HAlloc(p, need);
-    thp    = hp;
-    tup    = make_tuple(thp);
-    ks     = hp + 1; hp += 1 + n1 + n2;
     mp_new = (flatmap_t*)hp; hp += MAP_HEADER_FLATMAP_SZ;
     vs     = hp; hp += n1 + n2;
+    thp    = hp;
+    ks     = hp + 1; hp += 1 + n1 + n2;
 
     mp_new->thing_word = MAP_HEADER_FLATMAP;
-    mp_new->size = 0;
-    mp_new->keys = tup;
+    mp_new->keys = make_tuple(thp);
 
     i1  = 0; i2 = 0;
     ks1 = flatmap_get_keys(mp1);
@@ -1401,20 +1398,42 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 	i2++;
     }
 
-    if (unused_size) {
-	/* the key tuple is embedded in the heap, write a bignum to clear it.
-	 *
-	 * release values as normal since they are on the top of the heap
-	 * size = n1 + n1 - unused_size
-	 */
-
-	*ks = make_pos_bignum_header(unused_size - 1);
-	HRelease(p, vs + unused_size, vs);
-    }
-
     n = n1 + n2 - unused_size;
-    *thp = make_arityval(n);
     mp_new->size = n;
+    *thp = make_arityval(n);
+
+    if (unused_size ) {
+        Eterm* hp_release;
+
+        if (n == n2) {
+            /* Reuse entire map2 */
+            if (n == n1
+                &&  erts_is_literal(mp1->keys, boxed_val(mp1->keys))
+                && !erts_is_literal(mp2->keys, boxed_val(mp2->keys))) {
+                /*
+                 * We want map2, but map1 has a nice literal key tuple.
+                 * Solution: MUTATE HEAP to get both.
+                 */
+                ASSERT(eq(mp1->keys, mp2->keys));
+                mp2->keys = mp1->keys;
+            }
+            HRelease(p, hp, (Eterm *)mp_new);
+            return map2;
+        }
+        else if (n == n1) {
+            /* Reuse key tuple of map1 */
+            mp_new->keys = mp1->keys;
+            /* Release key tuple and unused values */
+            hp_release = thp - unused_size;
+        }
+        else {
+            /* Unused values are embedded in the heap, write bignum to clear them */
+            *vs = make_pos_bignum_header(unused_size - 1);
+            /* Release unused keys */
+            hp_release = ks;
+        }
+	HRelease(p, hp, hp_release);
+    }
 
     /* Reshape map to a hashmap if the map exceeds the limit */
 
