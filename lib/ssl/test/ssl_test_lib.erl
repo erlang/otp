@@ -118,7 +118,6 @@
          session_id/1,
          update_keys/2,
          sanity_check/2,
-         oscp_responder/6,
          supported_eccs/1,
          no_result/1,
          receive_tickets/1,
@@ -924,15 +923,6 @@ init_openssl_server(Mode, ResponderPort, Options) when Mode == openssl_ocsp orel
     Pid ! {started, Port},
     Pid ! {self(), {port, Port}},
     openssl_server_loop(Pid, SslPort, Args).
-
-oscp_responder(Port, Index, CACerts, Cert, Key, Starter) ->
-    Args = ["ocsp", "-index", Index, "-CA", CACerts, "-rsigner", Cert,
-            "-rkey", Key, "-port",  erlang:integer_to_list(Port)],
-    Responder = portable_open_port("openssl", Args),
-    wait_for_openssl_server(Port, tls),
-
-    openssl_server_loop(Starter, Responder, []).
-
 
 openssl_dtls_opt('dtlsv1.2') ->
     ["-dtls"];
