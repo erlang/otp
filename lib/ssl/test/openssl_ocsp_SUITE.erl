@@ -214,7 +214,7 @@ stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError) ->
     ssl_test_lib:check_client_alert(Client, ExpectedError).
 
 %%--------------------------------------------------------------------
-%% Intrernal functions -----------------------------------------------
+%% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
 start_ocsp_responder(ResponderPort, PrivDir) ->
     Starter = self(),

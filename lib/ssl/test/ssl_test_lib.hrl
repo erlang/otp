@@ -8,6 +8,8 @@
            ?SSL_TEST_LIB_FORMAT ++ F,
            ?SSL_TEST_LIB_ARGS ++ Args,
            [esc_chars]))).
+-define(CT_PAL(F),
+        (ct:pal(?SSL_TEST_LIB_FORMAT ++ F, ?SSL_TEST_LIB_ARGS))).
 -define(CT_PAL(F, Args),
         (ct:pal(?SSL_TEST_LIB_FORMAT ++ F, ?SSL_TEST_LIB_ARGS ++ Args))).
 -define(CT_FAIL(F, Args),
