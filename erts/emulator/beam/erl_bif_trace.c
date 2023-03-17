@@ -1460,19 +1460,21 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 		       ErtsTracer meta_tracer, int is_blocking)
 {
     const ErtsCodeIndex code_ix = erts_active_code_ix();
-    int matches = 0;
-    int i;
-    int n;
+    Uint i, n, matches;
     BpFunction* fp;
 
     erts_bp_match_export(&finish_bp.e, mfa, specified);
+
     fp = finish_bp.e.matching;
     n = finish_bp.e.matched;
+    matches = 0;
 
     for (i = 0; i < n; i++) {
-        ErtsCodeInfo *ci_rw = fp[i].ci_rw;
+        ErtsCodeInfo *ci_rw;
         Export* ep;
 
+        /* Export entries are always writable, discard const. */
+        ci_rw = (ErtsCodeInfo *)fp[i].code_info;
         ep = ErtsContainerStruct(ci_rw, Export, info);
 
         if (ep->bif_number != -1) {
@@ -1682,13 +1684,17 @@ erts_finish_breakpointing(void)
 	 * deallocate the GenericBp structs for them.
 	 */
 	clean_export_entries(&finish_bp.e);
-	erts_consolidate_bp_data(&finish_bp.e, 0);
-	erts_consolidate_bp_data(&finish_bp.f, 1);
+	erts_consolidate_export_bp_data(&finish_bp.e);
+	erts_consolidate_local_bp_data(&finish_bp.f);
 	erts_bp_free_matched_functions(&finish_bp.e);
 	erts_bp_free_matched_functions(&finish_bp.f);
         consolidate_event_tracing(erts_send_tracing);
 	consolidate_event_tracing(erts_receive_tracing);
-	return 0;
+        return 1;
+    case 4:
+        /* All schedulers have run a code barrier (or will as soon as they
+         * awaken) after updating all breakpoints, it's safe to return now. */
+        return 0;
     default:
 	ASSERT(0);
     }
@@ -1704,7 +1710,9 @@ install_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
+        /* Export entries are always writable, discard const. */
+        ErtsCodeInfo *ci_rw = (ErtsCodeInfo*)fp[i].code_info;
+        Export* ep = ErtsContainerStruct(ci_rw, Export, info);
         erts_activate_export_trampoline(ep, code_ix);
     }
 }
@@ -1718,7 +1726,9 @@ uninstall_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
+        /* Export entries are always writable, discard const. */
+        ErtsCodeInfo *ci_rw = (ErtsCodeInfo*)fp[i].code_info;
+        Export* ep = ErtsContainerStruct(ci_rw, Export, info);
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W));
@@ -1737,7 +1747,9 @@ clean_export_entries(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
+        /* Export entries are always writable, discard const. */
+        ErtsCodeInfo *ci_rw = (ErtsCodeInfo*)fp[i].code_info;
+        Export* ep = ErtsContainerStruct(ci_rw, Export, info);
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             continue;

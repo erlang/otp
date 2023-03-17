@@ -89,8 +89,8 @@ struct LoaderState_ {
 
     void *ba; /* Assembler used to create x86 assembly */
 
-    const void *native_module_exec; /* Native module after codegen */
-    void *native_module_rw; /* Native module after codegen, writable mapping */
+    const void *executable_region; /* Native module after codegen */
+    void *writable_region; /* Native module after codegen, writable mapping */
 
     int function_number;
     int last_label;

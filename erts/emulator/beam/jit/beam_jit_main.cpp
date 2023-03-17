@@ -137,13 +137,7 @@ static auto create_allocator(const JitAllocator::CreateParams &params) {
 
     allocator->release(test_ro);
 
-#if defined(__APPLE__) && defined(__aarch64__)
-    /* Using a single map will not work on Apple Silicon. The allocation
-     * succeeds but crashes later on. */
-    if (err == ErrorCode::kErrorOk && !single_mapped) {
-#else
     if (err == ErrorCode::kErrorOk) {
-#endif
         return std::make_pair(allocator, single_mapped);
     }
 
@@ -157,6 +151,14 @@ static JitAllocator *pick_allocator() {
     bool single_mapped;
 
 #if defined(VALGRIND)
+    erts_jit_single_map = 1;
+#elif defined(__APPLE__) && defined(__aarch64__)
+    /* Allocating dual-mapped executable memory on this platform is horribly
+     * slow, and provides little security benefits over the MAP_JIT per-thread
+     * permission scheme. Force single-mapped memory.
+     *
+     * 64-bit x86 still uses dual-mapped memory as it lacks support for per-
+     * thread permissions and thus gets unprotected RWX pages with MAP_JIT. */
     erts_jit_single_map = 1;
 #endif
 
@@ -178,7 +180,7 @@ static JitAllocator *pick_allocator() {
      * over time, but we don't want to waste half a dozen fds just to get to
      * the shell on platforms that are very fd-constrained. */
     params.reset();
-    params.blockSize = 4 << 20;
+    params.blockSize = 32 << 20;
 
     allocator = nullptr;
     single_mapped = false;
@@ -387,6 +389,26 @@ extern "C"
 #endif
     }
 
+    void beamasm_unseal_module(const void *executable_region,
+                               void *writable_region,
+                               size_t size) {
+        (void)executable_region;
+        (void)writable_region;
+        (void)size;
+
+        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadWrite);
+    }
+
+    void beamasm_seal_module(const void *executable_region,
+                             void *writable_region,
+                             size_t size) {
+        (void)executable_region;
+        (void)writable_region;
+        (void)size;
+
+        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
+    }
+
     void beamasm_flush_icache(const void *address, size_t size) {
 #ifdef DEBUG
         erts_debug_require_code_barrier();
@@ -411,7 +433,7 @@ extern "C"
 
         ETHR_COMPILER_BARRIER;
 
-        for (size_t i = start & ~ERTS_CACHE_LINE_MASK; i < end;
+        for (UWord i = start & ~ERTS_CACHE_LINE_MASK; i < end;
              i += ERTS_CACHE_LINE_SIZE) {
             __asm__ __volatile__("dc cvau, %0\n"
                                  "ic ivau, %0\n" ::"r"(i)
@@ -495,9 +517,11 @@ extern "C"
         delete ba;
     }
 
-    void beamasm_purge_module(const void *native_module_exec,
-                              void *native_module_rw) {
-        jit_allocator->release(const_cast<void *>(native_module_exec));
+    void beamasm_purge_module(const void *executable_region,
+                              void *writable_region,
+                              size_t size) {
+        (void)size;
+        jit_allocator->release(const_cast<void *>(executable_region));
     }
 
     ErtsCodePtr beamasm_get_code(void *instance, int label) {
@@ -533,16 +557,16 @@ extern "C"
     }
 
     void beamasm_codegen(void *instance,
-                         const void **native_module_exec,
-                         void **native_module_rw,
+                         const void **executable_region,
+                         void **writable_region,
                          const BeamCodeHeader *in_hdr,
                          const BeamCodeHeader **out_exec_hdr,
                          BeamCodeHeader **out_rw_hdr) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
 
         ba->codegen(jit_allocator,
-                    native_module_exec,
-                    native_module_rw,
+                    executable_region,
+                    writable_region,
                     in_hdr,
                     out_exec_hdr,
                     out_rw_hdr);
