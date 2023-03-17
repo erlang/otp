@@ -163,6 +163,22 @@
 
 </section>
 
+  <section><title>SNMP 5.12.0.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Attempts to minimize the number of the error reports
+	    during a failed agent init.</p>
+          <p>
+	    Own Id: OTP-18422 Aux Id: ERIERL-873 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>SNMP 5.12.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -1392,6 +1392,22 @@
 
 </section>
 
+<section><title>Erts 12.3.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Active process aliases of a process at its termination
+	    leaked memory.</p>
+          <p>
+	    Own Id: OTP-18496 Aux Id: GH-6947, PR-6953 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3.2.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

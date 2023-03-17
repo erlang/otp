@@ -276,6 +276,23 @@
 
 </section>
 
+  <section><title>Inets 7.5.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct timing related pipelining/keepalive queue bug,
+	    that could result in unexpected "socket_remotly_closed"
+	    errors.</p>
+          <p>
+	    Own Id: OTP-18509 Aux Id: OTP-18476 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>Inets 7.5.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
