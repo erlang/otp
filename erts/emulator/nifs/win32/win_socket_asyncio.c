@@ -449,12 +449,6 @@ typedef struct __ESAIOOperation {
  *                                                                     *
  * =================================================================== */
 
-static ERL_NIF_TERM esaio_accept_accepted(ErlNifEnv*       env,
-                                          ESockDescriptor* descP,
-                                          ERL_NIF_TERM     sockRef,
-                                          SOCKET           accSock,
-                                          ErlNifPid        pid);
-
 static ERL_NIF_TERM esaio_connect_stream(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
                                          ERL_NIF_TERM     sockRef,
@@ -471,6 +465,32 @@ static ERL_NIF_TERM esaio_connect_dgram(ErlNifEnv*       env,
                                         ERL_NIF_TERM     connRef,
                                         ESockAddress*    addrP,
                                         SOCKLEN_T        addrLen);
+
+static ERL_NIF_TERM accept_check_result(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ESAIOOperation*  opP,
+                                        BOOL             ares,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     accRef,
+                                        SOCKET           accSock,
+                                        ErlNifPid        caller);
+static ERL_NIF_TERM accept_check_pending(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ESAIOOperation*  opP,
+                                         ErlNifPid        caller,
+                                         ERL_NIF_TERM     sockRef,
+                                         ERL_NIF_TERM     accRef);
+static ERL_NIF_TERM accept_check_fail(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ESAIOOperation*  opP,
+                                      int              saveErrno,
+                                      SOCKET           accSock,
+                                      ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM esaio_accept_accepted(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ErlNifPid        pid,
+                                          ERL_NIF_TERM     sockRef,
+                                          SOCKET           accSock);
 
 static ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
@@ -633,8 +653,6 @@ static void esaio_completion_accept_completed(ErlNifEnv*       env,
                                               ESAIOOperation*  opP,
                                               ESockRequestor*  reqP,
                                               int              error);
-static void esaio_completion_accept_not_active(ESAIOOperation*  opP,
-                                               int              error);
 static void esaio_completion_accept_closed(ESockDescriptor* descP,
                                            ESAIOOperation*  opP,
                                            int              error);
@@ -1468,14 +1486,17 @@ ERL_NIF_TERM esaio_connect(ErlNifEnv*       env,
      */
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_connect(%T) -> verify open\r\n", sockRef) );
+           ("WIN-ESAIO", "esaio_connect(%T, %d) -> verify open\r\n",
+            sockRef, descP->sock) );
+
     if (! IS_OPEN(descP->writeState))
         return esock_make_error(env, esock_atom_closed);
 
     SSDBG( descP,
            ("WIN-ESAIO",
-            "esaio_connect(%T) -> verify type: %s\r\n",
-            sockRef, TYPE2STR(descP->type)) );
+            "esaio_connect(%T, %d) -> verify type: %s\r\n",
+            sockRef, descP->sock, TYPE2STR(descP->type)) );
+
     switch (descP->type) {
     case SOCK_STREAM:
         return esaio_connect_stream(env,
@@ -1492,7 +1513,6 @@ ERL_NIF_TERM esaio_connect(ErlNifEnv*       env,
     default:
         return enif_make_badarg(env);
     }
-    
 }
 
 
@@ -1790,7 +1810,7 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
                           ERL_NIF_TERM     accRef)
 {
     ErlNifPid       caller;
-    ERL_NIF_TERM    res, reason;
+    ERL_NIF_TERM    eres;
     SOCKET          accSock;
     ESAIOOperation* opP;
     BOOLEAN_T       ares;
@@ -1850,9 +1870,8 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
     accSock = sock_open(descP->domain, descP->type, descP->protocol);
     if (accSock == INVALID_SOCKET) {
         int          save_errno = sock_errno();
+        ERL_NIF_TERM reason     = MKA(env, erl_errno_id(save_errno));
         ERL_NIF_TERM tag        = esock_atom_create_accept_socket;
-
-        reason = MKA(env, erl_errno_id(save_errno));
 
         esock_clear_env("esaio_accept - invalid accept socket", opP->env);
         esock_free_env("esaio_accept - invalid accept socket", opP->env);
@@ -1897,8 +1916,8 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
     ESOCK_ASSERT( opP->data.accept.buf != NULL);
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_accept {%d} -> try accept\r\n",
-            descP->sock) );
+           ("WIN-ESAIO", "esaio_accept(%T, %d) -> try accept\r\n",
+            sockRef, descP->sock) );
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_acc_tries, &descP->accTries, 1);
@@ -1909,23 +1928,38 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
                          &recvBytes,
                          (OVERLAPPED*) opP);
 
-    if (ares) {
+    eres = accept_check_result(env, descP, opP, ares,
+                               sockRef, accRef, accSock, caller);
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_accept(%T, %d) -> done when"
+                   "\r\n   eres: %T"
+                   "\r\n", sockRef, descP->sock, eres) );
+
+    return eres;
+}
+
+
+
+static
+ERL_NIF_TERM accept_check_result(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ESAIOOperation*  opP,
+                                 BOOL             ares,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     accRef,
+                                 SOCKET           accSock,
+                                 ErlNifPid        caller)
+{
+    ERL_NIF_TERM eres;
+
+   if (ares) {
 
         /* Success already!
          * So, no need to store the data (in the "queue").
-         * But we do need to clean up the overlapped structure.
          * And then allocate and initiate the new descriptor.
          */
 
-        /* ESOCK_PRINTF("esaio_accept(%T,%d) -> accepted\r\n", */
-        /*              sockRef, descP->sock); */
-
-        esock_clear_env("esaio_accept - success", opP->env);
-        esock_free_env("esaio_accept - success", opP->env);
-        FREE( opP->data.accept.buf );
-        FREE( opP );
-
-        res = esaio_accept_accepted(env, descP, sockRef, accSock, caller);
+       eres = esaio_accept_accepted(env, descP, caller, sockRef, accSock);
 
     } else {
 
@@ -1944,55 +1978,90 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
 
             /* We need to store the data in the queue! */
 
-            /* ESOCK_PRINTF("esaio_accept(%T,%d) -> pending\r\n", */
-            /*              sockRef, descP->sock); */
-
-            SSDBG( descP,
-                   ("WIN-ESAIO",
-                    "esaio_accept {%d} -> pending\r\n", descP->sock) );
-
-            ESOCK_CNT_INC(env, descP, sockRef,
-                          esock_atom_acc_waits, &descP->accWaits, 1);
-
-            if (descP->acceptorsQ.first == NULL)
-                descP->readState |= ESOCK_STATE_ACCEPTING;
-
-            esock_acceptor_push(env, descP, caller, accRef, opP);
-            
-            res = esock_atom_completion;
+            eres = accept_check_pending(env, descP, opP, caller,
+                                        sockRef, accRef);
 
         } else {
 
-            reason = MKA(env, erl_errno_id(save_errno));
+            eres = accept_check_fail(env, descP, opP, save_errno,
+                                     accSock, sockRef);
 
-            /* ESOCK_EPRINTF("esaio_accept(%T,%d) -> " */
-            /*               "failure: %d (%d)\r\n", */
-            /*               sockRef, descP->sock, reason, save_errno); */
-
-            SSDBG( descP, ("WIN-ESAIO",
-                           "esaio_accept {%d} -> accept failed: %T( %d)\r\n",
-                           descP->sock, reason, save_errno) );
-
-            esock_clear_env("esaio_accept", opP->env);
-            esock_free_env("esaio_accept", opP->env);
-            FREE( opP->data.accept.buf );
-            FREE( opP );
-
-            sock_close(accSock);
-            WSACleanup();
-
-            ESOCK_CNT_INC(env, descP, sockRef,
-                          esock_atom_acc_fails, &descP->accFails, 1);
-
-            res = esock_make_error(env, reason);
         }
     }
 
-    SSDBG( descP, ("WIN-ESAIO", "esaio_accept {%d} -> done when"
-                   "\r\n   res: %T"
-                   "\r\n", descP->sock, res) );
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "accept_check_result(%T, %d) -> done with"
+            "\r\n  result: %T"
+            "\r\n", sockRef, descP->sock, eres) );
 
-    return res;
+    return eres;
+}
+
+
+
+static
+ERL_NIF_TERM accept_check_pending(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ESAIOOperation*  opP,
+                                  ErlNifPid        caller,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     accRef)
+{
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "accept_check_pending(%T, %d) -> entry with"
+            "\r\n   accRef: %T"
+            "\r\n", sockRef, descP->sock, accRef) );
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_acc_waits, &descP->accWaits, 1);
+
+    if (descP->acceptorsQ.first == NULL)
+        descP->readState |= ESOCK_STATE_ACCEPTING;
+
+    /* Will be picked up by the (worker) threads when the event comes */
+    esock_acceptor_push(env, descP, caller, accRef, opP);
+
+    return esock_atom_completion;
+
+}
+
+
+static
+ERL_NIF_TERM accept_check_fail(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ESAIOOperation*  opP,
+                               int              saveErrno,
+                               SOCKET           accSock,
+                               ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM reason;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "accept_check_fail(%T, %d) -> entry with"
+            "\r\n   errno:        %d"
+            "\r\n   (acc) socket: %d"
+            "\r\n", sockRef, descP->sock, saveErrno, accSock) );
+
+    reason = MKA(env, erl_errno_id(saveErrno));
+
+    /* Will an event be generetade in this case?
+     * Assume not => We need to clean up here!
+     */
+    esock_clear_env("esaio_accept", opP->env);
+    esock_free_env("esaio_accept", opP->env);
+    FREE( opP->data.accept.buf );
+    FREE( opP );
+
+    sock_close(accSock);
+    WSACleanup();
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_acc_fails, &descP->accFails, 1);
+
+    return esock_make_error(env, reason);
 }
 
 
@@ -2004,9 +2073,9 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esaio_accept_accepted(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
+                                   ErlNifPid        pid,
                                    ERL_NIF_TERM     sockRef,
-                                   SOCKET           accSock,
-                                   ErlNifPid        pid)
+                                   SOCKET           accSock)
 {
     ESockDescriptor* accDescP;
     ERL_NIF_TERM     accRef;
@@ -2016,12 +2085,19 @@ ERL_NIF_TERM esaio_accept_accepted(ErlNifEnv*       env,
      * We got one
      */
 
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_accept_accepted(%T, %d) -> entry with"
+            "\r\n   (accept) socket: %T"
+            "\r\n", sockRef, descP->sock, accSock) );
+
     // Allocate the descriptor
     accDescP = esock_alloc_descriptor(accSock);
     
     SSDBG( descP,
            ("WIN-ESAIO",
-            "esaio_accept_accepted -> add to completion port\r\n") );
+            "esaio_accept_accepted(%T, %d) -> add to completion port\r\n",
+            sockRef, descP->sock) );
 
     if (ESAIO_OK != (save_errno = esaio_add_socket(accDescP))) {
         // See esock_dtor for what needs done!
@@ -2033,10 +2109,9 @@ ERL_NIF_TERM esaio_accept_accepted(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esaio_open_plain -> "
+                "esaio_accept_accepted(%T, %d) -> "
                 "failed adding (accepted) socket to completion port: "
-                "%T (%d)\r\n",
-                reason, save_errno) );
+                "%T (%d)\r\n", sockRef, descP->sock, reason, save_errno) );
 
         esock_dealloc_descriptor(env, accDescP);
         sock_close(accSock);
@@ -2085,6 +2160,11 @@ ERL_NIF_TERM esaio_accept_accepted(ErlNifEnv*       env,
 
     /* And finally (maybe) update the registry */
     if (descP->useReg) esock_send_reg_add_msg(env, descP, accRef);
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_accept_accepted(%T, %d) -> done\r\n",
+            sockRef, descP->sock) );
 
     return esock_make_ok2(env, accRef);
 
@@ -5276,7 +5356,7 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
                                   ESAIOOperation*  opP,
                                   int              error)
 {
-    ErlNifEnv*   env = dataP->env;
+    ErlNifEnv* env = dataP->env;
 
     MLOCK(descP->readMtx);
 
@@ -5284,22 +5364,30 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
            ("WIN-ESAIO", "esaio_completion_accept {%d} -> verify open\r\n",
             descP->sock) );
 
+    /* Its possible that the listen socket (represented by descP)
+     * could have been closed after a socket was accepted.
+     * In that case, it will not be open. *But* a request may
+     * still be 
+     */
+
     if (IS_OPEN(descP->readState)) {
 
         ESockRequestor req;
 
-        /* Is "this" accept still valid? */
+        /* Is "this" accept still valid?
+         *
+         * Events are generated even when operations complete directly.
+         * But if they complete directly we do not push anything into
+         * the "queue".
+         */
         if (esock_acceptor_get(env, descP,
                                &opP->data.accept.accRef, &opP->caller,
                                &req)) {
 
             esaio_completion_accept_completed(env, descP, opP, &req, error);
 
-        } else {
-
-            esaio_completion_accept_not_active(opP, error);
-
         }
+
     } else {
 
         esaio_completion_accept_closed(descP, opP, error);
@@ -5369,19 +5457,20 @@ void esaio_completion_accept_completed(ErlNifEnv*       env,
                     "esaio_completion_accept_completed -> "
                     "create (accepted) descriptor\r\n") );
 
-            accDescP           = esock_alloc_descriptor(opP->data.accept.asock);
+            accDescP = esock_alloc_descriptor(opP->data.accept.asock);
 
             if (ESAIO_OK != (save_errno = esaio_add_socket(accDescP))) {
                 // See esock_dtor for what needs done!
                 ERL_NIF_TERM tag    = esock_atom_add_socket;
                 ERL_NIF_TERM reason = MKA(env, erl_errno_id(save_errno));
 
-                ESOCK_CNT_INC(env, descP, CP_TERM(env, opP->data.accept.lSockRef),
+                ESOCK_CNT_INC(env, descP,
+                              CP_TERM(env, opP->data.accept.lSockRef),
                               esock_atom_acc_fails, &descP->accFails, 1);
 
                 SSDBG( descP,
                        ("WIN-ESAIO",
-                        "esaio_open_plain -> "
+                        "esaio_completion_accept_completed -> "
                         "failed adding (accepted) socket to completion port: "
                         "%T (%d)\r\n",
                         reason, save_errno) );
@@ -5397,7 +5486,9 @@ void esaio_completion_accept_completed(ErlNifEnv*       env,
 
             } else {
 
-                ESOCK_CNT_INC(env, descP, opP->data.accept.lSockRef,
+                ESOCK_CNT_INC(env, descP,
+                              // opP->data.accept.lSockRef,
+                              CP_TERM(env, opP->data.accept.lSockRef),
                               esock_atom_acc_success,
                               &descP->accSuccess, 1);
 
@@ -5519,40 +5610,6 @@ void esaio_completion_accept_completed(ErlNifEnv*       env,
            ("WIN-ESAIO", "esaio_completion_accept_completed -> done\r\n") );
 }
 
-
-
-static
-void esaio_completion_accept_not_active(ESAIOOperation*  opP,
-                                        int              error)
-{
-    /* This accept request is *not* "active"!
-     * Accept has been cancelled => cleanup
-     * If the op failed, its safe to assume that the error is
-     * the result of the cancellation, and we do not actually
-     * need to do anything here.
-     * If however, the accept succeeded, we need to do "some 
-     * cleanup".
-     * But what can we do here?
-     * We have an *unknown* connected socket.
-     * Send an abort message to the (listen socket) owner?
-     * Increment a counter (unexpected accepts)?
-     */
-
-    if (error == NO_ERROR) {
-
-        SGDBG( ("WIN-ESAIO",
-                "esaio_completion_accept_not_active -> "
-                "success for cancelled accept\r\n") );
-
-        MLOCK(ctrl.cntMtx);
-            
-        esock_cnt_inc(&ctrl.unexpectedAccepts, 1);
-
-        MUNLOCK(ctrl.cntMtx);
-
-        sock_close(opP->data.accept.asock);
-    }
-}
 
 
 static
@@ -7841,17 +7898,9 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 
         /* Send success already!
          * So, no need to store the data (in the "queue").
-         * But we do need to clean up the overlapped structure.
          */
 
-        /* ESOCK_PRINTF("send_check_result(%T,%d) -> success: " */
-        /*              "\r\n   send ref:     %T" */
-        /*              "\r\n   data size:    %d" */
-        /*              "\r\n   data in tail: %s" */
-        /*              "\r\n", */
-        /*              sockRef, descP->sock, sendRef, dataSize, B2S(dataInTail)); */
-
-        *cleanup = TRUE;
+        *cleanup = FALSE;
 
         res = send_check_ok(env, descP, dataSize, sockRef);
 
@@ -7872,28 +7921,11 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 
             /* We need to store the data in the queue! */
 
-            /* ESOCK_PRINTF("send_check_result(%T,%d) -> pending: " */
-            /*              "\r\n   send ref:     %T" */
-            /*              "\r\n   data size:    %d" */
-            /*              "\r\n   data in tail: %s" */
-            /*              "\r\n", */
-            /*              sockRef, descP->sock, sendRef, */
-            /*              dataSize, B2S(dataInTail)); */
-
             *cleanup = FALSE;
 
             res = send_check_pending(env, descP, opP, caller, sockRef, sendRef);
 
         } else {
-
-            /* ESOCK_EPRINTF("send_check_result(%T,%d) -> pending: " */
-            /*               "\r\n   send ref:     %T" */
-            /*               "\r\n   data size:    %d" */
-            /*               "\r\n   data in tail: %s" */
-            /*               "\r\n   errno:        %d" */
-            /*               "\r\n", */
-            /*               sockRef, descP->sock, sendRef, */
-            /*               dataSize, B2S(dataInTail), save_errno); */
 
             *cleanup = TRUE;
 
@@ -7960,10 +7992,11 @@ ERL_NIF_TERM send_check_pending(ErlNifEnv*       env,
                                 ERL_NIF_TERM     sockRef,
                                 ERL_NIF_TERM     sendRef)
 {
-
     SSDBG( descP,
            ("WIN-ESAIO",
-            "send_check_result {%d} -> pending\r\n", descP->sock) );
+            "send_check_pending(%T, %d) -> entry with"
+            "\r\n   sendRef: %T"
+            "\r\n", sockRef, descP->sock, sendRef) );
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_waits, &descP->writeWaits, 1);
