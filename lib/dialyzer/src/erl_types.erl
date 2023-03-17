@@ -4394,6 +4394,8 @@ from_form({type, _Anno, byte, []}, _S, _D, L, C) ->
   {t_byte(), L, C};
 from_form({type, _Anno, char, []}, _S, _D, L, C) ->
   {t_char(), L, C};
+from_form({type, _Anno, dynamic, []}, _S, _D, L, C) ->
+  {t_any(), L, C};
 from_form({type, _Anno, float, []}, _S, _D, L, C) ->
   {t_float(), L, C};
 from_form({type, _Anno, function, []}, _S, _D, L, C) ->
@@ -5062,6 +5064,7 @@ t_form_to_string({type, _Anno, binary, [Base, Unit]} = Type) ->
     _ -> io_lib:format("Badly formed bitstr type ~w", [Type])
   end;
 t_form_to_string({type, _Anno, bitstring, []}) -> "bitstring()";
+t_form_to_string({type, _Anno, dynamic, []}) -> "dynamic()";
 t_form_to_string({type, _Anno, 'fun', []}) -> "fun()";
 t_form_to_string({type, _Anno, 'fun', [{type, _, any}, Range]}) ->
   "fun(...) -> " ++ t_form_to_string(Range);
