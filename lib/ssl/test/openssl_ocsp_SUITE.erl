@@ -220,7 +220,7 @@ stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError) ->
 %%--------------------------------------------------------------------
 start_ocsp_responder(ResponderPort, PrivDir, Debug) ->
     Starter = self(),
-    Pid = erlang:spawn_link(
+    Pid = erlang:spawn(
             ?MODULE, ocsp_responder_init,
             [ResponderPort, PrivDir, Starter, Debug]),
     receive
@@ -244,21 +244,26 @@ ocsp_responder_init(ResponderPort, PrivDir, Starter, Debug) ->
         DebugArgs,
     process_flag(trap_exit, true),
     Port = ssl_test_lib:portable_open_port("openssl", Args),
+    ?CT_LOG("OCSP responder: Started Port = ~p", [Port]),
     ocsp_responder_loop(Port, {new, Starter}).
 
 ocsp_responder_loop(Port, {Status, Starter} = State) ->
     receive
-	{_Port, closed} ->
-	    ?CT_LOG("Port Closed"),
+        close ->
+            ?CT_LOG("OCSP responder: received close", []),
+            ok;
+	{Port, closed} ->
+	    ?CT_LOG("OCSP responder: Port = ~p Closed", [Port]),
 	    ok;
-	{'EXIT', _Port, Reason} ->
-	    ?CT_LOG("Port Closed ~p",[Reason]),
+	{'EXIT', Sender, _Reason} ->
+	    ?CT_LOG("OCSP responder: Sender = ~p Closed",[Sender]),
 	    ok;
-	{Port, {data, _Msg}} when Status == new ->
+	{Port, {data, Msg}} when Status == new ->
+            ?CT_LOG("OCSP responder: Msg = ~p", [Msg]),
             Starter ! {started, self()},
 	    ocsp_responder_loop(Port, {started, undefined});
         {Port, {data, Msg}} ->
-	    ?CT_PAL("Responder Msg ~p",[Msg]),
+	    ?CT_LOG("OCSP responder: Responder Msg = ~p",[Msg]),
             ocsp_responder_loop(Port, State)
     after 1000 ->
             case Status of
