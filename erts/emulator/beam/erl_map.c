@@ -1407,6 +1407,16 @@ static Eterm flatmap_merge(Process *p, Eterm map1, Eterm map2) {
 
         if (n == n2) {
             /* Reuse entire map2 */
+            if (n == n1
+                &&  erts_is_literal(mp1->keys, boxed_val(mp1->keys))
+                && !erts_is_literal(mp2->keys, boxed_val(mp2->keys))) {
+                /*
+                 * We want map2, but map1 has a nice literal key tuple.
+                 * Solution: MUTATE HEAP to get both.
+                 */
+                ASSERT(eq(mp1->keys, mp2->keys));
+                mp2->keys = mp1->keys;
+            }
             HRelease(p, hp, (Eterm *)mp_new);
             return map2;
         }

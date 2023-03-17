@@ -2207,6 +2207,8 @@ t_bif_map_merge(Config) when is_list(Config) ->
     false = erts_debug:same(erts_internal:map_to_tuple_keys(MS_c), MS_keys),
     MS_cc = maps:merge(MS, MS_c),
     true = erts_debug:same(MS_cc, MS_c),
+    %% not only do we reuse MS_c, it has mutated to use the literal keys of MS
+    true = erts_debug:same(erts_internal:map_to_tuple_keys(MS_c), MS_keys),
 
     MS_d = maps:merge(MS_c, MS),
     true = erts_debug:same(MS_d, MS),
