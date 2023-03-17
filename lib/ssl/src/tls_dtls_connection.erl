@@ -174,12 +174,18 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = ssl:update_options(NewOptions, Role, Options0),
-    State = ssl_gen_statem:ssl_config(Options, Role, State0),
-    {next_state, hello, State#state{start_or_recv_from = From,
-                                    handshake_env = HSEnv#handshake_env{continue_status = continue}
-                                   },
-     [{{timeout, handshake}, Timeout, close}]};
+    try ssl:update_options(NewOptions, Role, Options0) of
+        Options ->
+            State = ssl_gen_statem:ssl_config(Options, Role, State0),
+            {next_state, hello, State#state{start_or_recv_from = From,
+                                            handshake_env = HSEnv#handshake_env{continue_status = continue}
+                                           },
+             [{{timeout, handshake}, Timeout, close}]}
+    catch
+        throw:{error, Reason} ->
+            gen_statem:reply(From, {error, Reason}),
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), ?FUNCTION_NAME, State0)
+    end;
 user_hello(info, {'DOWN', _, _, _, _} = Event, State) ->
     ssl_gen_statem:handle_info(Event, ?FUNCTION_NAME, State);
 user_hello(_, _, _) ->

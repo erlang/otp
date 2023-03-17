@@ -117,7 +117,7 @@ init([?CLIENT_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
                                              Host, Port, Socket,
                                              Options, User, CbInfo),
     try
-	State = ssl_gen_statem:ssl_config(State0#state.ssl_options,
+	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
                                           ?CLIENT_ROLE, State0),
         tls_gen_connection:initialize_tls_sender(State),
         gen_statem:enter_loop(?MODULE, [], initial_hello, State)
@@ -178,16 +178,22 @@ user_hello({call, From}, cancel, State) ->
                                                user_canceled),
                                      ?FUNCTION_NAME, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
-           #state{handshake_env = HSEnv,
+           #state{handshake_env =  #handshake_env{continue_status = pause} = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = ssl:update_options(NewOptions, ?CLIENT_ROLE, Options0),
-    State = ssl_gen_statem:ssl_config(Options, ?CLIENT_ROLE, State0),
-    {next_state, wait_sh, State#state{start_or_recv_from = From,
-                                      handshake_env =
-                                          HSEnv#handshake_env{continue_status
-                                                              = continue}
-                                   },
-     [{{timeout, handshake}, Timeout, close}]};
+    try ssl:update_options(NewOptions, ?CLIENT_ROLE, Options0) of
+        Options ->
+            State = ssl_gen_statem:ssl_config(Options, ?CLIENT_ROLE, State0),
+            {next_state, wait_sh, State#state{start_or_recv_from = From,
+                                              handshake_env =
+                                                  HSEnv#handshake_env{continue_status
+                                                                      = continue}
+                                             },
+             [{{timeout, handshake}, Timeout, close}]}
+    catch
+        throw:{error, Reason} ->
+            gen_statem:reply(From, {error, Reason}),
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), ?FUNCTION_NAME, State0)
+    end;
 user_hello(Type, Msg, State) ->
     tls_gen_connection_1_3:user_hello(Type, Msg, State).
 

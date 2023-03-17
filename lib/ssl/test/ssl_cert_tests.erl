@@ -102,9 +102,10 @@ client_auth_empty_cert_accepted() ->
     [{doc,"Client sends empty cert chain as no cert is configured and server allows it"}].
 
 client_auth_empty_cert_accepted(Config) ->
-    ClientOpts = proplists:delete(keyfile,
-                                  proplists:delete(certfile, 
-                                                   ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config))),
+    ClientOpts = [{verify, verify_peer} |
+                    proplists:delete(keyfile,
+                                     proplists:delete(certfile,
+                                                      ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)))],
     ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
     ServerOpts = [{verify, verify_peer},
                   {fail_if_no_peer_cert, false} | ServerOpts0],
@@ -115,8 +116,8 @@ client_auth_empty_cert_rejected() ->
 
 client_auth_empty_cert_rejected(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
-    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, [], Config),
+                 | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+    ClientOpts0 = [{verify, verify_none} | ssl_test_lib:ssl_options(extra_client, [], Config)],
     %% Delete Client Cert and Key
     ClientOpts1 = proplists:delete(certfile, ClientOpts0),
     ClientOpts = proplists:delete(keyfile, ClientOpts1),
@@ -140,11 +141,11 @@ client_auth_no_suitable_chain(Config) when is_list(Config) ->
                                                                   client_chain => #{root => CRoot,
                                                                                     intermediates => [[]],
                                                                                     peer => []}}),
-    ClientOpts = ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config),
+    ClientOpts =  [{verify, verify_none} | ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config)],
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+                 | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     Version = proplists:get_value(version, Config),
-
+    
     case Version of
         'tlsv1.3' ->
             ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
@@ -294,7 +295,7 @@ missing_root_cert_no_auth(Config) ->
 
 %%--------------------------------------------------------------------
 invalid_signature_client() ->
-    [{doc,"Test server with invalid signature"}].
+    [{doc,"Test that server detects invalid client signature"}].
 
 invalid_signature_client(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
@@ -318,7 +319,7 @@ invalid_signature_client(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 invalid_signature_server() ->
-    [{doc,"Test client with invalid signature"}].
+    [{doc,"Test that client detects invalid server signature"}].
 
 invalid_signature_server(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),

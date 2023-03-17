@@ -1476,68 +1476,68 @@ format_subject([]) ->
     "no commonname".
 
 cert_options(Config) ->
-    ClientCaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
+    ClientCaCertFile = filename:join([proplists:get_value(priv_dir, Config),
 				      "client", "cacerts.pem"]),
-    ClientCertFile = filename:join([proplists:get_value(priv_dir, Config), 
+    ClientCertFile = filename:join([proplists:get_value(priv_dir, Config),
 				    "client", "cert.pem"]),
     ClientCertFileDigitalSignatureOnly = filename:join([proplists:get_value(priv_dir, Config),
-				    "client", "digital_signature_only_cert.pem"]),
-    ServerCaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
+                                                        "client", "digital_signature_only_cert.pem"]),
+    ServerCaCertFile = filename:join([proplists:get_value(priv_dir, Config),
 				      "server", "cacerts.pem"]),
-    ServerCertFile = filename:join([proplists:get_value(priv_dir, Config), 
+    ServerCertFile = filename:join([proplists:get_value(priv_dir, Config),
 				    "server", "cert.pem"]),
-    ServerKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
-			     "server", "key.pem"]),
-    ClientKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
-			     "client", "key.pem"]),
-    ServerKeyCertFile = filename:join([proplists:get_value(priv_dir, Config), 
+    ServerKeyFile = filename:join([proplists:get_value(priv_dir, Config),
+                                   "server", "key.pem"]),
+    ClientKeyFile = filename:join([proplists:get_value(priv_dir, Config),
+                                   "client", "key.pem"]),
+    ServerKeyCertFile = filename:join([proplists:get_value(priv_dir, Config),
 				       "server", "keycert.pem"]),
-    ClientKeyCertFile = filename:join([proplists:get_value(priv_dir, Config), 
+    ClientKeyCertFile = filename:join([proplists:get_value(priv_dir, Config),
 				       "client", "keycert.pem"]),
 
-    BadCaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
+    BadCaCertFile = filename:join([proplists:get_value(priv_dir, Config),
 				   "badcacert.pem"]),
-    BadCertFile = filename:join([proplists:get_value(priv_dir, Config), 
-				   "badcert.pem"]),
-    BadKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
-			      "badkey.pem"]),
-    
-    [{client_opts, [{cacertfile, ClientCaCertFile}, 
-		    {certfile, ClientCertFile},  
-		    {keyfile, ClientKeyFile}]}, 
-     {client_verification_opts, [{cacertfile, ServerCaCertFile}, 
-				{certfile, ClientCertFile},  
-				{keyfile, ClientKeyFile},
-				{verify, verify_peer}]}, 
+    BadCertFile = filename:join([proplists:get_value(priv_dir, Config),
+                                 "badcert.pem"]),
+    BadKeyFile = filename:join([proplists:get_value(priv_dir, Config),
+                                "badkey.pem"]),
+
+    [{client_opts, [{cacertfile, ClientCaCertFile},
+		    {certfile, ClientCertFile},
+		    {keyfile, ClientKeyFile}, {verify, verify_none}]},
+     {client_verification_opts, [{cacertfile, ServerCaCertFile},
+                                 {certfile, ClientCertFile},
+                                 {keyfile, ClientKeyFile},
+                                 {verify, verify_peer}]},
      {client_verification_opts_digital_signature_only, [{cacertfile, ServerCaCertFile},
-				{certfile, ClientCertFileDigitalSignatureOnly},
-				{keyfile, ClientKeyFile},
-				{ssl_imp, new}]},
-     {server_opts, [{ssl_imp, new},{reuseaddr, true}, {cacertfile, ServerCaCertFile}, 
-		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {server_verification_opts, [{ssl_imp, new},{reuseaddr, true}, 
-		    {cacertfile, ClientCaCertFile},
-		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {client_kc_opts, [{certfile, ClientKeyCertFile},  {ssl_imp, new}]}, 
-     {server_kc_opts, [{ssl_imp, new},{reuseaddr, true}, 
-		       {certfile, ServerKeyCertFile}]},
-     {client_bad_ca, [{cacertfile, BadCaCertFile}, 
-		      {certfile, ClientCertFile},
-		      {keyfile, ClientKeyFile},
-		      {ssl_imp, new}]},
-     {client_bad_cert, [{cacertfile, ClientCaCertFile},	    
-			{certfile, BadCertFile},  
-			{keyfile, ClientKeyFile},
-			{ssl_imp, new}]},
-     {server_bad_ca, [{ssl_imp, new},{cacertfile, BadCaCertFile},
-		      {certfile, ServerCertFile}, 
-		      {keyfile, ServerKeyFile}]},
-     {server_bad_cert, [{ssl_imp, new},{cacertfile, ServerCaCertFile},
-			{certfile, BadCertFile}, {keyfile, ServerKeyFile}]},
-     {server_bad_key, [{ssl_imp, new},{cacertfile, ServerCaCertFile},
-		       {certfile, ServerCertFile}, {keyfile, BadKeyFile}]}
-     | Config].
-    
+                                                        {certfile, ClientCertFileDigitalSignatureOnly},
+                                                        {keyfile, ClientKeyFile},
+                                                        {verify, verify_peer}]},
+     {server_opts, [{reuseaddr, true}, {cacertfile, ServerCaCertFile},
+                    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+     {server_verification_opts, [{verify, verify_peer},{reuseaddr, true},
+                                  {cacertfile, ClientCaCertFile},
+                                 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+     {client_kc_opts, [{certfile, ClientKeyCertFile},  {verify, verify_none}]},
+     {server_kc_opts, [{reuseaddr, true},
+                       {certfile, ServerKeyCertFile}]},
+      {client_bad_ca, [{cacertfile, BadCaCertFile},
+                       {certfile, ClientCertFile},
+                       {keyfile, ClientKeyFile},
+                       {verify, verify_peer}]},
+     {client_bad_cert, [{cacertfile, ClientCaCertFile},
+                        {certfile, BadCertFile},
+                        {keyfile, ClientKeyFile},
+                         {verify, verify_peer}]},
+     {server_bad_ca, [{cacertfile, BadCaCertFile},
+                      {certfile, ServerCertFile},
+                      {keyfile, ServerKeyFile}]},
+     {server_bad_cert, [{cacertfile, ServerCaCertFile},
+                         {certfile, BadCertFile}, {keyfile, ServerKeyFile}]},
+     {server_bad_key, [{cacertfile, ServerCaCertFile},
+                       {certfile, ServerCertFile}, {keyfile, BadKeyFile}]}
+    | Config].
+
 make_dsa_cert(Config) ->  
     CryptoSupport = crypto:supports(),
     case proplists:get_bool(dss, proplists:get_value(public_keys, CryptoSupport)) of
@@ -1556,7 +1556,7 @@ make_dsa_cert(Config) ->
            {server_dsa_verify_opts, [{verify, verify_peer} | ServerConf]},
            {client_dsa_opts, ClientConf}
            | Config];
-      false ->
+        false ->
           Config
   end.
 
@@ -1659,8 +1659,8 @@ make_rsa_pss_pem(Alg, _UserConf, Config, Suffix) ->
     Conf = x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
     CConf = proplists:get_value(client_config, Conf),
     SConf = proplists:get_value(server_config, Conf),
-    #{server_config => SConf,
-      client_config => CConf}.
+    #{server_config => [{verify, verify_peer} | SConf],
+      client_config => [{verify, verify_peer} | CConf]}.
 
 make_rsa_sni_configs() ->
     Sha = appropriate_sha(crypto:supports()),
@@ -1881,11 +1881,12 @@ make_ecdsa_cert(Config) ->
             [{server_config, ServerConf}, 
              {client_config, ClientConf}] = 
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
-	    [{server_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true} | ServerConf]},
+	    [{server_ecdsa_opts, [{reuseaddr, true} | ServerConf]},
              
-	     {server_ecdsa_verify_opts, [{ssl_imp, new}, {reuseaddr, true},
+	     {server_ecdsa_verify_opts, [{reuseaddr, true},
 					 {verify, verify_peer} | ServerConf]},
-	     {client_ecdsa_opts, ClientConf}
+	     {client_ecdsa_opts, [{verify, verify_none} | ClientConf]},
+             {client_ecdsa_verify_opts, [{verify, verify_peer} | ClientConf]}
 	     | Config];
 	false ->
 	    Config
@@ -1907,11 +1908,11 @@ make_rsa_cert(Config) ->
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
 	    [{server_rsa_opts, [{reuseaddr, true} | ServerConf]},
 	     {server_rsa_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerConf]},
-	     {client_rsa_opts, ClientConf},
-             {client_rsa_verify_opts, [{verify, verify_peer} |ClientConf]},
-             {server_rsa_der_opts, [{reuseaddr, true} | ServerDerConf]},
+	     {client_rsa_opts, [{verify, verify_none} | ClientConf]},
+             {client_rsa_verify_opts, [{verify, verify_peer} | ClientConf]},
+             {server_rsa_der_opts, [{reuseaddr, true}, {verify, verify_none} | ServerDerConf]},
 	     {server_rsa_der_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerDerConf]},
-	     {client_rsa_der_opts, ClientDerConf},
+	     {client_rsa_der_opts, [{verify, verify_none} | ClientDerConf]},
              {client_rsa_der_verify_opts,  [{verify, verify_peer} |ClientDerConf]}
             | Config];
 	false ->
@@ -1961,12 +1962,12 @@ make_rsa_1024_cert(Config) ->
              {client_config, ClientConf}] = 
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
 	    [{server_rsa_1024_opts, [{ssl_imp, new},{reuseaddr, true} | ServerConf]},
-	     {server_rsa_1024_verify_opts, [{ssl_imp, new}, {reuseaddr, true}, {verify, verify_peer} | ServerConf]},
-	     {client_rsa_1024_opts, ClientConf},
+	     {server_rsa_1024_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerConf]},
+	     {client_rsa_1024_opts, [{verify, verify_none} | ClientConf]},
              {client_rsa_1024_verify_opts,  [{verify, verify_peer} |ClientConf]},
-             {server_rsa_1024_der_opts, [{ssl_imp, new},{reuseaddr, true} | ServerDerConf]},
-	     {server_rsa_1024_der_verify_opts, [{ssl_imp, new}, {reuseaddr, true}, {verify, verify_peer} | ServerDerConf]},
-	     {client_rsa_1024_der_opts, ClientDerConf},
+             {server_rsa_1024_der_opts, [{reuseaddr, true} | ServerDerConf]},
+	     {server_rsa_1024_der_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerDerConf]},
+	     {client_rsa_1024_der_opts, [{verify, verify_none} | ClientDerConf]},
              {client_rsa_1024_der_verify_opts,  [{verify, verify_peer} |ClientDerConf]}
 	     | Config];
 	false ->
@@ -2033,10 +2034,10 @@ make_rsa_ecdsa_cert(Config, Curve) ->
              {client_config, ClientConf}] =
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
 
-	    [{server_rsa_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true} | ServerConf]},
+	    [{server_rsa_ecdsa_opts, [{reuseaddr, true} | ServerConf]},
 	     {server_rsa_ecdsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
                                             {verify, verify_peer} | ServerConf]},
-	     {client_rsa_ecdsa_opts, ClientConf} | Config];
+	     {client_rsa_ecdsa_opts, [{verify, cerify_none} | ClientConf]} | Config];
 	_ ->
 	    Config
     end.
