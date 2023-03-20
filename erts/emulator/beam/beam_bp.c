@@ -693,7 +693,6 @@ erts_clear_mtrace_break(BpFunctions* f)
 void
 erts_clear_debug_break(BpFunctions* f)
 {
-    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
     clear_break(f, ERTS_BPF_DEBUG);
 }
 

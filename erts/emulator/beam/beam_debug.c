@@ -122,40 +122,112 @@ erts_debug_copy_shared_2(BIF_ALIST_2)
     BIF_RET(copy);
 }
 
+/* Protected by code modification permission */
+static struct {
+    ErtsCodeBarrier barrier;
+    Process* process;
+
+    BpFunctions f;
+    int enable;
+    int stage;
+} finish_debug_bp;
+
+static void debug_bp_finisher(void *ignored)
+{
+    Process* p = finish_debug_bp.process;
+
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
+
+    (void)ignored;
+
+    /* Code barriers are issued before each of the stages below. */
+    switch (finish_debug_bp.stage++) {
+    case 0:
+        /* Breakpoints need to be installed before they are committed, and
+         * committed before they are uninstalled. */
+        if (finish_debug_bp.enable) {
+            erts_install_breakpoints(&finish_debug_bp.f);
+        } else {
+            erts_commit_staged_bp();
+        }
+        break;
+    case 1:
+        if (!finish_debug_bp.enable) {
+            erts_uninstall_breakpoints(&finish_debug_bp.f);
+        } else {
+            erts_commit_staged_bp();
+        }
+        break;
+    case 2:
+        /* Now all breakpoints have either been inserted or removed. For all
+         * updated breakpoints, copy the active breakpoint data to the staged
+         * breakpoint data to make them equal (simplifying for the next time
+         * breakpoints are to be updated). If any breakpoints have been totally
+         * disabled, deallocate their GenericBp structs. */
+        erts_consolidate_local_bp_data(&finish_debug_bp.f);
+        erts_bp_free_matched_functions(&finish_debug_bp.f);
+        break;
+    case 3:
+        /* All schedulers have run a code barrier (or will as soon as they
+         * awaken) after updating all breakpoints, it's safe to return now. */
+#ifdef DEBUG
+        finish_debug_bp.process = NULL;
+#endif
+
+        erts_release_code_mod_permission();
+
+        erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+
+        if (!ERTS_PROC_IS_EXITING(p)) {
+            erts_resume(p, ERTS_PROC_LOCK_STATUS);
+        }
+
+        erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+        erts_proc_dec_refc(p);
+
+        return;
+    }
+
+    erts_schedule_code_barrier(&finish_debug_bp.barrier,
+                               debug_bp_finisher, NULL);
+}
+
 BIF_RETTYPE
 erts_debug_breakpoint_2(BIF_ALIST_2)
 {
-    Process* p = BIF_P;
-    Eterm MFA = BIF_ARG_1;
-    Eterm boolean = BIF_ARG_2;
-    Eterm* tp;
+    const Eterm mfa_pattern = BIF_ARG_1, enable = BIF_ARG_2;
+    int i, specified;
     ErtsCodeMFA mfa;
-    int i;
-    int specified = 0;
-    Eterm res;
-    BpFunctions f;
+    Eterm *tp;
 
-    if (boolean != am_true && boolean != am_false)
-	goto error;
-
-    if (is_not_tuple(MFA)) {
-	goto error;
+    if (enable != am_true && enable != am_false) {
+        BIF_ERROR(BIF_P, BADARG);
     }
-    tp = tuple_val(MFA);
+
+    if (is_not_tuple(mfa_pattern)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    tp = tuple_val(mfa_pattern);
     if (*tp != make_arityval(3)) {
-	goto error;
+        BIF_ERROR(BIF_P, BADARG);
     }
+
     if (!is_atom(tp[1]) || !is_atom(tp[2]) ||
-	(!is_small(tp[3]) && tp[3] != am_Underscore)) {
-	goto error;
+        (!is_small(tp[3]) && tp[3] != am_Underscore)) {
+        BIF_ERROR(BIF_P, BADARG);
     }
-    for (i = 0; i < 3 && tp[i+1] != am_Underscore; i++, specified++) {
-	/* Empty loop body */
+
+    for (i = 0, specified = 0;
+         i < 3 && tp[i+1] != am_Underscore;
+         i++, specified++) {
+        /* Empty loop body */
     }
+
     for (i = specified; i < 3; i++) {
-	if (tp[i+1] != am_Underscore) {
-	    goto error;
-	}
+        if (tp[i+1] != am_Underscore) {
+            BIF_ERROR(BIF_P, BADARG);
+        }
     }
 
     mfa.module = tp[1];
@@ -166,38 +238,31 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     }
 
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_breakpoint_2),
-			BIF_P, BIF_ARG_1, BIF_ARG_2);
+        ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_breakpoint_2),
+                        BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
 
-    erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-    erts_thr_progress_block();
+    erts_bp_match_functions(&finish_debug_bp.f, &mfa, specified);
 
-    erts_bp_match_functions(&f, &mfa, specified);
-    if (boolean == am_true) {
-	erts_set_debug_break(&f);
-	erts_install_breakpoints(&f);
-	erts_commit_staged_bp();
+    ASSERT(finish_debug_bp.f.matched >= 0);
+    ASSERT(finish_debug_bp.process == NULL);
+    finish_debug_bp.enable = (enable == am_true);
+    finish_debug_bp.process = BIF_P;
+    finish_debug_bp.stage = 0;
+
+    if (finish_debug_bp.enable) {
+        erts_set_debug_break(&finish_debug_bp.f);
     } else {
-	erts_clear_debug_break(&f);
-	erts_commit_staged_bp();
-	erts_uninstall_breakpoints(&f);
+        erts_clear_debug_break(&finish_debug_bp.f);
     }
-    erts_consolidate_local_bp_data(&f);
-    res = make_small(f.matched);
-    erts_bp_free_matched_functions(&f);
 
-    erts_blocking_code_barrier();
-
-    erts_thr_progress_unblock();
-    erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-
-    erts_release_code_mod_permission();
-
-    return res;
-
- error:
-    BIF_ERROR(p, BADARG);
+    /* Adding/removing breakpoints requires multiple code barriers. Suspend
+     * ourselves and continue in an aux job. */
+    erts_schedule_code_barrier(&finish_debug_bp.barrier,
+                               debug_bp_finisher, NULL);
+    erts_proc_inc_refc(BIF_P);
+    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+    ERTS_BIF_YIELD_RETURN(BIF_P, make_small(finish_debug_bp.f.matched));
 }
 
 #if 0 /* Kept for conveninence when hard debugging. */
