@@ -1346,13 +1346,18 @@ versions() ->
 %%
 %% Description: Initiates a renegotiation.
 %%--------------------------------------------------------------------
-renegotiate(#sslsocket{pid = [Pid, Sender |_]}) when is_pid(Pid),
+renegotiate(#sslsocket{pid = [Pid, Sender |_]} = Socket) when is_pid(Pid),
                                                      is_pid(Sender) ->
-    case tls_sender:renegotiate(Sender) of
-        {ok, Write} ->
-            tls_dtls_connection:renegotiation(Pid, Write);
-        Error ->
-            Error
+    case ssl:connection_information(Socket, [protocol]) of
+        {ok, [{protocol, 'tlsv1.3'}]} ->
+            {error, notsup};
+        _ ->
+            case tls_sender:renegotiate(Sender) of
+                {ok, Write} ->
+                    tls_dtls_connection:renegotiation(Pid, Write);
+                Error ->
+                    Error
+            end
     end;
 renegotiate(#sslsocket{pid = [Pid |_]}) when is_pid(Pid) ->
     tls_dtls_connection:renegotiation(Pid);

@@ -2008,6 +2008,12 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <c>{error, renegotiation_rejected}</c> indicating that the peer
       refused to go through with the renegotiation, but the connection
       is still active using the previously negotiated session.</p>
+      <p>TLS-1.3 has removed the renegotiate feature of earlier TLS versions
+      and instead adds a new feature called key update that replaces the most
+      important part of renegotiate, that is the refreshing of session keys.
+      This is triggered automatically after reaching a plaintext limit and
+      can be configured by option <seetype marker="ssl:ssl#key_update_at">key_update_at</seetype>.
+      </p>
       </desc>
     </func>
 
