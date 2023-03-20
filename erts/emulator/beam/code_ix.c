@@ -444,7 +444,17 @@ static ErtsThrPrgrLaterOp global_code_barrier_lop;
 
 static void decrement_blocking_code_barriers(void *ignored) {
     (void)ignored;
-    erts_atomic32_dec_nob(&outstanding_blocking_code_barriers);
+
+    if (erts_atomic32_dec_read_nob(&outstanding_blocking_code_barriers) > 0) {
+        /* We had more than one barrier in the same tick, and can't tell
+         * whether the later ones were issued before any of the managed threads
+         * were woken. Keep telling all managed threads to execute an
+         * instruction barrier on wake-up for one more tick. */
+        erts_atomic32_set_nob(&outstanding_blocking_code_barriers, 1);
+        erts_schedule_thr_prgr_later_op(decrement_blocking_code_barriers,
+                                        NULL,
+                                        &global_code_barrier_lop);
+    }
 }
 
 static void schedule_blocking_code_barriers(void *ignored) {
@@ -455,11 +465,12 @@ static void schedule_blocking_code_barriers(void *ignored) {
      * counter.
      *
      * Note that we increment and decrement instead of setting and clearing
-     * since we might execute several blocking barriers in the same tick. */
-    erts_atomic32_inc_nob(&outstanding_blocking_code_barriers);
-    erts_schedule_thr_prgr_later_op(decrement_blocking_code_barriers,
-                                    NULL,
-                                    &global_code_barrier_lop);
+     * since we might schedule several blocking barriers in the same tick. */
+    if (erts_atomic32_inc_read_nob(&outstanding_blocking_code_barriers) == 1) {
+        erts_schedule_thr_prgr_later_op(decrement_blocking_code_barriers,
+                                        NULL,
+                                        &global_code_barrier_lop);
+    }
 }
 #endif
 
