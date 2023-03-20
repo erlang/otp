@@ -512,6 +512,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(unblock_source);           \
     GLOBAL_ATOM_DEF(undefined);                \
     GLOBAL_ATOM_DEF(unicast_hops);             \
+    GLOBAL_ATOM_DEF(unknown);                  \
     GLOBAL_ATOM_DEF(unspec);                   \
     GLOBAL_ATOM_DEF(up);                       \
     GLOBAL_ATOM_DEF(usec);                     \
@@ -608,6 +609,9 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define IS_NUM(E,     TE) enif_is_number((E), (TE))
 #define IS_TUPLE(E,   TE) enif_is_tuple((E),  (TE))
 #define IS_INTEGER(E, TE) esock_is_integer((E),   (TE))
+
+#define IS_PID_UNDEF(P)   enif_is_pid_undefined((P))
+#define SET_PID_UNDEF(P)  enif_set_pid_undefined((P))
 
 #define GET_ATOM_LEN(E, TE, LP) \
     enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1)

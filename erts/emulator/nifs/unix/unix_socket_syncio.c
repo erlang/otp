@@ -3069,7 +3069,7 @@ ERL_NIF_TERM essio_close(ErlNifEnv*       env,
 
 
 
-/* Prepare for close - return whether stop is scheduled
+/* Prepare for close - return whether stop is scheduled or not
  */
 static
 BOOLEAN_T do_stop(ErlNifEnv*       env,

@@ -2218,12 +2218,13 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(ttl);                             \
     GLOBAL_ATOM_DECL(tunnel);                          \
     GLOBAL_ATOM_DECL(tunnel6);                         \
-    GLOBAL_ATOM_DECL(txqlen);                           \
+    GLOBAL_ATOM_DECL(txqlen);                          \
     GLOBAL_ATOM_DECL(type);                            \
     GLOBAL_ATOM_DECL(udp);                             \
     GLOBAL_ATOM_DECL(unblock_source);                  \
     GLOBAL_ATOM_DECL(undefined);                       \
     GLOBAL_ATOM_DECL(unicast_hops);                    \
+    GLOBAL_ATOM_DECL(unknown);                         \
     GLOBAL_ATOM_DECL(unspec);                          \
     GLOBAL_ATOM_DECL(up);                              \
     GLOBAL_ATOM_DECL(update_accept_context);           \

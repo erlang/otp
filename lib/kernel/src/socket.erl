@@ -4628,31 +4628,6 @@ flush_abort_msg(SockRef, Ref) ->
 %%
 %% ===========================================================================
 
-%% formated_timestamp() ->
-%%     format_timestamp(os:timestamp()).
-
-%% format_timestamp(Now) ->
-%%     N2T = fun(N) -> calendar:now_to_local_time(N) end,
-%%     format_timestamp(Now, N2T, true).
-
-%% format_timestamp({_N1, _N2, N3} = N, N2T, true) ->
-%%     FormatExtra = ".~.2.0w",
-%%     ArgsExtra   = [N3 div 10000],
-%%    format_timestamp(N, N2T, FormatExtra, ArgsExtra);
-%% format_timestamp({_N1, _N2, _N3} = N, N2T, false) ->
-%%     FormatExtra = "",
-%%     ArgsExtra   = [],
-%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra).
-
-%% format_timestamp(N, N2T, FormatExtra, ArgsExtra) ->
-%%     {Date, Time}   = N2T(N),
-%%     {YYYY,MM,DD}   = Date,
-%%     {Hour,Min,Sec} = Time,
-%%     FormatDate =
-%%         io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
-%%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
-%%     lists:flatten(FormatDate).
-
 deadline(Timeout) ->
     case Timeout of
         nowait ->
@@ -4700,6 +4675,39 @@ bincat(<<_/binary>> = A, <<_/binary>> = B) ->
 
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
+
+%% mq() ->
+%%     pi(messages).
+
+%% pi(Item) ->
+%%     {Item, Val} = process_info(self(), Item),
+%%     Val.
+    
+
+%% formated_timestamp() ->
+%%     format_timestamp(os:timestamp()).
+
+%% format_timestamp(Now) ->
+%%     N2T = fun(N) -> calendar:now_to_local_time(N) end,
+%%     format_timestamp(Now, N2T, true).
+
+%% format_timestamp({_N1, _N2, N3} = N, N2T, true) ->
+%%     FormatExtra = ".~.2.0w",
+%%     ArgsExtra   = [N3 div 10000],
+%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra);
+%% format_timestamp({_N1, _N2, _N3} = N, N2T, false) ->
+%%     FormatExtra = "",
+%%     ArgsExtra   = [],
+%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra).
+
+%% format_timestamp(N, N2T, FormatExtra, ArgsExtra) ->
+%%     {Date, Time}   = N2T(N),
+%%     {YYYY,MM,DD}   = Date,
+%%     {Hour,Min,Sec} = Time,
+%%     FormatDate =
+%%         io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
+%%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
+%%     lists:flatten(FormatDate).
 
 %% p(F) ->
 %%     p(F, []).
