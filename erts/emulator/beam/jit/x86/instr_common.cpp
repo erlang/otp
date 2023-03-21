@@ -2301,8 +2301,7 @@ void BeamModuleAssembler::emit_catch(const ArgYRegister &CatchTag,
      * with the tagged catch
      */
     a.bind(patch_addr);
-    a.mov(RETd, imm(0x7fffffff));
-
+    a.mov(RETd, imm(INT_MAX));
     mov_arg(CatchTag, RET);
 
     /* Offset = 1 for `mov` payload */
