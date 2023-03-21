@@ -545,6 +545,8 @@ handle_info({CloseTag, Socket}, StateName,
     %% with widespread implementation practice.
     case (Active == false) andalso (CTs =/= []) of
         false ->
+            %% the =< is a leaking implementation detail.
+            %% this means `Version={254, N} when N =< 253`
             if (Version =< ?'DTLS-1.2') ->
                     ok;
                true ->

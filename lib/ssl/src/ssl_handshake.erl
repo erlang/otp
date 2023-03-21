@@ -1142,15 +1142,6 @@ is_acceptable_cert(_,_,_) ->
     %% Not negotiable pre TLS-1.2. So if cert is available for version it is acceptable
     true.
 
-supported_ecc(?'TLS-1.X'=Version) ->
-    Curves = tls_v1:ecc_curves(Version),
-    #elliptic_curves{elliptic_curve_list = Curves};
-supported_ecc(?'DTLS-1.X'=Version) ->
-    Curves = tls_v1:ecc_curves(Version),
-    #elliptic_curves{elliptic_curve_list = Curves};
-supported_ecc(_) ->
-    #elliptic_curves{elliptic_curve_list = []}.
-
 premaster_secret(OtherPublicDhKey, MyPrivateKey, #'DHParameter'{} = Params) ->
     try
 	public_key:compute_key(OtherPublicDhKey, MyPrivateKey, Params)
