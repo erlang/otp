@@ -77,10 +77,6 @@ forms([], S) ->
              F ->
                  [{M, F, 0}]
          end,
-    #xrefr{def_at = DefAt,
-	   l_call_at = LCallAt, x_call_at = XCallAt,
-	   el = LC, ex = XC, x = X, df = Depr, on_load = OnLoad,
-	   lattrs = AL, xattrs = AX, battrs = B, unresolved = U} = S,
     Attrs = {lists:reverse(AL), lists:reverse(AX), lists:reverse(B)},
     {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL}, U}.
 
