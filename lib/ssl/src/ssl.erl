@@ -2661,9 +2661,9 @@ tuple_to_map_mac(chacha20_poly1305, _) ->
 tuple_to_map_mac(_, MAC) ->
     MAC.
 
-handle_eccs_option(Value, Version0) when is_list(Value) ->
-    Version1 = tls_version(Version0),
-    try tls_v1:ecc_curves(Version1) of
+%% TODO: remove Version
+handle_eccs_option(Value, _Version0) when is_list(Value) ->
+    try tls_v1:ecc_curves(Value) of
         Curves ->
             option_error(Curves =:= [], eccs, none_valid),
             #elliptic_curves{elliptic_curve_list = Curves}
@@ -2672,9 +2672,9 @@ handle_eccs_option(Value, Version0) when is_list(Value) ->
         error:_ -> option_error(eccs, Value)
     end.
 
-handle_supported_groups_option(Value, Version0) when is_list(Value) ->
-    Version1 = tls_version(Version0),
-    try tls_v1:groups(Version1) of
+%% TODO: remove Version
+handle_supported_groups_option(Value, _Version0) when is_list(Value) ->
+    try tls_v1:groups(Value) of
         Groups ->
             option_error(Groups =:= [], supported_groups, none_valid),
             #supported_groups{supported_groups = Groups}
