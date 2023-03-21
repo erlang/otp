@@ -750,8 +750,7 @@ static BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
 static void esaio_completion_recvmsg_completed(ErlNifEnv*       env,
                                                ESockDescriptor* descP,
                                                ESAIOOperation*  opP,
-                                               ESockRequestor*  reqP,
-                                               int              error);
+                                               ESockRequestor*  reqP);
 static ERL_NIF_TERM esaio_completion_recvmsg_done(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
                                                   ESAIOOperation*  opP,
@@ -4037,7 +4036,7 @@ ERL_NIF_TERM esaio_recvmsg(ErlNifEnv*       env,
     opP->data.recvmsg.msg.dwBufferCount = 1; // Should be calculated...
     opP->data.recvmsg.msg.Control.buf   = opP->data.recvmsg.ctrl.data;
     opP->data.recvmsg.msg.Control.len   = opP->data.recvmsg.ctrl.size;
-    opP->data.recvmsg.msg.dwFlags       = 0;
+    opP->data.recvmsg.msg.dwFlags       = 0; // TMP
 
     rres = sock_recvmsg_O(descP->sock,
                           &opP->data.recvmsg.msg,
@@ -6323,8 +6322,8 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
         if (read == opP->data.recv.buf.size) {
             /* We filled the buffer => done */
 
-            completionStatus = esaio_completion_recv_done(env, descP, opP,
-                                                          flags);
+            completionStatus =
+                esaio_completion_recv_done(env, descP, opP, flags);
 
         } else {
 
@@ -6332,12 +6331,9 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
              * needs splitting and (maybe) retry (its up to the caller)!
              */
 
-            completionStatus = esaio_completion_recv_partial(env,
-                                                             descP,
-                                                             opP,
-                                                             reqP,
-                                                             read,
-                                                             flags);
+            completionStatus =
+                esaio_completion_recv_partial(env, descP, opP, reqP,
+                                              read, flags);
         }
 
     } else {
@@ -6355,9 +6351,7 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                 "overlapped result failure: %d\r\n", save_errno) );
 
         completionStatus =
-            esaio_completion_get_ovl_result_fail(env,
-                                                 descP,
-                                                 save_errno);
+            esaio_completion_get_ovl_result_fail(env, descP, save_errno);
     }
 
     completionInfo = MKT2(env,
@@ -6924,9 +6918,8 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*       env,
         if (read == opP->data.recvfrom.buf.size) {
             /* We filled the buffer => done */
 
-            completionStatus = esaio_completion_recvfrom_done(env,
-                                                              descP, opP,
-                                                              flags);
+            completionStatus =
+                esaio_completion_recvfrom_done(env, descP, opP, flags);
 
         } else {
 
@@ -6934,12 +6927,9 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*       env,
              * needs splitting and (maybe) retry (its up to the caller)!
              */
 
-            completionStatus = esaio_completion_recvfrom_partial(env,
-                                                                 descP,
-                                                                 opP,
-                                                                 reqP,
-                                                                 read,
-                                                                 flags);
+            completionStatus =
+                esaio_completion_recvfrom_partial(env, descP, opP, reqP,
+                                                  read, flags);
         }
 
     } else {
@@ -7169,40 +7159,145 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
                                    ESAIOOperation*  opP,
                                    int              error)
 {
-    ErlNifEnv* env = dataP->env;
-
-    MLOCK(descP->readMtx);
+    ErlNifEnv*     env = dataP->env;
+    ESockRequestor req;
+    ERL_NIF_TERM   reason;
 
     SSDBG( descP,
-           ("WIN-ESAIO",
-            "esaio_completion_recvmsg {%d} -> verify open\r\n",
-            descP->sock) );
+           ("WIN-ESAIO", "esaio_completion_recvmsg(%d) -> entry with"
+            "\r\n   error: %s (%d)"
+            "\r\n", descP->sock, erl_errno_id(error), error) );
 
-    if (IS_OPEN(descP->readState)) {
+    switch (error) {
+    case NO_ERROR:
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_completion_recvmsg(%d) -> no error"
+                "\r\n", descP->sock) );
+        MLOCK(descP->readMtx);
+        if (esock_reader_get(env, descP,
+                             &opP->data.recvfrom.recvRef,
+                             &opP->caller,
+                             &req)) {
+            if (IS_OPEN(descP->readState)) {
+                esaio_completion_recvmsg_completed(env, descP, opP, &req);
+            } else {
+                /* A completed (active) request for a socket that is not open.
+                 * Is this even possible?
+                 * A race (completed just as the socket was closed).
+                 */
+                esaio_completion_recv_not_active(descP);
+                FREE_BIN( &opP->data.recvmsg.data[0] );
+                FREE_BIN( &opP->data.recvmsg.ctrl );
+            }
+        } else {
+            /* Request was actually completed directly
+             * (and was therefor not put into the "queue")
+             * => Nothing to do here, other than cleanup (see below).
+             * => But we do not free the "buffer" since it was "used up"
+             *    when we (as assumed) got the result (directly)...
+             */
+        }
+        MUNLOCK(descP->readMtx);
+        break;
 
-        ESockRequestor req;
+    case WSA_OPERATION_ABORTED:
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recvmsg(%d) -> operation aborted"
+                "\r\n", descP->sock) );
+        /* *** SAME MTX LOCK ORDER FOR ALL OPs *** */
+        MLOCK(descP->readMtx);
+        MLOCK(descP->writeMtx);
+        /* The only thing *we* do that could cause an abort is the
+         * 'CancelIoEx' call, which we do when closing the socket.
+         * But if we have done that;
+         *   - Socket state will not be 'open' and
+         *   - we have also set closer (pid and ref).
+         */
 
-        /* Is "this" read still valid? */
         if (esock_reader_get(env, descP,
                              &opP->data.recvmsg.recvRef,
                              &opP->caller,
                              &req)) {
 
-            esaio_completion_recvmsg_completed(env, descP, opP, &req, error);
+            reason = esock_atom_closed,
 
-        } else {
+            /* Inform the user waiting for a reply */
+            esock_send_abort_msg(env, descP, opP->data.recvmsg.sockRef,
+                                 &req, reason);
 
-            esaio_completion_recv_not_active(descP);
+            /* The socket not being open (assumed closing),
+             * means we are in the closing phase...
+             */
+            if (! IS_OPEN(descP->readState)) {
 
+                /* We can only send the 'close' message to the closer
+                 * when all requests has been processed!
+                 */
+
+                /* Check "our" queue */
+                if (descP->readersQ.first == NULL) {
+
+                    /* Check "other" queue(s) and if there is a closer pid */
+                    if ((descP->writersQ.first == NULL) &&
+                        (descP->acceptorsQ.first == NULL) &&
+                        !IS_PID_UNDEF(&descP->closerPid)) {
+
+                        SSDBG( descP,
+                               ("WIN-ESAIO",
+                                "esaio_completion_recvmsg(%d) -> "
+                                "send close msg to %T\r\n",
+                                descP->sock, MKPID(env, &descP->closerPid)) );
+
+                        esock_send_close_msg(env, descP, &descP->closerPid);
+                        /* Message send frees closeEnv */
+                        descP->closeEnv = NULL;
+                        descP->closeRef = esock_atom_undefined;
+
+                    }
+                }
+            }
         }
+        FREE_BIN( &opP->data.recvmsg.data[0] );
+        FREE_BIN( &opP->data.recvmsg.ctrl );
+        MUNLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
+        break;
 
-    } else {
+    default:
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recvmsg(%d) -> operation unknown failure"
+                "\r\n", descP->sock) );
+        MLOCK(descP->readMtx);
+        /* We do not know what this is
+         * but we can "assume" that the request failed so we need to
+         * remove it from the "queue" if its still there...
+         * And cleanup...
+         */
+        if (esock_reader_get(env, descP,
+                             &opP->data.recvmsg.recvRef,
+                             &opP->caller,
+                             &req)) {
+            /* Figure out the reason */
+            reason = MKA(env, erl_errno_id(error));
+            if (COMPARE(reason, esock_atom_unknown))
+                reason = MKT2(env,
+                              esock_atom_get_overlapped_result,
+                              MKI(env, error));
 
-        esaio_completion_recv_closed(descP, error);
-
+            /* Inform the user waiting for a reply */
+            esock_send_abort_msg(env, descP, opP->data.recvmsg.sockRef,
+                                 &req, reason);
+            esaio_completion_recv_fail(env, descP, "recvmsg", error, FALSE);
+        } else {
+            esaio_completion_recv_fail(env, descP, "recvmsg", error, TRUE);
+        }
+        FREE_BIN( &opP->data.recvmsg.data[0] );
+        FREE_BIN( &opP->data.recvmsg.ctrl );
+        MUNLOCK(descP->readMtx);
+        break;
     }
-
-    MUNLOCK(descP->readMtx);
 
     SSDBG( descP,
            ("WIN-ESAIO",
@@ -7230,107 +7325,76 @@ static
 void esaio_completion_recvmsg_completed(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
                                         ESAIOOperation*  opP,
-                                        ESockRequestor*  reqP,
-                                        int              error)
+                                        ESockRequestor*  reqP)
 {
     ERL_NIF_TERM completionStatus, completionInfo;
+    DWORD        read, flags;
 
     ESOCK_ASSERT( DEMONP("esaio_completion_recvmsg_completed - sender",
                          env, descP, &reqP->mon) == 0);
 
-    if (error == NO_ERROR) {
-        DWORD read, flags;
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recvmsg_completed ->"
+            "success - try get overlapped result\r\n") );
 
-        /* Success, but we need to check how much we actually got.
-         * Also the 'flags' (which we currentöy ignore)
-         */
-
-        MLOCK(descP->writeMtx);
+    if (get_recv_ovl_result(descP->sock, (OVERLAPPED*) opP,
+                            &read, &flags)) {
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esaio_completion_recvmsg_completed ->"
-                "success - try get overlapped result\r\n") );
+                "esaio_completion_recvmsg_completed -> overlapped result: "
+                "\r\n   read:        %d"
+                "\r\n   buffer size: %d"
+                "\r\n   flags:       %d"
+                "\r\n", read, opP->data.recvmsg.data[0].size, flags) );
 
-        if (get_recv_ovl_result(descP->sock, (OVERLAPPED*) opP,
-                                &read, &flags)) {
+        /* *** Success! ***
+         * CompletionStatus = {ok, Msg} (should be)
+         * CompletionInfo   = {ConnRef, CompletionStatus}
+         */
 
-            SSDBG( descP,
-                   ("WIN-ESAIO",
-                    "esaio_completion_recvmsg_completed -> overlapped result: "
-                    "\r\n   read:        %d"
-                    "\r\n   buffer size: %d"
-                    "\r\n   flags:       %d"
-                    "\r\n", read, opP->data.recvmsg.data[0].size, flags) );
+        /* We should have "calculated" the entire size before,
+         * but since we have a vector of size one...
+         */
+        if (read == opP->data.recvmsg.data[0].size) {
+            /* We filled the buffer => done */
 
-            /* *** Success! ***
-             * CompletionStatus = {ok, Msg} (should be)
-             * CompletionInfo   = {ConnRef, CompletionStatus}
-             */
-
-            /* We should have "calculated" the entire size before,
-             * but since we have a vector of size one...
-             */
-            if (read == opP->data.recvmsg.data[0].size) {
-                /* We filled the buffer => done */
-
-                completionStatus = esaio_completion_recvmsg_done(env,
-                                                                 descP, opP,
-                                                                 flags);
-
-            } else {
-
-                /* Only used a part of the buffer =>
-                 * needs splitting and (maybe) retry (its up to the caller)!
-                 */
-
-                completionStatus = esaio_completion_recvmsg_partial(env,
-                                                                    descP,
-                                                                    opP,
-                                                                    reqP,
-                                                                    read,
-                                                                    flags);
-            }
+            completionStatus =
+                esaio_completion_recvmsg_done(env, descP, opP, flags);
 
         } else {
 
-            /* Now what?
-             * We know we read "something" but we cannot figure out
-             * how much...
+            /* Only used a part of the buffer =>
+             * needs splitting and (maybe) retry (its up to the caller)!
              */
 
-            SSDBG( descP,
-                   ("WIN-ESAIO",
-                    "esaio_completion_recvmsg_completed -> "
-                    "overlapped result failure\r\n") );
-
             completionStatus =
-                esaio_completion_get_ovl_result_fail(env,
-                                                     descP,
-                                                     sock_errno());
-       }
-
-        MUNLOCK(descP->writeMtx);
+                esaio_completion_recvmsg_partial(env, descP, opP, reqP,
+                                                 read, flags);
+        }
 
     } else {
 
-        /* *** Failure! ***
-         * CompletionStatus = {error, Reason}
+        int save_errno = sock_errno();
+
+        /* Now what?
+         * We know we read "something" but we cannot figure out
+         * how much...
          */
-
-        ERL_NIF_TERM reason = MKA(env, erl_errno_id(error));
-
+        
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esaio_completion_recvmsg_completed -> failure: %T\r\n",
-                reason) );
+                "esaio_completion_recvmsg_completed -> "
+                "overlapped result failure: %d\r\n", save_errno) );
 
-        completionStatus = esock_make_error(env, reason);
+        completionStatus =
+            esaio_completion_get_ovl_result_fail(env, descP, save_errno);
 
     }
 
     completionInfo = MKT2(env,
-                          CP_TERM(env, opP->data.recvfrom.recvRef),
+                          CP_TERM(env, opP->data.recvmsg.recvRef),
                           completionStatus);
 
     SSDBG( descP,
