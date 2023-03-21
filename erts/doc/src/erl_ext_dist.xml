@@ -1457,7 +1457,7 @@
         intentionally forged encoding on the local external term format.
       </p>
       <p>
-        <c>LOCAL_EXT</c> was introduced in OTP @OTP-18477@.
+        <c>LOCAL_EXT</c> was introduced in OTP 26.0.
       </p>
     </section>
 

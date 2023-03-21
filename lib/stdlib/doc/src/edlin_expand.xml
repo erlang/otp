@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module since="OTP @OTP-14835@">edlin_expand</module>
+  <module since="OTP 26.0">edlin_expand</module>
   <modulesummary>Shell expansion and formatting of expansion suggestions.</modulesummary>
   <description>
     <p>This module provides an expand_fun for the erlang shell
@@ -38,8 +38,8 @@
   </description>
   <funcs>
     <func>
-      <name name="expand" arity="1" since="OTP @OTP-14835@"/>
-      <name name="expand" arity="2" since="OTP @OTP-14835@"/>
+      <name name="expand" arity="1" since="OTP 26.0"/>
+      <name name="expand" arity="2" since="OTP 26.0"/>
       <fsummary>Standard expanion function for the erl shell.</fsummary>
       <desc>
         <p>The standard expansion function is able to expand strings to

@@ -999,7 +999,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="lookup_element" arity="4" since="OTP @OTP-18279@"/>
+      <name name="lookup_element" arity="4" since="OTP 26.0"/>
       <fsummary>Return the <c>Pos</c>:th element of all objects with a
         specified key in an ETS table, or <c>Default</c> if there is no such object.</fsummary>
       <desc>

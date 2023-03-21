@@ -39,7 +39,31 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.21.4</title>
+  <section><title>Mnesia 4.22</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added debug statistics for active transactions.</p>
+          <p>
+	    Own Id: OTP-18309 Aux Id: PR-6377 </p>
+        </item>
+        <item>
+	    <p> The implementation has been fixed to use
+	    <c>proc_lib:init_fail/2,3</c> where appropriate, instead
+	    of <c>proc_lib:init_ack/1,2</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.21.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

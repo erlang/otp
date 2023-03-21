@@ -33,7 +33,51 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.3</title>
+  <section><title>Inets 8.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct timing related pipelining/keepalive queue bug,
+	    that could result in unexpected "socket_remotly_closed"
+	    errors.</p>
+          <p>
+	    Own Id: OTP-18476 Aux Id: GH-6380 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    By default ssl connections will use options from
+	    <c>ssl_default_options(true)</c></p>
+          <p>
+	    Own Id: OTP-18167</p>
+        </item>
+        <item>
+	    <p>Runtime dependencies have been updated.</p>
+          <p>
+	    Own Id: OTP-18350</p>
+        </item>
+        <item>
+	    <p> The implementation has been fixed to use
+	    <c>proc_lib:init_fail/2,3</c> where appropriate, instead
+	    of <c>proc_lib:init_ack/1,2</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

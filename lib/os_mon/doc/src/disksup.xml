@@ -139,7 +139,7 @@
       </desc>
     </func>
     <func>
-      <name since="OTP @OTP-18303@">get_disk_info() -> [DiskData]</name>
+      <name since="OTP 26.0">get_disk_info() -> [DiskData]</name>
       <fsummary>Immediately get information for the disks in the system</fsummary>
       <type>
         <v>DiskData = {Id, TotalKiB, AvailableKiB, Capacity}</v>
@@ -159,7 +159,7 @@
       </desc>
     </func>
     <func>
-      <name since="OTP @OTP-18303@">get_disk_info(Path) -> DiskData</name>
+      <name since="OTP 26.0">get_disk_info(Path) -> DiskData</name>
       <fsummary>Immediately get information for a single path</fsummary>
       <type>
         <v>DiskData = [{Id, TotalKiB, AvailableKiB, Capacity}]</v>
