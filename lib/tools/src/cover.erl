@@ -134,7 +134,8 @@
 	       function = '_',              % atom()
 	       arity    = '_',              % integer()
 	       clause   = '_',              % integer()
-	       line     = '_'               % integer()
+	       line     = '_',               % integer()
+           clause_num = '_'
 	      }).
 -define(BUMP_REC_NAME,bump).
 -define(CHUNK_SIZE, 20000).
@@ -142,6 +143,9 @@
 -record(vars, {module,                      % atom() Module name
 	       
 	       init_info=[],                % [{M,F,A,C,L}]
+
+           clause_parent,
+           clause_num = 0,
 
 	       function,                    % atom()
 	       arity,                       % int()
@@ -451,7 +455,7 @@ get_mods_and_beams([],Acc) ->
                     | [{Item :: analyse_item(), Value :: analyse_value()}].
 -type analyse_fail() :: [{'not_cover_compiled', module()}].
 -type analysis() :: 'coverage' | 'calls'.
--type level() :: 'line' | 'clause' | 'function' | 'module'.
+-type level() :: 'line' | 'clause' | 'function' | 'module' | 'branch'.
 -type modules() :: module() | [module()].
 -type one_result() ::
         {'ok', {Module :: module(), Value :: analyse_value()}}
@@ -462,7 +466,7 @@ get_mods_and_beams([],Acc) ->
 	(__A__=:=coverage orelse __A__=:=calls)).
 -define(is_level(__L__),
 	(__L__=:=line orelse __L__=:=clause orelse
-	 __L__=:=function orelse __L__=:=module)).
+	 __L__=:=function orelse __L__=:=module orelse __L__=:=branch)).
 
 -spec analyse() -> {'result', analyse_ok(), analyse_fail()} |
                    {'error', 'not_main_node'}.
@@ -1961,7 +1965,7 @@ munge({function,Anno,Function,Arity,Clauses},Vars,_MainFile,on) ->
 		      lines=[],
                       no_bump_lines=[],
 		      depth=1},
-    {MungedClauses, Vars3} = munge_clauses(Clauses, Vars2),
+    {MungedClauses, Vars3} = munge_clauses(Anno, Clauses, Vars2),
     {{function,Anno,Function,Arity,MungedClauses},Vars3,on};
 munge(Form={attribute,_,file,{MainFile,_}},Vars,MainFile,_Switch) ->
     {Form,Vars,on};                     % Switch on transformation!
@@ -1973,8 +1977,14 @@ munge({attribute,_,compile,{parse_transform,_}},_Vars,_MainFile,_Switch) ->
 munge(Form,Vars,_MainFile,Switch) ->    % Other attributes and skipped includes.
     {Form,Vars,Switch}.
 
-munge_clauses(Clauses, Vars) ->
-    munge_clauses(Clauses, Vars, Vars#vars.lines, []).
+munge_clauses(Anno, Clauses, Vars) ->
+    NewVars = Vars#vars{clause_parent = erl_anno:line(Anno)},
+    munge_clauses(Clauses, NewVars, Vars#vars.lines, []).
+
+get_line_clause(Clause) ->
+    Lines = tuple_to_list(lists:nth(2, tuple_to_list(Clause))),
+    ClauseLine = lists:nth(1, Lines),
+    ClauseLine.
 
 munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
     {clause,Anno,Pattern,Guards,Body} = Clause,
@@ -2001,14 +2011,21 @@ munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
 			   MClauses]);
 
 	2 -> % receive-,  case-, if-, or try-clause
-            Lines0 = Vars#vars.lines,
-	    {MungedBody, Vars2} = munge_body(Body, Vars),
-            NewBumps = new_bumps(Vars2, Vars),
+            ClauseLine = get_line_clause(Clause),
+
+            Vars1 = Vars#vars{clause_num=Vars#vars.clause_num + 1},
+
+            Bump = {'BUMP_CLAUSE',ClauseLine,clause_index(Vars1, Vars1#vars.clause_parent, ClauseLine)},
+            Lines0 = Vars1#vars.lines,
+            % io:format("~n~n~p~n~n", [Clause]),
+
+	    {MungedBody, Vars2} = munge_body(Body, Vars1),
+            NewBumps = new_bumps(Vars2, Vars1),
             NewLines = NewBumps ++ Lines,
 	    munge_clauses(Clauses, Vars2#vars{lines=Lines0},
                           NewLines,
-			  [{clause,Anno,Pattern,MungedGuards,MungedBody}|
-			   MClauses])
+			  [{clause,Anno,Pattern,MungedGuards,[Bump|MungedBody]}|
+ 			   MClauses])
     end;
 munge_clauses([], Vars, Lines, MungedClauses) -> 
     {lists:reverse(MungedClauses), Vars#vars{lines = Lines}}.
@@ -2252,26 +2269,26 @@ munge_expr({block,Anno,Body}, Vars) ->
     {MungedBody, Vars2} = munge_body(Body, Vars),
     {{block,Anno,MungedBody}, Vars2};
 munge_expr({'if',Anno,Clauses}, Vars) ->
-    {MungedClauses,Vars2} = munge_clauses(Clauses, Vars),
+    {MungedClauses,Vars2} = munge_clauses(Anno, Clauses, Vars),
     {{'if',Anno,MungedClauses}, Vars2};
 munge_expr({'case',Anno,Expr,Clauses}, Vars) ->
     {MungedExpr,Vars2} = munge_expr(Expr, Vars),
-    {MungedClauses,Vars3} = munge_clauses(Clauses, Vars2),
+    {MungedClauses,Vars3} = munge_clauses(Anno, Clauses, Vars2),
     {{'case',Anno,MungedExpr,MungedClauses}, Vars3};
 munge_expr({'receive',Anno,Clauses}, Vars) ->
-    {MungedClauses,Vars2} = munge_clauses(Clauses, Vars),
+    {MungedClauses,Vars2} = munge_clauses(Anno, Clauses, Vars),
     {{'receive',Anno,MungedClauses}, Vars2};
 munge_expr({'receive',Anno,Clauses,Expr,Body}, Vars) ->
     {MungedExpr, Vars1} = munge_expr(Expr, Vars),
-    {MungedClauses,Vars2} = munge_clauses(Clauses, Vars1),
+    {MungedClauses,Vars2} = munge_clauses(Anno, Clauses, Vars1),
     {MungedBody,Vars3} = 
         munge_body(Body, Vars2#vars{lines = Vars1#vars.lines}),
     Vars4 = Vars3#vars{lines = Vars2#vars.lines ++ new_bumps(Vars3, Vars2)},
     {{'receive',Anno,MungedClauses,MungedExpr,MungedBody}, Vars4};
 munge_expr({'try',Anno,Body,Clauses,CatchClauses,After}, Vars) ->
     {MungedBody, Vars1} = munge_body(Body, Vars),
-    {MungedClauses, Vars2} = munge_clauses(Clauses, Vars1),
-    {MungedCatchClauses, Vars3} = munge_clauses(CatchClauses, Vars2),
+    {MungedClauses, Vars2} = munge_clauses(Anno, Clauses, Vars1),
+    {MungedCatchClauses, Vars3} = munge_clauses(Anno, CatchClauses, Vars2),
     {MungedAfter, Vars4} = munge_body(After, Vars3),
     {{'try',Anno,MungedBody,MungedClauses,MungedCatchClauses,MungedAfter},
      Vars4};
@@ -2280,13 +2297,13 @@ munge_expr({'maybe',Anno,Exprs}, Vars) ->
     {{'maybe',Anno,MungedExprs}, Vars2};
 munge_expr({'maybe',MaybeAnno,Exprs,{'else',ElseAnno,Clauses}}, Vars) ->
     {MungedExprs, Vars2} = munge_body(Exprs, Vars),
-    {MungedClauses, Vars3} = munge_clauses(Clauses, Vars2),
+    {MungedClauses, Vars3} = munge_clauses(MaybeAnno, Clauses, Vars2),
     {{'maybe',MaybeAnno,MungedExprs,{'else',ElseAnno,MungedClauses}}, Vars3};
 munge_expr({'fun',Anno,{clauses,Clauses}}, Vars) ->
-    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
+    {MungedClauses,Vars2}=munge_clauses(Anno, Clauses, Vars),
     {{'fun',Anno,{clauses,MungedClauses}}, Vars2};
 munge_expr({named_fun,Anno,Name,Clauses}, Vars) ->
-    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
+    {MungedClauses,Vars2}=munge_clauses(Anno, Clauses, Vars),
     {{named_fun,Anno,Name,MungedClauses}, Vars2};
 munge_expr({bin,Anno,BinElements}, Vars) ->
     {MungedBinElements,Vars2} = munge_exprs(BinElements, Vars, []),
@@ -2352,8 +2369,16 @@ common_elems(L1, L2) ->
 %%%--Counters------------------------------------------------------------
 
 init_counter_mapping(Mod) ->
-    true = ets:insert_new(?COVER_MAPPING_TABLE, {Mod,0}),
+    true = ets:insert_new(?COVER_MAPPING_TABLE, {Mod,0,0}),
     ok.
+
+clause_index(Vars, ParentLine, ClauseLine) ->
+    #vars{module=Mod,function=F,arity=A, clause_num=Num} = Vars,
+    Index = ets:update_counter(?COVER_MAPPING_TABLE, Mod, {3,1}),
+    Key = #bump{module=Mod,function=F,arity=A,
+                clause=-ClauseLine,line=ParentLine, clause_num=Num},
+    true = ets:insert(?COVER_MAPPING_TABLE, {Key, -Index}),
+    Index.
 
 counter_index(Vars, Line) ->
     #vars{module=Mod,function=F,arity=A,clause=C} = Vars,
@@ -2371,40 +2396,60 @@ counter_index(Vars, Line) ->
 
 %% Create the counter array and store as a persistent term.
 maybe_create_counters(Mod, true) ->
-    Cref = create_counters(Mod),
-    Key = {?MODULE,Mod},
-    persistent_term:put(Key, Cref),
+    {LineRef, ClauseRef} = create_counters(Mod),
+    persistent_term:put({cover_line,Mod}, LineRef),
+    persistent_term:put({cover_clause,Mod}, ClauseRef),
     ok;
 maybe_create_counters(_Mod, false) ->
     ok.
 
 create_counters(Mod) ->
-    Size0 = ets:lookup_element(?COVER_MAPPING_TABLE, Mod, 2),
-    Size = max(1, Size0),                       %Size must not be 0.
-    Cref = counters:new(Size, [write_concurrency]),
-    ets:insert(?COVER_MAPPING_TABLE, {{counters,Mod},Cref}),
-    Cref.
+    [{Mod, LineSize0, ClauseSize0}] = ets:lookup(?COVER_MAPPING_TABLE, Mod),
+    LineSize = max(1, LineSize0),                       %Size must not be 0.
+    LineRef = counters:new(LineSize, [write_concurrency]),
+    ClauseSize = max(1, ClauseSize0),                   %Size must not be 0.
+    ClauseRef = counters:new(ClauseSize, [write_concurrency]),
+    ets:insert(?COVER_MAPPING_TABLE, {{counters,Mod},LineRef,ClauseRef}),
+
+
+    {LineRef, ClauseRef}.
 
 patch_code(Mod, Forms, false) ->
     A = erl_anno:new(0),
-    AbstrKey = {tuple,A,[{atom,A,?MODULE},{atom,A,Mod}]},
-    patch_code1(Forms, {distributed,AbstrKey});
+    AbstrLine = {tuple,A,[{atom,A,cover_line},{atom,A,Mod}]},
+    AbstrClause = {tuple,A,[{atom,A,cover_clause},{atom,A,Mod}]},
+    patch_code1(Forms, {distributed,AbstrLine,AbstrClause});
 patch_code(Mod, Forms, true) ->
-    Cref = create_counters(Mod),
-    AbstrCref = cid_to_abstract(Cref),
-    patch_code1(Forms, {local_only,AbstrCref}).
+    {LineRef, ClauseRef} = create_counters(Mod),
+    AbstrLine = cid_to_abstract(LineRef),
+    AbstrCounter = cid_to_abstract(ClauseRef),
+    patch_code1(Forms, {local_only,AbstrLine,AbstrCounter}).
 
 %% Go through the abstract code and replace 'BUMP' forms
 %% with the actual code to increment the counters.
-patch_code1({'BUMP',_Anno,Index}, {distributed,AbstrKey}) ->
+patch_code1({'BUMP',_Anno,Index}, {distributed,AbstrCref,_}) ->
     %% Replace with counters:add(persistent_term:get(Key), Index, 1).
     %% This code will work on any node.
-    A = element(2, AbstrKey),
+    A = element(2, AbstrCref),
     GetCref = {call,A,{remote,A,{atom,A,persistent_term},{atom,A,get}},
-               [AbstrKey]},
+               [AbstrCref]},
     {call,A,{remote,A,{atom,A,counters},{atom,A,add}},
      [GetCref,{integer,A,Index},{integer,A,1}]};
-patch_code1({'BUMP',_Anno,Index}, {local_only,AbstrCref}) ->
+patch_code1({'BUMP_CLAUSE',_Anno,Index}, {distributed,_,AbstrCref}) ->
+    %% Replace with counters:add(persistent_term:get(Key), Index, 1).
+    %% This code will work on any node.
+    A = element(2, AbstrCref),
+    GetCref = {call,A,{remote,A,{atom,A,persistent_term},{atom,A,get}},
+               [AbstrCref]},
+    {call,A,{remote,A,{atom,A,counters},{atom,A,add}},
+     [GetCref,{integer,A,Index},{integer,A,1}]};
+patch_code1({'BUMP',_Anno,Index}, {local_only,AbstrCref,_}) ->
+    %% Replace with counters:add(Cref, Index, 1). This code
+    %% will only work on the local node.
+    A = element(2, AbstrCref),
+    {call,A,{remote,A,{atom,A,counters},{atom,A,add}},
+     [AbstrCref,{integer,A,Index},{integer,A,1}]};
+patch_code1({'BUMP_CLAUSE',_Anno,Index}, {local_only,_,AbstrCref}) ->
     %% Replace with counters:add(Cref, Index, 1). This code
     %% will only work on the local node.
     A = element(2, AbstrCref),
@@ -2451,35 +2496,42 @@ move_counters(Mod) ->
 move_counters(Mod, Process) ->
     Pattern = {#bump{module=Mod,_='_'},'_'},
     Matches = ets:match_object(?COVER_MAPPING_TABLE, Pattern, ?CHUNK_SIZE),
-    Cref = get_counters_ref(Mod),
-    move_counters1(Matches, Cref, Process).
+    {LineRef, ClauseRef} = get_counters_ref(Mod),
+    move_counters1(Matches, LineRef, ClauseRef, Process).
 
-move_counters1({Mappings,Continuation}, Cref, Process) ->
-    Move = fun({Key,Index}) ->
-                   Count = counters:get(Cref, Index),
-                   ok = counters:sub(Cref, Index, Count),
-                   {Key,Count}
-           end,
+move_counters1({Mappings,Continuation}, LineRef, ClauseRef, Process) ->
+    Move = fun
+        ({Key,Index}) when Index > 0 ->
+            Count = counters:get(LineRef, Index),
+            ok = counters:sub(LineRef, Index, Count),
+            {Key, Count};
+        ({Key,Index}) when Index < 0 ->
+            {Key,Index}
+    end,
     Process(lists:map(Move, Mappings)),
-    move_counters1(ets:match_object(Continuation), Cref, Process);
-move_counters1('$end_of_table', _Cref, _Process) ->
+    move_counters1(ets:match_object(Continuation), LineRef, ClauseRef, Process);
+move_counters1('$end_of_table', _LineRef, _ClauseRef, _Process) ->
     ok.
 
 counters_mapping_table(Mod) ->
     Mapping = counters_mapping(Mod),
-    Cref = get_counters_ref(Mod),
-    #{size:=Size} = counters:info(Cref),
-    [{Mod,Size}|Mapping].
+    {LineRef, ClauseRef} = get_counters_ref(Mod),
+    #{size:=LineSize} = counters:info(LineRef),
+    #{size:=ClauseSize} = counters:info(ClauseRef),
+    [{Mod,LineSize,ClauseSize}|Mapping].
 
 get_counters_ref(Mod) ->
-    ets:lookup_element(?COVER_MAPPING_TABLE, {counters,Mod}, 2).
+    LineRef = ets:lookup_element(?COVER_MAPPING_TABLE, {counters,Mod}, 2),
+    ClauseRef = ets:lookup_element(?COVER_MAPPING_TABLE, {counters,Mod}, 3),
+    {LineRef, ClauseRef}.
 
 counters_mapping(Mod) ->
     Pattern = {#bump{module=Mod,_='_'},'_'},
     ets:match_object(?COVER_MAPPING_TABLE, Pattern).
 
 clear_counters(Mod) ->
-    _ = persistent_term:erase({?MODULE,Mod}),
+    _ = persistent_term:erase({cover_line,Mod}),
+    _ = persistent_term:erase({cover_clause,Mod}),
     ets:delete(?COVER_MAPPING_TABLE, Mod),
     Pattern = {#bump{module=Mod,_='_'},'_'},
     _ = ets:match_delete(?COVER_MAPPING_TABLE, Pattern),
@@ -2491,13 +2543,16 @@ reset_counters(Mod) ->
     MatchSpec = [{Pattern,[],['$1']}],
     Matches = ets:select(?COVER_MAPPING_TABLE,
                          MatchSpec, ?CHUNK_SIZE),
-    Cref = get_counters_ref(Mod),
-    reset_counters1(Matches, Cref).
+    {LineRef, ClauseRef} = get_counters_ref(Mod),
+    reset_counters1(Matches, LineRef, ClauseRef).
 
-reset_counters1({Indices,Continuation}, Cref) ->
-    _ = [counters:put(Cref, N, 0) || N <- Indices],
-    reset_counters1(ets:select(Continuation), Cref);
-reset_counters1('$end_of_table', _Cref) ->
+reset_counters1({Indices,Continuation}, LineRef, ClauseRef) ->
+    _ = [if
+        N > 0 -> counters:put(LineRef, N, 0);
+        N < 0 -> counters:put(ClauseRef, -N, 0)
+    end || N <- Indices],
+    reset_counters1(ets:select(Continuation), LineRef, ClauseRef);
+reset_counters1('$end_of_table', _LineRef, _ClauseRef) ->
     ok.
 
 delete_all_counters() ->
@@ -2640,9 +2695,31 @@ do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
 
 %% do_analyse(Module, Analysis, Level, Clauses)-> {ok,Answer} | {error,Error}
 %%   Clauses = [{Module,Function,Arity,Clause,Lines}]
+do_analyse(Module, Analysis, branch, _Clauses) ->
+
+    Pattern = {#bump{module=Module,clause='$1'},'_'},
+    Bumps = ets:select(?COLLECTION_TABLE, [{Pattern, [{'<', '$1', 0}], ['$_']}]),
+    Fun = case Analysis of
+	      coverage ->
+		  fun({#bump{line=ParentLine, clause=ClauseLine, clause_num=Num}, _}) ->
+            Counter = counters:get(persistent_term:get({cover_clause,Module}), Num),
+            if
+                Counter == 1 ->
+                    {{Module,ParentLine,-ClauseLine, Num}, {1,0}};
+                Counter == 0 ->
+                    {{Module,ParentLine,-ClauseLine, Num}, {0,1}}
+            end
+		  end;
+	      calls ->
+		  fun({#bump{line=ParentLine, clause=ClauseLine, clause_num=Num}, _N}) ->
+            Counter = counters:get(persistent_term:get({cover_clause,Module}), Num),
+			{{Module,ParentLine,-ClauseLine, Counter}}
+		  end
+	  end,
+    lists:keysort(1, lists:map(Fun, Bumps));
 do_analyse(Module, Analysis, line, _Clauses) ->
-    Pattern = {#bump{module=Module},'_'},
-    Bumps = ets:match_object(?COLLECTION_TABLE, Pattern),
+    Pattern = {#bump{module=Module,clause='$1'},'_'},
+    Bumps = ets:select(?COLLECTION_TABLE, [{Pattern, [{'>', '$1', 0}], ['$_']}]),
     Fun = case Analysis of
 	      coverage ->
 		  fun({#bump{line=L}, 0}) ->
@@ -2657,8 +2734,8 @@ do_analyse(Module, Analysis, line, _Clauses) ->
 	  end,
     lists:keysort(1, lists:map(Fun, Bumps));
 do_analyse(Module, Analysis, clause, _Clauses) ->
-    Pattern = {#bump{module=Module},'_'},
-    Bumps = lists:keysort(1,ets:match_object(?COLLECTION_TABLE, Pattern)),
+    Pattern = {#bump{module=Module,clause='$1'},'_'},
+    Bumps = ets:select(?COLLECTION_TABLE, [{Pattern, [{'>', '$1', 0}], ['$_']}]),
     analyse_clause(Analysis,Bumps);
 do_analyse(Module, Analysis, function, Clauses) ->
     ClauseResult = do_analyse(Module, Analysis, clause, Clauses),
@@ -3199,6 +3276,7 @@ encoding(File) ->
         utf8 ->
             utf8
     end.
+
 
 html_encoding(latin1) ->
     "iso-8859-1";
