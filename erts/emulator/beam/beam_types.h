@@ -87,8 +87,8 @@ typedef struct {
     byte size_unit;
 } BeamType;
 
-int beam_types_decode_type_otp_26(const byte *data, BeamType *out);
-void beam_types_decode_extra_otp_26(const byte *data, BeamType *out);
+int beam_types_decode_type_otp_26(const byte *data, int *raw_types_ptr, BeamType *out);
+void beam_types_decode_extra_otp_26(const byte *data, int types, BeamType *out);
 
 int beam_types_decode_otp_25(const byte *data, Uint size, BeamType *out);
 #endif

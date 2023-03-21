@@ -651,13 +651,14 @@ static int parse_type_chunk_otp_26(BeamFile *beam, BeamReader *p_reader) {
 
     for (i = 0; i < count; i++) {
         const byte *type_data;
+        int raw_types;
         int extra;
 
         LoadAssert(beamreader_read_bytes(p_reader, 2, &type_data));
-        extra = beam_types_decode_type_otp_26(type_data, &types->entries[i]);
+        extra = beam_types_decode_type_otp_26(type_data, &raw_types, &types->entries[i]);
         LoadAssert(extra >= 0);
         LoadAssert(beamreader_read_bytes(p_reader, extra, &type_data));
-        beam_types_decode_extra_otp_26(type_data, &types->entries[i]);
+        beam_types_decode_extra_otp_26(type_data, raw_types, &types->entries[i]);
     }
 
     /* The first entry MUST be the "any type." */

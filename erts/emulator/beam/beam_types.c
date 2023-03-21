@@ -30,7 +30,7 @@
 
 static Sint64 get_sint64(const byte *data);
 
-int beam_types_decode_type_otp_26(const byte *data, BeamType *out) {
+int beam_types_decode_type_otp_26(const byte *data, int *raw_types_ptr, BeamType *out) {
     int types;
     int extra = 0;
 
@@ -54,13 +54,11 @@ int beam_types_decode_type_otp_26(const byte *data, BeamType *out) {
         extra += 1;
     }
 
+    *raw_types_ptr = types;
     return extra;
 }
 
-void beam_types_decode_extra_otp_26(const byte *data, BeamType *out) {
-    int types = out->type_union;
-    out->type_union = types & BEAM_TYPE_ANY;
-
+void beam_types_decode_extra_otp_26(const byte *data, int types, BeamType *out) {
     out->min = MAX_SMALL + 1;
     out->max = MIN_SMALL - 1;
     out->size_unit = 1;
