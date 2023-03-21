@@ -457,7 +457,7 @@ connect_bin(SockType, Host, Port) ->
     connect_bin(SockType, Host, Port, []).
 
 connect_bin(ssl, Host, Port, Opts0) ->
-    Opts = [binary, {packet,0} | Opts0], 
+    Opts = [binary, {packet,0}, {verify, verify_none} | Opts0],
     connect(ssl, Host, Port, Opts);
 connect_bin(ip_comm, Host, Port, Opts0) ->
     Opts = [binary, {packet, 0} | Opts0],
@@ -469,7 +469,7 @@ connect_byte(SockType, Host, Port) ->
     connect_byte(SockType, Host, Port, []).
     
 connect_byte(ssl, Host, Port, Opts0) ->
-    Opts = [list, {packet,0} | Opts0], 
+    Opts = [list, {packet,0}, {verify, verify_none} | Opts0],
     connect(ssl, Host, Port, Opts);
 connect_byte(ip_comm, Host, Port, Opts0) ->
     Opts = [list, {packet,0} | Opts0],
@@ -681,7 +681,7 @@ gen_pem_config_files(#{server_config := ServerConf,
                             ClientCaCertFile),
     [{server_config, [{certfile, ServerCertFile}, 
                       {keyfile, ServerKeyFile}, {cacertfile, ServerCaCertFile}]}, 
-     {client_config, [{certfile, ClientCertFile}, 
+     {client_config, [{certfile, ClientCertFile},
                       {keyfile, ClientKeyFile}, {cacertfile, ClientCaCertFile}]}].
 extensions(Exts) ->
     [extension(Ext) || Ext <- Exts].

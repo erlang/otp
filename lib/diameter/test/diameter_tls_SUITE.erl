@@ -280,7 +280,7 @@ inband_security(Ids) ->
 
 ssl_options(Dir, Base) ->
     Root = filename:join([Dir, Base]),
-    [{ssl_options, [{certfile, Root ++ "_ca.pem"},
+    [{ssl_options, [{verify, verify_none},{certfile, Root ++ "_ca.pem"},
                     {keyfile,  Root ++ "_key.pem"}]}].
 
 make_cert(Dir, Base) ->
@@ -290,7 +290,7 @@ make_cert(Dir, Keyfile, Certfile) ->
     [KP,CP] = [filename:join([Dir, F]) || F <- [Keyfile, Certfile]],
 
     KC = join(["openssl genrsa -out", KP, "2048"]),
-    CC = join(["openssl req -new -x509 -key", KP, "-out", CP, "-days 7",
+    CC = join(["openssl req -new -sha256 -x509 -key", KP, "-out", CP, "-days 7",
                "-subj /C=SE/ST=./L=Stockholm/CN=www.erlang.org"]),
 
     %% Hope for the best and only check that files are written.
