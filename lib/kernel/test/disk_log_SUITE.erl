@@ -55,7 +55,7 @@
 	 wrap_ext_1/1, wrap_ext_2/1,
 
 	 rotate_1/1, rotate_truncate/1, rotate_reopen/1,
-         rotate_breopen/1, inc_rot_file/1,
+         rotate_breopen/1, next_rotate_file/1,
 
 	 head_func/1, plain_head/1, one_header/1,
 
@@ -153,7 +153,7 @@ groups() ->
      {wrap_ext, [], [wrap_ext_1, wrap_ext_2]},
      {rotate, [],
       [rotate_1, rotate_truncate, rotate_reopen,
-       rotate_breopen, inc_rot_file]},
+       rotate_breopen, next_rotate_file]},
      {head, [], [head_func, plain_head, one_header]},
      {notif, [],
       [wrap_notif, full_notif, trunc_notif, blocked_notif]},
@@ -950,47 +950,38 @@ rotate_breopen(Conf) when is_list(Conf) ->
     del_rot_files(File2, 3).
 
 %% Test rotate log, force a change to next file.
-inc_rot_file(Conf) when is_list(Conf) ->
+next_rotate_file(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File1 = filename:join(Dir, "a.LOG"),
     File2 = filename:join(Dir, "b.LOG"),
-    File3 = filename:join(Dir, "c.LOG"),
 
     %% Test that halt and wrap logs get error messages
     {ok, a} = disk_log:open([{name, a}, {type, halt},
 			     {format, internal},
 			     {file, File1}]),
     ok = disk_log:log(a, "message one"),
-    {error, {halt_log, a}} = disk_log:inc_rot_file(a),
-
-    {ok, b} = disk_log:open([{name, b}, {type, wrap}, {size, {100,3}},
-			     {format, internal}, {head, 'thisisahead'},
-			     {file, File2}]),
-    ok = disk_log:log(b, "message one"),
-    {error, {wrap_log, b}} = disk_log:inc_rot_file(b),
+    {error, {halt_log, a}} = disk_log:next_file(a),
 
     %% test a rotate log file
-    {ok, c} = disk_log:open([{name, c}, {type, rotate}, {size, {100,3}},
+    {ok, b} = disk_log:open([{name, b}, {type, rotate}, {size, {100,3}},
 			     {format,external},
-			     {file, File3}]),
-    ok = disk_log:blog(c, "message one"),
-    ok = disk_log:inc_rot_file(c),
-    ok = disk_log:blog(c, "message two"),
-    ok = disk_log:inc_rot_file(c),
-    ok = disk_log:blog(c, "message three"),
-    ok = disk_log:inc_rot_file(c),
-    ok = disk_log:blog(c, "message four"),
-    ok = disk_log:sync(c),
-    "message one" = get_list(File3 ++ ".2.gz", c, rotate),
-    "message two" = get_list(File3 ++ ".1.gz", c, rotate),
-    "message three" = get_list(File3 ++ ".0.gz", c, rotate),
-    "message four" = get_list(File3, c),
+			     {file, File2}]),
+    ok = disk_log:blog(b, "message one"),
+    ok = disk_log:next_file(b),
+    ok = disk_log:blog(b, "message two"),
+    ok = disk_log:next_file(b),
+    ok = disk_log:blog(b, "message three"),
+    ok = disk_log:next_file(b),
+    ok = disk_log:blog(b, "message four"),
+    ok = disk_log:sync(b),
+    "message one" = get_list(File2 ++ ".2.gz", b, rotate),
+    "message two" = get_list(File2 ++ ".1.gz", b, rotate),
+    "message three" = get_list(File2 ++ ".0.gz", b, rotate),
+    "message four" = get_list(File2, b),
     ok = disk_log:close(a),
     ok = disk_log:close(b),
-    ok = disk_log:close(c),
     ok = file:delete(File1),
-    del(File2, 2),
-    del_rot_files(File3, 3).
+    del_rot_files(File2, 3).
 
 simple_log(Log) ->
     T1 = "hej",

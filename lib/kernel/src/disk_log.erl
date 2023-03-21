@@ -919,8 +919,6 @@ handle({From, next_file}=Message, S) ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
 	#log{type = halt}=L ->
 	    reply(From, {error, {halt_log, L#log.name}}, S);
-	#log{type = rotate}=L ->
-	    reply(From, {error, {rotate_log, L#log.name}}, S);
 	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
 	#log{status = ok, type = wrap}=L ->
