@@ -569,24 +569,23 @@ void BeamGlobalAssembler::emit_handle_hd_error() {
  * The code size for this specialization of hd/1 is 21 bytes,
  * while the code size for the bif1 instruction is 24 bytes.
  */
-void BeamModuleAssembler::emit_bif_hd(const ArgLabel &Fail,
-                                      const ArgSource &Src,
+
+void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
                                       const ArgRegister &Hd) {
+    Label good_cons = a.newLabel();
+
     mov_arg(RET, Src);
     a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
 
-    if (Fail.get() != 0) {
-        a.jne(resolve_beam_label(Fail));
-    } else {
-        Label next = a.newLabel();
-        a.short_().je(next);
-        safe_fragment_call(ga->get_handle_hd_error());
-        a.bind(next);
-    }
+    a.short_().je(good_cons);
+    safe_fragment_call(ga->get_handle_hd_error());
 
-    x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-    a.mov(ARG2, getCARRef(boxed_ptr));
-    mov_arg(Hd, ARG2);
+    a.bind(good_cons);
+    {
+        x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
+        a.mov(ARG2, getCARRef(boxed_ptr));
+        mov_arg(Hd, ARG2);
+    }
 }
 
 /* ================================================================

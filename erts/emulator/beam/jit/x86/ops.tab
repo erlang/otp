@@ -695,18 +695,14 @@ i_perf_counter
 bif0 u$bif:erlang:self/0 Dst=d => self Dst
 bif0 u$bif:erlang:node/0 Dst=d => node Dst
 
-bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=n Dst =>
-    jump Fail
-bif1 Fail=f Bif=u$bif:erlang:hd/1 Src Dst =>
+bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=xy Dst =>
     is_nonempty_list Fail Src | get_hd Src Dst
-bif1 Fail Bif=u$bif:erlang:hd/1 Src Dst =>
-    bif_hd Fail Src Dst
+bif1 Fail=p Bif=u$bif:erlang:hd/1 Src Dst =>
+    bif_hd Src Dst
 
-bif_hd j s d
+bif_hd s d
 
-bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=n Dst =>
-    jump Fail
-bif1 Fail=f Bif=u$bif:erlang:tl/1 Src Dst =>
+bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=xy Dst =>
     is_nonempty_list Fail Src | get_tl Src Dst
 
 bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => get(Src, Dst)
