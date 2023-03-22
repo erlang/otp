@@ -2098,6 +2098,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(not_owner);                       \
     GLOBAL_ATOM_DECL(num_threads);                     \
     GLOBAL_ATOM_DECL(num_unexpected_accepts);          \
+    GLOBAL_ATOM_DECL(num_unexpected_connects);         \
     GLOBAL_ATOM_DECL(num_unexpected_reads);            \
     GLOBAL_ATOM_DECL(num_unexpected_writes);           \
     GLOBAL_ATOM_DECL(num_unknown_cmds);                \
@@ -12501,7 +12502,7 @@ BOOLEAN_T qunqueue(ErlNifEnv*         env,
     ESockRequestQueueElement* e = qget(env, descP, slogan, q, refP, pidP);
 
     if (e != NULL) {
-        (void) DEMONP(slogan, env, descP, &e->data.mon);            
+        (void) DEMONP(slogan, env, descP, &e->data.mon);           
         esock_clear_env(slogan, e->data.env);
         esock_free_env(slogan, e->data.env);
         FREE(e);

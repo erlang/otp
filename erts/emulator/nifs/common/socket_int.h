@@ -385,6 +385,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(not_owner);                \
     GLOBAL_ATOM_DEF(num_threads);              \
     GLOBAL_ATOM_DEF(num_unexpected_accepts);   \
+    GLOBAL_ATOM_DEF(num_unexpected_connects);  \
     GLOBAL_ATOM_DEF(num_unexpected_reads);     \
     GLOBAL_ATOM_DEF(num_unexpected_writes);    \
     GLOBAL_ATOM_DEF(num_unknown_cmds);         \
