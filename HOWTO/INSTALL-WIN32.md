@@ -68,7 +68,7 @@ This is the short story though, for the experienced and impatient:
         <http://www.erlang.org/download.html>) and unpack with `tar`
         to the windows disk for example to: /mnt/c/src/
 
-    *   Install mingw-gcc, and make: `sudo apt install g++-mingw-w64 gcc-mingw-w64 make`
+    *   Install mingw-gcc, and make: `sudo apt update && sudo apt install g++-mingw-w64 gcc-mingw-w64 make`
 
     *   `$ cd UNPACK_DIR`
 
@@ -150,7 +150,7 @@ the different tools:
     Install into `C:/OpenSSL-Win64` (or `C:/OpenSSL-Win32`)
 
 *   wxWidgets (optional)
-    You need this to build wx and use gui's in debugger and observer.
+    You need this to build wx to use gui's in debugger and observer.
 
     We recommend v3.1.4 or later.
     Unpack into `c:/opt/local64/pgm/wxWidgets-3.1.4`

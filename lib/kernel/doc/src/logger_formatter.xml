@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2017</year><year>2021</year>
+      <year>2017</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -154,7 +154,7 @@
 	    <p>The value of this parameter is used as
 	      the <c>time_designator</c> option
 	      to <seemfa marker="stdlib:calendar#system_time_to_rfc3339/2">
-		<c>calendar:system_time_to_rcf3339/2</c></seemfa>.</p>
+		<c>calendar:system_time_to_rfc3339/2</c></seemfa>.</p>
 	  </item>
 	  <tag><c>time_offset = integer() | [byte()]</c></tag>
 	  <item>
@@ -179,7 +179,7 @@
 	    <p>The value of this parameter is used as
 	      the <c>offset</c> option
 	      to <seemfa marker="stdlib:calendar#system_time_to_rfc3339/2">
-		<c>calendar:system_time_to_rcf3339/2</c></seemfa>.</p>
+		<c>calendar:system_time_to_rfc3339/2</c></seemfa>.</p>
 	  </item>
 	</taglist>
       </desc>

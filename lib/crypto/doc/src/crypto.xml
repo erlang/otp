@@ -257,6 +257,12 @@
     </datatype>
 
     <datatype>
+      <name name="hash_xof_algorithm"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="hmac_hash_algorithm"/>
       <desc>
       </desc>
@@ -290,6 +296,7 @@
       <name name="sha1"/>
       <name name="sha2"/>
       <name name="sha3"/>
+      <name name="sha3_xof"/>
       <name name="blake2"/>
       <desc>
       </desc>
@@ -1104,6 +1111,18 @@ end
       <desc>
 	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
         <p>Computes a message digest of type <c>Type</c> from <c>Data</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hash_xof" arity="3" since="OTP 26.0"/>
+      <fsummary></fsummary>
+      <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
+          <p>Computes a message digest of type <c>Type</c> from <c>Data</c> of <c>Length</c>
+              for the chosen <c>xof_algorithm</c>.</p>
+          <p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
+              is not supported by the underlying libcrypto implementation.</p>
       </desc>
     </func>
 

@@ -632,7 +632,8 @@ init(Cp) ->
     catch error:Reason -> %% system limit
 	    Msg = "Cannot create an ets table for pending transactions",
 	    Error = {error, {system_limit, Name, Msg, Reason}},
-	    proc_lib:init_ack(Cp#checkpoint_args.supervisor, Error)
+	    proc_lib:init_fail(
+              Cp#checkpoint_args.supervisor, Error, {exit, normal})
     end.
     
 prepare_tab(Cp, R) ->

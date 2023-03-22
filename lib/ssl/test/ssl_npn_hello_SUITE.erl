@@ -171,5 +171,4 @@ create_connection_states() ->
      }.
 
 default_options_map() ->
-    Fun = fun (_Key, {Default, _}) -> Default end,
-    maps:map(Fun, ?RULES).
+    ssl:update_options([], client, #{}).

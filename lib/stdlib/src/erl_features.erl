@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erl_features).
+-feature(maybe_expr, enable).
 
 -export([all/0,
          configurable/0,
@@ -25,7 +26,6 @@
          short/1,
          long/1,
          enabled/0,
-         load_allowed/1,
          keywords/0,
          keywords/1,
          keyword_fun/2,
@@ -371,7 +371,7 @@ init_features() ->
         end,
     FOps = lists:filtermap(F, FeatureOps),
     {Features, _, _} = collect_features(FOps),
-    {Enabled, Keywords} =
+    {Enabled0, Keywords} =
         lists:foldl(fun(Ftr, {Ftrs, Keys}) ->
                             case lists:member(Ftr, Ftrs) of
                                 true ->
@@ -385,6 +385,7 @@ init_features() ->
                     Features),
 
     %% Save state
+    Enabled = lists:uniq(Enabled0),
     enabled_features(Enabled),
     set_keywords(Keywords),
     persistent_term:put({?MODULE, init_done}, true),
@@ -422,32 +423,6 @@ keywords() ->
 
 set_keywords(Words) ->
     persistent_term:put({?MODULE, keywords}, Words).
-
-%% Check that any features used in the module are enabled in the
-%% runtime system.  If not, return
-%%  {not_allowed, <list of not enabled features>}.
--spec load_allowed(binary()) -> ok | {not_allowed, [feature()]}.
-load_allowed(Binary) ->
-    case erts_internal:beamfile_chunk(Binary, "Meta") of
-        undefined ->
-            ok;
-        Meta ->
-            MetaData = erlang:binary_to_term(Meta),
-            case proplists:get_value(enabled_features, MetaData) of
-                undefined ->
-                    ok;
-                Used ->
-                    Enabled = enabled(),
-                    case lists:filter(fun(UFtr) ->
-                                              not lists:member(UFtr, Enabled)
-                                      end,
-                                      Used) of
-                        [] -> ok;
-                        NotEnabled ->
-                            {not_allowed, NotEnabled}
-                    end
-            end
-    end.
 
 %% Return features used by module or beam file
 -spec used(module() | file:filename()) -> [feature()].

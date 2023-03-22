@@ -93,6 +93,12 @@ int beam_load_prepare_emit(LoaderState *stp) {
         init_label(&stp->labels[i]);
     }
 
+    stp->lambda_literals = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                      stp->beam.lambdas.count * sizeof(SWord));
+    for (i = 0; i < stp->beam.lambdas.count; i++) {
+        stp->lambda_literals[i] = ERTS_SWORD_MAX;
+    }
+
     stp->import_patches =
         erts_alloc(ERTS_ALC_T_PREPARED_CODE,
                    stp->beam.imports.count * sizeof(BeamInstr));
@@ -182,6 +188,11 @@ int beam_load_prepared_dtor(Binary* magic)
         }
         erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->labels);
         stp->labels = NULL;
+    }
+
+    if (stp->lambda_literals != NULL) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->lambda_literals);
+        stp->lambda_literals = NULL;
     }
 
     if (stp->import_patches != NULL) {
@@ -543,6 +554,7 @@ int beam_load_finish_emit(LoaderState *stp) {
 
 void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_p)
 {
+    ErtsCodeIndex staging_ix;
     unsigned int i;
     int on_load = stp->on_load;
     unsigned catches;
@@ -554,6 +566,11 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
 
     inst_p->code_hdr = stp->code_hdr;
     inst_p->code_length = size;
+
+    staging_ix = erts_staging_code_ix();
+
+    ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_load_permission() ||
+                   erts_thr_progress_is_blocking());
 
     /* Update ranges (used for finding a function from a PC value). */
     erts_update_ranges(inst_p->code_hdr, size);
@@ -604,6 +621,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
      */
     if (stp->beam.lambdas.count) {
         BeamFile_LambdaTable *lambda_table;
+        ErtsLiteralArea *literal_area;
         ErlFunEntry **fun_entries;
         LambdaPatch* lp;
         int i;
@@ -611,6 +629,8 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
         lambda_table = &stp->beam.lambdas;
         fun_entries = erts_alloc(ERTS_ALC_T_LOADER_TMP,
                                  sizeof(ErlFunEntry*) * lambda_table->count);
+
+        literal_area = (stp->code_hdr)->literal_area;
 
         for (i = 0; i < lambda_table->count; i++) {
             BeamFile_LambdaEntry *lambda;
@@ -626,14 +646,38 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                                             lambda->arity - lambda->num_free);
             fun_entries[i] = fun_entry;
 
-            if (erts_is_fun_loaded(fun_entry)) {
+            if (erts_is_fun_loaded(fun_entry, staging_ix)) {
                 /* We've reloaded a module over itself and inherited the old
                  * instance's fun entries, so we need to undo the reference
                  * bump in `erts_put_fun_entry2` to make fun purging work. */
                 erts_refc_dectest(&fun_entry->refc, 1);
             }
 
+            /* Finalize the literal we've created for this lambda, if any,
+             * converting it from an external fun to a local one with the newly
+             * created fun entry. */
+            if (stp->lambda_literals[i] != ERTS_SWORD_MAX) {
+                ErlFunThing *funp;
+                Eterm literal;
+
+                literal = beamfile_get_literal(&stp->beam,
+                                               stp->lambda_literals[i]);
+                funp = (ErlFunThing *)fun_val(literal);
+                ASSERT(funp->creator == am_external);
+
+                funp->entry.fun = fun_entry;
+
+                funp->next = literal_area->off_heap;
+                literal_area->off_heap = (struct erl_off_heap_header *)funp;
+
+                ASSERT(erts_init_process_id != ERTS_INVALID_PID);
+                funp->creator = erts_init_process_id;
+
+                erts_refc_inc(&fun_entry->refc, 2);
+            }
+
             erts_set_fun_code(fun_entry,
+                              staging_ix,
                               stp->codev + stp->labels[lambda->label].value);
         }
 
@@ -690,7 +734,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
              */
             ep->trampoline.not_loaded.deferred = (BeamInstr) address;
         } else {
-            ep->dispatch.addresses[erts_staging_code_ix()] = address;
+            ep->dispatch.addresses[staging_ix] = address;
         }
     }
 
@@ -704,7 +748,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                                          entry->name,
                                          entry->arity);
             const BeamInstr *addr =
-                ep->dispatch.addresses[erts_staging_code_ix()];
+                ep->dispatch.addresses[staging_ix];
 
             if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
                 erts_exit(ERTS_ABORT_EXIT,

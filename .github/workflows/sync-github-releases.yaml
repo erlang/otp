@@ -30,7 +30,7 @@ jobs:
   sync-prs:
     if: github.repository == 'erlang/otp'
     concurrency: erlang.github.io-deploy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:

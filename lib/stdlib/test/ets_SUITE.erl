@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@
 -export([tab2file/1, tab2file2/1, tabfile_ext1/1,
 	 tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1, badfile/1]).
 -export([heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
--export([lookup_element_mult/1]).
+-export([lookup_element_mult/1, lookup_element_default/1]).
 -export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1]).
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1,
          select_bound_chunk/1, t_delete_all_objects/1, t_test_ms/1,
@@ -51,7 +51,8 @@
 -export([t_insert_list/1, t_insert_list_bag/1, t_insert_list_duplicate_bag/1,
          t_insert_list_set/1, t_insert_list_delete_set/1,
          t_insert_list_parallel/1, t_insert_list_delete_parallel/1,
-         t_insert_list_kill_process/1]).
+         t_insert_list_kill_process/1,
+         t_insert_list_insert_order_preserved/1]).
 -export([test_table_size_concurrency/1,test_table_memory_concurrency/1,
          test_delete_table_while_size_snapshot/1, test_delete_table_while_size_snapshot_helper/1,
          test_decentralized_counters_setting/1]).
@@ -194,7 +195,7 @@ groups() ->
        privacy]},
      {insert, [], [empty, badinsert]},
      {lookup, [], [badlookup, lookup_order]},
-     {lookup_element, [], [lookup_element_mult]},
+     {lookup_element, [], [lookup_element_mult, lookup_element_default]},
      {delete, [],
       [delete_elem, delete_tab, delete_large_tab,
        delete_large_named_table, evil_delete, table_leak,
@@ -222,6 +223,7 @@ groups() ->
        t_insert_list_duplicate_bag, t_insert_list_delete_set,
        t_insert_list_parallel, t_insert_list_delete_parallel,
        t_insert_list_kill_process,
+       t_insert_list_insert_order_preserved,
        insert_trap_delete,
        insert_trap_rename]}].
 
@@ -1553,6 +1555,32 @@ t_insert_list_kill_process_do(Opts) ->
                                        fun ets:insert_new/2]],
     ok.
 
+t_insert_list_insert_order_preserved(Config) when is_list(Config) ->
+    insert_list_insert_order_preserved(bag),
+    insert_list_insert_order_preserved(duplicate_bag),
+    ok.
+
+insert_list_insert_order_preserved(Type) ->
+    Tab = ets:new(?FUNCTION_NAME, [Type]),
+    K = a,
+    Values1 = [{K, 1}, {K, 2}, {K, 3}],
+    Values2 = [{K, 4}, {K, 5}, {K, 6}],
+    ets:insert(Tab, Values1),
+    ets:insert(Tab, Values2),
+    [{K, 1}, {K, 2}, {K, 3}, {K, 4}, {K, 5}, {K, 6}] = ets:lookup(Tab, K),
+
+    ets:delete(Tab, K),
+    [] = ets:lookup(Tab, K),
+
+    %% Insert order in duplicate_bag depended on reductions left
+    ITERATIONS_PER_RED = 8,
+    NTuples = 4000 * ITERATIONS_PER_RED + 10,
+    LongList = [{K, V} || V <- lists:seq(1, NTuples)],
+    ets:insert(Tab, LongList),
+    LongList = ets:lookup(Tab, K),
+
+    ets:delete(Tab).
+
 %% Test interface of ets:test_ms/2.
 t_test_ms(Config) when is_list(Config) ->
     EtsMem = etsmem(),
@@ -2379,13 +2407,19 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
 
     Big32 = 16#12345678,
     Big64 = 16#123456789abcdef0,
-    Values = { 623, -27, 0, Big32, -Big32, Big64, -Big64, Big32*Big32,
+    RefcBin = list_to_binary(lists:seq(1,100)),
+    BigMap1 = maps:from_list([{N,N} || N <- lists:seq(1,33)]),
+    BigMap2 = BigMap1#{key => RefcBin, RefcBin => value},
+    Values = { 623, -27, Big32, -Big32, Big64, -Big64, Big32*Big32,
 	       -Big32*Big32, Big32*Big64, -Big32*Big64, Big64*Big64, -Big64*Big64,
 	       "A", "Sverker", [], {12,-132}, {},
-	       <<45,232,0,12,133>>, <<234,12,23>>, list_to_binary(lists:seq(1,100)),
+	       <<45,232,0,12,133>>, <<234,12,23>>, RefcBin,
 	       (fun(X) -> X*Big32 end),
-	       make_ref(), make_ref(), self(), ok, update_element, 28, 29 },
-    Length = size(Values),
+	       make_ref(), make_ref(), self(), ok, update_element,
+               #{a => value, "hello" => "world", 1.0 => RefcBin },
+               BigMap1, BigMap2},
+    Length = tuple_size(Values),
+    29 = Length,
 
     PosValArgF = fun(ToIx, ResList, [Pos | PosTail], Rand, MeF) ->
 			 NextIx = (ToIx+Rand) rem Length,
@@ -2405,7 +2439,12 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
                       true = ets:update_element(Tab, Key, PosValArg),
                       ArgHash = erlang:phash2({Tab,Key,PosValArg}),
                       NewTuple = update_tuple(PosValArg,Tuple),
-                      [NewTuple] = ets:lookup(Tab,Key)
+                      [NewTuple] = ets:lookup(Tab,Key),
+                      [begin
+                           Elem = element(I, NewTuple),
+                           Elem = ets:lookup_element(Tab, Key, I)
+                       end
+                       || I <- lists:seq(1, tuple_size(NewTuple))]
 	      end,
 
     LoopF = fun(_FromIx, Incr, _Times, Checksum, _MeF) when Incr >= Length ->
@@ -4114,6 +4153,41 @@ fill_tab(Tab,Val) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+lookup_element_default(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+
+    TabSet = ets_new(foo, [set]),
+    ets:insert(TabSet, {key, 42}),
+    42 = ets:lookup_element(TabSet, key, 2, 13),
+    13 = ets:lookup_element(TabSet, not_key, 2, 13),
+    {'EXIT',{badarg,_}} = catch ets:lookup_element(TabSet, key, 3, 13),
+    true = ets:delete(TabSet),
+
+    TabOrderedSet = ets_new(foo, [ordered_set]),
+    ets:insert(TabOrderedSet, {key, 42}),
+    42 = ets:lookup_element(TabOrderedSet, key, 2, 13),
+    13 = ets:lookup_element(TabOrderedSet, not_key, 2, 13),
+    {'EXIT',{badarg,_}} = catch ets:lookup_element(TabOrderedSet, key, 3, 13),
+    true = ets:delete(TabOrderedSet),
+
+    TabBag = ets_new(foo, [bag]),
+    ets:insert(TabBag, {key, 42}),
+    ets:insert(TabBag, {key, 43, 44}),
+    [42, 43] = ets:lookup_element(TabBag, key, 2, 13),
+    13 = ets:lookup_element(TabBag, not_key, 2, 13),
+    {'EXIT',{badarg,_}} = catch ets:lookup_element(TabBag, key, 3, 13),
+    true = ets:delete(TabBag),
+
+    TabDuplicateBag = ets_new(foo, [duplicate_bag]),
+    ets:insert(TabDuplicateBag, {key, 42}),
+    ets:insert(TabDuplicateBag, {key, 42}),
+    ets:insert(TabDuplicateBag, {key, 43, 44}),
+    [42, 42, 43] = ets:lookup_element(TabDuplicateBag, key, 2, 13),
+    13 = ets:lookup_element(TabDuplicateBag, not_key, 2, 13),
+    {'EXIT',{badarg,_}} = catch ets:lookup_element(TabDuplicateBag, key, 3, 13),
+    true = ets:delete(TabDuplicateBag),
+
+    verify_etsmem(EtsMem).
 
 %% OTP-2386. Multiple return elements.
 lookup_element_mult(Config) when is_list(Config) ->
@@ -9158,6 +9232,9 @@ error_info(_Config) ->
          {lookup_element, ['$Tab', no_key, bad_pos]},
 
          {lookup_element, [OneKeyTab, one, 4]},
+
+         {lookup_element, ['$Tab', no_key, 1, default_value], [no_fail]},
+         {lookup_element, [OneKeyTab, one, 4, default_value]},
 
          {match, [bad_continuation], [no_table]},
 

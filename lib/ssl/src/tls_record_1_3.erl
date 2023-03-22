@@ -345,11 +345,14 @@ decipher_aead(CipherFragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
 	case ssl_cipher:aead_decrypt(BulkCipherAlgo, Key, Nonce, CipherText, CipherTag, AAD) of
 	    Content when is_binary(Content) ->
 		Content;
-	    _ ->
+	    Reason ->
+                ?SSL_LOG(debug, decrypt_error, [{reason,Reason},
+                                                {stacktrace, process_info(self(), current_stacktrace)}]),
                 ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
 	end
     catch
-	_:_ ->
+	_:Reason2:ST ->
+            ?SSL_LOG(debug, decrypt_error, [{reason,Reason2}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end.
 

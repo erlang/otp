@@ -298,8 +298,8 @@ extern void** beam_ops;
 
 #ifndef BEAMASM
 
-#define BeamIsReturnTimeTrace(w) \
-    BeamIsOpCode(*(const BeamInstr*)(w), op_i_return_time_trace)
+#define BeamIsReturnCallAccTrace(w) \
+    BeamIsOpCode(*(const BeamInstr*)(w), op_i_call_trace_return)
 #define BeamIsReturnToTrace(w) \
     BeamIsOpCode(*(const BeamInstr*)(w), op_i_return_to_trace)
 #define BeamIsReturnTrace(w) \
@@ -307,14 +307,19 @@ extern void** beam_ops;
 
 #else /* BEAMASM */
 
-#define BeamIsReturnTimeTrace(w) \
-    ((w) == beam_return_time_trace)
+#define BeamIsReturnCallAccTrace(w) \
+    ((w) == beam_call_trace_return)
 #define BeamIsReturnToTrace(w) \
     ((w) == beam_return_to_trace)
 #define BeamIsReturnTrace(w) \
     ((w) == beam_return_trace || (w) == beam_exception_trace)
 
 #endif /* BEAMASM */
+
+/* Stack frame sizes (not including CP_SIZE) */
+#define BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ 2
+#define BEAM_RETURN_TO_TRACE_FRAME_SZ   0
+#define BEAM_RETURN_TRACE_FRAME_SZ      2
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE

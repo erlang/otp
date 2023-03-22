@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,22 +24,26 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
+         verify_highest_opcode/1,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
 	 nomatch/1,sizes/1,general_expressions/1,
-         no_generator/1,zero_pattern/1,multiple_segments/1]).
+         no_generator/1,zero_pattern/1,multiple_segments/1,
+         grab_bag/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [byte_aligned, bit_aligned, extended_byte_aligned,
+all() ->
+    [verify_highest_opcode,
+     byte_aligned, bit_aligned, extended_byte_aligned,
      extended_bit_aligned, mixed, filters, trim_coverage,
      nomatch, sizes, general_expressions,
-     no_generator, zero_pattern, multiple_segments].
+     no_generator, zero_pattern, multiple_segments,
+     grab_bag].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -54,6 +58,28 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
 	Config.
+
+verify_highest_opcode(_Config) ->
+    case ?MODULE of
+        bs_construct_r24_SUITE ->
+            {ok,Beam} = file:read_file(code:which(?MODULE)),
+            case test_lib:highest_opcode(Beam) of
+                Highest when Highest =< 176 ->
+                    ok;
+                TooHigh ->
+                    ct:fail({too_high_opcode,TooHigh})
+            end;
+        bs_construct_r25_SUITE ->
+            {ok,Beam} = file:read_file(code:which(?MODULE)),
+            case test_lib:highest_opcode(Beam) of
+                Highest when Highest =< 180 ->
+                    ok;
+                TooHigh ->
+                    ct:fail({too_high_opcode,TooHigh})
+            end;
+        _ ->
+            ok
+    end.
 
 byte_aligned(Config) when is_list(Config) ->
     cs_init(),
@@ -149,6 +175,13 @@ mixed(Config) when is_list(Config) ->
     <<255>> = over_complex_generator(),
     {'EXIT',_} = catch float_segment_size(),
 
+    <<>> = inconsistent_types_1([]),
+    {'EXIT',{{bad_generator,42},_}} = catch inconsistent_types_1(42),
+    Self = self(),
+    {'EXIT',{{bad_generator,Self},_}} = catch inconsistent_types_1(Self),
+
+    {'EXIT',{{bad_filter,<<>>},_}} = catch inconsistent_types_2(),
+
     cs_end().
 
 mixed_nested(L) ->
@@ -219,6 +252,34 @@ float_segment_size() ->
         _:_ ->
             error
     end.
+
+%% GH-6468. Would crash in beam_ssa_bc_size:update_successors/3.
+inconsistent_types_1(X) ->
+    <<
+      X || _ <- X,
+           case is_pid(X) of
+               Y ->
+                   (#{
+                        ((not Y) andalso
+                         <<Y:(Y andalso X)>>) := Y
+                     } = X);
+               _ ->
+                   false
+           end
+    >>.
+
+%% GH-6468. Same type of crash.
+inconsistent_types_2() ->
+    <<
+      0 || case id([]) of
+               Y ->
+                   <<
+                     Y ||
+                       _ <- Y,
+                       (not ((false = Y) = (Y /= []))), (_ = Y)
+                   >>
+           end
+    >>.
 
 filters(Config) when is_list(Config) ->
     cs_init(),
@@ -588,6 +649,20 @@ do_multiple_segments_2(Gen) ->
     Bin = list_to_binary(List),
     List.
 
+grab_bag(_Config) ->
+    {'EXIT',{function_clause,_}} = catch grab_bag_gh_6553(<<>>),
+    {'EXIT',{function_clause,_}} = catch grab_bag_gh_6553(a),
+    {'EXIT',{{badmatch,<<>>},_}} = catch grab_bag_gh_6553(<<42>>),
+
+    %% Cover a line v3_kernel:get_line/1.
+    _ = catch << ok || <<>> <= ok, ok >>,
+
+    ok.
+
+grab_bag_gh_6553(<<X>>) ->
+    %% Would crash in beam_ssa_pre_codegen.
+    <<X, ((<<_:0>> = <<_>>) = <<>>)>>.
+
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),
     ok.
@@ -602,6 +677,10 @@ cs(Bin) ->
         bs_bincomp_no_opt_SUITE ->
             ok;
         bs_bincomp_no_ssa_opt_SUITE ->
+            ok;
+        bs_bincomp_no_copt_SUITE ->
+            ok;
+        bs_bincomp_no_copt_ssa_SUITE ->
             ok;
         bs_bincomp_post_opt_SUITE ->
             ok;

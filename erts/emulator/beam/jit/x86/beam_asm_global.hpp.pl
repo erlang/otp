@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2022. All Rights Reserved.
+# Copyright Ericsson AB 2022-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,8 +31,9 @@ my @beam_global_funcs = qw(
     bs_add_shared
     bs_create_bin_error_shared
     bs_size_check_shared
-    bs_fixed_integer_shared
     bs_get_tail_shared
+    bs_get_utf8_shared
+    bs_get_utf8_short_shared
     call_bif_shared
     call_light_bif_shared
     call_nif_early
@@ -40,19 +41,26 @@ my @beam_global_funcs = qw(
     call_nif_yield_helper
     catch_end_shared
     check_float_error
+    construct_utf8_shared
     dispatch_bif
     dispatch_nif
     dispatch_return
-    dispatch_save_calls
+    dispatch_save_calls_export
+    dispatch_save_calls_fun
     export_trampoline
     garbage_collect
     generic_bp_global
     generic_bp_local
+    get_sint64_shared
     debug_bp
     fconv_shared
     handle_call_fun_error
     handle_element_error
     handle_hd_error
+    handle_map_get_badkey
+    handle_map_get_badmap
+    handle_map_size_error
+    handle_node_error
     i_band_body_shared
     i_band_guard_shared
     i_bif_body_shared
@@ -61,6 +69,7 @@ my @beam_global_funcs = qw(
     i_bor_guard_shared
     i_bnot_body_shared
     i_bnot_guard_shared
+    i_breakpoint_trampoline_shared
     i_bsl_guard_shared
     i_bsl_body_shared
     i_bsr_guard_shared
@@ -74,11 +83,11 @@ my @beam_global_funcs = qw(
     i_length_guard_shared
     i_length_body_shared
     i_loop_rec_shared
-    i_new_small_map_lit_shared
     i_test_yield_shared
-    increment_body_shared
     int_div_rem_body_shared
     int_div_rem_guard_shared
+    is_in_range_shared
+    is_ge_lt_shared
     internal_hash_helper
     minus_body_shared
     minus_guard_shared
@@ -89,6 +98,7 @@ my @beam_global_funcs = qw(
     process_main
     raise_exception
     raise_exception_shared
+    store_unaligned
     times_body_shared
     times_guard_shared
     unary_minus_body_shared

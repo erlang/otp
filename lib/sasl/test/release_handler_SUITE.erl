@@ -411,7 +411,8 @@ move_system_unix(NodeA, PeerA, TestRootDir, ErtsBinDir, NewSystemPath) ->
              [{env,[{"PATH",TestRootDir ++ ":" ++ os:getenv("PATH")}]}]),
 
     %% Wait for node to start
-    receive _ -> ok end,
+    receive M1 -> ct:pal("~p",[M1]) end,
+    receive M2 -> ct:pal("~p",[M2]) end,
 
     hej = erpc:call(LinkNode, app_callback_module, get_response, []),
 

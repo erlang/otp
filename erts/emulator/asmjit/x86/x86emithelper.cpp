@@ -30,7 +30,7 @@ static inline uint32_t getXmmMovInst(const FuncFrame& frame) {
                  : (avx ? Inst::kIdVmovups : Inst::kIdMovups);
 }
 
-//! Converts `size` to a 'kmov?' instructio.
+//! Converts `size` to a 'kmov?' instruction.
 static inline uint32_t kmovInstFromSize(uint32_t size) noexcept {
   switch (size) {
     case  1: return Inst::kIdKmovb;

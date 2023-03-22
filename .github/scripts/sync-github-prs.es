@@ -62,7 +62,9 @@ handle_pr(_Repo, Target,
                    string:equal(HeadSha, Sha) andalso string:equal(Status, <<"completed">>)
            end, maps:get(<<"workflow_runs">>, Runs)) of
         {value, Run} ->
-            Ident = integer_to_list(maps:get(<<"id">>,Run)),
+            Ident = integer_to_list(
+                      erlang:phash2(
+                        {maps:get(<<"id">>,Run), ?MODULE:module_info(md5)})),
             io:format("Checking for ~ts~n", [filename:join(PRDir, Ident)]),
             case file:read_file_info(filename:join(PRDir, Ident)) of
                 {error, enoent} ->
@@ -91,7 +93,9 @@ handle_pr(_Repo, Target,
                       end, Artifacts),
                     CTLogsIndex = filename:join([PRDir,"ct_logs","index.html"]),
                     case file:read_file_info(CTLogsIndex) of
-                        {ok, _} -> ok;
+                        {ok, _} ->
+                            CTSuiteFiles = filename:join([PRDir,"ct_logs","ct_run*","*.logs","run.*","suite.log"]),
+                            lists:foreach(fun purge_suite/1, filelib:wildcard(CTSuiteFiles));
                         _ ->
                              ok = filelib:ensure_dir(CTLogsIndex),
                              ok = file:write_file(CTLogsIndex, ["No test logs found for ", Sha])
@@ -109,6 +113,47 @@ handle_pr(_Repo, Target,
             ok
     end.
 
+%% We truncate the logs of all testcases of any suite that did not have any failures
+purge_suite(SuiteFilePath) ->
+    {ok, SuiteFile} = file:read_file(SuiteFilePath),
+    SuiteDir = filename:dirname(SuiteFilePath),
+    Placeholder = "<html><body>github truncated successful testcase</body></html>",
+    case re:run(SuiteFile,"^=failed\s*\([0-9]+\)$",[multiline,{capture,all_but_first,binary}]) of
+        {match,[<<"0">>]} ->
+            io:format("Purging logs from: ~ts~n",[SuiteDir]),
+            ok = file:del_dir_r(filename:join(SuiteDir,"log_private")),
+            lists:foreach(
+              fun(File) ->
+                      case filename:basename(File) of
+                          "suite" ++ _ ->
+                              ok;
+                          "unexpected_io" ++_ ->
+                              ok;
+                          "cover.html" ->
+                              ok;
+                          _Else ->
+                              file:write_file(File,Placeholder)
+                      end
+              end, filelib:wildcard(filename:join(SuiteDir,"*.html")));
+        _FailedTestcases ->
+            io:format("Purging logs from: ~ts~n",[SuiteDir]),
+            lists:foreach(
+              fun(File) ->
+                      {ok, B} = file:read_file(File),
+                      case re:run(B,"^=== Config value:",[multiline]) of
+                          {match,_} ->
+                              case re:run(B,"^=== successfully completed test case",[multiline]) of
+                                  {match, _} ->
+                                      file:write_file(File,Placeholder);
+                                  nomatch ->
+                                      ok
+                              end;
+                          nomatch ->
+                              ok
+                      end
+              end, filelib:wildcard(filename:join(SuiteDir,"*.html")))
+    end.
+
 ghapi(CMD) ->
     decode(cmd(CMD)).
 
@@ -116,12 +161,14 @@ decode(Data) ->
     try jsx:decode(Data,[{return_maps, true}, return_tail]) of
         {with_tail, Json, <<>>} ->
             Json;
-        {with_tail, Json, Tail} ->
+        {with_tail, Json, Tail} when is_map(Json) ->
             [Key] = maps:keys(maps:remove(<<"total_count">>, Json)),
             #{ Key => lists:flatmap(
                         fun(J) -> maps:get(Key, J) end,
                         [Json | decodeTail(Tail)])
-                       }
+                       };
+        {with_tail, Json, Tail} when is_list(Json) ->
+            lists:concat([Json | decodeTail(Tail)])
     catch E:R:ST ->
             io:format("Failed to decode: ~ts",[Data]),
             erlang:raise(E,R,ST)

@@ -176,43 +176,33 @@
 
     <func>
       <name name="enumerate" arity="1" since="OTP 25.0"/>
+      <name name="enumerate" arity="2" since="OTP 25.0"/>
+      <name name="enumerate" arity="3" since="OTP @OTP-18495@"/>
       <fsummary>Annotates elements with their index.</fsummary>
       <desc>
         <p>Returns <c><anno>List1</anno></c> with each element
-        <c>H</c> replaced by a tuple of form <c>{I, H}</c> where
-        <c>I</c> is the position of <c>H</c> in
-        <c><anno>List1</anno></c>. The enumeration starts with 1 and
-        increases by 1 in each step.</p>
-        <p>That is, <c>enumerate/1</c> behaves as if it had been defined as follows:</p>
+          <c>H</c> replaced by a tuple of form <c>{I, H}</c> where
+          <c>I</c> is the position of <c>H</c> in
+          <c><anno>List1</anno></c>. The enumeration starts with
+          <c><anno>Index</anno></c> and increases by <c><anno>Step</anno></c>
+          in each step.</p>
+        <p>That is, <c>enumerate/3</c> behaves as if it had been defined as follows:</p>
         <code type="erl">
-enumerate(List) ->
-  {List1, _ } = lists:mapfoldl(fun(T, Acc) -> {{Acc, T}, Acc+1} end, 1, List),
+enumerate(I, S, List) ->
+  {List1, _ } = lists:mapfoldl(fun(T, Acc) -> {{Acc, T}, Acc+S} end, I, List),
   List1.</code>
-        <p><em>Example:</em></p>
+        <p>The default values for <c><anno>Index</anno></c> and
+	  <c><anno>Step</anno></c> are both <c>1</c>.</p>
+        <p><em>Examples:</em></p>
         <pre>
 > <input>lists:enumerate([a,b,c]).</input>
 [{1,a},{2,b},{3,c}]</pre>
-      </desc>
-    </func>
-    
-    <func>
-      <name name="enumerate" arity="2" since="OTP 25.0"/>
-      <fsummary>Annotates elements with their index.</fsummary>
-      <desc>
-        <p>Returns <c><anno>List1</anno></c> with each element
-        <c>H</c> replaced by a tuple of form <c>{I, H}</c> where
-        <c>I</c> is the position of <c>H</c> in
-        <c><anno>List1</anno></c>. The enumeration starts with
-        <c><anno>Index</anno></c> and increases by 1 in each step.</p>
-        <p>That is, <c>enumerate/2</c> behaves as if it had been defined as follows:</p>
-        <code type="erl">
-enumerate(I, List) ->
-  {List1, _ } = lists:mapfoldl(fun(T, Acc) -> {{Acc, T}, Acc+1} end, I, List),
-  List1.</code>
-        <p><em>Example:</em></p>
         <pre>
 > <input>lists:enumerate(10, [a,b,c]).</input>
 [{10,a},{11,b},{12,c}]</pre>
+        <pre>
+> <input>lists:enumerate(0, -2, [a,b,c]).</input>
+[{0,a},{-2,b},{-4,c}]</pre>
       </desc>
     </func>
     
@@ -1069,35 +1059,69 @@ splitwith(Pred, List) ->
 
     <func>
       <name name="zip" arity="2" since=""/>
+      <name name="zip" arity="3" since="OTP @OTP-18318@"/>
       <fsummary>Zip two lists into a list of two-tuples.</fsummary>
       <desc>
-        <p>"Zips" two lists of equal length into one list of two-tuples,
+        <p>"Zips" two lists into one list of two-tuples,
           where the first element of each tuple is taken from the first
           list and the second element is taken from the corresponding
           element in the second list.</p>
+  <p>The <c><anno>How</anno></c> parameter specifies the behavior
+          if the given lists are of different lengths.</p>
+        <taglist>
+          <tag><c>fail</c></tag>
+	  <item>The call will fail if the given lists are not of equal
+            length. This is the default.</item>
+          <tag><c>trim</c></tag>
+	  <item>Surplus elements from the longer list will be ignored.
+            <p><em>Examples:</em></p>
+            <pre>
+> <input>lists:zip([a, b], [1, 2, 3], trim).</input>
+[{a,1},{b,2}]
+> <input>lists:zip([a, b, c], [1, 2], trim).</input>
+[{a,1},{b,2}]</pre>
+          </item>
+          <tag><c>{pad, Defaults}</c></tag>
+	  <item>The shorter list will be padded to the length of the
+            longer list, using the respective elements from the given
+            <c>Defaults</c> tuple.
+	    <p><em>Examples:</em></p>
+            <pre>
+> <input>lists:zip([a, b], [1, 2, 3], {pad, {x, 0}}).</input>
+[{a,1},{b,2},{x,3}]
+> <input>lists:zip([a, b, c], [1, 2], {pad, {x, 0}}).</input>
+[{a,1},{b,2},{c,0}]</pre>
+          </item>
+        </taglist>
       </desc>
     </func>
 
     <func>
       <name name="zip3" arity="3" since=""/>
+      <name name="zip3" arity="4" since="OTP @OTP-18318@"/>
       <fsummary>Zip three lists into a list of three-tuples.</fsummary>
       <desc>
-        <p>"Zips" three lists of equal length into one list of
+        <p>"Zips" three lists into one list of
           three-tuples, where the first element of each tuple is taken
           from the first list, the second element is taken from
           the corresponding element in the second list, and the third
           element is taken from the corresponding element in the third list.</p>
+        <p>For a description of the <c><anno>How</anno></c> parameter, see
+          <seemfa marker="#zip/3"><c>zip/3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
       <name name="zipwith" arity="3" since=""/>
+      <name name="zipwith" arity="4" since="OTP @OTP-18318@"/>
       <fsummary>Zip two lists into one list according to a fun.</fsummary>
       <desc>
-        <p>Combines the elements of two lists of equal length into one list.
+        <p>Combines the elements of two lists into one list.
           For each pair <c><anno>X</anno>, <anno>Y</anno></c> of list elements
           from the two lists, the element in the result list is
           <c><anno>Combine</anno>(<anno>X</anno>, <anno>Y</anno>)</c>.</p>
+        <p>For a description of the <c><anno>How</anno></c> parameter, see
+          <seemfa marker="#zip/3"><c>zip/3</c></seemfa>.</p>
         <p><c>zipwith(fun(X, Y) -> {X,Y} end, List1, List2)</c> is
           equivalent to <c>zip(List1, List2)</c>.</p>
         <p><em>Example:</em></p>
@@ -1109,13 +1133,16 @@ splitwith(Pred, List) ->
 
     <func>
       <name name="zipwith3" arity="4" since=""/>
+      <name name="zipwith3" arity="5" since="OTP @OTP-18318@"/>
       <fsummary>Zip three lists into one list according to a fun.</fsummary>
       <desc>
-        <p>Combines the elements of three lists of equal length into one
+        <p>Combines the elements of three lists into one
           list. For each triple <c><anno>X</anno>, <anno>Y</anno>,
           <anno>Z</anno></c> of list elements from the three lists, the element
           in the result list is <c><anno>Combine</anno>(<anno>X</anno>,
           <anno>Y</anno>, <anno>Z</anno>)</c>.</p>
+        <p>For a description of the <c><anno>How</anno></c> parameter, see
+          <seemfa marker="#zip/3"><c>zip/3</c></seemfa>.</p>
         <p><c>zipwith3(fun(X, Y, Z) -> {X,Y,Z} end, List1, List2, List3)</c> is
           equivalent to <c>zip3(List1, List2, List3)</c>.</p>
         <p><em>Examples:</em></p>

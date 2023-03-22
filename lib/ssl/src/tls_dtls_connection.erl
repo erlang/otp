@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,6 +62,9 @@
          connection/3,
          downgrade/3,
          gen_handshake/4]).
+
+%% Tracing
+-export([handle_trace/3]).
 
 %%--------------------------------------------------------------------
 -spec internal_renegotiation(pid(), ssl_record:connection_states()) ->
@@ -171,7 +174,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = ssl:handle_options(NewOptions, Role, Options0),
+    Options = ssl:update_options(NewOptions, Role, Options0),
     State = ssl_gen_statem:ssl_config(Options, Role, State0),
     {next_state, hello, State#state{start_or_recv_from = From,
                                     handshake_env = HSEnv#handshake_env{continue_status = continue}
@@ -252,9 +255,10 @@ abbreviated(internal,
                    handshake_env = HsEnv} = State) ->
     ConnectionStates1 =
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
-    Connection:next_event(?FUNCTION_NAME, no_record, State#state{connection_states = 
-                                                                     ConnectionStates1,                                                   
-                                                                 handshake_env = HsEnv#handshake_env{expecting_finished = true}});
+    Connection:next_event(?FUNCTION_NAME, no_record,
+                          State#state{connection_states =
+                                          ConnectionStates1,
+                                      handshake_env = HsEnv#handshake_env{expecting_finished = true}});
 abbreviated(info, Msg, State) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 abbreviated(internal, #hello_request{}, _) ->
@@ -275,24 +279,28 @@ wait_ocsp_stapling(internal, #certificate{},
 %% Receive OCSP staple message
 wait_ocsp_stapling(internal, #certificate_status{} = CertStatus,
                    #state{static_env = #static_env{protocol_cb = _Connection},
-                          handshake_env = #handshake_env{
-                                             ocsp_stapling_state = OcspState} = HsEnv} = State) ->
-    {next_state, certify, State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =
-                                                                              OcspState#{ocsp_expect => stapled,
-                                                                                         ocsp_response => CertStatus}}}};
+                          handshake_env =
+                              #handshake_env{ocsp_stapling_state = OcspState} = HsEnv} = State) ->
+    {next_state, certify,
+     State#state{handshake_env =
+                     HsEnv#handshake_env{ocsp_stapling_state =
+                                             OcspState#{ocsp_expect => stapled,
+                                                        ocsp_response => CertStatus}}}};
 %% Server did not send OCSP staple message
-wait_ocsp_stapling(internal, Msg, #state{static_env = #static_env{protocol_cb = _Connection},
-                                         handshake_env = #handshake_env{
-                                                            ocsp_stapling_state = OcspState} = HsEnv} = State)
+wait_ocsp_stapling(internal, Msg,
+                   #state{static_env = #static_env{protocol_cb = _Connection},
+                          handshake_env = #handshake_env{
+                                             ocsp_stapling_state = OcspState} = HsEnv} = State)
   when is_record(Msg, server_key_exchange) orelse
        is_record(Msg, hello_request) orelse
        is_record(Msg, certificate_request) orelse
        is_record(Msg, server_hello_done) orelse
        is_record(Msg, client_key_exchange) ->
-    {next_state, certify, State#state{handshake_env =
-                                          HsEnv#handshake_env{ocsp_stapling_state = OcspState#{ocsp_expect => undetermined}}},
+    {next_state, certify,
+     State#state{handshake_env =
+                     HsEnv#handshake_env{ocsp_stapling_state =
+                                             OcspState#{ocsp_expect => undetermined}}},
      [{postpone, true}]};
-
 wait_ocsp_stapling(internal, #hello_request{}, _) ->
     keep_state_and_data;
 wait_ocsp_stapling(Type, Event, State) ->
@@ -686,7 +694,8 @@ downgrade(Type, Event, State) ->
 gen_handshake(StateName, Type, Event, State) ->
     try
         tls_dtls_connection:StateName(Type, Event, State)
-    catch error:_ ->
+    catch error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end.
 
@@ -718,8 +727,12 @@ handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
 					  end, [], Seed)),
 		ssl_handshake:prf(ssl:tls_version(Version), PRFAlgorithm, SecretToUse, Label, SeedToUse, WantedLength)
 	    catch
-		exit:_ -> {error, badarg};
-		error:Reason -> {error, Reason}
+		exit:Reason:ST ->
+                    ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
+                    {error, badarg};
+		error:Reason:ST ->
+                    ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
+                    {error, Reason}
 	    end,
     {keep_state_and_data, [{reply, From, Reply}]};
 handle_call(Msg, From, StateName, State) ->
@@ -1484,22 +1497,20 @@ generate_srp_server_keys(_SrpParams, 10) ->
 generate_srp_server_keys(SrpParams =
 			     #srp_user{generator = Generator, prime = Prime,
 				       verifier = Verifier}, N) ->
-    try crypto:generate_key(srp, {host, [Verifier, Generator, Prime, '6a']}) of
-	Keys ->
-	    Keys
+    try crypto:generate_key(srp, {host, [Verifier, Generator, Prime, '6a']})
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{error, Reason}, {stacktrace, ST}]),
 	    generate_srp_server_keys(SrpParams, N+1)
     end.
 
 generate_srp_client_keys(_Generator, _Prime, 10) ->
     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
 generate_srp_client_keys(Generator, Prime, N) ->
-    try crypto:generate_key(srp, {user, [Generator, Prime, '6a']}) of
-	Keys ->
-	    Keys
+    try crypto:generate_key(srp, {user, [Generator, Prime, '6a']})
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{error, Reason}, {stacktrace, ST}]),
 	    generate_srp_client_keys(Generator, Prime, N+1)
     end.
 
@@ -1721,3 +1732,11 @@ default_cert_key_pair_return(undefined, Session) ->
     Session;
 default_cert_key_pair_return(Default, _) ->
     Default.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, wait_ocsp_stapling, [Type, Msg | _]}}, Stack) ->
+    {io_lib:format("Type = ~w Msg = ~W", [Type, Msg, 10]), Stack}.

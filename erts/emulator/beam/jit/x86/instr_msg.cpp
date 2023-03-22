@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,12 +75,12 @@ void BeamModuleAssembler::emit_i_recv_set() {
 #endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
 
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<1>(erts_msgq_recv_marker_insert);
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     mov_arg(Dst, RET);
 }
@@ -183,8 +183,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
         comment("Inner queue empty, fetch more from outer/middle queues");
 
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
         a.mov(message_ptr, imm(0));
         a.mov(ARG1, c_p);
@@ -204,8 +203,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
          * Also note that another process may have loaded new code and sent us
          * a message to notify us about it, so we must update the active code
          * index. */
-        emit_leave_runtime<Update::eStack | Update::eHeap |
-                           Update::eCodeIndex>();
+        emit_leave_runtime<Update::eHeapAlloc | Update::eCodeIndex>();
 
         a.sub(FCALLS, RET);
 
@@ -325,7 +323,7 @@ void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
 
     emit_leave_runtime();
 
-    abs_jmp(ga->get_do_schedule());
+    a.jmp(resolve_fragment(ga->get_do_schedule()));
 }
 
 void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
@@ -337,7 +335,7 @@ void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
 
     emit_leave_runtime();
 
-    abs_jmp(ga->get_do_schedule());
+    a.jmp(resolve_fragment(ga->get_do_schedule()));
 }
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
@@ -375,7 +373,7 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgSource &Src,
     a.short_().jl(next);
 #endif
 
-    emit_raise_exception(currLabel, (ErtsCodeMFA *)nullptr);
+    emit_raise_exception(current_label, (ErtsCodeMFA *)nullptr);
 
     a.bind(wait);
     emit_wait_locked(Dest);

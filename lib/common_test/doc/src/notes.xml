@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2022</year>
+      <year>2004</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,55 @@
     <rev>A</rev>
     <file>notes.xml</file>
     </header>
+
+<section><title>Common_Test 1.24</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Renamed undocumented macro <c>CT_PEER/3</c> to
+	    <c>CT_PEER_REL/3</c>.</p>
+          <p>
+	    Own Id: OTP-18460</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.23.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Change timeout to infinity for gen_server calls in
+	    cth_log_redirect</p>
+          <p>
+	    Own Id: OTP-18363 Aux Id: ERIERL-879 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.23.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix starting of peer nodes on old releases when the
+	    compile server was active and the current Erlang
+	    installation contained non-latin1 characters in its path.</p>
+          <p>
+	    Own Id: OTP-18255 Aux Id: PR-6314 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Common_Test 1.23.1</title>
 
@@ -114,6 +163,22 @@
 	    greatly for test runs with many test cases.</p>
           <p>
 	    Own Id: OTP-17882 Aux Id: PR-5581 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.22.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Change timeout to infinity for gen_server calls in
+	    cth_log_redirect</p>
+          <p>
+	    Own Id: OTP-18363 Aux Id: ERIERL-879 </p>
         </item>
       </list>
     </section>

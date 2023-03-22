@@ -1,7 +1,7 @@
 dnl -*-Autoconf-*-
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2022. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2023. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -1415,6 +1415,9 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
     ethr_arm_dbm_sy_instr_val=0
     ethr_arm_dbm_st_instr_val=0
     ethr_arm_dbm_ld_instr_val=0
+    ethr_arm_isb_sy_instr_val=0
+    ethr_arm_dc_cvau_instr_val=0
+    ethr_arm_ic_ivau_instr_val=0
     AS_CASE(
       ["$GCC-$host_cpu"],
       [yes-arm*|yes-aarch*],
@@ -1451,11 +1454,45 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 	    if test $ethr_cv_arm_dbm_ld_instr = yes; then
 		ethr_arm_dbm_ld_instr_val=1
 	    fi
+	    AC_CACHE_CHECK([for ARM 'isb sy' instruction], ethr_cv_arm_isb_sy_instr,
+			   [
+				ethr_cv_arm_isb_sy_instr=no
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
+						__asm__ __volatile__("isb sy" : : : "memory");
+					    ]])],[ethr_cv_arm_isb_sy_instr=yes],[])
+			   ])
+	    if test $ethr_cv_arm_isb_sy_instr = yes; then
+		ethr_arm_isb_sy_instr_val=1
+	    fi
+	    AC_CACHE_CHECK([for ARM 'dc cvau' instruction], ethr_cv_arm_dc_cvau_instr,
+			   [
+				ethr_cv_arm_dc_cvau_instr=no
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
+						char data[512]; __asm__ __volatile__("dc cvau, %0" : "r" (data) : : "memory");
+					    ]])],[ethr_cv_arm_dc_cvau_instr=yes],[])
+			   ])
+	    if test $ethr_cv_arm_dc_cvau_instr = yes; then
+		ethr_arm_dc_cvau_instr_val=1
+	    fi
+	    AC_CACHE_CHECK([for ARM 'ic ivau' instruction], ethr_cv_arm_ic_ivau_instr,
+			   [
+				ethr_cv_arm_ic_ivau_instr=no
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
+						char data[512]; __asm__ __volatile__("ic ivau, %0" : "r" (data) : : "memory");
+					    ]])],[ethr_cv_arm_ic_ivau_instr=yes],[])
+			   ])
+	    if test $ethr_cv_arm_ic_ivau_instr = yes; then
+		ethr_arm_ic_ivau_instr_val=1
+	    fi
       ])
 
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_sy_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb sy' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION], [$ethr_arm_dbm_st_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb st' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION], [$ethr_arm_dbm_ld_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb ld' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_ISB_SY_INSTRUCTION], [$ethr_arm_isb_sy_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'isb sy' instruction, and are compiling for an ARM processor with ARM ISB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION], [$ethr_arm_dc_cvau_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dc cvau' instruction, and are compiling for an ARM processor with ARM DC instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION], [$ethr_arm_ic_ivau_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'ic ivau' instruction, and are compiling for an ARM processor with ARM IC instruction support, or not])
+
     test $ethr_cv_32bit___sync_val_compare_and_swap = yes &&
     	ethr_have_gcc_native_atomics=yes
     test $ethr_cv_64bit___sync_val_compare_and_swap = yes &&
@@ -1480,27 +1517,30 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 AC_DEFUN(ETHR_CHK_INTERLOCKED,
 [
     ilckd="$1"
-    AC_MSG_CHECKING([for ${ilckd}()])
     case "$2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, ($3) 0);";;
 	"3") ilckd_call="${ilckd}(var, ($3) 0, ($3) 0);";;
 	"4") ilckd_call="${ilckd}(var, ($3) 0, ($3) 0, arr);";;
     esac
-    have_interlocked_op=no
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
-	]], [[
-	    volatile $3 *var;
-	    volatile $3 arr[2];
+    AC_CACHE_CHECK([for ${ilckd}()],ethr_cv_have_$1,
+        [ethr_cv_have_$1=no
+         AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
+	   ]], [[
+	     volatile $3 *var;
+	     volatile $3 arr[2];
 
-	    $ilckd_call
-	    return 0;
-	]])],[have_interlocked_op=yes],[])
-    test $have_interlocked_op = yes && $4
-    AC_MSG_RESULT([$have_interlocked_op])
+	      $ilckd_call
+	      return 0;
+	   ]])],[ethr_cv_have_$1=yes],[])])
+    if [[ "${ethr_cv_have_$1}" = "yes" ]]; then
+      $4
+    else
+      m4_default([$5], [:])
+    fi
 ])
 
 dnl ----------------------------------------------------------------------
@@ -1687,13 +1727,15 @@ AS_CASE(
 	    ETHR_CHK_INTERLOCKED([_InterlockedAnd], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDAND, 1, [Define if you have _InterlockedAnd()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedOr], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDOR, 1, [Define if you have _InterlockedOr()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedExchange], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGE, 1, [Define if you have _InterlockedExchange()]))
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE, 1, [Define if you have _InterlockedCompareExchange()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_acq], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_ACQ, 1, [Define if you have _InterlockedCompareExchange_acq()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_rel], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_REL, 1, [Define if you have _InterlockedCompareExchange_rel()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange], [3], [long],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE, 1, [Define if you have _InterlockedCompareExchange()])
+               ethr_have_native_atomics=yes])
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_acq], [3], [long],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_ACQ, 1, [Define if you have _InterlockedCompareExchange_acq()])
+               ethr_have_native_atomics=yes])
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_rel], [3], [long],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_REL, 1, [Define if you have _InterlockedCompareExchange_rel()])
+              ethr_have_native_atomics=yes])
 	    ETHR_CHK_INTERLOCKED([_InterlockedDecrement64], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT64, 1, [Define if you have _InterlockedDecrement64()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedDecrement64_rel], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT64_REL, 1, [Define if you have _InterlockedDecrement64_rel()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedIncrement64], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT64, 1, [Define if you have _InterlockedIncrement64()]))
@@ -1703,13 +1745,15 @@ AS_CASE(
 	    ETHR_CHK_INTERLOCKED([_InterlockedAnd64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDAND64, 1, [Define if you have _InterlockedAnd64()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedOr64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDOR64, 1, [Define if you have _InterlockedOr64()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedExchange64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGE64, 1, [Define if you have _InterlockedExchange64()]))
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64, 1, [Define if you have _InterlockedCompareExchange64()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_acq], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_ACQ, 1, [Define if you have _InterlockedCompareExchange64_acq()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_rel], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_REL, 1, [Define if you have _InterlockedCompareExchange64_rel()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64], [3], [__int64],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64, 1, [Define if you have _InterlockedCompareExchange64()])
+               ethr_have_native_atomics=yes])
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_acq], [3], [__int64],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_ACQ, 1, [Define if you have _InterlockedCompareExchange64_acq()])
+               ethr_have_native_atomics=yes])
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_rel], [3], [__int64],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_REL, 1, [Define if you have _InterlockedCompareExchange64_rel()])
+               ethr_have_native_atomics=yes])
 	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange128], [4], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE128, 1, [Define if you have _InterlockedCompareExchange128()]))
 	fi
 	if test "$ethr_have_native_atomics" = "yes"; then

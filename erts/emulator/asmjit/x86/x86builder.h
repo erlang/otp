@@ -36,7 +36,9 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! // Small helper function to print the current content of `cb`.
 //! static void dumpCode(BaseBuilder& builder, const char* phase) {
 //!   String sb;
-//!   builder.dump(sb);
+//!   formatOptions formatOptions {};
+//!
+//!   Formatter::formatNodeList(sb, formatOptions, &builder);
 //!   printf("%s:\n%s\n", phase, sb.data());
 //! }
 //!
@@ -44,7 +46,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create JIT Runtime.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Builder cb(&code);           // Create and attach x86::Builder to `code`.
 //!
 //!   // Decide which registers will be mapped to function arguments. Try changing registers

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@
 %% Undocumented or unsupported
 -export([unrecv/2]).
 -export([fdopen/2]).
+-export([socket_setopts/2]).
 
 
 %% gen_statem callbacks
@@ -915,6 +916,12 @@ socket_setopt(Socket, DomainProps, Value) when is_list(DomainProps) ->
 
 socket_setopt_value({socket,linger}, {OnOff, Linger}) ->
     #{onoff => OnOff, linger => Linger};
+socket_setopt_value({socket,bindtodevice}, DeviceBin)
+  when is_binary(DeviceBin) ->
+    %% Currently: 
+    %% prim_inet: Require that device is a binary()
+    %% socket:    Require that device is a string()
+    binary_to_list(DeviceBin);
 socket_setopt_value(_Opt, Value) -> Value.
 
 
@@ -1003,6 +1010,7 @@ ignore_optname(Tag) ->
         high_msgq_watermark -> true;
         high_watermark      -> true;
         low_msgq_watermark  -> true;
+        low_watermark       -> true;
         nopush              -> true;
         _ -> false
     end.
@@ -1023,7 +1031,6 @@ socket_opts() ->
       dontroute      => {socket, dontroute},
       keepalive      => {socket, keepalive},
       linger         => {socket, linger},
-      low_watermark  => {socket, rcvlowat},
       priority       => {socket, priority},
       recbuf         => {socket, rcvbuf},
       reuseaddr      => {socket, reuseaddr},
@@ -1145,7 +1152,7 @@ call(Server, Call) ->
     end.
 
 stop_server(Server) ->
-    try gen_statem:stop(Server) of
+    try gen_statem:stop(Server, {shutdown, closed}, infinity) of
         _ -> ok
     catch
         _:_ -> ok
@@ -2491,6 +2498,32 @@ tag(Packet) ->
         true ->
             tcp
     end.
+
+
+%% -------
+%% Exported socket option translation
+%%
+socket_setopts(Socket, Opts) ->
+    socket_setopts(
+      Socket,
+      [Opt ||
+          Opt <- internalize_setopts(Opts),
+          element(1, Opt) =/= tcp_module],
+      socket_opts()).
+%%
+socket_setopts(_Socket, [], _SocketOpts) ->
+    ok;
+socket_setopts(Socket, [{Tag,Val} | Opts], SocketOpts) ->
+    case SocketOpts of
+        #{ Tag := Name } ->
+            %% Ignore all errors as an approximation for
+            %% inet_drv ignoring most errors
+            _ = socket_setopt(Socket, Name, Val),
+            socket_setopts(Socket, Opts, SocketOpts);
+        #{} -> % Ignore
+            socket_setopts(Socket, Opts, SocketOpts)
+    end.
+
 
 %% -------
 %% setopts in server

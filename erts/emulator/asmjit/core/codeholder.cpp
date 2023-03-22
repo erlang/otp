@@ -74,6 +74,7 @@ static void CodeHolder_resetInternal(CodeHolder* self, ResetPolicy resetPolicy) 
 
   // Reset everything into its construction state.
   self->_environment.reset();
+  self->_cpuFeatures.reset();
   self->_baseAddress = Globals::kNoBaseAddress;
   self->_logger = nullptr;
   self->_errorHandler = nullptr;
@@ -118,6 +119,7 @@ static void CodeHolder_onSettingsUpdated(CodeHolder* self) noexcept {
 
 CodeHolder::CodeHolder(const Support::Temporary* temporary) noexcept
   : _environment(),
+    _cpuFeatures{},
     _baseAddress(Globals::kNoBaseAddress),
     _logger(nullptr),
     _errorHandler(nullptr),
@@ -143,6 +145,10 @@ inline void CodeHolder_setSectionDefaultName(
 }
 
 Error CodeHolder::init(const Environment& environment, uint64_t baseAddress) noexcept {
+  return init(environment, CpuFeatures{}, baseAddress);
+}
+
+Error CodeHolder::init(const Environment& environment, const CpuFeatures& cpuFeatures, uint64_t baseAddress) noexcept {
   // Cannot reinitialize if it's locked or there is one or more emitter attached.
   if (isInitialized())
     return DebugUtils::errored(kErrorAlreadyInitialized);
@@ -172,6 +178,7 @@ Error CodeHolder::init(const Environment& environment, uint64_t baseAddress) noe
   }
   else {
     _environment = environment;
+    _cpuFeatures = cpuFeatures;
     _baseAddress = baseAddress;
     return kErrorOk;
   }

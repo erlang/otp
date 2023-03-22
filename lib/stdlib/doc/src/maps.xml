@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2013</year><year>2022</year>
+      <year>2013</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,16 +42,42 @@
       <desc>
         <p>An iterator representing the associations in a map with keys of type
           <c><anno>Key</anno></c> and values of type <c><anno>Value</anno></c>.</p>
-        <p>Created using <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>.</p>
-        <p>Consumed by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>,
-          <seemfa marker="#filter/2"><c>maps:filter/2</c></seemfa>,
-          <seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa> and
-          <seemfa marker="#map/2"><c>maps:map/2</c></seemfa>.</p>
+        <p>Created using <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa> or
+          <seemfa marker="#iterator/2"><c>maps:iterator/2</c></seemfa>.</p>
+        <p>Consumed by:</p>
+        <list type="bulleted">
+          <item><seemfa marker="#next/1"><c>maps:next/1</c></seemfa></item>
+          <item><seemfa marker="#filter/2"><c>maps:filter/2</c></seemfa></item>
+          <item><seemfa marker="#filtermap/2"><c>maps:filtermap/2</c></seemfa></item>
+          <item><seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa></item>
+          <item><seemfa marker="#foreach/2"><c>maps:foreach/2</c></seemfa></item>
+          <item><seemfa marker="#map/2"><c>maps:map/2</c></seemfa></item>
+          <item><seemfa marker="#to_list/1"><c>maps:to_list/1</c></seemfa></item>
+        </list>
       </desc>
     </datatype>
 
     <datatype>
       <name name="iterator" n_vars="0"/>
+    </datatype>
+
+    <datatype>
+      <name name="iterator_order" n_vars="1"/>
+      <desc>
+        <p>Key-based iterator order option that can be one of <c>undefined</c>
+          (default for <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>),
+          <c>ordered</c> (sorted in map-key order), <c>reversed</c>,
+          or a custom sorting function.</p>
+        <p>Used by <seemfa marker="#iterator/2"><c>maps:iterator/2</c></seemfa>.</p>
+        <p>The
+        <seeguide
+            marker="system/reference_manual:expressions#term-comparisons">
+          Expressions section</seeguide> contains descriptions of how terms are ordered.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="iterator_order" n_vars="0"/>
     </datatype>
   </datatypes>
 
@@ -87,7 +113,7 @@
           returns <c>true</c>, the association is copied to the result map. If
           it returns <c>false</c>, the association is not copied. If it returns
           <c>{true, NewValue}</c>, the value for <c><anno>Key</anno></c> is
-          replaced with <c>NewValue</c>at this position is replaced in the
+          replaced with <c>NewValue</c> at this position is replaced in the
           result map.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
@@ -232,15 +258,19 @@ val1
 
     <func>
       <name name="groups_from_list" arity="2" since="OTP 25.0"/>
-      <fsummary>Splits the list into groups using a function as discriminator.</fsummary>
+      <fsummary>Partitions a list into groups using a function as discriminator.</fsummary>
       <desc>
-        <p>The result is a map where each key is given by <anno>Fun</anno>
-        and each value is a list of elements. The order of elements within
-        each list is preserved from the list.</p>
+        <p>Partitions the given <c><anno>List</anno></c> into a map of groups.</p>
+        <p>The result is a map where each key is given by <c><anno>KeyFun</anno></c>
+          and each value is a list of elements from the given <c><anno>List</anno></c>
+          for which <c><anno>KeyFun</anno></c> returned the same key.</p>
+        <p>The order of elements within each group list is preserved from the original
+          list.</p>
         <p><em>Examples:</em></p>
         <pre>
-> <input>maps:groups_from_list(fun(X) -> X rem 2 end, [1,2,3]).</input>
-#{0 => [2], 1 => [1, 3]}
+> <input>EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,</input>
+<input>maps:groups_from_list(EvenOdd, [1, 2, 3]).</input>
+#{even => [2], odd => [1, 3]}
 > <input>maps:groups_from_list(fun erlang:length/1, ["ant", "buffalo", "cat", "dingo"]).</input>
 #{3 => ["ant", "cat"], 5 => ["dingo"], 7 => ["buffalo"]}</pre>
       </desc>
@@ -248,18 +278,26 @@ val1
 
     <func>
       <name name="groups_from_list" arity="3" since="OTP 25.0"/>
-      <fsummary>Splits the list into groups using a function as discriminator.</fsummary>
+      <fsummary>Partitions a list into groups using a function as discriminator.</fsummary>
       <desc>
-        <p>The result is a map where each key is given by
-        <anno>Fun</anno> and each value is a list of elements given by
-        the <anno>ValueFun</anno>. The order of elements within each
-        list is preserved from the list.</p>
+        <p>Partitions the given <c><anno>List</anno></c> into a map of groups.</p>
+        <p>The result is a map where each key is given by <c><anno>KeyFun</anno></c>
+          and each value is a list of elements from the given <c><anno>List</anno></c>,
+          mapped via <c><anno>ValueFun</anno></c>, for which <c><anno>KeyFun</anno></c>
+          returned the same key.</p>
+        <p>The order of elements within each group list is preserved from the
+          original list.</p>
         <p><em>Examples:</em></p>
         <pre>
-> <input>maps:groups_from_list(fun(X) -> X rem 2 end, fun(X) -> X*X end, [1,2,3]).</input>
-#{0 => [4], 1 => [1, 9]}
-> <input>maps:groups_from_list(fun erlang:length/1, fun lists:reverse/1, ["ant", "buffalo", "cat", "dingo"]).</input>
-#{3 => ["tna","tac"],5 => ["ognid"],7 => ["olaffub"]}</pre>
+> <input>EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,</input>
+> <input>Square = fun(X) -> X * X end,</input>
+> <input>maps:groups_from_list(EvenOdd, Square, [1, 2, 3]).</input>
+#{even => [4], odd => [1, 9]}
+> <input>maps:groups_from_list(</input>
+<input>    fun erlang:length/1,</input>
+<input>    fun lists:reverse/1,</input>
+<input>    ["ant", "buffalo", "cat", "dingo"]).</input>
+#{3 => ["tna", "tac"],5 => ["ognid"],7 => ["olaffub"]}</pre>
       </desc>
     </func>
 
@@ -353,6 +391,59 @@ ok
 {b,2}
 > maps:next(I3).
 none</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="iterator" arity="2" since="OTP 26.0"/>
+      <fsummary>Create a map iterator.</fsummary>
+      <desc>
+        <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
+          be used by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>
+          to traverse the key-value associations in a map sorted by key using
+          the given <c><anno>Order</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map or if <c><anno>Order</anno></c>
+          is invalid.</p>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is </em><c>ordered</c><em>):</em></p>
+        <code type="none"><![CDATA[
+> M = #{ a => 1, b => 2 }.
+#{a => 1,b => 2}
+> OrdI = maps:iterator(M, ordered), ok.
+ok
+> {K1, V1, OrdI2} = maps:next(OrdI), {K1, V1}.
+{a,1}
+> {K2, V2, OrdI3} = maps:next(OrdI2),{K2, V2}.
+{b,2}
+> maps:next(OrdI3).
+none
+     ]]></code>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is </em><c>reversed</c><em>):</em></p>
+        <code type="none"><![CDATA[
+> M = #{ a => 1, b => 2 }.
+#{a => 1,b => 2}
+> RevI = maps:iterator(M, reversed), ok.
+ok
+> {K2, V2, RevI2} = maps:next(RevI), {K2, V2}.
+{b,2}
+> {K1, V1, RevI3} = maps:next(RevI2),{K1, V1}.
+{a,1}
+> maps:next(RevI3).
+none
+     ]]></code>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is an arithmetic sorting function):</em></p>
+        <code type="none"><![CDATA[
+> M = #{ -1 => a, -1.0 => b, 0 => c, 0.0 => d }.
+#{-1 => a,0 => c,-1.0 => b,0.0 => d}
+> ArithOrdI = maps:iterator(M, fun(A, B) -> A =< B end), ok.
+ok
+> maps:to_list(ArithOrdI).
+[{-1,a},{-1.0,b},{0,c},{0.0,d}]
+> ArithRevI = maps:iterator(M, fun(A, B) -> B < A end), ok.
+ok
+> maps:to_list(ArithRevI).
+[{0.0,d},{0,c},{-1.0,b},{-1,a}]
+     ]]></code>
       </desc>
     </func>
 
@@ -570,15 +661,24 @@ error</code>
       <fsummary></fsummary>
       <desc>
         <p>Returns a list of pairs representing the key-value associations of
-          <c><anno>Map</anno></c>, where the pairs
+          <c><anno>MapOrIterator</anno></c>, where the pairs
           <c>[{K1,V1}, ..., {Kn,Vn}]</c> are returned in arbitrary order.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
-          <c><anno>Map</anno></c> is not a map.</p>
+        <c><anno>MapOrIterator</anno></c> is not a map or an iterator obtained
+        by a call to <seemfa marker="#iterator/1">iterator/1</seemfa> or
+        <seemfa marker="#iterator/2">iterator/2</seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
   maps:to_list(Map).
 [{42,value_three},{1337,"value two"},{"a",1}]</code>
+        <p><em>Example (using </em><seemfa marker="#iterator/2">iterator/2</seemfa><em>):</em></p>
+<code type="none"><![CDATA[
+> Map = #{ z => 1, y => 2, x => 3 }.
+#{x => 3,y => 2,z => 1}
+> maps:to_list(maps:iterator(Map, ordered)).
+[{x,3},{y,2},{z,1}]
+     ]]></code>
       </desc>
     </func>
 

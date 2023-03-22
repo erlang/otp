@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2009-2016. All Rights Reserved.
+# Copyright Ericsson AB 2009-2023. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ my %Names = ('msg' => ['dns_rec', 'header', 'qdlist',
 	     'dns_rr' => ['dns_rr', 'domain', 'type', 'class', 'ttl', 'data'],
 	     'dns_rr_opt' => ['dns_rr_opt', 'domain', 'type',
 			      'udp_payload_size', 'ext_rcode', 'version',
-			      'z', 'data'],
+			      'z', 'data', 'do'],
 	     'dns_query' => ['dns_query', 'domain', 'type', 'class'],
 	     'header' => ['dns_header', 'id', 'qr', 'opcode', 'aa', 'tc',
 			  'rd', 'ra', 'pr', 'rcode']);

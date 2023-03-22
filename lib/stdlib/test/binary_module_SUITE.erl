@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1462,10 +1462,15 @@ error_info(_Config) ->
          {split, [<<1,2,3>>, {bm,make_ref()}, []]},
          {split, [<<1,2,3>>, <<"2">>, [bad_option]]},
 
-         {encode_hex, [{no,a,binary}]},
-         {decode_hex, [{no,a,binary}]},
-         {decode_hex, [<<"000">>],[allow_rename]},
-         {decode_hex, [<<"GG">>],[allow_rename]}
+         {encode_hex, [{no,binary}]},
+         {encode_hex, [{no,binary}, lowercase]},
+         {encode_hex, [<<"foobar">>, othercase]},
+         {encode_hex, [no_binary, othercase], [{1,".*"}, {2,".*"}]},
+
+         {decode_hex, [{no,binary}]},
+         {decode_hex, [<<"000">>]},
+         {decode_hex, [<<"GG">>]},
+         {decode_hex, [<<255>>]}
         ],
     error_info_lib:test_error_info(binary, L).
 
@@ -1478,6 +1483,23 @@ hex_encoding(Config) when is_list(Config) ->
     <<"666F6F62">> = binary:encode_hex(<<"foob">>),
     <<"666F6F6261">> = binary:encode_hex(<<"fooba">>),
     <<"666F6F626172">> = binary:encode_hex(<<"foobar">>),
+
+
+    <<>> = binary:encode_hex(<<>>, uppercase),
+    <<"66">> = binary:encode_hex(<<"f">>, uppercase),
+    <<"666F">> = binary:encode_hex(<<"fo">>, uppercase),
+    <<"666F6F">> = binary:encode_hex(<<"foo">>, uppercase),
+    <<"666F6F62">> = binary:encode_hex(<<"foob">>, uppercase),
+    <<"666F6F6261">> = binary:encode_hex(<<"fooba">>, uppercase),
+    <<"666F6F626172">> = binary:encode_hex(<<"foobar">>, uppercase),
+
+    <<>> = binary:encode_hex(<<>>, lowercase),
+    <<"66">> = binary:encode_hex(<<"f">>, lowercase),
+    <<"666f">> = binary:encode_hex(<<"fo">>, lowercase),
+    <<"666f6f">> = binary:encode_hex(<<"foo">>, lowercase),
+    <<"666f6f62">> = binary:encode_hex(<<"foob">>, lowercase),
+    <<"666f6f6261">> = binary:encode_hex(<<"fooba">>, lowercase),
+    <<"666f6f626172">> = binary:encode_hex(<<"foobar">>, lowercase),
 
     <<>> = binary:decode_hex(<<>>),
     <<"f">> = binary:decode_hex(<<"66">>),
@@ -1494,7 +1516,28 @@ hex_encoding(Config) when is_list(Config) ->
     <<"foobar">> = binary:decode_hex(<<"666f6f626172">>),
 
     <<"foobar">> = binary:decode_hex(<<"666f6F626172">>),
+
+    rand:seed(default),
+    io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
+    Bytes = iolist_to_binary([rand:bytes(256), lists:seq(0, 255)]),
+    do_hex_roundtrip(Bytes),
+
     ok.
+
+do_hex_roundtrip(Bytes) ->
+    UpperHex = binary:encode_hex(Bytes),
+    UpperHex = binary:encode_hex(Bytes, uppercase),
+    LowerHex = binary:encode_hex(Bytes, lowercase),
+
+    Bytes = binary:decode_hex(UpperHex),
+    Bytes = binary:decode_hex(LowerHex),
+
+    case Bytes of
+        <<_, Rest/binary>> ->
+            do_hex_roundtrip(Rest);
+        <<>> ->
+            ok
+    end.
 
 %%%
 %%% Utilities.

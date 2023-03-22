@@ -748,6 +748,11 @@
                 1
         end).
 
+-define(START_NODE(NamePre),
+        ?START_NODE(NamePre, 5000)).
+-define(START_NODE(NamePre, Timeout),
+        start_node(?CT_PEER_NAME(NamePre), Timeout)).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -23814,16 +23819,9 @@ api_to_connect_tcp(InitState) ->
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create node",
-           cmd  => fun(#{host := Host} = State) ->
-			   ?SEV_IPRINT("try create node on ~p", [Host]),
-                           case ?CT_PEER() of
-                               {ok, Peer, Node} ->
-                                   ?SEV_IPRINT("client node ~p started",
-                                               [Node]),
-                                   {ok, State#{node => Node, peer => Peer}};
-                               {error, Reason} ->
-                                   {skip, Reason}
-                           end
+           cmd  => fun(#{host := _Host} = State) ->
+                           {Peer, Node} = ?START_NODE("client"),
+                           {ok, State#{node => Node, peer => Peer}}
                    end},
          #{desc => "monitor client node",
            cmd  => fun(#{node := Node} = _State) ->
@@ -33020,17 +33018,10 @@ sc_rc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{node_id := NodeID} = State) ->
-                           case ?CT_PEER(#{name => ?CT_PEER_NAME(f("client_~w", [NodeID]))}) of
-                               {ok, Peer, Node} ->
-                                   ?SEV_IPRINT("client node ~p started",
-                                               [Node]),
-                                   {ok, State#{node => Node, peer => Peer}};
-                               {error, Reason} ->
-                                   ?SEV_EPRINT("failed starting "
-                                               "client node ~p (=> SKIP):"
-                                               "~n   ~p", [NodeID, Reason]),
-                                   {skip, Reason}
-                           end
+                           {Peer, Node} =
+                               ?START_NODE(?CT_PEER_NAME(f("client_~w",
+                                                           [NodeID]))),
+                           {ok, State#{node => Node, peer => Peer}}
                    end},
          #{desc => "monitor client node 1",
            cmd  => fun(#{node := Node} = _State) ->
@@ -34001,14 +33992,8 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
-                               {ok, Peer, Node} ->
-                                   ?SEV_IPRINT("client node ~p started",
-                                               [Node]),
-                                   {ok, State#{peer => Peer, node => Node}};
-                               {error, Reason} ->
-                                   {skip, Reason}
-                           end
+                           {Peer, Node} = ?START_NODE("client"),
+                           {ok, State#{peer => Peer, node => Node}}
                    end},
          #{desc => "monitor client node",
            cmd  => fun(#{node := Node} = _State) ->
@@ -38060,14 +38045,8 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
-                               {ok, Peer, Node} ->
-                                   ?SEV_IPRINT("(remote) client node ~p started",
-                                               [Node]),
-                                   {ok, State#{peer => Peer, node => Node}};
-                               {error, Reason} ->
-                                   {skip, Reason}
-                           end
+                           {Peer, Node} = ?START_NODE("client"),
+                           {ok, State#{peer => Peer, node => Node}}
                    end},
          #{desc => "monitor client node",
            cmd  => fun(#{node := Node} = _State) ->
@@ -39898,14 +39877,8 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
-                               {ok, Peer, Node} ->
-                                   ?SEV_IPRINT("(remote) client node ~p started", 
-                                               [Node]),
-                                   {ok, State#{peer => Peer, node => Node}};
-                               {error, Reason} ->
-                                   {skip, Reason}
-                           end
+                           {Peer, Node} = ?START_NODE("client"),
+                           {ok, State#{peer => Peer, node => Node}}
                    end},
          #{desc => "monitor client node",
            cmd  => fun(#{node := Node} = _State) ->
@@ -40891,14 +40864,8 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
-                               {ok, Peer, Node} ->
-                                   ?SEV_IPRINT("(remote) client node ~p started", 
-                                               [Node]),
-                                   {ok, State#{peer => Peer, node => Node}};
-                               {error, Reason} ->
-                                   {skip, Reason}
-                           end
+                           {Peer, Node} = ?START_NODE("client"),
+                           {ok, State#{peer => Peer, node => Node}}
                    end},
          #{desc => "monitor client node",
            cmd  => fun(#{node := Node} = _State) ->
@@ -46510,12 +46477,8 @@ ttest_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
-                               {ok, Peer, Node} ->
-                                   {ok, State#{peer => Peer, node => Node}};
-                               {error, Reason} ->
-                                   {skip, Reason}
-                           end
+                           {Peer, Node} = ?START_NODE("server"),
+                           {ok, State#{peer => Peer, node => Node}}
                    end},
          #{desc => "monitor server node",
            cmd  => fun(#{node := Node} = _State) ->
@@ -46675,12 +46638,8 @@ ttest_tcp(InitState) ->
                            %% we can no longer start "remote" nodes...
                            %% Not that we actually did that. We always
                            %% used local-host.
-                           case ?CT_PEER() of
-                               {ok, Peer, Node} ->
-                                   {ok, State#{peer => Peer, node => Node}};
-                               {error, Reason} ->
-                                   {skip, Reason}
-                           end
+                           {Peer, Node} = ?START_NODE("client"),
+                           {ok, State#{peer => Peer, node => Node}}
                    end},
          #{desc => "monitor client node",
            cmd  => fun(#{node := Node} = _State) ->
@@ -48873,6 +48832,31 @@ tc_which_name() ->
     
    
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% start_node(Name) ->
+%%     start_node(Name, 5000).
+
+start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
+    try ?CT_PEER(#{name => Name, wait_boot => Timeout}) of
+        {ok, Peer, Node} ->
+            ?SEV_IPRINT("Started node ~p", [Name]),
+            {Peer, Node};
+        {error, Reason} ->
+            ?SEV_EPRINT("failed starting node ~p (=> SKIP):"
+                        "~n   ~p", [Name, Reason]),
+            skip(Reason)
+    catch
+        Class:Reason:Stack ->
+            ?SEV_EPRINT("Failed starting node: "
+                        "~n   Class:  ~p"
+                        "~n   Reason: ~p"
+                        "~n   Stack:  ~p",
+                        [Class, Reason, Stack]),
+            skip({node_start, Class, Reason})
+    end.
+
+            
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 nowait(Config) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 	 do_update_op/3,
 	 get_info/1,
 	 get_transactions/0,
+         get_transactions_count/0,
 	 info/1,
 	 mnesia_down/1,
 	 prepare_checkpoint/2,
@@ -42,6 +43,7 @@
 	 put_activity_id/2,
 	 block_tab/1,
 	 unblock_tab/1,
+         sync/0,
 	 fixtable/3,
 	 new_cr_format/1
 	]).
@@ -205,6 +207,17 @@ block_tab(Tab) ->
 unblock_tab(Tab) ->
     req({unblock_tab, Tab}).
 
+fixtable(Tab, Lock, Me) ->
+    case req({fixtable, [Tab,Lock,Me]}) of
+	error ->
+	    exit({no_exists, Tab});
+	Else ->
+	    Else
+    end.
+
+sync() ->
+    req(sync).
+
 doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=Sup}=State) ->
     receive
 	{_From, {async_dirty, Tid, Commit, Tab}} ->
@@ -250,25 +263,30 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 			    [{tid, Tid}, {prot, Protocol}]),
 	    mnesia_checkpoint:tm_enter_pending(Tid, DiscNs, RamNs),
 	    Commit = new_cr_format(Commit0),
-	    Pid =
-                if
-                    node(Tid#tid.pid) =:= node() ->
-                        error({internal_error, local_node});
-                    Protocol =:= asym_trans orelse Protocol =:= sync_asym_trans ->
-			Args = [Protocol, tmpid(From), Tid, Commit, DiscNs, RamNs],
-			spawn_link(?MODULE, commit_participant, Args);
-                    true -> %% *_sym_trans
-			reply(From, {vote_yes, Tid}),
-			nopid
-		end,
-	    P = #participant{tid = Tid,
-			     pid = Pid,
-			     commit = Commit,
-			     disc_nodes = DiscNs,
-			     ram_nodes = RamNs,
-			     protocol = Protocol},
-	    State2 = State#state{participants = gb_trees:insert(Tid,P,Participants)},
-	    doit_loop(State2);
+            case is_blocked(State#state.blocked_tabs, Commit) of
+                false ->
+                    Pid =
+                        if
+                            node(Tid#tid.pid) =:= node() ->
+                                error({internal_error, local_node});
+                            Protocol =:= asym_trans orelse Protocol =:= sync_asym_trans ->
+                                Args = [Protocol, tmpid(From), Tid, Commit, DiscNs, RamNs],
+                                spawn_link(?MODULE, commit_participant, Args);
+                            true -> %% *_sym_trans
+                                reply(From, {vote_yes, Tid}),
+                                nopid
+                        end,
+                    P = #participant{tid = Tid,
+                                     pid = Pid,
+                                     commit = Commit,
+                                     disc_nodes = DiscNs,
+                                     ram_nodes = RamNs,
+                                     protocol = Protocol},
+                    State2 = State#state{participants = gb_trees:insert(Tid,P,Participants)},
+                    doit_loop(State2);
+                true ->
+                    reply(From, {vote_no, Tid, {bad_commit, node()}}, State)
+            end;
 
 	{Tid, do_commit} ->
 	    case gb_trees:lookup(Tid, Participants) of
@@ -406,6 +424,10 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	    reply(From, {info, gb_trees:values(Participants),
 			 gb_trees:to_list(Coordinators)}, State);
 
+	{From, transactions_count} ->
+	    reply(From, {transactions_count, gb_trees:size(Participants),
+                         gb_trees:size(Coordinators)}, State);
+
 	{mnesia_down, N} ->
 	    verbose("Got mnesia_down from ~p, reconfiguring...~n", [N]),
 	    reconfigure_coordinators(N, gb_trees:to_list(Coordinators)),
@@ -449,6 +471,9 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 		    reply(From, ok, State2)
 	    end;
 
+        {From, sync} ->
+            reply(From, ok, State);
+
 	{From, {prepare_checkpoint, Cp}} ->
 	    Res = mnesia_checkpoint:tm_prepare(Cp),
 	    case Res of
@@ -476,6 +501,28 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	Msg ->
 	    verbose("** ERROR ** ~p got unexpected message: ~tp~n", [?MODULE, Msg]),
 	    doit_loop(State)
+    end.
+
+is_blocked([], _Commit) ->
+    false;
+is_blocked([Tab|Tabs], #commit{ram_copies=RCs, disc_copies=DCs,
+                               disc_only_copies=DOs, ext=Exts} = Commit) ->
+    is_blocked_tab(RCs, Tab) orelse
+        is_blocked_tab(DCs, Tab) orelse
+        is_blocked_tab(DOs, Tab) orelse
+        is_blocked_ext_tab(Exts, Tab) orelse
+        is_blocked(Tabs, Commit).
+
+is_blocked_tab([{{Tab,_},_,_}|_Ops], Tab) -> true;
+is_blocked_tab([_|Ops], Tab) -> is_blocked_tab(Ops, Tab);
+is_blocked_tab([],_) -> false.
+
+is_blocked_ext_tab([], _Tab) ->
+    false;
+is_blocked_ext_tab(Exts, Tab) ->
+    case lists:keyfind(ext_copies, 1, Exts) of
+        false -> false;
+        {_, ExtOps} -> is_blocked_tab([Op || {_, Op} <- ExtOps], Tab)
     end.
 
 do_sync_dirty(From, Tid, Commit, _Tab) ->
@@ -2121,6 +2168,14 @@ tr_status(Tid,Participant) ->
 	false  -> coordinator
     end.
 
+get_transactions_count() ->
+    case req(transactions_count) of
+        {transactions_count, ParticipantsCount, CoordinatorsCount} ->
+            {ParticipantsCount, CoordinatorsCount};
+        Error ->
+            Error
+    end.
+
 get_info(Timeout) ->
     case whereis(?MODULE) of
 	undefined ->
@@ -2325,14 +2380,6 @@ do_stop(#state{coordinators = Coordinators}) ->
     mnesia_checkpoint:stop(),
     mnesia_log:stop(),
     exit(shutdown).
-
-fixtable(Tab, Lock, Me) ->
-    case req({fixtable, [Tab,Lock,Me]}) of
-	error ->
-	    exit({no_exists, Tab});
-	Else ->
-	    Else
-    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% System upgrade

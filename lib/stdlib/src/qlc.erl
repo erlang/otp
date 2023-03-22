@@ -1326,7 +1326,7 @@ abstr_term(PPR, Anno) when is_pid(PPR); is_port(PPR); is_reference(PPR) ->
 abstr_term(Map, Anno) when is_map(Map) ->
     {map,Anno,
      [{map_field_assoc,Anno,abstr_term(K, Anno),abstr_term(V, Anno)} ||
-         {K,V} <- maps:to_list(Map)]};
+         K := V <- Map]};
 abstr_term(Simple, Anno) ->
     erl_parse:abstract(Simple, erl_anno:line(Anno)).
 

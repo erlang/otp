@@ -4,7 +4,9 @@
     {modules, [
 	       %% TLS/SSL
 	       tls_connection,
-	       tls_connection_1_3,
+               tls_client_connection_1_3,
+               tls_server_connection_1_3,
+               tls_gen_connection_1_3,
 	       tls_handshake,
 	       tls_handshake_1_3,
 	       tls_record,
@@ -75,6 +77,7 @@
 	       ssl_crl_hash_dir,
 	       %% Logging
 	       ssl_logger,
+	       ssl_trace,
 	       %% App structure
 	       ssl_app,
 	       ssl_sup,
@@ -85,6 +88,6 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}},
-    {runtime_dependencies, ["stdlib-4.1","public_key-1.11.3","kernel-8.4",
-                            "erts-10.0","crypto-5.0", "inets-5.10.7",
+    {runtime_dependencies, ["stdlib-4.1","public_key-1.11.3","kernel-@OTP-18235@",
+                            "erts-@OTP-18248@","crypto-5.0", "inets-5.10.7",
                             "runtime_tools-1.15.1"]}]}.

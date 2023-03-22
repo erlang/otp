@@ -126,20 +126,18 @@ check_callback(RetArgTypes, CbMFA, Behaviour, Callback,
   CbReturnType = dialyzer_contracts:get_contract_return(Callback),
   CbArgTypes = dialyzer_contracts:get_contract_args(Callback),
   {ReturnType, ArgTypes} = RetArgTypes,
-  Acc1 = case erl_types:t_is_subtype(ReturnType, CbReturnType) of
-           true ->
-             Acc0;
-           false ->
-             case erl_types:t_is_none(erl_types:t_inf(ReturnType, CbReturnType)) of
-               false ->
-                 Acc0;
-               true ->
-                 [{callback_type_mismatch,
-                   [Behaviour, Function, Arity,
-                    erl_types:t_to_string(ReturnType, Records),
-                    erl_types:t_to_string(CbReturnType, Records)]}|Acc0]
-             end
-         end,
+  Acc1 =
+      % Allow none() as the return type to be backwards compatible
+      % with logic that allows crashes in callbacks
+      case (not erl_types:t_is_none(ReturnType)) andalso erl_types:t_is_none(erl_types:t_inf(ReturnType, CbReturnType)) of
+        false ->
+          Acc0;
+        true ->
+          [{callback_type_mismatch,
+            [Behaviour, Function, Arity,
+             erl_types:t_to_string(ReturnType, Records),
+             erl_types:t_to_string(CbReturnType, Records)]}|Acc0]
+      end,
   Acc2 = case erl_types:any_none(erl_types:t_inf_lists(ArgTypes, CbArgTypes)) of
            false -> Acc1;
            true ->
@@ -156,10 +154,12 @@ check_callback(RetArgTypes, CbMFA, Behaviour, Callback,
       SpecArgTypes =
         [erl_types:subst_all_vars_to_any(ArgT0) || ArgT0 <- SpecArgTypes0],
       Acc3 =
-        case erl_types:t_is_subtype(SpecReturnType, CbReturnType) of
-          true ->
-            Acc2;
+        % Allow none() as the return type to be backwards compatible
+        % with logic that allows crashes in callbacks
+        case (not erl_types:t_is_none(SpecReturnType)) andalso erl_types:t_is_none(erl_types:t_inf(SpecReturnType, CbReturnType)) of
           false ->
+            Acc2;
+          true ->
             ExtraType = erl_types:t_subtract(SpecReturnType, CbReturnType),
             [{callback_spec_type_mismatch,
               [File, Location, Behaviour, Function, Arity,

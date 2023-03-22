@@ -57,9 +57,11 @@
 ** 2.15: 22.0 ERL_NIF_SELECT_CANCEL, enif_select_(read|write)
 **            enif_term_type
 ** 2.16: 24.0 enif_init_resource_type, enif_dynamic_resource_call
+** 2.17: 26.0 enif_set_option, enif_get_string_length, enif_make_new_atom,
+**            enif_make_new_atom_len, ERL_NIF_UTF8
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 16
+#define ERL_NIF_MINOR_VERSION 17
 
 /*
  * WHEN CHANGING INTERFACE VERSION, also replace erts version below with
@@ -70,7 +72,7 @@
  * If you're not on the OTP team, you should use a placeholder like
  * erts-@MyName@ instead.
  */
-#define ERL_NIF_MIN_ERTS_VERSION "erts-12.0"
+#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-17771:OTP-18334@"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -186,7 +188,8 @@ typedef enum
 
 typedef enum
 {
-    ERL_NIF_LATIN1 = 1
+    ERL_NIF_LATIN1 = 1,
+    ERL_NIF_UTF8 = 2,
 }ErlNifCharEncoding;
 
 typedef struct
@@ -200,6 +203,8 @@ typedef struct
 }ErlNifPort;
 
 typedef ErlDrvMonitor ErlNifMonitor;
+
+typedef void ErlNifOnHaltCallback(void *priv_data);
 
 typedef struct enif_resource_type_t ErlNifResourceType;
 typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
@@ -324,6 +329,11 @@ typedef enum {
 #define ERL_NIF_THR_NORMAL_SCHEDULER 1
 #define ERL_NIF_THR_DIRTY_CPU_SCHEDULER 2
 #define ERL_NIF_THR_DIRTY_IO_SCHEDULER 3
+
+typedef enum {
+    ERL_NIF_OPT_DELAY_HALT = 1,
+    ERL_NIF_OPT_ON_HALT = 2
+} ErlNifOption;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS

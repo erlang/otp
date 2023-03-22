@@ -7,6 +7,7 @@ bs_fail_constr.erl:18:1: Function bad_size_1/1 has no local return
 bs_fail_constr.erl:18:1: The pattern <<X:[]>> can never match the type any()
 bs_fail_constr.erl:21:1: Function bad_size_2/1 has no local return
 bs_fail_constr.erl:24:9: The pattern <<X:Size>> can never match the type any()
+bs_fail_constr.erl:29:1: Function bad_size_3/1 has no local return
 bs_fail_constr.erl:5:1: Function w1/1 has no local return
 bs_fail_constr.erl:6:5: Binary construction will fail since the value field V in segment V has type float()
 bs_fail_constr.erl:8:1: Function w2/1 has no local return

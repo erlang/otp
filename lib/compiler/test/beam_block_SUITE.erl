@@ -307,14 +307,45 @@ second_block_pass(_Config) ->
 second_1(Fs, TS) ->
     [F#{dts=>DTS / TS} || #{dts:=DTS} = F <- Fs].
 
-coverage(_Config) ->
+coverage(Config) ->
     [] = coverage_1(),
+
+    [42,Config] = (coverage_2(Config))({fun id/1}),
+
+    {b,a,badarith} = coverage_3(a, b),
+    ok = coverage_3(0, 1),
+
+    {'EXIT',{badarg,_}} = catch coverage_4(a, b),
+
     ok.
 
 coverage_1() ->
     [(bnot head):bar(hdr, case kind of
                               [] -> whatever
                           end) || 7 <- []].
+
+coverage_2(Cmds) ->
+    fun({CollecFun}) ->
+            [id(42), CollecFun(Cmds)]
+    end.
+
+coverage_3(Node, Nodes) ->
+    try id(Node) + 1 of
+	_ ->
+            ok
+    catch
+        _:Reason ->
+	    coverage_3(Nodes, Node, Reason)
+    end.
+
+coverage_3(A, B, C) ->
+    id({A,B,C}).
+
+coverage_4(A, B) ->
+    do_coverage_4(ok, (ok xor ok)#{ok := ok}, B, ok) =:= A.
+
+do_coverage_4(_, _, _, _) ->
+    ok.
 
 %%%
 %%% Common functions.

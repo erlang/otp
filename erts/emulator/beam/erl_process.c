@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2508,7 +2508,7 @@ notify_reap_ports_relb(void)
 }
 
 erts_atomic32_t erts_halt_progress;
-int erts_halt_code;
+int erts_halt_code = INT_MIN;
 
 static ERTS_INLINE erts_aint32_t
 handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
@@ -2553,7 +2553,7 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 	    erts_port_release(prt);
 	}
 	if (erts_atomic32_dec_read_nob(&erts_halt_progress) == 0) {
-	    erts_flush_async_exit(erts_halt_code, "");
+	    erts_flush_exit(erts_halt_code, "");
 	}
     }
     return aux_work & ~ERTS_SSI_AUX_WORK_REAP_PORTS;
@@ -6307,7 +6307,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 
 
     erts_atomic32_init_relb(&erts_halt_progress, -1);
-    erts_halt_code = 0;
+    erts_halt_code = INT_MIN;
 
 
 }
@@ -8665,6 +8665,7 @@ sched_thread_func(void *vesdp)
 
     erts_ets_sched_spec_data_init(esdp);
     erts_utils_sched_spec_data_init();
+    erts_nif_sched_init(esdp);
 
     process_main(esdp);
 
@@ -8715,6 +8716,8 @@ sched_dirty_cpu_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
+    erts_nif_sched_init(esdp);
+
     erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
@@ -8762,6 +8765,8 @@ sched_dirty_io_thread_func(void *vesdp)
     esdp->aux_work_data.async_ready.queue = NULL;
 
     erts_proc_lock_prepare_proc_lock_waiter();
+
+    erts_nif_sched_init(esdp);
 
     erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
@@ -10083,6 +10088,13 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         }
         else {
             /* On normal scheduler */
+
+            /*
+             * Check if a dirty signal handler is handling signals for
+             * us and if so, wait for it to complete before continuing...
+             */
+            state = erts_proc_sig_check_wait_dirty_handle_signals(p, state);
+
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
 		    int sig_reds;
@@ -10182,6 +10194,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                 if (!(state & ERTS_PSFLG_EXITING)
                     && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
                     int cost = scheduler_gc_proc(p, reds);
+                    state = erts_atomic32_read_nob(&p->state);
                     calls += cost;
                     reds -= cost;
                     if (reds <= 0)
@@ -11909,6 +11922,8 @@ static void early_init_process_struct(void *varg, Eterm data)
     erts_atomic32_init_nob(&proc->dirty_state, 0);
     proc->dirty_sys_tasks = NULL;
     erts_init_runq_proc(proc, arg->run_queue, arg->bound);
+    erts_atomic_init_nob(&proc->sig_inq_buffers, (erts_aint_t)NULL);
+
     erts_atomic32_init_relb(&proc->state, arg->state);
 
     erts_proc_lock_init(proc); /* All locks locked */
@@ -12028,6 +12043,22 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
 		    sop->priority = PRIORITY_LOW;
 		else
                     result = -1;
+            } else if (arg == am_async_dist) {
+                if (val == am_true) {
+                    if (sop->flags & SPO_ASYNC_DIST)
+                        sop->multi_set = !0;
+                    else
+                        sop->flags |= SPO_ASYNC_DIST;
+                }
+                else if (val == am_false) {
+                    if (!(sop->flags & SPO_ASYNC_DIST))
+                        sop->multi_set = !0;
+                    else
+                        sop->flags &= ~SPO_ASYNC_DIST;
+                }
+                else {
+                    result = -1;
+                }
 	    } else if (arg == am_message_queue_data) {
                 if (sop->flags & (SPO_OFF_HEAP_MSGQ|SPO_ON_HEAP_MSGQ))
                     sop->multi_set = !0;
@@ -12265,6 +12296,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     /* Reserve place for continuation pointer, redzone, etc */
     heap_need = arg_size + S_RESERVED;
 
+    if (so->flags & SPO_ASYNC_DIST)
+        flags |= F_ASYNC_DIST;
+
     p->flags = flags;
     p->sig_qs.flags = qs_flags;
 
@@ -12393,7 +12427,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_inq.len = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
-    erts_atomic_init_nob(&p->sig_inq_buffers, (erts_aint_t)NULL);
+    ASSERT(erts_atomic_read_nob(&p->sig_inq_buffers) == (erts_aint_t)NULL);
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
     p->sig_inq.may_contain_heap_terms = 0;
 #endif
@@ -13036,7 +13070,7 @@ delete_process(Process* p)
 {
     ErtsPSD *psd;
     struct saved_calls *scb;
-    process_breakpoint_time_t *pbt;
+    process_breakpoint_trace_t *pbt;
     Uint32 block_rla_ref = (Uint32) (Uint) p->u.terminate;
 
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
@@ -13057,6 +13091,9 @@ delete_process(Process* p)
     }
 
     pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
+    if (pbt)
+        erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+    pbt = ERTS_PROC_SET_CALL_MEMORY(p, NULL);
     if (pbt)
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
 
@@ -13154,7 +13191,7 @@ erts_set_self_exiting(Process *c_p, Eterm reason)
     erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 
     set_self_exiting(c_p, reason, &enqueue, &enq_prio, &state);
-    c_p->freason = EXTAG_EXIT;
+    c_p->freason = EXTAG_EXIT | EXF_PANIC;
     KILL_CATCHES(c_p);
     c_p->i = beam_exit;
 
@@ -14829,6 +14866,7 @@ void erts_halt(int code)
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_CPU_RUNQ, ERTS_RUNQ_FLG_HALTING);
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_IO_RUNQ, ERTS_RUNQ_FLG_HALTING);
 	erts_halt_code = code;
+        erts_nif_notify_halt();
     }
 }
 

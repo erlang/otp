@@ -51,7 +51,11 @@
          kill_after2/1,
          kill_after3/1,
          apply_interval1/1,
+         apply_interval2/1,
          apply_interval_invalid_args/1,
+         apply_repeatedly1/1,
+         apply_repeatedly2/1,
+         apply_repeatedly_invalid_args/1,
          send_interval1/1,
          send_interval2/1,
          send_interval3/1,
@@ -95,6 +99,7 @@ all() ->
         {group, exit_after},
         {group, kill_after},
         {group, apply_interval},
+        {group, apply_repeatedly},
         {group, send_interval},
         {group, cancel},
         {group, sleep},
@@ -152,7 +157,17 @@ groups() ->
             [],
             [
                 apply_interval1,
+                apply_interval2,
                 apply_interval_invalid_args
+            ]
+        },
+        {
+            apply_repeatedly,
+            [],
+            [
+                apply_repeatedly1,
+                apply_repeatedly2,
+                apply_repeatedly_invalid_args
             ]
         },
         {
@@ -406,12 +421,67 @@ apply_interval1(Config) when is_list(Config) ->
     {ok, cancel} = timer:cancel(Ref),
     nor = get_mess(1000, Msg).
 
+%% Test apply_interval with the execution time of the action
+%% longer than the timer interval. The timer should not wait for
+%% the action to complete, ie start another action while the
+%% previously started action is still running.
+apply_interval2(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Self = self(),
+    {ok, Ref} = timer:apply_interval(500, erlang, apply,
+                                     [fun() ->
+                                          Self ! Msg,
+                                          receive after 1000 -> ok end
+                                      end, []]),
+    receive after 1800 -> ok end,
+    {ok, cancel} = timer:cancel(Ref),
+    ok = get_mess(1000, Msg, 3),
+    nor = get_mess(1000, Msg).
+
 %% Test that apply_interval rejects invalid arguments.
 apply_interval_invalid_args(Config) when is_list(Config) ->
     {error, badarg} = timer:apply_interval(-1, foo, bar, []),
     {error, badarg} = timer:apply_interval(0, "foo", bar, []),
     {error, badarg} = timer:apply_interval(0, foo, "bar", []),
     {error, badarg} = timer:apply_interval(0, foo, bar, baz),
+    ok.
+
+%% Test of apply_repeatedly by sending messages. Receive
+%% 3 messages, cancel the timer, and check that we do
+%% not get any more messages. In a case like this, ie where
+%% the execution time of the action is shorter than the timer
+%% interval, this should behave the same as apply_interval.
+apply_repeatedly1(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    {ok, Ref} = timer:apply_repeatedly(1000, ?MODULE, send,
+                                       [self(), Msg]),
+    ok = get_mess(1500, Msg, 3),
+    {ok, cancel} = timer:cancel(Ref),
+    nor = get_mess(1000, Msg).
+
+%% Test apply_repeatedly with the execution time of the action
+%% longer than the timer interval. The timer should wait for
+%% the action to complete, ie not start another action until it
+%% has completed.
+apply_repeatedly2(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Self = self(),
+    {ok, Ref} = timer:apply_repeatedly(1, erlang, apply,
+                                       [fun() ->
+                                            Self ! Msg,
+                                            receive after 1000 -> ok end
+                                        end, []]),
+    receive after 2500 -> ok end,
+    {ok, cancel} = timer:cancel(Ref),
+    ok = get_mess(1000, Msg, 3),
+    nor = get_mess(1000, Msg).
+
+%% Test that apply_repeatedly rejects invalid arguments.
+apply_repeatedly_invalid_args(Config) when is_list(Config) ->
+    {error, badarg} = timer:apply_repeatedly(-1, foo, bar, []),
+    {error, badarg} = timer:apply_repeatedly(0, "foo", bar, []),
+    {error, badarg} = timer:apply_repeatedly(0, foo, "bar", []),
+    {error, badarg} = timer:apply_repeatedly(0, foo, bar, baz),
     ok.
 
 %% Test of send_interval/2. Receive 5 messages, cancel the timer, and
@@ -661,7 +731,19 @@ tc(Config) when is_list(Config) ->
              true -> ok
          end,
 
+    %% tc/4
+    {Res4, ok} = timer:tc(timer, sleep, [500], millisecond),
+    ok = if
+             Res4 < 500 -> {too_early, Res4};
+             Res4 > 800 -> {too_late, Res4};
+             true -> ok
+         end,
+
     %% Check that timer:tc don't catch errors
+    ok = try timer:tc(erlang, exit, [foo], second)
+         catch exit:foo -> ok
+         end,
+
     ok = try timer:tc(erlang, exit, [foo])
          catch exit:foo -> ok
          end,
@@ -676,6 +758,7 @@ tc(Config) when is_list(Config) ->
 
     %% Check that return values are propageted
     Self = self(),
+    {_, Self} = timer:tc(erlang, self, [], second),
     {_, Self} = timer:tc(erlang, self, []),
     {_, Self} = timer:tc(fun(P) -> P end, [self()]),
     {_, Self} = timer:tc(fun() -> self() end),

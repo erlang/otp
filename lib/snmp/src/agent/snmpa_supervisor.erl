@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 %% Internal exports
 -export([init/1, config/2]).
 
+-compile({no_auto_import,[erase/1]}).
 
 -define(SERVER, ?MODULE).
 
@@ -41,6 +42,10 @@
 %% Process structure
 %% =================
 %%
+%%                                "application"
+%%                                     |
+%%                                  app-sup
+%%                                     |
 %%             ___________________ supervisor __________________
 %%            /              |              |          \         \ 
 %%   ___misc_sup___    target_cache  symbolic_store   local_db   agent_sup
@@ -176,7 +181,23 @@ start_master_sup(Opts) ->
 
 do_start_master_sup(Opts) ->
     verify_mandatory([db_dir], Opts),
-    supervisor:start_link({local, ?SERVER}, ?MODULE, [master, Opts]).  
+    case supervisor:start_link({local, ?SERVER}, ?MODULE, [master, Opts]) of
+        {ok, Pid} = OK ->
+            %% <HACKETI-HACK-HACK>
+            Key = master_agent_child_spec,
+            MasterAgentSpec = lookup(Key),
+            case snmpa_agent_sup:start_master_agent(MasterAgentSpec) of
+                {ok, MPid} when is_pid(MPid) ->
+                    erase(Key),
+                    OK;
+                {error, {Reason, _ChildSpec}} ->
+                    stop(Pid, 0),
+                    {error, Reason}
+            end;
+            %% </HACKETI-HACK-HACK>
+        Else ->
+            Else
+    end.
 
 verify_mandatory([], _) ->
     ok;
@@ -503,9 +524,18 @@ init([AgentType, Opts]) ->
 		    worker_spec(snmpa_agent, 
 				[Prio, snmp_master_agent, none, Ref, AgentOpts],
 				Restart, 15000),
+                %% <HACKETI-HACK-HACK>
+                %% The point is to make start failure more quiet
+                %% Often the failure happens in the master agent,
+                %% so we move the start of that out of this function
+                %% and into the 'do_start_master_sup' function.
+                %% At some point we should rewrite this. Maybe start all
+                %% children the same way (explicitly).
+                store(master_agent_child_spec, AgentSpec),
 		AgentSupSpec = 
-		    sup_spec(snmpa_agent_sup, [AgentSpec], 
+		    sup_spec(snmpa_agent_sup, [], 
 			     Restart, infinity), 
+                %% </HACKETI-HACK-HACK>
 		[ConfigSpec, AgentSupSpec];
 	    _ ->
 		?vdebug("[sub agent] spec for the agent supervisor",[]),
@@ -520,6 +550,13 @@ init([AgentType, Opts]) ->
 
 store(Key, Value) ->
     ets:insert(snmp_agent_table, {Key, Value}).
+
+lookup(Key) ->
+    [{Key, Value}] = ets:lookup(snmp_agent_table, Key),
+    Value.
+
+erase(Key) ->
+    ets:delete(snmp_agent_table, Key).
 
 get_mibs(Mibs, Vsns) ->
     MibDir = filename:join(code:priv_dir(snmp), "mibs"),

@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(ssl_dist_bench_SUITE).
+-feature(maybe_expr, enable).
 
 -behaviour(ct_suite).
 
@@ -33,8 +34,10 @@
 %% Test cases
 -export(
    [setup/1,
+    parallel_setup/1,
     roundtrip/1,
     sched_utilization/1,
+    mean_load_cpu_margin/1,
     throughput_0/1,
     throughput_64/1,
     throughput_1024/1,
@@ -45,27 +48,44 @@
     throughput_1048576/1]).
 
 %% Debug
--export([payload/1, roundtrip_runner/3, setup_runner/3, throughput_runner/4]).
+-export([payload/1, roundtrip_runner/3, setup_runner/3, throughput_runner/4,
+        mem/0]).
 
 %%%-------------------------------------------------------------------
 
 suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames, 2}]}]}].
 
 all() ->
-    [{group, ssl},
-     {group, crypto},
-     {group, plain}].
+    [{group, smoketest}].
 
 groups() ->
-    [{benchmark, all()},
+    [{smoketest, protocols()},
+     {benchmark, protocols()},
      %%
-     {ssl, all_groups()},
-     {crypto, all_groups()},
-     {plain, all_groups()},
+     %% protocols()
+     {ssl,         ssl_backends()},
+     {cryptcookie, cryptcookie_backends()},
+     {plain,       categories()},
+     {socket,      categories()},
      %%
-     {setup, [{repeat, 1}], [setup]},
+     %% ssl_backends()
+     {tls,  categories()},
+     {ktls, categories()},
+     %%
+     %% cryptcookie_backends()
+     {dist_cryptcookie_socket, categories()},
+     {cryptcookie_socket_ktls, categories()},
+     {dist_cryptcookie_inet,   categories()},
+     {cryptcookie_inet_ktls,   categories()},
+     %%
+     %% categories()
+     {setup, [{repeat, 1}],
+      [setup,
+       parallel_setup]},
      {roundtrip, [{repeat, 1}], [roundtrip]},
-     {sched_utilization,[{repeat, 1}], [sched_utilization]},
+     {sched_utilization,[{repeat, 1}],
+      [sched_utilization,
+       mean_load_cpu_margin]},
      {throughput, [{repeat, 1}],
       [throughput_0,
        throughput_64,
@@ -76,7 +96,23 @@ groups() ->
        throughput_262144,
        throughput_1048576]}].
 
-all_groups() ->
+protocols() ->
+    [{group, ssl},
+     {group, cryptcookie},
+     {group, plain},
+     {group, socket}].
+
+ssl_backends() ->
+    [{group, tls},
+     {group, ktls}].
+
+cryptcookie_backends() ->
+    [{group, dist_cryptcookie_socket},
+     {group, cryptcookie_socket_ktls},
+     {group, dist_cryptcookie_inet},
+     {group, cryptcookie_inet_ktls}].
+
+categories() ->
     [{group, setup},
      {group, roundtrip},
      {group, throughput},
@@ -84,31 +120,37 @@ all_groups() ->
     ].
 
 init_per_suite(Config) ->
-    Digest = sha1,
+    Digest = sha256,
     ECCurve = secp521r1,
-    TLSVersion = 'tlsv1.2',
+%%%     TLSVersion = 'tlsv1.2',
+%%%     TLSCipher =
+%%%         #{key_exchange => ecdhe_ecdsa,
+%%%           cipher       => aes_128_cbc,
+%%%           mac          => sha256,
+%%%           prf          => sha256},
+    TLSVersion = 'tlsv1.3',
     TLSCipher =
         #{key_exchange => ecdhe_ecdsa,
-          cipher       => aes_128_cbc,
-          mac          => sha256,
-          prf          => sha256},
+          cipher       => aes_256_gcm,
+          mac          => aead,
+          prf          => sha384},
     %%
     Node = node(),
-    Skipped = make_ref(),
+    Skip = make_ref(),
     try
         Node =/= nonode@nohost orelse
-            throw({Skipped,"Node not distributed"}),
+            throw({Skip,"Node not distributed"}),
         verify_node_src_addr(),
         {supported, SSLVersions} =
             lists:keyfind(supported, 1, ssl:versions()),
         lists:member(TLSVersion, SSLVersions) orelse
             throw(
-              {Skipped,
+              {Skip,
                "SSL does not support " ++ term_to_string(TLSVersion)}),
-        lists:member(ECCurve, ssl:eccs(TLSVersion)) orelse
-            throw(
-              {Skipped,
-               "SSL does not support " ++ term_to_string(ECCurve)}),
+%%%         lists:member(ECCurve, ssl:eccs(TLSVersion)) orelse
+%%%             throw(
+%%%               {Skip,
+%%%                "SSL does not support " ++ term_to_string(ECCurve)}),
         TLSCipherKeys = maps:keys(TLSCipher),
         lists:any(
           fun (Cipher) ->
@@ -116,24 +158,10 @@ init_per_suite(Config) ->
           end,
           ssl:cipher_suites(default, TLSVersion)) orelse
             throw(
-              {Skipped,
+              {Skip,
                "SSL does not support " ++ term_to_string(TLSCipher)}),
         %%
         %%
-        %%
-        PrivDir = proplists:get_value(priv_dir, Config),
-        [_, HostA] = split_node(Node),
-        NodeAName = ?MODULE_STRING ++ "_node_a",
-        NodeAString = NodeAName ++ "@" ++ HostA,
-        NodeAConfFile = filename:join(PrivDir, NodeAString ++ ".conf"),
-        NodeA = list_to_atom(NodeAString),
-        %%
-        ServerNode = ssl_bench_test_lib:setup(dist_server),
-        [_, HostB] = split_node(ServerNode),
-        NodeBName = ?MODULE_STRING ++ "_node_b",
-        NodeBString = NodeBName ++ "@" ++ HostB,
-        NodeBConfFile = filename:join(PrivDir, NodeBString ++ ".conf"),
-        NodeB = list_to_atom(NodeBString),
         %%
         CertOptions =
             [{digest, Digest},
@@ -152,56 +180,153 @@ init_per_suite(Config) ->
             | SSLConf],
         ClientConf = SSLConf,
         %%
+        PrivDir = proplists:get_value(priv_dir, Config),
+        %%
+        ServerNode = ssl_bench_test_lib:setup(dist_server),
+        [_, ServerHost] = split_node(ServerNode),
+        ServerName = ?MODULE_STRING ++ "_server",
+        ServerString = ServerName ++ "@" ++ ServerHost,
+        ServerConfFile = filename:join(PrivDir, ServerString ++ ".conf"),
+        Server = list_to_atom(ServerString),
+        %%
         write_node_conf(
-          NodeAConfFile, NodeA, ServerConf, ClientConf,
-          CertOptions, RootCert),
-        write_node_conf(
-          NodeBConfFile, NodeB, ServerConf, ClientConf,
+          ServerConfFile, Server, ServerConf, ClientConf,
           CertOptions, RootCert),
         %%
-        [{node_a_name, NodeAName},
-         {node_a, NodeA},
-         {node_a_dist_args,
+        Schedulers =
+            erpc:call(ServerNode, erlang, system_info, [schedulers]),
+        [_, ClientHost] = split_node(Node),
+        [{server_node, ServerNode},
+         {server_name, ServerName},
+         {server, Server},
+         {server_dist_args,
           "-proto_dist inet_tls "
-          "-ssl_dist_optfile " ++ NodeAConfFile ++ " "},
-         {node_b_name, NodeBName},
-         {node_b, NodeB},
-         {node_b_dist_args,
-          "-proto_dist inet_tls "
-          "-ssl_dist_optfile " ++ NodeBConfFile ++ " "},
-         {server_node, ServerNode}
-        |Config]
+          "-ssl_dist_optfile " ++ ServerConfFile ++ " "},
+         {clients, Schedulers} |
+         init_client_node(
+           ClientHost, Schedulers, PrivDir, ServerConf, ClientConf,
+           CertOptions, RootCert, Config)]
     catch
-        throw : {Skipped, Reason} ->
-            {skipped, Reason};
+        throw : {Skip, Reason} ->
+            {skip, Reason};
         Class : Reason : Stacktrace ->
-            {failed, {Class, Reason, Stacktrace}}
+            {fail, {Class, Reason, Stacktrace}}
     end.
+
+init_client_node(
+  _ClientHost, 0, _PrivDir, _ServerConf, _ClientConf,
+  _CertOptions, _RootCert, Config) ->
+    Config;
+init_client_node(
+  ClientHost, N, PrivDir, ServerConf, ClientConf,
+  CertOptions, RootCert, Config) ->
+    ClientName = ?MODULE_STRING ++ "_client_" ++ integer_to_list(N),
+    ClientString = ClientName ++ "@" ++ ClientHost,
+    ClientConfFile = filename:join(PrivDir, ClientString ++ ".conf"),
+    Client = list_to_atom(ClientString),
+    %%
+    write_node_conf(
+      ClientConfFile, Client, ServerConf, ClientConf,
+      CertOptions, RootCert),
+    init_client_node(
+      ClientHost, N - 1, PrivDir, ServerConf, ClientConf,
+      CertOptions, RootCert,
+      [{{client_name, N}, ClientName},
+       {{client, N}, Client},
+       {{client_dist_args, N},
+        "-proto_dist inet_tls "
+        "-ssl_dist_optfile " ++ ClientConfFile ++ " "} | Config]).
 
 end_per_suite(Config) ->
     ServerNode = proplists:get_value(server_node, Config),
     ssl_bench_test_lib:cleanup(ServerNode).
 
+init_per_group(benchmark, Config) ->
+    [{effort,10}|Config];
+%%
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
-init_per_group(crypto, Config) ->
-    try inet_crypto_dist:supported() of
+init_per_group(dist_cryptcookie_socket, Config) ->
+    try inet_epmd_dist_cryptcookie_socket:supported() of
         ok ->
-            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto"},
+            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Socket"},
              {ssl_dist_args,
-              "-proto_dist inet_crypto"}
-            |Config];
+              "-proto_dist inet_epmd -inet_epmd dist_cryptcookie_socket"}
+            | Config];
         Problem ->
-            {skipped,
-             "Crypto does not support " ++ Problem}
+            {skip, Problem}
     catch
         Class : Reason : Stacktrace ->
-            {failed, {Class, Reason, Stacktrace}}
+            {fail, {Class, Reason, Stacktrace}}
+    end;
+init_per_group(cryptcookie_socket_ktls, Config) ->
+    try inet_epmd_cryptcookie_socket_ktls:supported() of
+        ok ->
+            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Socket-kTLS"},
+             {ssl_dist_args,
+              "-proto_dist inet_epmd -inet_epmd cryptcookie_socket_ktls"}
+            | Config];
+        Problem ->
+            {skip, Problem}
+    catch
+        Class : Reason : Stacktrace ->
+            {fail, {Class, Reason, Stacktrace}}
+    end;
+init_per_group(dist_cryptcookie_inet, Config) ->
+    try inet_epmd_dist_cryptcookie_inet:supported() of
+        ok ->
+            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Inet"},
+             {ssl_dist_args,
+              "-proto_dist inet_epmd -inet_epmd dist_cryptcookie_inet"}
+            | Config];
+        Problem ->
+            {skip, Problem}
+    catch
+        Class : Reason : Stacktrace ->
+            {fail, {Class, Reason, Stacktrace}}
+    end;
+init_per_group(cryptcookie_inet_ktls, Config) ->
+    try inet_epmd_cryptcookie_inet_ktls:supported() of
+        ok ->
+            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Inet-kTLS"},
+             {ssl_dist_args,
+              "-proto_dist inet_epmd -inet_epmd cryptcookie_inet_ktls"}
+            | Config];
+        Problem ->
+            {skip, Problem}
+    catch
+        Class : Reason : Stacktrace ->
+            {fail, {Class, Reason, Stacktrace}}
     end;
 init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
-init_per_group(benchmark, Config) ->
-    [{effort,10}|Config];
+%%
+init_per_group(socket, Config) ->
+    try inet_epmd_socket:supported() of
+        ok ->
+            [{ssl_dist, false},
+             {ssl_dist_prefix, "Socket"},
+             {ssl_dist_args,
+              "-proto_dist inet_epmd -inet_epmd socket"}
+            | Config];
+        Problem ->
+            {skip, Problem}
+    catch
+        Class : Reason : Stacktrace ->
+            {fail, {Class, Reason, Stacktrace}}
+    end;
+%%
+init_per_group(ktls, Config) ->
+    case ktls_supported() of
+        ok ->
+            [{ktls, true},
+             {ssl_dist_prefix,
+              proplists:get_value(ssl_dist_prefix, Config) ++ "-kTLS"}
+            | proplists:delete(ssl_dist_prefix, Config)];
+        {error, Reason} ->
+            {skip, Reason}
+    end;
+%%
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -226,6 +351,24 @@ init_per_testcase(Func, Conf) ->
 
 end_per_testcase(_Func, _Conf) ->
     ok.
+
+
+ktls_supported() ->
+    {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
+    {ok, Port} = inet:port(Listen),
+    {ok, Client} =
+        gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
+    try
+        maybe
+            {ok, OS} ?= ssl_test_lib:ktls_os(),
+            ok ?= ssl_test_lib:ktls_set_ulp(Client, OS),
+            ssl_test_lib:ktls_set_cipher(Client, OS, tx, 1)
+        end
+    after
+        _ = gen_tcp:close(Client),
+        _ = gen_tcp:close(Listen)
+    end.
+
 
 %%%-------------------------------------------------------------------
 %%% CommonTest API helpers
@@ -297,18 +440,31 @@ setup(Config) ->
     run_nodepair_test(fun setup/6, Config).
 
 setup(A, B, Prefix, Effort, HA, HB) ->
-    Rounds = 5 * Effort,
+    Rounds = 100 * Effort,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    pong = ssl_apply(HA, net_adm, ping, [B]),
+    _ = ssl_apply(HA, fun () -> set_cpu_affinity(client) end),
+    {Log, Before, After} =
+        ssl_apply(HB, fun () -> set_cpu_affinity(server) end),
+    ct:pal("Server CPU affinity: ~w -> ~w~n~s", [Before, After, Log]),
+    MemStart = mem_start(HA, HB),
+    ChildCountResult =
+        ssl_dist_test_lib:apply_on_ssl_node(
+          HA, supervisor, count_children, [tls_dist_connection_sup]),
+    ct:log("TLS Connection Child Count Result: ~p", [ChildCountResult]),
     {SetupTime, CycleTime} =
         ssl_apply(HA, fun () -> setup_runner(A, B, Rounds) end),
     ok = ssl_apply(HB, fun () -> setup_wait_nodedown(A, 10000) end),
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
     %% [] = ssl_apply(HA, erlang, nodes, []),
     %% [] = ssl_apply(HB, erlang, nodes, []),
     SetupSpeed = round((Rounds*1000000*1000) / SetupTime),
     CycleSpeed = round((Rounds*1000000*1000) / CycleTime),
+    _ = report(Prefix++" Setup Mem A", MemA, "KByte"),
+    _ = report(Prefix++" Setup Mem B", MemB, "KByte"),
     _ = report(Prefix++" Setup", SetupSpeed, "setups/1000s"),
-    report(Prefix++" Setup Cycle", CycleSpeed, "cycles/1000s").
+    report(Prefix++" Setup Cycle", CycleSpeed, "cycles/1000s " ++ MemSuffix).
 
 %% Runs on node A against rex in node B
 setup_runner(A, B, Rounds) ->
@@ -320,7 +476,14 @@ setup_loop(_A, _B, T, 0) ->
     T;
 setup_loop(A, B, T, N) ->
     StartTime = start_time(),
-    [N,A] = [N|rpc:block_call(B, erlang, nodes, [])],
+    try erpc:call(B, net_adm, ping, [A]) of
+        pong -> ok;
+        Other ->
+            error({N,Other})
+    catch
+        Class : Reason : Stacktrace ->
+            erlang:raise(Class, {N,Reason}, Stacktrace)
+    end,
     Time = elapsed_time(StartTime),
     [N,B] = [N|erlang:nodes()],
     Mref = erlang:monitor(process, {rex,B}),
@@ -348,6 +511,145 @@ setup_wait_nodedown(A, Time) ->
     end.
 
 
+set_cpu_affinity(client) ->
+    set_cpu_affinity(1);
+set_cpu_affinity(server) ->
+    set_cpu_affinity(2);
+set_cpu_affinity(Index) when is_integer(Index) ->
+    case erlang:system_info(cpu_topology) of
+        undefined ->
+            {"", undefined, undefined};
+        CpuTopology ->
+            Log = taskset(element(Index, split_cpus(CpuTopology))),
+            %% Update Schedulers
+            _ = erlang:system_info(update_cpu_info),
+            Schedulers = erlang:system_info(logical_processors_available),
+            {Log,
+             erlang:system_flag(schedulers_online, Schedulers),
+             Schedulers}
+    end.
+
+taskset(LogicalProcessors) ->
+    os:cmd(
+      "taskset -c -p " ++
+          lists:flatten(
+            lists:join(
+              ",",
+              [integer_to_list(Id) || Id <- LogicalProcessors]),
+            " ") ++ os:getpid()).
+
+split_cpus([{_Tag, List}]) ->
+    split_cpus(List);
+split_cpus(List = [_ | _]) ->
+    {A, B} = lists:split(length(List) bsr 1, List),
+    {logical_processors(A), logical_processors(B)}.
+
+logical_processors([{_Tag, {logical, Id}} | Items]) ->
+    [Id | logical_processors(Items)];
+logical_processors([{_Tag, List} | Items]) ->
+    logical_processors(List) ++ logical_processors(Items);
+logical_processors([]) ->
+    [].
+
+
+%%----------------
+%% Parallel setup
+
+parallel_setup(Config) ->
+    Clients = proplists:get_value(clients, Config),
+    parallel_setup(Config, Clients, Clients, []).
+
+parallel_setup(Config, Clients, I, HNs) when 0 < I ->
+    Key = {client, I},
+    Node = proplists:get_value(Key, Config),
+    Handle = start_ssl_node(Key, Config),
+    _ = ssl_apply(Handle, fun () -> set_cpu_affinity(client) end),
+    try
+        parallel_setup(Config, Clients, I - 1, [{Handle, Node} | HNs])
+    after
+        stop_ssl_node(Key, Handle, Config)
+    end;
+parallel_setup(Config, Clients, _0, HNs) ->
+    Key = server,
+    ServerNode = proplists:get_value(Key, Config),
+    ServerHandle = start_ssl_node(Key, Config, 0),
+    Effort = proplists:get_value(effort, Config, 1),
+    TotalRounds = 1000 * Effort,
+    Rounds = round(TotalRounds / Clients),
+    try
+        {Log, Before, After} =
+            ssl_apply(ServerHandle, fun () -> set_cpu_affinity(server) end),
+        ct:pal("Server CPU affinity: ~w -> ~w~n~s", [Before, After, Log]),
+        ServerMemBefore =
+            ssl_apply(ServerHandle, fun mem/0),
+        parallel_setup_result(
+          Config, TotalRounds, ServerHandle, ServerMemBefore,
+          [parallel_setup_runner(Handle, Node, ServerNode, Rounds)
+           || {Handle, Node} <- HNs])
+    after
+        stop_ssl_node(Key, ServerHandle, Config)
+    end.
+
+parallel_setup_runner(Handle, Node, ServerNode, Rounds) ->
+    Collector = self(),
+    Tag = make_ref(),
+    _ =
+        spawn_link(
+          fun () ->
+                  Collector !
+                      {Tag,
+                       try
+                           MemBefore =
+                               ssl_apply(Handle, fun mem/0),
+                           Result =
+                               ssl_apply(
+                                 Handle, ?MODULE, setup_runner,
+                                 [Node, ServerNode, Rounds]),
+                           MemAfter =
+                               ssl_apply(Handle, fun mem/0),
+                           {MemBefore, Result, MemAfter}
+                       catch Class : Reason : Stacktrace ->
+                               {Class, Reason, Stacktrace}
+                       end}
+          end),
+    Tag.
+
+parallel_setup_result(
+  Config, TotalRounds, ServerHandle, ServerMemBefore, Tags) ->
+    parallel_setup_result(
+      Config, TotalRounds, ServerHandle, ServerMemBefore, Tags,
+      0, 0, 0).
+%%
+parallel_setup_result(
+  Config, TotalRounds, ServerHandle, ServerMemBefore, [Tag | Tags],
+  SetupTime, CycleTime, Mem) ->
+    receive
+        {Tag, {Mem1, {ST, CT}, Mem2}}
+          when is_integer(ST), is_integer(CT) ->
+            parallel_setup_result(
+              Config, TotalRounds, ServerHandle, ServerMemBefore, Tags,
+              SetupTime + ST, CycleTime + CT, Mem + Mem2 - Mem1);
+        {Tag, Error} ->
+            exit(Error)
+    end;
+parallel_setup_result(
+  Config, TotalRounds, ServerHandle, ServerMemBefore, [],
+  SetupTime, CycleTime, Mem) ->
+    ServerMemAfter =
+        ssl_apply(ServerHandle, fun mem/0),
+    ServerMem = ServerMemAfter - ServerMemBefore,
+    Clients = proplists:get_value(clients, Config),
+    Prefix = proplists:get_value(ssl_dist_prefix, Config),
+    SetupSpeed = 1000 * round(TotalRounds / (SetupTime/1000000)),
+    CycleSpeed = 1000 * round(TotalRounds / (CycleTime/1000000)),
+    {MemC, MemS, MemSuffix} = mem_result({Mem / Clients, ServerMem}),
+    _ = report(Prefix++" Parallel Setup Mem Clients", MemC, "KByte"),
+    _ = report(Prefix++" Parallel Setup Mem Server", MemS, "KByte"),
+    _ = report(Prefix++" Parallel Setup", SetupSpeed, "setups/1000s"),
+    report(
+      Prefix++" Parallel Setup Cycle", CycleSpeed, "cycles/1000s "
+      ++ MemSuffix).
+
 %%----------------
 %% Roundtrip speed
 
@@ -358,28 +660,33 @@ roundtrip(A, B, Prefix, Effort, HA, HB) ->
     Rounds = 4000 * Effort,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    MemStart = mem_start(HA, HB),
     ok = ssl_apply(HA, net_kernel, allow, [[B]]),
     ok = ssl_apply(HB, net_kernel, allow, [[A]]),
     Time = ssl_apply(HA, fun () -> roundtrip_runner(A, B, Rounds) end),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
     Speed = round((Rounds*1000000) / Time),
-    report(Prefix++" Roundtrip", Speed, "pings/s").
+    _ = report(Prefix++" Roundtrip Mem A", MemA, "KByte"),
+    _ = report(Prefix++" Roundtrip Mem B", MemB, "KByte"),
+    report(Prefix++" Roundtrip", Speed, "pings/s " ++ MemSuffix).
 
 %% Runs on node A and spawns a server on node B
 roundtrip_runner(A, B, Rounds) ->
     ClientPid = self(),
-    [A] = rpc:call(B, erlang, nodes, []),
+    [A] = erpc:call(B, erlang, nodes, []),
     ServerPid =
         erlang:spawn(
           B,
-          fun () -> roundtrip_server(ClientPid, Rounds) end),
+          fun () ->
+                  roundtrip_server(ClientPid, Rounds)
+          end),
     ServerMon = erlang:monitor(process, ServerPid),
-    microseconds(
-      roundtrip_client(ServerPid, ServerMon, start_time(), Rounds)).
+    roundtrip_client(ServerPid, ServerMon, start_time(), Rounds).
 
 roundtrip_server(_Pid, 0) ->
-    ok;
+    exit(ok);
 roundtrip_server(Pid, N) ->
     receive
         N ->
@@ -390,7 +697,7 @@ roundtrip_server(Pid, N) ->
 roundtrip_client(_Pid, Mon, StartTime, 0) ->
     Time = elapsed_time(StartTime),
     receive
-        {'DOWN', Mon, _, _, normal} ->
+        {'DOWN', Mon, _, _, ok} ->
             Time;
         {'DOWN', Mon, _, _, Other} ->
             exit(Other)
@@ -416,6 +723,7 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
     SSL = proplists:get_value(ssl_dist, Config),
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    MemStart = mem_start(HA, HB),
     PidA = ssl_apply(HA, os, getpid, []),
     PidB = ssl_apply(HB, os, getpid, []),
     ct:pal("Starting scheduler utilization run effort ~w:~n"
@@ -435,6 +743,7 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
     ct:log("Got ~p busy_dist_port msgs",[tail(BusyDistPortMsgs)]),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
     ct:log("Microstate accounting for node ~w:", [A]),
     msacc:print(ClientMsacc),
     ct:log("Microstate accounting for node ~w:", [B]),
@@ -459,26 +768,30 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
                 ct:log("Stray Msgs: ~p", [BusyDistPortMsgs]),
                 " ???"
         end,
+    _ = report(Prefix++" Sched Utilization Client Mem", MemA, "KByte"),
+    _ = report(Prefix++" Sched Utilization Server Mem", MemB, "KByte"),
     {comment, ClientComment} =
         report(Prefix ++ " Sched Utilization Client" ++ Verdict,
-               SchedUtilClient, "/100 %" ++ Verdict),
+               SchedUtilClient, " %" ++ Verdict),
     {comment, ServerComment} =
         report(Prefix++" Sched Utilization Server" ++ Verdict,
-               SchedUtilServer, "/100 %" ++ Verdict),
-    {comment, "Client " ++ ClientComment ++ ", Server " ++ ServerComment}.
+               SchedUtilServer, " %" ++ Verdict),
+    {comment,
+     "Client " ++ ClientComment ++ ", Server " ++ ServerComment ++
+         " " ++ MemSuffix}.
 
 %% Runs on node A and spawns a server on node B
 %% We want to avoid getting busy_dist_port as it hides the true SU usage
 %% of the receiver and sender.
 sched_util_runner(A, B, Effort, true, Config) ->
-    sched_util_runner(A, B, Effort, 250, Config);
+    sched_util_runner(A, B, Effort, 100, Config);
 sched_util_runner(A, B, Effort, false, Config) ->
-    sched_util_runner(A, B, Effort, 250, Config);
+    sched_util_runner(A, B, Effort, 100, Config);
 sched_util_runner(A, B, Effort, Senders, Config) ->
     process_flag(trap_exit, true),
-    Payload = payload(5),
+    Payload = payload(100),
     Time = 1000 * Effort,
-    [A] = rpc:call(B, erlang, nodes, []),
+    [A] = erpc:call(B, erlang, nodes, []),
     ServerPids =
         [erlang:spawn_link(
            B, fun () -> throughput_server() end)
@@ -514,8 +827,9 @@ sched_util_runner(A, B, Effort, Senders, Config) ->
                   end
           end),
     erlang:system_monitor(self(),[busy_dist_port]),
-    %% We spawn 250 senders which should mean that we
-    %% have a load of 25 msgs/msec
+    %% We spawn 100 senders that send a message every 10 ms
+    %% which should produce a load of 10000 msgs/s with
+    %% payload 100 bytes each -> 1 MByte/s
     _Clients =
         [spawn_link(
            fun() ->
@@ -594,6 +908,146 @@ throughput_client(Pid, Payload) ->
     receive after 10 -> throughput_client(Pid, Payload) end.
 
 %%-----------------
+%% Mean load CPU margin
+%%
+%% Start pairs of processes with the client on node A
+%% and the server on node B.  The clients sends requests
+%% with random interval and payload and the servers reply
+%% immediately.
+%%
+%% Also, besides each server there is a compute process
+%% that does CPU work with low process priority and we measure
+%% how much such work that gets done.
+
+mean_load_cpu_margin(Config) ->
+    run_nodepair_test(fun run_mlcm/6, Config).
+
+-define(MLCM_NO, 100).
+
+run_mlcm(A, B, Prefix, Effort, HA, HB) ->
+    [] = ssl_apply(HA, erlang, nodes, []),
+    [] = ssl_apply(HB, erlang, nodes, []),
+    MemStart = mem_start(HA, HB),
+    pong = ssl_apply(HB, net_adm, ping, [A]),
+    Count = ssl_apply(HA, fun () -> mlcm(B, Effort) end),
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
+    _ = report(Prefix++" CPU Margin Mem A", MemA, "KByte"),
+    _ = report(Prefix++" CPU Margin Mem B", MemB, "KByte"),
+    report(
+      Prefix++" CPU Margin",
+      round(Count/?MLCM_NO/Effort),
+      "stones " ++ MemSuffix).
+
+mlcm(Node, Effort) ->
+    Payloads = mlcm_payloads(),
+    Clients =
+        [mlcm_client_start(Node, Payloads) || _ <- lists:seq(1, ?MLCM_NO)],
+    receive after 1000 * Effort -> ok end,
+    [Alias ! {Alias,stop} || {_Monitor, Alias} <- Clients],
+    Counts =
+        [receive
+             {'DOWN',Monitor,_,_,{Alias, Count}} ->
+                 Count;
+             {'DOWN',Monitor,_,_,Reason} ->
+                 exit(Reason)
+         end || {Monitor, Alias} <- Clients],
+    lists:sum(Counts).
+
+mlcm_payloads() ->
+    Bin = list_to_binary([rand:uniform(256) - 1 || _ <- lists:seq(1, 512)]),
+    lists:foldl(
+      fun (N, Payloads) ->
+              Payloads#{N => binary:copy(Bin, N)}
+      end, #{}, lists:seq(0, 255)).
+
+%%-------
+
+mlcm_client_start(Node, Payloads) ->
+    Parent = self(),
+    StartRef = make_ref(),
+    {_,Monitor} =
+        spawn_monitor(
+          fun () ->
+                  Alias = alias(),
+                  Parent ! {StartRef, Alias},
+                  Server = mlcm_server_start(Node, Alias),
+                  mlcm_client(Alias, Server, Payloads, 0)
+          end),
+    receive
+        {StartRef, Alias} ->
+            {Monitor, Alias};
+        {'DOWN',Monitor,_,_,Reason} ->
+            exit(Reason)
+    end.
+
+mlcm_client(Alias, Server, Payloads, Seq) ->
+    {Time, Index} = mlcm_rand(),
+    Payload = maps:get(Index, Payloads),
+    receive after Time -> ok end,
+    Server ! {Alias, Seq, Payload},
+    receive
+        {Alias, Seq, Pl} when byte_size(Pl) =:= byte_size(Payload) ->
+            mlcm_client(Alias, Server, Payloads, Seq + 1);
+        {Alias, stop} = Msg ->
+            Server ! Msg,
+            receive after infinity -> ok end
+    end.
+
+%% Approximate normal distribution Index with an average of 6 uniform bytes
+%% and use the 7:th byte for uniform Time
+mlcm_rand() ->
+    mlcm_rand(6, rand:uniform(1 bsl (1+6)*8) - 1, 0).
+%%
+mlcm_rand(0, X, I) ->
+    Time = X + 1, % 1..256
+    Index = abs((I - 3*256) div 3), % 0..255 upper half or normal distribution
+    {Time, Index};
+mlcm_rand(N, X, I) ->
+    mlcm_rand(N - 1, X bsr 8, I + (X band 255)).
+
+%%-------
+
+mlcm_server_start(Node, Alias) ->
+    spawn_link(
+      Node,
+      fun () ->
+              Compute = mlcm_compute_start(Alias),
+              mlcm_server(Alias, 0, Compute)
+      end).
+
+mlcm_server(Alias, Seq, Compute) ->
+    receive
+        {Alias, Seq, _Payload} = Msg ->
+            Alias ! Msg,
+      mlcm_server(Alias, Seq + 1, Compute);
+        {Alias, stop} = Msg ->
+            Compute ! Msg,
+            receive after infinity -> om end
+    end.
+
+%%-------
+
+mlcm_compute_start(Alias) ->
+    spawn_opt(
+      fun () ->
+              rand:seed(exro928ss),
+              mlcm_compute(Alias, 0, 0)
+      end,
+      [link, {priority,low}]).
+
+mlcm_compute(Alias, State, Count) ->
+    receive {Alias, stop} -> exit({Alias, Count})
+    after 0 -> ok
+    end,
+    mlcm_compute(
+      Alias,
+      %% CPU payload
+      (State +
+           lists:sum([rand:uniform(1 bsl 48) || _ <- lists:seq(1, 999)]))
+          div 1000,
+      Count + 1).
+
+%%-----------------
 %% Throughput speed
 
 throughput_0(Config) ->
@@ -647,8 +1101,8 @@ throughput_1048576(Config) ->
 throughput(A, B, Prefix, HA, HB, Packets, Size) ->
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    MemStart = mem_start(HA, HB),
     #{time := Time,
-      client_dist_stats := ClientDistStats,
       client_msacc_stats := ClientMsaccStats,
       client_prof := ClientProf,
       server_msacc_stats := ServerMsaccStats,
@@ -658,15 +1112,19 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
         ssl_apply(HA, fun () -> throughput_runner(A, B, Packets, Size) end),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
     ClientMsaccStats =:= undefined orelse
         msacc:print(ClientMsaccStats),
-    io:format("ClientDistStats: ~p~n", [ClientDistStats]),
     Overhead =
         50 % Distribution protocol headers (empirical) (TLS+=54)
         + byte_size(erlang:term_to_binary([0|<<>>])), % Benchmark overhead
     Bytes = Packets * (Size + Overhead),
     io:format("~w bytes, ~.4g s~n", [Bytes,Time/1000000]),
     SizeString = integer_to_list(Size),
+    _ = report(
+          Prefix++" Throughput_" ++ SizeString ++ " Mem A", MemA, "KByte"),
+    _ = report(
+          Prefix++" Throughput_" ++ SizeString ++ " Mem B", MemB, "KByte"),
     ClientMsaccStats =:= undefined orelse
         report(
           Prefix ++ " Sender_RelativeCoreLoad_" ++ SizeString,
@@ -687,12 +1145,13 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
     io:format("******* Server GC Before:~n~p~n", [Server_GC_Before]),
     io:format("******* Server GC After:~n~p~n", [Server_GC_After]),
     Speed = round((Bytes * 1000000) / (1024 * Time)),
-    report(Prefix ++ " Throughput_" ++ SizeString, Speed, "kB/s").
+    report(
+      Prefix ++ " Throughput_" ++ SizeString, Speed, "kB/s " ++ MemSuffix).
 
 %% Runs on node A and spawns a server on node B
 throughput_runner(A, B, Rounds, Size) ->
     Payload = payload(Size),
-    [A] = rpc:call(B, erlang, nodes, []),
+    [A] = erpc:call(B, erlang, nodes, []),
     ClientPid = self(),
     ServerPid =
         erlang:spawn_opt(
@@ -721,73 +1180,9 @@ throughput_runner(A, B, Rounds, Size) ->
                 undefined
         end,
     Prof = prof_end(),
-    [{_Node,Socket}] = dig_dist_node_sockets(),
-    DistStats = inet:getstat(Socket),
     Result#{time := microseconds(Time),
-            client_dist_stats => DistStats,
             client_msacc_stats => MsaccStats,
             client_prof => Prof}.
-
-dig_dist_node_sockets() ->
-    DistCtrl2Node =
-        maps:from_list(
-          [{DistCtrl, Node}
-           || {Node, DistCtrl}
-                  <- erlang:system_info(dist_ctrl), is_pid(DistCtrl)]),
-    TlsDistConnSup = whereis(tls_dist_connection_sup),
-    InetCryptoDist = whereis(inet_crypto_dist),
-    [NodeSocket
-     || {_, Socket} = NodeSocket
-            <- erlang:system_info(dist_ctrl), is_port(Socket)]
-        ++
-        if
-            TlsDistConnSup =/= undefined ->
-                [case ConnSpec of
-                     {undefined, ConnSup, supervisor, _} ->
-                         [{receiver, ReceiverPid, worker, _},
-                          {sender, SenderPid, worker, _}] =
-                             lists:sort(supervisor:which_children(ConnSup)),
-                         {links,ReceiverLinks} =
-                             process_info(ReceiverPid, links),
-                         [Socket] = [S || S <- ReceiverLinks, is_port(S)],
-                         {maps:get(SenderPid, DistCtrl2Node), Socket}
-                 end
-                 || ConnSpec <- supervisor:which_children(TlsDistConnSup)];
-            InetCryptoDist =/= undefined ->
-                [begin
-                     {monitors,[{process,InputHandler}]} =
-                         erlang:process_info(DistCtrl, monitors),
-                     {links,InputHandlerLinks} =
-                         erlang:process_info(InputHandler, links),
-                     [Socket] =
-                         [S || S <- InputHandlerLinks, is_port(S)],
-                     {Node, Socket}
-                 end
-                 || {DistCtrl, Node} <- maps:to_list(DistCtrl2Node)];
-            true ->
-                []
-        end.
-
--ifdef(undefined).
-dig_dist_node_sockets() ->
-    [case DistCtrl of
-         {_Node,Socket} = NodeSocket when is_port(Socket) ->
-             NodeSocket;
-         {Node,DistCtrlPid} when is_pid(DistCtrlPid) ->
-             [{links,DistCtrlLinks}] = process_info(DistCtrlPid, [links]),
-             case [S || S <- DistCtrlLinks, is_port(S)] of
-                 [Socket] ->
-                     {Node,Socket};
-                 [] ->
-                     [{monitors,[{process,DistSenderPid}]}] =
-                         process_info(DistCtrlPid, [monitors]),
-                     [{links,DistSenderLinks}] =
-                         process_info(DistSenderPid, [links]),
-                     [Socket] = [S || S <- DistSenderLinks, is_port(S)],
-                     {Node,Socket}
-             end
-     end || DistCtrl <- erlang:system_info(dist_ctrl)].
--endif.
 
 throughput_server(Pid, N) ->
     GC_Before = get_server_gc_info(),
@@ -917,17 +1312,19 @@ prof_print([]) ->
 %%% Test cases helpers
 
 run_nodepair_test(TestFun, Config) ->
-    A = proplists:get_value(node_a, Config),
-    B = proplists:get_value(node_b, Config),
+    A = proplists:get_value({client,1}, Config),
+    B = proplists:get_value(server, Config),
     Prefix = proplists:get_value(ssl_dist_prefix, Config),
     Effort = proplists:get_value(effort, Config, 1),
-    HA = start_ssl_node_a(Config),
-    HB = start_ssl_node_b(Config),
-    try TestFun(A, B, Prefix, Effort, HA, HB)
+    HA = start_ssl_node({client,1}, Config),
+    try
+        HB = start_ssl_node(server, Config),
+        try TestFun(A, B, Prefix, Effort, HA, HB)
+        after
+            stop_ssl_node(server, HB, Config)
+        end
     after
-        stop_ssl_node_a(HA),
-        stop_ssl_node_b(HB, Config),
-        ok
+        stop_ssl_node({client,1}, HA, Config)
     end.
 
 ssl_apply(Handle, M, F, Args) ->
@@ -946,33 +1343,39 @@ ssl_apply(Handle, Fun) ->
             Result
     end.
 
-start_ssl_node_a(Config) ->
-    Name = proplists:get_value(node_a_name, Config),
-    Args = get_node_args(node_a_dist_args, Config),
+start_ssl_node(Spec, Config) ->
+    start_ssl_node(Spec, Config, 0).
+%%
+start_ssl_node({client, N}, Config, Verbose) ->
+    Name = proplists:get_value({client_name, N}, Config),
+    Args = get_node_args({client_dist_args, N}, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ssl_dist_test_lib:start_ssl_node(
-      Name, "-pa " ++ Pa ++ " " ++ Args).
-
-start_ssl_node_b(Config) ->
-    Name = proplists:get_value(node_b_name, Config),
-    Args = get_node_args(node_b_dist_args, Config),
+      Name, "-pa " ++ Pa ++ " +Muacul 0 " ++ Args, Verbose);
+start_ssl_node(server, Config, Verbose) ->
+    Name = proplists:get_value(server_name, Config),
+    Args = get_node_args(server_dist_args, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ServerNode = proplists:get_value(server_node, Config),
-    rpc:call(
+    erpc:call(
       ServerNode, ssl_dist_test_lib, start_ssl_node,
-      [Name, "-pa " ++ Pa ++ " " ++ Args]).
+      [Name, "-pa " ++ Pa ++ " +Muacul 0 " ++ Args, Verbose]).
 
-stop_ssl_node_a(HA) ->
-    ssl_dist_test_lib:stop_ssl_node(HA).
-
-stop_ssl_node_b(HB, Config) ->
+stop_ssl_node({client, _}, HA, _Config) ->
+    ssl_dist_test_lib:stop_ssl_node(HA);
+stop_ssl_node(server, HB, Config) ->
     ServerNode = proplists:get_value(server_node, Config),
-    rpc:call(ServerNode, ssl_dist_test_lib, stop_ssl_node, [HB]).
+    erpc:call(ServerNode, ssl_dist_test_lib, stop_ssl_node, [HB]).
 
 get_node_args(Tag, Config) ->
     case proplists:get_value(ssl_dist, Config) of
         true ->
-            proplists:get_value(Tag, Config);
+            case proplists:get_value(ktls, Config, false) of
+                true ->
+                    "-ssl_dist_opt client_ktls true server_ktls true ";
+                false ->
+                    ""
+            end ++ proplists:get_value(Tag, Config);
         false ->
             proplists:get_value(ssl_dist_args, Config, "")
     end.
@@ -1018,13 +1421,13 @@ elapsed_time(StartTime) ->
 microseconds(Time) ->
     erlang:convert_time_unit(Time, native, microsecond).
 
-report(Name, Value, Unit) ->
-    ct:pal("~s: ~w ~s", [Name, Value, Unit]),
+report(Name, Value, Suffix) ->
+    ct:pal("~s: ~w ~s", [Name, Value, Suffix]),
     ct_event:notify(
       #event{
          name = benchmark_data,
          data = [{value, Value}, {suite, "ssl_dist"}, {name, Name}]}),
-    {comment, term_to_string(Value) ++ " " ++ Unit}.
+    {comment, term_to_string(Value) ++ " " ++ Suffix}.
 
 term_to_string(Term) ->
     unicode:characters_to_list(
@@ -1032,3 +1435,114 @@ term_to_string(Term) ->
 
 msacc_available() ->
     msacc:available().
+
+
+mem_start(HA, HB) ->
+    MemA = ssl_apply(HA, fun mem/0),
+    MemB = ssl_apply(HB, fun mem/0),
+    {MemA, MemB}.
+
+mem_stop(HA, HB, Mem1) ->
+    MemA2 = ssl_apply(HA, fun mem/0),
+    MemB2 = ssl_apply(HB, fun mem/0),
+    mem_result(mem_diff(Mem1, {MemA2, MemB2})).
+
+mem_diff({MemA1, MemB1}, {MemA2, MemB2}) ->
+    {MemA2 - MemA1, MemB2 - MemB1}.
+
+mem_result({MemDiffA, MemDiffB}) ->
+    MemSuffix =
+        io_lib:format(
+          "~.5g|~.5g MByte", [MemDiffA / (1 bsl 20), MemDiffB / (1 bsl 20)]),
+    {round(MemDiffA / (1 bsl 10)), round(MemDiffB / (1 bsl 10)), MemSuffix}.
+
+memory(Type) ->
+    try erlang:memory(Type)
+    catch error : notsup ->
+            0
+    end.
+
+-ifdef(undefined).
+
+mem() ->
+    lists:foldl(
+      fun ({Type, F}, Acc) ->
+              F*memory(Type) + Acc
+      end, 0,
+      [{total, 1}, {processes, -1}, {atom, -1}, {code, -1},
+       {processes_used, 1}, {atom_used, 1}]).
+
+-else.
+
+mem() ->
+    {_Current, _MaxSince, MaxEver} =
+        traverse(
+          fun mem/3,
+          [erlang:system_info({allocator_sizes, Alloc})
+           || Alloc <- erlang:system_info(alloc_util_allocators)],
+          {0, 0, 0}),
+    MaxEver - memory(code). % Kind of assuming code stays allocated
+
+%% allocator_sizes traversal fun
+mem(
+  T = {instance, _, L}, [], Acc)
+  when is_list(L) ->
+    {tuple_size(T), Acc};
+mem(
+  T = {_, L}, [{instance, _, _}], Acc)
+  when is_list(L) ->
+    {tuple_size(T), Acc};
+mem(
+  T = {blocks, L}, [{_, _}, {instance, _, _}], Acc)
+  when is_list(L) ->
+    {tuple_size(T), Acc};
+mem(
+  T = {_, L}, [{blocks, _}, {_, _}, {instance, _, _}], Acc)
+  when is_list(L) ->
+    {tuple_size(T), Acc};
+mem(
+  {size, Current, MaxSince, MaxEver},
+  [{_, _}, {blocks, _}, {_, _}, {instance, _, _}],
+  {C, S, E}) ->
+    {0, {C + Current, S + MaxSince, E + MaxEver}};
+mem(
+  {size, Current},
+  [{_, _}, {blocks, _}, {_, _}, {instance, _, _}],
+  {C, S, E}) ->
+    %% Use Current as Max since we do not have any Max values
+    %% XXX future improvement when that gets added to
+    %% erlang:system_info(allocator_sizes, _)
+    {0, {C + Current, S + Current, E + Current}};
+mem(_, _, Acc) ->
+    {0, Acc}.
+
+%% Traverse (Fold) over all lists in a deep term;
+%% descend into the selected element of a tuple;
+%% record the descent Path and supply it to Fun
+%%
+%% Acc cannot be an integer
+traverse(Fun, Term, Acc) ->
+    traverse(Fun, Term, [], Acc).
+%%
+traverse(Fun, Term, Path, Acc) ->
+    if
+        is_list(Term) ->
+            traverse_list(Fun, Term, Path, Acc);
+        is_tuple(Term) ->
+            case Fun(Term, Path, Acc) of
+                {0, NewAcc} ->
+                    NewAcc;
+                {N, NewAcc} when is_integer(N) ->
+                    traverse(Fun, element(N, Term), [Term | Path], NewAcc)
+            end;
+        true ->
+            Acc
+    end.
+
+traverse_list(Fun, [Term | Terms], Path, Acc) ->
+    NewAcc = traverse(Fun, Term, Path, Acc),
+    traverse_list(Fun, Terms, Path, NewAcc);
+traverse_list(_Fun, [], _Path, Acc) ->
+    Acc.
+
+-endif.

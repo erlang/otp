@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,9 +77,11 @@
 %% Setup
 %%====================================================================
 start_fsm(Role, Host, Port, Socket,
-          {#{erl_dist := ErlDist, sender_spawn_opts := SenderSpawnOpts}, _, Trackers} = Opts,
+          {SSLOpts, _, Trackers} = Opts,
 	  User, {CbModule, _, _, _, _} = CbInfo,
 	  Timeout) ->
+    ErlDist = maps:get(erl_dist, SSLOpts, false),
+    SenderSpawnOpts = maps:get(sender_spawn_opts, SSLOpts, []),
     SenderOptions = handle_sender_options(ErlDist, SenderSpawnOpts),
     Starter = start_connection_tree(User, ErlDist, SenderOptions,
                                     Role, [Host, Port, Socket, Opts, User, CbInfo]),
@@ -146,24 +148,26 @@ initialize_tls_sender(#state{static_env = #static_env{
                                              trackers = Trackers
                                             },
                              connection_env = #connection_env{negotiated_version = Version},
-                             socket_options = SockOpts, 
+                             socket_options = SockOpts,
                              ssl_options = #{renegotiate_at := RenegotiateAt,
                                              key_update_at := KeyUpdateAt,
-                                             erl_dist := ErlDist,
-                                             log_level := LogLevel},
+                                             log_level := LogLevel
+                                            } = SSLOpts,
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := Sender}}) ->
+    HibernateAfter = maps:get(hibernate_after, SSLOpts, infinity),
     Init = #{current_write => ConnectionWriteState,
              role => Role,
              socket => Socket,
              socket_options => SockOpts,
-             erl_dist => ErlDist, 
+             erl_dist => maps:get(erl_dist, SSLOpts, false),
              trackers => Trackers,
              transport_cb => Transport,
              negotiated_version => Version,
              renegotiate_at => RenegotiateAt,
              key_update_at => KeyUpdateAt,
-             log_level => LogLevel},
+             log_level => LogLevel,
+             hibernate_after => HibernateAfter},
     tls_sender:initialize(Sender, Init).
 
 %%====================================================================
@@ -352,6 +356,11 @@ handle_info({CloseTag, Socket}, StateName,
             %% is called after all data has been deliver.
             {next_state, StateName, State#state{protocol_specific = PS#{active_n_toggle => true}}, []}
     end;
+handle_info({ssl_tls, Port, Type, {Major, Minor}, Data}, StateName,
+            #state{static_env = #static_env{data_tag = Protocol},
+                   ssl_options = #{ktls := true}} = State0) ->
+    Len = byte_size(Data),
+    handle_info({Protocol, Port, <<Type, Major, Minor, Len:16, Data/binary>>}, StateName, State0);
 handle_info(Msg, StateName, State) ->
     ssl_gen_statem:handle_info(Msg, StateName, State).
 
@@ -468,7 +477,8 @@ handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, StateName, State)
     catch
-	_:_ ->
+	_:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, alert_decode_error),
 					    StateName, State)
 
@@ -525,7 +535,8 @@ send_sync_alert(
   Alert, #state{protocol_specific = #{sender := Sender}} = State) ->
     try tls_sender:send_and_ack_alert(Sender, Alert)
     catch
-        _:_ ->
+        _:Reason:ST ->
+            ?SSL_LOG(info, "Send failed", [{error, Reason}, {stacktrace, ST}]),
             throw({stop, {shutdown, own_alert}, State})
     end.
 
@@ -669,6 +680,8 @@ next_record(_, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []
 next_record(_, State) ->
     {no_record, State}.
 
+flow_ctrl(#state{ssl_options = #{ktls := true}} = State) ->
+    {no_record, State};
 %%% bytes_to_read equals the integer Length arg of ssl:recv
 %%% the actual value is only relevant for packet = raw | 0
 %%% bytes_to_read = undefined means no recv call is ongoing

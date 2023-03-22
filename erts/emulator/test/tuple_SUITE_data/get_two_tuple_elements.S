@@ -63,7 +63,7 @@
     {trim,2,0}.
     {line,[{location,"get_two_tuple_elements.erl",5}]}.
     {call,2,{f,5}}.
-    {'%',{var_info,{x,0},[{type,number}]}}.
+    {'%',{var_info,{x,0},[{type,{t_number,any}}]}}.
     {test,is_eq_exact,{f,3},[{x,0},{integer,3}]}.
     {move,{atom,ok},{x,0}}.
     {deallocate,0}.

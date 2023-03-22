@@ -114,12 +114,18 @@ EOM
 }
 
 release_erlang () {
-    local RELEASE_ROOT=${1}
-    if ! (cd $ERL_TOP && make release RELEASE_ROOT="${RELEASE_ROOT}"); then
+    local RELEASE_ROOT="${1}"
+    if ! (cd $ERL_TOP && make release TYPE= release_docs DOC_TARGETS=chunks RELEASE_ROOT="${RELEASE_ROOT}"); then
         return 1
     fi
     if ! (cd "$RELEASE_ROOT" && ./Install -minimal "`pwd`"); then
         return 1
+    fi
+    ## Need to release both TYPE= and TYPE=$TYPE for tests to work
+    if [ "$TYPE" != "" ]; then
+        if ! (cd $ERL_TOP && make release TYPE=$TYPE RELEASE_ROOT="${RELEASE_ROOT}"); then
+            return 1
+        fi
     fi
     export PATH="${RELEASE_ROOT}/bin:$PATH"
     return 0
@@ -192,7 +198,7 @@ MAKE_TEST_CT_LOGS="$MAKE_TEST_DIR/ct_logs"
 RELEASE_TEST_SPEC_LOG="$MAKE_TEST_DIR/release_tests_spec_log"
 INSTALL_TEST_LOG="$MAKE_TEST_DIR/install_tests_log"
 COMPILE_TEST_LOG="$MAKE_TEST_DIR/compile_tests_log"
-RELEASE_ROOT="${MAKE_TEST_DIR}/otp"
+RELEASE_ROOT=${RELEASE_ROOT:-"${MAKE_TEST_DIR}/Erlang ∅⊤℞"}
 RELEASE_LOG="$MAKE_TEST_DIR/release_tests_log"
 
 cd test
@@ -216,10 +222,10 @@ EOF
         exit 1
     fi
     CT_RUN="${RELEASE_ROOT}/bin/ct_run"
-    PATH=${RELEASE_ROOT}/bin/:${PATH}
+    PATH="${RELEASE_ROOT}/bin/":${PATH}
 fi
 
-echo "The tests in test directory for $APPLICATION will be executed with ct_run"
+echo "The tests in test directory for $APPLICATION will be executed with ${CT_RUN}"
 if [ -z "${ARGS}" ]
 then
     if [ ! -d "$MAKE_TEST_DIR" ]
@@ -299,28 +305,28 @@ then
         CTRUN_TIMEOUT="timeout -s ABRT --foreground --preserve-status $((${CTRUN_TIMEOUT}+5))m timeout -s USR1 --foreground --preserve-status ${CTRUN_TIMEOUT}m"
     fi
     ERL_AFLAGS="${ERL_AFLAGS}" $CTRUN_TIMEOUT \
-      $CT_RUN -logdir $MAKE_TEST_CT_LOGS\
-        -pa "$ERL_TOP/lib/common_test/test_server"\
-        -config "$ERL_TOP/lib/common_test/test_server/ts.config"\
-        -config "$ERL_TOP/lib/common_test/test_server/ts.unix.config"\
+      "${CT_RUN}" -logdir $MAKE_TEST_CT_LOGS \
+        -pa "$ERL_TOP/lib/common_test/test_server" \
+        -config "$ERL_TOP/lib/common_test/test_server/ts.config" \
+        -config "$ERL_TOP/lib/common_test/test_server/ts.unix.config" \
         -exit_status ignore_config \
-        ${ARGS}\
-        -erl_args\
-        -env ERL_CRASH_DUMP "$MAKE_TEST_DIR/${APPLICATION}_erl_crash.dump"\
-        -boot start_sasl\
-        -sasl errlog_type error\
-        -pz "$ERL_TOP/lib/common_test/test_server"\
-        -pz "."\
-        -ct_test_vars "{net_dir,\"\"}"\
-        -noshell\
+        ${ARGS} \
+        -erl_args \
+        -env ERL_CRASH_DUMP "$MAKE_TEST_DIR/${APPLICATION}_erl_crash.dump" \
+        -boot start_sasl \
+        -sasl errlog_type error \
+        -pz "$ERL_TOP/lib/common_test/test_server" \
+        -pz "." \
+        -ct_test_vars "{net_dir,\"\"}" \
+        -noinput \
         -sname ${CT_NODENAME}\
-        -rsh ssh\
+        -rsh ssh \
         ${ERL_ARGS}
 else
     WIN_MAKE_TEST_CT_LOGS=`w32_path.sh -m "$MAKE_TEST_CT_LOGS"`
     WIN_MAKE_TEST_DIR=`w32_path.sh -m "$MAKE_TEST_DIR"`
     WIN_ERL_TOP=`w32_path.sh -m "$ERL_TOP"`
-    $CT_RUN.exe -logdir $WIN_MAKE_TEST_CT_LOGS\
+    "$CT_RUN.exe" -logdir $WIN_MAKE_TEST_CT_LOGS\
         -pa "$WIN_ERL_TOP/lib/common_test/test_server"\
         -config "$WIN_ERL_TOP/lib/common_test/test_server/ts.config"\
         -config "$WIN_ERL_TOP/lib/common_test/test_server/ts.win32.config"\
@@ -333,7 +339,7 @@ else
         -pz "$WIN_ERL_TOP/lib/common_test/test_server"\
         -pz "."\
         -ct_test_vars "{net_dir,\"\"}"\
-        -noshell\
+        -noinput\
         -sname ${CT_NODENAME}\
         -rsh ssh\
         ${ERL_ARGS}

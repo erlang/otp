@@ -66,8 +66,7 @@ acceptor_init(Parent, Manager, SocketType, Addr, Port, IpFamily,
 	    acceptor_loop(Manager, SocketType, Addr, Port, 
 			  ListenSocket, IpFamily,ConfigDb, AcceptTimeout);
 	Error ->
-	    proc_lib:init_ack(Parent, Error),
-	    error
+	    proc_lib:init_fail(Parent, Error, {exit, normal})
     end.
    
 do_init(SocketType, Addr, Port, IpFamily) ->

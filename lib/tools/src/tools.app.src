@@ -24,7 +24,6 @@
 	     cprof,
 	     eprof,
 	     fprof,
-	     instrument,
 	     lcnt,
 	     make,
 	     tags,

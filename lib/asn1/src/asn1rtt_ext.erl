@@ -127,7 +127,5 @@ transform_to_EXTERNAL1994_maps(V0) ->
 	_  ->
 	    %% Keep the EXTERNAL 1990 definition to avoid losing
 	    %% information.
-	    V = [{K,V} || {K,V} <- maps:to_list(V0),
-                          V =/= asn1_NOVALUE],
-            maps:from_list(V)
+            #{K => V || K := V <- V0, V =/= asn1_NOVALUE}
     end.

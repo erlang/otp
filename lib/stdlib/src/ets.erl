@@ -70,7 +70,7 @@
 -export([all/0, delete/1, delete/2, delete_all_objects/1,
          delete_object/2, first/1, give_away/3, info/1, info/2,
          insert/2, insert_new/2, is_compiled_ms/1, last/1, lookup/2,
-         lookup_element/3, match/1, match/2, match/3, match_object/1,
+         lookup_element/3, lookup_element/4, match/1, match/2, match/3, match_object/1,
          match_object/2, match_object/3, match_spec_compile/1,
          match_spec_run_r/3, member/2, new/2, next/2, prev/2,
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
@@ -231,6 +231,16 @@ lookup(_, _) ->
 
 lookup_element(_, _, _) ->
     erlang:nif_error(undef).
+
+-spec lookup_element(Table, Key, Pos, Default) -> Elem when
+    Table :: table(),
+    Key :: term(),
+    Pos :: pos_integer(),
+    Default :: term(),
+    Elem :: term() | [term()].
+
+lookup_element(_, _, _, _) ->
+  erlang:nif_error(undef).
 
 -spec match(Table, Pattern) -> [Match] when
       Table :: table(),

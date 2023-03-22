@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2022</year>
+      <year>1999</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -111,7 +111,9 @@
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
         <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
-        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
+        <c><![CDATA[map_size]]></c> |
+        <c><![CDATA[max]]></c> | <c><![CDATA[min]]></c> |
+        <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
         <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
@@ -140,7 +142,7 @@
         <c><![CDATA[process_dump]]></c> | <c><![CDATA[enable_trace]]></c> |
         <c><![CDATA[disable_trace]]></c> | <c><![CDATA[trace]]></c> |
         <c><![CDATA[display]]></c> | <c><![CDATA[caller]]></c> |
-        <c><![CDATA[caller_line]]></c> |
+        <c><![CDATA[caller_line]]></c> | <c><![CDATA[current_stacktrace]]></c> |
         <c><![CDATA[set_tcw]]></c> | <c><![CDATA[silent]]></c>
       </item>
     </list>
@@ -195,7 +197,9 @@
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
         <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
-        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
+        <c><![CDATA[map_size]]></c> |
+        <c><![CDATA[max]]></c> | <c><![CDATA[min]]></c> |
+        <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
         <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
@@ -275,7 +279,9 @@
             <c><![CDATA['xor']]></c> returns false.</p>
         </item>
         <tag><c>abs</c>, <c>element</c>, <c>hd</c>, <c>length</c>,
-          <c>map_get</c>, <c>map_size</c>, <c>node</c>, <c>round</c>,
+          <c>map_get</c>, <c>map_size</c>,
+          <c>max</c>, <c>min</c>,
+          <c>node</c>, <c>round</c>,
           <c>size</c>, <c>bit_size</c>, <c>byte_size</c>, <c>tl</c>,
           <c>trunc</c>, <c>binary_part</c>, <c>'+'</c>,
           <c>'-'</c>, <c>'*'</c>, <c>'div'</c>, <c>'rem'</c>, <c>'band'</c>,
@@ -456,6 +462,19 @@
              <c><![CDATA[caller_line]]></c> function sometimes returns the atom
              <c><![CDATA[undefined]]></c>. The calling
              Erlang function is not available during such calls.</p>
+        </item>
+        <tag><c>current_stacktrace</c></tag>
+        <item>
+          <p>Returns the current call stack back-trace
+            (<seetype marker="erts:erlang#stacktrace">stacktrace</seetype>)
+            of the calling function. The stack has the same format as in the
+            <c>catch</c> part of a <c>try</c>. See <seeguide
+            marker="system/reference_manual:errors#stacktrace">The call-stack back trace (stacktrace)</seeguide>.
+            The depth of the stacktrace is truncated according to the
+            <c>backtrace_depth</c> system flag setting.</p>
+
+          <p>Accepts a depth parameter. The depth value will be
+            <c>backtrace_depth</c> if the argument is greater.</p>
         </item>
         <tag><c>display</c></tag>
           <item>

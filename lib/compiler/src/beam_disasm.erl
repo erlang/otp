@@ -269,12 +269,17 @@ beam_disasm_types(none) ->
 beam_disasm_types(<<?BEAM_TYPES_VERSION:32,Count:32,Table/binary>>) ->
     Res = gb_trees:from_orddict(disasm_types(Table, 0)),
     Count = gb_trees:size(Res),                 %Assertion.
-    Res.
+    Res;
+beam_disasm_types(<<_/binary>>) ->
+    none.
 
-disasm_types(<<Type:18/binary,Rest/binary>>, Index) ->
-    [{Index,beam_types:decode_ext(Type)}|disasm_types(Rest, Index+1)];
-disasm_types(<<>>, _) ->
-    [].
+disasm_types(Types0, Index) ->
+    case beam_types:decode_ext(Types0) of
+        done ->
+            [];
+        {Types,Rest} ->
+            [{Index,Types}|disasm_types(Rest, Index+1)]
+    end.
 
 %%-----------------------------------------------------------------------
 %% Disassembles the code chunk of a BEAM file:
@@ -412,6 +417,10 @@ disasm_instr(B, Bs, Atoms, Literals, Types) ->
 	    disasm_init_yregs(Bs, Atoms, Literals, Types);
 	bs_create_bin ->
 	    disasm_bs_create_bin(Bs, Atoms, Literals, Types);
+	bs_match ->
+	    disasm_bs_match(Bs, Atoms, Literals, Types);
+	update_record ->
+	    disasm_update_record(Bs, Atoms, Literals, Types);
 	_ ->
 	    try decode_n_args(Arity, Bs, Atoms, Literals, Types) of
 		{Args, RestBs} ->
@@ -487,6 +496,27 @@ disasm_bs_create_bin(Bs0, Atoms, Literals, Types) ->
     {u, Len} = U,
     {List, RestBs} = decode_n_args(Len, Bs7, Atoms, Literals, Types),
     {{bs_create_bin, [{A1,A2,A3,A4,A5,Z,U,List}]}, RestBs}.
+
+disasm_bs_match(Bs0, Atoms, Literals, Types) ->
+    {A1, Bs1} = decode_arg(Bs0, Atoms, Literals, Types),
+    {A2, Bs2} = decode_arg(Bs1, Atoms, Literals, Types),
+    Bs5 = Bs2,
+    {Z, Bs6} = decode_arg(Bs5, Atoms, Literals, Types),
+    {U, Bs7} = decode_arg(Bs6, Atoms, Literals, Types),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs7, Atoms, Literals, Types),
+    {{bs_match, [{A1,A2,Z,U,List}]}, RestBs}.
+
+disasm_update_record(Bs1, Atoms, Literals, Types) ->
+    {Hint, Bs2} = decode_arg(Bs1, Atoms, Literals, Types),
+    {Size, Bs3} = decode_arg(Bs2, Atoms, Literals, Types),
+    {Src, Bs4} = decode_arg(Bs3, Atoms, Literals, Types),
+    {Dst, Bs6} = decode_arg(Bs4, Atoms, Literals, Types),
+    {Z, Bs7} = decode_arg(Bs6, Atoms, Literals, Types),
+    {U, Bs8} = decode_arg(Bs7, Atoms, Literals, Types),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs8, Atoms, Literals, Types),
+    {{update_record, [Hint,Size,Src,Dst,{{Z,U,List}}]}, RestBs}.
 
 %%-----------------------------------------------------------------------
 %% decode_arg([Byte]) -> {Arg, [Byte]}
@@ -731,9 +761,13 @@ resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, M) ->
     [resolve_inst(Instr, Imports, Str, Lbls, Lambdas, Literals, M) || Instr <- Fun].
 
 %%
-%% New make_fun2/4 instruction added in August 2001 (R8).
-%% We handle it specially here to avoid adding an argument to
+%% Instructions that need to look up an entry in the Lambda table.
+%% We handle these specially here to avoid adding an argument to
 %% the clause for every instruction.
+%%
+%% - make_fun2/4 (R8, added in August 2001)
+%% - make_fun3/3 (OTP 24)
+%% - call_fun2/3 (OTP 25)
 %%
 
 resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, M) ->
@@ -747,6 +781,17 @@ resolve_inst({make_fun3,[Fun,Dst,{{z,1},{u,_},Env0}]}, _, _, _, Lambdas, _, M) -
     {OldIndex,{F,A,_Lbl,_Index,_NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun3,{M,F,A},OldIndex,OldUniq,Dst,{list,Env1}};
+resolve_inst({call_fun2,Args}, _, _, _, Lambdas, _, _) ->
+    [Tag0,Arity,Func] = resolve_args(Args),
+    Tag = case Tag0 of
+              Index when is_integer(Index) ->
+                  {Tag0,{_F,_A,Label,_Index,_NumFree,_OldUniq}} =
+                      lists:keyfind(Tag0, 1, Lambdas),
+                  {f,Label};
+              _ ->
+                  Tag0
+          end,
+    {call_fun2,Tag,Arity,Func};
 resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _M) ->
     %% io:format(?MODULE_STRING":resolve_inst ~p.~n", [Instr]),
     resolve_inst(Instr, Imports, Str, Lbls).
@@ -943,19 +988,19 @@ resolve_inst({fconv,Args},_,_,_) ->
     {fconv,Reg,FR};
 resolve_inst({fadd=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fsub=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fmul=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fdiv=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fnegate,Args},_,_,_) ->
     [F,Arg,Reg] = resolve_args(Args),
-    {arithfbif,fnegate,F,[Arg],Reg};
+    {bif,fnegate,F,[Arg],Reg};
 
 %%
 %% Instructions for try expressions added in January 2003 (R10).
@@ -969,8 +1014,7 @@ resolve_inst({try_case,[Reg]},_,_,_) ->  % analogous to 'catch_end'
 resolve_inst({try_case_end,[Arg]},_,_,_) ->
     {try_case_end,resolve_arg(Arg)};
 resolve_inst({raise,[_Reg1,_Reg2]=Regs},_,_,_) ->
-    {raise,{f,0},Regs,{x,0}};		 % do NOT wrap this as a 'bif'
-					 % as there is no raise/2 bif!
+    {bif,raise,{f,0},Regs,{x,0}};
 
 %%
 %% New bit syntax instructions added in February 2004 (R10B).
@@ -1009,15 +1053,15 @@ resolve_inst({is_function2=I,Args0},_,_,_) ->
 %%
 resolve_inst({bs_start_match2=I,[F,Reg,{u,Live},{u,Max},Ms]},_,_,_) ->
     {test,I,F,[Reg,Live,Max,Ms]};
-resolve_inst({bs_get_integer2=I,[Lbl,Ms,{u,Live},Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[Ms, Live,A2,N,decode_field_flags(U),A5]};
-resolve_inst({bs_get_binary2=I,[Lbl,Ms,{u,Live},Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[Ms, Live,A2,N,decode_field_flags(U),A5]};
-resolve_inst({bs_get_float2=I,[Lbl,Ms,{u,Live},Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[Ms, Live,A2,N,decode_field_flags(U),A5]};
+resolve_inst({bs_get_integer2=I,[Fail,Ms,{u,Live},Size0,{u,Unit},{u,Flags},Dst0]},_,_,_) ->
+    [Size,Dst] = resolve_args([Size0,Dst0]),
+    {test,I,Fail,Live,[Ms,Size,Unit,decode_field_flags(Flags)],Dst};
+resolve_inst({bs_get_binary2=I,[Fail,Ms,{u,Live},Size0,{u,Unit},{u,Flags},Dst0]},_,_,_) ->
+    [Size,Dst] = resolve_args([Size0,Dst0]),
+    {test,I,Fail,Live,[Ms,Size,Unit,decode_field_flags(Flags)],Dst};
+resolve_inst({bs_get_float2=I,[Fail,Ms,{u,Live},Size0,{u,Unit},{u,Flags},Dst0]},_,_,_) ->
+    [Size,Dst] = resolve_args([Size0,Dst0]),
+    {test,I,Fail,Live,[Ms,Size,Unit,decode_field_flags(Flags)],Dst};
 resolve_inst({bs_skip_bits2=I,[Lbl,Ms,Arg2,{u,N},{u,U}]},_,_,_) ->
     A2 = resolve_arg(Arg2),
     {test,I,Lbl,[Ms,A2,N,decode_field_flags(U)]};
@@ -1077,7 +1121,7 @@ resolve_inst({bs_match_string=I,[F,Ms,{u,Bits},{u,Off}]},_,Strings,_) ->
 		     Bin;
 		 true -> <<>>
 	     end,
-    {test,I,F,[Ms,Bits,String]};
+    {test,I,F,[Ms,Bits,{string,String}]};
 resolve_inst({bs_init_writable=I,[]},_,_,_) ->
     I;
 resolve_inst({bs_append=I,[Lbl,Arg2,{u,W},{u,R},{u,U},Arg6,{u,F},Arg8]},_,_,_) ->
@@ -1192,11 +1236,11 @@ resolve_inst({get_tl,[Src,Dst]},_,_,_) ->
 resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
     List = resolve_args(List0),
     {put_tuple2,Dst,{list,List}};
-resolve_inst({bs_start_match3,[Fail,Bin,Live,Dst]},_,_,_) ->
-    {bs_start_match3,Fail,Bin,Live,Dst};
-resolve_inst({bs_get_tail,[Src,Dst,Live]},_,_,_) ->
+resolve_inst({bs_start_match3=I,[Fail,Bin,{u,Live},Dst]},_,_,_) ->
+    {test,I,Fail,Live,[Bin],Dst};
+resolve_inst({bs_get_tail,[Src,Dst,{u,Live}]},_,_,_) ->
     {bs_get_tail,Src,Dst,Live};
-resolve_inst({bs_get_position,[Src,Dst,Live]},_,_,_) ->
+resolve_inst({bs_get_position,[Src,Dst,{u,Live}]},_,_,_) ->
     {bs_get_position,Src,Dst,Live};
 resolve_inst({bs_set_position,[Src,Dst]},_,_,_) ->
     {bs_set_position,Src,Dst};
@@ -1205,7 +1249,7 @@ resolve_inst({bs_set_position,[Src,Dst]},_,_,_) ->
 %% OTP 23.
 %%
 
-resolve_inst({bs_start_match4,[Fail,Live,Src,Dst]},_,_,_) ->
+resolve_inst({bs_start_match4,[Fail,{u,Live},Src,Dst]},_,_,_) ->
     {bs_start_match4,Fail,Live,Src,Dst};
 resolve_inst({swap,[_,_]=List},_,_,_) ->
     [R1,R2] = resolve_args(List),
@@ -1231,14 +1275,28 @@ resolve_inst({recv_marker_use,[Reg]},_,_,_) ->
 %% OTP 25.
 %%
 
-resolve_inst({bs_create_bin,Args},_,_,_) ->
-    {bs_create_bin,Args};
-resolve_inst({call_fun2,[Tag,{u,Arity},Func]},_,_,_) ->
-    {call_fun2,Tag,Arity,Func};
+resolve_inst({bs_create_bin,
+              [{Fail,{u,Heap},{u,Live},{u,Unit},Dst,{z,1},{u,_},List0}]},
+             _, Strings, _) ->
+    List = resolve_bs_create_bin_list(List0, Strings),
+    {bs_create_bin,Fail,Heap,Live,Unit,Dst,{list,List}};
 resolve_inst({nif_start,[]},_,_,_) ->
     nif_start;
 resolve_inst({badrecord,[Arg]},_,_,_) ->
     {badrecord,resolve_arg(Arg)};
+
+%%
+%% OTP 26.
+%%
+
+resolve_inst({update_record,
+              [Hint,{u,Size},Src,Dst,{{{z,1},{u,_},List0}}]},_,_,_) ->
+    List = resolve_args(List0),
+    {update_record,Hint,Size,Src,Dst,{list,List}};
+resolve_inst({bs_match,[{Fail,Ctx,{z,1},{u,_},Args}]},_,_,_) ->
+    List = resolve_args(Args),
+    Commands = resolve_bs_match_commands(List),
+    {bs_match,Fail,Ctx,{commands,Commands}};
 
 %%
 %% Catches instructions that are not yet handled.
@@ -1268,13 +1326,70 @@ resolve_arg_unsigned({u,N}) when is_integer(N), N >= 0 -> N.
 resolve_arg_integer({i,N}) when is_integer(N) -> {integer,N}.
 
 %%-----------------------------------------------------------------------
+%% Resolves the OpList for the bs_create_bin/6 instruction
+%%-----------------------------------------------------------------------
+
+resolve_bs_create_bin_list(
+  [{atom,string}=Type,Seg0,Unit0,Flags,Offset0,Size0|Rest], Strings) ->
+    [Seg,Unit,Offset,{integer,Len}=Size] =
+        resolve_args([Seg0,Unit0,Offset0,Size0]),
+    <<_:Offset/binary,Bin:Len/binary,_/binary>> = Strings,
+    [Type,Seg,Unit,Flags,{string,Bin},Size |
+     resolve_bs_create_bin_list(Rest, Strings)];
+resolve_bs_create_bin_list([Type,Seg0,Unit0,Flags,Val0,Size0|Rest], Strings) ->
+    [Seg,Unit,Val,Size] = resolve_args([Seg0,Unit0,Val0,Size0]),
+    [Type,Seg,Unit,Flags,Val,Size |
+     resolve_bs_create_bin_list(Rest, Strings)];
+resolve_bs_create_bin_list([], _Str) ->
+    [].
+
+%%-----------------------------------------------------------------------
+%% Resolves the Commands list for the bs_match/3 instruction
+%%-----------------------------------------------------------------------
+
+resolve_bs_match_commands([{atom,ensure_at_least},Size,Unit|Rest]) ->
+    [{ensure_at_least,Size,Unit} | resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,ensure_exactly},Stride|Rest]) ->
+    [{ensure_exactly,Stride} | resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,integer},Live,Flags0,Size,Unit,Dst|Rest]) ->
+    Flags = resolve_bs_match_flags(Flags0),
+    [{integer,Live,Flags,Size,Unit,Dst} |
+     resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,binary},Live,Flags0,Size,Unit,Dst|Rest]) ->
+    Flags = resolve_bs_match_flags(Flags0),
+    [{binary,Live,Flags,Size,Unit,Dst} |
+     resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,'=:='},nil,Bits,Value|Rest]) ->
+    [{'=:=',nil,Bits,Value} | resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,skip},Stride|Rest]) ->
+    [{skip,Stride} | resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,get_tail},Live,Src,Dst|Rest]) ->
+    [{get_tail,Live,Src,Dst} | resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([]) ->
+    [].
+
+resolve_bs_match_flags(nil) -> {literal,[]};
+resolve_bs_match_flags({literal,[_|_]}=Flags) -> Flags.
+
+%%-----------------------------------------------------------------------
 %% The purpose of the following is just to add a hook for future changes.
 %% Currently, field flags are numbers 1-2-4-8 and only two of these
 %% numbers (BSF_LITTLE 2 -- BSF_SIGNED 4) have a semantic significance;
 %% others are just hints for speeding up the execution; see "erl_bits.h".
+%% Decodes field flags within bitstrings such as `Var/signed' or
+%% `Var/little'. This is the opposite of `beam_asm:flag_to_bit/1'.
+%% Also see "erl_bits.h".
 %%-----------------------------------------------------------------------
 
-decode_field_flags(FF) ->
+decode_field_flags(0) ->
+    {field_flags,[]};
+decode_field_flags(FieldFlags) when is_integer(FieldFlags) ->
+    FF = lists:filter(
+           fun
+               (little) -> (FieldFlags band 16#02) == 16#02;
+               (signed) -> (FieldFlags band 16#04) == 16#04;
+               (native) -> (FieldFlags band 16#10) == 16#10
+           end, [little, signed, native]),
     {field_flags,FF}.
 
 %%-----------------------------------------------------------------------

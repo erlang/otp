@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -460,8 +460,22 @@ do_quote_progname([Prog,Arg|Args]) ->
 random_element(L) ->
     lists:nth(rand:uniform(length(L)), L).
 
+otp_release_path(RelPath) ->
+    filename:join(otp_release_root(), RelPath).
+
+otp_release_root() ->
+    case get(test_server_release_root) of
+        undefined ->
+            Root = os:getenv("TEST_SERVER_RELEASE_ROOT",
+                             "/usr/local/otp/releases"),
+            put(test_server_release_root, Root),
+            Root;
+        Cached ->
+            Cached
+    end.
+
 find_release(latest) ->
-    "/usr/local/otp/releases/latest/bin/erl";
+    otp_release_path("latest/bin/erl");
 find_release(previous) ->
     "kaka";
 find_release(Rel) ->
@@ -471,7 +485,7 @@ find_release(Rel) ->
                 none ->
                     case string:take(Rel,"_",true) of
                         {Rel,[]} ->
-                            false;
+                            none;
                         {RelNum,_} ->
                             find_release_path(RelNum)
                     end;
@@ -490,19 +504,19 @@ find_release_path([Path|T], Rel) ->
         false ->
             find_release_path(T, Rel);
         ErlExec ->
-            Pattern = filename:join([Path,"..","releases","*","OTP_VERSION"]),
-            case filelib:wildcard(Pattern) of
-                [VersionFile] ->
-                    {ok, VsnBin} = file:read_file(VersionFile),
-                    [MajorVsn|_] = string:lexemes(VsnBin, "."),
-                    case unicode:characters_to_list(MajorVsn) of
-                        Rel ->
-                            ErlExec;
-                        _Else ->
-                            find_release_path(T, Rel)
+            QuotedExec = "\""++ErlExec++"\"",
+            Release = os:cmd(QuotedExec ++ " -noinput -eval 'io:format(\"~ts\", [erlang:system_info(otp_release)])' -s init stop"),
+            case Release =:= Rel of
+                true ->
+                    %% Check is the release is a source tree release,
+                    %% if so we should not use it.
+                    case os:cmd(QuotedExec ++ " -noinput -eval 'io:format(\"~p\",[filelib:is_file(filename:join([code:root_dir(),\"OTP_VERSION\"]))]).' -s init stop") of
+                        "true" ->
+                            find_release_path(T, Rel);
+                        "false" ->
+                            ErlExec
                     end;
-                _Else ->
-                    find_release_path(T, Rel)
+                false -> find_release_path(T, Rel)
             end
     end;
 find_release_path([], _) ->
@@ -511,7 +525,7 @@ find_release_path([], _) ->
 find_release({unix,sunos}, Rel) ->
     case os:cmd("uname -p") of
 	"sparc" ++ _ ->
-	    "/usr/local/otp/releases/otp_beam_solaris8_" ++ Rel ++ "/bin/erl";
+            otp_release_path("otp_beam_solaris8_" ++ Rel ++ "/bin/erl");
 	_ ->
 	    none
     end;
@@ -542,7 +556,7 @@ find_rel_linux(Rel) ->
     end.
 
 find_rel_suse(Rel, SuseRel) ->
-    Root = "/usr/local/otp/releases/sles",
+    Root = otp_release_path("sles"),
     case SuseRel of
 	"11" ->
 	    %% Try both SuSE 11, SuSE 10 and SuSe 9 in that order.
@@ -618,7 +632,7 @@ suse_release(Fd) ->
 find_rel_ubuntu(_Rel, UbuntuRel) when is_integer(UbuntuRel), UbuntuRel < 16 ->
     [];
 find_rel_ubuntu(Rel, UbuntuRel) when is_integer(UbuntuRel) ->
-    Root = "/usr/local/otp/releases/ubuntu",
+    Root = otp_release_path("ubuntu"),
     lists:foldl(fun (ChkUbuntuRel, Acc) ->
                         find_rel_ubuntu_aux1(Rel, Root++integer_to_list(ChkUbuntuRel))
                             ++ Acc

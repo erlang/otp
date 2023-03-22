@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 3.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>erl_syntax_lib:annotate_bindings/1,2</c> will now
+	    properly annotate named functions and their
+	    arguments.</p>
+          <p>
+	    Own Id: OTP-18380 Aux Id: PR-6523, GH-4733 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 3.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

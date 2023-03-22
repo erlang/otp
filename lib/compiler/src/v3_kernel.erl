@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,6 +119,7 @@ copy_anno(Kdst, Ksrc) ->
 	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
                no_shared_fun_wrappers=false :: boolean(),
+               no_min_max_bifs=false :: boolean(),
                labels=sets:new([{version, 2}])
               }).
 
@@ -130,7 +131,9 @@ module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, Options) ->
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
     NoSharedFunWrappers = proplists:get_bool(no_shared_fun_wrappers,
                                              Options),
-    St0 = #kern{no_shared_fun_wrappers=NoSharedFunWrappers},
+    NoMinMaxBifs = proplists:get_bool(no_min_max_bifs, Options),
+    St0 = #kern{no_shared_fun_wrappers=NoSharedFunWrappers,
+                no_min_max_bifs=NoMinMaxBifs},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
                 body=Kfs ++ St#kern.funs},sort(St#kern.ws)}.
@@ -323,7 +326,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
     Ar = length(Cargs),
     {[M,F|Kargs],Ap,St1} = atomic_list([M0,F0|Cargs], Sub, St0),
     Remote = #k_remote{mod=M,name=F,arity=Ar},
-    case call_type(M0, F0, Cargs) of
+    case call_type(M0, F0, Cargs, St1) of
         bif ->
             {#k_bif{anno=A,op=Remote,args=Kargs},Ap,St1};
         call ->
@@ -357,7 +360,9 @@ expr(#c_try{anno=A,arg=Ca,vars=Cvs,body=Cb,evars=Evs,handler=Ch}, Sub0, St0) ->
 	    evars=Kevs,handler=pre_seq(Ph, Kh)},[],St5};
 expr(#c_catch{anno=A,body=Cb}, Sub, St0) ->
     {Kb,Pb,St1} = body(Cb, Sub, St0),
-    {#k_catch{anno=A,body=pre_seq(Pb, Kb)},[],St1}.
+    {#k_catch{anno=A,body=pre_seq(Pb, Kb)},[],St1};
+expr(#c_opaque{anno=A,val=V}, _, St) ->
+    {#k_opaque{anno=A,val=V},[],St}.
 
 %% Implement letrec in the traditional way as a local
 %% function for each definition in the letrec.
@@ -543,15 +548,24 @@ map_key_clean(#k_literal{val=V}) -> {lit,V}.
 
 %% call_type(Module, Function, Arity) -> call | bif | error.
 %%  Classify the call.
-call_type(#c_literal{val=M}, #c_literal{val=F}, As) when is_atom(M), is_atom(F) ->
+call_type(#c_literal{val=M}, #c_literal{val=F}, As, St) when is_atom(M), is_atom(F) ->
     case is_remote_bif(M, F, As) of
-	false -> call;
-	true -> bif
+	false ->
+            call;
+	true ->
+            %% The guard BIFs min/2 and max/2 were introduced in
+            %% Erlang/OTP 26. If we are compiling for an earlier
+            %% version, we must translate them as call instructions.
+            case {M,F,St#kern.no_min_max_bifs} of
+                {erlang,min,true} -> call;
+                {erlang,max,true} -> call;
+                {_,_,_} -> bif
+            end
     end;
-call_type(#c_var{}, #c_literal{val=A}, _) when is_atom(A) -> call;
-call_type(#c_literal{val=A}, #c_var{}, _) when is_atom(A) -> call;
-call_type(#c_var{}, #c_var{}, _) -> call;
-call_type(_, _, _) -> error.
+call_type(#c_var{}, #c_literal{val=A}, _, _) when is_atom(A) -> call;
+call_type(#c_literal{val=A}, #c_var{}, _, _) when is_atom(A) -> call;
+call_type(#c_var{}, #c_var{}, _, _) -> call;
+call_type(_, _, _, _) -> error.
 
 %% match_vars(Kexpr, State) -> {[Kvar],[PreKexpr],State}.
 %%  Force return from body into a list of variables.
@@ -1375,8 +1389,9 @@ select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
 	true -> throw(not_possible);
 	false -> ok
     end,
-    Cs = select_bin_int_1(Cs0, Bits, Fl, Val),
-    [{k_bin_int,[C#iclause{pats=[P|Ps]}|Cs]}];
+    Cs1 = [C#iclause{pats=[P|Ps]}|select_bin_int_1(Cs0, Bits, Fl, Val)],
+    Cs = reorder_bin_ints(Cs1),
+    [{k_bin_int,Cs}];
 select_bin_int(_) -> throw(not_possible).
 
 select_bin_int_1([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
@@ -1418,6 +1433,44 @@ match_fun(Val) ->
     fun(match, {{integer,_,_},NewV,Bs}) when NewV =:= Val ->
 	    {match,Bs}
     end.
+
+reorder_bin_ints([_]=Cs) ->
+    Cs;
+reorder_bin_ints(Cs0) ->
+    %% It is safe to reorder clauses that matches binaries if the
+    %% first segments for all of them match the same number of bits
+    %% and if the patterns that follow are also safe to re-order.
+    try
+        Cs = sort([{reorder_bin_int_sort_key(C),C} || C <- Cs0]),
+        [C || {_,C} <- Cs]
+    catch
+        throw:not_possible ->
+            Cs0
+    end.
+
+reorder_bin_int_sort_key(#iclause{pats=[Pats|More],guard=#c_literal{val=true}}) ->
+    case all(fun(#k_var{}) -> true;
+                (_) -> false
+             end, More) of
+        true ->
+            %% Only variables. Safe to re-order.
+            ok;
+        false ->
+            %% Not safe to re-order. For example:
+            %%    f([<<"prefix">>, <<"action">>]) -> ...
+            %%    f([<<"prefix">>, Variable]) -> ...
+            throw(not_possible)
+    end,
+    case Pats of
+        #k_bin_int{val=Val,next=#k_bin_end{}} ->
+            %% Sort before clauses with additional segments. This usually results in
+            %% better code.
+            [Val];
+        #k_bin_int{val=Val} ->
+            [Val,more]
+    end;
+reorder_bin_int_sort_key(#iclause{}) ->
+    throw(not_possible).
 
 %% match_value([Var], Con, [Clause], Default, State) -> {SelectExpr,State}.
 %%  At this point all the clauses have the same constructor, we must
@@ -1512,9 +1565,7 @@ group_value(_, Us, Cs) ->
     Map = group_values(Cs, #{}),
     %% We must sort the grouped values to ensure consistent
     %% order from compilation to compilation.
-    sort(maps:fold(fun (_, Vcs, Css) ->
-                           [{Us,reverse(Vcs)}|Css]
-                   end, [], Map)).
+    sort([{Us,reverse(Vcs)} || _ := Vcs <- Map]).
 
 group_values([C|Cs], Acc) ->
     Val = clause_val(C),
@@ -1834,8 +1885,9 @@ ubody(#ivalues{anno=A,args=As}, return, St) ->
 ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
     Au = lit_list_vars(As),
     {#k_break{anno=A,args=As},Au,St};
-ubody(#k_goto{}=Goto, _Br, St) ->
-    {Goto,[],St};
+ubody(#k_goto{args=As}=Goto, _Br, St) ->
+    Au = lit_list_vars(As),
+    {Goto,Au,St};
 ubody(E, return, St0) ->
     %% Enterable expressions need no trailing return.
     case is_enter_expr(E) of
@@ -2018,6 +2070,8 @@ uexpr(#k_letrec_goto{anno=A,vars=Vs,first=F0,then=T0}=MatchAlt, Br, St0) ->
     {T1,Tu,St2} = ubody(T0, Br, St1),
     Used = subtract(union(Fu, Tu), Ns),
     {MatchAlt#k_letrec_goto{anno=A,first=F1,then=T1,ret=Rs},Used,St2};
+uexpr(#k_opaque{}=O, _, St) ->
+    {O,[],St};
 uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),
@@ -2160,7 +2214,8 @@ lit_vars(#k_bin_seg{size=Size,seg=S,next=N}) ->
     union(lit_vars(Size), union(lit_vars(S), lit_vars(N)));
 lit_vars(#k_tuple{es=Es}) ->
     lit_list_vars(Es);
-lit_vars(#k_literal{}) -> [].
+lit_vars(#k_literal{}) -> [];
+lit_vars(#k_opaque{}) -> [].
 
 lit_list_vars(Ps) ->
     foldl(fun (P, Vs) -> union(lit_vars(P), Vs) end, [], Ps).

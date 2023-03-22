@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@
 
 -spec opt(st_map()) -> st_map().
 
-opt(StMap) ->
+opt(StMap) when is_map(StMap) ->
     opt(maps:keys(StMap), StMap).
 
 opt([Id|Ids], StMap0) ->
@@ -71,7 +71,8 @@ opt_function(Id, StMap) ->
 opt_blks([{L,#b_blk{is=Is}=Blk}|Blks], ParamInfo, StMap, AnyChange, Count0, Acc0) ->
     case Is of
         [#b_set{op=bs_init_writable,dst=Dst}] ->
-            Bs = #{st_map => StMap, Dst => {writable,#b_literal{val=0}}},
+            Bs = #{st_map => StMap, Dst => {writable,#b_literal{val=0}},
+                   seen => sets:new([{version,2}])},
             try opt_writable(Bs, L, Blk, Blks, ParamInfo, Count0, Acc0) of
                 {Acc,Count} ->
                     opt_blks(Blks, ParamInfo, StMap, changed, Count, Acc)
@@ -94,7 +95,7 @@ opt_writable(Bs0, L, Blk, Blks, ParamInfo, Count0, Acc0) ->
                        last=CallLast}}|_]} ->
             ensure_not_match_context(Call, ParamInfo),
 
-            ArgTypes = maps:from_list([{Arg,{arg,Arg}} || Arg <- Args]),
+            ArgTypes = #{Arg => {arg,Arg} || Arg <- Args},
             Bs = maps:merge(ArgTypes, Bs0),
             Result = map_get(Dst, call_size_func(Call, Bs)),
             {Expr,Annos} = make_expr_tree(Result),
@@ -153,10 +154,32 @@ call_size_func(#b_set{anno=Anno,op=call,args=[Name|Args],dst=Dst}, Bs) ->
                     %% and there is no need to analyze it.
                     Bs#{Dst => any};
                 true ->
-                    NewBs = NewBs0#{Name => self, st_map => StMap},
-                    Map0 = #{0 => NewBs},
-                    Result = calc_size(Linear, Map0),
-                    Bs#{Dst => Result}
+                    Seen0 = map_get(seen, Bs),
+                    case sets:is_element(Name, Seen0) of
+                        true ->
+                            %% This can happen if there is a call such as:
+                            %%
+                            %%     foo(<< 0 || false >>)
+                            %%
+                            %% Essentially, this is reduced to:
+                            %%
+                            %%     foo(<<>>)
+                            %%
+                            %% This sub pass will then try to analyze
+                            %% the code in foo/1 and everything it
+                            %% calls. To prevent an infinite loop in
+                            %% case there is mutual recursion between
+                            %% some of the functions called by foo/1,
+                            %% give up if function that has already
+                            %% been analyzed is called again.
+                            throw(not_possible);
+                        false ->
+                            Seen = sets:add_element(Name, Seen0),
+                            NewBs = NewBs0#{Name => self, st_map => StMap, seen => Seen},
+                            Map0 = #{0 => NewBs},
+                            Result = calc_size(Linear, Map0),
+                            Bs#{Dst => Result}
+                    end
             end;
         #{} ->
             case Name of
@@ -199,7 +222,7 @@ setup_call_bs([], [], #{}, NewBs) -> NewBs.
 
 calc_size([{L,#b_blk{is=Is,last=Last}}|Blks], Map0) ->
     case maps:take(L, Map0) of
-        {Bs0,Map1} ->
+        {Bs0,Map1} when is_map(Bs0) ->
             Bs1 = calc_size_is(Is, Bs0),
             Map2 = update_successors(Last, Bs1, Map1),
             case get_ret(Last, Bs1) of
@@ -239,6 +262,8 @@ update_successors(#b_br{bool=Bool,succ=Succ,fail=Fail}, Bs0, Map0) ->
     case get_value(Bool, Bs0) of
         #b_literal{val=true} ->
             update_successor(Succ, Bs0, Map0);
+        #b_literal{val=false} ->
+            update_successor(Fail, Bs0, Map0);
         {succeeded,Var} ->
             Map = update_successor(Succ, Bs0, Map0),
             update_successor(Fail, maps:remove(Var, Bs0), Map);

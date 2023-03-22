@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2022</year>
+      <year>1999</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -26,6 +26,157 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
+
+<section><title>SSL 10.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that new <c>dtls</c> connections from the same
+	    client ip port combination works. If there is a process
+	    waiting for accept the new connection will connect to
+	    that, otherwise it will try to re-connect to the old
+	    server connection.</p>
+          <p>
+	    Own Id: OTP-18371 Aux Id: GH-6160 </p>
+        </item>
+        <item>
+          <p>
+	    When shutting down a node that uses SSL distribution
+	    (<c>-proto_dist inet_tls</c>), a confusing error message
+	    about an unexpected process exit was printed. This
+	    particular message is no longer generated.</p>
+          <p>
+	    Own Id: OTP-18443 Aux Id: PR-6810 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    fixes the type spec for ssl:format_error/1</p>
+          <p>
+	    Own Id: OTP-18366 Aux Id: PR-6565, GH-6506 </p>
+        </item>
+        <item>
+          <p>
+	    Replace size/1 with either tuple_size/1 or byte_size/1</p>
+          <p>
+	    The <c>size/1</c> BIF is not optimized by the JIT, and
+	    its use can result in worse types for Dialyzer.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    tuple, <c>tuple_size/1</c> should always be preferred.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    binary, <c>byte_size/1</c> should be preferred. However,
+	    <c>byte_size/1</c> also accepts a bitstring (rounding up
+	    size to a whole number of bytes), so one must make sure
+	    that the call to <c>byte_size/</c> is preceded by a call
+	    to <c>is_binary/1</c> to ensure that bitstrings are
+	    rejected. Note that the compiler removes redundant calls
+	    to <c>is_binary/1</c>, so if one is not sure whether
+	    previous code had made sure that the argument is a
+	    binary, it does not harm to add an <c>is_binary/1</c>
+	    test immediately before the call to <c>byte_size/1</c>.</p>
+          <p>
+	    Own Id: OTP-18432 Aux Id:
+	    GH-6672,PR-6793,PR-6784,PR-6787,PR-6785,PR-6682,PR-6800,PR-6797,PR-6798,PR-6799,PR-6796,PR-6813,PR-6671,PR-6673,PR-6684,PR-6694,GH-6677,PR-6696,PR-6670,PR-6674 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 10.8.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Maximize compatibility by ignoring change_cipher_spec
+	    during handshake even if middle_box_mode is not
+	    negotiated (mandated by client)</p>
+          <p>
+	    Own Id: OTP-18433 Aux Id: GH-6772 </p>
+        </item>
+        <item>
+          <p>
+	    Move assert of middlebox message after an
+	    hello_retry_request to maximize interoperability. Does
+	    not changes semantics of the protocol only allows
+	    unexpected message delay from server.</p>
+          <p>
+	    Own Id: OTP-18467 Aux Id: GH-6807 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 10.8.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, tls_sender process is hibernated after
+	    sufficient inactivity.</p>
+          <p>
+	    Own Id: OTP-18314 Aux Id: GH-6373 </p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of legacy schemes so that ECDSA certs
+	    using sha1 may be used for some TLS-1.3 configurations.</p>
+          <p>
+	    Own Id: OTP-18332 Aux Id: GH-6435, PR-6435, ERL-6435 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, tls_sender does not cause logger crash
+	    upon key update.</p>
+          <p>
+	    Own Id: OTP-18349</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enhance warning message</p>
+          <p>
+	    Own Id: OTP-18257 Aux Id: GH-6307 </p>
+        </item>
+        <item>
+          <p>
+	    Provide server option to make certificate_authorities
+	    extension in the TLS-1.3 servers certificate request
+	    optional. This will allow clients to send incomplete
+	    chains that may be reconstructable and thereby verifiable
+	    by the server, but that would not adhere to the
+	    certificate_authorities extension.</p>
+          <p>
+	    Own Id: OTP-18267 Aux Id: PR-6228, GH-6106 </p>
+        </item>
+        <item>
+          <p>
+	    If the <c>verify_fun</c> handles four arguments the DER
+	    cert will be supplied as one of the arguments.</p>
+          <p>
+	    Own Id: OTP-18302 Aux Id: ERIERL-867 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SSL 10.8.5</title>
 
@@ -287,6 +438,32 @@
 	    termination.</p>
           <p>
 	    Own Id: OTP-18085</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 10.7.3.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Maximize compatibility by ignoring change_cipher_spec
+	    during handshake even if middle_box_mode is not
+	    negotiated (mandated by client)</p>
+          <p>
+	    Own Id: OTP-18433 Aux Id: GH-6772 </p>
+        </item>
+        <item>
+          <p>
+	    Move assert of middlebox message after an
+	    hello_retry_request to maximize interoperability. Does
+	    not changes semantics of the protocol only allows
+	    unexpected message delay from server.</p>
+          <p>
+	    Own Id: OTP-18467 Aux Id: GH-6807 </p>
         </item>
       </list>
     </section>

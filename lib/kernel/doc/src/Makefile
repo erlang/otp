@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2021. All Rights Reserved.
+# Copyright Ericsson AB 1997-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,6 @@ XML_REF3_FILES = application.xml \
 	seq_trace.xml \
 	socket.xml \
 	wrap_log_reader.xml \
-	user.xml \
 	zlib_stub.xml \
 	$(XML_REF3_ESOCK_EFILES)
 

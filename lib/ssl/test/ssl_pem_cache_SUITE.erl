@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -478,9 +478,9 @@ check_tables(ExpectedTables) ->
                                 true ->
                                     ok;
                                 _ ->
-                                    ?PAL("Mismatch for table ~w", [ActualLabel]),
-                                    ?PAL("Expected = ~w", [ExpectedTableSorted]),
-                                    ?PAL("Actual = ~w", [ActualTableSorted]),
+                                    ?CT_PAL("Mismatch for table ~w", [ActualLabel]),
+                                    ?CT_PAL("Expected = ~w", [ExpectedTableSorted]),
+                                    ?CT_PAL("Actual = ~w", [ActualTableSorted]),
                                     ct:fail({data_mismatch, ActualLabel})
                             end
                     end,
@@ -512,7 +512,7 @@ new_root_pem_helper(Config, CleanMode,
     %% ConnectedN - state after establishing Nth connection
     %% Cleaned - state after periodical cleanup
     %% DisconnectedN - state after closing Nth connection
-    ?PAL(">>> IntermediateServerKeyId = ~w", [IntermediateServerKeyId]),
+    ?CT_PAL(">>> IntermediateServerKeyId = ~w", [IntermediateServerKeyId]),
     {ServerCAFile, ClientConf0, ServerConf, ServerRootCert0, ClientBase, ServerBase} =
         create_initial_config(Config),
 
@@ -691,16 +691,16 @@ create_initial_config(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     #{cert := ServerRootCert0} = SRoot =
         public_key:pkix_test_root_cert("OTP test server ROOT",
-                                       [{key, ?KEY(6)}]),
+                                       [{key, ?KEY(6)}, {digest, sha256}]),
     DerConfig =
         public_key:pkix_test_data(
           #{server_chain =>
                 #{root => SRoot,
-                  intermediates => [[{key, ?KEY(5)}]],
-                  peer => [{key, ?KEY(4)}]},
+                  intermediates => [[{key, ?KEY(5)},  {digest, sha256}]],
+                  peer => [{key, ?KEY(4)},  {digest, sha256}]},
             client_chain =>
-                #{root => [{key, ?KEY(1)}],
-                  intermediates => [[{key, ?KEY(2)}]],
+                #{root => [{key, ?KEY(1)},  {digest, sha256}],
+                  intermediates => [[{key, ?KEY(2)}, {digest, sha256} ]],
                   peer => [{key, ?KEY(3)}]}}),
     ClientBase = filename:join(PrivDir, "client_test"),
     ServerBase = filename:join(PrivDir, "server_test"),
@@ -725,12 +725,12 @@ overwrite_files_with_new_configuration(ServerRootCert0, ClientBase,
         public_key:pkix_test_data(
           #{server_chain =>
                 #{root => #{cert => ServerRootCert1, key => Key},
-                  intermediates => [[{key, ?KEY(IntermediateServerKey)}]],
-                  peer => [{key, ?KEY(4)}]},
+                  intermediates => [[{key, ?KEY(IntermediateServerKey)}, {digest, sha256}]],
+                  peer => [{key, ?KEY(4)}, {digest, sha256} ]},
             client_chain =>
-                #{root => [{key, ?KEY(1)}],
-                  intermediates => [[{key, ?KEY(2)}]],
-                  peer => [{key, ?KEY(3)}]}}),
+                #{root => [{key, ?KEY(1)}, {digest, sha256} ],
+                  intermediates => [[{key, ?KEY(2)},  {digest, sha256}]],
+                  peer => [{key, ?KEY(3)}, {digest, sha256}]}}),
     %% Overwrite old config files
     _ = x509_test:gen_pem_config_files(DerConfig1, ClientBase, ServerBase),
     ServerRootCert1.

@@ -297,7 +297,7 @@ extensions(?'TLS_v1.3' = Version, MsgType = client_hello) ->
            %% StatusRequest,
            SupportedGroups,
            SignatureAlgorithms,
-           %% UseSrtp,
+           UseSrtp,
            %% Heartbeat,
            ALPN,
            %% SignedCertTimestamp,
@@ -320,7 +320,7 @@ extensions(?'TLS_v1.3' = Version, MsgType = client_hello) ->
            %% oneof([status_request(), undefined]),
            oneof([supported_groups(Version), undefined]),
            oneof([signature_algs(Version), undefined]),
-           %% oneof([use_srtp(), undefined]),
+           oneof([use_srtp(), undefined]),
            %% oneof([heartbeat(), undefined]),
            oneof([alpn(), undefined]),
            %% oneof([signed_cert_timestamp(), undefined]),
@@ -348,7 +348,7 @@ extensions(?'TLS_v1.3' = Version, MsgType = client_hello) ->
                         %% status_request => StatusRequest,
                         elliptic_curves => SupportedGroups,
                         signature_algs => SignatureAlgorithms,
-                        %% use_srtp => UseSrtp,
+                        use_srtp => UseSrtp,
                         %% heartbeat => Heartbeat,
                         alpn => ALPN,
                         %% signed_cert_timestamp => SignedCertTimestamp,
@@ -681,6 +681,12 @@ sign_algorithm(?'TLS_v1.3') ->
     oneof([rsa, ecdsa]);
 sign_algorithm(_) ->
     oneof([rsa, dsa, ecdsa]).
+
+
+use_srtp() ->
+    FullProfiles = [<<0,1>>, <<0,2>>, <<0,5>>],
+    NullProfiles = [<<0,5>>],
+    ?LET(PP, oneof([FullProfiles, NullProfiles]), #use_srtp{protection_profiles = PP, mki = <<>>}).
 
 certificate_authorities(?'TLS_v1.3') ->
     Auths = certificate_authorities(?'TLS_v1.2'),

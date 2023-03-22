@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,9 +91,9 @@ characters_to_binary(_, _) ->
 -spec characters_to_list(Data,  InEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       InEncoding :: encoding(),
-      Result :: list()
-              | {error, list(), RestData}
-              | {incomplete, list(), binary()},
+      Result ::string()
+              | {error, string(), RestData}
+              | {incomplete, string(), binary()},
       RestData :: latin1_chardata() | chardata() | external_chardata().
 
 characters_to_list(_, _) ->
@@ -103,9 +103,9 @@ characters_to_list(_, _) ->
 
 -spec characters_to_list(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
-      Result :: list()
-              | {error, list(), RestData}
-              | {incomplete, list(), binary()},
+      Result :: string()
+              | {error, string(), RestData}
+              | {incomplete, string(), binary()},
       RestData :: latin1_chardata() | chardata() | external_chardata().
 
 characters_to_list(ML) ->
@@ -444,10 +444,12 @@ characters_to_binary_int(ML, InEncoding, OutEncoding) ->
 		       {error, Accum, [Part]}
 	       end,<<>>),
     case Res of
+        Bin when is_binary(Bin) ->
+            Bin;
 	{incomplete,A,B,_} ->
 	    {incomplete,A,B};
-	_ ->
-	    Res
+        {error, _Converted, _Rest} = Error ->
+            Error
     end.
 
 
@@ -527,14 +529,7 @@ ml_map([Part|_] = Whole,_,{{Incomplete, _}, Accum}) when is_integer(Part) ->
 ml_map([Part|T],Fun,Accum) when is_integer(Part) ->
     case Fun(Part,Accum) of
 	Bin when is_binary(Bin) ->
-	    case ml_map(T,Fun,Bin) of
-		Bin2 when is_binary(Bin2) ->
-		    Bin2;
-		{error, Converted, Rest} ->
-		    {error, Converted, Rest};
-		{incomplete, Converted, Rest,X} ->
-		    {incomplete, Converted, Rest,X}
-	    end;
+	    ml_map(T,Fun,Bin);
 	% Can not be incomplete - it's an integer
 	{error, Converted, Rest} ->
 	    {error, Converted, [Rest|T]}

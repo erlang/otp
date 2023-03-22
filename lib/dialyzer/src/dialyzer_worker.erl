@@ -56,9 +56,9 @@ launch(Mode, Job, InitData, Coordinator) ->
 %%--------------------------------------------------------------------
 %% Local functions.
 
-init(#state{job = SCC, mode = Mode, init_data = InitData} = State)
+init(#state{job = Job, mode = Mode, init_data = InitData} = State)
   when Mode =:= 'typesig'; Mode =:= 'dataflow' ->
-  wait_for_success_typings(SCC, InitData, State),
+  wait_for_success_typings(Mode, Job, InitData, State),
   run(State);
 init(#state{mode = Mode} = State) when
     Mode =:= 'compile'; Mode =:= 'warnings';
@@ -73,6 +73,7 @@ run(#state{coordinator = Coordinator, job = Job} = State) ->
 
 run_job(#state{mode = Mode, job = Job, init_data = InitData} = State) ->
   ?debug("~w: ~p: ~p\n", [self(), Mode, Job]),
+  StartableJob = dialyzer_coordinator:get_job_input(Mode, Job),
   case Mode of
     compile ->
       case start_compilation(State) of
@@ -82,16 +83,18 @@ run_job(#state{mode = Mode, job = Job, init_data = InitData} = State) ->
         {error, _Reason} = Error ->
           Error
       end;
-    typesig ->
-      dialyzer_succ_typings:find_succ_types_for_scc(Job, InitData);
-    dataflow ->
-      dialyzer_succ_typings:refine_one_module(Job, InitData);
-    contract_remote_types ->
-      dialyzer_contracts:process_contract_remote_types_module(Job, InitData);
-    record_remote_types ->
-      dialyzer_utils:process_record_remote_types_module(Job, InitData);
-    warnings ->
-      dialyzer_succ_typings:collect_warnings(Job, InitData)
+    _ ->
+      StartableJob = dialyzer_coordinator:get_job_input(Mode, Job),
+      case Mode of
+        typesig -> dialyzer_succ_typings:find_succ_types_for_scc(StartableJob, InitData);
+        dataflow -> dialyzer_succ_typings:refine_one_module(StartableJob, InitData);
+        contract_remote_types ->
+          dialyzer_contracts:process_contract_remote_types_module(StartableJob, InitData);
+        record_remote_types ->
+          dialyzer_utils:process_record_remote_types_module(StartableJob, InitData);
+        warnings ->
+          dialyzer_succ_typings:collect_warnings(StartableJob, InitData)
+      end
   end.
 
 start_compilation(#state{job = Job, init_data = InitData}) ->
@@ -105,6 +108,8 @@ continue_compilation(Label, Data) ->
 
 %% Wait for the results of success typings of modules or SCCs that we
 %% depend on. ('typesig' or 'dataflow' mode)
-wait_for_success_typings(SCC, InitData, #state{coordinator = Coordinator}) ->
-  DependsOnSCCs = dialyzer_succ_typings:find_depends_on(SCC, InitData),
-  dialyzer_coordinator:wait_for_success_typings(DependsOnSCCs, Coordinator).
+wait_for_success_typings(Mode, Job, InitData, #state{coordinator = Coordinator}) ->
+  JobLabel = dialyzer_coordinator:get_job_label(Mode, Job),
+  DependsOnJobLabels = dialyzer_succ_typings:find_depends_on(JobLabel, InitData),
+  ?debug("~w: Deps ~p: ~p\n", [self(), Job, DependsOnJobLabels]),
+  dialyzer_coordinator:wait_for_success_typings(DependsOnJobLabels, Coordinator).

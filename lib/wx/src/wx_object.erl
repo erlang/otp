@@ -235,7 +235,7 @@ start_link(Name, Mod, Args, Options) ->
     gen_response(gen:start(?MODULE, link, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
 
 gen_response({ok, Pid}) ->
-    receive {ack, Pid, Ref = #wx_ref{}} -> Ref end;
+    receive {started, Pid, Ref = #wx_ref{}} -> Ref end;
 gen_response(Reply) ->
     Reply.
 
@@ -407,30 +407,23 @@ init_it(Starter, Parent, Name, Mod, Args, [WxEnv|Options]) ->
 	{#wx_ref{} = Ref, State, Timeout} ->
 	    init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug);
 	{stop, Reason} ->
-	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	ignore ->
-	    proc_lib:init_ack(Starter, ignore),
-	    exit(normal);
+	    proc_lib:init_fail(Starter, ignore, {exit, normal});
 	{'EXIT', Reason} ->
-	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	Else ->
-	    Error = {bad_return_value, Else},
-	    proc_lib:init_ack(Starter, {error, Error}),
-	    exit(Error)
+	    exit({bad_return_value, Else})
     end.
 %% @hidden
 init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug) ->
     ok = wxe_util:register_pid(Ref),
     case ?CLASS_T(Ref#wx_ref.type, wxWindow) of
 	false -> 
-	    Reason = {Ref, "not a wxWindow subclass"},
-	    proc_lib:init_ack(Starter, {error, Reason}),
-	    exit(Reason);
+	    exit({Ref, "not a wxWindow subclass"});
 	true ->
 	    proc_lib:init_ack(Starter, {ok, self()}),
-	    proc_lib:init_ack(Starter, Ref#wx_ref{state=self()}),
+	    Starter ! {started, self(), Ref#wx_ref{state=self()}},
 	    loop(Parent, Name, State, Mod, Timeout, Debug)
     end.    
 

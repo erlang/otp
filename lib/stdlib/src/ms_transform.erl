@@ -977,6 +977,8 @@ real_guard_function(abs,1) -> true;
 real_guard_function(element,2) -> true;
 real_guard_function(hd,1) -> true;
 real_guard_function(length,1) -> true;
+real_guard_function(max,2) -> true;
+real_guard_function(min,2) -> true;
 real_guard_function(node,0) -> true;
 real_guard_function(node,1) -> true;
 real_guard_function(round,1) -> true;
@@ -1015,6 +1017,9 @@ action_function(set_tcw,1) -> true;
 action_function(silent,1) -> true;
 action_function(trace,2) -> true;
 action_function(trace,3) -> true;
+action_function(caller_line,0) -> true;
+action_function(current_stacktrace,0) -> true;
+action_function(current_stacktrace,1) -> true;
 action_function(_,_) -> false.
 
 bool_operator('and',2) ->

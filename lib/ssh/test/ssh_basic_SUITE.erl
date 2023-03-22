@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1231,7 +1231,7 @@ packet_size(Config) ->
 
 rec(Server, Conn, Ch, MaxSz) ->
     receive
-        {ssh_cm,Conn,{data,Ch,_,M}} when size(M) =< MaxSz ->
+        {ssh_cm,Conn,{data,Ch,_,M}} when byte_size(M) =< MaxSz ->
             ct:log("~p: ~p",[MaxSz,M]),
             rec(Server, Conn, Ch, MaxSz);
         {ssh_cm,Conn,{data,Ch,_,_}} = M ->
@@ -1542,7 +1542,7 @@ new_do_shell(IO, N, [new_prompt|More]) ->
 
 new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
     Pfx = prompt_prefix(),
-    PfxSize = size(Pfx),
+    PfxSize = byte_size(Pfx),
     receive
 	_X = <<"\r\n">> ->
 	    ct:log("Skip newline ~p",[_X]),

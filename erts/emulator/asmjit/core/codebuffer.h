@@ -44,7 +44,7 @@ struct CodeBuffer {
   //! \name Overloaded Operators
   //! \{
 
-  //! Returns a referebce to the byte at the given `index`.
+  //! Returns a reference to the byte at the given `index`.
   inline uint8_t& operator[](size_t index) noexcept {
     ASMJIT_ASSERT(index < _size);
     return _data[index];

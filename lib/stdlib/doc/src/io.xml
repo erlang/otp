@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -82,6 +82,9 @@
     </datatype>
     <datatype>
       <name name="opt_pair"/>
+    </datatype>
+        <datatype>
+      <name name="get_opt_pair"/>
     </datatype>
     <datatype>
       <name name="expand_fun"/>
@@ -174,9 +177,38 @@ ok</pre>
         <item>
           <p><c>Mod</c> is the control sequence modifier. This is
             one or more characters that change the interpretation of
-            <c>Data</c>. The current modifiers are <c>t</c>, for Unicode
-            translation, and <c>l</c>, for stopping <c>p</c> and <c>P</c>
-            from detecting printable characters.</p>
+            <c>Data</c>.</p>
+            <p>The current modifiers are:</p>
+            <taglist>
+              <tag><c>t</c></tag>
+              <item>
+                <p>For Unicode translation.</p>
+              </item>
+              <tag><c>l</c></tag>
+              <item>
+                <p>For stopping <c>p</c> and <c>P</c> from detecting
+                  printable characters.</p>
+              </item>
+              <tag><c>k</c></tag>
+              <item>
+                <p>For use with <c>p</c>, <c>P</c>, <c>w</c>, and <c>W</c>
+                  to format maps in map-key <c>ordered</c> order (see
+                  <seetype marker="maps#iterator_order">maps:iterator_order()</seetype>).</p>
+              </item>
+              <tag><c>K</c></tag>
+              <item>
+                <p>Similar to <c>k</c>, for formatting maps in map-key order,
+                  but takes an extra argument that specifies the
+                  <seetype marker="maps#iterator_order">maps:iterator_order()</seetype>.</p>
+                <p>For example:</p>
+                <pre>
+> <input>M = #{ a => 1, b => 2 }.</input>
+#{a => 1,b => 2}
+> <input><![CDATA[io:format("~Kp~n", [reversed, M]).]]></input>
+#{b => 2,a => 1}
+ok</pre>
+              </item>
+            </taglist>
         </item>
       </list>
         <p>If <c>F</c>, <c>P</c>, or <c>Pad</c> is a <c>*</c> character,
@@ -779,9 +811,14 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
 [{expand_fun,#Fun&lt;group.0.120017273&gt;},
  {echo,true},
  {binary,false},
- {encoding,unicode}]</pre>
+ {encoding,unicode},
+ {terminal,true}]</pre>
       <p>This example is, as can be seen, run in an environment where the
         terminal supports Unicode input and output.</p>
+      <p>The <c>terminal</c> option is read only and indicates whether
+        the output stream is a terminal or not.
+        See <seemfa marker="#setopts/1"><c>setopts/1</c></seemfa> for a description
+        of the other options.</p>
       </desc>
     </func>
 
@@ -1135,13 +1172,18 @@ enter><input>1.0er.</input>
               <seemfa marker="#get_line/1"><c>get_line/1,2</c></seemfa>.</p>
             <p>The function is called with the current line, up to
               the cursor, as a reversed string. It is to return a
-              three-tuple: <c>{yes|no, string(), [string(), ...]}</c>. The
+              three-tuple: <c>{yes|no, string(), list()}</c>. The
               first element gives a beep if <c>no</c>, otherwise the
               expansion is silent; the second is a string that will be
               entered at the cursor position; the third is a list of
               possible expansions. If this list is not empty,
-              it is printed and the current input line is written
-              once again.</p>
+              it is printed below the current input line.
+              The list of possible expansions can be formatted in
+              different ways to make more advanced expansion suggestions
+              more readable to the user, see
+              <seemfa marker="edlin_expand#expand/2">
+              <c>edlin_expand:expand/2</c></seemfa> for
+              documentation of that.</p>
             <p>Trivial example (beep on anything except empty line, which
               is expanded to <c>"quit"</c>):</p>
             <code type="none">

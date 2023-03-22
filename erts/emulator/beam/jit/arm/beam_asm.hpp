@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -204,6 +204,7 @@ protected:
     /* Number of highest element displacement for L/SDP and L/STR. */
     static const size_t MAX_LDP_STP_DISPLACEMENT = 0x3F;
     static const size_t MAX_LDR_STR_DISPLACEMENT = 0xFFF;
+    static const size_t MAX_LDUR_STUR_DISPLACEMENT = 0xFF;
 
     /* Constants for "alternate flag state" operands, which are distinct from
      * `arm::CondCode::xyz`. Mainly used in `CCMP` instructions. */
@@ -416,12 +417,28 @@ protected:
         return arm::Mem(ARG1, CodeIndex, arm::lsl(3));
     }
 
+    /* Prefer `eHeapAlloc` over `eStack | eHeap` when calling
+     * functions in the runtime system that allocate heap
+     * memory (`HAlloc`, heap factories, etc).
+     *
+     * Prefer `eHeapOnlyAlloc` over `eHeapAlloc` for functions
+     * that assume there's already a certain amount of free
+     * space on the heap, such as those using `HeapOnlyAlloc`
+     * or similar. It's slightly cheaper in release builds,
+     * and in debug builds it updates `eStack` to ensure that
+     * we can make heap size assertions. */
     enum Update : int {
         eStack = (1 << 0),
         eHeap = (1 << 1),
         eReductions = (1 << 2),
         eCodeIndex = (1 << 3),
-        eXRegs = (1 << 4)
+        eXRegs = (1 << 4),
+        eHeapAlloc = Update::eHeap | Update::eStack,
+#ifndef DEBUG
+        eHeapOnlyAlloc = Update::eHeap,
+#else
+        eHeapOnlyAlloc = Update::eHeapAlloc
+#endif
     };
 
     void emit_enter_erlang_frame() {
@@ -743,12 +760,27 @@ protected:
         }
     }
 
+    void subs(arm::Gp to, arm::Gp src, int64_t val) {
+        if (Support::isUInt12(val)) {
+            a.subs(to, src, imm(val));
+        } else if (Support::isUInt12(-val)) {
+            a.adds(to, src, imm(-val));
+        } else {
+            mov_imm(SUPER_TMP, val);
+            a.subs(to, src, SUPER_TMP);
+        }
+    }
+
     void cmp(arm::Gp src, int64_t val) {
         if (Support::isUInt12(val)) {
             a.cmp(src, imm(val));
         } else if (Support::isUInt12(-val)) {
             a.cmn(src, imm(-val));
+        } else if (src.isGpW()) {
+            mov_imm(SUPER_TMP.w(), val);
+            a.cmp(src, SUPER_TMP.w());
         } else {
+            ERTS_ASSERT(src.isGpX());
             mov_imm(SUPER_TMP, val);
             a.cmp(src, SUPER_TMP);
         }
@@ -896,10 +928,10 @@ class BeamModuleAssembler : public BeamAssembler {
     BeamGlobalAssembler *ga;
 
     /* Used by emit to populate the labelToMFA map */
-    Label currLabel;
+    Label current_label;
 
     /* The offset of our BeamCodeHeader, if any. */
-    Label codeHeader;
+    Label code_header;
 
     /* The module's on_load function, if any. */
     Label on_load;
@@ -992,6 +1024,115 @@ class BeamModuleAssembler : public BeamAssembler {
      * fragments as if they were local. */
     std::unordered_map<void (*)(), Label> _dispatchTable;
 
+    /* Skip unnecessary moves in load_source(), load_sources(), and
+     * mov_arg(). Don't use these variables directly. */
+    size_t last_destination_offset = 0;
+    arm::Gp last_destination_from1, last_destination_from2;
+    arm::Mem last_destination_to1, last_destination_to2;
+
+    /* Private helper. */
+    void preserve__cache(arm::Gp dst) {
+        last_destination_offset = a.offset();
+        invalidate_cache(dst);
+    }
+
+    /* Works as the STR instruction, but also updates the cache. */
+    void str_cache(arm::Gp src, arm::Mem dst) {
+        if (a.offset() == last_destination_offset &&
+            dst != last_destination_to1) {
+            /* Something is already cached in the first slot. Use the
+             * second slot. */
+            a.str(src, dst);
+            last_destination_offset = a.offset();
+            last_destination_to2 = dst;
+            last_destination_from2 = src;
+        } else {
+            /* Nothing cached yet, or the first slot has the same
+             * memory address as we will store into. Use the first
+             * slot and invalidate the second slot. */
+            a.str(src, dst);
+            last_destination_offset = a.offset();
+            last_destination_to1 = dst;
+            last_destination_from1 = src;
+            last_destination_to2 = arm::Mem();
+        }
+    }
+
+    /* Works as the STP instruction, but also updates the cache. */
+    void stp_cache(arm::Gp src1, arm::Gp src2, arm::Mem dst) {
+        safe_stp(src1, src2, dst);
+        last_destination_offset = a.offset();
+        last_destination_to1 = dst;
+        last_destination_from1 = src1;
+        last_destination_to2 =
+                arm::Mem(arm::GpX(dst.baseId()), dst.offset() + 8);
+        last_destination_from2 = src2;
+    }
+
+    void invalidate_cache(arm::Gp dst) {
+        if (dst == last_destination_from1) {
+            last_destination_to1 = arm::Mem();
+            last_destination_from1 = arm::Gp();
+        }
+        if (dst == last_destination_from2) {
+            last_destination_to2 = arm::Mem();
+            last_destination_from2 = arm::Gp();
+        }
+    }
+
+    /* Works like LDR, but looks in the cache first. */
+    void ldr_cached(arm::Gp dst, arm::Mem mem) {
+        if (a.offset() == last_destination_offset) {
+            arm::Gp cached_reg;
+            if (mem == last_destination_to1) {
+                cached_reg = last_destination_from1;
+            } else if (mem == last_destination_to2) {
+                cached_reg = last_destination_from2;
+            }
+
+            if (cached_reg.isValid()) {
+                /* This memory location is cached. */
+                if (cached_reg != dst) {
+                    comment("simplified fetching of BEAM register");
+                    a.mov(dst, cached_reg);
+                    preserve__cache(dst);
+                } else {
+                    comment("skipped fetching of BEAM register");
+                    invalidate_cache(dst);
+                }
+            } else {
+                /* Not cached. Load and preserve the cache. */
+                a.ldr(dst, mem);
+                preserve__cache(dst);
+            }
+        } else {
+            /* The cache is invalid. */
+            a.ldr(dst, mem);
+        }
+    }
+
+    void mov_preserve_cache(arm::VecD dst, arm::VecD src) {
+        a.mov(dst, src);
+    }
+
+    void mov_preserve_cache(arm::Gp dst, arm::Gp src) {
+        if (a.offset() == last_destination_offset) {
+            a.mov(dst, src);
+            preserve__cache(dst);
+        } else {
+            a.mov(dst, src);
+        }
+    }
+
+    void mov_imm_preserve_cache(arm::Gp dst, UWord value) {
+        if (a.offset() == last_destination_offset) {
+            mov_imm(dst, value);
+            preserve__cache(dst);
+        } else {
+            mov_imm(dst, value);
+        }
+    }
+
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
@@ -1043,61 +1184,119 @@ public:
     const ErtsCodeInfo *getOnLoad(void);
 
     unsigned patchCatches(char *rw_base);
-    void patchLambda(char *rw_base, unsigned index, BeamInstr I);
+    void patchLambda(char *rw_base, unsigned index, const ErlFunEntry *fe);
     void patchLiteral(char *rw_base, unsigned index, Eterm lit);
-    void patchImport(char *rw_base, unsigned index, BeamInstr I);
+    void patchImport(char *rw_base, unsigned index, const Export *import);
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
-    int getTypeUnion(const ArgSource &arg) const {
+    const auto &getTypeEntry(const ArgSource &arg) const {
         auto typeIndex =
                 arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
-
         ASSERT(typeIndex < beam->types.count);
-        return beam->types.entries[typeIndex].type_union;
+        return beam->types.entries[typeIndex];
     }
 
-    auto getIntRange(const ArgSource &arg) const {
+    auto getTypeUnion(const ArgSource &arg) const {
+        if (arg.isRegister()) {
+            return static_cast<BeamTypeId>(getTypeEntry(arg).type_union);
+        }
+
+        Eterm constant =
+                arg.isImmed()
+                        ? arg.as<ArgImmed>().get()
+                        : beamfile_get_literal(beam,
+                                               arg.as<ArgLiteral>().get());
+
+        switch (tag_val_def(constant)) {
+        case ATOM_DEF:
+            return BeamTypeId::Atom;
+        case BINARY_DEF:
+            return BeamTypeId::Bitstring;
+        case FLOAT_DEF:
+            return BeamTypeId::Float;
+        case FUN_DEF:
+            return BeamTypeId::Fun;
+        case BIG_DEF:
+        case SMALL_DEF:
+            return BeamTypeId::Integer;
+        case LIST_DEF:
+            return BeamTypeId::Cons;
+        case MAP_DEF:
+            return BeamTypeId::Map;
+        case NIL_DEF:
+            return BeamTypeId::Nil;
+        case EXTERNAL_PID_DEF:
+        case PID_DEF:
+            return BeamTypeId::Pid;
+        case EXTERNAL_PORT_DEF:
+        case PORT_DEF:
+            return BeamTypeId::Port;
+        case EXTERNAL_REF_DEF:
+        case REF_DEF:
+            return BeamTypeId::Reference;
+        case TUPLE_DEF:
+            return BeamTypeId::Tuple;
+        default:
+            ERTS_ASSERT(!"tag_val_def error");
+        }
+    }
+
+    auto getClampedRange(const ArgSource &arg) const {
         if (arg.isSmall()) {
             Sint value = arg.as<ArgSmall>().getSigned();
             return std::make_pair(value, value);
         } else {
-            auto typeIndex =
-                    arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+            const auto &entry = getTypeEntry(arg);
 
-            ASSERT(typeIndex < beam->types.count);
-            const auto &entry = beam->types.entries[typeIndex];
-            ASSERT(entry.type_union & BEAM_TYPE_INTEGER);
-            return std::make_pair(entry.min, entry.max);
+            if (entry.min <= entry.max) {
+                return std::make_pair(entry.min, entry.max);
+            } else if (IS_SSMALL(entry.min) && !IS_SSMALL(entry.max)) {
+                return std::make_pair(entry.min, MAX_SMALL);
+            } else if (!IS_SSMALL(entry.min) && IS_SSMALL(entry.max)) {
+                return std::make_pair(MIN_SMALL, entry.max);
+            } else {
+                return std::make_pair(MIN_SMALL, MAX_SMALL);
+            }
         }
+    }
+
+    int getSizeUnit(const ArgSource &arg) const {
+        const auto &entry = getTypeEntry(arg);
+        ASSERT(maybe_one_of<BeamTypeId::Bitstring>(arg));
+        return entry.size_unit;
+    }
+
+    bool hasLowerBound(const ArgSource &arg) const {
+        const auto &entry = getTypeEntry(arg);
+        return IS_SSMALL(entry.min) && !IS_SSMALL(entry.max);
+    }
+
+    bool hasUpperBound(const ArgSource &arg) const {
+        const auto &entry = getTypeEntry(arg);
+        return !IS_SSMALL(entry.min) && IS_SSMALL(entry.max);
     }
 
     bool always_small(const ArgSource &arg) const {
         if (arg.isSmall()) {
             return true;
-        }
-
-        int type_union = getTypeUnion(arg);
-        if (type_union == BEAM_TYPE_INTEGER) {
-            auto [min, max] = getIntRange(arg);
-            return min <= max;
-        } else {
+        } else if (!exact_type<BeamTypeId::Integer>(arg)) {
             return false;
         }
+
+        const auto &entry = getTypeEntry(arg);
+        return entry.min <= entry.max;
     }
 
     bool always_immediate(const ArgSource &arg) const {
-        if (arg.isImmed() || always_small(arg)) {
-            return true;
-        }
-
-        int type_union = getTypeUnion(arg);
-        return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
+        return always_one_of<BeamTypeId::AlwaysImmediate>(arg) ||
+               always_small(arg);
     }
 
     bool always_same_types(const ArgSource &lhs, const ArgSource &rhs) const {
-        int lhs_types = getTypeUnion(lhs);
-        int rhs_types = getTypeUnion(rhs);
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto lhs_types = static_cast<integral>(getTypeUnion(lhs));
+        auto rhs_types = static_cast<integral>(getTypeUnion(rhs));
 
         /* We can only be certain that the types are the same when there's
          * one possible type. For example, if one is a number and the other
@@ -1109,104 +1308,118 @@ protected:
         return false;
     }
 
-    bool always_one_of(const ArgSource &arg, int types) const {
-        if (arg.isImmed()) {
-            if (arg.isSmall()) {
-                return !!(types & BEAM_TYPE_INTEGER);
-            } else if (arg.isAtom()) {
-                return !!(types & BEAM_TYPE_ATOM);
-            } else if (arg.isNil()) {
-                return !!(types & BEAM_TYPE_NIL);
-            }
-
-            return false;
-        } else {
-            int type_union = getTypeUnion(arg);
-            return type_union == (type_union & types);
-        }
+    template<BeamTypeId... Types>
+    bool never_one_of(const ArgSource &arg) const {
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto types = static_cast<integral>(BeamTypeIdUnion<Types...>::value());
+        auto type_union = static_cast<integral>(getTypeUnion(arg));
+        return static_cast<BeamTypeId>(type_union & types) == BeamTypeId::None;
     }
 
-    int masked_types(const ArgSource &arg, int mask) const {
-        if (arg.isImmed()) {
-            if (arg.isSmall()) {
-                return mask & BEAM_TYPE_INTEGER;
-            } else if (arg.isAtom()) {
-                return mask & BEAM_TYPE_ATOM;
-            } else if (arg.isNil()) {
-                return mask & BEAM_TYPE_NIL;
-            }
-
-            return BEAM_TYPE_NONE;
-        } else {
-            return getTypeUnion(arg) & mask;
-        }
+    template<BeamTypeId... Types>
+    bool maybe_one_of(const ArgSource &arg) const {
+        return !never_one_of<Types...>(arg);
     }
 
-    bool exact_type(const ArgSource &arg, int type_id) const {
-        return always_one_of(arg, type_id);
+    template<BeamTypeId... Types>
+    bool always_one_of(const ArgSource &arg) const {
+        /* Providing a single type to this function is not an error per se, but
+         * `exact_type` provides a bit more error checking for that use-case,
+         * so we want to encourage its use. */
+        static_assert(!BeamTypeIdUnion<Types...>::is_single_typed(),
+                      "always_one_of expects a union of several primitive "
+                      "types, use exact_type instead");
+
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto types = static_cast<integral>(BeamTypeIdUnion<Types...>::value());
+        auto type_union = static_cast<integral>(getTypeUnion(arg));
+        return type_union == (type_union & types);
     }
 
-    bool is_sum_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            Sint min, max;
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            min = min1 + min2;
-            max = max1 + max2;
-            return IS_SSMALL(min) && IS_SSMALL(max);
-        }
+    template<BeamTypeId Type>
+    bool exact_type(const ArgSource &arg) const {
+        /* Rejects `exact_type<BeamTypeId::List>(...)` and similar, as it's
+         * almost always an error to exactly match a union of several types.
+         *
+         * On the off chance that you _do_ need to match a union exactly, use
+         * `masked_types<T>(arg) == T` instead. */
+        static_assert(BeamTypeIdUnion<Type>::is_single_typed(),
+                      "exact_type expects exactly one primitive type, use "
+                      "always_one_of instead");
+
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto type_union = static_cast<integral>(getTypeUnion(arg));
+        return type_union == (type_union & static_cast<integral>(Type));
     }
 
-    bool is_difference_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            Sint min, max;
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            min = min1 - max2;
-            max = max1 - min2;
-            return IS_SSMALL(min) && IS_SSMALL(max);
-        }
+    template<BeamTypeId Mask>
+    BeamTypeId masked_types(const ArgSource &arg) const {
+        static_assert((Mask != BeamTypeId::AlwaysBoxed &&
+                       Mask != BeamTypeId::AlwaysImmediate),
+                      "using masked_types with AlwaysBoxed or AlwaysImmediate "
+                      "is almost always an error, use exact_type, "
+                      "maybe_one_of, or never_one_of instead");
+        static_assert((Mask == BeamTypeId::MaybeBoxed ||
+                       Mask == BeamTypeId::MaybeImmediate ||
+                       Mask == BeamTypeId::AlwaysBoxed ||
+                       Mask == BeamTypeId::AlwaysImmediate),
+                      "masked_types expects a mask type like MaybeBoxed or "
+                      "MaybeImmediate, use exact_type, maybe_one_of, or"
+                      "never_one_of instead");
+
+        using integral = std::underlying_type_t<BeamTypeId>;
+        auto mask = static_cast<integral>(Mask);
+        auto type_union = static_cast<integral>(getTypeUnion(arg));
+        return static_cast<BeamTypeId>(type_union & mask);
     }
 
-    bool is_product_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            auto mag1 = std::max(std::abs(min1), std::abs(max1));
-            auto mag2 = std::max(std::abs(min2), std::abs(max2));
+    bool is_sum_small_if_args_are_small(const ArgSource &LHS,
+                                        const ArgSource &RHS) {
+        Sint min, max;
+        auto [min1, max1] = getClampedRange(LHS);
+        auto [min2, max2] = getClampedRange(RHS);
+        min = min1 + min2;
+        max = max1 + max2;
+        return IS_SSMALL(min) && IS_SSMALL(max);
+    }
 
-            /*
-             * mag1 * mag2 <= MAX_SMALL
-             * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
-             */
-            ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
-            return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
-        }
+    bool is_diff_small_if_args_are_small(const ArgSource &LHS,
+                                         const ArgSource &RHS) {
+        Sint min, max;
+        auto [min1, max1] = getClampedRange(LHS);
+        auto [min2, max2] = getClampedRange(RHS);
+        min = min1 - max2;
+        max = max1 - min2;
+        return IS_SSMALL(min) && IS_SSMALL(max);
+    }
+
+    bool is_product_small_if_args_are_small(const ArgSource &LHS,
+                                            const ArgSource &RHS) {
+        auto [min1, max1] = getClampedRange(LHS);
+        auto [min2, max2] = getClampedRange(RHS);
+        auto mag1 = std::max(std::abs(min1), std::abs(max1));
+        auto mag2 = std::max(std::abs(min2), std::abs(max2));
+
+        /*
+         * mag1 * mag2 <= MAX_SMALL
+         * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
+         */
+        ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
+        return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
     }
 
     bool is_bsl_small(const ArgSource &LHS, const ArgSource &RHS) {
-        /*
-         * In the code compiled by scripts/diffable, there never
-         * seems to be any range information for the RHS. Therefore,
-         * don't bother unless RHS is an immediate small.
-         */
-        if (!(always_small(LHS) && RHS.isSmall())) {
+        if (!(always_small(LHS) && always_small(RHS))) {
             return false;
         } else {
-            auto [min1, max1] = getIntRange(LHS);
-            auto rhs_val = RHS.as<ArgSmall>().getSigned();
+            auto [min1, max1] = getClampedRange(LHS);
+            auto [min2, max2] = getClampedRange(RHS);
 
-            if (min1 < 0 || max1 == 0 || rhs_val < 0) {
+            if (min1 < 0 || max1 == 0 || min2 < 0) {
                 return false;
             }
 
-            return rhs_val < Support::clz(max1) - _TAG_IMMED1_SIZE;
+            return max2 < Support::clz(max1) - _TAG_IMMED1_SIZE;
         }
     }
 
@@ -1216,7 +1429,8 @@ protected:
                       const ArgWord &Live);
     void emit_gc_test_preserve(const ArgWord &Need,
                                const ArgWord &Live,
-                               arm::Gp term);
+                               const ArgSource &Preserve,
+                               arm::Gp preserve_reg);
 
     arm::Mem emit_variable_apply(bool includeI);
     arm::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
@@ -1225,17 +1439,12 @@ protected:
                           bool skip_fun_test = false,
                           bool skip_arity_test = false);
 
-    arm::Gp emit_is_binary(const ArgLabel &Fail,
-                           const ArgSource &Src,
-                           Label next,
-                           Label subbin);
-
     void emit_is_boxed(Label Fail, arm::Gp Src) {
         BeamAssembler::emit_is_boxed(Fail, Src);
     }
 
     void emit_is_boxed(Label Fail, const ArgVal &Arg, arm::Gp Src) {
-        if (always_one_of(Arg, BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Arg)) {
             comment("skipped box test since argument is always boxed");
             return;
         }
@@ -1243,9 +1452,27 @@ protected:
         BeamAssembler::emit_is_boxed(Fail, Src);
     }
 
+    /* Copies `count` words from the address at `from`, to the address at `to`.
+     *
+     * Clobbers v30 and v31. */
+    void emit_copy_words_increment(arm::Gp from, arm::Gp to, size_t count);
+
     void emit_get_list(const arm::Gp boxed_ptr,
                        const ArgRegister &Hd,
                        const ArgRegister &Tl);
+
+    void emit_add_sub_types(bool is_small_result,
+                            const ArgSource &LHS,
+                            const a64::Gp lhs_reg,
+                            const ArgSource &RHS,
+                            const a64::Gp rhs_reg,
+                            const Label next);
+
+    void emit_are_both_small(const ArgSource &LHS,
+                             const a64::Gp lhs_reg,
+                             const ArgSource &RHS,
+                             const a64::Gp rhs_reg,
+                             const Label next);
 
     void emit_div_rem(const ArgLabel &Fail,
                       const ArgSource &LHS,
@@ -1261,6 +1488,7 @@ protected:
                     const ArgRegister &Dst);
 
     void emit_error(int code);
+    void emit_error(int reason, const ArgSource &Src);
 
     int emit_bs_get_field_size(const ArgSource &Size,
                                int unit,
@@ -1271,6 +1499,30 @@ protected:
     void emit_bs_get_utf16(const ArgRegister &Ctx,
                            const ArgLabel &Fail,
                            const ArgWord &Flags);
+    void update_bin_state(arm::Gp bin_offset,
+                          Sint bit_offset,
+                          Sint size,
+                          arm::Gp size_reg);
+    void set_zero(Sint effectiveSize);
+    void emit_construct_utf8(const ArgVal &Src,
+                             Sint bit_offset,
+                             bool is_byte_aligned);
+
+    void emit_read_bits(Uint bits,
+                        const arm::Gp bin_offset,
+                        const arm::Gp bin_base,
+                        const arm::Gp bitdata);
+
+    void emit_extract_integer(const arm::Gp bitdata,
+                              Uint flags,
+                              Uint bits,
+                              const ArgRegister &Dst);
+
+    void emit_extract_binary(const arm::Gp bitdata,
+                             Uint bits,
+                             const ArgRegister &Dst);
+
+    UWord bs_get_flags(const ArgVal &val);
 
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);
@@ -1288,11 +1540,22 @@ protected:
 
     void emit_validate_unicode(Label next, Label fail, arm::Gp value);
 
-    void emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
-                                       const ArgSource &RHS,
-                                       const ArgRegister &Dst,
-                                       Eterm fail_value,
-                                       Eterm succ_value);
+    void ubif_comment(const ArgWord &Bif);
+
+    void emit_cmp_immed_to_bool(arm::CondCode cc,
+                                const ArgSource &LHS,
+                                const ArgSource &RHS,
+                                const ArgRegister &Dst);
+
+    void emit_cond_to_bool(arm::CondCode cc, const ArgRegister &Dst);
+    void emit_bif_is_ge_lt(arm::CondCode cc,
+                           const ArgSource &LHS,
+                           const ArgSource &RHS,
+                           const ArgRegister &Dst);
+    void emit_bif_min_max(arm::CondCode cc,
+                          const ArgSource &LHS,
+                          const ArgSource &RHS,
+                          const ArgRegister &Dst);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);
@@ -1302,7 +1565,8 @@ protected:
 
     /* Returns a vector of the untagged and rebased `args`. The adjusted
      * `comparand` is stored in ARG1. */
-    const std::vector<ArgVal> emit_select_untag(const Span<ArgVal> &args,
+    const std::vector<ArgVal> emit_select_untag(const ArgSource &Src,
+                                                const Span<ArgVal> &args,
                                                 a64::Gp comparand,
                                                 Label fail,
                                                 UWord base,
@@ -1457,11 +1721,13 @@ protected:
         } else if (arg.isRegister()) {
             if (isRegisterBacked(arg)) {
                 auto index = arg.as<ArgXRegister>().get();
-                return Variable(register_backed_xregs[index]);
+                arm::Gp reg = register_backed_xregs[index];
+                invalidate_cache(reg);
+                return Variable(reg);
             }
 
             auto ref = getArgRef(arg);
-            a.ldr(tmp, ref);
+            ldr_cached(tmp, ref);
             return Variable(tmp, ref);
         } else {
             if (arg.isImmed() || arg.isWord()) {
@@ -1469,7 +1735,7 @@ protected:
                                          : arg.as<ArgWord>().get();
 
                 if (Support::isIntOrUInt32(val)) {
-                    mov_imm(tmp, val);
+                    mov_imm_preserve_cache(tmp, val);
                     return Variable(tmp);
                 }
             }
@@ -1483,8 +1749,7 @@ protected:
                       arm::Gp tmp1,
                       const ArgVal &Src2,
                       arm::Gp tmp2) {
-        if (Src1.isRegister() && Src2.isRegister() && !isRegisterBacked(Src1) &&
-            !isRegisterBacked(Src2)) {
+        if (!isRegisterBacked(Src1) && !isRegisterBacked(Src2)) {
             switch (ArgVal::memory_relation(Src1, Src2)) {
             case ArgVal::Relation::consecutive:
                 safe_ldp(tmp1, tmp2, Src1, Src2);
@@ -1520,19 +1785,24 @@ protected:
     template<typename Reg>
     void mov_var(const Variable<Reg> &to, Reg from) {
         if (to.reg != from) {
-            a.mov(to.reg, from);
+            mov_preserve_cache(to.reg, from);
         }
     }
 
     template<typename Reg>
     void mov_var(Reg to, const Variable<Reg> &from) {
         if (to != from.reg) {
-            a.mov(to, from.reg);
+            mov_preserve_cache(to, from.reg);
         }
     }
 
-    template<typename Reg>
-    void flush_var(const Variable<Reg> &to) {
+    void flush_var(const Variable<arm::Gp> &to) {
+        if (to.mem.hasBase()) {
+            str_cache(to.reg, to.mem);
+        }
+    }
+
+    void flush_var(const Variable<arm::VecD> &to) {
         if (to.mem.hasBase()) {
             a.str(to.reg, to.mem);
         }
@@ -1546,10 +1816,10 @@ protected:
         if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
             mem1.baseId() == mem2.baseId()) {
             if (mem1.offset() + 8 == mem2.offset()) {
-                safe_stp(to1.reg, to2.reg, mem1);
+                stp_cache(to1.reg, to2.reg, mem1);
                 return;
             } else if (mem1.offset() == mem2.offset() + 8) {
-                safe_stp(to2.reg, to1.reg, mem2);
+                stp_cache(to2.reg, to1.reg, mem2);
                 return;
             }
         }
@@ -1604,18 +1874,12 @@ protected:
         if (arg.isImmed() || arg.isWord()) {
             Sint val = arg.isImmed() ? arg.as<ArgImmed>().get()
                                      : arg.as<ArgWord>().get();
-
-            if (Support::isUInt12(val)) {
-                a.cmp(gp, imm(val));
-                return;
-            } else if (Support::isUInt12(-val)) {
-                a.cmn(gp, imm(-val));
-                return;
-            }
+            cmp(gp, val);
+            return;
         }
 
-        mov_arg(SUPER_TMP, arg);
-        a.cmp(gp, SUPER_TMP);
+        auto tmp = load_source(arg, SUPER_TMP);
+        a.cmp(gp, tmp.reg);
     }
 
     void safe_stp(arm::Gp gp1,
@@ -1628,14 +1892,14 @@ protected:
     }
 
     void safe_stp(arm::Gp gp1, arm::Gp gp2, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(gp1.isGpX() && gp2.isGpX());
 
-        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+        if (abs_offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
             a.stp(gp1, gp2, mem);
-        } else if (std::abs(offset) <
-                   sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+        } else if (abs_offset < sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             /* Note that we used `<` instead of `<=`, as we're loading two
              * elements rather than one. */
             a.str(gp1, mem);
@@ -1647,13 +1911,29 @@ protected:
     }
 
     void safe_ldr(arm::Gp gp, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(mem.hasBaseReg() && !mem.hasIndex());
         ASSERT(gp.isGpX());
 
-        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+        if (abs_offset <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             a.ldr(gp, mem);
+        } else {
+            add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
+            a.ldr(gp, arm::Mem(SUPER_TMP));
+        }
+    }
+
+    void safe_ldur(arm::Gp gp, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
+        auto offset = mem.offset();
+
+        ASSERT(mem.hasBaseReg() && !mem.hasIndex());
+        ASSERT(gp.isGpX());
+
+        if (abs_offset <= MAX_LDUR_STUR_DISPLACEMENT) {
+            a.ldur(gp, mem);
         } else {
             add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
             a.ldr(gp, arm::Mem(SUPER_TMP));
@@ -1671,15 +1951,15 @@ protected:
     }
 
     void safe_ldp(arm::Gp gp1, arm::Gp gp2, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(gp1.isGpX() && gp2.isGpX());
         ASSERT(gp1 != gp2);
 
-        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+        if (abs_offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
             a.ldp(gp1, gp2, mem);
-        } else if (std::abs(offset) <
-                   sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+        } else if (abs_offset < sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             /* Note that we used `<` instead of `<=`, as we're loading two
              * elements rather than one. */
             a.ldr(gp1, mem);

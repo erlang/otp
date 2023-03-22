@@ -61,7 +61,7 @@ init(_) ->
 %%====================================================================
 child_specs() ->
     [#{id => undefined,
-       start => {ftp, start_link, []},
+       start => {ftp_internal, start_link, []},
        restart => temporary,
        shutdown => 4000,
        type => worker,

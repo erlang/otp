@@ -95,10 +95,15 @@
     <title>Reserved Words</title>
     <p>The following are reserved words in Erlang:</p>
     <p><c>after and andalso band begin bnot bor bsl bsr bxor case catch
-      cond div end fun if let not of or orelse receive rem try
+      cond div end fun if let maybe not of or orelse receive rem try
       when xor</c></p>
     <p><strong>Note</strong>: <c>cond</c> and <c>let</c>, while reserved,
-      are currently not used by the language.</p>
+    are currently not used by the language.</p>
+    <change><p><c>maybe</c> is a reserved word only if feature
+    <c>maybe_expr</c> is enabled. In Erlang/OTP 25 and 26,
+    <c>maybe_expr</c> is disabled by default. Starting from
+    Erlang/OTP 27, <c>maybe_expr</c> is enabled by
+    default.</p></change>
   </section>
 
 </chapter>

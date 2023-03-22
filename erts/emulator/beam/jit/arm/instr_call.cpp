@@ -59,17 +59,36 @@ void BeamModuleAssembler::emit_i_call_last(const ArgLabel &CallTarget,
     emit_i_call_only(CallTarget);
 }
 
+void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
+                                              const ArgRegister &Dst,
+                                              const ArgLabel &CallTarget,
+                                              const ArgWord &Deallocate) {
+    auto src_index = Src.get();
+    Sint deallocate = Deallocate.get() * sizeof(Eterm);
+
+    if (src_index == 0 && Support::isInt9(deallocate)) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(deallocate);
+        a.ldr(dst.reg, src_ref);
+        flush_var(dst);
+    } else {
+        mov_arg(Dst, Src);
+        emit_deallocate(Deallocate);
+    }
+    emit_i_call_only(CallTarget);
+}
+
 void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
     emit_leave_erlang_frame();
     a.b(resolve_beam_label(CallTarget, disp128MB));
 }
 
-/* Handles save_calls. When the active code index is ERTS_SAVE_CALLS_CODE_IX,
- * all remote calls will land here.
+/* Handles save_calls for remote calls. When the active code index is
+ * ERTS_SAVE_CALLS_CODE_IX, all remote calls will land here.
  *
  * Export entry is in ARG1, return address is in LR (x30). Both of these must
  * be preserved since this runs between caller and callee. */
-void BeamGlobalAssembler::emit_dispatch_save_calls() {
+void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
     a.str(ARG1, TMP_MEM1q);
 
     emit_enter_runtime_frame();
@@ -112,6 +131,25 @@ void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
     emit_i_call_ext_only(Exp);
 }
 
+void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
+                                                  const ArgRegister &Dst,
+                                                  const ArgExport &Exp,
+                                                  const ArgWord &Deallocate) {
+    auto src_index = Src.get();
+    Sint deallocate = Deallocate.get() * sizeof(Eterm);
+
+    if (src_index == 0 && Support::isInt9(deallocate)) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(deallocate);
+        a.ldr(dst.reg, src_ref);
+        flush_var(dst);
+    } else {
+        mov_arg(Dst, Src);
+        emit_deallocate(Deallocate);
+    }
+    emit_i_call_ext_only(Exp);
+}
+
 static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
 
 arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
@@ -119,7 +157,7 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     a.bind(entry);
 
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc |
                        Update::eXRegs>(3);
 
     a.mov(ARG1, c_p);
@@ -137,7 +175,7 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     runtime_call<4>(apply);
 
     /* Any number of X registers can be live at this point. */
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc |
                        Update::eXRegs>();
 
     a.cbnz(ARG1, dispatch);
@@ -172,7 +210,7 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     mov_arg(ARG3, Arity);
 
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc |
                        Update::eXRegs>(Arity.get() + 2);
 
     a.mov(ARG1, c_p);
@@ -190,7 +228,7 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     /* We will need to reload all X registers in case there has been
      * an error. */
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc |
                        Update::eXRegs>();
 
     a.cbnz(ARG1, dispatch);

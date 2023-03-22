@@ -585,7 +585,7 @@ refc_dist(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Pid = spawn_link(Node, fun() -> receive
                                         Fun when is_function(Fun) ->
-                                            2 = fun_refc(Fun),
+                                            3 = fun_refc(Fun),
                                             exit({normal,Fun}) end
                            end),
     F = fun() -> 42 end,
@@ -608,7 +608,7 @@ refc_dist_send(Node, F) ->
     Pid = spawn_link(Node, fun() -> receive
                                         {To,Fun} when is_function(Fun) ->
                                             wait_until(fun () ->
-                                                               2 =:= fun_refc(Fun)
+                                                               3 =:= fun_refc(Fun)
                                                        end),
                                             To ! Fun
                                     end
@@ -636,7 +636,7 @@ refc_dist_reg_send(Node, F) ->
                                    Me ! Ref,
                                    receive
                                        {Me,Fun} when is_function(Fun) ->
-                                           2 = fun_refc(Fun),
+                                           3 = fun_refc(Fun),
                                            Me ! Fun
                                    end
                            end),

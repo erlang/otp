@@ -142,7 +142,7 @@
 -spec init(Config) -> Result when
       Config :: config(),
       Result :: config() | SkipOrFail,
-      SkipOrFail :: {skip,Reason} | {fail,Reason}.
+      SkipOrFail :: {skip,Reason::term()} | {fail,Reason :: term()}.
 %% Initialize ct_release_test.
 %%
 %% This function can be called from any of the

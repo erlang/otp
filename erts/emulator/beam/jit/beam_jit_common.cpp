@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2021-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -126,8 +126,6 @@ void BeamAssembler::_codegen(JitAllocator *allocator,
                            code.codeSize(),
                            CopySectionFlags::kPadSectionBuffer);
 
-    beamasm_flush_icache(*executable_ptr, code.codeSize());
-
 #ifdef DEBUG
     if (FileLogger *l = dynamic_cast<FileLogger *>(code.logger()))
         if (FILE *f = l->file())
@@ -218,7 +216,7 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
     codegen(allocator, executable_ptr, writable_ptr);
 
     {
-        auto offset = code.labelOffsetFromBase(codeHeader);
+        auto offset = code.labelOffsetFromBase(code_header);
 
         auto base_exec = (const char *)(*executable_ptr);
         code_hdr_exec = (const BeamCodeHeader *)&base_exec[offset];
@@ -439,6 +437,7 @@ void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
 
                     res = erts_unicode_list_to_buf(fname,
                                                    (byte *)name_buffer,
+                                                   sizeof(name_buffer),
                                                    sizeof(name_buffer) / 4,
                                                    &n);
 
@@ -473,7 +472,7 @@ void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
 }
 
 BeamCodeHeader *BeamModuleAssembler::getCodeHeader() {
-    return (BeamCodeHeader *)getCode(codeHeader);
+    return (BeamCodeHeader *)getCode(code_header);
 }
 
 const ErtsCodeInfo *BeamModuleAssembler::getOnLoad() {
@@ -594,13 +593,13 @@ Eterm beam_jit_call_nif(Process *c_p,
 enum beam_jit_nif_load_ret beam_jit_load_nif(Process *c_p,
                                              ErtsCodePtr I,
                                              Eterm *reg) {
-    if (erts_try_seize_code_write_permission(c_p)) {
+    if (erts_try_seize_code_mod_permission(c_p)) {
         Eterm result;
 
         PROCESS_MAIN_CHK_LOCKS((c_p));
         ERTS_UNREQ_PROC_MAIN_LOCK((c_p));
         result = erts_load_nif(c_p, I, reg[0], reg[1]);
-        erts_release_code_write_permission();
+        erts_release_code_mod_permission();
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
 
         if (ERTS_LIKELY(is_value(result))) {
@@ -689,7 +688,7 @@ static void test_bin_vheap(Process *c_p,
     int need = Nh;
 
     if (c_p->stop - c_p->htop < (need + S_RESERVED) ||
-        MSO(c_p).overhead + VNh >= BIN_VHEAP_SZ(c_p)) {
+        MSO(c_p).overhead + VNh >= c_p->bin_vheap_sz) {
         c_p->fcalls -=
                 erts_garbage_collect_nobump(c_p, need, reg, Live, c_p->fcalls);
     }
@@ -735,7 +734,6 @@ Eterm beam_jit_bs_init(Process *c_p,
                        Uint alloc,
                        unsigned Live) {
     erts_bin_offset = 0;
-    erts_writable_bin = 0;
     if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
         ErlHeapBin *hb;
         Uint bin_need;
@@ -802,7 +800,6 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
     }
 
     erts_bin_offset = 0;
-    erts_writable_bin = 0;
 
     /* num_bits = Number of bits to build
      * num_bytes = Number of bytes to allocate in the binary
@@ -1220,11 +1217,11 @@ void beam_jit_return_to_trace(Process *c_p) {
             erts_inspect_frame(cpp, &return_to_address);
 
             if (BeamIsReturnTrace(return_to_address)) {
-                cpp += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_to_address)) {
-                cpp += CP_SIZE + 1;
+                cpp += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+            } else if (BeamIsReturnCallAccTrace(return_to_address)) {
+                cpp += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_to_address)) {
-                cpp += CP_SIZE;
+                cpp += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
                 break;
             }

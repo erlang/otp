@@ -43,6 +43,7 @@
   <xi:include href="dict.xml"/>
   <xi:include href="digraph.xml"/>
   <xi:include href="digraph_utils.xml"/>
+  <xi:include href="edlin_expand.xml"/>
   <xi:include href="epp.xml"/>
   <xi:include href="erl_anno.xml"/>
   <xi:include href="erl_error.xml"/>

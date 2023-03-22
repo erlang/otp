@@ -45,3 +45,18 @@ binary(B) ->
                 true = (X rem 2)
            >>,
     ok.
+
+maps(Map) ->
+    New1 = #{ V => K ||
+               K := V <- Map},
+
+    New2 = #{ V = K || K := V <- Map,
+                       true =:= V
+            },
+
+    New3 = #{
+             V => K
+             ||
+               K := V <-
+                   Map
+            }.

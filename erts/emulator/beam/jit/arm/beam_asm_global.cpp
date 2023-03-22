@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,6 +120,10 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
     emit_leave_runtime_frame();
 
+    a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, state.value)));
+    a.tst(TMP1, imm(ERTS_PSFLG_EXITING));
+    a.b_ne(labels[do_schedule]);
+
     a.ret(a64::x30);
 }
 
@@ -204,8 +208,8 @@ void BeamGlobalAssembler::emit_export_trampoline() {
     a.bind(error_handler);
     {
         emit_enter_runtime_frame();
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap | Update::eXRegs>();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc |
+                           Update::eXRegs>();
 
         lea(ARG2, arm::Mem(ARG1, offsetof(Export, info.mfa)));
         a.mov(ARG1, c_p);
@@ -215,8 +219,8 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
         /* If there is no error_handler, any number of X registers
          * can be live. */
-        emit_leave_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap | Update::eXRegs>();
+        emit_leave_runtime<Update::eReductions | Update::eHeapAlloc |
+                           Update::eXRegs>();
         emit_leave_runtime_frame();
 
         a.cbz(ARG1, labels[process_exit]);
@@ -292,7 +296,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
      * traces because it's equal to the error address. */
     a.str(ARG2, arm::Mem(E, -8).pre());
 
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs>();
 
     /* The error address must be a valid CP or NULL. */
     a.tst(ARG2, imm(_CPMASK));
@@ -303,7 +307,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
     load_x_reg_array(ARG3);
     runtime_call<4>(handle_error);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs>();
 
     a.cbz(ARG1, labels[do_schedule]);
 

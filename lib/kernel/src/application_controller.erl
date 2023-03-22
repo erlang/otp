@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,12 +22,13 @@
 %% External exports
 -export([start/1, 
 	 load_application/1, unload_application/1, 
-	 start_application/2, start_boot_application/2, stop_application/1,
+	 start_application/2, start_application_request/2,
+	 start_boot_application/2, stop_application/1,
 	 control_application/1, is_running/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, info/0, set_env/2,
-	 get_pid_env/2, get_env/2, get_pid_all_env/1, get_all_env/1,
+	 get_pid_env/2, get_env/2, get_env/3, get_pid_all_env/1, get_all_env/1,
 	 get_pid_key/2, get_key/2, get_pid_all_key/1, get_all_key/1,
 	 get_master/1, get_application/1, get_application_module/1,
 	 start_type/1, permit_application/2, do_config_diff/2,
@@ -237,6 +238,9 @@ unload_application(AppName) ->
 start_application(AppName, RestartType) ->
     gen_server:call(?AC, {start_application, AppName, RestartType}, infinity).
 
+start_application_request(AppName, RestartType) ->
+    gen_server:send_request(?AC, {start_application, AppName, RestartType}).
+
 %%-----------------------------------------------------------------
 %% Func: is_running/1
 %% Args: Application = atom()
@@ -343,10 +347,14 @@ get_pid_env(Master, Key) ->
     end.
 
 get_env(AppName, Key) ->
-    case ets:lookup(ac_tab, {env, AppName, Key}) of
-	[{_, Val}] -> {ok, Val};
-	_ -> undefined
+    NotFound = make_ref(),
+    case ets:lookup_element(ac_tab, {env, AppName, Key}, 2, NotFound) of
+        NotFound -> undefined;
+        Val -> {ok, Val}
     end.
+
+get_env(AppName, Key, Default) ->
+    ets:lookup_element(ac_tab, {env, AppName, Key}, 2, Default).
 
 get_pid_all_env(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
@@ -442,10 +450,7 @@ start_type(Master) ->
 
 
 get_master(AppName) ->
-    case ets:lookup(ac_tab, {application_master, AppName}) of
-	[{_, Pid}] -> Pid;
-	_ -> undefined
-    end.
+    ets:lookup_element(ac_tab, {application_master, AppName}, 2, undefined).
 
 get_application(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
@@ -1541,6 +1546,11 @@ make_appl_i({application, Name, Opts}) when is_atom(Name), is_list(Opts) ->
 	end,
     Phases = get_opt(start_phases, Opts, undefined),
     Env = get_opt(env, Opts, []),
+    case check_para(Env, Name) of
+        ok -> ok;
+        {error, Reason} ->
+            throw({error, {invalid_options, Reason}})
+    end,
     MaxP = get_opt(maxP, Opts, infinity),
     MaxT = get_opt(maxT, Opts, infinity),
     IncApps = get_opt(included_applications, Opts, []),

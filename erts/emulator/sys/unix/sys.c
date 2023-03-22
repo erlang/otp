@@ -814,6 +814,10 @@ void sys_get_pid(char *buffer, size_t buffer_size){
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
 }
 
+int sys_get_hostname(char *buf, size_t size)
+{
+    return gethostname(buf, size);
+}
 
 void sys_init_io(void) { }
 void erts_sys_alloc_init(void) { }

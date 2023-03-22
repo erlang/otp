@@ -80,9 +80,9 @@ client_hello(_Host, _Port, ConnectionStates,
             false ->
                 Version
         end,
-    #{security_parameters := SecParams} = 
+    #{security_parameters := SecParams} =
         ssl_record:pending_connection_state(ConnectionStates, read),
-    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),     
+    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     Extensions = ssl_handshake:client_hello_extensions(Version,
 						       AvailableCipherSuites,
 						       SslOpts,
@@ -157,10 +157,11 @@ hello(#server_hello{server_version = LegacyVersion,
 		    cipher_suite = CipherSuite,
 		    compression_method = Compression,
 		    session_id = SessionId,
-                    extensions = #{server_hello_selected_version :=
-                                       #server_hello_selected_version{selected_version = Version}} = HelloExt},
-      #{versions := SupportedVersions,
-        ocsp_stapling := Stapling} = SslOpt,
+                    extensions =
+                        #{server_hello_selected_version :=
+                              #server_hello_selected_version{
+                                 selected_version = Version}} = HelloExt},
+      #{versions := SupportedVersions, ocsp_stapling := Stapling} = SslOpt,
       ConnectionStates0, Renegotiation, OldId) ->
     %% In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension
     %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
@@ -182,8 +183,9 @@ hello(#server_hello{server_version = LegacyVersion,
                                                            ConnectionStates0, Renegotiation, IsNew);
                         SelectedVersion ->
                             %% TLS 1.3
-                            {next_state, wait_sh, SelectedVersion, #{ocsp_stapling => Stapling,
-                                                                     ocsp_expect => ocsp_expect(Stapling)}}
+                            {next_state, wait_sh, SelectedVersion,
+                             #{ocsp_stapling => Stapling,
+                               ocsp_expect => ocsp_expect(Stapling)}}
                     end;
                 false ->
                     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
@@ -245,7 +247,8 @@ hello(#client_hello{client_version = _ClientVersion,
         Version = ssl_handshake:select_supported_version(ClientVersions, Versions),
         do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{reason,Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end;
 
@@ -260,7 +263,8 @@ hello(#client_hello{client_version = ClientVersion,
         error:{case_clause,{asn1, Asn1Reason}} ->
             %% ASN-1 decode of certificate somehow failed
             throw(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {failed_to_decode_own_certificate, Asn1Reason}));
-        error:_ ->
+        error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{reason,Reason}, {stacktrace, ST}]),
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end.
 
@@ -435,7 +439,8 @@ get_tls_handshakes_aux(Version, <<?BYTE(Type), ?UINT24(Length),
             ssl_logger:debug(LogLevel, inbound, 'handshake', Handshake),
 	    get_tls_handshakes_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{reason,Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?DECODE_ERROR, handshake_decode_error))
     end;
 get_tls_handshakes_aux(_Version, Data, _, Acc) ->

@@ -29,16 +29,16 @@ case "${BASE_TAG}" in
         ;;
 esac
 
-echo "::set-output name=BASE::${BASE}"
-echo "::set-output name=BASE_TAG::${BASE_TAG}"
-echo "::set-output name=BASE_TYPE::${BASE_TYPE}"
+echo "BASE=${BASE}" >> $GITHUB_OUTPUT
+echo "BASE_TAG=${BASE_TAG}" >> $GITHUB_OUTPUT
+echo "BASE_TYPE=${BASE_TYPE}" >> $GITHUB_OUTPUT
 
 if [ -f "otp_docker_base.tar" ]; then
     docker load -i "otp_docker_base.tar"
-    echo "::set-output name=BASE_BUILD::loaded"
+    echo "BASE_BUILD=loaded" >> $GITHUB_OUTPUT
 elif [ -f "otp_docker_base/otp_docker_base.tar" ]; then
     docker load -i "otp_docker_base/otp_docker_base.tar"
-    echo "::set-output name=BASE_BUILD::loaded"
+    echo "BASE_BUILD=loaded" >> $GITHUB_OUTPUT
 else
     if [ "${BASE_USE_CACHE}" != "false" ]; then
         docker pull "${BASE_TAG}:${BASE_BRANCH}"
@@ -58,9 +58,9 @@ else
 
     NEW_BASE_IMAGE_ID=$(docker images -q "${BASE_TAG}:latest")
     if [ "${BASE_IMAGE_ID}" = "${NEW_BASE_IMAGE_ID}" ]; then
-        echo "::set-output name=BASE_BUILD::cached"
+        echo "BASE_BUILD=cached" >> $GITHUB_OUTPUT
     else
-        echo "::set-output name=BASE_BUILD::re-built"
+        echo "BASE_BUILD=re-built" >> $GITHUB_OUTPUT
         docker save "${BASE_TAG}:latest" > "otp_docker_base.tar"
     fi
 fi

@@ -46,7 +46,10 @@
          monitor_process_purge/1,
          demonitor_process/1,
          monitor_frenzy/1,
-	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
+	 types/1, many_args/1, binaries/1,
+        get_string/1, get_string_length/1,
+        get_atom/1, get_atom_length/1,
+        make_new_atoms/1, make_existing_atoms/1,
 	 maps/1,
 	 api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1,
@@ -93,12 +96,15 @@
        many_args_100/100,
        clone_bin/1,
        make_sub_bin/3,
-       string_to_bin/2,
-       atom_to_bin/2,
+       string_to_bin/3,
+       string_length/2,
+       atom_to_bin/3,
+       atom_length/2,
        macros/1,
        tuple_2_list_and_tuple/1,
        iolist_2_bin/1,
        get_resource_type/1,
+       init_resource_type/2,
        alloc_resource/2,
        make_resource/1,
        get_resource/2,
@@ -110,6 +116,8 @@
        check_is_exception/0,
        length_test/6,
        make_atoms/0,
+       make_new_atom/2,
+       make_existing_atom/2,
        make_strings/0,
        make_new_resource_binary/1,
        send_list_seq/2,
@@ -196,6 +204,9 @@
 -define(RT_CREATE,1).
 -define(RT_TAKEOVER,2).
 
+-define(ERL_NIF_LATIN1,1).
+-define(ERL_NIF_UTF8,2).
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
@@ -212,7 +223,9 @@ all() ->
      t_load_race,
      t_call_nif_early,
      load_traced_nif,
-     binaries, get_string, get_atom, maps, api_macros, from_array,
+     binaries, get_string, get_string_length,
+     get_atom, get_atom_length, make_new_atoms, make_existing_atoms,
+     maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
      threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
@@ -646,14 +659,14 @@ t_nifs_attrib(Config) when is_list(Config) ->
     ok.
 
 
-%% Test erlang:load_nif/2 waiting for code_write_permission.
+%% Test erlang:load_nif/2 waiting for code_mod_permission.
 t_load_race(Config) ->
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "nif_mod"),
     {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     {module,nif_mod} = erlang:load_module(nif_mod,Bin),
     try
-        erts_debug:set_internal_state(code_write_permission, true),
+        erts_debug:set_internal_state(code_mod_permission, true),
         Papa = self(),
         spawn_link(fun() ->
                            ok = nif_mod:load_nif_lib(Config, 1),
@@ -662,7 +675,7 @@ t_load_race(Config) ->
         timer:sleep(100),
         timeout = receive_any(0)
     after
-        true = erts_debug:set_internal_state(code_write_permission, false)
+        true = erts_debug:set_internal_state(code_mod_permission, false)
     end,
 
     "NIF loaded" = receive_any(),
@@ -1621,27 +1634,304 @@ test_make_sub_bin(Bin) ->
 %% Test enif_get_string
 get_string(Config) when is_list(Config) ->
     ensure_lib_loaded(Config, 1),
-    {7, <<"hejsan",0,_:3/binary>>} = string_to_bin("hejsan",10),
-    {7, <<"hejsan",0,_>>} = string_to_bin("hejsan",8),
-    {7, <<"hejsan",0>>} = string_to_bin("hejsan",7),
-    {-6, <<"hejsa",0>>} = string_to_bin("hejsan",6),
-    {-5, <<"hejs",0>>} = string_to_bin("hejsan",5),
-    {-1, <<0>>} = string_to_bin("hejsan",1),
-    {0, <<>>} = string_to_bin("hejsan",0),
-    {1, <<0>>} = string_to_bin("",1),
-    {0, <<>>} = string_to_bin("",0),
+    {7, <<"hejsan", 0, _:3/binary>>} = string_to_bin("hejsan", 10, ?ERL_NIF_LATIN1),
+    {7, <<"hejsan", 0, _>>} = string_to_bin("hejsan", 8, ?ERL_NIF_LATIN1),
+    {7, <<"hejsan", 0>>} = string_to_bin("hejsan", 7, ?ERL_NIF_LATIN1),
+    {-6, <<"hejsa", 0>>} = string_to_bin("hejsan", 6, ?ERL_NIF_LATIN1),
+    {-5, <<"hejs", 0>>} = string_to_bin("hejsan", 5, ?ERL_NIF_LATIN1),
+    {-1, <<0>>} = string_to_bin("hejsan", 1, ?ERL_NIF_LATIN1),
+    {0, <<>>} = string_to_bin("hejsan", 0, ?ERL_NIF_LATIN1),
+    {1, <<0>>} = string_to_bin("", 1, ?ERL_NIF_LATIN1),
+    {0, <<>>} = string_to_bin("", 0, ?ERL_NIF_LATIN1),
+    {6, <<"hallå", 0, _, _>>} = string_to_bin("hallå", 8, ?ERL_NIF_LATIN1),
+    {6, <<"hallå", 0, _>>} = string_to_bin("hallå", 7, ?ERL_NIF_LATIN1),
+    {6, <<"hallå", 0>>} = string_to_bin("hallå", 6, ?ERL_NIF_LATIN1),
+    {-5, <<"hall", 0>>} = string_to_bin("hallå", 5, ?ERL_NIF_LATIN1),
+    {-4, <<"hal", 0>>} = string_to_bin("hallå", 4, ?ERL_NIF_LATIN1),
+    {0, <<0, _, _>>} = string_to_bin("Ω", 3, ?ERL_NIF_LATIN1),
+    {0, <<0, _>>} = string_to_bin("Ω", 2, ?ERL_NIF_LATIN1),
+    {0, <<0>>} = string_to_bin("Ω", 1, ?ERL_NIF_LATIN1),
+    {0, <<>>} = string_to_bin("Ω", 0, ?ERL_NIF_LATIN1),
+    {7, <<"hejsan", 0, _:3/binary>>} = string_to_bin("hejsan", 10, ?ERL_NIF_UTF8),
+    {7, <<"hejsan", 0, _>>} = string_to_bin("hejsan", 8, ?ERL_NIF_UTF8),
+    {7, <<"hejsan", 0>>} = string_to_bin("hejsan", 7, ?ERL_NIF_UTF8),
+    {-6, <<"hejsa", 0>>} = string_to_bin("hejsan", 6, ?ERL_NIF_UTF8),
+    {-5, <<"hejs", 0>>} = string_to_bin("hejsan", 5, ?ERL_NIF_UTF8),
+    {-1, <<0>>} = string_to_bin("hejsan", 1, ?ERL_NIF_UTF8),
+    {0, <<>>} = string_to_bin("hejsan", 0, ?ERL_NIF_UTF8),
+    {1, <<0>>} = string_to_bin("", 1, ?ERL_NIF_UTF8),
+    {0, <<>>} = string_to_bin("", 0, ?ERL_NIF_UTF8),
+    {7, <<"hallå"/utf8, 0, _>>} = string_to_bin("hallå", 8, ?ERL_NIF_UTF8),
+    {7, <<"hallå"/utf8, 0>>} = string_to_bin("hallå", 7, ?ERL_NIF_UTF8),
+    {-5, <<"hall", 0, _>>} = string_to_bin("hallå", 6, ?ERL_NIF_UTF8),
+    {-5, <<"hall", 0>>} = string_to_bin("hallå", 5, ?ERL_NIF_UTF8),
+    {-4, <<"hal", 0>>} = string_to_bin("hallå", 4, ?ERL_NIF_UTF8),
+    {3, <<"Ω"/utf8, 0>>} = string_to_bin("Ω", 3, ?ERL_NIF_UTF8),
+    {-1, <<0, _>>} = string_to_bin("Ω", 2, ?ERL_NIF_UTF8),
+    {-1, <<0>>} = string_to_bin("Ω", 1, ?ERL_NIF_UTF8),
+    {0, <<>>} = string_to_bin("Ω", 0, ?ERL_NIF_UTF8),
+
+    {0, <<_:5/binary>>} = string_to_bin([-10], 5, ?ERL_NIF_LATIN1),
+    {0, <<_:5/binary>>} = string_to_bin([-10], 5, ?ERL_NIF_UTF8),
+    {0, <<_:5/binary>>} = string_to_bin([(-1 bsl 8) + $A], 5, ?ERL_NIF_LATIN1),
+    {0, <<_:5/binary>>} = string_to_bin([(-1 bsl 8) + $A], 5, ?ERL_NIF_UTF8),
+    ok.
+
+%% Test enif_get_string_length
+get_string_length(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config, 1),
+    0 = string_length("", ?ERL_NIF_LATIN1),
+    6 = string_length("hejsan", ?ERL_NIF_LATIN1),
+    5 = string_length("hallå", ?ERL_NIF_LATIN1),
+    false = string_length("Ω", ?ERL_NIF_LATIN1),
+    false = string_length("hejsanΩ", ?ERL_NIF_LATIN1),
+    0 = string_length("", ?ERL_NIF_UTF8),
+    6 = string_length("hejsan", ?ERL_NIF_UTF8),
+    6 = string_length("hallå", ?ERL_NIF_UTF8),
+    2 = string_length("Ω", ?ERL_NIF_UTF8),
+    8 = string_length("hejsanΩ", ?ERL_NIF_UTF8),
+
+    false = string_length([-10], ?ERL_NIF_LATIN1),
+    false = string_length([-10], ?ERL_NIF_UTF8),
+    false = string_length([(-1 bsl 8) + $A], ?ERL_NIF_LATIN1),
+    false = string_length([(-1 bsl 8) + $A], ?ERL_NIF_UTF8),
     ok.
 
 %% Test enif_get_atom
 get_atom(Config) when is_list(Config) ->
     ensure_lib_loaded(Config, 1),
-    {7, <<"hejsan",0,_:3/binary>>} = atom_to_bin(hejsan,10),
-    {7, <<"hejsan",0,_>>} = atom_to_bin(hejsan,8),
-    {7, <<"hejsan",0>>} = atom_to_bin(hejsan,7),
-    {0, <<_:6/binary>>} = atom_to_bin(hejsan,6),
-    {0, <<>>} = atom_to_bin(hejsan,0),
-    {1, <<0>>} = atom_to_bin('',1),
-    {0, <<>>} = atom_to_bin('',0),
+    Char1ByteLatin1 = <<"a">>,
+    Longest1ByteLatin1AtomText = binary:copy(Char1ByteLatin1, 255),
+    Longest1ByteLatin1Atom = erlang:binary_to_atom(Longest1ByteLatin1AtomText, latin1),
+    Char2ByteLatin1 = <<"å">>,
+    Longest2ByteLatin1AtomText = binary:copy(Char2ByteLatin1, 255),
+    Longest2ByteLatin1Atom = erlang:binary_to_atom(Longest2ByteLatin1AtomText, latin1),
+    Char2ByteUtf8 = <<"å"/utf8>>,
+    Longest2ByteUtf8AtomText = binary:copy(Char2ByteUtf8, 255),
+    Longest2ByteUtf8Atom = erlang:binary_to_atom(Longest2ByteUtf8AtomText, utf8),
+    Char3ByteUtf8 = <<"ᛥ"/utf8>>,
+    Longest3ByteUtf8AtomText = binary:copy(Char3ByteUtf8, 255),
+    Longest3ByteUtf8Atom = erlang:binary_to_atom(Longest3ByteUtf8AtomText, utf8),
+    Char4ByteUtf8 = <<"𠜱"/utf8>>,
+    Longest4ByteUtf8AtomText = binary:copy(Char4ByteUtf8, 255),
+    Longest4ByteUtf8Atom = erlang:binary_to_atom(Longest4ByteUtf8AtomText, utf8),
+    {7, <<"hejsan", 0, _:3/binary>>} = atom_to_bin(hejsan, 10, ?ERL_NIF_LATIN1),
+    {7, <<"hejsan", 0, _>>} = atom_to_bin(hejsan, 8, ?ERL_NIF_LATIN1),
+    {7, <<"hejsan", 0>>} = atom_to_bin(hejsan, 7, ?ERL_NIF_LATIN1),
+    {0, <<_:6/binary>>} = atom_to_bin(hejsan, 6, ?ERL_NIF_LATIN1),
+    {0, <<>>} = atom_to_bin(hejsan, 0, ?ERL_NIF_LATIN1),
+    {1, <<0>>} = atom_to_bin('', 1, ?ERL_NIF_LATIN1),
+    {0, <<>>} = atom_to_bin('', 0, ?ERL_NIF_LATIN1),
+    {6, <<"hallå", 0, _>>} = atom_to_bin('hallå', 7, ?ERL_NIF_LATIN1),
+    {6, <<"hallå", 0>>} = atom_to_bin('hallå', 6, ?ERL_NIF_LATIN1),
+    {0, <<_:5/binary>>} = atom_to_bin('hallå', 5, ?ERL_NIF_LATIN1),
+    {0, <<_:3/binary>>} = atom_to_bin('Ω', 3, ?ERL_NIF_LATIN1),
+    {0, <<_:2/binary>>} = atom_to_bin('Ω', 2, ?ERL_NIF_LATIN1),
+    {0, <<_>>} = atom_to_bin('Ω', 1, ?ERL_NIF_LATIN1),
+    {256, <<Longest1ByteLatin1AtomText:255/bytes, 0>>} = atom_to_bin(Longest1ByteLatin1Atom, 256, ?ERL_NIF_LATIN1),
+    {256, <<Longest2ByteLatin1AtomText:255/bytes, 0>>} = atom_to_bin(Longest2ByteLatin1Atom, 256, ?ERL_NIF_LATIN1),
+    {256, <<Longest2ByteLatin1AtomText:255/bytes, 0, _:255/bytes>>} = atom_to_bin(Longest2ByteLatin1Atom, 511, ?ERL_NIF_LATIN1),
+    {256, <<Longest2ByteLatin1AtomText:255/bytes, 0>>} = atom_to_bin(Longest2ByteUtf8Atom, 256, ?ERL_NIF_LATIN1),
+    {256, <<Longest2ByteLatin1AtomText:255/bytes, 0, _:255/bytes>>} = atom_to_bin(Longest2ByteUtf8Atom, 511, ?ERL_NIF_LATIN1),
+    {0, <<_:256/bytes>>} = atom_to_bin(Longest3ByteUtf8Atom, 256, ?ERL_NIF_LATIN1),
+    {0, <<_:766/bytes>>} = atom_to_bin(Longest3ByteUtf8Atom, 766, ?ERL_NIF_LATIN1),
+    {0, <<_:256/bytes>>} = atom_to_bin(Longest4ByteUtf8Atom, 256, ?ERL_NIF_LATIN1),
+    {0, <<_:1021/bytes>>} = atom_to_bin(Longest4ByteUtf8Atom, 1021, ?ERL_NIF_LATIN1),
+    {7, <<"hejsan", 0, _:3/binary>>} = atom_to_bin(hejsan, 10, ?ERL_NIF_UTF8),
+    {7, <<"hejsan", 0, _>>} = atom_to_bin(hejsan, 8, ?ERL_NIF_UTF8),
+    {7, <<"hejsan", 0>>} = atom_to_bin(hejsan, 7, ?ERL_NIF_UTF8),
+    {0, <<_:6/binary>>} = atom_to_bin(hejsan, 6, ?ERL_NIF_UTF8),
+    {0, <<>>} = atom_to_bin(hejsan, 0, ?ERL_NIF_UTF8),
+    {1, <<0>>} = atom_to_bin('', 1, ?ERL_NIF_UTF8),
+    {0, <<>>} = atom_to_bin('', 0, ?ERL_NIF_UTF8),
+    {7, <<"hallå"/utf8, 0>>} = atom_to_bin('hallå', 7, ?ERL_NIF_UTF8),
+    {0, <<_:6/binary>>} = atom_to_bin('hallå', 6, ?ERL_NIF_UTF8),
+    {0, <<_:5/binary>>} = atom_to_bin('hallå', 5, ?ERL_NIF_UTF8),
+    {3, <<"Ω"/utf8, 0>>} = atom_to_bin('Ω', 3, ?ERL_NIF_UTF8),
+    {0, <<_:2/binary>>} = atom_to_bin('Ω', 2, ?ERL_NIF_UTF8),
+    {0, <<_>>} = atom_to_bin('Ω', 1, ?ERL_NIF_UTF8),
+    {256, <<Longest1ByteLatin1AtomText:255/bytes, 0>>} = atom_to_bin(Longest1ByteLatin1Atom, 256, ?ERL_NIF_UTF8),
+    {0, <<_:256/bytes>>} = atom_to_bin(Longest2ByteLatin1Atom, 256, ?ERL_NIF_UTF8),
+    {511, <<Longest2ByteUtf8AtomText:510/bytes, 0>>} = atom_to_bin(Longest2ByteLatin1Atom, 511, ?ERL_NIF_UTF8),
+    {0, <<_:256/bytes>>} = atom_to_bin(Longest2ByteUtf8Atom, 256, ?ERL_NIF_UTF8),
+    {511, <<Longest2ByteUtf8AtomText:510/bytes, 0>>} = atom_to_bin(Longest2ByteUtf8Atom, 511, ?ERL_NIF_UTF8),
+    {0, <<_:256/bytes>>} = atom_to_bin(Longest3ByteUtf8Atom, 256, ?ERL_NIF_UTF8),
+    {766, <<Longest3ByteUtf8AtomText:765/bytes, 0>>} = atom_to_bin(Longest3ByteUtf8Atom, 766, ?ERL_NIF_UTF8),
+    {0, <<_:256/bytes>>} = atom_to_bin(Longest4ByteUtf8Atom, 256, ?ERL_NIF_UTF8),
+    {1021, <<Longest4ByteUtf8AtomText:1020/bytes, 0>>} = atom_to_bin(Longest4ByteUtf8Atom, 1021, ?ERL_NIF_UTF8),
+    ok.
+
+%% Test enif_get_atom_length
+get_atom_length(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config, 1),
+    Char1ByteLatin1 = <<"a">>,
+    Longest1ByteLatin1AtomText = binary:copy(Char1ByteLatin1, 255),
+    Longest1ByteLatin1Atom = erlang:binary_to_atom(Longest1ByteLatin1AtomText, latin1),
+    Char2ByteLatin1 = <<"å">>,
+    Longest2ByteLatin1AtomText = binary:copy(Char2ByteLatin1, 255),
+    Longest2ByteLatin1Atom = erlang:binary_to_atom(Longest2ByteLatin1AtomText, latin1),
+    Char2ByteUtf8 = <<"å"/utf8>>,
+    Longest2ByteUtf8AtomText = binary:copy(Char2ByteUtf8, 255),
+    Longest2ByteUtf8Atom = erlang:binary_to_atom(Longest2ByteUtf8AtomText, utf8),
+    Char3ByteUtf8 = <<"ᛥ"/utf8>>,
+    Longest3ByteUtf8AtomText = binary:copy(Char3ByteUtf8, 255),
+    Longest3ByteUtf8Atom = erlang:binary_to_atom(Longest3ByteUtf8AtomText, utf8),
+    Char4ByteUtf8 = <<"𠜱"/utf8>>,
+    Longest4ByteUtf8AtomText = binary:copy(Char4ByteUtf8, 255),
+    Longest4ByteUtf8Atom = erlang:binary_to_atom(Longest4ByteUtf8AtomText, utf8),
+    0 = atom_length('', ?ERL_NIF_LATIN1),
+    6 = atom_length('hejsan', ?ERL_NIF_LATIN1),
+    5 = atom_length('hallå', ?ERL_NIF_LATIN1),
+    false = atom_length('Ω', ?ERL_NIF_LATIN1),
+    false = atom_length('hejsanΩ', ?ERL_NIF_LATIN1),
+    255 = atom_length(Longest1ByteLatin1Atom, ?ERL_NIF_LATIN1),
+    255 = atom_length(Longest2ByteLatin1Atom, ?ERL_NIF_LATIN1),
+    255 = atom_length(Longest2ByteUtf8Atom, ?ERL_NIF_LATIN1),
+    false = atom_length(Longest3ByteUtf8Atom, ?ERL_NIF_LATIN1),
+    false = atom_length(Longest4ByteUtf8Atom, ?ERL_NIF_LATIN1),
+    0 = atom_length('', ?ERL_NIF_UTF8),
+    6 = atom_length('hejsan', ?ERL_NIF_UTF8),
+    6 = atom_length('hallå', ?ERL_NIF_UTF8),
+    2 = atom_length('Ω', ?ERL_NIF_UTF8),
+    8 = atom_length('hejsanΩ', ?ERL_NIF_UTF8),
+    255 = atom_length(Longest1ByteLatin1Atom, ?ERL_NIF_UTF8),
+    510 = atom_length(Longest2ByteLatin1Atom, ?ERL_NIF_UTF8),
+    510 = atom_length(Longest2ByteUtf8Atom, ?ERL_NIF_UTF8),
+    765 = atom_length(Longest3ByteUtf8Atom, ?ERL_NIF_UTF8),
+    1020 = atom_length(Longest4ByteUtf8Atom, ?ERL_NIF_UTF8),
+    ok.
+
+%% Test enif_make_new_atom_len
+make_new_atoms(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config, 1),
+    Char1ByteAscii = <<"a">>,
+    Longest1ByteAsciiAtomText = binary:copy(Char1ByteAscii, 255),
+    TooLong1ByteAsciiAtomText = binary:copy(Char1ByteAscii, 256),
+    Longest1ByteLatin1Atom = erlang:binary_to_atom(Longest1ByteAsciiAtomText, latin1),
+    Char2ByteLatin1 = <<"å">>,
+    Longest2ByteLatin1AtomText = binary:copy(Char2ByteLatin1, 255),
+    TooLong2ByteLatin1AtomText = binary:copy(Char2ByteLatin1, 256),
+    Longest2ByteLatin1Atom = erlang:binary_to_atom(Longest2ByteLatin1AtomText, latin1),
+    Char2ByteUtf8 = <<"å"/utf8>>,
+    Longest2ByteUtf8AtomText = binary:copy(Char2ByteUtf8, 255),
+    TooLong2ByteUtf8AtomText = binary:copy(Char2ByteUtf8, 256),
+    Longest2ByteUtf8Atom = erlang:binary_to_atom(Longest2ByteUtf8AtomText, utf8),
+    Char3ByteUtf8 = <<"ᛥ"/utf8>>,
+    Longest3ByteUtf8AtomText = binary:copy(Char3ByteUtf8, 255),
+    TooLong3ByteUtf8AtomText = binary:copy(Char3ByteUtf8, 256),
+    Longest3ByteUtf8Atom = erlang:binary_to_atom(Longest3ByteUtf8AtomText, utf8),
+    Char4ByteUtf8 = <<"𠜱"/utf8>>,
+    Longest4ByteUtf8AtomText = binary:copy(Char4ByteUtf8, 255),
+    TooLong4ByteUtf8AtomText = binary:copy(Char4ByteUtf8, 256),
+    Longest4ByteUtf8Atom = erlang:binary_to_atom(Longest4ByteUtf8AtomText, utf8),
+    hejsan = make_new_atom(<<"hejsan">>, ?ERL_NIF_LATIN1),
+    'hallå' = make_new_atom(<<"hallå">>, ?ERL_NIF_LATIN1),
+    'Î©' = make_new_atom(<<"Ω"/utf8>>, ?ERL_NIF_LATIN1),
+    '' = make_new_atom(<<>>, ?ERL_NIF_LATIN1),
+    Longest1ByteAsciiAtom = make_new_atom(Longest1ByteAsciiAtomText, ?ERL_NIF_LATIN1),
+    0 = make_new_atom(TooLong1ByteAsciiAtomText, ?ERL_NIF_LATIN1),
+    Longest2ByteLatin1Atom = make_new_atom(Longest2ByteLatin1AtomText, ?ERL_NIF_LATIN1),
+    0 = make_new_atom(TooLong2ByteLatin1AtomText, ?ERL_NIF_LATIN1),
+    0 = make_new_atom(Longest2ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_new_atom(TooLong2ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_new_atom(Longest3ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_new_atom(TooLong3ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_new_atom(Longest4ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_new_atom(TooLong4ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    hejsan = make_new_atom(<<"hejsan"/utf8>>, ?ERL_NIF_UTF8),
+    'hallå' = make_new_atom(<<"hallå"/utf8>>, ?ERL_NIF_UTF8),
+    'Ω' = make_new_atom(<<"Ω"/utf8>>, ?ERL_NIF_UTF8),
+    '' = make_new_atom(<<>>, ?ERL_NIF_UTF8),
+    Longest1ByteAsciiAtom = make_new_atom(Longest1ByteAsciiAtomText, ?ERL_NIF_UTF8),
+    0 = make_new_atom(TooLong1ByteAsciiAtomText, ?ERL_NIF_UTF8),
+    0 = make_new_atom(Longest2ByteLatin1AtomText, ?ERL_NIF_UTF8),
+    0 = make_new_atom(TooLong2ByteLatin1AtomText, ?ERL_NIF_UTF8),
+    Longest2ByteUtf8Atom = make_new_atom(Longest2ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    0 = make_new_atom(TooLong2ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    Longest3ByteUtf8Atom = make_new_atom(Longest3ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    0 = make_new_atom(TooLong3ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    Longest4ByteUtf8Atom = make_new_atom(Longest4ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    0 = make_new_atom(TooLong4ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    ok.
+
+%% Test enif_make_existing_atom_len
+make_existing_atoms(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config, 1),
+    _Existing = [hejsan, 'hallå', 'Î©', 'Ω', ''],
+    Char1ByteLatin1 = <<"a">>,
+    Char1ByteLatin1NE = <<"u">>,
+    Longest1ByteLatin1AtomText = binary:copy(Char1ByteLatin1, 255),
+    Longest1ByteLatin1AtomTextNE = binary:copy(Char1ByteLatin1NE, 255),
+    TooLong1ByteLatin1AtomText = binary:copy(Char1ByteLatin1, 256),
+    Longest1ByteLatin1Atom = erlang:binary_to_atom(Longest1ByteLatin1AtomText, latin1),
+    Char2ByteLatin1 = <<"å">>,
+    Char2ByteLatin1NE = <<"ú">>,
+    Longest2ByteLatin1AtomText = binary:copy(Char2ByteLatin1, 255),
+    Longest2ByteLatin1AtomTextNE = binary:copy(Char2ByteLatin1NE, 255),
+    TooLong2ByteLatin1AtomText = binary:copy(Char2ByteLatin1, 256),
+    Longest2ByteLatin1Atom = erlang:binary_to_atom(Longest2ByteLatin1AtomText, latin1),
+    Char2ByteUtf8 = <<"å"/utf8>>,
+    Char2ByteUtf8NE = <<"ú"/utf8>>,
+    Longest2ByteUtf8AtomText = binary:copy(Char2ByteUtf8, 255),
+    Longest2ByteUtf8AtomTextNE = binary:copy(Char2ByteUtf8NE, 255),
+    TooLong2ByteUtf8AtomText = binary:copy(Char2ByteUtf8, 256),
+    Longest2ByteUtf8Atom = erlang:binary_to_atom(Longest2ByteUtf8AtomText, utf8),
+    Char3ByteUtf8 = <<"ᛥ"/utf8>>,
+    Char3ByteUtf8NE = <<"ᛤ"/utf8>>,
+    Longest3ByteUtf8AtomText = binary:copy(Char3ByteUtf8, 255),
+    Longest3ByteUtf8AtomTextNE = binary:copy(Char3ByteUtf8NE, 255),
+    TooLong3ByteUtf8AtomText = binary:copy(Char3ByteUtf8, 256),
+    Longest3ByteUtf8Atom = erlang:binary_to_atom(Longest3ByteUtf8AtomText, utf8),
+    Char4ByteUtf8 = <<"𠜱"/utf8>>,
+    Char4ByteUtf8NE = <<"𠴕"/utf8>>,
+    Longest4ByteUtf8AtomText = binary:copy(Char4ByteUtf8, 255),
+    Longest4ByteUtf8AtomTextNE = binary:copy(Char4ByteUtf8NE, 255),
+    TooLong4ByteUtf8AtomText = binary:copy(Char4ByteUtf8, 256),
+    Longest4ByteUtf8Atom = erlang:binary_to_atom(Longest4ByteUtf8AtomText, utf8),
+    hejsan = make_existing_atom(<<"hejsan">>, ?ERL_NIF_LATIN1),
+    'hallå' = make_existing_atom(<<"hallå">>, ?ERL_NIF_LATIN1),
+    'Î©' = make_existing_atom(<<"Ω"/utf8>>, ?ERL_NIF_LATIN1),
+    '' = make_existing_atom(<<>>, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(<<"hejsan1234">>, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(<<"hallå1234">>, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(<<"Ω1234"/utf8>>, ?ERL_NIF_LATIN1),
+    Longest1ByteLatin1Atom = make_existing_atom(Longest1ByteLatin1AtomText, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(Longest1ByteLatin1AtomTextNE, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(TooLong1ByteLatin1AtomText, ?ERL_NIF_LATIN1),
+    Longest2ByteLatin1Atom = make_existing_atom(Longest2ByteLatin1AtomText, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(Longest2ByteLatin1AtomTextNE, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(TooLong2ByteLatin1AtomText, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(Longest2ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(Longest2ByteUtf8AtomTextNE, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(TooLong2ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(Longest3ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(Longest3ByteUtf8AtomTextNE, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(TooLong3ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(Longest4ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(Longest4ByteUtf8AtomTextNE, ?ERL_NIF_LATIN1),
+    0 = make_existing_atom(TooLong4ByteUtf8AtomText, ?ERL_NIF_LATIN1),
+    hejsan = make_existing_atom(<<"hejsan"/utf8>>, ?ERL_NIF_UTF8),
+    'hallå' = make_existing_atom(<<"hallå"/utf8>>, ?ERL_NIF_UTF8),
+    'Ω' = make_existing_atom(<<"Ω"/utf8>>, ?ERL_NIF_UTF8),
+    '' = make_existing_atom(<<>>, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(<<"hejsan1234"/utf8>>, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(<<"hallå1234"/utf8>>, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(<<"Ω1234"/utf8>>, ?ERL_NIF_UTF8),
+    Longest1ByteLatin1Atom = make_existing_atom(Longest1ByteLatin1AtomText, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(Longest1ByteLatin1AtomTextNE, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(TooLong1ByteLatin1AtomText, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(Longest2ByteLatin1AtomText, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(Longest2ByteLatin1AtomTextNE, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(TooLong2ByteLatin1AtomText, ?ERL_NIF_UTF8),
+    Longest2ByteUtf8Atom = make_existing_atom(Longest2ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(Longest2ByteUtf8AtomTextNE, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(TooLong2ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    Longest3ByteUtf8Atom = make_existing_atom(Longest3ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(Longest3ByteUtf8AtomTextNE, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(TooLong3ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    Longest4ByteUtf8Atom = make_existing_atom(Longest4ByteUtf8AtomText, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(Longest4ByteUtf8AtomTextNE, ?ERL_NIF_UTF8),
+    0 = make_existing_atom(TooLong4ByteUtf8AtomText, ?ERL_NIF_UTF8),
     ok.
 
 %% Test NIF maps handling.
@@ -1864,6 +2154,12 @@ resource_neg_do(TypeA) ->
     ResB= make_new_resource(TypeB, <<"Bobo">>),
     {'EXIT',{badarg,_}} = (catch get_resource(TypeA, ResB)),
     {'EXIT',{badarg,_}} = (catch get_resource(TypeB, ResA)),
+
+    %% Test init_resource_type fail outside load/upgrade
+    {0, ?RT_CREATE} = init_resource_type("in_vain", ?RT_CREATE),
+    {0, ?RT_TAKEOVER} = init_resource_type("Gold", ?RT_TAKEOVER),
+    {0, ?RT_CREATE bor ?RT_TAKEOVER} =
+        init_resource_type("Gold", ?RT_CREATE bor ?RT_TAKEOVER),
     ok.
 
 %% Test enif_make_resource_binary
@@ -3984,12 +4280,15 @@ hash_nif(_Type, _Term, _Salt) -> ?nif_stub.
 many_args_100(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 clone_bin(_) -> ?nif_stub.
 make_sub_bin(_,_,_) -> ?nif_stub.
-string_to_bin(_,_) -> ?nif_stub.
-atom_to_bin(_,_) -> ?nif_stub.    
+string_to_bin(_,_,_) -> ?nif_stub.
+string_length(_,_) -> ?nif_stub.
+atom_to_bin(_,_,_) -> ?nif_stub.
+atom_length(_,_) -> ?nif_stub.
 macros(_) -> ?nif_stub.
 tuple_2_list_and_tuple(_) -> ?nif_stub.
 iolist_2_bin(_) -> ?nif_stub.
 get_resource_type(_) -> ?nif_stub.
+init_resource_type(_,_) -> ?nif_stub.
 alloc_resource(_,_) -> ?nif_stub.
 make_resource(_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
@@ -4001,6 +4300,8 @@ check_is(_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 check_is_exception() -> ?nif_stub.
 length_test(_,_,_,_,_,_) -> ?nif_stub.
 make_atoms() -> ?nif_stub.
+make_new_atom(_,_) -> ?nif_stub.
+make_existing_atom(_,_) -> ?nif_stub.
 make_strings() -> ?nif_stub.
 make_new_resource_binary(_) -> ?nif_stub.
 send_list_seq(_,_) -> ?nif_stub.     

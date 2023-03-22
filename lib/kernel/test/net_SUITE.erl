@@ -679,7 +679,7 @@ api_m_getnameinfo(#{name      := Name,
     try net:getnameinfo(SA) of
         {ok, NameInfo} ->
             %% Check that we can actually find this IP in the list
-            api_m_getnameinfo_verify(NameInfo, Name, FName);
+            api_m_getnameinfo_verify(NameInfo, Name, FName, IP);
         {error, enotsup = ReasonAI} ->
             i("getaddrinfo not supported - skipping"),
             ?SKIP({getnameinfo, ReasonAI});
@@ -692,15 +692,29 @@ api_m_getnameinfo(#{name      := Name,
     end.
 
 
-api_m_getnameinfo_verify(#{host := Name} = NameInfo, Name, _FName) ->
+api_m_getnameinfo_verify(#{host := Name} = NameInfo, Name, _FName, _IP) ->
     i("Found (name) match for ~p: "
       "~n   NameInfo: ~p", [Name, NameInfo]),
     ok;
-api_m_getnameinfo_verify(#{host := FName} = NameInfo, _Name, FName) ->
+api_m_getnameinfo_verify(#{host := FName} = NameInfo, _Name, FName, _IP) ->
     i("Found (full name) match for ~p: "
       "~n   NameInfo: ~p", [FName, NameInfo]),
     ok;
-api_m_getnameinfo_verify(NameInfo, Name, FName) ->
+api_m_getnameinfo_verify(#{host := IPStr} = NameInfo, Name, FName, IP)
+  when (size(IP) =:= 8) ->
+    %% On some hosts we get back the IPv6 address as a string.
+    %% Exampole: 
+    %%     {65216,0,0,0,2560,8447,65202,46249} -> "fec0::a00:20ff:feb2:b4a9"
+    %% This is possibly because of bad config of the host.
+    case inet_parse:ipv6_address(IPStr) of
+        {ok, IP} ->
+            i("Found (IP string) \"match\" for ~p: "
+              "~n   NameInfo: ~p", [IP, NameInfo]),
+            ok;
+        _ ->
+            ?FAIL({not_found, NameInfo, Name, FName})
+    end;
+api_m_getnameinfo_verify(NameInfo, Name, FName, _IP) ->
     i("No match found for ~p (~p): "
       "~n   NameInfo: ~p", [Name, FName, NameInfo]),
     ?FAIL({not_found, NameInfo, Name, FName}).

@@ -74,8 +74,12 @@ contracts_with_subtypes.erl:238:2: The pattern
 contracts_with_subtypes.erl:239:2: The pattern 
           'alpha' can never match the type 
           {'ok', _, string()}
-contracts_with_subtypes.erl:23:2: Invalid type specification for function contracts_with_subtypes:extract2/0. The success typing is 
+contracts_with_subtypes.erl:23:2: Invalid type specification for function contracts_with_subtypes:extract2/0.
+ The success typing is contracts_with_subtypes:extract2
           () -> 'something'
+ But the spec is contracts_with_subtypes:extract2
+          () -> 'ok'
+ The return types do not overlap
 contracts_with_subtypes.erl:240:2: The pattern 
           {'ok', 42} can never match the type 
           {'ok', _, string()}
@@ -129,8 +133,12 @@ contracts_with_subtypes.erl:78:16: The call contracts_with_subtypes:foo2
 contracts_with_subtypes.erl:79:16: The call contracts_with_subtypes:foo3
          (5) breaks the contract 
           (Arg1) -> Res when Arg2 :: atom(), Arg1 :: Arg2, Res :: atom()
-contracts_with_subtypes.erl:7:2: Invalid type specification for function contracts_with_subtypes:extract/0. The success typing is 
+contracts_with_subtypes.erl:7:2: Invalid type specification for function contracts_with_subtypes:extract/0.
+ The success typing is contracts_with_subtypes:extract
           () -> 'something'
+ But the spec is contracts_with_subtypes:extract
+          () -> 'ok'
+ The return types do not overlap
 contracts_with_subtypes.erl:80:16: The call contracts_with_subtypes:foo4
          (5) breaks the contract 
           (Type) -> Type when Type :: atom()

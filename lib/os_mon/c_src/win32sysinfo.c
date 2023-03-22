@@ -265,31 +265,30 @@ message_loop()
 	    print_error("Erlang has closed");
 	    return;
 	}
+
 	if ((res = read(0, &cmd, cmdLen)) == cmdLen){
 	    if (cmdLen == 1) {
-		switch (cmd[0]) {
-		case MEM_INFO:
-		    get_avail_mem_ext();
-		    return_answer(OK);
-		    break;
-		case DISK_INFO:
-		    get_disk_info_all();
-		    return_answer(OK);
-		    break;
-		default:	/* ignore all other messages */
-		    break;
-		} /* switch */
+	        switch (cmd[0]) {
+	            case MEM_INFO:
+	                get_avail_mem_ext();
+	                return_answer(OK);
+	                break;
+	            case DISK_INFO:
+	                get_disk_info_all();
+	                return_answer(OK);
+	                break;
+	            default:	/* ignore all other messages */
+	                break;
+	        } /* switch */
 	    }
-	    else 
-		if ((res > 0) && (cmd[0]==DISK_INFO)) {
-		    cmd[cmdLen] = 0;
-		    output_drive_info(&cmd[1]);
-		    return_answer("OK");
-		    return;
-		}
-		else
-		    return_answer("xEND");
-	}    
+	    else {
+	        if ((res > 0) && (cmd[0]==DISK_INFO)) {
+	            cmd[cmdLen] = 0;
+	            output_drive_info(&cmd[1]);
+	        }
+	        return_answer(OK);
+	    }
+	}
 	else if (res == 0) {
 	    print_error("Erlang has closed");
 	    return;
@@ -297,8 +296,8 @@ message_loop()
 	else {
 	    print_error("Error reading from Erlang");
 	    return;
-	} 
-    }
+	}
+	}
 }
 
 int main(int argc, char ** argv){

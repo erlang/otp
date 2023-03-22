@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2021</year>
+      <year>1997</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -267,8 +267,11 @@ init(Parent) ->
     ...
     proc_lib:init_ack(Parent, {ok, self()}),
     loop(...).</code>
-      <p><c>proc_lib:start_link</c> is synchronous and does not return
-        until <c>proc_lib:init_ack</c> has been called.</p>
+      <p>
+        <c>proc_lib:start_link</c> is synchronous and does not return
+        until <c>proc_lib:init_ack</c> or <c>proc_lib:init_fail</c>
+        has been called, or when the process exits.
+      </p>
     </section>
 
     <section>

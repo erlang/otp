@@ -821,7 +821,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">tracer(Type, Data) -> {ok, pid()} | {error, Error}</name>
       <fsummary>Start a tracer server with additional parameters</fsummary>
       <type>
-        <v>Type = port | process | module</v>
+        <v>Type = port | process | module | file</v>
         <v>Data = PortGenerator | HandlerSpec | ModuleSpec</v>
         <v>PortGenerator = fun() (no arguments)</v>
         <v>Error = term()</v>
@@ -862,6 +862,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
             be either a tuple describing the <seeerl marker="erts:erl_tracer"><c>erl_tracer</c></seeerl>
           module to be used for tracing and the state to be used for
           that tracer module or a fun returning the same tuple.</p>
+        <p>if <c>Type</c> is <c>file</c>, then the second parameter
+          should be a filename specifying a file where all the traces
+          are printed.</p>
         <p>If an error is returned, it can either be due to a tracer
           server already running (<c>{error,already_started}</c>) or
           due to the <c>HandlerFun</c> throwing an exception.

@@ -669,7 +669,6 @@ erl -kernel logger '[{handler,default,logger_std_h,#{formatter=>{logger_formatte
       <seeerl marker="pg"><c>pg(3)</c></seeerl>,
       <seeerl marker="rpc"><c>rpc(3)</c></seeerl>,
       <seeerl marker="seq_trace"><c>seq_trace(3)</c></seeerl>,
-      <seeerl marker="user"><c>user(3)</c></seeerl>,
       <seeerl marker="stdlib:timer"><c>timer(3)</c></seeerl></p>
   </section>
 </appref>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,10 +53,10 @@
 -export([set_primary_archive/4]).
 
 %% Used by test suites
--export([purge_archive_cache/0]).
+-export([purge_archive_cache/0, get_modules/3]).
 
-%% Used by init and the code server.
--export([get_modules/2,get_modules/3, is_basename/1]).
+%% Used by init and the code server
+-export([get_modules/2, is_basename/1]).
 
 -include_lib("kernel/include/file.hrl").
 

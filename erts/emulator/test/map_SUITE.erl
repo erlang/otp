@@ -25,7 +25,7 @@
          t_update_literals/1, t_update_literals_large/1,
          t_match_and_update_literals/1, t_match_and_update_literals_large/1,
          t_update_map_expressions/1,
-         t_update_assoc/1, t_update_assoc_large/1,
+         t_update_assoc/1, t_update_assoc_large/1, t_update_assoc_sharing/1,
          t_update_exact/1, t_update_exact_large/1,
          t_guard_bifs/1,
          t_guard_sequence/1, t_guard_sequence_large/1,
@@ -88,8 +88,11 @@
          t_get_map_elements/1,
          y_regs/1,
 
-         %%Bugs
-         t_large_unequal_bins_same_hash_bug/1]).
+         %% Bugs
+         t_large_unequal_bins_same_hash_bug/1,
+
+	 %% Display
+	 t_map_display/1]).
 
 %% Benchmarks
 -export([benchmarks/1]).
@@ -117,7 +120,7 @@ groups() ->
        t_update_literals, t_update_literals_large,
        t_match_and_update_literals, t_match_and_update_literals_large,
        t_update_map_expressions,
-       t_update_assoc, t_update_assoc_large,
+       t_update_assoc, t_update_assoc_large, t_update_assoc_sharing,
        t_update_exact, t_update_exact_large,
        t_guard_bifs,
        t_guard_sequence, t_guard_sequence_large,
@@ -168,7 +171,10 @@ groups() ->
        y_regs,
 
        %% Bugs
-       t_large_unequal_bins_same_hash_bug]},
+       t_large_unequal_bins_same_hash_bug,
+
+       %% Display
+       t_map_display]},
     {benchmarks, [{repeat,10}], [benchmarks]}].
 
 run_once() ->
@@ -774,6 +780,45 @@ t_map_get(Config) when is_list(Config) ->
         (T) when map_get(x, T) =:= 1 -> ok;
         (T) -> false = is_map(T)
     end),
+
+    %% Test unions of maps with some other type.
+
+    M3 = id(M2),
+    if
+        is_map(M3) -> ok;
+        is_atom(M3) -> ok
+    end,
+    %% M3 is now known to be either a map or an atom
+    1 = map_get(a, M3),
+
+    M4 = id(M3),
+    if
+        is_map(M4) -> ok;
+        is_atom(M4) -> ok
+    end,
+    %% M4 is now known to be either a map or an atom
+    if
+        map_get(a, M4) =:= 1 -> ok
+    end,
+
+    M5 = id(M4),
+    if
+        is_map(M5) -> ok;
+        is_tuple(M5) -> ok
+    end,
+    %% M5 is now known to be either a map or a tuple
+    1 = map_get(a, M5),
+
+    M6 = id(M5),
+    if
+        is_map(M6) -> ok;
+        is_tuple(M6) -> ok
+    end,
+    %% M6 is now known to be either a map or a tuple
+    if
+        map_get(a, M6) =:= 1 -> ok
+    end,
+
     ok.
 
 t_is_map_key(Config) when is_list(Config) ->
@@ -795,6 +840,9 @@ t_is_map_key(Config) when is_list(Config) ->
     true = is_map_key("hello", M1),
     true = is_map_key({1,1.0}, M1),
     true = is_map_key(<<"k2">>, M1),
+
+    true = is_map_key(id(a), M1),
+    true = is_map_key(id("hello"), M1),
 
     %% error cases
     do_badmap(fun(T) ->
@@ -1103,6 +1151,51 @@ t_update_assoc_large(Config) when is_list(Config) ->
     M2 = M0#{13.0:=wrong,13.0=>new},
 
     ok.
+
+t_update_assoc_sharing(Config) when is_list(Config) ->
+    Complex = id(#{nested=>map}),
+
+    case erlang:system_info(debug_compiled) of
+        true ->
+            %% the maximum size of a flatmap in a debug-compiled
+            %% system is three
+            M0 = id(#{1=>a,2=>b,complex=>Complex}),
+
+            %% all keys & values are the same
+            M1 = M0#{1=>a,complex=>Complex},
+            true = erts_debug:same(M1, M0),
+            M1 = M0,
+
+            %% only keys are the same
+            M2 = M0#{1=>new_value,complex=>Complex#{extra=>key}},
+            true = same_keys(M0, M2);
+        false ->
+            M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e,complex=>Complex}),
+
+            %% all keys & values are the same
+            M1 = M0#{1=>a,complex=>Complex},
+            true = erts_debug:same(M1, M0),
+            M1 = M0,
+
+            %% only keys are the same
+            M2 = M0#{1=>new_value,complex=>Complex#{extra=>key}},
+            true = same_keys(M0, M2),
+
+            M3 = M0#{2=>new_value},
+            true = same_keys(M0, M3),
+            #{2:=new_value} = M3,
+
+            M4 = M0#{1=>1,2=>2,3.0=>3,4=>4,5=>5,complex=>6},
+            true = same_keys(M0, M4),
+            #{1:=1,2:=2,3.0:=3,4:=4,5:=5,complex:=6} = M4
+    end,
+
+    ok.
+
+same_keys(M0, M1) ->
+    Keys0 = erts_internal:map_to_tuple_keys(M0),
+    Keys1 = erts_internal:map_to_tuple_keys(M1),
+    erts_debug:same(Keys0, Keys1).
 
 t_update_exact(Config) when is_list(Config) ->
     M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e}),
@@ -1645,6 +1738,7 @@ t_map_compare(Config) when is_list(Config) ->
     repeat(100, fun(_) -> float_int_compare() end, []),
     repeat(100, fun(_) -> recursive_compare() end, []),
     repeat(10, fun(_) -> atoms_compare() end, []),
+    repeat(10, fun(_) -> atoms_plus_compare() end, []),
     ok.
 
 float_int_compare() ->
@@ -1667,6 +1761,31 @@ atoms_compare() ->
               M1 = map_gen(Pairs, Size),
               M2 = map_gen(Pairs, Size),
               %%io:format("Atom maps to compare: ~p AND ~p\n", [M1, M2]),
+              do_cmp(M1, M2)
+      end,
+      lists:seq(1,length(Atoms))),
+    ok.
+
+atoms_plus_compare() ->
+    Atoms = [true, false, ok, '', ?MODULE, list_to_atom(id("a new atom"))],
+    Pairs = lists:map(fun(K) -> list_to_tuple([{K,V} || V <- Atoms]) end,
+                      Atoms),
+    Small = 17,
+    Big1 = 1 bsl 64,
+    Big2 = erts_debug:copy_shared(Big1),
+    Float1 = float(Big1),
+    Float2 = float(Big2),
+    Others = {Small, -Small, Big1, -Big1, Big2, Float1, Float2,
+              [], {}, #{}, self(), make_ref(),
+              ok, yes, no, lists, maps, seq},
+    RandOther = fun() -> element(rand:uniform(size(Others)), Others) end,
+
+    lists:foreach(
+      fun(Size) ->
+              M = map_gen(Pairs, Size),
+              M1 = M#{RandOther() => RandOther()},
+              M2 = M#{RandOther() => RandOther()},
+              %%io:format("Maps to compare:\nM1 = ~p\nM2 = ~p\n", [M1, M2]),
               do_cmp(M1, M2)
       end,
       lists:seq(1,length(Atoms))),
@@ -1771,8 +1890,8 @@ cmp(M1, M2, Exact) ->
 cmp_maps(M1, M2, Exact) ->
     case {maps:size(M1),maps:size(M2)} of
 	{S,S} ->
-	    {K1,V1} = lists:unzip(term_sort(maps:to_list(M1))),
-	    {K2,V2} = lists:unzip(term_sort(maps:to_list(M2))),
+	    {K1,V1} = lists:unzip(cmp_key_sort(maps:to_list(M1))),
+	    {K2,V2} = lists:unzip(cmp_key_sort(maps:to_list(M2))),
 
 	    case cmp(K1, K2, true) of
 		0 -> cmp(V1, V2, Exact);
@@ -1795,6 +1914,10 @@ cmp_others(T1, T2, _) ->
 	{false,true} -> 0;
 	{false,false} -> 1
     end.
+
+cmp_key_sort(L) ->
+    lists:sort(fun(A,B) -> cmp(A,B,true) =< 0 end,
+	       L).
 
 map_gen(Pairs, Size) ->
     {_,L} = lists:foldl(fun(_, {Keys, Acc}) ->
@@ -2914,6 +3037,10 @@ t_erts_internal_order(_Config) when is_list(_Config) ->
     0  = erts_internal:cmp_term(2147483648,2147483648),
     1  = erts_internal:cmp_term(2147483648,0),
 
+    %% Make sure it's not the internal flatmap order
+    %% where low indexed 'true' < 'a'.
+    -1  = erts_internal:cmp_term(a,true),
+
     M = #{0 => 0,2147483648 => 0},
     true = M =:= binary_to_term(term_to_binary(M)),
     true = M =:= binary_to_term(term_to_binary(M, [deterministic])),
@@ -3495,6 +3622,8 @@ t_large_unequal_bins_same_hash_bug(Config) when is_list(Config) ->
               io:format("~p ~p~n", [erlang:phash2(Map3), maps:size(Map3)])
       end).
 
+
+
 make_map(0) -> 
     #{};
 make_map(Size) ->
@@ -3537,6 +3666,64 @@ total_memory() ->
     catch
 	_ : _ ->
 	    undefined
+    end.
+
+%% This test case checks that maps larger than 32 elements are readable
+%% when displayed.
+t_map_display(Config) when is_list(Config) ->
+    verify_map_term(make_nontrivial_map(33)),
+    verify_map_term(make_nontrivial_map(253)),
+    verify_map_term({a, make_nontrivial_map(77)}),
+    verify_map_term([make_nontrivial_map(42),
+                     {a,make_nontrivial_map(99)},
+                     make_nontrivial_map(77)]),
+
+    ok.
+
+make_nontrivial_map(N) ->
+    make_nontrivial_map(N, 32).
+
+make_nontrivial_map(N, Effort) ->
+    L = [begin
+             Key = case I rem 64 of
+                       33 when Effort > 16 ->
+                           make_nontrivial_map(I, Effort div 2);
+                       _ ->
+                           I
+                   end,
+             Value = case I rem 5 of
+                         0 ->
+                             I * I;
+                         1 ->
+                             if
+                                 Effort > 16 ->
+                                     make_nontrivial_map(33, Effort div 2);
+                                 true ->
+                                     make_map(Effort)
+                             end;
+                         2 ->
+                             lists:seq(0, I rem 16);
+                         3 ->
+                             list_to_tuple(lists:seq(0, I rem 16));
+                         4 ->
+                             float(I)
+                     end,
+             {Key, Value}
+         end || I <- lists:seq(1, N)],
+    maps:from_list(L).
+
+verify_map_term(Term) ->
+    Printed = string:chomp(erts_debug:display(Term)),
+    {ok,Tokens,1} = erl_scan:string(Printed ++ "."),
+    {ok,ParsedTerm} = erl_parse:parse_term(Tokens),
+
+    case ParsedTerm of
+        Term ->
+            ok;
+        Other ->
+            io:format("Expected:\n~p\n", [Term]),
+            io:format("Got:\n~p", [Other]),
+            ct:fail(failed)
     end.
 
 %%%

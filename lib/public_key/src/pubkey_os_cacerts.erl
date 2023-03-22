@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -133,9 +133,12 @@ load_win32() ->
 load_darwin() ->
     %% Could/should probably be re-written to use Keychain Access API
     KeyChainFile = "/System/Library/Keychains/SystemRootCertificates.keychain",
-    case run_cmd("/usr/bin/security", ["export", "-t",  "certs", "-f", "pemseq", "-k", KeyChainFile]) of
+    Args = ["export", "-t",  "certs", "-f", "pemseq", "-k", KeyChainFile],
+    try run_cmd("/usr/bin/security", Args) of
         {ok, Bin} -> decode_result(Bin);
         Err -> Err
+    catch error:Reason ->
+            {error, {eopnotsupp, Reason}}
     end.
 
 store([]) ->
@@ -162,7 +165,9 @@ sunos_path() ->
     "/etc/certs/CA/".
 
 run_cmd(Cmd, Args) ->
-    Port = open_port({spawn_executable, Cmd}, [{args, Args}, binary, exit_status]),
+    Opts = [binary, exit_status, stderr_to_stdout],
+    Port = open_port({spawn_executable, Cmd}, [{args, Args}|Opts]),
+    unlink(Port),
     cmd_data(Port, <<>>).
 
 cmd_data(Port, Acc) ->
@@ -199,7 +204,10 @@ load_nif() ->
         {error, {load_failed, _}}=Error1 ->
             Arch = erlang:system_info(system_architecture),
             ArchLibDir = filename:join([PrivDir, "lib", Arch]),
-            Candidate =  filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
+            Candidate =
+                filelib:wildcard(
+                  filename:join([ArchLibDir,LibName ++ "*" ]),
+                  erl_prim_loader),
             case Candidate of
                 [] -> Error1;
                 _ ->

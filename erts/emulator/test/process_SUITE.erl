@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,10 +60,12 @@
          process_flag_fullsweep_after/1, process_flag_heap_size/1,
          command_line_max_heap_size/1,
 	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
+         more_spawn_opt_max_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
 	 processes_last_call_trap/1, processes_gc_trap/1,
 	 processes_term_proc_list/1,
+         processes_send_infant/1,
 	 otp_7738_waiting/1, otp_7738_suspended/1,
 	 otp_7738_resume/1,
 	 garb_other_running/1,
@@ -93,7 +95,8 @@
          alias_bif/1,
          monitor_alias/1,
          spawn_monitor_alias/1,
-         monitor_tag/1]).
+         monitor_tag/1,
+         no_pid_wrap/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -117,6 +120,7 @@ all() ->
      process_flag_fullsweep_after, process_flag_heap_size,
      command_line_max_heap_size,
      spawn_opt_heap_size, spawn_opt_max_heap_size,
+     more_spawn_opt_max_heap_size,
      spawn_huge_arglist,
      otp_6237,
      {group, spawn_request},
@@ -125,7 +129,8 @@ all() ->
      {group, otp_7738}, garb_other_running,
      {group, system_task},
      {group, alias},
-     monitor_tag].
+     monitor_tag,
+     no_pid_wrap].
 
 groups() -> 
     [{t_exit_2, [],
@@ -150,7 +155,8 @@ groups() ->
       [processes_large_tab, processes_default_tab,
        processes_small_tab, processes_this_tab,
        processes_last_call_trap, processes_apply_trap,
-       processes_gc_trap, processes_term_proc_list]},
+       processes_gc_trap, processes_term_proc_list,
+       processes_send_infant]},
      {process_info_bif, [],
       [t_process_info, process_info_messages,
        process_info_other, process_info_other_msg,
@@ -220,6 +226,7 @@ end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     erlang:system_flag(max_heap_size,
                        #{size => 0,
                          kill => true,
+                         include_shared_binaries => false,
                          error_logger => true}),
     erts_test_utils:ept_check_leaked_nodes(Config).
 
@@ -525,7 +532,8 @@ t_process_info(Config) when is_list(Config) ->
     {status, running} = process_info(self(), status),
     {min_heap_size, 233} = process_info(self(), min_heap_size),
     {min_bin_vheap_size,46422} = process_info(self(), min_bin_vheap_size),
-    {max_heap_size, #{ size := 0, kill := true, error_logger := true}} =
+    {max_heap_size, #{ size := 0, kill := true, error_logger := true,
+                       include_shared_binaries := false}} =
         process_info(self(), max_heap_size),
     {current_function,{?MODULE,t_process_info,1}} =
 	process_info(self(), current_function),
@@ -683,8 +691,9 @@ process_info_other_msg(Config) when is_list(Config) ->
 
     {min_heap_size, 233} = process_info(Pid, min_heap_size),
     {min_bin_vheap_size, 46422} = process_info(Pid, min_bin_vheap_size),
-    {max_heap_size, #{ size := 0, kill := true, error_logger := true}} =
-        process_info(self(), max_heap_size),
+    {max_heap_size, #{ size := 0, kill := true, error_logger := true,
+                       include_shared_binaries := false}} =
+        process_info(Pid, max_heap_size),
 
     Pid ! stop,
     ok.
@@ -1075,6 +1084,20 @@ check_proc_infos(A, B) ->
 
     GC = lists:keysearch(garbage_collection, 1, A),
     GC = lists:keysearch(garbage_collection, 1, B),
+    {value, {garbage_collection, GClist}} = GC,
+
+    %% This is not really documented
+    true = is_integer(gv(minor_gcs, GClist)),
+    true = is_integer(gv(fullsweep_after, GClist)),
+    true = is_integer(gv(min_heap_size, GClist)),
+    #{error_logger := Bool1,
+      include_shared_binaries := Bool2,
+      kill := Bool3,
+      size := MaxHeapSize} = gv(max_heap_size, GClist),
+    true = is_boolean(Bool1),
+    true = is_boolean(Bool2),
+    true = is_boolean(Bool3),
+    true = is_integer(MaxHeapSize),
 
     ok.
 
@@ -1942,6 +1965,8 @@ process_flag_badarg(Config) when is_list(Config) ->
     chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
                                                         error_logger => gurka }) end),
     chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
+                                                        include_shared_binaries => gurka}) end),
+    chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
                                                         kill => true,
                                                         error_logger => gurka }) end),
     chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 1 bsl 64 }) end),
@@ -2591,63 +2616,72 @@ spawn_opt_max_heap_size(_Config) ->
             flush()
     end,
 
+    spawn_opt_max_heap_size_do(fun oom_fun/1),
+
+    io:format("Repeat tests with refc binaries\n",[]),
+
+    spawn_opt_max_heap_size_do(fun oom_bin_fun/1),
+
+    error_logger:delete_report_handler(?MODULE),
+    ok.
+
+spawn_opt_max_heap_size_do(OomFun) ->
+    Max = 2024,
     %% Test that numerical limit works
-    max_heap_size_test(1024, 1024, true, true),
+    max_heap_size_test(Max, Max, true, true, OomFun),
 
     %% Test that map limit works
-    max_heap_size_test(#{ size => 1024 }, 1024, true, true),
+    max_heap_size_test(#{ size => Max }, Max, true, true, OomFun),
 
     %% Test that no kill is sent
-    max_heap_size_test(#{ size => 1024, kill => false }, 1024, false, true),
+    max_heap_size_test(#{ size => Max, kill => false }, Max, false, true, OomFun),
 
     %% Test that no error_logger report is sent
-    max_heap_size_test(#{ size => 1024, error_logger => false }, 1024, true, false),
+    max_heap_size_test(#{ size => Max, error_logger => false }, Max, true, false, OomFun),
 
     %% Test that system_flag works
-    erlang:system_flag(max_heap_size, #{ size => 0, kill => false,
-                                         error_logger => true}),
-    max_heap_size_test(#{ size => 1024 }, 1024, false, true),
-    max_heap_size_test(#{ size => 1024, kill => true }, 1024, true, true),
+    erlang:system_flag(max_heap_size, OomFun(#{ size => 0, kill => false,
+                                                error_logger => true})),
+    max_heap_size_test(#{ size => Max }, Max, false, true, OomFun),
+    max_heap_size_test(#{ size => Max, kill => true }, Max, true, true, OomFun),
 
-    erlang:system_flag(max_heap_size, #{ size => 0, kill => true,
-                                         error_logger => false}),
-    max_heap_size_test(#{ size => 1024 }, 1024, true, false),
-    max_heap_size_test(#{ size => 1024, error_logger => true }, 1024, true, true),
+    erlang:system_flag(max_heap_size, OomFun(#{ size => 0, kill => true,
+                                                error_logger => false})),
+    max_heap_size_test(#{ size => Max }, Max, true, false, OomFun),
+    max_heap_size_test(#{ size => Max, error_logger => true }, Max, true, true, OomFun),
 
-    erlang:system_flag(max_heap_size, #{ size => 1 bsl 20, kill => true,
-                                         error_logger => true}),
-    max_heap_size_test(#{ }, 1 bsl 20, true, true),
+    erlang:system_flag(max_heap_size, OomFun(#{ size => 1 bsl 16, kill => true,
+                                                error_logger => true})),
+    max_heap_size_test(#{ }, 1 bsl 16, true, true, OomFun),
 
     erlang:system_flag(max_heap_size, #{ size => 0, kill => true,
                                          error_logger => true}),
 
     %% Test that ordinary case works as expected again
-    max_heap_size_test(1024, 1024, true, true),
-
-    error_logger:delete_report_handler(?MODULE),
-
+    max_heap_size_test(Max, Max, true, true, OomFun),
     ok.
 
-max_heap_size_test(Option, Size, Kill, ErrorLogger)
-  when map_size(Option) == 0 ->
-    max_heap_size_test([], Size, Kill, ErrorLogger);
-max_heap_size_test(Option, Size, Kill, ErrorLogger)
-  when is_map(Option); is_integer(Option) ->
-    max_heap_size_test([{max_heap_size, Option}], Size, Kill, ErrorLogger);
-max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
-    OomFun = fun () -> oom_fun([]) end,
-    Pid = spawn_opt(OomFun, Option),
+
+mhs_spawn_opt(Option) when map_get(size, Option) > 0;
+                           is_integer(Option) ->
+    [{max_heap_size, Option}];
+mhs_spawn_opt(_) ->
+    [].
+
+max_heap_size_test(Option, Size, Kill, ErrorLogger, OomFun) ->
+    SpOpt = mhs_spawn_opt(OomFun(Option)),
+    Pid = spawn_opt(fun()-> OomFun(run) end, SpOpt),
     {max_heap_size, MHSz} = erlang:process_info(Pid, max_heap_size),
-    ct:log("Default: ~p~nOption: ~p~nProc: ~p~n",
-           [erlang:system_info(max_heap_size), Option, MHSz]),
+    ct:log("Default: ~p~nOption: ~p~nProc: ~p~nSize = ~p~nSpOpt = ~p~n",
+           [erlang:system_info(max_heap_size), Option, MHSz, Size, SpOpt]),
 
     #{ size := Size} = MHSz,
 
     Ref = erlang:monitor(process, Pid),
     if Kill ->
             receive
-                {'DOWN', Ref, process, Pid, killed} ->
-                    ok
+                {'DOWN', Ref, process, Pid, Reason} ->
+                    killed = Reason
             end;
        true ->
             ok
@@ -2678,12 +2712,37 @@ max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
     %% Make sure that there are no unexpected messages.
     receive_unexpected().
 
-oom_fun(Acc0) ->
+oom_fun(Max) when is_integer(Max) -> Max;
+oom_fun(Map) when is_map(Map)-> Map;
+oom_fun(run) ->
+    io:format("oom_fun() started\n",[]),
+    oom_run_fun([], 100).
+
+oom_run_fun(Acc0, 0) ->
+    done;
+oom_run_fun(Acc0, N) ->
     %% This is tail-recursive since the compiler is smart enough to figure
     %% out that a body-recursive variant never returns, and loops forever
     %% without keeping the list alive.
     timer:sleep(5),
-    oom_fun([lists:seq(1, 1000) | Acc0]).
+    oom_run_fun([lists:seq(1, 1000) | Acc0], N-1).
+
+oom_bin_fun(Max) when is_integer(Max) -> oom_bin_fun(#{size => Max});
+oom_bin_fun(Map) when is_map(Map) -> Map#{include_shared_binaries => true};
+oom_bin_fun(run) ->
+    oom_bin_run_fun([], 10).
+
+oom_bin_run_fun(Acc0, 0) ->
+    done;
+oom_bin_run_fun(Acc0, N) ->
+    timer:sleep(5),
+    oom_bin_run_fun([build_refc_bin(160, <<>>) | Acc0], N-1).
+
+build_refc_bin(0, Acc) ->
+    Acc;
+build_refc_bin(N, Acc) ->
+    build_refc_bin(N-1, <<Acc/binary, 0:(1000*8)>>).
+
 
 receive_error_messages(Pid) ->
     receive
@@ -2710,6 +2769,111 @@ flush() ->
     after 0 ->
             ok
     end.
+
+%% Make sure that when maximum allowed heap size is exceeded, the
+%% process will actually terminate.
+%%
+%% Despite the timetrap and limit of number of iterations, bugs
+%% provoked by the test case can cause the runtime system to hang in
+%% this test case.
+more_spawn_opt_max_heap_size(_Config) ->
+    ct:timetrap({minutes,1}),
+    Funs = [fun build_and_bif/0,
+            fun build_bin_and_bif/0,
+            fun build_and_recv_timeout/0,
+            fun build_and_recv_msg/0,
+            fun bif_and_recv_timeout/0,
+            fun bif_and_recv_msg/0
+           ],
+    _ = [begin
+             {Pid,Ref} = spawn_opt(F, [{max_heap_size,
+                                        #{size => 233, kill => true,
+                                          error_logger => false}},
+                                       monitor]),
+             io:format("~p ~p\n", [Pid,F]),
+             receive
+                 {'DOWN',Ref,process,Pid,Reason} ->
+                     killed = Reason
+             end
+         end || F <- Funs],
+    ok.
+
+%% This number should be greater than the default heap size.
+-define(MANY_ITERATIONS, 10_000).
+
+build_and_bif() ->
+    build_and_bif(?MANY_ITERATIONS, []).
+
+build_and_bif(0, Acc0) ->
+    Acc0;
+build_and_bif(N, Acc0) ->
+    Acc = [0|Acc0],
+    _ = erlang:crc32(Acc),
+    build_and_bif(N-1, Acc).
+
+build_bin_and_bif() ->
+    build_bin_and_bif(?MANY_ITERATIONS, <<>>).
+
+build_bin_and_bif(0, Acc0) ->
+    Acc0;
+build_bin_and_bif(N, Acc0) ->
+    Acc = <<0, Acc0/binary>>,
+    _ = erlang:crc32(Acc),
+    build_bin_and_bif(N-1, Acc).
+
+build_and_recv_timeout() ->
+    build_and_recv_timeout(?MANY_ITERATIONS, []).
+
+build_and_recv_timeout(0, Acc0) ->
+    Acc0;
+build_and_recv_timeout(N, Acc0) ->
+    Acc = [0|Acc0],
+    receive
+    after 1 ->
+            ok
+    end,
+    build_and_recv_timeout(N-1, Acc).
+
+build_and_recv_msg() ->
+    build_and_recv_msg(?MANY_ITERATIONS, []).
+
+build_and_recv_msg(0, Acc0) ->
+    Acc0;
+build_and_recv_msg(N, Acc0) ->
+    Acc = [0|Acc0],
+    receive
+        _ ->
+            ok
+    after 0 ->
+            ok
+    end,
+    build_and_recv_msg(N-1, Acc).
+
+bif_and_recv_timeout() ->
+    Bin = <<0:?MANY_ITERATIONS/unit:8>>,
+    bif_and_recv_timeout(Bin).
+
+bif_and_recv_timeout(Bin) ->
+    List = binary_to_list(Bin),
+    receive
+    after 1 ->
+            ok
+    end,
+    List.
+
+bif_and_recv_msg() ->
+    Bin = <<0:?MANY_ITERATIONS/unit:8>>,
+    bif_and_recv_msg(Bin).
+
+bif_and_recv_msg(Bin) ->
+    List = binary_to_list(Bin),
+    receive
+        _ ->
+            ok
+    after 0 ->
+            ok
+    end,
+    List.
 
 %% error_logger report handler proxy
 init(Pid) ->
@@ -3578,9 +3742,9 @@ spawn_against_old_node(Config) when is_list(Config) ->
                                  Acc
                          end
                  end, [], os:env()),
-    case ?CT_PEER(#{connection => 0, env => ClearEnv },
-                  OldRelName,
-                  proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL(#{connection => 0, env => ClearEnv },
+                      OldRelName,
+                      proplists:get_value(priv_dir, Config)) of
 	not_available ->
             {skipped, "No OTP "++OldRel++" available"};
         {ok, Peer, OldNode} ->
@@ -3820,6 +3984,120 @@ processes_term_proc_list(Config) when is_list(Config) ->
     Run(["+MSe", "true", "+Muatags", "true", "+S1"]),
 
     ok.
+
+%% OTP-18322: Send msg to spawning process pid returned from processes/0
+processes_send_infant(_Config) ->
+    case erlang:system_info(schedulers_online) of
+        1 ->
+            {skip, "Only one scheduler online"};
+        NScheds ->
+            processes_send_infant_do(NScheds)
+    end.
+
+processes_send_infant_do(NScheds) ->
+    IgnoreList = erlang:processes(),
+    IgnorePids = maps:from_keys(IgnoreList, ignore),
+    Tester = self(),
+
+    %% To provoke bug we need sender and spawner on different schedulers.
+    %% Let spawners use schedulers nr 2 to NScheds
+    NSpawnerScheds = NScheds - 1,
+    NSpawners = 2 * NSpawnerScheds,
+    [spawn_link(fun() ->
+                        processes_send_infant_spawner((I rem  NSpawnerScheds) + 2,
+                                                      Tester, Tester, 1)
+                end)
+     || I <- lists:seq(0, NSpawners-1)],
+
+    %% and make sure sender use scheduler 1
+    {Sender,SenderMon} =
+        spawn_opt(
+          fun() ->
+                  timeout = processes_send_infant_loop(IgnorePids)
+          end,
+          [link, monitor, {scheduler,1}]),
+
+    %% Run test for a little while and see if VM crashes
+    {ok, _TRef} = timer:send_after(1000, Sender, timeout),
+    {'DOWN', SenderMon, process, Sender, normal} = receive_any(),
+
+    %% Stop spawners and collect stats
+    processes_send_infant_broadcast(erlang:processes(),
+                                    {processes_send_infant, stop},
+                                    IgnorePids),
+    {TotSpawn, TheLastOfUs} =
+        lists:foldl(fun(_, {SpawnCnt, Pids}) ->
+                            {Pid, Generation} = receive_any(),
+                            io:format("Got ~p from ~p\n", [Generation, Pid]),
+                            {SpawnCnt+Generation, [Pid | Pids]}
+                    end,
+                    {0, []},
+                    lists:seq(1, NSpawners)),
+    io:format("Total spawned processes: ~p\n", [TotSpawn]),
+    Aliens = (erlang:processes() -- IgnoreList) -- TheLastOfUs,
+    io:format("Alien processes: ~p\n", [Aliens]),
+    ok.
+
+
+
+processes_send_infant_loop(IgnorePids) ->
+    %% Send message identifying this test case, in case we send
+    %% to alien processes spawned during the test.
+    Msg = processes_send_infant,
+    processes_send_infant_broadcast(erlang:processes(),
+                                    Msg,
+                                    IgnorePids),
+    receive timeout -> timeout
+    after 0 ->
+            processes_send_infant_loop(IgnorePids)
+    end.
+
+processes_send_infant_broadcast([Pid | Tail], Msg, IgnorePids) ->
+    case maps:is_key(Pid, IgnorePids) of
+        false ->
+            Pid ! Msg;
+        true ->
+            ignore
+    end,
+    processes_send_infant_broadcast(Tail, Msg, IgnorePids);
+processes_send_infant_broadcast([], _, _) ->
+    ok.
+
+processes_send_infant_spawner(Sched, Tester, Parent, Generation) ->
+    link(Tester),
+    case receive_any() of
+        processes_send_infant ->
+            case Parent of
+                Tester -> ok;
+                _ -> Parent ! {die, self()}
+            end,
+            Self = self(),
+            Child = spawn_opt(fun() ->
+                                      processes_send_infant_spawner(Sched, Tester,
+                                                                    Self,
+                                                                    Generation+1)
+                              end,
+                             [{message_queue_data, off_heap},
+                              {scheduler, Sched}]),
+            process_send_infant_spawner_epilogue(Child);
+
+        {processes_send_infant, stop} ->
+            Tester ! {self(), Generation}
+    end.
+
+process_send_infant_spawner_epilogue(Child) ->
+    %% Parent stays alive only to ensure child gets stop message
+    case receive_any() of
+        processes_send_infant ->
+            process_send_infant_spawner_epilogue(Child);
+        {die, Child} ->
+            ok;
+        {processes_send_infant, stop}=Stop ->
+            %% We are not sure child was spawned when stop message was sent
+            %% so we relay it.
+            Child ! Stop
+    end.
+
 
 -define(CHK_TERM_PROC_LIST(MC, XB),
 	chk_term_proc_list(?LINE, MC, XB)).
@@ -4838,6 +5116,54 @@ monitor_tag_test(Peer, Node, SpawnType, Tag, ExitReason) ->
             ok
     end.
 
+no_pid_wrap(Config) when is_list(Config) ->
+    process_flag(priority, high),
+    SOnln = erlang:system_info(schedulers_online),
+    Pid = spawn(fun () -> ok end),
+    exit(Pid, kill),
+    false = is_process_alive(Pid),
+    ChkSpwndPid = fun () ->
+                          check_spawned_pid(Pid)
+                  end,
+    MPs = maps:from_list(lists:map(fun (_) ->
+                                           {P, M} = spawn_monitor(ChkSpwndPid),
+                                           {M, P}
+                                   end, lists:seq(1, SOnln))),
+    Res = receive
+              {'DOWN', M, process, _, pid_reused} when is_map_key(M, MPs) ->
+                  case erlang:system_info(wordsize) of
+                      8 ->
+                          ct:fail("Process identifier reused"),
+                          error;
+                      4 ->
+                          {comment,
+                           "Process identifer reused, but this is"
+                           ++ "expected since this is a 32-bit system"}
+                  end;
+              {'DOWN', _, _, _, _} = Down ->
+                  ct:fail({unexpected_down, Down}),
+                  error
+          after
+              3*60*1000 ->
+                  ok
+          end,
+    maps:foreach(fun (_, P) ->
+                         exit(P, kill)
+                 end, MPs),
+    maps:foreach(fun (_, P) ->
+                         false = is_process_alive(P)
+                 end, MPs),
+    Res.
+
+check_spawned_pid(OldPid) ->
+    Pid = spawn(fun () -> ok end),
+    case OldPid == Pid of
+        false ->
+            check_spawned_pid(OldPid);
+        true ->
+            exit(pid_reused)
+    end.
+
 %% Internal functions
 
 recv_msgs(N) ->
@@ -5043,3 +5369,6 @@ get_hostname([$@ | HostName]) ->
     HostName;
 get_hostname([_ | Rest]) ->
     get_hostname(Rest).
+
+receive_any() ->
+    receive M -> M end.

@@ -87,12 +87,11 @@ For instance, the return instruction looks something like this:
 
     Label yield = a.newLabel();
 
-    a.dec(FCALLS);           /* Decrement reduction counter */
-    a.jl(dispatch_return);   /* Check if we should yield */
+    /* Decrement reduction counter */
+    a.dec(FCALLS);
+    /* If FCALLS < 0, jump to the yield-on-return fragment */
+    a.jl(resolve_fragment(ga->get_dispatch_return()));
     a.ret();
-
-    a.bind(yield);
-    abs_jmp(ga->get_dispatch_return());
 
 The code above is not exactly what is emitted, but close enough. The thing to note
 is that the code for doing the context switch is never emitted. Instead, we jump
@@ -185,39 +184,31 @@ All combinations of the `Update` constants are legal, but the ones given to
 ## Tracing and NIF Loading
 
 To make tracing and NIF loading work there needs to be a way to intercept
-any function call. In the interpreter, this is done by rewriting the loaded BEAM code,
-but this is more complicated in BeamAsm as we want to have a fast and compact way to
-do this. This is solved by emitting the code below at the start of each function:
+any function call. In the interpreter, this is done by rewriting the loaded
+BEAM code, but this is more complicated in BeamAsm as we want to have a fast
+and compact way to do this. This is solved by emitting the code below at the
+start of each function (x86 variant below):
 
-    0x0: jmp 6
-    0x2: ERTS_ASM_BP_FLAG_NONE
-    0x3: relative near call
-    0x4: &genericBPTramp
-    0x8: actual code for the function
+      0x0: short jmp 6 (address 0x8)
+      0x2: nop
+      0x3: relative near call to shared breakpoint fragment
+      0x8: actual code for function
 
-When code starts to execute it will simply see the `jmp 6` instruction
+When code starts to execute it will simply see the `short jmp 6` instruction
 which skips the prologue and starts to execute the code directly.
 
-When we want to enable a certain break point we set the `jmp` target to
-be 1 (which means it will land on the call instruction) and will call
-genericBPTramp. genericBPTramp is a label at the top of each module
-that contains [trampolines][1] for all flag combinations.
+When we want to enable a certain breakpoint we set the jmp target to be 1,
+which means it will land on the call to the shared breakpoint fragment. This
+fragment checks the current `breakpoint_flag` stored in the ErtsCodeInfo of
+this function, and then calls `erts_call_nif_early` and
+`erts_generic_breakpoint` accordingly.
 
-[1]: https://en.wikipedia.org/wiki/Trampoline_(computing)
+Note that the update of the branch and `breakpoint_flag` does not need to be
+atomic: it's fine if a process only sees one of these being updated, as the
+code that sets breakpoints/loads NIFs doesn't rely on the trampoline being
+active until thread progress has been made.
 
-    genericBPTramp:
-
-    0x0: ret
-    0x10: jmp call_nif_early
-    0x20: call generic_bp_local
-    0x30: call generic_bp_local
-    0x35: jmp call_nif_early
-
-Note that each target is 16 byte aligned. This is because the call target
-in the function prologue is updated to target the correct place when a flag
-is updated. So if CALL\_NIF\_EARLY is set, then it is updated to be
-genericBPTramp + 0x10. If BP is set, it is updated to genericBPTramp + 0x20
-and the combination makes it to be genericBPTramp + 0x30.
+The solution for AArch64 is similar.
 
 ### Updating code
 
@@ -241,7 +232,7 @@ given a module instance:
 
         uninstall_breakpoint(ci_rw, ci_exec);
         consolidate_bp_data(modp, ci_rw, 1);
-        ASSERT(ci_rw->u.gen_bp == NULL);
+        ASSERT(ci_rw->gen_bp == NULL);
     }
 
 Without the module instance there's no reliable way to figure out the writable
@@ -362,7 +353,7 @@ your needs. For instance, if we run dialyzer with all schedulers:
       syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
       sasl runtime_tools snmp ssl tftp wx xmerl tools --statistics
 
-And then use the scripts found at Brendan Gregg's [CPU Flame Graphs](http://www.brendangregg.com/FlameGraphs/cpuflamegraphs)
+And then use the scripts found at Brendan Gregg's [CPU Flame Graphs](https://www.brendangregg.com/FlameGraphs/cpuflamegraphs.html)
 web page as follows:
 
     ## Collect the results

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@
 -export([xm_sig_order/1,
          kill2killed/1,
          contended_signal_handling/1,
+         dirty_signal_handling_race/1,
          busy_dist_exit_signal/1,
          busy_dist_demonitor_signal/1,
          busy_dist_down_signal/1,
@@ -83,6 +84,7 @@ all() ->
     [xm_sig_order,
      kill2killed,
      contended_signal_handling,
+     dirty_signal_handling_race,
      busy_dist_exit_signal,
      busy_dist_demonitor_signal,
      busy_dist_down_signal,
@@ -231,7 +233,15 @@ contended_signal_handling(Config) when is_list(Config) ->
     %% when the bug exists, but this testcase at least
     %% sometimes causes a crash when the bug is present.
     %%
+    move_dirty_signal_handlers_to_first_scheduler(),
     process_flag(priority, high),
+    case erlang:system_info(schedulers_online) of
+        1 ->
+            ok;
+        SOnln -> 
+            process_flag(scheduler, SOnln),
+            ok
+    end,
     Drv = unlink_signal_drv,
     ok = load_driver(Config, Drv),
     try
@@ -254,7 +264,7 @@ contended_signal_handling_test(Drv, N) ->
 contended_signal_handling_cmd_ports([]) ->
     ok;
 contended_signal_handling_cmd_ports([P|Ps]) ->
-    P ! {self(), {command, ""}},
+    P ! {self(), {command, "c"}},
     contended_signal_handling_cmd_ports(Ps).
 
 contended_signal_handling_make_ports(_Drv, 0, Ports) ->
@@ -263,6 +273,111 @@ contended_signal_handling_make_ports(Drv, N, Ports) ->
     Port = open_port({spawn, Drv}, []),
     true = is_port(Port),
     contended_signal_handling_make_ports(Drv, N-1, [Port|Ports]).
+
+dirty_signal_handling_race(Config) ->
+    %% This test case trigger more or less the same
+    %% problematic scenario as the contended_signal_handling
+    %% test case is trying to trigger. This test case triggers
+    %% it via another signal and is also much more likely
+    %% (close to 100%) to trigger the problematic schenario.
+    Tester = self(),
+    move_dirty_signal_handlers_to_first_scheduler(),
+    {S0, S1} = case erlang:system_info(schedulers_online) of
+                   1 -> {1, 1};
+                   2 -> {2, 1};
+                   SOnln -> {SOnln, SOnln-1}
+               end,
+    process_flag(priority, high),
+    process_flag(scheduler, S0),
+    erts_debug:set_internal_state(available_internal_state, true),
+    Drv = unlink_signal_drv,
+    ok = load_driver(Config, Drv),
+    try
+        %% {parallelism, true} option will ensure that each
+        %% signal to the port from a process is scheduled which
+        %% forces the process to release its main lock when
+        %% sending the signal...
+        Port = open_port({spawn, Drv}, [{parallelism, true}]),
+        true = is_port(Port),
+        %% The {alias, reply_demonitor} option will trigger a
+        %% 'demonitor' signal from Tester to the port when an
+        %% alias message sent using the alias is received by
+        %% Tester...
+        MA1 = erlang:monitor(port, Port, [{alias, reply_demonitor}]),
+        MA2 = erlang:monitor(port, Port, [{alias, reply_demonitor}]),
+        Pid = spawn_opt(fun () ->
+                                Tester ! go,
+                                receive after 500 -> ok end,
+                                %% The 'proc_sig_block' test signal will cause
+                                %% dirty signal handling to start and be
+                                %% blocked in the signal handling.
+                                erts_debug:set_internal_state(proc_sig_block,
+                                                              {Tester, 1000}),
+                                %% Tester will be stuck waiting for main lock
+                                %% when being scheduled out from its dirty
+                                %% execution. When this alias message is
+                                %% by the dirty signal handler Tester will be
+                                %% able to aquire the main lock and complete
+                                %% the schedule out operation.
+                                MA1 ! {MA1, trigger_demonitor_port_please},
+                                erts_debug:set_internal_state(proc_sig_block,
+                                                              {Tester, 100}),
+                                %% Tester will have been selected for
+                                %% execution, but stuck waiting for main lock.
+                                %% When this alias message is handled by the
+                                %% dirty signal handler, Tester will be able
+                                %% to aquire the main lock which will let it
+                                %% enter the problematic scenario. That is,
+                                %% ongoing dirty signal handling while it
+                                %% begins executing.
+                                MA2 ! {MA2, trigger_demonitor_port_please},
+                                erts_debug:set_internal_state(proc_sig_block,
+                                                              {Tester, 500}),
+                                ok
+                        end, [link, {scheduler, S1}]),
+        receive go -> ok end,
+        receive {'DOWN', MA1, port, Port, _} -> ct:fail(unexpected_port_down)
+        after 0 -> ok
+        end,
+        receive {'DOWN', MA2, port, Port, _} -> ct:fail(unexpected_port_down)
+        after 0 -> ok
+        end,
+        erts_debug:dirty_cpu(wait, 1000),
+        receive
+            {MA1, trigger_demonitor_port_please} -> ok
+        end,
+        receive
+            {MA2, trigger_demonitor_port_please} -> ok
+        end,
+        unlink(Pid),
+        unlink(Port),
+        exit(Pid, kill),
+        exit(Port, kill),
+        false = erlang:is_process_alive(Pid)
+    after
+        ok = erl_ddll:unload_driver(Drv)
+    end,
+    ok.
+
+move_dirty_signal_handlers_to_first_scheduler() ->
+    SOnln = erlang:system_flag(schedulers_online, 1),
+    try
+        true = lists:foldl(
+                 fun (Pid, FoundOne) ->
+                         case process_info(Pid, initial_call) of
+                             {initial_call, {erts_dirty_process_signal_handler,start,0}} ->
+                                 Pid ! please_execute_a_bit,
+                                 true;
+                             _ ->
+                                 FoundOne
+                         end
+                 end,
+                 false,
+                 processes())
+    after
+        erlang:system_flag(schedulers_online, SOnln)
+    end,
+    ok.
 
 busy_dist_exit_signal(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),

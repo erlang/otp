@@ -432,6 +432,7 @@ CREATE_DIRS+=$(TTF_DIR)/asmjit $(TTF_DIR)/asmjit/core $(TTF_DIR)/asmjit/$(JIT_AR
 endif
 
 BINDIR = $(ERL_TOP)/bin/$(TARGET)
+CREATE_DIRS += $(BINDIR)
 
 ERLANG_OSTYPE = @ERLANG_OSTYPE@
 
@@ -1123,11 +1124,13 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_nfunc_sched.o \
 	$(OBJDIR)/erl_global_literals.o \
 	$(OBJDIR)/beam_file.o \
-	$(OBJDIR)/beam_types.o
+	$(OBJDIR)/beam_types.o \
+	$(OBJDIR)/erl_term_hashing.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 
 NIF_OBJS = \
+	$(OBJDIR)/prim_tty_nif.o \
 	$(OBJDIR)/erl_tracer_nif.o \
 	$(OBJDIR)/prim_buffer_nif.o \
 	$(OBJDIR)/prim_file_nif.o \
@@ -1138,10 +1141,8 @@ ifeq ($(TARGET),win32)
 DRV_OBJS = \
 	$(OBJDIR)/registry_drv.o \
 	$(OBJDIR)/inet_drv.o \
-	$(OBJDIR)/ram_file_drv.o \
-	$(OBJDIR)/ttsl_drv.o
+	$(OBJDIR)/ram_file_drv.o
 OS_OBJS = \
-	$(OBJDIR)/win_con.o \
 	$(OBJDIR)/dll_sys.o \
 	$(OBJDIR)/driver_tab.o \
 	$(OBJDIR)/sys_float.o \
@@ -1161,12 +1162,12 @@ OS_OBJS = \
 	$(OBJDIR)/unix_prim_file.o \
 	$(OBJDIR)/sys_float.o \
 	$(OBJDIR)/sys_time.o \
-	$(OBJDIR)/sys_signal_stack.o
+	$(OBJDIR)/sys_signal_stack.o \
+	$(OBJDIR)/unix_socket_syncio.o
 
 DRV_OBJS = \
 	$(OBJDIR)/inet_drv.o \
-	$(OBJDIR)/ram_file_drv.o \
-	$(OBJDIR)/ttsl_drv.o
+	$(OBJDIR)/ram_file_drv.o
 endif
 
 ifneq ($(STATIC_NIFS),no)
@@ -1329,9 +1330,9 @@ NIF_COMMON_SRC=$(wildcard nifs/common/*.c)
 endif
 NIF_OSTYPE_SRC=$(wildcard nifs/$(ERLANG_OSTYPE)/*.c)
 ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
-# We use $(shell ls) here instead of wildcard as $(wildcard ) resolved at
+# We use $(shell find) here instead of wildcard as $(wildcard ) resolved at
 # loadtime of the makefile and at that time these files are not generated yet.
-TARGET_SRC=$(shell ls $(TARGET)/*.c) $(shell ls $(TTF_DIR)/*.c)
+TARGET_SRC=$(shell find $(TARGET) $(TTF_DIR) -maxdepth 1 -name "*.c")
 
 # I do not want the -MG flag on windows, it does not work properly for a 
 # windows build.
@@ -1434,8 +1435,9 @@ depend:
 else
 depend: $(TTF_DIR)/depend.mk
 $(TTF_DIR)/depend.mk: $(foreach dep, $(DEPEND_DEPS), $(TTF_DIR)/$(dep).depend.mk)
-	-rm $@
-	for dep in $^; do cat $$dep >> $@; done
+	$(gen_verbose)
+	$(V_at)echo "" > "$@"
+	$(V_at)for dep in "$^"; do cat $$dep >> "$@"; done
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend
 endif
 

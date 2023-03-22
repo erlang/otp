@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2018-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -235,7 +235,6 @@ typedef struct {
     ErtsMessage **last;
 } ErtsSavedNMSignals;
 
-static erts_aint32_t wait_handle_signals(Process *c_p);
 static void wake_handle_signals(Process *proc);
 
 static int handle_msg_tracing(Process *c_p,
@@ -5312,8 +5311,6 @@ handle_alias_message(Process *c_p, ErtsMessage *sig, ErtsMessage ***next_nm_sig)
 
         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
         
-        erts_pid_ref_delete(alias);
-
         switch (mon->type) {
         case ERTS_MON_TYPE_DIST_PORT:
         case ERTS_MON_TYPE_ALIAS:
@@ -5423,12 +5420,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     ErtsMessage *sig, ***next_nm_sig;
     ErtsSigRecvTracing tracing;
     ErtsSavedNMSignals delayed_nm_signals = {0};
-    
-    ASSERT(!(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS));
-    if (c_p->sig_qs.flags & FS_HANDLING_SIGS)
-        state = wait_handle_signals(c_p);
-    else
-        c_p->sig_qs.flags |= FS_HANDLING_SIGS;
+
+    ASSERT(!(c_p->sig_qs.flags & (FS_WAIT_HANDLE_SIGS|FS_HANDLING_SIGS)));
 
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
@@ -5440,6 +5433,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
         }
     }
+
+    c_p->sig_qs.flags |= FS_HANDLING_SIGS;
 
     limit = *redsp;
     *redsp = 0;
@@ -5639,7 +5634,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 case ERTS_ML_STATE_ALIAS_ONCE:
                 case ERTS_ML_STATE_ALIAS_DEMONITOR:
                     ASSERT(is_internal_pid_ref(mdp->ref));
-                    erts_pid_ref_delete(mdp->ref);
                     /* fall through... */
                 default:
                     if (type != ERTS_MON_TYPE_NODE)
@@ -5676,7 +5670,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 if ((mon->flags & ERTS_ML_STATE_ALIAS_MASK)
                     == ERTS_ML_STATE_ALIAS_ONCE) {
                     mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
-                    erts_pid_ref_delete(key);
                 }
             }
             else {
@@ -8050,14 +8043,16 @@ erts_proc_sig_cleanup_queues(Process *c_p)
 #endif
 }
 
-/* Debug */
-
-static erts_aint32_t
-wait_handle_signals(Process *c_p)
+void
+erts_proc_sig_do_wait_dirty_handle_signals__(Process *c_p)
 {
     /*
-     * Process needs to wait on a dirty process signal
-     * handler before it can handle signals by itself...
+     * A dirty process signal handler is currently handling
+     * signals for this process, so it is not safe for this
+     * process to continue to execute. This process needs to
+     * wait for the dirty signal handling to complete before
+     * it can continue executing. This since otherwise the
+     * signal queue can be seen in an inconsistent state.
      *
      * This should be a quite rare event. This only occurs
      * when all of the following occurs:
@@ -8066,14 +8061,17 @@ wait_handle_signals(Process *c_p)
      * * A dirty process signal handler starts handling
      *   signals for the process and unlocks the main
      *   lock while doing so. This can currently only
-     *   occur if handling an 'unlink' signal from a port.
+     *   occur if handling an 'unlink' signal from a port, or
+     *   when handling an alias message where the alias
+     *   has been created when monitoring a port using
+     *   '{alias, reply_demonitor}' option.
      * * While the dirty process signal handler is handling
      *   signals for the process, the process stops executing
      *   dirty, gets scheduled on a normal scheduler, and
      *   then tries to handle signals itself.
      *
-     * If the above happens, the normal sceduler executing
-     * the process will wait here until the dirty process
+     * If the above happens, the normal scheduler scheduling
+     * in the process will wait here until the dirty process
      * signal handler is done with the process...
      */
     erts_tse_t *event;
@@ -8101,20 +8099,17 @@ wait_handle_signals(Process *c_p)
     erts_tse_return(event);
 
     c_p->sig_qs.flags &= ~FS_WAIT_HANDLE_SIGS;
-    c_p->sig_qs.flags |= FS_HANDLING_SIGS;
-
-    return erts_atomic32_read_mb(&c_p->state);
 }
 
 static void
 wake_handle_signals(Process *proc)
 {
     /*
-     * Wake scheduler sleeping in wait_handle_signals()
+     * Wake scheduler waiting in erts_proc_sig_check_wait_dirty_handle_signals()
      * (above)...
      *
-     * This function should only be called by a dirty process
-     * signal handler process...
+     * This function should only be called by a dirty process signal handler
+     * process...
      */
 #ifdef DEBUG
     Process *c_p = erts_get_current_process();
@@ -8131,6 +8126,8 @@ wake_handle_signals(Process *proc)
     proc->sig_qs.flags &= ~FS_HANDLING_SIGS;
     erts_tse_set(proc->scheduler_data->aux_work_data.ssi->event);
 }
+
+/* Debug */
 
 static void
 debug_foreach_sig_heap_frags(ErlHeapFragment *hfrag,

@@ -100,6 +100,8 @@ MODULES = \
 	inet_config \
 	inet_db \
 	inet_dns \
+	inet_epmd_dist \
+	inet_epmd_socket \
 	inet_gethost_native \
 	inet_hosts \
 	inet_parse \
@@ -138,9 +140,9 @@ MODULES = \
 	seq_trace \
 	socket \
 	standard_error \
-	user \
 	user_drv \
 	user_sup \
+	prim_tty \
 	raw_file_io \
 	raw_file_io_compressed \
 	raw_file_io_inflate \

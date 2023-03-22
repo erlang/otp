@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2018-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1513,6 +1513,26 @@ int
 erts_proc_sig_decode_dist(Process *proc, ErtsProcLocks proc_locks,
                           ErtsMessage *msgp, int force_off_heap);
 
+/**
+ *
+ * @brief Check if a newly scheduled process needs to wait for
+ *        ongoing dirty handling of signals to complete.
+ *
+ * @param[in]   c_p             Pointer to executing process.
+ *
+ * @param[in]   state_in        State of process.
+ *
+ * @return                      Updated state of process if
+ *                              we had to wait; otherwise,
+ *                              state_in.
+ */
+ERTS_GLB_INLINE erts_aint32_t
+erts_proc_sig_check_wait_dirty_handle_signals(Process *c_p,
+                                              erts_aint32_t state_in);
+
+void erts_proc_sig_do_wait_dirty_handle_signals__(Process *c_p);
+
+
 ErtsDistExternal *
 erts_proc_sig_get_external(ErtsMessage *msgp);
 
@@ -1789,6 +1809,8 @@ erts_proc_sig_fetch(Process *proc)
            || ERTS_PROC_IS_EXITING(proc)
            || ERTS_IS_CRASH_DUMPING);
 
+    ASSERT(!(proc->sig_qs.flags & FS_HANDLING_SIGS));
+
     ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(proc);
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
 
@@ -1965,6 +1987,7 @@ erts_msgq_recv_marker_clear(Process *c_p, Eterm id)
 {
     ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
     int ix;
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
 
     if (!is_small(id) && !is_big(id) && !is_internal_ref(id))
 	return;
@@ -1992,6 +2015,7 @@ erts_msgq_recv_marker_clear(Process *c_p, Eterm id)
 ERTS_GLB_INLINE Eterm
 erts_msgq_recv_marker_insert(Process *c_p)
 {
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     erts_proc_sig_queue_lock(c_p);
     erts_proc_sig_fetch(c_p);
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
@@ -2005,6 +2029,7 @@ ERTS_GLB_INLINE void erts_msgq_recv_marker_bind(Process *c_p,
 						Eterm insert_id,
 						Eterm bind_id)
 {
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
     ASSERT(bind_id != erts_old_recv_marker_id);
 #endif
@@ -2034,6 +2059,7 @@ ERTS_GLB_INLINE void erts_msgq_recv_marker_bind(Process *c_p,
 ERTS_GLB_INLINE void
 erts_msgq_recv_marker_insert_bind(Process *c_p, Eterm id)
 {
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     if (is_internal_ref(id)) {
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
 	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
@@ -2053,6 +2079,7 @@ erts_msgq_recv_marker_insert_bind(Process *c_p, Eterm id)
 ERTS_GLB_INLINE void
 erts_msgq_recv_marker_set_save(Process *c_p, Eterm id)
 {
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     if (is_internal_ref(id)) {
 	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
 
@@ -2073,6 +2100,7 @@ erts_msgq_recv_marker_set_save(Process *c_p, Eterm id)
 ERTS_GLB_INLINE ErtsMessage *
 erts_msgq_peek_msg(Process *c_p)
 {
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     ASSERT(!(*c_p->sig_qs.save) || ERTS_SIG_IS_MSG(*c_p->sig_qs.save));
     return *c_p->sig_qs.save;
 }
@@ -2081,6 +2109,7 @@ ERTS_GLB_INLINE void
 erts_msgq_unlink_msg(Process *c_p, ErtsMessage *msgp)
 {
     ErtsMessage *sigp = msgp->next;
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(c_p, 0, "before");
     *c_p->sig_qs.save = sigp;
     c_p->sig_qs.len--;
@@ -2099,6 +2128,7 @@ ERTS_GLB_INLINE void
 erts_msgq_set_save_first(Process *c_p)
 {
     ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     if (blkp) {
 	ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(blkp);
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
@@ -2121,6 +2151,7 @@ ERTS_GLB_INLINE void
 erts_msgq_unlink_msg_set_save_first(Process *c_p, ErtsMessage *msgp)
 {
     ErtsMessage *sigp = msgp->next;
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(c_p, 0, "before");
     *c_p->sig_qs.save = sigp;
     c_p->sig_qs.len--;
@@ -2137,6 +2168,7 @@ erts_msgq_set_save_next(Process *c_p)
 {
     ErtsMessage *sigp = (*c_p->sig_qs.save)->next;
     ErtsMessage **sigpp = &(*c_p->sig_qs.save)->next;
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     if (sigp && ERTS_SIG_IS_RECV_MARKER(sigp))
         sigpp = erts_msgq_pass_recv_markers(c_p, sigpp);
@@ -2148,6 +2180,7 @@ ERTS_GLB_INLINE void
 erts_msgq_set_save_end(Process *c_p)
 {
     /* Set save pointer to end of message queue... */
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
 
     erts_proc_sig_queue_lock(c_p);
     erts_proc_sig_fetch(c_p);
@@ -2166,6 +2199,23 @@ erts_msgq_set_save_end(Process *c_p)
 
 #undef ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__
 #undef ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_proc_sig_check_wait_dirty_handle_signals(Process *c_p,
+                                              erts_aint32_t state_in)
+{
+    erts_aint32_t state = state_in;
+    ASSERT(erts_get_scheduler_data()->type == ERTS_SCHED_NORMAL);
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
+
+    if (c_p->sig_qs.flags & FS_HANDLING_SIGS) {
+        erts_proc_sig_do_wait_dirty_handle_signals__(c_p);
+        state = erts_atomic32_read_mb(&c_p->state);
+    }
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
+    return state;
+}
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 

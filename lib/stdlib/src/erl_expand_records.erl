@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
 		 vcount=0,	% Variable counter
 		 calltype=#{},	% Call types
 		 records=#{},	% Record definitions
+                 raw_records=[],% Raw record forms
 		 strict_ra=[],	% strict record accesses
 		 checked_ra=[], % successfully accessed records
                  dialyzer=false % Cached value of compile flag 'dialyzer'
@@ -54,8 +55,7 @@ compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
 
 init_calltype(Forms) ->
-    Locals = [{{Name,Arity},local} || {function,_,Name,Arity,_} <- Forms],
-    Ctype = maps:from_list(Locals),
+    Ctype = #{{Name,Arity} => local || {function,_,Name,Arity,_} <- Forms},
     init_calltype_imports(Forms, Ctype).
 
 init_calltype_imports([{attribute,_,import,{Mod,Fs}}|T], Ctype0) ->
@@ -70,7 +70,8 @@ init_calltype_imports([], Ctype) -> Ctype.
 
 forms([{attribute,_,record,{Name,Defs}}=Attr | Fs], St0) ->
     NDefs = normalise_fields(Defs),
-    St = St0#exprec{records=maps:put(Name, NDefs, St0#exprec.records)},
+    St = St0#exprec{records=maps:put(Name, NDefs, St0#exprec.records),
+                    raw_records=[Attr | St0#exprec.raw_records]},
     {Fs1, St1} = forms(Fs, St),
     {[Attr | Fs1], St1};
 forms([{function,Anno,N,A,Cs0} | Fs0], St0) ->
@@ -287,6 +288,10 @@ expr({bc,Anno,E0,Qs0}, St0) ->
     {Qs1,St1} = lc_tq(Anno, Qs0, St0),
     {E1,St2} = expr(E0, St1),
     {{bc,Anno,E1,Qs1},St2};
+expr({mc,Anno,E0,Qs0}, St0) ->
+    {Qs1,St1} = lc_tq(Anno, Qs0, St0),
+    {E1,St2} = expr(E0, St1),
+    {{mc,Anno,E1,Qs1},St2};
 expr({tuple,Anno,Es0}, St0) ->
     {Es1,St1} = expr_list(Es0, St0),
     {{tuple,Anno,Es1},St1};
@@ -440,7 +445,9 @@ expr({op,Anno,Op,L0,R0}, St0) when Op =:= 'andalso';
 expr({op,Anno,Op,L0,R0}, St0) ->
     {L,St1} = expr(L0, St0),
     {R,St2} = expr(R0, St1),
-    {{op,Anno,Op,L,R},St2}.
+    {{op,Anno,Op,L,R},St2};
+expr(E={ssa_check_when,_,_,_,_,_}, St) ->
+    {E, St}.
 
 expr_list([E0 | Es0], St0) ->
     {E,St1} = expr(E0, St0),
@@ -511,7 +518,12 @@ lc_tq(Anno, [{b_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {P1,St2} = pattern(P0, St1),
     {Qs1,St3} = lc_tq(Anno, Qs0, St2),
     {[{b_generate,AnnoG,P1,G1} | Qs1],St3};
-lc_tq(Anno, [F0 | Qs0], #exprec{calltype=Calltype}=St0) ->
+lc_tq(Anno, [{m_generate,AnnoG,P0,G0} | Qs0], St0) ->
+    {G1,St1} = expr(G0, St0),
+    {P1,St2} = pattern(P0, St1),
+    {Qs1,St3} = lc_tq(Anno, Qs0, St2),
+    {[{m_generate,AnnoG,P1,G1} | Qs1],St3};
+lc_tq(Anno, [F0 | Qs0], #exprec{calltype=Calltype,raw_records=Records}=St0) ->
     %% Allow record/2 and expand out as guard test.
     IsOverriden = fun(FA) ->
 			  case Calltype of
@@ -520,7 +532,7 @@ lc_tq(Anno, [F0 | Qs0], #exprec{calltype=Calltype}=St0) ->
 			      _ -> false
 			  end
 		  end,
-    case erl_lint:is_guard_test(F0, [], IsOverriden) of
+    case erl_lint:is_guard_test(F0, Records, IsOverriden) of
         true ->
             {F1,St1} = guard_test(F0, St0),
             {Qs1,St2} = lc_tq(Anno, Qs0, St1),
@@ -692,24 +704,20 @@ record_wildcard_init([]) -> none.
 record_update(R, Name, Fs, Us0, St0) ->
     Anno = element(2, R),
     {Pre,Us,St1} = record_exprs(Us0, St0),
-    Nf = length(Fs),                            %# of record fields
-    Nu = length(Us),                            %# of update fields
-    Nc = Nf - Nu,                               %# of copy fields
 
     %% We need a new variable for the record expression
     %% to guarantee that it is only evaluated once.
     {Var,St2} = new_var(Anno, St1),
 
+    %% Honor the `strict_record_updates` option needed by `dialyzer`, otherwise
+    %% expand everything to chains of `setelement/3` as that's far more
+    %% efficient in the JIT.
     StrictUpdates = strict_record_updates(St2#exprec.compile),
-
-    %% Try to be intelligent about which method of updating record to use.
     {Update,St} =
         if
-            Nu =:= 0 -> 
-                record_match(Var, Name, Anno, Fs, Us, St2);
-            Nu =< Nc, not StrictUpdates ->      %Few fields updated
+            not StrictUpdates, Us =/= [] ->
                 {record_setel(Var, Name, Fs, Us), St2};
-            true ->                             %The wide area inbetween
+            true ->
                 record_match(Var, Name, Anno, Fs, Us, St2)
         end,
     {{block,Anno,Pre ++ [{match,Anno,Var,R},Update]},St}.

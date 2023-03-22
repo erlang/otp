@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Accept connection setup from OTP 23 and 24 nodes that are
+	    not using epmd.</p>
+          <p>
+	    Own Id: OTP-18404 Aux Id: GH-6595, PR-6625 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.13.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -260,7 +260,7 @@ send_message(Socket, Data) ->
 	    
 -ifdef(megaco_debug).
 sz(Bin) when is_binary(Bin) ->
-    size(Bin);
+    byte_size(Bin);
 sz(List) when is_list(List) ->
     length(List).
 -endif.
@@ -633,11 +633,11 @@ create_acceptor(Pid, Rec, TopSup, Listen) ->
 %% Description: Function is used to add the TPKT header
 %%-----------------------------------------------------------------
 add_tpkt_header(Data) when is_binary(Data) ->
-    L = size(Data) + 4,
+    L = byte_size(Data) + 4,
     {L, [3, 0, ((L) bsr 8) band 16#ff, (L) band 16#ff ,Data]};
 add_tpkt_header(IOList) when is_list(IOList) ->
     Binary = list_to_binary(IOList),
-    L = size(Binary) + 4,
+    L = byte_size(Binary) + 4,
     {L, [3, 0, ((L) bsr 8) band 16#ff, (L) band 16#ff , Binary]}.
 
 %%-----------------------------------------------------------------

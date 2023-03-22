@@ -225,7 +225,7 @@ newformat(SessionID,_,_) ->
 %% ------------------------------------------------------
 
 delay(SessionID,_, _) ->
-    sleep(10000),
+    sleep(2000),
     Reply = delay_reply("delay ok"),
     mod_esi:deliver(SessionID, Reply).
 

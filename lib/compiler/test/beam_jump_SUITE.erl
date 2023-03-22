@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_jump_SUITE).
+-feature(maybe_expr, enable).
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -253,6 +254,10 @@ coverage(_Config) ->
 
     error = coverage_3(#{key => <<"child">>}),
     error = coverage_3(#{}),
+
+    ok = coverage_4(whatever),
+    -0.5 = coverage_4(any),
+
     ok.
 
 coverage_1(Var) ->
@@ -286,6 +291,15 @@ coverage_3(#{key := <<child>>}) when false ->
     ok;
 coverage_3(#{}) ->
     error.
+
+%% Cover beam_jump:value_to_literal/1.
+coverage_4(whatever) ->
+    maybe
+        coverage_4(ok),
+        ok
+    end;
+coverage_4(_) ->
+    (bnot 0) / 2.
 
 %% ERIERL-478: The validator failed to validate argument types when calls were
 %% shared and the types at the common block turned out wider than the join of
@@ -328,6 +342,9 @@ undecided_allocation(_Config) ->
     {'EXIT',{{badmatch,error},_}} = catch undecided_allocation_2(id("foo,bar")),
     {'EXIT',_} = catch undecided_allocation_2(id(foobar)),
     {'EXIT',_} = catch undecided_allocation_2(id(make_ref())),
+
+    ok = undecided_allocation_3(id(<<0>>), gurka),
+    {'EXIT', {badarith, _}} = catch undecided_allocation_3(id(<<>>), gurka),
 
     ok.
 
@@ -381,6 +398,21 @@ undecided_allocation_2(Order) ->
                 error
         end.
 
+%% GH-6571: bs_init_writable can only be shared when the stack frame size is
+%% known.
+undecided_allocation_3(<<_>>, _) ->
+    ok;
+undecided_allocation_3(X, _) ->
+    case 0 + get_keys() of
+        X ->
+            ok;
+        _ ->
+            (node() orelse garbage_collect()) =:=
+                case <<0 || false>> of
+                    #{} ->
+                        ok
+                end
+    end.
 
 id(I) ->
     I.

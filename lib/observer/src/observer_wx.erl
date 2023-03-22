@@ -22,7 +22,8 @@
 
 -export([start/0, stop/0]).
 -export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0, get_menubar/0,
-     get_scale/0, set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
+     get_scale/0, set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2,
+     set_node/1]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2, check_page_title/1]).
@@ -88,6 +89,9 @@ get_tracer() ->
 
 get_active_node() ->
     wx_object:call(observer, get_active_node).
+
+set_node(Node) ->
+    wx_object:call(observer, {set_node, Node}).
 
 get_menubar() ->
     wx_object:call(observer, get_menubar).
@@ -427,6 +431,10 @@ handle_call(get_tracer, _From, State=#state{panels=Panels}) ->
 handle_call(get_active_node, _From, State=#state{node=Node}) ->
     {reply, Node, State};
 
+handle_call({set_node, Node}, _From, State) ->
+    State2 = change_node_view(Node, State),
+    {reply, ok, State2};
+
 handle_call(get_menubar, _From, State=#state{menubar=MenuBar}) ->
     {reply, MenuBar, State};
 
@@ -455,6 +463,7 @@ handle_info({nodedown, Node},
     State3 = update_node_list(State2),
     Msg = ["Node down: " | atom_to_list(Node)],
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
+    filter_nodedown_messages(Node),
     {noreply, State3};
 
 handle_info({open_link, Id0}, State = #state{panels=Panels,frame=Frame}) ->
@@ -874,6 +883,14 @@ is_rb_server_running(Node, LogState) ->
 	   ok
    end.
 
+filter_nodedown_messages(Node) ->
+    receive
+        {nodedown, Node} ->
+            filter_nodedown_messages(Node)
+    after
+        0 ->
+            ok
+    end.
 
 %% d(F) ->
 %%     d(F, []).

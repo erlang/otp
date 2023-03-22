@@ -51,6 +51,7 @@
 -export([make_crypto_key/2, get_crypto_key/1]).	%Utilities used by compiler
 
 -export_type([attrib_entry/0, compinfo_entry/0, labeled_entry/0, label/0]).
+-export_type([chunkid/0]).
 -export_type([chnk_rsn/0]).
 
 -import(lists, [append/1, delete/2, foreach/2, keysort/2, 
@@ -155,7 +156,7 @@ chunks(File, Chunks, Options) ->
     catch Error -> Error end.
 
 -spec all_chunks(beam()) ->
-           {'ok', 'beam_lib', [{chunkid(), dataB()}]} | {'error', 'beam_lib', info_rsn()}.
+           {'ok', module(), [{chunkid(), dataB()}]} | {'error', 'beam_lib', info_rsn()}.
 
 all_chunks(File) ->
     read_all_chunks(File).
@@ -831,8 +832,7 @@ symbol(_, AT, I1, I2, _I3, _Cnt) ->
     {atm(AT, I1), I2}.
 
 atm(AT, N) ->
-    [{_N, S}] = ets:lookup(AT, N),
-    S.
+    ets:lookup_element(AT, N, 2).
 
 %% AT is updated.
 ensure_atoms({empty, AT}, Cs) ->

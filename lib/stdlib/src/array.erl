@@ -462,7 +462,7 @@ fix_test_() ->
 
 -spec relax(Array :: array(Type)) -> array(Type).
 
-relax(#array{size = N}=A) ->
+relax(#array{size = N}=A) when is_integer(N), N >= 0 ->
     A#array{max = find_max(N-1, ?LEAFSIZE)}.
 
 
@@ -489,7 +489,9 @@ relax_test_() ->
                     array(Type).
 
 resize(Size, #array{size = N, max = M, elements = E}=A)
-  when is_integer(Size), Size >= 0 ->
+  when is_integer(Size), Size >= 0,
+       is_integer(N), N >= 0,
+       is_integer(M), M >= 0 ->
     if Size > N ->
    	    {E1, M1} = grow(Size-1, E,
 			    if M > 0 -> M;
@@ -570,7 +572,7 @@ resize_test_() ->
 -spec set(I :: array_indx(), Value :: Type, Array :: array(Type)) -> array(Type).
 
 set(I, Value, #array{size = N, max = M, default = D, elements = E}=A)
-  when is_integer(I), I >= 0 ->
+  when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
     if I < N ->
 	    A#array{elements = set_1(I, E, Value, D)};
        I < M ->
@@ -599,7 +601,7 @@ set_1(I, E, X, _D) ->
 
 %% Enlarging the array upwards to accommodate an index `I'
 
-grow(I, E, _M) when is_integer(E) ->
+grow(I, E, _M) when is_integer(I), is_integer(E) ->
     M1 = find_max(I, E),
     {M1, M1};
 grow(I, E, M) ->
@@ -633,7 +635,7 @@ expand(I, _S, X, D) ->
 -spec get(I :: array_indx(), Array :: array(Type)) -> Value :: Type.
 
 get(I, #array{size = N, max = M, elements = E, default = D})
-  when is_integer(I), I >= 0 ->
+  when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
     if I < N ->
 	    get_1(I, E, D);
        M > 0 ->
@@ -673,7 +675,7 @@ get_1(I, E, _D) ->
 -spec reset(I :: array_indx(), Array :: array(Type)) -> array(Type).
 
 reset(I, #array{size = N, max = M, default = D, elements = E}=A) 
-    when is_integer(I), I >= 0 ->
+    when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
     if I < N ->
 	    try A#array{elements = reset_1(I, E, D)} 
 	    catch throw:default -> A
@@ -760,7 +762,7 @@ set_get_test_() ->
 
 to_list(#array{size = 0}) ->
     [];
-to_list(#array{size = N, elements = E, default = D}) ->
+to_list(#array{size = N, elements = E, default = D}) when is_integer(N) ->
     to_list_1(E, D, N - 1);
 to_list(_) ->
     erlang:error(badarg).
@@ -833,7 +835,7 @@ to_list_test_() ->
 
 sparse_to_list(#array{size = 0}) ->
     [];
-sparse_to_list(#array{size = N, elements = E, default = D}) ->
+sparse_to_list(#array{size = N, elements = E, default = D}) when is_integer(N) ->
     sparse_to_list_1(E, D, N - 1);
 sparse_to_list(_) ->
     erlang:error(badarg).
@@ -1011,7 +1013,7 @@ from_list_test_() ->
 
 to_orddict(#array{size = 0}) ->
     [];
-to_orddict(#array{size = N, elements = E, default = D}) ->
+to_orddict(#array{size = N, elements = E, default = D}) when is_integer(N) ->
     I = N - 1,
     to_orddict_1(E, I, D, I);
 to_orddict(_) ->
@@ -1030,7 +1032,7 @@ to_orddict_1(E, R, D, I) when is_integer(E) ->
 to_orddict_1(E, R, _D, I) ->
     push_tuple_pairs(I+1, R, E, []).
 
-to_orddict_2(E=?NODEPATTERN(S), R, D, L) ->
+to_orddict_2(E=?NODEPATTERN(S), R, D, L) when is_integer(S) ->
     to_orddict_3(?NODESIZE, R, D, L, E, S);
 to_orddict_2(E, R, D, L) when is_integer(E) ->
     push_pairs(E, R, D, L);
@@ -1103,7 +1105,8 @@ to_orddict_test_() ->
 
 sparse_to_orddict(#array{size = 0}) ->
     [];
-sparse_to_orddict(#array{size = N, elements = E, default = D}) ->
+sparse_to_orddict(#array{size = N, elements = E, default = D})
+  when is_integer(N) ->
     I = N - 1,
     sparse_to_orddict_1(E, I, D, I);
 sparse_to_orddict(_) ->
@@ -1122,7 +1125,7 @@ sparse_to_orddict_1(E, _R, _D, _I) when is_integer(E) ->
 sparse_to_orddict_1(E, R, D, I) ->
     sparse_push_tuple_pairs(I+1, R, D, E, []).
 
-sparse_to_orddict_2(E=?NODEPATTERN(S), R, D, L) ->
+sparse_to_orddict_2(E=?NODEPATTERN(S), R, D, L) when is_integer(S) ->
     sparse_to_orddict_3(?NODESIZE, R, D, L, E, S);
 sparse_to_orddict_2(E, _R, _D, L) when is_integer(E) ->
     L;
@@ -1223,7 +1226,7 @@ from_orddict_0([], N, _Max, _D, Es) ->
     end;
 
 from_orddict_0(Xs=[{Ix1, _}|_], Ix, Max0, D, Es0) 
-  when Ix1 > Max0, is_integer(Ix1) ->
+  when is_integer(Ix1), Ix1 > Max0  ->
     %% We have a hole larger than a leaf
     Hole = Ix1-Ix,
     Step = Hole - (Hole rem ?LEAFSIZE),
@@ -1393,7 +1396,7 @@ from_orddict_test_() ->
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
 map(Function, Array=#array{size = N, elements = E, default = D})
-  when is_function(Function, 2) ->
+  when is_function(Function, 2), is_integer(N) ->
     if N > 0 ->
 	    A = Array#array{elements = []}, % kill reference, for GC
 	    A#array{elements = map_1(N-1, E, 0, Function, D)};
@@ -1485,7 +1488,7 @@ map_test_() ->
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
 sparse_map(Function, Array=#array{size = N, elements = E, default = D})
-  when is_function(Function, 2) ->
+  when is_function(Function, 2), is_integer(N) ->
     if N > 0 ->
 	    A = Array#array{elements = []}, % kill reference, for GC
 	    A#array{elements = sparse_map_1(N-1, E, 0, Function, D)};
@@ -1581,7 +1584,7 @@ sparse_map_test_() ->
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 foldl(Function, A, #array{size = N, elements = E, default = D})
-  when is_function(Function, 3) ->
+  when is_function(Function, 3), is_integer(N) ->
     if N > 0 ->
 	    foldl_1(N-1, E, A, 0, Function, D);
        true ->
@@ -1653,7 +1656,7 @@ foldl_test_() ->
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 sparse_foldl(Function, A, #array{size = N, elements = E, default = D})
-  when is_function(Function, 3) ->
+  when is_function(Function, 3), is_integer(N) ->
     if N > 0 ->
 	    sparse_foldl_1(N-1, E, A, 0, Function, D);
        true ->
@@ -1730,7 +1733,7 @@ sparse_foldl_test_() ->
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 foldr(Function, A, #array{size = N, elements = E, default = D})
-  when is_function(Function, 3) ->
+  when is_function(Function, 3), is_integer(N) ->
     if N > 0 ->
 	    I = N - 1,
 	    foldr_1(I, E, I, A, Function, D);
@@ -1808,7 +1811,7 @@ foldr_test_() ->
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 sparse_foldr(Function, A, #array{size = N, elements = E, default = D})
-  when is_function(Function, 3) ->
+  when is_function(Function, 3), is_integer(N) ->
     if N > 0 ->
 	    I = N - 1,
 	    sparse_foldr_1(I, E, I, A, Function, D);
@@ -1862,7 +1865,7 @@ sparse_size(A) ->
     try sparse_foldr(F, [], A) of
 	[] -> 0
     catch
-	{value, I} ->
+	{value, I} when is_integer(I) ->
 	    I + 1
     end.
 

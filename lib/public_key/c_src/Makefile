@@ -91,7 +91,7 @@ endif
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-debug opt valgrind: $(DIRS) $(PUBKEY_LIB)
+debug opt valgrind lcnt asan: $(DIRS) $(PUBKEY_LIB)
 
 $(OBJDIR):
 	-@mkdir -p $(OBJDIR)

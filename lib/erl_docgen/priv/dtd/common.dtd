@@ -34,8 +34,9 @@
 <!ELEMENT code                (#PCDATA|anno)* >
 <!ATTLIST code                type (erl|c|none) "none" >
 <!ELEMENT quote               (p)* >
-<!ELEMENT warning             (%block;|quote|br|marker)* >
-<!ELEMENT note                (%block;|quote|br|marker)* >
+<!ELEMENT warning             (%block;|quote|br|marker|change)* >
+<!ELEMENT note                (%block;|quote|br|marker|change)* >
+<!ELEMENT change              (%block;|quote|br|marker)* >
 <!ELEMENT dont                (%block;|quote|br|marker)* >
 <!ELEMENT do                  (%block;|quote|br|marker)* >
 <!ELEMENT c                   (#PCDATA|anno)* >
@@ -53,7 +54,8 @@
 <!ATTLIST list                 type (ordered|bulleted) "bulleted" >
 <!ELEMENT taglist             (tag,item+)+ >
 <!ELEMENT tag                 (#PCDATA|c|i|em|br|%refs;|marker|anno)* >
-<!ELEMENT item                (%inline;|%block;|warning|note|dont|do|quote|table)* >
+<!ATTLIST tag                 since CDATA #IMPLIED>
+<!ELEMENT item                (%inline;|%block;|warning|note|change|dont|do|quote|table)* >
 
 <!-- References -->
 

@@ -31,6 +31,110 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that would cause analysis to crash.</p>
+          <p>
+	    Own Id: OTP-18372 Aux Id: GH-6580 </p>
+        </item>
+        <item>
+	    <p>Fixed a crash when formatting stack traces for error
+	    reports.</p>
+          <p>
+	    Own Id: OTP-18375 Aux Id: GH-6591 </p>
+        </item>
+        <item>
+	    <p>Instead of crashing, the <c>list_to_integer/1</c> and
+	    <c>list_to_integer/2</c> BIFs now raise the
+	    <c>system_limit</c> exception for overlong lists that
+	    can't be converted to integers. Similarly, the
+	    <c>string:to_integer/1</c> BIF now returns
+	    <c>{error,system_limit}</c> for overlong lists.</p>
+          <p>
+	    Own Id: OTP-18475 Aux Id: PR-6897 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removal of non-necessary <c>undefined</c> types added to
+	    the state's <c>supervisor</c> record.</p>
+          <p>
+	    Own Id: OTP-18393 Aux Id: PR-6666 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>erl_tar</c> can now read gzip-compressed tar files
+	    that are padded. There is a new option
+	    <c>compressed_one</c> for <c>file:open/2</c> that will
+	    read a single member from a gzip file,</p>
+          <p>
+	    Own Id: OTP-18289 Aux Id: PR-6343 </p>
+        </item>
+        <item>
+          <p>
+	    A concurrent call to <c>ets:rename</c> could cause
+	    <c>ets:delete_all_objects</c> to fail halfway through
+	    with badarg.</p>
+          <p>
+	    Own Id: OTP-18292 Aux Id: PR-6366 </p>
+        </item>
+        <item>
+	    <p>It is not allowed to call functions from guards. The
+	    compiler failed to reject a call in a guard when done by
+	    constructing a record with a default initialization
+	    expression that called a function.</p>
+          <p>
+	    Own Id: OTP-18325 Aux Id: GH-6465, GH-6466 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when using a record with
+	    complex field initialization expression as a filter in a
+	    list comprehension.</p>
+          <p>
+	    Own Id: OTP-18336 Aux Id: GH-6501, PR-6502 </p>
+        </item>
+        <item>
+          <p>
+	    <c>unicode:characters_to_binary()</c> could build
+	    unnecessarily large call stack.</p>
+          <p>
+	    Own Id: OTP-18351 Aux Id: ERIERL-885, PR-6529 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve error message for ets:new/2 name clash. Say "name
+	    already exists" instead of less specific "invalid
+	    options".</p>
+          <p>
+	    Own Id: OTP-18283 Aux Id: PR-6338 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 4.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -588,6 +692,23 @@
 	    own. </p>
           <p>
 	    Own Id: OTP-18011</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 3.17.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>It is not allowed to call functions from guards. The
+	    compiler failed to reject a call in a guard when done by
+	    constructing a record with a default initialization
+	    expression that called a function.</p>
+          <p>
+	    Own Id: OTP-18325 Aux Id: GH-6465, GH-6466 </p>
         </item>
       </list>
     </section>

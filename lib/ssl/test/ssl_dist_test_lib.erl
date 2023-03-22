@@ -26,7 +26,7 @@
 
 -export([tstsrvr_format/2, send_to_tstcntrl/1]).
 -export([apply_on_ssl_node/4, apply_on_ssl_node/2]).
--export([stop_ssl_node/1, start_ssl_node/2]).
+-export([stop_ssl_node/1, start_ssl_node/2, start_ssl_node/3]).
 %%
 -export([cnct2tstsrvr/1]).
 
@@ -104,13 +104,18 @@ stop_ssl_node(#node_handle{connection_handler = Handler,
     ct:pal("DumpPath(~pB) = ~p~n", [filelib:file_size(DumpPath), DumpPath]).
 
 start_ssl_node(Name, Args) ->
-    {ok, LSock} = gen_tcp:listen(0,
-				 [binary, {packet, 4}, {active, false}]),
+    start_ssl_node(Name, Args, 1).
+%%
+start_ssl_node(Name, Args, Verbose) ->
+    {ok, LSock} =
+        gen_tcp:listen(0, [binary, {packet, 4}, {active, false}]),
     {ok, ListenPort} = inet:port(LSock),
     {ok, Pwd} = file:get_cwd(),
     LogFilePath = filename:join([Pwd, "error_log." ++ Name]),
     DumpFilePath = filename:join([Pwd, "erl_crash_dump." ++ Name]),
-    CmdLine = mk_node_cmdline(ListenPort, Name, Args, LogFilePath, DumpFilePath),
+    CmdLine =
+        mk_node_cmdline(
+          ListenPort, Name, Args, Verbose, LogFilePath, DumpFilePath),
     test_server:format("Attempting to start ssl node ~ts: ~ts~n", [Name, CmdLine]),
     case open_port({spawn, CmdLine}, []) of
 	Port when is_port(Port) ->
@@ -134,7 +139,7 @@ host_name() ->
     %%     			  atom_to_list(node())),
     Host.
 
-mk_node_cmdline(ListenPort, Name, Args, LogPath, DumpPath) ->
+mk_node_cmdline(ListenPort, Name, Args, Verbose, LogPath, DumpPath) ->
     Static = "-detached -noinput",
     Prog = case catch init:get_argument(progname) of
 	       {ok,[[P]]} -> P;
@@ -148,7 +153,7 @@ mk_node_cmdline(ListenPort, Name, Args, LogPath, DumpPath) ->
 	++ Static ++ " "
 	++ NameSw ++ " " ++ Name ++ " "
 	++ "-run application start crypto -run application start public_key "
-	++ "-eval 'net_kernel:verbose(1)' "
+	++ "-eval 'net_kernel:verbose("++integer_to_list(Verbose)++")' "
 	++ "-run " ++ atom_to_list(?MODULE) ++ " cnct2tstsrvr "
 	++ host_name() ++ " "
 	++ integer_to_list(ListenPort) ++ " "

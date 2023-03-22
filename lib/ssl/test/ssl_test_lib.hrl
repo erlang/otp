@@ -1,6 +1,14 @@
--define(FORMAT, "(~s ~p:~p in ~p) ").
--define(ARGS, [erlang:pid_to_list(self()), ?MODULE, ?LINE, ?FUNCTION_NAME]).
--define(LOG(F), ct:log(?FORMAT ++ F, ?ARGS, [esc_chars])).
--define(LOG(F, Args), ct:log(?FORMAT ++ F, ?ARGS ++ Args, [esc_chars])).
--define(PAL(F, Args), ct:pal(?FORMAT ++ F, ?ARGS ++ Args)).
--define(FAIL(F, Args), ct:fail(?FORMAT ++ F, ?ARGS ++ Args)).
+-define(SSL_TEST_LIB_FORMAT, "(~s ~p:~p in ~p) ").
+-define(SSL_TEST_LIB_ARGS,
+        [erlang:pid_to_list(self()), ?MODULE, ?LINE, ?FUNCTION_NAME]).
+-define(CT_LOG(F),
+        (ct:log(?SSL_TEST_LIB_FORMAT ++ F, ?SSL_TEST_LIB_ARGS, [esc_chars]))).
+-define(CT_LOG(F, Args),
+        (ct:log(
+           ?SSL_TEST_LIB_FORMAT ++ F,
+           ?SSL_TEST_LIB_ARGS ++ Args,
+           [esc_chars]))).
+-define(CT_PAL(F, Args),
+        (ct:pal(?SSL_TEST_LIB_FORMAT ++ F, ?SSL_TEST_LIB_ARGS ++ Args))).
+-define(CT_FAIL(F, Args),
+        (ct:fail(?SSL_TEST_LIB_FORMAT ++ F, ?SSL_TEST_LIB_ARGS ++ Args))).

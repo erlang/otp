@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
+-include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Common test
@@ -71,10 +72,10 @@
          dh_params/1,
          prf/0,
          prf/1,
-         hibernate/0,
-         hibernate/1,
-         hibernate_right_away/0,
-         hibernate_right_away/1,
+         hibernate_client/0,
+         hibernate_client/1,
+         hibernate_server/0,
+         hibernate_server/1,
          listen_socket/0,
          listen_socket/1,
          peername/0,
@@ -133,6 +134,7 @@
          options_not_proplist/1,
          invalid_options/0,
          invalid_options/1,
+         options_whitebox/0, options_whitebox/1,
          cb_info/0,
          cb_info/1,
          log_alert/0,
@@ -175,6 +177,8 @@
          server_options_negative_version_gap/1,
          server_options_negative_dependency_role/0,
          server_options_negative_dependency_role/1,
+         server_options_negative_stateless_tickets_seed/0,
+         server_options_negative_stateless_tickets_seed/1,
          invalid_options_tls13/0,
          invalid_options_tls13/1,
          cookie/0,
@@ -231,7 +235,7 @@ all() ->
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
-    ].
+    ] ++ simple_api_tests().
 
 groups() ->
     [
@@ -247,13 +251,9 @@ groups() ->
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ beast_mitigation_test()},
-     {'dtlsv1.2', [], (gen_api_tests() --
-                           [invalid_keyfile, invalid_certfile, invalid_cacertfile,
-                            invalid_options, new_options_in_handshake])  ++
+     {'dtlsv1.2', [], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
-     {'dtlsv1', [],  (gen_api_tests() --
-                          [invalid_keyfile, invalid_certfile, invalid_cacertfile,
-                           invalid_options, new_options_in_handshake]) ++
+     {'dtlsv1', [],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()}
     ].
 
@@ -271,6 +271,17 @@ pre_1_3() ->
      prf
     ].
 
+simple_api_tests() ->
+    [
+     invalid_keyfile,
+     invalid_certfile,
+     invalid_cacertfile,
+     invalid_options,
+     options_not_proplist,
+     options_whitebox
+    ].
+
+
 gen_api_tests() ->
     [
      peercert,
@@ -281,10 +292,11 @@ gen_api_tests() ->
      secret_connection_info,
      keylog_connection_info,
      versions,
+     new_options_in_handshake,
      active_n,
      dh_params,
-     hibernate,
-     hibernate_right_away,
+     hibernate_client,
+     hibernate_server,
      listen_socket,
      peername,
      recv_active,
@@ -305,13 +317,7 @@ gen_api_tests() ->
      honor_client_cipher_order,
      ipv6,
      der_input,
-     new_options_in_handshake,
      max_handshake_size,
-     invalid_certfile,
-     invalid_cacertfile,
-     invalid_keyfile,
-     options_not_proplist,
-     invalid_options,
      cb_info,
      log_alert,
      getstat,
@@ -354,6 +360,7 @@ tls13_group() ->
      server_options_negative_early_data,
      server_options_negative_version_gap,
      server_options_negative_dependency_role,
+     server_options_negative_stateless_tickets_seed,
      invalid_options_tls13,
      cookie
     ].
@@ -559,39 +566,65 @@ select_sha1_cert() ->
 
 select_sha1_cert(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    TestConf = public_key:pkix_test_data(#{server_chain => #{root => [{digest, sha},{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                             intermediates => [[{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                             peer =>  [{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
-                                                            },
-                                           client_chain => #{root => [{digest, sha},{key, ssl_test_lib:hardcode_rsa_key(3)}],
-                                                             intermediates => [[{digest, sha},{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                             peer => [{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
-    test_sha1_cert_conf(Version, TestConf, Config).
-    
+    TestConfRSA =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{digest, sha},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer =>  [{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
+                                         },
+                                    client_chain =>
+                                        #{root => [{digest, sha},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(3)}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{digest, sha},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
+
+    TestConfECDSA =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{digest, sha},
+                                                   {key, {namedCurve, secp256r1}}],
+                                          intermediates =>
+                                              [[{digest, sha},
+                                                {key,{namedCurve, secp256r1}}]],
+                                          peer =>  [{digest, sha},
+                                                    {key,{namedCurve, secp256r1}}]
+                                         },
+                                    client_chain =>
+                                        #{root => [{digest, sha},
+                                                   {key, {namedCurve, secp256r1}}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, {namedCurve, secp256r1}}]],
+                                          peer => [{digest, sha},
+                                                   {key, {namedCurve, secp256r1}}]}}),
+    test_sha1_cert_conf(Version, TestConfRSA, TestConfECDSA, Config).
+
 %%--------------------------------------------------------------------
 connection_information() ->
     [{doc,"Test the API function ssl:connection_information/1"}].
-connection_information(Config) when is_list(Config) -> 
+connection_information(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-					{from, self()}, 
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
 					{mfa, {?MODULE, connection_information_result, []}},
 					{options, ServerOpts}]),
-    
+
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()}, 
+			   {from, self()},
 			   {mfa, {?MODULE, connection_information_result, []}},
 			   {options, ClientOpts}]),
-    
+
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
-    			   
+
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1176,92 +1209,89 @@ active_n(Config) when is_list(Config) ->
     ok = ssl:close(LS),
     ok.
 
-hibernate() ->
-    [{doc,"Check that an SSL connection that is started with option "
-      "{hibernate_after, 1000} indeed hibernates after 1000ms of "
-      "inactivity"}].
+hibernate_client() ->
+    [{doc,"Check that an SSL connection on client side that is started with "
+      "option hibernate_after indeed hibernates after inactivity"}].
 
-hibernate(Config) ->
+hibernate_client(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    StartServerOpts = [return_socket, {node, ServerNode},
+                       {port, 0}, {from, self()},
+                       {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                       {options, [{hibernate_after, infinity} | ServerOpts]}],
+    StartClientOpts = [return_socket, {node, ClientNode}, {host, Hostname},
+                       {from, self()},
+                       {mfa, {ssl_test_lib, send_recv_result_active, []}}],
+    [ok = hibernate_helper(?config(version, Config), false,
+                           StartServerOpts, StartClientOpts,
+                           ServerOpts, ClientOpts, T, infinity) ||
+        T <- [1000, 0, 1]].
 
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, ServerOpts}]),
+hibernate_server() ->
+    [{doc,"Check that an SSL connection on server side that is started with "
+      "option hibernate_after indeed hibernates after inactivity."
+      "Note: for DTLS test will not be stable, because cookie secret refresh "
+      "mechanism might disturb hibernation of a server process."}].
+hibernate_server(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    StartServerOpts = [return_socket, {node, ServerNode}, {port, 0},
+                       {from, self()},
+                       {mfa, {ssl_test_lib, send_recv_result_active, []}}],
+    StartClientOpts = [return_socket, {node, ClientNode}, {host, Hostname},
+                       {from, self()},
+                       {mfa, {ssl_test_lib, send_recv_result_active, []}}],
+    [ok = hibernate_helper(?config(version, Config), true,
+                           StartServerOpts, StartClientOpts,
+                           ServerOpts, ClientOpts, infinity, T) ||
+        T <- [1000, 0, 1]].
+
+hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
+                 ServerOpts0, ClientOpts0,
+                 ClientHibernateAfter, ServerHibernateAfter) ->
+    AllServerOpts = StartServerOpts ++
+        [{options, [{hibernate_after, ServerHibernateAfter} | ServerOpts0]}],
+    Server = ssl_test_lib:start_server(AllServerOpts),
     Port = ssl_test_lib:inet_port(Server),
-    {Client, #sslsocket{pid=[Pid|_]}} = ssl_test_lib:start_client([return_socket,
-                    {node, ClientNode}, {port, Port},
-					{host, Hostname},
-					{from, self()},
-					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, [{hibernate_after, 1000}|ClientOpts]}]),
-    {current_function, _} =
-        process_info(Pid, current_function),
-
-    ssl_test_lib:check_result(Server, ok, Client, ok),
-    
-    ct:sleep(1500),
+    AllClientOpts = StartClientOpts ++
+        [{port, Port},
+         {options, [{hibernate_after, ClientHibernateAfter} | ClientOpts0]}],
+    {Client, #sslsocket{pid = [ClientReceiverPid | ClientPotentialSenderPid]}} =
+        ssl_test_lib:start_client(AllClientOpts),
+    Results = ssl_test_lib:get_result([Client, Server]),
+    {ok, ServerAcceptSocket} = proplists:get_value(Server, Results),
+    ok = proplists:get_value(Client, Results),
+    #sslsocket{pid = [ServerReceiverPid | ServerPotentialSenderPid]} =
+        ServerAcceptSocket,
+    {ReceiverPid, PotentialSenderPid, HibernateAfter} =
+        case CheckServer of
+            true -> {ServerReceiverPid, ServerPotentialSenderPid,
+                     ServerHibernateAfter};
+            false -> {ClientReceiverPid, ClientPotentialSenderPid,
+                      ClientHibernateAfter}
+        end,
+    SleepAmount = max(1.5*HibernateAfter, 500),
+    ct:log("HibernateAfter = ~w SleepAmount = ~w", [HibernateAfter, SleepAmount]),
+    ct:sleep(SleepAmount), %% Schedule out
     {current_function, {erlang, hibernate, 3}} =
-	process_info(Pid, current_function),
-    
+	process_info(ReceiverPid, current_function),
+    IsTls = ssl_test_lib:is_tls_version(Version),
+    case IsTls of
+        true ->
+            [SenderPid] = PotentialSenderPid,
+            {current_function, {erlang, hibernate, 3}} =
+                process_info(SenderPid, current_function);
+        _ -> %% DTLS (no sender process)
+            ok
+    end,
     ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    ssl_test_lib:close(Client),
+    ok.
 
 %%--------------------------------------------------------------------
-
-hibernate_right_away() ->
-    [{doc,"Check that an SSL connection that is configured to hibernate "
-    "after 0 or 1 milliseconds hibernates as soon as possible and not "
-    "crashes"}].
-
-hibernate_right_away(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    StartServerOpts = [{node, ServerNode}, {port, 0},
-                    {from, self()},
-                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                    {options, ServerOpts}],
-    StartClientOpts = [return_socket,
-                    {node, ClientNode},
-                    {host, Hostname},
-                    {from, self()},
-                    {mfa, {ssl_test_lib, send_recv_result_active, []}}],
-
-    Server1 = ssl_test_lib:start_server(StartServerOpts),
-    Port1 = ssl_test_lib:inet_port(Server1),
-    {Client1, #sslsocket{pid = [Pid1|_]}} = ssl_test_lib:start_client(StartClientOpts ++
-                    [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
-
-    ssl_test_lib:check_result(Server1, ok, Client1, ok),
-    
-    ct:sleep(1000), %% Schedule out
-  
-     {current_function, {erlang, hibernate, 3}} =
-	process_info(Pid1, current_function),
-    ssl_test_lib:close(Server1),
-    ssl_test_lib:close(Client1),
-    
-    Server2 = ssl_test_lib:start_server(StartServerOpts),
-    Port2 = ssl_test_lib:inet_port(Server2),
-    {Client2, #sslsocket{pid = [Pid2|_]}} = ssl_test_lib:start_client(StartClientOpts ++
-                    [{port, Port2}, {options, [{hibernate_after, 1}|ClientOpts]}]),
-
-    ssl_test_lib:check_result(Server2, ok, Client2, ok),
-
-    ct:sleep(1000), %% Schedule out
-    
-    {current_function, {erlang, hibernate, 3}} =
-	process_info(Pid2, current_function),
-
-    ssl_test_lib:close(Server2),
-    ssl_test_lib:close(Client2).
-
 listen_socket() ->
     [{doc,"Check error handling and inet compliance when calling API functions with listen sockets."}].
 
@@ -1871,8 +1901,7 @@ der_input(Config) when is_list(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
 		  {dh, DHParams},
 		  {cert, ServerCert}, {key, ServerKey}, {cacerts, ServerCaCerts}],
-    ClientOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
-		  {dh, DHParams},
+    ClientOpts = [{verify, verify_peer},
 		  {cert, ClientCert}, {key, ClientKey}, {cacerts, ClientCaCerts}],
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -1897,8 +1926,7 @@ der_input(Config) when is_list(Config) ->
                    {cert, ServerCert}, {key, ServerKey},
                    {cacerts, [ #cert{der=Der, otp=public_key:pkix_decode_cert(Der, otp)}
                                || Der <- ServerCaCerts]}],
-    ClientOpts1 = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
-                   {dh, DHParams},
+    ClientOpts1 = [{verify, verify_peer},
                    {cert, ClientCert}, {key, ClientKey},
                    {cacerts, [ #cert{der=Der, otp=public_key:pkix_decode_cert(Der, otp)}
                                || Der <- ClientCaCerts]}],
@@ -2083,7 +2111,7 @@ options_not_proplist() ->
 options_not_proplist(Config) when is_list(Config) ->
     BadOption =  {client_preferred_next_protocols, 
 		  client, [<<"spdy/3">>,<<"http/1.1">>], <<"http/1.1">>},
-    {option_not_a_key_value_tuple, BadOption} =
+    {error, {options, {option_not_a_key_value_tuple, BadOption}}} =
 	ssl:connect("twitter.com", 443, [binary, {active, false}, 
 					 BadOption]).
 
@@ -2110,7 +2138,6 @@ invalid_options(Config) when is_list(Config) ->
 
     TestOpts = 
          [{versions, [sslv2, sslv3]}, 
-          {verify, 4}, 
           {verify_fun, function},
           {fail_if_no_peer_cert, 0}, 
           {depth, four}, 
@@ -2118,7 +2145,6 @@ invalid_options(Config) when is_list(Config) ->
           {keyfile,'key.pem' }, 
           {password, foo},
           {cacertfile, ""}, 
-          {dhfile,'dh.pem' },
           {ciphers, [{foo, bar, sha, ignore}]},
           {reuse_session, foo},
           {reuse_sessions, 0},
@@ -2131,31 +2157,19 @@ invalid_options(Config) when is_list(Config) ->
           {key, 'key.pem' }],
 
     TestOpts2 =
-        [{[{anti_replay, '10k'}],
-          %% anti_replay is a server only option but tested with client
-          %% for simplicity
-          {options,dependency,{anti_replay,{versions,['tlsv1.3']}}}},
-         {[{cookie, false}],
-          {options,dependency,{cookie,{versions,['tlsv1.3']}}}},
-         {[{supported_groups, []}],
-          {options,dependency,{supported_groups,{versions,['tlsv1.3']}}}},
-         {[{use_ticket, [<<1,2,3,4>>]}],
-          {options,dependency,{use_ticket,{versions,['tlsv1.3']}}}},
-         {[{verify, verify_none}, {fail_if_no_peer_cert, true}],
-          {options, incompatible,
-                   {verify, verify_none},
-                   {fail_if_no_peer_cert, true}}}],
+        [{[{supported_groups, []}, {versions, [tlsv1]}],
+          {options,incompatible,[supported_groups,{versions,['tlsv1']}]}}],
 
     [begin
 	 Server =
 	     ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					{from, self()},
-					{options, [TestOpt | ServerOpts]}]),
+					{options, ServerOpts ++ [TestOpt]}]),
 	 %% Will never reach a point where port is used.
 	 Client =
 	     ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0},
 					      {host, Hostname}, {from, self()},
-					      {options, [TestOpt | ClientOpts]}]),
+					      {options, ClientOpts ++ [TestOpt]}]),
 	 Check(Client, Server, TestOpt),
 	 ok
      end || TestOpt <- TestOpts],
@@ -2164,6 +2178,863 @@ invalid_options(Config) when is_list(Config) ->
          start_client_negative(Config, TestOpt, ErrorMsg),
          ok
      end || {TestOpt, ErrorMsg} <- TestOpts2],
+    ok.
+
+options_whitebox() ->
+    [{doc,"Whitebox tests of option handling"}].
+
+
+patch_version(Opts, Role, Host) ->
+    case proplists:get_value(protocol, Opts, tls) of
+        dtls ->
+            {ok, #config{ssl=DOpts}} = ssl:handle_options([{protocol, dtls}], Role, Host),
+            {DOpts, Opts};
+        tls ->
+            {ok, #config{ssl=DOpts}} = ssl:handle_options([], Role, Host),
+            case proplists:get_value(versions, Opts) of
+                undefined ->
+                    {DOpts, [{versions, ['tlsv1.2','tlsv1.3']}|Opts]};
+                _ ->
+                    {DOpts, Opts}
+            end;
+        _ ->
+            {ok, #config{ssl=DOpts}} = ssl:handle_options([], Role, Host),
+            {DOpts, Opts}
+    end.
+
+-define(OK(EXP, Opts, Role), ?OK(EXP,Opts, Role, [])).
+-define(OK(EXP, Opts, Role, ShouldBeMissing),
+        fun() ->
+                Host = "dummy.host.org",
+                {__DefOpts, __Opts} = patch_version(Opts, Role, Host),
+                try ssl:handle_options(__Opts, Role, Host) of
+                    {ok, #config{ssl=EXP = __ALL}} ->
+                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL);
+                    Other ->
+                        ct:pal("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        error({unexpected, Other})
+                catch
+                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+                    C:Other:ST ->
+                        ct:pal("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        error({unexpected, C, Other,ST})
+                end,
+                try ssl:update_options(__Opts, Role, __DefOpts) of
+                    EXP = __ALL2 ->
+                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL2);
+                    Other2 ->
+                        ct:pal("{ok,Cfg} = ssl:handle_options([],~p,~p),"
+                               "ssl:update_options(~w,~w, element(2,Cfg)).",
+                               [Role,Host,__Opts,Role]),
+                        error({unexpected2, Other2})
+                catch
+                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+                    C2:Other2:ST2 ->
+                        ct:pal("{ok,Cfg} = ssl:handle_options([],~p,~p),"
+                               "ssl:update_options(~p,~p, element(2,Cfg)).",
+                               [Role,Host,__Opts,Role]),
+                        error({unexpected, C2, Other2, ST2})
+                end
+        end()).
+
+-define(ERR(EXP, Opts, Role),
+        fun() ->
+                Host = "dummy.host.org",
+                {__DefOpts, __Opts} = patch_version(Opts, Role, Host),
+                try ssl:handle_options(__Opts, Role, Host) of
+                    Other ->
+                        ct:pal("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        error({unexpected, Other})
+                catch
+                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+                    throw:{error, {options, EXP}} -> ok;
+                    throw:{error, EXP} -> ok;
+                    C:Other:ST ->
+                        ct:pal("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        error({unexpected, C, Other,ST})
+                end,
+                try ssl:update_options(__Opts, Role, __DefOpts) of
+                    Other2 ->
+                        ct:pal("{ok,Cfg} = ssl:handle_options([],~p,~p),"
+                               "ssl:update_options(~p,~p, element(2,Cfg)).",
+                               [Role,Host,__Opts,Role]),
+                        error({unexpected, Other2})
+                catch
+                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+                    throw:{error, {options, EXP}} -> ok;
+                    throw:{error, EXP} -> ok;
+                    C2:Other2:ST2 ->
+                        ct:pal("{ok,Cfg} = ssl:handle_options([],~p,~p),"
+                               "ssl:update_options(~p,~p, element(2,Cfg)).",
+                               [Role,Host,__Opts,Role]),
+                        error({unexpected, C2, Other2,ST2})
+                end
+        end()).
+
+options_whitebox(Config) when is_list(Config) ->
+    Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
+    true = is_binary(Cert),
+    ?OK(#{verify := verify_peer},  %% Check Option order last wins
+        [{verify, verify_none}, {verify,verify_peer}, {cacerts, [Cert]}], client),
+    options_protocol(Config),
+    options_version(Config),
+    options_alpn(Config),
+    options_anti_replay(Config),
+    options_beast_mitigation(Config),
+    options_cacerts(Config),
+    options_cert(Config),
+    options_certificate_authorities(Config),
+    options_ciphers(Config),
+    options_client_renegotiation(Config),
+    options_cookie(Config),
+    options_crl(Config),
+    options_hostname_check(Config),
+    options_dh(Config),
+    options_early_data(Config),
+    options_eccs(Config),
+    options_verify(Config),
+    options_fallback(Config),
+    options_handshake(Config),
+    options_process(Config),
+    options_honor(Config),
+    options_debug(Config),
+    options_renegotiate(Config),
+    options_middlebox(Config),
+    options_frag_len(Config),
+    options_oscp(Config),
+    options_padding(Config),
+    options_identity(Config),
+    options_reuse_session(Config),
+    options_sni(Config),
+    options_sign_alg(Config),
+    options_supported_groups(Config),
+    options_use_srtp(Config),
+    ok.
+
+options_protocol(_Config) ->
+    ?OK(#{protocol := tls},  [], client),
+    ?OK(#{protocol := tls},  [{protocol, tls}], client),
+    ?OK(#{protocol := dtls}, [{protocol, dtls}], client),
+
+    %% Errors
+    ?ERR({protocol, foo}, [{protocol, 'foo'}], client),
+
+    begin %% erl_dist
+        ?OK(#{}, [], client, [erl_dist]),
+        ?OK(#{}, [{erl_dist, false}], client, [erl_dist]),
+        ?OK(#{erl_dist := true}, [{erl_dist, true}], client),
+        ?OK(#{}, [], client, [ktls]),
+        ?OK(#{}, [{ktls, false}], client, [ktls]),
+        ?OK(#{ktls := true}, [{ktls, true}], client)
+    end,
+    ok.
+
+options_version(_Config) ->
+    ?OK(#{versions := [_|_]}, [], client),  %% Hmm some machines still default only {3,3}
+    ?OK(#{versions := [{254,253}]}, [{protocol, dtls}], client),
+
+    ?OK(#{versions := [{3,4},{3,3},{3,2},{3,1}]},
+        [{versions, ['tlsv1','tlsv1.1','tlsv1.2','tlsv1.3']}],
+        client),
+    ?OK(#{versions := [{3,4}]}, [{versions, ['tlsv1.3']}], client),
+
+    ?OK(#{versions := [{254,253},{254,255}]},
+        [{protocol, dtls}, {versions, ['dtlsv1', 'dtlsv1.2']}],  client),
+    ?OK(#{versions := [{254,253}]}, [{protocol, dtls}, {versions, ['dtlsv1.2']}], client),
+
+
+    %% Errors
+    ?ERR({versions, []}, [{versions, []}], client),
+    ?ERR({versions, []}, [{protocol, dtls}, {versions, []}], client),
+
+    ?ERR({'tlsv1.4',{versions, ['tlsv1.4']}},
+         [{versions, ['tlsv1.4']}], client),
+    ?ERR({'dtlsv1', {versions, _}},
+         [{versions, ['dtlsv1', 'dtlsv1.2']}], client),
+
+    ?ERR({'tlsv1', {versions, _}},
+         [{protocol, dtls}, {versions, ['tlsv1','tlsv1.1','tlsv1.2','tlsv1.3']}],
+         client),
+    ?ERR({'dtlsv1.3',{versions, ['dtlsv1.3']}},
+         [{protocol, dtls}, {versions, ['dtlsv1.3']}],
+         client),
+    ?ERR({options,missing_version,{'tlsv1.2',_}},
+         [{versions, ['tlsv1.1','tlsv1.3']}],
+         client),
+    ok.
+
+options_alpn(_Config) -> %% alpn & next_protocols 
+    Http = <<"HTTP/2">>,
+    ?OK(#{alpn_advertised_protocols := undefined}, [], client,
+        [alpn_preferred_protocols, next_protocol_selector, next_protocols_advertised]),
+    ?OK(#{alpn_preferred_protocols := undefined},  [], server,
+        [alpn_advertised_protocols, next_protocol_selector, next_protocols_advertised]),
+
+    ?OK(#{alpn_preferred_protocols := [Http]}, [{alpn_preferred_protocols, [Http]}],
+        server, [alpn_advertised_protocols, next_protocol_selector, next_protocols_advertised]),
+    ?OK(#{alpn_advertised_protocols := [Http]}, [{alpn_advertised_protocols, [Http]}],
+        client, [alpn_preferred_protocols, next_protocol_selector, next_protocols_advertised]),
+
+    %% Note names have been swapped in client/server variants
+
+    ?OK(#{alpn_preferred_protocols := undefined, next_protocols_advertised := [Http]},
+        [{next_protocols_advertised, [Http]}], server, [alpn_advertised_protocols, next_protocol_selector]),
+    ?OK(#{alpn_advertised_protocols := undefined, next_protocol_selector := _},
+        [{client_preferred_next_protocols, {server,[Http], Http}}],
+        client, [alpn_preferred_protocols, next_protocols_advertised]),
+
+    %% Errors
+    ?ERR({alpn_preferred_protocols, {invalid_protocol, <<>>}}, [{alpn_preferred_protocols, [Http, <<>>]}], server),
+    ?ERR({alpn_advertised_protocols, Http}, [{alpn_advertised_protocols, Http}], client),
+    ?ERR({alpn_preferred_protocols, undefined}, [{alpn_preferred_protocols, undefined}], server),
+    ?ERR({alpn_advertised_protocols, undefined}, [{alpn_advertised_protocols, undefined}], client),
+    ?ERR({option, server_only, alpn_preferred_protocols}, [{alpn_preferred_protocols, [Http]}], client),
+    ?ERR({option, client_only, alpn_advertised_protocols}, [{alpn_advertised_protocols, [Http]}], server),
+    ?ERR({option, server_only, next_protocols_advertised}, [{next_protocols_advertised, [Http]}], client),
+    ?ERR({option, client_only, client_preferred_next_protocols}, [{client_preferred_next_protocols, [Http]}], server),
+    ok.
+
+options_anti_replay(_Config) ->
+    ?OK(#{anti_replay := undefined}, [], server),
+    ?OK(#{anti_replay := {_,_,_}},
+        [{anti_replay, '10k'}, {session_tickets, stateless}],
+        server),
+    ?OK(#{anti_replay := {_,_,_}},
+        [{anti_replay, {42,4711,21}}, {session_tickets, stateless}],
+        server),
+    ?OK(#{anti_replay := {_,_,_}},
+        [{anti_replay, '10k'}, {session_tickets, stateless_with_cert}],
+        server),
+    ?OK(#{anti_replay := {_,_,_}},
+        [{anti_replay, {42,4711,21}}, {session_tickets, stateless_with_cert}],
+        server),
+
+
+    %% Errors
+    ?ERR({option, server_only, anti_replay},
+         [{anti_replay, '10k'}, {session_tickets, manual}],
+         client),
+    ?ERR({options, incompatible, [{anti_replay, _}, {session_tickets, disabled}]},
+         [{anti_replay, '10k'}],
+         server),
+    ?ERR({options,incompatible, [session_tickets,{versions,['tlsv1']}]},
+         [{anti_replay, '10k'}, {session_tickets, stateless}, {versions, ['tlsv1']}],
+         server),
+    ?ERR({anti_replay, '1k'},
+         [{anti_replay, '1k'}, {session_tickets, stateless}],
+         server),
+    ?ERR({anti_replay, _},
+         [{anti_replay, {1,1,1,1}}, {session_tickets, stateless}],
+         server),
+    ?ERR({options,incompatible, [session_tickets,{versions,['tlsv1']}]},
+         [{anti_replay, '10k'}, {session_tickets, stateless_with_cert}, {versions, ['tlsv1']}],
+         server),
+    ?ERR({anti_replay, '1k'},
+         [{anti_replay, '1k'}, {session_tickets, stateless_with_cert}],
+         server),
+    ?ERR({anti_replay, _},
+         [{anti_replay, {1,1,1,1}}, {session_tickets, stateless_with_cert}],
+         server),
+    ok.
+
+options_beast_mitigation(_Config) -> %% Beast mitigation
+    ?OK(#{beast_mitigation := one_n_minus_one}, [{versions, [tlsv1,'tlsv1.1']}], client),
+    ?OK(#{}, [{versions, ['tlsv1.1']}], client, [beast_mitigation]),
+    ?OK(#{}, [{beast_mitigation, disabled}, {versions, [tlsv1]}], client,
+        [beast_mitigation]),
+    ?OK(#{beast_mitigation := zero_n},
+        [{beast_mitigation, zero_n}, {versions, [tlsv1]}], client),
+
+    %% Errors
+    ?ERR({beast_mitigation, enabled},
+         [{beast_mitigation, enabled}, {versions, [tlsv1]}], client),
+    ?ERR({options, incompatible, [beast_mitigation, {versions, _}]}, %% ok?
+         [{beast_mitigation, disabled}], client),
+    ok.
+
+options_cacerts(Config) ->  %% cacert[s]file
+    Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
+    File = case os:type() of
+               {win32, _} -> <<"c:/tmp/foo">>;
+               _ -> <<"/tmp/foo">>
+           end,
+    ?OK(#{cacerts := undefined}, [], client, [cacertfile]),
+    ?OK(#{cacerts := undefined, cacertfile := File},
+        [{cacertfile, File}], client),
+    ?OK(#{cacerts := [Cert]}, [{cacerts, [Cert]}, {verify, verify_peer}],
+        client, [cacertfile]),
+    ?OK(#{cacerts := [#cert{}]}, [{cacerts, [#cert{der=Cert, otp=dummy}]}],
+        client, [cacertfile]),
+    ?OK(#{cacerts := [Cert]}, [{cacerts, [Cert]}, {cacertfile, "/tmp/foo"}],
+        client, [cacertfile]),
+
+    %% Errors
+    ?ERR({options, incompatible, _}, [{verify, verify_peer}], server),
+    ?ERR({cacerts, Cert}, [{cacerts, Cert}], client),
+    ?ERR({cacertfile, cert}, [{cacertfile, cert}], client),
+
+    begin %% depth
+        ?OK(#{}, [], client, [depth]),
+        ?OK(#{depth := 5}, [{depth, 5}], client),
+        %% Error
+        ?ERR({depth, 256}, [{depth, 256}], client),
+        ?ERR({depth, not_an_int}, [{depth, not_an_int}], client)
+    end,
+    ok.
+
+options_cert(Config) -> %% cert[file] cert_keys keys password
+    Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
+    Old = [cert, certfile, key, keyfile, password],
+    ?OK(#{certs_keys := []}, [], client, Old),
+    ?OK(#{certs_keys := [#{cert := [Cert]}]}, [{cert,Cert}], client, Old),
+    ?OK(#{certs_keys := [#{cert := [Cert]}]}, [{cert,[Cert]}], client, Old),
+    ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/foo">>}]},
+        [{certfile, <<"/tmp/foo">>}], client, Old),
+
+    ?OK(#{certs_keys := [#{}]}, [{certs_keys, [#{}]}], client),
+
+    ?OK(#{certs_keys := [#{key := {rsa, <<>>}}]},
+        [{key, {rsa, <<>>}}], client, Old),
+    ?OK(#{certs_keys := [#{key := #{}}]},
+        [{key, #{engine => foo, algorithm => foo, key_id => foo}}], client, Old),
+
+    ?OK(#{certs_keys := [#{password := _}]}, [{password, "foobar"}], client, Old),
+    ?OK(#{certs_keys := [#{password := _}]}, [{password, <<"foobar">>}], client, Old),
+    Pwd = fun() -> "foobar" end,
+    ?OK(#{certs_keys := [#{password := Pwd}]}, [{password, Pwd}], client, Old),
+
+    ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/baz">>}]},
+        [{certfile, <<"/tmp/foo">>}, {keyfile, "/tmp/baz"}], client, Old),
+
+    ?OK(#{certs_keys := [#{}]},
+        [{cert, Cert}, {certfile, "/tmp/foo"}, {certs_keys, [#{}]}],
+        client, Old),
+
+    %% Errors
+    ?ERR({cert, #{}}, [{cert, #{}}], client),
+    ?ERR({certfile, cert}, [{certfile, cert}], client),
+    ?ERR({certs_keys, #{}}, [{certs_keys, #{}}], client),
+    ?ERR({keyfile, #{}}, [{keyfile, #{}}], client),
+    ?ERR({key, <<>>}, [{key, <<>>}], client),
+    ?ERR({password, _}, [{password, fun(Arg) -> Arg end}], client),
+    ok.
+
+options_certificate_authorities(_Config) ->
+    ?OK(#{}, [], client, [certificate_authorities]),
+    ?OK(#{}, [], server, [certificate_authorities]),
+    ?OK(#{certificate_authorities := true}, [{certificate_authorities, true}], client),
+    ?OK(#{}, [{certificate_authorities, false}], client, [certificate_authorities]),
+    ?OK(#{certificate_authorities := false}, [{certificate_authorities, false}], server),
+    ?OK(#{}, [{certificate_authorities, true}], server, [certificate_authorities]),
+
+    %% Errors
+    ?ERR({certificate_authorities, []},
+         [{certificate_authorities,  []}], client),
+    ?ERR({options, incompatible, [certificate_authorities, {versions, _}]},
+         [{certificate_authorities, true}, {versions, ['tlsv1.2']}],
+         client),
+    ok.
+
+options_ciphers(_Config) ->
+    CipherSuite = ssl_test_lib:ecdh_dh_anonymous_suites({3,3}),
+    ?OK(#{ciphers := [_|_]}, [], client),
+    ?OK(#{ciphers := [_|_]}, [{ciphers, CipherSuite}], client),
+    ?OK(#{ciphers := [_|_]}, [{ciphers, "RC4-SHA:RC4-MD5"}], client),
+    ?OK(#{ciphers := [_|_]}, [{ciphers, ["RC4-SHA", "RC4-MD5"]}], client),
+
+    %% FIXME extend this
+    ok.
+
+options_client_renegotiation(_Config) ->
+    ?OK(#{client_renegotiation := true}, [], server),
+    ?OK(#{client_renegotiation := false}, [{client_renegotiation, false}], server),
+
+    %% Errors
+    ?ERR({client_renegotiation, []}, [{client_renegotiation,  []}], server),
+    ?ERR({option, server_only, client_renegotiation}, [{client_renegotiation, true}], client),
+    ?ERR({options, incompatible, [client_renegotiation, {versions, _}]},
+         [{client_renegotiation, true}, {versions, ['tlsv1.3']}],
+         server),
+    ok.
+
+
+options_cookie(_Config) ->
+    ?OK(#{cookie := true},  [], server),
+    ?OK(#{cookie := false}, [{cookie, false}], server),
+
+    %% Errors
+    ?ERR({cookie, []}, [{cookie,  []}], server),
+    ?ERR({option, server_only, cookie}, [{cookie, true}], client),
+    ?ERR({options, incompatible, [cookie, {versions, _}]},
+         [{cookie, true}, {versions, ['tlsv1.2']}], server),
+    ok.
+
+options_crl(_Config) ->
+    ?OK(#{crl_cache := {ssl_crl_cache, _}, crl_check := false}, [], server),
+    ?OK(#{crl_cache := {ssl_crl_cache, _}, crl_check := true},  [{crl_check, true}], server),
+    ?OK(#{crl_cache := {ssl_crl_hash_dir, {_,_}}, crl_check := true},
+        [{crl_check, true}, {crl_cache, {ssl_crl_hash_dir, {internal, [{dir, "/tmp"}]}}}],
+        server),
+    ?OK(#{crl_cache := {ssl_crl_cache, {_,_}}, crl_check := true},
+        [{crl_check, true}, {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}}],
+        server),
+    %% Errors
+    ?ERR({crl_check, foo}, [{crl_check, foo}], server),
+    ?ERR({crl_cache, {a,b,c}}, [{crl_cache, {a,b,c}}], server),
+    ok.
+
+options_hostname_check(_Config) ->
+    ?OK(#{customize_hostname_check := []}, [], client),
+    ?OK(#{customize_hostname_check := [{match_fun, _}]},
+        [{customize_hostname_check, [{match_fun, fun() -> ok end}]}],
+        client),
+    %% Error
+    ?ERR({customize_hostname_check, _}, [{customize_hostname_check, {match_fun, pb_fun}}], client),
+    ok.
+
+options_dh(_Config) -> %% dh dhfile
+    ?OK(#{}, [], server, [dh, dhfile]),
+    ?OK(#{dh := <<>>}, [{dh, <<>>}], server, [dhfile]),
+    ?OK(#{dhfile := <<"/tmp/foo">>}, [{dhfile, <<"/tmp/foo">>}], server, [dh]),
+    ?OK(#{dh := <<>>}, [{dh, <<>>}, {dhfile, <<"/tmp/foo">>}], server, [dhfile]),
+
+    %% Should be an error
+    ?OK(#{dhfile := <<"/tmp/foo">>},  %% Not available in 1.3
+        [{dhfile, <<"/tmp/foo">>}, {versions, ['tlsv1.3']}], server, [dh]),
+
+    %% Error
+    ?ERR({dh, not_a_bin}, [{dh, not_a_bin}], server),
+    ?ERR({dhfile, not_a_filename}, [{dhfile, not_a_filename}], server),
+    ?ERR({option, server_only, dhfile}, [{dhfile, "file"}], client),
+    ?ERR({option, server_only, dh}, [{dh, <<"DER">>}], client),
+    ok.
+
+options_early_data(_Config) -> %% early_data, session_tickets and use_ticket
+    ?OK(#{early_data := undefined, session_tickets := disabled},
+        [], client),
+    ?OK(#{early_data := disabled, session_tickets := disabled, stateless_tickets_seed := undefined},
+        [], server),
+
+    ?OK(#{early_data := <<>>, session_tickets := auto},
+        [{early_data, <<>>}, {session_tickets, auto}], client),
+    ?OK(#{early_data := <<>>, session_tickets := manual, use_ticket := [<<1>>]},
+        [{early_data, <<>>}, {session_tickets, manual}, {use_ticket, [<<1>>]}],
+        client),
+
+    ?OK(#{early_data := enabled, stateless_tickets_seed := <<"foo">>},
+        [{early_data, enabled}, {session_tickets, stateless}, {stateless_tickets_seed, <<"foo">>}], server),
+    ?OK(#{early_data := enabled, stateless_tickets_seed := <<"foo">>},
+        [{early_data, enabled}, {session_tickets, stateless_with_cert}, {stateless_tickets_seed, <<"foo">>}], server),
+
+    ?OK(#{early_data := disabled}, [{early_data, disabled}], server),
+
+    %% Errors
+    ?ERR({option, client_only, use_ticket}, [{use_ticket, []}], server),
+    ?ERR({options, incompatible, _}, [{use_ticket, [<<>>]}], client),
+
+    ?ERR({options, {session_tickets, foo}}, [{session_tickets, foo}], server),
+    ?ERR({options, {session_tickets, manual}}, [{session_tickets, manual}], server),
+    ?ERR({options, {session_tickets, stateful}}, [{session_tickets, stateful}], client),
+    ?ERR({options, incompatible, [session_tickets, {versions, _}]},
+         [{session_tickets, stateful}, {versions, ['tlsv1.2']}], server),
+    ?ERR({options, incompatible, [session_tickets, {versions, _}]},
+         [{session_tickets, stateful_with_cert}, {versions, ['tlsv1.2']}], server),
+
+    ?ERR({use_ticket, foo},
+         [{use_ticket, foo}, {session_tickets, manual}], client),
+
+    ?ERR({early_data,undefined}, [{early_data, undefined}], client),
+    ?ERR({options, incompatible, [early_data, {session_tickets, _}]},
+         [{early_data, <<>>}], client),
+    ?ERR({options, {early_data, enabled}},
+         [{early_data, enabled}, {session_tickets, auto}], client),
+    ?ERR({options, incompatible, [early_data, _, {use_ticket, _}]},
+         [{early_data, <<>>}, {session_tickets, manual}], client),
+
+    ?ERR({options, incompatible, [early_data, {session_tickets, _}]},
+         [{early_data, enabled}], server),
+    ?ERR({options, {early_data, <<>>}},
+         [{early_data, <<>>}, {session_tickets, stateless}], server),
+    ?ERR({options, {early_data, <<>>}},
+         [{early_data, <<>>}, {session_tickets, stateless_with_cert}], server),
+
+    ?ERR({options, incompatible, [stateless_tickets_seed, {session_tickets, stateful}]},
+         [{stateless_tickets_seed, <<"foo">>}, {session_tickets, stateful}],
+         server),
+    ?ERR({options, incompatible, [stateless_tickets_seed, {session_tickets, stateful_with_cert}]},
+         [{stateless_tickets_seed, <<"foo">>}, {session_tickets, stateful_with_cert}],
+         server),
+    ?ERR({stateless_tickets_seed, foo},
+         [{stateless_tickets_seed, foo}, {session_tickets, stateless}],
+         server),
+    ?ERR({stateless_tickets_seed, foo},
+         [{stateless_tickets_seed, foo}, {session_tickets, stateless_with_cert}],
+         server),
+    ?ERR({option, server_only, stateless_tickets_seed},
+         [{stateless_tickets_seed, <<"foo">>}], client),
+    ok.
+
+options_eccs(_Config) ->
+    Curves = tl(ssl:eccs()),
+    ?OK(#{eccs := {elliptic_curves, [_|_]}}, [], client),
+    ?OK(#{eccs := {elliptic_curves, [_|_]}}, [{eccs, Curves}], client),
+
+    %% Errors
+    ?ERR({eccs, not_a_list}, [{eccs, not_a_list}], client),
+    ?ERR({eccs, none_valid}, [{eccs, []}], client),
+    ?ERR({eccs, none_valid}, [{eccs, [foo]}], client),
+    ok.
+
+options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_chain
+    Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
+    {ok, #config{ssl = DefOpts = #{verify_fun := {DefVerify,_}}}} = ssl:handle_options([], client, "dummy.host.org"),
+
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {DefVerify, []}, partial_chain := _},
+        [], client),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {DefVerify, []}, partial_chain := _},
+        [], server),
+    ?OK(#{fail_if_no_peer_cert := true, verify := verify_peer, verify_fun := undefined, partial_chain := _},
+        [{fail_if_no_peer_cert, true}, {verify, verify_peer}, {cacerts, [Cert]}],
+        server),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {DefVerify, []}, partial_chain := _},
+        [{verify, verify_none}], client),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := undefined, partial_chain := _},
+        [{verify, verify_peer}, {cacerts, [Cert]}], server),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, []}, partial_chain := _},
+        [{partial_chain, fun(_) -> ok end}], client),
+
+    OldF1 = fun(_) -> ok end,
+    NewF3 = fun(_,_,_) -> ok end,
+    NewF4 = fun(_,_,_,_) -> ok end,
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, OldF1}, partial_chain := _},
+        [{verify_fun, OldF1}], client),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {NewF3, foo}, partial_chain := _},
+        [{verify_fun, {NewF3, foo}}], client),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := {NewF3, foo}, partial_chain := _},
+        [{verify_fun, {NewF3, foo}}, {verify, verify_peer}, {cacerts, [Cert]}],
+        server),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := {NewF4, foo}, partial_chain := _},
+        [{verify_fun, {NewF4, foo}}, {verify, verify_peer}, {cacerts, [Cert]}],
+        server),
+
+
+    %% check verify_fun in update_options case
+    #{verify_fun := undefined} = ssl:update_options([{verify, verify_peer}, {cacerts, [Cert]}], client, DefOpts),
+    #{verify_fun := {NewF3, bar}} = ssl:update_options([{verify, verify_peer}, {cacerts, [Cert]},
+                                                        {verify_fun, {NewF3, bar}}],
+                                                       client, DefOpts),
+
+    %% Errors
+    ?ERR({partial_chain, undefined}, [{partial_chain, undefined}], client),
+    ?ERR({options, incompatible, [{verify, verify_none}, {fail_if_no_peer_cert, true}]},
+         [{fail_if_no_peer_cert, true}], server),
+    ?ERR({verify, verify}, [{verify, verify}], client),
+    ?ERR({option, server_only, fail_if_no_peer_cert},
+         [{fail_if_no_peer_cert, true}, {verify, verify_peer}, {cacerts, [Cert]}],
+         client),
+    ?ERR({options, incompatible, [{verify, _}, {cacerts, undefined}]}, [{verify, verify_peer}], server),
+    ?ERR({partial_chain, not_a_fun}, [{partial_chain, not_a_fun}], client),
+    ?ERR({verify_fun, not_a_fun}, [{verify_fun, not_a_fun}], client),
+    ok.
+
+options_fallback(_Config) ->
+    ?OK(#{fallback := false}, [], client),
+    ?OK(#{fallback := true}, [{fallback, true}], client),
+
+    %% Errors
+    ?ERR({option, client_only, fallback},  [{fallback, true}], server),
+    ?ERR({fallback, []},  [{fallback, []}], client),
+    ?ERR({options, incompatible, [fallback, {versions, _}]},
+         [{fallback, true}, {versions, ['tlsv1.3']}], client),
+    ok.
+
+options_handshake(_Config) -> %% handshake
+    ?OK(#{handshake := full, max_handshake_size := 131072},
+        [], client),
+    ?OK(#{handshake := hello, max_handshake_size := 123800},
+        [{handshake, hello}, {max_handshake_size, 123800}], client),
+
+
+    %% Errors
+    ?ERR({handshake, []},  [{handshake, []}], server),
+    ?ERR({max_handshake_size, 8388608},  [{max_handshake_size, 8388608}], server),
+    ?ERR({max_handshake_size, -1}, [{handshake, hello}, {max_handshake_size, -1}], client),
+    ok.
+
+options_process(_Config) -> % hibernate_after, spawn_opts
+    ?OK(#{}, [], client, [hibernate_after, receiver_spawn_opts, sender_spawn_opts]),
+    ?OK(#{hibernate_after := 10000, receiver_spawn_opts := [foo], sender_spawn_opts := [bar]},
+        [{hibernate_after, 10000}, {receiver_spawn_opts, [foo]}, {sender_spawn_opts, [bar]}],
+        client),
+    %% Errors
+    ?ERR({hibernate_after, -1}, [{hibernate_after, -1}], server),
+    ?ERR({receiver_spawn_opts, not_a_list}, [{receiver_spawn_opts, not_a_list}], server),
+    ?ERR({sender_spawn_opts, not_a_list}, [{sender_spawn_opts, not_a_list}], server),
+    ok.
+
+options_honor(_Config) ->  %% honor_cipher_order & honor_ecc_order
+    ?OK(#{honor_cipher_order := false, honor_ecc_order := false},
+        [], server),
+    ?OK(#{honor_cipher_order := true, honor_ecc_order := true},
+        [{honor_cipher_order, true}, {honor_ecc_order, true}],
+        server),
+    %% Errors
+    ?ERR({option, server_only, honor_cipher_order},
+         [{honor_cipher_order, true}], client),
+    ?ERR({option, server_only, honor_ecc_order},
+         [{honor_ecc_order, true}], client),
+    ?ERR({honor_ecc_order, foo}, [{honor_ecc_order, foo}], server),
+    ok.
+
+options_debug(_Config) -> %% debug  log_level keep_secrets
+    ?OK(#{log_level := notice}, [], server, [keep_secrets]),
+    ?OK(#{log_level := debug, keep_secrets := true},
+        [{log_level, debug}, {keep_secrets, true}], server),
+    ?OK(#{log_level := info},
+        [{log_level, info}, {keep_secrets, false}], server, [keep_secrets]),
+
+    %% Errors
+    ?ERR({log_level, foo}, [{log_level, foo}], server),
+    ?ERR({keep_secrets, foo}, [{keep_secrets, foo}], server),
+    ok.
+
+options_renegotiate(_Config) -> %% key_update_at   renegotiate_at  secure_renegotiate
+    ?OK(#{key_update_at := ?KEY_USAGE_LIMIT_AES_GCM, renegotiate_at := 268435456, secure_renegotiate := true},
+        [], server),
+    ?OK(#{key_update_at := 123456, renegotiate_at := 64000, secure_renegotiate := false},
+        [{key_update_at, 123456}, {renegotiate_at, 64000}, {secure_renegotiate, false}],
+        server),
+
+    %% Errors
+    ?ERR({options, incompatible, [key_update_at, {versions, _}]},
+         [{key_update_at, 123456}, {versions, ['tlsv1.2']}], server),
+    ?ERR({options, incompatible, [secure_renegotiate, {versions, _}]},
+         [{secure_renegotiate, true}, {versions, ['tlsv1.3']}], server),
+
+    ?ERR({key_update_at, -1}, [{key_update_at, -1}], server),
+    ?ERR({renegotiate_at, not_a_int}, [{renegotiate_at, not_a_int}], server),
+    ?ERR({renegotiate_at, -1}, [{renegotiate_at, -1}], server),
+    ok.
+
+options_middlebox(_Config) -> %% middlebox_comp_mode
+    ?OK(#{}, [], client, [middlebox_comp_mode]),
+    ?OK(#{}, [{middlebox_comp_mode, true}], client, [middlebox_comp_mode]),
+    ?OK(#{middlebox_comp_mode := false}, [{middlebox_comp_mode, false}], client),
+
+    %% Errors
+    ?ERR({middlebox_comp_mode, foo}, [{middlebox_comp_mode, foo}], server),
+    ?ERR({options, incompatible, [middlebox_comp_mode, {versions, _}]},
+         [{middlebox_comp_mode, false}, {versions, ['tlsv1.2']}], server),
+    ok.
+
+options_frag_len(_Config) -> %% max_fragment_length
+    ?OK(#{max_fragment_length := undefined}, [], client),
+    ?OK(#{max_fragment_length := 2048}, [{max_fragment_length, 2048}], client),
+
+    %% Errors
+    ?ERR({option, client_only, max_fragment_length},
+         [{max_fragment_length, 2048}], server),
+    ?ERR({max_fragment_length,2000}, [{max_fragment_length, 2000}], client),
+    ok.
+
+options_oscp(Config) ->
+    Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
+    ?OK(#{ocsp_stapling := false, ocsp_nonce := true, ocsp_responder_certs := []},
+        [], client),
+    ?OK(#{ocsp_stapling := true},
+        [{ocsp_stapling, true}], client),
+    ?OK(#{ocsp_stapling := true, ocsp_nonce := false, ocsp_responder_certs := [_,_]},
+        [{ocsp_stapling, true}, {ocsp_nonce, false}, {ocsp_responder_certs, [Cert,Cert]}],
+        client),
+    %% Errors
+    ?ERR({ocsp_stapling, foo}, [{ocsp_stapling, 'foo'}], client),
+    ?ERR({ocsp_nonce, foo}, [{ocsp_nonce, 'foo'}], client),
+    ?ERR({ocsp_responder_certs, foo}, [{ocsp_responder_certs, 'foo'}], client),
+    ?ERR({options, incompatible, [{ocsp_nonce, false}, {ocsp_stapling, false}]},
+         [{ocsp_nonce, false}], client),
+    ?ERR({options, incompatible, [ocsp_responder_certs, {ocsp_stapling, false}]},
+         [{ocsp_responder_certs, [Cert]}], server),
+    ?ERR({ocsp_responder_certs, [_]},
+         [{ocsp_stapling, true}, {ocsp_responder_certs, ['NOT A BINARY']}],
+         client),
+    ok.
+
+options_padding(_Config) ->
+    ?OK(#{}, [], server, [padding_check]),
+    ?OK(#{padding_check := false}, [{padding_check, false}, {versions, [tlsv1]}], server),
+    %% Errors
+    ?ERR({padding_check, foo}, [{padding_check, foo}, {versions, [tlsv1]}], server),
+    ?ERR({options, incompatible, [padding_check, {versions, ['tlsv1.3','tlsv1.2']}]},
+         [{padding_check, false}], server),
+    ok.
+
+options_identity(_Config) ->  %% psk_identity  srp_identity and user_lookup_fun
+    ?OK(#{psk_identity := undefined, srp_identity := undefined, user_lookup_fun := undefined},
+        [], client),
+    ?OK(#{psk_identity := <<"foobar">>, srp_identity := undefined, user_lookup_fun := undefined},
+        [{psk_identity, "foobar"}], server),
+    ?OK(#{psk_identity := undefined, srp_identity := {<<"user">>, <<"pwd">>}, user_lookup_fun := undefined},
+        [{srp_identity, {"user", "pwd"}}], client),
+    ?OK(#{psk_identity := undefined, srp_identity := undefined, user_lookup_fun := {_, args}},
+        [{user_lookup_fun, {fun(_,_,_) -> ok end, args}}], client),
+
+    %% Should fail client option only
+    ?OK(#{psk_identity := undefined, srp_identity := {<<"user">>, <<"pwd">>}, user_lookup_fun := undefined},
+        [{srp_identity, {"user", "pwd"}}], server),
+
+    %% Errors
+    ?ERR({srp_identity, {_,_}},  %% FIXME doesn't like binary strings
+         [{srp_identity, {<<"user">>, <<"pwd">>}}], client),
+    ?ERR({psk_identity, _},  %% FIXME doesn't like binary strings
+         [{psk_identity, <<"user">>}], client),
+    ?ERR({srp_identity, _}, [{srp_identity, "user"}], client),
+    ?ERR({user_lookup_fun, _},
+         [{user_lookup_fun, {fun(_,_) -> ok end, args}}],
+         client),
+
+    ?ERR({options, incompatible, [psk_identity, _]},
+         [{psk_identity, "foobar"},{versions, ['tlsv1.3']}],
+         server),
+    ?ERR({options, incompatible, [srp_identity, _]},
+         [{srp_identity, {"user", "pwd"}},{versions, ['tlsv1.3']}],
+         client),
+    ?ERR({options, incompatible, [user_lookup_fun, _]},
+         [{user_lookup_fun, {fun(_,_,_) -> ok end, args}}, {versions, ['tlsv1.3']}],
+         client),
+    ok.
+
+options_reuse_session(_Config) ->
+    ?OK(#{reuse_session := undefined, reuse_sessions := true}, [], client),
+    ?OK(#{reuse_session := _, reuse_sessions := true}, [], server),
+
+    ?OK(#{reuse_session := <<>>, reuse_sessions := save},
+        [{reuse_session, <<>>}, {reuse_sessions, save}], client),
+    ?OK(#{reuse_session := {<<>>, <<>>}, reuse_sessions := false},
+        [{reuse_session, {<<>>, <<>>}}, {reuse_sessions, false}], client),
+
+    RS_F = fun(_,_,_,_) -> ok end,
+    ?OK(#{reuse_session := RS_F, reuse_sessions := false},
+        [{reuse_session, RS_F}, {reuse_sessions, false}],
+        server),
+
+    %% Errors
+    ?ERR({options, incompatible, [reuse_session, _]},
+         [{reuse_session, RS_F}, {versions, ['tlsv1.3']}],
+         server),
+    ?ERR({options, incompatible, [reuse_sessions, _]},
+         [{reuse_sessions, true}, {versions, ['tlsv1.3']}],
+         server),
+    ?ERR({reuse_session, RS_F},
+         [{reuse_session, RS_F},{reuse_sessions, false}],
+         client),
+    ?ERR({reuse_sessions, foo},  [{reuse_sessions, foo}], server),
+    ?ERR({reuse_session, foo},  [{reuse_session, foo}], server),
+    ?ERR({reuse_sessions, save}, [{reuse_sessions, save}], server),
+    ?ERR({reuse_session, <<>>}, [{reuse_session, <<>>}], server),
+
+    ok.
+
+options_sni(_Config) -> %% server_name_indication
+    ?OK(#{server_name_indication := "dummy.host.org"}, [], client),
+    ?OK(#{}, [], server, [server_name_indication]),
+    ?OK(#{server_name_indication := disable}, [{server_name_indication, disable}], client),
+    ?OK(#{server_name_indication := "dummy.org"}, [{server_name_indication, "dummy.org"}], client),
+
+    ?OK(#{sni_fun := _}, [], server, [sni_hosts]),
+
+    ?OK(#{sni_fun := _}, [{sni_hosts, [{"a", []}]}], server, [sni_hosts]),
+    SNI_F = fun(_) -> sni end,
+    ?OK(#{sni_fun := SNI_F}, [{sni_fun, SNI_F}], server, [sni_hosts]),
+
+    %% Errors
+    ?ERR({option, client_only, server_name_indication},
+         [{server_name_indication, "dummy.org"}], server),
+    ?ERR({option, server_only, sni_hosts},  [{sni_hosts, [{"a", []}]}], client),
+    ?ERR({option, server_only, sni_fun},  [{sni_fun, SNI_F}], client),
+
+    ?ERR({server_name_indication, foo},  [{server_name_indication, foo}], client),
+    ?ERR({sni_hosts, foo}, [{sni_hosts, foo}], server),
+    ?ERR({sni_fun, foo}, [{sni_fun, foo}], server),
+
+    ?ERR({options, incompatible, [sni_fun, sni_hosts]},
+         [{sni_fun, SNI_F}, {sni_hosts, [{"a", []}]}], server),
+    ok.
+
+options_sign_alg(_Config) ->  %% signature_algs[_cert]
+    ?OK(#{signature_algs := [_|_], signature_algs_cert := undefined},
+        [], client),
+    ?OK(#{signature_algs := [rsa_pss_rsae_sha512,{sha512,rsa}], signature_algs_cert := undefined},
+        [{signature_algs, [rsa_pss_rsae_sha512,{sha512,rsa}]}], client),
+    ?OK(#{signature_algs := [_|_], signature_algs_cert := [eddsa_ed25519, rsa_pss_rsae_sha512]},
+        [{signature_algs_cert, [eddsa_ed25519, rsa_pss_rsae_sha512]}],
+        client),
+
+    %% Errors
+    ?ERR({signature_algs, not_a_list}, [{signature_algs, not_a_list}], client),
+    ?ERR({signature_algs_cert, not_a_list}, [{signature_algs_cert, not_a_list}], client),
+    ?ERR({signature_algs, [foobar]}, [{signature_algs, [foobar]}], client),
+    ?ERR({signature_algs_cert, [foobar]}, [{signature_algs_cert, [foobar]}], client),
+    ?ERR({options, incompatible, [signature_algs_cert, {versions, _}]},
+         [{signature_algs_cert, [eddsa_ed25519, rsa_pss_rsae_sha512]}, {versions, ['tlsv1.1']}],
+         client),
+    ?ERR({options, incompatible, [signature_algs_cert, {versions, _}]},
+         [{signature_algs_cert, [eddsa_ed25519, rsa_pss_rsae_sha512]}, {versions, ['tlsv1.1']}],
+         server),
+    ?ERR({options, {no_supported_algorithms, {signature_algs,[]}}},
+         [{signature_algs, []}], client),
+    ?ERR({options, {no_supported_signature_schemes, {signature_algs_cert,[]}}},
+         [{signature_algs_cert, []}],
+         client),
+    ok.
+
+options_supported_groups(_Config) ->
+    %% FIXME group() type doesn't cover the values below
+    ?OK(#{supported_groups := {supported_groups, [x25519,x448,secp256r1,secp384r1]}},
+        [], client),
+    ?OK(#{supported_groups := {supported_groups, [secp521r1, ffdhe2048]}},
+        [{supported_groups, [secp521r1, ffdhe2048]}], client),
+
+    %% ERRORs
+    ?ERR({{'tlvs1.2'},{versions,[{'tlvs1.2'}]}},
+         [{supported_groups, []}, {versions, [{'tlvs1.2'}]}], client),
+    ?ERR({supported_groups, not_a_list}, [{supported_groups, not_a_list}], client),
+    ?ERR({supported_groups, none_valid},  [{supported_groups, []}], client),
+    ?ERR({supported_groups, none_valid},  [{supported_groups, [foo]}], client),
+    ok.
+
+options_use_srtp(_Config) ->
+    ?OK(#{use_srtp := #{protection_profiles := [<<0,2>>, <<0,5>>], mki := <<>>}},
+        [{protocol, dtls},
+         {use_srtp, #{protection_profiles => [<<0,2>>, <<0,5>>]}}], client),
+    ?OK(#{use_srtp := #{protection_profiles := [<<0,2>>], mki := <<>>}},
+        [{protocol, dtls},
+         {use_srtp, #{protection_profiles => [<<0,2>>]}}], server),
+    ?OK(#{use_srtp := #{protection_profiles := [<<0,2>>, <<0,5>>], mki := <<"123">>}},
+        [{protocol, dtls},
+         {use_srtp, #{protection_profiles => [<<0,2>>, <<0,5>>], mki => <<"123">>}}], client),
+    ?OK(#{use_srtp := #{protection_profiles := [<<0,2>>], mki := <<"123">>}},
+        [{protocol, dtls},
+         {use_srtp, #{protection_profiles => [<<0,2>>], mki => <<"123">>}}], server),
+
+    %% invalid parameters
+    ?ERR({options, {use_srtp, {no_protection_profiles, _}}},
+         [{protocol, dtls},
+          {use_srtp, #{}}], client),
+    ?ERR({options, {use_srtp, {no_protection_profiles, _}}},
+         [{protocol, dtls},
+          {use_srtp, #{protection_profiles => []}}], client),
+    ?ERR({options, {use_srtp, {invalid_protection_profiles, _}}},
+         [{protocol, dtls},
+          {use_srtp, #{protection_profiles => [<<"bad">>]}}], client),
+    ?ERR({options, {use_srtp, {unknown_parameters,[whatever]}}},
+         [{protocol, dtls},
+          {use_srtp, #{protection_profiles => [<<0,2>>], whatever => xxx}}], client),
+
+    %% use_srtp is DTLS-only extension, by default setting its options should raise an error
+    ?ERR({options, incompatible, _},
+         [{use_srtp, #{protection_profiles => [<<0,2>>, <<0,5>>]}}], client),
+    ?ERR({options, incompatible, _},
+         [{use_srtp, #{protection_profiles => [<<0,2>>]}}], server),
     ok.
 
 %%-------------------------------------------------------------------
@@ -2348,8 +3219,8 @@ client_options_negative_dependency_version() ->
 client_options_negative_dependency_version(Config) when is_list(Config) ->
     start_client_negative(Config, [{versions, ['tlsv1.1', 'tlsv1.2']},
                                    {session_tickets, manual}],
-                          {options,dependency,
-                           {session_tickets,{versions,['tlsv1.3']}}}).
+                          {options,incompatible,
+                           [session_tickets,{versions,['tlsv1.2', 'tlsv1.1']}]}).
 
 %%--------------------------------------------------------------------
 client_options_negative_dependency_stateless() ->
@@ -2358,8 +3229,7 @@ client_options_negative_dependency_stateless(Config) when is_list(Config) ->
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {anti_replay, '10k'},
                                    {session_tickets, manual}],
-                          {options,dependency,
-                           {anti_replay,{session_tickets,[stateless]}}}).
+                          {option, server_only, anti_replay}).
 
 
 %%--------------------------------------------------------------------
@@ -2368,45 +3238,37 @@ client_options_negative_dependency_role() ->
 client_options_negative_dependency_role(Config) when is_list(Config) ->
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, stateless}],
-                          {options,role,
-                           {session_tickets,{stateless,{client,[disabled,manual,auto]}}}}).
+                          {options,{session_tickets,stateless}}).
 
 %%--------------------------------------------------------------------
 client_options_negative_early_data() ->
     [{doc,"Test client option early_data."}].
 client_options_negative_early_data(Config) when is_list(Config) ->
     start_client_negative(Config, [{versions, ['tlsv1.2']},
-                                   {early_data, "test"}],
-                          {options,dependency,
-                           {early_data,{versions,['tlsv1.3']}}}),
+                                   {session_tickets, manual},
+                                   {early_data, <<"test">>}],
+                          {options,incompatible,
+                           [session_tickets,{versions,['tlsv1.2']}]}),
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
-                                   {early_data, "test"}],
-                          {options,dependency,
-                           {early_data,{session_tickets,[manual,auto]}}}),
+                                   {early_data, <<"test">>}],
+                          {options,incompatible,
+                           [early_data,{session_tickets,disabled}]}),
 
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, stateful},
-                                   {early_data, "test"}],
-                          {options,role,
-                           {session_tickets,
-                            {stateful,{client,[disabled,manual,auto]}}}}),
-    start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
-                                   {session_tickets, disabled},
-                                   {early_data, "test"}],
-                          {options,dependency,
-                           {early_data,{session_tickets,[manual,auto]}}}),
+                                   {early_data, <<"test">>}],
+                          {options, {session_tickets, stateful}}),
 
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, manual},
-                                   {early_data, "test"}],
-                          {options,dependency,
-                           {early_data, use_ticket}}),
+                                   {early_data, <<"test">>}],
+                          {options,incompatible,
+                           [early_data, {session_tickets, manual}, {use_ticket, undefined}]}),
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, manual},
                                    {use_ticket, [<<"ticket">>]},
                                    {early_data, "test"}],
-                          {options, type,
-                           {early_data, {"test", not_binary}}}),
+                          {options, {early_data, "test"}}),
     %% All options are ok but there is no server
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, manual},
@@ -2414,11 +3276,6 @@ client_options_negative_early_data(Config) when is_list(Config) ->
                                    {early_data, <<"test">>}],
                           econnrefused),
 
-    start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
-                                   {session_tickets, auto},
-                                   {early_data, "test"}],
-                          {options, type,
-                           {early_data, {"test", not_binary}}}),
     %% All options are ok but there is no server
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, auto},
@@ -2430,31 +3287,25 @@ server_options_negative_early_data() ->
     [{doc,"Test server option early_data."}].
 server_options_negative_early_data(Config) when is_list(Config) ->
     start_server_negative(Config, [{versions, ['tlsv1.2']},
-                                   {early_data, "test"}],
-                          {options,dependency,
-                           {early_data,{versions,['tlsv1.3']}}}),
+                                   {early_data, enabled},
+                                   {session_tickets, stateful}
+                                  ],
+                          {options,incompatible,
+                           [session_tickets,{versions,['tlsv1.2']}]}),
     start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
-                                   {early_data, "test"}],
-                          {options,dependency,
-                           {early_data,{session_tickets,[stateful,stateless]}}}),
+                                   {early_data, enabled}],
+                          {options,incompatible,
+                           [early_data,{session_tickets,disabled}]}),
 
     start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, manual},
-                                   {early_data, "test"}],
-                          {options,role,
-                           {session_tickets,
-                            {manual,{server,[disabled,stateful,stateless]}}}}),
-    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
-                                   {session_tickets, disabled},
-                                   {early_data, "test"}],
-                          {options,dependency,
-                           {early_data,{session_tickets,[stateful,stateless]}}}),
+                                   {early_data, enabled}],
+                          {options, {session_tickets, manual}}),
 
     start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, stateful},
                                    {early_data, "test"}],
-                          {options,role,
-                           {early_data,{"test",{server,[disabled,enabled]}}}}).
+                          {options, {early_data, "test"}}).
 
 %%--------------------------------------------------------------------
 server_options_negative_version_gap() ->
@@ -2470,8 +3321,36 @@ server_options_negative_dependency_role() ->
 server_options_negative_dependency_role(Config) when is_list(Config) ->
     start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, manual}],
-                          {options,role,
-                           {session_tickets,{manual,{server,[disabled,stateful,stateless]}}}}).
+                          {options,{session_tickets,manual}}).
+
+%%--------------------------------------------------------------------
+server_options_negative_stateless_tickets_seed() ->
+    [{doc, "Test server option stateless_tickets_seed"}].
+server_options_negative_stateless_tickets_seed(Config) ->
+    Seed = crypto:strong_rand_bytes(32),
+
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {stateless_tickets_seed, Seed}],
+                          {options, incompatible,
+                           [stateless_tickets_seed, {session_tickets, disabled}]}),
+
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, disabled},
+                                   {stateless_tickets_seed, Seed}],
+                          {options, incompatible,
+                           [stateless_tickets_seed, {session_tickets, disabled}]}),
+
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, stateful},
+                                   {stateless_tickets_seed, Seed}],
+                          {options, incompatible,
+                           [stateless_tickets_seed, {session_tickets, stateful}]}),
+
+    InvalidSeed1 = 12345,
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, stateless},
+                                   {stateless_tickets_seed, InvalidSeed1}],
+                          {options, {stateless_tickets_seed, InvalidSeed1}}).
 
 %%--------------------------------------------------------------------
 honor_server_cipher_order_tls13() ->
@@ -2529,27 +3408,24 @@ invalid_options_tls13() ->
 invalid_options_tls13(Config) when is_list(Config) ->
     TestOpts =
         [{{beast_mitigation, one_n_minus_one},
-          {options, dependency,
-           {beast_mitigation,{versions,[tlsv1]}}},
+          {options, incompatible,
+           [beast_mitigation,{versions,['tlsv1.3']}]},
           common},
 
          {{next_protocols_advertised, [<<"http/1.1">>]},
-          {options, dependency,
-           {next_protocols_advertised,
-            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          {options, incompatible,
+           [next_protocols_advertised, {versions,['tlsv1.3']}]},
           server},
 
          {{client_preferred_next_protocols,
            {client, [<<"http/1.1">>]}},
-          {options, dependency,
-           {client_preferred_next_protocols,
-            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          {options, incompatible,
+           [client_preferred_next_protocols, {versions,['tlsv1.3']}]},
           client},
 
          {{client_renegotiation, false},
-          {options, dependency,
-           {client_renegotiation,
-            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          {options, incompatible,
+           [client_renegotiation, {versions,['tlsv1.3']}]},
           server
          },
 
@@ -2559,49 +3435,36 @@ invalid_options_tls13(Config) when is_list(Config) ->
          },
 
          {{padding_check, false},
-          {options, dependency,
-           {padding_check,{versions,[tlsv1]}}},
+          {options, incompatible, [padding_check,{versions,['tlsv1.3']}]},
           common},
 
          {{psk_identity, "Test-User"},
-          {options, dependency,
-           {psk_identity,{versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          {options, incompatible, [psk_identity,{versions,['tlsv1.3']}]},
           common},
 
          {{user_lookup_fun,
            {fun ssl_test_lib:user_lookup/3, <<1,2,3>>}},
-          {options, dependency,
-           {user_lookup_fun,{versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          {options, incompatible, [user_lookup_fun,{versions,['tlsv1.3']}]},
           common},
 
          {{reuse_session, fun(_,_,_,_) -> false end},
-          {options, dependency,
-           {reuse_session,
-            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          {options, incompatible, [reuse_session, {versions,['tlsv1.3']}]},
           server},
 
          {{reuse_session, <<1,2,3,4>>},
-          {options, dependency,
-           {reuse_session,
-            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          {options, incompatible, [reuse_session, {versions,['tlsv1.3']}]},
           client},
 
          {{reuse_sessions, true},
-          {options, dependency,
-           {reuse_sessions,
-            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          {options, incompatible, [reuse_sessions, {versions,['tlsv1.3']}]},
           common},
 
          {{secure_renegotiate, false},
-          {options, dependency,
-           {secure_renegotiate,
-            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          {options, incompatible, [secure_renegotiate, {versions,['tlsv1.3']}]},
           common},
 
-         {{srp_identity, false},
-          {options, dependency,
-           {srp_identity,
-            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+         {{srp_identity, {"user", "passwd"}},
+          {options, incompatible, [srp_identity, {versions,['tlsv1.3']}]},
           client}
         ],
 
@@ -3330,21 +4193,36 @@ test_config('tlsv1.2', _) ->
     {SDSACert, SDSAKey, SDSACACerts} = get_single_options(cert, key, cacerts, SDSAOpts),
     {CDSACert, CDSAKey, CDSACACerts} = get_single_options(cert, key, cacerts,  CDSAOpts),
 
+    AllSigAlgs1_2 = ssl_test_lib:all_1_2_sig_algs(),
 
-    [{#{server_config => [{certs_keys, [#{cert => SDSACert, key => SDSAKey}, #{cert => SRSACert, key => SRSAKey}]},
-                          {verify, verify_peer},  {versions, ['tlsv1.3', 'tlsv1.2']},
+    [{#{server_config => [{certs_keys,
+                           [#{cert => SDSACert, key => SDSAKey},
+                            #{cert => SRSACert, key => SRSAKey}]},
+                          {verify, verify_peer},
+                          {versions, ['tlsv1.3', 'tlsv1.2']},
                           {cacerts, SRSACACerts ++ SDSACACerts}],
-        client_config => [{certs_keys, [#{cert => CDSACert, key => CDSAKey}, #{cert => CRSACert, key => CRSAKey}]},
-                          {verify, verify_peer}, {versions, ['tlsv1.3', 'tlsv1.2']},
+        client_config => [{certs_keys,
+                           [#{cert => CDSACert, key => CDSAKey},
+                            #{cert => CRSACert, key => CRSAKey}]},
+                          {verify, verify_peer},
+                          {versions, ['tlsv1.3', 'tlsv1.2']},
                           {cacerts, CRSACACerts ++ CDSACACerts}]
-       }, {client_peer, SRSACert}, {server_peer, CRSACert}},
-     {#{server_config => [{certs_keys, [#{cert => SDSACert, key => SDSAKey}, #{cert => SRSACert, key => SRSAKey}]},
-                          {verify, verify_peer}, {versions, ['tlsv1.2']},
+       },
+      {client_peer, SRSACert}, {server_peer, CRSACert}},
+     {#{server_config => [{certs_keys, [#{cert => SDSACert, key => SDSAKey},
+                                        #{cert => SRSACert, key => SRSAKey}]},
+                          {verify, verify_peer},
+                          AllSigAlgs1_2,
+                          {versions, ['tlsv1.2']},
                           {cacerts, SRSACACerts ++ SDSACACerts}],
-        client_config => [{certs_keys, [#{cert => CDSACert, key => CDSAKey}, #{cert => CRSACert, key => CRSAKey}]},
-                          {verify, verify_peer},  {versions, ['tlsv1.2']},
+        client_config => [{certs_keys, [#{cert => CDSACert, key => CDSAKey},
+                                        #{cert => CRSACert, key => CRSAKey}]},
+                          {verify, verify_peer},
+                          {versions, ['tlsv1.2']},
+                          AllSigAlgs1_2,
                           {cacerts, CRSACACerts ++ CDSACACerts}]
-       }, {client_peer, SDSACert}, {server_peer, CDSACert}}];
+       },
+      {client_peer, SDSACert}, {server_peer, CDSACert}}];
 test_config('dtlsv1.2', Config) ->
     #{server_config := SRSAPSSOpts,
       client_config := CRSAPSSOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_pss_pss, [], Config, "dtls_pss_pss_conf"),
@@ -3364,6 +4242,7 @@ test_config('dtlsv1.2', Config) ->
         client_config => [{certs_keys, [#{certfile => CRSAPSSRSAECert, keyfile => CRSAPSSRSAEKey},
                                         #{certfile => CRSAPSSCert, keyfile => CRSAPSSKey}]},
                           {verify, verify_peer},
+                          {signature_algs, [rsa_pss_pss_sha256]},
                           {cacertfile, CRSAPSSCACerts}]
        },
       {client_peer, pem_to_der_cert(SRSAPSSCert)}, {server_peer, pem_to_der_cert(CRSAPSSCert)}},
@@ -3445,8 +4324,17 @@ pem_to_der_cert(Pem) ->
     [{'Certificate', Der, _}] = ssl_test_lib:pem_to_der(Pem),
     Der.
 
-test_sha1_cert_conf('tlsv1.3', #{client_config := ClientOpts, server_config := ServerOpts}, Config) ->
-    ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts], ServerOpts, Config),
+test_sha1_cert_conf('tlsv1.3'= Version, RSA, ECDSA, Config) ->
+    run_sha1_cert_conf(Version, ECDSA, Config, ecdsa_sha1),
+    run_sha1_cert_conf(Version, RSA, Config, rsa_pkcs1_sha1);
+test_sha1_cert_conf(Version, RSA, ECDSA, Config) when Version == 'tlsv1.2';
+                                                      Version == 'dtlsv1.2' ->
+    run_sha1_cert_conf(Version, RSA, Config, {sha, rsa}),
+    run_sha1_cert_conf(Version, ECDSA, Config, {sha, ecdsa});
+test_sha1_cert_conf(Version,RSA,_,Config) ->
+    run_sha1_cert_conf(Version, RSA, Config, undefined).
+
+run_sha1_cert_conf('tlsv1.3', #{client_config := ClientOpts, server_config := ServerOpts}, Config, LegacyAlg) ->
     SigAlgs = [%% ECDSA
                ecdsa_secp521r1_sha512,
                ecdsa_secp384r1_sha384,
@@ -3462,10 +4350,14 @@ test_sha1_cert_conf('tlsv1.3', #{client_config := ClientOpts, server_config := S
                eddsa_ed25519,
                eddsa_ed448
               ],
+    IncludeLegacyAlg =  SigAlgs ++ [LegacyAlg],
     ssl_test_lib:basic_alert([{verify, verify_peer}, {signature_algs,  SigAlgs} | ClientOpts],
-                             [{signature_algs,  SigAlgs ++ [rsa_pkcs1_sha1]} | ServerOpts], Config, handshake_failure);
+                             [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config, handshake_failure),
+    ssl_test_lib:basic_test([{verify, verify_peer}, {signature_algs,  IncludeLegacyAlg} | ClientOpts],
+                                    [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config);
 
-test_sha1_cert_conf('tlsv1.2', #{client_config := ClientOpts, server_config := ServerOpts}, Config) ->
+run_sha1_cert_conf(Version, #{client_config := ClientOpts, server_config := ServerOpts}, Config, LegacyAlg) when Version == 'tlsv1.2';
+                                                                                                                 Version == 'dtlsv1.2' ->
     SigAlgs =  [%% SHA2
                 {sha512, ecdsa},
                 {sha512, rsa},
@@ -3474,13 +4366,13 @@ test_sha1_cert_conf('tlsv1.2', #{client_config := ClientOpts, server_config := S
                 {sha256, ecdsa},
                 {sha256, rsa},
                 {sha224, ecdsa},
-                {sha224, rsa},
-                %% SHA
-                {sha, ecdsa},
-                {sha, rsa},
-                {sha, dsa}],
-    ssl_test_lib:basic_test( [{verify, verify_peer}, {signature_algs,  SigAlgs} | ClientOpts],
-                             [{signature_algs,  SigAlgs} | ServerOpts], Config);
+                {sha224, rsa}],
+    IncludeLegacyAlg = SigAlgs ++ [LegacyAlg],
+    ssl_test_lib:basic_test( [{verify, verify_peer}, {signature_algs,  IncludeLegacyAlg} | ClientOpts],
+                             [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config);
+run_sha1_cert_conf(_, #{client_config := ClientOpts, server_config := ServerOpts}, Config, LegacyAlg) ->
+    NVersion = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    SigOpts = ssl_test_lib:sig_algs(LegacyAlg, NVersion),
+    ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts] ++ SigOpts, ServerOpts, Config).
 
-test_sha1_cert_conf(_, #{client_config := ClientOpts, server_config := ServerOpts}, Config) ->
-    ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts], ServerOpts, Config).
+

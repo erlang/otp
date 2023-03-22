@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -160,3 +160,4 @@
     name => ?CT_PEER_NAME(atom_to_list(?FUNCTION_NAME) ++ Kind),
     args => ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"]
 })).
+-define(STOP_PEER(__P__), peer:stop(__P__)).

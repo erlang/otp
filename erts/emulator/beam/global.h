@@ -122,11 +122,16 @@ extern void erts_add_taint(Eterm mod_atom);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 
-/* Loads the specified NIF. The caller must have code write permission. */
+/* Loads the specified NIF. The caller must have code modification
+ * permission. */
 Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args);
 
 void erts_unload_nif(struct erl_module_nif* nif);
 extern void erl_nif_init(void);
+extern void erts_nif_sched_init(ErtsSchedulerData *esdp);
+extern void erts_nif_execute_on_halt(void);
+extern void erts_nif_notify_halt(void);
+extern void erts_nif_wait_calls(void);
 extern int erts_nif_get_funcs(struct erl_module_nif*,
                               struct enif_func_t **funcs);
 extern Module *erts_nif_get_module(struct erl_module_nif*);
@@ -1044,9 +1049,9 @@ double erts_get_positive_zero_float(void);
 
 /* config.c */
 
-__decl_noreturn void __noreturn erts_exit_epilogue(void);
+__decl_noreturn void __noreturn erts_exit_epilogue(int flush);
 __decl_noreturn void __noreturn erts_exit(int n, const char*, ...);
-__decl_noreturn void __noreturn erts_flush_async_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erts_flush_exit(int n, char*, ...);
 void erl_error(const char*, va_list);
 
 /* This controls whether sharing-preserving copy is used by Erlang */
@@ -1142,10 +1147,10 @@ Uint size_shared(Eterm);
 
 #ifdef ERTS_COPY_REGISTER_LOCATION
 
-#define copy_shared_perform(U, V, X, Y, Z) \
-    copy_shared_perform_x((U), (V), (X), (Y), (Z), __FILE__, __LINE__)
 Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*,
                             char *file, int line);
+#define copy_shared_perform(U, V, X, Y, Z) \
+    copy_shared_perform_x((U), (V), (X), (Y), (Z), __FILE__, __LINE__)
 
 Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*,
                     char *file, int line);
@@ -1154,16 +1159,21 @@ Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_
 #define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
     copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea,__FILE__,__LINE__)
 
+Eterm* copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*,
+                     char *file, int line);
 #define copy_shallow(R, SZ, HPP, OH) \
     copy_shallow_x((R), (SZ), (HPP), (OH), __FILE__, __LINE__)
-Eterm copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*,
+
+Eterm copy_shallow_obj_x(Eterm, Uint, Eterm**, ErlOffHeap*,
                      char *file, int line);
+#define copy_shallow_obj(R, SZ, HPP, OH) \
+    copy_shallow_obj_x((R), (SZ), (HPP), (OH), __FILE__, __LINE__)
 
 #else
 
+Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 #define copy_shared_perform(U, V, X, Y, Z) \
     copy_shared_perform_x((U), (V), (X), (Y), (Z))
-Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 
 Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*);
 #define copy_struct(Obj,Sz,HPP,OH) \
@@ -1171,9 +1181,13 @@ Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_
 #define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
     copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea)
 
+Eterm* copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
 #define copy_shallow(R, SZ, HPP, OH) \
     copy_shallow_x((R), (SZ), (HPP), (OH))
-Eterm copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
+
+Eterm copy_shallow_obj_x(Eterm, Uint, Eterm**, ErlOffHeap*);
+#define copy_shallow_obj(R, SZ, HPP, OH) \
+    copy_shallow_obj_x((R), (SZ), (HPP), (OH))
 
 #endif
 
@@ -1452,6 +1466,7 @@ Eterm erts_debug_persistent_term_xtra_info(Process* c_p);
 
 /* external.c */
 void erts_init_external(void);
+void erts_late_init_external(void);
 
 /* erl_map.c */
 void erts_init_map(void);
@@ -1506,7 +1521,7 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 
 void bin_write(fmtfn_t, void*, byte*, size_t);
 Sint intlist_to_buf(Eterm, char*, Sint); /* most callers pass plain char*'s */
-int erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written);
+int erts_unicode_list_to_buf(Eterm list, byte *buf, Sint capacity, Sint len, Sint* written);
 Sint erts_unicode_list_to_buf_len(Eterm list);
 
 int Sint_to_buf(Sint num, int base, char **buf_p, size_t buf_size);

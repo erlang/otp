@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -886,6 +886,9 @@ resolve(Config) when is_list(Config) ->
 	 {ptr,"c.1.0.0.0.0.f.7."++RDomain6,[{ptr,Name}],undefined},
 	 {hinfo,Name,[{hinfo,{"BEAM","Erlang/OTP"}}],undefined},
 	 {mx,RDomain4,[{mx,{10,"mx."++Domain}}],undefined},
+         {loc,"loc."++Name,
+          [{loc,{{42.0625,13.125},17.0,100.0,{10000.0,10.0}}}],
+          undefined},
 	 {srv,"_srv._tcp."++Name,[{srv,{10,3,4711,Name}}],undefined},
 	 {naptr,"naptr."++Name,
 	  [{naptr,{10,5,"s","http","","_srv._tcp."++Name}}],

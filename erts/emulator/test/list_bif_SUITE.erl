@@ -50,14 +50,21 @@ t_list_to_integer(Config) when is_list(Config) ->
     12373 = (catch list_to_integer("12373")),
     -12373 =  (catch list_to_integer("-12373")),
     12373 = (catch list_to_integer("+12373")),
-    {'EXIT',{badarg,_}} = ( catch list_to_integer(abc)),
+    {'EXIT',{badarg,_}} = (catch list_to_integer(abc)),
     {'EXIT',{badarg,_}} = (catch list_to_integer("")),
     {12373281903728109372810937209817320981321,"ABC"} = string:to_integer("12373281903728109372810937209817320981321ABC"),
     {-12373281903728109372810937209817320981321,"ABC"} = string:to_integer("-12373281903728109372810937209817320981321ABC"),
     {12,[345]} = string:to_integer([$1,$2,345]),
-    {error, badarg} = string:to_integer([$1,$2,a]),
+    {error,badarg} = string:to_integer([$1,$2,a]),
     {error,no_integer} = string:to_integer([$A]),
     {error,badarg} = string:to_integer($A),
+
+    %% System limit.
+    Digits = lists:duplicate(11_000_000, $9),
+    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits),
+    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits, 16),
+    {error,system_limit} = string:to_integer(Digits),
+
     ok.
 
 %% Test hd/1 with correct and incorrect arguments.

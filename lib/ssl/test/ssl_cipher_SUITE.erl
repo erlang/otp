@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,9 +74,17 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(_TestCase, Config) ->
     ct:timetrap({seconds, 5}),
-    Config.
+    _ = application:load(ssl),
+    Previous = case logger:get_module_level(ssl) of
+                   [] -> notice;
+                   [{ssl,P}] -> P
+               end,
+    ok = logger:set_application_level(ssl, debug),
+    [{app_log_level, Previous}|Config].
 
 end_per_testcase(_TestCase, Config) ->
+    Previous = proplists:get_value(app_log_level, Config),
+    logger:set_application_level(ssl, Previous),
     Config.
 
 %%--------------------------------------------------------------------

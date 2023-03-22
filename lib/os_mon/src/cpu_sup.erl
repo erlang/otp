@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -495,9 +495,6 @@ measurement_server_init() ->
 
 measurement_server_loop(State) ->
     receive
-	{_, quit} ->
-	    State#internal.port ! {self(), ?quit}, 
-	    ok;
 	{'DOWN',Monitor,process,_,_} ->
 	    measurement_server_loop(State#internal{ util = lists:keydelete(
 		Monitor,
@@ -528,6 +525,14 @@ measurement_server_loop(State) ->
         {'EXIT', OldPid, _n} when State#internal.port == OldPid ->
 	    {ok, NewPid} = port_server_start_link(),
 	    measurement_server_loop(State#internal{port = NewPid});
+        {'EXIT', _, normal} ->
+            case State#internal.port of
+                not_used ->
+                    ok;
+                Srv ->
+                    Srv ! {self(), ?quit},
+                    ok
+            end;
 	_Other ->
 	    measurement_server_loop(State)
     end.

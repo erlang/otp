@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -124,7 +124,9 @@
            precision    := 'none' | integer(),
            pad_char     := char(),
            encoding     := 'unicode' | 'latin1',
-           strings      := boolean()
+           strings      := boolean(),
+           % `maps_order` has been added since OTP26 and is optional
+           maps_order   => maps:iterator_order()
          }.
 
 %%----------------------------------------------------------------------
@@ -322,7 +324,7 @@ add_modifier(_, C) ->
       Term :: term().
 
 write(Term) ->
-    write1(Term, -1, latin1).
+    write1(Term, -1, latin1, undefined).
 
 -spec write(term(), depth(), boolean()) -> chars().
 
@@ -347,64 +349,65 @@ write(Term, Options) when is_list(Options) ->
     Depth = get_option(depth, Options, -1),
     Encoding = get_option(encoding, Options, epp:default_encoding()),
     CharsLimit = get_option(chars_limit, Options, -1),
+    MapsOrder = get_option(maps_order, Options, undefined),
     if
         Depth =:= 0; CharsLimit =:= 0 ->
             "...";
-        CharsLimit < 0 ->
-            write1(Term, Depth, Encoding);
-        CharsLimit > 0 ->
+        is_integer(CharsLimit), CharsLimit < 0, is_integer(Depth) ->
+            write1(Term, Depth, Encoding, MapsOrder);
+        is_integer(CharsLimit), CharsLimit > 0 ->
             RecDefFun = fun(_, _) -> no end,
             If = io_lib_pretty:intermediate
-                 (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false),
+                 (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false, MapsOrder),
             io_lib_pretty:write(If)
     end;
 write(Term, Depth) ->
     write(Term, [{depth, Depth}, {encoding, latin1}]).
 
-write1(_Term, 0, _E) -> "...";
-write1(Term, _D, _E) when is_integer(Term) -> integer_to_list(Term);
-write1(Term, _D, _E) when is_float(Term) -> io_lib_format:fwrite_g(Term);
-write1(Atom, _D, latin1) when is_atom(Atom) -> write_atom_as_latin1(Atom);
-write1(Atom, _D, _E) when is_atom(Atom) -> write_atom(Atom);
-write1(Term, _D, _E) when is_port(Term) -> write_port(Term);
-write1(Term, _D, _E) when is_pid(Term) -> pid_to_list(Term);
-write1(Term, _D, _E) when is_reference(Term) -> write_ref(Term);
-write1(<<_/bitstring>>=Term, D, _E) -> write_binary(Term, D);
-write1([], _D, _E) -> "[]";
-write1({}, _D, _E) -> "{}";
-write1([H|T], D, E) ->
+write1(_Term, 0, _E, _O) -> "...";
+write1(Term, _D, _E, _O) when is_integer(Term) -> integer_to_list(Term);
+write1(Term, _D, _E, _O) when is_float(Term) -> io_lib_format:fwrite_g(Term);
+write1(Atom, _D, latin1, _O) when is_atom(Atom) -> write_atom_as_latin1(Atom);
+write1(Atom, _D, _E, _O) when is_atom(Atom) -> write_atom(Atom);
+write1(Term, _D, _E, _O) when is_port(Term) -> write_port(Term);
+write1(Term, _D, _E, _O) when is_pid(Term) -> pid_to_list(Term);
+write1(Term, _D, _E, _O) when is_reference(Term) -> write_ref(Term);
+write1(<<_/bitstring>>=Term, D, _E, _O) -> write_binary(Term, D);
+write1([], _D, _E, _O) -> "[]";
+write1({}, _D, _E, _O) -> "{}";
+write1([H|T], D, E, O) ->
     if
 	D =:= 1 -> "[...]";
 	true ->
-	    [$[,[write1(H, D-1, E)|write_tail(T, D-1, E)],$]]
+	    [$[,[write1(H, D-1, E, O)|write_tail(T, D-1, E, O)],$]]
     end;
-write1(F, _D, _E) when is_function(F) ->
+write1(F, _D, _E, _O) when is_function(F) ->
     erlang:fun_to_list(F);
-write1(Term, D, E) when is_map(Term) ->
-    write_map(Term, D, E);
-write1(T, D, E) when is_tuple(T) ->
+write1(Term, D, E, O) when is_map(Term) ->
+    write_map(Term, D, E, O);
+write1(T, D, E, O) when is_tuple(T) ->
     if
 	D =:= 1 -> "{...}";
 	true ->
 	    [${,
-	     [write1(element(1, T), D-1, E)|write_tuple(T, 2, D-1, E)],
+	     [write1(element(1, T), D-1, E, O)|write_tuple(T, 2, D-1, E, O)],
 	     $}]
     end.
 
 %% write_tail(List, Depth, Encoding)
 %%  Test the terminating case first as this looks better with depth.
 
-write_tail([], _D, _E) -> "";
-write_tail(_, 1, _E) -> [$| | "..."];
-write_tail([H|T], D, E) ->
-    [$,,write1(H, D-1, E)|write_tail(T, D-1, E)];
-write_tail(Other, D, E) ->
-    [$|,write1(Other, D-1, E)].
+write_tail([], _D, _E, _O) -> "";
+write_tail(_, 1, _E, _O) -> [$| | "..."];
+write_tail([H|T], D, E, O) ->
+    [$,,write1(H, D-1, E, O)|write_tail(T, D-1, E, O)];
+write_tail(Other, D, E, O) ->
+    [$|,write1(Other, D-1, E, O)].
 
-write_tuple(T, I, _D, _E) when I > tuple_size(T) -> "";
-write_tuple(_, _I, 1, _E) -> [$, | "..."];
-write_tuple(T, I, D, E) ->
-    [$,,write1(element(I, T), D-1, E)|write_tuple(T, I+1, D-1, E)].
+write_tuple(T, I, _D, _E, _O) when I > tuple_size(T) -> "";
+write_tuple(_, _I, 1, _E, _O) -> [$, | "..."];
+write_tuple(T, I, D, E, O) ->
+    [$,,write1(element(I, T), D-1, E, O)|write_tuple(T, I+1, D-1, E, O)].
 
 write_port(Port) ->
     erlang:port_to_list(Port).
@@ -412,34 +415,34 @@ write_port(Port) ->
 write_ref(Ref) ->
     erlang:ref_to_list(Ref).
 
-write_map(_, 1, _E) -> "#{}";
-write_map(Map, D, E) when is_integer(D) ->
-    I = maps:iterator(Map),
+write_map(_, 1, _E, _O) -> "#{}";
+write_map(Map, D, E, O) when is_integer(D) ->
+    I = maps:iterator(Map, O),
     case maps:next(I) of
         {K, V, NextI} ->
             D0 = D - 1,
-            W = write_map_assoc(K, V, D0, E),
-            [$#,${,[W | write_map_body(NextI, D0, D0, E)],$}];
+            W = write_map_assoc(K, V, D0, E, O),
+            [$#,${,[W | write_map_body(NextI, D0, D0, E, O)],$}];
         none -> "#{}"
     end.
 
-write_map_body(_, 1, _D0, _E) -> ",...";
-write_map_body(I, D, D0, E) ->
+write_map_body(_, 1, _D0, _E, _O) -> ",...";
+write_map_body(I, D, D0, E, O) ->
     case maps:next(I) of
         {K, V, NextI} ->
-            W = write_map_assoc(K, V, D0, E),
-            [$,,W|write_map_body(NextI, D - 1, D0, E)];
+            W = write_map_assoc(K, V, D0, E, O),
+            [$,,W|write_map_body(NextI, D - 1, D0, E, O)];
         none -> ""
     end.
 
-write_map_assoc(K, V, D, E) ->
-    [write1(K, D, E)," => ",write1(V, D, E)].
+write_map_assoc(K, V, D, E, O) ->
+    [write1(K, D, E, O)," => ",write1(V, D, E, O)].
 
 write_binary(B, D) when is_integer(D) ->
     {S, _} = write_binary(B, D, -1),
     S.
 
-write_binary(B, D, T) ->
+write_binary(B, D, T) when is_integer(T) ->
     {S, Rest} = write_binary_body(B, D, tsub(T, 4), []),
     {[$<,$<,lists:reverse(S),$>,$>], Rest}.
 
@@ -509,15 +512,16 @@ quote_atom(Atom, Cs0) ->
 	true -> true;
 	false ->
 	    case Cs0 of
-		[C|Cs] when C >= $a, C =< $z ->
+		[C|Cs] when is_integer(C), C >= $a, C =< $z ->
 		    not name_chars(Cs);
-		[C|Cs] when C >= $ß, C =< $ÿ, C =/= $÷ ->
+		[C|Cs] when is_integer(C), C >= $ß, C =< $ÿ, C =/= $÷ ->
 		    not name_chars(Cs);
-		_ -> true
+		[C|_] when is_integer(C) -> true;
+                [] -> true
 	    end
     end.
 
-name_chars([C|Cs]) ->
+name_chars([C|Cs]) when is_integer(C) ->
     case name_char(C) of
 	true -> name_chars(Cs);
 	false -> false
@@ -580,7 +584,7 @@ write_string_as_latin1(S, Q) ->
 
 write_string1(_,[], Q) ->
     [Q];
-write_string1(Enc,[C|Cs], Q) ->
+write_string1(Enc,[C|Cs], Q) when is_integer(C) ->
     string_char(Enc,C, Q, write_string1(Enc,Cs, Q)).
 
 string_char(_,Q, Q, Tail) -> [$\\,Q|Tail];	%Must check these first!
@@ -803,53 +807,45 @@ collect_chars(Tag, Data, N) ->
     collect_chars(Tag, Data, latin1, N).
 
 %% Now we are aware of encoding...    
-collect_chars(start, Data, unicode, N) when is_binary(Data) ->
+collect_chars(start, Data, unicode, N) when is_binary(Data), is_integer(N) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
-    if Size > N ->
+    if Size >= N ->
 	    {B1,B2} = split_binary(Data, Npos),
 	    {stop,B1,B2};
        Size < N ->
-	    {binary,[Data],N-Size};
-       true ->
-	    {stop,Data,eof}
+	    {binary,[Data],N-Size}
     end;
-collect_chars(start, Data, latin1, N) when is_binary(Data) ->
+collect_chars(start, Data, latin1, N) when is_binary(Data), is_integer(N) ->
     Size = byte_size(Data),
-    if Size > N ->
+    if Size >= N ->
 	    {B1,B2} = split_binary(Data, N),
 	    {stop,B1,B2};
        Size < N ->
-	    {binary,[Data],N-Size};
-       true ->
-	    {stop,Data,eof}
+	    {binary,[Data],N-Size}
     end;
-collect_chars(start,Data,_,N) when is_list(Data) ->
+collect_chars(start,Data,_,N) when is_list(Data), is_integer(N) ->
     collect_chars_list([], N, Data);
 collect_chars(start, eof, _,_) ->
     {stop,eof,eof};
 collect_chars({binary,Stack,_N}, eof, _,_) ->
     {stop,binrev(Stack),eof};
-collect_chars({binary,Stack,N}, Data,unicode, _) ->
+collect_chars({binary,Stack,N}, Data,unicode, _) when is_integer(N) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
-    if Size > N ->
+    if Size >= N ->
 	    {B1,B2} = split_binary(Data, Npos),
 	    {stop,binrev(Stack, [B1]),B2};
        Size < N ->
-	    {binary,[Data|Stack],N-Size};
-       true ->
-	    {stop,binrev(Stack, [Data]),eof}
+	    {binary,[Data|Stack],N-Size}
     end;
-collect_chars({binary,Stack,N}, Data,latin1, _) ->
+collect_chars({binary,Stack,N}, Data,latin1, _) when is_integer(N) ->
     Size = byte_size(Data),
-    if Size > N ->
+    if Size >= N ->
 	    {B1,B2} = split_binary(Data, N),
 	    {stop,binrev(Stack, [B1]),B2};
        Size < N ->
-	    {binary,[Data|Stack],N-Size};
-       true ->
-	    {stop,binrev(Stack, [Data]),eof}
+	    {binary,[Data|Stack],N-Size}
     end;
-collect_chars({list,Stack,N}, Data, _,_) ->
+collect_chars({list,Stack,N}, Data, _,_) when is_integer(N) ->
     collect_chars_list(Stack, N, Data);
 
 %% collect_chars(Continuation, MoreChars, Count)
@@ -857,9 +853,9 @@ collect_chars({list,Stack,N}, Data, _,_) ->
 %%	{done,Result,RestChars}
 %%	{more,Continuation}
 
-collect_chars([], Chars, _, N) ->
+collect_chars([], Chars, _, N) when is_integer(N) ->
     collect_chars1(N, Chars, []);
-collect_chars({Left,Sofar}, Chars, _, _N) ->
+collect_chars({Left,Sofar}, Chars, _, _N) when is_integer(Left) ->
     collect_chars1(Left, Chars, Sofar).
 
 collect_chars1(N, Chars, Stack) when N =< 0 ->
@@ -991,13 +987,13 @@ binrev(L) ->
 binrev(L, T) ->
     list_to_binary(lists:reverse(L, T)).
 
--spec limit_term(term(), non_neg_integer()) -> term().
+-spec limit_term(term(), depth()) -> term().
 
 %% The intention is to mimic the depth limitation of io_lib:write()
 %% and io_lib_pretty:print(). The leaves ('...') should never be
 %% seen when printed with the same depth. Bitstrings are never
 %% truncated, which is OK as long as they are not sent to other nodes.
-limit_term(Term, Depth) ->
+limit_term(Term, Depth) when is_integer(Depth), Depth >= -1 ->
     try test_limit(Term, Depth) of
         ok -> Term
     catch

@@ -31,11 +31,6 @@
 -define(HTTP_MAX_METHOD_STRING, 20).
 -define(HTTP_MAX_CONTENT_LENGTH, 100000000).
 
--ifndef(HTTP_DEFAULT_SSL_KIND).
--define(HTTP_DEFAULT_SSL_KIND, essl).
--endif. % -ifdef(HTTP_DEFAULT_SSL_KIND).
-
-
 %%% Response headers
 -record(http_response_h,{
 %%% --- Standard "General" headers

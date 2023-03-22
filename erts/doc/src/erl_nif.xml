@@ -171,11 +171,37 @@ $> erl
           to query terms, like <c>enif_is_atom</c>, <c>enif_is_identical</c>,
           and <c>enif_compare</c>.</p>
         <p>All terms of type <c>ERL_NIF_TERM</c> belong to an environment of
-          type <seecref marker="#ErlNifEnv"><c>ErlNifEnv</c></seecref>. The
-          lifetime of a term is controlled by the lifetime of its environment
-          object. All API functions that read or write terms has the
-          environment that the term belongs to as the first function
-          argument.</p>
+          type <seecref marker="#ErlNifEnv"><c>ErlNifEnv</c></seecref>,
+          except atoms created during loading (by callbacks
+          <seecref marker="#load"><c>load</c></seecref> or
+          <seecref marker="#upgrade"><c>upgrade</c></seecref>). The lifetime of
+          a term is controlled by the lifetime of its environment object. All
+          API functions that read or write terms have the environment that the
+          term belongs to as the first function argument. However, the atoms
+          created during loading can be referred as a term in any <c>ErlNifEnv</c>.
+          That is, the best practice it to create all your atoms during
+          loading and store them in static/global variables, for example:</p>
+          <code type="none"><![CDATA[
+#include <erl_nif.h>
+
+ERL_NIF_TERM world_atom;
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    world_atom = enif_make_atom(env, "world");
+    return 0;
+}
+
+static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM hello_string = enif_make_string(env, "Hello", ERL_NIF_LATIN1);
+    return enif_make_tuple2(env, hello_string, world_atom);
+}
+
+static ErlNifFunc nif_funcs[] = { { "hello", 0, hello } };
+
+ERL_NIF_INIT(niftest, nif_funcs, load, NULL, NULL, NULL)
+]]></code>
       </item>
       <tag>Binaries</tag>
       <item>
@@ -785,6 +811,41 @@ typedef struct {
 	  To compare two monitors, <seecref marker="#enif_compare_monitors">
           <c>enif_compare_monitors</c></seecref> must be used.</p>
       </item>
+      <tag><marker id="ErlNifOnHaltCallback"/><c>ErlNifOnHaltCallback</c></tag>
+      <item>
+        <code type="none">
+typedef void ErlNifOnHaltCallback(void *priv_data);</code>
+        <p>
+          The function prototype of an <i>on halt</i> callback function.
+        </p>
+	<p>
+          An <i>on halt</i> callback can be installed using
+          <seecref marker="#on_halt"><c>enif_set_option()</c></seecref>. Such
+          an installed callback will be called when the runtime system is
+          halting.
+        </p>
+      </item>
+      <tag><marker id="ErlNifOption"/><c>ErlNifOption</c></tag>
+      <item>
+        <p>
+          An enumeration of the options that can be set using
+          <seecref marker="#enif_set_option"><c>enif_set_option()</c></seecref>.
+        </p>
+        <p>Currently valid options:</p>
+        <taglist>
+          <tag><seecref marker="#delay_halt"><c>ERL_NIF_OPT_DELAY_HALT</c></seecref></tag>
+          <item><p>
+            Enable delay of runtime system halt with flushing enabled until
+            all calls to NIFs in the NIF library have returned.
+          </p></item>
+          <tag><seecref marker="#on_halt"><c>ERL_NIF_OPT_ON_HALT</c></seecref></tag>
+          <item><p>
+            Install a callback that will be called when the runtime system
+            halts with flushing enabled.
+          </p></item>
+        </taglist>
+      </item>
+
       <tag><marker id="ErlNifPid"/><c>ErlNifPid</c></tag>
       <item>
         <p>A process identifier (pid). In contrast to pid terms (instances of
@@ -869,11 +930,12 @@ typedef void ErlNifResourceDynCall(ErlNifEnv* caller_env, void* obj, void* call_
       <item>
         <code type="none">
 typedef enum {
-    ERL_NIF_LATIN1
+    ERL_NIF_LATIN1,
+    ERL_NIF_UTF8,
 }ErlNifCharEncoding;</code>
         <p>The character encoding used in strings and atoms. The only
-          supported encoding is <c>ERL_NIF_LATIN1</c> for
-          ISO Latin-1 (8-bit ASCII).</p>
+          supported encodings are <c>ERL_NIF_LATIN1</c> for
+          ISO Latin-1 (8-bit ASCII) and <c>ERL_NIF_UTF8</c> for UTF-8.</p>
       </item>
       <tag><marker id="ErlNifSysInfo"/><c>ErlNifSysInfo</c></tag>
       <item>
@@ -1395,32 +1457,32 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_atom(ErlNifEnv* env, ERL_NIF_TERM
-        term, char* buf, unsigned size, ErlNifCharEncoding encode)</nametext>
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_atom(ErlNifEnv *env, ERL_NIF_TERM
+        term, char *buf, unsigned size, ErlNifCharEncoding encoding)</nametext>
       </name>
       <fsummary>Get the text representation of an atom term.</fsummary>
       <desc>
         <p>Writes a <c>NULL</c>-terminated string in the buffer pointed to by
-          <c>buf</c> of size <c>size</c>, consisting of the string
-          representation of the atom <c>term</c> with encoding
-          <seecref marker="#ErlNifCharEncoding">encode</seecref>.</p>
+          <c>buf</c> of size <c>size</c> bytes, consisting of the string
+          representation of the atom <c>term</c> with
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
         <p>Returns the number of bytes written (including terminating
           <c>NULL</c> character) or <c>0</c> if <c>term</c> is not an atom with
-           maximum length of <c>size-1</c>.</p>
+           maximum length of <c>size-1</c> bytes in <c>encoding</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R14B"><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv* env,
-        ERL_NIF_TERM term, unsigned* len, ErlNifCharEncoding encode)</nametext>
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv *env,
+        ERL_NIF_TERM term, unsigned *len, ErlNifCharEncoding encoding)</nametext>
       </name>
       <fsummary>Get the length of atom <c>term</c>.</fsummary>
       <desc>
         <p>Sets <c>*len</c> to the length (number of bytes excluding
           terminating <c>NULL</c> character) of the atom <c>term</c> with
-          encoding <c>encode</c>.</p>
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
         <p>Returns <c>true</c> on success, or <c>false</c> if <c>term</c> is not
-          an atom.</p>
+          an atom or if the atom cannot be encoded using <c>encoding</c>.</p>
       </desc>
     </func>
 
@@ -1562,13 +1624,13 @@ enif_free_iovec(iovec);]]></code>
     <func>
       <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_string(ErlNifEnv* env,
         ERL_NIF_TERM list, char* buf, unsigned size,
-        ErlNifCharEncoding encode)</nametext></name>
+        ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Get a C-string from a list.</fsummary>
       <desc>
         <p>Writes a <c>NULL</c>-terminated string in the buffer pointed to by
           <c>buf</c> with size <c>size</c>, consisting of the characters
-          in the string <c>list</c>. The characters are written using encoding
-          <seecref marker="#ErlNifCharEncoding">encode</seecref>.</p>
+          in the string <c>list</c>. The characters are written using
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
         <p>Returns one of the following:</p>
         <list type="bulleted">
           <item>The number of bytes written (including terminating <c>NULL</c>
@@ -1576,10 +1638,25 @@ enif_free_iovec(iovec);]]></code>
           <item><c>-size</c> if the string was truncated because of buffer
             space</item>
           <item><c>0</c> if <c>list</c> is not a string that can be encoded
-            with <c>encode</c> or if <c>size</c> was &lt; <c>1</c>.</item>
+            with <c>encoding</c> or if <c>size</c> was &lt; <c>1</c>.</item>
         </list>
         <p>The written string is always <c>NULL</c>-terminated, unless buffer
           <c>size</c> is &lt; <c>1</c>.</p>
+      </desc>
+    </func>
+
+
+    <func>
+      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_get_string_length(ErlNifEnv *env,
+        ERL_NIF_TERM list, unsigned *len, ErlNifCharEncoding encoding)</nametext>
+      </name>
+      <fsummary>Get the length of a C-string <c>list</c>.</fsummary>
+      <desc>
+        <p>Sets <c>*len</c> to the length (number of bytes excluding
+          terminating <c>NULL</c> character) of the string <c>list</c> with
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if <c>list</c> is not
+          a string that can be encoded with <c>encoding</c>.</p>
       </desc>
     </func>
 
@@ -2029,7 +2106,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
 
     <func>
       <name since=""><ret>ERL_NIF_TERM</ret>
-        <nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext>
+        <nametext>enif_make_atom(ErlNifEnv *env, const char *name)</nametext>
       </name>
       <fsummary>Create an atom term.</fsummary>
       <desc>
@@ -2042,16 +2119,16 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env,
-        const char* name, size_t len)</nametext></name>
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv *env,
+        const char *name, size_t len)</nametext></name>
       <fsummary>Create an atom term.</fsummary>
       <desc>
         <p>Create an atom term from the string <c>name</c> with length
-          <c>len</c>. <c>NULL</c> characters are treated as any other
-          characters. If <c>len</c> exceeds the maximum length
-          allowed for an atom (255 characters), <c>enif_make_atom</c> invokes
-          <seecref marker="#enif_make_badarg">
-          <c>enif_make_badarg</c></seecref>.</p>
+          <c>len</c> and ISO Latin-1 encoding. <c>NULL</c> characters are
+	  treated as any other characters. If <c>len</c> exceeds the maximum
+	  length allowed for an atom (255 characters), <c>enif_make_atom</c>
+	  invokes <seecref marker="#enif_make_badarg"><c>enif_make_badarg</c>
+	  </seecref>.</p>
       </desc>
     </func>
 
@@ -2120,35 +2197,37 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP R13B04"><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env,
-        const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding
-        encode)</nametext></name>
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv *env,
+        const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding
+        encoding)</nametext></name>
       <fsummary>Create an existing atom term.</fsummary>
       <desc>
         <p>Tries to create the term of an already existing atom from
-          the <c>NULL</c>-terminated C-string <c>name</c> with encoding
-          <seecref marker="#ErlNifCharEncoding">encode</seecref>.</p>
+          the <c>NULL</c>-terminated C-string <c>name</c> with
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
         <p>If the atom already exists, this function stores the term in
-          <c>*atom</c> and returns <c>true</c>, otherwise <c>false</c>.
-          Also returns <c>false</c> if the length of <c>name</c> exceeds the
-          maximum length allowed for an atom (255 characters).</p>
+          <c>*atom</c> and returns <c>true</c>, otherwise returns <c>false</c>.
+          It also returns <c>false</c> if the string <c>name</c> exceeds the
+          maximum length allowed for an atom (255 characters) or if <c>name</c>
+	  is not correctly encoded.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R14B"><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env,
-        const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv *env,
+        const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create an existing atom term.</fsummary>
       <desc>
         <p>Tries to create the term of an already existing atom from the
-          string <c>name</c> with length <c>len</c> and encoding
-          <seecref marker="#ErlNifCharEncoding">encode</seecref>. <c>NULL</c>
+          string <c>name</c> with length <c>len</c> bytes and
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>. <c>NULL</c>
           characters are treated as any other characters.</p>
         <p>If the atom already exists, this function stores the term in
-          <c>*atom</c> and returns <c>true</c>, otherwise <c>false</c>.
-          Also returns <c>false</c> if <c>len</c> exceeds the maximum length
-          allowed for an atom (255 characters).</p>
+          <c>*atom</c> and returns <c>true</c>, otherwise returns <c>false</c>.
+          It also returns <c>false</c> if the string <c>name</c> exceeds the
+          maximum length allowed for an atom (255 characters) or if <c>name</c>
+	  is not correctly encoded.</p>
       </desc>
     </func>
 
@@ -2316,6 +2395,40 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
+      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom(ErlNifEnv *env,
+        const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding
+        encoding)</nametext></name>
+      <fsummary>Create a new or existing atom term.</fsummary>
+      <desc>
+        <p>Creates an atom term from the <c>NULL</c>-terminated C-string
+          <c>name</c> with
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
+        <p>If successful, <c>true</c> is returned and the atom term is stored in
+          <c>*atom</c>.</p>
+        <p>Otherwise, <c>false</c> is returned if the length of <c>name</c>
+          exceeds the maximum length allowed for an atom (255 characters)
+	  or if <c>name</c> is not correctly encoded.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom_len(ErlNifEnv *env,
+        const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding
+        encoding)</nametext></name>
+      <fsummary>Create a new or existing atom term.</fsummary>
+      <desc>
+        <p>Create an atom term from string <c>name</c> with
+          length <c>len</c> bytes and
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
+        <p>If successful, <c>true</c> is returned and atom term is stored in
+          <c>*atom</c>.</p>
+        <p>Otherwise, <c>false</c> is returned if the string exceeds the maximum
+	  length allowed for an atom (255 characters) or if the string is not
+	  correctly encoded.</p>
+      </desc>
+    </func>
+
+    <func>
       <name since="OTP R14B"><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv*
         env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
       <fsummary>Allocate and create a new binary term.</fsummary>
@@ -2452,24 +2565,24 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env,
-        const char* string, ErlNifCharEncoding encoding)</nametext></name>
+      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv *env,
+        const char *string, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
       <desc>
         <p>Creates a list containing the characters of the
-          <c>NULL</c>-terminated string <c>string</c> with encoding
+          <c>NULL</c>-terminated string <c>string</c> with
           <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv*
-        env, const char* string, size_t len, ErlNifCharEncoding
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv
+        *env, const char *string, size_t len, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
       <desc>
         <p>Creates a list containing the characters of the string <c>string</c>
-          with length <c>len</c> and encoding
+          with length <c>len</c> and
           <seecref marker="#ErlNifCharEncoding">encoding</seecref>.
           <c>NULL</c> characters are treated as any other characters.</p>
       </desc>
@@ -3409,6 +3522,146 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
           <p>Passing <c>msg_env</c> as <c>NULL</c> is only supported as from
             ERTS 8.0 (Erlang/OTP 19).</p>
         </note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-17771@">
+        <ret>int</ret><nametext>enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...)</nametext>
+      </name>
+      <fsummary>
+        Set an option.
+      </fsummary>
+      <desc>
+        <marker id="enif_set_option"/>
+        <p>
+          Set an option. On success, zero will be returned. On failure, a non
+          zero value will be returned. Currently the following options can be set:
+        </p>
+        <taglist>
+          <tag><marker id="delay_halt"/>
+          <c>int enif_set_option(ErlNifEnv *env,
+          </c><seecref marker="#ErlNifOption"><c>ERL_NIF_OPT_DELAY_HALT</c></seecref><c>)</c>
+          </tag>
+          <item>
+            <p>
+              Enable delay of runtime system halt with flushing enabled until
+              all calls to NIFs in the NIF library have returned. If the
+              <i>delay halt</i> feature has not been enabled, a halt with
+              flushing enabled may complete even though processes are still
+              executing inside NIFs in the NIF library. Note that by
+              <i>returning</i> we here mean the first point where the NIF
+              returns control back to the runtime system, and <em>not</em> the
+              point where a call to a NIF return a value back to the Erlang
+              code that called the NIF. That is, if you schedule execution of
+              a NIF, using <seecref marker="#enif_schedule_nif">
+              <c>enif_schedule_nif()</c></seecref>, from within a NIF while
+              the system is halting, the scheduled NIF call will <em>not</em>
+              be executed even though <i>delay halt</i> has been enabled for
+              the NIF library.
+            </p>
+            <p>
+              The runtime system halts when one of the
+              <seemfa marker="erlang#halt/0"><c>erlang:halt()</c></seemfa>
+              BIFs are called. By default flushing is enabled, but can be
+              disabled using the
+              <seemfa marker="erlang#halt/2"><c>erlang:halt/2</c></seemfa> BIF.
+              When flushing has been disabled, the <i>delay halt</i> setting
+              will have no effect. That is, the runtime system will halt without
+              waiting for NIFs to return even if the <i>delay halt</i> setting
+              has been enabled. See the
+              <seeerl marker="erlang#halt_flush"><c>{flush, boolean()}</c></seeerl>
+              option of <c>erlang:halt/2</c> for more information.
+            </p>
+            <p>
+              The <c>ERL_NIF_OPT_DELAY_HALT</c> option can only be set during
+              loading of a NIF library in a call to <c>enif_set_option()</c>
+              inside a NIF library
+              <seecref marker="#load"><c>load()</c></seecref> or
+              <seecref marker="#upgrade"><c>upgrade()</c></seecref> call,
+              and will fail if set somewhere else. The <c>env</c>
+              argument <i>must</i> be the callback environment passed to the
+              <c>load()</c> or the <c>upgrade()</c> call. This option can also
+              only be set once. That is, the <i>delay halt</i> setting cannot
+              be changed once it has been enabled. The <i>delay halt</i>
+              setting is tied to the module instance with which the NIF library
+              instance has been loaded. That is, in case both a new and old
+              version of a module using the NIF library are loaded, they can
+              have the same or different <i>delay halt</i> settings.
+            </p>
+            <p>
+              The <i>delay halt</i> feature can be used in combination with an
+              <seecref marker="#on_halt"><i>on halt</i></seecref> callback.
+              The <i>on halt</i> callback is in this case typically used to
+              notify processes blocked in NIFs in the library that it is time
+              to return in order to let the runtime system complete the
+              halting. Such NIFs should be dirty NIFs, since ordinary NIFs
+              should never block for a long time.
+            </p>
+          </item>
+          <tag><marker id="on_halt"/>
+          <c>int enif_set_option(ErlNifEnv *env,
+          </c><seecref marker="#ErlNifOption"><c>ERL_NIF_OPT_ON_HALT</c></seecref><c>,
+          </c><seecref marker="#ErlNifOnHaltCallback"><c>ErlNifOnHaltCallback</c></seecref><c>
+          *on_halt)</c>
+          </tag>
+          <item>
+            <p>
+              Install a callback that will be called when the runtime system
+              halts with flushing enabled.
+            </p>
+            <p>
+              The runtime system halts when one of the
+              <seemfa marker="erlang#halt/0"><c>erlang:halt()</c></seemfa> BIFs
+              are called. By default flushing is enabled, but can be disabled
+              using the
+              <seemfa marker="erlang#halt/2"><c>erlang:halt/2</c></seemfa> BIF.
+              When flushing has been disabled, the runtime system will halt
+              without calling any <i>on halt</i> callbacks even if such are
+              installed. See the
+              <seeerl marker="erlang#halt_flush"><c>{flush, boolean()}</c></seeerl>
+              option of <c>erlang:halt/2</c> for more information.
+            </p>
+            <p>
+              The <c>ERL_NIF_OPT_ON_HALT</c> option can only be set during
+              loading of a NIF library in a call to <c>enif_set_option()</c>
+              inside a NIF library
+              <seecref marker="#load"><c>load()</c></seecref> or
+              <seecref marker="#upgrade"><c>upgrade()</c></seecref> call,
+              and will fail if called somewhere else. The <c>env</c>
+              argument <i>must</i> be the callback environment passed to the
+              <c>load()</c> or the <c>upgrade()</c> call. The <c>on_halt</c>
+              argument should be a function pointer to the callback to install.
+              The <i>on halt</i> callback will be tied to the module instance
+              with which the NIF library instance has been loaded. That is, in
+              case both a new and old version of a module using the NIF library
+              are loaded, they can both have different, none, or the same
+              <i>on halt</i> callbacks installed. When unloading the NIF
+              library during a
+              <seemfa marker="kernel:code#purge/1">code purge</seemfa>, an
+              installed <i>on halt</i> callback will be uninstalled.
+              The <c>ERL_NIF_OPT_ON_HALT</c> option can also only be set
+              once. That is, the <i>on halt</i> callback cannot be changed
+              or removed once it has been installed by any other means than
+              purging the module instance that loaded the NIF library.
+            </p>
+            <p>
+              When the installed <i>on halt</i> callback is called, it will be
+              passed a pointer to <c>priv_data</c> as argument. The
+              <c>priv_data</c> pointer can be set when loading the NIF library.
+            </p>
+            <p>
+              The <i>on halt</i> callback can be used in combination with
+              <seecref marker="#delay_halt"><i>delay of halt</i></seecref> until
+              all calls into the library have returned. The <i>on halt</i>
+              callback is in this case typically used to notify processes
+              blocked in NIFs in the library that it is time to return in order
+              to let the runtime system complete the halting. Such NIFs should
+              be dirty NIFs, since ordinary NIFs should never block for a long
+              time.
+            </p>
+          </item>
+        </taglist>
       </desc>
     </func>
 

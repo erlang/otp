@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2021. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2023. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -211,10 +211,6 @@ AS_HELP_STRING([--disable-parallel-configure], [disable parallel execution of co
 
 AC_ARG_ENABLE(dirty-schedulers,
 AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]))
-
-AC_ARG_ENABLE(plain-emulator,
-AS_HELP_STRING([--enable-plain-emulator], [enable threaded non-smp emulator])
-AS_HELP_STRING([--disable-plain-emulator], [disable threaded non-smp emulator]))
 
 AC_ARG_WITH(termcap,
 AS_HELP_STRING([--with-termcap], [use termcap (default)])

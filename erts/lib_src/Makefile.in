@@ -94,7 +94,11 @@ CFLAGS += -DERTS_OPCODE_COUNTER_SUPPORT
 PRE_LD=
 else
 override TYPE=opt
+ifeq (@JIT_ENABLED@, yes)
+OMIT_OMIT_FP=yes
+else
 OMIT_FP=true
+endif
 TYPE_SUFFIX=
 PRE_LD=
 endif
@@ -311,15 +315,6 @@ include $(YCF_SOURCE_DIR)/main_target.mk
 
 $(OBJ_DIR)/MADE: $(YCF_EXECUTABLE) $(ETHREAD_LIB) $(ERTS_INTERNAL_LIBS)
 	$(gen_verbose)
-ifeq ($(OMIT_OMIT_FP),yes)
-	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
-	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
-	@echo '* *                                                         * *'
-	@echo '* * NOTE: Omit frame pointer optimization has been omitted  * *'
-	@echo '* *                                                         * *'
-	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
-	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
-endif
 	$(V_at)echo $? > $(OBJ_DIR)/MADE
 
 #

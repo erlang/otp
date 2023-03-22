@@ -608,7 +608,7 @@ extern erts_tsd_key_t erts_is_crash_dumping_key;
 static unsigned long zero_value = 0, one_value = 1;
 #    define SET_BLOCKING(fd)	{ if (ioctlsocket((fd), FIONBIO, &zero_value) != 0) fprintf(stderr, "Error setting socket to non-blocking: %d\n", WSAGetLastError()); }
 #    define SET_NONBLOCKING(fd)	ioctlsocket((fd), FIONBIO, &one_value)
-
+#    define ERRNO_BLOCK EAGAIN /* We use the posix way for windows */
 #  else
 #    ifdef NB_FIONBIO		/* Old BSD */
 #      include <sys/ioctl.h>
@@ -847,6 +847,7 @@ int sys_double_to_chars(double, char*, size_t);
 int sys_double_to_chars_ext(double, char*, size_t, size_t);
 int sys_double_to_chars_fast(double, char*, int, int, int);
 void sys_get_pid(char *, size_t);
+int sys_get_hostname(char *buf, size_t size);
 
 /* erl_drv_get/putenv have been implicitly 8-bit for so long that we can't
  * change them without breaking things on Windows. Their return values are

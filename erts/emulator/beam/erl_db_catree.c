@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB and Kjell Winblad 1998-2022. All Rights Reserved.
+ * Copyright Ericsson AB and Kjell Winblad 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -220,7 +220,7 @@ DbTableMethod db_catree =
     db_lookup_dbterm_catree,
     db_finalize_dbterm_catree,
     db_eterm_to_dbterm_tree_common,
-    db_dbterm_list_prepend_tree_common,
+    db_dbterm_list_append_tree_common,
     db_dbterm_list_remove_first_tree_common,
     db_put_dbterm_catree,
     db_free_dbterm_tree_common,

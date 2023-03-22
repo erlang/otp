@@ -78,8 +78,10 @@
 
 -include_lib("kernel/include/file.hrl").
 
--define(IS_DRIVELETTER(Letter),(((Letter >= $A) andalso (Letter =< $Z)) orelse
-				((Letter >= $a) andalso (Letter =< $z)))). 
+-define(IS_DRIVELETTER(Letter),
+        (is_integer(Letter)
+         andalso (($A =< Letter andalso Letter =< $Z)
+                  orelse ($a =< Letter andalso Letter =< $z)))).
 
 %% Converts a relative filename to an absolute filename
 %% or the filename itself if it already is an absolute filename
@@ -333,8 +335,7 @@ dirname([$/|Rest], Dir, File, Seps) ->
 dirname([DirSep|Rest], Dir, File, {DirSep,_}=Seps) when is_integer(DirSep) ->
     dirname(Rest, File++Dir, [$/], Seps);
 dirname([Dl,DrvSep|Rest], [], [], {_,DrvSep}=Seps)
-  when is_integer(DrvSep), ((($a =< Dl) and (Dl =< $z)) or
-			    (($A =< Dl) and (Dl =< $Z))) ->
+  when is_integer(DrvSep), ?IS_DRIVELETTER(Dl) ->
     dirname(Rest, [DrvSep,Dl], [], Seps);
 dirname([Char|Rest], Dir, File, Seps) when is_integer(Char) ->
     dirname(Rest, Dir, [Char|File], Seps);
@@ -757,7 +758,8 @@ win32_split([X, $\\|Rest]) when is_integer(X) ->
     win32_split([X, $/|Rest]);
 win32_split([X, Y, $\\|Rest]) when is_integer(X), is_integer(Y) ->
     win32_split([X, Y, $/|Rest]);
-win32_split([UcLetter, $:|Rest]) when UcLetter >= $A, UcLetter =< $Z ->
+win32_split([UcLetter, $:|Rest])
+  when is_integer(UcLetter), $A =< UcLetter, UcLetter =< $Z ->
     win32_split([UcLetter+$a-$A, $:|Rest]);
 win32_split([Letter, $:, $/|Rest]) ->
     split(Rest, [], [[Letter, $:, $/]], win32);

@@ -150,19 +150,13 @@
       enable|disable)</c></seeguide> directive.  This is the preferred
       method of enabling and disabling features.</item>
     </taglist>
-    <p>
-      Note that to load a module compiled with features enabled, the
-      corresponding features must be enabled in the runtime.  This
-      is done using options <seecom
-      marker="erts:erl#enable-feature"><c>-enable-feature</c></seecom>
-      and <seecom
-      marker="erts:erl#disable-feature"><c>-disable-feature</c></seecom>
-      to <c>erl</c>.  This is to allow the possibility to prevent
-      the use of experimental features in, e.g., production.  This
-      will catch experimental features used in both own and third
-      party components.  An active choice to use experimental
-      features must be done.
-    </p>
+    <change>
+      <p>In Erlang/OTP 25, in order to load a module with a feature
+      enabled, it was necessary to also enable the feature in the runtime.
+      This was done using option <seecom
+      marker="erts:erl#enable-feature"><c>-enable-feature</c></seecom> to
+      <c>erl</c>. This requirement was removed in Erlang/OTP 26.</p>
+    </change>
   </section>
 
   <section>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,6 +89,9 @@
          finished_key/2, 
          finished_verify_data/3, 
          pre_shared_key/3]).
+
+%% Tracing
+-export([handle_trace/3]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
@@ -885,11 +888,8 @@ default_signature_algs([{3, 3} = Version |_]) ->
                rsa_pss_rsae_sha256,
                {sha256, rsa},
                {sha224, ecdsa},
-               {sha224, rsa},
-               %% SHA
-               {sha, ecdsa},
-               {sha, rsa},
-               {sha, dsa}],
+               {sha224, rsa}
+              ],
     signature_algs(Version, Default);
 default_signature_algs(_) ->
     undefined.
@@ -903,13 +903,9 @@ default_pre_1_3_signature_algs_only() ->
                {sha256, ecdsa},
                {sha256, rsa},
                {sha224, ecdsa},
-               {sha224, rsa},
-               %% SHA
-               {sha, ecdsa},
-               {sha, rsa},
-               {sha, dsa}],
+               {sha224, rsa}
+              ],
     signature_algs({3,3}, Default).
-
 
 signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
                                                   andalso Version >= {3, 3} ->
@@ -920,7 +916,7 @@ signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
     RSAPSSSupported = lists:member(rsa_pkcs1_pss_padding,
                                    proplists:get_value(rsa_opts, CryptoSupports)),
     Fun = fun (Scheme, Acc) when is_atom(Scheme) ->
-                  {Hash0, Sign0, Curve} =
+                  {Hash, Sign0, Curve} =
                       ssl_cipher:scheme_to_components(Scheme),
                   Sign = case Sign0 of
                              rsa_pkcs1 ->
@@ -930,11 +926,6 @@ signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
                              rsa_pss_pss when RSAPSSSupported ->
                                  rsa;
                              S -> S
-                         end,
-                  Hash = case Hash0 of
-                             sha1 ->
-                                 sha;
-                             H -> H
                          end,
                   case proplists:get_bool(Sign, PubKeys)
                       andalso
@@ -1003,9 +994,7 @@ legacy_signature_schemes(Version) ->
     LegacySchemes = 
         [rsa_pkcs1_sha512,
          rsa_pkcs1_sha384,
-         rsa_pkcs1_sha256,
-         ecdsa_sha1,
-         rsa_pkcs1_sha1],
+         rsa_pkcs1_sha256],
     signature_schemes(Version, LegacySchemes).
 
 rsa_schemes() ->
@@ -1278,3 +1267,23 @@ enum_to_oid(29) -> ?'id-X25519';
 enum_to_oid(30) -> ?'id-X448';
 enum_to_oid(_) ->
     undefined.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(kdt,
+             {call, {?MODULE, update_traffic_secret,
+                     [_HKDF, ApplicationTrafficSecret0]}},
+             Stack) ->
+    ATS0 = string:sub_string(
+          binary:bin_to_list(
+            binary:encode_hex(ApplicationTrafficSecret0)), 1, 5) ++ "...",
+    {io_lib:format("ApplicationTrafficSecret0 = \"~s\"", [ATS0]), Stack};
+handle_trace(kdt,
+             {return_from, {?MODULE, update_traffic_secret, 2},
+              Return}, Stack) ->
+    ATS = string:sub_string(
+          binary:bin_to_list(
+            binary:encode_hex(Return)), 1, 5) ++ "...",
+    {io_lib:format("ApplicationTrafficSecret = \"~s\"", [ATS]), Stack}.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -242,16 +242,16 @@ ocsp_responder_init(ResponderPort, PrivDir, Starter) ->
 ocsp_responder_loop(Port, {Status, Starter} = State) ->
     receive
 	{_Port, closed} ->
-	    ?LOG("Port Closed"),
+	    ?CT_LOG("Port Closed"),
 	    ok;
 	{'EXIT', _Port, Reason} ->
-	    ?LOG("Port Closed ~p",[Reason]),
+	    ?CT_LOG("Port Closed ~p",[Reason]),
 	    ok;
 	{Port, {data, _Msg}} when Status == new ->
             Starter ! {started, self()},
 	    ocsp_responder_loop(Port, {started, undefined});
         {Port, {data, Msg}} ->
-	    ?PAL("Responder Msg ~p",[Msg]),
+	    ?CT_PAL("Responder Msg ~p",[Msg]),
             ocsp_responder_loop(Port, State)
     after 1000 ->
             case Status of

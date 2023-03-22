@@ -191,6 +191,8 @@ dist_table_alloc(void *dep_tmpl)
     erts_mtx_init(&dep->qlock, "dist_entry_out_queue", sysname,
         ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
     erts_atomic32_init_nob(&dep->qflgs, 0);
+    erts_atomic32_init_nob(&dep->notify, 0);
+    erts_atomic_init_nob(&dep->total_qsize, 0);
     erts_atomic_init_nob(&dep->qsize, 0);
     erts_atomic64_init_nob(&dep->in, 0);
     erts_atomic64_init_nob(&dep->out, 0);
@@ -729,8 +731,6 @@ erts_set_dist_entry_pending(DistEntry *dep)
 void
 erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint64 flags)
 {
-    erts_aint32_t set_qflgs;
-
     ASSERT(dep->mld);
 
     ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
@@ -767,9 +767,6 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint64 flags)
 
     erts_atomic64_set_nob(&dep->in, 0);
     erts_atomic64_set_nob(&dep->out, 0);
-    set_qflgs = (is_internal_port(cid) ?
-                 ERTS_DE_QFLG_PORT_CTRL : ERTS_DE_QFLG_PROC_CTRL);
-    erts_atomic32_read_bor_nob(&dep->qflgs, set_qflgs);
 
     if(flags & DFLAG_PUBLISHED) {
 	dep->next = erts_visible_dist_entries;

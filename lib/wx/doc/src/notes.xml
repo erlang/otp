@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added environment variable <c>WX_MACOS_NON_GUI_APP</c> to
+	    allow user to override <c>OSXIsGUIApplication</c>
+	    behavior.</p>
+          <p>
+	    Own Id: OTP-18213 Aux Id: PR-6113 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 2.2</title>
 
     <section><title>Improvements and New Features</title>

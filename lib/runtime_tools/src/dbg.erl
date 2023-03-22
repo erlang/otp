@@ -317,8 +317,17 @@ tracer(process, {Handler,HandlerData}) ->
 tracer(module, Fun) when is_function(Fun) ->
     start(Fun);
 tracer(module, {Module, State}) ->
-    start(fun() -> {Module, State} end).
+    start(fun() -> {Module, State} end);
 
+tracer(file, Filename) ->
+    tracer(process,
+           {fun F(E, undefined) ->
+                    {ok, D} = file:open(Filename, [write]),
+                    F(E, D);
+                F(E, D) ->
+                    dhandler(E, D),
+                    D
+            end, undefined}).
 
 remote_tracer(port, Fun) when is_function(Fun) ->
     remote_start(Fun);
@@ -1599,14 +1608,14 @@ new_pattern_table() ->
 		term_to_binary(x)}),
     ets:insert(PT,
 	       {c,
-		term_to_binary([{'_',[],[{message,{caller}}]}])}),
+		term_to_binary([{'_',[],[{message,{caller_line}}]}])}),
     ets:insert(PT,
 	       {caller_trace,
 		term_to_binary(c)}),
     ets:insert(PT,
 	       {cx,
 		term_to_binary([{'_',[],[{exception_trace},
-					 {message,{caller}}]}])}),
+					 {message,{caller_line}}]}])}),
     ets:insert(PT,
 	       {caller_exception_trace,
 		term_to_binary(cx)}),

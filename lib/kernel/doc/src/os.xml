@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2021</year>
+      <year>1997</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -115,8 +115,8 @@
       <fsummary>Execute a command in a shell of the target OS.</fsummary>
       <desc>
         <p>Executes <c><anno>Command</anno></c> in a command shell of the
-	  target OS, captures the standard output of the command,
-          and returns this result as a string.</p>
+          target OS, captures the standard output and standard error of the
+          command, and returns this result as a string.</p>
         <p><em>Examples:</em></p>
         <code type="none">
 LsOut = os:cmd("ls"), % on unix platform

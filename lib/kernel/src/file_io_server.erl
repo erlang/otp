@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 
 -export([count_and_find/3]).
 
--record(state, {handle,owner,mref,buf,read_mode,unic}).
+-record(state, {handle,owner,mref,name,buf,read_mode,unic}).
 
 -include("file_int.hrl").
 
@@ -80,8 +80,9 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 				  Self ! {Ref, ok},
 				  server_loop(
 				    #state{handle    = Handle,
-					   owner     = Owner, 
-					   mref      = M, 
+					   owner     = Owner,
+					   mref      = M,
+					   name      = FileName,
 					   buf       = <<>>,
 					   read_mode = ReadMode,
 					   unic = UnicodeMode})
@@ -322,7 +323,10 @@ file_request({read_handle_info, Opts},
         Reply ->
             {reply,Reply,State}
     end;
-file_request(Unknown, 
+file_request(pid2name,
+             #state{name=Name}=State) ->
+    {reply,{ok,Name},State};
+file_request(Unknown,
 	     #state{}=State) ->
     Reason = {request, Unknown},
     {error,{error,Reason},State}.

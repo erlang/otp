@@ -39,9 +39,7 @@ struct InstInfo {
   uint32_t _encoding : 8;
   //! Index to data specific to each encoding type.
   uint32_t _encodingDataIndex : 8;
-  uint32_t _reserved : 2;
-  //! Index to \ref _nameData.
-  uint32_t _nameDataIndex : 14;
+  uint32_t _reserved : 16;
 
   uint16_t _rwInfoIndex;
   uint16_t _flags;

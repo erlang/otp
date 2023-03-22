@@ -160,7 +160,7 @@ typedef struct {
   Uint64 garbage_cols;
 } ErtsGCInfo;
 
-#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*3 + 1 + MAP_HEADER_FLATMAP_SZ)
+#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*4 + 1 + MAP_HEADER_FLATMAP_SZ)
 
 #define ERTS_PROCESS_GC_INFO_MAX_TERMS (11)  /* number of elements in process_gc_info*/
 #define ERTS_PROCESS_GC_INFO_MAX_SIZE                                   \
@@ -169,8 +169,8 @@ Eterm erts_process_gc_info(struct process*, Uint *, Eterm **, Uint, Uint);
 
 void erts_gc_info(ErtsGCInfo *gcip);
 void erts_init_gc(void);
-int erts_garbage_collect_nobump(struct process*, int, Eterm*, int, int);
-void erts_garbage_collect(struct process*, int, Eterm*, int);
+int erts_garbage_collect_nobump(struct process*, Uint, Eterm*, int, int);
+void erts_garbage_collect(struct process*, Uint, Eterm*, int);
 void erts_garbage_collect_hibernate(struct process* p);
 Eterm erts_gc_after_bif_call_lhf(struct process* p, ErlHeapFragment *live_hf_end,
 				 Eterm result, Eterm* regs, Uint arity);
@@ -186,7 +186,7 @@ void erts_offset_off_heap(struct erl_off_heap*, Sint, Eterm*, Eterm*);
 void erts_offset_heap_ptr(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(struct process* p);
-Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
+Eterm erts_max_heap_size_map(ErtsHeapFactory *factory, Sint, Uint);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
 void erts_deallocate_young_generation(Process *c_p);
 void erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,

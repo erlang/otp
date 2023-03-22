@@ -401,7 +401,7 @@ public:
         if (node->type() == NodeType::kSentinel) {
           if (node == _funcNode->endNode()) {
             // Make sure we didn't flow here if this is the end of the function sentinel.
-            if (ASMJIT_UNLIKELY(_curBlock))
+            if (ASMJIT_UNLIKELY(_curBlock && _hasCode))
               return DebugUtils::errored(kErrorInvalidState);
             break;
           }

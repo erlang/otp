@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -180,7 +180,7 @@ add_log_category(#{meta:=Meta}=Log,Category) ->
     Log#{meta=>Meta#{?MODULE=>#{category=>Category}}}.
 
 do_log(Log,Config) ->
-    gen_server:call(?MODULE,{log,Log,Config}).
+    gen_server:call(?MODULE,{log,Log,Config},infinity).
 
 handle_cast(_, State) ->
     {noreply,State}.
@@ -254,13 +254,13 @@ terminate(_Arg, _State) ->
     ok.
 
 set_curr_func(CurrFunc, Config) ->
-    gen_server:call(?MODULE, {set_curr_func, CurrFunc, Config}).
+    gen_server:call(?MODULE, {set_curr_func, CurrFunc, Config}, infinity).
 
 set_log_func(Func) ->
-    gen_server:call(?MODULE, {set_logfunc, Func}).
+    gen_server:call(?MODULE, {set_logfunc, Func}, infinity).
 
 handle_remote_events(Bool) ->
-    gen_server:call(?MODULE, {handle_remote_events, Bool}).
+    gen_server:call(?MODULE, {handle_remote_events, Bool}, infinity).
 
 %%%-----------------------------------------------------------------
 

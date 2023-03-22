@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -425,29 +425,12 @@ public abstract class AbstractConnection extends Thread {
         header.write1(passThrough);
         header.write1(version);
 
-        if ((peer.flags & AbstractNode.dFlagUnlinkId) != 0) {
-            // header
-            header.write_tuple_head(4);
-            header.write_long(unlinkIdTag);
-            header.write_long(unlink_id);
-            header.write_any(from);
-            header.write_any(dest);
-        }
-        else {
-            /*
-             * A node that isn't capable of talking the new link protocol.
-             *
-             * Send an old unlink op, and send ourselves an unlink-ack. We may
-             * end up in an inconsistent state as we could before the new link
-             * protocol was introduced...
-             */
-            // header
-            header.write_tuple_head(3);
-            header.write_long(unlinkTag);
-            header.write_any(from);
-            header.write_any(dest);
-            deliver(new OtpMsg(unlinkIdAckTag, dest, from, unlink_id));
-        }
+        // header
+        header.write_tuple_head(4);
+        header.write_long(unlinkIdTag);
+        header.write_long(unlink_id);
+        header.write_any(from);
+        header.write_any(dest);
 
         // fix up length in preamble
         header.poke4BE(0, header.size() - 4);
@@ -471,26 +454,25 @@ public abstract class AbstractConnection extends Thread {
         if (!connected) {
             throw new IOException("Not connected");
         }
-        if ((peer.flags & AbstractNode.dFlagUnlinkId) != 0) {
-            @SuppressWarnings("resource")
+
+        @SuppressWarnings("resource")
             final OtpOutputStream header = new OtpOutputStream(headerLen);
 
-            // preamble: 4 byte length + "passthrough" tag
-            header.write4BE(0); // reserve space for length
-            header.write1(passThrough);
-            header.write1(version);
+        // preamble: 4 byte length + "passthrough" tag
+        header.write4BE(0); // reserve space for length
+        header.write1(passThrough);
+        header.write1(version);
 
-            // header
-            header.write_tuple_head(4);
-            header.write_long(unlinkIdAckTag);
-            header.write_long(unlink_id);
-            header.write_any(from);
-            header.write_any(dest);
-            // fix up length in preamble
-            header.poke4BE(0, header.size() - 4);
+        // header
+        header.write_tuple_head(4);
+        header.write_long(unlinkIdAckTag);
+        header.write_long(unlink_id);
+        header.write_any(from);
+        header.write_any(dest);
+        // fix up length in preamble
+        header.poke4BE(0, header.size() - 4);
 
-            do_send(header);
-        }
+        do_send(header);
 
     }
 
@@ -1033,6 +1015,7 @@ public abstract class AbstractConnection extends Thread {
             sendStatus("ok");
             final int our_challenge = genChallenge();
             sendChallenge(peer.flags, localNode.flags, our_challenge);
+            recvComplement(send_name_tag);
             final int her_challenge = recvChallengeReply(our_challenge);
             final byte[] our_digest = genDigest(her_challenge,
                     localNode.cookie());
@@ -1245,11 +1228,26 @@ public abstract class AbstractConnection extends Thread {
             final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
             byte[] tmpname;
             final int len = tmpbuf.length;
+            long flag_mask;
+
             send_name_tag = ibuf.read1();
             switch (send_name_tag) {
+            case 'n':
+                if (ibuf.read2BE() != 5)
+                    throw new IOException("Invalid handshake version");
+                apeer.flags = ibuf.read4BE();
+                flag_mask = (1L << 32) - 1;
+                if ((apeer.flags & AbstractNode.dFlagHandshake23) == 0)
+                    throw new IOException("Missing DFLAG_HANDSHAKE_23");
+                apeer.distLow = apeer.distHigh = 6;
+                tmpname = new byte[len - 7];
+                ibuf.readN(tmpname);
+                hisname = OtpErlangString.newString(tmpname);
+                break;
             case 'N':
                 apeer.distLow = apeer.distHigh = 6;
                 apeer.flags = ibuf.read8BE();
+                flag_mask = ~0L;
                 if ((apeer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
                     apeer.flags |= AbstractNode.mandatoryFlags25;
                 }
@@ -1265,7 +1263,7 @@ public abstract class AbstractConnection extends Thread {
                 throw new IOException("Unknown remote node type");
             }
 
-            if ((apeer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {
+            if ((~apeer.flags & flag_mask & AbstractNode.mandatoryFlags) != 0) {
                 throw new IOException(
                         "Handshake failed - peer cannot handle all mandatory capabilities");
             }
@@ -1334,6 +1332,29 @@ public abstract class AbstractConnection extends Thread {
         }
 
         return challenge;
+    }
+
+    protected void recvComplement(int send_name_tag) throws IOException {
+
+        if (send_name_tag == 'n') {
+            try {
+                final byte[] tmpbuf = read2BytePackage();
+                @SuppressWarnings("resource")
+                final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
+                if (ibuf.read1() != 'c')
+                    throw new IOException("Not a complement tag");
+
+                final long flagsHigh = ibuf.read4BE();
+                peer.flags |= flagsHigh << 32;
+                if ((~peer.flags & AbstractNode.mandatoryFlags) != 0) {
+                    throw new IOException("Handshake failed - peer missing" +
+                                          " mandatory capabilities");
+                }
+                peer.setCreation(ibuf.read4BE());
+            } catch (final OtpErlangDecodeException e) {
+                throw new IOException("Handshake failed - not enough data");
+            }
+        }
     }
 
     protected void sendChallengeReply(final int challenge, final byte[] digest)

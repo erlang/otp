@@ -102,8 +102,7 @@ pattern(Config) when is_list(Config) ->
            [warn_unused_vars],
            {warnings,
             [{{2,15},v3_core,{nomatch,pattern}},
-             {{6,20},v3_core,{nomatch,pattern}},
-             {{11,18},v3_core,{nomatch,pattern}}
+             {{6,20},v3_core,{nomatch,pattern}}
             ]}}],
     [] = run(Config, Ts),
     ok.
@@ -159,10 +158,15 @@ pattern3(Config) when is_list(Config) ->
             f({A,_}) -> {ok,A};
             f([_|_]=B) -> {ok,B};
             f({urk,nisse}) -> urka_glurka.
+            word(<<\"AND\">>) -> <<\"and\">>;
+            word(<<\"AS\">>) -> <<\"as\">>;
+            word(<<\"A\">>) -> <<\"a\">>;
+            word(<<\"AS\">>) -> <<\"as\">>.
            ">>,
 	   [nowarn_unused_vars],
 	   {warnings,
-            [{{4,13},v3_kernel,{nomatch,{shadow,2}}}]}}],
+            [{{4,13},v3_kernel,{nomatch,{shadow,2}}},
+             {{8,13},v3_kernel,{nomatch,{shadow,6}}}]}}],
     [] = run(Config, Ts),
 
     ok.

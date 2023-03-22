@@ -43,6 +43,7 @@ XML_REF3_FILES = \
 	dict.xml \
 	digraph.xml \
 	digraph_utils.xml \
+	edlin_expand.xml \
 	epp.xml \
 	erl_anno.xml \
 	erl_error.xmlsrc \

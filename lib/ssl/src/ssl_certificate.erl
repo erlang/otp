@@ -85,6 +85,9 @@
          available_cert_key_pairs/2
 	]).
 
+%% Tracing
+-export([handle_trace/3]).
+
 %%====================================================================
 %% Internal application API
 %%====================================================================
@@ -578,10 +581,12 @@ verify_cert_extensions(Cert, UserState, [], _) ->
     {valid, UserState#{issuer => Cert}};
 verify_cert_extensions(Cert, #{ocsp_responder_certs := ResponderCerts,
                                ocsp_state := OscpState,
-                               issuer := Issuer} = UserState, 
-                       [#certificate_status{response = OcspResponsDer} | Exts], Context) ->
+                               issuer := Issuer} = UserState,
+                       [#certificate_status{response = OcspResponsDer} | Exts],
+                       Context) ->
     #{ocsp_nonce := Nonce} = OscpState,
-    case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponsDer, ResponderCerts, Nonce) of
+    case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponsDer,
+                                       ResponderCerts, Nonce) of
         valid ->
             verify_cert_extensions(Cert, UserState, Exts, Context);
         {bad_cert, _} = Status ->
@@ -620,7 +625,7 @@ is_supported_signature_algorithm_1_2(#'OTPCertificate'{signatureAlgorithm =
 is_supported_signature_algorithm_1_2(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->
     Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
     {Hash, Sign, _ } = ssl_cipher:scheme_to_components(Scheme),
-    ssl_cipher:is_supported_sign({pre_1_3_hash(Hash), pre_1_3_sign(Sign)}, ssl_cipher:signature_schemes_1_2(SignAlgs)).
+    ssl_cipher:is_supported_sign({Hash, pre_1_3_sign(Sign)}, ssl_cipher:signature_schemes_1_2(SignAlgs)).
 is_supported_signature_algorithm_1_3(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->
     Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
     ssl_cipher:is_supported_sign(Scheme, SignAlgs).
@@ -629,10 +634,6 @@ pre_1_3_sign(rsa_pkcs1) ->
     rsa;
 pre_1_3_sign(Other) ->
     Other.
-pre_1_3_hash(sha1) ->
-    sha;
-pre_1_3_hash(Hash) ->
-    Hash.
 
 paths(Chain, CertDbHandle) ->
     paths(Chain, Chain, CertDbHandle, []).
@@ -825,3 +826,30 @@ cert_issuers(OTPCerts) ->
 cert_auth_member(ChainSubjects, CertAuths) ->
     CommonAuthorities = sets:intersection(sets:from_list(ChainSubjects), sets:from_list(CertAuths)),
     not sets:is_empty(CommonAuthorities).
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(crt,
+             {call, {?MODULE, validate, [Cert, StatusOrExt| _]}}, Stack) ->
+    {io_lib:format("[~W] StatusOrExt = ~W", [Cert, 3, StatusOrExt, 10]), Stack};
+handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
+                          [Cert,
+                           _UserState,
+                           [], _Context]}}, Stack) ->
+    {io_lib:format(" no more extensions [~W]", [Cert, 3]), Stack};
+handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
+                          [Cert,
+                           #{ocsp_responder_certs := _ResponderCerts,
+                             ocsp_state := OcspState,
+                             issuer := Issuer} = _UserState,
+                           [#certificate_status{response = OcspResponsDer} |
+                            _Exts], _Context]}}, Stack) ->
+    {io_lib:format("#2 OcspState = ~W Issuer = [~W] OcspResponsDer = ~W [~W]",
+                   [OcspState, 10, Issuer, 3, OcspResponsDer, 2, Cert, 3]),
+     Stack};
+handle_trace(crt, {return_from,
+                   {ssl_certificate, verify_cert_extensions, 4},
+                   {valid, #{issuer := Issuer}}}, Stack) ->
+    {io_lib:format(" extensions valid Issuer = ~W", [Issuer, 3]), Stack}.

@@ -215,6 +215,7 @@ help_message() ->
        Prints type information as Edoc @spec comments, not as type specs
    --plt PLT
        Use the specified dialyzer PLT file rather than the default one
+       (Incremental and non-incremental PLT files are supported)
    -T file*
        The specified file(s) already contain type specifications and these
        are to be trusted in order to print specs for the rest of the files

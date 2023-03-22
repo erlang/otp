@@ -10,6 +10,7 @@
   <xi:include href="../specs/specs_dict.xml"/>
   <xi:include href="../specs/specs_digraph.xml"/>
   <xi:include href="../specs/specs_digraph_utils.xml"/>
+  <xi:include href="../specs/specs_edlin_expand.xml"/>
   <xi:include href="../specs/specs_epp.xml"/>
   <xi:include href="../specs/specs_erl_anno.xml"/>
   <xi:include href="../specs/specs_erl_error.xml"/>

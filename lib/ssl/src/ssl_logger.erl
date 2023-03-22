@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,10 +57,10 @@ log(Level, LogLevel, ReportMap, Meta) ->
             ok
     end.
 
-debug(Level, Direction, Protocol, Message)
+debug(LogLevel, Direction, Protocol, Message)
   when (Direction =:= inbound orelse Direction =:= outbound) andalso
        (Protocol =:= 'record' orelse Protocol =:= 'handshake') ->
-    case logger:compare_levels(Level, debug) of
+    case logger:compare_levels(LogLevel, debug) of
         lt ->
             ?LOG_DEBUG(#{direction => Direction,
                          protocol => Protocol,

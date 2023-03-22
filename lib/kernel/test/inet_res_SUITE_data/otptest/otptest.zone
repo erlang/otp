@@ -42,6 +42,9 @@ wks.resolve	IN WKS		127.0.0.28 TCP ( telnet smtp )
 resolve		IN HINFO	"BEAM" "Erlang/OTP"
 ns.resolve	IN NS		resolve
 mx.resolve	IN MX	10	resolve
+;; The LOC latitude and longitude is chosen to have an exact
+;; decimal degrees floating point representation
+loc.resolve     IN LOC          42 3 45 N 13 7 30 E 17m 100m 10000m 10m
 _srv._tcp.resolve IN SRV	10 3 4711 resolve
 naptr.resolve	IN NAPTR	10 5 "S" "HTTP" "" _srv._tcp.resolve
 txt.resolve	IN TXT		"Hej " "du " "glade "

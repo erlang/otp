@@ -74,6 +74,10 @@ function({function,Name,Arity,CLabel,Is0}) ->
 %%% (Provided that x2 is killed in the code that follows.)
 %%%
 
+swap_opt([{move,Src,Dst},{swap,Dst,Other}|Is]) when Src =/= Other ->
+    swap_opt([{move,Other,Dst},{move,Src,Other}|Is]);
+swap_opt([{move,Src,Dst},{swap,Other,Dst}|Is]) when Src =/= Other ->
+    swap_opt([{move,Other,Dst},{move,Src,Other}|Is]);
 swap_opt([{move,Reg1,{x,_}=Temp}=Move1,
           {move,Reg2,Reg1}=Move2|Is0]) when Reg1 =/= Temp ->
     case swap_opt_end(Is0, Temp, Reg2, []) of

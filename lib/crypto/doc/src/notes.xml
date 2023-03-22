@@ -31,6 +31,31 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A user defined runtime library path configured using
+	    <c>--with-ssl-rpath=&lt;PATHS&gt;</c> could fail to be
+	    enabled.</p>
+          <p>
+	    Own Id: OTP-18384 Aux Id: PR-6596 </p>
+        </item>
+        <item>
+          <p>
+	    Ensure that <c>configure</c> fails if a user defined
+	    runtime library path has been passed by the user, but
+	    cannot set.</p>
+          <p>
+	    Own Id: OTP-18408</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

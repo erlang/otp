@@ -957,6 +957,85 @@ q                 - quit erlang
     </func>
 
     <func>
+      <name name="start_interactive" arity="0" since="OTP @OTP-17932@"/>
+      <fsummary>Start the interactive shell</fsummary>
+      <desc>
+        <p>Starts the interactive shell if it has not already been started.
+          It can be used to programatically start the shell from an escript
+          or when erl is started with the -noinput or -noshell flags.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start_interactive" arity="1" clause_i="1" since="OTP @OTP-17932@"/>
+      <name name="start_interactive" arity="1" clause_i="2" since="OTP @OTP-17932@"/>
+      <name name="start_interactive" arity="1" clause_i="3" since="OTP @OTP-17932@"/>
+      <fsummary>Start the interactive shell</fsummary>
+      <desc>
+        <p>Starts the interactive shell if it has not already been started.
+        It can be used to programatically start the shell from an
+        <seecom marker="erts:escript"><c>escript</c></seecom> or when
+        <seecom marker="erts:erl"><c>erl</c></seecom> is started with the
+        <seecom marker="erts:erl#noinput"><c>-noinput</c></seecom> or
+        <seecom marker="erts:erl#noshell"><c>-noshell</c></seecom> flags.
+        The following options are allowed:</p>
+        <taglist>
+          <tag>noshell</tag>
+          <item>
+              <p>Starts the interactive shell as if <seecom marker="erts:erl#noshell">
+                <c>-noshell</c></seecom> was given to <seecom marker="erts:erl"><c>erl</c></seecom>.
+                This is only useful when erl is started with
+                <seecom marker="erts:erl#noinput"><c>-noinput</c></seecom> and the
+                system want to read input data.
+              </p>
+          </item>
+          <tag><seetype marker="erts:erlang#mfa">mfa()</seetype></tag>
+          <item>
+              <p>Starts the interactive shell using
+                <seetype marker="erts:erlang#mfa"><c>mfa()</c></seetype>
+                as the default shell.</p>
+          </item>
+          <tag>{<seetype marker="erts:erlang#node">node()</seetype>,
+                <seetype marker="erts:erlang#mfa">mfa()</seetype>}</tag>
+          <item>
+              <p>Starts the interactive shell using
+              <seetype marker="erts:erlang#mfa"><c>mfa()</c></seetype> on
+              <seetype marker="erts:erlang#node"><c>node()</c></seetype> as the default shell.</p>
+          </item>
+          <tag>{remote, <seetype marker="erts:erlang#string"><c>string()</c></seetype>}</tag>
+          <item>
+              <p>Starts the interactive shell using as if
+                <seecom marker="erts:erl#remsh"><c>-remsh</c></seecom>
+                was given to <seecom marker="erts:erl"><c>erl</c></seecom>.</p>
+          </item>
+          <tag>{remote,
+                <seetype marker="erts:erlang#string"><c>string()</c></seetype>,
+                <seetype marker="erts:erlang#mfa"><c>mfa()</c></seetype>}</tag>
+          <item>
+              <p>Starts the interactive shell using as if
+                <seecom marker="erts:erl#remsh"><c>-remsh</c></seecom>
+                was given to <seecom marker="erts:erl"><c>erl</c></seecom>
+                but with an alternative shell implementation.</p>
+          </item>
+        </taglist>
+        <p>On error this function will return:</p>
+        <taglist>
+            <tag>already_started</tag>
+            <item>if an interactive shell is already started.</item>
+            <tag>noconnection</tag>
+            <item>if a remote shell was requested but it could not be connected to.</item>
+            <tag>badfile | nofile | on_load_failure</tag>
+            <item>if a remote shell was requested with a custom
+              <seetype marker="erts:erlang#mfa">mfa()</seetype>,
+              but the module could not be loaded. See <seeerl marker="kernel:code#error_reasons">
+              Error Reasons for Code-Loading Functions</seeerl>
+              for a description of the error reasons.
+            </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
       <name name="start_restricted" arity="1" since=""/>
       <fsummary>Exit a normal shell and starts a restricted shell.</fsummary>
       <desc>
@@ -994,6 +1073,17 @@ q                 - quit erlang
           string syntax.</p>
       </desc>
     </func>
+
+    <func>
+        <name name="whereis" arity="0" since="OTP @OTP-17932@"/>
+        <fsummary>Return the current shell process.</fsummary>
+        <desc>
+            <p>Returns the current shell process on the node where the
+              calling process' group_leader is located. If that node
+              has no shell this function will return undefined.</p>
+        </desc>
+    </func>
+
   </funcs>
 </erlref>
 

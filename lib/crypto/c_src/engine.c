@@ -470,7 +470,11 @@ ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 #ifdef HAS_ENGINE_SUPPORT
     ASSERT(argc == 0);
 
+# if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
     ENGINE_load_dynamic();
+# else
+    OPENSSL_init_crypto(OPENSSL_INIT_ENGINE_DYNAMIC, NULL);
+# endif
     return atom_ok;
 #else
     return atom_notsup;

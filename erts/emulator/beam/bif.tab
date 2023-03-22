@@ -56,8 +56,7 @@ bif erlang:crc32_combine/3
 bif erlang:date/0
 bif erlang:delete_module/1
 bif erlang:display/1
-bif erlang:display_string/1
-bif erlang:display_nl/0
+bif erlang:display_string/2
 ubif erlang:element/2
 bif erlang:erase/0
 hbif erlang:erase/1
@@ -362,6 +361,7 @@ bif ets:first/1
 bif ets:is_compiled_ms/1
 bif ets:lookup/2
 bif ets:lookup_element/3
+bif ets:lookup_element/4
 bif ets:info/1
 bif ets:info/2
 bif ets:last/1
@@ -778,3 +778,9 @@ bif erlang:unalias/1
 bif erlang:monitor/3
 bif erlang:error/3
 bif maps:from_keys/2
+
+#
+# New in 26
+#
+ubif erlang:min/2
+ubif erlang:max/2

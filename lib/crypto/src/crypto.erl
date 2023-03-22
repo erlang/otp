@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 -export([start/0, stop/0, info/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
 -export([cipher_info/1, hash_info/1]).
--export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
+-export([hash/2, hash_xof/3, hash_init/1, hash_update/2, hash_final/1, hash_final_xof/2]).
 -export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
@@ -139,7 +139,7 @@
        hash_algorithms/0, pubkey_algorithms/0, cipher_algorithms/0,
        mac_algorithms/0, curve_algorithms/0, rsa_opts_algorithms/0,
        hash_info/1, hash_nif/2, hash_init_nif/1, hash_update_nif/2,
-       hash_final_nif/1, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
+       hash_final_nif/1, hash_final_xof_nif/2, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
        mac_final_nif/1, cipher_info_nif/1, ng_crypto_init_nif/4,
        ng_crypto_update_nif/2, ng_crypto_update_nif/3, ng_crypto_final_nif/1,
        ng_crypto_get_data_nif/1, ng_crypto_one_time_nif/5,
@@ -424,6 +424,7 @@
 -type sha1() :: sha .
 -type sha2() :: sha224 | sha256 | sha384 | sha512 .
 -type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512 .
+-type sha3_xof() :: shake128 | shake256 .
 -type blake2() :: blake2b | blake2s .
 
 -type compatibility_only_hash() :: md5 | md4 .
@@ -528,7 +529,7 @@ stop() ->
                                       | {macs,    Macs}
                                       | {curves,  Curves}
                                       | {rsa_opts, RSAopts},
-                             Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
+                             Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
@@ -558,7 +559,7 @@ supports() ->
                                       | Macs
                                       | Curves
                                       | RSAopts,
-                             Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
+                             Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
@@ -621,7 +622,8 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 %%%
 %%%================================================================
 
--type hash_algorithm() :: sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() .
+-type hash_algorithm() :: sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash() .
+-type hash_xof_algorithm() :: sha3_xof() .
 
 -spec hash_info(Type) -> Result
                              when Type :: hash_algorithm(),
@@ -639,6 +641,14 @@ hash(Type, Data) ->
     Data1 = iolist_to_binary(Data),
     MaxBytes = max_bytes(),
     hash(Type, Data1, erlang:byte_size(Data1), MaxBytes).
+
+-spec hash_xof(Type, Data, Length) -> Digest when Type :: hash_xof_algorithm(),
+                                               Data :: iodata(),
+                                               Length :: non_neg_integer(),
+                                               Digest :: binary().
+hash_xof(Type, Data, Length) ->
+  Data1 = iolist_to_binary(Data),
+  hash_xof(Type, Data1, erlang:byte_size(Data1), Length).
 
 -opaque hash_state() :: reference().
 
@@ -659,6 +669,12 @@ hash_update(Context, Data) ->
                                         Digest :: binary().
 hash_final(Context) ->
     ?nif_call(hash_final_nif(Context)).
+
+-spec hash_final_xof(State, Length) -> Digest when State :: hash_state(),
+                                                   Length :: non_neg_integer(),
+                                                   Digest :: binary().
+hash_final_xof(Context, Length) ->
+    notsup_to_error(hash_final_xof_nif(Context, Length)).
 
 %%%================================================================
 %%%
@@ -1266,7 +1282,7 @@ rand_plugin_aes_next(Key, GenWords, F, Count) ->
     {V,Cache}.
 
 block_encrypt(Key, Data) ->
-    Cipher = case size(Key) of
+    Cipher = case byte_size(Key) of
                  16 -> aes_128_ecb;
                  24 -> aes_192_ecb;
                  32 -> aes_256_ecb;
@@ -2110,13 +2126,15 @@ on_load() ->
 			      filename:join(
 				[PrivDir,
 				 "lib",
-				 LibTypeName ++ "*"])) /= []) orelse
+				 LibTypeName ++ "*"]),
+                              erl_prim_loader) /= []) orelse
 			  (filelib:wildcard(
 			     filename:join(
 			       [PrivDir,
 				"lib",
 				erlang:system_info(system_architecture),
-				LibTypeName ++ "*"])) /= []) of
+				LibTypeName ++ "*"]),
+                             erl_prim_loader) /= []) of
 			  true -> LibTypeName;
 			  false -> LibBaseName
 		      end
@@ -2131,7 +2149,10 @@ on_load() ->
 			 filename:join([PrivDir, "lib",
 					erlang:system_info(system_architecture)]),
 		     Candidate =
-			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ]),erl_prim_loader),
+			 filelib:wildcard(
+                           filename:join(
+                             [ArchLibDir,LibName ++ "*" ]),
+                           erl_prim_loader),
 		     case Candidate of
 			 [] -> Error1;
 			 _ ->
@@ -2184,6 +2205,12 @@ hash(Hash, Data, Size, Max) ->
     State1 = hash_update(State0, Data, Size, Max),
     hash_final(State1).
 
+hash_xof(Hash, Data, Size, Length) ->
+    Max = max_bytes(),
+    State0 = hash_init(Hash),
+    State1 = hash_update(State0, Data, Size, Max),
+    hash_final_xof(State1, Length).
+
 hash_update(State, Data, Size, MaxBytes)  when Size =< MaxBytes ->
     ?nif_call(hash_update_nif(State, Data), {1,2});
 hash_update(State0, Data, _, MaxBytes) ->
@@ -2196,6 +2223,7 @@ hash_nif(_Hash, _Data) -> ?nif_stub.
 hash_init_nif(_Hash) -> ?nif_stub.
 hash_update_nif(_State, _Data) -> ?nif_stub.
 hash_final_nif(_State) -> ?nif_stub.
+hash_final_xof_nif(_State, _Length) -> ?nif_stub.
 
 %%%================================================================
 
@@ -2253,9 +2281,9 @@ srp_pad_length(Width, Length) ->
     (Width - Length rem Width) rem Width.
 
 srp_pad_to(Width, Binary) ->
-    case srp_pad_length(Width, size(Binary)) of
+    case srp_pad_length(Width, byte_size(Binary)) of
         0 -> Binary;
-        N -> << 0:(N*8), Binary/binary>>
+        N -> << 0:N/unit:8, Binary/binary>>
     end.
 
 srp_host_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.

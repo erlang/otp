@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,23 +51,20 @@ typedef struct erl_bin_match_buffer {
 
 struct erl_bits_state {
     /*
-     * Used for building binaries.
+     * Temporary buffer sometimes used by erts_new_bs_put_integer().
      */
     byte *byte_buf_;
     int byte_buf_len_;
+
     /*
-     * Used for building binaries using the new instruction set.
+     * Pointer to the beginning of the current binary.
      */
-    byte* erts_current_bin_;	/* Pointer to beginning of current binary. */
+    byte* erts_current_bin_;
+
     /*
-     * Offset in bits into the current binary (new instruction set) or
-     * buffer (old instruction set).
+     * Offset in bits into the current binary.
      */
     Uint erts_bin_offset_;
-    /*
-     * Whether the current binary is writable.
-     */
-     unsigned erts_writable_bin_;
 };
 
 typedef struct erl_bin_match_struct{
@@ -117,7 +114,6 @@ typedef struct erl_bin_match_struct{
 
 #define erts_bin_offset		(ErlBitsState.erts_bin_offset_)
 #define erts_current_bin	(ErlBitsState.erts_current_bin_)
-#define erts_writable_bin       (ErlBitsState.erts_writable_bin_)
 
 #define copy_binary_to_buffer(DstBuffer, DstBufOffset, SrcBuffer, SrcBufferOffset, NumBits) \
   do {											    \
@@ -149,6 +145,11 @@ void erts_bits_destroy_state(ERL_BITS_PROTO_0);
  * given a number of bytes.
  */
 #define WSIZE(n) ((n + sizeof(Eterm) - 1) / sizeof(Eterm))
+
+/*
+ * Define the maximum number of bits in a unit for the binary syntax.
+ */
+#define ERL_UNIT_BITS 8
 
 /*
  * Binary matching.
@@ -192,7 +193,7 @@ Eterm erts_bs_init_writable(Process* p, Eterm sz);
  * Common utilities.
  */
 void erts_copy_bits(byte* src, size_t soffs, int sdir,
-		    byte* dst, size_t doffs,int ddir, size_t n);        
+		    byte* dst, size_t doffs,int ddir, size_t n);
 int erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t size); 
 
 

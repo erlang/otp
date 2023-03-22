@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,9 +58,14 @@
          t_simple_local_sockaddr_in_send_recv/1,
          t_simple_link_local_sockaddr_in_send_recv/1,
          t_simple_local_sockaddr_in6_send_recv/1,
-         t_simple_link_local_sockaddr_in6_send_recv/1
+         t_simple_link_local_sockaddr_in6_send_recv/1,
+
+         otp_18323_opts_processing/1,
+         otp_18323_open/1
+
 	]).
 
+-include_lib("kernel/src/inet_int.hrl").
 
 -define(TRY_TC(F), try_tc(F)).
                
@@ -97,7 +102,8 @@ groups() ->
      {local,                  [], local_cases()},
      {socket_monitor,         [], socket_monitor_cases()},
 
-     {sockaddr,               [], sockaddr_cases()}
+     {sockaddr,               [], sockaddr_cases()},
+     {otp18323,               [], otp18323_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -128,7 +134,8 @@ all_cases() ->
      recv_close,
      {group, socket_monitor},
      otp_17492,
-     {group, sockaddr}
+     {group, sockaddr},
+     {group, otp18323}
     ].
 
 recv_and_send_opts_cases() ->
@@ -163,6 +170,12 @@ sockaddr_cases() ->
      t_simple_link_local_sockaddr_in_send_recv,
      t_simple_local_sockaddr_in6_send_recv,
      t_simple_link_local_sockaddr_in6_send_recv
+    ].
+
+otp18323_cases() ->
+    [
+     otp_18323_opts_processing,
+     otp_18323_open
     ].
 
 
@@ -247,6 +260,14 @@ init_per_group(sockaddr = _GroupName, Config) ->
         error : undef ->
             ?P("init_per_group(sockaddr) -> 'socket' not configured"),
             {skip, "esock not configured"}
+    end;
+init_per_group(otp18323 = _GroupName, Config) ->
+    ?P("init_per_group(otp18323) -> inet-drv specific bug(s)"),
+    case ?IS_SOCKET_BACKEND(Config) of
+        true ->
+            {skip, "Inet Drv specific bugs"};
+        false ->
+            ok
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -389,7 +410,7 @@ buffer_size_client(Server, IP, Port,
 		   Socket, Cnt, [{B,Replies}|T]=Opts) when is_binary(B) ->
     ?P("buffer_size_client -> Cnt=~w send size ~w expecting ~p when"
        "~n   Info: ~p",
-       [Cnt, size(B), Replies, inet:info(Socket)]),
+       [Cnt, byte_size(B), Replies, inet:info(Socket)]),
     case gen_udp:send(Socket, IP, Port, <<Cnt,B/binary>>) of
 	ok ->
 	    receive
@@ -425,7 +446,7 @@ buffer_size_client(Server, IP, Port,
 	    ?P("<ERROR> Client failed sending ~w bytes of data: "
 	       "~n   SndBuf: ~p"
 	       "~n   Reason: ~p",
-	       [size(B), inet:getopts(Socket, [sndbuf]), Reason]),
+	       [byte_size(B), inet:getopts(Socket, [sndbuf]), Reason]),
 	    ct:fail(Reason)
     end.
 
@@ -444,7 +465,7 @@ buffer_size_server(Client, IP, Port,
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [{B,_}|T]) when is_binary(B) ->
     ?P("buffer_size_server -> try receive: Cnt=~w and ~w bytes of data",
-       [Cnt, size(B)]),
+       [Cnt, byte_size(B)]),
     Reply = case buffer_size_server_recv(Socket, IP, Port, Cnt) of
                 D when is_binary(D) ->
                     SizeD = byte_size(D),
@@ -475,11 +496,11 @@ buffer_size_server_recv(Socket, IP, Port, Cnt) ->
        "~n   Cnt:    ~p", [Socket, IP, Port, Cnt]),
     receive
 	{udp, Socket, IP, Port, <<Cnt, B/binary>>} ->
-            ?P("buffer_size_server -> received (~w) ~w bytes", [Cnt, size(B)]),
+            ?P("buffer_size_server -> received (~w) ~w bytes", [Cnt, byte_size(B)]),
 	    B;
 	{udp, Socket, IP, Port, <<_B/binary>>} ->
             ?P("buffer_size_server -> received unexpected ~w bytes",
-               [size(_B)]),
+               [byte_size(_B)]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, Socket, IP, Port, _CRAP} ->
@@ -1718,15 +1739,20 @@ do_connect(Config) when is_list(Config) ->
     ok = inet:setopts(S2, [{active, false}]),
     ?P("try close first socket"),
     ok = gen_udp:close(S1),
+
+    %% Test if this helps...
+    ?P("sleep some"),
+    ct:sleep({seconds, 5}),
+
     ?P("try connect second socket to: ~p, ~p", [Addr, P1]),
     ok = gen_udp:connect(S2, Addr, P1),
     ?P("try send on second socket"),
     ok = gen_udp:send(S2, <<16#deadbeef:32>>),
-    ?P("try recv on second socket - expect failure: "
-       "~n   ~p", [inet:info(S2)]),
+    ?P("try recv on second socket - expect failure when"
+       "~n   Socket Info: ~p", [inet:info(S2)]),
     ok = case gen_udp:recv(S2, 0, 500) of
-	     {error, econnrefused} -> ok;
-	     {error, econnreset}   -> ok;
+	     {error, econnrefused = R} -> ?P("expected failure: ~w", [R]), ok;
+	     {error, econnreset   = R} -> ?P("expected failure: ~w", [R]), ok;
 	     Other -> 
                  ?P("UNEXPECTED failure: ~p:"
                     "~n   ~p", [Other, inet:info(S2)]),
@@ -2832,6 +2858,97 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     ok.
 
     
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Verify that the options [add|drop]_membership do not mess up
+%% the options (including 'ip' which could not be added *after*).
+%% This just attempts to very that the option processing is ok.
+otp_18323_opts_processing(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_otp_18323_opts_processing(Config) end).
+
+do_otp_18323_opts_processing(_Config) ->
+    ?P("begin"),
+
+    do_otp_18323_opts_processing_verify(
+      {add_membership,  {{239,1,2,3},{0,0,0,0}}}),
+
+    do_otp_18323_opts_processing_verify(
+      {drop_membership, {{239,1,2,3},{0,0,0,0}}}),
+
+    ?P("done"),
+    ok.
+
+do_otp_18323_opts_processing_verify(MembershipOpt) ->
+    Port   = 4321,
+    RecBuf = 123456,
+    Active = 10,
+    IP     = {1,2,3,4},
+    Opts   = [binary, MembershipOpt, {ip, IP}, {active, Active}],
+
+    case inet:udp_options([{port, Port}, {recbuf, RecBuf} | Opts], inet_udp) of
+        {ok, #udp_opts{ifaddr = IP,
+                       port   = Port,
+                       opts   = SockOpts}} ->
+            ?P("Processed Socket Options: "
+               "~n   IfAddr:    ~p"
+               "~n   Port:      ~p"
+               "~n   Sock Opts: ~p", [IP, Port, SockOpts]),
+            %% Check that the recbuf and mode options are as expected
+            %% The option 'binary' is shorthand for {mode, binary}
+            {value, {recbuf, RecBuf}} = lists:keysearch(recbuf, 1, SockOpts),
+            {value, {mode,   binary}} = lists:keysearch(mode,   1, SockOpts),
+            {value, {active, Active}} = lists:keysearch(active, 1, SockOpts),
+            ok;
+        {error, Reason} ->
+            exit(?F("Failed processing options: ~p", [Reason]))
+    end.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Verify that the options [add|drop]_membership do not mess up
+%% the options (including 'ip' which could not be added *after*).
+otp_18323_open(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    Pre  = fun() ->
+                   {ok, Addr} = ?LIB:which_local_addr(inet),
+                   #{local_addr => Addr}
+           end,
+    Case = fun(State) -> do_otp_18323_open(State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+
+do_otp_18323_open(#{local_addr := Addr}) ->
+    ?P("begin"),
+
+    ROpts = [binary,
+             {add_membership, {Addr,{0,0,0,0}}},
+             {ip, Addr},
+             {active,false},
+             {debug, true}],
+    SOpts = [{reuseaddr, true}, binary],
+
+    ?P("create received socket"),
+    {ok, R}     = gen_udp:open(0, ROpts),
+    ?P("extract received socket port"),
+    {ok, RPort} = inet:port(R),
+
+    ?P("create sender socket"),
+    {ok, S} = gen_udp:open(0, SOpts),
+
+    ?P("send to receiver (at port ~w)", [RPort]),
+    ok = gen_udp:send(S, Addr, RPort, <<"aaaaa">>),
+
+    ?P("attempt to receive data on specified format binary)"),
+    {ok, {_,_,<<"aaaaa">>}} = gen_udp:recv(R, 0, 200),
+
+    ?P("done"),
+    ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

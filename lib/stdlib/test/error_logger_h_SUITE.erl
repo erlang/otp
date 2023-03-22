@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,17 +66,17 @@ logfile(Config) ->
     analyse_events(Log, Ev, [AtNode], unlimited),
 
     %% Make sure that the file_io_server process has been stopped
-    [] = lists:filtermap(
-           fun(X) ->
-                   case {process_info(X, [current_function]),
-                         file:pid2name(X)} of
-                       {[{current_function, {file_io_server, _, _}}],
-                        {ok,P2N = Log}} ->
-                           {true, {X, P2N}};
-                       _ ->
-                           false
-                   end
-           end, processes()),
+    [] = lists:filtermap(fun(X) ->
+        case process_info(X, [current_function]) of
+            [{current_function, {file_io_server, _, _}}] ->
+                case file:pid2name(X) of
+                    {ok, Log} -> {true, {X, Log}};
+                    _ -> false
+                end;
+            _ ->
+                false
+        end
+    end, processes()),
 
     peer:stop(Peer),
 

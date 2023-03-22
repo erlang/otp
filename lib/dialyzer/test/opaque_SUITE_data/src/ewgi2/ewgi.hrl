@@ -56,7 +56,7 @@
                       bag()}.
 
 -define(IS_EWGI_SPEC(R), ((element(1, R) =:= 'ewgi_spec')
-                          and (size(R) =:= 6))).
+                          and (tuple_size(R) =:= 6))).
 -define(GET_EWGI_READ_INPUT(R), element(2, R)).
 -define(SET_EWGI_READ_INPUT(A, R), setelement(2, R, A)).
 -define(GET_EWGI_WRITE_ERROR(R), element(3, R)).
@@ -89,7 +89,7 @@
                               ewgi_header_val(), bag()}.
 
 -define(IS_HTTP_HEADERS(R), ((element(1, R) =:= 'ewgi_http_headers')
-                             and (size(R) =:= 8))).
+                             and (tuple_size(R) =:= 8))).
 -define(GET_HTTP_ACCEPT(R), element(2, R)).
 -define(SET_HTTP_ACCEPT(A, R), setelement(2, R, A)).
 -define(GET_HTTP_COOKIE(R), element(3, R)).
@@ -130,7 +130,7 @@
                          ewgi_val(), ewgi_val()}.
 
 -define(IS_EWGI_REQUEST(R), ((element(1, R) =:= 'ewgi_request')
-                             and (size(R) =:= 21))).
+                             and (tuple_size(R) =:= 21))).
 -define(GET_AUTH_TYPE(R), element(2, R)).
 -define(SET_AUTH_TYPE(A, R), setelement(2, R, A)).
 -define(GET_CONTENT_LENGTH(R), element(3, R)).
@@ -193,7 +193,7 @@
 -type ewgi_response() :: {'ewgi_response', ewgi_status(), ewgi_header_list(), ewgi_message_body(), any()}.
 
 -define(IS_EWGI_RESPONSE(R), ((element(1, R) =:= 'ewgi_response')
-                              and (size(R) =:= 5))).
+                              and (tuple_size(R) =:= 5))).
 -define(GET_RESPONSE_STATUS(R), element(2, R)).
 -define(SET_RESPONSE_STATUS(A, R), setelement(2, R, A)).
 -define(GET_RESPONSE_HEADERS(R), element(3, R)).
@@ -210,7 +210,7 @@
 -define(IS_EWGI_CONTEXT(R), ((element(1, R) =:= 'ewgi_context')
                              and ?IS_EWGI_REQUEST(element(2, R))
                              and ?IS_EWGI_RESPONSE(element(3, R))
-                             and (size(R) =:= 3))).
+                             and (tuple_size(R) =:= 3))).
 -define(GET_EWGI_REQUEST(R), element(2, R)).
 -define(SET_EWGI_REQUEST(A, R), setelement(2, R, A)).
 -define(GET_EWGI_RESPONSE(R), element(3, R)).

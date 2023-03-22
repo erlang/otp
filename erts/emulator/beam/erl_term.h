@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -179,6 +179,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #endif
 #define is_not_both_immed(x,y)	(!is_both_immed((x),(y)))
 
+#define is_zero_sized(x)        (is_immed(x) || (x) == ERTS_GLOBAL_LIT_EMPTY_TUPLE)
 
 /* boxed object access methods */
 
@@ -585,9 +586,9 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
  */
 
 #define _PID_SER_SIZE		(_PID_DATA_SIZE - _PID_NUM_SIZE)
-#define _PID_NUM_SIZE 		15
+#define _PID_NUM_SIZE 		28
 
-#define _PID_DATA_SIZE		28
+#define _PID_DATA_SIZE		(ERTS_SIZEOF_TERM*8 - _TAG_IMMED1_SIZE)
 #define _PID_DATA_SHIFT		(_TAG_IMMED1_SIZE)
 
 #define _GET_PID_DATA(X)	_GETBITS((X),_PID_DATA_SHIFT,_PID_DATA_SIZE)
@@ -635,7 +636,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_pid_node,Eterm)
  */
 #define _PORT_NUM_SIZE		_PORT_DATA_SIZE
 
-#define _PORT_DATA_SIZE		28
+#define _PORT_DATA_SIZE		(ERTS_SIZEOF_TERM*8 - _TAG_IMMED1_SIZE)
 #define _PORT_DATA_SHIFT	(_TAG_IMMED1_SIZE)
 
 #define _GET_PORT_DATA(X)	_GETBITS((X),_PORT_DATA_SHIFT,_PORT_DATA_SIZE)
