@@ -577,6 +577,10 @@ init(#{name := Name,
        supervisor := Supervisor,
        dist_listen := DistListen,
        hidden := Hidden}) ->
+    %% We enable async_dist so that we won't need to do the
+    %% nosuspend/spawn trick which just cause even larger
+    %% memory consumption...
+    _ = process_flag(async_dist, true),
     process_flag(trap_exit,true),
     persistent_term:put({?MODULE, publish_type},
                         if Hidden -> hidden;
@@ -794,12 +798,9 @@ handle_call({is_auth, _Node}, From, State) ->
 %%
 %% Not applicable any longer !?
 %%
-handle_call({apply,_Mod,_Fun,_Args}, {From,Tag}, State)
-  when is_pid(From), node(From) =:= node() ->
-    async_gen_server_reply({From,Tag}, not_implemented),
-%    Port = State#state.port,
-%    catch apply(Mod,Fun,[Port|Args]),
-    {noreply,State};
+handle_call({apply,_Mod,_Fun,_Args}, {Pid, _Tag} = From, State)
+  when is_pid(Pid), node(Pid) =:= node() ->
+    async_reply({reply, not_implemented, State}, From);
 
 handle_call(longnames, From, State) ->
     async_reply({reply, get(longnames), State}, From);
@@ -2285,7 +2286,7 @@ reply_waiting(_Node, Waiting, Rep) ->
     reply_waiting1(lists:reverse(Waiting), Rep).
 
 reply_waiting1([From|W], Rep) ->
-    async_gen_server_reply(From, Rep),
+    gen_server:reply(From, Rep),
     reply_waiting1(W, Rep);
 reply_waiting1([], _) ->
     ok.
@@ -2391,24 +2392,23 @@ return_call({noreply, _State}=R, _From) ->
 return_call(R, From) ->
     async_reply(R, From).
 
-async_reply({reply, Msg, State}, From) ->
-    async_gen_server_reply(From, Msg),
-    {noreply, State}.
-
-async_gen_server_reply(From, Msg) ->
-    {Pid, Tag} = From,
-    M = {Tag, Msg},
-    try erlang:send(Pid, M, [nosuspend, noconnect]) of
-        ok ->
-            ok;
-        nosuspend ->
-            _ = spawn(fun() -> catch erlang:send(Pid, M, [noconnect]) end),
-	    ok;
-        noconnect ->
-            ok % The gen module takes care of this case.
-    catch
-        _:_ -> ok
-    end.
+-compile({inline, [async_reply/2]}).
+async_reply({reply, _Msg, _State} = Res, _From) ->
+    %% This function call is kept in order to not unnecessarily create a huge diff
+    %% in the code.
+    %%
+    %% Here we used to send the reply explicitly using 'noconnect' and 'nosuspend'.
+    %%
+    %% * 'noconnect' since setting up a connection from net_kernel itself would
+    %%   deadlock when connects were synchronous. Since connects nowadays are
+    %%   asynchronous this is no longer an issue.
+    %% * 'nosuspend' and spawn a process taking care of the reply in case
+    %%   we would have suspended. This in order not to block net_kernel. We now
+    %%   use 'async_dist' enabled and by this prevent the blocking, keep the
+    %%   signal order, avoid one extra copying of the reply, avoid the overhead
+    %%   of creating a process, and avoid the extra memory consumption due to the
+    %%   extra process.
+    Res.
 
 handle_async_response(ResponseType, ReqId, Result, #state{req_map = ReqMap0} = S0) ->
     if ResponseType == down -> ok;
@@ -2422,20 +2422,19 @@ handle_async_response(ResponseType, ReqId, Result, #state{req_map = ReqMap0} = S
                         reply -> Result;
                         down -> {error, noconnection}
                     end,
-            S1 = S0#state{req_map = ReqMap1},
-            async_reply({reply, Reply, S1}, From);
+            gen_server:reply(From, Reply),
+            {noreply, S0#state{req_map = ReqMap1}};
 
         {{setopts_new, Op}, ReqMap1} ->
             case maps:get(Op, ReqMap1) of
                 {setopts_new, From, 1} ->
                     %% Last response for this operation...
+                    gen_server:reply(From, ok),
                     ReqMap2 = maps:remove(Op, ReqMap1),
-                    S1 = S0#state{req_map = ReqMap2},
-                    async_reply({reply, ok, S1}, From);
+                    {noreply, S0#state{req_map = ReqMap2}};
                 {setopts_new, From, N} ->
                     ReqMap2 = ReqMap1#{Op => {setopts_new, From, N-1}},
-                    S1 = S0#state{req_map = ReqMap2},
-                    {noreply, S1}
+                    {noreply, S0#state{req_map = ReqMap2}}
             end
     end.
 
