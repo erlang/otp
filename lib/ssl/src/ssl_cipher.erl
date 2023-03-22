@@ -1050,12 +1050,12 @@ filter_suites_pubkey(ecdsa, Ciphers, _, OtpCert) ->
 
 filter_suites_signature(_, Ciphers, ?'TLS-1.X'=Version) when Version >= ?'TLS-1.2' ->
      Ciphers;
-filter_suites_signature(rsa, Ciphers, _Version) ->
-    (Ciphers -- ecdsa_signed_suites(Ciphers)) -- dsa_signed_suites(Ciphers);
-filter_suites_signature(dsa, Ciphers, _Version) ->
-    (Ciphers -- ecdsa_signed_suites(Ciphers)) -- rsa_signed_suites(Ciphers);
-filter_suites_signature(ecdsa, Ciphers, _Version) ->
-    (Ciphers -- rsa_signed_suites(Ciphers)) -- dsa_signed_suites(Ciphers).
+filter_suites_signature(rsa, Ciphers, Version) ->
+    (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers);
+filter_suites_signature(dsa, Ciphers, Version) ->
+    (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- rsa_signed_suites(Ciphers, Version);
+filter_suites_signature(ecdsa, Ciphers, Version) ->
+    (Ciphers -- rsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers).
 
 
 %% From RFC 5246 - Section  7.4.2.  Server Certificate
@@ -1074,7 +1074,15 @@ filter_suites_signature(ecdsa, Ciphers, _Version) ->
 %% extension.  The names DH_DSS, DH_RSA, ECDH_ECDSA, and ECDH_RSA are
 %% historical.
 %% Note: DH_DSS and DH_RSA is not supported
-rsa_signed() ->
+rsa_signed(?'TLS-1.2') ->
+    fun(rsa) -> true;
+       (dhe_rsa) -> true;
+       (ecdhe_rsa) -> true;
+       (rsa_psk) -> true;
+       (srp_rsa) -> true;
+       (_) -> false
+    end;
+rsa_signed(_) ->
     fun(rsa) -> true;
        (dhe_rsa) -> true;
        (ecdhe_rsa) -> true;
@@ -1084,20 +1092,25 @@ rsa_signed() ->
        (_) -> false
     end.
 %% Cert should be signed by RSA
-rsa_signed_suites(Ciphers) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [rsa_signed()],
+rsa_signed_suites(Ciphers, Version) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [rsa_signed(Version)],
                              cipher_filters => [],
                              mac_filters => [],
                              prf_filters => []}).
-ecdsa_signed() ->
+
+ecdsa_signed(Version) when Version >= ?'TLS-1.2' ->
+    fun(ecdhe_ecdsa) -> true;
+       (_) -> false
+    end;
+ecdsa_signed(_) ->
     fun(ecdhe_ecdsa) -> true;
        (ecdh_ecdsa) -> true;
        (_) -> false
     end. 
 
 %% Cert should be signed by ECDSA
-ecdsa_signed_suites(Ciphers) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [ecdsa_signed()],
+ecdsa_signed_suites(Ciphers, Version) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [ecdsa_signed(Version)],
                              cipher_filters => [],
                              mac_filters => [],
                              prf_filters => []}).
