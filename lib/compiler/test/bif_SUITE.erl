@@ -24,7 +24,8 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 beam_validator/1,trunc_and_friends/1,cover_safe_and_pure_bifs/1,
-         cover_trim/1]).
+         cover_trim/1,
+         head_tail/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -37,7 +38,8 @@ groups() ->
       [beam_validator,
        trunc_and_friends,
        cover_safe_and_pure_bifs,
-       cover_trim
+       cover_trim,
+       head_tail
       ]}].
 
 init_per_suite(Config) ->
@@ -167,6 +169,28 @@ cover_trim_3(Header, N)->
             false
     end.
 
+%% GH-7024: The loader transformations for hd/1 and tl/1 were incorrect and
+%% failed when certain optimizations were turned off.
+head_tail(_Config) ->
+    {1, ok} = head_case(),
+    {1, ok} = tail_case(),
+
+    1 = hd(id([1])),
+    [] = tl(id([1])),
+
+    ok.
+
+head_case() ->
+    case 1 of
+        X when hd(X) -> blurf;
+        X -> {X, ok}
+    end.
+
+tail_case() ->
+    case 1 of
+        X when tl(X) -> blurf;
+        X -> {X, ok}
+    end.
 
 id(I) ->
     I.
