@@ -260,6 +260,7 @@ start_link() -> gen_server:start_link({local, global_group}, global_group,[],[])
 stop() -> gen_server:call(global_group, stop, infinity).
 
 init([]) ->
+    _ = process_flag(async_dist, true),
     process_flag(priority, max),
     ok = net_kernel:monitor_nodes(true, #{connection_id => true}),
     put(registered_names, [undefined]),
