@@ -641,6 +641,11 @@ static BOOLEAN_T esaio_completion_unknown(ESAIOThreadData* dataP,
                                           ESAIOOperation*  opP,
                                           DWORD            numBytes,
                                           int              error);
+static void esaio_completion_fail(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  const char*      opStr,
+                                  int              error,
+                                  BOOLEAN_T        inform);
 
 static BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
                                           ESockDescriptor* descP,
@@ -662,11 +667,13 @@ static BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
 static void esaio_completion_accept_completed(ErlNifEnv*       env,
                                               ESockDescriptor* descP,
                                               ESAIOOperation*  opP,
-                                              ESockRequestor*  reqP,
-                                              int              error);
-static void esaio_completion_accept_closed(ESockDescriptor* descP,
-                                           ESAIOOperation*  opP,
-                                           int              error);
+                                              ESockRequestor*  reqP);
+static void esaio_completion_accept_not_active(ESockDescriptor* descP);
+static void esaio_completion_accept_fail(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              error,
+                                         BOOLEAN_T        inform);
+
 static BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
                                        ESockDescriptor* descP,
                                        ESAIOOperation*  opP,
@@ -733,7 +740,6 @@ static void esaio_completion_recv_closed(ESockDescriptor* descP,
                                          int              error);
 static void esaio_completion_recv_fail(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
-                                       const char*      opStr,
                                        int              error,
                                        BOOLEAN_T        inform);
 static BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
@@ -754,6 +760,10 @@ static ERL_NIF_TERM esaio_completion_recvfrom_partial(ErlNifEnv*       env,
                                                       ESockRequestor*  reqP,
                                                       DWORD            read,
                                                       DWORD            flags);
+static void esaio_completion_recvfrom_fail(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           int              error,
+                                           BOOLEAN_T        inform);
 static BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
                                           ESockDescriptor* descP,
                                           ESAIOOperation*  opP,
@@ -772,6 +782,10 @@ static ERL_NIF_TERM esaio_completion_recvmsg_partial(ErlNifEnv*       env,
                                                      ESockRequestor*  reqP,
                                                      DWORD            read,
                                                      DWORD            flags);
+static void esaio_completion_recvmsg_fail(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          int              error,
+                                          BOOLEAN_T        inform);
 
 static ERL_NIF_TERM esaio_completion_get_ovl_result_fail(ErlNifEnv*       env,
                                                          ESockDescriptor* descP,
@@ -5078,9 +5092,8 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
     ERL_NIF_TERM reason;
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_completion_connect(%d) -> entry with"
-            "\r\n   error: %d"
-            "\r\n", descP->sock, error) );
+           ("WIN-ESAIO", "esaio_completion_connect(%d) -> entry\r\n",
+            descP->sock, error) );
 
     switch (error) {
     case NO_ERROR:
@@ -5161,8 +5174,9 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
     default:
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esaio_completion_connect(%d) -> operation unknown failure"
-                "\r\n", descP->sock) );
+                "esaio_completion_connect(%d) -> operation unknown failure:"
+                "\r\n   %T"
+                "\r\n", descP->sock, esock_errno_to_term(env, error)) );
         MLOCK(descP->writeMtx);
         /* We do not know what this is
          * but we can "assume" that the request failed so we need to
@@ -5216,7 +5230,7 @@ void esaio_completion_connect_completed(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("WIN-ESAIO",
-            "esaio_completion_connect_completed ->"
+            "esaio_completion_connect_completed -> "
             "success - try update context\r\n") );
 
     ucres = ESAIO_UPDATE_CONNECT_CONTEXT( descP->sock );
@@ -5235,6 +5249,7 @@ void esaio_completion_connect_completed(ErlNifEnv*       env,
          * value (the integer) instead.
          */
         int          save_errno = sock_errno();
+        ERL_NIF_TERM tag        = esock_atom_update_connect_context;
         ERL_NIF_TERM reason     = MKA(env, erl_errno_id(save_errno));
 
         SSDBG( descP, ("WIN-ESAIO",
@@ -5247,9 +5262,7 @@ void esaio_completion_connect_completed(ErlNifEnv*       env,
 
         WSACleanup();
 
-        completionStatus =
-            esock_make_error_t2r(env,
-                                 MKA(env, "update_connect_context"), reason);
+        completionStatus = esock_make_error_t2r(env, tag, reason);
 
     }
 
@@ -5306,19 +5319,7 @@ void esaio_completion_connect_fail(ErlNifEnv*       env,
                                    int              error,
                                    BOOLEAN_T        inform)
 {
-    if (inform)
-        esock_warning_msg("[WIN-ESAIO] Unknown connect operation failure: "
-                          "\r\n   Descriptor: %d"
-                          "\r\n   Errno:      %d (%T)"
-                          "\r\n",
-                          descP->sock, error, MKA(env, erl_errno_id(error)));
-
-    MLOCK(ctrl.cntMtx);
-            
-    esock_cnt_inc(&ctrl.genErrs, 1);
-
-    MUNLOCK(ctrl.cntMtx);
-
+    esaio_completion_fail(env, descP, "connect", error, inform);
 }
 
 
@@ -5353,45 +5354,139 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
                                   ESAIOOperation*  opP,
                                   int              error)
 {
-    ErlNifEnv* env = dataP->env;
-
-    MLOCK(descP->readMtx);
+    ErlNifEnv*     env = dataP->env;
+    ESockRequestor req;
+    ERL_NIF_TERM   reason;
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_completion_accept {%d} -> verify open\r\n",
-            descP->sock) );
+           ("WIN-ESAIO", "esaio_completion_accept(%d) -> entry with"
+            "\r\n   error: %s (%d)"
+            "\r\n", descP->sock, erl_errno_id(error), error) );
 
-    /* Its possible that the listen socket (represented by descP)
-     * could have been closed after a socket was accepted.
-     * In that case, it will not be open. *But* a request may
-     * still be 
-     */
-
-    if (IS_OPEN(descP->readState)) {
-
-        ESockRequestor req;
-
-        /* Is "this" accept still valid?
-         *
-         * Events are generated even when operations complete directly.
-         * But if they complete directly we do not push anything into
-         * the "queue".
-         */
+    switch (error) {
+    case NO_ERROR:
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_completion_accept(%d) -> no error"
+                "\r\n", descP->sock) );
+        MLOCK(descP->readMtx);
         if (esock_acceptor_get(env, descP,
-                               &opP->data.accept.accRef, &opP->caller,
+                               &opP->data.accept.accRef,
+                               &opP->caller,
+                               &req)) {
+            if (IS_OPEN(descP->readState)) {
+                esaio_completion_accept_completed(env, descP, opP, &req);
+            } else {
+                /* A completed (active) request for a socket that is not open.
+                 * Is this even possible?
+                 * A race (completed just as the socket was closed).
+                 */
+                esaio_completion_accept_not_active(descP);
+            }
+        } else {
+            /* Request was actually completed directly
+             * (and was therefor not put into the "queue")
+             * => Nothing to do here, other than cleanup (see below).
+             * => But we do not free the "buffer" since it was "used up"
+             *    when we (as assumed) got the result (directly)...
+             */
+        }
+        MUNLOCK(descP->readMtx);
+        break;
+
+    case WSA_OPERATION_ABORTED:
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_accept(%d) -> operation aborted"
+                "\r\n", descP->sock) );
+        /* *** SAME MTX LOCK ORDER FOR ALL OPs *** */
+        MLOCK(descP->readMtx);
+        MLOCK(descP->writeMtx);
+        /* The only thing *we* do that could cause an abort is the
+         * 'CancelIoEx' call, which we do when closing the socket.
+         * But if we have done that;
+         *   - Socket state will not be 'open' and
+         *   - we have also set closer (pid and ref).
+         */
+
+        if (esock_acceptor_get(env, descP,
+                               &opP->data.accept.accRef,
+                               &opP->caller,
                                &req)) {
 
-            esaio_completion_accept_completed(env, descP, opP, &req, error);
+            reason = esock_atom_closed,
 
+            /* Inform the user waiting for a reply */
+            esock_send_abort_msg(env, descP, opP->data.accept.accRef,
+                                 &req, reason);
+
+            /* The socket not being open (assumed closing),
+             * means we are in the closing phase...
+             */
+            if (! IS_OPEN(descP->readState)) {
+
+                /* We can only send the 'close' message to the closer
+                 * when all requests has been processed!
+                 */
+
+                /* Check "our" queue */
+                if (descP->acceptorsQ.first == NULL) {
+
+                    /* Check "other" queue(s) and if there is a closer pid */
+                    if ((descP->readersQ.first == NULL) &&
+                        (descP->writersQ.first == NULL) &&
+                        !IS_PID_UNDEF(&descP->closerPid)) {
+
+                        SSDBG( descP,
+                               ("WIN-ESAIO",
+                                "esaio_completion_accept(%d) -> "
+                                "send close msg to %T\r\n",
+                                descP->sock, MKPID(env, &descP->closerPid)) );
+
+                        esock_send_close_msg(env, descP, &descP->closerPid);
+                        /* Message send frees closeEnv */
+                        descP->closeEnv = NULL;
+                        descP->closeRef = esock_atom_undefined;
+
+                    }
+                }
+            }
         }
+        MUNLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
+        break;
 
-    } else {
+    default:
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_accept(%d) -> operation unknown failure"
+                "\r\n", descP->sock) );
+        MLOCK(descP->readMtx);
+        /* We do not know what this is
+         * but we can "assume" that the request failed so we need to
+         * remove it from the "queue" if its still there...
+         * And cleanup...
+         */
+        if (esock_acceptor_get(env, descP,
+                               &opP->data.accept.accRef,
+                               &opP->caller,
+                               &req)) {
+            /* Figure out the reason */
+            reason = MKA(env, erl_errno_id(error));
+            if (COMPARE(reason, esock_atom_unknown))
+                reason = MKT2(env,
+                              esock_atom_get_overlapped_result,
+                              MKI(env, error));
 
-        esaio_completion_accept_closed(descP, opP, error);
-
+            /* Inform the user waiting for a reply */
+            esock_send_abort_msg(env, descP, opP->data.accept.lSockRef,
+                                 &req, reason);
+            esaio_completion_accept_fail(env, descP, error, FALSE);
+        } else {
+            esaio_completion_accept_fail(env, descP, error, TRUE);
+        }
+        MUNLOCK(descP->readMtx);
+        break;
     }
-
-    MUNLOCK(descP->readMtx);
 
     SGDBG( ("WIN-ESAIO",
             "esaio_completion_accept -> clear and delete op env\r\n") );
@@ -5407,162 +5502,143 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
     SGDBG( ("WIN-ESAIO", "esaio_completion_accept -> done\r\n") );
 
     return FALSE;
+
 }
 
 
 
+/* *** esaio_completion_accept_completed ***
+ * The accept request has completed.
+ */
 static
 void esaio_completion_accept_completed(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
                                        ESAIOOperation*  opP,
-                                       ESockRequestor*  reqP,
-                                       int              error)
+                                       ESockRequestor*  reqP)
 {
-    ERL_NIF_TERM completionStatus, completionInfo;
+    ERL_NIF_TERM     completionStatus, completionInfo;
+    int              ucres;
+    ESockDescriptor* accDescP;
+    ERL_NIF_TERM     accRef, accSocket;
 
     ESOCK_ASSERT( DEMONP("esaio_completion_accept_completed - acceptor",
                          env, descP, &reqP->mon) == 0);
 
-    if (error == NO_ERROR) {
+    /* We need to make sure peername and sockname works! */
 
-        int              err;
-        ESockDescriptor* accDescP;
-        ERL_NIF_TERM     accRef, accSocket;
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_accept_completed -> "
+            "success - try update context\r\n") );
 
-        /* *** Success! ***
-         * CompletionStatus = {ok, NewSocket}
-         * CompletionInfo   = {ConnRef, CompletionStatus}
-         */
+    ucres = ESAIO_UPDATE_ACCEPT_CONTEXT( opP->data.accept.asock,
+                                         opP->data.accept.lsock );
 
-        /* We need to make sure peername and sockname works! */
+    if (ucres == 0) {
+
+        int save_errno;
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esaio_completion_accept_completed {%d} -> "
-                "success - update accept context\r\n",
-                descP->sock) );
+                "esaio_completion_accept_completed -> "
+                "create (accepted) descriptor\r\n") );
 
-        err = ESAIO_UPDATE_ACCEPT_CONTEXT( opP->data.accept.asock,
-                                           opP->data.accept.lsock );
+        accDescP = esock_alloc_descriptor(opP->data.accept.asock);
 
-        if (err == 0) {
+        if (ESAIO_OK != (save_errno = esaio_add_socket(accDescP))) {
+            // See esock_dtor for what needs done!
+            ERL_NIF_TERM tag    = esock_atom_add_socket;
+            ERL_NIF_TERM reason = MKA(env, erl_errno_id(save_errno));
 
-            int save_errno;
+            ESOCK_CNT_INC(env, descP,
+                          CP_TERM(env, opP->data.accept.lSockRef),
+                          esock_atom_acc_fails, &descP->accFails, 1);
 
             SSDBG( descP,
                    ("WIN-ESAIO",
                     "esaio_completion_accept_completed -> "
-                    "create (accepted) descriptor\r\n") );
+                    "failed adding (accepted) socket to completion port: "
+                    "%T (%d)\r\n",
+                    reason, save_errno) );
 
-            accDescP = esock_alloc_descriptor(opP->data.accept.asock);
+            esock_dealloc_descriptor(env, accDescP);
+            sock_close(opP->data.accept.asock);
 
-            if (ESAIO_OK != (save_errno = esaio_add_socket(accDescP))) {
-                // See esock_dtor for what needs done!
-                ERL_NIF_TERM tag    = esock_atom_add_socket;
-                ERL_NIF_TERM reason = MKA(env, erl_errno_id(save_errno));
+            /* This should really be:
+             *     {error, {invalid, {add_to_completion_port, Reason}}}
+             */
 
-                ESOCK_CNT_INC(env, descP,
-                              CP_TERM(env, opP->data.accept.lSockRef),
-                              esock_atom_acc_fails, &descP->accFails, 1);
-
-                SSDBG( descP,
-                       ("WIN-ESAIO",
-                        "esaio_completion_accept_completed -> "
-                        "failed adding (accepted) socket to completion port: "
-                        "%T (%d)\r\n",
-                        reason, save_errno) );
-
-                esock_dealloc_descriptor(env, accDescP);
-                sock_close(opP->data.accept.asock);
-
-                /* This should really be:
-                 *     {error, {invalid, {add_to_completion_port, Reason}}}
-                 */
-
-                completionStatus = esock_make_error_t2r(env, tag, reason);
-
-            } else {
-
-                ESOCK_CNT_INC(env, descP,
-                              // opP->data.accept.lSockRef,
-                              CP_TERM(env, opP->data.accept.lSockRef),
-                              esock_atom_acc_success,
-                              &descP->accSuccess, 1);
-
-                accDescP->domain   = descP->domain;
-                accDescP->type     = descP->type;
-                accDescP->protocol = descP->protocol;
-
-                MLOCK(descP->writeMtx);
-
-                accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
-                accDescP->rNum     = descP->rNum;    // Inherit buffer uses
-                accDescP->rNumCnt  = 0;
-                accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
-                accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
-                accDescP->iow      = descP->iow;     // Inherit iow
-                accDescP->dbg      = descP->dbg;     // Inherit debug flag
-                accDescP->useReg   = descP->useReg;  // Inherit useReg flag
-                esock_inc_socket(accDescP->domain, accDescP->type,
-                                 accDescP->protocol);
-
-                accRef = enif_make_resource(env, accDescP);
-                enif_release_resource(accDescP);
-                accSocket = esock_mk_socket(env, accRef);
-                
-                accDescP->ctrlPid = opP->caller;
-
-                ESOCK_ASSERT( MONP("esaio_completion_accept_completed -> ctrl",
-                                   env, accDescP,
-                                   &accDescP->ctrlPid,
-                                   &accDescP->ctrlMon) == 0 );
-
-                accDescP->writeState |= ESOCK_STATE_CONNECTED;
-
-                MUNLOCK(descP->writeMtx);
-
-                /* And finally (maybe) update the registry */
-                if (descP->useReg)
-                    esock_send_reg_add_msg(env, descP, accRef);
-
-                completionStatus = esock_make_ok2(env, accSocket);
-
-            }
+            completionStatus = esock_make_error_t2r(env, tag, reason);
 
         } else {
 
-            int          save_errno = sock_errno();
-            ERL_NIF_TERM tag        = esock_atom_update_accept_context;
-            ERL_NIF_TERM reason     = MKA(env, erl_errno_id(save_errno));
+            ESOCK_CNT_INC(env, descP,
+                          CP_TERM(env, opP->data.accept.lSockRef),
+                          esock_atom_acc_success,
+                          &descP->accSuccess, 1);
 
-            SSDBG( descP, ("WIN-ESAIO",
-                           "esaio_completion_accept_completed {%d} -> "
-                           "accept context update failed: %T (%d)\r\n",
-                           descP->sock, reason, save_errno) );
+            accDescP->domain   = descP->domain;
+            accDescP->type     = descP->type;
+            accDescP->protocol = descP->protocol;
 
-            sock_close(descP->sock);
-            descP->writeState = ESOCK_STATE_CLOSED;
+            MLOCK(descP->writeMtx);
 
-            WSACleanup();
+            accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+            accDescP->rNum     = descP->rNum;    // Inherit buffer uses
+            accDescP->rNumCnt  = 0;
+            accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
+            accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
+            accDescP->iow      = descP->iow;     // Inherit iow
+            accDescP->dbg      = descP->dbg;     // Inherit debug flag
+            accDescP->useReg   = descP->useReg;  // Inherit useReg flag
+            esock_inc_socket(accDescP->domain, accDescP->type,
+                             accDescP->protocol);
 
-            completionStatus = esock_make_error_t2r(env, tag, reason);
+            accRef = enif_make_resource(env, accDescP);
+            enif_release_resource(accDescP);
+            accSocket = esock_mk_socket(env, accRef);
+                
+            accDescP->ctrlPid = opP->caller;
+
+            ESOCK_ASSERT( MONP("esaio_completion_accept_completed -> ctrl",
+                               env, accDescP,
+                               &accDescP->ctrlPid,
+                               &accDescP->ctrlMon) == 0 );
+
+            accDescP->writeState |= ESOCK_STATE_CONNECTED;
+
+            MUNLOCK(descP->writeMtx);
+
+            /* And finally (maybe) update the registry */
+            if (descP->useReg)
+                esock_send_reg_add_msg(env, descP, accRef);
+
+            completionStatus = esock_make_ok2(env, accSocket);
 
         }
 
     } else {
 
-        /* *** Failure! ***
-         * CompletionStatus = {error, Reason}
+        /* It is actually possible that this is an error "we do not know"
+         * which will result in the atom 'unknown', which is not very useful...
+         * So, we should really test if is 'unknown' and if so use the actual
+         * value (the integer) instead.
          */
+        int          save_errno = sock_errno();
+        ERL_NIF_TERM tag        = esock_atom_update_accept_context;
+        ERL_NIF_TERM reason     = MKA(env, erl_errno_id(save_errno));
 
-        ERL_NIF_TERM reason = MKA(env, erl_errno_id(error));
+        SSDBG( descP, ("WIN-ESAIO",
+                       "esaio_completion_accept_completed {%d} -> "
+                       "accept context update failed: %T (%d)\r\n",
+                       descP->sock, reason, save_errno) );
 
-        SSDBG( descP,
-               ("WIN-ESAIO",
-                "esaio_completion_accept_completed -> failure: %T\r\n",
-                reason) );
+        sock_close(descP->sock);
+        descP->writeState = ESOCK_STATE_CLOSED;
 
-        completionStatus = esock_make_error(env, reason);
+        WSACleanup();
+
+        completionStatus = esock_make_error_t2r(env, tag, reason);
 
     }
 
@@ -5609,32 +5685,43 @@ void esaio_completion_accept_completed(ErlNifEnv*       env,
 
 
 
+/* *** esaio_completion_accept_not_active ***
+ * A accept request has completed but the request is no longer valid.
+ */
 static
-void esaio_completion_accept_closed(ESockDescriptor* descP,
-                                    ESAIOOperation*  opP,
-                                    int              error)
+void esaio_completion_accept_not_active(ESockDescriptor* descP)
 {
-    /* Even though the listen socket is not open,
-     * the accept may still have succeeded (race) and
-     * therefor we need to check the result!
-     */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_accept_not_active(%d) -> "
+            "success for not active accept request\r\n", descP->sock) );
 
-    if (error == NO_ERROR) {
-
-        SGDBG( ("WIN-ESAIO",
-                "esaio_completion_accept -> "
-                "success for closed (listen) socket (%d)\r\n",
-                descP->sock) );
-
-        MLOCK(ctrl.cntMtx);
+    MLOCK(ctrl.cntMtx);
             
-        esock_cnt_inc(&ctrl.unexpectedAccepts, 1);
+    esock_cnt_inc(&ctrl.unexpectedAccepts, 1);
 
-        MUNLOCK(ctrl.cntMtx);
+    MUNLOCK(ctrl.cntMtx);
 
-        sock_close(opP->data.accept.asock);
-    }
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_accept_not_active(%d) -> done\r\n",
+            descP->sock) );
+
 }
+
+
+/* *** esaio_completion_accept_fail ***
+ * Unknown operation failure.
+ */
+static
+void esaio_completion_accept_fail(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                int              error,
+                                BOOLEAN_T        inform)
+{
+    esaio_completion_fail(env, descP, "accept", error, inform);
+}
+
 
 
 
@@ -6324,9 +6411,9 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.recv.sockRef,
                                  &req, reason);
-            esaio_completion_recv_fail(env, descP, "recv", error, FALSE);
+            esaio_completion_recv_fail(env, descP, error, FALSE);
         } else {
-            esaio_completion_recv_fail(env, descP, "recv", error, TRUE);
+            esaio_completion_recv_fail(env, descP, error, TRUE);
         }
         FREE_BIN( &opP->data.recv.buf );
         MUNLOCK(descP->readMtx);
@@ -6745,24 +6832,10 @@ void esaio_completion_recv_closed(ESockDescriptor* descP,
 static
 void esaio_completion_recv_fail(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
-                                const char*      opStr,
                                 int              error,
                                 BOOLEAN_T        inform)
 {
-    if (inform)
-        esock_warning_msg("[WIN-ESAIO] Unknown (%s) operation failure: "
-                          "\r\n   Descriptor: %d"
-                          "\r\n   Errno:      %d (%T)"
-                          "\r\n",
-                          opStr, descP->sock,
-                          error, MKA(env, erl_errno_id(error)));
-
-    MLOCK(ctrl.cntMtx);
-            
-    esock_cnt_inc(&ctrl.genErrs, 1);
-
-    MUNLOCK(ctrl.cntMtx);
-
+    esaio_completion_fail(env, descP, "recv", error, inform);
 }
 
 
@@ -6800,8 +6873,10 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_recvfrom(%d) -> entry with"
-            "\r\n   error: %s (%d)"
-            "\r\n", descP->sock, erl_errno_id(error), error) );
+            "\r\n   error: %T, %s (%d)"
+            "\r\n",
+            descP->sock, esock_errno_to_term(env, error),
+            erl_errno_id(error), error) );
 
     switch (error) {
     case NO_ERROR:
@@ -6922,9 +6997,9 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.recvfrom.sockRef,
                                  &req, reason);
-            esaio_completion_recv_fail(env, descP, "recvfrom", error, FALSE);
+            esaio_completion_recvfrom_fail(env, descP, error, FALSE);
         } else {
-            esaio_completion_recv_fail(env, descP, "recvfrom", error, TRUE);
+            esaio_completion_recvfrom_fail(env, descP, error, TRUE);
         }
         FREE_BIN( &opP->data.recvfrom.buf );
         MUNLOCK(descP->readMtx);
@@ -7201,6 +7276,20 @@ ERL_NIF_TERM esaio_completion_recvfrom_partial(ErlNifEnv*       env,
 
 
 
+/* *** esaio_completion_recvfrom_fail ***
+ * Unknown operation failure.
+ */
+static
+void esaio_completion_recvfrom_fail(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              error,
+                                    BOOLEAN_T        inform)
+{
+    esaio_completion_fail(env, descP, "recvfrom", error, inform);
+}
+
+
+
 /* *** esaio_completion_recvmsg ***
  *
  * Handle a completed 'recvmsg' (completion) request.
@@ -7358,9 +7447,9 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.recvmsg.sockRef,
                                  &req, reason);
-            esaio_completion_recv_fail(env, descP, "recvmsg", error, FALSE);
+            esaio_completion_recvmsg_fail(env, descP, error, FALSE);
         } else {
-            esaio_completion_recv_fail(env, descP, "recvmsg", error, TRUE);
+            esaio_completion_recvmsg_fail(env, descP, error, TRUE);
         }
         FREE_BIN( &opP->data.recvmsg.data[0] );
         FREE_BIN( &opP->data.recvmsg.ctrl );
@@ -7611,6 +7700,20 @@ ERL_NIF_TERM esaio_completion_recvmsg_partial(ErlNifEnv*       env,
 
 
 
+/* *** esaio_completion_recvmsg_fail ***
+ * Unknown operation failure.
+ */
+static
+void esaio_completion_recvmsg_fail(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              error,
+                                   BOOLEAN_T        inform)
+{
+    esaio_completion_fail(env, descP, "recvmsg", error, inform);
+}
+
+
+
 /* *** esaio_completion_get_ovl_result_fail ***
  * This function is called when the function 'WSAGetOverlappedResult' fails.
  * It generates a result (returns) in the form of:
@@ -7675,6 +7778,34 @@ BOOLEAN_T esaio_completion_unknown(ESAIOThreadData* dataP,
     MUNLOCK(ctrl.cntMtx);
 
     return FALSE;
+}
+
+
+
+/* *** esaio_completion_fail ***
+ * Unknown operation failure (not 'unknown operation' failure,
+ * but an unknown 'operation failure').
+ */
+static
+void esaio_completion_fail(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           const char*      opStr,
+                           int              error,
+                           BOOLEAN_T        inform)
+{
+    if (inform)
+        esock_warning_msg("[WIN-ESAIO] Unknown (%s) operation failure: "
+                          "\r\n   Descriptor: %d"
+                          "\r\n   Errno:      %T"
+                          "\r\n",
+                          opStr, descP->sock, esock_errno_to_term(env, error));
+
+    MLOCK(ctrl.cntMtx);
+            
+    esock_cnt_inc(&ctrl.genErrs, 1);
+
+    MUNLOCK(ctrl.cntMtx);
+
 }
 
 

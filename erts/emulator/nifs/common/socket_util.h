@@ -247,6 +247,8 @@ ERL_NIF_TERM esock_self(ErlNifEnv* env);
 extern
 ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any);
 extern
+ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err);
+extern
 ERL_NIF_TERM esock_make_error(ErlNifEnv* env, ERL_NIF_TERM reason);
 extern
 ERL_NIF_TERM esock_make_error_closed(ErlNifEnv* env);

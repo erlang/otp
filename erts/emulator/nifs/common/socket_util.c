@@ -2329,6 +2329,50 @@ ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any)
 }
 
 
+/* Takes an 'errno' value and converts it to a term.
+ *
+ * If the errno can be translated using erl_errno_id,
+ * then we use that value otherwise we use the errno
+ * integer value converted to a term.
+ * Unless there is a specific error code that can be
+ * handled specially.
+ */
+extern
+ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
+{
+    switch (err) {
+#if defined(NO_ERROR)
+    case NO_ERROR:
+        return MKA(env, "no_error");
+        break;
+#endif
+
+#if defined(WSA_IO_PENDING)
+    case WSA_IO_PENDING:
+        return MKA(env, "io_pending");
+        break;
+#endif
+
+#if defined(WSA_OPERATION_ABORTED)
+    case WSA_OPERATION_ABORTED:
+        return MKA(env, "operation_aborted");
+        break;
+#endif
+
+    default:
+        {
+            char* str;
+            if ((str = erl_errno_id(err)) == "unknown")
+                return MKI(env, err);
+            else
+                return MKA(env, str);
+        }
+        break;
+    }
+}
+
+
+
 /* Create an error two (2) tuple in the form:
  *
  *          {error, Reason}
