@@ -3606,20 +3606,14 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
         if (read > descP->readPkgMax)
             descP->readPkgMax = read;
 
-        esock_clear_env("recv_check_ok", opP->env);
-        esock_free_env("recv_check_ok", opP->env);
-        FREE( opP );
-
         result = esock_make_ok2(env, data);
 
     } else {
         int          save_errno = sock_errno();
-        ERL_NIF_TERM eerrno, reason;
-
-        eerrno = MKA(env, erl_errno_id(save_errno));
-        if (! COMPARE(eerrno, esock_atom_unknown))
-            eerrno = MKI(env, save_errno);
-        reason = MKT2(env, esock_atom_get_overlapped_result, eerrno);
+        ERL_NIF_TERM eerrno     = esock_errno_to_term(env, save_errno);
+        ERL_NIF_TERM reason     = MKT2(env,
+                                       esock_atom_get_overlapped_result,
+                                       eerrno);
 
         ESOCK_CNT_INC(env, descP, sockRef,
                       esock_atom_read_fails, &descP->readFails, 1);
@@ -3689,6 +3683,12 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
                              int              saveErrno,
                              ERL_NIF_TERM     sockRef)
 {
+    SSDBG( descP,
+           ("WIN-ESAIO", "recv_check_fail(%T) {%d} -> entry with"
+            "\r\n   errno: %d"
+            "\r\n",
+            sockRef, descP->sock, saveErrno) );
+
     FREE_BIN( &opP->data.recv.buf );
 
     return recv_check_failure(env, descP, opP, saveErrno, sockRef);
@@ -3922,10 +3922,6 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
         if (read > descP->readPkgMax)
             descP->readPkgMax = read;
 
-        esock_clear_env("recvfrom_check_ok", opP->env);
-        esock_free_env("recvfrom_check_ok", opP->env);
-        FREE( opP );
-
         /*
          * This is:                 {ok, {Source, Data}}
          * But it should really be: {ok, {Source, Flags, Data}}
@@ -3934,8 +3930,10 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
 
     } else {
         int          save_errno = sock_errno();
-        ERL_NIF_TERM eerrno = MKA(env, erl_errno_id(save_errno));
-        ERL_NIF_TERM reason = MKT2(env, esock_atom_get_overlapped_result, eerrno);
+        ERL_NIF_TERM eerrno     = esock_errno_to_term(env, save_errno);
+        ERL_NIF_TERM reason     = MKT2(env,
+                                       esock_atom_get_overlapped_result,
+                                       eerrno);
 
         MLOCK(ctrl.cntMtx);
 
@@ -3969,6 +3967,12 @@ ERL_NIF_TERM recvfrom_check_fail(ErlNifEnv*       env,
                                  int              saveErrno,
                                  ERL_NIF_TERM     sockRef)
 {
+    SSDBG( descP,
+           ("WIN-ESAIO", "recfrom_check_fail(%T) {%d} -> entry with"
+            "\r\n   errno: %d"
+            "\r\n",
+            sockRef, descP->sock, saveErrno) );
+
     FREE_BIN( &opP->data.recvfrom.buf );
 
     return recv_check_failure(env, descP, opP, saveErrno, sockRef);
@@ -4191,16 +4195,14 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
         if (read > descP->readPkgMax)
             descP->readPkgMax = read;
 
-        esock_clear_env("recvmsg_check_ok", opP->env);
-        esock_free_env("recvmsg_check_ok", opP->env);
-        FREE( opP );
-
         result = esock_make_ok2(env, eMsg);
 
     } else {
         int          save_errno = sock_errno();
-        ERL_NIF_TERM eerrno = MKA(env, erl_errno_id(save_errno));
-        ERL_NIF_TERM reason = MKT2(env, esock_atom_get_overlapped_result, eerrno);
+        ERL_NIF_TERM eerrno     = esock_errno_to_term(env, save_errno);
+        ERL_NIF_TERM reason     = MKT2(env,
+                                       esock_atom_get_overlapped_result,
+                                       eerrno);
 
         ESOCK_CNT_INC(env, descP, sockRef,
                       esock_atom_read_fails, &descP->readFails, 1);
