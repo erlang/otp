@@ -289,12 +289,13 @@ build_small([]) -> [].
 
 build_limited([#{control_char := C, args := As, width := F, adjust := Ad,
                  precision := P, pad_char := Pad, encoding := Enc,
-                 strings := Str, maps_order := Ord} | Cs],
+                 strings := Str}=CC | Cs],
               NumOfPs0, Count0, MaxLen0, I) ->
     MaxChars = if
                    MaxLen0 < 0 -> MaxLen0;
                    true -> MaxLen0 div Count0
                end,
+    Ord = maps:get(maps_order, CC, undefined),
     S = control_limited(C, As, F, Ad, P, Pad, Enc, Str, Ord, MaxChars, I),
     NumOfPs = decr_pc(C, NumOfPs0),
     Count = Count0 - 1,
