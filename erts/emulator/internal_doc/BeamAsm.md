@@ -308,7 +308,12 @@ that perf provides functionality similar to that of [eprof](https://erlang.org/d
 
 You can run perf on BeamAsm like this:
 
-    perf record erl +JPperf true
+    # Start Erlang under perf
+    perf record -- erl +JPperf true
+    # Record a running instance started with `+JPperf true` for 10s
+    perf record --pid $BEAM_PID -- sleep 10
+    # Record a running instance started with `+JPperf true` until interrupted
+    perf record --pid $BEAM_PID
 
 and then look at the results using `perf report` as you normally would with
 perf.
@@ -438,7 +443,7 @@ we have found useful:
     on another host. In early version of perf this command does not work,
     instead you can use [this bash script](https://github.com/torvalds/linux/blob/master/tools/perf/perf-archive.sh).
 * `perf report` gives "failed to process sample" and/or "failed to process type: 68"
-    This probably means that you are running a bugge version of perf. We have
+    This probably means that you are running a bugged version of perf. We have
     seen this when running Ubuntu 18.04 with kernel version 4. If you update
     to Ubuntu 20.04 or use Ubuntu 18.04 with kernel version 5 the problem
     should go away.
