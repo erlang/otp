@@ -589,16 +589,34 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
-	am_is_binary,
-	&is_binary_1,
-	1,
-	DBIF_ALL
+        am_is_binary,
+        &is_binary_1,
+        1,
+        DBIF_ALL
     },
     {
-	am_is_function,
-	&is_function_1,
-	1,
-	DBIF_ALL
+        am_is_bitstring,
+        &is_bitstring_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_is_boolean,
+        &is_boolean_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_is_function,
+        &is_function_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_is_function,
+        &is_function_2,
+        2,
+        DBIF_ALL
     },
     {
 	am_is_record,
@@ -697,6 +715,12 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+	am_tuple_size,
+	&tuple_size_1,
+	1,
+	DBIF_ALL
+    },
+    {
 	am_binary_part,
 	&binary_part_2,
 	2,
@@ -721,10 +745,22 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
-	am_float,
-	&float_1,
-	1,
-	DBIF_ALL
+        am_float,
+        &float_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_ceil,
+        &ceil_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_floor,
+        &floor_1,
+        1,
+        DBIF_ALL
     },
     {
 	am_Plus,
