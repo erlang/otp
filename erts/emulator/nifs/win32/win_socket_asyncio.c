@@ -2455,6 +2455,11 @@ ERL_NIF_TERM esaio_sendto(ErlNifEnv*       env,
  *      "can only be used with datagrams and raw sockets."
  *
  * So, should we check, or let the user crash and burn?
+ *
+ * Note that this operation *only* works for socket
+ * of types SOCK_DGRAM and SOCK_RAW! Should we check
+ * and throw 'enotsup' otherwise? Would make testing
+ * easier...
  */
 
 extern
@@ -2477,6 +2482,18 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
     size_t          ctrlBufLen,  ctrlBufUsed;
     WSABUF*         wbufs = NULL;
     ESAIOOperation* opP   = NULL;
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg(%T, %d) -> entry with"
+                   "\r\n", sockRef, descP->sock) );
+
+    /* This *only* works on socket type(s) DGRAM or RAW.
+     * Other socket types results in einval, which is not very
+     * helpful. So, in order to, atleast, help with testing,
+     * we do this...
+     */
+    if (! ((descP->type == SOCK_DGRAM) || (descP->type == SOCK_RAW))) {
+        return enif_raise_exception(env, MKA(env, "notsup"));
+    }
 
     ESOCK_ASSERT( enif_self(env, &caller) != NULL );
 
@@ -4036,6 +4053,15 @@ ERL_NIF_TERM esaio_recvmsg(ErlNifEnv*       env,
                    "\r\n", sockRef, descP->sock,
                    (unsigned long) bufSz, (long) bufLen,
                    (unsigned long) ctrlSz, (long) ctrlLen) );
+
+    /* This *only* works on socket type(s) DGRAM or RAW.
+     * Other socket types results in einval, which is not very
+     * helpful. So, in order to, atleast, help with testing,
+     * we do this...
+     */
+    if (! ((descP->type == SOCK_DGRAM) || (descP->type == SOCK_RAW))) {
+        return enif_raise_exception(env, MKA(env, "notsup"));
+    }
 
     ESOCK_ASSERT( enif_self(env, &caller) != NULL );
 

@@ -134,6 +134,11 @@ loop(ID, [#{desc := Desc,
                         "~n   ~p", [ID, Reason]),
             exit({command_failed, ID, Reason, State})
     catch
+        error:notsup = Reason:Stack ->
+            ?SEV_IPRINT("command ~w skip: "
+                        "~n   ~p"
+                        "~n   ~p", [ID, Reason, Stack]),
+            exit({skip, Reason});
         C:{skip, command} = E:_ when ((C =:= throw) orelse (C =:= exit)) ->
             %% Secondary skip
             exit(E);
