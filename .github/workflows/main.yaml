@@ -7,11 +7,10 @@
 ## not possible so we need to rebuild all of Erlang/OTP multiple
 ## times.
 ##
-## When ghcr.io support using the GITHUB_TOKEN we should migrate
-## over to use it instead as that should allow us to use the
+## Now that we have migrated to ghcr.io we use the
 ## built-in caching mechanisms of docker/build-push-action@v2.
 ## However as things are now we use docker directly to make things
-## work.
+## work due to historical reasons.
 ##
 
 name: Build and check Erlang/OTP
@@ -56,7 +55,7 @@ jobs:
       - name: Docker login
         uses: docker/login-action@v2
         with:
-          registry: docker.pkg.github.com
+          registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Cache BASE image
@@ -329,7 +328,7 @@ jobs:
       - name: Docker login
         uses: docker/login-action@v2
         with:
-          registry: docker.pkg.github.com
+          registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build BASE image
@@ -382,7 +381,7 @@ jobs:
       - name: Docker login
         uses: docker/login-action@v2
         with:
-          registry: docker.pkg.github.com
+          registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Cache BASE image
@@ -409,7 +408,7 @@ jobs:
       - name: Docker login
         uses: docker/login-action@v2
         with:
-          registry: docker.pkg.github.com
+          registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Cache BASE image
@@ -479,7 +478,7 @@ jobs:
       - name: Docker login
         uses: docker/login-action@v2
         with:
-          registry: docker.pkg.github.com
+          registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Cache BASE image
@@ -541,7 +540,7 @@ jobs:
       - name: Docker login
         uses: docker/login-action@v2
         with:
-          registry: docker.pkg.github.com
+          registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build BASE image
@@ -616,7 +615,7 @@ jobs:
       - name: Docker login
         uses: docker/login-action@v2
         with:
-          registry: docker.pkg.github.com
+          registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build BASE image

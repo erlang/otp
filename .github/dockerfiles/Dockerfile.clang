@@ -1,4 +1,4 @@
-ARG BASE=docker.pkg.github.com/erlang/otp/ubuntu-base
+ARG BASE=ghcr.io/erlang/otp/ubuntu-base
 FROM $BASE
 ## We do a SSA lint check here
 ENV ERL_COMPILER_OPTIONS=ssalint
