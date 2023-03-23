@@ -6926,7 +6926,8 @@ api_a_connect_tcp(InitState) ->
                                    {ok, State#{asynch_tag  => select,
                                                connect_tag => ST}};
 
-                               {completion, {completion_info, CT, CompletionRef}}
+                               {completion,
+                                {completion_info, CT, CompletionRef}}
                                  when SR =:= nowait ->
                                    ?SEV_IPRINT("completion nowait ->"
                                                "~n   tag: ~p"
@@ -6935,7 +6936,8 @@ api_a_connect_tcp(InitState) ->
                                    {ok, State#{asynch_tag  => completion,
                                                connect_tag => CT,
                                                connect_ref => CompletionRef}};
-                               {completion, {completion_info, CT, CR}}
+                               {completion,
+                                {completion_info, CT, CR}}
                                  when is_reference(CR) ->
                                    ?SEV_IPRINT("completion ref ->"
                                                "~n   tag: ~p"
@@ -9488,6 +9490,7 @@ api_a_recv_cancel_tcp(InitState) ->
            cmd  => fun(#{tester := Tester} = _State) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, recv)
                    end},
+
          #{desc => "try recv request (with nowait, expect select|completion)",
            cmd  => fun(#{csock    := Sock,
                          recv     := Recv,
