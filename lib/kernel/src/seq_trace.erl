@@ -74,7 +74,7 @@ set_token(Type, Val) ->
 get_token() ->
     element(2,process_info(self(),sequential_trace_token)).
 
--spec get_token(Component) -> {Component, Val} when
+-spec get_token(Component) -> [] | {Component, Val} when
       Component :: component(),
       Val :: value().
 get_token(Type) ->
