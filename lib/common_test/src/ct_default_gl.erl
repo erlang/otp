@@ -67,12 +67,10 @@ handle_info({'DOWN',Ref,process,_,_Reason}, #{parent_gl_monitor := Ref} = St) ->
     User = whereis(user),
     {noreply,St#{parent_gl_pid => User,
 		 parent_gl_monitor => erlang:monitor(process,User)}};
-
 handle_info({io_request,_From,_ReplyAs,_Req} = IoReq,
-	    #{parent_gl_pid := ParentGL} = St) ->
+	    #{parent_gl_pid := ParentGL} = St) when is_pid(ParentGL) ->
     ParentGL ! IoReq,
     {noreply,St};
-
 handle_info(Msg, St) ->
     io:format(user, "Common Test Group Leader process got: ~tp~n", [Msg]),
     {noreply,St}.
