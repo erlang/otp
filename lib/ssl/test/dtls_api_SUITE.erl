@@ -191,7 +191,7 @@ dtls_listen_reopen() ->
     [{doc, "Test that you close a DTLS 'listner' socket and open a new one for the same port"}].
 
 dtls_listen_reopen(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -356,7 +356,7 @@ client_restarts() ->
     [{doc, "Test re-connection "}].
 
 client_restarts(Config) ->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -435,7 +435,7 @@ client_restarts_multiple_acceptors(Config) ->
     %% closed.
     %% Then do a new openssl connect with the same client port.
 
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 

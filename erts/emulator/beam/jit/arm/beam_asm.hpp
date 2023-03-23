@@ -236,9 +236,9 @@ public:
     size_t getOffset();
 
 protected:
-    void _codegen(JitAllocator *allocator,
-                  const void **executable_ptr,
-                  void **writable_ptr);
+    void codegen(JitAllocator *allocator,
+                 const void **executable_ptr,
+                 void **writable_ptr);
 
     void *getCode(Label label);
     byte *getCode(char *labelName);

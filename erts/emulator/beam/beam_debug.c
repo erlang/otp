@@ -169,6 +169,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_breakpoint_2),
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
+
     erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_thr_progress_block();
 
@@ -182,13 +183,17 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 	erts_commit_staged_bp();
 	erts_uninstall_breakpoints(&f);
     }
-    erts_consolidate_bp_data(&f, 1);
+    erts_consolidate_local_bp_data(&f);
     res = make_small(f.matched);
     erts_bp_free_matched_functions(&f);
 
+    erts_blocking_code_barrier();
+
     erts_thr_progress_unblock();
     erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+
     erts_release_code_mod_permission();
+
     return res;
 
  error:

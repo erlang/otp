@@ -51,11 +51,13 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     }
 
     {
-        /* We have no need of the module pointers as we use `getCode(...)` for
-         * everything. */
-        const void *_ignored_exec;
-        void *_ignored_rw;
-        _codegen(allocator, &_ignored_exec, &_ignored_rw);
+        const void *executable_region;
+        void *writable_region;
+
+        BeamAssembler::codegen(allocator, &executable_region, &writable_region);
+        VirtMem::flushInstructionCache((void *)executable_region,
+                                       code.codeSize());
+        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
     std::vector<AsmRange> ranges;

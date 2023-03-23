@@ -139,10 +139,11 @@ validate_empty_protocols_are_not_allowed(Config) when is_list(Config) ->
 			    [{next_protocols_advertised, [<<"foo/1">>, <<"">>]}])),
     {error, {options, {client_preferred_next_protocols, {invalid_protocol, <<>>}}}}
 	= (catch ssl:connect({127,0,0,1}, 9443,
-			     [{client_preferred_next_protocols,
+			     [{verify, verify_none}, {client_preferred_next_protocols,
 			       {client, [<<"foo/1">>, <<"">>], <<"foox/1">>}}], infinity)),
     Option = {client_preferred_next_protocols, {invalid_protocol, <<"">>}},
-    {error, {options, Option}} = (catch ssl:connect({127,0,0,1}, 9443, [Option], infinity)).
+    {error, {options, Option}} = (catch ssl:connect({127,0,0,1}, 9443, 
+                                                    [{verify, verify_none}, Option], infinity)).
 
 %--------------------------------------------------------------------------------
 
@@ -154,12 +155,13 @@ validate_empty_advertisement_list_is_allowed(Config) when is_list(Config) ->
 
 validate_advertisement_must_be_a_binary_list(Config) when is_list(Config) ->
     Option = {next_protocols_advertised, blah},
-    {error, {options, Option}} = (catch ssl:listen(9443, [Option])).
+    {error, {options, Option}} = (catch ssl:listen(9443, [{verify, verify_none}, Option])).
 %--------------------------------------------------------------------------------
 
 validate_client_protocols_must_be_a_tuple(Config) when is_list(Config)  ->
     Option = {client_preferred_next_protocols, [<<"foo/1">>]},
-    {error, {options, Option}} = (catch ssl:connect({127,0,0,1}, 9443, [Option])).
+    {error, {options, Option}} = (catch ssl:connect({127,0,0,1}, 9443,
+                                                    [{verify, verify_none}, Option])).
 
 %--------------------------------------------------------------------------------
 

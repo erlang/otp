@@ -100,8 +100,7 @@ enum erts_break_op{
 typedef Uint32 ErtsBpIndex;
 
 typedef struct {
-    const ErtsCodeInfo *ci_exec;
-    ErtsCodeInfo *ci_rw;
+    const ErtsCodeInfo *code_info;
     Module* mod;
 } BpFunction;
 
@@ -128,7 +127,9 @@ void erts_bp_free_matched_functions(BpFunctions* f);
 
 void erts_install_breakpoints(BpFunctions* f);
 void erts_uninstall_breakpoints(BpFunctions* f);
-void erts_consolidate_bp_data(BpFunctions* f, int local);
+
+void erts_consolidate_local_bp_data(BpFunctions* f);
+void erts_consolidate_export_bp_data(BpFunctions* f);
 
 void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
 void erts_clear_trace_break(BpFunctions *f);

@@ -1038,7 +1038,7 @@ setup_tls_opts(Config) ->
     case proplists:get_value(tls_only_basic_opts, Config, []) of
         [_|_] = BasicOpts -> %% No verify but server still need to have cert
             "-proto_dist inet_tls " ++ "-ssl_dist_opt server_certfile " ++ SC ++ " "
-                ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " " ++ BasicOpts;
+                ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " " ++ " -ssl_dist_opt client_verify verify_none " ++ BasicOpts;
         [] -> %% Verify
             TlsVerifyOpts = proplists:get_value(tls_verify_opts, Config, []),
              case TlsVerifyOpts of
@@ -1056,7 +1056,7 @@ setup_tls_opts(Config) ->
                          ++  TlsVerifyOpts;
                  _ ->  %% No verify, no extra opts
                      "-proto_dist inet_tls " ++ "-ssl_dist_opt server_certfile " ++ SC ++ " "
-                         ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " "
+                         ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " " ++ "-ssl_dist_opt client_verify verify_none "
              end
     end.
 

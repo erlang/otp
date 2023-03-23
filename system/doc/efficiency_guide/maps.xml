@@ -37,6 +37,7 @@
   finally the functions in the <seeerl
   marker="stdlib:maps">maps</seeerl> module.</p>
 
+  <marker id="terminology"/>
   <p>Terminology used in this chapter:</p>
   <list type="bulleted">
     <item>A map with at most 32 elements will informally be called a
@@ -589,7 +590,17 @@ new() ->
     <section>
       <title>maps:merge/2</title>
       <p><seemfa marker="stdlib:maps#merge/2">maps:merge/2</seemfa>
-      is implemented in C.</p>
+      is implemented in C. For <seeguide marker="#terminology">small
+      maps</seeguide>, the key tuple may be shared with any of the argument
+      maps if that argument map contains all the keys. Literal key tuples are
+      prefered if possible.</p>
+      <change>
+	<p>
+	  The sharing of key tuples by <c>maps:merge/2</c> was introduced in
+	  OTP @OTP-18503@. Older versions always contructed a new key tuple on
+	  the callers heap.
+	</p>
+      </change>
     </section>
 
     <section>
@@ -669,7 +680,7 @@ new() ->
       <p>If the keys are constants known at compile-time, using the
       map update syntax with the <c>:=</c> operator is more
       efficient than multiple calls to <c>maps:update/3</c>,
-      especially for small maps.</p>
+      especially for <seeguide marker="#terminology">small maps</seeguide>.</p>
     </section>
 
     <section>

@@ -539,11 +539,11 @@ init_certs(srp_rsa, Config) ->
     [{tls_config, #{server_config =>
                         [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}} | ServerOpts],
                     client_config =>
-                        [{srp_identity, {"Test-User", "secret"}} | ClientOpts]}} |
+                        [{srp_identity, {"Test-User", "secret"}}, {verify, verify_none} | ClientOpts]}} |
      proplists:delete(tls_config, Config)];
 init_certs(srp_anon, Config) ->
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}}],
-                    client_config => [{srp_identity, {"Test-User", "secret"}}]}} |
+                    client_config => [{srp_identity, {"Test-User", "secret"}}, {verify, verify_none}]}} |
      proplists:delete(tls_config, Config)];
 init_certs(rsa_psk, Config) ->
     ClientExt = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
@@ -553,7 +553,8 @@ init_certs(rsa_psk, Config) ->
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}} | ServerOpts],
                     client_config => [{psk_identity, "Test-User"},
-                                      {user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}} | ClientOpts]}} |
+                                      {user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}},
+                                      {verify, verify_none} | ClientOpts]}} |
      proplists:delete(tls_config, Config)];
 init_certs(rsa, Config) ->
     ClientExt = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
@@ -632,17 +633,17 @@ init_certs(GroupName, Config) when GroupName == psk;
                                    GroupName == ecdhe_psk ->
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}}],
-                    client_config => [{psk_identity, "Test-User"},
+                    client_config => [{verify, verify_none}, {psk_identity, "Test-User"},
                                       {user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}}]}} |
      proplists:delete(tls_config, Config)];
 init_certs(srp, Config) ->
       [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}}],
-                      client_config => [{srp_identity, {"Test-User", "secret"}}]}} |
+                      client_config => [{verify, verify_none},{srp_identity, {"Test-User", "secret"}}]}} |
        proplists:delete(tls_config, Config)];
 init_certs(_GroupName, Config) ->
     %% Anonymous does not need certs
-     [{tls_config, #{server_config => [],
-                     client_config => []}} |
+     [{tls_config, #{server_config => [{verify, verify_none}],
+                     client_config => [{verify, verify_none}]}} |
        proplists:delete(tls_config, Config)].
 
 %%--------------------------------------------------------------------

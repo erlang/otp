@@ -218,13 +218,15 @@ executable page and once with a writable page. Since they're backed by the
 same memory, writes to the writable page appear magically in the executable
 one.
 
-The `erts_writable_code_ptr` function can be used to get writable pointers,
-given a module instance:
+The `erts_writable_code_ptr` function can be used to get writable pointers
+given a module instance, provided that it has been unsealed first:
 
-    for (i = 0; i < n; ++i) {
+    for (i = 0; i < n; i++) {
         const ErtsCodeInfo* ci_exec;
         ErtsCodeInfo* ci_rw;
         void *w_ptr;
+
+        erts_unseal_module(&modp->curr);
 
         ci_exec = code_hdr->functions[i];
         w_ptr = erts_writable_code_ptr(&modp->curr, ci_exec);
@@ -233,11 +235,15 @@ given a module instance:
         uninstall_breakpoint(ci_rw, ci_exec);
         consolidate_bp_data(modp, ci_rw, 1);
         ASSERT(ci_rw->gen_bp == NULL);
+
+        erts_seal_module(&modp->curr);
     }
 
 Without the module instance there's no reliable way to figure out the writable
 address of a code page, and we rely on _address space layout randomization_
-(ASLR) to make it difficult to guess.
+(ASLR) to make it difficult to guess. On some platforms, security is further
+enhanced by protecting the writable area from writes until the module has been
+unsealed by `erts_unseal_module`.
 
 ### Export tracing
 

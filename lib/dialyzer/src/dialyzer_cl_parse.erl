@@ -420,11 +420,11 @@ help_message() ->
                 [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
                 [--error_location flag] [files_or_dirs] [--fullpath]
                 [--get_warnings] [--gui] [--help] [-I include_dir]*
-                [--incremental] [--no_check_plt] [--no_indentation] [--no_spec]
+                [--incremental] [--metrics_file] [--no_check_plt] [--no_indentation] [--no_spec]
                 [-o outfile] [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
                 [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
                 [--shell] [--src] [--statistics] [--verbose] [--version]
-                [-Wwarn]*
+                [--warning_apps] [-Wwarn]*
 
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
@@ -446,6 +446,16 @@ Options:
       be used during analysis in order to refer to Erlang/OTP applications.
       In addition, file or directory names can also be included, as in:
         dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam
+  --warning_apps applications
+      By default, warnings will be reported to all applications given by
+      --apps. However, if --warning_apps is used, only those applications
+      given to --warning_apps will have warnings reported. All applications
+      given by --apps, but not --warning_apps, will be analysed to provide
+      context to the analysis, but warnings will not be reported for them.
+      For example, you may want to include libraries you depend on in the
+      analysis with --apps so discrepancies in their usage can be found,
+      but only include your own code with --warning_apps so that
+      discrepancies are only reported in code that you own.
   -o outfile (or --output outfile)
       When using Dialyzer from the command line, send the analysis
       results to the specified outfile rather than to stdout.
@@ -541,6 +551,11 @@ Options:
       calls, usages of types in specs, behaviour implementations, etc.) into
       the specified file whose format is determined by the file name
       extension. Supported extensions are: dot and ps.
+  --metrics_file file
+      Write metrics about Dialyzer's incrementality (for example, total number of
+      modules considered, how many modules were changed since the PLT was
+      last updated, how many modules needed to be analyzed) to a file. This
+      can be useful for tracking and debugging Dialyzer's incrementality.
   --error_location column | line
       Use a pair {Line, Column} or an integer Line to pinpoint the location
       of warnings. The default is to use a pair {Line, Column}. When

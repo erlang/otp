@@ -131,7 +131,8 @@ static GenericBpData* check_break(const ErtsCodeInfo *ci, Uint break_flags);
 static void bp_meta_unref(BpMetaTracer *bmt);
 static void bp_count_unref(BpCount *bcp);
 static void bp_calltrace_unref(BpDataCallTrace *bdt);
-static void consolidate_bp_data(Module *modp, ErtsCodeInfo *ci, int local);
+static void consolidate_bp_data(struct erl_module_instance *mi,
+                                ErtsCodeInfo *ci, int local);
 static void uninstall_breakpoint(ErtsCodeInfo *ci_rw,
                                  const ErtsCodeInfo *ci_exec);
 
@@ -197,37 +198,30 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 	    }
 	}
 
-	for (fi = 0; fi < num_functions; fi++) {
-            const ErtsCodeInfo* ci_exec;
-            ErtsCodeInfo* ci_rw;
-            void *w_ptr;
-
-            ci_exec = code_hdr->functions[fi];
-            w_ptr = erts_writable_code_ptr(&module[current]->curr, ci_exec);
-            ci_rw = (ErtsCodeInfo*)w_ptr;
+        for (fi = 0; fi < num_functions; fi++) {
+            const ErtsCodeInfo* ci = code_hdr->functions[fi];
 
 #ifndef BEAMASM
-            ASSERT(BeamIsOpCode(ci_rw->u.op, op_i_func_info_IaaI));
+            ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI));
 #endif
             switch (specified) {
             case 3:
-                if (ci_rw->mfa.arity != mfa->arity)
+                if (ci->mfa.arity != mfa->arity)
                     continue;
             case 2:
-                if (ci_rw->mfa.function != mfa->function)
+                if (ci->mfa.function != mfa->function)
                     continue;
             case 1:
-                if (ci_rw->mfa.module != mfa->module)
+                if (ci->mfa.module != mfa->module)
                     continue;
             case 0:
                 break;
             }
             /* Store match */
-            f->matching[i].ci_exec = ci_exec;
-            f->matching[i].ci_rw = ci_rw;
+            f->matching[i].code_info = ci;
             f->matching[i].mod = module[current];
             i++;
-	}
+        }
     }
     f->matched = i;
     Free(module);
@@ -272,8 +266,7 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
             ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint));
         }
 
-        f->matching[ne].ci_exec = &ep->info;
-        f->matching[ne].ci_rw = &ep->info;
+        f->matching[ne].code_info = &ep->info;
         f->matching[ne].mod = erts_get_module(ep->info.mfa.module, code_ix);
 
         ne++;
@@ -292,21 +285,74 @@ erts_bp_free_matched_functions(BpFunctions* f)
 }
 
 void
-erts_consolidate_bp_data(BpFunctions* f, int local)
+erts_consolidate_export_bp_data(BpFunctions* f)
 {
     BpFunction* fs = f->matching;
-    Uint i;
-    Uint n = f->matched;
+    Uint i, n;
 
     ERTS_LC_ASSERT(erts_has_code_mod_permission());
 
+    n = f->matched;
+
     for (i = 0; i < n; i++) {
-        consolidate_bp_data(fs[i].mod, fs[i].ci_rw, local);
+        struct erl_module_instance *mi;
+        ErtsCodeInfo *ci_rw;
+
+        mi = fs[i].mod ? &fs[i].mod->curr : NULL;
+
+        /* Export entries are always writable, discard const. */
+        ci_rw = (ErtsCodeInfo*)fs[i].code_info;
+
+        ASSERT(mi == NULL ||
+               !ErtsInArea(ci_rw,
+                           mi->executable_region,
+                           mi->code_length));
+
+        consolidate_bp_data(mi, ci_rw, 0);
+    }
+}
+
+void
+erts_consolidate_local_bp_data(BpFunctions* f)
+{
+    struct erl_module_instance *prev_mi;
+    BpFunction* fs = f->matching;
+    Uint i, n;
+
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
+
+    n = f->matched;
+    prev_mi = NULL;
+
+    for (i = 0; i < n; i++) {
+        struct erl_module_instance *mi;
+        ErtsCodeInfo *ci_rw;
+
+        ASSERT(fs[i].mod);
+        mi = &fs[i].mod->curr;
+
+        if (prev_mi != mi) {
+            if (prev_mi != NULL) {
+                erts_seal_module(prev_mi);
+            }
+
+            erts_unseal_module(mi);
+            prev_mi = mi;
+        }
+
+        ci_rw = (ErtsCodeInfo*)erts_writable_code_ptr(mi, fs[i].code_info);
+
+        consolidate_bp_data(mi, ci_rw, 1);
+    }
+
+    if (prev_mi != NULL) {
+        erts_seal_module(prev_mi);
     }
 }
 
 static void
-consolidate_bp_data(Module* modp, ErtsCodeInfo *ci_rw, int local)
+consolidate_bp_data(struct erl_module_instance *mi,
+                    ErtsCodeInfo *ci_rw, int local)
 {
     GenericBp* g = ci_rw->gen_bp;
     GenericBpData* src;
@@ -349,14 +395,14 @@ consolidate_bp_data(Module* modp, ErtsCodeInfo *ci_rw, int local)
 
     flags = dst->flags = src->flags;
     if (flags == 0) {
-	if (modp) {
+	if (mi) {
 	    if (local) {
-		modp->curr.num_breakpoints--;
+		mi->num_breakpoints--;
 	    } else {
-		modp->curr.num_traced_exports--;
+		mi->num_traced_exports--;
 	    }
-	    ASSERT(modp->curr.num_breakpoints >= 0);
-	    ASSERT(modp->curr.num_traced_exports >= 0);
+	    ASSERT(mi->num_breakpoints >= 0);
+	    ASSERT(mi->num_traced_exports >= 0);
 #if !defined(BEAMASM) && defined(DEBUG)
             {
                 BeamInstr instr = *(const BeamInstr*)erts_codeinfo_to_code(ci_rw);
@@ -414,14 +460,36 @@ erts_commit_staged_bp(void)
 void
 erts_install_breakpoints(BpFunctions* f)
 {
-    Uint i;
-    Uint n = f->matched;
+    struct erl_module_instance *prev_mi;
+    Uint i, n;
+
+    n = f->matched;
+    prev_mi = NULL;
 
     for (i = 0; i < n; i++) {
-        const ErtsCodeInfo *ci_exec = f->matching[i].ci_exec;
-        ErtsCodeInfo *ci_rw = f->matching[i].ci_rw;
-        GenericBp *g = ci_rw->gen_bp;
-        Module *modp = f->matching[i].mod;
+        struct erl_module_instance *mi;
+        const ErtsCodeInfo *ci_exec;
+        ErtsCodeInfo *ci_rw;
+        GenericBp *g;
+        Module *modp;
+
+        modp = f->matching[i].mod;
+        mi = &modp->curr;
+
+        if (prev_mi != mi) {
+            if (prev_mi != NULL) {
+                erts_seal_module(prev_mi);
+            }
+
+            erts_unseal_module(mi);
+            prev_mi = mi;
+        }
+
+        ci_exec = f->matching[i].code_info;
+        ci_rw = (ErtsCodeInfo*)erts_writable_code_ptr(mi, ci_exec);
+
+        g = ci_rw->gen_bp;
+
 #ifdef BEAMASM
         if ((erts_asm_bp_get_flags(ci_exec) & ERTS_ASM_BP_FLAG_BP) == 0 && g) {
 	    /*
@@ -433,53 +501,82 @@ erts_install_breakpoints(BpFunctions* f)
 	    ASSERT(g->data[erts_staging_bp_ix()].flags != 0);
 
             erts_asm_bp_set_flag(ci_rw, ci_exec, ERTS_ASM_BP_FLAG_BP);
-            modp->curr.num_breakpoints++;
+            mi->num_breakpoints++;
         }
 #else
-        BeamInstr volatile *pc = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
-        BeamInstr instr = *pc;
+        {
+            BeamInstr volatile *pc = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
+            BeamInstr instr = *pc;
 
-        ASSERT(ci_exec == ci_rw);
-        (void)ci_exec;
+            ASSERT(ci_exec == ci_rw);
+            (void)ci_exec;
 
-	if (!BeamIsOpCode(instr, op_i_generic_breakpoint) && g) {
-            BeamInstr br = BeamOpCodeAddr(op_i_generic_breakpoint);
+            if (!BeamIsOpCode(instr, op_i_generic_breakpoint) && g) {
+                BeamInstr br = BeamOpCodeAddr(op_i_generic_breakpoint);
 
-	    /*
-	     * The breakpoint must be disabled in the active data
-	     * (it will enabled later by switching bp indices),
-	     * and enabled in the staging data.
-	     */
-	    ASSERT(g->data[erts_active_bp_ix()].flags == 0);
-	    ASSERT(g->data[erts_staging_bp_ix()].flags != 0);
+                /* The breakpoint must be disabled in the active data
+                 * (it will enabled later by switching bp indices),
+                 * and enabled in the staging data. */
+                ASSERT(g->data[erts_active_bp_ix()].flags == 0);
+                ASSERT(g->data[erts_staging_bp_ix()].flags != 0);
 
-	    /*
-	     * The following write is not protected by any lock. We
-	     * assume that the hardware guarantees that a write of an
-	     * aligned word-size writes is atomic (i.e. that other
-	     * processes executing this code will not see a half
-	     * pointer).
-             *
-             * The contents of *pc is marked 'volatile' to ensure that
-             * the compiler will do a single full-word write, and not
-             * try any fancy optimizations to write a half word.
-	     */
-            instr = BeamSetCodeAddr(instr, br);
-            *pc = instr;
-	    modp->curr.num_breakpoints++;
-	}
+                /* The following write is not protected by any lock. We
+                 * assume that the hardware guarantees that a write of an
+                 * aligned word-size writes is atomic (i.e. that other
+                 * processes executing this code will not see a half
+                 * pointer).
+                 *
+                 * The contents of *pc is marked 'volatile' to ensure that
+                 * the compiler will do a single full-word write, and not
+                 * try any fancy optimizations to write a half word.
+                 */
+                instr = BeamSetCodeAddr(instr, br);
+                *pc = instr;
+
+                mi->num_breakpoints++;
+            }
+        }
 #endif
+    }
+
+    if (prev_mi != NULL) {
+        erts_seal_module(prev_mi);
     }
 }
 
 void
 erts_uninstall_breakpoints(BpFunctions* f)
 {
-    Uint i;
-    Uint n = f->matched;
+    struct erl_module_instance *prev_mi;
+    Uint i, n;
+
+    n = f->matched;
+    prev_mi = NULL;
 
     for (i = 0; i < n; i++) {
-        uninstall_breakpoint(f->matching[i].ci_rw, f->matching[i].ci_exec);
+        struct erl_module_instance *mi = &f->matching[i].mod->curr;
+        const ErtsCodeInfo *ci_exec;
+        ErtsCodeInfo *ci_rw;
+
+        mi = &f->matching[i].mod->curr;
+
+        if (prev_mi != mi) {
+            if (prev_mi != NULL) {
+                erts_seal_module(prev_mi);
+            }
+
+            erts_unseal_module(mi);
+            prev_mi = mi;
+        }
+
+        ci_exec = f->matching[i].code_info;
+        ci_rw = erts_writable_code_ptr(mi, ci_exec);
+
+        uninstall_breakpoint(ci_rw, ci_exec);
+    }
+
+    if (prev_mi != NULL) {
+        erts_seal_module(prev_mi);
     }
 }
 
@@ -626,6 +723,7 @@ erts_clear_all_breaks(BpFunctions* f)
 
 int
 erts_clear_module_break(Module *modp) {
+    struct erl_module_instance *mi;
     const BeamCodeHeader* code_hdr;
     Uint n;
     Uint i;
@@ -633,7 +731,9 @@ erts_clear_module_break(Module *modp) {
     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
     ASSERT(modp);
 
-    code_hdr = modp->curr.code_hdr;
+    mi = &modp->curr;
+
+    code_hdr = mi->code_hdr;
     if (!code_hdr) {
         return 0;
     }
@@ -647,20 +747,22 @@ erts_clear_module_break(Module *modp) {
 
     erts_commit_staged_bp();
 
+    erts_unseal_module(mi);
+
     for (i = 0; i < n; ++i) {
         const ErtsCodeInfo *ci_exec;
         ErtsCodeInfo *ci_rw;
-        void *w_ptr;
 
         ci_exec = code_hdr->functions[i];
-        w_ptr = erts_writable_code_ptr(&modp->curr, ci_exec);
-        ci_rw = (ErtsCodeInfo*)w_ptr;
+        ci_rw = (ErtsCodeInfo*)erts_writable_code_ptr(mi, ci_exec);
 
         uninstall_breakpoint(ci_rw, ci_exec);
-        consolidate_bp_data(modp, ci_rw, 1);
+        consolidate_bp_data(mi, ci_rw, 1);
 
         ASSERT(ci_rw->gen_bp == NULL);
     }
+
+    erts_seal_module(mi);
 
     return n;
 }
@@ -683,7 +785,7 @@ erts_clear_export_break(Module* modp, Export *ep)
     clear_function_break(ci, ERTS_BPF_ALL);
     erts_commit_staged_bp();
 
-    consolidate_bp_data(modp, ci, 0);
+    consolidate_bp_data(&modp->curr, ci, 0);
     ASSERT(ci->gen_bp == NULL);
 }
 
@@ -1470,14 +1572,35 @@ static void
 set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
 	  enum erts_break_op count_op, ErtsTracer tracer)
 {
-    Uint i;
-    Uint n;
+    struct erl_module_instance *prev_mi = NULL;
+    BpFunction* fs = f->matching;
+    Uint i, n;
 
     n = f->matched;
+    prev_mi = NULL;
+
     for (i = 0; i < n; i++) {
-        set_function_break(f->matching[i].ci_rw,
+        struct erl_module_instance *mi = &fs[i].mod->curr;
+        ErtsCodeInfo *ci_rw;
+
+        if (prev_mi != mi) {
+            if (prev_mi != NULL) {
+                erts_seal_module(prev_mi);
+            }
+
+            erts_unseal_module(mi);
+            prev_mi = mi;
+        }
+
+        ci_rw = (ErtsCodeInfo *)erts_writable_code_ptr(mi, fs[i].code_info);
+
+        set_function_break(ci_rw,
                            match_spec, break_flags,
                            count_op, tracer);
+    }
+
+    if (prev_mi != NULL) {
+        erts_seal_module(prev_mi);
     }
 }
 
@@ -1618,7 +1741,7 @@ clear_break(BpFunctions* f, Uint break_flags)
 
     n = f->matched;
     for (i = 0; i < n; i++) {
-        clear_function_break(f->matching[i].ci_exec, break_flags);
+        clear_function_break(f->matching[i].code_info, break_flags);
     }
 }
 

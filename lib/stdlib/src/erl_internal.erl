@@ -566,6 +566,7 @@ is_type(bool, 0) -> true;
 is_type(boolean, 0) -> true;
 is_type(byte, 0) -> true;
 is_type(char, 0) -> true;
+is_type(dynamic, 0) -> true;
 is_type(float, 0) -> true;
 is_type(function, 0) -> true;
 is_type(identifier, 0) -> true;

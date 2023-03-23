@@ -112,8 +112,8 @@ init_per_suite(Config0) ->
              #{server_config := LServerConf,
                client_config := LClientConf}} = ssl_test_lib:make_rsa_sni_configs(),
             %% RSA certs files needed by *dot cases
-            ssl_test_lib:make_rsa_cert([{client_opts, ClientConf},
-                                        {client_local_opts, LClientConf},
+            ssl_test_lib:make_rsa_cert([{client_opts, [{verify, verify_peer} | ClientConf]},
+                                        {client_local_opts, [{verify, verify_peer} | LClientConf]},
                                         {sni_server_opts, [{sni_hosts, [{Hostname, ServerConf}]} | LServerConf]}
                                        | Config0])
     catch _:_  ->
@@ -383,8 +383,8 @@ customize_hostname_check(Config) when is_list(Config) ->
 sni_no_trailing_dot() ->
       [{doc,"Test that sni may not include a triling dot"}].
 sni_no_trailing_dot(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(sni_server_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -407,8 +407,8 @@ hostname_trailing_dot() ->
     [{doc,"Test that fallback sni removes trailing dot of hostname"}].
 
 hostname_trailing_dot(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(sni_server_opts, Config),
     {ClientNode, ServerNode, Hostname0} = ssl_test_lib:run_where(Config),
 
     case trailing_dot_hostname(Hostname0) of

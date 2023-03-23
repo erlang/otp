@@ -160,15 +160,15 @@
 
 %%====================================================================
 %% Internal application API
-%%====================================================================	
+%%====================================================================
 %%====================================================================
 %% Setup
-%%====================================================================	     
+%%====================================================================
 init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
     State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     try
-	State = ssl_gen_statem:ssl_config(State0#state.ssl_options, 
+	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
                                           Role, State0),
 	gen_statem:enter_loop(?MODULE, [], initial_hello, State)
     catch
@@ -178,8 +178,8 @@ init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
 	    gen_statem:enter_loop(?MODULE, [], config_error, EState)
     end.
 %%====================================================================
-%% Handshake 
-%%====================================================================	     
+%% Handshake
+%%====================================================================
 renegotiate(#state{static_env = #static_env{role = client}} = State0, Actions) ->
     %% Handle same way as if server requested
     %% the renegotiation
@@ -194,7 +194,7 @@ renegotiate(#state{static_env = #static_env{role = server}} = State0, Actions) -
     dtls_gen_connection:next_event(hello, no_record, State, Actions ++ MoreActions).
 
 %%--------------------------------------------------------------------
-%% State functions 
+%% State functions
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
 -spec initial_hello(gen_statem:event_type(),
@@ -202,7 +202,7 @@ renegotiate(#state{static_env = #static_env{role = server}} = State0, Actions) -
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 initial_hello(enter, _, State) ->
-    {keep_state, State};     
+    {keep_state, State};
 initial_hello({call, From}, {start, Timeout},
      #state{static_env = #static_env{host = Host,
                                      port = Port,

@@ -54,14 +54,15 @@ void *beamasm_new_assembler(Eterm mod,
                             int num_functions,
                             BeamFile *beam);
 void beamasm_codegen(void *ba,
-                     const void **native_module_exec,
-                     void **native_module_rw,
+                     const void **executable_region,
+                     void **writable_region,
                      const BeamCodeHeader *in_hdr,
                      const BeamCodeHeader **out_exec_hdr,
                      BeamCodeHeader **out_rw_hdr);
 void beamasm_register_metadata(void *ba, const BeamCodeHeader *hdr);
-void beamasm_purge_module(const void *native_module_exec,
-                          void *native_module_rw);
+void beamasm_purge_module(const void *executable_region,
+                          void *writable_region,
+                          size_t size);
 void beamasm_delete_assembler(void *ba);
 int beamasm_emit(void *ba, unsigned specific_op, BeamOp *op);
 ErtsCodePtr beamasm_get_code(void *ba, int label);
@@ -100,6 +101,12 @@ char *beamasm_get_base(void *instance);
 /* Return current instruction offset, for line information. */
 size_t beamasm_get_offset(void *ba);
 
+void beamasm_unseal_module(const void *executable_region,
+                           void *writable_region,
+                           size_t size);
+void beamasm_seal_module(const void *executable_region,
+                         void *writable_region,
+                         size_t size);
 void beamasm_flush_icache(const void *address, size_t size);
 
 /* Number of bytes emitted at first label in order to support trace and nif
@@ -167,10 +174,10 @@ static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
                                         const ErtsCodeInfo *ci_exec,
                                         enum erts_asm_bp_flag flag) {
     ASSERT(flag != ERTS_ASM_BP_FLAG_NONE);
+    (void)ci_exec;
 
     if (ci_rw->u.metadata.breakpoint_flag == ERTS_ASM_BP_FLAG_NONE) {
 #    if defined(__aarch64__)
-        const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
         Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
 
         /* B .next, .enabled: BL breakpoint_handler, .next: */
@@ -178,8 +185,6 @@ static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
 
         /* Reroute the initial jump instruction to `.enabled`. */
         rw_code[1] = 0x14000001;
-
-        beamasm_flush_icache(&exec_code[1], sizeof(Uint32));
 #    else /* x86_64 */
         byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
 
@@ -189,8 +194,6 @@ static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
 
         /* Reroute the initial jump instruction to `.enabled`. */
         rw_code[1] = 1;
-
-        (void)ci_exec;
 #    endif
     }
 
@@ -201,6 +204,7 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
                                           const ErtsCodeInfo *ci_exec,
                                           enum erts_asm_bp_flag flag) {
     ASSERT(flag != ERTS_ASM_BP_FLAG_NONE);
+    (void)ci_exec;
 
     ci_rw->u.metadata.breakpoint_flag &= ~flag;
 
@@ -209,7 +213,6 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
          * past the prologue. */
 
 #    if defined(__aarch64__)
-        const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
         Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
 
         /* B .enabled, .enabled: BL breakpoint_handler, .next: */
@@ -218,8 +221,6 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
         /* Reroute the initial jump instruction back to `.next`. */
         ERTS_CT_ASSERT(BEAM_ASM_FUNC_PROLOGUE_SIZE == sizeof(Uint32[3]));
         rw_code[1] = 0x14000002;
-
-        beamasm_flush_icache(&exec_code[1], sizeof(Uint32));
 #    else /* x86_64 */
         byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
 
@@ -229,8 +230,6 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
 
         /* Reroute the initial jump instruction back to `.next`. */
         rw_code[1] = BEAM_ASM_FUNC_PROLOGUE_SIZE - 2;
-
-        (void)ci_exec;
 #    endif
     }
 }

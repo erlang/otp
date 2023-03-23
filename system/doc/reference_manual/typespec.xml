@@ -83,10 +83,24 @@
     </p>
     <pre>  atom() | integer()</pre>
     <p>
-      Because of subtype relations that exist between types, types
+      Because of subtype relations that exist between types, all types,
+      except <c>dynamic()</c>,
       form a lattice where the top-most element, <c>any()</c>, denotes
       the set of all Erlang terms and the bottom-most element, <c>none()</c>,
       denotes the empty set of terms.
+    </p>
+    <p>
+      To facilitate <url href="https://en.wikipedia.org/wiki/Gradual_typing">
+      gradual typing</url> of Erlang, the type `dynamic()` is provided.
+      It is similar to
+      <url href="https://docs.python.org/3/library/typing.html#the-any-type">Any</url>
+      in Python,
+      <url href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#any">any</url>
+      in TypeScript and
+      <url href="https://docs.hhvm.com/hack/built-in-types/dynamic">dynamic</url>
+      in Hack. `any()` and `dynamic()` interact with
+      <url href="https://learnyousomeerlang.com/dialyzer#success-typing">success typing</url>
+      the same way, so Dialyzer doesn't distinguish between them.
     </p>
     <p>
       The set of predefined types and the syntax for types follows:
@@ -94,6 +108,7 @@
     <pre><![CDATA[
   Type :: any()                 %% The top type, the set of all Erlang terms
         | none()                %% The bottom type, contains no terms
+        | dynamic()
         | pid()
         | port()
         | reference()
