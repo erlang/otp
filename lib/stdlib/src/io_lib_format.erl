@@ -289,8 +289,9 @@ build_small([]) -> [].
 
 build_limited([#{control_char := C, args := As, width := F, adjust := Ad,
                  precision := P, pad_char := Pad, encoding := Enc,
-                 strings := Str, maps_order := Ord} | Cs],
+                 strings := Str} = Map | Cs],
               NumOfPs0, Count0, MaxLen0, I) ->
+    Ord = maps:get(maps_order, Map, undefined),
     MaxChars = if
                    MaxLen0 < 0 -> MaxLen0;
                    true -> MaxLen0 div Count0
@@ -314,7 +315,7 @@ build_limited([$\n|Cs], NumOfPs, Count, MaxLen, _I) ->
     [$\n|build_limited(Cs, NumOfPs, Count, MaxLen, 0)];
 build_limited([$\t|Cs], NumOfPs, Count, MaxLen, I) ->
     [$\t|build_limited(Cs, NumOfPs, Count, MaxLen, ((I + 8) div 8) * 8)];
-build_limited([C|Cs], NumOfPs, Count, MaxLen, I) ->
+build_limited([C|Cs], NumOfPs, Count, MaxLen, I) when is_integer(C) ->
     [C|build_limited(Cs, NumOfPs, Count, MaxLen, I+1)];
 build_limited([], _, _, _, _) -> [].
 
