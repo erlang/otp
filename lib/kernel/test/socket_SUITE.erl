@@ -4530,6 +4530,12 @@ api_b_sendmsg_iov_stream(Domain) ->
     DataTooLarge = erlang:iolist_to_binary(IOVTooLarge),
     {ok, Sa} = socket:open(Domain, stream),
     try
+        case os:type() of
+            {win32,nt} ->
+                ok = socket:bind(Sa, which_local_socket_addr(Domain));
+            _ ->
+                ok
+        end,
         {ok, Sb} = socket:open(Domain, stream),
         try
             ok = socket:bind(Sb, which_local_socket_addr(Domain)),
@@ -4550,6 +4556,9 @@ api_b_sendmsg_iov_stream(Domain) ->
                 {ok, DataTooLarge} =
                     socket:recv(Sa, byte_size(DataTooLarge)),
                 ok
+            catch
+                error:notsup = Reason:_ ->
+                    exit({skip, Reason})
             after
                 socket:close(Sc)
             end
@@ -4559,6 +4568,7 @@ api_b_sendmsg_iov_stream(Domain) ->
     after
         socket:close(Sa)
     end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6586,7 +6596,7 @@ api_a_connect_tcpD(Domain, Nowait) ->
                   connect => Connect,
                   send => Send,
                   recv => Recv,
-                  connect_sref => Nowait},
+                  connect_ref => Nowait},
     api_a_connect_tcp(InitState).
 
 
@@ -6777,10 +6787,10 @@ api_a_connect_tcp(InitState) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, async_connect)
                    end},
          #{desc => "connect (async) to server",
-           cmd  => fun(#{sock := Sock,
-                         server_sa := SSA,
-                         connect := Connect,
-                         connect_sref := SR} = State) ->
+           cmd  => fun(#{sock        := Sock,
+                         server_sa   := SSA,
+                         connect     := Connect,
+                         connect_ref := SR} = State) ->
                            case Connect(Sock, SSA) of
                                ok ->
                                    ?SEV_IPRINT("ok -> "
@@ -6793,25 +6803,46 @@ api_a_connect_tcp(InitState) ->
                                                "~n   tag: ~p"
                                                "~n   ref: ~p",
                                                [ST, SelectRef]),
-                                   {ok, State#{connect_stag => ST,
-                                               connect_sref => SelectRef}};
+                                   {ok, State#{asynch_tag  => select,
+                                               connect_tag => ST,
+                                               connect_ref => SelectRef}};
                                {select, {select_info, ST, SR}}
                                  when is_reference(SR) ->
                                    ?SEV_IPRINT("select ref ->"
                                                "~n   tag: ~p"
                                                "~n   ref: ~p", [ST, SR]),
-                                   {ok, State#{connect_stag => ST}};
+                                   {ok, State#{asynch_tag  => select,
+                                               connect_tag => ST}};
+                               {completion, {completion_info, CT, CompletionRef}}
+                                 when SR =:= nowait ->
+                                   ?SEV_IPRINT("completion nowait ->"
+                                               "~n   tag: ~p"
+                                               "~n   ref: ~p",
+                                               [CT, CompletionRef]),
+                                   {ok, State#{asynch_tag  => completion,
+                                               connect_tag => CT,
+                                               connect_ref => CompletionRef}};
+                               {completion, {completion_info, CT, CR}}
+                                 when is_reference(CR) ->
+                                   ?SEV_IPRINT("completion ref ->"
+                                               "~n   tag: ~p"
+                                               "~n   ref: ~p", [CT, CR]),
+                                   {ok, State#{asynch_tag  => completion,
+                                               connect_tag => CT}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (connect select)",
+         #{desc => "announce ready (connect select|completion)",
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, connect_select),
                            ok
                    end},
-         #{desc => "await select message",
-           cmd  => fun(#{sock := Sock, connect_sref := Ref}) ->
+         #{desc => "await select|completion message",
+           cmd  => fun(#{sock        := Sock,
+                         asynch_tag  := select,
+                         connect_tag := connect,
+                         connect_ref := Ref}) ->
                            receive
                                {'$socket', Sock, select, Ref} ->
                                    ?SEV_IPRINT("select message ->"
@@ -6822,15 +6853,35 @@ api_a_connect_tcp(InitState) ->
                                                "~n   message queue: ~p",
                                                [mq()]),
                                    {error, timeout}
+                           end;
+                      (#{sock        := Sock,
+                         asynch_tag  := completion,
+                         connect_tag := connect,
+                         connect_ref := Ref}) ->
+                           receive
+                               {'$socket', Sock, completion, {Ref, ok = Res}} ->
+                                   ?SEV_IPRINT("completion message ->"
+                                               "~n   ref: ~p"
+                                               "~n   res: ~p", [Ref, Res]),
+                                   ok
+                           after 5000 ->
+                                   ?SEV_EPRINT("timeout: "
+                                               "~n   message queue: ~p",
+                                               [mq()]),
+                                   {error, timeout}
                            end
                    end},
-         #{desc => "announce ready (select)",
+         #{desc => "announce ready (select|completion)",
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, select),
                            ok
                    end},
-         #{desc => "connect (async) to server",
-           cmd  => fun(#{sock := Sock, server_sa := SSA, connect := Connect}) ->
+         #{desc => "(maybe) connect (async) to server",
+           cmd  => fun(#{sock        := Sock,
+                         server_sa   := SSA,
+                         asynch_tag  := select,
+                         connect_tag := connect,
+                         connect     := Connect}) ->
                            case Connect(Sock, SSA) of
                                ok ->
                                    ok;
@@ -6838,7 +6889,13 @@ api_a_connect_tcp(InitState) ->
                                    {error, {unexpected_select, SelectInfo}};
                                {error, _} = ERROR ->
                                    ERROR
-                           end
+                           end;
+                      (#{sock        := _Sock,
+                         server_sa   := _SSA,
+                         asynch_tag  := completion,
+                         connect_tag := connect,
+                         connect     := _Connect}) ->
+                           ok
                    end},
          #{desc => "announce ready (connect)",
            cmd  => fun(#{tester := Tester}) ->
