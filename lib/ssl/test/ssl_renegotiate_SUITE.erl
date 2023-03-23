@@ -507,8 +507,6 @@ renegotiate_rejected(Socket) ->
     ok.
 
 %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
-treashold(N, ?'SSL-3.0') ->
-    (N div 2) + 1;
 treashold(N, ?'TLS-1.0') ->
     (N div 2) + 1;
 treashold(N, _) ->

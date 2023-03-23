@@ -600,8 +600,6 @@ encode_handshake(#certificate_verify{signature = BinSig, hashsign_algorithm = Ha
 encode_handshake(#finished{verify_data = VerifyData}, _Version) ->
     {?FINISHED, VerifyData}.
 
-encode_hello_extensions(_, ?'SSL-3.0') ->
-    <<>>;
 encode_hello_extensions(Extensions, _) ->
     encode_extensions(hello_extensions_list(Extensions), <<>>).
 
@@ -2490,8 +2488,6 @@ encode_server_key(#server_srp_params{srp_n = N, srp_g = G,	srp_s = S, srp_b = B}
     <<?UINT16(NLen), N/binary, ?UINT16(GLen), G/binary,
       ?BYTE(SLen), S/binary, ?UINT16(BLen), B/binary>>.
 
-encode_client_key(#encrypted_premaster_secret{premaster_secret = PKEPMS},?'SSL-3.0') ->
-    PKEPMS;
 encode_client_key(#encrypted_premaster_secret{premaster_secret = PKEPMS}, _) ->
     PKEPMSLen = byte_size(PKEPMS),
     <<?UINT16(PKEPMSLen), PKEPMS/binary>>;
@@ -2725,8 +2721,6 @@ dec_server_key(<<?UINT16(NLen), N:NLen/binary,
 dec_server_key(_, KeyExchange, _) ->
     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {unknown_or_malformed_key_exchange, KeyExchange})).
 
-dec_client_key(PKEPMS, ?KEY_EXCHANGE_RSA, ?'SSL-3.0') ->
-    #encrypted_premaster_secret{premaster_secret = PKEPMS};
 dec_client_key(<<?UINT16(_), PKEPMS/binary>>, ?KEY_EXCHANGE_RSA, _) ->
     #encrypted_premaster_secret{premaster_secret = PKEPMS};
 dec_client_key(<<>>, ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
@@ -2750,10 +2744,6 @@ dec_client_key(<<?UINT16(Len), Id:Len/binary,
 		 ?BYTE(DH_YLen), DH_Y:DH_YLen/binary>>,
 	       ?KEY_EXCHANGE_EC_DIFFIE_HELLMAN_PSK, _) ->
     #client_ecdhe_psk_identity{identity = Id, dh_public = DH_Y};
-dec_client_key(<<?UINT16(Len), Id:Len/binary, PKEPMS/binary>>,
-	       ?KEY_EXCHANGE_RSA_PSK, ?'SSL-3.0') ->
-    #client_rsa_psk_identity{identity = Id,
-			     exchange_keys = #encrypted_premaster_secret{premaster_secret = PKEPMS}};
 dec_client_key(<<?UINT16(Len), Id:Len/binary, ?UINT16(_), PKEPMS/binary>>,
 	       ?KEY_EXCHANGE_RSA_PSK, _) ->
     #client_rsa_psk_identity{identity = Id,
