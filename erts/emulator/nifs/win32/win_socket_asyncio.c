@@ -2240,17 +2240,25 @@ ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
 
     ESOCK_ASSERT( enif_self(env, &caller) != NULL );
 
-    if (! IS_OPEN(descP->writeState))
+    if (! IS_OPEN(descP->writeState)) {
+        ESOCK_EPRINTF("esaio_send(%T, %d) -> NOT OPEN\r\n",
+                      sockRef, descP->sock);
         return esock_make_error_closed(env);
+    }
 
     /* Connect and Write can not be simultaneous? */
-    if (descP->connectorP != NULL)
+    if (descP->connectorP != NULL) {
+        ESOCK_EPRINTF("esaio_send(%T, %d) -> CONNECTING\r\n",
+                      sockRef, descP->sock);
         return esock_make_error_invalid(env, esock_atom_state);
+    }
 
     /* Ensure that this caller does not *already* have a
      * (send) request waiting */
     if (esock_writer_search4pid(env, descP, &caller)) {
         /* Sender already in queue */
+        ESOCK_EPRINTF("esaio_send(%T, %d) -> ALREADY SENDING\r\n",
+                      sockRef, descP->sock);
         return esock_raise_invalid(env, esock_atom_state);
     }
 
@@ -5120,6 +5128,16 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
                  * Is this even possible?
                  * A race (completed just as the socket was closed).
                  */
+
+                /* Clean up the connector stuff, no need for that anymore */
+                esock_requestor_release("esaio_completion_connect -> "
+                                        "not active",
+                                        env, descP, &descP->connector);
+                descP->connectorP = NULL;
+
+                descP->writeState &=
+                    ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+
                 esaio_completion_connect_not_active(descP);
             }
         } else {
@@ -5154,8 +5172,12 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
             esock_send_abort_msg(env, descP, opP->data.connect.sockRef,
                                  descP->connectorP, reason);
 
-            (void) DEMONP("esaio_completion_connect - abort",
-                          env, descP, &descP->connector.mon); 
+            /* Clean up the connector stuff, no need for that anymore */
+            esock_requestor_release("connect_stream_check_result -> abort",
+                                    env, descP, &descP->connector);
+            descP->connectorP = NULL;
+            descP->writeState &=
+                ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
 
             /* The socket not being open (assumed closing),
              * means we are in the closing phase...
@@ -5196,16 +5218,22 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
          */
         if (descP->connectorP != NULL) {
             /* Figure out the reason */
-            reason = MKA(env, erl_errno_id(error));
-            if (COMPARE(reason, esock_atom_unknown))
-                reason = MKT2(env,
-                              esock_atom_get_overlapped_result,
-                              MKI(env, error));
+            reason = MKT2(env,
+                          esock_atom_get_overlapped_result,
+                          esock_errno_to_term(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.connect.sockRef,
                                  descP->connectorP, reason);
             esaio_completion_connect_fail(env, descP, error, FALSE);
+
+            /* Clean up the connector stuff, no need for that anymore */
+            esock_requestor_release("connect_stream_check_result -> failure",
+                                    env, descP, &descP->connector);
+            descP->connectorP = NULL;
+            descP->writeState &=
+                ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+
         } else {
             esaio_completion_connect_fail(env, descP, error, TRUE);
         }
@@ -5241,15 +5269,21 @@ void esaio_completion_connect_completed(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("WIN-ESAIO",
-            "esaio_completion_connect_completed -> "
-            "success - try update context\r\n") );
+            "esaio_completion_connect_completed(%d) -> "
+            "success - try update context\r\n", descP->sock) );
 
     ucres = ESAIO_UPDATE_CONNECT_CONTEXT( descP->sock );
     
     if (ucres == 0) {
 
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_connect_completed({%d) -> success\r\n",
+                descP->sock) );
+
         descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
         descP->writeState |= ESOCK_STATE_CONNECTED;
+
         completionStatus   = esock_atom_ok;
 
     } else {
@@ -5261,15 +5295,16 @@ void esaio_completion_connect_completed(ErlNifEnv*       env,
          */
         int          save_errno = sock_errno();
         ERL_NIF_TERM tag        = esock_atom_update_connect_context;
-        ERL_NIF_TERM reason     = MKA(env, erl_errno_id(save_errno));
+        ERL_NIF_TERM reason     = esock_errno_to_term(env, save_errno);
 
         SSDBG( descP, ("WIN-ESAIO",
-                       "esaio_completion_connect_completed {%d} -> "
-                       "connect context update failed: %T (%d)\r\n",
-                       descP->sock, reason, save_errno) );
+                       "esaio_completion_connect_completed(%d) -> "
+                       "failed update connect context: %T\r\n",
+                       descP->sock, reason) );
+
+        descP->writeState = ESOCK_STATE_CLOSED;
 
         sock_close(descP->sock);
-        descP->writeState = ESOCK_STATE_CLOSED;
 
         WSACleanup();
 
@@ -5295,6 +5330,16 @@ void esaio_completion_connect_completed(ErlNifEnv*       env,
                               CP_TERM(descP->connector.env,
                                       opP->data.connect.sockRef),
                               completionInfo);
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_connect_completed {%d} -> cleanup\r\n",
+            descP->sock) );
+
+    /* Clean up the connector stuff, no need for that anymore */
+    esock_requestor_release("esaio_completion_connect_completed",
+                            env, descP, &descP->connector);
+    descP->connectorP = NULL;
 
 }
 
