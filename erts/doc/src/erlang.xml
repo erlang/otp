@@ -6315,7 +6315,7 @@ receive_replies(ReqId, N, Acc) ->
         </p></note>
         <p>
           Blocking due to disabled <c>async_dist</c> can be monitored by
-          <seemfa marker="#system_monitor/2"><c>erlang:system_montor()</c></seemfa>
+          <seemfa marker="#system_monitor/2"><c>erlang:system_monitor()</c></seemfa>
           using the
           <seeerl marker="#busy_dist_port"><c>busy_dist_port</c></seeerl>
           option. Only data buffered by processes which (at the time of sending
