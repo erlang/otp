@@ -318,7 +318,7 @@ not_yet_implemented() ->
     skip("not yet implemented").
 
 skip(Reason) ->
-    throw({skip, Reason}).
+    exit({skip, Reason}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

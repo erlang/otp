@@ -31889,10 +31889,12 @@ sc_lc_receive_response_tcp(InitState) ->
 
 sc_lc_recvfrom_response_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(sc_lc_recvfrom_response_udp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
-                   Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
+                   Recv      = fun(Sock, To) ->
+                                       socket:recvfrom(Sock, [], To)
+                               end,
                    InitState = #{domain   => inet,
                                  protocol => udp,
                                  recv     => Recv},
@@ -31907,10 +31909,12 @@ sc_lc_recvfrom_response_udp4(_Config) when is_list(_Config) ->
 
 sc_lc_recvfrom_response_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(sc_lc_recvfrom_response_udp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
+                   Recv      = fun(Sock, To) ->
+                                       socket:recvfrom(Sock, [], To)
+                               end,
                    InitState = #{domain   => inet6,
                                  protocol => udp,
                                  recv     => Recv},
@@ -31925,7 +31929,7 @@ sc_lc_recvfrom_response_udp6(_Config) when is_list(_Config) ->
 
 sc_lc_recvfrom_response_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(sc_lc_recvfrom_response_udpL,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    Recv      = fun(Sock, To) ->
@@ -31964,20 +31968,7 @@ sc_lc_receive_response_udp(InitState) ->
          #{desc => "open socket",
            cmd  => fun(#{domain := Domain, protocol := Proto} = State) ->
                            Sock = sock_open(Domain, dgram, Proto),
-                           %% SA   = sock_sockname(Sock),
-                           case socket:sockname(Sock) of
-                               {ok, SA} ->
-                                   {ok, State#{sock => Sock, sa => SA}};
-                               {error, eafnosupport = Reason} ->
-                                   ?SEV_IPRINT("Failed get socket name: "
-                                               "~n   ~p", [Reason]),
-                                   (catch socket:close(Sock)),
-                                   {skip, Reason};
-                               {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Failed get socket name: "
-                                               "~n   ~p", [Reason]),
-                                   ERROR
-                           end
+                           {ok, State#{sock => Sock}}
                    end},
          #{desc => "bind socket",
            cmd  => fun(#{sock := Sock, local_sa := LSA}) ->
@@ -31987,6 +31978,22 @@ sc_lc_receive_response_udp(InitState) ->
                                    ok;
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "socket name",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case socket:sockname(Sock) of
+                               {ok, SA} ->
+                                   {ok, State#{sa => SA}};
+                               {error, eafnosupport = Reason} ->
+                                   ?SEV_IPRINT("Failed get socket name: "
+                                               "~n   ~p", [Reason]),
+                                   (catch socket:close(Sock)),
+                                   {skip, Reason};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed get socket name: "
+                                               "~n   ~p", [Reason]),
                                    ERROR
                            end
                    end},
@@ -32922,7 +32929,7 @@ sc_lc_acceptor_response_tcp(InitState) ->
 
 sc_rc_recv_response_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(sc_rc_recv_response_tcp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
@@ -32940,7 +32947,7 @@ sc_rc_recv_response_tcp4(_Config) when is_list(_Config) ->
 
 sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(sc_rc_recv_response_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
@@ -32958,7 +32965,7 @@ sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
 
 sc_rc_recv_response_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(sc_rc_recv_response_tcpL,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
@@ -33116,6 +33123,8 @@ sc_rc_receive_response_tcp(InitState) ->
                            ?SEV_ANNOUNCE_READY(Tester, accept),
                            ok
                    end},
+
+
          #{desc => "await continue (recv)",
            cmd  => fun(#{tester := Tester} = _State) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, recv)
@@ -33136,19 +33145,31 @@ sc_rc_receive_response_tcp(InitState) ->
                            ok
                    end},
          #{desc => "await ready from handler 1 (recv)",
-           cmd  => fun(#{tester := Tester, handler1 := Pid} = _State) ->
-                           case ?SEV_AWAIT_READY(Pid, handler1, recv, 
-                                                 [{tester, Tester}]) of
+           cmd  => fun(#{tester := Tester,
+                         handler1 := Pid1,
+                         handler2 := Pid2,
+                         handler3 := Pid3} = _State) ->
+                           case ?SEV_AWAIT_READY(Pid1, handler1, recv, 
+                                                 [{tester, Tester},
+                                                  {handler2, Pid2},
+                                                  {handler3, Pid3}]) of
                                {ok, Result} ->
                                    Result;
-                               {error, _} = ERROR ->
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected failure: "
+                                               "~n   ~p", [Reason]),
                                    ERROR
                            end
                    end},
          #{desc => "await ready from handler 2 (recv)",
-           cmd  => fun(#{tester := Tester, handler2 := Pid} = _State) ->
-                           case ?SEV_AWAIT_READY(Pid, handler2, recv, 
-                                                 [{tester, Tester}]) of
+           cmd  => fun(#{tester := Tester,
+                         handler1 := Pid1,
+                         handler2 := Pid2,
+                         handler3 := Pid3} = _State) ->
+                           case ?SEV_AWAIT_READY(Pid2, handler2, recv, 
+                                                 [{tester, Tester},
+                                                  {handler1, Pid1},
+                                                  {handler3, Pid3}]) of
                                {ok, Result} ->
                                    Result;
                                {error, _} = ERROR ->
@@ -33156,9 +33177,14 @@ sc_rc_receive_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "await ready from handler 3 (recv)",
-           cmd  => fun(#{tester := Tester, handler3 := Pid} = _State) ->
-                           case ?SEV_AWAIT_READY(Pid, handler3, recv, 
-                                                 [{tester, Tester}]) of
+           cmd  => fun(#{tester := Tester,
+                         handler1 := Pid1,
+                         handler2 := Pid2,
+                         handler3 := Pid3} = _State) ->
+                           case ?SEV_AWAIT_READY(Pid3, handler3, recv, 
+                                                 [{tester, Tester},
+                                                  {handler1, Pid1},
+                                                  {handler2, Pid2}]) of
                                {ok, Result} ->
                                    Result;
                                {error, _} = ERROR ->
@@ -33715,8 +33741,8 @@ sc_rc_receive_response_tcp(InitState) ->
 
     i("await evaluator"),
     ok = ?SEV_AWAIT_FINISH([Server,
-                                  Client1, Client2, Client3,
-                                  Tester]).
+                            Client1, Client2, Client3,
+                            Tester]).
 
 
 sc_rc_tcp_client_start(Node) ->
@@ -33859,14 +33885,20 @@ sc_rc_tcp_handler_recv(Recv, Sock) ->
     try Recv(Sock) of
         {error, closed} ->
             ok;
-        {ok, _} ->
-            ?SEV_IPRINT("unexpected success"),
+        {ok, Data} ->
+            ?SEV_IPRINT("unexpected success: "
+                        "~n   (Unexp) Data: ~p"
+                        "~n   Socket Info:  ~p", [Data, socket:info(Sock)]),
             {error, unexpected_success};
         {error, Reason} = ERROR ->
             ?SEV_IPRINT("receive error: "
                         "~n   ~p", [Reason]),
             ERROR
     catch
+        error:notsup = Error:Stack ->
+            ?SEV_IPRINT("receive ~w error: skip"
+                        "~n   Stack: ~p", [Error, Stack]),
+            exit({skip, Error});
         C:E:S ->
             ?SEV_IPRINT("receive failure: "
                         "~n   Class: ~p"
@@ -33950,7 +33982,7 @@ sc_rc_recvmsg_response_tcpL(_Config) when is_list(_Config) ->
 
 sc_rs_recv_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(sc_rs_recv_send_shutdown_receive_tcp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
                    MsgData   = ?DATA,
@@ -33977,7 +34009,7 @@ sc_rs_recv_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
 %% Socket is IPv6.
 
 sc_rs_recv_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
-    tc_try(sc_rs_recv_send_shutdown_receive_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    ?TT(?SECS(10)),
@@ -34006,7 +34038,7 @@ sc_rs_recv_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
 
 sc_rs_recv_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(sc_rs_recv_send_shutdown_receive_tcpL,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    MsgData   = ?DATA,
@@ -34731,11 +34763,14 @@ sc_rs_tcp_client_connect(Sock, ServerSA) ->
 
 sc_rs_tcp_client_send(Sock, Send, Data) ->
     i("sc_rs_tcp_client_send -> entry"),
-    case Send(Sock, Data) of
+    try Send(Sock, Data) of
         ok ->
             ok;
         {error, Reason} ->
             exit({send, Reason})
+    catch
+        error : notsup = Reason : _ ->
+            exit({skip, Reason})
     end.
 
 sc_rs_tcp_client_shutdown(Sock) ->
@@ -34819,6 +34854,8 @@ sc_rs_tcp_handler_recv(Recv, Sock, First) ->
                         "~n   ~p", [Reason]),
             ERROR
     catch
+        error : notsup = Reason : _ ->
+            exit({skip, Reason});
         C:E:S ->
             ?SEV_IPRINT("receive failure: "
                         "~n   Class: ~p"
@@ -34841,7 +34878,7 @@ sc_rs_tcp_handler_announce_ready(Parent, Slogan, Result) ->
 %% Socket is IPv4.
 
 sc_rs_recvmsg_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
-    tc_try(sc_rs_recvmsg_send_shutdown_receive_tcp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
                    ?TT(?SECS(30)),
@@ -34877,7 +34914,7 @@ sc_rs_recvmsg_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
 %% Socket is IPv6.
 
 sc_rs_recvmsg_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
-    tc_try(sc_rs_recvmsg_send_shutdown_receive_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    ?TT(?SECS(10)),
@@ -34914,7 +34951,7 @@ sc_rs_recvmsg_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
 
 sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(sc_rs_recvmsg_send_shutdown_receive_tcpL,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    {ok, CWD} = file:get_cwd(),

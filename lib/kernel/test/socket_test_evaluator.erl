@@ -181,14 +181,14 @@ await_finish(Evs, OK, Fails) ->
 
         %% The evaluator can skip the test case:
         {'DOWN', _MRef, process, Pid, {skip, Reason}} ->
-            %% ?SEV_IPRINT("await_finish -> skip (down) received: "
-            %%             "~n   Pid:    ~p"
-            %%             "~n   Reason: ~p", [Pid, Reason]),
+            ?SEV_IPRINT("await_finish -> skip (down) received: "
+                        "~n   Pid:    ~p"
+                        "~n   Reason: ~p", [Pid, Reason]),
             await_finish_skip(Pid, Reason, Evs, OK);
         {'EXIT', Pid, {skip, Reason}} ->
-            %% ?SEV_IPRINT("await_finish -> skip (exit) received: "
-            %%             "~n   Pid:    ~p"
-            %%             "~n   Reason: ~p", [Pid, Reason]),
+            ?SEV_IPRINT("await_finish -> skip (exit) received: "
+                        "~n   Pid:    ~p"
+                        "~n   Reason: ~p", [Pid, Reason]),
             await_finish_skip(Pid, Reason, Evs, OK);
 
         %% Evaluator failed
@@ -247,7 +247,9 @@ await_finish_skip(Pid, Reason, Evs, OK) ->
                 end,
                 Evs
         end,
+    ?SEV_IPRINT("ensure (~w) evaluator(s) are terminated", [length(Evs)]),
     await_evs_terminated(Evs2),
+    ?SEV_IPRINT("issue skip"),
     ?LIB:skip(Reason).
 
 await_evs_terminated(Evs) ->
@@ -581,7 +583,7 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
         {'DOWN', _, process, Pid, {skip, SkipReason}} when (Pid =:= ExpPid) ->
             iprint("Unexpected SKIP from ~w (~p): "
                    "~n   ~p", [Name, Pid, SkipReason]),
-            ?LIB:skip({Name, SkipReason});
+            ?LIB:skip(SkipReason);
         {'DOWN', _, process, Pid, Reason} when (Pid =:= ExpPid) ->
             eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, Reason]),
@@ -595,10 +597,16 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
                            "~n      OtherPids: "
                            "~n         ~p", [OtherPid, Reason, OtherPids]),
                     await(ExpPid, Name, Announcement, Slogan, OtherPids);
+                {skip, SkipName, SkipReason} ->
+                    iprint("Unexpected other SKIP from ~w (~p): "
+                           "~n      ~p", [SkipName, OtherPid, SkipReason]),
+                    ?LIB:skip(SkipReason);
                 {error, _} = ERROR ->
                     ERROR
             end
-    after infinity -> % For easy debugging, just change to some valid time (5000)
+
+            %% For easy debugging, just change to some valid time (5000)
+    after infinity ->
             iprint("await -> timeout for msg from ~p (~w): "
                    "~n   Announcement: ~p"
                    "~n   Slogan:       ~p"
@@ -618,9 +626,14 @@ pi(Pid, Item) ->
 check_down(Pid, DownReason, Pids) ->
     case lists:keysearch(Pid, 2, Pids) of
         {value, {Name, _}} ->
-            eprint("Unexpected DOWN from ~w (~p): "
-                   "~n   ~p", [Name, Pid, DownReason]),
-            {error, {unexpected_exit, Name, DownReason}};
+            case DownReason of
+                {skip, Reason} ->
+                    {skip, Name, Reason};
+                _ ->
+                    eprint("Unexpected DOWN from ~w (~p): "
+                           "~n   ~p", [Name, Pid, DownReason]),
+                    {error, {unexpected_exit, Name, DownReason}}
+            end;
         false ->
             ok
     end.
