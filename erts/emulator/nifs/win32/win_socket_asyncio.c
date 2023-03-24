@@ -3619,29 +3619,61 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
         (void) flags; // We should really do something with this...
 
-        if (read == opP->data.recv.buf.size) {
-            /* This transfers "ownership" of the *allocated* binary to an
-             * erlang term (no need for an explicit free).
+        /* <KOLLA>
+         *
+         * We need to handle read = 0 for other type(s) (DGRAM) when
+         * its actually valid to read 0 bytes.
+         *
+         * </KOLLA>
+         */
+
+        if ((read == 0) && (descP->type == SOCK_STREAM)) {
+
+            /*
+             * When a stream socket peer has performed an orderly
+             * shutdown, the return value will be 0 (the traditional
+             * "end-of-file" return).
+             *
+             * *We* do never actually try to read 0 bytes!
              */
-            data = MKBIN(env, &opP->data.recv.buf);
+
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_read_fails, &descP->readFails, 1);
+
+            result = esock_make_error(env, esock_atom_closed);
+            
         } else {
-            /* This transfers "ownership" of the *allocated* binary to an
-             * erlang term (no need for an explicit free).
-             */
-            data = MKBIN(env, &opP->data.recv.buf);
-            data = MKSBIN(env, data, 0, read);
+
+            if (read == opP->data.recv.buf.size) {
+
+                /* This transfers "ownership" of the *allocated* binary to an
+                 * erlang term (no need for an explicit free).
+                 */
+                data = MKBIN(env, &opP->data.recv.buf);
+
+            } else {
+
+                /* This transfers "ownership" of the *allocated* binary to an
+                 * erlang term (no need for an explicit free).
+                 */
+                data = MKBIN(env, &opP->data.recv.buf);
+                data = MKSBIN(env, data, 0, read);
+
+            }
+
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_read_pkg, &descP->readPkgCnt, 1);
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_read_byte, &descP->readByteCnt, read);
+
+            /* (maybe) Update max */
+            if (read > descP->readPkgMax)
+                descP->readPkgMax = read;
+
+
+            result = esock_make_ok2(env, data);
+
         }
-
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_pkg, &descP->readPkgCnt, 1);
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_byte, &descP->readByteCnt, read);
-
-        /* (maybe) Update max */
-        if (read > descP->readPkgMax)
-            descP->readPkgMax = read;
-
-        result = esock_make_ok2(env, data);
 
     } else {
         int          save_errno = sock_errno();
@@ -5552,12 +5584,10 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
                                &opP->data.accept.accRef,
                                &opP->caller,
                                &req)) {
-            /* Figure out the reason */
-            reason = MKA(env, erl_errno_id(error));
-            if (COMPARE(reason, esock_atom_unknown))
-                reason = MKT2(env,
-                              esock_atom_get_overlapped_result,
-                              MKI(env, error));
+            
+            reason = MKT2(env,
+                          esock_atom_get_overlapped_result,
+                          esock_errno_to_term(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.accept.lSockRef,
@@ -6806,11 +6836,9 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
                              &opP->caller,
                              &req)) {
             /* Figure out the reason */
-            reason = MKA(env, erl_errno_id(error));
-            if (COMPARE(reason, esock_atom_unknown))
-                reason = MKT2(env,
-                              esock_atom_get_overlapped_result,
-                              MKI(env, error));
+            reason = MKT2(env,
+                          esock_atom_get_overlapped_result,
+                          esock_errno_to_term(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.recv.sockRef,
@@ -6853,6 +6881,7 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                                      ESockRequestor*  reqP)
 {
     ERL_NIF_TERM completionStatus, completionInfo;
+    ERL_NIF_TERM sockRef = opP->data.recv.sockRef;
     DWORD        read, flags;
 
     ESOCK_ASSERT( DEMONP("esaio_completion_recv_completed - sender",
@@ -6879,21 +6908,40 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
          * CompletionInfo   = {ConnRef, CompletionStatus}
          */
 
-        if (read == opP->data.recv.buf.size) {
-            /* We filled the buffer => done */
+        if ((read == 0) && (descP->type == SOCK_STREAM)) {
 
-            completionStatus =
-                esaio_completion_recv_done(env, descP, opP, flags);
-
-        } else {
-
-            /* Only used a part of the buffer =>
-             * needs splitting and (maybe) retry (its up to the caller)!
+            /*
+             * When a stream socket peer has performed an orderly
+             * shutdown, the return value will be 0 (the traditional
+             * "end-of-file" return).
+             *
+             * *We* do never actually try to read 0 bytes!
              */
 
-            completionStatus =
-                esaio_completion_recv_partial(env, descP, opP, reqP,
-                                              read, flags);
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_read_fails, &descP->readFails, 1);
+
+            completionStatus = esock_make_error(env, esock_atom_closed);
+            
+        } else {
+
+            if (read == opP->data.recv.buf.size) {
+                /* We filled the buffer => done */
+
+                completionStatus =
+                    esaio_completion_recv_done(env, descP, opP, flags);
+
+            } else {
+
+                /* Only used a part of the buffer =>
+                 * needs splitting and (maybe) retry (its up to the caller)!
+                 */
+
+                completionStatus =
+                    esaio_completion_recv_partial(env, descP, opP, reqP,
+                                                  read, flags);
+            }
+
         }
 
     } else {
@@ -6930,7 +6978,7 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                               descP,                  // Descriptor
                               &opP->caller,           // Msg destination
                               opP->env,               // Msg env
-                              opP->data.recv.sockRef, // Dest socket
+                              sockRef,                // Socket
                               completionInfo);        // Info
 
     /* *** Finalize *** */
@@ -7391,12 +7439,10 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
                              &opP->data.recvfrom.recvRef,
                              &opP->caller,
                              &req)) {
-            /* Figure out the reason */
-            reason = MKA(env, erl_errno_id(error));
-            if (COMPARE(reason, esock_atom_unknown))
-                reason = MKT2(env,
-                              esock_atom_get_overlapped_result,
-                              MKI(env, error));
+
+            reason = MKT2(env,
+                          esock_atom_get_overlapped_result,
+                          esock_errno_to_term(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.recvfrom.sockRef,
@@ -7841,12 +7887,10 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
                              &opP->data.recvmsg.recvRef,
                              &opP->caller,
                              &req)) {
-            /* Figure out the reason */
-            reason = MKA(env, erl_errno_id(error));
-            if (COMPARE(reason, esock_atom_unknown))
-                reason = MKT2(env,
-                              esock_atom_get_overlapped_result,
-                              MKI(env, error));
+
+            reason = MKT2(env,
+                          esock_atom_get_overlapped_result,
+                          esock_errno_to_term(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.recvmsg.sockRef,
@@ -8129,12 +8173,8 @@ ERL_NIF_TERM esaio_completion_get_ovl_result_fail(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
                                                   int              error)
 {
-    ERL_NIF_TERM eerrno, reason;
-
-    eerrno = MKA(env, erl_errno_id(error));
-    if (!COMPARE(eerrno, esock_atom_unknown))
-        eerrno = MKI(env, error);
-    reason = MKT2(env, esock_atom_get_overlapped_result, eerrno);
+    ERL_NIF_TERM eerrno = esock_errno_to_term(env, error);
+    ERL_NIF_TERM reason = MKT2(env, esock_atom_get_overlapped_result, eerrno);
 
     SSDBG( descP,
            ("WIN-ESAIO",
