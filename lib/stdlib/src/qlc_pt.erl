@@ -2285,7 +2285,9 @@ try_ms(E, P, Fltr, State) ->
     Fun =  {'fun',Anno,{clauses,[{clause,Anno,[P],[[Fltr]],[E]}]}},
     Expr = {call,Anno,{remote,Anno,{atom,Anno,ets},{atom,Anno,fun2ms}},[Fun]},
     Form = {function,Anno,foo,0,[{clause,Anno,[],[],[Expr]}]},
-    X = ms_transform:parse_transform(State#state.records ++ [Form], []),
+    % We disable fun2ms optimisations because they can interfere with the
+    % pre-existing assumptions of qlc
+    X = ms_transform:parse_transform(State#state.records ++ [Form], [no_optimise_fun2ms]),
     case catch 
         begin
             {function,Anno,foo,0,[{clause,Anno,[],[],[MS0]}]} = lists:last(X),
