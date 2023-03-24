@@ -1076,26 +1076,8 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
 
-handle_alert(#alert{level = ?FATAL} = Alert0, StateName,
-	     #state{static_env = #static_env{role = Role,
-                                             socket = Socket,
-                                             host = Host,
-                                             port = Port,
-                                             trackers = Trackers,
-                                             transport_cb = Transport,
-                                             protocol_cb = Connection},
-                    connection_env  = #connection_env{user_application = {_Mon, Pid}},
-		    ssl_options = #{log_level := LogLevel},
-                    start_or_recv_from = From,
-                    session = Session,
-		    socket_options = Opts} = State) ->
-    invalidate_session(Role, Host, Port, Session),
-    Alert = Alert0#alert{role = opposite_role(Role)},
-    log_alert(LogLevel, Role, Connection:protocol_name(),
-              StateName, Alert),
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, StateName, Opts, Pid, From, Alert, Role, StateName, Connection),
-    {stop, {shutdown, normal}, State};
+handle_alert(#alert{level = ?FATAL} = Alert, StateName, State) ->
+    handle_fatal_alert(Alert, StateName, State);
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert,
 	     downgrade= StateName, State) ->
     {next_state, StateName, State, [{next_event, internal, Alert}]};
@@ -1162,6 +1144,15 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
     %% Go back to connection!
     State = Connection:reinit(State0#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}}),
     Connection:next_event(connection, no_record, State);
+handle_alert(#alert{level = ?WARNING, description = ?USER_CANCELED} = Alert, StateName,
+	     #state{static_env = #static_env{role = Role,
+                                             protocol_cb = Connection},
+                    ssl_options = #{log_level := LogLevel}} = State) when StateName =/= connection ->
+    log_alert(LogLevel, Role,
+              Connection:protocol_name(), StateName,
+              Alert#alert{role = opposite_role(Role)}),
+    %% Wait for close alert that should follow or handshake timeout
+    Connection:next_event(StateName, no_record, State);
 %% Gracefully log and ignore all other warning alerts pre TLS-1.3
 handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 	     #state{static_env = #static_env{role = Role,
@@ -1172,9 +1163,33 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
               Connection:protocol_name(), StateName,
               Alert#alert{role = opposite_role(Role)}),
     Connection:next_event(StateName, no_record, State);
-handle_alert(Alert0, StateName, State) ->
+handle_alert(Alert, StateName, State) ->
     %% In TLS-1.3 all error alerts are fatal not matter of legacy level
-    handle_alert(Alert0#alert{level = ?FATAL}, StateName, State).
+    %% but keep the level for the log so that users looking at what is
+    %% sent and what is logged are not confused! Or if some one sends
+    %% user cancel alert in connection which is inappropriate!
+    handle_fatal_alert(Alert, StateName, State).
+
+handle_fatal_alert(Alert0, StateName,
+                   #state{static_env = #static_env{role = Role,
+                                                   socket = Socket,
+                                                   host = Host,
+                                                   port = Port,
+                                                   trackers = Trackers,
+                                                   transport_cb = Transport,
+                                                   protocol_cb = Connection},
+                          connection_env  = #connection_env{user_application = {_Mon, Pid}},
+                          ssl_options = #{log_level := LogLevel},
+                          start_or_recv_from = From,
+                          session = Session,
+                          socket_options = Opts} = State) ->
+    invalidate_session(Role, Host, Port, Session),
+    Alert = Alert0#alert{role = opposite_role(Role)},
+    log_alert(LogLevel, Role, Connection:protocol_name(),
+              StateName, Alert),
+    Pids = Connection:pids(State),
+    alert_user(Pids, Transport, Trackers, Socket, StateName, Opts, Pid, From, Alert, Role, StateName, Connection),
+    {stop, {shutdown, normal}, State}.
 
 handle_trusted_certs_db(#state{ssl_options =#{cacerts := []} = Opts})
   when not is_map_key(cacertfile, Opts) ->
