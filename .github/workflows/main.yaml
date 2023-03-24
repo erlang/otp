@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
         BASE_BUILD: ${{ steps.base-build.outputs.BASE_BUILD }}
-        changes: ${{ steps.changes.outputs.changes }}
+        changes: ${{ steps.changes-override.outputs.changes }}
         all: ${{ steps.apps.outputs.all }}
     steps:
       - uses: actions/checkout@v3
@@ -46,6 +46,23 @@ jobs:
         id: changes
         with:
           filters: .github/scripts/path-filters.yaml
+      - if: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') }}
+        id: should-enable-full-build-and-check
+        env:
+            ALL_APPS: ${{ steps.apps.outputs.all }}
+        run: |
+          echo "enable-full-build-and-check=1" >> $GITHUB_ENV
+      - name: Override changes
+        id: changes-override
+        env:
+            ALL_APPS: ${{ steps.apps.outputs.all }}
+            CHANGED_APPS: ${{ steps.changes.outputs.changes }}
+        run: |
+          if [[ enable-full-build-and-check ]]; then
+              echo "changes=${ALL_APPS}" >> "$GITHUB_OUTPUT"
+          else
+              echo "changes=${CHANGED_APPS}" >> "$GITHUB_OUTPUT"
+          fi
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_archive.tar.gz
       - name: Upload source tar archive
