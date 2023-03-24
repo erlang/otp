@@ -7137,7 +7137,7 @@ api_a_connect_tcp(InitState) ->
 api_a_sendto_and_recvfrom_udp4(Config) when is_list(Config) ->
     ?TT(?SECS(5)),
     Nowait = nowait(Config),
-    tc_try(api_a_sendto_and_recvfrom_udp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
@@ -7146,10 +7146,10 @@ api_a_sendto_and_recvfrom_udp4(Config) when is_list(Config) ->
                    Recv = fun(Sock) ->
                                   socket:recvfrom(Sock, 0, Nowait)
                           end,
-                   InitState = #{domain => inet,
-                                 send => Send,
-                                 recv => Recv,
-                                 recv_sref => Nowait},
+                   InitState = #{domain   => inet,
+                                 send     => Send,
+                                 recv     => Recv,
+                                 recv_ref => Nowait},
                    ok = api_a_send_and_recv_udp(InitState)
            end).
 
@@ -7166,7 +7166,7 @@ api_a_sendto_and_recvfrom_udp4(Config) when is_list(Config) ->
 api_a_sendto_and_recvfrom_udp6(Config) when is_list(Config) ->
     ?TT(?SECS(5)),
     Nowait = nowait(Config),
-    tc_try(api_a_sendto_and_recvfrom_udp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
@@ -7175,10 +7175,10 @@ api_a_sendto_and_recvfrom_udp6(Config) when is_list(Config) ->
                    Recv = fun(Sock) ->
                                   socket:recvfrom(Sock, 0, Nowait)
                           end,
-                   InitState = #{domain => inet6,
-                                 send => Send,
-                                 recv => Recv,
-                                 recv_sref => Nowait},
+                   InitState = #{domain   => inet6,
+                                 send     => Send,
+                                 recv     => Recv,
+                                 recv_ref => Nowait},
                    ok = api_a_send_and_recv_udp(InitState)
            end).
 
@@ -7213,14 +7213,16 @@ api_a_sendmsg_and_recvmsg_udp4(Config) when is_list(Config) ->
                                           OK;
                                       {select, _} = SELECT ->
                                           SELECT;
+                                      {completion, _} = COMPLETION ->
+                                          COMPLETION;
                                       {error, _} = ERROR ->
                                           ERROR
                                   end
                           end,
-                   InitState = #{domain => inet,
-                                 send => Send,
-                                 recv => Recv,
-                                 recv_sref => Nowait},
+                   InitState = #{domain   => inet,
+                                 send     => Send,
+                                 recv     => Recv,
+                                 recv_ref => Nowait},
                    ok = api_a_send_and_recv_udp(InitState)
            end).
 
@@ -7255,14 +7257,16 @@ api_a_sendmsg_and_recvmsg_udp6(Config) when is_list(Config) ->
                                           OK;
                                       {select, _} = SELECT ->
                                           SELECT;
+                                      {completion, _} = COMPLETION ->
+                                          COMPLETION;
                                       {error, _} = ERROR ->
                                           ERROR
                                   end
                           end,
-                   InitState = #{domain => inet6,
-                                 send => Send,
-                                 recv => Recv,
-                                 recv_sref => Nowait},
+                   InitState = #{domain   => inet6,
+                                 send     => Send,
+                                 recv     => Recv,
+                                 recv_ref => Nowait},
                    ok = api_a_send_and_recv_udp(InitState)
            end).
 
@@ -7323,23 +7327,40 @@ api_a_send_and_recv_udp(InitState) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, recv)
                    end},
          #{desc => "try recv request (with nowait, expect select)",
-           cmd  => fun(#{sock := Sock,
-                         recv := Recv,
-                         recv_sref := SR} = State) ->
+           cmd  => fun(#{sock     := Sock,
+                         recv     := Recv,
+                         recv_ref := Ref} = State) ->
                            case Recv(Sock) of
                                {select, {select_info, Tag, RecvRef}}
-                                 when SR =:= nowait ->
+                                 when Ref =:= nowait ->
+                                   ?SEV_IPRINT("expected select nowait: "
+                                               "~n   Tag:  ~p"
+                                               "~n   RRef: ~p", [Tag, RecvRef]),
+                                   {ok, State#{async_tag => select,
+                                               recv_tag  => Tag,
+                                               recv_ref  => RecvRef}};
+                               {select, {select_info, Tag, Ref}}
+                                 when is_reference(Ref) ->
+                                   ?SEV_IPRINT("expected select ref: "
+                                               "~n   Tag: ~p"
+                                               "~n   Ref: ~p", [Tag, Ref]),
+                                   {ok, State#{async_tag => select,
+                                               recv_tag  => Tag}};
+                               {completion, {completion_info, Tag, RecvRef}}
+                                 when Ref =:= nowait ->
                                    ?SEV_IPRINT("expected select nowait: "
                                                "~n   Tag: ~p"
                                                "~n   Ref: ~p", [Tag, RecvRef]),
-                                   {ok, State#{recv_stag => Tag,
-                                               recv_sref => RecvRef}};
-                               {select, {select_info, Tag, SR}}
-                                 when is_reference(SR) ->
+                                   {ok, State#{async_tag => completion,
+                                               recv_tag  => Tag,
+                                               recv_ref  => RecvRef}};
+                               {select, {select_info, Tag, Ref}}
+                                 when is_reference(Ref) ->
                                    ?SEV_IPRINT("expected select ref: "
                                                "~n   Tag: ~p"
-                                               "~n   Ref: ~p", [Tag, SR]),
-                                   {ok, State#{recv_stag => Tag}};
+                                               "~n   Ref: ~p", [Tag, Ref]),
+                                   {ok, State#{async_tag => completion,
+                                               recv_tag  => Tag}};
                                {ok, X} ->
                                    {error, {unexpected_succes, X}};
                                {error, _} = ERROR ->
@@ -7351,29 +7372,74 @@ api_a_send_and_recv_udp(InitState) ->
                            ?SEV_ANNOUNCE_READY(Tester, recv_select),
                            ok
                    end},
-         #{desc => "await select message",
-           cmd  => fun(#{sock := Sock, recv_sref := RecvRef}) ->
+         #{desc => "await select|completion message",
+           cmd  => fun(#{async_tag := select,
+                         sock      := Sock,
+                         recv_ref  := RecvRef}) ->
                            receive
                                {'$socket', Sock, select, RecvRef} ->
                                    ok
                            after 5000 ->
-                                   ?SEV_EPRINT("message queue: ~p", [mq()]),
+                                   ?SEV_EPRINT("timeout when: "
+                                               "~n   Socket Info:   ~p"
+                                               "~n   Message Queue: ~p",
+                                               [socket:info(Sock), mq()]),
+                                   {error, timeout}
+                           end;
+                      (#{async_tag := completion,
+                         sock      := Sock,
+                         recv_ref  := RecvRef} = State) ->
+                           receive
+                               %% Recvfrom
+                               {'$socket', Sock, completion,
+                                {RecvRef, {ok, {Src, ?BASIC_REQ}}}} ->
+                                   {ok, State#{req_src => Src}};
+                               %% Recvmsg
+                               {'$socket', Sock, completion,
+                                {RecvRef, {ok, #{addr := Src,
+                                                 iov  := [?BASIC_REQ]}}}} ->
+                                   {ok, State#{req_src => Src}};
+                               {'$socket', Sock, completion,
+                                {RecvRef, {ok, Unexpected}}} ->
+                                   ?SEV_EPRINT("Unexpected success result: "
+                                               "~n   ~p", [Unexpected]),
+                                   {error, {unexpected_success_result,
+                                            Unexpected}};
+                               {'$socket', Sock, completion,
+                                {RecvRef, {error, Reason} = ERROR}} ->
+                                   ?SEV_EPRINT("completion with error: "
+                                               "~n   ~p", [Reason]),
+                                   ERROR
+                           after 5000 ->
+                                   ?SEV_EPRINT("timeout when: "
+                                               "~n   Socket Info:   ~p"
+                                               "~n   Message Queue: ~p",
+                                               [socket:info(Sock), mq()]),
                                    {error, timeout}
                            end
                    end},
          #{desc => "announce ready (select)",
            cmd  => fun(#{tester := Tester}) ->
+                           %% We are actually done *if* this was
+                           %% a completion event, but to make the
+                           %% test case simple...
                            ?SEV_ANNOUNCE_READY(Tester, select),
                            ok
                    end},
-         #{desc => "now read the data (request)",
-           cmd  => fun(#{sock := Sock, recv := Recv} = State) ->
+         #{desc => "now read the data (request), for select",
+           cmd  => fun(#{async_tag := select,
+                         sock      := Sock,
+                         recv      := Recv} = State) ->
                            case Recv(Sock) of
                                {ok, {Src, ?BASIC_REQ}} ->
                                    {ok, State#{req_src => Src}};
                                {error, _} = ERROR ->
                                    ERROR
-                           end
+                           end;
+                      (#{async_tag := completion} = _State) ->
+                           %% We are already done!
+                           ?SEV_IPRINT("Already done!"),
+                           ok
                    end},
          #{desc => "announce ready (recv request)",
            cmd  => fun(#{tester := Tester}) ->
@@ -7401,10 +7467,11 @@ api_a_send_and_recv_udp(InitState) ->
                            case ?SEV_AWAIT_TERMINATE(Tester, tester) of
                                ok ->
                                    State2 = maps:remove(tester,    State),
-                                   State3 = maps:remove(recv_stag, State2),
-                                   State4 = maps:remove(recv_sref, State3),
-                                   State5 = maps:remove(req_src,   State4),
-                                   {ok, State5};
+                                   State3 = maps:remove(async_tag, State2),
+                                   State4 = maps:remove(recv_tag,  State3),
+                                   State5 = maps:remove(recv_ref,  State4),
+                                   State6 = maps:remove(req_src,   State5),
+                                   {ok, State6};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -7444,8 +7511,7 @@ api_a_send_and_recv_udp(InitState) ->
          #{desc => "open socket",
            cmd  => fun(#{domain := Domain} = State) ->
                            Sock = sock_open(Domain, dgram, udp),
-                           SA   = sock_sockname(Sock),
-                           {ok, State#{sock => Sock, sa => SA}}
+                           {ok, State#{sock => Sock}}
                    end},
          #{desc => "bind socket (to local address)",
            cmd  => fun(#{sock := Sock, lsa := LSA}) ->
@@ -7455,6 +7521,11 @@ api_a_send_and_recv_udp(InitState) ->
                                {error, _} = ERROR ->
                                    ERROR
                            end
+                   end},
+         #{desc => "sockname",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           SA = sock_sockname(Sock),
+                           {ok, State#{sa => SA}}
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester}) ->
@@ -7481,17 +7552,28 @@ api_a_send_and_recv_udp(InitState) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, recv)
                    end},
          #{desc => "try recv reply (with nowait)",
-           cmd  => fun(#{sock := Sock,
-                         recv := Recv,
-                         recv_sref := SR} = State) ->
+           cmd  => fun(#{sock     := Sock,
+                         recv     := Recv,
+                         recv_ref := Ref} = State) ->
                            case Recv(Sock) of
                                {select, {select_info, Tag, RecvRef}}
-                                 when SR =:= nowait ->
-                                   {ok, State#{recv_stag => Tag,
-                                               recv_sref => RecvRef}};
-                               {select, {select_info, Tag, SR}}
-                                 when is_reference(SR) ->
-                                   {ok, State#{recv_stag => Tag}};
+                                 when Ref =:= nowait ->
+                                   {ok, State#{async_tag => select,
+                                               recv_tag  => Tag,
+                                               recv_ref  => RecvRef}};
+                               {select, {select_info, Tag, Ref}}
+                                 when is_reference(Ref) ->
+                                   {ok, State#{async_tag => select,
+                                               recv_tag  => Tag}};
+                               {completion, {completion_info, Tag, RecvRef}}
+                                 when Ref =:= nowait ->
+                                   {ok, State#{async_tag => completion,
+                                               recv_tag  => Tag,
+                                               recv_ref  => RecvRef}};
+                               {completion, {completion_info, Tag, Ref}}
+                                 when is_reference(Ref) ->
+                                   {ok, State#{async_tag => completion,
+                                               recv_tag  => Tag}};
                                {ok, X} ->
                                    {error, {unexpected_select_info, X}};
                                {error, _} = ERROR ->
@@ -7504,9 +7586,19 @@ api_a_send_and_recv_udp(InitState) ->
                            ok
                    end},
          #{desc => "await select message",
-           cmd  => fun(#{sock := Sock, recv_sref := RecvRef}) ->
+           cmd  => fun(#{async_tag := select,
+                         sock      := Sock,
+                         recv_ref  := RecvRef}) ->
                            receive
                                {'$socket', Sock, select, RecvRef} ->
+                                   ok
+                           end;
+                      (#{async_tag := completion,
+                         sock      := Sock,
+                         recv_ref  := RecvRef}) ->
+                           receive
+                               {'$socket', Sock, completion,
+                                {RecvRef, {ok, _}}} ->
                                    ok
                            end
                    end},
@@ -7516,13 +7608,18 @@ api_a_send_and_recv_udp(InitState) ->
                            ok
                    end},
          #{desc => "now read the data (reply)",
-           cmd  => fun(#{sock := Sock, recv := Recv}) ->
+           cmd  => fun(#{async_tag := select,
+                         sock      := Sock,
+                         recv      := Recv}) ->
                            case Recv(Sock) of
                                {ok, {_Src, ?BASIC_REP}} ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
-                           end
+                           end;
+                      (#{async_tag := completion}) ->
+                           ?SEV_IPRINT("Already read!"),
+                           ok
                    end},
          #{desc => "announce ready (recv reply)",
            cmd  => fun(#{tester := Tester}) ->
@@ -7536,9 +7633,10 @@ api_a_send_and_recv_udp(InitState) ->
                            case ?SEV_AWAIT_TERMINATE(Tester, tester) of
                                ok ->
                                    State2 = maps:remove(tester,    State),
-                                   State3 = maps:remove(recv_stag, State2),
-                                   State4 = maps:remove(recv_sref, State3),
-                                   {ok, State4};
+                                   State3 = maps:remove(async_tag, State2),
+                                   State4 = maps:remove(recv_tag,  State3),
+                                   State5 = maps:remove(recv_ref,  State4),
+                                   {ok, State5};
                                {error, _} = ERROR ->
                                    ERROR
                            end
