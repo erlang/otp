@@ -229,6 +229,10 @@
      </datatype>
 
      <datatype>
+       <name name="legacy_named_curve"/>
+     </datatype>
+     
+     <datatype>
        <name name="psk_identity"/>
      </datatype>
 

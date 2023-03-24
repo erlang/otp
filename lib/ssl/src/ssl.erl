@@ -246,7 +246,9 @@
                                  brainpoolP256r1 |
                                  secp256k1 |
                                  secp256r1 |
-                                 sect239k1 |
+                                 legacy_named_curve(). % exported
+
+-type legacy_named_curve()  ::   sect239k1 |
                                  sect233k1 |
                                  sect233r1 |
                                  secp224k1 |
@@ -260,7 +262,7 @@
                                  sect163r2 |
                                  secp160k1 |
                                  secp160r1 |
-                                 secp160r2. % exported
+                                 secp160r2.
 
 -type group() :: secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
                  ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192. % exported
