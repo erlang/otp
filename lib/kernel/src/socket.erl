@@ -3772,10 +3772,10 @@ recvfrom(Socket, BufSz, Flags, Timeout) ->
 
 recvfrom_nowait(SockRef, BufSz, Handle, Flags) ->
     case prim_socket:recvfrom(SockRef, BufSz, Flags, Handle) of
-        select ->
-            {select, ?SELECT_INFO(recvfrom, Handle)};
-        completion ->
-            {select, ?COMPLETION_INFO(recvfrom, Handle)};
+        select = Tag ->
+            {Tag, ?SELECT_INFO(recvfrom, Handle)};
+        completion = Tag ->
+            {Tag, ?COMPLETION_INFO(recvfrom, Handle)};
         Result ->
             recvfrom_result(Result)
     end.
