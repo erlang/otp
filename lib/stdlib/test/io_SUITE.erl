@@ -34,7 +34,7 @@
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
          otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
          github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
-         unscan_format_without_maps_order/1]).
+         unscan_format_without_maps_order/1, build_text_without_maps_order/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -68,7 +68,8 @@ all() ->
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
      otp_15639, otp_15705, otp_15847, otp_15875, github_4801, chars_limit,
-     error_info, otp_17525, unscan_format_without_maps_order].
+     error_info, otp_17525, unscan_format_without_maps_order,
+     build_text_without_maps_order].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -3196,3 +3197,16 @@ unscan_format_without_maps_order(_Config) ->
         width => none
     },
     {"~ts",[[<<"1">>]]} = io_lib:unscan_format([FormatSpec]).
+
+build_text_without_maps_order(_Config) ->
+    FormatSpec = #{
+        adjust => right,
+        args => [[<<"1">>]],
+        control_char => 115,
+        encoding => unicode,
+        pad_char => 32,
+        precision => none,
+        strings => true,
+        width => none
+    },
+    [["1"]] = io_lib:build_text([FormatSpec]).
