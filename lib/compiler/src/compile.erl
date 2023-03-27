@@ -789,6 +789,7 @@ make_ssa_check_pass(PassFlag) ->
 
 standard_passes() ->
     [?pass(transform_module),
+     ?pass(desugar_interpolation),
 
      {iff,makedep_side_effect,?pass(makedep_and_output)},
      {iff,makedep,[
@@ -1167,6 +1168,10 @@ clean_parse_transforms_1([F|Fs], Acc) ->
 clean_parse_transforms_1([], Acc) -> reverse(Acc).
 
 transforms(Os) -> [ M || {parse_transform,M} <- Os ].
+
+desugar_interpolation(Code0, #compile{options=Opts}=St) ->
+    Code = erl_desugar_interpolation:module(Code0, Opts),
+    {ok,Code,St}.
 
 transform_module(Code0, #compile{options=Opt}=St) ->
     %% Extract compile options from code into options field.
