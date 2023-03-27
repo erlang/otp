@@ -165,7 +165,7 @@
 #define ESOCK_CMSG_FIRSTHDR(M) WSA_CMSG_FIRSTHDR((M))
 #define ESOCK_CMSG_NXTHDR(M,C) WSA_CMSG_NXTHDR((M), (C))
 #define ESOCK_CMSG_DATA(C)     WSA_CMSG_DATA((C))
-    
+
 
 /* =================================================================== *
  *                                                                     *
@@ -575,7 +575,9 @@ static void encode_cmsgs(ErlNifEnv*       env,
 static ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
                                   ESAIOOperation*  opP,
-                                  ERL_NIF_TERM     sockRef);
+                                  ErlNifPid        caller,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     recvRef);
 
 static ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
@@ -610,7 +612,9 @@ static ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
 static ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ESAIOOperation*  opP,
-                                      ERL_NIF_TERM     sockRef);
+                                      ErlNifPid        caller,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     recvRef);
 static ERL_NIF_TERM recvfrom_check_fail(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
                                         ESAIOOperation*  opP,
@@ -626,7 +630,9 @@ static ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
 static ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
                                      ESAIOOperation*  opP,
-                                     ERL_NIF_TERM     sockRef);
+                                     ErlNifPid        caller,
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     recvRef);
 static ERL_NIF_TERM recvmsg_check_fail(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
                                        ESAIOOperation*  opP,
@@ -3557,7 +3563,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         /* +++ Success +++ */
 
-        eres = recv_check_ok(env, descP, opP, sockRef);
+        eres = recv_check_ok(env, descP, opP, caller, sockRef, recvRef);
 
     } else {
         int err;
@@ -3599,7 +3605,9 @@ static
 ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                            ESockDescriptor* descP,
                            ESAIOOperation*  opP,
-                           ERL_NIF_TERM     sockRef)
+                           ErlNifPid        caller,
+                           ERL_NIF_TERM     sockRef,
+                           ERL_NIF_TERM     recvRef)
 {
     ERL_NIF_TERM data, result;
     DWORD        read = 0, flags = 0;
@@ -3676,22 +3684,42 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
         }
 
     } else {
-        int          save_errno = sock_errno();
-        ERL_NIF_TERM eerrno     = esock_errno_to_term(env, save_errno);
-        ERL_NIF_TERM reason     = MKT2(env,
-                                       esock_atom_get_overlapped_result,
-                                       eerrno);
 
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_fails, &descP->readFails, 1);
+        int save_errno = sock_errno();
 
-        MLOCK(ctrl.cntMtx);
+        switch (save_errno) {
+        case WSA_IO_INCOMPLETE:
+            /*
+             * WSA_IO_INCOMPLETE
+             *
+             * Even though it (the I/O Completion Port framework) told
+             * us it was done, it was not. So we need to postpone and let
+             * the (worker) threads deal with it anyway...effing framework...
+             */
+            result = recv_check_pending(env, descP, opP, caller,
+                                        sockRef, recvRef);
+            break;
 
-        esock_cnt_inc(&ctrl.genErrs, 1);
+        default:
+            {
+                ERL_NIF_TERM eerrno = ENO2T(env, save_errno);
+                ERL_NIF_TERM reason = MKT2(env,
+                                           esock_atom_get_overlapped_result,
+                                           eerrno);
 
-        MUNLOCK(ctrl.cntMtx);
+                ESOCK_CNT_INC(env, descP, sockRef,
+                              esock_atom_read_fails, &descP->readFails, 1);
 
-        result = esock_make_error(env, reason);
+                MLOCK(ctrl.cntMtx);
+
+                esock_cnt_inc(&ctrl.genErrs, 1);
+
+                MUNLOCK(ctrl.cntMtx);
+
+                result = esock_make_error(env, reason);
+            }
+            break;
+        }
     }
 
     SSDBG( descP,
@@ -3899,7 +3927,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
 
         /* +++ Success +++ */
 
-        eres = recvfrom_check_ok(env, descP, opP, sockRef);
+        eres = recvfrom_check_ok(env, descP, opP, caller, sockRef, recvRef);
 
     } else {
         int err;
@@ -3940,7 +3968,9 @@ static
 ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
                                ESockDescriptor* descP,
                                ESAIOOperation*  opP,
-                               ERL_NIF_TERM     sockRef)
+                               ErlNifPid        caller,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     recvRef)
 {
     ERL_NIF_TERM data, result;
     DWORD        read = 0, flags = 0;
@@ -3996,19 +4026,42 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
         result = esock_make_ok2(env, MKT2(env, eSockAddr, data));
 
     } else {
-        int          save_errno = sock_errno();
-        ERL_NIF_TERM eerrno     = esock_errno_to_term(env, save_errno);
-        ERL_NIF_TERM reason     = MKT2(env,
-                                       esock_atom_get_overlapped_result,
-                                       eerrno);
 
-        MLOCK(ctrl.cntMtx);
+        int save_errno = sock_errno();
 
-        esock_cnt_inc(&ctrl.genErrs, 1);
+        switch (save_errno) {
+        case WSA_IO_INCOMPLETE:
+            /*
+             * WSA_IO_INCOMPLETE
+             *
+             * Even though it (the I/O Completion Port framework) told
+             * us it was done, it was not. So we need to postpone and let
+             * the (worker) threads deal with it anyway...effing framework...
+             */
+            result = recv_check_pending(env, descP, opP, caller,
+                                        sockRef, recvRef);
+            break;
 
-        MUNLOCK(ctrl.cntMtx);
+        default:
+            {
+                ERL_NIF_TERM eerrno = ENO2T(env, save_errno);
+                ERL_NIF_TERM reason = MKT2(env,
+                                           esock_atom_get_overlapped_result,
+                                           eerrno);
 
-        result = esock_make_error(env, reason);
+                ESOCK_CNT_INC(env, descP, sockRef,
+                              esock_atom_read_fails, &descP->readFails, 1);
+
+                MLOCK(ctrl.cntMtx);
+
+                esock_cnt_inc(&ctrl.genErrs, 1);
+
+                MUNLOCK(ctrl.cntMtx);
+
+                result = esock_make_error(env, reason);
+            }
+            break;
+        }
     }
 
     SSDBG( descP,
@@ -4194,7 +4247,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
 
         /* +++ Success +++ */
 
-        eres = recvmsg_check_ok(env, descP, opP, sockRef);
+        eres = recvmsg_check_ok(env, descP, opP, caller, sockRef, recvRef);
 
     } else {
         int err;
@@ -4238,7 +4291,9 @@ static
 ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
                               ESockDescriptor* descP,
                               ESAIOOperation*  opP,
-                              ERL_NIF_TERM     sockRef)
+                              ErlNifPid        caller,
+                              ERL_NIF_TERM     sockRef,
+                              ERL_NIF_TERM     recvRef)
 {
     ERL_NIF_TERM eMsg, result;
     DWORD        read = 0, flags = 0;
@@ -4279,22 +4334,42 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
         result = esock_make_ok2(env, eMsg);
 
     } else {
-        int          save_errno = sock_errno();
-        ERL_NIF_TERM eerrno     = esock_errno_to_term(env, save_errno);
-        ERL_NIF_TERM reason     = MKT2(env,
-                                       esock_atom_get_overlapped_result,
-                                       eerrno);
 
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_fails, &descP->readFails, 1);
+        int save_errno = sock_errno();
 
-        MLOCK(ctrl.cntMtx);
+        switch (save_errno) {
+        case WSA_IO_INCOMPLETE:
+            /*
+             * WSA_IO_INCOMPLETE
+             *
+             * Even though it (the I/O Completion Port framework) told
+             * us it was done, it was not. So we need to postpone and let
+             * the (worker) threads deal with it anyway...effing framework...
+             */
+            result = recv_check_pending(env, descP, opP, caller,
+                                        sockRef, recvRef);
+            break;
 
-        esock_cnt_inc(&ctrl.genErrs, 1);
+        default:
+            {
+                ERL_NIF_TERM eerrno = ENO2T(env, save_errno);
+                ERL_NIF_TERM reason = MKT2(env,
+                                           esock_atom_get_overlapped_result,
+                                           eerrno);
 
-        MUNLOCK(ctrl.cntMtx);
+                ESOCK_CNT_INC(env, descP, sockRef,
+                              esock_atom_read_fails, &descP->readFails, 1);
 
-        result = esock_make_error(env, reason);
+                MLOCK(ctrl.cntMtx);
+
+                esock_cnt_inc(&ctrl.genErrs, 1);
+
+                MUNLOCK(ctrl.cntMtx);
+
+                result = esock_make_error(env, reason);
+            }
+            break;
+        }
     }
 
     SSDBG( descP,
@@ -5267,7 +5342,7 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
                ("WIN-ESAIO",
                 "esaio_completion_connect(%d) -> operation unknown failure:"
                 "\r\n   %T"
-                "\r\n", descP->sock, esock_errno_to_term(env, error)) );
+                "\r\n", descP->sock, ENO2T(env, error)) );
         MLOCK(descP->writeMtx);
         /* We do not know what this is
          * but we can "assume" that the request failed so we need to
@@ -5278,7 +5353,7 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
             /* Figure out the reason */
             reason = MKT2(env,
                           esock_atom_get_overlapped_result,
-                          esock_errno_to_term(env, error));
+                          ENO2T(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.connect.sockRef,
@@ -5353,7 +5428,7 @@ void esaio_completion_connect_completed(ErlNifEnv*       env,
          */
         int          save_errno = sock_errno();
         ERL_NIF_TERM tag        = esock_atom_update_connect_context;
-        ERL_NIF_TERM reason     = esock_errno_to_term(env, save_errno);
+        ERL_NIF_TERM reason     = ENO2T(env, save_errno);
 
         SSDBG( descP, ("WIN-ESAIO",
                        "esaio_completion_connect_completed(%d) -> "
@@ -5587,7 +5662,7 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
             
             reason = MKT2(env,
                           esock_atom_get_overlapped_result,
-                          esock_errno_to_term(env, error));
+                          ENO2T(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.accept.lSockRef,
@@ -5876,7 +5951,7 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_send(%d) -> entry with"
             "\r\n   error: %T"
-            "\r\n", descP->sock, esock_errno_to_term(env, error)) );
+            "\r\n", descP->sock, ENO2T(env, error)) );
 
     switch (error) {
     case NO_ERROR:
@@ -6001,7 +6076,7 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
 
             reason = MKT2(env,
                           esock_atom_get_overlapped_result,
-                          esock_errno_to_term(env, error));
+                          ENO2T(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.send.sockRef,
@@ -6292,7 +6367,7 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_sendto(%d) -> entry"
             "\r\n   error: %T"
-            "\r\n", descP->sock, esock_errno_to_term(env, error)) );
+            "\r\n", descP->sock, ENO2T(env, error)) );
 
     switch (error) {
     case NO_ERROR:
@@ -6417,7 +6492,7 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
 
             reason = MKT2(env,
                           esock_atom_get_overlapped_result,
-                          esock_errno_to_term(env, error));
+                          ENO2T(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.sendto.sockRef,
@@ -6502,7 +6577,7 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_sendmsg(%d) -> entry with"
             "\r\n   error: %T"
-            "\r\n", descP->sock, esock_errno_to_term(env, error)) );
+            "\r\n", descP->sock, ENO2T(env, error)) );
 
     switch (error) {
     case NO_ERROR:
@@ -6637,7 +6712,7 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
 
             reason = MKT2(env,
                           esock_atom_get_overlapped_result,
-                          esock_errno_to_term(env, error));
+                          ENO2T(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.sendmsg.sockRef,
@@ -6838,7 +6913,7 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
             /* Figure out the reason */
             reason = MKT2(env,
                           esock_atom_get_overlapped_result,
-                          esock_errno_to_term(env, error));
+                          ENO2T(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.recv.sockRef,
@@ -7327,7 +7402,7 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
            ("WIN-ESAIO", "esaio_completion_recvfrom(%d) -> entry with"
             "\r\n   error: %T, %s (%d)"
             "\r\n",
-            descP->sock, esock_errno_to_term(env, error),
+            descP->sock, ENO2T(env, error),
             erl_errno_id(error), error) );
 
     switch (error) {
@@ -7442,7 +7517,7 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
 
             reason = MKT2(env,
                           esock_atom_get_overlapped_result,
-                          esock_errno_to_term(env, error));
+                          ENO2T(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.recvfrom.sockRef,
@@ -7890,7 +7965,7 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
 
             reason = MKT2(env,
                           esock_atom_get_overlapped_result,
-                          esock_errno_to_term(env, error));
+                          ENO2T(env, error));
 
             /* Inform the user waiting for a reply */
             esock_send_abort_msg(env, descP, opP->data.recvmsg.sockRef,
@@ -8173,7 +8248,7 @@ ERL_NIF_TERM esaio_completion_get_ovl_result_fail(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
                                                   int              error)
 {
-    ERL_NIF_TERM eerrno = esock_errno_to_term(env, error);
+    ERL_NIF_TERM eerrno = ENO2T(env, error);
     ERL_NIF_TERM reason = MKT2(env, esock_atom_get_overlapped_result, eerrno);
 
     SSDBG( descP,
@@ -8242,7 +8317,7 @@ void esaio_completion_fail(ErlNifEnv*       env,
                           "\r\n   Descriptor: %d"
                           "\r\n   Errno:      %T"
                           "\r\n",
-                          opStr, descP->sock, esock_errno_to_term(env, error));
+                          opStr, descP->sock, ENO2T(env, error));
 
     MLOCK(ctrl.cntMtx);
             

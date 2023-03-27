@@ -46,6 +46,29 @@
 #define ESOCK_ABORT(E)  esock_abort(E, __func__, __FILE__, __LINE__)
 #define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
 
+#define MKEEI(E, RI, I) \
+    esock_make_extra_error_info_term((E),          \
+                                     __FILE__,     \
+                                     __FUNCTION__, \
+                                     __LINE__,     \
+                                     (RI), (I))
+
+#define ESOCK_VERBOSE_ERRNO 1
+#if defined(ESOCK_VERBOSE_ERRNO)
+#define ENO2T(E, ENO) MKEEI((E), (ENO), esock_errno_to_term((E), (ENO)))
+#else
+#define ENO2T(E, ENO) esock_errno_to_term((E), (ENO))
+#endif
+
+
+extern
+ERL_NIF_TERM esock_make_extra_error_info_term(ErlNifEnv*   env,
+                                              const char*  file,
+                                              const char*  function,
+                                              const int    line,
+                                              ERL_NIF_TERM rawinfo,
+                                              ERL_NIF_TERM info);
+
 extern
 unsigned int esock_get_uint_from_map(ErlNifEnv*   env,
                                      ERL_NIF_TERM map,

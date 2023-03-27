@@ -2353,6 +2353,12 @@ ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
         break;
 #endif
 
+#if defined(WSA_IO_INCOMPLETE)
+    case WSA_IO_INCOMPLETE:
+        return MKA(env, "io_incomplete");
+        break;
+#endif
+
 #if defined(WSA_OPERATION_ABORTED)
     case WSA_OPERATION_ABORTED:
         return MKA(env, "operation_aborted");
@@ -2361,18 +2367,57 @@ ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
 
     default:
         {
-            char* str;
-            if ((str = erl_errno_id(err)) == "unknown")
+            char* str = erl_errno_id(err);
+            if ( strcmp(str, "unknown") == 0 )
                 return MKI(env, err);
             else
                 return MKA(env, str);
         }
         break;
     }
+
+    /* This is just in case of programming error.
+     * We should not get this far!
+     */
+    return MKI(env, err);
 }
 
 
 
+/* *** esock_make_extra_error_info_term ***
+ * This is used primarily for debugging.
+ * Is supposed to be called via the 'MKEEI' macro.
+ */
+extern
+ERL_NIF_TERM esock_make_extra_error_info_term(ErlNifEnv*   env,
+                                              const char*  file,
+                                              const char*  function,
+                                              const int    line,
+                                              ERL_NIF_TERM rawinfo,
+                                              ERL_NIF_TERM info)
+{
+    ERL_NIF_TERM keys[] = {MKA(env, "file"),
+                           MKA(env, "function"),
+                           MKA(env, "line"),
+                           MKA(env, "raw_info"),
+                           MKA(env, "info")};
+    ERL_NIF_TERM vals[] = {MKS(env, file),
+                           MKS(env, function),
+                           MKI(env, line),
+                           rawinfo,
+                           info};
+    unsigned int numKeys = NUM(keys);
+    unsigned int numVals = NUM(vals);
+    ERL_NIF_TERM map;
+
+    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &map) );
+
+    return map;
+}
+
+
+                                              
 /* Create an error two (2) tuple in the form:
  *
  *          {error, Reason}
