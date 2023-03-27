@@ -263,7 +263,7 @@
 	{&lt;&lt;240,130,38,96,130,241,189,52,3,190,179,213,132,1,72,
 	192,103,176,90,104,15,71,158>>,
 	&lt;&lt;131,47,45,91,142,85,9,244,21,141,214,71,31,135,2,155>>}
-	9>
+	6>
       </code>
       <p>The <c>[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]</c> could of course have been one
       single binary: <c>&lt;&lt;"First bytesSecond bytes">></c>.
