@@ -67,6 +67,10 @@
 %%
 %% Run a specific test case:
 %% ts:run(emulator, socket_SUITE, foo, [batch]).
+%%
+%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
+%% G = fun(GROUP) -> ts:run(kernel, socket_SUITE, {group, GROUP}, [batch]) end.
+
 
 -module(socket_SUITE).
 
@@ -11668,8 +11672,10 @@ api_opt_simple_otp_meta_option() ->
 %% protocol = tcp.
 api_opt_simple_otp_rcvbuf_option(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(api_opt_simple_otp_rcvbuf_option,
-           fun() -> api_opt_simple_otp_rcvbuf_option() end).
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   api_opt_simple_otp_rcvbuf_option()
+           end).
 
 api_opt_simple_otp_rcvbuf_option() ->
     Get = fun(S) ->
@@ -11808,6 +11814,12 @@ api_opt_simple_otp_rcvbuf_option() ->
                    end},
          #{desc => "attempt to recv",
            cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
+                           ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
+                                       [MsgSz,
+                                        case Get(Sock) of
+                                            {ok, RcvBuf} -> f("~w", [RcvBuf]);
+                                            {error, _}   -> "-"
+                                        end]),
                            case socket:recv(Sock) of
                                {ok, Data} when (size(Data) =:= MsgSz) ->
                                    ok;
@@ -11865,6 +11877,10 @@ api_opt_simple_otp_rcvbuf_option() ->
            cmd  => fun(#{tester := Tester} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
                                {ok, {ExpSz, NewRcvBuf}} ->
+                                   ?SEV_IPRINT("set new rcvbuf:"
+                                               "~n   New RcvBuf:  ~p"
+                                               "~n   Expect Size: ~p",
+                                               [ExpSz, NewRcvBuf]),
                                    {ok, State#{msg_sz => ExpSz,
                                                rcvbuf => NewRcvBuf}};
                                {error, _} = ERROR ->
@@ -11875,7 +11891,8 @@ api_opt_simple_otp_rcvbuf_option() ->
            cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
                            case Set(Sock, NewRcvBuf) of
                                ok ->
-                                   ?SEV_IPRINT("set new rcvbuf: ~p", [NewRcvBuf]),
+                                   ?SEV_IPRINT("set new rcvbuf: ~p",
+                                               [NewRcvBuf]),
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -12170,7 +12187,13 @@ api_opt_simple_otp_rcvbuf_option() ->
          #{desc => "order server continue (recv 1)",
            cmd  => fun(#{server := Server, data := Data} = _State) ->
                            MsgSz     = size(Data),
-                           NewRcvBuf = {2 + (MsgSz div 1024), 1024},
+                           NewRcvBuf =
+                               case os:type() of
+                                   {win32, nt} ->
+                                       (((2 * MsgSz) div 1024) + 1) * 1024;
+                                   _ ->
+                                       {2 + (MsgSz div 1024), 1024}
+                               end,
                            ?SEV_ANNOUNCE_CONTINUE(Server, recv, NewRcvBuf),
                            ok
                    end},
@@ -12207,7 +12230,13 @@ api_opt_simple_otp_rcvbuf_option() ->
          #{desc => "order server continue (recv 2)",
            cmd  => fun(#{server := Server, data := Data} = _State) ->
                            MsgSz     = size(Data),
-                           NewRcvBuf = {2 + (MsgSz div 2048), 2048},
+                           NewRcvBuf = 
+                               case os:type() of
+                                   {win32, nt} ->
+                                       (((3 * MsgSz) div 1024) + 1) * 1024;
+                                   _ ->
+                                       {2 + (MsgSz div 2048), 2048}
+                               end,
                            ?SEV_ANNOUNCE_CONTINUE(Server, recv, NewRcvBuf),
                            ok
                    end},
@@ -12244,12 +12273,18 @@ api_opt_simple_otp_rcvbuf_option() ->
          ?SEV_SLEEP(?SECS(1)),
          #{desc => "order server continue (recv 3)",
            cmd  => fun(#{server := Server, data := Data} = _State) ->
-                           MsgSz     = size(Data),
-                           BufSz     = 2048,
-                           N         = MsgSz div BufSz - 1,
-                           NewRcvBuf = {N, BufSz},
+                           MsgSz = size(Data),
+                           BufSz = 2048,
+                           N     = MsgSz div BufSz - 1,
+                           {ExpSz, NewRcvBuf} =
+                               case os:type() of
+                                   {win32, nt} ->
+                                       {N*BufSz, N*BufSz};
+                                   _ ->
+                                       {N*BufSz, {N, BufSz}}
+                               end,
                            ?SEV_ANNOUNCE_CONTINUE(Server, recv,
-                                                  {N*BufSz, NewRcvBuf})
+                                                  {ExpSz, NewRcvBuf})
                    end},
          #{desc => "await client ready (send 3)",
            cmd  => fun(#{server := Server,

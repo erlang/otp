@@ -2178,8 +2178,6 @@ ERL_NIF_TERM esaio_accept_accepted(ErlNifEnv*       env,
     MLOCK(descP->writeMtx);
 
     accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
-    accDescP->rNum     = descP->rNum;    // Inherit buffer uses
-    accDescP->rNumCnt  = 0;
     accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
     accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
     accDescP->iow      = descP->iow;     // Inherit iow
@@ -5771,8 +5769,6 @@ void esaio_completion_accept_completed(ErlNifEnv*       env,
             MLOCK(descP->writeMtx);
 
             accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
-            accDescP->rNum     = descP->rNum;    // Inherit buffer uses
-            accDescP->rNumCnt  = 0;
             accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
             accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
             accDescP->iow      = descP->iow;     // Inherit iow

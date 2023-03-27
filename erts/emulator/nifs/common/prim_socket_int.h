@@ -513,10 +513,14 @@ typedef struct {
      * If rNum is 0 (zero), then rNumCnt is not used and only *one* read will
      * be done. Also, when get'ing the value of the option (rcvbuf) with 
      * getopt, the value will be reported as an integer. If the rNum has a 
-     * value greater then 0 (zero), then it will instead be reported as {N, BufSz}.
+     * value greater then 0 (zero), then it will instead be reported as
+     * {N, BufSz}.
+     * On Windows, rNum and rNumCnt is *not* used!
      */
+#ifndef __WIN32__
     unsigned int       rNum;    // recv: Number of reads using rBufSz
     unsigned int       rNumCnt; // recv: Current number of reads (so far)
+#endif
     size_t             rCtrlSz; // Read control buffer size
 
     /* Locked by readMtx and writeMtx combined for writing,

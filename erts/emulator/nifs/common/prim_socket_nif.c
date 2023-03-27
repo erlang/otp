@@ -6665,6 +6665,7 @@ ERL_NIF_TERM esock_setopt_otp_ctrl_proc(ErlNifEnv*       env,
  *           {N :: pos_integer(), Sz :: default | pos_integer()}
  *
  * Where N is the max number of reads.
+ * Note that on Windows the tuple variant is not allowed!
  */
 
 static
@@ -6674,7 +6675,9 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
 {
     const ERL_NIF_TERM* t;   // The array of the elements of the tuple
     int                 tsz; // The size of the tuple - should be 2
+#ifndef __WIN32__    
     unsigned int        n;
+#endif
     size_t              bufSz;
     ssize_t             z;
 
@@ -6690,6 +6693,22 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
         return esock_make_error_closed(env);
     }
 
+
+#ifdef __WIN32__
+
+    if (!esock_decode_bufsz(env,
+                            eVal,
+                            ESOCK_RECV_BUFFER_SIZE_DEFAULT,
+                            &bufSz)) {
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_setopt_otp_rcvbuf(%d) -> done invalid\r\n",
+                descP->sock) );
+        return esock_make_invalid(env, esock_atom_value);        
+    }
+
+#else
+    
     if (esock_decode_bufsz(env,
                            eVal,
                            ESOCK_RECV_BUFFER_SIZE_DEFAULT,
@@ -6701,21 +6720,25 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
             (! GET_UINT(env, t[0], &n)) ||
             (n == 0) ||
             (! esock_decode_bufsz(env, t[1],
-                                 ESOCK_RECV_BUFFER_SIZE_DEFAULT,
+                                  ESOCK_RECV_BUFFER_SIZE_DEFAULT,
                                   &bufSz))) {
             SSDBG( descP,
                    ("SOCKET",
                     "esock_setopt_otp_rcvbuf {%d} -> done invalid\r\n",
-                descP->sock) );
+                    descP->sock) );
             return esock_make_invalid(env, esock_atom_value);
         }
     }
+#endif
+
     // We do not want a buffer size that does not fit in ssize_t
     z = bufSz;
     if (bufSz != (size_t) z)
         return esock_make_invalid(env, esock_atom_value);
 
+#ifndef __WIN32__
     descP->rNum   = n;
+#endif
     descP->rBufSz = bufSz;
 
     SSDBG( descP,
@@ -8343,6 +8366,9 @@ ERL_NIF_TERM esock_getopt_otp_rcvbuf(ErlNifEnv*       env,
         return esock_make_error_closed(env);
     }
 
+#ifdef __WIN32__
+    eVal = MKUL(env, (unsigned long) descP->rBufSz);
+#else
     if (descP->rNum == 0) {
         eVal = MKUL(env, (unsigned long) descP->rBufSz);
     } else {
@@ -8350,6 +8376,7 @@ ERL_NIF_TERM esock_getopt_otp_rcvbuf(ErlNifEnv*       env,
                     MKI(env, descP->rNum),
                     MKUL(env, (unsigned long) descP->rBufSz));
     }
+#endif
 
     SSDBG( descP,
            ("SOCKET", "esock_getopt_otp_rcvbuf {%d} ->"
@@ -11376,8 +11403,10 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
 
     sprintf(buf, "esock.cfg[" SOCKET_FORMAT_STR "]", sock);
     descP->rBufSz           = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
+#ifndef __WIN32__
     descP->rNum             = ESOCK_RECV_BUFFER_COUNT_DEFAULT;
     descP->rNumCnt          = 0;
+#endif
     descP->rCtrlSz          = ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT;
     descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
     descP->iow              = FALSE;
