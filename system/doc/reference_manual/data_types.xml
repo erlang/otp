@@ -358,7 +358,7 @@ a
 
   <section>
     <title>String</title>
-    <p>Strings are enclosed in double quotes ("), but is not a
+    <p>Strings literals are enclosed in double quotes ("), but is not a
       data type in Erlang. Instead, a string <c>"hello"</c> is
       shorthand for the list <c>[$h,$e,$l,$l,$o]</c>, that is,
       <c>[104,101,108,108,111]</c>.</p>
@@ -370,6 +370,69 @@ a
     <p>is equivalent to</p>
     <pre>
 "string42"</pre>
+
+    <section>
+      <title>String interpolation</title>
+      <p>Interpolated strings are string literals which allow other
+      expressions to be embedded into the,m. Interpolated strings format
+      the expressions they contain, and substitute their values into
+      the resulting string. Any expression can be placed inside an interpolated
+      string, including variables, function calls, macros, comprehensions,
+      and even other interpolated strings.
+      </p>
+
+      <p>Interpolated strings offer a more readable alternative to
+      <seemfa marker="stdlib:io_lib#format/2"><c>io_lib:format/2</c></seemfa>
+      and related formatting functions by keeping the interpolated
+      expressions in the position that their formatted value will
+      appear in the resulting string.
+      </p>
+
+    <p><em>Example:</em></p>
+    <pre>
+Name = "Alice".
+
+get_unread_messages() ->
+  [ {"Bob", "Let's grab lunch after the meeting?"},
+    {"Charlie", "When would you like that report submitting?"}
+  ].
+
+1> <input>io_lib:format("Hello ~ts, you have ~B unread messages.", [Name, length(get_unread_messages())]).</input>
+"Hello Alice, you have 2 unread messages."
+2> <input>lf"Hello ~Name~, you have ~get_unread_messages()~ unread messages."</input>
+"Hello Alice, you have 2 unread messages."
+</pre>
+
+    <p>There are four forms of interpolated strings, differentiated by their prefix:</p>
+    <list type="bulleted">
+      <item><c>lf"..."</c> ("list format"), for strictly formatting unicode-codepoint-list strings</item>
+      <item><c>bf"..."</c> ("binary format"), for strictly formatting UTF-8-encoded binary strings</item>
+      <item><c>ld"..."</c> ("list debug"), for flexibly formatting unicode-codepoint-list strings</item>
+      <item><c>bd"..."</c> ("binary debug"), for flexibly formatting UTF-8-encoded binary strings</item>
+    </list>
+
+    <p>The list variants are typically most useful for backwards compatibility
+    and convenience. The binary variants are typically most useful for
+    memory-compactness and interacting with external systems.
+    </p>
+
+    <p>Whilst the list and binary variants yield unicode codepoint lists
+    and UTF-8-encoded binaries respectively, they both accept each other
+    as interpolated values.
+    </p>
+
+    <p>The <c>lf"..."</c> and <c>bf"..."</c> variants accept only unicode
+    codepoint lists, UTF-8-encoded binaries or integers as interpolated values,
+    with the expectation that more complex formatting decisions would be
+    factored out into interpolated function calls which can be tested and reused
+    in isolation.
+    </p>
+
+    <p>The <c>ld"..."</c> and <c>bd"..."</c> variants accept any Erlang term,
+    and are focussed around logging and debugging.
+    </p>
+
+    </section>
   </section>
 
   <section>

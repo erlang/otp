@@ -2553,6 +2553,10 @@ expr({'maybe',MaybeAnno,Es,{'else',ElseAnno,Cs}}, Vt, St) ->
     Evt2 = vtmerge(Evt0, Evt1),
     Cvt2 = vtmerge(Cvt0, Cvt1),
     {vtmerge(Evt2, Cvt2),St2};
+expr({'interpolation',_Anno,_Head,Conts,_Tail}, Vt, St) ->
+    expr_list([SubsExpr || {interpolation_subs,_,SubsExpr} <- Conts], Vt, St);
+expr({'interpolation_no_subs',_Anno,_Kind,_IsDebug,_Str}, _Vt, St) ->
+    {[],St};
 %% No comparison or boolean operators yet.
 expr({op,_Anno,_Op,A}, Vt, St) ->
     expr(A, Vt, St);

@@ -102,17 +102,28 @@
 -type error_description() :: term().
 -type error_info() :: {erl_anno:location(), module(), error_description()}.
 
+%% Whether the interpolation should evaluate to a list or a binary
+-type interpolation_kind() :: binary | list.
+
+%% For a particular interpolation, whether it should evaluate to a list
+%% or a binary, and whether it is a debug format or not (affects what
+%% types of values can be formatted, and how they are rendered)
+-type interpolation_state() :: {interpolation_kind(), Debug :: boolean()}.
+
 %%% Local record.
 -record(erl_scan,
-        {resword_fun = fun reserved_word/1    :: resword_fun(),
-         text_fun    = fun(_, _) -> false end :: text_fun(),
-         ws          = false                  :: boolean(),
-         comment     = false                  :: boolean(),
-         has_fun     = false                  :: boolean(),
+        {resword_fun           = fun reserved_word/1    :: resword_fun(),
+         text_fun              = fun(_, _) -> false end :: text_fun(),
+         ws                    = false                  :: boolean(),
+         comment               = false                  :: boolean(),
+         has_fun               = false                  :: boolean(),
          %% True if requested to parse %ssa%-check comments
-         checks      = false                  :: boolean(),
+         checks                = false                  :: boolean(),
          %% True if we're scanning inside a %ssa%-check comment
-         in_check    = false                  :: boolean()}).
+         in_check              = false                  :: boolean(),
+         %% A stack of interpolation states, rather than just one, to
+         %% allow nesting of interpolations
+         interpolation_states  = []                     :: [interpolation_state()]}).
 
 %%----------------------------------------------------------------------------
 
@@ -407,6 +418,42 @@ scan1([$\%|Cs], St, Line, Col, Toks) when not St#erl_scan.comment ->
 scan1([$\%=C|Cs], St, Line, Col, Toks) ->
     scan_comment(Cs, St, Line, Col, Toks, [C]);
 %% More punctuation characters below.
+%% Interpolated expression in a string
+scan1([$~|Cs], #erl_scan{interpolation_states = [_|_]}=St, Line, Col, Toks) ->
+    State0 = {true,[],[],Line,Col},
+    scan_interpolation(Cs, St, Line, incr_column(Col, 1), Toks, State0);
+scan1("bf\""++Cs, St, Line, Col, Toks) ->
+    InterpolationSt = [{binary, false}|St#erl_scan.interpolation_states],
+    St1 = St#erl_scan{interpolation_states = InterpolationSt},
+    State0 = {false,[],[],Line,Col},
+    scan_interpolation(Cs, St1, Line, incr_column(Col, 3), Toks, State0);
+scan1("lf\""++Cs, St, Line, Col, Toks) ->
+    InterpolationSt = [{list, false}|St#erl_scan.interpolation_states],
+    St1 = St#erl_scan{interpolation_states = InterpolationSt},
+    State0 = {false,[],[],Line,Col},
+    scan_interpolation(Cs, St1, Line, incr_column(Col, 3), Toks, State0);
+scan1("bd\""++Cs, St, Line, Col, Toks) ->
+    InterpolationSt = [{binary, true}|St#erl_scan.interpolation_states],
+    St1 = St#erl_scan{interpolation_states = InterpolationSt},
+    State0 = {false,[],[],Line,Col},
+    scan_interpolation(Cs, St1, Line, incr_column(Col, 3), Toks, State0);
+scan1("ld\""++Cs, St, Line, Col, Toks) ->
+    InterpolationSt = [{list, true}|St#erl_scan.interpolation_states],
+    St1 = St#erl_scan{interpolation_states = InterpolationSt},
+    State0 = {false,[],[],Line,Col},
+    scan_interpolation(Cs, St1, Line, incr_column(Col, 3), Toks, State0);
+scan1("bf"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
+scan1("lf"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
+scan1("bd"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
+scan1("ld"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
+scan1("b"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
+scan1("l"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1([C|_], _St, _Line, _Col0, _Toks) when not ?CHAR(C) ->
     error({not_character,C});
 scan1([C|Cs], St, Line, Col, Toks) when C >= $A, C =< $Z ->
@@ -828,6 +875,41 @@ scan_char([], St, Line, Col, Toks) ->
 scan_char(eof, _St, Line, Col, _Toks) ->
     scan_error(char, Line, Col, Line, incr_column(Col, 1), eof).
 
+scan_interpolation(Cs, #erl_scan{}=St, Line, Col, Toks,{HasSubs,Wcs,Str,Line0,Col0}) ->
+    case scan_interpolation1(Cs, Line, Col, Str, Wcs) of
+        {more,Ncs,Nline,Ncol,Nstr,Nwcs} ->
+            State = {HasSubs,Nwcs,Nstr,Line0,Col0},
+            {more,{Ncs,St,Ncol,Toks,Nline,State,fun scan_interpolation/6}};
+        {char_error,Ncs,Error,Nline,Ncol,EndCol} ->
+            scan_error(Error, Nline, Ncol, Nline, EndCol, Ncs);
+        {error,Nline,Ncol,Nwcs,Ncs} ->
+            Estr = string:slice(Nwcs, 0, 16), % Expanded escape chars.
+            scan_error({string,$\",Estr}, Line0, Col0, Nline, Ncol, Ncs);
+        {terminated,Ncs,Nline,Ncol,_Nstr,Nwcs} ->
+            [{Kind,IsDebug}=_TerminatedInterpolation | OuterInterpolations] =
+              St#erl_scan.interpolation_states,
+            St1 = St#erl_scan{interpolation_states=OuterInterpolations},
+            case HasSubs of
+              false ->
+                Anno = anno({Line0, Col0}),
+                scan1(Ncs, St1, Nline, Ncol, [{interpolation_no_subs,Anno,Kind,IsDebug,Nwcs}|Toks]);
+              true ->
+                Anno = anno({Line0, Col0}),
+                scan1(Ncs, St1, Nline, Ncol, [{interpolation_tail,Anno,Nwcs}|Toks])
+            end;
+        {start_subs,Ncs,Nline,Ncol,_Nstr,Nwcs} ->
+            [{Kind,IsDebug}=_CurrentInterpolation | _OuterInterpolations] =
+              St#erl_scan.interpolation_states,
+            case HasSubs of
+              false ->
+                Anno = anno({Line0, Col0}),
+                scan1(Ncs, St, Nline, Ncol, [{interpolation_head,Anno,Kind,IsDebug,Nwcs}|Toks]);
+              true ->
+                Anno = anno({Line0, Col0}),
+                scan1(Ncs, St, Nline, Ncol, [{interpolation_cont,Anno,Nwcs}|Toks])
+            end
+    end.
+
 scan_string(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
     case scan_string0(Cs, St, Line, Col, $\", Str, Wcs) of %"
         {more,Ncs,Nline,Ncol,Nstr,Nwcs} ->
@@ -933,6 +1015,45 @@ scan_string1([C|Cs], Line, Col, _Q, _Str, _Wcs) when ?CHAR(C) ->
 scan_string1([]=Cs, Line, Col, _Q, Str, Wcs) ->
     {more,Cs,Line,Col,Str,Wcs};
 scan_string1(eof, Line, Col, _Q, _Str, Wcs) ->
+    {error,Line,Col,lists:reverse(Wcs),eof}.
+
+scan_interpolation1([$"|Cs], Line, Col, Str0, Wcs0) ->
+    Wcs = lists:reverse(Wcs0),
+    Str = lists:reverse(Str0),
+    {terminated, Cs,Line,incr_column(Col, 1),Str,Wcs};
+scan_interpolation1([$~|Cs], Line, Col, Str0, Wcs0) ->
+    Wcs = lists:reverse(Wcs0),
+    Str = lists:reverse(Str0),
+    {start_subs, Cs,Line,incr_column(Col, 1),Str,Wcs};
+scan_interpolation1([$\n=C|Cs], Line, Col, Str, Wcs) ->
+    Ncol = new_column(Col, 1),
+    scan_interpolation1(Cs, Line+1, Ncol, [C|Str], [C|Wcs]);
+scan_interpolation1([$\\|Cs]=Cs0, Line, Col, Str, Wcs) ->
+    case scan_escape(Cs, Col) of
+        more ->
+            {more,Cs0,Line,Col,Str,Wcs};
+        {error,Ncs,Error,Ncol} ->
+            {char_error,Ncs,Error,Line,Col,incr_column(Ncol, 1)};
+        {eof,Ncol} ->
+            {error,Line,incr_column(Ncol, 1),lists:reverse(Wcs),eof};
+        {nl,Val,ValStr,Ncs,Ncol} ->
+            Nstr = lists:reverse(ValStr, [$\\|Str]),
+            Nwcs = [Val|Wcs],
+            scan_interpolation1(Ncs, Line+1, Ncol, Nstr, Nwcs);
+        {Val,ValStr,Ncs,Ncol} ->
+            Nstr = lists:reverse(ValStr, [$\\|Str]),
+            Nwcs = [Val|Wcs],
+            scan_interpolation1(Ncs, Line, incr_column(Ncol, 1), Nstr, Nwcs)
+    end;
+scan_interpolation1([C|Cs], Line, no_col=Col, Str, Wcs) when ?UNICODE(C) ->
+    scan_interpolation1(Cs, Line, Col, [C|Str], [C|Wcs]);
+scan_interpolation1([C|Cs], Line, Col, Str, Wcs) when ?UNICODE(C) ->
+    scan_interpolation1(Cs, Line, Col+1, [C|Str], [C|Wcs]);
+scan_interpolation1([C|Cs], Line, Col, _Str, _Wcs) when ?CHAR(C) ->
+    {char_error,Cs,{illegal,character},Line,Col,incr_column(Col, 1)};
+scan_interpolation1([]=Cs, Line, Col, Str, Wcs) ->
+    {more,Cs,Line,Col,Str,Wcs};
+scan_interpolation1(eof, Line, Col, _Str, Wcs) ->
     {error,Line,Col,lists:reverse(Wcs),eof}.
 
 -define(OCT(C), (is_integer(C) andalso $0 =< C andalso C =< $7)).

@@ -67,6 +67,7 @@ MODULES= \
 	erl_error \
 	erl_eval \
 	erl_expand_records \
+	erl_desugar_interpolation \
 	erl_features \
 	erl_internal \
 	erl_lint \

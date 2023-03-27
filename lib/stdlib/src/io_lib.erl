@@ -65,7 +65,9 @@
 -export([print/1,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
+-export([write_bin/1,write_bin/2,write_bin/3,write_bin/4]).
 -export([write_binary/3]).
+-export([write_natural/1, write_bin_natural/1]).
 -export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
          write_latin1_string/2, write_char/1, write_latin1_char/1]).
 
@@ -394,6 +396,146 @@ write1(T, D, E, O) when is_tuple(T) ->
 	     $}]
     end.
 
+%% For printing terms with a natural string representation to a
+%% unicode codepoint list string.
+-spec write_natural(Term) -> list() when % list of unicode codepoints
+      Term :: term().
+
+write_natural(Term) when is_binary(Term) ->
+    try
+      case unicode:characters_to_list(Term, utf8) of
+        Encoded when is_list(Encoded) -> Encoded;
+        _ -> erlang:error(badarg, [Term])
+      end
+    catch _:_:_ ->
+      erlang:error(badarg, [Term])
+    end;
+write_natural(Term) when is_list(Term) ->
+    try
+      case unicode:characters_to_list(Term, unicode) of
+        Encoded when is_list(Encoded) -> Encoded;
+        _ -> erlang:error(badarg, [Term])
+      end
+    catch _:_:_ ->
+      erlang:error(badarg, [Term])
+    end;
+write_natural(Term) when is_atom(Term) ->
+    atom_to_list(Term);
+write_natural(Term) when is_integer(Term) ->
+    integer_to_list(Term);
+write_natural(Term) ->
+    erlang:error(badarg, [Term]).
+
+to_bin(ListStr) ->
+  unicode:characters_to_binary(ListStr, unicode, utf8).
+
+to_bin(Prefix, ListStr) ->
+  L = to_bin(ListStr),
+  <<Prefix/binary, L/binary>>.
+
+%% For printing terms with a natural string representation to a
+%% binary string.
+-spec write_bin_natural(Term) -> binary() when % UTF-8 encoded binary
+      Term :: term().
+
+write_bin_natural(Term) when is_binary(Term) ->
+    try
+      case unicode:characters_to_binary(Term, utf8, utf8) of
+        Encoded when is_binary(Encoded) -> Encoded;
+        _ -> erlang:error(badarg, [Term])
+      end
+    catch _:_:_ ->
+      erlang:error(badarg, [Term])
+    end;
+write_bin_natural(Term) when is_list(Term) ->
+    try
+      case unicode:characters_to_binary(Term, unicode, utf8) of
+        Encoded when is_binary(Encoded) -> Encoded;
+        _ -> erlang:error(badarg, [Term])
+      end
+    catch _:_:_ ->
+      erlang:error(badarg, [Term])
+    end;
+write_bin_natural(Term) when is_atom(Term) ->
+    atom_to_binary(Term, utf8);
+write_bin_natural(Term) when is_integer(Term) ->
+    integer_to_binary(Term);
+write_bin_natural(Term) ->
+    erlang:error(badarg, [Term]).
+
+-spec write_bin(Term) -> binary() when % UTF-8 encoded binary
+      Term :: term().
+
+write_bin(Term) ->
+    write_bin1(<<>>, Term, -1, undefined).
+
+-spec write_bin(Prefix, Term) -> binary() when % UTF-8 encoded binary
+      Prefix :: binary(),
+      Term :: term().
+
+write_bin(Prefix, Term) ->
+    write_bin1(Prefix, Term, -1, undefined).
+
+-spec write_bin(Prefix, Term, Depth) -> binary() when % UTF-8 encoded binary
+      Prefix :: binary(),
+      Term :: term(),
+      Depth :: -1 | integer().
+
+write_bin(Prefix, Term, Depth) ->
+    write_bin1(Prefix, Term, Depth, undefined).
+
+-spec write_bin(Prefix, Term, Depth, MapsOrder) -> binary() when % UTF-8 encoded binary
+      Prefix :: binary(),
+      Term :: term(),
+      Depth :: -1 | integer(),
+      MapsOrder :: term().
+
+write_bin(Prefix, Term, Depth, MapsOrder) ->
+    write_bin1(Prefix, Term, Depth, MapsOrder).
+
+% Appending to a binary is quite extensively optimised in the rest of the
+% toolchain, so we attempt to make good use of that here
+write_bin1(Acc, _Term, 0, _O) ->
+    <<Acc/binary,"..."/utf8>>;
+write_bin1(Acc, Term, _D, _O) when is_integer(Term) ->
+    to_bin(Acc, integer_to_list(Term));
+write_bin1(Acc, Term, _D, _O) when is_float(Term) ->
+    to_bin(Acc, float_to_binary(Term, [short]));
+write_bin1(Acc, Atom, _D, _O) when is_atom(Atom) ->
+    write_bin_atom(Acc, Atom);
+write_bin1(Acc, Term, _D, _O) when is_port(Term) ->
+    to_bin(Acc, write_port(Term));
+write_bin1(Acc, Term, _D, _O) when is_pid(Term) ->
+    to_bin(Acc, pid_to_list(Term));
+write_bin1(Acc, Term, _D, _O) when is_reference(Term) ->
+    to_bin(Acc, write_ref(Term));
+write_bin1(Acc, <<_/bitstring>>=Term, D, _O) ->
+    write_bin_binary(Acc, Term, D);
+write_bin1(Acc, [], _D, _O) ->
+    <<Acc/binary,"[]"/utf8>>;
+write_bin1(Acc, {}, _D, _O) ->
+    <<Acc/binary,"{}"/utf8>>;
+write_bin1(Acc, [H|T], D, O) ->
+    if
+        D =:= 1 -> <<Acc/binary, "[...]"/utf8>>;
+        true ->
+            Hd = write_bin1(<<Acc/binary,"["/utf8>>, H, D-1, O),
+            Tl = write_bin_tail(Hd, T, D-1, O),
+            <<Tl/binary,"]"/utf8>>
+    end;
+write_bin1(Acc, F, _D, _O) when is_function(F) ->
+    to_bin(Acc, erlang:fun_to_list(F));
+write_bin1(Acc, Term, D, O) when is_map(Term) ->
+    write_bin_map(Acc, Term, D, O);
+write_bin1(Acc, T, D, O) when is_tuple(T) ->
+    if
+        D =:= 1 -> <<Acc/binary,"{...}"/utf8>>;
+        true ->
+            Acc1 = write_bin1(<<Acc/binary, "{"/utf8>>, element(1, T), D-1, O),
+            Acc2 = write_bin_tuple(Acc1, T, 2, D-1, O),
+            <<Acc2/binary,"}"/utf8>>
+    end.
+
 %% write_tail(List, Depth, Encoding)
 %%  Test the terminating case first as this looks better with depth.
 
@@ -408,6 +550,20 @@ write_tuple(T, I, _D, _E, _O) when I > tuple_size(T) -> "";
 write_tuple(_, _I, 1, _E, _O) -> [$, | "..."];
 write_tuple(T, I, D, E, O) ->
     [$,,write1(element(I, T), D-1, E, O)|write_tuple(T, I+1, D-1, E, O)].
+
+write_bin_tail(Acc, [], _D, _O) -> Acc;
+write_bin_tail(Acc, _, 1, _O) -> <<Acc/binary,"|..."/utf8>>;
+write_bin_tail(Acc, [H|T], D, O) ->
+    Acc1 = write_bin1(<<Acc/binary, ","/utf8>>, H, D-1, O),
+    write_bin_tail(Acc1, T, D-1, O);
+write_bin_tail(Acc, Other, D, O) ->
+    write_bin1(<<Acc/binary,"|"/utf8>>, Other, D-1, O).
+
+write_bin_tuple(Acc, T, I, _D, _O) when I > tuple_size(T) -> Acc;
+write_bin_tuple(Acc, _, _I, 1, _O) -> <<Acc/binary,",..."/utf8>>;
+write_bin_tuple(Acc, T, I, D, O) ->
+    Acc1 = write_bin1(<<Acc/binary,","/utf8>>, element(I, T), D-1, O),
+    write_bin_tuple(Acc1, T, I+1, D-1, O).
 
 write_port(Port) ->
     erlang:port_to_list(Port).
@@ -438,6 +594,37 @@ write_map_body(I, D, D0, E, O) ->
 write_map_assoc(K, V, D, E, O) ->
     [write1(K, D, E, O)," => ",write1(V, D, E, O)].
 
+write_bin_map(Acc, _, 1, _O) ->
+    <<Acc/binary, "#{}"/utf8>>;
+write_bin_map(Acc, Map, D, O) when is_integer(D) ->
+    I = maps:iterator(Map, O),
+    case maps:next(I) of
+        {K, V, NextI} ->
+            D0 = D - 1,
+            Acc1 = <<Acc/binary, "#{"/utf8>>,
+            Acc2 = write_bin_map_assoc(Acc1, K, V, D0, O),
+            Acc3 = write_bin_map_body(Acc2, NextI, D0, D0, O),
+            <<Acc3/binary, "}"/utf8>>;
+        none ->
+            <<"#{}"/utf8>>
+    end.
+
+write_bin_map_body(Acc, _, 1, _D0, _O) ->
+    <<Acc/binary, ",..."/utf8>>;
+write_bin_map_body(Acc, I, D, D0, O) ->
+    case maps:next(I) of
+        {K, V, NextI} ->
+            Acc1 = write_bin_map_assoc(<<Acc, ","/utf8>>, K, V, D0, O),
+            write_bin_map_body(Acc1, NextI, D - 1, D0, O);
+        none ->
+            Acc
+    end.
+
+write_bin_map_assoc(Acc, K, V, D, O) ->
+    Acc1 = write_bin1(Acc, K, D, O),
+    Acc2 = <<Acc1/binary, " => "/utf8>>,
+    write_bin1(Acc2, V, D, O).
+
 write_binary(B, D) when is_integer(D) ->
     {S, _} = write_binary(B, D, -1),
     S.
@@ -459,6 +646,37 @@ write_binary_body(B, _D, _T, Acc) ->
     L = bit_size(B),
     <<X:L>> = B,
     {[integer_to_list(L),$:,integer_to_list(X)|Acc], <<>>}.
+
+write_bin_binary(Acc, B, D) when is_integer(D) ->
+    {S, _} = write_bin_binary(Acc, B, D, -1),
+    S.
+
+write_bin_binary(Acc, B, D, T) when is_integer(T) ->
+    Acc1 = <<Acc/binary,"<<"/utf8>>,
+    {S, Rest} = write_bin_binary_body(B, D, tsub(T, 4), Acc1),
+    {<<S/binary,">>"/utf8>>, Rest}.
+
+write_bin_binary_body(<<>> = B, _D, _T, Acc) ->
+    {Acc, B};
+write_bin_binary_body(B, D, T, Acc) when D =:= 1; T =:= 0 ->
+    {<<Acc/binary,"..."/utf8>>, B};
+write_bin_binary_body(<<X:8>>, _D, _T, Acc) ->
+    {to_bin(Acc, integer_to_list(X)), <<>>};
+write_bin_binary_body(<<X:8,Rest/bitstring>>, D, T, Acc) ->
+    X1 = to_bin(integer_to_list(X)),
+    write_bin_binary_body(
+        Rest,
+        D-1,
+        tsub(T, string:length(X1) + 1),
+        <<Acc/binary,X1/binary,","/utf8>>
+    );
+write_bin_binary_body(B, _D, _T, Acc) ->
+    L = bit_size(B),
+    <<X:L>> = B,
+    Acc1 = to_bin(Acc, integer_to_list(X)),
+    Acc2 = <<Acc1/binary, ":"/utf8>>,
+    Acc3 = to_bin(Acc2, integer_to_list(L)),
+    {Acc3, <<>>}.
 
 %% Make sure T does not change sign.
 tsub(T, _) when T < 0 -> T;
@@ -485,6 +703,19 @@ get_option(Key, TupleList, Default) ->
 
 write_atom(Atom) ->
     write_possibly_quoted_atom(Atom, fun write_string/2).
+
+-spec write_bin_atom(Acc, Atom) -> binary() when
+      Acc :: binary(),
+      Atom :: atom().
+
+write_bin_atom(Acc, Atom) ->
+    Bin = atom_to_binary(Atom, utf8),
+    case quote_bin_atom(Atom, Bin) of
+        true ->
+            write_bin_string(Acc, Bin, <<$'/utf8>>);
+        false ->
+            <<Acc/binary, Bin/binary>>
+    end.
 
 -spec write_atom_as_latin1(Atom) -> latin1_string() when
       Atom :: atom().
@@ -536,6 +767,33 @@ name_char(C) when C >= $0, C =< $9 -> true;
 name_char($_) -> true;
 name_char($@) -> true;
 name_char(_) -> false.
+
+
+-spec quote_bin_atom(atom(), binary()) -> boolean().
+
+quote_bin_atom(Atom, Bin0) ->
+    case erl_scan:reserved_word(Atom) of
+        true -> true;
+        false ->
+            case string:next_codepoint(Bin0) of
+                [C|Bin1] when is_integer(C), C >= $a, C =< $z ->
+                    not name_chars_bin(Bin1);
+                [C|Bin1] when is_integer(C), C >= $ß, C =< $ÿ, C =/= $÷ ->
+                    not name_chars_bin(Bin1);
+                [C|_] when is_integer(C) -> true;
+                [] -> true
+            end
+    end.
+
+name_chars_bin(Bin) ->
+  name_chars_bin1(string:next_codepoint(Bin)).
+
+name_chars_bin1([C|Bin1]) when is_integer(C) ->
+    case name_char(C) of
+        true -> name_chars_bin(Bin1);
+        false -> false
+    end;
+name_chars_bin1([]) -> true.
 
 %%% There are two functions to write Unicode strings:
 %%% - they both escape control characters < 160;
@@ -612,6 +870,52 @@ string_char(_,C, _, Tail) when C < $\240->	%Other control characters.
     C2 = ((C bsr 3) band 7) + $0,
     C3 = (C band 7) + $0,
     [$\\,C1,C2,C3|Tail].
+
+%% write_bin_string(binary(), [Char], char()) -> binary()
+%%  Generate the UTF-8 encoded binary needed to print a string, appended to the
+%%  given UTF-8 encoded prefix, using the given quotation (UTF-8 encoded binary)
+%%  character.
+
+-spec write_bin_string(binary(), string(), binary()) -> binary().
+
+write_bin_string(<<_/binary>> = Acc, S, Q) ->
+    write_bin_string1(<<Acc/binary, Q/binary>>, S, Q).
+
+write_bin_string1(Acc, [], Q) ->
+    <<Acc/binary, Q/binary>>;
+write_bin_string1(Acc, [C|Cs], Q) when is_integer(C) ->
+    Acc1 = string_char_bin(Acc, C, Q),
+    write_bin_string1(Acc1, Cs, Q).
+
+string_char_bin(Acc, QChar, QBin) when <<QChar/utf8>> =:= QBin -> % Must check these first!
+    <<Acc/binary, $\\/utf8, QBin/binary>>;
+string_char_bin(Acc, $\\, _) ->
+    <<Acc/binary, "\\\\"/utf8>>;
+string_char_bin(Acc, C, _) when C >= $\s, C =< $~ ->
+    <<Acc/binary, C/utf8>>;
+string_char_bin(Acc, C, _) when C >= $\240 ->
+    <<Acc/binary, C/utf8>>;
+string_char_bin(Acc,$\n, _) ->
+    <<Acc/binary, $\\/utf8, $n/utf8>>;  %\n = LF
+string_char_bin(Acc,$\r, _) ->
+    <<Acc/binary, $\\/utf8, $r/utf8>>;  %\r = CR
+string_char_bin(Acc,$\t, _) ->
+    <<Acc/binary, $\\/utf8, $t/utf8>>;  %\t = TAB
+string_char_bin(Acc,$\v, _) ->
+    <<Acc/binary, $\\/utf8, $v/utf8>>;  %\v = VT
+string_char_bin(Acc,$\b, _) ->
+    <<Acc/binary, $\\/utf8, $b/utf8>>;  %\b = BS
+string_char_bin(Acc,$\f, _) ->
+    <<Acc/binary, $\\/utf8, $f/utf8>>;  %\f = FF
+string_char_bin(Acc,$\e, _) ->
+    <<Acc/binary, $\\/utf8, $e/utf8>>;  %\e = ESC
+string_char_bin(Acc,$\d, _) ->
+    <<Acc/binary, $\\/utf8, $d/utf8>>;  %\d = DEL
+string_char_bin(Acc,C, _) when C < $\240-> % Other control characters
+    C1 = (C bsr 6) + $0,
+    C2 = ((C bsr 3) band 7) + $0,
+    C3 = (C band 7) + $0,
+    <<Acc/binary, $\\/utf8, C1/utf8, C2/utf8, C3/utf8>>.
 
 %%% There are two functions to write a Unicode character:
 %%% - they both escape control characters < 160;

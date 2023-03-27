@@ -789,6 +789,7 @@ make_ssa_check_pass(PassFlag) ->
 
 standard_passes() ->
     [?pass(transform_module),
+     ?pass(desugar_interpolation),
 
      {iff,makedep_side_effect,?pass(makedep_and_output)},
      {iff,makedep,[
@@ -1248,6 +1249,9 @@ strip_columns(Code) ->
          Form ->
              erl_parse:map_anno(F, Form)
      end || Form <- Code].
+
+desugar_interpolation(Code, #compile{options=Opt}=St) ->
+  {ok, erl_desugar_interpolation:module(Code, Opt), St}.
 
 get_core_transforms(Opts) -> [M || {core_transform,M} <- Opts].
 

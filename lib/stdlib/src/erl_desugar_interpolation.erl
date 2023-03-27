@@ -1,39 +1,17 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
-%% you may not use this file except in compliance with the License.
-%% You may obtain a copy of the License at
-%%
-%%     http://www.apache.org/licenses/LICENSE-2.0
-%%
-%% Unless required by applicable law or agreed to in writing, software
-%% distributed under the License is distributed on an "AS IS" BASIS,
-%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-%% See the License for the specific language governing permissions and
-%% limitations under the License.
-%% 
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%% 
-%%     $Id$
-%%
--module(erl_id_trans).
+%% Purpose: Expand list-/binary-string interpolation expression syntax into
+%% function calls which build the resulting strings.
 
-%% An identity transformer of Erlang abstract syntax.
+-module(erl_desugar_interpolation).
 
-%% This module only traverses legal Erlang code. This is most noticeable
-%% in guards where only a limited number of expressions are allowed.
-%% N.B. if this module is to be used as a basis for transforms then
-%% all the error cases must be handled otherwise this module just crashes!
+-export([module/2, expr/1]).
 
--export([parse_transform/2, parse_transform_info/0]).
+-spec(module(AbsFormsWithInterpolation, CompileOptions) -> AbsFormsWithoutInterpolation when
+      AbsFormsWithInterpolation :: [erl_parse:abstract_form()],
+      AbsFormsWithoutInterpolation :: [erl_parse:abstract_form()],
+      CompileOptions :: [compile:option()]).
 
-parse_transform(Forms, _Options) ->
-    forms(Forms).
-
-parse_transform_info() ->
-    #{error_location => column}.
-
-%% forms(Fs) -> lists:map(fun (F) -> form(F) end, Fs).
+module(Fs0, _Opts0) ->
+    forms(Fs0).
 
 forms([F0|Fs0]) ->
     F1 = form(F0),
@@ -41,39 +19,25 @@ forms([F0|Fs0]) ->
     [F1|Fs1];
 forms([]) -> [].
 
-%% -type form(Form) -> Form.
-%%  Here we show every known form and valid internal structure. We do not
-%%  that the ordering is correct!
-
-%% First the various attributes.
-form({attribute,Anno,module,Mod}) ->
-    {attribute,Anno,module,Mod};
-form({attribute,Anno,file,{File,Line}}) ->	%This is valid anywhere.
-    {attribute,Anno,file,{File,Line}};
-form({attribute,Anno,export,Es0}) ->
-    Es1 = farity_list(Es0),
-    {attribute,Anno,export,Es1};
-form({attribute,Anno,import,{Mod,Is0}}) ->
-    Is1 = farity_list(Is0),
-    {attribute,Anno,import,{Mod,Is1}};
-form({attribute,Anno,export_type,Es0}) ->
-    Es1 = farity_list(Es0),
-    {attribute,Anno,export_type,Es1};
-form({attribute,Anno,optional_callbacks,Es0}) ->
-    try farity_list(Es0) of
-        Es1 ->
-            {attribute,Anno,optional_callbacks,Es1}
-    catch
-        _:_ ->
-            {attribute,Anno,optional_callbacks,Es0}
-    end;
-form({attribute,Anno,compile,C}) ->
-    {attribute,Anno,compile,C};
+form({attribute,_Anno,module,_Mod}=Attr) ->
+    Attr;
+form({attribute,_Anno,file,{_File,_Line}}=Attr) ->
+    Attr;
+form({attribute,_Anno,export,_Es0}=Attr) ->
+    Attr;
+form({attribute,_Anno,import,{_Mod,_Is0}}=Attr) ->
+    Attr;
+form({attribute,_Anno,export_type,_Es0}=Attr) ->
+    Attr;
+form({attribute,_Anno,optional_callbacks,_Es0}=Attr) ->
+    Attr;
+form({attribute,_Anno,compile,_C}=Attr) ->
+    Attr;
 form({attribute,Anno,record,{Name,Defs0}}) ->
     Defs1 = record_defs(Defs0),
     {attribute,Anno,record,{Name,Defs1}};
-form({attribute,Anno,asm,{function,N,A,Code}}) ->
-    {attribute,Anno,asm,{function,N,A,Code}};
+form({attribute,_Anno,asm,{function,_N,_A,_Code}}=Attr) ->
+    Attr;
 form({attribute,Anno,type,{N,T,Vs}}) ->
     T1 = type(T),
     Vs1 = variable_list(Vs),
@@ -91,31 +55,19 @@ form({attribute,Anno,spec,{{M,N,A},FTs}}) ->
 form({attribute,Anno,callback,{{N,A},FTs}}) ->
     FTs1 = function_type_list(FTs),
     {attribute,Anno,callback,{{N,A},FTs1}};
-form({attribute,Anno,Attr,Val}) ->		%The general attribute.
-    {attribute,Anno,Attr,Val};
+form({attribute,_Anno,_WhichAttr,_Val}=Attr) ->
+    Attr;
 form({function,Anno,Name0,Arity0,Clauses0}) ->
     {Name,Arity,Clauses} = function(Name0, Arity0, Clauses0),
     {function,Anno,Name,Arity,Clauses};
-%% Extra forms from the parser.
+
 form({error,E}) -> {error,E};
 form({warning,W}) -> {warning,W};
 form({eof,Location}) -> {eof,Location}.
 
-%% -type farity_list([Farity]) -> [Farity] when Farity <= {atom(),integer()}.
-
-farity_list([{Name,Arity}|Fas]) ->
-    [{Name,Arity}|farity_list(Fas)];
-farity_list([]) -> [].
-
-%% -type variable_list([Var]) -> [Var]
-
 variable_list([{var,Anno,Var}|Vs]) ->
     [{var,Anno,Var}|variable_list(Vs)];
 variable_list([]) -> [].
-
-%% -type record_defs([RecDef]) -> [RecDef].
-%%  N.B. Field names are full expressions here but only atoms are allowed
-%%  by the *parser*!
 
 record_defs([{record_field,Anno,{atom,Aa,A},Val0}|Is]) ->
     Val1 = expr(Val0),
@@ -134,20 +86,14 @@ record_defs([{typed_record_field,{record_field,Anno,{atom,Aa,A}},Type}|Is]) ->
      record_defs(Is)];
 record_defs([]) -> [].
 
-%% -type function(atom(), integer(), [Clause]) -> {atom(),integer(),[Clause]}.
-
 function(Name, Arity, Clauses0) ->
     Clauses1 = clauses(Clauses0),
     {Name,Arity,Clauses1}.
-
-%% -type clauses([Clause]) -> [Clause].
 
 clauses([C0|Cs]) ->
     C1 = clause(C0),
     [C1|clauses(Cs)];
 clauses([]) -> [].
-
-%% -type clause(Clause) -> Clause.
 
 clause({clause,Anno,H0,G0,B0}) ->
     H1 = head(H0),
@@ -155,21 +101,12 @@ clause({clause,Anno,H0,G0,B0}) ->
     B1 = exprs(B0),
     {clause,Anno,H1,G1,B1}.
 
-%% -type head([Pattern]) -> [Pattern].
-
 head(Ps) -> patterns(Ps).
-
-%% -type patterns([Pattern]) -> [Pattern].
-%%  These patterns are processed "sequentially" for purposes of variable
-%%  definition etc.
 
 patterns([P0|Ps]) ->
     P1 = pattern(P0),
     [P1|patterns(Ps)];
 patterns([]) -> [].
-
-%% -type pattern(Pattern) -> Pattern.
-%%  N.B. Only valid patterns are included here.
 
 pattern({var,Anno,V}) -> {var,Anno,V};
 pattern({match,Anno,L0,R0}) ->
@@ -242,20 +179,10 @@ bit_types([Atom | Rest]) when is_atom(Atom) ->
 bit_types([{Atom, Integer} | Rest]) when is_atom(Atom), is_integer(Integer) ->
     [{Atom, Integer} | bit_types(Rest)].
 
-
-
-%% -type pattern_list([Pattern]) -> [Pattern].
-%%  These patterns are processed "in parallel" for purposes of variable
-%%  definition etc.
-
 pattern_list([P0|Ps]) ->
     P1 = pattern(P0),
     [P1|pattern_list(Ps)];
 pattern_list([]) -> [].
-
-%% -type pattern_fields([Field]) -> [Field].
-%%  N.B. Field names are full expressions here but only atoms are allowed
-%%  by the *linter*!.
 
 pattern_fields([{record_field,Af,{atom,Aa,F},P0}|Pfs]) ->
     P1 = pattern(P0),
@@ -264,8 +191,6 @@ pattern_fields([{record_field,Af,{var,Aa,'_'},P0}|Pfs]) ->
     P1 = pattern(P0),
     [{record_field,Af,{var,Aa,'_'},P1}|pattern_fields(Pfs)];
 pattern_fields([]) -> [].
-
-%% -type guard([GuardTest]) -> [GuardTest].
 
 guard([G0|Gs]) when is_list(G0) ->
     [guard0(G0) | guard(Gs)];
@@ -287,11 +212,6 @@ guard_test(Expr={call,Anno,{atom,Aa,F},As0}) ->
     end;
 guard_test(Any) ->
     gexpr(Any).
-
-%% Before R9, there were special rules regarding the expressions on
-%% top level in guards. Those limitations are now lifted - therefore
-%% there is no need for a special clause for the toplevel expressions.
-%% -type gexpr(GuardExpr) -> GuardExpr.
 
 gexpr({var,Anno,V}) -> {var,Anno,V};
 gexpr({integer,Anno,I}) -> {integer,Anno,I};
@@ -316,7 +236,7 @@ gexpr({map_field_exact,Anno,K,V}) ->
     {map_field_exact,Anno,Ke,Ve};
 gexpr({cons,Anno,H0,T0}) ->
     H1 = gexpr(H0),
-    T1 = gexpr(T0),				%They see the same variables
+    T1 = gexpr(T0), %They see the same variables
     {cons,Anno,H1,T1};
 gexpr({tuple,Anno,Es0}) ->
     Es1 = gexpr_list(Es0),
@@ -336,7 +256,6 @@ gexpr({call,Anno,{atom,Aa,F},As0}) ->
 	true -> As1 = gexpr_list(As0),
 		{call,Anno,{atom,Aa,F},As1}
     end;
-% Guard bif's can be remote, but only in the module erlang...
 gexpr({call,Anno,{remote,Aa,{atom,Ab,erlang},{atom,Ac,F}},As0}) ->
     case erl_internal:guard_bif(F, length(As0)) or
 	 erl_internal:arith_op(F, length(As0)) or 
@@ -355,9 +274,8 @@ gexpr({op,Anno,Op,A0}) ->
 		{op,Anno,Op,A1}
     end;
 gexpr({op,Anno,Op,L0,R0}) when Op =:= 'andalso'; Op =:= 'orelse' ->
-    %% R11B: andalso/orelse are now allowed in guards.
     L1 = gexpr(L0),
-    R1 = gexpr(R0),			%They see the same variables
+    R1 = gexpr(R0), %They see the same variables
     {op,Anno,Op,L1,R1};
 gexpr({op,Anno,Op,L0,R0}) ->
     case erl_internal:arith_op(Op, 2) or
@@ -365,13 +283,9 @@ gexpr({op,Anno,Op,L0,R0}) ->
 	  erl_internal:comp_op(Op, 2) of
 	true ->
 	    L1 = gexpr(L0),
-	    R1 = gexpr(R0),			%They see the same variables
+	    R1 = gexpr(R0), %They see the same variables
 	    {op,Anno,Op,L1,R1}
     end.
-
-%% -type gexpr_list([GuardExpr]) -> [GuardExpr].
-%%  These expressions are processed "in parallel" for purposes of variable
-%%  definition etc.
 
 gexpr_list([E0|Es]) ->
     E1 = gexpr(E0),
@@ -386,16 +300,10 @@ grecord_inits([{record_field,Af,{var,Aa,'_'},Val0}|Is]) ->
     [{record_field,Af,{var,Aa,'_'},Val1}|grecord_inits(Is)];
 grecord_inits([]) -> [].
 
-%% -type exprs([Expression]) -> [Expression].
-%%  These expressions are processed "sequentially" for purposes of variable
-%%  definition etc.
-
 exprs([E0|Es]) ->
     E1 = expr(E0),
     [E1|exprs(Es)];
 exprs([]) -> [].
-
-%% -type expr(Expression) -> Expression.
 
 expr({var,Anno,V}) -> {var,Anno,V};
 expr({integer,Anno,I}) -> {integer,Anno,I};
@@ -406,7 +314,7 @@ expr({char,Anno,C}) -> {char,Anno,C};
 expr({nil,Anno}) -> {nil,Anno};
 expr({cons,Anno,H0,T0}) ->
     H1 = expr(H0),
-    T1 = expr(T0),				%They see the same variables
+    T1 = expr(T0), %They see the same variables
     {cons,Anno,H1,T1};
 expr({lc,Anno,E0,Qs0}) ->
     Qs1 = comprehension_quals(Qs0),
@@ -456,7 +364,6 @@ expr({record_field,Anno,Rec0,Field0}) ->
     Field1 = expr(Field0),
     {record_field,Anno,Rec1,Field1};
 expr({block,Anno,Es0}) ->
-    %% Unfold block into a sequence.
     Es1 = exprs(Es0),
     {block,Anno,Es1};
 expr({'if',Anno,Cs0}) ->
@@ -496,14 +403,10 @@ expr({'fun',Anno,Body}) ->
 expr({named_fun,Anno,Name,Cs}) ->
     {named_fun,Anno,Name,fun_clauses(Cs)};
 expr({call,Anno,F0,As0}) ->
-    %% N.B. If F an atom then call to local function or BIF, if F a
-    %% remote structure (see below) then call to other module,
-    %% otherwise apply to "function".
     F1 = expr(F0),
     As1 = expr_list(As0),
     {call,Anno,F1,As1};
 expr({'catch',Anno,E0}) ->
-    %% No new variables added.
     E1 = expr(E0),
     {'catch',Anno,E1};
 expr({'maybe',MaybeAnno,Es0}) ->
@@ -521,39 +424,35 @@ expr({match,Anno,P0,E0}) ->
     E1 = expr(E0),
     P1 = pattern(P0),
     {match,Anno,P1,E1};
+
 expr({interpolation_no_subs,Anno,binary,_IsDebug,Str}) ->
     S = {string, Anno, Str},
     {bin, Anno, [{bin_element,Anno,S,default,[utf8]}]};
 expr({interpolation_no_subs,Anno,list,_IsDebug,Str}) ->
     {string, Anno, Str};
 expr({interpolation,Anno,
-      {interpolation_head,AnnoHead,binary,IsDebug,HeadStr},
-      Elems,
-      {interpolation_tail,AnnoTail,TailStr}}) ->
-  Elems1 =
-    [ case Elem of
-        {interpolation_cont,AnnoCont,Str} -> {interpolation_cont,AnnoCont,Str};
-        {interpolation_subs,AnnoSubs,Expr} -> {interpolation_subs,AnnoSubs,expr(Expr)}
-      end
-    || Elem <- Elems ],
-  {interpolation,Anno,
-      {interpolation_head,AnnoHead,binary,IsDebug,HeadStr},
-      Elems1,
-      {interpolation_tail,AnnoTail,TailStr}};
+      {interpolation_head,_,binary,IsDebug,HeadStr},
+      Conts,
+      {interpolation_tail,_,TailStr}}) ->
+    DesugaredConts = desugar_binary_string_interpolation_conts(Conts, IsDebug),
+    HeadBin = {bin,Anno,[{bin_element,Anno,{string, Anno, HeadStr},default,[utf8]}]},
+    TailBin = {bin,Anno,[{bin_element,Anno,{string, Anno, TailStr},default,[utf8]}]},
+    BinComponents = [HeadBin] ++ (DesugaredConts ++ [TailBin]),
+    BinComponentListExpr = mk_list_expr(BinComponents, Anno),
+    {call,Anno,
+          {remote,Anno,{atom,Anno,erlang},{atom,Anno,list_to_binary}},
+          [BinComponentListExpr]};
 expr({interpolation,Anno,
       {interpolation_head,AnnoHead,list,IsDebug,HeadStr},
-      Elems,
+      Conts,
       {interpolation_tail,AnnoTail,TailStr}}) ->
-  Elems1 =
-    [ case Elem of
-        {interpolation_cont,AnnoCont,Str} -> {interpolation_cont,AnnoCont,Str};
-        {interpolation_subs,AnnoSubs,Expr} -> {interpolation_subs,AnnoSubs,expr(Expr)}
-      end
-    || Elem <- Elems ],
-  {interpolation,Anno,
-      {interpolation_head,AnnoHead,list,IsDebug,HeadStr},
-      Elems1,
-      {interpolation_tail,AnnoTail,TailStr}};
+    ListComponents = desugar_list_string_interpolation_conts(Conts, IsDebug),
+    mk_list_expr(
+      [{string,AnnoHead,HeadStr}] ++
+        (ListComponents ++
+          [{string,AnnoTail,TailStr}]),
+      Anno);
+
 expr({bin,Anno,Fs}) ->
     Fs2 = pattern_grp(Fs),
     {bin,Anno,Fs2};
@@ -562,7 +461,7 @@ expr({op,Anno,Op,A0}) ->
     {op,Anno,Op,A1};
 expr({op,Anno,Op,L0,R0}) ->
     L1 = expr(L0),
-    R1 = expr(R0),				%They see the same variables
+    R1 = expr(R0), %They see the same variables
     {op,Anno,Op,L1,R1};
 %% The following are not allowed to occur anywhere!
 expr({remote,Anno,M0,F0}) ->
@@ -570,18 +469,47 @@ expr({remote,Anno,M0,F0}) ->
     F1 = expr(F0),
     {remote,Anno,M1,F1}.
 
-%% -type expr_list([Expression]) -> [Expression].
-%%  These expressions are processed "in parallel" for purposes of variable
-%%  definition etc.
+desugar_list_string_interpolation_conts(Conts, IsDebug) ->
+   [desugar_list_string_interpolation_cont(Cont, IsDebug) || Cont <- Conts].
+
+desugar_list_string_interpolation_cont({interpolation_cont,Anno,Str}, _IsDebug) ->
+  {string, Anno, Str};
+desugar_list_string_interpolation_cont({interpolation_subs,Anno,Expr}, _IsDebug=true) ->
+  Opts =
+    {cons, Anno,
+      {tuple, Anno, [
+        {atom, Anno, encoding},
+        {atom, Anno, unicode}
+      ]},
+      {nil, Anno}
+    },
+  {call,Anno,
+      {remote,Anno,{atom,Anno,io_lib},{atom,Anno,write}},
+      [expr(Expr), Opts]};
+desugar_list_string_interpolation_cont({interpolation_subs,Anno,Expr}, _IsDebug=false) ->
+  {call,Anno,
+      {remote,Anno,{atom,Anno,io_lib},{atom,Anno,write_natural}},
+      [expr(Expr)]}.
+
+desugar_binary_string_interpolation_conts(Conts, IsDebug) ->
+   [desugar_binary_string_interpolation_cont(Cont, IsDebug) || Cont <- Conts].
+
+desugar_binary_string_interpolation_cont({interpolation_cont,Anno,Str}, _IsDebug) ->
+  S = {string, Anno, Str},
+  {bin, Anno, [{bin_element,Anno,S,default,[utf8]}]};
+desugar_binary_string_interpolation_cont({interpolation_subs,Anno,Expr}, _IsDebug=true) ->
+  {call,Anno,
+      {remote,Anno,{atom,Anno,io_lib},{atom,Anno,write_bin}},
+      [expr(Expr)]};
+desugar_binary_string_interpolation_cont({interpolation_subs,Anno,Expr}, _IsDebug=false) ->
+  {call,Anno,
+      {remote,Anno,{atom,Anno,io_lib},{atom,Anno,write_bin_natural}},
+      [expr(Expr)]}.
 
 expr_list([E0|Es]) ->
     E1 = expr(E0),
     [E1|expr_list(Es)];
 expr_list([]) -> [].
-
-%% -type record_inits([RecordInit]) -> [RecordInit].
-%%  N.B. Field names are full expressions here but only atoms are allowed
-%%  by the *linter*!.
 
 record_inits([{record_field,Af,{atom,Aa,F},Val0}|Is]) ->
     Val1 = expr(Val0),
@@ -591,24 +519,15 @@ record_inits([{record_field,Af,{var,Aa,'_'},Val0}|Is]) ->
     [{record_field,Af,{var,Aa,'_'},Val1}|record_inits(Is)];
 record_inits([]) -> [].
 
-%% -type record_updates([RecordUpd]) -> [RecordUpd].
-%%  N.B. Field names are full expressions here but only atoms are allowed
-%%  by the *linter*!.
-
 record_updates([{record_field,Af,{atom,Aa,F},Val0}|Us]) ->
     Val1 = expr(Val0),
     [{record_field,Af,{atom,Aa,F},Val1}|record_updates(Us)];
 record_updates([]) -> [].
 
-%% -type icr_clauses([Clause]) -> [Clause].
-
 icr_clauses([C0|Cs]) ->
     C1 = clause(C0),
     [C1|icr_clauses(Cs)];
 icr_clauses([]) -> [].
-
-%% -type comprehension_quals([Qualifier]) -> [Qualifier].
-%%  Allow filters to be both guard tests and general expressions.
 
 comprehension_quals([{generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
@@ -626,8 +545,6 @@ comprehension_quals([E0|Qs]) ->
     E1 = expr(E0),
     [E1|comprehension_quals(Qs)];
 comprehension_quals([]) -> [].
-
-%% -type fun_clauses([Clause]) -> [Clause].
 
 fun_clauses([C0|Cs]) ->
     C1 = clause(C0),
@@ -733,3 +650,8 @@ type_list([T|Ts]) ->
     T1 = type(T),
     [T1|type_list(Ts)];
 type_list([]) -> [].
+
+mk_list_expr([], Anno) ->
+  {nil, Anno};
+mk_list_expr([Hd|Tl], Anno) ->
+  {cons, Anno, Hd, mk_list_expr(Tl, Anno)}.

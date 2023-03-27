@@ -1930,6 +1930,10 @@ token_src({char,_,C}) ->
 token_src({string, _, X}) ->
     io_lib:write_string(X);
 token_src({_, _, X}) ->
+    io_lib:format("~w", [X]);
+token_src({_, _, _, X}) ->
+    io_lib:format("~w", [X]);
+token_src({_, _, _, _, X}) ->
     io_lib:format("~w", [X]).
 
 stringify1([]) ->

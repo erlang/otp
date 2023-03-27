@@ -41,7 +41,7 @@ fun_expr fun_clause fun_clauses atom_or_var integer_or_var
 try_expr try_catch try_clause try_clauses try_opt_stacktrace
 function_call argument_list
 exprs guard
-atomic strings
+atomic strings interpolation interpolation_elements
 prefix_op mult_op add_op list_op comp_op
 binary bin_elements bin_element bit_expr
 opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
@@ -79,6 +79,8 @@ ssa_check_when_clauses.
 Terminals
 char integer float atom string var
 
+interpolation_no_subs interpolation_head interpolation_cont interpolation_tail
+
 '(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
 'maybe' 'else'
@@ -105,6 +107,7 @@ Unary 0 'catch'.
 Right 100 '=' '!'.
 Right 150 'orelse'.
 Right 160 'andalso'.
+Left 180 interpolation_cont.
 Nonassoc 200 comp_op.
 Right 300 list_op.
 Left 400 add_op.
@@ -288,6 +291,7 @@ expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
 expr_max -> maybe_expr : '$1'.
+expr_max -> interpolation : '$1'.
 
 pat_expr -> pat_expr '=' pat_expr : {match,first_anno('$1'),'$1','$3'}.
 pat_expr -> pat_expr comp_op pat_expr : ?mkop2('$1', '$2', '$3').
@@ -520,6 +524,12 @@ maybe_match_exprs -> expr : ['$1'].
 maybe_match_exprs -> expr ',' maybe_match_exprs : ['$1' | '$3'].
 
 maybe_match -> expr '?=' expr : {maybe_match,?anno('$2'),'$1','$3'}.
+
+interpolation -> interpolation_no_subs : '$1'.
+interpolation -> interpolation_head interpolation_elements interpolation_tail : {'interpolation', ?anno('$1'), '$1', '$2', '$3'}.
+
+interpolation_elements -> expr : [{interpolation_subs, ?anno('$1'), '$1'}].
+interpolation_elements -> interpolation_elements interpolation_cont interpolation_elements : ('$1' ++ ['$2'] ++ '$3').
 
 argument_list -> '(' ')' : {[],?anno('$1')}.
 argument_list -> '(' exprs ')' : {'$2',?anno('$1')}.
@@ -850,7 +860,8 @@ Erlang code.
                        | af_fun()
                        | af_named_fun()
                        | af_maybe()
-                       | af_maybe_else().
+                       | af_maybe_else()
+                       | af_interpolation().
 
 -type af_record_update(T) :: {'record',
                               anno(),
@@ -999,6 +1010,21 @@ Erlang code.
 
 -type af_maybe() :: {'maybe', anno(), af_body()}.
 -type af_maybe_else() :: {'maybe', anno(), af_body(), {'else', anno(), af_clause_seq()}}.
+
+-type af_interpolation_kind() :: binary | list.
+
+-type af_interpolation_debug() :: boolean().
+
+-type af_interpolation_head() :: {'interpolation_head', anno(), af_interpolation_kind(), af_interpolation_debug(), string()}.
+
+-type af_interpolation_cont() :: {'interpolation_cont', anno(), string()}.
+
+-type af_interpolation_subs() :: {'interpolation_subs', anno(), abstract_expr()}.
+
+-type af_interpolation_tail() :: {'interpolation_tail', anno(), string()}.
+
+-type af_interpolation() :: {'interpolation', anno(), af_interpolation_head(), [ af_interpolation_cont() | af_interpolation_subs() ], af_interpolation_tail()}
+                          | {'interpolation_no_subs', anno(), af_interpolation_kind(), af_interpolation_debug(), string()}.
 
 -type abstract_type() :: af_annotated_type()
                        | af_atom()
