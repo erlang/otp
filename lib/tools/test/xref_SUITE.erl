@@ -48,7 +48,7 @@
          fun_mfa_vars/1, qlc/1]).
 
 -export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1,
-         behaviour/1]).
+         behaviour/1, internal_exports/1]).
 
 -export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1,
          otp_14464/1, otp_14344/1]).
@@ -82,8 +82,7 @@ groups() ->
        update, deprecated, trycatch, fun_mfa,
        fun_mfa_vars, qlc]},
      {analyses, [],
-
-      [analyze, basic, md, q, variables, unused_locals, behaviour]},
+      [analyze, basic, md, q, variables, unused_locals, behaviour, internal_exports]},
      {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708,
                  otp_14464, otp_14344]}].
 
@@ -117,25 +116,27 @@ addrem(Conf) when is_list(Conf) ->
     D1 = {F1,12},
     DefAt_m1 = [D1],
     X_m1 = [F1],
+    IX_m1 = [],
     % L_m1 = [],
     XC_m1 = [E1],
     LC_m1 = [],
     LCallAt_m1 = [],
     XCallAt_m1 = [{E1,13}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
+    S1 = add_module(S0, Info1, DefAt_m1, X_m1, IX_m1, LCallAt_m1, XCallAt_m1,
                     XC_m1, LC_m1),
 
     D2 = {F2,7},
     DefAt_m2 = [D2],
     X_m2 = [F2],
+    IX_m2 = [],
     % L_m2 = [],
     XC_m2 = [E2],
     LC_m2 = [],
     LCallAt_m2 = [],
     XCallAt_m2 = [{E2,96}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
+    S2 = add_module(S1, Info2, DefAt_m2, X_m2, IX_m2, LCallAt_m2, XCallAt_m2,
                     XC_m2, LC_m2),
 
     S5 = set_up(S2),
@@ -182,13 +183,14 @@ convert(Conf) when is_list(Conf) ->
     D6 = {F6,3},
     DefAt_m1 = [D1,D6],
     X_m1 = [F6],
+    IX_m1 = [],
     % L_m1 = [F1],
     XC_m1 = [E1,E2,E4],
     LC_m1 = [],
     LCallAt_m1 = [],
     XCallAt_m1 = [{E1,13},{E2,17},{E4,7}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
+    S1 = add_module(S0, Info1, DefAt_m1, X_m1, IX_m1, LCallAt_m1, XCallAt_m1,
                     XC_m1, LC_m1),
 
     D2 = {F2,7},
@@ -196,30 +198,32 @@ convert(Conf) when is_list(Conf) ->
     D7 = {F7,19},
     DefAt_m2 = [D2,D3,D7],
     X_m2 = [F3,F7],
+    IX_m2 = [],
     % L_m2 = [F2],
     XC_m2 = [E3,E6,UE1],
     LC_m2 = [],
     LCallAt_m2 = [],
     XCallAt_m2 = [{E3,96},{E6,12},{UE1,77}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
+    S2 = add_module(S1, Info2, DefAt_m2, X_m2, IX_m2, LCallAt_m2, XCallAt_m2,
                     XC_m2, LC_m2),
 
     D4 = {F4,6},
     D5 = {F5,97},
     DefAt_m3 = [D4,D5],
     X_m3 = [F4],
+    IX_m3 = [],
     % L_m3 = [F5],
     XC_m3 = [UE2],
     LC_m3 = [E5],
     LCallAt_m3 = [{E5,19}],
     XCallAt_m3 = [{UE2,22}],
     Info3 = #xref_mod{name = m3, app_name = [a3]},
-    S3 = add_module(S2, Info3, DefAt_m3, X_m3, LCallAt_m3, XCallAt_m3,
+    S3 = add_module(S2, Info3, DefAt_m3, X_m3, IX_m3, LCallAt_m3, XCallAt_m3,
                     XC_m3, LC_m3),
 
     Info4 = #xref_mod{name = m4, app_name = [a2]},
-    S4 = add_module(S3, Info4, [], [], [], [], [], []),
+    S4 = add_module(S3, Info4, [], [], [], [], [], [], []),
 
     AppInfo1 = #xref_app{name = a1, rel_name = [r1]},
     S9 = add_application(S4, AppInfo1),
@@ -357,6 +361,7 @@ intergraph(Conf) when is_list(Conf) ->
     D5 = {F5,5},
     DefAt_m1 = [D1,D2,D3,D4,D5],
     X_m1 = [F1,F2],
+    IX_m1 = [],
     % L_m1 = [F3,F4,F5],
     XC_m1 = [E4],
     LC_m1 = [E1,E2,E3,E5,E6,E7],
@@ -364,7 +369,7 @@ intergraph(Conf) when is_list(Conf) ->
     LCallAt_m1 = [{E1,1},{E2,2},{E3,3},{E5,5},{E6,6},{E7,7}],
     XCallAt_m1 = [{E1,4}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
+    S1 = add_module(S0, Info1, DefAt_m1, X_m1, IX_m1, LCallAt_m1, XCallAt_m1,
                     XC_m1, LC_m1),
 
     D6 = {F6,6},
@@ -375,13 +380,14 @@ intergraph(Conf) when is_list(Conf) ->
     D11 = {F11,11},
     DefAt_m2 = [D6,D7,D8,D9,D10,D11],
     X_m2 = [F6],
+    IX_m2 = [],
     % L_m2 = [F7,F8,F9,F10,F11],
     XC_m2 = [E10,E15],
     LC_m2 = [E8,E9,E11,E12,E13,E14],
     LCallAt_m2 = [{E8,8},{E9,9},{E11,11},{E12,12},{E13,13},{E14,14}],
     XCallAt_m2 = [{E10,10},{E15,15}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
+    S2 = add_module(S1, Info2, DefAt_m2, X_m2, IX_m2, LCallAt_m2, XCallAt_m2,
                     XC_m2, LC_m2),
 
     AppInfo1 = #xref_app{name = a1, rel_name = [r1]},
@@ -474,24 +480,26 @@ lines(Conf) when is_list(Conf) ->
 
     DefAt_m1 = [D1,D2,D3,D5,D6],
     X_m1 = [F1,F5],
+    IX_m1 = [],
     % L_m1 = [F2,F3,F6],
     XC_m1 = [E4,E5,E7],
     LC_m1 = [E1,E2,E3,E6],
     LCallAt_m1 = [{E1,1},{E3,3},{E6,6}],
     XCallAt_m1 = [{E2,2},{E4,4},{E5,5},{E7,7}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
+    S1 = add_module(S0, Info1, DefAt_m1, X_m1, IX_m1, LCallAt_m1, XCallAt_m1,
                     XC_m1, LC_m1),
 
     DefAt_m2 = [D4],
     X_m2 = [F4],
+    IX_m2 = [],
     % L_m2 = [],
     XC_m2 = [],
     LC_m2 = [],
     LCallAt_m2 = [],
     XCallAt_m2 = [],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
+    S2 = add_module(S1, Info2, DefAt_m2, X_m2, IX_m2, LCallAt_m2, XCallAt_m2,
                     XC_m2, LC_m2),
 
     AppInfo1 = #xref_app{name = a1, rel_name = [r1]},
@@ -591,13 +599,14 @@ loops(Conf) when is_list(Conf) ->
     D7 = {F7,7},
     DefAt_m1 = [D1,D2,D3,D4,D5,D6,D7],
     X_m1 = [F1,F3,F6],
+    IX_m1 = [],
     % L_m1 = [F2,F4,F5],
     XC_m1 = [],
     LC_m1 = [E1,E2,E3,E4,E5],
     LCallAt_m1 = [{E2,2},{E3,3},{E4,4}],
     XCallAt_m1 = [{E1,1},{E5,5}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
+    S1 = add_module(S0, Info1, DefAt_m1, X_m1, IX_m1, LCallAt_m1, XCallAt_m1,
                     XC_m1, LC_m1),
 
     S = set_up(S1),
@@ -628,7 +637,7 @@ no_data(Conf) when is_list(Conf) ->
     {ok, _} = eval("R", [], S1),
 
     ModInfo = #xref_mod{name = m, app_name = []},
-    S2 = add_module(S1, ModInfo, [], [], [], [], [], []),
+    S2 = add_module(S1, ModInfo, [], [], [], [], [], [], []),
     AppInfo = #xref_app{name = a, rel_name = []},
     S3 = add_application(S2, AppInfo),
     RelInfo = #xref_rel{name = r, dir = ""},
@@ -667,6 +676,10 @@ modules(Conf) when is_list(Conf) ->
     xref_base:analyze(S, {call, foo}),
     {{error, _, {unavailable_analysis, {use, foo}}}, _} =
     xref_base:analyze(S, {use, foo}),
+    {{error, _, {unavailable_analysis, internal_use}}, _} =
+    xref_base:analyze(S, internal_use),
+    {{error, _, {unavailable_analysis, illegal_internal_use}}, _} =
+    xref_base:analyze(S, illegal_internal_use),
     {ok, _} = analyze(undefined_functions, [{x,undef,0}], S),
     5 = length(xref_base:info(S)),
 
@@ -863,10 +876,13 @@ lib(Conf) when is_list(Conf) ->
     Dir = fname(CopyDir,"lib_test"),
     UDir = fname([CopyDir,"dir","non_existent"]),
 
-    {ok, lib1} = compile:file(fname(Dir,lib1),[debug_info,{outdir,Dir}]),
-    {ok, lib2} = compile:file(fname(Dir,lib2),[debug_info,{outdir,Dir}]),
-    {ok, lib3} = compile:file(fname(Dir,lib3),[debug_info,{outdir,Dir}]),
-    {ok, t} = compile:file(fname(Dir,t),[debug_info,{outdir,Dir}]),
+    COpts = [debug_info,{outdir,Dir}],
+    {ok, lib1} = compile:file(fname(Dir,lib1),COpts),
+    {ok, lib2} = compile:file(fname(Dir,lib2),COpts),
+    {ok, lib3} = compile:file(fname(Dir,lib3),COpts),
+    {ok, t} = compile:file(fname(Dir,t),COpts),
+    {ok, internal} = compile:file(fname(Dir,internal),
+                                  [{feature,internal_export,enable}|COpts]),
 
     {ok, _} = start(s),
     ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),
@@ -888,20 +904,23 @@ lib(Conf) when is_list(Conf) ->
     {ok, []} = xref:q(s, "DF_1"),
     {ok, [{lib2,f,0}]} = xref:q(s, "DF_2"),
     {ok, [{lib2,f,0}]} = xref:q(s, "DF_3"),
+    {ok, [{internal,t,0}]} = xref:q(s, "IX"),
 
     {ok, [unknown]} = xref:q(s, "UM"),
     {ok, UnknownDefAt} = xref:q(s, "(Lin)U"),
     [{{lib1,unknown,0},0},{{lib2,local,0},0}, {{lib2,unknown,0},0},
      {{unknown,unknown,0},0}] = UnknownDefAt,
     {ok, LibFuns} = xref:q(s, "X * LM"),
-    [{lib2,f,0},{lib3,f,0}] = LibFuns,
+    [{internal,t,0},{lib2,f,0},{lib3,f,0}] = LibFuns,
     {ok, LibMods} = xref:q(s, "LM"),
-    [lib1,lib2,lib3] = LibMods,
-    {ok, [{{lib2,f,0},0},{{lib3,f,0},0}]} = xref:q(s, "(Lin) (LM * X)"),
-    {ok, [{{lib1,unknown,0},0}, {{lib2,f,0},0}, {{lib2,local,0},0},
-          {{lib2,unknown,0},0}, {{lib3,f,0},0}]} = xref:q(s,"(Lin)LM"),
-    {ok,[lib1,lib2,lib3,t,unknown]} = xref:q(s,"M"),
-    {ok,[{lib2,f,0},{lib3,f,0},{t,t,0}]} = xref:q(s,"X * M"),
+    [internal,lib1,lib2,lib3] = LibMods,
+    {ok, [{{internal,t,0},0},{{lib2,f,0},0},
+          {{lib3,f,0},0}]} = xref:q(s, "(Lin) (LM * X)"),
+    {ok, [{{internal,t,0},0}, {{lib1,unknown,0},0}, {{lib2,f,0},0},
+          {{lib2,local,0},0}, {{lib2,unknown,0},0},
+          {{lib3,f,0},0}]} = xref:q(s,"(Lin)LM"),
+    {ok,[internal,lib1,lib2,lib3,t,unknown]} = xref:q(s,"M"),
+    {ok,[{internal,t,0},{lib2,f,0},{lib3,f,0},{t,t,0}]} = xref:q(s,"X * M"),
     check_state(s),
 
     copy_file(fname(Dir, "lib1.erl"), fname(Dir,"lib1.beam")),
@@ -1872,13 +1891,14 @@ basic(Conf) when is_list(Conf) ->
     D6 = {F6,3},
     DefAt_m1 = [D1,D6],
     X_m1 = [F6],
+    IX_m1 = [],
     % L_m1 = [F1],
     XC_m1 = [E1,E2,E4],
     LC_m1 = [E7],
     LCallAt_m1 = [{E7,12}],
     XCallAt_m1 = [{E1,13},{E2,17},{E4,7}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
+    S1 = add_module(S0, Info1, DefAt_m1, X_m1, IX_m1, LCallAt_m1, XCallAt_m1,
                     XC_m1, LC_m1),
 
     D2 = {F2,7},
@@ -1886,30 +1906,32 @@ basic(Conf) when is_list(Conf) ->
     D7 = {F7,19},
     DefAt_m2 = [D2,D3,D7],
     X_m2 = [F3,F7],
+    IX_m2 = [],
     % L_m2 = [F2],
     XC_m2 = [E3,E6,UE1],
     LC_m2 = [],
     LCallAt_m2 = [],
     XCallAt_m2 = [{E3,96},{E6,12},{UE1,77}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
+    S2 = add_module(S1, Info2, DefAt_m2, X_m2, IX_m2, LCallAt_m2, XCallAt_m2,
                     XC_m2, LC_m2),
 
     D4 = {F4,6},
     D5 = {F5,97},
     DefAt_m3 = [D4,D5],
     X_m3 = [F4],
+    IX_m3 = [],
     % L_m3 = [F5],
     XC_m3 = [UE2],
     LC_m3 = [E5],
     LCallAt_m3 = [{E5,19}],
     XCallAt_m3 = [{UE2,22}],
     Info3 = #xref_mod{name = m3, app_name = [a3]},
-    S3 = add_module(S2, Info3, DefAt_m3, X_m3, LCallAt_m3, XCallAt_m3,
+    S3 = add_module(S2, Info3, DefAt_m3, X_m3, IX_m3, LCallAt_m3, XCallAt_m3,
                     XC_m3, LC_m3),
 
     Info4 = #xref_mod{name = m4, app_name = [a2]},
-    S4 = add_module(S3, Info4, [], [], [], [], [], []),
+    S4 = add_module(S3, Info4, [], [], [], [], [], [], []),
 
     AppInfo1 = #xref_app{name = a1, rel_name = [r1]},
     S9 = add_application(S4, AppInfo1),
@@ -2159,25 +2181,27 @@ variables(Conf) when is_list(Conf) ->
     D1 = {F1,12},
     DefAt_m1 = [D1],
     X_m1 = [F1],
+    IX_m1 = [],
     % L_m1 = [],
     XC_m1 = [E1,E3],
     LC_m1 = [],
     LCallAt_m1 = [],
     XCallAt_m1 = [{E1,13},{E3,17}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
+    S1 = add_module(S0, Info1, DefAt_m1, X_m1, IX_m1, LCallAt_m1, XCallAt_m1,
                     XC_m1, LC_m1),
 
     D2 = {F2,7},
     DefAt_m2 = [D2],
     X_m2 = [F2],
+    IX_m2 = [],
     % L_m2 = [],
     XC_m2 = [E2],
     LC_m2 = [],
     LCallAt_m2 = [],
     XCallAt_m2 = [{E2,96}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
+    S2 = add_module(S1, Info2, DefAt_m2, X_m2, IX_m2, LCallAt_m2, XCallAt_m2,
                     XC_m2, LC_m2),
 
     S = set_up(S2),
@@ -2530,6 +2554,110 @@ add_modules([{Mod, Test} |Tests], Conf) ->
     ok = file:delete(Beam),
     add_modules(Tests, Conf).
 
+internal_exports(Conf) ->
+    Dir = ?copydir,
+    COpts = [debug_info, {feature,internal_export,enable}],
+
+    AppA = fname([Dir, "app_a"]),
+    AppAMod = fname([AppA, "src", "a.erl"]),
+    AppAEbin = fname([AppA, "ebin"]),
+    BeamA = fname([AppAEbin, "a.beam"]),
+    {ok, a} = compile:file(AppAMod, [{outdir,AppAEbin}|COpts]),
+    write_appfile(AppAEbin, app_a, []),
+
+    AppB = fname([Dir, "app_b"]),
+    AppBMod = fname([AppB, "src", "b.erl"]),
+    AppBEbin = fname([AppB, "ebin"]),
+    BeamB = fname([AppBEbin, "b.beam"]),
+    {ok, b} = compile:file(AppBMod, [{outdir,AppBEbin}|COpts]),
+    write_appfile(AppBEbin, app_b, []),
+
+    AppC = fname([Dir, "app_c"]),
+    AppCMod = fname([AppC, "src", "c.erl"]),
+    AppCEbin = fname([AppC, "ebin"]),
+    BeamC = fname([AppCEbin, "c.beam"]),
+    {ok, c} = compile:file(AppCMod, [{outdir,AppCEbin}|COpts]),
+    write_appfile(AppCEbin, app_c, []),
+
+    %% No dependencies between applications
+    {ok, _} = xref:start(s),
+    {ok, _} = xref:start(s_modules, [{xref_mode,modules}]),
+    write_appfile(AppAEbin, app_a, []),
+    write_appfile(AppBEbin, app_b, []),
+    write_appfile(AppCEbin, app_c, []),
+    {ok, app_a} = xref:add_application(s, AppA),
+    {ok, app_a} = xref:add_application(s_modules, AppA),
+    {ok, app_b} = xref:add_application(s, AppB),
+    {ok, app_b} = xref:add_application(s_modules, AppB),
+    {ok, app_c} = xref:add_application(s, AppC),
+    {ok, app_c} = xref:add_application(s_modules, AppC),
+
+    %% IX variable must be available in both modes
+    IXs = [{a,internal,2},{b,dec,1}],
+    {ok, IXs} = xref:q(s, "IX"),
+    {ok, IXs} = xref:q(s_modules, "IX"),
+
+    %% IX is a subset of X
+    {ok, Xs} = xref:q(s, "X"),
+    [] = IXs -- Xs,
+
+    IllegalUse0 = [{{c,do_illegal,0},{a,internal,2}},
+                  {{c,do_illegal,0},{b,dec,1}},
+                  {{b,dec,1},{a,internal,2}}],
+    LegalUse = [{{b,inc,1},{b,dec,1}},
+                {{a,public,1},{a,internal,2}}],
+    {ok, InternalUse} = xref:analyse(s, internal_use),
+    match_list(InternalUse, IllegalUse0 ++ LegalUse),
+    {ok, IllegalInternalUse0} = xref:analyse(s, illegal_internal_use),
+    match_list(IllegalInternalUse0, IllegalUse0),
+
+    %% C depends on B, B depends on A
+    %%   A and B can call C
+    %%   A can call B
+    {ok, _} = start(s),
+    write_appfile(AppBEbin, app_a, [{applications, []}]),
+    write_appfile(AppBEbin, app_b, [{applications, [app_a]}]),
+    write_appfile(AppBEbin, app_c, [{applications, [app_b]}]),
+    {ok, app_a} = xref:add_application(s, AppA),
+    {ok, app_b} = xref:add_application(s, AppB),
+    {ok, IllegalInternalUse1} = xref:analyse(s, illegal_internal_use),
+    match_list(IllegalInternalUse1, IllegalUse0),
+
+    %% A depends on B, B depends on C
+    %%   B and C can call A
+    %%   B can call A
+    {ok, _} = start(s),
+    write_appfile(AppAEbin, app_a, [{applications, [app_b]}]),
+    write_appfile(AppBEbin, app_b, [{applications, [app_c]}]),
+    write_appfile(AppCEbin, app_c, [{applications, []}]),
+    {ok, app_a} = xref:add_application(s, AppA),
+    {ok, app_b} = xref:add_application(s, AppB),
+    {ok, app_c} = xref:add_application(s, AppC),
+    {ok, []} = xref:analyse(s, illegal_internal_use),
+
+    %% A depends on B, B depends on C, C depends on A
+    %%   All internal calls are allowed
+    %%   Just to test possible infinite loop
+    {ok, _} = start(s),
+    write_appfile(AppAEbin, app_a, [{included_applications, [app_b]}]),
+    write_appfile(AppBEbin, app_b, [{included_applications, [app_c]}]),
+    write_appfile(AppCEbin, app_c, [{applications, [app_a]}]),
+    {ok, app_a} = xref:add_application(s, AppA),
+    {ok, app_b} = xref:add_application(s, AppB),
+    {ok, app_c} = xref:add_application(s, AppC),
+    {ok, []} = xref:analyse(s, illegal_internal_use),
+
+    ok = check_state(s),
+    xref:stop(s),
+    xref:stop(s_modules),
+
+    ok = file:delete(AppAMod),
+    ok = file:delete(BeamA),
+    ok = file:delete(AppBMod),
+    ok = file:delete(BeamB),
+    ok = file:delete(AppCMod),
+    ok = file:delete(BeamC).
+
 %%%
 %%% Utilities
 %%%
@@ -2538,11 +2666,21 @@ copy_file(Src, Dest) ->
     {ok, _} = file:copy(Src, Dest),
     ok.
 
+write_appfile(Dir, AppName, Opts0)->
+    File = xref_utils:application_filename(Dir, AppName),
+    Apps = proplists:get_value(applications, Opts0),
+    Opts = lists:keyreplace(applications, 1, Opts0, {applications,[kernel, stdlib | Apps]}),
+    AppSpec = {application, AppName, Opts},
+    ok = file:write_file(File, io_lib:format("~p.~n", [AppSpec])).
+
 fname(N) ->
     filename:join(N).
 
 fname(Dir, Basename) ->
     filename:join(Dir, Basename).
+
+match_list(L1, L2) ->
+    lists:sort(L1) == lists:sort(L2).
 
 new() ->
     {ok, S} = xref_base:new(),
@@ -2600,13 +2738,13 @@ eval(Query, S) ->
     xref_base:q(S, Query, [{verbose, false}]),
     unsetify(Answer).
 
-add_module(S, XMod, DefAt, X, LCallAt, XCallAt, XC, LC) ->
+add_module(S, XMod, DefAt, X, IX, LCallAt, XCallAt, XC, LC) ->
     Attr = {[], [], []},
     Depr0 = {[], [], [], []},
     DBad = [],
     Depr = {Depr0,DBad},
     OL = [],
-    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Attr, Depr, OL},
+    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, IX, Attr, Depr, OL},
     Unres = [],
     {ok, _Module, _Bad, State} =
     xref_base:do_add_module(S, XMod, Unres, Data),

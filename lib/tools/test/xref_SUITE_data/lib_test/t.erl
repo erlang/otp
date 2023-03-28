@@ -11,4 +11,5 @@ t() ->
     lib2:unknown(),
     lib2:local(),
     lib3:f(),
-    unknown:unknown().
+    unknown:unknown(),
+    internal:t().
