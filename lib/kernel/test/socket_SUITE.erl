@@ -17438,7 +17438,11 @@ api_opt_sock_timeo(InitState) ->
 api_opt_sock_rcvlowat_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_opt_sock_rcvlowat_udp4,
-           fun() -> has_support_ipv4(), has_support_sock_rcvlowat() end,
+           fun() ->
+                   is_not_windows(), % einval on Windows
+                   has_support_ipv4(),
+                   has_support_sock_rcvlowat()
+           end,
            fun() ->
                    ok = api_opt_sock_lowat_udp4(rcvlowat)
            end).
@@ -17457,7 +17461,11 @@ api_opt_sock_rcvlowat_udp4(_Config) when is_list(_Config) ->
 api_opt_sock_sndlowat_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_opt_sock_sndlowat_udp4,
-           fun() -> has_support_ipv4(), has_support_sock_sndlowat() end,
+           fun() ->
+                   is_not_windows(), % einval on Windows
+                   has_support_ipv4(),
+                   has_support_sock_sndlowat()
+           end,
            fun() ->
                    ok = api_opt_sock_lowat_udp4(sndlowat)
            end).
@@ -48808,11 +48816,19 @@ is_not_netbsd() ->
 is_not_darwin() ->
     is_not_platform(darwin, "Darwin").
 
+is_not_windows() ->
+    case os:type() of
+        {win32, nt} ->
+            skip("This does not work on Windows");
+        _ ->
+            ok
+    end.
+
 is_not_platform(Platform, PlatformStr)
   when is_atom(Platform) andalso is_list(PlatformStr) ->
       case os:type() of
-        {unix, Platform} ->
-            skip("This does not work on " ++ PlatformStr);
+          {unix, Platform} ->
+              skip("This does not work on " ++ PlatformStr);
         _ ->
             ok
     end.
