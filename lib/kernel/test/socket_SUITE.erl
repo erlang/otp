@@ -20191,7 +20191,7 @@ api_opt_ip_recvtos_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_opt_ip_recvtos_udp4,
            fun() ->
-                   is_not_windows(),
+                   is_not_windows(), % IP_TOS on windows
                    has_support_ipv4(),
                    has_support_ip_recvtos(),
                    has_support_ip_tos() % Used in the test
@@ -20984,8 +20984,12 @@ api_opt_ip_recvttl_udp(InitState) ->
 
 api_opt_ip_tos_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_opt_ip_tos_udp4,
-           fun() -> has_support_ipv4(), has_support_ip_tos() end,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(), % IP_TOS on windows
+                   has_support_ipv4(),
+                   has_support_ip_tos()
+           end,
            fun() ->
                    Set  = fun(Sock, Value) ->
                                   socket:setopt(Sock, ip, tos, Value)
