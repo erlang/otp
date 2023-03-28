@@ -2182,29 +2182,37 @@ options_whitebox() ->
     [{doc,"Whitebox tests of option handling"}].
 
 
-patch_version(Opts, Role, Host) ->
+customize_defaults(Opts, Role, Host) ->
+    %% In many options test scenarios we do not care about verifcation options
+    %% but the client now requiers verification options by default.
+    ClientIgnorDef = case proplists:get_value(verify, Opts, undefined) of
+                         undefined when Role == client ->
+                             [{verify, verify_none}];
+                         _ ->
+                             []
+                     end,
     case proplists:get_value(protocol, Opts, tls) of
         dtls ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options([{protocol, dtls}], Role, Host),
-            {DOpts, Opts};
+            {ok, #config{ssl=DOpts}} = ssl:handle_options([{verify, verify_none}, {protocol, dtls}], Role, Host),
+            {DOpts, ClientIgnorDef ++ Opts};
         tls ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options([], Role, Host),
+            {ok, #config{ssl=DOpts}} = ssl:handle_options([{verify, verify_none}], Role, Host),
             case proplists:get_value(versions, Opts) of
                 undefined ->
-                    {DOpts, [{versions, ['tlsv1.2','tlsv1.3']}|Opts]};
+                    {DOpts, ClientIgnorDef ++ [{versions, ['tlsv1.2','tlsv1.3']}|Opts]};
                 _ ->
-                    {DOpts, Opts}
+                    {DOpts, ClientIgnorDef ++ Opts}
             end;
         _ ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options([], Role, Host),
-            {DOpts, Opts}
+            {ok, #config{ssl=DOpts}} = ssl:handle_options(ClientIgnorDef, Role, Host),
+            {DOpts, ClientIgnorDef ++ Opts}
     end.
 
 -define(OK(EXP, Opts, Role), ?OK(EXP,Opts, Role, [])).
 -define(OK(EXP, Opts, Role, ShouldBeMissing),
         fun() ->
                 Host = "dummy.host.org",
-                {__DefOpts, __Opts} = patch_version(Opts, Role, Host),
+                {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
                 try ssl:handle_options(__Opts, Role, Host) of
                     {ok, #config{ssl=EXP = __ALL}} ->
                         ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL);
@@ -2238,7 +2246,7 @@ patch_version(Opts, Role, Host) ->
 -define(ERR(EXP, Opts, Role),
         fun() ->
                 Host = "dummy.host.org",
-                {__DefOpts, __Opts} = patch_version(Opts, Role, Host),
+                {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
                 try ssl:handle_options(__Opts, Role, Host) of
                     Other ->
                         ct:pal("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
@@ -2361,7 +2369,7 @@ options_version(_Config) ->
          client),
     ok.
 
-options_alpn(_Config) -> %% alpn & next_protocols 
+options_alpn(_Config) -> %% alpn & next_protocols
     Http = <<"HTTP/2">>,
     ?OK(#{alpn_advertised_protocols := undefined}, [], client,
         [alpn_preferred_protocols, next_protocol_selector, next_protocols_advertised]),
@@ -2435,7 +2443,7 @@ options_anti_replay(_Config) ->
          server),
     ok.
 
-options_beast_mitigation(_Config) -> %% Beast mitigation
+options_beast_mitigation(_Config) -> %% Beast mitigation TLS-1.0 option only
     ?OK(#{beast_mitigation := one_n_minus_one}, [{versions, [tlsv1,'tlsv1.1']}], client),
     ?OK(#{}, [{versions, ['tlsv1.1']}], client, [beast_mitigation]),
     ?OK(#{}, [{beast_mitigation, disabled}, {versions, [tlsv1]}], client,
@@ -2446,7 +2454,7 @@ options_beast_mitigation(_Config) -> %% Beast mitigation
     %% Errors
     ?ERR({beast_mitigation, enabled},
          [{beast_mitigation, enabled}, {versions, [tlsv1]}], client),
-    ?ERR({options, incompatible, [beast_mitigation, {versions, _}]}, %% ok?
+    ?ERR({options, incompatible, [beast_mitigation, {versions, _}]},
          [{beast_mitigation, disabled}], client),
     ok.
 
@@ -2471,13 +2479,11 @@ options_cacerts(Config) ->  %% cacert[s]file
     ?ERR({cacerts, Cert}, [{cacerts, Cert}], client),
     ?ERR({cacertfile, cert}, [{cacertfile, cert}], client),
 
-    begin %% depth
-        ?OK(#{}, [], client, [depth]),
-        ?OK(#{depth := 5}, [{depth, 5}], client),
-        %% Error
-        ?ERR({depth, 256}, [{depth, 256}], client),
-        ?ERR({depth, not_an_int}, [{depth, not_an_int}], client)
-    end,
+    ?OK(#{}, [], client, [depth]),
+    ?OK(#{depth := 5}, [{depth, 5}], client),
+    %% Error
+    ?ERR({depth, 256}, [{depth, 256}], client),
+    ?ERR({depth, not_an_int}, [{depth, not_an_int}], client),
     ok.
 
 options_cert(Config) -> %% cert[file] cert_keys keys password
@@ -2685,28 +2691,20 @@ options_eccs(_Config) ->
 
 options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_chain
     Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
-    {ok, #config{ssl = DefOpts = #{verify_fun := {DefVerify,_}}}} = ssl:handle_options([], client, "dummy.host.org"),
+    {ok, #config{ssl = DefOpts = #{verify_fun := {DefVerify,_}}}} = ssl:handle_options([{verify, verify_none}], client, "dummy.host.org"),
 
-    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {DefVerify, []}, partial_chain := _},
-        [], client),
     ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {DefVerify, []}, partial_chain := _},
         [], server),
     ?OK(#{fail_if_no_peer_cert := true, verify := verify_peer, verify_fun := undefined, partial_chain := _},
         [{fail_if_no_peer_cert, true}, {verify, verify_peer}, {cacerts, [Cert]}],
         server),
-    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {DefVerify, []}, partial_chain := _},
-        [{verify, verify_none}], client),
-    ?OK(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := undefined, partial_chain := _},
+     ?OK(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := undefined, partial_chain := _},
         [{verify, verify_peer}, {cacerts, [Cert]}], server),
-    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, []}, partial_chain := _},
-        [{partial_chain, fun(_) -> ok end}], client),
 
-    OldF1 = fun(_) -> ok end,
     NewF3 = fun(_,_,_) -> ok end,
     NewF4 = fun(_,_,_,_) -> ok end,
-    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, OldF1}, partial_chain := _},
-        [{verify_fun, OldF1}], client),
-    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {NewF3, foo}, partial_chain := _},
+    ?OK(#{}, [], client, [fail_if_no_peer_cert]),
+    ?OK(#{verify := verify_none, verify_fun := {NewF3, foo}, partial_chain := _},
         [{verify_fun, {NewF3, foo}}], client),
     ?OK(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := {NewF3, foo}, partial_chain := _},
         [{verify_fun, {NewF3, foo}}, {verify, verify_peer}, {cacerts, [Cert]}],
@@ -2726,10 +2724,11 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
     ?ERR({partial_chain, undefined}, [{partial_chain, undefined}], client),
     ?ERR({options, incompatible, [{verify, verify_none}, {fail_if_no_peer_cert, true}]},
          [{fail_if_no_peer_cert, true}], server),
-    ?ERR({verify, verify}, [{verify, verify}], client),
+    ?ERR({options, incompatible, [{verify, _}, {cacerts, undefined}]}, [{verify, verify_peer}], client),
     ?ERR({option, server_only, fail_if_no_peer_cert},
          [{fail_if_no_peer_cert, true}, {verify, verify_peer}, {cacerts, [Cert]}],
          client),
+    ?ERR({verify, verify}, [{verify, verify}], client),
     ?ERR({options, incompatible, [{verify, _}, {cacerts, undefined}]}, [{verify, verify_peer}], server),
     ?ERR({partial_chain, not_a_fun}, [{partial_chain, not_a_fun}], client),
     ?ERR({verify_fun, not_a_fun}, [{verify_fun, not_a_fun}], client),
@@ -2761,8 +2760,12 @@ options_handshake(_Config) -> %% handshake
 
 options_process(_Config) -> % hibernate_after, spawn_opts
     ?OK(#{}, [], client, [hibernate_after, receiver_spawn_opts, sender_spawn_opts]),
-    ?OK(#{hibernate_after := 10000, receiver_spawn_opts := [foo], sender_spawn_opts := [bar]},
-        [{hibernate_after, 10000}, {receiver_spawn_opts, [foo]}, {sender_spawn_opts, [bar]}],
+    ?OK(#{hibernate_after := 10000,
+          receiver_spawn_opts := [{fullsweep_after, 500}],
+          sender_spawn_opts := [{fullsweep_after, 500}]},
+        [{hibernate_after, 10000},
+         {receiver_spawn_opts,[{fullsweep_after, 500}]},
+         {sender_spawn_opts, [{fullsweep_after, 500}]}],
         client),
     %% Errors
     ?ERR({hibernate_after, -1}, [{hibernate_after, -1}], server),

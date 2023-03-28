@@ -1694,7 +1694,7 @@ validate_versions(dtls, Vsns0) ->
     lists:sort(fun dtls_record:is_higher/2, Vsns).
 
 opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
-    {Verify, Opts} =
+    {Verify, Opts1} =
         case get_opt_of(verify, [verify_none, verify_peer], default_verify(Role), UserOpts, Opts0) of
             {_, verify_none} ->
                 {verify_none, Opts0#{verify => verify_none, verify_fun => {none_verify_fun(), []}}};
@@ -1704,19 +1704,25 @@ opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
                 %% i.e remove verify_none fun
                 {verify_peer, Opts0#{verify => verify_peer, verify_fun => undefined}}
         end,
-    assert_cacerts(Verify, maps:merge(UserOpts, Opts0)),
-    {_, PartialChain} = get_opt_fun(partial_chain, 1, fun(_) -> unknown_ca end, UserOpts, Opts),
+    Opts2 = opt_cacerts(UserOpts, Opts1, Env),
+    {_, PartialChain} = get_opt_fun(partial_chain, 1, fun(_) -> unknown_ca end, UserOpts, Opts2),
 
-    {_, FailNoPeerCert} = get_opt_bool(fail_if_no_peer_cert, false, UserOpts, Opts),
+    {_, FailNoPeerCert} = get_opt_bool(fail_if_no_peer_cert, false, UserOpts, Opts2),
     assert_server_only(Role, FailNoPeerCert, fail_if_no_peer_cert),
     option_incompatible(FailNoPeerCert andalso Verify =:= verify_none,
                         [{verify, verify_none}, {fail_if_no_peer_cert, true}]),
 
-    Opts1 = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts),
+    Opts = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts2),
 
-    opt_verify_fun(UserOpts, Opts1#{partial_chain => PartialChain,
-                                    fail_if_no_peer_cert => FailNoPeerCert},
-                   Env).
+    case Role of
+        client ->
+            opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain},
+                           Env);
+        server ->
+            opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain,
+                                           fail_if_no_peer_cert => FailNoPeerCert},
+                           Env)
+    end.
 
 default_verify(client) ->
     %% Server authenication is by default requiered
@@ -1771,16 +1777,15 @@ convert_verify_fun() ->
     end.
 
 opt_certs(UserOpts, #{log_level := LogLevel} = Opts0, Env) ->
-    Opts = case get_opt_list(certs_keys, [], UserOpts, Opts0) of
-               {Where, []} when Where =/= new ->
-                   opt_old_certs(UserOpts, #{}, Opts0, Env);
-               {old, [CertKey]} ->
-                   opt_old_certs(UserOpts, CertKey, Opts0, Env);
-               {Where, CKs} when is_list(CKs) ->
-                   warn_override(Where, UserOpts, certs_keys, [cert,certfile,key,keyfile,password], LogLevel),
-                   Opts0#{certs_keys => [check_cert_key(CK, #{}, LogLevel) || CK <- CKs]}
-           end,
-    opt_cacerts(UserOpts, Opts, Env).
+    case get_opt_list(certs_keys, [], UserOpts, Opts0) of
+        {Where, []} when Where =/= new ->
+            opt_old_certs(UserOpts, #{}, Opts0, Env);
+        {old, [CertKey]} ->
+            opt_old_certs(UserOpts, CertKey, Opts0, Env);
+        {Where, CKs} when is_list(CKs) ->
+            warn_override(Where, UserOpts, certs_keys, [cert,certfile,key,keyfile,password], LogLevel),
+            Opts0#{certs_keys => [check_cert_key(CK, #{}, LogLevel) || CK <- CKs]}
+    end.
 
 opt_old_certs(UserOpts, CertKeys, #{log_level := LogLevel}=SSLOpts, _Env) ->
     CK = check_cert_key(UserOpts, CertKeys, LogLevel),
@@ -2453,13 +2458,6 @@ role_error(false, _ErrorDesc, _Option) ->
 role_error(true, ErrorDesc, Option)
   when ErrorDesc =:= client_only; ErrorDesc =:= server_only ->
     throw_error({option, ErrorDesc, Option}).
-
-assert_cacerts(verify_peer, Options) ->
-    CaCerts = maps:get(cacerts, Options, undefined),
-    CaCertsFile = maps:get(cacertfile, Options, undefined),
-    option_error((CaCerts == undefined) andalso (CaCertsFile == undefined), verify, {missing_dep_cacertfile_or_cacerts});
-assert_cacerts(verify_none,_) ->
-    ok.
 
 option_incompatible(false, _Options) -> ok;
 option_incompatible(true, Options) -> option_incompatible(Options).

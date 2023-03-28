@@ -519,7 +519,8 @@ missing_root_cert_auth(Config) when is_list(Config) ->
 					      {options, no_reuse(Version) ++ [{verify, verify_peer}
                                                                              | ServerOpts]}]),
 
-    Error = {error, {options, {verify, {missing_dep_cacertfile_or_cacerts}}}},
+    Error = {error, {options, incompatible,
+                     [{verify,verify_peer},{cacerts,undefined}]}},
     ssl_test_lib:check_result(Server, Error),
     
     ClientOpts =  proplists:delete(cacertfile, ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)),

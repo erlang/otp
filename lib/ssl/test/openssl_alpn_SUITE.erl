@@ -414,7 +414,7 @@ erlang_client_alpn_npn_openssl_server_alpn_npn(Config) when is_list(Config) ->
                                   [{client_opts,
                                     [{alpn_advertised_protocols, [AlpnProtocol]},
                                      {client_preferred_next_protocols,
-                                      {client, [<<"spdy/3">>, <<"http/1.1">>]}}]} | ClientOpts] ++ Config),
+                                      {client, [<<"spdy/3">>, <<"http/1.1">>]}} | ClientOpts]}]  ++ Config),
     case ssl:negotiated_protocol(CSocket) of
         {ok, AlpnProtocol} ->
             ok;

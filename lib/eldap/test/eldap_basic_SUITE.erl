@@ -296,7 +296,7 @@ init_per_testcase(TC, Config) when TC == ssl_connection; TC == ssl_conn_socket_i
 		    ct:log("SSL listening to port ~p (process ~p)",[SSL_Port, Listener]),
 		    [{ssl_listener,Listener},
 		     {ssl_listen_port,SSL_Port},
-		     {ssl_connect_opts,[]}
+		     {ssl_connect_opts,[{verify, verify_none}]}
 		     | Config];
 		{no_ok,SSL_Other,Listener} ->
 		    ct:log("ssl:listen on port ~p failed: ~p",[SSL_Port,SSL_Other]),
