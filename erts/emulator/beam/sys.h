@@ -1079,6 +1079,7 @@ ERTS_GLB_INLINE void *sys_memmove(void *dest, const void *src, size_t n);
 ERTS_GLB_INLINE int sys_memcmp(const void *s1, const void *s2, size_t n);
 ERTS_GLB_INLINE void *sys_memset(void *s, int c, size_t n);
 ERTS_GLB_INLINE void *sys_memzero(void *s, size_t n);
+ERTS_GLB_INLINE void *sys_memchr(const void *s, int c, size_t n);
 ERTS_GLB_INLINE void *sys_memrchr(const void *s, int c, size_t n);
 ERTS_GLB_INLINE int sys_strcmp(const char *s1, const char *s2);
 ERTS_GLB_INLINE int sys_strncmp(const char *s1, const char *s2, size_t n);
@@ -1112,6 +1113,11 @@ ERTS_GLB_INLINE void *sys_memzero(void *s, size_t n)
 {
     ASSERT(s != NULL);
     return memset(s,'\0',n);
+}
+ERTS_GLB_INLINE void *sys_memchr(const void *s, int c, size_t n)
+{
+    ASSERT(s != NULL);
+    return (void*)memchr(s, c, n);
 }
 ERTS_GLB_INLINE void *sys_memrchr(const void *s, int c, size_t n)
 {
