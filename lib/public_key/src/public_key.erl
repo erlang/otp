@@ -69,6 +69,8 @@
          cacerts_load/1,
          cacerts_clear/0
 	]).
+%% Tracing
+-export([handle_trace/3]).
 
 %%----------------
 %% Moved to ssh
@@ -77,7 +79,6 @@
           {ssh_hostkey_fingerprint,1, "use ssh:hostkey_fingerprint/1 instead"},
           {ssh_hostkey_fingerprint,2, "use ssh:hostkey_fingerprint/2 instead"}
          ]).
-
 -export([ssh_curvename2oid/1, oid2ssh_curvename/1]).
 %% When removing for OTP-25.0, remember to also remove
 %%   - most of pubkey_ssh.erl except
@@ -1382,9 +1383,28 @@ pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt)
     pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer,
                        ResponderCerts, NonceExt);
 pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) ->
-    case  ocsp_responses(OcspRespDer, ResponderCerts, NonceExt) of
+    OcspResponse = pubkey_ocsp:decode_ocsp_response(OcspRespDer),
+    OcspCertResponses =
+        case OcspResponse of
+            {ok, BasicOcspResponse = #'BasicOCSPResponse'{certs = Certs}} ->
+                OcspResponseCerts = [otp_cert(C) || C <- Certs],
+                UserResponderCerts =
+                    [otp_cert(pkix_decode_cert(C, plain)) || C <- ResponderCerts],
+                pubkey_ocsp:verify_ocsp_response(
+                  BasicOcspResponse, OcspResponseCerts ++ UserResponderCerts,
+                  NonceExt);
+            {error, _} = Error ->
+                Error
+        end,
+    case OcspCertResponses of
         {ok, Responses} ->
-            ocsp_status(Cert, IssuerCert, Responses);
+            case pubkey_ocsp:find_single_response(
+                   otp_cert(Cert), otp_cert(IssuerCert), Responses) of
+                {ok, #'SingleResponse'{certStatus = CertStatus}} ->
+                    pubkey_ocsp:ocsp_status(CertStatus);
+                {error, no_matched_response = Reason} ->
+                    {bad_cert, {revocation_status_undetermined, Reason}}
+            end;
         {error, Reason} ->
             {bad_cert, {revocation_status_undetermined, Reason}}
     end.
@@ -1399,12 +1419,12 @@ ocsp_extensions(Nonce) ->
              erlang:is_record(Extn, 'Extension')].
 
 %%--------------------------------------------------------------------
--spec ocsp_responder_id(#'Certificate'{}) -> binary().
+-spec ocsp_responder_id(binary()) -> binary().
 %%
 %% Description: Get the OCSP responder ID der
 %%--------------------------------------------------------------------
-ocsp_responder_id(Cert) ->
-    pubkey_ocsp:get_ocsp_responder_id(Cert).
+ocsp_responder_id(CertDer) ->
+    pubkey_ocsp:get_ocsp_responder_id(pkix_decode_cert(CertDer, plain)).
 
 %%--------------------------------------------------------------------
 -spec cacerts_get() -> [combined_cert()].
@@ -1622,7 +1642,9 @@ otp_cert(Der) when is_binary(Der) ->
 otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert;
 otp_cert(#cert{otp = OtpCert}) ->
-    OtpCert.
+    OtpCert;
+otp_cert(#'Certificate'{} = Cert) ->
+    pkix_decode_cert(der_encode('Certificate', Cert), otp).
 
 der_cert(#'OTPCertificate'{} = Cert) ->
     pkix_encode('OTPCertificate', Cert, otp);
@@ -2031,18 +2053,39 @@ format_details([]) ->
     no_relevant_crls;
 format_details(Details) ->
     Details.
-  
-ocsp_status(Cert, IssuerCert, Responses) ->
-    case pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses) of
-        {ok, #'SingleResponse'{certStatus = CertStatus}} ->
-            pubkey_ocsp:ocsp_status(CertStatus);
-        {error, no_matched_response = Reason} ->
-            {bad_cert, {revocation_status_undetermined, Reason}}
-    end.
-
-ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
-    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, 
-                                     ResponderCerts, Nonce).
 
 subject_public_key_info(Alg, PubKey) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, ocsp_responder_id, [Cert]}}, Stack) ->
+    {io_lib:format("pkix_decode_cert(Cert, plain) = ~W", [Cert, 5]),
+    %% {io_lib:format("pkix_decode_cert(Cert, plain) = ~s", [ssl_test_lib:format_cert(Cert)]),
+     Stack};
+handle_trace(csp,
+             {return_from, {?MODULE, ocsp_responder_id, 1}, Return},
+             Stack) ->
+    {io_lib:format("OCSP Responder ID = ~P", [Return, 10]), Stack};
+handle_trace(crt,
+             {call, {?MODULE, pkix_decode_cert, [Cert, _Type]}}, Stack) ->
+    {io_lib:format("Cert = ~W", [Cert, 5]), Stack};
+    %% {io_lib:format("Cert = ~s", [ssl_test_lib:format_cert(Cert)]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, pkix_ocsp_validate, [Cert, IssuerCert | _]}}, Stack) ->
+    {io_lib:format("#2 OCSP validation started~nCert = ~W IssuerCert = ~W",
+                   [Cert, 7, IssuerCert, 7]), Stack};
+    %% {io_lib:format("#2 OCSP validation started~nCert = ~s IssuerCert = ~s",
+    %%                [ssl_test_lib:format_cert(Cert),
+    %%                 ssl_test_lib:format_cert(IssuerCert)]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, otp_cert, [Cert]}}, Stack) ->
+    {io_lib:format("Cert = ~W", [Cert, 5]), Stack};
+    %% {io_lib:format("Cert = ~s", [ssl_test_lib:format_cert(otp_cert(Cert))]), Stack};
+handle_trace(csp,
+             {return_from, {?MODULE, pkix_ocsp_validate, 5}, Return},
+             Stack) ->
+    {io_lib:format("#2 OCSP validation result = ~p", [Return]), Stack}.

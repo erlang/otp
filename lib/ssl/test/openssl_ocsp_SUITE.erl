@@ -35,17 +35,18 @@
          end_per_testcase/2]).
 
 %% Testcases
--export([ocsp_stapling_basic/0,ocsp_stapling_basic/1,
-         ocsp_stapling_with_nonce/0, ocsp_stapling_with_nonce/1,
-         ocsp_stapling_with_responder_cert/0,ocsp_stapling_with_responder_cert/1,
-         ocsp_stapling_revoked/0, ocsp_stapling_revoked/1,
-         ocsp_stapling_undetermined/0, ocsp_stapling_undetermined/1,
-         ocsp_stapling_no_staple/0, ocsp_stapling_no_staple/1
+-export([stapling_basic/0, stapling_basic/1,
+         stapling_with_nonce/0, stapling_with_nonce/1,
+         stapling_with_responder_cert/0, stapling_with_responder_cert/1,
+         stapling_revoked/0, stapling_revoked/1,
+         stapling_undetermined/0, stapling_undetermined/1,
+         stapling_no_staple/0, stapling_no_staple/1
         ]).
 
 %% spawn export
--export([ocsp_responder_init/3]).
-
+-export([ocsp_responder_init/4]).
+-define(OCSP_RESPONDER_LOG, "ocsp_resp_log.txt").
+-define(DEBUG, false).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -61,17 +62,18 @@ groups() ->
      {'dtlsv1.2', [], ocsp_tests()}].
 
 ocsp_tests() ->
-    [ocsp_stapling_basic,
-     ocsp_stapling_with_nonce,
-     ocsp_stapling_with_responder_cert,
-     ocsp_stapling_revoked,
-     ocsp_stapling_undetermined,
-     ocsp_stapling_no_staple
+    [stapling_basic,
+     stapling_with_nonce,
+     stapling_with_responder_cert,
+     stapling_revoked,
+     stapling_undetermined,
+     stapling_no_staple
     ].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
-    Config = ssl_test_lib:init_per_suite(Config0, openssl),
+    Config = lists:merge([{debug, ?DEBUG}],
+                         ssl_test_lib:init_per_suite(Config0, openssl)),
     case ssl_test_lib:openssl_ocsp_support(Config) of
         true ->
             do_init_per_suite(Config);
@@ -87,7 +89,7 @@ do_init_per_suite(Config) ->
     {ok, _} = make_certs:all(DataDir, PrivDir),
 
     ResponderPort = get_free_port(),
-    Pid = start_ocsp_responder(ResponderPort, PrivDir),
+    Pid = start_ocsp_responder(ResponderPort, PrivDir, ?config(debug, Config)),
 
     NewConfig =
         lists:merge(
@@ -97,10 +99,10 @@ do_init_per_suite(Config) ->
 
     ssl_test_lib:cert_options(NewConfig).
 
-
 end_per_suite(Config) ->
     ResponderPid = proplists:get_value(responder_pid, Config),
     ssl_test_lib:close(ResponderPid),
+    [ssl_test_lib:ct_pal_file(?OCSP_RESPONDER_LOG) || ?config(debug, Config)],
     ssl_test_lib:end_per_suite(Config).
 
 %%--------------------------------------------------------------------
@@ -122,31 +124,30 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-ocsp_stapling_basic() ->
+stapling_basic() ->
     [{doc, "Verify OCSP stapling works without nonce and responder certs."}].
-ocsp_stapling_basic(Config)
+stapling_basic(Config)
   when is_list(Config) ->
-    ocsp_stapling_helper(Config, [{ocsp_nonce, false}]).
+    stapling_helper(Config, [{ocsp_nonce, false}]).
 
-ocsp_stapling_with_nonce() ->
+stapling_with_nonce() ->
     [{doc, "Verify OCSP stapling works with nonce."}].
-ocsp_stapling_with_nonce(Config)
+stapling_with_nonce(Config)
   when is_list(Config) ->
-    ocsp_stapling_helper(Config, [{ocsp_nonce, true}]).
+    stapling_helper(Config, [{ocsp_nonce, true}]).
 
-ocsp_stapling_with_responder_cert() ->
+stapling_with_responder_cert() ->
     [{doc, "Verify OCSP stapling works with nonce and responder certs."}].
-ocsp_stapling_with_responder_cert(Config)
+stapling_with_responder_cert(Config)
   when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     {ok, ResponderCert} =
         file:read_file(filename:join(PrivDir, "b.server/cert.pem")),
     [{'Certificate', Der, _IsEncrypted}] =
         public_key:pem_decode(ResponderCert),
-    ocsp_stapling_helper(Config, [{ocsp_nonce, true},
-                                  {ocsp_responder_certs, [Der]}]).
+    stapling_helper(Config, [{ocsp_nonce, true}, {ocsp_responder_certs, [Der]}]).
 
-ocsp_stapling_helper(Config, Opts) ->
+stapling_helper(Config, Opts) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     CACertsFile = filename:join(PrivDir, "a.server/cacerts.pem"),
     Data = "ping",  %% 4 bytes
@@ -159,7 +160,8 @@ ocsp_stapling_helper(Config, Opts) ->
     ClientOpts = ssl_test_lib:ssl_options([{verify, verify_peer},
                                            {cacertfile, CACertsFile},
                                            {server_name_indication, disable},
-                                           {ocsp_stapling, true}] ++ Opts, Config),
+                                           {ocsp_stapling, true}] ++ Opts,
+                                          Config),
     Client = ssl_test_lib:start_client(erlang,
                                        [{port, Port},
                                         {options, ClientOpts}], Config),
@@ -169,29 +171,29 @@ ocsp_stapling_helper(Config, Opts) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
-ocsp_stapling_revoked() ->
+stapling_revoked() ->
     [{doc, "Verify OCSP stapling works with revoked certificate."}].
-ocsp_stapling_revoked(Config)
+stapling_revoked(Config)
   when is_list(Config) ->
-    ocsp_stapling_negative_helper(Config, "revoked/cacerts.pem",
+    stapling_negative_helper(Config, "revoked/cacerts.pem",
                                   openssl_ocsp_revoked, certificate_revoked).
 
-ocsp_stapling_undetermined() ->
+stapling_undetermined() ->
     [{doc, "Verify OCSP stapling works with certificate with undetermined status."}].
-ocsp_stapling_undetermined(Config)
+stapling_undetermined(Config)
   when is_list(Config) ->
-    ocsp_stapling_negative_helper(Config, "undetermined/cacerts.pem",
+    stapling_negative_helper(Config, "undetermined/cacerts.pem",
                                   openssl_ocsp_undetermined, bad_certificate).
 
-ocsp_stapling_no_staple() ->
+stapling_no_staple() ->
     [{doc, "Verify OCSP stapling works with a missing OCSP response."}].
-ocsp_stapling_no_staple(Config)
+stapling_no_staple(Config)
   when is_list(Config) ->
     %% Start a server that will not include an OCSP response.
-    ocsp_stapling_negative_helper(Config, "a.server/cacerts.pem",
+    stapling_negative_helper(Config, "a.server/cacerts.pem",
                                   openssl, bad_certificate).
 
-ocsp_stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError) ->
+stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     CACertsFile = filename:join(PrivDir, CACertsPath),
     GroupName = undefined,
@@ -214,12 +216,13 @@ ocsp_stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError)
     ssl_test_lib:check_client_alert(Client, ExpectedError).
 
 %%--------------------------------------------------------------------
-%% Intrernal functions -----------------------------------------------
+%% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
-start_ocsp_responder(ResponderPort, PrivDir) ->
+start_ocsp_responder(ResponderPort, PrivDir, Debug) ->
     Starter = self(),
-    Pid = erlang:spawn_link(
-            ?MODULE, ocsp_responder_init, [ResponderPort, PrivDir, Starter]),
+    Pid = erlang:spawn(
+            ?MODULE, ocsp_responder_init,
+            [ResponderPort, PrivDir, Starter, Debug]),
     receive
         {started, Pid} ->
             Pid;
@@ -227,31 +230,40 @@ start_ocsp_responder(ResponderPort, PrivDir) ->
             throw({unable_to_start_ocsp_service, Reason})
     end.
 
-ocsp_responder_init(ResponderPort, PrivDir, Starter) ->
+ocsp_responder_init(ResponderPort, PrivDir, Starter, Debug) ->
     Index = filename:join(PrivDir, "otpCA/index.txt"),
     CACerts = filename:join(PrivDir, "b.server/cacerts.pem"),
     Cert = filename:join(PrivDir, "b.server/cert.pem"),
     Key = filename:join(PrivDir, "b.server/key.pem"),
-
+    DebugArgs = case Debug of
+                    true -> ["-text", "-out", ?OCSP_RESPONDER_LOG];
+                    _ -> []
+                end,
     Args = ["ocsp", "-index", Index, "-CA", CACerts, "-rsigner", Cert,
-            "-rkey", Key, "-port",  erlang:integer_to_list(ResponderPort)],
+            "-rkey", Key, "-port",  erlang:integer_to_list(ResponderPort)] ++
+        DebugArgs,
     process_flag(trap_exit, true),
     Port = ssl_test_lib:portable_open_port("openssl", Args),
+    ?CT_LOG("OCSP responder: Started Port = ~p", [Port]),
     ocsp_responder_loop(Port, {new, Starter}).
 
 ocsp_responder_loop(Port, {Status, Starter} = State) ->
     receive
-	{_Port, closed} ->
-	    ?CT_LOG("Port Closed"),
+        close ->
+            ?CT_LOG("OCSP responder: received close", []),
+            ok;
+	{Port, closed} ->
+	    ?CT_LOG("OCSP responder: Port = ~p Closed", [Port]),
 	    ok;
-	{'EXIT', _Port, Reason} ->
-	    ?CT_LOG("Port Closed ~p",[Reason]),
+	{'EXIT', Sender, _Reason} ->
+	    ?CT_LOG("OCSP responder: Sender = ~p Closed",[Sender]),
 	    ok;
-	{Port, {data, _Msg}} when Status == new ->
+	{Port, {data, Msg}} when Status == new ->
+            ?CT_LOG("OCSP responder: Msg = ~p", [Msg]),
             Starter ! {started, self()},
 	    ocsp_responder_loop(Port, {started, undefined});
         {Port, {data, Msg}} ->
-	    ?CT_PAL("Responder Msg ~p",[Msg]),
+	    ?CT_LOG("OCSP responder: Responder Msg = ~p",[Msg]),
             ocsp_responder_loop(Port, State)
     after 1000 ->
             case Status of

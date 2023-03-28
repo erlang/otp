@@ -118,7 +118,6 @@
          session_id/1,
          update_keys/2,
          sanity_check/2,
-         oscp_responder/6,
          supported_eccs/1,
          no_result/1,
          receive_tickets/1,
@@ -222,7 +221,8 @@
          portable_open_port/2,
          close_port/1,
          verify_early_data/1,
-         trace/0
+         trace/0,
+         ct_pal_file/1
         ]).
 %% Tracing
 -export([handle_trace/3]).
@@ -925,15 +925,6 @@ init_openssl_server(Mode, ResponderPort, Options) when Mode == openssl_ocsp orel
     Pid ! {self(), {port, Port}},
     openssl_server_loop(Pid, SslPort, Args).
 
-oscp_responder(Port, Index, CACerts, Cert, Key, Starter) ->
-    Args = ["ocsp", "-index", Index, "-CA", CACerts, "-rsigner", Cert,
-            "-rkey", Key, "-port",  erlang:integer_to_list(Port)],
-    Responder = portable_open_port("openssl", Args),
-    wait_for_openssl_server(Port, tls),
-
-    openssl_server_loop(Starter, Responder, []).
-
-
 openssl_dtls_opt('dtlsv1.2') ->
     ["-dtls"];
 openssl_dtls_opt(_Other) ->
@@ -1464,7 +1455,9 @@ format_cert(#'OTPCertificate'{tbsCertificate = Cert} = OtpCert) ->
                 {error, _} ->
                     io_lib:format("~.3w:~s ->    :~s", [Nr, format_subject(Subject), format_subject(Issuer)])
             end
-    end.
+    end;
+format_cert(Cert) ->
+    io_lib:format("Format failed for ~p", [Cert]).
 
 format_subject({rdnSequence, Seq}) ->
     format_subject(Seq);
@@ -4265,3 +4258,13 @@ ktls_set_cipher(Socket, OS, TxRx, Seed) ->
            key = TLS_KEY,
            iv = <<TLS_SALT/binary, TLS_IV/binary>> },
     inet_tls_dist:set_ktls_cipher(KtlsInfo, OS, CipherState, 0, TxRx).
+
+ct_pal_file(FilePath) ->
+    case file:read_file(FilePath) of
+        {ok, Binary} ->
+            ?CT_PAL("~s ~pB~n~s",
+                    [FilePath, filelib:file_size(FilePath), Binary]);
+        _ ->
+            ?CT_PAL("Failed to log ~s", [FilePath]),
+            ok
+    end.

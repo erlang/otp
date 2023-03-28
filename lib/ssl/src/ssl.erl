@@ -1927,23 +1927,32 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
           anti_replay => AntiReplay, stateless_tickets_seed => STS}.
 
 opt_ocsp(UserOpts, #{versions := _Versions} = Opts, #{role := Role}) ->
-    {_, Stapling} = get_opt_bool(ocsp_stapling, false, UserOpts, Opts),
+    {Stapling, SMap} =
+        case get_opt(ocsp_stapling, ?DEFAULT_OCSP_STAPLING, UserOpts, Opts) of
+            {old, Map} when is_map(Map) -> {true, Map};
+            {_, Bool} when is_boolean(Bool) -> {Bool, #{}};
+            {_, Value} -> option_error(ocsp_stapling, Value)
+        end,
     assert_client_only(Role, Stapling, ocsp_stapling),
-
-    {_, Nonce} = get_opt_bool(ocsp_nonce, true, UserOpts, Opts),
-    option_incompatible(Stapling =:= false andalso Nonce =:= false, [{ocsp_nonce, false}, {ocsp_stapling, false}]),
-
-    {_, ORC} = get_opt_list(ocsp_responder_certs, [], UserOpts, Opts),
-    option_incompatible(Stapling =:= false andalso ORC =/= [], [ocsp_responder_certs, {ocsp_stapling, false}]),
-    %% FIXME should not be decoded in users process !!
-    Decode = fun(CertDer) ->
-                     try public_key:pkix_decode_cert(CertDer, plain)
-                     catch _:_ -> option_error(ocsp_responder_certs, ORC)
-                     end
-             end,
-    Certs = [Decode(CertDer) || CertDer <- ORC],
-    %% FIXME make it one option?
-    Opts#{ocsp_stapling => Stapling, ocsp_nonce => Nonce, ocsp_responder_certs => Certs}.
+    {_, Nonce} = get_opt_bool(ocsp_nonce, ?DEFAULT_OCSP_NONCE, UserOpts, SMap),
+    option_incompatible(Stapling =:= false andalso Nonce =:= false,
+                        [{ocsp_nonce, false}, {ocsp_stapling, false}]),
+    {_, ORC} = get_opt_list(ocsp_responder_certs, ?DEFAULT_OCSP_RESPONDER_CERTS,
+                            UserOpts, SMap),
+    CheckBinary = fun(Cert) when is_binary(Cert) -> ok;
+                     (_Cert) -> option_error(ocsp_responder_certs, ORC)
+                  end,
+    [CheckBinary(C) || C <- ORC],
+    option_incompatible(Stapling =:= false andalso ORC =/= [],
+                        [ocsp_responder_certs, {ocsp_stapling, false}]),
+    case Stapling of
+        true ->
+            Opts#{ocsp_stapling =>
+                      #{ocsp_nonce => Nonce,
+                        ocsp_responder_certs => ORC}};
+        false ->
+            Opts
+    end.
 
 opt_sni(UserOpts, #{versions := _Versions} = Opts, #{role := server}) ->
     {_, SniHosts} = get_opt_list(sni_hosts, [], UserOpts, Opts),
@@ -2857,11 +2866,10 @@ unambiguous_path(Value) ->
 %%%#
 %%%# Tracing
 %%%#
+handle_trace(csp, {call, {?MODULE, opt_ocsp, [UserOpts | _]}}, Stack) ->
+    {format_ocsp_params(UserOpts), Stack};
 handle_trace(csp, {return_from, {?MODULE, opt_ocsp, 3}, Return}, Stack) ->
-    #{ocsp_stapling := Stapling, ocsp_nonce := Nonce,
-      ocsp_responder_certs := Certs} = Return,
-    {io_lib:format("Stapling = ~w Nonce = ~W Certs = ~W",
-                   [Stapling, Nonce, 5, Certs, 5]), Stack};
+    {format_ocsp_params(Return), Stack};
 handle_trace(rle, {call, {?MODULE, listen, Args}}, Stack0) ->
     Role = server,
     {io_lib:format("(*~w) Args = ~W", [Role, Args, 10]), [{role, Role} | Stack0]};
@@ -2869,3 +2877,9 @@ handle_trace(rle, {call, {?MODULE, connect, Args}}, Stack0) ->
     Role = client,
     {io_lib:format("(*~w) Args = ~W", [Role, Args, 10]), [{role, Role} | Stack0]}.
 
+format_ocsp_params(Map) ->
+    Stapling = maps:get(ocsp_stapling, Map, '?'),
+    Nonce = maps:get(ocsp_nonce, Map, '?'),
+    Certs = maps:get(ocsp_responder_certs, Map, '?'),
+    io_lib:format("Stapling = ~W Nonce = ~W Certs = ~W",
+                   [Stapling, 5, Nonce, 5, Certs, 5]).

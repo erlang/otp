@@ -489,8 +489,6 @@ initial_hello({call, From}, {start, Timeout},
                                      %% Versions is a descending list of supported versions.
                                      versions := [HelloVersion|_] = Versions,
                                      session_tickets := SessionTickets,
-                                     ocsp_stapling := OcspStaplingOpt,
-                                     ocsp_nonce := OcspNonceOpt,
                                      early_data := EarlyData} = SslOpts,
                      session = Session,
                      connection_states = ConnectionStates0
@@ -502,7 +500,7 @@ initial_hello({call, From}, {start, Timeout},
     %% the max_early_data_size or if it can only be used for session resumption.
     {UseTicket, State1} = tls_client_connection_1_3:maybe_automatic_session_resumption(State0),
     TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
-    OcspNonce = tls_handshake:ocsp_nonce(OcspNonceOpt, OcspStaplingOpt),
+    OcspNonce = tls_handshake:ocsp_nonce(SslOpts),
     Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                         Session#session.session_id,
                                         Renegotiation,
@@ -544,13 +542,16 @@ initial_hello({call, From}, {start, Timeout},
         {#state{handshake_env = HsEnv1} = State5, _} =
             Connection:send_handshake_flight(State4),
 
+        OcspStaplingKeyPresent = maps:is_key(ocsp_stapling, SslOpts),
         State = State5#state{
                   connection_env = CEnv#connection_env{
                                      negotiated_version = RequestedVersion},
                   session = Session,
-                  handshake_env = HsEnv1#handshake_env{
-                                    ocsp_stapling_state = OcspState0#{ocsp_nonce => OcspNonce,
-                                                                      ocsp_stapling => OcspStaplingOpt}},
+                  handshake_env =
+                      HsEnv1#handshake_env{
+                        ocsp_stapling_state =
+                            OcspState0#{ocsp_nonce => OcspNonce,
+                                        ocsp_stapling => OcspStaplingKeyPresent}},
                   start_or_recv_from = From,
                   key_share = KeyShare},
         NextState = next_statem_state(Versions, Role),
@@ -2243,6 +2244,9 @@ maybe_generate_client_shares(_) ->
 %%%#
 %%%# Tracing
 %%%#
+handle_trace(api,
+                 {call, {?MODULE, connect, [Connection | _]}}, Stack0) ->
+    {io_lib:format("Connection = ~w", [Connection]), Stack0};
 handle_trace(rle,
                  {call, {?MODULE, init, Args = [[Role | _]]}}, Stack0) ->
     {io_lib:format("(*~w) Args = ~W", [Role, Args, 3]), [{role, Role} | Stack0]};

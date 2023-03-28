@@ -84,7 +84,6 @@
 -export([get_cert_params/1,
          select_own_cert/1,
          server_name/3,
-         path_validate/9,
          path_validation/10,
          validation_fun_and_state/4,
          path_validation_alert/1]).
@@ -1323,13 +1322,9 @@ maybe_add_tls13_extensions({3,4},
 maybe_add_tls13_extensions(_, HelloExtensions, _, _, _, _,_) ->
     HelloExtensions.
 
-maybe_add_certificate_status_request(
-    _Version, #{ocsp_stapling := false}, _OcspNonce, HelloExtensions) ->
-    HelloExtensions;
-maybe_add_certificate_status_request(
-    _Version, #{ocsp_stapling        := true,
-                ocsp_responder_certs := OcspResponderCerts},
-    OcspNonce, HelloExtensions) ->
+maybe_add_certificate_status_request(_Version, #{ocsp_stapling := OcspStapling},
+                                     OcspNonce, HelloExtensions) ->
+    OcspResponderCerts = maps:get(ocsp_responder_certs, OcspStapling),
     OcspResponderList = get_ocsp_responder_list(OcspResponderCerts),
     OcspRequestExtns = public_key:ocsp_extensions(OcspNonce),
     Req = #ocsp_status_request{responder_id_list  = OcspResponderList,
@@ -1338,7 +1333,10 @@ maybe_add_certificate_status_request(
         status_type = ?CERTIFICATE_STATUS_TYPE_OCSP,
         request = Req
     },
-    HelloExtensions#{status_request => CertStatusReqExtn}.
+    HelloExtensions#{status_request => CertStatusReqExtn};
+maybe_add_certificate_status_request(_Version, _SslOpts, _OcspNonce,
+                                     HelloExtensions) ->
+    HelloExtensions.
 
 get_ocsp_responder_list(ResponderCerts) ->
     get_ocsp_responder_list(ResponderCerts, []).
@@ -1537,8 +1535,8 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 
 handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
                                Exts, Version,
-			       #{secure_renegotiate := SecureRenegotation,
-                                 ocsp_stapling := Stapling} = SslOpts,
+			       #{secure_renegotiate := SecureRenegotation} =
+                                   SslOpts,
 			       ConnectionStates0, Renegotiation, IsNew) ->
     ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  
                                                       maps:get(renegotiation_info, Exts, undefined), Random, 
@@ -1561,7 +1559,7 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
             ok
     end,
 
-    case handle_ocsp_extension(Stapling, Exts) of
+    case handle_ocsp_extension(SslOpts, Exts) of
         #alert{} = Alert ->
             Alert;
         OcspState ->
@@ -1956,21 +1954,21 @@ extension_value(#psk_key_exchange_modes{ke_modes = Modes}) ->
 extension_value(#cookie{cookie = Cookie}) ->
     Cookie.
 
-handle_ocsp_extension(true = Stapling, Extensions) ->
+handle_ocsp_extension(#{ocsp_stapling := _OcspStapling}, Extensions) ->
     case maps:get(status_request, Extensions, false) of
         undefined -> %% status_request in server hello is empty
-            #{ocsp_stapling => Stapling,
+            #{ocsp_stapling => true,
               ocsp_expect => staple};
         false -> %% status_request is missing (not negotiated)
-            #{ocsp_stapling => Stapling,
+            #{ocsp_stapling => true,
               ocsp_expect => no_staple};
         _Else ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, status_request_not_empty)
     end;
-handle_ocsp_extension(false = Stapling, Extensions) ->
+handle_ocsp_extension(_SslOpts, Extensions) ->
     case maps:get(status_request, Extensions, false) of
         false -> %% status_request is missing (not negotiated)
-            #{ocsp_stapling => Stapling,
+            #{ocsp_stapling => false,
               ocsp_expect => no_staple};
         _Else -> %% unsolicited status_request
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request)
@@ -2123,8 +2121,7 @@ path_validation_alert({bad_cert, unknown_critical_extension}) ->
 path_validation_alert({bad_cert, {revoked, _}}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
 path_validation_alert({bad_cert, {revocation_status_undetermined, Details}}) ->
-    Alert = ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE),
-    Alert#alert{reason = Details};
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, Details);
 path_validation_alert({bad_cert, selfsigned_peer}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_ca}) ->
@@ -2208,11 +2205,6 @@ cert_status_check(_OtpCert,
                                     ocsp_expect := undetermined}},
                   _VerifyResult, _CertPath, _LogLevel) ->
     {bad_cert, {revocation_status_undetermined, not_stapled}};
-cert_status_check(OtpCert,
-                  #{ocsp_state := #{ocsp_stapling := best_effort, %% TODO support this ?
-                                    ocsp_expect := undetermined}} = SslState,
-                  VerifyResult, CertPath, LogLevel) ->
-    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
 cert_status_check(_OtpCert,
                   #{ocsp_state := #{ocsp_stapling := true,
                                     ocsp_expect := no_staple}},
@@ -3941,8 +3933,9 @@ path_validation_cb(_) ->
 %%%#
 handle_trace(csp,
              {call, {?MODULE, maybe_add_certificate_status_request,
-                     [_Version, #{ocsp_stapling := true},
+                     [_Version, SslOpts,
                       _OcspNonce, _HelloExtensions]}},
              Stack) ->
-    {io_lib:format("#1 ADDING certificate status request",
-                   []), Stack}.
+    OcspStapling = maps:get(ocsp_stapling, SslOpts, false),
+    {io_lib:format("#1 ADD crt status request / OcspStapling option = ~W",
+                   [OcspStapling, 10]), Stack}.

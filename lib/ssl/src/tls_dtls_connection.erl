@@ -1682,18 +1682,16 @@ ensure_tls({254, _} = Version) ->
 ensure_tls(Version) -> 
     Version.
 
-ocsp_info(#{ocsp_expect := stapled, 
-            ocsp_response := CertStatus} = OcspState,
-            #{ocsp_responder_certs := OcspResponderCerts}, PeerCert) ->
+ocsp_info(#{ocsp_expect := stapled, ocsp_response := CertStatus} = OcspState,
+          #{ocsp_stapling := OcspStapling} = _SslOpts, PeerCert) ->
+    #{ocsp_responder_certs := OcspResponderCerts} = OcspStapling,
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => [CertStatus]},
       ocsp_responder_certs => OcspResponderCerts,
-      ocsp_state => OcspState
-     };
+      ocsp_state => OcspState};
 ocsp_info(#{ocsp_expect := no_staple} = OcspState, _, PeerCert) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
       ocsp_responder_certs => [],
-      ocsp_state => OcspState
-     }.
+      ocsp_state => OcspState}.
 
 select_client_cert_key_pair(Session0,_,
                             [#{private_key := NoKey, certs := [[]] = NoCerts}],
