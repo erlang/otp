@@ -27,9 +27,10 @@
 	 mf_ext_inc/2, mf_int_chunk/4, mf_int_chunk_step/3,
 	 mf_sync/1, mf_write_cache/1]).
 -export([mf_ext_open/7, mf_ext_log/3, mf_ext_close/2]).
--export([open_rotate_log_file/3, rotate_file/2,
+-export([open_rotate_log_file/3, do_rotate/2,
          rotate_ext_log/3, rotate_write_cache/1, rotate_ext_close/1,
-         change_size_rotate/2, get_rotate_size/1]).
+         change_size_rotate/2, get_rotate_size/1,
+         rotate_files/2]).
 
 -export([print_index_file/1]).
 -export([read_index_file/1]).
@@ -1057,7 +1058,7 @@ maybe_update_compress(N, MaxF, FName) ->
     end,
     maybe_update_compress(N+1, MaxF, FName).    
 
-rotate_file(#rotate_handle{file = FName, maxF = MaxF, cur_fdc = FdC} = RotHandle, Head) ->
+do_rotate(#rotate_handle{file = FName, maxF = MaxF, cur_fdc = FdC} = RotHandle, Head) ->
     #cache{fd = Fd, c = C} = FdC,
     {_, _C1} = write_cache(Fd, FName, C),
     _ = delayed_write_close(Fd),
@@ -1122,7 +1123,7 @@ rotate_ext_log(Handle, Bins, Head, N0) ->
 	ext_split_bins(CurB, MaxB, FirstPos, Bins),
     case FirstBins of
 	[] ->
-            Handle1 = rotate_file(Handle, Head),
+            Handle1 = do_rotate(Handle, Head),
 	    rotate_ext_log(Handle1, Bins, Head, N0);
 	_ ->
 	    case fwrite(CurFdC, FileName, FirstBins, NoBytes) of

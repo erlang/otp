@@ -1285,10 +1285,9 @@ rename_file(File, NewFile, #log{type = halt}) ->
     end;
 rename_file(File, NewFile, #log{type = wrap}) ->
     rename_file(wrap_file_extensions(File), File, NewFile, ok);
-rename_file(File, NewFile, #log{type = rotate, head = Head, extra = Handle}) ->
+rename_file(File, NewFile, #log{type = rotate, extra = Handle}) ->
     {_MaxB, MaxF} = disk_log_1:get_rotate_size(Handle),
-    _Handle1 = disk_log_1:rotate_file(Handle, Head),
-    _ = file:delete(File),
+    disk_log_1:rotate_files(Handle#rotate_handle.file, MaxF),
     rename_file(rotate_file_extensions(File, MaxF), File, NewFile, ok).
 
 rename_file([Ext|Exts], File, NewFile0, Res) ->
@@ -1496,7 +1495,7 @@ do_inc_wrap_file(L) ->
 %%-----------------------------------------------------------------
 %% -> {ok, log()}
 do_inc_rotate_file(#log{extra = Handle, head = Head} = L) ->
-    Handle2 = disk_log_1:rotate_file(Handle, Head),
+    Handle2 = disk_log_1:do_rotate(Handle, Head),
     {ok, L#log{extra = Handle2}}.
 
 %%-----------------------------------------------------------------
@@ -1909,7 +1908,7 @@ do_trunc(#log{type = wrap}=L, Head) ->
     do_change_size(NewLog2#log{extra = NewHandle, head = OldHead}, 
 		   {MaxB, MaxF});
 do_trunc(#log{type = rotate, head = Head, extra = Handle}=L, none) ->
-    Handle1 = disk_log_1:rotate_file(Handle, Head),
+    Handle1 = disk_log_1:do_rotate(Handle, Head),
     disk_log_1:remove_files(rotate, Handle1#rotate_handle.file, 0, Handle1#rotate_handle.maxF),
     put(log, L#log{extra = Handle1}),
     ok.
