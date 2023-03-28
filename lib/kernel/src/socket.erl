@@ -36,6 +36,7 @@
          debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
 	 i/0, i/1, i/2,
+         tables/0, table/1,
          monitor/1, cancel_monitor/1,
          supports/0, supports/1, supports/2,
          is_supported/1, is_supported/2, is_supported/3,
@@ -1001,6 +1002,17 @@ socket_debug(D) ->
 %%
 use_registry(D) when is_boolean(D) ->
     prim_socket:use_registry(D).
+
+
+tables() ->
+    #{protocols      => table(protocols),
+      options        => table(options),
+      ioctl_requests => table(ioctl_requests),
+      ioctl_flags    => table(ioctl_flags),
+      msg_flags      => table(msg_flags)}.
+
+table(Table) ->
+    prim_socket:p_get(Table).
 
 
 %% ===========================================================================

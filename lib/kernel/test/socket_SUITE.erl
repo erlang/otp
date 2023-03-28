@@ -20561,10 +20561,15 @@ api_opt_ip_recvtos_udp(InitState) ->
 %% Maybe we should send and receive from different VMs, until then
 %% skip darwin and OpenBSD.
 %%
+%% Windows:
+%% It seems like its possible to set and get the recvttl option,
+%% but not to use the ttl control message header when sending.
+%% The following is the list of types (for level ip) which are listed
+%% as supported: IP_ORIGINAL_ARRIVAL_IF, IP_PKTINFO and IP_ECN
 
 api_opt_ip_recvttl_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_opt_ip_recvttl_udp4,
+    tc_try(?FUNCTION_NAME,
            fun() ->
                    has_support_ipv4(),
 		   has_support_ip_recvttl(),
@@ -20580,15 +20585,15 @@ api_opt_ip_recvttl_udp4(_Config) when is_list(_Config) ->
                           end,
                    Send = fun(Sock, Data, Dest, default) ->
                                   Msg = #{addr => Dest,
-                                             iov  => [Data]},
+                                          iov  => [Data]},
                                   socket:sendmsg(Sock, Msg);
                              (Sock, Data, Dest, TTL) ->
                                   CMsg = #{level => ip,
-                                              type  => ttl,
-                                              value => TTL},
+                                           type  => ttl,
+                                           value => TTL},
                                   Msg  = #{addr => Dest,
-                                              ctrl => [CMsg],
-                                              iov  => [Data]},
+                                           ctrl => [CMsg],
+                                           iov  => [Data]},
                                   socket:sendmsg(Sock, Msg)
                           end,
                    Recv = fun(Sock) ->
@@ -20753,6 +20758,38 @@ api_opt_ip_recvttl_udp(InitState) ->
                                    (catch socket:close(SSock)),
                                    (catch socket:close(DSock)),
                                    {skip, Reason};
+
+                               {error,
+                                {get_overlapped_result,
+                                 #{file     := File,
+                                   function := Function,
+                                   line     := Line,
+                                   raw_info := RawInfo,
+                                   info     := invalid_parameter = Info}}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TTL: "
+                                               "~p => SKIP: "
+                                               "~n   File:     ~s"
+                                               "~n   Function: ~s"
+                                               "~n   Line:     ~p"
+                                               "~n   Raw Info: ~p",
+                                               [Info,
+                                                File, Function, Line,
+                                                RawInfo]),
+                                   (catch socket:close(SSock)),
+                                   (catch socket:close(DSock)),
+                                   {skip,
+                                    ?F("Cannot send with TTL: ~p", [Info])};
+                               {error, {get_overlapped_result,
+                                        invalid_parameter = Info}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TTL: "
+                                               "~p => SKIP", [Info]),
+                                   (catch socket:close(SSock)),
+                                   (catch socket:close(DSock)),
+                                   {skip,
+                                    ?F("Cannot send with TTL: ~p", [Info])};
+
                                {error, _Reason} = ERROR ->
                                    ERROR
                            end

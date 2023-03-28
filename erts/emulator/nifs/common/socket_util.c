@@ -2365,6 +2365,12 @@ ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
         break;
 #endif
 
+#if defined(WSA_INVALID_PARAMETER)
+    case WSA_INVALID_PARAMETER:
+        return MKA(env, "invalid_parameter");
+        break;
+#endif
+
     default:
         {
             char* str = erl_errno_id(err);

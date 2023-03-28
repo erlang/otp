@@ -55,7 +55,9 @@
 
 #define ESOCK_VERBOSE_ERRNO 1
 #if defined(ESOCK_VERBOSE_ERRNO)
-#define ENO2T(E, ENO) MKEEI((E), (ENO), esock_errno_to_term((E), (ENO)))
+#define ENO2T(E, ENO) MKEEI((E),                                \
+                            MKI((E), (ENO)),                    \
+                            esock_errno_to_term((E), (ENO)))
 #else
 #define ENO2T(E, ENO) esock_errno_to_term((E), (ENO))
 #endif
