@@ -64,6 +64,7 @@
 	  %% DefAt,         M -> P(V * N)
 	  %% L,             M -> P(V)
 	  %% X,             M -> P(V)
+	  %% IX				M -> P(V)
 	  %% LCallAt,       M -> P(V * V -> P(N))
 	  %% XCallAt,       M -> P(V * V -> P(N))
 	  %% CallAt,        M -> P(V * V -> P(N))
@@ -79,6 +80,7 @@
 	  %% If xref.mode = modules:
           %% [
 	  %% X,             M -> P(V)
+	  %% IX				M -> P(V)
 	  %% I              M -> P(V)
           %% ]
 	  }).
@@ -87,7 +89,8 @@
 	  name = '',
 	  rel_name = [], % [] or [RelName]
 	  vsn = [],
-	  dir = ""     % where BEAM files are read from
+	  dir = "",     % where BEAM files are read from
+	  deps = []	    % [AppName] 		
 	  }).
 
 -record(xref_rel, {

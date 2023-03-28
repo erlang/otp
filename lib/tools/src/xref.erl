@@ -607,6 +607,8 @@ analyse(Name, What, Options) ->
                   | 'undefined_functions'
                   | 'locals_not_used'
                   | 'exports_not_used'
+                  | 'internal_use'
+                  | 'illegal_internal_use'
                   | 'deprecated_function_calls'
                   | {'deprecated_function_calls', DeprFlag :: depr_flag()}
                   | 'deprecated_functions'
