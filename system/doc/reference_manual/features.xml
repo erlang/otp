@@ -206,6 +206,18 @@
         Implementation of the <seeguide
         marker="expressions#maybe"><c>maybe</c></seeguide> expression
         proposed in <url href="https://www.erlang.org/eeps/eep-0049">EEP 49</url>.</item>
+      <tag><c>internal_export</c> (experimental)</tag>
+      <item>
+        Support for a new type of exported functions - <em>internally exported</em> functions
+         (inspired by <url href="https://www.erlang.org/eeps/eep-0005">EEP 5)</url>.
+         Internally exported functions provide a way to limit access to some exported functions,
+         resulting in a cleaner user interface. They can be called from within the application or
+         from it's dependencies. Combined with <c>xref</c> they provide a mechanism
+         to statically validate usage of the existing code. Dynamic call check is not implemented.
+         This feature makes functions with <c>internal_export</c> attribute tag exported.
+         Syntax for <c>internal_export</c> attribute is the same as for <c>export</c>
+         (e.g. <c>-internal_export([my_fun/2, util/1])</c>). There can be multiple <c>internal_export</c>
+         attributes per file.</item>
     </taglist>
   </section>
 </chapter>

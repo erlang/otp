@@ -1058,11 +1058,17 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                     %% -compile({feature, .., enable}).
                     UsedFtrs = proplists:get_value(features, Extra),
                     St1 = metadata_add_features(UsedFtrs, St),
-                    Forms = case with_columns(Opts ++ compile_options(Forms0)) of
+                    Forms1 = case with_columns(Opts ++ compile_options(Forms0)) of
                                 true ->
                                     Forms0;
                                 false ->
                                     strip_columns(Forms0)
+                            end,
+                    Forms = case lists:member(internal_export, Features) of
+                                true ->
+                                    add_internal_exports(Forms1);
+                                false ->
+                                    Forms1
                             end,
                     {ok,Forms,St1#compile{encoding=Encoding}};
                 {error,E} ->
@@ -1096,6 +1102,12 @@ metadata_add_features(Ftrs, #compile{extra_chunks = Extra} = St) ->
                                          erlang:term_to_binary(MetaData1),
                                          proplists:to_map(Extra))),
     St#compile{extra_chunks = Extra1}.
+
+add_internal_exports([]) -> [];
+add_internal_exports([{attribute,ANNO,internal_export,Internals}=F | Fs]) ->
+    [F, {attribute,ANNO,export,Internals} | add_internal_exports(Fs)];
+add_internal_exports([F|Fs]) ->
+    [F | add_internal_exports(Fs)].
 
 with_columns(Opts) ->
     case proplists:get_value(error_location, Opts, column) of

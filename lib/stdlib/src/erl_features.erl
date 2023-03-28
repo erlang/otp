@@ -66,7 +66,17 @@ feature_specs() ->
             status => experimental,
             experimental => 25,
             keywords => ['maybe', 'else'],
-            type => extension}}.
+            type => extension},
+    internal_export =>
+          #{short => "Internal export of functions (inspired by EEP5)",
+            description =>
+                "Support for a new type of exported functions - internally exported functions"
+                "(inspired by EEP 5).",
+            status => experimental,
+            experimental => 27,
+            keywords => [],
+            type => extension}
+        }.
 
 %% Return all currently known features.
 -spec all() -> [feature()].
