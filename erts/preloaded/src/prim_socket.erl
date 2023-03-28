@@ -623,6 +623,7 @@ sendmsg_result(
             sendmsg_result(
               SockRef, RestIOV, Cont, SendRef, true,
               nif_sendmsg(SockRef, EMsg, EFlags, SendRef, RestIOV));
+
         select ->
             if
                 HasWritten ->
@@ -633,6 +634,11 @@ sendmsg_result(
         {select, Written} ->
             RestIOV = rest_iov(Written, IOV),
             {select, RestIOV, Cont};
+
+        %% Either the message was written or not. No half ways...
+        completion = C ->
+            C;
+
         {error, Reason} = Error->
             if
                 HasWritten ->
