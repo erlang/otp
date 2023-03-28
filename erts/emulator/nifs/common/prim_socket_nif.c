@@ -3598,15 +3598,23 @@ static struct ESockOptLevel optLevels[] =
     {
         OPT_LEVEL(SOL_SOCKET, optLevelSocket, &esock_atom_socket),
 
+#ifndef __WIN32__
 #ifdef SOL_IP
         OPT_LEVEL(SOL_IP, optLevelIP, &esock_atom_ip),
 #else
         OPT_LEVEL(IPPROTO_IP, optLevelIP, &esock_atom_ip),
 #endif
+#else
+        OPT_LEVEL(IPPROTO_IP, optLevelIP, &esock_atom_ip),
+#endif
 
 #ifdef HAVE_IPV6
+#ifndef __WIN32__
 #ifdef SOL_IPV6
         OPT_LEVEL(SOL_IPV6, optLevelIPV6, &esock_atom_ipv6),
+#else
+        OPT_LEVEL(IPPROTO_IPV6, optLevelIPV6, &esock_atom_ipv6),
+#endif
 #else
         OPT_LEVEL(IPPROTO_IPV6, optLevelIPV6, &esock_atom_ipv6),
 #endif
@@ -4606,14 +4614,22 @@ static
 ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 {
   ERL_NIF_TERM protocols;
+#ifndef __WIN32__
 #if defined(SOL_IP)
   int          protoIP = SOL_IP;
 #else
   int          protoIP =  IPPROTO_IP;
 #endif
+#else
+  int          protoIP =  IPPROTO_IP;
+#endif
 #if defined(HAVE_IPV6)
+#ifndef __WIN32__
 #if defined(SOL_IPV6)
   int          protoIPV6 = SOL_IPV6;
+#else
+  int          protoIPV6 = IPPROTO_IPV6;
+#endif
 #else
   int          protoIPV6 = IPPROTO_IPV6;
 #endif
@@ -10866,8 +10882,12 @@ ESockCmsgSpec* esock_lookup_cmsg_table(int level, size_t *num)
         return cmsgLevelSocket;
 #endif
 
+#ifndef __WIN32__
 #ifdef SOL_IP
     case SOL_IP:
+#else
+    case IPPROTO_IP:
+#endif
 #else
     case IPPROTO_IP:
 #endif
@@ -10875,8 +10895,12 @@ ESockCmsgSpec* esock_lookup_cmsg_table(int level, size_t *num)
         return cmsgLevelIP;
 
 #ifdef HAVE_IPV6
+#ifndef __WIN32__
 #ifdef SOL_IPV6
     case SOL_IPV6:
+#else
+    case IPPROTO_IPV6:
+#endif
 #else
     case IPPROTO_IPV6:
 #endif
@@ -13143,10 +13167,36 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.numProtoUDP    = 0;
     data.numProtoSCTP   = 0;
 
+
     initOpts();
-#ifndef __WIN32__
     initCmsgTables();
+
+
+    // #define ESOCK_DISPLAY_OPTION_TABLES 1
+#if defined(ESOCK_DISPLAY_OPTION_TABLES)
+    {
+        /* Display option table(s) after init */
+        ESOCK_EPRINTF("\r\n[ESOCK] Option tables after init:\r\n");
+
+        for (int levelIdx = 0; levelIdx < NUM(optLevels); levelIdx++) {
+            int              numOpts =  optLevels[levelIdx].num;
+            int              level   =  optLevels[levelIdx].level;
+            ERL_NIF_TERM     lname   = *optLevels[levelIdx].nameP;
+            struct ESockOpt* opts    =  optLevels[levelIdx].opts;
+
+            ESOCK_EPRINTF("[ESOCK] [%d] Option table for level %T (%d) (%d options):\r\n",
+                          levelIdx, lname, level, numOpts);
+
+            for (int optIdx = 0; optIdx < numOpts; optIdx++) {
+                ESOCK_EPRINTF("[ESOCK] %T[%d]: %T -> %d\r\n",
+                              lname, optIdx, lname, opts[optIdx].opt);
+                
+            }
+            ESOCK_EPRINTF("\r\n");
+        }
+    }
 #endif
+
 
     data.iov_max =
 #if defined(NO_SYSCONF) || (! defined(_SC_IOV_MAX))
@@ -13177,34 +13227,6 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     ioNumThreads = esock_get_uint_from_map(env, load_info,
                                            atom_io_num_threads,
                                            ioNumThreadsDef);
-
-    // #define ESOCK_DISPLAY_OPTION_TABLES 1
-#if defined(ESOCK_DISPLAY_OPTION_TABLES)
-    {
-        /* Display option table(s) */
-        enif_fprintf(stderr, "\r\n[ESOCK] Option tables:\r\n");
-
-        for (int levelIdx = 0; levelIdx < NUM(optLevels); levelIdx++) {
-            int              numOpts = optLevels[levelIdx].num;
-            struct ESockOpt* opts    = optLevels[levelIdx].opts;
-
-            enif_fprintf(stderr,
-                         "[ESOCK] Option table for level %T (%d options):\r\n",
-                         *optLevels[levelIdx].nameP, numOpts);
-
-            for (int optIdx = 0; optIdx < numOpts; optIdx++) {
-                enif_fprintf(stderr,
-                             "[ESOCK] %T[%d]: %T -> %d\r\n",
-                             *optLevels[levelIdx].nameP,
-                             optIdx,
-                             *opts[optIdx].nameP,
-                             opts[optIdx].opt);
-                
-            }
-            enif_fprintf(stderr, "\r\n");
-        }
-    }
-#endif
     
 #ifdef __WIN32__
 

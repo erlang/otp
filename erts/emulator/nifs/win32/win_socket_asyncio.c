@@ -1731,7 +1731,7 @@ ERL_NIF_TERM connect_stream_check_result(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "connect_stream_check_result {%d} -> connected\r\n",
+                "connect_stream_check_result(%d) -> connected\r\n",
                 descP->sock) );
 
         /* Clean up the connector stuff, no need for that anymore */
@@ -1762,12 +1762,12 @@ ERL_NIF_TERM connect_stream_check_result(ErlNifEnv*       env,
             save_errno = sock_errno();
 
             tag        = esock_atom_update_connect_context;
-            reason     = MKA(env, erl_errno_id(save_errno));
+            reason     = ENO2T(env, save_errno);
 
             SSDBG( descP, ("WIN-ESAIO",
-                           "connect_stream_check_result {%d} -> "
-                           "connect context update failed: %T (%d)\r\n",
-                           descP->sock, reason, save_errno) );
+                           "connect_stream_check_result(%d) -> "
+                           "connect context update failed: %T\r\n",
+                           descP->sock, reason) );
 
             sock_close(descP->sock);
             descP->writeState = ESOCK_STATE_CLOSED;

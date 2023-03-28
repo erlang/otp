@@ -19129,7 +19129,7 @@ which_local_host_ifname(Domain) ->
 
 api_opt_ip_pktinfo_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_opt_ip_pktinfo_udp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4(), has_support_ip_pktinfo() end,
            fun() ->
                    Set  = fun(Sock, Value) ->
@@ -19140,16 +19140,16 @@ api_opt_ip_pktinfo_udp4(_Config) when is_list(_Config) ->
                           end,
                    Send = fun(Sock, Data, Dest, default) ->
                                   Msg = #{addr => Dest,
-                                             iov  => [Data]},
+                                          iov  => [Data]},
                                   socket:sendmsg(Sock, Msg);
                              (Sock, Data, Dest, Info) ->
                                   %% We do not support this at the moment!!!
                                   CMsg = #{level => ip,
-                                              type  => pktinfo,
-                                              data  => Info},
+                                           type  => pktinfo,
+                                           data  => Info},
                                   Msg  = #{addr => Dest,
-                                              ctrl => [CMsg],
-                                              iov  => [Data]},
+                                           ctrl => [CMsg],
+                                           iov  => [Data]},
                                   socket:sendmsg(Sock, Msg)
                           end,
                    Recv = fun(Sock) ->
@@ -19238,18 +19238,18 @@ api_opt_ip_pktinfo_udp(InitState) ->
                                        "~n   ~p", [SADst]),
                            {ok, State#{sa_dst => SADst}}
                    end},
-         #{desc => "default pktinfo for dst socket",
+         #{desc => "get default pktinfo for dst socket",
            cmd  => fun(#{sock_dst := Sock, get := Get} = _State) ->
                            case Get(Sock) of
                                {ok, false = Value} ->
                                    ?SEV_IPRINT("dst recvttl: ~p", [Value]),
                                    ok;
                                {ok, Unexpected} ->
-                                   ?SEV_EPRINT("Unexpected src recvtos: ~p",
+                                   ?SEV_EPRINT("Unexpected src pktinfo: ~p",
                                                [Unexpected]),
                                    {error, {unexpected, Unexpected}};
                                {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Failed getting (default) timestamp:"
+                                   ?SEV_EPRINT("Failed getting (default) pktinfo:"
                                                "   ~p", [Reason]),
                                    ERROR
                            end
