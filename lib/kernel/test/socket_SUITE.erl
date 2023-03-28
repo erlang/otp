@@ -20191,6 +20191,7 @@ api_opt_ip_recvtos_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_opt_ip_recvtos_udp4,
            fun() ->
+                   is_not_windows(),
                    has_support_ipv4(),
                    has_support_ip_recvtos(),
                    has_support_ip_tos() % Used in the test
