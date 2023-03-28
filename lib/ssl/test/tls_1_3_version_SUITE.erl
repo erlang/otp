@@ -57,7 +57,9 @@
          middle_box_tls12_enabled_client/0,
          middle_box_tls12_enabled_client/1,
          middle_box_client_tls_v2_session_reused/0,
-         middle_box_client_tls_v2_session_reused/1
+         middle_box_client_tls_v2_session_reused/1,
+         renegotiate_error/0,
+         renegotiate_error/1
         ]).
 
 
@@ -90,7 +92,8 @@ tls_1_3_1_2_tests() ->
      tls12_client_tls_server,
      middle_box_tls13_client,
      middle_box_tls12_enabled_client,
-     middle_box_client_tls_v2_session_reused
+     middle_box_client_tls_v2_session_reused,
+     renegotiate_error
     ].
 legacy_tests() ->
     [tls_client_tls10_server,
@@ -328,6 +331,26 @@ middle_box_client_tls_v2_session_reused(Config) when is_list(Config) ->
                                                        {middlebox_comp_mode, true},
                                                        {reuse_session, {SessionId, SessData}} | ClientOpts]}]),
     {ok,[{session_id, SessionId}]}  = ssl:connection_information(CSock1, [session_id]).
+
+renegotiate_error() ->
+    [{doc, "Test that an error is returned when ssl:renegotiate/1 is called on a connection running TLS-1.3"}].
+renegotiate_error(Config) when is_list(Config) ->
+    {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{versions, ['tlsv1.3']} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Options = [{versions, ['tlsv1.3']} | ClientOpts],
+    case ssl:connect(Hostname, Port, Options) of
+        {ok, Socket} ->
+            {error, notsup} = ssl:renegotiate(Socket);
+        {error, Reason} ->
+            ct:fail(Reason)
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions and callbacks -----------------------------------
