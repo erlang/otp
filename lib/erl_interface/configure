@@ -750,7 +750,6 @@ enable_threads
 enable_mask_real_errno
 enable_ei_dynamic_lib
 with_gmp
-enable_sanitizers
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1385,8 +1384,6 @@ Optional Features:
   --disable-threads       use to only build single threaded libs
   --disable-mask-real-errno do not mask real 'errno'
   --enable-ei-dynamic-lib  build ei as a dynamic library
-  --enable-sanitizers[=comma-separated list of sanitizers]
-                          Default=address,undefined
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -9624,23 +9621,6 @@ fi
 
 
 
-
-
-
-
-# Check whether --enable-sanitizers was given.
-if test ${enable_sanitizers+y}
-then :
-  enableval=$enable_sanitizers;
-case "$enableval" in
-    no) sanitizers= ;;
-    yes) sanitizers="-fsanitize=address,undefined" ;;
-    *) sanitizers="-fsanitize=$enableval" ;;
-esac
-CFLAGS="$CFLAGS $sanitizers"
-LDFLAGS="$LDFLAGS $sanitizers"
-
-fi
 
 
 # ---------------------------------------------------------------------------
