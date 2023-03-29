@@ -1351,7 +1351,7 @@ ignore_invalid_header(Config) when is_list(Config) ->
             ssl ->
                 Conf = proplists:get_value(client_config, proplists:get_value(ssl_conf, Config)),
                 {"https://"  ++ Host ++  ":" ++ integer_to_list(Port) ++ "/cgi-bin/erl/httpd_example:ignore_invalid_header",
-                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], [{ssl, Conf}]}
+                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], [{ssl, [{verify, verify_none} | Conf]}]}
         end,
     {ok,{{_,204,_}, _, _}}
         = httpc:request(get, {Url, Header}, [{timeout, 45000} | Opts], [{headers_as_is, true}]).
