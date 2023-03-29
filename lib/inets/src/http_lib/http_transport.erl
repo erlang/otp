@@ -36,11 +36,9 @@
 	 resolve/0
 	]).
 -export([negotiate/3]).
--export([ipv4_name/1, ipv6_name/1]).
 
 -include_lib("inets/src/inets_app/inets_internal.hrl").
 -include("http_internal.hrl").
-
 
 %%%=========================================================================
 %%%  Internal application API
@@ -278,11 +276,11 @@ peername({ssl, _}, Socket) ->
 
 do_peername({ok, {Addr, Port}}) 
   when tuple_size(Addr) =:= 4 ->
-    PeerName = ipv4_name(Addr), 
+    PeerName = ip_name(Addr),
     {Port, PeerName};
 do_peername({ok, {Addr, Port}}) 
   when tuple_size(Addr) =:= 8 ->
-    PeerName = ipv6_name(Addr), 
+    PeerName = ip_name(Addr),
     {Port, PeerName};
 do_peername({error, _}) ->
     {-1, "unknown"}.
@@ -296,11 +294,11 @@ sockname({ssl, _}, Socket) ->
 
 do_sockname({ok, {Addr, Port}}) 
   when tuple_size(Addr) =:= 4 ->
-    SockName = ipv4_name(Addr), 
+    SockName = ip_name(Addr),
     {Port, SockName};
 do_sockname({ok, {Addr, Port}}) 
   when tuple_size(Addr) =:= 8 ->
-    SockName = ipv6_name(Addr), 
+    SockName = ip_name(Addr),
     {Port, SockName};
 do_sockname({error, _}) ->
     {-1, "unknown"}.
@@ -309,22 +307,8 @@ resolve() ->
     {ok, Name} = inet:gethostname(),
     Name.
 
-ipv4_name({A, B, C, D}) ->
-    integer_to_list(A) ++ "." ++
-	integer_to_list(B) ++ "." ++
-	integer_to_list(C) ++ "." ++
-	integer_to_list(D).
-
-ipv6_name({A, B, C, D, E, F, G, H}) ->
-    http_util:integer_to_hexlist(A) ++ ":"++ 
-	http_util:integer_to_hexlist(B) ++ ":" ++  
-	http_util:integer_to_hexlist(C) ++ ":" ++ 
-	http_util:integer_to_hexlist(D) ++ ":" ++  
-	http_util:integer_to_hexlist(E) ++ ":" ++  
-	http_util:integer_to_hexlist(F) ++ ":" ++  
-	http_util:integer_to_hexlist(G) ++ ":" ++  
-	http_util:integer_to_hexlist(H).
-
+ip_name(Ip) ->
+    inet:ntoa(Ip).
 
 close_tag(ip_comm) ->
     tcp_closed;
