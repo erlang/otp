@@ -13705,6 +13705,10 @@ api_opt_sock_broadcast() ->
                                    ?SEV_IPRINT("Expected Success: "
                                                "broadcast message sent"),
                                    ok;
+                               {error, eacces = Reason} ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p => SKIP",
+					       [Reason]),
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p",
 					       [Reason]),
@@ -21477,10 +21481,11 @@ api_opt_recverr_udp(Config, InitState) ->
                    end},
 
          #{desc => "try recv - expect econnrefused",
-           cmd  => fun(#{sent       := false,
-                         asynch_tag := select,
-                         sock       := Sock,
-                         recv       := Recv} = _State) ->
+           cmd  => fun(#{asynch_tag := completion} = _State) ->
+                           ?SEV_IPRINT("already processed"),
+                           ok;
+                      (#{sock := Sock,
+                         recv := Recv} = _State) ->
                            case Recv(Sock, infinity) of
                                {error, econnrefused = Reason} ->
                                    ?SEV_IPRINT("expected failure: ~p",
@@ -21497,14 +21502,7 @@ api_opt_recverr_udp(Config, InitState) ->
                                    ?SEV_EPRINT("unexpected error: ~p",
                                                [Reason]),
                                    ERROR
-                           end;
-                      (#{sent       := false,
-                         asynch_tag := completion} = _State) ->
-                           ?SEV_IPRINT("already processed"),
-                           ok;
-                      (#{sent := true} = _State) ->
-                           ?SEV_IPRINT("no action needed"),
-                           ok
+                           end
                    end},
 
          #{desc => "send to self",
@@ -21687,14 +21685,20 @@ api_opt_recverr_udp(Config, InitState) ->
 
 api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_opt_ip_mopts_udp4,
+    tc_try(?FUNCTION_NAME,
            fun() ->
                    has_support_ipv4(),
-		   case is_any_options_supported(
-			  [{ip, pktinfo},
-			   {ip, recvorigdstaddr},
-			   {ip, recvtos},
-			   {ip, recvttl}]) of
+                   Opts =
+                       [{ip, pktinfo},
+                        {ip, recvorigdstaddr}] ++
+                       case os:type() of
+                           {win32, nt} ->
+                               [];
+                           _ ->
+                               [{ip, recvtos},
+                                {ip, recvttl}]
+                       end,
+		   case is_any_options_supported(Opts) of
 		       true ->
 			   ok;
 		       false ->
@@ -21730,41 +21734,48 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
 			   false ->
 			       []
 		       end ++
-		       case socket:is_supported(options, ip, recvtos) of
-			   true ->
-                               %% It seems that sending any of the
-                               %% TOS or TTL values will fail on: 
-			       %%    FreeBSD
-			       %%    Linux when
-			       %%      version =< 3.12.60 (at least)
-			       %%      Don't know when this starts working,
-			       %%      but it works on: 
-			       %%           Ubunto 16.04.6 => 4.15.0-65
-			       %%           SLES 12 SP2    => 4.4.120-92.70
-			       %% so don't!
-                               %%
-                               %% The latest we know it not to work was a
-                               %% SLES 12 (plain) at 3.12.50-52.54
-                               %%
-			       [{ip, recvtos, tos, 
-                                 case os:type() of
-                                     {unix, freebsd} ->
-                                         default;
-				     {unix, linux} ->
-					 case os:version() of
-					     Vsn when Vsn > {3,12,60} ->
-						 42;
-					     _ ->
-						 default
-					 end;
-                                     _ -> 
-                                         42
-                                 end}];
-			   false ->
-			       []
+                       case os:type() of
+                           {win32, nt} ->
+                               [];
+                           _ ->
+                               case socket:is_supported(options, ip, recvtos) of
+                                   true ->
+                                       %% It seems that sending any of the
+                                       %% TOS or TTL values will fail on: 
+                                       %%    FreeBSD
+                                       %%    Linux when
+                                       %%      version =< 3.12.60 (at least)
+                                       %%      Don't know when this starts
+                                       %%      working, but it works on: 
+                                       %%         Ubunto 16.04.6 => 4.15.0-65
+                                       %%         SLES 12 SP2 => 4.4.120-92.70
+                                       %% so don't!
+                                       %%
+                                       %% The latest we know it not to work
+                                       %% was a SLES 12 (plain) at 3.12.50-52.54
+                                       %%
+                                       [{ip, recvtos, tos, 
+                                         case os:type() of
+                                             {unix, freebsd} ->
+                                                 default;
+                                             {unix, linux} ->
+                                                 case os:version() of
+                                                     Vsn when Vsn > {3,12,60} ->
+                                                         42;
+                                                     _ ->
+                                                         default
+                                                 end;
+                                             _ -> 
+                                                 42
+                                         end}];
+                                   false ->
+                                       []
+                               end
 		       end ++
                        case os:type() of
                            {unix, darwin} ->
+                               [];
+                           {win32, nt} ->
                                [];
                            _ ->
                                case socket:is_supported(options, ip, recvttl) of
@@ -21800,21 +21811,22 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
 		       end,
 
                    Enable = fun(Sock, Level, Opt) ->
-				    ?SEV_IPRINT("try enable [~w] ~p", [Level, Opt]),
+				    ?SEV_IPRINT("try enable [~w] ~p",
+                                                [Level, Opt]),
 				    socket:setopt(Sock, Level, Opt, true)
                             end,
                    Send = fun(Sock, Data, Dest, []) ->
                                   Msg = #{addr => Dest,
-                                             iov  => [Data]},
+                                          iov  => [Data]},
                                   socket:sendmsg(Sock, Msg);
 			     (Sock, Data, Dest, Hdrs) when is_list(Hdrs) ->
 				  CMsgs = [#{level => Level,
-						type  => Type,
-						value => Val} ||
-						 {Level, Type, Val} <- Hdrs],
+                                             type  => Type,
+                                             value => Val} ||
+                                              {Level, Type, Val} <- Hdrs],
                                   Msg   = #{addr => Dest,
-					       ctrl => CMsgs,
-					       iov  => [Data]},
+                                            ctrl => CMsgs,
+                                            iov  => [Data]},
                                   socket:sendmsg(Sock, Msg)
                           end,
                    Recv = fun(Sock) ->
@@ -23078,7 +23090,39 @@ api_opt_ipv6_tclass_udp(InitState) ->
 
          #{desc => "send req (to dst) (w explicit tc = 1)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
-                           Send(Sock, ?BASIC_REQ, Dst, 1)
+                           case Send(Sock, ?BASIC_REQ, Dst, 1) of
+                              {error,
+                                {get_overlapped_result,
+                                 #{file     := File,
+                                   function := Function,
+                                   line     := Line,
+                                   raw_info := RawInfo,
+                                   info     := invalid_parameter = Info}}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TClass: "
+                                               "~p => SKIP: "
+                                               "~n   File:     ~s"
+                                               "~n   Function: ~s"
+                                               "~n   Line:     ~p"
+                                               "~n   Raw Info: ~p",
+                                               [Info,
+                                                File, Function, Line,
+                                                RawInfo]),
+                                   (catch socket:close(Sock)),
+                                   {skip,
+                                    ?F("Cannot send with TClass: ~p", [Info])};
+                               {error, {get_overlapped_result,
+                                        invalid_parameter = Info}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TClass: "
+                                               "~p => SKIP", [Info]),
+                                   (catch socket:close(Sock)),
+                                   {skip,
+                                    ?F("Cannot send with TClass: ~p", [Info])};
+
+                               Other ->
+                                   Other
+                           end
                    end},
          #{desc => "recv req (from src)",
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
@@ -23125,7 +23169,8 @@ api_opt_ipv6_tclass_udp(InitState) ->
 						       value => "something"},
 						?BASIC_REQ, UnexpData]),
                                    {error, {unexpected_data, UnexpData}};
-                               {error, _} = ERROR ->
+
+                                {error, _} = ERROR ->
                                    %% At the moment there is no way to get
                                    %% status or state for the socket...
                                    ERROR
@@ -23186,13 +23231,19 @@ api_opt_ipv6_mopts_udp6(_Config) when is_list(_Config) ->
     tc_try(api_opt_ipv6_mopts_udp6,
            fun() ->
                    has_support_ipv6(),
-		   case is_any_options_supported(
-			  [{ipv6, recvpktinfo},
-			   {ipv6, flowinfo},
-			   {ipv6, recvhoplimit},
-			   {ipv6, hoplimit},
-			   {ipv6, recvtclass},
-			   {ipv6, tclass}]) of
+                   Opts =
+                       [{ipv6, recvpktinfo},
+                        {ipv6, flowinfo},
+                        {ipv6, recvhoplimit},
+                        {ipv6, hoplimit}] ++
+                       case os:type() of
+                           {win32, nt} ->
+                               [];
+                           _ ->
+                               [{ipv6, recvtclass},
+                                {ipv6, tclass}]
+                       end,
+		   case is_any_options_supported(Opts) of
 		       true ->
 			   ok;
 		       false ->
@@ -23241,20 +23292,28 @@ api_opt_ipv6_mopts_udp6(_Config) when is_list(_Config) ->
 				       []
 			       end
 		       end ++
-		       case socket:is_supported(options, ipv6, recvtclass) of
-			   true ->
-			       [{ipv6, recvtclass, tclass, 42}];
-			   false ->
-			       case socket:is_supported(options, ipv6, tclass) of
-				   true ->
-				       [{ipv6, tclass, tclass, 42}];
-				   false ->
-				       []
-			       end
+                       case os:type() of
+                           {win32, nt} ->
+                               [];
+                           _ ->
+                               case socket:is_supported(options,
+                                                        ipv6, recvtclass) of
+                                   true ->
+                                       [{ipv6, recvtclass, tclass, 42}];
+                                   false ->
+                                       case socket:is_supported(options,
+                                                                ipv6, tclass) of
+                                           true ->
+                                               [{ipv6, tclass, tclass, 42}];
+                                           false ->
+                                               []
+                                       end
+                               end
 		       end,
 
                    Enable = fun(Sock, Level, Opt) ->
-				    ?SEV_IPRINT("try enable [~w] ~p", [Level, Opt]),
+				    ?SEV_IPRINT("try enable [~w] ~p",
+                                                [Level, Opt]),
 				    socket:setopt(Sock, Level, Opt, true)
                             end,
                    Send = fun(Sock, Data, Dest, []) ->
@@ -23263,12 +23322,12 @@ api_opt_ipv6_mopts_udp6(_Config) when is_list(_Config) ->
                                   socket:sendmsg(Sock, Msg);
 			     (Sock, Data, Dest, Hdrs) when is_list(Hdrs) ->
 				  CMsgs = [#{level => Level,
-						type  => Type,
-						data  => Val} ||
-						 {Level, Type, Val} <- Hdrs],
+                                             type  => Type,
+                                             data  => Val} ||
+                                              {Level, Type, Val} <- Hdrs],
                                   Msg   = #{addr => Dest,
-					       ctrl => CMsgs,
-					       iov  => [Data]},
+                                            ctrl => CMsgs,
+                                            iov  => [Data]},
                                   socket:sendmsg(Sock, Msg)
                           end,
                    Recv = fun(Sock) ->
@@ -40184,7 +40243,12 @@ traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
                      true ->
                           ok
                   end,
-                  ok = socket:setopt(Sock, otp, rcvbuf, {12, 1024})
+                  case os:type() of
+                      {win32, nt} ->
+                          ok = socket:setopt(Sock, otp, rcvbuf, 12*1024);
+                      _ ->
+                          ok = socket:setopt(Sock, otp, rcvbuf, {12, 1024})
+                  end
           end,
     traffic_ping_pong_send_and_receive_tcp2(InitState#{buf_init => Fun}).
 
