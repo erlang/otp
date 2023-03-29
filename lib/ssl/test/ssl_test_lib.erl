@@ -44,6 +44,7 @@
          default_tls_version/1,
          check_sane_openssl_renegotiate/2,
          check_openssl_npn_support/1,
+         check_sane_openssl_dsa/1,
          start_server/1,
          start_server/2,
          start_client/1,
@@ -3357,6 +3358,22 @@ check_sane_openssl_version(Version, Config) ->
 	false ->
 	    false
     end.
+
+
+%% If other DSA checks have passed also check the following
+check_sane_openssl_dsa(Config) ->
+    case not is_fips(openssl, Config) of
+        true ->
+            case proplists:get_value(openssl_version, Config) of
+                "OpenSSL 1.0." ++ _ ->
+                    false;
+                _ ->
+                    true
+            end;
+        false ->
+            false
+    end.
+
 check_sane_openssl_renegotiate(Config, Version) when  Version == 'tlsv1';
                                                       Version == 'tlsv1.1';
                                                       Version == 'tlsv1.2' ->

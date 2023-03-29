@@ -280,7 +280,9 @@ init_per_group(Group, Config0) when Group == dsa ->
     NVersion = ssl_test_lib:n_version(proplists:get_value(version, Config0)),
     SigAlgs = ssl_test_lib:sig_algs(dsa, NVersion),
     case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg)
-        andalso (ssl_test_lib:openssl_dsa_suites() =/= []) of
+        andalso (ssl_test_lib:openssl_dsa_suites() =/= [])
+        andalso (ssl_test_lib:check_sane_openssl_dsa(Config0))
+    of
         true ->
             Config = ssl_test_lib:make_dsa_cert(Config0),
             COpts = SigAlgs ++ proplists:get_value(client_dsa_opts, Config),

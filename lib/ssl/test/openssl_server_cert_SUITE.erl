@@ -312,7 +312,9 @@ init_per_group(eddsa_1_3, Config0) ->
 init_per_group(dsa = Group, Config0) ->
     PKAlg = crypto:supports(public_keys),
     case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) andalso
-        (ssl_test_lib:openssl_dsa_suites() =/= [])  of
+        (ssl_test_lib:openssl_dsa_suites() =/= [])
+        andalso (ssl_test_lib:check_sane_openssl_dsa(Config0))
+    of
         true ->
             Config = ssl_test_lib:make_dsa_cert(Config0),
             COpts = proplists:get_value(client_dsa_opts, Config),
