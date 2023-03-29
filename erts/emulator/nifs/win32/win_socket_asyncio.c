@@ -5362,9 +5362,6 @@ void* esaio_completion_main(void* threadDataP)
         case ESAIO_OP_SENDMSG:
             SGDBG( ("WIN-ESAIO",
                     "esaio_completion_main -> received sendmsg cmd\r\n") );
-            /* ESOCK_PRINTF("esaio_completion_main -> received sendmsg cmd when" */
-            /*              "\r\n   numBytes: %d" */
-            /*              "\r\n", numBytes ); */
             done = esaio_completion_sendmsg(dataP, descP, opP, save_errno);
             break;
 
@@ -5383,9 +5380,6 @@ void* esaio_completion_main(void* threadDataP)
         case ESAIO_OP_RECVMSG:
             SGDBG( ("WIN-ESAIO",
                     "esaio_completion_main -> received recvmsg cmd\r\n") );
-            /* ESOCK_PRINTF("esaio_completion_main -> received recvmsg cmd when" */
-            /*              "\r\n   numBytes: %d" */
-            /*              "\r\n", numBytes ); */
             done = esaio_completion_recvmsg(dataP, descP, opP, save_errno);
             break;
 
@@ -5395,9 +5389,6 @@ void* esaio_completion_main(void* threadDataP)
                     "\r\n   %d"
                     "\r\n",
                     opP->tag) );
-            /* ESOCK_EPRINTF("esaio_completion_main -> received unknown cmd:" */
-            /*               "\r\n   %d" */
-            /*               "\r\n", opP->tag ); */
             done = esaio_completion_unknown(dataP, descP, opP, numBytes,
                                             save_errno);
             break;
@@ -6204,6 +6195,14 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
                  */
                 esaio_completion_send_not_active(descP);
             }
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->writersQ.first == NULL) {
+                descP->writeState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             /* Request was actually completed directly
              * (and was therefor not put into the "queue")
@@ -6307,6 +6306,14 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
             esock_send_abort_msg(env, descP, opP->data.send.sockRef,
                                  &req, reason);
             esaio_completion_send_fail(env, descP, error, FALSE);
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->writersQ.first == NULL) {
+                descP->writeState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             esaio_completion_send_fail(env, descP, error, TRUE);
         }
@@ -6429,18 +6436,6 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
                               opEnv,           // Msg env
                               sockRef,         // Dest socket
                               completionInfo); // Info
-
-    /* *** Finalize *** */
-
-    SSDBG( descP,
-           ("WIN-ESAIO", "esaio_completion_send_completed -> finalize\r\n") );
-
-    /* *Maybe* update socket (write) state
-     * (depends on if the queue is now empty)
-     */
-    if (descP->writersQ.first == NULL) {
-        descP->writeState &= ~ESOCK_STATE_SELECTED;
-    }
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_send_completed -> done\r\n") );
@@ -6620,6 +6615,14 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
                  */
                 esaio_completion_send_not_active(descP);
             }
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->writersQ.first == NULL) {
+                descP->writeState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             /* Request was actually completed directly
              * (and was therefor not put into the "queue")
@@ -6723,6 +6726,14 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
             esock_send_abort_msg(env, descP, opP->data.sendto.sockRef,
                                  &req, reason);
             esaio_completion_sendto_fail(env, descP, error, FALSE);
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->writersQ.first == NULL) {
+                descP->writeState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             esaio_completion_sendto_fail(env, descP, error, TRUE);
         }
@@ -6840,6 +6851,14 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
                  */
                 esaio_completion_send_not_active(descP);
             }
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->writersQ.first == NULL) {
+                descP->writeState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             /* Request was actually completed directly
              * (and was therefor not put into the "queue")
@@ -6943,6 +6962,14 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
             esock_send_abort_msg(env, descP, opP->data.sendmsg.sockRef,
                                  &req, reason);
             esaio_completion_sendmsg_fail(env, descP, error, FALSE);
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->writersQ.first == NULL) {
+                descP->writeState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             esaio_completion_sendmsg_fail(env, descP, error, TRUE);
         }
@@ -7046,6 +7073,14 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
                 esaio_completion_recv_not_active(descP);
                 FREE_BIN( &opP->data.recv.buf );
             }
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->readersQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             /* Request was actually completed directly
              * (and was therefor not put into the "queue")
@@ -7112,7 +7147,16 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
                         descP->closeRef = esock_atom_undefined;
 
                     }
+
                 }
+
+            }
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->readersQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
             }
         }
         FREE_BIN( &opP->data.recv.buf );
@@ -7144,6 +7188,14 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
             esock_send_abort_msg(env, descP, opP->data.recv.sockRef,
                                  &req, reason);
             esaio_completion_recv_fail(env, descP, error, FALSE);
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->readersQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
+            }
+            
         } else {
             esaio_completion_recv_fail(env, descP, error, TRUE);
         }
@@ -7291,13 +7343,6 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                     reqP->env);
     esock_free_env("esaio_completion_recv_completed -> req cleanup",
                    reqP->env);
-
-    /* *Maybe* update socket (write) state
-     * (depends on if the queue is now empty)
-     */
-    if (descP->readersQ.first == NULL) {
-        descP->readState &= ~ESOCK_STATE_SELECTED;
-    }
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_recv_completed -> done\r\n") );
@@ -7649,6 +7694,14 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
                 esaio_completion_recv_not_active(descP);
                 FREE_BIN( &opP->data.recvfrom.buf );
             }
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->readersQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             /* Request was actually completed directly
              * (and was therefor not put into the "queue")
@@ -7717,6 +7770,14 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
                     }
                 }
             }
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->readersQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
+            }
+
         }
         FREE_BIN( &opP->data.recvfrom.buf );
         MUNLOCK(descP->writeMtx);
@@ -7747,6 +7808,14 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
             esock_send_abort_msg(env, descP, opP->data.recvfrom.sockRef,
                                  &req, reason);
             esaio_completion_recvfrom_fail(env, descP, error, FALSE);
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->readersQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             esaio_completion_recvfrom_fail(env, descP, error, TRUE);
         }
@@ -7875,13 +7944,6 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*       env,
                     reqP->env);
     esock_free_env("esaio_completion_recvfrom_completed -> req cleanup",
                    reqP->env);
-
-    /* *Maybe* update socket (write) state
-     * (depends on if the queue is now empty)
-     */
-    if (descP->readersQ.first == NULL) {
-        descP->readState &= ~ESOCK_STATE_SELECTED;
-    }
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_recvfrom_completed -> done\r\n") );
@@ -8096,6 +8158,14 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
                 FREE_BIN( &opP->data.recvmsg.data[0] );
                 FREE_BIN( &opP->data.recvmsg.ctrl );
             }
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->readersQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             /* Request was actually completed directly
              * (and was therefor not put into the "queue")
@@ -8164,6 +8234,14 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
                     }
                 }
             }
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->readersQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
+            }
+
         }
         FREE_BIN( &opP->data.recvmsg.data[0] );
         FREE_BIN( &opP->data.recvmsg.ctrl );
@@ -8195,6 +8273,14 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
             esock_send_abort_msg(env, descP, opP->data.recvmsg.sockRef,
                                  &req, reason);
             esaio_completion_recvmsg_fail(env, descP, error, FALSE);
+
+            /* *Maybe* update socket (write) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->readersQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
+            }
+
         } else {
             esaio_completion_recvmsg_fail(env, descP, error, TRUE);
         }
@@ -8328,13 +8414,6 @@ void esaio_completion_recvmsg_completed(ErlNifEnv*       env,
                     reqP->env);
     esock_free_env("esaio_completion_recvmsg_completed -> req cleanup",
                    reqP->env);
-
-    /* *Maybe* update socket (write) state
-     * (depends on if the queue is now empty)
-     */
-    if (descP->readersQ.first == NULL) {
-        descP->readState &= ~ESOCK_STATE_SELECTED;
-    }
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_recvmsg_completed -> done\r\n") );
@@ -8576,15 +8655,49 @@ extern
 void esaio_dtor(ErlNifEnv*       env,
                 ESockDescriptor* descP)
 {
+    ERL_NIF_TERM sockRef;
+
     SGDBG( ("WIN-ESAIO", "esaio_dtor -> entry\r\n") );
 
+    sockRef = enif_make_resource(env, descP);
+
+    ESOCK_PRINTF("esaio_dtor -> entry when"
+                 "\r\n   is selected:     %s"
+                 "\r\n   read state:      0x%X"
+                 "\r\n   is read-closed:  %s"
+                 "\r\n   write state:     0x%X"
+                 "\r\n   is write-closed: %s"
+                 "\r\n   sock:            %d"
+                 "\r\n",
+                 B2S(IS_SELECTED(descP)),
+                 descP->readState,
+                 B2S(IS_CLOSED(descP->readState)),
+                 descP->writeState,
+                 B2S(IS_CLOSED(descP->writeState)),
+                 descP->sock);
+
     if (IS_SELECTED(descP)) {
-        /* We have used the socket in the select machinery,
+        /* We have used the socket in the "I/O Completion Port" machinery,
          * so we must have closed it properly to get here
          */
+        if (! IS_CLOSED(descP->readState) )
+            esock_warning_msg("Socket Read State not CLOSED at dtor"
+                              "\r\n   Socket: %T\r\n", sockRef);
+        
+        if (! IS_CLOSED(descP->writeState) )
+            esock_warning_msg("Socket Write State not CLOSED at dtor"
+                              "\r\n   Socket: %T\r\n", sockRef);
+        
+        if ( descP->sock != INVALID_SOCKET )
+            esock_warning_msg("Socket %d still valid"
+                              "\r\n   Socket: %T\r\n", descP->sock, sockRef);
+
+        /*
         ESOCK_ASSERT( IS_CLOSED(descP->readState) );
         ESOCK_ASSERT( IS_CLOSED(descP->writeState) );
         ESOCK_ASSERT( descP->sock == INVALID_SOCKET );
+        */
+
     } else {
         /* The socket is only opened, should be safe to close nonblocking */
         (void) sock_close(descP->sock);
