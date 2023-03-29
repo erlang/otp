@@ -41,6 +41,8 @@ obsolete(crypto, crypto_dyn_iv_update, 3) ->
     {deprecated, "see the documentation for details", "OTP 27"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
+obsolete(dbg, stop_clear, 0) ->
+    {deprecated, "use dbg:stop/0 instead", "OTP 27"};
 obsolete(disk_log, accessible_logs, 0) ->
     {deprecated, "use disk_log:all/0 instead", "OTP 26"};
 obsolete(disk_log, lclose, 1) ->
@@ -53,6 +55,10 @@ obsolete(erlang, phash, 2) ->
     {deprecated, "use erlang:phash2/2 instead"};
 obsolete(file, pid2name, 1) ->
     {deprecated, "this functionality is no longer supported", "OTP 27"};
+obsolete(ftp, start_service, 1) ->
+    {deprecated, "use ftp:open/2 instead", "OTP 26"};
+obsolete(ftp, stop_service, 1) ->
+    {deprecated, "use ftp:close/1 instead", "OTP 26"};
 obsolete(http_uri, decode, 1) ->
     {deprecated, "use uri_string:unquote function instead", "OTP 26"};
 obsolete(http_uri, encode, 1) ->
@@ -169,10 +175,6 @@ obsolete(erlang, hash, 2) ->
     {removed, "use erlang:phash2/2 instead"};
 obsolete(filename, safe_relative_path, 1) ->
     {removed, "use filelib:safe_relative_path/2 instead"};
-obsolete(ftp, start_service, 1) ->
-    {removed, "use ftp:open/2 instead"};
-obsolete(ftp, stop_service, 1) ->
-    {removed, "use ftp:close/1 instead"};
 obsolete(http_uri, parse, 1) ->
     {removed, "use uri_string functions instead"};
 obsolete(http_uri, parse, 2) ->
