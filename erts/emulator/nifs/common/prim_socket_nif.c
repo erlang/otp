@@ -1946,6 +1946,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(block_source);                    \
     GLOBAL_ATOM_DECL(broadcast);                       \
     GLOBAL_ATOM_DECL(busy_poll);                       \
+    GLOBAL_ATOM_DECL(cancel);                          \
     GLOBAL_ATOM_DECL(cantconfig);		       \
     GLOBAL_ATOM_DECL(chaos);                           \
     GLOBAL_ATOM_DECL(checksum);                        \

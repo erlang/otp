@@ -3579,8 +3579,43 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         if (err == WSA_IO_PENDING) {
 
-            eres = recv_check_pending(env, descP, opP, caller,
-                                      sockRef, recvRef);
+            if (! IS_ZERO(recvRef)) {
+
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
+
+            } else {
+
+                /* We are not allowed to wait! => cancel */
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recv_check_result(%T, %d) -> "
+                        "pending - but we are not allowed to wait => cancel"
+                        "\r\n", sockRef, descP->sock) );
+
+                if (! CancelIoEx((HANDLE) descP->sock, (OVERLAPPED*) opP)) {
+                    int          save_errno = sock_errno();
+                    ERL_NIF_TERM tag        = esock_atom_cancel;
+                    ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+                    SSDBG( descP,
+                           ("WIN-ESAIO",
+                            "recv_check_result(%T, %d) -> "
+                            "failed cancel pending operation"
+                            "\r\n   %T"
+                            "\r\n", sockRef, descP->sock, reason) );
+
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
+
+                } else {
+
+                    eres = esock_atom_ok;
+
+                }
+
+            }
+
         } else {
 
             eres = recv_check_fail(env, descP, opP, err, sockRef);
@@ -3694,8 +3729,41 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
              * us it was done, it was not. So we need to postpone and let
              * the (worker) threads deal with it anyway...effing framework...
              */
-            result = recv_check_pending(env, descP, opP, caller,
-                                        sockRef, recvRef);
+
+            if (! IS_ZERO(recvRef)) {
+                
+                result = recv_check_pending(env, descP, opP, caller,
+                                            sockRef, recvRef);
+            } else {
+
+                /* But we are not allowed to wait! => cancel */
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recv_check_ok(%T, %d) -> "
+                        "incomplete - but we are not allowed to wait => cancel"
+                        "\r\n", sockRef, descP->sock) );
+
+                if (! CancelIoEx((HANDLE) descP->sock, (OVERLAPPED*) opP)) {
+                    int          save_errno = sock_errno();
+                    ERL_NIF_TERM tag        = esock_atom_cancel;
+                    ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+                    SSDBG( descP,
+                           ("WIN-ESAIO",
+                            "recv_check_ok(%T, %d) -> "
+                            "failed cancel incomplete operation"
+                            "\r\n   %T"
+                            "\r\n", sockRef, descP->sock, reason) );
+
+                    result = esock_make_error(env, MKT2(env, tag, reason));
+
+                } else {
+
+                    result = esock_atom_ok; // Will trigger {error, timeout}
+
+                }
+            }
             break;
 
         default:
@@ -3942,8 +4010,43 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
          */
 
         if (err == WSA_IO_PENDING) {
-            eres = recv_check_pending(env, descP, opP, caller,
-                                      sockRef, recvRef);
+
+            if (! IS_ZERO(recvRef)) {
+
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
+            } else {
+
+                /* We are not allowed to wait! => cancel */
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recvfrom_check_result(%T, %d) -> "
+                        "pending - but we are not allowed to wait => cancel"
+                        "\r\n", sockRef, descP->sock) );
+
+                if (! CancelIoEx((HANDLE) descP->sock, (OVERLAPPED*) opP)) {
+                    int          save_errno = sock_errno();
+                    ERL_NIF_TERM tag        = esock_atom_cancel;
+                    ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+                    SSDBG( descP,
+                           ("WIN-ESAIO",
+                            "recvfrom_check_result(%T, %d) -> "
+                            "failed cancel pending operation"
+                            "\r\n   %T"
+                            "\r\n", sockRef, descP->sock, reason) );
+
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
+
+                } else {
+
+                    eres = esock_atom_ok; // Will trigger {error, timeout}
+
+                }
+
+            }
+                
         } else {
 
             eres = recvfrom_check_fail(env, descP, opP, err, sockRef);
@@ -4036,8 +4139,42 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
              * us it was done, it was not. So we need to postpone and let
              * the (worker) threads deal with it anyway...effing framework...
              */
-            result = recv_check_pending(env, descP, opP, caller,
-                                        sockRef, recvRef);
+
+            if (! IS_ZERO(recvRef)) {
+                
+                result = recv_check_pending(env, descP, opP, caller,
+                                            sockRef, recvRef);
+
+            } else {
+
+                /* But we are not allowed to wait! => cancel */
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recvfrom_check_ok(%T, %d) -> "
+                        "incomplete - but we are not allowed to wait => cancel"
+                        "\r\n", sockRef, descP->sock) );
+
+                if (! CancelIoEx((HANDLE) descP->sock, (OVERLAPPED*) opP)) {
+                    int          save_errno = sock_errno();
+                    ERL_NIF_TERM tag        = esock_atom_cancel;
+                    ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+                    SSDBG( descP,
+                           ("WIN-ESAIO",
+                            "recvfrom_check_ok(%T, %d) -> "
+                            "failed cancel incomplete operation"
+                            "\r\n   %T"
+                            "\r\n", sockRef, descP->sock, reason) );
+
+                    result = esock_make_error(env, MKT2(env, tag, reason));
+
+                } else {
+
+                    result = esock_atom_ok; // Will trigger {error, timeout}
+
+                }
+            }
             break;
 
         default:
@@ -4217,6 +4354,28 @@ ERL_NIF_TERM esaio_recvmsg(ErlNifEnv*       env,
 }
 
 
+static
+BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ErlNifPid*       caller,
+                            ERL_NIF_TERM     ref,
+                            ERL_NIF_TERM*    checkResult)
+{
+    BOOLEAN_T result;
+
+    /* Check if already reader */
+    if (! esock_reader_search4pid(env, descP, caller)) {
+        /* No; check if we can wait for a result */
+        if (COMPARE(ref, esock_atom_zero) == 0)
+            return FALSE;
+    } else {
+        *checkResult = esock_raise_invalid(env, esock_atom_state);
+    }
+
+    return TRUE;
+}
+
+
 /* *** recvmsg_check_result ***
  *
  * The recvmsg function (maybe) delivers one (1) message. If our buffer
@@ -4262,8 +4421,44 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
          */
 
         if (err == WSA_IO_PENDING) {
-            eres = recv_check_pending(env, descP, opP, caller,
-                                      sockRef, recvRef);
+
+            if (! IS_ZERO(recvRef)) {
+
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
+
+            } else {
+
+                /* We are not allowed to wait! => cancel */
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recvmsg_check_result(%T, %d) -> "
+                        "pending - but we are not allowed to wait => cancel"
+                        "\r\n", sockRef, descP->sock) );
+
+                if (! CancelIoEx((HANDLE) descP->sock, (OVERLAPPED*) opP)) {
+                    int          save_errno = sock_errno();
+                    ERL_NIF_TERM tag        = esock_atom_cancel;
+                    ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+                    SSDBG( descP,
+                           ("WIN-ESAIO",
+                            "recvmsg_check_result(%T, %d) -> "
+                            "failed cancel pending operation"
+                            "\r\n   %T"
+                            "\r\n", sockRef, descP->sock, reason) );
+
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
+
+                } else {
+
+                    eres = esock_atom_ok; // Will trigger {error, timeout}
+
+                }
+                
+            }
+
         } else {
 
             eres = recvmsg_check_fail(env, descP, opP, err, sockRef);
@@ -4307,7 +4502,7 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "recvmsg_check_ok(%T) {%d} -> overlapped success result: "
+                "recvmsg_check_ok(%T, %d) -> overlapped success result: "
                 "\r\n   read:  %d"
                 "\r\n   flags: 0x%X"
                 "\r\n", sockRef, descP->sock, read, flags) );
@@ -4344,8 +4539,42 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
              * us it was done, it was not. So we need to postpone and let
              * the (worker) threads deal with it anyway...effing framework...
              */
-            result = recv_check_pending(env, descP, opP, caller,
-                                        sockRef, recvRef);
+
+            if (! IS_ZERO(recvRef)) {
+                
+                result = recv_check_pending(env, descP, opP, caller,
+                                            sockRef, recvRef);
+
+            } else {
+
+                /* But we are not allowed to wait! => cancel */
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recvmsg_check_ok(%T, %d) -> "
+                        "incomplete - but we are not allowed to wait => cancel"
+                        "\r\n", sockRef, descP->sock) );
+
+                if (! CancelIoEx((HANDLE) descP->sock, (OVERLAPPED*) opP)) {
+                    int          save_errno = sock_errno();
+                    ERL_NIF_TERM tag        = esock_atom_cancel;
+                    ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+                    SSDBG( descP,
+                           ("WIN-ESAIO",
+                            "recvmsg_check_ok(%T, %d) -> "
+                            "failed cancel incomplete operation"
+                            "\r\n   %T"
+                            "\r\n", sockRef, descP->sock, reason) );
+
+                    result = esock_make_error(env, MKT2(env, tag, reason));
+
+                } else {
+
+                    result = esock_atom_ok; // Will trigger {error, timeout}
+
+                }
+            }
             break;
 
         default:
@@ -7165,8 +7394,7 @@ ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
      */
 
     if ((toRead == 0) ||
-        (descP->type != SOCK_STREAM) ||
-        (COMPARE(recvRef, esock_atom_zero) == 0)) {
+        (descP->type != SOCK_STREAM)) {
 
         /* +++ We only got a partial,           ***
          * *** but we should not wait for more. +++

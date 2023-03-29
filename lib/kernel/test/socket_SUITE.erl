@@ -6801,6 +6801,7 @@ api_a_connect_tcp(InitState) ->
 					       "unexpected success => SKIP", 
                                                []),
                                    {skip, unexpected_success};
+
                                {select, {select_info, ST, SelectRef}}
                                  when SR =:= nowait ->
                                    ?SEV_IPRINT("select nowait ->"
@@ -6817,6 +6818,7 @@ api_a_connect_tcp(InitState) ->
                                                "~n   ref: ~p", [ST, SR]),
                                    {ok, State#{asynch_tag  => select,
                                                connect_tag => ST}};
+
                                {completion, {completion_info, CT, CompletionRef}}
                                  when SR =:= nowait ->
                                    ?SEV_IPRINT("completion nowait ->"
@@ -6833,6 +6835,7 @@ api_a_connect_tcp(InitState) ->
                                                "~n   ref: ~p", [CT, CR]),
                                    {ok, State#{asynch_tag  => completion,
                                                connect_tag => CT}};
+
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -21344,16 +21347,33 @@ api_opt_recverr_udp(Config, InitState) ->
                                {select, SelectInfo} when RecvRef =:= nowait ->
                                    ?SEV_IPRINT("expected select nowait: "
 					       "~n   ~p", [SelectInfo]),
-                                   {ok, State#{rselect => SelectInfo}};
+                                   {ok, State#{async_tag => select,
+                                               rselect   => SelectInfo}};
                                {select,
                                 {select_info, _Tag, RecvRef} = SelectInfo}
                                  when is_reference(RecvRef) ->
                                    ?SEV_IPRINT("expected select ref: "
 					       "~n   ~p", [SelectInfo]),
-                                   {ok, State#{rselect => SelectInfo}};
+                                   {ok, State#{async_tag => select,
+                                               rselect   => SelectInfo}};
+
+                               {completion, CI} when RecvRef =:= nowait ->
+                                   ?SEV_IPRINT("expected completion nowait: "
+					       "~n   ~p", [CI]),
+                                   {ok, State#{asynch_tag  => completion,
+                                               rcompletion => CI}};
+                               {completion,
+                                {completion_info, _Tag, RecvRef} = CI}
+                                 when is_reference(RecvRef) ->
+                                   ?SEV_IPRINT("expected completion ref: "
+					       "~n   ~p", [CI]),
+                                   {ok, State#{asynch_tag  => completion,
+                                               rcompletion => CI}};
+
                                {ok, _} ->
                                    ?SEV_EPRINT("unexpected success"),
                                    {error, unexpected_success};
+
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("unexpected error: ~p", [Reason]),
                                    ERROR
@@ -21362,8 +21382,8 @@ api_opt_recverr_udp(Config, InitState) ->
 
          #{desc => "try send to nowhere",
            cmd  => fun(#{domain := Domain,
-                         sock := Sock,
-                         send := Send} = State) ->
+                         sock   := Sock,
+                         send   := Send} = State) ->
                            SendRef = nowait(Config),
                            Dest = #{family => Domain,
                                     addr   => if
@@ -21376,18 +21396,40 @@ api_opt_recverr_udp(Config, InitState) ->
                            case Send(Sock, <<"ping">>, Dest, SendRef) of
                                ok ->
                                    ?SEV_IPRINT("sent"),
-                                   ok;
+                                   {ok, State#{sent => true}};
+
                                {select, SelectInfo}
                                  when SendRef =:= nowait ->
                                    ?SEV_IPRINT("expected select nowait: ~p",
 					       [SelectInfo]),
-                                   {ok, State#{sselect => SelectInfo}};
+                                   {ok, State#{sent       => false,
+                                               asynch_tag => select,
+                                               sselect    => SelectInfo}};
                                {select,
                                 {select_info, _Tag, SendRef} = SelectInfo}
                                  when is_reference(SendRef) ->
                                    ?SEV_IPRINT("expected select ref: ~p",
 					       [SelectInfo]),
-                                   {ok, State#{sselect => SelectInfo}};
+                                   {ok, State#{sent       => false,
+                                               asynch_tag => select,
+                                               sselect    => SelectInfo}};
+
+                               {completion, CI}
+                                 when SendRef =:= nowait ->
+                                   ?SEV_IPRINT("expected completion nowait: ~p",
+					       [CI]),
+                                   {ok, State#{sent       => false,
+                                               asynch_tag  => completion,
+                                               scompletion => CI}};
+                               {completion,
+                                {completion_info, _Tag, SendRef} = CI}
+                                 when is_reference(SendRef) ->
+                                   ?SEV_IPRINT("expected completion ref: ~p",
+					       [CI]),
+                                   {ok, State#{sent       => false,
+                                               asynch_tag  => completion,
+                                               scompletion => CI}};
+
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("unexpected error: ~p",
 					       [Reason]),
@@ -21396,21 +21438,53 @@ api_opt_recverr_udp(Config, InitState) ->
                    end},
 
          #{desc => "await receive select message",
-           cmd  => fun(#{sock    := Sock,
-                         rselect := {select_info, _, Ref}} = _State) ->
+           cmd  => fun(#{sent       := false,
+                         asynch_tag := select,
+                         sock       := Sock,
+                         rselect    := {select_info, _, Ref}} = _State) ->
                            receive
                                {'$socket', Sock, select, Ref} ->
-                                   ?SEV_IPRINT("received expected (read) select message: "
+                                   ?SEV_IPRINT("received expected (read) "
+                                               "select message: "
                                                "~n   ~p", [Ref]),
                                    ok
-                           end
+                           end;
+                      (#{sent        := false,
+                         asynch_tag  := completion,
+                         sock        := Sock,
+                         rcompletion := {completion_info, _, Ref}} = _State) ->
+                           receive
+                               {'$socket', Sock, completion,
+                                {Ref, {error, econnrefused = Reason}}} ->
+                                   ?SEV_IPRINT("expected failure: ~p",
+                                               [Reason]),
+                                   ok;
+
+                               {'$socket', Sock, completion,
+                                {Ref, {ok, _}}} ->
+                                   ?SEV_EPRINT("unexpected success"),
+                                   {error, unexpected_success};
+                               {'$socket', Sock, completion,
+                                {Ref, {error, Reason} = ERROR}} ->
+                                   ?SEV_IPRINT("unexpected failure: ~p",
+                                               [Reason]),
+                                   ERROR
+
+                           end;
+                      (#{sent := true} = _State) ->
+                           ?SEV_IPRINT("no action needed"),
+                           ok
                    end},
 
          #{desc => "try recv - expect econnrefused",
-           cmd  => fun(#{sock := Sock, recv := Recv} = _State) ->
+           cmd  => fun(#{sent       := false,
+                         asynch_tag := select,
+                         sock       := Sock,
+                         recv       := Recv} = _State) ->
                            case Recv(Sock, infinity) of
                                {error, econnrefused = Reason} ->
-                                   ?SEV_IPRINT("expected failure: ~p", [Reason]),
+                                   ?SEV_IPRINT("expected failure: ~p",
+                                               [Reason]),
                                    ok;
                                {ok, _} ->
                                    ?SEV_EPRINT("unexpected success"),
@@ -21423,7 +21497,14 @@ api_opt_recverr_udp(Config, InitState) ->
                                    ?SEV_EPRINT("unexpected error: ~p",
                                                [Reason]),
                                    ERROR
-                           end
+                           end;
+                      (#{sent       := false,
+                         asynch_tag := completion} = _State) ->
+                           ?SEV_IPRINT("already processed"),
+                           ok;
+                      (#{sent := true} = _State) ->
+                           ?SEV_IPRINT("no action needed"),
+                           ok
                    end},
 
          #{desc => "send to self",
@@ -21448,10 +21529,17 @@ api_opt_recverr_udp(Config, InitState) ->
                                {ok, {Addr, <<"ring">>}} ->
                                    ?SEV_IPRINT("receive expected"),
                                    ok;
+
                                {select, SelectInfo} ->
                                    ?SEV_EPRINT("unexpected select: ~p",
                                                [SelectInfo]),
                                    {error, unexpected_success};
+
+                               {completion, CompletionInfo} ->
+                                   ?SEV_EPRINT("unexpected completion: ~p",
+                                               [CompletionInfo]),
+                                   {error, unexpected_success};
+
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("unexpected error: ~p",
                                                [Reason]),
@@ -21460,7 +21548,7 @@ api_opt_recverr_udp(Config, InitState) ->
                    end},
 
          #{desc => "try recv error queue",
-           cmd  => fun(#{domain := Domain, sock := Sock}) ->
+           cmd  => fun(#{domain := Domain, sock := Sock} = State) ->
                            %% Note that not all platforms that support
                            %% recverr, actually supports "encoding" the data
                            %% part, so we need to adjust for that.
@@ -21491,7 +21579,7 @@ api_opt_recverr_udp(Config, InitState) ->
                                                  }]} = Msg} ->
                                    ?SEV_IPRINT("expected error queue (decoded): "
                                                "~n   ~p", [Msg]),
-                                   ok;
+                                   {ok, State#{asynch_tag => none}};
                                {ok, #{addr  := #{family := Domain,
 						 addr   := _Addr},
                                       flags := [errqueue],
@@ -21499,12 +21587,58 @@ api_opt_recverr_udp(Config, InitState) ->
                                       value := [#{level := Level,
                                                   type  := recverr}]} = _Msg} ->
                                    ?SEV_IPRINT("expected error queue"),
-                                   ok;
+                                   {ok, State#{asynch_tag => none}};
+
+                               {completion, CI} ->
+                                   ?SEV_IPRINT("completion: "
+                                               "~n   ~p", [CI]),
+                                   {ok, State#{asynch_tag => completion,
+                                               completion => CI}};
+
+                               {error, timeout = Reason} = ERROR ->
+                                   case os:type() of
+                                       {win32, nt} ->
+                                           ?SEV_IPRINT("failed reading "
+                                                       "error queue: "
+                                                       "~n   ~p", [Reason]),
+                                           {skip,
+                                            "Test case does not "
+                                            "work on Windows"};
+                                       _ ->
+                                           ?SEV_EPRINT("failed reading "
+                                                       "error queue: "
+                                                       "~n   ~p", [Reason]),
+                                           ERROR
+                                   end;
+
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("failed reading error queue: "
                                                "~n   ~p", [Reason]),
                                    ERROR
                            end
+                   end},
+
+         #{desc => "await receive select message",
+           cmd  => fun(#{asynch_tag := completion,
+                         sock       := Sock,
+                         completion := {completion_info, _, Ref}} = _State) ->
+                           receive
+                               {'$socket', Sock, completion,
+                                {Ref, {ok, Info}}} ->
+                                   ?SEV_EPRINT("expected success: "
+                                               "~n   ~p", [Info]),
+                                   ok;
+
+                               {'$socket', Sock, completion,
+                                {Ref, {error, Reason} = ERROR}} ->
+                                   ?SEV_IPRINT("unexpected failure: ~p",
+                                               [Reason]),
+                                   ERROR
+
+                           end;
+                      (#{asynch_tag := none} = _State) ->
+                           ?SEV_IPRINT("no action needed"),
+                           ok
                    end},
 
          #{desc => "close socket",
