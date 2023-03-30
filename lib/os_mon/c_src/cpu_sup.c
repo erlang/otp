@@ -766,16 +766,16 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
     int i;
     int ncpuonline = getncpuonline();
 
-    size_cpu_times = sizeof(int64_t) * CPUSTATES;
-    cpu_times = malloc(size_cpu_times);
-    if (!cpu_times)
-        error("cpu_sup: malloc error");
-
     rv = *result_vec;
     rv[0] = ncpuonline;
     rv[1] = CU_OPENBSD_VALUES;
     ++rv; /* first value is number of cpus */
     ++rv; /* second value is number of entries */
+
+    size_cpu_times = sizeof(int64_t) * CPUSTATES;
+    cpu_times = malloc(size_cpu_times);
+    if (!cpu_times)
+        error("cpu_sup: malloc error");
 
     for (i = 0; i < ncpuonline; ++i) {
         mib[2] = i;
