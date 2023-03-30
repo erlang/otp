@@ -4717,6 +4717,10 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
                 "do_stop {%d} -> cancel outstanding I/O operations\r\n",
                 descP->sock) );
 
+        /* Cancel *all* outstanding I/O operations on the socket.
+         * We have to wait for the worker threads to process these ops!
+         * (will result in OPERATION_ABORTED for the threads).
+         */
         if (! CancelIoEx((HANDLE) descP->sock, NULL) ) {
             int save_errno = sock_errno();
 
@@ -5953,7 +5957,7 @@ void esaio_completion_accept_completed(ErlNifEnv*       env,
         if (ESAIO_OK != (save_errno = esaio_add_socket(accDescP))) {
             // See esock_dtor for what needs done!
             ERL_NIF_TERM tag    = esock_atom_add_socket;
-            ERL_NIF_TERM reason = MKA(env, erl_errno_id(save_errno));
+            ERL_NIF_TERM reason = ENO2T(env, save_errno);
 
             ESOCK_CNT_INC(env, descP,
                           CP_TERM(env, opP->data.accept.lSockRef),
@@ -6029,7 +6033,7 @@ void esaio_completion_accept_completed(ErlNifEnv*       env,
          */
         int          save_errno = sock_errno();
         ERL_NIF_TERM tag        = esock_atom_update_accept_context;
-        ERL_NIF_TERM reason     = MKA(env, erl_errno_id(save_errno));
+        ERL_NIF_TERM reason     = ENO2T(env, save_errno);
 
         SSDBG( descP, ("WIN-ESAIO",
                        "esaio_completion_accept_completed {%d} -> "
@@ -8140,11 +8144,14 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
     switch (error) {
     case NO_ERROR:
         SSDBG( descP,
-               ("WIN-ESAIO", "esaio_completion_recvmsg(%d) -> no error"
-                "\r\n", descP->sock) );
+               ("WIN-ESAIO", "esaio_completion_recvmsg(%d) -> no error:"
+                "\r\n   try get request %T from %T"
+                "\r\n",
+                descP->sock,
+                opP->data.recvmsg.recvRef, MKPID(env, &opP->caller)) );
         MLOCK(descP->readMtx);
         if (esock_reader_get(env, descP,
-                             &opP->data.recvfrom.recvRef,
+                             &opP->data.recvmsg.recvRef,
                              &opP->caller,
                              &req)) {
             if (IS_OPEN(descP->readState)) {
@@ -8659,8 +8666,7 @@ void esaio_dtor(ErlNifEnv*       env,
 
     SGDBG( ("WIN-ESAIO", "esaio_dtor -> entry\r\n") );
 
-    sockRef = enif_make_resource(env, descP);
-
+    /*
     ESOCK_PRINTF("esaio_dtor -> entry when"
                  "\r\n   is selected:     %s"
                  "\r\n   read state:      0x%X"
@@ -8675,28 +8681,24 @@ void esaio_dtor(ErlNifEnv*       env,
                  descP->writeState,
                  B2S(IS_CLOSED(descP->writeState)),
                  descP->sock);
+    */
 
     if (IS_SELECTED(descP)) {
         /* We have used the socket in the "I/O Completion Port" machinery,
          * so we must have closed it properly to get here
          */
         if (! IS_CLOSED(descP->readState) )
-            esock_warning_msg("Socket Read State not CLOSED at dtor"
-                              "\r\n   Socket: %T\r\n", sockRef);
+            esock_warning_msg("Socket Read State not CLOSED at dtor\r\n");
         
         if (! IS_CLOSED(descP->writeState) )
-            esock_warning_msg("Socket Write State not CLOSED at dtor"
-                              "\r\n   Socket: %T\r\n", sockRef);
+            esock_warning_msg("Socket Write State not CLOSED at dtor\r\n");
         
         if ( descP->sock != INVALID_SOCKET )
-            esock_warning_msg("Socket %d still valid"
-                              "\r\n   Socket: %T\r\n", descP->sock, sockRef);
+            esock_warning_msg("Socket %d still valid\r\n", descP->sock);
 
-        /*
         ESOCK_ASSERT( IS_CLOSED(descP->readState) );
         ESOCK_ASSERT( IS_CLOSED(descP->writeState) );
         ESOCK_ASSERT( descP->sock == INVALID_SOCKET );
-        */
 
     } else {
         /* The socket is only opened, should be safe to close nonblocking */
@@ -8779,7 +8781,7 @@ void esaio_stop(ErlNifEnv*       env,
                               "\r\n   Errno:               %d (%T)"
                               "\r\n",
                               descP->ctrlPid, descP->sock,
-                              err, MKA(env, erl_errno_id(err)));
+                              err, ENO2T(env, err));
     }
 
     SSDBG( descP,
@@ -8865,7 +8867,7 @@ void esaio_down(ErlNifEnv*           env,
                                   "\r\n   Errno:          %d (%T)"
                                   "\r\n",
                                   MKPID(env, pidP), descP->sock,
-                                  err, MKA(env, erl_errno_id(err)));
+                                  err, ENO2T(env, err));
         } else {
             /* Since there is a closeEnv esock_stop() has not run yet
              * - when it finds that there is no closer process
@@ -9009,7 +9011,7 @@ void esaio_down_ctrl(ErlNifEnv*           env,
                               "\r\n   Errno:          %d (%T)"
                               "\r\n",
                               MKPID(env, pidP), descP->sock,
-                              err, MKA(env, erl_errno_id(err)));
+                              err, ENO2T(env, err));
     }
 
     SSDBG( descP,
@@ -9260,10 +9262,12 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_fails, &descP->writeFails, 1);
 
-    reason = MKA(env, erl_errno_id(saveErrno));
+    reason = ENO2T(env, saveErrno);
 
     SSDBG( descP,
-           ("WIN-ESAIO", "send_check_fail(%T) {%d} -> error: %d (%T)\r\n",
+           ("WIN-ESAIO",
+            "send_check_fail(%T, %d) -> error: "
+            "\r\n   %d (%T)\r\n",
             sockRef, descP->sock, saveErrno, reason) );
 
     return esock_make_error(env, reason);

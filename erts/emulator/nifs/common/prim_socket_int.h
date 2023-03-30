@@ -546,6 +546,11 @@ typedef struct {
 
     /* Lock order: readMtx, writeMtx, cntMtx
      */
+
+#if defined(ESOCK_DESCRIPTOR_FILLER)
+    char               filler[1024];
+#endif
+
 } ESockDescriptor;
 
 

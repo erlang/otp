@@ -6201,8 +6201,11 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
     MLOCK(descP->writeMtx);
 
     SSDBG( descP,
-           ("SOCKET", "nif_finalize_close(%T), {%d,0x%X}\r\n",
-            argv[0], descP->sock, descP->readState) );
+           ("SOCKET", "nif_finalize_close(%T, %d) -> "
+            "\r\n   ReadState:  0x%X"
+            "\r\n   WriteState: 0x%X"
+            "\r\n",
+            argv[0], descP->sock, descP->readState, descP->writeState) );
 
     result = ESOCK_IO_FIN_CLOSE(env, descP);
 
@@ -6252,6 +6255,9 @@ int esock_close_socket(ErlNifEnv*       env,
             MUNLOCK(descP->writeMtx);
             MUNLOCK(descP->readMtx);
         }
+        SSDBG( descP,
+               ("SOCKET", "esock_close_socket(%d) -> "
+                "try socket close\r\n", sock) );
         if (sock_close(sock) != 0)
             err = sock_errno();
         if (unlock) {
@@ -6262,7 +6268,7 @@ int esock_close_socket(ErlNifEnv*       env,
 
     if (err != 0) {
         SSDBG( descP,
-               ("SOCKET", "esock_close_socket {%d} -> %s (%d)\r\n",
+               ("SOCKET", "esock_close_socket(%d) -> %s (%d)\r\n",
                 sock, erl_errno_id(err), err) );
     }
 
@@ -11447,6 +11453,10 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
 
     enif_set_pid_undefined(&descP->ctrlPid);
     MON_INIT(&descP->ctrlMon);
+
+#if defined(ESOCK_DESCRIPTOR_FILLER)
+    sys_memzero(descP->filler, sizeof(descP->filler));
+#endif
 
     return descP;
 }
