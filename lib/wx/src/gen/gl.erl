@@ -238,7 +238,7 @@
   texStorage2DMultisample/6,texStorage3DMultisample/7,textureView/8,
   bindVertexBuffer/4,vertexAttribFormat/5,vertexAttribIFormat/4,vertexAttribLFormat/4,
   vertexAttribBinding/2,vertexBindingDivisor/2,debugMessageControl/5,
-  debugMessageInsert/6,getDebugMessageLog/2,pushDebugGroup/4,popDebugGroup/0,
+  debugMessageInsert/5,getDebugMessageLog/2,pushDebugGroup/4,popDebugGroup/0,
   objectPtrLabel/3,bufferStorage/4,clearTexImage/5,clearTexSubImage/11,
   bindBuffersBase/3,bindBuffersRange/5,bindTextures/2,bindSamplers/2,
   bindImageTextures/2,bindVertexBuffers/4,clipControl/2,createTransformFeedbacks/1,
@@ -5119,15 +5119,14 @@ debugMessageControl(Source,Type,Severity,Ids,Enabled) when is_integer(Source),is
   IF:queue_cmd(Source,Type,Severity,Count,Ids,Enabled,5802),
   ok.
 
--spec debugMessageInsert(Source, Type, Id, Severity, Length, Buf) -> 'ok'
-    when Source::enum(), Type::enum(), Id::i(), Severity::enum(), Length::i(), Buf::string().
-debugMessageInsert(Source,Type,Id,Severity,Length,Buf) when is_integer(Source),is_integer(Type),is_integer(Id),is_integer(Severity),is_integer(Length),is_list(Buf) ->
+-spec debugMessageInsert(Source::enum(), Type::enum(), Id::i(), Severity::enum(), Buf::string()) -> 'ok'.
+debugMessageInsert(Source,Type,Id,Severity,Buf) when is_integer(Source),is_integer(Type),is_integer(Id),is_integer(Severity),is_list(Buf) ->
   IF = get_interface(),
   BufBin = unicode:characters_to_binary([Buf|[0]]),
-  IF:queue_cmd(Source,Type,Id,Severity,Length,BufBin,5803),
+  IF:queue_cmd(Source,Type,Id,Severity,BufBin,5803),
   ok.
 
--spec getDebugMessageLog(Count::i(), BufSize::i()) -> {i(),Sources::[enum()],Types::[enum()],Ids::[i()],Severities::[enum()],MessageLog::string()}.
+-spec getDebugMessageLog(Count::i(), BufSize::i()) -> {i(),Sources::[enum()],Types::[enum()],Ids::[i()],Severities::[enum()],MessageLog::[string()]}.
 getDebugMessageLog(Count,BufSize) when is_integer(Count),is_integer(BufSize) ->
   IF = get_interface(),
   IF:queue_cmd(Count,BufSize,5804),

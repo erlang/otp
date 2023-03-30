@@ -382,6 +382,8 @@ spec_arg_type2(T=#type{single={list, _Max}}) ->
     "[" ++ spec_arg_type3(T) ++ "]";
 spec_arg_type2(T=#type{single={list,_,_}}) ->
     "[" ++ spec_arg_type3(T) ++ "]";
+spec_arg_type2(T=#type{single={list,_,_,_}}) ->
+    "[" ++ spec_arg_type3(T) ++ "]";
 spec_arg_type2(T=#type{single={tuple_list,Sz}}) ->
     "[{" ++ args(fun spec_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}]".
 
