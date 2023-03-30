@@ -560,7 +560,7 @@ is_supported_sign(SignAlgo, HashSigns) ->
     lists:any(fun (SignAlgo0) -> lists:member(SignAlgo0, HashSigns) end,
               [SignAlgo, supported_signalgo(SignAlgo)]).
 
-supported_signalgo({_, rsa}) -> rsa_pss_rsae; %% PRE TLS-1.3
+supported_signalgo({Hash, rsa}) -> {Hash,rsa_pss_rsae}; %% PRE TLS-1.3 %% PRE TLS-1.3
 supported_signalgo(rsa_pkcs1_sha256) -> rsa_pss_rsae_sha256; %% TLS-1.3 legacy
 supported_signalgo(rsa_pkcs1_sha384) -> rsa_pss_rsae_sha384; %% TLS-1.3 legacy
 supported_signalgo(rsa_pkcs1_sha512) -> rsa_pss_rsae_sha512; %% TLS-1.3 legacy
@@ -1082,10 +1082,7 @@ rsa_signed(_) ->
     end.
 %% Cert should be signed by RSA
 rsa_signed_suites(Ciphers, Version) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [rsa_signed(Version)],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
+    filter_kex(Ciphers, rsa_signed(Version)).
 
 ecdsa_signed(Version) when ?TLS_GE(Version, ?TLS_1_2) ->
     fun(ecdhe_ecdsa) -> true;
@@ -1099,10 +1096,7 @@ ecdsa_signed(_) ->
 
 %% Cert should be signed by ECDSA
 ecdsa_signed_suites(Ciphers, Version) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [ecdsa_signed(Version)],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
+    filter_kex(Ciphers, ecdsa_signed(Version)).
 
 rsa_keyed(dhe_rsa) -> 
     true;
@@ -1119,87 +1113,61 @@ rsa_keyed(_) ->
 
 %% Certs key is an RSA key
 rsa_keyed_suites(Ciphers) ->
-   filter_suites(Ciphers, #{key_exchange_filters => [fun(Kex) -> rsa_keyed(Kex) end],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
+   filter_kex(Ciphers, fun rsa_keyed/1).
 
 %% RSA Certs key can be used for encipherment
 rsa_suites_encipher(Ciphers) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [fun(rsa) -> true; 
-                                                         (rsa_psk) -> true; 
-                                                         (_) -> false
-                                                      end],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
+    filter_kex(Ciphers, fun(rsa) -> true;
+                           (rsa_psk) -> true;
+                           (_) -> false
+                        end).
 
-dss_keyed(dhe_dss) ->
-    true;
-dss_keyed(spr_dss) -> 
-    true;
-dss_keyed(_) -> 
-    false. 
 
 %% Cert should be have DSS key (DSA)
 dss_keyed_suites(Ciphers) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [fun(Kex) -> dss_keyed(Kex) end],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
+    filter_kex(Ciphers, fun (dhe_dss) -> true;
+                            (spr_dss) -> true;
+                            (_) ->  false
+                        end).
 
 %% Cert should be signed by DSS (DSA)
 dsa_signed_suites(Ciphers) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [dsa_signed()],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
-dsa_signed() ->
-    fun(dhe_dss) -> true;
-       (_) -> false
-    end.
+    filter_kex(Ciphers, fun(dhe_dss) -> true;
+                              (_) -> false
+                           end).
 
 dss_dhe_suites(Ciphers) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [fun(dhe_dss) -> true;
-                                                         (_) -> false
-                                                      end],
-                             cipher_filters => [],
-                             mac_filters => [],
-                             prf_filters => []}).
-
-ec_keyed(ecdh_ecdsa) ->
-    true;
-ec_keyed(ecdh_rsa) ->
-    true;
-ec_keyed(ecdhe_ecdsa) ->
-    true;
-ec_keyed(_) -> 
-    false.
-
+    filter_kex(Ciphers, fun(dhe_dss) -> true;
+                           (_) -> false
+                           end).
 %% Certs key is an ECC key
 ec_keyed_suites(Ciphers) ->
-    ec_generic_suites(Ciphers, fun(Kex) -> ec_keyed(Kex) end).
+    filter_kex(Ciphers, fun (ecdh_ecdsa)  -> true;
+                            (ecdh_rsa)    -> true;
+                            (ecdhe_ecdsa) -> true;
+                            (_)           -> false
+                        end).
 
 %% EC Certs key usage keyAgreement
 ec_ecdh_suites(Ciphers)->
-    ec_generic_suites(Ciphers, fun(ecdh_ecdsa) -> true;
-                                  (_) -> false
-                               end).
+    filter_kex(Ciphers, fun(ecdh_ecdsa) -> true;
+                           (_)          -> false
+                        end).
 
 %% EC Certs key usage digitalSignature
 ec_ecdhe_suites(Ciphers) ->
-    ec_generic_suites(Ciphers, fun(ecdhe_ecdsa) -> true;
-                                  (ecdhe_rsa) -> true;
-                                  (_) -> false
-                               end).
+    filter_kex(Ciphers, fun(ecdhe_ecdsa) -> true;
+                           (ecdhe_rsa)   -> true;
+                           (_)           -> false
+                        end).
 %% RSA Certs key usage digitalSignature
 rsa_ecdhe_dhe_suites(Ciphers) ->
-    ec_generic_suites(Ciphers, fun(dhe_rsa) -> true;
-                                  (ecdhe_rsa) -> true;
-                                  (_) -> false
-                               end).
+    filter_kex(Ciphers, fun(dhe_rsa) -> true;
+                           (ecdhe_rsa) -> true;
+                           (_) -> false
+                        end).
 
-ec_generic_suites(Ciphers, Fn) ->
+filter_kex(Ciphers, Fn) ->
     filter_suites(Ciphers, #{key_exchange_filters => [Fn],
                              cipher_filters => [],
                              mac_filters => [],
