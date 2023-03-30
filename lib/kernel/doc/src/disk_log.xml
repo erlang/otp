@@ -39,7 +39,7 @@
   <description>
     <p><c>disk_log</c> is a disk-based term logger that enables
       efficient logging of items on files.</p>
-    <p>Two types of logs are supported:</p>
+    <p>Three types of logs are supported:</p>
       <taglist>
 	<tag>halt logs</tag>
 	<item><p>Appends items to a single file, which size can
@@ -49,6 +49,17 @@
 	wrap log file is filled up, further items are logged on to the next
 	file in the sequence, starting all over with the first file when
 	the last file is filled up.</p></item>
+	<tag>rotate logs</tag>
+        <item><p>Uses a sequence of rotate log files of limited size. As a
+        log file is filled up, it is rotated and then compressed. There is one active
+        log file and upto the configured number of compressed log files. Only externally 
+        formatted logs are supported. It follows the same naming convention as the handler
+        logger_std_h for Logger. For more details about the naming convention check the file
+        parameter for
+        <seemfa marker="#open/1"><c>open/1</c></seemfa>.</p>
+        <p>It follows the same naming convention as that for the compressed files for Linux's
+        logrotate and BSD's newsyslog.</p>
+        </item>
       </taglist>
      <p>For efficiency reasons, items are always written to files as binaries.</p>
 
@@ -197,6 +208,9 @@
     <datatype>
       <name name="file_error"/>
     </datatype>
+    <datatype>
+      <name name="next_file_error_rsn"/>
+    </datatype>
   </datatypes>
   <funcs>
     <func>
@@ -326,10 +340,10 @@
           but it cannot be decreased to something less than
           the current file size.
           </p>
-        <p>For a wrap log, both the size and the number of files can always
-	  be increased, as long as the number of files does not
-          exceed 65000. If the maximum number of files is decreased, the
-          change is not valid until the current file is full and the
+        <p>For a wrap or rotate log, both the size and the number of files can 
+          always be increased, as long as the number of files does not
+          exceed 65000. For wrap logs, if the maximum number of files is decreased,
+          the change is not valid until the current file is full and the
           log wraps to the next file.
           The redundant files are removed the next time the log wraps around,
           that is, starts to log to file number 1.
@@ -346,13 +360,16 @@
           file (that is, files 7 and 8) are removed the next time file 6
           is full.
           </p>
+        <p>For rotate logs, if the maximum number of files is decreased,
+          the redundant files are deleted instantly.
+          </p>
         <p>If the size of the files is decreased, the change immediately
           affects the current log. It does not change the
           size of log files already full until the next time they are used.
           </p>
         <p>If the log size is decreased, for example, to save space,
           function
-	  <seemfa marker="#inc_wrap_file/1"><c>inc_wrap_file/1</c></seemfa>
+	  <seemfa marker="#next_file/1"><c>next_file/1</c></seemfa>,
 	  can be used to force the log to wrap.
           </p>
       </desc>
@@ -729,6 +746,26 @@
       </desc>
     </func>
     <func>
+      <name name="next_file" arity="1" since=""/>
+      <fsummary>Change to the next log file of a disk log.</fsummary>
+      <type name="next_file_error_rsn"/>
+      <type name="invalid_header"/>
+      <desc>
+        <p>For wrap logs, it forces the disk log to start logging to the
+          next log file. It can be used, for example, with
+          <c>change_size/2</c> to reduce the amount of disk space allocated
+          by the disk log.
+          </p>
+        <p>Owners subscribing to notifications normally receive a
+          <c>wrap</c> message, but if an error occurs with a reason tag
+          of <c>invalid_header</c> or <c>file_error</c>, an <c>error_status</c>
+          message is sent.</p>
+        <p>For rotate logs, it forces rotation of the currently active log
+           file, compresses it and opens a new active file for logging. 
+          </p>
+      </desc>
+    </func>
+    <func>
       <name name="open" arity="1" since=""/>
       <fsummary>Open a disk log file.</fsummary>
       <type name="dlog_options"/>
@@ -757,9 +794,16 @@
               the filename defaults to <c>lists:concat([<anno>Log</anno>, ".LOG"])</c>
 	      for halt logs.</p>
 	    <p>For wrap logs, this is the base name of the files. Each file in
-	      a wrap log is called <c><![CDATA[<base_name>.N]]></c>, where <c>N</c>
+	      a wrap log is called <c><![CDATA[<FileName>.N]]></c>, where <c>N</c>
 	      is an integer. Each wrap log also has two files called
-              <c><![CDATA[<base_name>.idx]]></c> and <c><![CDATA[<base_name>.siz]]></c>.
+              <c><![CDATA[<FileName>.idx]]></c> and <c><![CDATA[<FileName>.siz]]></c>.
+              </p>
+	    <p>For rotate logs, this is the name of the active log file. The compressed
+               files are named as <c><![CDATA[<FileName>.N.gz]]></c>, where <c>N</c> is
+               an integer and <c><![CDATA[<FileName>.0.gz]]></c> is the latest compressed
+               log file. All the compressed files are renamed at each rotation so that the
+               latest files have the smallest index. The maximum value for N is the value of
+               <c><![CDATA[MaxNoFiles]]></c> minus 1.
               </p>
           </item>
 	  <tag><c>{linkto, <anno>LinkTo</anno>}</c><marker id="linkto"></marker></tag>
@@ -803,10 +847,10 @@
               log more items are rejected. Defaults to
               <c>infinity</c>, which for halt implies that there is no
               maximum size.</p>
-	    <p>For wrap logs, parameter <c><anno>Size</anno></c>
+	    <p>For wrap and rotate logs, parameter <c><anno>Size</anno></c>
               can be a pair
-              <c>{<anno>MaxNoBytes</anno>, <anno>MaxNoFiles</anno>}</c> or
-	      <c>infinity</c>.
+              <c>{<anno>MaxNoBytes</anno>, <anno>MaxNoFiles</anno>}</c>. For wrap logs
+	      it can also be <c>infinity</c>.
 	      In the latter case, if the files of an existing wrap log
               with the same name can be found, the size is read
               from the existing wrap log, otherwise an error is returned.</p>
@@ -837,6 +881,12 @@
                 opening an existing wrap log for the first time, that
                 is, when creating the disk log process.</p>
             </note>
+            <p>Rotate logs write at most <c><anno>MaxNoBytes</anno></c>
+              bytes on the active log file and keep the latest <c><anno>MaxNoFiles</anno></c>
+              compressed files. Regardless of <c><anno>MaxNoBytes</anno></c>,
+              at least the header (if there is one) and one
+              item are written on each rotate log file before rotation.
+              </p>
 	    <p>When opening an already open halt log, option <c>size</c>
 	      is ignored.</p>
           </item>
@@ -910,7 +960,7 @@
 	  <tag><c>{head, <anno>Head</anno>}</c></tag>
           <item>
             <p>Specifies a header to be
-              written first on the log file. If the log is a wrap
+              written first on the log file. If the log is a wrap or rotate
               log, the item <c><anno>Head</anno></c> is written first in each new file.
               <c><anno>Head</anno></c> is to be a term if the format is
               <c>internal</c>, otherwise an <c>iodata()</c>.
@@ -1015,12 +1065,12 @@
       <desc>
         <p>Renames the log file
           to <c><anno>File</anno></c> and then recreates a new log file.
-          If a wrap log exists, <c><anno>File</anno></c> is used as the base name
+          If a wrap/rotate log exists, <c><anno>File</anno></c> is used as the base name
           of the renamed files.
           By default the header given to <c>open/1</c> is written first in
           the newly opened log file, but if argument <c><anno>Head</anno></c> or
           <c><anno>BHead</anno></c> is specified, this item is used instead.
-          The header argument is used only once. Next time a wrap log file
+          The header argument is used only once. Next time a wrap/rotate log file
           is opened, the header given to <c>open/1</c> is used.
           </p>
         <p><c>reopen/2,3</c> are used for internally formatted
@@ -1060,7 +1110,7 @@
           If argument <c><anno>Head</anno></c> or <c><anno>BHead</anno></c> is
           specified, this item is written first in the newly truncated
           log, otherwise the header given to <c>open/1</c> is used.
-          The header argument is used only once. Next time a wrap log file
+          The header argument is used only once. Next time a wrap/rotate log file
           is opened, the header given to <c>open/1</c> is used.
           </p>
         <p><c>truncate/1</c> is used for both internally and externally
