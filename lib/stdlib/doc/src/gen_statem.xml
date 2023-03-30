@@ -1774,43 +1774,17 @@ handle_event(_, _, State, Data) ->
 	  which is the default. If no reply is received within
 	  the specified time, the function call fails.
 	</p>
-	<note>
-	  <p>
-	    For <c><anno>Timeout</anno> &lt; infinity</c>,
-	    to avoid getting a late reply in the caller's
-	    inbox if the caller should catch exceptions,
-	    this function spawns a proxy process that
-	    does the call. A late reply gets delivered to the
-	    dead proxy process, hence gets discarded. This is
-	    less efficient than using
-	    <c><anno>Timeout</anno> == infinity</c>.
-	  </p>
-	</note>
 	<p>
-	  <c><anno>Timeout</anno></c> can also be a tuple
-	  <c>{clean_timeout,<anno>T</anno>}</c> or
-	  <c>{dirty_timeout,<anno>T</anno>}</c>, where
-	  <c><anno>T</anno></c> is the time-out time.
-	  <c>{clean_timeout,<anno>T</anno>}</c> works like
-	  just <c>T</c> described in the note above
-	  and uses a proxy process
-	  while <c>{dirty_timeout,<anno>T</anno>}</c>
-	  bypasses the proxy process which is more lightweight.
+          Previous issue with late replies that could occur when having
+          network issues or using <c>dirty_timeout</c> is now prevented
+          by use of
+          <seeguide marker="system/reference_manual:processes#process-aliases"><i>process
+          aliases</i></seeguide>. <c>{clean_timeout, <anno>T</anno>}</c>
+          and <c>{dirty_timeout, <anno>T</anno>}</c> therefore no longer
+          serves any purpose and will work the same as
+          <c><anno>Timeout</anno></c> while all of them also being
+          equally efficient.
 	</p>
-	<note>
-	  <p>
-	    If you combine catching exceptions from this function
-	    with <c>{dirty_timeout,<anno>T</anno>}</c>
-	    to avoid that the calling process dies when the call
-	    times out, you will have to be prepared to handle
-	    a late reply.  Note that there is an odd chance
-	    to get a late reply even with
-	    <c>{dirty_timeout,infinity}</c> or <c>infinity</c>
-	    for example in the event of network problems.
-	    So why not just let the calling process die
-	    by not catching the exception?
-	  </p>
-	</note>
 	<p>
 	  The call can also fail, for example, if the <c>gen_statem</c>
 	  dies before or during this function call.

@@ -645,15 +645,15 @@ call(ServerRef, Request) ->
 	  {'dirty_timeout',T :: timeout()}) ->
 		  Reply :: term().
 call(ServerRef, Request, infinity = T = Timeout) ->
-    call_dirty(ServerRef, Request, Timeout, T);
+    call(ServerRef, Request, Timeout, T);
 call(ServerRef, Request, {dirty_timeout, T} = Timeout) ->
-    call_dirty(ServerRef, Request, Timeout, T);
+    call(ServerRef, Request, Timeout, T);
 call(ServerRef, Request, {clean_timeout, T} = Timeout) ->
-    call_clean(ServerRef, Request, Timeout, T);
+    call(ServerRef, Request, Timeout, T);
 call(ServerRef, Request, {_, _} = Timeout) ->
     erlang:error(badarg, [ServerRef,Request,Timeout]);
 call(ServerRef, Request, Timeout) ->
-    call_clean(ServerRef, Request, Timeout, Timeout).
+    call(ServerRef, Request, Timeout, Timeout).
 
 -spec send_request(ServerRef::server_ref(), Request::term()) ->
         ReqId::request_id().
@@ -900,7 +900,8 @@ enter_loop(Module, Opts, State, Data, Server, Actions) ->
 wrap_cast(Event) ->
     {'$gen_cast',Event}.
 
-call_dirty(ServerRef, Request, Timeout, T) ->
+-compile({inline, [call/4]}).
+call(ServerRef, Request, Timeout, T) ->
     try gen:call(ServerRef, '$gen_call', Request, T) of
         {ok,Reply} ->
             Reply
@@ -912,63 +913,6 @@ call_dirty(ServerRef, Request, Timeout, T) ->
               %% Wrap the reason according to tradition
               {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
               Stacktrace)
-    end.
-
-call_clean(ServerRef, Request, Timeout, T)
-  when (is_pid(ServerRef)
-        andalso (node(ServerRef) == node()))
-       orelse (element(2, ServerRef) == node()
-               andalso is_atom(element(1, ServerRef))
-               andalso (tuple_size(ServerRef) =:= 2)) ->
-    %% No need to use a proxy locally since we know alias will be
-    %% used as of OTP 24 which will prevent garbage responses...
-    call_dirty(ServerRef, Request, Timeout, T);
-call_clean(ServerRef, Request, Timeout, T) ->
-    %% Call server through proxy process to dodge any late reply
-    %%
-    %% We still need a proxy in the distributed case since we may
-    %% communicate with a node that does not understand aliases.
-    %% This can be removed when alias support is mandatory.
-    %% Probably in OTP 26.
-    Ref = make_ref(),
-    Self = self(),
-    Pid = spawn(
-            fun () ->
-                    Self !
-                        try gen:call(
-                              ServerRef, '$gen_call', Request, T) of
-                            Result ->
-                                {Ref,Result}
-                        catch Class:Reason:Stacktrace ->
-                                {Ref,Class,Reason,Stacktrace}
-                        end
-            end),
-    Mref = monitor(process, Pid),
-    receive
-        {Ref,Result} ->
-            demonitor(Mref, [flush]),
-            case Result of
-                {ok,Reply} ->
-                    Reply
-            end;
-        {Ref,Class,Reason,Stacktrace} when Class =:= exit ->
-            %% 'gen' raises 'exit' for problems
-            demonitor(Mref, [flush]),
-            %% Pretend it happened in this process
-            erlang:raise(
-              Class,
-              %% Wrap the reason according to tradition
-              {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
-              Stacktrace);
-        {Ref,Class,Reason,Stacktrace} ->
-            demonitor(Mref, [flush]),
-            %% Pretend it happened in this process
-            erlang:raise(Class, Reason, Stacktrace);
-        {'DOWN',Mref,_,_,Reason} ->
-            %% There is a theoretical possibility that the
-            %% proxy process gets killed between try--of and !
-            %% so this clause is in case of that
-            exit(Reason)
     end.
 
 replies([{reply,From,Reply}|Replies]) ->
