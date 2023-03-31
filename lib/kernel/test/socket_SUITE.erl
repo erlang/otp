@@ -9509,13 +9509,15 @@ api_a_recv_cancel_tcp(InitState) ->
                                                "~n   Ref: ~p", [T, Ref]),
                                    {ok, State#{recv_select_info => SI}};
 
-                               {completion, {completion_info, T, R} = CI}
+                               {completion,
+                                {completion_info, T, R} = CI}
                                  when Ref =:= nowait ->
                                    ?SEV_IPRINT("recv completion nowait: "
                                                "~n   Tag: ~p"
                                                "~n   Ref: ~p", [T, R]),
                                    {ok, State#{recv_completion_info => CI}};
-                               {completion, {completion_info, T, Ref} = CI}
+                               {completion,
+                                {completion_info, T, Ref} = CI}
                                  when is_reference(Ref) ->
                                    ?SEV_IPRINT("recv completion ref: "
                                                "~n   Tag: ~p"
