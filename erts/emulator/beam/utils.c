@@ -1616,15 +1616,12 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                      * We therefore calculate context independent hashes for all    				      .
                      * key-value pairs and then xor them together.
                      */
-                    ESTACK_PUSH(s, hash_xor_pairs);
-                    ESTACK_PUSH(s, hash);
-                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    ESTACK_PUSH3(s, hash_xor_pairs, hash, HASH_MAP_TAIL);
                     hash = 0;
                     hash_xor_pairs = 0;
                     for (ctx.i = ctx.size - 1; ctx.i >= 0; ctx.i--) {
-                        ESTACK_PUSH(s, HASH_MAP_PAIR);
-                        ESTACK_PUSH(s, ctx.vs[ctx.i]);
-                        ESTACK_PUSH(s, ctx.ks[ctx.i]);
+                        ESTACK_PUSH3(s, HASH_MAP_PAIR,
+                                     ctx.vs[ctx.i], ctx.ks[ctx.i]);
                         TRAP_LOCATION(hamt_subtag_head_flatmap);
                     }
                     goto hash2_common;
@@ -1636,9 +1633,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                     UINT32_HASH(size, HCONST_16);
                     if (size == 0)
                         goto hash2_common;
-                    ESTACK_PUSH(s, hash_xor_pairs);
-                    ESTACK_PUSH(s, hash);
-                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    ESTACK_PUSH3(s, hash_xor_pairs, hash, HASH_MAP_TAIL);
                     hash = 0;
                     hash_xor_pairs = 0;
                 }
@@ -1656,13 +1651,22 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 while (ctx.i) {
                     if (is_list(*ctx.ptr)) {
                         Eterm* cons = list_val(*ctx.ptr);
-                        ESTACK_PUSH(s, HASH_MAP_PAIR);
-                        ESTACK_PUSH(s, CDR(cons));
-                        ESTACK_PUSH(s, CAR(cons));
+                        ESTACK_PUSH3(s, HASH_MAP_PAIR, CDR(cons), CAR(cons));
                     }
                     else {
                         ASSERT(is_boxed(*ctx.ptr));
-                        ESTACK_PUSH(s, *ctx.ptr);
+                        if (is_tuple(*ctx.ptr)) { /* collision node */
+                            Eterm *coll_ptr = tuple_val(*ctx.ptr);
+                            Uint n = arityval(*coll_ptr);
+                            ASSERT(n >= 2);
+                            coll_ptr++;
+                            for (; n; n--, coll_ptr++) {
+                                Eterm* cons = list_val(*coll_ptr);
+                                ESTACK_PUSH3(s, HASH_MAP_PAIR, CDR(cons), CAR(cons));
+                            }
+                        }
+                        else
+                            ESTACK_PUSH(s, *ctx.ptr);
                     }
                     ctx.i--; ctx.ptr++;
                     TRAP_LOCATION(map_subtag);
@@ -2047,15 +2051,43 @@ trapping_make_hash2(Eterm term, Eterm* state_mref_write_back, Process* p)
     return make_hash2_helper(term, 1, state_mref_write_back, p);
 }
 
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+Uint32 erts_dbg_hashmap_collision_bonanza(Uint32 hash, Eterm key)
+{
+/*{
+        static Uint32 hashvec[7] = {
+            0x02345678,
+            0x12345678,
+            0xe2345678,
+            0xf2345678,
+            0x12abcdef,
+            0x13abcdef,
+            0xcafebabe
+        };
+        hash = hashvec[hash % (sizeof(hashvec) / sizeof(hashvec[0]))];
+    }*/
+    const Uint32 bad_hash = (hash & 0x12482481) * 1442968193;
+    const Uint32 bad_bits = hash % 67;
+    if (bad_bits < 32) {
+        /* Mix in a number of high good bits to get "randomly" close
+           to the collision nodes */
+        const Uint32 bad_mask = (1 << bad_bits) - 1;
+        return (hash & ~bad_mask) | (bad_hash & bad_mask);
+    }
+    return bad_hash;
+}
+#endif
+
 /* Term hash function for maps, with a separate depth parameter */
-Uint32 make_map_hash(Eterm key, int depth) {
+Uint32 make_map_hash(Eterm key) {
     Uint32 hash = 0;
 
-    if (depth > 0) {
-        UINT32_HASH_2(depth, 1, HCONST_22);
-    }
+    hash = make_internal_hash(key, hash);
 
-    return make_internal_hash(key, hash);
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+    hash = erts_dbg_hashmap_collision_bonanza(hash, key);
+#endif
+    return hash;
 }
 
 /* Term hash function for internal use.
@@ -2068,12 +2100,10 @@ Uint32 make_map_hash(Eterm key, int depth) {
  * with a new ErlNode struct, externals from that node will hash different than
  * before.
  *
- * One IMPORTANT property must hold (for hamt).
- * EVERY BIT of the term that is significant for equality (see EQ)
- * MUST BE USED AS INPUT FOR THE HASH. Two different terms must always have a
- * chance of hashing different when salted.
- *
- * This is why we cannot use cached hash values for atoms for example.
+ * The property "EVERY BIT of the term that is significant for equality
+ * MUST BE USED AS INPUT FOR THE HASH" is nice but no longer crucial for the
+ * hashmap implementation that now uses collision nodes at the bottom of
+ * the HAMT when all hash bits are exhausted.
  *
  */
 
@@ -2219,6 +2249,8 @@ make_internal_hash(Eterm term, Uint32 salt)
                     }
                     else {
                         ASSERT(is_boxed(*ptr));
+                        /* no special treatment of collision nodes needed,
+                           hash them as the tuples they are */
                         ESTACK_PUSH(s, *ptr);
                     }
                     i--; ptr++;
@@ -3084,8 +3116,8 @@ tailrecur_ne:
 			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 			ASSERT(sz > 0 && sz < 17);
 			break;
-		    default:
-			erts_exit(ERTS_ERROR_EXIT, "Unknown hashmap subsubtag\n");
+                    default:
+                        erts_exit(ERTS_ERROR_EXIT, "bad header");
 		    }
 		    goto term_array;
 		}
@@ -3448,6 +3480,11 @@ tailrecur_ne:
                      A minimal key can only be candidate as tie-breaker if we
                      have passed that hash value in the other tree (which means
                      the key did not exist in the other tree).
+
+                   Collision node amendment:
+                     The leafs in collision nodes are sorted in map-key order.
+                     If keys are different but hashes are equal we advance the
+                     one lagging behind key-wise.
                 */
 
                     sp = PSTACK_PUSH(hmap_stack);
@@ -3846,12 +3883,19 @@ pop_next:
                 sp = PSTACK_TOP(hmap_stack);
                 if (j) {
                     /* Key diff found, enter phase 2 */
-                    if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
+                    int hash_cmp = hashmap_key_hash_cmp(sp->ap, sp->bp);
+                    if (hash_cmp == 0) {
+                        /* Hash collision. Collision nodes are sorted by map key
+                         * order, so we advance the one with the lesser key */
+                        hash_cmp = j;
+                    }
+                    if (hash_cmp < 0) {
                         sp->min_key = CAR(sp->ap);
                         sp->cmp_res = -1;
                         sp->ap = hashmap_iterator_next(&stack);
                     }
                     else {
+                        ASSERT(hash_cmp > 0);
                         sp->min_key = CAR(sp->bp);
                         sp->cmp_res = 1;
                         sp->bp = hashmap_iterator_next(&b_stack);
@@ -3901,7 +3945,7 @@ pop_next:
                 sp->bp = hashmap_iterator_next(&b_stack);
                 if (!sp->ap) {
                     /* end of maps with identical keys */
-                    ASSERT(!sp->bp);
+                    ASSERT(!sp->bp);  /* as we assume indentical map sizes */
                     j = sp->cmp_res;
                     exact = sp->was_exact;
                     (void) PSTACK_POP(hmap_stack);
@@ -3936,14 +3980,21 @@ pop_next:
                 /* fall through */
             case_HASHMAP_PHASE2_NEXT_STEP:
                 if (sp->ap || sp->bp) {
-                    if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
+                    int hash_cmp = hashmap_key_hash_cmp(sp->ap, sp->bp);
+                    if (hash_cmp == 0) {
+                        /* Hash collision. Collision nodes are sorted by map key
+                         * order, so we advance the one with the lesser key */
+                        hash_cmp = j;
+                    }
+                    if (hash_cmp < 0) {
                         ASSERT(sp->ap);
                         a = CAR(sp->ap);
                         b = sp->min_key;
                         ASSERT(exact);
                         WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_IS_MIN_KEY_A));
                     }
-                    else { /* hash_cmp > 0 */
+                    else {
+                        ASSERT(hash_cmp > 0);
                         ASSERT(sp->bp);
                         a = CAR(sp->bp);
                         b = sp->min_key;

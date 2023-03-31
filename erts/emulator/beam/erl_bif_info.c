@@ -4149,6 +4149,13 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
         else if (ERTS_IS_ATOM_STR("persistent_term", BIF_ARG_1)) {
             BIF_RET(erts_debug_persistent_term_xtra_info(BIF_P));
         }
+        else if (ERTS_IS_ATOM_STR("hashmap_collision_bonanza", BIF_ARG_1)) {
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+            return am_true;
+#else
+            return am_false;
+#endif
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
