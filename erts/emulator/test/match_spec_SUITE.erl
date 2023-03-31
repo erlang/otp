@@ -28,7 +28,8 @@
 	 ms_trace2/1, ms_trace3/1, ms_trace_dead/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
 	 empty_list/1,
-	 unary_plus/1, unary_minus/1, moving_labels/1]).
+	 unary_plus/1, unary_minus/1, moving_labels/1,
+         guard_bifs/1]).
 -export([fpe/1]).
 -export([otp_9422/1]).
 -export([faulty_seq_trace/1, do_faulty_seq_trace/0]).
@@ -57,7 +58,8 @@ all() ->
      faulty_seq_trace,
      empty_list,
      otp_9422,
-     maps].
+     maps,
+     guard_bifs].
 
 init_per_testcase(_TestCase, Config) ->
     Config.
@@ -1145,7 +1147,36 @@ moving_labels(Config) when is_list(Config) ->
 	erlang:match_spec_test({true,false}, Ms2, table),
 
     ok.
-    
+
+-record(dummy_record, {}).
+
+%% GH-7045: Some guard BIFs were unavailable in match specifications.
+guard_bifs(_Config) ->
+    Matches =
+        [begin
+             BIF = list_to_tuple([F | lists:duplicate(A, '$1')]),
+             erlang:match_spec_test(Data, [{{'$1'}, [BIF], [{{'$1'}}]}], Kind)
+         end
+         || {F, A} <- erlang:module_info(functions),
+            {Data, Kind} <- [{{a}, table}, {[a], trace}],
+            F =/= is_record, %% Has special requirements, checked below.
+            erl_internal:arith_op(F, A) orelse
+                erl_internal:bool_op(F, A) orelse
+                erl_internal:comp_op(F, A) orelse
+                erl_internal:guard_bif(F, A)],
+    [] = [T || {error, _}=T <- Matches],
+
+    IsRecord = {is_record,
+                '$1',
+                dummy_record,
+                record_info(size, dummy_record)},
+    [{ok, _, [], []} =
+         erlang:match_spec_test(Data, [{{'$1'}, [IsRecord], [{{'$1'}}]}], Kind)
+     || {Data, Kind} <- [{{#dummy_record{}}, table},
+                         {[#dummy_record{}], trace}]],
+
+    ok.
+
 tr(Fun, MFA, Pat, Expected) ->
     tr(Fun, MFA, [call], Pat, [global], Expected).
 

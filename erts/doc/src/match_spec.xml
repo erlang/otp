@@ -87,7 +87,8 @@
         <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
         <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
         <c><![CDATA[is_map]]></c> | <c><![CDATA[is_map_key]]></c> |
-        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_function]]></c> |
+        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_bitstring]]></c> |
+        <c><![CDATA[is_boolean]]></c> | <c><![CDATA[is_function]]></c> |
         <c><![CDATA[is_record]]></c> | <c><![CDATA[is_seq_trace]]></c> |
         <c><![CDATA['and']]></c> | <c><![CDATA['or']]></c> |
         <c><![CDATA['not']]></c> | <c><![CDATA['xor']]></c> |
@@ -113,11 +114,12 @@
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
         <c><![CDATA[map_size]]></c> |
         <c><![CDATA[max]]></c> | <c><![CDATA[min]]></c> |
-        <c><![CDATA[node]]></c> |
-        <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
+        <c><![CDATA[node]]></c> | <c><![CDATA[float]]></c> |
+        <c><![CDATA[round]]></c> | <c><![CDATA[floor]]></c> |
+        <c><![CDATA[ceil]]></c> | <c><![CDATA[size]]></c> |
         <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
-        <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
-        <c><![CDATA[binary_part]]></c> |
+        <c><![CDATA[tuple_size]]></c> | <c><![CDATA[tl]]></c> |
+        <c><![CDATA[trunc]]></c> | <c><![CDATA[binary_part]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
         <c><![CDATA['*']]></c> | <c><![CDATA['div']]></c> |
         <c><![CDATA['rem']]></c> | <c><![CDATA['band']]></c> |
@@ -173,8 +175,9 @@
         <c><![CDATA[is_list]]></c> | <c><![CDATA[is_number]]></c> |
         <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
         <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
-        <c><![CDATA[is_map]]></c> | <c><![CDATA[map_is_key]]></c> |
-        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_function]]></c> |
+        <c><![CDATA[is_map]]></c> | <c><![CDATA[is_map_key]]></c> |
+        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_bitstring]]></c> |
+        <c><![CDATA[is_boolean]]></c> | <c><![CDATA[is_function]]></c> |
         <c><![CDATA[is_record]]></c> | <c><![CDATA['and']]></c> |
         <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> |
         <c><![CDATA['xor']]></c> | <c><![CDATA['andalso']]></c> |
@@ -199,11 +202,12 @@
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
         <c><![CDATA[map_size]]></c> |
         <c><![CDATA[max]]></c> | <c><![CDATA[min]]></c> |
-        <c><![CDATA[node]]></c> |
-        <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
+        <c><![CDATA[node]]></c> | <c><![CDATA[float]]></c> |
+        <c><![CDATA[round]]></c> | <c><![CDATA[floor]]></c> |
+        <c><![CDATA[ceil]]></c> | <c><![CDATA[size]]></c> |
         <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
-        <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
-        <c><![CDATA[binary_part]]></c> |
+        <c><![CDATA[tuple_size]]></c> | <c><![CDATA[tl]]></c> |
+        <c><![CDATA[trunc]]></c> | <c><![CDATA[binary_part]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
         <c><![CDATA['*']]></c> | <c><![CDATA['div']]></c> |
         <c><![CDATA['rem']]></c> | <c><![CDATA['band']]></c> |
@@ -228,9 +232,10 @@
         follows:</p>
 
       <taglist>
-        <tag><c>is_atom</c>, <c>is_float</c>, <c>is_integer</c>, <c>is_list</c>,
-          <c>is_number</c>, <c>is_pid</c>, <c>is_port</c>, <c>is_reference</c>,
-          <c>is_tuple</c>, <c>is_map</c>, <c>is_binary</c>, <c>is_function</c>
+        <tag><c>is_atom</c>, <c>is_boolean</c>, <c>is_float</c>,
+          <c>is_integer</c>, <c>is_list</c>, <c>is_number</c>, <c>is_pid</c>,
+          <c>is_port</c>, <c>is_reference</c>, <c>is_tuple</c>, <c>is_map</c>,
+          <c>is_binary</c>, <c>is_bitstring</c>, <c>is_function</c>
         </tag>
         <item>
           <p>Same as the corresponding guard tests in Erlang, return
@@ -281,8 +286,9 @@
         <tag><c>abs</c>, <c>element</c>, <c>hd</c>, <c>length</c>,
           <c>map_get</c>, <c>map_size</c>,
           <c>max</c>, <c>min</c>,
-          <c>node</c>, <c>round</c>,
-          <c>size</c>, <c>bit_size</c>, <c>byte_size</c>, <c>tl</c>,
+          <c>node</c>, <c>round</c>, <c>ceil</c>, <c>floor</c>, <c>float</c>,
+          <c>size</c>, <c>bit_size</c>, <c>byte_size</c>, <c>tuple_size</c>,
+          <c>tl</c>,
           <c>trunc</c>, <c>binary_part</c>, <c>'+'</c>,
           <c>'-'</c>, <c>'*'</c>, <c>'div'</c>, <c>'rem'</c>, <c>'band'</c>,
           <c>'bor'</c>, <c>'bxor'</c>, <c>'bnot'</c>, <c>'bsl'</c>,
