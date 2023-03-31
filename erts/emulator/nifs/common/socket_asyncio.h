@@ -158,8 +158,7 @@ extern ERL_NIF_TERM esaio_cancel_recv(ErlNifEnv*       env,
 extern void esaio_dtor(ErlNifEnv*       env,
                        ESockDescriptor* descP);
 extern void esaio_stop(ErlNifEnv*       env,
-                       ESockDescriptor* descP,
-                       ErlNifEvent      fd);
+                       ESockDescriptor* descP);
 extern void esaio_down(ErlNifEnv*           env,
                        ESockDescriptor*     descP,
                        const ErlNifPid*     pidP,

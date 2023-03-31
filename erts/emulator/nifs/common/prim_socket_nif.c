@@ -2625,9 +2625,9 @@ static ESockIoBackend io_backend = {0};
 #define ESOCK_IO_DTOR(ENV, D)                           \
     ((io_backend.dtor != NULL) ?                        \
      io_backend.dtor((ENV), (D)) : ((void) (D)))
-#define ESOCK_IO_STOP(ENV, D, FD)                       \
+#define ESOCK_IO_STOP(ENV, D)                           \
     ((io_backend.stop != NULL) ?                        \
-     io_backend.stop((ENV), (D), (FD)) : ((void) (D)))
+     io_backend.stop((ENV), (D)) : ((void) (D)))
 #define ESOCK_IO_DOWN(ENV, D, PP, MP)                           \
     ((io_backend.down != NULL) ?                                \
      io_backend.down((ENV), (D), (PP), (MP)) : ((void) (D)))
@@ -12869,7 +12869,7 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
                    (unsigned long) descP->accWaits,
 		   (unsigned long) descP->accFails) );
 
-    ESOCK_IO_STOP(env, descP, fd);
+    ESOCK_IO_STOP(env, descP);
 
     MUNLOCK(descP->writeMtx);
     MUNLOCK(descP->readMtx);
@@ -13286,7 +13286,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.ioctl_4        = NULL;
 
     io_backend.dtor           = esaio_dtor;
-    io_backend.stop           = esaio_stop;
+    io_backend.stop           = NULL; // esaio_stop;
     io_backend.down           = esaio_down;
 
 #else

@@ -223,8 +223,7 @@ typedef ERL_NIF_TERM (*ESockIOIoctl_4)(ErlNifEnv*       env,
 typedef void (*ESockIODTor)(ErlNifEnv*       env,
                             ESockDescriptor* descP);
 typedef void (*ESockIOStop)(ErlNifEnv*       env,
-                            ESockDescriptor* descP,
-                            ErlNifEvent      fd);
+                            ESockDescriptor* descP);
 typedef void (*ESockIODown)(ErlNifEnv*           env,
                             ESockDescriptor*     descP,
                             const ErlNifPid*     pidP,

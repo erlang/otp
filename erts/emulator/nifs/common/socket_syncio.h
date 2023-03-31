@@ -160,8 +160,7 @@ extern ERL_NIF_TERM essio_ioctl4(ErlNifEnv*       env,
 extern void essio_dtor(ErlNifEnv*       env,
                        ESockDescriptor* descP);
 extern void essio_stop(ErlNifEnv*       env,
-                       ESockDescriptor* descP,
-                       ErlNifEvent      fd);
+                       ESockDescriptor* descP);
 extern void essio_down(ErlNifEnv*           env,
                        ESockDescriptor*     descP,
                        const ErlNifPid*     pidP,

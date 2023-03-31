@@ -6299,14 +6299,13 @@ void essio_dtor(ErlNifEnv*       env,
 
 extern
 void essio_stop(ErlNifEnv*       env,
-                ESockDescriptor* descP,
-                ErlNifEvent      fd)
+                ESockDescriptor* descP)
 {
 #ifdef HAVE_SENDFILE
     if (descP->sendfileCountersP != NULL) {
         ESockSendfileCounters* cntP = descP->sendfileCountersP;
 
-        SSDBG( descP, ("UNIX-ESSIO", "esock_stop {%d/%d} ->  sendfileCounters:"
+        SSDBG( descP, ("UNIX-ESSIO", "esock_stop(%d) ->  sendfileCounters:"
                        "\r\n   cnt:      %lu"
                        "\r\n   byteCnt:  %lu"
                        "\r\n   fails:    %lu"
@@ -6316,7 +6315,7 @@ void essio_stop(ErlNifEnv*       env,
                        "\r\n   tries:    %lu"
                        "\r\n   waits:    %lu"
                        "\r\n",
-                       descP->sock, fd,
+                       descP->sock,
                        (unsigned long) cntP->cnt,
                        (unsigned long) cntP->byteCnt,
                        (unsigned long) cntP->fails,
@@ -6342,8 +6341,8 @@ void essio_stop(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("UNIX-ESSIO",
-                "esock_stop {%d/%d} -> send close msg to %T\r\n",
-                descP->sock, fd, MKPID(env, &descP->closerPid)) );
+                "esock_stop(%d) -> send close msg to %T\r\n",
+                descP->sock, MKPID(env, &descP->closerPid)) );
 
         esock_send_close_msg(env, descP, &descP->closerPid);
         /* Message send frees closeEnv */

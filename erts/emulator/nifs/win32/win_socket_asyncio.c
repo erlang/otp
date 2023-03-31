@@ -5513,7 +5513,8 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket.
+         * 'CancelIoEx' call, which we do when closing the socket
+         * (or cancel a request).
          * But if we have done that;
          *   - Socket state will not be 'open' and
          *   - we have also set closer (pid and ref).
@@ -5539,20 +5540,8 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
              */
             if (! IS_OPEN(descP->writeState)) {
 
-                if (! IS_PID_UNDEF(&descP->closerPid)) {
+                esaio_stop(env, descP);
 
-                    SSDBG( descP,
-                           ("WIN-ESAIO",
-                            "esaio_completion_connect(%d) -> "
-                            "send close msg to %T\r\n",
-                            descP->sock, MKPID(env, &descP->closerPid)) );
-
-                    esock_send_close_msg(env, descP, &descP->closerPid);
-                    /* Message send frees closeEnv */
-                    descP->closeEnv = NULL;
-                    descP->closeRef = esock_atom_undefined;
-
-                }
             }
         }
         MUNLOCK(descP->writeMtx);
@@ -5813,7 +5802,8 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket.
+         * 'CancelIoEx' call, which we do when closing the socket
+         * (or cancel a request).
          * But if we have done that;
          *   - Socket state will not be 'open' and
          *   - we have also set closer (pid and ref).
@@ -5827,7 +5817,7 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
             reason = esock_atom_closed,
 
             /* Inform the user waiting for a reply */
-            esock_send_abort_msg(env, descP, opP->data.accept.accRef,
+            esock_send_abort_msg(env, descP, opP->data.accept.lSockRef,
                                  &req, reason);
 
             /* The socket not being open (assumed closing),
@@ -5844,23 +5834,21 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData* dataP,
 
                     /* Check "other" queue(s) and if there is a closer pid */
                     if ((descP->readersQ.first == NULL) &&
-                        (descP->writersQ.first == NULL) &&
-                        !IS_PID_UNDEF(&descP->closerPid)) {
+                        (descP->writersQ.first == NULL)) {
 
-                        SSDBG( descP,
-                               ("WIN-ESAIO",
-                                "esaio_completion_accept(%d) -> "
-                                "send close msg to %T\r\n",
-                                descP->sock, MKPID(env, &descP->closerPid)) );
-
-                        esock_send_close_msg(env, descP, &descP->closerPid);
-                        /* Message send frees closeEnv */
-                        descP->closeEnv = NULL;
-                        descP->closeRef = esock_atom_undefined;
+                        esaio_stop(env, descP);
 
                     }
                 }
             }
+
+            /* *Maybe* update socket (reade) state
+             * (depends on if the queue is now empty)
+             */
+            if (descP->acceptorsQ.first == NULL) {
+                descP->readState &= ~ESOCK_STATE_SELECTED;
+            }
+
         }
         MUNLOCK(descP->writeMtx);
         MUNLOCK(descP->readMtx);
@@ -6225,7 +6213,8 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket.
+         * 'CancelIoEx' call, which we do when closing the socket
+         * (or cancel a request).
          * But if we have done that;
          *   - Socket state will not be 'open' and
          *   - we have also set closer (pid and ref).
@@ -6256,19 +6245,9 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
 
                     /* Check "other" queue(s) and if there is a closer pid */
                     if ((descP->readersQ.first == NULL) &&
-                        (descP->acceptorsQ.first == NULL) &&
-                        !IS_PID_UNDEF(&descP->closerPid)) {
+                        (descP->acceptorsQ.first == NULL)) {
 
-                        SSDBG( descP,
-                               ("WIN-ESAIO",
-                                "esaio_completion_send(%d) -> "
-                                "send close msg to %T\r\n",
-                                descP->sock, MKPID(env, &descP->closerPid)) );
-
-                        esock_send_close_msg(env, descP, &descP->closerPid);
-                        /* Message send frees closeEnv */
-                        descP->closeEnv = NULL;
-                        descP->closeRef = esock_atom_undefined;
+                        esaio_stop(env, descP);
 
                     }
                 }
@@ -6645,7 +6624,8 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket.
+         * 'CancelIoEx' call, which we do when closing the socket
+         * (or cancel a request).
          * But if we have done that;
          *   - Socket state will not be 'open' and
          *   - we have also set closer (pid and ref).
@@ -6676,19 +6656,9 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData* dataP,
 
                     /* Check "other" queue(s) and if there is a closer pid */
                     if ((descP->readersQ.first == NULL) &&
-                        (descP->acceptorsQ.first == NULL) &&
-                        !IS_PID_UNDEF(&descP->closerPid)) {
+                        (descP->acceptorsQ.first == NULL)) {
 
-                        SSDBG( descP,
-                               ("WIN-ESAIO",
-                                "esaio_completion_sendto(%d) -> "
-                                "send close msg to %T\r\n",
-                                descP->sock, MKPID(env, &descP->closerPid)) );
-
-                        esock_send_close_msg(env, descP, &descP->closerPid);
-                        /* Message send frees closeEnv */
-                        descP->closeEnv = NULL;
-                        descP->closeRef = esock_atom_undefined;
+                        esaio_stop(env, descP);
 
                     }
                 }
@@ -6881,7 +6851,8 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket.
+         * 'CancelIoEx' call, which we do when closing the socket
+         * (or cancel a request).
          * But if we have done that;
          *   - Socket state will not be 'open' and
          *   - we have also set closer (pid and ref).
@@ -6912,19 +6883,9 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData* dataP,
 
                     /* Check "other" queue(s) and if there is a closer pid */
                     if ((descP->readersQ.first == NULL) &&
-                        (descP->acceptorsQ.first == NULL) &&
-                        !IS_PID_UNDEF(&descP->closerPid)) {
+                        (descP->acceptorsQ.first == NULL)) {
 
-                        SSDBG( descP,
-                               ("WIN-ESAIO",
-                                "esaio_completion_sendmsg(%d) -> "
-                                "send close msg to %T\r\n",
-                                descP->sock, MKPID(env, &descP->closerPid)) );
-
-                        esock_send_close_msg(env, descP, &descP->closerPid);
-                        /* Message send frees closeEnv */
-                        descP->closeEnv = NULL;
-                        descP->closeRef = esock_atom_undefined;
+                        esaio_stop(env, descP);
 
                     }
                 }
@@ -7105,7 +7066,8 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket.
+         * 'CancelIoEx' call, which we do when closing the socket
+         * (or cancel a request).
          * But if we have done that;
          *   - Socket state will not be 'open' and
          *   - we have also set closer (pid and ref).
@@ -7136,24 +7098,12 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
 
                     /* Check "other" queue(s) and if there is a closer pid */
                     if ((descP->writersQ.first == NULL) &&
-                        (descP->acceptorsQ.first == NULL) &&
-                        !IS_PID_UNDEF(&descP->closerPid)) {
+                        (descP->acceptorsQ.first == NULL)) {
 
-                        SSDBG( descP,
-                               ("WIN-ESAIO",
-                                "esaio_completion_recv(%d) -> "
-                                "send close msg to %T\r\n",
-                                descP->sock, MKPID(env, &descP->closerPid)) );
-
-                        esock_send_close_msg(env, descP, &descP->closerPid);
-                        /* Message send frees closeEnv */
-                        descP->closeEnv = NULL;
-                        descP->closeRef = esock_atom_undefined;
+                        esaio_stop(env, descP);
 
                     }
-
                 }
-
             }
 
             /* *Maybe* update socket (write) state
@@ -7726,7 +7676,8 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket.
+         * 'CancelIoEx' call, which we do when closing the socket
+         * (or cancel a request).
          * But if we have done that;
          *   - Socket state will not be 'open' and
          *   - we have also set closer (pid and ref).
@@ -7757,19 +7708,9 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData* dataP,
 
                     /* Check "other" queue(s) and if there is a closer pid */
                     if ((descP->writersQ.first == NULL) &&
-                        (descP->acceptorsQ.first == NULL) &&
-                        !IS_PID_UNDEF(&descP->closerPid)) {
+                        (descP->acceptorsQ.first == NULL)) {
 
-                        SSDBG( descP,
-                               ("WIN-ESAIO",
-                                "esaio_completion_recvfrom(%d) -> "
-                                "send close msg to %T\r\n",
-                                descP->sock, MKPID(env, &descP->closerPid)) );
-
-                        esock_send_close_msg(env, descP, &descP->closerPid);
-                        /* Message send frees closeEnv */
-                        descP->closeEnv = NULL;
-                        descP->closeRef = esock_atom_undefined;
+                        esaio_stop(env, descP);
 
                     }
                 }
@@ -8193,7 +8134,8 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket.
+         * 'CancelIoEx' call, which we do when closing the socket
+         * (or cancel a request).
          * But if we have done that;
          *   - Socket state will not be 'open' and
          *   - we have also set closer (pid and ref).
@@ -8224,19 +8166,9 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData* dataP,
 
                     /* Check "other" queue(s) and if there is a closer pid */
                     if ((descP->writersQ.first == NULL) &&
-                        (descP->acceptorsQ.first == NULL) &&
-                        !IS_PID_UNDEF(&descP->closerPid)) {
+                        (descP->acceptorsQ.first == NULL)) {
 
-                        SSDBG( descP,
-                               ("WIN-ESAIO",
-                                "esaio_completion_recvmsg(%d) -> "
-                                "send close msg to %T\r\n",
-                                descP->sock, MKPID(env, &descP->closerPid)) );
-
-                        esock_send_close_msg(env, descP, &descP->closerPid);
-                        /* Message send frees closeEnv */
-                        descP->closeEnv = NULL;
-                        descP->closeRef = esock_atom_undefined;
+                        esaio_stop(env, descP);
 
                     }
                 }
@@ -8736,12 +8668,11 @@ void esaio_dtor(ErlNifEnv*       env,
 
 extern
 void esaio_stop(ErlNifEnv*       env,
-                ESockDescriptor* descP,
-                ErlNifEvent      fd)
+                ESockDescriptor* descP)
 {
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_stop {%d/%d} -> entry\r\n", descP->sock, fd) );
+           ("WIN-ESAIO", "esaio_stop(%d) -> entry\r\n", descP->sock) );
 
     /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
      *
@@ -8757,8 +8688,8 @@ void esaio_stop(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esaio_stop {%d/%d} -> send close msg to %T\r\n",
-                descP->sock, fd, MKPID(env, &descP->closerPid)) );
+                "esaio_stop(%d) -> send close msg to %T\r\n",
+                descP->sock, MKPID(env, &descP->closerPid)) );
 
         esock_send_close_msg(env, descP, &descP->closerPid);
         /* Message send frees closeEnv */
@@ -8785,7 +8716,7 @@ void esaio_stop(ErlNifEnv*       env,
     }
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_stop {%d/%d} -> done\r\n", descP->sock, fd) );
+           ("WIN-ESAIO", "esaio_stop(%d) -> done\r\n", descP->sock) );
 
 }
 
@@ -8872,6 +8803,9 @@ void esaio_down(ErlNifEnv*           env,
             /* Since there is a closeEnv esock_stop() has not run yet
              * - when it finds that there is no closer process
              *   it will close the socket and ignore the close_msg
+             *
+             * The 'stop' callback function will never be triggered on
+             * Windows...It may be explicitly called...
              */
             esock_clear_env("esaio_down - close-env", descP->closeEnv);
             esock_free_env("esaio_down - close-env", descP->closeEnv);
