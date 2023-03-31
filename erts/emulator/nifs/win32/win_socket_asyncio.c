@@ -8708,11 +8708,10 @@ void esaio_stop(ErlNifEnv*       env,
             esock_warning_msg("[WIN-ESAIO] Failed closing socket without "
                               "closer process: "
                               "\r\n   Controlling Process: %T"
-                              "\r\n   Descriptor:          %d"
-                              "\r\n   Errno:               %d (%T)"
+                              "\r\n   socket fd:           %d"
+                              "\r\n   Errno:               %T"
                               "\r\n",
-                              descP->ctrlPid, descP->sock,
-                              err, ENO2T(env, err));
+                              descP->ctrlPid, descP->sock, ENO2T(env, err));
     }
 
     SSDBG( descP,
