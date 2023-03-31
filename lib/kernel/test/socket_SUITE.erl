@@ -24167,8 +24167,11 @@ api_opt_tcp_cork_tcp(InitState) ->
 
 api_opt_tcp_maxseg_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_opt_tcp_maxseg_tcp4,
-           fun() -> has_support_ipv4(), has_support_tcp_maxseg() end,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   has_support_tcp_maxseg()
+           end,
            fun() ->
                    Set  = fun(Sock, Value) when is_integer(Value) ->
                                   socket:setopt(Sock, tcp, maxseg, Value)
@@ -24227,6 +24230,8 @@ api_opt_tcp_maxseg_tcp(InitState) ->
                                {ok, DefMaxSeg} ->
                                    ?SEV_IPRINT("maxseg default: ~p", [DefMaxSeg]),
                                    {ok, State#{def_maxseg => DefMaxSeg}};
+                               {error, enoprotoopt = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -40110,7 +40115,10 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    ?TT(?SECS(20)),
                    InitState = #{domain => inet,
@@ -40134,7 +40142,10 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv6()
+           end,
            fun() ->
                    ?TT(?SECS(20)),
                    InitState = #{domain => inet6,
@@ -40182,7 +40193,10 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) -
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
@@ -40206,7 +40220,10 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) -
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv6()
+           end,
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
@@ -40254,7 +40271,11 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
-           fun() -> has_support_ipv4(), traffic_ping_pong_large_sendmsg_and_recvmsg_cond() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4(),
+                   traffic_ping_pong_large_sendmsg_and_recvmsg_cond()
+           end,
            fun() ->
                    ?TT(?SECS(60)),
                    InitState = #{domain => inet,
@@ -40289,6 +40310,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
            fun() ->
+                   is_not_windows(),
                    has_support_ipv6(),
                    traffic_ping_pong_large_sendmsg_and_recvmsg_cond()
            end,
