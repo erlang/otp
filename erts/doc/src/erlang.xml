@@ -1677,6 +1677,12 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           <c>demonitor(<anno>MonitorRef</anno>, [flush])</c></seemfa>
           can be used instead of <c>demonitor(<anno>MonitorRef</anno>)</c>
           if this cleanup is wanted.</p>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
         <change>
           <p>Before Erlang/OTP R11B (ERTS 5.5) <c>demonitor/1</c>
             behaved completely asynchronously, that is, the monitor was active
@@ -2284,6 +2290,12 @@ example_fun(A1, A2) ->
             reasons.
           </p>
         </warning>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -2926,6 +2938,12 @@ uncompiled code with the same arity are mapped to the same list by
           and <seeguide marker="system/design_principles:applications#stopping">OTP
           design principles</seeguide> related to starting and stopping
           applications.</p>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -3674,6 +3692,12 @@ is_process_alive(P2Pid),
 	  chapter of the <i>ERTS User's Guide</i>.
 	</p>
 
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
 	<p>Failure:</p>
 	<list>
 	  <item><c>badarg</c> if <c><anno>PidOrPort</anno></c> does not identify
@@ -4684,6 +4708,12 @@ RealSystem = system + MissedSystem</code>
             possible values for <c>Tag</c>, <c>Object</c>, and
             <c>Info</c> in the monitor message will be introduced.</p>
         </note>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -7464,6 +7494,12 @@ true</pre>
 	<c><anno>Dest</anno></c> is an atom name, but this name is not
 	registered. This is the only case when <c>send</c> fails for an
 	unreachable destination <c><anno>Dest</anno></c> (of correct type).</p>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -7491,6 +7527,12 @@ true</pre>
              instead.
           </item>
         </taglist>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
         <warning>
           <p>As with <c>erlang:send_nosuspend/2,3</c>: use with extreme
             care.</p>
@@ -8450,6 +8492,12 @@ true</pre>
 	  A spawn request can be abandoned by calling
 	  <seemfa marker="#spawn_request_abandon/1"><c>spawn_request_abandon/1</c></seemfa>.
 	</p>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -13808,7 +13856,12 @@ end</code>
 	  protocol</seeguide> can be found in the <i>Distribution Protocol</i>
 	  chapter of the <i>ERTS User's Guide</i>.
 	</p>
-
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
         <p>
 	  Failure: <c>badarg</c> if <c>Id</c> does not identify a process
 	  or a node local port.

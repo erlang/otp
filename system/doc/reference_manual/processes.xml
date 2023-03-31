@@ -680,7 +680,10 @@ spawn(Module, Name, Args) -> pid()
 	    while it can be trapped if the signal was sent due to a link.
 	  </p>
 	</item>
-	<tag>Blocking Signaling Over Distribution</tag>
+	<tag>
+          Blocking Signaling Over Distribution
+          <marker id="blocking-signaling-over-distribution"/>
+        </tag>
 	<item>
 	  <p>
 	    When sending a signal over a distribution channel, the sending
@@ -690,24 +693,34 @@ spawn(Module, Name, Args) -> pid()
 	    size of the output buffer for the channel reach the <i>distribution
 	    buffer busy limit</i>, processes sending on the channel will be
 	    suspended until the size of the buffer shrinks below the limit.
-	    The size of the limit can be inspected by calling
+          </p>
+          <p>
+            Depending on the reason for why the buffer got full, the time it
+            takes before suspended processes are resumed can vary <em>very
+            much</em>. A consequence of this can, for example, be that a
+            timeout in a call to
+            <seemfa marker="kernel:erpc#call/5">erpc:call()</seemfa>
+            is significantly delayed.
+          </p>
+          <p>
+            Since this functionality has been present for so long, it is not
+	    possible to remove it, but it is possible to enable <i>fully
+            asynchronous distributed signaling</i> on a per process level
+            using <seeerl marker="erts:erlang#process_flag_async_dist">
+              <c>process_flag(async_dist, Bool)</c></seeerl> which can be
+            used to solve problems occuring due to blocking signaling.
+            However, note that you need to make sure that flow control for
+            data sent using <i>fully asynchronous distributed signaling</i>
+            is implemented, or that the amount of such data is known to
+            always be limited; otherwise, you may get into a situation with
+            excessive memory usage.
+          </p>
+          <p>
+	    The size of the <i>distribution buffer busy limit</i> can be
+            inspected by calling
 	    <seeerl marker="erts:erlang#system_info_dist_buf_busy_limit">
 	      <c>erlang:system_info(dist_buf_busy_limit)</c></seeerl>.
-	    Since this functionality has been present for so long, it is not
-	    possible to remove it, but it is possible to increase the limit
-	    to a point where it more or less never is reached using the
-	    <c>erl</c> command line argument
-	    <seecom marker="erts:erl#+zdbbl"><c>+zdbbl</c></seecom>. Note
-	    that if you do raise the limit like this, you need to take care
-	    of flow control yourself to ensure that you do not get into a
-	  situation with excessive memory usage.</p>
-          <change><p>As of OTP 25.3 it is
-            also possible to enable <i>fully asynchronous distributed
-            signaling</i> on a per process level using
-            <seeerl marker="erts:erlang#process_flag_async_dist">
-              <c>process_flag(async_dist, Bool)</c></seeerl>. Also in this case
-            you need to take care of flow control yourself.
-	  </p></change>
+          </p>
 	</item>
       </taglist>
       <p>

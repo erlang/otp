@@ -57,6 +57,14 @@
       Note that it is up to the user to ensure that correct code to
       execute via <c>erpc</c> is available on the involved nodes.
     </p>
+    <note><p>
+      For some important information about distributed signals, see the
+      <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+        Blocking Signaling Over Distribution</seeguide> section in the
+      <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+      Blocking signaling can, for example, cause timeouts in <c>erpc</c>
+      to be significantly delayed.
+    </p></note>
   </description>
 
   <datatypes>

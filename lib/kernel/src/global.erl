@@ -497,6 +497,7 @@ disconnect() ->
 -spec init([]) -> {'ok', state()}.
 
 init([]) ->
+    _ = process_flag(async_dist, true),
     process_flag(trap_exit, true),
 
     %% Monitor all 'nodeup'/'nodedown' messages of visible nodes.
@@ -2762,9 +2763,7 @@ inform_connection_loss(_Node, #state{}) ->
 %%
 
 gns_volatile_send(Node, Msg) ->
-    OldAsyncDist = process_flag(async_dist, true),
     _ = erlang:send({global_name_server, Node}, Msg, [noconnect]),
-    _ = process_flag(async_dist, OldAsyncDist),
     ok.
 
 %%
@@ -2774,7 +2773,6 @@ gns_volatile_send(Node, Msg) ->
 %%
 gns_volatile_multicast(Msg, IgnoreNode, MinVer,
                        AlsoPend, #state{known = Known}) ->
-    OldAsyncDist = process_flag(async_dist, true),
     maps:foreach(fun (Node, Ver) when is_atom(Node),
                                       Node =/= IgnoreNode,
                                       Ver >= MinVer ->
@@ -2788,7 +2786,6 @@ gns_volatile_multicast(Msg, IgnoreNode, MinVer,
                      (_, _) ->
                          ok
                  end, Known),
-    _ = process_flag(async_dist, OldAsyncDist),
     ok.
 
 is_node_potentially_known(Node, #state{known = Known}) ->

@@ -53,6 +53,14 @@
 	<c>erpc</c>, so the <c>rpc</c> module won't not suffer scalability
 	wise and performance wise compared to <c>erpc</c>.
       </p></note>
+      <note><p>
+        For some important information about distributed signals, see the
+        <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          Blocking Signaling Over Distribution</seeguide> section in the
+        <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        Blocking signaling can, for example, cause timeouts in <c>rpc</c>
+        to be significantly delayed.
+      </p></note>
   </description>
 
   <datatypes>
