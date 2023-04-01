@@ -640,9 +640,9 @@ protected:
         if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
             if ((Spec & (Update::eHeap | Update::eStack)) ==
                 (Update::eHeap | Update::eStack)) {
-                /* To update both heap and stack we use sse instructions like
-                 * gcc -O3 does. Basically it is this function run through
-                 * gcc -O3:
+                /* To update both heap and stack we use SSE/AVX
+                 * instructions like gcc -O3 does. Basically it is
+                 * this function run through gcc -O3:
                  *
                  *    struct a { long a; long b; long c; };
                  *    void test(long a, long b, long c, struct a *s) {
@@ -652,11 +652,18 @@ protected:
                  *    } */
                 ERTS_CT_ASSERT((offsetof(Process, stop) -
                                 offsetof(Process, htop)) == sizeof(Eterm *));
-                a.movq(x86::xmm0, HTOP);
-                a.movq(x86::xmm1, E);
-                a.punpcklqdq(x86::xmm0, x86::xmm1);
-                a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)),
-                         x86::xmm0);
+                if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
+                    a.vmovq(x86::xmm1, HTOP);
+                    a.vpinsrq(x86::xmm0, x86::xmm1, E, 1);
+                    a.vmovdqu(x86::xmmword_ptr(c_p, offsetof(Process, htop)),
+                              x86::xmm0);
+                } else {
+                    a.movq(x86::xmm0, HTOP);
+                    a.movq(x86::xmm1, E);
+                    a.punpcklqdq(x86::xmm0, x86::xmm1);
+                    a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)),
+                             x86::xmm0);
+                }
             } else if (Spec & Update::eHeap) {
                 a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
             } else if (Spec & Update::eStack) {
@@ -675,11 +682,18 @@ protected:
             if (Spec & Update::eStack) {
                 ERTS_CT_ASSERT((offsetof(Process, frame_pointer) -
                                 offsetof(Process, stop)) == sizeof(Eterm *));
-                a.movq(x86::xmm0, E);
-                a.movq(x86::xmm1, frame_pointer);
-                a.punpcklqdq(x86::xmm0, x86::xmm1);
-                a.movups(x86::xmmword_ptr(c_p, offsetof(Process, stop)),
-                         x86::xmm0);
+                if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
+                    a.vmovq(x86::xmm1, E);
+                    a.vpinsrq(x86::xmm0, x86::xmm1, frame_pointer, 1);
+                    a.vmovdqu(x86::xmmword_ptr(c_p, offsetof(Process, stop)),
+                              x86::xmm0);
+                } else {
+                    a.movq(x86::xmm0, E);
+                    a.movq(x86::xmm1, frame_pointer);
+                    a.punpcklqdq(x86::xmm0, x86::xmm1);
+                    a.movups(x86::xmmword_ptr(c_p, offsetof(Process, stop)),
+                             x86::xmm0);
+                }
             } else {
                 /* We can skip updating the frame pointer whenever the process
                  * doesn't have to inspect the stack. We still need to update
@@ -708,6 +722,14 @@ protected:
 
         a.sub(x86::rsp, imm(15));
         a.and_(x86::rsp, imm(-16));
+#endif
+        /* If the emulator has not been compiled with AVX support (which stops
+         * it from using legacy SSE instructions), we'll need to clear the upper
+         * bits of all AVX registers to avoid AVX/SSE transition penalties.  */
+#if !defined(__AVX__)
+        if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
+            a.vzeroupper();
+        }
 #endif
     }
 
@@ -893,6 +915,33 @@ protected:
         mov_imm(to, 0);
     }
 
+    template<typename Dst, typename Src>
+    void vmovups(Dst dst, Src src) {
+        if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
+            a.vmovups(dst, src);
+        } else {
+            a.movups(dst, src);
+        }
+    }
+
+    template<typename Dst, typename Src>
+    void vmovsd(Dst dst, Src src) {
+        if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
+            a.vmovsd(dst, src);
+        } else {
+            a.movsd(dst, src);
+        }
+    }
+
+    template<typename Dst, typename Src>
+    void vucomisd(Dst dst, Src src) {
+        if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
+            a.vucomisd(dst, src);
+        } else {
+            a.ucomisd(dst, src);
+        }
+    }
+
     /* Copies `count` words from `from` to `to`.
      *
      * Clobbers `spill` and the first vector register (xmm0, ymm0 etc). */
@@ -924,6 +973,10 @@ protected:
                                          CpuFeatures::X86::kAVX512_F},
                                         {x86::ymm0,
                                          4,
+                                         x86::Inst::kIdVmovups,
+                                         CpuFeatures::X86::kAVX},
+                                        {x86::xmm0,
+                                         2,
                                          x86::Inst::kIdVmovups,
                                          CpuFeatures::X86::kAVX},
                                         {x86::xmm0,
@@ -1594,7 +1647,8 @@ protected:
                             const ArgVal &Fail,
                             const Span<ArgVal> &args);
 
-    void emit_float_instr(uint32_t instId,
+    void emit_float_instr(uint32_t instIdSSE,
+                          uint32_t instIdAVX,
                           const ArgFRegister &LHS,
                           const ArgFRegister &RHS,
                           const ArgFRegister &Dst);
