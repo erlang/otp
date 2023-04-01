@@ -113,11 +113,14 @@ void meta_command(ErlNifEnv *env, int what, wxe_me_ref *mp) {
 void send_msg(const char * type, const wxString * msg) {
   WxeApp * app = (WxeApp *) wxTheApp;
   wxeReturn rt = wxeReturn(app->global_me, init_caller);
+  ErlNifEnv *env = enif_alloc_env();
+  rt.env = env;
   ERL_NIF_TERM emsg = enif_make_tuple3(rt.env,
                                        rt.make_atom((char *) "wxe_driver"),
                                        rt.make_atom((char *) type),
                                        rt.make(msg));
   rt.send(emsg);
+  enif_free_env(env);
 }
 
 void wx_print_term(ErlNifEnv * env, ERL_NIF_TERM t)
