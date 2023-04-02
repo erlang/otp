@@ -1,0 +1,224 @@
+=== Suite started at 2023-03-27 17:02:02
+=== Starting test, 39 test cases
+=cases         39
+=user          chrys
+=host          nohost
+=hosts         nohost 
+=emulator_vsn  13.1.4
+=emulator      beam
+=otp_release   26
+=started       2023-03-27 17:02:02
+=case          cover_SUITE:init_per_suite
+=logfile       cover_suite.init_per_suite.html
+=started       2023-03-27 17:02:02
+=ended         2023-03-27 17:02:02
+=result        failed: "Failed to start CTH, see the CT Log for details", [{cover_SUITE,
+                                                                            init_per_suite}]
+=== *** FAILED {cover_SUITE,init_per_suite} ***
+=== 
+=case          cover_SUITE:coverage
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #1 {cover_SUITE,coverage} ***
+=== 
+=case          cover_SUITE:start
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #2 {cover_SUITE,start} ***
+=== 
+=case          cover_SUITE:compile
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #3 {cover_SUITE,compile} ***
+=== 
+=case          cover_SUITE:analyse
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #4 {cover_SUITE,analyse} ***
+=== 
+=case          cover_SUITE:misc
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #5 {cover_SUITE,misc} ***
+=== 
+=case          cover_SUITE:stop
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #6 {cover_SUITE,stop} ***
+=== 
+=case          cover_SUITE:distribution
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #7 {cover_SUITE,distribution} ***
+=== 
+=case          cover_SUITE:reconnect
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #8 {cover_SUITE,reconnect} ***
+=== 
+=case          cover_SUITE:die_and_reconnect
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #9 {cover_SUITE,die_and_reconnect} ***
+=== 
+=case          cover_SUITE:dont_reconnect_after_stop
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #10 {cover_SUITE,dont_reconnect_after_stop} ***
+=== 
+=case          cover_SUITE:stop_node_after_disconnect
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #11 {cover_SUITE,stop_node_after_disconnect} ***
+=== 
+=case          cover_SUITE:export_import
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #12 {cover_SUITE,export_import} ***
+=== 
+=case          cover_SUITE:otp_5031
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #13 {cover_SUITE,otp_5031} ***
+=== 
+=case          cover_SUITE:otp_6115
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #14 {cover_SUITE,otp_6115} ***
+=== 
+=case          cover_SUITE:otp_8270
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #15 {cover_SUITE,otp_8270} ***
+=== 
+=case          cover_SUITE:otp_10979_hanging_node
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #16 {cover_SUITE,otp_10979_hanging_node} ***
+=== 
+=case          cover_SUITE:otp_14817
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #17 {cover_SUITE,otp_14817} ***
+=== 
+=case          cover_SUITE:local_only
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #18 {cover_SUITE,local_only} ***
+=== 
+=case          cover_SUITE:startup_race
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #19 {cover_SUITE,startup_race} ***
+=== 
+=case          cover_SUITE:otp_16476
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #20 {cover_SUITE,otp_16476} ***
+=== 
+=case          cover_SUITE:cover_clauses
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #21 {cover_SUITE,cover_clauses} ***
+=== 
+=case          cover_SUITE:eif
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #22 {cover_SUITE,eif} ***
+=== 
+=case          cover_SUITE:otp_5305
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #23 {cover_SUITE,otp_5305} ***
+=== 
+=case          cover_SUITE:otp_5418
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #24 {cover_SUITE,otp_5418} ***
+=== 
+=case          cover_SUITE:otp_7095
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #25 {cover_SUITE,otp_7095} ***
+=== 
+=case          cover_SUITE:otp_8273
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #26 {cover_SUITE,otp_8273} ***
+=== 
+=case          cover_SUITE:otp_8340
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #27 {cover_SUITE,otp_8340} ***
+=== 
+=case          cover_SUITE:otp_8188
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #28 {cover_SUITE,otp_8188} ***
+=== 
+=case          cover_SUITE:compile_beam_opts
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #29 {cover_SUITE,compile_beam_opts} ***
+=== 
+=case          cover_SUITE:eep37
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #30 {cover_SUITE,eep37} ***
+=== 
+=case          cover_SUITE:analyse_no_beam
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #31 {cover_SUITE,analyse_no_beam} ***
+=== 
+=case          cover_SUITE:line_0
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #32 {cover_SUITE,line_0} ***
+=== 
+=case          cover_SUITE:compile_beam_no_file
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #33 {cover_SUITE,compile_beam_no_file} ***
+=== 
+=case          cover_SUITE:compile_beam_missing_backend
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #34 {cover_SUITE,compile_beam_missing_backend} ***
+=== 
+=case          cover_SUITE:otp_13277
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #35 {cover_SUITE,otp_13277} ***
+=== 
+=case          cover_SUITE:otp_13289
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #36 {cover_SUITE,otp_13289} ***
+=== 
+=case          cover_SUITE:guard_in_lc
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #37 {cover_SUITE,guard_in_lc} ***
+=== 
+=case          cover_SUITE:gh_4796
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #38 {cover_SUITE,gh_4796} ***
+=== 
+=case          cover_SUITE:eep49
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping test case #39 {cover_SUITE,eep49} ***
+=== 
+=case          cover_SUITE:end_per_suite
+=started       2023-03-27 17:02:02
+=result        auto_skipped: init_per_suite failed
+=== *** Skipping {cover_SUITE,end_per_suite} ***
+=== TEST COMPLETE, 0 ok, 0 failed, 39 skipped of 39 test cases
+
+=finished      2023-03-27 17:02:02
+=failed        0
+=successful    0
+=user_skipped  0
+=auto_skipped  39

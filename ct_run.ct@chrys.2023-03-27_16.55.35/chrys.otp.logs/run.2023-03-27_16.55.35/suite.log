@@ -1,0 +1,17 @@
+=== Suite started at 2023-03-27 16:55:35
+=== Starting test, 0 test cases
+=cases         0
+=user          chrys
+=host          chrys
+=hosts         chrys 
+=emulator_vsn  13.1.4
+=emulator      beam
+=otp_release   26
+=started       2023-03-27 16:55:35
+=== TEST COMPLETE, 0 ok, 0 failed of 0 test cases
+
+=finished      2023-03-27 16:55:35
+=failed        0
+=successful    0
+=user_skipped  0
+=auto_skipped  0

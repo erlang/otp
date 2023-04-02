@@ -145,7 +145,6 @@
 	       init_info=[],                % [{M,F,A,C,L}]
 
            clause_parent,
-           clause_num = 0,
 
 	       function,                    % atom()
 	       arity,                       % int()
@@ -1978,15 +1977,11 @@ munge(Form,Vars,_MainFile,Switch) ->    % Other attributes and skipped includes.
     {Form,Vars,Switch}.
 
 munge_clauses(Anno, Clauses, Vars) ->
-    NewVars = Vars#vars{clause_parent = erl_anno:line(Anno)},
-    munge_clauses(Clauses, NewVars, Vars#vars.lines, []).
+    munge_clauses(Clauses, Anno, Vars, Vars#vars.lines, []).
 
-get_line_clause(Clause) ->
-    Lines = tuple_to_list(lists:nth(2, tuple_to_list(Clause))),
-    ClauseLine = lists:nth(1, Lines),
-    ClauseLine.
 
-munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
+munge_clauses([Clause|Clauses], ParentAnno, ParentVars, Lines, MClauses) ->
+    Vars = ParentVars#vars{clause_parent = erl_anno:line(ParentAnno)},
     {clause,Anno,Pattern,Guards,Body} = Clause,
     {MungedGuards, _Vars} = munge_exprs(Guards, Vars#vars{is_guard=true},[]),
 
@@ -2006,28 +2001,25 @@ munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
 			       depth=1},
             NewBumps = Vars2#vars.lines,
             NewLines = NewBumps ++ Lines,
-	    munge_clauses(Clauses, Vars3, NewLines,
+	    munge_clauses(Clauses, ParentAnno, Vars3, NewLines,
 			  [{clause,Anno,Pattern,MungedGuards,MungedBody}|
 			   MClauses]);
 
 	2 -> % receive-,  case-, if-, or try-clause
-            ClauseLine = get_line_clause(Clause),
+            % ClauseLine = get_line_clause(Clause),
 
-            Vars1 = Vars#vars{clause_num=Vars#vars.clause_num + 1},
+            Bump = {'BUMP_CLAUSE',clause_index(Vars, erl_anno:line(Anno))},
+            Lines0 = Vars#vars.lines,
 
-            Bump = {'BUMP_CLAUSE',ClauseLine,clause_index(Vars1, Vars1#vars.clause_parent, ClauseLine)},
-            Lines0 = Vars1#vars.lines,
-            % io:format("~n~n~p~n~n", [Clause]),
-
-	    {MungedBody, Vars2} = munge_body(Body, Vars1),
-            NewBumps = new_bumps(Vars2, Vars1),
+	    {MungedBody, Vars2} = munge_body(Body, Vars),
+            NewBumps = new_bumps(Vars2, Vars),
             NewLines = NewBumps ++ Lines,
-	    munge_clauses(Clauses, Vars2#vars{lines=Lines0},
+	    munge_clauses(Clauses, ParentAnno, Vars2#vars{lines=Lines0},
                           NewLines,
 			  [{clause,Anno,Pattern,MungedGuards,[Bump|MungedBody]}|
  			   MClauses])
     end;
-munge_clauses([], Vars, Lines, MungedClauses) -> 
+munge_clauses([], _ParentAnno, Vars, Lines, MungedClauses) -> 
     {lists:reverse(MungedClauses), Vars#vars{lines = Lines}}.
 
 munge_body(Expr, Vars) ->
@@ -2372,11 +2364,12 @@ init_counter_mapping(Mod) ->
     true = ets:insert_new(?COVER_MAPPING_TABLE, {Mod,0,0}),
     ok.
 
-clause_index(Vars, ParentLine, ClauseLine) ->
-    #vars{module=Mod,function=F,arity=A, clause_num=Num} = Vars,
+clause_index(Vars, ClauseLine) ->
+
+    #vars{module=Mod,function=F,arity=A, clause_parent=ParentLine} = Vars,
     Index = ets:update_counter(?COVER_MAPPING_TABLE, Mod, {3,1}),
     Key = #bump{module=Mod,function=F,arity=A,
-                clause=-ClauseLine,line=ParentLine, clause_num=Num},
+                clause={ClauseLine, Index},line=ParentLine},
     true = ets:insert(?COVER_MAPPING_TABLE, {Key, -Index}),
     Index.
 
@@ -2435,7 +2428,7 @@ patch_code1({'BUMP',_Anno,Index}, {distributed,AbstrCref,_}) ->
                [AbstrCref]},
     {call,A,{remote,A,{atom,A,counters},{atom,A,add}},
      [GetCref,{integer,A,Index},{integer,A,1}]};
-patch_code1({'BUMP_CLAUSE',_Anno,Index}, {distributed,_,AbstrCref}) ->
+patch_code1({'BUMP_CLAUSE',Index}, {distributed,_,AbstrCref}) ->
     %% Replace with counters:add(persistent_term:get(Key), Index, 1).
     %% This code will work on any node.
     A = element(2, AbstrCref),
@@ -2449,7 +2442,7 @@ patch_code1({'BUMP',_Anno,Index}, {local_only,AbstrCref,_}) ->
     A = element(2, AbstrCref),
     {call,A,{remote,A,{atom,A,counters},{atom,A,add}},
      [AbstrCref,{integer,A,Index},{integer,A,1}]};
-patch_code1({'BUMP_CLAUSE',_Anno,Index}, {local_only,_,AbstrCref}) ->
+patch_code1({'BUMP_CLAUSE',Index}, {local_only,_,AbstrCref}) ->
     %% Replace with counters:add(Cref, Index, 1). This code
     %% will only work on the local node.
     A = element(2, AbstrCref),
@@ -2502,16 +2495,19 @@ move_counters(Mod, Process) ->
 move_counters1({Mappings,Continuation}, LineRef, ClauseRef, Process) ->
     Move = fun
         ({Key,Index}) when Index > 0 ->
-            Count = counters:get(LineRef, Index),
-            ok = counters:sub(LineRef, Index, Count),
-            {Key, Count};
+            {Key,sub_counter(LineRef, Index)};
         ({Key,Index}) when Index < 0 ->
-            {Key,Index}
+            {Key,sub_counter(ClauseRef, -Index)}
     end,
     Process(lists:map(Move, Mappings)),
     move_counters1(ets:match_object(Continuation), LineRef, ClauseRef, Process);
 move_counters1('$end_of_table', _LineRef, _ClauseRef, _Process) ->
     ok.
+
+sub_counter(Ref, Index) ->
+    Count = counters:get(Ref, Index),
+    ok = counters:sub(Ref, Index, Count),
+    Count.
 
 counters_mapping_table(Mod) ->
     Mapping = counters_mapping(Mod),
@@ -2698,28 +2694,26 @@ do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
 do_analyse(Module, Analysis, branch, _Clauses) ->
 
     Pattern = {#bump{module=Module,clause='$1'},'_'},
-    Bumps = ets:select(?COLLECTION_TABLE, [{Pattern, [{'<', '$1', 0}], ['$_']}]),
+    Bumps = ets:select(?COLLECTION_TABLE, [{Pattern, [{'is_tuple', '$1'}], ['$_']}]),
     Fun = case Analysis of
 	      coverage ->
-		  fun({#bump{line=ParentLine, clause=ClauseLine, clause_num=Num}, _}) ->
-            Counter = counters:get(persistent_term:get({cover_clause,Module}), Num),
+		  fun({#bump{line=ParentLine, clause={ClauseLine, ClauseNum}}, N}) ->
             if
-                Counter == 1 ->
-                    {{Module,ParentLine,-ClauseLine, Num}, {1,0}};
-                Counter == 0 ->
-                    {{Module,ParentLine,-ClauseLine, Num}, {0,1}}
+                N > 0 ->
+                    {{Module,ParentLine,ClauseLine, ClauseNum}, {1,0}};
+                true ->
+                    {{Module,ParentLine,ClauseLine, ClauseNum}, {0,1}}
             end
 		  end;
 	      calls ->
-		  fun({#bump{line=ParentLine, clause=ClauseLine, clause_num=Num}, _N}) ->
-            Counter = counters:get(persistent_term:get({cover_clause,Module}), Num),
-			{{Module,ParentLine,-ClauseLine, Counter}}
+		  fun({#bump{line=ParentLine, clause={ClauseLine, ClauseNum}}, _N}) ->
+			{{Module,ParentLine,ClauseLine, ClauseNum}, _N}
 		  end
 	  end,
     lists:keysort(1, lists:map(Fun, Bumps));
 do_analyse(Module, Analysis, line, _Clauses) ->
     Pattern = {#bump{module=Module,clause='$1'},'_'},
-    Bumps = ets:select(?COLLECTION_TABLE, [{Pattern, [{'>', '$1', 0}], ['$_']}]),
+    Bumps = ets:select(?COLLECTION_TABLE, [{Pattern, [{'is_integer', '$1'}], ['$_']}]),
     Fun = case Analysis of
 	      coverage ->
 		  fun({#bump{line=L}, 0}) ->
@@ -2735,7 +2729,7 @@ do_analyse(Module, Analysis, line, _Clauses) ->
     lists:keysort(1, lists:map(Fun, Bumps));
 do_analyse(Module, Analysis, clause, _Clauses) ->
     Pattern = {#bump{module=Module,clause='$1'},'_'},
-    Bumps = ets:select(?COLLECTION_TABLE, [{Pattern, [{'>', '$1', 0}], ['$_']}]),
+    Bumps = ets:select(?COLLECTION_TABLE, [{Pattern, [{'is_integer', '$1'}], ['$_']}]),
     analyse_clause(Analysis,Bumps);
 do_analyse(Module, Analysis, function, Clauses) ->
     ClauseResult = do_analyse(Module, Analysis, clause, Clauses),

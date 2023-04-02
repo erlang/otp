@@ -1,0 +1,158 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Test lib.tools.cover_SUITE results</title>
+<meta http-equiv="cache-control" content="no-cache"></meta>
+<meta http-equiv="content-type" content="text/html; charset=utf-8"></meta>
+<link rel="stylesheet" href="../../ct_default.css" type="text/css"></link>
+<script type="text/javascript" src="../../jquery-latest.js"></script>
+<script type="text/javascript" src="../../jquery.tablesorter.min.js"></script>
+<script type="text/javascript">
+// Parser for date format, e.g: Wed Jul 4 2012 11:24:15
+var monthNames = {};
+monthNames["Jan"] = "01"; monthNames["Feb"] = "02";
+monthNames["Mar"] = "03"; monthNames["Apr"] = "04";
+monthNames["May"] = "05"; monthNames["Jun"] = "06";
+monthNames["Jul"] = "07"; monthNames["Aug"] = "08";
+monthNames["Sep"] = "09"; monthNames["Oct"] = "10";
+monthNames["Nov"] = "11"; monthNames["Dec"] = "12";
+$.tablesorter.addParser({
+  id: 'CTDateSorter',
+  is: function(s) {
+      return false; },
+  format: function(s) {
+      if (s.length < 2) return 999999999;
+      else {
+          var date = s.match(/(\w{3})\s(\w{3})\s(\d{2})\s(\d{4})\s(\d{2}):(\d{2}):(\d{2})/);
+          var y = date[4]; var mo = monthNames[date[2]]; var d = String(date[3]);
+          var h = String(date[5]); var mi = String(date[6]); var sec = String(date[7]);
+          return (parseInt('' + y + mo + d + h + mi + sec)); }},
+  type: 'numeric' });
+// Parser for general text format
+$.tablesorter.addParser({
+  id: 'CTTextSorter',
+  is: function(s) {
+    return false; },
+  format: function(s) {
+    if (s.length < 1) return 'zzzzzzzz';
+    else if (s == "?") return 'zzzzzzz';
+    else if (s == "-") return 'zzzzzz';
+    else if (s == "FAILED") return 'A';
+    else if (s == "SKIPPED") return 'B';
+    else if (s == "OK") return 'C';
+    else return '' + s; },
+  type: 'text' });
+// Parser for numerical values
+$.tablesorter.addParser({
+  id: 'CTValSorter',
+  is: function(s) {
+    return false; },
+  format: function(s) {
+    if (s.length < 1) return '-2';
+    else if (s == "?") return '-1';
+    else if ((s.search(/(\d{1,})\s/)) >= 0) {
+      var num = s.match(/(\d{1,})\s/);
+      return (parseInt('' + num[1])); }
+    else if ((s.search(/(\d{1,})\.(\d{3})s/)) >= 0) {
+      var num = s.match(/(\d{1,})\.(\d{3})/);
+      if (num[1] == "0") return (parseInt('' + num[2]));
+      else return (parseInt('' + num[1] + num[2])); }
+    else return '' + s; },
+  type: 'numeric' });
+$(document).ready(function() {
+  $("#SortableTable").tablesorter({
+    headers: { 
+      0: { sorter: 'CTValSorter' },
+      1: { sorter: 'CTTextSorter' },
+      2: { sorter: 'CTTextSorter' },
+      3: { sorter: 'CTTextSorter' },
+      5: { sorter: 'CTValSorter' },
+      6: { sorter: 'CTTextSorter' },
+      7: { sorter: 'CTTextSorter' }
+    }
+  });
+  $("#SortableTable").trigger("update");
+  $("#SortableTable").trigger("appendCache");
+});
+</script>
+</head>
+<body>
+
+<h1>Results for <i>lib.tools.cover_SUITE</i></h1>
+<h4>Test started at 2023-03-27 16:58:02</h4>
+<p><b>Host info:</b><br />
+Run by chrys on chrys<br />Used Erlang v13.1.4 in "/usr/local/lib/erlang"</p>
+<p><ul>
+<li><a href="suite.log">Full textual log</a></li>
+<li><a href="cover.html">Coverage log</a></li>
+<li><a href="unexpected_io.log.html">Unexpected I/O log</a></li>
+</ul></p>
+<p><i>Executing <b>39</b> test cases...</i>
+<br />
+</p>
+<table id="SortableTable">
+<thead>
+<tr><th>Num</th><th>Module</th><th>Group</th><th>Case</th><th>Log</th><th>Time</th><th>Result</th><th>Comment</th></tr>
+</thead>
+<tbody>
+<tr class="even"><td><font color="black"></font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><a href="cover_suite.init_per_suite.html">init_per_suite</a></td><td><a href="cover_suite.init_per_suite.html#top">&lt;</a> <a href="cover_suite.init_per_suite.html#end">&gt;</a></td><td><font color="black">0.000s</font></td><td><font color="red">FAILED</font></td><td><font color="red">{cover_SUITE,init_per_suite}</font><br /><font color="green"><font color="brown">"Failed to start CTH, see the CT Log for details"</font></font></td></tr>
+<tr class="odd"><td><font color="black">1</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">coverage</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">2</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">start</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">3</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">compile</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">4</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">analyse</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">5</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">misc</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">6</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">stop</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">7</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">distribution</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">8</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">reconnect</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">9</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">die_and_reconnect</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">10</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">dont_reconnect_after_stop</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">11</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">stop_node_after_disconnect</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">12</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">export_import</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">13</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_5031</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">14</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_6115</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">15</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_8270</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">16</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_10979_hanging_node</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">17</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_14817</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">18</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">local_only</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">19</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">startup_race</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">20</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_16476</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">21</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">cover_clauses</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">22</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">eif</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">23</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_5305</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">24</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_5418</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">25</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_7095</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">26</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_8273</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">27</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_8340</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">28</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_8188</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">29</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">compile_beam_opts</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">30</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">eep37</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">31</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">analyse_no_beam</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">32</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">line_0</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">33</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">compile_beam_no_file</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">34</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">compile_beam_missing_backend</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">35</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_13277</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">36</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">otp_13289</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">37</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">guard_in_lc</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black">38</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">gh_4796</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="odd"><td><font color="black">39</font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">eep49</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+<tr class="even"><td><font color="black"></font></td><td><font color="black">cover_SUITE</font></td><td><font color="black"></font></td><td><font color="black">end_per_suite</font></td><td><font color="black">< ></font></td><td><font color="black">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>init_per_suite failed</td></tr>
+
+</tbody>
+<tfoot>
+<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td><td>0.111s</td><td><b>Ok</b></td><td>0 Ok, 0 Failed, 39 Skipped of 39</td></tr>
+</tfoot>
+
+</table>
+<center>
+<br /><hr /><p>
+<a href="../../../all_runs.html">Test run history
+</a>  |  <a href="../../../index.html">Top level test index
+</a>  |  <a href="../../../suite.log.latest.html">Latest test result</a>
+</p>
+<div class="copyright">Copyright &copy; 2023 <a href="http://www.erlang.org">Open Telecom Platform</a><br />
+Updated: <!--date-->Mon Mar 27 2023 16:58:02<!--/date--><br />
+</div>
+</center>
+</body>
+</html>
