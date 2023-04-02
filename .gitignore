@@ -340,6 +340,7 @@ JAVADOC-GENERATED
 # tools
 
 /lib/tools/src/xref_parser.erl
+/lib/tools/src/channel.erl
 
 # wx
 
