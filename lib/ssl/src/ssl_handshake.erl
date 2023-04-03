@@ -1005,7 +1005,7 @@ available_suites(ServerCert, UserSuites, Version, undefined, Curve) ->
 available_suites(ServerCert, UserSuites, Version, HashSigns, Curve) ->
     Suites = available_suites(ServerCert, UserSuites, Version, undefined, Curve),
     filter_hashsigns(Suites, [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- Suites], HashSigns, 
-                     Version, []).
+                     Version).
 
 available_signature_algs(undefined, _)  ->
     undefined;
@@ -3276,14 +3276,11 @@ select_cipher_suite(CipherSuites, Suites, false) ->
 select_cipher_suite(CipherSuites, Suites, true) ->
     select_cipher_suite(Suites, CipherSuites).
 
-select_cipher_suite([], _) ->
-   no_suite;
-select_cipher_suite([Suite | ClientSuites], SupportedSuites) ->
-    case is_member(Suite, SupportedSuites) of
-	true ->
-	    Suite;
-        false ->
-	    select_cipher_suite(ClientSuites, SupportedSuites)
+select_cipher_suite(ClientSuites, SupportedSuites) ->
+    F = fun(Suite) -> is_member(Suite, SupportedSuites) end,
+    case lists:search(F, ClientSuites) of
+        {value, Suite} -> Suite;
+        false -> no_suite
     end.
 
 is_member(Suite, SupportedSuites) ->
@@ -3318,25 +3315,43 @@ handle_psk_identity(_PSKIdentity, LookupFun)
 handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
     Fun(psk, PSKIdentity, UserState).
 
-filter_hashsigns([], [], _, _, Acc) ->
-    lists:reverse(Acc);
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
- 		 Acc) when KeyExchange == dhe_ecdsa;
- 			   KeyExchange == ecdhe_ecdsa ->
-    do_filter_hashsigns(ecdsa, Suite, Suites, Algos, HashSigns, Version, Acc); 
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
-		 Acc) when KeyExchange == rsa;
+
+filter_hashsigns(Suites, Algos, HashSigns, Version) ->
+    %% HashSigns, and Version never change
+    ZipperF = fun (Suite, #{key_exchange := KeyExchange}) -> {Suite, KeyExchange} end,
+    SuiteAlgoPairs = lists:zipwith(ZipperF, Suites, Algos),
+    FilterHashSign = fun ({Suite, Kex}) -> filter_hashsigns0(Suite, Kex, HashSigns, Version) end,
+    lists:filtermap(FilterHashSign, SuiteAlgoPairs).
+
+filter_hashsigns0(Suite, KeyExchange, HashSigns, Version) ->
+    case filter_hashsigns_helper(KeyExchange, HashSigns, Version) of
+        true -> {true, Suite};
+        false -> false
+    end.
+
+filter_hashsigns_helper(KeyExchange, HashSigns, _Version)
+  when KeyExchange == dhe_ecdsa;
+       KeyExchange == ecdhe_ecdsa ->
+    lists:keymember(ecdsa, 2, HashSigns);
+filter_hashsigns_helper(KeyExchange, HashSigns, ?TLS_1_2) when KeyExchange == rsa;
 			   KeyExchange == dhe_rsa;
 			   KeyExchange == ecdhe_rsa;
 			   KeyExchange == srp_rsa;
 			   KeyExchange == rsa_psk ->
-    do_filter_hashsigns(rsa, Suite, Suites, Algos, HashSigns, Version, Acc);
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version, Acc) when 
+    lists:any(fun (H) -> lists:keymember(H, 2, HashSigns) end,
+              [rsa, rsa_pss_rsae, rsa_pss_pss]);
+filter_hashsigns_helper(KeyExchange, HashSigns, _Version) when KeyExchange == rsa;
+			   KeyExchange == dhe_rsa;
+			   KeyExchange == ecdhe_rsa;
+			   KeyExchange == srp_rsa;
+			   KeyExchange == rsa_psk ->
+    lists:keymember(rsa, 2, HashSigns);
+filter_hashsigns_helper(KeyExchange, HashSigns, _Version) when
       KeyExchange == dhe_dss;
-      KeyExchange == srp_dss ->							       
-    do_filter_hashsigns(dsa, Suite, Suites, Algos, HashSigns, Version, Acc);
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
-                 Acc) when 
+      KeyExchange == srp_dss ->
+    lists:keymember(dsa, 2, HashSigns);
+
+filter_hashsigns_helper(KeyExchange, _HashSigns, _Version) when
       KeyExchange == dh_dss; 
       KeyExchange == dh_rsa; 
       KeyExchange == dh_ecdsa;
@@ -3345,9 +3360,8 @@ filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], Has
       %%  Fixed DH certificates MAY be signed with any hash/signature
       %%  algorithm pair appearing in the hash_sign extension.  The names
     %%  DH_DSS, DH_RSA, ECDH_ECDSA, and ECDH_RSA are historical.
-    filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]);
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
-                 Acc) when 
+    true;
+filter_hashsigns_helper(KeyExchange, _HashSigns, _Version) when
       KeyExchange == dh_anon;
       KeyExchange == ecdh_anon;
       KeyExchange == srp_anon;
@@ -3355,24 +3369,7 @@ filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], Has
       KeyExchange == dhe_psk;
       KeyExchange == ecdhe_psk ->
     %% In this case hashsigns is not used as the kexchange is anonaymous
-    filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]).
-
-do_filter_hashsigns(rsa = SignAlgo, Suite, Suites, Algos, HashSigns, ?TLS_1_2 = Version, Acc) ->
-    case (lists:keymember(SignAlgo, 2, HashSigns) orelse
-          lists:keymember(rsa_pss_rsae, 2, HashSigns) orelse
-          lists:keymember(rsa_pss_pss, 2, HashSigns)) of
-	true ->
-	    filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]);
-	false ->
-	    filter_hashsigns(Suites, Algos, HashSigns, Version, Acc)
-    end;
-do_filter_hashsigns(SignAlgo, Suite, Suites, Algos, HashSigns, Version, Acc) ->
-    case lists:keymember(SignAlgo, 2, HashSigns) of
-	true ->
-	    filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]);
-	false ->
-	    filter_hashsigns(Suites, Algos, HashSigns, Version, Acc)
-    end.
+    true.
 
 filter_unavailable_ecc_suites(no_curve, Suites) ->
     ECCSuites = ssl_cipher:filter_suites(Suites, #{key_exchange_filters => [fun(ecdh_ecdsa) -> true; 
@@ -3569,31 +3566,17 @@ handle_ecc_point_fmt_extension(undefined) ->
 handle_ecc_point_fmt_extension(_) ->
     #ec_point_formats{ec_point_format_list = [?ECPOINT_UNCOMPRESSED]}.
 
-advertises_ec_ciphers([]) ->
-    false;
-advertises_ec_ciphers([#{key_exchange := ecdh_ecdsa} | _]) ->
-    true;
-advertises_ec_ciphers([#{key_exchange := ecdhe_ecdsa} | _]) ->
-    true;
-advertises_ec_ciphers([#{key_exchange := ecdh_rsa} | _]) ->
-    true;
-advertises_ec_ciphers([#{key_exchange := ecdhe_rsa} | _]) ->
-    true;
-advertises_ec_ciphers([#{key_exchange := ecdh_anon} | _]) ->
-    true;
-advertises_ec_ciphers([{ecdhe_psk, _,_,_} | _]) ->
-    true;
-advertises_ec_ciphers([_| Rest]) ->
-    advertises_ec_ciphers(Rest).
+advertises_ec_ciphers(ListKex) ->
+    KeyExchanges = [ecdh_ecdsa, ecdhe_ecdsa, ecdh_rsa, ecdhe_rsa, ecdh_anon],
+    F = fun (#{key_exchange := Kex}) -> lists:member(Kex, KeyExchanges);
+            ({ecdhe_psk, _,_,_}) -> true
+        end,
+    lists:any(F, ListKex).
 
-select_shared_curve([], _) ->
-    no_curve;
-select_shared_curve([Curve | Rest], Curves) ->
-    case lists:member(Curve, Curves) of
-	true ->
-	    {namedCurve, Curve};
-	false ->
-	    select_shared_curve(Rest, Curves)
+select_shared_curve(SharedCurves, Curves) ->
+    case lists:search(fun (Curve) -> lists:member(Curve, Curves) end, SharedCurves) of
+        {value, SharedCurve} -> {namedCurve, SharedCurve};
+        false -> no_curve
     end.
 
 sni(SslOpts) ->
