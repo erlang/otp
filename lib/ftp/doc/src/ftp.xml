@@ -41,12 +41,7 @@
     <p>The FTP client always tries to use passive FTP mode and only resort
       to active FTP mode if this fails. This default behavior can be 
       changed by start option <seeerl marker="#mode">mode</seeerl>.</p>
-
-      <p>An FTP client is always started as part of the ftp application
-      and legacy 
-      <seeerl marker="#service_start">start_service</seeerl> function,
-      is deprecated in OTP-24 </p>
-
+    
     <p>For a simple example of an FTP session, see 
       <seeguide marker="ftp_client">FTP User's Guide</seeguide>.</p>
 
@@ -658,31 +653,6 @@
           is closed by the server.</p>
 
        <marker id="type"></marker>
-      </desc>
-    </func>
-
-    <func>
-      <name since="OTP 21.0" name="start_service" arity="1" />
-      <fsummary>Dynamically starts an <c>FTP</c>
-      session after the <c>ftp</c> application has been started.</fsummary>
-      <desc>
-        <p>Dynamically starts an <c>FTP</c> session after the <c>ftp</c>
-          application has been started.</p>
-        <note>
-          <p>As long as the <c>ftp</c> application is operational,
-	    the FTP sessions are supervised and can be soft code upgraded.</p>
-        </note>
-      </desc>
-    </func>
-
-    <func>
-      <name since="OTP 21.0" name="stop_service" arity="1"/>
-      <fsummary>Stops an FTP session.</fsummary>
-      <type_desc variable="Pid">
-        Service-specified reference
-      </type_desc>
-      <desc>
-        <p>Stops a started FTP session.</p>
       </desc>
     </func>
 
