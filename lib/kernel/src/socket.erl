@@ -155,6 +155,7 @@
 
 %% We need #file_descriptor{} for sendfile/2,3,4,5
 -include("file_int.hrl").
+%% -include("socket_int.hrl").
 
 %% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 

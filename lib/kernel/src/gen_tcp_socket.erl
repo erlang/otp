@@ -82,10 +82,14 @@
         {'$socket', (Socket), abort, {(SelectRef), (Reason)}}).
 -define(socket_select(Socket, SelectRef),
         {'$socket', (Socket), select, (SelectRef)}).
+-define(socket_completion(Socket, CompletionRef, CompoletionStatus),
+        {'$socket', (Socket), completion, {(CompletionRef), (CompletionStatus)}}).
 -define(socket_counter_wrap(Socket, Counter),
         {'$socket', (Socket), counter_wrap, (Counter)}).
 -define(select_info(SelectRef),
         {select_info, _, (SelectRef)}).
+-define(completion_info(CompletionRef),
+        {completion_info, _, (CompletionRef)}).
 
 -define(CLOSED_SOCKET, #{rstates => [closed], wstates => [closed]}).
 
@@ -93,6 +97,7 @@
 -compile({inline, [socket_inherit_opts/0]}).
 socket_inherit_opts() ->
     [priority].
+
 
 %%% ========================================================================
 %%% API
@@ -1179,20 +1184,20 @@ callback_mode() -> handle_event_function.
 
 %% 'accept'
 -record(accept,
-        {info :: socket:select_info(),
+        {info :: socket:select_info() | socket:completion_info(),
          from :: gen_statem:from(),
          listen_socket :: socket:socket()}).
 %% Socket is not created
 
 %% 'connect' % A listen socket stays here
 -record(connect,
-        {info :: socket:select_info(),
+        {info :: socket:select_info() | socket:completion_info(),
          from :: gen_statem:from(),
          addr :: socket:sockaddr()}).
 
 %% 'connected'
 -record(recv,
-        {info :: socket:select_info()}).
+        {info :: socket:select_info() | socket:completion_info()}).
 
 %% 'closed_read' | 'closed_read_write'
 %% 'closed' % Socket is closed or not created
@@ -1551,7 +1556,7 @@ handle_event(Type, Content, State, P_D)
 handle_event(
   {call, From}, {accept, ListenSocket, Timeout},
   'accept' = _State, {P, D}) ->
-    handle_accept(P, D, From, ListenSocket, Timeout);
+    handle_accept(P, D, From, ListenSocket, Timeout, accept);
 handle_event(Type, Content, 'accept' = State, P_D) ->
     handle_unexpected(Type, Content, State, P_D);
 %%
@@ -1562,11 +1567,26 @@ handle_event(
      info = ?select_info(SelectRef), from = From,
      listen_socket = ListenSocket},
   {P, D}) ->
-    handle_accept(P, D, From, ListenSocket, update);
+    handle_accept(P, D, From, ListenSocket, update, select);
+handle_event(
+  info, ?socket_completion(ListenSocket, CompletionRef, CompletionStatus),
+  #accept{
+     info = ?completion_info(CompletionRef), from = From,
+     listen_socket = ListenSocket},
+  {P, D}) ->
+    handle_accept(P, D, From, ListenSocket, update, CompletionStatus);
 handle_event(
   info, ?socket_abort(ListenSocket, SelectRef, Reason),
   #accept{
      info = ?select_info(SelectRef), from = From,
+     listen_socket = ListenSocket},
+  {P, D}) ->
+    {next_state, 'closed', {P, D},
+     [{reply, From, {error, Reason}}]};
+handle_event(
+  info, ?socket_abort(ListenSocket, CompletionRef, Reason),
+  #accept{
+     info = ?completion_info(CompletionRef), from = From,
      listen_socket = ListenSocket},
   {P, D}) ->
     {next_state, 'closed', {P, D},
@@ -1830,19 +1850,12 @@ handle_connect(
               {reply, From, Error}]}
     end.
 
-handle_accept(P, D, From, ListenSocket, Timeout) ->
+handle_accept(P, D, From, ListenSocket, Timeout, Status)
+  when (Status =:= select) orelse (Status =:= accept) ->
     %% ?DBG({try_accept, D}),
     case socket:accept(ListenSocket, nowait) of
         {ok, Socket} ->
-            %% ?DBG(accept_success),
-            ok = socket:setopt(Socket, {otp,iow}, true),
-            ok = socket:setopt(Socket, {otp,meta}, meta(D)),
-            [ok = socket_copy_opt(ListenSocket, Opt, Socket)
-             || Opt <- socket_inherit_opts()],
-            handle_connected(
-              P#params{socket = Socket}, D#{type => accept},
-              [{{timeout, accept}, cancel},
-               {reply, From, {ok, Socket}}]);
+            handle_accept_success(P, D, From, ListenSocket, Socket);
         {select, ?select_info(_) = SelectInfo} ->
             %% ?DBG({accept_select, SelectInfo}),
             {next_state,
@@ -1851,13 +1864,42 @@ handle_accept(P, D, From, ListenSocket, Timeout) ->
                 listen_socket = ListenSocket},
              {P, D#{type => accept}},
              [{{timeout, accept}, Timeout, accept}]};
-        {error, _Reason} = Error ->
-            %% ?DBG({accept_failure, _Reason}),
+        {completion, ?completion_info(_) = CompletionInfo} ->
+            %% ?DBG({accept_completion, CompletionInfo}),
             {next_state,
-             'accept', {P, D},
-             [{{timeout, accept}, cancel},
-              {reply, From, Error}]}
-    end.
+             #accept{
+                info = CompletionInfo, from = From,
+                listen_socket = ListenSocket},
+             {P, D#{type => accept}},
+             [{{timeout, accept}, Timeout, accept}]};
+        {error, _Reason} = Error ->
+            handle_accept_failure(P, D, From, Error)
+    end;
+handle_accept(P, D, From, ListenSocket, _Timeout, {ok, Socket}) ->
+    handle_accept_success(P, D, From, ListenSocket, Socket);
+handle_accept(P, D, From, _ListenSocket, _Timeout, {error, _Reason} = Error) ->
+    handle_accept_failure(P, D, From, Error).
+
+handle_accept_success(P, D, From, ListenSocket, AccSocket) ->
+    %% ?DBG([{acc_socket, AccSocket}]),
+    ok = socket:setopt(AccSocket, {otp,iow}, true),
+    ok = socket:setopt(AccSocket, {otp,meta}, meta(D)),
+    [ok = socket_copy_opt(ListenSocket, Opt, AccSocket)
+     || Opt <- socket_inherit_opts()],
+    handle_connected(
+      P#params{socket = AccSocket}, D#{type => accept},
+      [{{timeout, accept}, cancel},
+       {reply, From, {ok, AccSocket}}]).
+    
+handle_accept_failure(P, D, From, Error) ->
+    %% ?DBG([{error, Error}]),
+    {next_state,
+     'accept', {P, D},
+     [{{timeout, accept}, cancel},
+      {reply, From, Error}]}.
+    
+
+
 
 handle_connected(P, {D, ActionsR}) ->
     handle_connected(P, D, ActionsR).
@@ -2500,7 +2542,6 @@ tag(Packet) ->
         true ->
             tcp
     end.
-
 
 %% -------
 %% Exported socket option translation
