@@ -19,31 +19,51 @@
 %%
 %%
 -module(httpd_util).
--export([ip_address/2, lookup/2, lookup/3, multi_lookup/2,
-	 lookup_mime/2, lookup_mime/3, lookup_mime_default/2,
-	 lookup_mime_default/3, reason_phrase/1, message/3, rfc1123_date/0,
-	 rfc1123_date/1, day/1, month/1,
-	 flatlength/1, split_path/1, split_script_path/1, 
-	 suffix/1, strip_extension_dot/1, split/3, uniq/1,
-	 make_name/2,make_name/3,make_name/4,strip/1,
-	 hexlist_to_integer/1,integer_to_hexlist/1,
-	 convert_request_date/1,create_etag/1,create_etag/2,
-	 convert_netscapecookie_date/1, enable_debug/1, valid_options/3,
-	 modules_validate/1, module_validate/1, 
-	 dir_validate/2, file_validate/2, mime_type_validate/1, 
-	 mime_types_validate/1, custom_date/0, error_log/2]).
+-export([ip_address/2,
+         lookup/2, 
+         lookup/3,
+         multi_lookup/2,
+	 lookup_mime/2,
+         lookup_mime/3,
+         lookup_mime_default/2,
+	 lookup_mime_default/3,
+         reason_phrase/1,
+         message/3,
+         rfc1123_date/0,
+	 rfc1123_date/1,
+         day/1,
+         month/1,
+	 split_path/1,
+         split_script_path/1,
+	 strip_extension_dot/1,
+         split/3,
+         uniq/1,
+	 make_name/2,
+         make_name/3,
+         make_name/4,
+	 convert_request_date/1,
+         create_etag/1,
+         create_etag/2,
+	 convert_netscapecookie_date/1,
+         enable_debug/1,
+         valid_options/3,
+	 modules_validate/1,
+         module_validate/1,
+	 dir_validate/2,
+         file_validate/2,
+         mime_type_validate/1,
+	 mime_types_validate/1,
+         custom_date/0,
+         error_log/2]).
 
--deprecated({flatlength, 1, "use erlang:iolist_size/1 instead"}).
--deprecated({hexlist_to_integer, 1, "use erlang:list_to_integer/2 with base 16 instead"}).
--deprecated({integer_to_hexlist, 1, "use erlang:integer_to_list/2 with base 16 instead"}).
--deprecated({strip, 1, "use string:trim/1 instead"}).
--deprecated({suffix, 1, "use filename:extension/1 and string:trim/2 instead"}).
--deprecated({decode_hex, 1, "use uri_string:unquote function instead"}).
--deprecated({encode_hex, 1, "use uri_string:quote function instead"}).
+-removed({flatlength, 1, "use erlang:iolist_size/1 instead"}).
+-removed({hexlist_to_integer, 1, "use erlang:list_to_integer/2 with base 16 instead"}).
+-removed({integer_to_hexlist, 1, "use erlang:integer_to_list/2 with base 16 instead"}).
+-removed({strip, 1, "use string:trim/1 instead"}).
+-removed({suffix, 1, "use filename:extension/1 and string:trim/2 instead"}).
+-removed({decode_hex, 1, "use uri_string:unquote function instead"}).
+-removed({encode_hex, 1, "use uri_string:quote function instead"}).
 
--compile({nowarn_deprecated_function, [{http_uri, encode, 1}]}).
--compile({nowarn_deprecated_function, [{http_uri, decode, 1}]}).
--export([encode_hex/1, decode_hex/1]).
 -include_lib("kernel/include/file.hrl").
 -include_lib("inets/include/httpd.hrl").
 
@@ -396,28 +416,6 @@ month(10) -> "Oct";
 month(11) -> "Nov";
 month(12) -> "Dec".
 
-%% decode_hex
-
-decode_hex(URI) ->
-    uri_string:unquote(URI).
-
-encode_hex(URI) ->
-    SafeChars = "!$()*", %% characters not encoded by deprecated http_uri:encode/1
-    uri_string:quote(URI, SafeChars).
-
-%% flatlength
-flatlength(List) ->
-    flatlength(List, 0).
-
-flatlength([H|T],L) when is_list(H) ->
-    flatlength(H,flatlength(T,L));
-flatlength([H|T],L) when is_binary(H) ->
-    flatlength(T,L+byte_size(H));
-flatlength([_H|T],L) ->
-    flatlength(T,L+1);
-flatlength([],L) ->
-    L.
-
 %% split_path, URI has been decoded once when validate
 %% and should only be decoded once(RFC3986, 2.4).
 
@@ -454,16 +452,6 @@ split_script_path(URI) ->
             {Path, []}
     end.
 
-%% suffix
-
-suffix(Path) ->
-    case filename:extension(Path) of
-	[] ->
-	    [];
-	Extension ->
-	    tl(Extension)
-    end.
-
 %% strip_extension_dot
 strip_extension_dot(Path) ->
     case filename:extension(Path) of
@@ -472,17 +460,6 @@ strip_extension_dot(Path) ->
 	Extension ->
 	    tl(Extension)
     end.
-
-%% strip
-strip(Value)->
-    lists:reverse(remove_ws(lists:reverse(remove_ws(Value)))).
-	
-remove_ws([$\s|Rest])->
-    remove_ws(Rest);
-remove_ws([$\t|Rest]) ->
-    remove_ws(Rest);
-remove_ws(Rest) ->
-    Rest.
 
 %% split
 
@@ -549,22 +526,6 @@ search_and_replace(S,A,B) ->
           end,
     lists:map(Fun,S).
 
-
-
-%%----------------------------------------------------------------------
-%% Converts  a string that consists of 0-9,A-F,a-f to a 
-%% integer
-%%----------------------------------------------------------------------
-
-hexlist_to_integer(List)->
-    http_util:hexlist_to_integer(List).
-
-%%----------------------------------------------------------------------
-%%Converts an integer to an hexlist
-%%----------------------------------------------------------------------
-integer_to_hexlist(Num) when is_integer(Num) ->
-    http_util:integer_to_hexlist(Num).
-	    	      
 create_etag(FileInfo) ->
     create_etag(FileInfo#file_info.mtime,FileInfo#file_info.size).
 
