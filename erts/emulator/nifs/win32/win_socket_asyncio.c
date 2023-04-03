@@ -755,21 +755,25 @@ static void esaio_completion_recv_completed(ErlNifEnv*       env,
                                             ESockRequestor*  reqP);
 static ERL_NIF_TERM esaio_completion_recv_done(ErlNifEnv*       env,
                                                ESockDescriptor* descP,
+                                               ErlNifEnv*       opEnv,
                                                ESAIOOpDataRecv* opDataP,
                                                DWORD            flags);
 static ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
+                                                  ErlNifEnv*       opEnv,
                                                   ESAIOOpDataRecv* opDataP,
                                                   ESockRequestor*  reqP,
                                                   DWORD            read,
                                                   DWORD            flags);
 static ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
                                                        ESockDescriptor* descP,
+                                                       ErlNifEnv*       opEnv,
                                                        ESAIOOpDataRecv* opDataP,
                                                        ssize_t          read,
                                                        DWORD            flags);
 static ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
                                                        ESockDescriptor* descP,
+                                                       ErlNifEnv*       opEnv,
                                                        ESAIOOpDataRecv* opDataP,
                                                        ssize_t          read,
                                                        DWORD            flags);
@@ -796,10 +800,12 @@ static void esaio_completion_recvfrom_completed(ErlNifEnv*           env,
                                                 ESockRequestor*      reqP);
 static ERL_NIF_TERM esaio_completion_recvfrom_done(ErlNifEnv*           env,
                                                    ESockDescriptor*     descP,
+                                                   ErlNifEnv*           opEnv,
                                                    ESAIOOpDataRecvFrom* opDataP,
                                                    DWORD                flags);
 static ERL_NIF_TERM esaio_completion_recvfrom_partial(ErlNifEnv*           env,
                                                       ESockDescriptor*     descP,
+                                                      ErlNifEnv*           opEnv,
                                                       ESAIOOpDataRecvFrom* opDataP,
                                                       ESockRequestor*      reqP,
                                                       DWORD                read,
@@ -824,10 +830,12 @@ static void esaio_completion_recvmsg_completed(ErlNifEnv*          env,
                                                ESockRequestor*     reqP);
 static ERL_NIF_TERM esaio_completion_recvmsg_done(ErlNifEnv*          env,
                                                   ESockDescriptor*    descP,
+                                                  ErlNifEnv*          opEnv,
                                                   ESAIOOpDataRecvMsg* opDataP,
                                                   DWORD               flags);
 static ERL_NIF_TERM esaio_completion_recvmsg_partial(ErlNifEnv*          env,
                                                      ESockDescriptor*    descP,
+                                                     ErlNifEnv*          opEnv,
                                                      ESAIOOpDataRecvMsg* opDataP,
                                                      ESockRequestor*     reqP,
                                                      DWORD               read,
@@ -5713,7 +5721,8 @@ void esaio_completion_connect_completed(ErlNifEnv*          env,
 
         WSACleanup();
 
-        completionStatus = esock_make_error_t2r(env, tag, reason);
+        completionStatus = esock_make_error_t2r(descP->connector.env,
+                                                tag, reason);
 
     }
 
@@ -5723,8 +5732,8 @@ void esaio_completion_connect_completed(ErlNifEnv*          env,
             "completion status: %T\r\n",
             descP->sock, completionStatus) );
 
-    completionInfo = MKT2(env,
-                          CP_TERM(env, descP->connector.ref),
+    completionInfo = MKT2(descP->connector.env,
+                          descP->connector.ref,
                           completionStatus);
 
     /* Send a 'connect' completion message */
@@ -6010,7 +6019,7 @@ void esaio_completion_accept_completed(ErlNifEnv*         env,
         if (ESAIO_OK != (save_errno = esaio_add_socket(accDescP))) {
             // See esock_dtor for what needs done!
             ERL_NIF_TERM tag    = esock_atom_add_socket;
-            ERL_NIF_TERM reason = ENO2T(env, save_errno);
+            ERL_NIF_TERM reason = ENO2T(opEnv, save_errno);
 
             ESOCK_CNT_INC(env, descP, CP_TERM(env, opDataP->lSockRef),
                           esock_atom_acc_fails, &descP->accFails, 1);
@@ -6029,7 +6038,7 @@ void esaio_completion_accept_completed(ErlNifEnv*         env,
              *     {error, {invalid, {add_to_completion_port, Reason}}}
              */
 
-            completionStatus = esock_make_error_t2r(env, tag, reason);
+            completionStatus = esock_make_error_t2r(opEnv, tag, reason);
 
         } else {
 
@@ -6053,7 +6062,7 @@ void esaio_completion_accept_completed(ErlNifEnv*         env,
 
             accRef = enif_make_resource(env, accDescP);
             enif_release_resource(accDescP);
-            accSocket = esock_mk_socket(env, accRef);
+            accSocket = esock_mk_socket(opEnv, CP_TERM(opEnv, accRef));
                 
             accDescP->ctrlPid = *opCaller;
 
@@ -6070,7 +6079,7 @@ void esaio_completion_accept_completed(ErlNifEnv*         env,
             if (descP->useReg)
                 esock_send_reg_add_msg(env, descP, accRef);
 
-            completionStatus = esock_make_ok2(env, accSocket);
+            completionStatus = esock_make_ok2(opEnv, accSocket);
 
         }
 
@@ -6095,12 +6104,11 @@ void esaio_completion_accept_completed(ErlNifEnv*         env,
 
         WSACleanup();
 
-        completionStatus = esock_make_error_t2r(env, tag, reason);
+        completionStatus = esock_make_error_t2r(opEnv, tag, reason);
 
     }
 
-    completionInfo = MKT2(env, CP_TERM(env, opDataP->accRef),
-                          completionStatus);
+    completionInfo = MKT2(opEnv, opDataP->accRef, completionStatus);
 
     SSDBG( descP,
            ("WIN-ESAIO",
@@ -7305,7 +7313,7 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
             ESOCK_CNT_INC(env, descP, opDataP->sockRef,
                           esock_atom_read_fails, &descP->readFails, 1);
 
-            completionStatus = esock_make_error(env, esock_atom_closed);
+            completionStatus = esock_make_error(opEnv, esock_atom_closed);
             
         } else {
 
@@ -7313,7 +7321,9 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                 /* We filled the buffer => done */
 
                 completionStatus =
-                    esaio_completion_recv_done(env, descP, opDataP, flags);
+                    esaio_completion_recv_done(env, descP,
+                                               opEnv, opDataP,
+                                               flags);
 
             } else {
 
@@ -7322,8 +7332,9 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                  */
 
                 completionStatus =
-                    esaio_completion_recv_partial(env, descP, opDataP, reqP,
-                                                  read, flags);
+                    esaio_completion_recv_partial(env, descP,
+                                                  opEnv, opDataP,
+                                                  reqP, read, flags);
             }
 
         }
@@ -7343,11 +7354,10 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                 "overlapped result failure: %d\r\n", save_errno) );
 
         completionStatus =
-            esaio_completion_get_ovl_result_fail(env, descP, save_errno);
+            esaio_completion_get_ovl_result_fail(opEnv, descP, save_errno);
     }
 
-    completionInfo = MKT2(env, CP_TERM(env, opDataP->recvRef),
-                          completionStatus);
+    completionInfo = MKT2(opEnv, opDataP->recvRef, completionStatus);
 
     SSDBG( descP,
            ("WIN-ESAIO",
@@ -7389,6 +7399,7 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esaio_completion_recv_done(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
+                                        ErlNifEnv*       opEnv,
                                         ESAIOOpDataRecv* opDataP,
                                         DWORD            flags)
 {
@@ -7417,7 +7428,7 @@ ERL_NIF_TERM esaio_completion_recv_done(ErlNifEnv*       env,
     /* This transfers "ownership" of the *allocated* binary to an
      * erlang term (no need for an explicit free).
      */
-    data = MKBIN(env, &opDataP->buf);
+    data = MKBIN(opEnv, &opDataP->buf);
 
     /* We ignore the flags *for now*.
      * Needs to be passed up eventually!
@@ -7430,7 +7441,7 @@ ERL_NIF_TERM esaio_completion_recv_done(ErlNifEnv*       env,
      *
      *                {ok, Bin}
      */
-    return esock_make_ok2(env, data);
+    return esock_make_ok2(opEnv, data);
 }
 
 
@@ -7442,6 +7453,7 @@ ERL_NIF_TERM esaio_completion_recv_done(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
                                            ESockDescriptor* descP,
+                                           ErlNifEnv*       opEnv,
                                            ESAIOOpDataRecv* opDataP,
                                            ESockRequestor*  reqP,
                                            DWORD            read,
@@ -7482,7 +7494,8 @@ ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
                 "esaio_completion_recv_partial(%T) {%d} -> done reading\r\n",
                 sockRef, descP->sock) );
 
-        res = esaio_completion_recv_partial_done(env, descP, opDataP,
+        res = esaio_completion_recv_partial_done(env, descP,
+                                                 opEnv, opDataP,
                                                  read, flags);
 
     } else {
@@ -7498,7 +7511,8 @@ ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
                 " only part of data - expected more"
                 "\r\n", sockRef, descP->sock) );
 
-        res = esaio_completion_recv_partial_part(env, descP, opDataP,
+        res = esaio_completion_recv_partial_part(env, descP,
+                                                 opEnv, opDataP,
                                                  read, flags);
     }
 
@@ -7520,6 +7534,7 @@ ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
                                                 ESockDescriptor* descP,
+                                                ErlNifEnv*       opEnv,
                                                 ESAIOOpDataRecv* opDataP,
                                                 ssize_t          read,
                                                 DWORD            flags)
@@ -7538,8 +7553,8 @@ ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
     /* This transfers "ownership" of the *allocated* binary to an
      * erlang term (no need for an explicit free).
      */
-    data = MKBIN(env, &opDataP->buf);
-    data = MKSBIN(env, data, 0, read);
+    data = MKBIN(opEnv, &opDataP->buf);
+    data = MKSBIN(opEnv, data, 0, read);
 
     (void) flags;
 
@@ -7548,7 +7563,7 @@ ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
             "esaio_completion_recv_partial_done(%T) {%d} -> done\r\n",
             sockRef, descP->sock) );
 
-    return esock_make_ok2(env, data);
+    return esock_make_ok2(opEnv, data);
 }
 
 
@@ -7575,12 +7590,15 @@ ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
                                                 ESockDescriptor* descP,
+                                                ErlNifEnv*       opEnv,
                                                 ESAIOOpDataRecv* opDataP,
                                                 ssize_t          read,
                                                 DWORD            flags)
 {
     /* This is just a "placeholder". Is this really all we need to do? */
-    return esaio_completion_recv_partial_done(env, descP, opDataP, read, flags);
+    return esaio_completion_recv_partial_done(env, descP,
+                                              opEnv, opDataP,
+                                              read, flags);
 }
 
 
@@ -7909,7 +7927,9 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*           env,
             /* We filled the buffer => done */
 
             completionStatus =
-                esaio_completion_recvfrom_done(env, descP, opDataP, flags);
+                esaio_completion_recvfrom_done(env, descP,
+                                               opEnv, opDataP,
+                                               flags);
 
         } else {
 
@@ -7918,8 +7938,9 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*           env,
              */
 
             completionStatus =
-                esaio_completion_recvfrom_partial(env, descP, opDataP, reqP,
-                                                  read, flags);
+                esaio_completion_recvfrom_partial(env, descP,
+                                                  opEnv, opDataP,
+                                                  reqP, read, flags);
         }
 
     } else {
@@ -7937,14 +7958,12 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*           env,
                 "overlapped result failure: %d\r\n", save_errno) );
 
         completionStatus =
-            esaio_completion_get_ovl_result_fail(env, descP, save_errno);
+            esaio_completion_get_ovl_result_fail(opEnv, descP, save_errno);
 
         FREE_BIN( &opDataP->buf );
     }
 
-    completionInfo = MKT2(env,
-                          CP_TERM(env, opDataP->recvRef),
-                          completionStatus);
+    completionInfo = MKT2(opEnv, opDataP->recvRef, completionStatus);
 
     SSDBG( descP,
            ("WIN-ESAIO",
@@ -7987,6 +8006,7 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*           env,
 static
 ERL_NIF_TERM esaio_completion_recvfrom_done(ErlNifEnv*           env,
                                             ESockDescriptor*     descP,
+                                            ErlNifEnv*           opEnv,
                                             ESAIOOpDataRecvFrom* opDataP,
                                             DWORD                flags)
 {
@@ -8012,7 +8032,7 @@ ERL_NIF_TERM esaio_completion_recvfrom_done(ErlNifEnv*           env,
     if (read > descP->readPkgMax)
         descP->readPkgMax = read;
 
-    esock_encode_sockaddr(env,
+    esock_encode_sockaddr(opEnv,
                           &opDataP->fromAddr,
                           opDataP->addrLen,
                           &eSockAddr);
@@ -8020,7 +8040,7 @@ ERL_NIF_TERM esaio_completion_recvfrom_done(ErlNifEnv*           env,
     /* This transfers "ownership" of the *allocated* binary to an
      * erlang term (no need for an explicit free).
      */
-    data = MKBIN(env, &opDataP->buf);
+    data = MKBIN(opEnv, &opDataP->buf);
 
     /* We ignore the flags *for now*.
      * Needs to be passed up eventually!
@@ -8033,7 +8053,7 @@ ERL_NIF_TERM esaio_completion_recvfrom_done(ErlNifEnv*           env,
      *
      *                {ok, {Source, Data}}
      */
-    res = esock_make_ok2(env, MKT2(env, eSockAddr, data));
+    res = esock_make_ok2(opEnv, MKT2(opEnv, eSockAddr, data));
 
     SSDBG( descP,
            ("WIN-ESAIO",
@@ -8053,6 +8073,7 @@ ERL_NIF_TERM esaio_completion_recvfrom_done(ErlNifEnv*           env,
 static
 ERL_NIF_TERM esaio_completion_recvfrom_partial(ErlNifEnv*           env,
                                                ESockDescriptor*     descP,
+                                               ErlNifEnv*           opEnv,
                                                ESAIOOpDataRecvFrom* opDataP,
                                                ESockRequestor*      reqP,
                                                DWORD                read,
@@ -8080,7 +8101,7 @@ ERL_NIF_TERM esaio_completion_recvfrom_partial(ErlNifEnv*           env,
     if (read > descP->readPkgMax)
         descP->readPkgMax = read;
 
-    esock_encode_sockaddr(env,
+    esock_encode_sockaddr(opEnv,
                           &opDataP->fromAddr,
                           opDataP->addrLen,
                           &eSockAddr);
@@ -8088,8 +8109,8 @@ ERL_NIF_TERM esaio_completion_recvfrom_partial(ErlNifEnv*           env,
     /* This transfers "ownership" of the *allocated* binary to an
      * erlang term (no need for an explicit free).
      */
-    data = MKBIN(env, &opDataP->buf);
-    data = MKSBIN(env, data, 0, read);
+    data = MKBIN(opEnv, &opDataP->buf);
+    data = MKSBIN(opEnv, data, 0, read);
 
     /* We ignore the flags *for now*.
      * Needs to be passed up eventually!
@@ -8103,7 +8124,7 @@ ERL_NIF_TERM esaio_completion_recvfrom_partial(ErlNifEnv*           env,
      *                {ok, {Source, Data}}
      */
 
-    res = esock_make_ok2(env, MKT2(env, eSockAddr, data));
+    res = esock_make_ok2(opEnv, MKT2(opEnv, eSockAddr, data));
 
     SSDBG( descP,
            ("WIN-ESAIO",
@@ -8381,7 +8402,9 @@ void esaio_completion_recvmsg_completed(ErlNifEnv*          env,
             /* We filled the buffer => done */
 
             completionStatus =
-                esaio_completion_recvmsg_done(env, descP, opDataP, flags);
+                esaio_completion_recvmsg_done(env, descP,
+                                              opEnv, opDataP,
+                                              flags);
 
         } else {
 
@@ -8390,8 +8413,9 @@ void esaio_completion_recvmsg_completed(ErlNifEnv*          env,
              */
 
             completionStatus =
-                esaio_completion_recvmsg_partial(env, descP, opDataP, reqP,
-                                                 read, flags);
+                esaio_completion_recvmsg_partial(env, descP,
+                                                 opEnv, opDataP,
+                                                 reqP, read, flags);
         }
 
     } else {
@@ -8409,13 +8433,11 @@ void esaio_completion_recvmsg_completed(ErlNifEnv*          env,
                 "overlapped result failure: %d\r\n", save_errno) );
 
         completionStatus =
-            esaio_completion_get_ovl_result_fail(env, descP, save_errno);
+            esaio_completion_get_ovl_result_fail(opEnv, descP, save_errno);
 
     }
 
-    completionInfo = MKT2(env,
-                          CP_TERM(env, opDataP->recvRef),
-                          completionStatus);
+    completionInfo = MKT2(opEnv, opDataP->recvRef, completionStatus);
 
     SSDBG( descP,
            ("WIN-ESAIO",
@@ -8458,6 +8480,7 @@ void esaio_completion_recvmsg_completed(ErlNifEnv*          env,
 static
 ERL_NIF_TERM esaio_completion_recvmsg_done(ErlNifEnv*          env,
                                            ESockDescriptor*    descP,
+                                           ErlNifEnv*          opEnv,
                                            ESAIOOpDataRecvMsg* opDataP,
                                            DWORD               flags)
 {
@@ -8475,7 +8498,7 @@ ERL_NIF_TERM esaio_completion_recvmsg_done(ErlNifEnv*          env,
 
     (void) flags;
 
-    encode_msg(env, descP, read,
+    encode_msg(opEnv, descP, read,
                &opDataP->msg,
                opDataP->data,
                &opDataP->ctrl,
@@ -8489,7 +8512,7 @@ ERL_NIF_TERM esaio_completion_recvmsg_done(ErlNifEnv*          env,
     if (read > descP->readPkgMax)
         descP->readPkgMax = read;
 
-    res = esock_make_ok2(env, eMsg);
+    res = esock_make_ok2(opEnv, eMsg);
 
     SSDBG( descP,
            ("WIN-ESAIO",
@@ -8509,6 +8532,7 @@ ERL_NIF_TERM esaio_completion_recvmsg_done(ErlNifEnv*          env,
 static
 ERL_NIF_TERM esaio_completion_recvmsg_partial(ErlNifEnv*          env,
                                               ESockDescriptor*    descP,
+                                              ErlNifEnv*          opEnv,
                                               ESAIOOpDataRecvMsg* opDataP,
                                               ESockRequestor*     reqP,
                                               DWORD               read,
@@ -8529,7 +8553,7 @@ ERL_NIF_TERM esaio_completion_recvmsg_partial(ErlNifEnv*          env,
     (void) flags;
 
     /* This function hansles splitting the binaries */
-    encode_msg(env, descP, read,
+    encode_msg(opEnv, descP, read,
                &opDataP->msg,
                opDataP->data,
                &opDataP->ctrl,
@@ -8543,7 +8567,7 @@ ERL_NIF_TERM esaio_completion_recvmsg_partial(ErlNifEnv*          env,
     if (read > descP->readPkgMax)
         descP->readPkgMax = read;
 
-    res = esock_make_ok2(env, eMsg);
+    res = esock_make_ok2(opEnv, eMsg);
 
     SSDBG( descP,
            ("WIN-ESAIO",
