@@ -142,26 +142,26 @@ ensure_all_started(Application, Type) ->
 ensure_all_started(Application, Type, Mode) when is_atom(Application) ->
     ensure_all_started([Application], Type, Mode);
 ensure_all_started(Applications, Type, Mode) when is_list(Applications) ->
-    case ensure_all_enqueued(Applications, [], #{}, []) of
-        {ok, DAG, _Pending} ->
-            ForTraversal = maps:to_list(DAG),
-            case Mode of
-                concurrent ->
-                    ReqIDs = gen_server:reqids_new(),
-                    concurrent_dag_start(ForTraversal, ReqIDs, [], [], Type);
-                serial ->
-                    serial_dag_start(ForTraversal, [], [], [], Type)
-            end;
-        ErrorAppReason ->
-            ErrorAppReason
+    Opts = #{type => Type, mode => Mode},
+
+    case enqueue_or_start(Applications, [], #{}, [], [], Opts) of
+        {ok, DAG, _Pending, Started} when Mode =:= concurrent ->
+            ReqIDs = gen_server:reqids_new(),
+            concurrent_dag_start(maps:to_list(DAG), ReqIDs, [], Started, Type);
+        {ok, DAG, _Pending, Started} when Mode =:= serial ->
+            0 = map_size(DAG),
+            {ok, lists:reverse(Started)};
+        {error, AppReason, Started} ->
+            _ = [stop(Name) || Name <- Started],
+            {error, AppReason}
     end.
 
-ensure_all_enqueued([App | Apps], Optional, DAG, Pending)
+enqueue_or_start([App | Apps], Optional, DAG, Pending, Started, Opts)
   when is_map_key(App, DAG) ->
     %% We already traversed the application, so only add it as pending
-    ensure_all_enqueued(Apps, Optional, DAG, [App | Pending]);
+    enqueue_or_start(Apps, Optional, DAG, [App | Pending], Started, Opts);
 
-ensure_all_enqueued([App | Apps], Optional, DAG, Pending) when is_atom(App) ->
+enqueue_or_start([App | Apps], Optional, DAG, Pending, Started, Opts) when is_atom(App) ->
     %% In case the app is already running, we just skip it instead
     %% of attempting to start all of its children - which would
     %% have already been loaded and started anyway.
@@ -169,60 +169,54 @@ ensure_all_enqueued([App | Apps], Optional, DAG, Pending) when is_atom(App) ->
         false ->
             case ensure_loaded(App) of
                 {ok, Name} ->
-                    case enqueue_app(Name, App, DAG) of
-                        {ok, NewDAG} ->
-                            NewPending = [App | Pending],
-                            ensure_all_enqueued(Apps, Optional, NewDAG, NewPending);
-                        ErrorAppReason ->
-                            ErrorAppReason
+                    case enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) of
+                        {ok, NewDAG, NewPending, NewStarted} ->
+                            enqueue_or_start(Apps, Optional, NewDAG, NewPending, NewStarted, Opts);
+                        ErrorAppReasonStarted ->
+                            ErrorAppReasonStarted
                     end;
                 {error, {"no such file or directory", _} = Reason} ->
                     case lists:member(App, Optional) of
                         true ->
-                            ensure_all_enqueued(Apps, Optional, DAG, Pending);
+                            enqueue_or_start(Apps, Optional, DAG, Pending, Started, Opts);
                         false ->
-                            {error, {App, Reason}}
+                            {error, {App, Reason}, Started}
                     end;
                 {error, Reason} ->
-                    {error, {App, Reason}}
+                    {error, {App, Reason}, Started}
             end;
         true ->
-            ensure_all_enqueued(Apps, Optional, DAG, Pending)
+            enqueue_or_start(Apps, Optional, DAG, Pending, Started, Opts)
     end;
-ensure_all_enqueued([], _Optional, DAG, Pending) ->
-    {ok, DAG, Pending}.
+enqueue_or_start([], _Optional, DAG, Pending, Started, _Opts) ->
+    {ok, DAG, Pending, Started}.
 
-enqueue_app(Name, App, DAG) ->
+enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) ->
+    #{type := Type, mode := Mode} = Opts,
     {ok, ChildApps} = get_key(Name, applications),
     {ok, OptionalApps} = get_key(Name, optional_applications),
+    {ok, Mod} = get_key(Name, mod),
 
-    case ensure_all_enqueued(ChildApps, OptionalApps, DAG, []) of
-        {ok, NewDAG, Pending} ->
-            {ok, NewDAG#{App => Pending}};
-        ErrorAppReason ->
-            ErrorAppReason
-    end.
-
-serial_dag_start([{App, Children} | Rest], Acc, Done, Started, Type) ->
-    case Children -- Done of
-        [] ->
+    %% If the application has no dependencies and we are either
+    %% on serial mode or the app does not have a module callback,
+    %% we start it immediately. At the end of serial mode, the DAG
+    %% is always empty.
+    case enqueue_or_start(ChildApps, OptionalApps, DAG, [], Started, Opts) of
+        {ok, NewDAG, NewPending, NewStarted}
+        when NewPending =:= [], (Mode =:= serial) or (Mod =:= []) ->
             case application_controller:start_application(App, Type) of
                 ok ->
-                    serial_dag_start(Rest, Acc, [App | Done], [App | Started], Type);
+                    {ok, NewDAG, Pending, [App | NewStarted]};
                 {error, {already_started, App}} ->
-                    serial_dag_start(Rest, Acc, [App | Done], Started, Type);
+                    {ok, NewDAG, Pending, NewStarted};
                 {error, Reason} ->
-                    _ = [stop(Name) || Name <- Started],
-                    {error, {App, Reason}}
+                    {error, {App, Reason}, NewStarted}
             end;
-        NewChildren ->
-            NewAcc = [{App, NewChildren} | Acc],
-            serial_dag_start(Rest, NewAcc, Done, Started, Type)
-    end;
-serial_dag_start([], [], _Done, Started, _Type) ->
-    {ok, lists:reverse(Started)};
-serial_dag_start([], Acc, Done, Started, Type) ->
-    serial_dag_start(Acc, [], Done, Started, Type).
+        {ok, NewDAG, NewPending, NewStarted} ->
+            {ok, NewDAG#{App => NewPending}, [App | Pending], NewStarted};
+        ErrorAppReasonStarted ->
+            ErrorAppReasonStarted
+    end.
 
 concurrent_dag_start([], ReqIDs, _Done, Started, _Type) ->
     wait_all_enqueued(ReqIDs, Started, false);
