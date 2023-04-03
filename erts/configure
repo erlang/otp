@@ -868,7 +868,6 @@ with_clock_gettime_monotonic_id
 enable_prefer_elapsed_monotonic_time_during_suspend
 enable_gettimeofday_as_os_system_time
 with_javac
-enable_sanitizers
 enable_deterministic_build
 '
       ac_precious_vars='build_alias
@@ -1610,8 +1609,6 @@ Optional Features:
                           elapsed time during suspend
   --enable-gettimeofday-as-os-system-time
                           Force usage of gettimeofday() for OS system time
-  --enable-sanitizers[=comma-separated list of sanitizers]
-                          Default=address,undefined
   --enable-deterministic-build
                           enable build determinism, stripping absolute paths
                           from build output
@@ -25758,23 +25755,6 @@ CFLAGS="$saved_CFLAGS"
 if test "x$GCC" = xyes; then
   CFLAGS="$WERRORFLAGS $CFLAGS"
 fi
-
-
-
-# Check whether --enable-sanitizers was given.
-if test ${enable_sanitizers+y}
-then :
-  enableval=$enable_sanitizers;
-case "$enableval" in
-    no) sanitizers= ;;
-    yes) sanitizers="-fsanitize=address,undefined" ;;
-    *) sanitizers="-fsanitize=$enableval" ;;
-esac
-CFLAGS="$CFLAGS $sanitizers"
-LDFLAGS="$LDFLAGS $sanitizers"
-
-fi
-
 
 
 # Check whether --enable-deterministic-build was given.

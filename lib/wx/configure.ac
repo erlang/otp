@@ -712,27 +712,6 @@ AS_IF([test "x$GCC" = xyes],
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CXXFLAGS])
   ])
 
-dnl ----------------------------------------------------------------------
-dnl Enable -fsanitize= flags.
-dnl ----------------------------------------------------------------------
-
-m4_define(DEFAULT_SANITIZERS, [address,undefined])
-AC_ARG_ENABLE(
-    sanitizers,
-    AS_HELP_STRING(
-        [--enable-sanitizers@<:@=comma-separated list of sanitizers@:>@],
-	    [Default=DEFAULT_SANITIZERS]),
-[
-case "$enableval" in
-    no) sanitizers= ;;
-    yes) sanitizers="-fsanitize=DEFAULT_SANITIZERS" ;;
-    *) sanitizers="-fsanitize=$enableval" ;;
-esac
-CFLAGS="$CFLAGS $sanitizers"
-CXXFLAGS="$CXXFLAGS $sanitizers"
-LDFLAGS="$LDFLAGS $sanitizers"
-])
-
 #############################################################################
 
 dnl 
