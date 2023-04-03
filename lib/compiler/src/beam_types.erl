@@ -51,7 +51,7 @@
 
 -export([limit_depth/1]).
 
--export([decode_ext/1, encode_ext/1]).
+-export([decode_ext/1, encode_ext/1, convert_ext/2]).
 
 %% This is exported to help catch errors in property test generators and is not
 %% meant to be used outside of test suites.
@@ -552,9 +552,9 @@ get_tuple_element(Index, Es) ->
 %% Helper routine for `update_tuple` / `update_record` instructions, which copy
 %% an existing type and updates a few fields.
 -spec update_tuple(Type, Updates) -> Tuple when
-    Type :: type(),
-    Updates :: [{pos_integer(), type()}, ...],
-    Tuple :: type().
+      Type :: type(),
+      Updates :: [{pos_integer(), type()}, ...],
+      Tuple :: type().
 update_tuple(#t_union{tuple_set=[_|_]=Set0}, [_|_]=Updates) ->
     case Updates of
         [{1, _} | _] ->
@@ -652,9 +652,9 @@ mtfv_1(L) when is_list(L) ->
 mtfv_1(M) when is_map(M) ->
     {SKey, SValue} =
         maps:fold(fun(Key, Value, {SKey0, SValue0}) ->
-                        SKey = join(mtfv_1(Key), SKey0),
-                        SValue = join(mtfv_1(Value), SValue0),
-                        {SKey, SValue}
+                          SKey = join(mtfv_1(Key), SKey0),
+                          SValue = join(mtfv_1(Value), SValue0),
+                          {SKey, SValue}
                   end, {none, none}, M),
     #t_map{super_key=SKey,super_value=SValue};
 mtfv_1(T) when is_tuple(T) ->
@@ -1404,6 +1404,28 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
 -define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 14)).
 -define(BEAM_TYPE_HAS_UNIT,        (1 bsl 15)).
 
+-define(BEAM_TYPES_VERSION_26, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_25, 1).
+
+-spec convert_ext(pos_integer(), binary()) -> binary() | 'none'.
+convert_ext(?BEAM_TYPES_VERSION, Types) ->
+    Types;
+convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
+    NumberMask = (?BEAM_TYPE_FLOAT bor ?BEAM_TYPE_INTEGER),
+    Types = << case Min =< Max of
+                   true ->
+                       true = 0 =/= (TypeBits0 band NumberMask), %Assertion.
+                       TypeBits = TypeBits0 bor
+                           ?BEAM_TYPE_HAS_LOWER_BOUND bor
+                           ?BEAM_TYPE_HAS_UPPER_BOUND,
+                       <<TypeBits:16,Min:64/signed,Max:64/signed>>;
+                   false ->
+                       <<TypeBits0:16>>
+               end || <<TypeBits0:16,Min:64/signed,Max:64/signed>> <= Types0 >>,
+    convert_ext(?BEAM_TYPES_VERSION_26, Types);
+convert_ext(_Version, _Types) ->
+    none.
+
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
      {?BEAM_TYPE_BITSTRING,     #t_bitstring{}},
@@ -1441,15 +1463,16 @@ decode_ext_bits(Input, TypeBit, Type, Acc) ->
     end.
 
 decode_extra(TypeBits, Extra) ->
-    L = [{?BEAM_TYPE_HAS_LOWER_BOUND, 64, '-inf'},
-         {?BEAM_TYPE_HAS_UPPER_BOUND, 64, '+inf'},
-         {?BEAM_TYPE_HAS_UNIT, 8, 1}],
-    mapfoldl(fun({Bit,Size,Default}, Acc0) ->
-                     if
-                         TypeBits band Bit =:= Bit ->
-                             <<Value:Size,Acc/binary>> = Acc0,
-                             {Value,Acc};
-                         true ->
+    L = [{?BEAM_TYPE_HAS_LOWER_BOUND, 64, signed, '-inf'},
+         {?BEAM_TYPE_HAS_UPPER_BOUND, 64, signed, '+inf'},
+         {?BEAM_TYPE_HAS_UNIT, 8, unsigned, 1}],
+    mapfoldl(fun({Bit,Size,Spec,Default}, Acc0) ->
+                     case {TypeBits band Bit, Spec, Acc0} of
+                         {Bit, unsigned, <<Value:Size/unsigned,Acc/binary>>} ->
+                             {Value, Acc};
+                         {Bit, signed, <<Value:Size/signed,Acc/binary>>} ->
+                             {Value, Acc};
+                         {0, _Spec, <<_/binary>>} ->
                              {Default,Acc0}
                      end
              end, Extra, L).
