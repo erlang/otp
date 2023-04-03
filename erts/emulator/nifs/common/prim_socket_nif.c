@@ -11816,7 +11816,9 @@ void esock_send_abort_msg(ErlNifEnv*       env,
 
     msg = mk_abort_msg(reqP->env,
                        /* sockRef not in env so copy */
-                       CP_TERM(reqP->env, sockRef), reqP->ref, reason);
+                       CP_TERM(reqP->env, sockRef),
+                       reqP->ref,
+                       CP_TERM(reqP->env, reason));
 
     if (! esock_send_msg(env, &reqP->pid, msg, reqP->env)) {
         SSDBG( descP,
