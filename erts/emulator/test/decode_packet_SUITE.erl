@@ -26,7 +26,7 @@
 
 -export([all/0, suite/0,groups/0,
          init_per_testcase/2,end_per_testcase/2,
-         basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
+         basic/1, ipv6/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
          otp_9389/1, otp_9389_line/1]).
 
 suite() ->
@@ -35,7 +35,7 @@ suite() ->
 
 all() -> 
     [basic, packet_size, neg, http, line, ssl, otp_8536,
-     otp_9389, otp_9389_line].
+     otp_9389, otp_9389_line, ipv6].
 
 groups() -> 
     [].
@@ -206,6 +206,23 @@ pack_ssl(Content, Major, Minor, Body) ->
     end,
     {Res, {ssl_tls,[],C,{Major,Minor}, Data}}.
 
+ipv6(Config) when is_list(Config) ->
+    %% Test with port
+    Packet = <<"GET http://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:4000/echo_components HTTP/1.1\r\nhost: orange\r\n\r\n">>,
+    {ok, {http_request, 'GET',  {absoluteURI, http, <<"[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]">>, 4000, <<"/echo_components">>}, {1, 1}}, <<"host: orange\r\n\r\n">>} =
+      erlang:decode_packet(http_bin, Packet, []),
+    %% Test no port
+    Packet2 = <<"GET http://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]/1234 HTTP/1.1\r\nhost: orange\r\n\r\n">>,
+    {ok, {http_request, 'GET',  {absoluteURI, http, <<"[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]">>, undefined, <<"/1234">>}, {1, 1}}, <<"host: orange\r\n\r\n">>} =
+      erlang:decode_packet(http_bin, Packet2, []),
+    %% Test short ipv6 form
+    Packet3 = <<"GET http://[::1]/1234 HTTP/1.1\r\nhost: orange\r\n\r\n">>,
+    {ok, {http_request, 'GET',  {absoluteURI, http, <<"[::1]">>, undefined, <<"/1234">>}, {1, 1}}, <<"host: orange\r\n\r\n">>} =
+      erlang:decode_packet(http_bin, Packet3, []),
+    %% Test missing `]`
+    Packet4 = <<"GET http://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210:4000/echo_components HTTP/1.1\r\nhost: orange\r\n\r\n">>,
+    {ok, {http_request, 'GET',  {absoluteURI, http, <<"[FEDC">>, undefined, <<"/echo_components">>}, {1, 1}}, <<"host: orange\r\n\r\n">>} =
+      erlang:decode_packet(http_bin, Packet4, []).
 
 packet_size(Config) when is_list(Config) ->
     Packet = <<101,22,203,54,175>>,
