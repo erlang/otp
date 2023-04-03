@@ -1796,14 +1796,14 @@ is_pattern_expr_1({integer,_Anno,_I}) -> true;
 is_pattern_expr_1({float,_Anno,_F}) -> true;
 is_pattern_expr_1({atom,_Anno,_A}) -> true;
 is_pattern_expr_1({tuple,_Anno,Es}) ->
-    all(fun is_pattern_expr/1, Es);
+    all(fun is_pattern_expr_1/1, Es);
 is_pattern_expr_1({nil,_Anno}) -> true;
 is_pattern_expr_1({cons,_Anno,H,T}) ->
     is_pattern_expr_1(H) andalso is_pattern_expr_1(T);
 is_pattern_expr_1({op,_Anno,Op,A}) ->
     erl_internal:arith_op(Op, 1) andalso is_pattern_expr_1(A);
 is_pattern_expr_1({op,_Anno,Op,A1,A2}) ->
-    erl_internal:arith_op(Op, 2) andalso all(fun is_pattern_expr/1, [A1,A2]);
+    erl_internal:arith_op(Op, 2) andalso all(fun is_pattern_expr_1/1, [A1,A2]);
 is_pattern_expr_1(_Other) -> false.
 
 pattern_map(Ps, Vt0, Old, St0) ->
