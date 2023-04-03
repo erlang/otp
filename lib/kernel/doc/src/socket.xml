@@ -1675,10 +1675,11 @@
           has been completed.
         </p>
         <p>
-          If <c><anno>SelectInfo</anno></c> does not match an
+	  If <c><anno>SelectInfo</anno></c> or
+	  <c><anno>CompletionInfo</anno></c> does not match an
           operation in progress for the calling process,
           this function returns
-          <c>{error,&nbsp;{invalid,&nbsp;SelectInfo}}</c>.
+          <c>{error,&nbsp;{invalid,&nbsp; SelectInfo | CompletionInfo}}</c>.
         </p>
       </desc>
     </func>

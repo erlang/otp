@@ -63,7 +63,7 @@
 	<item>
 	  <p>
 	    <c>{select, </c>
-	    <seetype marker="#select_info"><c>SelectInfo</c></seetype><c>}</c>
+	    <seetype marker="socket#select_info"><c>SelectInfo</c></seetype><c>}</c>
 	  </p>
 	  <p>
 	    <c>SelectInfo</c> contains the
@@ -75,7 +75,7 @@
 	<item>
 	  <p>
 	    <c>{completion, </c>
-	    <seetype marker="#completion_info"><c>CompletionInfo</c></seetype><c>}</c>
+	    <seetype marker="socket#completion_info"><c>CompletionInfo</c></seetype><c>}</c>
 	  </p>
 	  <p>
 	    <c>CompletionInfo</c> contains the
@@ -239,13 +239,9 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>
-	  <p>
-	    The tuple format is <em>not</em> allowed on Windows.
-	  </p>
-	  <p>
-	    'default' only valid for set.
-	    The tuple form is only valid for type 'stream' and protocol 'tcp'.
-	  </p>
+	  The tuple format is <em>not</em> allowed on Windows.
+	  'default' only valid for set.
+	  The tuple form is only valid for type 'stream' and protocol 'tcp'.
 	</cell>
       </row>
       <row>
