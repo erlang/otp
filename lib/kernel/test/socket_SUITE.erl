@@ -70,10 +70,10 @@
 %%
 %% S = fun() -> ts:run(kernel, socket_SUITE, [batch]) end.
 %% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
-%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
-%% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
 %% G = fun(GROUP) -> ts:run(kernel, socket_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(GROUP) -> ct:run_test([{suite, socket_SUITE}, {group, GROUP}]) end.
+%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
+%% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
 
 
 
@@ -48869,13 +48869,17 @@ otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
     ok = socket:bind(LSock, #{family => Domain, port => 0, addr => any}),
     ok = socket:listen(LSock, NumSocks),
     MonitoredBy1 = monitored_by(),
-    [LSockMon] = MonitoredBy1 -- MonitoredBy0,
     i("[acceptor]: listen socket created"
-      "~n   Montored By before listen socket: ~p"
-      "~n   Montored By after listen socket:  ~p"
-      "~n   Listen Socket Monitor:            ~p"
-      "~n   Listen Socket info:               ~p",
-      [MonitoredBy0, MonitoredBy1, LSockMon, socket:info(LSock)]),
+      "~n   'Montored By' before listen socket: ~p"
+      "~n   'Montored By' after listen socket:  ~p",
+      [MonitoredBy0, MonitoredBy1]),
+
+    [LSockMon] = MonitoredBy1 -- MonitoredBy0,
+
+    i("[acceptor]: "
+      "~n   Listen Socket Monitor: ~p"
+      "~n   Listen Socket info:    ~p",
+      [LSockMon, socket:info(LSock)]),
 
     {ok, #{port := Port}} = socket:sockname(LSock),
 
