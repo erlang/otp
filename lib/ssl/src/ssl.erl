@@ -2011,7 +2011,7 @@ server_name_indication_default(_) ->
 opt_signature_algs(UserOpts, #{versions := Versions} = Opts, _Env) ->
     [TlsVersion|_] = TlsVsns = [tls_version(V) || V <- Versions],
     SA = case get_opt_list(signature_algs, undefined, UserOpts, Opts) of
-             {default, undefined} when ?TLS_GE(TlsVersion, ?TLS_1_2) ->
+             {default, undefined} when ?TLS_GTE(TlsVersion, ?TLS_1_2) ->
                  DefAlgs = tls_v1:default_signature_algs(TlsVsns),
                  handle_hashsigns_option(DefAlgs, TlsVersion);
              {new, Algs} ->
@@ -2077,7 +2077,7 @@ validate_protocols(true, Opt, List) ->
     lists:foreach(Check, List).
 
 opt_mitigation(UserOpts, #{versions := Versions} = Opts, _Env) ->
-    DefBeast = case ?TLS_G(lists:last(Versions), ?TLS_1_0) of
+    DefBeast = case ?TLS_GT(lists:last(Versions), ?TLS_1_0) of
                    true -> disabled;
                    false -> one_n_minus_one
                end,
@@ -2537,7 +2537,7 @@ is_dtls_configured(Versions) ->
 
 handle_hashsigns_option(Value, Version) ->
     try
-        if ?TLS_GE(Version, ?TLS_1_3) ->
+        if ?TLS_GTE(Version, ?TLS_1_3) ->
                 tls_v1:signature_schemes(Version, Value);
            (Version =:= ?TLS_1_2) ->
                 tls_v1:signature_algs(Version, Value);

@@ -353,7 +353,7 @@ available_cert_key_pairs(CertKeyGroups, ?TLS_1_2) ->
      RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
 available_cert_key_pairs(CertKeyGroups, Version)
-  when ?TLS_L(Version, ?TLS_1_2) ->
+  when ?TLS_LT(Version, ?TLS_1_2) ->
     RevAlgos = [dsa, rsa, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
 
@@ -599,7 +599,7 @@ verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
     verify_cert_extensions(Cert, UserState, Exts, Context).
 
 verify_sign(_, #{version := Version})
-            when ?TLS_L(Version, ?TLS_1_2) ->
+            when ?TLS_LT(Version, ?TLS_1_2) ->
     %% This verification is not applicable pre TLS-1.2 
     true; 
 verify_sign(Cert, #{version := ?TLS_1_2,

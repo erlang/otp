@@ -392,11 +392,11 @@ verify_signature(_, Msg, {HashAlgo, SignAlgo}, Signature,
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
     public_key:verify(Msg, HashAlgo, Signature, PubKey, Options);
 verify_signature(Version, Msg, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
-  when ?TLS_GE(Version, ?TLS_1_2) ->
+  when ?TLS_GTE(Version, ?TLS_1_2) ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
     public_key:verify(Msg, HashAlgo, Signature, PubKey, Options);
 verify_signature(Version, {digest, Digest}, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
-  when ?TLS_LE(Version, ?TLS_1_1) ->
+  when ?TLS_LTE(Version, ?TLS_1_1) ->
     case public_key:decrypt_public(Signature, PubKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
 	Digest -> true;
@@ -410,10 +410,10 @@ verify_signature(_, Msg, {HashAlgo, _SignAlg}, Signature,
 		 {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
     public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams});
 verify_signature(Version, _Msg, {_HashAlgo, anon}, _Signature, _)
-  when ?TLS_1_X(Version), ?TLS_LE(Version, ?TLS_1_2) ->
+  when ?TLS_1_X(Version), ?TLS_LTE(Version, ?TLS_1_2) ->
     true;
 verify_signature(Version, Msg, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})
-  when ?TLS_1_X(Version), ?TLS_LE(Version, ?TLS_1_2) ->
+  when ?TLS_1_X(Version), ?TLS_LTE(Version, ?TLS_1_2) ->
     public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
 
 %%--------------------------------------------------------------------
@@ -1009,7 +1009,7 @@ available_suites(ServerCert, UserSuites, Version, HashSigns, Curve) ->
 
 available_signature_algs(undefined, _)  ->
     undefined;
-available_signature_algs(SupportedHashSigns, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
+available_signature_algs(SupportedHashSigns, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     case contains_scheme(SupportedHashSigns) of
         true ->
             case Version of 
@@ -1025,10 +1025,10 @@ available_signature_algs(_, _) ->
     undefined.
 
 available_signature_algs(undefined, SupportedHashSigns, Version) when
-      ?TLS_GE(Version, ?TLS_1_2) ->
+      ?TLS_GTE(Version, ?TLS_1_2) ->
     SupportedHashSigns;
 available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns0, 
-                         Version) when ?TLS_GE(Version, ?TLS_1_2) ->
+                         Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     SupportedHashSigns =
         case (Version == ?TLS_1_2) andalso contains_scheme(SupportedHashSigns0) of
             true ->
@@ -1125,7 +1125,7 @@ server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, cert
 
 is_acceptable_cert(Cert, HashSigns, Version)
   when ?TLS_1_X(Version),
-       ?TLS_GE(Version, ?TLS_1_2) ->
+       ?TLS_GTE(Version, ?TLS_1_2) ->
     {SignAlgo0, Param, _, _, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0, Param),
     is_acceptable_hash_sign(SignAlgo, HashSigns);
@@ -1972,7 +1972,7 @@ int_to_bin(I) ->
 
 %% The end-entity certificate provided by the client MUST contain a
 %% key that is compatible with certificate_types.
-certificate_types(Version) when ?TLS_LE(Version, ?TLS_1_2) ->
+certificate_types(Version) when ?TLS_LTE(Version, ?TLS_1_2) ->
     ECDSA = supported_cert_type_or_empty(ecdsa, ?ECDSA_SIGN),
     RSA = supported_cert_type_or_empty(rsa, ?RSA_SIGN),
     DSS = supported_cert_type_or_empty(dss, ?DSS_SIGN),
@@ -2120,20 +2120,20 @@ digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
     end.
 
 do_digitally_signed(Version, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
-                                             #'RSASSA-PSS-params'{}}, SignAlgo) when ?TLS_GE(Version, ?TLS_1_2) ->
+                                             #'RSASSA-PSS-params'{}}, SignAlgo) when ?TLS_GTE(Version, ?TLS_1_2) ->
     Options = signature_options(SignAlgo, HashAlgo),
     public_key:sign(Msg, HashAlgo, Key, Options);
-do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when ?TLS_LE(Version, ?TLS_1_1) ->
+do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
     public_key:encrypt_private(Digest, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
 do_digitally_signed(Version, {digest, Digest}, _,
-                    #{algorithm := rsa} = Engine, rsa) when ?TLS_LE(Version, ?TLS_1_1) ->
+                    #{algorithm := rsa} = Engine, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
     crypto:private_encrypt(rsa, Digest, maps:remove(algorithm, Engine),
                            rsa_pkcs1_padding);
 do_digitally_signed(_, Msg, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
     crypto:sign(Alg, HashAlgo, Msg, maps:remove(algorithm, Engine), Options);
-do_digitally_signed(Version, {digest, _} = Msg , HashAlgo, Key, _) when ?TLS_LE(Version,?TLS_1_1) ->
+do_digitally_signed(Version, {digest, _} = Msg , HashAlgo, Key, _) when ?TLS_LTE(Version,?TLS_1_1) ->
     public_key:sign(Msg, HashAlgo, Key);
 do_digitally_signed(_, Msg, HashAlgo, Key, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
@@ -2340,7 +2340,7 @@ setup_keys(Version, PrfAlgo, MasterSecret,
     tls_v1:setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 			KML, IVS).
 calc_master_secret(Version, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
-  when ?TLS_L(Version, ?TLS_1_3) ->
+  when ?TLS_LT(Version, ?TLS_1_3) ->
     tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 	
 %% Update pending connection states with parameters exchanged via
@@ -2505,7 +2505,7 @@ encode_client_key(#client_srp_public{srp_a = A}) ->
 enc_sign({_, anon}, _Sign, _Version) ->
     <<>>;
 enc_sign({HashAlg, SignAlg}, Signature, Version)
-  when ?TLS_GE(Version, ?TLS_1_2)->
+  when ?TLS_GTE(Version, ?TLS_1_2)->
 	SignLen = byte_size(Signature),
 	HashSign = enc_hashsign(HashAlg, SignAlg),
 	<<HashSign/binary, ?UINT16(SignLen), Signature/binary>>;
@@ -2705,26 +2705,26 @@ dec_server_key_params(Len, Keys, Version) ->
 
 dec_server_key_signature(Params, <<?BYTE(8), ?BYTE(SignAlgo),
                                    ?UINT16(0)>>, Version)
-  when ?TLS_GE(Version, ?TLS_1_2) ->
+  when ?TLS_GTE(Version, ?TLS_1_2) ->
     <<?UINT16(Scheme0)>> = <<?BYTE(8), ?BYTE(SignAlgo)>>,
     Scheme = ssl_cipher:signature_scheme(Scheme0),
     {Hash, Sign, _} = ssl_cipher:scheme_to_components(Scheme),
     {Params, {Hash, Sign}, <<>>};
 dec_server_key_signature(Params, <<?BYTE(8), ?BYTE(SignAlgo),
                                    ?UINT16(Len), Signature:Len/binary>>, Version)
-  when ?TLS_GE(Version, ?TLS_1_2) ->
+  when ?TLS_GTE(Version, ?TLS_1_2) ->
     <<?UINT16(Scheme0)>> = <<?BYTE(8), ?BYTE(SignAlgo)>>,
     Scheme = ssl_cipher:signature_scheme(Scheme0),
     {Hash, Sign, _} = ssl_cipher:scheme_to_components(Scheme),
     {Params, {Hash, Sign}, Signature};
 dec_server_key_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
 			    ?UINT16(0)>>, Version)
-  when ?TLS_GE(Version, ?TLS_1_2) ->
+  when ?TLS_GTE(Version, ?TLS_1_2) ->
     HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
     {Params, HashSign, <<>>};
 dec_server_key_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
 			    ?UINT16(Len), Signature:Len/binary>>, Version)
-  when ?TLS_GE(Version, ?TLS_1_2) ->
+  when ?TLS_GTE(Version, ?TLS_1_2) ->
     HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
     {Params, HashSign, Signature};
 dec_server_key_signature(Params, <<>>, _) ->
@@ -2810,7 +2810,7 @@ decode_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
 
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when ?TLS_L(Version, ?TLS_1_2) ->
+  when ?TLS_LT(Version, ?TLS_1_2) ->
     SignAlgoListLen = Len - 2,
     <<?UINT16(SignAlgoListLen), SignAlgoList/binary>> = ExtData,
     HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
@@ -2890,7 +2890,7 @@ decode_extensions(<<?UINT16(?USE_SRTP_EXT), ?UINT16(Len),
 
 decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when ?TLS_L(Version, ?TLS_1_3) ->
+  when ?TLS_LT(Version, ?TLS_1_3) ->
     <<?UINT16(_), EllipticCurveList/binary>> = ExtData,
     %% Ignore unknown curves
     Pick = fun(Enum) ->

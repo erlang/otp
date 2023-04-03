@@ -168,8 +168,8 @@ hello(#server_hello{server_version = LegacyVersion,
     %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
     %% number for TLS 1.2.
     %% The "supported_versions" extension is supported from TLS 1.2.
-    case ?TLS_L(LegacyVersion, ?TLS_1_2) orelse
-        LegacyVersion =:= ?TLS_1_2 andalso ?TLS_L(Version,  ?TLS_1_2) of
+    case ?TLS_LT(LegacyVersion, ?TLS_1_2) orelse
+        LegacyVersion =:= ?TLS_1_2 andalso ?TLS_LT(Version,  ?TLS_1_2) of
         true ->
             throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
         false ->
@@ -409,7 +409,7 @@ do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation) -
     end.
 
 %%--------------------------------------------------------------------
-enc_handshake(#hello_request{}, Version) when ?TLS_L(Version, ?TLS_1_3)->
+enc_handshake(#hello_request{}, Version) when ?TLS_LT(Version, ?TLS_1_3)->
     {?HELLO_REQUEST, <<>>};
 enc_handshake(#client_hello{client_version = ServerVersion,
 		     random = Random,
@@ -452,7 +452,7 @@ get_tls_handshakes_aux(_Version, Data, _, Acc) ->
     {lists:reverse(Acc), Data}.
 
 decode_handshake(Version, ?HELLO_REQUEST, <<>>)
-  when ?TLS_L(Version, ?TLS_1_3) ->
+  when ?TLS_LT(Version, ?TLS_1_3) ->
     #hello_request{};
 decode_handshake(Version, ?CLIENT_HELLO,
                  <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,

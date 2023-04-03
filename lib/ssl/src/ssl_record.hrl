@@ -183,15 +183,15 @@
 -define(TLS_1_X(Version), (element(1,Version) == 3)).
 -define(DTLS_1_X(Version), (element(1,Version) == 254)).
 
--define(TLS_GE(Version1, Version2), (Version1 >= Version2)).
--define(TLS_G(Version1, Version2),  (Version1 > Version2)).
--define(TLS_LE(Version1, Version2), (Version1 =< Version2)).
--define(TLS_L(Version1, Version2),  (Version1 < Version2)).
+-define(TLS_GTE(Version1, Version2), (Version1 >= Version2)).
+-define(TLS_GT(Version1, Version2),  (Version1 > Version2)).
+-define(TLS_LTE(Version1, Version2), (Version1 =< Version2)).
+-define(TLS_LT(Version1, Version2),  (Version1 < Version2)).
 
--define(DTLS_GE(Version1, Version2), (Version1 =< Version2)).
--define(DTLS_G(Version1, Version2),  (Version1 < Version2)).
--define(DTLS_LE(Version1, Version2), (Version >= Version2)).
--define(DTLS_L(Version1, Version2),  (Version1 > Version2)).
+-define(DTLS_GTE(Version1, Version2), (Version1 =< Version2)).
+-define(DTLS_GT(Version1, Version2),  (Version1 < Version2)).
+-define(DTLS_LTE(Version1, Version2), (Version >= Version2)).
+-define(DTLS_LT(Version1, Version2),  (Version1 > Version2)).
 
 %% Atoms used to refer to protocols
 

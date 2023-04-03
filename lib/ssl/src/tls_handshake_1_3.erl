@@ -1640,7 +1640,7 @@ maybe_add_binders(Hello0, TicketData, ?TLS_1_3=Version) ->
     Truncated = truncate_client_hello(HelloBin1),
     Binders = create_binders([Truncated], TicketData),
     update_binders(Hello0, Binders);
-maybe_add_binders(Hello, _, Version) when ?TLS_LE(Version, ?TLS_1_2) ->
+maybe_add_binders(Hello, _, Version) when ?TLS_LTE(Version, ?TLS_1_2) ->
     Hello.
 %%
 %% HelloRetryRequest
@@ -1652,7 +1652,7 @@ maybe_add_binders(Hello0, {[HRR,MessageHash|_], _}, TicketData, ?TLS_1_3=Version
     Truncated = truncate_client_hello(HelloBin1),
     Binders = create_binders([MessageHash,HRR,Truncated], TicketData),
     update_binders(Hello0, Binders);
-maybe_add_binders(Hello, _, _, Version) when ?TLS_LE(Version, ?TLS_1_2) ->
+maybe_add_binders(Hello, _, _, Version) when ?TLS_LTE(Version, ?TLS_1_2) ->
     Hello.
 
 create_binders(Context, TicketData) ->

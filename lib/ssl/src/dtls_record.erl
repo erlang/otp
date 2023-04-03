@@ -283,7 +283,7 @@ protocol_version(?DTLS_1_0) ->
 %%
 %% Description: Lowes protocol version of two given versions
 %%--------------------------------------------------------------------
-lowest_protocol_version(Version1, Version2) when ?DTLS_L(Version1, Version2) ->
+lowest_protocol_version(Version1, Version2) when ?DTLS_LT(Version1, Version2) ->
     Version1;
 lowest_protocol_version(_, Version2) ->
     Version2.
@@ -314,7 +314,7 @@ check_protocol_version([Ver | Versions], Fun) -> lists:foldl(Fun, Ver, Versions)
 %% Description: Highest protocol version of two given versions
 %%--------------------------------------------------------------------
 
-highest_protocol_version(Version1, Version2) when ?DTLS_G(Version1, Version2) ->
+highest_protocol_version(Version1, Version2) when ?DTLS_GT(Version1, Version2) ->
     Version1;
 highest_protocol_version(_, Version2) ->
     Version2.
@@ -324,7 +324,7 @@ highest_protocol_version(_, Version2) ->
 %%
 %% Description: Is V1 > V2
 %%--------------------------------------------------------------------
-is_higher(V1, V2) when ?DTLS_G(V1, V2) ->
+is_higher(V1, V2) when ?DTLS_GT(V1, V2) ->
     true;
 is_higher(_, _) ->
     false.
@@ -385,7 +385,7 @@ is_acceptable_version(Version, Versions) ->
 -spec hello_version(ssl_record:ssl_version(), [ssl_record:ssl_version()]) -> ssl_record:ssl_version().
 hello_version(Version, Versions) ->
     case dtls_v1:corresponding_tls_version(Version) of
-        TLSVersion when ?TLS_GE(TLSVersion, ?TLS_1_2) ->
+        TLSVersion when ?TLS_GTE(TLSVersion, ?TLS_1_2) ->
             Version;
         _ ->
             lowest_protocol_version(Versions)

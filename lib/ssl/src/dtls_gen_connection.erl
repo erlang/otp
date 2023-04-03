@@ -545,7 +545,7 @@ handle_info({CloseTag, Socket}, StateName,
     %% with widespread implementation practice.
     case (Active == false) andalso (CTs =/= []) of
         false ->
-            if (?DTLS_GE(Version, ?DTLS_1_2)) ->
+            if (?DTLS_GTE(Version, ?DTLS_1_2)) ->
                     ok;
                true ->
                     %% As invalidate_sessions here causes performance issues,

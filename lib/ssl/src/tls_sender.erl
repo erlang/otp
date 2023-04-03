@@ -575,7 +575,7 @@ maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
 maybe_update_cipher_key(StateData, _) ->
     StateData.
 
-update_bytes_sent(Version, StateData, _) when ?TLS_L(Version, ?TLS_1_3) ->
+update_bytes_sent(Version, StateData, _) when ?TLS_LT(Version, ?TLS_1_3) ->
     StateData;
 %% Count bytes sent in TLS 1.3 for AES-GCM
 update_bytes_sent(_, #data{static = #static{key_update_at = seq_num_wrap}} = StateData, _) ->
@@ -616,11 +616,11 @@ set_opts(SocketOptions, [{packet, N}]) ->
 
 time_to_rekey(Version, _Data,
               #{current_write := #{sequence_number := ?MAX_SEQUENCE_NUMBER}},
-              _, _, _) when ?TLS_GE(Version, ?TLS_1_3) ->
+              _, _, _) when ?TLS_GTE(Version, ?TLS_1_3) ->
     key_update;
-time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when ?TLS_GE(Version, ?TLS_1_3) ->
+time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when ?TLS_GTE(Version, ?TLS_1_3) ->
     false;
-time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when ?TLS_GE(Version, ?TLS_1_3) ->
+time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when ?TLS_GTE(Version, ?TLS_1_3) ->
     DataSize = iolist_size(Data),
     case (BytesSent + DataSize) > KeyUpdateAt of
         true ->

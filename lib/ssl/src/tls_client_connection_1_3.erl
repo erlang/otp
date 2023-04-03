@@ -794,7 +794,7 @@ maybe_automatic_session_resumption(#state{ssl_options =
                                                 server_name_indication := SNI}
                                           = SslOpts0
                                          } = State0)
-  when ?TLS_GE(Version, ?TLS_1_3) andalso
+  when ?TLS_GTE(Version, ?TLS_1_3) andalso
        SessionTickets =:= auto ->
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     HashAlgos = cipher_hash_algos(AvailableCipherSuites),

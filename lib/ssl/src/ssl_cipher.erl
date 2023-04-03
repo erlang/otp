@@ -222,7 +222,7 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV, state = IV_Cache0} = CS0,
 	     Mac, Fragment, Version)
-  when ?TLS_G(Version, ?TLS_1_0)->
+  when ?TLS_GT(Version, ?TLS_1_0)->
     IV_Size = byte_size(IV),
     <<NextIV:IV_Size/binary, IV_Cache/binary>> =
         case IV_Cache0 of
@@ -673,7 +673,7 @@ mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 	 _Length, _Fragment) ->
     <<>>;
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)
-  when ?TLS_LE(Version, ?TLS_1_2), Version =/= ?SSL_3_0 ->
+  when ?TLS_LTE(Version, ?TLS_1_2), Version =/= ?SSL_3_0 ->
     tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
 		      Length, Fragment).
 
@@ -1037,7 +1037,7 @@ filter_suites_pubkey(ecdsa, Ciphers, _, OtpCert) ->
                                    ec_ecdhe_suites(Ciphers)),
     filter_keyuse_suites(keyAgreement, Uses, CiphersSuites, ec_ecdh_suites(Ciphers)).
 
-filter_suites_signature(_, Ciphers, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
+filter_suites_signature(_, Ciphers, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
      Ciphers;
 filter_suites_signature(rsa, Ciphers, Version) ->
     (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers);
@@ -1084,7 +1084,7 @@ rsa_signed(_) ->
 rsa_signed_suites(Ciphers, Version) ->
     filter_kex(Ciphers, rsa_signed(Version)).
 
-ecdsa_signed(Version) when ?TLS_GE(Version, ?TLS_1_2) ->
+ecdsa_signed(Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     fun(ecdhe_ecdsa) -> true;
        (_) -> false
     end;

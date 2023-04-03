@@ -467,7 +467,7 @@ sig_algs(rsa_pss_rsae, _) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256]}];
-sig_algs(rsa, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
+sig_algs(rsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256,
@@ -476,13 +476,13 @@ sig_algs(rsa, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
                        {sha256, rsa},
                        {sha, rsa}
                       ]}];
-sig_algs(ecdsa, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
+sig_algs(ecdsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     [{signature_algs, [
                        {sha512, ecdsa},
                        {sha384, ecdsa},
                        {sha256, ecdsa},
                        {sha, ecdsa}]}];
-sig_algs(dsa, Version) when ?TLS_GE(Version, ?TLS_1_2) ->
+sig_algs(dsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     [{signature_algs, [{sha,dsa}]}];
 sig_algs(_,_) ->
     [].

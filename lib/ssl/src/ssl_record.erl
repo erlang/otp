@@ -495,7 +495,7 @@ init_security_parameters(?SERVER, Version) ->
     #security_parameters{connection_end = ?SERVER,
                          server_random = make_random(Version)}.
 
-make_random(Version) when ?TLS_GE(Version, ?TLS_1_3) ->
+make_random(Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
     ssl_cipher:random_bytes(32);
 make_random(_Version) ->
     Secs_since_1970 = calendar:datetime_to_gregorian_seconds(

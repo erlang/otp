@@ -921,7 +921,7 @@ default_pre_1_3_signature_algs_only() ->
     signature_algs(?TLS_1_2, Default).
 
 signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
-                                                         andalso ?TLS_GE(Version, ?TLS_1_2) ->
+                                                         andalso ?TLS_GTE(Version, ?TLS_1_2) ->
     CryptoSupports =  crypto:supports(),
     Hashes = proplists:get_value(hashs, CryptoSupports),
     PubKeys = proplists:get_value(public_keys, CryptoSupports),

@@ -1167,7 +1167,7 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
                     connection_env = #connection_env{negotiated_version = Version},
-                    ssl_options = #{log_level := LogLevel}} = State) when ?TLS_L(Version, ?TLS_1_3) ->
+                    ssl_options = #{log_level := LogLevel}} = State) when ?TLS_LT(Version, ?TLS_1_3) ->
     log_alert(LogLevel, Role,
               Connection:protocol_name(), StateName,
               Alert#alert{role = opposite_role(Role)}),
@@ -1203,7 +1203,7 @@ handle_trusted_certs_db(#state{static_env = #static_env{cert_db_ref = Ref,
 
 maybe_invalidate_session(?TLS_1_3,_, _, _, _, _) ->
     ok;
-maybe_invalidate_session(Version, Type, Role, Host, Port, Session) when ?TLS_L(Version, ?TLS_1_3) ->
+maybe_invalidate_session(Version, Type, Role, Host, Port, Session) when ?TLS_LT(Version, ?TLS_1_3) ->
     maybe_invalidate_session(Type, Role, Host, Port, Session).
 
 maybe_invalidate_session({false, first}, server = Role, Host, Port, Session) ->

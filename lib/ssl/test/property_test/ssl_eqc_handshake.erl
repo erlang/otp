@@ -642,12 +642,12 @@ signature_algs(?TLS_1_3) ->
          Algs);
 signature_algs(?TLS_1_2 = Version) ->
         #hash_sign_algos{hash_sign_algos = hash_alg_list(Version)};
-signature_algs(Version) when ?TLS_L(Version, ?TLS_1_2) ->
+signature_algs(Version) when ?TLS_LT(Version, ?TLS_1_2) ->
     undefined.
 
 
 
-hashsign_algorithms(Version) when ?TLS_GE(Version, ?TLS_1_2) ->
+hashsign_algorithms(Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     #hash_sign_algos{hash_sign_algos = hash_alg_list(Version)};
 hashsign_algorithms(_) -> 
     undefined.
@@ -715,12 +715,12 @@ ec_point_formats() ->
 ec_point_format_list() ->
     [?ECPOINT_UNCOMPRESSED].
 
-elliptic_curves(Version) when ?TLS_L(Version, ?TLS_1_3) ->
+elliptic_curves(Version) when ?TLS_LT(Version, ?TLS_1_3) ->
     Curves = tls_v1:ecc_curves(Version),
     #elliptic_curves{elliptic_curve_list = Curves}.
 
 %% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
-supported_groups(Version) when ?TLS_GE(Version, ?TLS_1_3) ->
+supported_groups(Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
     SupportedGroups = tls_v1:groups(),
     #supported_groups{supported_groups = SupportedGroups}.
 
