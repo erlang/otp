@@ -5653,7 +5653,6 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_connect", opEnv);
     esock_free_env("esaio_completion_connect", opEnv);
-    FREE( ovl );
 
     SGDBG( ("WIN-ESAIO", "esaio_completion_connect -> done\r\n") );
 
@@ -5960,7 +5959,6 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData*   dataP,
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_accept - op cleanup", opEnv);
     esock_free_env("esaio_completion_accept - op cleanup", opEnv);
-    FREE( ovl );
     
     SGDBG( ("WIN-ESAIO", "esaio_completion_accept -> done\r\n") );
 
@@ -6381,7 +6379,6 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_send - op cleanup", opEnv);
     esock_free_env("esaio_completion_send - op cleanup", opEnv);
-    FREE( ovl );    
     
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_send(%d) -> done\r\n",
@@ -6799,7 +6796,6 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData*   dataP,
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_sendto - op cleanup", opEnv);
     esock_free_env("esaio_completion_sendto - op cleanup", opEnv);
-    FREE( ovl );
     
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_sendto(%d) -> done\r\n",
@@ -7031,7 +7027,6 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData*    dataP,
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_sendmsg - op cleanup", opEnv);
     esock_free_env("esaio_completion_sendmsg - op cleanup", opEnv);
-    FREE( ovl );
     
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_sendmsg(%d) -> done\r\n",
@@ -7249,7 +7244,6 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_recv - op cleanup", opEnv);
     esock_free_env("esaio_completion_recv - op cleanup", opEnv);
-    FREE( ovl );
     
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_recv {%d} -> done\r\n",
@@ -7864,7 +7858,6 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData*     dataP,
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_recvfrom - op cleanup", opEnv);
     esock_free_env("esaio_completion_recvfrom - op cleanup", opEnv);
-    FREE( ovl );
     
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_recvfrom {%d} -> done\r\n") );
@@ -8333,7 +8326,6 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData*    dataP,
     /* No need for this "stuff" anymore */
     esock_clear_env("esaio_completion_recvmsg - op cleanup", opEnv);
     esock_free_env("esaio_completion_recvmsg - op cleanup", opEnv);
-    FREE( ovl );
     
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_recvmsg {%d} -> done\r\n",
