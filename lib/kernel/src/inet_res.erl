@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -490,7 +490,7 @@ getbyname(Name, Type, Timeout) ->
 getbyname_tm(Name, Type, Timer) when is_list(Name) ->
     case type_p(Type) of
 	true ->
-	    case inet_parse:visible_string(Name) of
+	    case inet_parse:visible_string(Name) andalso Name =/= "" of
 		false ->
                     {error, formerr};
 		true ->
