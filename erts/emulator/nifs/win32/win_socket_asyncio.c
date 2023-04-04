@@ -660,6 +660,16 @@ static BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
                                           ErlNifPid*          opCaller,
                                           ESAIOOpDataConnect* opDataP,
                                           int                 error);
+static void esaio_completion_connect_success(ErlNifEnv*          env,
+                                             ESockDescriptor*    descP,
+                                             ESAIOOpDataConnect* opDataP);
+static void esaio_completion_connect_aborted(ErlNifEnv*          env,
+                                             ESockDescriptor*    descP,
+                                             ESAIOOpDataConnect* opDataP);
+static void esaio_completion_connect_failure(ErlNifEnv*          env,
+                                             ESockDescriptor*    descP,
+                                             ESAIOOpDataConnect* opDataP,
+                                             int                 error);
 static void esaio_completion_connect_completed(ErlNifEnv*          env,
                                                ESockDescriptor*    descP,
                                                ESAIOOpDataConnect* opDataPP);
@@ -1803,7 +1813,6 @@ ERL_NIF_TERM connect_stream_check_result(ErlNifEnv*       env,
         } else {
 
             save_errno = sock_errno();
-
             tag        = esock_atom_update_connect_context;
             reason     = ENO2T(env, save_errno);
 
@@ -1828,19 +1837,20 @@ ERL_NIF_TERM connect_stream_check_result(ErlNifEnv*       env,
 
         if (save_errno == WSA_IO_PENDING) {
 
-            SSDBG( descP, ("WIN-ESAIO",
-                           "esaio_connect {%d} -> connect scheduled\r\n",
-                           descP->sock) );
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "connect_stream_check_result(%d) -> connect scheduled\r\n",
+                    descP->sock) );
 
             eres = esock_atom_completion;
 
         } else {
-            ERL_NIF_TERM ereason = MKA(env, erl_errno_id(save_errno));
+            ERL_NIF_TERM ereason = ENO2T(env, save_errno);
 
             SSDBG( descP, ("WIN-ESAIO",
-                           "connect_stream_check_result {%d} -> "
-                           "connect attempt failed: %T (%d)\r\n",
-                           descP->sock, ereason, save_errno) );
+                           "connect_stream_check_result(%d) -> "
+                           "connect attempt failed: %T\r\n",
+                           descP->sock, ereason) );
 
             /* Clean up the connector stuff, no need for that anymore */
             esock_requestor_release("connect_stream_check_result -> failure",
@@ -5539,38 +5549,17 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
            ("WIN-ESAIO", "esaio_completion_connect(%d) -> entry\r\n",
             descP->sock, error) );
 
+    (void) opCaller;
+
     switch (error) {
     case NO_ERROR:
         SSDBG( descP,
-               ("WIN-ESAIO", "esaio_completion_connect(%d) -> no error"
+               ("WIN-ESAIO", "esaio_completion_connect(%d) -> success"
                 "\r\n", descP->sock) );
         MLOCK(descP->writeMtx);
-        if (descP->connectorP != NULL) {
-            if (IS_OPEN(descP->writeState)) {
-                esaio_completion_connect_completed(env, descP, opDataP);
-            } else {
-                /* A completed (active) request for a socket that is not open.
-                 * Is this even possible?
-                 * A race (completed just as the socket was closed).
-                 */
 
-                /* Clean up the connector stuff, no need for that anymore */
-                esock_requestor_release("esaio_completion_connect -> "
-                                        "not active",
-                                        env, descP, &descP->connector);
-                descP->connectorP = NULL;
+        esaio_completion_connect_success(env, descP, opDataP);
 
-                descP->writeState &=
-                    ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
-
-                esaio_completion_connect_not_active(descP);
-            }
-        } else {
-            /* Connect was actually completed directly
-             * (and 'connector' was therefor not initiated)
-             * => Nothing to do here, other than cleanup (see below).
-             */
-        }
         MUNLOCK(descP->writeMtx);
         break;
 
@@ -5582,75 +5571,28 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
         /* *** SAME MTX LOCK ORDER FOR ALL OPs *** */
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
-        /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket
-         * (or cancel a request).
-         * But if we have done that;
-         *   - Socket state will not be 'open' and
-         *   - we have also set closer (pid and ref).
-         */
 
-        if (descP->connectorP != NULL) {
+        esaio_completion_connect_aborted(env, descP, opDataP);
 
-            reason = esock_atom_closed,
-
-            /* Inform the user waiting for a reply */
-            esock_send_abort_msg(env, descP, opDataP->sockRef,
-                                 descP->connectorP, reason);
-
-            /* Clean up the connector stuff, no need for that anymore */
-            esock_requestor_release("connect_stream_check_result -> abort",
-                                    env, descP, &descP->connector);
-            descP->connectorP = NULL;
-            descP->writeState &=
-                ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
-
-            /* The socket not being open (assumed closing),
-             * means we are in the closing phase...
-             */
-            if (! IS_OPEN(descP->writeState)) {
-
-                esaio_stop(env, descP);
-
-            }
-        }
         MUNLOCK(descP->writeMtx);
         MUNLOCK(descP->readMtx);
         break;
 
     default:
-        SSDBG( descP,
-               ("WIN-ESAIO",
-                "esaio_completion_connect(%d) -> operation unknown failure:"
-                "\r\n   %T"
-                "\r\n", descP->sock, ENO2T(env, error)) );
-        MLOCK(descP->writeMtx);
         /* We do not know what this is
          * but we can "assume" that the request failed so we need to
          * remove it from the "queue" if its still there...
          * And cleanup...
          */
-        if (descP->connectorP != NULL) {
-            /* Figure out the reason */
-            reason = MKT2(env,
-                          esock_atom_get_overlapped_result,
-                          ENO2T(env, error));
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_connect(%d) -> unknown failure:"
+                "\r\n   %T"
+                "\r\n", descP->sock, ENO2T(env, error)) );
+        MLOCK(descP->writeMtx);
 
-            /* Inform the user waiting for a reply */
-            esock_send_abort_msg(env, descP, opDataP->sockRef,
-                                 descP->connectorP, reason);
-            esaio_completion_connect_fail(env, descP, error, FALSE);
+        esaio_completion_connect_failure(env, descP, opDataP, error);
 
-            /* Clean up the connector stuff, no need for that anymore */
-            esock_requestor_release("connect_stream_check_result -> failure",
-                                    env, descP, &descP->connector);
-            descP->connectorP = NULL;
-            descP->writeState &=
-                ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
-
-        } else {
-            esaio_completion_connect_fail(env, descP, error, TRUE);
-        }
         MUNLOCK(descP->writeMtx);
         break;
     }
@@ -5667,6 +5609,120 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
     return FALSE;
 }
 
+
+
+/* *** esaio_completion_connect_success ***
+ * The 'connect' operation was successful.
+ */
+static
+void esaio_completion_connect_success(ErlNifEnv*          env,
+                                      ESockDescriptor*    descP,
+                                      ESAIOOpDataConnect* opDataP)
+{
+    if (descP->connectorP != NULL) {
+        if (IS_OPEN(descP->writeState)) {
+            esaio_completion_connect_completed(env, descP, opDataP);
+        } else {
+            /* A completed (active) request for a socket that is not open.
+             * Is this even possible?
+             * A race (completed just as the socket was closed).
+             */
+
+            /* Clean up the connector stuff, no need for that anymore */
+            esock_requestor_release("esaio_completion_connect_success -> "
+                                    "not active",
+                                    env, descP, &descP->connector);
+            descP->connectorP = NULL;
+
+            descP->writeState &=
+                ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+
+            esaio_completion_connect_not_active(descP);
+        }
+    } else {
+        /* Connect was actually completed directly
+         * (and 'connector' was therefor not initiated)
+         * => Nothing to do here, other than cleanup.
+         */
+        descP->writeState &= ~ESOCK_STATE_SELECTED;
+    }
+}
+
+
+
+/* *** esaio_completion_connect_aborted ***
+ * The 'connect' operation was aborted.
+ * The only thing *we* do that could cause an abort is the
+ * 'CancelIoEx' call, which we do when closing the socket
+ * (or cancel a request).
+ * But if we have done that;
+ *   - Socket state will not be 'open' and
+ *   - we have also set closer (pid and ref).
+ */
+
+static
+void esaio_completion_connect_aborted(ErlNifEnv*          env,
+                                      ESockDescriptor*    descP,
+                                      ESAIOOpDataConnect* opDataP)
+{
+    if (descP->connectorP != NULL) {
+
+        ERL_NIF_TERM reason = esock_atom_closed;
+
+        /* Inform the user waiting for a reply */
+        esock_send_abort_msg(env, descP, opDataP->sockRef,
+                             descP->connectorP, reason);
+
+        /* Clean up the connector stuff, no need for that anymore */
+        esock_requestor_release("connect_stream_check_result -> abort",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+
+        /* The socket not being open (assumed closing),
+         * means we are in the closing phase...
+         */
+        if (! IS_OPEN(descP->writeState)) {
+
+            esaio_stop(env, descP);
+
+        }
+    } else {
+        descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+    }
+}
+
+
+/* *** esaio_completion_connect_failure *
+ * A "general" failure happened while performing the 'connect' operation.
+ */
+static
+void esaio_completion_connect_failure(ErlNifEnv*          env,
+                                      ESockDescriptor*    descP,
+                                      ESAIOOpDataConnect* opDataP,
+                                      int                 error)
+{
+    if (descP->connectorP != NULL) {
+        /* Figure out the reason */
+        ERL_NIF_TERM reason = MKT2(env,
+                                   esock_atom_get_overlapped_result,
+                                   ENO2T(env, error));
+        
+        /* Inform the user waiting for a reply */
+        esock_send_abort_msg(env, descP, opDataP->sockRef,
+                             descP->connectorP, reason);
+        esaio_completion_connect_fail(env, descP, error, FALSE);
+
+        /* Clean up the connector stuff, no need for that anymore */
+        esock_requestor_release("connect_stream_check_result -> failure",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+
+    } else {
+        esaio_completion_connect_fail(env, descP, error, TRUE);
+    }
+}
 
 
 /* *** esaio_completion_connect_completed ***
@@ -5788,6 +5844,7 @@ void esaio_completion_connect_fail(ErlNifEnv*       env,
                                    int              error,
                                    BOOLEAN_T        inform)
 {
+    descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
     esaio_completion_fail(env, descP, "connect", error, inform);
 }
 

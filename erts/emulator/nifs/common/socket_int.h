@@ -642,7 +642,10 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define FREE_IOVEC(IV)            enif_free_iovec((IV))
 
 /* Copy term T into environment E */
-#define CP_TERM(E, T) enif_make_copy((E), (T))
+#define CP_TERM(E, T)             enif_make_copy((E), (T))
+
+#define CLEAR_ENV(E)              esock_clear_env(__FUNCTION__, (E))
+#define FREE_ENV(E)               esock_free_env(__FUNCTION__, (E))
 
 #define TCREATE(NAME, TID, FUNC, ARGS, OPTS) \
     enif_thread_create((NAME), (TID), (FUNC), (ARGS), (OPTS))
