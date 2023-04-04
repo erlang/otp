@@ -21,13 +21,11 @@
 
 -module(ftp).
 
--deprecated([{start_service, 1, "use ftp:open/2 instead"},
-             {stop_service, 1,  "use ftp:close/1 instead"}]).
+-removed([{start_service, 1, "use ftp:open/2 instead"},
+          {stop_service, 1,  "use ftp:close/1 instead"}]).
 
 -export([start/0,
-         start_service/1,
-         stop/0,
-         stop_service/1
+         stop/0
         ]).
 
 %%  API - Client interface
@@ -55,25 +53,9 @@
 start() ->
     application:start(ftp).
 
-%% This should be made an internal function when we remove the deprecation
-%% ftp client processes should always be part of ftp supervisor tree.
-%% We consider it a bug that the "standalone" concept of inets was 
-%% not removed when ftp was broken out, and it is now fixed.
--spec start_service(ServiceConfig) -> {ok, Pid} | {error, Reason} when
-      ServiceConfig :: [{Property, Value}],
-      Property :: proplists:property(),
-      Value :: term(),
-      Pid :: pid(),
-      Reason :: term().
-start_service(Options) ->
-    ftp_internal:start_service(Options).
-
 stop() ->
     application:stop(ftp).
 
--spec stop_service(Pid :: pid() | term()) -> ok.
-stop_service(Pid) ->
-    close(Pid).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -88,7 +70,7 @@ stop_service(Pid) ->
 
 %% <BACKWARD-COMPATIBILLITY>
 open({option_list, Options}) when is_list(Options) ->
-    start_service(Options);
+    ftp_internal:start_service(Options);
 %% </BACKWARD-COMPATIBILLITY>
 
 open(Host) ->
