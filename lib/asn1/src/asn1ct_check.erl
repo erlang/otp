@@ -1855,8 +1855,8 @@ validate_oid(S, OidType, [{'NamedNumber',_Name,Value}|Vrest], Acc)
     validate_oid(S, OidType, Vrest, [Value|Acc]);
 validate_oid(S, OidType, [#'Externalvaluereference'{}=Id|Vrest], Acc) ->
     NeededOidType = case Acc of
-			[] -> o_id;
-			[_|_] -> rel_oid
+			[] when OidType =:= o_id -> o_id;
+			_ -> rel_oid
 		    end,
     try get_oid_value(S, NeededOidType, true, Id) of
 	Val when is_integer(Val) ->
