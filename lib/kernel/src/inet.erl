@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1513,7 +1513,7 @@ getaddrs_tm({A,B,C,D,E,F,G,H} = IP, Fam, _) ->
 getaddrs_tm(Address, Family, Timer) when is_atom(Address) ->
     getaddrs_tm(atom_to_list(Address), Family, Timer);
 getaddrs_tm(Address, Family, Timer) ->
-    case inet_parse:visible_string(Address) andalso Address =/= "" of
+    case inet_parse:visible_string(Address) of
 	false ->
 	    {error,einval};
 	true ->
