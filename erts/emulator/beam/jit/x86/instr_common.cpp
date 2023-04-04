@@ -307,8 +307,8 @@ void BeamModuleAssembler::emit_get_list(const x86::Gp src,
         comment("(moving head and tail together)");
         x86::Mem dst_ptr = getArgRef(Hd, 16);
         x86::Mem src_ptr = getCARRef(boxed_ptr, 16);
-        a.movups(x86::xmm0, src_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        vmovups(x86::xmm0, src_ptr);
+        vmovups(dst_ptr, x86::xmm0);
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -503,8 +503,8 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
     switch (ArgVal::memory_relation(Dst1, Dst2)) {
     case ArgVal::Relation::consecutive: {
         x86::Mem dst_ptr = getArgRef(Dst1, 16);
-        a.movups(x86::xmm0, element_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        vmovups(x86::xmm0, element_ptr);
+        vmovups(dst_ptr, x86::xmm0);
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -638,8 +638,8 @@ void BeamModuleAssembler::emit_move_two_words(const ArgSource &Src1,
     switch (ArgVal::memory_relation(Dst1, Dst2)) {
     case ArgVal::Relation::consecutive: {
         x86::Mem dst_ptr = getArgRef(Dst1, 16);
-        a.movups(x86::xmm0, src_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        vmovups(x86::xmm0, src_ptr);
+        vmovups(dst_ptr, x86::xmm0);
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -707,8 +707,8 @@ void BeamModuleAssembler::emit_put_cons(const ArgSource &Hd,
         x86::Mem src_ptr = getArgRef(Hd, 16);
         x86::Mem dst_ptr = x86::xmmword_ptr(HTOP, 0);
         comment("(put head and tail together)");
-        a.movups(x86::xmm0, src_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        vmovups(x86::xmm0, src_ptr);
+        vmovups(dst_ptr, x86::xmm0);
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -769,8 +769,8 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
 
                 comment("(moving two elements at once)");
                 dst_ptr.setSize(16);
-                a.movups(x86::xmm0, src_ptr);
-                a.movups(dst_ptr, x86::xmm0);
+                vmovups(x86::xmm0, src_ptr);
+                vmovups(dst_ptr, x86::xmm0);
                 i++;
                 break;
             }
@@ -1541,13 +1541,13 @@ void BeamGlobalAssembler::emit_arith_eq_shared() {
     a.short_().jne(generic_compare);
 
     boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.movsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vmovsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     boxed_ptr = emit_ptr_val(ARG2, ARG2);
-    a.movsd(x86::xmm1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vmovsd(x86::xmm1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
 
     /* All float terms are finite so our caller only needs to check ZF. We don't
      * need to check for errors (PF). */
-    a.comisd(x86::xmm0, x86::xmm1);
+    vucomisd(x86::xmm0, x86::xmm1);
 
     a.ret();
 
@@ -1646,13 +1646,13 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     a.jne(generic_compare);
 
     boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.movsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vmovsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     boxed_ptr = emit_ptr_val(ARG2, ARG2);
-    a.movsd(x86::xmm1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
-    a.comisd(x86::xmm0, x86::xmm1);
+    vmovsd(x86::xmm1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vucomisd(x86::xmm0, x86::xmm1);
 
-    /* `comisd` doesn't set the flags the same way `test` and friends do, so
-     * they need to be converted for jl/jge/jg to work.
+    /* `vucomisd` doesn't set the flags the same way `test` and
+     * friends do, so they need to be converted for jl/jge/jg to work.
      * NOTE: jg is needed for min/2 to work.
      */
     a.seta(x86::al);
@@ -1921,18 +1921,24 @@ void BeamGlobalAssembler::emit_is_in_range_shared() {
     a.short_().jne(generic_compare);
 
     /* Compare the float to the limits. */
-    a.movsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vmovsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
     a.sar(ARG3, imm(_TAG_IMMED1_SIZE));
-    a.cvtsi2sd(x86::xmm1, ARG2);
-    a.cvtsi2sd(x86::xmm2, ARG3);
-    a.xor_(x86::ecx, x86::ecx);
-    a.ucomisd(x86::xmm0, x86::xmm2);
-    a.seta(x86::cl);
-    mov_imm(RET, -1);
-    a.ucomisd(x86::xmm1, x86::xmm0);
-    a.cmovbe(RET, x86::rcx);
+    if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
+        a.vcvtsi2sd(x86::xmm1, x86::xmm1, ARG2);
+        a.vcvtsi2sd(x86::xmm2, x86::xmm2, ARG3);
+    } else {
+        a.cvtsi2sd(x86::xmm1, ARG2);
+        a.cvtsi2sd(x86::xmm2, ARG3);
+    }
 
+    mov_imm(RET, -1);
+    mov_imm(x86::rcx, 0);
+    vucomisd(x86::xmm0, x86::xmm2);
+    a.seta(x86::cl);
+    vucomisd(x86::xmm1, x86::xmm0);
+
+    a.cmovbe(RET, x86::rcx);
     a.cmp(RET, imm(0));
 
     a.ret();

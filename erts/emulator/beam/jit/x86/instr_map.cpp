@@ -300,8 +300,8 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
 
             comment("(initializing two elements at once)");
             dst_ptr0.setSize(16);
-            a.movups(x86::xmm0, src_ptr);
-            a.movups(dst_ptr0, x86::xmm0);
+            vmovups(x86::xmm0, src_ptr);
+            vmovups(dst_ptr0, x86::xmm0);
             break;
         }
         case ArgVal::reverse_consecutive: {
