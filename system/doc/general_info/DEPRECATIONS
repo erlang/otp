@@ -21,6 +21,7 @@
 # Added in OTP 26.
 #
 file:pid2name/1 since=26 remove=27
+disk_log:inc_wrap_file/1 since=26 remove=28
 
 #
 # Added in OTP 25.
