@@ -171,8 +171,10 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
-$(EGEN)/beam_opcodes.erl $(EGEN)/beam_opcodes.hrl: genop.tab
-	$(gen_verbose)$(PERL) $(ERL_TOP)/erts/emulator/utils/beam_makeops -compiler -outdir $(EGEN) $<
+$(EGEN)/beam_opcodes.erl $(EGEN)/beam_opcodes.hrl: $(EGEN)/OPCODES-GENERATED
+
+$(EGEN)/OPCODES-GENERATED: genop.tab
+	$(gen_verbose)$(PERL) $(ERL_TOP)/erts/emulator/utils/beam_makeops -compiler -outdir $(EGEN) $< && echo $? >$(EGEN)/OPCODES-GENERATED
 
 $(EBIN)/beam_asm.beam: $(ESRC)/beam_asm.erl $(EGEN)/beam_opcodes.hrl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -DCOMPILER_VSN='"$(VSN)"' -o$(EBIN) $<
@@ -203,7 +205,7 @@ release_docs_spec:
 # ---------------------------------------------------- 
 
 $(EBIN)/beam_a.beam: beam_asm.hrl beam_types.hrl
-$(EBIN)/beam_asm.beam: beam_asm.hrl beam_opcodes.hrl beam_types.hrl
+$(EBIN)/beam_asm.beam: beam_asm.hrl $(EGEN)/beam_opcodes.hrl beam_types.hrl
 $(EBIN)/beam_call_types.beam: beam_types.hrl
 $(EBIN)/beam_block.beam: beam_asm.hrl
 $(EBIN)/beam_dict.beam: beam_types.hrl
