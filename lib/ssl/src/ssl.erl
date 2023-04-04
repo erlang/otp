@@ -2530,10 +2530,7 @@ warn_override(_, _UserOpts, _NewOpt, _OldOpts, _LogLevel) ->
     ok.
 
 is_dtls_configured(Versions) ->
-    Fun = fun (Version) when ?DTLS_1_X(Version) -> true;
-              (_) -> false
-          end,
-    lists:any(Fun, Versions).
+    lists:any(fun (Ver) -> ?DTLS_1_X(Ver) end, Versions).
 
 handle_hashsigns_option(Value, Version) ->
     try
