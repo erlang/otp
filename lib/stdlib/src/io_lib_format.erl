@@ -315,7 +315,7 @@ build_limited([$\n|Cs], NumOfPs, Count, MaxLen, _I) ->
     [$\n|build_limited(Cs, NumOfPs, Count, MaxLen, 0)];
 build_limited([$\t|Cs], NumOfPs, Count, MaxLen, I) ->
     [$\t|build_limited(Cs, NumOfPs, Count, MaxLen, ((I + 8) div 8) * 8)];
-build_limited([C|Cs], NumOfPs, Count, MaxLen, I) when is_integer(C) ->
+build_limited([C|Cs], NumOfPs, Count, MaxLen, I) ->
     [C|build_limited(Cs, NumOfPs, Count, MaxLen, I+1)];
 build_limited([], _, _, _, _) -> [].
 
