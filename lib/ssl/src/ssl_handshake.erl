@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_handshake).
+-feature(maybe_expr,enable).
 
 -include("ssl_handshake.hrl").
 -include("ssl_record.hrl").
@@ -1004,8 +1005,7 @@ available_suites(ServerCert, UserSuites, Version, undefined, Curve) ->
     filter_unavailable_ecc_suites(Curve, Suites);
 available_suites(ServerCert, UserSuites, Version, HashSigns, Curve) ->
     Suites = available_suites(ServerCert, UserSuites, Version, undefined, Curve),
-    filter_hashsigns(Suites, [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- Suites], HashSigns, 
-                     Version).
+    filter_hashsigns(Suites, [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- Suites], HashSigns, Version).
 
 available_signature_algs(undefined, _)  ->
     undefined;
@@ -3320,14 +3320,12 @@ filter_hashsigns(Suites, Algos, HashSigns, Version) ->
     %% HashSigns, and Version never change
     ZipperF = fun (Suite, #{key_exchange := KeyExchange}) -> {Suite, KeyExchange} end,
     SuiteAlgoPairs = lists:zipwith(ZipperF, Suites, Algos),
-    FilterHashSign = fun ({Suite, Kex}) -> filter_hashsigns0(Suite, Kex, HashSigns, Version) end,
+    FilterHashSign = fun ({Suite, Kex}) ->
+                             maybe true ?= filter_hashsigns_helper(Kex, HashSigns, Version),
+                                   {true, Suite}
+                             end
+                     end,
     lists:filtermap(FilterHashSign, SuiteAlgoPairs).
-
-filter_hashsigns0(Suite, KeyExchange, HashSigns, Version) ->
-    case filter_hashsigns_helper(KeyExchange, HashSigns, Version) of
-        true -> {true, Suite};
-        false -> false
-    end.
 
 filter_hashsigns_helper(KeyExchange, HashSigns, _Version)
   when KeyExchange == dhe_ecdsa;

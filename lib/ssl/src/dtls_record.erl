@@ -43,7 +43,7 @@
 -export([decode_cipher_text/2]).
 
 %% Protocol version handling
--export([protocol_version/1, lowest_protocol_version/1, lowest_protocol_version/2,
+-export([protocol_version/1, protocol_version_name/1, lowest_protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, highest_protocol_version/2,
 	 is_higher/2, supported_protocol_versions/0,
 	 is_acceptable_version/2, hello_version/2]).
@@ -263,17 +263,27 @@ decode_cipher_text(#ssl_tls{epoch = Epoch} = CipherText, ConnnectionStates0) ->
 %% Protocol version handling
 %%====================================================================
 
+
 %%--------------------------------------------------------------------
--spec protocol_version(dtls_atom_version() | ssl_record:ssl_version()) ->
-			      ssl_record:ssl_version() | dtls_atom_version().
+-spec protocol_version_name(dtls_atom_version()) -> ssl_record:ssl_version().
 %%
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
 %%--------------------------------------------------------------------
-protocol_version('dtlsv1.2') ->
+
+protocol_version_name('dtlsv1.2') ->
     ?DTLS_1_2;
-protocol_version(dtlsv1) ->
-    ?DTLS_1_0;
+protocol_version_name(dtlsv1) ->
+    ?DTLS_1_0.
+
+%%--------------------------------------------------------------------
+-spec protocol_version(ssl_record:ssl_version()) -> dtls_atom_version().
+
+%%
+%% Description: Creates a protocol version record from a version atom
+%% or vice versa.
+%%--------------------------------------------------------------------
+
 protocol_version(?DTLS_1_2) ->
     'dtlsv1.2';
 protocol_version(?DTLS_1_0) ->
@@ -337,7 +347,7 @@ is_higher(_, _) ->
 %%--------------------------------------------------------------------
 supported_protocol_versions() ->
     Fun = fun(Version) ->
-		  protocol_version(Version)
+		  protocol_version_name(Version)
 	  end,
     case application:get_env(ssl, dtls_protocol_version) of
 	undefined ->

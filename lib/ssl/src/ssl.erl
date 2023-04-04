@@ -1010,7 +1010,7 @@ negotiated_protocol(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
 %%--------------------------------------------------------------------
 -spec cipher_suites(Description, Version) -> ciphers() when
       Description :: default | all | exclusive | anonymous | exclusive_anonymous,
-      Version :: protocol_version().
+      Version :: protocol_version() | ssl_record:ssl_version().
 
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
@@ -1019,17 +1019,17 @@ cipher_suites(Description, Version) when Version == 'tlsv1.3';
                                   Version == 'tlsv1.2';
                                   Version == 'tlsv1.1';
                                   Version == tlsv1 ->
-    cipher_suites(Description, tls_record:protocol_version(Version));
+    cipher_suites(Description, tls_record:protocol_version_name(Version));
 cipher_suites(Description, Version)  when Version == 'dtlsv1.2';
                                    Version == 'dtlsv1'->
-    cipher_suites(Description, dtls_record:protocol_version(Version));
+    cipher_suites(Description, dtls_record:protocol_version_name(Version));
 cipher_suites(Description, Version) ->
     [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- supported_suites(Description, Version)].
 
 %%--------------------------------------------------------------------
 -spec cipher_suites(Description, Version, rfc | openssl) -> [string()] when
       Description :: default | all | exclusive | anonymous,
-      Version :: protocol_version().
+      Version :: protocol_version() | ssl_record:ssl_version().
 
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
@@ -1038,10 +1038,10 @@ cipher_suites(Description, Version, StringType) when  Version == 'tlsv1.3';
                                                Version == 'tlsv1.2';
                                                Version == 'tlsv1.1';
                                                Version == tlsv1 ->
-    cipher_suites(Description, tls_record:protocol_version(Version), StringType);
+    cipher_suites(Description, tls_record:protocol_version_name(Version), StringType);
 cipher_suites(Description, Version, StringType)  when Version == 'dtlsv1.2';
                                                Version == 'dtlsv1'->
-    cipher_suites(Description, dtls_record:protocol_version(Version), StringType);
+    cipher_suites(Description, dtls_record:protocol_version_name(Version), StringType);
 cipher_suites(Description, Version, rfc) ->
     [ssl_cipher_format:suite_map_to_str(ssl_cipher_format:suite_bin_to_map(Suite))
      || Suite <- supported_suites(Description, Version)];
@@ -1337,8 +1337,8 @@ versions() ->
     SupportedTLSVsns = [tls_record:protocol_version(Vsn) || Vsn <- ConfTLSVsns,  TLSCryptoSupported(Vsn)],
     SupportedDTLSVsns = [dtls_record:protocol_version(Vsn) || Vsn <- ConfDTLSVsns, DTLSCryptoSupported(Vsn)],
 
-    AvailableTLSVsns = [Vsn || Vsn <- ImplementedTLSVsns, TLSCryptoSupported(tls_record:protocol_version(Vsn))],
-    AvailableDTLSVsns = [Vsn || Vsn <- ImplementedDTLSVsns, DTLSCryptoSupported(dtls_record:protocol_version(Vsn))],
+    AvailableTLSVsns = [Vsn || Vsn <- ImplementedTLSVsns, TLSCryptoSupported(tls_record:protocol_version_name(Vsn))],
+    AvailableDTLSVsns = [Vsn || Vsn <- ImplementedDTLSVsns, DTLSCryptoSupported(dtls_record:protocol_version_name(Vsn))],
                                     
     [{ssl_app, ?VSN}, 
      {supported, SupportedTLSVsns}, 
@@ -1672,7 +1672,7 @@ validate_versions(tls, Vsns0) ->
     Validate =
         fun(Version) ->
                 try tls_record:sufficient_crypto_support(Version) of
-                    true -> tls_record:protocol_version(Version);
+                    true -> tls_record:protocol_version_name(Version);
                     false -> option_error(insufficient_crypto_support,
                                           {Version, {versions, Vsns0}})
                 catch error:function_clause ->
@@ -1688,8 +1688,8 @@ validate_versions(dtls, Vsns0) ->
         fun(Version) ->
                 try tls_record:sufficient_crypto_support(
                       dtls_v1:corresponding_tls_version(
-                        dtls_record:protocol_version(Version))) of
-                    true -> dtls_record:protocol_version(Version);
+                        dtls_record:protocol_version_name(Version))) of
+                    true -> dtls_record:protocol_version_name(Version);
                     false-> option_error(insufficient_crypto_support,
                                          {Version, {versions, Vsns0}})
                 catch error:function_clause ->

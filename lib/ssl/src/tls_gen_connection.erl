@@ -639,7 +639,7 @@ next_tls_record(Data, StateName,
                 %% This does not allow SSL-3.0 connections, that we do not support
                 %% or interfere with TLS-1.3 extensions to handle version negotiation.
                 AllHelloVersions = [ 'sslv3' | ?ALL_AVAILABLE_VERSIONS],
-                [tls_record:protocol_version(Vsn) || Vsn <- AllHelloVersions];
+                [tls_record:protocol_version_name(Vsn) || Vsn <- AllHelloVersions];
             _ ->
                 State0#state.connection_env#connection_env.negotiated_version
         end,

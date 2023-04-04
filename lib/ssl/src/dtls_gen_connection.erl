@@ -633,7 +633,7 @@ next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
                                          ssl_options = SslOpts} = State0) ->
     case dtls_record:get_dtls_records(Data,
                                       {DataTag, StateName, Version, 
-                                       [dtls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS]}, 
+                                       [dtls_record:protocol_version_name(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS]},
                                       Buf0, SslOpts) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,

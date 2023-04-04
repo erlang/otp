@@ -467,7 +467,7 @@ test_ciphers(_, 'tlsv1.3' = Version) ->
                  end, Ciphers);
 test_ciphers(_, Version) when Version == 'dtlsv1';
                                 Version == 'dtlsv1.2' ->
-    NVersion = dtls_record:protocol_version(Version),
+    NVersion = dtls_record:protocol_version_name(Version),
     Ciphers = [ssl_cipher_format:suite_bin_to_map(Bin) ||  Bin <- dtls_v1:suites(NVersion)],
     ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = openssl_ciphers(),

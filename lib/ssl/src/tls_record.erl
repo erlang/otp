@@ -49,7 +49,7 @@
 -export([build_tls_record/1]).
 
 %% Protocol version handling
--export([protocol_version/1,  lowest_protocol_version/1, lowest_protocol_version/2,
+-export([protocol_version/1, protocol_version_name/1,  lowest_protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, highest_protocol_version/2,
 	 is_higher/2, supported_protocol_versions/0, sufficient_crypto_support/1,
 	 is_acceptable_version/1, is_acceptable_version/2, hello_version/1]).
@@ -273,24 +273,31 @@ decode_cipher_text(_, #ssl_tls{version = Version,
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec protocol_version(tls_atom_version() | tls_version()) -> 
-			      tls_version() | tls_atom_version().		      
+-spec protocol_version_name(tls_atom_version()) -> tls_version().
 %%     
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
 %%--------------------------------------------------------------------
-protocol_version('tlsv1.3') ->
+protocol_version_name('tlsv1.3') ->
     ?TLS_1_3;
-protocol_version('tlsv1.2') ->
+protocol_version_name('tlsv1.2') ->
     ?TLS_1_2;
-protocol_version('tlsv1.1') ->
+protocol_version_name('tlsv1.1') ->
     ?TLS_1_1;
-protocol_version(tlsv1) ->
+protocol_version_name(tlsv1) ->
     ?TLS_1_0;
-protocol_version(sslv3) ->
+protocol_version_name(sslv3) ->
     ?SSL_3_0;
-protocol_version(sslv2) -> %% Backwards compatibility
-    ?SSL_2_0;
+protocol_version_name(sslv2) -> %% Backwards compatibility
+    ?SSL_2_0.
+
+%%--------------------------------------------------------------------
+-spec protocol_version(tls_version()) -> tls_atom_version().
+%%
+%% Description: Creates a protocol version record from a version atom
+%% or vice versa.
+%%--------------------------------------------------------------------
+
 protocol_version(?TLS_1_3) ->
     'tlsv1.3';
 protocol_version(?TLS_1_2) ->
@@ -359,7 +366,7 @@ is_higher(_, _) ->
 %%--------------------------------------------------------------------
 supported_protocol_versions() ->
     Fun = fun(Version) ->
-		  protocol_version(Version) 
+		  protocol_version_name(Version)
 	  end,
     case application:get_env(ssl, protocol_version) of
 	undefined ->

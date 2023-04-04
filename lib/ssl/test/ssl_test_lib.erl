@@ -2836,7 +2836,7 @@ openssl_tls_version_support(Version, Config0) ->
         true ->
             openssl_tls_version_support(tls, TLSOpts, Port, Exe, TLSArgs);
         false ->
-            DTLSTupleVersion = dtls_record:protocol_version(Version),
+            DTLSTupleVersion = dtls_record:protocol_version_name(Version),
             CorrespondingTLSVersion = dtls_v1:corresponding_tls_version(DTLSTupleVersion),
             AtomTLSVersion = tls_record:protocol_version(CorrespondingTLSVersion),
             CorrTLSOpts = [{protocol,tls}, {versions, [AtomTLSVersion]},
@@ -3660,8 +3660,8 @@ protocol_version(Config, atom) ->
     case proplists:get_value(protocol, Config) of
 	dtls ->
 	   dtls_record:protocol_version(protocol_version(Config, tuple));
-	_ ->							 
-           tls_record:protocol_version(protocol_version(Config, tuple))	
+	_ ->
+            tls_record:protocol_version(protocol_version(Config, tuple))
    end.
 
 protocol_options(Config, Options) ->
@@ -3715,11 +3715,11 @@ clean_start(keep_version) ->
 
 
 tls_version('dtlsv1' = Atom) ->
-    dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
+    dtls_v1:corresponding_tls_version(dtls_record:protocol_version_name(Atom));
 tls_version('dtlsv1.2' = Atom) ->
-    dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
+    dtls_v1:corresponding_tls_version(dtls_record:protocol_version_name(Atom));
 tls_version(Atom) ->
-    tls_record:protocol_version(Atom).
+    tls_record:protocol_version_name(Atom).
 
 
 n_version(Version) when
@@ -3728,10 +3728,10 @@ n_version(Version) when
       Version == 'tlsv1.1';
       Version == 'tlsv1';
       Version == 'sslv3' ->
-    tls_record:protocol_version(Version);
+    tls_record:protocol_version_name(Version);
 n_version(Version) when Version == 'dtlsv1.2';
                         Version == 'dtlsv1' ->
-    dtls_record:protocol_version(Version).
+    dtls_record:protocol_version_name(Version).
 
 consume_port_exit(OpenSSLPort) ->
     receive    	
