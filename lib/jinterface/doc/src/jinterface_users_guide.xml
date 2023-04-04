@@ -86,11 +86,11 @@
       </row>
       <row>
         <cell align="left" valign="middle">floating point types</cell>
-        <cell align="left" valign="middle"><seefile marker="java/com/ericsson/otp/erlang/OtpErlangFloat">OtpErlangFloat</seefile>or <seefile marker="java/com/ericsson/otp/erlang/OtpErlangDouble">OtpErlangDouble</seefile>, depending on the floating point value size</cell>
+        <cell align="left" valign="middle"><seefile marker="java/com/ericsson/otp/erlang/OtpErlangFloat">OtpErlangFloat</seefile> or <seefile marker="java/com/ericsson/otp/erlang/OtpErlangDouble">OtpErlangDouble</seefile>, depending on the floating point value size</cell>
       </row>
       <row>
         <cell align="left" valign="middle">integral types</cell>
-        <cell align="left" valign="middle">One of <seefile marker="java/com/ericsson/otp/erlang/OtpErlangByte">OtpErlangByte</seefile>,<seefile marker="java/com/ericsson/otp/erlang/OtpErlangChar">OtpErlangChar</seefile>,<seefile marker="java/com/ericsson/otp/erlang/OtpErlangShort">OtpErlangShort</seefile>,<seefile marker="java/com/ericsson/otp/erlang/OtpErlangUShort">OtpErlangUShort</seefile>,<seefile marker="java/com/ericsson/otp/erlang/OtpErlangInt">OtpErlangInt</seefile>,<seefile marker="java/com/ericsson/otp/erlang/OtpErlangUInt">OtpErlangUInt</seefile>or<seefile marker="java/com/ericsson/otp/erlang/OtpErlangLong">OtpErlangLong</seefile>, depending on the integral value size and sign</cell>
+        <cell align="left" valign="middle">One of <seefile marker="java/com/ericsson/otp/erlang/OtpErlangByte">OtpErlangByte</seefile>, <seefile marker="java/com/ericsson/otp/erlang/OtpErlangChar">OtpErlangChar</seefile>, <seefile marker="java/com/ericsson/otp/erlang/OtpErlangShort">OtpErlangShort</seefile>, <seefile marker="java/com/ericsson/otp/erlang/OtpErlangUShort">OtpErlangUShort</seefile>, <seefile marker="java/com/ericsson/otp/erlang/OtpErlangInt">OtpErlangInt</seefile>, <seefile marker="java/com/ericsson/otp/erlang/OtpErlangUInt">OtpErlangUInt</seefile> or <seefile marker="java/com/ericsson/otp/erlang/OtpErlangLong">OtpErlangLong</seefile>, depending on the integral value size and sign</cell>
       </row>
       <row>
         <cell align="left" valign="middle">list</cell>
