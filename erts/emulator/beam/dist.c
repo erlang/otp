@@ -5589,6 +5589,9 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
             return 0;
         }
 
+        if (proc == net_kernel)
+            nk_locks |= ERTS_PROC_LOCK_MAIN;
+
         /*
          * Send {auto_connect, Node, DHandle} to net_kernel
          */
@@ -5599,6 +5602,10 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
         msg = TUPLE3(hp, am_auto_connect, dep->sysname, dhandle);
         ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(proc, net_kernel, nk_locks, mp, msg);
+
+        if (proc == net_kernel)
+            nk_locks &= ~ERTS_PROC_LOCK_MAIN;
+
         erts_proc_unlock(net_kernel, nk_locks);
     }
 
