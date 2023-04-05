@@ -65,6 +65,7 @@
 -include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
 -export([trusted_cert_and_paths/4,
@@ -345,13 +346,14 @@ available_cert_key_pairs(CertKeyGroups) ->
 
 %% Create the prioritized list of cert key pairs that
 %% are availble for use in the negotiated version
-available_cert_key_pairs(CertKeyGroups, {3, 4}) ->
+available_cert_key_pairs(CertKeyGroups, ?TLS_1_3) ->
     RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
-available_cert_key_pairs(CertKeyGroups, {3, 3}) ->
+available_cert_key_pairs(CertKeyGroups, ?TLS_1_2) ->
      RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
-available_cert_key_pairs(CertKeyGroups, {3, N}) when N < 3->
+available_cert_key_pairs(CertKeyGroups, Version)
+  when ?TLS_LT(Version, ?TLS_1_2) ->
     RevAlgos = [dsa, rsa, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
 
@@ -596,21 +598,22 @@ verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
     %% Skip unknown extensions!
     verify_cert_extensions(Cert, UserState, Exts, Context).
 
-verify_sign(_, #{version := {_, Minor}}) when Minor < 3 ->
+verify_sign(_, #{version := Version})
+            when ?TLS_LT(Version, ?TLS_1_2) ->
     %% This verification is not applicable pre TLS-1.2 
     true; 
-verify_sign(Cert, #{version := {3, 3},
+verify_sign(Cert, #{version := ?TLS_1_2,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := {3, 3},
+verify_sign(Cert, #{version := ?TLS_1_2,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := {3, 4},
+verify_sign(Cert, #{version := ?TLS_1_3,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs);
-verify_sign(Cert, #{version := {3, 4},
+verify_sign(Cert, #{version := ?TLS_1_3,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs).
 

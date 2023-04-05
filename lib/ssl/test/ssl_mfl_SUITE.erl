@@ -22,6 +22,7 @@
 -behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -186,7 +187,7 @@ run_mfl_handshake_continue(Config, MFL) ->
                     receive {Client, {ext, ClientExt}} ->
                             ct:log("Client handshake Ext ~p~n", [ClientExt]),
                             case maps:get(server_hello_selected_version, ClientExt, undefined) of
-                                {3,4} ->
+                                ?TLS_1_3 ->
                                     %% For TLS 1.3 the ssl {handshake, hello} API is inconsistent:
                                     %% the server gets all the extensions CH+EE, but the client only CH
                                     ignore;

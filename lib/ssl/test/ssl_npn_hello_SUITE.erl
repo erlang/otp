@@ -123,12 +123,12 @@ encode_and_decode_npn_server_hello_test(Config) ->
 
 %%--------------------------------------------------------------------
 create_server_hello_with_no_advertised_protocols_test(_Config) ->
-    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(), #{}),
+    Hello = ssl_handshake:server_hello(<<>>, ?SSL_3_0, create_connection_states(), #{}),
     Extensions = Hello#server_hello.extensions,
     #{} = Extensions.
 %%--------------------------------------------------------------------
 create_server_hello_with_advertised_protocols_test(_Config) ->
-    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),
+    Hello = ssl_handshake:server_hello(<<>>, ?SSL_3_0, create_connection_states(),
 				       #{next_protocol_negotiation => [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]}),
     Extensions = Hello#server_hello.extensions,
     #{next_protocol_negotiation := [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]} = Extensions.

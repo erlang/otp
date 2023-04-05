@@ -27,6 +27,7 @@
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 -export([clean_start/0,
          clean_start/1,
@@ -467,7 +468,7 @@ sig_algs(rsa_pss_rsae, _) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256]}];
-sig_algs(rsa, Version) when Version >= {3,3} ->
+sig_algs(rsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256,
@@ -476,13 +477,13 @@ sig_algs(rsa, Version) when Version >= {3,3} ->
                        {sha256, rsa},
                        {sha, rsa}
                       ]}];
-sig_algs(ecdsa, Version) when Version >= {3,3} ->
+sig_algs(ecdsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     [{signature_algs, [
                        {sha512, ecdsa},
                        {sha384, ecdsa},
                        {sha256, ecdsa},
                        {sha, ecdsa}]}];
-sig_algs(dsa, Version) when Version >= {3,3} ->
+sig_algs(dsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     [{signature_algs, [{sha,dsa}]}];
 sig_algs(_,_) ->
     [].
@@ -2836,7 +2837,7 @@ openssl_tls_version_support(Version, Config0) ->
         true ->
             openssl_tls_version_support(tls, TLSOpts, Port, Exe, TLSArgs);
         false ->
-            DTLSTupleVersion = dtls_record:protocol_version(Version),
+            DTLSTupleVersion = dtls_record:protocol_version_name(Version),
             CorrespondingTLSVersion = dtls_v1:corresponding_tls_version(DTLSTupleVersion),
             AtomTLSVersion = tls_record:protocol_version(CorrespondingTLSVersion),
             CorrTLSOpts = [{protocol,tls}, {versions, [AtomTLSVersion]},
@@ -3676,8 +3677,8 @@ protocol_version(Config, atom) ->
     case proplists:get_value(protocol, Config) of
 	dtls ->
 	   dtls_record:protocol_version(protocol_version(Config, tuple));
-	_ ->							 
-           tls_record:protocol_version(protocol_version(Config, tuple))	
+	_ ->
+            tls_record:protocol_version(protocol_version(Config, tuple))
    end.
 
 protocol_options(Config, Options) ->
@@ -3731,11 +3732,11 @@ clean_start(keep_version) ->
 
 
 tls_version('dtlsv1' = Atom) ->
-    dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
+    dtls_v1:corresponding_tls_version(dtls_record:protocol_version_name(Atom));
 tls_version('dtlsv1.2' = Atom) ->
-    dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
+    dtls_v1:corresponding_tls_version(dtls_record:protocol_version_name(Atom));
 tls_version(Atom) ->
-    tls_record:protocol_version(Atom).
+    tls_record:protocol_version_name(Atom).
 
 
 n_version(Version) when
@@ -3744,10 +3745,10 @@ n_version(Version) when
       Version == 'tlsv1.1';
       Version == 'tlsv1';
       Version == 'sslv3' ->
-    tls_record:protocol_version(Version);
+    tls_record:protocol_version_name(Version);
 n_version(Version) when Version == 'dtlsv1.2';
                         Version == 'dtlsv1' ->
-    dtls_record:protocol_version(Version).
+    dtls_record:protocol_version_name(Version).
 
 consume_port_exit(OpenSSLPort) ->
     receive    	
@@ -4259,7 +4260,7 @@ ktls_set_ulp(Socket, OS) ->
       OS).
 
 ktls_set_cipher(Socket, OS, TxRx, Seed) ->
-    TLS_version = {3,4},
+    TLS_version = ?TLS_1_3,
     TLS_cipher = ?TLS_AES_256_GCM_SHA384,
     TLS_IV   = binary:copy(<<(Seed + 0)>>, 8),
     TLS_KEY  = binary:copy(<<(Seed + 1)>>, 32),

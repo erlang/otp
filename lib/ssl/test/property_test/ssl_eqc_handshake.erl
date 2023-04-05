@@ -57,11 +57,8 @@
 -include_lib("ssl/src/ssl_handshake.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
--define('TLS_v1.3', {3,4}).
--define('TLS_v1.2', {3,3}).
--define('TLS_v1.1', {3,2}).
--define('TLS_v1',   {3,1}).
 
 %%--------------------------------------------------------------------
 %% Properties --------------------------------------------------------
@@ -87,7 +84,7 @@ prop_tls_hs_encode_decode() ->
 %% Message Generators  -----------------------------------------------
 %%--------------------------------------------------------------------
 
-tls_msg(?'TLS_v1.3'= Version) ->
+tls_msg(?TLS_1_3= Version) ->
     oneof([client_hello(Version),
            server_hello(Version),
            %%new_session_ticket()
@@ -116,9 +113,9 @@ tls_msg(Version) ->
 %%
 %% Shared messages
 %%
-client_hello(?'TLS_v1.3' = Version) ->
+client_hello(?TLS_1_3 = Version) ->
     #client_hello{session_id = session_id(),
-                  client_version = ?'TLS_v1.2',
+                  client_version = ?TLS_1_2,
                   cipher_suites = cipher_suites(Version),
                   compression_methods = compressions(Version),
                   random = client_random(Version),
@@ -133,8 +130,8 @@ client_hello(Version) ->
 		  extensions = client_hello_extensions(Version)    
                  }.
 
-server_hello(?'TLS_v1.3' = Version) ->
-    #server_hello{server_version = ?'TLS_v1.2',
+server_hello(?TLS_1_3 = Version) ->
+    #server_hello{server_version = ?TLS_1_2,
 		  session_id = session_id(),
                   random = server_random(Version),
                   cipher_suite = cipher_suite(Version),
@@ -184,7 +181,7 @@ finished() ->
 %%
 
 encrypted_extensions() ->
-    ?LET(Exts, extensions(?'TLS_v1.3', encrypted_extensions),
+    ?LET(Exts, extensions(?TLS_1_3, encrypted_extensions),
          #encrypted_extensions{extensions = Exts}).
 
 
@@ -197,7 +194,7 @@ key_update() ->
 %%--------------------------------------------------------------------
 
 tls_version() ->
-    oneof([?'TLS_v1.3', ?'TLS_v1.2', ?'TLS_v1.1', ?'TLS_v1']).
+    oneof([?TLS_1_3, ?TLS_1_2, ?TLS_1_1, ?TLS_1_0]).
 
 cipher_suite(Version) ->
     oneof(cipher_suites(Version)).
@@ -290,7 +287,7 @@ pre_shared_keyextension() ->
 %% |                                                  |             |
 %% | signature_algorithms_cert (RFC 8446)             |      CH, CR |
 %% +--------------------------------------------------+-------------+
-extensions(?'TLS_v1.3' = Version, MsgType = client_hello) ->
+extensions(?TLS_1_3 = Version, MsgType = client_hello) ->
      ?LET({
            ServerName,
            %% MaxFragmentLength,
@@ -398,7 +395,7 @@ extensions(Version, client_hello) ->
                        srp => SRP
                        %% renegotiation_info => RenegotiationInfo
                       }));
-extensions(?'TLS_v1.3' = Version, MsgType = server_hello) ->
+extensions(?TLS_1_3 = Version, MsgType = server_hello) ->
     ?LET({
           KeyShare,
           PreSharedKey,
@@ -443,7 +440,7 @@ extensions(Version, server_hello) ->
                        next_protocol_negotiation => NextP
                        %% renegotiation_info => RenegotiationInfo
                       }));
-extensions(?'TLS_v1.3' = Version, encrypted_extensions) ->
+extensions(?TLS_1_3 = Version, encrypted_extensions) ->
      ?LET({
            ServerName,
            %% MaxFragmentLength,
@@ -551,25 +548,25 @@ signature() ->
       76,105,212,176,25,6,148,49,194,106,253,241,212,200,
       37,154,227,53,49,216,72,82,163>>.
 
-client_hello_versions(?'TLS_v1.3') ->
+client_hello_versions(?TLS_1_3) ->
     ?LET(SupportedVersions,
-         oneof([[{3,4}],
+         oneof([[?TLS_1_3],
                 %% This list breaks the property but can be used for negative tests
-                %% [{3,3},{3,4}],
-                [{3,4},{3,3}],
-                [{3,4},{3,3},{3,2},{3,1},{3,0}]
+                %% [?TLS_1_2,?TLS_1_3],
+                [?TLS_1_3,?TLS_1_2],
+                [?TLS_1_3,?TLS_1_2,?TLS_1_1,?TLS_1_0,?SSL_3_0]
                ]),
         #client_hello_versions{versions = SupportedVersions});
 client_hello_versions(_) ->
     ?LET(SupportedVersions,
-         oneof([[{3,3}],
-                [{3,3},{3,2}],
-                [{3,3},{3,2},{3,1},{3,0}]
+         oneof([[?TLS_1_2],
+                [?TLS_1_2,?TLS_1_1],
+                [?TLS_1_2,?TLS_1_1,?TLS_1_0,?SSL_3_0]
                ]),
         #client_hello_versions{versions = SupportedVersions}).
 
 server_hello_selected_version() ->
-    #server_hello_selected_version{selected_version = {3,4}}.
+    #server_hello_selected_version{selected_version = ?TLS_1_3}.
 
 request_update() ->
      oneof([update_not_requested, update_requested]).
@@ -626,11 +623,11 @@ cert_conf()->
                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}).
 
 cert_auths() ->
-    certificate_authorities(?'TLS_v1.3').
+    certificate_authorities(?TLS_1_3).
 
 certificate_request_1_3() ->
     #certificate_request_1_3{certificate_request_context = <<>>,
-                             extensions = #{certificate_authorities => certificate_authorities(?'TLS_v1.3')}
+                             extensions = #{certificate_authorities => certificate_authorities(?TLS_1_3)}
                             }.
 certificate_request(Version) ->
     #certificate_request{certificate_types = certificate_types(Version),
@@ -640,17 +637,17 @@ certificate_request(Version) ->
 certificate_types(_) ->
     iolist_to_binary([<<?BYTE(?ECDSA_SIGN)>>, <<?BYTE(?RSA_SIGN)>>, <<?BYTE(?DSS_SIGN)>>]).
 
-signature_algs({3,4}) ->
+signature_algs(?TLS_1_3) ->
     ?LET(Algs, signature_algorithms(),
          Algs);
-signature_algs({3,3} = Version) ->
+signature_algs(?TLS_1_2 = Version) ->
         #hash_sign_algos{hash_sign_algos = hash_alg_list(Version)};
-signature_algs(Version) when Version < {3,3} ->
+signature_algs(Version) when ?TLS_LT(Version, ?TLS_1_2) ->
     undefined.
 
 
 
-hashsign_algorithms({_, N} = Version) when N >= 3 ->                                 
+hashsign_algorithms(Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     #hash_sign_algos{hash_sign_algos = hash_alg_list(Version)};
 hashsign_algorithms(_) -> 
     undefined.
@@ -666,9 +663,9 @@ hash_alg(Version) ->
          {hash_algorithm(Version, Alg), Alg}
        ).
 
-hash_algorithm(?'TLS_v1.3', _) ->
+hash_algorithm(?TLS_1_3, _) ->
     oneof([sha, sha224, sha256, sha384, sha512]);
-hash_algorithm(?'TLS_v1.2', rsa) ->
+hash_algorithm(?TLS_1_2, rsa) ->
     oneof([sha, sha224, sha256, sha384, sha512]);
 hash_algorithm(_, rsa) ->
     oneof([md5, sha, sha224, sha256, sha384, sha512]);
@@ -677,19 +674,19 @@ hash_algorithm(_, ecdsa) ->
 hash_algorithm(_, dsa) ->
     sha.
 
-sign_algorithm(?'TLS_v1.3') ->
+sign_algorithm(?TLS_1_3) ->
     oneof([rsa, ecdsa]);
 sign_algorithm(_) ->
     oneof([rsa, dsa, ecdsa]).
-
 
 use_srtp() ->
     FullProfiles = [<<0,1>>, <<0,2>>, <<0,5>>],
     NullProfiles = [<<0,5>>],
     ?LET(PP, oneof([FullProfiles, NullProfiles]), #use_srtp{protection_profiles = PP, mki = <<>>}).
 
-certificate_authorities(?'TLS_v1.3') ->
-    Auths = certificate_authorities(?'TLS_v1.2'),
+certificate_authorities(?TLS_1_3) ->
+    Auths = certificate_authorities(?TLS_1_2),
+
     #certificate_authorities{authorities = Auths};
 certificate_authorities(_) ->
     #{server_config := ServerConf} = cert_conf(), 
@@ -718,13 +715,13 @@ ec_point_formats() ->
 ec_point_format_list() ->
     [?ECPOINT_UNCOMPRESSED].
 
-elliptic_curves({_, Minor}) when Minor < 4 ->
-    Curves = tls_v1:ecc_curves(Minor),
+elliptic_curves(Version) when ?TLS_LT(Version, ?TLS_1_3) ->
+    Curves = tls_v1:ecc_curves(Version),
     #elliptic_curves{elliptic_curve_list = Curves}.
 
 %% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
-supported_groups({_, Minor}) when Minor >= 4 ->
-    SupportedGroups = tls_v1:groups(Minor),
+supported_groups(Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
+    SupportedGroups = tls_v1:groups(),
     #supported_groups{supported_groups = SupportedGroups}.
 
 

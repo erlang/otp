@@ -25,6 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include("ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -1377,7 +1378,7 @@ rsa_alg(rsa_pss_pss_1_3) ->
 rsa_alg(Atom) ->
     Atom.
 
-no_reuse({3, N}) when N >= 4 ->
+no_reuse(?TLS_1_3) ->
     [];
 no_reuse(_) ->
     [{reuse_sessions, false}].

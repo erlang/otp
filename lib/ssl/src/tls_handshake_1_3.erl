@@ -106,7 +106,7 @@ server_hello(MsgType, SessionId, KeyShare, PSK, ConnectionStates) ->
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     Extensions = server_hello_extensions(MsgType, KeyShare, PSK),
-    #server_hello{server_version = {3,3}, %% legacy_version
+    #server_hello{server_version = ?LEGACY_VERSION, %% legacy_version
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
                   compression_method = 0, %% legacy attribute
 		  random = server_hello_random(MsgType, SecParams),
@@ -123,19 +123,20 @@ server_hello(MsgType, SessionId, KeyShare, PSK, ConnectionStates) ->
 %% ClientHello, with the exception of optionally the "cookie" (see
 %% Section 4.2.2) extension.
 server_hello_extensions(hello_retry_request = MsgType, KeyShare, _) ->
-    SupportedVersions = #server_hello_selected_version{selected_version = {3,4}},
-    Extensions = #{server_hello_selected_version => SupportedVersions},
+    Extensions = server_hello_extensions_versions(),
     ssl_handshake:add_server_share(MsgType, Extensions, KeyShare);
 server_hello_extensions(MsgType, KeyShare, undefined) ->
-    SupportedVersions = #server_hello_selected_version{selected_version = {3,4}},
-    Extensions = #{server_hello_selected_version => SupportedVersions},
+    Extensions = server_hello_extensions_versions(),
     ssl_handshake:add_server_share(MsgType, Extensions, KeyShare);
 server_hello_extensions(MsgType, KeyShare, {SelectedIdentity, _}) ->
-    SupportedVersions = #server_hello_selected_version{selected_version = {3,4}},
+    Extensions = server_hello_extensions_versions(),
     PreSharedKey = #pre_shared_key_server_hello{selected_identity = SelectedIdentity},
-    Extensions = #{server_hello_selected_version => SupportedVersions,
-                   pre_shared_key => PreSharedKey},
-    ssl_handshake:add_server_share(MsgType, Extensions, KeyShare).
+    ssl_handshake:add_server_share(MsgType, Extensions#{pre_shared_key => PreSharedKey}, KeyShare).
+
+server_hello_extensions_versions() ->
+    SupportedVersions = #server_hello_selected_version{selected_version = ?TLS_1_3},
+    #{server_hello_selected_version => SupportedVersions}.
+
 
 
 server_hello_random(server_hello, #security_parameters{server_random = Random}) ->
@@ -571,7 +572,7 @@ encode_handshake(#key_update{request_update = Update}) ->
     EncUpdate = encode_key_update(Update),
     {?KEY_UPDATE, <<EncUpdate/binary>>};
 encode_handshake(HandshakeMsg) ->
-    ssl_handshake:encode_handshake(HandshakeMsg, {3,4}).
+    ssl_handshake:encode_handshake(HandshakeMsg, ?TLS_1_3).
 
 encode_early_data(Cipher,
                   #state{
@@ -604,7 +605,7 @@ decode_handshake(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
                                   Cipher_suite:2/binary, ?BYTE(Comp_method),
                                   ?UINT16(ExtLen), Extensions:ExtLen/binary>>)
   when Random =:= ?HELLO_RETRY_REQUEST_RANDOM ->
-    HelloExtensions = ssl_handshake:decode_hello_extensions(Extensions, {3,4}, {Major, Minor},
+    HelloExtensions = ssl_handshake:decode_hello_extensions(Extensions, ?TLS_1_3, {Major, Minor},
                                                             hello_retry_request),
     #server_hello{
        server_version = {Major,Minor},
@@ -661,7 +662,7 @@ decode_handshake(?END_OF_EARLY_DATA, _) ->
 decode_handshake(?KEY_UPDATE, <<?BYTE(Update)>>) ->
     #key_update{request_update = decode_key_update(Update)};
 decode_handshake(Tag, HandshakeMsg) ->
-    ssl_handshake:decode_handshake({3,4}, Tag, HandshakeMsg).
+    ssl_handshake:decode_handshake(?TLS_1_3, Tag, HandshakeMsg).
 
 is_valid_binder(Binder, HHistory, PSK, Hash) ->
     case HHistory of
@@ -727,21 +728,14 @@ decode_key_update(N) ->
     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {request_update,N})).
 
 decode_cert_entries(Entries) ->
-    decode_cert_entries(Entries, []).
-
-decode_cert_entries(<<>>, Acc) ->
-    lists:reverse(Acc);
-decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary, ?UINT16(Esize), BinExts:Esize/binary,
-                      Rest/binary>>, Acc) ->
-    Exts = decode_extensions(BinExts, certificate_request),
-    decode_cert_entries(Rest, [#certificate_entry{data = Data,
-                                                  extensions = Exts} | Acc]).
+    [ #certificate_entry{data = Data, extensions = decode_extensions(BinExts, certificate_request)}
+      || <<?UINT24(DSize), Data:DSize/binary, ?UINT16(Esize), BinExts:Esize/binary>> <= Entries ].
 
 encode_extensions(Exts)->
     ssl_handshake:encode_extensions(extensions_list(Exts)).
 
 decode_extensions(Exts, MessageType) ->
-    ssl_handshake:decode_extensions(Exts, {3,4}, MessageType).
+    ssl_handshake:decode_extensions(Exts, ?TLS_1_3, MessageType).
 
 extensions_list(Extensions) ->
     [Ext || {_, Ext} <- maps:to_list(Extensions)].
@@ -780,7 +774,7 @@ certificate_entry(DER) ->
 sign(THash, Context, HashAlgo, PrivateKey, SignAlgo) ->
     Content = build_content(Context, THash),
     try
-        {ok, ssl_handshake:digitally_signed({3,4}, Content, HashAlgo, PrivateKey, SignAlgo)}
+        {ok, ssl_handshake:digitally_signed(?TLS_1_3, Content, HashAlgo, PrivateKey, SignAlgo)}
     catch throw:Alert ->
             {error, Alert}
     end.
@@ -788,7 +782,7 @@ sign(THash, Context, HashAlgo, PrivateKey, SignAlgo) ->
 
 verify(THash, Context, HashAlgo, SignAlgo, Signature, PublicKeyInfo) ->
     Content = build_content(Context, THash),
-    try ssl_handshake:verify_signature({3, 4}, Content, {HashAlgo, SignAlgo}, Signature, PublicKeyInfo) of
+    try ssl_handshake:verify_signature(?TLS_1_3, Content, {HashAlgo, SignAlgo}, Signature, PublicKeyInfo) of
         Result ->
             {ok, Result}
     catch
@@ -824,7 +818,7 @@ validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                 ?DEFAULT_OCSP_RESPONDER_CERTS
         end,
     ssl_handshake:certify(#certificate{asn1_certificates = Certs}, CertDbHandle, CertDbRef,
-                          SslOptions, CRLDbHandle, Role, Host, {3,4},
+                          SslOptions, CRLDbHandle, Role, Host, ?TLS_1_3,
                           #{cert_ext => CertExt,
                             ocsp_state => OcspState,
                             ocsp_responder_certs => OcspResponderCerts}).
@@ -1265,7 +1259,7 @@ update_start_state(#state{connection_states = ConnectionStates0,
                                           sign_alg = SelectedSignAlg,
                                           dh_public_value = PeerPublicKey,
                                           cipher_suite = Cipher},
-                connection_env = CEnv#connection_env{negotiated_version = {3,4}}}.
+                connection_env = CEnv#connection_env{negotiated_version = ?TLS_1_3}}.
 
 
 update_resumption_master_secret(#state{connection_states = ConnectionStates0} = State,
@@ -1640,25 +1634,25 @@ handle_pre_shared_key(#state{ssl_options = #{session_tickets := Tickets},
 %% message, as described in Section 4.4.1.
 maybe_add_binders(Hello, undefined, _) ->
     Hello;
-maybe_add_binders(Hello0, TicketData, Version) when Version =:= {3,4} ->
+maybe_add_binders(Hello0, TicketData, ?TLS_1_3=Version) ->
     HelloBin0 = tls_handshake:encode_handshake(Hello0, Version),
     HelloBin1 = iolist_to_binary(HelloBin0),
     Truncated = truncate_client_hello(HelloBin1),
     Binders = create_binders([Truncated], TicketData),
     update_binders(Hello0, Binders);
-maybe_add_binders(Hello, _, Version) when Version =< {3,3} ->
+maybe_add_binders(Hello, _, Version) when ?TLS_LTE(Version, ?TLS_1_2) ->
     Hello.
 %%
 %% HelloRetryRequest
 maybe_add_binders(Hello, _, undefined, _) ->
     Hello;
-maybe_add_binders(Hello0, {[HRR,MessageHash|_], _}, TicketData, Version) when Version =:= {3,4} ->
+maybe_add_binders(Hello0, {[HRR,MessageHash|_], _}, TicketData, ?TLS_1_3=Version) ->
     HelloBin0 = tls_handshake:encode_handshake(Hello0, Version),
     HelloBin1 = iolist_to_binary(HelloBin0),
     Truncated = truncate_client_hello(HelloBin1),
     Binders = create_binders([MessageHash,HRR,Truncated], TicketData),
     update_binders(Hello0, Binders);
-maybe_add_binders(Hello, _, _, Version) when Version =< {3,3} ->
+maybe_add_binders(Hello, _, _, Version) when ?TLS_LTE(Version, ?TLS_1_2) ->
     Hello.
 
 create_binders(Context, TicketData) ->
@@ -1684,7 +1678,7 @@ truncate_client_hello(HelloBin0) ->
     <<?BYTE(Type), ?UINT24(_Length), Body/binary>> = HelloBin0,
     CH0 = #client_hello{
              extensions = #{pre_shared_key := PSK0} = Extensions0} =
-        tls_handshake:decode_handshake({3,4}, Type, Body),
+        tls_handshake:decode_handshake(?TLS_1_3, Type, Body),
     #pre_shared_key_client_hello{offered_psks = OfferedPsks0} = PSK0,
     OfferedPsks = OfferedPsks0#offered_psks{binders = []},
     PSK = PSK0#pre_shared_key_client_hello{offered_psks = OfferedPsks},
@@ -1697,8 +1691,8 @@ truncate_client_hello(HelloBin0) ->
     %% The original length of the binders can still be determined by
     %% re-encoding the original ClientHello and using its size as reference
     %% when we subtract the size of the truncated binary.
-    TruncatedSize = iolist_size(tls_handshake:encode_handshake(CH, {3,4})),
-    RefSize = iolist_size(tls_handshake:encode_handshake(CH0, {3,4})),
+    TruncatedSize = iolist_size(tls_handshake:encode_handshake(CH, ?TLS_1_3)),
+    RefSize = iolist_size(tls_handshake:encode_handshake(CH0, ?TLS_1_3)),
     BindersSize = RefSize - TruncatedSize,
 
     %% Return the truncated ClientHello by cutting of the binders from the original
@@ -1709,9 +1703,8 @@ truncate_client_hello(HelloBin0) ->
 maybe_add_early_data_indication(#client_hello{
                                    extensions = Extensions0} = ClientHello,
                                 EarlyData,
-                                Version)
-  when Version =:= {3,4} andalso
-       is_binary(EarlyData) andalso
+                                ?TLS_1_3)
+  when is_binary(EarlyData) andalso
        byte_size(EarlyData) > 0 ->
     Extensions = Extensions0#{early_data =>
                                   #early_data_indication{}},
@@ -1783,13 +1776,16 @@ choose_ticket(_, _) ->
     undefined.
 
 ciphers_for_early_data(CipherSuites0) ->
-    %% Use only supported TLS 1.3 cipher suites
-    Supported = lists:filter(fun(CipherSuite) ->
-                                     lists:member(CipherSuite, tls_v1:exclusive_suites(4)) end,
-                             CipherSuites0),
     %% Return supported block cipher algorithms
-    lists:map(fun(#{cipher := Cipher}) -> Cipher end,
-              lists:map(fun ssl_cipher_format:suite_bin_to_map/1, Supported)).
+    lists:filtermap(fun ciphers_for_early_data0/1, CipherSuites0).
+
+ciphers_for_early_data0(CipherSuite) ->
+    %% Use only supported TLS 1.3 cipher suites
+    case lists:member(CipherSuite, tls_v1:exclusive_suites(?TLS_1_3)) of
+        true -> {true, maps:get(cipher, ssl_cipher_format:suite_bin_to_map(CipherSuite))};
+        false -> false
+    end.
+
 
 get_ticket_data(_, undefined, _) ->
     undefined;

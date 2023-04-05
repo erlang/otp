@@ -1647,8 +1647,9 @@ handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
             throw(Alert)
     end.
 
-make_premaster_secret({MajVer, MinVer}, rsa) ->
+make_premaster_secret(Version, rsa) ->
     Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
+    {MajVer,MinVer} = Version,
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
     undefined.
@@ -1677,7 +1678,7 @@ handle_sni_extension(#state{static_env =
             throw(Alert)
     end.
 
-ensure_tls({254, _} = Version) -> 
+ensure_tls(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:corresponding_tls_version(Version);
 ensure_tls(Version) -> 
     Version.

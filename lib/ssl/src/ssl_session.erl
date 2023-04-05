@@ -28,6 +28,7 @@
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
+-include("ssl_record.hrl").
 
 %% Internal application API
 -export([is_new/2,
@@ -89,7 +90,7 @@ client_select_session({_, _, #{versions := Versions,
     HVersion = RecordCb:highest_protocol_version(Versions),
 
     case LVersion of
-        {3, 4} ->
+        ?TLS_1_3 ->
             %% Session reuse is not supported, do pure legacy
             %% middlebox comp mode negotiation, by providing either
             %% empty session id (no middle box) or random id (middle
@@ -241,7 +242,7 @@ record_cb(dtls) ->
 legacy_session_id() ->
     crypto:strong_rand_bytes(32).
 
-maybe_handle_middlebox({3, 4}, #session{session_id = ?EMPTY_ID} = Session, Options)->
+maybe_handle_middlebox(?TLS_1_3, #session{session_id = ?EMPTY_ID} = Session, Options)->
     case maps:get(middlebox_comp_mode, Options,true) of
         true ->
             Session#session{session_id = legacy_session_id()};

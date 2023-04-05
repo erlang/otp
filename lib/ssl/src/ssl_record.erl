@@ -55,14 +55,13 @@
 -export([cipher/4, cipher/5, decipher/4,
          cipher_aead/4, cipher_aead/5, decipher_aead/5,
          is_correct_mac/2, nonce_seed/3]).
--define(TLS_1_3, {3, 4}).
 
 -export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
--type ssl_version()       :: {integer(), integer()}.
--type ssl_atom_version() :: tls_record:tls_atom_version().
+-type ssl_version()       :: {non_neg_integer(), non_neg_integer()}.
+-type ssl_atom_version()  :: tls_record:tls_atom_version().
 -type connection_states() :: map(). %% Map
--type connection_state() :: map(). %% Map
+-type connection_state()  :: map(). %% Map
 
 %%====================================================================
 %% Connection state handling
@@ -496,7 +495,7 @@ init_security_parameters(?SERVER, Version) ->
     #security_parameters{connection_end = ?SERVER,
                          server_random = make_random(Version)}.
 
-make_random({_Major, _Minor} = Version) when Version >= ?TLS_1_3 ->
+make_random(Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
     ssl_cipher:random_bytes(32);
 make_random(_Version) ->
     Secs_since_1970 = calendar:datetime_to_gregorian_seconds(

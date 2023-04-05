@@ -660,9 +660,9 @@ faulty_client(Host, Port) ->
 
 
 encode_client_hello(CH, Random) ->
-    HSBin = tls_handshake:encode_handshake(CH, {3,3}),
+    HSBin = tls_handshake:encode_handshake(CH, ?TLS_1_2),
     CS = connection_states(Random),
-    {Encoded, _} = tls_record:encode_handshake(HSBin, {3,3}, CS),
+    {Encoded, _} = tls_record:encode_handshake(HSBin, ?TLS_1_2, CS),
     Encoded.
 
 client_hello(Random) ->
@@ -738,7 +738,7 @@ client_hello(Random) ->
 		   srp =>
 		       undefined},
 
-    #client_hello{client_version = {3,3},
+    #client_hello{client_version = ?TLS_1_2,
 		  random = Random,
 		  session_id = crypto:strong_rand_bytes(32),
 		  cipher_suites = CipherSuites,

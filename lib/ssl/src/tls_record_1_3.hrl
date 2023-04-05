@@ -43,7 +43,7 @@
 %%     } ContentType;
 
 -define(INVALID, 0).
--define(LEGACY_VERSION, {3,3}).
+-define(LEGACY_VERSION, ?TLS_1_2).
 -define(OPAQUE_TYPE, 23).
 
 -record(inner_plaintext, {
@@ -55,7 +55,7 @@
                             %% decrypted version will still use #ssl_tls for code reuse purposes
                             %% with real values for content type and version
                             opaque_type = ?OPAQUE_TYPE,
-                            legacy_version = ?LEGACY_VERSION,
+                            legacy_version = ?LEGACY_VERSION :: ssl_record:ssl_version(),
                             encoded_record
                          }).
 

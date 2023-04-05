@@ -174,7 +174,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
         Options = #{versions := Versions} ->
             State = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
             case ssl_handshake:select_supported_version(ClientVersions, Versions) of
-                {3,4} ->
+                ?TLS_1_3 ->
                     {next_state, start, State#state{start_or_recv_from = From,
                                                     handshake_env = HSEnv#handshake_env{continue_status = continue}},
                      [{{timeout, handshake}, Timeout, close}]};
@@ -216,7 +216,7 @@ start(internal, #client_hello{extensions = #{client_hello_versions :=
                                                  #client_hello_versions{versions = ClientVersions}
                                             }} = Hello,
       #state{ssl_options = #{handshake := full}} = State) ->
-    case tls_record:is_acceptable_version({3,4}, ClientVersions) of
+    case tls_record:is_acceptable_version(?TLS_1_3, ClientVersions) of
         true ->
             handle_client_hello(Hello, State);
         false ->
@@ -435,7 +435,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         Groups = Maybe(tls_handshake_1_3:select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups,
                                         ClientShares#key_share_client_hello.client_shares)),
-        CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, {3,4}),
+        CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, ?TLS_1_3),
         #session{own_certificates = [Cert|_]} = Session =
             Maybe(select_server_cert_key_pair(Session0, CertKeyPairs, ClientSignAlgs,
                                               ClientSignAlgsCert, CertAuths, State0,
@@ -883,7 +883,7 @@ select_cipher_suite(_, [], _) ->
 select_cipher_suite(true, ClientCiphers, ServerCiphers) ->
     select_cipher_suite(false, ServerCiphers, ClientCiphers);
 select_cipher_suite(false, [Cipher|ClientCiphers], ServerCiphers) ->
-    case lists:member(Cipher, tls_v1:exclusive_suites(4)) andalso
+    case lists:member(Cipher, tls_v1:exclusive_suites(?TLS_1_3)) andalso
         lists:member(Cipher, ServerCiphers) of
         true ->
             {ok, Cipher};

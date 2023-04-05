@@ -545,10 +545,9 @@ handle_info({CloseTag, Socket}, StateName,
     %% with widespread implementation practice.
     case (Active == false) andalso (CTs =/= []) of
         false ->
-            case Version of
-                {254, N} when N =< 253 ->
+            if (?DTLS_GTE(Version, ?DTLS_1_2)) ->
                     ok;
-                _ ->
+               true ->
                     %% As invalidate_sessions here causes performance issues,
                     %% we will conform to the widespread implementation
                     %% practice and go against the spec
@@ -634,7 +633,7 @@ next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
                                          ssl_options = SslOpts} = State0) ->
     case dtls_record:get_dtls_records(Data,
                                       {DataTag, StateName, Version, 
-                                       [dtls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS]}, 
+                                       [dtls_record:protocol_version_name(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS]},
                                       Buf0, SslOpts) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,

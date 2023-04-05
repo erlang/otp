@@ -736,12 +736,11 @@ maybe_send_early_data(#state{
                          handshake_env =
                              #handshake_env{tls_handshake_history = {Hist, _}},
                          protocol_specific = #{sender := _Sender},
-                         ssl_options = #{versions := [Version|_],
+                         ssl_options = #{versions := [?TLS_1_3|_],
                                          use_ticket := UseTicket,
                                          session_tickets := SessionTickets,
                                          early_data := EarlyData} = _SslOpts0
-                        } = State0) when Version =:= {3,4} andalso
-                                         UseTicket =/= [undefined] andalso
+                        } = State0) when UseTicket =/= [undefined] andalso
                                          EarlyData =/= undefined ->
     %% D.4.  Middlebox Compatibility Mode
     State1 = tls_gen_connection_1_3:maybe_queue_change_cipher_spec(State0, last),
@@ -772,12 +771,11 @@ maybe_send_end_of_early_data(
   #state{
      handshake_env = #handshake_env{early_data_accepted = true},
      protocol_specific = #{sender := _Sender},
-     ssl_options = #{versions := [Version|_],
+     ssl_options = #{versions := [?TLS_1_3|_],
                      use_ticket := UseTicket,
                      early_data := EarlyData},
      static_env = #static_env{protocol_cb = Connection}
-    } = State0) when Version =:= {3,4} andalso
-                     UseTicket =/= [undefined] andalso
+    } = State0) when UseTicket =/= [undefined] andalso
                      EarlyData =/= undefined ->
     %% EndOfEarlydata is encrypted with the 0-RTT traffic keys
     State1 = Connection:queue_handshake(#end_of_early_data{}, State0),
@@ -796,7 +794,7 @@ maybe_automatic_session_resumption(#state{ssl_options =
                                                 server_name_indication := SNI}
                                           = SslOpts0
                                          } = State0)
-  when Version >= {3,4} andalso
+  when ?TLS_GTE(Version, ?TLS_1_3) andalso
        SessionTickets =:= auto ->
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     HashAlgos = cipher_hash_algos(AvailableCipherSuites),
@@ -850,12 +848,11 @@ client_private_key(Group, ClientShares) ->
 maybe_check_early_data_indication(EarlyDataIndication,
                                   #state{
                                      handshake_env = HsEnv,
-                                     ssl_options = #{versions := [Version|_],
+                                     ssl_options = #{versions := [?TLS_1_3|_],
                                                      use_ticket := UseTicket,
                                                      early_data := EarlyData}
                                     } = State)
-  when Version =:= {3,4} andalso
-       UseTicket =/= [undefined] andalso
+  when UseTicket =/= [undefined] andalso
        EarlyData =/= undefined andalso
        EarlyDataIndication =/= undefined ->
     signal_user_early_data(State, accepted),
@@ -863,13 +860,12 @@ maybe_check_early_data_indication(EarlyDataIndication,
 maybe_check_early_data_indication(EarlyDataIndication,
                                   #state{
                                      protocol_specific = #{sender := _Sender},
-                                     ssl_options = #{versions := [Version|_],
+                                     ssl_options = #{versions := [?TLS_1_3|_],
                                                      use_ticket := UseTicket,
                                                      early_data := EarlyData}
                                      = _SslOpts0
                                     } = State)
-  when Version =:= {3,4} andalso
-       UseTicket =/= [undefined] andalso
+  when UseTicket =/= [undefined] andalso
        EarlyData =/= undefined andalso
        EarlyDataIndication =:= undefined ->
     signal_user_early_data(State, rejected),

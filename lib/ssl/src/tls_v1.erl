@@ -29,13 +29,13 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 
--export([master_secret/4, 
-         finished/5, 
-         certificate_verify/3, 
-         mac_hash/7, 
+-export([master_secret/4,
+         finished/5,
+         certificate_verify/2,
+         mac_hash/7,
          hmac_hash/3,
-	 setup_keys/8, 
-         suites/1, 
+         setup_keys/8,
+         suites/1,
          exclusive_suites/1,
          exclusive_anonymous_suites/1,
          psk_suites/1,
@@ -44,50 +44,49 @@
          srp_suites/1,
          srp_suites_anon/1,
          srp_exclusive/1,
-	 rc4_suites/1,
+         rc4_suites/1,
          rc4_exclusive/1,
          des_suites/1,
          des_exclusive/1,
          rsa_suites/1,
          rsa_exclusive/1,
          prf/5,
-	 ecc_curves/1, 
-         ecc_curves/2, 
-         oid_to_enum/1, 
-         enum_to_oid/1, 
-	 default_signature_algs/1, 
+         ecc_curves/1,
+         oid_to_enum/1,
+         enum_to_oid/1,
+         default_signature_algs/1,
          signature_algs/2,
          signature_schemes/2,
          rsa_schemes/0,
-         groups/1, 
-         groups/2, 
-         group_to_enum/1, 
-         enum_to_group/1, 
-         default_groups/1]).
+         groups/0,
+         groups/1,
+         group_to_enum/1,
+         enum_to_group/1,
+         default_groups/0]).
 
--export([derive_secret/4, 
-         hkdf_expand_label/5, 
-         hkdf_extract/3, 
+-export([derive_secret/4,
+         hkdf_expand_label/5,
+         hkdf_extract/3,
          hkdf_expand/4,
          key_length/1,
-         key_schedule/3, 
-         key_schedule/4, 
+         key_schedule/3,
+         key_schedule/4,
          create_info/3,
-         external_binder_key/2, 
+         external_binder_key/2,
          resumption_binder_key/2,
-         client_early_traffic_secret/3, 
+         client_early_traffic_secret/3,
          early_exporter_master_secret/3,
-         client_handshake_traffic_secret/3, 
+         client_handshake_traffic_secret/3,
          server_handshake_traffic_secret/3,
-         client_application_traffic_secret_0/3, 
+         client_application_traffic_secret_0/3,
          server_application_traffic_secret_0/3,
-         exporter_master_secret/3, 
+         exporter_master_secret/3,
          resumption_master_secret/3,
-         update_traffic_secret/2, 
+         update_traffic_secret/2,
          calculate_traffic_keys/3,
-         transcript_hash/2, 
-         finished_key/2, 
-         finished_verify_data/3, 
+         transcript_hash/2,
+         finished_key/2,
+         finished_verify_data/3,
          pre_shared_key/3]).
 
 %% Tracing
@@ -118,7 +117,7 @@ derive_secret(Secret, Label, Messages, Algo) ->
                       Hash, ssl_cipher:hash_size(Algo), Algo).
 
 -spec hkdf_expand_label(Secret::binary(), Label0::binary(),
-                        Context::binary(), Length::integer(),  
+                        Context::binary(), Length::integer(),
                         Algo::ssl:hash()) -> KeyingMaterial::binary().
 hkdf_expand_label(Secret, Label0, Context, Length, Algo) ->
     HkdfLabel = create_info(Label0, Context, Length),
@@ -143,14 +142,14 @@ create_info(Label0, Context0, Length) ->
 -spec hkdf_extract(MacAlg::ssl:hash(), Salt::binary(),
                    KeyingMaterial::binary()) -> PseudoRandKey::binary().
 
-hkdf_extract(MacAlg, Salt, KeyingMaterial) -> 
+hkdf_extract(MacAlg, Salt, KeyingMaterial) ->
     hmac_hash(MacAlg, Salt, KeyingMaterial).
 
 
 -spec hkdf_expand(PseudoRandKey::binary(), ContextInfo::binary(),
                   Length::integer(), Algo::ssl:hash()) -> KeyingMaterial::binary().
-                     
-hkdf_expand(PseudoRandKey, ContextInfo, Length, Algo) -> 
+
+hkdf_expand(PseudoRandKey, ContextInfo, Length, Algo) ->
     Iterations = erlang:ceil(Length / ssl_cipher:hash_size(Algo)),
     hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, 1, Iterations, <<>>, <<>>).
 
@@ -173,10 +172,15 @@ master_secret(PrfAlgo, PreMasterSecret, ClientRandom, ServerRandom) ->
 	[ClientRandom, ServerRandom], 48).
 %% TLS 1.0 -1.2  ---------------------------------------------------
 
--spec finished(client | server, integer(), integer(), binary(), [binary()]) -> binary().
+-spec finished(Role, Version, PrfAlgo, MasterSecret, Handshake) -> binary() when
+      Role :: client | server,
+      Version :: ssl_record:ssl_version(),
+      PrfAlgo :: integer(),
+      MasterSecret :: binary(),
+      Handshake    :: [binary()].
 %% TLS 1.0 -1.1  ---------------------------------------------------
 finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
-  when Version == 1; Version == 2; PrfAlgo == ?MD5SHA ->
+  when Version == ?TLS_1_0; Version == ?TLS_1_1; PrfAlgo == ?MD5SHA ->
     %% RFC 2246 & 4346 - 7.4.9. Finished
     %% struct {
     %%          opaque verify_data[12];
@@ -191,8 +195,7 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
 %% TLS 1.0 -1.1  ---------------------------------------------------
 
 %% TLS 1.2 ---------------------------------------------------
-finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
-  when Version == 3 ->
+finished(Role, ?TLS_1_2, PrfAlgo, MasterSecret, Handshake) ->
     %% RFC 5246 - 7.4.9. Finished
     %% struct {
     %%          opaque verify_data[12];
@@ -206,30 +209,29 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
 
 %% TODO 1.3 finished
 
--spec certificate_verify(md5sha | sha, integer(), [binary()]) -> binary().
-
+-spec certificate_verify(HashAlgo, Handshake) -> binary() when
+      HashAlgo :: md5sha | ssl:hash(),
+      Handshake :: [binary()].
 %% TLS 1.0 -1.1  ---------------------------------------------------
-certificate_verify(md5sha, _Version, Handshake) ->
+certificate_verify(md5sha, Handshake) ->
     MD5 = crypto:hash(md5, Handshake),
     SHA = crypto:hash(sha, Handshake),
     {digest, <<MD5/binary, SHA/binary>>};
 %% TLS 1.0 -1.1  ---------------------------------------------------
 
 %% TLS 1.2 ---------------------------------------------------
-certificate_verify(_HashAlgo, _Version, Handshake) ->
+certificate_verify(_HashAlgo, Handshake) ->
     %% crypto:hash(HashAlgo, Handshake).
     %% Optimization: Let crypto calculate the hash in sign/verify call
     Handshake.
 
 %% TLS 1.2 ---------------------------------------------------
-
--spec setup_keys(integer(), integer(), binary(), binary(), binary(), integer(),
+-spec setup_keys(ssl_record:ssl_version(), integer(), binary(), binary(), binary(), integer(),
 		 integer(), integer()) -> {binary(), binary(), binary(),
 					  binary(), binary(), binary()}.
 %% TLS v1.0  ---------------------------------------------------
-setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
-	   KeyMatLen, IVSize)
-  when Version == 1 ->
+setup_keys(?TLS_1_0, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+	   KeyMatLen, IVSize) ->
     %% RFC 2246 - 6.3. Key calculation
     %% key_block = PRF(SecurityParameters.master_secret,
     %%                      "key expansion",
@@ -254,9 +256,8 @@ setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize
 %% TLS v1.0  ---------------------------------------------------
 
 %% TLS v1.1 ---------------------------------------------------
-setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
-	   KeyMatLen, IVSize)
-  when Version == 2 ->
+setup_keys(?TLS_1_1, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+	   KeyMatLen, IVSize) ->
     %% RFC 4346 - 6.3. Key calculation
     %% key_block = PRF(SecurityParameters.master_secret,
     %%                      "key expansion",
@@ -282,9 +283,8 @@ setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize
 %% TLS v1.1 ---------------------------------------------------
 
 %% TLS v1.2  ---------------------------------------------------
-setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
-	   KeyMatLen, IVSize)
-  when Version == 3; Version == 4 ->
+setup_keys(?TLS_1_2, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+	   KeyMatLen, IVSize) ->
     %% RFC 5246 - 6.3. Key calculation
     %% key_block = PRF(SecurityParameters.master_secret,
     %%                      "key expansion",
@@ -495,12 +495,12 @@ key_length(CipherSuite) ->
 -spec mac_hash(integer() | atom(), binary(), integer(), integer(), tls_record:tls_version(),
 	       integer(), binary()) -> binary().
 
-mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
-	 Length, Fragment) ->
+mac_hash(Method, Mac_write_secret, Seq_num, Type, Version,Length, Fragment) ->
     %% RFC 2246 & 4346 - 6.2.3.1.
     %% HMAC_hash(MAC_write_secret, seq_num + TLSCompressed.type +
     %%              TLSCompressed.version + TLSCompressed.length +
     %%              TLSCompressed.fragment));
+    {Major,Minor} = Version,
     Mac = hmac_hash(Method, Mac_write_secret,
 		    [<<?UINT64(Seq_num), ?BYTE(Type),
 		      ?BYTE(Major), ?BYTE(Minor), ?UINT16(Length)>>,
@@ -508,19 +508,19 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
     Mac.
 %% TLS 1.0 -1.2  ---------------------------------------------------
 
-%% TODO 1.3 same as above?
+-spec suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 
--spec suites(1|2|3|4) -> [ssl_cipher_format:cipher_suite()].
+suites(Version) when ?TLS_1_X(Version) ->
+    lists:flatmap(fun exclusive_suites/1, suites_to_test(Version)).
 
-suites(Minor) when Minor == 1; Minor == 2 ->
-    exclusive_suites(1);
-suites(3) ->
-    exclusive_suites(3) ++ suites(2);
+suites_to_test(?TLS_1_0) -> [?TLS_1_0];
+suites_to_test(?TLS_1_1) -> [?TLS_1_0];
+suites_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
+suites_to_test(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2, ?TLS_1_0].
 
-suites(4) ->
-    exclusive_suites(4) ++ suites(3).
+-spec exclusive_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 
-exclusive_suites(4) ->
+exclusive_suites(?TLS_1_3) ->
     [?TLS_AES_256_GCM_SHA384,
      ?TLS_AES_128_GCM_SHA256,
 
@@ -529,7 +529,7 @@ exclusive_suites(4) ->
      ?TLS_AES_128_CCM_SHA256,
      ?TLS_AES_128_CCM_8_SHA256
     ];
-exclusive_suites(3) ->
+exclusive_suites(?TLS_1_2) ->
     [?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 
@@ -568,12 +568,12 @@ exclusive_suites(3) ->
 
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
-    
+
      ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
-     
+
      ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-     
+
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256
 
@@ -583,13 +583,13 @@ exclusive_suites(3) ->
      %% ?TLS_DH_RSA_WITH_AES_128_GCM_SHA256,
      %% ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256
     ];
-exclusive_suites(2) ->
+exclusive_suites(?TLS_1_1) ->
     [];
-exclusive_suites(1) ->
+exclusive_suites(?TLS_1_0) ->
     [
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-    
+
      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
      ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
 
@@ -604,17 +604,18 @@ exclusive_suites(1) ->
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA
     ].
-    
+
 %%--------------------------------------------------------------------
--spec exclusive_anonymous_suites(Minor:: integer()) -> [ssl_cipher_format:cipher_suite()].
+-spec exclusive_anonymous_suites(ssl_record:ssl_version()) ->
+          [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the anonymous cipher suites introduced
 %% in Version, only supported if explicitly set by user.
 %%--------------------------------------------------------------------
-exclusive_anonymous_suites(4) ->
+exclusive_anonymous_suites(?TLS_1_3) ->
     [];
-exclusive_anonymous_suites(3 = N) ->
-    psk_anon_exclusive(N) ++
+exclusive_anonymous_suites(?TLS_1_2=Version) ->
+    psk_anon_exclusive(Version) ++
         [?TLS_DH_anon_WITH_AES_128_GCM_SHA256,
          ?TLS_DH_anon_WITH_AES_256_GCM_SHA384,
          ?TLS_DH_anon_WITH_AES_128_CBC_SHA256,
@@ -625,35 +626,34 @@ exclusive_anonymous_suites(3 = N) ->
          ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
 
          ?TLS_DH_anon_WITH_RC4_128_MD5];
-exclusive_anonymous_suites(2 = N) ->
-    psk_anon_exclusive(N) ++
+exclusive_anonymous_suites(?TLS_1_1=Version) ->
+    psk_anon_exclusive(Version) ++
         [?TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
          ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
          ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
-         
+
          ?TLS_DH_anon_WITH_DES_CBC_SHA,
          ?TLS_DH_anon_WITH_RC4_128_MD5];
-exclusive_anonymous_suites(N = 1) ->
-    psk_anon_exclusive(N) ++
+exclusive_anonymous_suites(?TLS_1_0=Version) ->
+    psk_anon_exclusive(Version) ++
         [?TLS_DH_anon_WITH_RC4_128_MD5,
          ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
          ?TLS_DH_anon_WITH_DES_CBC_SHA
-        ] ++ srp_suites_anon({3,1}).
+        ] ++ srp_suites_anon(Version).
 
 %%--------------------------------------------------------------------
--spec psk_suites(ssl_record:ssl_version() | integer()) -> [ssl_cipher_format:cipher_suite()].
+-spec psk_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the PSK cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
-psk_suites({3, 3})  ->
-    psk_exclusive(3);
-psk_suites({3, N}) ->
-    psk_exclusive(N).
+psk_suites(Version) when ?TLS_1_X(Version) ->
+    psk_exclusive(Version).
 
-psk_exclusive(3) ->
-    psk_exclusive(1) -- [?TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA];
-psk_exclusive(1) ->
+-spec psk_exclusive(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
+psk_exclusive(?TLS_1_2) ->
+    psk_exclusive(?TLS_1_0) -- [?TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA];
+psk_exclusive(?TLS_1_0) ->
     [
      ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384,
      ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384,
@@ -667,15 +667,17 @@ psk_exclusive(_) ->
     [].
 
 %%--------------------------------------------------------------------
--spec psk_suites_anon(ssl_record:ssl_version() | integer()) -> [ssl_cipher_format:cipher_suite()].
+-spec psk_suites_anon(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the anonymous PSK cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
-psk_suites_anon({3, _}) ->
-    psk_anon_exclusive(3) ++ psk_anon_exclusive(1).
+psk_suites_anon(Version) when ?TLS_1_X(Version) ->
+    psk_anon_exclusive(?TLS_1_2) ++ psk_anon_exclusive(?TLS_1_0).
 
-psk_anon_exclusive(3) ->
+-spec psk_anon_exclusive(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
+
+psk_anon_exclusive(?TLS_1_2) ->
     [
      ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384,
      ?TLS_PSK_WITH_AES_256_GCM_SHA384,
@@ -695,7 +697,7 @@ psk_anon_exclusive(3) ->
      ?TLS_PSK_WITH_AES_128_CCM,
      ?TLS_PSK_WITH_AES_128_CCM_8
     ];
-psk_anon_exclusive(1) ->
+psk_anon_exclusive(?TLS_1_0) ->
 	[
          ?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA384,
          ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384,
@@ -723,15 +725,19 @@ psk_anon_exclusive(_) ->
 %% Description: Returns a list of the SRP cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
-srp_suites({3, 3}) ->
-    srp_exclusive(1) -- [?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA,
-                         ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA
-                        ];
-srp_suites({3, N}) when N == 1;
-                        N == 2 ->
-    srp_exclusive(1).
+srp_suites(?TLS_1_2) ->
+    srp_exclusive(?TLS_1_0) -- [?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA,
+                                  ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA
+                                 ];
+srp_suites(?TLS_1_1) ->
+    srp_exclusive(?TLS_1_0);
+srp_suites(?TLS_1_0) ->
+    srp_exclusive(?TLS_1_0).
 
-srp_exclusive(1) ->
+
+-spec srp_exclusive(tls_record:tls_version()) -> [ssl_cipher_format:cipher_suite()].
+
+srp_exclusive(?TLS_1_0) ->
     [?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA,
      ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA,
@@ -748,30 +754,36 @@ srp_exclusive(_) ->
 %% Description: Returns a list of the SRP anonymous cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
-srp_suites_anon({3, 3}) ->
-    srp_exclusive_anon(1) -- [?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA];
-srp_suites_anon({3, N}) when N == 1;
-                             N == 2 ->
-    srp_exclusive_anon(1).
-srp_exclusive_anon(1) ->
+srp_suites_anon(?TLS_1_2) ->
+    srp_exclusive_anon(?TLS_1_0) -- [?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA];
+srp_suites_anon(?TLS_1_1) ->
+    srp_exclusive_anon(?TLS_1_0);
+srp_suites_anon(?TLS_1_0) ->
+    srp_exclusive_anon(?TLS_1_0).
+
+
+srp_exclusive_anon(?TLS_1_0) ->
     [?TLS_SRP_SHA_WITH_AES_128_CBC_SHA,
      ?TLS_SRP_SHA_WITH_AES_256_CBC_SHA,
      ?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA
     ].
 
 %%--------------------------------------------------------------------
--spec rc4_suites(Version::ssl_record:ssl_version() | integer()) ->
-                        [ssl_cipher_format:cipher_suite()].
+-spec rc4_suites(Version::ssl_record:ssl_version()) ->
+          [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the RSA|(ECDH/RSA)| (ECDH/ECDSA)
 %% with RC4 cipher suites, only supported if explicitly set by user.
 %% Are not considered secure any more. Other RC4 suites already
 %% belonged to the user configured only category.
 %%--------------------------------------------------------------------
-rc4_suites({3, _}) ->
-    rc4_exclusive(1).
+rc4_suites(Version) when ?TLS_1_X(Version) ->
+    rc4_exclusive(?TLS_1_0).
 
-rc4_exclusive(1) ->
+-spec rc4_exclusive(Version::ssl_record:ssl_version()) ->
+          [ssl_cipher_format:cipher_suite()].
+
+rc4_exclusive(?TLS_1_0) ->
     [?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
      ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
@@ -788,10 +800,10 @@ rc4_exclusive(_) ->
 %% with DES cipher, only supported if explicitly set by user.
 %% Are not considered secure any more.
 %%--------------------------------------------------------------------
-des_suites({3, _}) ->
-    des_exclusive(1).
+des_suites(Version) when ?TLS_1_X(Version) ->
+    des_exclusive(?TLS_1_0).
 
-des_exclusive(1)->
+des_exclusive(?TLS_1_0)->
     [?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
      ?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
      ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
@@ -803,27 +815,28 @@ des_exclusive(1)->
 des_exclusive(_) ->
     [].
 %%--------------------------------------------------------------------
--spec rsa_suites(Version::ssl_record:ssl_version() | integer()) -> [ssl_cipher_format:cipher_suite()].
+-spec rsa_suites(Version::ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the RSA key exchange
 %% cipher suites, only supported if explicitly set by user.
 %% Are not considered secure any more.
 %%--------------------------------------------------------------------
-rsa_suites({3, 3}) ->
-    rsa_exclusive(3) ++ rsa_exclusive(1);
-rsa_suites({3, 2}) ->
-    rsa_exclusive(1);
-rsa_suites({3, 1}) ->
-    rsa_exclusive(1).
+rsa_suites(Version) when ?TLS_1_X(Version) ->
+    lists:flatmap(fun rsa_exclusive/1, rsa_suites_to_test(Version)).
 
-rsa_exclusive(3) ->
+rsa_suites_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
+rsa_suites_to_test(?TLS_1_1) -> [?TLS_1_0];
+rsa_suites_to_test(?TLS_1_0) -> [?TLS_1_0].
+
+-spec rsa_exclusive(Version::ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
+rsa_exclusive(?TLS_1_2) ->
     [
      ?TLS_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256
     ];
-rsa_exclusive(1) ->
+rsa_exclusive(?TLS_1_0) ->
     [?TLS_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_RSA_WITH_AES_128_CBC_SHA,
      ?TLS_RSA_WITH_3DES_EDE_CBC_SHA
@@ -831,15 +844,15 @@ rsa_exclusive(1) ->
 rsa_exclusive(_) ->
     [].
 
-signature_algs({3, 4}, HashSigns) ->
-    signature_algs({3, 3}, HashSigns);
-signature_algs({3, 3}, HashSigns) ->
+signature_algs(?TLS_1_3, HashSigns) ->
+    signature_algs(?TLS_1_2, HashSigns);
+signature_algs(?TLS_1_2, HashSigns) ->
     CryptoSupports =  crypto:supports(),
     Hashes = proplists:get_value(hashs, CryptoSupports),
     PubKeys = proplists:get_value(public_keys, CryptoSupports),
     Schemes =  rsa_schemes(),
     Supported = lists:foldl(fun({Hash, dsa = Sign} = Alg, Acc) ->
-				    case proplists:get_bool(dss, PubKeys) 
+				    case proplists:get_bool(dss, PubKeys)
 					andalso proplists:get_bool(Hash, Hashes)
 					andalso is_pair(Hash, Sign, Hashes)
 				    of
@@ -848,9 +861,9 @@ signature_algs({3, 3}, HashSigns) ->
 					false ->
 					    Acc
 				    end;
-			       ({Hash, Sign} = Alg, Acc) -> 
-				    case proplists:get_bool(Sign, PubKeys) 
-					andalso proplists:get_bool(Hash, Hashes) 
+			       ({Hash, Sign} = Alg, Acc) ->
+				    case proplists:get_bool(Sign, PubKeys)
+					andalso proplists:get_bool(Hash, Hashes)
 					andalso is_pair(Hash, Sign, Hashes)
 				    of
 					true ->
@@ -861,7 +874,7 @@ signature_algs({3, 3}, HashSigns) ->
                                (Alg, Acc) when is_atom(Alg) ->
                                     case lists:member(Alg, Schemes) of
                                         true ->
-                                            [NewAlg] = signature_schemes({3,4}, [Alg]),
+                                            [NewAlg] = signature_schemes(?TLS_1_3, [Alg]),
                                             [NewAlg| Acc];
 					false ->
 					    Acc
@@ -869,11 +882,11 @@ signature_algs({3, 3}, HashSigns) ->
 			    end, [], HashSigns),
     lists:reverse(Supported).
 
-default_signature_algs([{3, 4} = Version]) ->
-    default_signature_schemes(Version) ++ legacy_signature_schemes(Version);
-default_signature_algs([{3, 4}, {3,3} | _]) ->
-    default_signature_schemes({3,4}) ++ default_pre_1_3_signature_algs_only();
-default_signature_algs([{3, 3} = Version |_]) ->
+default_signature_algs([?TLS_1_3]) ->
+    default_signature_schemes(?TLS_1_3) ++ legacy_signature_schemes(?TLS_1_3);
+default_signature_algs([?TLS_1_3, ?TLS_1_2 | _]) ->
+    default_signature_schemes(?TLS_1_3) ++ default_pre_1_3_signature_algs_only();
+default_signature_algs([?TLS_1_2 = Version |_]) ->
     Default = [%% SHA2 ++ PSS
                {sha512, ecdsa},
                rsa_pss_pss_sha512,
@@ -905,10 +918,10 @@ default_pre_1_3_signature_algs_only() ->
                {sha224, ecdsa},
                {sha224, rsa}
               ],
-    signature_algs({3,3}, Default).
+    signature_algs(?TLS_1_2, Default).
 
 signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
-                                                  andalso Version >= {3, 3} ->
+                                                         andalso ?TLS_GTE(Version, ?TLS_1_2) ->
     CryptoSupports =  crypto:supports(),
     Hashes = proplists:get_value(hashs, CryptoSupports),
     PubKeys = proplists:get_value(public_keys, CryptoSupports),
@@ -991,7 +1004,7 @@ legacy_signature_schemes(Version) ->
     %% MAY appear in "signature_algorithms" and
     %% "signature_algorithms_cert" for backward compatibility with
     %% TLS 1.2.
-    LegacySchemes = 
+    LegacySchemes =
         [rsa_pkcs1_sha512,
          rsa_pkcs1_sha384,
          rsa_pkcs1_sha256],
@@ -1031,7 +1044,7 @@ hmac_hash(?NULL, _, _) ->
 hmac_hash(Alg, Key, Value) ->
     crypto:mac(hmac, mac_algo(Alg), Key, Value).
 
-mac_algo(Alg) when is_atom(Alg) -> 
+mac_algo(Alg) when is_atom(Alg) ->
     Alg;
 mac_algo(?MD5)    -> md5;
 mac_algo(?SHA)    -> sha;
@@ -1121,19 +1134,23 @@ is_pair(Hash, rsa, Hashs) ->
 is_pair(_,_,_) ->
     false.
 
+%% Should we create a new function for ecc_curves(Version)
+%% and another explicit one for ecc_curve_named([TLSCurves])?
 %% list ECC curves in preferred order
--spec ecc_curves(1..3 | all) -> [named_curve()].
+-spec ecc_curves(TLS | DTLS | all) -> [named_curve()] when
+      TLS :: ?TLS_1_0 | ?TLS_1_1 | ?TLS_1_2,
+      DTLS :: ?DTLS_1_0 | ?DTLS_1_2;
+                ([named_curve()]) -> [named_curve()].
 ecc_curves(all) ->
     [sect571r1,sect571k1,secp521r1,brainpoolP512r1,
      sect409k1,sect409r1,brainpoolP384r1,secp384r1,
      sect283k1,sect283r1,brainpoolP256r1,secp256k1,secp256r1];
 
-ecc_curves(Minor) ->
+ecc_curves(Version) when is_tuple(Version) ->
     TLSCurves = ecc_curves(all),
-    ecc_curves(Minor, TLSCurves).
+    ecc_curves(TLSCurves);
 
--spec ecc_curves(1..3, [named_curve()]) -> [named_curve()].
-ecc_curves(_Minor, TLSCurves) ->
+ecc_curves(TLSCurves) when is_list(TLSCurves) ->
     CryptoCurves = crypto:ec_curves(),
     lists:foldr(fun(Curve, Curves) ->
 			case proplists:get_bool(Curve, CryptoCurves) of
@@ -1142,7 +1159,11 @@ ecc_curves(_Minor, TLSCurves) ->
 			end
 		end, [], TLSCurves).
 
--spec groups(4 | all | default) -> [group()].
+groups() ->
+    TLSGroups = groups(all),
+    groups(TLSGroups).
+
+-spec groups(all | default | TLSGroups :: list()) -> [group()].
 groups(all) ->
     [x25519,
      x448,
@@ -1159,18 +1180,13 @@ groups(default) ->
      x448,
      secp256r1,
      secp384r1];
-groups(Minor) ->
-    TLSGroups = groups(all),
-    groups(Minor, TLSGroups).
-%%
--spec groups(4, [group()]) -> [group()].
-groups(_Minor, TLSGroups) ->
+groups(TLSGroups) when is_list(TLSGroups) ->
     CryptoGroups = supported_groups(),
     lists:filter(fun(Group) -> proplists:get_bool(Group, CryptoGroups) end, TLSGroups).
 
-default_groups(Minor) ->
+default_groups() ->
     TLSGroups = groups(default),
-    groups(Minor, TLSGroups).
+    groups(TLSGroups).
 
 supported_groups() ->
     %% TODO: Add new function to crypto?

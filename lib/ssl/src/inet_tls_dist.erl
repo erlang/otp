@@ -48,6 +48,7 @@
 -include("ssl_api.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 -define(FAMILY, inet).
@@ -1049,7 +1050,7 @@ ktls_opt_ulp(_OS) ->
 
 ktls_opt_cipher(
   _OS,
-  _TLS_version = {3,4}, % 'tlsv1.3'
+  _TLS_version = ?TLS_1_3, % 'tlsv1.3'
   _CipherSpec = ?TLS_AES_256_GCM_SHA384,
   #cipher_state{
      key = <<Key:32/bytes>>,

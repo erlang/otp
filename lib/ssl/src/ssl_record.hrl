@@ -163,9 +163,6 @@
 %% 	  minor   % unit 8
 %% 	 }).
 
--define(LOWEST_MAJOR_SUPPORTED_VERSION, 3).
-	
-
 -record(generic_stream_cipher, {
           content,  % opaque content[TLSCompressed.length];
           mac       % opaque MAC[CipherSpec.hash_size]; 
@@ -179,5 +176,34 @@
           padding_length, % uint8 padding_length;
           next_iv  % opaque IV[SecurityParameters.record_iv_length];
          }). 
+
+-define(PROTOCOL_TO_BINARY_VERSION(Version), (Version)).
+-define(BINARY_PROTOCOL_TO_INTERNAL_REPRESENTATION(Version), (Version)).
+
+-define(TLS_1_X(Version), (element(1,Version) == 3)).
+-define(DTLS_1_X(Version), (element(1,Version) == 254)).
+
+-define(TLS_GTE(Version1, Version2), (Version1 >= Version2)).
+-define(TLS_GT(Version1, Version2),  (Version1 > Version2)).
+-define(TLS_LTE(Version1, Version2), (Version1 =< Version2)).
+-define(TLS_LT(Version1, Version2),  (Version1 < Version2)).
+
+-define(DTLS_GTE(Version1, Version2), (Version1 =< Version2)).
+-define(DTLS_GT(Version1, Version2),  (Version1 < Version2)).
+-define(DTLS_LTE(Version1, Version2), (Version >= Version2)).
+-define(DTLS_LT(Version1, Version2),  (Version1 > Version2)).
+
+%% Atoms used to refer to protocols
+
+-define(TLS_1_3, {3,4}).
+-define(TLS_1_2, {3,3}).
+-define(TLS_1_1, {3,2}).
+-define(TLS_1_0, {3,1}).
+
+-define(DTLS_1_2, {254,253}).
+-define(DTLS_1_0, {254,255}).
+
+-define(SSL_3_0, {3,0}).
+-define(SSL_2_0, {2,0}).
 
 -endif. % -ifdef(ssl_record).

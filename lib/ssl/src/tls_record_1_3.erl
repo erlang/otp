@@ -171,7 +171,7 @@ decode_cipher_text(#ssl_tls{type = ?ALERT,
                             fragment = <<?FATAL,?ILLEGAL_PARAMETER>>},
 		   ConnectionStates0) ->
     {#ssl_tls{type = ?ALERT,
-              version = {3,4}, %% Internally use real version
+              version = ?TLS_1_3, %% Internally use real version
               fragment = <<?FATAL,?ILLEGAL_PARAMETER>>}, ConnectionStates0};
 %% TLS 1.3 server can receive a User Cancelled Alert when handshake is
 %% paused and then cancelled on the client side.
@@ -180,7 +180,7 @@ decode_cipher_text(#ssl_tls{type = ?ALERT,
                             fragment = <<?FATAL,?USER_CANCELED>>},
 		   ConnectionStates0) ->
     {#ssl_tls{type = ?ALERT,
-              version = {3,4}, %% Internally use real version
+              version = ?TLS_1_3, %% Internally use real version
               fragment = <<?FATAL,?USER_CANCELED>>}, ConnectionStates0};
 %% RFC8446 - TLS 1.3
 %% D.4.  Middlebox Compatibility Mode
@@ -195,7 +195,7 @@ decode_cipher_text(#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
                             fragment = <<1>>},
 		   ConnectionStates0) ->
     {#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
-              version = {3,4}, %% Internally use real version
+              version = ?TLS_1_3, %% Internally use real version
               fragment = <<1>>}, ConnectionStates0};
 decode_cipher_text(#ssl_tls{type = Type,
                             version = ?LEGACY_VERSION,
@@ -206,7 +206,7 @@ decode_cipher_text(#ssl_tls{type = Type,
                                   cipher_suite = ?TLS_NULL_WITH_NULL_NULL}
 			  }} = ConnnectionStates0) ->
     {#ssl_tls{type = Type,
-              version = {3,4}, %% Internally use real version
+              version = ?TLS_1_3, %% Internally use real version
               fragment = CipherFragment}, ConnnectionStates0};
 decode_cipher_text(#ssl_tls{type = Type}, _) ->
     %% Version mismatch is already asserted
@@ -288,7 +288,7 @@ encode_plain_text(#inner_plaintext{
     Encoded = cipher_aead(PlainText, BulkCipherAlgo, Key, Seq, IV, TagLen),
     %% 23 (application_data) for outward compatibility
     #tls_cipher_text{opaque_type = ?OPAQUE_TYPE,
-                     legacy_version = {3,3},
+                     legacy_version = ?LEGACY_VERSION,
                      encoded_record = Encoded};
 encode_plain_text(#inner_plaintext{
                      content = Data,
@@ -301,7 +301,7 @@ encode_plain_text(#inner_plaintext{
     %% When record protection has not yet been engaged, TLSPlaintext
     %% structures are written directly onto the wire.
     #tls_cipher_text{opaque_type = Type,
-                      legacy_version = {3,3},
+                      legacy_version = ?TLS_1_2,
                       encoded_record = Data}.
 
 additional_data(Length) ->
@@ -330,10 +330,11 @@ cipher_aead(Fragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
     <<Content/binary, CipherTag/binary>>.
 
 encode_tls_cipher_text(#tls_cipher_text{opaque_type = Type,
-                                        legacy_version = {MajVer, MinVer},
+                                        legacy_version = Version,
                                         encoded_record = Encoded},
                        #{sequence_number := Seq} = Write) ->
     Length = erlang:iolist_size(Encoded),
+    {MajVer,MinVer} = Version,
     {[<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>, Encoded],
      Write#{sequence_number => Seq +1}}.
 
@@ -375,7 +376,7 @@ decode_inner_plaintext(PlainText) ->
                   Type =:= ?HANDSHAKE orelse
                   Type =:= ?ALERT ->
             #ssl_tls{type = Type,
-                     version = {3,4}, %% Internally use real version
+                     version = ?TLS_1_3, %% Internally use real version
                      fragment = init_binary(PlainText)};
         _Else ->
             ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, empty_alert)

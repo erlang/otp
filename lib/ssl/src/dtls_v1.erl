@@ -20,6 +20,7 @@
 -module(dtls_v1).
 
 -include("ssl_cipher.hrl").
+-include("ssl_record.hrl").
 
 -export([suites/1,
          all_suites/1,
@@ -35,13 +36,13 @@
 
 -define(COOKIE_BASE_TIMEOUT, 30000).
 
--spec suites(Minor:: 253|255) -> [ssl_cipher_format:cipher_suite()].
+-spec suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 
-suites(Minor) ->
+suites(Version) ->
     lists:filter(fun(Cipher) -> 
                          is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher)) 
                  end,
-                 tls_v1:suites(corresponding_minor_tls_version(Minor))).
+                 tls_v1:suites(corresponding_tls_version(Version))).
 all_suites(Version) ->
     lists:filter(fun(Cipher) -> 
                          is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher)) 
@@ -54,27 +55,30 @@ anonymous_suites(Version) ->
                  end, 
                  ssl_cipher:anonymous_suites(corresponding_tls_version(Version))).
 
-exclusive_suites(Minor) ->
+exclusive_suites(Version) ->
     lists:filter(fun(Cipher) ->
                          is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher))
                  end,
-                 tls_v1:exclusive_suites(corresponding_minor_tls_version(Minor))).
+                 tls_v1:exclusive_suites(corresponding_tls_version(Version))).
 
-exclusive_anonymous_suites(Minor) ->
+exclusive_anonymous_suites(Version) ->
     lists:filter(fun(Cipher) ->
                          is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher))
                  end,
-                 tls_v1:exclusive_anonymous_suites(corresponding_minor_tls_version(Minor))).
+                 tls_v1:exclusive_anonymous_suites(corresponding_tls_version(Version))).
 
 
 hmac_hash(MacAlg, MacSecret, Value) ->
     tls_v1:hmac_hash(MacAlg, MacSecret, Value).
 
-ecc_curves({_Major, Minor}) ->
-    tls_v1:ecc_curves(corresponding_minor_tls_version(Minor)).
+ecc_curves(Version) ->
+    tls_v1:ecc_curves(corresponding_tls_version(Version)).
 
-corresponding_tls_version({254, Minor}) ->
-    {3, corresponding_minor_tls_version(Minor)}.
+
+corresponding_tls_version(?DTLS_1_0) ->
+    ?TLS_1_1;
+corresponding_tls_version(?DTLS_1_2) ->
+    ?TLS_1_2.
 
 cookie_secret() ->
     crypto:strong_rand_bytes(32).
@@ -82,18 +86,12 @@ cookie_secret() ->
 cookie_timeout() ->
     %% Cookie will live for two timeouts periods
     round(rand:uniform() * ?COOKIE_BASE_TIMEOUT/2).
-    
-corresponding_minor_tls_version(255) ->
-    2;
-corresponding_minor_tls_version(253) ->
-    3.
 
-corresponding_dtls_version({3, Minor}) -> 
-    {254, corresponding_minor_dtls_version(Minor)}.
 
-corresponding_minor_dtls_version(2) ->
-    255;
-corresponding_minor_dtls_version(3) ->
-    253.
+corresponding_dtls_version(?TLS_1_1) ->
+    ?DTLS_1_0;
+corresponding_dtls_version(?TLS_1_2) ->
+    ?DTLS_1_2.
+
 is_acceptable_cipher(Suite) ->
     not ssl_cipher:is_stream_ciphersuite(Suite).

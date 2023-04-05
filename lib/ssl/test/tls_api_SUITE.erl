@@ -788,10 +788,10 @@ tls_reject_warning_alert_in_initial_hs() ->
     [{doc,"Test sending warning ALERT instead of client hello"}].
 tls_reject_warning_alert_in_initial_hs(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    {_Clientnode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     {Major, Minor} = case ssl_test_lib:protocol_version(Config, tuple) of
-                         {3,4} ->
-                             {3,3};
+                         ?TLS_1_3 ->
+                             ?TLS_1_2;
                          Other ->
                              Other
                      end,
@@ -814,8 +814,8 @@ tls_reject_fake_warning_alert_in_initial_hs(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     {Major, Minor} = case ssl_test_lib:protocol_version(Config, tuple) of
-                         {3,4} ->
-                             {3,3};
+                         ?TLS_1_3 ->
+                             ?TLS_1_2;
                          Other ->
                              Other
                      end,
@@ -840,8 +840,8 @@ tls_app_data_in_initial_hs_state(Config) when is_list(Config) ->
     {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     Version = ssl_test_lib:protocol_version(Config, tuple),
     {Major, Minor} = case Version of
-                         {3,4} ->
-                             {3,3};
+                         ?TLS_1_3 ->
+                             ?TLS_1_2;
                          Other ->
                              Other
                      end,
@@ -852,7 +852,7 @@ tls_app_data_in_initial_hs_state(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
     {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
     AppData = case Version of
-                  {3, 4} ->
+                  ?TLS_1_3 ->
                       <<?BYTE(?APPLICATION_DATA), ?BYTE(3), ?BYTE(3), ?UINT16(4), ?BYTE($F), 
                         ?BYTE($O), ?BYTE($O), ?BYTE(?APPLICATION_DATA)>>;
                   _ ->
