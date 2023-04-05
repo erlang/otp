@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -37,7 +37,7 @@
          init_per_testcase/2, end_per_testcase/2]).
 
 -export([
-	 send_to_closed/1, active_n/1,
+	 send_to_closed/1, send_to_empty/1, active_n/1,
 	 buffer_size/1, binary_passive_recv/1, max_buffer_size/1, bad_address/1,
 	 read_packets/1, recv_poll_after_active_once/1,
          open_fd/1, connect/1, reconnect/1, implicit_inet6/1,
@@ -118,6 +118,7 @@ inet_backend_socket_cases() ->
 all_cases() ->
     [
      send_to_closed,
+     send_to_empty,
      buffer_size,
      binary_passive_recv,
      max_buffer_size,
@@ -338,6 +339,20 @@ do_send_to_closed(Config) ->
     ok.
 
 
+
+%%-------------------------------------------------------------
+%% Send to the empty host name
+
+send_to_empty(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_send_to_empty(Config) end).
+
+do_send_to_empty(Config) ->
+    {ok, Sock} = ?OPEN(Config, 0),
+    {error, nxdomain} = gen_udp:send(Sock, "", ?CLOSED_PORT, "xXx"),
+    {error, nxdomain} = gen_udp:send(Sock, '', ?CLOSED_PORT, "xXx"),
+    {error, nxdomain} = gen_udp:send(Sock, ".", ?CLOSED_PORT, "xXx"),
+    {error, nxdomain} = gen_udp:send(Sock, '.', ?CLOSED_PORT, "xXx"),
+    ok.
 
 %%-------------------------------------------------------------
 %% Test that the UDP socket buffer sizes are settable
@@ -1744,6 +1759,11 @@ do_connect(Config) when is_list(Config) ->
     ?P("sleep some"),
     ct:sleep({seconds, 5}),
 
+    ?P("try some doomed connect targets: ~p", [P1]),
+    {error, nxdomain} = gen_udp:connect(S2, "", ?CLOSED_PORT),
+    {error, nxdomain} = gen_udp:connect(S2, '', ?CLOSED_PORT),
+    {error, nxdomain} = gen_udp:connect(S2, ".", ?CLOSED_PORT),
+    {error, nxdomain} = gen_udp:connect(S2, '.', ?CLOSED_PORT),
     ?P("try connect second socket to: ~p, ~p", [Addr, P1]),
     ok = gen_udp:connect(S2, Addr, P1),
     ?P("try send on second socket"),
