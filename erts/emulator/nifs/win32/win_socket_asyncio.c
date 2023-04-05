@@ -8865,10 +8865,12 @@ void esaio_dtor(ErlNifEnv*       env,
          * so we must have closed it properly to get here
          */
         if (! IS_CLOSED(descP->readState) )
-            esock_warning_msg("Socket Read State not CLOSED at dtor\r\n");
+            esock_warning_msg("Socket Read State not CLOSED (0x%X) "
+                              "at dtor\r\n", descP->readState);
         
         if (! IS_CLOSED(descP->writeState) )
-            esock_warning_msg("Socket Write State not CLOSED at dtor\r\n");
+            esock_warning_msg("Socket Write State not CLOSED (0x%X) "
+                              "at dtor\r\n", descP->writeState);
         
         if ( descP->sock != INVALID_SOCKET )
             esock_warning_msg("Socket %d still valid\r\n", descP->sock);
@@ -8949,7 +8951,21 @@ void esaio_stop(ErlNifEnv*       env,
 
         err = esock_close_socket(env, descP, FALSE);
 
-        if (err != 0)
+        switch (err) {
+        case NO_ERROR:
+            break;
+        case WSAENOTSOCK:
+            if (descP->sock != INVALID_SOCKET)
+                esock_warning_msg("[WIN-ESAIO] Attempt to close an "
+                                  "already closed socket"
+                                  "\r\n(without a closer process): "
+                                  "\r\n   Controlling Process: %T"
+                                  "\r\n   socket fd:           %d"
+                                  "\r\n",
+                                  descP->ctrlPid, descP->sock);
+            break;
+
+        default:
             esock_warning_msg("[WIN-ESAIO] Failed closing socket without "
                               "closer process: "
                               "\r\n   Controlling Process: %T"
@@ -8957,6 +8973,9 @@ void esaio_stop(ErlNifEnv*       env,
                               "\r\n   Errno:               %T"
                               "\r\n",
                               descP->ctrlPid, descP->sock, ENO2T(env, err));
+            break;
+        }
+
     }
 
     SSDBG( descP,
