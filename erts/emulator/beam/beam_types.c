@@ -30,50 +30,65 @@
 
 static Sint64 get_sint64(const byte *data);
 
-int beam_types_decode_type_otp_26(const byte *data, int *raw_types_ptr, BeamType *out) {
-    int types;
-    int extra = 0;
+int beam_types_decode_type_otp_26(const byte *data, BeamType *out) {
+    int flags, extra;
 
-    types = (Uint16)data[0] << 8 | (Uint16)data[1];
-    if (types == BEAM_TYPE_NONE) {
+    flags = (Uint16)data[0] << 8 | (Uint16)data[1];
+    if (flags == BEAM_TYPE_NONE) {
         return -1;
     }
 
-    /* The "extra data" aren't part of the type union proper. */
-    out->type_union = types & BEAM_TYPE_ANY;
+    extra = 0;
 
-    if (types & BEAM_TYPE_HAS_LOWER_BOUND) {
+    out->type_union = flags & BEAM_TYPE_ANY;
+    out->metadata_flags = flags & BEAM_TYPE_METADATA_MASK;
+
+    if (out->metadata_flags & BEAM_TYPE_HAS_LOWER_BOUND) {
+        if (!(out->type_union & (BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER))) {
+            return -1;
+        }
+
         extra += 8;
     }
 
-    if (types & BEAM_TYPE_HAS_UPPER_BOUND) {
+    if (out->metadata_flags & BEAM_TYPE_HAS_UPPER_BOUND) {
+        if (!(out->type_union & (BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER))) {
+            return -1;
+        }
+
         extra += 8;
     }
 
-    if (types & BEAM_TYPE_HAS_UNIT) {
+    if (out->metadata_flags & BEAM_TYPE_HAS_UNIT) {
+        if (!(out->type_union & BEAM_TYPE_BITSTRING)) {
+            return -1;
+        }
+
         extra += 1;
     }
 
-    *raw_types_ptr = types;
     return extra;
 }
 
-void beam_types_decode_extra_otp_26(const byte *data, int types, BeamType *out) {
+void beam_types_decode_extra_otp_26(const byte *data, BeamType *out) {
     out->min = MAX_SMALL + 1;
     out->max = MIN_SMALL - 1;
     out->size_unit = 1;
 
-    if (types & BEAM_TYPE_HAS_LOWER_BOUND) {
+    if (out->metadata_flags & BEAM_TYPE_HAS_LOWER_BOUND) {
+        ASSERT(out->type_union & (BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER));
         out->min = get_sint64(data);
         data += 8;
     }
 
-    if (types & BEAM_TYPE_HAS_UPPER_BOUND) {
+    if (out->metadata_flags & BEAM_TYPE_HAS_UPPER_BOUND) {
+        ASSERT(out->type_union & (BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER));
         out->max = get_sint64(data);
         data += 8;
     }
 
-    if (types & BEAM_TYPE_HAS_UNIT) {
+    if (out->metadata_flags & BEAM_TYPE_HAS_UNIT) {
+        ASSERT(out->type_union & BEAM_TYPE_BITSTRING);
         out->size_unit = data[0] + 1;
     }
 }
@@ -97,9 +112,18 @@ int beam_types_decode_otp_25(const byte *data, Uint size, BeamType *out) {
     data += 8;
     out->max = get_sint64(data);
 
-    if (out->min > out->max) {
+    if (out->min <= out->max) {
+        if (!(out->type_union & (BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER))) {
+            return -1;
+        }
+
+        out->metadata_flags = (BEAM_TYPE_HAS_LOWER_BOUND |
+                               BEAM_TYPE_HAS_UPPER_BOUND);
+    } else {
         out->min = MAX_SMALL + 1;
         out->max = MIN_SMALL - 1;
+
+        out->metadata_flags = 0;
     }
 
     out->size_unit = 1;

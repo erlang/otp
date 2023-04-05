@@ -1366,7 +1366,7 @@ void BeamModuleAssembler::emit_bs_get_utf8(const ArgRegister &Ctx,
 
     a.bind(multi_byte);
 
-    if (BeamAssembler::hasCpuFeature(CpuFeatures::X86::kBMI2)) {
+    if (hasCpuFeature(CpuFeatures::X86::kBMI2)) {
         /* This CPU supports the PEXT and SHRX instructions. */
         safe_fragment_call(ga->get_bs_get_utf8_shared());
         a.short_().jmp(check);
@@ -1375,7 +1375,7 @@ void BeamModuleAssembler::emit_bs_get_utf8(const ArgRegister &Ctx,
     /* Take care of unaligned binaries and binaries with less than 32
      * bits left. */
     a.bind(fallback);
-    if (BeamAssembler::hasCpuFeature(CpuFeatures::X86::kBMI2)) {
+    if (hasCpuFeature(CpuFeatures::X86::kBMI2)) {
         /* This CPU supports the PEXT and SHRX instructions. */
         safe_fragment_call(ga->get_bs_get_utf8_short_shared());
     } else {

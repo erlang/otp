@@ -364,7 +364,7 @@ void beamasm_init() {
     beamasm_metadata_late_init();
 }
 
-bool BeamAssembler::hasCpuFeature(uint32_t featureId) {
+bool BeamAssemblerCommon::hasCpuFeature(uint32_t featureId) {
     return cpuinfo.hasFeature(featureId);
 }
 

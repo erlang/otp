@@ -155,11 +155,10 @@ static void beamasm_init_late_gdb() {
     erts_mtx_unlock(&__jit_debug_descriptor.mutex);
 }
 
-static void beamasm_update_gdb_info(
-        std::string module_name,
-        ErtsCodePtr base_address,
-        size_t code_size,
-        const std::vector<BeamAssembler::AsmRange> &ranges) {
+static void beamasm_update_gdb_info(std::string module_name,
+                                    ErtsCodePtr base_address,
+                                    size_t code_size,
+                                    const std::vector<AsmRange> &ranges) {
     Sint symfile_size = sizeof(struct debug_info) + module_name.size() + 1;
 
     for (const auto &range : ranges) {
@@ -336,7 +335,7 @@ public:
         return true;
     }
 
-    void update(const std::vector<BeamAssembler::AsmRange> &ranges) {
+    void update(const std::vector<AsmRange> &ranges) {
         struct JitCodeLoadRecord {
             RecordHeader header;
             Uint32 pid;
@@ -353,7 +352,7 @@ public:
         record.pid = getpid();
         record.tid = erts_thr_self();
 
-        for (const BeamAssembler::AsmRange &range : ranges) {
+        for (const AsmRange &range : ranges) {
             /* Line entries must be written first, if present. */
             if (!range.lines.empty()) {
                 struct JitCodeDebugEntry {
@@ -449,7 +448,7 @@ public:
         return true;
     }
 
-    void update(const std::vector<BeamAssembler::AsmRange> &ranges) {
+    void update(const std::vector<AsmRange> &ranges) {
         for (const auto &range : ranges) {
             char *start = (char *)range.start, *stop = (char *)range.stop;
             ptrdiff_t size = stop - start;
@@ -491,7 +490,7 @@ public:
                               ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     }
 
-    void update(const std::vector<BeamAssembler::AsmRange> &ranges) {
+    void update(const std::vector<AsmRange> &ranges) {
         if (modes) {
             erts_mtx_lock(&mutex);
 #    ifdef HAVE_LINUX_PERF_DUMP_SUPPORT
@@ -526,11 +525,10 @@ void beamasm_metadata_late_init() {
 #endif
 }
 
-void beamasm_metadata_update(
-        std::string module_name,
-        ErtsCodePtr base_address,
-        size_t code_size,
-        const std::vector<BeamAssembler::AsmRange> &ranges) {
+void beamasm_metadata_update(std::string module_name,
+                             ErtsCodePtr base_address,
+                             size_t code_size,
+                             const std::vector<AsmRange> &ranges) {
 #ifdef HAVE_LINUX_PERF_SUPPORT
     perf.update(ranges);
 #endif
