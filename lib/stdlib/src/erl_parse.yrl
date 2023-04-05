@@ -1693,16 +1693,16 @@ abstract_list([H|T], String, A, E) ->
             abstract_list(T, [H|String], A, E);
         false ->
             AbstrList = {cons,A,abstract(H, A, E),abstract(T, A, E)},
-            not_string(String, AbstrList, A, E)
+            not_string(String, AbstrList, A)
     end;
 abstract_list([], String, A, _E) ->
     {string, A, lists:reverse(String)};
 abstract_list(T, String, A, E) ->
-    not_string(String, abstract(T, A, E), A, E).
+    not_string(String, abstract(T, A, E), A).
 
-not_string([C|T], Result, A, E) ->
-    not_string(T, {cons, A, {integer, A, C}, Result}, A, E);
-not_string([], Result, _A, _E) ->
+not_string([C|T], Result, A) ->
+    not_string(T, {cons, A, {integer, A, C}, Result}, A);
+not_string([], Result, _A) ->
     Result.
 
 abstract_tuple_list([H|T], A, E) ->
