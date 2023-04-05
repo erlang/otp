@@ -48,6 +48,7 @@
 -export_type([continuation/0]).
 
 -deprecated([{accessible_logs, 0, "use disk_log:all/0 instead"},
+             {inc_wrap_file, 1, "use disk_log:next_file/1 instead"},
              {lclose, 1, "use disk_log:close/1 instead"},
              {lclose, 2, "use disk_log:close/1 instead"}]).
 
