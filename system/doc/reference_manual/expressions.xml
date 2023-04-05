@@ -1938,6 +1938,20 @@ catch
     exit:Reason -> {'EXIT',Reason}
     error:Reason:Stk -> {'EXIT',{Reason,Stk}}
 end</code>
+
+    <p>Variables bound in the various parts of these expressions have different scopes.
+      Variables bound just after the <c>try</c> keyword are:</p>
+    <list type="bulleted">
+      <item>bound in the <c>of</c> section</item>
+      <item>unsafe in both the <c>catch</c> and <c>after</c> sections, as well as after the whole construct</item>
+    </list>
+    <p>Variables bound in <c>of</c> section are:</p>
+    <list type="bulleted">
+      <item>unbound in the <c>catch</c> section</item>
+      <item>unsafe in both the <c>after</c> section, as well as after the whole construct</item>
+    </list>
+    <p>Variables bound in the <c>catch</c> section are unsafe in the <c>after</c> section, as well as after the whole construct.</p>
+    <p>Variables bound in the <c>after</c> section are unsafe after the whole construct.</p>
   </section>
 
   <section>
@@ -2426,4 +2440,3 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
 * 1:7: syntax error before: '&lt;'</pre>
   </section>
 </chapter>
-
