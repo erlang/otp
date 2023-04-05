@@ -305,8 +305,9 @@ terminate(normal,
 %% Socket closed remotely
 terminate(normal, 
           #state{session = #session{socket      = {remote_close, Socket},
-                                    socket_type = SocketType, 
-                                    id          = Id}, 
+                                    socket_type = SocketType,
+                                    type        = Type,
+                                    id          = Id},
                  profile_name = ProfileName,
                  request      = Request,
                  timers       = Timers,
@@ -315,8 +316,12 @@ terminate(normal,
     %% Clobber session
     (catch httpc_manager:delete_session(Id, ProfileName)),
 
-    maybe_retry_queue(Pipeline, State),
-    maybe_retry_queue(KeepAlive, State),
+    case Type of
+        pipeline ->
+            maybe_retry_queue(Pipeline, State);
+        _ ->
+            maybe_retry_queue(KeepAlive, State)
+    end,
 
     %% Cancel timers
     cancel_timers(Timers),
@@ -327,8 +332,9 @@ terminate(normal,
     http_transport:close(SocketType, Socket);
 
 terminate(_Reason, #state{session = #session{id          = Id,
-                                            socket      = Socket, 
-                                            socket_type = SocketType},
+                                             socket      = Socket,
+                                             type        = Type,
+                                             socket_type = SocketType},
                     request      = undefined,
                     profile_name = ProfileName,
                     timers       = Timers,
@@ -338,8 +344,12 @@ terminate(_Reason, #state{session = #session{id          = Id,
     %% Clobber session
     (catch httpc_manager:delete_session(Id, ProfileName)),
 
-    maybe_retry_queue(Pipeline, State),
-    maybe_retry_queue(KeepAlive, State),
+    case Type of
+        pipeline ->
+            maybe_retry_queue(Pipeline, State);
+        _ ->
+            maybe_retry_queue(KeepAlive, State)
+    end,
 
     cancel_timer(Timers#timers.queue_timer, timeout_queue),
     http_transport:close(SocketType, Socket);
