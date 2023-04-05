@@ -37,6 +37,8 @@ obsolete(crypto, crypto_dyn_iv_update, 3) ->
     {deprecated, "see the documentation for details", "OTP 27"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
+obsolete(dbg, stop_clear, 0) ->
+    {deprecated, "use dbg:stop/0 instead", "OTP 27"};
 obsolete(disk_log, inc_wrap_file, 1) ->
     {deprecated, "use disk_log:next_file/1 instead", "OTP 28"};
 obsolete(erlang, now, 0) ->
