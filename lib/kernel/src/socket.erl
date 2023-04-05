@@ -164,9 +164,10 @@
 -type invalid() :: {invalid, What :: term()}.
 
 -type info() ::
-        #{counters := #{atom() := non_neg_integer()},
-          iov_max := non_neg_integer(),
-          use_registry := boolean()}.
+        #{counters     := #{atom() := non_neg_integer()},
+          iov_max      := non_neg_integer(),
+          use_registry := boolean(),
+          io_backend   := #{name := atom()}}.
 
 -type socket_counters() :: #{read_byte        := non_neg_integer(),
                              read_fails       := non_neg_integer(),
