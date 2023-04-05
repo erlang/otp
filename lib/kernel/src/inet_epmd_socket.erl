@@ -465,9 +465,21 @@ put_data(DistHandle, _PacketSize, Packet) ->
 
 %% ------------------------------------------------------------
 supported() ->
-    try socket:is_supported(ipv6) of
+    try socket:info() of
+	#{io_backend := #{name := BackendName}}
+          when (BackendName =/= win_esaio) ->
+            ok;
         _ ->
-            ok
-    catch error : notsup ->
-            "Module 'socket' not supported"
+            {skip, "Temporary exclusion"}
+    catch
+        error : notsup ->
+            {skip, "esock not supported"};
+        error : undef ->
+            {skip, "esock not configured"}
     end.
+    %% try socket:is_supported(ipv6) of
+    %%     _ ->
+    %%         ok
+    %% catch error : notsup ->
+    %%         "Module 'socket' not supported"
+    %% end.
