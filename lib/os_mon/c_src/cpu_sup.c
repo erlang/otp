@@ -707,7 +707,8 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
 	rv[10] = CU_HARD_IRQ;  rv[11] = cpu_times[CP_INTR + offset];
 	rv += CU_BSD_VALUES*2;
     }
-
+    
+    free((void*) cpu_times);
     *result_sz = 2 + 2*CU_BSD_VALUES * no_of_cpus;
 }
 #endif
