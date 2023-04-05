@@ -41,14 +41,8 @@ obsolete(crypto, crypto_dyn_iv_update, 3) ->
     {deprecated, "see the documentation for details", "OTP 27"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
-obsolete(disk_log, accessible_logs, 0) ->
-    {deprecated, "use disk_log:all/0 instead", "OTP 26"};
 obsolete(disk_log, inc_wrap_file, 1) ->
     {deprecated, "use disk_log:next_file/1 instead", "OTP 28"};
-obsolete(disk_log, lclose, 1) ->
-    {deprecated, "use disk_log:close/1 instead", "OTP 26"};
-obsolete(disk_log, lclose, 2) ->
-    {deprecated, "use disk_log:close/1 instead", "OTP 26"};
 obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(erlang, phash, 2) ->
@@ -155,6 +149,12 @@ obsolete(crypto, stream_decrypt, 2) ->
     {removed, "use crypto:crypto_update/2 instead"};
 obsolete(crypto, stream_encrypt, 2) ->
     {removed, "use crypto:crypto_update/2 instead"};
+obsolete(disk_log, accessible_logs, 0) ->
+    {removed, "use disk_log:all/0 instead"};
+obsolete(disk_log, lclose, 1) ->
+    {removed, "use disk_log:close/1 instead"};
+obsolete(disk_log, lclose, 2) ->
+    {removed, "use disk_log:close/1 instead"};
 obsolete(erl_lint, modify_line, 2) ->
     {removed, "use erl_parse:map_anno/2 instead"};
 obsolete(erl_parse, get_attribute, 2) ->
