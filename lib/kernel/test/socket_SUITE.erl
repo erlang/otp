@@ -41116,36 +41116,63 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            {CSent, CReceived, _, CStart, CStop} = CRes,
                            STime = tdiff(SStart, SStop),
                            CTime = tdiff(CStart, CStop),
-                           %% Note that the sizes we are counting is only 
-                           %% the "data" part of the messages. There is also
-                           %% fixed header for each message, which of course
-                           %% is small for the large messages, but comparatively
-                           %% big for the small messages!
-                           ?SEV_IPRINT("Results: ~w messages exchanged"
-                                       "~n   Server: ~w msec"
-                                       "~n      ~.2f msec/message (roundtrip)"
-                                       "~n      ~.2f messages/msec (roundtrip)"
-                                       "~n      ~w bytes/msec sent"
-                                       "~n      ~w bytes/msec received"
-                                       "~n   Client: ~w msec"
-                                       "~n      ~.2f msec/message (roundtrip)"
-                                       "~n      ~.2f messages/msec (roundtrip)"
-                                       "~n      ~w bytes/msec sent"
-                                       "~n      ~w bytes/msec received",
+                           ?SEV_IPRINT("process result data:"
+                                       "~n   Num:          ~p"
+                                       "~n   Server Sent:  ~p"
+                                       "~n   Server Recv:  ~p"
+                                       "~n   Server Start: ~p"
+                                       "~n   Server Stop:  ~p"
+                                       "~n   Server Time:  ~p"
+                                       "~n   Client Sent:  ~p"
+                                       "~n   Client Recv:  ~p"
+                                       "~n   Client Start: ~p"
+                                       "~n   Client Stop:  ~p"
+                                       "~n   Client Time:  ~p",
                                        [Num,
+                                        SSent, SReceived, SStart, SStop,
                                         STime,
-                                        STime / Num,
-                                        Num / STime,
-                                        SSent div STime,
-                                        SReceived div STime,
-                                        CTime,
-                                        CTime / Num,
-                                        Num / CTime,
-                                        CSent div CTime,
-                                        CReceived div CTime]),
-                           State1 = maps:remove(server_result, State),
-                           State2 = maps:remove(client_result, State1),
-                           {ok, State2}
+                                        CSent, CReceived, CStart, CStop,
+                                        CTime]),
+                           if
+                               (STime =:= 0) orelse
+                               (CTime =:= 0) ->
+                                   {skip,
+                                    ?F("Invalid exec time(s): ~w , ~w",
+                                       [STime, CTime])};
+                               true ->
+                                   %% Note that the sizes we are counting is 
+                                   %% only the "data" part of the messages.
+                                   %% There is also fixed header for each
+                                   %% message, which of course is small for
+                                   %% the large messages, but comparatively
+                                   %% big for the small messages!
+                                   ?SEV_IPRINT(
+                                      "Results: ~w messages exchanged"
+                                      "~n   Server: ~w msec"
+                                      "~n      ~.2f msec/message (roundtrip)"
+                                      "~n      ~.2f messages/msec (roundtrip)"
+                                      "~n      ~w bytes/msec sent"
+                                      "~n      ~w bytes/msec received"
+                                      "~n   Client: ~w msec"
+                                      "~n      ~.2f msec/message (roundtrip)"
+                                      "~n      ~.2f messages/msec (roundtrip)"
+                                      "~n      ~w bytes/msec sent"
+                                      "~n      ~w bytes/msec received",
+                                      [Num,
+                                       STime,
+                                       STime / Num,
+                                       Num / STime,
+                                       SSent div STime,
+                                       SReceived div STime,
+                                       CTime,
+                                       CTime / Num,
+                                       Num / CTime,
+                                       CSent div CTime,
+                                       CReceived div CTime]),
+                                   State1 = maps:remove(server_result, State),
+                                   State2 = maps:remove(client_result, State1),
+                                   {ok, State2}
+                           end
                    end},
 
          %% Terminations
@@ -42028,25 +42055,33 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                          num           := Num} = State) ->
                            {CSent, CReceived, CStart, CStop} = CRes,
                            CTime = tdiff(CStart, CStop),
-                           %% Note that the sizes we are counting is only 
-                           %% the "data" part of the messages. There is also
-                           %% fixed header for each message, which of course
-                           %% is small for the large messages, but comparatively
-                           %% big for the small messages!
-                           ?SEV_IPRINT("Results: ~w messages exchanged"
-                                       "~n   Client: ~w msec"
-                                       "~n      ~.2f msec/message (roundtrip)"
-                                       "~n      ~.2f messages/msec (roundtrip)"
-                                       "~n      ~w bytes/msec sent"
-                                       "~n      ~w bytes/msec received",
-                                       [Num,
-                                        CTime,
-                                        CTime / Num,
-                                        Num / CTime,
-                                        CSent div CTime,
-                                        CReceived div CTime]),
-                           State1 = maps:remove(client_result, State),
-                           {ok, State1}
+                           if
+                               (CTime =:= 0) ->
+                                   {skip,
+                                    ?F("Invalid exec time: ~w ", [CTime])};
+                               true ->
+                                   %% Note that the sizes we are counting is
+                                   %% only the "data" part of the messages.
+                                   %% There is also fixed header for each
+                                   %% message, which of course is small for
+                                   %% the large messages, but comparatively
+                                   %% big for the small messages!
+                                   ?SEV_IPRINT(
+                                      "Results: ~w messages exchanged"
+                                      "~n   Client: ~w msec"
+                                      "~n      ~.2f msec/message (roundtrip)"
+                                      "~n      ~.2f messages/msec (roundtrip)"
+                                      "~n      ~w bytes/msec sent"
+                                      "~n      ~w bytes/msec received",
+                                      [Num,
+                                       CTime,
+                                       CTime / Num,
+                                       Num / CTime,
+                                       CSent div CTime,
+                                       CReceived div CTime]),
+                                   State1 = maps:remove(client_result, State),
+                                   {ok, State1}
+                           end
                    end},
 
          %% Terminations
