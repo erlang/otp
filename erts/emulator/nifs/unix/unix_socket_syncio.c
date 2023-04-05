@@ -45,6 +45,16 @@
 #endif
 #include "sys.h"
 
+#ifdef HAVE_SYS_SOCKIO_H
+#include <sys/sockio.h>
+#endif
+
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif
+
+#include <net/if.h>
+
 #include "prim_socket_int.h"
 #include "socket_util.h"
 #include "socket_io.h"
@@ -66,12 +76,12 @@
 #define sock_accept(s, addr, len)       accept((s), (addr), (len))
 #endif
 #define sock_bind(s, addr, len)         bind((s), (addr), (len))
-// #define sock_close(s)                   close((s))
+#define sock_close(s)                   close((s))
 // #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_errno()                    errno
-#define sock_listen(s, b)               listen((s), (b))
-#define sock_name(s, addr, len)         getsockname((s), (addr), (len))
+// #define sock_listen(s, b)               listen((s), (b))
+// #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
 #define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
@@ -85,21 +95,38 @@
 #define sock_shutdown(s, how)           shutdown((s), (how))
 
 
+/* =================================================================== *
+ *                                                                     *
+ *                        Various esaio macros                         *
+ *                                                                     *
+ * =================================================================== */
+
+/* Global socket debug */
+#define SGDBG( proto )            ESOCK_DBG_PRINTF( ctrl.dbg , proto )
+
+
+/* =================================================================== *
+ *                                                                     *
+ *                            Local types                              *
+ *                                                                     *
+ * =================================================================== */
+
+typedef struct {
+    /* Misc stuff */
+    BOOLEAN_T      dbg;
+    BOOLEAN_T      sockDbg;
+} ESSIOControl;
+
+
+
 /* ======================================================================== *
  *                          Function Forwards                               *
  * ======================================================================== *
  */
-static BOOLEAN_T open_is_debug(ErlNifEnv*   env,
-                               ERL_NIF_TERM eopts,
-                               BOOLEAN_T    def);
-static BOOLEAN_T open_use_registry(ErlNifEnv*   env,
-                                   ERL_NIF_TERM eopts,
-                                   BOOLEAN_T    def);
 static BOOLEAN_T open_todup(ErlNifEnv*   env,
                             ERL_NIF_TERM eopts);
 static BOOLEAN_T open_which_domain(SOCKET sock,   int* domain);
 static BOOLEAN_T open_which_type(SOCKET sock,     int* type);
-static BOOLEAN_T open_which_protocol(SOCKET sock, int* proto);
 static BOOLEAN_T open_get_domain(ErlNifEnv*   env,
                                  ERL_NIF_TERM eopts,
                                  int*         domain);
@@ -121,6 +148,28 @@ static BOOLEAN_T restore_network_namespace(BOOLEAN_T dbg,
 #endif
 
 static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
+
+static ERL_NIF_TERM essio_cancel_accept_current(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM essio_cancel_accept_waiting(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     opRef,
+                                                const ErlNifPid* selfP);
+static ERL_NIF_TERM essio_cancel_send_current(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM essio_cancel_send_waiting(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     opRef,
+                                              const ErlNifPid* selfP);
+static ERL_NIF_TERM essio_cancel_recv_current(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM essio_cancel_recv_waiting(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     opRef,
+                                              const ErlNifPid* selfP);
 
 static ERL_NIF_TERM essio_accept_listening_error(ErlNifEnv*       env,
                                                  ESockDescriptor* descP,
@@ -228,7 +277,7 @@ static void encode_msg(ErlNifEnv*       env,
                        struct msghdr*   msgHdrP,
                        ErlNifBinary*    dataBufP,
                        ErlNifBinary*    ctrlBufP,
-                       ERL_NIF_TERM*    eSockAddr);
+                       ERL_NIF_TERM*    eMsg);
 static void encode_cmsgs(ErlNifEnv*       env,
                          ESockDescriptor* descP,
                          ErlNifBinary*    cmsgBinP,
@@ -366,6 +415,266 @@ static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
                                       ERL_NIF_TERM     sockRef);
 
 
+static ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
+					ESockDescriptor* descP);
+#if defined(SIOCGIFNAME)
+static ERL_NIF_TERM essio_ioctl_gifname(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					ERL_NIF_TERM     eidx);
+#endif
+
+/* esock_ioctl_gifindex */
+#if defined(SIOCGIFINDEX)
+#define IOCTL_GIFINDEX_FUNC_DEF IOCTL_GET_FUNC_DEF(gifindex)
+#else
+#define IOCTL_GIFINDEX_FUNC_DEF
+#endif
+
+/* esock_ioctl_gifflags */
+#if defined(SIOCGIFFLAGS)
+#define IOCTL_GIFFLAGS_FUNC_DEF IOCTL_GET_FUNC_DEF(gifflags)
+#else
+#define IOCTL_GIFFLAGS_FUNC_DEF
+#endif
+
+/* esock_ioctl_gifaddr */
+#if defined(SIOCGIFADDR)
+#define IOCTL_GIFADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifaddr)
+#else
+#define IOCTL_GIFADDR_FUNC_DEF
+#endif
+
+/* esock_ioctl_gifdstaddr */
+#if defined(SIOCGIFDSTADDR)
+#define IOCTL_GIFDSTADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifdstaddr)
+#else
+#define IOCTL_GIFDSTADDR_FUNC_DEF
+#endif
+
+/* esock_ioctl_gifbrdaddr */
+#if defined(SIOCGIFBRDADDR)
+#define IOCTL_GIFBRDADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifbrdaddr)
+#else
+#define IOCTL_GIFBRDADDR_FUNC_DEF
+#endif
+
+/* esock_ioctl_gifnetmask */
+#if defined(SIOCGIFNETMASK)
+#define IOCTL_GIFNETMASK_FUNC_DEF IOCTL_GET_FUNC_DEF(gifnetmask)
+#else
+#define IOCTL_GIFNETMASK_FUNC_DEF
+#endif
+
+/* esock_ioctl_gifmtu */
+#if defined(SIOCGIFMTU)
+#define IOCTL_GIFMTU_FUNC_DEF IOCTL_GET_FUNC_DEF(gifmtu)
+#else
+#define IOCTL_GIFMTU_FUNC_DEF
+#endif
+
+/* esock_ioctl_gifhwaddr */
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
+#define IOCTL_GIFHWADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifhwaddr)
+#else
+#define IOCTL_GIFHWADDR_FUNC_DEF
+#endif
+
+/* esock_ioctl_gifmap */
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
+#define IOCTL_GIFMAP_FUNC_DEF IOCTL_GET_FUNC_DEF(gifmap)
+#else
+#define IOCTL_GIFMAP_FUNC_DEF
+#endif
+
+/* esock_ioctl_giftxqlen */
+#if defined(SIOCGIFTXQLEN)
+#define IOCTL_GIFTXQLEN_FUNC_DEF IOCTL_GET_FUNC_DEF(giftxqlen)
+#else
+#define IOCTL_GIFTXQLEN_FUNC_DEF
+#endif
+
+#define IOCTL_GET_FUNCS_DEF			\
+  IOCTL_GIFINDEX_FUNC_DEF;			\
+  IOCTL_GIFFLAGS_FUNC_DEF;			\
+  IOCTL_GIFADDR_FUNC_DEF;			\
+  IOCTL_GIFDSTADDR_FUNC_DEF;			\
+  IOCTL_GIFBRDADDR_FUNC_DEF;			\
+  IOCTL_GIFNETMASK_FUNC_DEF;			\
+  IOCTL_GIFMTU_FUNC_DEF;			\
+  IOCTL_GIFHWADDR_FUNC_DEF;			\
+  IOCTL_GIFMAP_FUNC_DEF;			\
+  IOCTL_GIFTXQLEN_FUNC_DEF;
+#define IOCTL_GET_FUNC_DEF(F)					\
+  static ERL_NIF_TERM essio_ioctl_##F(ErlNifEnv*       env,	\
+				      ESockDescriptor* descP,	\
+				      ERL_NIF_TERM     ename)
+IOCTL_GET_FUNCS_DEF
+#undef IOCTL_GET_FUNC_DEF
+
+/* esock_ioctl_sifflags */
+#if defined(SIOCSIFFLAGS)
+#define IOCTL_SIFFLAGS_FUNC_DEF IOCTL_SET_FUNC_DEF(sifflags)
+#else
+#define IOCTL_SIFFLAGS_FUNC_DEF
+#endif
+
+/* esock_ioctl_sifaddr */
+#if defined(SIOCSIFADDR)
+#define IOCTL_SIFADDR_FUNC_DEF IOCTL_SET_FUNC_DEF(sifaddr)
+#else
+#define IOCTL_SIFADDR_FUNC_DEF
+#endif
+
+/* esock_ioctl_sifdstaddr */
+#if defined(SIOCSIFDSTADDR)
+#define IOCTL_SIFDSTADDR_FUNC_DEF IOCTL_SET_FUNC_DEF(sifdstaddr)
+#else
+#define IOCTL_SIFDSTADDR_FUNC_DEF
+#endif
+
+/* esock_ioctl_sifbrdaddr */
+#if defined(SIOCSIFBRDADDR)
+#define IOCTL_SIFBRDADDR_FUNC_DEF IOCTL_SET_FUNC_DEF(sifbrdaddr)
+#else
+#define IOCTL_SIFBRDADDR_FUNC_DEF
+#endif
+
+/* esock_ioctl_sifnetmask */
+#if defined(SIOCSIFNETMASK)
+#define IOCTL_SIFNETMASK_FUNC_DEF IOCTL_SET_FUNC_DEF(sifnetmask)
+#else
+#define IOCTL_SIFNETMASK_FUNC_DEF
+#endif
+
+/* esock_ioctl_sifmtu */
+#if defined(SIOCSIFMTU)
+#define IOCTL_SIFMTU_FUNC_DEF IOCTL_SET_FUNC_DEF(sifmtu)
+#else
+#define IOCTL_SIFMTU_FUNC_DEF
+#endif
+
+/* esock_ioctl_siftxqlen */
+#if defined(SIOCSIFTXQLEN)
+#define IOCTL_SIFTXQLEN_FUNC_DEF IOCTL_SET_FUNC_DEF(siftxqlen)
+#else
+#define IOCTL_SIFTXQLEN_FUNC_DEF
+#endif
+
+#define IOCTL_SET_FUNCS_DEF			\
+  IOCTL_SIFFLAGS_FUNC_DEF;			\
+  IOCTL_SIFADDR_FUNC_DEF;			\
+  IOCTL_SIFDSTADDR_FUNC_DEF;			\
+  IOCTL_SIFBRDADDR_FUNC_DEF;			\
+  IOCTL_SIFNETMASK_FUNC_DEF;			\
+  IOCTL_SIFMTU_FUNC_DEF;			\
+  IOCTL_SIFTXQLEN_FUNC_DEF;
+#define IOCTL_SET_FUNC_DEF(F)					\
+  static ERL_NIF_TERM essio_ioctl_##F(ErlNifEnv*       env,	\
+				      ESockDescriptor* descP,	\
+				      ERL_NIF_TERM     ename,   \
+				      ERL_NIF_TERM     evalue)
+IOCTL_SET_FUNCS_DEF
+#undef IOCTL_SET_FUNC_DEF
+
+
+static ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					struct ifconf*   ifcP);
+static ERL_NIF_TERM encode_ioctl_ifconf_ifreq(ErlNifEnv*       env,
+					      ESockDescriptor* descP,
+					      struct ifreq*    ifrP);
+static ERL_NIF_TERM encode_ioctl_ifreq_name(ErlNifEnv* env,
+					    char*      name);
+static ERL_NIF_TERM encode_ioctl_ifreq_sockaddr(ErlNifEnv*       env,
+						struct sockaddr* sa);
+static ERL_NIF_TERM make_ifreq(ErlNifEnv*   env,
+			       ERL_NIF_TERM name,
+			       ERL_NIF_TERM key2,
+			       ERL_NIF_TERM val2);
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
+static ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					struct ifmap*    mapP);
+#endif
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
+static ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					struct sockaddr* addrP);
+#endif
+static ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
+					 ESockDescriptor* descP,
+					 struct sockaddr* addrP);
+static ERL_NIF_TERM encode_ioctl_flags(ErlNifEnv*       env,
+				       ESockDescriptor* descP,
+				       short            flags);
+#if defined(SIOCSIFFLAGS)
+static BOOLEAN_T decode_ioctl_flags(ErlNifEnv*       env,
+				    ESockDescriptor* descP,
+				    ERL_NIF_TERM     eflags,
+				    short*           flags);
+#endif
+static BOOLEAN_T decode_ioctl_sockaddr(ErlNifEnv*       env,
+				       ESockDescriptor* descP,
+				       ERL_NIF_TERM     eaddr,
+				       ESockAddress*    addr);
+#if defined(SIOCSIFMTU)
+static BOOLEAN_T decode_ioctl_mtu(ErlNifEnv*       env,
+				  ESockDescriptor* descP,
+				  ERL_NIF_TERM     emtu,
+				  int*             mtu);
+#endif
+#if defined(SIOCSIFTXQLEN)
+static BOOLEAN_T decode_ioctl_txqlen(ErlNifEnv*       env,
+				     ESockDescriptor* descP,
+				     ERL_NIF_TERM     etxqlen,
+				     int*             txqlen);
+#endif
+#if defined(SIOCSIFTXQLEN)
+static BOOLEAN_T decode_ioctl_ivalue(ErlNifEnv*       env,
+				     ESockDescriptor* descP,
+				     ERL_NIF_TERM     eivalue,
+				     int*             ivalue);
+#endif
+static ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					int              ivalue);
+
+
+/*
+static void essio_down_ctrl(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            const ErlNifPid* pidP);
+*/
+static void essio_down_acceptor(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                const ErlNifPid* pidP,
+                                const ErlNifMonitor* monP);
+static void essio_down_writer(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              const ErlNifPid* pidP,
+                              const ErlNifMonitor* monP);
+static void essio_down_reader(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              const ErlNifPid* pidP,
+                              const ErlNifMonitor* monP);
+
+static BOOLEAN_T do_stop(ErlNifEnv*       env,
+                         ESockDescriptor* descP);
+
+
+/* =================================================================== *
+ *                                                                     *
+ *                      Local (global) variables                       *
+ *                                                                     *
+ * =================================================================== */
+
+static ESSIOControl ctrl = {0};
+
+
+
 /* ======================================================================== *
  *                              ESSIO Functions                             *
  * ======================================================================== *
@@ -376,9 +685,13 @@ static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
  * this is just a dummy function.
  */
 extern
-int essio_init(unsigned int numThreads)
+int essio_init(unsigned int     numThreads,
+               const ESockData* dataP)
 {
     VOID(numThreads);
+
+    ctrl.dbg        = dataP->dbg;
+    ctrl.sockDbg    = dataP->sockDbg;
 
     return ESOCK_IO_OK;
 }
@@ -393,6 +706,28 @@ void essio_finish(void)
 {
     return;
 }
+
+
+
+/* *******************************************************************
+ * essio_info - Return info "about" this I/O backend.
+ */
+
+extern
+ERL_NIF_TERM essio_info(ErlNifEnv* env)
+{
+    ERL_NIF_TERM info;
+    ERL_NIF_TERM keys[]  = {esock_atom_name};
+    ERL_NIF_TERM vals[]  = {MKA(env, "unix_essio")};
+    unsigned int numKeys = NUM(keys);
+    unsigned int numVals = NUM(vals);
+
+    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
+
+    return info;
+}
+
 
 
 /* ========================================================================
@@ -410,15 +745,14 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
                                 ERL_NIF_TERM     eopts,
                                 const ESockData* dataP)
 {
-    BOOLEAN_T        dbg    = open_is_debug(env, eopts, dataP->sockDbg);
-    BOOLEAN_T        useReg = open_use_registry(env, eopts, dataP->useReg);
+    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, dataP->sockDbg);
+    BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, dataP->useReg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef;
     int              domain, type, protocol;
     int              save_errno = 0;
     BOOLEAN_T        closeOnClose;
     SOCKET           sock;
-    ErlNifEvent      event;
     ErlNifPid        self;
 
     /* Keep track of the creator
@@ -464,7 +798,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
             return esock_make_invalid(env, esock_atom_type);
     }
 
-    if (! open_which_protocol(fd, &protocol)) {
+    if (! esock_open_which_protocol(fd, &protocol)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
                  "essio_open2 -> failed get protocol from system\r\n") );
@@ -506,12 +840,11 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
         closeOnClose = FALSE;
     }
 
-    event = sock;
 
     SET_NONBLOCKING(sock);
 
     /* Create and initiate the socket "descriptor" */
-    descP               = esock_alloc_descriptor(sock, event);
+    descP               = esock_alloc_descriptor(sock);
     descP->ctrlPid      = self;
     descP->domain       = domain;
     descP->type         = type;
@@ -556,23 +889,6 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
             ("UNIX-ESSIO", "essio_open2 -> done: %T\r\n", sockRef) );
 
     return esock_make_ok2(env, sockRef);
-}
-
-
-static
-BOOLEAN_T open_is_debug(ErlNifEnv*   env,
-                        ERL_NIF_TERM eopts,
-                        BOOLEAN_T    def)
-{
-    return esock_get_bool_from_map(env, eopts, esock_atom_debug, def);
-}
-
-static
-BOOLEAN_T open_use_registry(ErlNifEnv*   env,
-                            ERL_NIF_TERM eopts,
-                            BOOLEAN_T    def)
-{
-    return esock_get_bool_from_map(env, eopts, esock_atom_use_registry, def);
 }
 
 
@@ -633,16 +949,6 @@ BOOLEAN_T open_get_type(ErlNifEnv*   env,
     return TRUE;
 }
 
-static
-BOOLEAN_T open_which_protocol(SOCKET sock, int* proto)
-{
-#if defined(SO_PROTOCOL)
-    if (esock_getopt_int(sock, SOL_SOCKET, SO_PROTOCOL, proto))
-        return TRUE;
-#endif
-    return FALSE;
-}
-
 /* The eopts contains an integer 'type' key.
  */
 static
@@ -674,8 +980,8 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
                               ERL_NIF_TERM     eopts,
                               const ESockData* dataP)
 {
-    BOOLEAN_T        dbg    = open_is_debug(env, eopts, dataP->sockDbg);
-    BOOLEAN_T        useReg = open_use_registry(env, eopts, dataP->useReg);
+    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, dataP->sockDbg);
+    BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, dataP->useReg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef;
     int              proto = protocol;
@@ -735,7 +1041,7 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
      */
     
     if (proto == 0)
-        (void) open_which_protocol(sock, &proto);
+        (void) esock_open_which_protocol(sock, &proto);
 
 #ifdef HAVE_SETNS
     if (netns != NULL) {
@@ -750,7 +1056,7 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
 
 
     /* Create and initiate the socket "descriptor" */
-    descP           = esock_alloc_descriptor(sock, sock);
+    descP           = esock_alloc_descriptor(sock);
     descP->ctrlPid  = self;
     descP->domain   = domain;
     descP->type     = type;
@@ -766,7 +1072,7 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
 
     descP->dbg    = dbg;
     descP->useReg = useReg;
-    esock_inc_socket(domain, type, protocol);
+    esock_inc_socket(domain, type, proto);
 
     /* And finally (maybe) update the registry */
     if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
@@ -1008,7 +1314,7 @@ ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
                                               MKI(env, sres)));
             /* Initiate connector */
             descP->connector.pid = self;
-            ESOCK_ASSERT( MONP("esock_connect -> conn",
+            ESOCK_ASSERT( MONP("essio_connect -> conn",
                                env, descP,
                                &self, &descP->connector.mon) == 0 );
             descP->connector.env = esock_alloc_env("connector");
@@ -1084,33 +1390,7 @@ BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err)
 
 
 
-/* ========================================================================
- */
-extern
-ERL_NIF_TERM essio_listen(ErlNifEnv*       env,
-                          ESockDescriptor* descP,
-                          int              backlog)
-{
-    
-    /*
-     * Verify that we are in the proper state
-     */
-
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    /*
-     * And attempt to make socket listening
-     */
-    
-    if ((sock_listen(descP->sock, backlog)) < 0)
-        return esock_make_error_errno(env, sock_errno());
-
-    descP->readState |= ESOCK_STATE_LISTENING;
-
-    return esock_atom_ok;
-
-}
+/* *** essio_listen *** */
 
 
 /* ========================================================================
@@ -1121,7 +1401,7 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
                           ERL_NIF_TERM     sockRef,
                           ERL_NIF_TERM     accRef)
 {
-    ErlNifPid     caller;
+    ErlNifPid caller;
 
     ESOCK_ASSERT( enif_self(env, &caller) != NULL );
 
@@ -1135,7 +1415,7 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
         return esock_make_error_invalid(env, esock_atom_state);
 
     if (descP->currentAcceptorP == NULL) {
-        SOCKET        accSock;
+        SOCKET accSock;
 
         /* We have no active acceptor (and therefore no acceptors in queue)
          */
@@ -1454,7 +1734,7 @@ ERL_NIF_TERM essio_accept_accepting_other(ErlNifEnv*       env,
                                           ErlNifPid        caller)
 {
     if (! esock_acceptor_search4pid(env, descP, &caller)) {
-        esock_acceptor_push(env, descP, caller, ref);
+        esock_acceptor_push(env, descP, caller, ref, NULL);
 	return esock_atom_select;
     } else {
         /* Acceptor already in queue */
@@ -1536,7 +1816,7 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_acc_success, &descP->accSuccess, 1);
 
-    accDescP           = esock_alloc_descriptor(accSock, accSock);
+    accDescP           = esock_alloc_descriptor(accSock);
     accDescP->domain   = descP->domain;
     accDescP->type     = descP->type;
     accDescP->protocol = descP->protocol;
@@ -1567,7 +1847,7 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
 
     SET_NONBLOCKING(accDescP->sock);
 
-    descP->writeState |= ESOCK_STATE_CONNECTED;
+    accDescP->writeState |= ESOCK_STATE_CONNECTED;
 
     MUNLOCK(descP->writeMtx);
 
@@ -1843,7 +2123,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
     }
     SSDBG( descP,
            ("UNIX-ESSIO",
-            "essio_sendmsg {%d} ->"
+            "essio_sendmsg {%d} -> iovec size verified"
             "\r\n   iov length: %lu"
             "\r\n   data size:  %u"
             "\r\n",
@@ -1899,13 +2179,14 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
                             sockRef, sendRef);
 
  done_free_iovec:
-    enif_free_iovec(iovec);
+    FREE_IOVEC( iovec );
     if (ctrlBuf != NULL) FREE(ctrlBuf);
 
     SSDBG( descP,
-           ("UNIX-ESSIO", "essio_sendmsg {%d} ->"
+           ("UNIX-ESSIO", "essio_sendmsg {%d} -> done"
             "\r\n   %T"
             "\r\n", descP->sock, res) );
+
     return res;
 
 }
@@ -2764,7 +3045,7 @@ ERL_NIF_TERM essio_close(ErlNifEnv*       env,
     /* Prepare for closing the socket */
     descP->readState  |= ESOCK_STATE_CLOSING;
     descP->writeState |= ESOCK_STATE_CLOSING;
-    if (esock_do_stop(env, descP)) {
+    if (do_stop(env, descP)) {
         // stop() has been scheduled - wait for it
         SSDBG( descP,
                ("UNIX-ESSIO", "essio_close {%d} -> stop was scheduled\r\n",
@@ -2785,6 +3066,177 @@ ERL_NIF_TERM essio_close(ErlNifEnv*       env,
         return esock_atom_ok;
     }
 }
+
+
+
+/* Prepare for close - return whether stop is scheduled or not
+ */
+static
+BOOLEAN_T do_stop(ErlNifEnv*       env,
+                  ESockDescriptor* descP)
+{
+    BOOLEAN_T    ret;
+    int          sres;
+    ERL_NIF_TERM sockRef;
+
+    sockRef = enif_make_resource(env, descP);
+
+    if (IS_SELECTED(descP)) {
+        ESOCK_ASSERT( (sres = esock_select_stop(env,
+                                                (ErlNifEvent) descP->sock,
+                                                descP))
+                      >= 0 );
+        if ((sres & ERL_NIF_SELECT_STOP_CALLED) != 0) {
+            /* The socket is no longer known by the select machinery
+             * - it may be closed
+             */
+            ret = FALSE;
+        } else {
+            ESOCK_ASSERT( (sres & ERL_NIF_SELECT_STOP_SCHEDULED) != 0 );
+            /* esock_stop() is scheduled
+             * - socket may be removed by esock_stop() or later
+             */
+            ret = TRUE;
+        }
+    } else {
+        sres = 0;
+        /* The socket has never been used in the select machinery
+         * - it may be closed
+         */
+        ret = FALSE;
+    }
+
+    /* +++++++ Current and waiting Writers +++++++ */
+
+    if (descP->currentWriterP != NULL) {
+
+        /* We have a current Writer; was it deselected?
+         */
+
+        if (sres & ERL_NIF_SELECT_WRITE_CANCELLED) {
+
+            /* The current Writer will not get a select message
+             * - send it an abort message
+             */
+
+            esock_stop_handle_current(env,
+                                      "writer",
+                                      descP, sockRef, &descP->currentWriter);
+        }
+
+        /* Inform the waiting Writers (in the same way) */
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "do_stop {%d} -> handle waiting writer(s)\r\n",
+                descP->sock) );
+
+        esock_inform_waiting_procs(env, "writer",
+                                   descP, sockRef, &descP->writersQ,
+                                   esock_atom_closed);
+
+        descP->currentWriterP = NULL;
+    }
+
+    /* +++++++ Connector +++++++
+     * Note that there should not be Writers and a Connector
+     * at the same time so the check for if the
+     * current Writer/Connecter was deselected is only correct
+     * under that assumption
+     */
+
+    if (descP->connectorP != NULL) {
+
+        /* We have a Connector; was it deselected?
+         */
+
+        if (sres & ERL_NIF_SELECT_WRITE_CANCELLED) {
+
+            /* The Connector will not get a select message
+             * - send it an abort message
+             */
+
+            esock_stop_handle_current(env,
+                                      "connector",
+                                      descP, sockRef, &descP->connector);
+        }
+
+        descP->connectorP = NULL;
+    }
+
+    /* +++++++ Current and waiting Readers +++++++ */
+
+    if (descP->currentReaderP != NULL) {
+
+        /* We have a current Reader; was it deselected?
+         */
+
+        if (sres & ERL_NIF_SELECT_READ_CANCELLED) {
+
+            /* The current Reader will not get a select message
+             * - send it an abort message
+             */
+
+            esock_stop_handle_current(env,
+                                      "reader",
+                                      descP, sockRef, &descP->currentReader);
+        }
+
+        /* Inform the Readers (in the same way) */
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "do_stop {%d} -> handle waiting reader(s)\r\n",
+                descP->sock) );
+
+        esock_inform_waiting_procs(env, "writer",
+                                   descP, sockRef, &descP->readersQ,
+                                   esock_atom_closed);
+
+        descP->currentReaderP = NULL;
+    }
+
+    /* +++++++ Current and waiting Acceptors +++++++
+     *
+     * Note that there should not be Readers and Acceptors
+     * at the same time so the check for if the
+     * current Reader/Acceptor was deselected is only correct
+     * under that assumption
+     */
+
+    if (descP->currentAcceptorP != NULL) {
+
+        /* We have a current Acceptor; was it deselected?
+         */
+
+        if (sres & ERL_NIF_SELECT_READ_CANCELLED) {
+
+            /* The current Acceptor will not get a select message
+             * - send it an abort message
+             */
+
+            esock_stop_handle_current(env,
+                                      "acceptor",
+                                      descP, sockRef, &descP->currentAcceptor);
+        }
+
+        /* Inform the waiting Acceptor (in the same way) */
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "do_stop {%d} -> handle waiting acceptors(s)\r\n",
+                descP->sock) );
+
+        esock_inform_waiting_procs(env, "acceptor",
+                                   descP, sockRef, &descP->acceptorsQ,
+                                   esock_atom_closed);
+
+        descP->currentAcceptorP = NULL;
+    }
+
+    return ret;
+}
+
 
 
 /* ========================================================================
@@ -2876,100 +3328,1558 @@ ERL_NIF_TERM essio_fin_close(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * *** essio_shutdown should go here - if we need one ***
  */
-extern
-ERL_NIF_TERM essio_shutdown(ErlNifEnv*       env,
-                            ESockDescriptor* descP,
-                            int              how)
-{
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    if (sock_shutdown(descP->sock, how) == 0)
-        return esock_atom_ok;
-    else
-        return esock_make_error_errno(env, sock_errno());
-}
 
 
 /* ========================================================================
+ * *** essio_sockname should go here - if we need one ***
+ */
+
+
+/* ========================================================================
+ * *** essio_peername should go here - if we need one ***
+ */
+
+
+/* ========================================================================
+ * Cancel a connect request.
+ */
+
+extern
+ERL_NIF_TERM essio_cancel_connect(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     opRef)
+{
+    ERL_NIF_TERM res;
+    ErlNifPid    self;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_connect {%d} -> entry with"
+            "\r\n   writeState: 0x%X"
+            "\r\n   opRef:      %T"
+            "\r\n",
+            descP->sock, descP->writeState, opRef) );
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    if (! IS_OPEN(descP->writeState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if ((descP->connectorP == NULL) ||
+               (COMPARE_PIDS(&self, &descP->connector.pid) != 0) ||
+               (COMPARE(opRef, descP->connector.ref) != 0)) {
+
+        res = esock_make_error(env, esock_atom_not_found);
+
+    } else {
+
+        res = esock_cancel_write_select(env, descP, opRef);
+        esock_requestor_release("esock_cancel_connect",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~ESOCK_STATE_CONNECTING;
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_connect {%d} -> done when"
+            "\r\n   res: %T"
+            "\r\n",
+            descP->sock, descP->writeState,
+            opRef, res) );
+
+    return res;
+}
+
+
+
+/* ========================================================================
+ * Cancel accept request
+ *
+ * We have two different cases:
+ *   *) Its the current acceptor
+ *      Cancel the select!
+ *      We need to activate one of the waiting acceptors.
+ *   *) Its one of the acceptors ("waiting") in the queue
+ *      Simply remove the acceptor from the queue.
+ *
  */
 extern
-ERL_NIF_TERM essio_sockname(ErlNifEnv*       env,
-                            ESockDescriptor* descP)
+ERL_NIF_TERM essio_cancel_accept(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     opRef)
 {
-    ESockAddress  sa;
-    ESockAddress* saP = &sa;
-    SOCKLEN_T     sz  = sizeof(ESockAddress);
+    ERL_NIF_TERM res;
 
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-    
     SSDBG( descP,
-           ("UNIX-ESSIO", "essio_sockname {%d} -> open - try get sockname\r\n",
-            descP->sock) );
+           ("UNIX-ESSIO",
+            "essio_cancel_accept(%T), {%d,0x%X} ->"
+            "\r\n   opRef: %T"
+            "\r\n   %s"
+            "\r\n",
+            sockRef,  descP->sock, descP->readState,
+            opRef,
+            ((descP->currentAcceptorP == NULL)
+             ? "without acceptor" : "with acceptor")) );
 
-    sys_memzero((char*) saP, sz);
-    if (sock_name(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
-        return esock_make_error_errno(env, sock_errno());
+    if (! IS_OPEN(descP->readState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if (descP->currentAcceptorP == NULL) {
+
+        res = esock_atom_not_found;
+
     } else {
-        ERL_NIF_TERM esa;
+        ErlNifPid self;
+
+        ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+        if (COMPARE_PIDS(&self, &descP->currentAcceptor.pid) == 0) {
+            if (COMPARE(opRef, descP->currentAcceptor.ref) == 0)
+                res = essio_cancel_accept_current(env, descP, sockRef);
+            else
+                res = esock_atom_not_found;
+        } else {
+            res = essio_cancel_accept_waiting(env, descP, opRef, &self);
+        }
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_accept(%T) -> done with result:"
+            "\r\n   %T"
+            "\r\n", sockRef, res) );
+
+    return res;
+}
+
+
+/* The current acceptor process has an ongoing select we first must
+ * cancel. Then we must re-activate the "first" (the first
+ * in the acceptor queue).
+ */
+static
+ERL_NIF_TERM essio_cancel_accept_current(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM res;
+
+    ESOCK_ASSERT( DEMONP("essio_cancel_accept_current -> current acceptor",
+                         env, descP, &descP->currentAcceptor.mon) == 0);
+    MON_INIT(&descP->currentAcceptor.mon);
+    res = esock_cancel_read_select(env, descP, descP->currentAcceptor.ref);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_accept_current(%T) {%d} -> cancel res: %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+    if (!esock_activate_next_acceptor(env, descP, sockRef)) {
 
         SSDBG( descP,
-               ("UNIX-ESSIO", "essio_sockname {%d} -> "
-                "got sockname - try decode\r\n",
-                descP->sock) );
+               ("UNIX-ESSIO",
+                "essio_cancel_accept_current(%T) {%d} -> "
+                "no more acceptors\r\n",
+                sockRef, descP->sock) );
 
-        esock_encode_sockaddr(env, saP, sz, &esa);
+        descP->readState &= ~ESOCK_STATE_ACCEPTING;
 
-        SSDBG( descP,
-               ("UNIX-ESSIO", "essio_sockname {%d} -> decoded: "
-                "\r\n   %T\r\n",
-                descP->sock, esa) );
+        descP->currentAcceptorP = NULL;
+    }
 
-        return esock_make_ok2(env, esa);
+    return res;
+}
+
+
+/* These processes have not performed a select, so we can simply
+ * remove them from the acceptor queue.
+ */
+static
+ERL_NIF_TERM essio_cancel_accept_waiting(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     opRef,
+                                         const ErlNifPid* selfP)
+{
+    /* unqueue request from (acceptor) queue */
+
+    if (esock_acceptor_unqueue(env, descP, &opRef, selfP)) {
+        return esock_atom_ok;
+    } else {
+        return esock_atom_not_found;
     }
 }
 
 
+
 /* ========================================================================
+ * Cancel send request
+ *
+ * Cancel a send operation.
+ * Its either the current writer or one of the waiting writers.
+ */
+
+extern
+ERL_NIF_TERM essio_cancel_send(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     opRef)
+{
+    ERL_NIF_TERM res;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_send(%T), {%d,0x%X} -> entry with"
+            "\r\n   opRef: %T"
+            "\r\n   %s"
+            "\r\n",
+            sockRef,  descP->sock, descP->writeState,
+            opRef,
+            ((descP->currentWriterP == NULL)
+             ? "without writer" : "with writer")) );
+
+    if (! IS_OPEN(descP->writeState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if (descP->currentWriterP == NULL) {
+
+        res = esock_atom_not_found;
+
+    } else {
+        ErlNifPid self;
+
+        ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+        if (COMPARE_PIDS(&self, &descP->currentWriter.pid) == 0) {
+            if (COMPARE(opRef, descP->currentWriter.ref) == 0)
+                res = essio_cancel_send_current(env, descP, sockRef);
+            else
+                res = esock_atom_not_found;
+        } else {
+            res = essio_cancel_send_waiting(env, descP, opRef, &self);
+        }
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_send(%T) {%d} -> done with result:"
+            "\r\n   %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+    return res;
+}
+
+
+
+/* The current writer process has an ongoing select we first must
+ * cancel. Then we must re-activate the "first" (the first
+ * in the writer queue).
+ */
+static
+ERL_NIF_TERM essio_cancel_send_current(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM res;
+
+    ESOCK_ASSERT( DEMONP("essio_cancel_send_current -> current writer",
+                         env, descP, &descP->currentWriter.mon) == 0);
+    res = esock_cancel_write_select(env, descP, descP->currentWriter.ref);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_send_current(%T) {%d} -> cancel res: %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+    if (!esock_activate_next_writer(env, descP, sockRef)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_cancel_send_current(%T) {%d} -> no more writers"
+                "\r\n", sockRef, descP->sock) );
+
+        descP->currentWriterP = NULL;
+    }
+
+    return res;
+}
+
+
+
+/* These processes have not performed a select, so we can simply
+ * remove them from the writer queue.
+ */
+static
+ERL_NIF_TERM essio_cancel_send_waiting(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     opRef,
+                                       const ErlNifPid* selfP)
+{
+    /* unqueue request from (writer) queue */
+
+    if (esock_writer_unqueue(env, descP, &opRef, selfP)) {
+        return esock_atom_ok;
+    } else {
+        return esock_atom_not_found;
+    }
+}
+
+
+
+/* ========================================================================
+ * Cancel receive request
+ *
+ * Cancel a read operation.
+ * Its either the current reader or one of the waiting readers.
  */
 extern
-ERL_NIF_TERM essio_peername(ErlNifEnv*       env,
-                            ESockDescriptor* descP)
+ERL_NIF_TERM essio_cancel_recv(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     opRef)
 {
-  ESockAddress  sa;
-  ESockAddress* saP = &sa;
-  SOCKLEN_T     sz  = sizeof(ESockAddress);
+    ERL_NIF_TERM res;
 
-  if (! IS_OPEN(descP->readState))
-    return esock_make_error_closed(env);
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_recv(%T), {%d,0x%X} -> entry with"
+            "\r\n   opRef: %T"
+            "\r\n   %s"
+            "\r\n",
+            sockRef,  descP->sock, descP->readState,
+            opRef,
+            ((descP->currentReaderP == NULL)
+             ? "without reader" : "with reader")) );
+
+    if (! IS_OPEN(descP->readState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if (descP->currentReaderP == NULL) {
+
+        res =  esock_atom_not_found;
+
+    } else {
+        ErlNifPid self;
+
+        ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+        if (COMPARE_PIDS(&self, &descP->currentReader.pid) == 0) {
+            if (COMPARE(opRef, descP->currentReader.ref) == 0)
+                res = essio_cancel_recv_current(env, descP, sockRef);
+            else
+                res =  esock_atom_not_found;
+        } else {
+            res = essio_cancel_recv_waiting(env, descP, opRef, &self);
+        }
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_recv(%T) {%d} -> done with result:"
+            "\r\n   %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+
+    return res;
+
+}
+
+
+/* The current reader process has an ongoing select we first must
+ * cancel. Then we must re-activate the "first" (the first
+ * in the reader queue).
+ */
+static
+ERL_NIF_TERM essio_cancel_recv_current(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM res;
+
+    ESOCK_ASSERT( DEMONP("essio_cancel_recv_current -> current reader",
+                         env, descP, &descP->currentReader.mon) == 0);
+    res = esock_cancel_read_select(env, descP, descP->currentReader.ref);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_recv_current(%T) {%d} -> cancel res: %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+    if (!esock_activate_next_reader(env, descP, sockRef)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_cancel_recv_current(%T) {%d} -> no more readers"
+                "\r\n", sockRef, descP->sock) );
+
+        descP->currentReaderP = NULL;
+    }
+
+    return res;
+}
+
+
+/* These processes have not performed a select, so we can simply
+ * remove them from the reader queue.
+ */
+static
+ERL_NIF_TERM essio_cancel_recv_waiting(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     opRef,
+                                       const ErlNifPid* selfP)
+{
+    /* unqueue request from (reader) queue */
+
+    if (esock_reader_unqueue(env, descP, &opRef, selfP)) {
+        return esock_atom_ok;
+    } else {
+        return esock_atom_not_found;
+    }
+}
+
+
+
+/* ========================================================================
+ * IOCTL with two args (socket and request "key")
+ *
+ */
+extern
+ERL_NIF_TERM essio_ioctl2(ErlNifEnv*       env,
+			  ESockDescriptor* descP,
+			  unsigned long    req)
+{
+  switch (req) {
+
+#if defined(SIOCGIFCONF)
+  case SIOCGIFCONF:
+    return essio_ioctl_gifconf(env, descP);
+    break;
+#endif
+
+  default:
+    return esock_make_error(env, esock_atom_enotsup);
+    break;
+  }
+
+}
+
+
+
+/* ========================================================================
+ * IOCTL with three args (socket, request "key" and one argument)
+ *
+ * The type and value of 'arg' depend on the request,
+ * which we have not yet "analyzed".
+ *
+ * Request     arg       arg type
+ * -------     -------   --------
+ * gifname     ifindex   integer
+ * gifindex    name      string
+ * gifflags    name      string
+ * gifaddr     name      string
+ * gifdstaddr  name      string
+ * gifbdraddr  name      string
+ * gifnetmask  name      string
+ * gifmtu      name      string
+ * gifhwaddr   name      string
+ * gifmap      name      string
+ * giftxqlen   name      string
+ */
+extern
+ERL_NIF_TERM essio_ioctl3(ErlNifEnv*       env,
+			  ESockDescriptor* descP,
+			  unsigned long    req,
+			  ERL_NIF_TERM     arg)
+{
+  /* This for *get* requests */
+
+  switch (req) {
+
+#if defined(SIOCGIFNAME)
+  case SIOCGIFNAME:
+    return essio_ioctl_gifname(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFINDEX)
+  case SIOCGIFINDEX:
+    return essio_ioctl_gifindex(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFFLAGS)
+  case SIOCGIFFLAGS:
+    return essio_ioctl_gifflags(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFADDR)
+  case SIOCGIFADDR:
+    return essio_ioctl_gifaddr(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFDSTADDR)
+  case SIOCGIFDSTADDR:
+    return essio_ioctl_gifdstaddr(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFBRDADDR)
+  case SIOCGIFBRDADDR:
+    return essio_ioctl_gifbrdaddr(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFNETMASK)
+  case SIOCGIFNETMASK:
+    return essio_ioctl_gifnetmask(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFMTU)
+  case SIOCGIFMTU:
+    return essio_ioctl_gifmtu(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
+  case SIOCGIFHWADDR:
+    return essio_ioctl_gifhwaddr(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
+  case SIOCGIFMAP:
+    return essio_ioctl_gifmap(env, descP, arg);
+    break;
+#endif
+
+#if defined(SIOCGIFTXQLEN)
+  case SIOCGIFTXQLEN:
+    return essio_ioctl_giftxqlen(env, descP, arg);
+    break;
+#endif
+
+  default:
+    return esock_make_error(env, esock_atom_enotsup);
+    break;
+  }
+
+}
+
+
+
+/* ========================================================================
+ * IOCTL with four args (socket, request "key" and two arguments)
+ *
+ * The type and value of arg(s) depend on the request,
+ * which we have not yet "analyzed".
+ *
+ * Request     arg1      arg1 type    arg2     arg2 type
+ * -------     -------   ---------    ------   ---------
+ * sifflags    name      string       Flags    #{IntFlag := boolean()}
+ *                                             IntFlag is the native flag
+ * sifaddr     name      string       Addr     sockaddr()
+ * sifdstaddr  name      string       DstAddr  sockaddr()
+ * sifbrdaddr  name      string       BrdAddr  sockaddr()
+ * sifnetmask  name      string       NetMask  sockaddr()
+ * gifmtu      name      string       MTU      integer()
+ * sifhwaddr   name      string       HwAddr   sockaddr()
+ * giftxqlen   name      string       Len      integer()
+ */
+extern
+ERL_NIF_TERM essio_ioctl4(ErlNifEnv*       env,
+			  ESockDescriptor* descP,
+			  unsigned long    req,
+			  ERL_NIF_TERM     ename,
+			  ERL_NIF_TERM     eval)
+{
+
+  switch (req) {
+
+#if defined(SIOCSIFFLAGS)
+  case SIOCSIFFLAGS:
+    return essio_ioctl_sifflags(env, descP, ename, eval);
+    break;
+#endif
+
+#if defined(SIOCSIFADDR)
+  case SIOCSIFADDR:
+    return essio_ioctl_sifaddr(env, descP, ename, eval);
+    break;
+#endif
+
+#if defined(SIOCSIFDSTADDR)
+  case SIOCSIFDSTADDR:
+    return essio_ioctl_sifdstaddr(env, descP, ename, eval);
+    break;
+#endif
+
+#if defined(SIOCSIFBRDADDR)
+  case SIOCSIFBRDADDR:
+    return essio_ioctl_sifbrdaddr(env, descP, ename, eval);
+    break;
+#endif
+
+#if defined(SIOCSIFNETMASK)
+  case SIOCSIFNETMASK:
+    return essio_ioctl_sifnetmask(env, descP, ename, eval);
+    break;
+#endif
+
+#if defined(SIOCSIFMTU)
+  case SIOCSIFMTU:
+    return essio_ioctl_sifmtu(env, descP, ename, eval);
+    break;
+#endif
+
+#if defined(SIOCSIFTXQLEN)
+  case SIOCSIFTXQLEN:
+    return essio_ioctl_siftxqlen(env, descP, ename, eval);
+    break;
+#endif
+
+  default:
+    return esock_make_error(env, esock_atom_enotsup);
+    break;
+  }
+
+}
+
+
+
+/* ===========================================================================
+ * The implemented (ioctl) get requests falls into three grops:
+ *
+ *   1) gifconf - Takes no argument other then the request
+ *   2) gifname - Takes the interface index (integer) as an argument
+ *   3) other   - All other (get) requests takes the interface name (string)
+ *                as the argument.
+ *
+ * The functions defined using the macros below are all in the third (3)
+ * group.
+ *
+ */
+
+/* *** essio_ioctl_gifindex *** */
+#if defined(SIOCGIFINDEX)
+#if defined(ESOCK_USE_IFINDEX)
+#define IOCTL_GIFINDEX_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(gifindex, SIOCGIFINDEX, ivalue, ifreq.ifr_ifindex)
+#elif defined(ESOCK_USE_INDEX)
+#define IOCTL_GIFINDEX_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(gifindex, SIOCGIFINDEX, ivalue, ifreq.ifr_index)
+#else
+#define IOCTL_GIFINDEX_FUNC_DECL
+#endif
+#else
+#define IOCTL_GIFINDEX_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_gifflags *** */
+#if defined(SIOCGIFFLAGS)
+#define IOCTL_GIFFLAGS_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(gifflags, SIOCGIFFLAGS, flags,  ifreq.ifr_flags)
+#else
+#define IOCTL_GIFFLAGS_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_gifaddr *** */
+#if defined(SIOCGIFADDR)
+#define IOCTL_GIFADDR_FUNC_DECL						\
+  IOCTL_GET_REQUEST_DECL(gifaddr, SIOCGIFADDR, ifraddr, &ifreq.ifr_addr)
+#else
+#define IOCTL_GIFADDR_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_gifdstaddr *** */
+#if defined(SIOCGIFDSTADDR)
+#define IOCTL_GIFDSTADDR_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(gifdstaddr, SIOCGIFDSTADDR, ifraddr, &ifreq.ifr_dstaddr)
+#else
+#define IOCTL_GIFDSTADDR_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_gifbrdaddr *** */
+#if defined(SIOCGIFBRDADDR)
+#define IOCTL_GIFBRDADDR_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(gifbrdaddr, SIOCGIFBRDADDR, ifraddr, &ifreq.ifr_broadaddr)
+#else
+#define IOCTL_GIFBRDADDR_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_gifnetmask *** */
+#if defined(SIOCGIFNETMASK)
+#ifdef __linux__
+#define IOCTL_GIFNETMASK_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(gifnetmask, SIOCGIFNETMASK, ifraddr, &ifreq.ifr_netmask)
+#else
+#define IOCTL_GIFNETMASK_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(gifnetmask, SIOCGIFNETMASK, ifraddr, &ifreq.ifr_addr)
+#endif
+#else
+#define IOCTL_GIFNETMASK_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_gifmtu *** */
+#if defined(SIOCGIFMTU)
+#define IOCTL_GIFMTU_FUNC_DECL						\
+  IOCTL_GET_REQUEST_DECL(gifmtu, SIOCGIFMTU, ivalue,  ifreq.ifr_mtu)
+#else
+#define IOCTL_GIFMTU_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_gifhwaddr *** */
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
+#define IOCTL_GIFHWADDR_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(gifhwaddr, SIOCGIFHWADDR, hwaddr, &ifreq.ifr_hwaddr)
+#else
+#define IOCTL_GIFHWADDR_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_gifmap *** */
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
+#define IOCTL_GIFMAP_FUNC_DECL						\
+  IOCTL_GET_REQUEST_DECL(gifmap, SIOCGIFMAP, ifrmap, &ifreq.ifr_map)
+#else
+#define IOCTL_GIFMAP_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_giftxqlen *** */
+#if defined(SIOCGIFTXQLEN)
+#define IOCTL_GIFTXQLEN_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(giftxqlen, SIOCGIFTXQLEN, ivalue,  ifreq.ifr_qlen)
+#else
+#define IOCTL_GIFTXQLEN_FUNC_DECL
+#endif
+
+#define IOCTL_GET_FUNCS				\
+  IOCTL_GIFINDEX_FUNC_DECL			\
+  IOCTL_GIFFLAGS_FUNC_DECL			\
+  IOCTL_GIFADDR_FUNC_DECL			\
+  IOCTL_GIFDSTADDR_FUNC_DECL			\
+  IOCTL_GIFBRDADDR_FUNC_DECL			\
+  IOCTL_GIFNETMASK_FUNC_DECL			\
+  IOCTL_GIFMTU_FUNC_DECL			\
+  IOCTL_GIFHWADDR_FUNC_DECL			\
+  IOCTL_GIFMAP_FUNC_DECL			\
+  IOCTL_GIFTXQLEN_FUNC_DECL
+
+#define IOCTL_GET_REQUEST_DECL(OR, R, EF, UV)				\
+  static								\
+  ERL_NIF_TERM essio_ioctl_##OR(ErlNifEnv*       env,			\
+                                ESockDescriptor* descP,			\
+			        ERL_NIF_TERM     ename)			\
+  {									\
+    ERL_NIF_TERM result;						\
+    struct ifreq ifreq;							\
+    char*        ifn = NULL;						\
+    int          nlen;							\
+									\
+    SSDBG( descP, ("UNIX-ESSIO", "essio_ioctl_" #OR " {%d} -> entry with" \
+		   "\r\n      (e)Name: %T"				\
+		   "\r\n", descP->sock, ename) );                       \
+									\
+    if (!esock_decode_string(env, ename, &ifn))                         \
+      return enif_make_badarg(env);                                     \
+									\
+    nlen = esock_strnlen(ifn, IFNAMSIZ);                                \
+									\
+    sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);                         \
+    sys_memcpy(ifreq.ifr_name, ifn,                                     \
+	       (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);                 \
+									\
+    SSDBG( descP,                                                       \
+	   ("UNIX-ESSIO",                                               \
+	    "essio_ioctl_" #OR " {%d} -> try ioctl\r\n",                \
+	    descP->sock) );                                             \
+									\
+    if (ioctl(descP->sock, R, (char *) &ifreq) < 0) {                   \
+      int          saveErrno = sock_errno();                            \
+      ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));       \
+									\
+      SSDBG( descP,                                                     \
+	     ("UNIX-ESSIO", "essio_ioctl_" #OR " {%d} -> failure: "     \
+	      "\r\n      reason: %T (%d)"                               \
+	      "\r\n", descP->sock, reason, saveErrno) );                \
+									\
+      result = esock_make_error(env, reason);                           \
+									\
+    } else {                                                            \
+      SSDBG( descP,                                                     \
+	     ("UNIX-ESSIO", "essio_ioctl_" #OR " {%d} -> encode value\r\n", \
+	      descP->sock) );                                           \
+      result = encode_ioctl_##EF(env, descP, UV);                       \
+    }									\
+									\
+    FREE(ifn);								\
+									\
+    return result;                                                      \
+									\
+  }
+IOCTL_GET_FUNCS
+#undef IOCTL_GET_FUNCS
+
+
+/* ===========================================================================
+ * The "rest" of the implemented (ioctl) get requests
+ *
+ * These (get) requests could not be 'generated' by the macros above.
+ */
+
+static
+ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
+				 ESockDescriptor* descP)
+{
+  struct ifconf ifc;
+  int           ifc_len = 0;
+  int           buflen  = 100 * sizeof(struct ifreq);
+  char         *buf     = MALLOC(buflen);
+  ERL_NIF_TERM  result;
 
   SSDBG( descP,
-         ("UNIX-ESSIO", "essio_peername {%d} -> open - try get peername\r\n",
-          descP->sock) );
+         ("UNIX-ESSIO", "essio_ioctl_gifconf {%d} -> entry\r\n", descP->sock) );
 
-  sys_memzero((char*) saP, sz);
-  if (sock_peer(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
-      return esock_make_error_errno(env, sock_errno());
-  } else {
-      ERL_NIF_TERM esa;
-
-      SSDBG( descP,
-             ("UNIX-ESSIO", "essio_peername {%d} -> "
-              "got peername - try decode\r\n",
-              descP->sock) );
-
-      esock_encode_sockaddr(env, saP, sz, &esa);
+  for (;;) {
+    ifc.ifc_len = buflen;
+    ifc.ifc_buf = buf;
+    if (ioctl(descP->sock, SIOCGIFCONF, (char *) &ifc) < 0) {
+      int saveErrno = sock_errno();
 
       SSDBG( descP,
-             ("UNIX-ESSIO", "esock_peername {%d} -> decoded: "
-              "\r\n   %T\r\n",
-              descP->sock, esa) );
+	     ("UNIX-ESSIO", "essio_ioctl_gifconf {%d} -> failure: "
+	      "\r\n      errno: %d (%s)"
+	      "\r\n", descP->sock, saveErrno, erl_errno_id(saveErrno)) );
 
-      return esock_make_ok2(env, esa);
+      if (saveErrno != EINVAL || ifc_len) {
+	ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
+	FREE(buf);
+	return esock_make_error(env, reason);
+      }
+    } else {
+      if (ifc.ifc_len == ifc_len) break; /* buf large enough */
+      ifc_len = ifc.ifc_len;
+    }
+    buflen += 10 * sizeof(struct ifreq);
+    buf     = (char *) REALLOC(buf, buflen);
   }
+
+  result = encode_ioctl_ifconf(env, descP, &ifc);
+
+  FREE(ifc.ifc_buf);
+
+  return result;
 }
+
+
+#if defined(SIOCGIFNAME)
+static
+ERL_NIF_TERM essio_ioctl_gifname(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 ERL_NIF_TERM     eidx)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  int          index;
+  
+  SSDBG( descP, ("UNIX-ESSIO", "essio_ioctl_gifname {%d} -> entry with"
+		 "\r\n      (e)Index: %T"
+		 "\r\n", descP->sock, eidx) );
+
+  if (!GET_INT(env, eidx, &index))
+    return enif_make_badarg(env);
+
+  ifreq.ifr_ifindex = index;
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO",
+          "essio_ioctl_gifname {%d} -> try ioctl\r\n", descP->sock) );
+
+  if (ioctl(descP->sock, SIOCGIFNAME, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("UNIX-ESSIO", "essio_ioctl_gifname {%d} -> failure: "
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+    SSDBG( descP,
+	   ("UNIX-ESSIO", "essio_ioctl_gifname {%d} -> encode name\r\n",
+	    descP->sock) );
+    
+    result = esock_make_ok2(env, encode_ioctl_ifreq_name(env, ifreq.ifr_name));
+  }
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO", "essio_ioctl_gifname {%d} -> done with"
+	  "\r\n      result: %T"
+	  "\r\n",
+	  descP->sock, result) );
+    
+  return result;
+
+}
+#endif
+
+
+
+
+/* ===========================================================================
+ * The implemented (ioctl) set requests:
+ *
+ */
+
+/* *** essio_ioctl_sifaddr *** */
+#if defined(SIOCSIFADDR)
+#define IOCTL_SIFADDR_FUNC_DECL					\
+  IOCTL_SET_REQUEST_DECL(sifaddr, SIOCSIFADDR, sockaddr,	\
+			 ((ESockAddress*) &ifreq.ifr_addr))
+#else
+#define IOCTL_SIFADDR_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_sifdstaddr *** */
+#if defined(SIOCSIFDSTADDR)
+#define IOCTL_SIFDSTADDR_FUNC_DECL				\
+  IOCTL_SET_REQUEST_DECL(sifdstaddr, SIOCSIFDSTADDR, sockaddr,	\
+			 ((ESockAddress*) &ifreq.ifr_dstaddr))
+#else
+#define IOCTL_SIFDSTADDR_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_sifbrdaddr *** */
+#if defined(SIOCSIFBRDADDR)
+#define IOCTL_SIFBRDADDR_FUNC_DECL					\
+  IOCTL_SET_REQUEST_DECL(sifbrdaddr, SIOCSIFBRDADDR, sockaddr,		\
+			 ((ESockAddress*) &ifreq.ifr_broadaddr))
+#else
+#define IOCTL_SIFBRDADDR_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_sifnetmask *** */
+#if defined(SIOCSIFNETMASK)
+#ifdef __linux__
+#define IOCTL_SIFNETMASK_FUNC_DECL				\
+  IOCTL_SET_REQUEST_DECL(sifnetmask, SIOCSIFNETMASK, sockaddr,	\
+			 ((ESockAddress*) &ifreq.ifr_netmask))
+#else
+#define IOCTL_SIFNETMASK_FUNC_DECL				\
+  IOCTL_SET_REQUEST_DECL(sifnetmask, SIOCSIFNETMASK, sockaddr,	\
+			 ((ESockAddress*) &ifreq.ifr_addr))
+#endif
+#else
+#define IOCTL_SIFNETMASK_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_sifmtu ***
+ * On some platforms, MTU is an unsigned int
+ */
+#if defined(SIOCSIFMTU)
+#define IOCTL_SIFMTU_FUNC_DECL						\
+  IOCTL_SET_REQUEST_DECL(sifmtu, SIOCSIFMTU, mtu, (int*) &ifreq.ifr_mtu)
+#else
+#define IOCTL_SIFMTU_FUNC_DECL
+#endif
+
+/* *** essio_ioctl_siftxqlen *** */
+#if defined(SIOCSIFTXQLEN)
+#define IOCTL_SIFTXQLEN_FUNC_DECL						\
+  IOCTL_SET_REQUEST_DECL(siftxqlen, SIOCSIFTXQLEN, txqlen, &ifreq.ifr_qlen)
+#else
+#define IOCTL_SIFTXQLEN_FUNC_DECL
+#endif
+
+#define IOCTL_SET_FUNCS				\
+  IOCTL_SIFADDR_FUNC_DECL			\
+  IOCTL_SIFDSTADDR_FUNC_DECL			\
+  IOCTL_SIFBRDADDR_FUNC_DECL			\
+  IOCTL_SIFNETMASK_FUNC_DECL			\
+  IOCTL_SIFMTU_FUNC_DECL			\
+  IOCTL_SIFTXQLEN_FUNC_DECL
+
+#define IOCTL_SET_REQUEST_DECL(OR, R, DF, UVP)				\
+  static								\
+  ERL_NIF_TERM essio_ioctl_##OR(ErlNifEnv*       env,			\
+                                ESockDescriptor* descP,			\
+				ERL_NIF_TERM     ename,			\
+				ERL_NIF_TERM     evalue)		\
+  {									\
+    ERL_NIF_TERM result;						\
+    struct ifreq ifreq;							\
+    char*        ifn = NULL;						\
+    int          nlen;							\
+                                                                        \
+    SSDBG( descP, ("UNIX-ESSIO", "essio_ioctl_" #OR " {%d} -> entry with" \
+		   "\r\n      (e)Name:  %T"				\
+		   "\r\n      (e)Value: %T"				\
+		   "\r\n", descP->sock, ename, evalue) );		\
+									\
+    if (!esock_decode_string(env, ename, &ifn)) {			\
+									\
+      SSDBG( descP,							\
+	     ("UNIX-ESSIO", "essio_ioctl_" #OR " {%d} -> failed decode name" \
+	      "\r\n", descP->sock) );					\
+									\
+      return enif_make_badarg(env);					\
+    }									\
+									\
+    if (! decode_ioctl_##DF(env, descP, evalue, UVP)) {			\
+									\
+      SSDBG( descP,							\
+	     ("UNIX-ESSIO", "essio_ioctl_" #OR " {%d} -> failed decode addr" \
+	      "\r\n", descP->sock) );					\
+									\
+      return esock_make_invalid(env, esock_atom_##DF);			\
+    }									\
+									\
+    nlen = esock_strnlen(ifn, IFNAMSIZ);				\
+									\
+    sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);			        \
+    sys_memcpy(ifreq.ifr_name, ifn,					\
+	       (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);			\
+									\
+    SSDBG( descP,							\
+	   ("UNIX-ESSIO", "essio_ioctl_" #OR " {%d} -> try ioctl\r\n",	\
+	    descP->sock) );						\
+									\
+    if (ioctl(descP->sock, R, (char *) &ifreq) < 0) {			\
+      int          saveErrno = sock_errno();				\
+      ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));	\
+									\
+      SSDBG( descP,							\
+	     ("UNIX-ESSIO", "essio_ioctl_" #OR " {%d} -> failure: "     \
+	      "\r\n      reason: %T (%d)"				\
+	      "\r\n", descP->sock, reason, saveErrno) );		\
+									\
+      result = esock_make_error(env, reason);				\
+									\
+    } else {								\
+      SSDBG( descP,							\
+	     ("UNIX-ESSIO", "essio_ioctl_" #OR " {%d} -> "              \
+	      "addr successfully set\r\n",				\
+	      descP->sock) );						\
+      result = esock_atom_ok;						\
+    }                                                                   \
+                                                                        \
+    FREE(ifn);                                                          \
+                                                                        \
+    return result;                                                      \
+                                                                        \
+  }
+
+IOCTL_SET_FUNCS
+#undef IOCTL_SET_FUNCS
+
+
+/* ===========================================================================
+ * The "rest" of the implemented (ioctl) set requests
+ *
+ * These (set) requests could not be 'generated' by the macros above.
+ */
+
+#if defined(SIOCSIFFLAGS)
+static
+ERL_NIF_TERM essio_ioctl_sifflags(ErlNifEnv*       env,
+				  ESockDescriptor* descP,
+				  ERL_NIF_TERM     ename,
+				  ERL_NIF_TERM     eflags)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  char*        ifn = NULL;
+  int          nlen;
+
+  SSDBG( descP, ("UNIX-ESSIO", "essio_ioctl_sifflags {%d} -> entry with"
+		 "\r\n      (e)Name: %T"
+		 "\r\n      (e)Flags: %T"
+		 "\r\n", descP->sock, ename, eflags) );
+
+  if (!esock_decode_string(env, ename, &ifn)) {
+
+    SSDBG( descP,
+	   ("UNIX-ESSIO", "essio_ioctl_sifflags {%d} -> failed decode name"
+	    "\r\n", descP->sock) );
+
+    return enif_make_badarg(env);
+  }
+
+  // Make sure the length of the string is valid!
+  nlen = esock_strnlen(ifn, IFNAMSIZ);
+  
+  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
+  sys_memcpy(ifreq.ifr_name, ifn, 
+	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
+  
+  SSDBG( descP,
+	 ("UNIX-ESSIO", "essio_ioctl_sifflags {%d} -> try (get) ioctl\r\n",
+	  descP->sock) );
+
+  if (ioctl(descP->sock, SIOCGIFFLAGS, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("UNIX-ESSIO", "essio_ioctl_sifflags {%d} -> "
+	    "failure: failed reading *current* flags"
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+
+    SSDBG( descP,
+	   ("UNIX-ESSIO",
+            "essio_ioctl_sifflags {%d} -> (local) update flags\r\n",
+	    descP->sock) );
+
+    if (decode_ioctl_flags(env, descP, eflags, &ifreq.ifr_flags)) {
+
+      SSDBG( descP,
+	     ("UNIX-ESSIO", "essio_ioctl_sifflags {%d} -> try (set) ioctl\r\n",
+	      descP->sock) );
+
+      if (ioctl(descP->sock, SIOCSIFFLAGS, (char *) &ifreq) < 0) {
+	int          saveErrno = sock_errno();
+	ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+	SSDBG( descP,
+	       ("UNIX-ESSIO", "essio_ioctl_sifflags {%d} -> failure: "
+		"\r\n      reason: %T (%d)"
+		"\r\n", descP->sock, reason, saveErrno) );
+
+	result = esock_make_error(env, reason);
+
+      } else {
+	SSDBG( descP,
+	       ("UNIX-ESSIO", "essio_ioctl_sifflags {%d} -> "
+		"updated flags successfully set\r\n",
+		descP->sock) );
+	result = esock_atom_ok;
+      }
+
+      /* We know that if esock_decode_string is successful,
+       * we have "some" form of string, and therefor memory
+       * has been allocated (and need to be freed)... */
+      FREE(ifn);
+
+    } else {
+      result = enif_make_badarg(env);
+    }
+  }
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO", "essio_ioctl_sifflags {%d} -> done with result: "
+	  "\r\n      %T"
+	  "\r\n",
+	  descP->sock, result) );
+
+  return result;
+
+}
+#endif
+
+
+
+/* ===========================================================================
+ * ioctl utility functions
+ *
+ */
+
+static
+ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 struct ifconf*   ifcP)
+{
+  ERL_NIF_TERM result;
+  unsigned int len = ((ifcP == NULL) ? 0 :
+		      (ifcP->ifc_len / sizeof(struct ifreq)));
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO",
+          "encode_ioctl_ifconf -> entry (when len = %d)\r\n", len) );
+
+  if (len > 0) {
+    ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
+    unsigned int  i     = 0;
+    struct ifreq* p     = ifcP->ifc_req;
+
+    for (i = 0 ; i < len ; i++) {
+      SSDBG( descP,
+	     ("UNIX-ESSIO",
+              "encode_ioctl_ifconf -> encode ifreq entry %d\r\n", i) );
+      array[i] = encode_ioctl_ifconf_ifreq(env, descP, &p[i]);
+    }
+
+    SSDBG( descP,
+	   ("UNIX-ESSIO", "encode_ioctl_ifconf -> all entries encoded\r\n", i) );
+
+    result = esock_make_ok2(env, MKLA(env, array, len));
+    FREE(array);
+
+  } else {
+
+    result = esock_make_ok2(env, MKEL(env));
+
+  }
+
+  return result;
+}
+
+
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
+static
+ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 struct ifmap*    mapP)
+{
+  ERL_NIF_TERM mapKeys[] = {esock_atom_mem_start,
+			    esock_atom_mem_end,
+			    esock_atom_base_addr,
+			    esock_atom_irq,
+			    esock_atom_dma,
+			    esock_atom_port};
+  ERL_NIF_TERM mapVals[] = {MKUL(env, mapP->mem_start),
+			    MKUL(env, mapP->mem_end),
+			    MKUI(env, mapP->base_addr),
+			    MKUI(env, mapP->irq),
+			    MKUI(env, mapP->dma),
+			    MKUI(env, mapP->port)};
+  unsigned int numMapKeys = NUM(mapKeys);
+  unsigned int numMapVals = NUM(mapVals);
+  ERL_NIF_TERM emap;
+
+  ESOCK_ASSERT( numMapVals == numMapKeys );
+  ESOCK_ASSERT( MKMA(env, mapKeys, mapVals, numMapKeys, &emap) );
+
+  SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_ifrmap -> done with"
+		 "\r\n    Map: %T"
+		 "\r\n", emap) );
+
+  return esock_make_ok2(env, emap);;
+}
+#endif
+
+
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
+static
+ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 struct sockaddr* addrP)
+{
+  ERL_NIF_TERM eaddr;
+  SOCKLEN_T    sz = sizeof(struct sockaddr);
+
+  esock_encode_hwsockaddr(env, addrP, sz, &eaddr);
+
+  SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_ifraddr -> done with"
+		 "\r\n    Sock Addr: %T"
+		 "\r\n", eaddr) );
+
+  return esock_make_ok2(env, eaddr);;
+}
+#endif
+
+
+static
+ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
+				  ESockDescriptor* descP,
+				  struct sockaddr* addrP)
+{
+  ERL_NIF_TERM eaddr;
+
+  esock_encode_sockaddr(env, (ESockAddress*) addrP, -1, &eaddr);
+
+  SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_ifraddr -> done with"
+		 "\r\n    Sock Addr: %T"
+		 "\r\n", eaddr) );
+
+  return esock_make_ok2(env, eaddr);;
+}
+
+
+static
+ERL_NIF_TERM encode_ioctl_flags(ErlNifEnv*       env,
+				ESockDescriptor* descP,
+				short            flags)
+{
+    int          i, flag, num = esock_ioctl_flags_length; // NUM(ioctl_flags);
+  ERL_NIF_TERM eflags, eflag;
+  SocketTArray ta = TARRAY_CREATE(20); // Just to be on the safe side
+
+  if (flags == 0) {
+    eflags = MKEL(env);
+  } else {
+    for (i = 0; (i < num) && (flags != 0); i++) {
+      flag = esock_ioctl_flags[i].flag;
+      if ((flag != 0) && ((flags & flag) == flag)) {
+	eflag  = *(esock_ioctl_flags[i].name);
+	flags &= ~flag;
+
+	SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_flags  {%d} -> "
+		       "\r\n      i:               %d"
+		       "\r\n      found flag:      %T (%d)"
+		       "\r\n      remaining flags: %d"
+		       "\r\n", descP->sock, i, eflag, flag, flags) );
+
+	TARRAY_ADD(ta, eflag);
+      }
+    }
+    if (flags != 0) {
+
+      SSDBG( descP,
+             ("UNIX-ESSIO", "encode_ioctl_flags  {%d} -> unknown flag(s): %d"
+              "\r\n", descP->sock, flags) );
+
+      TARRAY_ADD(ta, MKI(env, flags));
+    }
+
+    TARRAY_TOLIST(ta, env, &eflags);
+  }
+  
+
+  SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_flags -> done with"
+		 "\r\n    Flags: %T (%d)"
+		 "\r\n", eflags, flags) );
+
+  return esock_make_ok2(env, eflags);
+}
+
+
+static
+BOOLEAN_T decode_ioctl_sockaddr(ErlNifEnv*       env,
+				ESockDescriptor* descP,
+				ERL_NIF_TERM     eaddr,
+				ESockAddress*    addr)
+{
+  SOCKLEN_T addrLen;
+  BOOLEAN_T result;
+
+  result = esock_decode_sockaddr(env, eaddr, (ESockAddress*) addr, &addrLen);
+
+  VOID(addrLen);
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO", "decode_ioctl_sockaddr {%d} -> decode result: %s"
+	  "\r\n", descP->sock, B2S(result)) );
+
+  return result;
+}
+				 
+
+static
+BOOLEAN_T decode_ioctl_mtu(ErlNifEnv*       env,
+			   ESockDescriptor* descP,
+			   ERL_NIF_TERM     emtu,
+			   int*             mtu)
+{
+  BOOLEAN_T result;
+
+  if (! GET_INT(env, emtu, mtu)) {
+    result = FALSE;
+  } else {
+    result = TRUE;
+  }
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO", "decode_ioctl_mtu {%d} -> decode result: %s"
+	  "\r\n", descP->sock, B2S(result)) );
+
+  return result;
+}
+				 
+
+#if defined(SIOCSIFTXQLEN)
+static
+BOOLEAN_T decode_ioctl_txqlen(ErlNifEnv*       env,
+			      ESockDescriptor* descP,
+			      ERL_NIF_TERM     etxqlen,
+			      int*             txqlen)
+{
+  return decode_ioctl_ivalue(env, descP, etxqlen, txqlen);
+}
+#endif
+
+/* All uses of the function should be added. For instance:
+ * #if defined(SIOCGIFTXQLEN) || defined(FOOBAR) || defined(YXA)
+ */
+#if defined(SIOCGIFTXQLEN)
+static
+BOOLEAN_T decode_ioctl_ivalue(ErlNifEnv*       env,
+			      ESockDescriptor* descP,
+			      ERL_NIF_TERM     eivalue,
+			      int*             ivalue)
+{
+  BOOLEAN_T result;
+
+  if (! GET_INT(env, eivalue, ivalue)) {
+    result = FALSE;
+  } else {
+    result = TRUE;
+  }
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO", "decode_ioctl_ivalue {%d} -> decode result: %s"
+	  "\r\n", descP->sock, B2S(result)) );
+
+  return result;
+}
+#endif
+				 
+
+static
+BOOLEAN_T decode_ioctl_flags(ErlNifEnv*       env,
+			     ESockDescriptor* descP,
+			     ERL_NIF_TERM     eflags,
+			     short*           flags)
+{
+  ERL_NIF_TERM      key, value;
+  ErlNifMapIterator iter;
+  int               tmpFlags = (int) *flags; // Current value
+  int               flag;
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO", "decode_ioctl_flags {%d} -> entry with"
+	  "\r\n      flags: %d"
+	  "\r\n",
+	  descP->sock, tmpFlags) );
+
+  enif_map_iterator_create(env, eflags, &iter, ERL_NIF_MAP_ITERATOR_FIRST);
+
+  while (enif_map_iterator_get_pair(env, &iter, &key, &value)) {
+
+    /* Convert key (eflag) to int */
+    if (! GET_INT(env, key, &flag)) {
+      enif_map_iterator_destroy(env, &iter);
+      return FALSE;
+    }
+
+    // Update flag
+    if (COMPARE(value, esock_atom_true) == 0) {
+      SSDBG( descP,
+	     ("UNIX-ESSIO", "decode_ioctl_flags {%d} -> set %d\r\n",
+	      descP->sock, flag) );
+      tmpFlags |= flag;
+    } else {
+      SSDBG( descP,
+	     ("UNIX-ESSIO", "decode_ioctl_flags {%d} -> reset %d\r\n",
+	      descP->sock, flag) );
+      tmpFlags &= ~flag;
+    }
+
+    enif_map_iterator_next(env, &iter);
+  }
+
+  enif_map_iterator_destroy(env, &iter);
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO", "decode_ioctl_flags {%d} -> done with"
+	  "\r\n      (new) flags: %d"
+	  "\r\n",
+	  descP->sock, tmpFlags) );
+
+  *flags = (short) tmpFlags;
+
+  return TRUE;
+}
+
+
+static
+ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 int              ivalue)
+{
+  ERL_NIF_TERM eivalue = MKI(env, ivalue);
+
+  SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_ivalue -> done with"
+		 "\r\n    iValue: %T (%d)"
+		 "\r\n", eivalue, ivalue) );
+
+  return esock_make_ok2(env, eivalue);;
+}
+
+static
+ERL_NIF_TERM encode_ioctl_ifconf_ifreq(ErlNifEnv*       env,
+				       ESockDescriptor* descP,
+				       struct ifreq*    ifrP)
+{
+  ERL_NIF_TERM ename, eaddr;
+
+  ESOCK_ASSERT( ifrP != NULL );
+
+  SSDBG( descP,
+         ("UNIX-ESSIO", "encode_ioctl_ifconf_ifreq -> encode name\r\n") );
+  ename = encode_ioctl_ifreq_name(env,     ifrP->ifr_name);
+
+  SSDBG( descP,
+         ("UNIX-ESSIO", "encode_ioctl_ifconf_ifreq -> encode sockaddr\r\n") );
+  eaddr = encode_ioctl_ifreq_sockaddr(env, &ifrP->ifr_addr);
+
+  SSDBG( descP,
+         ("UNIX-ESSIO", "encode_ioctl_ifconf_ifreq -> make ifreq map with"
+          "\r\n    Name:      %T"
+          "\r\n    Sock Addr: %T"
+          "\r\n", ename, eaddr) );
+  return make_ifreq(env, ename, esock_atom_addr, eaddr);
+}
+
+static
+ERL_NIF_TERM encode_ioctl_ifreq_name(ErlNifEnv* env,
+				     char*      name)
+{
+  return ((name == NULL) ? esock_atom_undefined : MKS(env, name));
+}
+
+static
+ERL_NIF_TERM encode_ioctl_ifreq_sockaddr(ErlNifEnv* env, struct sockaddr* sa)
+{
+  ERL_NIF_TERM esa;
+
+  if (sa != NULL) {
+
+    esock_encode_sockaddr(env, (ESockAddress*) sa, -1, &esa);
+
+  } else {
+
+      esa = esock_atom_undefined;
+
+  }
+
+  return esa;
+}
+
+
+/* The ifreq structure *always* contain a name
+ * and *one* other element. The second element
+ * depend on the ioctl request. 
+ */
+static
+ERL_NIF_TERM make_ifreq(ErlNifEnv*   env,
+			ERL_NIF_TERM name,
+			ERL_NIF_TERM key2,
+			ERL_NIF_TERM val2)
+{
+  ERL_NIF_TERM keys[2];
+  ERL_NIF_TERM vals[2];
+  ERL_NIF_TERM res;
+
+  keys[0] = esock_atom_name;
+  vals[0] = name;
+
+  keys[1] = key2;
+  vals[1] = val2;
+
+  ESOCK_ASSERT( MKMA(env, keys, vals, NUM(keys), &res) );
+
+  return res;
+}
+	   
+
 
 
 /* ----------------------------------------------------------------------
@@ -3004,7 +4914,7 @@ BOOLEAN_T send_check_writer(ErlNifEnv*       env,
                     "\r\n", descP->sock, ref) );
 
             if (! esock_writer_search4pid(env, descP, &caller)) {
-                esock_writer_push(env, descP, caller, ref);
+                esock_writer_push(env, descP, caller, ref, NULL);
                 *checkResult = esock_atom_select;
             } else {
                 /* Writer already in queue */
@@ -3096,7 +5006,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 
             res = send_check_retry(env, descP, written, sockRef, sendRef);
         } else if (dataInTail) {
-            /* Not the entire package */
+            /* We sent all we could, but not everything (data in tail) */
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "send_check_result(%T) {%d} -> "
@@ -3178,15 +5088,16 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                              int              saveErrno,
                              ERL_NIF_TERM     sockRef)
 {
-  ERL_NIF_TERM reason;
+    ERL_NIF_TERM reason;
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_fails, &descP->writeFails, 1);
 
-    SSDBG( descP, ("UNIX-ESSIO", "send_check_fail(%T) {%d} -> error: %d\r\n",
-                   sockRef, descP->sock, saveErrno) );
-
     reason = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "send_check_fail(%T) {%d} -> error: %d (%T)\r\n",
+            sockRef, descP->sock, saveErrno, reason) );
 
     if (saveErrno != EINVAL) {
 
@@ -3205,6 +5116,7 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
             descP->currentWriterP = NULL;
         }
     }
+
     return esock_make_error(env, reason);
 }
 
@@ -3382,7 +5294,7 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
  * or a (erlang) binary that just needs to be appended to the control
  * buffer.
  *
- * Our "problem" is that we have no idea much memory we actually need.
+ * Our "problem" is that we have no idea how much memory we actually need.
  *
  */
 
@@ -3732,7 +5644,7 @@ void encode_msg(ErlNifEnv*       env,
                 struct msghdr*   msgHdrP,
                 ErlNifBinary*    dataBufP,
                 ErlNifBinary*    ctrlBufP,
-                ERL_NIF_TERM*    eSockAddr)
+                ERL_NIF_TERM*    eMsg)
 {
     ERL_NIF_TERM addr, iov, ctrl, flags;
 
@@ -3802,7 +5714,7 @@ void encode_msg(ErlNifEnv*       env,
 
         if (msgHdrP->msg_namelen == 0)
             numKeys--; // No addr
-        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eSockAddr) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eMsg) );
 
         SSDBG( descP,
                ("UNIX-ESSIO",
@@ -4318,6 +6230,317 @@ ERL_NIF_TERM essio_sendfile_ok(ErlNifEnv*       env,
 #endif // #ifdef HAVE_SENDFILE
 
 
+/* ====================================================================
+ *
+ * NIF (I/O backend) Resource callback functions: dtor, stop and down
+ *
+ * ====================================================================
+ */
+
+extern
+void essio_dtor(ErlNifEnv*       env,
+                ESockDescriptor* descP)
+{
+    SGDBG( ("UNIX-ESSIO", "dtor -> entry\r\n") );
+
+    if (IS_SELECTED(descP)) {
+        /* We have used the socket in the select machinery,
+         * so we must have closed it properly to get here
+         */
+        ESOCK_ASSERT( IS_CLOSED(descP->readState) );
+        ESOCK_ASSERT( IS_CLOSED(descP->writeState) );
+        ESOCK_ASSERT( descP->sock == INVALID_SOCKET );
+    } else {
+        /* The socket is only opened, should be safe to close nonblocking */
+        (void) sock_close(descP->sock);
+        descP->sock = INVALID_SOCKET;
+    }
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> set state and pattern\r\n") );
+    descP->readState  |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
+    descP->writeState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
+    descP->pattern     = (ESOCK_DESC_PATTERN_DTOR | ESOCK_STATE_CLOSED);
+
+    esock_free_env("dtor reader", descP->currentReader.env);
+    descP->currentReader.env = NULL;
+
+    esock_free_env("dtor writer", descP->currentWriter.env);
+    descP->currentWriter.env = NULL;
+
+    esock_free_env("dtor acceptor", descP->currentAcceptor.env);
+    descP->currentAcceptor.env = NULL;
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> try free readers request queue\r\n") );
+    esock_free_request_queue(&descP->readersQ);
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> try free writers request queue\r\n") );
+    esock_free_request_queue(&descP->writersQ);
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> try free acceptors request queue\r\n") );
+    esock_free_request_queue(&descP->acceptorsQ);
+
+#ifdef HAVE_SENDFILE
+    ESOCK_ASSERT( descP->sendfileHandle == INVALID_HANDLE );
+    if (descP->sendfileCountersP != NULL) {
+        FREE(descP->sendfileCountersP);
+        descP->sendfileCountersP = NULL;
+  }
+#endif
+
+    esock_free_env("dtor close env", descP->closeEnv);
+    descP->closeEnv = NULL;
+
+    esock_free_env("dtor meta env", descP->meta.env);
+    descP->meta.env = NULL;
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> done\r\n") );
+}
+
+
+extern
+void essio_stop(ErlNifEnv*       env,
+                ESockDescriptor* descP)
+{
+#ifdef HAVE_SENDFILE
+    if (descP->sendfileCountersP != NULL) {
+        ESockSendfileCounters* cntP = descP->sendfileCountersP;
+
+        SSDBG( descP, ("UNIX-ESSIO", "esock_stop(%d) ->  sendfileCounters:"
+                       "\r\n   cnt:      %lu"
+                       "\r\n   byteCnt:  %lu"
+                       "\r\n   fails:    %lu"
+                       "\r\n   max:      %lu"
+                       "\r\n   pkg:      %lu"
+                       "\r\n   pkgMax    %lu"
+                       "\r\n   tries:    %lu"
+                       "\r\n   waits:    %lu"
+                       "\r\n",
+                       descP->sock,
+                       (unsigned long) cntP->cnt,
+                       (unsigned long) cntP->byteCnt,
+                       (unsigned long) cntP->fails,
+                       (unsigned long) cntP->max,
+                       (unsigned long) cntP->pkg,
+                       (unsigned long) cntP->pkgMax,
+                       (unsigned long) cntP->tries,
+                       (unsigned long) cntP->waits) );
+    }
+#endif
+
+    /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+     *
+     *           Inform waiting Closer, or close socket
+     *
+     * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+     */
+
+    if (! enif_is_pid_undefined(&descP->closerPid)) {
+        /* We have a waiting closer process after nif_close()
+         * - send message to trigger nif_finalize_close()
+         */
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "esock_stop(%d) -> send close msg to %T\r\n",
+                descP->sock, MKPID(env, &descP->closerPid)) );
+
+        esock_send_close_msg(env, descP, &descP->closerPid);
+        /* Message send frees closeEnv */
+        descP->closeEnv = NULL;
+        descP->closeRef = esock_atom_undefined;
+
+    } else {
+        int err;
+
+        /* We do not have a closer process
+         * - have to do an unclean (non blocking) close */
+
+#ifdef HAVE_SENDFILE
+        if (descP->sendfileHandle != INVALID_HANDLE)
+            esock_send_sendfile_deferred_close_msg(env, descP);
+#endif
+
+        err = esock_close_socket(env, descP, FALSE);
+
+        if (err != 0)
+            esock_warning_msg("[UNIX-ESSIO] Failed closing socket without "
+                              "closer process: "
+                              "\r\n   Controlling Process: %T"
+                              "\r\n   Descriptor:          %d"
+                              "\r\n   Errno:               %d (%T)"
+                              "\r\n",
+                              descP->ctrlPid, descP->sock,
+                              err, MKA(env, erl_errno_id(err)));
+    }
+
+}
+
+
+/* A 'down' has occured.
+ * Check the possible processes we monitor in turn:
+ * closer, controlling process (owner), connector, reader, acceptor and writer.
+ *
+ */
+extern
+void essio_down(ErlNifEnv*           env,
+                ESockDescriptor*     descP,
+                const ErlNifPid*     pidP,
+                const ErlNifMonitor* monP)
+{
+    if (COMPARE_PIDS(&descP->closerPid, pidP) == 0) {
+
+        /* The closer process went down
+         * - it will not call nif_finalize_close
+         */
+
+        enif_set_pid_undefined(&descP->closerPid);
+
+        if (MON_EQ(&descP->closerMon, monP)) {
+            MON_INIT(&descP->closerMon);
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down {%d} -> closer process exit\r\n",
+                    descP->sock) );
+
+        } else {
+            // The owner is the closer so we used its monitor
+
+            ESOCK_ASSERT( MON_EQ(&descP->ctrlMon, monP) );
+            MON_INIT(&descP->ctrlMon);
+            enif_set_pid_undefined(&descP->ctrlPid);
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down {%d} -> closer controlling process exit\r\n",
+                    descP->sock) );
+        }
+
+        /* Since the closer went down there was one,
+         * hence esock_close() must have run or scheduled esock_stop(),
+         * or the socket has never been "selected" upon.
+         */
+
+        if (descP->closeEnv == NULL) {
+            int err;
+
+            /* Since there is no closeEnv,
+             * esock_close() did not schedule esock_stop()
+             * and is about to call esock_finalize_close() but died,
+             * or esock_stop() has run, sent close_msg to the closer
+             * and cleared ->closeEnv but the closer died
+             * - we have to do an unclean (non blocking) socket close here
+             */
+
+#ifdef HAVE_SENDFILE
+            if (descP->sendfileHandle != INVALID_HANDLE)
+                esock_send_sendfile_deferred_close_msg(env, descP);
+#endif
+
+            err = esock_close_socket(env, descP, FALSE);
+            if (err != 0)
+                esock_warning_msg("[UNIX-ESSIO] "
+                                  "Failed closing socket for terminating "
+                                  "closer process: "
+                                  "\r\n   Closer Process: %T"
+                                  "\r\n   Descriptor:     %d"
+                                  "\r\n   Errno:          %d (%T)"
+                                  "\r\n",
+                                  MKPID(env, pidP), descP->sock,
+                                  err, MKA(env, erl_errno_id(err)));
+        } else {
+            /* Since there is a closeEnv esock_stop() has not run yet
+             * - when it finds that there is no closer process
+             *   it will close the socket and ignore the close_msg
+             */
+            esock_clear_env("essio_down - close-env", descP->closeEnv);
+            esock_free_env("essio_down - close-env", descP->closeEnv);
+            descP->closeEnv = NULL;
+            descP->closeRef = esock_atom_undefined;
+        }
+
+    } else if (MON_EQ(&descP->ctrlMon, monP)) {
+        MON_INIT(&descP->ctrlMon);
+        /* The owner went down */
+        enif_set_pid_undefined(&descP->ctrlPid);
+
+        if (IS_OPEN(descP->readState)) {
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down {%d} -> controller process exit"
+                    "\r\n   initiate close\r\n",
+                    descP->sock) );
+
+            essio_down_ctrl(env, descP, pidP);
+
+            descP->readState  |= ESOCK_STATE_CLOSING;
+            descP->writeState |= ESOCK_STATE_CLOSING;
+
+        } else {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down {%d} -> controller process exit"
+                    "\r\n   already closed or closing\r\n",
+                    descP->sock) );
+
+        }
+
+    } else if (descP->connectorP != NULL &&
+               MON_EQ(&descP->connector.mon, monP)) {
+        MON_INIT(&descP->connector.mon);
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down {%d} -> connector process exit\r\n",
+                descP->sock) );
+
+        /* connectorP is only set during connection.
+         * Forget all about the ongoing connection.
+         * We might end up connected, but the process that initiated
+         * the connection has died and will never know
+         */
+
+        esock_requestor_release("esock_down->connector",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~ESOCK_STATE_CONNECTING;
+
+    } else {
+        ERL_NIF_TERM sockRef = enif_make_resource(env, descP);
+
+        /* check all operation queue(s): acceptor, writer and reader.
+         *
+         * Is it really any point in doing this if the socket is closed?
+         *
+         */
+
+        if (IS_CLOSED(descP->readState)) {
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down(%T) {%d} -> stray down: %T\r\n",
+                    sockRef, descP->sock, pidP) );
+        } else {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down(%T) {%d} -> other process term\r\n",
+                    sockRef, descP->sock) );
+
+            if (descP->currentReaderP != NULL)
+                essio_down_reader(env, descP, sockRef, pidP, monP);
+            if (descP->currentAcceptorP != NULL)
+                essio_down_acceptor(env, descP, sockRef, pidP, monP);
+            if (descP->currentWriterP != NULL)
+                essio_down_writer(env, descP, sockRef, pidP, monP);
+        }
+    }
+
+}
+
+
+/* ==================================================================== */
+
 /* *** Recv/recvfrom/recvmsg utility functions *** */
 
 /* *** recv_check_reader ***
@@ -4353,7 +6576,7 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
             if (! esock_reader_search4pid(env, descP, &caller)) {
                 if (COMPARE(ref, esock_atom_zero) == 0)
                     goto done_ok;
-                esock_reader_push(env, descP, caller, ref);
+                esock_reader_push(env, descP, caller, ref, NULL);
                 *checkResult = esock_atom_select;
             } else {
                 /* Reader already in queue */
@@ -4963,6 +7186,201 @@ void recv_error_current_reader(ErlNifEnv*       env,
         }
 
         descP->currentReaderP = NULL;
+    }
+}
+
+
+/* *** essio_down_ctrl ***
+ *
+ * Stop after a downed controller (controlling process = owner process)
+ *
+ * This is 'extern' because its currently called from prim_socket_nif
+ * (esock_setopt_otp_ctrl_proc).
+ */
+extern
+void essio_down_ctrl(ErlNifEnv*           env,
+                     ESockDescriptor*     descP,
+                     const ErlNifPid*     pidP)
+{
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_down_ctrl {%d} ->"
+            "\r\n   Pid: %T"
+            "\r\n", descP->sock, MKPID(env, pidP)) );
+
+    if (do_stop(env, descP)) {
+        /* esock_stop() is scheduled
+         * - it has to close the socket
+         */
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_down_ctrl {%d} -> stop was scheduled\r\n",
+                descP->sock) );
+    } else {
+        int err;
+
+        /* Socket is not in the select machinery
+         * so esock_stop() will not be called
+         * - we have to do an unclean (non blocking) socket close here
+         */
+
+#ifdef HAVE_SENDFILE
+        if (descP->sendfileHandle != INVALID_HANDLE)
+            esock_send_sendfile_deferred_close_msg(env, descP);
+#endif
+
+        err = esock_close_socket(env, descP, FALSE);
+        if (err != 0)
+            esock_warning_msg("[UNIX-ESSIO] "
+                              "Failed closing socket for terminating "
+                              "owner process: "
+                              "\r\n   Owner Process:  %T"
+                              "\r\n   Descriptor:     %d"
+                              "\r\n   Errno:          %d (%T)"
+                              "\r\n",
+                              MKPID(env, pidP), descP->sock,
+                              err, MKA(env, erl_errno_id(err)));
+    }
+}
+
+
+
+/* *** essio_down_acceptor ***
+ *
+ * Check and then handle a downed acceptor process.
+ *
+ */
+static
+void essio_down_acceptor(ErlNifEnv*           env,
+                         ESockDescriptor*     descP,
+                         ERL_NIF_TERM         sockRef,
+                         const ErlNifPid*     pidP,
+                         const ErlNifMonitor* monP)
+{
+    if (MON_EQ(&descP->currentAcceptor.mon, monP)) {
+        MON_INIT(&descP->currentAcceptor.mon);
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_acceptor(%T) {%d} -> "
+                "current acceptor - try activate next\r\n",
+                sockRef, descP->sock) );
+        
+        if (!esock_activate_next_acceptor(env, descP, sockRef)) {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down_acceptor(%T) {%d} -> no more writers\r\n",
+                    sockRef, descP->sock) );
+
+            descP->readState &= ~ESOCK_STATE_ACCEPTING;
+
+            descP->currentAcceptorP = NULL;
+        }
+
+    } else {
+        
+        /* Maybe unqueue one of the waiting acceptors */
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_acceptor(%T) {%d} -> "
+                "not current acceptor - maybe a waiting acceptor\r\n",
+                sockRef, descP->sock) );
+        
+        esock_acceptor_unqueue(env, descP, NULL, pidP);
+    }
+}
+
+
+/* *** essio_down_writer ***
+ *
+ * Check and then handle a downed writer process.
+ *
+ */
+
+static
+void essio_down_writer(ErlNifEnv*           env,
+                       ESockDescriptor*     descP,
+                       ERL_NIF_TERM         sockRef,
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP)
+{
+    if (MON_EQ(&descP->currentWriter.mon, monP)) {
+        MON_INIT(&descP->currentWriter.mon);
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_writer(%T) {%d} -> "
+                "current writer - try activate next\r\n",
+                sockRef, descP->sock) );
+        
+        if (!esock_activate_next_writer(env, descP, sockRef)) {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down_writer(%T) {%d} -> no active writer\r\n",
+                    sockRef, descP->sock) );
+
+            descP->currentWriterP = NULL;
+        }
+        
+    } else {
+        
+        /* Maybe unqueue one of the waiting writer(s) */
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_writer(%T) {%d} -> "
+                "not current writer - maybe a waiting writer\r\n",
+                sockRef, descP->sock) );
+        
+        esock_writer_unqueue(env, descP, NULL, pidP);
+    }
+}
+
+
+/* *** essio_down_reader ***
+ *
+ * Check and then handle a downed reader process.
+ *
+ */
+
+static
+void essio_down_reader(ErlNifEnv*           env,
+                       ESockDescriptor*     descP,
+                       ERL_NIF_TERM         sockRef,
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP)
+{
+    if (MON_EQ(&descP->currentReader.mon, monP)) {
+        MON_INIT(&descP->currentReader.mon);
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_reader(%T) {%d} -> "
+                "current reader - try activate next\r\n",
+                sockRef, descP->sock) );
+        
+        if (! esock_activate_next_reader(env, descP, sockRef)) {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down_reader(%T) {%d} -> no more readers\r\n",
+                    sockRef, descP->sock) );
+
+            descP->currentReaderP = NULL;
+        }
+
+    } else {
+        
+        /* Maybe unqueue one of the waiting reader(s) */
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_reader(%T) {%d} -> "
+                "not current reader - maybe a waiting reader\r\n",
+                sockRef, descP->sock) );
+        
+        esock_reader_unqueue(env, descP, NULL, pidP);
     }
 }
 

@@ -41,38 +41,79 @@
     option used. </p>
     <section>
       <title>Asynchronous calls</title>
-      <p>Some functions allow for an <i>asynchronous</i> call
-      (<seeerl marker="socket#accept-nowait"><c>accept/2</c></seeerl>,
-      <seeerl marker="socket#connect-nowait"><c>connect/3</c></seeerl>,
-      <seeerl marker="socket#recv-nowait"><c>recv/3,4</c></seeerl>,
-      <seeerl marker="socket#recvfrom-nowait"><c>recvfrom/3,4</c></seeerl>,
-      <seeerl marker="socket#recvmsg-nowait"><c>recvmsg/2,3,5</c></seeerl>,
-      <seeerl marker="socket#send-nowait"><c>send/3,4</c></seeerl>,
-      <seeerl marker="socket#sendmsg-nowait"><c>sendmsg/3,4</c></seeerl> and
-      <seeerl marker="socket#sendto-nowait"><c>sendto/4,5</c></seeerl>).
-      This is achieved by setting the <c>Timeout</c> argument to
-      <c>nowait</c>. For instance, if calling the
-      <seeerl marker="socket#recv-nowait"><c>recv/3</c></seeerl>
-      function with Timeout set to <c>nowait</c> (i.e. 
-      <c>recv(Sock, 0, nowait)</c>)
-      when there is actually nothing to read, it will return with
-      <c>{select, </c>
-      <seetype marker="socket#select_info"><c>SelectInfo</c></seetype><c>}</c>
-      (<c>SelectInfo</c> contains the
-      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>).
-      When data eventually arrives a 'select message'
+      <p>
+	Some functions allow for an <i>asynchronous</i> call
+	(<seeerl marker="socket#accept-nowait"><c>accept/2</c></seeerl>,
+	<seeerl marker="socket#connect-nowait"><c>connect/3</c></seeerl>,
+	<seeerl marker="socket#recv-nowait"><c>recv/3,4</c></seeerl>,
+	<seeerl marker="socket#recvfrom-nowait"><c>recvfrom/3,4</c></seeerl>,
+	<seeerl marker="socket#recvmsg-nowait"><c>recvmsg/2,3,5</c></seeerl>,
+	<seeerl marker="socket#send-nowait"><c>send/3,4</c></seeerl>,
+	<seeerl marker="socket#sendmsg-nowait"><c>sendmsg/3,4</c></seeerl> and
+	<seeerl marker="socket#sendto-nowait"><c>sendto/4,5</c></seeerl>).
+	This is achieved by setting the <c>Timeout</c> argument to
+	<c>nowait</c>. For instance, if calling the
+	<seeerl marker="socket#recv-nowait"><c>recv/3</c></seeerl>
+	function with Timeout set to <c>nowait</c> (i.e. 
+	<c>recv(Sock, 0, nowait)</c>)
+	when there is actually nothing to read, it will return with:
+      </p>
+      <taglist>
+	<tag>On Unix</tag>
+	<item>
+	  <p>
+	    <c>{select, </c>
+	    <seetype marker="socket#select_info"><c>SelectInfo</c></seetype><c>}</c>
+	  </p>
+	  <p>
+	    <c>SelectInfo</c> contains the
+	    <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>.
+	  </p>
+	</item>
+
+	<tag>On Windows</tag>
+	<item>
+	  <p>
+	    <c>{completion, </c>
+	    <seetype marker="socket#completion_info"><c>CompletionInfo</c></seetype><c>}</c>
+	  </p>
+	  <p>
+	    <c>CompletionInfo</c> contains the
+	    <seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>.
+	  </p>
+	</item>
+      </taglist>
+      <p>When data eventually arrives a 'select' or 'completion' message
       will be sent to the caller:</p>
       <taglist>
-	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
-	<tag></tag>
-	<item><c>{'$socket', socket(), select, SelectHandle}</c></item>
+	<tag>On Unix</tag>
+	<item>
+	  <p>
+	    <c>{'$socket', socket(), select, SelectHandle}</c>
+	  </p>
+	  <p>
+	    The caller can then make another
+	    call to the recv function and now expect data.
+	  </p>
+	  <p>
+	    Note that all other users are <em>locked out</em> until the
+	    'current user' has called the function (recv in this case).
+	    So either immediately call the function or
+	    <seemfa marker="socket#cancel/2"><c>cancel</c></seemfa>.
+	  </p>
+	</item>
+
+	<tag>On Windows</tag>
+	<item>
+	  <p>
+	    <c>{'$socket', socket(), completion, {CompletionHandle, CompletionStatus}}</c>
+	  </p>
+	  <p>
+	    The <c>CompletionStatus</c> contains the result of the
+	    operation (read).
+	  </p>
+	</item>
       </taglist>
-      <p>The caller can then make another
-      call to the recv function and now expect data.</p>
-      <p>Note that all other users are <em>locked out</em> until the
-      'current user' has called the function (recv in this case). So either
-      immediately call the function or
-      <seemfa marker="socket#cancel/2"><c>cancel</c></seemfa>. </p>
       <p>The user must also be prepared to receive an abort message: </p>
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
@@ -101,6 +142,10 @@
 	  <cell>select_handle()</cell>
 	</row>
 	<row>
+	  <cell>completion</cell>
+	  <cell>{completion_handle(), CompletionStatus}</cell>
+	</row>
+	<row>
 	  <cell>abort</cell>
 	  <cell>{select_handle(), Reason :: term()}</cell>
 	</row>
@@ -108,6 +153,8 @@
       </table>
       <p>The <c>select_handle()</c> is the same as was returned in the
       <seetype marker="socket#select_info"><c>SelectInfo</c></seetype>. </p>
+      <p>The <c>completion_handle()</c> is the same as was returned in the
+      <seetype marker="socket#completion_info"><c>CompletionInfo</c></seetype>. </p>
     </section>
   </section>
 
@@ -191,8 +238,11 @@
 	<cell>default | pos_integer() | {pos_integer(), pos_ineteger()}</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>'default' only valid for set.
-	The tuple form is only valid for type 'stream' and protocol 'tcp'.</cell>
+	<cell>
+	  The tuple format is <em>not</em> allowed on Windows.
+	  'default' only valid for set.
+	  The tuple form is only valid for type 'stream' and protocol 'tcp'.
+	</cell>
       </row>
       <row>
 	<cell>rcvctrlbuf</cell>

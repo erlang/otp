@@ -133,73 +133,79 @@ has_support_ipv4() ->
     end.
 
 has_support_ipv6() ->
-    case socket:is_supported(ipv6) of
-        true ->
-            ok;
-        false ->
-            skip("IPv6 Not Supported")
-    end,
-    Domain = inet6,
-    LocalAddr =
-        case which_local_addr(Domain) of
-            {ok, Addr} ->
-                Addr;
-            {error, R1} ->
-                skip(f("Local Address eval failed: ~p", [R1]))
-        end,
-    ServerSock =
-        case socket:open(Domain, dgram, udp) of
-            {ok, SS} ->
-                SS;
-            {error, R2} ->
-                skip(f("(server) socket open failed: ~p", [R2]))
-        end,
-    LocalSA = #{family => Domain, addr => LocalAddr},
-    ServerPort =
-        case socket:bind(ServerSock, LocalSA) of
-            ok ->
-                {ok, #{port := P1}} = socket:sockname(ServerSock),
-                P1;
-            {error, R3} ->
-                socket:close(ServerSock),
-                skip(f("(server) socket bind failed: ~p", [R3]))
-        end,
-    ServerSA = LocalSA#{port => ServerPort},
-    ClientSock =
-        case socket:open(Domain, dgram, udp) of
-            {ok, CS} ->
-                CS;
-            {error, R4} ->
-                skip(f("(client) socket open failed: ~p", [R4]))
-        end,
-    case socket:bind(ClientSock, LocalSA) of
-        ok ->
-            ok;
-        {error, R5} ->
-            socket:close(ServerSock),
-            socket:close(ClientSock),
-            skip(f("(client) socket bind failed: ~p", [R5]))
-    end,
-    case socket:sendto(ClientSock, <<"hejsan">>, ServerSA) of
-        ok ->
-            ok;
-        {error, R6} ->
-            socket:close(ServerSock),
-            socket:close(ClientSock),
-            skip(f("failed socket sendto test: ~p", [R6]))
-    end,
-    case socket:recvfrom(ServerSock) of
-        {ok, {_, <<"hejsan">>}} ->
-            socket:close(ServerSock),
-            socket:close(ClientSock),
-            ok;
-        {error, R7} ->
-            socket:close(ServerSock),
-            socket:close(ClientSock),
-            skip(f("failed socket recvfrom test: ~p", [R7]))
-   end.
-            
-            
+    try
+        begin
+            case socket:is_supported(ipv6) of
+                true ->
+                    ok;
+                false ->
+                    skip("IPv6 Not Supported")
+            end,
+            Domain = inet6,
+            LocalAddr =
+                case which_local_addr(Domain) of
+                    {ok, Addr} ->
+                        Addr;
+                    {error, R1} ->
+                        skip(f("Local Address eval failed: ~p", [R1]))
+                end,
+            ServerSock =
+                case socket:open(Domain, dgram, udp) of
+                    {ok, SS} ->
+                        SS;
+                    {error, R2} ->
+                        skip(f("(server) socket open failed: ~p", [R2]))
+                end,
+            LocalSA = #{family => Domain, addr => LocalAddr},
+            ServerPort =
+                case socket:bind(ServerSock, LocalSA) of
+                    ok ->
+                        {ok, #{port := P1}} = socket:sockname(ServerSock),
+                        P1;
+                    {error, R3} ->
+                        socket:close(ServerSock),
+                        skip(f("(server) socket bind failed: ~p", [R3]))
+                end,
+            ServerSA = LocalSA#{port => ServerPort},
+            ClientSock =
+                case socket:open(Domain, dgram, udp) of
+                    {ok, CS} ->
+                        CS;
+                    {error, R4} ->
+                        skip(f("(client) socket open failed: ~p", [R4]))
+                end,
+            case socket:bind(ClientSock, LocalSA) of
+                ok ->
+                    ok;
+                {error, R5} ->
+                    socket:close(ServerSock),
+                    socket:close(ClientSock),
+                    skip(f("(client) socket bind failed: ~p", [R5]))
+            end,
+            case socket:sendto(ClientSock, <<"hejsan">>, ServerSA) of
+                ok ->
+                    ok;
+                {error, R6} ->
+                    socket:close(ServerSock),
+                    socket:close(ClientSock),
+                    skip(f("failed socket sendto test: ~p", [R6]))
+            end,
+            case socket:recvfrom(ServerSock) of
+                {ok, {_, <<"hejsan">>}} ->
+                    socket:close(ServerSock),
+                    socket:close(ClientSock),
+                    ok;
+                {error, R7} ->
+                    socket:close(ServerSock),
+                    socket:close(ClientSock),
+                    skip(f("failed socket recvfrom test: ~p", [R7]))
+            end
+        end
+    catch
+        error : notsup ->
+            skip("Not supported: socket")
+    end.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -312,7 +318,7 @@ not_yet_implemented() ->
     skip("not yet implemented").
 
 skip(Reason) ->
-    throw({skip, Reason}).
+    exit({skip, Reason}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

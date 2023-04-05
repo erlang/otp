@@ -27,6 +27,7 @@
 #define PRIM_SOCKET_INT_H__
 
 #include <erl_nif.h>
+#include <sys.h>
 
 #include "socket_int.h"
 #include "socket_dbg.h"
@@ -40,6 +41,7 @@
 #if defined(__WIN32__)
 
 #define INVALID_EVENT NULL
+#define SOCKET_FORMAT_STR "%lld"
 
 #else
 
@@ -48,6 +50,7 @@ typedef int HANDLE;
 #define INVALID_SOCKET (-1)
 typedef int SOCKET; /* A subset of HANDLE */
 #define INVALID_EVENT INVALID_HANDLE
+#define SOCKET_FORMAT_STR "%d"
 
 #endif
 
@@ -77,11 +80,17 @@ typedef int SOCKET; /* A subset of HANDLE */
 //
 #define ESOCK_STATE_DTOR         0x8000
 
+#define IS_BOUND(st)                           \
+    (((st) & ESOCK_STATE_BOUND) != 0)
+
 #define IS_CLOSED(st)                           \
     (((st) & ESOCK_STATE_CLOSED) != 0)
 
 #define IS_CLOSING(st)                          \
     (((st) & ESOCK_STATE_CLOSING) != 0)
+
+#define IS_ACCEPTING(st)                        \
+    (((st) & ESOCK_STATE_ACCEPTING) != 0)
 
 #define IS_OPEN(st)                                             \
     (((st) & (ESOCK_STATE_CLOSED | ESOCK_STATE_CLOSING)) == 0)
@@ -89,6 +98,9 @@ typedef int SOCKET; /* A subset of HANDLE */
 #define IS_SELECTED(d)                                                  \
     ((((d)->readState | (d)->writeState) & ESOCK_STATE_SELECTED) != 0)
 
+
+#define ESOCK_DESC_PATTERN_CREATED 0x03030303
+#define ESOCK_DESC_PATTERN_DTOR    0xC0C0C0C0
 
 
 /* ==========================================================================
@@ -319,7 +331,12 @@ typedef struct {
 typedef struct {
     int           flag;
     ERL_NIF_TERM* name;
-} ESockMsgFlag;
+} ESockFlag;
+
+extern const ESockFlag esock_msg_flags[];
+extern const int       esock_msg_flags_length;
+extern const ESockFlag esock_ioctl_flags[];
+extern const int       esock_ioctl_flags_length;
 
 
 /* ********************************************************************* *
@@ -335,7 +352,6 @@ typedef struct {
     /* XXX Should be locked but too awkward and small gain */
     BOOLEAN_T    dbg;
     BOOLEAN_T    useReg;
-    unsigned int ioNumThreads; // Set once and never changed
 
     /* Registry stuff */
     ErlNifPid    regPid; /* Constant - not locked */
@@ -404,8 +420,21 @@ typedef struct {
     ErlNifMutex*       writeMtx;
     /**/
     unsigned int       writeState; // For debugging
+#ifndef __WIN32__
+    /*
+     * On *none* Windows:
+     * This is intended for the *current* writer.
+     * The queue is intended for *waiting* writers.
+     *
+     * *On* Windows:
+     * We let the I/O Completion Ports handle the queue'ing
+     * so we do not need to keep track which request is active
+     * and which are waiting.
+     * We only use the *queue* as a database.
+     */
     ESockRequestor     currentWriter;
     ESockRequestor*    currentWriterP; // NULL or &currentWriter
+#endif
     ESockRequestQueue  writersQ;
     ESockCounter       writePkgCnt;
     ESockCounter       writePkgMax;
@@ -418,6 +447,7 @@ typedef struct {
     HANDLE                 sendfileHandle;
     ESockSendfileCounters* sendfileCountersP;
 #endif
+
     /* +++ Connector +++ */
     ESockRequestor     connector;
     ESockRequestor*    connectorP; // NULL or &connector
@@ -429,8 +459,21 @@ typedef struct {
     ErlNifMutex*       readMtx;
     /**/
     unsigned int       readState; // For debugging
+#ifndef __WIN32__
+    /*
+     * On *none* Windows:
+     * This is intended for the *current* reader.
+     * The queue is intended for *waiting* readers.
+     *
+     * *On* Windows:
+     * We let the I/O Completion Ports handle the queue'ing
+     * so we do not need to keep track which request is active
+     * and which are waiting.
+     * We only use the *queue* as a database.
+     */
     ESockRequestor     currentReader;
     ESockRequestor*    currentReaderP; // NULL or &currentReader
+#endif
     ESockRequestQueue  readersQ;
     ErlNifBinary       rbuffer;      // DO WE NEED THIS
     Uint32             readCapacity; // DO WE NEED THIS
@@ -441,9 +484,23 @@ typedef struct {
     ESockCounter       readTries;
     ESockCounter       readWaits;
     ESockCounter       readFails;
+
     /* +++ Accept stuff +++ */
+#ifndef __WIN32__
+    /*
+     * On *none* Windows:
+     * This is intended for the *current* acceptor.
+     * The queue is intended for *waiting* acceptors.
+     *
+     * *On* Windows:
+     * We let the I/O Completion Ports handle the queue'ing
+     * so we do not need to keep track which request is active
+     * and which are waiting.
+     * We only use the *queue* as a database.
+     */
     ESockRequestor     currentAcceptor;
     ESockRequestor*    currentAcceptorP; // NULL or &currentAcceptor
+#endif
     ESockRequestQueue  acceptorsQ;
     ESockCounter       accSuccess;
     ESockCounter       accTries;
@@ -456,10 +513,14 @@ typedef struct {
      * If rNum is 0 (zero), then rNumCnt is not used and only *one* read will
      * be done. Also, when get'ing the value of the option (rcvbuf) with 
      * getopt, the value will be reported as an integer. If the rNum has a 
-     * value greater then 0 (zero), then it will instead be reported as {N, BufSz}.
+     * value greater then 0 (zero), then it will instead be reported as
+     * {N, BufSz}.
+     * On Windows, rNum and rNumCnt is *not* used!
      */
+#ifndef __WIN32__
     unsigned int       rNum;    // recv: Number of reads using rBufSz
     unsigned int       rNumCnt; // recv: Current number of reads (so far)
+#endif
     size_t             rCtrlSz; // Read control buffer size
 
     /* Locked by readMtx and writeMtx combined for writing,
@@ -477,7 +538,6 @@ typedef struct {
     ESockMonitor       ctrlMon;
     /* +++ The actual socket +++ */
     SOCKET             sock;
-    ErlNifEvent        event;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
     /* +++ The dbg flag for SSDBG +++ */
@@ -486,6 +546,11 @@ typedef struct {
 
     /* Lock order: readMtx, writeMtx, cntMtx
      */
+
+#if defined(ESOCK_DESCRIPTOR_FILLER)
+    char               filler[1024];
+#endif
+
 } ESockDescriptor;
 
 
@@ -503,7 +568,17 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
  * ======================================================================== *
  */
 
-extern ESockDescriptor* esock_alloc_descriptor(SOCKET sock, ErlNifEvent event);
+extern ESockDescriptor* esock_alloc_descriptor(SOCKET sock);
+extern void esock_dealloc_descriptor(ErlNifEnv*       env,
+                                     ESockDescriptor* descP);
+
+extern BOOLEAN_T esock_open_is_debug(ErlNifEnv*   env,
+                                     ERL_NIF_TERM eopts,
+                                     BOOLEAN_T    def);
+extern BOOLEAN_T esock_open_use_registry(ErlNifEnv*   env,
+                                         ERL_NIF_TERM eopts,
+                                         BOOLEAN_T    def);
+extern BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto);
 
 extern BOOLEAN_T esock_getopt_int(SOCKET sock,
                                   int    level,
@@ -512,17 +587,20 @@ extern BOOLEAN_T esock_getopt_int(SOCKET sock,
 
 
 /* ** Socket Registry functions *** */
-#ifndef __WIN32__
 extern void esock_send_reg_add_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
                                    ERL_NIF_TERM sockRef);
 extern void esock_send_reg_del_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
                                    ERL_NIF_TERM sockRef);
-#endif // #ifndef __WIN32__
 
 
 /* *** Message sending functions *** */
+extern void esock_send_simple_abort_msg(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ErlNifPid*       pid,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     reason);
 extern void esock_send_abort_msg(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     sockRef,
@@ -581,9 +659,21 @@ extern int esock_select_cancel(ErlNifEnv*             env,
                                ErlNifEvent            event,
                                enum ErlNifSelectFlags mode,
                                void*                  obj);
+extern ERL_NIF_TERM esock_cancel_write_select(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     opRef);
+extern ERL_NIF_TERM esock_cancel_read_select(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     opRef);
+extern ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     opRef,
+                                             int              smode,
+                                             int              rmode);
 
 
 /* *** Request queue functions *** */
+extern void esock_free_request_queue(ESockRequestQueue* q);
 extern BOOLEAN_T esock_requestor_pop(ESockRequestQueue* q,
                                      ESockRequestor*    reqP);
 
@@ -592,6 +682,7 @@ extern void esock_requestor_release(const char*      slogan,
                                     ErlNifEnv*       env,
                                     ESockDescriptor* descP,
                                     ESockRequestor*  reqP);
+
 
 /* *** esock_activate_next_acceptor ***
  * *** esock_activate_next_writer   ***
@@ -637,7 +728,8 @@ ACTIVATE_NEXT_FUNCS_DEFS
     extern void esock_##O##_push(ErlNifEnv*       env,                 \
                                  ESockDescriptor* descP,               \
                                  ErlNifPid        pid,                 \
-                                 ERL_NIF_TERM     ref);                \
+                                 ERL_NIF_TERM     ref,                 \
+                                 void*            dataP);              \
     extern BOOLEAN_T esock_##O##_pop(ErlNifEnv*       env,     \
                                      ESockDescriptor* descP,   \
                                      ESockRequestor*  reqP);   \
@@ -652,6 +744,7 @@ ESOCK_OPERATOR_FUNCS_DEFS
 /* *** Environment wrapper functions ***
  * These hould really be inline, but for now...
  */
+extern void       esock_clear_env(const char* slogan, ErlNifEnv* env);
 extern void       esock_free_env(const char* slogan, ErlNifEnv* env);
 extern ErlNifEnv* esock_alloc_env(const char* slogan);
 
@@ -696,6 +789,30 @@ extern void esock_encode_msg_flags(ErlNifEnv*       env,
 #endif
 
 
+extern void esock_stop_handle_current(ErlNifEnv*       env,
+                                      const char*      role,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ESockRequestor*  reqP);
+extern void esock_inform_waiting_procs(ErlNifEnv*         env,
+                                       const char*        role,
+                                       ESockDescriptor*   descP,
+                                       ERL_NIF_TERM       sockRef,
+                                       ESockRequestQueue* q,
+                                       ERL_NIF_TERM       reason);
+
+
+/* *** Control Message 'stuff' ***
+ */
+extern void* esock_init_cmsghdr(struct cmsghdr* cmsgP,
+                                size_t          rem,  // Remaining space
+                                size_t          size, // Size of data
+                                size_t*         usedP);
+extern ESockCmsgSpec* esock_lookup_cmsg_table(int level, size_t *num);
+extern ESockCmsgSpec* esock_lookup_cmsg_spec(ESockCmsgSpec* table,
+                                             size_t         num,
+                                             ERL_NIF_TERM   eType);
+
 /* *** Sendfile 'stuff' ***
  */
 #ifdef HAVE_SENDFILE
@@ -704,16 +821,32 @@ extern ESockSendfileCounters initESockSendfileCounters;
 
 #endif
 
+/* *** message functions ****
+ */
+extern void esock_send_wrap_msg(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     cnt);
+extern BOOLEAN_T esock_send_msg(ErlNifEnv*   env,
+                                ErlNifPid*   pid,
+                                ERL_NIF_TERM msg,
+                                ErlNifEnv*   msgEnv);
+extern ERL_NIF_TERM esock_mk_socket_msg(ErlNifEnv*   env,
+                                        ERL_NIF_TERM sockRef,
+                                        ERL_NIF_TERM tag,
+                                        ERL_NIF_TERM info);
+extern ERL_NIF_TERM esock_mk_socket(ErlNifEnv*   env,
+                                    ERL_NIF_TERM sockRef);
+#ifdef HAVE_SENDFILE
+extern void esock_send_sendfile_deferred_close_msg(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP);
+#endif
+
 
 /* *** 'close' functions ***
  */
-#ifndef __WIN32__
-extern BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
-                               ESockDescriptor* descP);
 extern int esock_close_socket(ErlNifEnv*       env,
                               ESockDescriptor* descP,
                               BOOLEAN_T        unlock);
-#endif
-
 
 #endif // PRIM_SOCKET_INT_H__
