@@ -12591,11 +12591,11 @@ ESockRequestQueueElement* qget(ErlNifEnv*         env,
     ESockRequestQueueElement* e = q->first;
     ESockRequestQueueElement* p = NULL;
 
-    /* Check if it was one of the waiting acceptor processes */
+    /* Check if it was one of the waiting requestor processes */
     while (e != NULL) {
         if (COMPARE_PIDS(&e->data.pid, pidP) == 0) {
             if ((refP != NULL) && (COMPARE(e->data.ref, *refP) != 0))
-                return FALSE;
+                return NULL;
 
             /* We have a match */
 
