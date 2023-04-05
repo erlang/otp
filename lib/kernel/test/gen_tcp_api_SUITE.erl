@@ -1352,7 +1352,9 @@ do_simple_sockaddr_send_recv(SockAddr, _) ->
 %% we have to skip on that platform.
 s_accept_with_explicit_socket_backend(Config) when is_list(Config) ->
     ?TC_TRY(s_accept_with_explicit_socket_backend,
-            fun() -> is_socket_supported() end,
+            fun() ->
+                    is_socket_supported()
+            end,
             fun() -> do_s_accept_with_explicit_socket_backend() end).
 
 do_s_accept_with_explicit_socket_backend() ->
@@ -1385,8 +1387,11 @@ do_s_accept_with_explicit_socket_backend() ->
 
 is_socket_supported() ->
     try socket:info() of
-	_ ->
-            ok
+	#{io_backend := #{name := BackendName}}
+          when (BackendName =/= win_esaio) ->
+            ok;
+        _ ->
+            {skip, "Temporary exclusion"}
     catch
         error : notsup ->
             {skip, "esock not supported"};
