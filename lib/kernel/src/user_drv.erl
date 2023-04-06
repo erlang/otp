@@ -91,9 +91,9 @@
                  current_group :: pid() | undefined,
                  groups, queue }).
 
--type shell() :: {module(), atom(), arity()} | {node(), module(), atom(), arity()}.
+-type shell() :: {module(), atom(), [term()]} | {node(), module(), atom(), [term()]}.
 -type arguments() :: #{ initial_shell => noshell | shell() |
-                        {remote, unicode:charlist()} | {remote, unicode:charlist(), mfa()},
+                        {remote, unicode:charlist()} | {remote, unicode:charlist(), {module(), atom(), [term()]}},
                         input => boolean() }.
 
 %% Default line editing shell
