@@ -37,6 +37,7 @@
   <xi:include href="LTTng.xml"/>
   <xi:include href="DTRACE.xml"/>
   <xi:include href="SYSTEMTAP.xml"/>
+  <xi:include href="erts_alloc_config.xml"/>
 </part>
           
 

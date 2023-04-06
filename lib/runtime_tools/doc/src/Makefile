@@ -39,7 +39,6 @@ XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = \
 	dbg.xml \
 	dyntrace.xml \
-	erts_alloc_config.xml \
 	instrument.xml \
 	system_information.xml \
 	msacc.xml \
@@ -47,7 +46,7 @@ XML_REF3_FILES = \
 XML_REF6_FILES = runtime_tools_app.xml
 
 XML_PART_FILES = part.xml
-XML_CHAPTER_FILES = notes.xml LTTng.xml
+XML_CHAPTER_FILES = notes.xml LTTng.xml erts_alloc_config.xml
 
 GENERATED_XML_FILES = DTRACE.xml SYSTEMTAP.xml
 
