@@ -84,7 +84,7 @@
       A process that opens a disk log can be an <em>owner</em>
       or an anonymous <em>user</em> of the disk log. Each owner is 
       linked to the disk log process, and an owner can close the disk log
-      either explicitly (by calling <c>close/1</c> or <c>lclose/1,2</c>)
+      either explicitly (by calling <c>close/1</c>)
       or by terminating.</p>
       <p>Owners can subscribe to <em>notifications</em>,
       messages of the form <c>{disk_log, Node, Log, Info}</c>, which are sent
@@ -221,20 +221,7 @@
           </p>
       </desc>
     </func>
-    <func>
-      <name name="accessible_logs" arity="0" since=""/>
-      <fsummary>Return the accessible disk logs on the current node.</fsummary>
-      <desc>
-        <p>Returns the names of the disk logs accessible on the current node.
-	  The first list contains the logs. The second list is always empty
-	  (before Erlang/OTP 24.0 it used to contain so called distributed
-	  disk logs).
-	  </p>
-	<note><p>This function is deprecated.
-	  Use <seemfa marker="#all/0"><c>all/0</c></seemfa> instead.
-          </p></note>
-      </desc>
-    </func>
+   
     <func>
       <name name="alog" arity="2" since=""/>
       <name name="balog" arity="2" since=""/>
@@ -661,27 +648,7 @@
           </p>
       </desc>
     </func>
-    <func>
-      <name name="lclose" arity="1" since=""/>
-      <name name="lclose" arity="2" since=""/>
-      <fsummary>Close a disk log on one node.</fsummary>
-      <type name="lclose_error_rsn"/>
-      <desc>
-        <p><c>lclose/1</c> closes a disk log on the current node.</p>
-        <p><c>lclose/2</c> closes a disk log on the
-          current node if <anno>Node</anno> is the current node.</p>
-        <p><c>lclose(<anno>Log</anno>)</c> is equivalent to
-          <c>lclose(<anno>Log</anno>,&nbsp;node())</c>.
-          See also <seeerl marker="#close_1"><c>close/1</c></seeerl>.
-          </p>
-        <p>If no log with the specified name exist on the current node,
-	<c>no_such_log</c> is returned.
-          </p>
-	<note><p>These functions are deprecated. Use
-	  <seemfa marker="#close/1"><c>close/1</c></seemfa>
-	  instead.</p></note>
-      </desc>
-    </func>
+
     <func>
       <name name="log" arity="2" since=""/>
       <name name="blog" arity="2" since=""/>

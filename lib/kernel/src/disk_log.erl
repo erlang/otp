@@ -24,13 +24,13 @@
 -export([start/0, istart_link/1, 
 	 log/2, log_terms/2, blog/2, blog_terms/2,
 	 alog/2, alog_terms/2, balog/2, balog_terms/2,
-	 close/1, lclose/1, lclose/2, sync/1, open/1, 
+	 close/1, sync/1, open/1, 
 	 truncate/1, truncate/2, btruncate/2,
 	 reopen/2, reopen/3, breopen/3, inc_wrap_file/1, change_size/2,
 	 change_notify/3, change_header/2, 
 	 chunk/2, chunk/3, bchunk/2, bchunk/3, chunk_step/3, chunk_info/1,
 	 block/1, block/2, unblock/1, info/1, format_error/1,
-	 accessible_logs/0, all/0, next_file/1]).
+	 all/0, next_file/1]).
 
 %% Internal exports
 -export([init/2, internal_open/2,
@@ -47,10 +47,11 @@
 
 -export_type([continuation/0]).
 
--deprecated([{accessible_logs, 0, "use disk_log:all/0 instead"},
-             {inc_wrap_file, 1, "use disk_log:next_file/1 instead"},
-             {lclose, 1, "use disk_log:close/1 instead"},
-             {lclose, 2, "use disk_log:close/1 instead"}]).
+-deprecated([{inc_wrap_file, 1, "use disk_log:next_file/1 instead"}]).
+
+-removed([{accessible_logs, 0, "use disk_log:all/0 instead"},
+          {lclose, 1, "use disk_log:close/1 instead"},
+          {lclose, 2, "use disk_log:close/1 instead"}]).
 
 -type dlog_state_error() :: 'ok' | {'error', term()}.
 
@@ -185,22 +186,6 @@ balog_terms(Log, Bytess) ->
       Log :: log().
 close(Log) -> 
     req(Log, close).
-
--type lclose_error_rsn() :: 'no_such_log'
-                          | {'file_error', file:filename(), file_error()}.
-
--spec lclose(Log) -> 'ok' | {'error', lclose_error_rsn()} when
-      Log :: log().
-lclose(Log) ->
-    lclose(Log, node()).
-
--spec lclose(Log, Node) -> 'ok' | {'error', lclose_error_rsn()} when
-      Log :: log(),
-      Node :: node().
-lclose(Log, Node) when node() =:= Node ->
-    req(Log, close);
-lclose(_Log, _Node) ->
-    {error, no_such_log}.
 
 -type trunc_error_rsn() :: 'no_such_log' | 'nonode'
                          | {'read_only_mode', log()}
@@ -536,11 +521,6 @@ chunk_info(More = #continuation{}) ->
    [{node, node(More#continuation.pid)}];
 chunk_info(BadCont) ->
    {error, {no_continuation, BadCont}}.
-
--spec accessible_logs() -> {[Log], []} when
-      Log :: log().
-accessible_logs() ->
-    {disk_log_server:all(), []}.
 
 -spec all() -> [Log] when
       Log :: log().
