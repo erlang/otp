@@ -27,12 +27,7 @@
 -removed({parse, 2, "use uri_string functions instead"}).
 -removed({scheme_defaults, 0, "use uri_string functions instead"}).
 
--export_type([uri/0]).
-
--type uri() :: string() | binary().
--type hex_uri() :: string() | binary(). %% Hexadecimal encoded URI.
--type maybe_hex_uri() :: string() | binary(). %% A possibly hexadecimal encoded URI.
-
+-removed_type({uri, 0, "use uri_string instead"}).
 -removed_type({user_info, 0, "use uri_string instead"}).
 -removed_type({scheme, 0, "use uri_string instead"}).
 -removed_type({host, 0, "use uri_string instead"}).
@@ -49,7 +44,6 @@ reserved() ->
             $#, $[, $], $<, $>, $\", ${, $}, $|, %"
 			       $\\, $', $^, $%, $ ]).
 
--spec encode(uri()) -> hex_uri().
 encode(URI) when is_list(URI) ->
     Reserved = reserved(), 
     lists:append([uri_encode(Char, Reserved) || Char <- URI]);
@@ -57,7 +51,6 @@ encode(URI) when is_binary(URI) ->
     Reserved = reserved(),
     << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
 
--spec decode(maybe_hex_uri()) -> uri().
 decode(String) when is_list(String) ->
     do_decode(String);
 decode(String) when is_binary(String) ->

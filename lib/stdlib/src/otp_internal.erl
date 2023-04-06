@@ -50,25 +50,11 @@ obsolete(erlang, phash, 2) ->
 obsolete(file, pid2name, 1) ->
     {deprecated, "this functionality is no longer supported", "OTP 27"};
 obsolete(http_uri, decode, 1) ->
-    {deprecated, "use uri_string:unquote function instead", "OTP 26"};
+    {deprecated, "use uri_string:unquote function instead", "OTP 27"};
 obsolete(http_uri, encode, 1) ->
-    {deprecated, "use uri_string:quote function instead", "OTP 26"};
+    {deprecated, "use uri_string:quote function instead", "OTP 27"};
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
-obsolete(httpd_util, decode_hex, 1) ->
-    {deprecated, "use uri_string:unquote function instead", "OTP 26"};
-obsolete(httpd_util, encode_hex, 1) ->
-    {deprecated, "use uri_string:quote function instead", "OTP 26"};
-obsolete(httpd_util, flatlength, 1) ->
-    {deprecated, "use erlang:iolist_size/1 instead", "OTP 26"};
-obsolete(httpd_util, hexlist_to_integer, 1) ->
-    {deprecated, "use erlang:list_to_integer/2 with base 16 instead", "OTP 26"};
-obsolete(httpd_util, integer_to_hexlist, 1) ->
-    {deprecated, "use erlang:integer_to_list/2 with base 16 instead", "OTP 26"};
-obsolete(httpd_util, strip, 1) ->
-    {deprecated, "use string:trim/1 instead", "OTP 26"};
-obsolete(httpd_util, suffix, 1) ->
-    {deprecated, "use filename:extension/1 and string:trim/2 instead", "OTP 26"};
 obsolete(net, broadcast, 3) ->
     {deprecated, "use rpc:eval_everywhere/3 instead"};
 obsolete(net, call, 4) ->
@@ -193,6 +179,20 @@ obsolete(httpd_conf, is_file, 1) ->
     {removed, "use filelib:is_file/1 instead"};
 obsolete(httpd_conf, make_integer, 1) ->
     {removed, "use erlang:list_to_integer/1 instead"};
+obsolete(httpd_util, decode_hex, 1) ->
+    {removed, "use uri_string:unquote function instead"};
+obsolete(httpd_util, encode_hex, 1) ->
+    {removed, "use uri_string:quote function instead"};
+obsolete(httpd_util, flatlength, 1) ->
+    {removed, "use erlang:iolist_size/1 instead"};
+obsolete(httpd_util, hexlist_to_integer, 1) ->
+    {removed, "use erlang:list_to_integer/2 with base 16 instead"};
+obsolete(httpd_util, integer_to_hexlist, 1) ->
+    {removed, "use erlang:integer_to_list/2 with base 16 instead"};
+obsolete(httpd_util, strip, 1) ->
+    {removed, "use string:trim/1 instead"};
+obsolete(httpd_util, suffix, 1) ->
+    {removed, "use filename:extension/1 and string:trim/2 instead"};
 obsolete(net, relay, 1) ->
     {removed, "use fun Relay(Pid) -> receive X -> Pid ! X end, Relay(Pid) instead"};
 obsolete(public_key, ssh_decode, 2) ->
@@ -279,6 +279,8 @@ obsolete_type(http_uri, path, 0) ->
 obsolete_type(http_uri, query, 0) ->
     {removed, "use uri_string instead"};
 obsolete_type(http_uri, scheme, 0) ->
+    {removed, "use uri_string instead"};
+obsolete_type(http_uri, uri, 0) ->
     {removed, "use uri_string instead"};
 obsolete_type(http_uri, user_info, 0) ->
     {removed, "use uri_string instead"};

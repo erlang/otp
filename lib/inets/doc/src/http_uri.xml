@@ -42,53 +42,46 @@
   
   <section>
     <title>DATA TYPES</title>
-    <p>Type definitions that are used more than once in
-      this module:</p>
-    <p><c>boolean() = true | false</c></p>
-    <p><c>string()</c> = list of ASCII characters</p>
-
-  </section>
-  
-  <section>
-    <title>URI DATA TYPES</title>
     <p>Type definitions that are related to URI:</p>
     
-<taglist>
-       <tag><c>uri() = string() | binary()</c></tag>
-       <item><p>Syntax according to the URI definition in RFC 3986,
-       for example, "http://www.erlang.org/"</p></item>
-     </taglist>
-   
-     <p>For more information about URI, see
-     <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.</p>
+    <taglist>
+      <tag><c>uri_part() = [byte()] | binary()</c></tag>
+      <item><p>Syntax according to the URI definition in RFC 3986,
+      for example, "http://www.erlang.org/"</p></item>
+    </taglist>
+    
+    <p>For more information about URI, see
+    <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.</p>
   </section>
   
   <funcs>
     <func>
-      <name since="OTP R15B01">decode(HexEncodedURI) -> URI</name>
+      <name since="OTP R15B01">decode(EncodedPart) -> DecodePart</name>
       
-      <fsummary>Decodes a hexadecimal encoded URI.</fsummary>
-      <type>
-        <v>HexEncodedURI = string() | binary() - A possibly hexadecimal encoded URI</v>
-        <v>URI = uri()</v>
+      <fsummary>Decodes a percent encoded URI part.</fsummary>
+      <type> 
+        <v>EncodedPart = uri_part() - A possibly percent encoded URI part</v>
+	<v>DecodePart = uri_part()</v>
       </type>
 
       <desc>
-        <p>Decodes a possibly hexadecimal encoded URI.</p>
+	<warning><p>Do not use will be removed use <seemfa marker="stdlib:uri_string#unquote/1">uri_string:unquote/1</seemfa> instead </p></warning>
+        <p>Decodes a possibly percent encoded URI part</p>
 
       </desc>
     </func>
     <func>
-      <name since="OTP R15B01">encode(URI) -> HexEncodedURI</name>
+      <name since="OTP R15B01">encode(DecodedPart) -> EncodedPart</name>
       
-      <fsummary>Encodes a hexadecimal encoded URI.</fsummary>
+      <fsummary>Performes percent encoding</fsummary>
       <type>
-        <v>URI = uri()</v>
-        <v>HexEncodedURI = string() | binary() - Hexadecimal encoded URI</v>
+        <v>DecodePart = uri_part()</v>
+        <v>EncodedPart = uri_part() - Percent encoded URI part</v>
       </type>
 
       <desc>
-        <p>Encodes a hexadecimal encoded URI.</p>
+	<warning><p>Do not use will be removed use <seemfa marker="stdlib:uri_string#quote/1">uri_string:quote/1</seemfa> instead </p> </warning>
+        <p>Performes prrcent encoding.</p>
 
         <marker id="decode"></marker>
       </desc>

@@ -87,57 +87,6 @@
     </func>
 
     <func>
-      <name since="">decode_hex(HexValue) -> DecValue</name>
-      <fsummary>Converts a hexadecimal value into its decimal equivalent.</fsummary>
-      <type>
-        <v>HexValue = DecValue = string()</v>
-      </type>
-      <desc>
-        <p>Converts the hexadecimal value <c>HexValue</c> into its
-          decimal equivalent (<c>DecValue</c>).</p>
-      </desc>
-    </func>
-    
-    <func>
-      <name since="">flatlength(NestedList) -> Size</name>
-      <fsummary>Computes the size of a possibly nested list.</fsummary>
-      <type>
-        <v>NestedList = list()</v>
-        <v>Size = integer()</v>
-      </type>
-      <desc>
-        <p><c>flatlength/1</c> computes the size of the possibly nested
-          list <c>NestedList</c>, which can contain binaries.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="">hexlist_to_integer(HexString) -> Number</name>
-      <fsummary>Converts a hexadecimal string to an integer.</fsummary>
-      <type>
-        <v>Number = integer()</v>
-        <v>HexString = string()</v>
-      </type>
-      <desc>
-        <p><c>hexlist_to_integer</c> converts the hexadecimal value of 
-          <c>HexString</c> to an integer.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="">integer_to_hexlist(Number) -> HexString</name>
-      <fsummary>Converts an integer to a hexadecimal string.</fsummary>
-      <type>
-        <v>Number = integer()</v>
-        <v>HexString = string()</v>
-      </type>
-      <desc>
-        <p><c>integer_to_hexlist/1</c> returns a string representing
-          <c>Number</c> in a hexadecimal form.</p>
-      </desc>
-    </func>
-
-    <func>
       <name since="">lookup(ETSTable,Key) -> Result</name>
       <name since="">lookup(ETSTable,Key,Undefined) -> Result</name>
       <fsummary>Extracts the first value associated with a <c>Key</c> 
@@ -349,39 +298,11 @@
           for longest possible <c>Path</c> being a file or a
           directory. Everything after the longest possible
           <c>Path</c>, isolated with a <c>/</c>, is regarded as
-          <c>PathInfo</c>. The resulting <c>Path</c> is decoded using
-          <c>decode_hex/1</c> before delivery.</p>
+          <c>PathInfo</c></p>
       </desc>
     </func>
-
-    <func>
-      <name since="">strip(String) -> Stripped</name>
-      <fsummary>Returns <c>String</c> where the leading and trailing space 
-      tabs are removed.</fsummary>
-      <type>
-        <v>String = Stripped = string()</v>
-      </type>
-      <desc>
-        <p><c>strip/1</c> removes any leading or trailing linear white
-          space from the string. Linear white space is to be read as
-          horizontal tab or space.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="">suffix(FileName) -> Suffix</name>
-      <fsummary>Extracts the file suffix from a given filename.</fsummary>
-      <type>
-        <v>FileName = Suffix = string()</v>
-      </type>
-      <desc>
-        <p><c>suffix/1</c> is equivalent to
-          <c>filename:extension/1</c> with the exception that
-          <c>Suffix</c> is returned without a leading dot (<c>.</c>).</p>
-      </desc>
-    </func>
-  </funcs>
-
+    </funcs>
+    
   <section>
     <title>SEE ALSO</title>
     <p><seeerl marker="httpd">httpd(3)</seeerl></p>
