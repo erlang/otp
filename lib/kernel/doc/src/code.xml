@@ -1058,17 +1058,6 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="is_module_native" arity="1" since=""/>
-      <fsummary>Test if a module has native code.</fsummary>
-      <desc>
-        <p>Returns <c>false</c> if the given <c><anno>Module</anno></c> is
-          loaded, and <c>undefined</c> if it is not.</p>
-        <warning><p>This function is deprecated and will be removed in a future
-          release.</p></warning>
-      </desc>
-    </func>
-
-    <func>
       <name name="get_mode" arity="0" since="OTP R16B"/>
       <fsummary>The mode of the code server.</fsummary>
       <desc>

@@ -31,10 +31,6 @@ obsolete(auth, is_auth, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
-obsolete(code, is_module_native, 1) ->
-    {deprecated, "HiPE has been removed", "OTP 26"};
-obsolete(code, rehash, 0) ->
-    {deprecated, "the code path cache feature has been removed", "OTP 26"};
 obsolete(crypto, crypto_dyn_iv_init, 3) ->
     {deprecated, "see the documentation for details", "OTP 27"};
 obsolete(crypto, crypto_dyn_iv_update, 3) ->
@@ -95,6 +91,10 @@ obsolete(zlib, inflateChunk, 2) ->
     {deprecated, "use safeInflate/2 instead", "OTP 27"};
 obsolete(zlib, setBufSize, 2) ->
     {deprecated, "this function will be removed in a future release", "OTP 27"};
+obsolete(code, is_module_native, 1) ->
+    {removed, "HiPE has been removed"};
+obsolete(code, rehash, 0) ->
+    {removed, "the code path cache feature has been removed"};
 obsolete(core_lib, get_anno, 1) ->
     {removed, "use cerl:get_ann/1 instead"};
 obsolete(core_lib, is_literal, 1) ->

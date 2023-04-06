@@ -67,7 +67,6 @@
      del_paths/1,
      clear_cache/0,
 	 replace_path/2,replace_path/3,
-	 rehash/0,
 	 start_link/0,
 	 which/1,
          get_doc/1,
@@ -81,8 +80,8 @@
          modified_modules/0,
          get_mode/0]).
 
--deprecated({rehash,0,"the code path cache feature has been removed"}).
--deprecated({is_module_native,1,"HiPE has been removed"}).
+-removed({rehash,0,"the code path cache feature has been removed"}).
+-removed({is_module_native,1,"HiPE has been removed"}).
 
 -export_type([load_error_rsn/0, load_ret/0]).
 -export_type([prepared_code/0]).
@@ -113,7 +112,7 @@
 
 %%% BIFs
 
--export([get_chunk/2, is_module_native/1, module_md5/1]).
+-export([get_chunk/2, module_md5/1]).
 
 -spec get_chunk(Bin, Chunk) ->
                        binary() | undefined when
@@ -136,16 +135,6 @@ get_chunk_1(Beam, Chunk) ->
                 (catch erlang:error(new_stacktrace, [Beam, Chunk])),
             erlang:raise(error, Reason, [{Mod,get_chunk,L,Loc}|Rest])
     end.
-
--spec is_module_native(Module) -> true | false | undefined when
-      Module :: module().
-is_module_native(Module) when is_atom(Module) ->
-    case is_loaded(Module) of
-        {file, _} -> false;
-        false -> undefined
-    end;
-is_module_native(Module) ->
-    erlang:error(badarg, [Module]).
 
 -spec module_md5(binary()) -> binary() | undefined.
 
@@ -470,11 +459,6 @@ replace_path(Name, Dir) ->
 replace_path(Name, Dir, Cache) when (is_atom(Name) orelse is_list(Name)),
                  (is_atom(Dir) orelse is_list(Dir)), ?is_cache(Cache) ->
     call({replace_path,Name,Dir,Cache}).
-
--spec rehash() -> 'ok'.
-rehash() ->
-    cache_warning(),
-    ok.
 
 -spec get_mode() -> 'embedded' | 'interactive'.
 get_mode() -> call(get_mode).
