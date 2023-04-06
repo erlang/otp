@@ -26,6 +26,7 @@
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
+-compile(nowarn_export_all).
 
 %% -- Misc os command and stuff
 

@@ -27,6 +27,7 @@
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
+-compile(nowarn_export_all).
 
 dummy_server(SocketType, Inet, Extra) ->
     dummy_server(self(), SocketType, Inet, Extra).
