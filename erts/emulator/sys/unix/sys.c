@@ -1061,7 +1061,7 @@ init_smp_sig_notify(void)
 {
     erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
-    thr_opts.name = "sys_sig_dispatcher";
+    thr_opts.name = "erts_ssig_disp";
 
     if (pipe(sig_notify_fds) < 0) {
 	erts_exit(ERTS_ABORT_EXIT,
@@ -1111,9 +1111,10 @@ erts_sys_main_thread(void)
 #else
     /* Become signal receiver thread... */
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_set_thread_name("signal_receiver");
+    erts_lc_set_thread_name("main");
 #endif
 #endif
+    erts_thr_setname("erts_main");
     smp_sig_notify(0); /* Notify initialized */
 
     /* Wait for a signal to arrive... */

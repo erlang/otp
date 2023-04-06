@@ -8781,7 +8781,7 @@ erts_start_schedulers(void)
 {
     ethr_tid tid;
     int res = 0;
-    char name[32];
+    char name[ETHR_THR_NAME_MAX + 1];
     ethr_thr_opts opts = ETHR_THR_OPTS_DEFAULT_INITER;
     int ix;
 
@@ -8791,7 +8791,7 @@ erts_start_schedulers(void)
 
     if (erts_runq_supervision_interval) {
 	opts.suggested_stack_size = 16;
-        erts_snprintf(opts.name, sizeof(name), "runq_supervisor");
+        erts_snprintf(opts.name, sizeof(name), "erts_runq_sup");
 	erts_atomic_init_nob(&runq_supervisor_sleeping, 0);
 	if (0 != ethr_event_init(&runq_supervision_event))
 	    erts_exit(ERTS_ABORT_EXIT, "Failed to create run-queue supervision event\n");
@@ -8812,7 +8812,7 @@ erts_start_schedulers(void)
     for (ix = 0; ix < erts_no_schedulers; ix++) {
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
 	ASSERT(ix == esdp->no - 1);
-	erts_snprintf(opts.name, sizeof(name), "%lu_scheduler", ix + 1);
+	erts_snprintf(opts.name, sizeof(name), "erts_sched_%d", ix + 1);
 	res = ethr_thr_create(&esdp->tid, sched_thread_func, (void*)esdp, &opts);
 	if (res != 0) {
            erts_exit(ERTS_ABORT_EXIT, "Failed to create scheduler thread %d, error = %d\n", ix, res);
@@ -8826,7 +8826,7 @@ erts_start_schedulers(void)
     {
 	for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
-	    erts_snprintf(opts.name, sizeof(name), "%d_dirty_cpu_scheduler", ix + 1);
+	    erts_snprintf(opts.name, sizeof(name), "erts_dcpus_%d", ix + 1);
             opts.suggested_stack_size = erts_dcpu_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_cpu_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
@@ -8834,7 +8834,7 @@ erts_start_schedulers(void)
 	}
 	for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
-	    erts_snprintf(opts.name, sizeof(name), "%d_dirty_io_scheduler", ix + 1);
+	    erts_snprintf(opts.name, sizeof(name), "erts_dios_%d", ix + 1);
             opts.suggested_stack_size = erts_dio_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_io_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
@@ -8845,7 +8845,7 @@ erts_start_schedulers(void)
     ix = 0;
     while (ix < erts_no_aux_work_threads) {
 	int id = ix == 0 ? 1 : ix + 1 - (int) erts_no_schedulers;
-	erts_snprintf(opts.name, sizeof(name), "%d_aux", id);
+	erts_snprintf(opts.name, sizeof(name), "erts_aux_%d", id);
 
 	res = ethr_thr_create(&tid, aux_thread, (void *) (Sint) ix, &opts);
 	if (res != 0)
@@ -8872,7 +8872,7 @@ erts_start_schedulers(void)
         bpt->blocked = 0;
         bpt->id = ix;
         
-        erts_snprintf(opts.name, sizeof(name), "%d_poller", ix);
+        erts_snprintf(opts.name, sizeof(name), "erts_poll_%d", ix);
 
         res = ethr_thr_create(&tid, poll_thread, (void*) bpt, &opts);
         if (res != 0)

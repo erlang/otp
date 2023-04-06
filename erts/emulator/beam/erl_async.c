@@ -199,7 +199,7 @@ erts_init_async(void)
 	for (i = 0; i < erts_async_max_threads; i++) {
 	    ErtsAsyncQ *aq = async_q(i);
 
-            erts_snprintf(thr_opts.name, sizeof(thr_name), "async_%d", i+1);
+            erts_snprintf(thr_opts.name, sizeof(thr_name), "erts_async_%d", i+1);
 
 	    erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);
 	}
