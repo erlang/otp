@@ -482,7 +482,7 @@ expand_expr({call,A,{atom,_,e},[N]}, C) ->
     end;
 expand_expr({call,CA,{atom,VA,v},[N]}, C) ->
     case get_cmd(N, C) of
-        {_,undefined,_} ->
+        {undefined,_,_} ->
             no_command(N);
         {Ces,_V,CommandN} when is_list(Ces) ->
             {call,CA,{atom,VA,v},[{integer,VA,CommandN}]}
