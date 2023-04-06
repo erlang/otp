@@ -76,6 +76,7 @@ groups() ->
      {sim_http, [], only_simulated() ++ server_closing_connection() ++
           [process_leak_on_keepalive]},
      {http_internal, [], real_requests_esi()},
+     {http_internal_minimum_bytes, [], [remote_socket_close_parallel]},
      {http_unix_socket, [], simulated_unix_socket()},
      {https, [], [def_ssl_opt | real_requests()]},
      {sim_https, [], only_simulated()},
@@ -353,7 +354,8 @@ init_per_testcase(persistent_connection, Config) ->
 		       {max_keep_alive_length, 3}], persistent),
 
     Config;
-init_per_testcase(wait_for_whole_response, Config) ->
+init_per_testcase(Case, Config) when Case == wait_for_whole_response;
+                                     Case == remote_socket_close_parallel ->
     ct:timetrap({seconds, 60*3}),
     Config;
 init_per_testcase(Case, Config) when Case == post;
@@ -1907,6 +1909,82 @@ def_ssl_opt(_Config) ->
     {'EXIT', _} = catch httpc:ssl_verify_host_options(other),
     ok.
 
+%%-------------------------------------------------------------------------
+remote_socket_close_parallel() ->
+    [{doc,
+      "Verify remote socket closure (related tickets: OTP-18509, OTP-18545,"
+      "ERIERL-937). Transferred data size needs to be significant, so that "
+      "socket is closed, in the middle of a transfer."
+      "Note: test case is require good network and CPU - due to that "
+      " it is not included in all()."}].
+remote_socket_close_parallel(Config0) when is_list(Config0) ->
+    ClientNumber = 200,
+    Config = [{iterations, 10} | Config0],
+    ClientPids =
+        [spawn(?MODULE, connect, [self(), [{client_id, Id} | Config]]) ||
+            Id <- lists:seq(1, ClientNumber)],
+    ct:log("Started ~p clients: ~w", [ClientNumber, ClientPids]),
+    Receive = fun(S) ->
+                      receive
+                          ok ->
+                              ct:log("++ Client finished (~p)", [S]),
+                              ok;
+                          Other ->
+                              ct:fail(Other)
+                      end
+              end,
+    [ok = Receive(S) || S <- lists:seq(1, ClientNumber)],
+    ok.
+
+connect(From, Config) ->
+    From ! loop(?config(iterations, Config),
+                io_lib:format("C~p|", [?config(client_id, Config)]),
+                Config).
+
+loop(0, Acc, _Config) ->
+    ct:log("~n~s|", [Acc]),
+    ok;
+loop(Cnt, Acc, Config) ->
+    case request(Config) of
+        {ok, {{_,200,"OK"}, _, _}} ->
+            case process_info(self(), message_queue_len) of
+                {message_queue_len,0} ->
+                    loop(Cnt-1, Acc ++ ".", Config);
+                _ ->
+                    %% queue is expected to be empty
+                    queue_check(),
+                    ct:pal("~n~s|", [Acc ++ "x"]),
+                    fail
+            end;
+        {ok, NotOk} ->
+            ct:pal("200 OK was not received~n~p", [NotOk]),
+            fail;
+        Error ->
+            ct:pal("Error: ~p",[Error]),
+            fail
+    end.
+
+queue_check() ->
+    receive
+        {http, {ReqId, {_Result, _Head, Data}}} when is_binary(Data) ->
+            ct:pal("Unexpected data received: ~p ",
+                      [ReqId]),
+            queue_check();
+        X ->
+            ct:pal("Caught unexpected something else: ~p",[X]),
+            queue_check()
+    after 5000 ->
+            done
+    end.
+
+request(Config) ->
+    Request = {url(group_name(Config), "/httpc_SUITE/foo", Config), []},
+    httpc:request(get, Request, [],[{sync,true}, {body_format,binary}]).
+
+foo(SID, _Env, _Input) ->
+    EightyMillionBits = 80000000, %% ~10MB transferred
+    mod_esi:deliver(SID, [<<0:EightyMillionBits>>]).
+
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -2002,7 +2080,8 @@ url(https, End, Config) ->
     {ok,Host} = inet:gethostname(),
     ?TLS_URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
 url(Group, End, Config) when Group == sim_http;
-                             Group == http_internal ->
+                             Group == http_internal;
+                             Group == http_internal_minimum_bytes ->
     url(http, End, Config);
 url(sim_https, End, Config) ->
     url(https, End, Config).
@@ -2094,6 +2173,9 @@ server_config(http_ipv6, Config) ->
 server_config(http_internal, Config) ->
     server_config(http, Config) ++
         [{erl_script_alias, {"", [httpc_SUITE]}}];
+server_config(http_internal_minimum_bytes, Config) ->
+    server_config(http_internal, Config) ++
+        [{minimum_bytes_per_second, 100}];
 server_config(https, Config) ->
     [{socket_type, {ssl, ssl_config(Config)}} | server_config(http, Config)];
 server_config(sim_https, Config) ->
