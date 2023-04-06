@@ -3126,8 +3126,7 @@ void erts_lcnt_update_port_locks(int enable) {
  * Parameters:
  * bufsiz - The (maximum) size of the line buffer.
  */
-LineBuf *allocate_linebuf(bufsiz)
-int bufsiz;
+LineBuf *allocate_linebuf(int bufsiz)
 {
     int ovsiz = (bufsiz < LINEBUF_INITIAL) ? bufsiz : LINEBUF_INITIAL;
     LineBuf *lb = (LineBuf *) erts_alloc(ERTS_ALC_T_LINEBUF,

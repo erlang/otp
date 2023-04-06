@@ -3749,7 +3749,7 @@ erts_ptr_id(void *ptr)
     return ptr;
 }
 
-const void *erts_get_stacklimit() {
+const void *erts_get_stacklimit(void) {
     return ethr_get_stacklimit();
 }
 

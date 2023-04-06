@@ -745,12 +745,7 @@ static unsigned int get_creation(Node* node)
 
 /* buf is actually one byte larger than bsize,
    giving place for null termination */
-static void do_request(g, fd, s, buf, bsize)
-     EpmdVars *g;
-     int fd;
-     Connection *s;
-     char *buf;
-     int bsize;
+static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 {
   char wbuf[OUTBUF_SIZE];	/* Buffer for writing */
   int i;

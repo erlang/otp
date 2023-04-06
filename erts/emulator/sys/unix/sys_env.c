@@ -16,7 +16,7 @@ extern char **environ;
 
 static void import_initial_env(void);
 
-void erts_sys_env_init() {
+void erts_sys_env_init(void) {
     erts_rwmtx_init(&sysenv_rwmtx, "environ", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
@@ -24,21 +24,21 @@ void erts_sys_env_init() {
     import_initial_env();
 }
 
-const erts_osenv_t *erts_sys_rlock_global_osenv() {
+const erts_osenv_t *erts_sys_rlock_global_osenv(void) {
     erts_rwmtx_rlock(&sysenv_rwmtx);
     return &sysenv_global_env;
 }
 
-erts_osenv_t *erts_sys_rwlock_global_osenv() {
+erts_osenv_t *erts_sys_rwlock_global_osenv(void) {
     erts_rwmtx_rwlock(&sysenv_rwmtx);
     return &sysenv_global_env;
 }
 
-void erts_sys_rwunlock_global_osenv() {
+void erts_sys_rwunlock_global_osenv(void) {
     erts_rwmtx_rwunlock(&sysenv_rwmtx);
 }
 
-void erts_sys_runlock_global_osenv() {
+void erts_sys_runlock_global_osenv(void) {
     erts_rwmtx_runlock(&sysenv_rwmtx);
 }
 

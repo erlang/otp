@@ -5265,7 +5265,7 @@ erts_unload_nif(struct erl_module_nif* lib)
     deref_nifmod(lib);
 }	
 
-void erl_nif_init()
+void erl_nif_init(void)
 {
     ERTS_CT_ASSERT((offsetof(ErtsResource,data) % 8)
                    == ERTS_MAGIC_BIN_BYTES_TO_ALIGN);

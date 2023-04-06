@@ -230,7 +230,7 @@ struct tpkt_head {
     unsigned char packet_length[2]; /* size incl header, big-endian (?) */
 };
 
-void packet_parser_init()
+void packet_parser_init(void)
 {
     static int done = 0;
     if (!done) {
