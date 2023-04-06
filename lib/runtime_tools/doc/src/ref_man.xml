@@ -35,7 +35,6 @@
   <xi:include href="runtime_tools_app.xml"/>
   <xi:include href="dbg.xml"/>
   <xi:include href="dyntrace.xml"/>
-  <xi:include href="erts_alloc_config.xml"/>
   <xi:include href="instrument.xml"/>
   <xi:include href="msacc.xml"/>
   <xi:include href="scheduler.xml"/>

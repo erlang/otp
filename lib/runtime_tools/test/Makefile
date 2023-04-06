@@ -9,7 +9,6 @@ MODULES =  \
 	runtime_tools_SUITE \
 	system_information_SUITE \
 	dbg_SUITE \
-	erts_alloc_config_SUITE \
 	scheduler_SUITE \
 	msacc_SUITE \
 	zzz_SUITE

@@ -235,14 +235,14 @@ obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl_handshake/1,2,3 instead"};
 obsolete(ct_slave, _, _) ->
     {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 27"};
-obsolete(erts_alloc_config, _, _) ->
-    {deprecated, "this module will be removed in OTP 26.0. See the documentation for details", "OTP 26"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(slave, _, _) ->
     {deprecated, "use the 'peer' module instead", "OTP 27"};
+obsolete(erts_alloc_config, _, _) ->
+    {removed, "this module has as of OTP 26.0 been removed"};
 obsolete(os_mon_mib, _, _) ->
     {removed, "this module was removed in OTP 22.0"};
 obsolete(pg2, _, _) ->

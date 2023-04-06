@@ -832,18 +832,6 @@
               <p>Configures all allocators as they were configured in respective
                 Erlang/OTP release. These will eventually be removed.</p>
             </item>
-            <tag><c>config</c></tag>
-            <item>
-              <p>Disables features that cannot be enabled while creating an
-                allocator configuration with
-                <seeerl marker="runtime_tools:erts_alloc_config">
-                <c>erts_alloc_config(3)</c></seeerl>.</p>
-              <note>
-                <p>This option is to be used only while running
-                  <c>erts_alloc_config(3)</c>, <em>not</em> when
-                  using the created configuration.</p>
-              </note>
-            </item>
           </taglist>
         </item>
         <tag><marker id="Mlpm"/><c>+Mlpm all|no</c></tag>
@@ -899,20 +887,12 @@
       <p><c>erts_alloc</c> is not obliged to strictly use the settings that
         have been passed to it (it can even ignore them).</p>
     </note>
-
-    <p>The <seeerl marker="runtime_tools:erts_alloc_config">
-      <c>erts_alloc_config(3)</c></seeerl>
-      tool can be used to aid creation of an
-      <c>erts_alloc</c> configuration that is suitable for a limited
-      number of runtime scenarios.</p>
   </section>
 
   <section>
     <title>See Also</title>
     <p><seecom marker="erl"><c>erl(1)</c></seecom>,
       <seeerl marker="erlang"><c>erlang(3)</c></seeerl>,
-      <seeerl marker="runtime_tools:erts_alloc_config">
-      <c>erts_alloc_config(3)</c></seeerl>,
       <seeerl marker="runtime_tools:instrument">
       <c>instrument(3)</c></seeerl></p>
   </section>

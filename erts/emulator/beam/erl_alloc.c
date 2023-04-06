@@ -185,7 +185,6 @@ struct au_init {
 }
 
 typedef struct {
-    int erts_alloc_config;
 #if HAVE_ERTS_MSEG
     ErtsMsegInit_t mseg;
 #endif
@@ -607,7 +606,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     UWord extra_block_size = 0;
     int i, ncpu;
     erts_alc_hndl_args_init_t init = {
-	0,
 #if HAVE_ERTS_MSEG
 	ERTS_MSEG_INIT_DEFAULT_INITIALIZER,
 #endif
@@ -708,44 +706,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     adjust_carrier_migration_support(&init.driver_alloc);
     adjust_carrier_migration_support(&init.fix_alloc);
     adjust_carrier_migration_support(&init.literal_alloc);
-
-    if (init.erts_alloc_config) {
-	/* Adjust flags that erts_alloc_config won't like */
-
-	/* No thread specific instances */
-	init.temp_alloc.thr_spec = 0;
-	init.sl_alloc.thr_spec = 0;
-	init.std_alloc.thr_spec = 0;
-	init.ll_alloc.thr_spec = 0;
-	init.eheap_alloc.thr_spec = 0;
-	init.binary_alloc.thr_spec = 0;
-	init.ets_alloc.thr_spec = 0;
-	init.driver_alloc.thr_spec = 0;
-	init.fix_alloc.thr_spec = 0;
-        init.literal_alloc.thr_spec = 0;
-
-	/* No carrier migration */
-	init.temp_alloc.init.util.acul = 0;
-	init.sl_alloc.init.util.acul = 0;
-	init.std_alloc.init.util.acul = 0;
-	init.ll_alloc.init.util.acul = 0;
-	init.eheap_alloc.init.util.acul = 0;
-	init.binary_alloc.init.util.acul = 0;
-	init.ets_alloc.init.util.acul = 0;
-	init.driver_alloc.init.util.acul = 0;
-	init.fix_alloc.init.util.acul = 0;
-        init.literal_alloc.init.util.acul = 0;
-        init.temp_alloc.init.util.acful = 0;
-	init.sl_alloc.init.util.acful = 0;
-	init.std_alloc.init.util.acful = 0;
-	init.ll_alloc.init.util.acful = 0;
-	init.eheap_alloc.init.util.acful = 0;
-	init.binary_alloc.init.util.acful = 0;
-	init.ets_alloc.init.util.acful = 0;
-	init.driver_alloc.init.util.acful = 0;
-	init.fix_alloc.init.util.acful = 0;
-        init.literal_alloc.init.util.acful = 0;
-    }
 
     /* Only temp_alloc can use thread specific interface */
     if (init.temp_alloc.thr_spec)
@@ -1735,9 +1695,6 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			else if (sys_strcmp("max", arg) == 0) {
 			    for (a = 0; a < aui_sz; a++)
 				aui[a]->enable = 1;
-			}
-			else if (sys_strcmp("config", arg) == 0) {
-			    init->erts_alloc_config = 1;
 			}
 			else if (sys_strcmp("r9c", arg) == 0
 				 || sys_strcmp("r10b", arg) == 0
