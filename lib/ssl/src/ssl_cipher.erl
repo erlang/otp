@@ -632,7 +632,7 @@ signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
 signature_scheme(_) -> unassigned.
 
 signature_schemes_1_2(SigAlgs) ->
-    lists:foldl(fun(Alg, Acc) when is_atom(Alg) ->
+    lists:reverse(lists:foldl(fun(Alg, Acc) when is_atom(Alg) ->
                         case scheme_to_components(Alg) of
                             {Hash, Sign = rsa_pss_pss,_} ->
                                 [{Hash, Sign} | Acc];
@@ -643,7 +643,7 @@ signature_schemes_1_2(SigAlgs) ->
                         end;
                    (Alg, Acc) ->
                         [Alg| Acc]
-                end, [], SigAlgs).
+                end, [], SigAlgs)).
 
 %% TODO: reserved code points?
 

@@ -42,7 +42,8 @@
          aes_decipher_good/1,
          aes_decipher_fail/0,
          aes_decipher_fail/1,
-         padding_test/1
+         padding_test/1,
+         sign_algorithms/1
         ]).
 
 
@@ -50,7 +51,7 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
-    [aes_decipher_good, aes_decipher_fail, padding_test].
+    [aes_decipher_good, aes_decipher_fail, padding_test, sign_algorithms].
 
 groups() ->
     [].
@@ -119,6 +120,10 @@ padding_test(Config) when is_list(Config)  ->
     pad_test(HashSz, CipherState, ?TLS_1_0),
     pad_test(HashSz, CipherState, ?TLS_1_1),
     pad_test(HashSz, CipherState, ?TLS_1_2).
+
+%%--------------------------------------------------------------------
+sign_algorithms(Config) when is_list(Config) ->
+    [{sha256,rsa_pss_pss},{rsa,sha256}] = ssl_cipher:signature_schemes_1_2([rsa_pss_pss_sha256, {rsa, sha256}]).
 
 %%--------------------------------------------------------------------    
 % Internal functions  --------------------------------------------------------
