@@ -41,7 +41,6 @@ AUTH_FILES = auth/group \
 	auth/passwd 
 CGI_FILES = cgi-bin/printenv.sh 
 CONF_FILES = conf/8080.conf \
-	conf/8888.conf \
 	conf/httpd.conf \
 	conf/ssl.conf \
 	conf/mime.types 
