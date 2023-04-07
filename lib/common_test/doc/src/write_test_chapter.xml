@@ -515,14 +515,14 @@
       <c>{group,GroupName,Properties,SubGroups}</c>
       Where, <c>SubGroups</c> is a list of tuples, <c>{GroupName,Properties}</c> or
       <c>{GroupName,Properties,SubGroups}</c> representing the subgroups.
-      Any subgroups defined in <c>group/0</c> for a group, that are not specified
+      Any subgroups defined in <c>groups/0</c> for a group, that are not specified
       in the <c>SubGroups</c> list, executes with their predefined
       properties.</p>
 
     <p><em>Example:</em></p>
     <pre>
- groups() -> {tests1, [], [{tests2, [], [t2a,t2b]},
-                           {tests3, [], [t31,t3b]}]}.</pre>
+ groups() -> [{tests1, [], [{tests2, [], [t2a,t2b]},
+                           {tests3, [], [t31,t3b]}]}].</pre>
     <p>To execute group <c>tests1</c> twice with different properties for <c>tests2</c>
       each time:</p>
     <pre>
