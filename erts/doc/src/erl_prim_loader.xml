@@ -58,7 +58,7 @@
           <c><anno>Bin</anno></c> is the contents of the file as a binary.</p>
         <p><c><anno>Filename</anno></c> can also be a file in an archive,
           for example,
-          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia.beam</c>.
+          <c>$ERL_ROOTDIR/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia.beam</c>.
           For information about archive files, see
           <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>
@@ -85,7 +85,7 @@
           not sorted.</p>
         <p><c><anno>Dir</anno></c> can also be a directory in an archive,
           for example,
-          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.
+          <c>$ERL_ROOTDIR/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.
           For information about archive files, see
           <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>
@@ -107,7 +107,7 @@
           <seeerl marker="kernel:file"><c>file(3)</c></seeerl>.</p>
         <p><c><anno>Filename</anno></c> can also be a file in an archive,
           for example,
-          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia</c>.
+          <c>$ERL_ROOTDIR/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia</c>.
           For information about archive files, see
           <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>

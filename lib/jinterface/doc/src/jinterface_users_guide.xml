@@ -443,7 +443,7 @@ Eshell V4.9.1.2  (abort with ^G)
       This is done by specifying an appropriate <c>-classpath</c>
       argument on the command line, or by adding it to the <c>CLASSPATH</c>
       definition in your <c>Makefile</c>. The correct value for this path is
-      <c>$OTPROOT/lib/jinterface</c><em>Vsn</em><c>/priv/OtpErlang.jar</c>, where <c>$OTPROOT</c> 
+      <c>$ERL_ROOTDIR/lib/jinterface</c><em>Vsn</em><c>/priv/OtpErlang.jar</c>, where <c>$ERL_ROOTDIR</c>
       is the path reported by <c>code:root_dir/0</c> in the above example and <em>Vsn</em> is the version of Jinterface, for example <c>jinterface-1.2</c></p>
     <code type="none">
 $ javac -classpath ".:/usr/local/otp/lib/jinterface-1.2/priv/OtpErlang.jar" 

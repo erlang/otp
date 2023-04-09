@@ -83,8 +83,8 @@ module(File, Args) ->
 		    {includes,    Args#args.includes},
 		    {preprocess,  Args#args.preprocess},
 		    {sort_functions, Args#args.sort_functions},
-		    
-		    {app_default, "OTPROOT"},
+
+		    {app_default, "ERL_ROOTDIR"},
 		    {file_suffix, Args#args.suffix},
 		    {dir,         Args#args.dir},
 		    {layout,      Args#args.layout}],
@@ -105,7 +105,7 @@ users_guide(File, Args) ->
             Enc = epp:read_encoding(File, [{in_comment_only, false}]),
             Encoding = [{encoding, Enc} || Enc =/= none],
 	    Opts = [{def,         Args#args.def},
-		    {app_default, "OTPROOT"},
+		    {app_default, "ERL_ROOTDIR"},
 		    {file_suffix, Args#args.suffix},
 		    {layout,      Args#args.layout}] ++ Encoding,
 	    

@@ -457,7 +457,7 @@ otp_xmlify_e(E) ->
 %% In the case of a seealso/url, the href part is checked, making
 %% sure a .xml/.html file extension is removed.
 %% Also, references to other applications //App has a href attribute
-%% value "OTPROOT/..." (due to app_default being set to "OTPROOT")
+%% value "ERL_ROOTDIR/..." (due to app_default being set to "ERL_ROOTDIR")
 %% , in this case both href attribute and content must be
 %% formatted correctly according to requirements.
 otp_xmlify_a(A) ->
@@ -493,7 +493,7 @@ otp_xmlify_a_href("http:"++_ = URL, Es0) -> % external URL
     {URL, Es0};
 otp_xmlify_a_href("https:"++_ = URL, Es0) -> % external URL
     {URL, Es0};
-otp_xmlify_a_href("OTPROOT"++AppRef, Es0) -> % <.. marker="App:FileRef
+otp_xmlify_a_href("ERL_ROOTDIR"++AppRef, Es0) -> % <.. marker="App:FileRef
     [AppS, "doc", FileRef1] = split(AppRef, "/"),
     FileRef = AppS++":"++otp_xmlify_a_fileref(FileRef1, AppS),
     [#xmlText{value=Str0} = T] = Es0,
@@ -547,7 +547,7 @@ otp_xmlify_a_fileref(FileRef1, AppS) ->
 	    if
 		%% Ignore file extension in file reference if it either
 		%% is ".xml" or if it is ".html" but AppS/=this, that
-		%% is, we're resolving an OTPROOT file reference
+		%% is, we're resolving an ERL_ROOTDIR file reference
 		Ext=="xml";
 		Ext=="html", AppS/=this ->
 		    File++"#"++Marker;

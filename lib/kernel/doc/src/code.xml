@@ -74,7 +74,7 @@
       module.</p>
     <p>Initially, the code path consists of the current working
       directory and all Erlang object code directories under library
-      directory <c>$OTPROOT/lib</c>, where <c>$OTPROOT</c> is
+      directory <c>$ERL_ROOTDIR/lib</c>, where <c>$ERL_ROOTDIR</c> is
       the installation directory of Erlang/OTP, <c>code:root_dir()</c>.
       Directories can be named <c>Name[-Vsn]</c> and the code server,
       by default, chooses the directory with the highest version number
@@ -156,14 +156,14 @@ zip:create("mnesia-4.4.7.ez",
      the archive.</p>
 
     <p>Normally the top directory of an application is located
-     in library directory <c>$OTPROOT/lib</c> or in a directory
+     in library directory <c>$ERL_ROOTDIR/lib</c> or in a directory
      referred to by environment variable <c>ERL_LIBS</c>. At
      startup, when the initial code path is computed, the code server
      also looks for archive files in these directories and
      possibly adds <c>ebin</c> directories in archives to the code path. The
      code path then contains paths to directories that look like
-     <c>$OTPROOT/lib/mnesia.ez/mnesia/ebin</c> or
-     <c>$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.</p>
+     <c>$ERL_ROOTDIR/lib/mnesia.ez/mnesia/ebin</c> or
+     <c>$ERL_ROOTDIR/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.</p>
 
     <p>The code server uses module <c>erl_prim_loader</c> in ERTS
      (possibly through <c>erl_boot_server</c>) to read code files from
@@ -214,9 +214,9 @@ zip:create("mnesia-4.4.7.ez",
     <p>When the choice of directories in the code path is
      <c>strict</c>, the directory that ends up in the code path is
      exactly the stated one. This means that if, for example, the
-     directory <c>$OTPROOT/lib/mnesia-4.4.7/ebin</c> is explicitly
+     directory <c>$ERL_ROOTDIR/lib/mnesia-4.4.7/ebin</c> is explicitly
      added to the code path, the code server does not load files from
-     <c>$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.</p>
+     <c>$ERL_ROOTDIR/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.</p>
 
     <p>This behavior can be controlled through command-line flag
      <c>-code_path_choice Choice</c>. If the flag is set to <c>relaxed</c>,
@@ -876,8 +876,8 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       <name name="lib_dir" arity="0" since=""/>
       <fsummary>Library directory of Erlang/OTP.</fsummary>
       <desc>
-        <p>Returns the library directory, <c>$OTPROOT/lib</c>, where
-          <c>$OTPROOT</c> is the root directory of Erlang/OTP.</p>
+        <p>Returns the library directory, <c>$ERL_ROOTDIR/lib</c>, where
+          <c>$ERL_ROOTDIR</c> is the root directory of Erlang/OTP.</p>
 	<p><em>Example:</em></p>
         <pre>
 > <input>code:lib_dir().</input>
@@ -890,7 +890,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       <desc>
         <p>Returns the path
           for the "library directory", the top directory, for an
-          application <c><anno>Name</anno></c> located under <c>$OTPROOT/lib</c> or
+          application <c><anno>Name</anno></c> located under <c>$ERL_ROOTDIR/lib</c> or
           on a directory referred to with environment variable <c>ERL_LIBS</c>.</p>
         <p>If a regular directory called <c><anno>Name</anno></c> or
           <c><anno>Name</anno>-Vsn</c> exists in the code path with an <c>ebin</c>
@@ -909,7 +909,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
 > <input>code:lib_dir(mnesia).</input>
 "/usr/local/otp/lib/mnesia-4.2.2"</pre>
         <p>Returns <c>{error, bad_name}</c> if <c><anno>Name</anno></c>
-	 is not the name of an application under <c>$OTPROOT/lib</c> or
+	 is not the name of an application under <c>$ERL_ROOTDIR/lib</c> or
 	 on a directory referred to through environment variable <c>ERL_LIBS</c>.
 	 Fails with an exception if <c>Name</c> has the wrong type.</p>
 

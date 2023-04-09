@@ -355,9 +355,9 @@ int ei_x_encode_bignum(ei_x_buff *x, mpz_t obj);
             need to make changes to the Makefiles used to build
             applications based on Erl_Interface. In particular,
             header and library files are no longer in
-            <c><![CDATA[$(OTPROOT)/usr/]]></c>. The <c><![CDATA[include]]></c> and <c><![CDATA[lib]]></c>
+            <c><![CDATA[$(ERL_ROOTDIR)/usr/]]></c>. The <c><![CDATA[include]]></c> and <c><![CDATA[lib]]></c>
             directories are now located in the directory
-            <c><![CDATA[$(OTPROOT)/lib/erl_interface-3.1]]></c> (i.e.
+            <c><![CDATA[$(ERL_ROOTDIR)/lib/erl_interface-3.1]]></c> (i.e.
             the directory name is now version specific).</p>
           <p>Own Id: OTP-3082</p>
         </item>

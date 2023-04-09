@@ -102,12 +102,12 @@ Eshell V4.7.4  (abort with ^G)
       <c>-I</c> argument on the command line, or add it to
       the <c>CFLAGS</c> definition in your
       <c>Makefile</c>. The correct value for this path is
-      <c>$OTPROOT/lib/erl_interface-$EIVSN/include</c>,
+      <c>$ERL_ROOTDIR/lib/erl_interface-$EIVSN/include</c>,
       where:</p>
 
     <list type="bulleted">
       <item>
-        <p><c>$OTPROOT</c> is the path reported by
+        <p><c>$ERL_ROOTDIR</c> is the path reported by
           <c>code:root_dir/0</c> in the example above.</p>
       </item>
       <item>
@@ -125,7 +125,7 @@ $ cc -c -I/usr/local/otp/lib/erl_interface-3.2.3/include myprog.c    ]]></code>
 
     <list type="bulleted">
       <item>Specify the path to <c>libei.a</c> with
-        <c>-L$OTPROOT/lib/erl_interface-3.2.3/lib</c>.</item>
+        <c>-L$ERL_ROOTDIR/lib/erl_interface-3.2.3/lib</c>.</item>
       <item>Specify the name of the library with <c>-lei</c>.</item>
     </list>
 
