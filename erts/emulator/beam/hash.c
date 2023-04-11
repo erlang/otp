@@ -64,6 +64,7 @@ void hash_get_info(HashInfo *hi, Hash *h)
         }
     }
     ASSERT(objects == h->nobjs);
+    (void)objects;
 
     hi->name  = h->name;
     hi->size  = hash_get_slots(h);
