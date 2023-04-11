@@ -35,5 +35,5 @@
   {registered, []},
   {applications, [stdlib, kernel]},
   {env, []},
-  {runtime_dependencies, ["stdlib-@OTP-18490@","kernel-8.0","erts-12.0"]}
+  {runtime_dependencies, ["stdlib-5.0","kernel-8.0","erts-12.0"]}
  ]}.

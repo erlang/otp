@@ -957,7 +957,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="start_interactive" arity="0" since="OTP @OTP-17932@"/>
+      <name name="start_interactive" arity="0" since="OTP 26.0"/>
       <fsummary>Start the interactive shell</fsummary>
       <desc>
         <p>Starts the interactive shell if it has not already been started.
@@ -967,9 +967,9 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="start_interactive" arity="1" clause_i="1" since="OTP @OTP-17932@"/>
-      <name name="start_interactive" arity="1" clause_i="2" since="OTP @OTP-17932@"/>
-      <name name="start_interactive" arity="1" clause_i="3" since="OTP @OTP-17932@"/>
+      <name name="start_interactive" arity="1" clause_i="1" since="OTP 26.0"/>
+      <name name="start_interactive" arity="1" clause_i="2" since="OTP 26.0"/>
+      <name name="start_interactive" arity="1" clause_i="3" since="OTP 26.0"/>
       <fsummary>Start the interactive shell</fsummary>
       <desc>
         <p>Starts the interactive shell if it has not already been started.
@@ -1075,7 +1075,7 @@ q                 - quit erlang
     </func>
 
     <func>
-        <name name="whereis" arity="0" since="OTP @OTP-17932@"/>
+        <name name="whereis" arity="0" since="OTP 26.0"/>
         <fsummary>Return the current shell process.</fsummary>
         <desc>
             <p>Returns the current shell process on the node where the

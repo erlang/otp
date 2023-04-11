@@ -110,7 +110,7 @@ erf(X) = 2/sqrt(pi)*integral from 0 to X of exp(-t*t) dt.</pre>
     </func>
 
     <func>
-      <name name="tau" arity="0" since="OTP @OTP-18361@"/>
+      <name name="tau" arity="0" since="OTP 26.0"/>
       <fsummary>Ratio of the circumference of a circle to its radius.</fsummary>
       <desc>
         <p>Ratio of the circumference of a circle to its radius.</p>

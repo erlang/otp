@@ -31,7 +31,33 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.4</title>
+  <section><title>Erl_Docgen 1.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>New XML tag &lt;change&gt;. Like a &lt;note&gt; box,
+	    but with a different (steel blue) color and label.
+	    Intended to contain talk about semantic differences
+	    between OTP releases.</p>
+          <p>
+	    Own Id: OTP-18338 Aux Id: PR-6408 </p>
+        </item>
+        <item>
+          <p>
+	    Add "since" attribute to XML taglist/tag elements to
+	    document OTP version when a particular option/feature was
+	    introduced. The version is shown out in the right margin,
+	    similar to "since" versions for functions.</p>
+          <p>
+	    Own Id: OTP-18501 Aux Id: PR-6987 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>
