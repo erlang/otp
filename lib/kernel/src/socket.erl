@@ -4547,11 +4547,11 @@ ioctl(Socket, SetRequest, Arg1, Arg2) ->
 -spec cancel(Socket, SelectInfo) -> 'ok' | {'error', Reason} when
       Socket         :: socket(),
       SelectInfo     :: select_info(),
-      Reason         :: 'closed' | invalid();
+      Reason         :: 'closed' | 'select_sent' | invalid();
             (Socket, CompletionInfo) -> 'ok' | {'error', Reason} when
       Socket         :: socket(),
       CompletionInfo :: completion_info(),
-      Reason         :: 'closed' | invalid().
+      Reason         :: 'closed' | 'select_sent' | invalid().
 
 cancel(?socket(SockRef), ?SELECT_INFO(SelectTag, SelectHandle) = SelectInfo)
   when is_reference(SockRef) ->

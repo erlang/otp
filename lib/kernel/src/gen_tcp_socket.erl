@@ -730,7 +730,11 @@ socket_close(Socket) ->
 socket_cancel(Socket, SelectInfo) ->
     case socket:cancel(Socket, SelectInfo) of
         ok -> ok;
-        {error, closed} -> ok
+        {error, closed} -> ok;
+
+        %% Race - shall we await the message or just ignore?
+        {error, select_sent} -> ok
+
     end.
 
 %%% ========================================================================
