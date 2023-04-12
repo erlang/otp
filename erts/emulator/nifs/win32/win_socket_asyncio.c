@@ -83,6 +83,8 @@
 #    include "config.h"
 #endif
 
+#ifdef ESOCK_ENABLE
+
 // #include <Ws2def.h>
 // #include <winsock2.h>
 // #include <windows.h>
@@ -9617,3 +9619,6 @@ ERL_NIF_TERM mk_completion_msg(ErlNifEnv*   env,
     return esock_mk_socket_msg(env, sockRef,
                                esock_atom_completion, info);
 }
+
+
+#endif
