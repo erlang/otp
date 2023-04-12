@@ -69,7 +69,7 @@
     <func>
       <name name="ensure_all_started" arity="1" since="OTP R16B02"/>
       <name name="ensure_all_started" arity="2" since="OTP R16B02"/>
-      <name name="ensure_all_started" arity="3" since="OTP 26.0"/>
+      <name name="ensure_all_started" arity="3" since="OTP @OTP-18451@"/>
       <fsummary>Loads and starts all applications and their dependencies, recursively.</fsummary>
       <desc>
         <p><c><anno>Applications</anno></c> is either an an <c>atom()</c> or a list
