@@ -1268,15 +1268,12 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 
 #define MAP_SZ(sz) (MAP_HEADER_FLATMAP_SZ + 2*sz + 1)
 
-#define MAP0_SZ MAP_SZ(0)
 #define MAP1_SZ MAP_SZ(1)
 #define MAP2_SZ MAP_SZ(2)
 #define MAP3_SZ MAP_SZ(3)
 #define MAP4_SZ MAP_SZ(4)
 #define MAP5_SZ MAP_SZ(5)
-#define MAP0(hp)                                                \
-    (MAP_HEADER(hp, 0, TUPLE0(hp+MAP_HEADER_FLATMAP_SZ)),       \
-     make_flatmap(hp))
+
 #define MAP1(hp, k1, v1)                                                \
     (MAP_HEADER(hp, 1, TUPLE1(hp+1+MAP_HEADER_FLATMAP_SZ, k1)),         \
      (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
