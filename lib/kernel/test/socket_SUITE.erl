@@ -744,8 +744,11 @@
 -define(TPP_LARGE_NUM,  50).
 -define(TPP_NUM(Config, Base), (Base) div lookup(kernel_factor, 1, Config)).
 
+-define(WINDOWS, {win32,nt}).
+
 -define(TTEST_RUNTIME,                       ?SECS(1)).
 -define(TTEST_MIN_FACTOR,                    3).
+-define(TTEST_MIN_FACTOR_WIN,                ?TTEST_MIN_FACTOR-1).
 -define(TTEST_DEFAULT_SMALL_MAX_OUTSTANDING, 50).
 -define(TTEST_DEFAULT_MEDIUM_MAX_OUTSTANDING,
         ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
@@ -1404,7 +1407,12 @@ traffic_pp_sendmsg_recvmsg_cases() ->
 %% No point in running these cases unless the machine is
 %% reasonably fast.
 ttest_condition(Config) ->
+    OsType = os:type(),
     case ?config(kernel_factor, Config) of
+        Factor when (OsType =:= ?WINDOWS) andalso
+                    is_integer(Factor) andalso
+                    (Factor =< ?TTEST_MIN_FACTOR_WIN) ->
+            ok;
         Factor when is_integer(Factor) andalso (Factor =< ?TTEST_MIN_FACTOR) ->
             ok;
         Factor when is_integer(Factor) ->
