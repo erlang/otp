@@ -1114,7 +1114,6 @@ erts_sys_main_thread(void)
     erts_lc_set_thread_name("main");
 #endif
 #endif
-    erts_thr_setname("erts_main");
     smp_sig_notify(0); /* Notify initialized */
 
     /* Wait for a signal to arrive... */
