@@ -68,6 +68,16 @@
          binary_part_aliases/2,
          aliased_map_lookup_bif/1,
          aliased_map_lookup_instr/1,
+
+         variables_in_put_tuple_unique_0/1,
+         variables_in_put_tuple_unique_1/1,
+         variables_in_put_tuple_unique_2/1,
+         variables_in_put_tuple_unique_3/1,
+         variables_in_put_tuple_unique_4/1,
+         variables_in_put_tuple_unique_5/1,
+         variables_in_put_tuple_unique_6/1,
+         variables_in_put_tuple_aliased/1,
+
          aliased_tuple_element_bif/1,
          aliased_tuple_element_bif/2,
          aliased_tuple_element_instr/1,
@@ -367,16 +377,15 @@ transformable17([H|T], [N|Acc]) ->
 transformable17([], Acc) ->
     Acc.
 
-%% We should use type information to figure out that {<<>>, X} is not
-%% aliased, but as of now we don't have the information at this pass,
-%% nor do we track alias status at the sub-term level.
+%% Check that type information is used to figure out that {<<>>, X} is
+%% not aliased.
 transformable18(L, X) when is_integer(X), X < 256 ->
     transformable18b(L, {<<>>, X}).
 
 transformable18b([H|T], {Acc,X}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [A], unique => [X], first_fragment_dies => true },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X,A], first_fragment_dies => true },
 %ssa% C = put_tuple(B, _),
 %ssa% _ = call(fun transformable18b/2, _, C).
     transformable18b(T, {<<Acc/binary, (H+X):8>>, X});
@@ -873,3 +882,57 @@ tuple_element_from_tuple_with_existing_child() ->
 		 ok
 	     end } ].
 
+%% Check that the same variable used twice in a put_tuple does not
+%% trigger aliasing when the variable's type isn't boxed, but that we
+%% do when the types are unknown.
+%% Numbers, no aliasing
+-record(variables_in_put_tuple, {a=0,b=0}).
+
+variables_in_put_tuple_unique_0(A) when is_atom(A) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% X = put_tuple(...),
+%ssa% ret(X) { unique => [X] }.
+    #variables_in_put_tuple{a=A,b=A}.
+
+variables_in_put_tuple_unique_1(A) when is_number(A) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% X = put_tuple(...),
+%ssa% ret(X) { unique => [X] }.
+    #variables_in_put_tuple{a=A,b=A}.
+
+variables_in_put_tuple_unique_2(A) when is_integer(A) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% X = put_tuple(...),
+%ssa% ret(X) { unique => [X] }.
+    #variables_in_put_tuple{a=A,b=A}.
+
+variables_in_put_tuple_unique_3(A) when is_float(A) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% X = put_tuple(...),
+%ssa% ret(X) { unique => [X] }.
+    #variables_in_put_tuple{a=A,b=A}.
+
+variables_in_put_tuple_unique_4(A) when is_pid(A) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% X = put_tuple(...),
+%ssa% ret(X) { unique => [X] }.
+    #variables_in_put_tuple{a=A,b=A}.
+
+variables_in_put_tuple_unique_5(A) when is_port(A) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% X = put_tuple(...),
+%ssa% ret(X) { unique => [X] }.
+    #variables_in_put_tuple{a=A,b=A}.
+
+variables_in_put_tuple_unique_6(A) when is_reference(A) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% X = put_tuple(...),
+%ssa% ret(X) { unique => [X] }.
+    #variables_in_put_tuple{a=A,b=A}.
+
+%% Unknown types, aliasing
+variables_in_put_tuple_aliased(A) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% X = put_tuple(...),
+%ssa% ret(X) { aliased => [X] }.
+    #variables_in_put_tuple{a=A,b=A}.

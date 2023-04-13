@@ -117,6 +117,8 @@
 
 -type sharing_state() :: #{ #b_var{} => #vas{} }.
 
+-type type_db() :: #{ beam_ssa:b_var() := type() }.
+
 %%%
 %%% Optimization pass which calculates the alias status of values and
 %%% uses the results to transform the code.
@@ -496,7 +498,9 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             put_map ->
                 {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
             put_tuple ->
-                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+                Types = aa_map_arg_to_type(Args,
+                                           maps:get(arg_types, Anno0, #{})),
+                {aa_construct_term(Dst, Args, Types, SS1, AAS0), AAS0};
             update_tuple ->
                 {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
             update_record ->
@@ -810,7 +814,6 @@ aa_get_status([V=#b_var{}], State) ->
 aa_get_status([V=#b_var{}|Parents], State) ->
     aa_meet(aa_get_status(V, State), aa_get_status(Parents, State)).
 
-
 %% aa_get_status but for instructions extracting values from pairs and
 %% tuples.
 aa_get_element_extraction_status(V=#b_var{}, State) ->
@@ -871,13 +874,29 @@ aa_set_status_1([#b_var{}=V|Rest], Parent, State) ->
 aa_set_status_1([], _Parent, State) ->
     State.
 
-aa_derive_from(Dst, [Parent|Parents], State0) ->
-    aa_derive_from(Dst, Parents, aa_derive_from(Dst, Parent, State0));
-aa_derive_from(_Dst, [], State0) ->
+aa_derive_from(Dst, Parents, State0) ->
+    aa_derive_from(Dst, Parents, #{}, State0).
+
+aa_derive_from(Dst, [Parent|Parents], Types, State0) ->
+    aa_derive_from(Dst, Parents, Types,
+                   aa_derive_from1(Dst, Parent, Types, State0));
+aa_derive_from(_Dst, [], _, State0) ->
     State0;
-aa_derive_from(#b_var{}, #b_literal{}, State) ->
+aa_derive_from(Dst, Parent, Types, State0) ->
+    aa_derive_from1(Dst, Parent, Types, State0).
+
+aa_derive_from1(#b_var{}, #b_literal{}, _, State) ->
     State;
-aa_derive_from(#b_var{}=Dst, #b_var{}=Parent, State) ->
+aa_derive_from1(Dst, Parent, Types, State) ->
+    case aa_is_plain_value(Parent, Types) of
+        true ->
+            ?DP("Deriving ~p from plain value ~p, no change.~n", [Dst,Parent]),
+            ?aa_assert_ss(State);
+        false ->
+            aa_derive_from2(#b_var{}=Dst, #b_var{}=Parent, State)
+    end.
+
+aa_derive_from2(#b_var{}=Dst, #b_var{}=Parent, State) ->
     ?DP("Deriving ~p from ~p~n~p.~n", [Dst,Parent,State]),
     case State of
         #{Dst:=#vas{status=aliased}} ->
@@ -1146,22 +1165,31 @@ aa_get_status_by_type(Type, StatusByType) ->
     aa_meet(Statuses).
 
 %% Predicate to check if all variables in `Vars` dies at `Where`.
--spec aa_all_dies([#b_var{}], kill_loc(), #aas{}) -> boolean().
-aa_all_dies(Vars, Where, #aas{caller=Caller,kills=Kills}) ->
+-spec aa_all_dies([#b_var{}], kill_loc(), type_db(), #aas{}) -> boolean().
+aa_all_dies(Vars, Where, Types, #aas{caller=Caller,kills=Kills}) ->
     KillMap = map_get(Caller, Kills),
     KillSet = map_get(Where, KillMap),
-    aa_all_dies(Vars, KillSet).
+    aa_all_dies1(Vars, Types, KillSet).
 
-aa_all_dies([#b_literal{}|Vars], KillSet) ->
-    aa_all_dies(Vars, KillSet);
-aa_all_dies([#b_var{}=V|Vars], KillSet) ->
+%% As aa_all_dies/4 but without type information.
+aa_all_dies(Vars, Where, AAS) ->
+    aa_all_dies(Vars, Where, #{}, AAS).
+
+aa_all_dies1([#b_literal{}|Vars], Types, KillSet) ->
+    aa_all_dies1(Vars, Types, KillSet);
+aa_all_dies1([#b_var{}=V|Vars], Types, KillSet) ->
     case sets:is_element(V, KillSet) of
         true ->
-            aa_all_dies(Vars, KillSet);
+            aa_all_dies1(Vars, Types, KillSet);
         false ->
-            false
+            case aa_is_plain_value(V, Types) of
+                false ->
+                    false;
+                true ->
+                    aa_all_dies1(Vars, Types, KillSet)
+            end
     end;
-aa_all_dies([], _) ->
+aa_all_dies1([], _, _) ->
     true.
 
 aa_alias_if_args_dont_die(Args, Where, SS, AAS) ->
@@ -1179,28 +1207,76 @@ aa_alias_inherit_and_alias_if_arg_does_not_die(Dst, Arg, SS0, AAS) ->
     aa_set_status(Dst, aa_get_status(Arg, SS1), SS1).
 
 %% Check that a variable in Args only occurs once and that it is not
-%% aliased, literals are ignored.
-aa_all_vars_unique(Args, SS) ->
-    aa_all_vars_unique(Args, #{}, SS).
+%% aliased, literals, values of types which fit into a register are
+%% ignored.
+aa_all_vars_unique(Args, Types, SS) ->
+    aa_all_vars_unique(Args, #{}, Types, SS).
 
-aa_all_vars_unique([#b_literal{}|Args], Seen,SS) ->
-    aa_all_vars_unique(Args, Seen, SS);
-aa_all_vars_unique([#b_var{}=V|Args], Seen, SS) ->
-    aa_get_status(V, SS) =:= unique andalso
-        case Seen of
-            #{ V := _ } ->
-                false;
-            #{} ->
-                aa_all_vars_unique(Args, Seen#{V => true }, SS)
-        end;
-aa_all_vars_unique([], _, _) ->
+aa_all_vars_unique([#b_literal{}|Args], Seen, Types, SS) ->
+    aa_all_vars_unique(Args, Seen, Types, SS);
+aa_all_vars_unique([#b_var{}=V|Args], Seen, Types, SS) ->
+    case aa_is_plain_value(V, Types) of
+        true ->
+            aa_all_vars_unique(Args, Seen, Types, SS);
+        false ->
+            aa_get_status(V, SS) =:= unique andalso
+                case Seen of
+                    #{ V := _ } ->
+                        false;
+                    #{} ->
+                        aa_all_vars_unique(Args, Seen#{V => true }, Types, SS)
+                end
+    end;
+aa_all_vars_unique([], _, _, _) ->
     true.
 
+%% Predicate to test whether a variable is of a type which is just a
+%% value or behaves as it was (for example pid, ports and references).
+aa_is_plain_value(V, Types) ->
+    case Types of
+        #{V:=#t_atom{}} ->
+            true;
+        #{V:=#t_number{}} ->
+            true;
+        #{V:=#t_integer{}} ->
+            true;
+        #{V:=#t_float{}} ->
+            true;
+        #{V:='pid'} ->
+            true;
+        #{V:='port'} ->
+            true;
+        #{V:='reference'} ->
+            true;
+        #{} ->
+            false
+    end.
+
+aa_map_arg_to_type(Args, Types) ->
+    aa_map_arg_to_type(Args, Types, #{}, 0).
+
+aa_map_arg_to_type([A|Args], Types, Acc0, Idx) ->
+    Acc = case Types of
+              #{Idx:=T} ->
+                  Acc0#{A=>T};
+              #{} ->
+                  Acc0
+          end,
+    aa_map_arg_to_type(Args, Types, Acc, Idx+1);
+aa_map_arg_to_type([], _, Acc, _) ->
+    Acc.
+
 aa_construct_term(Dst, Values, SS, AAS) ->
-    case aa_all_vars_unique(Values, SS)
-        andalso aa_all_dies(Values, Dst, AAS) of
+    aa_construct_term(Dst, Values, #{}, SS, AAS).
+
+aa_construct_term(Dst, Values, Types, SS, AAS) ->
+    ?DP("Constructing term in ~p~n values: ~p~n  types: ~p~n  au: ~p, ad: ~p~n",
+        [Dst, Values, Types, aa_all_vars_unique(Values, Types, SS),
+         aa_all_dies(Values, Dst, Types, AAS)]),
+    case aa_all_vars_unique(Values, Types, SS)
+        andalso aa_all_dies(Values, Dst, Types, AAS) of
         true ->
-            aa_derive_from(Dst, Values, SS);
+            aa_derive_from(Dst, Values, Types, SS);
         false ->
             aa_set_aliased([Dst|Values], SS)
     end.

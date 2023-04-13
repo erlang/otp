@@ -440,18 +440,17 @@ transformable16([A,B|T], {{Acc0}, Acc1}) ->
 transformable16([], {{Acc0}, Acc1}) ->
     {Acc0,Acc1}.
 
-%% We should use type information to figure out that {<<>>, X} is not
-%% aliased, but as of now we don't have the information at this pass,
-%% nor do we track alias status at the sub-term level.
+%% Check that type information is used to figure out that {<<>>, X} is
+%% not aliased.
 transformable18(L, X) when is_integer(X), X < 256 ->
-%ssa% xfail (_, _) when post_ssa_opt ->
+%ssa% (_, _) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
-%ssa% B = put_tuple(_, A),
+%ssa% B = put_tuple(A, _),
 %ssa% _ = call(fun transformable18b/2, _, B).
     transformable18b(L, {<<>>, X}).
 
 transformable18b([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_tuple(B, _),

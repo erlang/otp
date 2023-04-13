@@ -651,6 +651,10 @@ benefits_from_type_anno(get_map_element, _Args) ->
     true;
 benefits_from_type_anno(has_map_field, _Args) ->
     true;
+benefits_from_type_anno(put_tuple, _Args) ->
+    %% The types are used to avoid falsely detecting aliasing of
+    %% non-boxed things.
+    true;
 benefits_from_type_anno(_Op, _Args) ->
     false.
 
