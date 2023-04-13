@@ -877,6 +877,21 @@ static BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData*     dataP,
                                            ErlNifPid*           opCaller,
                                            ESAIOOpDataRecvFrom* opDataP,
                                            int                  error);
+static void esaio_completion_recvfrom_success(ErlNifEnv*           env,
+                                              ESockDescriptor*     descP,
+                                              OVERLAPPED*          ovl,
+                                              ErlNifEnv*           opEnv,
+                                              ErlNifPid*           opCaller,
+                                              ESAIOOpDataRecvFrom* opDataP);
+static void esaio_completion_recvfrom_aborted(ErlNifEnv*           env,
+                                              ESockDescriptor*     descP,
+                                              ErlNifPid*           opCaller,
+                                              ESAIOOpDataRecvFrom* opDataP);
+static void esaio_completion_recvfrom_failure(ErlNifEnv*           env,
+                                              ESockDescriptor*     descP,
+                                              ErlNifPid*           opCaller,
+                                              ESAIOOpDataRecvFrom* opDataP,
+                                              int                  error);
 static void esaio_completion_recvfrom_completed(ErlNifEnv*           env,
                                                 ESockDescriptor*     descP,
                                                 OVERLAPPED*          ovl,
@@ -8227,38 +8242,10 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData*     dataP,
                ("WIN-ESAIO", "esaio_completion_recvfrom(%d) -> no error"
                 "\r\n", descP->sock) );
         MLOCK(descP->readMtx);
-        if (esock_reader_get(env, descP,
-                             &opDataP->recvRef,
-                             opCaller,
-                             &req)) {
-            if (IS_OPEN(descP->readState)) {
-                esaio_completion_recvfrom_completed(env, descP,
-                                                    ovl, opEnv, opCaller,
-                                                    opDataP, &req);
-            } else {
-                /* A completed (active) request for a socket that is not open.
-                 * Is this even possible?
-                 * A race (completed just as the socket was closed).
-                 */
-                esaio_completion_recv_not_active(descP);
-                FREE_BIN( &opDataP->buf );
-            }
 
-            /* *Maybe* update socket (write) state
-             * (depends on if the queue is now empty)
-             */
-            if (descP->readersQ.first == NULL) {
-                descP->readState &= ~ESOCK_STATE_SELECTED;
-            }
+        esaio_completion_recvfrom_success(env, descP, ovl, opEnv,
+                                          opCaller, opDataP);
 
-        } else {
-            /* Request was actually completed directly
-             * (and was therefor not put into the "queue")
-             * => Nothing to do here, other than cleanup (see below).
-             * => But we do not free the "buffer" since it was "used up"
-             *    when we (as assumed) got the result (directly)...
-             */
-        }
         MUNLOCK(descP->readMtx);
         break;
 
@@ -8270,56 +8257,9 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData*     dataP,
         /* *** SAME MTX LOCK ORDER FOR ALL OPs *** */
         MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
-        /* The only thing *we* do that could cause an abort is the
-         * 'CancelIoEx' call, which we do when closing the socket
-         * (or cancel a request).
-         * But if we have done that;
-         *   - Socket state will not be 'open' and
-         *   - we have also set closer (pid and ref).
-         */
 
-        if (esock_reader_get(env, descP,
-                             &opDataP->recvRef,
-                             opCaller,
-                             &req)) {
+        esaio_completion_recvfrom_aborted(env, descP, opCaller, opDataP);
 
-            reason = esock_atom_closed,
-
-            /* Inform the user waiting for a reply */
-            esock_send_abort_msg(env, descP, opDataP->sockRef,
-                                 &req, reason);
-
-            /* The socket not being open (assumed closing),
-             * means we are in the closing phase...
-             */
-            if (! IS_OPEN(descP->readState)) {
-
-                /* We can only send the 'close' message to the closer
-                 * when all requests has been processed!
-                 */
-
-                /* Check "our" queue */
-                if (descP->readersQ.first == NULL) {
-
-                    /* Check "other" queue(s) and if there is a closer pid */
-                    if ((descP->writersQ.first == NULL) &&
-                        (descP->acceptorsQ.first == NULL)) {
-
-                        esaio_stop(env, descP);
-
-                    }
-                }
-            }
-
-            /* *Maybe* update socket (write) state
-             * (depends on if the queue is now empty)
-             */
-            if (descP->readersQ.first == NULL) {
-                descP->readState &= ~ESOCK_STATE_SELECTED;
-            }
-
-        }
-        FREE_BIN( &opDataP->buf );
         MUNLOCK(descP->writeMtx);
         MUNLOCK(descP->readMtx);
         break;
@@ -8330,36 +8270,9 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData*     dataP,
                 "esaio_completion_recvfrom(%d) -> operation unknown failure"
                 "\r\n", descP->sock) );
         MLOCK(descP->readMtx);
-        /* We do not know what this is
-         * but we can "assume" that the request failed so we need to
-         * remove it from the "queue" if its still there...
-         * And cleanup...
-         */
-        if (esock_reader_get(env, descP,
-                             &opDataP->recvRef,
-                             opCaller,
-                             &req)) {
 
-            reason = MKT2(env,
-                          esock_atom_get_overlapped_result,
-                          ENO2T(env, error));
+        esaio_completion_recvfrom_failure(env, descP, opCaller, opDataP, error);
 
-            /* Inform the user waiting for a reply */
-            esock_send_abort_msg(env, descP, opDataP->sockRef,
-                                 &req, reason);
-            esaio_completion_recvfrom_fail(env, descP, error, FALSE);
-
-            /* *Maybe* update socket (write) state
-             * (depends on if the queue is now empty)
-             */
-            if (descP->readersQ.first == NULL) {
-                descP->readState &= ~ESOCK_STATE_SELECTED;
-            }
-
-        } else {
-            esaio_completion_recvfrom_fail(env, descP, error, TRUE);
-        }
-        FREE_BIN( &opDataP->buf );
         MUNLOCK(descP->readMtx);
         break;
     }
@@ -8378,6 +8291,179 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData*     dataP,
     return FALSE;
 }
 
+
+static
+void esaio_completion_recvfrom_success(ErlNifEnv*           env,
+                                       ESockDescriptor*     descP,
+                                       OVERLAPPED*          ovl,
+                                       ErlNifEnv*           opEnv,
+                                       ErlNifPid*           opCaller,
+                                       ESAIOOpDataRecvFrom* opDataP)
+{
+    ESockRequestor req;
+
+    if (esock_reader_get(env, descP,
+                         &opDataP->recvRef,
+                         opCaller,
+                         &req)) {
+        if (IS_OPEN(descP->readState)) {
+            esaio_completion_recvfrom_completed(env, descP,
+                                                ovl, opEnv, opCaller,
+                                                opDataP, &req);
+        } else {
+            /* A completed (active) request for a socket that is not open.
+             * Is this even possible?
+             * A race (completed just as the socket was closed).
+             */
+            esaio_completion_recv_not_active(descP);
+            FREE_BIN( &opDataP->buf );
+        }
+
+    } else {
+        /* Request was actually completed directly
+         * (and was therefor not put into the "queue")
+         * => Nothing to do here, other than cleanup (see below).
+         * => But we do not free the "buffer" since it was "used up"
+         *    when we (as assumed) got the result (directly)...
+         */
+    }
+
+    /* *Maybe* update socket (write) state
+     * (depends on if the queue is now empty)
+     */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recvfrom_success(%d) -> "
+            "maybe (%s) update (read) state (ox%X)\r\n",
+            descP->sock,
+            B2S((descP->readersQ.first == NULL)), descP->readState) );
+    if (descP->readersQ.first == NULL) {
+        descP->readState &= ~ESOCK_STATE_SELECTED;
+    }
+
+}
+
+
+/* *** esaio_completion_recvfrom_aborted ***
+ * The only thing *we* do that could cause an abort is the
+ * 'CancelIoEx' call, which we do when closing the socket
+ * (or cancel a request).
+ * But if we have done that;
+ *   - Socket state will not be 'open' and
+ *   - we have also set closer (pid and ref).
+ */
+static
+void esaio_completion_recvfrom_aborted(ErlNifEnv*           env,
+                                       ESockDescriptor*     descP,
+                                       ErlNifPid*           opCaller,
+                                       ESAIOOpDataRecvFrom* opDataP)
+{
+    ESockRequestor req;
+
+    if (esock_reader_get(env, descP,
+                         &opDataP->recvRef,
+                         opCaller,
+                         &req)) {
+
+        ERL_NIF_TERM reason = esock_atom_closed;
+
+        /* Inform the user waiting for a reply */
+        esock_send_abort_msg(env, descP, opDataP->sockRef,
+                             &req, reason);
+
+        /* The socket not being open (assumed closing),
+         * means we are in the closing phase...
+         */
+        if (! IS_OPEN(descP->readState)) {
+
+            /* We can only send the 'close' message to the closer
+             * when all requests has been processed!
+             */
+
+            /* Check "our" queue */
+            if (descP->readersQ.first == NULL) {
+
+                /* Check "other" queue(s) and if there is a closer pid */
+                if ((descP->writersQ.first == NULL) &&
+                    (descP->acceptorsQ.first == NULL)) {
+
+                    esaio_stop(env, descP);
+
+                }
+            }
+        }
+    }
+
+    FREE_BIN( &opDataP->buf );
+
+    /* *Maybe* update socket (write) state
+     * (depends on if the queue is now empty)
+     */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recvfrom_aborted(%d) -> "
+            "maybe (%s) update (read) state (ox%X)\r\n",
+            descP->sock,
+            B2S((descP->readersQ.first == NULL)), descP->readState) );
+    if (descP->readersQ.first == NULL) {
+        descP->readState &= ~ESOCK_STATE_SELECTED;
+    }
+
+}
+
+
+/* *** esaio_completion_recvfrom_failure *
+ * A "general" failure happened while performing the 'recvfrom' operation.
+ */
+static
+void esaio_completion_recvfrom_failure(ErlNifEnv*           env,
+                                       ESockDescriptor*     descP,
+                                       ErlNifPid*           opCaller,
+                                       ESAIOOpDataRecvFrom* opDataP,
+                                       int                  error)
+{
+    ESockRequestor req;
+    ERL_NIF_TERM   reason;
+
+    /* We do not know what this is
+     * but we can "assume" that the request failed so we need to
+     * remove it from the "queue" if its still there...
+     * And cleanup...
+     */
+    if (esock_reader_get(env, descP,
+                         &opDataP->recvRef,
+                         opCaller,
+                         &req)) {
+
+        reason = MKT2(env,
+                      esock_atom_get_overlapped_result,
+                      ENO2T(env, error));
+
+        /* Inform the user waiting for a reply */
+        esock_send_abort_msg(env, descP, opDataP->sockRef,
+                             &req, reason);
+        esaio_completion_recvfrom_fail(env, descP, error, FALSE);
+
+    } else {
+        esaio_completion_recvfrom_fail(env, descP, error, TRUE);
+    }
+
+    FREE_BIN( &opDataP->buf );
+
+    /* *Maybe* update socket (write) state
+     * (depends on if the queue is now empty)
+     */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recvfrom_failure(%d) -> "
+            "maybe (%s) update (read) state (ox%X)\r\n",
+            descP->sock,
+            B2S((descP->readersQ.first == NULL)), descP->readState) );
+    if (descP->readersQ.first == NULL) {
+        descP->readState &= ~ESOCK_STATE_SELECTED;
+    }
+
+}
 
 
 /* *** esaio_completion_recvfrom_completed ***
