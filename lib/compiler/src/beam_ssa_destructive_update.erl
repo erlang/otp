@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% Copyright Ericsson AB 2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,18 +22,29 @@
 %%
 %% The optimization is done in three phases:
 %%
-%%   * The module is scanned and instructions suitable for
+%%   * Scan
+%%
+%%     The module is scanned and instructions suitable for
 %%     transformation into a destructive form are idenitifed
 %%     (find_applicable_instructions/2).
 %%
-%%   * When instructions are transformed to their destructive form,
+%%   * Initial-value-search
+%%
+%%     When instructions are transformed to their destructive form,
 %%     their arguments may have to be modified in order to be suitable
 %%     for destructive update. For example, a literal <<>> may have to
 %%     be converted to a heap allocated term created by a
-%%     bs_writable_binary. Identifying such terms and literals is done
-%%     by find_initial_values/3.
+%%     bs_writable_binary. Likewise an update_record instruction
+%%     returning a result which is input to a another update_record
+%%     instruction with the inplace hint, cannot have the reuse hint,
+%%     as then there are no guarantees for a unique value.
 %%
-%%   * Given a set of instructions and literals to patch, the third
+%%     Identifying such terms, instructions and literals is done by
+%%     find_initial_values/3.
+%%
+%%   * Patching
+%%
+%%     Given a set of instructions and literals to patch, the third
 %%     phase (patch_instructions/4) traverses the module and performs
 %%     the needed modifications.
 %%
@@ -59,6 +70,22 @@
 %%     value created by `bs_writable_binary` and use `private_append`
 %%     for `bs_create_bin`.
 %%
+%%   * In-place update of tuples/records
+%%
+%%     Starting with Erlang version 26, all tuples are updated using
+%%     the update_record instruction. Updating tuples in-place, when
+%%     safe to do so, can lead to performance improvements, both due
+%%     to less copying but also due to less garbage.
+%%
+%%     This optimization is implemented by looking for update_record
+%%     instructions, during the scan phase, where the source tuple
+%%     dies with the update and the source is unique as detected by
+%%     the alias analysis pass. During the patching phase these
+%%     instructions are given the `inplace` hint.
+%%
+%%     During initial-value-search literal tuples are detected and
+%%     during the patching phase rewritten to be created using
+%%     put_tuple as literals cannot be updated in-place.
 
 -module(beam_ssa_destructive_update).
 -moduledoc false.
@@ -102,10 +129,11 @@ opt(StMap, FuncDb) ->
           || {F,Var,Info} <- ValuesToTrack]]),
 
     %% Find initial values.
-    InitialsToPatch = find_initial_values(ValuesToTrack, StMap, FuncDb),
+    {InitialsToPatch,ForceCopy} =
+        find_initial_values(ValuesToTrack, StMap, FuncDb),
 
     %% Patch instructions and initial values.
-    patch_instructions(Applicable, InitialsToPatch, StMap, FuncDb).
+    patch_instructions(Applicable, InitialsToPatch, ForceCopy, StMap, FuncDb).
 
 find_applicable_instructions(Funs, StMap) ->
     fai(Funs, #{}, [], StMap).
@@ -144,16 +172,30 @@ fai_i(#b_set{dst=Dst, op=bs_create_bin,
     {Instructions,Values};
 fai_i(#b_set{dst=Dst, op=bs_create_bin,
              args=[#b_literal{val=append},SegmentInfo,Var|_],
-             anno=#{first_fragment_dies:=Dies}=Anno},
+             anno=#{first_fragment_dies:=true}=Anno},
       F, Instructions0, Values0) ->
-    case Dies andalso is_unique(Var, Anno)
-        andalso is_appendable(Anno, SegmentInfo) of
+    case is_unique(Var, Anno) andalso is_appendable(Anno, SegmentInfo) of
         true ->
             Instructions =
                 add_applicable_instruction(Dst,
                                            {appendable_binary,Dst,Var},
                                            F, Instructions0),
             Values = add_tracked_var(Var, init_writable, F, Values0),
+            {Instructions,Values};
+        false ->
+            {Instructions0,Values0}
+    end;
+fai_i(#b_set{dst=Dst,op=update_record,
+             args=[_Hint,_Size,Src|_Updates],
+             anno=#{source_dies:=true}=Anno},
+      F, Instructions0, Values0) ->
+    case is_unique(Src, Anno) of
+        true ->
+            Instructions =
+                add_applicable_instruction(Dst,
+                                           {tuple_update,Dst,Src},
+                                           F, Instructions0),
+            Values = add_tracked_var(Src, heap_tuple, F, Values0),
             {Instructions,Values};
         false ->
             {Instructions0,Values0}
@@ -176,7 +218,8 @@ add_tracked_var(Var, Info, F, Vars) ->
          stmap,
          defsdb = #{},
          literals = #{},
-         valuesdb = #{}
+         valuesdb = #{},
+         force_copy = #{}
         }).
 
 find_initial_values(ValuesToTrack, StMap, FuncDb) ->
@@ -209,11 +252,12 @@ fiv([{Fun,{track_result,Element}}|Work], FivSt0=#fiv_st{stmap=StMap}) ->
     ?DP("values to track inside the function: ~p~n", [Results]),
     fiv_track_value_in_fun(Results, Fun, Work, DefsInFun, ValuesInFun, FivSt);
 fiv([], FivSt) ->
-    FivSt#fiv_st.literals.
+    {FivSt#fiv_st.literals,FivSt#fiv_st.force_copy}.
 
-patch_instructions(Applicable, InitialsToPatch, StMap0, FuncDb) ->
+patch_instructions(Applicable, InitialsToPatch, ForceCopy, StMap0, FuncDb) ->
     ?DP("Instructions to patch:~n  ~p~n", [Applicable]),
     ?DP("Initial values to patch :~n  ~p~n", [InitialsToPatch]),
+    ?DP("Force copy :~n  ~p~n", [ForceCopy]),
     %% Merge instructions and initial values so we only get one map
     %% per fuctions which is indexed on the variable.
     Merge =
@@ -223,11 +267,16 @@ patch_instructions(Applicable, InitialsToPatch, StMap0, FuncDb) ->
                                   Acc#{VarOrLbl => Info}
                           end, A, B)
         end,
+    Patches0 = maps:fold(fun(Fun, Initials, Acc) ->
+                                 InitialsInFun = Merge(Initials,
+                                                       maps:get(Fun, Acc, #{})),
+                                 Acc#{Fun => InitialsInFun}
+                         end, Applicable, InitialsToPatch),
     Patches = maps:fold(fun(Fun, Initials, Acc) ->
                                 InitialsInFun = Merge(Initials,
                                                       maps:get(Fun, Acc, #{})),
                                 Acc#{Fun => InitialsInFun}
-                        end, Applicable, InitialsToPatch),
+                        end, Patches0, ForceCopy),
     ?DP("Patches:~n  ~p~n", [Patches]),
     StMap = maps:fold(fun(Fun, Ps, StMapAcc) ->
                               OptSt=#opt_st{ssa=SSA0,cnt=Cnt0} =
@@ -258,24 +307,7 @@ fiv_get_results([{_,#b_blk{last=#b_ret{arg=#b_var{}=V}}}|Rest],
     fiv_get_results(Rest, [{V,Element}|Acc], Element, Fun, FivSt);
 fiv_get_results([{Lbl,#b_blk{last=#b_ret{arg=#b_literal{val=Lit}}}}|Rest],
                 Acc, Element, Fun, FivSt0) ->
-    %% As tracking doesn't make any attempt to use type information to
-    %% exclude execution paths not relevant when tracking an
-    %% appendable binary, it can happen that we encounter literals
-    %% which do not match the type of the element. We can safely stop
-    %% the tracking in that case.
-    Continue = case Element of
-                   {tuple_element,_,_} ->
-                       is_tuple(Lit);
-                   {self,init_writable} ->
-                       is_bitstring(Lit);
-                   {hd,_} ->
-                       is_list(Lit) andalso (Lit =/= [])
-               end,
-    FivSt = if Continue ->
-                    fiv_add_literal(Fun, {ret,Lbl,Element}, FivSt0);
-               true ->
-                    FivSt0
-            end,
+    FivSt = fiv_add_literal(Lit, Element, Fun, {ret,Lbl,Element}, FivSt0),
     fiv_get_results(Rest, Acc, Element, Fun, FivSt);
 fiv_get_results([_|Rest], Acc, Element, Fun, FivSt) ->
     fiv_get_results(Rest, Acc, Element, Fun, FivSt);
@@ -362,6 +394,10 @@ fiv_track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     ?DP("value is created by a put list.~n"),
                     fiv_track_put_list(Args, Element, Rest, Fun, V, Work0,
                                        Defs, ValuesInFun, FivSt0);
+                {update_record,_,_} ->
+                    ?DP("value is created by a update_record.~n"),
+                    fiv_track_update_record(Args, Element, Rest, Fun, V, Work0,
+                                            Defs, ValuesInFun, FivSt0);
                 {_,_,_} ->
                     %% Above we have handled all operations through
                     %% which we are able to track the value to its
@@ -421,6 +457,13 @@ fiv_track_value_into_caller(Element, ArgIdx,
     fiv_track_value_in_fun(CalledFunWorklist, CalledFun, GlobalWorklist,
                            CalledFunDefs, CalledFunValues, FivSt0).
 
+fiv_track_put_tuple(FieldVars, {tuple_element,Idx,_},
+                    Work, Fun, _Dst, GlobalWork,
+                    Defs, ValuesInFun, FivSt) when length(FieldVars) =< Idx ->
+    %% The value we are tracking was constructed by a put tuple, but
+    %% it can't be this put_tuple as it has too few elements.
+    fiv_track_value_in_fun(Work, Fun, GlobalWork,
+                           Defs, ValuesInFun, FivSt);
 fiv_track_put_tuple(FieldVars, {tuple_element,Idx,Element},
                     Work, Fun, Dst, GlobalWork,
                     Defs, ValuesInFun, FivSt0) ->
@@ -431,7 +474,9 @@ fiv_track_put_tuple(FieldVars, {tuple_element,Idx,Element},
             fiv_track_value_in_fun([{ToTrack,Element}|Work], Fun, GlobalWork,
                                    Defs, ValuesInFun, FivSt0);
         #b_literal{val=Lit} ->
-            FivSt = fiv_add_literal(Fun, {opargs,Dst,Idx,Lit,Element}, FivSt0),
+            FivSt = fiv_add_literal(Lit, Element,
+                                    Fun, {opargs,Dst,Idx,Lit,Element},
+                                    FivSt0),
             fiv_track_value_in_fun(Work, Fun, GlobalWork,
                                    Defs, ValuesInFun, FivSt)
     end;
@@ -442,6 +487,66 @@ fiv_track_put_tuple(_FieldVars, _,
     %% execution path which isn't type compatible, stop tracking.
     fiv_track_value_in_fun(Work, Fun, GlobalWork,
                            Defs, ValuesInFun, DefSt).
+
+fiv_track_update_record([#b_literal{val=copy}|_],
+                        {self,heap_tuple},
+                        Work, Fun, _Dst, GlobalWork,
+                        Defs, ValuesInFun, FivSt) ->
+    %% The value we are tracking was constructed by an update_record,
+    %% as the hint is 'copy', no further tracking is needed.
+    ?DP("Value is on heap and unique"),
+    fiv_track_value_in_fun(Work, Fun, GlobalWork,
+                           Defs, ValuesInFun, FivSt);
+fiv_track_update_record([#b_literal{val=reuse}|_],
+                        {self,heap_tuple},
+                        Work, Fun, Dst, GlobalWork,
+                        Defs, ValuesInFun, #fiv_st{force_copy=FC0}=FivSt0) ->
+    %% The value we are tracking was constructed by an update_record,
+    %% but as the hint is 'reuse', the instruction has to be patched
+    %% to use 'copy' as otherwise the uniqueness of the result is not
+    %% guaranteed.
+    ?DP("Value is on heap but not unique~n"),
+    FunFC0 = maps:get(Fun, FC0, #{}),
+    ThisDst0 =  maps:get(Dst, FunFC0, []),
+    ThisDst = ordsets:add_element({force_copy,Dst}, ThisDst0),
+    FunFC = FunFC0#{Dst=>ThisDst},
+    FC = FC0#{Fun=>FunFC},
+    FivSt = FivSt0#fiv_st{force_copy=FC},
+    fiv_track_value_in_fun(Work, Fun, GlobalWork,
+                           Defs, ValuesInFun, FivSt);
+fiv_track_update_record([_Hint,_Size,Src|Updates],
+                        {tuple_element,Idx,Element}=What,
+                        Work, Fun, Dst, GlobalWork,
+                        Defs, ValuesInFun, FivSt0) ->
+    ?DP("Looking for idx: ~p among ~p~n", [Idx,Updates]),
+    case fiv_get_update(Idx+1, Updates) of
+        {#b_var{}=ToTrack,_} ->
+            ?DP("Tracked value is among the updates~n"),
+            fiv_track_value_in_fun([{ToTrack,Element}|Work], Fun, GlobalWork,
+                                   Defs, ValuesInFun, FivSt0);
+        {#b_literal{val=Lit},ArgNo} ->
+            ?DP("Tracked literal value is among the updates,"
+                " it is in argument ~p~n", [ArgNo]),
+            FivSt = fiv_add_literal(Lit, Element,
+                                    Fun, {opargs,Dst,ArgNo,Lit,Element},
+                                    FivSt0),
+            fiv_track_value_in_fun(Work, Fun, GlobalWork,
+                                   Defs, ValuesInFun, FivSt);
+        none ->
+            ?DP("Tracked value is not among the updates~n"),
+            fiv_track_value_in_fun([{Src,What}|Work], Fun, GlobalWork,
+                                   Defs, ValuesInFun, FivSt0)
+    end.
+
+fiv_get_update(Idx, Updates) ->
+    fiv_get_update(Idx, Updates, 3).
+
+fiv_get_update(Idx, [#b_literal{val=Idx},Val|_Updates], ArgNo) ->
+    {Val,ArgNo+1};
+fiv_get_update(Idx, [#b_literal{},_|Updates], ArgNo) ->
+    fiv_get_update(Idx, Updates, ArgNo+2);
+fiv_get_update(_, [], _) ->
+    none.
 
 fiv_track_put_list([Hd,_Tl], {hd,Element},
                    Work, Fun, Dst, GlobalWork,
@@ -458,7 +563,8 @@ fiv_track_put_list([Hd,_Tl], {hd,Element},
             fiv_track_value_in_fun([{Hd,Element}|Work], Fun, GlobalWork,
                                    Defs, ValuesInFun, FivSt0);
         #b_literal{val=Lit} ->
-            FivSt = fiv_add_literal(Fun, {opargs,Dst,0,Lit,Element}, FivSt0),
+            FivSt = fiv_add_literal(Lit, Element,
+                                    Fun, {opargs,Dst,0,Lit,Element}, FivSt0),
             fiv_track_value_in_fun(Work, Fun, GlobalWork, Defs,
                                    ValuesInFun, FivSt)
     end;
@@ -487,22 +593,16 @@ fiv_gca(Args, Element, Idx, Fun, Dst, FivSt) ->
 fiv_gca([#b_var{}=V|_], I, Element, I, _Fun, _Dst, FivSt) ->
     %% This is the argument we are tracking.
     {[{V,Element}], FivSt};
-fiv_gca([#b_literal{val=Lit}|_], I, {self,init_writable}, I, _Fun, _Dst, FivSt)
-  when not is_bitstring(Lit)->
-    %% As value tracking is done without type information, we can
-    %% follow def chains which don't terminate in a bitstring. This is
-    %% harmless, but we should ignore them and not, later on, try to
-    %% patch them to a bs_writable_binary.
-    {[], FivSt};
 fiv_gca([#b_literal{val=Lit}|_], I, Element, I, Fun, Dst, FivSt) ->
-    {[], fiv_add_literal(Fun, {opargs,Dst,I+1,Lit,Element}, FivSt)};
+    {[], fiv_add_literal(Lit, Element, Fun, {opargs,Dst,I+1,Lit,Element}, FivSt)};
 fiv_gca([_|Args], I, Element, Idx, Fun, Dst, FivSt) ->
     fiv_gca(Args, I + 1, Element, Idx, Fun, Dst, FivSt).
 
 fiv_handle_phi(Fun, Dst, Args, Element, FivSt0) ->
     foldl(fun({#b_literal{val=Lit},Lbl}, {Acc,FivStAcc0}) ->
                   FivStAcc =
-                      fiv_add_literal(Fun, {phi,Dst,Lbl,Lit,Element},
+                      fiv_add_literal(Lit, Element,
+                                      Fun, {phi,Dst,Lbl,Lit,Element},
                                       FivStAcc0),
                   {Acc, FivStAcc};
              ({V=#b_var{},_Lbl}, {Acc,FivStAcc}) ->
@@ -529,20 +629,51 @@ fiv_defs_in_fun(Fun, Args, SSA, FivSt=#fiv_st{defsdb=DefsDb}) ->
 fiv_values_in_fun(Fun, #fiv_st{valuesdb=ValuesDb}) ->
     maps:get(Fun, ValuesDb, #{}).
 
-fiv_add_literal(Fun, LitInfo, FivSt=#fiv_st{literals=Ls}) ->
-    PerFun0 = maps:get(Fun, Ls, #{}),
-    Key = element(2, LitInfo),
-    PerKey = maps:get(Key, PerFun0, []),
-    %% We only want to add the same literal once.
-    ?DP("~s literal ~p in ~s~n",
-        [case ordsets:is_element(LitInfo, PerKey) of
-             true ->
-                 "Ignoring already tracked";
-             false ->
-                 "Adding"
-         end,LitInfo,ff(Fun)]),
-    PerFun = PerFun0#{Key => ordsets:add_element(LitInfo, PerKey)},
-    FivSt#fiv_st{literals=Ls#{Fun => PerFun}}.
+%% Add the LitInfo to the database of literals to patch if Lit is
+%% compatible with Element.
+%%
+%% As tracking doesn't make any attempt to use type information to
+%% exclude execution paths not relevant when tracking an appendable
+%% binary, it can happen that we encounter literals which do not match
+%% the type of the element. We can safely ignore the literal in that
+%% case.
+fiv_add_literal(Lit, Element, Fun, LitInfo, FivSt=#fiv_st{literals=Ls}) ->
+    case fiv_are_lit_and_element_compatible(Lit, Element) of
+        true ->
+            PerFun0 = maps:get(Fun, Ls, #{}),
+            Key = element(2, LitInfo),
+            PerKey = maps:get(Key, PerFun0, []),
+            %% We only want to add the same literal once.
+            ?DP("~s literal ~p in ~s~n",
+                [case ordsets:is_element(LitInfo, PerKey) of
+                     true ->
+                         "Ignoring already tracked";
+                     false ->
+                         "Adding"
+                 end,LitInfo,ff(Fun)]),
+            PerFun = PerFun0#{Key => ordsets:add_element(LitInfo, PerKey)},
+            FivSt#fiv_st{literals=Ls#{Fun => PerFun}};
+        false ->
+            FivSt
+    end.
+
+%%
+%% Return true if the literal is compatible with the element.
+fiv_are_lit_and_element_compatible(Lit, Element) ->
+    case Element of
+        {tuple_element,Idx,E}
+          when is_tuple(Lit), erlang:tuple_size(Lit) > Idx ->
+            fiv_are_lit_and_element_compatible(erlang:element(Idx + 1, Lit), E);
+        {self,heap_tuple} ->
+            is_tuple(Lit);
+        {self,init_writable} ->
+            is_bitstring(Lit);
+        {hd,E} when is_list(Lit), (Lit =/= []) ->
+            [L|_] = Lit,
+            fiv_are_lit_and_element_compatible(L, E);
+        _ ->
+            false
+    end.
 
 patch_f(SSA0, Cnt0, Patches) ->
     patch_f(SSA0, Cnt0, Patches, [], []).
@@ -574,8 +705,16 @@ patch_is([I0=#b_set{dst=Dst}|Rest], PD0, Cnt0, Acc, BlockAdditions0)
         [{opargs,Dst,_,_,_}|_] ->
             OpArgs = [{Idx,Lit,Element}
                       || {opargs,D,Idx,Lit,Element} <- Patches, Dst =:= D],
+            Forced = [ F || {force_copy,_}=F <- Patches],
+            I1 = case Forced of
+                     [] ->
+                         I0;
+                     _ ->
+                         no_reuse(I0)
+                 end,
+            0 = length(Patches) - length(Forced) - length(OpArgs),
             Ps = keysort(1, OpArgs),
-            {Is,Cnt} = patch_opargs(I0, Ps, Cnt0),
+            {Is,Cnt} = patch_opargs(I1, Ps, Cnt0),
             patch_is(Rest, PD, Cnt, Is++Acc, BlockAdditions0);
         [{appendable_binary,Dst,#b_literal{val= <<>>}=Lit}] ->
             %% Special case for when the first fragment is a literal
@@ -594,32 +733,60 @@ patch_is([I0=#b_set{dst=Dst}|Rest], PD0, Cnt0, Acc, BlockAdditions0)
             patch_is(Rest, PD, Cnt0, [I|Acc], BlockAdditions0);
         [{phi,Dst,_,_,_}|_] ->
             {I, Extra, Cnt} = patch_phi(I0, Patches, Cnt0),
-            patch_is(Rest, PD, Cnt, [I|Acc], Extra++BlockAdditions0)
+            patch_is(Rest, PD, Cnt, [I|Acc], Extra++BlockAdditions0);
+        [{tuple_update,Dst,_Src}|Other] ->
+            I = set_inplace(I0),
+            patch_is([I|Rest], PD#{Dst=>Other}, Cnt0, Acc, BlockAdditions0);
+        [{force_copy,Dst}|Other] ->
+            patch_is([no_reuse(I0)|Rest], PD#{Dst=>Other},
+                     Cnt0, Acc, BlockAdditions0);
+        [] ->
+            patch_is(Rest, PD, Cnt0, [I0|Acc], BlockAdditions0)
     end;
 patch_is([I|Rest], PD, Cnt, Acc, BlockAdditions) ->
     patch_is(Rest, PD, Cnt, [I|Acc], BlockAdditions);
 patch_is([], _, Cnt, Acc, BlockAdditions) ->
     {reverse(Acc), Cnt, BlockAdditions}.
 
+set_inplace(#b_set{dst=_Dst,args=[_Hint,Size,Src|Updates]}=I0) ->
+    ?DP("Setting ~p to inplace~n", [_Dst]),
+    I0#b_set{args=[#b_literal{val=inplace},Size,Src|Updates]}.
+
+no_reuse(#b_set{dst=_Dst,args=[#b_literal{val=reuse},Size,Src|Updates]} = I0) ->
+    ?DP("Setting ~p to copy~n", [_Dst]),
+    I0#b_set{args=[#b_literal{val=copy},Size,Src|Updates]};
+no_reuse(I) ->
+    I.
+
 %% The only time when we patch a return is when it returns a
 %% literal.
-patch_ret(Last=#b_ret{arg=#b_literal{val=Lit}}, Patches, Cnt0)
-  when is_list(Lit); is_tuple(Lit) ->
-    Ps = keysort(1, [E || {ret,_,E} <- Patches]),
-    ?DP("patch_appends_ret tuple or list :~n  lit: ~p~n  patches: ~p~n",
-        [Lit, Ps]),
-    {V,Extra,Cnt} = patch_literal_term(Lit, Ps, Cnt0),
-    {Last#b_ret{arg=V}, Extra, Cnt};
-patch_ret(Last=#b_ret{arg=#b_literal{val=Lit}}, [{ret,_,Element}], Cnt0) ->
-    ?DP("patch_appends_ret other:~n  lit: ~p~n  element: ~p~n", [Lit, Element]),
+patch_ret(Last=#b_ret{arg=#b_literal{val=Lit}}, Patches, Cnt0) ->
+    ?DP("patch_appends_ret:~n  lit: ~p~n  Patches: ~p~n", [Lit, Patches]),
+    Element = aggregate_ret_patches(keysort(1, [E || {ret,_,E} <- Patches])),
+    ?DP("  element: ~p~n", [Element]),
     {V,Extra,Cnt} = patch_literal_term(Lit, Element, Cnt0),
     {Last#b_ret{arg=V}, Extra, Cnt}.
 
+%% Aggregate patches to a ret instruction to produce a single patch.
+aggregate_ret_patches([R={self,heap_tuple}]) ->
+    R;
+aggregate_ret_patches([R={self,init_writable}]) ->
+    R;
+aggregate_ret_patches([{tuple_element,I,E}|Rest]) ->
+    Elements = [{I,E}|aggregate_ret_patches_tuple(Rest)],
+    {tuple_elements,Elements}.
+
+aggregate_ret_patches_tuple([{tuple_element,I,E}|Rest]) ->
+    [{I,E}|aggregate_ret_patches_tuple(Rest)];
+aggregate_ret_patches_tuple([]) ->
+    [].
+
 %% Should return the instructions in reversed order
 patch_opargs(I0=#b_set{args=Args}, Patches0, Cnt0) ->
-    ?DP("Patching args in ~p~nArgs: ~p~n Patches: ~p~n",
+    ?DP("Patching args in ~p~n  Args: ~p~n Patches: ~p~n",
         [I0,Args,Patches0]),
     Patches = merge_arg_patches(Patches0),
+    ?DP("  Merged patches: ~p~n", [Patches]),
     {PatchedArgs,Is,Cnt} = patch_opargs(Args, Patches, 0, [], [], Cnt0),
     {[I0#b_set{args=reverse(PatchedArgs)}|Is], Cnt}.
 
@@ -637,16 +804,19 @@ patch_opargs([], [], _, PatchedArgs, Is, Cnt) ->
 %% The way find_initial_values work, we can end up with multiple
 %% patches patching different parts of a tuple or pair. We merge them
 %% here.
-merge_arg_patches([{Idx,Lit,P0},{Idx,Lit,P1}|Patches]) ->
-    P = case {P0, P1} of
-            {{tuple_element,I0,E0},{tuple_element,I1,E1}} ->
-                {tuple_elements,[{I0,E0},{I1,E1}]};
-            {{tuple_elements,Es},{tuple_element,I,E}} ->
-                {tuple_elements,[{I,E}|Es]};
-            {_,_} ->
-                [P0|merge_arg_patches([P1|Patches])]
-        end,
-    merge_arg_patches([{Idx,Lit,P}|Patches]);
+merge_arg_patches([{Idx,Lit,P0},{Idx,Lit,P1}=Next|Patches]) ->
+    case {P0, P1} of
+        {{tuple_element,I0,E0},{tuple_element,I1,E1}} ->
+            P = {tuple_elements,[{I0,E0},{I1,E1}]},
+            merge_arg_patches([{Idx,Lit,P}|Patches]);
+        {{tuple_elements,Es},{tuple_element,I,E}} ->
+            P = {tuple_elements,[{I,E}|Es]},
+            merge_arg_patches([{Idx,Lit,P}|Patches]);
+        {{self,heap_tuple},_} ->
+            %% P0 forces this argument onto the heap, as P1 patches
+            %% something inside the same tuple, First can be dropped.
+            merge_arg_patches([Next|Patches])
+    end;
 merge_arg_patches([P|Patches]) ->
     [P|merge_arg_patches(Patches)];
 merge_arg_patches([]) ->
@@ -675,26 +845,24 @@ patch_phi(I0=#b_set{op=phi,args=Args0}, Patches, Cnt0) ->
 patch_literal_term(Tuple, {tuple_elements,Elems}, Cnt) ->
     Es = [{tuple_element,I,E} || {I,E} <- keysort(1, Elems)],
     patch_literal_tuple(Tuple, Es, Cnt);
-patch_literal_term(Tuple, Elements0, Cnt) when is_tuple(Tuple) ->
-    Elements = if is_list(Elements0) -> Elements0;
-                  true -> [Elements0]
-               end,
-    patch_literal_tuple(Tuple, Elements, Cnt);
+patch_literal_term(Tuple, E={tuple_element,_,_}, Cnt) ->
+    patch_literal_tuple(Tuple, [E], Cnt);
+patch_literal_term(Tuple, {self,heap_tuple}, Cnt0) ->
+    %% Build the tuple on the heap.
+    {V,Cnt} = new_var(Cnt0),
+    I = #b_set{op=put_tuple,dst=V,
+               args=[#b_literal{val=E} || E <- tuple_to_list(Tuple)]},
+    {V,[I],Cnt};
 patch_literal_term(<<>>, {self,init_writable}, Cnt0) ->
     {V,Cnt} = new_var(Cnt0),
     I = #b_set{op=bs_init_writable,dst=V,args=[#b_literal{val=256}]},
     {V,[I],Cnt};
-patch_literal_term(Lit, {self,_}, Cnt) ->
-    {#b_literal{val=Lit}, [], Cnt};
 patch_literal_term([H0|T0], {hd,Element}, Cnt0) ->
     {H,Extra,Cnt1} = patch_literal_term(H0, Element, Cnt0),
     {T,[],Cnt1} = patch_literal_term(T0, [], Cnt1),
     {Dst,Cnt} = new_var(Cnt1),
     I = #b_set{op=put_list,dst=Dst,args=[H,T]},
     {Dst, [I|Extra], Cnt};
-patch_literal_term([_|_]=Pair, Elems, Cnt) when is_list(Elems) ->
-    [Elem] = [E || {hd,_}=E <- Elems],
-    patch_literal_term(Pair, Elem, Cnt);
 patch_literal_term(Lit, [], Cnt) ->
     {#b_literal{val=Lit}, [], Cnt}.
 
@@ -712,7 +880,8 @@ patch_literal_tuple([Lit|LitElements], [{tuple_element,Idx,Element}|Elements],
     patch_literal_tuple(LitElements, Elements, [V|Patched],
                         Exs ++ Extra, Idx + 1, Cnt);
 patch_literal_tuple([Lit|LitElements], Patches, Patched, Extra, Idx, Cnt) ->
-    ?DP("patch_literal_tuple: skipping idx:~p~n  Lit: ~p~n  patches: ~p~n", [Idx, Lit, Patches]),
+    ?DP("patch_literal_tuple: skipping idx:~p~n  Lit: ~p~n  patches: ~p~n",
+        [Idx, Lit, Patches]),
     {T,[],Cnt} = patch_literal_term(Lit, [], Cnt),
     patch_literal_tuple(LitElements, Patches, [T|Patched], Extra, Idx + 1, Cnt);
 patch_literal_tuple([], [], Patched, Extra, _, Cnt0) ->

@@ -34,7 +34,8 @@
          bs_size_unit_checks/1,
          private_append_checks/1,
          ret_annotation_checks/1,
-         sanity_checks/1]).
+         sanity_checks/1,
+         tuple_inplace_checks/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -48,7 +49,8 @@ groups() ->
        appendable_checks,
        private_append_checks,
        ret_annotation_checks,
-       sanity_checks]},
+       sanity_checks,
+       tuple_inplace_checks]},
      {post_ssa_opt_dynamic,test_lib:parallel(),
       [bs_size_unit_checks]}].
 
@@ -98,6 +100,9 @@ bs_size_unit_checks(Config) when is_list(Config) ->
 
 private_append_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(private_append, Config).
+
+tuple_inplace_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(tuple_inplace_checks, Config).
 
 ret_annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(ret_annotation, Config).
