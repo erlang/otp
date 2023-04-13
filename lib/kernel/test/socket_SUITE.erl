@@ -48855,7 +48855,7 @@ otp16359_maccept_tcp(InitState) ->
 
 %% This test case is to verify that we do not leak monitors.
 otp18240_accept_mon_leak_tcp4(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
@@ -48870,7 +48870,7 @@ otp18240_accept_mon_leak_tcp4(Config) when is_list(Config) ->
 
 %% This test case is to verify that we do not leak monitors.
 otp18240_accept_mon_leak_tcp6(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -48896,26 +48896,33 @@ otp18240_accept_tcp(#{domain    := Domain,
 
 otp18240_await_acceptor(Pid, Mon) ->
     receive
-	{'DOWN', Mon, process, Pid, Info} ->
-	    i("acceptor terminated: "
-	      "~n   ~p", [Info])
+	{'DOWN', Mon, process, Pid, ok} ->
+	    i("acceptor successfully terminated"),
+            ok;
+        {'DOWN', Mon, process, Pid, Info} ->
+            i("acceptor unexpected termination: "
+              "~n   ~p", [Info]),
+            exit({unexpected_result, Info})
     after 5000 ->
-	    i("acceptor info"
+	    i("acceptor process (~p) info"
 	      "~n   Refs: ~p"
 	      "~n   Info: ~p",
-	      [monitored_by(Pid), erlang:process_info(Pid)]),
+	      [Pid, monitored_by(Pid), erlang:process_info(Pid)]),
 	    otp18240_await_acceptor(Pid, Mon)
     end.
 
 otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
     i("[acceptor] begin with: "
+      "~n   Parent:   ~p"
       "~n   Domain:   ~p"
-      "~n   Protocol: ~p", [Domain, Proto]),
+      "~n   Protocol: ~p", [Parent, Domain, Proto]),
     MonitoredBy0 = monitored_by(),
+    ?SLEEP(?SECS(5)),
     {ok, LSock}  = socket:open(Domain, stream, Proto,
                                #{use_registry => false}),
     ok = socket:bind(LSock, #{family => Domain, port => 0, addr => any}),
     ok = socket:listen(LSock, NumSocks),
+    ?SLEEP(?SECS(5)),
     MonitoredBy1 = monitored_by(),
     i("[acceptor]: listen socket created"
       "~n   'Montored By' before listen socket: ~p"
