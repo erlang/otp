@@ -129,8 +129,8 @@
       </p>
       <p>
         OTP 26 and earlier defaults to <c>relaxed</c>, which means
-        <c>-pa myapp/ebin</c> would attempt to load <c>-pa myapp/ebin</a>
-        and <c>-pa myapp/myapp/ebin</a>. The option will default to
+        <c>-pa myapp/ebin</c> would attempt to load <c>-pa myapp/ebin</c>
+        and <c>-pa myapp/myapp/ebin</c>. The option will default to
         strict in OTP 27.
       </p>
     </section>
