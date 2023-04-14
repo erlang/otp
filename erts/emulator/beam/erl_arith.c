@@ -1310,6 +1310,6 @@ Eterm erts_bnot(Process* p, Eterm arg)
 } 
 
 /* Needed to remove compiler optimization */
-double erts_get_positive_zero_float() {
+double erts_get_positive_zero_float(void) {
     return 0.0f;
 }

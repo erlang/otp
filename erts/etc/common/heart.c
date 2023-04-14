@@ -354,8 +354,7 @@ int main(int argc, char **argv) {
  * message loop
  */
 static int
-message_loop(erlin_fd, erlout_fd)
-     int   erlin_fd, erlout_fd;
+message_loop(int erlin_fd, int erlout_fd)
 {
   int   i;
   time_t now, last_received;
@@ -776,8 +775,7 @@ int wait_until_close_write_or_env_tmo(int tmo) {
  * Sends an HEART_ACK.
  */
 static int
-notify_ack(fd)
-  int   fd;
+notify_ack(int fd)
 {
   struct msg m;
   
@@ -824,9 +822,7 @@ heart_cmd_reply(int fd, char *s)
  *  FIXME.
  */
 static int
-write_message(fd, mp)
-  int   fd;
-  struct msg *mp;
+write_message(int fd, struct msg *mp)
 {
   int len = ntohs(mp->len);
 
@@ -853,9 +849,7 @@ write_message(fd, mp)
  *  message.
  */
 static int
-read_message(fd, mp)
-  int   fd;
-  struct msg *mp;
+read_message(int fd, struct msg *mp)
 {
   int   rlen, i;
   unsigned char* tmp;
@@ -891,9 +885,7 @@ read_message(fd, mp)
  *  bytes read (i.e. len) , 0 if eof, or < 0 if error. len must be > 0.
  */
 static int
-read_fill(fd, buf, len)
-  int   fd, len;
-  char *buf;
+read_fill(int fd, char *buf, int len)
 {
   int   i, got = 0;
 
@@ -914,9 +906,7 @@ read_fill(fd, buf, len)
  *  0 if eof, or < 0 if error. len > maxlen > 0 must hold.
  */
 static int
-read_skip(fd, buf, maxlen, len)
-  int   fd, maxlen, len;
-  char *buf;
+read_skip(int fd, char *buf, int maxlen, int len)
 {
   int   i, got = 0;
   char  c;

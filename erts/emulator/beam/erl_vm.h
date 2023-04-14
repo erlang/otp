@@ -323,7 +323,7 @@ extern void** beam_ops;
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE
-int erts_cp_size()
+int erts_cp_size(void)
 {
     if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
         return 1;

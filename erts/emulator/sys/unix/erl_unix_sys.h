@@ -281,7 +281,7 @@ ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_FORCE_INLINE ErtsSysPerfCounter
-erts_sys_perf_counter()
+erts_sys_perf_counter(void)
 {
     return (*erts_sys_time_data__.r.o.perf_counter)();
 }

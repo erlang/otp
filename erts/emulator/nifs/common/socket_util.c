@@ -2666,7 +2666,7 @@ MSG_FUNCS
  */
 
 extern
-ErlNifTime esock_timestamp()
+ErlNifTime esock_timestamp(void)
 {
     ErlNifTime monTime = enif_monotonic_time(ERL_NIF_USEC);
     ErlNifTime offTime = enif_time_offset(ERL_NIF_USEC);
