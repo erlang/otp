@@ -874,12 +874,12 @@ aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
     %% and ensure that the value is only used once, even if the
     %% argument dies at this location.
     %%
-    %% We also update the call info for the callee in the #aas{} to
-    %% reflect the aliased status for the arguments coming from the
-    %% environment.
+    %% We also assume that all arguments are aliased because someone
+    %% could have stolen the function through tracing and called it
+    %% with unexpected arguments, which may be aliased.
     SS = aa_set_aliased([Dst|Env0], SS0),
     #{ Callee := Status0 } = Info0,
-    Status = aa_merge_env(reverse(Status0), [aliased || _ <- Env0], []),
+    Status = [aliased || _ <- Status0],
     #{ Callee := PrevStatus } = Info0,
     Info = Info0#{ Callee := Status },
     Repeats = case PrevStatus =/= Status of
@@ -892,13 +892,6 @@ aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
               end,
     AAS = AAS0#aas{call_args=Info,repeats=Repeats},
     {SS, AAS}.
-
-aa_merge_env([_|Args], [E|Env], Acc) ->
-    aa_merge_env(Args, Env, [E|Acc]);
-aa_merge_env([Arg|Args], [], Acc) ->
-    aa_merge_env(Args, [], [Arg|Acc]);
-aa_merge_env([], [], Acc) ->
-    Acc.
 
 aa_breadth_first(Funs, FuncDb) ->
     IsExported = fun (F) ->
