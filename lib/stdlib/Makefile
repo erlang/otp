@@ -39,6 +39,7 @@ include $(ERL_TOP)/make/otp_subdir.mk
 DIA_PLT_APPS=compiler crypto
 TEST_NEEDS_RELEASE=true
 
+NO_TEST_TARGET:=1 # Avoid warning about ignoring old recipe for target 'test'
 include $(ERL_TOP)/make/app_targets.mk
 
 # Enable feature maybe_expr in runtime when running tests.

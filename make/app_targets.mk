@@ -22,9 +22,11 @@ APPLICATION ?= $(basename $(notdir $(PWD)))
 
 .PHONY: test info gclean dialyzer dialyzer_plt dclean
 
+ifndef NO_TEST_TARGET
 test:
 	TEST_NEEDS_RELEASE=$(TEST_NEEDS_RELEASE) TYPE=$(TYPE) \
 	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+endif
 
 info:
 	@echo "$(APPLICATION)_VSN:   $(VSN)"
