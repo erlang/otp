@@ -14034,6 +14034,10 @@ api_opt_sock_broadcast() ->
                                    ?SEV_IPRINT("Expected Success: "
                                                "broadcast message sent"),
                                    ok;
+                               {error, eaddrnotavail = Reason} ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p => SKIP",
+                                               [Reason]),
+                                   {skip, Reason};
                                {error, eacces = Reason} ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p => SKIP",
 					       [Reason]),
