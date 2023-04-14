@@ -28,7 +28,7 @@
         {?ESOCK_SOCKET_TAG, (Socket), (Tag), (Info)}).
 
 -define(ESOCK_ABORT_MSG(Sock, H, Reason),
-        %% {'$socket', (Sock), abort, {(SR), (Reason)}}).
+        %% {?ESOCK_SOCKET_TAG, (Sock), abort, {(H), (Reason)}}).
         ?ESOCK_SOCKET_MSG(Sock, abort, {(H), (Reason)})).
 
 -define(ESOCK_SELECT_INFO(ST, SH),
@@ -43,8 +43,8 @@
 -define(ESOCK_COMPLETION_INFO(CT, CH),
         {completion_info, (CT), (CH)}).
 -define(ESOCK_COMPLETION_INFO(CH),
-        ?ESOCK_COMPLETION_INFO(_, CR)).
+        ?ESOCK_COMPLETION_INFO(_, CH)).
 
 -define(ESOCK_COMPLETION_MSG(Sock, CH, CS),
-        %% {'$socket', (Sock), completion, {(CR), (CS)}}).
+        %% {'$socket', (Sock), completion, {(CH), (CS)}}).
         ?ESOCK_SOCKET_MSG(Sock, completion, {(CH), (CS)})).
