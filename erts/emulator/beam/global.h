@@ -1708,7 +1708,6 @@ extern void erts_match_prog_foreach_offheap(Binary *b,
 #define MATCH_SET_EXCEPTION_TRACE (0x4) /* exception trace requested */
 #define MATCH_SET_RX_TRACE (MATCH_SET_RETURN_TRACE|MATCH_SET_EXCEPTION_TRACE)
 
-extern erts_driver_t vanilla_driver;
 extern erts_driver_t spawn_driver;
 extern erts_driver_t forker_driver;
 extern erts_driver_t fd_driver;

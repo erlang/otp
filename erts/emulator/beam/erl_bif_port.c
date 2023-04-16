@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -786,7 +786,6 @@ static Port *
 open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 {
     int merged_environment = 0;
-    Sint i;
     Eterm option;
     Uint arity;
     Eterm* tp;
@@ -1021,24 +1020,6 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     /*
      * Parse the first argument and start the appropriate driver.
      */
-
-    if (is_atom(name) || (i = is_string(name))) {
-	/* a vanilla port */
-	if (is_atom(name)) {
-	    name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP,
-					   atom_tab(atom_val(name))->len+1);
-	    sys_memcpy((void *) name_buf,
-		       (void *) atom_tab(atom_val(name))->name, 
-		       atom_tab(atom_val(name))->len);
-	    name_buf[atom_tab(atom_val(name))->len] = '\0';
-	} else {
-	    name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
-	    if (intlist_to_buf(name, name_buf, i) != i)
-		erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
-	    name_buf[i] = '\0';
-	}
-	driver = &vanilla_driver;
-    } else {   
 	if (is_not_tuple(name)) {
 	    goto badarg;		/* Not a process or fd port */
 	}
@@ -1091,7 +1072,6 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	} else {
 	    goto badarg;
 	}
-    }
 
     if ((driver != &spawn_driver && opts.argv != NULL) ||
 	(driver == &spawn_driver && 
