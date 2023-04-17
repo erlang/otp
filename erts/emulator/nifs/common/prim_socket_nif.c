@@ -1955,6 +1955,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(cmsg_cloexec);                    \
     GLOBAL_ATOM_DECL(command);                         \
     GLOBAL_ATOM_DECL(completion);                      \
+    GLOBAL_ATOM_DECL(completion_status);               \
     GLOBAL_ATOM_DECL(confirm);                         \
     GLOBAL_ATOM_DECL(congestion);                      \
     GLOBAL_ATOM_DECL(connect);                         \

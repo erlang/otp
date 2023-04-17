@@ -5811,7 +5811,7 @@ void esaio_completion_connect_failure(ErlNifEnv*          env,
     if (descP->connectorP != NULL) {
         /* Figure out the reason */
         ERL_NIF_TERM reason = MKT2(env,
-                                   esock_atom_get_overlapped_result,
+                                   esock_atom_completion_status,
                                    ENO2T(env, error));
         
         /* Inform the user waiting for a reply */
@@ -6198,7 +6198,7 @@ void esaio_completion_accept_failure(ErlNifEnv*         env,
                            &req)) {
             
         reason = MKT2(env,
-                      esock_atom_get_overlapped_result,
+                      esock_atom_completion_status,
                       ENO2T(env, error));
 
         /* Inform the user waiting for a reply */
@@ -6683,7 +6683,7 @@ void esaio_completion_send_failure(ErlNifEnv*       env,
                          &req)) {
 
         reason = MKT2(env,
-                      esock_atom_get_overlapped_result,
+                      esock_atom_completion_status,
                       ENO2T(env, error));
 
         /* Inform the user waiting for a reply */
@@ -7168,7 +7168,7 @@ void esaio_completion_sendto_failure(ErlNifEnv*         env,
                          &req)) {
 
         reason = MKT2(env,
-                      esock_atom_get_overlapped_result,
+                      esock_atom_completion_status,
                       ENO2T(env, error));
 
         /* Inform the user waiting for a reply */
@@ -7471,7 +7471,7 @@ void esaio_completion_sendmsg_failure(ErlNifEnv*          env,
                          &req)) {
 
         reason = MKT2(env,
-                      esock_atom_get_overlapped_result,
+                      esock_atom_completion_status,
                       ENO2T(env, error));
 
         /* Inform the user waiting for a reply */
@@ -7757,7 +7757,7 @@ void esaio_completion_recv_failure(ErlNifEnv*       env,
                          &req)) {
         /* Figure out the reason */
         reason = MKT2(env,
-                      esock_atom_get_overlapped_result,
+                      esock_atom_completion_status,
                       ENO2T(env, error));
 
         /* Inform the user waiting for a reply */
@@ -8451,7 +8451,7 @@ void esaio_completion_recvfrom_failure(ErlNifEnv*           env,
                          &req)) {
 
         reason = MKT2(env,
-                      esock_atom_get_overlapped_result,
+                      esock_atom_completion_status,
                       ENO2T(env, error));
 
         /* Inform the user waiting for a reply */
@@ -8994,7 +8994,7 @@ void esaio_completion_recvmsg_failure(ErlNifEnv*          env,
                          &req)) {
 
         reason = MKT2(env,
-                      esock_atom_get_overlapped_result,
+                      esock_atom_completion_status,
                       ENO2T(env, error));
 
         /* Inform the user waiting for a reply */
@@ -9339,7 +9339,7 @@ void esaio_completion_fail(ErlNifEnv*       env,
     if (inform)
         esock_warning_msg("[WIN-ESAIO] Unknown (%s) operation failure: "
                           "\r\n   Descriptor: %d"
-                          "\r\n   Errno:      %T"
+                          "\r\n   Error:      %T"
                           "\r\n",
                           opStr, descP->sock, ENO2T(env, error));
 

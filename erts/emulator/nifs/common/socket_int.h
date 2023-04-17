@@ -242,6 +242,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(cmsg_cloexec);             \
     GLOBAL_ATOM_DEF(command);                  \
     GLOBAL_ATOM_DEF(completion);               \
+    GLOBAL_ATOM_DEF(completion_status);        \
     GLOBAL_ATOM_DEF(confirm);                  \
     GLOBAL_ATOM_DEF(congestion);               \
     GLOBAL_ATOM_DEF(connect);                  \
