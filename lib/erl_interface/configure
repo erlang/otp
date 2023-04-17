@@ -8715,7 +8715,7 @@ int
 main (void)
 {
 
-						__asm__ __volatile__("isb sy" : : : "memory");
+						__asm__ __volatile__("isb sy\n" : : : "memory");
 
   ;
   return 0;
@@ -8749,7 +8749,7 @@ int
 main (void)
 {
 
-						char data[512]; __asm__ __volatile__("dc cvau, %0" : "r" (data) : : "memory");
+						char data[512]; __asm__ __volatile__("dc cvau, %0\n" :: "r" (data) : "memory");
 
   ;
   return 0;
@@ -8783,7 +8783,7 @@ int
 main (void)
 {
 
-						char data[512]; __asm__ __volatile__("ic ivau, %0" : "r" (data) : : "memory");
+						char data[512]; __asm__ __volatile__("ic ivau, %0\n" :: "r" (data) : "memory");
 
   ;
   return 0;
