@@ -49078,6 +49078,12 @@ otp18240_client(ID, Domain, Proto, PortNo) ->
               "~n   ~p", [ID, Reason]),
             (catch socket:close(Sock)),
             exit({skip, Reason});
+        {error, enetunreach = Reason} ->
+            i("[connector ~w] failed connecting: "
+              "~n   ~p", [ID, Reason]),
+            (catch socket:close(Sock)),
+            exit({skip, Reason});
+
         {error, Reason} ->
             i("[connector ~w] failed connecting: "
               "~n   ~p", [ID, Reason]),
