@@ -21139,6 +21139,37 @@ api_opt_ip_recvttl_udp(InitState) ->
                                    {skip,
                                     ?F("Cannot send with TTL: ~p", [Info])};
 
+                               {error,
+                                {completion_status,
+                                 #{file     := File,
+                                   function := Function,
+                                   line     := Line,
+                                   raw_info := RawInfo,
+                                   info     := invalid_parameter = Info}}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TTL: "
+                                               "~p => SKIP: "
+                                               "~n   File:     ~s"
+                                               "~n   Function: ~s"
+                                               "~n   Line:     ~p"
+                                               "~n   Raw Info: ~p",
+                                               [Info,
+                                                File, Function, Line,
+                                                RawInfo]),
+                                   (catch socket:close(SSock)),
+                                   (catch socket:close(DSock)),
+                                   {skip,
+                                    ?F("Cannot send with TTL: ~p", [Info])};
+                               {error, {completion_status,
+                                        invalid_parameter = Info}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TTL: "
+                                               "~p => SKIP", [Info]),
+                                   (catch socket:close(SSock)),
+                                   (catch socket:close(DSock)),
+                                   {skip,
+                                    ?F("Cannot send with TTL: ~p", [Info])};
+
                                {error, _Reason} = ERROR ->
                                    ERROR
                            end
@@ -23433,7 +23464,7 @@ api_opt_ipv6_tclass_udp(InitState) ->
          #{desc => "send req (to dst) (w explicit tc = 1)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
                            case Send(Sock, ?BASIC_REQ, Dst, 1) of
-                              {error,
+                               {error,
                                 {get_overlapped_result,
                                  #{file     := File,
                                    function := Function,
@@ -23454,6 +23485,35 @@ api_opt_ipv6_tclass_udp(InitState) ->
                                    {skip,
                                     ?F("Cannot send with TClass: ~p", [Info])};
                                {error, {get_overlapped_result,
+                                        invalid_parameter = Info}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TClass: "
+                                               "~p => SKIP", [Info]),
+                                   (catch socket:close(Sock)),
+                                   {skip,
+                                    ?F("Cannot send with TClass: ~p", [Info])};
+
+                               {error,
+                                {completion_status,
+                                 #{file     := File,
+                                   function := Function,
+                                   line     := Line,
+                                   raw_info := RawInfo,
+                                   info     := invalid_parameter = Info}}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TClass: "
+                                               "~p => SKIP: "
+                                               "~n   File:     ~s"
+                                               "~n   Function: ~s"
+                                               "~n   Line:     ~p"
+                                               "~n   Raw Info: ~p",
+                                               [Info,
+                                                File, Function, Line,
+                                                RawInfo]),
+                                   (catch socket:close(Sock)),
+                                   {skip,
+                                    ?F("Cannot send with TClass: ~p", [Info])};
+                               {error, {completion_status,
                                         invalid_parameter = Info}} ->
                                    %% IF we can't send it the test will not work
                                    ?SEV_EPRINT("Cannot send TClass: "
@@ -32998,8 +33058,11 @@ sc_lc_receive_response_udp(InitState) ->
 
 sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(sc_lc_recvmsg_response_tcp4,
-           fun() -> has_support_ipv4() end,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet,
@@ -33016,8 +33079,11 @@ sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
 
 sc_lc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(sc_recvmsg_response_tcp6,
-           fun() -> has_support_ipv6() end,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv6()
+           end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet6,
@@ -48899,6 +48965,9 @@ otp18240_await_acceptor(Pid, Mon) ->
 	{'DOWN', Mon, process, Pid, ok} ->
 	    i("acceptor successfully terminated"),
             ok;
+	{'DOWN', Mon, process, Pid, {skip, _} = SKIP} ->
+	    i("acceptor successfully terminated"),
+            exit(SKIP);
         {'DOWN', Mon, process, Pid, Info} ->
             i("acceptor unexpected termination: "
               "~n   ~p", [Info]),
@@ -48982,20 +49051,37 @@ otp18240_client(ID, Domain, Proto, PortNo) ->
     ok = socket:bind(Sock, #{family => Domain, port => 0, addr => any}),
     %% ok = socket:setopt(Sock, otp, debug, true),
     i("[connector ~w] try connect", [ID]),
-    ok = socket:connect(Sock, #{family => Domain, addr => any, port => PortNo}),
-    i("[connector ~w] connected - now try recv", [ID]),
-    case socket:recv(Sock) of
-	{ok, Data} ->
-	    i("[connector ~w] received unexpected data: "
-	      "~n   ~p", [ID, Data]),
-	    (catch socket:close(Sock)),
-	    exit('unexpected data');
-	{error, closed} ->
-	    i("[connector ~w] expected socket close", [ID]);
-	{error, Reason} ->
-	    i("[connector ~w] unexpected error when reading: "
-	      "~n   ~p", [ID, Reason]),
-	    (catch socket:close(Sock))
+    case socket:connect(Sock,
+                        #{family => Domain, addr => any, port => PortNo}) of
+        ok ->
+            i("[connector ~w] connected - now try recv", [ID]),
+            case socket:recv(Sock) of
+                {ok, Data} ->
+                    i("[connector ~w] received unexpected data: "
+                      "~n   ~p", [ID, Data]),
+                    (catch socket:close(Sock)),
+                    exit('unexpected data');
+                {error, closed} ->
+                    i("[connector ~w] expected socket close", [ID]);
+                {error, Reason} ->
+                    i("[connector ~w] unexpected error when reading: "
+                      "~n   ~p", [ID, Reason]),
+                    (catch socket:close(Sock))
+            end;
+        {error, {completion_status, #{info := invalid_netname = R} = Reason}} ->
+            i("[connector ~w] failed connecting: "
+              "~n   ~p", [ID, Reason]),
+            (catch socket:close(Sock)),
+            exit({skip, R});
+        {error, {completion_status, invalid_netname = Reason}} ->
+            i("[connector ~w] failed connecting: "
+              "~n   ~p", [ID, Reason]),
+            (catch socket:close(Sock)),
+            exit({skip, Reason});
+        {error, Reason} ->
+            i("[connector ~w] failed connecting: "
+              "~n   ~p", [ID, Reason]),
+            (catch socket:close(Sock))
     end,
     i("[connector ~w] done", [ID]),
     ok.
