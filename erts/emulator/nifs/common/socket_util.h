@@ -53,7 +53,7 @@
                                      __LINE__,     \
                                      (RI), (I))
 
-#if defined(ESOCK_USE_EXTERNDED_ERROR_INFO)
+#if defined(ESOCK_USE_EXTENDED_ERROR_INFO)
 #define ENO2T(E, ENO) MKEEI((E),                                \
                             MKI((E), (ENO)),                    \
                             esock_errno_to_term((E), (ENO)))
