@@ -60,16 +60,20 @@
 %%
 
 %% Run the entire test suite: 
-%% ts:run(emulator, socket_SUITE, [batch]).
+%% ts:run(kernel, socket_SUITE, [batch]).
 %%
 %% Run a specific group:
-%% ts:run(emulator, socket_SUITE, {group, foo}, [batch]).
+%% ts:run(kernel, socket_SUITE, {group, foo}, [batch]).
 %%
 %% Run a specific test case:
-%% ts:run(emulator, socket_SUITE, foo, [batch]).
+%% ts:run(kernel, socket_SUITE, foo, [batch]).
 %%
+%% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
+%% application:set_env(kernel, test_inet_backends, true).
 %% S = fun() -> ts:run(kernel, socket_SUITE, [batch]) end.
+%% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
 %% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ts:run(kernel, socket_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(GROUP) -> ct:run_test([{suite, socket_SUITE}, {group, GROUP}]) end.
 %% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.

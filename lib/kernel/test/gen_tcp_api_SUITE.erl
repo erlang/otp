@@ -1394,11 +1394,7 @@ do_s_accept_with_explicit_socket_backend() ->
 
 is_socket_supported() ->
     try socket:info() of
-	#{io_backend := #{name := BackendName}}
-          when (BackendName =/= win_esaio) ->
-            ok;
-        _ ->
-            {skip, "Temporary exclusion"}
+        _ -> ok
     catch
         error : notsup ->
             {skip, "esock not supported"};

@@ -246,6 +246,9 @@ init_per_group(local, Config) ->
 	    Config;
 	{error, eafnosupport} ->
             ?P("init_per_group(local) -> we *do not* support 'local'"),
+	    {skip, "AF_LOCAL not supported"};
+	{error, {invalid, {domain, local}}} ->
+            ?P("init_per_group(local) -> we *do not* support 'local'"),
 	    {skip, "AF_LOCAL not supported"}
     end;
 init_per_group(sockaddr = _GroupName, Config) ->
@@ -417,17 +420,22 @@ buffer_size_client(_, _, _, _, _, []) ->
     ok;
 buffer_size_client(Server, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
-    ?P("buffer_size_client -> Cnt=~w setopts ~p", [Cnt, Opts]),
+    ?P("buffer_size_client(~w) -> entry with"
+       "~n   Opts: ~p", [Cnt, Opts]),
     ok = inet:setopts(Socket, Opts),
     GOpts = [K || {K, _} <- Opts],
-    ?P("buffer_size_client -> opts result: ~p", [inet:getopts(Socket, GOpts)]),
+    ?P("buffer_size_client(~w) -> options after set: "
+       "~n   ~p", [Cnt, inet:getopts(Socket, GOpts)]),
     Server ! {self(),setopts,Cnt},
     receive {Server,setopts,Cnt} -> ok end,
     buffer_size_client(Server, IP, Port, Socket, Cnt+1, T);
 buffer_size_client(Server, IP, Port, 
 		   Socket, Cnt, [{B,Replies}|T]=Opts) when is_binary(B) ->
-    ?P("buffer_size_client -> Cnt=~w send size ~w expecting ~p when"
-       "~n   Info: ~p",
+    ?P("buffer_size_client(~w) -> entry with"
+       "~n   send size:   ~w"
+       "~n   expecting:   ~p"
+       "~nwhen"
+       "~n   Socket Info: ~p",
        [Cnt, byte_size(B), Replies, inet:info(Socket)]),
     case gen_udp:send(Socket, IP, Port, <<Cnt,B/binary>>) of
 	ok ->
@@ -443,9 +451,10 @@ buffer_size_client(Server, IP, Port,
 		    case lists:member(Tag, Replies) of
 			true -> ok;
 			false ->
-                            ?P("missing from expected replies: "
+                            ?P("buffer_size_client(~w) -> "
+                               "missing from expected replies: "
                                "~n   Tag:     ~p"
-                               "~n   Replies: ~p", [Tag, Replies]),
+                               "~n   Replies: ~p", [Cnt, Tag, Replies]),
 			    ct:fail({reply_mismatch,Cnt,Reply,Replies,
 				     byte_size(B),
 				     inet:getopts(Socket,
@@ -453,6 +462,7 @@ buffer_size_client(Server, IP, Port,
 		    end,
 		    buffer_size_client(Server, IP, Port, Socket, Cnt+1, T)
 	    after 1313 ->
+                    %% ?P("buffer_size_client(~w) -> timeout", [Cnt]),
 		    buffer_size_client(Server, IP, Port, Socket, Cnt, Opts)
 	    end;
 
@@ -472,23 +482,25 @@ buffer_size_server(_, _, _, _, _, []) ->
     ok;
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
-    ?P("buffer_size_server -> await client setopts"),
+    ?P("buffer_size_server(~w) -> entry when await client setopts", [Cnt]),
     receive {Client, setopts, Cnt} -> ok end,
-    ?P("buffer_size_server -> Cnt=~w setopts ~p", [Cnt, Opts]),
+    ?P("buffer_size_server(~w) -> setopts: "
+       "~n   ~p", [Cnt, Opts]),
     ok = inet:setopts(Socket, Opts),
     GOpts = [K || {K, _} <- Opts],
-    ?P("buffer_size_server -> opts result: ~p", [inet:getopts(Socket, GOpts)]),
+    ?P("buffer_size_server(~w) -> options after set: "
+       "~n   ~p", [Cnt, inet:getopts(Socket, GOpts)]),
     Client ! {self(), setopts, Cnt},
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T);
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [{B,_}|T]) when is_binary(B) ->
-    ?P("buffer_size_server -> try receive: Cnt=~w and ~w bytes of data",
-       [Cnt, byte_size(B)]),
+    ?P("buffer_size_server(~w) -> entry with"
+       "~n   expectt ~w bytes of data", [Cnt, byte_size(B)]),
     Reply = case buffer_size_server_recv(Socket, IP, Port, Cnt) of
                 D when is_binary(D) ->
                     SizeD = byte_size(D),
-                    ?P("buffer_size_server -> received: ~w bytes of data",
-                       [SizeD]),
+                    ?P("buffer_size_server(~w) -> received: ~w bytes of data",
+                       [Cnt, SizeD]),
                     case B of
                         D ->
                             correct;
@@ -502,46 +514,46 @@ buffer_size_server(Client, IP, Port,
                        [Cnt, Error]),
                     Error
             end,
-    ?P("buffer_size_server -> send reply '~p'", [Reply]),
+    ?P("buffer_size_server(~w) -> send reply '~p'", [Cnt, Reply]),
     Client ! {self(), Cnt, Reply},
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T).
 
 buffer_size_server_recv(Socket, IP, Port, Cnt) ->
-    ?P("buffer_size_server -> await data: "
+    ?P("buffer_size_server(~w) -> await data: "
        "~n   Socket: ~p"
        "~n   IP:     ~p"
-       "~n   Port:   ~p"
-       "~n   Cnt:    ~p", [Socket, IP, Port, Cnt]),
+       "~n   Port:   ~p", [Cnt, Socket, IP, Port]),
     receive
 	{udp, Socket, IP, Port, <<Cnt, B/binary>>} ->
-            ?P("buffer_size_server -> received (~w) ~w bytes", [Cnt, byte_size(B)]),
+            ?P("buffer_size_server(~w) -> received ~w bytes",
+               [Cnt, byte_size(B)]),
 	    B;
 	{udp, Socket, IP, Port, <<_B/binary>>} ->
-            ?P("buffer_size_server -> received unexpected ~w bytes",
-               [byte_size(_B)]),
+            ?P("buffer_size_server(~w) -> received unexpected ~w bytes",
+               [Cnt, byte_size(_B)]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, Socket, IP, Port, _CRAP} ->
-            ?P("buffer_size_server -> received unexpected crap"),
+            ?P("buffer_size_server(~w) -> received unexpected crap", [Cnt]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, XSocket, XIP, XPort, _CRAP} ->
-            ?P("buffer_size_server -> received unexpected udp message: "
+            ?P("buffer_size_server(~w) -> received unexpected udp message: "
                "~n   XSocket: ~p"
                "~n   Socket:  ~p"
                "~n   XIP:     ~p"
                "~n   IP:      ~p"
                "~n   XPort:   ~p"
                "~n   Port:    ~p",
-               [XSocket, Socket, XIP, IP, XPort, Port]),
+               [Cnt, XSocket, Socket, XIP, IP, XPort, Port]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp_error, Socket, Error} ->
-            ?P("buffer_size_server -> error: ~p", [Error]),
+            ?P("buffer_size_server(~w) -> error: ~p", [Cnt, Error]),
 	    Error
 
     after 5000 ->
-            ?P("buffer_size_server -> timeout"),
+            ?P("buffer_size_server(~w) -> timeout", [Cnt]),
 	    {timeout, flush()}
     end.
 
@@ -877,7 +889,9 @@ recv_poll_after_active_once(Config) when is_list(Config) ->
 
 %% Test that the 'fd' option works.
 open_fd(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_open_fd(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> is_not_windows() end,
+            fun() -> do_open_fd(Config) end).
 
 do_open_fd(Config) when is_list(Config) ->
     Msg = "Det gör ont när knoppar brista. Varför skulle annars våren tveka?",
@@ -1742,7 +1756,10 @@ recv_close(Config) when is_list(Config) ->
 
 %% Test that connect/3 has effect.
 connect(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_connect(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+            %% *Currently* not implemented
+            fun() -> is_not_windows() end,
+            fun() -> do_connect(Config) end).
 
 do_connect(Config) when is_list(Config) ->
     ?P("begin"),
@@ -1787,7 +1804,10 @@ do_connect(Config) when is_list(Config) ->
 
 
 reconnect(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun () -> do_reconnect(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+            %% *Currently* not implemented
+            fun() -> is_not_windows() end,
+            fun () -> do_reconnect(Config) end).
 
 do_reconnect(Config) ->
     LoopAddr = {127,0,0,1},
@@ -3038,10 +3058,15 @@ is_net_supported() ->
 is_not_darwin() ->
     is_not_platform(darwin, "Darwin").
 
+is_not_windows() ->
+    is_not_platform(win32, "Windows").
+
 is_not_platform(Platform, PlatformStr)
   when is_atom(Platform) andalso is_list(PlatformStr) ->
       case os:type() of
         {unix, Platform} ->
+            skip("This does not work on " ++ PlatformStr);
+        {win32, nt} when (Platform =:= win32) ->
             skip("This does not work on " ++ PlatformStr);
         _ ->
             ok
