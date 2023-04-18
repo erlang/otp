@@ -264,7 +264,7 @@
                                  secp160r1 |
                                  secp160r2.
 
--type group() :: secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
+-type group() :: x25519 | x448 | secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
                  ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192. % exported
 
 -type srp_param_type()        :: srp_1024 |
