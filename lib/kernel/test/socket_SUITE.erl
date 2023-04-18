@@ -48987,9 +48987,15 @@ otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
       "~n   Protocol: ~p", [Parent, Domain, Proto]),
     MonitoredBy0 = monitored_by(),
     ?SLEEP(?SECS(5)),
-    {ok, LSock}  = socket:open(Domain, stream, Proto,
-                               #{use_registry => false}),
-    ok = socket:bind(LSock, #{family => Domain, port => 0, addr => any}),
+    Addr = case ?LIB:which_local_host_info(Domain) of
+               {ok, #{addr := A}} ->
+                   A;
+               {error, Reason} ->
+                   exit({skip, Reason})
+           end,
+    {ok, LSock} = socket:open(Domain, stream, Proto,
+                              #{use_registry => false}),
+    ok = socket:bind(LSock, #{family => Domain, addr => Addr, port => 0}),
     ok = socket:listen(LSock, NumSocks),
     ?SLEEP(?SECS(5)),
     MonitoredBy1 = monitored_by(),
@@ -49011,7 +49017,7 @@ otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
     _Clients = [spawn_link(fun() ->
                                    otp18240_client(CID,
                                                    Domain, Proto,
-                                                   Port)
+                                                   Addr, Port)
                            end) || CID <- lists:seq(1, NumSocks)],
 
     i("[acceptor] accept ~w connections", [NumSocks]),
@@ -49045,14 +49051,14 @@ otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
     end.
 
 
-otp18240_client(ID, Domain, Proto, PortNo) ->
+otp18240_client(ID, Domain, Proto, Addr, PortNo) ->
     i("[connector ~w] try create connector socket", [ID]),
     {ok, Sock} = socket:open(Domain, stream, Proto, #{use_registry => false}),
-    ok = socket:bind(Sock, #{family => Domain, port => 0, addr => any}),
+    ok = socket:bind(Sock, #{family => Domain, addr => Addr, port => 0}),
     %% ok = socket:setopt(Sock, otp, debug, true),
     i("[connector ~w] try connect", [ID]),
     case socket:connect(Sock,
-                        #{family => Domain, addr => any, port => PortNo}) of
+                        #{family => Domain, addr => Addr, port => PortNo}) of
         ok ->
             i("[connector ~w] connected - now try recv", [ID]),
             case socket:recv(Sock) of
