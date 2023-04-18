@@ -680,7 +680,7 @@ sanitize([L|Ls], InBlocks, Count0, Values0, Blocks0) ->
                 no_change ->
                     Blk = sanitize_last(Blk0, Values0),
                     Blocks1 = Blocks0#{L := Blk},
-                    Blocks = sanitize_reachable(Blk0, Blocks1),
+                    Blocks = sanitize_reachable(Blk, Blocks1),
                     sanitize(Ls, InBlocks, Count0, Values0, Blocks);
                 {Is,Last,Count,Values} ->
                     Blk1 = Blk0#b_blk{is=Is,last=Last},
