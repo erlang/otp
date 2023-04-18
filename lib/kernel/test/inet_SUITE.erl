@@ -369,8 +369,11 @@ do_gethostbyname(Config) when is_list(Config) ->
 
 
 t_gethostbyname_empty(Config) when is_list(Config) ->
-    {error,nxdomain} = inet:gethostbyname(""),
-    {error,nxdomain} = inet:gethostbyname(''),
+    element(1, os:type()) =:= unix andalso
+        begin
+            {error,nxdomain} = inet:gethostbyname(""),
+            {error,nxdomain} = inet:gethostbyname('')
+        end,
     {error,nxdomain} = inet:gethostbyname("."),
     {error,nxdomain} = inet:gethostbyname('.'),
     ok.

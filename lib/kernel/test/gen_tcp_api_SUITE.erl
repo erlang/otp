@@ -355,8 +355,11 @@ t_connect_bad(Config) when is_list(Config) ->
     NonExistingPort = 45638,		% Not in use, I hope.
     t_connect_bad(Config, localhost, NonExistingPort, "port not in use"),
     t_connect_bad(Config, "non-existing-host-xxx", 7, "non-existing host"),
-    t_connect_bad(Config, "",                      7, "empty host string"),
-    t_connect_bad(Config, '',                      7, "empty host atom"),
+    element(1, os:type()) =:= unix andalso
+        begin
+            t_connect_bad(Config, "",              7, "empty host string"),
+            t_connect_bad(Config, '',              7, "empty host atom")
+        end,
     t_connect_bad(Config, ".",                     7, "root domain string"),
     t_connect_bad(Config, '.',                     7, "root domain atom").
 

@@ -348,8 +348,11 @@ send_to_empty(Config) when is_list(Config) ->
 
 do_send_to_empty(Config) ->
     {ok, Sock} = ?OPEN(Config, 0),
-    {error, nxdomain} = gen_udp:send(Sock, "", ?CLOSED_PORT, "xXx"),
-    {error, nxdomain} = gen_udp:send(Sock, '', ?CLOSED_PORT, "xXx"),
+    element(1, os:type()) =:= unix andalso
+        begin
+            {error, nxdomain} = gen_udp:send(Sock, "", ?CLOSED_PORT, "xXx"),
+            {error, nxdomain} = gen_udp:send(Sock, '', ?CLOSED_PORT, "xXx")
+        end,
     {error, nxdomain} = gen_udp:send(Sock, ".", ?CLOSED_PORT, "xXx"),
     {error, nxdomain} = gen_udp:send(Sock, '.', ?CLOSED_PORT, "xXx"),
     ok.

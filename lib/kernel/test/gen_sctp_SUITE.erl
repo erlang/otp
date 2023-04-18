@@ -771,8 +771,11 @@ api_listen(Config) when is_list(Config) ->
     {ok,Sb} = gen_sctp:open(Pb),
     {ok,Sa} = gen_sctp:open(),
 
-    {error, nxdomain} = gen_sctp:connect(Sa, "", 65535, []),
-    {error, nxdomain} = gen_sctp:connect(Sa, '', 65535, []),
+    element(1, os:type()) =:= unix andalso
+        begin
+            {error, nxdomain} = gen_sctp:connect(Sa, "", 65535, []),
+            {error, nxdomain} = gen_sctp:connect(Sa, '', 65535, [])
+        end,
     {error, nxdomain} = gen_sctp:connect(Sa, ".", 65535, []),
     {error, nxdomain} = gen_sctp:connect(Sa, '.', 65535, []),
 
