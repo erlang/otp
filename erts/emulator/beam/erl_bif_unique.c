@@ -591,14 +591,15 @@ erts_pid_ref_delete(Eterm ref)
 	erts_rwmtx_rwlock(&tblp->rwmtx);
 
 	tep = hash_remove(&tblp->hash, &tmpl);
-	ASSERT(tep);
 
 	erts_rwmtx_rwunlock(&tblp->rwmtx);
 
-	if (tblp != &pid_ref_table[0].u.table)
-	    erts_free(ERTS_ALC_T_PREF_NSCHED_ENT, (void *) tep);
-	else
-	    erts_free(ERTS_ALC_T_PREF_ENT, (void *) tep);
+        if (tep) {
+            if (tblp != &pid_ref_table[0].u.table)
+                erts_free(ERTS_ALC_T_PREF_NSCHED_ENT, (void *) tep);
+            else
+                erts_free(ERTS_ALC_T_PREF_ENT, (void *) tep);
+        }
     }
 }
 
