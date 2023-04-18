@@ -239,17 +239,28 @@ init_per_group(inet_backend_socket = _GroupName, Config) ->
     end;
 init_per_group(local, Config) ->
     ?P("init_per_group(local) -> do we support 'local'"),
-    case ?OPEN(Config, 0, [local]) of
-	{ok,S} ->
-            ?P("init_per_group(local) -> we support 'local'"),
-	    ok = gen_udp:close(S),
-	    Config;
-	{error, eafnosupport} ->
-            ?P("init_per_group(local) -> we *do not* support 'local'"),
-	    {skip, "AF_LOCAL not supported"};
-	{error, {invalid, {domain, local}}} ->
-            ?P("init_per_group(local) -> we *do not* support 'local'"),
-	    {skip, "AF_LOCAL not supported"}
+    try socket:info() of
+        #{} ->
+            case socket:is_supported(local) of
+                true ->
+                    Config;
+                false ->
+                    {skip, "AF_LOCAL not supported"}
+            end
+    catch
+        _ : _ ->
+            case ?OPEN(Config, 0, [local]) of
+                {ok,S} ->
+                    ?P("init_per_group(local) -> we support 'local'"),
+                    ok = gen_udp:close(S),
+                    Config;
+                {error, eafnosupport} ->
+                    ?P("init_per_group(local) -> we *do not* support 'local'"),
+                    {skip, "AF_LOCAL not supported"};
+                {error, {invalid, {domain, local}}} ->
+                    ?P("init_per_group(local) -> we *do not* support 'local'"),
+                    {skip, "AF_LOCAL not supported"}
+            end
     end;
 init_per_group(sockaddr = _GroupName, Config) ->
     ?P("init_per_group(sockaddr) -> do we support 'socket'"),
@@ -1863,6 +1874,7 @@ open_port_0(Config, Port, Opts, N) ->
         {error, _} = Error ->
             Error
     end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
