@@ -508,10 +508,10 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 stop_servers(#state{node=Node, log=LogOn, panels=Panels} = _State) ->
-    LogOn andalso rpc:block_call(Node, rb, stop, []),
     Me = self(),
-    save_config(Panels),
     Stop = fun() ->
+                   LogOn andalso rpc:block_call(Node, rb, stop, []),
+                   save_config(Panels),
 		   try
 		       _ = [wx_object:stop(Panel) || {_, Panel, _} <- Panels],
 		       ok
