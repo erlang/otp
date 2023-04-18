@@ -3500,7 +3500,10 @@ api_b_send_and_recv_seqpL(_Config) when is_list(_Config) ->
 api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_b_sendmsg_and_recvmsg_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   Msg = #{iov => [Data]},
@@ -7998,7 +8001,10 @@ api_a_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
     Nowait = nowait(Config),
     tc_try(api_a_sendmsg_and_recvmsg_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   Msg = #{iov => [Data]},
@@ -10926,6 +10932,7 @@ api_a_mrecvmsg_cancel_tcp4(Config) when is_list(Config) ->
     Nowait = nowait(Config),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_windows(),
                    has_support_ipv4()
            end,
            fun() ->
@@ -10950,7 +10957,10 @@ api_a_mrecvmsg_cancel_tcp6(Config) when is_list(Config) ->
     ?TT(?SECS(20)),
     Nowait = nowait(Config),
     tc_try(?FUNCTION_NAME,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv6()
+           end,
            fun() ->
                    Recv = fun(Sock) ->
                                   socket:recvmsg(Sock, Nowait)
@@ -36582,7 +36592,10 @@ traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
 traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_sendmsg_and_recvmsg_counters_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    InitState = #{domain => inet,
                                  proto  => tcp,
@@ -36611,7 +36624,10 @@ traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
 traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_sendmsg_and_recvmsg_counters_tcp6,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv6()
+           end,
            fun() ->
                    InitState = #{domain => inet6,
                                  proto  => tcp,
