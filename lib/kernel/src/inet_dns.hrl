@@ -27,6 +27,7 @@
 -define(QUERY,    16#0).	%% standard query
 -define(IQUERY,   16#1).	%% inverse query
 -define(STATUS,   16#2).	%% nameserver status query
+-define(NOTIFY,   16#4).	%% notify
 
 %%
 %% Currently defined response codes

@@ -23,6 +23,7 @@
 %%
 %% RFC 1035: Domain Names - Implementation and Specification
 %% RFC 1995: Incremental Zone Transfer in DNS
+%% RFC 1996: A Mechanism for Prompt Notification of Zone Changes (DNS NOTIFY)
 %% RFC 2181: Clarifications to the DNS Specification
 %% RFC 2782: A DNS RR for specifying the location of services (DNS SRV)
 %% RFC 2915: The Naming Authority Pointer (NAPTR) DNS Resource Rec
@@ -477,6 +478,7 @@ decode_opcode(Opcode) ->
 	?QUERY -> 'query';
 	?IQUERY -> iquery;
 	?STATUS -> status;
+	?NOTIFY -> notify;
 	_ when is_integer(Opcode) -> Opcode %% non-standard opcode
     end.
 
@@ -485,6 +487,7 @@ encode_opcode(Opcode) ->
 	'query' -> ?QUERY;
 	iquery -> ?IQUERY;
 	status -> ?STATUS;
+	notify -> ?NOTIFY;
 	_ when is_integer(Opcode) -> Opcode %% non-standard opcode
     end.
 
