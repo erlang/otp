@@ -504,10 +504,11 @@ expand_files(Analysis = #analysis{files = Files, start_from = StartFrom}) ->
   case expand_files(Files, Ext, []) of
     [] ->
       Msg = "No " ++ Ext ++ " files to analyze" ++
-	case StartFrom of
-	  byte_code -> " (no --src specified?)";
-	  src_code -> ""
-	end,
+        case StartFrom of
+          byte_code -> " (no --src specified?)";
+          src_code -> ""
+        end ++
+        "\nConsider setting some default apps in your dialyzer.config file",
       exit({error, Msg});
     NewFiles ->
       Analysis#analysis{files = NewFiles}

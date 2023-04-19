@@ -18,7 +18,7 @@
 
 -module(dialyzer_options).
 
--export([build/1, build_warnings/2]).
+-export([build/1, build_warnings/2, get_default_config_filename/0]).
 
 -include("dialyzer.hrl").
 
@@ -48,9 +48,12 @@ build(Opts) ->
                   ?WARN_UNDEFINED_CALLBACK,
                   ?WARN_UNKNOWN],
   DefaultWarns1 = ordsets:from_list(DefaultWarns),
-  DefaultOpts = #options{},
-  DefaultOpts1 = DefaultOpts#options{legal_warnings = DefaultWarns1},
   try
+    WarningsFromConfig = proplists:get_value(warnings, get_config(), []),
+    update_path_from_config(),
+    DefaultWarns2 = build_warnings(WarningsFromConfig, DefaultWarns1),
+    DefaultOpts = #options{},
+    DefaultOpts1 = DefaultOpts#options{legal_warnings = DefaultWarns2},
     Opts1 = preprocess_opts(Opts),
     Env = env_default_opts(),
     ErrLoc = proplists:get_value(error_location, Env, ?ERROR_LOCATION),
@@ -60,6 +63,31 @@ build(Opts) ->
   catch
     throw:{dialyzer_options_error, Msg} -> {error, Msg}
   end.
+
+update_path_from_config() ->
+  Config = get_config(),
+  PAs = proplists:get_value(add_pathsa, Config, []),
+  PZs = proplists:get_value(add_pathsz, Config, []),
+  case is_list(PAs) of
+    true -> ok;
+    false -> bad_option("Bad list of paths in config", {add_pathsa, PAs})
+  end,
+  case is_list(PZs) of
+    true -> ok;
+    false -> bad_option("Bad list of paths in config", {add_pathsz, PZs})
+  end,
+  %% Add paths one-by-one so that we can report issues
+  %% if any path is invalid
+  %% (code:add_pathsa/1 and code:add_pathsz/1 always return ok)
+  [ case code:add_patha(PA) of
+      true -> ok;
+      {error, _} -> bad_option("Failed to add path from config", {add_patha, PA})
+    end || PA <- PAs ],
+  [ case code:add_pathz(PZ) of
+      true -> ok;
+      {error, _} -> bad_option("Failed to add path from config", {add_pathz, PZ})
+    end || PZ <- PZs ],
+  ok.
 
 preprocess_opts([]) -> [];
 preprocess_opts([{init_plt, File}|Opts]) ->
@@ -79,7 +107,7 @@ postprocess_opts(Opts = #options{}) ->
   check_module_lookup_file_validity(Opts1),
   Opts2 = check_output_plt(Opts1),
   check_init_plt_kind(Opts2),
-  Opts3 = manage_default_apps(Opts2),
+  Opts3 = manage_default_incremental_apps(Opts2),
   adapt_get_warnings(Opts3).
 
 check_metrics_file_validity(#options{analysis_type = incremental, metrics_file = none}) ->
@@ -160,31 +188,49 @@ check_init_plt_kind(#options{analysis_type = _NotIncremental, init_plts = InitPl
   lists:foreach(RunCheck, InitPlts).
 
 %% If no apps are set explicitly, we fall back to config
-manage_default_apps(Opts = #options{analysis_type = incremental, files = [], files_rec = [], warning_files = [], warning_files_rec = []}) ->
-  DefaultConfig = get_default_config_filename(),
-  case file:consult(DefaultConfig) of
-    {ok, [{incremental, {default_apps, DefaultApps}=Term}]} when
+manage_default_incremental_apps(Opts = #options{analysis_type = incremental, files = [], files_rec = [], warning_files = [], warning_files_rec = []}) ->
+  set_default_apps(get_config(), Opts);
+manage_default_incremental_apps(Opts) ->
+  Opts.
+
+set_default_apps([ConfigElem|MoreConfig], Opts) ->
+  case ConfigElem of
+    {incremental, {default_apps, DefaultApps}=Term} when
       is_list(DefaultApps) ->
         AppDirs = get_app_dirs(DefaultApps),
         assert_filenames_form(Term, AppDirs),
         Opts#options{files_rec = AppDirs};
-    {ok, [{incremental, {default_apps, DefaultApps}=TermApps,
-                        {default_warning_apps, DefaultWarningApps}=TermWarns}]} when
+    {incremental, {default_apps, DefaultApps}=TermApps,
+                  {default_warning_apps, DefaultWarningApps}=TermWarns} when
       is_list(DefaultApps), is_list(DefaultWarningApps) ->
-        AppDirs = get_app_dirs(DefaultApps),
+        AppDirs = get_app_dirs(DefaultApps ++ DefaultWarningApps),
         assert_filenames_form(TermApps, AppDirs),
         WarningAppDirs = get_app_dirs(DefaultWarningApps),
         assert_filenames_form(TermWarns, WarningAppDirs),
         Opts#options{files_rec = AppDirs, warning_files_rec = WarningAppDirs};
-    {ok, _Terms} ->
-      bad_option("Given Erlang terms could not be understood as Dialyzer config", DefaultConfig);
-    {error, Reason} ->
-      bad_option(file:format_error(Reason), DefaultConfig)
+    _ when element(1, ConfigElem) =:= incremental ->
+      bad_option("Given Erlang terms in 'incremental' section could not be understood as Dialyzer config", ConfigElem);
+    _ ->
+      set_default_apps(MoreConfig, Opts)
   end;
-manage_default_apps(Opts) ->
+set_default_apps([], Opts) ->
   Opts.
 
+get_config() ->
+  DefaultConfig = get_default_config_filename(),
+  case filelib:is_regular(DefaultConfig) of
+    true ->
+      case file:consult(DefaultConfig) of
+        {ok, Config} when is_list(Config) -> Config;
+        {error, Reason} ->
+          bad_option(file:format_error(Reason), DefaultConfig)
+      end;
+    false ->
+      []
+  end.
+
 % Intended to work like dialyzer_iplt:get_default_iplt_filename()
+-spec get_default_config_filename() -> string().
 get_default_config_filename() ->
   case os:getenv("DIALYZER_CONFIG") of
      false ->

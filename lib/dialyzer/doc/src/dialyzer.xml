@@ -507,6 +507,32 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     <p>Currently the only option used is the
     <seeerl marker="#error_location"><c>error_location</c></seeerl> option.
     </p>
+
+    <p><em>Dialyzer configuration file:</em></p>
+
+    <p>Dialyzer's configuration file may also be used to augment the default
+       options and those given directly to the Dialyzer command. It is commonly
+       used to avoid repeating options which would otherwise need to be given
+       explicitly to Dialyzer on every invocation.
+    </p>
+
+    <p>The location of the configuration file can be set via the
+      <c>DIALYZER_CONFIG</c> environment variable, and defaults to
+        within the <c>user_config</c> from <seemfa marker="stdlib:filename#basedir/3">
+        <c>filename:basedir/3</c></seemfa>.
+    </p>
+
+    <p>An example configuration file's contents might be:</p>
+
+    <code type="none">
+      {incremental,
+        {default_apps,[stdlib,kernel,erts]},
+        {default_warning_apps,[stdlib]}
+      }.
+      {warnings, [no_improper_lists]}.
+      {add_pathsa,["/users/samwise/potatoes/ebin"]}.
+      {add_pathsz,["/users/smeagol/fish/ebin"]}.
+    </code>
   </section>
 
   <section>
