@@ -480,7 +480,7 @@ encode_opcode(Opcode) ->
 	status -> ?STATUS;
 	_ when is_integer(Opcode) -> Opcode %% non-standard opcode
     end.
-	    
+
 
 encode_boolean(true) -> 1;
 encode_boolean(false) -> 0;
