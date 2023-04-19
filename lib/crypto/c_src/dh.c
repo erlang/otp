@@ -41,7 +41,7 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 /* Has 3_0 */
 ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrivKey|undefined, DHParams=[P,G], 0, Len|0) */
-    unsigned long len = 0;
+    ErlNifUInt64 len = 0;
     int i = 0;
     OSSL_PARAM params[8];
     EVP_PKEY *pkey = NULL, *pkey_gen = NULL;
@@ -84,7 +84,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     */
 
     /* argv[3] is the length of the private key that is to be generated */
-    if (!enif_get_ulong(env, argv[3], &len) ||
+    if (!enif_get_uint64(env, argv[3], &len) ||
         (len > LONG_MAX) ) {
         ret = EXCP_BADARG_N(env, 3, "Bad value of length element");
         goto done;
