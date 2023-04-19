@@ -379,7 +379,6 @@ decode_type(Type) ->
 	?T_UID -> ?S_UID;
 	?T_GID -> ?S_GID;
 	?T_UNSPEC -> ?S_UNSPEC;
-	%% Query type values which do not appear in resource records
 	?T_AXFR -> ?S_AXFR;
 	?T_MAILB -> ?S_MAILB;
 	?T_MAILA -> ?S_MAILA;
@@ -421,7 +420,6 @@ encode_type(Type) ->
 	?S_UID -> ?T_UID;
 	?S_GID -> ?T_GID;
 	?S_UNSPEC -> ?T_UNSPEC;
-	%% Query type values which do not appear in resource records
 	?S_AXFR -> ?T_AXFR;
 	?S_MAILB -> ?T_MAILB;
 	?S_MAILA -> ?T_MAILA;

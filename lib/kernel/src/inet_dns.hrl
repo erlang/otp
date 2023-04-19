@@ -86,7 +86,6 @@
 -define(T_UID,		101).		%% user ID
 -define(T_GID,		102).		%% group ID
 -define(T_UNSPEC,	103).		%% Unspecified format (binary data)
-%%	Query type values which do not appear in resource records
 -define(T_AXFR,		252).		%% transfer zone of authority
 -define(T_MAILB,	253).		%% transfer mailbox records
 -define(T_MAILA,	254).		%% transfer mail agent records
@@ -130,7 +129,6 @@
 -define(S_UID,		uid).		%% user ID
 -define(S_GID,		gid).		%% group ID
 -define(S_UNSPEC,	unspec).        %% Unspecified format (binary data)
-%%	Query type values which do not appear in resource records
 -define(S_AXFR,		axfr).		%% transfer zone of authority
 -define(S_MAILB,	mailb).		%% transfer mailbox records
 -define(S_MAILA,	maila).		%% transfer mail agent records
@@ -147,8 +145,7 @@
 -define(C_IN,		1).      	%% the arpa internet
 -define(C_CHAOS,	3).		%% for chaos net at MIT
 -define(C_HS,		4).		%% for Hesiod name server at MIT
-%%  Query class values which do not appear in resource records
--define(C_ANY,		255).		%% wildcard match 
+-define(C_ANY,		255).		%% wildcard match
 
 
 %% indirection mask for compressed domain names
