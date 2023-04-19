@@ -23,12 +23,13 @@
 %%
 %% RFC 1035: Domain Names - Implementation and Specification
 %% RFC 2181: Clarifications to the DNS Specification
-%% RFC 6891: Extension Mechanisms for DNS (EDNS0)
 %% RFC 2782: A DNS RR for specifying the location of services (DNS SRV)
 %% RFC 2915: The Naming Authority Pointer (NAPTR) DNS Resource Rec
+%% RFC 5936: DNS Zone Transfer Protocol (AXFR)
 %% RFC 6488: DNS Certification Authority Authorization (CAA) Resource Record
-%% RFC 7553: The Uniform Resource Identifier (URI) DNS Resource Record
 %% RFC 6762: Multicast DNS
+%% RFC 6891: Extension Mechanisms for DNS (EDNS0)
+%% RFC 7553: The Uniform Resource Identifier (URI) DNS Resource Record
 
 -export([decode/1, encode/1]).
 
