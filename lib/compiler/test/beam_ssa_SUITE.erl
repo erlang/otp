@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_ssa_SUITE).
+-feature(maybe_expr, enable).
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -904,6 +905,8 @@ grab_bag(_Config) ->
     6 = grab_bag_21(id(64)),
     {'EXIT',{badarith,_}} = catch grab_bag_21(id(a)),
 
+    false = grab_bag_22(),
+
     ok.
 
 grab_bag_1() ->
@@ -1179,6 +1182,18 @@ grab_bag_21(A) ->
 
 grab_bag_21(_, D, _, _) ->
     D.
+
+%% GH-7128: With optimizations disabled, the code would fail to
+%% load with the following message:
+%%
+%%    beam/beam_load.c(367): Error loading function
+%%      beam_ssa_no_opt_SUITE:grab_bag_22/0: op get_list: Sdd:
+%%         bad tag 2 for destination
+grab_bag_22() ->
+    maybe
+        [_ | _] ?= ((true xor true) andalso foo),
+        bar ?= id(42)
+    end.
 
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
