@@ -22,6 +22,7 @@
 %% Dns record encode/decode
 %%
 %% RFC 1035: Domain Names - Implementation and Specification
+%% RFC 1995: Incremental Zone Transfer in DNS
 %% RFC 2181: Clarifications to the DNS Specification
 %% RFC 2782: A DNS RR for specifying the location of services (DNS SRV)
 %% RFC 2915: The Naming Authority Pointer (NAPTR) DNS Resource Rec
@@ -383,6 +384,7 @@ decode_type(Type) ->
 	?T_UID -> ?S_UID;
 	?T_GID -> ?S_GID;
 	?T_UNSPEC -> ?S_UNSPEC;
+	?T_IXFR -> ?S_IXFR;
 	?T_AXFR -> ?S_AXFR;
 	?T_MAILB -> ?S_MAILB;
 	?T_MAILA -> ?S_MAILA;
@@ -424,6 +426,7 @@ encode_type(Type) ->
 	?S_UID -> ?T_UID;
 	?S_GID -> ?T_GID;
 	?S_UNSPEC -> ?T_UNSPEC;
+	?S_IXFR -> ?T_IXFR;
 	?S_AXFR -> ?T_AXFR;
 	?S_MAILB -> ?T_MAILB;
 	?S_MAILA -> ?T_MAILA;

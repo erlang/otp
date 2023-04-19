@@ -73,7 +73,8 @@
 -define(T_UID,		101).		%% user ID
 -define(T_GID,		102).		%% group ID
 -define(T_UNSPEC,	103).		%% Unspecified format (binary data)
--define(T_AXFR,		252).		%% transfer zone of authority
+-define(T_IXFR,		251).		%% incremental zone transfer
+-define(T_AXFR,		252).		%% zone transfer
 -define(T_MAILB,	253).		%% transfer mailbox records
 -define(T_MAILA,	254).		%% transfer mail agent records
 -define(T_ANY,		255).		%% wildcard match
@@ -116,7 +117,8 @@
 -define(S_UID,		uid).		%% user ID
 -define(S_GID,		gid).		%% group ID
 -define(S_UNSPEC,	unspec).        %% Unspecified format (binary data)
--define(S_AXFR,		axfr).		%% transfer zone of authority
+-define(S_IXFR,		ixfr).		%% incremental zone transfer
+-define(S_AXFR,		axfr).		%% zone transfer
 -define(S_MAILB,	mailb).		%% transfer mailbox records
 -define(S_MAILA,	maila).		%% transfer mail agent records
 -define(S_ANY,		any).		%% wildcard match
