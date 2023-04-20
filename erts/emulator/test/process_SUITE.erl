@@ -87,6 +87,8 @@
          monitor_alias/1,
          spawn_monitor_alias/1,
          alias_process_exit/1,
+         demonitor_aliasmonitor/1,
+         down_aliasmonitor/1,
          monitor_tag/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
@@ -162,7 +164,8 @@ groups() ->
        gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled,
        otp_16436, otp_16642]},
      {alias, [],
-      [alias_bif, monitor_alias, spawn_monitor_alias, alias_process_exit]}].
+      [alias_bif, monitor_alias, spawn_monitor_alias, alias_process_exit,
+       demonitor_aliasmonitor, down_aliasmonitor]}].
 
 init_per_suite(Config) ->
     A0 = case application:start(sasl) of
@@ -4690,6 +4693,51 @@ alias_process_exit(Config) when is_list(Config) ->
     exit(P, kill),
     false = is_process_alive(P),
     check_pid_ref_table_size(PRTSz),
+    ok.
+
+demonitor_aliasmonitor(Config) when is_list(Config) ->
+    {ok, Node} = start_node(Config),
+    Fun = fun () ->
+                  receive
+                      {alias, Alias} ->
+                          Alias ! {alias_reply, Alias, self()}
+                  end
+          end,
+    LPid = spawn(Fun),
+    RPid = spawn(Node, Fun),
+    AliasMonitor = erlang:monitor(process, LPid, [{alias, explicit_unalias}]),
+    erlang:demonitor(AliasMonitor),
+    LPid ! {alias, AliasMonitor},
+    receive {alias_reply, AliasMonitor, LPid} -> ok end,
+    %% Demonitor signal has been received and cleaned up. Cleanup of
+    %% it erroneously removed it from the alias table which caused
+    %% remote use of the alias to stop working...
+    RPid ! {alias, AliasMonitor},
+    receive {alias_reply, AliasMonitor, RPid} -> ok end,
+    exit(LPid, kill),
+    stop_node(Node),
+    false = is_process_alive(LPid),
+    ok.
+
+down_aliasmonitor(Config) when is_list(Config) ->
+    {ok, Node} = start_node(Config),
+    LPid = spawn(fun () -> receive infinty -> ok end end),
+    RPid = spawn(Node,
+                 fun () ->
+                         receive
+                             {alias, Alias} ->
+                                 Alias ! {alias_reply, Alias, self()}
+                         end
+                 end),
+    AliasMonitor = erlang:monitor(process, LPid, [{alias, explicit_unalias}]),
+    exit(LPid, bye),
+    receive {'DOWN', AliasMonitor, process, LPid, bye} -> ok end,
+    %% Down signal has been received and cleaned up. Cleanup of
+    %% it erroneously removed it from the alias table which caused
+    %% remote use of the alias to stop working...
+    RPid ! {alias, AliasMonitor},
+    receive {alias_reply, AliasMonitor, RPid} -> ok end,
+    stop_node(Node),
     ok.
 
 monitor_tag(Config) when is_list(Config) ->
