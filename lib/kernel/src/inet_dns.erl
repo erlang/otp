@@ -24,6 +24,7 @@
 %% RFC 1035: Domain Names - Implementation and Specification
 %% RFC 1995: Incremental Zone Transfer in DNS
 %% RFC 1996: A Mechanism for Prompt Notification of Zone Changes (DNS NOTIFY)
+%% RFC 2136: Dynamic Updates in the Domain Name System (DNS UPDATE)
 %% RFC 2181: Clarifications to the DNS Specification
 %% RFC 2782: A DNS RR for specifying the location of services (DNS SRV)
 %% RFC 2915: The Naming Authority Pointer (NAPTR) DNS Resource Rec
@@ -160,9 +161,9 @@ do_decode(<<Id:16,
 	   QdCount:16,AnCount:16,NsCount:16,ArCount:16,
 	   QdBuf/binary>>=Buffer) ->
     {AnBuf,QdList,QdTC} = decode_query_section(QdBuf,QdCount,Buffer),
-    {NsBuf,AnList,AnTC} = decode_rr_section(AnBuf,AnCount,Buffer),
-    {ArBuf,NsList,NsTC} = decode_rr_section(NsBuf,NsCount,Buffer),
-    {Rest,ArList,ArTC} = decode_rr_section(ArBuf,ArCount,Buffer),
+    {NsBuf,AnList,AnTC} = decode_rr_section(Opcode,AnBuf,AnCount,Buffer),
+    {ArBuf,NsList,NsTC} = decode_rr_section(Opcode,NsBuf,NsCount,Buffer),
+    {Rest,ArList,ArTC} = decode_rr_section(Opcode,ArBuf,ArCount,Buffer),
     ?MATCH_ELSE_DECODE_ERROR(
        Rest,
        <<>>,
@@ -220,14 +221,14 @@ decode_query_section(Bin, N, Buffer, Qs) ->
            decode_query_section(Rest, N-1, Buffer, [DnsQuery|Qs])
        end).
 
-decode_rr_section(Bin, N, Buffer) ->
-    decode_rr_section(Bin, N, Buffer, []).
+decode_rr_section(Opcode, Bin, N, Buffer) ->
+    decode_rr_section(Opcode, Bin, N, Buffer, []).
 
-decode_rr_section(<<>>=Rest, N, _Buffer, RRs) ->
+decode_rr_section(_Opcode, <<>>=Rest, N, _Buffer, RRs) ->
     {Rest,reverse(RRs),N =/= 0};
-decode_rr_section(Rest, 0, _Buffer, RRs) ->
+decode_rr_section(_Opcode, Rest, 0, _Buffer, RRs) ->
     {Rest,reverse(RRs),false};
-decode_rr_section(Bin, N, Buffer, RRs) ->
+decode_rr_section(Opcode, Bin, N, Buffer, RRs) ->
     ?MATCH_ELSE_DECODE_ERROR(
        decode_name(Bin, Buffer),
        {<<T:16/unsigned,C:16/unsigned,TTL:4/binary,
@@ -254,7 +255,13 @@ decode_rr_section(Bin, N, Buffer, RRs) ->
                           do               = DnssecOk};
                    _ ->
                        {Class,CacheFlush} = decode_class(C),
-                       Data = decode_data(D, Class, Type, Buffer),
+                       Data = if
+                           %% RFC 2136: 2.4. Allow length zero data for UPDATE
+                           Opcode == ?UPDATE, D == <<>> ->
+                               #dns_rr{}#dns_rr.data;
+                           true ->
+                               decode_data(D, Class, Type, Buffer)
+                       end,
                        <<TimeToLive:32/signed>> = TTL,
                        #dns_rr{
                           domain = Name,
@@ -264,7 +271,7 @@ decode_rr_section(Bin, N, Buffer, RRs) ->
                           data   = Data,
                           func   = CacheFlush}
                end,
-           decode_rr_section(Rest, N-1, Buffer, [RR|RRs])
+           decode_rr_section(Opcode, Rest, N-1, Buffer, [RR|RRs])
        end).
 
 %%
@@ -276,12 +283,13 @@ encode(Q) ->
     AnCount = length(Q#dns_rec.anlist),
     NsCount = length(Q#dns_rec.nslist),
     ArCount = length(Q#dns_rec.arlist),
+    OC = Q#dns_rec.header#dns_header.opcode,
     B0 = encode_header(Q#dns_rec.header, QdCount, AnCount, NsCount, ArCount),
     C0 = gb_trees:empty(),
     {B1,C1} = encode_query_section(B0, C0, Q#dns_rec.qdlist),
-    {B2,C2} = encode_res_section(B1, C1, Q#dns_rec.anlist),
-    {B3,C3} = encode_res_section(B2, C2, Q#dns_rec.nslist),
-    {B,_} = encode_res_section(B3, C3, Q#dns_rec.arlist),
+    {B2,C2} = encode_res_section(OC, B1, C1, Q#dns_rec.anlist),
+    {B3,C3} = encode_res_section(OC, B2, C2, Q#dns_rec.nslist),
+    {B,_} = encode_res_section(OC, B3, C3, Q#dns_rec.arlist),
     B.
 
 
@@ -313,9 +321,9 @@ encode_query_section(Bin0, Comp0, [#dns_query{domain=DName}=Q | Qs]) ->
 %% RFC 1035:  4.1.3.               Resource record format
 %% RFC 6891:  6.1.2, 6.1.3, 6.2.3  Opt RR format
 %%
-encode_res_section(Bin, Comp, []) -> {Bin,Comp};
+encode_res_section(_Opcode, Bin, Comp, []) -> {Bin,Comp};
 encode_res_section(
-  Bin, Comp,
+  Opcode, Bin, Comp,
   [#dns_rr{
       domain = DName,
       type   = Type,
@@ -324,10 +332,10 @@ encode_res_section(
       ttl    = TTL,
       data   = Data} | Rs]) ->
     encode_res_section_rr(
-      Bin, Comp, Rs, DName, Type, Class, CacheFlush,
+      Opcode, Bin, Comp, Rs, DName, Type, Class, CacheFlush,
       <<TTL:32/signed>>, Data);
 encode_res_section(
-  Bin, Comp,
+  Opcode, Bin, Comp,
   [#dns_rr_opt{
       domain           = DName,
       udp_payload_size = UdpPayloadSize,
@@ -338,18 +346,24 @@ encode_res_section(
       do               = DnssecOk} | Rs]) ->
     DO = case DnssecOk of true -> 1; false -> 0 end,
     encode_res_section_rr(
-      Bin, Comp, Rs, DName, ?S_OPT, UdpPayloadSize, false,
+      Opcode, Bin, Comp, Rs, DName, ?S_OPT, UdpPayloadSize, false,
       <<ExtRCode,Version,DO:1,Z:15>>, Data).
 
 encode_res_section_rr(
-  Bin0, Comp0, Rs, DName, Type, Class, CacheFlush, TTL, Data) ->
+  Opcode, Bin0, Comp0, Rs, DName, Type, Class, CacheFlush, TTL, Data) ->
     T = encode_type(Type),
     C = encode_class(Class, CacheFlush),
     {Bin,Comp1} = encode_name(Bin0, Comp0, byte_size(Bin0), DName),
     Pos = byte_size(Bin)+2+2+byte_size(TTL)+2,
-    {DataBin,Comp} = encode_data(Comp1, Pos, Type, Class, Data),
+    {DataBin,Comp} = if
+        Opcode == update, Data == #dns_rr{}#dns_rr.data ->
+            {<<>>,Comp1};
+        true ->
+            encode_data(Comp1, Pos, Type, Class, Data)
+    end,
     DataSize = byte_size(DataBin),
     encode_res_section(
+      Opcode,
       <<Bin/binary,T:16,C:16,TTL/binary,DataSize:16,DataBin/binary>>,
       Comp, Rs).
 
@@ -450,6 +464,7 @@ decode_class(C0) ->
             ?C_IN    -> in;
             ?C_CHAOS -> chaos;
             ?C_HS    -> hs;
+            ?C_NONE  -> none;
             ?C_ANY   -> any;
             _ -> C    %% raw unknown class
         end,
@@ -469,6 +484,7 @@ encode_class(Class) ->
 	in    -> ?C_IN;
 	chaos -> ?C_CHAOS;
 	hs    -> ?C_HS;
+	none  -> ?C_NONE;
 	any   -> ?C_ANY;
 	Class when is_integer(Class) -> Class    %% raw unknown class
     end.
@@ -479,6 +495,7 @@ decode_opcode(Opcode) ->
 	?IQUERY -> iquery;
 	?STATUS -> status;
 	?NOTIFY -> notify;
+	?UPDATE -> update;
 	_ when is_integer(Opcode) -> Opcode %% non-standard opcode
     end.
 
@@ -488,6 +505,7 @@ encode_opcode(Opcode) ->
 	iquery -> ?IQUERY;
 	status -> ?STATUS;
 	notify -> ?NOTIFY;
+	update -> ?UPDATE;
 	_ when is_integer(Opcode) -> Opcode %% non-standard opcode
     end.
 
@@ -715,17 +733,6 @@ decode_name_label(Label, Name, N) ->
 %%
 %% Data field -> {binary(),NewCompressionTable}
 %%
-%% Class IN RRs
-encode_data(Comp, _, ?S_A, in, Addr) ->
-    {A,B,C,D} = Addr,
-    {<<A,B,C,D>>,Comp};
-encode_data(Comp, _, ?S_AAAA, in, Addr) ->
-    {A,B,C,D,E,F,G,H} = Addr,
-    {<<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>,Comp};
-encode_data(Comp, _, ?S_WKS, in, Data) ->
-    {{A,B,C,D},Proto,BitMap} = Data,
-    BitMapBin = iolist_to_binary(BitMap),
-    {<<A,B,C,D,Proto,BitMapBin/binary>>,Comp};
 %% OPT pseudo-RR (of no class) - should not take this way;
 %% this must be a #dns_rr{type = ?S_OPT} instead of a #dns_rr_opt{},
 %% so good luck getting in particular Class and TTL right...
@@ -742,6 +749,16 @@ encode_data(Comp, Pos, Type, Class, Data) ->
 %%
 %%
 %% Standard RRs (any class)
+encode_data(Comp, _, ?S_A, Addr) ->
+    {A,B,C,D} = Addr,
+    {<<A,B,C,D>>,Comp};
+encode_data(Comp, _, ?S_AAAA, Addr) ->
+    {A,B,C,D,E,F,G,H} = Addr,
+    {<<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>,Comp};
+encode_data(Comp, _, ?S_WKS, Data) ->
+    {{A,B,C,D},Proto,BitMap} = Data,
+    BitMapBin = iolist_to_binary(BitMap),
+    {<<A,B,C,D,Proto,BitMapBin/binary>>,Comp};
 encode_data(Comp, Pos, ?S_SOA, Data) ->
     {MName,RName,Serial,Refresh,Retry,Expiry,Minimum} = Data,
     {B1,Comp1} = encode_name(Comp, Pos, MName),

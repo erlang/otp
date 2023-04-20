@@ -28,6 +28,7 @@
 -define(IQUERY,   16#1).	%% inverse query
 -define(STATUS,   16#2).	%% nameserver status query
 -define(NOTIFY,   16#4).	%% notify
+-define(UPDATE,   16#5).	%% dynamic update
 
 %%
 %% Currently defined response codes
@@ -38,6 +39,11 @@
 -define(NXDOMAIN, 3).		%% non existent domain
 -define(NOTIMP,	  4).		%% not implemented
 -define(REFUSED,  5).		%% query refused
+-define(YXDOMAIN, 6).		%% name exists when it should not (DDNS)
+-define(YXRRSET,  7).		%% RR set exists when it should not (DDNS)
+-define(NXRRSET,  8).		%% RR set that should exist does not (DDNS)
+-define(NOTAUTH,  9).		%% server not authoritative for zone (DDNS)
+-define(NOTZONE,  10).		%% name not contained in zone (DDNS)
 -define(BADVERS,  16).		%% bad version EDNS pseudo-rr RFC6891: 6.1.3
 
 %%
@@ -134,6 +140,7 @@
 -define(C_IN,		1).      	%% the arpa internet
 -define(C_CHAOS,	3).		%% for chaos net at MIT
 -define(C_HS,		4).		%% for Hesiod name server at MIT
+-define(C_NONE,		254).		%% for DDNS (RFC2136, section 2.4)
 -define(C_ANY,		255).		%% wildcard match
 
 %%
@@ -161,9 +168,9 @@
 -record(dns_rec,
 	{
 	 header,       %% dns_header record
-	 qdlist = [],  %% list of question entries
-	 anlist = [],  %% list of answer entries
-	 nslist = [],  %% list of authority entries
+	 qdlist = [],  %% list of question (for UPDATE 'zone') entries
+	 anlist = [],  %% list of answer (for UPDATE 'prequisites') entries
+	 nslist = [],  %% list of authority (for UPDATE 'update') entries
 	 arlist = []   %% list of resource entries
 	}).
 

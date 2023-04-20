@@ -1106,6 +1106,11 @@ decode_answer(Answer, Q_Msg, Verbose) ->
 		?NXDOMAIN -> {error,{nxdomain,Msg}};
 		?NOTIMP   -> {error,{notimp,Msg}};
 		?REFUSED  -> {error,{refused,Msg}};
+		?YXDOMAIN -> {error,{yxdomain,Msg}};
+		?YXRRSET  -> {error,{yxrrset,Msg}};
+		?NXRRSET  -> {error,{nxrrset,Msg}};
+		?NOTAUTH  -> {error,{noauth,Msg}};
+		?NOTZONE  -> {error,{nozone,Msg}};
 		?BADVERS  -> {error,{badvers,Msg}};
 		_         -> {error,{unknown,Msg}}
 	    end;

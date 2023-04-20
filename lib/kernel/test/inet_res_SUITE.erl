@@ -35,7 +35,7 @@
          edns0/1, edns0_multi_formerr/1, txt_record/1, files_monitor/1,
 	 nxdomain_reply/1, last_ms_answer/1, intermediate_error/1,
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
-         label_compression_limit/1
+         label_compression_limit/1, update/1
         ]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
@@ -77,7 +77,7 @@ all() ->
      nxdomain_reply, last_ms_answer,
      intermediate_error,
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
-     label_compression_limit,
+     label_compression_limit, update,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -133,6 +133,7 @@ zone_dir(TC) ->
 	files_monitor        -> otptest;
 	nxdomain_reply       -> otptest;
 	last_ms_answer       -> otptest;
+	update               -> otptest;
         intermediate_error   ->
             {internal,
              #{rcode => ?REFUSED}};
@@ -1410,6 +1411,63 @@ incr_domain([$Z | Domain]) ->
     [$A | incr_domain(Domain)];
 incr_domain([Char | Domain]) ->
     [Char+1 | Domain].
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that the data portion can only be zero bytes for UPDATEs
+%% and that a real DNS server (Knot DNS) accepts our packet
+
+update(Config) when is_list(Config) ->
+    {NSIP,NSPort} = ns(Config),
+    Domain = "otptest",
+
+    % test that empty data for a query fails
+    QueryRec = #dns_rec{
+        header = #dns_header{ opcode = query },
+        anlist = [
+            #dns_rr{ domain = "test-update." ++ Domain, type = a }
+        ]
+    },
+    true = try inet_dns:encode(QueryRec) of
+        _ ->
+            false
+    catch
+        error:{badmatch,[]}:_ ->
+            true
+    end,
+
+    % test that empty data for an update
+    UpdateRec = #dns_rec{
+        header = #dns_header{ opcode = update },
+        % Zone
+        qdlist = [
+            #dns_query{ domain = Domain, class = in, type = soa }
+        ],
+        % Update
+        nslist = [
+            #dns_rr{
+                domain = "update-test." ++ Domain,
+                ttl = 300,
+                class = in,
+                type = a,
+                data = {192,0,2,1}
+            }
+        ]
+    },
+    UpdatePkt = inet_dns:encode(UpdateRec),
+    true = is_binary(UpdatePkt),
+
+    % check if an actual DNS server accepts it
+    SockOpts = [binary,{active,false}],
+    {ok,Sock} = gen_udp:open(0, SockOpts),
+    ok = gen_udp:connect(Sock, NSIP, NSPort),
+    ok = gen_udp:send(Sock, UpdatePkt),
+    {ok,{NSIP,NSPort,ResponsePkt}} = gen_udp:recv(Sock, 0),
+    ok = gen_udp:close(Sock),
+    {ok,ResponseRec} = inet_dns:decode(ResponsePkt),
+    #dns_rec{ header = #dns_header{ rcode = ?NOERROR } } = ResponseRec,
+
+    ok.
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
