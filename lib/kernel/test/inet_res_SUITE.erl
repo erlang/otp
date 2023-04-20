@@ -1055,6 +1055,7 @@ check_msg(#{}, []) -> false. % At least one has to be ok
 edns0(Config) when is_list(Config) ->
     ?P("begin"),
     NS = ns(Config),
+    Opts = [{nameservers,[NS]},verbose],
     Domain = "otptest",
     Filler = "-5678901234567890123456789012345678.",
     MXs = lists:sort([{10,"mx."++Domain},
@@ -1068,12 +1069,9 @@ edns0(Config) when is_list(Config) ->
     false = inet_db:res_option(edns), % ASSERT
     true = inet_db:res_option(udp_payload_size) >= 1280, % ASSERT
     %% These will fall back to TCP
-    MXs = lists:sort(inet_res:lookup(Domain, in, mx, [{nameservers,[NS]},verbose])),
+    MXs = lists:sort(inet_res:lookup(Domain, in, mx, Opts)),
     %%
-    {ok,#hostent{h_addr_list=As}} = inet_res:getbyname(Domain++".", mx),
-    MXs = lists:sort(As),
-    %%
-    {ok,Msg1} = inet_res:resolve(Domain, in, mx),
+    {ok,Msg1} = inet_res:resolve(Domain, in, mx, Opts),
     MXs = lists:sort(inet_res_filter(inet_dns:msg(Msg1, anlist), in, mx)),
     %% There should be no OPT record in the answer
     [] = [RR || RR <- inet_dns:msg(Msg1, arlist),
@@ -1084,7 +1082,7 @@ edns0(Config) when is_list(Config) ->
     %% Use EDNS - should not need to fall back to TCP
     %% there is no way to tell from the outside.
     %%
-    {ok,Msg2} = inet_res:resolve(Domain, in, mx, [{edns,0}]),
+    {ok,Msg2} = inet_res:resolve(Domain, in, mx, [{edns,0}|Opts]),
     MXs = lists:sort(inet_res_filter(inet_dns:msg(Msg2, anlist), in, mx)),
     Buf2 = inet_dns:encode(Msg2),
     {ok,Msg2} = inet_dns:decode(Buf2),
