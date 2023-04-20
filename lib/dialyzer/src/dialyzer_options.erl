@@ -339,9 +339,30 @@ build_options([], Options) ->
   Options.
 
 get_app_dirs(Apps) when is_list(Apps) ->
-  dialyzer_cl_parse:get_lib_dir([atom_to_list(A) || A <- Apps]);
+  get_lib_dir([atom_to_list(A) || A <- Apps]);
 get_app_dirs(Apps) ->
   bad_option("Use a list of otp applications", Apps).
+
+get_lib_dir(Apps) ->
+    get_lib_dir(Apps, []).
+
+get_lib_dir([H|T], Acc) ->
+    NewElem =
+        case code:lib_dir(list_to_atom(H)) of
+            {error, bad_name} -> H;
+            LibDir when H =:= "erts" -> % hack for including erts in an un-installed system
+                EbinDir = filename:join([LibDir,"ebin"]),
+                case file:read_file_info(EbinDir) of
+                    {error,enoent} ->
+                        filename:join([LibDir,"preloaded","ebin"]);
+                    _ ->
+                        EbinDir
+                end;
+            LibDir -> filename:join(LibDir,"ebin")
+        end,
+    get_lib_dir(T, [NewElem|Acc]);
+get_lib_dir([], Acc) ->
+    lists:reverse(Acc).
 
 assert_filenames(Term, Files) ->
   assert_filenames_form(Term, Files),

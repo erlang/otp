@@ -593,6 +593,12 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <name name="file_location"></name>
     </datatype>
     <datatype>
+      <name name="filename_opt"></name>
+    </datatype>
+    <datatype>
+      <name name="format_option"></name>
+    </datatype>
+    <datatype>
       <name name="warn_option"></name>
       <desc>
 	<p>See section <seeerl
