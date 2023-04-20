@@ -238,7 +238,7 @@ jobs:
         shell: cmd
         run: |
           choco install openssl
-          move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64"
+          move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64"
 
       - name: Cache wxWidgets
         uses: actions/cache@v3
