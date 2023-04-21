@@ -684,7 +684,7 @@ monitor_trace_port(CollectorPid, Parameters) ->
 		  MonitorRef = erlang:monitor(process, CollectorPid),
 		  receive
 		      {'DOWN', MonitorRef, _, _, _} ->
-			  dbg:stop_clear()
+			  dbg:stop()
 		  end
 	  end),
     Res.

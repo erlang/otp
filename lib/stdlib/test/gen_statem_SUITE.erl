@@ -1409,7 +1409,7 @@ terminate_crash_format(Config) ->
         terminate_crash_format(Config,format_status_statem,
                                {{formatted,idle},{formatted,crash_terminate}})
     after
-        dbg:stop_clear(),
+        dbg:stop(),
         process_flag(trap_exit, OldFl),
         error_logger_forwarder:unregister()
     end.

@@ -2219,7 +2219,7 @@ tpl([]) ->
     ok.
 
 stop_clear() ->
-    dbg:stop_clear(),
+    dbg:stop(),
     %% Remove tracer from all processes in order to eliminate
     %% race conditions.
     erlang:trace(all,false,[all]).

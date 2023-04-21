@@ -1577,7 +1577,7 @@ pre_load_check(Config) ->
             try
                 do_pre_load_check(Config)
             after
-                dbg:stop_clear()
+                dbg:stop()
             end
     end.
 
