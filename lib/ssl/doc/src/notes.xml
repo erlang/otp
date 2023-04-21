@@ -444,6 +444,23 @@
 
 </section>
 
+<section><title>SSL 10.7.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Client signature algorithm list input order is now
+	    honored again , it was accidently reversed by a previous
+	    fix.</p>
+          <p>
+	    Own Id: OTP-18550</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.7.3.6</title>
 
     <section><title>Improvements and New Features</title>
