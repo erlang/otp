@@ -1392,6 +1392,64 @@
 
 </section>
 
+<section><title>Erts 12.3.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug sometimes causing emulator crash at node shutdown
+	    when there are pending connections. Only seen when
+	    running duel distribution protocols, inet_drv and
+	    inet_tls_dist.</p>
+          <p>
+	    Own Id: OTP-18243 Aux Id: GH-6247, PR-6258 </p>
+        </item>
+        <item>
+	    <p>Fix bug in <c>binary_to_term</c> (and distributed
+	    receive) when decoding a large map (&gt;32 keys) with
+	    unsorted small maps (&lt;= 32) as keys of the large
+	    map.</p>
+	    <p>This was only a problem if the term was encoded by
+	    <c>erl_interface</c>, <c>jinterface</c> or otherwise, as
+	    the VM itself always encodes small maps with sorted
+	    keys.</p>
+	    <p>The "binary_to_term" would appear as successful but
+	    the created large map was internally inconsistent. The
+	    smaller key-maps could not be found with maps:get and
+	    friends. Other operations such as map compare and merge
+	    could probably also give incorrect results.</p>
+          <p>
+	    Own Id: OTP-18343 Aux Id: GH-6496 </p>
+        </item>
+        <item>
+          <p>
+	    Implementations of the <seecref
+	    marker="erts:driver_entry#call"><c>call()</c></seecref>
+	    driver callback that returned a faulty encoded result
+	    could cause a memory leak and could cause invalid data on
+	    the heap of the processes calling <seemfa
+	    marker="erts:erlang#port_call/3"><c>erlang:port_call/3</c></seemfa>.</p>
+          <p>
+	    Own Id: OTP-18525 Aux Id: PR-7049 </p>
+        </item>
+        <item>
+          <p>
+	    Aliases created in combination with a monitor using the
+	    <c>{alias, explicit_unalias}</c> option stopped working
+	    from remote nodes when a <c>'DOWN'</c> signal had been
+	    received due to the monitor or if the monitor was removed
+	    using the <c>erlang:demonitor()</c> BIF.</p>
+          <p>
+	    This bug was introduced in OTP 24.3.4.10 and OTP 25.3.</p>
+          <p>
+	    Own Id: OTP-18557 Aux Id: PR-7131, OTP-18496 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3.2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
