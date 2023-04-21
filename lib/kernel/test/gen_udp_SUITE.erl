@@ -2616,6 +2616,10 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                                           ?P("[server] send failed: ~p",
                                              [Reason1]),
                                           exit({skip, Reason1});
+                                      {error, enetunreach = Reason1} ->
+                                          ?P("[server] send failed: ~p",
+                                             [Reason1]),
+                                          exit({skip, Reason1});
                                       {error, Reason1} ->
                                           exit({send_failed, Reason1})
                                   end
@@ -2638,6 +2642,10 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                                   ok -> 
                                       ok;
                                   {error, ehostunreach = Reason2} ->
+                                      ?P("[server] send failed: ~p",
+                                         [Reason2]),
+                                      exit({skip, Reason2});
+                                  {error, enetunreach = Reason2} ->
                                       ?P("[server] send failed: ~p",
                                          [Reason2]),
                                       exit({skip, Reason2});
