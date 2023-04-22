@@ -1200,23 +1200,23 @@ BIF_RETTYPE ets_take_first_1(BIF_ALIST_1)
     Eterm first,ret;
     CHECK_TABLES();
 
-    DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_take_first_1);
+    DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE, BIF_ets_take_first_1);
 
     cret = tb->common.meth->db_first(BIF_P, tb, &first);
 
     if (cret != DB_ERROR_NONE) {
-        db_unlock(tb, LCK_WRITE_REC);
+        db_unlock(tb, LCK_WRITE);
         BIF_ERROR(BIF_P, BADARG);
     }
 
     if (first == am_EOT) {
-        db_unlock(tb, LCK_WRITE_REC);
+        db_unlock(tb, LCK_WRITE);
         BIF_RET(NIL);
     }
 
     cret = tb->common.meth->db_take(BIF_P, tb, first, &ret);
 
-    db_unlock(tb, LCK_WRITE_REC);
+    db_unlock(tb, LCK_WRITE);
     ASSERT(cret == DB_ERROR_NONE); (void)cret;
     BIF_RET(ret);
 }
@@ -1231,23 +1231,23 @@ BIF_RETTYPE ets_take_last_1(BIF_ALIST_1)
     Eterm last,ret;
     CHECK_TABLES();
 
-    DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_take_last_1);
+    DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE, BIF_ets_take_last_1);
 
     cret = tb->common.meth->db_last(BIF_P, tb, &last);
 
     if (cret != DB_ERROR_NONE) {
-        db_unlock(tb, LCK_WRITE_REC);
+        db_unlock(tb, LCK_WRITE);
         BIF_ERROR(BIF_P, BADARG);
     }
 
     if (last == am_EOT) {
-        db_unlock(tb, LCK_WRITE_REC);
+        db_unlock(tb, LCK_WRITE);
         BIF_RET(NIL);
     }
 
     cret = tb->common.meth->db_take(BIF_P, tb, last, &ret);
 
-    db_unlock(tb, LCK_WRITE_REC);
+    db_unlock(tb, LCK_WRITE);
     ASSERT(cret == DB_ERROR_NONE); (void)cret;
     BIF_RET(ret);
 }
