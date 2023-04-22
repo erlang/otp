@@ -777,9 +777,10 @@ bif erlang:monitor/3
 bif erlang:error/3
 bif maps:from_keys/2
 
+# New in 26
 #
-# New in 25
-#
+ubif erlang:min/2
+ubif erlang:max/2
 
 bif ets:take_first/1
 bif ets:take_last/1
