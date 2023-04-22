@@ -21,6 +21,7 @@
 -module(exception_SUITE).
 
 -export([all/0, suite/0,
+         init_per_testcase/2, end_per_testcase/2,
          badmatch/1, pending_errors/1, nil_arith/1, top_of_stacktrace/1,
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
          change_exception_class/1,
@@ -50,6 +51,11 @@ all() ->
      exception_with_heap_frag, backtrace_depth,
      error_3, error_info,
      no_line_numbers, line_numbers].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 -define(try_match(E),
         catch ?MODULE:bar(),
@@ -840,6 +846,8 @@ error_info(_Config) ->
 
          {display, ["test erlang:display/1"], [no_fail]},
          {display_string, [{a,b,c}]},
+         {display_string, [standard_out,"test erlang:display/2"]},
+         {display_string, [stdout,{a,b,c}]},
 
          %% Internal undcoumented BIFs.
          {dist_ctrl_get_data, 1},
@@ -1028,7 +1036,21 @@ error_info(_Config) ->
          {nif_error, 1},
          {nif_error, 2},
          {node, [abc]},
-         {nodes, [abc]},
+         {nodes, [abc], [{1, ".*not a valid node type.*"}]},
+         {nodes, [[abc]], [{1, ".*not a list of.*"}]},
+         {nodes, [DeadProcess], [{1, ".*not a valid node type or list of valid node types.*"}]},
+         {nodes, [abc, 17], [{1, ".*not a valid node type.*"},{2, ".*not a map.*"}]},
+         {nodes, [hidden, 17], [{2, ".*not a map.*"}]},
+         {nodes, [hidden, #{ 17 => true }], [{2, ".*invalid options in map.*"}]},
+         {nodes, [hidden, #{ connection_id => 17 }], [{2, ".*invalid options in map.*"}]},
+         {nodes, [hidden, #{ node_type => 17 }], [{2, ".*invalid options in map.*"}]},
+         {nodes, [abc, #{}], [{1, ".*not a valid node type.*"}]},
+         {nodes, [DeadProcess,#{node_type=>true}], [{1, ".*not a valid node type or list of valid node types.*"}]},
+         {nodes, [visible, 17], [{2,".*not a map.*"}]},
+         {nodes, [visible, #{connection_id=>blapp}], [{2,".*invalid options in map.*"}]},
+         {nodes, [visible, 17], [{2,".*not a map.*"}]},
+         {nodes, [known, #{connection_id=>true,node_type=>true}], [no_fail]},
+         {nodes, [[this,connected], #{connection_id=>true,node_type=>true}], [no_fail]},
          {phash, [any, -1]},
          {phash, [any, not_integer]},
          {phash2, [any], [no_fail]},
@@ -1593,6 +1615,17 @@ line_numbers(Config) when is_list(Config) ->
              [{?MODULE,bad_record,1,[{file,"bad_records.erl"},{line,4}]}|_]}} =
         catch bad_record([1,2,3]),
 
+    %% GH-5960: When an instruction raised an exception at the very end of the
+    %% instruction (e.g. badmatch), and was directly followed by a line
+    %% instruction, the exception was raised for the wrong line.
+    ok = ambiguous_line(0),
+    {'EXIT',{{badmatch,_},
+        [{?MODULE,ambiguous_line,1,[{file,"ambiguous_line.erl"},
+                                    {line,3}]}|_]}} = catch ambiguous_line(1),
+    {'EXIT',{{badmatch,_},
+        [{?MODULE,ambiguous_line,1,[{file,"ambiguous_line.erl"},
+                                    {line,4}]}|_]}} = catch ambiguous_line(2),
+
     ok.
 
 id(I) -> I.
@@ -1725,3 +1758,9 @@ crash_huge_line(_) ->                           %Line 100000002
 -record(foobar, {a,b,c,d}).                     %Line 2.
 bad_record(R) ->                                %Line 3.
     R#foobar.a.                                 %Line 4.
+
+-file("ambiguous_line.erl", 1).
+ambiguous_line(A) ->                            %Line 2.
+    true = A =/= 1,                             %Line 3.
+    true = A =/= 2,                             %Line 4.
+    ok.

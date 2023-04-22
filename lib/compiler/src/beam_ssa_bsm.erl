@@ -473,10 +473,27 @@ combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
             %% so we can reuse the RPO computed for Blocks0.
             Blocks2 = beam_ssa:rename_vars(State#cm.renames, RPO, Blocks1),
 
-            {Blocks, Counter} = alias_matched_binaries(Blocks2, Counter0,
-                                                       State#cm.match_aliases),
+            %% Replacing variables with the atom `true` can cause
+            %% branches to phi nodes to be omitted, with the phi nodes
+            %% still referencing the unreachable blocks. Therefore,
+            %% trim now to update the phi nodes.
+            Blocks3 = beam_ssa:trim_unreachable(Blocks2),
 
-            F#b_function{ bs=beam_ssa:trim_unreachable(Blocks),
+            Aliases = State#cm.match_aliases,
+            {Blocks4, Counter} = alias_matched_binaries(Blocks3, Counter0,
+                                                        Aliases),
+            Blocks = if
+                         map_size(Aliases) =:= 0 ->
+                             %% No need to trim because there were no aliases.
+                             Blocks4;
+                         true ->
+                             %% Play it safe. It is unclear whether
+                             %% the call to alias_matched_binaries/3
+                             %% could ever make any blocks
+                             %% unreachable.
+                             beam_ssa:trim_unreachable(Blocks4)
+                     end,
+            F#b_function{ bs=Blocks,
                           cnt=Counter };
         false ->
             F
@@ -1011,7 +1028,11 @@ make_promotion_warning(I, Nested, Anno, Where) ->
     make_warning({binary_created, I, Nested}, Anno, Where).
 
 make_warning(Term, Anno, Where) ->
-    {File, Line} = maps:get(location, Anno, Where),
+    {File, Line} =
+        case maps:get(location, Anno, Where) of
+            {_, _} = Location -> Location;
+            _ -> {"no_file", none}
+        end,
     {File,[{Line,?MODULE,Term}]}.
 
 format_opt_info(context_reused) ->

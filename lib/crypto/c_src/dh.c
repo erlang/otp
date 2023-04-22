@@ -41,7 +41,7 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 /* Has 3_0 */
 ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrivKey|undefined, DHParams=[P,G], 0, Len|0) */
-    unsigned long len = 0;
+    ErlNifUInt64 len = 0;
     int i = 0;
     OSSL_PARAM params[8];
     EVP_PKEY *pkey = NULL, *pkey_gen = NULL;
@@ -53,7 +53,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     /* Fetch parameters and assign them to params[] */
     if (argv[0] != atom_undefined)
-        if (!get_ossl_param_from_bin(env, "priv",  argv[0], &params[i++]))  {
+        if (!get_ossl_BN_param_from_bin(env, "priv",  argv[0], &params[i++]))  {
             ret = EXCP_BADARG_N(env, 0, "PrivKeyIn");
             goto done;
         }
@@ -84,7 +84,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     */
 
     /* argv[3] is the length of the private key that is to be generated */
-    if (!enif_get_ulong(env, argv[3], &len) ||
+    if (!enif_get_uint64(env, argv[3], &len) ||
         (len > LONG_MAX) ) {
         ret = EXCP_BADARG_N(env, 3, "Bad value of length element");
         goto done;
@@ -183,7 +183,7 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     /* Build peer_pkey */
     
-    if (!get_ossl_param_from_bin(env, "pub",  argv[0], &params[i++]))
+    if (!get_ossl_BN_param_from_bin(env, "pub",  argv[0], &params[i++]))
         assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad peer public key; binary expected"));
 
     { /*argv[2] - the lists [P,G] */
@@ -211,7 +211,7 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         assign_goto(ret, err, EXCP_ERROR(env, "Can't do fromdata"));
 
     /* Build own_pkey. Just replace the pub key with the priv key in params */
-    if (!get_ossl_param_from_bin(env, "priv",  argv[1], &params[0]))
+    if (!get_ossl_BN_param_from_bin(env, "priv",  argv[1], &params[0]))
         assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad peer public key; binary expected"));
 
     own_pctx = EVP_PKEY_CTX_new_from_name(NULL, "DH", NULL);

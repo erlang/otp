@@ -98,33 +98,20 @@ sni_tests() ->
      sni_no_header_fun].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
-        ok ->
-            case check_openssl_sni_support(Config0) of
-                {skip, _} = Skip ->
-                    Skip;
-                Config1 ->
-                    %% Needed by version interop test in ssl_test_lib
-                    Config = ssl_test_lib:make_rsa_cert(Config1),
-                    ssl_test_lib:clean_start(),
-                    Hostname = net_adm:localhost(),
-                    {#{server_config := ServerConf,
-                       client_config := ClientConf},
-                     #{server_config := LServerConf,
-                       client_config := LClientConf}} = ssl_test_lib:make_rsa_sni_configs(),
-                    [{client_opts, ClientConf}, {client_local_opts, LClientConf},
-                     {sni_server_opts, [{sni_hosts, [{Hostname, ServerConf}]} | LServerConf]} | Config]
-            end
-    catch _:_  ->
-            {skip, "Crypto did not start"}
-    end.
+    Config1 = ssl_test_lib:init_per_suite(Config0, openssl),
+    Config2 = check_openssl_sni_support(Config1),
+    Config = ssl_test_lib:make_rsa_cert(Config2),
+    Hostname = net_adm:localhost(),
+    {#{server_config := ServerConf,
+       client_config := ClientConf},
+     #{server_config := LServerConf,
+       client_config := LClientConf}} = ssl_test_lib:make_rsa_sni_configs(),
+    [{client_opts, ClientConf}, {client_local_opts, LClientConf},
+     {sni_server_opts, [{sni_hosts, [{Hostname, ServerConf}]} | LServerConf]} | Config].
 
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto),
-    ssl_test_lib:kill_openssl().
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
@@ -289,7 +276,7 @@ check_openssl_sni_support(Config) ->
     HelpText = ssl_test_lib:portable_cmd("openssl", ["s_client", "--help"]),
     case string:str(HelpText, "-servername") of
         0 ->
-            {skip, "Current openssl doesn't support SNI"};
+            throw({skip, "Current openssl doesn't support SNI"});
         _ ->
             case string:str(HelpText, "-noservername") of
                 0 ->

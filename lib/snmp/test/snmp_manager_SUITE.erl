@@ -440,25 +440,56 @@ init_per_group(GroupName, Config0) ->
     Config1.
 
 
-init_per_group2(inet_backend_default = _GroupName, Config) ->
-    ?LIB:init_group_top_dir(default, [{socket_create_opts, []} | Config]);
-init_per_group2(inet_backend_inet = _GroupName, Config) ->
+init_per_group2(inet_backend_default = _GroupName, Config0) ->
+    Config1 = [{socket_create_opts, []} | Config0],
     case ?EXPLICIT_INET_BACKEND() of
         true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
+            ?LIB:init_group_top_dir(default, Config1);
         false ->
-            ?LIB:init_group_top_dir(inet, [{socket_create_opts, [{inet_backend, inet}]} | Config])
+            %% For a "standard" test (that is if we do not run the "extended"
+            %% inet backends test) then we should always run this group!
+            %% So, if we have an extended test, *then* (and only then) 
+            %% check the factor.
+            case ?TEST_INET_BACKENDS() of
+                true ->
+                    case lists:keysearch(snmp_factor, 1, Config0) of
+                        {value, {snmp_factor, Factor}} when (Factor < 3) ->
+                            ?LIB:init_group_top_dir(default, Config1);
+                        _ ->
+                            {skip, "Machine too slow"}
+                    end;
+                _ ->
+                    ?LIB:init_group_top_dir(default, Config1)
+            end                    
     end;
-init_per_group2(inet_backend_socket = _GroupName, Config) ->
+init_per_group2(inet_backend_inet = _GroupName, Config0) ->
     case ?EXPLICIT_INET_BACKEND() of
         true ->
             %% The environment trumps us,
             %% so only the default group should be run!
             {skip, "explicit inet backend"};
         false ->
-            ?LIB:init_group_top_dir(socket, [{socket_create_opts, [{inet_backend, socket}]} | Config])
+            case lists:keysearch(snmp_factor, 1, Config0) of
+                {value, {snmp_factor, Factor}} when (Factor < 5) ->
+                    Config1 = [{socket_create_opts, [{inet_backend, inet}]} |
+                               Config0],
+                    ?LIB:init_group_top_dir(inet, Config1);
+                _ ->
+                    {skip, "Machine too slow"}
+            end
+    end;
+init_per_group2(inet_backend_socket = _GroupName, Config0) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            %% Always run this unless a backend has been explicitly
+            %% configured (since this is really what we want to test).
+            Config1 = [{socket_create_opts, [{inet_backend, socket}]} |
+                       Config0],
+            ?LIB:init_group_top_dir(socket, Config1)
     end;
 init_per_group2(all = GroupName, Config) ->
     ?LIB:init_group_top_dir(GroupName, Config);

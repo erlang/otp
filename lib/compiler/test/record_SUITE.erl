@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -237,6 +237,14 @@ record_test_2(Config) when is_list(Config) ->
     [x,[],{a,b}] = [X || X <- MyList,
 			 begin not is_record(X, foo) or
 				   is_reference(X) end],
+
+    Map = id(#{a => 1, b => #foo{a=2}, c => 3, d => #bar{d=4},
+               e => 5, f => #foo{a=6}, h => 7}),
+    [#foo{a=2},#foo{a=6}] = lists:sort([X || _ := X <- Map, is_record(X, foo)]),
+    [#bar{d=4}] = [X || _ := X <- Map, is_record(X, bar)],
+    [1,3,5,7,#foo{a=2},#foo{a=6}] =
+	lists:sort([X || _ := X <- Map, not is_record(X, bar)]),
+    [2,6] = lists:sort([A || _ := #foo{a=A} <- Map]),
 
     %% Call is_record/2 with illegal arguments.
     [] = [X || X <- [], is_record(t, id(X))],
@@ -698,6 +706,34 @@ grab_bag(_Config) ->
     error = T5(#gb_nil{}),
     error = T5(#gb_bar{}),
     error = T5(atom),
+
+    %% With type optimizations disabled, beam_ssa_pre_codegen would insert
+    %% set_tuple_element instructions between the call to setelement/3 and
+    %% its succeeded instruction.
+    T6 = fun(R) ->
+                 try
+                     %% The succeeded instruction should immediately follow its instruction.
+                     %% Not like this:
+                     %%
+                     %%   x0/_212 = call (`erlang`:`setelement`/3), `5`, y0/_87:37, `4`
+                     %%   z0/@ssa_dummy:34 = set_tuple_element `3`, x0/_212, `3`
+                     %%   z0/@ssa_dummy:35 = set_tuple_element `2`, x0/_212, `2`
+                     %%   z0/@ssa_dummy:36 = set_tuple_element `1`, x0/_212, `1`
+                     %%   z0/@ssa_bool:13 = succeeded x0/_212
+                     %%   br z0/@ssa_bool:13, ^14, ^4
+                     R#foo{a=1,b=2,c=3,d=4}
+                 of
+                     42 ->
+                         ok
+                 catch
+                     _:_ ->
+                         error
+                 end
+         end,
+    error = catch T6(100),
+    error = catch T6([a,b,c]),
+    error = catch T6(#bar{}),
+    {'EXIT',{{try_clause,#foo{}},_}} = catch T6(#foo{}),
 
     ok.
 

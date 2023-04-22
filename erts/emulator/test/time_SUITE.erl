@@ -42,7 +42,8 @@
 	 monotonic_time_monotonicity_parallel/1,
 	 time_unit_conversion/1,
 	 signed_time_unit_conversion/1,
-	 erlang_timestamp/1]).
+	 erlang_timestamp/1,
+         native_time_unit_gh6165/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -69,8 +70,8 @@
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
-end_per_testcase(_Func, _Config) ->
-    ok.
+end_per_testcase(_Func, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -85,7 +86,8 @@ all() ->
      monotonic_time_monotonicity_parallel,
      time_unit_conversion,
      signed_time_unit_conversion,
-     erlang_timestamp].
+     erlang_timestamp,
+     native_time_unit_gh6165].
 
 groups() -> 
     [{now, [], [now_unique, now_update]}].
@@ -872,6 +874,41 @@ process_changed_time_offset(Mon, TO, Changed, Wait) ->
     end.
     
 
+native_time_unit_gh6165(Config) when is_list(Config) ->
+    %% This test could potentially fail even when no bug exists if
+    %% run during heavy load, or if OS system time or Erlang system time
+    %% is changed at an unfortunate time, but it is hard to make the test
+    %% more stable than this without losing actual testing...
+
+    ChkDiff = fun (Val) ->
+                      case erlang:convert_time_unit(Val, native, nanosecond) of
+                          Ns when -1000000 < Ns andalso Ns < 1000000 ->
+                              erlang:display({diff, Ns}),
+                              ok;
+                          Ns ->
+                              erlang:display({large_diff, Ns}),
+                              ct:fail({large_diff, Ns})
+                      end
+              end,
+    
+    process_flag(priority, max),
+
+    erlang:yield(),
+    V1 = erlang:monotonic_time(native) - erlang:monotonic_time(),
+    ChkDiff(V1),
+
+    erlang:yield(),
+    V2 = erlang:system_time(native) - erlang:system_time(),
+    ChkDiff(V2),
+
+    erlang:yield(),
+    V3 = os:system_time(native) - os:system_time(),
+    ChkDiff(V3),
+    
+    erlang:yield(),
+    0 = erlang:time_offset() - erlang:time_offset(native),
+
+    ok.
 
 %% Returns the test data: a list of {Utc, Local} tuples.
 

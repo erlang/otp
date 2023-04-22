@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_ssa_SUITE).
+-feature(maybe_expr, enable).
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -450,6 +451,8 @@ maps(_Config) ->
     {jkl,nil,nil} = maps_2(#{jkl => 0}),
     error = maps_2(#{}),
 
+    [] = maps_3(),
+
     ok.
 
 maps_1(K) ->
@@ -521,6 +524,15 @@ maps_2b(#{}=Map) ->
                     end
             end
     end.
+
+%% Cover code in beam_ssa_codegen.
+maps_3() ->
+    [] = case #{} of
+             #{ok := {}} ->
+                 ok;
+             _ ->
+                 []
+         end -- [].
 
 -record(wx_ref, {type=any_type,ref=any_ref}).
 
@@ -886,6 +898,15 @@ grab_bag(_Config) ->
 
     {'EXIT',{{try_clause,[]},[_|_]}} = catch grab_bag_18(),
 
+    {'EXIT',{{badmatch,[whatever]},[_|_]}} = catch grab_bag_19(),
+
+    {'EXIT',{if_clause,[_|_]}} = catch grab_bag_20(),
+
+    6 = grab_bag_21(id(64)),
+    {'EXIT',{badarith,_}} = catch grab_bag_21(id(a)),
+
+    false = grab_bag_22(),
+
     ok.
 
 grab_bag_1() ->
@@ -1112,6 +1133,67 @@ grab_bag_18() ->
         end
     end.
 
+grab_bag_19() ->
+    ([<<bad/utf8>>] =
+         %% beam_ssa_pre_codegen would produce single-valued phi
+         %% nodes, which in turn would cause the constant propagation
+         %% in beam_ssa_codegen:prefer_xregs/2 to produce get_hd and
+         %% get_tl instructions with literal operands.
+         try
+             [whatever]
+         catch
+             _:_ when false ->
+                 ok
+         end) ! (some_atom ++ <<>>).
+
+grab_bag_20() ->
+    %% Similarly to grab_bag_19, beam_ssa_pre_codegen would produce
+    %% single-valued phi nodes. The fix for grab_bag_19 would not
+    %% suffice because several phi nodes were involved.
+    {[_ | _] =
+         receive
+             list ->
+                 "list";
+             1 when day ->
+                 []
+         after
+             0 ->
+                 if
+                     false ->
+                         error
+                 end
+         end,
+     try
+         ok
+     catch
+         error:_ ->
+             error
+     end}.
+
+%% With the `no_copt` and `no_ssa_opt` options, an internal
+%% consistency error would be reported:
+%%
+%% Internal consistency check failed - please report this bug.
+%% Instruction: {test_heap,2,2}
+%% Error:       {{x,0},not_live}:
+grab_bag_21(A) ->
+    _ = id(0),
+    grab_bag_21(ok, A div 10, node(), [-1]).
+
+grab_bag_21(_, D, _, _) ->
+    D.
+
+%% GH-7128: With optimizations disabled, the code would fail to
+%% load with the following message:
+%%
+%%    beam/beam_load.c(367): Error loading function
+%%      beam_ssa_no_opt_SUITE:grab_bag_22/0: op get_list: Sdd:
+%%         bad tag 2 for destination
+grab_bag_22() ->
+    maybe
+        [_ | _] ?= ((true xor true) andalso foo),
+        bar ?= id(42)
+    end.
 
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),

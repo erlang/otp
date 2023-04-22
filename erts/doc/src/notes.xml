@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2022</year>
+      <year>2004</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,1835 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
+
+<section><title>Erts 13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug on Windows where
+	    <c>file:read_file_info/1</c> would fail for files with
+	    corrupt metadata.</p>
+          <p>
+	    Own Id: OTP-18348 Aux Id: GH-6356 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>process_info(_, binary)</c> to again include
+	    "writable binaries" which were lost in OTP-25.0. Writable
+	    binaries are an optimization used when binaries are
+	    appended upon in a loop.</p>
+          <p>
+	    Own Id: OTP-18373 Aux Id: PR-6574, GH-6573 </p>
+        </item>
+        <item>
+          <p>
+	    Fix rare race when receiving fragmented messages on a
+	    terminating connection. Could potentially cause memory
+	    leaks as well as double free crashes. Bug exists since
+	    OTP 22.0.</p>
+          <p>
+	    Own Id: OTP-18382 Aux Id: PR-6585 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug that could maybe cause problems when a file
+	    descriptor number is closed by a linked in driver and
+	    then opened (reused) and passed to <c>enif_select</c> by
+	    a NIF. No actual symptoms seen, only failed internal
+	    assertions in debug build.</p>
+          <p>
+	    Own Id: OTP-18391</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system could crash when tracing a process
+	    executing on a dirty scheduler.</p>
+          <p>
+	    Own Id: OTP-18398 Aux Id: PR-6495, GH-6448, GH-5984 </p>
+        </item>
+        <item>
+	    <p>In the binary syntax, attempting to match out integers
+	    with size exceeding 2 GiB could crash the runtime
+	    system.</p>
+          <p>
+	    Own Id: OTP-18406 Aux Id: GH-6701 </p>
+        </item>
+        <item>
+	    <p>Fixed edge case in floating-point negation where <c>A
+	    = 0.0, B = -A</c> did not produce <c>B = -0.0</c> on
+	    x86_64 JIT.</p>
+          <p>
+	    Own Id: OTP-18411 Aux Id: GH-6717 </p>
+        </item>
+        <item>
+	    <p>Fixed an issue in the JIT that could crash the
+	    emulator on some platforms.</p>
+          <p>
+	    Own Id: OTP-18418</p>
+        </item>
+        <item>
+          <p>
+	    Added meta data to the windows installer.</p>
+          <p>
+	    Own Id: OTP-18429 Aux Id: PR-6587 GH-4232 GH-6537 </p>
+        </item>
+        <item>
+	    <p>Fixed ETS insertion order into <c>bag</c> and
+	    <c>duplicate_bag</c> of tuples with identical keys when
+	    passed in a list to <c>ets:insert/2</c>. The insert order
+	    has been head-to-tail but was accidentally changed in OTP
+	    23.0. For <c>bag</c> it was reverted (tail-to-head),
+	    while for <c>duplicate_bag</c> it was sometimes reverted
+	    depending on the length of the list and number of
+	    "reductions" left for the calling process.</p> <p>This
+	    fix changes the insert order of <c>ets:insert/2</c> back
+	    to always be head-to-tail of the list argument.</p>
+          <p>
+	    Own Id: OTP-18434 Aux Id: PR-6752 </p>
+        </item>
+        <item>
+	    <p>With the JIT for AArch64 (AMD64), calling <c>bxor</c>
+	    in with non-integer arguments in a guard would crash the
+	    runtime system.</p>
+          <p>
+	    Own Id: OTP-18454 Aux Id: PR-6839 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug regarding process flag <c>max_heap_size</c>.
+	    Could cause strange behavior when a process was killed
+	    due to exceeding the limit.</p>
+          <p>
+	    Own Id: OTP-18457 Aux Id: PR-6816 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed binary comprehensions to be similar to other
+	    creation of binary data with respect to its contribution
+	    of triggering garbage collection.</p>
+          <p>
+	    Own Id: OTP-18458</p>
+        </item>
+        <item>
+	    <p>In rare circumstances, when a process exceeded its
+	    allowed heap size set by option <c>max_heap_size</c>, it
+	    would not be killed as it should be, but instead enter a
+	    kind of zombie state it would never get out of.</p>
+          <p>
+	    Own Id: OTP-18463 Aux Id: PR-6858 </p>
+        </item>
+        <item>
+	    <p>Instead of crashing, the <c>list_to_integer/1</c> and
+	    <c>list_to_integer/2</c> BIFs now raise the
+	    <c>system_limit</c> exception for overlong lists that
+	    can't be converted to integers. Similarly, the
+	    <c>string:to_integer/1</c> BIF now returns
+	    <c>{error,system_limit}</c> for overlong lists.</p>
+          <p>
+	    Own Id: OTP-18475 Aux Id: PR-6897 </p>
+        </item>
+        <item>
+          <p>
+	    Active process aliases of a process at its termination
+	    leaked memory.</p>
+          <p>
+	    Own Id: OTP-18496 Aux Id: GH-6947, PR-6953 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for fully asynchronous distributed signaling
+	    where send operations <em>never</em> block. This
+	    functionality is by default disabled and can be enabled
+	    per process. For more information see the documentation
+	    of <seeerl
+	    marker="erts:erlang#process_flag_async_dist"><c>process_flag(async_dist,
+	    Bool)</c></seeerl>.</p>
+          <p>
+	    Own Id: OTP-18374 Aux Id: PR-6632 </p>
+        </item>
+        <item>
+	    <p>Added the <c>+JPperf no_fp</c> option to explicitly
+	    disable Erlang frame pointers otherwise added when using
+	    the <c>+JPperf map</c> option.</p>
+          <p>
+	    Own Id: OTP-18426</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Comparisons between small numbers and pids or ports
+	    would in some edge cases say that the number was greater
+	    than the pid or port, violating the term order.</p>
+          <p>
+	    Own Id: OTP-18415</p>
+        </item>
+        <item>
+          <p>
+	    <c>process_info(Pid, status)</c> when <c>Pid /=
+	    self()</c> could return an erroneous result.</p>
+          <p>
+	    Own Id: OTP-18421 Aux Id: PR-6806 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in selective receive optimization that
+	    could crash 32-bit emulators.</p>
+          <p>
+	    Own Id: OTP-18383 Aux Id: ERIERL-905 </p>
+        </item>
+        <item>
+          <p>
+	    A race condition which was very rarely triggered could
+	    cause the signal queue of a process to become
+	    inconsistent causing the runtime system to crash.</p>
+          <p>
+	    Own Id: OTP-18388 Aux Id: OTP-17462, PR-6662 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix perf/gdb JIT symbols to not contain
+	    <c>CodeInfoPrologue</c> for the JIT internal module
+	    erts_beamasm.</p>
+          <p>
+	    Own Id: OTP-18256 Aux Id: PR-6316 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed minor memory leaks.</p>
+          <p>
+	    Own Id: OTP-18281 Aux Id: PR-4840 </p>
+        </item>
+        <item>
+	    <p>Fix bugs in <c>ets:insert</c> and
+	    <c>ets:insert_new</c> when called with a list of tuples
+	    to insert while a concurrent process either deletes or
+	    renames the table. The table deletion could be done with
+	    <c>ets:delete/1</c> or be caused by termination of the
+	    table owning process.</p> <p>Symptoms are either VM crash
+	    or strange incorrect behavior from the insert operation.
+	    The risk of triggering the bugs increases with the length
+	    of the list of tuple to insert. Bugs exist since OTP
+	    23.0.</p>
+          <p>
+	    Own Id: OTP-18284 Aux Id: PR-6305 </p>
+        </item>
+        <item>
+          <p>
+	    Boost execution of scheduled thread progress jobs. This
+	    to prevent memory exhaustion in extremely rapid
+	    allocation/deallocation scenarios, such as repeated ETS
+	    table creations/deletions.</p>
+          <p>
+	    Own Id: OTP-18294 Aux Id: PR-6390 </p>
+        </item>
+        <item>
+          <p>
+	    Fix segv crash during crash dumping an ETS table doing
+	    <c>ets:delete_all_objects</c>.</p>
+          <p>
+	    Own Id: OTP-18295</p>
+        </item>
+        <item>
+          <p>
+	    Spec for function net:if_names/0 incorrect</p>
+          <p>
+	    Own Id: OTP-18296 Aux Id: OTP-16464 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> decoding a binary term
+	    2Gbyte or larger.</p>
+          <p>
+	    Own Id: OTP-18306 Aux Id: GH-6393, PR-6401 </p>
+        </item>
+        <item>
+	    <p>Documentation of <seemfa
+	    marker="erts:erlang#module_loaded/1"><c>erlang:module_loaded/1</c></seemfa>
+	    has been adjusted:</p> <list><item> It did not previously
+	    say that the BIF only returns <c>true</c> for modules
+	    loaded as <i>current code</i>. </item><item> The warning
+	    claiming that the BIF should only be used by the code
+	    server has been removed. </item></list>
+          <p>
+	    Own Id: OTP-18313 Aux Id: PR-6456 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>list_to_atom/1</c> for negative code points. Could
+	    either return with a positive code point or fail with an
+	    incorrect exception.</p>
+          <p>
+	    Own Id: OTP-18321</p>
+        </item>
+        <item>
+	    <p>Fix rare bug causing VM crash when sending to a pid of
+	    a spawning process returned from
+	    <c>erlang:processes/0</c>.</p> <p>Only seen when provoked
+	    by system process literal_area_collector, triggered by a
+	    module purge operation, on a VM started with +Meamin (no
+	    customized allocators).</p>
+          <p>
+	    Own Id: OTP-18322 Aux Id: PR-6479 </p>
+        </item>
+        <item>
+          <p>
+	    gen_udp:open/2 with option(s) add_membership or
+	    drop_membership would drop earlier options.</p>
+          <p>
+	    Own Id: OTP-18323 Aux Id: #6476 </p>
+        </item>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="kernel:inet#setopts/2"><c>inet:setopts/2</c></seemfa>
+	    <c>{reuseaddr, true}</c> option will now be ignored on
+	    Windows unless the socket is an UDP socket. For more
+	    information see the documentation of the <c>reuseaddr</c>
+	    option part of the documentation of
+	    <c>inet:setopts/2</c>.</p>
+          <p>
+	    Prior to OTP 25 the <c>{reuseaddr, true}</c> option was
+	    ignored for all sockets on Windows, but as of OTP 25.0
+	    this was changed so that it was not ignored for any
+	    sockets.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18324 Aux Id: GH-6461, PR-6481 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> decoding a list of
+	    length 1G or longer.</p>
+          <p>
+	    Own Id: OTP-18328 Aux Id: GH-6439, PR-6440 </p>
+        </item>
+        <item>
+	    <p>Fix bug in <c>binary_to_term</c> (and distributed
+	    receive) when decoding a large map (&gt;32 keys) with
+	    unsorted small maps (&lt;= 32) as keys of the large
+	    map.</p>
+	    <p>This was only a problem if the term was encoded by
+	    <c>erl_interface</c>, <c>jinterface</c> or otherwise, as
+	    the VM itself always encodes small maps with sorted
+	    keys.</p>
+	    <p>The "binary_to_term" would appear as successful but
+	    the created large map was internally inconsistent. The
+	    smaller key-maps could not be found with maps:get and
+	    friends. Other operations such as map compare and merge
+	    could probably also give incorrect results.</p>
+          <p>
+	    Own Id: OTP-18343 Aux Id: GH-6496 </p>
+        </item>
+        <item>
+          <p>
+	    Fix Windows bug in <c>open_port({spawn, Command}, ..)</c>
+	    when <c>Command</c> is found via the OS search PATH and
+	    that directory path contains white spaces. The port
+	    program would start but the command line arguments to it
+	    could be incorrect.</p>
+          <p>
+	    Own Id: OTP-18345 Aux Id: GH-6387, PR-6396 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.1.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in selective receive optimization that
+	    could crash 32-bit emulators.</p>
+          <p>
+	    Own Id: OTP-18383 Aux Id: ERIERL-905 </p>
+        </item>
+        <item>
+          <p>
+	    A race condition which was very rarely triggered could
+	    cause the signal queue of a process to become
+	    inconsistent causing the runtime system to crash.</p>
+          <p>
+	    Own Id: OTP-18388 Aux Id: OTP-17462, PR-6662 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add abandon carrier free utilization limit
+	    (<c>+Muacful</c>) option to erts_alloc. This option
+	    allows the user to mark unused segments in a memory
+	    carrier as re-useable by the OS if needed.</p>
+          <p>
+	    This functionality was a non-configurable default before
+	    Erlang/OTP 25, but removed due to performance issues.</p>
+          <p>
+	    Own Id: OTP-18290 Aux Id: ERIERL-866 PR-6378 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Listen sockets created with the socket module, leaked
+	    (erlang-) monitors.</p>
+          <p>
+	    Own Id: OTP-18240 Aux Id: #6285 </p>
+        </item>
+        <item>
+          <p>
+	    <seemfa
+	    marker="erts:erlang#dist_ctrl_get_data_notification/1">Notifications
+	    about available distribution data</seemfa> sent to
+	    distribution controller processes could be lost.
+	    Distribution controller processes can be used when
+	    implementing an alternative distribution carrier. The
+	    default distribution over tcp was not effected and the
+	    bug was also not present on x86/x86_64 platforms.</p>
+          <p>
+	    Own Id: OTP-18258 Aux Id: GH-6309, PR-6324 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed inconsistency bugs in <seeerl
+	    marker="kernel:global"><c>global</c></seeerl> due to
+	    <c>nodeup</c>/<c>nodedown</c> messages not being
+	    delivered before/after traffic over connections. Also
+	    fixed various other inconsistency bugs and deadlocks in
+	    both <seeerl
+	    marker="kernel:global_group"><c>global_group</c></seeerl>
+	    and <c>global</c>.</p>
+          <p>
+	    As building blocks for these fixes, a new BIF <seemfa
+	    marker="erts:erlang#nodes/2"><c>erlang:nodes/2</c></seemfa>
+	    has been introduced and <seemfa
+	    marker="kernel:net_kernel#monitor_nodes/2"><c>net_kernel:monitor_nodes/2</c></seemfa>
+	    has been extended.</p>
+          <p>
+	    The <seecom
+	    marker="erts:erl#hidden"><c>-hidden</c></seecom> and
+	    <seecom
+	    marker="erts:erl#connect_all"><c>-connect_all</c></seecom>
+	    command line arguments did not work if multiple instances
+	    were present on the command line which has been fixed.
+	    The new kernel parameter <seeapp
+	    marker="kernel:kernel_app#connect_all"><c>connect_all</c></seeapp>
+	    has also been introduced in order to replace the
+	    <c>-connect_all</c> command line argument.</p>
+          <p>
+	    Own Id: OTP-17934 Aux Id: PR-6007 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed IPv6 multicast_if and membership socket options.</p>
+          <p>
+	    Own Id: OTP-18091 Aux Id: #5789 </p>
+        </item>
+        <item>
+          <p>
+	    Accept funs (NEW_FUN_EXT) with incorrectly encoded size
+	    field. This is a workaround for a bug (OTP-18104)
+	    existing in OTP 23 and 24 that could cause incorrect size
+	    fields in certain cases. The emulator does not use the
+	    decoded size field, but <c>erl_interface</c> still does
+	    and is not helped by this workaround.</p>
+          <p>
+	    Own Id: OTP-18093 Aux Id: OTP-18104, PR-5987 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed issue with inet:getifaddrs hanging on pure IPv6
+	    Windows</p>
+          <p>
+	    Own Id: OTP-18102 Aux Id: #5904 </p>
+        </item>
+        <item>
+	    <p>Fix faulty distribution encoding of terms with
+	    either</p> <list> <item>a fun with bit-string or
+	    export-fun in its environment when encoded toward a not
+	    yet established (pending) connection</item> <item>or a
+	    fun with a binary/bitstring, in its environment,
+	    referring to an off-heap binary (larger than 64
+	    bytes).</item> </list> <p>The symptom could be failed
+	    decoding on the receiving side leading to aborted
+	    connection. Fix OTP-18093 is a workaround for theses bugs
+	    that makes the VM accepts such faulty encoded funs.</p>
+	    <p>The first encoding bug toward pending connection
+	    exists only in OTP 23 and 24, but the second one exists
+	    also on OTP 25.</p>
+          <p>
+	    Own Id: OTP-18104 Aux Id: OTP-18093 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed emulator crash that could happen during crashdump
+	    generation of ETS tables with options <c>ordered_set</c>
+	    and <c>{write_concurrency,true}</c>.</p>
+          <p>
+	    Own Id: OTP-18144 Aux Id: GH-5981 </p>
+        </item>
+        <item>
+          <p>
+	    Retrieval of monotonic and system clock resolution on
+	    MacOS could cause a crash and/or erroneous results.</p>
+          <p>
+	    Own Id: OTP-18160 Aux Id: PR-6103 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where the max allowed size of <c>erl +hmax</c>
+	    was lower than what was allowed by <c>process_flag</c>.</p>
+          <p>
+	    Own Id: OTP-18161 Aux Id: PR-6081 </p>
+        </item>
+        <item>
+	    <p>On computers with ARM64 (AArch64) processors, the JIT
+	    could generate incorrect code when more than 4095 bits
+	    were skipped at the tail end of a binary match.</p>
+          <p>
+	    Own Id: OTP-18201</p>
+        </item>
+        <item>
+	    <p>In rare circumstances, an <c>is_binary/1</c> guard
+	    test could succeed when given a large integer.</p>
+          <p>
+	    Own Id: OTP-18216 Aux Id: GH-6239, PR-6240 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing <c>ets:info</c> (and sometimes
+	    <c>ets:whereis</c>) to return 'undefined' for an existing
+	    table if a concurrent process were doing
+	    <c>ets:insert</c> with a long list on the same table.</p>
+          <p>
+	    Own Id: OTP-18218 Aux Id: ERIERL-855 </p>
+        </item>
+        <item>
+          <p>
+	    Fix writing and reading of more than 2 GB in a single
+	    read/write operation on macOS. Before this fix attempting
+	    to read/write more than 2GB would result in
+	    <c>{error,einval}</c>.</p>
+          <p>
+	    Own Id: OTP-18222 Aux Id: PR-6248 GH-6242 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug sometimes causing emulator crash at node shutdown
+	    when there are pending connections. Only seen when
+	    running duel distribution protocols, inet_drv and
+	    inet_tls_dist.</p>
+          <p>
+	    Own Id: OTP-18243 Aux Id: GH-6247, PR-6258 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Yield when adjusting large process message queues due
+	    to</p> <list> <item><p>copying terms from a literal area
+	    prior to removing the literal area.</p></item>
+	    <item><p>changing the <c>message_queue_data</c> state
+	    from <c>on_heap</c> to <c>off_heap</c>.</p></item>
+	    </list> <p>The message queue adjustment work will now be
+	    interleaved with all other types of work that processes
+	    have to do, even other message queue adjustment work.</p>
+          <p>
+	    Own Id: OTP-17340 Aux Id: PR-6133 </p>
+        </item>
+        <item>
+          <p>
+	    Add rudimentary debug feature (option) for the
+	    inet-driver based sockets, such as gen_tcp and gen_udp.</p>
+          <p>
+	    Own Id: OTP-18032</p>
+        </item>
+        <item>
+          <p>
+	    Introduced the <c>hidden</c> and <c>dist_listen</c>
+	    options to <seemfa
+	    marker="kernel:net_kernel#start/2"><c>net_kernel:start/2</c></seemfa>.</p>
+          <p>
+	    Also documented the <seecom
+	    marker="erts:erl#dist_listen"><c>-dist_listen</c></seecom>
+	    command line argument which was erroneously documented as
+	    a <c>kernel</c> parameter and not as a command line
+	    argument.</p>
+          <p>
+	    Own Id: OTP-18107 Aux Id: PR-6009 </p>
+        </item>
+        <item>
+          <p>
+	    New documentation chapter "Debugging NIFs and Port
+	    Drivers" under Interoperability Tutorial.</p>
+          <p>
+	    Own Id: OTP-18109</p>
+        </item>
+        <item>
+          <p>
+	    Add new API function erl_features:configurable/0</p>
+          <p>
+	    Own Id: OTP-18199 Aux Id: PR-5790 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="erlang#monitor/3"><c>monitor/3</c></seemfa> BIF
+	    did not apply options to the created monitor if the
+	    target process or port did not exist. That is, the
+	    corresponding down message would get a <c>`DOWN`</c> tag
+	    even if a custom tag had been set, and the returned
+	    reference was not an alias even if the <c>alias</c>
+	    option had been passed.</p>
+          <p>
+	    Own Id: OTP-18190 Aux Id: GH-6185, PR-6209 </p>
+        </item>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="erts:erlang#monotonic_time/1"><c>erlang:monotonic_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#system_time/1"><c>erlang:system_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#time_offset/1"><c>erlang:time_offset/1</c></seemfa>,
+	    and <seemfa
+	    marker="kernel:os#system_time/1"><c>os:system_time/1</c></seemfa>
+	    BIFs erroneously failed when passed the argument
+	    <c>native</c>.</p>
+          <p>
+	    Own Id: OTP-18197 Aux Id: GH-6165, PR-6213 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Distributed exit signals could be lost under the
+	    following conditions:</p> <list> <item><p> An exit signal
+	    from a parent process to a child process was lost if:</p>
+	    <list> <item><p> the parent process terminated before the
+	    spawn request that created the child had completed,
+	    </p></item> <item><p> the spawn request set up a link
+	    between parent and child </p></item> <item><p> the spawn
+	    request was distributed, and </p></item> <item><p> the
+	    exit reason was larger than one machine word. </p></item>
+	    </list> </item> <item><p> Loss of a connection over which
+	    a not yet completed spawn request was ongoing could cause
+	    loss of exit signals. Such loss of exit signals was very
+	    rare. Besides the above described connection loss also
+	    the following conditions had to be satisfied:</p> <list>
+	    <item><p> The spawn request that was interrupted by the
+	    connection loss also had to set up a link between the
+	    parent process and the child process. </p></item>
+	    <item><p> The parent process that issued the spawn
+	    request also had to be terminating while the spawn
+	    request was interrupted by the connection loss.
+	    </p></item> <item><p> The same parent process also had to
+	    have made other spawn requests to other nodes than to the
+	    node to which the connection was lost. </p></item>
+	    <item><p> These spawn requests to the other nodes also
+	    had to set up links. </p></item> <item><p> These spawn
+	    requests to the other nodes also had to be not yet
+	    completed at the time of the connection loss. That is,
+	    the spawn reply from the child process had not yet
+	    reached the parent process. </p></item> </list> <p>If all
+	    the conditions above were met, exit signals to the
+	    children spawned due to the above described spawn
+	    requests to other nodes <em>could</em> be lost.</p>
+	    <p>The above bug also caused a significant memory leak
+	    when it was triggered since the destruction of the parent
+	    process never completed.</p> </item> </list>
+          <p>
+	    Own Id: OTP-18164 Aux Id: PR-6114 </p>
+        </item>
+        <item>
+          <p>
+	    A race could cause <c>process_info(Pid,
+	    message_queue_len)</c> on other processes to return
+	    invalid results.</p>
+          <p>
+	    Own Id: OTP-18169 Aux Id: PR-6134 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed reduction counting for handling process system
+	    tasks.</p>
+          <p>
+	    Own Id: OTP-18170 Aux Id: PR-6135 </p>
+        </item>
+        <item>
+          <p>
+	    Priority elevation of terminating processes did not work
+	    which could cause execution of such processes to be
+	    delayed.</p>
+          <p>
+	    Own Id: OTP-18175 Aux Id: PR-6142 </p>
+        </item>
+        <item>
+          <p>
+	    An unlink operation made by a process that terminated
+	    before the unlink operation completed, i.e., before it
+	    had received an unlink-ack signal from the linked
+	    process, caused an exit signal to erroneously be sent
+	    from the terminating process to the process being
+	    unlinked. This exit signal would most often be ignored by
+	    the receiver, but if the receiver of the exit signal
+	    concurrently set up a new link, it could receive the exit
+	    signal with the actual exit reason of the terminating
+	    process instead of a <c>noproc</c> exit reason. It is
+	    however very hard to detect that this has happened and
+	    has no obvious negative consequences, so it should be
+	    considered harmless.</p>
+          <p>
+	    A distributed unlink-ack signal received by a terminating
+	    process was also not properly removed which could cause a
+	    minor memory leak.</p>
+          <p>
+	    Own Id: OTP-18177 Aux Id: PR-6150 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>On computers with the ARM64 (AArch64) architecture
+	    (such as Apple Silicon Macs) a <c>rem</c> expression
+	    followed by a <c>div</c> expression with the same
+	    operands could evaluate to the wrong result if the result
+	    of the <c>rem</c> expression was unused.</p>
+          <p>
+	    Own Id: OTP-18143</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A <c>spawn_reply</c> signal from a remote node could be
+	    delayed and be delivered after other signals from the
+	    newly spawned process.</p>
+          <p>
+	    When this bug triggered, the connection to the node where
+	    the process was spawned sometimes could be taken down due
+	    to the bug. The following error message would then be
+	    logged if this happened: <c>Missing 'spawn_reply' signal
+	    from the node &lt;RemoteNode&gt; detected by &lt;Pid&gt;
+	    on the node &lt;LocalNode&gt;. The node
+	    &lt;RemoteNode&gt; probably suffers from the bug with
+	    ticket id OTP-17737.</c></p>
+          <p>
+	    This bug only affected processes which had enabled
+	    <seeerl
+	    marker="erts:erlang#process_flag_message_queue_data"><c>off_heap</c>
+	    <c>message_queue_data</c></seeerl> and parallel reception
+	    of signals had been automatically enabled.</p>
+          <p>
+	    This bug was introduced in OTP 25.0, ERTS version 13.0.</p>
+          <p>
+	    Own Id: OTP-18105 Aux Id: OTP-16982, PR-6003 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed type spec of <c>erlang:system_info(dist_ctrl)</c>.</p>
+          <p>
+	    Own Id: OTP-18106 Aux Id: PR-5992 </p>
+        </item>
+        <item>
+          <p>
+	    The zlib built in to the runtime system has been updated
+	    to version 1.2.12. (Note that on most platforms, the
+	    platform's own zlib is used.)</p>
+          <p>
+	    Own Id: OTP-18123 Aux Id: GH-5994 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>erlang:is_alive()</c> BIF could return <c>true</c>
+	    before configured distribution service was available.
+	    This bug was introduced in OTP 25.0 ERTS version 13.0.</p>
+          <p>
+	    The <c>erlang:monitor_node()</c> and
+	    <c>erlang:monitor()</c> BIFs could erroneously fail even
+	    though configured distribution service was available.
+	    This occurred if these BIFs were called after the
+	    distribution had been started using dynamic node name
+	    assignment but before the name had been assigned.</p>
+          <p>
+	    Own Id: OTP-18124 Aux Id: OTP-17558, PR-6032 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The socket option 'reuseaddr' is *no longer* ignored on
+	    Windows.</p>
+          <p>
+	    Own Id: OTP-17447 Aux Id: GH-4819 </p>
+        </item>
+        <item>
+          <p>
+	    The growth rate of writable binaries has been adjusted to
+	    only increase by 20% after 16MB in size. Before this
+	    change the size would always double.</p>
+          <p>
+	    This change may degrade write performance of large
+	    binaries.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17569 Aux Id: PR-4793 </p>
+        </item>
+        <item>
+          <p>
+	    Fix reduction counting bug in <c>re:run</c> that caused
+	    the function to yield too frequently when doing
+	    <c>global</c> matches.</p>
+          <p>
+	    Own Id: OTP-17661 Aux Id: PR-5165 </p>
+        </item>
+        <item>
+          <p>
+	    Fix spelling mistakes in epmd error messages.</p>
+          <p>
+	    Own Id: OTP-17758 Aux Id: PR-5391 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where the "newshell" would trigger a newline at
+	    the column width of the terminal, even if the next
+	    character to be printed was a newline. This would cause
+	    the terminal to render two newlines instead of one.</p>
+          <p>
+	    Own Id: OTP-17779 Aux Id: GH-5403 PR-5599 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the memory value returned from
+	    <c>ets:info(Tid,memory)</c> when the
+	    <c>read_concurrency</c> option is used.</p>
+          <p>
+	    Before this fix the memory used by the scheduler specific
+	    lock cache lines was not counted towards the total. This
+	    caused the returned memory usage to be very incorrect on
+	    systems with many schedulers for tables with man locks.</p>
+          <p>
+	    Own Id: OTP-17832 Aux Id: PR-5494 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the undocumented <c>--profile_boot</c> option to work
+	    again.</p>
+          <p>
+	    Own Id: OTP-17836 Aux Id: PR-5546 </p>
+        </item>
+        <item>
+          <p>
+	    [socket] Encode of sockaddr has been improved.</p>
+          <p>
+	    Own Id: OTP-18020</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>erl_child_setup</c> (the program used by
+	    <c>open_port({spawn,...})</c> and <c>os:cmd/1</c>) to
+	    better handle partial reads from the Erlang VM.</p>
+          <p>
+	    Own Id: OTP-18047 Aux Id: PR-5861 </p>
+        </item>
+        <item>
+	    <p>The runtime system would crash when attempting to
+	    create more than 33554431 atoms.</p>
+          <p>
+	    Own Id: OTP-18068 Aux Id: GH-5903 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Users can now configure ETS tables with the
+	    <c>{write_concurrency, auto}</c> option. This option
+	    forces tables to automatically change the number of locks
+	    that are used at run-time depending on how much
+	    concurrency is detected. The <c>{decentralized_counters,
+	    true}</c> option is enabled by default when
+	    <c>{write_concurrency, auto}</c> is active.</p>
+          <p>
+	    Benchmark results comparing this option with the other
+	    ETS optimization options are available here:</p>
+          <p>
+	    https://erlang.org/bench/ets_bench_result_lock_config.html</p>
+          <p>
+	    Own Id: OTP-15991 Aux Id: PR-5208 </p>
+        </item>
+        <item>
+          <p>
+	    The net module now works on Windows.</p>
+          <p>
+	    Own Id: OTP-16464</p>
+        </item>
+        <item>
+	    <p>To enable more optimizations, BEAM files compiled with
+	    OTP 21 and earlier cannot be loaded in OTP 25.</p>
+          <p>
+	    Own Id: OTP-16702</p>
+        </item>
+        <item>
+          <p>
+	    Optimize minor garbage collection for processes with
+	    large number of binaries, funs and/or external
+	    pids/ports/refs. This is a continuation of the
+	    optimization (OTP-17602) released in OTP-24.1.</p>
+          <p>
+	    Own Id: OTP-16852 Aux Id: ERL-1347, PR-5195 </p>
+        </item>
+        <item>
+          <p>
+	    The signal queue of a process with
+	    message_queue_data=off_heap* has been optimized to allow
+	    parallel reception of signals from multiple processes. </p>
+          <p>
+	    This is possible to do as Erlang only guarantees that
+	    signals (i.e., message signals and non-message signals)
+	    sent from a single process to another process are ordered
+	    in send order. However, there are no ordering guarantees
+	    for signals sent from different processes to a particular
+	    process. Therefore, several processes can send signals in
+	    parallel to a specific process without synchronizing with
+	    each other. However, such signal sending was previously
+	    always serialized as the senders had to acquire the lock
+	    for the outer signal queue of the receiving process. This
+	    parallel signal sending optimization yields much better
+	    scalability for signal sending than what was previously
+	    possible, see
+	    https://erlang.org/bench/sigq_bench_result.html for
+	    benchmark results.</p>
+          <p>
+	    * Information about how to enable the
+	    message_queue_data=off_heap setting can be found in the
+	    documentation of the function erlang:process_flag/2.</p>
+          <p>
+	    Own Id: OTP-16982 Aux Id: PR-5020 </p>
+        </item>
+        <item>
+	    <p>The JIT now works for 64-bit ARM processors.</p>
+          <p>
+	    Own Id: OTP-17119 Aux Id: PR-4869 </p>
+        </item>
+        <item>
+          <p>
+	    Added support for the compile attribute <c>-nifs()</c> to
+	    empower compiler and loader with information about which
+	    functions may be overridden as NIFs by
+	    <c>erlang:load_nif/2</c>. It is recommended to use this
+	    attribute in all modules that load NIF libraries.</p>
+          <p>
+	    Own Id: OTP-17151 Aux Id: ERIERL-590, PR-5479 </p>
+        </item>
+        <item>
+          <p>
+	    A test case has been added to the otp_SUITE that test
+	    that the dependency versions for OTP's applications are
+	    correct. The test case uses xref to check if the used
+	    functions are available in the specified dependency
+	    versions. The test case depends on the Erlang/OTP team's
+	    testing infrastructure and will be skipped if its
+	    dependencies are not met.</p>
+          <p>
+	    Own Id: OTP-17224</p>
+        </item>
+        <item>
+          <p>
+	    An Erlang installation directory is now relocatable on
+	    the file system given that the paths in the
+	    installation's <c>RELEASES</c> file are paths that are
+	    relative to the installations root directory. The
+	    <c>`release_handler:create_RELEASES/4</c> function can
+	    generate a <c>RELEASES</c> file with relative paths if
+	    its <c>RootDir</c> parameter is set to the empty string.</p>
+          <p>
+	    Own Id: OTP-17304</p>
+        </item>
+        <item>
+	    <p>The following distribution flags are now mandatory:
+	    <c>DFLAG_BIT_BINARIES</c>, <c>DFLAG_EXPORT_PTR_TAG</c>,
+	    <c>DFLAG_MAP_TAGS</c>, <c>DFLAG_NEW_FLOATS</c>, and
+	    <c>DFLAG_FUN_TAGS</c>. This mainly concerns libraries or
+	    application that implement the distribution protocol
+	    themselves.</p>
+          <p>
+	    Own Id: OTP-17318 Aux Id: PR-4972 </p>
+        </item>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+	    <p>When binary construction using the binary syntax
+	    fails, the error message printed in the shell and by
+	    <c>erl_error:format_exception/3,4</c> will contain more
+	    detailed information about what went wrong.</p>
+          <p>
+	    Own Id: OTP-17504 Aux Id: GH-4971, PR-5281, PR-5752 </p>
+        </item>
+        <item>
+          <p>
+	    The configuration files <seecom
+	    marker="erts:erl"><c>.erlang</c></seecom>, <seeguide
+	    marker="system/reference_manual:distributed"><c>.erlang.cookie</c></seeguide>
+	    and <seeerl
+	    marker="stdlib:beam_lib#.erlang.crypt"><c>.erlang.crypt</c></seeerl>
+	    can now be located in the XDG Config Home directory.</p>
+          <p>
+	    See the documentation for each file and
+	    <c>filename:basedir/2</c> for more details.</p>
+          <p>
+	    Own Id: OTP-17554 Aux Id: GH-5016 PR-5408 OTP-17821 </p>
+        </item>
+        <item>
+          <p>
+	    Make <c>byte_size/1</c> and <c>binary_part/2/3</c>
+	    callable from match specs (in ETS and tracing).</p>
+          <p>
+	    Own Id: OTP-17555 Aux Id: PR-5027 </p>
+        </item>
+        <item>
+          <p>
+	    Dynamic node name improvements: <c>erlang:is_alive/0</c>
+	    changed to return true for pending dynamic node name and
+	    new function <c>net_kernel:get_state/0</c>.</p>
+          <p>
+	    Own Id: OTP-17558 Aux Id: OTP-17538, PR-5111, GH-5402 </p>
+        </item>
+        <item>
+          <p>
+	    A new option called <c>short</c> has been added to the
+	    functions <c>erlang:float_to_list</c> and
+	    <c>erlang:float_to_binary</c>. This option creates the
+	    shortest correctly rounded string representation of the
+	    given float that can be converted back to the same float
+	    again.</p>
+          <p>
+	    Own Id: OTP-17562 Aux Id: GH-4492 </p>
+        </item>
+        <item>
+          <p>
+	    The tagged tuple tests and fun-calls have been optimized
+	    and are now a little bit cheaper than previously.</p>
+          <p>
+	    These optimizations become possible after making sure
+	    that all boxed terms have at least one word allocated
+	    after the arity word. This has been accomplished by
+	    letting all empty tuples refer to the same empty tuple
+	    literal which also reduces memory usage for empty tuples.</p>
+          <p>
+	    Own Id: OTP-17608</p>
+        </item>
+        <item>
+          <p>
+	    The signal queue benchmark in parallel_messages_SUITE and
+	    the ETS benchmark in ets_SUITE have benchmark result
+	    visualization HTML pages with "fill-screen" buttons to
+	    make the graphs bigger. This button did not work as
+	    intended before. When pressing the button for a graph,
+	    the last graph got replaced with a bigger version and not
+	    the one over the button. This is now fixed.</p>
+          <p>
+	    Own Id: OTP-17630</p>
+        </item>
+        <item>
+          <p>
+	    The test case num_bif_SUITE:t_float_to_string previously
+	    failed sometimes as it assumed a certain rounding of
+	    floats printed with sprintf but the rounding type is
+	    platform specific.</p>
+          <p>
+	    Own Id: OTP-17636</p>
+        </item>
+        <item>
+          <p>
+	    Optimize interpreter to create heap binaries of small
+	    match contexts if possible.</p>
+          <p>
+	    This optimization was already done in the JIT.</p>
+          <p>
+	    Own Id: OTP-17660 Aux Id: PR-5164 </p>
+        </item>
+        <item>
+          <p>
+	    Optimize integer multiplication for x86 JIT</p>
+          <p>
+	    Own Id: OTP-17667 Aux Id: PR-5237 </p>
+        </item>
+        <item>
+          <p>
+	    Removed use of node creation value zero as a wildcard.
+	    Also prevent zero from being used as creation by
+	    <c>erl_interface</c> and <c>jinterface</c> nodes.</p>
+          <p>
+	    Own Id: OTP-17682 Aux Id: PR-5347 </p>
+        </item>
+        <item>
+          <p>
+	    Distributed spawn operations now require <seeguide
+	    marker="erts:erl_dist_protocol#DFLAG_SPAWN">distributed
+	    <c>spawn_request()</c></seeguide> support. Distributed
+	    <c>spawn_request()</c> was introduced in OTP 23. That is,
+	    distributed spawn operations against Erlang nodes of
+	    releases prior to OTP 23 will fail.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17683 Aux Id: PR-5306 </p>
+        </item>
+        <item>
+	    <p>The Erlang compiler now includes type information in
+	    BEAM files, and the JIT can now use that type information
+	    to do optimizations such as eliminating or simplifying
+	    type tests.</p>
+          <p>
+	    Own Id: OTP-17684 Aux Id: PR-5316, PR-5664 </p>
+        </item>
+        <item>
+	    <p>Improved the JIT's support for external tools like
+	    <c>perf</c> and <c>gdb</c>, allowing them to show line
+	    numbers and even the original Erlang source code when
+	    that can be found.</p>
+	    <p>To aid them in finding the source code, the
+	    <c>absolute_path</c> compiler option has been added to
+	    embed the absolute file path of a module.</p>
+          <p>
+	    Own Id: OTP-17685</p>
+        </item>
+        <item>
+          <p>
+	    Add [32-bit] to the Erlang shell title row for 32-bit
+	    VMs.</p>
+          <p>
+	    Own Id: OTP-17717 Aux Id: PR-5290 </p>
+        </item>
+        <item>
+	    <p>Instructions for how to build the runtime system for
+	    iOS/iPadOS can now be found in
+	    <c>HOWTO/INSTALL.md</c>.</p>
+          <p>
+	    Own Id: OTP-17728 Aux Id: PR-5284 </p>
+        </item>
+        <item>
+          <p>
+	    Add support for static Elixir NIF modules with
+	    non-alphanumeric characters by using new macro
+	    <c>STATIC_ERLANG_NIF_LIBNAME</c>.</p>
+          <p>
+	    Own Id: OTP-17729 Aux Id: PR-5477 </p>
+        </item>
+        <item>
+          <p>
+	    Add new function <c>caller_line</c> to for trace match
+	    specifications used by erlang:trace_pattern/3.</p>
+          <p>
+	    This new option puts the line number of the caller into
+	    the trace message sent to the trace receiver.</p>
+          <p>
+	    Own Id: OTP-17753 Aux Id: PR-5305 GH-5297 </p>
+        </item>
+        <item>
+          <p>
+	    A new <c>erl</c> command line argument <c>+ssrct</c> has
+	    been introduced which will cause the runtime system to
+	    skip reading CPU topology information. This reduce start
+	    up time especially when the CPU topology is large.
+	    Reading of CPU topology information is now also skipped
+	    if a user defined CPU topology is set using the
+	    <c>+sct</c> command line argument.</p>
+          <p>
+	    Own Id: OTP-17762 Aux Id: GH-5204, PR-5219 </p>
+        </item>
+        <item>
+          <p>
+	    The default time warp mode will change in Erlang/OTP 26.
+	    Added a warning about this upcoming potential
+	    incompatibility to the documentation.</p>
+          <p>
+	    Own Id: OTP-17772 Aux Id: GH-4965 PR-5644 </p>
+        </item>
+        <item>
+	    <p>The emulator will no longer mark unused memory as
+	    discardable (e.g. through <c>madvise(2)</c>), as it
+	    caused more problems than it solved.</p>
+          <p>
+	    Own Id: OTP-17824</p>
+        </item>
+        <item>
+	    <p>When a record matching or record update fails, a
+	    <c>{badrecord,ExpectedRecordTag}</c> exception used to be
+	    raised. In this release, the exception has been changed
+	    to <c>{badrecord,ActualValue}</c>, where
+	    <c>ActualValue</c> is the actual that was found instead
+	    of the expected record.</p>
+          <p>
+	    Own Id: OTP-17841 Aux Id: PR-5694 </p>
+        </item>
+        <item>
+          <p>
+	    Removed the previously undocumented and unsupported
+	    <c>emem</c> tool.</p>
+          <p>
+	    Own Id: OTP-17892 Aux Id: PR-5591 </p>
+        </item>
+        <item>
+          <p>
+	    Remove version number from the default install path on
+	    Windows.</p>
+          <p>
+	    Own Id: OTP-17899 Aux Id: PR-5524 </p>
+        </item>
+        <item>
+          <p>
+	    On Windows apply the limit flag
+	    JOB_OBJECT_LIMIT_BREAKAWAY_OK in the Erlang service to be
+	    able to start a OS child process with a different session
+	    number.</p>
+          <p>
+	    Own Id: OTP-17927 Aux Id: PR-5283 </p>
+        </item>
+        <item>
+          <p>
+	    New erl command line option <c>+IOs</c>. It can be used
+	    to disable scheduler thread poll optimization, which has
+	    been seen to cause degraded event latency in some use
+	    cases.</p>
+          <p>
+	    Own Id: OTP-17945 Aux Id: GH-4759, PR-5809 </p>
+        </item>
+        <item>
+          <p>
+	    An API for multihomed SCTP connect has been added in the
+	    guise of <c>gen_sctp:connectx_init/*</c></p>
+          <p>
+	    Own Id: OTP-17951 Aux Id: PR-5656 </p>
+        </item>
+        <item>
+          <p>
+	    [socket] Add encoding of the field hatype of the type
+	    sockaddr_ll (family 'packet').</p>
+          <p>
+	    Own Id: OTP-17968 Aux Id: OTP-16464 </p>
+        </item>
+        <item>
+          <p>
+	    A cross compilation issue has been fixed about finding
+	    libdlpi during the configure phase.</p>
+          <p>
+	    Own Id: OTP-17985 Aux Id: GH-5728 </p>
+        </item>
+        <item>
+          <p>
+	    <seemfa
+	    marker="erts:erlang#process_info/2"><c>process_info/2</c></seemfa>
+	    now also accepts <c>parent</c> as argument. When passed,
+	    the process identifier of the parent process will be
+	    returned.</p>
+          <p>
+	    Own Id: OTP-17999 Aux Id: PR-5768 </p>
+        </item>
+        <item>
+          <p>
+	    Add function attributes to <c>erl_nif</c> and
+	    <c>erl_driver</c> APis to improve compiler detection of
+	    interface misuse.</p>
+          <p>
+	    Own Id: OTP-18006 Aux Id: PR-5932 </p>
+        </item>
+        <item>
+          <p>
+	    The exported type <seetype
+	    marker="erts:erlang#send_destination"><c>erlang:send_destination/0</c></seetype>
+	    has been introduced.</p>
+          <p>
+	    Own Id: OTP-18033 Aux Id: PR-2926, GH-5376 </p>
+        </item>
+        <item>
+          <p>
+	    Building of the C/C++ make dependencies on Windows has
+	    been optimized to be a lot faster.</p>
+          <p>
+	    Own Id: OTP-18036 Aux Id: PR-5846 </p>
+        </item>
+        <item>
+	    <p><c>file:sync/1</c> will now use the
+	    <c>F_BARRIERFSYNC</c> flag when available on Mac OS.</p>
+          <p>
+	    Own Id: OTP-18038</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug sometimes causing emulator crash at node shutdown
+	    when there are pending connections. Only seen when
+	    running duel distribution protocols, inet_drv and
+	    inet_tls_dist.</p>
+          <p>
+	    Own Id: OTP-18243 Aux Id: GH-6247, PR-6258 </p>
+        </item>
+        <item>
+	    <p>Fix bug in <c>binary_to_term</c> (and distributed
+	    receive) when decoding a large map (&gt;32 keys) with
+	    unsorted small maps (&lt;= 32) as keys of the large
+	    map.</p>
+	    <p>This was only a problem if the term was encoded by
+	    <c>erl_interface</c>, <c>jinterface</c> or otherwise, as
+	    the VM itself always encodes small maps with sorted
+	    keys.</p>
+	    <p>The "binary_to_term" would appear as successful but
+	    the created large map was internally inconsistent. The
+	    smaller key-maps could not be found with maps:get and
+	    friends. Other operations such as map compare and merge
+	    could probably also give incorrect results.</p>
+          <p>
+	    Own Id: OTP-18343 Aux Id: GH-6496 </p>
+        </item>
+        <item>
+          <p>
+	    Implementations of the <seecref
+	    marker="erts:driver_entry#call"><c>call()</c></seecref>
+	    driver callback that returned a faulty encoded result
+	    could cause a memory leak and could cause invalid data on
+	    the heap of the processes calling <seemfa
+	    marker="erts:erlang#port_call/3"><c>erlang:port_call/3</c></seemfa>.</p>
+          <p>
+	    Own Id: OTP-18525 Aux Id: PR-7049 </p>
+        </item>
+        <item>
+          <p>
+	    Aliases created in combination with a monitor using the
+	    <c>{alias, explicit_unalias}</c> option stopped working
+	    from remote nodes when a <c>'DOWN'</c> signal had been
+	    received due to the monitor or if the monitor was removed
+	    using the <c>erlang:demonitor()</c> BIF.</p>
+          <p>
+	    This bug was introduced in OTP 24.3.4.10 and OTP 25.3.</p>
+          <p>
+	    Own Id: OTP-18557 Aux Id: PR-7131, OTP-18496 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Active process aliases of a process at its termination
+	    leaked memory.</p>
+          <p>
+	    Own Id: OTP-18496 Aux Id: GH-6947, PR-6953 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>process_info(Pid, status)</c> when <c>Pid /=
+	    self()</c> could return an erroneous result.</p>
+          <p>
+	    Own Id: OTP-18421 Aux Id: PR-6806 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, when a process exceeded its
+	    allowed heap size set by option <c>max_heap_size</c>, it
+	    would not be killed as it should be, but instead enter a
+	    kind of zombie state it would never get out of.</p>
+          <p>
+	    Own Id: OTP-18463 Aux Id: PR-6858 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in selective receive optimization that
+	    could crash 32-bit emulators.</p>
+          <p>
+	    Own Id: OTP-18383 Aux Id: ERIERL-905 </p>
+        </item>
+        <item>
+          <p>
+	    A race condition which was very rarely triggered could
+	    cause the signal queue of a process to become
+	    inconsistent causing the runtime system to crash.</p>
+          <p>
+	    Own Id: OTP-18388 Aux Id: OTP-17462, PR-6662 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Spec for function net:if_names/0 incorrect</p>
+          <p>
+	    Own Id: OTP-18296 Aux Id: OTP-16464 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> decoding a binary term
+	    2Gbyte or larger.</p>
+          <p>
+	    Own Id: OTP-18306 Aux Id: GH-6393, PR-6401 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>list_to_atom/1</c> for negative code points. Could
+	    either return with a positive code point or fail with an
+	    incorrect exception.</p>
+          <p>
+	    Own Id: OTP-18321</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> decoding a list of
+	    length 1G or longer.</p>
+          <p>
+	    Own Id: OTP-18328 Aux Id: GH-6439, PR-6440 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <seemfa
+	    marker="erts:erlang#dist_ctrl_get_data_notification/1">Notifications
+	    about available distribution data</seemfa> sent to
+	    distribution controller processes could be lost.
+	    Distribution controller processes can be used when
+	    implementing an alternative distribution carrier. The
+	    default distribution over tcp was not effected and the
+	    bug was also not present on x86/x86_64 platforms.</p>
+          <p>
+	    Own Id: OTP-18258 Aux Id: GH-6309, PR-6324 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix writing and reading of more than 2 GB in a single
+	    read/write operation on macOS. Before this fix attempting
+	    to read/write more than 2GB would result in
+	    <c>{error,einval}</c>.</p>
+          <p>
+	    Own Id: OTP-18222 Aux Id: PR-6248 GH-6242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug causing <c>ets:info</c> (and sometimes
+	    <c>ets:whereis</c>) to return 'undefined' for an existing
+	    table if a concurrent process were doing
+	    <c>ets:insert</c> with a long list on the same table.</p>
+          <p>
+	    Own Id: OTP-18218 Aux Id: ERIERL-855 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix faulty distribution encoding of terms with
+	    either</p> <list> <item>a fun with bit-string or
+	    export-fun in its environment when encoded toward a not
+	    yet established (pending) connection</item> <item>or a
+	    fun with a binary/bitstring, in its environment,
+	    referring to an off-heap binary (larger than 64
+	    bytes).</item> </list> <p>The symptom could be failed
+	    decoding on the receiving side leading to aborted
+	    connection. Fix OTP-18093 is a workaround for theses bugs
+	    that makes the VM accepts such faulty encoded funs.</p>
+	    <p>The first encoding bug toward pending connection
+	    exists only in OTP 23 and 24, but the second one exists
+	    also on OTP 25.</p>
+          <p>
+	    Own Id: OTP-18104 Aux Id: OTP-18093 </p>
+        </item>
+        <item>
+	    <p>Distributed exit signals could be lost under the
+	    following conditions:</p> <list> <item><p> An exit signal
+	    from a parent process to a child process was lost if:</p>
+	    <list> <item><p> the parent process terminated before the
+	    spawn request that created the child had completed,
+	    </p></item> <item><p> the spawn request set up a link
+	    between parent and child </p></item> <item><p> the spawn
+	    request was distributed, and </p></item> <item><p> the
+	    exit reason was larger than one machine word. </p></item>
+	    </list> </item> <item><p> Loss of a connection over which
+	    a not yet completed spawn request was ongoing could cause
+	    loss of exit signals. Such loss of exit signals was very
+	    rare. Besides the above described connection loss also
+	    the following conditions had to be satisfied:</p> <list>
+	    <item><p> The spawn request that was interrupted by the
+	    connection loss also had to set up a link between the
+	    parent process and the child process. </p></item>
+	    <item><p> The parent process that issued the spawn
+	    request also had to be terminating while the spawn
+	    request was interrupted by the connection loss.
+	    </p></item> <item><p> The same parent process also had to
+	    have made other spawn requests to other nodes than to the
+	    node to which the connection was lost. </p></item>
+	    <item><p> These spawn requests to the other nodes also
+	    had to set up links. </p></item> <item><p> These spawn
+	    requests to the other nodes also had to be not yet
+	    completed at the time of the connection loss. That is,
+	    the spawn reply from the child process had not yet
+	    reached the parent process. </p></item> </list> <p>If all
+	    the conditions above were met, exit signals to the
+	    children spawned due to the above described spawn
+	    requests to other nodes <em>could</em> be lost.</p>
+	    <p>The above bug also caused a significant memory leak
+	    when it was triggered since the destruction of the parent
+	    process never completed.</p> </item> </list>
+          <p>
+	    Own Id: OTP-18164 Aux Id: PR-6114 </p>
+        </item>
+        <item>
+          <p>
+	    A race could cause <c>process_info(Pid,
+	    message_queue_len)</c> on other processes to return
+	    invalid results.</p>
+          <p>
+	    Own Id: OTP-18169 Aux Id: PR-6134 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed reduction counting for handling process system
+	    tasks.</p>
+          <p>
+	    Own Id: OTP-18170 Aux Id: PR-6135 </p>
+        </item>
+        <item>
+          <p>
+	    Priority elevation of terminating processes did not work
+	    which could cause execution of such processes to be
+	    delayed.</p>
+          <p>
+	    Own Id: OTP-18175 Aux Id: PR-6142 </p>
+        </item>
+        <item>
+          <p>
+	    An unlink operation made by a process that terminated
+	    before the unlink operation completed, i.e., before it
+	    had received an unlink-ack signal from the linked
+	    process, caused an exit signal to erroneously be sent
+	    from the terminating process to the process being
+	    unlinked. This exit signal would most often be ignored by
+	    the receiver, but if the receiver of the exit signal
+	    concurrently set up a new link, it could receive the exit
+	    signal with the actual exit reason of the terminating
+	    process instead of a <c>noproc</c> exit reason. It is
+	    however very hard to detect that this has happened and
+	    has no obvious negative consequences, so it should be
+	    considered harmless.</p>
+          <p>
+	    A distributed unlink-ack signal received by a terminating
+	    process was also not properly removed which could cause a
+	    minor memory leak.</p>
+          <p>
+	    Own Id: OTP-18177 Aux Id: PR-6150 </p>
+        </item>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="erlang#monitor/3"><c>monitor/3</c></seemfa> BIF
+	    did not apply options to the created monitor if the
+	    target process or port did not exist. That is, the
+	    corresponding down message would get a <c>`DOWN`</c> tag
+	    even if a custom tag had been set, and the returned
+	    reference was not an alias even if the <c>alias</c>
+	    option had been passed.</p>
+          <p>
+	    Own Id: OTP-18190 Aux Id: GH-6185, PR-6209 </p>
+        </item>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="erts:erlang#monotonic_time/1"><c>erlang:monotonic_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#system_time/1"><c>erlang:system_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#time_offset/1"><c>erlang:time_offset/1</c></seemfa>,
+	    and <seemfa
+	    marker="kernel:os#system_time/1"><c>os:system_time/1</c></seemfa>
+	    BIFs erroneously failed when passed the argument
+	    <c>native</c>.</p>
+          <p>
+	    Own Id: OTP-18197 Aux Id: GH-6165, PR-6213 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed emulator crash that could happen during crashdump
+	    generation of ETS tables with options <c>ordered_set</c>
+	    and <c>{write_concurrency,true}</c>.</p>
+          <p>
+	    Own Id: OTP-18144 Aux Id: GH-5981 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Accept funs (NEW_FUN_EXT) with incorrectly encoded size
+	    field. This is a workaround for a bug (OTP-18104)
+	    existing in OTP 23 and 24 that could cause incorrect size
+	    fields in certain cases. The emulator does not use the
+	    decoded size field, but <c>erl_interface</c> still does
+	    and is not helped by this workaround.</p>
+          <p>
+	    Own Id: OTP-18093 Aux Id: OTP-18104, PR-5987 </p>
+        </item>
+        <item>
+          <p>
+	    The zlib built in to the runtime system has been updated
+	    to version 1.2.12. (Note that on most platforms, the
+	    platform's own zlib is used.)</p>
+          <p>
+	    Own Id: OTP-18123 Aux Id: GH-5994 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Let EPMD tolerate failure when binding to IPv4/IPv6
+	    loopback intefaces in addition to user-supplied addresses
+	    via <c>ERL_EPMD_ADDRESS</c> or the <c>-address</c>
+	    option. This can happen, for example, if the host system
+	    has ipv6 disabled via the disable_ipv6 sysctl.</p>
+          <p>
+	    Own Id: OTP-17970 Aux Id: PR-5762 </p>
+        </item>
+        <item>
+	    <p>Fixed a rare bug in <c>binary_to_term/1</c>,
+	    <c>enif_make_map_from_arrays</c>,
+	    <c>erl_drv_send_term</c>, and Erlang distribution that
+	    could crash the emulator.</p>
+          <p>
+	    Own Id: OTP-18027</p>
+        </item>
+        <item>
+	    <p>Fixed a rare race in <c>persistent_term:get/1,2</c>
+	    that could cause it to return the value of another
+	    key.</p>
+          <p>
+	    Own Id: OTP-18065 Aux Id: GH-5908 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where the process message queue was left in an
+	    inconsistent state when changing from on_heap to off_heap
+	    message queue data causing the GC to segfault.</p>
+          <p>
+	    Own Id: OTP-18075 Aux Id: PR-5927 </p>
+        </item>
+        <item>
+          <p>
+	    Fix functions that convert universal to localtime (such
+	    as erlang:localtime/0 and
+	    erlang:universaltime_to_localtime/1) to fetch the correct
+	    localtime if it is changed after the start of the VM.</p>
+          <p>
+	    Own Id: OTP-18076 Aux Id: ERIERL-802 PR-5905 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak when a process doing a distributed
+	    fragmented send is sent an exit signal. Before this fix
+	    the receiving node would be left with an incomplete
+	    message that would remain until the nodes were
+	    disconnected. The bug has existed since Erlang/OTP 21.</p>
+          <p>
+	    Own Id: OTP-18077 Aux Id: GH-5876 PR-5892 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected the behaviour of the shutdown function when
+	    using with the inet_backend = socket. It was not
+	    sufficiently compatible with the "old" gen_tcp.</p>
+          <p>
+	    Own Id: OTP-18080 Aux Id: GH-5930 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Erts 12.3.1</title>
 
@@ -1548,6 +3377,268 @@
 	    increments of 256kb to 16kb.</p>
           <p>
 	    Own Id: OTP-17368</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 11.2.2.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <seemfa
+	    marker="erts:erlang#dist_ctrl_get_data_notification/1">Notifications
+	    about available distribution data</seemfa> sent to
+	    distribution controller processes could be lost.
+	    Distribution controller processes can be used when
+	    implementing an alternative distribution carrier. The
+	    default distribution over tcp was not effected and the
+	    bug was also not present on x86/x86_64 platforms.</p>
+          <p>
+	    Own Id: OTP-18258 Aux Id: GH-6309, PR-6324 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 11.2.2.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Distributed exit signals could be lost under the
+	    following conditions:</p> <list> <item><p> An exit signal
+	    from a parent process to a child process was lost if:</p>
+	    <list> <item><p> the parent process terminated before the
+	    spawn request that created the child had completed,
+	    </p></item> <item><p> the spawn request set up a link
+	    between parent and child </p></item> <item><p> the spawn
+	    request was distributed, and </p></item> <item><p> the
+	    exit reason was larger than one machine word. </p></item>
+	    </list> </item> <item><p> Loss of a connection over which
+	    a not yet completed spawn request was ongoing could cause
+	    loss of exit signals. Such loss of exit signals was very
+	    rare. Besides the above described connection loss also
+	    the following conditions had to be satisfied:</p> <list>
+	    <item><p> The spawn request that was interrupted by the
+	    connection loss also had to set up a link between the
+	    parent process and the child process. </p></item>
+	    <item><p> The parent process that issued the spawn
+	    request also had to be terminating while the spawn
+	    request was interrupted by the connection loss.
+	    </p></item> <item><p> The same parent process also had to
+	    have made other spawn requests to other nodes than to the
+	    node to which the connection was lost. </p></item>
+	    <item><p> These spawn requests to the other nodes also
+	    had to set up links. </p></item> <item><p> These spawn
+	    requests to the other nodes also had to be not yet
+	    completed at the time of the connection loss. That is,
+	    the spawn reply from the child process had not yet
+	    reached the parent process. </p></item> </list> <p>If all
+	    the conditions above were met, exit signals to the
+	    children spawned due to the above described spawn
+	    requests to other nodes <em>could</em> be lost.</p>
+	    <p>The above bug also caused a significant memory leak
+	    when it was triggered since the destruction of the parent
+	    process never completed.</p> </item> </list>
+          <p>
+	    Own Id: OTP-18164 Aux Id: PR-6114 </p>
+        </item>
+        <item>
+          <p>
+	    A race could cause <c>process_info(Pid,
+	    message_queue_len)</c> on other processes to return
+	    invalid results.</p>
+          <p>
+	    Own Id: OTP-18169 Aux Id: PR-6134 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed reduction counting for handling process system
+	    tasks.</p>
+          <p>
+	    Own Id: OTP-18170 Aux Id: PR-6135 </p>
+        </item>
+        <item>
+          <p>
+	    Priority elevation of terminating processes did not work
+	    which could cause execution of such processes to be
+	    delayed.</p>
+          <p>
+	    Own Id: OTP-18175 Aux Id: PR-6142 </p>
+        </item>
+        <item>
+          <p>
+	    An unlink operation made by a process that terminated
+	    before the unlink operation completed, i.e., before it
+	    had received an unlink-ack signal from the linked
+	    process, caused an exit signal to erroneously be sent
+	    from the terminating process to the process being
+	    unlinked. This exit signal would most often be ignored by
+	    the receiver, but if the receiver of the exit signal
+	    concurrently set up a new link, it could receive the exit
+	    signal with the actual exit reason of the terminating
+	    process instead of a <c>noproc</c> exit reason. It is
+	    however very hard to detect that this has happened and
+	    has no obvious negative consequences, so it should be
+	    considered harmless.</p>
+          <p>
+	    A distributed unlink-ack signal received by a terminating
+	    process was also not properly removed which could cause a
+	    minor memory leak.</p>
+          <p>
+	    Own Id: OTP-18177 Aux Id: PR-6150 </p>
+        </item>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="erts:erlang#monotonic_time/1"><c>erlang:monotonic_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#system_time/1"><c>erlang:system_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#time_offset/1"><c>erlang:time_offset/1</c></seemfa>,
+	    and <seemfa
+	    marker="kernel:os#system_time/1"><c>os:system_time/1</c></seemfa>
+	    BIFs erroneously failed when passed the argument
+	    <c>native</c>.</p>
+          <p>
+	    Own Id: OTP-18197 Aux Id: GH-6165, PR-6213 </p>
+        </item>
+        <item>
+          <p>
+	    Fix writing and reading of more than 2 GB in a single
+	    read/write operation on macOS. Before this fix attempting
+	    to read/write more than 2GB would result in
+	    <c>{error,einval}</c>.</p>
+          <p>
+	    Own Id: OTP-18222 Aux Id: PR-6248 GH-6242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 11.2.2.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix faulty distribution encoding of terms with
+	    either</p> <list> <item>a fun with bit-string or
+	    export-fun in its environment when encoded toward a not
+	    yet established (pending) connection</item> <item>or a
+	    fun with a binary/bitstring, in its environment,
+	    referring to an off-heap binary (larger than 64
+	    bytes).</item> </list> <p>The symptom could be failed
+	    decoding on the receiving side leading to aborted
+	    connection. Fix OTP-18093 is a workaround for theses bugs
+	    that makes the VM accepts such faulty encoded funs.</p>
+	    <p>The first encoding bug toward pending connection
+	    exists only in OTP 23 and 24, but the second one exists
+	    also on OTP 25.</p>
+          <p>
+	    Own Id: OTP-18104 Aux Id: OTP-18093 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 11.2.2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Accept funs (NEW_FUN_EXT) with incorrectly encoded size
+	    field. This is a workaround for a bug (OTP-18104)
+	    existing in OTP 23 and 24 that could cause incorrect size
+	    fields in certain cases. The emulator does not use the
+	    decoded size field, but <c>erl_interface</c> still does
+	    and is not helped by this workaround.</p>
+          <p>
+	    Own Id: OTP-18093 Aux Id: OTP-18104, PR-5987 </p>
+        </item>
+        <item>
+          <p>
+	    The zlib built in to the runtime system has been updated
+	    to version 1.2.12. (Note that on most platforms, the
+	    platform's own zlib is used.)</p>
+          <p>
+	    Own Id: OTP-18123 Aux Id: GH-5994 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed emulator crash that could happen during crashdump
+	    generation of ETS tables with options <c>ordered_set</c>
+	    and <c>{write_concurrency,true}</c>.</p>
+          <p>
+	    Own Id: OTP-18144 Aux Id: GH-5981 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 11.2.2.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Let EPMD tolerate failure when binding to IPv4/IPv6
+	    loopback intefaces in addition to user-supplied addresses
+	    via <c>ERL_EPMD_ADDRESS</c> or the <c>-address</c>
+	    option. This can happen, for example, if the host system
+	    has ipv6 disabled via the disable_ipv6 sysctl.</p>
+          <p>
+	    Own Id: OTP-17970 Aux Id: PR-5762 </p>
+        </item>
+        <item>
+	    <p>Fixed a rare bug in <c>binary_to_term/1</c>,
+	    <c>enif_make_map_from_arrays</c>,
+	    <c>erl_drv_send_term</c>, and Erlang distribution that
+	    could crash the emulator.</p>
+          <p>
+	    Own Id: OTP-18027</p>
+        </item>
+        <item>
+	    <p>Fixed a rare race in <c>persistent_term:get/1,2</c>
+	    that could cause it to return the value of another
+	    key.</p>
+          <p>
+	    Own Id: OTP-18065 Aux Id: GH-5908 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where the process message queue was left in an
+	    inconsistent state when changing from on_heap to off_heap
+	    message queue data causing the GC to segfault.</p>
+          <p>
+	    Own Id: OTP-18075 Aux Id: PR-5927 </p>
+        </item>
+        <item>
+          <p>
+	    Fix functions that convert universal to localtime (such
+	    as erlang:localtime/0 and
+	    erlang:universaltime_to_localtime/1) to fetch the correct
+	    localtime if it is changed after the start of the VM.</p>
+          <p>
+	    Own Id: OTP-18076 Aux Id: ERIERL-802 PR-5905 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak when a process doing a distributed
+	    fragmented send is sent an exit signal. Before this fix
+	    the receiving node would be left with an incomplete
+	    message that would remain until the nodes were
+	    disconnected. The bug has existed since Erlang/OTP 21.</p>
+          <p>
+	    Own Id: OTP-18077 Aux Id: GH-5876 PR-5892 </p>
         </item>
       </list>
     </section>
@@ -3415,6 +5506,42 @@
 	    set before Erlang can be started.</p>
           <p>
 	    Own Id: OTP-16635 Aux Id: ERL-476 PR-2390 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.7.2.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where the process message queue was left in an
+	    inconsistent state when changing from on_heap to off_heap
+	    message queue data causing the GC to segfault.</p>
+          <p>
+	    Own Id: OTP-18075 Aux Id: PR-5927 </p>
+        </item>
+        <item>
+          <p>
+	    Fix functions that convert universal to localtime (such
+	    as erlang:localtime/0 and
+	    erlang:universaltime_to_localtime/1) to fetch the correct
+	    localtime if it is changed after the start of the VM.</p>
+          <p>
+	    Own Id: OTP-18076 Aux Id: ERIERL-802 PR-5905 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak when a process doing a distributed
+	    fragmented send is sent an exit signal. Before this fix
+	    the receiving node would be left with an incomplete
+	    message that would remain until the nodes were
+	    disconnected. The bug has existed since Erlang/OTP 21.</p>
+          <p>
+	    Own Id: OTP-18077 Aux Id: GH-5876 PR-5892 </p>
         </item>
       </list>
     </section>

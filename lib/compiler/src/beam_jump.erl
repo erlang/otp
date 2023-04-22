@@ -358,7 +358,7 @@ share_1([{label,L}=Lbl|Is], Safe, Dict0, Lbls0, [_|_]=Seq0, Acc) ->
             %% Find out whether it is safe to share the sequence.
             case (map_size(Safe) =:= 0 orelse
                   is_shareable(Seq)) andalso
-                unambigous_exit_call(Seq)
+                unambigous_deallocation(Seq)
             of
                 true ->
                     %% Either this function does not contain any try/catch
@@ -407,36 +407,43 @@ share_1([I|Is], Safe, Dict, Lbls, Seq, Acc) ->
 	    share_1(Is, Safe, Dict, Lbls, [I], Acc)
     end.
 
-unambigous_exit_call([{call_ext,A,{extfunc,M,F,A}}|Is]) ->
-    case erl_bifs:is_exit_bif(M, F, A) of
-        true ->
-            %% beam_validator requires that the size of the stack
-            %% frame is unambiguously known when a function is called.
-            %%
-            %% That means that we must be careful when sharing function
-            %% calls.
-            %%
-            %% In practice, it seems that only exit BIFs can
-            %% potentially be shared in an unsafe way, and only in
-            %% rare circumstances. (See the undecided_allocation_1/1
-            %% function in beam_jump_SUITE.)
-            %%
-            %% To ensure that the frame size is unambiguous, only allow
-            %% sharing of a call to exit BIFs if the call is followed
-            %% by an instruction that indicates the size of the stack
-            %% frame (that is almost always the case in real-world
-            %% code).
-            case Is of
-                [{deallocate,_}|_] -> true;
-                [return] -> true;
-                _ -> false
-            end;
-        false ->
-            true
-    end;
-unambigous_exit_call([_|Is]) ->
-    unambigous_exit_call(Is);
-unambigous_exit_call([]) -> true.
+unambigous_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
+    %% beam_validator requires that the size of the stack frame is
+    %% unambigously known when certain instructions are used.
+    %%
+    %% That means that we must be careful when sharing them.
+    %%
+    %% To ensure that the frame size is unambigous, only allow sharing
+    %% of calls if the call is followed by instructions that
+    %% indicates the size of the stack frame.
+    find_deallocation(Is);
+unambigous_deallocation([{call_ext,_,_}|Is]) ->
+    find_deallocation(Is);
+unambigous_deallocation([{call,_,_}|Is]) ->
+    find_deallocation(Is);
+unambigous_deallocation([_|Is]) ->
+    unambigous_deallocation(Is);
+unambigous_deallocation([]) ->
+    true.
+
+find_deallocation([{block,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{call,_,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{call_ext,_,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{deallocate,_}|_]) ->
+    true;
+find_deallocation([{init_yregs,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{line,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([return]) ->
+    true;
+find_deallocation(_) ->
+    false.
 
 %% If the label has a scope set, assign it to any line instruction
 %% in the sequence.
@@ -605,20 +612,23 @@ find_fixpoint(OptFun, Is0) ->
 opt([{test,is_eq_exact,{f,L},_}|[{jump,{f,L}}|_]=Is], Acc, St) ->
     %% The is_eq_exact test is not needed.
     opt(Is, Acc, St);
-opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
+opt([{test,Test0,{f,L}=Lbl,Ops}=I0|[{jump,To}|Is]=Is0], Acc, St) ->
     case is_label_defined(Is, L) of
 	false ->
+            I = is_lt_to_is_ge(I0),
 	    opt(Is0, [I|Acc], label_used(Lbl, St));
 	true ->
 	    case invert_test(Test0) of
 		not_possible ->
+                    I = is_lt_to_is_ge(I0),
 		    opt(Is0, [I|Acc], label_used(Lbl, St));
 		Test ->
 		    %% Invert the test and remove the jump.
 		    opt([{test,Test,To,Ops}|Is], Acc, St)
 	    end
     end;
-opt([{test,_,{f,_}=Lbl,_}=I|Is], Acc, St) ->
+opt([{test,_,{f,_}=Lbl,_}=I0|Is], Acc, St) ->
+    I = is_lt_to_is_ge(I0),
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
@@ -678,6 +688,17 @@ opt([], Acc, #st{replace=Replace0}) when Replace0 =/= #{} ->
     beam_utils:replace_labels(Acc, [], Replace, fun(Old) -> Old end);
 opt([], Acc, #st{replace=Replace}) when Replace =:= #{} ->
     reverse(Acc).
+
+is_lt_to_is_ge({test,is_lt,Lbl,Args}=I) ->
+    case Args of
+        [{integer,N},{tr,_,#t_integer{}}=Src] ->
+            {test,is_ge,Lbl,[Src,{integer,N+1}]};
+        [{tr,_,#t_integer{}}=Src,{integer,N}] ->
+            {test,is_ge,Lbl,[{integer,N-1},Src]};
+        [_,_] ->
+            I
+    end;
+is_lt_to_is_ge(I) -> I.
 
 prune_redundant_values([_Val,F|Vls], F) ->
     prune_redundant_values(Vls, F);
@@ -917,6 +938,8 @@ instr_labels({bs_start_match4,Fail,_,_,_}) ->
         {f,L} -> [L];
         {atom,_} -> []
     end;
+instr_labels({bs_match,{f,Fail},_Ctx,_List}) ->
+    [Fail];
 instr_labels(_) ->
     [].
 

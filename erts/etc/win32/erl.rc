@@ -1,7 +1,7 @@
 //
 // %CopyrightBegin%
 // 
-// Copyright Ericsson AB 1998-2021. All Rights Reserved.
+// Copyright Ericsson AB 1998-2023. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,10 +31,10 @@ VS_VERSION_INFO VERSIONINFO
     {
         BLOCK "040904e4"
         {
-            VALUE "CompanyName",        "Ericsson\0"
+            VALUE "CompanyName",        "Ericsson AB\0"
             VALUE "FileDescription",    "Erlang\0"
             VALUE "FileVersion",        ERTS_VERSION_STR
-            VALUE "LegalCopyright",     "Ericsson. All rights reserved.\0"
+            VALUE "LegalCopyright",     OTP_LEGAL_STR
             VALUE "ProductName",        "Erlang/OTP\0"
             VALUE "ProductVersion",     OTP_VERSION_STR
         }

@@ -9,7 +9,7 @@
 
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 1996-2021. All Rights Reserved.
+;; Copyright Ericsson AB 1996-2023. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -928,7 +928,6 @@ resulting regexp is surrounded by \\_< and \\_>."
       "delay_trap"
       "delete_element"
       "display"
-      "display_nl"
       "display_string"
       "dist_get_stat"
       "dist_ctrl_get_data"
@@ -3054,7 +3053,7 @@ Return nil if inside string, t if in a comment."
                         (if (memq (following-char) '(?% ?\n))
                             (+ (nth 2 stack-top) erlang-indent-level)
                           (current-column))))))))
-          ((and (eq (car stack-top) '||) (looking-at "\\(]\\|>>\\)[^_a-zA-Z0-9]"))
+          ((and (eq (car stack-top) '||) (looking-at "\\(]\\|>>\\|}\\)[^_a-zA-Z0-9]"))
            (nth 2 (car (cdr stack))))
           ;; Real indentation, where operators create extra indentation etc.
           ((memq (car stack-top) '(-> || try begin maybe))
@@ -3236,8 +3235,13 @@ Return nil if inside string, t if in a comment."
                   ;; Take parent indentation + offset,
                   ;; else just erlang-indent-level if no parent
                   (if stack
-                      (+ (caddr (car stack))
-                         offset)
+                      (progn
+                        (goto-char (- (nth 1 (car stack)) 1))
+                        (if (looking-at "#{")
+                            (+ (caddr (car stack))
+                               (- offset 1))
+                          (+ (caddr (car stack))
+                             offset)))
                     erlang-indent-level))
               (erlang-skip-blank indent-point)
               (current-column)))

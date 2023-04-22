@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2017</year><year>2018</year>
+      <year>2017</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -81,19 +81,15 @@
 	replace some engine methods.
       </p>
       <code>
- 3> Methods = crypto:engine_get_all_methods() -- [engine_method_dh,engine_method_rand,
-engine_method_ciphers,engine_method_digests, engine_method_store,
-engine_method_pkey_meths, engine_method_pkey_asn1_meths].
-[engine_method_rsa,engine_method_dsa,
- engine_method_ecdh,engine_method_ecdsa]
- 4> {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic">>,
+ 3> {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic">>,
                                       [{&lt;&lt;"SO_PATH">>,
                                         &lt;&lt;"/some/path/otp_test_engine.so">>},
                                        {&lt;&lt;"ID">>, &lt;&lt;"MD5">>},
                                        &lt;&lt;"LOAD">>],
-                                      [],
-		                      Methods).
- {ok, #Ref}</code>
+                                      []).
+{ok, #Ref}
+4> ok = crypto:engine_register(Engine, [engine_method_digests]).
+ok</code>
     </section>
 
     <section>
@@ -108,12 +104,18 @@ engine_method_pkey_meths, engine_method_pkey_asn1_meths].
                                                &lt;&lt;"/some/path/otp_test_engine.so">>).
  {ok, #Ref}</code>
       <p>
-	To unload it use crypto:ensure_engine_unloaded/1 which removes the ID from the internal list
-	before unloading the engine.
+	To remove the tag from the OpenSSL engine list use <c>crypto:engine_remove/1</c>.
       </p>
       <code>
- 6> crypto:ensure_engine_unloaded(&lt;&lt;"MD5">>).
+ 6> crypto:engine_remove(Engine).
  ok</code>
+      <p>
+	To unload it use <c>crypto:engine_unload/1</c> which removes the references to the engine.	
+      </p>
+      <code>
+ 6> crypto:engine_unload(Engine).
+ ok</code>
+      
     </section>
 
 
@@ -121,7 +123,7 @@ engine_method_pkey_meths, engine_method_pkey_asn1_meths].
     <section>
       <title>List all engines currently loaded</title>
       <code>
- 5> crypto:engine_list().
+ 8> crypto:engine_list().
 [&lt;&lt;"dynamic">>, &lt;&lt;"MD5">>]</code>
     </section>
 

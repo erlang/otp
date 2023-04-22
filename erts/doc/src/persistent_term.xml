@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2018</year><year>2020</year>
+      <year>2018</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,7 +50,7 @@
     performance when updating or deleting persistent terms.</p></warning>
 
     <p>Term lookup (using <seemfa
-    marker="#get/1"><c>get/1</c></seemfa>), is done in constant time
+    marker="#get/1"><c>get/1</c></seemfa>) is done in constant time
     and without taking any locks, and the term is <strong>not</strong>
     copied to the heap (as is the case with terms stored in ETS
     tables).</p>
@@ -71,7 +71,7 @@
       scan of their heaps for the term that has been deleted.  While
       such scan is relatively light-weight, if there are many
       processes, the system can become less responsive until all
-      process have scanned their heaps.</p></item>
+      processes have scanned their heaps.</p></item>
 
       <item><p>If the deleted term (or any part of it) is still used
       by a process, that process will do a major (fullsweep) garbage
@@ -146,7 +146,7 @@
     <p>Updating or deleting a persistent term will trigger a global GC
     if the term does not fit in one machine word. Processes will be
     scheduled as usual, but all processes will be made runnable at
-    once, which will make the system less responsive until all process
+    once, which will make the system less responsive until all processes
     have run and scanned their heaps for the deleted terms. One way to
     minimize the effects on responsiveness could be to minimize the
     number of processes on the node before updating or deleting a
@@ -157,7 +157,7 @@
     persistent term could be deleted or updated in the future. If a
     process holds a reference to a persistent term when the term is
     deleted, the process will be garbage collected and the term copied
-    to process.</p>
+    to the process.</p>
 
     <p>Avoid updating or deleting more than one persistent term at a
     time.  Each deleted term will trigger its own global GC. That

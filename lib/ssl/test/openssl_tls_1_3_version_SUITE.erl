@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,24 +67,17 @@ tests() ->
      %%tls13_client_with_ext_tls12_server,
      tls12_client_tls13_server].
     
-init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
-	ok ->
-            case ssl_test_lib:check_sane_openssl_version('tlsv1.3') of
-                true ->
-                    ssl_test_lib:clean_start(),
-                    Config;
-                false ->
-                    {skip, openssl_does_not_support_version}
-            end
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
+init_per_suite(Config0) ->
+    Config = ssl_test_lib:init_per_suite(Config0, openssl),
+    case ssl_test_lib:check_sane_openssl_version('tlsv1.3', Config) of
+        true ->
+            Config;
+        false ->
+            {skip, openssl_does_not_support_version}
     end.
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto).
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_protocol_version(GroupName) of

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2021</year>
+      <year>2006</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,251 @@
   </header>
   <p>This document describes the changes made to the Dialyzer
     application.</p>
+
+<section><title>Dialyzer 5.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that would cause analysis to crash.</p>
+          <p>
+	    Own Id: OTP-18372 Aux Id: GH-6580 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Replace size/1 with either tuple_size/1 or byte_size/1</p>
+          <p>
+	    The <c>size/1</c> BIF is not optimized by the JIT, and
+	    its use can result in worse types for Dialyzer.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    tuple, <c>tuple_size/1</c> should always be preferred.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    binary, <c>byte_size/1</c> should be preferred. However,
+	    <c>byte_size/1</c> also accepts a bitstring (rounding up
+	    size to a whole number of bytes), so one must make sure
+	    that the call to <c>byte_size/</c> is preceded by a call
+	    to <c>is_binary/1</c> to ensure that bitstrings are
+	    rejected. Note that the compiler removes redundant calls
+	    to <c>is_binary/1</c>, so if one is not sure whether
+	    previous code had made sure that the argument is a
+	    binary, it does not harm to add an <c>is_binary/1</c>
+	    test immediately before the call to <c>byte_size/1</c>.</p>
+          <p>
+	    Own Id: OTP-18432 Aux Id:
+	    GH-6672,PR-6793,PR-6784,PR-6787,PR-6785,PR-6682,PR-6800,PR-6797,PR-6798,PR-6799,PR-6796,PR-6813,PR-6671,PR-6673,PR-6684,PR-6694,GH-6677,PR-6696,PR-6670,PR-6674 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 5.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Dialyzer would crash when attempting to analyze a bit
+	    syntax segment size having an literal non-integer size
+	    such as <c>[]</c>.</p>
+          <p>
+	    Own Id: OTP-18307 Aux Id: GH-6419, GH-6473 </p>
+        </item>
+        <item>
+	    <p>Dialyzer could crash when trying to analyze a
+	    convoluted nested expression involving funs,</p>
+          <p>
+	    Own Id: OTP-18347 Aux Id: GH-6518, PR-6525 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 5.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Dialyzer could crash when analyzing Elixir code that
+	    used intricate macros.</p>
+          <p>
+	    Own Id: OTP-18262 Aux Id: GH-6323 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>--input_list_file</c> option has been
+	    added.</p>
+          <p>
+	    Own Id: OTP-18263 Aux Id: ERIERL-821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 5.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Two bugs have been fixed in Dialyzer's checking of
+	    behaviors:</p>
+	    <p>When a <em>mandatory</em> callback function is present
+	    but not exported, Dialyzer would not complain about a
+	    missing callback.</p>
+	    <p>When an <em>optional</em> callback function was not
+	    exported and had incompatible arguments and/or the return
+	    values were incompatible, Dialyzer would complain. This
+	    has been changed to suppress the warning, because the
+	    function might not be intended to be a callback function,
+	    for instance if a release added a new optional callback
+	    function (such as <c>format_status/1</c> for the
+	    gen_server behaviour added in OTP 25).</p>
+          <p>
+	    Own Id: OTP-18127 Aux Id: ERIERL-817 </p>
+        </item>
+        <item>
+	    <p>The <c>no_extra_return</c> and
+	    <c>no_missing_return</c> warnings can now be suppressed
+	    through <c>-dialyzer</c> directives in source code.</p>
+          <p>
+	    Own Id: OTP-18148 Aux Id: PR-6068 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed the documentation for the <c>missing_return</c>
+	    and <c>extra_return</c> options.</p>
+          <p>
+	    Own Id: OTP-18120</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 5.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that could cause the type analyzer to
+	    enter an infinite loop.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17644 Aux Id: PR-5223 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize operations in the <c>erl_types</c> module.
+	    Parallelize the Dialyzer pass <c>remote</c>.</p>
+          <p>
+	    Own Id: OTP-17524</p>
+        </item>
+        <item>
+	    <p>Added the <c>missing_return</c> and
+	    <c>extra_return</c> options to raise warnings when
+	    specifications differ from inferred types. These are
+	    similar to, but not quite as verbose as <c>overspecs</c>
+	    and <c>underspecs</c>.</p>
+          <p>
+	    Own Id: OTP-17654 Aux Id: GH-5214 </p>
+        </item>
+        <item>
+	    <p>The <c>race_conditions</c> option has been
+	    removed.</p>
+          <p>
+	    Own Id: OTP-17819</p>
+        </item>
+        <item>
+          <p>
+	    The default location of the plt has been changed from
+	    <c>$HOME</c> to
+	    <c>filename:basedir(user_cache,"erlang")</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17821 Aux Id: GH-5016 PR-5408 OTP-17554 </p>
+        </item>
+        <item>
+	    <p><c>dialyzer</c> will now honor dependencies inside
+	    type declarations. That is, if the declaration of an
+	    exported type changes, all modules using said type will
+	    be revisited.</p>
+          <p>
+	    Own Id: OTP-17826 Aux Id: PR-5498 </p>
+        </item>
+        <item>
+	    <p>Dialyzer now better understands the types for
+	    <c>min/2</c>, <c>max/2</c>, and <c>erlang:raise/3</c>.
+	    Because of that, Dialyzer can potentially generate new
+	    warnings. In particular, functions that use
+	    <c>erlang:raise/3</c> could now need a spec with a
+	    <c>no_return()</c> return type to avoid an unwanted
+	    warning.</p>
+          <p>
+	    Own Id: OTP-17897 Aux Id: PR-5651 </p>
+        </item>
+        <item>
+	    <p>The <c>typer_core</c> module has been added to provide
+	    an Erlang API for running <c>typer</c>.</p>
+          <p>
+	    Own Id: OTP-17964 Aux Id: PR-5660 </p>
+        </item>
+        <item>
+	    <p>Added the <c>--annotate-in-place</c> option to
+	    <c>typer</c>, which can be used to annotate the specs
+	    that the tool inferred directly into the source code
+	    files.</p>
+          <p>
+	    Own Id: OTP-18035 Aux Id: PR-5802 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.4.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>--input_list_file</c> option has been
+	    added.</p>
+          <p>
+	    Own Id: OTP-18263 Aux Id: ERIERL-821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Dialyzer 4.4.4</title>
 
@@ -183,6 +428,21 @@
 	    Clarify how to declare records used in match patterns.</p>
           <p>
 	    Own Id: OTP-17183 Aux Id: ERL-892, GH-4493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.3.1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>--input_list_file</c> option has been
+	    added.</p>
+          <p>
+	    Own Id: OTP-18263 Aux Id: ERIERL-821 </p>
         </item>
       </list>
     </section>

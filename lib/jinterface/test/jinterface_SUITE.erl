@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -186,6 +186,18 @@ status_handler() ->
 
 
 init_per_suite(Config) when is_list(Config) ->
+    %% Trigger usage of large pids and ports in 64-bit case...
+    case erlang:system_info(wordsize) of
+        4 ->
+            ok;
+        8 ->
+            erts_debug:set_internal_state(available_internal_state,true),
+            erts_debug:set_internal_state(next_pid, 1 bsl 32),
+            erts_debug:set_internal_state(next_port, 1 bsl 32),
+            erts_debug:set_internal_state(available_internal_state,false),
+            ok
+    end,
+
     case case code:priv_dir(jinterface) of
 	     {error,bad_name} -> false;
 	     P -> filelib:is_dir(P) end of

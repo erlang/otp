@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -950,7 +950,7 @@ error_desc({error, Reason}) ->
     error_desc(Reason);
 error_desc({aborted, Reason}) ->
     error_desc(Reason);
-error_desc(Reason) when is_tuple(Reason), size(Reason) > 0 ->
+error_desc(Reason) when tuple_size(Reason) > 0 ->
     setelement(1, Reason, error_desc(element(1, Reason)));
 error_desc(Reason) ->
     Reason.

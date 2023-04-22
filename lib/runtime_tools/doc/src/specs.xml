@@ -3,4 +3,5 @@
   <xi:include href="../specs/specs_system_information.xml"/>
   <xi:include href="../specs/specs_msacc.xml"/>
   <xi:include href="../specs/specs_scheduler.xml"/>
+  <xi:include href="../specs/specs_instrument.xml"/>
 </specs>

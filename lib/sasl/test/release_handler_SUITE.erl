@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -411,7 +411,8 @@ move_system_unix(NodeA, PeerA, TestRootDir, ErtsBinDir, NewSystemPath) ->
              [{env,[{"PATH",TestRootDir ++ ":" ++ os:getenv("PATH")}]}]),
 
     %% Wait for node to start
-    receive _ -> ok end,
+    receive M1 -> ct:pal("~p",[M1]) end,
+    receive M2 -> ct:pal("~p",[M2]) end,
 
     hej = erpc:call(LinkNode, app_callback_module, get_response, []),
 
@@ -2078,14 +2079,33 @@ upgrade_gg(Conf) ->
     %% start gg2 and gg6
     [Gg2,Gg6] = start_nodes(Conf,[Gg2Sname,Gg6Sname],"upgrade_gg start gg2/gg6"),
 
+    %% Watch dog pulling out some more information in case we hang...
+    Nodes3 = [Gg1,Gg2,Gg4,Gg5,Gg6],
+    Tester = self(),
+    WD = spawn_link(fun () ->
+                            receive after 7*60*1000 -> ok end,
+                            ct:pal("7 minutes passed...~n", []),
+                            erlang:suspend_process(Tester),
+                            load_suite(Nodes3),
+                            dump_info([node()|Nodes3]),
+                            exit(operation_hang)
+                    end),
+
     %% reg proc on each of the nodes
     ok = rpc:call(Gg2, installer, reg_proc, [reg2]),
     ok = rpc:call(Gg6, installer, reg_proc, [reg6]),
-    are_names_reg_gg(Gg1, [reg1, reg2, reg4, reg5, reg6]),
 
     %% Check global group info
-    Nodes3 = [Gg1,Gg2,Gg4,Gg5,Gg6],
     [check_gg_info(Node,Nodes3,[],Nodes3--[Node]) || Node <- Nodes3],
+
+    OkList = lists:map(fun (_) -> ok end, Nodes3),
+    {OkList,[]} = rpc:multicall(Nodes3, global, sync, []),
+
+    are_names_reg_gg(Gg1, [reg1, reg2, reg4, reg5, reg6]),
+
+    unlink(WD),
+    exit(WD, kill),
+    false = is_process_alive(WD),
 
     ok.
 
@@ -2094,6 +2114,53 @@ upgrade_gg(cleanup,Config) ->
     NodeNames = [node_name(Sname) || Sname <- Snames],
     ok = stop_nodes(NodeNames).
 
+load_suite(Nodes) ->
+    {ok,Bin}=file:read_file(code:which(?MODULE)),
+    _ = rpc:multicall(Nodes, erlang, load_module, [?MODULE, Bin]),
+    ok.
+
+dump_info(Nodes) ->
+    GetLockerState = fun (TheLocker) ->
+                             Mon = erlang:monitor(process, TheLocker),
+                             TheLocker ! {get_state, self(), Mon},
+                             receive
+                                 Msg when element(1, Msg) =:= Mon ->
+                                     erlang:demonitor(Mon, [flush]),
+                                     RList = tl(erlang:tuple_to_list(Msg)),
+                                     erlang:list_to_tuple([state | RList]);
+                                 {'DOWN', Mon, process, TheLocker, Reason} ->
+                                     {error, Reason}
+                             after 60*1000 ->
+                                     erlang:demonitor(Mon, [flush]),
+                                     {error, timeout}
+                             end
+                     end,
+    GI = rpc:multicall(Nodes,
+                       erlang,
+                       apply,
+                       [fun () ->
+                                GlobalLocker = global:get_locker(),
+                                {node(),
+                                 #{global_state => global:info(),
+                                   global_dict => process_info(whereis(global_name_server), dictionary),
+                                   global_locks_tab => ets:tab2list(global_locks),
+                                   global_names_tab => ets:tab2list(global_names),
+                                   global_names_ext_tab => ets:tab2list(global_names_ext),
+                                   global_pid_names_tab => ets:tab2list(global_pid_names),
+                                   global_pid_ids_tab => ets:tab2list(global_pid_ids),
+                                   global_lost_connections_tab => ets:tab2list(global_lost_connections),
+                                   global_node_resources_tag => ets:tab2list(global_node_resources),
+                                   global_locker_state => GetLockerState(GlobalLocker),
+                                   global_locker_info => process_info(GlobalLocker,
+                                                                      [status,
+                                                                       current_stacktrace,
+                                                                       messages,
+                                                                       dictionary]),
+                                   global_group_info => global_group:info()}}
+                        end,
+                        []],
+                       2*60*1000),
+    ct:pal("GI: ~p~n", [GI]).
 
 %%%-----------------------------------------------------------------
 %%% OTP-10463, Bug - release_handler could not handle regexp in appup
@@ -2858,48 +2925,31 @@ check_gg_info(Node,OtherAlive,OtherDead,Synced) ->
 
 check_gg_info(Node,OtherAlive,OtherDead,Synced,N) ->
     GGI = rpc:call(Node, global_group, info, []),
-    GI = rpc:call(Node, global, info,[]),
-    try do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) 
-    catch _:E:Stacktrace when N==0 ->
+    try do_check_gg_info(OtherAlive,OtherDead,Synced,GGI) 
+    catch _:E:Stacktrace ->
 	    test_server:format("~nERROR: check_gg_info failed for ~p:~n~p~n"
-		      "when GGI was: ~p~nand GI was: ~p~n",
-		      [Node,{E,Stacktrace},GGI,GI]),
-	    ct:fail("check_gg_info failed");
-	  _:E:Stacktrace ->
-	    test_server:format("~nWARNING: check_gg_info failed for ~p:~n~p~n"
-		      "when GGI was: ~p~nand GI was: ~p~n",
-		      [Node,{E,Stacktrace},GGI,GI]),
-	    timer:sleep(1000),
-	    check_gg_info(Node,OtherAlive,OtherDead,Synced,N-1)
+		      "when GGI was: ~p~n",
+		      [Node,{E,Stacktrace},GGI]),
+            if N == 0 ->
+                    ct:fail("check_gg_info failed");
+               true ->
+                    ok = rpc:call(Node, global_group, sync, []),
+                    timer:sleep(1000),
+                    check_gg_info(Node,OtherAlive,OtherDead,Synced,N-1)
+            end
     end.
 
-do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) ->
+do_check_gg_info(OtherAlive,OtherDead,Synced,GGI) ->
     {_,gg1} = lists:keyfind(own_group_name,1,GGI),
     {_,synced} = lists:keyfind(state,1,GGI),
     {_,AllNodes} = lists:keyfind(own_group_nodes,1,GGI),
     true = lists:sort(AllNodes) =:= lists:sort(OtherAlive++OtherDead),
     {_,[]} = lists:keyfind(sync_error,1,GGI),
     {_,[{gg2,[_,_]}]} = lists:keyfind(other_groups,1,GGI),
-
-    %% There is a known bug in global_group (OTP-9177) which causes
-    %% the following to fail every now and then:
-    %% {_,SyncedNodes} = lists:keyfind(synced_nodes,1,GGI),
-    %% true = lists:sort(SyncedNodes) =:= lists:sort(Synced),
-    %% {_,NoContact} = lists:keyfind(no_contact,1,GGI),
-    %% true = lists:sort(NoContact) =:= lists:sort(OtherDead),
-
-    %% Therefore we use global:info instead for this part
-    {state,_,_,SyncedNodes,_,_,_,_,_,_,_} = GI,
+    {_,SyncedNodes} = lists:keyfind(synced_nodes,1,GGI),
     true = lists:sort(SyncedNodes) =:= lists:sort(Synced),
-
-    %% .. and we only check that all OtherDead are listed as
-    %% no_contact (due to th bug there might be more nodes in this
-    %% list)
     {_,NoContact} = lists:keyfind(no_contact,1,GGI),
-    true =
-	lists:sort(OtherDead) =:=
-	lists:sort([NC || NC <- NoContact,lists:member(NC,OtherDead)]),
-
+    true = lists:sort(NoContact) =:= lists:sort(OtherDead),
     ok.
 
 %% Return the configuration (to be inserted in sys.config) for global group tests

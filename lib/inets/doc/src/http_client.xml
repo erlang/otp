@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2021</year>
+      <year>2004</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -81,27 +81,31 @@
     <code type="erl">
       4 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
       httpc:request("http://www.erlang.org").</code>
+    <p>The following is a https request and with verification of the host:</p>
+    <code type="erl">
+      5 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
+      httpc:request(get, {"https://www.erlang.org", []}, [{ssl, httpc:ssl_verify_host_options(true)}], []).</code>
     <p>The following is an ordinary asynchronous request:</p>
     <code type="erl">
-      5 > {ok, RequestId} =
+      6 > {ok, RequestId} =
       httpc:request(get, {"http://www.erlang.org", []}, [], [{sync, false}]).</code>
       <p>The result is sent to the calling process as
       <c>{http, {ReqestId, Result}}</c>.</p>
     <p>In this case, the calling process is the shell, so the following
       result is received:</p>
     <code type="erl">
-      6 > receive {http, {RequestId, Result}} -> ok after 500 -> error end.
+      7 > receive {http, {RequestId, Result}} -> ok after 500 -> error end.
       ok</code>
     <p>This sends a request with a specified connection header:</p>
     <code type="erl">
-      7 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
+      8 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
       httpc:request(get, {"http://www.erlang.org", [{"connection", "close"}]},
       [], []).</code>
     <p>This sends an HTTP request over a unix domain socket (experimental):</p>
     <code type="erl">
-      8 > httpc:set_options([{ipfamily, local},
+      9 > httpc:set_options([{ipfamily, local},
       {unix_socket,"/tmp/unix_socket/consul_http.sock"}]).
-      9 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
+      10 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
       httpc:request(put, {"http:///v1/kv/foo", [], [], "hello"}, [], []).</code>
     <p>Start an HTTP client profile:</p>
    

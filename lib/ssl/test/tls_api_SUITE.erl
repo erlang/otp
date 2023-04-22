@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
+-include_lib("ssl/src/ssl_cipher.hrl").
 
 %% Common test
 -export([all/0,
@@ -45,6 +46,8 @@
          tls_upgrade/1,
          tls_upgrade_new_opts/0,
          tls_upgrade_new_opts/1,
+         tls_upgrade_new_opts_with_sni_fun/0,
+         tls_upgrade_new_opts_with_sni_fun/1,
          tls_upgrade_with_timeout/0,
          tls_upgrade_with_timeout/1,
          tls_upgrade_with_client_timeout/0,
@@ -87,6 +90,10 @@
          tls_reject_fake_warning_alert_in_initial_hs/1,
          tls_app_data_in_initial_hs_state/0,
          tls_app_data_in_initial_hs_state/1,
+         tls_13_reject_change_cipher_spec_as_first_msg/0,
+         tls_13_reject_change_cipher_spec_as_first_msg/1,
+         tls_13_middlebox_reject_change_cipher_spec_as_first_msg/0,
+         tls_13_middlebox_reject_change_cipher_spec_as_first_msg/1,
          peername/0,
          peername/1,
          sockname/0,
@@ -135,7 +142,8 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [],  api_tests() -- [sockname]},
+     {'tlsv1.3', [],  (api_tests() ++  [tls_13_reject_change_cipher_spec_as_first_msg,
+                                        tls_13_middlebox_reject_change_cipher_spec_as_first_msg]) -- [sockname]},
      {'tlsv1.2', [],  api_tests()},
      {'tlsv1.1', [],  api_tests()},
      {'tlsv1', [],  api_tests()}
@@ -145,6 +153,7 @@ api_tests() ->
     [
      tls_upgrade,
      tls_upgrade_new_opts,
+     tls_upgrade_new_opts_with_sni_fun,
      tls_upgrade_with_timeout,
      tls_upgrade_with_client_timeout,
      tls_downgrade,
@@ -281,6 +290,51 @@ tls_upgrade_new_opts(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+tls_upgrade_new_opts_with_sni_fun() ->
+    [{doc,"Test that you can upgrade an tcp connection to an ssl connection with new versions option provided by sni_fun"}].
+
+tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+    Version = ssl_test_lib:protocol_version(Config),
+    NewVersions = new_versions(Version),
+    Ciphers =  ssl:filter_cipher_suites(ssl:cipher_suites(all, Version), []),
+
+    NewOpts = [{versions, NewVersions},
+               {ciphers, Ciphers},
+               {verify, verify_peer}],
+
+    Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
+						{from, self()},
+						{mfa, {?MODULE,
+						       upgrade_result, []}},
+						{tcp_options,
+						 [{active, false} | TcpOpts]},
+						{ssl_options, [{versions,  [Version |NewVersions]}, {sni_fun, fun(_SNI) -> ServerOpts ++ NewOpts end}]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_upgrade_client([{node, ClientNode},
+						{port, Port},
+				   {host, Hostname},
+				   {from, self()},
+				   {mfa, {?MODULE, upgrade_result, []}},
+				   {tcp_options, [binary]},
+				   {ssl_options,  [{versions,  [Version |NewVersions]},
+                                                   {ciphers, Ciphers},
+                                                   {server_name_indication, Hostname} | ClientOpts]}]),
+
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
 
 %%--------------------------------------------------------------------
 tls_upgrade_with_timeout() ->
@@ -693,7 +747,7 @@ tls_dont_crash_on_handshake_garbage(Config) ->
     % Ensure we receive an alert, not sudden disconnect
     case Version of
         'tlsv1.3' ->
-            ssl_test_lib:check_server_alert(Server, illegal_parameter);
+            ssl_test_lib:check_server_alert(Server, protocol_version);
         _  ->
             ssl_test_lib:check_server_alert(Server, handshake_failure)
     end.
@@ -734,10 +788,10 @@ tls_reject_warning_alert_in_initial_hs() ->
     [{doc,"Test sending warning ALERT instead of client hello"}].
 tls_reject_warning_alert_in_initial_hs(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    {_Clientnode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     {Major, Minor} = case ssl_test_lib:protocol_version(Config, tuple) of
-                         {3,4} ->
-                             {3,3};
+                         ?TLS_1_3 ->
+                             ?TLS_1_2;
                          Other ->
                              Other
                      end,
@@ -760,8 +814,8 @@ tls_reject_fake_warning_alert_in_initial_hs(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     {Major, Minor} = case ssl_test_lib:protocol_version(Config, tuple) of
-                         {3,4} ->
-                             {3,3};
+                         ?TLS_1_3 ->
+                             ?TLS_1_2;
                          Other ->
                              Other
                      end,
@@ -784,10 +838,10 @@ tls_app_data_in_initial_hs_state() ->
 tls_app_data_in_initial_hs_state(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
-    Version =  ssl_test_lib:protocol_version(Config, tuple),
+    Version = ssl_test_lib:protocol_version(Config, tuple),
     {Major, Minor} = case Version of
-                         {3,4} ->
-                             {3,3};
+                         ?TLS_1_3 ->
+                             ?TLS_1_2;
                          Other ->
                              Other
                      end,
@@ -797,18 +851,60 @@ tls_app_data_in_initial_hs_state(Config) when is_list(Config) ->
 					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
-    AppData = <<?BYTE(?APPLICATION_DATA), ?BYTE(Major), ?BYTE(Minor), ?UINT16(3), ?BYTE($F), ?BYTE($O), ?BYTE($O)>>,
+    AppData = case Version of
+                  ?TLS_1_3 ->
+                      <<?BYTE(?APPLICATION_DATA), ?BYTE(3), ?BYTE(3), ?UINT16(4), ?BYTE($F), 
+                        ?BYTE($O), ?BYTE($O), ?BYTE(?APPLICATION_DATA)>>;
+                  _ ->
+                     <<?BYTE(?APPLICATION_DATA), ?BYTE(Major), ?BYTE(Minor), 
+                       ?UINT16(3), ?BYTE($F), ?BYTE($O), ?BYTE($O)>>
+              end,
     gen_tcp:send(Socket, AppData),
-     UnexpectedMsgAlert =
-        case Version of
-            {_, 4} ->
-                <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?DECODE_ERROR)>>;
-            _  ->
-                <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>
-        end,
+    UnexpectedMsgAlert = <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), 
+                           ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>,
+    {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
+    {error, closed} = gen_tcp:recv(Socket, 0).
+%%--------------------------------------------------------------------
+tls_13_reject_change_cipher_spec_as_first_msg() ->
+     [{doc,"change_cipher_spec messages can be sent in TLS-1.3 middlebox_comp_mode, but can not be sent as first msg"}].
+tls_13_reject_change_cipher_spec_as_first_msg(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, no_result, []}},
+                                         {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
+    ChangeCipherSpec = <<?BYTE(?CHANGE_CIPHER_SPEC), ?BYTE(3), ?BYTE(3),
+                         ?UINT16(1), ?BYTE(?CHANGE_CIPHER_SPEC_PROTO)>>,
+    gen_tcp:send(Socket, ChangeCipherSpec),
+    UnexpectedMsgAlert = <<?BYTE(?ALERT), ?BYTE(3), ?BYTE(3), ?UINT16(2),
+                           ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>,
     {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
     {error, closed} = gen_tcp:recv(Socket, 0).
 
+%%--------------------------------------------------------------------
+tls_13_middlebox_reject_change_cipher_spec_as_first_msg() ->
+     [{doc,"change_cipher_spec messages can be sent in TLS-1.3 middlebox_comp_mode, but can not be sent as first msg"}].
+tls_13_middlebox_reject_change_cipher_spec_as_first_msg(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, no_result, []}},
+                                         {options, [{middlebox_comp_mode, false},
+                                                    {versions, [ssl_test_lib:protocol_version(Config)]}
+                                                   | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
+    ChangeCipherSpec = <<?BYTE(?CHANGE_CIPHER_SPEC), ?BYTE(3), ?BYTE(3),
+                         ?UINT16(1), ?BYTE(?CHANGE_CIPHER_SPEC_PROTO)>>,
+    gen_tcp:send(Socket, ChangeCipherSpec),
+    UnexpectedMsgAlert = <<?BYTE(?ALERT), ?BYTE(3), ?BYTE(3), ?UINT16(2),
+                           ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>,
+    {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
+    {error, closed} = gen_tcp:recv(Socket, 0).
 %%--------------------------------------------------------------------
 peername() ->
     [{doc,"Test API function peername/1"}].
@@ -1125,18 +1221,16 @@ tls_password_correct(Config) when is_list(Config) ->
                 {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
                 Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                                     {from, self()},
-                                                    {mfa, {?MODULE, tls_shutdown_result, [server]}},
-                                                    {options, [{exit_on_close, false},
-                                                               {active, false} | ServerOpts]}]),
+                                                    {mfa, {ssl_test_lib, send_recv_result, []}},
+                                                    {options, [{active, false} | ServerOpts]}]),
                 Port = ssl_test_lib:inet_port(Server),
                 Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                                                     {host, Hostname},
                                                     {from, self()},
                                                     {mfa,
-                                                     {?MODULE, tls_shutdown_result, [client]}},
+                                                     {ssl_test_lib, send_recv_result, []}},
                                                     {options,
-                                                     [{exit_on_close, false},
-                                                      {verify, verify_none},
+                                                     [{verify, verify_none},
                                                       {active, false},
                                                       {password, P} | ProtectedClientOpts]}]),
                 ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -1257,13 +1351,13 @@ tls_downgrade_result(Socket, Pid) ->
     end.
 
 tls_shutdown_result(Socket, server) ->
-    ssl:send(Socket, "Hej"),
+    ok = ssl:send(Socket, "Hej"),
     ok = ssl:shutdown(Socket, write),
     {ok, "Hej hopp"} = ssl:recv(Socket, 8),
     ok;
 
 tls_shutdown_result(Socket, client) ->
-    ssl:send(Socket, "Hej hopp"),
+    ok = ssl:send(Socket, "Hej hopp"),
     ok = ssl:shutdown(Socket, write),
     {ok, "Hej"} = ssl:recv(Socket, 3),
     ok.
@@ -1340,3 +1434,13 @@ session_info(_) ->
 
 count_children(ChildType, SupRef) ->
     proplists:get_value(ChildType, supervisor:count_children(SupRef)).
+
+
+new_versions('tlsv1.3') ->
+    ['tlsv1.2'];
+new_versions('tlsv1.2') ->
+    ['tlsv1.1'];
+new_versions('tlsv1.1') ->
+    ['tlsv1'];
+new_versions('tlsv1') ->
+    ['tlsv1'].

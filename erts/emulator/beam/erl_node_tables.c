@@ -152,8 +152,12 @@ dist_table_alloc(void *dep_tmpl)
     Eterm sysname;
     Binary *bin;
     DistEntry *dep;
+    Uint32 init_connection_id;
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
+
+    init_connection_id = (Uint32) erts_get_monotonic_time(NULL);
+    init_connection_id &= ERTS_DIST_CON_ID_MASK;
 
     sysname = ((DistEntry *) dep_tmpl)->sysname;
 
@@ -175,7 +179,7 @@ dist_table_alloc(void *dep_tmpl)
     dep->creation                       = 0; /* undefined */
     dep->cid				= NIL;
     erts_atomic_init_nob(&dep->input_handler, (erts_aint_t) NIL);
-    dep->connection_id			= 0;
+    dep->connection_id			= init_connection_id;
     dep->state				= ERTS_DE_STATE_IDLE;
     dep->pending_nodedown               = 0;
     dep->suspended_nodeup               = NULL;
@@ -187,6 +191,8 @@ dist_table_alloc(void *dep_tmpl)
     erts_mtx_init(&dep->qlock, "dist_entry_out_queue", sysname,
         ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
     erts_atomic32_init_nob(&dep->qflgs, 0);
+    erts_atomic32_init_nob(&dep->notify, 0);
+    erts_atomic_init_nob(&dep->total_qsize, 0);
     erts_atomic_init_nob(&dep->qsize, 0);
     erts_atomic64_init_nob(&dep->in, 0);
     erts_atomic64_init_nob(&dep->out, 0);
@@ -725,8 +731,6 @@ erts_set_dist_entry_pending(DistEntry *dep)
 void
 erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint64 flags)
 {
-    erts_aint32_t set_qflgs;
-
     ASSERT(dep->mld);
 
     ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
@@ -763,9 +767,6 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint64 flags)
 
     erts_atomic64_set_nob(&dep->in, 0);
     erts_atomic64_set_nob(&dep->out, 0);
-    set_qflgs = (is_internal_port(cid) ?
-                 ERTS_DE_QFLG_PORT_CTRL : ERTS_DE_QFLG_PROC_CTRL);
-    erts_atomic32_read_bor_nob(&dep->qflgs, set_qflgs);
 
     if(flags & DFLAG_PUBLISHED) {
 	dep->next = erts_visible_dist_entries;
@@ -1639,6 +1640,9 @@ insert_dist_monitors(DistEntry *dep)
                                   insert_monitor,
                                   (void *) &dep->sysname);
         erts_monitor_tree_foreach(dep->mld->orig_name_monitors,
+                                  insert_monitor,
+                                  (void *) &dep->sysname);
+        erts_monitor_tree_foreach(dep->mld->dist_pend_spawn_exit,
                                   insert_monitor,
                                   (void *) &dep->sysname);
     }

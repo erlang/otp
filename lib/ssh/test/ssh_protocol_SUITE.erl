@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -903,8 +903,6 @@ modify_combo(Config) ->
 
 %%%----------------------------------------------------------------
 %%%
-client_close_after_hello() -> [{timetrap,{seconds,80}}].
-
 client_close_after_hello(Config0) ->
     MaxSessions = 20,
     SleepSec = 15,
@@ -913,7 +911,7 @@ client_close_after_hello(Config0) ->
                                         {negotiation_timeout,SleepSec*1000}
                                        ]),
 
-    {Parents0, Conns0, []} = find_handshake_parent(server_port(Config)),
+    {_Parents0, Conns0, []} = find_handshake_parent(server_port(Config)),
 
     Cs =
         [ssh_trpt_test_lib:exec(

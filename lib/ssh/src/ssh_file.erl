@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@
 
 %%%--------------------- utility exports ---------------------------
 -export([decode/2, encode/2]).
+-export([extract_public_key/1]).
 
 -define(ENCODED_LINE_LENGTH, 68).
 
@@ -288,7 +289,7 @@ decode(Bin, auth_keys) when is_binary(Bin) ->
                     [ [[] | binary:split(L,<<" ">>,[global,trim_all])] ];
                 {Pos,Len} when is_integer(Pos), is_integer(Len) ->
                     [ [binary:split(binary:part(L,0,Pos-1), <<",">>,[global,trim_all]) |
-                       binary:split(binary:part(L,Pos,size(L)-Pos), <<" ">>, [global,trim_all])]
+                       binary:split(binary:part(L,Pos,byte_size(L)-Pos), <<" ">>, [global,trim_all])]
                     ]
             end
     ];
@@ -382,6 +383,40 @@ encode(KeyAttrs, Type) when Type == known_hosts;
 
 encode(_KeyBin, _Type) ->
     error(badarg).
+
+%%%----------------------------------------------------------------
+
+-spec extract_public_key(PrivKey) -> PubKey
+                        when PrivKey :: public_key:private_key(),
+                              PubKey :: public_key:public_key().
+
+extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
+    #'RSAPublicKey'{modulus = N, publicExponent = E};
+extract_public_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
+    {Y,  #'Dss-Parms'{p=P, q=Q, g=G}};
+extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
+				   publicKey = Pub0, privateKey = Priv}) when
+      OID == ?'id-Ed25519' orelse
+      OID == ?'id-Ed448' ->
+    case {pubkey_cert_records:namedCurves(OID), Pub0} of
+        {Alg, asn1_NOVALUE} ->
+            %% If we're missing the public key, we can create it with
+            %% the private key.
+            {Pub, Priv} = crypto:generate_key(eddsa, Alg, Priv),
+            {#'ECPoint'{point=Pub}, {namedCurve,OID}};
+        {_Alg, Pub} ->
+            {#'ECPoint'{point=Pub}, {namedCurve,OID}}
+    end;
+extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
+				   publicKey = Q}) when is_tuple(OID) ->
+    {#'ECPoint'{point=Q}, {namedCurve,OID}};
+extract_public_key(#{engine:=_, key_id:=_, algorithm:=Alg} = M) ->
+    case {Alg, crypto:privkey_to_pubkey(Alg, M)} of
+        {rsa, [E,N]} ->
+            #'RSAPublicKey'{modulus = N, publicExponent = E};
+        {dss, [P,Q,G,Y]} ->
+            {Y, #'Dss-Parms'{p=P, q=Q, g=G}}
+    end.
 
 %%%================================================================
 %%%
@@ -695,12 +730,12 @@ pos_match(H, P) ->
 
         {[Hh], [Ph,<<"*">>]} ->
             %% host [host]:*
-            Sz = size(Hh),
+            Sz = byte_size(Hh),
             Ph == <<"[", Hh:Sz/binary, "]">>;
 
         {[Hh], [Ph,<<"22">>]} ->
             %% host [host]:22
-            Sz = size(Hh),
+            Sz = byte_size(Hh),
             Ph == <<"[", Hh:Sz/binary, "]">>;
 
         _ ->
@@ -1017,6 +1052,7 @@ asn1_type(<<"RSA PUBLIC">>) -> 'RSAPublicKey';
 asn1_type(<<"DSA PRIVATE">>) -> 'DSAPrivateKey';
 asn1_type(<<"EC PRIVATE">>) -> 'ECPrivateKey';
 asn1_type(<<"OPENSSH PRIVATE">>) -> 'openssh-key-v1';
+asn1_type(<<"PRIVATE">>) -> 'PrivateKeyInfo';
 asn1_type(_) -> undefined.
 
 %%%================================================================
@@ -1110,7 +1146,7 @@ openssh_key_v1_encode(KeyPairs) ->
                      CheckInt/binary,
                      (openssh_key_v1_encode_priv_keys_cmnts(KeyPairs))/binary>>,
     UnEncrypted = <<UnEncrypted0/binary,
-                    (pad(size(UnEncrypted0), BlockSize))/binary>>,
+                    (pad(byte_size(UnEncrypted0), BlockSize))/binary>>,
     Encrypted = encrypt_openssh_key_v1(UnEncrypted,  KdfName, KdfOptions, CipherName, ignore),
     <<"openssh-key-v1",0,
       ?STRING(CipherName),
@@ -1125,7 +1161,7 @@ openssh_key_v1_encode_pub_keys(KeyPairs) ->
     openssh_key_v1_encode_pub_keys(KeyPairs, []).
 
 openssh_key_v1_encode_pub_keys([{Priv = #'ECPrivateKey'{}, _Cmnt} | Ks], Acc) ->
-    Pub = ssh_transport:extract_public_key(Priv),
+    Pub = extract_public_key(Priv),
     Bk = ssh_message:ssh2_pubkey_encode(Pub),
     openssh_key_v1_encode_pub_keys(Ks, [<<?STRING(Bk)>>|Acc]);
 openssh_key_v1_encode_pub_keys([{K,_,_C}|Ks], Acc) ->

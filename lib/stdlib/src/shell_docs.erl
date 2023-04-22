@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -344,7 +344,7 @@ get_doc(Module) ->
       Arity :: arity(),
       Anno :: erl_anno:anno(),
       Signature :: [binary()],
-      Metadata :: #{}.
+      Metadata :: map().
 get_doc(Module, Function, Arity) ->
     {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
     FnFunctions =
@@ -428,7 +428,7 @@ render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
       Arity :: arity(),
       Anno :: erl_anno:anno(),
       Signature :: [binary()],
-      Metadata :: #{}.
+      Metadata :: map().
 get_type_doc(Module, Type, Arity) ->
     {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
     FnFunctions =
@@ -499,7 +499,7 @@ render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D, Config) ->
       Arity :: arity(),
       Anno :: erl_anno:anno(),
       Signature :: [binary()],
-      Metadata :: #{}.
+      Metadata :: map().
 get_callback_doc(Module, Callback, Arity) ->
     {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
     FnFunctions =
@@ -872,10 +872,16 @@ render_element({li,[],Content},[l | _] = State, Pos, Ind,D) ->
 
 render_element({dl,_,Content},State,Pos,Ind,D) ->
     render_docs(Content, [dl|State], Pos, Ind,D);
-render_element({dt,_,Content},[dl | _] = State,Pos,Ind,D) ->
+render_element({dt,Attr,Content},[dl | _] = State,Pos,Ind,D) ->
+    Since = case Attr of
+                [{since, Vsn}] ->
+                    ["     (since ",unicode:characters_to_list(Vsn),$)];
+                [] ->
+                    []
+             end,
     Underline = sansi(underline),
     {Docs, _NewPos} = render_docs(Content, [li | State], Pos, Ind, D),
-    {[Underline,Docs,ransi(underline),":","\n"], 0};
+    {[Underline,Docs,ransi(underline),$:,Since,$\n], 0};
 render_element({dd,_,Content},[dl | _] = State,Pos,Ind,D) ->
     trimnlnl(render_docs(Content, [li | State], Pos, Ind + 2, D));
 
@@ -1005,18 +1011,18 @@ nl(Chars) ->
 init_ansi(#config{ ansi = undefined, io_opts = Opts }) ->
     %% We use this as our heuristic to see if we should print ansi or not
     case {application:get_env(kernel, shell_docs_ansi),
+          proplists:get_value(terminal, Opts, false),
           proplists:is_defined(echo, Opts) andalso
-          proplists:is_defined(expand_fun, Opts),
-          os:type()} of
+          proplists:is_defined(expand_fun, Opts)} of
         {{ok,false}, _, _} ->
             put(ansi, noansi);
         {{ok,true}, _, _} ->
             put(ansi, []);
-        {_, _, {win32,_}} ->
-            put(ansi, noansi);
-        {_, true,_} ->
+        {_, true, _} ->
             put(ansi, []);
-        {_, false,_} ->
+        {_, _, true} ->
+            put(ansi, []);
+        {_, _, false} ->
             put(ansi, noansi)
     end;
 init_ansi(#config{ ansi = true }) ->

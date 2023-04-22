@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -842,7 +842,7 @@ cast(Pid, Event) ->
 test(DigitMap, Events) ->
     Self = self(),
     Pid = spawn_link(?MODULE, test_eval, [DigitMap, Self]),
-    report(Pid, Events),
+    _ = report(Pid, Events),
     receive
 	{Self, Pid, Res} ->
 	    Res;

@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2013-2021. All Rights Reserved.
+# Copyright Ericsson AB 2013-2023. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -686,10 +686,10 @@ def strip_literal_tag(valobj):
     return valobj
 
 def init(target):
-    names = ['beam_run_process', 'beam_normal_exit', 'beam_exit', 'beam_save_calls',
-             'beam_bif_export_trap', 'beam_export_trampoline', 'beam_continue_exit',
-             'beam_return_to_trace', 'beam_return_trace', 'beam_exception_trace',
-             'beam_return_time_trace']
+    names = ['beam_run_process', 'beam_normal_exit', 'beam_exit', 'beam_save_calls_export',
+             'beam_save_calls_fun', 'beam_bif_export_trap', 'beam_export_trampoline',
+             'beam_continue_exit', 'beam_return_to_trace', 'beam_return_trace',
+             'beam_exception_trace', 'beam_call_trace_return']
     for name in names:
         code_pointers[global_var(name, target).unsigned] = name
 

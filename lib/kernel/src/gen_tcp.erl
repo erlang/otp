@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,10 +38,12 @@
 -type option() ::
         {active,          true | false | once | -32768..32767} |
         {buffer,          non_neg_integer()} |
+        {debug,           boolean()} |
         {delay_send,      boolean()} |
         {deliver,         port | term} |
         {dontroute,       boolean()} |
         {exit_on_close,   boolean()} |
+        {exclusiveaddruse, boolean()} |
         {header,          non_neg_integer()} |
         {high_msgq_watermark, pos_integer()} |
         {high_watermark,  non_neg_integer()} |
@@ -62,6 +64,8 @@
          ValueBin :: binary()} |
         {recbuf,          non_neg_integer()} |
         {reuseaddr,       boolean()} |
+        {reuseport,       boolean()} |
+        {reuseport_lb,    boolean()} |
         {send_timeout,    non_neg_integer() | infinity} |
         {send_timeout_close, boolean()} |
         {show_econnreset, boolean()} |
@@ -78,10 +82,12 @@
 -type option_name() ::
         active |
         buffer |
+        debug |
         delay_send |
         deliver |
         dontroute |
         exit_on_close |
+        exclusiveaddruse |
         header |
         high_msgq_watermark |
         high_watermark |
@@ -101,6 +107,8 @@
                       (ValueBin :: binary())} |
         recbuf |
         reuseaddr |
+        reuseport |
+        reuseport_lb |
         send_timeout |
         send_timeout_close |
         show_econnreset |
@@ -161,7 +169,7 @@ connect(SockAddr, Opts) ->
 -spec connect(Address, Port, Opts) -> {ok, Socket} | {error, Reason} when
       Address  :: inet:socket_address() | inet:hostname(),
       Port     :: inet:port_number(),
-      Opts     :: [connect_option()],
+      Opts     :: [inet:inet_backend() | connect_option()],
       Socket   :: socket(),
       Reason   :: inet:posix();
              (SockAddr, Opts, Timeout) -> {ok, Socket} | {error, Reason} when
@@ -193,8 +201,8 @@ connect(#{family := Fam} = SockAddr, Opts, Timeout)
                 {'EXIT', Reason} -> exit(Reason);
                 Error            -> Error
             end;
-        {GenTcpMod, Opts} ->
-            GenTcpMod:connect(SockAddr2, Opts, Timeout)
+        {GenTcpMod, Opts2} ->
+            GenTcpMod:connect(SockAddr2, Opts2, Timeout)
     end.
 
 

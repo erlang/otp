@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,10 +73,17 @@ format_binary_error(encode_unsigned, [Subject, Endianness], _) ->
     [must_be_non_neg_integer(Subject), must_be_endianness(Endianness)];
 format_binary_error(encode_hex, [Subject], _) ->
     [must_be_binary(Subject)];
+format_binary_error(encode_hex, [Subject, Case], _) ->
+    [must_be_binary(Subject), must_be_hex_case(Case)];
 format_binary_error(decode_hex, [Subject], _) ->
     if
-        is_binary(Subject), byte_size(Subject) rem 2 == 1 ->
-            ["must contain an even number of bytes"];
+        is_binary(Subject) ->
+            if
+                byte_size(Subject) rem 2 =:= 1 ->
+                    [<<"must contain an even number of bytes">>];
+                true ->
+                    [<<"must only contain hex digits 0-9, A-F, and a-f">>]
+            end;
         true ->
             [must_be_binary(Subject)]
     end;
@@ -237,8 +244,10 @@ format_maps_error(intersect_with, [Combiner, Map1, Map2]) ->
     [must_be_fun(Combiner, 3), must_be_map(Map1), must_be_map(Map2)];
 format_maps_error(is_key, _Args) ->
     [[], not_map];
-format_maps_error(iterator, _Args) ->
-    [not_map];
+format_maps_error(iterator, [Map]) ->
+    [must_be_map(Map)];
+format_maps_error(iterator, [Map, Order]) ->
+    [must_be_map(Map), must_be_map_iterator_order(Order)];
 format_maps_error(keys, _Args) ->
     [not_map];
 format_maps_error(map, [Pred, Map]) ->
@@ -247,10 +256,10 @@ format_maps_error(merge, [Map1, Map2]) ->
     [must_be_map(Map1), must_be_map(Map2)];
 format_maps_error(merge_with, [Combiner, Map1, Map2]) ->
     [must_be_fun(Combiner, 3), must_be_map(Map1), must_be_map(Map2)];
-format_maps_error(put, _Args) ->
-    [[], [], not_map];
 format_maps_error(next, _Args) ->
     [bad_iterator];
+format_maps_error(put, _Args) ->
+    [[], [], not_map];
 format_maps_error(remove, _Args) ->
     [[], not_map];
 format_maps_error(size, _Args) ->
@@ -258,7 +267,7 @@ format_maps_error(size, _Args) ->
 format_maps_error(take, _Args) ->
     [[], not_map];
 format_maps_error(to_list, _Args) ->
-    [not_map];
+    [not_map_or_iterator];
 format_maps_error(update, _Args) ->
     [[], [], not_map];
 format_maps_error(update_with, [_Key, Fun, Map]) ->
@@ -399,6 +408,12 @@ format_unicode_error(characters_to_nfkd_list, [_]) ->
 
 unicode_char_data(Chars) ->
     try unicode:characters_to_binary(Chars) of
+        {error,_,_} ->
+            bad_char_data;
+
+        {incomplete,_,_} ->
+            bad_char_data;
+
         _ ->
             []
     catch
@@ -500,7 +515,7 @@ format_io_error_cause(_, _, _, _HasDevice) ->
 
 maybe_posix_message(Cause, HasDevice) ->
     case erl_posix_msg:message(Cause) of
-        "unknown POSIX error" ->
+        "unknown POSIX error" ++ _ ->
             unknown;
         PosixStr when HasDevice ->
             [io_lib:format("~ts (~tp)",[PosixStr, Cause])];
@@ -635,6 +650,9 @@ format_ets_error(lookup_element, [_,_,Pos]=Args, Cause) ->
                     [TabCause, "", PosCause]
             end
     end;
+format_ets_error(lookup_element, [Tab, Key, Pos, _Default], Cause) ->
+    % The default argument cannot cause an error.
+    format_ets_error(lookup_element, [Tab, Key, Pos], Cause);
 format_ets_error(match, [_], _Cause) ->
     [bad_continuation];
 format_ets_error(match, [_,_,_]=Args, Cause) ->
@@ -647,17 +665,19 @@ format_ets_error(match_spec_compile, [_], _Cause) ->
     [bad_matchspec];
 format_ets_error(next, Args, Cause) ->
     format_default(bad_key, Args, Cause);
-format_ets_error(new, [Name,Options], _Cause) ->
+format_ets_error(new, [Name,Options], Cause) ->
     NameError = if
                     is_atom(Name) -> [];
                     true -> not_atom
                 end,
     OptsError = must_be_list(Options),
-    case {NameError,OptsError} of
-        {[],[]} ->
-            [[],bad_options];
-        {_,_} ->
-            [NameError,OptsError]
+    case {NameError, OptsError, Cause} of
+        {[], [], already_exists} ->
+            [name_already_exists, []];
+        {[], [], _} ->
+            [[], bad_options];
+        {_, _, _} ->
+            [NameError, OptsError]
     end;
 format_ets_error(prev, Args, Cause) ->
     format_default(bad_key, Args, Cause);
@@ -905,6 +925,10 @@ must_be_binary(Bin, Error) when is_binary(Bin) -> Error;
 must_be_binary(Bin, _Error) when is_bitstring(Bin) -> bitstring;
 must_be_binary(_, _) -> not_binary.
 
+must_be_hex_case(uppercase) -> [];
+must_be_hex_case(lowercase) -> [];
+must_be_hex_case(_) -> bad_hex_case.
+
 must_be_endianness(little) -> [];
 must_be_endianness(big) -> [];
 must_be_endianness(_) -> bad_endianness.
@@ -951,14 +975,21 @@ must_be_list(_) ->
 must_be_map(#{}) -> [];
 must_be_map(_) -> not_map.
 
+must_be_map_iterator_order(undefined) ->
+    [];
+must_be_map_iterator_order(ordered) ->
+    [];
+must_be_map_iterator_order(CmpFun) when is_function(CmpFun, 2) ->
+    [];
+must_be_map_iterator_order(_) ->
+    not_map_iterator_order.
+
 must_be_map_or_iter(Map) when is_map(Map) ->
     [];
 must_be_map_or_iter(Iter) ->
-    try maps:next(Iter) of
-        _ -> []
-    catch
-        error:_ ->
-            not_map_or_iterator
+    case maps:is_iterator_valid(Iter) of
+        true -> [];
+        false -> not_map_or_iterator
     end.
 
 must_be_number(N) ->
@@ -1061,6 +1092,8 @@ expand_error(not_atom) ->
     <<"not an atom">>;
 expand_error(not_binary) ->
     <<"not a binary">>;
+expand_error(bad_hex_case) ->
+    <<"not 'uppercase' or 'lowercase'">>;
 expand_error(not_compiled_regexp) ->
     <<"not a compiled regular expression">>;
 expand_error(not_iodata) ->
@@ -1075,6 +1108,8 @@ expand_error(not_integer) ->
     <<"not an integer">>;
 expand_error(not_list) ->
     <<"not a list">>;
+expand_error(not_map_iterator_order) ->
+    <<"not 'undefined', 'ordered', or a fun that takes two arguments">>;
 expand_error(not_map_or_iterator) ->
     <<"not a map or an iterator">>;
 expand_error(not_number) ->

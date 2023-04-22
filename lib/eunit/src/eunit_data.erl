@@ -31,10 +31,8 @@
 
 -include_lib("kernel/include/file.hrl").
 
--export([iter_init/2, iter_next/1, iter_prev/1, iter_id/1,
-	 enter_context/3, get_module_tests/1]).
-
--import(lists, [foldr/3]).
+-export([iter_init/3, iter_next/1, iter_prev/1, iter_id/1,
+	 enter_context/3, get_module_tests/2]).
 
 -define(TICKS_PER_SECOND, 1000).
 
@@ -115,14 +113,15 @@
 	{prev = [],
 	 next = [],
 	 tests = [],
+         options,
 	 pos = 0,
 	 parent = []}).
 
 %% @spec (tests(), [integer()]) -> testIterator()
 %% @type testIterator()
 
-iter_init(Tests, ParentID) ->
-    #iter{tests = Tests, parent = lists:reverse(ParentID)}.
+iter_init(Tests, ParentID, Options) ->
+    #iter{tests = Tests, parent = lists:reverse(ParentID), options = Options}.
 
 %% @spec (testIterator()) -> [integer()]
 
@@ -131,8 +130,8 @@ iter_id(#iter{pos = N, parent = Ns}) ->
 
 %% @spec (testIterator()) -> none | {testItem(), testIterator()}
 
-iter_next(I = #iter{next = []}) ->
-    case next(I#iter.tests) of
+iter_next(I = #iter{next = [], options = Options}) ->
+    case next(I#iter.tests, Options) of
 	{T, Tests} ->
 	    {T, I#iter{prev = [T | I#iter.prev],
 		       tests = Tests,
@@ -169,12 +168,12 @@ iter_prev(#iter{prev = [T | Ts]} = I) ->
 %%       | {file_read_error, {Reason::atom(), Message::string(),
 %%                            fileName()}}
 
-next(Tests) ->
+next(Tests, Options) ->
     case eunit_lib:dlist_next(Tests) of
 	[T | Ts] ->
-	    case parse(T) of
+	    case parse(T, Options) of
 		{data, T1} ->
-		    next([T1 | Ts]);
+		    next([T1 | Ts], Options);
 		T1 ->
 		    {T1, Ts}
 	    end;
@@ -188,15 +187,15 @@ next(Tests) ->
 %% this returns either a #test{} or #group{} record, or {data, T} to
 %% signal that T has been substituted for the given representation
 
-parse({foreach, S, Fs}) when is_function(S), is_list(Fs) ->
-    parse({foreach, S, fun ok/1, Fs});
-parse({foreach, S, C, Fs})
+parse({foreach, S, Fs}, Options) when is_function(S), is_list(Fs) ->
+    parse({foreach, S, fun ok/1, Fs}, Options);
+parse({foreach, S, C, Fs}, Options)
   when is_function(S), is_function(C), is_list(Fs) ->
-    parse({foreach, ?DEFAULT_SETUP_PROCESS, S, C, Fs});
-parse({foreach, P, S, Fs})
+    parse({foreach, ?DEFAULT_SETUP_PROCESS, S, C, Fs}, Options);
+parse({foreach, P, S, Fs}, Options)
   when is_function(S), is_list(Fs) ->
-    parse({foreach, P, S, fun ok/1, Fs});
-parse({foreach, P, S, C, Fs} = T)
+    parse({foreach, P, S, fun ok/1, Fs}, Options);
+parse({foreach, P, S, C, Fs} = T, _Options)
   when is_function(S), is_function(C), is_list(Fs) ->
     check_arity(S, 0, T),
     check_arity(C, 1, T),
@@ -206,15 +205,15 @@ parse({foreach, P, S, C, Fs} = T)
 	[] ->
 	    {data, []}
     end;
-parse({foreachx, S1, Ps}) when is_function(S1), is_list(Ps) ->
-    parse({foreachx, S1, fun ok/2, Ps});
-parse({foreachx, S1, C1, Ps})
+parse({foreachx, S1, Ps}, Options) when is_function(S1), is_list(Ps) ->
+    parse({foreachx, S1, fun ok/2, Ps}, Options);
+parse({foreachx, S1, C1, Ps}, Options)
   when is_function(S1), is_function(C1), is_list(Ps) ->
-    parse({foreachx, ?DEFAULT_SETUP_PROCESS, S1, C1, Ps});
-parse({foreachx, P, S1, Ps})
+    parse({foreachx, ?DEFAULT_SETUP_PROCESS, S1, C1, Ps}, Options);
+parse({foreachx, P, S1, Ps}, Options)
   when is_function(S1), is_list(Ps) ->
-    parse({foreachx, P, S1, fun ok/2, Ps});
-parse({foreachx, P, S1, C1, Ps} = T) 
+    parse({foreachx, P, S1, fun ok/2, Ps}, Options);
+parse({foreachx, P, S1, C1, Ps} = T, _Options)
   when is_function(S1), is_function(C1), is_list(Ps) ->
     check_arity(S1, 1, T),
     check_arity(C1, 2, T),
@@ -230,12 +229,12 @@ parse({foreachx, P, S1, C1, Ps} = T)
 	[] ->
 	    {data, []}
     end;
-parse({generator, F}) when is_function(F) ->
+parse({generator, F}, Options) when is_function(F) ->
     {module, M} = erlang:fun_info(F, module),
     {name, N} = erlang:fun_info(F, name),
     {arity, A} = erlang:fun_info(F, arity),
-    parse({generator, F, {M,N,A}});
-parse({generator, F, {M,N,A}} = T)
+    parse({generator, F, {M,N,A}}, Options);
+parse({generator, F, {M,N,A}} = T, _Options)
   when is_function(F), is_atom(M), is_atom(N), is_integer(A) ->
     check_arity(F, 0, T),
     %% use run_testfun/1 to handle wrapper exceptions
@@ -249,38 +248,38 @@ parse({generator, F, {M,N,A}} = T)
 	{error, {Class, Reason, Trace}} ->
 	    throw({generator_failed, {{M,N,A}, {Class, Reason, Trace}}})
     end;
-parse({generator, M, F}) when is_atom(M), is_atom(F) ->
-    parse({generator, eunit_test:mf_wrapper(M, F), {M,F,0}});
-parse({inorder, T}) ->
-    group(#group{tests = T, order = inorder});
-parse({inparallel, T}) ->
-    parse({inparallel, 0, T});
-parse({inparallel, N, T}) when is_integer(N), N >= 0 ->
-    group(#group{tests = T, order = {inparallel, N}});
-parse({timeout, N, T}) when is_number(N), N >= 0 ->
-    group(#group{tests = T, timeout = round(N * ?TICKS_PER_SECOND)});
-parse({spawn, T}) ->
-    group(#group{tests = T, spawn = local});
-parse({spawn, N, T}) when is_atom(N) ->
-    group(#group{tests = T, spawn = {remote, N}});
-parse({setup, S, I}) when is_function(S); is_list(S) ->
-    parse({setup, ?DEFAULT_SETUP_PROCESS, S, I});
-parse({setup, S, C, I}) when is_function(S), is_function(C) ->
-    parse({setup, ?DEFAULT_SETUP_PROCESS, S, C, I});
-parse({setup, P, S, I}) when is_function(S) ->
-    parse({setup, P, S, fun ok/1, I});
-parse({setup, P, L, I} = T) when is_list(L) ->
+parse({generator, M, F}, Options) when is_atom(M), is_atom(F) ->
+    parse({generator, eunit_test:mf_wrapper(M, F), {M,F,0}}, Options);
+parse({inorder, T}, Options) ->
+    group(#group{tests = T, options = Options, order = inorder});
+parse({inparallel, T}, Options) ->
+    parse({inparallel, 0, T}, Options);
+parse({inparallel, N, T}, Options) when is_integer(N), N >= 0 ->
+    group(#group{tests = T, options = Options, order = {inparallel, N}});
+parse({timeout, N, T}, Options) when is_number(N), N >= 0 ->
+    group(#group{tests = T, options = Options, timeout = round(N * ?TICKS_PER_SECOND)});
+parse({spawn, T}, Options) ->
+    group(#group{tests = T, options = Options, spawn = local});
+parse({spawn, N, T}, Options) when is_atom(N) ->
+    group(#group{tests = T, options = Options, spawn = {remote, N}});
+parse({setup, S, I}, Options) when is_function(S); is_list(S) ->
+    parse({setup, ?DEFAULT_SETUP_PROCESS, S, I}, Options);
+parse({setup, S, C, I}, Options) when is_function(S), is_function(C) ->
+    parse({setup, ?DEFAULT_SETUP_PROCESS, S, C, I}, Options);
+parse({setup, P, S, I}, Options) when is_function(S) ->
+    parse({setup, P, S, fun ok/1, I}, Options);
+parse({setup, P, L, I} = T, Options) when is_list(L) ->
     check_setup_list(L, T),
     {S, C} = eunit_test:multi_setup(L),
-    parse({setup, P, S, C, I});
-parse({setup, P, S, C, I} = T)
+    parse({setup, P, S, C, I}, Options);
+parse({setup, P, S, C, I} = T, Options)
   when is_function(S), is_function(C), is_function(I) ->
     check_arity(S, 0, T),
     check_arity(C, 1, T),
     case erlang:fun_info(I, arity) of
 	{arity, 0} ->
 	    %% if I is nullary, it is a plain test
-	    parse({setup, S, C, fun (_) -> I end});
+	    parse({setup, S, C, fun (_) -> I end}, Options);
 	_ ->
 	    %% otherwise, I must be an instantiator function
 	    check_arity(I, 1, T),
@@ -290,17 +289,17 @@ parse({setup, P, S, C, I} = T)
 		{spawn, N} when is_atom(N) -> ok;
 		_ -> bad_test(T)
 	    end,
-	    group(#group{tests = I,
+	    group(#group{tests = I, options = Options,
 			 context = #context{setup = S, cleanup = C,
 					    process = P}})
     end;
-parse({setup, P, S, C, {with, As}}) when is_list(As) ->
-    parse({setup, P, S, C, fun (X) -> {with, X, As} end});
-parse({setup, P, S, C, T}) when is_function(S), is_function(C) ->
-    parse({setup, P, S, C, fun (_) -> T end});
-parse({node, N, T}) when is_atom(N) ->
-    parse({node, N, "", T});
-parse({node, N, A, T1}=T) when is_atom(N) ->
+parse({setup, P, S, C, {with, As}}, Options) when is_list(As) ->
+    parse({setup, P, S, C, fun (X) -> {with, X, As} end}, Options);
+parse({setup, P, S, C, T}, Options) when is_function(S), is_function(C) ->
+    parse({setup, P, S, C, fun (_) -> T end}, Options);
+parse({node, N, T}, Options) when is_atom(N) ->
+    parse({node, N, "", T}, Options);
+parse({node, N, A, T1}=T, Options) when is_atom(N) ->
     case eunit_lib:is_string(A) of
 	true ->
 	    %% TODO: better stack traces for internal funs like these
@@ -336,14 +335,14 @@ parse({node, N, A, T1}=T) when is_atom(N) ->
 			       false -> ok
 			   end
 		   end,
-		   T1});
+		   T1}, Options);
 	false ->
 	    bad_test(T)
     end;
-parse({module, M}) when is_atom(M) ->
-    {data, {"module '" ++ atom_to_list(M) ++ "'", get_module_tests(M)}};
-parse({application, A}) when is_atom(A) ->
-    try parse({file, atom_to_list(A)++".app"})
+parse({module, M}, Options) when is_atom(M) ->
+    {data, {"module '" ++ atom_to_list(M) ++ "'", get_module_tests(M, Options)}};
+parse({application, A}, Options) when is_atom(A) ->
+    try parse({file, atom_to_list(A)++".app"}, Options)
     catch
 	{file_read_error,{enoent,_,_}} ->
 	    case code:lib_dir(A) of
@@ -352,15 +351,15 @@ parse({application, A}) when is_atom(A) ->
 		    BinDir = filename:join(Dir, "ebin"),
 		    case file:read_file_info(BinDir) of
 			{ok, #file_info{type=directory}} ->
-			    parse({dir, BinDir});
+			    parse({dir, BinDir}, Options);
 			_ ->
-			    parse({dir, Dir})
+			    parse({dir, Dir}, Options)
 		    end;
 		_ ->
 		    throw({application_not_found, A})
 	    end
     end;
-parse({application, A, Info}=T) when is_atom(A) ->
+parse({application, A, Info}=T, _Options) when is_atom(A) ->
     case proplists:get_value(modules, Info) of
 	Ms when is_list(Ms) ->
 	    case [M || M <- Ms, not is_atom(M)] of
@@ -372,14 +371,14 @@ parse({application, A, Info}=T) when is_atom(A) ->
 	_ ->
 	    bad_test(T)
     end;
-parse({file, F} = T) when is_list(F) ->
+parse({file, F} = T, _Options) when is_list(F) ->
     case eunit_lib:is_string(F) of
 	true ->
 	    {data, {"file \"" ++ F ++ "\"", get_file_tests(F)}};
 	false ->
 	    bad_test(T)
     end;
-parse({dir, D}=T) when is_list(D) ->
+parse({dir, D}=T, _Options) when is_list(D) ->
     case eunit_lib:is_string(D) of
 	true ->
 	    {data, {"directory \"" ++ D ++ "\"",
@@ -387,7 +386,7 @@ parse({dir, D}=T) when is_list(D) ->
 	false ->
 	    bad_test(T)
     end;
-parse({with, X, As}=T) when is_list(As) ->
+parse({with, X, As}=T, _Options) when is_list(As) ->
     case As of
 	[A | As1] ->
 	    check_arity(A, 1, T),
@@ -396,36 +395,36 @@ parse({with, X, As}=T) when is_list(As) ->
 	[] ->
 	    {data, []}
     end;
-parse({S, T1} = T) when is_list(S) ->
+parse({S, T1} = T, Options) when is_list(S) ->
     case eunit_lib:is_string(S) of
 	true ->
-	    group(#group{tests = T1, desc = unicode:characters_to_binary(S)});
+	    group(#group{tests = T1, options = Options, desc = unicode:characters_to_binary(S)});
 	false ->
 	    bad_test(T)
     end;
-parse({S, T1}) when is_binary(S) ->
-    group(#group{tests = T1, desc = S});
-parse(T) when is_tuple(T), size(T) > 2, is_list(element(1, T)) ->
+parse({S, T1}, Options) when is_binary(S) ->
+    group(#group{tests = T1, options = Options, desc = S});
+parse(T, Options) when tuple_size(T) > 2, is_list(element(1, T)) ->
     [S | Es] = tuple_to_list(T),
-    parse({S, list_to_tuple(Es)});
-parse(T) when is_tuple(T), size(T) > 2, is_binary(element(1, T)) ->
+    parse({S, list_to_tuple(Es)}, Options);
+parse(T, Options) when tuple_size(T) > 2, is_binary(element(1, T)) ->
     [S | Es] = tuple_to_list(T),
-    parse({S, list_to_tuple(Es)});
-parse(M) when is_atom(M) ->
-    parse({module, M});
-parse(T) when is_list(T) ->
+    parse({S, list_to_tuple(Es)}, Options);
+parse(M, Options) when is_atom(M) ->
+    parse({module, M}, Options);
+parse(T, Options) when is_list(T) ->
     case eunit_lib:is_string(T) of
 	true ->
-	    try parse({dir, T})
+	    try parse({dir, T}, Options)
 	    catch
 		{file_read_error,{R,_,_}}
 		  when R =:= enotdir; R =:= enoent ->
-		    parse({file, T})
+		    parse({file, T}, Options)
 	    end;
 	false ->
 	    bad_test(T)
     end;
-parse(T) ->
+parse(T, _Options) ->
     parse_simple(T).
 
 %% parse_simple always produces a #test{} record
@@ -481,10 +480,10 @@ group(#group{context = #context{}} = G) ->
     %% suitable for lookahead (and anyway, properties of the setup
     %% should not be merged with properties of its body, e.g. spawn)
     G;
-group(#group{tests = T0, desc = Desc, order = Order, context = Context,
-	     spawn = Spawn, timeout = Timeout} = G) ->
-    {T1, Ts} = lookahead(T0),
-    {T2, _} = lookahead(Ts),
+group(#group{tests = T0, desc = Desc, options = Options, order = Order,
+             context = Context, spawn = Spawn, timeout = Timeout} = G) ->
+    {T1, Ts} = lookahead(T0, Options),
+    {T2, _} = lookahead(Ts, Options),
     case T1 of
 	#test{desc = Desc1, timeout = Timeout1}
 	when T2 =:= none, Spawn =:= undefined, Context =:= undefined,
@@ -529,8 +528,8 @@ group(#group{tests = T0, desc = Desc, order = Order, context = Context,
 	    G
     end.
 
-lookahead(T) ->
-    case next(T) of
+lookahead(T, Options) ->
+    case next(T, Options) of
 	{T1, Ts} -> {T1, Ts};
 	none -> {none, []}
     end.
@@ -559,58 +558,62 @@ push_order(_, _, G) ->
 
 %% @throws {module_not_found, moduleName()}
 
-get_module_tests(M) ->
-    try M:module_info(exports) of
-	Es ->
-	    Fs = get_module_tests_1(M, Es),
-	    W = ?DEFAULT_MODULE_WRAPPER_NAME,
-	    case lists:member({W,1}, Es) of
-		false -> Fs;
-		true -> {generator, fun () -> M:W(Fs) end}
+get_module_tests(Module, Options) ->
+    try Module:module_info(exports) of
+	Exports ->
+	    TestFuns = extract_module_tests(Module, Exports, Options),
+	    case lists:member({?DEFAULT_MODULE_WRAPPER_NAME, 1}, Exports) of
+		false -> TestFuns;
+		true -> {generator,
+                         fun() ->
+                                 Module:?DEFAULT_MODULE_WRAPPER_NAME(TestFuns)
+                         end}
 	    end
     catch
-	error:undef -> 
-	    throw({module_not_found, M})
+	error:undef ->
+	    throw({module_not_found, Module})
     end.
 
-get_module_tests_1(M, Es) ->
-    Fs = testfuns(Es, M, ?DEFAULT_TEST_SUFFIX,
-		  ?DEFAULT_GENERATOR_SUFFIX),
-    Name = atom_to_list(M),
-    case lists:suffix(?DEFAULT_TESTMODULE_SUFFIX, Name) of
-	false ->
-	    Name1 = Name ++ ?DEFAULT_TESTMODULE_SUFFIX,
-	    M1 = list_to_atom(Name1),
-	    try get_module_tests(M1) of
-		Fs1 ->
-		    Fs ++ [{"module '" ++ Name1 ++ "'", Fs1}]
+extract_module_tests(Module, Exports, Options) ->
+    TestFuns = extract_testfuns(Exports, Module, ?DEFAULT_TEST_SUFFIX,
+                                ?DEFAULT_GENERATOR_SUFFIX),
+    ModuleName = atom_to_list(Module),
+    Exact = proplists:get_bool(exact_execution, Options),
+    case {lists:suffix(?DEFAULT_TESTMODULE_SUFFIX, ModuleName),
+          Exact} of
+	{false, false} ->
+	    ModuleNameWithSuffix = ModuleName ++ ?DEFAULT_TESTMODULE_SUFFIX,
+	    ModuleWithSuffix = list_to_atom(ModuleNameWithSuffix),
+	    try get_module_tests(ModuleWithSuffix, Options) of
+		MoreTestFuns ->
+		    TestFuns ++ [{"module '" ++ ModuleNameWithSuffix ++ "'",
+                                  MoreTestFuns}]
 	    catch
-		{module_not_found, M1} ->
-		    Fs
+		{module_not_found, ModuleWithSuffix} ->
+		    TestFuns
 	    end;
-	true ->
-	    Fs
+	_ ->
+	    TestFuns
     end.
 
-testfuns(Es, M, TestSuffix, GeneratorSuffix) ->
-    foldr(fun ({F, 0}, Fs) ->
-		  N = atom_to_list(F),
-		  case lists:suffix(TestSuffix, N) of
-		      true ->
-			  [{test, M, F} | Fs];
-		      false ->
-			  case lists:suffix(GeneratorSuffix, N) of
-			      true ->
-				  [{generator, M, F} | Fs];
-			      false ->
-				  Fs
-			  end
-		  end;
-	      (_, Fs) ->
-		  Fs
-	  end,
-	  [],
-	  Es).    
+extract_testfuns(Exports, Module, TestSuffix, GeneratorSuffix) ->
+    GetTestFun = fun({Function, 0}, Acc) ->
+                         FunctionName = atom_to_list(Function),
+                         case lists:suffix(TestSuffix, FunctionName) of
+                             true ->
+                                 [{test, Module, Function} | Acc];
+                             false ->
+                                 case lists:suffix(GeneratorSuffix, FunctionName) of
+                                     true ->
+                                         [{generator, Module, Function} | Acc];
+                                     false ->
+                                         Acc
+                                 end
+                         end;
+                    (_, Acc) ->
+                         Acc
+                 end,
+    lists:foldr(GetTestFun, [], Exports).
 
 
 %% ---------------------------------------------------------------------

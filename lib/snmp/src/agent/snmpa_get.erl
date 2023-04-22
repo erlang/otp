@@ -33,6 +33,13 @@
          do_get_bulk/7
         ]).
 
+%% Debugging
+-export([
+         empty_pdu/0,        empty_pdu/1,
+         empty_scoped_pdu/0, empty_scoped_pdu/1,
+         empty_pdu_size/0,   empty_scoped_pdu_size/0
+        ]).
+
 -define(VMODULE,"GET").
 -include("snmpa_internal.hrl").
 -include("snmp_types.hrl").
@@ -43,7 +50,9 @@
 -define(default_verbosity,silence).
 -endif.
 
--define(empty_pdu_size, 21).
+-ifndef(empty_pdu_size).
+-define(empty_pdu_size, 21). % See below!
+-endif.
 
 -ifdef(snmp_extended_verbosity).
 -define(vt(F,A), ?vtrace(F, A)).
@@ -55,6 +64,80 @@
 -define(AGENT, snmpa_agent).
 -define(LIB,   snmpa_get_lib).
 
+
+
+%%-----------------------------------------------------------------
+%% Purpose: We must calculate the length of an empty Pdu.  This
+%%          length is used to calculate the max pdu size allowed
+%%          for each get-bulk-request.
+%%          This size is dependent on the varbinds.
+%%          It is calculated as EmptySize + 8.  8 comes from the
+%%          fact that the maximum pdu size needs 31 bits which needs
+%%          5 * 7 bits to be expressed. One 7bit octet is already
+%%          present in the empty pdu, leaving 4 more 7bit octets.
+%%          The length is repeated twice, once for the varbinds,
+%%          and once for the entire pdu; 2 * 4 = 8.
+%%
+%% Actually, this function is not used, we use a constant instead.
+%% 
+%%-----------------------------------------------------------------
+%%
+%% Some wierdness is going on since this seems to be insufficient,
+%% atleast on version 3.
+%% One of the issues is that the constant (21) is only correct if
+%% request-id < 128 (as is the case in the example below).
+%% But adding 8 to this solves the problem => 29 (atleast for the
+%% customer reporting the issue).
+%% Since it is version 3, should we use the scopedPDU for the
+%% calculation?
+%%
+%%-----------------------------------------------------------------
+%% Ret: 21 (see above)
+%% empty_pdu_size() ->
+%%     Pdu = #pdu{type         = 'get-response', 
+%%                request_id   = 1,
+%% 	          error_status = noError, 
+%%                error_index  = 0, 
+%%                varbinds     = []},
+%%     length(snmp_pdus:enc_pdu(Pdu)) + 8.
+
+empty_pdu() ->
+    empty_pdu(1).
+empty_pdu(RequestId) when is_integer(RequestId) andalso (RequestId > 0) ->
+    #pdu{type         = 'get-response', 
+         request_id   = RequestId,
+         error_status = noError, 
+         error_index  = 0, 
+         varbinds     = []}.
+
+%% empty_pdu_size() ->
+%%     empty_pdu_size(1).
+%% empty_pdu_size(RequestId) ->
+%%     length(snmp_pdus:enc_pdu(empty_pdu(RequestId))) + 8.
+
+empty_pdu_size() ->
+    ?empty_pdu_size.
+
+
+%% This is used when calculating how many VBs to include in a pdu.
+%% For "some reason" we need to add 8 to the size for version 3.
+%% Could be the context EngineID and Name, which is actuall part
+%% of the scoped PDU?
+
+empty_scoped_pdu() ->
+    empty_scoped_pdu(1).
+empty_scoped_pdu(RequestId) ->
+    #scopedPdu{contextEngineID = "",
+               contextName     = "",
+               data            = empty_pdu(RequestId)}.
+
+%% empty_scoped_pdu_size() ->
+%%     empty_scoped_pdu_size(1).
+%% empty_scoped_pdu_size(RequestId) ->
+%%     length(snmp_pdus:enc_scoped_pdu(empty_scoped_pdu(RequestId))) + 8.
+
+empty_scoped_pdu_size() ->
+    ?empty_pdu_size + 6.
 
 
 %%%-----------------------------------------------------------------

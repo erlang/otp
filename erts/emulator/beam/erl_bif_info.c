@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -294,6 +294,11 @@ static int do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc, Sint reds)
         t = AM_dist_process;
         break;
     }
+    case ERTS_MON_TYPE_DIST_PORT: {
+        ERTS_DECL_AM(dist_port);
+        t = AM_dist_port;
+        break;
+    }
     case ERTS_MON_TYPE_RESOURCE: {
         ERTS_DECL_AM(resource);
         t = AM_resource;
@@ -582,6 +587,7 @@ static int collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_PORT:
         case ERTS_MON_TYPE_DIST_PROC:
+        case ERTS_MON_TYPE_DIST_PORT:
         case ERTS_MON_TYPE_TIME_OFFSET:
             if (mon->flags & ERTS_ML_FLG_SPAWN_PENDING)
                 break; /* Not an active monitor... */
@@ -634,6 +640,7 @@ static int collect_one_target_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_PORT:
         case ERTS_MON_TYPE_DIST_PROC:
+        case ERTS_MON_TYPE_DIST_PORT:
 
             micp->mi[micp->mi_i].entity.term = mon->other.item;
             micp->mi[micp->mi_i].node = NIL;
@@ -770,6 +777,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_MAGIC_REF                            34
 #define ERTS_PI_IX_FULLSWEEP_AFTER                      35
 #define ERTS_PI_IX_PARENT                               36
+#define ERTS_PI_IX_ASYNC_DIST                           37
 
 #define ERTS_PI_FLAG_SINGELTON                          (1 << 0)
 #define ERTS_PI_FLAG_ALWAYS_WRAP                        (1 << 1)
@@ -826,7 +834,8 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_garbage_collection_info, ERTS_PROCESS_GC_INFO_MAX_SIZE, 0, ERTS_PROC_LOCK_MAIN},
     {am_magic_ref, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
     {am_fullsweep_after, 0, 0, ERTS_PROC_LOCK_MAIN},
-    {am_parent, 0, 0, ERTS_PROC_LOCK_MAIN}
+    {am_parent, 0, 0, ERTS_PROC_LOCK_MAIN},
+    {am_async_dist, 0, 0, ERTS_PROC_LOCK_MAIN}
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(pi_args[0])))
@@ -947,6 +956,8 @@ pi_arg2ix(Eterm arg)
         return ERTS_PI_IX_FULLSWEEP_AFTER;
     case am_parent:
         return ERTS_PI_IX_PARENT;
+    case am_async_dist:
+        return ERTS_PI_IX_ASYNC_DIST;
     default:
         return -1;
     }
@@ -1007,6 +1018,7 @@ process_info_aux(Process *c_p,
 		 Process *rp,
 		 ErtsProcLocks rp_locks,
 		 int item_ix,
+                 Sint *msgq_len_p,
 		 int flags,
                  Uint *reserve_sizep,
                  Uint *reds);
@@ -1025,11 +1037,12 @@ erts_process_info(Process *c_p,
     Eterm res;
     Eterm part_res[ERTS_PI_ARGS];
     int item_ix_ix, ix;
+    Sint msgq_len = -1;
 
     if (ERTS_PI_FLAG_SINGELTON & flags) {
         ASSERT(item_ix_len == 1);
 	res = process_info_aux(c_p, hfact, rp, rp_locks, item_ix[0],
-                               flags, &reserve_size, reds);
+                               &msgq_len, flags, &reserve_size, reds);
         return res;
     }
 
@@ -1047,7 +1060,7 @@ erts_process_info(Process *c_p,
 	ix = pi_arg2ix(am_messages);
 	ASSERT(part_res[ix] == THE_NON_VALUE);
 	res = process_info_aux(c_p, hfact, rp, rp_locks, ix,
-                               flags, &reserve_size, reds);
+                               &msgq_len, flags, &reserve_size, reds);
 	ASSERT(res != am_undefined);
 	ASSERT(res != THE_NON_VALUE);
         part_res[ix] = res;
@@ -1057,7 +1070,7 @@ erts_process_info(Process *c_p,
 	ix = item_ix[item_ix_ix];
 	if (part_res[ix] == THE_NON_VALUE) {
 	    res = process_info_aux(c_p, hfact, rp, rp_locks, ix,
-                                   flags, &reserve_size, reds);
+                                   &msgq_len, flags, &reserve_size, reds);
             ASSERT(res != am_undefined);
 	    ASSERT(res != THE_NON_VALUE);
             part_res[ix] = res;
@@ -1092,6 +1105,92 @@ erts_process_info(Process *c_p,
 static void
 pi_setup_grow(int **arr, int *def_arr, Uint *sz, int ix);
 
+static ERTS_INLINE int
+pi_maybe_flush_signals(Process *c_p, int pi_flags)
+{
+    int reds_left;
+    erts_aint32_t state;
+
+    /*
+     * pi_maybe_flush_signals() flush signals in callers
+     * signal queue for two different reasons:
+     *
+     * 1. If we need 'message_queue_len', but not 'messages', we need
+     *    to handle all signals in the middle queue in order for
+     *    'c_p->sig_qs.len' to reflect the amount of messages in the
+     *    message queue. We could count traverse the queues, but it
+     *    is better to handle all signals in the queue instead since
+     *    this is work we anyway need to do at some point.
+     *
+     * 2. Ensures that all signals that the caller might have sent to
+     *    itself are handled before we gather information.
+     *
+     *    This is, however, not strictly necessary. process_info() is
+     *    not documented to send itself a signal when gathering
+     *    information about itself. That is, the operation is not
+     *    bound by the signal order guarantee when gathering
+     *    information about itself. If we do not handle outstanding
+     *    signals before gathering the information, outstanding signals
+     *    from the caller to itself will not be part of the result.
+     *    This would not be wrong, but perhaps surprising for the user.
+     *    We continue doing it this way for now, since this is how it
+     *    has been done for a very long time. We should, however,
+     *    consider changing this in a future release, since this signal
+     *    handling is not for free, although quite cheap since these
+     *    signals anyway must be handled at some point.
+     */
+
+    if (c_p->sig_qs.flags & FS_FLUSHED_SIGS) {
+    flushed:
+
+        ASSERT(((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
+                             | ERTS_PI_FLAG_NEED_MSGQ_LEN))
+                != ERTS_PI_FLAG_NEED_MSGQ_LEN)
+               || !c_p->sig_qs.cont);
+	ASSERT(c_p->sig_qs.flags & FS_FLUSHING_SIGS);
+
+	c_p->sig_qs.flags &= ~(FS_FLUSHED_SIGS|FS_FLUSHING_SIGS);
+        erts_set_gc_state(c_p, !0); /* Allow GC again... */
+	return 0; /* done, all signals handled... */
+    }
+    
+    state = erts_atomic32_read_nob(&c_p->state);
+
+    if (!(c_p->sig_qs.flags & FS_FLUSHING_SIGS)) {
+        int flush_flags = 0;
+        if (((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
+                          | ERTS_PI_FLAG_NEED_MSGQ_LEN))
+             == ERTS_PI_FLAG_NEED_MSGQ_LEN)
+            && c_p->sig_qs.cont) {
+            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_CLEAN_SIGQ;
+        }
+        if (state & ERTS_PSFLG_MAYBE_SELF_SIGS)
+            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_FROM_ID;
+	if (!flush_flags)
+	    return 0; /* done; no need to flush... */
+	erts_proc_sig_init_flush_signals(c_p, flush_flags, c_p->common.id);
+        if (c_p->sig_qs.flags & FS_FLUSHED_SIGS)
+            goto flushed;
+    }
+
+    ASSERT(c_p->sig_qs.flags & FS_FLUSHING_SIGS);
+    reds_left = ERTS_BIF_REDS_LEFT(c_p);
+
+    do {
+	int sreds = reds_left;
+	(void) erts_proc_sig_handle_incoming(c_p, &state, &sreds,
+					     sreds, !0);
+	BUMP_REDS(c_p, (int) sreds);
+	if (state & ERTS_PSFLG_EXITING)
+	    return -1; /* process exiting... */
+	if (c_p->sig_qs.flags & FS_FLUSHED_SIGS)
+            goto flushed;
+	reds_left -= sreds;
+    } while (reds_left > 0);
+
+    return 1; /* yield and continue here later... */
+}
+
 static BIF_RETTYPE
 process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 {
@@ -1109,41 +1208,6 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
     Eterm res;
 
     ERTS_CT_ASSERT(ERTS_PI_DEF_ARR_SZ > 0);
-
-    if (c_p->common.id == pid) {
-        int local_only = c_p->sig_qs.flags & FS_LOCAL_SIGS_ONLY;
-        int sres, sreds, reds_left;
-
-        reds_left = ERTS_BIF_REDS_LEFT(c_p);
-        sreds = reds_left;
-
-        if (!local_only) {
-            erts_proc_sig_queue_lock(c_p);
-            erts_proc_sig_fetch(c_p);
-            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
-        }
-
-        sres = erts_proc_sig_handle_incoming(c_p, &state, &sreds, sreds, !0);
-
-        BUMP_REDS(c_p, (int) sreds);
-        reds_left -= sreds;
-
-        if (state & ERTS_PSFLG_EXITING) {
-            c_p->sig_qs.flags &= ~FS_LOCAL_SIGS_ONLY;
-            goto exited;
-        }
-        if (!sres | (reds_left <= 0)) {
-            /*
-             * More signals to handle or out of reds; need
-             * to yield and continue. Prevent fetching of
-             * more signals by setting local-sigs-only flag.
-             */
-            c_p->sig_qs.flags |= FS_LOCAL_SIGS_ONLY;
-            goto yield;
-        }
-
-        c_p->sig_qs.flags &= ~FS_LOCAL_SIGS_ONLY;
-    }
 
     if (is_atom(opt)) {
 	int ix = pi_arg2ix(opt);
@@ -1190,7 +1254,16 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
             goto badarg;
     }
 
-    if (is_not_internal_pid(pid)) {
+    if (c_p->common.id == pid) {
+        int res = pi_maybe_flush_signals(c_p, flags);
+	if (res != 0) {
+	    if (res > 0)
+		goto yield;
+	    else
+		goto exited;
+	}
+    }
+    else if (is_not_internal_pid(pid)) {
         if (is_external_pid(pid)
             && external_pid_dist_entry(pid) == erts_this_dist_entry)
             goto undefined;
@@ -1226,9 +1299,13 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         }
         if (flags & ERTS_PI_FLAG_NEED_MSGQ_LEN) {
             ASSERT(locks & ERTS_PROC_LOCK_MAIN);
+            if (rp->sig_qs.flags & FS_FLUSHING_SIGS) {
+                erts_proc_unlock(rp, locks);
+                goto send_signal;
+            }
             erts_proc_sig_queue_lock(rp);
             erts_proc_sig_fetch(rp);
-            if (c_p->sig_qs.cont) {
+            if (rp->sig_qs.cont) {
                 erts_proc_unlock(rp, locks|ERTS_PROC_LOCK_MSGQ);
                 locks = 0;
                 goto send_signal;
@@ -1264,7 +1341,8 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
     if (c_p == rp || !ERTS_PROC_HAS_INCOMING_SIGNALS(c_p))
         ERTS_BIF_PREP_RET(ret, res);
     else
-        ERTS_BIF_PREP_HANDLE_SIGNALS_RETURN(ret, c_p, res);
+        ERTS_BIF_PREP_HANDLE_SIGNALS_FROM_RETURN(ret, c_p,
+                                                 pid, res);
 
 done:
 
@@ -1355,6 +1433,7 @@ process_info_aux(Process *c_p,
 		 Process *rp,
 		 ErtsProcLocks rp_locks,
 		 int item_ix,
+                 Sint *msgq_len_p,
 		 int flags,
                  Uint *reserve_sizep,
                  Uint *reds)
@@ -1440,10 +1519,15 @@ process_info_aux(Process *c_p,
 	break;
 
     case ERTS_PI_IX_STATUS: {
-        erts_aint32_t state = erts_atomic32_read_nob(&rp->state);
+        erts_aint32_t state;
+        if (!rp_locks)
+            state = erts_atomic32_read_mb(&rp->state);
+        else
+            state = erts_atomic32_read_nob(&rp->state);
         res = erts_process_state2status(state);
-        if (res == am_running && (state & ERTS_PSFLG_RUNNING_SYS)) {
-            ASSERT(c_p == rp);
+        if (res == am_running
+            && c_p == rp
+            && (state & ERTS_PSFLG_RUNNING_SYS)) {
             ASSERT(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER);
             if (!(state & (ERTS_PSFLG_ACTIVE
                            | ERTS_PSFLG_SIG_Q
@@ -1468,8 +1552,10 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_MESSAGES: {
         ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
-	if (rp->sig_qs.len == 0 || (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE))
+	if (rp->sig_qs.len == 0 || (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE)) {
+            *msgq_len_p = 0;
             res = NIL;
+        }
         else {
             int info_on_self = !(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER);
 	    ErtsMessageInfo *mip;
@@ -1487,8 +1573,8 @@ process_info_aux(Process *c_p,
 	    heap_need = erts_proc_sig_prep_msgq_for_inspection(c_p, rp,
                                                                rp_locks,
                                                                info_on_self,
-                                                               mip);
-            len = rp->sig_qs.len;
+                                                               mip, msgq_len_p);
+            len = *msgq_len_p;
 
 	    heap_need += len*2; /* Cons cells */
 
@@ -1517,7 +1603,12 @@ process_info_aux(Process *c_p,
     }
 
     case ERTS_PI_IX_MESSAGE_QUEUE_LEN: {
-        Sint len = rp->sig_qs.len;
+        Sint len = *msgq_len_p;
+        if (len < 0) {
+            ASSERT((flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)
+                   || !rp->sig_qs.cont);
+            len = rp->sig_qs.len;
+        }
         ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
         ASSERT(len >= 0);
         if (len <= MAX_SMALL)
@@ -1780,21 +1871,16 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_MIN_BIN_VHEAP_SIZE: {
 	Uint hsz = 0;
-	(void) erts_bld_uint(NULL, &hsz, MIN_VHEAP_SIZE(rp));
+	(void) erts_bld_uint(NULL, &hsz, rp->min_vheap_size);
         hp = erts_produce_heap(hfact, hsz, reserve_size);
-	res = erts_bld_uint(&hp, NULL, MIN_VHEAP_SIZE(rp));
+	res = erts_bld_uint(&hp, NULL, rp->min_vheap_size);
 	break;
     }
 
     case ERTS_PI_IX_MAX_HEAP_SIZE: {
-	Uint hsz = 0;
-	(void) erts_max_heap_size_map(MAX_HEAP_SIZE_GET(rp),
-                                      MAX_HEAP_SIZE_FLAGS_GET(rp),
-                                      NULL, &hsz);
-        hp = erts_produce_heap(hfact, hsz, reserve_size);
-	res = erts_max_heap_size_map(MAX_HEAP_SIZE_GET(rp),
-                                     MAX_HEAP_SIZE_FLAGS_GET(rp),
-                                     &hp, NULL);
+	res = erts_max_heap_size_map(hfact,
+                                     MAX_HEAP_SIZE_GET(rp),
+                                     MAX_HEAP_SIZE_FLAGS_GET(rp));
 	break;
     }
 
@@ -1851,12 +1937,12 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_GARBAGE_COLLECTION: {
         DECL_AM(minor_gcs);
-        Eterm t;
-        Uint map_sz = 0;
+        Eterm t, mhs_map;
 
-        erts_max_heap_size_map(MAX_HEAP_SIZE_GET(rp), MAX_HEAP_SIZE_FLAGS_GET(rp), NULL, &map_sz);
+        mhs_map = erts_max_heap_size_map(hfact, MAX_HEAP_SIZE_GET(rp),
+                                         MAX_HEAP_SIZE_FLAGS_GET(rp));
 
-        hp = erts_produce_heap(hfact, 3+2 + 3+2 + 3+2 + 3+2 + 3+2 + map_sz, reserve_size);
+        hp = erts_produce_heap(hfact, 5*(3+2), reserve_size);
 
 	t = TUPLE2(hp, AM_minor_gcs, make_small(GEN_GCS(rp))); hp += 3;
 	res = CONS(hp, t, NIL); hp += 2;
@@ -1865,12 +1951,10 @@ process_info_aux(Process *c_p,
 
 	t = TUPLE2(hp, am_min_heap_size, make_small(MIN_HEAP_SIZE(rp))); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
-	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(MIN_VHEAP_SIZE(rp))); hp += 3;
+	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(rp->min_vheap_size)); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 
-        t = erts_max_heap_size_map(MAX_HEAP_SIZE_GET(rp), MAX_HEAP_SIZE_FLAGS_GET(rp), &hp, NULL);
-
-	t = TUPLE2(hp, am_max_heap_size, t); hp += 3;
+	t = TUPLE2(hp, am_max_heap_size, mhs_map); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 	break;
     }
@@ -1916,12 +2000,15 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_BINARY: {
         ErlHeapFragment *hfrag;
+        ErlOffHeap wrt_bins;
         Uint sz;
 
         res = NIL;
         sz = 0;
+        wrt_bins.first = rp->wrt_bins;
 
         (void)erts_bld_bin_list(NULL, &sz, &MSO(rp), NIL);
+        (void)erts_bld_bin_list(NULL, &sz, &wrt_bins, NIL);
         for (hfrag = rp->mbuf; hfrag != NULL; hfrag = hfrag->next) {
             (void)erts_bld_bin_list(NULL, &sz, &hfrag->off_heap, NIL);
         }
@@ -1929,6 +2016,7 @@ process_info_aux(Process *c_p,
         hp = erts_produce_heap(hfact, sz, reserve_size);
 
         res = erts_bld_bin_list(&hp, NULL, &MSO(rp), NIL);
+        res = erts_bld_bin_list(&hp, NULL, &wrt_bins, res);
         for (hfrag = rp->mbuf; hfrag != NULL; hfrag = hfrag->next) {
             res = erts_bld_bin_list(&hp, NULL, &hfrag->off_heap, res);
         }
@@ -2041,6 +2129,10 @@ process_info_aux(Process *c_p,
             hp = erts_produce_heap(hfact, sz, reserve_size);
             res = copy_struct(rp->parent, sz, &hp, hfact->off_heap);
         }
+        break;
+
+    case ERTS_PI_IX_ASYNC_DIST:
+        res = (rp->flags & F_ASYNC_DIST) ? am_true : am_false;
         break;
 
     case ERTS_PI_IX_MAGIC_REF: {
@@ -2654,10 +2746,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = TUPLE2(hp, am_min_heap_size,make_small(H_MIN_SIZE));
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_max_heap_size) {
-        Uint sz = 0;
-        erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, NULL, &sz);
-	hp = HAlloc(BIF_P, sz);
-	res = erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, &hp, NULL);
+        ErtsHeapFactory factory;
+        erts_factory_proc_init(&factory, BIF_P);
+	res = erts_max_heap_size_map(&factory, H_MAX_SIZE, H_MAX_FLAGS);
+        erts_factory_close(&factory);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_min_bin_vheap_size) {
 	hp = HAlloc(BIF_P, 3);
@@ -2699,6 +2791,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = new_binary(BIF_P, (byte *) dsbufp->str, dsbufp->str_len);
 	erts_destroy_info_dsbuf(dsbufp);
 	BIF_RET(res);
+    } else if (am_async_dist == BIF_ARG_1) {
+        BIF_RET((erts_default_spo_flags & SPO_ASYNC_DIST)
+                ? am_true
+                : am_false);
     } else if (ERTS_IS_ATOM_STR("dist_ctrl", BIF_ARG_1)) {
 	DistEntry *dep;
 	i = 0;
@@ -3565,7 +3661,7 @@ fun_info_2(BIF_ALIST_2)
 
     if (is_local_fun(funp)) {
         fe = funp->entry.fun;
-        mfa = erts_get_fun_mfa(fe);
+        mfa = erts_get_fun_mfa(fe, erts_active_code_ix());
     } else {
         ASSERT(is_external_fun(funp) && funp->next == NULL);
         mfa = &(funp->entry.exp)->info.mfa;
@@ -3658,7 +3754,7 @@ fun_info_mfa_1(BIF_ALIST_1)
         hp = HAlloc(p, 4);
 
         if (is_local_fun(funp)) {
-            mfa = erts_get_fun_mfa(funp->entry.fun);
+            mfa = erts_get_fun_mfa(funp->entry.fun, erts_active_code_ix());
 
             if (mfa == NULL) {
                 /* Unloaded funs must report their module even though we can't
@@ -3689,42 +3785,54 @@ BIF_RETTYPE erts_internal_is_process_alive_2(BIF_ALIST_2)
         BIF_ERROR(BIF_P, BADARG);
     if (!erts_proc_sig_send_is_alive_request(BIF_P, BIF_ARG_1, BIF_ARG_2)) {
         if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
-            ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, am_ok);
+            ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, BIF_ARG_1, am_ok);
     }
     BIF_RET(am_ok);
 }
 
 BIF_RETTYPE is_process_alive_1(BIF_ALIST_1) 
 {
+
     if (is_internal_pid(BIF_ARG_1)) {
-        erts_aint32_t state;
+        BIF_RETTYPE result;
         Process *rp;
 
         if (BIF_ARG_1 == BIF_P->common.id)
             BIF_RET(am_true);
 
         rp = erts_proc_lookup_raw(BIF_ARG_1);
-        if (!rp)
-            BIF_RET(am_false);
+        if (!rp) {
+            result = am_false;
+        }
+        else {
+            erts_aint32_t state = erts_atomic32_read_acqb(&rp->state);
+            if (state & (ERTS_PSFLG_EXITING
+                         | ERTS_PSFLG_SIG_Q
+                         | ERTS_PSFLG_SIG_IN_Q)) {
+                /*
+                 * If in exiting state, trap out and send 'is alive'
+                 * request and wait for it to complete termination.
+                 *
+                 * If process has signals enqueued, we need to
+                 * send it an 'is alive' request via its signal
+                 * queue in order to ensure that signal order is
+                 * preserved (we may earlier have sent it an
+                 * exit signal that has not been processed yet).
+                 */
+                BIF_TRAP1(is_process_alive_trap, BIF_P, BIF_ARG_1);
+            }
 
-        state = erts_atomic32_read_acqb(&rp->state);
-        if (state & (ERTS_PSFLG_EXITING
-                     | ERTS_PSFLG_SIG_Q
-                     | ERTS_PSFLG_SIG_IN_Q)) {
-            /*
-             * If in exiting state, trap out and send 'is alive'
-             * request and wait for it to complete termination.
-             *
-             * If process has signals enqueued, we need to
-             * send it an 'is alive' request via its signal
-             * queue in order to ensure that signal order is
-             * preserved (we may earlier have sent it an
-             * exit signal that has not been processed yet).
-             */
-            BIF_TRAP1(is_process_alive_trap, BIF_P, BIF_ARG_1);
+            result = am_true;
         }
 
-        BIF_RET(am_true);
+        if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P)) {
+            /*
+             * Ensure that signal order of signals from inspected
+             * process to us is preserved...
+             */
+            ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, BIF_ARG_1, result);
+        }
+        BIF_RET(result);
     }
 
    if (is_external_pid(BIF_ARG_1)) {
@@ -3733,6 +3841,8 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
    }
 
    BIF_ERROR(BIF_P, BADARG);
+
+   
 }
 
 static Eterm
@@ -4217,10 +4327,10 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			ERTS_ASSERT_IS_NOT_EXITING(BIF_P);
 			BIF_RET(am_undefined);
 		    }
-                    
                     erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
                     erts_proc_sig_fetch(p);
                     erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+                    state = erts_atomic32_read_nob(&BIF_P->state);
                     do {
                         int reds = CONTEXT_REDS;
                         sigs_done = erts_proc_sig_handle_incoming(p,
@@ -4283,10 +4393,11 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			ERTS_ASSERT_IS_NOT_EXITING(BIF_P);
 			BIF_RET(am_undefined);
 		    }
-                    
+
                     erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
                     erts_proc_sig_fetch(p);
                     erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+		    state = erts_atomic32_read_nob(&BIF_P->state);
                     do {
                         int reds = CONTEXT_REDS;
                         sigs_done = erts_proc_sig_handle_incoming(p,
@@ -4564,6 +4675,44 @@ static void
 test_multizero_timeout_in_timeout(void *vproc)
 {
     erts_start_timer_callback(0, test_multizero_timeout_in_timeout2, vproc);
+}
+
+static Eterm
+proc_sig_block(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
+{
+    ErtsMonotonicTime time, timeout_time, ms = (ErtsMonotonicTime) (Sint) arg;
+
+    if (redsp)
+        *redsp = 1;
+
+    time = erts_get_monotonic_time(NULL);
+
+    if (ms < 0)
+	timeout_time = time;
+    else
+	timeout_time = time + ERTS_MSEC_TO_MONOTONIC(ms);
+
+    while (time < timeout_time) {
+        ErtsMonotonicTime timeout = timeout_time - time;
+
+#ifdef __WIN32__
+        Sleep((DWORD) ERTS_MONOTONIC_TO_MSEC(timeout));
+#else
+        {
+            ErtsMonotonicTime to = ERTS_MONOTONIC_TO_USEC(timeout);
+            struct timeval tv;
+
+            tv.tv_sec = (long) to / (1000*1000);
+            tv.tv_usec = (long) to % (1000*1000);
+
+            select(0, NULL, NULL, NULL, &tv);
+        }
+#endif
+
+	time = erts_get_monotonic_time(NULL);
+    }
+
+    return am_ok;
 }
 
 BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
@@ -4887,39 +5036,36 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             BIF_RET(copy);
         }
         else if (ERTS_IS_ATOM_STR("remove_hopefull_dflags", BIF_ARG_1)) {
-            int old_val, new_val;
+            Uint64 new_val;
 
-            switch (BIF_ARG_2) {
-            case am_true: new_val = !0; break;
-            case am_false: new_val = 0; break;
-            default: BIF_ERROR(BIF_P, BADARG); break;
-            }
+            if (!term_to_Uint64(BIF_ARG_2, &new_val)
+                || (new_val & ~DFLAG_DIST_HOPEFULLY))
+                BIF_ERROR(BIF_P, BADARG);
 
             erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             erts_thr_progress_block();
             
-            old_val = erts_dflags_test_remove_hopefull_flags;
             erts_dflags_test_remove_hopefull_flags = new_val;
             
             erts_thr_progress_unblock();
             erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
-            BIF_RET(old_val ? am_true : am_false);
+            BIF_RET(am_ok);
         }
-        else if (ERTS_IS_ATOM_STR("code_write_permission", BIF_ARG_1)) {
+        else if (ERTS_IS_ATOM_STR("code_mod_permission", BIF_ARG_1)) {
             /*
              * Warning: This is a unsafe way of seizing the "lock"
              * as there is no automatic unlock if caller terminates.
              */
             switch(BIF_ARG_2) {
             case am_true:
-                if (!erts_try_seize_code_write_permission(BIF_P)) {
+                if (!erts_try_seize_code_mod_permission(BIF_P)) {
                     ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_set_internal_state_2),
                                     BIF_P, BIF_ARG_1, BIF_ARG_2);
                 }
                 BIF_RET(am_true);
             case am_false:
-                erts_release_code_write_permission();
+                erts_release_code_mod_permission();
                 BIF_RET(am_true);
             }
         }
@@ -4954,6 +5100,43 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 #else
             BIF_RET(am_notsup);
 #endif
+        } else if (ERTS_IS_ATOM_STR("proc_sig_buffers", BIF_ARG_1)) {
+            switch (BIF_ARG_2)
+            {
+            case am_true: {
+                int has_buffers = erts_proc_sig_queue_force_buffers(BIF_P);
+                BIF_RET(has_buffers ? am_true : am_false);
+            }
+            default:
+                break;
+            }
+            BIF_RET(am_notsup);
+        }
+        else if (ERTS_IS_ATOM_STR("process_uniq_counter", BIF_ARG_1)) {
+            Sint64 counter;
+            if (term_to_Sint64(BIF_ARG_2, &counter)) {
+                BIF_P->uniq = counter;
+                BIF_RET(am_ok);
+            }
+        }
+        else if (ERTS_IS_ATOM_STR("proc_sig_block", BIF_ARG_1)) {
+            if (is_tuple_arity(BIF_ARG_2, 2)) {
+                Eterm *tp = tuple_val(BIF_ARG_2);
+                Sint64 time;
+                if (is_internal_pid(tp[1]) && term_to_Sint64(tp[2], &time)) {
+                    ErtsMonotonicTime wait_time = time;
+                    Eterm res;
+
+                    res = erts_proc_sig_send_rpc_request(BIF_P,
+                                                         tp[1],
+                                                         0,
+                                                         proc_sig_block,
+                                                         (void *) (Sint) wait_time);
+                    if (is_non_value(res))
+                        BIF_RET(am_false);
+                    BIF_RET(am_true);
+                }
+            }
         }
     }
 

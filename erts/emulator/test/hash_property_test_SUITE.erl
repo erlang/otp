@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,8 +30,10 @@
 
 -module(hash_property_test_SUITE).
 
--export([suite/0,all/0,groups/0,init_per_suite/1,
-         end_per_suite/1,init_per_group/2,end_per_group/2]).
+-export([suite/0,all/0,groups/0,
+         init_per_testcase/2, end_per_testcase/2,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2]).
 
 -export([test_phash2_no_diff/1,
          test_phash2_no_diff_long/1,
@@ -69,6 +71,11 @@ init_per_group(_, Config) ->
 end_per_group(_, Config) ->
     Config.
 
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
+
 test_phash2_no_diff(Config) when is_list(Config) ->
     true = ct_property_test:quickcheck(
              phash2_properties:prop_phash2_same_with_same_input(),
@@ -81,7 +88,7 @@ test_phash2_no_diff_long(Config) when is_list(Config) ->
 
 test_phash2_no_diff_between_versions(Config) when is_list(Config) ->
     R = integer_to_list(list_to_integer(erlang:system_info(otp_release))-2) ++ "_latest",
-    case ?CT_PEER([], R, proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL([], R, proplists:get_value(priv_dir, Config)) of
         {ok, Peer, Node} ->
             true = ct_property_test:quickcheck(
                      phash2_properties:prop_phash2_same_in_different_versions(Node),

@@ -237,6 +237,27 @@ make_xml(Top, Type, OutFile, InfoText0) ->
     InfoTextMap = maps:from_list(make_xml_info(InfoText0, AttrTag)),
     Collected = make_xml_collect(Depr, RelKey, InfoTextMap, []),
 
+    case Type of
+        "removed" ->
+            {ok, Vsn} = file:read_file(filename:join(Top,"OTP_VERSION")),
+            [Release|_] = string:split(Vsn,"."),
+            lists:foreach(
+              fun({Rel, Functions}) ->
+                      case Rel > binary_to_integer(Release) of
+                          true ->
+                              io:format(standard_error,
+                                        "Some functions have been marked "
+                                        "as removed in the future: ~n~p~n",
+                                        [Functions]),
+                              halt(1);
+                          false ->
+                              ok
+                      end
+              end, Collected);
+        _ ->
+            ok
+    end,
+
     All = make_xml_gen(lists:reverse(Collected), Type, OutDir),
     ok = file:write_file(OutFile, All).
 

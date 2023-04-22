@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 20016-2021. All Rights Reserved.
+%% Copyright Ericsson AB 20016-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 
 %%----------------------------------------------------------------------
 %% Purpose: Manages ssl sessions and trusted certifacates
+%% (Note: See the document internal_doc/pem_and_cert_cache.md for additional
+%% information)
 %%----------------------------------------------------------------------
 
 -module(ssl_pem_cache).
@@ -50,7 +52,6 @@
 	 }).
 
 -define(CLEAR_PEM_CACHE, 120000).
--define(DEFAULT_MAX_SESSION_CACHE, 1000).
 
 %%====================================================================
 %% API

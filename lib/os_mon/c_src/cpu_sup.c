@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -707,7 +707,8 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
 	rv[10] = CU_HARD_IRQ;  rv[11] = cpu_times[CP_INTR + offset];
 	rv += CU_BSD_VALUES*2;
     }
-
+    
+    free((void*) cpu_times);
     *result_sz = 2 + 2*CU_BSD_VALUES * no_of_cpus;
 }
 #endif

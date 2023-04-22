@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@
 %% Undocumented or unsupported
 -export([unrecv/2]).
 -export([fdopen/2]).
+-export([socket_setopts/2]).
 
 
 %% gen_statem callbacks
@@ -108,7 +109,7 @@ connect(Address, Port, Opts, Timeout) ->
 %% Helpers -------
 
 connect_lookup(Address, Port, Opts, Timer) ->
-    Opts_1 = normalize_setopts(Opts),
+    Opts_1 = internalize_setopts(Opts),
     {Mod, Opts_2} = inet:tcp_module(Opts_1, Address),
     Domain = domain(Mod),
     {StartOpts, Opts_3} = split_start_opts(Opts_2),
@@ -250,7 +251,7 @@ default_active_true(Opts) ->
 %% -------------------------------------------------------------------------
 
 listen(Port, Opts) ->
-    Opts_1 = normalize_setopts(Opts),
+    Opts_1 = internalize_setopts(Opts),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
     {StartOpts, Opts_3} = split_start_opts(Opts_2),
     case Mod:getserv(Port) of
@@ -529,14 +530,14 @@ cancel_monitor(MRef) ->
 %% -------------------------------------------------------------------------
 
 setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
-    call(Server, {setopts, normalize_setopts(Opts)}).
+    call(Server, {setopts, internalize_setopts(Opts)}).
 
 
 
 %% -------------------------------------------------------------------------
 
 getopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
-    call(Server, {getopts, normalize_getopts(Opts)}).
+    call(Server, {getopts, internalize_getopts(Opts)}).
 
 
 %% -------------------------------------------------------------------------
@@ -635,7 +636,7 @@ unrecv(?MODULE_socket(_Server, _Socket), _Data) ->
     {error, enotsup}.
 
 fdopen(Fd, Opts) when is_integer(Fd), 0 =< Fd, is_list(Opts) ->
-    Opts_1 = normalize_setopts(Opts),
+    Opts_1 = internalize_setopts(Opts),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
     Domain = domain(Mod),
     {StartOpts, Opts_3} = split_start_opts(Opts_2),
@@ -798,7 +799,7 @@ sockaddrs([IP | IPs], TP, Domain) ->
 %% Reject all other terms by exit(badarg).
 %%
 
-normalize_setopts(Opts) ->
+internalize_setopts(Opts) ->
     [case Opt of
          binary                     -> {mode, binary};
          list                       -> {mode, list};
@@ -811,14 +812,21 @@ normalize_setopts(Opts) ->
             exit(badarg)
      end || Opt <- Opts].
 
-normalize_getopts(Opts) ->
+internalize_getopts(Opts) ->
     [case Opt of
-         Tag when is_atom(Tag)    -> Opt;
-         {raw, _}                 -> Opt;
-         {raw, Level, Key, Value} -> {raw, {Level, Key, Value}};
-         _                        -> exit(badarg)
+         Tag when is_atom(Tag)        -> Opt;
+         {raw, _}                     -> Opt;
+         {raw, Level, Key, ValueSpec} -> {raw, {Level, Key, ValueSpec}};
+         _                            -> exit(badarg)
      end || Opt <- Opts].
 
+externalize_getopts(Opts) ->
+    [case Opt of
+         {raw, {Level, Key, Value}} -> {raw, Level, Key, Value};
+         {Tag, _} when is_atom(Tag) -> Opt;
+         _                          -> exit(badarg)
+     end || Opt <- Opts].
+ 
 %%
 %% -------
 %% Split options into server start options and other options.
@@ -908,13 +916,24 @@ socket_setopt(Socket, DomainProps, Value) when is_list(DomainProps) ->
 
 socket_setopt_value({socket,linger}, {OnOff, Linger}) ->
     #{onoff => OnOff, linger => Linger};
+socket_setopt_value({socket,bindtodevice}, DeviceBin)
+  when is_binary(DeviceBin) ->
+    %% Currently: 
+    %% prim_inet: Require that device is a binary()
+    %% socket:    Require that device is a string()
+    binary_to_list(DeviceBin);
 socket_setopt_value(_Opt, Value) -> Value.
 
 
 socket_getopt(Socket, raw, Val) ->
     case Val of
         {Level, Key, ValueSpec} ->
-            socket:getopt_native(Socket, {Level,Key}, ValueSpec);
+            case socket:getopt_native(Socket, {Level,Key}, ValueSpec) of
+                {ok, Value} ->
+                    {ok, {Level, Key, Value}};
+                {error, _} = ERROR ->
+                    ERROR
+            end;
         _ ->
             {error, einval}
     end;
@@ -991,6 +1010,7 @@ ignore_optname(Tag) ->
         high_msgq_watermark -> true;
         high_watermark      -> true;
         low_msgq_watermark  -> true;
+        low_watermark       -> true;
         nopush              -> true;
         _ -> false
     end.
@@ -1011,7 +1031,6 @@ socket_opts() ->
       dontroute      => {socket, dontroute},
       keepalive      => {socket, keepalive},
       linger         => {socket, linger},
-      low_watermark  => {socket, rcvlowat},
       priority       => {socket, priority},
       recbuf         => {socket, rcvbuf},
       reuseaddr      => {socket, reuseaddr},
@@ -1133,7 +1152,7 @@ call(Server, Call) ->
     end.
 
 stop_server(Server) ->
-    try gen_statem:stop(Server) of
+    try gen_statem:stop(Server, {shutdown, closed}, infinity) of
         _ -> ok
     catch
         _:_ -> ok
@@ -1417,7 +1436,12 @@ handle_event({call, From}, close, State, {P, D} = P_D) ->
 %% Call: getopts/1
 handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
     %% ?DBG({call, getopts, Opts, State, D}),
-    Result = state_getopts(P, D, State, Opts),
+    Result = case state_getopts(P, D, State, Opts) of
+                 {ok, OptVals} ->
+                     {ok, externalize_getopts(OptVals)};
+                 {error, _} = ERROR ->
+                     ERROR
+             end,
     %% ?DBG({call, getopts_result, Result}),
     {keep_state_and_data,
      [{reply, From, Result}]};
@@ -1701,9 +1725,19 @@ handle_event(Type, Content, State, P_D) ->
 %% Event handler helpers
 
 
-%% We only accept/perform shutdown when socket is 'connected'.
+%% We only accept/perform shutdown when socket is 'connected'
+%% We only accept/perform shutdown when socket is 'connected'
+%% (or closed_read | closed_write).
 %% This is done to be "compatible" with the inet-driver!
 
+handle_shutdown(#params{socket = Socket},
+                closed_write = _State,
+                read = How) ->
+    handle_shutdown2(Socket, closed_read_write, How);
+handle_shutdown(#params{socket = Socket},
+                closed_read = _State,
+                write = How) ->
+    handle_shutdown2(Socket, closed_read_write, How);
 handle_shutdown(#params{socket = Socket},
                 connected = _State,
                 write = How) ->
@@ -1741,9 +1775,12 @@ handle_shutdown2(Socket, NextState, How) ->
 
 
 handle_unexpected(Type, Content, State, {P, _D}) ->
-    warning_report([{socket,        P#params.socket},
-                    {unknown_event, {Type, Content}},
-                    {state,         State}]),
+    warning_msg("Received unexpected event:"
+                "~n   Socket:     ~p"
+                "~n   State:      ~p"
+                "~n   Event Type: ~p"
+                "~n   Content:    ~p",
+                [P#params.socket, State, Type, Content]),
     case Type of
         {call, From} ->
             {keep_state_and_data,
@@ -1758,9 +1795,12 @@ handle_closed(Type, Content, State, {P, _D}) ->
             {keep_state_and_data,
              [{reply, From, {error, closed}}]};
         _ ->
-            warning_report([{socket,        P#params.socket},
-                            {unknown_event, {Type, Content}},
-                            {state,         State}]),
+            warning_msg("Received unexpected event when closed:"
+                        "~n   Socket:     ~p"
+                        "~n   State:      ~p"
+                        "~n   Event Type: ~p"
+                        "~n   Content:    ~p",
+                        [P#params.socket, State, Type, Content]),
             keep_state_and_data
     end.
 
@@ -2459,6 +2499,32 @@ tag(Packet) ->
             tcp
     end.
 
+
+%% -------
+%% Exported socket option translation
+%%
+socket_setopts(Socket, Opts) ->
+    socket_setopts(
+      Socket,
+      [Opt ||
+          Opt <- internalize_setopts(Opts),
+          element(1, Opt) =/= tcp_module],
+      socket_opts()).
+%%
+socket_setopts(_Socket, [], _SocketOpts) ->
+    ok;
+socket_setopts(Socket, [{Tag,Val} | Opts], SocketOpts) ->
+    case SocketOpts of
+        #{ Tag := Name } ->
+            %% Ignore all errors as an approximation for
+            %% inet_drv ignoring most errors
+            _ = socket_setopt(Socket, Name, Val),
+            socket_setopts(Socket, Opts, SocketOpts);
+        #{} -> % Ignore
+            socket_setopts(Socket, Opts, SocketOpts)
+    end.
+
+
 %% -------
 %% setopts in server
 %%
@@ -2618,7 +2684,7 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
                     %% ?DBG({'socket getopt', Tag}),
                     case
                         socket_getopt(
-                          Socket, maps:get(Tag, SocketOpts), Val)
+                          Socket, maps:get(Key, SocketOpts), Val)
                     of
                         {ok, Value} ->
                             %% ?DBG({'socket getopt', ok, Value}),
@@ -2827,8 +2893,8 @@ warning_msg(F, A) ->
 error_report(Report) ->
     error_logger:error_report(Report).
 
-warning_report(Report) ->
-    error_logger:warning_report([{module, ?MODULE}|Report]).
+%% warning_report(Report) ->
+%%     error_logger:warning_report([{module, ?MODULE}|Report]).
 
 
 

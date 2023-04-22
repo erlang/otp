@@ -994,9 +994,9 @@ public:
   }
 
   //! Tests whether the `op` is a general purpose register of the given `id`.
-  static inline bool isGp(const Operand_& op, uint32_t id) noexcept { return isGp(op) & (op.id() == id); }
+  static inline bool isGp(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isGp(op)) & unsigned(op.id() == id)); }
   //! Tests whether the `op` is a vector register of the given `id`.
-  static inline bool isVec(const Operand_& op, uint32_t id) noexcept { return isVec(op) & (op.id() == id); }
+  static inline bool isVec(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isVec(op)) & unsigned(op.id() == id)); }
 
   //! \}
 };
@@ -1082,19 +1082,19 @@ template<>                                                                   \
 struct RegTraits<REG_TYPE> {                                                 \
   typedef REG RegT;                                                          \
                                                                              \
-  enum : uint32_t {                                                          \
-    kValid = uint32_t(true),                                                 \
-    kCount = uint32_t(COUNT),                                                \
-    kType = uint32_t(REG_TYPE),                                              \
-    kGroup = uint32_t(GROUP),                                                \
-    kSize = uint32_t(SIZE),                                                  \
-    kTypeId = uint32_t(TYPE_ID),                                             \
+  static constexpr uint32_t kValid = 1;                                      \
+  static constexpr uint32_t kCount = COUNT;                                  \
+  static constexpr RegType kType = REG_TYPE;                                 \
+  static constexpr RegGroup kGroup = GROUP;                                  \
+  static constexpr uint32_t kSize = SIZE;                                    \
+  static constexpr TypeId kTypeId = TYPE_ID;                                 \
                                                                              \
-    kSignature = (OperandSignature::fromOpType(OperandType::kReg) |          \
-                  OperandSignature::fromRegType(REG_TYPE)         |          \
-                  OperandSignature::fromRegGroup(GROUP)           |          \
-                  OperandSignature::fromSize(kSize)).bits(),                 \
-  };                                                                         \
+  static constexpr uint32_t kSignature =                                     \
+    (OperandSignature::fromOpType(OperandType::kReg) |                       \
+     OperandSignature::fromRegType(kType)            |                       \
+     OperandSignature::fromRegGroup(kGroup)          |                       \
+     OperandSignature::fromSize(kSize)).bits();                              \
+                                                                             \
 }
 
 //! Adds constructors and member functions to a class that implements abstract register. Abstract register is register
@@ -1135,12 +1135,10 @@ public:                                                                      \
 //! signature.
 #define ASMJIT_DEFINE_FINAL_REG(REG, BASE, TRAITS)                           \
 public:                                                                      \
-  enum : uint32_t {                                                          \
-    kThisType  = TRAITS::kType,                                              \
-    kThisGroup = TRAITS::kGroup,                                             \
-    kThisSize  = TRAITS::kSize,                                              \
-    kSignature = TRAITS::kSignature                                          \
-  };                                                                         \
+  static constexpr RegType kThisType = TRAITS::kType;                        \
+  static constexpr RegGroup kThisGroup = TRAITS::kGroup;                     \
+  static constexpr uint32_t kThisSize  = TRAITS::kSize;                      \
+  static constexpr uint32_t kSignature = TRAITS::kSignature;                 \
                                                                              \
   ASMJIT_DEFINE_ABSTRACT_REG(REG, BASE)                                      \
                                                                              \

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -254,7 +254,7 @@ extern Uint erts_instr_count[];
 
 extern int H_MIN_SIZE;		/* minimum (heap + stack) */
 extern int BIN_VH_MIN_SIZE;	/* minimum virtual (bin) heap */
-extern int H_MAX_SIZE;          /* maximum (heap + stack) */
+extern Uint H_MAX_SIZE;          /* maximum (heap + stack) */
 extern int H_MAX_FLAGS;         /* maximum heap flags  */
 
 extern int erts_atom_table_size;/* Atom table size */
@@ -298,8 +298,8 @@ extern void** beam_ops;
 
 #ifndef BEAMASM
 
-#define BeamIsReturnTimeTrace(w) \
-    BeamIsOpCode(*(const BeamInstr*)(w), op_i_return_time_trace)
+#define BeamIsReturnCallAccTrace(w) \
+    BeamIsOpCode(*(const BeamInstr*)(w), op_i_call_trace_return)
 #define BeamIsReturnToTrace(w) \
     BeamIsOpCode(*(const BeamInstr*)(w), op_i_return_to_trace)
 #define BeamIsReturnTrace(w) \
@@ -307,8 +307,8 @@ extern void** beam_ops;
 
 #else /* BEAMASM */
 
-#define BeamIsReturnTimeTrace(w) \
-    ((w) == beam_return_time_trace)
+#define BeamIsReturnCallAccTrace(w) \
+    ((w) == beam_call_trace_return)
 #define BeamIsReturnToTrace(w) \
     ((w) == beam_return_to_trace)
 #define BeamIsReturnTrace(w) \
@@ -316,9 +316,14 @@ extern void** beam_ops;
 
 #endif /* BEAMASM */
 
+/* Stack frame sizes (not including CP_SIZE) */
+#define BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ 2
+#define BEAM_RETURN_TO_TRACE_FRAME_SZ   0
+#define BEAM_RETURN_TRACE_FRAME_SZ      2
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE
-int erts_cp_size()
+int erts_cp_size(void)
 {
     if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
         return 1;

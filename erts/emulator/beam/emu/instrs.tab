@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2022. All Rights Reserved.
+// Copyright Ericsson AB 2017-2023. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -762,6 +762,30 @@ self(Dst) {
     $Dst = c_p->common.id;
 }
 
+i_update_record(Size, Src, Dst, Offset, Element) {
+    Eterm *untagged_source = tuple_val($Src);
+    Uint size_on_heap = $Size + 1;
+
+    /* Copy the entire tuple up-front, mimicking the behavior of the old
+     * setelement/3 + set_tuple_element method. This overwrites every field
+     * we're setting, but that cost is generally pretty small. */
+    sys_memcpy(HTOP, untagged_source, size_on_heap * sizeof(Eterm));
+    HTOP[$Offset] = $Element;
+
+    /* We stash the contents of the destination register in SCRATCH_X_REG in
+     * case it's used in subsequent `i_update_record_continue` instructions.
+     * The updates have been rewritten accordingly. */
+    reg[SCRATCH_X_REG] = $Dst;
+    $Dst = make_tuple(HTOP);
+
+    HTOP += size_on_heap;
+}
+
+i_update_record_continue(OffsetFromEnd, Element) {
+    Sint offset = -(Sint)$OffsetFromEnd;
+    HTOP[offset] = $Element;
+}
+
 set_tuple_element(Element, Tuple, Offset) {
     Eterm* p;
 
@@ -1124,6 +1148,7 @@ catch_end(Y) {
                 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
                 PROCESS_MAIN_CHK_LOCKS(c_p);
                 SWAPIN;
+                $MAYBE_EXIT_AFTER_GC();
             }
             r(0) = TUPLE2(HTOP, am_EXIT, x(1));
             HTOP += 3;

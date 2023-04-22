@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@
 
 -export([all/0, suite/0, groups/0]).
 
--export([unused_vars_warn_basic/1,
+-export([singleton_type_var_errors/1,
+         unused_vars_warn_basic/1,
          unused_vars_warn_lc/1,
          unused_vars_warn_rec/1,
          unused_vars_warn_fun/1,
@@ -49,7 +50,8 @@
          unsafe_vars_try/1,
          unsized_binary_in_bin_gen_pattern/1,
          guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
-         otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
+         otp_5362/1, otp_5371/1, otp_7227/1, binary_aliases/1,
+         otp_5494/1, otp_5644/1, otp_5878/1,
          otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
          otp_11772/1, otp_11771/1, otp_11872/1,
          export_all/1,
@@ -65,7 +67,7 @@
          maps/1,maps_type/1,maps_parallel_match/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
          record_errors/1, otp_11879_cont/1,
-         non_latin1_module/1, otp_14323/1,
+         non_latin1_module/1, illegal_module_name/1, otp_14323/1,
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
@@ -78,7 +80,9 @@
          underscore_match/1,
          unused_record/1,
          unused_type2/1,
-         eep49/1]).
+         eep49/1,
+         redefined_builtin_type/1,
+         tilde_k/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -90,7 +94,7 @@ all() ->
      unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
      unsized_binary_in_bin_gen_pattern,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
-     otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
+     otp_5362, otp_5371, otp_7227, binary_aliases, otp_5494, otp_5644,
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,
      otp_11772, otp_11771, otp_11872, export_all,
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
@@ -98,14 +102,18 @@ all() ->
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
-     record_errors, otp_11879_cont, non_latin1_module, otp_14323,
+     record_errors, otp_11879_cont,
+     non_latin1_module, illegal_module_name, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563, unused_type, binary_types, removed, otp_16516,
      undefined_nifs,
      no_load_nif,
      inline_nifs, warn_missing_spec, otp_16824,
      underscore_match, unused_record, unused_type2,
-     eep49].
+     eep49,
+     redefined_builtin_type,
+     tilde_k,
+     singleton_type_var_errors].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -165,7 +173,13 @@ c(A) ->
               g({M, F}) -> (Z=M):(Z=F)();
               g({M, F, Arg}) -> (Z=M):F(Z=Arg).
               h(X, Y) -> (Z=X) + (Z=Y).">>,
-           [warn_unused_vars], []}],
+           [warn_unused_vars], []},
+          {basic3,
+           <<"f(E) ->
+                  X = Y = E.">>,
+           [warn_unused_vars],
+           {warnings,[{{2,19},erl_lint,{unused_var,'X'}},
+                      {{2,23},erl_lint,{unused_var,'Y'}}]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -296,7 +310,7 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
               j(X) ->
                   [foo || X <- X, % X shadowed.
                         X <-    % X shadowed. X unused.
-                             X = 
+                             X =
                                  Y = [[1,2,3]], % Y unused.
                         X <- [], % X shadowed.
                         X <- X]. % X shadowed. X unused.
@@ -891,6 +905,110 @@ unused_import(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
+%% Test singleton type variables
+singleton_type_var_errors(Config) when is_list(Config) ->
+    Ts = [ {singleton_error1
+           , <<"-spec test_singleton_typevars_in_union(Opts) -> term() when
+                      Opts :: {ok, Unknown} | {error, Unknown}.
+                test_singleton_typevars_in_union(_) ->
+                  error.
+             ">>
+           , []
+           , {  errors
+             , [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]
+             , []
+             }
+           }
+         , { singleton_error2
+           , <<"-spec test_singleton_list_typevars_in_union([Opts]) -> term() when
+                      Opts :: {ok, Unknown} | {error, Unknown}.
+                test_singleton_list_typevars_in_union(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]
+             , []
+             }
+           }
+         , { singleton_error3
+           , <<"-spec test_singleton_list_typevars_in_list([Opts]) -> term() when
+                      Opts :: {ok, Unknown}.
+                test_singleton_list_typevars_in_list(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]
+             , []
+             }
+           }
+         , { singleton_error4
+           , <<"-spec test_singleton_list_typevars_in_list_with_type_subst([{ok, Unknown}]) -> term().
+                test_singleton_list_typevars_in_list_with_type_subst(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{1,86},erl_lint,{singleton_typevar,'Unknown'}}]
+             , []
+             }
+           }
+         , { singleton_error5
+           , <<"-spec test_singleton_buried_typevars_in_union(Opts) -> term() when
+                      Opts :: {ok, Foo} | {error, Foo},
+                      Foo  :: {true, X} | {false, X}.
+                test_singleton_buried_typevars_in_union(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{3,38},erl_lint,{singleton_typevar,'X'}}]
+             , []
+             }
+           }
+         , { singleton_error6
+           , <<"-spec test_multiple_subtypes_to_same_typevar(Opts) -> term() when
+                      Opts :: {Foo, Bar} | Y,
+                      Foo  :: X,
+                      Bar  :: X,
+                      Y    :: Z.
+                test_multiple_subtypes_to_same_typevar(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{5,31},erl_lint,{singleton_typevar,'Z'}}]
+             , []
+             }
+           }
+         , { singleton_error7
+           , <<"-spec test_duplicate_non_terminal_var_in_union(Opts) -> term() when
+                      Opts :: {ok, U, U} | {error, U, U},
+                      U    :: Foo.
+                test_duplicate_non_terminal_var_in_union(_) ->
+                    error.">>
+           , []
+           , {  errors
+             , [{{3,31},erl_lint,{singleton_typevar,'Foo'}}]
+             , []
+             }
+           }
+         , { singleton_ok1
+           , <<"-spec test_multiple_occurrences_singleton(Opts) -> term() when
+                      Opts :: {Foo, Foo}.
+                test_multiple_occurrences_singleton(_) ->
+                    ok.">>
+           , []
+           , []
+           }
+         , { singleton_ok2
+           , <<"-spec id(X) -> X.
+                id(X) ->
+                    X.">>
+           , []
+           , []
+           }
+
+         ],
+    [] = run(Config, Ts),
+    ok.
+
 %% Test warnings for unused functions.
 unused_function(Config) when is_list(Config) ->
     Ts = [{func1,
@@ -965,13 +1083,13 @@ binary_types(Config) when is_list(Config) ->
     Ts = [{binary1,
            <<"-type nonempty_binary() :: term().">>,
            [nowarn_unused_type],
-           {errors,[{{1,22},erl_lint,
-                     {builtin_type,{nonempty_binary,0}}}],[]}},
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{nonempty_binary,0}}}]}},
           {binary2,
            <<"-type nonempty_bitstring() :: term().">>,
            [nowarn_unused_type],
-           {errors,[{{1,22},erl_lint,
-                     {builtin_type,{nonempty_bitstring,0}}}],[]}}],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{nonempty_bitstring,0}}}]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -1651,8 +1769,20 @@ guard(Config) when is_list(Config) ->
             [],
             {error,
 	     [{{2,26},erl_lint,{obsolete_guard_overridden,port}}],
-	     [{{2,26},erl_lint,{obsolete_guard,{port,1}}}]}}
-	  ],
+	     [{{2,26},erl_lint,{obsolete_guard,{port,1}}}]}},
+           {guard11,
+            <<"-record(bar, {a = mk_a()}).
+               mk_a() -> 1.
+
+               test_rec(Rec) when Rec =:= #bar{} -> true.
+               map_pattern(#{#bar{} := _}) -> ok.
+              ">>,
+            [],
+            {errors,
+             [{{4,43},erl_lint,{illegal_guard_local_call,{mk_a,0}}},
+              {{5,30},erl_lint,{illegal_guard_local_call,{mk_a,0}}}],
+             []}}
+          ],
     [] = run(Config, Ts1),
     ok.
 
@@ -2283,22 +2413,22 @@ otp_15456(Config) when is_list(Config) ->
     ok.
 
 %% OTP-5371. Aliases for bit syntax expressions are no longer allowed.
+%% GH-6348/OTP-18297: Updated for OTP 26 to allow aliases.
 otp_5371(Config) when is_list(Config) ->
     Ts = [{otp_5371_1,
            <<"t(<<A:8>> = <<B:8>>) ->
                   {A,B}.
              ">>,
 	   [],
-	   {errors,[{{1,23},erl_lint,illegal_bin_pattern}],[]}},
+           []},
 	  {otp_5371_2,
            <<"x([<<A:8>>] = [<<B:8>>]) ->
                   {A,B}.
               y({a,<<A:8>>} = {b,<<B:8>>}) ->
                   {A,B}.
              ">>,
-	   [],
-	   {errors,[{{1,24},erl_lint,illegal_bin_pattern},
-		    {{3,20},erl_lint,illegal_bin_pattern}],[]}},
+           [],
+           {warnings,[{{3,15},v3_core,{nomatch,pattern}}]}},
 	  {otp_5371_3,
            <<"-record(foo, {a,b,c}).
               -record(bar, {x,y,z}).
@@ -2315,11 +2445,10 @@ otp_5371(Config) when is_list(Config) ->
                   {X,Y}.
              ">>,
 	   [],
-	   {errors,[{{4,26},erl_lint,illegal_bin_pattern},
-		    {{6,26},erl_lint,illegal_bin_pattern},
-		    {{8,26},erl_lint,illegal_bin_pattern},
-		    {{10,30},erl_lint,illegal_bin_pattern},
-		    {{12,30},erl_lint,illegal_bin_pattern}],[]}},
+           {warnings,[{{4,15},v3_core,{nomatch,pattern}},
+                      {{8,15},v3_core,{nomatch,pattern}},
+                      {{10,15},v3_core,{nomatch,pattern}},
+                      {{12,15},v3_core,{nomatch,pattern}}]}},
 	  {otp_5371_4,
            <<"-record(foo, {a,b,c}).
               -record(bar, {x,y,z}).
@@ -2339,42 +2468,41 @@ otp_5371(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
-%% OTP_7227. Some aliases for bit syntax expressions were still allowed.
+%% OTP-7227. Some aliases for bit syntax expressions were still allowed.
+%% GH-6348/OTP-18297: Updated for OTP 26 to allow aliases.
 otp_7227(Config) when is_list(Config) ->
     Ts = [{otp_7227_1,
            <<"t([<<A:8>> = {C,D} = <<B:8>>]) ->
                   {A,B,C,D}.
              ">>,
 	   [],
-	   {errors,[{{1,42},erl_lint,illegal_bin_pattern}],[]}},
+           {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_2,
            <<"t([(<<A:8>> = {C,D}) = <<B:8>>]) ->
                   {A,B,C,D}.
              ">>,
 	   [],
-	   {errors,[{{1,25},erl_lint,illegal_bin_pattern}],[]}},
+	   {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_3,
            <<"t([(<<A:8>> = {C,D}) = (<<B:8>> = <<C:8>>)]) ->
                   {A,B,C,D}.
              ">>,
 	   [],
-	   {errors,[{{1,45},erl_lint,illegal_bin_pattern},
-		    {{1,45},erl_lint,illegal_bin_pattern},
-		    {{1,55},erl_lint,illegal_bin_pattern}],[]}},
+           {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_4,
            <<"t(Val) ->
                   <<A:8>> = <<B:8>> = Val,
                   {A,B}.
              ">>,
 	   [],
-	   {errors,[{{2,19},erl_lint,illegal_bin_pattern}],[]}},
+	   []},
 	  {otp_7227_5,
            <<"t(Val) ->
                   <<A:8>> = X = <<B:8>> = Val,
                   {A,B,X}.
              ">>,
 	   [],
-	   {errors,[{{2,19},erl_lint,illegal_bin_pattern}],[]}},
+	   []},
 	  {otp_7227_6,
            <<"t(X, Y) ->
                   <<A:8>> = <<X:4,Y:4>>,
@@ -2388,24 +2516,67 @@ otp_7227(Config) when is_list(Config) ->
                   {A,B,X}.
              ">>,
 	   [],
-	   {errors,[{{2,36},erl_lint,illegal_bin_pattern},
-		    {{2,36},erl_lint,illegal_bin_pattern},
-		    {{2,46},erl_lint,illegal_bin_pattern}],[]}},
-	  {otp_7227_8,
+           []},
+          {otp_7227_8,
            <<"t(Val) ->
                   (<<A:8>> = X) = (Y = <<B:8>>) = Val,
                   {A,B,X,Y}.
              ">>,
 	   [],
-	   {errors,[{{2,40},erl_lint,illegal_bin_pattern}],[]}},
+	   []},
 	  {otp_7227_9,
            <<"t(Val) ->
                   (Z = <<A:8>> = X) = (Y = <<B:8>> = W) = Val,
                   {A,B,X,Y,Z,W}.
              ">>,
 	   [],
-	   {errors,[{{2,44},erl_lint,illegal_bin_pattern}],[]}}
+           []}
 	 ],
+    [] = run(Config, Ts),
+    ok.
+
+%% GH-6348/OTP-18297: Allow aliases of binary patterns.
+binary_aliases(Config) when is_list(Config) ->
+    Ts = [{binary_aliases_1,
+           <<"t([<<Size:8,_/bits>> = <<_:8,Data:Size/bits>>]) ->
+                  Data.
+             ">>,
+	   [],
+           {errors,[{{1,55},erl_lint,{unbound_var,'Size'}}],[]}},
+          {binary_aliases_2,
+           <<"t(#{key := <<Size:8,_/bits>>} = #{key := <<_:8,Data:Size/bits>>}) ->
+                  Data.
+             ">>,
+	   [],
+           {errors,[{{1,73},erl_lint,{unbound_var,'Size'}}],[]}},
+          {binary_aliases_3,
+           <<"t(<<_:8,Data:Size/bits>> = <<Size:8,_/bits>>) ->
+                  Data.
+             ">>,
+	   [],
+           {errors,[{{1,34},erl_lint,{unbound_var,'Size'}}],[]}},
+          {binary_aliases_4,
+           <<"t([<<_:8,Data:Size/bits>> = <<Size:8,_/bits>>]) ->
+                  Data.
+             ">>,
+	   [],
+           {errors,[{{1,35},erl_lint,{unbound_var,'Size'}}],[]}},
+          {binary_aliases_5,
+           <<"t(Bin) ->
+                  <<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>> = Bin,
+                  {A,B,Size}.
+             ">>,
+           [],
+           []},
+          {binary_aliases_6,
+           <<"t(<<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>>) ->
+                  {A,B,Size}.
+             ">>,
+           [],
+           {errors,[{{1,31},erl_lint,{unbound_var,'Size'}},
+                    {{1,48},erl_lint,{unbound_var,'Size'}}],
+            []}}
+         ],
     [] = run(Config, Ts),
     ok.
 
@@ -2767,14 +2938,6 @@ otp_10436(Config) when is_list(Config) ->
     {warnings,[{{4,14},erl_lint,{not_exported_opaque,{t2,0}}},
                {{4,14},erl_lint,{unused_type,{t2,0}}}]} =
         run_test2(Config, Ts, []),
-    Ts2 = <<"-module(otp_10436_2).
-             -export_type([t1/0, t2/0]).
-             -opaque t1() :: term().
-             -opaque t2() :: any().
-         ">>,
-    {warnings,[{{3,15},erl_lint,{underspecified_opaque,{t1,0}}},
-               {{4,15},erl_lint,{underspecified_opaque,{t2,0}}}]} =
-        run_test2(Config, Ts2, []),
     ok.
 
 %% OTP-11254. M:F/A could crash the linter.
@@ -2809,9 +2972,9 @@ otp_11772(Config) when is_list(Config) ->
             t() ->
                 1.
          ">>,
-    {errors,[{{7,14},erl_lint,{builtin_type,{node,0}}},
-             {{8,14},erl_lint,{builtin_type,{mfa,0}}}],
-     []} = run_test2(Config, Ts, []),
+    {warnings,[{{7,14},erl_lint,{redefine_builtin_type,{node,0}}},
+               {{8,14},erl_lint,{redefine_builtin_type,{mfa,0}}}]} =
+        run_test2(Config, Ts, []),
     ok.
 
 %% OTP-11771. Do not allow redefinition of the types arity(_) &c..
@@ -2834,11 +2997,11 @@ otp_11771(Config) when is_list(Config) ->
             t() ->
                 1.
          ">>,
-    {errors,[{{7,14},erl_lint,{builtin_type,{arity,0}}},
-             {{8,14},erl_lint,{builtin_type,{bitstring,0}}},
-             {{9,14},erl_lint,{builtin_type,{iodata,0}}},
-             {{10,14},erl_lint,{builtin_type,{boolean,0}}}],
-     []} = run_test2(Config, Ts, []),
+    {warnings,[{{7,14},erl_lint,{redefine_builtin_type,{arity,0}}},
+               {{8,14},erl_lint,{redefine_builtin_type,{bitstring,0}}},
+               {{9,14},erl_lint,{redefine_builtin_type,{iodata,0}}},
+               {{10,14},erl_lint,{redefine_builtin_type,{boolean,0}}}]} =
+        run_test2(Config, Ts, []),
     ok.
 
 %% OTP-11872. The type map() undefined when exported.
@@ -2850,15 +3013,16 @@ otp_11872(Config) when is_list(Config) ->
 
             -export_type([map/0, product/0]).
 
-            -opaque map() :: dict().
+            -opaque map() :: unknown_type().
 
             -spec t() -> map().
 
             t() ->
                 1.
          ">>,
-    {errors,[{{6,14},erl_lint,{undefined_type,{product,0}}},
-             {{8,14},erl_lint,{builtin_type,{map,0}}}], []} =
+    {error,[{{6,14},erl_lint,{undefined_type,{product,0}}},
+            {{8,30},erl_lint,{undefined_type,{unknown_type,0}}}],
+     [{{8,14},erl_lint,{redefine_builtin_type,{map,0}}}]} =
         run_test2(Config, Ts, []),
     ok.
 
@@ -3868,35 +4032,61 @@ maps_type(Config) when is_list(Config) ->
 	    t(M) -> M.
 	 ">>,
 	 [],
-	 {errors,[{{3,7},erl_lint,{builtin_type,{map,0}}}],[]}}],
+         {warnings,[{{3,7},erl_lint,{redefine_builtin_type,{map,0}}}]}}],
     [] = run(Config, Ts),
     ok.
 
+%% GH-6348/OTP-18297: In OTP 26 parallel matching of maps
+%% has been extended.
 maps_parallel_match(Config) when is_list(Config) ->
-    Ts = [{parallel_map_patterns_unbound1,
+    Ts = [{parallel_map_patterns_unbound,
            <<"
            t(#{} = M) ->
-               #{K := V} = #{k := K} = M,
+               #{k := K} = #{K := V} = M,
                V.
            ">>,
            [],
-           {errors,[{{3,18},erl_lint,{unbound_var,'K'}}],[]}},
-          {parallel_map_patterns_unbound2,
+           {errors,[{{3,30},erl_lint,{unbound_var,'K'}}],[]}},
+          {parallel_map_patterns_not_toplevel1,
            <<"
            t(#{} = M) ->
+               [#{K1 := V1} =
+                #{K2 := V2} =
+                #{k1 := K1,k2 := K2}] = [M],
+               [V1,V2].
+           ">>,
+           [],
+           {errors,[{{3,19},erl_lint,{unbound_var,'K1'}},
+                    {{4,19},erl_lint,{unbound_var,'K2'}}],[]}},
+          {parallel_map_patterns_unbound_not_toplevel2,
+           <<"
+           t(#{} = M) ->
+               [#{k := K} = #{K := V}] = [M],
+               V.
+           ">>,
+           [],
+           {errors,[{{3,31},erl_lint,{unbound_var,'K'}}],[]}},
+          {parallel_map_patterns_bound1,
+           <<"
+           t(#{} = M,K1,K2) ->
                #{K1 := V1} =
                #{K2 := V2} =
                #{k1 := K1,k2 := K2} = M,
                [V1,V2].
            ">>,
            [],
-           {errors,[{{3,18},erl_lint,{unbound_var,'K1'}},
-                    {{3,18},erl_lint,{unbound_var,'K1'}},
-                    {{4,18},erl_lint,{unbound_var,'K2'}},
-                    {{4,18},erl_lint,{unbound_var,'K2'}}],[]}},
-          {parallel_map_patterns_bound,
+           []},
+          {parallel_map_patterns_bound2,
            <<"
-           t(#{} = M,K1,K2) ->
+           t(#{} = M) ->
+               #{K := V} = #{k := K} = M,
+               V.
+           ">>,
+           [],
+           []},
+          {parallel_map_patterns_bound3,
+           <<"
+           t(#{} = M) ->
                #{K1 := V1} =
                #{K2 := V2} =
                #{k1 := K1,k2 := K2} = M,
@@ -4100,9 +4290,10 @@ otp_11879_cont(Config) ->
 %% OTP-14285: We currently don't support non-latin1 module names.
 
 non_latin1_module(Config) ->
-    do_non_latin1_module('юникод'),
-    do_non_latin1_module(list_to_atom([256,$a,$b,$c])),
-    do_non_latin1_module(list_to_atom([$a,$b,256,$c])),
+    Expected = [non_latin1_module_unsupported],
+    Expected = check_module_name('юникод'),
+    Expected = check_module_name(list_to_atom([256,$a,$b,$c])),
+    Expected = check_module_name(list_to_atom([$a,$b,256,$c])),
 
     "module names with non-latin1 characters are not supported" =
         format_error(non_latin1_module_unsupported),
@@ -4161,16 +4352,48 @@ non_latin1_module(Config) ->
     run(Config, Ts),
     ok.
 
-do_non_latin1_module(Mod) ->
+illegal_module_name(_Config) ->
+    [empty_module_name] = check_module_name(''),
+
+    [ctrl_chars_in_module_name] = check_module_name('\x00'),
+    [ctrl_chars_in_module_name] = check_module_name('abc\x1F'),
+    [ctrl_chars_in_module_name] = check_module_name('\x7F'),
+    [ctrl_chars_in_module_name] = check_module_name('abc\x80'),
+    [ctrl_chars_in_module_name] = check_module_name('abc\x80xyz'),
+    [ctrl_chars_in_module_name] = check_module_name('\x9Fxyz'),
+
+    [ctrl_chars_in_module_name,
+     non_latin1_module_unsupported] = check_module_name('атом\x00'),
+
+    [blank_module_name] = check_module_name(' '),
+    [blank_module_name] = check_module_name('\xA0'),
+    [blank_module_name] = check_module_name('\xAD'),
+    [blank_module_name] = check_module_name('  \xA0\xAD '),
+
+    %% White space and soft hyphens are OK if there are visible
+    %% characters in the name.
+    ok = check_module_name(' abc '),
+    ok = check_module_name('abc '),
+    ok = check_module_name(' abc '),
+    ok = check_module_name(' abc xyz '),
+    ok = check_module_name(' abc\xADxyz '),
+
+    ok.
+
+check_module_name(Mod) ->
     File = atom_to_list(Mod) ++ ".erl",
     L1 = erl_anno:new(1),
     Forms = [{attribute,L1,file,{File,1}},
              {attribute,L1,module,Mod},
              {eof,2}],
-    error = compile:forms(Forms),
-    {error,_,[]} = compile:forms(Forms, [return]),
-    ok.
-
+    _ = compile:forms(Forms),
+    case compile:forms(Forms, [return]) of
+        {error,Errors,[]} ->
+            [{_ModName,L}] = Errors,
+            lists:sort([Reason || {1,erl_lint,Reason} <- L]);
+        {ok,Mod,Code,Ws} when is_binary(Code), is_list(Ws)  ->
+            ok
+    end.
 
 otp_14378(Config) ->
     Ts = [
@@ -4202,8 +4425,8 @@ otp_14323(Config) ->
 
               -dialyzer(nowarn_function). % unknown option
               -dialyzer(1). % badly formed
-              -dialyzer(malformed). % unkonwn option
-              -dialyzer({malformed,f/0}). % unkonwn option
+              -dialyzer(malformed). % unknown option
+              -dialyzer({malformed,f/0}). % unknown option
               -dialyzer({nowarn_function,a/1}). % undefined function
               -dialyzer({nowarn_function,{a,-1}}). % badly formed
 
@@ -4802,6 +5025,151 @@ eep49(Config) when is_list(Config) ->
 
     [] = run(Config, Ts),
     ok.
+
+%% GH-6132: Allow local redefinition of types.
+redefined_builtin_type(Config) ->
+    Ts = [{redef1,
+           <<"-type nonempty_binary() :: term().
+              -type map() :: {_,_}.">>,
+           [nowarn_unused_type,
+            nowarn_redefined_builtin_type],
+           []},
+          {redef2,
+           <<"-type nonempty_bitstring() :: term().
+              -type map() :: {_,_}.">>,
+           [nowarn_unused_type,
+            {nowarn_redefined_builtin_type,{map,0}}],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{nonempty_bitstring,0}}}]}},
+          {redef3,
+           <<"-compile({nowarn_redefined_builtin_type,{map,0}}).
+              -compile({nowarn_redefined_builtin_type,[{nonempty_bitstring,0}]}).
+              -type nonempty_bitstring() :: term().
+              -type map() :: {_,_}.
+              -type list() :: erlang:map().">>,
+           [nowarn_unused_type,
+            {nowarn_redefined_builtin_type,{map,0}}],
+           {warnings,[{{5,16},erl_lint,
+                       {redefine_builtin_type,{list,0}}}]}},
+          {redef4,
+           <<"-type tuple() :: 'tuple'.
+              -type map() :: 'map'.
+              -type list() :: 'list'.
+              -spec t(tuple() | map()) -> list().
+              t(_) -> ok.
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,{redefine_builtin_type,{tuple,0}}},
+                      {{2,16},erl_lint,{redefine_builtin_type,{map,0}}},
+                      {{3,16},erl_lint,{redefine_builtin_type,{list,0}}}
+                     ]}},
+          {redef5,
+           <<"-type atom() :: 'atom'.
+              -type integer() :: 'integer'.
+              -type reference() :: 'ref'.
+              -type pid() :: 'pid'.
+              -type port() :: 'port'.
+              -type float() :: 'float'.
+              -type iodata() :: 'iodata'.
+              -type ref_set() :: gb_sets:set(reference()).
+              -type pid_map() :: #{pid() => port()}.
+              -type atom_int_fun() :: fun((atom()) -> integer()).
+              -type collection(Type) :: {'collection', Type}.
+              -callback b1(I :: iodata()) -> atom().
+              -spec t(collection(float())) -> {pid_map(), ref_set(), atom_int_fun()}.
+              t(_) -> ok.
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,{redefine_builtin_type,{atom,0}}},
+                      {{2,16},erl_lint,{redefine_builtin_type,{integer,0}}},
+                      {{3,16},erl_lint,{redefine_builtin_type,{reference,0}}},
+                      {{4,16},erl_lint,{redefine_builtin_type,{pid,0}}},
+                      {{5,16},erl_lint,{redefine_builtin_type,{port,0}}},
+                      {{6,16},erl_lint,{redefine_builtin_type,{float,0}}},
+                      {{7,16},erl_lint,{redefine_builtin_type,{iodata,0}}}
+                     ]}},
+          {redef6,
+           <<"-spec bar(function()) -> bar().
+              bar({function, F}) -> F().
+              -type function() :: {function, fun(() -> bar())}.
+              -type bar() :: {bar, binary()}.
+             ">>,
+           [],
+           {warnings,[{{3,16},erl_lint,
+                       {redefine_builtin_type,{function,0}}}]}},
+          {redef7,
+           <<"-type function() :: {function, fun(() -> bar())}.
+              -type bar() :: {bar, binary()}.
+              -spec bar(function()) -> bar().
+              bar({function, F}) -> F().
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{function,0}}}]}},
+          {redef8,
+           <<"-type function() :: {function, fun(() -> atom())}.
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{function,0}}},
+                      {{1,22},erl_lint,
+                       {unused_type,{function,0}}}]}},
+          {redef9,
+           <<"-spec foo() -> fun().
+              foo() -> fun() -> ok end.
+             ">>,
+           [],
+           []}
+         ],
+    [] = run(Config, Ts),
+    ok.
+
+tilde_k(Config) ->
+    Ts = [{tilde_k_1,
+           <<"t(Map) ->
+                  io:format(\"~kp\n\", [Map]),
+                  io:format(\"~kP\n\", [Map,10]),
+                  io:format(\"~kw\n\", [Map]),
+                  io:format(\"~kW\n\", [Map,5]),
+                  io:format(\"~tkp\n\", [Map]),
+                  io:format(\"~klp\n\", [Map]),
+                  RevCmpFun = fun erlang:'>='/2,
+                  io:format(\"~Kp\n\", [RevCmpFun,Map]),
+                  io:format(\"~KP\n\", [RevCmpFun,Map,10]),
+                  io:format(\"~Kw\n\", [RevCmpFun,Map]),
+                  io:format(\"~KW\n\", [RevCmpFun,Map,5]),
+                  ok.">>,
+           [],
+           []},
+          {tilde_k_2,
+           <<"t(Map) ->
+                  io:format(\"~kkp\n\", [Map]),
+                  io:format(\"~kKp\n\", [Map]),
+                  io:format(\"~ks\n\", [Map]),
+                  ok.">>,
+           [],
+           {warnings,
+            [{{2,29},
+              erl_lint,
+              {format_error,{"format string invalid (~ts)",
+                             ["repeated modifier k"]}}},
+             {{4,29},
+              erl_lint,
+              {format_error,{"format string invalid (~ts)",
+                             ["conflicting modifiers ~Kkp"]}}},
+             {{6,29},
+              erl_lint,
+              {format_error,{"format string invalid (~ts)",
+                             ["invalid modifier/control combination ~ks"]}}}]}
+          }
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+%%%
+%%% Common utilities.
+%%%
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,12 +51,12 @@
                       | {'out', Msg :: _, To :: _, State :: _}
                       | {'noreply', State :: _}
                       | {'continue', Continuation :: _}
-                      | {'code_change', Event :: _, State :: _}
                       | {'postpone', Event :: _, State :: _, NextState :: _}
                       | {'consume', Event :: _, State :: _, NextState :: _}
                       | {'start_timer', Action :: _, State :: _}
                       | {'insert_timeout', Event :: _, State :: _}
-                      | {'enter', State :: _}
+                      | {'enter', Module :: module(), State :: _}
+                      | {'module', Module :: module(), State :: _}
                       | {'terminate', Reason :: _, State :: _}
                       | term().
 -opaque dbg_opt()    :: {'trace', 'true'}

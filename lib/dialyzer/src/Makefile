@@ -62,7 +62,10 @@ MODULES = \
 	dialyzer_dot \
 	dialyzer_explanation \
 	dialyzer_gui_wx \
+	dialyzer_incremental \
 	dialyzer_options \
+	dialyzer_iplt \
+	dialyzer_cplt \
 	dialyzer_plt \
 	dialyzer_succ_typings \
 	dialyzer_timing \
@@ -117,6 +120,12 @@ $(EBIN)/dialyzer_cl_parse.$(EMULATOR): dialyzer_cl_parse.erl ../vsn.mk
 
 $(EBIN)/dialyzer_plt.$(EMULATOR): dialyzer_plt.erl ../vsn.mk
 	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_plt.erl
+
+$(EBIN)/dialyzer_cplt.$(EMULATOR): dialyzer_cplt.erl ../vsn.mk
+	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_cplt.erl
+
+$(EBIN)/dialyzer_iplt.$(EMULATOR): dialyzer_iplt.erl ../vsn.mk
+	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_iplt.erl
 
 $(EBIN)/dialyzer_gui_wx.$(EMULATOR): dialyzer_gui_wx.erl ../vsn.mk
 	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_gui_wx.erl

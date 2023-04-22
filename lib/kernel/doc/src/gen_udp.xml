@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2021</year>
+      <year>1997</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -90,6 +90,32 @@
         <p>As returned by
           <seemfa marker="#open/1"><c>open/1,2</c></seemfa>.</p>
       </desc>
+    </datatype>
+    <datatype>
+      <name name="multicast_if"/>
+    </datatype>
+    <datatype>
+      <name name="ip_multicast_if"/>
+    </datatype>
+    <datatype>
+      <name name="ip6_multicast_if"/>
+      <desc>
+        <p>For IPv6 this is an interface index (an integer).</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="membership"/>
+    </datatype>
+    <datatype>
+      <name name="ip_membership"/>
+      <desc>
+	<p>The tuple with size 3 is *not* supported on all platforms.
+	'ifindex' defaults to zero (0) on platforms that supports the
+	3-tuple variant. </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip6_membership"/>
     </datatype>
   </datatypes>
 

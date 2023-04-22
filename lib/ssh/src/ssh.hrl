@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@
 -define(UINT16(X),   (X):16/unsigned-big-integer).
 -define(UINT32(X),   (X):32/unsigned-big-integer).
 -define(UINT64(X),   (X):64/unsigned-big-integer).
--define(STRING(X),   ?UINT32((size(X))), (X)/binary).
+-define(STRING(X),   ?UINT32((byte_size(X))), (X)/binary).
 
 -define(DEC_BIN(X,Len),   ?UINT32(Len), X:Len/binary ).
 -define(DEC_INT(I,Len),   ?UINT32(Len), I:Len/big-signed-integer-unit:8 ).
@@ -209,6 +209,7 @@
         ssh_file:user_dir_common_option()
       | profile_common_option()
       | max_idle_time_common_option()
+      | max_log_item_len_common_option()
       | key_cb_common_option()
       | disconnectfun_common_option()
       | unexpectedfun_common_option()
@@ -230,6 +231,7 @@
 -type rekey_limit_common_option()   :: {rekey_limit, Bytes::limit_bytes() |
                                                      {Minutes::limit_time(), Bytes::limit_bytes()}
                                        }.
+-type max_log_item_len_common_option() :: {max_log_item_len, limit_bytes()} .
 
 -type limit_bytes() :: non_neg_integer() | infinity .  % non_neg_integer due to compatibility
 -type limit_time()  :: pos_integer() | infinity .
@@ -320,6 +322,7 @@
       | tcpip_tunnel_in_daemon_option()
       | authentication_daemon_options()
       | diffie_hellman_group_exchange_daemon_option()
+      | max_initial_idle_time_daemon_option()
       | negotiation_timeout_daemon_option()
       | hello_timeout_daemon_option()
       | hardening_daemon_options()
@@ -360,7 +363,9 @@
       | {user_passwords, [{UserName::string(),Pwd::string()}]}
       | {pk_check_user, boolean()}  
       | {password, string()}
-      | {pwdfun, pwdfun_2() | pwdfun_4()} .
+      | {pwdfun, pwdfun_2() | pwdfun_4()}
+      | {no_auth_needed, boolean()}
+        .
 
 -type prompt_texts() ::
         kb_int_tuple()
@@ -388,6 +393,7 @@
 -type explicit_group_file() :: {file,string()} .
 -type ssh_moduli_file() :: {ssh_moduli_file,string()}.
 
+-type max_initial_idle_time_daemon_option() :: {max_initial_idle_time, timeout()} .
 -type negotiation_timeout_daemon_option() :: {negotiation_timeout, timeout()} .
 -type hello_timeout_daemon_option() :: {hello_timeout, timeout()} .
 

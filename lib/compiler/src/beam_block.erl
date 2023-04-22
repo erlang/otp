@@ -74,6 +74,10 @@ function({function,Name,Arity,CLabel,Is0}) ->
 %%% (Provided that x2 is killed in the code that follows.)
 %%%
 
+swap_opt([{move,Src,Dst},{swap,Dst,Other}|Is]) when Src =/= Other ->
+    swap_opt([{move,Other,Dst},{move,Src,Other}|Is]);
+swap_opt([{move,Src,Dst},{swap,Other,Dst}|Is]) when Src =/= Other ->
+    swap_opt([{move,Other,Dst},{move,Src,Other}|Is]);
 swap_opt([{move,Reg1,{x,_}=Temp}=Move1,
           {move,Reg2,Reg1}=Move2|Is0]) when Reg1 =/= Temp ->
     case swap_opt_end(Is0, Temp, Reg2, []) of
@@ -263,6 +267,9 @@ simplify_get_map_elements(Fail, Src, {list,[Key,Dst]},
                     {ok,[{get_map_elements,Fail,Src,{list,List}}|Acc]}
             end;
         false ->
+            %% A destination is used more than once. That should only
+            %% happen if some optimizations are disabled, so we
+            %% will not attempt do anything smart here.
             error
     end;
 simplify_get_map_elements(_, _, _, _) -> error.
@@ -283,5 +290,9 @@ are_keys_literals([{x,_}|_]) -> false;
 are_keys_literals([{y,_}|_]) -> false;
 are_keys_literals([_|_]) -> true.
 
-is_reg_overwritten(Src, [_Key,Src]) -> true;
-is_reg_overwritten(_, _) -> false.
+is_reg_overwritten(Src, [_Key,Src|_]) ->
+    true;
+is_reg_overwritten(Src, [_Key,_Src|T]) ->
+    is_reg_overwritten(Src, T);
+is_reg_overwritten(_, []) ->
+    false.

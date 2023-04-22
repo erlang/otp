@@ -28,38 +28,29 @@ check_idle(Timeout) when is_integer(Timeout) > 0 ->
     ScaledTimeout = Timeout*test_server:timetrap_scale_factor(),
     Pid = find_literal_area_collector(),
     Start = erlang:monotonic_time(millisecond),
-    try
-        wait_for_idle_literal_collector(Pid, Start, ScaledTimeout, -1, 0)
-    catch
-        throw:done ->
-            ok
-    end.
+    Alias = alias(),
+    wait_for_idle_literal_collector(Pid, Alias, Start, ScaledTimeout).
 
-wait_for_idle_literal_collector(Pid, Start, Timeout, NWaiting, WRedsStart) ->
-    {W, R} = case process_info(Pid, [status, reductions]) of
-                 [{status, waiting}, {reductions, Reds}] ->
-                     %% Assume that reds aren't bumped more than
-                     %% 2 in order to service this process info
-                     %% request...
-                     case {NWaiting > 100, Reds - WRedsStart =< 2*NWaiting} of
-                         {true, true} ->
-                             throw(done);
-                         {false, true} ->
-                             {NWaiting+1, WRedsStart};
-                         _ ->
-                             {0, Reds}
-                     end;
-                 _ ->
-                     {-1, 0}
-             end,
+wait_for_idle_literal_collector(Pid, Alias, Start, Timeout) ->
+    Ref = make_ref(),
+    Pid ! {get_status, Ref, Alias},
     Now = erlang:monotonic_time(millisecond),
-    if Now - Start > Timeout ->
-            error({busy_literal_area_collecor_timout, Timeout});
-       true ->
-            ok
-    end,
-    receive after 1 -> ok end,
-    wait_for_idle_literal_collector(Pid, Start, Timeout, W, R).
+    TMO = case Start + Timeout - Now of
+              TimeLeft when TimeLeft < 0 -> 0;
+              TimeLeft -> TimeLeft
+          end,
+    receive
+        {Ref, idle} ->
+            unalias(Alias),
+            ok;
+        {Ref, _} ->
+            receive after 10 -> ok end,
+            wait_for_idle_literal_collector(Pid, Alias, Start, Timeout)
+    after TMO ->
+            unalias(Alias),
+            receive {Ref, _} -> ok after 0 -> ok end,
+            error({busy_literal_area_collecor_timout, Timeout})
+    end.
     
 find_literal_area_collector() ->
     case get('__literal_area_collector__') of

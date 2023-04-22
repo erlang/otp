@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +66,9 @@ do_alias(#mod{config_db   = ConfigDB,
 	    ServerName = which_server_name(ConfigDB), 
 	    Port = port_string(which_port(ConfigDB)),
 	    Protocol = get_protocol(SocketType),
-	    URL = Protocol ++ ServerName ++ Port ++ ReqURI ++ "/",
+            {ReqPath, ReqQuery} = httpd_util:split_path(ReqURI),
+            URL = Protocol ++ ServerName ++ Port ++ ReqPath ++ "/" ++
+                ["?" ++ ReqQuery || [] /= ReqQuery],
 	    ReasonPhrase = httpd_util:reason_phrase(301),
 	    Message = httpd_util:message(301, URL, ConfigDB),
 	    {proceed,
@@ -91,8 +93,9 @@ port_string(Port) ->
 
 get_protocol(ip_comm) ->
     "http://";
-get_protocol(_) ->
-    %% Should clean up to have only one ssl type essl vs ssl is not relevant any more
+get_protocol({ip_comm, _}) ->
+    "http://";
+get_protocol({ssl, _}) ->
     "https://".
 
 %% real_name

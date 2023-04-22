@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2021. All Rights Reserved.
+// Copyright Ericsson AB 2017-2023. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,9 +74,9 @@ i_fdiv(Src1, Src2, Dst) {
 }
 
 i_fnegate(Src, Dst) {
+    /* Note that there is no need to check for errors since flipping the sign
+     * of a finite float is guaranteed to produce a finite float. */
+    ASSERT(erts_isfinite($Src));
     $Dst = -$Src;
-
-    if (!erts_isfinite($Dst)) {
-        $BADARITH0();
-    }
+    ASSERT(erts_isfinite($Dst));
 }

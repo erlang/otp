@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2002</year><year>2022</year>
+      <year>2002</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -514,6 +514,29 @@
 	  <p>See also <seecref marker="#M_acul"><c>acul</c></seecref>.</p>
         </item>
 
+        <tag><marker id="M_acful"/><c><![CDATA[+M<S>acful <utilization>|de]]></c>
+        </tag>
+        <item>
+            <p>Abandon carrier free utilization limit. When the utilization of
+              a carrier falls belows this limit erts_alloc instructs the OS that
+              unused memory in the carrier can be re-used for allocation by other OS
+              procesesses. On Unix this is done by calling <c>madvise(..., ..., MADV_FREE)</c>
+              on the unused memory region, on Windows it is done by calling
+              <c>VirtualAlloc(..., ..., MEM_RESET, PAGE_READWRITE)</c>. Defaults to 0
+              which means that no memory will be marked as re-usable by the OS.</p>
+            <p>A valid
+              <c><![CDATA[<utilization>]]></c> is an integer in the range
+              <c>[0, 100]</c> representing utilization in percent. If this value is
+              larger than the <c>acul</c> limit it will be lowered to the current
+              <c>acul</c> limit. If <c>de</c> (default
+              enabled) is passed instead of a <c><![CDATA[<utilization>]]></c>,
+              a recommended non-zero utilization value is used. The value
+              chosen depends on the allocator type and can be changed between
+              ERTS versions.
+              </p>
+	  <p>See also <seecref marker="#M_acul"><c>acul</c></seecref>.</p>
+        </item>
+
         <tag><marker id="M_as"/>
           <c><![CDATA[+M<S>as bf|aobf|aoff|aoffcbf|aoffcaobf|ageffcaoff|ageffcbf|ageffcaobf|gf|af]]></c></tag>
         <item>
@@ -550,7 +573,7 @@
         <item>
           <p>Adds a small tag to each allocated block that contains basic
             information about what it is and who allocated it. Use the
-            <seeerl marker="tools:instrument"><c>instrument</c></seeerl>
+            <seeerl marker="runtime_tools:instrument"><c>instrument</c></seeerl>
             module to inspect this information.</p>
 
           <p>The runtime overhead is one word per allocation when enabled. This
@@ -809,18 +832,6 @@
               <p>Configures all allocators as they were configured in respective
                 Erlang/OTP release. These will eventually be removed.</p>
             </item>
-            <tag><c>config</c></tag>
-            <item>
-              <p>Disables features that cannot be enabled while creating an
-                allocator configuration with
-                <seeerl marker="runtime_tools:erts_alloc_config">
-                <c>erts_alloc_config(3)</c></seeerl>.</p>
-              <note>
-                <p>This option is to be used only while running
-                  <c>erts_alloc_config(3)</c>, <em>not</em> when
-                  using the created configuration.</p>
-              </note>
-            </item>
           </taglist>
         </item>
         <tag><marker id="Mlpm"/><c>+Mlpm all|no</c></tag>
@@ -876,21 +887,13 @@
       <p><c>erts_alloc</c> is not obliged to strictly use the settings that
         have been passed to it (it can even ignore them).</p>
     </note>
-
-    <p>The <seeerl marker="runtime_tools:erts_alloc_config">
-      <c>erts_alloc_config(3)</c></seeerl>
-      tool can be used to aid creation of an
-      <c>erts_alloc</c> configuration that is suitable for a limited
-      number of runtime scenarios.</p>
   </section>
 
   <section>
     <title>See Also</title>
     <p><seecom marker="erl"><c>erl(1)</c></seecom>,
       <seeerl marker="erlang"><c>erlang(3)</c></seeerl>,
-      <seeerl marker="runtime_tools:erts_alloc_config">
-      <c>erts_alloc_config(3)</c></seeerl>,
-      <seeerl marker="tools:instrument">
+      <seeerl marker="runtime_tools:instrument">
       <c>instrument(3)</c></seeerl></p>
   </section>
 </cref>

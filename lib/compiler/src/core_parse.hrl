@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,6 +86,8 @@
 		   exports :: [cerl:cerl()],
 		   attrs :: [{cerl:cerl(), cerl:cerl()}],
 		   defs :: [{cerl:cerl(), cerl:cerl()}]}).
+
+-record(c_opaque, {anno=[] :: list(), val :: any()}).
 
 -record(c_primop, {anno=[] :: list(), name :: cerl:cerl(),
 		   args :: [cerl:cerl()]}).

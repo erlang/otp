@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -478,6 +478,7 @@ rel_oids(Config) ->
 	     "wrong-type-rel-oid-5 RELATIVE-OID ::= object-1.&undef\n"
 
 	     "oid-bad-first OBJECT IDENTIFIER ::= {legal-roid 3}\n"
+	     "roid-bad-first RELATIVE-OID ::= {legal-oid 3}\n"
 	     "END\n">>},
     {error,
      [
@@ -486,7 +487,8 @@ rel_oids(Config) ->
       {structured_error,{M,14},asn1ct_check,{illegal_oid,rel_oid}},
       {structured_error,{M,15},asn1ct_check,{illegal_oid,rel_oid}},
       {structured_error,{M,16},asn1ct_check,{undefined_field,undef}},
-      {structured_error,{M,17},asn1ct_check,{illegal_oid,o_id}}
+      {structured_error,{M,17},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,18},asn1ct_check,{illegal_oid,rel_oid}}
      ]
     } = run(P, Config),
     ok.

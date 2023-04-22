@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,17 +31,19 @@
 
 -type option() ::
         {active,          true | false | once | -32768..32767} |
-        {add_membership,  {inet:ip_address(), inet:ip_address()}} |
+        {add_membership,  membership()} |
         {broadcast,       boolean()} |
         {buffer,          non_neg_integer()} |
+        {debug,           boolean()} |
         {deliver,         port | term} |
         {dontroute,       boolean()} |
-        {drop_membership, {inet:ip_address(), inet:ip_address()}} |
+        {drop_membership, membership()} |
+        {exclusiveaddruse, boolean()} |
         {header,          non_neg_integer()} |
         {high_msgq_watermark, pos_integer()} |
         {low_msgq_watermark, pos_integer()} |
         {mode,            list | binary} | list | binary |
-        {multicast_if,    inet:ip_address()} |
+        {multicast_if,    multicast_if()} |
         {multicast_loop,  boolean()} |
         {multicast_ttl,   non_neg_integer()} |
         {priority,        non_neg_integer()} |
@@ -52,6 +54,8 @@
         {read_packets,    non_neg_integer()} |
         {recbuf,          non_neg_integer()} |
         {reuseaddr,       boolean()} |
+        {reuseport,       boolean()} |
+        {reuseport_lb,    boolean()} |
         {sndbuf,          non_neg_integer()} |
         {tos,             non_neg_integer()} |
         {tclass,          non_neg_integer()} |
@@ -64,8 +68,10 @@
         active |
         broadcast |
         buffer |
+        debug |
         deliver |
         dontroute |
+        exclusiveaddruse |
         header |
         high_msgq_watermark |
         low_msgq_watermark |
@@ -82,6 +88,8 @@
         read_packets |
         recbuf |
         reuseaddr |
+        reuseport |
+        reuseport_lb |
         sndbuf |
         tos |
         tclass |
@@ -103,7 +111,27 @@
 
 -type socket() :: inet:socket().
 
--export_type([option/0, open_option/0, option_name/0, socket/0]).
+-type ip_multicast_if()  :: inet:ip4_address().
+-type ip6_multicast_if() :: integer(). % interface index
+-type multicast_if()     :: ip_multicast_if() | ip6_multicast_if().
+
+
+%% Note that for IPv4, the tuple with size 3 is *not*
+%% supported on all platforms.
+%% 'ifindex' defaults to zero (0) on platforms that
+%% supports the 3-tuple variant.
+-type ip_membership()  :: {MultiAddress :: inet:ip4_address(),    % multiaddr
+                           Interface    :: inet:ip4_address()} |  % local addr
+                          {MultiAddress :: inet:ip4_address(),    % multiaddr
+                           Address      :: inet:ip4_address(),    % local addr
+                           IfIndex      :: integer()}.            % ifindex
+-type ip6_membership() :: {MultiAddress :: inet:ip6_address(),    % multiaddr
+                           IfIndex      :: integer()}.            % ifindex
+-type membership()     :: ip_membership() | ip6_membership().
+
+-export_type([option/0, open_option/0, option_name/0, socket/0,
+              multicast_if/0, ip_multicast_if/0, ip6_multicast_if/0,
+              membership/0, ip_membership/0, ip6_membership/0]).
 
 
 %% -- open ------------------------------------------------------------------

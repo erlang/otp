@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 -module(mnesia_loader).
 
 %% Mnesia internal stuff
--export([disc_load_table/2,
+-export([disc_load_table/3,
 	 net_load_table/4,
 	 send_table/4]).
 
@@ -44,8 +44,8 @@ val(Var) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load a table from local disc
 
-disc_load_table(Tab, Reason) ->
-    Storage =  val({Tab, storage_type}),
+disc_load_table(Tab, Reason, Cs) ->
+    Storage = mnesia_lib:cs_to_storage_type(node(), Cs),
     Type = val({Tab, setorbag}),
     dbg_out("Getting table ~tp (~p) from disc: ~tp~n",
 	    [Tab, Storage, Reason]),
@@ -222,7 +222,6 @@ do_get_network_copy(Tab, Reason, Ns, Storage, Cs) ->
 		ok ->
 		    set({Tab, load_node}, Node),
 		    set({Tab, load_reason}, Reason),
-		    mnesia_controller:i_have_tab(Tab),
 		    dbg_out("Table ~tp copied from ~p to ~p~n", [Tab, Node, node()]),
 		    {loaded, ok};
 		Err = {error, _} when element(1, Reason) == dumper ->
@@ -291,7 +290,11 @@ init_receiver(Node, Tab,Storage,Cs,Reason) ->
 	    {atomic, {error,Result}} ->
 		fatal("Cannot create table ~tp: ~tp~n",
 		      [[Tab, Storage], Result]);
-	    {atomic,  Result} -> Result;
+            {atomic, ok} ->
+                mnesia_controller:i_have_tab(Tab, Cs),
+                ok;
+	    {atomic, Result} ->
+                Result;
 	    {aborted, nomore} -> restart;
 	    {aborted, _Reas} ->
 		verbose("Receiver failed on ~tp from ~p:~nReason: ~tp~n",
@@ -383,9 +386,11 @@ do_init_table(Tab,Storage,Cs,SenderPid,
 		Reason ->
 		    Msg = "[d]ets:init table failed",
 		    verbose("~ts: ~tp: ~tp~n", [Msg, Tab, Reason]),
+                    SenderPid ! {copier_done, node()},
 		    down(Tab, Storage)
 	    end;
 	Error ->
+            SenderPid ! {copier_done, node()},
 	    Error
     end.
 
@@ -553,14 +558,17 @@ init_table(Tab, _, Fun, _DetsInfo,_) ->
 
 finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec) ->
     TabRef = {Storage, Tab},
-    subscr_postprocess(TabRef, Cs#cstruct.record_name),
     case handle_last(TabRef, Cs#cstruct.type, DatBin) of
 	ok ->
-	    mnesia_index:init_index(Tab, Storage),
-	    snmpify(Tab, Storage),
+            subscr_postprocess(TabRef, Cs#cstruct.record_name),
 	    %% OrigTabRec must not be the spawned tab-receiver
 	    %% due to old protocol.
 	    SenderPid ! {OrigTabRec, no_more},
+            Ref = monitor(process, SenderPid),
+            %% and all remaining events
+            subscr_receiver(TabRef, Cs#cstruct.record_name, Ref),
+	    mnesia_index:init_index(Tab, Storage),
+	    snmpify(Tab, Storage),
 	    mnesia_tm:unblock_tab(Tab),
 	    ok;
 	{error, Reason} ->
@@ -580,22 +588,21 @@ subscr_postprocess(TabRef, RecName) ->
 		    handle_subscr_event(Event, TabRef, RecName)
 		end, ok, SubscrCache),
 	    ets:delete(SubscrCache)
-    end,
-    % and all remaining events
-    subscr_receiver(TabRef, RecName).
+    end.
 
-subscr_receiver(TabRef = {_, Tab}, RecName) ->
+subscr_receiver(TabRef = {_, Tab}, RecName, Ref) ->
     receive
 	{mnesia_table_event, {_Op, Val, _Tid}} = Event
 	  when element(1, Val) =:= Tab; element(1, Val) =:= schema ->
 	    handle_subscr_event(Event, TabRef, RecName),
-	    subscr_receiver(TabRef, RecName);
+	    subscr_receiver(TabRef, RecName, Ref);
 
 	{'EXIT', Pid, Reason} ->
 	    handle_exit(Pid, Reason),
-	    subscr_receiver(TabRef, RecName)
-    after 0 ->
-	    ok
+	    subscr_receiver(TabRef, RecName, Ref);
+
+        {'DOWN', Ref, process, _, _} ->
+            ok
     end.
 
 handle_subscr_event(Event, TabRef = {_, Tab}, RecName) ->
@@ -758,7 +765,7 @@ calc_nokeys(Storage, Tab) ->
     %% Calculate #keys per transfer
     Key = mnesia_lib:db_first(Storage, Tab),
     Recs = mnesia_lib:db_get(Storage, Tab, Key),
-    BinSize = size(term_to_binary(Recs)),
+    BinSize = byte_size(term_to_binary(Recs)),
     (max_transfer_size() div BinSize) + 1.
 
 send_table(Pid, Tab, RemoteS, Reason) ->
@@ -1012,15 +1019,18 @@ finish_copy(Pid, Tab, Storage, RemoteS, NeedLock) ->
                         mnesia_checkpoint:tm_add_copy(Tab, RecNode),
                         DatBin = dat2bin(Tab, ?catch_val({Tab, storage_type}), RemoteS),
                         Pid ! {self(), {no_more, DatBin}},
-                        cleanup_tab_copier(Pid, Storage, Tab)
-                end,
-		receive
-		    {Pid, no_more} -> % Dont bother about the spurious 'more' message
-			no_more;
-		    {copier_done, Node} ->
-			verbose("Tab receiver ~tp crashed (more): ~p~n", [Tab, Node]),
-			receiver_died
-		end
+                        receive
+                            {Pid, no_more} -> % Dont bother about the spurious 'more' message
+                                %% Sync mnesia_tm (before unsubscribing)
+                                mnesia_tm:sync(),
+                                cleanup_tab_copier(Pid, Storage, Tab),
+                                no_more;
+                            {copier_done, Node} ->
+                                verbose("Tab receiver ~tp crashed (more): ~p~n", [Tab, Node]),
+                                cleanup_tab_copier(Pid, Storage, Tab),
+                                receiver_died
+                        end
+                end
 	end,
     mnesia:transaction(Trans).
 

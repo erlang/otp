@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@
  * %CopyrightEnd%
  */
 
+#define ERTS_BEAM_ASM_GLOBAL_WANT_STATIC_DEFS
 #include "beam_asm.hpp"
+#undef ERTS_BEAM_ASM_GLOBAL_WANT_STATIC_DEFS
 
 using namespace asmjit;
 
@@ -27,21 +29,6 @@ extern "C"
 #include "bif.h"
 #include "beam_common.h"
 }
-
-#define STRINGIFY_(X) #X
-#define STRINGIFY(X) STRINGIFY_(X)
-
-#define DECL_EMIT(NAME) {NAME, &BeamGlobalAssembler::emit_##NAME},
-const std::map<BeamGlobalAssembler::GlobalLabels, BeamGlobalAssembler::emitFptr>
-        BeamGlobalAssembler::emitPtrs = {BEAM_GLOBAL_FUNCS(DECL_EMIT)};
-#undef DECL_EMIT
-
-#define DECL_LABEL_NAME(NAME) {NAME, STRINGIFY(NAME)},
-
-const std::map<BeamGlobalAssembler::GlobalLabels, const std::string>
-        BeamGlobalAssembler::labelNames = {BEAM_GLOBAL_FUNCS(
-                DECL_LABEL_NAME) PROCESS_MAIN_LABELS(DECL_LABEL_NAME)};
-#undef DECL_LABEL_NAME
 
 BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         : BeamAssembler("beam_asm_global") {
@@ -64,11 +51,13 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     }
 
     {
-        /* We have no need of the module pointers as we use `getCode(...)` for
-         * everything. */
-        const void *_ignored_exec;
-        void *_ignored_rw;
-        _codegen(allocator, &_ignored_exec, &_ignored_rw);
+        const void *executable_region;
+        void *writable_region;
+
+        BeamAssembler::codegen(allocator, &executable_region, &writable_region);
+        VirtMem::flushInstructionCache((void *)executable_region,
+                                       code.codeSize());
+        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
     std::vector<AsmRange> ranges;
@@ -132,6 +121,10 @@ void BeamGlobalAssembler::emit_garbage_collect() {
 
     emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
     emit_leave_runtime_frame();
+
+    a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, state.value)));
+    a.tst(TMP1, imm(ERTS_PSFLG_EXITING));
+    a.b_ne(labels[do_schedule]);
 
     a.ret(a64::x30);
 }
@@ -217,8 +210,8 @@ void BeamGlobalAssembler::emit_export_trampoline() {
     a.bind(error_handler);
     {
         emit_enter_runtime_frame();
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap | Update::eXRegs>();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc |
+                           Update::eXRegs>();
 
         lea(ARG2, arm::Mem(ARG1, offsetof(Export, info.mfa)));
         a.mov(ARG1, c_p);
@@ -228,8 +221,8 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
         /* If there is no error_handler, any number of X registers
          * can be live. */
-        emit_leave_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap | Update::eXRegs>();
+        emit_leave_runtime<Update::eReductions | Update::eHeapAlloc |
+                           Update::eXRegs>();
         emit_leave_runtime_frame();
 
         a.cbz(ARG1, labels[process_exit]);
@@ -255,13 +248,9 @@ void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
 
     fragment_call(ga->get_raise_exception());
 
-    /*
-     * It is important that error address is not equal to a line
-     * instruction that may follow this BEAM instruction. To avoid
-     * that, BeamModuleAssembler::emit() will emit a nop instruction
-     * if necessary.
-     */
-    last_error_offset = getOffset() & -8;
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_raise_exception(Label I,
@@ -309,7 +298,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
      * traces because it's equal to the error address. */
     a.str(ARG2, arm::Mem(E, -8).pre());
 
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs>();
 
     /* The error address must be a valid CP or NULL. */
     a.tst(ARG2, imm(_CPMASK));
@@ -320,7 +309,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
     load_x_reg_array(ARG3);
     runtime_call<4>(handle_error);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs>();
 
     a.cbz(ARG1, labels[do_schedule]);
 

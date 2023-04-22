@@ -85,6 +85,10 @@ ERL_COMPILE_FLAGS += -I../../include \
 
 YRL_FLAGS = -o .
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+	YRL_FLAGS += +deterministic
+endif
+
 
 # ----------------------------------------------------
 # Targets

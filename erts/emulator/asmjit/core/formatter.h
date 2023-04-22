@@ -37,7 +37,9 @@ enum class FormatFlags : uint32_t {
   //! Show casts between virtual register types (Compiler output).
   kRegCasts = 0x00000010u,
   //! Show positions associated with nodes (Compiler output).
-  kPositions = 0x00000020u
+  kPositions = 0x00000020u,
+  //! Always format a register type (Compiler output).
+  kRegType = 0x00000040u
 };
 ASMJIT_DEFINE_ENUM_FLAGS(FormatFlags)
 

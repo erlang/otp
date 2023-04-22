@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 daemon_info/1, daemon_info/2,
+         daemon_replace_options/2,
          set_sock_opts/2, get_sock_opts/2,
 	 default_algorithms/0,
          chk_algos_opts/1,
@@ -443,6 +444,17 @@ daemon(_, _, _) ->
     {error, badarg}.
 
 %%--------------------------------------------------------------------
+-spec daemon_replace_options(DaemonRef, NewUserOptions) -> {ok,daemon_ref()}
+                                                         | {error,term()} when
+      DaemonRef :: daemon_ref(),
+      NewUserOptions :: daemon_options().
+
+daemon_replace_options(DaemonRef, NewUserOptions) ->
+    {ok,Os0} = ssh_system_sup:get_acceptor_options(DaemonRef),
+    Os1 = ssh_options:merge_options(server, NewUserOptions, Os0),
+    ssh_system_sup:replace_acceptor_options(DaemonRef, Os1).
+
+%%--------------------------------------------------------------------
 -type daemon_info_tuple() ::
         {port, inet:port_number()}
       | {ip, inet:ip_address()}
@@ -836,7 +848,7 @@ fp_fmt(b64, Bin) ->
     %%    [C || C<-base64:encode_to_string(Bin), C =/= $=]
     %% but I am not sure. Must be checked.
     B64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
-    BitsInLast = 8*size(Bin) rem 6,
+    BitsInLast = 8*byte_size(Bin) rem 6,
     Padding = (6-BitsInLast) rem 6, % Want BitsInLast = [1:5] to map to padding [5:1] and 0 -> 0
     [lists:nth(C+1,B64Chars) || <<C:6>> <= <<Bin/binary,0:Padding>> ].
 
@@ -931,10 +943,10 @@ is_host(X, Opts) ->
             
 
 is_host1(L) when is_list(L) -> true; %% "string()"
-is_host1(T) when is_tuple(T), size(T)==4 -> lists:all(fun(I) -> 0=<I andalso I=<255 end,
-                                                      tuple_to_list(T));
-is_host1(T) when is_tuple(T), size(T)==16 -> lists:all(fun(I) -> 0=<I andalso I=<65535 end,
-                                                       tuple_to_list(T));
+is_host1(T) when tuple_size(T)==4 -> lists:all(fun(I) -> 0=<I andalso I=<255 end,
+                                               tuple_to_list(T));
+is_host1(T) when tuple_size(T)==16 -> lists:all(fun(I) -> 0=<I andalso I=<65535 end,
+                                                tuple_to_list(T));
 is_host1(loopback) -> true.
 
 %%%----------------------------------------------------------------

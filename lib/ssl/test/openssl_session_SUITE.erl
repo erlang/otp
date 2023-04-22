@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,29 +86,15 @@ tests() ->
 
 
 init_per_suite(Config0) ->
-    case os:find_executable("openssl") of
-        false ->
-            {skip, "Openssl not found"};
-        _ ->
-            ct:pal("Version: ~p", [os:cmd("openssl version")]),
-            catch crypto:stop(),
-            try crypto:start() of
-                ok ->
-                    ssl_test_lib:clean_start(),
-                    {ClientOpts, ServerOpts} = 
-                        ssl_test_lib:make_rsa_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
-                                                           {client_chain, ssl_test_lib:default_cert_chain_conf()}], 
-                                                          Config0, "openssl_session_SUITE"),
-                    [{client_opts, ClientOpts}, {server_opts, ServerOpts} | Config0]
-            catch _:_  ->
-                    {skip, "Crypto did not start"}
-            end
-    end.
+    Config = ssl_test_lib:init_per_suite(Config0, openssl),
+    {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains(
+                                 [{server_chain, ssl_test_lib:default_cert_chain_conf()},
+                                  {client_chain, ssl_test_lib:default_cert_chain_conf()}],
+                                 Config, "openssl_session_SUITE"),
+    [{client_opts, ClientOpts}, {server_opts, ServerOpts} | Config].
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto),
-    ssl_test_lib:kill_openssl().
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
@@ -124,7 +110,7 @@ init_per_testcase(reuse_session_erlang_client, Config) ->
     ssl:start(),
     Config;
 init_per_testcase(reuse_session_erlang_server, Config) ->
-    case ssl_test_lib:working_openssl_client() of
+    case ssl_test_lib:working_openssl_client(Config) of
         true ->
             Version = ssl_test_lib:protocol_version(Config),
             case ssl_test_lib:is_dtls_version(Version) of

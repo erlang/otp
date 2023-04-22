@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,14 +55,13 @@
 -export([cipher/4, cipher/5, decipher/4,
          cipher_aead/4, cipher_aead/5, decipher_aead/5,
          is_correct_mac/2, nonce_seed/3]).
--define(TLS_1_3, {3, 4}).
 
 -export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
--type ssl_version()       :: {integer(), integer()}.
--type ssl_atom_version() :: tls_record:tls_atom_version().
+-type ssl_version()       :: {non_neg_integer(), non_neg_integer()}.
+-type ssl_atom_version()  :: tls_record:tls_atom_version().
 -type connection_states() :: map(). %% Map
--type connection_state() :: map(). %% Map
+-type connection_state()  :: map(). %% Map
 
 %%====================================================================
 %% Connection state handling
@@ -447,11 +446,14 @@ decipher_aead(Type, #cipher_state{key = Key} = CipherState, AAD0, CipherFragment
         case ssl_cipher:aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AAD) of
 	    Content when is_binary(Content) ->
 		Content;
-	    _ ->
+	    Reason ->
+                ?SSL_LOG(debug, decrypt_error, [{reason,Reason},
+                                                {stacktrace, process_info(self(), current_stacktrace)}]),
                 ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
 	end
     catch
-	_:_ ->
+	_:Reason2:ST ->
+            ?SSL_LOG(debug, decrypt_error, [{reason,Reason2}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end.
 
@@ -480,10 +482,10 @@ empty_connection_state(ConnectionEnd, Version,
       secure_renegotiation => undefined,
       client_verify_data => undefined,
       server_verify_data => undefined,
-      max_early_data_size => MaxEarlyDataSize,
+      pending_early_data_size => MaxEarlyDataSize,
       max_fragment_length => undefined,
       trial_decryption => false,
-      early_data_limit => false
+      early_data_accepted => false
      }.
 
 init_security_parameters(?CLIENT, Version) ->
@@ -493,7 +495,7 @@ init_security_parameters(?SERVER, Version) ->
     #security_parameters{connection_end = ?SERVER,
                          server_random = make_random(Version)}.
 
-make_random({_Major, _Minor} = Version) when Version >= ?TLS_1_3 ->
+make_random(Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
     ssl_cipher:random_bytes(32);
 make_random(_Version) ->
     Secs_since_1970 = calendar:datetime_to_gregorian_seconds(

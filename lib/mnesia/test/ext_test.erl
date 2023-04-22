@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ init_backend() ->
     ?DBG(init_backend),
     %% cheat and stuff a marker in mnesia_gvar
     K = backend_init_marker(),
-    case try mnesia_lib:val(K) catch _:_ -> error end of
+    case try ets:lookup_element(mnesia_gvar, K, 2) catch _:_ -> error end of
         error ->
             mnesia_lib:set(K, true);
         Other ->

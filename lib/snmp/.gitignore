@@ -6,3 +6,7 @@
 
 doc/index.html
 mibs/.index
+
+# Agent
+src/agent/Makefile
+

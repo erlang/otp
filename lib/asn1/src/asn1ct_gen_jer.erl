@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -159,10 +159,9 @@ gen_encode_choice(Erules,TypeName,D) when is_record(D,type) ->
 		    {Rl,El} -> Rl ++ El;
 		    _ -> CompList
 		end,
-    {choice,maps:from_list(
-              [{AltName,AltType}||
-                  {AltName,AltType,_OptOrMand} <- 
-                      gen_enc_comptypes(Erules,TypeName,CompList1,0,0,[])])}.
+    {choice,#{AltName => AltType ||
+                {AltName,AltType,_OptOrMand} <-
+                    gen_enc_comptypes(Erules,TypeName,CompList1,0,0,[])}}.
 
 gen_decode_choice(_,_,_) -> ok.
 

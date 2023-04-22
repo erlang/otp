@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1079,7 +1079,7 @@ add_tests([],Spec) ->				% done
 %% have added something of his/her own, which we'll let pass if relaxed
 %% mode is enabled.
 check_term(Term) when is_tuple(Term) ->
-    Size = size(Term),
+    Size = tuple_size(Term),
     [Name|_] = tuple_to_list(Term),
     Valid = valid_terms(),
     case lists:member({Name,Size},Valid) of
@@ -1093,7 +1093,7 @@ check_term(Term) when is_tuple(Term) ->
 		    case get(relaxed) of
 			true ->
 			    %% warn if name resembles a CT term
-			    case resembles_ct_term(Name,size(Term)) of
+                            case resembles_ct_term(Name,tuple_size(Term)) of
 				true ->
 				    io:format("~nSuspicious term, "
 					      "please check:~n"

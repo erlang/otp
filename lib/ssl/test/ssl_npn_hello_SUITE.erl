@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ encode_and_decode_client_hello_test(Config) ->
     HandShakeData = create_client_handshake(undefined),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
+	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
                                         default_options_map()),
     Extensions = DecodedHandshakeMessage#client_hello.extensions,
     #{next_protocol_negotiation := undefined} = Extensions.
@@ -96,7 +96,7 @@ encode_and_decode_npn_client_hello_test(Config) ->
     HandShakeData = create_client_handshake(#next_protocol_negotiation{extension_data = <<>>}),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
+	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
                                         default_options_map()),
     Extensions = DecodedHandshakeMessage#client_hello.extensions,
     #{next_protocol_negotiation := #next_protocol_negotiation{extension_data = <<>>}} = Extensions.
@@ -105,7 +105,7 @@ encode_and_decode_server_hello_test(Config) ->
     HandShakeData = create_server_handshake(undefined),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
+	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
                                         default_options_map()),
     Extensions = DecodedHandshakeMessage#server_hello.extensions,
     #{next_protocol_negotiation := undefined} = Extensions.
@@ -115,7 +115,7 @@ encode_and_decode_npn_server_hello_test(Config) ->
     HandShakeData = create_server_handshake(#next_protocol_negotiation{extension_data = <<6, "spdy/2">>}),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
+	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
                                         default_options_map()),
     Extensions = DecodedHandshakeMessage#server_hello.extensions, 
     ct:log("~p ~n", [Extensions]),
@@ -123,12 +123,12 @@ encode_and_decode_npn_server_hello_test(Config) ->
 
 %%--------------------------------------------------------------------
 create_server_hello_with_no_advertised_protocols_test(_Config) ->
-    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(), #{}),
+    Hello = ssl_handshake:server_hello(<<>>, ?SSL_3_0, create_connection_states(), #{}),
     Extensions = Hello#server_hello.extensions,
     #{} = Extensions.
 %%--------------------------------------------------------------------
 create_server_hello_with_advertised_protocols_test(_Config) ->
-    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),
+    Hello = ssl_handshake:server_hello(<<>>, ?SSL_3_0, create_connection_states(),
 				       #{next_protocol_negotiation => [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]}),
     Extensions = Hello#server_hello.extensions,
     #{next_protocol_negotiation := [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]} = Extensions.
@@ -171,5 +171,4 @@ create_connection_states() ->
      }.
 
 default_options_map() ->
-    Fun = fun (_Key, {Default, _}) -> Default end,
-    maps:map(Fun, ?RULES).
+    ssl:update_options([{verify, verify_none}], client, #{}).

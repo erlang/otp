@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -299,7 +299,7 @@ add(_N1, N2) when is_integer(N2) ->
 sz(L) when is_list(L) ->
     length(lists:flatten(L));
 sz(B) when is_binary(B) ->
-    size(B);
+    byte_size(B);
 sz(O) ->
     {unknown_size,O}.
 
@@ -332,6 +332,7 @@ status_to_message(303) -> "Section 10.3.4: See Other";
 status_to_message(304) -> "Section 10.3.5: Not Modified";
 status_to_message(305) -> "Section 10.3.6: Use Proxy";
 status_to_message(307) -> "Section 10.3.8: Temporary Redirect";
+status_to_message(308) -> "RFC 9110, Section 15.4.9: Permanent Redirect";
 status_to_message(400) -> "Section 10.4.1: Bad Request";
 status_to_message(401) -> "Section 10.4.2: Unauthorized";
 status_to_message(402) -> "Section 10.4.3: Peyment Required";

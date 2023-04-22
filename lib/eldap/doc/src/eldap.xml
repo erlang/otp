@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2012</year><year>2022</year>
+      <year>2012</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -546,6 +546,18 @@ Control2 = eldap:paged_result_control(PageSize, Cookie1),
         <p>If the returned cookie is the empty string
         <c>""</c>, then these search results represent the last in
         the series.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="@OTP-18480@">info(Handle) -> connection_info()</name>
+      <fsummary>Returns information about the LDAP connection.
+      </fsummary>
+      <type>
+	<v>connection_info() = #{socket := Socket, socket_type := tcp | ssl}</v>
+	<v>Socket = ssl:sslsocket() | gen_tcp:socket()</v>
+      </type>
+      <desc><p>Currently available information reveals the socket and the transport
+       protocol, TCP or TLS (SSL), used by the LDAP connection.</p>
       </desc>
     </func>
 

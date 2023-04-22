@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2020</year>
+      <year>2001</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,6 +39,14 @@
       relations represented as sets. Intuitively, a set is a
       collection of elements; every element belongs to the set, and
       the set contains every element.</p>
+
+    <p>The data representing <c>sofs</c> as used by this module is to
+    be regarded as opaque by other modules.  In abstract terms, the
+    representation is a composite type of existing Erlang terms. See
+    note on <seeguide
+    marker="system/reference_manual:data_types#no_user_types">data
+    types</seeguide>. Any code assuming knowledge of the format is
+    running on thin ice.</p>
 
     <p>Given a set A and a sentence S(x), where x is a free variable,
       a new set B whose elements are exactly those elements of A for
@@ -1167,20 +1175,31 @@ true</pre>
       <name name="is_set" arity="1" since=""/>
       <fsummary>Test for an unordered set.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>AnySet</anno></c> is
-          an <seeerl marker="#sets_definition">unordered set</seeerl>, and
-          <c>false</c> if <c><anno>AnySet</anno></c> is an ordered set or an
-          atomic set.</p>
+        <p>Returns <c>true</c> if <c><anno>AnySet</anno></c> appears
+        to be an <seeerl marker="#sets_definition">unordered
+        set</seeerl>, and <c>false</c> if <c><anno>AnySet</anno></c>
+        is an ordered set or an atomic set or any other term.  Note
+        that the test is shallow and this function will return
+        <c>true</c> for any term that coincides with the
+        representation of an unordered set.  See also note on
+        <seeguide
+        marker="system/reference_manual:data_types#no_user_types">data
+        types</seeguide>.</p>
       </desc>
     </func>
 
     <func>
       <name name="is_sofs_set" arity="1" since=""/>
-      <fsummary>Test for an unordered set.</fsummary>
+      <fsummary>Test for a sofs set.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is
-          an <seeerl marker="#sets_definition">unordered set</seeerl>, an
-          ordered set, or an atomic set, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> appears to
+        be an <seeerl marker="#sets_definition">unordered
+        set</seeerl>, an ordered set, or an atomic set, otherwise
+        <c>false</c>.  Note that this function will return <c>true</c>
+        for any term that coincides with the representation of a
+        <c>sofs</c> set.  See also note on <seeguide
+        marker="system/reference_manual:data_types#no_user_types">data
+        types</seeguide>.</p>
       </desc>
     </func>
 

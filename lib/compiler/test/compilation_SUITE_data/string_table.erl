@@ -1,8 +1,8 @@
 -module(string_table).
 -export([f/1, g/1]).
 
-f(<<"string">>) -> string;
-f(<<"stringtable">>) -> stringtable.
+f(<<"abcdefghi">>) -> string;
+f(<<"abcdefghiABCDEFGHI">>) -> stringtable.
 
-g(<<"stringtable">>) -> stringtable;
-g(<<"table">>) -> table.
+g(<<"abcdefghiABCDEFGHI">>) -> stringtable;
+g(<<"ABCDEFGHI">>) -> table.

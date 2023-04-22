@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,6 +69,8 @@
 
 -record(k_break, {anno=[],args=[]}).
 -record(k_return, {anno=[],args=[]}).
+
+-record(k_opaque, {anno=[],val}).
 
 %%k_get_anno(Thing) -> element(2, Thing).
 %%k_set_anno(Thing, Anno) -> setelement(2, Thing, Anno).

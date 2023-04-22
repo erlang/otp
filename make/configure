@@ -773,7 +773,6 @@ enable_option_checking
 enable_bootstrap_only
 enable_parallel_configure
 enable_dirty_schedulers
-enable_plain_emulator
 with_termcap
 enable_kernel_poll
 enable_sctp
@@ -796,7 +795,6 @@ enable_m64_build
 enable_m32_build
 enable_pie
 with_libatomic_ops
-enable_sanitizers
 enable_silent_rules
 '
       ac_precious_vars='build_alias
@@ -1466,9 +1464,6 @@ Optional Features:
                           disable parallel execution of configure scripts
   --enable-dirty-schedulers
                           enable dirty scheduler support
-  --enable-plain-emulator enable threaded non-smp emulator
-  --disable-plain-emulator
-                          disable threaded non-smp emulator
   --enable-kernel-poll    enable kernel poll support
   --disable-kernel-poll   disable kernel poll support
   --enable-sctp           enable sctp support (default) to on demand load the
@@ -1501,8 +1496,6 @@ Optional Features:
   --enable-m32-build      build 32bit binaries using the -m32 flag to (g)cc
   --enable-pie            build position independent executables
   --disable-pie           do no build position independent executables
-  --enable-sanitizers[=comma-separated list of sanitizers]
-                          Default=address,undefined
   --enable-silent-rules   less verbose build output (undo: "make V=1")
   --disable-silent-rules  verbose build output (undo: "make V=0")
 
@@ -5557,13 +5550,6 @@ then :
 fi
 
 
-# Check whether --enable-plain-emulator was given.
-if test ${enable_plain_emulator+y}
-then :
-  enableval=$enable_plain_emulator;
-fi
-
-
 
 # Check whether --with-termcap was given.
 if test ${with_termcap+y}
@@ -5735,14 +5721,6 @@ fi
 if test ${with_libatomic_ops+y}
 then :
   withval=$with_libatomic_ops;
-fi
-
-
-
-# Check whether --enable-sanitizers was given.
-if test ${enable_sanitizers+y}
-then :
-  enableval=$enable_sanitizers;
 fi
 
 

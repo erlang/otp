@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2021</year>
+      <year>2003</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -449,7 +449,7 @@
     functions and execution properties. Test case groups are defined by
     function
     <seemfa marker="ct_suite#Module:groups/0"><c>groups/0</c></seemfa>
-    according to the following syntax:</p>
+    that should return a term having the following syntax:</p>
     <pre>
  groups() -> GroupDefs
 
@@ -550,6 +550,20 @@
     [{group, tests1, default,
       [{tests2, default,
         [{tests3, [parallel,{repeat,100}]}]}]}].</pre>
+
+    <p>For ease of readability, all syntax definitions can be replaced by a function
+    call whose return value should match the expected syntax case.</p>
+    <p><em>Example:</em></p>
+    <pre>
+ all() ->
+    [{group, tests1, default, test_cases()},
+     {group, tests1, default, [shuffle_test(),
+                               {tests3, default}]}].
+ test_cases() ->
+    [{tests2, [parallel]}, {tests3, default}].
+
+ shuffle_test() ->
+    {tests2, [shuffle,{repeat,10}]}.</pre>
 
     <p>The described syntax can also be used in test specifications
       to change group properties at the time of execution,

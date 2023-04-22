@@ -1062,7 +1062,8 @@ test_compile_options(Config) ->
     ok = test_compile_options:noobj(Config),
     ok = test_compile_options:record_name_prefix(Config),
     ok = test_compile_options:verbose(Config),
-    ok = test_compile_options:maps(Config).
+    ok = test_compile_options:maps(Config),
+    ok = test_compile_options:determinism(Config).
 
 testDoubleEllipses(Config) -> test(Config, fun testDoubleEllipses/3).
 testDoubleEllipses(Config, Rule, Opts) ->

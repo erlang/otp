@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ adjust_log_writes(DoCast) ->
 		false ->
 		    ignore;
 		true ->
-		    mnesia_controller:async_dump_log(write_threshold)
+		    ?CATCH(mnesia_controller:async_dump_log(write_threshold))
 	    end,
 	    Max = mnesia_monitor:get_env(dump_log_write_threshold),
 	    Left = mnesia_lib:read_counter(trans_log_writes_left),

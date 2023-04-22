@@ -66,6 +66,17 @@
         nodes in the network in order to work properly. 
       </p>
     </warning>
+    <note>
+      <p>
+        None of the above services will be reliably delivered unless both of
+        the kernel parameters
+        <seeapp marker="kernel_app#connect_all"><c>connect_all</c></seeapp>
+        and <seeapp marker="kernel_app#prevent_overlapping_partitions">
+        <c>prevent_overlapping_partitions</c></seeapp> are enabled. Calls to
+        the <c>global</c> API will, however, <i>not</i> fail even though one or
+        both of them are disabled. You will just get unreliable results.
+      </p>
+    </note>
     <p>These services are controlled through the process
       <c>global_name_server</c> that exists on every node. The global
       name server starts automatically when a node is started.
@@ -104,9 +115,7 @@
       example, if node <c>N1</c> connects to node <c>N2</c> (which is
       already connected to <c>N3</c>), the global name servers on the
       nodes <c>N1</c> and <c>N3</c> ensure that also <c>N1</c>
-      and <c>N3</c> are connected. If this is not desired,
-      command-line flag <c>-connect_all false</c> can be used (see also
-      <seecom marker="erts:erl#connect_all"><c>erl(1)</c></seecom>).
+      and <c>N3</c> are connected.
       In this case, the name registration service cannot be used, but the
       lock mechanism still works.</p>
     <p>If the global name server fails to connect nodes (<c>N1</c> and
@@ -134,6 +143,74 @@
       <fsummary>Delete a lock.</fsummary>
       <desc>
         <p>Deletes the lock <c><anno>Id</anno></c> synchronously.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="disconnect" arity="0" since="OTP 25.1"/>
+      <fsummary>Disconnect from all other nodes known to global</fsummary>
+      <desc>
+        <p>
+          Disconnect from all other nodes known to <c>global</c>. A list
+          of node names (in an unspecified order) is returned which corresponds
+          to the nodes that were disconnected. All disconnect operations
+          performed have completed when <c>global:disconnect/0</c> returns.
+        </p>
+
+        <p>
+          The disconnects will be made in such a way that only the current
+          node will be removed from the cluster of <c>global</c> nodes. If
+          <seeerl marker="#prevent_overlapping_partitions">
+            <c>prevent_overlapping_partitions</c></seeerl> is enabled and
+          you disconnect, from other nodes in the cluster of <c>global</c>
+          nodes, by other means, <c>global</c> on the other nodes may
+          partition the remaining nodes in order to ensure that no
+          overlapping partitions appear. Even if
+          <c>prevent_overlapping_partitions</c> is disabled, you should
+          preferably use <c>global:disconnect/0</c> in order to remove
+          current node from a cluster of <c>global</c> nodes, since you
+          otherwise likely <em>will</em> create overlapping partitions which
+          might <seeerl marker="#prevent_overlapping_partitions">cause
+          problems</seeerl>.
+        </p>
+
+        <p>
+          Note that if the node is going to be halted, there is <em>no</em>
+          need to remove it from a cluster of <c>global</c> nodes explicitly by
+          calling <c>global:disconnect/0</c> before halting it. The removal
+          from the cluster is taken care of automatically when the node
+          halts regardless of whether <c>prevent_overlapping_partitions</c> is
+          enabled or not.
+        </p>
+
+        <p>
+          If current node has been configured to be part of a
+          <seeerl marker="global_group"><i>global group</i></seeerl>, only
+          connected and/or synchronized nodes in that group are known to
+          <c>global</c>, so <c>global:disconnect/0</c> will <em>only</em>
+          disconnect from those nodes. If current node is <em>not</em> part of
+          a <i>global group</i>, all
+          <seemfa marker="erts:erlang#nodes/0">connected visible nodes</seemfa>
+          will be known to <c>global</c>, so <c>global:disconnect/0</c> will
+          disconnect from all those nodes.
+        </p>
+        <p>
+          Note that information about connected nodes does not instantaneously
+          reach <c>global</c>, so the caller might see a node part of the
+          result returned by
+          <seemfa marker="erts:erlang#nodes/0"><c>nodes()</c></seemfa> while
+          it still is not known to <c>global</c>. The disconnect operation
+          will, however, still not cause any overlapping partitions when
+          <c>prevent_overlapping_partitions</c> is enabled. If
+          <c>prevent_overlapping_partitions</c> is disabled, overlapping
+          partitions might form in this case.
+        </p>
+        <p>
+          Note that when <c>prevent_overlapping_partitions</c> is enabled,
+          you may see warning reports on other nodes when they detect that
+          current node has disconnected. These are in this case completely
+          harmless and can be ignored.
+        </p>
       </desc>
     </func>
 
@@ -375,4 +452,3 @@
       <seeerl marker="net_kernel"><c>net_kernel(3)</c></seeerl></p>
   </section>
 </erlref>
-

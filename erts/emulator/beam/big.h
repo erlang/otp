@@ -188,7 +188,8 @@ typedef enum {
     LTI_BAD_STRUCTURE = 0,
     LTI_NO_INTEGER    = 1,
     LTI_SOME_INTEGER  = 2,
-    LTI_ALL_INTEGER   = 3
+    LTI_ALL_INTEGER   = 3,
+    LTI_SYSTEM_LIMIT  = 4,
 } LTI_result_t;
 
 LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,

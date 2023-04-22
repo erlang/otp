@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2258,17 +2258,24 @@ handle_canceled_timers_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, i
 /*
  * Handle scheduled thread progress later operations.
  */
-#define ERTS_MAX_THR_PRGR_LATER_OPS 50
+#define ERTS_MIN_THR_PRGR_LATER_OPS 50
 
 static ERTS_INLINE erts_aint32_t
 handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 {
-    int lops;
+    int lops, limit;
     ErtsThrPrgrVal current = haw_thr_prgr_current(awdp);
 
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
 
-    for (lops = 0; lops < ERTS_MAX_THR_PRGR_LATER_OPS; lops++) {
+    /*
+     * Boost loop limit proportional to number of queued later ops
+     * in order to always keep up.
+     */
+    limit = (awdp->later_op.list_len / 8
+             + ERTS_MIN_THR_PRGR_LATER_OPS);
+
+    for (lops = 0; lops < limit; lops++) {
 	ErtsThrPrgrLaterOp *lop = awdp->later_op.first;
 
 	if (!erts_thr_progress_has_reached_this(current, lop->later))
@@ -2277,6 +2284,7 @@ handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int wait
 	if (!awdp->later_op.first) {
 	    awdp->later_op.last = NULL;
 	}
+        awdp->later_op.list_len--;
 	lop->func(lop->data);
 	if (!awdp->later_op.first) {
 	    awdp->later_op.size = thr_prgr_later_cleanup_op_threshold;
@@ -2297,17 +2305,19 @@ enqueue_later_op(ErtsSchedulerData *esdp,
 		 ErtsThrPrgrLaterOp *lop)
 {
     ErtsThrPrgrVal later = erts_thr_progress_later(esdp);
+    ErtsAuxWorkData* awdp = &esdp->aux_work_data;
     ASSERT(esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp));
 
     lop->func = later_func;
     lop->data = later_data;
     lop->later = later;
     lop->next = NULL;
-    if (!esdp->aux_work_data.later_op.last)
-	esdp->aux_work_data.later_op.first = lop;
+    if (!awdp->later_op.last)
+        awdp->later_op.first = lop;
     else
-	esdp->aux_work_data.later_op.last->next = lop;
-    esdp->aux_work_data.later_op.last = lop;
+        awdp->later_op.last->next = lop;
+    awdp->later_op.last = lop;
+    awdp->later_op.list_len++;
     set_aux_work_flags_wakeup_nob(esdp->ssi,
 				  ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
     return later;
@@ -2498,7 +2508,7 @@ notify_reap_ports_relb(void)
 }
 
 erts_atomic32_t erts_halt_progress;
-int erts_halt_code;
+int erts_halt_code = INT_MIN;
 
 static ERTS_INLINE erts_aint32_t
 handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
@@ -2543,7 +2553,7 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 	    erts_port_release(prt);
 	}
 	if (erts_atomic32_dec_read_nob(&erts_halt_progress) == 0) {
-	    erts_flush_async_exit(erts_halt_code, "");
+	    erts_flush_exit(erts_halt_code, "");
 	}
     }
     return aux_work & ~ERTS_SSI_AUX_WORK_REAP_PORTS;
@@ -5836,6 +5846,8 @@ init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp,
     awdp->later_op.size = 0;
     awdp->later_op.first = NULL;
     awdp->later_op.last = NULL;
+    awdp->later_op.list_len = 0;
+
     awdp->async_ready.need_thr_prgr = 0;
     awdp->async_ready.thr_prgr = ERTS_THR_PRGR_VAL_WAITING;
     awdp->async_ready.queue = NULL;
@@ -5965,6 +5977,7 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     }
 
     esdp->reductions = 0;
+    esdp->rand_state = (Uint64)(UWord)esdp + ((Uint64)(UWord)esdp << 32);
 
     init_sched_wall_time(esdp, time_stamp);
     erts_port_task_handle_init(&esdp->nosuspend_port_task_handle);
@@ -6289,15 +6302,12 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 	erts_atomic32_set_nob(&schdlr_sspnd.changing,
 				  set_schdlr_sspnd_change_flags);
 
-    init_misc_aux_work();
-
-
     /* init port tasks */
     erts_port_task_init();
 
 
     erts_atomic32_init_relb(&erts_halt_progress, -1);
-    erts_halt_code = 0;
+    erts_halt_code = INT_MIN;
 
 
 }
@@ -6630,10 +6640,12 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
              */
 
             /*
-             * No normal execution until dirty CLA or hibernat has
+             * No normal execution until dirty CLA or hibernate has
              * been handled...
              */
-            ASSERT(!(p->flags & (F_DIRTY_CLA | F_DIRTY_GC_HIBERNATE)));
+            ASSERT(!(p->flags & (F_DIRTY_CHECK_CLA
+                                 | F_DIRTY_CLA
+                                 | F_DIRTY_GC_HIBERNATE)));
 
             a = erts_atomic32_read_band_nob(&p->state,
                                             ~ERTS_PSFLG_DIRTY_ACTIVE_SYS);
@@ -8653,6 +8665,7 @@ sched_thread_func(void *vesdp)
 
     erts_ets_sched_spec_data_init(esdp);
     erts_utils_sched_spec_data_init();
+    erts_nif_sched_init(esdp);
 
     process_main(esdp);
 
@@ -8703,6 +8716,8 @@ sched_dirty_cpu_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
+    erts_nif_sched_init(esdp);
+
     erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
@@ -8751,6 +8766,8 @@ sched_dirty_io_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
+    erts_nif_sched_init(esdp);
+
     erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
@@ -8764,7 +8781,7 @@ erts_start_schedulers(void)
 {
     ethr_tid tid;
     int res = 0;
-    char name[32];
+    char name[ETHR_THR_NAME_MAX + 1];
     ethr_thr_opts opts = ETHR_THR_OPTS_DEFAULT_INITER;
     int ix;
 
@@ -8774,7 +8791,7 @@ erts_start_schedulers(void)
 
     if (erts_runq_supervision_interval) {
 	opts.suggested_stack_size = 16;
-        erts_snprintf(opts.name, sizeof(name), "runq_supervisor");
+        erts_snprintf(opts.name, sizeof(name), "erts_runq_sup");
 	erts_atomic_init_nob(&runq_supervisor_sleeping, 0);
 	if (0 != ethr_event_init(&runq_supervision_event))
 	    erts_exit(ERTS_ABORT_EXIT, "Failed to create run-queue supervision event\n");
@@ -8795,7 +8812,7 @@ erts_start_schedulers(void)
     for (ix = 0; ix < erts_no_schedulers; ix++) {
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
 	ASSERT(ix == esdp->no - 1);
-	erts_snprintf(opts.name, sizeof(name), "%lu_scheduler", ix + 1);
+	erts_snprintf(opts.name, sizeof(name), "erts_sched_%d", ix + 1);
 	res = ethr_thr_create(&esdp->tid, sched_thread_func, (void*)esdp, &opts);
 	if (res != 0) {
            erts_exit(ERTS_ABORT_EXIT, "Failed to create scheduler thread %d, error = %d\n", ix, res);
@@ -8809,7 +8826,7 @@ erts_start_schedulers(void)
     {
 	for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
-	    erts_snprintf(opts.name, sizeof(name), "%d_dirty_cpu_scheduler", ix + 1);
+	    erts_snprintf(opts.name, sizeof(name), "erts_dcpus_%d", ix + 1);
             opts.suggested_stack_size = erts_dcpu_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_cpu_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
@@ -8817,7 +8834,7 @@ erts_start_schedulers(void)
 	}
 	for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
-	    erts_snprintf(opts.name, sizeof(name), "%d_dirty_io_scheduler", ix + 1);
+	    erts_snprintf(opts.name, sizeof(name), "erts_dios_%d", ix + 1);
             opts.suggested_stack_size = erts_dio_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_io_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
@@ -8828,7 +8845,7 @@ erts_start_schedulers(void)
     ix = 0;
     while (ix < erts_no_aux_work_threads) {
 	int id = ix == 0 ? 1 : ix + 1 - (int) erts_no_schedulers;
-	erts_snprintf(opts.name, sizeof(name), "%d_aux", id);
+	erts_snprintf(opts.name, sizeof(name), "erts_aux_%d", id);
 
 	res = ethr_thr_create(&tid, aux_thread, (void *) (Sint) ix, &opts);
 	if (res != 0)
@@ -8855,7 +8872,7 @@ erts_start_schedulers(void)
         bpt->blocked = 0;
         bpt->id = ix;
         
-        erts_snprintf(opts.name, sizeof(name), "%d_poller", ix);
+        erts_snprintf(opts.name, sizeof(name), "erts_poll_%d", ix);
 
         res = ethr_thr_create(&tid, poll_thread, (void*) bpt, &opts);
         if (res != 0)
@@ -9454,6 +9471,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     Uint32 flags;
     erts_aint32_t state = 0; /* Suppress warning... */
     int is_normal_sched;
+#ifdef DEBUG
+    int aborted_execution = 0;
+#endif
 
     ERTS_MSACC_DECLARE_CACHE();
 
@@ -9578,7 +9598,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
             if (state & ERTS_PSFLG_FREE) {
                 if (!is_normal_sched) {
-                    ASSERT(p->flags & F_DELAYED_DEL_PROC);
+                    ASSERT((p->flags & F_DELAYED_DEL_PROC)
+                           || aborted_execution);
                 }
                 else {
                     ASSERT(esdp->free_process == p);
@@ -9605,6 +9626,10 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	erts_aint32_t psflg_running, psflg_running_sys;
 	ErtsMigrationPaths *mps;
 	ErtsMigrationPath *mp;
+
+#ifdef DEBUG
+        aborted_execution = 0;
+#endif
 
 	if (is_normal_sched) {
 
@@ -10005,6 +10030,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
                 if (IS_TRACED(p))
                     trace_schedule_in(p, state);
+#ifdef DEBUG
+                aborted_execution = !0;
+#endif
 		goto sched_out_proc;
 	    }
 	}
@@ -10060,29 +10088,44 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         }
         else {
             /* On normal scheduler */
+
+            /*
+             * Check if a dirty signal handler is handling signals for
+             * us and if so, wait for it to complete before continuing...
+             */
+            state = erts_proc_sig_check_wait_dirty_handle_signals(p, state);
+
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
-                    int local_only = (!!(p->sig_qs.flags & FS_LOCAL_SIGS_ONLY)
-                                      & !(state & (ERTS_PSFLG_SUSPENDED|ERTS_PSFLGS_DIRTY_WORK)));
-                    if (!local_only | !!(state & ERTS_PSFLG_SIG_Q)) {
-                        int sig_reds;
+		    int sig_reds;
+		    /*
+		     * If we have dirty work scheduled we allow
+		     * usage of all reductions since we need to
+		     * handle all signals before doing dirty
+		     * work...
+                     *
+                     * If a BIF is flushing signals, we also allow
+                     * usage of all reductions since the BIF cannot
+                     * continue exectution until the flush
+                     * completes...
+		     */
+                    sig_reds = reds;
+                    if (((state & (ERTS_PSFLGS_DIRTY_WORK
+                                   | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE)
+                        && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
                         /*
-                         * If we have dirty work scheduled we allow
-                         * usage of all reductions since we need to
-                         * handle all signals before doing dirty
-                         * work...
+                         * We are active, i.e., have erlang work to do,
+                         * and have no dirty work and are not flushing
+                         * limit amount of signal handling work...
                          */
-                        if (state & ERTS_PSFLGS_DIRTY_WORK)
-                            sig_reds = reds;
-                        else
-                            sig_reds = ERTS_SIG_HANDLE_REDS_MAX_PREFERED;
-                        (void) erts_proc_sig_handle_incoming(p,
-                                                             &state,
-                                                             &sig_reds,
-                                                             sig_reds,
-                                                             local_only);
-                        reds -= sig_reds;
+                        sig_reds = ERTS_SIG_HANDLE_REDS_MAX_PREFERED;
                     }
+		    (void) erts_proc_sig_handle_incoming(p,
+							 &state,
+							 &sig_reds,
+							 sig_reds,
+							 0);
+		    reds -= sig_reds;
                 }
                 if ((state & (ERTS_PSFLG_SYS_TASKS
                               | ERTS_PSFLG_EXITING)) == ERTS_PSFLG_SYS_TASKS) {
@@ -10092,8 +10135,14 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                      * hand written beam assembly in
                      * prim_eval:'receive'. If GC is delayed we are
                      * not allowed to execute system tasks.
+                     *
+                     * We also don't allow execution of system tasks
+                     * if a BIF is flushing signals, since there are
+                     * system tasks that might need to fetch from the
+                     * outer signal queue...
                      */
-                    if (!(p->flags & F_DELAY_GC)) {
+                    if (!(p->flags & F_DELAY_GC)
+                        && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
                         int cost = execute_sys_tasks(p, &state, reds);
                         calls += cost;
                         reds -= cost;
@@ -10145,6 +10194,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                 if (!(state & ERTS_PSFLG_EXITING)
                     && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
                     int cost = scheduler_gc_proc(p, reds);
+                    state = erts_atomic32_read_nob(&p->state);
                     calls += cost;
                     reds -= cost;
                     if (reds <= 0)
@@ -10506,7 +10556,9 @@ done:
 }
 
 
-static void exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state);
+static void exit_permanent_prio_elevation(Process *c_p,
+                                          erts_aint32_t state,
+                                          int prio);
 static void save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio);
 static void save_dirty_task(Process *c_p, ErtsProcSysTask *st);
 
@@ -10588,25 +10640,49 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    int fcalls;
             int cla_reds = 0;
 
-	    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
-		fcalls = reds;
-	    else
-		fcalls = reds - CONTEXT_REDS;
-	    st_res = erts_copy_literals_gc(c_p, &cla_reds, fcalls);
-            reds -= cla_reds;
-	    if (is_non_value(st_res)) {
-		if (c_p->flags & F_DIRTY_CLA) {
-		    save_dirty_task(c_p, st);
-		    st = NULL;
-		    break;
-		}
-		/* Needed gc, but gc was disabled */
-		save_gc_task(c_p, st, st_prio);
-		st = NULL;
-		break;
-	    }
-            /* We did a major gc */
-            minor_gc = major_gc = 1;
+            if (st->arg[0] == am_true) {
+                /*
+                 * Check if copy literal area GC is needed and only
+                 * do GC if needed. This check is never requested unless
+                 * we know that this is to much work to do on a normal
+                 * scheduler, so we do not even try to check it here
+                 * but instead unconditionally schedule this as dirty
+                 * work...
+                 */
+                if (c_p->flags & F_DISABLE_GC) {
+                    /* We might need to GC, but GC was disabled */
+                    save_gc_task(c_p, st, st_prio);
+                    st = NULL;
+                }
+                else {
+                    c_p->flags |= F_DIRTY_CHECK_CLA;
+                    save_dirty_task(c_p, st);
+                    st = NULL;
+                    erts_schedule_dirty_sys_execution(c_p);
+                }
+            }
+            else {
+                /* Copy literal area GC needed... */
+                if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+                    fcalls = reds;
+                else
+                    fcalls = reds - CONTEXT_REDS;
+                st_res = erts_copy_literals_gc(c_p, &cla_reds, fcalls);
+                reds -= cla_reds;
+                if (is_non_value(st_res)) {
+                    if (c_p->flags & F_DIRTY_CLA) {
+                        save_dirty_task(c_p, st);
+                        st = NULL;
+                        break;
+                    }
+                    /* Needed gc, but gc was disabled */
+                    save_gc_task(c_p, st, st_prio);
+                    st = NULL;
+                    break;
+                }
+                /* We did a major gc */
+                minor_gc = major_gc = 1;
+            }
 	    break;
         }
         case ERTS_PSTT_FTMQ:
@@ -10619,29 +10695,31 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    break;
         case ERTS_PSTT_PRIO_SIG: {
             erts_aint32_t fail_state, state;
-            int sig_res, sig_reds = reds;
+            int sig_res, sig_reds;
 	    st_res = am_false;
+
+            ASSERT(!(c_p->sig_qs.flags & FS_FLUSHING_SIGS));
 
             if (st->arg[0] == am_false) {
                 erts_proc_sig_queue_lock(c_p);
                 erts_proc_sig_fetch(c_p);
                 erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+                st->arg[0] = am_true;
             }
 
+	    state = erts_atomic32_read_nob(&c_p->state);
             sig_reds = reds;
             sig_res = erts_proc_sig_handle_incoming(c_p, &state, &sig_reds,
                                                     reds, !0);
             reds -= sig_reds;
 
             if (state & ERTS_PSFLG_EXITING) {
-                exit_permanent_prio_elevation(c_p, state);
+                exit_permanent_prio_elevation(c_p, state, st_prio);
                 break;
             }
 
             if (sig_res)
                 break;
-
-            st->arg[0] = am_true;
 
             fail_state = ERTS_PSFLG_EXITING;
 
@@ -10650,9 +10728,10 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
                 st = NULL;
             }
             else {
-                state = erts_atomic32_read_nob(&c_p->state);                         
-                exit_permanent_prio_elevation(c_p, state);
+                state = erts_atomic32_read_nob(&c_p->state);
+                exit_permanent_prio_elevation(c_p, state, st_prio);
             }
+
             break;
         }
         case ERTS_PSTT_TEST:
@@ -10664,7 +10743,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	}
 
 	if (st)
-	    reds += notify_sys_task_executed(c_p, st, st_res, 1);
+	    reds -= notify_sys_task_executed(c_p, st, st_res, 1);
 
 	state = erts_atomic32_read_acqb(&c_p->state);
     } while (qmask && reds > 0);
@@ -10681,8 +10760,7 @@ static int
 cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 {
     erts_aint32_t state = in_state;
-    int max_reds = in_reds;
-    int reds = 0;
+    int reds = in_reds;
     int qmask = 1;          /* Set to 1 to force looping as long as there
                              * are dirty tasks.
                              */
@@ -10695,6 +10773,7 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	int st_prio;
 
 	if (c_p->dirty_sys_tasks) {
+            st_prio = PRIORITY_MAX; /* Silence warning... */
 	    st = c_p->dirty_sys_tasks;
 	    c_p->dirty_sys_tasks = st->next;
 	}
@@ -10708,7 +10787,7 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	switch (st->type) {
         case ERTS_PSTT_PRIO_SIG:
             state = erts_atomic32_read_nob(&c_p->state);                         
-            exit_permanent_prio_elevation(c_p, state);
+            exit_permanent_prio_elevation(c_p, state, st_prio);
             /* fall through... */
         case ERTS_PSTT_GC_MAJOR:
         case ERTS_PSTT_GC_MINOR:
@@ -10730,38 +10809,41 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	    break;
 	}
 
-	reds += notify_sys_task_executed(c_p, st, st_res, 1);
+	reds -= notify_sys_task_executed(c_p, st, st_res, 1);
 
 	state = erts_atomic32_read_acqb(&c_p->state);
-    } while (qmask && reds < max_reds);
+    } while (qmask && reds > 0);
 
     return reds;
 }
 
 static void
-exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state)
+exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state, int elev_prio)
 {
-    erts_aint32_t a;
+    erts_aint32_t a, nprio = (erts_aint32_t) elev_prio;
     /*
      * we are about to terminate; permanently elevate
      * prio in order to ensure high prio signal
      * handling...
      */
+    ASSERT(PRIORITY_MAX <= elev_prio && elev_prio <= PRIORITY_LOW);
+
     a = state;
     while (1) {
-        erts_aint32_t aprio, uprio, n, e;
+        erts_aint32_t uprio, n, e;
         ASSERT(a & ERTS_PSFLG_EXITING);
-        aprio = ERTS_PSFLGS_GET_ACT_PRIO(a);
         uprio = ERTS_PSFLGS_GET_USR_PRIO(a);
-        if (aprio >= uprio)
-            break; /* user prio >= actual prio */
+        if (nprio >= uprio)
+            break; /* user prio is higher than or equal to elevation prio */
         /*
          * actual prio is higher than user prio; raise
          * user prio to actual prio...
          */
         n = e = a;
-        n &= ~ERTS_PSFLGS_USR_PRIO_MASK;
-        n |= aprio << ERTS_PSFLGS_USR_PRIO_OFFSET;
+        n &= ~(ERTS_PSFLGS_USR_PRIO_MASK
+               | ERTS_PSFLGS_ACT_PRIO_MASK);
+        n |= ((nprio << ERTS_PSFLGS_USR_PRIO_OFFSET)
+              | (nprio << ERTS_PSFLGS_ACT_PRIO_OFFSET));
         a = erts_atomic32_cmpxchg_mb(&c_p->state, n, e);
         if (a == e)
             break;
@@ -10805,16 +10887,49 @@ erts_execute_dirty_system_task(Process *c_p)
     /*
      * If multiple operations, perform them in the following
      * order (in order to avoid unnecessary GC):
-     *  1. Copy Literal Area (implies major GC).
-     *  2. GC Hibernate (implies major GC if not woken).
-     *  3. Major GC (implies minor GC).
-     *  4. Minor GC.
+     *  1. Check for Copy Literals Area GC need. This may
+     *     trigger a Copy Literals Area GC.
+     *  2. Copy Literal Area GC (implies major GC).
+     *  3. GC Hibernate (implies major GC if not woken).
+     *  4. Major GC (implies minor GC).
+     *  5. Minor GC.
      *
      * System task requests are handled after the actual
      * operations have been performed...
      */
 
     ASSERT(!(c_p->flags & (F_DELAY_GC|F_DISABLE_GC)));
+
+    if (c_p->flags & F_DIRTY_CHECK_CLA) {
+        ErtsLiteralArea *la = ERTS_COPY_LITERAL_AREA();
+
+        ASSERT(!(c_p->flags & F_DIRTY_CLA));
+        c_p->flags &= ~F_DIRTY_CHECK_CLA;
+        if (!la)
+            cla_res = am_ok;
+        else {
+            int check_cla_reds = 0;
+            char *literals = (char *) &la->start[0];
+            Uint lit_bsize = (char *) la->end - literals;
+            if (erts_check_copy_literals_gc_need(c_p,
+                                                 &check_cla_reds,
+                                                 literals,
+                                                 lit_bsize)) {
+                /*
+                 * We had references to this literal area on the heap;
+                 * need a copy literals GC...
+                 */
+                c_p->flags |= F_DIRTY_CLA;
+            }
+            else {
+                /*
+                 * We have no references to this literal area on the
+                 * heap; no copy literals GC needed...
+                 */
+                cla_res = am_ok;
+            }
+        }
+    }
 
     if (c_p->flags & F_DIRTY_CLA) {
 	int cla_reds = 0;
@@ -10844,7 +10959,8 @@ erts_execute_dirty_system_task(Process *c_p)
 					   c_p->arity, c_p->fcalls);
     }
 
-    ASSERT(!(c_p->flags & (F_DIRTY_CLA
+    ASSERT(!(c_p->flags & (F_DIRTY_CHECK_CLA
+                           | F_DIRTY_CLA
 			   | F_DIRTY_GC_HIBERNATE
 			   | F_DIRTY_MAJOR_GC
 			   | F_DIRTY_MINOR_GC)));
@@ -11228,7 +11344,7 @@ erts_internal_request_system_task_4(BIF_ALIST_4)
 }
 
 void
-erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id)
+erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id, int check)
 {
     Process *rp;
     ErtsProcSysTask *st;
@@ -11254,7 +11370,8 @@ erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id)
                                                        req_id_sz,
                                                        &hp,
                                                        &st->off_heap);
-    for (i = 0; i < ERTS_MAX_PROC_SYS_TASK_ARGS; i++)
+    st->arg[0] = check ? am_true : am_false;
+    for (i = 1; i < ERTS_MAX_PROC_SYS_TASK_ARGS; i++)
         st->arg[i] = THE_NON_VALUE;
 
     rp = erts_proc_lookup_raw(to);
@@ -11805,6 +11922,8 @@ static void early_init_process_struct(void *varg, Eterm data)
     erts_atomic32_init_nob(&proc->dirty_state, 0);
     proc->dirty_sys_tasks = NULL;
     erts_init_runq_proc(proc, arg->run_queue, arg->bound);
+    erts_atomic_init_nob(&proc->sig_inq_buffers, (erts_aint_t)NULL);
+
     erts_atomic32_init_relb(&proc->state, arg->state);
 
     erts_proc_lock_init(proc); /* All locks locked */
@@ -11924,6 +12043,22 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
 		    sop->priority = PRIORITY_LOW;
 		else
                     result = -1;
+            } else if (arg == am_async_dist) {
+                if (val == am_true) {
+                    if (sop->flags & SPO_ASYNC_DIST)
+                        sop->multi_set = !0;
+                    else
+                        sop->flags |= SPO_ASYNC_DIST;
+                }
+                else if (val == am_false) {
+                    if (!(sop->flags & SPO_ASYNC_DIST))
+                        sop->multi_set = !0;
+                    else
+                        sop->flags &= ~SPO_ASYNC_DIST;
+                }
+                else {
+                    result = -1;
+                }
 	    } else if (arg == am_message_queue_data) {
                 if (sop->flags & (SPO_OFF_HEAP_MSGQ|SPO_ON_HEAP_MSGQ))
                     sop->multi_set = !0;
@@ -12161,6 +12296,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     /* Reserve place for continuation pointer, redzone, etc */
     heap_need = arg_size + S_RESERVED;
 
+    if (so->flags & SPO_ASYNC_DIST)
+        flags |= F_ASYNC_DIST;
+
     p->flags = flags;
     p->sig_qs.flags = qs_flags;
 
@@ -12289,7 +12427,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_inq.len = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
-    erts_atomic_init_nob(&p->sig_inq_buffers, (erts_aint_t)NULL);
+    ASSERT(erts_atomic_read_nob(&p->sig_inq_buffers) == (erts_aint_t)NULL);
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
     p->sig_inq.may_contain_heap_terms = 0;
 #endif
@@ -12932,7 +13070,7 @@ delete_process(Process* p)
 {
     ErtsPSD *psd;
     struct saved_calls *scb;
-    process_breakpoint_time_t *pbt;
+    process_breakpoint_trace_t *pbt;
     Uint32 block_rla_ref = (Uint32) (Uint) p->u.terminate;
 
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
@@ -12953,6 +13091,9 @@ delete_process(Process* p)
     }
 
     pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
+    if (pbt)
+        erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+    pbt = ERTS_PROC_SET_CALL_MEMORY(p, NULL);
     if (pbt)
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
 
@@ -13050,7 +13191,7 @@ erts_set_self_exiting(Process *c_p, Eterm reason)
     erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 
     set_self_exiting(c_p, reason, &enqueue, &enq_prio, &state);
-    c_p->freason = EXTAG_EXIT;
+    c_p->freason = EXTAG_EXIT | EXF_PANIC;
     KILL_CATCHES(c_p);
     c_p->i = beam_exit;
 
@@ -13353,6 +13494,10 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             erts_fire_nif_monitor(mon);
             mon = NULL;
             break;
+        case ERTS_MON_TYPE_DIST_PORT:
+            /* Target of a dist port monitor is never inserted... */
+            ERTS_INTERNAL_ERROR("Unexpected dist port monitor");
+            break;
         case ERTS_MON_TYPE_DIST_PROC: {
             ErtsMonLnkDist *dist;
             DistEntry *dep;
@@ -13428,7 +13573,8 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             break;
         case ERTS_MON_TYPE_PORT: {
             Port *prt;
-            ASSERT(is_internal_port(mon->other.item));
+            ASSERT(is_internal_port(mon->other.item)
+                   || mon->other.item == am_undefined);
             prt = erts_port_lookup_raw(mon->other.item);
             if (prt) {
                 if (erts_port_demonitor(c_p, prt, mon) != ERTS_PORT_OP_DROPPED)
@@ -13436,6 +13582,9 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             }
             break;
         }
+        case ERTS_MON_TYPE_DIST_PORT:
+            /* just release it... */
+            break;
         case ERTS_MON_TYPE_DIST_PROC: {
             ErtsMonLnkDist *dist;
             DistEntry *dep;
@@ -13450,7 +13599,14 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             
             mdp = erts_monitor_to_data(mon);
             dist = ((ErtsMonitorDataExtended *) mdp)->dist;
-            ASSERT(dist);
+            if (!dist) {
+                ASSERT(is_external_pid(mon->other.item));
+		ASSERT(external_pid_dist_entry(mon->other.item)
+                       == erts_this_dist_entry);
+                /* Target part is in our signal queue... */
+                mdp = NULL;
+                break;
+            }
             if (mon->flags & ERTS_ML_FLG_NAME) {
                 watched = ((ErtsMonitorDataExtended *) mdp)->u.name;
                 ASSERT(is_atom(watched));
@@ -13581,6 +13737,8 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
     switch (lnk->type) {
     case ERTS_LNK_TYPE_PROC:
         ASSERT(is_internal_pid(lnk->other.item));
+        if (((ErtsILink *) lnk)->unlinking)
+            break;
         erts_proc_sig_send_link_exit(&c_p->common, c_p->common.id, lnk,
                                      reason, SEQ_TRACE_TOKEN(c_p));
         lnk = NULL;
@@ -13588,6 +13746,8 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
     case ERTS_LNK_TYPE_PORT: {
         Port *prt;
         ASSERT(is_internal_port(lnk->other.item));
+        if (((ErtsILink *) lnk)->unlinking)
+            break;
         prt = erts_port_lookup(lnk->other.item,
                                ERTS_PORT_SFLGS_INVALID_LOOKUP);
         if (prt)
@@ -13607,8 +13767,14 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
         ErtsDSigSendContext ctx;
         int code;
 
+        dlnk = erts_link_to_other(lnk, &elnk);
+        if (elnk->unlinking) {
+            if (!erts_link_dist_delete(dlnk))
+                elnk = NULL;
+            break;
+        }
+
         if (is_immed(reason)) {
-            dlnk = erts_link_to_other(lnk, &elnk);
             dist = elnk->dist;
 
             ASSERT(is_external_pid(lnk->other.item));
@@ -13726,6 +13892,7 @@ enum continue_exit_phase {
     ERTS_CONTINUE_EXIT_MONITORS,
     ERTS_CONTINUE_EXIT_LT_MONITORS,
     ERTS_CONTINUE_EXIT_HANDLE_PROC_SIG,
+    ERTS_CONTINUE_EXIT_DIST_SEND,
     ERTS_CONTINUE_EXIT_DIST_LINKS,
     ERTS_CONTINUE_EXIT_DIST_MONITORS,
     ERTS_CONTINUE_EXIT_DIST_PEND_SPAWN_MONITORS,
@@ -13743,6 +13910,10 @@ struct continue_exit_state {
     void *yield_state;
     Uint32 block_rla_ref;
 };
+
+#ifdef DEBUG
+extern Export dsend_continue_trap_export;
+#endif
 
 void
 erts_continue_exit_process(Process *p)
@@ -13983,6 +14154,20 @@ restart:
         trap_state->pectxt.dist_state = NIL;
         trap_state->pectxt.yield = 0;
 
+        p->rcount = 0;
+
+        if (p->flags & F_FRAGMENTED_SEND) {
+            /* The process was re-scheduled while doing a fragmented
+               distributed send (possibly because it was suspended).
+               We need to finish doing that send as otherwise incomplete
+               fragmented messages will be sent to other nodes potentially
+               causing memory leaks.
+            */
+            ASSERT(p->current == &dsend_continue_trap_export.info.mfa);
+            /* arg_reg[0] is the argument used in dsend_continue_trap_export */
+            trap_state->pectxt.dist_state = p->arg_reg[0];
+        }
+
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
 
         erts_proc_sig_queue_flush_and_deinstall_buffers(p);
@@ -14037,19 +14222,18 @@ restart:
     case ERTS_CONTINUE_EXIT_HANDLE_PROC_SIG: {
         Sint r = reds;
 
-        if (!erts_proc_sig_handle_exit(p, &r,
-                                       &trap_state->pectxt.pend_spawn_monitors,
-                                       trap_state->reason)) {
+        if (!erts_proc_sig_handle_exit(p, &r, &trap_state->pectxt)) {
             goto yield;
         }
 
         reds -= r;
 
-        trap_state->phase = ERTS_CONTINUE_EXIT_DIST_LINKS;
+        trap_state->phase = ERTS_CONTINUE_EXIT_DIST_SEND;
     }
-    case ERTS_CONTINUE_EXIT_DIST_LINKS: {
+    case ERTS_CONTINUE_EXIT_DIST_SEND: {
 
-        continue_dist_send:
+    continue_dist_send:
+        ASSERT(p->rcount == 0);
         if (is_not_nil(trap_state->pectxt.dist_state)) {
             Binary* bin = erts_magic_ref2bin(trap_state->pectxt.dist_state);
             ErtsDSigSendContext* ctx = (ErtsDSigSendContext*) ERTS_MAGIC_BIN_DATA(bin);
@@ -14082,6 +14266,13 @@ restart:
             goto restart;
         }
 
+        trap_state->phase = ERTS_CONTINUE_EXIT_DIST_LINKS;
+    }
+    case ERTS_CONTINUE_EXIT_DIST_LINKS: {
+
+        if (is_not_nil(trap_state->pectxt.dist_state))
+            goto continue_dist_send;
+
         reds = erts_link_tree_foreach_delete_yielding(
             &trap_state->pectxt.dist_links,
             erts_proc_exit_handle_dist_link,
@@ -14090,6 +14281,7 @@ restart:
             reds);
         if (reds <= 0 || trap_state->pectxt.yield)
             goto yield;
+
         trap_state->phase = ERTS_CONTINUE_EXIT_DIST_MONITORS;
     }
     case ERTS_CONTINUE_EXIT_DIST_MONITORS: {
@@ -14674,6 +14866,7 @@ void erts_halt(int code)
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_CPU_RUNQ, ERTS_RUNQ_FLG_HALTING);
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_IO_RUNQ, ERTS_RUNQ_FLG_HALTING);
 	erts_halt_code = code;
+        erts_nif_notify_halt();
     }
 }
 

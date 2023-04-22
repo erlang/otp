@@ -152,7 +152,7 @@ enum class InstHints : uint8_t {
   //! No feature hints.
   kNoHints = 0,
 
-  //! Architecture supports a register swap by using a single instructio.
+  //! Architecture supports a register swap by using a single instruction.
   kRegSwap = 0x01u,
   //! Architecture provides push/pop instructions.
   kPushPop = 0x02u

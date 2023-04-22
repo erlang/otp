@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2018-2021. All Rights Reserved.
+# Copyright Ericsson AB 2018-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -139,6 +139,10 @@ while test $# != 0; do
 	    pie_cflags="-fno-PIE"
 	    pie_ldflags="-no-pie"
 	    ;;
+	--enable-deterministic-build)
+      config_arguments="$config_arguments --enable-deterministic-build";;
+	--disable-deterministic-build)
+      config_arguments="$config_arguments --disable-deterministic-build";;
 	CFLAGS=* | LDFLAGS=*)
         flgs_var=`echo "$1" | sed 's/=.*$//'`
         flgs_val=`echo "$1" | sed 's/^[^=]*=//'`

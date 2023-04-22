@@ -54,8 +54,6 @@ PRIMARY_FLAVOR= @PRIMARY_FLAVOR@
 
 USE_PGO = @USE_PGO@
 
-USE_ESOCK = @USE_ESOCK@
-
 # Slash separated list of return values from $(origin VAR)
 # that are untrusted - set default in this file instead.
 # The list is not space separated since some return values
@@ -94,6 +92,8 @@ BITS64 = @BITS64@
 
 OTP_RELEASE = @OTP_RELEASE@
 
+ERL_DETERMINISTIC = @ERL_DETERMINISTIC@
+
 # ----------------------------------------------------
 #	Erlang language section
 # ----------------------------------------------------
@@ -101,13 +101,15 @@ EMULATOR = beam
 ifeq ($(ERL_COMPILE_WARNINGS_AS_ERRORS),yes)
   ERL_COMPILE_FLAGS += -Werror
 endif
-ifdef BOOTSTRAP
+ifdef PRIMARY_BOOTSTRAP
   ERL_COMPILE_FLAGS += +slim
 else
   ERL_COMPILE_FLAGS += +debug_info
 endif
-ifeq ($(USE_ESOCK),yes)
-ERL_COMPILE_FLAGS += -DUSE_ESOCK=true
+ifeq ($(ERL_DETERMINISTIC),yes)
+  ERL_COMPILE_FLAGS += +deterministic
+  YRL_FLAGS += +deterministic
+  XRL_FLAGS += +deterministic
 endif
 
 ERLC_WFLAGS = -W

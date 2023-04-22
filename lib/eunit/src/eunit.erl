@@ -135,6 +135,11 @@ test(Tests) ->
 %% <dd>Displays more details about the running tests.</dd>
 %% <dt>`print_depth'</dt>
 %% <dd>Maximum depth to which terms are printed in case of error.</dd>
+%% <dt>`exact_execution'</dt>
+%% <dd>If this boolean flag is set to `true' framework will
+%% not automatically execute tests found in related module suffixed with "_tests".
+%% This behaviour might be unwanted if execution of modules found in a folder
+%% is ordered while it contains both source and test modules.</dd>
 %% </dl>
 %%
 %% Options in the environment variable EUNIT are also included last in

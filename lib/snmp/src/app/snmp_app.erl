@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,8 +38,13 @@ start(Type, []) ->
     %% First start the (new) central supervisor,
     {ok, Pid} = snmp_app_sup:start_link(),
     Entities = entities(),
-    ok = start_entities(Type, Entities),
-    {ok, Pid}.
+    case start_entities(Type, Entities) of
+        ok ->
+            {ok, Pid};
+        Error ->
+            snmp_app_sup:stop(),
+            Error
+    end.
 
 entities() ->
     entities([agent, manager], []).

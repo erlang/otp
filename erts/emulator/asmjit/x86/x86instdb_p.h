@@ -189,12 +189,12 @@ enum EncodingId : uint32_t {
 
 //! Additional information table, provides CPU extensions required to execute an instruction and RW flags.
 struct AdditionalInfo {
-  //! Features vector.
-  uint8_t _features[6];
+  //! Index to `_instFlagsTable`.
+  uint8_t _instFlagsIndex;
   //! Index to `_rwFlagsTable`.
   uint8_t _rwFlagsIndex;
-  //! Reserved for future use.
-  uint8_t _reserved;
+  //! Features vector.
+  uint8_t _features[6];
 
   inline const uint8_t* featuresBegin() const noexcept { return _features; }
   inline const uint8_t* featuresEnd() const noexcept { return _features + ASMJIT_ARRAY_SIZE(_features); }
@@ -259,7 +259,13 @@ struct RWInfoRm {
   };
 
   enum Flags : uint8_t {
-    kFlagAmbiguous = 0x01
+    kFlagAmbiguous = 0x01,
+    //! Special semantics for PEXTRW - memory operand can only be used with SSE4.1 instruction and it's forbidden in MMX.
+    kFlagPextrw = 0x02,
+    //! Special semantics for MOVSS and MOVSD - doesn't zero extend the destination if the operation is a reg to reg move.
+    kFlagMovssMovsd = 0x04,
+    //! Special semantics for AVX shift instructions that do not provide reg/mem in AVX/AVX2 mode (AVX-512 is required).
+    kFlagFeatureIfRMI = 0x08
   };
 
   uint8_t category;
@@ -283,12 +289,14 @@ extern const RWInfo rwInfoB[];
 extern const RWInfoOp rwInfoOp[];
 extern const RWInfoRm rwInfoRm[];
 extern const RWFlagsInfoTable _rwFlagsInfoTable[];
+extern const InstRWFlags _instFlagsTable[];
 
 extern const uint32_t _mainOpcodeTable[];
 extern const uint32_t _altOpcodeTable[];
 
 #ifndef ASMJIT_NO_TEXT
-extern const char _nameData[];
+extern const uint32_t _instNameIndexTable[];
+extern const char _instNameStringTable[];
 extern const InstNameIndex instNameIndex[26];
 #endif // !ASMJIT_NO_TEXT
 

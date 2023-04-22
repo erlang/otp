@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +49,6 @@
 	 handle_kex_ecdh_init/2,
 	 handle_kex_ecdh_reply/2,
          parallell_gen_key/1,
-	 extract_public_key/1,
 	 ssh_packet/2, pack/2,
          valid_key_sha_alg/3,
 	 sign/3, sign/4,
@@ -61,6 +60,8 @@
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
+
+-define(MIN_DH_KEY_SIZE, 400).
 
 %%% For test suites
 -export([pack/3, adjust_algs_for_peer_version/2]).
@@ -432,7 +433,12 @@ kexinit_error(Class, Error, Role, Own, CounterPart) ->
             _ ->
                 {"Kexinit failed in ~p: ~p:~p", [Role,Class,Error]}
         end,
-    io_lib:format(Fmt, Args).
+    try io_lib:format(Fmt, Args) of
+        R -> R
+    catch
+        _:_ ->
+            io_lib:format("Kexinit failed in ~p: ~p:~p", [Role, Class, Error])
+    end.
 
 alg_info(client, Alg) ->
     alg_info(Alg);
@@ -553,7 +559,7 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 	    {Public, Private} = generate_key(dh, [P,G,2*Sz]),
 	    K = compute_key(dh, E, Private, [P,G]),
 	    MyPrivHostKey = get_host_key(SignAlg, Opts),
-	    MyPubHostKey = extract_public_key(MyPrivHostKey),
+	    MyPubHostKey = ssh_file:extract_public_key(MyPrivHostKey),
             H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {E,Public,K}),
             case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
                 {ok,H_SIG} ->
@@ -705,7 +711,7 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 	    if
 		1<K, K<(P-1) ->
 		    MyPrivHostKey = get_host_key(SignAlg, Opts),
-		    MyPubHostKey = extract_public_key(MyPrivHostKey),
+		    MyPubHostKey = ssh_file:extract_public_key(MyPrivHostKey),
                     H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {Min,NBits,Max,P,G,E,Public,K}),
                     case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
                         {ok,H_SIG} ->
@@ -788,7 +794,7 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
     of
 	K ->
 	    MyPrivHostKey = get_host_key(SignAlg, Opts),
-	    MyPubHostKey = extract_public_key(MyPrivHostKey),
+	    MyPubHostKey = ssh_file:extract_public_key(MyPrivHostKey),
             H = kex_hash(Ssh0, MyPubHostKey, sha(Curve), {PeerPublic, MyPublic, K}),
             case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
                 {ok,H_SIG} ->
@@ -925,35 +931,6 @@ call_KeyCb(F, Args, Opts) ->
     {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
     UserOpts = ?GET_OPT(key_cb_options, Opts),
     apply(KeyCb, F, Args ++ [[{key_cb_private,KeyCbOpts}|UserOpts]]).
-
-extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
-    #'RSAPublicKey'{modulus = N, publicExponent = E};
-extract_public_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
-    {Y,  #'Dss-Parms'{p=P, q=Q, g=G}};
-extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
-				   publicKey = Pub0, privateKey = Priv}) when
-      OID == ?'id-Ed25519' orelse
-      OID == ?'id-Ed448' ->
-    case {pubkey_cert_records:namedCurves(OID), Pub0} of
-        {Alg, asn1_NOVALUE} ->
-            %% If we're missing the public key, we can create it with
-            %% the private key.
-            {Pub, Priv} = crypto:generate_key(eddsa, Alg, Priv),
-            {#'ECPoint'{point=Pub}, {namedCurve,OID}};
-        {_Alg, Pub} ->
-            {#'ECPoint'{point=Pub}, {namedCurve,OID}}
-    end;
-extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
-				   publicKey = Q}) when is_tuple(OID) ->
-    {#'ECPoint'{point=Q}, {namedCurve,OID}};
-extract_public_key(#{engine:=_, key_id:=_, algorithm:=Alg} = M) ->
-    case {Alg, crypto:privkey_to_pubkey(Alg, M)} of
-        {rsa, [E,N]} ->
-            #'RSAPublicKey'{modulus = N, publicExponent = E};
-        {dss, [P,Q,G,Y]} ->
-            {Y, #'Dss-Parms'{p=P, q=Q, g=G}}
-    end.
-
 
 
 verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, {AlgStr,Signature}) ->
@@ -1333,9 +1310,9 @@ pack(common, rfc4253, PlainText, DeltaLenTst,
      #ssh{send_sequence = SeqNum,
           send_mac = MacAlg,
           send_mac_key = MacKey} = Ssh0) ->
-    PadLen = padding_length(4+1+size(PlainText), Ssh0),
+    PadLen = padding_length(4+1+byte_size(PlainText), Ssh0),
     Pad =  ssh_bits:random(PadLen),
-    TextLen = 1 + size(PlainText) + PadLen + DeltaLenTst,
+    TextLen = 1 + byte_size(PlainText) + PadLen + DeltaLenTst,
     PlainPkt = <<?UINT32(TextLen),?BYTE(PadLen), PlainText/binary, Pad/binary>>,
     {Ssh1, CipherPkt} = encrypt(Ssh0, PlainPkt),
     MAC0 = mac(MacAlg, MacKey, SeqNum, PlainPkt),
@@ -1346,9 +1323,9 @@ pack(common, enc_then_mac, PlainText, DeltaLenTst,
      #ssh{send_sequence = SeqNum,
           send_mac = MacAlg,
           send_mac_key = MacKey} = Ssh0) ->
-    PadLen = padding_length(1+size(PlainText), Ssh0),
+    PadLen = padding_length(1+byte_size(PlainText), Ssh0),
     Pad =  ssh_bits:random(PadLen),
-    PlainLen = 1 + size(PlainText) + PadLen + DeltaLenTst,
+    PlainLen = 1 + byte_size(PlainText) + PadLen + DeltaLenTst,
     PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
     {Ssh1, CipherPkt} = encrypt(Ssh0, PlainPkt),
     EncPacketPkt = <<?UINT32(PlainLen), CipherPkt/binary>>,
@@ -1356,9 +1333,9 @@ pack(common, enc_then_mac, PlainText, DeltaLenTst,
     {<<?UINT32(PlainLen), CipherPkt/binary, MAC0/binary>>, Ssh1};
 
 pack(aead, _, PlainText, DeltaLenTst, Ssh0) ->
-    PadLen = padding_length(1+size(PlainText), Ssh0),
+    PadLen = padding_length(1+byte_size(PlainText), Ssh0),
     Pad =  ssh_bits:random(PadLen),
-    PlainLen = 1 + size(PlainText) + PadLen + DeltaLenTst,
+    PlainLen = 1 + byte_size(PlainText) + PadLen + DeltaLenTst,
     PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
     {Ssh1, {CipherPkt,MAC0}} = encrypt(Ssh0, <<?UINT32(PlainLen),PlainPkt/binary>>),
     {<<CipherPkt/binary,MAC0/binary>>, Ssh1}.
@@ -1385,7 +1362,7 @@ handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg,
     end;
 
 handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0) 
-  when (size(DecryptedPfx)+size(EncryptedBuffer)) < TotalNeeded ->
+  when (byte_size(DecryptedPfx)+byte_size(EncryptedBuffer)) < TotalNeeded ->
     %% need more bytes to finalize the packet
     {get_more, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0};
 
@@ -1404,7 +1381,7 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, #ssh{decryp
 %%%----------------
 unpack(common, rfc4253, DecryptedPfx, EncryptedBuffer, _AEAD, TotalNeeded,
        #ssh{recv_mac_size = MacSize} = Ssh0) ->
-    MoreNeeded = TotalNeeded - size(DecryptedPfx) - MacSize,
+    MoreNeeded = TotalNeeded - byte_size(DecryptedPfx) - MacSize,
     <<EncryptedSfx:MoreNeeded/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
     {Ssh1, DecryptedSfx} = decrypt(Ssh0, EncryptedSfx),
     PlainPkt = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
@@ -1421,7 +1398,7 @@ unpack(common, enc_then_mac, <<?UINT32(PlainLen)>>, EncryptedBuffer, _AEAD, _Tot
     case is_valid_mac(MAC0, <<?UINT32(PlainLen),Payload/binary>>, Ssh0) of
         true ->
             {Ssh1, <<?BYTE(PaddingLen), PlainRest/binary>>} = decrypt(Ssh0, Payload),
-            CompressedPlainTextLen = size(PlainRest) - PaddingLen,
+            CompressedPlainTextLen = byte_size(PlainRest) - PaddingLen,
             <<CompressedPlainText:CompressedPlainTextLen/binary, _Padding/binary>> = PlainRest,
             {ok, CompressedPlainText, NextPacketBytes, Ssh1};
         false ->
@@ -1431,7 +1408,7 @@ unpack(common, enc_then_mac, <<?UINT32(PlainLen)>>, EncryptedBuffer, _AEAD, _Tot
 unpack(aead, _, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, 
        #ssh{recv_mac_size = MacSize} = Ssh0) ->
     %% enough bytes to decode the packet.
-    MoreNeeded = TotalNeeded - size(DecryptedPfx) - MacSize,
+    MoreNeeded = TotalNeeded - byte_size(DecryptedPfx) - MacSize,
     <<EncryptedSfx:MoreNeeded/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
     case decrypt(Ssh0, {AEAD,EncryptedSfx,Mac}) of
         {Ssh1, error} ->
@@ -1443,7 +1420,7 @@ unpack(aead, _, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded,
 
 %%%----------------------------------------------------------------
 get_length(common, rfc4253, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
-    case size(EncryptedBuffer) >= erlang:max(8, BlockSize) of
+    case byte_size(EncryptedBuffer) >= erlang:max(8, BlockSize) of
 	true ->
 	    <<EncBlock:BlockSize/binary, EncryptedRest/binary>> = EncryptedBuffer,
 	    {Ssh, 
@@ -1463,7 +1440,7 @@ get_length(common, enc_then_mac, EncryptedBuffer, Ssh) ->
     end;
 
 get_length(aead, _, EncryptedBuffer, Ssh) ->
-    case {size(EncryptedBuffer) >= 4, Ssh#ssh.decrypt} of
+    case {byte_size(EncryptedBuffer) >= 4, Ssh#ssh.decrypt} of
        {true, 'chacha20-poly1305@openssh.com'} ->
             <<EncryptedLen:4/binary, EncryptedRest/binary>> = EncryptedBuffer,
             {Ssh1,  PacketLenBin} = decrypt(Ssh, {length,EncryptedLen}),
@@ -2164,10 +2141,10 @@ parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}}}.
 
 
-generate_key(ecdh = Algorithm, Args) ->
-    crypto:generate_key(Algorithm, Args);
-generate_key(Algorithm, Args) ->
-    {Public,Private} = crypto:generate_key(Algorithm, Args),
+generate_key(ecdh, Args) ->
+    crypto:generate_key(ecdh, Args);
+generate_key(dh, [P,G,Sz2]) ->
+    {Public,Private} = crypto:generate_key(dh, [P, G, max(Sz2,?MIN_DH_KEY_SIZE)] ),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
 

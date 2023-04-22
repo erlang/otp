@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 	 create_long_names/1, bad_tar/1, errors/1, extract_from_binary/1,
 	 extract_from_binary_compressed/1, extract_filtered/1,
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
-	 memory/1,unicode/1,read_other_implementations/1,
+	 memory/1,unicode/1,read_other_implementations/1,bsdtgz/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
          incompatible_options/1]).
@@ -42,7 +42,7 @@ all() ->
      extract_from_binary_compressed, extract_from_open_file,
      extract_filtered,
      symlinks, open_add_close, cooked_compressed, memory, unicode,
-     read_other_implementations,
+     read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
      apply_file_info_opts,incompatible_options].
 
@@ -113,8 +113,8 @@ borderline_test(Size, TempDir, IsUstar) ->
     Name = filename:join(TempDir, Prefix++SizeList),
 
     %% Create a file and archive it.
-    X0 = erlang:monotonic_time(),
-    ok = file:write_file(Name, random_byte_list(X0, Size)),
+    RandomBytes = rand:bytes(Size),
+    ok = file:write_file(Name, RandomBytes),
     ok = erl_tar:create(Archive, [Name]),
     ok = file:delete(Name),
 
@@ -125,7 +125,7 @@ borderline_test(Size, TempDir, IsUstar) ->
 
     %% Verify contents of extracted file.
     {ok, Bin} = file:read_file(Name),
-    true = match_byte_list(X0, binary_to_list(Bin)),
+    RandomBytes = Bin,
 
     %% Verify that Unix tar can read it.
     case IsUstar of
@@ -198,34 +198,6 @@ make_cmd(Cmd) ->
 	{win32, _} -> lists:concat(["cmd /c",  Cmd]);
 	{unix, _}  -> lists:concat(["sh -c '",  Cmd,  "'"])
     end.
-
-%% Verifies a random byte list.
-
-match_byte_list(X0, [Byte|Rest]) ->
-    X = next_random(X0),
-    case (X bsr 26) band 16#ff of
-	Byte -> match_byte_list(X, Rest);
-	_ -> false
-    end;
-match_byte_list(_, []) ->
-    true.
-
-%% Generates a random byte list.
-
-random_byte_list(X0, Count) ->
-    random_byte_list(X0, Count, []).
-
-random_byte_list(X0, Count, Result) when Count > 0->
-    X = next_random(X0),
-    random_byte_list(X, Count-1, [(X bsr 26) band 16#ff|Result]);
-random_byte_list(_X, 0, Result) ->
-    lists:reverse(Result).
-
-%% This RNG is from line 21 on page 102 in Knuth: The Art of Computer Programming,
-%% Volume II, Seminumerical Algorithms.
-
-next_random(X) ->
-    (X*17059465+1) band 16#fffffffff.
 
 %% Test the 'atomic' operations: create/extract/table, on compressed
 %% and uncompressed archives.
@@ -891,6 +863,17 @@ do_read_other_implementations([File|Rest], DataDir) ->
     {ok, _} = erl_tar:extract(Full, [memory]),
     do_read_other_implementations(Rest, DataDir).
 
+%% test block padding with compressed tar from bsdtar or tape
+bsdtgz(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = "example_pad.tgz",
+    Full = filename:join(DataDir, File),
+    io:format("~nTrying ~s", [File]),
+    Table = ["autofs.conf","rpc"],
+    {ok, Table} = erl_tar:table(Full, [compressed]),
+    {ok, Bin} = file:read_file(Full),
+    {ok, Table} = erl_tar:table({binary, Bin}, [compressed]),
+    verify_ports(Config).
 
 %% Test handling of sparse files
 sparse(Config) when is_list(Config) ->

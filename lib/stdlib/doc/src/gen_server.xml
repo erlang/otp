@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -106,6 +106,15 @@ gen_server:abcast     -----> Module:handle_cast/2
       <seeguide marker="system/reference_manual:processes#errors">
       Processes</seeguide> in the Reference Manual for details
       regarding error handling using exit signals.</p>
+
+    <note><p>
+      For some important information about distributed signals, see the
+      <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+        <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+      <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+      Blocking signaling can, for example, cause call timeouts in
+      <c>gen_server</c> to be significantly delayed.
+    </p></note>
 
   </description>
 
@@ -473,6 +482,32 @@ gen_server:abcast     -----> Module:handle_cast/2
         </taglist>
       </desc>
     </datatype>
+
+    <datatype>
+      <name name="format_status"/>
+      <desc>
+        <p>
+          A map that describes the <c>gen_server</c> status.
+          The keys are:
+        </p>
+        <taglist>
+          <tag><c>state</c></tag>
+          <item>The internal state of the <c>gen_server</c> process.</item>
+          <tag><c>message</c></tag>
+          <item>The message that caused the server to terminate.</item>
+          <tag><c>reason</c></tag>
+          <item>The reason that caused the server to terminate.</item>
+          <tag><c>log</c></tag>
+          <item>
+            The <seemfa marker="sys#log/2">sys log</seemfa> of the server.
+          </item>
+        </taglist>
+        <p>
+          New associations may be added to the status map
+          without prior notice.
+        </p>
+      </desc>
+    </datatype>
   </datatypes>
 
 
@@ -538,7 +573,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         </p>
         <note>
           <p>
-            If the caller uses (<c>try</c>...)<c>catch</c>
+            Before OTP 24, if the caller uses (<c>try</c>...)<c>catch</c>
             to avoid process exit,
             and the server happens to just be late with the reply,
             it may arrive to the process message queue any time later.
@@ -549,13 +584,17 @@ gen_server:abcast     -----> Module:handle_cast/2
             so they do not clog the process message queue
             or gets mistaken for other messages.
           </p>
+          <p>
+            Starting with OTP 24, <c>gen_server:call</c> uses process aliases,
+            so late replies will not be received.
+          </p>
         </note>
         <p>
           The return value <c><anno>Reply</anno></c>
           is passed from the return value of <c>Module:handle_call/3</c>.
         </p>
         <p>
-          This call may exit the callling process
+          This call may exit the calling process
           with an exit term on the form
           <c>{Reason,&nbsp;Location}</c> where
           <c>Location&nbsp;=&nbsp;{gen_server,call,ArgList}</c>
@@ -692,7 +731,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
     
     <func>
-      <name name="check_response" arity="3" since="OTP @OTP-17784@"/>
+      <name name="check_response" arity="3" since="OTP 25.0"/>
       <fsummary>Check if a message is a response from a server.</fsummary>
       <desc>
 	<p>
@@ -948,7 +987,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="receive_response" arity="3" since="OTP @OTP-17784@"/>
+      <name name="receive_response" arity="3" since="OTP 25.0"/>
       <fsummary>Receive a response from a server.</fsummary>
       <desc>
 	<p>
@@ -1052,7 +1091,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="reqids_add" arity="3" since="OTP @OTP-17784@"/>
+      <name name="reqids_add" arity="3" since="OTP 25.0"/>
       <fsummary>Save a request identifier.</fsummary>
       <desc>
 	<p>
@@ -1065,7 +1104,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
     
     <func>
-      <name name="reqids_new" arity="0" since="OTP @OTP-17784@"/>
+      <name name="reqids_new" arity="0" since="OTP 25.0"/>
       <fsummary>Create a new empty request identifier collection.</fsummary>
       <desc>
 	<p>
@@ -1095,7 +1134,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="reqids_size" arity="1" since="OTP @OTP-17784@"/>
+      <name name="reqids_size" arity="1" since="OTP 25.0"/>
       <fsummary>Get size of a request identifier collection.</fsummary>
       <desc>
 	<p>
@@ -1106,7 +1145,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="reqids_to_list" arity="1" since="OTP @OTP-17784@"/>
+      <name name="reqids_to_list" arity="1" since="OTP 25.0"/>
       <fsummary>List a request identifiers.</fsummary>
       <desc>
 	<p>
@@ -1171,7 +1210,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="send_request" arity="4" since="OTP @OTP-17784@"/>
+      <name name="send_request" arity="4" since="OTP 25.0"/>
       <fsummary>Sends a request to a generic server.</fsummary>
       <desc>
 	<p>
@@ -1377,7 +1416,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
     
     <func>
-      <name name="wait_response" arity="3" since="OTP @OTP-17784@"/>
+      <name name="wait_response" arity="3" since="OTP 25.0"/>
       <fsummary>Wait or poll for a response from a server.</fsummary>
       <desc>
 	<p>
@@ -1505,20 +1544,12 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name since="OTP @OTP-17351@">Module:format_status(Status) -> NewStatus</name>
+      <name since="OTP 25.0">Module:format_status(Status) -> NewStatus</name>
       <fsummary>Optional function for providing a term describing the
         current <c>gen_server</c> status.</fsummary>
       <type>
-        <v>Status = #{ state => State,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        message => Message,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        reason => Reason,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        log => Log }</v>
-        <v>NewStatus = Status</v>
-        <v>State = Message = Reason = term()</v>
-        <v>Log = [<seetype marker="sys#system_event">sys:system_event()</seetype>]</v>
+        <v>Status = <seetype marker="#format_status">format_status()</seetype></v>
+        <v>NewStatus = <seetype marker="#format_status">format_status()</seetype></v>
       </type>
       <desc>
         <note>
@@ -1541,27 +1572,25 @@ gen_server:abcast     -----> Module:handle_cast/2
             <p>The <c>gen_server</c> process terminates abnormally and logs an error.</p>
           </item>
         </list>
-        <p>This callback is to be used to limit the status of the process before
-          returned by <seemfa marker="sys#get_status/1"><c>sys:get_status/1,2</c></seemfa> or
-          sent to <seeerl marker="kernel:logger"><c>logger</c></seeerl>. The status
-          of the server is passed as a map with the following associations:
+        <p>
+          This callback is used to limit the status of the process
+          returned by
+          <seemfa marker="sys#get_status/1"><c>sys:get_status/1,2</c></seemfa>
+          or sent to <seeerl marker="kernel:logger"><c>logger</c></seeerl>.
         </p>
-        <taglist>
-          <tag><c>state => term()</c></tag>
-          <item>The internal state of the <c>gen_server</c> process.</item>
-          <tag><c>message => term()</c></tag>
-          <item>The message that caused the server to terminate.</item>
-          <tag><c>reason => term()</c></tag>
-          <item>The reason that caused the server to terminate.</item>
-          <tag><c>log => [</c><seetype marker="sys#system_event"><c>sys:system_event/0</c></seetype><c>]</c></tag>
-          <item>The <seemfa marker="sys#log/2">sys log</seemfa> of the server.</item>
-        </taglist>
-        <p>New associations may be added into the status map without prior notice.</p>
-        <p>The function is to return <c>NewStatus</c>, a map containing the same
-          associations as the input map.</p>
-        <p>Two possible use cases for this callback is to either remove
-          sensitive information from the state so that it not printed in log files,
-          or to remove large irrelevant terms of state that do clutter the logs.</p>
+        <p>
+          The callback gets a map <c>Status</c>
+          describing the current status and shall return a map
+          <c>NewStatus</c> with the same keys,
+          but it may transform some values.
+        </p>
+        <p>
+          Two possible use cases for this callback is to
+          remove sensitive information from the state
+          to prevent it from being printed in log files,
+          or to compact large irrelevant status items
+          that would only clutter the logs.
+        </p>
         <p>Example:</p>
         <code type="erl"><![CDATA[
 format_status(Status) ->
@@ -1896,6 +1925,7 @@ format_status(Status) ->
         <v>&nbsp;&nbsp;| {ok,State,hibernate}</v>
         <v>&nbsp;&nbsp;| {ok,State,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason}</v>
+        <v>&nbsp;&nbsp;| {error,Reason}</v>
         <v>&nbsp;&nbsp;| ignore</v>
         <v>&nbsp;State = term()</v>
         <v>
@@ -1940,14 +1970,22 @@ format_status(Status) ->
           </item>
           <tag>
             <c>{stop,Reason}</c><br/>
+            <c>{error,Reason}</c><br/>
             <c>ignore</c>
           </tag>
           <item>
             <p>
               Initialization failed.
-              An exit signal with this <c>Reason</c>
-              (or with reason <c>normal</c> if <c>ignore</c> is returned)
-              is sent to linked processes and ports,
+	      An exit signal with reason</p>
+	      <taglist>
+		<tag>stop:</tag>
+		<item><c>Reason</c></item>
+		<tag>error:</tag>
+		<item><c>normal</c></item>
+		<tag>ignore:</tag>
+		<item><c>normal</c></item>
+	      </taglist>
+              <p>is sent to linked processes and ports,
               notably to the process starting the gen_server when
               <seemfa marker="#start_link/3">
                 <c>start_link/3,4</c>

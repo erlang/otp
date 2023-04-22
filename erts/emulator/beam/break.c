@@ -193,6 +193,7 @@ static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
     case ERTS_MON_TYPE_PORT:
     case ERTS_MON_TYPE_TIME_OFFSET:
     case ERTS_MON_TYPE_DIST_PROC:
+    case ERTS_MON_TYPE_DIST_PORT:
     case ERTS_MON_TYPE_RESOURCE:
     case ERTS_MON_TYPE_NODE:
 
@@ -400,12 +401,12 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
 	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
     erts_print(to, to_arg, "BinVHeap: %b64u\n", p->off_heap.overhead);
-    erts_print(to, to_arg, "OldBinVHeap: %b64u\n", BIN_OLD_VHEAP(p));
+    erts_print(to, to_arg, "OldBinVHeap: %b64u\n", p->bin_old_vheap);
     erts_print(to, to_arg, "BinVHeap unused: %b64u\n",
-               BIN_VHEAP_SZ(p) - p->off_heap.overhead);
-    if (BIN_OLD_VHEAP_SZ(p) >= BIN_OLD_VHEAP(p)) {
+               p->bin_vheap_sz - p->off_heap.overhead);
+    if (p->bin_old_vheap_sz >= p->bin_old_vheap) {
         erts_print(to, to_arg, "OldBinVHeap unused: %b64u\n",
-                   BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p));
+                   p->bin_old_vheap_sz - p->bin_old_vheap);
     } else {
         erts_print(to, to_arg, "OldBinVHeap unused: overflow\n");
     }
@@ -575,19 +576,29 @@ do_break(void)
         "       (l)oaded (v)ersion (k)ill (D)b-tables (d)istribution\n";
     int i;
 #ifdef __WIN32__
+    char *clearscreen = "\033[J";
     char *mode; /* enough for storing "window" */
 
     /* check if we're in console mode and, if so,
        halt immediately if break is called */
     mode = erts_read_env("ERL_CONSOLE_MODE");
-    if (mode && sys_strcmp(mode, "window") != 0)
+    if (mode && sys_strcmp(mode, "detached") == 0)
 	erts_exit(0, "");
     erts_free_read_env(mode);
-#endif /* __WIN32__ */
+#else
+    char *clearscreen = "\E[J";
+#endif
 
     ASSERT(erts_thr_progress_is_blocking());
 
-    erts_printf("\n%s", helpstring);
+    /* If we are writing to something known to be a tty we clear the screen
+       after doing newline as the shell tab completion may have written
+       things there. */
+    if (!isatty(fileno(stdin)) || !isatty(fileno(stdout))) {
+        clearscreen = "";
+    }
+
+    erts_printf("\n%s%s", clearscreen, helpstring);
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)
@@ -780,7 +791,7 @@ crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
     }
 
     /* We assume that crash dump was called from erts_exit_vv() */
-    erts_exit_epilogue();
+    erts_exit_epilogue(0);
 }
 
 /* XXX THIS SHOULD BE IN SYSTEM !!!! */

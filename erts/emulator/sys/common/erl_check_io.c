@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -497,14 +497,16 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
 
     active_events = state->active_events;
 
-    if (!(state->flags & ERTS_EV_FLAG_IN_SCHEDULER) || type == ERTS_PORT_TASK_OUTPUT) {
+    if (state->type == ERTS_EV_TYPE_DRV_SEL) {
         switch (type) {
         case ERTS_PORT_TASK_INPUT:
 
             DEBUG_PRINT_FD("executed ready_input", state);
 
-            ASSERT(!(state->active_events & ERTS_POLL_EV_IN));
-            if (state->events & ERTS_POLL_EV_IN) {
+            if (!(state->flags & ERTS_EV_FLAG_IN_SCHEDULER)
+                && !(active_events & ERTS_POLL_EV_IN)
+                && (state->events & ERTS_POLL_EV_IN)) {
+
                 active_events |= ERTS_POLL_EV_IN;
                 if (state->count > 10 && erts_sched_poll_enabled()) {
                     if (!(state->flags & ERTS_EV_FLAG_SCHEDULER))
@@ -522,8 +524,9 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
 
             DEBUG_PRINT_FD("executed ready_output", state);
 
-            ASSERT(!(state->active_events & ERTS_POLL_EV_OUT));
-            if (state->events & ERTS_POLL_EV_OUT) {
+            if (!(active_events & ERTS_POLL_EV_OUT)
+                && (state->events & ERTS_POLL_EV_OUT)) {
+
                 active_events |= ERTS_POLL_EV_OUT;
                 if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER && active_events & ERTS_POLL_EV_IN)
                     new_events = ERTS_POLL_EV_OUT;
@@ -536,7 +539,8 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
             break;
         }
 
-        if (state->active_events != active_events && new_events) {
+        if (state->active_events != active_events) {
+            ASSERT(new_events);
             state->active_events = active_events;
             new_events = erts_io_control(state, op, new_events);
         }
@@ -1918,6 +1922,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
             /* fallthrough */
 	case ERTS_EV_TYPE_NONE: /* Deselected ... */
         case_ERTS_EV_TYPE_NONE:
+            state->flags &= ~ERTS_EV_FLAG_FALLBACK;
             ASSERT(!state->events && !state->active_events && !state->flags);
             check_fd_cleanup(state, &free_select, &free_nif);
 	    break;

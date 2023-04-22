@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -464,8 +464,11 @@ no_reuses_session_server_restart_new_cert() ->
 no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_der_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_der_verify_opts, Config),
-    RSA1024ServerOpts = ssl_test_lib:ssl_options(server_rsa_1024_der_opts, Config),
-    RSA1024ClientOpts = ssl_test_lib:ssl_options(client_rsa_1024_der_opts, Config),
+    #{client_config := NewCOpts,
+      server_config := NewSOpts} = ssl_test_lib:make_cert_chains_der(rsa,
+                                                                     [[{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                                                                      [{key, ssl_test_lib:hardcode_rsa_key(5)}],
+                                                                      [{key, ssl_test_lib:hardcode_rsa_key(6)}]]),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -490,12 +493,12 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     Server1 = ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
                                          {from, self()},
                                          {mfa, {ssl_test_lib, session_info_result, []}},
-                                         {options, [{reuseaddr, true} | RSA1024ServerOpts]}]),
+                                         {options, [{reuseaddr, true} | NewSOpts]}]),
 
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_info_result, []}},
-                                         {from, self()},  {options, RSA1024ClientOpts}]),
+                                         {from, self()},  {options, NewCOpts}]),
     Info1 = receive {Server1, Info10} -> Info10 end,
 
     receive
@@ -517,7 +520,12 @@ no_reuses_session_server_restart_new_cert_file() ->
 no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    RSA1024ServerOpts = ssl_test_lib:ssl_options(server_rsa_1024_verify_opts, Config),
+    #{client_config := NewCOpts,
+      server_config := NewSOpts} = ssl_test_lib:make_cert_chains_pem(rsa,
+                                                                     [[{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                                                                      [{key, ssl_test_lib:hardcode_rsa_key(5)}],
+                                                                      [{key, ssl_test_lib:hardcode_rsa_key(6)}]],
+                                                                     Config, "ssl_session_new_rsa"),
     PrivDir =  proplists:get_value(priv_dir, Config),
 
     NewServerOpts0 = ssl_test_lib:new_config(PrivDir, ServerOpts),
@@ -548,7 +556,7 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
 
     ssl:clear_pem_cache(),
 
-    NewServerOpts1 = ssl_test_lib:new_config(PrivDir, RSA1024ServerOpts),
+    NewServerOpts1 = ssl_test_lib:new_config(PrivDir, NewSOpts),
 
     Server1 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
@@ -559,7 +567,7 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
 	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
 		      {mfa, {ssl_test_lib, session_info_result, []}},
-				   {from, self()},  {options, ClientOpts}]),
+				   {from, self()},  {options, NewCOpts}]),
     receive
 	{Client1, SessionInfo} ->
 	    ct:fail(session_reused_when_server_has_new_cert);
@@ -660,9 +668,9 @@ faulty_client(Host, Port) ->
 
 
 encode_client_hello(CH, Random) ->
-    HSBin = tls_handshake:encode_handshake(CH, {3,3}),
+    HSBin = tls_handshake:encode_handshake(CH, ?TLS_1_2),
     CS = connection_states(Random),
-    {Encoded, _} = tls_record:encode_handshake(HSBin, {3,3}, CS),
+    {Encoded, _} = tls_record:encode_handshake(HSBin, ?TLS_1_2, CS),
     Encoded.
 
 client_hello(Random) ->
@@ -738,7 +746,7 @@ client_hello(Random) ->
 		   srp =>
 		       undefined},
 
-    #client_hello{client_version = {3,3},
+    #client_hello{client_version = ?TLS_1_2,
 		  random = Random,
 		  session_id = crypto:strong_rand_bytes(32),
 		  cipher_suites = CipherSuites,

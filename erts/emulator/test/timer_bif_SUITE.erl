@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,8 +47,8 @@ init_per_testcase(_Case, Config) ->
     end,
     Config.
 
-end_per_testcase(_Case, _Config) ->
-    ok.
+end_per_testcase(_Case, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),

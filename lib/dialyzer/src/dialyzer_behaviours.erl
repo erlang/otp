@@ -95,76 +95,85 @@ check_behaviour(Module, Behaviour, #state{plt = Plt} = State, Acc) ->
 check_all_callbacks(_Module, _Behaviour, [], _State, Acc) ->
   Acc;
 check_all_callbacks(Module, Behaviour, [Cb|Rest],
-		    #state{plt = Plt, codeserver = Codeserver,
-			   records = Records} = State, Acc) ->
+		    #state{plt = Plt, codeserver = Codeserver} = State,
+                    Acc0) ->
   {{Behaviour, Function, Arity},
    {{_BehFile, _BehLocation}, Callback, Xtra}} = Cb,
   CbMFA = {Module, Function, Arity},
+  Acc1 = case dialyzer_plt:lookup(Plt, CbMFA) of
+           none ->
+             case lists:member(optional_callback, Xtra) of
+               true -> Acc0;
+               false -> [{callback_missing, [Behaviour, Function, Arity]}|Acc0]
+             end;
+           {value, RetArgTypes} ->
+             case dialyzer_codeserver:is_exported(CbMFA, Codeserver) of
+               true ->
+                 check_callback(RetArgTypes, CbMFA, Behaviour, Callback, State, Acc0);
+               false ->
+                 case lists:member(optional_callback, Xtra) of
+                   true -> Acc0;
+                   false -> [{callback_not_exported, [Behaviour, Function, Arity]}|Acc0]
+                 end
+             end
+         end,
+  check_all_callbacks(Module, Behaviour, Rest, State, Acc1).
+
+check_callback(RetArgTypes, CbMFA, Behaviour, Callback,
+               #state{plt = _Plt, codeserver = Codeserver,
+                      records = Records}, Acc0) ->
+  {_Module, Function, Arity} = CbMFA,
   CbReturnType = dialyzer_contracts:get_contract_return(Callback),
   CbArgTypes = dialyzer_contracts:get_contract_args(Callback),
-  Acc0 = Acc,
+  {ReturnType, ArgTypes} = RetArgTypes,
   Acc1 =
-    case dialyzer_plt:lookup(Plt, CbMFA) of
-      'none' ->
-        case lists:member(optional_callback, Xtra) of
-          true -> Acc0;
-          false -> [{callback_missing, [Behaviour, Function, Arity]}|Acc0]
-        end;
-      {'value', RetArgTypes} ->
-	Acc00 = Acc0,
-	{ReturnType, ArgTypes} = RetArgTypes,
-	Acc01 =
-	  case erl_types:t_is_subtype(ReturnType, CbReturnType) of
-	    true -> Acc00;
-	    false ->
-	      case erl_types:t_is_none(
-		     erl_types:t_inf(ReturnType, CbReturnType)) of
-		false -> Acc00;
-		true ->
-		  [{callback_type_mismatch,
-		    [Behaviour, Function, Arity,
-		     erl_types:t_to_string(ReturnType, Records),
-		     erl_types:t_to_string(CbReturnType, Records)]}|Acc00]
-	      end
-	  end,
-	case erl_types:any_none(erl_types:t_inf_lists(ArgTypes, CbArgTypes)) of
-	  false -> Acc01;
-	  true ->
-	    find_mismatching_args(type, ArgTypes, CbArgTypes, Behaviour,
-				  Function, Arity, Records, 1, Acc01)
-	end
-    end,
-  Acc2 =
-    case dialyzer_codeserver:lookup_mfa_contract(CbMFA, Codeserver) of
-      'error' -> Acc1;
-      {ok, {{File, Location}, Contract, _Xtra}} ->
-	Acc10 = Acc1,
-	SpecReturnType0 = dialyzer_contracts:get_contract_return(Contract),
-	SpecArgTypes0 = dialyzer_contracts:get_contract_args(Contract),
-	SpecReturnType = erl_types:subst_all_vars_to_any(SpecReturnType0),
-	SpecArgTypes =
-	  [erl_types:subst_all_vars_to_any(ArgT0) || ArgT0 <- SpecArgTypes0],
-	Acc11 =
-	  case erl_types:t_is_subtype(SpecReturnType, CbReturnType) of
-	    true -> Acc10;
-	    false ->
-	      ExtraType = erl_types:t_subtract(SpecReturnType, CbReturnType),
-	      [{callback_spec_type_mismatch,
-		[File, Location, Behaviour, Function, Arity,
-		 erl_types:t_to_string(ExtraType, Records),
-		 erl_types:t_to_string(CbReturnType, Records)]}|Acc10]
-	  end,
-	case erl_types:any_none(
-	       erl_types:t_inf_lists(SpecArgTypes, CbArgTypes)) of
-	  false -> Acc11;
-	  true ->
-	    find_mismatching_args({spec, File, Location}, SpecArgTypes,
-				  CbArgTypes, Behaviour, Function,
-				  Arity, Records, 1, Acc11)
-	end
-    end,
-  NewAcc = Acc2,
-  check_all_callbacks(Module, Behaviour, Rest, State, NewAcc).
+      % Allow none() as the return type to be backwards compatible
+      % with logic that allows crashes in callbacks
+      case (not erl_types:t_is_none(ReturnType)) andalso erl_types:t_is_none(erl_types:t_inf(ReturnType, CbReturnType)) of
+        false ->
+          Acc0;
+        true ->
+          [{callback_type_mismatch,
+            [Behaviour, Function, Arity,
+             erl_types:t_to_string(ReturnType, Records),
+             erl_types:t_to_string(CbReturnType, Records)]}|Acc0]
+      end,
+  Acc2 = case erl_types:any_none(erl_types:t_inf_lists(ArgTypes, CbArgTypes)) of
+           false -> Acc1;
+           true ->
+             find_mismatching_args(type, ArgTypes, CbArgTypes, Behaviour,
+                                   Function, Arity, Records, 1, Acc1)
+         end,
+  case dialyzer_codeserver:lookup_mfa_contract(CbMFA, Codeserver) of
+    error ->
+      Acc2;
+    {ok, {{File, Location}, Contract, _Xtra}} ->
+      SpecReturnType0 = dialyzer_contracts:get_contract_return(Contract),
+      SpecArgTypes0 = dialyzer_contracts:get_contract_args(Contract),
+      SpecReturnType = erl_types:subst_all_vars_to_any(SpecReturnType0),
+      SpecArgTypes =
+        [erl_types:subst_all_vars_to_any(ArgT0) || ArgT0 <- SpecArgTypes0],
+      Acc3 =
+        % Allow none() as the return type to be backwards compatible
+        % with logic that allows crashes in callbacks
+        case (not erl_types:t_is_none(SpecReturnType)) andalso erl_types:t_is_none(erl_types:t_inf(SpecReturnType, CbReturnType)) of
+          false ->
+            Acc2;
+          true ->
+            ExtraType = erl_types:t_subtract(SpecReturnType, CbReturnType),
+            [{callback_spec_type_mismatch,
+              [File, Location, Behaviour, Function, Arity,
+               erl_types:t_to_string(ExtraType, Records),
+               erl_types:t_to_string(CbReturnType, Records)]}|Acc2]
+        end,
+      case erl_types:any_none(erl_types:t_inf_lists(SpecArgTypes, CbArgTypes)) of
+        false -> Acc3;
+        true ->
+          find_mismatching_args({spec, File, Location}, SpecArgTypes,
+                                CbArgTypes, Behaviour, Function,
+                                Arity, Records, 1, Acc3)
+      end
+  end.
 
 find_mismatching_args(_, [], [], _Beh, _Function, _Arity, _Records, _N, Acc) ->
   Acc;

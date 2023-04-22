@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -332,7 +332,7 @@ init_disc_index(Tab, disc_only_copies, [{Pos,_Pref} | Tail]) ->
     Storage = disc_only_copies,
     Key = mnesia_lib:db_first(Storage, Tab),
     Recs = mnesia_lib:db_get(Storage, Tab, Key),
-    BinSize = size(term_to_binary(Recs)),
+    BinSize = byte_size(term_to_binary(Recs)),
     KeysPerChunk = (4000 div BinSize) + 1,
     Init = {start, KeysPerChunk},
     mnesia_lib:db_fixtable(Storage, Tab, true),

@@ -70,7 +70,6 @@ MODULES= \
 	erl_prim_loader_SUITE \
 	erl_uds_dist \
 	error_handler_SUITE \
-	error_info_lib \
 	error_logger_SUITE \
 	error_logger_warn_SUITE \
 	file_SUITE \
@@ -107,6 +106,7 @@ MODULES= \
 	net_SUITE \
 	os_SUITE \
 	pg_SUITE \
+	rtnode \
 	seq_trace_SUITE \
 	$(SOCKET_MODULES) \
 	wrap_log_reader_SUITE \
@@ -132,8 +132,12 @@ APP_FILES = \
 	topApp3.app
 
 SASL_MODULES= otp_vsns
+STDLIB_MODULES= error_info_lib
 
-ERL_FILES= $(MODULES:%=%.erl) code_a_test.erl $(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl)
+ERL_FILES= $(MODULES:%=%.erl) code_a_test.erl \
+	$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl) \
+	$(STDLIB_MODULES:%=$(ERL_TOP)/lib/stdlib/test/%.erl)
+
 HRL_FILES= \
 	kernel_test_lib.hrl \
 	socket_test_evaluator.hrl \
@@ -159,6 +163,7 @@ RELSYSDIR = $(RELEASE_PATH)/kernel_test
 
 ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
 
@@ -179,7 +184,8 @@ erl_uds_dist.erl: ../examples/erl_uds_dist/src/erl_uds_dist.erl
 make_emakefile: $(ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' \
 	> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) $(SASL_MODULES) \
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
+	  $(MODULES) $(SASL_MODULES) $(STDLIB_MODULES) \
 	>> $(EMAKEFILE)
 
 tests $(TYPES): make_emakefile
@@ -212,6 +218,7 @@ release_tests_spec: make_emakefile
 		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)/kernel_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/kernel_SUITE_data"
 
 release_docs_spec:

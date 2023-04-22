@@ -1,2 +1,5 @@
 
-scala_user.erl:5:2: Invalid type specification for function scala_user:is_list/2. The success typing is (maybe_improper_list() | tuple(),_) -> boolean()
+scala_user.erl:5:2: Invalid type specification for function scala_user:is_list/2.
+ The success typing is scala_user:is_list(maybe_improper_list() | tuple(),_) -> boolean()
+ But the spec is scala_user:is_list(atom(),scala_data:data()) -> boolean()
+ They do not overlap in the 1st argument

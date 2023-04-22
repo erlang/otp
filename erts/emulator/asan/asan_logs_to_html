@@ -152,8 +152,8 @@ match_loop(Out, Bin, RegEx0, LogAcc0, PrevEnd, Unmatched0, LM0) ->
 		  %% ErrorReport
 		  "(?:(==ERROR: AddressSanitizer:.*\n"
 		  "(?:.*\n)+?)"   % any lines (non-greedy)
-		  "(?:^(?:==|--)|\\z))"   % stop at line beginning with == or --
-					  % or at end-of-string
+		  "(?:^[=-]+$|\\z))"   % stop at line consisting of only = or -
+				       % or at end-of-string
 		  "|"
 		  %% Skipped
 		  "(?:^[=-]+$)"  % skip lines consisting only of = or -

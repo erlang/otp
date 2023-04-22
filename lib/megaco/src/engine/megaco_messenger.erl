@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -545,7 +545,7 @@ disconnect(ConnHandle, DiscoReason)
     case megaco_config:disconnect(ConnHandle) of
         {ok, ConnData, RemoteConnData} ->
             ControlRef = ConnData#conn_data.monitor_ref,
-            cancel_apply_at_exit(ControlRef),
+            _ = cancel_apply_at_exit(ControlRef),
             handle_disconnect_callback(ConnData, DiscoReason),
             ControlNode = node_of_control_pid(ConnData#conn_data.control_pid),
             case ControlNode =:= node() of
@@ -554,7 +554,7 @@ disconnect(ConnHandle, DiscoReason)
                     CancelFun =
                         fun(RCD) ->
                                 UserRef = RCD#remote_conn_data.monitor_ref,
-                                cancel_apply_at_exit(UserRef),
+                                _ = cancel_apply_at_exit(UserRef),
                                 RCD#remote_conn_data.user_node
                           end,
                     Nodes = lists:map(CancelFun, RemoteConnData),
@@ -602,7 +602,7 @@ disconnect_remote(_Reason, ConnHandle, UserNode) ->
     case megaco_config:disconnect_remote(ConnHandle, UserNode) of
         [RCD] ->
             Ref = RCD#remote_conn_data.monitor_ref,
-            cancel_apply_at_exit(Ref),
+            _ = cancel_apply_at_exit(Ref),
             ok;
         [] ->
             {error, {no_connection, ConnHandle}}
@@ -619,9 +619,10 @@ receive_message(ReceiveHandle, ControlPid, SendHandle, Bin) ->
 
 receive_message(ReceiveHandle, ControlPid, SendHandle, Bin, Extra) ->
     Opts = [link , {min_heap_size, 5000}],
-    spawn_opt(?MODULE,
-               process_received_message,
-               [ReceiveHandle, ControlPid, SendHandle, Bin, self(), Extra], Opts),
+    _ = spawn_opt(?MODULE,
+                  process_received_message,
+                  [ReceiveHandle,
+                   ControlPid, SendHandle, Bin, self(), Extra], Opts),
     ok.
 
 %% This function is called via the spawn_opt function with the link
@@ -1131,20 +1132,20 @@ prepare_autoconnecting_trans(ConnData, [Trans | Rest], AckList, ReqList, Extra) 
 
 	    Limit = ConnData#conn_data.sent_pending_limit,
 	    TransId = to_remote_trans_id(ConnData2),
-	    case check_and_maybe_incr_pending_limit(Limit, sent, TransId) of
-		ok ->
-		    send_pending(ConnData2);
-		error ->
-		    %% Pending limit:
-		    %% In this (granted, highly hypothetical case)
-		    %% we would make the user very confused if we 
-		    %% called the abort callback function, since 
-		    %% the request callback function has not yet
-		    %% been called. Alas, we skip this call here.
-		    send_pending_limit_error(ConnData);
-		aborted ->
-		    ignore
-	    end,
+	    _ = case check_and_maybe_incr_pending_limit(Limit, sent, TransId) of
+                    ok ->
+                        send_pending(ConnData2);
+                    error ->
+                        %% Pending limit:
+                        %% In this (granted, highly hypothetical case)
+                        %% we would make the user very confused if we 
+                        %% called the abort callback function, since 
+                        %% the request callback function has not yet
+                        %% been called. Alas, we skip this call here.
+                        send_pending_limit_error(ConnData);
+                    aborted ->
+                        ignore
+                end,
 	    prepare_autoconnecting_trans(ConnData2, Rest, AckList, ReqList, 
 					 Extra);
 	_ ->
@@ -1251,8 +1252,8 @@ prepare_request(ConnData, T, Rest, AckList, ReqList, Extra) ->
 		    ?report_debug(ConnData, 
 				  "prepare request: conflicting requests", 
 				  [TransId]),
-		    send_pending(ConnData),
-		    megaco_monitor:cancel_apply_after(PendingRef),
+		    _ = send_pending(ConnData),
+		    _ = megaco_monitor:cancel_apply_after(PendingRef),
 		    prepare_normal_trans(ConnData, Rest, AckList, ReqList, 
 					 Extra)
 	    end;
@@ -1294,7 +1295,7 @@ prepare_request(ConnData, T, Rest, AckList, ReqList, Extra) ->
 		    %% 
 		    %% ------------------------------------------
 
-		    send_pending(ConnData),
+		    _ = send_pending(ConnData),
 		    prepare_normal_trans(ConnData, Rest, AckList, ReqList, 
 					 Extra);
 
@@ -1330,8 +1331,8 @@ prepare_request(ConnData, T, Rest, AckList, ReqList, Extra) ->
 		    %% State == prepare:
 		    %%   The user does not know about this request
 		    %%   so we can safely perform cleanup.
-		    %% 
-		    megaco_monitor:cancel_apply_after(Ref),
+		    %%
+		    _ = megaco_monitor:cancel_apply_after(Ref),
 		    send_pending_limit_error(ConnData),
 		    if 
 			State == eval_request ->
@@ -1682,7 +1683,7 @@ do_handle_request(AckAction, {ok, Bin}, ConnData, TransId)
 	    %%   - Delete the pending counter
 	    %% 
 
-	    megaco_monitor:cancel_apply_after(PendingRef),
+	    _ = megaco_monitor:cancel_apply_after(PendingRef),
 	    megaco_config:del_pending_counter(sent, TransId),
 
 	    Method = timer_method(AckAction),
@@ -1725,7 +1726,7 @@ do_handle_request(AckAction, {ok, {Sent, NotSent}}, ConnData, TransId)
 	    %%   - Delete the pending counter
 	    %% 
 
-	    megaco_monitor:cancel_apply_after(PendingRef),
+	    _ = megaco_monitor:cancel_apply_after(PendingRef),
 	    megaco_config:del_pending_counter(sent, TransId),
 
 	    Method = timer_method(AckAction),
@@ -2178,7 +2179,7 @@ handle_recv_pending(#conn_data{long_request_resend = LRR,
     %% We can now drop the "bytes", since we will
     %% not resend from now on.
     
-    megaco_monitor:cancel_apply_after(Ref),
+    _ = megaco_monitor:cancel_apply_after(Ref),
     {WaitFor, CurrTimer} = megaco_timer:init(InitTimer),
     ConnHandle = ConnData#conn_data.conn_handle,
     M = ?MODULE,
@@ -2234,7 +2235,7 @@ handle_recv_pending(#conn_data{conn_handle = ConnHandle} = ConnData, TransId,
     %% We just need to recalculate the timer, i.e. 
     %% increment the timer (one "slot" has been consumed).
     
-    megaco_monitor:cancel_apply_after(Ref),
+    _ = megaco_monitor:cancel_apply_after(Ref),
     {WaitFor, Timer2} = megaco_timer:restart(CurrTimer),
     ConnHandle = ConnData#conn_data.conn_handle,
     M = ?MODULE,
@@ -2256,12 +2257,12 @@ handle_recv_pending_error(ConnData, TransId, Req, T, Extra) ->
     megaco_monitor:delete_request(TransId),
 
     %% 2) Possibly cancel the timer
-    case Req#request.timer_ref of
-	{_, Ref} ->
-	    megaco_monitor:cancel_apply_after(Ref);
-	_ ->
-	    ok
-    end,
+    _ = case Req#request.timer_ref of
+            {_, Ref} ->
+                megaco_monitor:cancel_apply_after(Ref);
+            _ ->
+                ok
+        end,
     
     %% 3) Delete the (receive) pending counter
     megaco_config:del_pending_counter(recv, TransId),
@@ -2310,10 +2311,10 @@ handle_reply(
 			  [T]),
 
 	    %% Stop the request timer
-            megaco_monitor:cancel_apply_after(Ref), %% OTP-4843
+            _ = megaco_monitor:cancel_apply_after(Ref), %% OTP-4843
 
 	    %% Acknowledge the segment
-	    send_segment_reply(ConnData, SN),
+	    _ = send_segment_reply(ConnData, SN),
 
 	    %% First segment for this reply
 	    NewFields = 
@@ -2353,7 +2354,7 @@ handle_reply(
 			  [T]),
 
 	    %% Acknowledge the segment
-	    send_segment_reply(ConnData, SN),
+	    _ = send_segment_reply(ConnData, SN),
 
 	    %% Updated/handle received segment
 	    case lists:member(SN, Segs) of
@@ -2400,7 +2401,7 @@ handle_reply(
 			  [T]),
 
 	    %% Acknowledge the segment
-	    send_segment_reply(ConnData, SN),
+	    _ = send_segment_reply(ConnData, SN),
 
 	    %% Updated received segments
 	    case lists:member(SN, Segs) of 
@@ -2413,9 +2414,9 @@ handle_reply(
 		    Last = 
 			case is_all_segments([SN | Segs]) of
 			    {true, _Sorted} ->
-				megaco_monitor:cancel_apply_after(SegRef),
+				_ = megaco_monitor:cancel_apply_after(SegRef),
 				megaco_monitor:delete_request(TransId),
-				send_ack(ConnData),
+				_ = send_ack(ConnData),
 				true;
 			    {false, Sorted} ->
 				megaco_monitor:update_request_field(TransId,
@@ -2477,10 +2478,10 @@ handle_reply(
 			  "first/complete seg", [T]),
 
 	    %% Stop the request timer
-            megaco_monitor:cancel_apply_after(Ref), %% OTP-4843
+            _ = megaco_monitor:cancel_apply_after(Ref), %% OTP-4843
 
 	    %% Acknowledge the ("last") segment
-	    send_segment_reply_complete(ConnData, SN),
+	    _ = send_segment_reply_complete(ConnData, SN),
 
 	    %% It is ofcourse pointless to split
 	    %% a transaction into just one segment,
@@ -2508,7 +2509,7 @@ handle_reply(
 		    true ->
 			%% Just one segment!
 			megaco_monitor:delete_request(TransId),
-			send_ack(ConnData),
+			_ = send_ack(ConnData),
 			true
 		end,
 	    
@@ -2537,7 +2538,7 @@ handle_reply(
 			  [T]),
 
 	    %% Acknowledge the ("last") segment
-	    send_segment_reply_complete(ConnData, SN),
+	    _ = send_segment_reply_complete(ConnData, SN),
 
 	    %% Updated received segments
 	    %% This is _probably_ the last segment, but some of
@@ -2555,7 +2556,7 @@ handle_reply(
 					      "[segmented] trans reply - "
 					      "complete set", [T]),
 				megaco_monitor:delete_request(TransId),
-				send_ack(ConnData),
+				_ = send_ack(ConnData),
 				true;
 			    {false, Sorted} ->
 				ConnHandle = ConnData#conn_data.conn_handle,
@@ -2736,11 +2737,11 @@ do_handle_reply(CD,
     %% This is the first reply (maybe of many)
     megaco_monitor:delete_request(TransId),
     megaco_monitor:request_lockcnt_del(TransId), 
-    megaco_monitor:cancel_apply_after(Ref),           % OTP-4843
+    _ = megaco_monitor:cancel_apply_after(Ref),           % OTP-4843
     megaco_config:del_pending_counter(recv, TransId), % OTP-7189
 
     %% Send acknowledgement
-    maybe_send_ack(T#megaco_transaction_reply.immAckRequired, CD),
+    _ = maybe_send_ack(T#megaco_transaction_reply.immAckRequired, CD),
 
     UserReply =
 	case T#megaco_transaction_reply.transactionResult of
@@ -2778,7 +2779,7 @@ do_handle_reply(CD,
 	    %% This *is* the first reply!!
 	    %% 1) Stop resend timer
 	    {_Type, Ref} = Req#request.timer_ref,             % OTP-4843
-	    megaco_monitor:cancel_apply_after(Ref),           % OTP-4843
+	    _ = megaco_monitor:cancel_apply_after(Ref),           % OTP-4843
 	
 	    %% 2) Delete pending counter
 	    megaco_config:del_pending_counter(recv, TransId), % OTP-7189
@@ -2793,7 +2794,7 @@ do_handle_reply(CD,
 						RKAWaitFor), 
 
 	    %% 4) Maybe send acknowledgement (three-way-handshake)
-	    maybe_send_ack(T#megaco_transaction_reply.immAckRequired, CD),
+	    _ = maybe_send_ack(T#megaco_transaction_reply.immAckRequired, CD),
 
 	    %% 5) And finally store the updated request record
 	    Req2 = Req#request{keep_alive_ref = RKARef},
@@ -2869,11 +2870,11 @@ handle_segment_reply(CD,
 	    handle_segment_reply_callback(CD, TransId, SN, SC, Extra),
 	    case lists:keysearch(SN, 1, Sent) of
 		{value, {SN, _Bin, SegTmr}} ->
-		    megaco_monitor:cancel_apply_after(SegTmr), %% BMK BMK
+		    _ = megaco_monitor:cancel_apply_after(SegTmr), %% BMK BMK
 		    case lists:keydelete(SN, 1, Sent) of
 			[] ->  %% We are done
 			    Ref = Rep#reply.timer_ref, 
-			    megaco_monitor:cancel_apply_after(Ref),
+			    _ = megaco_monitor:cancel_apply_after(Ref),
 			    megaco_monitor:update_reply_field(TransId2, 
 							      #reply.bytes,
 							      []),
@@ -2896,7 +2897,7 @@ handle_segment_reply(CD,
 	    handle_segment_reply_callback(CD, TransId, SN, SC, Extra),
 	    case lists:keysearch(SN, 1, Sent) of
 		{value, {SN, _Bin, SegTmr}} ->
-		    megaco_monitor:cancel_apply_after(SegTmr), %% BMK BMK
+		    _ = megaco_monitor:cancel_apply_after(SegTmr), %% BMK BMK
 		    NewSent = lists:keydelete(SN, 1, Sent),
 		    [{SN2, Bin2}|NewNotSent] = NotSent,
 		    case send_reply_segment(CD, "send trans reply segment", 
@@ -3026,14 +3027,14 @@ handle_ack(ConnData, OrigAckStatus,
     handle_ack_callback(ConnData, AckStatus, AckAction, T, Extra).
 
 handle_ack_cleanup(TransId, ReplyRef, PendingRef) ->
-    megaco_monitor:cancel_apply_after(ReplyRef),
-    megaco_monitor:cancel_apply_after(PendingRef),
+    _ = megaco_monitor:cancel_apply_after(ReplyRef),
+    _ = megaco_monitor:cancel_apply_after(PendingRef),
     megaco_monitor:delete_reply(TransId),
     megaco_config:del_pending_counter(sent, TransId). %% BMK: Still existing?
     
 cancel_segment_timers(SegSent) when is_list(SegSent) ->
     Cancel = fun({_, _, Ref}) ->
-		     megaco_monitor:cancel_apply_after(Ref)
+                     megaco_monitor:cancel_apply_after(Ref)
 	     end,
     lists:foreach(Cancel, SegSent);
 cancel_segment_timers(_) ->
@@ -4033,7 +4034,7 @@ send_reply(#conn_data{serial       = Serial,
 	{ok, Bin} when is_binary(Bin) andalso (TransReq =:= true) ->
 	    ?rt2("send_reply - pass it on to the transaction sender", 
 		 [size(Bin)]),
-	    megaco_trans_sender:send_reply(TransSnd, Bin),
+	    _ = megaco_trans_sender:send_reply(TransSnd, Bin),
 	    {ok, Bin};
 
         {ok, Bin} when is_binary(Bin) ->
@@ -4070,7 +4071,7 @@ send_reply(#conn_data{serial       = Serial,
 	    error_msg("failed encoding transaction reply body: ~s", 
 		      [format_encode_error_reason(Reason)]),
             Body = {transactions, [{transactionReply, TR3}]},
-            megaco_messenger_misc:send_body(CD, TraceLabel, Body),
+            _ = megaco_messenger_misc:send_body(CD, TraceLabel, Body),
 	    Error
     end.
 
@@ -4457,7 +4458,7 @@ do_receive_reply_remote(ConnData, TransId,
 			UserReply, Extra) ->
     megaco_monitor:delete_request(TransId),
     megaco_monitor:request_lockcnt_del(TransId), 
-    megaco_monitor:cancel_apply_after(Ref),           % OTP-4843
+    _ = megaco_monitor:cancel_apply_after(Ref),           % OTP-4843
     megaco_config:del_pending_counter(recv, TransId), % OTP-7189
 
     ConnData2 = ConnData#conn_data{user_mod     = UserMod,
@@ -4471,7 +4472,7 @@ cancel_reply(ConnData, #reply{state     = waiting_for_ack,
 			      user_mod  = UserMod,
 			      user_args = UserArgs} = Rep, Reason) ->
     ?report_trace(ignore, "cancel reply [waiting_for_ack]", [Rep]),
-    megaco_monitor:cancel_apply_after(Rep#reply.pending_timer_ref),
+    _ = megaco_monitor:cancel_apply_after(Rep#reply.pending_timer_ref),
     Serial = (Rep#reply.trans_id)#trans_id.serial,
     ConnData2 = ConnData#conn_data{serial    = Serial,
 				   user_mod  = UserMod,
@@ -4486,8 +4487,8 @@ cancel_reply(_ConnData, #reply{state = aborted} = Rep, _Reason) ->
 	   timer_ref         = ReplyRef,
 	   pending_timer_ref = PendingRef} = Rep,
     megaco_monitor:delete_reply(TransId),
-    megaco_monitor:cancel_apply_after(ReplyRef),
-    megaco_monitor:cancel_apply_after(PendingRef),     % Still running?
+    _ = megaco_monitor:cancel_apply_after(ReplyRef),
+    _ = megaco_monitor:cancel_apply_after(PendingRef),     % Still running?
     megaco_config:del_pending_counter(sent, TransId),  % Still existing?
     ok;
 
@@ -4497,8 +4498,8 @@ cancel_reply(_ConnData, Rep, ignore) ->
 	   timer_ref         = ReplyRef,
 	   pending_timer_ref = PendingRef} = Rep,
     megaco_monitor:delete_reply(TransId),
-    megaco_monitor:cancel_apply_after(ReplyRef),
-    megaco_monitor:cancel_apply_after(PendingRef),     % Still running?
+    _ = megaco_monitor:cancel_apply_after(ReplyRef),
+    _ = megaco_monitor:cancel_apply_after(PendingRef),     % Still running?
     megaco_config:del_pending_counter(sent, TransId),  % Still existing?
     ok;
 
@@ -4508,7 +4509,7 @@ cancel_reply(_CD, _Rep, _Reason) ->
 
 request_keep_alive_timeout(ConnHandle, TransId) ->
     megaco_config:del_pending_counter(ConnHandle, TransId), 
-    megaco_monitor:lookup_request(TransId),
+    _ = megaco_monitor:lookup_request(TransId),
     ok.
 
     
@@ -4853,7 +4854,7 @@ handle_reply_timer_timeout(ConnHandle, TransId) ->
 	{_Converted, 
 	 #reply{pending_timer_ref = Ref,              % aborted?
 		bytes             = SegSent}} ->      % may be a binary
-	    megaco_monitor:cancel_apply_after(Ref),
+	    _ = megaco_monitor:cancel_apply_after(Ref),
 	    cancel_segment_timers(SegSent), 
 	    megaco_monitor:delete_reply(TransId),
 	    megaco_config:del_pending_counter(sent, TransId);
@@ -4979,7 +4980,7 @@ handle_pending_timeout(CD, TransId, Timer) ->
 		    %% 
 		    %% ---------------------------------------------
 
-		    send_pending(CD),
+		    _ = send_pending(CD),
 		    case Timer of
 			timeout ->
 			    %% We are done

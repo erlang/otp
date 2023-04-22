@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1999</year><year>2021</year>
+      <year>1999</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -139,9 +139,9 @@
 	<p>
 	  Number of milliseconds between PEM cache validations. Defaults to 2 minutes.
 	</p>
+        <p>Note: The cache can be reloaded by calling
 	<seemfa
-	    marker="ssl#clear_pem_cache/0">ssl:clear_pem_cache/0</seemfa>
-	
+	    marker="ssl#clear_pem_cache/0">ssl:clear_pem_cache/0</seemfa>.</p>
       </item>
 
       <tag><c><![CDATA[bypass_pem_cache = boolean() <optional>]]></c></tag>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,28 +98,14 @@ all_versions_tests() ->
 
 
 init_per_suite(Config0) ->
-    case os:find_executable("openssl") of
-        false ->
-            {skip, "Openssl not found"};
-        _ ->
-            ct:pal("Version: ~p", [os:cmd("openssl version")]),
-            catch crypto:stop(),
-            try crypto:start() of
-                ok ->
-                    ssl_test_lib:clean_start(),
-                    ssl_test_lib:make_rsa_cert(Config0)
-            catch _:_  ->
-                    {skip, "Crypto did not start"}
-            end
-    end.
+    Config = ssl_test_lib:init_per_suite(Config0, openssl),
+    ssl_test_lib:make_rsa_cert(Config).
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto),
-    ssl_test_lib:kill_openssl().
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:check_sane_openssl_version(GroupName) of
+    case ssl_test_lib:check_sane_openssl_version(GroupName, Config) of
         true ->
             case ssl_test_lib:check_sane_openssl_renegotiate(Config, GroupName) of
                 {skip,_} = Skip ->

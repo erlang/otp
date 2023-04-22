@@ -362,7 +362,10 @@ on_load() ->
       Extra :: map().
 
 on_load(Extra) ->
-    ok = erlang:load_nif(atom_to_list(net), Extra).
+    %% This will fail if the user has disabled esock support, making all NIFs
+    %% fall back to their Erlang implementation which throws `notsup`.
+    _ = erlang:load_nif(atom_to_list(net), Extra),
+    ok.
 
 
 -spec info() -> map().
@@ -601,7 +604,7 @@ if_index2name(Idx) when is_integer(Idx) ->
 %%
 %%
 
--spec if_names() -> Names | {error, Reason} when
+-spec if_names() -> {ok, Names} | {error, Reason} when
       Names  :: [{Idx, If}],
       Idx    :: network_interface_index(),
       If     :: network_interface_name(),
@@ -651,41 +654,41 @@ if_names() ->
 %% ===========================================================================
 
 nif_info() ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_command(_Cmd) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_gethostname() ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_getnameinfo(_Addr, _Flags) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_getaddrinfo(_Host, _Service, _Hints) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_getifaddrs(_Extra) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_get_adapters_addresses(_Args) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_get_if_entry(_Args) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_get_interface_info(_Args) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_get_ip_address_table(_Args) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_if_name2index(_Name) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_if_index2name(_Id) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
 nif_if_names() ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 

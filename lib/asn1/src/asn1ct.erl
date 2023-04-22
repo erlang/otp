@@ -20,6 +20,7 @@
 %%
 %%
 -module(asn1ct).
+-feature(maybe_expr, enable).
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).
 
@@ -2233,15 +2234,13 @@ maybe_rename_function2(Thing,Name,Suffix)
 %% generated_functions_member/4 checks on both Name and Pattern if
 %%  the element exists in L
 generated_functions_member(M,Name,L,Pattern) ->
-    case generated_functions_member(M,Name,L) of
-	true ->
-	    L2 = generated_functions_filter(M,Name,L),
-	    case lists:keysearch(Pattern,3,L2) of
-		{value,_} ->
-		    true;
-		_ -> false
-	    end;
-	_ -> false
+    maybe
+        true ?= generated_functions_member(M,Name,L),
+        L2 = generated_functions_filter(M,Name,L),
+        {value,_} ?= lists:keysearch(Pattern,3,L2),
+        true
+    else
+        false -> false
     end.
 
 generated_functions_member(_M,Name,[{Name,_,_}|_]) ->

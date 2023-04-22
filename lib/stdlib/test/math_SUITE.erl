@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([floor_ceil/1, error_info/1]).
+-export([floor_ceil/1, error_info/1, constants/1]).
 
 
 suite() ->
@@ -36,7 +36,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [floor_ceil, error_info].
+    [floor_ceil, error_info, constants].
 
 groups() ->
     [].
@@ -58,6 +58,11 @@ init_per_testcase(_Case, Config) ->
     Config.
 
 end_per_testcase(_Case, _Config) ->
+    ok.
+
+constants(_Config) ->
+    3.1415926535897932 = math:pi(),
+    6.2831853071795864 = math:tau(),
     ok.
 
 floor_ceil(_Config) ->

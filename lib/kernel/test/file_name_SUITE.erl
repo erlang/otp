@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -203,9 +203,9 @@ normal(Config) when is_list(Config) ->
 
 %% Check file operations on normal file names regardless of unicode mode.
 icky(Config) when is_list(Config) ->
-    case hopeless_darwin() of
+    case hopeless_icky() of
 	true ->
-	    {skipped,"This version of darwin does not support icky names at all."};
+	    {skipped,"This OS/FS does not support icky names at all."};
 	false ->
 	    {ok,Dir} = file:get_cwd(),
 	    try
@@ -222,9 +222,9 @@ icky(Config) when is_list(Config) ->
     end.
 %% Check file operations on normal file names regardless of unicode mode.
 very_icky(Config) when is_list(Config) ->
-    case hopeless_darwin() of
+    case hopeless_icky() of
 	true ->
-	    {skipped,"This version of darwin does not support icky names at all."};
+	    {skipped,"This OS/FS does not support icky names at all."};
 	false ->
 	    {ok,Dir} = file:get_cwd(),
 	    try
@@ -630,15 +630,32 @@ make_icky_dir(Mod, IckyDirName) ->
     ok = Mod:set_cwd(IckyDirName),
     make_dir_contents(Icky, Mod).
 
+hopeless_icky() ->
+    hopeless_darwin() orelse hopeless_zfs().
+
 hopeless_darwin() ->
     case {os:type(),os:version()} of
         {{unix,darwin},{Major,_,_}} ->
             %% icky file names worked between 10 and 17, but started returning
-            %% EILSEQ in 18. The check against 18..20 is exact in case newer
+            %% EILSEQ in 18. The check against 18..21 is exact in case newer
             %% versions of Darwin support them again.
-            Major < 9 orelse (Major >= 18 andalso Major =< 20);
+            Major < 9 orelse (Major >= 18 andalso Major =< 21);
         _ ->
             false
+    end.
+
+hopeless_zfs() ->
+    %% If we are using utf8only on zfs then we cannot create latin1 characters.
+    case os:find_executable("zfs") of
+        false ->
+            false;
+        _Zfs ->
+            case os:cmd("zfs get utf8only `pwd` | grep utf8only | awk '{print $3}'") of
+                "on" ++ _ ->
+                    true;
+                _ ->
+                    false
+            end
     end.
 
 make_very_icky_dir(Mod, DirName) ->

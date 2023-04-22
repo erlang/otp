@@ -4,7 +4,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,12 @@ main([BeamFile,AbstrFile]) ->
 
 fix_options(CInf0) ->
     CInf1 = binary_to_term(CInf0),
-    {options,Opts0} = lists:keyfind(options, 1, CInf1),
-    Opts = Opts0 -- [from_asm],
+    Opts =
+        case lists:keyfind(options, 1, CInf1) of
+            {options,Opts0} ->
+                Opts0 -- [from_asm];
+            false ->
+                []
+        end,
     CInf = lists:keyreplace(options, 1, CInf1, {options,Opts}),
     {term_to_binary(CInf), Opts}.

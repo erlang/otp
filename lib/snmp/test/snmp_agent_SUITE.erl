@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -528,6 +528,7 @@ all() ->
     %% test the socket backend without effecting *all*
     %% applications on *all* machines.
     %% This flag is set only for *one* host.
+    %% case ?TEST_INET_BACKENDS() of
     case ?TEST_INET_BACKENDS() of
         true ->
             [
@@ -679,8 +680,8 @@ otp16649_gen_cases() ->
 init_per_suite(Config0) when is_list(Config0) ->
 
     ?IPRINT("init_per_suite -> entry with"
-            "~n   Config: ~p"
-            "~n   Nodes:  ~p"
+            "~n   Config:                ~p"
+            "~n   Nodes:                 ~p"
             "~n   explicit inet backend: ~p"
             "~n   test inet backends:    ~p",
             [Config0, erlang:nodes(),
@@ -709,7 +710,7 @@ init_per_suite(Config0) when is_list(Config0) ->
             ?IPRINT("init_per_suite -> end when"
                     "~n      Config: ~p"
                     "~n      Nodes:  ~p", [Config4, erlang:nodes()]),
-            
+
             Config4
     end.
 
@@ -761,25 +762,56 @@ init_per_group(GroupName, Config0) ->
     Config1.
 
 
-init_per_group2(inet_backend_default = _GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(default, [{socket_create_opts, []} | Config]);
-init_per_group2(inet_backend_inet = _GroupName, Config) ->
+init_per_group2(inet_backend_default = _GroupName, Config0) ->
+    Config1 = [{socket_create_opts, []} | Config0],
     case ?EXPLICIT_INET_BACKEND() of
         true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
+            ?LIB:init_group_top_dir(default, Config1);
         false ->
-            snmp_test_lib:init_group_top_dir(inet, [{socket_create_opts, [{inet_backend, inet}]} | Config])
+            %% For a "standard" test (that is if we do not run the "extended"
+            %% inet backends test) then we should always run this group!
+            %% So, if we have an extended test, *then* (and only then) 
+            %% check the factor.
+            case ?TEST_INET_BACKENDS() of
+                true ->
+                    case lists:keysearch(snmp_factor, 1, Config0) of
+                        {value, {snmp_factor, Factor}} when (Factor < 3) ->
+                            ?LIB:init_group_top_dir(default, Config1);
+                        _ ->
+                            {skip, "Machine too slow"}
+                    end;
+                _ ->
+                    ?LIB:init_group_top_dir(default, Config1)
+            end                    
     end;
-init_per_group2(inet_backend_socket = _GroupName, Config) ->
+init_per_group2(inet_backend_inet = _GroupName, Config0) ->
     case ?EXPLICIT_INET_BACKEND() of
         true ->
             %% The environment trumps us,
             %% so only the default group should be run!
             {skip, "explicit inet backend"};
         false ->
-            snmp_test_lib:init_group_top_dir(socket, [{socket_create_opts, [{inet_backend, socket}]} | Config])
+            case lists:keysearch(snmp_factor, 1, Config0) of
+                {value, {snmp_factor, Factor}} when (Factor < 5) ->
+                    Config1 = [{socket_create_opts, [{inet_backend, inet}]} |
+                               Config0],
+                    ?LIB:init_group_top_dir(inet, Config1);
+                _ ->
+                    {skip, "Machine too slow"}
+            end
+    end;
+init_per_group2(inet_backend_socket = _GroupName, Config0) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the *default* group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            %% Always run this unless a backend has been explicitly
+            %% configured (since this is really what we want to test).
+            Config1 = [{socket_create_opts, [{inet_backend, socket}]} |
+                       Config0],
+            ?LIB:init_group_top_dir(socket, Config1)
     end;
 init_per_group2(major_tcs = GroupName, Config) ->
     init_all(snmp_test_lib:init_group_top_dir(GroupName, Config));
@@ -2866,7 +2898,7 @@ dummy_manager_loop(P,S,MA) ->
 
 %% -ifdef(snmp_log).
 dummy_manager_message_sz(B) when is_binary(B) ->
-    size(B);
+    byte_size(B);
 dummy_manager_message_sz(L) when is_list(L) ->
     length(L);
 dummy_manager_message_sz(_) ->
@@ -2905,29 +2937,39 @@ subagent(Config) when is_list(Config) ->
     ?P(subagent), 
     {SaNode, _MgrNode, MibDir} = init_case(Config),
 
+    ?NPRINT("try start subagent..."),
     {ok, SA} = start_subagent(SaNode, ?klas1, "Klas1"),
+    ?NPRINT("try test case load_test_sa..."),
     try_test(load_test_sa),
     
     ?NPRINT("Testing unregister subagent..."),
     MA = whereis(snmp_master_agent),
     rpc:call(SaNode, snmpa, unregister_subagent, [MA, SA]),
+    ?NPRINT("try test case unreg_test..."),
     try_test(unreg_test),
 
     ?NPRINT("Loading previous subagent mib in master and testing..."),
     ok = snmpa:load_mib(MA, join(MibDir, "Klas1")),
+    ?NPRINT("try test case load_test..."),
     try_test(load_test),
 
     ?NPRINT("Unloading previous subagent mib in master and testing..."),
     ok = snmpa:unload_mib(MA, join(MibDir, "Klas1")),
+    ?NPRINT("try test case unreg_test..."),
     try_test(unreg_test),
 
     ?NPRINT("Testing register subagent..."),
-    rpc:call(SaNode, snmpa, register_subagent,
-	     [MA, ?klas1, SA]),
+    rpc:call(SaNode, snmpa, register_subagent, [MA, ?klas1, SA]),
+    ?NPRINT("try test case load_test_sa..."),
     try_test(load_test_sa),
 
+    ?NPRINT("try stop subagent..."),
     stop_subagent(SA),
-    try_test(unreg_test).
+    ?NPRINT("try test case unreg_test..."),
+    try_test(unreg_test),
+
+    ?NPRINT("done"),
+    ok.
     
 subagent_2(X) -> ?P(subagent_2), subagent(X).
 
@@ -3248,7 +3290,7 @@ inform_i(Config) ->
     load_master("TestTrapv2"),
 
     ?NPRINT("Testing inform sending from master agent...  "
-	"~nNOTE! This test takes a few minutes (10) to complete."),
+            "~n   NOTE! This test takes a few minutes (10) to complete."),
 
     try_test(ma_v2_inform1, [MA]),
     try_test(ma_v2_inform2, [MA]),
@@ -4929,14 +4971,12 @@ ma_v2_trap1(MA) ->
 ma_v2_trap2(MA) ->
     snmpa:send_trap(MA,testTrapv22,"standard trap",[{sysContact,"pelle"}]),
     ?expect2(v2trap, [{[sysUpTime, 0], any},
-			    {[snmpTrapOID, 0], ?system ++ [0,1]},
-			    {[system, [4,0]], "pelle"}]).
+                      {[snmpTrapOID, 0], ?system ++ [0,1]},
+                      {[system, [4,0]], "pelle"}]).
 
 %% Note: This test case takes a while... actually a couple of minutes.
 ma_v2_inform1(MA) ->
-    ?DBG("ma_v2_inform1 -> entry with" 
-	 "~n   MA = ~p => "
-	 "~n   send notification: testTrapv22", [MA]),
+    ?IPRINT("begin ma_v2_inform1 (MA: ~p)", [MA]), 
 
     CmdExpectInform = 
 	fun(_No, Response) ->
@@ -5089,9 +5129,7 @@ ma_v2_inform1(MA) ->
     
 %% Note:  This test case takes a while... actually a couple of minutes.
 ma_v2_inform2(MA) ->
-    ?DBG("ma_v2_inform2 -> entry with" 
-	 "~n   MA = ~p => "
-	 "~n   send notification: testTrapv22", [MA]),
+    ?IPRINT("begin ma_v2_inform2 (MA: ~p)", [MA]), 
 
     CmdExpectInform = 
 	fun(_No, Response) ->
@@ -5188,9 +5226,7 @@ ma_v2_inform2(MA) ->
     
 %% Note:  This test case takes a while... actually a couple of minutes.
 ma_v2_inform3(MA) ->
-    ?DBG("ma_v2_inform3 -> entry with" 
-	 "~n   MA = ~p => "
-	 "~n   send notification: testTrapv22", [MA]),
+    ?IPRINT("begin ma_v2_inform3 (MA: ~p)", [MA]), 
 
     CmdExpectInform = 
 	fun(_No, Response) ->
@@ -7506,103 +7542,79 @@ otp16092_cases() ->
     ].
 
 otp_16092_simple_start_and_stop1(Config) ->
-    ?P(otp_16092_simple_start_and_stop1), 
-    ?DBG("otp_16092_simple_start_and_stop1 -> entry", []),
-
-    TC = fun() ->
-                 otp_16092_simple_start_and_stop(Config, default, success)
-         end,
-
-    Result = otp_16092_try(TC),
-
-    ?DBG("otp_16092_simple_start_and_stop1 -> done: "
-         "~n      ~p", [Result]),
-
-    Result.
+    otp_16092_simple_start_and_stop(?FUNCTION_NAME,
+                                    Config, default, success).
 
 
 otp_16092_simple_start_and_stop2(Config) ->
-    ?P(otp_16092_simple_start_and_stop2), 
-    ?DBG("otp_16092_simple_start_and_stop2 -> entry", []),
-
-    TC = fun() ->
-                 otp_16092_simple_start_and_stop(Config, [], success)
-         end,
-
-    Result = otp_16092_try(TC),
-
-    ?DBG("otp_16092_simple_start_and_stop2 -> done: "
-         "~n      ~p", [Result]),
-
-    Result.
+    otp_16092_simple_start_and_stop(?FUNCTION_NAME,
+                                    Config, [], success).
 
 
 otp_16092_simple_start_and_stop3(Config) ->
-    ?P(otp_16092_simple_start_and_stop3), 
-    ?DBG("otp_16092_simple_start_and_stop3 -> entry", []),
-
-    TC = fun() ->
-                 otp_16092_simple_start_and_stop(Config,
-                                                 'this-should-be-ignored',
-                                                 success)
-         end,
-
-    Result = otp_16092_try(TC),
-
-    ?DBG("otp_16092_simple_start_and_stop3 -> done: "
-         "~n      ~p", [Result]),
-
-    Result.
+    otp_16092_simple_start_and_stop(?FUNCTION_NAME,
+                                    Config,
+                                    'this-should-be-ignored',
+                                    success).
 
 
 otp_16092_simple_start_and_stop4(Config) ->
-    ?P(otp_16092_simple_start_and_stop4), 
-    ?DBG("otp_16092_simple_start_and_stop4 -> entry", []),
+    otp_16092_simple_start_and_stop(?FUNCTION_NAME,
+                                    Config,
+                                    ['this-should-fail'],
+                                    failure).
 
-    TC = fun() ->
-                 otp_16092_simple_start_and_stop(Config,
-                                                 ['this-should-fail'],
-                                                 failure)
-         end,
-    
-    Result = otp_16092_try(TC),
+otp_16092_simple_start_and_stop(CaseName, Config, ESO, Expected)
+  when is_atom(CaseName) ->
+    Pre  = fun() ->
+                   [D|_] = lists:reverse(atom_to_list(CaseName)),
+                   Digit = [D],
+                           
+                   ?NPRINT("try start agent node"),
+                   {ok, Peer, Node} = ?START_PEER(Digit ++ "-agent"),
 
-    ?DBG("otp_16092_simple_start_and_stop4 -> done: "
-         "~n      ", [Result]),
+                   ?NPRINT("try write config to file"),
+                   ConfDir   = ?config(agent_conf_dir, Config),
+                   DbDir     = ?config(agent_db_dir,   Config),
+                   Vsns      = [v1],
+                   IP        = tuple_to_list(?config(ip, Config)),
+                   ManagerIP = IP,
+                   TrapPort  = ?TRAP_UDP,
+                   AgentIP   = IP,
+                   AgentPort = 4000,
+                   SysName   = "test",
+                   ok = snmp_config:write_agent_snmp_files(ConfDir, Vsns,
+                                                           ManagerIP, TrapPort,
+                                                           AgentIP, AgentPort,
+                                                           SysName),
 
-    Result.
+                   #{eso       => ESO,
+                     vsns      => Vsns,
+                     db_dir    => DbDir,
+                     conf_opts => [{dir,        ConfDir},
+                                   {force_load, false}, 
+                                   {verbosity,  trace}],
+                     node      => Node,
+                     peer      => Peer,
+                     expected  => Expected}
+           end,
+    Case = fun(State) ->
+                   do_otp_16092_simple_start_and_stop(State)
+           end,
+    Post = fun(#{node := Node,
+                 peer := Peer}) ->
+                   ?NPRINT("try stop agent node ~p", [Node]),
+                   ?STOP_PEER(Peer)
+           end,
+    ?TC_TRY(CaseName, Pre, Case, Post).
 
-
-otp_16092_try(TC) ->
-    try TC() of
-        Any ->
-            Any
-    catch
-        _:{skip, _} = SKIP ->
-            SKIP
-    end.
-        
-otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
-    ConfDir = ?config(agent_conf_dir, Config),
-    DbDir   = ?config(agent_db_dir,   Config),
-
-    ?NPRINT("try start agent node"),
-    {ok, Peer, Node} = ?START_PEER("-agent"),
-
-    Vsns      = [v1],
-    IP        = tuple_to_list(?config(ip, Config)),
-    ManagerIP = IP,
-    TrapPort  = ?TRAP_UDP,
-    AgentIP   = IP,
-    AgentPort = 4000,
-    SysName   = "test",
-    ok = snmp_config:write_agent_snmp_files(
-           ConfDir, Vsns, ManagerIP, TrapPort, AgentIP, AgentPort, SysName),
-
-    ConfOpts = [{dir,        ConfDir},
-                {force_load, false}, 
-                {verbosity,  trace}],
-    NiOpts   =
+do_otp_16092_simple_start_and_stop(#{eso       := ESO,
+                                     vsns      := Vsns,
+                                     db_dir    := DbDir,
+                                     conf_opts := ConfOpts,
+                                     node      := Node,
+                                     expected  := Expected} = _State) ->
+    NiOpts =
         case ESO of
             default ->
                 [{verbosity, trace}];
@@ -7618,14 +7630,8 @@ otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
 
     otp16092_try_start_and_stop_agent(Node, Opts, Expected),
 
-    ?NPRINT("try stop agent node ~p", [Node]),
-    peer:stop(Peer),
-
-    ?SLEEP(1000),
-
     ?NPRINT("done"),
     ok.
-
 
 otp16092_try_start_and_stop_agent(Node, Opts, Expected) ->
     ?IPRINT("try start snmp (agent) supervisor (on ~p) - expect ~p", 
@@ -7707,7 +7713,7 @@ otp8395({init, Config}) when is_list(Config) ->
     %% --
     %% Start nodes
     %%
-    {ok, AgentPeer, AgentNode} = ?START_PEER("-agent"),
+    {ok, AgentPeer, AgentNode}     = ?START_PEER("-agent"),
     {ok, ManagerPeer, ManagerNode} = ?START_PEER("-manager"),
 
     %% -- 
@@ -7803,14 +7809,14 @@ otp8395({fin, Config}) when is_list(Config) ->
     %% 
 
     ?DBG("otp8395(fin) -> stop agent node", []),
-    peer:stop(?config(agent_peer, Config)),
+    ?STOP_PEER(?config(agent_peer, Config)),
 
     %% - 
     %% Stop the manager node
     %% 
 
     ?DBG("otp8395(fin) -> stop manager node", []),
-    peer:stop(?config(manager_peer, Config)),
+    ?STOP_PEER(?config(manager_peer, Config)),
 
     wd_stop(Config);
 

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2020</year>
+      <year>1997</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -83,7 +83,7 @@
 	legacy_bit_string | legacy_erlang_types |
 	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} |
 	asn1config | undec_rest | no_ok_wrapper |
-	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors</v>
+	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors | deterministic</v>
         <v>OldOption = ber | per</v> 
         <v>Reason = term()</v>
         <v>Prefix = string()</v>
@@ -345,6 +345,11 @@ File3.asn</pre>
           <tag><c>warnings_as_errors</c></tag>
           <item>
             <p>Causes warnings to be treated as errors.</p>
+          </item>
+          <tag><c>deterministic</c></tag>
+          <item>
+            <p>Causes all non-deterministic options to be stripped from the
+              -asn1_info() attribute.</p>
           </item>
         </taglist>
         <p>Any more option that is applied is passed to

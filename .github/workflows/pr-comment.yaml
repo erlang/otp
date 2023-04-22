@@ -14,7 +14,7 @@ concurrency: pr-comment
 
 jobs:
   pr-number:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: github.repository == 'erlang/otp'
     outputs:
       result: ${{ steps.pr-number.outputs.result }}
@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       ## We create an initial comment with some useful help to the user
-      - uses: actions/github-script@v5
+      - uses: actions/github-script@v5.1.1
         with:
           script: |
             const script = require('./.github/scripts/pr-comment.js');
@@ -45,7 +45,7 @@ jobs:
                    pr_number: ${{ needs.pr-number.outputs.result }} });
 
   finished-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: pr-number
     ## Limit concurrency so that only one job deploys to erlang.github.io
     concurrency: erlang.github.io-deploy
@@ -74,9 +74,9 @@ jobs:
            done
 
            if [ -d "Unit Test Results" ]; then
-             echo "::set-output name=HAS_TEST_ARTIFACTS::true"
+             echo "HAS_TEST_ARTIFACTS=true" >> $GITHUB_OUTPUT
            else
-             echo "::set-output name=HAS_TEST_ARTIFACTS::false"
+             echo "HAS_TEST_ARTIFACTS=false" >> $GITHUB_OUTPUT
            fi
 
       - uses: actions/checkout@v2
@@ -84,6 +84,16 @@ jobs:
           token: ${{ secrets.ERLANG_TOKEN }}
           repository: 'erlang/erlang.github.io'
           path: erlang.github.io
+
+      - name: Publish CT Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: steps.extract.outputs.HAS_TEST_ARTIFACTS == 'true'
+        with:
+          commit: ${{ github.event.workflow_run.head_sha }}
+          event_file: artifacts/Event File/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          check_name: "CT Test Results"
+          files: "artifacts/**/*.xml"
 
       - name: Upload PR to github pages
         env:
@@ -97,7 +107,7 @@ jobs:
              "${{ needs.pr-number.outputs.result }}"
 
       - name: Deploy to github pages 🚀
-        uses: JamesIves/github-pages-deploy-action@v4.2.2
+        uses: JamesIves/github-pages-deploy-action@v4.4.1
         with:
           token: ${{ secrets.ERLANG_TOKEN }}
           branch: master # The branch the action should deploy to.
@@ -105,19 +115,10 @@ jobs:
           repository-name: erlang/erlang.github.io
           single-commit: true
 
-      - name: Publish CT Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: steps.extract.outputs.HAS_TEST_ARTIFACTS == 'true'
-        with:
-          commit: ${{ github.event.workflow_run.head_sha }}
-          event_file: artifacts/Event File/event.json
-          event_name: ${{ github.event.workflow_run.event }}
-          check_name: "CT Test Results"
-          files: "artifacts/**/*.xml"
-
         ## Append some usefull links and tips to the test results posted by
         ## Publish CT Test Results
-      - uses: actions/github-script@v5
+      - uses: actions/github-script@v5.1.1
+        if: always()
         with:
           script: |
             const script = require('./.github/scripts/pr-comment.js');

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2022</year>
+      <year>2004</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,466 @@
   </header>
   <p>This document describes the changes made to the Compiler
     application.</p>
+
+<section><title>Compiler 8.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that would cause the compiler to hang.</p>
+          <p>
+	    Own Id: OTP-18378 Aux Id: GH-6604 </p>
+        </item>
+        <item>
+	    <p>Fixed a crash when compiling code that contained
+	    <c>maybe</c> expressions.</p>
+          <p>
+	    Own Id: OTP-18381 Aux Id: GH-6601 </p>
+        </item>
+        <item>
+	    <p>Constructing a binary with an explicit size of
+	    <c>all</c> for a binary segment would crash the
+	    compiler.</p>
+          <p>
+	    Own Id: OTP-18407 Aux Id: GH-6707 </p>
+        </item>
+        <item>
+	    <p>The compiler would generate incorrect code for the
+	    following type of expression:</p>
+	    <p><c>Pattern = BoundVar1 = . . . = BoundVarN =
+	    Expression</c></p>
+	    <p>An exception should be raised if any of the bound
+	    variables have different values than <c>Expression</c>.
+	    The compiler would generate code that would cause the
+	    bound variables to be bound to the value of
+	    <c>Expression</c>whether the value matched or not.</p>
+          <p>
+	    Own Id: OTP-18470 Aux Id: GH-6873, PR-6877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 8.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that could cause legal code to fail
+	    validation.</p>
+          <p>
+	    Own Id: OTP-18365</p>
+        </item>
+        <item>
+	    <p>Eliminated a rare crash in the <c>beam_types</c>
+	    module.</p>
+          <p>
+	    Own Id: OTP-18368</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 8.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Line number in compiler messages would be truncated to
+	    4 digits for line numbers greater than 9999.</p>
+          <p>
+	    Own Id: OTP-18268 Aux Id: GH-6332 </p>
+        </item>
+        <item>
+	    <p>In rare circumstance, matching a binary as part of a
+	    <c>receive</c> clause could cause the compiler to
+	    terminate because of an internal consistency check
+	    failure.</p>
+          <p>
+	    Own Id: OTP-18273 Aux Id: GH-6341 </p>
+        </item>
+        <item>
+	    <p>Compiling a function with complex bit syntax matching
+	    such as <c>f(&lt;&lt;X:0, _:X&gt;&gt;, &lt;&lt;Y:0,
+	    _:Y&gt;&gt;) -&gt; ok.</c> could crash the compiler.</p>
+          <p>
+	    Own Id: OTP-18308 Aux Id: GH-6426 </p>
+        </item>
+        <item>
+	    <p>It is not allowed to call functions from guards. The
+	    compiler failed to reject a call in a guard when done by
+	    constructing a record with a default initialization
+	    expression that called a function.</p>
+          <p>
+	    Own Id: OTP-18325 Aux Id: GH-6465, GH-6466 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when using a record with
+	    complex field initialization expression as a filter in a
+	    list comprehension.</p>
+          <p>
+	    Own Id: OTP-18336 Aux Id: GH-6501, PR-6502 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 8.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler will now forbid using the empty atom
+	    <c>''</c> as module name. Also forbidden are modules
+	    names containing control characters, and module names
+	    containing only spaces and soft hyphens.</p>
+          <p>
+	    Own Id: OTP-18125 Aux Id: GH-6026 </p>
+        </item>
+        <item>
+	    <p>The <c>bin_opt_info</c> and <c>recv_opt_info</c>
+	    options would cause the compiler to crash when attempting
+	    to compile generated code without location
+	    information.</p>
+          <p>
+	    Own Id: OTP-18162 Aux Id: PR-6102 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances involving floating point
+	    operations, the compiler could terminate with an internal
+	    consistency check failure.</p>
+          <p>
+	    Own Id: OTP-18182 Aux Id: GH-6163 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances when doing arithmetic
+	    instructions on non-numbers, the compiler could
+	    crash.</p>
+          <p>
+	    Own Id: OTP-18183 Aux Id: GH-6169 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, complex boolean expressions in
+	    nested cases could cause the compiler to crash.</p>
+          <p>
+	    Own Id: OTP-18184 Aux Id: GH-6164 </p>
+        </item>
+        <item>
+	    <p>Expression similar to <c>#{assoc:=V} =
+	    #key=&gt;self()}, V</c> would return the empty map
+	    instead of raising an exception.</p>
+          <p>
+	    Own Id: OTP-18186</p>
+        </item>
+        <item>
+	    <p>Eliminated a crash in the <c>beam_ssa_bool</c> pass of
+	    the compiler when compiling a complex guard
+	    expression.</p>
+          <p>
+	    Own Id: OTP-18187 Aux Id: GH-6184 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the compiler could crash with
+	    an internal consistency check failure.</p>
+          <p>
+	    Own Id: OTP-18202 Aux Id: GH-6222 </p>
+        </item>
+        <item>
+	    <p>When compiling with the option
+	    <c>inline_list_funcs</c>, the compiler could produce a
+	    nonsensical warning.</p>
+          <p>
+	    Own Id: OTP-18214 Aux Id: GH-6158 </p>
+        </item>
+        <item>
+	    <p>When given the <c>no_ssa_opt</c> option, the compiler
+	    could terminate with an internal consistency failure
+	    diagnostic when compiling map matching.</p>
+          <p>
+	    Own Id: OTP-18234 Aux Id: GH-6277 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Made warnings for existing atoms being keywords in
+	    experimental features more precise, by not warning about
+	    quoted atoms.</p>
+          <p>
+	    Own Id: OTP-18050</p>
+        </item>
+        <item>
+	    <p>There is a new configure option,
+	    <c>--enable-deterministic-build</c>, which will apply the
+	    <c>deterministic</c> compiler option when building
+	    Erlang/OTP. The <c>deterministic</c> option has been
+	    improved to eliminate more sources of non-determinism in
+	    several applications.</p>
+          <p>
+	    Own Id: OTP-18165 Aux Id: PR-5965 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A subtle bug regarding variable scoping has been
+	    corrected. Consider this example:</p>
+	    <p><c>(A=1) + fun() -&gt; A = 2() end</c></p>
+	    <p>In the shell, the expression correctly evaluates to
+	    <c>3</c>. In compiled code, it raised a <c>{badmatch,
+	    2}</c> exception.</p>
+          <p>
+	    Own Id: OTP-17810 Aux Id: GH-5379 </p>
+        </item>
+        <item>
+	    <p>Fixed a rare bug that would crash the compiler during
+	    type optimization.</p>
+          <p>
+	    Own Id: OTP-17820</p>
+        </item>
+        <item>
+	    <p>Starting in OTP 24, when a fun was created and
+	    immediately used, it would be inlined. An unintended
+	    consequence of the inlining was that what would be a
+	    <c>function_clause</c> exception without the inlining
+	    would now be a rather confusing <c>case_clause</c>
+	    exception. This has been corrected, so that
+	    <c>function_clause</c> exceptions remain
+	    <c>function_clause</c> exceptions in inlined code.</p>
+          <p>
+	    Own Id: OTP-17860 Aux Id: GH-5513, OTP-17226 </p>
+        </item>
+        <item>
+          <p>
+	    If a default record field initialization (<c>_ =
+	    Expr</c>) was used even though all records fields were
+	    explicitly initialized, <c>Expr</c> would not be
+	    evaluated. That would not be a problem, except when
+	    <c>Expr</c> would bind a variable subsequently used, in
+	    which case the compiler would crash.</p>
+          <p>
+	    As an example, if record <c>#r{}</c> is defined to have
+	    only one field <c>a</c>, the following code would crash
+	    the compiler:</p>
+          <p>
+	    <c>#r{a=[],_=V=42}, V</c></p>
+          <p>
+	    To fix that problem, the compiler will make sure that
+	    <c>Expr</c> is always evaluated at least once. The
+	    compiler will now rewrite the example to essentially:</p>
+          <p>
+	    <c>V=42, #r{a=[]}, V</c></p>
+          <p>
+	    Own Id: OTP-18083</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>To enable more optimizations, BEAM files compiled with
+	    OTP 21 and earlier cannot be loaded in OTP 25.</p>
+          <p>
+	    Own Id: OTP-16702</p>
+        </item>
+        <item>
+          <p>
+	    Added support for the compile attribute <c>-nifs()</c> to
+	    empower compiler and loader with information about which
+	    functions may be overridden as NIFs by
+	    <c>erlang:load_nif/2</c>. It is recommended to use this
+	    attribute in all modules that load NIF libraries.</p>
+          <p>
+	    Own Id: OTP-17151 Aux Id: ERIERL-590, PR-5479 </p>
+        </item>
+        <item>
+	    <p>When binary construction using the binary syntax
+	    fails, the error message printed in the shell and by
+	    <c>erl_error:format_exception/3,4</c> will contain more
+	    detailed information about what went wrong.</p>
+          <p>
+	    Own Id: OTP-17504 Aux Id: GH-4971, PR-5281, PR-5752 </p>
+        </item>
+        <item>
+	    <p>The Erlang compiler now includes type information in
+	    BEAM files, and the JIT can now use that type information
+	    to do optimizations such as eliminating or simplifying
+	    type tests.</p>
+          <p>
+	    Own Id: OTP-17684 Aux Id: PR-5316, PR-5664 </p>
+        </item>
+        <item>
+	    <p>Improved the JIT's support for external tools like
+	    <c>perf</c> and <c>gdb</c>, allowing them to show line
+	    numbers and even the original Erlang source code when
+	    that can be found.</p>
+	    <p>To aid them in finding the source code, the
+	    <c>absolute_path</c> compiler option has been added to
+	    embed the absolute file path of a module.</p>
+          <p>
+	    Own Id: OTP-17685</p>
+        </item>
+        <item>
+	    <p>The <c>maybe</c> ... <c>end</c> construction proposed
+	    in EEP-49 has been implemented. It can simplify complex
+	    code where otherwise deeply nested cases would have to be
+	    used.</p> <p>To enable <c>maybe</c>, give the option
+	    <c>-enable-feature maybe_expr</c> to <c>erlc</c> or add
+	    <c>-feature(maybe_expr, enable).</c> inside the
+	    module.</p>
+          <p>
+	    Own Id: OTP-17705 Aux Id: PR-5411 </p>
+        </item>
+        <item>
+	    <p>When a record matching or record update fails, a
+	    <c>{badrecord,ExpectedRecordTag}</c> exception used to be
+	    raised. In this release, the exception has been changed
+	    to <c>{badrecord,ActualValue}</c>, where
+	    <c>ActualValue</c> is the actual that was found instead
+	    of the expected record.</p>
+          <p>
+	    Own Id: OTP-17841 Aux Id: PR-5694 </p>
+        </item>
+        <item>
+	    <p>Improved optimization of try/catch expressions.</p>
+          <p>
+	    Own Id: OTP-17842</p>
+        </item>
+        <item>
+	    <p>The <c>beam_trim</c> pass of the compiler could be
+	    extremely slow for huge straight-line functions. It will
+	    now compile such functions much faster (down to seconds
+	    from minutes for some huge functions).</p>
+          <p>
+	    Own Id: OTP-17885 Aux Id: GH-5140 </p>
+        </item>
+        <item>
+          <p>
+	    Added support for configurable features as described in
+	    EEP-60. Features can be enabled/disabled during
+	    compilation with options (<c>-enable-feature Feature</c>,
+	    <c>-disable-feature Feature</c> and <c>+{feature,
+	    Feature, enable|disable}</c>) to <c>erlc</c> as well as
+	    with directives (<c>-feature(Feature,
+	    enable|disable).</c>) in the file. Similar options can be
+	    used to <c>erl</c> for enabling/disabling features
+	    allowed at runtime. The new <c>maybe</c> expression
+	    (EEP-49) is fully supported as the feature
+	    <c>maybe_expr</c>. The features support is documented in
+	    the reference manual.</p>
+          <p>
+	    Own Id: OTP-17988</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 8.1.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler would generate incorrect code for the
+	    following type of expression:</p>
+	    <p><c>Pattern = BoundVar1 = . . . = BoundVarN =
+	    Expression</c></p>
+	    <p>An exception should be raised if any of the bound
+	    variables have different values than <c>Expression</c>.
+	    The compiler would generate code that would cause the
+	    bound variables to be bound to the value of
+	    <c>Expression</c>whether the value matched or not.</p>
+          <p>
+	    Own Id: OTP-18470 Aux Id: GH-6873, PR-6877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 8.1.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>It is not allowed to call functions from guards. The
+	    compiler failed to reject a call in a guard when done by
+	    constructing a record with a default initialization
+	    expression that called a function.</p>
+          <p>
+	    Own Id: OTP-18325 Aux Id: GH-6465, GH-6466 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug that could cause legal code to fail
+	    validation.</p>
+          <p>
+	    Own Id: OTP-18365</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 8.1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>bin_opt_info</c> and <c>recv_opt_info</c>
+	    options would cause the compiler to crash when attempting
+	    to compile generated code without location
+	    information.</p>
+          <p>
+	    Own Id: OTP-18162 Aux Id: PR-6102 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances involving floating point
+	    operations, the compiler could terminate with an internal
+	    consistency check failure.</p>
+          <p>
+	    Own Id: OTP-18182 Aux Id: GH-6163 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 8.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a performance bug in the validator that made
+	    certain files take a very long time to compile.</p>
+          <p>
+	    Own Id: OTP-18066 Aux Id: GH-5915 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the compiler would mistakenly
+	    assume that a call to <c>setelement/3</c> would always
+	    fail and remove all code following the call.</p>
+          <p>
+	    Own Id: OTP-18082</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Compiler 8.1</title>
 
@@ -413,6 +873,22 @@
 	    <c>nowarn_unused_type</c>.</p>
           <p>
 	    Own Id: OTP-17330</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.6.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstances, the compiler would mistakenly
+	    assume that a call to <c>setelement/3</c> would always
+	    fail and remove all code following the call.</p>
+          <p>
+	    Own Id: OTP-18082</p>
         </item>
       </list>
     </section>

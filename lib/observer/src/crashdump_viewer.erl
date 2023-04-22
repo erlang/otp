@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1399,7 +1399,7 @@ get_pid_from_name(Name,Node) ->
 		[{_,Pid}] when is_pid(Pid) ->
 		    pid_to_list(Pid);
 		_ ->
-		    "<unkonwn_pid>"
+		    "<unknown_pid>"
 	    end;
 	_ ->
 	    "<unknown_pid_other_node>"

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2015-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,9 +66,18 @@ all() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     ct:timetrap({seconds, 20}),
-    ct_property_test:init_per_suite(Config).
-end_per_suite(Config) ->
-    Config.
+    catch crypto:stop(),
+    try crypto:start() of
+	ok ->
+            ssl_test_lib:clean_start(),
+            ct_property_test:init_per_suite(Config)
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end.
+
+end_per_suite(_Config) ->
+    ssl:stop(),
+    application:stop(crypto).
 
 init_per_testcase(_, Config0) ->
     Config0.

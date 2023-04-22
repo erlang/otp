@@ -141,6 +141,47 @@ wxGBPosition={r,c},wxGBSpan={rs,cs},wxGridCellCoords={r,c}.</p>
   another process wx environment.</p>
 </desc></func>
 <func>
+<name since="">subscribe_events() -&gt; ok</name>
+<fsummary>Adds the calling process to the list of of processes that are
+listening to wx application events.</fsummary>
+
+<desc><marker id="subscribe_events-0"/>
+<p>
+  Adds the calling process to the list of of processes that are listening to
+  wx application events.
+</p>
+
+<p>
+  At the moment these are all MacOSX specific events corresponding to
+  <c>MacNewFile()</c>
+  and friends from wxWidgets
+  <url href="https://docs.wxwidgets.org/trunk/classwx_app.html">wxApp</url>:
+</p>
+
+<list>
+  <item>
+    <p><c>{new_file, ""}</c></p>
+  </item>
+  <item>
+    <p><c>{open_file, Filename}</c></p>
+  </item>
+  <item>
+    <p><c>{print_file, Filename}</c></p>
+  </item>
+  <item>
+    <p><c>{open_url, Url}</c></p>
+  </item>
+  <item>
+    <p><c>{reopen_app, ""}</c></p>
+  </item>
+</list>
+
+<p>
+  The call always returns ok but will have sent any already received
+  events to the calling process.
+</p>
+</desc></func>
+<func>
 <name since="">null() -&gt; <seeerl marker="#type-wx_object">wx_object()</seeerl></name>
 <fsummary>Returns the null object.</fsummary>
 

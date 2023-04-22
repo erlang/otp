@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2018-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,7 +93,8 @@
  *                      Key:            Reference
  *                      Name:           Name (atom) if by name
  *
- *              Valid keys are only ordinary internal references.
+ *              Valid keys are only ordinary internal references or internal
+ *              pid-reference.
  *
  *              Origin part of the monitor is stored in the monitor tree of
  *              origin process and target part of the monitor is stored in
@@ -112,7 +113,8 @@
  *                      Key:            Reference
  *                      Name:           Name (atom) if by name
  *
- *              Valid keys are only ordinary internal references.
+ *              Valid keys are only ordinary internal references or internal
+ *              pid-reference.
  *
  *              Origin part of the monitor is stored in the monitor tree of
  *              origin process/port and target part of the monitor is stored
@@ -130,7 +132,8 @@
  *              Shared:
  *                      Key:            Reference
  *
- *              Valid keys are only ordinary internal references.
+ *              Valid keys are only ordinary internal references or internal
+ *              pid-reference.
  *
  *              Origin part of the monitor is stored in the monitor tree of
  *              origin process and target part of the monitor is stored in
@@ -153,7 +156,8 @@
  *                      Name:           Name (atom) if by name
  *                      Dist:           Pointer to dist structure
  *
- *              Valid keys are only ordinary internal references.
+ *              Valid keys are only ordinary internal references or internal
+ *              pid-reference.
  *
  *              Origin part of the monitor is stored in the monitor tree of
  *              origin process and target part of the monitor is stored in
@@ -181,6 +185,30 @@
  *              monitor is stored in the monitor tree of the local target
  *              process.
  *
+ *
+ *              --- ERTS_MON_TYPE_DIST_PORT -----------------------------------
+ *
+ *              A local process (origin) monitors a port (target) on an old
+ *              incarnation of the local node. Note that it is currently only
+ *              for this since operations against remote ports is not
+ *              supported.
+ *
+ *              Origin:
+ *                      Other Item:     Monitored port identifier
+ *              Target:
+ *                      Other Item:     Local process identifier
+ *              Shared:
+ *                      Key:            Reference
+ *                      Dist:           NULL
+ *
+ *              Valid keys are only ordinary internal references or internal
+ *              pid-reference.
+ *
+ *              Origin part of the monitor is stored in the monitor tree of
+ *              origin process and target part is currently only used when
+ *              passing monitor down signal (monitors against old incarnations
+ *              will always immediately trigger monitor down noproc since the
+ *              process wont be alive).
  *
  *              --- ERTS_MON_TYPE_RESOURCE ------------------------------------
  *
@@ -425,16 +453,17 @@
 #define ERTS_ML_STATE_ALIAS_DEMONITOR   (((Uint16) 2) << ERTS_ML_STATE_ALIAS_SHIFT)
 #define ERTS_ML_STATE_ALIAS_ONCE        (((Uint16) 3) << ERTS_ML_STATE_ALIAS_SHIFT)
 
-#define ERTS_MON_TYPE_MAX               ((Uint16) 8)
+#define ERTS_MON_TYPE_MAX               ((Uint16) 9)
 
 #define ERTS_MON_TYPE_PROC              ((Uint16) 0)
 #define ERTS_MON_TYPE_PORT              ((Uint16) 1)
 #define ERTS_MON_TYPE_TIME_OFFSET       ((Uint16) 2)
 #define ERTS_MON_TYPE_DIST_PROC         ((Uint16) 3)
-#define ERTS_MON_TYPE_RESOURCE          ((Uint16) 4)
-#define ERTS_MON_TYPE_NODE              ((Uint16) 5)
-#define ERTS_MON_TYPE_NODES             ((Uint16) 6)
-#define ERTS_MON_TYPE_SUSPEND           ((Uint16) 7)
+#define ERTS_MON_TYPE_DIST_PORT         ((Uint16) 4)
+#define ERTS_MON_TYPE_RESOURCE          ((Uint16) 5)
+#define ERTS_MON_TYPE_NODE              ((Uint16) 6)
+#define ERTS_MON_TYPE_NODES             ((Uint16) 7)
+#define ERTS_MON_TYPE_SUSPEND           ((Uint16) 8)
 #define ERTS_MON_TYPE_ALIAS             ERTS_MON_TYPE_MAX
 
 #define ERTS_MON_LNK_TYPE_MAX           (ERTS_MON_TYPE_MAX + ((Uint16) 3))
@@ -1166,12 +1195,13 @@ int erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
  * Can create all types of monitors
  *
  * When the function is called it is assumed that:
- * - 'ref' is an internal ordinary reference if type is ERTS_MON_TYPE_PROC,
- *   ERTS_MON_TYPE_PORT, ERTS_MON_TYPE_TIME_OFFSET, or ERTS_MON_TYPE_RESOURCE
+ * - 'ref' is an ordinary internal reference or internal pid-reference if type
+ *   is ERTS_MON_TYPE_PROC, ERTS_MON_TYPE_PORT, ERTS_MON_TYPE_DIST_PORT,
+ *   ERTS_MON_TYPE_TIME_OFFSET, or ERTS_MON_TYPE_RESOURCE
  * - 'ref' is NIL if type is ERTS_MON_TYPE_NODE, ERTS_MON_TYPE_NODES, or
  *   ERTS_MON_TYPE_SUSPEND
- * - 'ref' is and ordinary internal reference or an external reference if
- *   type is ERTS_MON_TYPE_DIST_PROC
+ * - 'ref' is and ordinary internal reference, internal pid-reference or an
+ *   external reference if type is ERTS_MON_TYPE_DIST_PROC
  * - 'name' is an atom or NIL if type is ERTS_MON_TYPE_PROC,
  *   ERTS_MON_TYPE_PORT, or ERTS_MON_TYPE_DIST_PROC
  * - 'name is NIL if type is ERTS_MON_TYPE_TIME_OFFSET, ERTS_MON_TYPE_RESOURCE,
@@ -1180,8 +1210,9 @@ int erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
  *
  * @param[in]     type          ERTS_MON_TYPE_PROC, ERTS_MON_TYPE_PORT,
  *                              ERTS_MON_TYPE_TIME_OFFSET, ERTS_MON_TYPE_DIST_PROC,
- *                              ERTS_MON_TYPE_RESOURCE, ERTS_MON_TYPE_NODE,
- *                              ERTS_MON_TYPE_NODES, or ERTS_MON_TYPE_SUSPEND
+ *                              ERTS_MON_TYPE_DIST_PORT, ERTS_MON_TYPE_RESOURCE,
+ *                              ERTS_MON_TYPE_NODE, ERTS_MON_TYPE_NODES, or
+ *                              ERTS_MON_TYPE_SUSPEND
  *
  * @param[in]     ref           A reference or NIL depending on type
  *

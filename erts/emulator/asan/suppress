@@ -1,8 +1,3 @@
-leak:erts_alloc_permanent_cache_aligned
-
-# Harmless leak of ErtsThrPrgrData from async threads in exiting emulator
-leak:erts_thr_progress_register_unmanaged_thread
-
 # Block passed to sigaltstack()
 leak:sys_thread_init_signal_stack
 

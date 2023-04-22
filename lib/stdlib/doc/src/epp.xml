@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -131,6 +131,10 @@
           attributes inserted during preprocessing, you can do with
           <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will
           default to the name of the opened file.</p>
+        <p>Setting <c>{deterministic, <anno>Enabled</anno>}</c> will
+          additionally reduce the file name of the implicit -file()
+          attributes inserted during preprocessing to only the basename
+          of the path.</p>
         <p>If <c>extra</c> is specified in
           <c><anno>Options</anno></c>, the return value is
           <c>{ok, <anno>Epp</anno>, <anno>Extra</anno>}</c> instead
@@ -138,6 +142,10 @@
        <p>The option <c>location</c> is forwarded
          to the Erlang token scanner, see
          <seemfa marker="erl_scan#tokens/3"><c>erl_scan:tokens/3,4</c></seemfa>.</p>
+       <p>The <c>{compiler_internal,term()}</c> option is forwarded
+       to the Erlang token scanner, see
+       <seeerl marker="erl_scan#compiler_interal">
+       <c>{compiler_internal,term()}</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -189,6 +197,10 @@
        <p>The option <c>location</c> is forwarded
          to the Erlang token scanner, see
          <seemfa marker="erl_scan#tokens/3"><c>erl_scan:tokens/3,4</c></seemfa>.</p>
+       <p>The <c>{compiler_internal,term()}</c> option is forwarded
+       to the Erlang token scanner, see
+       <seeerl marker="erl_scan#compiler_interal">
+       <c>{compiler_internal,term()}</c></seeerl>.</p>
       </desc>
     </func>
 

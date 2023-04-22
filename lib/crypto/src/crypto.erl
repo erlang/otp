@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 -export([start/0, stop/0, info/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
 -export([cipher_info/1, hash_info/1]).
--export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
+-export([hash/2, hash_xof/3, hash_init/1, hash_update/2, hash_final/1, hash_final_xof/2]).
 -export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
@@ -118,12 +118,15 @@
          engine_load/3,
          engine_load/4,
          engine_unload/1,
+         engine_unload/2,
          engine_by_id/1,
          engine_list/0,
          engine_ctrl_cmd_string/3,
          engine_ctrl_cmd_string/4,
          engine_add/1,
          engine_remove/1,
+         engine_register/2,
+         engine_unregister/2,
          engine_get_id/1,
          engine_get_name/1,
          ensure_engine_loaded/2,
@@ -136,7 +139,7 @@
        hash_algorithms/0, pubkey_algorithms/0, cipher_algorithms/0,
        mac_algorithms/0, curve_algorithms/0, rsa_opts_algorithms/0,
        hash_info/1, hash_nif/2, hash_init_nif/1, hash_update_nif/2,
-       hash_final_nif/1, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
+       hash_final_nif/1, hash_final_xof_nif/2, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
        mac_final_nif/1, cipher_info_nif/1, ng_crypto_init_nif/4,
        ng_crypto_update_nif/2, ng_crypto_update_nif/3, ng_crypto_final_nif/1,
        ng_crypto_get_data_nif/1, ng_crypto_one_time_nif/5,
@@ -152,7 +155,8 @@
        engine_ctrl_cmd_strings_nif/3, engine_register_nif/2,
        engine_unregister_nif/2, engine_add_nif/1, engine_remove_nif/1,
        engine_get_first_nif/0, engine_get_next_nif/1, engine_get_id_nif/1,
-       engine_get_name_nif/1, engine_get_all_methods_nif/0
+       engine_get_name_nif/1, engine_get_all_methods_nif/0,
+       ensure_engine_loaded_nif/2
       ]).
 
 -export_type([ %% A minimum exported: only what public_key needs.
@@ -367,6 +371,10 @@
                    | aes_256_cbc
                    | aes_cbc
 
+                   | aes_128_ofb
+                   | aes_192_ofb
+                   | aes_256_ofb
+
                    | aes_128_cfb128
                    | aes_192_cfb128
                    | aes_256_cfb128
@@ -416,6 +424,7 @@
 -type sha1() :: sha .
 -type sha2() :: sha224 | sha256 | sha384 | sha512 .
 -type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512 .
+-type sha3_xof() :: shake128 | shake256 .
 -type blake2() :: blake2b | blake2s .
 
 -type compatibility_only_hash() :: md5 | md4 .
@@ -520,7 +529,7 @@ stop() ->
                                       | {macs,    Macs}
                                       | {curves,  Curves}
                                       | {rsa_opts, RSAopts},
-                             Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
+                             Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
@@ -550,7 +559,7 @@ supports() ->
                                       | Macs
                                       | Curves
                                       | RSAopts,
-                             Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
+                             Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
@@ -613,7 +622,8 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 %%%
 %%%================================================================
 
--type hash_algorithm() :: sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() .
+-type hash_algorithm() :: sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash() .
+-type hash_xof_algorithm() :: sha3_xof() .
 
 -spec hash_info(Type) -> Result
                              when Type :: hash_algorithm(),
@@ -631,6 +641,14 @@ hash(Type, Data) ->
     Data1 = iolist_to_binary(Data),
     MaxBytes = max_bytes(),
     hash(Type, Data1, erlang:byte_size(Data1), MaxBytes).
+
+-spec hash_xof(Type, Data, Length) -> Digest when Type :: hash_xof_algorithm(),
+                                               Data :: iodata(),
+                                               Length :: non_neg_integer(),
+                                               Digest :: binary().
+hash_xof(Type, Data, Length) ->
+  Data1 = iolist_to_binary(Data),
+  hash_xof(Type, Data1, erlang:byte_size(Data1), Length).
 
 -opaque hash_state() :: reference().
 
@@ -651,6 +669,12 @@ hash_update(Context, Data) ->
                                         Digest :: binary().
 hash_final(Context) ->
     ?nif_call(hash_final_nif(Context)).
+
+-spec hash_final_xof(State, Length) -> Digest when State :: hash_state(),
+                                                   Length :: non_neg_integer(),
+                                                   Digest :: binary().
+hash_final_xof(Context, Length) ->
+    notsup_to_error(hash_final_xof_nif(Context, Length)).
 
 %%%================================================================
 %%%
@@ -834,9 +858,9 @@ cipher_info(Type) ->
 
 -opaque crypto_state() :: reference() .
 
--type crypto_opts() :: boolean() 
+-type crypto_opts() :: boolean()
                      | [ crypto_opt() ] .
--type crypto_opt() :: {encrypt,boolean()} 
+-type crypto_opt() :: {encrypt,boolean()}
                     | {padding, padding()} .
 -type padding() :: cryptolib_padding() | otp_padding().
 -type cryptolib_padding() :: none | pkcs_padding .
@@ -1258,7 +1282,7 @@ rand_plugin_aes_next(Key, GenWords, F, Count) ->
     {V,Cache}.
 
 block_encrypt(Key, Data) ->
-    Cipher = case size(Key) of
+    Cipher = case byte_size(Key) of
                  16 -> aes_128_ecb;
                  24 -> aes_192_ecb;
                  32 -> aes_256_ecb;
@@ -1828,24 +1852,11 @@ engine_get_all_methods() ->
                                      Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
 engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds),
                                               is_list(PostCmds) ->
-    engine_load(EngineId, PreCmds, PostCmds, engine_get_all_methods()).
-
-%%----------------------------------------------------------------------
-%% Function: engine_load/4
-%%----------------------------------------------------------------------
--spec engine_load(EngineId, PreCmds, PostCmds, EngineMethods) ->
-                         Result when EngineId::unicode:chardata(),
-                                     PreCmds::[engine_cmnd()],
-                                     PostCmds::[engine_cmnd()],
-                                     EngineMethods::[engine_method_type()],
-                                     Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
-engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds),
-                                                             is_list(PostCmds) ->
     try
         ok = notsup_to_error(engine_load_dynamic_nif()),
         case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId))) of
             {ok, Engine} ->
-                engine_load_1(Engine, PreCmds, PostCmds, EngineMethods);
+                engine_load_1(Engine, PreCmds, PostCmds);
             {error, Error1} ->
                 {error, Error1}
         end
@@ -1854,11 +1865,23 @@ engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds),
             Error2
     end.
 
-engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
+-spec engine_load(EngineId, PreCmds, PostCmds, EngineMethods) ->
+                         Result when EngineId::unicode:chardata(),
+                                     PreCmds::[engine_cmnd()],
+                                     PostCmds::[engine_cmnd()],
+                                     EngineMethods::[engine_method_type()],
+                                     Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
+engine_load(EngineId, PreCmds, PostCmds, _EngineMethods) when is_list(PreCmds),
+							      is_list(PostCmds) ->
+    engine_load(EngineId, PreCmds, PostCmds).
+
+
+%%----------------------------------------------------------------------
+engine_load_1(Engine, PreCmds, PostCmds) ->
     try
         ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds), 0)),
         ok = engine_nif_wrapper(engine_init_nif(Engine)),
-        engine_load_2(Engine, PostCmds, EngineMethods),
+        engine_load_2(Engine, PostCmds),
         {ok, Engine}
     catch
         throw:Error ->
@@ -1871,15 +1894,13 @@ engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
             error(badarg)
     end.
 
-engine_load_2(Engine, PostCmds, EngineMethods) ->
+engine_load_2(Engine, PostCmds) ->
     try
         ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PostCmds), 0)),
-        [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- EngineMethods],
         ok
     catch
        throw:Error ->
-          %% The engine registration failed, release the functional reference
+          %% The engine registration failed, release the structural and functional references
           ok = engine_free_nif(Engine),
           throw(Error)
     end.
@@ -1890,21 +1911,19 @@ engine_load_2(Engine, PostCmds, EngineMethods) ->
 -spec engine_unload(Engine) -> Result when Engine :: engine_ref(),
                                            Result :: ok | {error, Reason::term()}.
 engine_unload(Engine) ->
-    engine_unload(Engine, engine_get_all_methods()).
-
--spec engine_unload(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
-                                                          EngineMethods :: [engine_method_type()],
-                                                          Result :: ok | {error, Reason::term()}.
-engine_unload(Engine, EngineMethods) ->
     try
-        [ok = engine_nif_wrapper(engine_unregister_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- EngineMethods],
         %% Release the reference from engine_by_id_nif
         ok = engine_nif_wrapper(engine_free_nif(Engine))
     catch
-       throw:Error ->
-          Error
+        throw:Error ->
+            Error
     end.
+
+-spec engine_unload(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
+					      EngineMethods :: [engine_method_type()],
+					      Result :: ok | {error, Reason::term()}.
+engine_unload(Engine, _EngineMethods) ->
+    engine_unload(Engine).
 
 %%----------------------------------------------------------------------
 %% Function: engine_by_id/1
@@ -1935,6 +1954,36 @@ engine_add(Engine) ->
 engine_remove(Engine) ->
     notsup_to_error(engine_remove_nif(Engine)).
 
+%%----------------------------------------------------------------------
+%% Function: engine_register/2
+%%----------------------------------------------------------------------
+-spec engine_register(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
+					       EngineMethods::[engine_method_type()],
+					       Result ::  ok | {error, Reason::term()} .
+engine_register(Engine, EngineMethods) when is_list(EngineMethods) ->
+    try
+	[ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) || 
+	    Method <- EngineMethods],
+        ok
+    catch
+	throw:Error -> Error
+    end.
+
+%%----------------------------------------------------------------------
+%% Function: engine_unregister/2
+%%----------------------------------------------------------------------
+-spec engine_unregister(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
+						 EngineMethods::[engine_method_type()],
+						 Result ::  ok | {error, Reason::term()} .
+engine_unregister(Engine, EngineMethods) when is_list(EngineMethods) ->
+    try
+	[ok = engine_nif_wrapper(engine_unregister_nif(Engine, engine_method_atom_to_int(Method))) || 
+	    Method <- EngineMethods],
+        ok
+    catch
+	throw:Error -> Error
+    end.
+    
 %%----------------------------------------------------------------------
 %% Function: engine_get_id/1
 %%----------------------------------------------------------------------
@@ -2017,12 +2066,18 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 %% Function: ensure_engine_loaded/2
 %% Special version of load that only uses dynamic engine to load
 %%----------------------------------------------------------------------
--spec ensure_engine_loaded(EngineId, LibPath) ->
-                                  Result when EngineId :: unicode:chardata(),
-                                              LibPath :: unicode:chardata(),
-                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
+-spec ensure_engine_loaded(EngineId, LibPath) -> Result when EngineId :: unicode:chardata(),
+						 LibPath :: unicode:chardata(),
+						 Result :: {ok, Engine::engine_ref()} |
+	{error, Reason::term()}.
 ensure_engine_loaded(EngineId, LibPath) ->
-    ensure_engine_loaded(EngineId, LibPath, engine_get_all_methods()).
+    case notsup_to_error(ensure_engine_loaded_nif(ensure_bin_chardata(EngineId),
+                                                  ensure_bin_chardata(LibPath))) of
+        {ok, Engine} ->
+            {ok, Engine};
+        {error, Error1} ->
+            {error, Error1}
+    end.
 
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_loaded/3
@@ -2032,62 +2087,18 @@ ensure_engine_loaded(EngineId, LibPath) ->
                                   Result when EngineId :: unicode:chardata(),
                                               LibPath :: unicode:chardata(),
                                               EngineMethods :: [engine_method_type()],
-                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
-ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
-    try
-        List = crypto:engine_list(),
-        case lists:member(EngineId, List) of
-            true ->
-                notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId)));
-            false ->
-                ok = notsup_to_error(engine_load_dynamic_nif()),
-                case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(<<"dynamic">>))) of
-                    {ok, Engine} ->
-                        PreCommands = [{<<"SO_PATH">>, ensure_bin_chardata(LibPath)},
-                                       {<<"ID">>, ensure_bin_chardata(EngineId)},
-                                       <<"LOAD">>],
-                        ensure_engine_loaded_1(Engine, PreCommands, EngineMethods);
-                    {error, Error1} ->
-                        {error, Error1}
-                end
-        end
-    catch
-        throw:Error2 ->
-            Error2
-    end.
+                                              Result :: {ok, Engine::engine_ref()} |
+                                                        {error, Reason::term()}.
+ensure_engine_loaded(EngineId, LibPath, _EngineMethods) ->
+    ensure_engine_loaded(EngineId, LibPath).
 
-ensure_engine_loaded_1(Engine, PreCmds, Methods) ->
-    try
-        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds), 0)),
-        ok = engine_nif_wrapper(engine_add_nif(Engine)),
-        ok = engine_nif_wrapper(engine_init_nif(Engine)),
-        ensure_engine_loaded_2(Engine, Methods),
-        {ok, Engine}
-    catch
-        throw:Error ->
-            %% The engine couldn't initialise, release the structural reference
-            ok = engine_free_nif(Engine),
-            throw(Error)
-    end.
-
-ensure_engine_loaded_2(Engine, Methods) ->
-    try
-        [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- Methods],
-        ok
-    catch
-       throw:Error ->
-          %% The engine registration failed, release the functional reference
-          ok = engine_free_nif(Engine),
-          throw(Error)
-    end.
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/1
 %%----------------------------------------------------------------------
 -spec ensure_engine_unloaded(Engine) -> Result when Engine :: engine_ref(),
                                                     Result :: ok | {error, Reason::term()}.
 ensure_engine_unloaded(Engine) ->
-    ensure_engine_unloaded(Engine, engine_get_all_methods()).
+    engine_unload(Engine).
 
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/2
@@ -2096,20 +2107,8 @@ ensure_engine_unloaded(Engine) ->
                                     Result when Engine :: engine_ref(),
                                                 EngineMethods :: [engine_method_type()],
                                                 Result :: ok | {error, Reason::term()}.
-ensure_engine_unloaded(Engine, EngineMethods) ->
-    List = crypto:engine_list(),
-    EngineId = crypto:engine_get_id(Engine),
-    case lists:member(EngineId, List) of
-        true ->
-            case engine_remove(Engine) of
-                ok ->
-                    engine_unload(Engine, EngineMethods);
-                {error, Error} ->
-                    {error, Error}
-            end;
-        false ->
-            engine_unload(Engine, EngineMethods)
-    end.
+ensure_engine_unloaded(Engine, _EngineMethods) ->
+    ensure_engine_unloaded(Engine).
 
 
 %%--------------------------------------------------------------------
@@ -2127,13 +2126,15 @@ on_load() ->
 			      filename:join(
 				[PrivDir,
 				 "lib",
-				 LibTypeName ++ "*"])) /= []) orelse
+				 LibTypeName ++ "*"]),
+                              erl_prim_loader) /= []) orelse
 			  (filelib:wildcard(
 			     filename:join(
 			       [PrivDir,
 				"lib",
 				erlang:system_info(system_architecture),
-				LibTypeName ++ "*"])) /= []) of
+				LibTypeName ++ "*"]),
+                             erl_prim_loader) /= []) of
 			  true -> LibTypeName;
 			  false -> LibBaseName
 		      end
@@ -2148,7 +2149,10 @@ on_load() ->
 			 filename:join([PrivDir, "lib",
 					erlang:system_info(system_architecture)]),
 		     Candidate =
-			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ]),erl_prim_loader),
+			 filelib:wildcard(
+                           filename:join(
+                             [ArchLibDir,LibName ++ "*" ]),
+                           erl_prim_loader),
 		     case Candidate of
 			 [] -> Error1;
 			 _ ->
@@ -2201,6 +2205,12 @@ hash(Hash, Data, Size, Max) ->
     State1 = hash_update(State0, Data, Size, Max),
     hash_final(State1).
 
+hash_xof(Hash, Data, Size, Length) ->
+    Max = max_bytes(),
+    State0 = hash_init(Hash),
+    State1 = hash_update(State0, Data, Size, Max),
+    hash_final_xof(State1, Length).
+
 hash_update(State, Data, Size, MaxBytes)  when Size =< MaxBytes ->
     ?nif_call(hash_update_nif(State, Data), {1,2});
 hash_update(State0, Data, _, MaxBytes) ->
@@ -2213,6 +2223,7 @@ hash_nif(_Hash, _Data) -> ?nif_stub.
 hash_init_nif(_Hash) -> ?nif_stub.
 hash_update_nif(_State, _Data) -> ?nif_stub.
 hash_final_nif(_State) -> ?nif_stub.
+hash_final_xof_nif(_State, _Length) -> ?nif_stub.
 
 %%%================================================================
 
@@ -2270,9 +2281,9 @@ srp_pad_length(Width, Length) ->
     (Width - Length rem Width) rem Width.
 
 srp_pad_to(Width, Binary) ->
-    case srp_pad_length(Width, size(Binary)) of
+    case srp_pad_length(Width, byte_size(Binary)) of
         0 -> Binary;
-        N -> << 0:(N*8), Binary/binary>>
+        N -> << 0:N/unit:8, Binary/binary>>
     end.
 
 srp_host_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
@@ -2348,17 +2359,29 @@ term_to_nif_curve({A, B, Seed}) ->
     {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
 
 nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {term_to_nif_prime(PrimeField),
-     term_to_nif_curve(Curve),
-     ensure_int_as_bin(BasePoint),
-     ensure_int_as_bin(Order),
-     ensure_int_as_bin(CoFactor)};
-nif_curve_params(Curve) when is_atom(Curve) ->
-    %% named curve
-    case Curve of
-        x448 -> {evp,Curve};
-        x25519 -> {evp,Curve};
-        _ -> crypto_ec_curves:curve(Curve)
+    {
+      {term_to_nif_prime(PrimeField),
+       term_to_nif_curve(Curve),
+       ensure_int_as_bin(BasePoint),
+       ensure_int_as_bin(Order),
+       ensure_int_as_bin(CoFactor)
+      },
+      undefined %% The curve name
+    };
+nif_curve_params(CurveName) when is_atom(CurveName) ->
+    %% A named curve
+    case CurveName of
+        x448   -> {evp,CurveName};
+        x25519 -> {evp,CurveName};
+        _ ->
+            Spec =
+                try
+                    crypto_ec_curves:curve(CurveName)
+                catch
+                    _:_ ->
+                        undefined
+                end,
+            {Spec, CurveName}
     end.
 
 
@@ -2520,6 +2543,7 @@ engine_get_next_nif(_Engine) -> ?nif_stub.
 engine_get_id_nif(_Engine) -> ?nif_stub.
 engine_get_name_nif(_Engine) -> ?nif_stub.
 engine_get_all_methods_nif() -> ?nif_stub.
+ensure_engine_loaded_nif(_EngineId, _LibPath) -> ?nif_stub.
 
 %%--------------------------------------------------------------------
 %% Engine internals

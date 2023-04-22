@@ -161,6 +161,7 @@ ERL_COMPILE_FLAGS += -I../../snmp/src/app \
                      +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}' \
                      $(SNMP_FLAGS)
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 ERL_SNMP_FLAGS = $(SNMP_MIB_FLAGS) \
                  -I../priv/mibs

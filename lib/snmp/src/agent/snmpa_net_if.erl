@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -235,12 +235,22 @@ init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 		    end,
 		    erlang:raise(C, E, S)
 	    end;
+	{error, {udp_open, {open, PortNo, Reason}}} ->
+            OEFilters = get_open_err_filters(Opts),
+            Class =
+                case lists:member(Reason, OEFilters) of
+                    false ->
+                        error;
+                    true ->
+                        info
+            end,
+            proc_lib:init_ack({error, {Class, udp_open, PortNo, Reason}});
 	{error, Reason} ->
-	    config_err("failed starting net-if: ~n~p", [Reason]),
-	    proc_lib:init_ack({error, Reason});
+	    %% config_err("failed starting net-if: ~n~p", [Reason]),
+	    proc_lib:init_fail({error, Reason}, {exit, normal});
 	Error ->
-	    config_err("failed starting net-if: ~n~p", [Error]),
-	    proc_lib:init_ack({error, Error})
+	    %% config_err("failed starting net-if: ~n~p", [Error]),
+	    proc_lib:init_fail({error, Error}, {exit, normal})
     end.
 
 do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
@@ -256,7 +266,7 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     Vsns = get_vsns(Opts),
     ?vdebug("vsns: ~w",[Vsns]),
 
-    %% Flow control --
+    %% -- Flow control --
     Limit      = get_req_limit(Opts),
     ?vdebug("Limit: ~w", [Limit]),
     FilterOpts = get_filter_opts(Opts),
@@ -475,7 +485,7 @@ gen_udp_open(system, Opts) ->
                     throw({udp_open, {port, PReason}})
             end;
 	{error, OReason} ->
-            throw({udp_open, {open, OReason}})
+            throw({udp_open, {open, 0, OReason}})
     end;
 %% This is for "future compat" since we cannot actually config '0'...
 gen_udp_open(IpPort, Opts) when (IpPort =:= 0) ->
@@ -533,7 +543,7 @@ gen_udp_range_open(Min, Max, Opts) ->
             gen_udp_range_open(Min+1, Max, Opts);
         {error, Reason} ->
             ?vdebug("gen_udp_range_open(~w,~w) -> ~w", [Reason]),
-            throw({udp_open, {open, Reason}})
+            throw({udp_open, {open, Min, Reason}})
     catch
         C:E:S ->
             ?vinfo("gen_udp_range_open(~w,~w) -> failed open socket: "
@@ -1656,7 +1666,7 @@ udp_send(Socket, To, B) ->
             ok;
 	ok ->
             %% For future use! Ephemeral ports!
-	    {ok, size(B)}
+	    {ok, byte_size(B)}
     catch
 	error:ExitReason:StackTrace ->
 	    error_msg("[exit] cannot send message "
@@ -1665,7 +1675,7 @@ udp_send(Socket, To, B) ->
     end.
 
 sz(L) when is_list(L) -> length(L);
-sz(B) when is_binary(B) -> size(B);
+sz(B) when is_binary(B) -> byte_size(B);
 sz(_) -> undefined.
 
 
@@ -1888,9 +1898,18 @@ handle_set_request_limit(State, BadLimit) ->
 system_continue(_Parent, _Dbg, S) ->
     loop(S).
 
-system_terminate(Reason, _Parent, _Dbg, #state{log = Log}) ->
+system_terminate(Reason, _Parent, _Dbg, #state{log        = Log,
+                                               transports = Transports}) ->
     ?vlog("system-terminate -> entry with"
 	  "~n   Reason: ~p", [Reason]),
+    %% Close all transports
+    Close =
+        fun(S) ->
+                ?vlog("try close socket ~p", [S]),
+                (catch gen_udp:close(S))
+        end,
+    _ = [Close(Socket) || #transport{socket = Socket} <- Transports],
+    %% Close logs
     do_close_log(Log),
     exit(Reason).
 
@@ -2092,6 +2111,16 @@ get_filter_opts(O) ->
 get_filter_module(O) ->
     snmp_misc:get_option(module, O, ?DEFAULT_FILTER_MODULE).
 
+get_open_err_filters(O) ->
+    case snmp_misc:get_option(open_err_filters, O, []) of
+        Filters when is_list(Filters) ->
+            Filters;
+        Filter when is_atom(Filter) ->
+            [Filter];
+        _ ->
+            []
+    end.
+
 get_recbuf(Opts, DefaultOpts) -> 
     get_socket_opt(recbuf, Opts, DefaultOpts, use_default).
 
@@ -2144,8 +2173,8 @@ info_msg(F,A) ->
 user_err(F, A) ->
     snmpa_error:user_err(F, A).
  
-config_err(F, A) ->
-    snmpa_error:config_err(F, A).
+%% config_err(F, A) ->
+%%     snmpa_error:config_err(F, A).
  
 
 %% ----------------------------------------------------------------

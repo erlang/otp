@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -133,12 +133,7 @@ write_config(Dir, Conf) ->
     end.
 
 start_manager(Opts) ->
-    case snmpm:start_link(Opts) of
-	ok ->
-	    ok; 
-	Error ->
-	    error({failed_starting_manager, Error})
-    end.
+    ok = snmpm:start_link(Opts).
 
 register_user() ->
     case snmpm:register_user(?USER, ?USER_MOD, self()) of
@@ -397,16 +392,16 @@ handle_pdu(TargetName, ReqId, SnmpResponse, Server) when is_pid(Server) ->
 
 handle_trap(TargetName, SnmpTrap, Server) when is_pid(Server) ->
     report_callback(Server, handle_trap, {TargetName, SnmpTrap}),
-    ok.
+    ignore.
 
 handle_inform(TargetName, SnmpInform, Server) when is_pid(Server) ->
     report_callback(Server, handle_inform, {TargetName, SnmpInform}),
-    ok.
+    ignore.
 
 
 handle_report(TargetName, SnmpReport, Server) when is_pid(Server) ->
     report_callback(Server, handle_inform, {TargetName, SnmpReport}),
-    ok.
+    ignore.
 
 handle_invalid_result(In, Out, Server) when is_pid(Server) ->
     report_callback(Server, handle_invalid_result, {In, Out}),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,11 +83,11 @@
                        | {'unused', [mfa()]},
       NoDebugInfoResult :: {'deprecated', [xmfa()]}
                          | {'undefined', [xmfa()]},
-      Reason :: {'cover_compiled', Module}
+      Reason :: {'cover_compiled', Module :: module()}
               | {'file_error', file(), file_error()}
-              | {'interpreted', Module}
+              | {'interpreted', Module :: module()}
               | {'invalid_filename', term()}
-              | {'no_such_module', Module}
+              | {'no_such_module', Module :: module()}
               | beam_lib:chnk_rsn().
 
 %% No user variables have been assigned digraphs, so there is no

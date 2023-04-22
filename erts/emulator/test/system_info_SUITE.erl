@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,8 +62,8 @@ init_per_testcase(_, Config) ->
 
 end_per_testcase(procs_bug, Config) ->
     procs_bug(end_per_testcase, Config);
-end_per_testcase(_, _) ->
-    ok.
+end_per_testcase(_, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %%%
 %%% The test cases -------------------------------------------------------------

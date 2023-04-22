@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,11 @@
 
 #include "beam_opcodes.h"
 
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#define ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#include "erl_thr_progress.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+
 struct process;
 
 
@@ -93,12 +98,34 @@ typedef struct ErtsCodeMFA_ {
 /* If you change the size of this, you also have to update the code
    in ops.tab to reflect the new func_info size */
 typedef struct ErtsCodeInfo_ {
-    BeamInstr op;           /* OpCode(i_func_info) */
-    union {
-        struct generic_bp* gen_bp;     /* Trace breakpoint */
+    /* In both the JIT and interpreter, we may jump here to raise a
+     * function_clause error.
+     *
+     * In addition, the JIT also stores the current breakpoint flags here. */
+    struct {
+#ifndef BEAMASM
+        BeamInstr op;
+#else
+        struct {
+            char raise_function_clause[sizeof(BeamInstr) - 1];
+            char breakpoint_flag;
+        } metadata;
+#endif
     } u;
+
+    /* Trace breakpoint */
+    struct generic_bp *gen_bp;
     ErtsCodeMFA mfa;
 } ErtsCodeInfo;
+
+typedef struct {
+    erts_refc_t pending_schedulers;
+    ErtsThrPrgrLaterOp later_op;
+    UWord size;
+
+    void (*later_function)(void *);
+    void *later_data;
+} ErtsCodeBarrier;
 
 /* Get the code associated with a ErtsCodeInfo ptr. */
 ERTS_GLB_INLINE
@@ -130,37 +157,76 @@ ErtsCodeIndex erts_active_code_ix(void);
 
 /* Return staging code ix.
  * Only used by a process performing code loading/upgrading/deleting/purging.
- * Code write permission must be seized.
+ * Code staging permission must be seized.
  */
 ERTS_GLB_INLINE
 ErtsCodeIndex erts_staging_code_ix(void);
 
-/* Try seize exclusive code write permission. Needed for code staging.
+/** @brief Try to seize exclusive code loading permission. That is, both
+ * staging and modification permission.
+ *
  * Main process lock (only) must be held.
  * System thread progress must not be blocked.
- * Caller must not already hold the code write permission.
- * Caller is suspended and *must* yield if 0 is returned. 
- */
-int erts_try_seize_code_write_permission(struct process* c_p);
+ * Caller must not already have the code modification or staging permissions.
+ * Caller is suspended and *must* yield if 0 is returned. */
+int erts_try_seize_code_load_permission(struct process* c_p);
 
-/* Try seize exclusive code write permission for aux work.
+/** @brief Release code loading permission. Resumes any suspended waiters. */
+void erts_release_code_load_permission(void);
+
+/** @brief Try to seize exclusive code staging permission. Needed for code
+ * loading and purging.
+ *
+ * This is kept separate from code modification permission to allow tracing and
+ * similar during long-running purge operations.
+ *
+ * * Main process lock (only) must be held.
+ * * System thread progress must not be blocked.
+ * * Caller is suspended and *must* yield if 0 is returned.
+ * * Caller must not already have the code modification or staging permissions.
+ *   
+ *   That is, it is _NOT_ possible to add code modification permission when you
+ *   already have staging permission. The other way around is fine however.
+ */
+int erts_try_seize_code_stage_permission(struct process* c_p);
+
+/** @brief Release code stage permission. Resumes any suspended waiters. */
+void erts_release_code_stage_permission(void);
+
+/** @brief Try to seize exclusive code modification permission. Needed for
+ * tracing, breakpoints, and so on.
+ *
+ * This used to be called code_write_permission, but was renamed to break
+ * merges of code that uses the old locking paradigm.
+ *
+ * * Main process lock (only) must be held.
+ * * System thread progress must not be blocked.
+ * * Caller is suspended and *must* yield if 0 is returned.
+ * * Caller must not already have the code modification permission, but may
+ *   have staging permission.
+ */
+int erts_try_seize_code_mod_permission(struct process* c_p);
+
+/** @brief As \c erts_try_seize_code_mod_permission but for aux work.
+ *
  * System thread progress must not be blocked.
  * On success return true.
  * On failure return false and aux work func(arg) will be scheduled when
- * permission is released.                                                                             .
+ * permission is released.
  */
-int erts_try_seize_code_write_permission_aux(void (*func)(void *),
-                                             void *arg);
+int erts_try_seize_code_mod_permission_aux(void (*func)(void *),
+                                           void *arg);
 
-/* Release code write permission.
- * Will resume any suspended waiters.
- */
-void erts_release_code_write_permission(void);
+/** @brief Release code modification permission. Resumes any suspended
+ * waiters. */
+void erts_release_code_mod_permission(void);
 
 /* Prepare the "staging area" to be a complete copy of the active code.
- * Code write permission must have been seized.
+ *
+ * Code staging permission must have been seized.
+ *
  * Must be followed by calls to either "end" and "commit" or "abort" before
- * code write permission can be released.
+ * code staging permission can be released.
  */
 void erts_start_staging_code_ix(int num_new);
 
@@ -179,8 +245,36 @@ void erts_commit_staging_code_ix(void);
  */
 void erts_abort_staging_code_ix(void);
 
+#ifdef DEBUG
+void erts_debug_require_code_barrier(void);
+void erts_debug_check_code_barrier(void);
+#endif
+
+/* Schedules an operation to run after thread progress _and_ all schedulers
+ * have issued an instruction barrier. */
+void erts_schedule_code_barrier(ErtsCodeBarrier *barrier,
+                                void (*later_function)(void *),
+                                void *later_data);
+
+void erts_schedule_code_barrier_cleanup(ErtsCodeBarrier *barrier,
+                                        void (*later_function)(void *),
+                                        void *later_data,
+                                        UWord size);
+
+/* Issues a code barrier on the current thread, as well as all managed threads
+ * when they wake up after thread progress is unblocked.
+ *
+ * Requires that thread progress is blocked. */
+void erts_blocking_code_barrier(void);
+
+/* Helper function for the above: all managed threads should call this as soon
+ * as thread progress is unblocked, _BEFORE_ updating thread progress. */
+void erts_code_ix_finalize_wait(void);
+
 #ifdef ERTS_ENABLE_LOCK_CHECK
-int erts_has_code_write_permission(void);
+int erts_has_code_load_permission(void);
+int erts_has_code_stage_permission(void);
+int erts_has_code_mod_permission(void);
 #endif
 
 /* module/function/arity can be NIL/NIL/-1 when the MFA is pointing to some
@@ -199,7 +293,7 @@ ERTS_GLB_INLINE
 ErtsCodePtr erts_codeinfo_to_code(const ErtsCodeInfo *ci)
 {
 #ifndef BEAMASM
-    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI) || !ci->u.op);
 #endif
     ASSERT_MFA(&ci->mfa);
     return (ErtsCodePtr)&ci[1];
@@ -211,7 +305,7 @@ const ErtsCodeInfo *erts_code_to_codeinfo(ErtsCodePtr I)
     const ErtsCodeInfo *ci = &((const ErtsCodeInfo *)I)[-1];
 
 #ifndef BEAMASM
-    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI) || !ci->u.op);
 #endif
     ASSERT_MFA(&ci->mfa);
 

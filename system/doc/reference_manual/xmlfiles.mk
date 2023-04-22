@@ -27,6 +27,7 @@ REF_MAN_CHAPTER_FILES = \
 	macros.xml \
 	records.xml \
 	errors.xml \
+	features.xml \
 	processes.xml \
 	distributed.xml \
 	code_loading.xml \

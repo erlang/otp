@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +63,7 @@
 #define DFLAG_NAME_ME          (((Uint64)0x2) << 32)
 #define DFLAG_V4_NC            (((Uint64)0x4) << 32)
 #define DFLAG_ALIAS            (((Uint64)0x8) << 32)
+#define DFLAG_LOCAL_EXT        (((Uint64)0x10) << 32) /* internal */
 
 /*
  * In term_to_binary/2, we will use DFLAG_ATOM_CACHE to mean
@@ -84,8 +85,13 @@
                                 | DFLAG_BIT_BINARIES              \
                                 | DFLAG_HANDSHAKE_23)
 
+/* New mandatory flags for distribution in OTP 26 */
+#define DFLAG_DIST_MANDATORY_26 (DFLAG_V4_NC                      \
+                                 | DFLAG_UNLINK_ID)
+
 /* Mandatory flags for distribution. */
-#define DFLAG_DIST_MANDATORY DFLAG_DIST_MANDATORY_25
+#define DFLAG_DIST_MANDATORY (DFLAG_DIST_MANDATORY_25             \
+                              | DFLAG_DIST_MANDATORY_26)
 
 /*
  * Additional optimistic flags when encoding toward pending connection.
@@ -95,8 +101,7 @@
 #define DFLAG_DIST_HOPEFULLY (DFLAG_DIST_MONITOR                \
                               | DFLAG_DIST_MONITOR_NAME         \
                               | DFLAG_SPAWN                     \
-			      | DFLAG_ALIAS			\
-                              | DFLAG_UNLINK_ID)
+			      | DFLAG_ALIAS)
 
 /* Our preferred set of flags. Used for connection setup handshake */
 #define DFLAG_DIST_DEFAULT (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY \
@@ -108,9 +113,7 @@
                             | DFLAG_EXIT_PAYLOAD              \
                             | DFLAG_FRAGMENTS                 \
                             | DFLAG_SPAWN                     \
-                            | DFLAG_V4_NC		      \
                             | DFLAG_ALIAS		      \
-                            | DFLAG_UNLINK_ID                 \
                             | DFLAG_MANDATORY_25_DIGEST)
 
 /* Flags addable by local distr implementations */
@@ -126,7 +129,8 @@
 #define DFLAG_DIST_STRICT_ORDER DFLAG_DIST_HDR_ATOM_CACHE
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
-#define TERM_TO_BINARY_DFLAGS DFLAG_NEW_FLOATS
+#define TERM_TO_BINARY_DFLAGS (DFLAG_NEW_FLOATS                  \
+                               | DFLAG_UTF8_ATOMS)
 
 /* opcodes used in distribution messages */
 enum dop {
@@ -216,7 +220,7 @@ extern int erts_is_alive;
 #define ERTS_DIST_CTRL_OPT_GET_SIZE     ((Uint32) (1 << 0))
 
 /* for emulator internal testing... */
-extern int erts_dflags_test_remove_hopefull_flags;
+extern Uint64 erts_dflags_test_remove_hopefull_flags;
 
 #ifdef DEBUG
 #define ERTS_DBG_CHK_NO_DIST_LNK(D, R, L) \
@@ -279,10 +283,17 @@ typedef struct TTBEncodeContext_ {
     SysIOVec* iov;
     ErlDrvBinary** binv;
     Eterm *termv;
-    int iovec;
     Uint fragment_size;
     Sint frag_ix;
     ErlIOVec *fragment_eiovs;
+    int iovec;
+    int continue_make_lext_hash;
+    int lext_vlen;
+    byte *lext_hash;
+    union {
+        ErtsBlockHashState block;
+        ErtsIovBlockHashState iov_block;
+    } lext_state;
 #ifdef DEBUG
     int debug_fragments;
     int debug_vlen;
@@ -302,6 +313,8 @@ typedef struct TTBEncodeContext_ {
         (Ctx)->iov = NULL;                                      \
         (Ctx)->binv = NULL;                                     \
         (Ctx)->fragment_size = ~((Uint) 0);                     \
+        (Ctx)->continue_make_lext_hash = 0;                     \
+        (Ctx)->lext_vlen = -1;                                  \
         if ((Flags) & DFLAG_PENDING_CONNECT) {                  \
             (Ctx)->hopefull_flags = 0;                          \
             (Ctx)->hopefull_flagsp = NULL;                      \
@@ -342,6 +355,7 @@ typedef struct erts_dsig_send_context {
     int connect;
     int no_suspend;
     int no_trap;
+    int ignore_busy;
 
     Eterm ctl;
     Eterm msg;
@@ -440,4 +454,7 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
 Uint erts_ttb_iov_size(int use_termv, Sint vlen, Uint fragments);
 void erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
                        Sint vlen, Uint fragments, Uint fragments_size);
+
+int erts_is_this_node_alive(void);
+
 #endif

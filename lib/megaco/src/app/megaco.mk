@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2007-2021. All Rights Reserved.
+# Copyright Ericsson AB 2007-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,12 @@ endif
 
 ifeq ($(WARN_UNUSED_WARS), true)
 ERL_COMPILE_FLAGS += +warn_unused_vars
+endif
+
+ifeq ($(ERL_DETERMINISTIC),yes)
+ERL_COMPILE_FLAGS += +deterministic
+YRL_FLAGS += +deterministic
+XRL_FLAGS += +deterministic
 endif
 
 MEGACO_APP_VSN_COMPILE_FLAGS = \

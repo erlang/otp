@@ -6,7 +6,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2020</year><year>2020</year>
+      <year>2020</year><year>2022</year>
       <holder>Maxim Fedorov, WhatsApp Inc.</holder>
     </copyright>
     <legalnotice>
@@ -89,8 +89,15 @@
       If there is another process registered under this name, or another ETS table
       exists, scope fails to start.</p>
       <p>Local membership is not preserved if scope process exits and
-        restarts.
-    </p></note>
+        restarts.</p>
+      <p>A scope can be kept local-only by using a scope name that is unique
+        cluster-wide, e.g. the node name:</p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>pg:start_link(node()).</c></item>
+      </taglist>
+    </note>
 
   </description>
 
@@ -146,6 +153,46 @@
         <p>When list of processes is passed as <c>PidOrPids</c>, function
         returns <c>not_joined</c> only when all processes of the list
         are not joined.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="monitor_scope" arity="0" since="OTP 25.1"/>
+      <name name="monitor_scope" arity="1" since="OTP 25.1"/>
+      <fsummary>Starts group membership monitoring for a scope.</fsummary>
+      <desc>
+        <p>Subscribes the caller to updates from the specified scope. Returns
+        content of the entire scope and a reference to match the upcoming
+        notifications.</p>
+
+        <p>Whenever any group membership changes, an update message is sent
+          to the subscriber:</p>
+          <code type="none">{Ref, join, Group, [JoinPid1, JoinPid2]}</code>
+          <code type="none">{Ref, leave, Group, [LeavePid1]}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="monitor" arity="1" since="OTP 25.1"/>
+      <name name="monitor" arity="2" since="OTP 25.1"/>
+      <fsummary>Starts membership monitoring for a specified group.</fsummary>
+      <desc>
+        <p>Subscribes the caller to updates for the specified group. Returns
+          list of processes currently in the group, and a reference to match
+          the upcoming notifications.</p>
+          <p>See <seemfa marker="#monitor_scope/0"><c>monitor_scope/0</c></seemfa>
+          for the update message structure.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="demonitor" arity="1" since="OTP 25.1"/>
+      <name name="demonitor" arity="2" since="OTP 25.1"/>
+      <fsummary>Stops group membership monitoring.</fsummary>
+      <desc>
+        <p>Unsubscribes the caller from updates (scope or group).
+        Flushes all outstanding updates that were already in the message
+        queue of the calling process.</p>
       </desc>
     </func>
 

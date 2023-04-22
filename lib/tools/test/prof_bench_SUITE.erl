@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,24 +32,51 @@
 
 
 suite() ->
-    [{timetrap,{minutes,15}}].
+    [{timetrap,{minutes,30}}].
 
 all() ->
     [overhead].
 
 init_per_suite(Config) ->
-    case {whereis(cover_server) =/= undefined,
-          erlang:system_info(wordsize)}
-    of
-        {true, _} -> {skip, "Cover is running"};
-        {_, 4} -> {skip, "Can't run on 32-bit as files will be large"};
-        {false, 8} -> Config
+    case whereis(cover_server) of
+        undefined ->
+            application:ensure_all_started(os_mon),
+            Free = disk_free(proplists:get_value(priv_dir, Config)),
+            if
+                Free >= 16_000_000 ->
+                    %% The size of the log files is about 4 Gb.
+                    %% The disk has at least 4 times that amount free.
+                    Config;
+                true ->
+                    %% There might not be sufficient disk space free.
+                    io:format("Free disk space: ~p Kb\n", [Free]),
+                    {skip, "Insufficient free disk space"}
+            end;
+        Pid when is_pid(Pid) ->
+            {skip, "Cover is running"}
     end.
 
 end_per_suite(Config) ->
     LogFile = filename:join(proplists:get_value(priv_dir, Config), "fprof.trace"),
     file:delete(LogFile),
     ok.
+
+%% Return amount disk space free in Kbs for the disk that Path
+%% is located on.
+disk_free(Path) ->
+    Data = disksup:get_disk_data(),
+
+    %% What partitions could Data be mounted on?
+    Partitions =
+        [D || {P, _Tot, _Perc}=D <- Data,
+         lists:prefix(filename:nativename(P), filename:nativename(Path))],
+
+    %% Sorting in descending order places the partition with the most specific
+    %% path first.
+    case lists:sort(fun erlang:'>='/2, Partitions) of
+        [{_,Tot, Perc} | _] -> round(Tot * (1-(Perc/100)));
+        [] -> error
+    end.
 
 %%%---------------------------------------------------------------------
 
@@ -82,20 +109,6 @@ overhead(Config) ->
     ct_event:notify(#event{name = benchmark_data,
                            data = [{name, cover_overhead},
                                    {value, NormTime / CoverTime * 100}]}).
-
-%% overhead(Config) ->
-%%     LogFile = filename:join(proplists:get_value(priv_dir, Config), "fprof.trace"),
-%%     SofsCopy = filename:join(proplists:get_value(data_dir, Config), "sofs_copy.erl"),
-%%     TC = fun() -> compile:file(SofsCopy, [binary]) end,
-%%     _Warmup = timer:tc(TC),
-
-%%     [{ok,{EProfTime,{ok,sofs_copy,_}}} = eprof:profile([], timer, tc, [TC])
-%%      || _ <- lists:seq(1,10)],
-%% %%    [fprof:apply(timer, tc, [TC], [{file, LogFile}]) || _ <- lists:seq(1,10)],
-%%     {FProfTime,{ok,sofs_copy,_}} = fprof:apply(timer, tc, [TC], [{file, LogFile}]),
-%%     {NormTime,{ok, sofs_copy, _}} = timer:tc(TC),
-
-    %% ct:pal("FProf: ~p Norm: ~p Ratio: ~p",[FProfTime, NormTime, FProfTime / NormTime]).
 
 cprof_apply(M, F, A) ->
     cprof:start(),

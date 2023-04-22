@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -352,8 +352,19 @@ format_erlang_error(demonitor, [_], _) ->
 format_erlang_error(demonitor, [Ref,Options], _) ->
     Arg1 = must_be_ref(Ref),
     [Arg1,maybe_option_list_error(Options, Arg1)];
-format_erlang_error(display_string, [_], _) ->
+format_erlang_error(display_string, [_], none) ->
     [not_string];
+format_erlang_error(display_string, [_], Cause) ->
+    maybe_posix_message(Cause, false);
+format_erlang_error(display_string, [Device, _], none) ->
+    case lists:member(Device,[stdin,stdout,stderr]) of
+        true ->
+            [[],not_string];
+        false ->
+            [not_device,[]]
+    end;
+format_erlang_error(display_string, [_, _], Cause) ->
+    maybe_posix_message(Cause, true);
 format_erlang_error(element, [Index, Tuple], _) ->
     [if
          not is_integer(Index) ->
@@ -595,7 +606,7 @@ format_erlang_error(monitor_node, [Node,Flag], _) ->
 format_erlang_error(monitor_node, [Node,Flag,Options], Cause) ->
     Arg3 = case Cause of
                badopt -> bad_option;
-               true -> []
+               _ -> []
            end,
     case format_erlang_error(monitor_node, [Node,Flag], Cause) of
         [[],[]] ->
@@ -607,8 +618,56 @@ format_erlang_error(monotonic_time, [_], _) ->
     [bad_time_unit];
 format_erlang_error(node, [_], _) ->
     [not_pid];
-format_erlang_error(nodes, [_], _) ->
+format_erlang_error(nodes, [NTVal], _) when is_atom(NTVal) ->
     [<<"not a valid node type">>];
+format_erlang_error(nodes, [NTVal], _) when is_list(NTVal) ->
+    [<<"not a list of valid node types">>];
+format_erlang_error(nodes, [_NTVal], _) ->
+    [<<"not a valid node type or list of valid node types">>];
+format_erlang_error(nodes, [NTVal, Opts], _) ->
+    ValidNodeTypes = [this, connected, visible, hidden, known],
+    [if is_atom(NTVal) ->
+             case lists:member(NTVal, ValidNodeTypes) of
+                 true -> [];
+                 false -> <<"not a valid node type">>
+             end;
+        is_list(NTVal) ->
+             try
+                 lists:foreach(
+                   fun (NT) ->
+                           case lists:member(NT, ValidNodeTypes) of
+                               true -> [];
+                               false -> throw(invalid)
+                           end
+                   end,
+                   NTVal),
+                 []
+             catch
+                 throw:invalid ->
+                     <<"not a list of valid node types">>
+             end;
+        true ->
+             <<"not a valid node type or list of valid node types">>
+     end,
+     if is_map(Opts) ->
+             try
+                 maps:foreach(
+                   fun (connection_id, Bool) when is_boolean(Bool) ->
+                           ok;
+                       (node_type, Bool) when is_boolean(Bool) ->
+                           ok;
+                       (_, _) ->
+                           throw(invalid)
+                   end,
+                   Opts),
+                 []
+             catch
+                 throw:invalid ->
+                     <<"invalid options in map">>
+             end;
+        true ->
+             not_map
+     end];
 format_erlang_error(open_port, [Name, Settings], Cause) ->
     case Cause of
         badopt ->
@@ -754,7 +813,7 @@ format_erlang_error(send, [_,_,Options], Cause) ->
     case Cause of
         badopt ->
             [[],[],must_be_list(Options, bad_option)];
-        true ->
+        _ ->
             [bad_destination]
     end;
 format_erlang_error(send_after, Args, Cause) ->
@@ -1382,8 +1441,23 @@ is_flat_char_list([H|T]) ->
 is_flat_char_list([]) -> true;
 is_flat_char_list(_) -> false.
 
+maybe_posix_message(Cause, HasDevice) ->
+    case erl_posix_msg:message(Cause) of
+        "unknown POSIX error" ++ _ ->
+            unknown;
+        PosixStr when HasDevice ->
+            [unicode:characters_to_binary(
+               io_lib:format("~ts (~tp)",[PosixStr, Cause]))];
+        PosixStr when not HasDevice ->
+            [{general,
+              unicode:characters_to_binary(
+                io_lib:format("~ts (~tp)",[PosixStr, Cause]))}]
+    end.
+
 format_error_map([""|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map);
+format_error_map([{general, E}|Es], ArgNum, Map) ->
+    format_error_map(Es, ArgNum, Map#{ general => expand_error(E)});
 format_error_map([E|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map#{ArgNum => expand_error(E)});
 format_error_map([], _, Map) ->
@@ -1471,6 +1545,8 @@ expand_error(not_ref) ->
     <<"not a reference">>;
 expand_error(not_string) ->
     <<"not a list of characters">>;
+expand_error(not_device) ->
+    <<"not a valid device type">>;
 expand_error(not_tuple) ->
     <<"not a tuple">>;
 expand_error(range) ->

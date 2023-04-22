@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2022. All Rights Reserved.
+# Copyright Ericsson AB 1996-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -432,6 +432,7 @@ CREATE_DIRS+=$(TTF_DIR)/asmjit $(TTF_DIR)/asmjit/core $(TTF_DIR)/asmjit/$(JIT_AR
 endif
 
 BINDIR = $(ERL_TOP)/bin/$(TARGET)
+CREATE_DIRS += $(BINDIR)
 
 ERLANG_OSTYPE = @ERLANG_OSTYPE@
 
@@ -595,6 +596,11 @@ $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
 GENERATE += $(TTF_DIR)/OPCODES-GENERATED
 
+ifeq ($(FLAVOR),jit)
+$(TTF_DIR)/beam_asm_global.hpp: beam/jit/$(JIT_ARCH)/beam_asm_global.hpp.pl
+	$(gen_verbose)LANG=C $(PERL) $<  > $@
+GENERATE += $(TTF_DIR)/beam_asm_global.hpp
+endif
 
 # bif and atom table
 ATOMS=	beam/atom.names
@@ -724,14 +730,10 @@ endif
 # This list must be consistent with PRE_LOADED_MODULES in
 # erts/preloaded/src/Makefile.
 
-ifeq ($(USE_ESOCK), yes)
 ESOCK_PRELOAD_BEAM = \
 	$(ERL_TOP)/erts/preloaded/ebin/socket_registry.beam \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_socket.beam \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_net.beam
-else
-ESOCK_PRELOAD_BEAM =
-endif
 
 PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_init.beam \
@@ -1062,10 +1064,6 @@ JIT_OBJS += $(ASMJIT_OBJS)
 EMU_OBJS = \
 	$(OBJDIR)/emu_load.o
 
-ifeq ($(USE_ESOCK), yes)
-
-# WE ARE USING ESOCK
-
 ESOCK_NIF_OBJS = \
 	$(OBJDIR)/prim_socket_nif.o \
 	$(OBJDIR)/prim_net_nif.o
@@ -1074,16 +1072,6 @@ ESOCK_RUN_OBJS = \
 	$(OBJDIR)/socket_dbg.o \
 	$(OBJDIR)/socket_tarray.o \
 	$(OBJDIR)/socket_util.o
-
-else
-
-# WE ARE *NOT* USING ESOCK
-
-ESOCK_NIF_OBJS =
-ESOCK_RUN_OBJS =
-
-endif
-
 
 RUN_OBJS += \
 	$(OBJDIR)/erl_alloc.o \
@@ -1136,11 +1124,13 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_nfunc_sched.o \
 	$(OBJDIR)/erl_global_literals.o \
 	$(OBJDIR)/beam_file.o \
-	$(OBJDIR)/beam_types.o
+	$(OBJDIR)/beam_types.o \
+	$(OBJDIR)/erl_term_hashing.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 
 NIF_OBJS = \
+	$(OBJDIR)/prim_tty_nif.o \
 	$(OBJDIR)/erl_tracer_nif.o \
 	$(OBJDIR)/prim_buffer_nif.o \
 	$(OBJDIR)/prim_file_nif.o \
@@ -1151,10 +1141,8 @@ ifeq ($(TARGET),win32)
 DRV_OBJS = \
 	$(OBJDIR)/registry_drv.o \
 	$(OBJDIR)/inet_drv.o \
-	$(OBJDIR)/ram_file_drv.o \
-	$(OBJDIR)/ttsl_drv.o
+	$(OBJDIR)/ram_file_drv.o
 OS_OBJS = \
-	$(OBJDIR)/win_con.o \
 	$(OBJDIR)/dll_sys.o \
 	$(OBJDIR)/driver_tab.o \
 	$(OBJDIR)/sys_float.o \
@@ -1162,7 +1150,8 @@ OS_OBJS = \
 	$(OBJDIR)/sys_interrupt.o \
 	$(OBJDIR)/sys_env.o \
 	$(OBJDIR)/dosmap.o \
-	$(OBJDIR)/win_prim_file.o
+	$(OBJDIR)/win_prim_file.o \
+	$(OBJDIR)/win_socket_asyncio.o
 
 else
 OS_OBJS = \
@@ -1174,12 +1163,12 @@ OS_OBJS = \
 	$(OBJDIR)/unix_prim_file.o \
 	$(OBJDIR)/sys_float.o \
 	$(OBJDIR)/sys_time.o \
-	$(OBJDIR)/sys_signal_stack.o
+	$(OBJDIR)/sys_signal_stack.o \
+	$(OBJDIR)/unix_socket_syncio.o
 
 DRV_OBJS = \
 	$(OBJDIR)/inet_drv.o \
-	$(OBJDIR)/ram_file_drv.o \
-	$(OBJDIR)/ttsl_drv.o
+	$(OBJDIR)/ram_file_drv.o
 endif
 
 ifneq ($(STATIC_NIFS),no)
@@ -1342,9 +1331,9 @@ NIF_COMMON_SRC=$(wildcard nifs/common/*.c)
 endif
 NIF_OSTYPE_SRC=$(wildcard nifs/$(ERLANG_OSTYPE)/*.c)
 ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
-# We use $(shell ls) here instead of wildcard as $(wildcard ) resolved at
+# We use $(shell find) here instead of wildcard as $(wildcard ) resolved at
 # loadtime of the makefile and at that time these files are not generated yet.
-TARGET_SRC=$(shell ls $(TARGET)/*.c) $(shell ls $(TTF_DIR)/*.c)
+TARGET_SRC=$(shell find $(TARGET) $(TTF_DIR) -maxdepth 1 -name "*.c")
 
 # I do not want the -MG flag on windows, it does not work properly for a 
 # windows build.
@@ -1447,8 +1436,9 @@ depend:
 else
 depend: $(TTF_DIR)/depend.mk
 $(TTF_DIR)/depend.mk: $(foreach dep, $(DEPEND_DEPS), $(TTF_DIR)/$(dep).depend.mk)
-	-rm $@
-	for dep in $^; do cat $$dep >> $@; done
+	$(gen_verbose)
+	$(V_at)echo "" > "$@"
+	$(V_at)for dep in "$^"; do cat $$dep >> "$@"; done
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend
 endif
 

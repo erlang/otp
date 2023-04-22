@@ -50,7 +50,7 @@
          display_system_info/1, display_system_info/2, display_system_info/3,
 
          executor/1, executor/2,
-         try_tc/6,
+         try_tc/6, try_tc/7,
 
          prepare_test_case/5,
 
@@ -76,9 +76,12 @@
 
 -export([proxy_init/2]).
 
+%% Convenient exports...
+-export([analyze_and_print_host_info/0]).
+
 -include("megaco_test_lib.hrl").
 
--record('REASON', {mod, line, desc}).
+%% -record('REASON', {mod, line, desc}).
 
 
 %% ----------------------------------------------------------------
@@ -364,19 +367,11 @@ display_system_info(WhenStr, ModFuncStr) ->
 %% Stores the result in the process dictionary if mismatch
 
 error(Actual, Mod, Line) ->
-    global:send(megaco_global_logger, {failed, Mod, Line}),
     log("<ERROR> Bad result: ~p~n", [Actual], Mod, Line),
     Label = lists:concat([Mod, "(", Line, ") unexpected result"]),
     megaco:report_event(60, Mod, Mod, Label,
 			[{line, Mod, Line}, {error, Actual}]),
-    case global:whereis_name(megaco_test_case_sup) of
-	undefined -> 
-	    ignore;
-	Pid -> 
-	    Fail = #'REASON'{mod = Mod, line = Line, desc = Actual},
-	    Pid ! {fail, self(), Fail}
-    end,
-    Actual.
+    exit(Actual).
 
 log(Format, Args, Mod, Line) ->
     case global:whereis_name(megaco_global_logger) of
@@ -718,43 +713,421 @@ num_schedulers_to_factor() ->
     end.
     
 
-    
+ts_extra_platform_label() ->
+    case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
+        false -> "-";
+        Val   -> Val
+    end.
+
+ts_scale_factor() ->
+    case timetrap_scale_factor() of
+        N when is_integer(N) andalso (N > 0) ->
+            N - 1;
+        _ ->
+            0
+    end.
+
+simplify_label("Systemtap" ++ _) ->
+    {host, systemtap};
+simplify_label("Meamax" ++ _) ->
+    {host, meamax};
+simplify_label("Cover" ++ _) ->
+    {host, cover};
+simplify_label(Label) ->
+    case string:find(string:to_lower(Label), "docker") of
+        "docker" ++ _ ->
+            docker;
+        _ ->
+            {host, undefined}
+    end.
+
+label2factor(docker) ->
+    4;
+label2factor({host, meamax}) ->
+    2;
+label2factor({host, cover}) ->
+    6;
+label2factor({host, _}) ->
+    0.
+
 linux_which_distro(Version) ->
+    Label = ts_extra_platform_label(),
+    Checks =
+        [fun() -> do_linux_which_distro_os_release(Version,     Label) end,
+         fun() -> do_linux_which_distro_suse_release(Version,   Label) end,
+         fun() -> do_linux_which_distro_fedora_release(Version, Label) end,
+         fun() -> do_linux_which_distro_issue(Version,          Label) end],
+    try linux_which_distro("", Version, Label, Checks)
+    catch
+        throw:{distro, Distro} ->
+            Distro
+    end.
+
+linux_which_distro("", Version, Label, []) ->
+    io:format("Linux: ~s"
+              "~n   Label:        ~s"
+              "~n   Product Name: ~s"
+              "~n", [Version, Label,
+                     linux_product_name()]),    
+    {other, simplify_label(Label)};
+linux_which_distro(DestroStr, Version, Label, []) ->
+    io:format("Linux: ~s"
+              "~n   Distro:       ~s"
+              "~n   Label:        ~s"
+              "~n   Product Name: ~s"
+              "~n", [Version, DestroStr, Label,
+                     linux_product_name()]),    
+    {other, simplify_label(Label)};
+linux_which_distro(Default, Version, Label, [Check|Checks]) ->
+    try Check() of
+        DistroStr when is_list(DistroStr) ->
+            linux_which_distro(DistroStr, Version, Label, Checks);
+        retry ->
+            linux_which_distro(Default, Version, Label, Checks);
+        {error, _Reason} ->
+            linux_which_distro(Default, Version, Label, Checks)
+    catch
+        throw:{error, _Reason} ->
+	    linux_which_distro(Default, Version, Label, Checks)
+    end.
+       
+
+do_linux_which_distro_os_release(Version, Label) ->
+    case file:read_file_info("/etc/os-release") of
+	{ok, _} ->
+            %% We want to 'catch' if our processing is wrong,
+            %% that's why we catch and re-throw the distro.
+            %% Actual errors will be returned as 'ignore'.
+            try
+                begin
+                    Info = linux_process_os_release(),
+                    {value, {_, DistroStr}} = lists:keysearch(name, 1, Info),
+                    {value, {_, VersionNo}} = lists:keysearch(version, 1, Info),
+                    io:format("Linux: ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   Distro Version:          ~s"
+                              "~n   TS Extra Platform Label: ~s"
+                              "~n   Product Name:            ~s"
+                              "~n",
+                              [Version, DistroStr, VersionNo, Label,
+                               linux_product_name()]),
+                    throw({distro,
+                           {linux_distro_str_to_distro_id(DistroStr),
+                            simplify_label(Label)}})
+                end
+            catch
+                throw:{distro, _} = DISTRO ->
+                    throw(DISTRO);
+                _:_ ->
+                    retry
+            end;
+        _ ->
+            retry
+    end.
+	    
+
+linux_process_os_release() ->
+    %% Read the "raw" file
+    Raw = os:cmd("cat /etc/os-release"),
+    %% Split it into lines
+    Lines1 = string:tokens(Raw, [$\n]),
+    %% Just in case, skip any lines starting with '#'.
+    Lines2 = linux_process_os_release1(Lines1),
+    %% Each (remaining) line *should* be: <TAG>=<VALUE>
+    %% Both sides will be strings, the value side will be a quoted string...
+    %% Convert those into a 2-tuple list: [{Tag, Value}]
+    linux_process_os_release2(Lines2).
+
+linux_process_os_release1(Lines) ->
+    linux_process_os_release1(Lines, []).
+
+linux_process_os_release1([], Acc) ->
+    lists:reverse(Acc);
+linux_process_os_release1([H|T], Acc) ->
+    case H of
+        "#" ++ _ ->
+            linux_process_os_release1(T, Acc);
+        _ ->
+            linux_process_os_release1(T, [H|Acc])
+    end.
+
+linux_process_os_release2(Lines) ->
+    linux_process_os_release2(Lines, []).
+
+linux_process_os_release2([], Acc) ->
+    lists:reverse(Acc);
+linux_process_os_release2([H|T], Acc) ->
+    case linux_process_os_release3(H) of
+        {value, Value} ->
+            linux_process_os_release2(T, [Value|Acc]);
+        false ->
+            linux_process_os_release2(T, Acc)
+    end.
+
+linux_process_os_release3(H) ->
+    case [string:strip(S) || S <- string:tokens(H, [$=])] of
+        [Tag, Value] ->
+            Tag2   = list_to_atom(string:to_lower(Tag)),
+            Value2 = string:strip(Value, both, $"),
+            linux_process_os_release4(Tag2, Value2);
+        _ ->
+            false
+    end.
+
+linux_process_os_release4(name = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(version = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(version_id = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(id = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(pretty_name = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(_Tag, _Value) ->
+    false.
+
+linux_distro_str_to_distro_id("Debian" ++ _) ->
+    debian;
+linux_distro_str_to_distro_id("Fedora" ++ _) ->
+    fedora;
+linux_distro_str_to_distro_id("Linux Mint" ++ _) ->
+    linux_mint;
+linux_distro_str_to_distro_id("MontaVista" ++ _) ->
+    montavista;
+linux_distro_str_to_distro_id("openSUSE" ++ _) ->
+    suse;
+linux_distro_str_to_distro_id("SLES" ++ _) ->
+    sles;
+linux_distro_str_to_distro_id("Ubuntu" ++ _) ->
+    ubuntu;
+linux_distro_str_to_distro_id("Wind River Linux" ++ _) ->
+    wind_river;
+linux_distro_str_to_distro_id("Yellow Dog" ++ _) ->
+    yellow_dog;
+linux_distro_str_to_distro_id(X) ->
+    X.
+
+
+do_linux_which_distro_fedora_release(Version, Label) ->
+    %% Check if fedora
+    case file:read_file_info("/etc/fedora-release") of
+        {ok, _} ->
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/fedora-release"),
+                                        [$\n])] of
+                [DistroStr | _] ->
+                    io:format("Linux: ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   TS Extra Platform Label: ~s"
+                              "~n   Product Name:            ~s"
+                              "~n",
+                              [Version, DistroStr, Label,
+                               linux_product_name()]);
+                _ ->
+                    io:format("Linux: ~s"
+                              "~n   Distro: ~s"
+                              "~n   TS Extra Platform Label: ~s"
+                              "~n   Product Name:            ~s"
+                              "~n",
+                              [Version, "Fedora", Label,
+                               linux_product_name()])
+            end,
+            throw({distro, {fedora, simplify_label(Label)}});
+        _ ->
+            throw({error, not_found})
+    end.
+
+do_linux_which_distro_suse_release(Version, Label) ->
+    %% Check if its a SuSE
+    case file:read_file_info("/etc/SUSE-brand") of
+        {ok, _} ->
+            case file:read_file_info("/etc/SuSE-release") of
+                {ok, _} ->
+                    case [string:trim(S) ||
+                             S <- string:tokens(os:cmd("cat /etc/SuSE-release"),
+                                                [$\n])] of
+                        ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro, {sles, simplify_label(Label)}});
+                        [DistroStr | _] ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro, {suse, simplify_label(Label)}});
+                        _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, "SuSE", Label,
+                                       linux_product_name()]),
+                            throw({distro, {suse, simplify_label(Label)}})
+                    end;
+                _ ->
+                    case string:tokens(os:cmd("cat /etc/SUSE-brand"), [$\n]) of
+                        ["SLE" = DistroStr, VERSION | _] ->
+                            case [string:strip(S) ||
+                                     S <- string:tokens(VERSION, [$=])] of
+                                ["VERSION", VersionNo] ->
+                                    io:format("Linux: ~s"
+                                              "~n   Distro:                  ~s"
+                                              "~n   Distro Version:          ~s"
+                                              "~n   TS Extra Platform Label: ~s"
+                                              "~n   Product Name:            ~s"
+                                              "~n",
+                                              [Version,
+                                               DistroStr, VersionNo,
+                                               Label,
+                                               linux_product_name()]),
+                                    throw({distro,
+                                           {sles, simplify_label(Label)}});
+                                _ ->
+                                    io:format("Linux: ~s"
+                                              "~n   Distro:                  ~s"
+                                              "~n   TS Extra Platform Label: ~s"
+                                              "~n   Product Name:            ~s"
+                                              "~n",
+                                              [Version, DistroStr, Label,
+                                               linux_product_name()]),
+                                    throw({distro,
+                                           {sles, simplify_label(Label)}})
+                            end;
+                        ["openSUSE" = DistroStr, VERSION | _] ->
+                            case [string:strip(S) ||
+                                     S <- string:tokens(VERSION, [$=])] of
+                                ["VERSION", VersionNo] ->
+                                    io:format("Linux: ~s"
+                                              "~n   Distro:                  ~s"
+                                              "~n   Distro Version:          ~s"
+                                              "~n   TS Extra Platform Label: ~s"
+                                              "~n   Product Name:            ~s"
+                                              "~n",
+                                              [Version,
+                                               DistroStr, VersionNo,
+                                               Label,
+                                               linux_product_name()]),
+                                    throw({distro,
+                                           {suse, simplify_label(Label)}});
+                                _ ->
+                                    io:format("Linux: ~s"
+                                              "~n   Distro:                  ~s"
+                                              "~n   TS Extra Platform Label: ~s"
+                                              "~n   Product Name:            ~s"
+                                              "~n",
+                                              [Version, DistroStr, Label,
+                                               linux_product_name()]),
+                                    throw({distro,
+                                           {suse, simplify_label(Label)}})
+                            end;
+                        _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, "Unknown SUSE", Label,
+                                       linux_product_name()]),
+                            throw({distro, {suse, simplify_label(Label)}})
+                    end
+            end;
+        _ ->
+            throw({error, not_found})
+    end.
+
+do_linux_which_distro_issue(Version, Label) ->
     case file:read_file_info("/etc/issue") of
         {ok, _} ->
             case [string:trim(S) ||
                      S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
-                [DistroStr|_] ->
-                    io:format("Linux: ~s"
-                              "~n   ~s"
-                              "~n",
-                              [Version, DistroStr]),
+                [DistroStr | _] ->
                     case DistroStr of
                         "Wind River Linux" ++ _ ->
-                            wind_river;
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {wind_river, simplify_label(Label)}});
                         "MontaVista" ++ _ ->
-                            montavista;
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro, 
+                                   {montavista, simplify_label(Label)}});
                         "Yellow Dog" ++ _ ->
-                            yellow_dog;
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {yellow_dog, simplify_label(Label)}});
+                        "Ubuntu" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {ubuntu, simplify_label(Label)}});
+                        "Linux Mint" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {linux_mint, simplify_label(Label)}});
+                        "Debian" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {debian, simplify_label(Label)}});
                         _ ->
-                            other
+                            DistroStr
                     end;
                 X ->
-                    io:format("Linux: ~s"
-                              "~n   ~p"
-                              "~n",
-                              [Version, X]),
-                    other
+                    X
             end;
         _ ->
-            io:format("Linux: ~s"
-                      "~n", [Version]),
-            other
+            throw({error, not_found})
     end.
+                            
 
-    
 analyze_and_print_linux_host_info(Version) ->
-    Distro = linux_which_distro(Version),
+    {Distro, Label} = linux_which_distro(Version),
+    %% 'VirtFactor' will be 0 unless virtual
+    VirtFactor = linux_virt_factor(),
     Factor =
         case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
@@ -766,14 +1139,18 @@ analyze_and_print_linux_host_info(Version) ->
                 if
                     (BogoMIPS > 50000) ->
                         1;
-                    (BogoMIPS > 30000) ->
+                    (BogoMIPS > 40000) ->
                         2;
-                    (BogoMIPS > 10000) ->
+                    (BogoMIPS > 30000) ->
                         3;
-                    (BogoMIPS > 5000) ->
+                    (BogoMIPS > 20000) ->
+                        4;
+                    (BogoMIPS > 10000) ->
                         5;
-                    (BogoMIPS > 3000) ->
+                    (BogoMIPS > 5000) ->
                         8;
+                    (BogoMIPS > 3000) ->
+                        12;
                     true ->
                         10
                 end;
@@ -806,21 +1183,53 @@ analyze_and_print_linux_host_info(Version) ->
             _ ->
                 5
         end,
+    AddLabelFactor = label2factor(Label),
     %% Check if we need to adjust the factor because of the memory
-    try linux_which_meminfo() of
-        AddFactor ->
-            {Factor + AddFactor, []}
-    catch
-        _:_:_ ->
-            {Factor, []}
-    end.
+    AddMemFactor = try linux_which_meminfo()
+                   catch _:_:_ -> 0
+                   end,
+    TSScaleFactor = case timetrap_scale_factor() of
+                        N when is_integer(N) andalso (N > 0) ->
+                            N - 1;
+                        _ ->
+                            0
+                    end,
+    io:format("Factor calc:"
+              "~n      Base Factor:     ~w"
+              "~n      Label Factor:    ~w"
+              "~n      Mem Factor:      ~w"
+              "~n      Virtual Factor:  ~w"
+              "~n      TS Scale Factor: ~w"
+              "~n", [Factor, AddLabelFactor, AddMemFactor, VirtFactor,
+                     TSScaleFactor]),
+    {Factor + AddLabelFactor + AddMemFactor + VirtFactor + TSScaleFactor,
+     [{label, Label}]}.
+
+
+linux_virt_factor() ->
+    linux_virt_factor(linux_product_name()).
+
+linux_virt_factor("VMware" ++ _) ->
+    2;
+linux_virt_factor("VirtualBox" ++ _) ->
+    4;
+linux_virt_factor(_) ->
+    0.
 
 
 linux_cpuinfo_lookup(Key) when is_list(Key) ->
     linux_info_lookup(Key, "/proc/cpuinfo").
 
 linux_cpuinfo_bogomips() ->
-    case linux_cpuinfo_lookup("bogomips") of
+    case linux_cpuinfo_bogomips("bogomips") of
+        "-" ->
+            linux_cpuinfo_bogomips("BogoMIPS");
+        Res ->
+            Res
+    end.
+
+linux_cpuinfo_bogomips(Key) ->
+    case linux_cpuinfo_lookup(Key) of
         [] ->
             "-";
         BMips when is_list(BMips) ->
@@ -865,7 +1274,14 @@ linux_cpuinfo_model() ->
         [M] ->
             M;
         _ ->
-            "-"
+	    %% Note that some distros/platforms,
+            %% the first char is Capital, that is: Model...
+	    case linux_cpuinfo_lookup("Model") of
+		[M] ->
+		    M;
+		_ ->
+		    "-"
+	    end
     end.
 
 linux_cpuinfo_platform() ->
@@ -904,6 +1320,14 @@ linux_cpuinfo_processor() ->
     case linux_cpuinfo_lookup("Processor") of
         [P] ->
             P;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_machine() ->
+    case linux_cpuinfo_lookup("machine") of
+        [M] ->
+            M;
         _ ->
             "-"
     end.
@@ -992,6 +1416,52 @@ linux_which_cpuinfo(wind_river) ->
             {ok, {CPU, BMips}}
     end;
 
+linux_which_cpuinfo(Distro) when (Distro =:= debian) orelse
+                                 (Distro =:= fedora) orelse
+                                 (Distro =:= linux_mint) orelse
+                                 (Distro =:= sles) orelse
+                                 (Distro =:= suse) orelse
+                                 (Distro =:= ubuntu) orelse
+                                 (Distro =:= other) ->
+    CPU =
+        case linux_cpuinfo_model_name() of
+            "-" ->
+		%% This is for POWER9
+		case linux_cpuinfo_cpu() of
+		    "POWER9" ++ _ = PowerCPU ->
+			Machine =
+			    case linux_cpuinfo_machine() of
+				"-" ->
+				    "";
+				M ->
+				    " (" ++ M ++ ")"
+			    end,
+			PowerCPU ++ Machine;
+		    _X ->
+			%% ARM (at least some distros...)
+			case linux_cpuinfo_processor() of
+			    "-" ->
+				case linux_cpuinfo_model() of
+				    "-" ->
+					%% Ok, we give up
+					throw(noinfo);
+				    Model ->
+					Model
+				end;
+			    Proc ->
+				Proc
+			end
+		end;
+	    ModelName ->
+                ModelName
+        end,
+    case linux_cpuinfo_bogomips() of
+        "-" ->
+            {ok, CPU};
+        BMips ->
+            {ok, {CPU, BMips}}
+    end;
+
 linux_which_cpuinfo(other) ->
     %% Check for x86 (Intel or AMD or Power)
     CPU =
@@ -1073,6 +1543,22 @@ linux_which_meminfo() ->
     end.
 
 
+linux_product_name() ->
+    ProductNameFile = "/sys/devices/virtual/dmi/id/product_name",
+    case file:read_file_info(ProductNameFile) of
+        {ok, _} ->
+            case os:cmd("cat " ++ ProductNameFile) of
+                false ->
+                    "-";
+                Info ->
+                    string:trim(Info)
+            end;
+        _ ->
+            "-"
+    end.
+
+
+
 %% Just to be clear: This is ***not*** scientific...
 analyze_and_print_openbsd_host_info(Version) ->
     io:format("OpenBSD:"
@@ -1145,7 +1631,7 @@ analyze_and_print_openbsd_host_info(Version) ->
                             (NCPU >= 2) ->
                                 5;
                             true ->
-                                10
+                                12
                         end;
                     (CPUSpeed >= 1000) ->
                         if
@@ -1158,7 +1644,7 @@ analyze_and_print_openbsd_host_info(Version) ->
                             (NCPU >= 2) ->
                                 6;
                             true ->
-                                10
+                                14
                         end;
                     true ->
                         if
@@ -1191,6 +1677,7 @@ analyze_and_print_openbsd_host_info(Version) ->
         end
     catch
         _:_:_ ->
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             {10, []}
     end.
 
@@ -1482,47 +1969,57 @@ analyze_and_print_darwin_host_info(Version) ->
     %% we need to find some other way to find some info...
     %% Also, I suppose its possible that we for some other
     %% reason *fail* to get the info...
-    case analyze_darwin_software_info() of
-        [] ->
-            io:format("Darwin:"
-                      "~n   Version:               ~s"
-                      "~n   Num Online Schedulers: ~s"
-                      "~n", [Version, str_num_schedulers()]),
-            {num_schedulers_to_factor(), []};
-        SwInfo when  is_list(SwInfo) ->
-            SystemVersion = analyze_darwin_sw_system_version(SwInfo),
-            KernelVersion = analyze_darwin_sw_kernel_version(SwInfo),
-            HwInfo        = analyze_darwin_hardware_info(),
-            ModelName     = analyze_darwin_hw_model_name(HwInfo),
-            ModelId       = analyze_darwin_hw_model_identifier(HwInfo),
-            ProcName      = analyze_darwin_hw_processor_name(HwInfo),
-            ProcSpeed     = analyze_darwin_hw_processor_speed(HwInfo),
-            NumProc       = analyze_darwin_hw_number_of_processors(HwInfo),
-            NumCores      = analyze_darwin_hw_total_number_of_cores(HwInfo),
-            Memory        = analyze_darwin_hw_memory(HwInfo),
-            io:format("Darwin:"
-                      "~n   System Version:        ~s"
-                      "~n   Kernel Version:        ~s"
-                      "~n   Model:                 ~s (~s)"
-                      "~n   Processor:             ~s (~s, ~s, ~s)"
-                      "~n   Memory:                ~s"
-                      "~n   Num Online Schedulers: ~s"
-                      "~n", [SystemVersion, KernelVersion,
-                             ModelName, ModelId,
-                             ProcName, ProcSpeed, NumProc, NumCores, 
-                             Memory,
-                             str_num_schedulers()]),
-            CPUFactor = analyze_darwin_cpu_to_factor(ProcName,
-                                                     ProcSpeed,
-                                                     NumProc,
-                                                     NumCores),
-            MemFactor = analyze_darwin_memory_to_factor(Memory),
-            if (MemFactor =:= 1) ->
-                    {CPUFactor, []};
-               true ->
-                    {CPUFactor + MemFactor, []}
-            end
-    end.
+    Label  = ts_extra_platform_label(),
+    {BaseFactor, MemFactor} =
+        case analyze_darwin_software_info() of
+            [] ->
+                io:format("Darwin:"
+                          "~n   Version:                 ~s"
+                          "~n   Num Online Schedulers:   ~s"
+                          "~n   TS Extra Platform Label: ~s"
+                          "~n", [Version, str_num_schedulers(), Label]),
+                {num_schedulers_to_factor(), 1};
+            SwInfo when  is_list(SwInfo) ->
+                SystemVersion = analyze_darwin_sw_system_version(SwInfo),
+                KernelVersion = analyze_darwin_sw_kernel_version(SwInfo),
+                HwInfo        = analyze_darwin_hardware_info(),
+                ModelName     = analyze_darwin_hw_model_name(HwInfo),
+                ModelId       = analyze_darwin_hw_model_identifier(HwInfo),
+                {Processor, CPUFactor} = analyze_darwin_hw_processor(HwInfo),
+                Memory        = analyze_darwin_hw_memory(HwInfo),
+                io:format("Darwin:"
+                          "~n   System Version:          ~s"
+                          "~n   Kernel Version:          ~s"
+                          "~n   Model:                   ~s (~s)"
+                          "~n   Processor:               ~s"
+                          "~n   Memory:                  ~s"
+                          "~n   Num Online Schedulers:   ~s"
+                          "~n   TS Extra Platform Label: ~s"
+                          "~n~n",
+                          [SystemVersion, KernelVersion,
+                           ModelName, ModelId,
+                           Processor, 
+                           Memory,
+                           str_num_schedulers(), Label]),
+                {CPUFactor, analyze_darwin_memory_to_factor(Memory)}
+        end,
+    AddLabelFactor = label2factor(simplify_label(Label)),
+    AddMemFactor = if
+                       (MemFactor > 0) ->
+                           MemFactor - 1;
+                       true ->
+                           0
+                   end,
+    TSScaleFactor = ts_scale_factor(),
+    io:format("Factor calc:"
+              "~n      Base Factor:     ~w"
+              "~n      Label Factor:    ~w"
+              "~n      Mem Factor:      ~w"
+              "~n      TS Scale Factor: ~w"
+              "~n~n",
+              [BaseFactor, AddLabelFactor, AddMemFactor, TSScaleFactor]),
+    {BaseFactor + AddLabelFactor + AddMemFactor + TSScaleFactor,
+     [{label, Label}]}.
 
 analyze_darwin_sw_system_version(SwInfo) ->
     proplists:get_value("system version", SwInfo, "-").
@@ -1533,11 +2030,37 @@ analyze_darwin_sw_kernel_version(SwInfo) ->
 analyze_darwin_software_info() ->
     analyze_darwin_system_profiler("SPSoftwareDataType").
 
+analyze_darwin_hw_chip(HwInfo) ->
+    proplists:get_value("chip", HwInfo, "-").
+
 analyze_darwin_hw_model_name(HwInfo) ->
     proplists:get_value("model name", HwInfo, "-").
 
 analyze_darwin_hw_model_identifier(HwInfo) ->
     proplists:get_value("model identifier", HwInfo, "-").
+
+analyze_darwin_hw_processor(HwInfo) ->
+    case analyze_darwin_hw_processor_name(HwInfo) of
+        "-" -> % Maybe Apple Chip
+            case analyze_darwin_hw_chip(HwInfo) of
+                "-" ->
+                    "-";
+                Chip ->
+                    NumCores = analyze_darwin_hw_total_number_of_cores(HwInfo),
+                    CPUFactor = analyze_darwin_cpu_to_factor(Chip, NumCores),
+                    {f("~s [~s]", [Chip, NumCores]), CPUFactor}
+            end;
+        ProcName ->
+            ProcSpeed = analyze_darwin_hw_processor_speed(HwInfo),
+            NumProc   = analyze_darwin_hw_number_of_processors(HwInfo),
+            NumCores  = analyze_darwin_hw_total_number_of_cores(HwInfo),
+            CPUFactor = analyze_darwin_cpu_to_factor(ProcName,
+                                                     ProcSpeed,
+                                                     NumProc,
+                                                     NumCores),
+            {f("~s [~s, ~s, ~s]",
+               [ProcName, ProcSpeed, NumProc, NumCores]), CPUFactor}
+    end.
 
 analyze_darwin_hw_processor_name(HwInfo) ->
     case proplists:get_value("processor name", HwInfo, "-") of
@@ -1573,16 +2096,24 @@ analyze_darwin_hardware_info() ->
 %%    "Key: Value1:Value2"
 analyze_darwin_system_profiler(DataType) ->
     %% First, make sure the program actually exist:
-    case os:cmd("which system_profiler") of
+    case string:trim(os:cmd("which system_profiler")) of
         [] ->
-            [];
-        _ ->
-            D0 = os:cmd("system_profiler " ++ DataType),
-            D1 = string:tokens(D0, [$\n]),
-            D2 = [string:trim(S1) || S1 <- D1],
-            D3 = [string:tokens(S2, [$:]) || S2 <- D2],
-            analyze_darwin_system_profiler2(D3)
+            case string:trim(os:cmd("which /usr/sbin/system_profiler")) of
+                [] ->
+                    [];
+                Cmd1 ->
+                    analyze_darwin_system_profiler(Cmd1, DataType)
+            end;
+        Cmd2 ->
+            analyze_darwin_system_profiler(Cmd2, DataType)
     end.
+
+analyze_darwin_system_profiler(Cmd, DataType) ->
+    D0 = os:cmd(Cmd ++ " " ++ DataType),
+    D1 = string:tokens(D0, [$\n]),
+    D2 = [string:trim(S1) || S1 <- D1],
+    D3 = [string:tokens(S2, [$:]) || S2 <- D2],
+    analyze_darwin_system_profiler2(D3).
 
 analyze_darwin_system_profiler2(L) ->
     analyze_darwin_system_profiler2(L, []).
@@ -1631,6 +2162,12 @@ analyze_darwin_memory_to_factor(Mem) ->
         _ ->
             20
     end.
+
+
+analyze_darwin_cpu_to_factor("Apple" ++ _ = _Chip, _NumCores) ->
+    1;
+analyze_darwin_cpu_to_factor(_Chip, _NumCores) ->
+    8.
 
 
 %% The speed is a string: "<speed> <unit>"
@@ -2166,104 +2703,141 @@ executor(Fun, Timeout)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-try_tc(TCName, Name, Verbosity, Pre, Case, Post)
-  when is_function(Pre, 0)  andalso 
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    Cond = fun() -> ok end,
+    try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post)
+  when is_function(Cond, 0)  andalso 
+       is_function(Pre,  0)  andalso 
        is_function(Case, 1) andalso
        is_function(Post, 1) ->
     tc_begin(TCName, Name, Verbosity),
-    try Pre() of
-        State ->
-            tc_print("pre done: try test case"),
-            try
-                begin
-                    Res = Case(State),
-                    sleep(seconds(1)),
-                    tc_print("test case done: try post"),
-                    _ = executor(fun() ->
-                                         put(verbosity, Verbosity),
-                                         put(sname,     Name),
-                                         put(tc,        TCName),
-                                         Post(State)
-                                 end),
-                    tc_end("ok"),
-                    Res
-                end
+    try Cond() of
+        ok ->
+            tc_print("starting: try pre"),
+            try Pre() of
+                State ->
+                    tc_print("pre done: try test case"),
+                    try
+                        begin
+                            Res = Case(State),
+                            sleep(seconds(1)),
+                            tc_print("test case done: try post"),
+                            _ = executor(fun() ->
+                                                 put(verbosity, Verbosity),
+                                                 put(sname,     Name),
+                                                 put(tc,        TCName),
+                                                 Post(State)
+                                         end),
+                            tc_end("ok"),
+                            Res
+                        end
+                    catch
+                        C:{skip, _} = SKIP:_ when (C =:= throw) orelse
+                                                  (C =:= exit) ->
+                            tc_print("test case (~w) skip: try post", [C]),
+                            _ = executor(fun() ->
+                                                 put(verbosity, Verbosity),
+                                                 put(sname,     Name),
+                                                 put(tc,        TCName),
+                                                 Post(State)
+                                         end),
+                            tc_end( f("skipping(caught,~w,tc)", [C]) ),
+                            SKIP;
+                        C:E:S ->
+                            %% We always check the system events
+                            %% before we accept a failure.
+                            %% We do *not* run the Post here because it might
+                            %% generate sys events itself...
+                            p("try_tc -> test case failed: try post"),
+                            _ = executor(fun() -> Post(State) end),
+                            case megaco_test_global_sys_monitor:events() of
+                                [] ->
+                                    tc_print("test case failed: try post"),
+                                    _ = executor(fun() ->
+                                                         put(verbosity,
+                                                             Verbosity),
+                                                         put(sname,     Name),
+                                                         put(tc,        TCName),
+                                                         Post(State)
+                                                 end),
+                                    tc_end( f("failed(caught,~w,tc)", [C]) ),
+                                    erlang:raise(C, E, S);
+                                SysEvs ->
+                                    tc_print("System Events "
+                                             "received during tc: "
+                                             "~n   ~p"
+                                             "~nwhen tc failed:"
+                                             "~n   C: ~p"
+                                             "~n   E: ~p"
+                                             "~n   S: ~p",
+                                             [SysEvs, C, E, S]),
+                                    _ = executor(fun() ->
+                                                         put(verbosity,
+                                                             Verbosity),
+                                                         put(sname,     Name),
+                                                         put(tc,        TCName),
+                                                         Post(State)
+                                                 end),
+                                    tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                              [C]) ),
+                                    SKIP =
+                                        {skip, "TC failure with system events"},
+                                    SKIP
+                            end
+                    end
             catch
                 C:{skip, _} = SKIP:_ when (C =:= throw) orelse
                                           (C =:= exit) ->
-                    tc_print("test case (~w) skip: try post", [C]),
-                    _ = executor(fun() ->
-                                         put(verbosity, Verbosity),
-                                         put(sname,     Name),
-                                         put(tc,        TCName),
-                                         Post(State)
-                                 end),
-                    tc_end( f("skipping(caught,~w,tc)", [C]) ),
+                    tc_end( f("skipping(caught,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    %% We always check the system events
-                    %% before we accept a failure.
-                    %% We do *not* run the Post here because it might
-                    %% generate sys events itself...
-                    p("try_tc -> test case failed: try post"),
-                    _ = executor(fun() -> Post(State) end),
                     case megaco_test_global_sys_monitor:events() of
                         [] ->
-                            tc_print("test case failed: try post"),
-                            _ = executor(fun() ->
-                                                 put(verbosity, Verbosity),
-                                                 put(sname,     Name),
-                                                 put(tc,        TCName),
-                                                 Post(State)
-                                         end),
-                            tc_end( f("failed(caught,~w,tc)", [C]) ),
-                            erlang:raise(C, E, S);
-                        SysEvs ->
-                            tc_print("System Events received during tc: "
-                                     "~n   ~p"
-                                     "~nwhen tc failed:"
+                            tc_print("tc-pre failed: auto-skip"
                                      "~n   C: ~p"
                                      "~n   E: ~p"
                                      "~n   S: ~p",
-                                     [SysEvs, C, E, S]),
-                            _ = executor(fun() ->
-                                                 put(verbosity, Verbosity),
-                                                 put(sname,     Name),
-                                                 put(tc,        TCName),
-                                                 Post(State)
-                                         end),
-                            tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                     [C, E, S]),
+                            tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
+                            SKIP = {skip, f("TC-Pre failure (~w)", [C])},
+                            SKIP;
+                        SysEvs ->
+                            tc_print("System Events received: "
+                                     "~n   ~p"
+                                     "~nwhen tc-pre failed:"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [SysEvs, C, E, S], "", ""),
+                            tc_end( f("skipping(catched-sysevs,~w,tc-pre)",
                                       [C]) ),
-                            SKIP = {skip, "TC failure with system events"},
+                            SKIP = {skip, "TC-Pre failure with system events"},
                             SKIP
-                     end
-            end
+                    end
+            end;
+        {skip, _} = SKIP ->
+            tc_end("skipping(cond)"),
+            SKIP;
+        {error, Reason} ->
+            tc_end("failed(cond)"),
+            exit({tc_cond_failed, Reason})
     catch
-        C:{skip, _} = SKIP:_ when (C =:= throw) orelse
-                                  (C =:= exit) ->
-            tc_end( f("skipping(caught,~w,tc-pre)", [C]) ),
+        C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
+            tc_end( f("skipping(caught,~w,cond)", [C]) ),
             SKIP;
         C:E:S ->
+            %% We always check the system events before we accept a failure
             case megaco_test_global_sys_monitor:events() of
                 [] ->
-                    tc_print("tc-pre failed: auto-skip"
-                             "~n   C: ~p"
-                             "~n   E: ~p"
-                             "~n   S: ~p",
-                             [C, E, S]),
-                    tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
-                    SKIP = {skip, f("TC-Pre failure (~w)", [C])},
-                    SKIP;
+                    tc_end( f("failed(caught,~w,cond)", [C]) ),
+                    erlang:raise(C, E, S);
                 SysEvs ->
                     tc_print("System Events received: "
-                             "~n   ~p"
-                             "~nwhen tc-pre failed:"
-                             "~n   C: ~p"
-                             "~n   E: ~p"
-                             "~n   S: ~p",
-                             [SysEvs, C, E, S], "", ""),
-                    tc_end( f("skipping(catched-sysevs,~w,tc-pre)", [C]) ),
-                    SKIP = {skip, "TC-Pre failure with system events"},
+                             "~n   ~p", [SysEvs], "", ""),
+                    tc_end( f("skipping(catched-sysevs,~w,cond)", [C]) ),
+                    SKIP = {skip, "TC cond failure with system events"},
                     SKIP
             end
     end.
@@ -2524,6 +3098,16 @@ stop_node(Node) ->
             end
     end.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+timetrap_scale_factor() ->
+    case (catch test_server:timetrap_scale_factor()) of
+	{'EXIT', _} ->
+	    1;
+	N ->
+	    N
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

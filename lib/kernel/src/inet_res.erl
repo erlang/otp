@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% RFC 1035, 2671, 2782, 2915.
+%% RFC 1035, 2782, 2915, 6891.
 %%
 -module(inet_res).
 
@@ -61,6 +61,7 @@
       | {retry, integer()}
       | {timeout, integer()}
       | {udp_payload_size, integer()}
+      | {dnssec_ok, boolean()}
       | {usevc, boolean()}
       | {nxdomain_reply, boolean()}.
 
@@ -147,7 +148,7 @@ resolve(Name, Class, Type, Opts, Timeout) ->
 	    Res = res_query(Nm, Class, Type, Opts, Timer),
 	    _ = inet:stop_timer(Timer),
 	    Res;
-	Error ->
+	{error, _} = Error ->
 	    Error
     end.
 
@@ -263,7 +264,7 @@ do_nslookup(Name, Class, Type, Opts, Timeout) ->
 %% options record
 %%
 -record(options, { % These must be sorted!
-	  alt_nameservers,edns,inet6,nameservers,
+	  alt_nameservers,dnssec_ok,edns,inet6,nameservers,
           nxdomain_reply, % this is a local option, not in inet_db
           recurse,retry,servfail_retry_timeout,timeout,
           udp_payload_size,usevc,
@@ -371,7 +372,7 @@ gethostbyaddr_tm(IP, Timer) ->
     case dn_ip(norm_ip(IP)) of
         {error, _} = Error ->
             Error;
-        Name ->
+        {ok, Name} ->
             %% Try cached first
             inet_db:res_update_conf(),
             case inet_db:gethostbyaddr(Name, IP) of
@@ -672,9 +673,12 @@ make_query(Dname, Class, Type, Options, Edns) ->
     ARList = case Edns of
 		 false -> [];
 		 _ ->
-		     PSz = Options#options.udp_payload_size,
+                     #options{
+                        udp_payload_size = PSz,
+                        dnssec_ok = DnssecOk } = Options,
 		     [#dns_rr_opt{udp_payload_size=PSz,
-				  version=Edns}]
+				  version=Edns,
+                                  do=DnssecOk}]
 	     end,
     Msg = #dns_rec{header=#dns_header{id=Id,
                                       qr=false,
@@ -1182,7 +1186,7 @@ dn_ip(_) ->
     {error, formerr}.
 
 dn_ipv4([], Dn) ->
-    Dn;
+    {ok, Dn};
 dn_ipv4([A | As], Dn_0) when is_integer(A), A =< 255 ->
     Dn = [$. | Dn_0],
     if
@@ -1198,7 +1202,7 @@ dn_ipv4([A | As], Dn_0) when is_integer(A), A =< 255 ->
     end.
 
 dn_ipv6([], Dn) ->
-    Dn;
+    {ok, Dn};
 dn_ipv6([W | Ws], Dn) when is_integer(W), W =< 16#ffff ->
     D = W band 16#f,   W_1 = W bsr 4,
     C = W_1 band 16#f, W_2 = W_1 bsr 4,

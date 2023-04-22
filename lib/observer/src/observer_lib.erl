@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -299,13 +299,13 @@ to_str({Unit, X}) when (Unit==bytes orelse Unit==time_ms) andalso is_list(X) ->
     catch error:badarg -> X
     end;
 to_str({bytes, B}) ->
-    KB = B div 1024,
-    MB = KB div 1024,
-    GB = MB div 1024,
+    KiB = B div 1024,
+    MiB = KiB div 1024,
+    GiB = MiB div 1024,
     if
-	GB > 10 -> integer_to_list(GB) ++ " GB";
-	MB > 10 -> integer_to_list(MB) ++ " MB";
-	KB >  0 -> integer_to_list(KB) ++ " kB";
+	GiB > 10 -> integer_to_list(GiB) ++ " GiB";
+	MiB > 10 -> integer_to_list(MiB) ++ " MiB";
+	KiB >  0 -> integer_to_list(KiB) ++ " KiB";
 	true -> integer_to_list(B) ++ " B"
     end;
 to_str({{words,WSz}, Sz}) ->

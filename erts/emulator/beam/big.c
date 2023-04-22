@@ -3008,6 +3008,11 @@ LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
          m  = (lg2+D_EXP-1)/D_EXP; /* number of digits */
          m  = BIG_NEED_SIZE(m);    /* number of words + thing */
 
+         if (m > BIG_ARITY_MAX) {
+             error_res = LTI_SYSTEM_LIMIT;
+             goto error;
+         }
+
          hp = HAlloc(BIF_P, m);
          hp_end = hp + m;
 

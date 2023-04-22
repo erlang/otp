@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@
 %% Test cases
 -export([erlang_client_openssl_server_npn/0,
          erlang_client_openssl_server_npn/1,
+         erlang_server_openssl_client_npn/0,
          erlang_server_openssl_client_npn/1,
          erlang_server_openssl_client_npn_only_client/1,
          erlang_server_openssl_client_npn_only_server/1,
@@ -82,31 +83,16 @@ npn_renegotiate_tests() ->
            ].
 
 init_per_suite(Config0) ->
-    case os:find_executable("openssl") of
+    Config1 = ssl_test_lib:init_per_suite(Config0, openssl),
+    case ssl_test_lib:check_openssl_npn_support(Config1) of
+        true ->
+            ssl_test_lib:make_rsa_cert(Config1);
         false ->
-            {skip, "Openssl not found"};
-        _ ->
-            case ssl_test_lib:check_openssl_npn_support(Config0) of
-                {skip, _} = Skip ->
-                    Skip;
-                _ ->
-                    ct:pal("Version: ~p", [os:cmd("openssl version")]),
-                    catch crypto:stop(),
-                    try crypto:start() of
-                        ok ->
-                            ssl_test_lib:clean_start(),
-                            ssl:clear_pem_cache(),
-                            ssl_test_lib:make_rsa_cert(Config0)
-                    catch _:_  ->
-                            {skip, "Crypto did not start"}
-                    end
-            end
+            {skip, "npn_not_supported"}
     end.
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto),
-    ssl_test_lib:kill_openssl().
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
@@ -240,8 +226,8 @@ erlang_server_openssl_client_npn(Config) when is_list(Config) ->
 
    
 %%--------------------------------------------------------------------------
-erlang_server_openssl_client_npn_renegotiate() ->
-    [{doc,"Test erlang server with openssl client and npn negotiation with renegotiation"}].
+%% erlang_server_openssl_client_npn_renegotiate() ->
+%%     [{doc,"Test erlang server with openssl client and npn negotiation with renegotiation"}].
 
 erlang_server_openssl_client_npn_renegotiate(Config) when is_list(Config) ->
     ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
@@ -332,17 +318,18 @@ erlang_server_openssl_client_npn_only_server(Config) when is_list(Config) ->
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     Server =
         ssl_test_lib:start_server(erlang, [{from, self()}],
-                                  [{server_opts, [{client_preferred_next_protocols,
-                                                   {client, [<<"spdy/2">>], <<"http/1.1">>}
-                                                  } | ServerOpts]} | Config]),
+                                  [{server_opts,
+                                    [{next_protocols_advertised,
+                                      [<<"spdy/2">>, <<"http/1.1">>]}
+                                    | ServerOpts]} | Config]),
     Port = ssl_test_lib:inet_port(Server),
-    {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port}, 
-                                                                 {options, ClientOpts}, 
+    {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port},
+                                                                 {options, ClientOpts},
                                                                  return_port], Config),
-    
+
     Server ! get_socket,
-    SSocket = 
-        receive 
+    SSocket =
+        receive
             {Server, {socket, Socket}} ->
                 Socket
         end,

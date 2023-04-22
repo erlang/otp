@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.5.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed the previously undocumented and unsupported
+	    <c>emem</c> tool.</p>
+          <p>
+	    Own Id: OTP-17892 Aux Id: PR-5591 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

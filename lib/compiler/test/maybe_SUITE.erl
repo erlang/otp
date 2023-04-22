@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,6 +89,8 @@ basic(_Config) ->
                else
                    E2 -> E2
                end,
+
+    <<0>> = basic_4(id({<<0>>})),
 
     ok.
 
@@ -206,6 +208,11 @@ basic_3b(V0, M) ->
             {ok,V1,V2,V3}
         end,
     {wrapped,Result}.
+
+basic_4({X}) ->
+    maybe 
+        <<_:(ok)>> ?= X
+    end.
 
 nested(_Config) ->
     {outer_fail,not_ok} = nested_1(0, #{0 => not_ok}),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -255,14 +255,15 @@ render_non_native(_Config) ->
         beam_language = not_erlang,
         format = <<"text/asciidoc">>,
         module_doc = #{<<"en">> => <<"This is\n\npure text">>},
-        docs= []
+        docs = []
     },
 
     <<"\n\tnot_an_erlang_module\n\n"
       "    This is\n"
       "    \n"
       "    pure text\n">> =
-        unicode:characters_to_binary(shell_docs:render(not_an_erlang_module, Docs, #{})),
+        unicode:characters_to_binary(
+          shell_docs:render(not_an_erlang_module, Docs, #{ ansi => false })),
 
     ok.
 

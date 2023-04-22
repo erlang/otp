@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 -module(ssl_reject_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssl/src/ssl_record.hrl").
+-include("ssl_record.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_handshake.hrl").
 
@@ -38,7 +38,9 @@
         ]).
 
 %% Test cases
--export([reject_sslv2/0,
+-export([reject_prev/0,
+         reject_prev/1,
+         reject_sslv2/0,
          reject_sslv2/1,
          reject_sslv3/0,
          reject_sslv3/1,
@@ -46,15 +48,15 @@
          accept_sslv3_record_hello/1
         ]).
 
--define(TLS_MAJOR, 3).
--define(SSL_3_0_MAJOR, 3).
--define(SSL_3_0_MINOR, 0).
--define(TLS_1_0_MINOR, 1).
--define(TLS_1_1_MINOR, 2).
--define(TLS_1_2_MINOR, 3).
--define(TLS_1_3_MINOR, 4).
--define(SSL_2_0_MAJOR, 0).
--define(SSL_2_0_MINOR, 1).
+-define(TLS_MAJOR,     (element(1, ?TLS_1_2))).
+-define(SSL_3_0_MAJOR, (element(1, ?SSL_3_0))).
+-define(SSL_3_0_MINOR, (element(2, ?SSL_3_0))).
+-define(TLS_1_0_MINOR, (element(2, ?TLS_1_0))).
+-define(TLS_1_1_MINOR, (element(2, ?TLS_1_1))).
+-define(TLS_1_2_MINOR, (element(2, ?TLS_1_2))).
+-define(TLS_1_3_MINOR, (element(2, ?TLS_1_3))).
+-define(SSL_2_0_MAJOR, (element(1, ?SSL_2_0))).
+-define(SSL_2_0_MINOR, (element(2, ?SSL_2_0))).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -65,17 +67,19 @@ all() ->
      {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}
-     ].
-
-groups() ->
-    [{'tlsv1.3', [], all_versions_tests()},
-     {'tlsv1.2', [], all_versions_tests()},
-     {'tlsv1.1', [], all_versions_tests()},
-     {'tlsv1', [], all_versions_tests()}
+     {group, 'tlsv1'},
+     {group, 'dtlsv1.2'}
     ].
 
-all_versions_tests() ->
+groups() ->
+    [{'tlsv1.3', [], [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.2', [],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.1', [],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1', [], all_tls_version_tests()},
+     {'dtlsv1.2', [], [reject_prev]}
+    ].
+
+all_tls_version_tests() ->
     [
      reject_sslv2,
      reject_sslv3,
@@ -127,12 +131,12 @@ reject_sslv2(Config) when is_list(Config) ->
                                               {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
-    %% SSL-2.0 Hello 
+    %% SSL-2.0 Hello
     ClientHello = <<128,43,?CLIENT_HELLO, ?SSL_2_0_MAJOR, ?SSL_2_0_MINOR,
                     0,18,0,0,0,16,7,0,192,3,0,128,1,0,128,6,0,64,4,0,
                     128,2,0,128,115,245,33,148,17,175,69,226,204,214,132,216,182,
                     41,238,196>>,
-    
+
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [{active, false}]),
 
     gen_tcp:send(Socket, ClientHello),
@@ -145,7 +149,6 @@ reject_sslv3() ->
     [{doc,"Test that SSL v3 clients are rejected"}].
 
 reject_sslv3(Config) when is_list(Config) ->
-    Version = proplists:get_value(version, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -156,7 +159,7 @@ reject_sslv3(Config) when is_list(Config) ->
 
     %% SSL-3.0 Hello
     ClientHello =
-        <<?HANDSHAKE, ?SSL_3_0_MAJOR, ?SSL_3_0_MINOR,0,162, ?CLIENT_HELLO, 0,0,158, 
+        <<?HANDSHAKE, ?SSL_3_0_MAJOR, ?SSL_3_0_MINOR,0,162, ?CLIENT_HELLO, 0,0,158,
           ?TLS_MAJOR, ?SSL_3_0_MINOR, 97,160,130,59,226,182,64,143,134,112,117,
           64,10,57,164,101,182,215,0,199,145,232,172,194,45,242,48,176,5,153,
           101,54,0,0,26,0,255,192,10,192,20,192,5,192,15,192,9,192,19,192,4,192,
@@ -168,14 +171,8 @@ reject_sslv3(Config) when is_list(Config) ->
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [{active, false}]),
     gen_tcp:send(Socket, ClientHello),
     %% v3 is not a supported protocol version (but hello record could have 3.0 for legacy interop)
-    case Version of
-        'tlsv1.3' ->
-            ssl_test_lib:check_server_alert(Server, illegal_parameter),
-            client_rejected(Socket, illegal_parameter);
-        _  ->
-            ssl_test_lib:check_server_alert(Server, protocol_version),
-            client_rejected(Socket, protocol_version)
-    end.
+    ssl_test_lib:check_server_alert(Server, protocol_version),
+    client_rejected(Socket, protocol_version).
 
 accept_sslv3_record_hello() ->
     [{doc,"Test that ssl v3 record in clients hellos are ignored when higher version are advertised"}].
@@ -197,14 +194,44 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [{active, false}]),
     gen_tcp:send(Socket, ClientHello),
+    TLS_Major = ?TLS_MAJOR,
     case gen_tcp:recv(Socket, 3, 5000) of
-        %% Minor needs to be a TLS version that is a version 
-        %% above SSL-3.0 
-        {ok, [?HANDSHAKE, ?TLS_MAJOR, Minor]} when Minor > ?SSL_3_0_MINOR ->
+        %% Minor needs to be a TLS version that is a version
+        %% above SSL-3.0
+        {ok, [?HANDSHAKE, TLS_Major, Minor]} when Minor > ?SSL_3_0_MINOR ->
             ok;
-        {error, timeout} ->       
+        {error, timeout} ->
             ct:fail(ssl3_record_not_accepted)
     end.
+
+
+reject_prev() ->
+    [{doc,"Test that prev version is rejected, for all version where there"
+      "exists possible support a previous version, that is not configured"}].
+
+reject_prev(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = proplists:get_value(version, Config),
+    PrevVersion = prev_version(Version),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+					      {from, self()},
+					      {mfa, {ssl_test_lib,
+						     no_result, []}},
+					      {options, ServerOpts}]),
+    Port  = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname},
+					      {from, self()},
+					      {mfa, {ssl_test_lib,
+						     no_result, []}},
+					      {options,[{versions, [PrevVersion]} | ClientOpts]}]),
+    ssl_test_lib:check_client_alert(Server, Client, protocol_version).
+
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -273,3 +300,12 @@ hello_with_3_0_record('tlsv1.3') ->
       42,42,32,73,84,134,110,74,110,163,140,111,177,126,133,118,141,2,153,
       156,157,205,101,69,0,10,0,10,0,8,0,29,0,30,0,23,0,24,0,11,0,2,1,0,0,
       ?SUPPORTED_VERSIONS_EXT,0,3,2,?TLS_MAJOR, ?TLS_1_3_MINOR>>.
+
+prev_version('tlsv1.3') ->
+    'tlsv1.2';
+prev_version('tlsv1.2') ->
+    'tlsv1.1';
+prev_version('tlsv1.1') ->
+    'tlsv1';
+prev_version('dtlsv1.2') ->
+    'dtlsv1'.

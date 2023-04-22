@@ -229,7 +229,7 @@ do_mstone(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
     ?LIB:display_system_info(),
     ?LIB:display_app_info(),
     io:format("~n", []),
-    case ?LIB:start_flex_scanner() of
+    try ?LIB:start_flex_scanner() of
         {Pid, Conf} when is_pid(Pid) ->
             put(flex_scanner_conf, Conf),
             EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, DrvInclude), 
@@ -238,8 +238,9 @@ do_mstone(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
             ?LIB:stop_flex_scanner(Pid),
             io:format("~n", []),
             io:format("MStone: ~p~n", [MStone]),
-            done;
-        {error, Reason} = ERROR ->
+            done
+    catch
+        throw:{error, Reason} = ERROR ->
             io:format("<ERROR> Failed starting flex scanner: "
                       "~n      ~p", [Reason]),
             ERROR

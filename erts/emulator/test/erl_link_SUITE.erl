@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,8 +91,8 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     end,
     Config.
 
-end_per_testcase(_Func, _Config) ->
-    ok.
+end_per_testcase(_Func, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 init_per_suite(Config) ->
     Config.
@@ -671,9 +671,12 @@ make_busy(Node, Time) when is_integer(Time) ->
     receive after Own -> ok end,
     wait_until(fun () ->
                   case {DCtrl, process_info(Pid, status)} of
-                      {DPrt, {status, suspended}} when is_port(DPrt) -> true;
-                      {DPid, {status, waiting}} when is_pid(DPid) -> true;
-                      _ -> false
+                      {DPrt, {status, waiting}} when is_port(DPrt) ->
+                          verify_busy(DPrt);
+                      {DPid, {status, waiting}} when is_pid(DPid) ->
+                          true;
+                      _->
+                          false
                   end
                end),
     %% then dist entry
@@ -689,6 +692,28 @@ make_busy(Node, Opts, Data) ->
 unmake_busy(Pid) ->
     unlink(Pid),
     exit(Pid, bang).
+
+verify_busy(Port) ->
+    Parent = self(),
+    Pid =
+        spawn_link(
+          fun() ->
+                  port_command(Port, "Just some data"),
+                  Error = {not_busy, Port},
+                  exit(Parent, Error),
+                  error(Error)
+          end),
+    receive after 30 -> ok end,
+    case process_info(Pid, status) of
+        {status, suspended} ->
+            unlink(Pid),
+            exit(Pid, kill),
+            true;
+        {status, _} = WrongStatus ->
+            unlink(Pid),
+            exit(Pid, WrongStatus),
+            error(WrongStatus)
+    end.
 
 suspend_on_busy_test(Node, Doing, Fun) ->
     Tester = self(),
@@ -1205,7 +1230,19 @@ ensure_dctrl(Node) ->
     end.
 
 dctrl_send(DPrt, Data) when is_port(DPrt) ->
-    port_command(DPrt, Data);
+    try prim_inet:send(DPrt, Data) of
+        ok ->
+            ok;
+        Result ->
+            io:format("~w/2: ~p~n", [?FUNCTION_NAME, Result]),
+            Result
+    catch
+        Class: Reason: Stacktrace ->
+            io:format(
+              "~w/2: ~p: ~p: ~p ~n",
+              [?FUNCTION_NAME, Class, Reason, Stacktrace]),
+            erlang:raise(Class, Reason, Stacktrace)
+    end;
 dctrl_send(DPid, Data) when is_pid(DPid) ->
     Ref = make_ref(),
     DPid ! {send, self(), Ref, Data},

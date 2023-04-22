@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -786,7 +786,7 @@ listenv(Telnet) ->
 %%% Equivalent to ct:parse_table/1
 parse_table(Data) ->
     {Heading, Rest} = get_headings(Data),
-    Lines = parse_row(Rest,[],size(Heading)),
+    Lines = parse_row(Rest,[],tuple_size(Heading)),
     {Heading,Lines}.
 
 get_headings(["|" ++ Headings | Rest]) ->

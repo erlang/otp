@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2001-2021. All Rights Reserved.
+dnl Copyright Ericsson AB 2001-2023. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -161,26 +161,6 @@ if test "x$GCC" = xyes; then
   # Treat certain GCC warnings as errors
   LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
 fi
-
-dnl ----------------------------------------------------------------------
-dnl Enable -fsanitize= flags.
-dnl ----------------------------------------------------------------------
-
-m4_define(DEFAULT_SANITIZERS, [address,undefined])
-AC_ARG_ENABLE(
-    sanitizers,
-    AS_HELP_STRING(
-        [--enable-sanitizers@<:@=comma-separated list of sanitizers@:>@],
-	    [Default=DEFAULT_SANITIZERS]),
-[
-case "$enableval" in
-    no) sanitizers= ;;
-    yes) sanitizers="-fsanitize=DEFAULT_SANITIZERS" ;;
-    *) sanitizers="-fsanitize=$enableval" ;;
-esac
-CFLAGS="$CFLAGS $sanitizers"
-LDFLAGS="$LDFLAGS $sanitizers"
-])
 
 ERL_DED
 

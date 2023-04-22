@@ -41,6 +41,7 @@
 	 match_front/2, match_rear/2,
 	 match_0_9/1]).
 
+-deprecated([{stop_clear,0, "use dbg:stop/0 instead"}]).
 
 %%% Shell callable utility
 fun2ms(ShellFun) when is_function(ShellFun) ->
@@ -317,8 +318,17 @@ tracer(process, {Handler,HandlerData}) ->
 tracer(module, Fun) when is_function(Fun) ->
     start(Fun);
 tracer(module, {Module, State}) ->
-    start(fun() -> {Module, State} end).
+    start(fun() -> {Module, State} end);
 
+tracer(file, Filename) ->
+    tracer(process,
+           {fun F(E, undefined) ->
+                    {ok, D} = file:open(Filename, [write]),
+                    F(E, D);
+                F(E, D) ->
+                    dhandler(E, D),
+                    D
+            end, undefined}).
 
 remote_tracer(port, Fun) when is_function(Fun) ->
     remote_start(Fun);
@@ -573,14 +583,14 @@ c(M, F, A, Flags) ->
 	    Mref = erlang:monitor(process, Pid),
 	    receive
 		{'DOWN', Mref, _, _, Reason} ->
-		    stop_clear(),
+		    stop(),
 		    {error, Reason};
 		{Pid, Res} ->
 		    erlang:demonitor(Mref, [flush]),
 		    %% 'sleep' prevents the tracer (recv_all_traces) from
 		    %% receiving garbage {'EXIT',...} when dbg i stopped.
 		    timer:sleep(1),
-		    stop_clear(),
+		    stop(),
 		    Res
 	    end
     end.
@@ -1599,14 +1609,14 @@ new_pattern_table() ->
 		term_to_binary(x)}),
     ets:insert(PT,
 	       {c,
-		term_to_binary([{'_',[],[{message,{caller}}]}])}),
+		term_to_binary([{'_',[],[{message,{caller_line}}]}])}),
     ets:insert(PT,
 	       {caller_trace,
 		term_to_binary(c)}),
     ets:insert(PT,
 	       {cx,
 		term_to_binary([{'_',[],[{exception_trace},
-					 {message,{caller}}]}])}),
+					 {message,{caller_line}}]}])}),
     ets:insert(PT,
 	       {caller_exception_trace,
 		term_to_binary(cx)}),
@@ -1944,6 +1954,6 @@ h(stop) ->
 h(stop_clear) ->
     help_display(
       ["stop_clear() -> ok",
-       " - Stops the dbg server and the tracing of all processes,",
+       " - Deprecated. Stops the dbg server and the tracing of all processes,",
        "   and clears all trace patterns."]).
 

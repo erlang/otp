@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 %%----------------------------------------------------------------------
 
 -module(hdlt_ctrl).
-
+-dialyzer({no_fail_call, proxy_loop/1}).
 -export([start/1, stop/0, help/0]).
 
 -export([init/1, proxy/7]).

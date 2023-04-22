@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1855,8 +1855,8 @@ validate_oid(S, OidType, [{'NamedNumber',_Name,Value}|Vrest], Acc)
     validate_oid(S, OidType, Vrest, [Value|Acc]);
 validate_oid(S, OidType, [#'Externalvaluereference'{}=Id|Vrest], Acc) ->
     NeededOidType = case Acc of
-			[] -> o_id;
-			[_|_] -> rel_oid
+			[] when OidType =:= o_id -> o_id;
+			_ -> rel_oid
 		    end,
     try get_oid_value(S, NeededOidType, true, Id) of
 	Val when is_integer(Val) ->
@@ -2294,9 +2294,8 @@ use_maps(#state{options=Opts}) ->
 
 create_map_value(Components, ListOfVals) ->
     Zipped = lists:zip(Components, ListOfVals),
-    L = [{Name,V} || {#'ComponentType'{name=Name},V} <- Zipped,
-                     V =/= asn1_NOVALUE],
-    maps:from_list(L).
+    #{Name => V || {#'ComponentType'{name=Name},V} <- Zipped,
+                   V =/= asn1_NOVALUE}.
 
 normalize_seq_or_set(SorS, S,
 		     [{#seqtag{val=Cname},V}|Vs],

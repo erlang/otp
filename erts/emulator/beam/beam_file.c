@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -527,7 +527,7 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         hp = name_heap;
         name = erts_atom_to_string(&hp, beam->module, suffix);
 
-        lines->names[0] = beamfile_add_literal(beam, name);
+        lines->names[0] = beamfile_add_literal(beam, name, 1);
 
         for (i = 1; i < name_count; i++) {
             Uint num_chars, num_built, num_eaten;
@@ -563,7 +563,7 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
                 ASSERT(num_built == num_chars);
                 ASSERT(num_eaten == name_length);
 
-                lines->names[i] = beamfile_add_literal(beam, name);
+                lines->names[i] = beamfile_add_literal(beam, name, 1);
 
                 if (name_heap != default_name_buf) {
                     erts_free(ERTS_ALC_T_LOADER_TMP, name_heap);
@@ -595,30 +595,20 @@ static void init_fallback_type_table(BeamFile *beam) {
     types->fallback = 1;
 
     types->entries[0].type_union = BEAM_TYPE_ANY;
-    types->entries[0].min = 0;
-    types->entries[0].max = -1;
+    types->entries[0].min = MAX_SMALL + 1;
+    types->entries[0].max = MIN_SMALL - 1;
 }
 
-static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+static int parse_type_chunk_otp_25(BeamFile *beam, BeamReader *p_reader) {
     BeamFile_TypeTable *types;
-    BeamReader reader;
 
-    Sint32 version, count;
+    Sint32 count;
     int i;
-
-    beamreader_init(chunk->data, chunk->size, &reader);
-
-    LoadAssert(beamreader_read_i32(&reader, &version));
-    if (version != BEAM_TYPES_VERSION) {
-        /* Incompatible type format. */
-        init_fallback_type_table(beam);
-        return 1;
-    }
 
     types = &beam->types;
     ASSERT(types->entries == NULL);
 
-    LoadAssert(beamreader_read_i32(&reader, &count));
+    LoadAssert(beamreader_read_i32(p_reader, &count));
     LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(types->entries[0])));
     LoadAssert(count >= 1);
 
@@ -630,8 +620,8 @@ static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     for (i = 0; i < count; i++) {
         const byte *type_data;
 
-        LoadAssert(beamreader_read_bytes(&reader, 18, &type_data));
-        LoadAssert(beam_types_decode(type_data, 18, &types->entries[i]));
+        LoadAssert(beamreader_read_bytes(p_reader, 18, &type_data));
+        LoadAssert(beam_types_decode_otp_25(type_data, 18, &types->entries[i]));
     }
 
     /* The first entry MUST be the "any type." */
@@ -639,6 +629,61 @@ static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     LoadAssert(types->entries[0].min > types->entries[0].max);
 
     return 1;
+}
+
+static int parse_type_chunk_otp_26(BeamFile *beam, BeamReader *p_reader) {
+    BeamFile_TypeTable *types;
+
+    Sint32 count;
+    int i;
+
+    types = &beam->types;
+    ASSERT(types->entries == NULL);
+
+    LoadAssert(beamreader_read_i32(p_reader, &count));
+    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(types->entries[0])));
+    LoadAssert(count >= 1);
+
+    types->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                count * sizeof(types->entries[0]));
+    types->count = count;
+    types->fallback = 0;
+
+    for (i = 0; i < count; i++) {
+        const byte *type_data;
+        int extra;
+
+        LoadAssert(beamreader_read_bytes(p_reader, 2, &type_data));
+        extra = beam_types_decode_type_otp_26(type_data, &types->entries[i]);
+        LoadAssert(extra >= 0);
+        LoadAssert(beamreader_read_bytes(p_reader, extra, &type_data));
+        beam_types_decode_extra_otp_26(type_data, &types->entries[i]);
+    }
+
+    /* The first entry MUST be the "any type." */
+    LoadAssert(types->entries[0].type_union == BEAM_TYPE_ANY);
+    LoadAssert(types->entries[0].min > types->entries[0].max);
+
+    return 1;
+}
+
+static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    BeamReader reader;
+    Sint32 version;
+
+    beamreader_init(chunk->data, chunk->size, &reader);
+
+    LoadAssert(beamreader_read_i32(&reader, &version));
+    switch (version) {
+    case 1:                     /* OTP 25 */
+        return parse_type_chunk_otp_25(beam, &reader);
+    case BEAM_TYPES_VERSION:    /* OTP 26 */
+        return parse_type_chunk_otp_26(beam, &reader);
+    default:
+        /* Incompatible type format. */
+        init_fallback_type_table(beam);
+        return 1;
+    }
 }
 
 static ErlHeapFragment *new_literal_fragment(Uint size)
@@ -1134,7 +1179,7 @@ void beamfile_free(BeamFile *beam) {
     }
 }
 
-Sint beamfile_add_literal(BeamFile *beam, Eterm term) {
+Sint beamfile_add_literal(BeamFile *beam, Eterm term, int deduplicate) {
     BeamFile_LiteralTable *literals;
     BeamFile_LiteralEntry *entries;
 
@@ -1146,22 +1191,17 @@ Sint beamfile_add_literal(BeamFile *beam, Eterm term) {
     literals = &beam->dynamic_literals;
     entries = literals->entries;
 
-    if (entries == NULL) {
-        literals->allocated = 32;
-
-        entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                             literals->allocated * sizeof(*entries));
-
-        literals->entries = entries;
-    } else {
-        /* Return a matching index if this literal already exists. We search
-         * backwards since duplicates tend to be used close to one another,
-         * and skip searching static literals as the chances of overlap are
-         * pretty slim. */
-        for (i = literals->count - 1; i >= 0; i--) {
-            if (EQ(term, entries[i].value)) {
-                /* Dynamic literal indexes are negative, starting at -1 */
-                return ~i;
+    if (entries != NULL) {
+        if (deduplicate) {
+            /* Return a matching index if this literal already exists.
+             * We search backwards since duplicates tend to be used close to
+             * one another, and skip searching static literals as the chances
+             * of overlap are pretty slim. */
+            for (i = literals->count - 1; i >= 0; i--) {
+                if (EQ(term, entries[i].value)) {
+                    /* Dynamic literal indexes are negative, starting at -1 */
+                    return ~i;
+                }
             }
         }
 
@@ -1173,6 +1213,13 @@ Sint beamfile_add_literal(BeamFile *beam, Eterm term) {
 
             literals->entries = entries;
         }
+    } else {
+        literals->allocated = 32;
+
+        entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                             literals->allocated * sizeof(*entries));
+
+        literals->entries = entries;
     }
 
     term_size = size_object(term);
@@ -1271,7 +1318,7 @@ int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk)
     return read_beam_chunks(iff, 1, &id, chunk);
 }
 
-void beamfile_init() {
+void beamfile_init(void) {
     Eterm suffix;
     Eterm *hp;
 
@@ -1419,7 +1466,8 @@ static int marshal_integer(BeamCodeReader *code_reader, TaggedNumber *value) {
             value->tag = TAG_q;
             value->size = 0;
 
-            value->word_value = beamfile_add_literal(code_reader->file, term);
+            value->word_value = beamfile_add_literal(code_reader->file,
+                                                     term, 1);
         } else {
             /* Result doesn't fit into a bignum. */
             value->tag = TAG_o;

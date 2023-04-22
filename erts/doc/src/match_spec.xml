@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2021</year>
+      <year>1999</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -87,7 +87,8 @@
         <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
         <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
         <c><![CDATA[is_map]]></c> | <c><![CDATA[is_map_key]]></c> |
-        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_function]]></c> |
+        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_bitstring]]></c> |
+        <c><![CDATA[is_boolean]]></c> | <c><![CDATA[is_function]]></c> |
         <c><![CDATA[is_record]]></c> | <c><![CDATA[is_seq_trace]]></c> |
         <c><![CDATA['and']]></c> | <c><![CDATA['or']]></c> |
         <c><![CDATA['not']]></c> | <c><![CDATA['xor']]></c> |
@@ -111,11 +112,14 @@
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
         <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
-        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
-        <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
-        <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c>
-        <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
-        <c><![CDATA[binary_part]]></c> |
+        <c><![CDATA[map_size]]></c> |
+        <c><![CDATA[max]]></c> | <c><![CDATA[min]]></c> |
+        <c><![CDATA[node]]></c> | <c><![CDATA[float]]></c> |
+        <c><![CDATA[round]]></c> | <c><![CDATA[floor]]></c> |
+        <c><![CDATA[ceil]]></c> | <c><![CDATA[size]]></c> |
+        <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
+        <c><![CDATA[tuple_size]]></c> | <c><![CDATA[tl]]></c> |
+        <c><![CDATA[trunc]]></c> | <c><![CDATA[binary_part]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
         <c><![CDATA['*']]></c> | <c><![CDATA['div']]></c> |
         <c><![CDATA['rem']]></c> | <c><![CDATA['band']]></c> |
@@ -140,7 +144,7 @@
         <c><![CDATA[process_dump]]></c> | <c><![CDATA[enable_trace]]></c> |
         <c><![CDATA[disable_trace]]></c> | <c><![CDATA[trace]]></c> |
         <c><![CDATA[display]]></c> | <c><![CDATA[caller]]></c> |
-        <c><![CDATA[caller_line]]></c> |
+        <c><![CDATA[caller_line]]></c> | <c><![CDATA[current_stacktrace]]></c> |
         <c><![CDATA[set_tcw]]></c> | <c><![CDATA[silent]]></c>
       </item>
     </list>
@@ -171,8 +175,9 @@
         <c><![CDATA[is_list]]></c> | <c><![CDATA[is_number]]></c> |
         <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
         <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
-        <c><![CDATA[is_map]]></c> | <c><![CDATA[map_is_key]]></c> |
-        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_function]]></c> |
+        <c><![CDATA[is_map]]></c> | <c><![CDATA[is_map_key]]></c> |
+        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_bitstring]]></c> |
+        <c><![CDATA[is_boolean]]></c> | <c><![CDATA[is_function]]></c> |
         <c><![CDATA[is_record]]></c> | <c><![CDATA['and']]></c> |
         <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> |
         <c><![CDATA['xor']]></c> | <c><![CDATA['andalso']]></c> |
@@ -195,11 +200,14 @@
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
         <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
-        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
-        <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
-        <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c>
-        <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
-        <c><![CDATA[binary_part]]></c> |
+        <c><![CDATA[map_size]]></c> |
+        <c><![CDATA[max]]></c> | <c><![CDATA[min]]></c> |
+        <c><![CDATA[node]]></c> | <c><![CDATA[float]]></c> |
+        <c><![CDATA[round]]></c> | <c><![CDATA[floor]]></c> |
+        <c><![CDATA[ceil]]></c> | <c><![CDATA[size]]></c> |
+        <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
+        <c><![CDATA[tuple_size]]></c> | <c><![CDATA[tl]]></c> |
+        <c><![CDATA[trunc]]></c> | <c><![CDATA[binary_part]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
         <c><![CDATA['*']]></c> | <c><![CDATA['div']]></c> |
         <c><![CDATA['rem']]></c> | <c><![CDATA['band']]></c> |
@@ -224,9 +232,10 @@
         follows:</p>
 
       <taglist>
-        <tag><c>is_atom</c>, <c>is_float</c>, <c>is_integer</c>, <c>is_list</c>,
-          <c>is_number</c>, <c>is_pid</c>, <c>is_port</c>, <c>is_reference</c>,
-          <c>is_tuple</c>, <c>is_map</c>, <c>is_binary</c>, <c>is_function</c>
+        <tag><c>is_atom</c>, <c>is_boolean</c>, <c>is_float</c>,
+          <c>is_integer</c>, <c>is_list</c>, <c>is_number</c>, <c>is_pid</c>,
+          <c>is_port</c>, <c>is_reference</c>, <c>is_tuple</c>, <c>is_map</c>,
+          <c>is_binary</c>, <c>is_bitstring</c>, <c>is_function</c>
         </tag>
         <item>
           <p>Same as the corresponding guard tests in Erlang, return
@@ -275,8 +284,11 @@
             <c><![CDATA['xor']]></c> returns false.</p>
         </item>
         <tag><c>abs</c>, <c>element</c>, <c>hd</c>, <c>length</c>,
-          <c>map_get</c>, <c>map_size</c>, <c>node</c>, <c>round</c>,
-          <c>size</c>, <c>bit_size</c>, <c>byte_size</c>, <c>tl</c>,
+          <c>map_get</c>, <c>map_size</c>,
+          <c>max</c>, <c>min</c>,
+          <c>node</c>, <c>round</c>, <c>ceil</c>, <c>floor</c>, <c>float</c>,
+          <c>size</c>, <c>bit_size</c>, <c>byte_size</c>, <c>tuple_size</c>,
+          <c>tl</c>,
           <c>trunc</c>, <c>binary_part</c>, <c>'+'</c>,
           <c>'-'</c>, <c>'*'</c>, <c>'div'</c>, <c>'rem'</c>, <c>'band'</c>,
           <c>'bor'</c>, <c>'bxor'</c>, <c>'bnot'</c>, <c>'bsl'</c>,
@@ -456,6 +468,19 @@
              <c><![CDATA[caller_line]]></c> function sometimes returns the atom
              <c><![CDATA[undefined]]></c>. The calling
              Erlang function is not available during such calls.</p>
+        </item>
+        <tag><c>current_stacktrace</c></tag>
+        <item>
+          <p>Returns the current call stack back-trace
+            (<seetype marker="erts:erlang#stacktrace">stacktrace</seetype>)
+            of the calling function. The stack has the same format as in the
+            <c>catch</c> part of a <c>try</c>. See <seeguide
+            marker="system/reference_manual:errors#stacktrace">The call-stack back trace (stacktrace)</seeguide>.
+            The depth of the stacktrace is truncated according to the
+            <c>backtrace_depth</c> system flag setting.</p>
+
+          <p>Accepts a depth parameter. The depth value will be
+            <c>backtrace_depth</c> if the argument is greater.</p>
         </item>
         <tag><c>display</c></tag>
           <item>
@@ -889,7 +914,7 @@
   ['$_']}]
     ]]></code>
 
-    <p>Function <seemfa marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2></c></seemfa>
+    <p>Function <seemfa marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2</c></seemfa>
       can be useful for testing complicated ETS matches.</p>
   </section>
 </chapter>

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ pat_expr pat_expr_max map_pat_expr record_pat_expr
 pat_argument_list pat_exprs
 list tail
 list_comprehension lc_expr lc_exprs
+map_comprehension
 binary_comprehension
 tuple
 record_expr record_tuple record_field record_fields
@@ -49,7 +50,31 @@ type_sig type_sigs type_guard type_guards fun_type binary_type
 type_spec spec_fun typed_exprs typed_record_fields field_types field_type
 map_pair_types map_pair_type
 bin_base_type bin_unit_type
-maybe_expr maybe_match_exprs maybe_match.
+maybe_expr maybe_match_exprs maybe_match
+clause_body_exprs
+ssa_check_anno
+ssa_check_anno_clause
+ssa_check_anno_clauses
+ssa_check_args
+ssa_check_binary_lit
+ssa_check_binary_lit_bytes_ls
+ssa_check_binary_lit_rest
+ssa_check_clause_args
+ssa_check_clause_args_ls
+ssa_check_expr
+ssa_check_exprs
+ssa_check_fun_ref
+ssa_check_list_lit
+ssa_check_list_lit_ls
+ssa_check_map_key
+ssa_check_map_key_element
+ssa_check_map_key_elements
+ssa_check_map_key_list
+ssa_check_map_key_tuple_elements
+ssa_check_pat
+ssa_check_pats
+ssa_check_when_clause
+ssa_check_when_clauses.
 
 Terminals
 char integer float atom string var
@@ -67,7 +92,8 @@ char integer float atom string var
 '!' '=' '::' '..' '...'
 '?='
 'spec' 'callback' % helper
-dot.
+dot
+'%ssa%'.
 
 Expect 0.
 
@@ -86,6 +112,7 @@ Left 500 mult_op.
 Unary 600 prefix_op.
 Nonassoc 700 '#'.
 Nonassoc 800 ':'.
+Nonassoc 900 clause_body_exprs.
 
 %% Types
 
@@ -225,8 +252,7 @@ clause_args -> pat_argument_list : element(1, '$1').
 clause_guard -> 'when' guard : '$2'.
 clause_guard -> '$empty' : [].
 
-clause_body -> '->' exprs: '$2'.
-
+clause_body -> '->' clause_body_exprs: '$2'.
 
 expr -> 'catch' expr : {'catch',?anno('$1'),'$2'}.
 expr -> expr '=' expr : {match,first_anno('$1'),'$1','$3'}.
@@ -251,6 +277,7 @@ expr_max -> atomic : '$1'.
 expr_max -> list : '$1'.
 expr_max -> binary : '$1'.
 expr_max -> list_comprehension : '$1'.
+expr_max -> map_comprehension : '$1'.
 expr_max -> binary_comprehension : '$1'.
 expr_max -> tuple : '$1'.
 expr_max -> '(' expr ')' : '$2'.
@@ -281,10 +308,6 @@ pat_expr_max -> '(' pat_expr ')' : '$2'.
 
 map_pat_expr -> '#' map_tuple :
 	{map, ?anno('$1'),'$2'}.
-map_pat_expr -> pat_expr_max '#' map_tuple :
-	{map, ?anno('$2'),'$1','$3'}.
-map_pat_expr -> map_pat_expr '#' map_tuple :
-	{map, ?anno('$2'),'$1','$3'}.
 
 record_pat_expr -> '#' atom '.' atom :
 	{record_index,?anno('$1'),element(3, '$2'),'$4'}.
@@ -328,12 +351,15 @@ bit_size_expr -> expr_max : '$1'.
 
 list_comprehension -> '[' expr '||' lc_exprs ']' :
 	{lc,?anno('$1'),'$2','$4'}.
+map_comprehension -> '#' '{' map_field_assoc '||' lc_exprs '}' :
+	{mc,?anno('$1'),'$3','$5'}.
 binary_comprehension -> '<<' expr_max '||' lc_exprs '>>' :
 	{bc,?anno('$1'),'$2','$4'}.
 lc_exprs -> lc_expr : ['$1'].
 lc_exprs -> lc_expr ',' lc_exprs : ['$1'|'$3'].
 
 lc_expr -> expr : '$1'.
+lc_expr -> map_field_exact '<-' expr : {m_generate,?anno('$2'),'$1','$3'}.
 lc_expr -> expr '<-' expr : {generate,?anno('$2'),'$1','$3'}.
 lc_expr -> binary '<=' expr : {b_generate,?anno('$2'),'$1','$3'}.
 
@@ -504,6 +530,9 @@ pat_argument_list -> '(' pat_exprs ')' : {'$2',?anno('$1')}.
 exprs -> expr : ['$1'].
 exprs -> expr ',' exprs : ['$1' | '$3'].
 
+clause_body_exprs -> ssa_check_when_clauses exprs : '$1' ++ '$2'.
+clause_body_exprs -> exprs : '$1'.
+
 pat_exprs -> pat_expr : ['$1'].
 pat_exprs -> pat_expr ',' pat_exprs : ['$1' | '$3'].
 
@@ -552,6 +581,132 @@ comp_op -> '>=' : '$1'.
 comp_op -> '>' : '$1'.
 comp_op -> '=:=' : '$1'.
 comp_op -> '=/=' : '$1'.
+
+ssa_check_when_clauses -> ssa_check_when_clause : ['$1'].
+ssa_check_when_clauses -> ssa_check_when_clause ssa_check_when_clauses :
+    ['$1'|'$2'].
+
+ssa_check_when_clause -> '%ssa%' atom ssa_check_clause_args_ls 'when' atom '->'
+                             ssa_check_exprs '.' :
+   {ssa_check_when, ?anno('$1'), '$2', '$3', '$5', '$7'}.
+
+ssa_check_when_clause -> '%ssa%' ssa_check_clause_args_ls 'when' atom '->'
+                             ssa_check_exprs '.' :
+   {ssa_check_when, ?anno('$1'), {atom,?anno('$1'),pass}, '$2', '$4', '$6'}.
+
+ssa_check_exprs -> ssa_check_expr : [add_anno_check('$1', [])].
+ssa_check_exprs -> ssa_check_expr ssa_check_anno : [add_anno_check('$1', '$2')].
+ssa_check_exprs -> ssa_check_expr ',' ssa_check_exprs :
+    [add_anno_check('$1', [])|'$3'].
+ssa_check_exprs -> ssa_check_expr ssa_check_anno ',' ssa_check_exprs :
+    [add_anno_check('$1', '$2')|'$4'].
+
+ssa_check_anno -> '{' ssa_check_anno_clauses '}' : '$2'.
+
+ssa_check_anno_clauses -> ssa_check_anno_clause : ['$1'].
+ssa_check_anno_clauses -> ssa_check_anno_clause ',' ssa_check_anno_clauses :
+    ['$1'|'$3'].
+
+ssa_check_anno_clause -> atom '=>' ssa_check_pat : {term, '$1', '$3'}.
+
+ssa_check_expr -> var '=' atom ssa_check_args :
+   {check_expr, ?anno('$1'), [set, '$1', '$3'|'$4']}.
+ssa_check_expr -> atom ssa_check_args :
+    {check_expr, ?anno('$1'), [none, '$1'|'$2']}.
+ssa_check_expr -> var '=' atom ':' atom ssa_check_args :
+   {check_expr, ?anno('$1'), [set, '$1', {'$3', '$5'}|'$6']}.
+ssa_check_expr -> atom integer :
+   {check_expr, ?anno('$1'), build_ssa_check_label('$1', '$2')}.
+ssa_check_expr -> atom var :
+   {check_expr, ?anno('$1'), build_ssa_check_label('$1', '$2')}.
+
+ssa_check_clause_args_ls -> '(' ')' : [].
+ssa_check_clause_args_ls -> '(' ssa_check_clause_args ')' : '$2'.
+ssa_check_clause_args_ls -> '(' '...' ')' : ['$2'].
+
+ssa_check_clause_args -> var : ['$1'].
+ssa_check_clause_args -> var ',' ssa_check_clause_args : ['$1'|'$3'].
+ssa_check_clause_args -> var ',' '...' : ['$1', '$3'].
+
+ssa_check_args -> '(' ')' : {[], ?anno('$1')}.
+ssa_check_args -> '(' ssa_check_pats ')' : '$2'.
+ssa_check_args -> '(' '...' ')' : ['$2'].
+
+ssa_check_pats -> ssa_check_pat : ['$1'].
+ssa_check_pats -> ssa_check_pat ',' ssa_check_pats : ['$1'|'$3'].
+ssa_check_pats -> ssa_check_pat ',' '...' : ['$1', '$3'].
+
+ssa_check_pat -> var : '$1'.
+ssa_check_pat -> atom : '$1'.
+ssa_check_pat -> integer : '$1'.
+ssa_check_pat -> float : '$1'.
+ssa_check_pat -> float '(' float ')': {float_epsilon, '$1', '$3'}.
+ssa_check_pat -> ssa_check_fun_ref : '$1'.
+ssa_check_pat -> '{' '}' : {tuple, ?anno('$1'), []}.
+ssa_check_pat -> '{' ssa_check_pats '}' : {tuple, ?anno('$1'), '$2'}.
+ssa_check_pat -> '{' '...' '}' : {tuple, ?anno('$1'), ['$2']}.
+ssa_check_pat -> ssa_check_binary_lit : '$1'.
+ssa_check_pat -> ssa_check_list_lit : '$1'.
+ssa_check_pat -> '#' '{' '}' : {map, ?anno('$1'), []}.
+ssa_check_pat -> '#' '{' ssa_check_map_key_elements '}' : {map, ?anno('$1'), '$3'}.
+
+ssa_check_fun_ref -> 'fun' atom '/' integer : {local_fun, '$2', '$4'}.
+ssa_check_fun_ref -> 'fun' atom ':' atom '/' integer : {external_fun, '$2', '$4', '$6'}.
+
+ssa_check_binary_lit -> '<<' '>>' : {binary, ?anno('$1'), []}.
+ssa_check_binary_lit -> '<<' ssa_check_binary_lit_bytes_ls '>>' :
+    {binary, ?anno('$1'), '$2'}.
+ssa_check_binary_lit -> '<<' ssa_check_binary_lit_rest '>>' :
+    {binary, ?anno('$1'), ['$2']}.
+
+ssa_check_binary_lit_bytes_ls -> integer : ['$1'].
+ssa_check_binary_lit_bytes_ls -> integer ',' ssa_check_binary_lit_bytes_ls :
+    ['$1'|'$3'].
+ssa_check_binary_lit_bytes_ls -> integer ',' ssa_check_binary_lit_rest :
+    ['$1', '$3'].
+
+ssa_check_binary_lit_rest -> integer ':' integer : {'$1', '$3'}.
+
+ssa_check_list_lit -> '[' ']' : {list, ?anno('$1'), []}.
+ssa_check_list_lit -> '[' ssa_check_list_lit_ls ']' :
+    {list, ?anno('$1'), '$2'}.
+
+ssa_check_list_lit_ls -> ssa_check_pat : ['$1'].
+ssa_check_list_lit_ls -> ssa_check_pat ',' ssa_check_list_lit_ls : ['$1'|'$3'].
+ssa_check_list_lit_ls -> ssa_check_pat ',' '...' : ['$1', '$3'].
+ssa_check_list_lit_ls -> ssa_check_pat '|' ssa_check_pat : ['$1'|'$3'].
+
+ssa_check_map_key -> atom : '$1'.
+ssa_check_map_key -> integer : '$1'.
+ssa_check_map_key -> float : '$1'.
+ssa_check_map_key -> '{' ssa_check_map_key_tuple_elements '}' :
+    {tuple, ?anno('$1'), '$2'}.
+ssa_check_map_key -> '{' '}' : {tuple, ?anno('$1'), []}.
+ssa_check_map_key -> ssa_check_binary_lit : '$1'.
+ssa_check_map_key -> '[' ssa_check_map_key_list ']' :
+    {list, ?anno('$1'), '$2'}.
+ssa_check_map_key -> '[' ']' : {list, ?anno('$1'), []}.
+ssa_check_map_key -> '#' '{' '}' : {map, ?anno('$1'), []}.
+ssa_check_map_key -> '#' '{' ssa_check_map_key_elements '}' : '$3'.
+
+ssa_check_map_key_list -> ssa_check_map_key : ['$1'].
+ssa_check_map_key_list -> ssa_check_map_key ',' ssa_check_map_key_list :
+    ['$1'|'$3'].
+ssa_check_map_key_list -> ssa_check_map_key '|' ssa_check_map_key :
+    ['$1'|'$3'].
+
+ssa_check_map_key_elements -> ssa_check_map_key_element : ['$1'].
+ssa_check_map_key_elements -> ssa_check_map_key_element ',' ssa_check_map_key_elements :
+    ['$1'|'$3'].
+
+ssa_check_map_key_element -> ssa_check_map_key '=>' ssa_check_map_key:
+    {'$1', '$3'}.
+%% ssa_check_map_key_element -> ssa_check_map_key '::' top_type:
+%%     {type, '$1', '$3'}.
+
+ssa_check_map_key_tuple_elements -> ssa_check_map_key : ['$1'].
+ssa_check_map_key_tuple_elements -> ssa_check_map_key ',' ssa_check_map_key_tuple_elements:
+    ['$1'|'$3'].
 
 Header
 "%% This file was automatically generated from the file \"erl_parse.yrl\"."
@@ -665,6 +820,7 @@ Erlang code.
 
 -type abstract_expr() :: af_literal()
                        | af_match(abstract_expr())
+                       | af_maybe_match()
                        | af_variable()
                        | af_tuple(abstract_expr())
                        | af_nil()
@@ -682,6 +838,7 @@ Erlang code.
                        | af_local_call()
                        | af_remote_call()
                        | af_list_comprehension()
+                       | af_map_comprehension()
                        | af_binary_comprehension()
                        | af_block()
                        | af_if()
@@ -691,7 +848,9 @@ Erlang code.
                        | af_local_fun()
                        | af_remote_fun()
                        | af_fun()
-                       | af_named_fun().
+                       | af_named_fun()
+                       | af_maybe()
+                       | af_maybe_else().
 
 -type af_record_update(T) :: {'record',
                               anno(),
@@ -715,6 +874,9 @@ Erlang code.
 -type af_list_comprehension() ::
         {'lc', anno(), af_template(), af_qualifier_seq()}.
 
+-type af_map_comprehension() ::
+        {'mc', anno(), af_assoc(abstract_expr()), af_qualifier_seq()}.
+
 -type af_binary_comprehension() ::
         {'bc', anno(), af_template(), af_qualifier_seq()}.
 
@@ -725,6 +887,7 @@ Erlang code.
 -type af_qualifier() :: af_generator() | af_filter().
 
 -type af_generator() :: {'generate', anno(), af_pattern(), abstract_expr()}
+                      | {'m_generate', anno(), af_assoc_exact(af_pattern()), abstract_expr()}
                       | {'b_generate', anno(), af_pattern(), abstract_expr()}.
 
 -type af_filter() :: abstract_expr().
@@ -833,6 +996,9 @@ Erlang code.
 
 -type af_map_pattern() ::
         {'map', anno(), [af_assoc_exact(af_pattern())]}.
+
+-type af_maybe() :: {'maybe', anno(), af_body()}.
+-type af_maybe_else() :: {'maybe', anno(), af_body(), {'else', anno(), af_clause_seq()}}.
 
 -type abstract_type() :: af_annotated_type()
                        | af_atom()
@@ -944,6 +1110,8 @@ Erlang code.
 
 -type af_match(T) :: {'match', anno(), af_pattern(), T}.
 
+-type af_maybe_match() :: {'maybe_match', anno(), af_pattern(), abstract_expr()}.
+
 -type af_variable() :: {'var', anno(), atom()}. % | af_anon_variable()
 
 %-type af_anon_variable() :: {'var', anno(), '_'}.
@@ -969,7 +1137,7 @@ Erlang code.
 -type binary_op() :: '/' | '*' | 'div' | 'rem' | 'band' | 'and' | '+' | '-'
                    | 'bor' | 'bxor' | 'bsl' | 'bsr' | 'or' | 'xor' | '++'
                    | '--' | '==' | '/=' | '=<' | '<'  | '>=' | '>' | '=:='
-                   | '=/='.
+                   | '=/=' | '!'.
 
 -type af_unary_op(T) :: {'op', anno(), unary_op(), T}.
 
@@ -1525,16 +1693,16 @@ abstract_list([H|T], String, A, E) ->
             abstract_list(T, [H|String], A, E);
         false ->
             AbstrList = {cons,A,abstract(H, A, E),abstract(T, A, E)},
-            not_string(String, AbstrList, A, E)
+            not_string(String, AbstrList, A)
     end;
 abstract_list([], String, A, _E) ->
     {string, A, lists:reverse(String)};
 abstract_list(T, String, A, E) ->
-    not_string(String, abstract(T, A, E), A, E).
+    not_string(String, abstract(T, A, E), A).
 
-not_string([C|T], Result, A, E) ->
-    not_string(T, {cons, A, {integer, A, C}, Result}, A, E);
-not_string([], Result, _A, _E) ->
+not_string([C|T], Result, A) ->
+    not_string(T, {cons, A, {integer, A, C}, Result}, A);
+not_string([], Result, _A) ->
     Result.
 
 abstract_tuple_list([H|T], A, E) ->
@@ -1836,5 +2004,13 @@ modify_anno1([H|T], Ac, Mf) ->
     {[H1|T1],Ac2};
 modify_anno1([], Ac, _Mf) -> {[],Ac};
 modify_anno1(E, Ac, _Mf) when not is_tuple(E), not is_list(E) -> {E,Ac}.
+
+build_ssa_check_label({atom,_,label}, Lbl) ->
+    [label, Lbl];
+build_ssa_check_label({atom,L,_}, _) ->
+    return_error(L, "expected 'label'").
+
+add_anno_check({check_expr,Loc,Args}, AnnoCheck) ->
+    {check_expr,Loc,Args,AnnoCheck}.
 
 %% vim: ft=erlang

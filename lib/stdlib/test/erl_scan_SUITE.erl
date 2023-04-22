@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
-	 otp_10990/1, otp_10992/1, otp_11807/1, otp_16480/1, otp_17024/1]).
+	 otp_10990/1, otp_10992/1, otp_11807/1, otp_16480/1, otp_17024/1,
+         text_fun/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -58,7 +59,7 @@ suite() ->
 
 all() -> 
     [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992,
-     otp_11807, otp_16480, otp_17024].
+     otp_11807, otp_16480, otp_17024, text_fun].
 
 groups() -> 
     [{error, [], [error_1, error_2]}].
@@ -515,12 +516,17 @@ chars() ->
          test_string(L, Ts)
      end || C <- lists:seq(0, 255)],
 
-    %% $\^\n now increments the line...
+    %% GH-6477. Test legal use of caret notation.
     [begin
          L = "$\\^" ++ [C],
-         Ts = [{char,{1,1},C band 2#11111}],
+         Ts = case C of
+                  $? ->
+                      [{char,{1,1},127}];
+                  _ ->
+                      [{char,{1,1},C band 2#11111}]
+              end,
          test_string(L, Ts)
-     end || C <- lists:seq(0, 255)],
+     end || C <- lists:seq($?, $Z) ++ lists:seq($a, $z)],
 
     [begin
          L = "$\\" ++ [C],
@@ -671,10 +677,18 @@ illegal() ->
         erl_scan:string(String, {1,1}),
     {done,{error,{{1,4},erl_scan,{illegal,character}},{1,14}},"34\". "} =
         erl_scan:tokens([], String++". ", {1,1}),
+
+    %% GH-6477. Test for illegal characters in caret notation.
+    _ = [begin
+             S = [$$,$\\,$^,C],
+             {error,{1,erl_scan,{illegal,character}},1} = erl_scan:string(S)
+         end || C <- lists:seq(0, 16#3e) ++ [16#60] ++ lists:seq($z+1, 16#10ffff)],
     ok.
 
 crashes() ->
     {'EXIT',_} = (catch {foo, erl_scan:string([-1])}), % type error
+    {'EXIT',_} = (catch erl_scan:string("'a" ++ [999999999] ++ "c'")),
+
     {'EXIT',_} = (catch {foo, erl_scan:string("$"++[-1])}),
     {'EXIT',_} = (catch {foo, erl_scan:string("$\\"++[-1])}),
     {'EXIT',_} = (catch {foo, erl_scan:string("$\\^"++[-1])}),
@@ -697,6 +711,7 @@ crashes() ->
          (catch {foo, erl_scan:string("% foo"++[a],{1,1})}),
 
     {'EXIT',_} = (catch {foo, erl_scan:string([3.0])}), % type error
+    {'EXIT',_} = (catch {foo, erl_scan:string("A" ++ [999999999])}),
 
     ok.
 
@@ -866,11 +881,11 @@ unicode() ->
         erl_scan:string([1089]),
     {error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
         erl_scan:string([1089], {1,1}),
-    {error,{{1,3},erl_scan,{illegal,character}},{1,4}} =
-        erl_scan:string("'a" ++ [999999999] ++ "c'", {1,1}),
+    {error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
+        erl_scan:string([16#D800], {1,1}),
 
     test("\"a"++[1089]++"b\""),
-    {ok,[{char,1,1}],1} =
+    {error,{1,erl_scan,{illegal,character}},1} =
         erl_scan_string([$$,$\\,$^,1089], 1),
 
     {error,{1,erl_scan,Error},1} =
@@ -907,7 +922,7 @@ unicode() ->
     U3 = "\"a\n\\x{fff}\n\"",
     {ok,[{string,1,[$a,$\n,$\x{fff},$\n]}],3} = erl_scan_string(U3, 1),
 
-    U4 = "\"\\^\n\\x{aaa}\\^\n\"",
+    U4 = "\"\n\\x{aaa}\n\"",
     {ok,[{string,1,[$\n,$\x{aaa},$\n]}],3} = erl_scan_string(U4, 1),
 
     %% Keep these tests:
@@ -1022,7 +1037,7 @@ otp_10302(Config) when is_list(Config) ->
     U3 = "\"a\n\\x{fff}\n\"",
     {ok,[{string,1,[97,10,4095,10]}],3} = erl_scan_string(U3, 1),
 
-    U4 = "\"\\^\n\\x{aaa}\\^\n\"",
+    U4 = "\"\n\\x{aaa}\n\"",
     {ok,[{string,1,[10,2730,10]}],3} = erl_scan_string(U4, 1,[]),
 
     Str1 = "\"ab" ++ [1089] ++ "cd\"",
@@ -1211,6 +1226,79 @@ otp_17024(Config) when is_list(Config) ->
     Opts2 = [{location,Location}],
     {integer,Location,1} = erl_parse_abstract(1, Opts2),
     ok.
+
+text_fun(Config) when is_list(Config) ->
+    KeepClass = fun(Class) ->
+                        fun(C, _) -> C == Class end
+                end,
+
+    Join = fun(L, S) -> string:join(L, S) end,
+    String = fun(L) -> Join(L, " ") end,
+
+    TextAtom = KeepClass(atom),
+    TextInt = KeepClass(integer),
+    %% Keep text for integers written with a base.
+    TextBase = fun(C, S) ->
+                       C == integer andalso string:find(S, "#") /= nomatch
+               end,
+    %% Keep text for long strings, regardless of class
+    TextLong = fun(_, S) -> length(S) > 10 end,
+
+    Texts = fun(Toks) -> [erl_scan:text(T) || T <- Toks] end,
+    Values =  fun(Toks) -> [erl_scan:symbol(T) || T <- Toks] end,
+
+    Atom1 = "foo",
+    Atom2 = "'this is a long atom'",
+    Int1 = "42",
+    Int2 = "16#10",
+    Int3 = "8#20",
+    Int4 = "16",
+    Int5 = "12345678901234567890",
+    String1 = "\"A String\"",
+    String2 = "\"guitar string\"",
+    Name1 = "Short",
+    Name2 = "LongAndDescriptiveName",
+    Sep1 = "{",
+    Sep2 = "+",
+    Sep3 = "]",
+    Sep4 = "/",
+
+    All = [Atom1, Atom2, Int1, Int2, Int3, Int4, Int5,
+           String1, String2, Name1, Name2,
+           Sep1, Sep2, Sep3, Sep4],
+
+    {ok, Tokens0, 2} =
+        erl_scan:string(String([Atom1, Int1]), 2, [{text_fun, TextAtom}]),
+    [Atom1, undefined] = Texts(Tokens0),
+    [foo, 42] = Values(Tokens0),
+
+    {ok, Tokens1, 3} =
+        erl_scan:string(Join([Int2, Int3, Int4], "\n"), 1,
+                        [{text_fun, TextInt}]),
+    [Int2, Int3, Int4] = Texts(Tokens1),
+    [16, 16, 16] = Values(Tokens1),
+
+    TS = [Int2, String1, Atom1, Int3, Int4, String2],
+    {ok, Tokens2, 6} =
+        %% If text is present, we supply text for *all* tokens.
+        erl_scan:string(Join(TS, "\n"), 1, [{text_fun, TextAtom}, text]),
+    TS = Texts(Tokens2),
+    [16, "A String", foo, 16, 16, "guitar string"] = Values(Tokens2),
+
+    Ints = [Int1, Int2, Int3, Int4],
+    {ok, Tokens3, 1} = erl_scan:string(String(Ints), 1, [{text_fun, TextBase}]),
+    [undefined, Int2, Int3, undefined] = Texts(Tokens3),
+    [42, 16, 16, 16] = Values(Tokens3),
+
+    Longs = lists:filter(fun(S) -> length(S) > 10 end, All),
+    {ok, Tokens4, 1} =
+        erl_scan:string(String(All), 1, [{text_fun, TextLong}]),
+    Longs = lists:filter(fun(T) -> T /= undefined end, Texts(Tokens4)),
+
+    {ok, Tokens5, 7} =
+        erl_scan:string(String(All), 7, [{text_fun, KeepClass('{')}]),
+    [Sep1] = lists:filter(fun(T) -> T /= undefined end, Texts(Tokens5)).
+
 
 test_string(String, ExpectedWithCol) ->
     {ok, ExpectedWithCol, _EndWithCol} = erl_scan_string(String, {1, 1}, []),

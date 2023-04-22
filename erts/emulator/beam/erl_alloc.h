@@ -213,11 +213,11 @@ Eterm erts_alloc_set_dyn_param(struct process*, Eterm);
 
 #if !ERTS_ALC_DO_INLINE
 
-void *erts_alloc(ErtsAlcType_t type, Uint size);
-void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size);
 void erts_free(ErtsAlcType_t type, void *ptr);
-void *erts_alloc_fnf(ErtsAlcType_t type, Uint size);
-void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size);
+void *erts_alloc(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
+void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size) ERTS_ATTR_ALLOC_SIZE(3);
+void *erts_alloc_fnf(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
+void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size) ERTS_ATTR_ALLOC_SIZE(3);
 int erts_is_allctr_wrapper_prelocked(void);
 #ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
 int erts_is_in_literal_range(void* ptr);
@@ -227,7 +227,7 @@ int erts_get_thr_alloc_ix(void);
 
 #endif /* #if !ERTS_ALC_DO_INLINE */
 
-void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size);
+void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
 
 #ifndef ERTS_CACHE_LINE_SIZE
 /* Assumed cache line size */

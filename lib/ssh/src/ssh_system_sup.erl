@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,9 @@
 	 get_daemon_listen_address/1,
          addresses/1,
          addresses/2,
-         get_options/2
+         get_options/2,
+         get_acceptor_options/1,
+         replace_acceptor_options/2
         ]).
 
 %% Supervisor callback
@@ -150,6 +152,32 @@ addresses(Role,  #address{address=Address, port=Port, profile=Profile}) ->
                  Address == any orelse A#address.address == Address,
                  Port == any    orelse A#address.port == Port,
                  Profile == any orelse A#address.profile == Profile].
+
+%%%----------------------------------------------------------------
+%% SysPid is the DaemonRef
+
+get_acceptor_options(SysPid) ->
+    case get_daemon_listen_address(SysPid) of
+        {ok,Address} ->
+            get_options(SysPid, Address);
+        {error,Error} ->
+            {error,Error}
+    end.
+
+replace_acceptor_options(SysPid, NewOpts) ->
+    case get_daemon_listen_address(SysPid) of
+        {ok,Address} ->
+            try stop_listener(SysPid)
+            of
+                ok ->
+                    restart_acceptor(SysPid, Address, NewOpts)
+            catch
+                error:_ ->
+                    restart_acceptor(SysPid, Address, NewOpts)
+            end;
+        {error,Error} ->
+            {error,Error}
+    end.
 
 %%%=========================================================================
 %%%  Supervisor callback

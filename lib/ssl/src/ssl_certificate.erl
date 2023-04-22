@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022 All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@
 -include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
 -export([trusted_cert_and_paths/4,
@@ -84,6 +85,9 @@
          available_cert_key_pairs/1,
          available_cert_key_pairs/2
 	]).
+
+%% Tracing
+-export([handle_trace/3]).
 
 %%====================================================================
 %% Internal application API
@@ -309,19 +313,24 @@ find_cross_sign_root_paths([_ | Rest] = Path, CertDbHandle, CertDbRef, Invalidat
     end.
 
 handle_cert_auths(Chain, [], _, _) ->
-    %% If we have no authorities extension to check we just accept 
-    %% first choice
+    %% If we have no authorities extension (or corresponding
+    %% 'certificate_authorities' in the certificate request message in
+    %% TLS-1.2 is empty) to check we just accept first choice.
     {ok, Chain};
 handle_cert_auths([Cert], CertAuths, CertDbHandle, CertDbRef) ->
-    {ok, {_, [Cert | _] = EChain}, {_, [_ | DCerts]}} = certificate_chain(Cert, CertDbHandle, CertDbRef, [], both),
-    case cert_auth_member(cert_subjects(DCerts), CertAuths) of
-        true ->
-            {ok, EChain};
-        false ->
-            {error, EChain, not_in_auth_domain}
+    case certificate_chain(Cert, CertDbHandle, CertDbRef, [], both) of
+        {ok, {_, [Cert | _] = EChain}, {_, [_ | DCerts]}}  ->
+            case cert_auth_member(cert_issuers(DCerts), CertAuths) of
+                true ->
+                    {ok, EChain};
+                false ->
+                    {error, EChain, not_in_auth_domain}
+            end;
+        _ ->
+            {ok, [Cert]}
     end;
 handle_cert_auths([_ | Certs] = EChain, CertAuths, _, _) ->
-    case cert_auth_member(cert_subjects(Certs), CertAuths) of
+    case cert_auth_member(cert_issuers(Certs), CertAuths) of
         true ->
             {ok, EChain};
         false ->
@@ -337,13 +346,14 @@ available_cert_key_pairs(CertKeyGroups) ->
 
 %% Create the prioritized list of cert key pairs that
 %% are availble for use in the negotiated version
-available_cert_key_pairs(CertKeyGroups, {3, 4}) ->
+available_cert_key_pairs(CertKeyGroups, ?TLS_1_3) ->
     RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
-available_cert_key_pairs(CertKeyGroups, {3, 3}) ->
+available_cert_key_pairs(CertKeyGroups, ?TLS_1_2) ->
      RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
-available_cert_key_pairs(CertKeyGroups, {3, N}) when N < 3->
+available_cert_key_pairs(CertKeyGroups, Version)
+  when ?TLS_LT(Version, ?TLS_1_2) ->
     RevAlgos = [dsa, rsa, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
 
@@ -443,7 +453,7 @@ find_alternative_root([Cert | _], CertDbHandle, CertDbRef, InvalidatedList) ->
     end.
 
 find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb, InvalidatedList) ->
-    IsIssuerFun =
+   IsIssuerFun =
 	fun({_Key, #cert{otp=ErlCertCandidate}}, Acc) ->
 		case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
 		    true ->
@@ -463,12 +473,15 @@ find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb, I
 	end,
 
     Result = case is_reference(CertsDbRef) of
-		 true ->
-		     do_find_issuer(IsIssuerFun, CertDbHandle, ListDb); 
-		 false ->
+		 true when ListDb == [] ->
+                     CertEntryList = ssl_pkix_db:select_certentries_by_ref(CertsDbRef, CertDbHandle),
+		     do_find_issuer(IsIssuerFun, CertDbHandle, CertEntryList); 
+		 false when ListDb == [] ->
 		     {extracted, CertsData} = CertsDbRef,
-		     DB = [Entry || {decoded, Entry} <- CertsData],
-		     do_find_issuer(IsIssuerFun, CertDbHandle, DB)
+		     CertEntryList = [Entry || {decoded, Entry} <- CertsData],
+		     do_find_issuer(IsIssuerFun, CertDbHandle, CertEntryList);
+                 _ ->
+                     do_find_issuer(IsIssuerFun, CertDbHandle, ListDb)
 	     end,
     case Result of
         issuer_not_found ->
@@ -476,6 +489,7 @@ find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb, I
 	Result ->
 	    Result
     end.
+
 
 do_find_issuer(IssuerFun, CertDbHandle, CertDb) ->
     try 
@@ -569,10 +583,12 @@ verify_cert_extensions(Cert, UserState, [], _) ->
     {valid, UserState#{issuer => Cert}};
 verify_cert_extensions(Cert, #{ocsp_responder_certs := ResponderCerts,
                                ocsp_state := OscpState,
-                               issuer := Issuer} = UserState, 
-                       [#certificate_status{response = OcspResponsDer} | Exts], Context) ->
+                               issuer := Issuer} = UserState,
+                       [#certificate_status{response = OcspResponsDer} | Exts],
+                       Context) ->
     #{ocsp_nonce := Nonce} = OscpState,
-    case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponsDer, ResponderCerts, Nonce) of
+    case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponsDer,
+                                       ResponderCerts, Nonce) of
         valid ->
             verify_cert_extensions(Cert, UserState, Exts, Context);
         {bad_cert, _} = Status ->
@@ -582,21 +598,22 @@ verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
     %% Skip unknown extensions!
     verify_cert_extensions(Cert, UserState, Exts, Context).
 
-verify_sign(_, #{version := {_, Minor}}) when Minor < 3 ->
+verify_sign(_, #{version := Version})
+            when ?TLS_LT(Version, ?TLS_1_2) ->
     %% This verification is not applicable pre TLS-1.2 
     true; 
-verify_sign(Cert, #{version := {3, 3},
+verify_sign(Cert, #{version := ?TLS_1_2,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := {3, 3},
+verify_sign(Cert, #{version := ?TLS_1_2,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := {3, 4},
+verify_sign(Cert, #{version := ?TLS_1_3,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs);
-verify_sign(Cert, #{version := {3, 4},
+verify_sign(Cert, #{version := ?TLS_1_3,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs).
 
@@ -611,7 +628,7 @@ is_supported_signature_algorithm_1_2(#'OTPCertificate'{signatureAlgorithm =
 is_supported_signature_algorithm_1_2(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->
     Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
     {Hash, Sign, _ } = ssl_cipher:scheme_to_components(Scheme),
-    ssl_cipher:is_supported_sign({pre_1_3_hash(Hash), pre_1_3_sign(Sign)}, ssl_cipher:signature_schemes_1_2(SignAlgs)).
+    ssl_cipher:is_supported_sign({Hash, pre_1_3_sign(Sign)}, ssl_cipher:signature_schemes_1_2(SignAlgs)).
 is_supported_signature_algorithm_1_3(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->
     Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
     ssl_cipher:is_supported_sign(Scheme, SignAlgs).
@@ -620,10 +637,6 @@ pre_1_3_sign(rsa_pkcs1) ->
     rsa;
 pre_1_3_sign(Other) ->
     Other.
-pre_1_3_hash(sha1) ->
-    sha;
-pre_1_3_hash(Hash) ->
-    Hash.
 
 paths(Chain, CertDbHandle) ->
     paths(Chain, Chain, CertDbHandle, []).
@@ -699,18 +712,18 @@ maybe_shorten_path(Path, PartialChainHandler, Default) ->
     DerCerts = [Der || #cert{der=Der} <- Path],
     try PartialChainHandler(DerCerts) of
         {trusted_ca, Root} ->
-            new_trusteded_path(Root, Path, Default);
+            new_trusted_path(Root, Path, Default);
         unknown_ca ->
             Default
     catch _:_ ->
             Default
     end.
 
-new_trusteded_path(DerCert, [#cert{der=DerCert}=Cert | Chain], _) ->
-    {Cert, Chain};
-new_trusteded_path(DerCert, [_ | Rest], Default) ->
-    new_trusteded_path(DerCert, Rest, Default);
-new_trusteded_path(_, [], Default) ->
+new_trusted_path(DerCert, [#cert{der=DerCert}=Cert | Path], _) ->
+    {Cert, Path};
+new_trusted_path(DerCert, [_ | Rest], Default) ->
+    new_trusted_path(DerCert, Rest, Default);
+new_trusted_path(_, [], Default) ->
     %% User did not pick a cert present 
     %% in the cert chain so ignore
     Default.
@@ -790,21 +803,63 @@ subject(Cert) ->
     {_Serial,Subject} = public_key:pkix_subject_id(Cert),
     Subject.
 
-cert_subjects([], Acc) ->
+issuer(Cert) ->
+    case public_key:pkix_is_self_signed(Cert) of
+        true ->
+            subject(Cert);
+        false ->
+            case is_binary(Cert) of
+                true ->
+                    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
+                    public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.issuer);
+                false ->
+                    #'OTPCertificate'{tbsCertificate = TBSCert} = Cert,
+                    public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.issuer)
+            end
+    end.
+
+cert_issuers([], Acc) ->
     Acc;
-cert_subjects([Cert | Rest], Acc) ->
-    cert_subjects(Rest, [subject(Cert) | Acc]).
+cert_issuers([Cert | Rest], Acc) ->
+    cert_issuers(Rest, [issuer(Cert) | Acc]).
 
-cert_subjects(OTPCerts) ->
-    cert_subjects(OTPCerts, []).
+cert_issuers(OTPCerts) ->
+    cert_issuers(OTPCerts, []).
 
-decode_cert_auths(<<>>, Acc) ->
-    Acc;
-decode_cert_auths(<<?UINT16(Len), Auth:Len/binary, Rest/binary>>, Acc) ->
-     NormAut = public_key:pkix_normalize_name(Auth),
-    decode_cert_auths(Rest, [NormAut | Acc]).
-
-cert_auth_member(ChainSubjects, EncCertAuths) ->
-    CertAuths = decode_cert_auths(EncCertAuths, []),
+cert_auth_member(ChainSubjects, CertAuths) ->
     CommonAuthorities = sets:intersection(sets:from_list(ChainSubjects), sets:from_list(CertAuths)),
     not sets:is_empty(CommonAuthorities).
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(crt,
+             {call, {?MODULE, validate, [Cert, StatusOrExt| _]}}, Stack) ->
+    {io_lib:format("[~W] StatusOrExt = ~W", [Cert, 3, StatusOrExt, 10]), Stack};
+    %% {io_lib:format("(~s) StatusOrExt = ~W",
+    %%                [ssl_test_lib:format_cert(Cert), StatusOrExt, 10]), Stack};
+handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
+                          [Cert,
+                           _UserState,
+                           [], _Context]}}, Stack) ->
+    {io_lib:format(" no more extensions [~W]", [Cert, 3]), Stack};
+    %% {io_lib:format(" no more extensions (~s)", [ssl_test_lib:format_cert(Cert)]), Stack};
+handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
+                          [Cert,
+                           #{ocsp_responder_certs := _ResponderCerts,
+                             ocsp_state := OcspState,
+                             issuer := Issuer} = _UserState,
+                           [#certificate_status{response = OcspResponsDer} |
+                            _Exts], _Context]}}, Stack) ->
+    {io_lib:format("#2 OcspState = ~W Issuer = [~W] OcspResponsDer = ~W [~W]",
+                   [OcspState, 10, Issuer, 3, OcspResponsDer, 2, Cert, 3]),
+     Stack};
+    %% {io_lib:format("#2 OcspState = ~W Issuer = (~s) OcspResponsDer = ~W (~s)",
+    %%                [OcspState, 10, ssl_test_lib:format_cert(Issuer),
+    %%                 OcspResponsDer, 2, ssl_test_lib:format_cert(Cert)]),
+handle_trace(crt, {return_from,
+                   {ssl_certificate, verify_cert_extensions, 4},
+                   {valid, #{issuer := Issuer}}}, Stack) ->
+    {io_lib:format(" extensions valid Issuer = ~W", [Issuer, 3]), Stack}.
+    %% {io_lib:format(" extensions valid Issuer = ~s", [ssl_test_lib:format_cert(Issuer)]), Stack}.

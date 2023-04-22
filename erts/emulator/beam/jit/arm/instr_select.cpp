@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,24 +25,24 @@
 
 using namespace asmjit;
 
-/* Request Support::isInt12 ! */
 template<typename T>
-bool isInt12(T value) {
+static constexpr bool isInt13(T value) {
     typedef typename std::make_unsigned<T>::type U;
     typedef typename std::make_signed<T>::type S;
 
     return Support::isUInt12(U(value)) || Support::isUInt12(-S(value));
 }
 
-/* The cmp instruction for AArch accepts only a 12-bit immediate value.
- * That means that to compare most atoms, the atom number to be compared
- * must be loaded into a temporary register.
+/* The `cmp`/`cmn` instructions in AArch64 only accept 12-bit unsigned immediate
+ * values (`cmn` negating said immediate, giving us an effective range of 13
+ * bit signed). That means that to compare most atoms, the atom number to be
+ * compared must be loaded into a temporary register.
  *
- * We can use the immediate form of cmp for more values if we untag both
- * the source value and the values to be compared.
+ * We can use the immediate form of `cmp`/`cmn` for more values if we untag
+ * both the source value and the values to be compared.
  *
  * This function finds the `base` and `shift` that result in the most number
- * of elements fitting in a 12-bit immediate. */
+ * of elements fitting in a 13-bit immediate. */
 static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
     auto left = args.begin(), right = args.begin();
     auto best_left = left, best_right = right;
@@ -63,8 +63,8 @@ static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
         mid_value = (left + distance / 2)->as<ArgImmed>().get() >> shift;
         right_value = right->as<ArgImmed>().get() >> shift;
 
-        if (isInt12(left_value - mid_value) &&
-            isInt12(right_value - mid_value)) {
+        if (isInt13(left_value - mid_value) &&
+            isInt13(right_value - mid_value)) {
             if (distance > std::distance(best_left, best_right)) {
                 best_right = right;
                 best_left = left;
@@ -86,14 +86,14 @@ static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
 
     /* Apply neither shift nor base if the best run doesn't need it: we're more
      * likely to lose by rebasing/shifting. */
-    if (isInt12(best_left->as<ArgImmed>().get()) &&
-        isInt12(best_right->as<ArgImmed>().get())) {
+    if (isInt13(best_left->as<ArgImmed>().get()) &&
+        isInt13(best_right->as<ArgImmed>().get())) {
         return std::make_pair(0, 0);
     }
 
     /* Skip rebasing if the best run doesn't need it after shifting. */
-    if (isInt12(best_left->as<ArgImmed>().get() >> shift) &&
-        isInt12(best_right->as<ArgImmed>().get() >> shift)) {
+    if (isInt13(best_left->as<ArgImmed>().get() >> shift) &&
+        isInt13(best_right->as<ArgImmed>().get() >> shift)) {
         return std::make_pair(0, shift);
     }
 
@@ -102,6 +102,7 @@ static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
 }
 
 const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
+        const ArgSource &Src,
         const Span<ArgVal> &args,
         a64::Gp comparand,
         Label fail,
@@ -112,16 +113,21 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
     /* Emit code to test that the source value has the correct type and
      * untag it. */
     comment("(comparing untagged+rebased values)");
-    if (args.front().isSmall()) {
-        a.and_(TMP1, comparand, imm(_TAG_IMMED1_MASK));
-        a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+    if ((args.front().isSmall() && always_small(Src)) ||
+        (args.front().isAtom() && exact_type<BeamTypeId::Atom>(Src))) {
+        comment("(skipped type test)");
     } else {
-        ASSERT(args.front().isAtom());
-        a.and_(TMP1, comparand, imm(_TAG_IMMED2_MASK));
-        a.cmp(TMP1, imm(_TAG_IMMED2_ATOM));
-    }
+        if (args.front().isSmall()) {
+            a.and_(TMP1, comparand, imm(_TAG_IMMED1_MASK));
+            a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+        } else {
+            ASSERT(args.front().isAtom());
+            a.and_(TMP1, comparand, imm(_TAG_IMMED2_MASK));
+            a.cmp(TMP1, imm(_TAG_IMMED2_ATOM));
+        }
 
-    a.b_ne(resolve_label(fail, disp1MB));
+        a.b_ne(resolve_label(fail, disp1MB));
+    }
 
     if (shift != 0) {
         a.lsr(ARG1, comparand, imm(shift));
@@ -222,7 +228,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, 0));
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
         comment("simplified tuple test since the source is always a tuple "
                 "when boxed");
     } else {
@@ -281,7 +287,8 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
             emit_linear_search(src.reg, fail, args);
         }
     } else {
-        auto untagged = emit_select_untag(args, src.reg, next, base, shift);
+        auto untagged =
+                emit_select_untag(Src, args, src.reg, next, base, shift);
 
         if (!emit_optimized_three_way_select(ARG1, fail, untagged)) {
             emit_linear_search(ARG1, fail, untagged);
@@ -322,7 +329,8 @@ void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
     if (base == 0 && shift == 0) {
         emit_binsearch_nodes(src.reg, 0, count - 1, fail, args);
     } else {
-        auto untagged = emit_select_untag(args, src.reg, fail, base, shift);
+        auto untagged =
+                emit_select_untag(Src, args, src.reg, fail, base, shift);
         emit_binsearch_nodes(ARG1, 0, count - 1, fail, untagged);
     }
 
@@ -407,17 +415,21 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
 
     ASSERT(Size.get() == args.size());
 
-    a.and_(TMP3, src.reg, imm(_TAG_IMMED1_MASK));
-    a.cmp(TMP3, imm(_TAG_IMMED1_SMALL));
-
-    if (Fail.isLabel()) {
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
+    if (always_small(Src)) {
+        comment("(skipped type test)");
     } else {
-        /* NIL means fallthrough to the next instruction. */
-        ASSERT(Fail.isNil());
+        a.and_(TMP3, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP3, imm(_TAG_IMMED1_SMALL));
 
-        fail = a.newLabel();
-        a.b_ne(fail);
+        if (Fail.isLabel()) {
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+        } else {
+            /* NIL means fallthrough to the next instruction. */
+            ASSERT(Fail.isNil());
+
+            fail = a.newLabel();
+            a.b_ne(fail);
+        }
     }
 
     a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));

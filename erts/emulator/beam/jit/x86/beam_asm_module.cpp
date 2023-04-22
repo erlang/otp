@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,53 +78,12 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
                                          int num_functions,
                                          const BeamFile *file)
         : BeamModuleAssembler(ga, mod, num_labels, file) {
-    codeHeader = a.newLabel();
+    code_header = a.newLabel();
     a.align(AlignMode::kCode, 8);
-    a.bind(codeHeader);
+    a.bind(code_header);
 
     embed_zeros(sizeof(BeamCodeHeader) +
                 sizeof(ErtsCodeInfo *) * num_functions);
-
-    /* Shared trampoline for function_clause errors, which can't jump straight
-     * to `i_func_info_shared` due to size restrictions. */
-    funcInfo = a.newLabel();
-    a.align(AlignMode::kCode, 8);
-    a.bind(funcInfo);
-    abs_jmp(ga->get_i_func_info_shared());
-
-    /* Shared trampoline for yielding on function ingress. */
-    yieldEnter = a.newLabel();
-    a.align(AlignMode::kCode, 8);
-    a.bind(yieldEnter);
-    abs_jmp(ga->get_i_test_yield_shared());
-
-    /* Shared trampoline for yielding on function return. */
-    yieldReturn = a.newLabel();
-    a.align(AlignMode::kCode, 8);
-    a.bind(yieldReturn);
-    abs_jmp(ga->get_dispatch_return());
-
-    /* Setup the early_nif/breakpoint trampoline. */
-    genericBPTramp = a.newLabel();
-    a.align(AlignMode::kCode, 16);
-    a.bind(genericBPTramp);
-    {
-        a.ret();
-
-        a.align(AlignMode::kCode, 16);
-        ASSERT(a.offset() - code.labelOffsetFromBase(genericBPTramp) == 16 * 1);
-        abs_jmp(ga->get_call_nif_early());
-
-        a.align(AlignMode::kCode, 16);
-        ASSERT(a.offset() - code.labelOffsetFromBase(genericBPTramp) == 16 * 2);
-        aligned_call(ga->get_generic_bp_local());
-        a.ret();
-
-        a.align(AlignMode::kCode, 16);
-        ASSERT(a.offset() - code.labelOffsetFromBase(genericBPTramp) == 16 * 3);
-        aligned_call(ga->get_generic_bp_local());
-        abs_jmp(ga->get_call_nif_early());
-    }
 }
 
 Label BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
@@ -194,6 +153,57 @@ void BeamModuleAssembler::emit_i_nif_padding() {
     }
 }
 
+void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
+    constexpr ssize_t flag_offset =
+            sizeof(ErtsCodeInfo) + BEAM_ASM_FUNC_PROLOGUE_SIZE -
+            offsetof(ErtsCodeInfo, u.metadata.breakpoint_flag);
+
+    Label bp_and_nif = a.newLabel(), bp_only = a.newLabel(),
+          nif_only = a.newLabel();
+
+    a.mov(RET, x86::qword_ptr(x86::rsp));
+    a.movzx(RETd, x86::byte_ptr(RET, -flag_offset));
+
+    a.cmp(RETd, imm(ERTS_ASM_BP_FLAG_BP_NIF_CALL_NIF_EARLY));
+    a.short_().je(bp_and_nif);
+    a.cmp(RETd, imm(ERTS_ASM_BP_FLAG_CALL_NIF_EARLY));
+    a.short_().je(nif_only);
+    a.cmp(RETd, imm(ERTS_ASM_BP_FLAG_BP));
+    a.short_().je(bp_only);
+
+#ifndef DEBUG
+    a.ret();
+#else
+    Label error = a.newLabel();
+
+    /* RET must be a valid breakpoint flag. */
+    a.test(RETd, RETd);
+    a.short_().jnz(error);
+    a.ret();
+
+    a.bind(error);
+    a.ud2();
+#endif
+
+    a.bind(bp_and_nif);
+    {
+        aligned_call(labels[generic_bp_local]);
+        /* FALL THROUGH */
+    }
+
+    a.bind(nif_only);
+    {
+        /* call_nif_early returns on its own, unlike generic_bp_local. */
+        a.jmp(labels[call_nif_early]);
+    }
+
+    a.bind(bp_only);
+    {
+        aligned_call(labels[generic_bp_local]);
+        a.ret();
+    }
+}
+
 void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
     /* This little prologue is used by nif loading and tracing to insert
      * alternative instructions. The call is filled with a relative call to a
@@ -203,21 +213,19 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
 
     a.short_().jmp(next);
 
-    /* We embed a zero byte here, which is used to flag whether to make an early
-     * nif call, call a breakpoint handler, or both. */
-    a.embedUInt8(ERTS_ASM_BP_FLAG_NONE);
-
-    if (genericBPTramp.isValid()) {
-        a.call(genericBPTramp);
+    if (code_header.isValid()) {
+        auto fragment = ga->get_i_breakpoint_trampoline_shared();
+        aligned_call(resolve_fragment(fragment));
     } else {
         /* NIF or BIF stub; we're not going to use this trampoline as-is, but
          * we need to reserve space for it. */
         a.ud2();
+        a.align(AlignMode::kCode, sizeof(UWord));
     }
 
-    a.align(AlignMode::kCode, 8);
+    ASSERT(a.offset() % sizeof(UWord) == 0);
     a.bind(next);
-    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 }
 
@@ -251,18 +259,6 @@ bool BeamModuleAssembler::emit(unsigned specific_op, const Span<ArgVal> &args) {
     default:
         ERTS_ASSERT(0 && "Invalid instruction");
         break;
-    }
-
-    if (getOffset() == last_error_offset) {
-        /*
-         * The previous PC where an exception may occur is equal to the
-         * current offset, which is also the offset of the next
-         * instruction. If the next instruction happens to be a
-         * line instruction, the location for the exception will
-         * be that line instruction, which is probably wrong.
-         * To avoid that, bump the instruction offset.
-         */
-        a.nop();
     }
 
 #ifdef BEAMASM_DUMP_SIZES
@@ -311,33 +307,33 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     info.mfa.module = Module.get();
     info.mfa.function = Function.get();
     info.mfa.arity = Arity.get();
-    info.u.gen_bp = NULL;
+    info.gen_bp = NULL;
 
     comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
 
     /* This is an ErtsCodeInfo structure that has a valid x86 opcode as its `op`
-     * field, which *calls* the funcInfo trampoline so we can trace it back to
-     * this particular function.
+     * field, which *calls* the `_i_func_info_shared` fragment so we can trace
+     * it back to this particular function.
      *
-     * We make a relative call to a trampoline in the module header because this
-     * needs to fit into a word, and an directly call to `i_func_info_shared`
-     * would be too large. */
-    if (funcInfo.isValid()) {
-        a.call(funcInfo);
-    } else {
-        a.nop();
-    }
+     * We also use this field to store the current breakpoint flag so that we
+     * only have to modify a single branch target when changing breakpoints. */
+    a.call(resolve_fragment(ga->get_i_func_info_shared()));
+    a.nop();
+    a.nop();
+    a.embedUInt8(ERTS_ASM_BP_FLAG_NONE);
 
-    a.align(AlignMode::kCode, sizeof(UWord));
-    a.embed(&info.u.gen_bp, sizeof(info.u.gen_bp));
+    ASSERT(a.offset() % sizeof(UWord) == 0);
+    a.embed(&info.gen_bp, sizeof(info.gen_bp));
     a.embed(&info.mfa, sizeof(info.mfa));
 }
 
 void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
     ASSERT(Label.isLabel());
 
-    currLabel = rawLabels[Label.get()];
-    a.bind(currLabel);
+    current_label = rawLabels[Label.get()];
+    a.bind(current_label);
+
+    last_movarg_offset = ~0;
 }
 
 void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
@@ -347,7 +343,7 @@ void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
 }
 
 void BeamModuleAssembler::emit_on_load() {
-    on_load = currLabel;
+    on_load = current_label;
 }
 
 void BeamModuleAssembler::emit_int_code_end() {
@@ -356,14 +352,28 @@ void BeamModuleAssembler::emit_int_code_end() {
     a.bind(code_end);
 
     emit_nyi("int_code_end");
+
+    for (auto pair : _dispatchTable) {
+        a.bind(pair.second);
+        a.jmp(imm(pair.first));
+    }
 }
 
-void BeamModuleAssembler::emit_line(const ArgWord &) {
-    /*
-     * There is no need to align the line instruction. In the loaded
-     * code, the type of the pointer will be void* and that pointer
-     * will only be used in comparisons.
-     */
+void BeamModuleAssembler::emit_line(const ArgWord &Loc) {
+    /* There is no need to align the line instruction. In the loaded code, the
+     * type of the pointer will be void* and that pointer will only be used in
+     * comparisons.
+     *
+     * We only need to do something when there's a possibility of raising an
+     * exception at the very end of the preceding instruction (and thus
+     * pointing at the start of this one). If we were to do nothing, the error
+     * would erroneously refer to this instead of the preceding line.
+     *
+     * Since line addresses are taken _after_ line instructions we can avoid
+     * this by adding a nop when we detect this condition. */
+    if (a.offset() == last_error_offset) {
+        a.nop();
+    }
 }
 
 void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {
@@ -393,75 +403,12 @@ void BeamModuleAssembler::emit_call_error_handler() {
     emit_nyi("call_error_handler should never be called");
 }
 
-unsigned BeamModuleAssembler::patchCatches(char *rw_base) {
-    unsigned catch_no = BEAM_CATCHES_NIL;
+const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)()) {
+    auto it = _dispatchTable.find(fragment);
 
-    for (const auto &c : catches) {
-        const auto &patch = c.patch;
-        ErtsCodePtr handler;
-
-        handler = (ErtsCodePtr)getCode(c.handler);
-        catch_no = beam_catches_cons(handler, catch_no, nullptr);
-
-        /* Patch the `mov` instruction with the catch tag */
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (unsigned *)&rw_base[offset + patch.ptr_offs];
-
-        ASSERT(0x7fffffff == *where);
-        Eterm catch_term = make_catch(catch_no);
-
-        /* With the current tag scheme, more than 33 million
-         * catches can exist at once. */
-        ERTS_ASSERT(catch_term >> 31 == 0);
-        *where = (unsigned)catch_term;
+    if (it == _dispatchTable.end()) {
+        it = _dispatchTable.emplace(fragment, a.newLabel()).first;
     }
 
-    return catch_no;
-}
-
-void BeamModuleAssembler::patchImport(char *rw_base,
-                                      unsigned index,
-                                      BeamInstr I) {
-    for (const auto &patch : imports[index].patches) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
-
-        ASSERT(LLONG_MAX == *where);
-        *where = I + patch.val_offs;
-    }
-}
-
-void BeamModuleAssembler::patchLambda(char *rw_base,
-                                      unsigned index,
-                                      BeamInstr I) {
-    for (const auto &patch : lambdas[index].patches) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
-
-        ASSERT(LLONG_MAX == *where);
-        *where = I + patch.val_offs;
-    }
-}
-
-void BeamModuleAssembler::patchLiteral(char *rw_base,
-                                       unsigned index,
-                                       Eterm lit) {
-    for (const auto &patch : literals[index].patches) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
-
-        ASSERT(LLONG_MAX == *where);
-        *where = lit + patch.val_offs;
-    }
-}
-
-void BeamModuleAssembler::patchStrings(char *rw_base,
-                                       const byte *string_table) {
-    for (const auto &patch : strings) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (const byte **)&rw_base[offset + 2];
-
-        ASSERT(LLONG_MAX == (Eterm)*where);
-        *where = string_table + patch.val_offs;
-    }
+    return it->second;
 }

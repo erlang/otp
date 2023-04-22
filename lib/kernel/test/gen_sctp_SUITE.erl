@@ -690,6 +690,9 @@ flush() ->
 
 %% Test the API function open/1,2 and close/1.
 api_open_close(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_api_open_close() end).
+
+do_api_open_close() ->
     {ok,S1} = gen_sctp:open(0),
     {ok,P}  = inet:port(S1),
     ok      = gen_sctp:close(S1),
@@ -706,7 +709,7 @@ api_open_close(Config) when is_list(Config) ->
     {ok,P}  = inet:port(S4),
     ok      = gen_sctp:close(S4),
 
-    {ok,S5} = gen_sctp:open(P, [{ifaddr,any}]),
+    {ok,S5} = gen_sctp:open(P, [{debug, false}, {ifaddr,any}, {debug, true}]),
     {ok,P}  = inet:port(S5),
     ok      = gen_sctp:close(S5),
 

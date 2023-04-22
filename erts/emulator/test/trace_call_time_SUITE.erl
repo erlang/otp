@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,13 +71,15 @@
 	 bif/1, nif/1]).
 
 init_per_testcase(_Case, Config) ->
-    erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_time,call_count]),
+    erlang:trace_pattern({'_','_','_'}, false,
+                         [local,meta,call_time,call_count,call_memory]),
     erlang:trace_pattern(on_load, false, [local,meta,call_time,call_count]),
     timer:now_diff(now(),now()),
     Config.
 
 end_per_testcase(_Case, _Config) ->
-    erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_time,call_count]),
+    erlang:trace_pattern({'_','_','_'}, false,
+                         [local,meta,call_time,call_count,call_memory]),
     erlang:trace_pattern(on_load, false, [local,meta,call_time,call_count]),
     erlang:trace(all, false, [all]),
     ok.
@@ -96,7 +98,7 @@ all() ->
 %% Tests basic call time trace
 basic(Config) when is_list(Config) ->
     P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-    M = 1000,
+    M = 900,
     %%
     1 = erlang:trace_pattern({?MODULE,seq,  '_'}, true, [call_time]),
     2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_time]),
@@ -298,12 +300,14 @@ combo(Config) when is_list(Config) ->
     2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_time]),
     2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, MetaMs, [{meta,MetaTracer}]),
     2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_count]),
+    2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_memory]),
 
     % bifs
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, [], [local]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_time]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, MetaMs, [{meta,MetaTracer}]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_count]),
+    2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_memory]),
 
     1 = erlang:trace(Self, true, [{tracer,LocalTracer} | Flags]),
     %%
@@ -319,12 +323,14 @@ combo(Config) when is_list(Config) ->
 
     %% check empty trace_info for ?MODULE:seq_r/3
     {all,[_|_]=TraceInfo}     = erlang:trace_info({?MODULE,seq_r,3}, all),
+    io:format("TraceInfo=~p\n",[TraceInfo]),
     {value,{traced,local}}    = lists:keysearch(traced, 1, TraceInfo),
     {value,{match_spec,[]}}   = lists:keysearch(match_spec, 1, TraceInfo),
     {value,{meta,MetaTracer}} = lists:keysearch(meta, 1, TraceInfo),
     {value,{meta_match_spec,MetaMs}} = lists:keysearch(meta_match_spec, 1, TraceInfo),
     {value,{call_count,0}} = lists:keysearch(call_count, 1, TraceInfo),
     {value,{call_time,[]}} = lists:keysearch(call_time, 1, TraceInfo),
+    {value,{call_memory,[]}} = lists:keysearch(call_memory, 1, TraceInfo),
 
     %% check empty trace_info for erlang:term_to_binary/1
     {all, [_|_] = TraceInfoBif} = erlang:trace_info({erlang, term_to_binary, 1}, all),
@@ -334,6 +340,7 @@ combo(Config) when is_list(Config) ->
     {value,{meta_match_spec,MetaMs}} = lists:keysearch(meta_match_spec, 1, TraceInfoBif),
     {value,{call_count,0}} = lists:keysearch(call_count, 1, TraceInfoBif),
     {value,{call_time,[]}} = lists:keysearch(call_time, 1, TraceInfoBif),
+    {value,{call_memory,[]}} = lists:keysearch(call_memory, 1, TraceInfoBif),
 
     %%
     [3,2,1] = seq_r(1, 3, fun(X) -> X+1 end),
@@ -405,11 +412,21 @@ bif(Config) when is_list(Config) ->
     Pid = setup(),
     {L, Tot1} = execute(Pid, fun() -> with_bif(M) end),
 
-    {call_time,[{Pid,_,S,Us}]} = erlang:trace_info({?MODULE,with_bif,1}, call_time),
-    T1 = Tot1 - (S*1000000 + Us),
+    {call_time,[{Pid,_,S,Us}]}=WB = erlang:trace_info({?MODULE,with_bif,1}, call_time),
+    T1 = Tot1 - (S*1000_000 + Us),
 
-    ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M - 1, 0, 0}], T1/2),
-    ok = check_trace_info({erlang, term_to_binary, 1}, [{Pid, M - 1, 0, 0}], T1/2),
+    B2T = erlang:trace_info({erlang, binary_to_term, 1}, call_time),
+    T2B = erlang:trace_info({erlang, term_to_binary, 1}, call_time),
+    io:format("with_bif       = ~p\n", [WB]),
+    io:format("binary_to_term = ~p\n", [B2T]),
+    io:format("term_to_binary = ~p\n", [T2B]),
+    Sum = us(WB) + us(B2T) + us(T2B),
+    io:format("Sum  = ~p us\n", [Sum]),
+    io:format("Tot1 = ~p us  Diff = ~p us\n", [Tot1, Tot1-Sum]),
+    ok = check_trace_info_ret({erlang, binary_to_term, 1}, [{Pid, M-1, 0, 0}],
+                              T1/2, B2T),
+    ok = check_trace_info_ret({erlang, term_to_binary, 1}, [{Pid, M-1, 0, 0}],
+                              T1/2, T2B),
 
     % disable term2binary
 
@@ -424,6 +441,9 @@ bif(Config) when is_list(Config) ->
     P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     Pid ! quit,
     ok.
+
+us({call_time,[{_,_,S,Us}]}) ->
+    S*1000_000 + Us.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -705,23 +725,35 @@ seq_r(Start, Stop, Succ, R) ->
     seq_r(Succ(Start), Stop, Succ, [Start | R]).
 
 % Check call time tracing data and print mismatches
-check_trace_info(Mfa, [{Pid, ExpectedC,_,_}] = Expect, Time) ->
-    {call_time,[{Pid,C,S,Us}]} = erlang:trace_info(Mfa, call_time),
+check_trace_info(Mfa, Expect, Time) ->
+    check_trace_info_ret(Mfa, Expect, Time, erlang:trace_info(Mfa, call_time)).
+
+check_trace_info_ret(Mfa, [{Pid, ExpectedC,_,_}] = Expect, Time, TraceInfo) ->
+    {call_time,[{Pid,Cnt,S,Us}]} = TraceInfo,
+
     {Mod, Name, Arity} = Mfa,
     IsBuiltin = erlang:is_builtin(Mod, Name, Arity),
-    if
+    ok = if
         %% Call count on BIFs may exceed number of calls as they often trap to
         %% themselves.
-        IsBuiltin, C >= ExpectedC, S >= 0, Us >= 0,
-          abs(1 - Time/(S*1000000 + Us)) < ?R_ERROR;
-          abs(Time - S*1000000 - Us) < ?US_ERROR ->
+        IsBuiltin, Cnt >= ExpectedC ->
             ok;
-        not IsBuiltin, C =:= ExpectedC, S >= 0, Us >= 0,
-          abs(1 - Time/(S*1000000 + Us)) < ?R_ERROR;
-          abs(Time - S*1000000 - Us) < ?US_ERROR ->
+        not IsBuiltin, Cnt =:= ExpectedC ->
             ok;
         true ->
-            Sum = S*1000000 + Us,
+            io:format("Expected ~p -> {call_time, ~p}~n"
+                      " - got call count ~w~p",
+                      [Mfa, Expect, Cnt]),
+            count_error
+    end,
+
+    true = (S >= 0),
+    true = (Us >= 0),
+    Sum = S*1000_000 + Us,
+    if
+        abs(1 - Time/Sum) < ?R_ERROR; abs(Time - Sum) < ?US_ERROR ->
+            ok;
+        true ->
             io:format("Expected ~p -> {call_time, ~p (Time ~p us)}~n - got ~w "
                       "s. ~w us. = ~w us. - ~w -> delta ~w (ratio ~.2f, "
                       "should be 1.0)~n",
@@ -729,8 +761,8 @@ check_trace_info(Mfa, [{Pid, ExpectedC,_,_}] = Expect, Time) ->
                        S, Us, Sum, Time, Sum - Time, Time/Sum]),
             time_error
     end;
-check_trace_info(Mfa, Expect, _) ->
-    case erlang:trace_info(Mfa, call_time) of
+check_trace_info_ret(Mfa, Expect, _, TraceInfo) ->
+    case TraceInfo of
         {call_time, Expect} ->
             ok;
         Other ->
@@ -793,7 +825,7 @@ setup() ->
 
 setup(Opts) ->
     Pid = spawn_opt(fun() -> loop() end,
-                   [link, {max_heap_size, 10000}]),
+                   [link, {max_heap_size, 12000}]),
     1 = erlang:trace(Pid, true, [call|Opts]),
     Pid.
 

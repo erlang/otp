@@ -467,7 +467,7 @@ quote(Text) ->
 %% @doc Parse text. Takes an initial scanner starting position as first
 %% argument.
 %%
-%% The macro `?Q(Text)' expands to `merl:quote(?LINE, Text, Env)'.
+%% The macro `?Q(Text)' expands to `merl:quote(?LINE, Text)'.
 %%
 %% @see quote/1
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,21 @@
 -module(error_info_lib).
 -export([test_error_info/2, test_error_info/3]).
 
+%% The wrapper fun should behave as if it was apply/3.
+%% See os_SUITE for an example usage.
+-type wrapper() :: fun((module(),function(),list(term)) -> term()).
+
+%% Options that can be given to testcases
+-type option() :: {integer(), Regexp :: string()} | %% Match argument #1 against RegExp
+                  {general, Regexp :: string()} |  %% Match general info against RegExp
+                  {wrapper, wrapper()} | %% Wrap the test call using this fun
+                  {gl, pid()}  | %% Use this group leader for the test
+                  no_fail      | %% The test will not fail
+                  allow_rename | %% Allow the exception to not originate from Func
+                  unexplained.   %% Allow the test to not provide any explanation
+-type test() :: {Func :: function(), Args :: [term()]} |
+                {Func :: function(), Args :: [term()], Opts :: list(option())}.
+-spec test_error_info(module(), list(test())) -> ok.
 test_error_info(Module, List) ->
     test_error_info(Module, List, []).
 
@@ -75,7 +90,8 @@ do_error_info([], _Module, Errors0) ->
 eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
     OldGl = group_leader(),
     group_leader(proplists:get_value(gl, Opts, OldGl), self()),
-    try apply(Module, F, Args) of
+    Wrapper = proplists:get_value(wrapper, Opts, fun(M, Fun, A) -> apply(M, Fun, A) end),
+    try Wrapper(Module, F, Args) of
         Result ->
             group_leader(OldGl, self()),
             case lists:member(no_fail, Opts) of

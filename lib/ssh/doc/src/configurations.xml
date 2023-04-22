@@ -105,7 +105,7 @@
     <p>There is an ordering, which is:
     </p>
     <list>
-      <item>Level 0: Hard-coded default values in the source code</item>
+      <item>Level 0: Hard-coded default values in the OTP SSH source code</item>
       <item>Level 1: <seefile marker="kernel:config">OTP Configuration Parameters</seefile></item>
       <item>Level 2: Options in the <seefile marker="kernel:config">OTP Configuration Parameters</seefile>
       <c>server_options</c> or <c>client_options</c></item>
@@ -116,7 +116,7 @@
     <p>The only exception is the
     <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
     common option. They are all applied in ascending level order on the set of algorithms. So a
-    <c>modify_algorithms</c> on level zero is applied before one of level one and so on.
+    <c>modify_algorithms</c> on level one is applied before one of level two and so on.
     </p>
     <p>If there is an
     <seetype marker="ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>

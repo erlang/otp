@@ -772,9 +772,9 @@ Operating system
    [Advanced Configure]: #Advanced-configuration-and-build-of-ErlangOTP_Configuring
    [Pre-built Source Release]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Prebuilt-Source-Release
    [make and $ERL_TOP]: #Advanced-configuration-and-build-of-ErlangOTP_make-and-ERLTOP
-   [html documentation]: http://www.erlang.org/download/otp_doc_html_%OTP-VSN%.tar.gz
-   [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-VSN%.tar.gz
-   [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-VSN%.tar.gz
+   [html documentation]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_html_%OTP-VSN%.tar.gz
+   [man pages]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_man_%OTP-VSN%.tar.gz
+   [the released source tar ball]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_src_%OTP-VSN%.tar.gz
    [System Principles]: system/system_principles:system_principles
    [native build]: #How-to-Build-and-Install-ErlangOTP
    [cross build]: INSTALL-CROSS.md

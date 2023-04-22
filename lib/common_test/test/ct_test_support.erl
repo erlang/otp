@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1216,6 +1216,9 @@ result_match({failed,{timetrap_timeout,{'$approx',Num}}},
     end;
 result_match({user_timetrap_error,{Why,'_'}},
 	     {user_timetrap_error,{Why,_Stack}}) ->
+    true;
+result_match({SkipOrFail,{ErrorInd,{thrown,{Why,'_'}}}},
+         {SkipOrFail,{ErrorInd,{thrown,{Why,_Stack}}}}) ->
     true;
 result_match(Result, Result) ->
     true;

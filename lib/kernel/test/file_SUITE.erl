@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -809,10 +809,12 @@ list_dir_1(TestDir, Cnt, Sorted0) ->
 
 untranslatable_names(Config) ->
     case no_untranslatable_names() of
-	true ->
-	    {skip,"Not a problem on this OS"};
 	false ->
-	    untranslatable_names_1(Config)
+	    untranslatable_names_1(Config);
+        os ->
+	    {skip,"Not a problem on this OS"};
+        fs ->
+            {skip,"Not a problem on this FS"}
     end.
 
 untranslatable_names_1(Config) ->
@@ -850,10 +852,12 @@ untranslatable_names_1(Config) ->
 
 untranslatable_names_error(Config) ->
     case no_untranslatable_names() of
-	true ->
-	    {skip,"Not a problem on this OS"};
 	false ->
-	    untranslatable_names_error_1(Config)
+	    untranslatable_names_error_1(Config);
+        os ->
+	    {skip,"Not a problem on this OS"};
+        fs ->
+            {skip,"Not a problem on this FS"}
     end.
 
 untranslatable_names_error_1(Config) ->
@@ -896,9 +900,21 @@ call_and_sort(Node, M, F, A) ->
 
 no_untranslatable_names() ->
     case os:type() of
-	{unix,darwin} -> true;
-	{win32,_} -> true;
-	_ -> false
+	{unix,darwin} -> os;
+	{win32,_} -> os;
+	_ ->
+            %% If we are using utf8only on zfs then we cannot create latin1 characters.
+            case os:find_executable("zfs") of
+                false ->
+                    false;
+                _Zfs ->
+                    case os:cmd("zfs get utf8only `pwd` | grep utf8only | awk '{print $3}'") of
+                        "on" ++ _ ->
+                            fs;
+                        _ ->
+                            false
+                    end
+            end
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3435,9 +3451,9 @@ pid2name(Config) when is_list(Config) ->
     %%
     {ok, Pid} = file:open(Name1, [write]),
     {ok, Name2} = file:pid2name(Pid),
-    undefined = file:pid2name(self()),
+    Dead = spawn(fun() -> ok end),
+    undefined = file:pid2name(Dead),
     ok = file:close(Pid),
-    ct:sleep(1000),
     false = is_process_alive(Pid),
     undefined = file:pid2name(Pid),
     ok.
@@ -3991,6 +4007,14 @@ ok.
 
 %% OTP-10852. +fnu and latin1 filenames.
 otp_10852(Config) when is_list(Config) ->
+    case no_untranslatable_names() of
+        fs ->
+            {skip,"Not a problem on this FS"};
+	_ ->
+	    otp_10852_1(Config)
+    end.
+
+otp_10852_1(Config) ->
     {ok, Peer, Node} = ?CT_PEER(["+fnu"]),
     Dir = proplists:get_value(priv_dir, Config),
     B = filename:join(Dir, <<"\xE4">>),
@@ -4092,6 +4116,21 @@ do_large_file(Name) ->
     {ok,R}   = ?FILE_MODULE:read(F1, L+1),
     ok       = ?FILE_MODULE:close(F1),
 
+    %% Reopen the file try to read all of it; used to fail on macOS
+    %% We open with binary in order to not get a memory explosion.
+    {ok, F2} = ?FILE_MODULE:open(Name, [raw,read,binary]),
+    IsWindows = element(1,os:type()) =:= win32,
+    case {?FILE_MODULE:read(F2, P), erlang:system_info(wordsize)} of
+        {{ok, B}, 8} ->
+            P = byte_size(B);
+        {eof, 8} when IsWindows ->
+            ok;
+        {eof, 4} ->
+            %% Cannot read such large files on 32-bit
+            ok
+    end,
+    ok = ?FILE_MODULE:close(F2),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4119,6 +4158,10 @@ do_large_write(Name) ->
 	    Bin = <<0:Size/unit:8>>,
 	    ok = file:write_file(Name, Bin),
 	    {ok,#file_info{size=Size}} = file:read_file_info(Name),
+
+            %% Even multiples of MAX_SYSIOVEC_IOVLEN would cause a crash
+            ok = file:write_file(Name, binary:part(Bin, 0, 1 bsl 31)),
+	    {ok,#file_info{size=1 bsl 31}} = file:read_file_info(Name),
 	    ok
     end.
 
@@ -4797,28 +4840,37 @@ do_run_large_file_test(Config, Run, Name0) ->
     Name = filename:join(proplists:get_value(priv_dir, Config),
 			 ?MODULE_STRING ++ Name0),
 
+    %% We run the test in a peer node in case the OOM killer
+    {ok, Peer, Node} = ?CT_PEER(),
+
+    erpc:call(Node, application, ensure_all_started, [os_mon]),
+
     %% Set up a process that will delete this file.
     Tester = self(),
     Deleter = 
-	spawn(
-	  fun() ->
-		  Mref = erlang:monitor(process, Tester),
-		  receive
-		      {'DOWN',Mref,_,_,_} -> ok;
-		      {Tester,done} -> ok
-		  end,
-		  ?FILE_MODULE:delete(Name)
-	  end),
+        spawn(
+          fun() ->
+                  Mref = erlang:monitor(process, Tester),
+                  receive
+                      {'DOWN',Mref,_,_,_} -> ok;
+                      {Tester,done} -> ok
+                  end,
+                  ?FILE_MODULE:delete(Name)
+          end),
 
     %% Run the test case.
-    Res = Run(Name),
+    try
+        Res = erpc:call(Node, fun() -> Run(Name) end),
 
-    %% Delete file and finish deleter process.
-    Mref = erlang:monitor(process, Deleter),
-    Deleter ! {Tester,done},
-    receive {'DOWN',Mref,_,_,_} -> ok end,
+        %% Delete file and finish deleter process.
+        Mref = erlang:monitor(process, Deleter),
+        Deleter ! {Tester,done},
+        receive {'DOWN',Mref,_,_,_} -> ok end,
 
-    Res.
+        Res
+    after
+        peer:stop(Peer)
+    end.
 
 disc_free(Path) ->
     Data = disksup:get_disk_data(),
@@ -4836,5 +4888,10 @@ disc_free(Path) ->
     end.
 
 memsize() ->
-    {Tot,_Used,_}  = memsup:get_memory_data(),
-    Tot.
+    case proplists:get_value(available_memory, memsup:get_system_memory_data()) of
+        undefined ->
+            {Tot,_Used,_}  = memsup:get_memory_data(),
+            Tot;
+        Available ->
+            Available
+    end.

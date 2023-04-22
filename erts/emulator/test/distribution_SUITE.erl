@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,9 @@
 -define(ATOM_UTF8_EXT,       118).
 -define(SMALL_ATOM_UTF8_EXT, 119).
 
+-define(DFLAG_EXPORT_PTR_TAG, 16#200).
+-define(DFLAG_BIT_BINARIES,   16#400).
+
 %% Tests distribution and the tcp driver.
 
 -include_lib("common_test/include/ct.hrl").
@@ -37,8 +40,9 @@
 -export([all/0, suite/0, groups/0,
          init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
          ping/1, bulk_send_small/1,
-         group_leader/1,
+         group_leader/1, nodes2/1,
          optimistic_dflags/1,
          bulk_send_big/1, bulk_send_bigbig/1,
          local_send_small/1, local_send_big/1,
@@ -61,6 +65,7 @@
          bad_dist_ext_size/1,
 	 start_epmd_false/1, no_epmd/1, epmd_module/1,
          bad_dist_fragments/1,
+         exit_dist_fragments/1,
          message_latency_large_message/1,
          message_latency_large_link_exit/1,
          message_latency_large_monitor_exit/1,
@@ -73,7 +78,13 @@
          system_limit/1,
          hopefull_data_encoding/1,
          hopefull_export_fun_bug/1,
-         huge_iovec/1]).
+         huge_iovec/1,
+         is_alive/1,
+         dyn_node_name_monitor_node/1,
+         dyn_node_name_monitor/1,
+         async_dist_flag/1,
+         async_dist_port_dctrlr/1,
+         async_dist_proc_dctrlr/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -93,7 +104,7 @@ suite() ->
 
 all() ->
     [ping, {group, bulk_send}, {group, local_send},
-     group_leader,
+     group_leader, nodes2,
      optimistic_dflags,
      link_to_busy, exit_to_busy, lost_exit, link_to_dead,
      link_to_dead_new_node,
@@ -101,12 +112,13 @@ all() ->
      {group, trap_bif}, {group, dist_auto_connect},
      dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip,
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
-     {group, message_latency},
+     {group, message_latency}, exit_dist_fragments,
      {group, bad_dist}, {group, bad_dist_ext},
      dist_entry_refc_race,
      start_epmd_false, no_epmd, epmd_module, system_limit,
      hopefull_data_encoding, hopefull_export_fun_bug,
-     huge_iovec].
+     huge_iovec, is_alive, dyn_node_name_monitor_node, dyn_node_name_monitor,
+     {group, async_dist}].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -125,7 +137,11 @@ groups() ->
       [message_latency_large_message,
        message_latency_large_link_exit,
        message_latency_large_monitor_exit,
-       message_latency_large_exit2]}
+       message_latency_large_exit2]},
+     {async_dist, [],
+      [async_dist_flag,
+       async_dist_port_dctrlr,
+       async_dist_proc_dctrlr]}
     ].
 
 init_per_suite(Config) ->
@@ -149,6 +165,15 @@ init_per_group(_, Config) ->
 
 end_per_group(_, Config) ->
     Config.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, Config) ->
+    case wait_until(fun() -> nodes(connected) == [] end, 10_000) of
+        ok -> ok;
+        timeout ->
+            erts_test_utils:ept_check_leaked_nodes(Config)
+    end.
 
 %% Tests pinging a node in different ways.
 ping(Config) when is_list(Config) ->
@@ -209,6 +234,294 @@ group_leader_1(Node2) ->
     ExtPid ! {self(), group_leader},
     {ExtPid, group_leader, GL2} = receive_one(),
     ok.
+
+nodes2(Config) when is_list(Config) ->
+
+    This = node(),
+
+    ok = net_kernel:monitor_nodes(true, #{node_type => all,
+                                          connection_id => true}),
+
+    AlreadyConnected = maps:from_list(lists:map(fun (N) ->
+                                                        {N, true}
+                                                end, nodes(connected))),
+    AlreadyVisible = maps:from_list(lists:map(fun (N) ->
+                                                      {N, true}
+                                              end, nodes(visible))),
+    AlreadyHidden = maps:from_list(lists:map(fun (N) ->
+                                                     {N, true}
+                                             end, nodes(visible))),
+    AlreadyKnown = maps:from_list(lists:map(fun (N) ->
+                                                    {N, true}
+                                            end, nodes(known))),
+
+    {ok, PV1, V1} = ?CT_PEER(),
+    {ok, PH1, H1} = ?CT_PEER(["-hidden"]),
+    {ok, PV2, V2} = ?CT_PEER(),
+    {ok, PH2, H2} = ?CT_PEER(["-hidden"]),
+
+    TestNodes = maps:from_list(lists:map(fun (N) ->
+                                                 {N, true}
+                                         end, [This, V1, H1, V2, H2])),
+
+    V1CId = receive {nodeup, V1, #{connection_id := C1, node_type := visible}} -> C1 end,
+    V2CId = receive {nodeup, V2, #{connection_id := C2, node_type := visible}} -> C2 end,
+    H1CId = receive {nodeup, H1, #{connection_id := C3, node_type := hidden}} -> C3 end,
+    H2CId = receive {nodeup, H2, #{connection_id := C4, node_type := hidden}} -> C4 end,
+
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := V2CId, node_type := visible} = I;
+                      ({N, I}) when N == H1 ->
+                          2 = maps:size(I),
+                          #{connection_id := H1CId, node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          2 = maps:size(I),
+                          #{connection_id := H2CId, node_type := hidden} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyConnected)
+                  end, erlang:nodes(connected, #{connection_id => true,
+                                                 node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := V2CId, node_type := visible} = I;
+                      ({N, I}) when N == H1 ->
+                          2 = maps:size(I),
+                          #{connection_id := H1CId, node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          2 = maps:size(I),
+                          #{connection_id := H2CId, node_type := hidden} = I;
+                      ({N, I}) when N == This ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := this} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyConnected)
+                  end, erlang:nodes([this, connected], #{connection_id => true,
+                                                         node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          1 = maps:size(I),
+                          #{connection_id := V1CId} = I;
+                      ({N, I}) when N == V2 ->
+                          1 = maps:size(I),
+                          #{connection_id := V2CId} = I;
+                      ({N, I}) when N == H1 ->
+                          1 = maps:size(I),
+                          #{connection_id := H1CId} = I;
+                      ({N, I}) when N == H2 ->
+                          1 = maps:size(I),
+                          #{connection_id := H2CId} = I;
+                      ({N, I}) ->
+                          1 = maps:size(I),
+                          #{connection_id := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyConnected)
+                  end, erlang:nodes(connected, #{connection_id => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          1 = maps:size(I),
+                          #{node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          1 = maps:size(I),
+                          #{node_type := visible} = I;
+                      ({N, I}) when N == H1 ->
+                          1 = maps:size(I),
+                          #{node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          1 = maps:size(I),
+                          #{node_type := hidden} = I;
+                      ({N, I}) ->
+                          1 = maps:size(I),
+                          #{node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyConnected)
+                  end, erlang:nodes(connected, #{node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := V2CId, node_type := visible} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyVisible)
+                  end, erlang:nodes(visible, #{connection_id => true,
+                                               node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := V2CId, node_type := visible} = I;
+                      ({N, I}) when N == This ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := this} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyVisible)
+                  end, erlang:nodes([this, visible], #{connection_id => true,
+                                                       node_type => true})),
+    lists:foreach(fun ({N, I}) when N == H1 ->
+                          2 = maps:size(I),
+                          #{connection_id := H1CId, node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          2 = maps:size(I),
+                          #{connection_id := H2CId, node_type := hidden} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyHidden)
+                  end, erlang:nodes(hidden, #{connection_id => true,
+                                              node_type => true})),
+    [{This, #{connection_id := undefined,
+              node_type := this}}] = erlang:nodes(this, #{connection_id => true,
+                                                          node_type => true}),
+    [{This, #{connection_id := undefined}}] = erlang:nodes(this, #{connection_id => true}),
+    [{This, #{node_type := this}}] = erlang:nodes(this, #{node_type => true}),
+
+    %% Ensure dist these dist entries are not GC:d yet...
+    NKV2 = rpc:call(V2, erlang, whereis, [net_kernel]),
+    true = is_pid(NKV2),
+    NKH2 = rpc:call(H2, erlang, whereis, [net_kernel]),
+    true = is_pid(NKH2),
+
+    peer:stop(PV2),
+    peer:stop(PH2),
+
+    receive {nodedown, V2, #{connection_id := V2CId, node_type := visible}} -> ok end,
+    receive {nodedown, H2, #{connection_id := H2CId, node_type := hidden}} -> ok end,
+
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := known} = I;
+                      ({N, I}) when N == H1 ->
+                          2 = maps:size(I),
+                          #{connection_id := H1CId, node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := known} = I;
+                      ({N, I}) when N == This ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := this} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyKnown)
+                  end, erlang:nodes(known, #{connection_id => true,
+                                             node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          1 = maps:size(I),
+                          #{node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          1 = maps:size(I),
+                          #{node_type := known} = I;
+                      ({N, I}) when N == H1 ->
+                          1 = maps:size(I),
+                          #{node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          1 = maps:size(I),
+                          #{node_type := known} = I;
+                      ({N, I}) when N == This ->
+                          1 = maps:size(I),
+                          #{node_type := this} = I;
+                      ({N, I}) ->
+                          1 = maps:size(I),
+                          #{node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyKnown)
+                  end, erlang:nodes(known, #{node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          1 = maps:size(I),
+                          #{connection_id := V1CId} = I;
+                      ({N, I}) when N == V2 ->
+                          1 = maps:size(I),
+                          #{connection_id := undefined} = I;
+                      ({N, I}) when N == H1 ->
+                          1 = maps:size(I),
+                          #{connection_id := H1CId} = I;
+                      ({N, I}) when N == H2 ->
+                          1 = maps:size(I),
+                          #{connection_id := undefined} = I;
+                      ({N, I}) when N == This ->
+                          1 = maps:size(I),
+                          #{connection_id := undefined} = I;
+                      ({N, I}) ->
+                          1 = maps:size(I),
+                          #{connection_id := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyKnown)
+                  end, erlang:nodes(known, #{connection_id => true})),    
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) when N == V2 ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) when N == H1 ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) when N == H2 ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) when N == This ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) ->
+                          0 = maps:size(I),
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyKnown)
+                  end, erlang:nodes(known, #{})),
+
+    peer:stop(PV1),
+    peer:stop(PH1),
+
+    id(NKV2),
+    id(NKH2),
+
+    try erlang:nodes("visible", #{connection_id => true})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes([another], #{connection_id => true})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, #{cid => true})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, #{connection_id => yes})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, #{node_type => yes})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, [{connection_id, true}])
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, [{node_type, true}])
+    catch error:badarg -> ok
+    end,
+    ok.
+
+id(X) ->
+    X.
 
 %% Test optimistic distribution flags toward pending connections (DFLAG_DIST_HOPEFULLY)
 optimistic_dflags(Config) when is_list(Config) ->
@@ -565,9 +878,12 @@ make_busy(Node, Time) when is_integer(Time) ->
     receive after Own -> ok end,
     until(fun () ->
                   case {DCtrl, process_info(Pid, status)} of
-                      {DPrt, {status, suspended}} when is_port(DPrt) -> true;
-                      {DPid, {status, waiting}} when is_pid(DPid) -> true;
-                      _ -> false
+                      {DPrt, {status, waiting}} when is_port(DPrt) ->
+                          verify_busy(DPrt);
+                      {DPid, {status, waiting}} when is_pid(DPid) ->
+                          true;
+                      _ ->
+                          false
                   end
           end),
     %% then dist entry
@@ -583,6 +899,28 @@ make_busy(Node, Opts, Data) ->
 unmake_busy(Pid) ->
     unlink(Pid),
     exit(Pid, bang).
+
+verify_busy(Port) ->
+    Parent = self(),
+    Pid =
+        spawn_link(
+          fun() ->
+                  port_command(Port, "Just some data"),
+                  Error = {not_busy, Port},
+                  exit(Parent, Error),
+                  error(Error)
+          end),
+    receive after 30 -> ok end,
+    case process_info(Pid, status) of
+        {status, suspended} ->
+            unlink(Pid),
+            exit(Pid, kill),
+            true;
+        {status, _} = WrongStatus ->
+            unlink(Pid),
+            exit(Pid, WrongStatus),
+            error(WrongStatus)
+    end.
 
 do_busy_test(Node, Fun) ->
     Busy = make_busy(Node, 1000),
@@ -1468,8 +1806,10 @@ flush() ->
 system_limit(Config) when is_list(Config) ->
     case erlang:system_info(wordsize) of
         8 ->
-            case proplists:get_value(system_total_memory,
-                                     memsup:get_system_memory_data()) of
+            SMD = memsup:get_system_memory_data(),
+            case proplists:get_value(
+                   available_memory, SMD,
+                   proplists:get_value(system_total_memory, SMD)) of
                 Memory when is_integer(Memory),
                             Memory > 6*1024*1024*1024 ->
                     test_system_limit(Config),
@@ -2239,7 +2579,19 @@ ensure_dctrl(Node) ->
     end.
 
 dctrl_send(DPrt, Data) when is_port(DPrt) ->
-    port_command(DPrt, Data);
+    try prim_inet:send(DPrt, Data) of
+        ok ->
+            ok;
+        Result ->
+            io:format("~w/2: ~p~n", [?FUNCTION_NAME, Result]),
+            Result
+    catch
+        Class: Reason: Stacktrace ->
+            io:format(
+              "~w/2: ~p: ~p: ~p ~n",
+              [?FUNCTION_NAME, Class, Reason, Stacktrace]),
+            erlang:raise(Class, Reason, Stacktrace)
+    end;
 dctrl_send(DPid, Data) when is_pid(DPid) ->
     Ref = make_ref(),
     DPid ! {send, self(), Ref, Data},
@@ -2433,6 +2785,172 @@ dmsg_bad_atom_cache_ref() ->
 dmsg_bad_tag() ->  %% Will fail early at heap size calculation
     [$?, 66].
 
+%% Test that processes exiting while sending a fragmented message works
+%% as it should. We test that this works while the process doing the send
+%% is suspended/resumed in order to trigger bugs in suspend/resume handling
+%% while exiting.
+%% We also make sure that the binary memory of the receiving node does not grow
+%% without shrinking back as there used to be a memory leak on the receiving side.
+exit_dist_fragments(_Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
+    try
+        ct:log("Allocations before:~n~p",[erpc:call(Node,instrument,allocations, [])]),
+        {BinInfo, BinInfoMref} =
+            spawn_monitor(Node,
+                          fun() ->
+                                  (fun F(Acc) ->
+                                           H = try erlang:memory(binary)
+                                               catch _:_ -> 0 end,
+                                           receive
+                                               {get, Pid} ->
+                                                   After = try erlang:memory(binary)
+                                                           catch _:_ -> 0 end,
+                                                   Pid ! lists:reverse([After,H|Acc])
+                                           after 100 ->
+                                                   F([H|Acc])
+                                           end
+                                   end)([])
+                          end),
+        {Tracer, Mref} = spawn_monitor(fun gather_exited/0),
+        link(Tracer), %% Make sure Tracer dies if we die
+        erlang:trace(self(), true, [{tracer, Tracer}, set_on_spawn, procs, exiting]),
+        exit_suspend(Node),
+        receive
+            {'DOWN',Mref,_,_,_} ->
+                BinInfo ! {get, self()},
+                receive
+                    {'DOWN',BinInfoMref,_,_,Reason} ->
+                        ct:fail(Reason);
+                    Info ->
+                        Before = hd(Info),
+                        Max = lists:max(Info),
+                        After = lists:last(Info),
+                        ct:log("Binary memory before: ~p~n"
+                               "Binary memory max: ~p~n"
+                               "Binary memory after: ~p",
+                               [Before, Max, After]),
+                        ct:log("Allocations after:~n~p",
+                               [erpc:call(Node,instrument,allocations, [])]),
+                        %% We check that the binary data used after is not too large
+                        if
+                            (After - Before) / (Max - Before) > 0.05 ->
+                                ct:log("Memory ratio was ~p",[(After - Before) / (Max - Before)]),
+                                ct:fail("Potential binary memory leak!");
+                            true -> ok
+                        end
+                end
+        end
+    after
+        peer:stop(Peer)
+    end.
+
+%% Make sure that each spawned process also has exited
+gather_exited() ->
+    process_flag(message_queue_data, off_heap),
+    gather_exited(#{}).
+gather_exited(Pids) ->
+    receive
+        {trace,Pid,spawned,_,_} ->
+            gather_exited(maps:update_with(spawned, fun(V) -> V + 1 end, 0, Pids#{ Pid => true }));
+        {trace,Pid,out_exited,_} ->
+            {true, NewPids} = maps:take(Pid, Pids),
+            gather_exited(maps:update_with(out_exited, fun(V) -> V + 1 end, 0, NewPids));
+        Trace ->
+            gather_exited(maps:update_with(element(3, Trace), fun(V) -> V + 1 end, 0, Pids))
+    after 1000 ->
+            MissingPids = maps:size(maps:filter(fun(Key,_) -> not erlang:is_atom(Key) end, Pids)),
+            if MissingPids =:= 0 -> ok;
+               true -> exit({[{Pid,erlang:process_info(Pid)} || Pid <- MissingPids],
+                             maps:filter(fun(Key,_) -> erlang:is_atom(Key) end, Pids)})
+            end
+    end.
+
+exit_suspend(RemoteNode) ->
+    exit_suspend(RemoteNode, 100).
+exit_suspend(RemoteNode, N) ->
+    Payload = case erlang:system_info(wordsize) of
+                  8 ->
+                      [<<0:100000/unit:8>> || _ <- lists:seq(1, 10)];
+                  4 ->
+                      [<<0:100000/unit:8>> || _ <- lists:seq(1, 2)]
+              end,
+    exit_suspend(RemoteNode, N, Payload).
+exit_suspend(RemoteNode, N, Payload) ->
+    Echo = fun F() ->
+                   receive
+                       {From, Msg} ->
+                           From ! erlang:iolist_size(Msg),
+                           F()
+                   end
+           end,
+    Pinger =
+        fun() ->
+                false = process_flag(trap_exit, true),
+                RemotePid = spawn_link(RemoteNode, Echo),
+                Iterations = case erlang:system_info(emu_type) of
+                                 opt ->
+                                     100;
+                                 _ ->
+                                     10
+                             end,
+                exit_suspend_loop(RemotePid, 2, Payload, Iterations)
+        end,
+    Pids = [spawn_link(Pinger) || _ <- lists:seq(1, N)],
+    MRefs = [monitor(process, Pid) || Pid <- Pids],
+    [receive {'DOWN',MRef,_,_,_} -> ok end || MRef <- MRefs],
+    Pids.
+
+exit_suspend_loop(RemotePid, _Suspenders, _Payload, 0) ->
+    exit(RemotePid, die),
+    receive
+        {'EXIT', RemotePid, _} ->
+            ok
+    end;
+exit_suspend_loop(RemotePid, Suspenders, Payload, N) ->
+    LocalPid = spawn_link(
+                 fun() ->
+                         Parent = self(),
+                         [spawn_link(
+                            fun F() ->
+                                    try
+                                        begin
+                                            erlang:suspend_process(Parent),
+                                            erlang:yield(),
+                                            erlang:suspend_process(Parent),
+                                            erlang:yield(),
+                                            erlang:resume_process(Parent),
+                                            erlang:yield(),
+                                            erlang:suspend_process(Parent),
+                                            erlang:yield(),
+                                            erlang:resume_process(Parent),
+                                            erlang:yield(),
+                                            erlang:resume_process(Parent),
+                                            erlang:yield()
+                                        end of
+                                        _ ->
+                                            F()
+                                    catch _:_ ->
+                                            ok
+                                    end
+                            end) || _ <- lists:seq(1, Suspenders)],
+                         (fun F() ->
+                                  RemotePid ! {self(), Payload},
+                                  receive _IOListSize -> ok end,
+                                  F()
+                          end)()
+                 end),
+    exit_suspend_loop(LocalPid, RemotePid, Suspenders, Payload, N - 1).
+exit_suspend_loop(LocalPid, RemotePid, Suspenders, Payload, N) ->
+    receive
+        {'EXIT', LocalPid, _} ->
+            exit_suspend_loop(RemotePid, Suspenders, Payload, N);
+        {'EXIT', _, Reason} ->
+            exit(Reason)
+    after 100 ->
+            exit(LocalPid, die),
+            exit_suspend_loop(LocalPid, RemotePid, Suspenders, Payload, N)
+    end.
+
 start_epmd_false(Config) when is_list(Config) ->
     %% Start a node with the option -start_epmd false.
     {ok, Peer, OtherNode} = ?CT_PEER(["-start_epmd", "false"]),
@@ -2518,21 +3036,22 @@ address_please(_Name, "dummy", inet6) ->
     {ok, {0,0,0,0,0,0,0,1}}.
 
 hopefull_data_encoding(Config) when is_list(Config) ->
-    test_hopefull_data_encoding(Config, true),
-    test_hopefull_data_encoding(Config, false).
+    MkHopefullData = fun(Ref,Pid) -> mk_hopefull_data(Ref,Pid) end,
+    test_hopefull_data_encoding(MkHopefullData),
 
-test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
+    %% Test funs with hopefully encoded term in environment
+    MkBitstringInFunEnv = fun(_,_) -> [mk_fun_with_env(<<5:7>>)] end,
+    test_hopefull_data_encoding(MkBitstringInFunEnv),
+    MkExpFunInFunEnv = fun(_,_) -> [mk_fun_with_env(fun a:a/0)] end,
+    test_hopefull_data_encoding(MkExpFunInFunEnv),
+    ok.
+
+mk_fun_with_env(Term) ->
+    fun() -> Term end.
+
+test_hopefull_data_encoding(MkDataFun) ->
     {ok, PeerProxy, ProxyNode} = ?CT_PEER(),
     {ok, PeerBouncer, BouncerNode} = ?CT_PEER(["-hidden"]),
-    case Fallback of
-        false ->
-            ok;
-        true ->
-            rpc:call(BouncerNode, erts_debug, set_internal_state,
-                     [available_internal_state, true]),
-            false = rpc:call(BouncerNode, erts_debug, set_internal_state,
-                            [remove_hopefull_dflags, true])
-    end,
     Tester = self(),
     R1 = make_ref(),
     R2 = make_ref(),
@@ -2543,7 +3062,7 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
                                register(bouncer, self()),
                                %% We create the data on the proxy node in order
                                %% to create the correct sub binaries
-                               HData = mk_hopefull_data(R1, Tester),
+                               HData = MkDataFun(R1, Tester),
                                %% Verify same result between this node and tester
                                Tester ! [R1, HData],
                                %% Test when connection has not been setup yet
@@ -2562,21 +3081,11 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
         end,
     receive
         [R2, HData2] ->
-            case Fallback of
-                false ->
-                    HData = HData2;
-                true ->
-                    check_hopefull_fallback_data(HData, HData2)
-            end
+            HData = HData2
     end,
     receive
         [R3, HData3] ->
-            case Fallback of
-                false ->
-                    HData = HData3;
-                true ->
-                    check_hopefull_fallback_data(HData, HData3)
-            end
+            HData = HData3
     end,
     unlink(Proxy),
     exit(Proxy, bye),
@@ -2641,36 +3150,6 @@ mk_hopefull_data(BS) ->
                          <<_:PreOffset/bitstring, NewBs:Offset/bitstring, _/bitstring>> = BS,
                          [NewBs]
                  end, lists:seq(BSsz-32, BSsz-17))]).
-
-check_hopefull_fallback_data([], []) ->
-    ok;
-check_hopefull_fallback_data([X|Xs],[Y|Ys]) ->
-    chk_hopefull_fallback(X, Y),
-    check_hopefull_fallback_data(Xs,Ys).
-
-chk_hopefull_fallback(Binary, FallbackBinary) when is_binary(Binary) ->
-    Binary = FallbackBinary;
-chk_hopefull_fallback([BitStr], [{Bin, BitSize}]) when is_bitstring(BitStr) ->
-    chk_hopefull_fallback(BitStr, {Bin, BitSize});
-chk_hopefull_fallback(BitStr, {Bin, BitSize}) when is_bitstring(BitStr) ->
-    true = is_binary(Bin),
-    true = is_integer(BitSize),
-    true = BitSize > 0,
-    true = BitSize < 8,
-    Hsz = size(Bin) - 1,
-    <<Head:Hsz/binary, I/integer>> = Bin,
-    IBits = I bsr (8 - BitSize),
-    FallbackBitStr = list_to_bitstring([Head,<<IBits:BitSize>>]),
-    BitStr = FallbackBitStr,
-    ok;
-chk_hopefull_fallback(Func, {ModName, FuncName}) when is_function(Func) ->
-    {M, F, _} = erlang:fun_info_mfa(Func),
-    M = ModName,
-    F = FuncName,
-    ok;
-chk_hopefull_fallback(Other, SameOther) ->
-    Other = SameOther,
-    ok.
 
 %% ERL-1254
 hopefull_export_fun_bug(Config) when is_list(Config) ->
@@ -2755,8 +3234,418 @@ derr_sender(Main, Nodes) ->
     Main ! count,
     derr_sender(Main, Nodes).
 
+is_alive(Config) when is_list(Config) ->
+    %% Test that distribution is up when erlang:is_alive() return true...
+    Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
+            "-pa", filename:dirname(code:which(?MODULE))],
+    {ok, Peer, _} = peer:start_link(#{connection => 0, args => Args}),
+    NodeName = peer:random_name(),
+    LongNames = net_kernel:longnames(),
+    StartOpts = #{name_domain => if LongNames -> longnames;
+                                    true -> shortnames
+                                 end},
+    ThisNode = node(),
+    TestFun = fun () -> is_alive_test(list_to_atom(NodeName), StartOpts, ThisNode) end,
+    ok = peer:call(Peer, erlang, apply, [TestFun, []]),
+    Node = list_to_atom(NodeName++"@"++hostname()),
+    true = lists:member(Node, nodes()),
+    peer:stop(Peer),
+    ok.
+
+is_alive_test(NodeName, StartOpts, TestNode) ->
+    try
+        monitor_node(TestNode, true),
+        error(unexpected_success)
+    catch
+        error:notalive ->
+            ok
+    end,
+    Me = self(),
+    {Pid, Mon} = spawn_monitor(fun () ->
+                                       Me ! {self(), go},
+                                       is_alive_tester(TestNode),
+                                       Me ! {self(), ok}
+                               end),
+    receive {Pid, go} -> ok end,
+    receive after 500 -> ok end,
+    _ = net_kernel:start(NodeName, StartOpts),
+    receive
+        {Pid, ok} -> erlang:demonitor(Mon, [flush]), ok;
+        {'DOWN', Mon, process, Pid, Reason} -> error(Reason)
+    end.
+
+is_alive_tester(Node) ->
+    case erlang:is_alive() of
+        false ->
+            is_alive_tester(Node);
+        true ->
+            monitor_node(Node, true),
+            wait_until(fun () -> lists:member(Node, nodes()) end),
+            ok
+    end.
+
+dyn_node_name_monitor_node(_Config) ->
+    %% Test that monitor_node() does not fail when erlang:is_alive() return true
+    %% but we have not yet gotten a name...
+    Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
+            "-pa", filename:dirname(code:which(?MODULE))],
+    {ok, Peer, nonode@nohost} = peer:start_link(#{connection => 0, args => Args}),
+    [] = nodes(),
+    LongNames = net_kernel:longnames(),
+    StartOpts = #{name_domain => if LongNames -> longnames;
+                                    true -> shortnames
+                                 end},
+    ThisNode = node(),
+    TestFun = fun () -> dyn_node_name_monitor_node_test(StartOpts, ThisNode) end,
+    ok = peer:call(Peer, erlang, apply, [TestFun, []]),
+    peer:stop(Peer),
+    ok.
+    
+dyn_node_name_monitor_node_test(StartOpts, TestNode) ->
+    try
+        monitor_node(TestNode, true),
+        error(unexpected_success)
+    catch
+        error:notalive ->
+            ok
+    end,
+    _ = net_kernel:start(undefined, StartOpts),
+    true = erlang:is_alive(),
+    true = monitor_node(TestNode, true),
+    receive {nodedown, TestNode} -> ok end,
+    true = net_kernel:connect_node(TestNode),
+    true = monitor_node(TestNode, true),
+    true = lists:member(TestNode, nodes(hidden)),
+    receive {nodedown, TestNode} -> error(unexpected_nodedown)
+    after 1000 -> ok
+    end,
+    ok.
+
+
+dyn_node_name_monitor(_Config) ->
+    %% Test that monitor() does not fail when erlang:is_alive() return true
+    %% but we have not yet gotten a name...
+    Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
+            "-pa", filename:dirname(code:which(?MODULE))],
+    {ok, Peer, _} = peer:start(#{connection => 0, args => Args}),
+    LongNames = net_kernel:longnames(),
+    StartOpts = #{name_domain => if LongNames -> longnames;
+                                    true -> shortnames
+                                 end},
+    ThisNode = node(),
+    TestFun = fun () -> dyn_node_name_monitor_test(StartOpts, ThisNode) end,
+    ok = peer:call(Peer, erlang, apply, [TestFun, []]),
+    peer:stop(Peer),
+    ok.
+    
+dyn_node_name_monitor_test(StartOpts, TestNode) ->
+    try
+        monitor(process, {net_kernel, TestNode}),
+        error(unexpected_success)
+    catch
+        error:badarg ->
+            ok
+    end,
+    _ = net_kernel:start(undefined, StartOpts),
+    true = erlang:is_alive(),
+    Mon = monitor(process, {net_kernel, TestNode}),
+    receive
+        {'DOWN', Mon, process, {net_kernel, TestNode}, noconnection} ->
+            ok
+    end,
+    true = net_kernel:connect_node(TestNode),
+    Mon2 = monitor(process, {net_kernel, TestNode}),
+    true = lists:member(TestNode, nodes(hidden)),
+    receive
+        {'DOWN', Mon2, process, {net_kernel, TestNode}, noconnection} ->
+            error(unexpected_down)
+    after
+        1000 ->
+            ok
+    end,
+    ok.
+
+async_dist_flag(Config) when is_list(Config) ->
+    {ok, Peer1, Node1} = ?CT_PEER(),
+    async_dist_flag_test(Node1, false),
+    peer:stop(Peer1),
+    {ok, Peer2, Node2} = ?CT_PEER(["+pad", "false"]),
+    async_dist_flag_test(Node2, false),
+    peer:stop(Peer2),
+    {ok, Peer3, Node3} = ?CT_PEER(["+pad", "true", "+pad", "false"]),
+    async_dist_flag_test(Node3, false),
+    peer:stop(Peer3),
+
+    {ok, Peer4, Node4} = ?CT_PEER(["+pad", "true"]),
+    async_dist_flag_test(Node4, true),
+    peer:stop(Peer4),
+    {ok, Peer5, Node5} = ?CT_PEER(["+pad", "false", "+pad", "true"]),
+    async_dist_flag_test(Node5, true),
+    peer:stop(Peer5),
+
+    ok.
+
+async_dist_flag_test(Node, Default) when is_atom(Node), is_boolean(Default) ->
+    Tester = self(),
+    NotDefault = not Default,
+
+    Default = erpc:call(Node, erlang, system_info, [async_dist]),
+
+    {P1, M1} = spawn_opt(Node, fun () ->
+                                       receive after infinity -> ok end
+                               end, [link, monitor]),
+    {P2, M2} = spawn_opt(Node, fun () ->
+                                       receive after infinity -> ok end
+                               end, [link, monitor, {async_dist, false}]),
+    {P3, M3} = spawn_opt(Node, fun () ->
+                                       receive after infinity -> ok end
+                               end, [link, monitor, {async_dist, true}]),
+    {async_dist, Default} = erpc:call(Node, erlang, process_info, [P1, async_dist]),
+    {async_dist, false} = erpc:call(Node, erlang, process_info, [P2, async_dist]),
+    {async_dist, true} = erpc:call(Node, erlang, process_info, [P3, async_dist]),
+
+    R4 = make_ref(),
+    {P4, M4} = spawn_opt(Node, fun () ->
+                                       Default = process_flag(async_dist, NotDefault),
+                                       Tester ! R4,
+                                       receive after infinity -> ok end
+                               end, [link, monitor]),
+
+    R5 = make_ref(),
+    {P5, M5} = spawn_opt(Node, fun () ->
+                                       false = process_flag(async_dist, true),
+                                       Tester ! R5,
+                                       receive after infinity -> ok end
+                               end, [link, monitor, {async_dist, false}]),
+    R6 = make_ref(),
+    {P6, M6} = spawn_opt(Node, fun () ->
+                                       true = process_flag(async_dist, false),
+                                       Tester ! R6,
+                                       receive after infinity -> ok end
+                               end, [link, monitor, {async_dist, true}]),
+    receive R4 -> ok end,
+    {async_dist, NotDefault} = erpc:call(Node, erlang, process_info, [P4, async_dist]),
+    receive R5 -> ok end,
+    {async_dist, true} = erpc:call(Node, erlang, process_info, [P5, async_dist]),
+    receive R6 -> ok end,
+    {async_dist, false} = erpc:call(Node, erlang, process_info, [P6, async_dist]),
+
+
+    R7 = make_ref(),
+    {P7, M7} = spawn_opt(Node, fun () ->
+                                       Default = process_flag(async_dist, NotDefault),
+                                       NotDefault = process_flag(async_dist, NotDefault),
+                                       NotDefault = process_flag(async_dist, NotDefault),
+                                       NotDefault = process_flag(async_dist, Default),
+                                       Default = process_flag(async_dist, Default),
+                                       Default = process_flag(async_dist, Default),
+                                       Tester ! R7,
+                                       receive after infinity -> ok end
+                               end, [link, monitor]),
+    receive R7 -> ok end,
+
+    unlink(P1),
+    exit(P1, bang),
+    unlink(P2),
+    exit(P2, bang),
+    unlink(P3),
+    exit(P3, bang),
+    unlink(P4),
+    exit(P4, bang),
+    unlink(P5),
+    exit(P5, bang),
+    unlink(P6),
+    exit(P6, bang),
+    unlink(P7),
+    exit(P7, bang),
+
+    receive {'DOWN', M1, process, P1, bang} -> ok end,
+    receive {'DOWN', M2, process, P2, bang} -> ok end,
+    receive {'DOWN', M3, process, P3, bang} -> ok end,
+    receive {'DOWN', M4, process, P4, bang} -> ok end,
+    receive {'DOWN', M5, process, P5, bang} -> ok end,
+    receive {'DOWN', M6, process, P6, bang} -> ok end,
+    receive {'DOWN', M7, process, P7, bang} -> ok end,
+
+    ok.
+
+async_dist_port_dctrlr(Config) when is_list(Config) ->
+    {ok, RecvPeer, RecvNode} = ?CT_PEER(),
+    ok = async_dist_test(RecvNode),
+    peer:stop(RecvPeer),
+    ok.
+
+async_dist_proc_dctrlr(Config) when is_list(Config) ->
+    {ok, SendPeer, SendNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
+    {ok, RecvPeer, RecvNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
+    {Pid, Mon} = spawn_monitor(SendNode,
+                               fun () ->
+                                       ok = async_dist_test(RecvNode),
+                                       exit(test_success)
+                               end),
+    receive
+        {'DOWN', Mon, process, Pid, Reason} ->
+            test_success = Reason
+    end,
+    peer:stop(SendPeer),
+    peer:stop(RecvPeer),
+    ok.
+
+async_dist_test(Node) ->
+    Scale = case round(test_server:timetrap_scale_factor()/3) of
+                S when S < 1 -> 1;
+                S -> S
+            end,
+    _ = process_flag(async_dist, false),
+    Tester = self(),
+    AliveReceiver1 = spawn_link(Node, fun () ->
+                                              register(alive_receiver_1, self()),
+                                              Tester ! {registered, self()},
+                                              receive after infinity -> ok end
+                                      end),
+    receive {registered, AliveReceiver1} -> ok end,
+    AliveReceiver2 = spawn(Node, fun () -> receive after infinity -> ok end end),
+    {AliveReceiver3, AR3Mon} = spawn_monitor(Node,
+                                             fun () ->
+                                                     receive after infinity -> ok end
+                                             end),
+    {DeadReceiver, DRMon} = spawn_monitor(Node, fun () -> ok end),
+    receive
+        {'DOWN', DRMon, process, DeadReceiver, DRReason} ->
+            normal = DRReason
+    end,
+    Data = lists:duplicate($x, 256),
+    GoNuts = fun GN () ->
+                     DeadReceiver ! hello,
+                     GN()
+             end,
+    erpc:call(Node, erts_debug, set_internal_state, [available_internal_state, true]),
+    erpc:cast(Node, erts_debug, set_internal_state, [block, 4000*Scale]),
+    DistBufFiller = spawn_link(fun () ->
+                                       process_flag(async_dist, false),
+                                       receive go_nuts -> ok end,
+                                       GoNuts()
+                               end),
+    BDMon = spawn_link(fun SysMon () ->
+                               receive
+                                   {monitor, Pid, busy_dist_port, _} ->
+                                       Tester ! {busy_dist_port, Pid}
+                               end,
+                               SysMon()
+                       end),
+    _ = erlang:system_monitor(BDMon, [busy_dist_port]),
+    DistBufFiller ! go_nuts,
+
+    %% Busy dist entry may release after it has triggered even
+    %% though noone is consuming anything at the receiving end.
+    %% Continue banging until we stop getting new busy_dist_port...
+    WaitFilled = fun WF (Tmo) ->
+                         receive
+                             {busy_dist_port, DistBufFiller} ->
+                                 WF(1000*Scale)
+                         after
+                             Tmo ->
+                                 ok
+                         end
+                 end,
+    WaitFilled(infinity),
+
+    BusyDistChecker = spawn_link(fun () ->
+                                         process_flag(async_dist, false),
+                                         DeadReceiver ! hello,
+                                         exit(unexpected_return_from_bang)
+                                 end),
+    receive {busy_dist_port, BusyDistChecker} -> ok end,
+    {async_dist, false} = process_info(self(), async_dist),
+    {async_dist, false} = process_info(BusyDistChecker, async_dist),
+    false = process_flag(async_dist, true),
+    {async_dist, true} = process_info(self(), async_dist),
+
+    Start = erlang:monotonic_time(millisecond),
+    M1 = erlang:monitor(process, AliveReceiver1),
+    true = is_reference(M1),
+    M2 = erlang:monitor(process, AliveReceiver2),
+    true = is_reference(M2),
+    {pid, Data} = AliveReceiver1 ! {pid, Data},
+    {reg_name, Data} = {alive_receiver_1, Node} ! {reg_name, Data},
+    true = erlang:demonitor(M1),
+    true = link(AliveReceiver2),
+    true = unlink(AliveReceiver1),
+    RId = spawn_request(Node, fun () -> receive bye -> ok end end, [link, monitor]),
+    true = is_reference(RId),
+    erlang:group_leader(self(), AliveReceiver2),
+    AR3XReason = make_ref(),
+    true = exit(AliveReceiver3, AR3XReason),
+    End = erlang:monotonic_time(millisecond),
+
+    %% These signals should have been buffered immediately. Make sure
+    %% it did not take a long time...
+    true = 500*Scale >= End - Start,
+
+    receive after 500*Scale -> ok end,
+
+    unlink(BusyDistChecker),
+    exit(BusyDistChecker, bang),
+    false = is_process_alive(BusyDistChecker),
+
+    unlink(DistBufFiller),
+    exit(DistBufFiller, bang),
+    false = is_process_alive(DistBufFiller),
+
+    %% Verify that the signals eventually get trough when the other
+    %% node continue to work...
+    {links, []}
+        = erpc:call(Node, erlang, process_info, [AliveReceiver1, links]),
+    {links, [Tester]}
+        = erpc:call(Node, erlang, process_info, [AliveReceiver2, links]),
+    {monitored_by, []}
+        = erpc:call(Node, erlang, process_info, [AliveReceiver1, monitored_by]),
+    {monitored_by, [Tester]}
+        = erpc:call(Node, erlang, process_info, [AliveReceiver2, monitored_by]),
+    {messages, [{pid, Data}, {reg_name, Data}]}
+        = erpc:call(Node, erlang, process_info, [AliveReceiver1, messages]),
+    {group_leader, Tester}
+        = erpc:call(Node, erlang, process_info, [AliveReceiver2, group_leader]),
+
+    Spawned = receive
+                  {spawn_reply, RId, SpawnRes, Pid} ->
+                      ok = SpawnRes,
+                      true = is_pid(Pid),
+                      Pid
+              end,
+    {links, [Tester]}
+        = erpc:call(Node, erlang, process_info, [Spawned, links]),
+    {monitored_by, [Tester]}
+        = erpc:call(Node, erlang, process_info, [Spawned, monitored_by]),
+
+    receive
+        {'DOWN', AR3Mon, process, AliveReceiver3, ActualAR3XReason} ->
+            AR3XReason = ActualAR3XReason
+    end,
+
+    unlink(AliveReceiver2),
+    unlink(Spawned),
+
+    true = process_flag(async_dist, false),
+    {async_dist, false} = process_info(self(), async_dist),
+
+    ok.
 
 %%% Utilities
+
+wait_until(Fun) ->
+    wait_until(Fun, 24*60*60*1000).
+
+wait_until(_Fun, Timeout) when Timeout < 0 ->
+    timeout;
+wait_until(Fun, Timeout) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 50 -> ok end,
+            wait_until(Fun, Timeout-50)
+    end.
 
 timestamp() ->
     erlang:monotonic_time(millisecond).
@@ -2918,8 +3807,8 @@ forever(Fun) ->
     Fun(),
     forever(Fun).
 
-abort(Why) ->
-    set_internal_state(abort, Why).
+%% abort(Why) ->
+%%     set_internal_state(abort, Why).
 
 
 start_busy_dist_port_tracer() ->
@@ -3117,5 +4006,3 @@ free_memory() ->
 	error : undef ->
 	    ct:fail({"os_mon not built"})
     end.
-
-

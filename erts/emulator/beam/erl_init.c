@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -162,7 +162,7 @@ int erts_initialized = 0;
 
 int H_MIN_SIZE;			/* The minimum heap grain */
 int BIN_VH_MIN_SIZE;		/* The minimum binary virtual*/
-int H_MAX_SIZE;			/* The maximum heap size */
+Uint H_MAX_SIZE;		/* The maximum heap size */
 int H_MAX_FLAGS;		/* The maximum heap flags */
 
 Uint32 erts_debug_flags;	/* Debug flags. */
@@ -275,7 +275,7 @@ static ERTS_INLINE void
 set_default_time_adj(int *time_correction_p, ErtsTimeWarpMode *time_warp_mode_p)
 {
     *time_correction_p = 1;
-    *time_warp_mode_p = ERTS_NO_TIME_WARP_MODE;
+    *time_warp_mode_p = ERTS_MULTI_TIME_WARP_MODE;
     if (!erts_check_time_adj_support(*time_correction_p,
 				     *time_warp_mode_p)) {
 	*time_correction_p = 0;
@@ -388,6 +388,7 @@ erl_init(int ncpu,
     erl_nif_init();
     erts_msacc_init();
     beamfile_init();
+    erts_late_init_external();
 }
 
 static Eterm
@@ -631,6 +632,7 @@ void erts_usage(void)
 	       H_DEFAULT_MAX_SIZE);
     erts_fprintf(stderr, "-hmaxk bool    enable or disable kill at max heap size (default true)\n");
     erts_fprintf(stderr, "-hmaxel bool   enable or disable error_logger report at max heap size (default true)\n");
+    erts_fprintf(stderr, "-hmaxib bool   enable or disable including off-heap binaries into max heap size (default false)\n");
     erts_fprintf(stderr, "-hpds size     set initial process dictionary size (default %d)\n",
 	       erts_pd_initial_size);
     erts_fprintf(stderr, "-hmqd  val     set default message queue data flag for processes;\n");
@@ -651,7 +653,8 @@ void erts_usage(void)
 
 #ifdef BEAMASM
     erts_fprintf(stderr, "-JDdump bool   enable or disable dumping of generated assembly code for each module loaded\n");
-    erts_fprintf(stderr, "-JPperf bool   enable or disable support for perf on Linux\n");
+    erts_fprintf(stderr, "-JPperf true|false|dump|map|fp|no_fp   enable or disable support for perf on Linux\n");
+    erts_fprintf(stderr, "-JMsingle bool enable the use of single-mapped RWX memory for JIT:ed code\n");
     erts_fprintf(stderr, "\n");
 #endif
 
@@ -663,6 +666,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "\n");
 
     erts_fprintf(stderr, "-pc <set>      control what characters are considered printable (default latin1)\n");
+    erts_fprintf(stderr, "-pad bool      set default process async data (default false)\n");
     erts_fprintf(stderr, "-P number      set maximum number of processes on this node;\n");
     erts_fprintf(stderr, "               valid range is [%d-%d]\n",
 		 ERTS_MIN_PROCESSES, ERTS_MAX_PROCESSES);
@@ -1417,11 +1421,28 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 		erts_set_printable_characters(printable_chars);
-		break;
-	    } else {
-		erts_fprintf(stderr, "%s unknown flag %s\n", argv[0], argv[i]);
-		erts_usage();
 	    }
+            else {
+                char *sub_param = argv[i]+2;
+                if (has_prefix("ad", sub_param)) {
+                    arg = get_arg(sub_param+2, argv[i+1], &i);
+                    if (sys_strcmp("true", arg) == 0) {
+                        erts_default_spo_flags |= SPO_ASYNC_DIST;
+                    }
+                    else if (sys_strcmp("false", arg) == 0) {
+                        erts_default_spo_flags &= ~SPO_ASYNC_DIST;
+                    }
+                    else {
+                        erts_fprintf(stderr, "bad async dist value %s\n", arg);
+                        erts_usage();
+                    }
+                }
+                else {
+                    erts_fprintf(stderr, "%s unknown flag %s\n", argv[0], argv[i]);
+                    erts_usage();
+                }
+            }
+            break;
 	case 'f':
 	    if (!sys_strncmp(argv[i],"-fn",3)) {
 		int warning_type =  ERL_FILENAME_WARNING_WARNING;
@@ -1561,6 +1582,8 @@ erl_start(int argc, char **argv)
              * h|max   - max_heap_size
              * h|maxk  - max_heap_kill
              * h|maxel - max_heap_error_logger
+             * h|maxib - map_heap_include_shared_binaries
+             *
 	     *
 	     */
 	    if (has_prefix("mbs", sub_param)) {
@@ -1623,9 +1646,23 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 		VERBOSE(DEBUG_SYSTEM, ("using max heap log %d\n", H_MAX_FLAGS));
+            } else if (has_prefix("maxib", sub_param)) {
+                arg = get_arg(sub_param+5, argv[i+1], &i);
+                if (sys_strcmp(arg,"true") == 0) {
+                    H_MAX_FLAGS |= MAX_HEAP_SIZE_INCLUDE_OH_BINS;
+                } else if (sys_strcmp(arg,"false") == 0) {
+                    H_MAX_FLAGS &= ~MAX_HEAP_SIZE_INCLUDE_OH_BINS;
+                } else {
+                    erts_fprintf(stderr, "bad max heap include bins %s\n", arg);
+                    erts_usage();
+                }
+                VERBOSE(DEBUG_SYSTEM, ("using max heap log %d\n", H_MAX_FLAGS));
 	    } else if (has_prefix("max", sub_param)) {
+                Sint hMaxSize;
+                char *rest;
 		arg = get_arg(sub_param+3, argv[i+1], &i);
-		if ((H_MAX_SIZE = atoi(arg)) < 0) {
+		hMaxSize = ErtsStrToSint(arg, &rest, 10);
+		if (hMaxSize < 0 || hMaxSize > MAX_SMALL) {
 		    erts_fprintf(stderr, "bad max heap size %s\n", arg);
 		    erts_usage();
 		}
@@ -1635,6 +1672,7 @@ erl_start(int argc, char **argv)
                                  arg, H_MIN_SIZE);
 		    erts_usage();
 		}
+		H_MAX_SIZE = hMaxSize;
 		VERBOSE(DEBUG_SYSTEM, ("using max heap size %d\n", H_MAX_SIZE));
 	    } else {
 	        /* backward compatibility */
@@ -1709,13 +1747,18 @@ erl_start(int argc, char **argv)
 
 #ifdef HAVE_LINUX_PERF_SUPPORT
                     if (sys_strcmp(arg, "true") == 0) {
-                        erts_jit_perf_support = BEAMASM_PERF_DUMP|BEAMASM_PERF_MAP;
+                        erts_jit_perf_support |= BEAMASM_PERF_ENABLED;
                     } else if (sys_strcmp(arg, "false") == 0) {
-                        erts_jit_perf_support = 0;
+                        erts_jit_perf_support &= ~BEAMASM_PERF_ENABLED;
                     } else if (sys_strcmp(arg, "dump") == 0) {
-                        erts_jit_perf_support = BEAMASM_PERF_DUMP;
+                        erts_jit_perf_support |= BEAMASM_PERF_DUMP;
                     } else if (sys_strcmp(arg, "map") == 0) {
-                        erts_jit_perf_support = BEAMASM_PERF_MAP;
+                        erts_jit_perf_support |= BEAMASM_PERF_MAP |
+                                                 BEAMASM_PERF_FP;
+                    } else if (sys_strcmp(arg, "fp") == 0) {
+                        erts_jit_perf_support |= BEAMASM_PERF_FP;
+                    } else if (sys_strcmp(arg, "no_fp") == 0) {
+                        erts_jit_perf_support &= ~BEAMASM_PERF_FP;
                     } else {
                         erts_fprintf(stderr, "bad +JPperf support flag %s\n", arg);
                         erts_usage();
@@ -1724,6 +1767,23 @@ erl_start(int argc, char **argv)
                 erts_fprintf(stderr, "+JPperf is not supported on this platform\n");
                 erts_usage();
 #endif
+                }
+                break;
+            case 'M':
+                sub_param++;
+                if (has_prefix("single", sub_param)) {
+                    arg = get_arg(sub_param+6, argv[i + 1], &i);
+                    if (sys_strcmp(arg, "true") == 0) {
+                        erts_jit_single_map = 1;
+                    } else if (sys_strcmp(arg, "false") == 0) {
+                        erts_jit_single_map = 0;
+                    } else {
+                        erts_fprintf(stderr, "bad +JMsingle support flag %s\n", arg);
+                        erts_usage();
+                    }
+                } else {
+                    erts_fprintf(stderr, "bad +JM sub-option %s\n", arg);
+                    erts_usage();
                 }
                 break;
             default:
@@ -1810,8 +1870,8 @@ erl_start(int argc, char **argv)
 		errno = 0;
 		port_tab_sz = strtol(arg, NULL, 10);
 		if (errno != 0
-		    || port_tab_sz < ERTS_MIN_PROCESSES
-		    || ERTS_MAX_PROCESSES < port_tab_sz) {
+		    || port_tab_sz < ERTS_MIN_PORTS
+		    || ERTS_MAX_PORTS < port_tab_sz) {
 		    erts_fprintf(stderr, "bad number of ports %s\n", arg);
 		    erts_usage();
 		}
@@ -2534,7 +2594,7 @@ __decl_noreturn void erts_thr_fatal_error(int err, const char *what)
 
 
 static void
-system_cleanup(int flush_async)
+system_cleanup(int flush)
 {
     /*
      * Make sure only one thread exits the runtime system.
@@ -2564,24 +2624,43 @@ system_cleanup(int flush_async)
      *    (in threaded non smp case).
      */
 
-    if (!flush_async
-	|| !erts_initialized
-	)
+    if (!flush || !erts_initialized)
 	return;
+
+    /*
+     * We only flush as a result of calling erts_halt() (which in turn
+     * is called from the erlang:halt() BIF when flushing is enabled);
+     * otherwise, flushing wont work properly. If erts_halt() has
+     * been called, 'erts_halt_code' won't equal INT_MIN...
+     */
+    ASSERT(erts_halt_code != INT_MIN);
+
+    /*
+     * Nif on-halt handlers may have been added after we initiated
+     * a halt. If so, make sure that these late added handlers are
+     * executed as well..
+     */
+    erts_nif_execute_on_halt();
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0);
 #endif
 
     erts_exit_flush_async();
+
+    /*
+     * Wait for all NIF calls with delayed halt functionality
+     * enabled to complete before we continue...
+     */
+    erts_nif_wait_calls();
 }
 
 static int erts_exit_code;
 
 static __decl_noreturn void __noreturn
-erts_exit_vv(int n, int flush_async, const char *fmt, va_list args1, va_list args2)
+erts_exit_vv(int n, int flush, const char *fmt, va_list args1, va_list args2)
 {
-    system_cleanup(flush_async);
+    system_cleanup(flush);
 
     if (fmt != NULL && *fmt != '\0')
 	erl_error(fmt, args2);	/* Print error message. */
@@ -2594,25 +2673,25 @@ erts_exit_vv(int n, int flush_async, const char *fmt, va_list args1, va_list arg
 	erl_crash_dump_v((char*) NULL, 0, fmt, args1);
     }
 
-    erts_exit_epilogue();
+    erts_exit_epilogue(flush);
 }
 
-__decl_noreturn void __noreturn erts_exit_epilogue(void)
+__decl_noreturn void __noreturn erts_exit_epilogue(int flush)
 {
     int n = erts_exit_code;
 
     sys_tty_reset(n);
 
     if (n == ERTS_INTR_EXIT)
-	exit(0);
+	(void) (flush ? exit(0) : _exit(0));
     else if (n == ERTS_DUMP_EXIT)
 	ERTS_EXIT_AFTER_DUMP(1);
     else if (n == ERTS_ERROR_EXIT || n == ERTS_ABORT_EXIT)
         abort();
-    exit(n);
+    (void) (flush ? exit(n) : _exit(n));
 }
 
-/* Exit without flushing async threads */
+/* Exit without flushing */
 __decl_noreturn void __noreturn erts_exit(int n, const char *fmt, ...)
 {
     va_list args1, args2;
@@ -2623,8 +2702,12 @@ __decl_noreturn void __noreturn erts_exit(int n, const char *fmt, ...)
     va_end(args1);
 }
 
-/* Exit after flushing async threads */
-__decl_noreturn void __noreturn erts_flush_async_exit(int n, char *fmt, ...)
+/*
+ * Exit after flushing. This is a continuation of erts_halt() and wont
+ * work properly if called by its own without proper initialization
+ * as made in erts_halt().
+ */
+__decl_noreturn void __noreturn erts_flush_exit(int n, char *fmt, ...)
 {
     va_list args1, args2;
     va_start(args1, fmt);

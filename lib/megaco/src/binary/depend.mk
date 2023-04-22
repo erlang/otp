@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2020. All Rights Reserved.
+# Copyright Ericsson AB 2001-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,10 @@ ASN1_CT_OPTS += +noobj +legacy_erlang_types
 ifeq ($(MEGACO_INLINE_ASN1_RT),true)
 # We need atleast version 1.4.6 of the ANS.1 application
 ASN1_CT_OPTS += +inline
+endif
+
+ifeq ($(ERL_DETERMINISTIC),yes)
+ASN1_CT_OPTS += +deterministic
 endif
 
 BER_V1_FLAGS             = $(ASN1_CT_OPTS) +asn1config

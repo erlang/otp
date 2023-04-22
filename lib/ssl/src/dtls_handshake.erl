@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -118,11 +118,12 @@ hello(#client_hello{client_version = ClientVersion} = Hello,
     Version = ssl_handshake:select_version(dtls_record, ClientVersion, Versions),
     handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation).
 
-cookie(Key, Address, Port, #client_hello{client_version = {Major, Minor},
+cookie(Key, Address, Port, #client_hello{client_version = Version,
 					 random = Random,
 					 session_id = SessionId,
 					 cipher_suites = CipherSuites,
 					 compression_methods = CompressionMethods}) ->
+    {Major, Minor} = Version,
     CookieData = [address_to_bin(Address, Port),
 		  <<?BYTE(Major), ?BYTE(Minor)>>,
 		  Random, SessionId, CipherSuites, CompressionMethods],
@@ -189,7 +190,7 @@ handle_client_hello(Version,
 	    TLSVersion = dtls_v1:corresponding_tls_version(Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, TLSVersion),
-	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, TLSVersion, ECCOrder),
+	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite,
                             own_certificates = [OwnCert |_]} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, 
@@ -219,32 +220,35 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
 			HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation, HashSign) ->
     {Session, ConnectionStates, Protocol, ServerHelloExt} =
         ssl_handshake:handle_client_hello_extensions(dtls_record, Random, CipherSuites,
-                                                     HelloExt, dtls_v1:corresponding_tls_version(Version),
-                                                     SslOpts, Session0, 
+                                                     HelloExt,
+                                                     dtls_v1:corresponding_tls_version(Version),
+                                                     SslOpts, Session0,
                                                      ConnectionStates0, Renegotiation,
                                                      Session0#session.is_resumable),
     {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}.
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-			       Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
+			       Compression, HelloExt, SslOpt, ConnectionStates0,
+                               Renegotiation, IsNew) ->
     {ConnectionStates, ProtoExt, Protocol, OcspState} =
-        ssl_handshake:handle_server_hello_extensions(dtls_record, Random, CipherSuite,
-                                                     Compression, HelloExt,
-                                                     dtls_v1:corresponding_tls_version(Version),
-                                                     SslOpt, ConnectionStates0, Renegotiation, IsNew),
+        ssl_handshake:handle_server_hello_extensions(
+          dtls_record, Random, CipherSuite, Compression, HelloExt,
+          dtls_v1:corresponding_tls_version(Version), SslOpt, ConnectionStates0,
+          Renegotiation, IsNew),
     {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}.
 
 %%--------------------------------------------------------------------
 
-enc_handshake(#hello_verify_request{protocol_version = {Major, Minor},
+enc_handshake(#hello_verify_request{protocol_version = Version,
  				       cookie = Cookie}, _Version) ->
     CookieLength = byte_size(Cookie),
+    {Major,Minor} = Version,
     {?HELLO_VERIFY_REQUEST, <<?BYTE(Major), ?BYTE(Minor),
  			      ?BYTE(CookieLength),
  			      Cookie:CookieLength/binary>>};
 enc_handshake(#hello_request{}, _Version) ->
     {?HELLO_REQUEST, <<>>};
-enc_handshake(#client_hello{client_version = {Major, Minor},
+enc_handshake(#client_hello{client_version = ClientVersion,
 			       random = Random,
 			       session_id = SessionID,
 			       cookie = Cookie,
@@ -257,8 +261,8 @@ enc_handshake(#client_hello{client_version = {Major, Minor},
     CmLength = byte_size(BinCompMethods),
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
-    ExtensionsBin = ssl_handshake:encode_hello_extensions(HelloExtensions, 
-                                                          dtls_v1:corresponding_tls_version({Major, Minor})),
+    ExtensionsBin = ssl_handshake:encode_hello_extensions(HelloExtensions),
+    {Major,Minor} = ClientVersion,
 
     {?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
  		      ?BYTE(SIDLength), SessionID/binary,
@@ -362,8 +366,8 @@ decode_handshake(_Version, ?HELLO_VERIFY_REQUEST, <<?UINT24(_), ?UINT16(_),
 						    ?BYTE(Major), ?BYTE(Minor),
 						    ?BYTE(CookieLength),
 						    Cookie:CookieLength/binary>>) ->
-    #hello_verify_request{protocol_version = {Major, Minor},
-			  cookie = Cookie};
+    #hello_verify_request{protocol_version = {Major,Minor},
+                          cookie = Cookie};
 decode_handshake(Version, Tag,  <<?UINT24(_), ?UINT16(_),
 				  ?UINT24(_),  ?UINT24(_), Msg/binary>>) -> 
     %% DTLS specifics stripped
@@ -388,9 +392,9 @@ decode_handshake_fragments(<<?BYTE(Type), ?UINT24(Length),
 
 reassemble(Version,  #handshake_fragment{message_seq = Seq} = Fragment, 
 	   #protocol_buffers{dtls_handshake_next_seq = Seq,
-			     dtls_handshake_next_fragments = Fragments0,
-			     dtls_handshake_later_fragments = LaterFragments0} = 
-	       Buffers0)-> 
+                         dtls_handshake_next_fragments = Fragments0,
+                         dtls_handshake_later_fragments = LaterFragments0} =
+               Buffers0)->
     case reassemble_fragments(Fragment, Fragments0) of
 	{more_data, Fragments} ->
 	    {more_data,  Buffers0#protocol_buffers{dtls_handshake_next_fragments = Fragments}};

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -443,7 +443,7 @@ get_suite_name(Mod, _) ->
 %% Check that alias names are not already in use
 check_for_clashes(TCInfo, [CurrGrInfo|Path], SuiteInfo) ->
     ReqNames = fun(Info) -> [element(2,R) || R <- Info,
-					     size(R) == 3,
+                                             tuple_size(R) == 3,
 					     require == element(1,R)]
 	       end,
     ExistingNames = lists:flatten([ReqNames(L)  || L <- [SuiteInfo|Path]]),

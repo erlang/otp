@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,26 +38,21 @@
          reuse_session_erlang_server/1, 
          reuse_session_erlang_client/1]).
 
+
+-export([session_id_and_data/3]).
+
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
 all() ->
-    case ssl_test_lib:openssl_dtls_maxfraglen_support() of
-        true ->
-            [{group, 'tlsv1.3'},
-             {group, 'tlsv1.2'},
-             {group, 'tlsv1.1'},
-             {group, 'tlsv1'},
-             {group, 'dtlsv1.2'},
-             {group, 'dtlsv1'}];
-        false ->
-            [{group, 'tlsv1.3'},
-             {group, 'tlsv1.2'},
-             {group, 'tlsv1.1'},
-             {group, 'tlsv1'}]
-    end.
+    [{group, 'tlsv1.3'},
+     {group, 'tlsv1.2'},
+     {group, 'tlsv1.1'},
+     {group, 'tlsv1'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}].
         
 groups() ->
     [{'tlsv1.3', [], common_tests()},
@@ -69,25 +64,17 @@ groups() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
-	ok ->
-            case ssl_test_lib:openssl_maxfraglen_support() of
-                true ->
-                    ssl_test_lib:clean_start(),
-                    ssl:clear_pem_cache(),
-                    Config = ssl_test_lib:make_rsa_cert(Config0),
-                    ssl_test_lib:cert_options(Config);
-                false ->
-                    {skip, "max_fragment_length not supported by OpenSSL"} 
-            end
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
+    Config1 = ssl_test_lib:init_per_suite(Config0, openssl),
+    case ssl_test_lib:openssl_maxfraglen_support() of
+        true ->
+            Config = ssl_test_lib:make_rsa_cert(Config1),
+            ssl_test_lib:cert_options(Config);
+        false ->
+            {skip, "max_fragment_length not supported by OpenSSL"} 
     end.
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto).
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
@@ -124,13 +111,11 @@ openssl_client(Config) when is_list(Config) ->
 %--------------------------------------------------------------------------------
 reuse_session_erlang_server(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
-
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    Protocol = proplists:get_value(protocol, ServerOpts, tls),
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
-
     MFL = 512,
-    Data = "reuse_session_erlang_server " ++ lists:duplicate(MFL, $r),
-
+    Data = max_frag_data(Protocol, MFL),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {mfa, {ssl_test_lib, active_recv, [length(Data)]}},
@@ -150,12 +135,12 @@ reuse_session_erlang_server(Config) when is_list(Config) ->
 
 reuse_session_erlang_client(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = proplists:get_value(server_rsa_opts, Config),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-
+    Protocol = proplists:get_value(protocol, ClientOpts0, tls),
     MFL = 512,
-    Data = "reuse_session_erlang_client " ++ lists:duplicate(MFL, $r),
+    Data = max_frag_data(Protocol, MFL),
     ClientOpts = [{max_fragment_length, MFL} | ClientOpts0],
 
     {Server, OpenSSLPort} = ssl_test_lib:start_server(openssl, [{maxfrag, MFL}, return_port], 
@@ -175,14 +160,12 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
                   Id0
           end,
 
-    %% quit s_server's current session so we can interact with the next client
-    true = port_command(OpenSSLPort, "q\n"),
     ssl_test_lib:close(Client0),
 
     Client1 =
         ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
-                                   {mfa, {ssl_test_lib, session_id, []}},
+                                   {mfa, {?MODULE, session_id_and_data, [self(), length(Data)]}},
                                    {from, self()},  {options, [{reuse_session, SID} | ClientOpts]}]),
     receive
         {Client1, SID} ->
@@ -191,25 +174,24 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
             ct:fail(session_not_reused)
     end,
 
-    ErlRecvFun = fun() ->
-                         Data = ssl_test_lib:check_active_receive(Client1, Data)
-                 end,
-    max_frag_len_test(Client1, OpenSSLPort, MFL, Data, ErlRecvFun),
+    max_frag_len_test(Client1, OpenSSLPort, MFL, Data),
     ssl_test_lib:close(Client1).
 
 
 openssl_client(MFL, Config) ->  
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    Protocol = proplists:get_value(protocol, ServerOpts, tls),
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
 
-    Data = "mfl_openssl_server " ++ lists:duplicate(MFL, $s),
+    Data = max_frag_data(Protocol, MFL),
+
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {mfa, {ssl_test_lib, active_recv, [length(Data)]}},
                                         {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port}, 
                                                                  {maxfrag, MFL},
                                                                  {options, ClientOpts}, 
@@ -222,42 +204,51 @@ openssl_client(MFL, Config) ->
 %%--------------------------------------------------------------------------------
 
 openssl_server(MFL, Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    Protocol = proplists:get_value(protocol, ClientOpts, tls),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-    Data = "mfl_openssl_server " ++ lists:duplicate(MFL, $s),
+
+    Data = max_frag_data(Protocol, MFL),
 
     {Server, OpenSSLPort} = ssl_test_lib:start_server(openssl, [{maxfrag, MFL},
                                                                 return_port], 
                                                       [{server_opts, ServerOpts} | Config]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                                         {host, Hostname},
                                         {from, self()},
                                         {mfa, {ssl_test_lib,
                                                active_recv, [length(Data)]}},
                                         {options, [{max_fragment_length, MFL} | ClientOpts]}]),
-    
+
     max_frag_len_test(Client, OpenSSLPort, MFL, Data).
 
 %% ------------------------------------------------------------
 max_frag_len_test(ErlProc, OpenSSL, MFL, Data) ->
-    ErlRecvFun = fun() ->
-                         receive
-                             {ErlProc, Data} ->
-                                 ok
-                         end
-                 end,
-    max_frag_len_test(ErlProc, OpenSSL, MFL, Data, ErlRecvFun).
-
-max_frag_len_test(ErlProc, OpenSSL, MFL, Data, ErlRecvFun) ->
-    true = port_command(OpenSSL, Data),
-    ErlRecvFun(),
-
+    openssl_send(OpenSSL, Data),
+    receive
+        {ErlProc, Data} ->
+            ok
+    end,
     ErlProc ! get_socket,
     ErlSocket = receive
                     {ErlProc, {socket, ErlSocket0}} ->
                         ErlSocket0
                 end,
     ssl_test_lib:assert_mfl(ErlSocket, MFL).
+
+session_id_and_data(Socket, Pid, Len) ->
+    {ok, [{session_id, ID}]} = ssl:connection_information(Socket, [session_id]),
+    Pid ! {self(), ID},
+    ssl_test_lib:active_recv(Socket, Len).
+
+max_frag_data(tls, MaxFragLen) ->
+    "Send more data than max frag length " ++ lists:duplicate(MaxFragLen, $s);
+max_frag_data(dtls, _MaxFragLen) ->
+    "Send small data as OpenSSL s_client/s_server does not create UDP packets "
+        "with appropriate fragments".
+
+openssl_send(OpenSSL, Data) ->
+    port_command(OpenSSL, Data).

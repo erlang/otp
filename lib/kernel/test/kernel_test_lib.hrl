@@ -56,6 +56,10 @@
 -define(WHICH_INET_BACKEND(C),   ?LIB:which_inet_backend(C)).
 -define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
 
+-define(HAS_SUPPORT_IPV4(),      ?LIB:has_support_ipv4()).
+-define(HAS_SUPPORT_IPV6(),      ?LIB:has_support_ipv6()).
+-define(WHICH_LOCAL_ADDR(__D__), ?LIB:which_local_addr(__D__)).
+
 -define(START_NODE(__N__, __A__),
         ?LIB:start_node(__N__, __A__)).
 -define(START_NODE(__N__, __A__, __O__),
@@ -66,6 +70,7 @@
 -define(F(FORMAT, ARGS),         ?LIB:f(FORMAT, ARGS)).
 -define(P(F),                    ?LIB:print(F)).
 -define(P(F,A),                  ?LIB:print(F, A)).
+-define(FTS(),                   ?LIB:formated_timestamp()).
 
 -define(SECS(I),                 timer:seconds(I)).
 -define(MINS(I),                 timer:minutes(I)).

@@ -648,6 +648,7 @@ ac_includes_default="\
 ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+CRYPTO_NO_DEPRECATE_WARN
 DISABLE_OTP_TEST_ENGINE
 DISABLE_EVP_HMAC
 DISABLE_EVP_DH
@@ -780,7 +781,6 @@ enable_dynamic_ssl_lib
 enable_evp_dh
 enable_evp_hmac
 enable_otp_test_engine
-enable_deprecated_warnings
 enable_fips
 '
       ac_precious_vars='build_alias
@@ -1456,10 +1456,6 @@ Optional Features:
                           Disable build of the otp_test_engine. (default is
                           --enable-otp-test-engine, unless for LibreSSL >=
                           3.5.0 where default is --disable-otp-test-engine)
-  --disable-deprecated-warnings
-                          disable warnings for deprecated functions in
-                          cryptolib (default is to warn, except for OpenSSL
-                          3.x where the default is not to warn)
   --enable-fips           enable OpenSSL FIPS mode support
   --disable-fips          disable OpenSSL FIPS mode support (default)
 
@@ -5728,18 +5724,6 @@ else $as_nop
 fi
 
 
-# Check whether --enable-deprecated_warnings was given.
-if test ${enable_deprecated_warnings+y}
-then :
-  enableval=$enable_deprecated_warnings;  case "$enableval" in
-    no)   deprecated_warnings=no;;
-    *)    deprecated_warnings=yes;;
-  esac
-else $as_nop
-  deprecated_warnings=default_yes
-fi
-
-
 
 
 
@@ -6129,12 +6113,10 @@ else $as_nop
 then :
 
 	                        std_win_ssl_locations="/mnt/c/OpenSSL-Win64 /c/OpenSSL-Win64 /mnt/c/opt/local64/pgm/OpenSSL /opt/local64/pgm/OpenSSL /cygdrive/c/OpenSSL-Win64"
-	                        lib_bits=64
 
 else $as_nop
 
                                 std_win_ssl_locations="/mnt/c/OpenSSL-Win32 /c/OpenSSL-Win32 /mnt/c/OpenSSL /c/OpenSSL /cygdrive/c/OpenSSL /opt/local/pgm/OpenSSL /opt/local32/pgm/OpenSSL /mnt/c/opt/local/pgm/OpenSSL /mnt/c/opt/local32/pgm/OpenSSL /cygdrive/c/OpenSSL-Win32"
-	                        lib_bits=32
 
 fi
 
@@ -6252,6 +6234,16 @@ elif test "$host_os" = "win32"
 then :
 
               # Windows...
+              if test "x$ac_cv_sizeof_void_p" = "x8"
+then :
+
+                        lib_bits=64
+
+else $as_nop
+
+                        lib_bits=32
+
+fi
               if test -f "$dir/lib/VC/static/libcrypto${lib_bits}MD.lib"
 then :
 
@@ -6756,6 +6748,16 @@ elif test "$host_os" = "win32"
 then :
 
               # Windows...
+              if test "x$ac_cv_sizeof_void_p" = "x8"
+then :
+
+                        lib_bits=64
+
+else $as_nop
+
+                        lib_bits=32
+
+fi
               if test -f "$dir/lib/VC/static/libcrypto${lib_bits}MD.lib"
 then :
 
@@ -7379,35 +7381,20 @@ then :
 elif test "$CRYPTO_APP" = ""
 then :
 
-                      if test "$with_ssl_rpath" = yes
-then :
-  as_fn_error $? "runtime library path requested by user, but could not be set since no crypto library was found" "$LINENO" 5
-fi
-                      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: " >&5
-printf "%s\n" "" >&6; }
+                      as_fn_error $? "runtime library path requested by user, but could not be set since no crypto library was found" "$LINENO" 5
 
 elif test "$ded_ld_rflg" = ""
 then :
 
-                      if test "$with_ssl_rpath" = yes
-then :
-  as_fn_error $? "runtime library path requested by user, but cannot be set on this platform" "$LINENO" 5
-fi
-                      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: " >&5
-printf "%s\n" "" >&6; }
+                      as_fn_error $? "runtime library path requested by user, but cannot be set on this platform" "$LINENO" 5
 
-                  test "$SSL_DYNAMIC_ONLY" != "yes"
-elif
-                      if test "$with_ssl_rpath" = yes
+elif test "$SSL_DYNAMIC_ONLY" != "yes"
 then :
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: runtime library path requested by user, but dynamic linking will not be used" >&5
+
+                      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: runtime library path requested by user, but dynamic linking will not be used" >&5
 printf "%s\n" "$as_me: WARNING: runtime library path requested by user, but dynamic linking will not be used" >&2;}
-else $as_nop
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: " >&5
-printf "%s\n" "" >&6; }
-fi
 
-then :
+else $as_nop
 
                       # Check that it links...
                       ded_ld_rpath=
@@ -7536,32 +7523,26 @@ fi
 
 if test "x$v3_include" = "xyes"
 then :
-  echo "Using OpenSSL 3.0 is not yet recommended for production code." >> ./CONF_INFO
-       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: ******************************************************************" >&5
-printf "%s\n" "$as_me: WARNING: ******************************************************************" >&2;}
-       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: * Using OpenSSL 3.0 is not yet recommended for production code.  *" >&5
-printf "%s\n" "$as_me: WARNING: * Using OpenSSL 3.0 is not yet recommended for production code.  *" >&2;}
+
        if test "x$SSL_DYNAMIC_ONLY" = "xno"
 then :
-  echo "Static linking with OpenSSL 3.0 *MAY* require special configuring of the cryptolib." >> ./CONF_INFO
+
+              echo "Static linking with OpenSSL 3.0 *MAY* require special configuring of the cryptolib." >> ./CONF_INFO
+              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: ******************************************************************" >&5
+printf "%s\n" "$as_me: WARNING: ******************************************************************" >&2;}
               { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: * Static linking *MAY* require re-configuring the 3.0 cryptolib. *" >&5
 printf "%s\n" "$as_me: WARNING: * Static linking *MAY* require re-configuring the 3.0 cryptolib. *" >&2;}
-
-fi
-       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: ******************************************************************" >&5
+              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: ******************************************************************" >&5
 printf "%s\n" "$as_me: WARNING: ******************************************************************" >&2;}
 
 fi
 
-if test "x$v3_include" = "xyes" && test "x$deprecated_warnings" = "xdefault_yes" && test "$CRYPTO_APP" != ""
-then :
-  deprecated_warnings=no
-
 fi
 
-if test "x$deprecated_warnings" = "xno"  &&  test "$CRYPTO_APP" != ""
+CRYPTO_NO_DEPRECATE_WARN=
+if test "x$v3_include" = "xyes" && test "$CRYPTO_APP" != ""
 then :
-  SSL_FLAGS="$SSL_FLAGS -Wno-deprecated-declarations"
+  CRYPTO_NO_DEPRECATE_WARN="-Wno-deprecated-declarations"
 
 fi
 
@@ -7714,6 +7695,7 @@ fi
 CFLAGS="$saveCFLAGS"
 LDFLAGS="$saveLDFLAGS"
 LIBS="$saveLIBS"
+
 
 
 

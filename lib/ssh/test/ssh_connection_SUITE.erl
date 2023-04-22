@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -368,7 +368,7 @@ connect4_invalid_two_1(Config) ->
     ssh:stop_daemon(Pid).
 
 connect4_invalid_two_2(Config) ->
-    {Pid, Host, Port, _UserDir} = daemon_start(Config),
+    {Pid, Host, _Port, _UserDir} = daemon_start(Config),
 
     %% Actual error implementation dependent
     {error, _} =
@@ -380,7 +380,7 @@ connect4_invalid_two_2(Config) ->
 
 %% All three args incorrect
 connect4_invalid_three(Config) ->
-    {Pid, Host, Port, _UserDir} = daemon_start(Config),
+    {Pid, Host, _Port, _UserDir} = daemon_start(Config),
 
     %% Actual error implementation dependent
     {error, _} =

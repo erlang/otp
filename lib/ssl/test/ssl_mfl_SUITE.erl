@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 -behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -72,20 +73,12 @@ pre_tls_1_3() ->
     [reuse_session].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
-	ok ->
-            ssl_test_lib:clean_start(),
-            ssl:clear_pem_cache(),
-	    Config = ssl_test_lib:make_rsa_cert(Config0),
-	    ssl_test_lib:cert_options(Config)
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
-    end.
+    Config1 = ssl_test_lib:init_per_suite(Config0, openssl),
+    Config = ssl_test_lib:make_rsa_cert(Config1),
+    ssl_test_lib:cert_options(Config).
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto).
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config).
@@ -115,11 +108,10 @@ client_option(Config) when is_list(Config) ->
     ok.
 
 %--------------------------------------------------------------------------------
-%% check max_fragment_length option on the server is ignored
-%% and both sides can successfully send > 512 bytes
+%% check default max_fragment_length both sides can successfully send > 512 bytes
 server_option(Config) when is_list(Config) ->
     Data = "mfl_server_options " ++ lists:duplicate(512, $x),
-    run_mfl_handshake(Config, undefined, Data, [], [{max_fragment_length, 512}]).
+    run_mfl_handshake(Config, undefined, Data, [], []).
 
 %--------------------------------------------------------------------------------
 %% check max_fragment_length option on the client is accepted and reused
@@ -195,7 +187,7 @@ run_mfl_handshake_continue(Config, MFL) ->
                     receive {Client, {ext, ClientExt}} ->
                             ct:log("Client handshake Ext ~p~n", [ClientExt]),
                             case maps:get(server_hello_selected_version, ClientExt, undefined) of
-                                {3,4} ->
+                                ?TLS_1_3 ->
                                     %% For TLS 1.3 the ssl {handshake, hello} API is inconsistent:
                                     %% the server gets all the extensions CH+EE, but the client only CH
                                     ignore;

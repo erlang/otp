@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021
+%% Copyright Ericsson AB 1996-2023
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -632,7 +632,8 @@ init(Cp) ->
     catch error:Reason -> %% system limit
 	    Msg = "Cannot create an ets table for pending transactions",
 	    Error = {error, {system_limit, Name, Msg, Reason}},
-	    proc_lib:init_ack(Cp#checkpoint_args.supervisor, Error)
+	    proc_lib:init_fail(
+              Cp#checkpoint_args.supervisor, Error, {exit, normal})
     end.
     
 prepare_tab(Cp, R) ->

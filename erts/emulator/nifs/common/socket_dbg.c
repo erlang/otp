@@ -23,6 +23,12 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#    include "config.h"
+#endif
+
+#ifdef ESOCK_ENABLE
+
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
@@ -175,3 +181,4 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
   }
 }
 
+#endif

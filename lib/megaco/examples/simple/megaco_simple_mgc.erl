@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -406,7 +406,13 @@ start_batch(Args0) ->
 	    io:format("~p(~p): ~p~n", [?MODULE, ?LINE, Res]),
 	    Res
     end.
+
 	    
+-spec init_batch(ReplyTo :: pid(),
+                 Trace   :: term(),
+                 Debug   :: term()) ->
+           no_return().
+
 init_batch(ReplyTo, Trace, Debug) ->
     register(?MODULE, self()),
     Res = start(Trace, Debug),

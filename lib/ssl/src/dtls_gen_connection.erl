@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -82,10 +82,10 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Tracker} = Opts,
+start_fsm(Role, Host, Port, Socket, {_,_, Tracker} = Opts,
 	  User, {CbModule, _, _, _, _} = CbInfo,
-	  Timeout) -> 
-    try 
+	  Timeout) ->
+    try
 	{ok, Pid} = dtls_connection_sup:start_child([Role, Host, Port, Socket, 
 						     Opts, User, CbInfo]), 
 	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid], CbModule, Tracker),
@@ -545,10 +545,9 @@ handle_info({CloseTag, Socket}, StateName,
     %% with widespread implementation practice.
     case (Active == false) andalso (CTs =/= []) of
         false ->
-            case Version of
-                {254, N} when N =< 253 ->
+            if (?DTLS_GTE(Version, ?DTLS_1_2)) ->
                     ok;
-                _ ->
+               true ->
                     %% As invalidate_sessions here causes performance issues,
                     %% we will conform to the widespread implementation
                     %% practice and go against the spec
@@ -572,6 +571,12 @@ handle_info(new_cookie_secret, StateName,
     {next_state, StateName, State#state{protocol_specific = 
                                             CookieInfo#{current_cookie_secret => dtls_v1:cookie_secret(),
                                                         previous_cookie_secret => Secret}}};
+handle_info({socket_reused, Client}, StateName,
+            #state{static_env = #static_env{socket = {_, {Client, _}}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
+    ssl_gen_statem:handle_normal_shutdown(Alert#alert{role = server}, StateName, State),
+    {stop, {shutdown, transport_closed}, State};
+
 handle_info(Msg, StateName, State) ->
     ssl_gen_statem:handle_info(Msg, StateName, State).
 
@@ -628,7 +633,7 @@ next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
                                          ssl_options = SslOpts} = State0) ->
     case dtls_record:get_dtls_records(Data,
                                       {DataTag, StateName, Version, 
-                                       [dtls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS]}, 
+                                       [dtls_record:protocol_version_name(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS]},
                                       Buf0, SslOpts) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,

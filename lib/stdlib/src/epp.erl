@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,7 +77,8 @@
               erl_scan_opts = [] :: [_],
               features = [] :: [atom()],
               else_reserved = false :: boolean(),
-              fname = [] :: function_name_type()
+              fname = [] :: function_name_type(),
+              deterministic = false :: boolean()
 	     }).
 
 %% open(Options)
@@ -119,11 +120,13 @@ open(Name, Path, Pdm) ->
       Options :: [{'default_encoding', DefEncoding :: source_encoding()} |
 		  {'includes', IncludePath :: [DirectoryName :: file:name()]} |
 		  {'source_name', SourceName :: file:name()} |
+		  {'deterministic', Enabled :: boolean()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
 		  {'location',StartLocation :: erl_anno:location()} |
 		  {'fd',FileDescriptor :: file:io_device()} |
-		  'extra'],
+		  'extra' |
+                  {'compiler_internal', [term()]}],
       Epp :: epp_handle(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       ErrorDescriptor :: term().
@@ -246,7 +249,7 @@ format_error({error,Term}) ->
 format_error({warning,Term}) ->
     io_lib:format("-warning(~tp).", [Term]);
 format_error(ftr_after_prefix) ->
-    "feature directive not allowed after anything interesting";
+    "feature directive not allowed after exports or record definitions";
 format_error(E) -> file:format_error(E).
 
 -spec scan_file(FileName, Options) ->
@@ -307,7 +310,8 @@ parse_file(Ifile, Path, Predefs) ->
 		  {'location',StartLocation :: erl_anno:location()} |
                   {'reserved_word_fun', Fun :: fun((atom()) -> boolean())} |
                   {'features', [Feature :: atom()]} |
-		  'extra'],
+		  'extra' |
+                  {'compiler_internal', [term()]}],
       Form :: erl_parse:abstract_form()
             | {'error', ErrorInfo}
             | {'eof',Location},
@@ -325,7 +329,7 @@ parse_file(Ifile, Options) ->
 	{ok,Epp,Extra} ->
 	    Forms = parse_file(Epp),
             Epp ! {get_features, self()},
-            Ftrs = receive X -> X end,
+            Ftrs = receive {features, X} -> X end,
 	    close(Epp),
 	    {ok, Forms, [{features, Ftrs} | Extra]};
 	{error,E} ->
@@ -606,6 +610,8 @@ init_server(Pid, FileName, Options, St0) ->
     SourceName = proplists:get_value(source_name, Options, FileName),
     Pdm = proplists:get_value(macros, Options, []),
     Features = proplists:get_value(features, Options, []),
+    Internal = proplists:get_value(compiler_internal, Options, []),
+    ParseChecks = proplists:get_bool(ssa_checks, Internal),
     Ms0 = predef_macros(SourceName, Features),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
@@ -623,31 +629,56 @@ init_server(Pid, FileName, Options, St0) ->
             %% the default location is 1 for backwards compatibility, not {1,1}
             AtLocation = proplists:get_value(location, Options, 1),
 
+            Deterministic = proplists:get_value(deterministic, Options, false),
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, location=AtLocation, macs=Ms1,
 			 default_encoding=DefEncoding,
                          erl_scan_opts =
-                             [{reserved_word_fun, ResWordFun}],
+                             [{text_fun, keep_ftr_keywords()},
+                              {reserved_word_fun, ResWordFun}]
+                         ++ if ParseChecks ->
+                                    [{compiler_internal,[ssa_checks]}];
+                               true -> []
+                            end,
                          features = Features,
-                         else_reserved = ResWordFun('else')},
+                         else_reserved = ResWordFun('else'),
+                         deterministic = Deterministic},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
-			     AtLocation, code),
+			     AtLocation, code, Deterministic),
             wait_req_scan(St);
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
+    end.
+
+%% Return a function that keeps quoted atoms that are keywords in
+%% configurable features.  Need in erl_lint to avoid warning about
+%% them.
+keep_ftr_keywords() ->
+    Features = erl_features:configurable(),
+    Keywords = lists:flatmap(fun erl_features:keywords/1, Features),
+    F = fun(Atom) -> atom_to_list(Atom) ++ "'" end,
+    Strings = lists:map(F, Keywords),
+    fun(atom, [$'|S]) -> lists:member(S, Strings);
+       (_, _) -> false
     end.
 
 %% predef_macros(FileName) -> Macrodict
 %%  Initialise the macro dictionary with the default predefined macros,
 %%  FILE, LINE, MODULE as undefined, MACHINE and MACHINE value.
 
-predef_macros(File, EnabledFeatures) ->
+predef_macros(File, EnabledFeatures0) ->
     Machine = list_to_atom(erlang:system_info(machine)),
     Anno = line1(),
     OtpVersion = list_to_integer(erlang:system_info(otp_release)),
-    AvailableFeatures = erl_features:features(),
+    AvailableFeatures =
+        [Ftr || Ftr <- erl_features:all(),
+                maps:get(status, erl_features:info(Ftr)) /= rejected],
+    PermanentFeatures =
+        [Ftr || Ftr <- erl_features:all(),
+                maps:get(status, erl_features:info(Ftr)) == permanent],
+    EnabledFeatures = EnabledFeatures0 ++ PermanentFeatures,
     Defs = [{'FILE', 	           {none,[{string,Anno,File}]}},
 	    {'FUNCTION_NAME',      undefined},
 	    {'FUNCTION_ARITY',     undefined},
@@ -659,8 +690,6 @@ predef_macros(File, EnabledFeatures) ->
 	    {'MACHINE',	           {none,[{atom,Anno,Machine}]}},
 	    {Machine,	           {none,[{atom,Anno,true}]}},
 	    {'OTP_RELEASE',	   {none,[{integer,Anno,OtpVersion}]}},
-            %% FIXME Understand this has to be a list.  Is it because
-            %% it takes an argument?
             {'FEATURE_AVAILABLE',  [ftr_macro(AvailableFeatures)]},
             {'FEATURE_ENABLED', [ftr_macro(EnabledFeatures)]}
 	   ],
@@ -725,11 +754,11 @@ wait_request(St) ->
     receive
 	{epp_request,From,scan_erl_form} -> From;
         {get_features, From} ->
-            From ! St#epp.features,
+            From ! {features, St#epp.features},
             wait_request(St);
 	{epp_request,From,macro_defs} ->
 	    %% Return the old format to avoid any incompability issues.
-	    Defs = [{{atom,K},V} || {K,V} <- maps:to_list(St#epp.macs)],
+	    Defs = [{{atom,K},V} || K := V <- St#epp.macs],
 	    epp_reply(From, Defs),
 	    wait_request(St);
 	{epp_request,From,close} ->
@@ -781,14 +810,15 @@ enter_file(NewName, Inc, From, St) ->
 
 enter_file2(NewF, Pname, From, St0, AtLocation) ->
     Anno = erl_anno:new(AtLocation),
-    enter_file_reply(From, Pname, Anno, AtLocation, code),
+    enter_file_reply(From, Pname, Anno, AtLocation, code, St0#epp.deterministic),
     #epp{macs = Ms0,
          default_encoding = DefEncoding,
          in_prefix = InPrefix,
          erl_scan_opts = ScanOpts,
          else_reserved = ElseReserved,
-         features = Ftrs} = St0,
-    Ms = Ms0#{'FILE':={none,[{string,Anno,Pname}]}},
+         features = Ftrs,
+         deterministic = Deterministic} = St0,
+    Ms = Ms0#{'FILE':={none,[{string,Anno,source_name(St0,Pname)}]}},
     %% update the head of the include path to be the directory of the new
     %% source file, so that an included file can always include other files
     %% relative to its current location (this is also how C does it); note
@@ -803,16 +833,17 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
          features = Ftrs,
          erl_scan_opts = ScanOpts,
          else_reserved = ElseReserved,
-         default_encoding=DefEncoding}.
+         default_encoding=DefEncoding,
+         deterministic=Deterministic}.
 
-enter_file_reply(From, Name, LocationAnno, AtLocation, Where) ->
+enter_file_reply(From, Name, LocationAnno, AtLocation, Where, Deterministic) ->
     Anno0 = erl_anno:new(AtLocation),
     Anno = case Where of
                code -> Anno0;
                generated -> erl_anno:set_generated(true, Anno0)
            end,
     Rep = {ok, [{'-',Anno},{atom,Anno,file},{'(',Anno},
-		{string,Anno,Name},{',',Anno},
+		{string,Anno,source_name(Deterministic,Name)},{',',Anno},
 		{integer,Anno,get_line(LocationAnno)},{')',LocationAnno},
                 {dot,Anno}]},
     epp_reply(From, Rep).
@@ -848,13 +879,13 @@ leave_file(From, St) ->
                     Ftrs = St#epp.features,
                     ElseReserved = St#epp.else_reserved,
                     ScanOpts = St#epp.erl_scan_opts,
-		    Ms = Ms0#{'FILE':={none,[{string,Anno,OldName2}]}},
+		    Ms = Ms0#{'FILE':={none,[{string,Anno,source_name(St,OldName2)}]}},
                     NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses,
                                        in_prefix = InPrefix,
                                        features = Ftrs,
                                        else_reserved = ElseReserved,
                                        erl_scan_opts = ScanOpts},
-		    enter_file_reply(From, OldName, Anno, CurrLoc, code),
+		    enter_file_reply(From, OldName, Anno, CurrLoc, code, St#epp.deterministic),
                     case OldName2 =:= OldName of
                         true ->
                             ok;
@@ -862,7 +893,7 @@ leave_file(From, St) ->
                             NFrom = wait_request(NextSt),
                             OldAnno = erl_anno:new(OldLoc),
                             enter_file_reply(NFrom, OldName2, OldAnno,
-                                             CurrLoc, generated)
+                                             CurrLoc, generated, St#epp.deterministic)
                         end,
                     wait_req_scan(NextSt);
 		[] ->
@@ -1026,31 +1057,27 @@ scan_feature(Toks, {atom, _, Tag} = Token, From, St) ->
     epp_reply(From, {error,{loc(T),epp,{bad,Tag}}}),
     wait_req_scan(St).
 
-%% FIXME Rewrite this
 update_features(St0, Ind, Ftr, Loc) ->
     Ftrs0 = St0#epp.features,
-    ScanOpts = St0#epp.erl_scan_opts,
+    ScanOpts0 = St0#epp.erl_scan_opts,
     KeywordFun =
-        case proplists:get_value(reserved_word_fun, ScanOpts) of
+        case proplists:get_value(reserved_word_fun, ScanOpts0) of
             undefined -> fun erl_scan:f_reserved_word/1;
             Fun -> Fun
         end,
     case erl_features:keyword_fun(Ind, Ftr, Ftrs0, KeywordFun) of
         {error, Reason} ->
             {error, {Reason, Loc}};
-        {ok, ResWordFun1, Ftrs1} ->
+        {ok, {Ftrs1, ResWordFun1}} ->
             Macs0 = St0#epp.macs,
             Macs1 = Macs0#{'FEATURE_ENABLED' => [ftr_macro(Ftrs1)]},
-            %% ?liof("ok!\n", []),
-            %% FIXME WE need to keep any other scan_opts
-            %% present.  Right now, there are no other, but
-            %% that might change.
-            StX = St0#epp{erl_scan_opts =
-                              [{reserved_word_fun, ResWordFun1}],
-                          features = Ftrs1,
-                          else_reserved = ResWordFun1('else'),
-                          macs = Macs1},
-            {ok, StX}
+            ScanOpts1 = proplists:delete(reserved_word_fun, ScanOpts0),
+            St = St0#epp{erl_scan_opts =
+                             [{reserved_word_fun, ResWordFun1}| ScanOpts1],
+                         features = Ftrs1,
+                         else_reserved = ResWordFun1('else'),
+                         macs = Macs1},
+            {ok, St}
     end.
 
 %% scan_define(Tokens, DefineToken, From, EppState)
@@ -1450,9 +1477,9 @@ scan_file(Tokens0, Tf, From, St) ->
 scan_file1([{'(',_Alp},{string,_As,Name},{',',_Ac},{integer,_Ai,Ln},{')',_Arp},
             {dot,_Ad}], Tf, From, St) ->
     Anno = erl_anno:new(Ln),
-    enter_file_reply(From, Name, Anno, loc(Tf), generated),
+    enter_file_reply(From, Name, Anno, loc(Tf), generated, St#epp.deterministic),
     Ms0 = St#epp.macs,
-    Ms = Ms0#{'FILE':={none,[{string,line1(),Name}]}},
+    Ms = Ms0#{'FILE':={none,[{string,line1(),source_name(St,Name)}]}},
     Locf = loc(Tf),
     NewLoc = new_location(Ln, St#epp.location, Locf),
     Delta = get_line(element(2, Tf))-Ln + St#epp.delta,
@@ -2071,3 +2098,12 @@ interpret_file_attr([Form0 | Forms], Delta, Fs) ->
     [Form | interpret_file_attr(Forms, Delta, Fs)];
 interpret_file_attr([], _Delta, _Fs) ->
     [].
+
+-spec source_name(#epp{} | boolean(), file:filename_all()) -> file:filename_all().
+source_name(Deterministic, Name) when is_boolean(Deterministic) ->
+    case Deterministic of
+        true -> filename:basename(Name);
+        false -> Name
+    end;
+source_name(St, Name) ->
+    source_name(St#epp.deterministic, Name).

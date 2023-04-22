@@ -32,6 +32,25 @@
 #include <sys/mman.h>
 #endif
 
+int erts_mem_guard(void *p, UWord size) {
+#if defined(WIN32)
+    DWORD oldProtect;
+    BOOL success;
+
+    success = VirtualProtect((LPVOID*)p,
+                             size,
+                             PAGE_NOACCESS,
+                             &oldProtect);
+
+    return success ? 0 : -1;
+#elif defined(HAVE_SYS_MMAN_H)
+    return mprotect(p, size, PROT_NONE);
+#else
+    errno = ENOTSUP;
+    return -1;
+#endif
+}
+
 #if HAVE_ERTS_MMAP
 
 /* #define ERTS_MMAP_OP_RINGBUF_SZ 100 */

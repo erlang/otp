@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ wait_for_slave(Parent, Host, Name, Node, Paths, Args,
     ?SET_LEVEL(DebugLevel),
     ?DEBUG("begin", []),
     Waiter = register_unique_name(0),
-    case mk_cmd(Host, Name, Paths, Args, Waiter, Prog) of
+    case (catch mk_cmd(Host, Name, Paths, Args, Waiter, Prog)) of
 	{ok, Cmd} ->
   	    ?DEBUG("command generated: ~n~s", [Cmd]),
 	    case (catch ssh_slave_start(Host, Cmd)) of

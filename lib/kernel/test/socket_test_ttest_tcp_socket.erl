@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,6 +53,15 @@
         {socket_error,
          #{sock => Sock, reader => self(), method => Method},
          Reason}).
+
+
+-define(SELECT_INFO(TAG, REF),     {select_info, TAG, REF}).
+-define(COMPLETION_INFO(TAG, REF), {completion_info, TAG, REF}).
+
+-define(SELECT_MSG(SOCK, REF),
+        {'$socket', (SOCK), select, (REF)}).
+-define(COMPLETION_MSG(SOCK, REF, STATUS),
+        {'$socket', (SOCK), completion, {(REF), (STATUS)}}).
 
 
 %% ==========================================================================
@@ -120,7 +129,7 @@ close(#{sock := Sock, reader := Pid}) ->
     Res.
 
 %% Create a socket and connect it to a peer
-connect(ServerPath) when is_list(ServerPath) ->
+connect(ServerPath) when is_list(ServerPath) orelse is_binary(ServerPath) ->
     Domain     = local,
     ClientPath = mk_unique_path(),
     LocalSA    = #{family => Domain,
@@ -145,7 +154,7 @@ connect(Addr, Port) when is_tuple(Addr) andalso is_integer(Port) ->
     do_connect(LocalSA, ServerSA, Cleanup, Opts);
 connect(ServerPath,
         #{domain := local = Domain} = Opts)
-  when is_list(ServerPath) ->
+  when is_list(ServerPath) orelse is_binary(ServerPath) ->
     ClientPath = mk_unique_path(),
     LocalSA    = #{family => Domain,
                    path   => ClientPath},
@@ -233,13 +242,14 @@ listen() ->
 
 listen(Port) when is_integer(Port) ->
     listen(Port, #{domain => inet, async => false, method => plain});
-listen(Path) when is_list(Path) ->
+listen(Path) when is_list(Path) orelse is_binary(Path) ->
     listen(Path, #{domain => local, async => false, method => plain}).
 
 listen(0, #{domain := local} = Opts) ->
     listen(mk_unique_path(), Opts);
 listen(Path, #{domain := local = Domain} = Opts)
-  when is_list(Path) andalso (Path =/= []) ->
+  when (is_list(Path) andalso (Path =/= [])) orelse
+       (is_binary(Path) andalso (Path =/= <<"">>)) ->
     SA = #{family => Domain,
            path   => Path},
     Cleanup = fun() -> os:cmd("unlink " ++ Path), ok end,
@@ -370,8 +380,9 @@ reader_init(ControllingProcess, Sock, Async, Active, Method)
     reader_loop(#{ctrl_proc      => ControllingProcess,
 		  ctrl_proc_mref => MRef,
                   async          => Async,
-                  select_info    => undefined,
-                  select_num     => 0, % Count the number of select messages
+                  asynch_info    => undefined,
+                  %% Count the number of select|completion messages
+                  asynch_num     => 0,
 		  active         => Active,
 		  sock           => Sock,
                   method         => Method}).
@@ -451,13 +462,16 @@ reader_loop(#{active    := once,
     end;
 reader_loop(#{active      := once,
 	      async       := true,
-              select_info := undefined,
+              asynch_info := undefined,
               sock        := Sock,
               method      := Method,
 	      ctrl_proc   := Pid} = State) ->
     case do_recv(Method, Sock, nowait) of
         {select, SelectInfo} ->
-            reader_loop(State#{select_info => SelectInfo});
+            reader_loop(State#{asynch_info => SelectInfo});
+        {completion, CompletionInfo} ->
+            reader_loop(State#{asynch_info => CompletionInfo});
+
 	{ok, Data} ->
 	    Pid ! ?DATA_MSG(Sock, Method, Data),
 	    reader_loop(State#{active => false});
@@ -472,11 +486,17 @@ reader_loop(#{active      := once,
     end;
 reader_loop(#{active      := once,
 	      async       := true,
-              select_info := {select_info, _, Ref},
-              select_num  := N,
+              asynch_info := AsynchInfo,
+              asynch_num  := N,
               sock        := Sock,
               method      := Method,
-	      ctrl_proc   := Pid} = State) ->
+	      ctrl_proc   := Pid} = State) when (AsynchInfo =/= undefined) ->
+    Ref = case AsynchInfo of
+              ?SELECT_INFO(_, SR) ->
+                  SR;
+              ?COMPLETION_INFO(_, CR) ->
+                  CR
+          end,
     receive
         {?MODULE, stop} ->
             reader_exit(State, stop);
@@ -500,18 +520,42 @@ reader_loop(#{active      := once,
                     reader_loop(State)
             end;
 
-        {'$socket', Sock, select, Ref} ->
+        ?SELECT_MSG(Sock, Ref) ->
             case do_recv(Method, Sock, nowait) of
                 {ok, Data} when is_binary(Data) ->
                     Pid ! ?DATA_MSG(Sock, Method, Data),
                     reader_loop(State#{active      => false,
-                                       select_info => undefined,
-                                       select_num  => N+1});
-                
+                                       asynch_info => undefined,
+                                       asynch_num  => N+1});
+
                 {error, closed} = E1 ->
                     Pid ! ?CLOSED_MSG(Sock, Method),
                     reader_exit(State, E1);
-                
+
+                {error, Reason} = E2 ->
+                    Pid ! ?ERROR_MSG(Sock, Method, Reason),
+                    reader_exit(State, E2)
+            end;
+
+        ?COMPLETION_MSG(Sock, Ref, Result) ->
+            %% Note that *Windows* does not support sendmsg/recvmsg
+            %% but we assume we can get it. Just to be future proof
+            case Result of
+                {ok, Data} when is_binary(Data) ->
+                    Pid ! ?DATA_MSG(Sock, Method, Data),
+                    reader_loop(State#{active      => false,
+                                       asynch_info => undefined,
+                                       asynch_num  => N+1});
+                {ok, #{iov := [Data]}} when is_binary(Data) ->
+                    Pid ! ?DATA_MSG(Sock, Method, Data),
+                    reader_loop(State#{active      => false,
+                                       asynch_info => undefined,
+                                       asynch_num  => N+1});
+
+                {error, closed} = E1 ->
+                    Pid ! ?CLOSED_MSG(Sock, Method),
+                    reader_exit(State, E1);
+
                 {error, Reason} = E2 ->
                     Pid ! ?ERROR_MSG(Sock, Method, Reason),
                     reader_exit(State, E2)
@@ -565,13 +609,16 @@ reader_loop(#{active    := true,
     end;
 reader_loop(#{active      := true,
 	      async       := true,
-              select_info := undefined,
+              asynch_info := undefined,
 	      sock        := Sock,
               method      := Method,
 	      ctrl_proc   := Pid} = State) ->
     case do_recv(Method, Sock) of
         {select, SelectInfo} ->
-            reader_loop(State#{select_info => SelectInfo});
+            reader_loop(State#{asynch_info => SelectInfo});
+        {completion, CompletionInfo} ->
+            reader_loop(State#{asynch_info => CompletionInfo});
+
 	{ok, Data} ->
 	    Pid ! ?DATA_MSG(Sock, Method, Data),
 	    reader_loop(State);
@@ -586,11 +633,17 @@ reader_loop(#{active      := true,
     end;
 reader_loop(#{active      := true,
 	      async       := true,
-              select_info := {select_info, _, Ref},
-              select_num  := N,
+              asynch_info := AsynchInfo,
+              asynch_num  := N,
 	      sock        := Sock,
               method      := Method,
-	      ctrl_proc   := Pid} = State) ->
+	      ctrl_proc   := Pid} = State) when (AsynchInfo =/= undefined) ->
+    Ref = case AsynchInfo of
+              ?SELECT_INFO(_, SR) ->
+                  SR;
+              ?COMPLETION_INFO(_, CR) ->
+                  CR
+          end,
     receive
         {?MODULE, stop} ->
             reader_exit(State, stop);
@@ -614,17 +667,41 @@ reader_loop(#{active      := true,
                     reader_loop(State)
             end;
 
-        {'$socket', Sock, select, Ref} ->
+        ?SELECT_MSG(Sock, Ref) ->
             case do_recv(Method, Sock, nowait) of
                 {ok, Data} when is_binary(Data) ->
                     Pid ! ?DATA_MSG(Sock, Method, Data),
-                    reader_loop(State#{select_info => undefined,
-                                       select_num  => N+1});
+                    reader_loop(State#{asynch_info => undefined,
+                                       asynch_num  => N+1});
                 
                 {error, closed} = E1 ->
                     Pid ! ?CLOSED_MSG(Sock, Method),
                     reader_exit(State, E1);
                 
+                {error, Reason} = E2 ->
+                    Pid ! ?ERROR_MSG(Sock, Method, Reason),
+                    reader_exit(State, E2)
+            end;
+
+        ?COMPLETION_MSG(Sock, Ref, Result) ->
+            %% Note that *Windows* does not support sendmsg/recvmsg
+            %% but we assume we can get it. Just to be future proof
+            case Result of
+                {ok, Data} when is_binary(Data) ->
+                    Pid ! ?DATA_MSG(Sock, Method, Data),
+                    reader_loop(State#{active      => false,
+                                       asynch_info => undefined,
+                                       asynch_num  => N+1});
+                {ok, #{iov := [Data]}} when is_binary(Data) ->
+                    Pid ! ?DATA_MSG(Sock, Method, Data),
+                    reader_loop(State#{active      => false,
+                                       asynch_info => undefined,
+                                       asynch_num  => N+1});
+
+                {error, closed} = E1 ->
+                    Pid ! ?CLOSED_MSG(Sock, Method),
+                    reader_exit(State, E1);
+
                 {error, Reason} = E2 ->
                     Pid ! ?ERROR_MSG(Sock, Method, Reason),
                     reader_exit(State, E2)
@@ -643,6 +720,8 @@ do_recv(msg, Sock, Timeout) ->
             {ok, Bin};
         {select, _} = SELECT ->
             SELECT;
+        {completion, _} = COMPLETION ->
+            COMPLETION;
         {error, _} = ERROR ->
             ERROR
     end.
@@ -653,55 +732,55 @@ reader_exit(#{async := false, active := Active}, stop) ->
     exit(normal);
 reader_exit(#{async       := true, 
               active      := Active,
-              select_info := SelectInfo,
-              select_num  := N}, stop) ->
+              asynch_info := AsynchInfo,
+              asynch_num  := N}, stop) ->
     vp("reader stopped when active: ~w"
-       "~n   Current select info:       ~p"
-       "~n   Number of select messages: ~p", [Active, SelectInfo, N]),
+       "~n   Current asynch info:       ~p"
+       "~n   Number of asynch messages: ~p", [Active, AsynchInfo, N]),
     exit(normal);
 reader_exit(#{async := false, active := Active}, {ctrl_exit, normal}) ->
     vp("reader ctrl exit when active: ~w", [Active]),
     exit(normal);
 reader_exit(#{async       := true, 
               active      := Active,
-              select_info := SelectInfo,
-              select_num  := N}, {ctrl_exit, normal}) ->
+              asynch_info := AsynchInfo,
+              asynch_num  := N}, {ctrl_exit, normal}) ->
     vp("reader ctrl exit when active: ~w"
-       "~n   Current select info:       ~p"
-       "~n   Number of select messages: ~p", [Active, SelectInfo, N]),
+       "~n   Current asynch info:       ~p"
+       "~n   Number of asynch messages: ~p", [Active, AsynchInfo, N]),
     exit(normal);
 reader_exit(#{async := false, active := Active}, {ctrl_exit, Reason}) ->
     vp("reader exit when ctrl crash when active: ~w", [Active]),
     exit({controlling_process, Reason});
 reader_exit(#{async       := true, 
               active      := Active,
-              select_info := SelectInfo,
-              select_num  := N}, {ctrl_exit, Reason}) ->
+              asynch_info := AsynchInfo,
+              asynch_num  := N}, {ctrl_exit, Reason}) ->
     vp("reader exit when ctrl crash when active: ~w"
-       "~n   Current select info:       ~p"
-       "~n   Number of select messages: ~p", [Active, SelectInfo, N]),
+       "~n   Current asynch info:       ~p"
+       "~n   Number of asynch messages: ~p", [Active, AsynchInfo, N]),
     exit({controlling_process, Reason});
 reader_exit(#{async := false, active := Active}, {error, closed}) ->
     vp("reader exit when socket closed when active: ~w", [Active]),
     exit(normal);
 reader_exit(#{async       := true, 
               active      := Active,
-              select_info := SelectInfo,
-              select_num  := N}, {error, closed}) ->
+              asynch_info := AsynchInfo,
+              asynch_num  := N}, {error, closed}) ->
     vp("reader exit when socket closed when active: ~w "
-       "~n   Current select info:       ~p"
-       "~n   Number of select messages: ~p", [Active, SelectInfo, N]),
+       "~n   Current asynch info:       ~p"
+       "~n   Number of asynch messages: ~p", [Active, AsynchInfo, N]),
     exit(normal);
 reader_exit(#{async := false, active := Active}, {error, Reason}) ->
     vp("reader exit when socket error when active: ~w", [Active]),
     exit(Reason);
 reader_exit(#{async       := true, 
               active      := Active,
-              select_info := SelectInfo,
-              select_num  := N}, {error, Reason}) ->
+              asynch_info := AsynchInfo,
+              asynch_num  := N}, {error, Reason}) ->
     vp("reader exit when socket error when active: ~w: "
-       "~n   Current select info:       ~p"
-       "~n   Number of select messages: ~p", [Active, SelectInfo, N]),
+       "~n   Current asynch info:       ~p"
+       "~n   Number of asynch messages: ~p", [Active, AsynchInfo, N]),
     exit(Reason).
 
 

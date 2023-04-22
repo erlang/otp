@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@
 %% Test cases
 -export([app_file/1, appup_file/1,
 	 basic/1, process_win/1, table_win/1,
-         port_win_when_tab_not_initiated/1
+         port_win_when_tab_not_initiated/1,
+         blocking_start/1, remote_node/1
 	]).
 
 %% Default timetrap timeout (set in init_per_testcase)
@@ -58,7 +59,9 @@ groups() ->
       [basic,
        process_win,
        table_win,
-       port_win_when_tab_not_initiated
+       port_win_when_tab_not_initiated,
+       blocking_start,
+       remote_node
       ]
      }].
 
@@ -74,17 +77,47 @@ end_per_suite(Config) ->
     ok.
 
 
+%% init_per_testcase(basic = Case, Config) ->
+%%     ?P("init_per_testcase(~w) -> entry with"
+%%        "~n   Config: ~p", [Case, Config]),
+%%     {ok, Host} = inet:gethostname(),
+%%     {ok, IFL}  = inet:getifaddrs(),
+%%     init_per_testcase2(Case, [{host, Host}, {ifl, IFL} | Config]);
 init_per_testcase(Case, Config) ->
     ?P("init_per_testcase(~w) -> entry with"
        "~n   Config: ~p", [Case, Config]),
+    init_per_testcase2(Case, Config).
+
+init_per_testcase2(Case, Config) ->
+    ?P("init_per_testcase(~w) -> entry", [Case]),
     Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
+%% end_per_testcase(basic = Case, Config) ->
+%%     ?P("end_per_testcase(~w) -> entry with"
+%%        "~n   Config: ~p", [Case, Config]),
+%%     case lists:keysearch(tc_status, 1, Config) of
+%%         {value, {tc_status, ok}} ->
+%%             ?P("end_per_testcase(~w) -> successful", [Case]),
+%%             ok;
+%%         {value, _} ->
+%%             ?P("end_per_testcase(~w) -> try ensure observer stopped", [Case]),
+%%             ensure_observer_stopped();
+%%         _ ->
+%%             ?P("end_per_testcase(~w) -> nop status", [Case]),
+%%             ok
+%%     end,
+%%     end_per_testcase2(Case, Config);
 end_per_testcase(Case, Config) ->
     ?P("end_per_testcase(~w) -> entry with"
        "~n   Config: ~p", [Case, Config]),
+    end_per_testcase2(Case, Config).
+
+end_per_testcase2(Case, Config) ->
+    ?P("end_per_testcase2(~w) -> entry - try cancel watchdog", [Case]),
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
+    ?P("end_per_testcase2(~w) -> done", [Case]),
     ok.
 
 
@@ -142,11 +175,11 @@ app_file(Config) when is_list(Config) ->
     ok = test_server:app_test(observer),
     ok.
 
+
 %% Testing .appup file
 appup_file(Config) when is_list(Config) ->
     ok = test_server:appup_test(observer).
 
--define(DBG(Foo), io:format("~p: ~p~n",[?LINE, catch Foo])).
 
 basic(suite) -> [];
 basic(doc) -> [""];
@@ -163,6 +196,15 @@ basic(Config) when is_list(Config) ->
     ?P("basic -> try start distribution"),
     {foo, node@machine} ! dummy_msg,  %% start distribution stuff
     %% Otherwise ever lasting servers gets added to procs
+
+    %% It takes some time for all the procs to start,
+    %% so give it some time.
+    %% Note that this is a problem *only* if this test suite
+    %% is run *on its own*. If all the observer suite(s) are run
+    %% (ex: ts:run(observer, [batch]), then this problem does
+    %% not occcur.
+    timer:sleep(5000),
+
     ?P("basic -> procs before"),
     ProcsBefore = processes(),
     ProcInfoBefore = [{P,process_info(P)} || P <- ProcsBefore],
@@ -179,6 +221,7 @@ basic(Config) when is_list(Config) ->
     ?P("basic -> check selection (=0)"),
     0 = wxNotebook:getSelection(Notebook),
     ?P("basic -> wait some time..."),
+
     timer:sleep(500),
     Check = fun(N, TestMore) ->
 		    TestMore andalso
@@ -198,7 +241,7 @@ basic(Config) when is_list(Config) ->
     ?P("basic -> try verify that we resized"),
     [_|_] = [Check(N, true) || N <- lists:seq(0, Count-1)],
 
-    ?P("basic -> try stop observer (async)"),
+    ?P("basic -> try stop observer"),
     ok = observer:stop(),
     timer:sleep(2000), %% stop is async
     ?P("basic -> try verify observer stopped"),
@@ -206,15 +249,16 @@ basic(Config) when is_list(Config) ->
     NumProcsAfter = length(ProcsAfter),
     if NumProcsAfter =/= NumProcsBefore ->
             BeforeNotAfter = ProcsBefore -- ProcsAfter,
+            AfterNotBefore = ProcsAfter -- ProcsBefore,
             ?P("basic -> *not* fully stopped:"
                "~n   Number of Procs before: ~p"
                "~n   Number of Procs after:  ~p",
-               [NumProcsAfter, NumProcsBefore]),
+               [NumProcsBefore, NumProcsAfter]),
 	    ct:log("Before but not after:~n~p~n",
 		   [[{P,I} || {P,I} <- ProcInfoBefore,
                               lists:member(P,BeforeNotAfter)]]),
 	    ct:log("After but not before:~n~p~n",
-		   [[{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]]),
+		   [[{P,process_info(P)} || P <- AfterNotBefore]]),
 	    ensure_observer_stopped(),
 	    ct:fail("leaking processes");
        true ->
@@ -425,6 +469,40 @@ table_win(Config) when is_list(Config) ->
     ?P("ensure observer stopped"),
     ensure_observer_stopped(?SECS(3)),
     ?P("table_win -> done"),
+    ok.
+
+remote_node(_Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = observer:start(Node),
+    timer:sleep(1000),
+    Node = observer_wx:get_active_node(),
+    observer:stop(),
+    ensure_observer_stopped(?SECS(3)),
+    peer:stop(Peer).
+
+blocking_start(_Config) ->
+    {Pid, SpawnerRef} = spawn_monitor(fun observer:start_and_wait/0),
+    timer:sleep(1000),
+    ObserverRef = monitor(process, observer),
+    receive
+        {'DOWN', ObserverRef, _, _, Reason} ->
+            error({observer_stopped_unexpectedly, Reason});
+        {'DOWN', SpawnerRef, _, _, Reason} ->
+            error({spawner_stopped_unexpectedly, Reason})
+    after
+        500 ->
+            ok
+    end,
+    observer:stop(),
+    ensure_observer_stopped(?SECS(3)),
+    receive
+        {'DOWN', ObserverRef, _, _, _} ->
+            ok
+    after
+        500 ->
+            error(observer_should_have_stopped)
+    end,
+    false = erlang:is_process_alive(Pid),
     ok.
 
 %% Test PR-1296/OTP-14151

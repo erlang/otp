@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson 2017-2021. All Rights Reserved.
+ * Copyright Ericsson 2017-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -997,9 +997,12 @@ static ERL_NIF_TERM build_file_info(ErlNifEnv *env, efile_fileinfo_t *info) {
         enif_make_uint64(env, info->size),
         efile_filetype_to_atom(info->type),
         efile_access_to_atom(info->access),
-        enif_make_int64(env, MAX(EFILE_MIN_FILETIME, info->a_time)),
-        enif_make_int64(env, MAX(EFILE_MIN_FILETIME, info->m_time)),
-        enif_make_int64(env, MAX(EFILE_MIN_FILETIME, info->c_time)),
+        enif_make_int64(env,
+            MIN(EFILE_MAX_FILETIME, MAX(EFILE_MIN_FILETIME, info->a_time))),
+        enif_make_int64(env,
+            MIN(EFILE_MAX_FILETIME, MAX(EFILE_MIN_FILETIME, info->m_time))),
+        enif_make_int64(env,
+            MIN(EFILE_MAX_FILETIME, MAX(EFILE_MIN_FILETIME, info->c_time))),
         enif_make_uint(env, info->mode),
         enif_make_uint(env, info->links),
         enif_make_uint(env, info->major_device),

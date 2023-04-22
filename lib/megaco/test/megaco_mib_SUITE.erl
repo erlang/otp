@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -675,11 +675,15 @@ traffic_verify_counter(Name, Counter, Counters, Expected) ->
 	{value, {Counter, Val}} ->
             i("counter ~w *not* verified for ~p: "
               "~n   Expected: ~w"
-              "~n   Actual:   ~w", [Counter, Name, Expected, Val]),
-	    exit({illegal_counter_value, Counter, Val, Expected, Name});
+              "~n   Actual:   ~w"
+              "~n   Counters: ~w",
+              [Counter, Name, Expected, Val, Counters]),
+	    exit({illegal_counter_value, Name, Counter, Expected, Val,
+                  Counters});
 	false ->
-            i("counter ~w *not* found for ~p", [Counter, Name]),
-	    exit({not_found, Counter, Counters, Name, Expected})
+            i("counter ~w *not* found for ~p: "
+              "~n   Counters: ~p", [Counter, Name, Counters]),
+	    exit({not_found, Name, Counter, Counters, Expected})
     end.
     
 
@@ -1200,13 +1204,21 @@ start_mg(Node, Mid, Encoding, Transport, Verbosity) ->
 mg(Parent, Verbosity, Config) ->
     process_flag(trap_exit, true),
     put(verbosity, Verbosity),
-    put(sname,   "MG"),
+    put(sname,     get_mg_sname(Config)),
     i("mg -> starting"),
     {Mid, ConnHandle} = mg_init(Config),
     notify_started(Parent),
     S = #mg{parent = Parent, mid = Mid, conn_handle = ConnHandle},
     i("mg -> started"),
     mg_loop(S).
+
+get_mg_sname(Config) ->
+    case get_conf(local_mid, Config) of
+        {deviceName, Name} ->
+            Name;
+        _ ->
+            "MG"
+end.
 
 mg_init(Config) ->
     d("mg_init -> entry"),

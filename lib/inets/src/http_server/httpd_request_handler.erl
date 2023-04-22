@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 	 terminate/2, code_change/3, format_status/2]).
 
 -include("httpd.hrl").
--include("http_internal.hrl").
+-include("../http_lib/http_internal.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 -define(HANDSHAKE_TIMEOUT, 5000).
@@ -46,7 +46,7 @@
 		response_sent = false :: boolean(),
 		timeout,   %% infinity | integer() > 0
 		timer      :: 'undefined' | reference(), % Request timer
-		headers,   %% #http_request_h{}
+		headers = #http_request_h{},
 		body,      %% binary()
 		data,      %% The total data received in bits, checked after 10s
 		byte_limit, %% Bit limit per second before kick out
@@ -327,16 +327,16 @@ do_terminate(#state{mod = ModData} = State) ->
     httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket).
 
 format_status(normal, [_, State]) ->
-    [{data, [{"StateData", State}]}];  
+    [{data, [{"StateData", State}]}];
 format_status(terminate, [_, State]) ->
     Mod = (State#state.mod),
     case Mod#mod.socket_type of
-	ip_comm ->
-	    [{data, [{"StateData", State}]}];  
-	{essl, _} ->
-	    %% Do not print ssl options in superviosr reports
-	    [{data, [{"StateData", 
-		      State#state{mod = Mod#mod{socket_type = 'TLS'}}}]}]
+	{ssl, _} ->
+	    %% Do not print ssl options in supervisor reports
+	    [{data, [{"StateData",
+		      State#state{mod = Mod#mod{socket_type = 'TLS'}}}]}];
+        _  ->
+            [{data, [{"StateData", State}]}]
     end.
 
 %%--------------------------------------------------------------------
@@ -369,8 +369,8 @@ handle_msg({{continue, Chunk}, Module, Function, Args}, #state{chunk = {_, CbSta
 handle_msg({continue, Module, Function, Args}, 	#state{mod = ModData} = State) ->
     setopts(ModData#mod.socket, ModData#mod.socket_type, [{active, once}]),
     {noreply, State#state{mfa = {Module, Function, Args}}};
-handle_msg({last, Body}, #state{headers = Headers, chunk = {_, CbState}} = State) -> 
-    NewHeaders = Headers#http_request_h{'content-length' = integer_to_list(size(Body))},
+handle_msg({last, Body}, #state{headers = Headers, chunk = {_, CbState}} = State) when is_binary(Body) ->
+    NewHeaders = Headers#http_request_h{'content-length' = integer_to_list(byte_size(Body))},
     handle_response(State#state{chunk = {last, CbState},
                                 headers = NewHeaders,
                                 body = Body});

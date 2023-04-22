@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ match_list(list) -> true;
 match_list(_Other) -> false.
 
 match_compressed(compressed) -> true;
+match_compressed(compressed_one) -> true;
 match_compressed(_Other) -> false.
 
 match_delayed({delayed_write, _Size, _Timeout}) -> true;

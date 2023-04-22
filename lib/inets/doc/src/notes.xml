@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2022</year>
+      <year>2002</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,7 +33,333 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.5.2</title>
+  <section><title>Inets 8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, handling of URI to a folder, with
+	    missing trailing / and a query component present is
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-18472 Aux Id: DAFH-1592 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Adds more type information to the <c>inets</c> app, thus
+	    improving the errors that static analysis tools can
+	    detect.</p>
+          <p>
+	    The addition of type information to records and the
+	    updates to function heads help static analysis tools to
+	    understand that some values in the records cannot be
+	    <c>'undefined'</c>, thus making static tools to type
+	    check correctly more modules in the <c>inets</c> app</p>
+          <p>
+	    Own Id: OTP-18390 Aux Id: PR-6661 </p>
+        </item>
+        <item>
+          <p>
+	    Replace size/1 with either tuple_size/1 or byte_size/1</p>
+          <p>
+	    The <c>size/1</c> BIF is not optimized by the JIT, and
+	    its use can result in worse types for Dialyzer.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    tuple, <c>tuple_size/1</c> should always be preferred.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    binary, <c>byte_size/1</c> should be preferred. However,
+	    <c>byte_size/1</c> also accepts a bitstring (rounding up
+	    size to a whole number of bytes), so one must make sure
+	    that the call to <c>byte_size/</c> is preceded by a call
+	    to <c>is_binary/1</c> to ensure that bitstrings are
+	    rejected. Note that the compiler removes redundant calls
+	    to <c>is_binary/1</c>, so if one is not sure whether
+	    previous code had made sure that the argument is a
+	    binary, it does not harm to add an <c>is_binary/1</c>
+	    test immediately before the call to <c>byte_size/1</c>.</p>
+          <p>
+	    Own Id: OTP-18432 Aux Id:
+	    GH-6672,PR-6793,PR-6784,PR-6787,PR-6785,PR-6682,PR-6800,PR-6797,PR-6798,PR-6799,PR-6796,PR-6813,PR-6671,PR-6673,PR-6684,PR-6694,GH-6677,PR-6696,PR-6670,PR-6674 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ensure graceful shutdown</p>
+          <p>
+	    Own Id: OTP-18461 Aux Id: ERIERL-890 </p>
+        </item>
+        <item>
+          <p>
+	    Return type of the type specification for function
+	    <c>httpc:cookie_header/{1,2,3}</c> has been fixed from
+	    <c>-spec cookie_header(url()) -&gt; [{ field(), value()
+	    }] | {error, Reason}</c> to <c>-spec cookie_header(url())
+	    -&gt; { field(), value() } | {error, Reason}</c></p>
+          <p>
+	    Own Id: OTP-18462 Aux Id: GH-6846 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    fixes a missing case of the type specification for
+	    httpd:info/2/3/4</p>
+          <p>
+	    Own Id: OTP-18362 Aux Id: GH-6558, ERIERL-895 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    This change allows body requests to
+	    <c>httpc:request/5</c> be an <c>iolist()</c></p>
+          <p>
+	    Own Id: OTP-18250</p>
+        </item>
+        <item>
+          <p>
+	    addition of type specs in <c>httpc.erl</c></p>
+          <p>
+	    Own Id: OTP-18251 Aux Id: GH-6245 </p>
+        </item>
+        <item>
+          <p>
+	    httpc: Add support for HTTP 308 status code</p>
+          <p>
+	    Own Id: OTP-18280 Aux Id: GH-6290, PR-6291 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>httpc:ssl_verify_host_options/1</c> to help
+	    setting default ssl options for the https client.</p>
+          <p>
+	    Own Id: OTP-18118</p>
+        </item>
+        <item>
+          <p>
+	    This change fixes dialyzer warnings generated for
+	    inets/httpd examples (includes needed adjustment of spec
+	    for ssh_sftp module).</p>
+          <p>
+	    Own Id: OTP-18178 Aux Id: ERIERL-833, ERIERL-834,
+	    ERIERL-835 </p>
+        </item>
+        <item>
+          <p>
+	    Remove documentation of no longer supported callback.</p>
+          <p>
+	    Own Id: OTP-18193 Aux Id: GH-6122 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adjust uri_string:normalize behavior for URIs with
+	    undefined port (URI string with a port colon but no port
+	    value or URI map with port => undefined).</p>
+          <p>
+	    Remove redundant normalization from http_request module.</p>
+          <p>
+	    Before this change, normalize would not remove port
+	    subcomponent in such cases and could for example return
+	    "http://localhost:" URI.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17627</p>
+        </item>
+        <item>
+          <p>
+	    Fixed typo in Reason term returned from
+	    httpc_handler:handle_http_body.</p>
+          <p>
+	    After this change, could_not_establish_ssl_tunnel atom is
+	    returned within Reason term.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17889</p>
+        </item>
+        <item>
+          <p>
+	    With this change, inet6fb4 option is documented for
+	    inets/httpc. Option can be used when IP family needs to
+	    be discovered by a connection attempt.</p>
+          <p>
+	    Own Id: OTP-18063 Aux Id: ERIERL-798 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    This change removes deprecated functions:
+	    http_uri:parse/1, http_uri:parse/2 and
+	    http_uri:scheme_defaults/0.</p>
+          <p>
+	    This change delays until OTP-26 removal of deprecated
+	    functions: http_uri:encode/1 and http_uri:decode/1.</p>
+          <p>
+	    This change marks httpd_util:decode_hex/1 and
+	    httpd_util:encode_hex/1 as deprecated.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17866</p>
+        </item>
+        <item>
+          <p>
+	    After this change, connect_timeout value is re-used when
+	    upgrading TCP connection to TLS over a proxy.</p>
+          <p>
+	    Own Id: OTP-17997 Aux Id: GH-5782 </p>
+        </item>
+        <item>
+          <p>
+	    Remove reference to unsupported Apache-like config file
+	    from httpd manual.</p>
+          <p>
+	    Own Id: OTP-18088 Aux Id: GH-5276 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Inets 7.5.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, upon remote socket closure current
+	    request is added to a retried queue (either pipeline or
+	    keep_alive, but not both).</p>
+          <p>
+	    Own Id: OTP-18545 Aux Id: OTP-18509, ERIERL-937,
+	    ERIERL-928 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Inets 7.5.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct timing related pipelining/keepalive queue bug,
+	    that could result in unexpected "socket_remotly_closed"
+	    errors.</p>
+          <p>
+	    Own Id: OTP-18509 Aux Id: OTP-18476 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Inets 7.5.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, handling of URI to a folder, with
+	    missing trailing / and a query component present is
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-18472 Aux Id: DAFH-1592 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Inets 7.5.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove documentation of no longer supported callback.</p>
+          <p>
+	    Own Id: OTP-18193 Aux Id: GH-6122 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of erl_script_script option in httpd when
+	    atom 'all' is used as AllowedModule.</p>
+          <p>
+	    Own Id: OTP-18069 Aux Id: ERIERL-805 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -211,6 +537,21 @@
 	    variables.</p>
           <p>
 	    Own Id: OTP-17385 Aux Id: OTP-17123 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Inets 7.3.2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove documentation of no longer supported callback.</p>
+          <p>
+	    Own Id: OTP-18193 Aux Id: GH-6122 </p>
         </item>
       </list>
     </section>

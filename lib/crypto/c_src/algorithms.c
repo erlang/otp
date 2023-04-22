@@ -29,7 +29,7 @@
 #ifdef HAS_3_0_API
 #else
 static unsigned int algo_hash_cnt, algo_hash_fips_cnt;
-static ERL_NIF_TERM algo_hash[14];   /* increase when extending the list */
+static ERL_NIF_TERM algo_hash[16];   /* increase when extending the list */
 void init_hash_types(ErlNifEnv* env);
 #endif
 
@@ -112,6 +112,12 @@ void init_hash_types(ErlNifEnv* env) {
 #endif
 #ifdef HAVE_SHA3_512
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_512");
+#endif
+#ifdef HAVE_SHAKE128
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "shake128");
+#endif
+#ifdef HAVE_SHAKE256
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "shake256");
 #endif
 #ifdef HAVE_BLAKE2
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "blake2b");

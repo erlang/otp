@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -350,7 +350,9 @@ t_sendfile_recvduring(Config) ->
 		   {ok, #file_info{size = Size}} =
 		       file:read_file_info(Filename),
 		   spawn_link(fun() ->
-                                      timer:sleep(1),
+                                      %% We sleep to allow file:sendfile to be
+                                      %% called before this send.
+                                      timer:sleep(10),
 				      ok = gen_tcp:send(Sock, <<1>>),
 				      {ok,<<1>>} = gen_tcp:recv(Sock, 1)
 			      end),
@@ -488,10 +490,9 @@ sendfile_send(Host, Send, Orig, SockOpts) ->
             Opts = [binary,{packet,0}|SockOpts],
             io:format("connect with opts = ~p\n", [Opts]),
 	    {ok, Sock} = gen_tcp:connect(Host, Port, Opts),
-	    Data = case proplists:get_value(arity,erlang:fun_info(Send)) of
-		       1 ->
+	    Data = if is_function(Send, 1) ->
 			   Send(Sock);
-		       2 ->
+		      is_function(Send, 2) ->
 			   Send(Sock, SFServer)
 		   end,
 	    ok = gen_tcp:close(Sock),

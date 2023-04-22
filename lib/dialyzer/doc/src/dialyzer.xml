@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2021</year>
+      <year>2006</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -86,11 +86,11 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
          [--error_location flag] [files_or_dirs] [--fullpath]
          [--get_warnings] [--gui] [--help] [-I include_dir]*
-         [--no_check_plt] [--no_indentation] [-o outfile]
-         [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
-         [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
-         [--shell] [--src] [--statistics] [--verbose] [--version]
-         [-Wwarn]*</code>
+         [--incremental] [--metrics_file] [--no_check_plt] [--no_indentation]
+         [--no_spec] [-o outfile] [--output_plt file] [-pa dir]* [--plt plt]
+         [--plt_info] [--plts plt*] [--quiet] [-r dirs] [--raw]
+         [--remove_from_plt] [--shell] [--src] [--statistics] [--verbose]
+         [--version] [--warning_apps applications] [-Wwarn]*</code>
 
     <note>
       <p>* denotes that multiple occurrences of the option are possible.</p>
@@ -110,6 +110,18 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
           files.</p>
       </item>
       <tag><c>--apps applications</c></tag>
+      <item>
+        <p> By default, warnings will be reported to all applications given by
+          <c>--apps</c>. However, if <c>--warning_apps</c> is used, only those applications
+          given to <c>--warning_apps</c> will have warnings reported. All applications
+          given by <c>--apps</c>, but not <c>--warning_apps</c>, will be analysed to provide
+          context to the analysis, but warnings will not be reported for them.
+          For example, you may want to include libraries you depend on in the
+          analysis with <c>--apps</c> so discrepancies in their usage can be found,
+          but only include your own code with <c>--warning_apps</c> so that
+          discrepancies are only reported in code that you own.</p>
+      </item>
+      <tag><c>--warning_apps applications</c></tag>
       <item>
         <p>This option is typically used when building or modifying a PLT as
           in:</p>
@@ -185,21 +197,47 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
         <p>When analyzing from source, pass the <c>include_dir</c>
           to Dialyzer. (**)</p>
       </item>
+      <tag><c>--input_list_file file</c></tag>
+      <item>
+        <p>Analyze the file names that are listed in the specified file
+	(one file name per line).</p>
+      </item>
       <tag><c>--no_check_plt</c></tag>
       <item>
         <p>Skip the PLT check when running Dialyzer. This is useful when
           working with installed PLTs that never change.</p>
+      </item>
+      <tag><c>--incremental</c></tag>
+      <item>
+        <p>The analysis starts from an existing incremental PLT, or builds one from
+          scratch if one does not exist, and runs the minimal amount of additional
+          analysis to report all issues in the given set of apps. Notably, incremental
+          PLT files are not compatible with &quot;classic&quot; PLT files, and vice versa.
+          The initial incremental PLT will be updated unless an alternative output
+          incremental PLT is given.</p>
       </item>
       <tag><c>--no_indentation</c></tag>
       <item>
 	<p>Do not insert line breaks in types, contracts, and Erlang
 	  Code when formatting warnings.</p>
       </item>
+      <tag><c>--no_spec</c></tag>
+      <item>
+	<p>Ignore functions specs. This is useful for debugging when
+	one suspects that some specs are incorrect.</p>
+      </item>
       <tag><c>-o outfile</c> (or
         <c>--output outfile</c>)</tag>
       <item>
         <p>When using Dialyzer from the command line, send the analysis
           results to the specified outfile rather than to <c>stdout</c>.</p>
+      </item>
+      <tag><c>--metrics_file file</c></tag>
+      <item>
+        <p> Write metrics about Dialyzer's incrementality (for example, total number of
+          modules considered, how many modules were changed since the PLT was
+          last updated, how many modules needed to be analyzed) to a file. This
+          can be useful for tracking and debugging Dialyzer's incrementality.</p>
       </item>
       <tag><c>--output_plt file</c></tag>
       <item>
@@ -318,13 +356,13 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       </item>
       <tag><c>-Wextra_return</c> (***)</tag>
       <item>
-        <p>Warn about functions that return values that are not part of the
-          specification.</p>
+        <p>Warn about functions whose specification includes types that the
+          function cannot return.</p>
       </item>
       <tag><c>-Wmissing_return</c> (***)</tag>
       <item>
-        <p>Warn about functions whose specification includes types that the
-          function cannot return.</p>
+        <p>Warn about functions that return values that are not part of the
+          specification.</p>
       </item>
       <tag><c>-Wno_behaviours</c></tag>
       <item>
@@ -372,19 +410,17 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <item>
         <p>Suppress warnings for unused functions.</p>
       </item>
+      <tag><c>-Wno_unknown</c></tag>
+      <item>
+        <p>Suppress warnings about unknown functions and types. The default is to
+     warn about unknown functions and types when setting the exit
+     status. When using Dialyzer from Erlang, warnings about unknown functions
+     and types are returned.</p>
+      </item>
       <tag><c>-Wunderspecs</c> (***)</tag>
       <item>
         <p>Warn about underspecified functions (the specification is strictly
           more allowing than the success typing).</p>
-      </item>
-      <tag><c>-Wunknown</c> (***)</tag>
-      <item>
-        <p>Let warnings about unknown functions and types affect the
-          exit status of the command-line version. The default is to ignore
-          warnings about unknown functions and types when setting the exit
-          status. When using Dialyzer from Erlang, warnings about unknown
-          functions and types are returned; the default is not to return
-          these warnings.</p>
       </item>
       <tag><c>-Wunmatched_returns</c> (***)</tag>
       <item>
@@ -432,13 +468,13 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       </item>
       <tag><c>-Wno_extra_return</c></tag>
       <item>
-        <p>Suppress warnings about functions that return values that are not
-          part of the specification.</p>
+        <p>Suppress warnings about functions whose specification includes types
+          that the function cannot return.</p>
       </item>
       <tag><c>-Wno_missing_return</c></tag>
       <item>
-        <p>Suppress warnings about functions whose specification includes types
-          that the function cannot return.</p>
+        <p>Suppress warnings about functions that return values that are not
+          part of the specification.</p>
       </item>
     </taglist>
 
@@ -518,11 +554,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       options are also enumerated, see type <seetype marker="#warn_option">
       <c>warn_option()</c></seetype>.</p>
 
-    <note>
-      <p>Warning option <c>-Wrace_conditions</c> has no effect when
-        set in source files.</p>
-    </note>
-
     <p>Attribute <c>-dialyzer()</c> can also be used for turning on
       warnings. For example, if a module has been fixed regarding
       unmatched returns, adding the following line can help in assuring
@@ -560,6 +591,12 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     </datatype>
     <datatype>
       <name name="file_location"></name>
+    </datatype>
+    <datatype>
+      <name name="filename_opt"></name>
+    </datatype>
+    <datatype>
+      <name name="format_option"></name>
     </datatype>
     <datatype>
       <name name="warn_option"></name>

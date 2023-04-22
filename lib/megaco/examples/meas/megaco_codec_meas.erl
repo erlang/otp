@@ -46,11 +46,11 @@
 %% API
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
 -compile({no_auto_import,[error/2]}).
--export([start/0, start/1]).
+-export([start/0, start/1, start/2]).
 -export([start1/0]).
 
 %% Internal exports
--export([do_measure_codec/8, do_measure_codec_loop/7]).
+-export([do_measure_codec/7, do_measure_codec_loop/7]).
 -export([flex_scanner_handler/1]).
 
 
@@ -74,6 +74,8 @@
 
 -define(DEFAULT_MESSAGE_PACKAGE, megaco_codec_transform:default_message_package()).
 
+-define(DEFAULT_OPTS, #{verbose => true}).
+
 -define(FTS(), formated_timestamp()).
 
 
@@ -87,18 +89,22 @@ start1() ->
     start().
 
 start() ->
-    meas_init(1, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS).
+    meas_init(1, ?DEFAULT_OPTS, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS).
 
 start([MessagePackage]) ->
-    do_start(1, MessagePackage, ?MEASURE_CODECS);
+    do_start(1, ?DEFAULT_OPTS, MessagePackage, ?MEASURE_CODECS);
 start(Factor) when is_integer(Factor) andalso (Factor > 0) ->
-    do_start(Factor, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS);
+    do_start(Factor, ?DEFAULT_OPTS, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS);
 start(MessagePackage) ->
-    do_start(1, MessagePackage, ?MEASURE_CODECS).
+    do_start(1, ?DEFAULT_OPTS, MessagePackage, ?MEASURE_CODECS).
 
-do_start(Factor, MessagePackageRaw, Codecs) ->
+start(Factor, Opts) when is_integer(Factor) andalso (Factor > 0) andalso
+                         is_map(Opts) ->
+    do_start(Factor, Opts, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS).
+
+do_start(Factor, Opts, MessagePackageRaw, Codecs) ->
     MessagePackage = parse_message_package(MessagePackageRaw), 
-    meas_init(Factor, MessagePackage, Codecs).
+    meas_init(Factor, Opts, MessagePackage, Codecs).
     
 parse_message_package(MessagePackageRaw) when is_list(MessagePackageRaw) ->
     list_to_atom(MessagePackageRaw);
@@ -118,7 +124,7 @@ parse_message_package(BadMessagePackage) ->
 %%    pretty | compact | ber | per | erlang
 %%
 
-meas_init(Factor, MessagePackage, Codecs) ->
+meas_init(Factor, Opts, MessagePackage, Codecs) ->
     %% process_flag(trap_exit, true),
     io:format("~nRun meas on message package: ~p~n~n", [MessagePackage]),
     display_os_info(),
@@ -129,7 +135,7 @@ meas_init(Factor, MessagePackage, Codecs) ->
     case megaco_codec_transform:messages(MessagePackage) of
 	Messages when is_list(Messages) ->
 	    ExpandedMessages = expand_messages(Codecs, Messages),
-	    Results = t1(Factor, ExpandedMessages, []), 
+	    Results = t1(Factor, Opts, ExpandedMessages, []), 
 	    display_time(Started, os:timestamp()),
 	    store_results(Results);
 	Error ->
@@ -144,12 +150,8 @@ display_os_info() ->
 	    Str ->
 		Str
 	end,
-    case os:type() of
-	{OsFam, OsName} ->
-	    io:format("OS:                  ~p-~p: ~s~n", [OsFam, OsName, V]);
-	OsFam ->
-	    io:format("OS:                  ~p: ~s~n", [OsFam, V])
-    end.
+    {OsFam, OsName} = os:type(),
+    io:format("OS:                  ~p-~p: ~s~n", [OsFam, OsName, V]).
 	    
 display_system_info() ->
     SysArch = string:strip(erlang:system_info(system_architecture),right,$\n),
@@ -163,6 +165,16 @@ display_app_info() ->
     display_megaco_info(),
     display_asn1_info().
 
+%% The instruction, nowarn_function, is because I can't figure out
+%% how to suppress the warnings about
+%% megaco_flex_scanner:is_enabled/0 and
+%% megaco_flex_scanner:is_reentrant_enabled/0:
+%%
+%%      "The pattern 'false' can never match the type 'true'"
+%%
+%% This is because the result of calling these function(s) is
+%% basically decided at compile time (true or false).
+-dialyzer({nowarn_function, display_megaco_info/0}).
 display_megaco_info() ->
     MI = megaco:module_info(),
     {value, {attributes, Attr}} = lists:keysearch(attributes, 1, MI),
@@ -236,26 +248,26 @@ format_diff(Start, Fin) ->
     
     
 			      
-t1(_Factor, [], Results) ->
+t1(_Factor, _Opts, [], Results) ->
     lists:reverse(Results);
-t1(Factor, [{Id, Codec, Conf, _, _} = ECodec|EMsgs], Results) ->
-    case (catch measure(Factor, ECodec)) of
+t1(Factor, Opts, [{Id, Codec, Conf, _, _} = ECodec|EMsgs], Results) ->
+    case (catch measure(Factor, Opts, ECodec)) of
 	{'EXIT', Reason} ->
 	    error("measure of codec ~p exited: ~n~p", [Codec, Reason]),
-	    t1(Factor, EMsgs, Results);
+	    t1(Factor, Opts, EMsgs, Results);
 	{error, Reason} ->
 	    error("skipping codec ~p: ~n~p", [Codec, Reason]),
-	    t1(Factor, EMsgs, Results);
+	    t1(Factor, Opts, EMsgs, Results);
 	{ok, Res} ->
-	    t1(Factor, EMsgs, [{Id, Conf, Res}| Results])
+	    t1(Factor, Opts, EMsgs, [{Id, Conf, Res}| Results])
     end.
 
 
-measure(Factor, {Id, Codec, Conf, Count, Msgs}) ->
+measure(Factor, Opts, {Id, Codec, Conf, Count, Msgs}) ->
     io:format("[~s] measure using codec ~p ~p~n ", [?FTS(), Codec, Conf]),
     {Init, Conf1} = measure_init(Conf),
     Conf2 = [{version3,?V3}|Conf1],
-    Res = measure(Factor, Id, Codec, Conf2, Msgs, [], Count),
+    Res = measure(Factor, Opts, Id, Codec, Conf2, Msgs, [], Count),
     measure_fin(Init),
     Res.
 
@@ -303,9 +315,7 @@ expand_codec(Codec) ->
 	     {Codec, megaco_erl_dist_encoder, [compressed], 400},
 	     {Codec, megaco_erl_dist_encoder, [megaco_compressed], 10000},
  	     {Codec, megaco_erl_dist_encoder, [], 10000}
-	    ];
-	Else ->
-	    exit({error, {invalid_codec, Else}})
+	    ]
     end.
 
 
@@ -322,10 +332,10 @@ measure_fin(_) ->
     ok.
 
 
-measure(_Factor, _Dir, _Codec, _Conf, [], [], _MCount) ->
+measure(_Factor, _Opts, _Dir, _Codec, _Conf, [], [], _MCount) ->
     {error, no_messages};
 
-measure(_Factor, _Dir, _Codec, _Conf, [], Res, _MCount) ->
+measure(_Factor, _Opts, _Dir, _Codec, _Conf, [], Res, _MCount) ->
 
     Eavg = avg([Etime/Ecnt || #stat{ecount = Ecnt, etime = Etime} <- Res]),
     Davg = avg([Dtime/Dcnt || #stat{dcount = Dcnt, dtime = Dtime} <- Res]),
@@ -340,33 +350,41 @@ measure(_Factor, _Dir, _Codec, _Conf, [], Res, _MCount) ->
 
     {ok, lists:reverse(Res)};
 
-measure(Factor, Dir, Codec, Conf, [{Name, Bin}|Msgs], Results, MCount) ->
-    io:format(" ~p", [Name]),
-    case (catch do_measure(Factor, Dir, Codec, Conf, Name, Bin, MCount)) of
+measure(Factor, #{verbose := Verbose} = Opts,
+        Dir, Codec, Conf, [{Name, Bin}|Msgs], Results, MCount) ->
+    vprint(Verbose, " ~p", [Name]),
+    case (catch do_measure(Factor, Opts,
+                           Dir, Codec, Conf, Name, Bin, MCount)) of
 	{ok, Stat} ->
-	    measure(Factor, Dir, Codec, Conf, Msgs, [Stat | Results], MCount);
+	    measure(Factor, Opts,
+                    Dir, Codec, Conf, Msgs, [Stat | Results], MCount);
 
 	{error, S} ->
-	    io:format("~n[~s] ~s failed: ~n", [?FTS(), Name]),
+            if
+                (Verbose =:= true) ->
+                    io:format("~n[~s] ~s failed: ~n", [?FTS(), Name]);
+                true ->
+                    io:format("[~s] ~s failed: ~n", [?FTS(), Name])
+            end,
 	    error(S,[]),
-	    measure(Factor, Dir, Codec, Conf, Msgs, Results, MCount);
+	    measure(Factor, Opts, Dir, Codec, Conf, Msgs, Results, MCount);
 
 	{info, S} ->
-	    case get(verbose) of
+            vprint(Verbose, "~n"),
+	    case Verbose orelse get(verbose) of
 		true ->
-		    io:format("~n", []),
 		    info(S,[]);
 		_ ->
-		    io:format("~n~s skipped~n", [Name])
+		    io:format("~s skipped~n", [Name])
 	    end,
-	    measure(Factor, Dir, Codec, Conf, Msgs, Results, MCount)
+	    measure(Factor, Opts, Dir, Codec, Conf, Msgs, Results, MCount)
 
     end.
 
 
-do_measure(Factor, _Id, Codec, Conf, Name, BinMsg, MCount) ->
+do_measure(Factor, Opts, _Id, Codec, Conf, Name, BinMsg, MCount) ->
     %% io:format("~n~s~n", [binary_to_list(BinMsg)]),
-    {Version, NewBin}  = detect_version(Codec, Conf, BinMsg),
+    {Version, NewBin}  = detect_version(Opts, Codec, Conf, BinMsg),
     {Msg, Dcnt, Dtime} =
         measure_decode(Factor, Codec, Conf, Version, NewBin, MCount),
     {_,   Ecnt, Etime} =
@@ -377,16 +395,21 @@ do_measure(Factor, _Id, Codec, Conf, Name, BinMsg, MCount) ->
 	       dcount = Dcnt, dtime = Dtime, 
 	       size = size(NewBin)}}.
 
-detect_version(Codec, Conf, Bin) ->
+detect_version(#{verbose := Verbose} = _Opts, Codec, Conf, Bin) ->
     case (catch Codec:version_of(Conf, Bin)) of
 	{ok, V} ->
-	    io:format("[~w]", [V]),
-	    {ok, M} = Codec:decode_message(Conf, V, Bin),
+            vprint(Verbose, "[~w]", [V]),
+ 	    {ok, M} = Codec:decode_message(Conf, V, Bin),
 	    {ok, NewBin} = Codec:encode_message(Conf, V, M),
-	    io:format("[~w]", [size(NewBin)]),
+            vprint(Verbose, "[~w]", [size(NewBin)]),
 	    {V, NewBin};
 	Error ->
-	    io:format("~nversion detection failed:~n~p", [Error]),
+            if
+                (Verbose =:= true) ->
+                    io:format("~nversion detection failed:~n~p", [Error]);
+                true ->
+                    io:format("version detection failed:~n~p", [Error])
+            end,
 	    Error
     end.
 	    
@@ -416,20 +439,21 @@ measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount)
        is_atom(Func) andalso
        is_list(Conf) andalso
        is_integer(MCount) andalso (MCount > 0) ->
-    Self = self(),
-    Pid  = spawn_link(?MODULE, do_measure_codec, 
-                      [Factor, Self, Codec, Func, Conf, Version, Bin, MCount]),
+    {Pid, MRef} =
+        spawn_monitor(?MODULE, do_measure_codec, 
+                      [Factor, Codec, Func, Conf, Version, Bin, MCount]),
     receive
-	{measure_result, Pid, Func, Res} ->
+        {'DOWN', MRef, process, Pid, {measure_result, Res}} ->
 	    {ok, Res};
-	{error, Pid, Error} ->
+	{'DOWN', MRef, process, Pid, {error, Error}} ->
 	    {error, Error};
-	Else ->
+	{'DOWN', MRef, process, Pid, Else} ->
 	    {error, {unexpected_result, Else}}
     after ?MEASURE_TIMEOUT ->
 	    Info = 
 		case (catch process_info(Pid)) of
 		    I when is_list(I) ->
+                        erlang:demonitor(MRef),
 			exit(Pid, kill),
 			I;
 		    _ ->
@@ -439,23 +463,17 @@ measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount)
     end.
 
 
-do_measure_codec(Factor, Parent, Codec, Func, Conf, Version, Bin, MCount) ->
+do_measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount) ->
     {ok, Count} = measure_warmup(Codec, Func, Conf, Version, Bin, MCount),
     Count2      = Count div Factor,
-    %% io:format("do_measure_codec(~w, ~w) -> warmed up:"
-    %%           "~n      MCount: ~w"
-    %%           "~n      Count:  ~w"
-    %%           "~n      Count2: ~w", [Codec, Func, MCount, Count, Count2]),
     Res = timer:tc(?MODULE, do_measure_codec_loop, 
 		   [Codec, Func, Conf, Version, Bin, Count2, dummy]),
     case Res of
 	{Time, {ok, M}} ->
-	    %% io:format("~w ", [Time]),
-	    Parent ! {measure_result, self(), Func, {M, Count2, Time}};
+	    exit({measure_result, {M, Count2, Time}});
 	{_Time, Error} ->
-	    Parent ! {error, self(), Error}
-    end,
-    unlink(Parent). % Make sure Parent don't get our exit signal
+            exit({error, Error})
+    end.
 
 
 %% This function does more or less what the real measure function
@@ -467,11 +485,17 @@ measure_warmup(Codec, Func, Conf, Version, M, MCount) ->
     Res = timer:tc(?MODULE, do_measure_codec_loop, 
 		   [Codec, Func, Conf, Version, M, MCount, dummy]),
     case Res of
-	{Time, {ok, _}} when is_integer(Time) ->
+	{Time, {ok, _}} when is_integer(Time) andalso (Time > 0) ->
 	    %% OK so far, now calculate the count:
-	    Count = round(?MEASURE_COUNT_TIME/(Time/MCount)),
-	    %% io:format("~w ", [Count]),
-	    {ok, Count};
+            %% For some reason we get a 'badarith' on some platforms
+            %% here. Since this is just the warmup we can try-catch.
+            try round(?MEASURE_COUNT_TIME/(Time/MCount)) of
+                Count ->
+                    {ok, Count}
+            catch
+                _:_:_ ->
+                    {error, {failed_calculated_count, Time, MCount}}
+            end;
 	{Time, Error} ->
 	    {error, {warmup_failed, Time, Error}}
     end.
@@ -662,6 +686,17 @@ flex_scanner_handler(Pid, PortOrPorts) ->
             info("flex scanner handler got something:~n~p", [Other]),
             flex_scanner_handler(Pid, PortOrPorts)
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+vprint(Verbose, F) ->
+    vprint(Verbose, F, []).
+
+vprint(true, F, A) ->
+    io:format(F, A);
+vprint(_, _, _) ->
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

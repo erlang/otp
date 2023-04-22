@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -284,6 +284,7 @@ typedef struct {
 typedef struct {
     ErtsSignal sig;
     ErtsMessage **prev_next;
+    signed char is_yield_mark;
     signed char pass;
     signed char set_save;
     signed char in_sigq;
@@ -416,8 +417,8 @@ typedef struct {
      * the buffer array. This is needed since dirty schedulers are not
      * part of the thread progress system.
      */
-    erts_atomic64_t dirty_refc;
-    Uint nr_of_rounds;
+    erts_refc_t dirty_refc;
+    Uint nr_of_rounds_left;
     Uint nr_of_enqueues;
     int alive;
 } ErtsSignalInQueueBufferArray;
@@ -514,30 +515,8 @@ Eterm erts_change_message_queue_management(Process *c_p, Eterm new_state);
 
 void erts_cleanup_messages(ErtsMessage *mp);
 
-void *erts_alloc_message_ref(void);
 void erts_free_message_ref(void *);
-
-#define ERTS_SMALL_FIX_MSG_SZ 10
-#define ERTS_MEDIUM_FIX_MSG_SZ 20
-#define ERTS_LARGE_FIX_MSG_SZ 30
-
-void *erts_alloc_small_message(void);
-void erts_free_small_message(void *mp);
-
-typedef struct {
-    ErtsMessage m;
-    Eterm data[ERTS_SMALL_FIX_MSG_SZ-1];
-} ErtsSmallFixSzMessage;
-
-typedef struct {
-    ErtsMessage m;
-    Eterm data[ERTS_MEDIUM_FIX_MSG_SZ-1];
-} ErtsMediumFixSzMessage;
-
-typedef struct {
-    ErtsMessage m;
-    Eterm data[ERTS_LARGE_FIX_MSG_SZ-1];
-} ErtsLargeFixSzMessage;
+void *erts_alloc_message_ref(void) ERTS_ATTR_MALLOC_D(erts_free_message_ref,1);
 
 ErtsMessage *erts_try_alloc_message_on_heap(Process *pp,
 					    erts_aint32_t *psp,

@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -283,10 +283,11 @@ $ <input>erl \
       </item>
       <tag><marker id="connect_all"/><c><![CDATA[-connect_all false]]></c></tag>
       <item>
-        <p>If this flag is present, <c><![CDATA[global]]></c> does not maintain
-          a fully connected network of distributed Erlang nodes, and then
-          global name registration cannot be used; see
-          <seeerl marker="kernel:global"><c>global(3)</c></seeerl>.</p>
+        <p>
+          This flag is deprecated and has been replaced by the <c>kernel</c>
+          application parameter
+          <seeapp marker="kernel:kernel_app#connect_all"><c>connect_all</c></seeapp>.
+        </p>
       </item>
       <tag><c><![CDATA[-cookie Cookie]]></c></tag>
       <item>
@@ -300,6 +301,25 @@ $ <input>erl \
           console. Useful for running daemons and backgrounds processes. Implies
           <c><![CDATA[-noinput]]></c>.</p>
       </item>
+      <tag>
+        <marker id="disable-feature"></marker>
+        <c><![CDATA[-disable-feature feature]]></c>
+      </tag>
+      <item>
+        <p>Disables the
+	<seeguide
+            marker="system/reference_manual:features#features">feature</seeguide> <c><![CDATA[feature]]></c>
+        in the runtime system.  The special feature <c>all</c> can be
+        used to disable all non permanent features.
+      </p>
+      </item>
+      <tag><marker id="dist_listen"/><c>-dist_listen true|false</c></tag>
+      <item><p>
+        Specifies whether this node should be listening for incoming
+        distribution connections or not. By default a node will listen for
+        incoming connections. Setting this option to <c>false</c>
+        implies <seecom marker="#hidden"><c>-hidden</c></seecom>.
+      </p></item>
       <tag><c><![CDATA[-emu_args]]></c></tag>
       <item>
         <p>Useful for debugging. Prints the arguments sent to the emulator.</p>
@@ -318,7 +338,10 @@ $ <input>erl \
           build a specific flavor by doing <c>make FLAVOR=$FLAVOR</c> in the
           Erlang/OTP source repository.)</p>
       </item>
-      <tag><c><![CDATA[-emu_type Type]]></c></tag>
+      <tag>
+	<marker id="emu_type"></marker>
+	<c><![CDATA[-emu_type Type]]></c>
+      </tag>
       <item>
         <p>Start an emulator of a different type. For example, to start
 	  the lock-counter emulator, use <c>-emu_type lcnt</c>.
@@ -328,6 +351,18 @@ $ <input>erl \
           (The emulator of this type must already be built.
           Use the <c>configure</c> option <c>--enable-lock-counter</c> to
           build the lock-counter emulator.)</p>
+      </item>
+      <tag>
+        <marker id="enable-feature"></marker>
+        <c><![CDATA[-enable-feature feature]]></c>
+      </tag>
+      <item>
+        <p>Enables the
+	<seeguide
+            marker="system/reference_manual:features#features">feature</seeguide> <c><![CDATA[feature]]></c>
+        in the runtime system.  The special feature <c>all</c> can be
+        used to enable all features.
+      </p>
       </item>
       <tag><c><![CDATA[-env Variable Value]]></c></tag>
       <item>
@@ -505,12 +540,12 @@ $ <input>erl \
           to implement an Alternative Carrier for the Erlang
           Distribution</seeguide>.</p>
       </item>
-      <tag><c><![CDATA[-noinput]]></c></tag>
+      <tag><marker id="noinput"/><c><![CDATA[-noinput]]></c></tag>
       <item>
         <p>Ensures that the Erlang runtime system never tries to read
           any input. Implies <c><![CDATA[-noshell]]></c>.</p>
       </item>
-      <tag><c><![CDATA[-noshell]]></c></tag>
+      <tag><marker id="noshell"/><c><![CDATA[-noshell]]></c></tag>
       <item>
         <p>Starts an Erlang runtime system with no shell. This flag
           makes it possible to have the Erlang runtime system as a
@@ -901,7 +936,7 @@ $ <input>erl \
       <tag><marker id="+hmax"/><c><![CDATA[+hmax Size]]></c></tag>
       <item>
         <p>Sets the default maximum heap size of processes to the size
-          <c><![CDATA[Size]]></c>. Defaults to <c>0</c>, which means that no
+          <c><![CDATA[Size]]></c> words. Defaults to <c>0</c>, which means that no
           maximum heap size is used. For more information, see
           <seeerl marker="erlang#process_flag_max_heap_size">
           <c>process_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
@@ -911,6 +946,14 @@ $ <input>erl \
         <p>Sets whether to send an error logger message or not for processes
           reaching the maximum heap size. Defaults to <c>true</c>.
           For more information, see
+          <seeerl marker="erlang#process_flag_max_heap_size">
+          <c>process_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
+      </item>
+      <tag><marker id="+hmaxib"/><c><![CDATA[+hmaxib true|false]]></c></tag>
+      <item>
+        <p>Sets whether to include the size of shared off-heap binaries
+          in the sum compared against the maximum heap size. Defaults to
+	  <c>false</c>. For more information, see
           <seeerl marker="erlang#process_flag_max_heap_size">
           <c>process_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
       </item>
@@ -981,13 +1024,48 @@ $ <input>erl \
           descriptor input events.
         </p>
       </item>
-      <tag><marker id="+JPperf"/><c>+JPperf true|false</c></tag>
+      <tag><marker id="+JPperf"/><c>+JPperf true|false|dump|map|fp|no_fp</c></tag>
       <item>
-        <p>Enables or disables support for the `perf` profiler when running
-          with the JIT on Linux. Defaults to false.</p>
+        <p>Enables or disables support for the <c>perf</c> profiler when
+          running with the JIT on Linux. Defaults to false.</p>
+        <p>This option can be combined multiple times to enable several
+          options:</p>
+        <taglist>
+          <tag><c>dump</c></tag>
+          <item>Gives <c>perf</c> detailed line information, so that the
+            <c>perf annotate</c> feature works.</item>
+          <tag><c>map</c></tag>
+          <item>Gives <c>perf</c> a map over all module code, letting it
+            translate machine code addresses to Erlang source code
+            locations. This also enables frame pointers for Erlang code so that
+            <c>perf</c> can walk the call stacks of Erlang processes, which
+            costs one extra word per stack frame.</item>
+          <tag><c>fp</c></tag>
+          <item>Enables frame pointers independently of the <c>map</c>
+            option.</item>
+          <tag><c>no_fp</c></tag>
+          <item>Disables the frame pointers added by the <c>map</c>
+            option.</item>
+          <tag><c>true</c></tag>
+          <item>Enables <c>map</c> and <c>dump</c>.</item>
+          <tag><c>false</c></tag>
+          <item>Disables all other options.</item>
+        </taglist>
         <p>For more details about how to run perf see the
           <seeguide marker="erts:BeamAsm#linux-perf-support">perf support</seeguide>
           section in the BeamAsm internal documentation.
+        </p>
+      </item>
+      <tag><marker id="+JMsingle"/><c>+JMsingle true|false</c></tag>
+      <item>
+        <p>Enables or disables the use of single-mapped RWX memory for JIT
+          code. The default is to map JIT:ed machine code into two
+          regions sharing the same physical pages, where one region is
+          executable but not writable, and the other writable but not
+          executable. As some tools, such as QEMU user mode emulation,
+          cannot deal with the dual mapping, this flags allows it to be
+          disabled. This flag is automatically enabled by the
+          <seecom marker="#+JPperf"><c>+JPperf</c></seecom> flag.
         </p>
       </item>
       <tag><c><![CDATA[+L]]></c></tag>
@@ -1000,6 +1078,23 @@ $ <input>erl \
       <item>
         <p>Memory allocator-specific flags. For more information, see
           <seecref marker="erts_alloc"><c>erts_alloc(3)</c></seecref>.</p>
+      </item>
+      <tag><marker id="+pad"/><c>+pad true|false</c></tag>
+      <item>
+        <p>Since: OTP 25.3</p>
+        <p>
+          The boolean value used with the <c>+pad</c> parameter determines
+          the default value of the
+          <seeerl marker="erlang#process_flag_async_dist">
+            <c>async_dist</c></seeerl> process flag of newly spawned processes.
+          By default, if no <c>+pad</c> command line option is passed,
+          the <c>async_dist</c> flag will be set to <c>false</c>.
+        </p>
+        <p>
+          The value used in runtime can be inspected by calling
+          <seeerl marker="erlang#system_info_async_dist">
+            <c>erlang:system_info(async_dist)</c></seeerl>.
+        </p>
       </item>
       <tag><marker id="+pc"/><marker id="printable_character_range"/>
         <c><![CDATA[+pc Range]]></c></tag>
@@ -1746,6 +1841,11 @@ $ <input>erl \
               limit is per distribution channel. A higher limit
               gives lower latency and higher throughput at the expense
               of higher memory use.</p>
+            <p>
+              This limit only affects processes that have disabled
+              <seeerl marker="erlang#process_flag_async_dist"><i>fully
+              asynchronous distributed signaling</i></seeerl>.
+            </p>
           </item>
           <tag><marker id="+zdntgc"/><c>+zdntgc time</c></tag>
           <item>

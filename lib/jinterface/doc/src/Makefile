@@ -3,7 +3,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2021. All Rights Reserved.
+# Copyright Ericsson AB 2000-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ JAVA_SRC_FILES = $(JAVA_FILES:%=$(JAVA_SRC_PATH)/%.java)
 
 
 ../html/java/index.html: $(JAVA_SRC_FILES)
-	(cd ../../java_src;$(JAVADOC) -sourcepath . -d $(JAVADOC_DEST) \
+	(cd ../../java_src;$(JAVADOC) -encoding UTF-8 -sourcepath . -d $(JAVADOC_DEST) \
 		-windowtitle $(JAVADOC_TITLE) $(JAVADOC_PKGS))
 
 html: ../html/java/index.html

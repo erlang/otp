@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB and Kjell Winblad 1998-2021. All Rights Reserved.
+ * Copyright Ericsson AB and Kjell Winblad 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -220,7 +220,7 @@ DbTableMethod db_catree =
     db_lookup_dbterm_catree,
     db_finalize_dbterm_catree,
     db_eterm_to_dbterm_tree_common,
-    db_dbterm_list_prepend_tree_common,
+    db_dbterm_list_append_tree_common,
     db_dbterm_list_remove_first_tree_common,
     db_put_dbterm_catree,
     db_free_dbterm_tree_common,
@@ -1205,7 +1205,7 @@ static void join_catree(DbTableCATree *tb,
     DbTableCATreeNode *neighbor_parent;
 
     ASSERT(thiz->is_base_node);
-    if (parent == NULL) {
+    if (parent == NULL || ERTS_IS_CRASH_DUMPING) {
         BASE_NODE_STAT_SET(thiz, 0);
         wunlock_base_node(thiz);
         return;
@@ -1353,7 +1353,7 @@ static void split_catree(DbTableCATree *tb,
     DbTableCATreeNode* ERTS_RESTRICT new_right;
     DbTableCATreeNode* ERTS_RESTRICT new_route;
 
-    if (less_than_two_elements(base->u.base.root)) {
+    if (less_than_two_elements(base->u.base.root) || ERTS_IS_CRASH_DUMPING) {
         if (!(tb->common.status & DB_CATREE_FORCE_SPLIT))
             BASE_NODE_STAT_SET(base, 0);
         wunlock_base_node(base);

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -519,7 +519,7 @@ DbTableMethod db_tree =
     db_lookup_dbterm_tree,
     db_finalize_dbterm_tree,
     db_eterm_to_dbterm_tree_common,
-    db_dbterm_list_prepend_tree_common,
+    db_dbterm_list_append_tree_common,
     db_dbterm_list_remove_first_tree_common,
     db_put_dbterm_tree,
     db_free_dbterm_tree_common,
@@ -3446,6 +3446,7 @@ int db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
     handle->flags = flags;
     handle->bp = (void**) pp;
     handle->new_size = (*pp)->dbterm.size;
+    handle->old_tpl = NULL;
     return 1;
 }
 
@@ -3533,11 +3534,11 @@ void* db_eterm_to_dbterm_tree_common(int compress, int keypos, Eterm obj)
     return term;
 }
 
-void* db_dbterm_list_prepend_tree_common(void *list, void *db_term)
+void* db_dbterm_list_append_tree_common(void *last_term, void *db_term)
 {
-    TreeDbTerm* l = list;
+    TreeDbTerm* l = last_term;
     TreeDbTerm* t = db_term;
-    t->left = l;
+    l->left = t;
     return t;
 }
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -507,6 +507,15 @@ ensure_open(Filename, Modes) ->
             exit({could_not_create_dir_for_file,Error})
     end.
 
+write_to_dev(Bin,#{dev:=standard_io}=State) ->
+    try
+        io:put_chars(user, Bin)
+    catch _E:_R ->
+            io:put_chars(
+              standard_error, "Failed to write log message to stdout, trying stderr\n"),
+            io:put_chars(standard_error, Bin)
+    end,
+    State;
 write_to_dev(Bin,#{dev:=DevName}=State) ->
     io:put_chars(DevName, Bin),
     State;

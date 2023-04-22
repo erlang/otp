@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -225,7 +225,7 @@ newformat(SessionID,_,_) ->
 %% ------------------------------------------------------
 
 delay(SessionID,_, _) ->
-    sleep(10000),
+    sleep(2000),
     Reply = delay_reply("delay ok"),
     mod_esi:deliver(SessionID, Reply).
 

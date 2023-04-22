@@ -1,10 +1,10 @@
 ##
 ## This docker file will build a base image for building Erlang/OTP
 ##
-ARG BASE=debian
-FROM $BASE:bullseye
+ARG BASE=debian:bullseye
+FROM $BASE
 ## Need to have a second arg here as the first does not expose the $BASE in the script below
-ARG BASE=debian
+ARG BASE=debian:bullseye
 
 ARG HOST_TRIP=x86_64-linux-gnu
 ENV HOST_TRIP=$HOST_TRIP
@@ -12,11 +12,12 @@ ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
 ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libgmp3-dev libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev libsctp-dev lksctp-tools"
+ENV CROSS_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libgmp3-dev libwxgtk3.0-gtk3-dev libsctp-dev lksctp-tools"
 
 ## See https://wiki.debian.org/Multiarch/HOWTO for details on how to install things
 ##
 ## 1. Install build-essential to get access to dpkg-architecture
-## 2. Use dpkg-architecture to figure out what we are runnon on
+## 2. Use dpkg-architecture to figure out what we are running on
 ## 3. If the HOST_TRIP does not equal BUILD_TRIP we should cross compile
 RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential && \
         BUILD_TRIP=`dpkg-architecture -t${HOST_TRIP} -qDEB_BUILD_MULTIARCH` && \
@@ -32,7 +33,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential &
         if [ "$HOST_TRIP" != "$BUILD_TRIP" ]; then \
           apt-get install -y -f \
           crossbuild-essential-$HOST_ARCH \
-          $(for LIB in $INSTALL_LIBS; do echo "$LIB:$HOST_ARCH"; done) && \
+          $(for LIB in $CROSS_LIBS; do echo "$LIB:$HOST_ARCH"; done) && \
           for dir in `find / -type d -name $HOST_TRIP`; do \
             echo -n "$dir: /buildroot/sysroot"; \
             echo `dirname $dir`; \

@@ -1789,7 +1789,7 @@ ts_tc(M, F, A) ->
 		     set_loc(Stk),
 		     case Type of
 			 throw ->
-			     {failed,{thrown,Reason}};
+			     {failed,{thrown,{Reason,Stk}}};
 			 error ->
 			     {'EXIT',{Reason,Stk}};
 			 exit ->
@@ -2789,7 +2789,8 @@ peer_name(Module, TestCase) ->
     peer:random_name(lists:concat([Module, "-", TestCase])).
 
 %% Command line arguments passed
--spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string()) ->
+-spec start_peer([string()] | peer:start_options() | #{ start_cover => boolean() },
+                 atom() | string(), TestCase :: atom() | string()) ->
     {ok, gen_statem:server_ref(), node()} | {error, term()}.
 start_peer(Args, Module, TestCase) when is_list(Args) ->
     start_peer(#{args => Args, name => peer_name(Module, TestCase)}, Module);
@@ -2801,9 +2802,10 @@ start_peer(Opts, Module, TestCase) ->
     start_peer(Opts#{name => peer_name(Module, TestCase)}, Module).
 
 %% Release compatibility testing
--spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string(),
-    Release :: string(), OutDir :: file:filename()) ->
-        {ok, gen_statem:server_ref(), node()} | {error, term()} | not_available.
+-spec start_peer([string()] | peer:start_options() | #{ start_cover => boolean() },
+                 atom() | string(), TestCase :: atom() | string(),
+                 Release :: string(), OutDir :: file:filename()) ->
+          {ok, gen_statem:server_ref(), node()} | {error, term()} | not_available.
 start_peer(Args, Module, TestCase, Release, OutDir) when is_list(Args) ->
     start_peer(#{args => Args}, Module, TestCase, Release, OutDir);
 start_peer(Opts, Module, TestCase, Release, OutDir) ->
@@ -2815,8 +2817,8 @@ start_peer(Opts, Module, TestCase, Release, OutDir) ->
             %% for old releases. Keep ERL_FLAGS, and ERL_ZFLAGS for sometimes you might need it...
             Env = maps:get(env, Opts, []) ++ [{"ERL_AFLAGS", false}],
             NewArgs = ["-pa", peer_compile(Erl, code:which(peer), OutDir) | maps:get(args, Opts, [])],
-            start_peer(Opts#{exec => Erl, args => NewArgs,
-                env => Env}, Module, TestCase)
+            start_peer(Opts#{exec => Erl, args => NewArgs, env => Env,
+                             start_cover => false }, Module, TestCase)
     end.
 
 %% Internal implementation
@@ -2844,7 +2846,6 @@ start_peer(#{name := Name} = Opts, Module) ->
             Shutdown = binary_to_term(term_to_binary({10000, CoverMain})),
             case peer:start_link(Opts#{args => FullArgs, shutdown => Shutdown}) of
                 {ok, Peer, Node} ->
-                    do_cover_for_node(Node, start),
                     {ok, Peer, Node};
                 Other ->
                     Other
@@ -2861,13 +2862,14 @@ peer_compile(Erl, cover_compiled, OutDir) ->
 peer_compile(Erl, ModPath, OutDir) ->
     {ok, ModSrc} = filelib:find_source(ModPath),
     Erlc = filename:join(filename:dirname(Erl), "erlc"),
-    cmd(Erlc, ["-o", OutDir, ModSrc]),
+    cmd(Erlc, ["-o", OutDir, unicode:characters_to_binary(ModSrc)]),
     OutDir.
 
 %% This should really be implemented as os:cmd.
 cmd(Exec, Args) ->
     %% remove all ERL_AFLAGS to drop "-emu_type debug" and similar
-    Env = [{"ERL_AFLAGS", false}],
+    %% remote ERLC_COMPILE_SERVER because of a bug in pre 25.2 Erlang/OTP
+    Env = [{"ERL_AFLAGS", false},{"ERLC_USE_SERVER",false}],
     Port = open_port({spawn_executable, Exec}, [{args, Args}, {env, Env},
         stream, binary, exit_status, stderr_to_stdout]),
     read_std(Port, lists:join(" ", [Exec|Args]), <<>>).

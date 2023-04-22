@@ -343,7 +343,7 @@ cascade({PNode,PMFA,_PStatProcs},{CNode,CMFA,_CStatProcs},TestFun) ->
     after TO ->
             All = ets:lookup_element(Tab,producer,2),
             Written = ets:lookup_element(Tab,consumer,2),
-            dbg:stop_clear(),
+            dbg:stop(),
             ?COLLECT_STATS(All,
                            [{PNode,P,Id} || {Id,P} <- _PStatProcs] ++
                                [{CNode,P,Id} || {Id,P} <- _CStatProcs]),

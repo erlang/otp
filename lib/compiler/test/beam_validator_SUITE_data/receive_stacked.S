@@ -55,16 +55,12 @@
     {test,is_nil,{f,9},[{x,0}]}.
     {test_heap,3,0}.
     remove_message.
-    {put_tuple,2,{y,0}}.
-    {put,{atom,ok}}.
-    {put,{y,1}}.
+    {put_tuple2,{y,0},{list,[{atom,ok},{y,1}]}}.
     {move,{integer,42},{x,0}}.
     {line,[{location,"receive_stacked.erl",26}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,0}}.
-    {put,{y,1}}.
+    {put_tuple2,{x,0},{list,[{y,0},{y,1}]}}.
     {deallocate,2}.
     return.
   {label,9}.
@@ -86,16 +82,12 @@
     {test,is_integer,{f,14},[{y,1}]}.
     {test_heap,3,0}.
     remove_message.
-    {put_tuple,2,{y,0}}.
-    {put,{atom,ok}}.
-    {put,{y,1}}.
+    {put_tuple2,{y,0},{list,[{atom,ok},{y,1}]}}.
     {move,{integer,42},{x,0}}.
     {line,[{location,"receive_stacked.erl",34}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,0}}.
-    {put,{y,1}}.
+    {put_tuple2,{x,0},{list,[{y,0},{y,1}]}}.
     {deallocate,2}.
     return.
   {label,14}.
@@ -117,16 +109,12 @@
     {test,is_list,{f,19},[{y,1}]}.
     {test_heap,3,0}.
     remove_message.
-    {put_tuple,2,{y,0}}.
-    {put,{atom,ok}}.
-    {put,{y,1}}.
+    {put_tuple2,{y,0},{list,[{atom,ok},{y,1}]}}.
     {move,{integer,42},{x,0}}.
     {line,[{location,"receive_stacked.erl",42}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,0}}.
-    {put,{y,1}}.
+    {put_tuple2,{x,0},{list,[{y,0},{y,1}]}}.
     {deallocate,2}.
     return.
   {label,19}.
@@ -153,9 +141,7 @@
     {line,[{location,"receive_stacked.erl",50}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,0}}.
-    {put,{y,1}}.
+    {put_tuple2,{x,0},{list,[{y,0},{y,1}]}}.
     {deallocate,2}.
     return.
   {label,24}.
@@ -350,9 +336,7 @@
     {line,[{location,"receive_stacked.erl",87}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,1}}.
-    {put,{y,0}}.
+    {put_tuple2,{x,0},{list,[{y,1},{y,0}]}}.
     {deallocate,4}.
     return.
   {label,49}.

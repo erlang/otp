@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -581,6 +581,7 @@ typedef struct ErtsAuxWorkData_ {
 	UWord size;
 	ErtsThrPrgrLaterOp *first;
 	ErtsThrPrgrLaterOp *last;
+        Uint list_len;
     } later_op;
     struct {
 	int need_thr_prgr;
@@ -723,10 +724,14 @@ struct ErtsSchedulerData_ {
     } pending_signal;
 
     Uint64 reductions;
+    Uint64 rand_state;
     ErtsSchedWallTime sched_wall_time;
     ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;
-    ErtsEtsTables ets_tables;
+    union {
+        ErtsEtsTables ets_tables;
+        erts_atomic32_t dirty_nif_halt_info;
+    } u;
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;
     Allctr_t *verify_unused_temp_alloc_data;
@@ -866,9 +871,10 @@ erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_ETS_OWNED_TABLES               6
 #define ERTS_PSD_ETS_FIXED_TABLES               7
 #define ERTS_PSD_DIST_ENTRY	                8
-#define ERTS_PSD_PENDING_SUSPEND                9 /* keep last... */
+#define ERTS_PSD_PENDING_SUSPEND                9
+#define ERTS_PSD_CALL_MEMORY_BP	               10
 
-#define ERTS_PSD_SIZE				10
+#define ERTS_PSD_SIZE				11
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -988,19 +994,15 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 #  define MSO(p)            (p)->off_heap
 #  define MIN_HEAP_SIZE(p)  (p)->min_heap_size
 
-#  define MIN_VHEAP_SIZE(p)   (p)->min_vheap_size
-#  define BIN_VHEAP_SZ(p)     (p)->bin_vheap_sz
-#  define BIN_OLD_VHEAP_SZ(p) (p)->bin_old_vheap_sz
-#  define BIN_OLD_VHEAP(p)    (p)->bin_old_vheap
-
-#  define MAX_HEAP_SIZE_GET(p)     ((p)->max_heap_size >> 2)
-#  define MAX_HEAP_SIZE_SET(p, sz) ((p)->max_heap_size = ((sz) << 2) |  \
+#  define MAX_HEAP_SIZE_GET(p)     ((p)->max_heap_size >> 3)
+#  define MAX_HEAP_SIZE_SET(p, sz) ((p)->max_heap_size = ((sz) << 3) |  \
                                     MAX_HEAP_SIZE_FLAGS_GET(p))
-#  define MAX_HEAP_SIZE_FLAGS_GET(p)          ((p)->max_heap_size & 0x3)
+#  define MAX_HEAP_SIZE_FLAGS_GET(p)          ((p)->max_heap_size & 0x7)
 #  define MAX_HEAP_SIZE_FLAGS_SET(p, flags)   ((p)->max_heap_size = flags | \
-                                               ((p)->max_heap_size & ~0x3))
+                                               ((p)->max_heap_size & ~0x7))
 #  define MAX_HEAP_SIZE_KILL 1
 #  define MAX_HEAP_SIZE_LOG  2
+#  define MAX_HEAP_SIZE_INCLUDE_OH_BINS 4
 
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
@@ -1245,8 +1247,9 @@ void erts_check_for_holes(Process* p);
    process table. Always ACTIVE while EXITING. Never
    SUSPENDED unless also FREE. */
 #define ERTS_PSFLG_EXITING		ERTS_PSFLG_BIT(5)
-/* UNUSED */
-#define ERTS_PSFLG_UNUSED		ERTS_PSFLG_BIT(6)
+/* MAYBE_SELF_SIGS - We might have outstanding signals
+   from ourselves to ourselvs. */
+#define ERTS_PSFLG_MAYBE_SELF_SIGS	ERTS_PSFLG_BIT(6)
 /* ACTIVE - Process "wants" to execute */
 #define ERTS_PSFLG_ACTIVE		ERTS_PSFLG_BIT(7)
 /* IN_RUNQ - Real process (not proxy) struct used in a
@@ -1407,8 +1410,9 @@ void erts_check_for_holes(Process* p);
 #define SPO_IX_ASYNC            11
 #define SPO_IX_NO_SMSG          12
 #define SPO_IX_NO_EMSG          13
+#define SPO_IX_ASYNC_DIST       14
 
-#define SPO_NO_INDICES          (SPO_IX_ASYNC+1)
+#define SPO_NO_INDICES          (SPO_IX_ASYNC_DIST+1)
 
 #define SPO_LINK                (1 << SPO_IX_LINK)
 #define SPO_MONITOR             (1 << SPO_IX_MONITOR)
@@ -1424,8 +1428,9 @@ void erts_check_for_holes(Process* p);
 #define SPO_ASYNC               (1 << SPO_IX_ASYNC)
 #define SPO_NO_SMSG             (1 << SPO_IX_NO_SMSG)
 #define SPO_NO_EMSG             (1 << SPO_IX_NO_EMSG)
+#define SPO_ASYNC_DIST          (1 << SPO_IX_ASYNC_DIST)
 
-#define SPO_MAX_FLAG            SPO_NO_EMSG
+#define SPO_MAX_FLAG            SPO_ASYNC_DIST
 
 #define SPO_USE_ARGS                 \
     (SPO_MIN_HEAP_SIZE               \
@@ -1564,16 +1569,21 @@ extern int erts_system_profile_ts_type;
 #define F_DIRTY_MINOR_GC     (1 << 20) /* Dirty minor GC scheduled */
 #define F_HIBERNATED         (1 << 21) /* Hibernated */
 #define F_TRAP_EXIT          (1 << 22) /* Trapping exit */
-#define F_DBG_FORCED_TRAP    (1 << 23) /* DEBUG: Last BIF call was a forced trap */
+#define F_FRAGMENTED_SEND    (1 << 23) /* Process is doing a distributed fragmented send */
+#define F_DBG_FORCED_TRAP    (1 << 24) /* DEBUG: Last BIF call was a forced trap */
+#define F_DIRTY_CHECK_CLA    (1 << 25) /* Check if copy literal area GC scheduled */
+#define F_ASYNC_DIST         (1 << 26) /* Truly asynchronous distribution */
 
 /* Signal queue flags */
 #define FS_OFF_HEAP_MSGQ       (1 << 0) /* Off heap msg queue */
 #define FS_ON_HEAP_MSGQ        (1 << 1) /* On heap msg queue */
 #define FS_OFF_HEAP_MSGQ_CHNG  (1 << 2) /* Off heap msg queue changing */
-#define FS_LOCAL_SIGS_ONLY     (1 << 3) /* Handle privq sigs only */
+#define FS_UNUSED              (1 << 3) /* Unused */
 #define FS_HANDLING_SIGS       (1 << 4) /* Process is handling signals */
 #define FS_WAIT_HANDLE_SIGS    (1 << 5) /* Process is waiting to handle signals */
 #define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
+#define FS_FLUSHING_SIGS       (1 << 7) /* Currently flushing signals */
+#define FS_FLUSHED_SIGS        (1 << 8) /* Flushing of signals completed */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -1745,9 +1755,9 @@ Uint64 erts_get_proc_interval(void);
 Uint64 erts_ensure_later_proc_interval(Uint64);
 Uint64 erts_step_proc_interval(void);
 
-ErtsProcList *erts_proclist_create(Process *);
-ErtsProcList *erts_proclist_copy(ErtsProcList *);
 void erts_proclist_destroy(ErtsProcList *);
+ErtsProcList *erts_proclist_create(Process *) ERTS_ATTR_MALLOC_D(erts_proclist_destroy,1);
+ErtsProcList *erts_proclist_copy(ErtsProcList *);
 void erts_proclist_dump(fmtfn_t to, void *to_arg, ErtsProcList*);
 
 ERTS_GLB_INLINE int erts_proclist_same(ErtsProcList *, Process *);
@@ -1929,7 +1939,7 @@ void erts_schedule_thr_prgr_later_cleanup_op(void (*)(void *),
 					     ErtsThrPrgrLaterOp *,
 					     UWord);
 void erts_schedule_complete_off_heap_message_queue_change(Eterm pid);
-void erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id);
+void erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id, int check);
 struct db_fixation;
 void erts_schedule_ets_free_fixation(Eterm pid, struct db_fixation*);
 void erts_schedule_flush_trace_messages(Process *proc, int force_on_proc);
@@ -2224,9 +2234,9 @@ erts_psd_set(Process *p, int ix, void *data)
   ((struct saved_calls *) erts_psd_set((P), ERTS_PSD_SAVED_CALLS_BUF, (void *) (SCB)))
 
 #define ERTS_PROC_GET_CALL_TIME(P) \
-  ((process_breakpoint_time_t *) erts_psd_get((P), ERTS_PSD_CALL_TIME_BP))
+  ((process_breakpoint_trace_t *) erts_psd_get((P), ERTS_PSD_CALL_TIME_BP))
 #define ERTS_PROC_SET_CALL_TIME(P, PBT) \
-  ((process_breakpoint_time_t *) erts_psd_set((P), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
+  ((process_breakpoint_trace_t *) erts_psd_set((P), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
 
 #define ERTS_PROC_GET_DELAYED_GC_TASK_QS(P) \
     ((ErtsProcSysTaskQs *) erts_psd_get((P), ERTS_PSD_DELAYED_GC_TASK_QS))
@@ -2247,6 +2257,11 @@ erts_psd_set(Process *p, int ix, void *data)
     ((void *) erts_psd_get((P), ERTS_PSD_PENDING_SUSPEND))
 #define ERTS_PROC_SET_PENDING_SUSPEND(P, PS) \
     ((void *) erts_psd_set((P), ERTS_PSD_PENDING_SUSPEND, (void *) (PS)))
+
+#define ERTS_PROC_GET_CALL_MEMORY(P) \
+    ((process_breakpoint_trace_t *) erts_psd_get((P), ERTS_PSD_CALL_MEMORY_BP))
+#define ERTS_PROC_SET_CALL_MEMORY(P, PBT) \
+    ((process_breakpoint_trace_t *) erts_psd_set((P), ERTS_PSD_CALL_MEMORY_BP, (void *) (PBT)))
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
 ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p, Eterm handler);
@@ -2883,19 +2898,15 @@ Uint32 erts_sched_local_random_hash_64_to_32_shift(Uint64 key)
 
 /*
  * This function attempts to return a random number based on the state
- * of the scheduler, the current process and the additional_seed
- * parameter.
+ * of the scheduler and the additional_seed parameter.
  */
 ERTS_GLB_INLINE
 Uint32 erts_sched_local_random(Uint additional_seed)
 {
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
-    Uint64 seed =
-        additional_seed +
-        esdp->reductions +
-        esdp->current_process->fcalls +
-        (((Uint64)esdp->no) << 32);
-    return erts_sched_local_random_hash_64_to_32_shift(seed);
+    esdp->rand_state++;
+    return erts_sched_local_random_hash_64_to_32_shift(esdp->rand_state
+                                                       + additional_seed);
 }
 
 #ifdef DEBUG

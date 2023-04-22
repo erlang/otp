@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -241,10 +241,10 @@ handle_transfer_encoding(Headers) ->
     Headers#http_request_h{'content-length' = undefined}.
 
 body_length(Body) when is_binary(Body) ->
-   integer_to_list(size(Body));
+   integer_to_list(byte_size(Body));
 
 body_length(Body) when is_list(Body) ->
-  integer_to_list(length(Body)).
+  integer_to_list(iolist_size(Body)).
 
 %% Set 'Content-Type' when it is explicitly set.
 handle_content_type(Headers, "") ->

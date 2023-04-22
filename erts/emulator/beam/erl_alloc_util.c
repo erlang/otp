@@ -1693,7 +1693,7 @@ dealloc_mbc(Allctr_t *allctr, Carrier_t *crr)
 }
 
 
-static UWord allctr_abandon_limit(Allctr_t *allctr);
+static UWord allctr_abandon_limit(Allctr_t *allctr, UWord);
 static void set_new_allctr_abandon_limit(Allctr_t*);
 static void abandon_carrier(Allctr_t*, Carrier_t*);
 static void poolify_my_carrier(Allctr_t*, Carrier_t*);
@@ -2251,7 +2251,7 @@ check_abandon_carrier(Allctr_t *allctr, Block_t *fblk, Carrier_t **busy_pcrr_pp)
     if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	return;
 
-    ASSERT(allctr->cpool.abandon_limit == allctr_abandon_limit(allctr));
+    ASSERT(allctr->cpool.abandon_limit == allctr_abandon_limit(allctr, allctr->cpool.util_limit));
     ASSERT(erts_thr_progress_is_managed_thread());
 
     if (allctr->cpool.disable_abandon)
@@ -2527,9 +2527,158 @@ mbc_alloc(Allctr_t *allctr, Uint size)
     return BLK2UMEM(blk);
 }
 
+typedef struct {
+    char *ptr;
+    UWord size;
+} ErtsMemDiscardRegion;
+
+/* Construct a discard region for the user memory of a free block, letting the
+ * OS reclaim its physical memory when required.
+ *
+ * Note that we're ignoring both the footer and everything that comes before
+ * the minimum block size as the allocator uses those areas to manage the
+ * block. */
+static void ERTS_INLINE
+mem_discard_start(Allctr_t *allocator, Block_t *block,
+                  ErtsMemDiscardRegion *out)
+{
+    UWord size = BLK_SZ(block);
+
+    ASSERT(size >= allocator->min_block_size);
+
+    if (size > (allocator->min_block_size + FBLK_FTR_SZ)) {
+        out->size = size - allocator->min_block_size - FBLK_FTR_SZ;
+    } else {
+        out->size = 0;
+    }
+
+    out->ptr = (char*)block + allocator->min_block_size;
+}
+
+/* Expands a discard region into a neighboring free block, allowing us to
+ * discard the block header and first page.
+ *
+ * This is very important in small-allocation scenarios where no single block
+ * is large enough to be discarded on its own. */
+static void ERTS_INLINE
+mem_discard_coalesce(Allctr_t *allocator, Block_t *neighbor,
+                     ErtsMemDiscardRegion *region)
+{
+    char *neighbor_start;
+
+    ASSERT(IS_FREE_BLK(neighbor));
+
+    neighbor_start = (char*)neighbor;
+
+    if (region->ptr >= neighbor_start) {
+        char *region_start_page;
+
+        region_start_page = region->ptr - SYS_PAGE_SIZE;
+        region_start_page = (char*)((UWord)region_start_page & ~SYS_PAGE_SZ_MASK);
+
+        /* Expand if our first page begins within the previous free block's
+         * unused data. */
+        if (region_start_page >= (neighbor_start + allocator->min_block_size)) {
+            region->size += (region->ptr - region_start_page) - FBLK_FTR_SZ;
+            region->ptr = region_start_page;
+        }
+    } else {
+        char *region_end_page;
+        UWord neighbor_size;
+
+        ASSERT(region->ptr <= neighbor_start);
+
+        region_end_page = region->ptr + region->size + SYS_PAGE_SIZE;
+        region_end_page = (char*)((UWord)region_end_page & ~SYS_PAGE_SZ_MASK);
+
+        neighbor_size = BLK_SZ(neighbor) - FBLK_FTR_SZ;
+
+        /* Expand if our last page ends anywhere within the next free block,
+         * sans the footer we'll inherit. */
+        if (region_end_page < neighbor_start + neighbor_size) {
+            region->size += region_end_page - (region->ptr + region->size);
+        }
+    }
+}
+
+static void ERTS_INLINE
+mem_discard_finish(Allctr_t *allocator, Block_t *block,
+                   ErtsMemDiscardRegion *region)
+{
+#ifdef DEBUG
+    char *block_start, *block_end;
+    UWord block_size;
+
+    block_size = BLK_SZ(block);
+
+    /* Ensure that the region is completely covered by the legal area of the
+     * free block. This must hold even when the region is too small to be
+     * discarded. */
+    if (region->size > 0) {
+        ASSERT(block_size > allocator->min_block_size + FBLK_FTR_SZ);
+
+        block_start = (char*)block + allocator->min_block_size;
+        block_end = (char*)block + block_size - FBLK_FTR_SZ;
+
+        ASSERT(region->size == 0 ||
+            (region->ptr + region->size <= block_end &&
+             region->ptr >= block_start &&
+             region->size <= block_size));
+    }
+#else
+    (void)allocator;
+    (void)block;
+#endif
+
+    if (region->size > SYS_PAGE_SIZE) {
+        UWord align_offset, size;
+        char *ptr;
+
+        align_offset = SYS_PAGE_SIZE - ((UWord)region->ptr & SYS_PAGE_SZ_MASK);
+
+        size = (region->size - align_offset) & ~SYS_PAGE_SZ_MASK;
+        ptr = region->ptr + align_offset;
+
+        if (size > 0) {
+            ASSERT(!((UWord)ptr & SYS_PAGE_SZ_MASK));
+            ASSERT(!(size & SYS_PAGE_SZ_MASK));
+
+            erts_mem_discard(ptr, size);
+        }
+    }
+}
+
+static void
+carrier_mem_discard_free_blocks(Allctr_t *allocator, Carrier_t *carrier)
+{
+    static const int MAX_BLOCKS_TO_DISCARD = 100;
+    Block_t *block;
+    int i;
+
+    if (carrier->cpool.total_blocks_size > carrier->cpool.discard_limit)
+        return;
+
+    block = allocator->first_fblk_in_mbc(allocator, carrier);
+    i = 0;
+
+    while (block != NULL && i < MAX_BLOCKS_TO_DISCARD) {
+        ErtsMemDiscardRegion region;
+
+        ASSERT(IS_FREE_BLK(block));
+
+        mem_discard_start(allocator, block, &region);
+        mem_discard_finish(allocator, block, &region);
+
+        block = allocator->next_fblk_in_mbc(allocator, carrier, block);
+        i++;
+    }
+}
+
 static void
 mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp)
 {
+    ErtsMemDiscardRegion discard_region = {0};
+    int discard;
     Uint is_first_blk;
     Uint is_last_blk;
     Uint blk_sz;
@@ -2544,6 +2693,21 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 
     ASSERT(IS_MBC_BLK(blk));
     ASSERT(blk_sz >= allctr->min_block_size);
+
+#ifndef DEBUG
+    /* We want to mark freed blocks as reclaimable to the OS, but it's a fairly
+     * expensive operation which doesn't do much good if we use it again soon
+     * after, so we limit it to deallocations on pooled carriers. */
+    discard = busy_pcrr_pp && *busy_pcrr_pp;
+#else
+    /* Always discard in debug mode, regardless of whether we're in the pool or
+     * not. */
+    discard = 1;
+#endif
+
+    if (discard) {
+        mem_discard_start(allctr, blk, &discard_region);
+    }
 
     HARD_CHECK_BLK_CARRIER(allctr, blk);
 
@@ -2562,6 +2726,10 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 	blk = PREV_BLK(blk);
 	(*allctr->unlink_free_block)(allctr, blk);
 
+        if (discard && crr->cpool.total_blocks_size <= crr->cpool.discard_limit) {
+            mem_discard_coalesce(allctr, blk, &discard_region);
+        }
+
 	blk_sz += MBC_FBLK_SZ(blk);
 	is_first_blk = IS_MBC_FIRST_FBLK(allctr, blk);
 	SET_MBC_FBLK_SZ(blk, blk_sz);
@@ -2577,6 +2745,10 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 	if (IS_FREE_BLK(nxt_blk)) {
 	    /* Coalesce with next block... */
 	    (*allctr->unlink_free_block)(allctr, nxt_blk);
+
+            if (discard && crr->cpool.total_blocks_size <= crr->cpool.discard_limit) {
+                mem_discard_coalesce(allctr, nxt_blk, &discard_region);
+            }
 
 	    blk_sz += MBC_FBLK_SZ(nxt_blk);
 	    SET_MBC_FBLK_SZ(blk, blk_sz);
@@ -2613,6 +2785,10 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
     else {
 	(*allctr->link_free_block)(allctr, blk);
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
+
+        if (discard && crr->cpool.total_blocks_size <= crr->cpool.discard_limit) {
+            mem_discard_finish(allctr, blk, &discard_region);
+        }
 
         if (busy_pcrr_pp && *busy_pcrr_pp) {
             update_pooled_tree(allctr, crr, blk_sz);
@@ -3638,7 +3814,7 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	Block_t* first_blk = MBC_TO_FIRST_BLK(allctr, crr);
 	ERTS_ALC_CPOOL_ASSERT(IS_FREE_LAST_MBC_BLK(first_blk));
 
-	ERTS_ALC_CPOOL_ASSERT(IS_MBC_FIRST_ABLK(allctr, first_blk));
+	ERTS_ALC_CPOOL_ASSERT(IS_MBC_FIRST_FBLK(allctr, first_blk));
 	ERTS_ALC_CPOOL_ASSERT(crr == FBLK_TO_MBC(first_blk));
 	ERTS_ALC_CPOOL_ASSERT(crr == FIRST_BLK_TO_MBC(allctr, first_blk));
 	ERTS_ALC_CPOOL_ASSERT((erts_atomic_read_nob(&crr->allctr)
@@ -3693,6 +3869,17 @@ static void dealloc_my_carrier(Allctr_t *allctr, Carrier_t *crr)
     erts_alloc_ensure_handle_delayed_dealloc_call(allctr->ix);
 }
 
+static ERTS_INLINE UWord
+cpoll_init_carrier_limit(Carrier_t *crr, UWord percent_limit) {
+    UWord csz = CARRIER_SZ(crr);
+    UWord limit = percent_limit*csz;
+    if (limit > csz)
+        limit /= 100;
+    else
+        limit = (csz/100)*percent_limit;
+    return limit;
+}
+
 static ERTS_INLINE void
 cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
 {
@@ -3705,16 +3892,12 @@ cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
     sys_memset(&crr->cpool.blocks_size, 0, sizeof(crr->cpool.blocks_size));
     sys_memset(&crr->cpool.blocks, 0, sizeof(crr->cpool.blocks));
     crr->cpool.total_blocks_size = 0;
-    if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr))
+    if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
 	crr->cpool.abandon_limit = 0;
-    else {
-	UWord csz = CARRIER_SZ(crr);
-	UWord limit = csz*allctr->cpool.util_limit;
-	if (limit > csz)
-	    limit /= 100;
-	else
-	    limit = (csz/100)*allctr->cpool.util_limit;
-	crr->cpool.abandon_limit = limit;
+        crr->cpool.discard_limit = 0;
+    } else {
+	crr->cpool.abandon_limit = cpoll_init_carrier_limit(crr, allctr->cpool.util_limit);
+	crr->cpool.discard_limit = cpoll_init_carrier_limit(crr, allctr->cpool.free_util_limit);
     }
     crr->cpool.state = ERTS_MBC_IS_HOME;
 }
@@ -3722,7 +3905,7 @@ cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
 
 
 static UWord
-allctr_abandon_limit(Allctr_t *allctr)
+allctr_abandon_limit(Allctr_t *allctr, UWord percent_limit)
 {
     UWord limit;
     UWord csz;
@@ -3733,11 +3916,11 @@ allctr_abandon_limit(Allctr_t *allctr)
         csz += allctr->mbcs.carriers[i].size;
     }
 
-    limit = csz*allctr->cpool.util_limit;
+    limit = csz*percent_limit;
     if (limit > csz)
 	limit /= 100;
     else
-	limit = (csz/100)*allctr->cpool.util_limit;
+	limit = (csz/100)*percent_limit;
 
     return limit;
 }
@@ -3745,7 +3928,7 @@ allctr_abandon_limit(Allctr_t *allctr)
 static void ERTS_INLINE
 set_new_allctr_abandon_limit(Allctr_t *allctr)
 {
-    allctr->cpool.abandon_limit = allctr_abandon_limit(allctr);
+    allctr->cpool.abandon_limit = allctr_abandon_limit(allctr, allctr->cpool.util_limit);
 }
 
 static void
@@ -3758,7 +3941,11 @@ abandon_carrier(Allctr_t *allctr, Carrier_t *crr)
     unlink_carrier(&allctr->mbc_list, crr);
     allctr->remove_mbc(allctr, crr);
 
+    /* Mark our free blocks as unused and reclaimable to the OS. */
+    carrier_mem_discard_free_blocks(allctr, crr);
+
     cpool_insert(allctr, crr);
+
 
     iallctr = erts_atomic_read_nob(&crr->allctr);
     if (allctr == crr->cpool.orig_allctr) {
@@ -4393,6 +4580,7 @@ static struct {
     Eterm smbcs;
     Eterm mbcgs;
     Eterm acul;
+    Eterm acful;
     Eterm acnl;
     Eterm acfml;
     Eterm cp;
@@ -4503,6 +4691,7 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(smbcs);
 	AM_INIT(mbcgs);
 	AM_INIT(acul);
+	AM_INIT(acful);
         AM_INIT(acnl);
         AM_INIT(acfml);
         AM_INIT(cp);
@@ -5262,7 +5451,7 @@ info_options(Allctr_t *allctr,
 	     Uint *szp)
 {
     Eterm res = THE_NON_VALUE;
-    UWord acul, acnl, acfml;
+    UWord acul, acful, acnl, acfml;
     char *cp_str;
     Eterm cp_atom;
 
@@ -5277,6 +5466,7 @@ info_options(Allctr_t *allctr,
     }
 
     acul = allctr->cpool.util_limit;
+    acful = allctr->cpool.free_util_limit;
     acnl = allctr->cpool.in_pool_limit;
     acfml = allctr->cpool.fblk_min_limit;
     ASSERT(allctr->cpool.carrier_pool <= ERTS_ALC_A_MAX);
@@ -5325,6 +5515,7 @@ info_options(Allctr_t *allctr,
 		   "option smbcs: %beu\n"
 		   "option mbcgs: %beu\n"
 		   "option acul: %bpu\n"
+		   "option acful: %bpu\n"
 		   "option acnl: %bpu\n"
 		   "option acfml: %bpu\n"
 		   "option cp: %s\n",
@@ -5347,6 +5538,7 @@ info_options(Allctr_t *allctr,
 		   allctr->smallest_mbc_size,
 		   allctr->mbc_growth_stages,
 		   acul,
+		   acful,
                    acnl,
                    acfml,
                    cp_str);
@@ -5366,6 +5558,9 @@ info_options(Allctr_t *allctr,
 	add_2tup(hpp, szp, &res,
 		 am.acul,
 		 bld_uint(hpp, szp, acul));
+        add_2tup(hpp, szp, &res,
+		 am.acful,
+		 bld_uint(hpp, szp, acful));
 	add_2tup(hpp, szp, &res,
 		 am.mbcgs,
 		 bld_uint(hpp, szp, allctr->mbc_growth_stages));
@@ -6618,6 +6813,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
         ASSERT(allctr->next_fblk_in_mbc);
 
         allctr->cpool.util_limit = init->acul;
+        allctr->cpool.free_util_limit = init->acful;
         allctr->cpool.in_pool_limit = init->acnl;
         allctr->cpool.fblk_min_limit = init->acfml;
         allctr->cpool.carrier_pool = init->cp;
@@ -6631,6 +6827,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     }
     else {
         allctr->cpool.util_limit = 0;
+        allctr->cpool.free_util_limit = 0;
         allctr->cpool.in_pool_limit = 0;
         allctr->cpool.fblk_min_limit = 0;
         allctr->cpool.carrier_pool = -1;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,10 +57,10 @@ log(Level, LogLevel, ReportMap, Meta) ->
             ok
     end.
 
-debug(Level, Direction, Protocol, Message)
+debug(LogLevel, Direction, Protocol, Message)
   when (Direction =:= inbound orelse Direction =:= outbound) andalso
        (Protocol =:= 'record' orelse Protocol =:= 'handshake') ->
-    case logger:compare_levels(Level, debug) of
+    case logger:compare_levels(LogLevel, debug) of
         lt ->
             ?LOG_DEBUG(#{direction => Direction,
                          protocol => Protocol,
@@ -290,19 +290,20 @@ get_server_version(Version, Extensions) ->
             Version
     end.
 
-version({3,4}) ->
+-spec version(ssl_record:ssl_version()) -> string().
+version(?TLS_1_3) ->
     "TLS 1.3";
-version({3,3}) ->
+version(?TLS_1_2) ->
     "TLS 1.2";
-version({3,2}) ->
+version(?TLS_1_1) ->
     "TLS 1.1";
-version({3,1}) ->
+version(?TLS_1_0) ->
     "TLS 1.0";
-version({3,0}) ->
+version(?SSL_3_0) ->
     "SSL 3.0";
-version({254,253}) ->
+version(?DTLS_1_2) ->
     "DTLS 1.2";
-version({254,255}) ->
+version(?DTLS_1_0) ->
     "DTLS 1.0";
 version({M,N}) ->
     io_lib:format("TLS/DTLS [0x0~B0~B]", [M,N]).

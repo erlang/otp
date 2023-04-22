@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,6 +101,12 @@ typedef struct {
             int current_level;
         } catree;
     } u;
+    Eterm* old_tpl;
+#ifdef DEBUG
+    Eterm old_tpl_dflt[2];
+#else
+    Eterm old_tpl_dflt[8];
+#endif
 } DbUpdateHandle;
 
 /* How safe are we from double-hits or missed objects
@@ -237,7 +243,7 @@ typedef struct db_table_method
     ** not DB_ERROR_NONE, the object is removed from the table. */
     void (*db_finalize_dbterm)(int cret, DbUpdateHandle* handle);
     void* (*db_eterm_to_dbterm)(int compress, int keypos, Eterm obj);
-    void* (*db_dbterm_list_prepend)(void* list, void* db_term);
+    void* (*db_dbterm_list_append)(void* last_term, void* db_term);
     void* (*db_dbterm_list_remove_first)(void** list);
     int (*db_put_dbterm)(DbTable* tb, /* [in out] */
                          void* obj,
@@ -302,7 +308,7 @@ typedef struct db_table_common {
     UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
     Uint64 heir_started_interval;  /* To further identify the heir */
     Eterm the_name;           /* an atom */
-    Binary *btid;
+    Binary *btid;             /* table magic ref, read only after creation */
     DbTableMethod* meth;      /* table methods */
     /* The ErtsFlxCtr below contains:
      * - Total number of items in table
@@ -321,11 +327,7 @@ typedef struct db_table_common {
     int compress;
 
     /* For unfinished operations that needs to be helped */
-    void (*continuation)(long *reds_ptr,
-                         void** state,
-                         void* extra_context); /* To help yielded process */
-    erts_atomic_t continuation_state;
-    Binary* continuation_res_bin;
+    struct ets_insert_2_list_info* continuation_ctx;
 #ifdef ETS_DBG_FORCE_TRAP
     int dbg_force_trap;  /* force trap on table lookup */
 #endif
@@ -404,10 +406,10 @@ ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 					      Eterm** hpp, ErlOffHeap* off_heap)
 {
     if (tb->compress) {
-	return db_copy_from_comp(tb, bp, hpp, off_heap);
+        return db_copy_from_comp(tb, bp, hpp, off_heap);
     }
     else {
-	return copy_shallow(bp->tpl, bp->size, hpp, off_heap);
+        return make_tuple(copy_shallow(bp->tpl, bp->size, hpp, off_heap));
     }
 }
 

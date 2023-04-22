@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@
 %%----------------------------------------------------------------------
 -module(cth_conn_log).
 
--include_lib("common_test/include/ct.hrl").
+-include("ct.hrl").
 
 -export([init/2,
 	 pre_init_per_testcase/4,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 
 -export([start/0, stop/0]).
 -export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0, get_menubar/0,
-     get_scale/0, set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
+     get_scale/0, set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2,
+     set_node/1]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2, check_page_title/1]).
@@ -88,6 +89,9 @@ get_tracer() ->
 
 get_active_node() ->
     wx_object:call(observer, get_active_node).
+
+set_node(Node) ->
+    wx_object:call(observer, {set_node, Node}).
 
 get_menubar() ->
     wx_object:call(observer, get_menubar).
@@ -427,6 +431,10 @@ handle_call(get_tracer, _From, State=#state{panels=Panels}) ->
 handle_call(get_active_node, _From, State=#state{node=Node}) ->
     {reply, Node, State};
 
+handle_call({set_node, Node}, _From, State) ->
+    State2 = change_node_view(Node, State),
+    {reply, ok, State2};
+
 handle_call(get_menubar, _From, State=#state{menubar=MenuBar}) ->
     {reply, MenuBar, State};
 
@@ -455,6 +463,7 @@ handle_info({nodedown, Node},
     State3 = update_node_list(State2),
     Msg = ["Node down: " | atom_to_list(Node)],
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
+    filter_nodedown_messages(Node),
     {noreply, State3};
 
 handle_info({open_link, Id0}, State = #state{panels=Panels,frame=Frame}) ->
@@ -747,21 +756,45 @@ get_nodes() ->
     Nodes0 = case erlang:is_alive() of
 		false -> [];
 		true  ->
-		    case net_adm:names() of
-			{error, _} -> nodes();
-			{ok, Names} ->
-			    epmd_nodes(Names) ++ nodes()
-		    end
+                    case net_adm:names() of
+                        {error, _} -> [];
+                        {ok, Names} -> epmd_nodes(Names)
+                    end
+                    ++
+                    [node() | nodes(connected)]
 	     end,
     Nodes = lists:usort(Nodes0),
+    WarningText = "WARNING: connecting to non-erlang nodes may crash them",
     {_, Menues} =
 	lists:foldl(fun(Node, {Id, Acc}) when Id < ?LAST_NODES_MENU_ID ->
 			    {Id + 1, [#create_menu{id=Id + ?FIRST_NODES_MENU_ID,
-						   text=atom_to_list(Node)} | Acc]}
+						   text=atom_to_list(Node),
+						   help=WarningText} | Acc]}
 		    end, {1, []}, Nodes),
     {Nodes, lists:reverse(Menues)}.
 
-epmd_nodes(Names) ->
+%% see erl_epmd:(listen_)port_please/2
+erl_dist_port() ->
+    try
+        erl_epmd = net_kernel:epmd_module(),
+        {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
+        list_to_integer(StringPort)
+    catch
+        _:_ ->
+            undefined
+    end.
+
+%% If the default epmd module erl_epmd is used and erl_epmd_port is
+%% set to `DistPort' then it is only possible to connect to the node
+%% listening on DistPort (if any), so exclude other nodes registered
+%% in EPMD
+epmd_nodes(Names0) ->
+    Names = case erl_dist_port() of
+                undefined ->
+                    Names0;
+                DistPort ->
+                    [NP || NP = {_, Port} <- Names0, Port =:= DistPort]
+            end,
     [_, Host] = string:lexemes(atom_to_list(node()),"@"),
     [list_to_atom(Name ++ [$@|Host]) || {Name, _} <- Names].
 
@@ -850,6 +883,14 @@ is_rb_server_running(Node, LogState) ->
 	   ok
    end.
 
+filter_nodedown_messages(Node) ->
+    receive
+        {nodedown, Node} ->
+            filter_nodedown_messages(Node)
+    after
+        0 ->
+            ok
+    end.
 
 %% d(F) ->
 %%     d(F, []).

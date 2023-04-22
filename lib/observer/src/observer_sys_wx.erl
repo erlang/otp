@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -138,10 +138,10 @@ info_fields() ->
 	      {"Async thread pool size",  thread_pool_size}
 	     ]}],
 
-    Cpu = [{"CPU's and Threads",
-	    [{"Logical CPU's", logical_processors},
-	     {"Online Logical CPU's", logical_processors_online},
-	     {"Available Logical CPU's", logical_processors_available},
+    Cpu = [{"CPUs and Threads",
+	    [{"Logical CPUs", logical_processors},
+	     {"Online Logical CPUs", logical_processors_online},
+	     {"Available Logical CPUs", logical_processors_available},
 	     {"Schedulers", schedulers},
 	     {"Online schedulers", schedulers_online},
 	     {"Available schedulers", schedulers_available}

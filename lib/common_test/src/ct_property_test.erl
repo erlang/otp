@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,9 +35,6 @@
          print_frequency_ranges/0,
          print_frequency/0
         ]).
-
-%%% Mandatory include
--include_lib("common_test/include/ct.hrl").
 
 %%%================================================================
 %%%

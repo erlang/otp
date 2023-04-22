@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,10 +64,20 @@ handle_event(internal,
     case {ServiceName, Ssh0#ssh.service, Method} of
 	{"ssh-connection", "ssh-connection", "none"} ->
 	    %% Probably the very first userauth_request but we deny unauthorized login
-	    {not_authorized, _, {Reply,Ssh}} =
-		ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0),
-            D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
-	    {keep_state, D};
+            %% However, we *may* accept unauthorized login if instructed so
+            case ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0) of
+                {not_authorized, _, {Reply,Ssh}} ->
+                    D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
+                    {keep_state, D};
+                {authorized, User, {Reply, Ssh1}} ->
+                    D = connected_state(Reply, Ssh1, User, Method, D0),
+                    {next_state, {connected,server}, D,
+                     [set_max_initial_idle_timeout(D),
+                      {change_callback_module,ssh_connection_handler}
+                     ]
+                    }
+                     
+            end;
 	
 	{"ssh-connection", "ssh-connection", Method} ->
 	    %% Userauth request with a method like "password" or so
@@ -77,7 +87,10 @@ handle_event(internal,
 		    case ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0) of
 			{authorized, User, {Reply, Ssh1}} ->
                             D = connected_state(Reply, Ssh1, User, Method, D0),
-                            {next_state, {connected,server}, D, {change_callback_module,ssh_connection_handler}};
+                            {next_state, {connected,server}, D,
+                             [set_max_initial_idle_timeout(D),
+                              {change_callback_module,ssh_connection_handler}
+                             ]};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D0),
                             D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
@@ -110,7 +123,10 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
     case ssh_auth:handle_userauth_info_response(Msg, D0#data.ssh_params) of
 	{authorized, User, {Reply, Ssh1}} ->
             D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
-            {next_state, {connected,server}, D, {change_callback_module,ssh_connection_handler}};
+            {next_state, {connected,server}, D,
+             [set_max_initial_idle_timeout(D),
+              {change_callback_module,ssh_connection_handler}
+             ]};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 	    retry_fun(User, Reason, D0),
             D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
@@ -125,7 +141,11 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
     {authorized, User, {Reply, Ssh1}} =
         ssh_auth:handle_userauth_info_response({extra,Msg}, D0#data.ssh_params),
     D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
-    {next_state, {connected,server}, D, {change_callback_module,ssh_connection_handler}};
+    {next_state, {connected,server}, D,
+     [set_max_initial_idle_timeout(D),
+      {change_callback_module,ssh_connection_handler}
+     ]
+    };
 
 
 %%% ######## UNHANDLED EVENT!
@@ -158,6 +178,9 @@ connected_state(Reply, Ssh1, User, Method, D0) ->
             %% before send_msg!
             ssh_params = Ssh#ssh{authenticated = true}}.
 
+
+set_max_initial_idle_timeout(#data{ssh_params = #ssh{opts=Opts}}) ->
+    {{timeout,max_initial_idle_time}, ?GET_OPT(max_initial_idle_time,Opts), none}.
 
 connected_fun(User, Method, #data{ssh_params = #ssh{peer = {_,Peer}}} = D) ->
     ?CALL_FUN(connectfun,D)(User, Peer, Method).

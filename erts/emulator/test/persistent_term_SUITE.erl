@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@
          error_info/1,
 	 whole_message/1,
          shared_magic_ref/1,
-	 non_message_signal/1]).
+	 non_message_signal/1,
+         get_put_colliding_bucket/1]).
 
 %%
 -export([test_init_restart_cmd/1]).
@@ -57,7 +58,8 @@ all() ->
      error_info,
      whole_message,
      shared_magic_ref,
-     non_message_signal].
+     non_message_signal,
+     get_put_colliding_bucket].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -602,27 +604,54 @@ collisions_delete([], _) ->
 
 colliding_keys() ->
     %% Collisions found by find_colliding_keys() below
-    L = [[77674392,148027],
-	 [103370644,950908],
-	 [106444046,870178],
-	 [22217246,735880],
-	 [18088843,694607],
-	 [63426007,612179],
-	 [117354942,906431],
-	 [121434305,94282311,816072],
-	 [118441466,93873772,783366],
-	 [124338174,1414801,123089],
-	 [20240282,17113486,923647],
-	 [126495528,61463488,164994],
-	 [125341723,5729072,445539],
-	 [127450932,80442669,348245],
-	 [123354692,85724182,14241288,180793],
-	 [99159367,65959274,61680971,289939],
-	 [107637580,104512101,62639807,181644],
-	 [139547511,51654420,2062545,151944],
-	 [88078274,73031465,53388204,428872],
-	 [141314238,75761379,55699508,861797],
-	 [88045216,59272943,21030492,180903]],
+    %%    ct:timetrap({minutes, 60}),
+    %%    ct:pal("Colliding keys = ~p", [find_colliding_keys()]),
+    Collisions =
+        #{
+            %% Collisions for Jenkins96 hashing.
+            1268203079 => [[77674392,148027],
+                           [103370644,950908],
+                           [106444046,870178],
+                           [22217246,735880],
+                           [18088843,694607],
+                           [63426007,612179],
+                           [117354942,906431],
+                           [121434305,94282311,816072],
+                           [118441466,93873772,783366],
+                           [124338174,1414801,123089],
+                           [20240282,17113486,923647],
+                           [126495528,61463488,164994],
+                           [125341723,5729072,445539],
+                           [127450932,80442669,348245],
+                           [123354692,85724182,14241288,180793],
+                           [99159367,65959274,61680971,289939],
+                           [107637580,104512101,62639807,181644],
+                           [139547511,51654420,2062545,151944],
+                           [88078274,73031465,53388204,428872],
+                           [141314238,75761379,55699508,861797],
+                           [88045216,59272943,21030492,180903]],
+            %% Collisions for CRC32-C hashing.
+            1982459178 => [[-4294967296,654663773],
+                           [-3758096384,117792861],
+                           [-3221225472,1728405597],
+                           [-2684354560,1191534685],
+                           [-2147483648,2706162303],
+                           [-1610612736,2169291391],
+                           [-1073741824,3779904127],
+                           [-536870912,3243033215],
+                           [-3640303523,0],
+                           [-4177174435,536870912],
+                           [-2566561699,1073741824],
+                           [-3103432611,1610612736],
+                           [-1588804993,2147483648],
+                           [-2125675905,2684354560],
+                           [-515063169,3221225472],
+                           [-1051934081,3758096384]]
+        },
+
+    Key = internal_hash(2),
+    ct:pal("internal_hash(2) = ~p", [Key]),
+    #{ Key := L } = Collisions,
 
     %% Verify that the keys still collide (this will fail if the
     %% internal hash function has been changed).
@@ -647,56 +676,46 @@ internal_hash(Term) ->
     erts_debug:get_internal_state({internal_hash,Term}).
 
 %% Use this function to (re)generate the list in colliding_keys/0
+%%
+%% Grab a coffee, it will take a while.
 find_colliding_keys() ->
-    MaxCollSz = 4,
-    OfEachSz = 7,
     erts_debug:set_internal_state(available_internal_state, true),
-    MaxInserts = 1 bsl 20,
-    T = ets:new(x, [set, private]),
-    ok = fck_loop_1(T, 1, MaxInserts, MaxCollSz, OfEachSz),
-    fck_collect(T, MaxCollSz, OfEachSz, []).
+    NumScheds = erlang:system_info(schedulers_online),
+    Start = -(1 bsl 32),
+    End = -Start,
+    Range = End - Start,
+    Step = Range div NumScheds,
+    timer:tc(fun() -> fck_spawn(NumScheds, NumScheds, Start, End, Step, []) end).
 
-fck_collect(_T, 1, _OfEachSz, Acc) ->
-    Acc;
-fck_collect(T, CollSz, OfEachSz, Acc) ->
-    {List, _} = ets:select(T,
-			   [{{'$1','$2'}, [{'==',{length,'$2'},CollSz}], ['$2']}],
-			   OfEachSz),
-    fck_collect(T, CollSz-1, OfEachSz, List ++ Acc).
+fck_spawn(0, _NumScheds, _Start, _End, _Step, Refs) ->
+    fck_await(Refs);
+fck_spawn(N, NumScheds, Start, End, Step, Refs) ->
+    Key = Start + (N - 1) * Step,
+    {_, Ref} = spawn_monitor(fun() -> exit(fck_finder(Start, End, Key)) end),
+    fck_spawn(N - 1, NumScheds, Start, End, Step, [Ref | Refs]).
 
+fck_await([Ref | Refs]) ->
+    receive
+        {'DOWN', Ref, _, _, [_Initial]} ->
+            %% Ignore slices where the initial value only collided with itself.
+            fck_await(Refs);
+        {'DOWN', Ref, _, _, Collisions} ->
+            [Collisions | fck_await(Refs)]
+    end;
+fck_await([]) ->
+    [].
 
-fck_loop_1(T, Key, 0, MaxCollSz, MaxSzLeft) ->
-    fck_loop_2(T, Key, MaxCollSz, MaxSzLeft);
-fck_loop_1(T, Key, Inserts, MaxCollSz, MaxSzLeft) ->
-    Hash = internal_hash(Key),
-    case ets:insert_new(T, {Hash, [Key]}) of
-	true ->
-	    fck_loop_1(T, Key+1, Inserts-1, MaxCollSz, MaxSzLeft);
-	false ->
-	    [{Hash, KeyList}] = ets:lookup(T, Hash),
-	    true = ets:insert(T, {Hash, [Key | KeyList]}),
-	    fck_loop_1(T, Key+1, Inserts, MaxCollSz, MaxSzLeft)
+fck_finder(Start, End, Key) ->
+    true = Key >= Start, true = Key < End,      %Assertion.
+    fck_finder_1(Start, End, internal_hash(Key)).
+
+fck_finder_1(Same, Same, _Target) ->
+    [];
+fck_finder_1(Next, End, Target) ->
+    case internal_hash(Next) =:= Target of
+        true -> [Next | fck_finder_1(Next + 1, End, Target)];
+        false -> fck_finder_1(Next + 1, End, Target)
     end.
-
-fck_loop_2(_T, _Key, _MaxCollSz, 0) ->
-    ok;
-fck_loop_2(T, Key, MaxCollSz, MaxSzLeft0) ->
-    Hash = internal_hash(Key),
-    case ets:lookup(T, Hash) of
-	[] ->
-	    fck_loop_2(T, Key+1, MaxCollSz, MaxSzLeft0);
-	[{Hash, KeyList}] ->
-	    true = ets:insert(T, {Hash, [Key | KeyList]}),
-	    MaxSzLeft1 = case length(KeyList)+1 of
-			     MaxCollSz ->
-				 MaxSzLeft0 - 1;
-			     _ ->
-				 MaxSzLeft0
-			 end,
-	    fck_loop_2(T, Key+1, MaxCollSz, MaxSzLeft1)
-    end.
-
-
 
 %% OTP-17700 Bug skipped refc++ of shared magic reference
 shared_magic_ref(_Config) ->
@@ -1133,3 +1152,37 @@ recv_msg(Msg, N) ->
 
 tok_loop() ->
     tok_loop().
+
+%% GH-5908: `persistent_term:get/1,2` could race with `persistent_term:put/2`
+%% and return an unexpected value if `get/1,2` happened to _abort_ its lookup
+%% in the same bucket that `put/2` was writing to.
+get_put_colliding_bucket(_Config) ->
+    [[Key, CollidesWith | _] | _] = colliding_keys(),
+    false = persistent_term:erase(Key),
+
+    {Pid, MRef} =
+        spawn_monitor(fun() ->
+                              Schedulers = erlang:system_info(schedulers),
+                              [spawn_link(fun() -> gpcb_reader(Key) end)
+                               || _ <- lists:seq(1, Schedulers - 1)],
+                              gpcb_updater(CollidesWith)
+                      end),
+
+    %% The race usually gets detected within a second or two, so we'll consider
+    %% the test passed if we can't reproduce it in 10 seconds.
+    receive
+        {'DOWN', MRef, process, Pid, Reason} ->
+            ct:fail(Reason)
+    after 10000 ->
+            exit(Pid, kill),
+            ok
+    end.
+
+gpcb_reader(Key) ->
+    expected = persistent_term:get(Key, expected),
+    gpcb_reader(Key).
+
+gpcb_updater(CollidesWith) ->
+    persistent_term:erase(CollidesWith),
+    persistent_term:put(CollidesWith, unexpected),
+    gpcb_updater(CollidesWith).

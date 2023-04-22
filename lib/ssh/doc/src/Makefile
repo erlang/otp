@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2021. All Rights Reserved.
+# Copyright Ericsson AB 2004-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ BOOK_FILES = book.xml
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES)  $(XML_REF6_FILES)\
             $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
-IMAGE_FILES = SSH_protocols.png
+IMAGE_FILES = SSH_protocols.png ssh_timeouts.jpg
 
 TOP_SPECS_FILE = specs.xml
 

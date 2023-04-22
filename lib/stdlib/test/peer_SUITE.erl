@@ -13,6 +13,8 @@
     suite/0,
     all/0,
     groups/0,
+    init_per_suite/1,
+    end_per_suite/1,
     init_per_group/2,
     end_per_group/2
 ]).
@@ -21,6 +23,7 @@
 -export([
     dist/0, dist/1,
     peer_down_crash/0, peer_down_crash/1,
+    peer_down_crash_tcp/1,
     peer_down_continue/0, peer_down_continue/1,
     peer_down_boot/0, peer_down_boot/1,
     dist_io_redirect/0, dist_io_redirect/1,
@@ -44,24 +47,43 @@
     duplicate_name/0, duplicate_name/1,
     old_release/0, old_release/1,
     ssh/0, ssh/1,
-    docker/0, docker/1
+    docker/0, docker/1,
+    post_process_args/0, post_process_args/1,
+    attached/0, attached/1,
+    attached_cntrl_channel_handler_crash/0, attached_cntrl_channel_handler_crash/1,
+    cntrl_channel_handler_crash/0, cntrl_channel_handler_crash/1,
+    cntrl_channel_handler_crash_old_release/0, cntrl_channel_handler_crash_old_release/1
 ]).
 
 suite() ->
     [{timetrap, {minutes, 1}}].
+
+init_per_suite(Config) ->
+    %% Restrict number of schedulers so that we do not run out of
+    %% file descriptors during test
+    os:putenv("ERL_FLAGS","+S1 +SDio 1"),
+    Config.
+
+end_per_suite(_Config) ->
+    os:unsetenv("ERL_FLAGS"),
+    ok.
 
 shutdown_alternatives() ->
     [shutdown_halt, shutdown_halt_timeout, shutdown_stop, shutdown_stop_timeout, shutdown_close].
 
 alternative() ->
     [basic, peer_states, cast, detached, dyn_peer, stop_peer,
-     io_redirect, multi_node, duplicate_name] ++ shutdown_alternatives().
+     io_redirect, multi_node, duplicate_name, attached, attached_cntrl_channel_handler_crash,
+     cntrl_channel_handler_crash, cntrl_channel_handler_crash_old_release | shutdown_alternatives()].
 
 groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
-            dist_up_down, dist_localhost] ++ shutdown_alternatives()},
-        {dist_seq, [], [dist_io_redirect]}, %% Cannot be run in parallel in dist group
+                            dist_up_down, dist_localhost, post_process_args, attached,
+                            attached_cntrl_channel_handler_crash, cntrl_channel_handler_crash,
+                            cntrl_channel_handler_crash_old_release | shutdown_alternatives()]},
+        {dist_seq, [], [dist_io_redirect,      %% Cannot be run in parallel in dist group
+                        peer_down_crash_tcp]},
         {tcp, [parallel], alternative()},
         {standard_io, [parallel], [init_debug | alternative()]},
         {compatibility, [parallel], [old_release]},
@@ -74,7 +96,7 @@ all() ->
 
 init_per_group(remote, Config) ->
     %% check that SSH can connect to localhost, skip the test if not
-    try os:cmd("ssh localhost echo ok") of
+    try os:cmd("timeout 10s ssh localhost echo ok") of
         "ok\n" -> Config;
         _ -> {skip, "'ssh localhost echo ok' did not return ok"}
     catch
@@ -150,6 +172,32 @@ peer_down_crash(Config) when is_list(Config) ->
         {'DOWN', MRef, process, Peer, {nodedown, Node}} ->
             ok
     after 2000 ->
+        link(Peer),
+        {fail, disconnect_timeout}
+    end.
+
+%% Verify option combo #{peer_down=>crash, connection=>0}
+%% exits control process abnormally.
+peer_down_crash_tcp(Config) when is_list(Config) ->
+    %% two-way link: "crash" mode
+    {ok, Peer, Node} = peer:start_link(#{name => peer:random_name(?FUNCTION_NAME),
+                                         peer_down => crash,
+                                         connection => 0}),
+    %% verify node started locally
+    ?assertEqual(Node, peer:call(Peer, erlang, node, [])),
+    %% verify there is no distribution connection
+    ?assertEqual([], erlang:nodes(connected)),
+    %% unlink and monitor
+    unlink(Peer),
+    MRef = monitor(process, Peer),
+    %% Make the node go down
+    ok = erpc:cast(Node, erlang, halt, [0]),
+
+    %% since two-way link is requested, it triggers peer to stop
+    receive
+        {'DOWN', MRef, process, Peer, tcp_closed} ->
+            ok
+    after 5000 ->
         link(Peer),
         {fail, disconnect_timeout}
     end.
@@ -455,6 +503,29 @@ duplicate_name(Config) when is_list(Config) ->
     ?assertException(exit, _, peer:start_link(#{connection => standard_io, name => ?FUNCTION_NAME})),
     peer:stop(Peer).
 
+post_process_args() ->
+    [{doc, "Test that the post_process_args option works"}].
+
+post_process_args(Config) when is_list(Config) ->
+    case {os:type(),os:find_executable("bash")} of
+        {{win32,_}, _Bash} ->
+            {skip,"Test does not work on windows"};
+        {_, false} ->
+            {skip,"Test needs bash to run"};
+        {_, Bash} ->
+            Erl = string:split(ct:get_progname()," ",all),
+            [throw({skip, "Needs bash to run"}) || Bash =:= false],
+            {ok, Peer, _Node} =
+                peer:start_link(
+                  #{ name => ?CT_PEER_NAME(),
+                     exec => {Bash,["-c"|Erl]},
+                     post_process_args =>
+                         fun(["-c"|Args]) ->
+                                 ["-c", lists:flatten(lists:join($\s, Args))]
+                         end }),
+            peer:stop(Peer)
+    end.
+
 %% -------------------------------------------------------------------
 %% Compatibility: old releases
 old_release() ->
@@ -463,9 +534,9 @@ old_release() ->
 old_release(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     %% don't expect OTP 10 to be available
-    ?assertEqual(not_available, ?CT_PEER([], "10", PrivDir)),
+    ?assertEqual(not_available, ?CT_PEER_REL([], "10", PrivDir)),
     PrevRel = integer_to_list(list_to_integer(erlang:system_info(otp_release)) - 2),
-    case ?CT_PEER([], PrevRel, PrivDir) of
+    case ?CT_PEER_REL([], PrevRel, PrivDir) of
         not_available ->
             {skip, "OTP " ++ PrevRel ++ " not found"};
         {ok, Peer, Node} ->
@@ -486,8 +557,20 @@ ssh(Config) when is_list(Config) ->
             {skip, "erl not found"};
         {ErlPath, SshPath} ->
             Name = peer:random_name(?FUNCTION_NAME),
-            {ok, Peer, _Node} = peer:start_link(#{exec => {SshPath, ["localhost", ErlPath]},
-                connection => standard_io, name => Name, host => "localhost"}),
+            {OsName, _} = os:type(),
+            Options = #{exec => {SshPath, ["localhost", ErlPath]},
+                        connection => standard_io, name => Name, host => "localhost"},
+            {ok, Peer, _Node} =
+                try peer:start_link(Options) of
+                    Result -> Result
+                catch error:{boot_failed, normal} when OsName =:= win32 ->
+                        %% If the boot fails on windows, ssh may have ended up
+                        %% in wsl, so we try to boot using a wsl path
+                        WslPath = string:trim(os:cmd("wsl wslpath -u " ++ ErlPath)),
+                        peer:start_link(
+                          Options#{ exec => {SshPath, ["localhost", WslPath]}})
+                end,
+
             %% TODO: how to check it really goes over SSH?
             %% ssh-ed node is not distributed
             ?assertEqual(list_to_atom(Name ++ "@localhost"), peer:call(Peer, erlang, node, [])),
@@ -534,4 +617,126 @@ docker(Config) when is_list(Config) ->
                 exec => {Docker, ["run", "-i", "lambda"]}, connection => standard_io}),
             ?assertEqual(Node, peer:call(Peer, erlang, node, [])),
             peer:stop(Peer)
+    end.
+
+attached() ->
+    [{doc, "Test that it is possible to start a peer node using run_erl aka attached"}].
+
+attached(Config) ->
+    attached_test(false, Config).
+
+attached_cntrl_channel_handler_crash() ->
+    [{doc, "Test that peer node is halted if peer control channel handler process crashes and peer node is attached"}].
+
+attached_cntrl_channel_handler_crash(Config) ->
+    attached_test(true, Config).
+
+attached_test(CrashConnectionHandler, Config) ->
+    RunErl = os:find_executable("run_erl"),
+    [throw({skip, "Could not find run_erl"}) || RunErl =:= false],
+    Erl = string:split(ct:get_progname()," ",all),
+    RunErlDir = filename:join(proplists:get_value(priv_dir, Config),?FUNCTION_NAME),
+    filelib:ensure_path(RunErlDir),
+    Connection = proplists:get_value(connection, Config),
+    Conn = if Connection =:= undefined -> #{ name => ?CT_PEER_NAME() };
+              true ->
+                   case CrashConnectionHandler of
+                       false ->
+                           #{ connection => Connection };
+                       true ->
+                           #{name => ?CT_PEER_NAME(),
+                             connection => Connection}
+                   end
+           end,
+    try peer:start(
+           Conn#{
+                 exec => {RunErl, Erl},
+                 detached => false,
+                 post_process_args =>
+                     fun(Args) ->
+                             [RunErlDir ++ "/", RunErlDir,
+                              lists:flatten(lists:join(" ",[[$',A,$'] || A <- Args]))]
+                     end
+                }) of
+        {ok, Peer, Node} when Connection =:= undefined; Connection =:= 0 ->
+            case CrashConnectionHandler of
+                false -> peer:stop(Peer);
+                true -> cntrl_channel_handler_crash_test(Node)
+            end
+    catch error:{detached,_} when Connection =:= standard_io ->
+            ok
+    end.
+
+cntrl_channel_handler_crash() ->
+    [{doc, "Test that peer node is halted if peer control channel handler process crashes"}].
+
+cntrl_channel_handler_crash(Config) ->
+    NameOpts = #{name => ?CT_PEER_NAME()},
+    Opts = case proplists:get_value(connection, Config) of
+               undefined -> NameOpts;
+               Conn -> NameOpts#{connection => Conn}
+           end,
+    {ok, _Peer, Node} = peer:start_link(Opts),
+    cntrl_channel_handler_crash_test(Node).
+
+cntrl_channel_handler_crash_old_release() ->
+    [{doc, "Test that peer node running an old release is halted if peer control channel handler process crashes"}].
+
+cntrl_channel_handler_crash_old_release(Config) ->
+    NameOpts = #{name => ?CT_PEER_NAME()},
+    Opts = case proplists:get_value(connection, Config) of
+               undefined -> NameOpts;
+               Conn -> NameOpts#{connection => Conn}
+           end,
+    PrivDir = proplists:get_value(priv_dir, Config),
+    OldRel = integer_to_list(list_to_integer(erlang:system_info(otp_release)) - 2),
+    case ?CT_PEER_REL(Opts, OldRel, PrivDir) of
+        not_available ->
+            {skip, "No OTP " ++ OldRel ++ " installation found"};
+        {ok, _Peer, Node} ->
+            cntrl_channel_handler_crash_test(Node)
+    end.
+
+cntrl_channel_handler_crash_test(Node) ->
+    true = monitor_node(Node, true),
+    ChkStck = fun ChkStck (_Pid, []) ->
+                      ok;
+                  ChkStck (Pid, [{peer, io_server_loop, _, _} | _]) ->
+                      throw(Pid);
+                  ChkStck (Pid, [{peer, origin_link, _, _} | _]) ->
+                      throw(Pid);
+                  ChkStck (Pid, [_SF|SFs]) ->
+                      ChkStck(Pid, SFs)
+              end,
+    ChkConnHandler = fun (undefined) ->
+                             ok;
+                         (Pid) when is_pid(Pid) ->
+                             case erpc:call(Node, erlang, process_info,
+                                            [Pid, current_stacktrace]) of
+                                 {current_stacktrace, STrace} ->
+                                     ChkStck(Pid, STrace);
+                                 _ ->
+                                     ok
+                             end
+                     end,
+    ConnHandler = try
+                      ChkConnHandler(erpc:call(Node, erlang, whereis, [user])),
+                      lists:foreach(fun (Pid) ->
+                                            ChkConnHandler(Pid)
+                                    end, erpc:call(Node, erlang, processes, [])),
+                      error(no_cntrl_channel_handler_found)
+                  catch
+                      throw:Pid when is_pid(Pid) -> Pid
+                  end,
+    PeerSup = erpc:call(Node, erlang, whereis, [peer_supervision]),
+    ct:log("peer_supervision state: ~p~n", [erpc:call(Node, sys, get_state, [PeerSup])]),
+    {links, Links} = erpc:call(Node, erlang, process_info, [PeerSup, links]),
+    true = lists:member(ConnHandler, Links),
+    ok = erpc:cast(Node, erlang, exit, [ConnHandler, kill]),
+    receive
+        {nodedown, Node} ->
+            ok
+    after
+        5000 ->
+            ct:fail(peer_did_not_halt)
     end.

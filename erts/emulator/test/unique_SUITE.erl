@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2014-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 -module(unique_SUITE).
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 -export([unique_monotonic_integer_white_box/1,
 	 unique_integer_white_box/1]).
 
@@ -46,6 +47,11 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     erts_debug:set_internal_state(available_internal_state, false),
     ok.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %%
 %%

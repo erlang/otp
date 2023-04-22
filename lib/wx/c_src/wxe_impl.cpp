@@ -224,6 +224,18 @@ void WxeApp::MacReopenApp() {
   wxString empty;
   send_msg("reopen_app", &empty);
 }
+
+// See: https://github.com/wxWidgets/wxWidgets/blob/v3.1.5/src/osx/cocoa/utils.mm#L76:L93
+bool WxeApp::OSXIsGUIApplication() {
+   char val_buf[8];
+   size_t val_len = 7;
+   int res = enif_getenv("WX_MACOS_NON_GUI_APP", val_buf, &val_len);
+   if (res == 0) {
+     return FALSE;
+   } else {
+     return TRUE;
+   }
+}
 #endif
 
 void WxeApp::shutdown(wxeMetaCommand& Ecmd) {

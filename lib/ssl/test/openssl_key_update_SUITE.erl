@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,24 +48,17 @@ tls_1_3_tests() ->
      openssl_server_explicit_key_update].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
-        ok ->
-            ssl_test_lib:clean_start(),
-            case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
-                true ->
-                    ssl_test_lib:make_ecdsa_cert(Config0);
-                false ->
-                    {skip, "Missing EC crypto support"}
-            end
-    catch _:_ ->
-            {skip, "Crypto did not start"}
+    Config1 = ssl_test_lib:init_per_suite(Config0, openssl),
+    case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports()))
+    of
+        true ->
+            ssl_test_lib:make_ecdsa_cert(Config1);
+        false ->
+            {skip, "Missing EC crypto support"}
     end.
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:unload(ssl),
-    application:stop(crypto).
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
@@ -92,7 +85,7 @@ openssl_client_explicit_key_update() ->
 openssl_client_explicit_key_update(Config) ->
     Data = "123456789012345",  %% 15 bytes
 
-    Server = ssl_test_lib:start_server(erlang, [{log_level, debug}], Config),
+    Server = ssl_test_lib:start_server(erlang, [], Config),
     Port = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client(openssl, [{port, Port}], Config),
@@ -120,7 +113,6 @@ openssl_server_explicit_key_update(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client(erlang, [{port, Port},
-                                                {log_level, debug},
                                                 {versions, ['tlsv1.2','tlsv1.3']}],Config),
     ssl_test_lib:send(Server, Data),
     Data = ssl_test_lib:check_active_receive(Client, Data),

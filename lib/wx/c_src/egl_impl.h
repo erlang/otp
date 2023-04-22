@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2010-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,10 +29,10 @@
 #include <windows.h>  
 #include <gl/gl.h>
 #include <gl/glu.h>
-#elif defined(HAVE_GL_GL_H)
+#elif defined(HAVE_GL_GL_H) && defined(HAVE_GL_GLU_H)
 #include <GL/gl.h>
 # include <GL/glu.h>	
-#elif defined(HAVE_OPENGL_GL_H)
+#elif defined(HAVE_OPENGL_GL_H) && defined(HAVE_OPENGL_GLU_H)
 #include <OpenGL/gl.h> 
 #include <OpenGL/glu.h> 
 #endif

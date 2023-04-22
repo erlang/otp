@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -381,13 +381,23 @@ multi_ack_timeout(suite) ->
 multi_ack_timeout(doc) ->
     [];
 multi_ack_timeout(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   %% Regardless of other criteria,
+                   %% if the factor is to high => SKIP
+                   case lists:keysearch(megaco_factor, 1, Config) of
+                       {value, {megaco_factor, MF}} when (MF >= 10) ->
+                           ?SKIP({factor_too_high, MF});
+                       {value, _} ->
+                           ok;
+                       false ->
+                           ?SKIP(factor_undefined)
+                   end,
+                   
+                   Skippable = [win32, {unix, [darwin, sunos]}],
+                   Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+                   ?NON_PC_TC_MAYBE_SKIP(Config, Condition)
+           end,
     Pre = fun() ->
-                  %% <CONDITIONAL-SKIP>
-                  Skippable = [win32, {unix, [darwin, linux, sunos]}],
-                  Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-                  ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-                  %% </CONDITIONAL-SKIP>
-
                   MgcNode  = make_node_name(mgc),
                   MgNode   = make_node_name(mg),
                   d("start nodes: "
@@ -396,18 +406,39 @@ multi_ack_timeout(Config) when is_list(Config) ->
                     [MgcNode, MgNode]),
                   Nodes = [MgcNode, MgNode],
                   ok = ?START_NODES(Nodes),
-                  Nodes
+                  Factor = case lists:keysearch(megaco_factor, 1, Config) of
+                               {value, {megaco_factor, MF}} ->
+                                   MF;
+                               false ->
+                                   ?SKIP(factor_undefined)
+                           end,
+                  MaxCount =
+                      if
+                          (Factor =:= 1) ->
+                              20;
+                          (Factor =:= 2) ->
+                              15;
+                          (Factor < 5) ->
+                              10;
+                          true ->
+                              5
+                      end,
+                  #{nodes     => Nodes,
+                    max_count => MaxCount,
+                    ttimeout  => ?SECS(10),
+                    timeout   => ?SECS(60)}
           end,
     Case = fun do_multi_ack_timeout/1,
-    Post = fun(Nodes) ->
+    Post = fun(#{nodes := Nodes}) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
-    try_tc(multi_ack_timeout, Pre, Case, Post).
+    try_tc(multi_ack_timeout, Cond, Pre, Case, Post).
 
-do_multi_ack_timeout([MgcNode, MgNode]) ->
-
-    MaxCount = 20,
+do_multi_ack_timeout(#{nodes     := [MgcNode, MgNode],
+                       max_count := MaxCount,
+                       ttimeout  := TTimeout,
+                       timeout   := Timeout}) ->
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -419,7 +450,7 @@ do_multi_ack_timeout([MgcNode, MgNode]) ->
     MgMid = {deviceName, "mg"},
     MgConfig = [{auto_ack,           true}, 
 		{trans_ack,          true},
-		{trans_timer,        10000}, 
+		{trans_timer,        TTimeout}, 
 		{trans_ack_maxcount, MaxCount + 10}],
     Mg = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
 
@@ -446,7 +477,7 @@ do_multi_ack_timeout([MgcNode, MgNode]) ->
     ?MG_NOTIF_RAR(Mg),
 
     d("await the ack(s)"),
-    await_ack(Mgc, MaxCount, 60000, ok),
+    await_ack(Mgc, MaxCount, Timeout, ok),
 
     i("wait some time before closing down"),
     sleep(5000),
@@ -9537,12 +9568,13 @@ await_ack(User, N, Timeout, Expected)
 	{ack_received, User, UnExpected} ->
 	    e("await_ack -> received unexpected ack result: ~p"
               "~n   when"
+              "~n      User:      ~p"
               "~n      N:         ~p"
               "~n      Remaining: ~p",
-              [UnExpected, N, Timeout - (tim() - T)]),
-	    exit({unexpected_ack_result, UnExpected, Expected})
+              [UnExpected, User, N, Timeout - (tim() - T)]),
+	    exit({unexpected_ack_result, User, UnExpected, Expected})
     after Timeout ->
-	    exit({await_ack_timeout, N})
+	    exit({await_ack_timeout, N, User})
     end;
 await_ack(User, N, infinity, Expected) when N > 0 ->
     d("await_ack -> entry with N: ~p", [N]),
@@ -9553,8 +9585,9 @@ await_ack(User, N, infinity, Expected) when N > 0 ->
 	{ack_received, User, UnExpected} ->
 	    e("await_ack -> unexpected ack result: ~p"
               "~n   when"
-              "~n      N: ~p", [UnExpected, N]),
-	    exit({unexpected_ack_result, UnExpected, Expected})
+              "~n      User: ~p"
+              "~n      N:    ~p", [UnExpected, User, N]),
+	    exit({unexpected_ack_result, User, UnExpected, Expected})
     end.
 
 
@@ -9640,11 +9673,24 @@ mg_start(Pid, Mid, Enc, Transp, Conf, Verb) ->
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-try_tc(TCName, Pre, Case, Post) ->
+try_tc(TCName, Pre, Case, Post) when is_atom(TCName)      andalso
+                                     is_function(Pre,  0) andalso
+                                     is_function(Case, 1) andalso
+                                     is_function(Post, 1) ->
     try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Cond, Pre, Case, Post) when is_atom(TCName)      andalso
+                                           is_function(Cond, 0) andalso
+                                           is_function(Pre,  0) andalso
+                                           is_function(Case, 1) andalso
+                                           is_function(Post, 1) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Cond, Pre, Case, Post).
 
 try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
     ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Cond, Pre, Case, Post).
 
 
 

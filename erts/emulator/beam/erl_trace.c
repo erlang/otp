@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2473,7 +2473,7 @@ init_sys_msg_dispatcher(void)
 {
     erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
-    thr_opts.name = "sys_msg_dispatcher";
+    thr_opts.name = "erts_smsg_disp";
     init_smq_element_alloc();
     sys_message_queue = NULL;
     sys_message_queue_end = NULL;
@@ -2633,6 +2633,9 @@ lookup_tracer_nif(const ErtsTracer tracer)
 {
     ErtsTracerNif tnif_tmpl;
     ErtsTracerNif *tnif;
+    if (tracer == erts_tracer_nil) {
+        return NULL;
+    }
     tnif_tmpl.module = ERTS_TRACER_MODULE(tracer);
     ERTS_LC_ASSERT(erts_thr_progress_lc_is_delaying() || erts_get_scheduler_id() > 0);
     erts_rwmtx_rlock(&tracer_mtx);
@@ -3076,7 +3079,7 @@ erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
     }
 }
 
-static void init_tracer_nif()
+static void init_tracer_nif(void)
 {
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
@@ -3089,7 +3092,7 @@ static void init_tracer_nif()
 
 }
 
-int erts_tracer_nif_clear()
+int erts_tracer_nif_clear(void)
 {
 
     erts_rwmtx_rlock(&tracer_mtx);

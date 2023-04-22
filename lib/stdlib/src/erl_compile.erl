@@ -102,7 +102,7 @@ compile1(["-"++Option|T], Opts) ->
 compile1(["+"++Option|Rest], Opts) ->
     Term = make_term(Option),
     Specific = Opts#options.specific,
-    compile1(Rest, Opts#options{specific=[Term|Specific]});
+    compile1(Rest, Opts#options{specific=Specific++[Term]});
 compile1(Files, Opts) ->
     compile2(Files, Opts).
 
@@ -257,7 +257,7 @@ usage(Error) ->
          {"-disable-feature <feature>",
           "disable <feature> when compiling (Erlang compiler)"},
          {"-list-features",
-          "list short descriptions of available feature (Erlang compiler)"},
+          "list short descriptions of available features (Erlang compiler)"},
          {"-describe-feature <feature>",
           "show long description of <feature>"},
 	 {"+term","pass the Erlang term unchanged to the compiler"}],
@@ -329,13 +329,20 @@ show_info(#options{specific = Spec}) ->
 
     case G([list_features, describe_feature]) of
         {list_features, true} ->
-            Features = erl_features:features(),
+            Features = erl_features:configurable(),
             Msg = ["Available features:\n",
-                   [io_lib:format(" ~-13s ~s\n", [Ftr, erl_features:short(Ftr)])
+                   [io_lib:format(" ~-18s ~s\n", [Ftr, erl_features:short(Ftr)])
                     || Ftr <- Features]],
             {ok, Msg};
         {describe_feature, Ftr} ->
-            {ok, erl_features:long(Ftr)};
+            Description =
+                try
+                    erl_features:long(Ftr)
+                catch
+                    error:invalid_feature ->
+                        io_lib:format("Unknown feature: ~p\n", [Ftr])
+                end,
+            {ok, Description};
         _ ->
             false
     end.

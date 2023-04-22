@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,51 +28,65 @@
 
 %% external
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2,
-	 apply_after1/1,
-	 apply_after2/1,
-	 apply_after_invalid_args/1,
-	 send_after1/1,
-	 send_after2/1,
-	 send_after3/1,
-	 send_after4/1,
-	 send_after_invalid_args/1,
-	 exit_after1/1,
-	 exit_after2/1,
-	 exit_after3/1,
-	 kill_after1/1,
-	 kill_after2/1,
-	 kill_after3/1,
-	 apply_interval1/1,
-	 apply_interval_invalid_args/1,
-	 send_interval1/1,
-	 send_interval2/1,
-	 send_interval3/1,
-	 send_interval4/1,
-	 send_interval_invalid_args/1,
-	 cancel1/1,
-	 cancel2/1,
-	 cancel3/1,
-	 cancel4/1,
-	 cancel_invalid_args/1,
-	 sleep1/1,
-	 sleep2/1,
-	 tc/1,
-	 unique_refs/1,
-	 timer_perf/1]).
+         init_per_group/2,end_per_group/2, 
+         init_per_testcase/2,
+         apply_after1/1,
+         apply_after2/1,
+         apply_after3/1,
+         apply_after4/1,
+         apply_after_invalid_args/1,
+         send_after1/1,
+         send_after2/1,
+         send_after3/1,
+         send_after4/1,
+         send_after5/1,
+         send_after6/1,
+         send_after7/1,
+         send_after_invalid_args/1,
+         exit_after1/1,
+         exit_after2/1,
+         exit_after3/1,
+         exit_after4/1,
+         kill_after1/1,
+         kill_after2/1,
+         kill_after3/1,
+         apply_interval1/1,
+         apply_interval2/1,
+         apply_interval_invalid_args/1,
+         apply_repeatedly1/1,
+         apply_repeatedly2/1,
+         apply_repeatedly_invalid_args/1,
+         send_interval1/1,
+         send_interval2/1,
+         send_interval3/1,
+         send_interval4/1,
+         send_interval5/1,
+         send_interval_invalid_args/1,
+         cancel1/1,
+         cancel2/1,
+         cancel3/1,
+         cancel4/1,
+         cancel5/1,
+         cancel6/1,
+         cancel_invalid_args/1,
+         sleep1/1,
+         sleep2/1,
+         tc/1,
+         unexpected1/1,
+         unexpected2/1,
+         unexpected3/1,
+         nonexistent1/1,
+         nonexistent2/1,
+         timer_perf/1]).
 
 %% internal
 -export([forever/0,
-	 do_nrev/2,
-	 send/2,
-	 timer/4,
-	 timer/5]).
+         do_nrev/2,
+         send/2,
+         timer/4,
+         timer/5]).
 
 -include_lib("common_test/include/ct.hrl").
-
--define(MAXREF, (1 bsl 18)).
--define(REFMARG, 30).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -80,104 +94,128 @@ suite() ->
 
 all() ->
     [
-	{group, apply_after},
-	{group, send_after},
-	{group, exit_after},
-	{group, kill_after},
-	{group, apply_interval},
-	{group, send_interval},
-	{group, cancel},
-	{group, sleep},
-	{group, misc}
+        {group, apply_after},
+        {group, send_after},
+        {group, exit_after},
+        {group, kill_after},
+        {group, apply_interval},
+        {group, apply_repeatedly},
+        {group, send_interval},
+        {group, cancel},
+        {group, sleep},
+        {group, misc}
     ].
 
 groups() -> 
     [
-	{
-	    apply_after,
-	    [],
-	    [
-		apply_after1,
-		apply_after2,
-		apply_after_invalid_args
-	    ]
-	},
-	{
-	    send_after,
-	    [],
-	    [
-		send_after1,
-		send_after2,
-		send_after3,
-		send_after4,
-		send_after_invalid_args
-	    ]
-	},
-	{
-	    exit_after,
-	    [],
-	    [
-		exit_after1,
-		exit_after2,
-		exit_after3
-	    ]
-	},
-	{
-	    kill_after,
-	    [],
-	    [
-		kill_after1,
-		kill_after2,
-		kill_after3
-	    ]
-	},
-	{
-	    apply_interval,
-	    [],
-	    [
-		apply_interval1,
-		apply_interval_invalid_args
-	    ]
-	},
-	{
-	    send_interval,
-	    [],
-	    [
-		send_interval1,
-		send_interval2,
-		send_interval3,
-		send_interval4,
-		send_interval_invalid_args
-	    ]
-	},
-	{
-	    cancel,
-	    [],
-	    [
-		cancel1,
-		cancel2,
-		cancel3,
-		cancel4,
-		cancel_invalid_args
-	    ]
-	},
-	{
-	    sleep,
-	    [],
-	    [
-		sleep1,
-		sleep2
-	    ]
-	},
-	{
-	    misc,
-	    [],
-	    [
-		tc,
-		unique_refs,
-		timer_perf
-	    ]
-	}
+        {
+            apply_after,
+            [],
+            [
+                apply_after1,
+                apply_after2,
+                apply_after3,
+                apply_after4,
+                apply_after_invalid_args
+            ]
+        },
+        {
+            send_after,
+            [],
+            [
+                send_after1,
+                send_after2,
+                send_after3,
+                send_after4,
+                send_after5,
+                send_after6,
+                send_after7,
+                send_after_invalid_args
+            ]
+        },
+        {
+            exit_after,
+            [],
+            [
+                exit_after1,
+                exit_after2,
+                exit_after3,
+                exit_after4
+            ]
+        },
+        {
+            kill_after,
+            [],
+            [
+                kill_after1,
+                kill_after2,
+                kill_after3
+            ]
+        },
+        {
+            apply_interval,
+            [],
+            [
+                apply_interval1,
+                apply_interval2,
+                apply_interval_invalid_args
+            ]
+        },
+        {
+            apply_repeatedly,
+            [],
+            [
+                apply_repeatedly1,
+                apply_repeatedly2,
+                apply_repeatedly_invalid_args
+            ]
+        },
+        {
+            send_interval,
+            [],
+            [
+                send_interval1,
+                send_interval2,
+                send_interval3,
+                send_interval4,
+                send_interval5,
+                send_interval_invalid_args
+            ]
+        },
+        {
+            cancel,
+            [],
+            [
+                cancel1,
+                cancel2,
+                cancel3,
+                cancel4,
+                cancel5,
+                cancel6,
+                cancel_invalid_args
+            ]
+        },
+        {
+            sleep,
+            [],
+            [
+                sleep1,
+                sleep2
+            ]
+        },
+        {
+            misc,
+            [],
+            [
+                tc,
+                unexpected1,
+                unexpected2,
+                unexpected3,
+                nonexistent1,
+                nonexistent2,
+                timer_perf
+            ]
+        }
     ].
 
 init_per_suite(Config) ->
@@ -201,13 +239,34 @@ init_per_testcase(_, Config) when is_list(Config) ->
 
 %% Test of apply_after with time = 0, with sending of message.
 apply_after1(Config) when is_list(Config) ->
-    {ok, {instant, _}} = timer:apply_after(0, ?MODULE, send, [self(), ok_apply]),
-    ok = get_mess(1000, ok_apply).
+    Msg = make_ref(),
+    {ok, {instant, _}} = timer:apply_after(0, ?MODULE, send, [self(), Msg]),
+    ok = get_mess(1000, Msg).
 
 %% Test of apply_after with time = 500, with sending of message.
 apply_after2(Config) when is_list(Config) ->
-    {ok, {once, _}} = timer:apply_after(500, ?MODULE, send, [self(), ok_apply]),
-    ok = get_mess(1000, ok_apply).
+    Msg = make_ref(),
+    {ok, {once, _}} = timer:apply_after(500, ?MODULE, send, [self(), Msg]),
+    ok = get_mess(1000, Msg).
+
+%% Test that a request starts the timer server if it is not running.
+apply_after3(Config) when is_list(Config) ->
+    ok = supervisor:terminate_child(kernel_sup, timer_server),
+    Msg = make_ref(),
+    timer:apply_after(100, erlang, send, [self(), Msg]),
+    ok = get_mess(500, Msg),
+    {timer_server, Pid, worker, [timer]} = lists:keyfind(timer_server, 1, supervisor:which_children(kernel_sup)),
+    true = is_pid(Pid).
+
+%% Test that a request starts the timer server if it is not running.
+apply_after4(Config) when is_list(Config) ->
+    ok = supervisor:terminate_child(kernel_sup, timer_server),
+    ok = supervisor:delete_child(kernel_sup, timer_server),
+    Msg = make_ref(),
+    timer:apply_after(100, erlang, send, [self(), Msg]),
+    ok = get_mess(500, Msg),
+    {timer_server, Pid, worker, [timer]} = lists:keyfind(timer_server, 1, supervisor:which_children(kernel_sup)),
+    true = is_pid(Pid).
 
 %% Test that apply_after rejects invalid arguments.
 apply_after_invalid_args(Config) when is_list(Config) ->
@@ -219,30 +278,59 @@ apply_after_invalid_args(Config) when is_list(Config) ->
 
 %% Test of send_after with time = 0.
 send_after1(Config) when is_list(Config) ->
-    {ok, {instant, _}} = timer:send_after(0, ok_send1),
-    ok = get_mess(1000, ok_send1).
+    Msg = make_ref(),
+    {ok, {instant, _}} = timer:send_after(0, Msg),
+    ok = get_mess(1000, Msg).
+
+%% Test of send_after with time = 0 using a registered name.
+send_after2(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Name = register_name(self()),
+    {ok, {instant, _}} = timer:send_after(0, Name, Msg),
+    ok = get_mess(1000, Msg),
+    unregister(Name).
+
+%% Test of send_after with time = 0 using a registered name
+%% and node.
+send_after3(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Name = register_name(self()),
+    {ok, {instant, _}} = timer:send_after(0, {Name, node()}, Msg),
+    ok = get_mess(1000, Msg),
+    unregister(Name).
 
 %% Test of send_after with time = 500.
-send_after2(Config) when is_list(Config) ->
-    {ok, {send_local, _}} = timer:send_after(500, self(), ok_send2),
-    ok = get_mess(2000, ok_send2).
+send_after4(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    {ok, {send_local, _}} = timer:send_after(500, self(), Msg),
+    ok = get_mess(2000, Msg).
 
 %% Test of send_after with time = 500, with receiver a registered
 %% process. [OTP-2735]
-send_after3(Config) when is_list(Config) ->
-    Name = list_to_atom(pid_to_list(self())),
-    register(Name, self()),
-    {ok, {once, _}} = timer:send_after(500, Name, ok_send3),
-    ok = get_mess(2000, ok_send3),
+send_after5(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Name = register_name(self()),
+    {ok, {once, _}} = timer:send_after(500, Name, Msg),
+    ok = get_mess(2000, Msg),
+    unregister(Name).
+
+%% Test of send_after with time = 500 using a registered process
+%% and node.
+send_after6(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Name = register_name(self()),
+    {ok, {once, _}} = timer:send_after(500, {Name, node()}, Msg),
+    ok = get_mess(2000, Msg),
     unregister(Name).
 
 %% Test that send_after works if the destination is a registered
 %% name which gets registered after the timer is started.
-send_after4(Config) when is_list(Config) ->
-    Name = list_to_atom(pid_to_list(self())),
-    {ok, {once, _}} = timer:send_after(500, Name, ok_send4),
+send_after7(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Name = make_name(),
+    {ok, {once, _}} = timer:send_after(500, Name, Msg),
     register(Name, self()),
-    ok = get_mess(2000, ok_send4),
+    ok = get_mess(2000, Msg),
     unregister(Name).
 
 %% Test that send_after rejects invalid arguments.
@@ -255,31 +343,45 @@ send_after_invalid_args(Config) when is_list(Config) ->
 
 %% Test of exit_after with time = 1000.
 exit_after1(Config) when is_list(Config) ->
+    Msg = make_ref(),
     process_flag(trap_exit, true),
     Pid = spawn_link(?MODULE, forever, []),
-    {ok, {once, _}} = timer:exit_after(1000, Pid, exit_test1),
-    ok = get_mess(5000, {'EXIT', Pid, exit_test1}).
+    {ok, {once, _}} = timer:exit_after(1000, Pid, Msg),
+    ok = get_mess(5000, {'EXIT', Pid, Msg}).
 
 %% Test of exit_after with time = 1000. The process to exit is the
 %% name of a registered process.  [OTP-2735]
 exit_after2(Config) when is_list(Config) ->
+    Msg = make_ref(),
     process_flag(trap_exit, true),
     Pid = spawn_link(?MODULE, forever, []),
-    Name = list_to_atom(pid_to_list(Pid)),
-    register(Name, Pid),
-    {ok, {once, _}} = timer:exit_after(1000, Name, exit_test2),
-    ok = get_mess(2000, {'EXIT', Pid, exit_test2}).
+    Name = register_name(Pid),
+    {ok, {once, _}} = timer:exit_after(1000, Name, Msg),
+    ok = get_mess(2000, {'EXIT', Pid, Msg}).
 
 %% Test of exit_after for sending an exit to self.
 exit_after3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
+    Msg = make_ref(),
     Pid = spawn_link(
-	fun () ->
-	    {ok, {once, _}} = timer:exit_after(1000, exit_test3),
-	    forever()
-	end
+        fun () ->
+            {ok, {once, _}} = timer:exit_after(1000, Msg),
+            forever()
+        end
     ),
-    ok = get_mess(2000, {'EXIT', Pid, exit_test3}).
+    ok = get_mess(2000, {'EXIT', Pid, Msg}).
+
+%% Test that using exit_after to a non-existent
+%% process does not crash the timer server.
+exit_after4(Config) when is_list(Config) ->
+    Mon = monitor(process, timer_server),
+    timer:exit_after(0, make_name(), make_ref()),
+    receive
+        {'DOWN', Mon, process, _, _} ->
+            error(timer_server_crashed)
+    after 1000 ->
+        ok
+    end.
 
 %% Test of kill_after with time = 1000.
 kill_after1(Config) when is_list(Config) ->
@@ -293,8 +395,7 @@ kill_after1(Config) when is_list(Config) ->
 kill_after2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Pid = spawn_link(?MODULE, forever, []),
-    Name = list_to_atom(pid_to_list(Pid)),
-    register(Name, Pid),
+    Name = register_name(Pid),
     {ok, {once, _}} = timer:kill_after(1000, Name),
     ok = get_mess(2000, {'EXIT', Pid, killed}).
 
@@ -302,10 +403,10 @@ kill_after2(Config) when is_list(Config) ->
 kill_after3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Pid = spawn_link(
-	fun () ->
-	    {ok, {once, _}} = timer:kill_after(1000),
-	    forever()
-	end
+        fun () ->
+            {ok, {once, _}} = timer:kill_after(1000),
+            forever()
+        end
     ),
     ok = get_mess(2000, {'EXIT', Pid, killed}).
 
@@ -313,11 +414,29 @@ kill_after3(Config) when is_list(Config) ->
 %% 3 messages, cancel the timer, and check that we do
 %% not get any more messages.
 apply_interval1(Config) when is_list(Config) ->
+    Msg = make_ref(),
     {ok, Ref} = timer:apply_interval(1000, ?MODULE, send,
-				     [self(), apply_int]),
-    ok = get_mess(1500, apply_int, 3),
+                                     [self(), Msg]),
+    ok = get_mess(1500, Msg, 3),
     {ok, cancel} = timer:cancel(Ref),
-    nor = get_mess(1000, apply_int).
+    nor = get_mess(1000, Msg).
+
+%% Test apply_interval with the execution time of the action
+%% longer than the timer interval. The timer should not wait for
+%% the action to complete, ie start another action while the
+%% previously started action is still running.
+apply_interval2(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Self = self(),
+    {ok, Ref} = timer:apply_interval(500, erlang, apply,
+                                     [fun() ->
+                                          Self ! Msg,
+                                          receive after 1000 -> ok end
+                                      end, []]),
+    receive after 1800 -> ok end,
+    {ok, cancel} = timer:cancel(Ref),
+    ok = get_mess(1000, Msg, 3),
+    nor = get_mess(1000, Msg).
 
 %% Test that apply_interval rejects invalid arguments.
 apply_interval_invalid_args(Config) when is_list(Config) ->
@@ -327,47 +446,100 @@ apply_interval_invalid_args(Config) when is_list(Config) ->
     {error, badarg} = timer:apply_interval(0, foo, bar, baz),
     ok.
 
+%% Test of apply_repeatedly by sending messages. Receive
+%% 3 messages, cancel the timer, and check that we do
+%% not get any more messages. In a case like this, ie where
+%% the execution time of the action is shorter than the timer
+%% interval, this should behave the same as apply_interval.
+apply_repeatedly1(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    {ok, Ref} = timer:apply_repeatedly(1000, ?MODULE, send,
+                                       [self(), Msg]),
+    ok = get_mess(1500, Msg, 3),
+    {ok, cancel} = timer:cancel(Ref),
+    nor = get_mess(1000, Msg).
+
+%% Test apply_repeatedly with the execution time of the action
+%% longer than the timer interval. The timer should wait for
+%% the action to complete, ie not start another action until it
+%% has completed.
+apply_repeatedly2(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Self = self(),
+    {ok, Ref} = timer:apply_repeatedly(1, erlang, apply,
+                                       [fun() ->
+                                            Self ! Msg,
+                                            receive after 1000 -> ok end
+                                        end, []]),
+    receive after 2500 -> ok end,
+    {ok, cancel} = timer:cancel(Ref),
+    ok = get_mess(1000, Msg, 3),
+    nor = get_mess(1000, Msg).
+
+%% Test that apply_repeatedly rejects invalid arguments.
+apply_repeatedly_invalid_args(Config) when is_list(Config) ->
+    {error, badarg} = timer:apply_repeatedly(-1, foo, bar, []),
+    {error, badarg} = timer:apply_repeatedly(0, "foo", bar, []),
+    {error, badarg} = timer:apply_repeatedly(0, foo, "bar", []),
+    {error, badarg} = timer:apply_repeatedly(0, foo, bar, baz),
+    ok.
+
 %% Test of send_interval/2. Receive 5 messages, cancel the timer, and
 %% check that we do not get any more messages.
 send_interval1(Config) when is_list(Config) ->
-    {ok, Ref} = timer:send_interval(1000, send_int),
-    ok = get_mess(1500, send_int, 5),
+    Msg = make_ref(),
+    {ok, Ref} = timer:send_interval(1000, Msg),
+    ok = get_mess(1500, Msg, 5),
     {ok, cancel} = timer:cancel(Ref),
-    nor = get_mess(1000, send_int). % We should receive only five
+    nor = get_mess(1000, Msg). % We should receive only five
 
 %% Test of send_interval/3. Receive 2 messages, cancel the timer, and
 %% check that we do not get any more messages.
 send_interval2(Config) when is_list(Config) ->
-    {ok, Ref} = timer:send_interval(1000, self(), send_int2),
-    ok = get_mess(1500, send_int2, 2),
+    Msg = make_ref(),
+    {ok, Ref} = timer:send_interval(1000, self(), Msg),
+    ok = get_mess(1500, Msg, 2),
     {ok, cancel} = timer:cancel(Ref),
-    nor = get_mess(1000, send_int2).  % We should receive only two
+    nor = get_mess(1000, Msg).  % We should receive only two
 
 %% Test of send_interval/3. Receive 2 messages, cancel the timer, and
 %% check that we do not get any more messages. The receiver is the
 %% name of a registered process. [OTP-2735]
 send_interval3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    Name = list_to_atom(pid_to_list(self())),
-    register(Name, self()),
-    {ok, Ref} = timer:send_interval(1000, Name, send_int3),
-    ok = get_mess(1500, send_int3, 2),
+    Msg = make_ref(),
+    Name = register_name(self()),
+    {ok, Ref} = timer:send_interval(1000, Name, Msg),
+    ok = get_mess(1500, Msg, 2),
     {ok, cancel} = timer:cancel(Ref),
-    nor = get_mess(1000, send_int3),  % We should receive only two
+    nor = get_mess(1000, Msg),  % We should receive only two
+    unregister(Name).
+
+%% Test of send_interval/3 using a registered name and node.
+send_interval4(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Msg = make_ref(),
+    Name = register_name(self()),
+    {ok, Ref} = timer:send_interval(1000, {Name, node()}, Msg),
+    ok = get_mess(1500, Msg, 2),
+    {ok, cancel} = timer:cancel(Ref),
+    nor = get_mess(1000, Msg), % We should receive only two
     unregister(Name).
 
 %% Test that send interval stops sending msg when the receiving
 %% process terminates.
-send_interval4(Config) when is_list(Config) ->
-    {ok, {interval, Ref}} = timer:send_interval(500, one_time_only),
+send_interval5(Config) when is_list(Config) ->
+    Msg1 = make_ref(),
+    {ok, {interval, Ref}} = timer:send_interval(500, Msg1),
     receive 
-	one_time_only -> ok
+        Msg1 -> ok
     end,
     timer_server ! {'DOWN', Ref, process, self(), test},
-    {ok, {send_local, _}} = timer:send_after(600, send_intv_ok),
-    send_intv_ok = receive
-		       Msg -> Msg
-		   end.
+    Msg2 = make_ref(),
+    {ok, {send_local, _}} = timer:send_after(600, Msg2),
+    Msg2 = receive
+        TmpMsg -> TmpMsg
+    end.
 
 %% Test that send_interval rejects invalid arguments.
 send_interval_invalid_args(Config) when is_list(Config) ->
@@ -377,41 +549,72 @@ send_interval_invalid_args(Config) when is_list(Config) ->
     {error, badarg} = timer:send_interval(0, "", test),
     ok.
 
-%% Test that we can cancel a send-once timer.
+%% Test that we can cancel an instant timer
 cancel1(Config) when is_list(Config) ->
-    {ok, Ref} = timer:send_after(1000, this_should_be_canceled),
+    Msg = make_ref(),
+    {ok, Ref} = timer:send_after(0, Msg),
     {ok, cancel} = timer:cancel(Ref),
-    nor = get_mess(2000, this_should_be_canceled). % We should rec 0 msgs
+    ok = get_mess(0, Msg). % We should rec 1 msg as it got sent immediately
+
+%% Test that we can cancel a send-once timer.
+cancel2(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    {ok, Ref} = timer:send_after(1000, Msg),
+    {ok, cancel} = timer:cancel(Ref),
+    nor = get_mess(2000, Msg). % We should rec 0 msgs
 
 %% Test that we can cancel an apply-once timer.
-cancel2(Config) when is_list(Config) ->
-    {ok, Ref} = timer:apply_after(1000, erlang, send, [self(), this_should_be_canceled]),
+cancel3(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    {ok, Ref} = timer:apply_after(1000, erlang, send, [self(), Msg]),
     {ok, cancel} = timer:cancel(Ref),
-    nor = get_mess(2000, this_should_be_canceled).
+    nor = get_mess(2000, Msg).
 
 %% Test that we can cancel a send-interval timer.
-cancel3(Config) when is_list(Config) ->
-    {ok, Ref} = timer:send_interval(500, one_time_only),
+cancel4(Config) when is_list(Config) ->
+    Msg1 = make_ref(),
+    {ok, Ref} = timer:send_interval(500, Msg1),
     receive
-	one_time_only -> ok
+        Msg1 -> ok
     end,
     {ok, cancel} = timer:cancel(Ref),
-    {ok, {send_local, _}} = timer:send_after(600, send_intv_ok),
-    send_intv_ok = receive
-	Msg -> Msg
+    Msg2 = make_ref(),
+    {ok, {send_local, _}} = timer:send_after(600, Msg2),
+    Msg2 = receive
+        TmpMsg -> TmpMsg
     end.
 
 %% Test that we can cancel an apply-interval timer.
-cancel4(Config) when is_list(Config) ->
-    {ok, Ref} = timer:apply_interval(500, erlang, send, [self(), one_time_only]),
+cancel5(Config) when is_list(Config) ->
+    Msg1 = make_ref(),
+    {ok, Ref} = timer:apply_interval(500, erlang, send, [self(), Msg1]),
     receive
-	one_time_only -> ok
+        Msg1 -> ok
     end,
     {ok, cancel} = timer:cancel(Ref),
-    {ok, {send_local, _}} = timer:send_after(600, send_intv_ok),
-    send_intv_ok = receive
-	Msg -> Msg
+    Msg2 = make_ref(),
+    {ok, {send_local, _}} = timer:send_after(600, Msg2),
+    Msg2 = receive
+        TmpMsg -> TmpMsg
     end.
+
+%% Test that cancelling non-existent timers does not crash the
+%% timer server. 
+cancel6(Config) when is_list(Config) ->
+    lists:foreach(
+        fun (TimerType) ->
+            Mon = monitor(process, timer_server),
+	    {ok, cancel} = timer:cancel({TimerType, make_ref()}),
+            receive
+                {'DOWN', Mon, process, _, _} ->
+                    error({timer_server_crashed, {cancel, TimerType}})
+            after 500 ->
+                ok
+            end,
+	    demonitor(Mon)
+        end,
+	[once, instant, interval, send_local]
+    ).
 
 %% Test that cancel rejects invalid arguments.
 cancel_invalid_args(Config) when is_list(Config) ->
@@ -437,54 +640,125 @@ sleep1(Config) when is_list(Config) ->
 sleep2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Pid = spawn_link(
-	fun () ->
-	    {ok, {once, _}} = timer:kill_after(1000),
-	    ok = timer:sleep(16#ffffffff+1)
-	end
+        fun () ->
+            {ok, {once, _}} = timer:kill_after(1000),
+            ok = timer:sleep(16#ffffffff+1)
+        end
     ),
     ok = get_mess(2000, {'EXIT', Pid, killed}).
+
+%% Test that unexpected calls do not crash the timer server.
+unexpected1(Config) when is_list(Config) ->
+    Mon = monitor(process, timer_server),
+    try
+        gen_server:call(timer_server, foo, 100)
+    of
+        _ ->
+            error(timeout_expected)
+    catch
+        exit:{timeout, _} ->
+            ok
+    end,
+    receive
+        {'DOWN', Mon, process, _, _} ->
+            error(timer_server_crashed)
+    after 500 ->
+        ok
+    end,
+    demonitor(Mon).
+
+%% Test that unexpected casts do not crash the timer server.
+unexpected2(Config) when is_list(Config) ->
+    Mon = monitor(process, timer_server),
+    gen_server:cast(timer_server, foo),
+    receive
+        {'DOWN', Mon, process, _, _} ->
+            error(timer_server_crashed)
+    after 500 ->
+        ok
+    end,
+    demonitor(Mon).
+
+%% Test that unexpected info messages do not crash the timer server.
+unexpected3(Config) when is_list(Config) ->
+    Mon = monitor(process, timer_server),
+    timer_server ! foo,
+    receive
+        {'DOWN', Mon, process, _, _} ->
+            error(timer_server_crashed)
+    after 500 ->
+        ok
+    end,
+    demonitor(Mon).
+
+%% Test that timeouts of one-shot timers the timer server does not
+%% know are not executed.
+nonexistent1(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    timer_server ! {timeout, make_ref(), {apply_once, {erlang, send, [self(), Msg]}}},
+    nor = get_mess(1000, Msg).
+
+%% Test that timeouts of interval timers the timer server does not
+%% know are not executed.
+nonexistent2(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    timer_server ! {timeout, make_ref, {apply_interval, erlang:monotonic_time(millisecond), 1000, make_ref(), {erlang, send, [self(), Msg]}}},
+    nor = get_mess(1000, Msg).
 
 %% Test sleep/1 and tc/3.
 tc(Config) when is_list(Config) ->
     %% This should test both sleep and tc/3
     {Res1, ok} = timer:tc(timer, sleep, [500]),
-    ok = 	if
-		    Res1 < 500*1000 -> {too_early, Res1}; % Too early
-		    Res1 > 800*1000 -> {too_late, Res1};  % Too much time
-		    true -> ok
-		end,
+    ok = if
+             Res1 < 500*1000 -> {too_early, Res1}; % Too early
+             Res1 > 800*1000 -> {too_late, Res1};  % Too much time
+             true -> ok
+         end,
 
     %% tc/2
     {Res2, ok} = timer:tc(fun(T) -> ok = timer:sleep(T) end, [500]),
-    ok = 	if
-		    Res2 < 500*1000 -> {too_early, Res2}; % Too early
-		    Res2 > 800*1000 -> {too_late, Res2};  % Too much time
-		    true -> ok
-		end,
+    ok = if
+             Res2 < 500*1000 -> {too_early, Res2}; % Too early
+             Res2 > 800*1000 -> {too_late, Res2};  % Too much time
+             true -> ok
+         end,
 
     %% tc/1
     {Res3, ok} = timer:tc(fun() -> ok = timer:sleep(500) end),
-    ok = 	if
-    		    Res3 < 500*1000 -> {too_early, Res3}; % Too early
-    		    Res3 > 800*1000 -> {too_late, Res3};  % Too much time
-    		    true -> ok
-    		end,
+    ok = if
+             Res3 < 500*1000 -> {too_early, Res3}; % Too early
+             Res3 > 800*1000 -> {too_late, Res3};  % Too much time
+             true -> ok
+         end,
+
+    %% tc/4
+    {Res4, ok} = timer:tc(timer, sleep, [500], millisecond),
+    ok = if
+             Res4 < 500 -> {too_early, Res4};
+             Res4 > 800 -> {too_late, Res4};
+             true -> ok
+         end,
 
     %% Check that timer:tc don't catch errors
+    ok = try timer:tc(erlang, exit, [foo], second)
+         catch exit:foo -> ok
+         end,
+
     ok = try timer:tc(erlang, exit, [foo])
-	 catch exit:foo -> ok
-	 end,
+         catch exit:foo -> ok
+         end,
 
     ok = try timer:tc(fun(Reason) -> 1 = Reason end, [foo])
-	 catch error:{badmatch,_} -> ok
-	 end,
+         catch error:{badmatch,_} -> ok
+         end,
 
     ok = try timer:tc(fun() -> throw(foo) end)
-	 catch foo -> ok
-	 end,
+         catch foo -> ok
+         end,
 
     %% Check that return values are propageted
     Self = self(),
+    {_, Self} = timer:tc(erlang, self, [], second),
     {_, Self} = timer:tc(erlang, self, []),
     {_, Self} = timer:tc(fun(P) -> P end, [self()]),
     {_, Self} = timer:tc(fun() -> self() end),
@@ -498,66 +772,13 @@ tc(Config) when is_list(Config) ->
     if MyRes == TimerRes -> ok end,
     ok.
 
-%% Test that cancellations of one-shot timers do not accidentally
-%% cancel interval timers. [OTP-2771].
-unique_refs(Config) when is_list(Config) ->
-    ITimers = repeat_send_interval(10),		% 10 interval timers
-    eat_refs(?MAXREF - ?REFMARG),
-    set_and_cancel_one_shots(?REFMARG),
-    NumLeft = num_timers(),
-    io:format("~w timers left, should be 10\n", [NumLeft]),
-    cancel(ITimers),
-    receive_nisse(),
-    10 = NumLeft.
-
-
-repeat_send_interval(0) ->
-    [];
-repeat_send_interval(M) ->
-    {ok, Ref} = timer:send_interval(6000,self(), nisse),
-    [Ref| repeat_send_interval(M - 1)].
-
-eat_refs(0) ->
-    0;
-eat_refs(N) ->
-    _ = make_ref(),
-    eat_refs(N-1).
-
-set_and_cancel_one_shots(0) ->
-    0;
-set_and_cancel_one_shots(N) ->
-    {ok, Ref} = timer:send_after(7000, self(), kalle),
-    %% Cancel twice
-    {ok, cancel} = timer:cancel(Ref),
-    {ok, cancel} = timer:cancel(Ref),
-    set_and_cancel_one_shots(N-1).
-
-cancel([T| Ts]) ->
-    {ok, cancel} = timer:cancel(T),
-    cancel(Ts);
-cancel([]) ->
-    ok.
-
-num_timers() ->
-    Tab = sys:get_state(timer_server),
-    ets:info(Tab, size).
-
-receive_nisse() ->    
-    receive
-	nisse ->
-	    receive_nisse()
-    after 0 ->
-	    ok
-    end.
-
-
 get_mess(Time, Mess) -> get_mess(Time, Mess, 1).
 get_mess(_, _, 0) -> ok;  % Received
 get_mess(Time, Mess, N) ->
     receive 
-	Mess -> get_mess(Time, Mess, N-1)
-    after Time
-	      -> nor   % Not Received
+        Mess -> get_mess(Time, Mess, N-1)
+    after Time ->
+        nor   % Not Received
     end.
 
 forever() ->
@@ -578,7 +799,7 @@ performance(Mod) ->
     {Y,Mo,D} = date(),
     {H,M,S} = time(),
     io:format("Testing module '~p' Date: ~w/~w/~w ~w:~w:~w~n", 
-	      [Mod,Y,Mo,D,H,M,S]),
+              [Mod,Y,Mo,D,H,M,S]),
     Result = big_test(Mod),
     report_result(Result).
 
@@ -602,15 +823,15 @@ wait([], Res, N, _) ->
     {Res, N};
 wait(Pids, ResList, N, M) ->
     receive
-	{Pid, ok, Res, T} ->
-	    wait(lists:delete(Pid, Pids), [{T, Res} | ResList], N, M);
-	{Pid, Error}->
-	    ct:fail(Error),
-	    wait(lists:delete(Pid, Pids), ResList, N+1, M);
-	{'EXIT', Pid, normal} ->
-	    wait(lists:delete(Pid, Pids), ResList, N, M);
-	{'EXIT', Pid, Reason} ->
-	    ct:fail({Pid,Reason})
+        {Pid, ok, Res, T} ->
+            wait(lists:delete(Pid, Pids), [{T, Res} | ResList], N, M);
+        {Pid, Error}->
+            ct:fail(Error),
+            wait(lists:delete(Pid, Pids), ResList, N+1, M);
+        {'EXIT', Pid, normal} ->
+            wait(lists:delete(Pid, Pids), ResList, N, M);
+        {'EXIT', Pid, Reason} ->
+            ct:fail({Pid,Reason})
     end.
 
 spawn_timers(0, _, _, _) ->
@@ -625,13 +846,13 @@ timer(apply, Mod, T, Pid) ->
     Before = system_time(),
     {ok, Ref} = apply(Mod, apply_after, [T, ?MODULE, send, [self(), done]]),
     receive 
-	done ->
-	    After = system_time(),
-	    Pid ! {self(), ok, (After-Before) div 1000, T}
+        done ->
+            After = system_time(),
+            Pid ! {self(), ok, (After-Before) div 1000, T}
     after T*3 + 300 ->   % Watch dog
-	    io:format("WARNING TIMER WATCHDOG timed out: ~w ~n", [T]),
-	    {ok, cancel} = timer:cancel(Ref),
-	    Pid ! {self(), watch_dog_timed_out}
+            io:format("WARNING TIMER WATCHDOG timed out: ~w ~n", [T]),
+            {ok, cancel} = timer:cancel(Ref),
+            Pid ! {self(), watch_dog_timed_out}
     end.
 
 timer(interval, Mod, T, Pid, NumIter) ->
@@ -647,17 +868,17 @@ timer_irec(_Start, T, {N, N}, Res, {Pid, Mod, Ref}) ->
     Pid ! {self(), ok, {N, Tot, Tot div N, Min, Max}, T};
 timer_irec(Start, T, {N, Max}, Res, {Pid, Mod, Ref}) ->
     receive
-	done ->
-	    Now = system_time(),
-	    Elapsed = (Now - (Start + (N*T*1000))) div 1000,
-	    timer_irec(Start, T,
-		       {N+1, Max},
-		       [Elapsed | Res],
-		       {Pid, Mod, Ref})
+        done ->
+            Now = system_time(),
+            Elapsed = (Now - (Start + (N*T*1000))) div 1000,
+            timer_irec(Start, T,
+                       {N+1, Max},
+                       [Elapsed | Res],
+                       {Pid, Mod, Ref})
     after T*3 + 300 ->
-	    apply(Mod, cancel, [Ref]),
-	    io:format("WARNING: TIMER WATCHDOG timed out <Interval>~w~n",[T]),
-	    Pid ! {self(), timer_watchdog_timed_out_in_interlval_test}  
+            apply(Mod, cancel, [Ref]),
+            io:format("WARNING: TIMER WATCHDOG timed out <Interval>~w~n",[T]),
+            Pid ! {self(), timer_watchdog_timed_out_in_interlval_test}  
     end.
 
 %% ------------------------------------------------------- %%
@@ -733,11 +954,11 @@ calc_a_val(List) ->
     New = lists:sort(List),
     {{T1, S}, {T2, M}, {T3, L}} = split(New),
     S2 = {length(S), lists:max(S), lists:min(S), 
-	  lists:sum(S) div length(S)},
+          lists:sum(S) div length(S)},
     M2 = {length(M), lists:max(M), lists:min(M), 
-	  lists:sum(M) div length(M)},
+          lists:sum(M) div length(M)},
     L2 = {length(L), lists:max(L), lists:min(L), 
-	  lists:sum(L) div length(L)},
+          lists:sum(L) div length(L)},
     [{T1, S2}, {T2, M2}, {T3, L2}].
 
 calc_i_val(List) ->
@@ -782,17 +1003,27 @@ print_aval([]) ->
     io:format("~n~n", []);
 print_aval([{T, {L, Max, Min, Aver}}|R]) ->
     io:format("~5w ~8w ~6w ~6w ~8w ~n", 
-	      [T,L,Max,Min,Aver]),
+              [T,L,Max,Min,Aver]),
     print_aval(R).
 
 print_ival([]) ->
     io:format("~n", []);
 print_ival([{T, {Len, Num, 
-		 {MaxT, MinT, AverT},
-		 {MaxI, MinI, AverI}}}|R]) ->
+                 {MaxT, MinT, AverT},
+                 {MaxI, MinI, AverI}}}|R]) ->
     io:format("~5w ~6w ~10w ~8w ~6w ~6w ~6w ~6w ~6w~n", 
-	      [T,Len,Num,MaxT,MinT,AverT, MaxI, MinI, AverI]),
+              [T,Len,Num,MaxT,MinT,AverT, MaxI, MinI, AverI]),
     print_ival(R).
 
 send(Pid, Msg) ->
     Pid ! Msg.
+
+%% Create a unique name and register it to the given process.
+register_name(Pid) ->
+    Name = make_name(),
+    register(Name, Pid),
+    Name.
+
+%% Create a unique name.
+make_name() ->
+    list_to_atom(ref_to_list(make_ref())).

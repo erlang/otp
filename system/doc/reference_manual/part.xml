@@ -40,6 +40,7 @@
   <xi:include href="macros.xml"/>
   <xi:include href="records.xml"/>
   <xi:include href="errors.xml"/>
+  <xi:include href="features.xml"/>
   <xi:include href="processes.xml"/>
   <xi:include href="distributed.xml"/>
   <xi:include href="code_loading.xml"/>

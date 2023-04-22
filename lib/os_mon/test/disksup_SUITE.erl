@@ -73,6 +73,9 @@ api(Config) when is_list(Config) ->
     %% get_disk_data()
     ok = check_get_disk_data(),
 
+    %% get_disk_info()
+    ok = check_get_disk_info(),
+
     %% get_check_interval()
     1800000 = disksup:get_check_interval(),
 
@@ -81,6 +84,15 @@ api(Config) when is_list(Config) ->
     1200000 = disksup:get_check_interval(),
     {'EXIT',{badarg,_}} = (catch disksup:set_check_interval(0.5)),
     1200000 = disksup:get_check_interval(),
+    ok = disksup:set_check_interval(30),
+
+    %% set_check_interval({TimeUnit, Time})
+    ok = disksup:set_check_interval({second, 1}),
+    1000 = disksup:get_check_interval(),
+    {'EXIT',{badarg,_}} = (catch disksup:set_check_interval({second, 0.5})),
+    {'EXIT',{badarg,_}} = (catch disksup:set_check_interval({badarg, 1})),
+    {'EXIT',{badarg,_}} = (catch disksup:set_check_interval({nanosecond, 1})),
+    1000 = disksup:get_check_interval(),
     ok = disksup:set_check_interval(30),
 
     %% get_almost_full_threshold()
@@ -110,6 +122,13 @@ config(Config) when is_list(Config) ->
     1740000 = disksup:get_check_interval(),
     81 = disksup:get_almost_full_threshold(),
 
+    ok = application:set_env(os_mon, disk_space_check_interval, {second, 2}),
+
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child2} = supervisor:restart_child(os_mon_sup, disksup),
+
+    2000 = disksup:get_check_interval(),
+
     %% Also try this with bad parameter values, should be ignored
     ok =
 	application:set_env(os_mon, disk_space_check_interval, 0.5),
@@ -117,10 +136,31 @@ config(Config) when is_list(Config) ->
 	application:set_env(os_mon, disk_almost_full_threshold, -0.81),
 
     ok = supervisor:terminate_child(os_mon_sup, disksup),
-    {ok, _Child2} = supervisor:restart_child(os_mon_sup, disksup),
+    {ok, _Child3} = supervisor:restart_child(os_mon_sup, disksup),
 
     1800000 = disksup:get_check_interval(),
     80 = disksup:get_almost_full_threshold(),
+
+    ok = application:set_env(os_mon, disk_space_check_interval, {second, 0.5}),
+
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child4} = supervisor:restart_child(os_mon_sup, disksup),
+
+    1800000 = disksup:get_check_interval(),
+
+    ok = application:set_env(os_mon, disk_space_check_interval, {badarg, 1}),
+
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child5} = supervisor:restart_child(os_mon_sup, disksup),
+
+    1800000 = disksup:get_check_interval(),
+
+    ok = application:set_env(os_mon, disk_space_check_interval, {nanosecond, 1}),
+
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child6} = supervisor:restart_child(os_mon_sup, disksup),
+
+    1800000 = disksup:get_check_interval(),
 
     %% Reset configuration parameters
     ok = application:set_env(os_mon, disk_space_check_interval, 30),
@@ -332,8 +372,8 @@ otp_5910(Config) when is_list(Config) ->
 		     0 ->
 			 [{_Id,_Kbyte,Cap}|_] = Data,
 			 io:format("Data ~p Threshold ~p ~n",[Data, Cap-1]),
-			 ok = disksup:set_almost_full_threshold((Cap-1)/100),
-			 Cap-1;
+			 ok = disksup:set_almost_full_threshold((max(0, Cap-1))/100),
+			 max(0, Cap-1);
 		     _N -> Threshold0
 		 end,
     ok = application:set_env(os_mon, disk_almost_full_threshold, Threshold/100),
@@ -402,6 +442,25 @@ check_get_disk_data() ->
     true = KByte>0,
     ok.
 
+check_get_disk_info() ->
+    DiskInfo = disksup:get_disk_info(),
+    [{Id, TotalKiB, AvailableKiB, Capacity}|_] = DiskInfo,
+    true = io_lib:printable_list(Id),
+    true = is_integer(TotalKiB),
+    true = is_integer(AvailableKiB),
+    true = is_integer(Capacity),
+    true = TotalKiB > 0,
+    true = AvailableKiB > 0,
+
+    [DiskInfoRoot|_] = disksup:get_disk_info("/"),
+    {"/", TotalKiBRoot, AvailableKiBRoot, CapacityRoot} = DiskInfoRoot,
+    true = is_integer(TotalKiBRoot),
+    true = is_integer(AvailableKiBRoot),
+    true = is_integer(CapacityRoot),
+    true = TotalKiBRoot > 0,
+    true = AvailableKiBRoot > 0,
+    ok.
+
 % filter get_disk_data and remove entriew with zero capacity
 % "non-normal" filesystems report zero capacity
 % - Perhaps erroneous 'df -k -l'?
@@ -424,11 +483,11 @@ parse_df_output_posix(Config) when is_list(Config) ->
 
     %% Have a simple example with no funny spaces in mount path
     Posix1 = "tmpfs             498048     7288    490760   2% /run\n",
-    {ok, {498048, 2, "/run"}, ""} = disksup:parse_df(Posix1, posix),
+    {ok, {498048, 490760, 2, "/run"}, ""} = disksup:parse_df(Posix1, posix),
 
     %% Have a mount path with some spaces in it
     Posix2 = "tmpfs             498048     7288    490760   2% /spaces 1 2\n",
-    {ok, {498048, 2, "/spaces 1 2"}, ""} = disksup:parse_df(Posix2, posix).
+    {ok, {498048, 490760, 2, "/spaces 1 2"}, ""} = disksup:parse_df(Posix2, posix).
 
 %% @doc Test various expected inputs to 'df' command output (Darwin/SUSv3)
 parse_df_output_susv3(Config) when is_list(Config) ->
@@ -441,9 +500,9 @@ parse_df_output_susv3(Config) when is_list(Config) ->
     %% Have a simple example with no funny spaces in mount path
     Darwin1 = "/dev/disk1   243949060 157002380  86690680    65% 2029724 " ++
               "4292937555    0%   /\n",
-    {ok, {243949060, 65, "/"}, ""} = disksup:parse_df(Darwin1, susv3),
+    {ok, {243949060, 86690680, 65, "/"}, ""} = disksup:parse_df(Darwin1, susv3),
 
     %% Have a mount path with some spaces in it
     Darwin2 = "/dev/disk1   243949060 157002380  86690680    65% 2029724 " ++
               "4292937555    0%   /spaces 1 2\n",
-    {ok, {243949060, 65, "/spaces 1 2"}, ""} = disksup:parse_df(Darwin2, susv3).
+    {ok, {243949060, 86690680, 65, "/spaces 1 2"}, ""} = disksup:parse_df(Darwin2, susv3).

@@ -76,7 +76,7 @@ uint32_t OSUtils::getTickCount() noexcept {
   uint64_t t = (uint64_t(ts.tv_sec ) * 1000u) + (uint64_t(ts.tv_nsec) / 1000000u);
   return uint32_t(t & 0xFFFFFFFFu);
 #else
-  #pragma message("asmjit::OSUtils::getTickCount() doesn't have implementation for the target OS.")
+  #pragma message("[asmjit] OSUtils::getTickCount() doesn't have implementation for the target OS.")
   return 0;
 #endif
 }

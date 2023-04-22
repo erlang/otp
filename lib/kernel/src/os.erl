@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -258,9 +258,11 @@ extensions() ->
       Command :: os_command().
 cmd(Cmd) ->
     try
-        cmd(Cmd, #{ })
+        do_cmd(Cmd, #{ })
     catch
-        error:_ ->
+        throw:{open_port, Reason} ->
+            badarg_with_cause([Cmd], {open_port, Reason});
+        throw:badarg ->
             badarg_with_info([Cmd])
     end.
 
@@ -273,15 +275,20 @@ cmd(Cmd, Opts) ->
     catch
         throw:badopt ->
             badarg_with_cause([Cmd, Opts], badopt);
-        error:_ ->
+        throw:{open_port, Reason} ->
+            badarg_with_cause([Cmd, Opts], {open_port, Reason});
+        throw:badarg ->
             badarg_with_info([Cmd, Opts])
     end.
 
 do_cmd(Cmd, Opts) ->
     MaxSize = get_option(max_size, Opts, infinity),
     {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), validate(Cmd)),
-    Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
-                                         stream, in, hide | SpawnOpts]),
+    Port = try open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
+                                             stream, in, hide | SpawnOpts])
+           catch error:Reason ->
+                   throw({open_port, Reason})
+           end,
     MonRef = erlang:monitor(port, Port),
     true = port_command(Port, SpawnInput),
     Bytes = get_data(Port, MonRef, Eot, [], 0, MaxSize),
@@ -346,34 +353,39 @@ mk_cmd(_,Cmd) ->
      ["(", unicode:characters_to_binary(Cmd), "\n) </dev/null; echo \"\^D\"\n"],
      <<$\^D>>}.
 
-validate(Atom) when is_atom(Atom) ->
-    validate(atom_to_list(Atom));
-validate(List) when is_list(List) ->
-    case validate1(List) of
+validate(Term) ->
+    try validate1(Term)
+    catch error:_ -> throw(badarg)
+    end.
+
+validate1(Atom) when is_atom(Atom) ->
+    validate1(atom_to_list(Atom));
+validate1(List) when is_list(List) ->
+    case validate2(List) of
         false ->
             List;
-        true -> 
+        true ->
             %% Had zeros at end; remove them...
             string:trim(List, trailing, [0])
     end.
 
-validate1([0|Rest]) ->
+validate2([0|Rest]) ->
+    validate3(Rest);
+validate2([C|Rest]) when is_integer(C), C > 0 ->
     validate2(Rest);
-validate1([C|Rest]) when is_integer(C), C > 0 ->
-    validate1(Rest);
-validate1([List|Rest]) when is_list(List) ->
-    validate1(List) or validate1(Rest);
-validate1([]) ->
+validate2([List|Rest]) when is_list(List) ->
+    validate2(List) or validate2(Rest);
+validate2([]) ->
     false.
 
 %% Ensure that the rest is zero only...
-validate2([]) ->
+validate3([]) ->
     true;
-validate2([0|Rest]) ->
-    validate2(Rest);
-validate2([List|Rest]) when is_list(List) ->
-    validate2(List),
-    validate2(Rest).
+validate3([0|Rest]) ->
+    validate3(Rest);
+validate3([List|Rest]) when is_list(List) ->
+    validate3(List),
+    validate3(Rest).
 
 get_data(Port, MonRef, Eot, Sofar, Size, Max) ->
     receive

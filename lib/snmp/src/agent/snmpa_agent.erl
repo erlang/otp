@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,8 +76,6 @@
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
 -endif.
-
--define(empty_pdu_size, 21).
 
 -ifdef(snmp_extended_verbosity).
 -define(vt(F,A), ?vtrace(F, A)).
@@ -342,10 +340,16 @@ init([Prio, Parent, Ref, Options]) ->
        "~n   Options: ~p", [Prio, Parent, Ref, Options]),
     case (catch do_init(Prio, Parent, Ref, Options)) of
 	{ok, State} ->
-	    ?vdebug("started",[]),
+	    ?vdebug("started"),
 	    {ok, State};
+	{error, {net_if, info, Reason}} ->
+	    info_msg("Failed starting agent: "
+                     "~n   Net If error: ~p", [Reason]),
+            %% {shutdown, Reason};
+            exit(Reason);
 	{error, Reason} ->
-	    config_err("failed starting agent: ~n~p", [Reason]),
+	    config_err("Failed starting agent: "
+                       "~n   ~p", [Reason]),
 	    {stop, Reason}
     end.
 
@@ -412,15 +416,18 @@ start_note_store(Prio, Ref, Options) ->
 	{ok, Pid} ->
 	    ?vdebug("start_note_store -> Pid: ~p", [Pid]),
 	    Pid;
-	{error, Reason} -> 
-	    ?vinfo("error starting note store: ~n~p",[Reason]),
-	    throw({error, {note_store_error, Reason}});
-	{'EXIT', Reason} ->
-	    ?vinfo("exit starting note store: ~n~p",[Reason]),
-	    throw({error, {note_store_exit, Reason}});
+	{error, {Reason, _ChildSpec}} -> 
+	    ?vinfo("error starting note store: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {note_store, error, Reason}});
+	{'EXIT', {Reason, _ChildSpec}} ->
+	    ?vinfo("exit starting note store: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {note_store, exit, Reason}});
 	Error ->
-	    ?vinfo("failed starting note store: ~n~p",[Error]),
-	    throw({error, {note_store_failed, Error}})
+	    ?vinfo("failed starting note store: "
+                   "~n   ~p", [Error]),
+	    throw({error, {note_store, failed, Error}})
     end.
     
 
@@ -439,18 +446,25 @@ start_net_if(none, Prio, Ref, Vsns, NoteStore, Options) ->
 
     case (catch snmpa_misc_sup:start_net_if(Prio, NoteStore, Ref, self(),
 					    Mod, NiOpts)) of
-	{ok, Pid} -> 
+	{ok, Pid} ->
 	    ?vdebug("start_net_if -> Pid: ~p", [Pid]),
 	    {master_agent, Pid, Mod};
-	{error, Reason} -> 
-	    ?vinfo("error starting net if: ~n~p",[Reason]),
-	    throw({error, {net_if_error, Reason}});
+	{error, {{Class, udp_open, PortNo, Reason}, _ChildSpec}} ->
+	    ?vinfo("error starting net if: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {net_if, Class, {udp_open, PortNo, Reason}}});
+	{error, {Reason, _ChildSpec}} ->
+	    ?vinfo("error starting net if: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {net_if, error, Reason}});
 	{'EXIT', Reason} ->
-	    ?vinfo("exit starting net if: ~n~p",[Reason]),
-	    throw({error, {net_if_exit, Reason}});
+	    ?vinfo("exit starting net if: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {net_if, exit, Reason}});
 	Error ->
-	    ?vinfo("failed starting net if: ~n~p",[Error]),
-	    throw({error, {net_if_failed, Error}})
+	    ?vinfo("failed starting net if: "
+                   "~n   ~p", [Error]),
+	    throw({error, {net_if, failed, Error}})
     end;
 start_net_if(Parent, _Prio, _Ref, _Vsns, _NoteStore, _Options) 
   when is_pid(Parent) ->
@@ -472,39 +486,19 @@ start_mib_server(Prio, Ref, Mibs, Options) ->
 	{ok, Pid} ->
 	    ?vdebug("start_mib_server -> Pid: ~p", [Pid]),
 	    Pid;
-	{error, Reason} -> 
-	    ?vinfo("error starting mib server: ~n~p",[Reason]),
-	    throw({error, {mib_server_error, Reason}});
+	{error, {Reason, _ChildSpec}} ->
+	    ?vinfo("error starting mib server: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {mib_server, error, Reason}});
 	{'EXIT', Reason} ->
-	    ?vinfo("exit starting mib server: ~n~p",[Reason]),
-	    throw({error, {mib_server_exit, Reason}});
+	    ?vinfo("exit starting mib server: "
+                   "~n   ~p", [Reason]),
+	    throw({error, {mib_server, exit, Reason}});
 	Error ->
-	    ?vinfo("failed starting mib server: ~n~p",[Error]),
-	    throw({error, {mib_server_failed, Error}})
+	    ?vinfo("failed starting mib server: "
+                   "~n   ~p", [Error]),
+	    throw({error, {mib_server, failed, Error}})
     end.
-
-
-%%-----------------------------------------------------------------
-%% Purpose: We must calculate the length of an empty Pdu.  This
-%%          length is used to calculate the max pdu size allowed
-%%          for each get-bulk-request. This size is 
-%%          dependent on the varbinds. It is calculated
-%%          as EmptySize + 8.  8 comes from the fact that the
-%%          maximum pdu size needs 31 bits which needs 5 * 7 bits to be
-%%          expressed. One 7bit octet is already present in the
-%%          empty pdu, leaving 4 more 7bit octets. The length is
-%%          repeated twice, once for the varbinds, and once for the
-%%          entire pdu; 2 * 4 = 8.
-%% Actually, this function is not used, we use a constant instead.
-%%-----------------------------------------------------------------
-%% Ret: 21
-%% empty_pdu() ->
-%%     Pdu = #pdu{type         = 'get-response', 
-%%                request_id   = 1,
-%% 	          error_status = noError, 
-%%                error_index  = 0, 
-%%                varbinds     = []},
-%%     length(snmp_pdus:enc_pdu(Pdu)) + 8.
 
 
 %%%--------------------------------------------------
@@ -1747,7 +1741,7 @@ handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra, Dict) ->
 handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra) ->
     %% OTP-3324
     AuthMod = get(auth_module),
-    case AuthMod:init_check_access(Pdu, ACMData) of
+    try AuthMod:init_check_access(Pdu, ACMData) of
 	{ok, MibView, ContextName} ->
 	    ?vlog("handle_pdu -> ok:"
 		  "~n   MibView:     ~p"
@@ -1765,6 +1759,13 @@ handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra) ->
 		  "~n   Reason:   ~p", [Variable, Reason]),
 	    get(net_if) ! {discarded_pdu, Vsn, Pdu#pdu.request_id,
 			   ACMData, Variable, Extra}
+    catch
+        Class:Error:Stack ->
+	    ?vinfo("handle_pdu -> crash:"
+                   "~n      Class: ~p"
+                   "~n      Error: ~p"
+                   "~n      Stack: ~p", [Class, Error, Stack]),
+	    handle_acm_error(Vsn, Error, Pdu, ACMData, Address, Extra)
     end.
 
 do_handle_pdu(MibView, Vsn, Pdu, PduMS, 
@@ -3222,8 +3223,8 @@ get_stats_counters([Counter|Counters], Acc) ->
 
 %% ---------------------------------------------------------------------
 
-%% info_msg(F, A) ->
-%%     ?snmpa_info(F, A).
+info_msg(F, A) ->
+    ?snmpa_info(F, A).
 
 warning_msg(F, A) ->
     ?snmpa_warning(F, A).

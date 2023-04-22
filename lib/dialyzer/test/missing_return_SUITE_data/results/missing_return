@@ -1,0 +1,2 @@
+
+missing_return.erl:7:2: The success typing for missing_return:t1/0 implies that the function might also return 'false' but the specification return is 'true'

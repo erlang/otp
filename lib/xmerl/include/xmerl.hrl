@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
 %% %CopyrightEnd%
 %%
 %% Contributor(s):
-%%    <michael.remond@IDEALX.com>: suggested #xmlDocument{}
+%%    Michael.Remond: suggested #xmlDocument{}
 %%
 %%----------------------------------------------------------------------
 %% #0.    BASIC INFORMATION
 %%----------------------------------------------------------------------
 %% File:       xmerl.hrl
-%% Author       : Ulf Wiger <ulf.wiger@ericsson.com>
+%% Author       : Ulf Wiger
 %% Date         : 00-09-22
 %% Description  : Record and macro definitions for xmerl
 %%----------------------------------------------------------------------

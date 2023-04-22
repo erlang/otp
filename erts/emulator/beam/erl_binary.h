@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -281,14 +281,7 @@ BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg, Export *bif);
 BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
 
 
-typedef union {
-    /*
-     * These two are almost always of
-     * the same size, but when fallback
-     * atomics are used they might
-     * differ in size.
-     */
-    erts_atomic_t smp_atomic_word;
+typedef struct {
     erts_atomic_t atomic_word;
 } ErtsMagicIndirectionWord;
 
@@ -328,6 +321,16 @@ ERTS_GLB_INLINE Binary *erts_create_magic_indirection(int (*destructor)(Binary *
 ERTS_GLB_INLINE erts_atomic_t *erts_binary_to_magic_indirection(Binary *bp);
 ERTS_GLB_INLINE erts_atomic_t *erts_binary_to_magic_indirection(Binary *bp);
 
+/* A binary's size in bits must fit into a word for matching to work. We used
+ * to allow creating larger binaries than this, but they acted really strangely
+ * in Erlang code and were pretty much only usable in drivers and NIFs.
+ *
+ * This check also ensures, indirectly, that there won't be an overflow when
+ * the size is bumped by CHICKEN_PAD and the binary struct itself. */
+#define IS_BINARY_SIZE_OK(BYTE_SIZE) \
+    ERTS_LIKELY(BYTE_SIZE <= ERTS_UWORD_MAX / CHAR_BIT)
+
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 #include <stddef.h> /* offsetof */
@@ -351,15 +354,6 @@ erts_free_aligned_binary_bytes(byte* buf)
 {
     erts_free_aligned_binary_bytes_extra(buf,ERTS_ALC_T_TMP);
 }
-
-/* A binary's size in bits must fit into a word for matching to work. We used
- * to allow creating larger binaries than this, but they acted really strangely
- * in Erlang code and were pretty much only usable in drivers and NIFs.
- *
- * This check also ensures, indirectly, that there won't be an overflow when
- * the size is bumped by CHICKEN_PAD and the binary struct itself. */
-#define IS_BINARY_SIZE_OK(BYTE_SIZE) \
-    ERTS_LIKELY(BYTE_SIZE <= ERTS_UWORD_MAX / CHAR_BIT)
 
 /* Explicit extra bytes allocated to counter buggy drivers.
 ** These extra bytes where earlier (< R13B04) added by an alignment-bug
@@ -562,7 +556,7 @@ erts_binary_to_magic_indirection(Binary *bp)
     ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
     ASSERT(ERTS_MAGIC_BIN_ATYPE(bp) == ERTS_ALC_T_MINDIRECTION);
     mip = (ErtsMagicIndirectionWord*)ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
-    return &mip->smp_atomic_word;
+    return &mip->atomic_word;
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2021. All Rights Reserved.
+# Copyright Ericsson AB 2008-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,14 +33,10 @@ STATIC_EBIN=../ebin
 include $(ERL_TOP)/erts/vsn.mk
 include $(ERL_TOP)/lib/kernel/vsn.mk
 
-ifeq ($(USE_ESOCK), yes)
 PRE_LOADED_ERL_ESOCK_MODULES = \
 	socket_registry \
 	prim_socket \
 	prim_net
-else
-PRE_LOADED_ERL_ESOCK_MODULES =
-endif
 
 PRE_LOADED_ERL_MODULES = \
 	erl_prim_loader \
@@ -81,11 +77,7 @@ STATIC_TARGET_FILES = $(PRE_LOADED_MODULES:%=$(STATIC_EBIN)/%.$(EMULATOR))
 APP_FILE= erts.app
 APP_SRC= $(APP_FILE).src
 APP_TARGET= $(STATIC_EBIN)/$(APP_FILE)
-ifeq ($(USE_ESOCK), yes)
 APP_ESOCK_MODS= prim_net, prim_socket, socket_registry,
-else
-APP_ESOCK_MODS=
-endif
 
 
 KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
@@ -93,6 +85,10 @@ KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
 STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 
 ERL_COMPILE_FLAGS += +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
+
+ifeq ($(ERL_DETERMINISTIC),yes)
+	ERL_COMPILE_FLAGS += deterministic
+endif
 
 DIA_PLT      = erts-preloaded.plt
 DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis

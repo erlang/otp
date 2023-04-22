@@ -20,3 +20,13 @@ foobar() ->
 
 barfoo() ->
     barfoo().
+
+%% GH-6474. The compiler would go into an infinite loop.
+
+bc_infinite_loop() ->
+    mutually_recursive(<<0 || false>>).
+
+mutually_recursive(X) ->
+    %% This LC will be implemented as mutually recursive functions.
+    %% Analyzing them would cause an infinite loop.
+    [0 || _ <- [], <<_>> <= X].

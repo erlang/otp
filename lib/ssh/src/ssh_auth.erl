@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ get_public_key(SigAlg, #ssh{opts = Opts}) ->
             try
                 %% Check the key - the KeyCb may be a buggy plugin
                 true = ssh_transport:valid_key_sha_alg(private, PrivKey, KeyAlg),
-                Key = ssh_transport:extract_public_key(PrivKey),
+                Key = ssh_file:extract_public_key(PrivKey),
                 ssh_message:ssh2_pubkey_encode(Key)
             of
                 PubKeyBlob -> {ok, {PrivKey, PubKeyBlob}}
@@ -272,11 +272,21 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
 						  method = "none"}, _,
-			#ssh{userauth_supported_methods = Methods} = Ssh) ->
-    {not_authorized, {User, undefined},
-     {#ssh_msg_userauth_failure{authentications = Methods,
-                                partial_success = false}, Ssh}
-    };
+			#ssh{userauth_supported_methods = Methods,
+                             opts = Opts} = Ssh) ->
+    case ?GET_OPT(no_auth_needed, Opts) of
+        false ->
+            %% The normal case
+            {not_authorized, {User, undefined},
+             {#ssh_msg_userauth_failure{authentications = Methods,
+                                        partial_success = false}, Ssh}
+            };
+        true ->
+            %% RFC 4252  5.2
+	    {authorized, User,
+             {#ssh_msg_userauth_success{}, Ssh}
+            }
+    end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",

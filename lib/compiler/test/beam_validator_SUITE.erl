@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,11 @@
          branch_to_try_handler/1,call_without_stack/1,
          receive_marker/1,safe_instructions/1,
          missing_return_type/1,will_succeed/1,
-         bs_saved_position_units/1,parent_container/1]).
+         bs_saved_position_units/1,parent_container/1,
+         container_performance/1,
+         infer_relops/1,
+         not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
+         inert_update_type/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -73,7 +77,10 @@ groups() ->
        branch_to_try_handler,call_without_stack,
        receive_marker,safe_instructions,
        missing_return_type,will_succeed,
-       bs_saved_position_units,parent_container]}].
+       bs_saved_position_units,parent_container,
+       container_performance,infer_relops,
+       not_equal_inference,bad_bin_unit,singleton_inference,
+       inert_update_type]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -177,9 +184,11 @@ call_without_stack(Config) when is_list(Config) ->
 merge_undefined(Config) when is_list(Config) ->
     Errors = do_val(merge_undefined, Config),
     [{{t,undecided,2},
-      {{call_ext,2,{extfunc,debug,filter,2}},
-       22,
-       {allocated,undecided}}},
+      {{label,11},
+       19,
+       {unsafe_stack,{y,1},
+        #{{y,0} := uninitialized,
+          {y,1} := uninitialized}}}},
      {{t,uninitialized,2},
       {{call_ext,2,{extfunc,io,format,2}},
        17,
@@ -318,7 +327,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{try_case_end,{x,0}},180,ambiguous_catch_try_state}}] = Errors,
+      {{try_case_end,{x,0}},166,ambiguous_catch_try_state}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
@@ -516,13 +525,8 @@ destroy_reg({Tag,N}) ->
 bad_tuples(Config) ->
     Errors = do_val(bad_tuples, Config),
     [{{bad_tuples,heap_overflow,1},
-      {{put,{x,0}},9,{heap_overflow,{left,0},{wanted,1}}}},
-     {{bad_tuples,long,2},
-      {{put,{atom,too_long}},9,not_building_a_tuple}},
-     {{bad_tuples,self_referential,1},
-      {{put,{x,1}},8,{unfinished_tuple,{x,1}}}},
-     {{bad_tuples,short,1},
-      {{move,{x,1},{x,0}},8,{unfinished_tuple,{x,1}}}}] = Errors,
+      {{put_tuple2,{x,0},{list,[{atom,ok},{x,0}]}},6,
+       {heap_overflow,{left,2},{wanted,3}}}}] = Errors,
 
     ok.
 
@@ -549,7 +553,7 @@ receive_stacked(Config) ->
       {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f5,0},
       {{loop_rec_end,{f,23}},
-       24,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f6,0},
       {{gc_bif,byte_size,{f,29},0,[{y,_}],{x,0}},
@@ -569,7 +573,7 @@ receive_stacked(Config) ->
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m2,0},
       {{loop_rec_end,{f,48}},
-       34,
+       32,
        {fragile_message_reference,{y,_}}}}] = Errors,
 
     %% Compile the original source code as a smoke test.
@@ -996,6 +1000,134 @@ pc_1(#pc{a=A}=R) ->
 
 pc_2(_R) ->
     ok.
+
+%% GH-5915: The following function took an incredibly long time to validate.
+container_performance(Config) ->
+    case Config of
+        ({b,_}) -> {k1};
+        ({a,{b,_}}) -> {k2};
+        ({a,{a,{b,_}}}) -> {k3};
+        ({a,{a,{a,{b,_}}}}) -> {k4};
+        ({a,{a,{a,{a,{b,_}}}}}) -> {k5};
+        ({a,{a,{a,{a,{a,{b,_}}}}}}) -> {k6};
+        ({a,{a,{a,{a,{a,{a,{b,_}}}}}}}) -> {k7};
+        ({a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}) -> {k8};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}) -> {k9};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}) -> {k10};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}) -> {k11};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}) -> {k12};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}) -> {k13};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}) -> {k14};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}) -> {k15};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}) -> {k16};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}) -> {k17};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}) -> {k18};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}) -> {k19};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}) -> {k20};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}) -> {k21};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}) -> {k22};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}) -> {k23};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}) -> {k24};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k25};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k26};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k27};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k28};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k29};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,_}}}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k30};
+        _ -> ok
+    end.
+
+%% Type inference was half-broken for relational operators, being implemented
+%% for is_lt/is_ge instructions but not the {bif,RelOp} form.
+infer_relops(_Config) ->
+    [lt = infer_relops_1(N) || N <- lists:seq(0,3)],
+    [ge = infer_relops_1(N) || N <- lists:seq(4,7)],
+    ok.
+
+infer_relops_1(N) ->
+    true = N >= 0,
+    Below4 = N < 4,
+    id(N), %% Force Below4 to use the {bif,'<'} form instead of is_lt
+    case Below4 of
+        true -> infer_relops_true(Below4, N);
+        false -> infer_relops_false(Below4, N)
+    end.
+
+infer_relops_true(_, _) -> lt.
+infer_relops_false(_, _) -> ge.
+
+%% OTP-18365: A brainfart in inference for '=/=' inverted the results.
+not_equal_inference(_Config) ->
+    {'EXIT', {function_clause, _}} = (catch not_equal_inference_1(id([0]))),
+    ok.
+
+not_equal_inference_1(X) when (X /= []) /= is_port(0 div 0) ->
+    [X || _ <- []].
+
+bad_bin_unit(_Config) ->
+    {'EXIT', {function_clause,_}} = catch bad_bin_unit_1(<<1:1>>),
+    [] = bad_bin_unit_2(),
+    ok.
+
+bad_bin_unit_1(<<X:((ok > {<<(true andalso ok)>>}) orelse 1)>>) ->
+    try
+        bad_bin_unit_1_a()
+    after
+        -(X + bad_bin_unit_1_b(not ok)),
+        try
+            ok
+        catch
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok
+        end
+    end.
+
+bad_bin_unit_1_a() -> ok.
+bad_bin_unit_1_b(_) -> ok.
+
+bad_bin_unit_2() ->
+   [
+       ok
+       || <<X:(is_number(<<(<<(0 bxor 0)>>)>>) orelse 1)>> <= <<>>,
+       #{X := _} <- ok
+   ].
+
+%% GH-6962: Type inference with singleton types in registers was weaker than
+%% inference on their corresponding literals.
+singleton_inference(Config) ->
+    Mod = ?FUNCTION_NAME,
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "singleton_inference.erl"),
+
+    {ok, Mod} = compile:file(File, [no_copt, no_bool_opt, no_ssa_opt]),
+
+    ok = Mod:test(),
+
+    ok.
+
+%% GH-6969: A type was made concrete even though that added no additional
+%% information.
+inert_update_type(_Config) ->
+    hello(<<"string">>, id(42)).
+
+hello(A, B) ->
+    mike([{sys_period, {A, B}}, {some_atom, B}]).
+
+mike([Head | _Rest]) -> joe(Head).
+
+joe({Name, 42}) -> Name;
+joe({sys_period, {A, _B}}) -> {41, 42, A}.
 
 id(I) ->
     I.

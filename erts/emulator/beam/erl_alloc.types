@@ -274,6 +274,7 @@ type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
 type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
 type	RELEASE_LAREA	SHORT_LIVED	SYSTEM		release_literal_area
 type	SIG_DATA	SHORT_LIVED	PROCESSES	signal_data
+type	SIG_YIELD_DATA	SHORT_LIVED	PROCESSES	signal_yield_data
 type	DIST_DEMONITOR	SHORT_LIVED	PROCESSES	dist_demonitor
 type	CML_CLEANUP	SHORT_LIVED	SYSTEM		connection_ml_cleanup
 type	ML_YIELD_STATE	SHORT_LIVED	SYSTEM		monitor_link_yield_state

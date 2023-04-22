@@ -46,7 +46,7 @@
 %% Mnesia internal stuff
 -export([
 	 start/0,
-	 i_have_tab/1,
+	 i_have_tab/2,
 	 info/0,
 	 get_info/1,
 	 get_workers/1,
@@ -354,7 +354,7 @@ get_network_copy(Tid, Tab, Cs) ->
                     Tab = Res#loader_done.table_name,
                     case Res#loader_done.needs_announce of
                         true ->
-                            i_have_tab(Tab);
+                            i_have_tab(Tab, Cs);
                         false ->
                             ignore
                     end,
@@ -378,10 +378,12 @@ get_network_copy(Tid, Tab, Cs) ->
 %%   is synchronously started from mnesia_controller
 
 create_table(Tab) ->
-    {loaded, ok} = mnesia_loader:disc_load_table(Tab, {dumper,create_table}).
+    Cs = val({Tab, cstruct}),
+    {loaded, ok} = mnesia_loader:disc_load_table(Tab, {dumper,create_table}, Cs).
 
 get_disc_copy(Tab) ->
-    disc_load_table(Tab, {dumper,change_table_copy_type}, undefined).
+    Cs = val({Tab, cstruct}),
+    disc_load_table(Tab, {dumper,change_table_copy_type}, undefined, Cs).
 
 %% Returns ok instead of yes
 force_load_table(Tab) when is_atom(Tab), Tab /= schema ->
@@ -1811,13 +1813,16 @@ user_sync_tab(Tab) ->
     end.
 
 i_have_tab(Tab) ->
+    i_have_tab(Tab, val({Tab, cstruct})).
+
+i_have_tab(Tab, Cs) ->
     case val({Tab, local_content}) of
 	true ->
 	    mnesia_lib:set_local_content_whereabouts(Tab);
 	false ->
 	    set({Tab, where_to_read}, node())
     end,
-    add_active_replica(Tab, node()).
+    add_active_replica(Tab, node(), Cs).
 
 sync_and_block_table_whereabouts(Tab, ToNode, RemoteS, AccessMode) when Tab /= schema ->
     Current = val({current, db_nodes}),
@@ -2199,13 +2204,13 @@ load_table_fun(#net_load{cstruct=Cs, table=Tab, reason=Reason, opt_reply_to=Repl
 	    fun() -> Done end;
 	LocalC == true ->
 	    fun() ->
-		    Res = mnesia_loader:disc_load_table(Tab, load_local_content),
+		    Res = mnesia_loader:disc_load_table(Tab, load_local_content, Cs),
 		    Done#loader_done{reply = Res, needs_announce = true, needs_sync = true}
 	    end;
 	AccessMode == read_only, not AddTableCopy ->
-	    fun() -> disc_load_table(Tab, Reason, ReplyTo) end;
+	    fun() -> disc_load_table(Tab, Reason, ReplyTo, Cs) end;
         Active =:= [], AddTableCopy, OnlyRamCopies ->
-            fun() -> disc_load_table(Tab, Reason, ReplyTo) end;
+            fun() -> disc_load_table(Tab, Reason, ReplyTo, Cs) end;
 	true ->
 	    fun() ->
 		    %% Either we cannot read the table yet
@@ -2231,13 +2236,13 @@ load_table_fun(#disc_load{table=Tab, reason=Reason, opt_reply_to=ReplyTo}) ->
 			needs_sync = false,
 			needs_reply = false
 		       },
+    Cs = val({Tab, cstruct}),
     if
 	Active == [], ReadNode == nowhere ->
 	    %% Not loaded anywhere, lets load it from disc
-	    fun() -> disc_load_table(Tab, Reason, ReplyTo) end;
+	    fun() -> disc_load_table(Tab, Reason, ReplyTo, Cs) end;
 	ReadNode == nowhere ->
 	    %% Already loaded on other node, lets get it
-	    Cs = val({Tab, cstruct}),
 	    fun() ->
 		    case mnesia_loader:net_load_table(Tab, Reason, Active, Cs) of
 			{loaded, ok} ->
@@ -2254,7 +2259,7 @@ load_table_fun(#disc_load{table=Tab, reason=Reason, opt_reply_to=ReplyTo}) ->
 	    fun() -> Done end
     end.
 
-disc_load_table(Tab, Reason, ReplyTo) ->
+disc_load_table(Tab, Reason, ReplyTo, Cs) ->
     Done = #loader_done{is_loaded = true,
 			table_name = Tab,
 			needs_announce = false,
@@ -2263,7 +2268,7 @@ disc_load_table(Tab, Reason, ReplyTo) ->
 			reply_to = ReplyTo,
 			reply = {loaded, ok}
 		       },
-    Res = mnesia_loader:disc_load_table(Tab, Reason),
+    Res = mnesia_loader:disc_load_table(Tab, Reason, Cs),
     if
 	Res == {loaded, ok} ->
 	    Done#loader_done{needs_announce = true,

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1754,12 +1754,11 @@ static int worker_loop(void)
 	/* Decode the request... */
 	serial = get_serial(req);
 	if (OP_CONTROL == (op = get_op(req))) {
-	    CtlType ctl;
 	    if (serial != INVALID_SERIAL) {
 		DEBUGF(1, ("Worker got invalid serial: %d.", serial));
 		exit(0);
 	    }
-	    switch (ctl = get_ctl(req)) {
+	    switch (get_ctl(req)) {
 	    case SETOPT_DEBUG_LEVEL:
 		debug_level = get_debug_level(req);
 		DEBUGF(debug_level, 

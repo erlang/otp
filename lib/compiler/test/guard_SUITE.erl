@@ -1360,6 +1360,23 @@ rb(_, _, _) -> false.
 
 
 rel_ops(Config) when is_list(Config) ->
+    TupleUnion = case id(2) of
+                     2 -> {a,id(b)};
+                     3 -> {b,id(b),c}
+                 end,
+    Float = float(id(42)),
+    Int = trunc(id(42.0)),
+
+    IntFunFloat = make_fun(Float),
+    IntFunInt = make_fun(Int),
+
+    FloatFun = make_fun(Float, Float),
+    IntFun = make_fun(Int, Int),
+    MixedFun = make_fun(42, 42.0),
+
+    MixedFun14 = make_fun(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13.0, 14.0),
+    IntFun14 = make_fun(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14),
+
     ?T(=/=, 1, 1.0),
     ?F(=/=, 2, 2),
     ?F(=/=, {a}, {a}),
@@ -1368,9 +1385,50 @@ rel_ops(Config) when is_list(Config) ->
     ?F(/=, 0, 0.0),
     ?T(/=, 0, 1),
     ?F(/=, {a}, {a}),
+    ?F(/=, {a,b}, TupleUnion),
+    ?T(/=, {x,y}, TupleUnion),
+    ?T(/=, TupleUnion, {x,y}),
+    ?F(/=, #{key => Int}, #{key => Float}),
 
+    ?F(/=, #{key => Int}, #{key => Float}),
+    ?F(/=, #{40 => Int}, #{40 => Int}),
+    ?F(/=, #{42 => Float}, #{42 => Int}),
+    ?T(/=, #{100.0 => Float}, #{100 => Float}),
+
+    ?F(/=, FloatFun, FloatFun),
+    ?T(/=, FloatFun, MixedFun14),
+
+    ?T(==, Int, 42.0),
+    ?T(==, Float, 42),
     ?T(==, 1, 1.0),
+    ?T(==, 1.0, 1),
+    ?F(==, Float, a),
+    ?T(==, Float, Float),
     ?F(==, a, {}),
+    ?T(==, TupleUnion, {a,b}),
+    ?F(==, {x,y}, TupleUnion),
+    ?F(==, {a,Float}, TupleUnion),
+
+    ?T(==, #{key => Float}, #{key => Int}),
+    ?T(==, #{40 => Int}, #{40 => Int}),
+    ?T(==, #{42 => Int}, #{42 => Float}),
+    ?F(==, #{100 => Float}, #{100.0 => Float}),
+
+    case ?MODULE of
+        guard_inline_SUITE ->
+            %% Inlining will inline the fun environment into the fun bodies,
+            %% creating funs having no enviroment and different bodies.
+            ok;
+        _ ->
+            ?T(==, IntFunInt, IntFunFloat),
+            ?T(==, FloatFun, FloatFun),
+            ?T(==, FloatFun, IntFun),
+            ?T(==, MixedFun, IntFun),
+            ?T(==, MixedFun, FloatFun),
+            ?T(==, IntFun14, MixedFun14),
+            ?T(==, MixedFun14, IntFun14),
+            ?F(==, IntFun14, IntFun)
+    end,
 
     ?F(=:=, 1, 1.0),
     ?T(=:=, 42.0, 42.0),
@@ -1427,6 +1485,17 @@ rel_ops(Config) when is_list(Config) ->
 
     ok.
 
+make_fun(N) ->
+    fun() -> round(N + 0.5) end.
+
+make_fun(A, B) ->
+    fun() -> {A,B} end.
+
+make_fun(A, B, C, D, E, F, G, H, I, J, K, L, M, N) ->
+    fun() ->
+            {A, B, C, D, E, F, G, H, I, J, K, L, M, N}
+    end.
+
 -undef(TestOp).
 
 rel_op_combinations(Config) when is_list(Config) ->
@@ -1435,16 +1504,24 @@ rel_op_combinations(Config) when is_list(Config) ->
 	lists:seq(16#06F0, 16#06F9),
     Digits = gb_sets:from_list(Digits0),
     rel_op_combinations_1(16#0700, Digits),
+    false = is_digit(-1 bsl 59),
+    false = is_digit(-1 bsl 64),
+    false = is_digit((1 bsl 59) - 1),
+    false = is_digit(1 bsl 64),
 
     BrokenRange0 = lists:seq(3, 5) ++
 	lists:seq(10, 12) ++ lists:seq(14, 20),
     BrokenRange = gb_sets:from_list(BrokenRange0),
     rel_op_combinations_2(30, BrokenRange),
+    false = broken_range(-1 bsl 64),
+    false = broken_range(1 bsl 64),
 
     Red0 = [{I,2*I} || I <- lists:seq(0, 50)] ++
 	[{I,5*I} || I <- lists:seq(51, 80)],
     Red = gb_trees:from_orddict(Red0),
     rel_op_combinations_3(100, Red),
+    2 * (-1 bsl 64) = redundant(-1 bsl 64),
+    none = redundant(1 bsl 64),
 
     rel_op_combinations_4(),
 
@@ -1454,6 +1531,10 @@ rel_op_combinations_1(0, _) ->
     ok;
 rel_op_combinations_1(N, Digits) ->
     Bool = gb_sets:is_member(N, Digits),
+    Bool = is_digit(N),
+    rel_op_combinations_1(N-1, Digits).
+
+is_digit(N) ->
     Bool = is_digit_1(N),
     Bool = is_digit_2(N),
     Bool = is_digit_3(N),
@@ -1464,8 +1545,7 @@ rel_op_combinations_1(N, Digits) ->
     Bool = is_digit_8(N),
     Bool = is_digit_9(42, N),
     Bool = is_digit_10(N, 0),
-    Bool = is_digit_11(N, 0),
-    rel_op_combinations_1(N-1, Digits).
+    Bool = is_digit_11(N, 0).
 
 is_digit_1(X) when 16#0660 =< X, X =< 16#0669 -> true;
 is_digit_1(X) when 16#0030 =< X, X =< 16#0039 -> true;
@@ -1530,6 +1610,10 @@ rel_op_combinations_2(0, _) ->
     ok;
 rel_op_combinations_2(N, Range) ->
     Bool = gb_sets:is_member(N, Range),
+    Bool = broken_range(N),
+    rel_op_combinations_2(N-1, Range).
+
+broken_range(N) ->
     Bool = broken_range_1(N),
     Bool = broken_range_2(N),
     Bool = broken_range_3(N),
@@ -1542,8 +1626,7 @@ rel_op_combinations_2(N, Range) ->
     Bool = broken_range_10(N),
     Bool = broken_range_11(N),
     Bool = broken_range_12(N),
-    Bool = broken_range_13(N),
-    rel_op_combinations_2(N-1, Range).
+    Bool = broken_range_13(N).
 
 broken_range_1(X) when X >= 10, X =< 20, X =/= 13 -> true;
 broken_range_1(X) when X >= 3, X =< 5 -> true;
@@ -1615,6 +1698,10 @@ rel_op_combinations_3(N, Red) ->
 	      none -> none;
 	      {value,V} -> V
 	  end,
+    Val = redundant(N),
+    rel_op_combinations_3(N-1, Red).
+
+redundant(N) ->
     Val = redundant_1(N),
     Val = redundant_2(N),
     Val = redundant_3(N),
@@ -1626,8 +1713,7 @@ rel_op_combinations_3(N, Red) ->
     Val = redundant_9(N),
     Val = redundant_10(N),
     Val = redundant_11(N),
-    Val = redundant_12(N),
-    rel_op_combinations_3(N-1, Red).
+    Val = redundant_12(N).
 
 redundant_1(X) when X >= 51, X =< 80 -> 5*X;
 redundant_1(X) when X < 51 -> 2*X;
@@ -2530,6 +2616,8 @@ beam_bool_SUITE(_Config) ->
     gh4788(),
     beam_ssa_bool_coverage(),
     bad_map_in_guard(),
+    gh_6164(),
+    gh_6184(),
     ok.
 
 before_and_inside_if() ->
@@ -3040,6 +3128,33 @@ beam_ssa_bool_coverage_1(V) when V andalso 0, tuple_size(0) ->
     ok;
 beam_ssa_bool_coverage_1(_) ->
     error.
+
+gh_6164() ->
+    true = do_gh_6164(id([])),
+    {'EXIT',{{case_clause,42},_}} = catch do_gh_6164(id(0)),
+
+    ok.
+
+do_gh_6164(V1) ->
+    case 42 of
+        V2 ->
+            case is_list(V1) of
+                V3 ->
+                    case V3 orelse V2 of
+                        _ when V3 -> 100
+                    end =< V3
+            end
+    end.
+
+gh_6184() ->
+    {'EXIT',{function_clause,_}} = catch do_gh_6184(id(true), id({a,b,c})),
+    {'EXIT',{function_clause,_}} = catch do_gh_6184(true, true),
+    {'EXIT',{function_clause,_}} = catch do_gh_6184({a,b,c}, {x,y,z}),
+
+    ok.
+
+do_gh_6184(V1, V2) when (false and is_tuple(V2)) andalso (V1 orelse V2) ->
+    V2 orelse V2.
 
 -record(bad_map_in_guard, {name}).
 bad_map_in_guard() ->

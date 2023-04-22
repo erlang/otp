@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -280,6 +280,8 @@ zip_api(Config) when is_list(Config) ->
     Name1 = hd(Names),
     {ok, Data1} = file:read_file(Name1),
     {ok, {Name1, Data1}} = zip:zip_get(Name1, ZipSrv),
+    Data1Crc = erlang:crc32(Data1),
+    {ok, Data1Crc} = zip:zip_get_crc32(Name1, ZipSrv),
 
     %% Get all files
     FilesDatas = lists:map(fun(Name) -> {ok, B} = file:read_file(Name),

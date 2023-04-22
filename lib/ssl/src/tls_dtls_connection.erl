@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,11 +56,15 @@
          user_hello/3,
          abbreviated/3,
          certify/3,
+         wait_cert_verify/3,
          wait_ocsp_stapling/3,
          cipher/3,
          connection/3,
          downgrade/3,
          gen_handshake/4]).
+
+%% Tracing
+-export([handle_trace/3]).
 
 %%--------------------------------------------------------------------
 -spec internal_renegotiation(pid(), ssl_record:connection_states()) ->
@@ -107,7 +111,7 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 handle_session(#server_hello{cipher_suite = CipherSuite,
 			     compression_method = Compression}, 
 	       Version, NewId, ConnectionStates, ProtoExt, Protocol0,
-	       #state{session = #session{session_id = OldId},
+	       #state{session = Session,
 		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv,
                       connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv} = State0) ->
     #{key_exchange := KeyAlgorithm} =
@@ -128,7 +132,7 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
                                                              negotiated_protocol = Protocol},
                          connection_env = CEnv#connection_env{negotiated_version = Version}},
     
-    case ssl_session:is_new(OldId, NewId) of
+    case ssl_session:is_new(Session, NewId) of
 	true ->
 	    handle_new_session(NewId, CipherSuite, Compression,
 			       State#state{connection_states = ConnectionStates});
@@ -168,12 +172,20 @@ user_hello({call, From}, cancel, _State) ->
     throw(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled));
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
-                  handshake_env = #handshake_env{hello = Hello},
+                  handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = ssl:handle_options(NewOptions, Role, Options0#{handshake => full}),
-    State = ssl_gen_statem:ssl_config(Options, Role, State0),
-    {next_state, hello, State#state{start_or_recv_from = From}, 
-     [{next_event, internal, Hello}, {{timeout, handshake}, Timeout, close}]};
+    try ssl:update_options(NewOptions, Role, Options0) of
+        Options ->
+            State = ssl_gen_statem:ssl_config(Options, Role, State0),
+            {next_state, hello, State#state{start_or_recv_from = From,
+                                            handshake_env = HSEnv#handshake_env{continue_status = continue}
+                                           },
+             [{{timeout, handshake}, Timeout, close}]}
+    catch
+        throw:{error, Reason} ->
+            gen_statem:reply(From, {error, Reason}),
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), ?FUNCTION_NAME, State0)
+    end;
 user_hello(info, {'DOWN', _, _, _, _} = Event, State) ->
     ssl_gen_statem:handle_info(Event, ?FUNCTION_NAME, State);
 user_hello(_, _, _) ->
@@ -249,9 +261,10 @@ abbreviated(internal,
                    handshake_env = HsEnv} = State) ->
     ConnectionStates1 =
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
-    Connection:next_event(?FUNCTION_NAME, no_record, State#state{connection_states = 
-                                                                     ConnectionStates1,                                                   
-                                                                 handshake_env = HsEnv#handshake_env{expecting_finished = true}});
+    Connection:next_event(?FUNCTION_NAME, no_record,
+                          State#state{connection_states =
+                                          ConnectionStates1,
+                                      handshake_env = HsEnv#handshake_env{expecting_finished = true}});
 abbreviated(info, Msg, State) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 abbreviated(internal, #hello_request{}, _) ->
@@ -272,24 +285,28 @@ wait_ocsp_stapling(internal, #certificate{},
 %% Receive OCSP staple message
 wait_ocsp_stapling(internal, #certificate_status{} = CertStatus,
                    #state{static_env = #static_env{protocol_cb = _Connection},
-                          handshake_env = #handshake_env{
-                                             ocsp_stapling_state = OcspState} = HsEnv} = State) ->
-    {next_state, certify, State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =
-                                                                              OcspState#{ocsp_expect => stapled,
-                                                                                         ocsp_response => CertStatus}}}};
+                          handshake_env =
+                              #handshake_env{ocsp_stapling_state = OcspState} = HsEnv} = State) ->
+    {next_state, certify,
+     State#state{handshake_env =
+                     HsEnv#handshake_env{ocsp_stapling_state =
+                                             OcspState#{ocsp_expect => stapled,
+                                                        ocsp_response => CertStatus}}}};
 %% Server did not send OCSP staple message
-wait_ocsp_stapling(internal, Msg, #state{static_env = #static_env{protocol_cb = _Connection},
-                                         handshake_env = #handshake_env{
-                                                            ocsp_stapling_state = OcspState} = HsEnv} = State)
+wait_ocsp_stapling(internal, Msg,
+                   #state{static_env = #static_env{protocol_cb = _Connection},
+                          handshake_env = #handshake_env{
+                                             ocsp_stapling_state = OcspState} = HsEnv} = State)
   when is_record(Msg, server_key_exchange) orelse
        is_record(Msg, hello_request) orelse
        is_record(Msg, certificate_request) orelse
        is_record(Msg, server_hello_done) orelse
        is_record(Msg, client_key_exchange) ->
-    {next_state, certify, State#state{handshake_env =
-                                          HsEnv#handshake_env{ocsp_stapling_state = OcspState#{ocsp_expect => undetermined}}},
+    {next_state, certify,
+     State#state{handshake_env =
+                     HsEnv#handshake_env{ocsp_stapling_state =
+                                             OcspState#{ocsp_expect => undetermined}}},
      [{postpone, true}]};
-
 wait_ocsp_stapling(internal, #hello_request{}, _) ->
     keep_state_and_data;
 wait_ocsp_stapling(Type, Event, State) ->
@@ -316,7 +333,7 @@ certify(internal, #certificate{asn1_certificates = []},
 	       ssl_options = #{verify := verify_peer,
                                fail_if_no_peer_cert := false}} =
 	State0) ->
-    Connection:next_event(?FUNCTION_NAME, no_record, State0#state{client_certificate_requested = false});
+    Connection:next_event(?FUNCTION_NAME, no_record, State0#state{client_certificate_status = empty});
 certify(internal, #certificate{},
 	#state{static_env = #static_env{role = server},
 	       ssl_options = #{verify := verify_none}}) ->
@@ -338,14 +355,19 @@ certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
                                   ocsp_stapling_state = #{ocsp_expect := Status} = OcspState},
                connection_env = #connection_env{
                                    negotiated_version = Version},
-               ssl_options = Opts} = State) when Status =/= staple ->
+               ssl_options = Opts} = State0) when Status =/= staple ->
     OcspInfo = ocsp_info(OcspState, Opts, Peer),
     case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef,
                                Opts, CRLDbInfo, Role, Host,
                                ensure_tls(Version), OcspInfo) of
         {PeerCert, PublicKeyInfo} ->
-	        handle_peer_cert(Role, PeerCert, PublicKeyInfo,
-                                 State#state{client_certificate_requested = false}, Connection, []);
+            State = case Role of
+                        server ->
+                            State0#state{client_certificate_status = needs_verifying};
+                        client ->
+                            State0
+                    end,
+            handle_peer_cert(Role, PeerCert, PublicKeyInfo, State, Connection, []);
         #alert{} = Alert ->
             throw(Alert)
     end;
@@ -413,7 +435,7 @@ certify(internal, #certificate_request{},
     %% The client does not have a certificate and will send an empty reply, the server may fail 
     %% or accept the connection by its own preference. No signature algorithms needed as there is
     %% no certificate to verify.
-    Connection:next_event(?FUNCTION_NAME, no_record, State#state{client_certificate_requested = true,
+    Connection:next_event(?FUNCTION_NAME, no_record, State#state{client_certificate_status = requested,
                                                                  session = Session0#session{own_certificates = [[]],
                                                                                             private_key = #{}}});
 certify(internal, #certificate_request{} = CertRequest,
@@ -432,7 +454,7 @@ certify(internal, #certificate_request{} = CertRequest,
                                           SupportedHashSigns, TLSVersion,
                                           CertDbHandle, CertDbRef),
     Connection:next_event(?FUNCTION_NAME, no_record,
-                          State#state{client_certificate_requested = true,
+                          State#state{client_certificate_status = requested,
                                       session = Session});
 %% PSK and RSA_PSK might bypass the Server-Key-Exchange
 certify(internal, #server_hello_done{},
@@ -511,7 +533,7 @@ certify(internal, #server_hello_done{},
     end;
 certify(internal = Type, #client_key_exchange{} = Msg,
 	#state{static_env = #static_env{role = server},
-	       client_certificate_requested = true,
+	       client_certificate_status = requested,
 	       ssl_options = #{fail_if_no_peer_cert := true}}) ->
     %% We expect a certificate here
     throw(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, {Type, Msg}}));
@@ -532,25 +554,22 @@ certify(Type, Event, State) ->
     ssl_gen_statem:handle_common_event(Type, Event, ?FUNCTION_NAME, State).
  
 %%--------------------------------------------------------------------
--spec cipher(gen_statem:event_type(),
-	     #hello_request{} | #certificate_verify{} | #finished{} | term(),
+-spec wait_cert_verify(gen_statem:event_type(),
+	      #hello_request{} | #certificate_verify{} | term(),
 	     #state{}) ->
 		    gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-cipher({call, From}, Msg, State) ->
-    handle_call(Msg, From, ?FUNCTION_NAME, State);
-cipher(info, Msg, State) ->
-    handle_info(Msg, ?FUNCTION_NAME, State);
-cipher(internal, #certificate_verify{signature = Signature, 
-				     hashsign_algorithm = CertHashSign},
-       #state{static_env = #static_env{role = server,
-                                       protocol_cb = Connection},
-              handshake_env = #handshake_env{tls_handshake_history = Hist,
-                                             kex_algorithm = KexAlg,
+wait_cert_verify(internal, #certificate_verify{signature = Signature, 
+                                               hashsign_algorithm = CertHashSign},
+                 #state{static_env = #static_env{role = server,
+                                                 protocol_cb = Connection},
+                        client_certificate_status = needs_verifying,
+                        handshake_env = #handshake_env{tls_handshake_history = Hist,
+                                                       kex_algorithm = KexAlg,
                                              public_key_info = PubKeyInfo},
-              connection_env = #connection_env{negotiated_version = Version},
-	      session = #session{master_secret = MasterSecret} = Session0
-	     } = State) ->
+                        connection_env = #connection_env{negotiated_version = Version},
+                        session = #session{master_secret = MasterSecret} = Session0
+                       } = State) ->
     
     TLSVersion = ssl:tls_version(Version),
     %% Use negotiated value if TLS-1.2 otherwise return default
@@ -558,17 +577,27 @@ cipher(internal, #certificate_verify{signature = Signature,
     case ssl_handshake:certificate_verify(Signature, PubKeyInfo,
 					  TLSVersion, HashSign, MasterSecret, Hist) of
 	valid ->
-	    Connection:next_event(?FUNCTION_NAME, no_record,
-				  State#state{session = Session0#session{sign_alg = HashSign}});
+	    Connection:next_event(cipher, no_record,
+				  State#state{client_certificate_status = verified,
+                                              session = Session0#session{sign_alg = HashSign}});
 	#alert{} = Alert ->
             throw(Alert)
     end;
-%% client must send a next protocol message if we are expecting it
-cipher(internal, #finished{},
-       #state{static_env = #static_env{role = server},
-              handshake_env = #handshake_env{expecting_next_protocol_negotiation = true,
-                                             negotiated_protocol = undefined}}) ->
-    throw(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE));
+wait_cert_verify(internal, #hello_request{}, _) ->
+    keep_state_and_data;
+wait_cert_verify(Type, Event, State) ->
+    ssl_gen_statem:handle_common_event(Type, Event, ?FUNCTION_NAME, State).
+
+%%--------------------------------------------------------------------
+-spec cipher(gen_statem:event_type(),
+	     #hello_request{} | #finished{} | term(),
+	     #state{}) ->
+		    gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+cipher({call, From}, Msg, State) ->
+    handle_call(Msg, From, ?FUNCTION_NAME, State);
+cipher(info, Msg, State) ->
+    handle_info(Msg, ?FUNCTION_NAME, State);
 cipher(internal, #finished{verify_data = Data} = Finished,
        #state{static_env = #static_env{role = Role,
                                        host = Host,
@@ -671,7 +700,8 @@ downgrade(Type, Event, State) ->
 gen_handshake(StateName, Type, Event, State) ->
     try
         tls_dtls_connection:StateName(Type, Event, State)
-    catch error:_ ->
+    catch error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end.
 
@@ -703,8 +733,12 @@ handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
 					  end, [], Seed)),
 		ssl_handshake:prf(ssl:tls_version(Version), PRFAlgorithm, SecretToUse, Label, SeedToUse, WantedLength)
 	    catch
-		exit:_ -> {error, badarg};
-		error:Reason -> {error, Reason}
+		exit:Reason:ST ->
+                    ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
+                    {error, badarg};
+		error:Reason:ST ->
+                    ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
+                    {error, Reason}
 	    end,
     {keep_state_and_data, [{reply, From, Reply}]};
 handle_call(Msg, From, StateName, State) ->
@@ -732,6 +766,7 @@ do_server_hello(Type, #{next_protocol_negotiation := NextProtocols} =
     ServerHello =
 	ssl_handshake:server_hello(SessId, ssl:tls_version(Version),
                                    ConnectionStates1, ServerHelloExt),
+    
     State = server_hello(ServerHello,
 			 State1#state{handshake_env = HsEnv#handshake_env{expecting_next_protocol_negotiation =
                                                                               NextProtocols =/= undefined}}, Connection),
@@ -863,18 +898,18 @@ handle_peer_cert_key(_, _, _, _, State) ->
 certify_client(#state{static_env = #static_env{role = client,
                                                cert_db = CertDbHandle,
                                                cert_db_ref = CertDbRef},
-                      client_certificate_requested = true,
+                      client_certificate_status = requested,
 		      session = #session{own_certificates = OwnCerts}}
 	       = State, Connection) ->
     Certificate = ssl_handshake:certificate(OwnCerts, CertDbHandle, CertDbRef, client),
     Connection:queue_handshake(Certificate, State);
-certify_client(#state{client_certificate_requested = false} = State, _) ->
+certify_client(#state{client_certificate_status = not_requested} = State, _) ->
     State.
 
 verify_client_cert(#state{static_env = #static_env{role = client},
                           handshake_env = #handshake_env{tls_handshake_history = Hist},
                           connection_env = #connection_env{negotiated_version = Version},
-                          client_certificate_requested = true,
+                          client_certificate_status = requested,
 			  session = #session{sign_alg = HashSign,
                                              master_secret = MasterSecret,
                                              private_key = PrivateKey,
@@ -888,13 +923,13 @@ verify_client_cert(#state{static_env = #static_env{role = client},
 	#alert{} = Alert ->
 	    throw(Alert)
     end;
-verify_client_cert(#state{client_certificate_requested = false} = State, _) ->
+verify_client_cert(#state{client_certificate_status = not_requested} = State, _) ->
     State.
 
 client_certify_and_key_exchange(State0, Connection) ->
     State1 = do_client_certify_and_key_exchange(State0, Connection),
     {State2, Actions} = finalize_handshake(State1, certify, Connection),
-    State = State2#state{client_certificate_requested = false},     %% Reinitialize
+    State = State2#state{client_certificate_status = not_requested},     %% Reinitialize
     Connection:next_event(cipher, no_record, State, Actions).
 
 do_client_certify_and_key_exchange(State0, Connection) ->
@@ -909,7 +944,8 @@ server_certify_and_key_exchange(State0, Connection) ->
 
 certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS},
 			    #state{session = #session{private_key = PrivateKey},
-                                   handshake_env = #handshake_env{client_hello_version = {Major, Minor} = Version}}
+                                   handshake_env = #handshake_env{client_hello_version = {Major, Minor} = Version},
+                                   client_certificate_status = CCStatus}
                             = State, Connection) ->
     FakeSecret = make_premaster_secret(Version, rsa),
     %% Countermeasure for Bleichenbacher attack always provide some kind of premaster secret
@@ -929,55 +965,74 @@ certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS
             #alert{description = ?DECRYPT_ERROR} ->
                 FakeSecret
         end,
-    calculate_master_secret(PremasterSecret, State, Connection, certify, cipher);
+    calculate_master_secret(PremasterSecret, State, Connection, certify, client_kex_next_state(CCStatus));
 certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPublicDhKey},
 			    #state{handshake_env = #handshake_env{diffie_hellman_params = #'DHParameter'{} = Params,
-                                                                  kex_keys = {_, ServerDhPrivateKey}}
+                                                                  kex_keys = {_, ServerDhPrivateKey}},
+                                   client_certificate_status = CCStatus
 				  } = State,
 			    Connection) ->
     PremasterSecret = ssl_handshake:premaster_secret(ClientPublicDhKey, ServerDhPrivateKey, Params),
-    calculate_master_secret(PremasterSecret, State, Connection, certify, cipher);
+    calculate_master_secret(PremasterSecret, State, Connection, certify, client_kex_next_state(CCStatus));
 
 certify_client_key_exchange(#client_ec_diffie_hellman_public{dh_public = ClientPublicEcDhPoint},
-			    #state{handshake_env = #handshake_env{kex_keys = ECDHKey}} = State, Connection) ->
+			    #state{handshake_env = #handshake_env{kex_keys = ECDHKey},
+                                   client_certificate_status = CCStatus
+                                  } = State, Connection) ->
     PremasterSecret = ssl_handshake:premaster_secret(#'ECPoint'{point = ClientPublicEcDhPoint}, ECDHKey),
-    calculate_master_secret(PremasterSecret, State, Connection, certify, cipher);
+    calculate_master_secret(PremasterSecret, State, Connection, certify, client_kex_next_state(CCStatus));
 certify_client_key_exchange(#client_psk_identity{} = ClientKey,
 			    #state{ssl_options = 
-				       #{user_lookup_fun := PSKLookup}} = State0,
+				       #{user_lookup_fun := PSKLookup},
+                                   client_certificate_status = CCStatus
+                                  } = State0,
 			    Connection) ->
     PremasterSecret = ssl_handshake:premaster_secret(ClientKey, PSKLookup),
-    calculate_master_secret(PremasterSecret, State0, Connection, certify, cipher);
+    calculate_master_secret(PremasterSecret, State0, Connection, certify, client_kex_next_state(CCStatus));
 certify_client_key_exchange(#client_dhe_psk_identity{} = ClientKey,
 			    #state{handshake_env = #handshake_env{diffie_hellman_params = #'DHParameter'{} = Params,
                                                                   kex_keys = {_, ServerDhPrivateKey}},
 				   ssl_options = 
-				       #{user_lookup_fun := PSKLookup}} = State0,
+				       #{user_lookup_fun := PSKLookup},
+                                   client_certificate_status = CCStatus
+                                  } = State0,
 			    Connection) ->
     PremasterSecret = 
 	ssl_handshake:premaster_secret(ClientKey, ServerDhPrivateKey, Params, PSKLookup),
-    calculate_master_secret(PremasterSecret, State0, Connection, certify, cipher);
+    calculate_master_secret(PremasterSecret, State0, Connection, certify, client_kex_next_state(CCStatus));
 certify_client_key_exchange(#client_ecdhe_psk_identity{} = ClientKey,
 			    #state{handshake_env = #handshake_env{kex_keys = ServerEcDhPrivateKey},
 				   ssl_options =
-				       #{user_lookup_fun := PSKLookup}} = State,
+				       #{user_lookup_fun := PSKLookup},
+                                   client_certificate_status = CCStatus
+                                  } = State,
 			    Connection) ->
     PremasterSecret =
 	ssl_handshake:premaster_secret(ClientKey, ServerEcDhPrivateKey, PSKLookup),
-    calculate_master_secret(PremasterSecret, State, Connection, certify, cipher);
+    calculate_master_secret(PremasterSecret, State, Connection, certify, client_kex_next_state(CCStatus));
 certify_client_key_exchange(#client_rsa_psk_identity{} = ClientKey,
 			    #state{session = #session{private_key = PrivateKey},
 				   ssl_options = 
-				       #{user_lookup_fun := PSKLookup}} = State0,
+				       #{user_lookup_fun := PSKLookup},
+                                   client_certificate_status = CCStatus
+                                  } = State0,
 			    Connection) ->
     PremasterSecret = ssl_handshake:premaster_secret(ClientKey, PrivateKey, PSKLookup),
-    calculate_master_secret(PremasterSecret, State0, Connection, certify, cipher);
+    calculate_master_secret(PremasterSecret, State0, Connection, certify, client_kex_next_state(CCStatus));
 certify_client_key_exchange(#client_srp_public{} = ClientKey,
 			    #state{handshake_env = #handshake_env{srp_params = Params,
-                                                                  kex_keys = Key}
+                                                                  kex_keys = Key},
+                                   client_certificate_status = CCStatus
 				  } = State0, Connection) ->
     PremasterSecret = ssl_handshake:premaster_secret(ClientKey, Key, Params),
-    calculate_master_secret(PremasterSecret, State0, Connection, certify, cipher).
+    calculate_master_secret(PremasterSecret, State0, Connection, certify, client_kex_next_state(CCStatus)).
+
+client_kex_next_state(needs_verifying) ->
+    wait_cert_verify;
+client_kex_next_state(empty) ->
+    cipher;
+client_kex_next_state(not_requested) ->
+    cipher.
 
 certify_server(#state{handshake_env = #handshake_env{kex_algorithm = KexAlg}} = 
                    State, _) when KexAlg == dh_anon; 
@@ -1286,15 +1341,15 @@ request_client_cert(#state{handshake_env = #handshake_env{kex_algorithm = Alg}} 
 request_client_cert(#state{static_env = #static_env{cert_db = CertDbHandle,
                                                     cert_db_ref = CertDbRef},
                            connection_env = #connection_env{negotiated_version = Version},
-                           ssl_options = #{verify := verify_peer,
-                                           signature_algs := SupportedHashSigns}} = State0, Connection) ->
+                           ssl_options = #{verify := verify_peer} = Opts} = State0, Connection) ->
+    SupportedHashSigns = maps:get(signature_algs, Opts, undefined),
     TLSVersion =  ssl:tls_version(Version),
     HashSigns = ssl_handshake:available_signature_algs(SupportedHashSigns, 
 						       TLSVersion),
     Msg = ssl_handshake:certificate_request(CertDbHandle, CertDbRef, 
 					    HashSigns, TLSVersion),
     State = Connection:queue_handshake(Msg, State0),
-    State#state{client_certificate_requested = true};
+    State#state{client_certificate_status = requested};
 
 request_client_cert(#state{ssl_options = #{verify := verify_none}} =
 		    State, _) ->
@@ -1448,22 +1503,20 @@ generate_srp_server_keys(_SrpParams, 10) ->
 generate_srp_server_keys(SrpParams =
 			     #srp_user{generator = Generator, prime = Prime,
 				       verifier = Verifier}, N) ->
-    try crypto:generate_key(srp, {host, [Verifier, Generator, Prime, '6a']}) of
-	Keys ->
-	    Keys
+    try crypto:generate_key(srp, {host, [Verifier, Generator, Prime, '6a']})
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{error, Reason}, {stacktrace, ST}]),
 	    generate_srp_server_keys(SrpParams, N+1)
     end.
 
 generate_srp_client_keys(_Generator, _Prime, 10) ->
     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
 generate_srp_client_keys(Generator, Prime, N) ->
-    try crypto:generate_key(srp, {user, [Generator, Prime, '6a']}) of
-	Keys ->
-	    Keys
+    try crypto:generate_key(srp, {user, [Generator, Prime, '6a']})
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{error, Reason}, {stacktrace, ST}]),
 	    generate_srp_client_keys(Generator, Prime, N+1)
     end.
 
@@ -1594,8 +1647,9 @@ handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
             throw(Alert)
     end.
 
-make_premaster_secret({MajVer, MinVer}, rsa) ->
+make_premaster_secret(Version, rsa) ->
     Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
+    {MajVer,MinVer} = Version,
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
     undefined.
@@ -1624,23 +1678,21 @@ handle_sni_extension(#state{static_env =
             throw(Alert)
     end.
 
-ensure_tls({254, _} = Version) -> 
+ensure_tls(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:corresponding_tls_version(Version);
 ensure_tls(Version) -> 
     Version.
 
-ocsp_info(#{ocsp_expect := stapled, 
-            ocsp_response := CertStatus} = OcspState,
-            #{ocsp_responder_certs := OcspResponderCerts}, PeerCert) ->
+ocsp_info(#{ocsp_expect := stapled, ocsp_response := CertStatus} = OcspState,
+          #{ocsp_stapling := OcspStapling} = _SslOpts, PeerCert) ->
+    #{ocsp_responder_certs := OcspResponderCerts} = OcspStapling,
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => [CertStatus]},
       ocsp_responder_certs => OcspResponderCerts,
-      ocsp_state => OcspState
-     };
+      ocsp_state => OcspState};
 ocsp_info(#{ocsp_expect := no_staple} = OcspState, _, PeerCert) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
       ocsp_responder_certs => [],
-      ocsp_state => OcspState
-     }.
+      ocsp_state => OcspState}.
 
 select_client_cert_key_pair(Session0,_,
                             [#{private_key := NoKey, certs := [[]] = NoCerts}],
@@ -1652,7 +1704,7 @@ select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs, SupportedHashSi
     select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs, SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, undefined).
 
 select_client_cert_key_pair(Session0,_,[], _, _,_,_, undefined) ->
-    %% No certificate compliant with signing algorithms found: empty certificate will be sent
+    %% No certificate compliant with supported algorithms: empty certificate will be sent
     Session0#session{own_certificates = [[]],
                      private_key = #{}};
 select_client_cert_key_pair(_,_,[], _, _,_,_,#session{}=Session) ->
@@ -1662,7 +1714,7 @@ select_client_cert_key_pair(Session0, #certificate_request{certificate_authoriti
                             [#{private_key := PrivateKey, certs := [Cert| _] = Certs} | Rest],
                             SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, Default) ->
     case ssl_handshake:select_hashsign(CertRequest, Cert, SupportedHashSigns, TLSVersion) of
-        #alert {} ->
+        #alert{} ->
             select_client_cert_key_pair(Session0, CertRequest, Rest, SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, Default);
         SelectedHashSign ->
             case ssl_certificate:handle_cert_auths(Certs, CertAuths, CertDbHandle, CertDbRef) of
@@ -1685,3 +1737,11 @@ default_cert_key_pair_return(undefined, Session) ->
     Session;
 default_cert_key_pair_return(Default, _) ->
     Default.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, wait_ocsp_stapling, [Type, Msg | _]}}, Stack) ->
+    {io_lib:format("Type = ~w Msg = ~W", [Type, Msg, 10]), Stack}.

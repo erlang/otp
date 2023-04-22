@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0, groups/0,
+         init_per_testcase/2, end_per_testcase/2,
          fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
          t_mul_add_ops/1,negative_zero/1,
          bad_float_unpack/1, write/1, cmp_zero/1, cmp_integer/1, cmp_bignum/1]).
@@ -42,6 +43,11 @@ all() ->
 
 groups() -> 
     [{comparison, [parallel], [cmp_zero, cmp_integer, cmp_bignum]}].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %%
 %% OTP-7178, list_to_float on very small numbers should give 0.0
@@ -65,10 +71,22 @@ negative_zero(Config) when is_list(Config) ->
 
 do_negative_zero(Op, Ops) ->
     Res = <<(my_apply(erlang, Op, Ops))/float>>,
+
+    %% Test the canonical op against its mixed-type instruction
     Res = <<(case {Op, Ops} of
                  {'-', [A]} -> -A;
                  {'*', [A, B]} -> A * B
              end)/float>>,
+
+    %% Test the canonical op against its type-specific instructions, if
+    %% applicable
+    Res = <<(case {Op, Ops} of
+                {'-', [C]} when is_float(C) -> -C;
+                {'-', [C]} -> -C;
+                {'*', [C, D]} when is_float(C), is_float(D) -> C * D;
+                {'*', [C, D]} -> C * D
+            end)/float>>,
+
     Res.
 
 %% Forces floating point exceptions and tests that subsequent, legal,

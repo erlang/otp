@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -150,10 +150,10 @@ handle_cast(Msg, UdpRec) ->
 %%              from the socket and exit codes.
 %%-----------------------------------------------------------------
 handle_info({udp, _Socket, Ip, Port, Msg}, 
-	    #megaco_udp{serialize = false} = UdpRec) ->
+	    #megaco_udp{serialize = false} = UdpRec) when is_binary(Msg) ->
     #megaco_udp{socket = Socket, module = Mod, receive_handle = RH} = UdpRec,
     SH = megaco_udp:create_send_handle(Socket, Ip, Port), 
-    MsgSize = size(Msg),
+    MsgSize = byte_size(Msg),
     incNumInMessages(SH),
     incNumInOctets(SH, MsgSize),
     case MsgSize of
@@ -162,17 +162,17 @@ handle_info({udp, _Socket, Ip, Port, Msg},
 	Sz ->
 	    receive_message(Mod, RH, SH, Sz, Msg)
     end,
-    activate(Socket),
+    _ = activate(Socket),
     {noreply, UdpRec};
 handle_info({udp, _Socket, Ip, Port, Msg}, 
-	    #megaco_udp{serialize = true} = UdpRec) ->
+	    #megaco_udp{serialize = true} = UdpRec) when is_binary(Msg) ->
     #megaco_udp{socket = Socket, module = Mod, receive_handle = RH} = UdpRec,
     SH = megaco_udp:create_send_handle(Socket, Ip, Port), 
-    MsgSize = size(Msg),
+    MsgSize = byte_size(Msg),
     incNumInMessages(SH),
     incNumInOctets(SH, MsgSize),
     process_received_message(Mod, RH, SH, Msg),
-    activate(Socket),
+    _ = activate(Socket),
     {noreply, UdpRec};
 handle_info(Info, UdpRec) ->
     warning_msg("received unexpected info: "

@@ -78,9 +78,10 @@ compile(Input0, Output0,
     Output = assure_extension(shorten_filename(Output0), ".erl"),
     Includefile = lists:sublist(Includes, 1),
     Werror = proplists:get_bool(warnings_as_errors, Specific),
+    Deterministic = proplists:get_bool(deterministic, Specific),
     Opts = [{scannerfile,Output},{includefile,Includefile},{verbose,Verbose},
             {report_errors,true},{report_warnings,WarnLevel > 0},
-	    {warnings_as_errors, Werror}],
+	    {warnings_as_errors, Werror}, {deterministic, Deterministic}],
     case file(Input, Opts) of
         {ok, _} ->
             ok;
@@ -117,6 +118,9 @@ file(File) -> file(File, []).
               | {'scannerfile', Scannerfile :: file:filename()}
               | {'verbose', boolean()}
               | {'warnings_as_errors', boolean()}
+              | {'deterministic', boolean()}
+              | {'error_location', line | column}
+              | {'tab_size', pos_integer()}
               | 'dfa_graph'
               | 'report_errors' | 'report_warnings' | 'report'
               | 'return_errors' | 'return_warnings' | 'return'
@@ -279,6 +283,12 @@ check_options([{Option, Boolean} | Options], AllOptions, L)
         false ->
             badarg
         end;
+check_options([{error_location, Loc}=O | Options], AllOptions, L)
+        when Loc =:= line; Loc =:= column ->
+    check_options(Options, AllOptions, [O | L]);
+check_options([{tab_size, S}=O | Options], AllOptions, L)
+        when is_integer(S) andalso S>0 ->
+    check_options(Options, AllOptions, [O | L]);
 check_options([], _AllOptions, L) ->
     L;
 check_options(_Options, _, _L) ->
@@ -287,7 +297,7 @@ check_options(_Options, _, _L) ->
 all_options() ->
     [dfa_graph,includefile,report_errors,report_warnings,
      return_errors,return_warnings,scannerfile,verbose,
-     warnings_as_errors].
+     warnings_as_errors,deterministic,error_location,tab_size].
 
 default_option(dfa_graph) -> false;
 default_option(includefile) -> [];
@@ -297,7 +307,10 @@ default_option(return_errors) -> false;
 default_option(return_warnings) -> false;
 default_option(scannerfile) -> [];
 default_option(verbose) -> false;
-default_option(warnings_as_errors) -> false.
+default_option(warnings_as_errors) -> false;
+default_option(deterministic) -> false;
+default_option(error_location) -> line;
+default_option(tab_size) -> 8.
 
 atom_option(dfa_graph) -> {dfa_graph,true};
 atom_option(report_errors) -> {report_errors,true};
@@ -306,6 +319,7 @@ atom_option(warnings_as_errors) -> {warnings_as_errors,true};
 atom_option(return_errors) -> {return_errors,true};
 atom_option(verbose) -> {verbose,true};
 atom_option(return_warnings) -> {return_warnings,true};
+atom_option(deterministic) -> {deterministic,true};
 atom_option(Key) -> Key.
 
 is_filename(T) ->
@@ -592,7 +606,9 @@ parse_rule(S, Line, Atoks, Ms, N, St) ->
             TokenChars = var_used('TokenChars', Atoks),
             TokenLen = var_used('TokenLen', Atoks),
             TokenLine = var_used('TokenLine', Atoks),
-            {ok,{R,N},{N,Atoks,TokenChars,TokenLen,TokenLine},St};
+            TokenCol = var_used('TokenCol', Atoks),
+            TokenLoc = var_used('TokenLoc', Atoks),
+            {ok,{R,N},{N,Atoks,TokenChars,TokenLen,TokenLine,TokenCol,TokenLoc},St};
         {error,E} ->
             add_error({Line,leex,E}, St)
     end.
@@ -1362,7 +1378,8 @@ out_file(St0, DFA, DF, Actions, Code) ->
                         set_encoding(St0, Ofile),
                         try 
                             output_encoding_comment(Ofile, St0),
-                            output_file_directive(Ofile, St0#leex.ifile, 0),
+                            Deterministic = proplists:get_bool(deterministic, St0#leex.opts),
+                            output_file_directive(Ofile, St0#leex.ifile, Deterministic, 0),
                             out_file(Ifile, Ofile, St0, DFA, DF, Actions,
                                      Code, 1),
                             verbose_print(St0, "ok~n", []),
@@ -1400,15 +1417,22 @@ inc_file_name(Filename) ->
 %%  characters.
 
 out_file(Ifile, Ofile, St, DFA, DF, Actions, Code, L) ->
+    Deterministic = proplists:get_bool(deterministic, St#leex.opts),
     case io:get_line(Ifile, leex) of
-        eof -> output_file_directive(Ofile, St#leex.ifile, L);
-        {error, _} -> add_error(St#leex.ifile, {L, leex, cannot_parse}, St);
+        eof ->
+            output_file_directive(Ofile, St#leex.ifile, Deterministic, L);
+        {error, _} ->
+            add_error(St#leex.ifile, {L, leex, cannot_parse}, St);
         Line ->
             case string:slice(Line, 0, 5) of
                 "##mod" -> out_module(Ofile, St);
                 "##cod" -> out_erlang_code(Ofile, St, Code, L);
+                "##str" -> out_string(Ofile, St#leex.opts);
+                "##tkn" -> out_token(Ofile, St#leex.opts);
+                "##tks" -> out_tokens(Ofile, St#leex.opts);
+                "##tab" -> out_tab_size(Ofile, St#leex.opts);
                 "##dfa" -> out_dfa(Ofile, St, DFA, Code, DF, L);
-                "##act" -> out_actions(Ofile, St#leex.xfile, Actions);
+                "##act" -> out_actions(Ofile, St#leex.xfile, Deterministic, Actions);
                 _ -> io:put_chars(Ofile, Line)
             end,
             out_file(Ifile, Ofile, St, DFA, DF, Actions, Code, L+1)
@@ -1419,7 +1443,8 @@ out_module(File, St) ->
 
 out_erlang_code(File, St, Code, L) ->
     {CodeL,CodePos,_NCodeLines} = Code,
-    output_file_directive(File, St#leex.xfile, CodeL),
+    Deterministic = proplists:get_bool(deterministic, St#leex.opts),
+    output_file_directive(File, St#leex.xfile, Deterministic, CodeL),
     {ok,Xfile} = file:open(St#leex.xfile, [read]),
     try
         set_encoding(St, Xfile),
@@ -1429,7 +1454,93 @@ out_erlang_code(File, St, Code, L) ->
         ok = file:close(Xfile)
     end,
     io:nl(File),
-    output_file_directive(File, St#leex.ifile, L).
+    output_file_directive(File, St#leex.ifile, Deterministic, L).
+
+out_tab_size(File, Opts) ->
+    Size = proplists:get_value(tab_size, Opts),
+    io:fwrite(File, "tab_size() -> ~p.\n", [Size]).
+
+%% Exclude column number if needed
+out_string(File, Opts) ->
+    out_string_1(File, Opts),
+    out_string_2(File, Opts),
+    Vars = lists:join(", ",["Ics","L0","C0","Tcs","Ts"]),
+    out_head(File,string,Vars),
+    EL = proplists:get_value(error_location, Opts),
+    case EL of
+        column ->
+            io:fwrite(File,"    do_string(~s).\n",[Vars]);
+        line ->
+            io:fwrite(File,"    case do_string(~s) of\n",[Vars]),
+            io:fwrite(File,"        {ok, T, {L,_}} -> {ok, T, L};\n",[]),
+            io:fwrite(File,"        {error, {{EL,_},M,D}, {L,_}} ->\n",[]),
+            io:fwrite(File,"            EI = {EL,M,D},\n",[]),
+            io:fwrite(File,"            {error, EI, L}\n",[]),
+            io:fwrite(File,"    end.\n",[])
+    end.
+
+out_string_1(File, Opts) ->
+    out_head(File,string,"Ics"),
+    EL = proplists:get_value(error_location, Opts),
+    DefLoc = case EL of
+                column -> "{1,1}";
+                line   -> "1"
+    end,
+    io:fwrite(File,"    string(~s).\n",["Ics,"++DefLoc]).
+
+out_string_2(File, Opts) ->
+    EL = proplists:get_value(error_location, Opts),
+    case EL of
+        column ->
+            out_head(File,string,"Ics,{L0,C0}"),
+            CallVars = lists:join(", ", ["Ics","L0","C0","Ics","[]"]),
+            io:fwrite(File,"    string(~s).\n",[CallVars]);
+        line ->
+            out_head(File,string,"Ics,L0"),
+            CallVars = lists:join(", ", ["Ics","L0","1","Ics","[]"]),
+            io:fwrite(File,"    string(~s).\n",[CallVars])
+    end.
+
+out_token(File, Opts) ->
+    out_tokens_wrapper(File, Opts, token).
+
+out_tokens(File, Opts) ->
+    out_tokens_wrapper(File, Opts, tokens).
+
+out_tokens_wrapper(File, Opts, Fun) ->
+    out_token_2(File, Opts, Fun),
+    EL = proplists:get_value(error_location, Opts),
+    case EL of
+        column ->
+            VarsCol = lists:join(", ",["Cont","Chars","{Line,Col}"]),
+            out_head(File, Fun, VarsCol),
+            io:fwrite(File,"    do_~s(~s).\n",[Fun,"Cont,Chars,Line,Col"]);
+        line ->
+            VarsCol = lists:join(", ",["Cont","Chars","Line"]),
+            out_head(File, Fun, VarsCol),
+            io:fwrite(File,"    case do_~s(~s) of\n",[Fun,"Cont,Chars,Line,1"]),
+            io:fwrite(File,"        {more, _} = C -> C;\n",[]),
+            io:fwrite(File,"        {done, Ret0, R} ->\n",[]),
+            io:fwrite(File,"            Ret1 = case Ret0 of\n",[]),
+            io:fwrite(File,"                {ok, T, {L,_}} -> {ok, T, L};\n",[]),
+            io:fwrite(File,"                {eof, {L,_}} -> {eof, L};\n",[]),
+            io:fwrite(File,"                {error, {{EL,_},M,D},{L,_}} -> {error, {EL,M,D},L}\n",[]),
+            io:fwrite(File,"            end,\n",[]),
+            io:fwrite(File,"            {done, Ret1, R}\n",[]),
+            io:fwrite(File,"    end.\n",[])
+    end.
+
+out_token_2(File, Opts, Fun) ->
+    out_head(File, Fun, "Cont,Chars"),
+    EL = proplists:get_value(error_location, Opts),
+    DefLoc = case EL of
+        column -> "{1,1}";
+        line   -> "1"
+    end,
+    io:fwrite(File,"    ~s(~s).\n",[Fun,"Cont,Chars,"++DefLoc]).
+
+out_head(File, Fun, Vars) ->
+    io:fwrite(File, "~s(~s) -> \n",[Fun,Vars]).
 
 file_copy(From, To) ->
     case io:get_line(From, leex) of
@@ -1441,40 +1552,41 @@ file_copy(From, To) ->
 
 out_dfa(File, St, DFA, Code, DF, L) ->
     {_CodeL,_CodePos,NCodeLines} = Code,
+    Deterministic = proplists:get_bool(deterministic, St#leex.opts),
     %% Three file attributes before this one...
-    output_file_directive(File, St#leex.efile, L+(NCodeLines-1)+3),
+    output_file_directive(File, St#leex.efile, Deterministic, L+(NCodeLines-1)+3),
     io:fwrite(File, "yystate() -> ~w.~n~n", [DF]),
     foreach(fun (S) -> out_trans(File, S) end, DFA),
-    io:fwrite(File, "yystate(S, Ics, Line, Tlen, Action, Alen) ->~n", []),
-    io:fwrite(File, "    {Action,Alen,Tlen,Ics,Line,S}.~n", []).
+    io:fwrite(File, "yystate(S, Ics, Line, Col, Tlen, Action, Alen) ->~n", []),
+    io:fwrite(File, "    {Action,Alen,Tlen,Ics,Line,Col,S}.~n", []).
 
 out_trans(File, #dfa_state{no=N,trans=[],accept={accept,A}}) ->
     %% Accepting end state, guaranteed done.
-    io:fwrite(File, "yystate(~w, Ics, Line, Tlen, _, _) ->~n", [N]),
-    io:fwrite(File, "    {~w,Tlen,Ics,Line};~n", [A]);
+    io:fwrite(File, "yystate(~w, Ics, Line, Col, Tlen, _, _) ->~n", [N]),
+    io:fwrite(File, "    {~w,Tlen,Ics,Line,Col};~n", [A]);
 out_trans(File, #dfa_state{no=N,trans=Tr,accept={accept,A}}) ->
     %% Accepting state, but there maybe more.
     foreach(fun (T) -> out_accept_tran(File, N, A, T) end, pack_trans(Tr)),
-    io:fwrite(File, "yystate(~w, Ics, Line, Tlen, _, _) ->~n", [N]),
-    io:fwrite(File, "    {~w,Tlen,Ics,Line,~w};~n", [A,N]);
+    io:fwrite(File, "yystate(~w, Ics, Line, Col, Tlen, _, _) ->~n", [N]),
+    io:fwrite(File, "    {~w,Tlen,Ics,Line,Col,~w};~n", [A,N]);
 out_trans(File, #dfa_state{no=N,trans=Tr,accept=noaccept}) ->
     %% Non-accepting transition state.
     foreach(fun (T) -> out_noaccept_tran(File, N, T) end, pack_trans(Tr)),
-    io:fwrite(File, "yystate(~w, Ics, Line, Tlen, Action, Alen) ->~n", [N]),
-    io:fwrite(File, "    {Action,Alen,Tlen,Ics,Line,~w};~n", [N]).
+    io:fwrite(File, "yystate(~w, Ics, Line, Col, Tlen, Action, Alen) ->~n", [N]),
+    io:fwrite(File, "    {Action,Alen,Tlen,Ics,Line,Col,~w};~n", [N]).
 
 out_accept_tran(File, N, A, {{Cf,maxchar},S}) ->
     out_accept_head_max(File, N, Cf),
-    out_accept_body(File, S, "Line", A);
+    out_accept_body(File, S, "Line", "Col", A);
 out_accept_tran(File, N, A, {{Cf,Cl},S}) ->
     out_accept_head_range(File, N, Cf, Cl),
-    out_accept_body(File, S, "Line", A);
+    out_accept_body(File, S, "Line", "Col", A);
 out_accept_tran(File, N, A, {$\n,S}) ->
     out_accept_head_1(File, N, $\n),
-    out_accept_body(File, S, "Line+1", A);
+    out_accept_body(File, S, "Line+1", "1", A);
 out_accept_tran(File, N, A, {C,S}) ->
     out_accept_head_1(File, N, C),
-    out_accept_body(File, S, "Line", A).
+    out_accept_body(File, S, "Line", "Col", A).
 
 out_accept_head_1(File, State, Char) ->
     out_head_1(File, State, Char, "_", "_").
@@ -1485,21 +1597,21 @@ out_accept_head_max(File, State, Min) ->
 out_accept_head_range(File, State, Min, Max) ->
     out_head_range(File, State, Min, Max, "_", "_").
 
-out_accept_body(File, Next, Line, Action) ->
-    out_body(File, Next, Line, io_lib:write(Action), "Tlen").
+out_accept_body(File, Next, Line, Col, Action) ->
+    out_body(File, Next, Line, Col, io_lib:write(Action), "Tlen").
 
 out_noaccept_tran(File, N, {{Cf,maxchar},S}) ->
     out_noaccept_head_max(File, N, Cf),
-    out_noaccept_body(File, S, "Line");
+    out_noaccept_body(File, S, "Line", "Col");
 out_noaccept_tran(File, N, {{Cf,Cl},S}) ->
     out_noaccept_head_range(File, N, Cf, Cl),
-    out_noaccept_body(File, S, "Line");
+    out_noaccept_body(File, S, "Line", "Col");
 out_noaccept_tran(File, N, {$\n,S}) ->
     out_noaccept_head_1(File, N, $\n),
-    out_noaccept_body(File, S, "Line+1");
+    out_noaccept_body(File, S, "Line+1", "1");
 out_noaccept_tran(File, N, {C,S}) ->
     out_noaccept_head_1(File, N, C),
-    out_noaccept_body(File, S, "Line").
+    out_noaccept_body(File, S, "Line", "Col").
 
 out_noaccept_head_1(File, State, Char) ->
     out_head_1(File, State, Char, "Action", "Alen").
@@ -1510,24 +1622,27 @@ out_noaccept_head_max(File, State, Min) ->
 out_noaccept_head_range(File, State, Min, Max) ->
     out_head_range(File, State, Min, Max, "Action", "Alen").
 
-out_noaccept_body(File, Next, Line) ->
-    out_body(File, Next, Line, "Action", "Alen").
+out_noaccept_body(File, Next, Line, Col) ->
+    out_body(File, Next, Line, Col, "Action", "Alen").
 
+out_head_1(File, State, Char = $\n, Action, Alen) ->
+    io:fwrite(File, "yystate(~w, [~w|Ics], Line, _, Tlen, ~s, ~s) ->\n",
+                [State,Char,Action,Alen]);
 out_head_1(File, State, Char, Action, Alen) ->
-    io:fwrite(File, "yystate(~w, [~w|Ics], Line, Tlen, ~s, ~s) ->\n",
+    io:fwrite(File, "yystate(~w, [~w|Ics], Line, Col, Tlen, ~s, ~s) ->\n",
               [State,Char,Action,Alen]).
 
 out_head_max(File, State, Min, Action, Alen) ->
-    io:fwrite(File, "yystate(~w, [C|Ics], Line, Tlen, ~s, ~s) when C >= ~w ->\n",
+    io:fwrite(File, "yystate(~w, [C|Ics], Line, Col, Tlen, ~s, ~s) when C >= ~w ->\n",
               [State,Action,Alen,Min]).
 
 out_head_range(File, State, Min, Max, Action, Alen) ->
-    io:fwrite(File, "yystate(~w, [C|Ics], Line, Tlen, ~s, ~s) when C >= ~w, C =< ~w ->\n",
+    io:fwrite(File, "yystate(~w, [C|Ics], Line, Col, Tlen, ~s, ~s) when C >= ~w, C =< ~w ->\n",
               [State,Action,Alen,Min,Max]).
 
-out_body(File, Next, Line, Action, Alen) ->
-    io:fwrite(File, "    yystate(~w, Ics, ~s, Tlen+1, ~s, ~s);\n",
-              [Next,Line,Action,Alen]).
+out_body(File, Next, Line, Col, Action, Alen) ->
+    io:fwrite(File, "    yystate(~w, Ics, ~s, ~s, Tlen+1, ~s, ~s);\n",
+              [Next,Line,Col,Action,Alen]).
 
 %% pack_trans([{Crange,State}]) -> [{Crange,State}] when
 %%      Crange = {Char,Char} | Char.
@@ -1565,37 +1680,38 @@ pack_trans([Tr|Trs], Pt) ->                % The default uninteresting case
     pack_trans(Trs, Pt ++ [Tr]);
 pack_trans([], Pt) -> Pt.
 
-%% out_actions(File, XrlFile, ActionList) -> ok.
+%% out_actions(File, XrlFile, Deterministic, ActionList) -> ok.
 %% Write out the action table.
 
-out_actions(File, XrlFile, As) ->
+out_actions(File, XrlFile, Deterministic, As) ->
     As1 = prep_out_actions(As),
     foreach(fun (A) -> out_action(File, A) end, As1),
-    io:fwrite(File, "yyaction(_, _, _, _) -> error.~n", []),
-    foreach(fun (A) -> out_action_code(File, XrlFile, A) end, As1).
+    io:fwrite(File, "yyaction(_, _, _, _, _) -> error.~n", []),
+    foreach(fun (A) -> out_action_code(File, XrlFile, Deterministic, A) end, As1).
 
 prep_out_actions(As) ->
     map(fun ({A,empty_action}) ->
                 {A,empty_action};
-            ({A,Code,TokenChars,TokenLen,TokenLine}) ->
+            ({A,Code,TokenChars,TokenLen,TokenLine,TokenCol,TokenLoc}) ->
                 Vs = [{TokenChars,"TokenChars"},
                       {TokenLen,"TokenLen"},
-                      {TokenLine,"TokenLine"},
+                      {TokenLine or TokenLoc,"TokenLine"},
+                      {TokenCol or TokenLoc,"TokenCol"},
                       {TokenChars,"YYtcs"},
                       {TokenLen or TokenChars,"TokenLen"}],
                 Vars = [if F -> S; true -> "_" end || {F,S} <- Vs],
                 Name = list_to_atom(lists:concat([yyaction_,A])),
-                [Chars,Len,Line,_,_] = Vars,
-                Args = [V || V <- [Chars,Len,Line], V =/= "_"],
+                [Chars,Len,Line,Col,_,_] = Vars,
+                Args = [V || V <- [Chars,Len,Line,Col], V =/= "_"],
                 ArgsChars = lists:join(", ", Args),
-                {A,Code,Vars,Name,Args,ArgsChars}
+                {A,Code,Vars,Name,Args,ArgsChars, TokenLoc}
         end, As).
 
 out_action(File, {A,empty_action}) ->
-    io:fwrite(File, "yyaction(~w, _, _, _) -> skip_token;~n", [A]);
-out_action(File, {A,_Code,Vars,Name,_Args,ArgsChars}) ->
-    [_,_,Line,Tcs,Len] = Vars,
-    io:fwrite(File, "yyaction(~w, ~s, ~s, ~s) ->~n", [A,Len,Tcs,Line]),
+    io:fwrite(File, "yyaction(~w, _, _, _, _) -> skip_token;~n", [A]);
+out_action(File, {A,_Code,Vars,Name,_Args,ArgsChars,_TokenLoc}) ->
+    [_,_,Line,Col,Tcs,Len] = Vars,
+    io:fwrite(File, "yyaction(~w, ~s, ~s, ~s, ~s) ->~n", [A,Len,Tcs,Line,Col]),
     if
         Tcs =/= "_" ->
             io:fwrite(File, "    TokenChars = yypre(YYtcs, TokenLen),~n", []);
@@ -1603,15 +1719,19 @@ out_action(File, {A,_Code,Vars,Name,_Args,ArgsChars}) ->
     end,
     io:fwrite(File, "    ~s(~s);~n", [Name, ArgsChars]).
 
-out_action_code(_File, _XrlFile, {_A,empty_action}) ->
+out_action_code(_File, _XrlFile, _Deterministic, {_A,empty_action}) ->
     ok;
-out_action_code(File, XrlFile, {_A,Code,_Vars,Name,Args,ArgsChars}) ->
+out_action_code(File, XrlFile, Deterministic, {_A,Code,_Vars,Name,Args,ArgsChars, TokenLoc}) ->
     %% Should set the file to the .erl file, but instead assumes that
     %% ?LEEXINC is syntactically correct.
     io:fwrite(File, "\n-compile({inline,~w/~w}).\n", [Name, length(Args)]),
     L = erl_scan:line(hd(Code)),
-    output_file_directive(File, XrlFile, L-2),
+    output_file_directive(File, XrlFile, Deterministic, L-2),
     io:fwrite(File, "~s(~s) ->~n", [Name, ArgsChars]),
+    if
+        TokenLoc -> io:fwrite(File,"    TokenLoc={TokenLine,TokenCol},~n",[]);
+        true -> ok
+    end,
     io:fwrite(File, "    ~ts\n", [pp_tokens(Code, L, File)]).
 
 %% pp_tokens(Tokens, Line, File) -> [char()].
@@ -1710,12 +1830,18 @@ output_encoding_comment(_File, #leex{encoding = none}) ->
 output_encoding_comment(File, #leex{encoding = Encoding}) ->
     io:fwrite(File, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
 
-output_file_directive(File, Filename, Line) ->
+output_file_directive(File, Filename, Deterministic, Line) ->
     io:fwrite(File, <<"-file(~ts, ~w).\n">>,
-              [format_filename(Filename, File), Line]).
+              [format_filename(Filename, File, Deterministic), Line]).
 
-format_filename(Filename0, File) ->
-    Filename = filename:flatten(Filename0),
+format_filename(Filename0, File, Deterministic) ->
+    Filename =
+        case Deterministic of
+            true ->
+                filename:basename(filename:flatten(Filename0));
+            false ->
+                filename:flatten(Filename0)
+        end,
     case enc(File) of
         unicode -> io_lib:write_string(Filename);
         latin1  -> io_lib:write_string_as_latin1(Filename)

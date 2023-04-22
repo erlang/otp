@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ init(Name) ->
     init(Name, []).
 
 init(Name, GlobalCounters) ->
-    ets:new(Name, [public, named_table, {keypos, 1}]),
+    _ = ets:new(Name, [public, named_table, {keypos, 1}]),
     ets:insert(Name, {global_counters, GlobalCounters}),
     create_global_snmp_counters(Name, GlobalCounters).
 

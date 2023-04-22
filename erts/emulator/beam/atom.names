@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2022. All Rights Reserved.
+# Copyright Ericsson AB 1996-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,9 +59,10 @@ atom nocatch
 atom undefined_function
 atom undefined_lambda
 
-# Secret internal atom that can never be found by string lookup
-# and should never leak out to be seen by the user.
-atom ErtsSecretAtom='3RT$'
+#
+# Other commonly used atoms.
+#
+atom nil no none
 
 # All other atoms.  Try to keep the order alphabetic.
 #
@@ -90,6 +91,7 @@ atom allocator
 atom allocator_sizes
 atom alloc_util_allocators
 atom allow_passive_connect
+atom already_exists
 atom already_loaded
 atom amd64
 atom anchored
@@ -104,6 +106,7 @@ atom arg0
 atom arity
 atom asn1
 atom async
+atom async_dist
 atom asynchronous
 atom atom
 atom atom_used
@@ -158,7 +161,9 @@ atom busy_port
 atom call
 atom call_count
 atom call_error_handler
+atom call_memory
 atom call_time
+atom call_trace_return
 atom caller
 atom caller_line
 atom capture
@@ -172,6 +177,7 @@ atom cflags
 atom CHANGE='CHANGE'
 atom characters_to_binary_int
 atom characters_to_list_int
+atom check_gc
 atom clear
 atom clock_service
 atom close
@@ -189,6 +195,7 @@ atom convert_time_unit
 atom connect
 atom connected
 atom connection_closed
+atom connection_id
 atom const
 atom context_switches
 atom continue_exit
@@ -245,6 +252,7 @@ atom dsend_continue_trap
 atom duplicate_bag
 atom duplicated
 atom dupnames
+atom dynamic_node_name
 atom einval
 atom emu_flavor
 atom emu_type
@@ -253,6 +261,7 @@ atom enable_trace
 atom enabled
 atom endian
 atom env
+atom ensure_at_least ensure_exactly
 atom eof
 atom eol
 atom Eq='=:='
@@ -321,6 +330,7 @@ atom get_all_trap
 atom get_internal_state_blocked
 atom get_seq_token
 atom get_size
+atom get_tail
 atom get_tcw
 atom gather_gc_info_result
 atom gather_io_bytes
@@ -351,6 +361,7 @@ atom ignore
 atom in
 atom in_exiting
 atom inactive
+atom include_shared_binaries
 atom incomplete
 atom inconsistent
 atom index
@@ -595,10 +606,10 @@ atom reset_seq_trace
 atom restart
 atom resume
 atom return_from
-atom return_time_trace
 atom return_to
 atom return_to_trace
 atom return_trace
+atom reuse
 atom run_process
 atom run_queue
 atom run_queue_lengths
@@ -641,6 +652,7 @@ atom set_tcw_fake
 atom short
 atom shutdown
 atom sighup
+atom signed
 atom sigterm
 atom sigusr1
 atom sigusr2
@@ -655,6 +667,7 @@ atom sigtstp
 atom sigquit
 atom silent
 atom size
+atom skip
 atom spawn_executable
 atom spawn_driver
 atom spawn_init

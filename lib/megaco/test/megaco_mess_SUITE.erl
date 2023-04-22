@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -9891,6 +9891,9 @@ otp_6442_resend_request1(suite) ->
     [];
 otp_6442_resend_request1(Config) when is_list(Config) ->
     Pre = fun() ->
+                  put(verbosity, debug),
+                  put(tc, ?FUNCTION_NAME),
+
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
                   Nodes = [MgNode],
@@ -10262,6 +10265,9 @@ otp_6442_resend_request2(suite) ->
     [];
 otp_6442_resend_request2(Config) when is_list(Config) ->
     Pre = fun() ->
+                  put(verbosity, debug),
+                  put(tc, ?FUNCTION_NAME),
+
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
                   Nodes = [MgNode],
@@ -10571,6 +10577,9 @@ otp_6442_resend_reply1(suite) ->
 otp_6442_resend_reply1(Config) when is_list(Config) ->
     Factor = ?config(megaco_factor, Config),
     Pre = fun() ->
+                  put(verbosity, debug),
+                  put(tc, ?FUNCTION_NAME),
+
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
                   Nodes = [MgNode],
@@ -11353,12 +11362,13 @@ otp_6442_resend_reply2_err_desc(T) ->
 otp_6865_request_and_reply_plain_extra1(suite) ->
     [];
 otp_6865_request_and_reply_plain_extra1(Config) when is_list(Config) ->
-    ?ACQUIRE_NODES(1, Config),
+    Pre  = fun() -> undefined end,
+    Case = fun(X) -> do_otp_6865_request_and_reply_plain_extra1(X, Config) end,
+    Post = fun(_) -> ok end,
+    try_tc(otp6865e1, Pre, Case, Post).
 
-    put(sname,     "TEST"),
-    put(verbosity, debug),
-    put(tc,        otp6865e1),
-    i("starting"),
+do_otp_6865_request_and_reply_plain_extra1(_, Config) ->
+    ?ACQUIRE_NODES(1, Config),
 
     d("start test case controller",[]),
     ok = megaco_tc_controller:start_link(),
@@ -11453,11 +11463,25 @@ otp_6865_request_and_reply_plain_extra2(suite) ->
 otp_6865_request_and_reply_plain_extra2(doc) ->
     [];
 otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp6865e2),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6865_request_and_reply_plain_extra2/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp6865e2, Pre, Case, Post).
 
+do_otp_6865_request_and_reply_plain_extra2([MgcNode, MgNode]) ->
     d("start tc controller"),
     ok = megaco_tc_controller:start_link(),
 
@@ -11465,16 +11489,6 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
     d("instruct transport module to provide extra info: ", []),
     ExtraInfo = otp6865e2_extra_info, 
     ok = megaco_tc_controller:insert(extra_transport_info, ExtraInfo),
-
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    Nodes = [MgcNode, MgNode],
-    ok = ?START_NODES(Nodes, true),
-
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -11520,10 +11534,6 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
 
     i("stop tc controller"),
     ok = megaco_tc_controller:stop(),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.

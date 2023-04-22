@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -281,6 +281,10 @@ handle_msg({Group, get_unicode_state}, State) ->
     Group ! {self(), get_unicode_state, false},
     {ok, State};
 
+handle_msg({Group, get_terminal_state}, State) ->
+    Group ! {self(), get_terminal_state, true},
+    {ok, State};
+
 handle_msg({Group, tty_geometry}, #state{group = Group,
 					 pty = Pty
 					} = State) ->
@@ -428,6 +432,8 @@ io_request({move_rel, N}, Buf, Tty, _Group) ->
     move_rel(N, Buf, Tty);
 io_request({delete_chars,N}, Buf, Tty, _Group) ->
     delete_chars(N, Buf, Tty);
+io_request(clear, Buf, _Tty, _Group) ->
+    {"\e[H\e[2J", Buf};
 io_request(beep, Buf, _Tty, _Group) ->
     {[7], Buf};
 
@@ -447,7 +453,7 @@ io_request(tty_geometry, Buf, Tty, Group) ->
 io_request({put_chars_sync, Class, Cs, Reply}, Buf, Tty, Group) ->
     %% We handle these asynchronous for now, if we need output guarantees
     %% we have to handle these synchronously
-    Group ! {reply, Reply},
+    Group ! {reply, Reply, ok},
     io_request({put_chars, Class, Cs}, Buf, Tty, Group);
 
 io_request(_R, Buf, _Tty, _Group) ->
@@ -666,7 +672,9 @@ start_shell(ConnectionHandler, State) ->
             {_,_,_} = Shell ->
                 Shell
         end,
-    State#state{group = group:start(self(), ShellSpawner, [{echo, get_echo(State#state.pty)}]),
+    State#state{group = group:start(self(), ShellSpawner,
+                                    [{expand_below, false},
+                                     {echo, get_echo(State#state.pty)}]),
                 buf = empty_buf()}.
 
 %%--------------------------------------------------------------------
@@ -687,7 +695,8 @@ start_exec_shell(ConnectionHandler, Cmd, State) ->
             {M,F,A} ->
                 {M, F, A++[Cmd]}
         end,
-    State#state{group = group:start(self(), ExecShellSpawner, [{echo,false}]),
+    State#state{group = group:start(self(), ExecShellSpawner, [{expand_below, false},
+                                                               {echo,false}]),
                 buf = empty_buf()}.
 
 %%--------------------------------------------------------------------
@@ -771,7 +780,8 @@ exec_in_self_group(ConnectionHandler, ChannelId, WantReply, State, Fun) ->
                           end
                   end)
         end,
-    {ok, State#state{group = group:start(self(), Exec, [{echo,false}]),
+    {ok, State#state{group = group:start(self(), Exec, [{expand_below, false},
+                                                        {echo,false}]),
                      buf = empty_buf()}}.
     
 

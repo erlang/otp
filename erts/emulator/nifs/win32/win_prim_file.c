@@ -65,11 +65,16 @@
 #define TICKS_PER_SECOND (10000000ULL)
 #define EPOCH_DIFFERENCE (11644473600LL)
 
+/* Note: some functions return a file time of -1 when the time is unavailable,
+ * rather than the documented 0, so we'll silently convert it to 0. */ \
 #define FILETIME_TO_EPOCH(epoch, ft) \
     do { \
         ULARGE_INTEGER ull; \
         ull.LowPart  = (ft).dwLowDateTime; \
         ull.HighPart = (ft).dwHighDateTime; \
+        if (ull.QuadPart == ~0ULL) { \
+            ull.QuadPart = 0; \
+        } \
         (epoch) = ((ull.QuadPart / TICKS_PER_SECOND) - EPOCH_DIFFERENCE); \
     } while(0)
 

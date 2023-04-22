@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -334,7 +334,6 @@ erl_sys_init(void)
     if (isatty(0)) {
 	tcgetattr(0,&initial_tty_mode);
     }
-    tzset(); /* Required at least for NetBSD with localtime_r() */
 }
 
 /* signal handling */
@@ -815,6 +814,10 @@ void sys_get_pid(char *buffer, size_t buffer_size){
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
 }
 
+int sys_get_hostname(char *buf, size_t size)
+{
+    return gethostname(buf, size);
+}
 
 void sys_init_io(void) { }
 void erts_sys_alloc_init(void) { }
@@ -1058,7 +1061,7 @@ init_smp_sig_notify(void)
 {
     erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
-    thr_opts.name = "sys_sig_dispatcher";
+    thr_opts.name = "erts_ssig_disp";
 
     if (pipe(sig_notify_fds) < 0) {
 	erts_exit(ERTS_ABORT_EXIT,
@@ -1108,7 +1111,7 @@ erts_sys_main_thread(void)
 #else
     /* Become signal receiver thread... */
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_set_thread_name("signal_receiver");
+    erts_lc_set_thread_name("main");
 #endif
 #endif
     smp_sig_notify(0); /* Notify initialized */

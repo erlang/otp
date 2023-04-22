@@ -23,7 +23,8 @@
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_suite/1, end_per_suite/1]).
 -export([start_gg_proc/1, no_gg_proc/1, no_gg_proc_sync/1, compatible/1, 
-	 one_grp/1, one_grp_x/1, two_grp/1, hidden_groups/1, test_exit/1]).
+	 one_grp/1, one_grp_x/1, two_grp/1, hidden_groups/1, test_exit/1,
+         global_disconnect/1]).
 -export([init/1, init/2, init2/2, start_proc/1, start_proc_rereg/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -42,7 +43,8 @@ suite() ->
 
 all() -> 
     [start_gg_proc, no_gg_proc, no_gg_proc_sync, compatible,
-     one_grp, one_grp_x, two_grp, test_exit, hidden_groups].
+     one_grp, one_grp_x, two_grp, test_exit, hidden_groups,
+     global_disconnect].
 
 groups() -> 
     [].
@@ -55,7 +57,6 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_suite(Config) ->
-
     %% Copied from test_server_ctrl ln 647, we have to do this here as
     %% the test_server only does this when run without common_test
     global:sync(),
@@ -84,7 +85,7 @@ end_per_suite(_Config) ->
 init_per_testcase(_Case, Config) ->
     Config.
 
-end_per_testcase(_Func, _Config) ->
+end_per_testcase(_Case, _Config) ->
     ok.
 
 %%-----------------------------------------------------------------
@@ -1151,6 +1152,179 @@ test_exit(Config) when is_list(Config) ->
 
     ok.
 
+global_disconnect(Config) when is_list(Config) ->
+    Dir = proplists:get_value(priv_dir, Config),
+
+    [NProxy,Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz,Nh]
+        = [?CT_PEER_NAME(atom_to_list(?FUNCTION_NAME)++"-"++atom_to_list(NN))
+           || NN <- [proxy,cp1,cp2,cp3,cpx,cpy,cpz,h]],
+
+    Host = from($@, atom_to_list(node())),
+
+    WriteConf = fun (File,
+                     [S1, S2, S3],
+                     [NC11, NC12, NC13],
+                     [NC21, NC22, NC23]) ->
+                        {ok, Fd} = file:open(filename:join(Dir, File), [write]),
+                        io:format(Fd,
+                                  "[{kernel,~n"
+                                  "  [~n"
+                                  "   {sync_nodes_optional, ['~s@~s','~s@~s','~s@~s']},~n"
+                                  "   {sync_nodes_timeout, 1000},~n"
+                                  "   {global_groups,~n"
+                                  "    [{nc1, ['~s@~s','~s@~s','~s@~s']},~n"
+                                  "     {nc2, ['~s@~s','~s@~s','~s@~s']}]}~n"
+                                  "  ]~n"
+                                  " }].~n",
+                                  [S1, Host, S2, Host, S3, Host,
+                                   NC11, Host, NC12, Host, NC13, Host,
+                                   NC21, Host, NC22, Host, NC23, Host]),
+                        file:close(Fd)
+                end,
+
+    WriteConf("nc1.config", [Ncp1,Ncp2,Ncp3], [Ncp1,Ncp2,Ncp3], [Ncpx,Ncpy,Ncpz]),
+    WriteConf("nc2.config", [Ncpx,Ncpy,Ncpz], [Ncp1,Ncp2,Ncp3], [Ncpx,Ncpy,Ncpz]),
+
+    NC1Args = ["-config", filename:join(Dir, "nc1")],
+    NC2Args = ["-config", filename:join(Dir, "nc2")],
+
+    PeerNodes = lists:map(fun ({Name, Args}) ->
+                                  ?CT_PEER(#{name => Name,
+                                             args => Args,
+                                             connection => 0})
+                          end,
+                          [{Ncp1, NC1Args},
+                           {Ncp2, NC1Args},
+                           {Ncp3, NC1Args},
+                           {Ncpx, NC2Args},
+                           {Ncpy, NC2Args},
+                           {Ncpz, NC2Args},
+                           {Nh, ["-hidden"]},
+                           {NProxy, ["-hidden"]}]),
+
+    [{ok, _, Cp1}, {ok, _, Cp2}, {ok, _, Cp3},
+     {ok, _, Cpx}, {ok, _, Cpy}, {ok, _, Cpz},
+     {ok, _, H}, {ok, _, P}] = PeerNodes,
+
+    %% RPC() - An rpc via a hidden proxy node...
+    RPC = fun (N, M, F, A) ->
+                  erpc:call(P, erpc, call, [N, M, F, A])
+          end,
+
+    %% The groups
+    NC1Nodes = lists:sort([Cp1, Cp2, Cp3]),
+    NC2Nodes = lists:sort([Cpx, Cpy, Cpz]),
+
+    %% Wait with disconnect from group nodes a while, so we
+    %% don't have any ongoing communication that brings up
+    %% the connections again...
+    receive after 500 -> ok end,
+
+    %% Disconnect test_server from the global group nodes...
+    lists:foreach(fun (N) -> erlang:disconnect_node(N) end, NC1Nodes++NC2Nodes),
+
+    %% wait some more to ensure that global group nodes have synced...
+    receive after 500 -> ok end,
+
+    %% check the global group names
+    {nc1, [nc2]} = RPC(Cp1, global_group, global_groups, []),
+    {nc1, [nc2]} = RPC(Cp2, global_group, global_groups, []),
+    {nc1, [nc2]} = RPC(Cp3, global_group, global_groups, []),
+    {nc2, [nc1]} = RPC(Cpx, global_group, global_groups, []),
+    {nc2, [nc1]} = RPC(Cpy, global_group, global_groups, []),
+    {nc2, [nc1]} = RPC(Cpz, global_group, global_groups, []),
+
+    %% check the global group nodes
+    NC1Nodes = lists:sort(RPC(Cp1, global_group, own_nodes, [])),
+    NC1Nodes = lists:sort(RPC(Cp2, global_group, own_nodes, [])),
+    NC1Nodes = lists:sort(RPC(Cp3, global_group, own_nodes, [])),
+    NC2Nodes = lists:sort(RPC(Cpx, global_group, own_nodes, [])),
+    NC2Nodes = lists:sort(RPC(Cpy, global_group, own_nodes, [])),
+    NC2Nodes = lists:sort(RPC(Cpz, global_group, own_nodes, [])),
+
+    %% Set up connections that should *not* be affected
+    %% by our global:disconnect() call made later (this since
+    %% these connections are not internal in the group). One
+    %% hidden and one visible connection. We don't use the
+    %% proxy node for the hidden connection since it will be
+    %% brought up by our erpc calls if it should have been
+    %% taken down.
+    pong = RPC(H, net_adm, ping, [Cp1]),
+    pong = RPC(Cpx, net_adm, ping, [Cp1]),
+
+    %% Verify that the connections have been set up as
+    %% expected...
+    HiddenNodes = lists:sort([P, H]),
+
+    Cp1ConnectedNodes = lists:sort([P, H, Cpx, Cp2, Cp3]),
+    Cp1VisibleNodes = Cp1ConnectedNodes -- HiddenNodes,
+    Cp2ConnectedNodes = lists:sort([P, Cp1, Cp3]),
+    Cp2VisibleNodes = Cp2ConnectedNodes -- HiddenNodes,
+    Cp3ConnectedNodes = lists:sort([P, Cp1, Cp2]),
+    Cp3VisibleNodes = Cp3ConnectedNodes -- HiddenNodes,
+
+    CpxConnectedNodes = lists:sort([P, Cp1, Cpy, Cpz]),
+    CpxVisibleNodes = CpxConnectedNodes -- HiddenNodes,
+    CpyConnectedNodes = lists:sort([P, Cpx, Cpz]),
+    CpyVisibleNodes = CpyConnectedNodes -- HiddenNodes,
+    CpzConnectedNodes = lists:sort([P, Cpx, Cpy]),
+    CpzVisibleNodes = CpzConnectedNodes -- HiddenNodes,
+
+    Cp1ConnectedNodes = lists:sort(RPC(Cp1, erlang, nodes, [connected])),
+    Cp1VisibleNodes = lists:sort(RPC(Cp1, erlang, nodes, [])),
+    Cp2ConnectedNodes = lists:sort(RPC(Cp2, erlang, nodes, [connected])),
+    Cp2VisibleNodes = lists:sort(RPC(Cp2, erlang, nodes, [])),
+    Cp3ConnectedNodes = lists:sort(RPC(Cp3, erlang, nodes, [connected])),
+    Cp3VisibleNodes = lists:sort(RPC(Cp3, erlang, nodes, [])),
+
+    CpxConnectedNodes = lists:sort(RPC(Cpx, erlang, nodes, [connected])),
+    CpxVisibleNodes = lists:sort(RPC(Cpx, erlang, nodes, [])),
+    CpyConnectedNodes = lists:sort(RPC(Cpy, erlang, nodes, [connected])),
+    CpyVisibleNodes = lists:sort(RPC(Cpy, erlang, nodes, [])),
+    CpzConnectedNodes = lists:sort(RPC(Cpz, erlang, nodes, [connected])),
+    CpzVisibleNodes = lists:sort(RPC(Cpz, erlang, nodes, [])),
+
+    %% Expected disconnects made by global on Cp1...
+    Cp1DisconnectNodes = lists:sort([Cp2, Cp3]),
+
+    %% Perform the global:disconnect() on Cp1...
+    Cp1DisconnectNodes = lists:sort(RPC(Cp1, global, disconnect, [])),
+
+    %% Wait a while giving the other nodes time to react to the disconnects
+    %% before we check that everything is as expected...
+    receive after 2000 -> ok end,
+
+    %% Verify that only the connections Cp1-Cp2 and Cp1-Cp3 were
+    %% taken down...
+    Cp1PostConnectedNodes = Cp1ConnectedNodes -- Cp1DisconnectNodes,
+    Cp1PostVisibleNodes = Cp1PostConnectedNodes -- HiddenNodes,
+    Cp2PostConnectedNodes = Cp2ConnectedNodes -- [Cp1],
+    Cp2PostVisibleNodes = Cp2PostConnectedNodes -- HiddenNodes,
+    Cp3PostConnectedNodes = Cp3ConnectedNodes -- [Cp1],
+    Cp3PostVisibleNodes = Cp3PostConnectedNodes -- HiddenNodes,
+
+    Cp1PostConnectedNodes = lists:sort(RPC(Cp1, erlang, nodes, [connected])),
+    Cp1PostVisibleNodes = lists:sort(RPC(Cp1, erlang, nodes, [])),
+    Cp2PostConnectedNodes = lists:sort(RPC(Cp2, erlang, nodes, [connected])),
+    Cp2PostVisibleNodes = lists:sort(RPC(Cp2, erlang, nodes, [])),
+    Cp3PostConnectedNodes = lists:sort(RPC(Cp3, erlang, nodes, [connected])),
+    Cp3PostVisibleNodes = lists:sort(RPC(Cp3, erlang, nodes, [])),
+
+    CpxConnectedNodes = lists:sort(RPC(Cpx, erlang, nodes, [connected])),
+    CpxVisibleNodes = lists:sort(RPC(Cpx, erlang, nodes, [])),
+    CpyConnectedNodes = lists:sort(RPC(Cpy, erlang, nodes, [connected])),
+    CpyVisibleNodes = lists:sort(RPC(Cpy, erlang, nodes, [])),
+    CpzConnectedNodes = lists:sort(RPC(Cpz, erlang, nodes, [connected])),
+    CpzVisibleNodes = lists:sort(RPC(Cpz, erlang, nodes, [])),
+
+    lists:foreach(fun ({ok, Peer, _Node}) ->
+                          peer:stop(Peer)
+                  end, PeerNodes),
+
+    ok.
+
+%%%%% End of test-cases %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 wait_for_ready_net() ->
     Nodes = lists:sort(?NODES),
     ?UNTIL(begin
@@ -1348,4 +1522,3 @@ loop_until_true(Fun) ->
 	_ ->
 	    loop_until_true(Fun)
     end.
-

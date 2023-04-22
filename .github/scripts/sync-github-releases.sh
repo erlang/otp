@@ -215,7 +215,11 @@ if [ ${UPLOADED} = false ] && [ ${#MISSING_PREBUILD[0]} != 0 ]; then
     name="${MISSING_PREBUILD[0]}"
     stripped_name=$(_strip_name "${name}")
     git clone https://github.com/erlang/otp -b "${name}" otp_src
-    (cd otp_src && ../.github/scripts/init-pre-release.sh)
+    if [ -f otp_src/.github/scripts/init-pre-release.sh ]; then
+        (cd otp_src && ERL_TOP=$(pwd) .github/scripts/init-pre-release.sh)
+    else
+        (cd otp_src && ERL_TOP=$(pwd) ../.github/scripts/init-pre-release.sh)
+    fi
     case ${stripped_name} in
         23.**)
             ## The 32-bit dockerfile build the doc chunks which we want

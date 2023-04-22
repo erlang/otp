@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,15 +14,15 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 
-%% 
+%%
 %% ct:run("../inets_test", httpd_SUITE).
 %%
-
+-compile({no_auto_import,[alias/1]}).
 -module(httpd_SUITE).
 
 -include_lib("kernel/include/file.hrl").
@@ -30,7 +30,7 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("inets/include/httpd.hrl").
 -include("inets_test_lib.hrl").
-
+-include_lib("stdlib/include/assert.hrl").
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
@@ -38,7 +38,7 @@
 -record(httpd_group, {group_name, userlist}).
 -define(MAX_HEADER_SIZE, 256).
 %% Minutes before failed auths timeout.
--define(FAIL_EXPIRE_TIME,1). 
+-define(FAIL_EXPIRE_TIME,1).
 %% Seconds before successful auths timeout.
 -define(AUTH_TIMEOUT,5).
 -define(URL_START, "http://").
@@ -68,7 +68,7 @@ all() ->
      {group, https_auth_api_dets},
      {group, http_auth_api_mnesia},
      {group, https_auth_api_mnesia},
-     {group, http_security}, 
+     {group, http_security},
      {group, https_security},
      {group, http_reload},
      {group, https_reload},
@@ -82,7 +82,8 @@ all() ->
      mime_types_format,
      erl_script_timeout_default,
      erl_script_timeout_option,
-     erl_script_timeout_proplist
+     erl_script_timeout_proplist,
+     erl_script_alias_all
     ].
 
 groups() ->
@@ -99,7 +100,7 @@ groups() ->
      {https_auth_api, [], [{group, auth_api}]},
      {http_auth_api_dets, [], [{group, auth_api_dets}]},
      {https_auth_api_dets, [], [{group, auth_api_dets}]},
-     {http_auth_api_mnesia, [], [{group, auth_api_mnesia}]}, 
+     {http_auth_api_mnesia, [], [{group, auth_api_mnesia}]},
      {https_auth_api_mnesia, [], [{group, auth_api_mnesia}]},
      {http_security, [], [{group, security}]},
      {https_security, [], [{group, security}]},
@@ -111,11 +112,11 @@ groups() ->
      {https_not_sup, [], [{group, not_sup}]},
      {https_alert, [], [tls_alert]},
      {http_mime_types, [], [alias_1_1, alias_1_0]},
-     {limit, [],  [content_length, max_clients_1_1]},  
-     {custom, [],  [customize, add_default]},  
+     {limit, [],  [content_length, max_clients_1_1]},
+     {custom, [],  [customize, add_default]},
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
-		   non_disturbing_1_1, 
+		   non_disturbing_1_1,
 		   non_disturbing_1_0,
            disturbing_1_1,
            disturbing_1_0,
@@ -147,12 +148,12 @@ basic_groups ()->
 http_head() ->
     [head].
 http_get() ->
-    [alias, 
-     get, 
+    [alias,
+     get,
      bad_dot_paths,
      %%actions, Add configuration so that this test mod_action
-     esi, 
-     bad_hex, 
+     esi,
+     bad_hex,
      missing_CR,
      max_header,
      max_content_length,
@@ -163,10 +164,10 @@ http_get() ->
 
 
 load() ->
-    [light, medium 
+    [light, medium
      %%,heavy
-    ]. 
-    
+    ].
+
 init_per_suite(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
@@ -180,7 +181,7 @@ init_per_suite(Config) ->
     logger:add_handler_filter(default, inets_httpd, {fun logger_filters:domain/2,
                                                      {log, equal,[otp,inets, httpd, httpd_test, error]}}),
     %%logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
-    Inet = 
+    Inet =
 	case (catch ct:get_config(ipv6_hosts)) of
 	    undefined ->
 		inet;
@@ -194,11 +195,11 @@ init_per_suite(Config) ->
 	    _ ->
 		inet
 	end,
-    [{server_root, ServerRoot}, 
+    [{server_root, ServerRoot},
      {doc_root, DocRoot},
      {ipfamily, Inet},
      {node,             node()},
-     {host,             inets_test_lib:hostname()}, 
+     {host,             inets_test_lib:hostname()},
      {address,          getaddr()} | Config].
 
 end_per_suite(_Config) ->
@@ -224,7 +225,7 @@ init_per_group(Group, Config0) when Group == https_basic;
     catch
         _:_ ->
             {skip, "Crypto did not start"}
-    end; 
+    end;
 init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_limit;
 				      Group == http_custom;
@@ -394,7 +395,7 @@ dbg(Case, Config, Status) ->
 		    Config;
 		'end' ->
 		    io:format("dbg: stopped~n"),
-		    dbg:stop_clear(),
+		    dbg:stop(),
 		    ok
 	    end;
 	false ->
@@ -1147,30 +1148,48 @@ alias_1_0(Config) when is_list(Config) ->
 alias() ->
     [{doc, "Test mod_alias"}].
 
-alias(Config) when is_list(Config) -> 
-    ok = http_status("GET /pics/icon.sheet.gif ", Config,
-		     [{statuscode, 200},
-		      {header, "Content-Type","image/gif"},
-		      {header, "Server"},
-		      {header, "Date"}]),
-    
-    ok = http_status("GET / ", Config,
-		     [{statuscode, 200},
-		      {header, "Content-Type","text/html"},
-		      {header, "Server"},
-		      {header, "Date"}]),
-    
-    ok = http_status("GET /misc/ ", Config,
-		     [{statuscode, 200},
-		      {header, "Content-Type","text/html"},
-		      {header, "Server"},
-		      {header, "Date"}]),
+alias(Config) when is_list(Config) ->
+    TestURIs200 = [
+                   {"GET /pics/icon.sheet.gif ", 200, "image/gif"},
+                   {"GET / ", 200, "text/html"},
+                   {"GET /misc/ ", 200, "text/html"}
+                  ],
+    Test200 =
+        fun({Request, ResultCode, ContentType}) ->
+                ct:log("Request: ~s Expecting: ~p ~s",
+                     [Request, ResultCode, ContentType]),
+                ok = http_status(Request, Config,
+                                 [{statuscode, ResultCode},
+                                  {header, "Content-Type", ContentType},
+                                  {header, "Server"},
+                                  {header, "Date"}])
+        end,
+    [Test200(T) || T <- TestURIs200],
+    TestURIs301 =
+        [
+         %% Check redirection if trailing slash is missing.
+         {"GET /misc ", 301, "text/html", "&#47;misc&#47;$"},
+         %% slash character expected after path(misc) not query component
+         {"GET /misc?test=test ", 301, "text/html", "&#47;misc&#47;\\?test=test$"}
+        ],
+    Test301 =
+        fun({Request, ResultCode, ContentType, TargetLinkRegexp}) ->
+                ct:log("Request: ~s Expecting: ~p ~s RE: ~s",
+                     [Request, ResultCode, ContentType, TargetLinkRegexp]),
+                {ok, [RedirectLink]} =
+                    http_status(Request, Config,
+                                [{statuscode, ResultCode},
+                                 {header, "Content-Type", ContentType},
+                                 {header, "Server"},
+                                 {header, "Date"},
+                                 {fetch_hrefs, true}]),
+                ReResult = re:run(RedirectLink, TargetLinkRegexp),
+                ct:log("RedirectLink = ~p", [RedirectLink]),
+                ?assertMatch({match, _}, ReResult)
+              end,
+    [Test301(T) || T <- TestURIs301],
+    ok.
 
-    %% Check redirection if trailing slash is missing.
-    ok = http_status("GET /misc ", Config,
-		     [{statuscode, 301},
-		      {header, "Location"},
-		      {header, "Content-Type","text/html"}]).
 %%-------------------------------------------------------------------------
 actions() ->
     [{doc, "Test mod_actions"}].
@@ -1332,7 +1351,7 @@ ignore_invalid_header(Config) when is_list(Config) ->
             ssl ->
                 Conf = proplists:get_value(client_config, proplists:get_value(ssl_conf, Config)),
                 {"https://"  ++ Host ++  ":" ++ integer_to_list(Port) ++ "/cgi-bin/erl/httpd_example:ignore_invalid_header",
-                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], [{ssl, Conf}]}
+                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], [{ssl, [{verify, verify_none} | Conf]}]}
         end,
     {ok,{{_,204,_}, _, _}}
         = httpc:request(get, {Url, Header}, [{timeout, 45000} | Opts], [{headers_as_is, true}]).
@@ -1846,6 +1865,16 @@ erl_script_timeout_proplist(Config) when is_list(Config) ->
     verify_body(Body, 3000),
     inets:stop().
 
+erl_script_alias_all(Config0) when is_list(Config0) ->
+    ok = start_apps(http_basic),
+    Config1 = [{http_version, "HTTP/1.0"},
+               {type, ip_comm} |
+               Config0],
+    Config2 = init_httpd(http_basic_erl_script_alias_all, Config1),
+    ok = http_status("GET /cgi-bin/erl/httpd_example:get ",
+        	     Config2, [{statuscode, 200}]),
+    inets:stop().
+
 tls_alert(Config) when is_list(Config) ->
     SSLOpts = proplists:get_value(client_alert_conf, Config),    
     Port = proplists:get_value(port, Config),    
@@ -1913,7 +1942,7 @@ do_max_clients(Config) ->
 	    ok
     end,
     inets_test_lib:close(Type, Socket),
-    ct:sleep(100), %% Avoid possible timing issues
+    ct:sleep(5000), %% Avoid possible timing issues
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
@@ -1922,7 +1951,7 @@ do_max_clients(Config) ->
 				       [{statuscode, 200},
 					{version, Version}]).
 
-setup_server_dirs(ServerRoot, DocRoot, DataDir) ->   
+setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     CgiDir =  filename:join(ServerRoot, "cgi-bin"),
     AuthDir =  filename:join(ServerRoot, "auth"),
     PicsDir =  filename:join(ServerRoot, "icons"),
@@ -1935,33 +1964,33 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     ok = file:make_dir(PicsDir),
     ok = file:make_dir(ConfigDir),
 
-    DocSrc = filename:join(DataDir, "server_root/htdocs"),    
-    AuthSrc = filename:join(DataDir, "server_root/auth"),    
-    CgiSrc =  filename:join(DataDir, "server_root/cgi-bin"),    
-    PicsSrc =  filename:join(DataDir, "server_root/icons"),    
+    DocSrc = filename:join(DataDir, "server_root/htdocs"),
+    AuthSrc = filename:join(DataDir, "server_root/auth"),
+    CgiSrc =  filename:join(DataDir, "server_root/cgi-bin"),
+    PicsSrc =  filename:join(DataDir, "server_root/icons"),
     ConfigSrc = filename:join(DataDir, "server_root/config"),
-    
+
     inets_test_lib:copy_dirs(DocSrc, DocRoot),
     inets_test_lib:copy_dirs(AuthSrc, AuthDir),
     inets_test_lib:copy_dirs(CgiSrc, CgiDir),
     inets_test_lib:copy_dirs(PicsSrc, PicsDir),
     inets_test_lib:copy_dirs(ConfigSrc, ConfigDir),
-        
+
     Cgi = case os:type() of
 	      {win32, _} ->
 		  "cgi_echo.exe";
 	      _ ->
 		  "cgi_echo"
 	  end,
-    
+
     inets_test_lib:copy_file(Cgi, DataDir, CgiDir),
     AbsCgi = filename:join([CgiDir, Cgi]),
     {ok, FileInfo} = file:read_file_info(AbsCgi),
     ok = file:write_file_info(AbsCgi, FileInfo#file_info{mode = 8#00755}),
-    
+
     EnvCGI =  filename:join([ServerRoot, "cgi-bin", "printenv.sh"]),
     {ok, FileInfo1} = file:read_file_info(EnvCGI),
-    ok = file:write_file_info(EnvCGI, 
+    ok = file:write_file_info(EnvCGI,
 			      FileInfo1#file_info{mode = 8#00755}).
 
 setup_tmp_dir(PrivDir) ->
@@ -1991,7 +2020,7 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_basic_auth;
 			Group == http_auth_api;
 			Group == http_auth_api_dets;
-			Group == http_auth_api_mnesia;			
+			Group == http_auth_api_mnesia;
 			Group == http_security;
 			Group == http_logging;
 			Group == http_reload;
@@ -2012,18 +2041,17 @@ init_ssl(Group, Config) ->
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
     ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
     GenCertData = #{client_config := CConf} =
-        public_key:pkix_test_data(#{server_chain => 
-                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}],
-                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}]],
-                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}
-                                                  ]},
-                                    client_chain => 
-                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}],
-                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}]],
-                                          peer => [{key, inets_test_lib:hardcode_rsa_key(6)}]}}),
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}, {digest, sha256}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}, {digest, sha256}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}, {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}, {digest, sha256}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}, {digest, sha256}]],
+                                    peer => [{key, inets_test_lib:hardcode_rsa_key(6)}, {digest, sha256}]}}),
     [_ | CAs] = proplists:get_value(cacerts, CConf),
-    AlertConf = [{cacerts, CAs} |  proplists:delete(cacerts, CConf)],                 
-    Conf = inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),                               
+    AlertConf = [{cacerts, CAs} |  proplists:delete(cacerts, CConf)],
+    Conf = inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
     case start_apps(Group) of
 	ok ->
 	    init_httpd(Group, [{client_alert_conf, AlertConf}, {type, ssl}, {ssl_conf, Conf} | Config]);
@@ -2033,6 +2061,8 @@ init_ssl(Group, Config) ->
 
 server_config(http_basic, Config) ->
     basic_conf() ++ server_config(http, Config);
+server_config(http_basic_erl_script_alias_all, Config) ->
+    basic_conf() ++ server_config(http_erl_script_alias_all, Config);
 server_config(https_basic, Config) ->
     basic_conf() ++ server_config(https, Config);
 server_config(http_not_sup, Config) ->
@@ -2101,50 +2131,40 @@ server_config(https_alert, Config) ->
     basic_conf() ++ server_config(https, Config);
 server_config(http, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
-    [{port, 0},
-     {socket_type, {ip_comm, [{nodelay, true}]}},
-     {server_name,"httpd_test"},
-     {server_root, ServerRoot},
-     {document_root, proplists:get_value(doc_root, Config)},
-     {bind_address, any},
-     {ipfamily, proplists:get_value(ipfamily, Config)},
-     {max_header_size, 256},
-     {max_header_action, close},
-     {directory_index, ["index.html", "welcome.html"]},
-     {mime_types, [{"html","text/html"},{"htm","text/html"}, {"shtml","text/html"},
-		   {"gif", "image/gif"}]},
-     {alias, {"/icons/", filename:join(ServerRoot,"icons") ++ "/"}},
-     {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
-     {script_alias, {"/cgi-bin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}},
-     {script_alias, {"/htbin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}},
-     {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}}
-    ];
+    config_template(Config, ServerRoot,
+                    filename:join(ServerRoot, "cgi-bin") ++ "/", [httpd_example, io]);
+server_config(http_erl_script_alias_all, Config) ->
+    ServerRoot = proplists:get_value(server_root, Config),
+    config_template(Config, ServerRoot, "./cgi-bin/", [all]);
 server_config(http_rel_path_script_alias, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
-    [{port, 0},
-     {socket_type, {ip_comm, [{nodelay, true}]}},
-     {server_name,"httpd_test"},
-     {server_root, ServerRoot},
-     {document_root, proplists:get_value(doc_root, Config)},
-     {bind_address, any},
-     {ipfamily, proplists:get_value(ipfamily, Config)},
-     {max_header_size, 256},
-     {max_header_action, close},
-     {directory_index, ["index.html", "welcome.html"]},
-     {mime_types, [{"html","text/html"},{"htm","text/html"}, {"shtml","text/html"},
-		   {"gif", "image/gif"}]},
-     {alias, {"/icons/", filename:join(ServerRoot,"icons") ++ "/"}},
-     {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
-     {script_alias, {"/cgi-bin/", "./cgi-bin/"}},
-     {script_alias, {"/htbin/", "./cgi-bin/"}},
-     {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}}
-    ];
+    config_template(Config, ServerRoot, "./cgi-bin/", [httpd_example, io]);
 server_config(https, Config) ->
     SSLConf = proplists:get_value(ssl_conf, Config),
     ServerConf = proplists:get_value(server_config, SSLConf),
-    [{socket_type, {essl,
+    [{socket_type, {ssl,
 		    [{nodelay, true} | ServerConf]}}]
         ++ proplists:delete(socket_type, server_config(http, Config)).
+
+config_template(Config, ServerRoot, ScriptPath, Modules) ->
+    [{port, 0},
+     {socket_type, {ip_comm, [{nodelay, true}]}},
+     {server_name,"httpd_test"},
+     {server_root, ServerRoot},
+     {document_root, proplists:get_value(doc_root, Config)},
+     {bind_address, any},
+     {ipfamily, proplists:get_value(ipfamily, Config)},
+     {max_header_size, 256},
+     {max_header_action, close},
+     {directory_index, ["index.html", "welcome.html"]},
+     {mime_types, [{"html","text/html"},{"htm","text/html"}, {"shtml","text/html"},
+		   {"gif", "image/gif"}]},
+     {alias, {"/icons/", filename:join(ServerRoot,"icons") ++ "/"}},
+     {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
+     {script_alias, {"/cgi-bin/", ScriptPath}},
+     {script_alias, {"/htbin/", ScriptPath}},
+     {erl_script_alias, {"/cgi-bin/erl", Modules}}
+    ].
 
 init_httpd(Group, Config0) ->
     Config1 = proplists:delete(port, Config0),

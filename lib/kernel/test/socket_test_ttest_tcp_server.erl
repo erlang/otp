@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,7 +116,13 @@ do_start(Parent, Transport, Active)
     
 
 stop(Pid) when is_pid(Pid) ->
-    req(Pid, stop).
+    case req(Pid, stop, 2 * ?ACC_TIMEOUT) of
+        {error, timeout} ->
+            exit(Pid, kill),
+            ok;
+        Else ->
+            Else
+    end.
 
 
 %% ==========================================================================
@@ -146,7 +152,7 @@ server_init(Starter, Parent, Transport, Active) ->
 				    {error, SNReason} ->
 					exit({sockname, SNReason})
 				end;
-                            is_list(PortOrPath) ->
+                            is_list(PortOrPath) orelse is_binary(PortOrPath) ->
                                 ?I("listening on:"
                                    "~n   Path: ~s"
                                    "~n", [PortOrPath]),
@@ -248,7 +254,9 @@ format_peername({Addr, Port}) ->
             ?F("~p, ~p", [Addr, Port])
     end;
 format_peername(Path) when is_list(Path) ->
-    Path.
+    Path;
+format_peername(Path) when is_binary(Path) ->
+    binary_to_list(Path).
 
 maybe_start_stats_timer(#{active := Active, stats_interval := Time}, Handler)
   when (Active =/= false) andalso (is_integer(Time) andalso (Time > 0)) ->
@@ -274,9 +282,16 @@ server_handle_message(#{mod      := Mod,
             State;
 
         {?MODULE, Ref, Parent, stop} ->
+            ?I("received stop from parent ~p", [Parent]),
             reply(Parent, Ref, ok),
-            lists:foreach(fun(P) -> handler_stop(P) end, H),
+            ?I("try stop ~w handler(s)", [length(H)]),
+            lists:foreach(fun(P) ->
+                                  ?I("try stop handler ~p", [P]),
+                                  handler_stop(P)
+                          end, H),
+            ?I("try close listen socket"),
             (catch Mod:close(LSock)),
+            ?I("stopped"),
             exit(normal);
 
         {'DOWN', _MRef, process, Pid, Reason} -> 
@@ -299,10 +314,12 @@ server_handle_stats(ProcStr, Pid) ->
 server_handle_down(Pid, Reason, #{handlers := Handlers} = State) ->
     case lists:delete(Pid, Handlers) of
         Handlers ->
-            ?I("unknown process ~p died", [Pid]),                    
+            ?I("unknown process ~p died: "
+               "~n   ~p", [Pid, Reason]),                    
             State;
         Handlers2 ->
-            server_handle_handler_down(Pid, Reason, State#{handlers => Handlers2})
+            server_handle_handler_down(Pid, Reason,
+                                       State#{handlers => Handlers2})
     end.
 
 
@@ -341,7 +358,7 @@ server_handle_handler_down(Pid,
 	   bcnt    => AccBCnt2,
 	   hcnt    => AccHCnt2};
 server_handle_handler_down(Pid, Reason, State) ->
-    ?I("handler ~p terminated: "
+    ?E("handler ~p terminated: "
        "~n   ~p", [Pid, Reason]),
     State.
 
@@ -358,7 +375,14 @@ handler_continue(Pid, Mod, Sock, Active) ->
     req(Pid, {continue, Mod, Sock, Active}).
 
 handler_stop(Pid) ->
-    req(Pid, stop).
+    case req(Pid, stop, 2 * ?RECV_TIMEOUT) of
+        {error, timeout} ->
+            ?E("timeout attempting to stop handler ~p => try kill", [Pid]),
+            exit(Pid, kill),
+            ok;
+        Else ->
+            Else
+    end.        
 
 handler_init(Parent) ->
     ?I("starting"),
@@ -551,9 +575,19 @@ handler_done(#{start := Start,
     exit({done, ?TDIFF(Start, Stop), MCnt, BCnt}).
 
 
-handler_handle_message(#{parent := Parent} = State) ->
+handler_handle_message(#{mod := Mod, sock := Sock, parent := Parent} = State) ->
     receive
+        {?MODULE, Ref, Parent, stop} ->
+            ?I("handler: received stop from parent ~p", [Parent]),
+            reply(Parent, Ref, ok),
+            (catch Mod:close(Sock)),
+            ?I("handler: stopped"),
+            exit(normal);
+
         {'EXIT', Parent, Reason} ->
+            ?E("handler: parent ~p exit: "
+               "~n   ~p", [Parent, Reason]),
+            (catch Mod:close(Sock)),
             exit({parent_exit, Reason})
     after 0 ->
             State
@@ -625,6 +659,10 @@ handler_maybe_activate(_, _, _) ->
 %% ==========================================================================
 
 req(Pid, Req) ->
+    req(Pid, Req, infinity).
+
+req(Pid, Req, Timeout) when (Timeout =:= infinity) orelse
+                            (is_integer(Timeout) andalso (Timeout >= 0)) ->
     Ref = make_ref(),
     Pid ! {?MODULE, Ref, self(), Req},
     receive
@@ -632,6 +670,8 @@ req(Pid, Req) ->
             {error, {exit, Reason}};
         {?MODULE, Ref, Reply} ->
             Reply
+    after Timeout ->
+            {error, timeout}
     end.
 
 reply(Pid, Ref, Reply) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,7 +77,9 @@ end_per_testcase(_Case, _Config) ->
 -define(DFLAG_MAP_TAG,               16#20000).
 -define(DFLAG_BIG_CREATION,          16#40000).
 -define(DFLAG_HANDSHAKE_23,        16#1000000).
+-define(DFLAG_UNLINK_ID,           16#2000000).
 -define(DFLAG_MANDATORY_25_DIGEST, 16#4000000).
+-define(DFLAG_V4_NC,             16#400000000).
 
 %% From OTP R9 extended references are compulsory.
 %% From OTP R10 extended pids and ports are compulsory.
@@ -85,7 +87,8 @@ end_per_testcase(_Case, _Config) ->
 %% From OTP 21 NEW_FUN_TAGS is compulsory (no more tuple fallback {fun, ...}).
 %% From OTP 23 BIG_CREATION is compulsory.
 %% From OTP 25 NEW_FLOATS, MAP_TAG, EXPORT_PTR_TAG, and BIT_BINARIES are compulsory.
--define(COMPULSORY_DFLAGS,
+
+-define(DFLAGS_MANDATORY_25, 
         (?DFLAG_EXTENDED_REFERENCES bor
              ?DFLAG_FUN_TAGS bor
              ?DFLAG_EXTENDED_PIDS_PORTS bor
@@ -97,6 +100,16 @@ end_per_testcase(_Case, _Config) ->
              ?DFLAG_EXPORT_PTR_TAG bor
              ?DFLAG_BIT_BINARIES bor
              ?DFLAG_HANDSHAKE_23)).
+
+%% From OTP 26 V4_NC, and UNLINK_ID are compulsory.
+
+-define(DFLAGS_MANDATORY_26,
+        (?DFLAG_V4_NC bor
+             ?DFLAG_UNLINK_ID)).
+
+-define(COMPULSORY_DFLAGS,
+        (?DFLAGS_MANDATORY_25 bor
+             ?DFLAGS_MANDATORY_26)).
 
 %% Check the framework.
 framework_check(Config) when is_list(Config) ->
@@ -145,6 +158,10 @@ do_one_recv_failure(Config,CNode) ->
 
 -define(EI_DIST_LOW, 6).
 -define(EI_DIST_HIGH, 6).
+
+%% An OTP-23 or 24 node may connect assuming 5 or higher.
+-define(EI_DIST_LOWEST_ASSUMED, 5).
+
 
 %% Check send with timeouts.
 ei_send_tmo(Config) when is_list(Config) ->
@@ -303,6 +320,15 @@ ei_connect_tmo(Config) when is_list(Config) ->
 
 %% Check accept with timeouts.
 ei_accept_tmo(Config) when is_list(Config) ->
+    [begin
+         io:format("Test assumed ver=~p\n",
+                   [AssumedVer]),
+         do_ei_accept_tmo(Config, AssumedVer)
+     end
+     || AssumedVer <- lists:seq(?EI_DIST_LOWEST_ASSUMED, ?EI_DIST_HIGH)],
+    ok.
+
+do_ei_accept_tmo(Config, AssumedVer) ->
     Flags = ?COMPULSORY_DFLAGS bor ?DFLAG_MANDATORY_25_DIGEST,
 
     P = runner:start(Config, ?accept_tmo),
@@ -323,11 +349,11 @@ ei_accept_tmo(Config) when is_list(Config) ->
     runner:recv_eot(P2),
     true = is_integer(X),
 
-    normal_accept(Config, Flags),
+    normal_accept(Config, AssumedVer, Flags),
 
     ok.
 
-normal_accept(Config, Flags) ->
+normal_accept(Config, AssumedVer, Flags) ->
     P = runner:start(Config, ?accept_tmo),
     runner:send_term(P,{c_nod_som_vi_kontaktar_2,
                          erlang:get_cookie(),
@@ -341,7 +367,7 @@ normal_accept(Config, Flags) ->
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
                                     [{active,false},
                                      {packet,2}]),
-    send_name(SocketA, OurName, Flags),
+    send_name(SocketA, OurName, AssumedVer, Flags),
     ok = recv_status(SocketA),
     {hidden,_Node,HisChallengeA} = recv_challenge(SocketA), % See 1)
     _OurChallengeA = gen_challenge(),
@@ -401,13 +427,18 @@ make_and_check_dummy() ->
 
 %% Test that erl_interface sets the appropriate distributions flags.
 ei_dflags(Config) ->
+    AssumedVer = 5,
+    OurVer = 6,
+
     %% Test compatibility with OTP 24 and earlier.
     normal_connect(Config, ?COMPULSORY_DFLAGS),
-    normal_accept(Config, ?COMPULSORY_DFLAGS),
+    normal_accept(Config, AssumedVer, ?COMPULSORY_DFLAGS),
+    normal_accept(Config, OurVer, ?COMPULSORY_DFLAGS),
 
     %% Test compatibility with future versions.
-    normal_connect(Config, ?DFLAG_MANDATORY_25_DIGEST),
-    normal_accept(Config, ?DFLAG_MANDATORY_25_DIGEST),
+    normal_connect(Config, ?DFLAG_MANDATORY_25_DIGEST bor ?DFLAGS_MANDATORY_26),
+    normal_accept(Config, AssumedVer, ?DFLAG_MANDATORY_25_DIGEST bor ?DFLAGS_MANDATORY_26),
+    normal_accept(Config, OurVer, ?DFLAG_MANDATORY_25_DIGEST bor ?DFLAGS_MANDATORY_26),
 
     ok.
 
@@ -558,14 +589,19 @@ send_challenge_ack(Socket, Digest) ->
 %            ?shutdown(bad_challenge_ack)
 %    end.
 
-send_name(Socket, MyNode, Flags) ->
+send_name(Socket, MyNode, AssumedVer, Flags0) ->
+    Flags = Flags0 bor?DFLAG_HANDSHAKE_23,
     NodeName = atom_to_binary(MyNode, latin1),
-    Creation = erts_internal:get_creation(),
-    ?to_port(Socket, [$N,
-                      <<Flags:64,
-                        Creation:32,
-                        (byte_size(NodeName)):16>>,
-                      NodeName]).
+    if AssumedVer =:= 5 ->
+            ?to_port(Socket, [$n,?int16(?EI_DIST_HIGH),?int32(Flags),NodeName]);
+       AssumedVer >= 6 ->
+            Creation = erts_internal:get_creation(),
+            ?to_port(Socket, [$N,
+                              <<Flags:64,
+                                Creation:32,
+                                (byte_size(NodeName)):16>>,
+                              NodeName])
+    end.
 
 recv_name(Socket) ->
     case gen_tcp:recv(Socket, 0) of

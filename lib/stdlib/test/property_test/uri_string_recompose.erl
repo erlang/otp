@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ prop_recompose() ->
            Map =:= uri_string:parse(uri_string:recompose(Map))).
 
 prop_normalize() ->
-    ?FORALL(Map, map(),
+    ?FORALL(Map, property_map(),
             uri_string:percent_decode(
               uri_string:normalize(Map, [return_map])) =:=
                 uri_string:percent_decode(
@@ -94,11 +94,11 @@ prop_normalize() ->
 
 %% Stats
 prop_map_key_length_collect() ->
-    ?FORALL(List, map(),
+    ?FORALL(List, property_map(),
             collect(length(maps:keys(List)), true)).
 
 prop_map_collect() ->
-    ?FORALL(List, map(),
+    ?FORALL(List, property_map(),
             collect(lists:sort(maps:keys(List)), true)).
 
 prop_scheme_collect() ->
@@ -110,7 +110,7 @@ prop_scheme_collect() ->
 %%% Generators
 %%%========================================================================
 
-map() ->
+property_map() ->
     ?LET(Gen, comp_proplist(), proplist_to_map(Gen)).
 
 map_no_unicode() ->

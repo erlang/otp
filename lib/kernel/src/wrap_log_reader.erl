@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,11 +116,11 @@ open(File, FileNo) when is_list(File), is_integer(FileNo) ->
 close(#wrap_reader{fd = FD}) ->
     file:close(FD).
 
--type chunk_ret() :: {Continuation2, Terms :: [term()]}
-                   | {Continuation2,
+-type chunk_ret() :: {Continuation2 :: term(), Terms :: [term()]}
+                   | {Continuation2 :: term(),
                       Terms :: [term()],
                       Badbytes :: non_neg_integer()}
-                   | {Continuation2, 'eof'}
+                   | {Continuation2 :: term(), 'eof'}
                    | {'error', Reason :: term()}.
 
 -spec chunk(Continuation) -> chunk_ret() when

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2014-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,10 +21,11 @@
 -module(message_queue_data_SUITE).
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, process_info_messages/1, total_heap_size/1,
-	 change_to_off_heap/1]).
+	 change_to_off_heap/1, change_to_off_heap_gc/1]).
 
--export([basic_test/1]).
+-export([basic_test/1, id/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,8 +41,14 @@ end_per_suite(_Config) ->
     erts_debug:set_internal_state(available_internal_state, false),
     ok.
 
-all() -> 
-    [basic, process_info_messages, total_heap_size, change_to_off_heap].
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
+
+all() ->
+    [basic, process_info_messages, total_heap_size, change_to_off_heap,
+     change_to_off_heap_gc].
 
 %%
 %%
@@ -291,6 +298,28 @@ make_misc_messages(Alias, Lit, Msgs, N) ->
 	       M1, M2, M3, M4, M1, M2, M3, M4],
     make_misc_messages(Alias, Lit, [NewMsgs | Msgs], N-9).
 
+%% Test that setting message queue to off_heap works if a GC is triggered
+%% as the message queue if moved off heap. See GH-5933 for more details.
+%% This testcase will most likely only fail in debug build.
+change_to_off_heap_gc(_Config) ->
+    Msg = {ok, lists:duplicate(20,20)},
+
+    %% We test that this process can receive a message and when it is still
+    %% in its external message queue we change the message queue data to
+    %% off_heap and then GC.
+    {Pid, Ref} = spawn_monitor(
+            fun() ->
+                    spinner(1, 10000),
+                    process_flag(message_queue_data, off_heap),
+                    garbage_collect(),
+                    receive {ok, _M} -> ok end
+            end),
+    Pid ! Msg,
+    receive
+        {'DOWN',Ref,_,_,_} ->
+            ok
+    end.
+
 %%
 %%
 %% helpers
@@ -326,3 +355,10 @@ recv_msgs(Msgs) ->
     after 0 ->
 	    lists:reverse(Msgs)
     end.
+
+%% This spinner needs to make sure that it does not allocate any memory
+%% as a GC in here will break the test
+spinner(_N, 0) -> ok;
+spinner(N, M) -> spinner(?MODULE:id(N) div 1, M - 1).
+
+id(N) -> N.

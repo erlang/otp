@@ -159,9 +159,12 @@ Uint erts_process_memory(Process *p, int include_sigs_in_transit)
          * Size of message queue plus size of all signals
          * in transit to the process!
          */
-        erts_proc_sig_queue_lock(p);
-        erts_proc_sig_fetch(p);
-        erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+        if (!(p->sig_qs.flags & FS_FLUSHING_SIGS)
+            || ERTS_IS_CRASH_DUMPING) {
+            erts_proc_sig_queue_lock(p);
+            erts_proc_sig_fetch(p);
+            erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+        }
 
         ERTS_FOREACH_SIG_PRIVQS(
             p, mp,
@@ -228,7 +231,9 @@ dump_process_info(fmtfn_t to, void *to_arg, Process *p)
     if (ERTS_TRACE_FLAGS(p) & F_SENSITIVE)
         return;
 
-    erts_proc_sig_fetch(p);
+    if (!(p->sig_qs.flags & FS_FLUSHING_SIGS) || ERTS_IS_CRASH_DUMPING) {
+        erts_proc_sig_fetch(p);
+    }
 
     if (p->sig_qs.first || p->sig_qs.cont) {
 	erts_print(to, to_arg, "=proc_messages:%T\n", p->common.id);
@@ -1123,8 +1128,8 @@ erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg) 
                 erts_print(to, to_arg, "FREE"); break;
             case ERTS_PSFLG_EXITING:
                 erts_print(to, to_arg, "EXITING"); break;
-            case ERTS_PSFLG_UNUSED:
-                erts_print(to, to_arg, "UNUSED"); break;
+            case ERTS_PSFLG_MAYBE_SELF_SIGS:
+                erts_print(to, to_arg, "MAYBE_SELF_SIGS"); break;
             case ERTS_PSFLG_ACTIVE:
                 erts_print(to, to_arg, "ACTIVE"); break;
             case ERTS_PSFLG_IN_RUNQ:

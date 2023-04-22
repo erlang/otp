@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2022. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2023. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -1332,26 +1332,18 @@ dnl -------------
 
 AC_ARG_ENABLE(esock,
 AS_HELP_STRING([--enable-esock], [enable builtin experimental socket (as a nif) support (default)])
-AS_HELP_STRING([--disable-esock], [disable builtin experimental socket (as a nif) support]))
+AS_HELP_STRING([--disable-esock], [disable builtin experimental socket (as a nif) support]),
+  [ case "$enableval" in
+    no) enable_esock=no ;;
+    *)  enable_esock=yes ;;
+  esac
+],enable_esock=yes)
 
-dnl Default value
-USE_ESOCK=yes
-
-if test "x$enable_esock" = "xyes"; then
-    USE_ESOCK=yes
-else
-    if test "x$enable_esock" = "xno"; then
-        USE_ESOCK=no
-    fi
-fi
-
-AS_IF([test "x$USE_ESOCK" = "xyes" && test "x$USE_ESOCK" = "xyes"],
+AS_IF([test "x$enable_esock" = "xyes"],
       [
+        AC_DEFINE(ESOCK_ENABLE, [1], [Enable esock])
         AC_CHECK_FUNCS([localtime_r strftime getprotoent setprotoent endprotoent])
       ])
-
-AC_SUBST(USE_ESOCK)
-
 
 dnl *** ESOCK_USE_RCVSNDTIMEO ***
 
@@ -1667,6 +1659,16 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr], [], [],
 	])
 
 dnl ----------------------------------------------------------------------
+dnl Checks for types.
+dnl ----------------------------------------------------------------------
+
+AC_CHECK_TYPES([struct ip_mreqn], [], [],
+               [
+                #include <netinet/in.h>
+               ])
+
+
+dnl ----------------------------------------------------------------------
 dnl  Check the availability of systemd
 dnl ----------------------------------------------------------------------
 AS_IF([test x"$enable_systemd" != x"no"],
@@ -1708,9 +1710,9 @@ AS_IF([test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"],
    try_dlpi_lib=$erl_xcomp_sysroot/lib
    if test x"$ac_cv_sizeof_void_p" = x"8"; then
       if test -d  $erl_xcomp_sysroot/lib64; then
-	 try_dlpi_lib= $erl_xcomp_sysroot/lib64
+	 try_dlpi_lib=$erl_xcomp_sysroot/lib64
       elif test -d  $erl_xcomp_sysroot/lib/64; then
-	 try_dlpi_lib= $erl_xcomp_sysroot/lib/64
+	 try_dlpi_lib=$erl_xcomp_sysroot/lib/64
       fi
    fi
    if test ! -f "$try_dlpi_lib/libdlpi.so" && \
@@ -2166,7 +2168,7 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		dlvsym pread pwrite memmove strerror strerror_r strncasecmp \
 		gethrtime localtime_r gmtime_r mprotect madvise posix_madvise \
-		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
+		mmap mremap memcpy memrchr mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
 		setlocale nl_langinfo poll mlockall ppoll vsyslog])
 
@@ -2853,7 +2855,26 @@ AS_IF([test ${enable_jit} != no],
            JIT_ARCH=x86
            ;;
         arm64)
-           JIT_ARCH=arm
+           case "$OPSYS" in
+              win32|darwin)
+                # These platforms have dedicated system calls for clearing
+                # instruction cache, and don't require us to manually issue
+                # instruction barriers on all threads.
+                JIT_ARCH=arm
+              ;;
+              *)
+                # We need to use `DC CVAU`, `IC IVAU`, and `ISB SY` to clear
+                # instruction cache. These have already been tested as part of
+                # ETHR_CHK_GCC_ATOMIC_OPS([]).
+
+                if test "$ethr_arm_isb_sy_instr_val$ethr_arm_dc_cvau_instr_val$ethr_arm_ic_ivau_instr_val" = "111"; then
+                  JIT_ARCH=arm
+                else
+                  enable_jit=no
+                  AC_MSG_WARN([JIT disabled due to lack of cache-clearing instructions])
+                fi
+              ;;
+           esac
            ;;
         *)
            if test ${enable_jit} = yes; then
@@ -3466,26 +3487,6 @@ AC_DEFINE_UNQUOTED(ERTS_EMU_CMDLINE_FLAGS,
 
 AC_SUBST(STATIC_CFLAGS)
 
-dnl ----------------------------------------------------------------------
-dnl Directories needed for the build
-dnl ----------------------------------------------------------------------
-
-erts=${erl_top}/erts
-
-erts_dirs="								
-  $erts/obj $erts/obj.debug
-									
-  $erts/obj/$host
-  $erts/obj.debug/$host
-
-"
-for d in ${erl_top}/bin ${erl_top}/bin/$host $erts_dirs ;
-do
-  if test ! -d $d; then
-    mkdir -p 1>/dev/null 2>&1 $d
-  fi
-done
-
 dnl ---------------------------------------------------------------------
 dnl Autoheader macro for adding code at top and bottom of config.h.in
 dnl ---------------------------------------------------------------------
@@ -3559,24 +3560,17 @@ if test "x$GCC" = xyes; then
 fi
 
 dnl ----------------------------------------------------------------------
-dnl Enable -fsanitize= flags.
+dnl Enable build determinism flag
 dnl ----------------------------------------------------------------------
 
-m4_define(DEFAULT_SANITIZERS, [address,undefined])
-AC_ARG_ENABLE(
-    sanitizers,
-    AS_HELP_STRING(
-        [--enable-sanitizers@<:@=comma-separated list of sanitizers@:>@],
-	    [Default=DEFAULT_SANITIZERS]),
-[
-case "$enableval" in
-    no) sanitizers= ;;
-    yes) sanitizers="-fsanitize=DEFAULT_SANITIZERS" ;;
-    *) sanitizers="-fsanitize=$enableval" ;;
-esac
-CFLAGS="$CFLAGS $sanitizers"
-LDFLAGS="$LDFLAGS $sanitizers"
-])
+AC_ARG_ENABLE(deterministic-build,
+AS_HELP_STRING([--enable-deterministic-build], [enable build determinism, stripping absolute paths from build output]),
+[ case "$enableval" in
+    no)  ERL_DETERMINISTIC=no ;;
+    *) ERL_DETERMINISTIC=yes ;;
+  esac ],
+ERL_DETERMINISTIC=no)
+AC_SUBST(ERL_DETERMINISTIC)
 
 AC_MSG_CHECKING([CFLAGS for -O switch])
 dnl                               Remove all "-O*" options

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@
 -define(IS_MSG(Msg),
         ((is_tuple(Msg) andalso tuple_size(Msg)==2)
          andalso
-           (is_list(element(1,Msg)) andalso is_list(element(2,Msg)))
+           (?IS_FORMAT(element(1,Msg)) andalso is_list(element(2,Msg)))
          orelse
            (element(1,Msg)==report andalso ?IS_REPORT(element(2,Msg)))
          orelse

@@ -66,10 +66,12 @@
 %% For ct_gen_conn
 -export_type([config_key/0,
 	      target_name/0,
-	      key_or_name/0]).
+	      key_or_name/0,
+          handle/0]).
 
 %% For cth_conn_log
--export_type([conn_log_options/0,
+-export_type([conn_log_option/0,
+          conn_log_options/0,
 	      conn_log_type/0,
 	      conn_log_mod/0]).
 
@@ -79,6 +81,7 @@
 -type config_key() :: atom(). % Config key which exists in a config file
 -type target_name() :: atom().% Name associated to a config_key() though 'require'
 -type key_or_name() :: config_key() | target_name().
+-type handle() :: pid().
 
 %% Types used when logging connections with the 'cth_conn_log' hook
 -type conn_log_options() :: [conn_log_option()].
@@ -89,34 +92,172 @@
 %%----------------------------------------------------------------------
 
 
+-spec install(Opts) -> ok | {error, Reason}
+      when Opts :: [Opt],
+           Opt :: {config, ConfigFiles} | {event_handler, Modules} | {decrypt, KeyOrFile},
+           ConfigFiles :: [ConfigFile],
+           ConfigFile :: string(),
+           Modules :: [atom()],
+           KeyOrFile :: {key, Key} | {file, KeyFile},
+           Key :: string(),
+           KeyFile :: string(),
+           Reason :: term().
 install(Opts) ->
     ct_run:install(Opts).
 
+-spec run(TestDir, Suite, Cases) -> Result
+      when TestDir :: string(),
+           Suite :: atom(),
+           Cases :: atom() | [atom()],
+           Result :: [TestResult] | {error, Reason},
+           TestResult :: term(),
+           Reason :: term().
 run(TestDir,Suite,Cases) ->
     ct_run:run(TestDir,Suite,Cases).
 
+-spec run(TestDir, Suite) -> Result
+      when TestDir :: string(),
+           Suite :: atom(),
+           Result :: [TestResult] | {error, Reason},
+           TestResult :: term(),
+           Reason :: term().
 run(TestDir,Suite) ->
     ct_run:run(TestDir,Suite).
 
+-spec run(TestDirs) -> Result
+      when TestDirs :: TestDir | [TestDir],
+           TestDir :: string(),
+           Result :: [TestResult] | {error, Reason},
+           TestResult :: term(),
+           Reason :: term().
 run(TestDirs) ->
     ct_run:run(TestDirs).
 
+-spec run_test(Opts) -> Result
+      when Opts :: [OptTuples],
+           OptTuples :: {dir, TestDirs}
+                      | {suite, Suites}
+                      | {group, Groups}
+                      | {testcase, Cases}
+                      | {spec, TestSpecs}
+                      | {join_specs, boolean()}
+                      | {label, Label}
+                      | {config, CfgFiles}
+                      | {userconfig, UserConfig}
+                      | {allow_user_terms, boolean()}
+                      | {logdir, LogDir}
+                      | {silent_connections, Conns}
+                      | {stylesheet, CSSFile}
+                      | {cover, CoverSpecFile}
+                      | {cover_stop, boolean()}
+                      | {step, StepOpts}
+                      | {event_handler, EventHandlers}
+                      | {include, InclDirs}
+                      | {auto_compile, boolean()}
+                      | {abort_if_missing_suites, boolean()}
+                      | {create_priv_dir, CreatePrivDir}
+                      | {multiply_timetraps, M}
+                      | {scale_timetraps, boolean()}
+                      | {repeat, N}
+                      | {duration, DurTime}
+                      | {until, StopTime}
+                      | {force_stop, ForceStop}
+                      | {decrypt, DecryptKeyOrFile}
+                      | {refresh_logs, LogDir}
+                      | {logopts, LogOpts}
+                      | {verbosity, VLevels}
+                      | {basic_html, boolean()}
+                      | {esc_chars, boolean()}
+                      | {keep_logs,KeepSpec}
+                      | {ct_hooks, CTHs}
+                      | {enable_builtin_hooks, boolean()}
+                      | {release_shell, boolean()},
+           TestDirs :: [string()] | string(),
+           Suites :: [string()] | [atom()] | string() | atom(),
+           Cases :: [atom()] | atom(),
+           Groups :: GroupNameOrPath | [GroupNameOrPath],
+           GroupNameOrPath :: [atom()] | atom() | all,
+           TestSpecs :: [string()] | string(),
+           Label :: string() | atom(),
+           CfgFiles :: [string()] | string(),
+           UserConfig :: [{CallbackMod, CfgStrings}] | {CallbackMod, CfgStrings},
+           CallbackMod :: atom(),
+           CfgStrings :: [string()] | string(),
+           LogDir :: string(),
+           Conns :: all | [atom()],
+           CSSFile :: string(),
+           CoverSpecFile :: string(),
+           StepOpts :: [StepOpt],
+           StepOpt :: config | keep_inactive,
+           EventHandlers :: EH | [EH],
+           EH :: atom() | {atom(), InitArgs} | {[atom()], InitArgs},
+           InitArgs :: [term()],
+           InclDirs :: [string()] | string(),
+           CreatePrivDir :: auto_per_run | auto_per_tc | manual_per_tc,
+           M :: integer(),
+           N :: integer(),
+           DurTime :: HHMMSS,
+           HHMMSS :: string(),
+           StopTime :: YYMoMoDDHHMMSS | HHMMSS,
+           YYMoMoDDHHMMSS :: string(),
+           ForceStop :: skip_rest | boolean(),
+           DecryptKeyOrFile :: {key, DecryptKey} | {file, DecryptFile},
+           DecryptKey :: string(),
+           DecryptFile :: string(),
+           LogOpts :: [LogOpt],
+           LogOpt :: no_nl | no_src,
+           VLevels :: VLevel | [{Category, VLevel}],
+           VLevel :: integer(),
+           Category :: atom(),
+           KeepSpec :: all | pos_integer(),
+           CTHs :: [CTHModule | {CTHModule, CTHInitArgs}],
+           CTHModule :: atom(),
+           CTHInitArgs :: term(),
+           Result :: {Ok, Failed, {UserSkipped, AutoSkipped}} | TestRunnerPid | {error, Reason},
+           Ok :: integer(),
+           Failed :: integer(),
+           UserSkipped :: integer(),
+           AutoSkipped :: integer(),
+           TestRunnerPid :: pid(),
+           Reason :: term().
 run_test(Opts) ->
     ct_run:run_test(Opts).
 
+-spec run_testspec(TestSpec) -> Result
+      when TestSpec :: [term()],
+           Result :: {Ok, Failed, {UserSkipped, AutoSkipped}} | {error, Reason},
+           Ok :: integer(),
+           Failed :: integer(),
+           UserSkipped :: integer(),
+           AutoSkipped :: integer(),
+           Reason :: term().
 run_testspec(TestSpec) ->
     ct_run:run_testspec(TestSpec).
     
+-spec step(TestDir, Suite, Case) -> Result
+      when TestDir :: string(),
+           Suite :: atom(),
+           Case :: atom(),
+           Result :: term().
 step(TestDir,Suite,Case) ->
     ct_run:step(TestDir,Suite,Case).
 
+-spec step(TestDir, Suite, Case, Opts) -> Result
+      when TestDir :: string(),
+           Suite :: atom(),
+           Case :: atom(),
+           Opts :: [Opt],
+           Opt :: config | keep_inactive,
+           Result :: term().
 step(TestDir,Suite,Case,Opts) ->
     ct_run:step(TestDir,Suite,Case,Opts).
 
+-spec start_interactive() -> ok.
 start_interactive() ->
     _ = ct_util:start(interactive),
     ok.
 
+-spec stop_interactive() -> ok.
 stop_interactive() ->
     ct_util:stop(normal),
     ok.
@@ -125,24 +266,65 @@ stop_interactive() ->
 %%% MISC INTERFACE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-spec require(Required) -> ok | {error, Reason}
+      when Required :: Key | {Key, SubKeys} | {Key, SubKey, SubKeys},
+           Key :: atom(),
+           SubKeys :: SubKey | [SubKey],
+           SubKey :: atom(),
+           Reason :: term().
 require(Required) ->
     ct_config:require(Required).
 
+-spec require(Name, Required) -> ok | {error, Reason}
+      when Name :: atom(),
+           Required :: Key | {Key, SubKey} | {Key, SubKey, SubKey},
+           SubKey :: Key,
+           Key :: atom(),
+           Reason :: term().
 require(Name,Required) ->
     ct_config:require(Name,Required).
 
+-spec get_config(Required) -> Value
+      when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
+           KeyOrName :: atom(),
+           SubKey :: atom(),
+           Value :: term().
 get_config(Required) ->
     ct_config:get_config(Required,undefined,[]).
 
+-spec get_config(Required, Default) -> Value
+      when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
+           KeyOrName :: atom(),
+           SubKey :: atom(),
+           Default :: term(),
+           Value :: term().
 get_config(Required,Default) ->
     ct_config:get_config(Required,Default,[]).
 
+-spec get_config(Required, Default, Opts) -> ValueOrElement
+      when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
+           KeyOrName :: atom(),
+           SubKey :: atom(),
+           Default :: term(),
+           Opts :: [Opt],
+           Opt :: element | all,
+           ValueOrElement :: term() | Default.
 get_config(Required,Default,Opts) ->
     ct_config:get_config(Required,Default,Opts).
 
+-spec reload_config(Required) -> ValueOrElement | {error, Reason}
+      when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
+           KeyOrName :: atom(),
+           SubKey :: atom(),
+           ValueOrElement :: term(),
+           Reason :: term().
 reload_config(Required)->
     ct_config:reload_config(Required).
 
+-spec get_testspec_terms() -> TestSpecTerms | undefined
+      when TestSpecTerms :: [{Tag, Value}],
+           Tag :: atom(),
+           Value :: [term()].
 get_testspec_terms() ->
     case ct_util:get_testdata(testspec) of
 	undefined ->
@@ -151,6 +333,12 @@ get_testspec_terms() ->
 	    ct_testspec:testspec_rec2list(CurrSpecRec)
     end.
 
+-spec get_testspec_terms(Tags) -> TestSpecTerms | undefined
+      when Tags :: [Tag] | Tag,
+           Tag :: atom(),
+           TestSpecTerms :: [{Tag, Value}] | {Tag, Value},
+           Value :: [{Node, term()}] | [term()],
+           Node :: atom().
 get_testspec_terms(Tags) ->
     case ct_util:get_testdata(testspec) of
 	undefined ->
@@ -171,9 +359,18 @@ escape_chars(Format, Args) ->
 	    {error,Reason}
     end.
 
+-spec log(Format) -> ok
+      when Format :: string().
 log(Format) ->
     log(default,?STD_IMPORTANCE,Format,[],[]).
 
+-spec log(X1, X2) -> ok
+      when X1 :: Category | Importance | Format,
+           X2 :: Format | FormatArgs,
+           Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list().
 log(X1,X2) ->
     {Category,Importance,Format,Args} = 
 	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
@@ -182,6 +379,16 @@ log(X1,X2) ->
 	end,
     log(Category,Importance,Format,Args,[]).
 
+-spec log(X1, X2, X3) -> ok
+      when X1 :: Category | Importance,
+           X2 :: Importance | Format,
+           X3 :: Format | FormatArgs | Opts,
+           Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list(),
+           Opts :: [Opt],
+           Opt :: {heading,string()} | no_css | esc_chars.
 log(X1,X2,X3) ->
     {Category,Importance,Format,Args,Opts} = 
 	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[],[]};
@@ -191,6 +398,17 @@ log(X1,X2,X3) ->
 	end,
     log(Category,Importance,Format,Args,Opts).
 
+-spec log(X1, X2, X3, X4) -> ok
+      when X1 :: Category | Importance,
+           X2 :: Importance | Format,
+           X3 :: Format | FormatArgs,
+           X4 :: FormatArgs | Opts,
+           Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list(),
+           Opts :: [Opt],
+           Opt :: {heading,string()} | no_css | esc_chars.
 log(X1,X2,X3,X4) ->
     {Category,Importance,Format,Args,Opts} = 
 	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,X4,[]};
@@ -199,12 +417,28 @@ log(X1,X2,X3,X4) ->
 	end,
     log(Category,Importance,Format,Args,Opts).
 
+-spec log(Category, Importance, Format, FormatArgs, Opts) -> ok
+      when Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list(),
+           Opts :: [Opt],
+           Opt :: {heading,string()} | no_css | esc_chars.
 log(Category,Importance,Format,Args,Opts) ->
     ct_logs:tc_log(Category,Importance,Format,Args,Opts).
 
+-spec print(Format) -> ok
+      when Format :: string().
 print(Format) ->
     print(default,?STD_IMPORTANCE,Format,[],[]).
 
+-spec print(X1, X2) -> ok
+      when X1 :: Category | Importance | Format,
+           X2 :: Format | FormatArgs,
+           Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list().
 print(X1,X2) ->
     {Category,Importance,Format,Args} = 
 	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
@@ -213,6 +447,16 @@ print(X1,X2) ->
 	end,
     print(Category,Importance,Format,Args,[]).
 
+-spec print(X1, X2, X3) -> ok
+      when X1 :: Category | Importance,
+           X2 :: Importance | Format,
+           X3 :: Format | FormatArgs | Opts,
+           Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list(),
+           Opts :: [Opt],
+           Opt :: {heading,string()}.
 print(X1,X2,X3) ->
     {Category,Importance,Format,Args,Opts} = 
 	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[],[]};
@@ -222,6 +466,17 @@ print(X1,X2,X3) ->
 	end,
     print(Category,Importance,Format,Args,Opts).
 
+-spec print(X1, X2, X3, X4) -> ok
+      when X1 :: Category | Importance,
+           X2 :: Importance | Format,
+           X3 :: Format | FormatArgs,
+           X4 :: FormatArgs | Opts,
+           Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list(),
+           Opts :: [Opt],
+           Opt :: {heading,string()}.
 print(X1,X2,X3,X4) ->
     {Category,Importance,Format,Args,Opts} = 
 	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,X4,[]};
@@ -230,12 +485,28 @@ print(X1,X2,X3,X4) ->
 	end,
     print(Category,Importance,Format,Args,Opts).
 
+-spec print(Category, Importance, Format, FormatArgs, Opts) -> ok
+      when Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list(),
+           Opts :: [Opt],
+           Opt :: {heading,string()}.
 print(Category,Importance,Format,Args,Opts) ->
     ct_logs:tc_print(Category,Importance,Format,Args,Opts).
 
+-spec pal(Format) -> ok
+      when Format :: string().
 pal(Format) ->
     pal(default,?STD_IMPORTANCE,Format,[]).
 
+-spec pal(X1, X2) -> ok
+      when X1 :: Category | Importance | Format,
+           X2 :: Format | FormatArgs,
+           Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list().
 pal(X1,X2) ->
     {Category,Importance,Format,Args} = 
 	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
@@ -244,6 +515,15 @@ pal(X1,X2) ->
 	end,
     pal(Category,Importance,Format,Args,[]).
 
+-spec pal(X1, X2, X3) -> ok
+      when X1 :: Category | Importance,
+           X2 :: Importance | Format,
+           X3 :: Format | FormatArgs | Opt,
+           Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list(),
+           Opt :: {heading,string()} | no_css.
 pal(X1,X2,X3) ->
     {Category,Importance,Format,Args,Opts} = 
 	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[],[]};
@@ -253,6 +533,17 @@ pal(X1,X2,X3) ->
 	end,
     pal(Category,Importance,Format,Args,Opts).
 
+-spec pal(X1, X2, X3, X4) -> ok
+      when X1 :: Category | Importance,
+           X2 :: Importance | Format,
+           X3 :: Format | FormatArgs,
+           X4 :: FormatArgs | Opts,
+           Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list(),
+           Opts :: [Opt],
+           Opt :: {heading,string()} | no_css.
 pal(X1,X2,X3,X4) ->
     {Category,Importance,Format,Args,Opts} = 
 	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,X4,[]};
@@ -261,25 +552,45 @@ pal(X1,X2,X3,X4) ->
 	end,
     pal(Category,Importance,Format,Args,Opts).
 
+-spec pal(Category, Importance, Format, FormatArgs, Opts) -> ok
+      when Category :: atom() | integer() | string(),
+           Importance :: integer(),
+           Format :: string(),
+           FormatArgs :: list(),
+           Opts :: [Opt],
+           Opt :: {heading,string()} | no_css.
 pal(Category,Importance,Format,Args,Opts) ->
     ct_logs:tc_pal(Category,Importance,Format,Args,Opts).
 
+-spec set_verbosity(Category, Level) -> ok
+      when Category :: default | atom(),
+           Level :: integer().
 set_verbosity(Category, Level) ->
     ct_util:set_verbosity({Category,Level}).
 
+-spec get_verbosity(Category) -> Level | undefined
+      when Category :: default | atom(),
+           Level :: integer().
 get_verbosity(Category) ->
     ct_util:get_verbosity(Category).
 
+-spec capture_start() -> ok.
 capture_start() ->
     test_server:capture_start().
 
+-spec capture_stop() -> ok.
 capture_stop() ->
     test_server:capture_stop().
 
+-spec capture_get() -> ListOfStrings
+      when ListOfStrings :: [string()].
 capture_get() ->
     %% remove default log printouts (e.g. ct:log/2 printouts)
     capture_get([default]).
 
+-spec capture_get(ExclCategories) -> ListOfStrings
+      when ExclCategories :: [atom()],
+           ListOfStrings :: [string()].
 capture_get([ExclCat | ExclCategories]) ->
     Strs = test_server:capture_get(),
     CatsStr = [atom_to_list(ExclCat) | 
@@ -296,8 +607,9 @@ capture_get([ExclCat | ExclCategories]) ->
 capture_get([]) ->
     test_server:capture_get().
 
--spec fail(term()) -> no_return().
 
+-spec fail(Reason) -> no_return()
+      when Reason :: term().
 fail(Reason) ->
     try
 	exit({test_case_failed,Reason})
@@ -310,8 +622,10 @@ fail(Reason) ->
 	    erlang:raise(Class, R, Stk)
     end.
 
--spec fail(io:format(), [term()]) -> no_return().
 
+-spec fail(Format, Args) -> no_return()
+      when Format :: io:format(),
+           Args :: [term()].
 fail(Format, Args) ->
     try io_lib:format(Format, Args) of
 	Str ->
@@ -330,6 +644,8 @@ fail(Format, Args) ->
 	    exit({BadArgs,{?MODULE,fail,[Format,Args]}})
     end.
 
+-spec comment(Comment) -> ok
+      when Comment :: term().
 comment(Comment) when is_list(Comment) ->
     Formatted =
 	case (catch io_lib:format("~ts",[Comment])) of
@@ -343,6 +659,9 @@ comment(Comment) ->
     Formatted = io_lib:format("~tp",[Comment]),
     send_html_comment(lists:flatten(Formatted)).
 
+-spec comment(Format, Args) -> ok
+      when Format :: string(),
+           Args :: list().
 comment(Format, Args) when is_list(Format), is_list(Args) ->
     Formatted =
 	case (catch io_lib:format(Format, Args)) of
@@ -358,14 +677,19 @@ send_html_comment(Comment) ->
     ct_util:set_testdata({{comment,group_leader()},Html}),
     test_server:comment(Html).
 
+-spec make_priv_dir() -> ok | {error, Reason}
+      when Reason :: term().
 make_priv_dir() ->
     test_server:make_priv_dir().
 
+-spec get_target_name(Handle) -> {ok, TargetName} | {error, Reason}
+      when Handle :: handle(),
+           TargetName :: target_name(),
+           Reason :: term().
 get_target_name(Handle) ->
     ct_util:get_target_name(Handle).
 
 -spec get_progname() -> string().
-
 get_progname() ->
     case init:get_argument(progname) of
 	{ok, [[Prog]]} ->
@@ -374,12 +698,26 @@ get_progname() ->
 	    "no_prog_name"
     end.
 
+-spec parse_table(Data) -> {Heading, Table}
+      when Data :: [string()],
+           Heading :: tuple(),
+           Table :: [tuple()].
 parse_table(Data) ->
     ct_util:parse_table(Data).
 
+-spec listenv(Telnet) -> {ok, [Env]}
+      when Telnet :: term(),
+           Env :: {Key, Value},
+           Key :: string(),
+           Value :: string().
 listenv(Telnet) ->
     ct_util:listenv(Telnet).
 
+-spec testcases(TestDir, Suite) -> Testcases | {error, Reason}
+      when TestDir :: string(),
+           Suite :: atom(),
+           Testcases :: list(),
+           Reason :: term().
 testcases(TestDir, Suite) ->
     case make_and_load(TestDir, Suite) of
 	E = {error,_} ->
@@ -415,6 +753,11 @@ make_and_load(Dir, Suite) ->
 	    end
     end.
 
+-spec userdata(TestDir, Suite) -> SuiteUserData | {error, Reason}
+      when TestDir :: string(),
+           Suite :: atom(),
+           SuiteUserData :: [term()],
+           Reason :: term().
 userdata(TestDir, Suite) ->
     case make_and_load(TestDir, Suite) of
 	E = {error,_} ->
@@ -440,6 +783,13 @@ get_userdata(List, _) when is_list(List) ->
 get_userdata(_BadTerm, Spec) ->
     {error,list_to_atom(Spec ++ " must return a list")}.
    
+-spec userdata(TestDir, Suite, Case::GroupOrCase) -> TCUserData | {error, Reason}
+      when TestDir :: string(),
+           Suite :: atom(),
+           GroupOrCase :: {group, GroupName} | atom(),
+           GroupName :: atom(),
+           TCUserData :: [term()],
+           Reason :: term().
 userdata(TestDir, Suite, {group,GroupName}) ->
     case make_and_load(TestDir, Suite) of
 	E = {error,_} ->
@@ -458,6 +808,19 @@ userdata(TestDir, Suite, Case) when is_atom(Case) ->
 	    get_userdata(Info, atom_to_list(Case)++"/0")
     end.
 
+-spec get_status() -> TestStatus | {error, Reason} | no_tests_running
+      when TestStatus :: [StatusElem],
+           StatusElem :: {current, TestCaseInfo} | {successful, Successful} | {failed, Failed} | {skipped, Skipped} | {total, Total},
+           TestCaseInfo :: {Suite, TestCase} | [{Suite, TestCase}],
+           Suite :: atom(),
+           TestCase :: atom(),
+           Successful :: integer(),
+           Failed :: integer(),
+           Skipped :: {UserSkipped, AutoSkipped},
+           UserSkipped :: integer(),
+           AutoSkipped :: integer(),
+           Total :: integer(),
+           Reason :: term().
 get_status() ->
     case get_testdata(curr_tc) of
 	{ok,TestCase} ->
@@ -489,37 +852,87 @@ get_testdata(Key) ->
 	    {ok,Data}
     end.
 
+-spec abort_current_testcase(Reason) -> ok | {error, ErrorReason}
+      when Reason :: term(),
+           ErrorReason :: no_testcase_running | parallel_group. 
 abort_current_testcase(Reason) ->
     test_server_ctrl:abort_current_testcase(Reason).
 
+-spec get_event_mgr_ref() -> EvMgrRef
+      when EvMgrRef :: atom().
 get_event_mgr_ref() ->
     ?CT_EVMGR_REF.
 
+-spec encrypt_config_file(SrcFileName, EncryptFileName) -> ok | {error, Reason}
+      when SrcFileName :: string(),
+           EncryptFileName :: string(),
+           Reason :: term().
 encrypt_config_file(SrcFileName, EncryptFileName) ->
     ct_config:encrypt_config_file(SrcFileName, EncryptFileName).
 
+-spec encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -> ok | {error, Reason}
+      when SrcFileName :: string(),
+           EncryptFileName :: string(),
+           KeyOrFile :: {key, string()} | {file, string()},
+           Reason :: term().
 encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) ->
     ct_config:encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile).
 
+-spec decrypt_config_file(EncryptFileName, TargetFileName) -> ok | {error, Reason}
+     when EncryptFileName :: string(),
+          TargetFileName :: string(),
+          Reason :: term().
 decrypt_config_file(EncryptFileName, TargetFileName) ->
     ct_config:decrypt_config_file(EncryptFileName, TargetFileName).
 
+-spec decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -> ok | {error, Reason}
+      when EncryptFileName :: string(),
+           TargetFileName :: string(),
+           KeyOrFile :: {key, string()} | {file, string()},
+           Reason :: term().
 decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) ->
     ct_config:decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile).
 
+-spec add_config(Callback, Config) -> ok | {error, Reason}
+      when Callback :: atom(),
+           Config :: string(),
+           Reason :: term().
 add_config(Callback, Config)->
     ct_config:add_config(Callback, Config).
 
+-spec remove_config(Callback, Config) -> ok
+      when Callback :: atom(),
+           Config :: string().
 remove_config(Callback, Config) ->
     ct_config:remove_config(Callback, Config).
 
+-spec timetrap(Time) -> infinity | pid()
+      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity | Func,
+           Hours :: integer(),
+           Mins :: integer(),
+           Secs :: integer(),
+           Millisecs :: integer(),
+           Func :: {M, F, A} | function(),
+           M :: atom(),
+           F :: atom(),
+           A :: list().
 timetrap(Time) ->
     test_server:timetrap_cancel(),
     test_server:timetrap(Time).
 
+-spec get_timetrap_info() -> {Time, {Scaling,ScaleVal}}
+      when Time :: integer() | infinity,
+           Scaling :: boolean(),
+           ScaleVal :: integer().
 get_timetrap_info() ->
     test_server:get_timetrap_info().
 
+-spec sleep(Time) -> ok
+      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity,
+           Hours :: integer(),
+           Mins :: integer(),
+           Secs :: integer(),
+           Millisecs :: integer() | float().
 sleep({hours,Hs}) ->
     sleep(trunc(Hs * 1000 * 60 * 60));
 sleep({minutes,Ms}) ->
@@ -529,12 +942,22 @@ sleep({seconds,Ss}) ->
 sleep(Time) ->
     test_server:adjusted_sleep(Time).
 
+-spec notify(Name, Data) -> ok
+      when Name :: atom(),
+           Data :: term().
 notify(Name,Data) ->
     ct_event:notify(Name, Data).
 
+-spec sync_notify(Name, Data) -> ok
+      when Name :: atom(),
+           Data :: term().
 sync_notify(Name,Data) ->
     ct_event:sync_notify(Name, Data).
 
+-spec break(Comment) -> ok | {error, Reason}
+      when Comment :: string(),
+           Reason :: {multiple_cases_running, TestCases} | 'enable break with release_shell option',
+           TestCases :: [atom()].
 break(Comment) ->
     case {ct_util:get_testdata(starter),
 	  ct_util:get_testdata(release_shell)} of
@@ -557,6 +980,10 @@ break(Comment) ->
 	    end
     end.
 
+-spec break(TestCase, Comment) -> ok | {error, Reason}
+      when TestCase :: atom(),
+           Comment :: string(),
+           Reason :: 'test case not running' | 'enable break with release_shell option'.
 break(TestCase, Comment) ->
     case {ct_util:get_testdata(starter),
 	  ct_util:get_testdata(release_shell)} of
@@ -583,12 +1010,20 @@ break(TestCase, Comment) ->
 	    end
     end.
 
+-spec continue() -> ok.
 continue() -> 
     test_server:continue().
 
+-spec continue(TestCase) -> ok
+      when TestCase :: atom().
 continue(TestCase) -> 
     test_server:continue(TestCase).
 
 
+-spec remaining_test_procs() -> {TestProcs,SharedGL,OtherGLs}
+      when TestProcs :: [{pid(),GL}],
+           GL :: pid(),
+           SharedGL :: pid(),
+           OtherGLs :: [pid()].
 remaining_test_procs() ->
     ct_util:remaining_test_procs().

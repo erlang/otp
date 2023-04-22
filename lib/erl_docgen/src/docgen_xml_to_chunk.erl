@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -238,7 +238,7 @@ build_dom({ignorableWhitespace, String},
           #state{dom=[{Name,_,_} = _E|_]} = State) ->
     case lists:member(Name,
                       [p,pre,input,code,quote,warning,
-                       note,dont,do,c,b,i,em,strong,
+                       note,change,dont,do,c,b,i,em,strong,
                        seemfa,seeerl,seetype,seeapp,
                        seecom,seecref,seefile,seeguide,
                        tag,item]) of
@@ -387,9 +387,9 @@ transform([{marker,Attrs,Content}|T],Acc) ->
 %% transform <url href="external URL"> Content</url> to <a href....
 transform([{url,Attrs,Content}|T],Acc) ->
     transform(T,[{a,a2b(Attrs),transform(Content,[])}|Acc]);
-%% transform note/warning/do/don't to <p class="thing">
+%% transform note/change/warning/do/don't to <p class="thing">
 transform([{What,[],Content}|T],Acc)
-  when What =:= note; What =:= warning; What =:= do; What =:= dont ->
+  when What =:= note; What =:= change; What =:= warning; What =:= do; What =:= dont ->
     WhatP = {'div',[{class,atom_to_binary(What)}], transform(Content,[])},
     transform(T,[WhatP|Acc]);
 
@@ -485,12 +485,22 @@ transform_types(Dom,Acc) ->
 
 transform_taglist(Attr,Content) ->
     Items =
-        lists:map(fun({tag,A,C}) ->
-                          {dt,A,C};
+        lists:map(fun({tag,_A,_C}=Tag) ->
+                          transform_tag(Tag);
                      ({item,A,C}) ->
                           {dd,A,C}
                   end, Content),
     {dl,Attr,Items}.
+
+transform_tag({tag, Attr0, C}) ->
+    Attr1 = lists:map(fun({since,Vsn}) ->
+                              {since,
+                               unicode:characters_to_binary(Vsn)};
+                         (A) ->
+                              A
+                      end,
+                      Attr0),
+    {dt,Attr1,C}.
 
 %% if we have {func,[],[{name,...},{name,....},...]}
 %% we convert it to one {func,[],[{name,...}] per arity lowest first.
@@ -712,15 +722,22 @@ to_chunk(Dom, Source, Module, AST) ->
                                       list_to_integer(Arity)
                               end,
                   TypeArgs = lists:join(",",[lists:concat(["Arg",I]) || I <- lists:seq(1,TypeArity)]),
-                  PlaceholderSig = io_lib:format("-type ~p(~s) :: term().",[TypeName,TypeArgs]),
-                  TypeSignature = proplists:get_value(
-                                    signature,Attr,[iolist_to_binary(PlaceholderSig)]),
-                  MetaSig =
-                      case maps:get({TypeName, TypeArity}, TypeMap, undefined) of
+                  {TypeSignature, MetaSig} =
+                      case proplists:get_value(signature,Attr) of
                           undefined ->
-                              #{};
-                          Sig ->
-                              #{ signature => [Sig] }
+                              PlaceholderSig =
+                                  iolist_to_binary(
+                                    io_lib:format("-type ~p(~s) :: term().",
+                                                  [TypeName,TypeArgs])),
+                              {[PlaceholderSig],
+                               case maps:get({TypeName, TypeArity}, TypeMap, undefined) of
+                                   undefined ->
+                                       #{};
+                                   Sig ->
+                                       #{ signature => [Sig] }
+                               end};
+                          Signature ->
+                              {Signature, #{}}
                       end,
 
                   MetaDepr

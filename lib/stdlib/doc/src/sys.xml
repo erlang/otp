@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -189,21 +189,6 @@
 	    </p>
 	  </item>
 	  <tag>
-	    <c>{code_change,<anno>Event</anno>,<anno>State</anno>}</c>
-	  </tag>
-	  <item>
-	    <p>
-	      Is produced by <c>gen_statem</c>
-	      when the message <c><anno>Event</anno></c>
-	      arrives in state <c><anno>State</anno></c>
-	      as the first event after a code change.
-	    </p>
-	    <p>
-	      <c><anno>Event</anno></c> is
-	      an <c>{EventType,EventContent}</c> tuple.
-	    </p>
-	  </item>
-	  <tag>
 	    <c>
 	      {postpone,<anno>Event</anno>,<anno>State</anno>,<anno>NextState</anno>}
 	    </c>
@@ -267,13 +252,26 @@
 	  </item>
 	  <tag>
 	    <c>
-	      {enter,<anno>State</anno>}
+	      {enter,<anno>Module</anno>,<anno>State</anno>}
 	    </c>
 	  </tag>
 	  <item>
 	    <p>
 	      Is produced by <c>gen_statem</c>
-	      when the first state <c><anno>State</anno></c> is entered.
+	      when module <c><anno>Module</anno></c>
+              enters the first state <c><anno>State</anno></c>.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      {module,<anno>Module</anno>,<anno>State</anno>}
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when setting module <c><anno>Module</anno></c>
+              in state <c><anno>State</anno></c>.
 	    </p>
 	  </item>
 	  <tag>

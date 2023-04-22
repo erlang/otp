@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -331,7 +331,8 @@
       <desc>
         <p>Converts an RFC 3339 timestamp into system time. The data format
           of RFC 3339 timestamps is described by
-          <url href="https://www.ietf.org/rfc/rfc3339.txt">RFC 3339</url>.</p>
+          <url href="https://www.ietf.org/rfc/rfc3339.txt">RFC 3339</url>.
+        Starting from OTP 25.1, the minutes part of the time zone is optional.</p>
 	<p>Valid option:</p>
 	<taglist>
 	  <tag><c>{unit, Unit}</c></tag>

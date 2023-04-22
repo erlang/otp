@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,8 +60,8 @@ parse_headers([Bin, Rest,Header, Headers, MaxHeaderSize, Result, Relaxed]) ->
     parse_headers(<<Rest/binary, Bin/binary>>, Header, Headers, 
 		  MaxHeaderSize, Result, Relaxed).
     
-whole_body(Body, Length) ->
-    case size(Body) of
+whole_body(Body, Length) when is_binary(Body)->
+    case byte_size(Body) of
 	N when (N < Length) andalso (N > 0)  ->
 	    {?MODULE, whole_body, [Body, Length]};
 	%% OBS!  The Server may close the connection to indicate that the
@@ -122,17 +122,19 @@ result(Response = {{_, Code, _}, _, _},
                            (Code =:= 303) ->
     redirect(Response, Request#request{method = get});
 result(Response = {{_, Code, _}, _, _}, 
-       Request = #request{settings =
-              #http_options{autoredirect = true},
-              method = post}) when (Code =:= 307) ->
+        Request = #request{settings =
+            #http_options{autoredirect = true},
+                method = post}) when (Code =:= 307) orelse
+                    (Code =:= 308) ->
     redirect(Response, Request);
 result(Response = {{_, Code, _}, _, _}, 
-       Request = #request{settings = 
-			  #http_options{autoredirect = true},
-			  method = Method}) when (Code =:= 301) orelse
-					       (Code =:= 302) orelse
-					       (Code =:= 303) orelse
-					       (Code =:= 307) ->
+        Request = #request{settings = 
+			#http_options{autoredirect = true},
+                method = Method}) when (Code =:= 301) orelse
+                    (Code =:= 302) orelse
+                    (Code =:= 303) orelse
+                    (Code =:= 307) orelse
+                    (Code =:= 308) ->
     case lists:member(Method, [get, head, options, trace]) of
     true ->
         redirect(Response, Request);
@@ -590,13 +592,13 @@ is_server_closing(Headers) when is_record(Headers, http_response_h) ->
 format_response({StatusLine, Headers, Body = <<>>}) ->
     {{StatusLine, http_response:header_list(Headers), Body}, <<>>};
 
-format_response({StatusLine, Headers, Body}) ->
+format_response({StatusLine, Headers, Body}) when is_binary(Body) ->
     Length = list_to_integer(Headers#http_response_h.'content-length'),
     {NewBody, Data} = 
 	case Length of
 	    -1 -> % When no length indicator is provided
 		{Body, <<>>};
-	    Length when (Length =< size(Body)) ->
+	    Length when (Length =< byte_size(Body)) ->
 		<<BodyThisReq:Length/binary, Next/binary>> = Body,
 		{BodyThisReq, Next};
 	    _ -> %% Connection prematurely ended. 

@@ -38,7 +38,8 @@
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
          compile_attribute/1, message_printing/1, other_options/1,
-         transforms/1, erl_compile_api/1, types_pp/1
+         transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1,
+         annotations_pp/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -58,7 +59,7 @@ all() ->
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
      compile_attribute, message_printing, other_options, transforms,
-     erl_compile_api, types_pp].
+     erl_compile_api, types_pp, bs_init_writable, annotations_pp].
 
 groups() -> 
     [].
@@ -676,7 +677,7 @@ encrypted_abstr(Config) when is_list(Config) ->
 		  %% Now run the tests that require crypto.
 		  encrypted_abstr_1(Simple, Target),
 		  ok = file:delete(Target),
-		  ok = file:del_dir_r(filename:dirname(Target))
+		  _ = file:del_dir_r(filename:dirname(Target))
 	  end,
     
     %% Cleanup.
@@ -1130,7 +1131,7 @@ do_core_pp_1(M, A, Outdir) ->
     compile_forms(M, Core, [clint,ssalint,from_core,binary]),
 
     %% Don't optimize to test that we are not dependent
-    %% on the Core Erlang optmimization passes.
+    %% on the Core Erlang optimization passes.
     %% (Example of a previous bug: The core_parse pass
     %% would not turn map literals into #c_literal{}
     %% records; if sys_core_fold was run it would fix
@@ -1154,7 +1155,16 @@ core_roundtrip(Config) ->
     ok = file:make_dir(Outdir),
 
     TestBeams = get_unique_beam_files(),
-    test_lib:p_run(fun(F) -> do_core_roundtrip(F, Outdir) end, TestBeams).
+
+    Test = fun(F) -> do_core_roundtrip(F, Outdir) end,
+    case erlang:system_info(wordsize) of
+        4 ->
+            %% This test case is very memory intensive. Only
+            %% use a single process.
+            test_lib:p_run(Test, TestBeams, 1);
+        8 ->
+            test_lib:p_run(Test, TestBeams)
+    end.
 
 do_core_roundtrip(Beam, Outdir) ->
     try
@@ -1484,8 +1494,9 @@ do_warnings_2([], Next, F) ->
 
 message_printing(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    BadEncFile = filename:join(DataDir, "bad_enc.erl"),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
+    BadEncFile = filename:join(DataDir, "bad_enc.erl"),
     {error,BadEncErrors, []} = compile:file(BadEncFile, [return]),
 
     [":7:15: cannot parse file, giving up\n"
@@ -1510,6 +1521,24 @@ message_printing(Config) ->
      "%    6|     B = <<\"xyzåäö\">>,\t<<\"12345\">>,\n"
      "%     |                      \t^\n\n"
     ] = messages(Latin1Errors),
+
+    LongFile = filename:join(PrivDir, "long.erl"),
+    Long = ["-module(long).\n",
+            "-export([foo/0]).\n",
+            "unused() -> ok.\n",
+            lists:duplicate(10000, $\n),
+            "foo() -> bar().\n"],
+    ok = file:write_file(LongFile, Long),
+    {error,LongErrors,LongWarnings} = compile:file(LongFile, [return]),
+    [":10004:10: function bar/0 undefined\n"
+     "% 10004| foo() -> bar().\n"
+     "%      |          ^\n\n"
+    ] = messages(LongErrors),
+    [":3:1: function unused/0 is unused\n"
+     "%    3| unused() -> ok.\n"
+     "%     | ^\n\n"
+    ] = messages(LongWarnings),
+    ok = file:delete(LongFile),
 
     {ok,OldCwd} = file:get_cwd(),
     try
@@ -1548,7 +1577,7 @@ pre_load_check(Config) ->
             try
                 do_pre_load_check(Config)
             after
-                dbg:stop_clear()
+                dbg:stop()
             end
     end.
 
@@ -1691,7 +1720,8 @@ bc_options(Config) ->
          {168, small, [r22]},
          {168, small, [no_init_yregs,no_shared_fun_wrappers,
                        no_ssa_opt_record,no_make_fun3,
-                       no_ssa_opt_float,no_line_info,no_type_opt]},
+                       no_ssa_opt_float,no_line_info,no_type_opt,
+                       no_bs_match]},
          {169, small, [r23]},
 
          {169, big, [no_init_yregs,no_shared_fun_wrappers,
@@ -2027,9 +2057,9 @@ types_pp(Config) when is_list(Config) ->
                      "{any(), any(), any(), any(), any()}"},
                     {make_inexact_tuple, "{any(), any(), any(), ...}"},
                     {make_union,
-                     "'foo' | nonempty_list(1..3) | number() |"
-                     " {'tag0', 1, 2} | {'tag1', 3, 4} | bitstring(24)"},
-                    {make_bitstring, "bitstring(24)"},
+                     "'foo' | nonempty_list(1..3) | number(3, 7) |"
+                     " {'tag0', 1, 2} | {'tag1', 3, 4} | bitstring(8)"},
+                    {make_bitstring, "bitstring(8)"},
                     {make_none, "none()"}],
     lists:foreach(fun({FunName, Expected}) ->
                           Actual = map_get(atom_to_list(FunName), ResultTypes),
@@ -2044,26 +2074,84 @@ types_pp(Config) when is_list(Config) ->
     ok = file:del_dir_r(TargetDir),
     ok.
 
-%% We assume that a call starts with a "Result type:"-line followed by
-%% a type line, which is followed by an optional annotation before the
-%% actual call.
+%% Parsing for result types. Remember the last seen "Result type"
+%% annotation and apply it to calls when we see them to a call when we
+%% see them.
 get_result_types(Lines) ->
-    get_result_types(Lines, #{}).
+    get_result_types(Lines, none, #{}).
 
-get_result_types(["  %% Result type:"++_,"  %%    "++TypeLine|Lines], Acc) ->
+get_result_types(["  %% Result type:"++_,"  %%    "++TypeLine|Lines], _, Acc) ->
     get_result_types(Lines, TypeLine, Acc);
-get_result_types([_|Lines], Acc) ->
-    get_result_types(Lines, Acc);
-get_result_types([], Acc) ->
+get_result_types([Line|Lines], TypeLine, Acc0) ->
+    Split = string:split(Line, "="),
+    Acc = case Split of
+              [_, " call" ++ Rest] ->
+                  case string:split(Rest, "`", all) of
+                      [_,Callee,_] ->
+                          Acc0#{ Callee => TypeLine };
+                      _ ->
+                          Acc0
+                  end;
+              _ ->
+                  Acc0
+          end,
+    get_result_types(Lines, TypeLine, Acc);
+get_result_types([], _, Acc) ->
     Acc.
 
-get_result_types(["  %% Anno: "++_|Lines], TypeLine, Acc) ->
-    get_result_types(Lines, TypeLine, Acc);
-get_result_types([CallLine|Lines], TypeLine, Acc) ->
-    [_,Callee,_] = string:split(CallLine, "`", all),
-    get_result_types(Lines, Acc#{ Callee => TypeLine }).
+%% Check that the beam_ssa_type pass knows about bs_init_writable.
+bs_init_writable(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    InFile = filename:join(DataDir, "bs_init_writable.erl"),
+    OutDir = filename:join(PrivDir, "bs_init_writable"),
+    OutFile = filename:join(OutDir, "bs_init_writable.S"),
+    ok = file:make_dir(OutDir),
+    {ok,bs_init_writable} = compile:file(InFile, ['S',{outdir,OutDir}]),
+    {ok,Listing} = file:read_file(OutFile),
+    Os = [global,multiline,{capture,all_but_first,list}],
+    %% The is_bitstr test should be optimized away.
+    nomatch = re:run(Listing, "({test,is_bitstr,.+})", Os),
+    %% The is_bitstr test should be optimized away.
+    nomatch = re:run(Listing, "({test,is_binary,.+})", Os),
+    ok = file:del_dir_r(OutDir).
 
 
+%% Check that an SSA listing contains pretty printed annotations, this
+%% blindly checks that the expected annotation occurs the expected
+%% number of times. Checking that the annotations are correctly placed
+%% and contains the correct information is done in
+%% beam_ssa_check_SUITE.
+annotations_pp(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    TargetDir = filename:join(PrivDir, types_pp),
+    File = filename:join(DataDir, "annotations_pp.erl"),
+    Listing = filename:join(TargetDir, "annotations_pp.ssaopt"),
+    ok = file:make_dir(TargetDir),
+
+    {ok,_} = compile:file(File, [dssaopt, {outdir, TargetDir}]),
+    {ok, Data} = file:read_file(Listing),
+    Lines = string:split(binary_to_list(Data), "\n", all),
+
+    ResultTypes = get_annotations("  %% Result type:", Lines),
+    10 = length(ResultTypes),
+
+    Uniques = get_annotations("  %% Unique:", Lines),
+    10 = length(Uniques),
+
+    Aliased = get_annotations("  %% Aliased:", Lines),
+    17 = length(Aliased),
+
+    ok = file:del_dir_r(TargetDir),
+    ok.
+
+get_annotations(Key, [Key,"  %%    "++Anno|Lines]) ->
+    [Anno|get_annotations(Key, Lines)];
+get_annotations(Key, [_|Lines]) ->
+    get_annotations(Key, Lines);
+get_annotations(_, []) ->
+    [].
 
 %%%
 %%% Utilities.

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -790,12 +790,12 @@ client(ServerPid, Request) ->
           <c>utf8</c> or
           <c>unicode</c>, the characters are encoded using UTF-8 where
           characters may require multiple bytes.</p>
-        <note>
+        <change>
           <p>As from Erlang/OTP 20, atoms can contain any Unicode character
             and <c>atom_to_binary(<anno>Atom</anno>, latin1)</c> may fail if the
             text representation for <c><anno>Atom</anno></c> contains a Unicode
             character &gt; 255.</p>
-        </note>
+        </change>
         <p>Example:</p>
         <pre>
 > <input>atom_to_binary('Erlang', latin1).</input>
@@ -874,11 +874,11 @@ client(ServerPid, Request) ->
           <c><anno>Binary</anno></c>. If <c><anno>Encoding</anno></c>
           is <c>utf8</c> or <c>unicode</c>, the binary must contain
           valid UTF-8 sequences.</p>
-        <note>
+        <change>
           <p>As from Erlang/OTP 20, <c>binary_to_atom(<anno>Binary</anno>, utf8)</c>
             is capable of decoding any Unicode character. Earlier versions would
             fail if the binary contained Unicode characters &gt; 255.</p>
-        </note>
+        </change>
         <note>
           <p>The number of characters that are permitted in an atom
           name is limited. The default limits can be found in the
@@ -1392,7 +1392,7 @@ hello
             by passing option <c>{allow_gc, false}</c>.</p>
           </item>
         </taglist>
-	<note>
+	<change>
 	<p>
 	  Up until ERTS version 8.*, the check process code operation
 	  checks for all types of references to the old code. That is,
@@ -1414,7 +1414,7 @@ hello
 	  and will automatically be enabled if dirty scheduler
 	  support is enabled.
 	</p>
-	</note>
+	</change>
         <p>See also <seeerl marker="kernel:code">
           <c>code(3)</c></seeerl>.</p>
         <p>Failures:</p>
@@ -1589,6 +1589,10 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
               headers and the beginning of any following message body.</p>
             <p>The variants <c>http_bin</c> and <c>httph_bin</c> return
               strings (<c>HttpString</c>) as binaries instead of lists.</p>
+            <p>Since OTP 26.0, <c><anno>Host</anno></c> may be an IPv6
+              address enclosed in <c>[]</c>, as defined in
+              <url href="https://www.ietf.org/rfc/rfc2732.txt">RFC2732
+              </url>.</p>
           </item>
         </taglist>
         <p>Options:</p>
@@ -1677,7 +1681,13 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           <c>demonitor(<anno>MonitorRef</anno>, [flush])</c></seemfa>
           can be used instead of <c>demonitor(<anno>MonitorRef</anno>)</c>
           if this cleanup is wanted.</p>
-        <note>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
+        <change>
           <p>Before Erlang/OTP R11B (ERTS 5.5) <c>demonitor/1</c>
             behaved completely asynchronously, that is, the monitor was active
             until the "demonitor signal" reached the monitored entity. This
@@ -1687,7 +1697,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           <p>The current behavior can be viewed as two combined operations:
             asynchronously send a "demonitor signal" to the monitored entity
             and ignore any future results of the monitor.</p>
-        </note>
+        </change>
         <p>Failure: It is an error if <c><anno>MonitorRef</anno></c> refers to a
           monitoring started by another process. Not all such cases are
           cheap to check. If checking is cheap, the call fails with
@@ -1745,9 +1755,9 @@ end</code>
               otherwise <c>true</c>.</p>
           </item>
         </taglist>
-        <note>
+        <change>
           <p>More options can be added in a future release.</p>
-        </note>
+        </change>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -2284,6 +2294,12 @@ example_fun(A1, A2) ->
             reasons.
           </p>
         </warning>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -2545,6 +2561,15 @@ of Floating Point Numbers</seeguide>.</p>
               <c>Fun</c> was statically allocated when module was
               loaded (this optimisation is performed for local
               functions that do not capture the environment).</p>
+            <change>
+              <p>In Erlang/OTP 27, we plan to change the return value so that
+                it always points to the local <c>init</c> process, regardless
+                of which process or node the fun was originally created on. See
+                <seeguide marker="system/general_info:upcoming_incompatibilities#fun_creator_pid">
+                  Upcoming Potential Incompatibilities
+                </seeguide>.
+              </p>
+            </change>
           </item>
           <tag><c>{index, Index}</c></tag>
           <item>
@@ -2638,11 +2663,11 @@ of Floating Point Numbers</seeguide>.</p>
         marker="#fun_info/1"><c>erlang:fun_info/1</c></seemfa> for how
         to get the environment of a fun.</p>
         </note>
-        <note>
+        <change>
           <p>The output of <c>fun_to_list/1</c> can differ between
           Erlang implementations and may change in future
           versions.</p>
-        </note>
+        </change>
         <p>Examples:</p>
         <code>
 -module(test).
@@ -2917,6 +2942,12 @@ uncompiled code with the same arity are mapped to the same list by
           and <seeguide marker="system/design_principles:applications#stopping">OTP
           design principles</seeguide> related to starting and stopping
           applications.</p>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -2925,7 +2956,7 @@ uncompiled code with the same arity are mapped to the same list by
       <fsummary>Halt the Erlang runtime system and indicate normal exit to
         the calling environment.</fsummary>
       <desc>
-        <p>The same as
+        <p>The same as calling
           <seemfa marker="#halt/2"><c>halt(0, [])</c></seemfa>. Example:</p>
         <pre>
 > <input>halt().</input>
@@ -2934,10 +2965,11 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="halt" arity="1" since=""/>
+      <name name="halt" arity="1" clause_i="1"
+            anchor="halt_status_code_1" since=""/>
       <fsummary>Halt the Erlang runtime system.</fsummary>
       <desc>
-        <p>The same as <seemfa marker="#halt/2">
+        <p>The same as calling <seemfa marker="#halt/2">
           <c>halt(<anno>Status</anno>, [])</c></seemfa>. Example:</p>
         <pre>
 > <input>halt(17).</input>
@@ -2948,44 +2980,156 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="halt" arity="2" since="OTP R15B01"/>
-      <fsummary>Halt the Erlang runtime system.</fsummary>
+      <name name="halt" arity="1" clause_i="2"
+            anchor="halt_abort_1" since="OTP R15B01"/>
+      <fsummary>Halt the Erlang runtime system by aborting.</fsummary>
       <desc>
-        <p><c><anno>Status</anno></c> must be a non-negative integer, a string,
-          or the atom <c>abort</c>.
-          Halts the Erlang runtime system. Has no return value.
-          Depending on <c><anno>Status</anno></c>, the following occurs:</p>
+        <p>
+          The same as calling <seeerl marker="#halt_abort_2">
+          <c>halt(abort, [])</c></seeerl>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="halt" arity="1" clause_i="3"
+            anchor="halt_crash_dump_1" since=""/>
+      <fsummary>
+        Halt the Erlang runtime system and create an Erlang crash dump.
+      </fsummary>
+      <desc>
+        <p>
+          The same as calling <seeerl marker="#halt_crash_dump_2">
+          <c>halt(<anno>CrashDumpSlogan</anno>, [])</c></seeerl>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="halt" arity="2" clause_i="1"
+            anchor="halt_status_code_2" since="OTP R15B01"/>
+      <fsummary>Halt the Erlang runtime system.</fsummary>
+      <type name="halt_options"/>
+      <desc>
+        <p>
+          Halt the runtime system with status code
+          <c><anno>Status</anno></c>.
+        </p>
+	<note>
+	  <p>
+            On many platforms, the OS supports only status codes 0-255. A too
+            large status code is truncated by clearing the high bits.
+          </p>
+	</note>
+        <p>
+          Currently the following options are valid:
+        </p>
         <taglist>
-          <tag>integer()</tag>
-          <item>The runtime system exits with integer value
-            <c><anno>Status</anno></c>
-            as status code to the calling environment (OS).
-	    <note>
-	      <p>On many platforms, the OS supports only status
-	      codes 0-255. A too large status code is truncated by clearing
-	      the high bits.</p>
-	    </note>
-          </item>
-          <tag>string()</tag>
-          <item>An Erlang crash dump is produced with <c><anno>Status</anno></c>
-            as slogan. Then the runtime system exits with status code <c>1</c>.
-	    The string will be truncated if longer than 200 characters.
-	    <note>
-	      <p>Before ERTS 9.1 (OTP-20.1) only code points in the range 0-255
-	         was accepted in the string. Now any unicode string is valid.</p>
-	    </note>
-          </item>
-          <tag><c>abort</c></tag>
-          <item>The runtime system aborts producing a core dump, if that is
-            enabled in the OS.
+          <tag><marker id="halt_flush"/><c>{flush, EnableFlushing}</c></tag>
+          <item>
+            <p>
+              If <c>EnableFlushing</c> equals <c>true</c>, which also is the
+              default behavior, the runtime system will perform the following
+              operations before terminating:
+            </p>
+            <list>
+              <item><p>
+                Flush all outstanding output.
+              </p></item>
+              <item><p>
+                Send all Erlang ports exit signals and wait for them
+                to exit.
+              </p></item>
+              <item><p>
+                Wait for all async threads to complete all outstanding
+                async jobs.
+              </p></item>
+              <item><p>
+                Call all installed <seecref marker="erl_nif#on_halt">NIF
+                <i>on halt</i> callbacks</seecref>.
+              </p></item>
+              <item><p>
+                Wait for all ongoing <seecref marker="erl_nif#delay_halt">NIF
+                calls with the <i>delay halt</i> setting</seecref> enabled to
+                return.
+              </p></item>
+              <item><p>
+                Call all installed <c>atexit</c>/<c>on_exit</c> callbacks.
+              </p></item>
+            </list>
+            <p>
+              If <c>EnableFlushing</c> equals <c>false</c>, the runtime system
+              will terminate immediately without performing any of the above
+              listed operations.
+            </p>
+            <change>
+                <p>
+                  Runtime systems prior to OTP @OTP-17771@ called all installed
+                  <c>atexit</c>/<c>on_exit</c> callbacks also when <c>flush</c>
+                  was disabled, but as of OTP @OTP-17771@ this is no longer the case.
+                </p>
+            </change>
           </item>
         </taglist>
-        <p>For integer <c><anno>Status</anno></c>, the Erlang runtime system
-          closes all ports and allows async threads to finish their
-          operations before exiting. To exit without such flushing, use
-          <c><anno>Option</anno></c> as <c>{flush,false}</c>.</p>
-        <p>For statuses <c>string()</c> and <c>abort</c>, option
-          <c>flush</c> is ignored and flushing is <em>not</em> done.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="halt" arity="2" clause_i="2"
+            anchor="halt_abort_2" since="OTP R15B01"/>
+      <fsummary>Halt the Erlang runtime system by aborting.</fsummary>
+      <type name="halt_options"/>
+      <desc>
+        <p>
+          Halt the Erlang runtime system by aborting and produce a core dump
+          if core dumping has been enabled in the environment that the
+          runtime system is executing in.
+        </p>
+        <note><p>
+          The <seeerl marker="#halt_flush"><c>{flush, boolean()}</c></seeerl>
+          option will be ignored, and flushing will be disabled.
+        </p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="halt" arity="2" clause_i="3"
+            anchor="halt_crash_dump_2" since="OTP R15B01"/>
+      <fsummary>
+        Halt the Erlang runtime system and create an Erlang crash dump.
+      </fsummary>
+      <type name="halt_options"/>
+      <desc>
+        <p>
+          Halt the Erlang runtime system and generate an
+	  <seeguide marker="crash_dump">Erlang crash dump</seeguide>. The
+          string <c><anno>CrashDumpSlogan</anno></c> will be used as slogan
+          in the Erlang crash dump created. The slogan will be trunkated if
+          <c><anno>CrashDumpSlogan</anno></c> is longer than 1023 characters.
+        </p>
+        <note><p>
+          The <seeerl marker="#halt_flush"><c>{flush, boolean()}</c></seeerl>
+          option will be ignored, and flushing will be disabled.
+        </p></note>
+        <p>
+          Behavior changes compared to earlier versions:
+        </p>
+        <list>
+          <item>
+            <p>
+              Before OTP 24.2, the slogan was truncated if
+              <c><anno>CrashDumpSlogan</anno></c> was longer than 200
+              characters. Now it will be truncated if longer than 1023
+              characters.
+            </p>
+          </item>
+          <item>
+            <p>
+              Before OTP 20.1, only code points in the range 0-255 were
+              accepted in the slogan. Now any Unicode string is valid.
+            </p>
+          </item>
+        </list>
       </desc>
     </func>
 
@@ -2994,12 +3138,17 @@ os_prompt%</pre>
       <fsummary>Head of a list.</fsummary>
       <desc>
         <p>Returns the head of <c><anno>List</anno></c>, that is,
-          the first element, for example:</p>
+          the first element.</p>
+        <p>It works with improper lists.</p>
+        <p>Examples:</p>
         <pre>
 > <input>hd([1,2,3,4,5]).</input>
 1</pre>
+        <pre>
+> <input>hd([first, second, third, so_on | improper_end]).</input>
+first</pre>
         <p>Allowed in guard tests.</p>
-        <p>Failure: <c>badarg</c> if <c><anno>List</anno></c> is the empty
+        <p>Failure: <c>badarg</c> if <c><anno>List</anno></c> is an empty
           list <c>[]</c>.</p>
       </desc>
     </func>
@@ -3197,7 +3346,7 @@ os_prompt%</pre>
         </list>
         <p>A node
         can also be alive if it has got a name from a call to <seemfa
-        marker="kernel:net_kernel#start/1"><c>net_kernel:start/1</c></seemfa>
+        marker="kernel:net_kernel#start/2"><c>net_kernel:start/2</c></seemfa>
         and has not been stopped by a call to <seemfa
         marker="kernel:net_kernel#stop/0"><c>net_kernel:stop/0</c></seemfa>.</p>
       </desc>
@@ -3547,6 +3696,12 @@ is_process_alive(P2Pid),
 	  chapter of the <i>ERTS User's Guide</i>.
 	</p>
 
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
 	<p>Failure:</p>
 	<list>
 	  <item><c>badarg</c> if <c><anno>PidOrPort</anno></c> does not identify
@@ -3822,6 +3977,11 @@ is_process_alive(P2Pid),
           <c><anno>Binary</anno></c> can become the current code. Any
           previous current code for <c><anno>Module</anno></c> will remain
           until the <c>on_load</c> call has finished.
+          </item>
+          <tag>not_allowed</tag>
+          <item>The code in <c><anno>Binary</anno></c> has been
+          compiled with features that are currently not enabled in the
+          runtime system.
           </item>
         </taglist>
         <warning>
@@ -4106,6 +4266,8 @@ is_process_alive(P2Pid),
           <pre>
 > <input>max("abc", "b").</input>
 "b"</pre>
+        <p>Allowed in guard tests.</p>
+        <change><p>Allowed in guards tests from Erlang/OTP 26.</p></change>
       </desc>
     </func>
 
@@ -4191,7 +4353,7 @@ is_process_alive(P2Pid),
             <p>The total amount of memory currently allocated for
               the emulator that is not directly related to any Erlang
               process. Memory presented as <c>processes</c> is not
-              included in this memory. <seeerl marker="tools:instrument">
+              included in this memory. <seeerl marker="runtime_tools:instrument">
               <c>instrument(3)</c></seeerl> can be used to
               get a more detailed breakdown of what memory is part
               of this type.</p>
@@ -4233,7 +4395,7 @@ is_process_alive(P2Pid),
               when the emulator is run with instrumentation.</p>
             <p>For information on how to run the emulator with
               instrumentation, see
-              <seeerl marker="tools:instrument">
+              <seeerl marker="runtime_tools:instrument">
               <c>instrument(3)</c></seeerl>
               and/or <seecom marker="erl"><c>erl(1)</c></seecom>.</p>
           </item>
@@ -4281,11 +4443,11 @@ RealSystem = system + MissedSystem</code>
             larger than the total size of the dynamically allocated
             memory blocks.</p>
         </note>
-        <note>
+        <change>
           <p>As from ERTS 5.6.4, <c>erlang:memory/0</c> requires that
             all <seecref marker="erts:erts_alloc"><c>erts_alloc(3)</c></seecref>
             allocators are enabled (default behavior).</p>
-        </note>
+        </change>
         <p>Failure: <c>notsup</c> if an
           <seecref marker="erts:erts_alloc"><c>erts_alloc(3)</c></seecref>
           allocator has been disabled.</p>
@@ -4302,12 +4464,12 @@ RealSystem = system + MissedSystem</code>
           <c><anno>Type</anno></c>. The argument can also be specified as a list
           of <c>memory_type()</c> atoms, in which case a corresponding list of
           <c>{memory_type(), Size :: integer >= 0}</c> tuples is returned.</p>
-        <note>
+        <change>
           <p>As from ERTS 5.6.4,
             <c>erlang:memory/1</c> requires that
             all <seecref marker="erts_alloc"><c>erts_alloc(3)</c></seecref>
             allocators are enabled (default behavior).</p>
-        </note>
+        </change>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -4358,6 +4520,8 @@ RealSystem = system + MissedSystem</code>
           <pre>
 > <input>min("abc", "b").</input>
 "abc"</pre>
+        <p>Allowed in guard tests.</p>
+        <change><p>Allowed in guards tests from Erlang/OTP 26.</p></change>
       </desc>
     </func>
 
@@ -4365,14 +4529,13 @@ RealSystem = system + MissedSystem</code>
       <name name="module_loaded" arity="1" since=""/>
       <fsummary>Check if a module is loaded.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if the module <c><anno>Module</anno></c>
-          is loaded, otherwise <c>false</c>. It does not attempt to load
-          the module.</p>
-        <warning>
-          <p>This BIF is intended for the code server (see
-            <seeerl marker="kernel:code"><c>code(3)</c></seeerl>)
-            and is not to be used elsewhere.</p>
-        </warning>
+        <p>
+          Returns <c>true</c> if the module <c><anno>Module</anno></c> is
+          loaded as
+          <seeguide marker="system/reference_manual:code_loading#code-replacement">
+            <i>current code</i></seeguide>; otherwise, <c>false</c>. It does
+          not attempt to load the module.
+        </p>
       </desc>
     </func>
 
@@ -4452,7 +4615,7 @@ RealSystem = system + MissedSystem</code>
             a tuple <c>{RegisteredName, Node}</c> for a registered process,
           located elsewhere.</p>
 
-        <note><p>Before ERTS 10.0 (OTP 21.0), monitoring a process could fail with
+        <change><p>Before ERTS 10.0 (OTP 21.0), monitoring a process could fail with
 	  <c>badarg</c> if the monitored process resided on a primitive node
 	  (such as erl_interface or jinterface), where remote process monitoring
 	  is not implemented.</p>
@@ -4461,7 +4624,7 @@ RealSystem = system + MissedSystem</code>
 	  connection. That is, a <c>{'DOWN', _, process, _, noconnection}</c> is
 	  the only message that may be received, as the primitive node have no
 	  way of reporting the status of the monitored process.</p>
-	</note>
+	</change>
 
         </item>
 
@@ -4549,6 +4712,12 @@ RealSystem = system + MissedSystem</code>
             possible values for <c>Tag</c>, <c>Object</c>, and
             <c>Info</c> in the monitor message will be introduced.</p>
         </note>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -4931,6 +5100,91 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
+      <name name="nodes" arity="2" since="OTP 25.1"/>
+      <fsummary>All nodes of a certain type in the system.</fsummary>
+      <desc>
+        <p>
+          Returns a list of <c><anno>NodeInfo</anno></c> tuples. The first
+          element is the node name. Nodes to be included in the list are
+          determined by the first argument <c><anno>Arg</anno></c> in the same
+          way as for
+          <seemfa marker="#nodes/1"><c>nodes(<anno>Arg</anno>)</c></seemfa>.
+          The second element of <c><anno>NodeInfo</anno></c> tuples is a map
+          containing further information about the node identified by the
+          first element. The information present in this map is determined by
+          the <c><anno>InfoOpts</anno></c> map passed as the second argument.
+          Currently the following associations are allowed in the
+          <c><anno>InfoOpts</anno></c> map:</p>
+        <taglist>
+          <tag><c>connection_id => boolean()</c></tag>
+          <item><p>
+            If the value of the association equals <c>true</c>, the <c>Info</c>
+            map in the returned result will contain the key <c>connection_id</c>
+            associated with the value <c><anno>ConnectionId</anno></c>. If
+            <c><anno>ConnectionId</anno></c> equals <c>undefined</c>, the node
+            is not connected to the node which the caller is executing on, or
+            is the node which the caller is executing on. If
+            <c><anno>ConnectionId</anno></c> is an integer, the node is
+            currently connected to the node which the caller is executing on.
+          </p>
+          <p>
+            <marker id="connection_id"/>
+            The integer connection identifier value together with a node name
+            identifies a specific connection instance to the node with that
+            node name. The connection identifier value is node local. That is,
+            on the other node the connection identifier will <i>not</i> be the
+            same value. If a connection is taken down and then taken up again,
+            the connection identifier value will change for the connection to
+            that node. The amount of values for connection identifiers are
+            limited, so it is possible to see the same value for different
+            instances, but quite unlikely. It is undefined how the value
+            change between two consecutive connection instances.
+          </p></item>
+          <tag><c>node_type => boolean()</c></tag>
+          <item><p>
+            If the value of the association equals <c>true</c>, the <c>Info</c>
+            map in the returned result will contain the key <c>node_type</c>
+            associated with the value <c><anno>NodeTypeInfo</anno></c>.
+            Currently the following node types exist:</p>
+            <taglist>
+              <tag><c>visible</c></tag>
+              <item><p>
+                The node is connected to the node of the calling process
+                through an ordinary visible connection. That is, the node
+                name would appear in the result returned by
+                <seemfa marker="#nodes/0"><c>nodes/0</c></seemfa>.
+              </p></item>
+              <tag><c>hidden</c></tag>
+              <item><p>
+                The node is connected to the node of the calling process
+                through a hidden connection. That is, the node
+                name would <i>not</i> appear in the result returned by
+                <seemfa marker="#nodes/0"><c>nodes/0</c></seemfa>.
+              </p></item>
+              <tag><c>this</c></tag>
+              <item><p>
+                This is the node of the calling process.
+              </p></item>
+              <tag><c>known</c></tag>
+              <item><p>
+                The node is not connected but known to the node of the
+                calling process.
+              </p></item>
+            </taglist>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <code type="erl">
+(a@localhost)1> nodes([this, connected], #{connection_id=>true, node_type=>true}). 
+[{c@localhost,#{connection_id => 13892108,node_type => hidden}},
+ {b@localhost,#{connection_id => 3067553,node_type => visible}},
+ {a@localhost,#{connection_id => undefined,node_type => this}}]
+(a@localhost)2> 
+        </code>
+      </desc>
+    </func>
+
+    <func>
       <name name="now" arity="0" since=""/>
       <fsummary>Elapsed time since 00:00 GMT.</fsummary>
       <type name="timestamp"/>
@@ -5114,7 +5368,7 @@ receive_replies(ReqId, N, Acc) ->
               <c><anno>Val</anno></c> must be strings. The one
               exception is <c><anno>Val</anno></c> being the atom
               <c>false</c> (in analogy with
-              <seemfa marker="kernel:os#getenv/1"><c>os:getenv/1</c></seemfa>,
+              <seemfa marker="kernel:os#getenv/1"><c>os:getenv/1</c></seemfa>),
               which removes the environment variable.
 	    </p>
 	    <p>
@@ -5602,9 +5856,9 @@ receive_replies(ReqId, N, Acc) ->
             <c>false</c> is returned.
           </item>
         </taglist>
-        <note>
+        <change>
           <p>More options can be added in a future release.</p>
-        </note>
+        </change>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -6065,6 +6319,68 @@ receive_replies(ReqId, N, Acc) ->
 
     <func>
       <name name="process_flag" arity="2" clause_i="1"
+	    anchor="process_flag_async_dist" since="OTP 25.3"/>
+      <fsummary>
+        Enable or disable fully asynchronous distributed signaling
+        for the calling process.
+      </fsummary>
+      <desc>
+        <p>
+          Enable or disable <i>fully asynchronous distributed signaling</i>
+          for the calling process. When disabled, which is the default, the
+          process sending a distributed signal will block in the send
+          operation if the buffer for the distribution channel reach the
+          <seecom marker="erts:erl#+zdbbl">distribution buffer busy
+          limit</seecom>. The process will remain blocked until the buffer
+          shrinks enough. This might in some cases take a substantial amount
+          of time. When <c>async_dist</c> is enabled, send operations of
+          distributed signals will always buffer the signal on the outgoing
+          distribution channel and then immediately return. That is, these
+          send operations will <em>never</em> block the sending process.
+        </p>
+        <note><p>
+          Since no flow control is enforced by the runtime system when
+          <c>async_dist</c> process flag is enabled, you need to make sure
+          that flow control for such data is implemented, or that the amount
+          of such data is known to always be limited. Unlimited signaling with
+          <c>async_dist</c> enabled in the absence of flow control will
+          typically cause the sending runtime system to crash on an out of
+          memory condition.
+        </p></note>
+        <p>
+          Blocking due to disabled <c>async_dist</c> can be monitored by
+          <seemfa marker="#system_monitor/2"><c>erlang:system_monitor()</c></seemfa>
+          using the
+          <seeerl marker="#busy_dist_port"><c>busy_dist_port</c></seeerl>
+          option. Only data buffered by processes which (at the time of sending
+          a signal) have disabled <c>async_dist</c> will be counted when
+          determining whether or not an operation should block the caller.
+        </p>
+        <p>
+          The <c>async_dist</c> flag can also be set on a new process when
+          spawning it using the
+          <seemfa marker="#spawn_opt/4"><c>spawn_opt()</c></seemfa> BIF with the
+          option <seeerl marker="#spawn_opt_async_dist"><c>{async_dist,
+          Enable}</c></seeerl>. The default <c>async_dist</c> flag to use on
+          newly spawned processes can be set by passing the command line
+          argument <seecom marker="erl#+pad"><c>+pad
+          &lt;boolean&gt;</c></seecom> when starting the runtime system. If the
+          <c>+pad &lt;boolean&gt;</c> command line argument is not passed, the
+          default value of the <c>async_dist</c> flag will be <c>false</c>.
+        </p>
+        <p>
+          You can inspect the state of the <c>async_dist</c> process flag of a
+          process by calling <seeerl marker="#process_info_async_dist">
+          <c>process_info(Pid, async_dist)</c></seeerl>.
+        </p>
+        <p>
+          Returns the old value of the <c>async_dist</c> flag.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="process_flag" arity="2" clause_i="2"
 	    anchor="process_flag_trap_exit" since=""/>
       <fsummary>Set process flag trap_exit for the calling process.</fsummary>
       <desc>
@@ -6082,7 +6398,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="2" since=""/>
+      <name name="process_flag" arity="2" clause_i="3" since=""/>
       <fsummary>Set process flag error_handler for the calling process.
       </fsummary>
       <desc>
@@ -6096,7 +6412,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="3" since="OTP 24.0"/>
+      <name name="process_flag" arity="2" clause_i="4" since="OTP 24.0"/>
       <fsummary>Set process flag fullsweep_after for the calling process.
       </fsummary>
       <desc>
@@ -6107,7 +6423,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="4"
+      <name name="process_flag" arity="2" clause_i="5"
 	    anchor="process_flag_min_heap_size" since=""/>
       <fsummary>Set process flag min_heap_size for the calling process.
       </fsummary>
@@ -6118,7 +6434,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="5" since="OTP R13B04"/>
+      <name name="process_flag" arity="2" clause_i="6" since="OTP R13B04"/>
       <fsummary>Set process flag min_bin_vheap_size for the calling process.
       </fsummary>
       <desc>
@@ -6129,7 +6445,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="6"
+      <name name="process_flag" arity="2" clause_i="7"
 	    anchor="process_flag_max_heap_size" since="OTP 19.0"/>
       <fsummary>Set process flag max_heap_size for the calling process.
       </fsummary>
@@ -6138,6 +6454,11 @@ receive_replies(ReqId, N, Acc) ->
         <p>This flag sets the maximum heap size for the calling process.
           If <c><anno>MaxHeapSize</anno></c> is an integer, the system default
           values for <c>kill</c> and <c>error_logger</c> are used.
+        </p>
+        <p>
+          For details on how the heap grows, see
+          <seeguide marker="erts:GarbageCollection#sizing-the-heap">Sizing
+          the heap</seeguide> in the ERTS internal documentation.
         </p>
         <taglist>
           <tag><c>size</c></tag>
@@ -6190,6 +6511,26 @@ receive_replies(ReqId, N, Acc) ->
               or <seeerl marker="#system_flag_max_heap_size">
               <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
           </item>
+          <tag><c>include_shared_binaries</c></tag>
+          <item>
+            <p>
+	      When set to <c>true</c>, off-heap binaries are included in the
+	      total sum compared against the <c>size</c> limit. Off-heap binaries
+	      are typically larger binaries that may be shared between
+	      processes. The size of a shared binary is included by all
+	      processes that are referring it. Also, the entire size of a large
+	      binary may be included even if only a smaller part of it is
+	      referred by the process.
+            </p>
+	    <p>
+	      If <c>include_shared_binaries</c> is not defined in the map, the
+	      system default is used. The default system default is <c>false</c>.
+              It can be changed by either the option
+              <seecom marker="erl#+hmaxib">+hmaxib</seecom> in <c>erl(1)</c>,
+              or <seeerl marker="#system_flag_max_heap_size">
+              <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seeerl>.
+            </p>
+          </item>
         </taglist>
         <p>The heap size of a process is quite hard to predict, especially the
           amount of memory that is used during the garbage collection. When
@@ -6203,7 +6544,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="7"
+      <name name="process_flag" arity="2" clause_i="8"
 	    anchor="process_flag_message_queue_data" since="OTP 19.0"/>
       <fsummary>Set process flag message_queue_data for the calling process.
       </fsummary>
@@ -6245,7 +6586,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="8"
+      <name name="process_flag" arity="2" clause_i="9"
 	    anchor="process_flag_priority" since=""/>
       <fsummary>Set process flag priority for the calling process.</fsummary>
       <type name="priority_level"/>
@@ -6318,7 +6659,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="9" since=""/>
+      <name name="process_flag" arity="2" clause_i="10" since=""/>
       <fsummary>Set process flag save_calls for the calling process.</fsummary>
       <desc>
         <p><c><anno>N</anno></c> must be an integer in the interval 0..10000.
@@ -6349,7 +6690,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="10" since=""/>
+      <name name="process_flag" arity="2" clause_i="11" since=""/>
       <fsummary>Set process flag sensitive for the calling process.</fsummary>
       <desc>
         <p>Sets or clears flag <c>sensitive</c> for the current process.
@@ -6494,6 +6835,18 @@ receive_replies(ReqId, N, Acc) ->
         <p>Valid <c><anno>InfoTuple</anno></c>s with corresponding
           <c><anno>Item</anno></c>s:</p>
         <taglist>
+          <tag>
+            <marker id="process_info_async_dist"/>
+            <c>{async_dist, Enabled}</c>
+          </tag>
+          <item>
+            <p>Since: OTP 25.3</p>
+            <p>
+              Current value of the
+              <seeerl marker="erlang#process_flag_async_dist">
+                <c>async_dist</c></seeerl> process flag.
+            </p>
+          </item>
           <tag><c>{backtrace, <anno>Bin</anno>}</c></tag>
           <item>
             <p>Binary <c><anno>Bin</anno></c> contains the same information
@@ -6830,12 +7183,12 @@ receive_replies(ReqId, N, Acc) ->
             <seeerl marker="kernel:code"><c>code(3)</c></seeerl>)
             and is not to be used elsewhere.</p>
         </warning>
-        <note>
+        <change>
           <p>As from ERTS 8.0 (Erlang/OTP 19), any lingering processes
             that still execute the old code is killed by this function.
             In earlier versions, such incorrect use could cause much
             more fatal failures, like emulator crash.</p>
-        </note>
+        </change>
         <p>Failure: <c>badarg</c> if there is no old code for
           <c><anno>Module</anno></c>.</p>
       </desc>
@@ -7145,6 +7498,12 @@ true</pre>
 	<c><anno>Dest</anno></c> is an atom name, but this name is not
 	registered. This is the only case when <c>send</c> fails for an
 	unreachable destination <c><anno>Dest</anno></c> (of correct type).</p>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -7172,6 +7531,12 @@ true</pre>
              instead.
           </item>
         </taglist>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
         <warning>
           <p>As with <c>erlang:send_nosuspend/2,3</c>: use with extreme
             care.</p>
@@ -7737,6 +8102,21 @@ true</pre>
               <c>process_flag(message_queue_data,
               <anno>MQD</anno>)</c></seeerl>.</p>
           </item>
+          <tag>
+            <marker id="spawn_opt_async_dist"/>
+            <c>{async_dist, Enabled}</c>
+          </tag>
+          <item>
+            <p>Since: OTP 25.3</p>
+            <p>
+              Set the
+              <seeerl marker="erlang#process_flag_async_dist">
+                <c>async_dist</c></seeerl> process flag of the spawned process.
+              This option will override the default value set by the command
+              line argument
+              <seecom marker="erl#+pad"><c>+pad &lt;boolean&gt;</c></seecom>.
+            </p>
+          </item>
         </taglist>
       </desc>
     </func>
@@ -8087,6 +8467,11 @@ true</pre>
 	  </p>
 	  </item>
 	</taglist>
+        <p>
+          If a spawn reply message is delivered, it is guaranteed to be
+          delivered before any other signals from the newly spawned
+          process are delivered to the process issuing the spawn request.
+        </p>
 	<p>This function will fail with a <c>badarg</c> exception if:
 	</p>
 	<list>
@@ -8111,6 +8496,12 @@ true</pre>
 	  A spawn request can be abandoned by calling
 	  <seemfa marker="#spawn_request_abandon/1"><c>spawn_request_abandon/1</c></seemfa>.
 	</p>
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
       </desc>
     </func>
 
@@ -8531,13 +8922,13 @@ lists:map(
         <pre>
 > <input>statistics(reductions).</input>
 {2046,11}</pre>
-        <note><p>As from ERTS 5.5 (Erlang/OTP R11B),
+        <change><p>As from ERTS 5.5 (Erlang/OTP R11B),
           this value does not include reductions performed in current
           time slices of currently scheduled processes. If an
           exact value is wanted, use
           <seeerl marker="#statistics_exact_reductions">
           <c>statistics(exact_reductions)</c></seeerl>.</p>
-        </note>
+        </change>
       </desc>
     </func>
 
@@ -9202,12 +9593,17 @@ ok
         <p>
           Sets the default maximum heap size settings for processes.
           The size is specified in words. The new <c>max_heap_size</c>
-          effects only processes spawned efter the change has been made.
+          effects only processes spawned after the change has been made.
           <c>max_heap_size</c> can be set for individual processes using
           <seemfa marker="#spawn_opt/4"><c>spawn_opt/2,3,4</c></seemfa> or
           <seeerl marker="#process_flag_max_heap_size">
           <c>process_flag/2</c></seeerl>.</p>
         <p>Returns the old value of the flag.</p>
+        <p>
+          For details on how the heap grows, see
+          <seeguide marker="erts:GarbageCollection#sizing-the-heap">Sizing
+          the heap</seeguide> in the ERTS internal documentation.
+        </p>
       </desc>
     </func>
 
@@ -10100,8 +10496,10 @@ Metadata = #{ pid => pid(),
               system-wide maximum heap size settings for spawned processes.
               This setting can be set using the command-line flags
               <seecom marker="erl#+hmax"><c>+hmax</c></seecom>,
-              <seecom marker="erl#+hmaxk"><c>+hmaxk</c></seecom> and
-              <seecom marker="erl#+hmaxel"><c>+hmaxel</c></seecom> in
+              <seecom marker="erl#+hmaxk"><c>+hmaxk</c></seecom>,
+              <seecom marker="erl#+hmaxel"><c>+hmaxel</c></seecom> and
+	      <seecom marker="erl#+hmaxib"><c>+hmaxibl</c></seecom> in
+
               <c>erl(1)</c>. It can also be changed at runtime using
               <seeerl marker="#system_flag_max_heap_size">
               <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seeerl>.
@@ -10757,6 +11155,8 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
+      <name name="system_info" arity="1" clause_i="79"
+	    anchor="system_info_async_dist" since="OTP 25.3"/>  <!-- async_dist -->
       <name name="system_info" arity="1" clause_i="14"
 	    anchor="system_info_dist" since=""/>  <!-- creation -->
       <name name="system_info" arity="1" clause_i="16" since="OTP 18.0"/>  <!-- delayed_node_table_gc -->
@@ -10769,17 +11169,27 @@ Metadata = #{ pid => pid(),
         <p>Returns information about Erlang Distribution in the
         current system as specified by <c><anno>Item</anno></c>:</p>
         <taglist>
+          <tag><marker id="system_info_async_dist"/><c>async_dist</c></tag>
+          <item>
+            <p>Since: OTP 25.3</p>
+            <p>
+              Returns the value of the command line argument
+              <seecom marker="erl#+pad">+pad &lt;boolean&gt;</seecom>
+              which the runtime system use. This value determines the default
+              <seeerl marker="erlang#process_flag_async_dist">
+                <c>async_dist</c></seeerl> value for newly spawned processes.
+            </p>
+          </item>
           <tag><marker id="system_info_creation"/>
             <c>creation</c></tag>
           <item>
-            <p>Returns the creation of the local node as an integer.
+            <p>Returns the "creation" value of the local node as an integer.
               The creation is changed when a node is restarted. The
               creation of a node is stored in process identifiers, port
-              identifiers, and references. This makes it (to some
-              extent) possible to distinguish between identifiers from
-              different incarnations of a node. The valid
-              creations are integers in the range 1..3, but this will
-              probably change in a future release. If the node is not
+              identifiers, and references. This makes it possible to distinguish
+	      between identifiers from different incarnations of a node.
+              Creation values are currently 32-bit positive integers, but this
+	      may change in future releases. If the node is not
               alive, <c>0</c> is returned.</p>
           </item>
           <tag><marker id="system_info_delayed_node_table_gc"/>
@@ -10907,7 +11317,7 @@ Metadata = #{ pid => pid(),
       <!-- <name name="system_info" arity="1" clause_i="76"/>  update_cpu_info -->
       <name name="system_info" arity="1" clause_i="77" since=""/>  <!-- version -->
       <name name="system_info" arity="1" clause_i="78" since=""/>  <!-- wordsize -->
-      <!-- <name name="system_info" arity="1" clause_i="79"/>  overview -->
+      <!-- <name name="system_info" arity="1" clause_i="80"/>  overview -->
       <!--    When adding any entry, make sure to update the overview clause_i -->
       <fsummary>Information about the system.</fsummary>
       <desc>
@@ -11275,7 +11685,7 @@ Metadata = #{ pid => pid(),
               <c><anno>MonitorPid</anno></c>. <c>SusPid</c> is the pid
               that got suspended when sending to <c>Port</c>.</p>
           </item>
-          <tag><c>busy_dist_port</c></tag>
+          <tag><c>busy_dist_port</c><marker id="busy_dist_port"/></tag>
           <item>
             <p>If a process in the system gets suspended because it
               sends to a process on a remote node whose inter-node
@@ -11487,71 +11897,192 @@ hello
       <desc>
         <p>Returns a binary data object that is the result of encoding
           <c><anno>Term</anno></c> according to the Erlang external
-          term format.</p>
-        <p>If option <c>compressed</c> is provided, the external term
-          format is compressed. The compressed format is automatically
-          recognized by <c>binary_to_term/1</c> as from Erlang/OTP R7B.</p>
-        <p>A compression level can be specified by giving option
-          <c>{compressed, <anno>Level</anno>}</c>.
-          <c><anno>Level</anno></c> is an integer
-          with range 0..9, where:</p>
-        <list type="bulleted">
-          <item><p><c>0</c> - No compression is done (it is the same as
-            giving no <c>compressed</c> option).</p></item>
-          <item><p><c>1</c> - Takes least time but may not compress
-            as well as the higher levels.</p></item>
-          <item><p><c>6</c> - Default level when option <c>compressed</c>
-            is provided.</p></item>
-          <item><p><c>9</c> - Takes most time and tries to produce a smaller
-            result. Notice "tries" in the preceding sentence; depending
-            on the input term, level 9 compression either does or does
-            not produce a smaller result than level 1 compression.</p></item>
-        </list>
-        <p>Option <c>{minor_version, <anno>Version</anno>}</c>
-          can be used to control some
-          encoding details. This option was introduced in Erlang/OTP R11B-4.
-          The valid values for <c><anno>Version</anno></c> are:</p>
-	  <taglist>
-	    <tag><c>0</c></tag>
-	    <item>
-              <p>Floats are encoded using a textual representation.
-	      This option is useful to ensure that releases before Erlang/OTP
-	      R11B-4 can decode resulting binary.</p>
-	      <p>This version encode atoms that can be represented by a
-	      latin1 string using latin1 encoding while only atoms that
-	      cannot be represented by latin1 are encoded using utf8.</p>
-	    </item>
-	    <tag><c>1</c></tag>
-	    <item>
-              <p>This is as of Erlang/OTP 17.0 the <em>default</em>. It forces any floats
-	      in the term to be encoded in a more space-efficient and exact way
-	      (namely in the 64-bit IEEE format, rather than converted to a
-	      textual representation). As from Erlang/OTP R11B-4,
-	      <c>binary_to_term/1</c> can decode this representation.</p>
-	      <p>This version encode atoms that can be represented by a
-	      latin1 string using latin1 encoding while only atoms that
-	      cannot be represented by latin1 are encoded using utf8.</p>
-	    </item>
-	    <tag><c>2</c></tag>
-	    <item>
-              <p>Drops usage of the latin1 atom encoding and unconditionally
-	      use utf8 encoding for all atoms. Erlang/OTP
-	      systems as of R16B can decode this representation.</p>
-              <note>
-                <p>In Erlang/OTP 26, the default <c>minor_version</c> is planned
-                to change from 1 to 2. See
-                <seeguide marker="system/general_info:upcoming_incompatibilities#atoms_be_utf8">
-                  Upcoming Potential Incompatibilities
-                </seeguide>.
-                </p>
-              </note>
-	    </item>
-	  </taglist>
-          <p>Option <c>deterministic</c> (introduced in OTP 24.1) can
-          be used to ensure that within the same major release of Erlang/OTP,
-          the same encoded representation is returned for the same
-          term. There is still no guarantee that the encoded representation
-          remains the same between major releases of Erlang/OTP.</p>
+        term format.</p>
+        <p>Currently supported options:</p>
+        <taglist>
+          <tag><c>compressed</c></tag>
+          <item>
+            <p>
+              Compress the external term format. The compressed
+              format is automatically recognized by <c>binary_to_term/1</c>
+              as from Erlang/OTP R7B.
+            </p>
+          </item>
+          <tag><c>{compressed, <anno>Level</anno>}</c></tag>
+          <item>
+            <p>
+              Compress the external term format to a given level.
+              The compression level is specified by <c><anno>Level</anno></c>
+              which is an integer in the range 0..9, where:
+            </p>
+            <taglist>
+              <tag><c>0</c></tag>
+              <item><p>
+                No compression is done (it is the same as giving no
+                <c>compressed</c> option).
+              </p></item>
+              <tag><c>1</c></tag>
+              <item><p>
+                Takes least time but may not compress as well as the higher
+                levels.
+              </p></item>
+              <tag><c>6</c></tag>
+              <item><p>
+                Default level when option <c>compressed</c> is provided.
+              </p></item>
+              <tag><c>9</c></tag>
+              <item><p>
+                Takes most time and tries to produce a smaller result.
+                Notice "tries" in the preceding sentence; depending
+                on the input term, level 9 compression either does or does
+                not produce a smaller result than level 1 compression.
+              </p></item>
+            </taglist>
+          </item>
+          <tag since="R11B-4"><c>{minor_version, <anno>Version</anno>}</c></tag>
+          <item>
+            <p>
+              The option can be used to control some encoding details. Valid
+              values for <c><anno>Version</anno></c> are:
+            </p>
+	    <taglist>
+	      <tag><c>0</c></tag>
+	      <item>
+                <p>Floats are encoded using a textual representation.</p>
+	        <p>Atoms that can be represented by a latin1 string are encoded
+	        using latin1 while only atoms that cannot be represented by latin1
+	        are encoded using utf8.</p>
+	      </item>
+	      <tag><c>1</c></tag>
+	      <item>
+                <p>Floats are encoded in a more space-efficient and exact way
+	        (namely in the 64-bit IEEE format, rather than converted to a
+	        textual representation). As from Erlang/OTP R11B-4,
+	        <c>binary_to_term/1</c> can decode this representation.</p>
+	        <p>Atoms that can be represented by a latin1 string are encoded
+	        using latin1 while only atoms that cannot be represented by latin1
+	        are encoded using utf8.</p>
+	      </item>
+	      <tag><c>2</c></tag>
+	      <item>
+                <p>This is as of Erlang/OTP 26.0 the <em>default</em>. Atoms are
+	        unconditionally encoded using utf8. Erlang/OTP systems as of R16B
+	        can decode this representation.</p>
+	      </item>
+	    </taglist>
+          </item>
+          <tag since="OTP 24.1"><c>deterministic</c></tag>
+          <item>
+            <p>
+              This option can be used to ensure that, within the same major
+              release of Erlang/OTP, the same encoded representation is returned
+              for the same term. There is still no guarantee that the encoded
+              representation remains the same between major releases of
+              Erlang/OTP.
+            </p>
+            <p>
+              This option cannot be combined with the <c>local</c> option.
+            </p>
+          </item>
+          <tag since="OTP @OTP-18477@"><c>local</c>
+          <marker id="term_to_binary_local"/></tag>
+          <item>
+            <p>
+              This option will cause encoding of <c><anno>Term</anno></c>
+              to an alternative local version of the external term format which
+              when decoded by the same runtime system instance will produce a
+              term identical to the encoded term even when the node name and/or
+              <seeerl marker="#system_info_creation">creation</seeerl> of the
+              current runtime system instance have changed between encoding
+              and decoding. When encoding without the <c>local</c> option,
+              local identifiers such as <seetype marker="#pid">pids</seetype>,
+              <seetype marker="#port">ports</seetype> and
+              <seetype marker="#reference">references</seetype> will not
+              be the same if node name and/or creation of the current runtime
+              system instance changed between encoding and decoding. This since
+              such identifiers refer to a specific node by node name and
+              creation.
+            </p>
+            <p>
+              Node name and creation of a runtime system instance change
+              when the distribution is started or stopped. The distribution is
+              started when the runtime system is started using the
+              <seecom marker="erl#name"><c>-name</c></seecom> or
+              <seecom marker="erl#sname"><c>-sname</c></seecom> command line
+              arguments. Note that the actual start of the distribution happens
+              after other code in the startup phase has begun executing. The
+              distribution can also be started by calling
+              <seemfa marker="kernel:net_kernel#start/2"><c>net_kernel:start/2</c></seemfa>
+              and stopped by calling
+              <seemfa marker="kernel:net_kernel#stop/0"><c>net_kernel:stop/1</c></seemfa>
+              if it has not been started via the command line.
+            </p>
+            <p>
+              The decoding of a term encoded with the <c>local</c> option,
+              using for example
+              <seemfa marker="#term_to_binary/1"><c>binary_to_term()</c></seemfa>,
+              will try to verify that the term actually was encoded by the same
+              runtime system instance, and will in the vast majority of cases
+              fail if the encoding was performed by another runtime system
+              instance. You should however <em>not</em> trust that this
+              verification will work in all cases. You <em>should</em> make
+              sure to <em>only</em> decode terms encoded with the <c>local</c>
+              option on the same Erlang runtime system instance as the one that
+              encoded the terms.
+            </p>
+            <p>
+              Since it is only the runtime system that encoded a term using
+              the <c>local</c> option that can decode it, the local encoding
+              is typically pieced together with something else to produce a
+              reply to where the <c>local</c> encoding originates from.
+              If a term encoded using the <c>local</c> option is stripped of
+              its leading version number, it can be added as part
+              of a larger term (for example as an element in a tuple) when
+              encoding on the external term format using, for example,
+              <seecref marker="erl_interface:ei">ei</seecref>. In the <c>ei</c>
+              case, you would strip it of the version number using
+              <seecref marker="erl_interface:ei#ei_decode_version"><c>ei_decode_version()</c></seecref>
+              and then add the remaining local encoding to what you are encoding
+              using for example
+              <seecref marker="erl_interface:ei#ei_x_append_buf"><c>ei_x_append_buf()</c></seecref>.
+            </p>
+            <p>
+              A good example of when you want to use the <c>local</c> option, is
+              when you want to make a request from a process to a port
+              <seecref marker="erl_driver">driver</seecref> and utilize the
+              <seeguide marker="system/efficiency_guide:processes#receiving-messages">selective
+	      receive optimization</seeguide> when receiving the reply. In
+              this scenario you want to create a reference, serialize the
+              reference on the external term format using the <c>local</c>
+              option, pass this to the driver in the request, and then wait
+              for the reply message in a selective receive matching on the
+              reference. The driver should send the reply using either
+              <seecref marker="erl_driver#erl_drv_output_term"><c>erl_drv_output_term()</c></seecref>
+              or
+              <seecref marker="erl_driver#erl_drv_send_term"><c>erl_drv_send_term()</c></seecref>
+              using the term type
+              <seecref marker="erl_driver#ERL_DRV_EXT2TERM"><c>ERL_DRV_EXT2TERM</c></seecref>
+              for the, in the request, previously received reference on the
+              external term format. Note that you should not strip the
+              leading version number from the local encoding when using the
+              term type <c>ERL_DRV_EXT2TERM</c> of this functionality. If you
+              in this example do not encode the reference using the <c>local</c>
+              option, and the distribution is started or stopped while the
+              request is ongoing, the process that made the request will hang
+              indefinitely since the reference in the reply message will never
+              match.
+            </p>
+            <p>
+              This option cannot be combined with the <c>deterministic</c>
+              option.
+            </p>
+            <p>
+              For more information see the
+              <seeguide marker="erl_ext_dist#LOCAL_EXT"><c>LOCAL_EXT</c></seeguide>
+              tag in the documentation of the external term format.
+            </p>
+          </item>
+        </taglist>
         <p>See also <seemfa marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seemfa>.</p>
       </desc>
@@ -11748,7 +12279,9 @@ timestamp() ->
       <fsummary>Tail of a list.</fsummary>
       <desc>
         <p>Returns the tail of <c><anno>List</anno></c>, that is,
-          the list minus the first element, for example:</p>
+          the list minus the first element</p>
+        <p>It works with improper lists.</p>
+        <p>Examples:</p>
         <pre>
 > <input>tl([geesties, guilies, beasties]).</input>
 [guilies, beasties]</pre>
@@ -11763,7 +12296,7 @@ timestamp() ->
 improper_end</pre>
         <p>Allowed in guard tests.</p>
         <p>Failure: <c>badarg</c> if <c><anno>List</anno></c>
-          is the empty list <c>[]</c>.</p>
+          is an empty list <c>[]</c>.</p>
       </desc>
     </func>
 
@@ -12591,6 +13124,21 @@ improper_end</pre>
               <seemfa marker="#trace_pattern/3">
               <c>erlang:trace_pattern/3</c></seemfa>.</p>
           </item>
+          <tag><c>call_memory</c></tag>
+          <item>
+            <p>Returns the accumulated number of words allocated by this function.
+              Accumulation stops at the next memory traced function: if there
+              are <c>outer</c>, <c>middle</c> and <c>inner</c> functions each
+              allocating 3 words, but only <c>outer</c> is traced, it will report
+              9 allocated words. If <c>outer</c> and <c>inner</c> are traced,
+              6 words are reported for <c>outer</c> and 3 for <c>inner</c>.
+              When function is not traced, <c>false</c> is returned.
+              Returned tuple is <c>[{Pid, Count, Words}]</c>,
+              for each process that executed the function.</p>
+            <p>See also
+              <seemfa marker="#trace_pattern/3">
+              <c>erlang:trace_pattern/3</c></seemfa>.</p>
+          </item>
           <tag><c>all</c></tag>
           <item>
             <p>Returns a list containing the
@@ -12893,15 +13441,15 @@ improper_end</pre>
           </item>
           <tag><c>restart</c></tag>
           <item>
-            <p>For the <c><anno>FlagList</anno></c> options <c>call_count</c>
-              and <c>call_time</c>: restarts
+            <p>For the <c><anno>FlagList</anno></c> options <c>call_count</c>,
+              <c>call_time</c> and <c>call_memory</c>: restarts
               the existing counters. The behavior is undefined
               for other <c><anno>FlagList</anno></c> options.</p>
           </item>
           <tag><c>pause</c></tag>
           <item>
             <p>For the <c><anno>FlagList</anno></c> options
-              <c>call_count</c> and <c>call_time</c>: pauses
+              <c>call_count</c>, <c>call_time</c> and <c>call_memory</c>: pauses
               the existing counters. The behavior is undefined for
               other <c><anno>FlagList</anno></c> options.</p>
           </item>
@@ -12970,6 +13518,20 @@ improper_end</pre>
               The counters are stored for each call traced process.</p>
             <p>If call time tracing is started while already running,
               the count and time restart from zero. To pause
+              running counters, use <c><anno>MatchSpec</anno> == pause</c>.
+              Paused and running counters can be restarted from zero with
+              <c><anno>MatchSpec</anno> == restart</c>.</p>
+            <p>To read the counter value, use
+              <seemfa marker="#trace_info/2">
+              <c>erlang:trace_info/2</c></seemfa>.</p>
+          </item>
+          <tag><c>call_memory</c></tag>
+          <item>
+            <p>Starts (<c><anno>MatchSpec</anno> == true</c>) or stops
+              (<c><anno>MatchSpec</anno> == false</c>) call memory
+              tracing for all types of function calls.</p>
+            <p>If call memory tracing is started while already running,
+              counters and allocations restart from zero. To pause
               running counters, use <c><anno>MatchSpec</anno> == pause</c>.
               Paused and running counters can be restarted from zero with
               <c><anno>MatchSpec</anno> == restart</c>.</p>
@@ -13298,7 +13860,12 @@ end</code>
 	  protocol</seeguide> can be found in the <i>Distribution Protocol</i>
 	  chapter of the <i>ERTS User's Guide</i>.
 	</p>
-
+        <note><p>
+          For some important information about distributed signals, see the
+          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+            <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+          <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+        </p></note>
         <p>
 	  Failure: <c>badarg</c> if <c>Id</c> does not identify a process
 	  or a node local port.

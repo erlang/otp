@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,50 +21,44 @@
 
 %% A group leader process for user io.
 
--export([start/2, start/3, server/3]).
--export([interfaces/1]).
+-export([start/2, start/3, whereis_shell/0, server/4]).
 
 start(Drv, Shell) ->
     start(Drv, Shell, []).
 
 start(Drv, Shell, Options) ->
-    spawn_link(group, server, [Drv, Shell, Options]).
+    Ancestors = [self() | case get('$ancestors') of
+                              undefined -> [];
+                              Anc -> Anc
+                          end],
+    spawn_link(group, server, [Ancestors, Drv, Shell, Options]).
 
-server(Drv, Shell, Options) ->
+server(Ancestors, Drv, Shell, Options) ->
     process_flag(trap_exit, true),
+    _ = [put('$ancestors', Ancestors) || Shell =/= {}],
     edlin:init(),
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
-    put(expand_fun,
-	proplists:get_value(expand_fun, Options,
-			    fun(B) -> edlin_expand:expand(B) end)),
+    ExpandFun = normalize_expand_fun(Options, fun edlin_expand:expand/2),
+    put(expand_fun, ExpandFun),
     put(echo, proplists:get_value(echo, Options, true)),
-    
-    start_shell(Shell),
-    server_loop(Drv, get(shell), []).
+    put(expand_below, proplists:get_value(expand_below, Options, true)),
 
-%% Return the pid of user_drv and the shell process.
-%% Note: We can't ask the group process for this info since it
-%% may be busy waiting for data from the driver.
-interfaces(Group) ->
-    case process_info(Group, dictionary) of
-	{dictionary,Dict} ->
-	    get_pids(Dict, [], false);
-	_ ->
-	    []
+    server_loop(Drv, start_shell(Shell), []).
+
+whereis_shell() ->
+    case node(group_leader()) of
+        Node when Node =:= node() ->
+            case user_drv:whereis_group() of
+                undefined -> undefined;
+                GroupPid ->
+                    {dictionary, Dict} = erlang:process_info(GroupPid, dictionary),
+                    proplists:get_value(shell, Dict)
+            end;
+        OtherNode ->
+            erpc:call(OtherNode, group, whereis_shell, [])
     end.
-
-get_pids([Drv = {user_drv,_} | Rest], Found, _) ->
-    get_pids(Rest, [Drv | Found], true);
-get_pids([Sh = {shell,_} | Rest], Found, Active) ->
-    get_pids(Rest, [Sh | Found], Active);
-get_pids([_ | Rest], Found, Active) ->
-    get_pids(Rest, Found, Active);
-get_pids([], Found, true) ->
-    Found;
-get_pids([], _Found, false) ->
-    [].
 
 %% start_shell(Shell)
 %%  Spawn a shell with its group_leader from the beginning set to ourselves.
@@ -81,7 +75,8 @@ start_shell(Shell) when is_function(Shell) ->
 start_shell(Shell) when is_pid(Shell) ->
     group_leader(self(), Shell),		% we are the shells group leader
     link(Shell),				% we're linked to it.
-    put(shell, Shell);
+    put(shell, Shell),
+    Shell;
 start_shell(_Shell) ->
     ok.
 
@@ -92,9 +87,11 @@ start_shell1(M, F, Args) ->
 	Shell when is_pid(Shell) ->
 	    group_leader(G, self()),
 	    link(Shell),			% we're linked to it.
-	    put(shell, Shell);
+	    put(shell, Shell),
+            Shell;
 	Error ->				% start failure
 	    exit(Error)				% let the group process crash
+
     end.
 
 start_shell1(Fun) ->
@@ -104,19 +101,20 @@ start_shell1(Fun) ->
 	Shell when is_pid(Shell) ->
 	    group_leader(G, self()),
 	    link(Shell),			% we're linked to it.
-	    put(shell, Shell);
+	    put(shell, Shell),
+            Shell;
 	Error ->				% start failure
 	    exit(Error)				% let the group process crash
     end.
 
 server_loop(Drv, Shell, Buf0) ->
     receive
-	{io_request,From,ReplyAs,Req} when is_pid(From) ->
+        {io_request,From,ReplyAs,Req} when is_pid(From) ->
             %% This io_request may cause a transition to a couple of
             %% selective receive loops elsewhere in this module.
             Buf = io_request(Req, From, ReplyAs, Drv, Shell, Buf0),
             server_loop(Drv, Shell, Buf);
-        {reply,{{From,ReplyAs},Reply}} ->
+        {reply,{From,ReplyAs},Reply} ->
             io_reply(From, ReplyAs, Reply),
 	    server_loop(Drv, Shell, Buf0);
 	{driver_id,ReplyTo} ->
@@ -152,30 +150,40 @@ exit_shell(Reason) ->
 get_tty_geometry(Drv) ->
     Drv ! {self(),tty_geometry},
     receive
-	{Drv,tty_geometry,Geometry} ->
-	    Geometry
+        {Drv,tty_geometry,Geometry} ->
+            Geometry
     after 2000 ->
-	    timeout
+            timeout
     end.
 get_unicode_state(Drv) ->
     Drv ! {self(),get_unicode_state},
     receive
-	{Drv,get_unicode_state,UniState} ->
-	    UniState;
-	{Drv,get_unicode_state,error} ->
-	    {error, internal}
+        {Drv,get_unicode_state,UniState} ->
+            UniState;
+        {Drv,get_unicode_state,error} ->
+            {error, internal}
     after 2000 ->
-	    {error,timeout}
+            {error,timeout}
     end.
 set_unicode_state(Drv,Bool) ->
     Drv ! {self(),set_unicode_state,Bool},
     receive
-	{Drv,set_unicode_state,_OldUniState} ->
-	    ok
+        {Drv,set_unicode_state,_OldUniState} ->
+            ok
     after 2000 ->
-	    timeout
+            timeout
     end.
-			   
+
+get_terminal_state(Drv) ->
+    Drv ! {self(),get_terminal_state},
+    receive
+	{Drv,get_terminal_state,UniState} ->
+	    UniState;
+	{Drv,get_terminal_state,error} ->
+	    {error, internal}
+    after 2000 ->
+	    {error,timeout}
+    end.
 
 io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
     case io_request(Req, Drv, Shell, {From,ReplyAs}, Buf0) of
@@ -197,12 +205,12 @@ io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
     end.
 
 
-%% Put_chars, unicode is the normal message, characters are always in 
+%% Put_chars, unicode is the normal message, characters are always in
 %%standard unicode
 %% format.
-%% You might be tempted to send binaries unchecked, but the driver 
+%% You might be tempted to send binaries unchecked, but the driver
 %% expects unicode, so that is what we should send...
-%% io_request({put_chars,unicode,Binary}, Drv, Buf) when is_binary(Binary) -> 
+%% io_request({put_chars,unicode,Binary}, Drv, Buf) when is_binary(Binary) ->
 %%     send_drv(Drv, {put_chars,Binary}),
 %%     {ok,ok,Buf};
 %%
@@ -211,7 +219,7 @@ io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
 io_request({put_chars,unicode,Chars}, Drv, _Shell, From, Buf) ->
     case catch unicode:characters_to_binary(Chars,utf8) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars_sync, unicode, Binary, {From,ok}}),
+	    send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
 	    {noreply,Buf};
 	_ ->
 	    {error,{error,{put_chars, unicode,Chars}},Buf}
@@ -219,12 +227,12 @@ io_request({put_chars,unicode,Chars}, Drv, _Shell, From, Buf) ->
 io_request({put_chars,unicode,M,F,As}, Drv, _Shell, From, Buf) ->
     case catch apply(M, F, As) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars_sync, unicode, Binary, {From,ok}}),
+	    send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
 	    {noreply,Buf};
 	Chars ->
 	    case catch unicode:characters_to_binary(Chars,utf8) of
 		B when is_binary(B) ->
-		    send_drv(Drv, {put_chars_sync, unicode, B, {From,ok}}),
+		    send_drv(Drv, {put_chars_sync, unicode, B, From}),
 		    {noreply,Buf};
 		_ ->
 		    {error,{error,F},Buf}
@@ -233,12 +241,12 @@ io_request({put_chars,unicode,M,F,As}, Drv, _Shell, From, Buf) ->
 io_request({put_chars,latin1,Binary}, Drv, _Shell, From, Buf) when is_binary(Binary) ->
     send_drv(Drv, {put_chars_sync, unicode,
                    unicode:characters_to_binary(Binary,latin1),
-                   {From,ok}}),
+                   From}),
     {noreply,Buf};
 io_request({put_chars,latin1,Chars}, Drv, _Shell, From, Buf) ->
     case catch unicode:characters_to_binary(Chars,latin1) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars_sync, unicode, Binary, {From,ok}}),
+	    send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
 	    {noreply,Buf};
 	_ ->
 	    {error,{error,{put_chars,latin1,Chars}},Buf}
@@ -248,12 +256,12 @@ io_request({put_chars,latin1,M,F,As}, Drv, _Shell, From, Buf) ->
 	Binary when is_binary(Binary) ->
 	    send_drv(Drv, {put_chars_sync, unicode,
                            unicode:characters_to_binary(Binary,latin1),
-                           {From,ok}}),
+                           From}),
 	    {noreply,Buf};
 	Chars ->
 	    case catch unicode:characters_to_binary(Chars,latin1) of
 		B when is_binary(B) ->
-		    send_drv(Drv, {put_chars_sync, unicode, B, {From,ok}}),
+		    send_drv(Drv, {put_chars_sync, unicode, B, From}),
 		    {noreply,Buf};
 		_ ->
 		    {error,{error,F},Buf}
@@ -384,7 +392,7 @@ check_valid_opts(_) ->
     false.
 
 do_setopts(Opts, Drv, Buf) ->
-    put(expand_fun, proplists:get_value(expand_fun, Opts, get(expand_fun))),
+    put(expand_fun, normalize_expand_fun(Opts, get(expand_fun))),
     put(echo, proplists:get_value(echo, Opts, get(echo))),
     case proplists:get_value(encoding,Opts) of
 	Valid when Valid =:= unicode; Valid =:= utf8 ->
@@ -406,6 +414,12 @@ do_setopts(Opts, Drv, Buf) ->
 	    {ok,ok,Buf};
 	_ ->
 	    {ok,ok,Buf}
+    end.
+
+normalize_expand_fun(Options, Default) ->
+    case proplists:get_value(expand_fun, Options, Default) of
+	Fun when is_function(Fun, 1) -> fun(X,_) -> Fun(X) end;
+	Fun -> Fun
     end.
 
 getopts(Drv,Buf) ->
@@ -431,8 +445,8 @@ getopts(Drv,Buf) ->
 			true -> unicode;
 			_ -> latin1
 		     end},
-    {ok,[Exp,Echo,Bin,Uni],Buf}.
-    
+    Tty = {terminal, get_terminal_state(Drv)},
+    {ok,[Exp,Echo,Bin,Uni,Tty],Buf}.
 
 %% get_chars_*(Prompt, Module, Function, XtraArgument, Drv, Buffer)
 %%  Gets characters from the input Drv until as the applied function
@@ -485,18 +499,29 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
 
 get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, Line, Encoding) ->
     case catch M:F(State0, cast(Line,get(read_mode), Encoding), Encoding, Xa) of
+        {stop,Result,eof} ->
+            {ok,Result,eof};
         {stop,Result,Rest} ->
-            {ok,Result,append(Rest, Buf, Encoding)};
+            case {M,F} of
+                {io_lib, get_until} ->
+                    save_line_buffer(Line, get_lines(new_stack(get(line_buffer)))),
+                    {ok,Result,append(Rest, Buf, Encoding)};
+                _ ->
+                    {ok,Result,append(Rest, Buf, Encoding)}
+            end;
         {'EXIT',_} ->
             {error,{error,err_func(M, F, Xa)},[]};
         State1 ->
+            save_line_buffer(Line, get_lines(new_stack(get(line_buffer)))),
             get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf, State1, Encoding)
     end.
 
 get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
     try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
+        {stop,Result,eof} ->
+            {ok,Result,eof};
         {stop,Result,Rest} ->
-            {ok, Result, Rest};
+            {ok,Result,append(Rest, [], Encoding)};
         State1 ->
             case get_chars_echo_off(Pbs, Drv, Shell) of
                 interrupted ->
@@ -529,10 +554,21 @@ get_line(Chars, Pbs, Drv, Shell, Encoding) ->
     get_line1(edlin:edit_line(Chars, Cont), Drv, Shell, new_stack(get(line_buffer)),
 	      Encoding).
 
-get_line1({done,Line,Rest,Rs}, Drv, _Shell, Ls, _Encoding) ->
+get_line1({done,Line,Rest,Rs}, Drv, _Shell, _Ls, _Encoding) ->
     send_drv_reqs(Drv, Rs),
-    save_line_buffer(Line, get_lines(Ls)),
     {done,Line,Rest};
+get_line1({undefined,{_A, Mode, Char}, _Cs, Cont, Rs}, Drv, Shell, Ls0, Encoding)
+  when ((Mode =:= none) and (Char =:= $\^O)) ->
+    send_drv_reqs(Drv, Rs),
+    Buffer = edlin:current_chars(Cont),
+    send_drv(Drv, {open_editor, Buffer}),
+    receive
+        {Drv, {editor_data, Cs}} ->
+            send_drv_reqs(Drv, edlin:erase_line(Cont)),
+            {more_chars,NewCont,NewRs} = edlin:start(edlin:prompt(Cont)),
+            send_drv_reqs(Drv, NewRs),
+            get_line1(edlin:edit_line(Cs, NewCont), Drv, Shell, Ls0, Encoding)
+    end;
 get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding)
   when ((Mode =:= none) and (Char =:= $\^P))
        or ((Mode =:= meta_left_sq_bracket) and (Char =:= $A)) ->
@@ -590,21 +626,60 @@ get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls, Encoding)
     {more_chars,Ncont,Nrs} = edlin:start(Pbs, search),
     send_drv_reqs(Drv, Nrs),
     get_line1(edlin:edit_line1(Cs, Ncont), Drv, Shell, Ls, Encoding);
-get_line1({expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
+get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
+  when Expand =:= expand; Expand =:= expand_full ->
     send_drv_reqs(Drv, Rs),
     ExpandFun = get(expand_fun),
-    {Found, Add, Matches} = ExpandFun(Before),
+    {Found, CompleteChars, Matches} = ExpandFun(Before, []),
     case Found of
-	no -> send_drv(Drv, beep);
-	yes -> ok
+        no -> send_drv(Drv, beep);
+        _ -> ok
     end,
-    Cs1 = append(Add, Cs0, Encoding), %%XXX:PaN should this always be unicode?
-    Cs = case Matches of
-	     [] -> Cs1;
-	     _ -> MatchStr = edlin_expand:format_matches(Matches),
-		  send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary(MatchStr,unicode)}),
-		  [$\^L | Cs1]
-	 end,
+    {Width, _Height} = get_tty_geometry(Drv),
+    Cs1 = append(CompleteChars, Cs0, Encoding),
+
+    MatchStr = case Matches of
+                   [] -> [];
+                   _ -> edlin_expand:format_matches(Matches, Width)
+               end,
+    Cs = case {Cs1, MatchStr} of
+             {_, []} -> Cs1;
+             {Cs1, _} when Cs1 =/= [] -> Cs1;
+             _ ->
+                 NlMatchStr = unicode:characters_to_binary("\n"++MatchStr),
+                 case get(expand_below) of
+                     true ->
+                         Lines = string:split(string:trim(MatchStr), "\n", all),
+                         NoLines = length(Lines),
+                         if NoLines > 5, Expand =:= expand ->
+                                 %% Only show 5 lines to start with
+                                 [L1,L2,L3,L4,L5|_] = Lines,
+                                 String = lists:join(
+                                            $\n,
+                                            [L1,L2,L3,L4,L5,
+                                             io_lib:format("Press tab to see all ~p expansions",
+                                                           [edlin_expand:number_matches(Matches)])]),
+                                 send_drv(Drv, {put_expand, unicode,
+                                                unicode:characters_to_binary(String)}),
+                                 Cs1;
+                            true ->
+                                 case get_tty_geometry(Drv) of
+                                     {_, Rows} when Rows > NoLines ->
+                                         %% If all lines fit on screen, we expand below
+                                         send_drv(Drv, {put_expand, unicode, NlMatchStr}),
+                                         Cs1;
+                                     _ ->
+                                         %% If there are more results than fit on
+                                         %% screen we expand above
+                                         send_drv(Drv, {put_chars, unicode, NlMatchStr}),
+                                         [$\e, $l | Cs1]
+                                 end
+                         end;
+                     false ->
+                         send_drv(Drv, {put_chars, unicode, NlMatchStr}),
+                         [$\e, $l | Cs1]
+                 end
+         end,
     get_line1(edlin:edit_line(Cs, Cont), Drv, Shell, Ls0, Encoding);
 get_line1({undefined,_Char,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
     send_drv_reqs(Drv, Rs),
@@ -674,7 +749,7 @@ more_data(What, Cont0, Drv, Shell, Ls, Encoding) ->
 	    io_request(Req, From, ReplyAs, Drv, Shell, []), %WRONG!!!
 	    send_drv_reqs(Drv, edlin:redraw_line(Cont)),
 	    get_line1({more_chars,Cont,[]}, Drv, Shell, Ls, Encoding);
-        {reply,{{From,ReplyAs},Reply}} ->
+        {reply,{From,ReplyAs},Reply} ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
             more_data(What, Cont0, Drv, Shell, Ls, Encoding);
@@ -702,7 +777,7 @@ get_line_echo_off1({Chars,[]}, Drv, Shell) ->
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    io_request(Req, From, ReplyAs, Drv, Shell, []),
 	    get_line_echo_off1({Chars,[]}, Drv, Shell);
-        {reply,{{From,ReplyAs},Reply}} when From =/= undefined ->
+        {reply,{From,ReplyAs},Reply} when From =/= undefined ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
             get_line_echo_off1({Chars,[]},Drv, Shell);
@@ -713,6 +788,8 @@ get_line_echo_off1({Chars,[]}, Drv, Shell) ->
 	{'EXIT',Shell,R} ->
 	    exit(R)
     end;
+get_line_echo_off1(eof, _Drv, _Shell) ->
+    {done,eof,eof};
 get_line_echo_off1({Chars,Rest}, _Drv, _Shell) ->
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
 
@@ -729,7 +806,7 @@ get_chars_echo_off1(Drv, Shell) ->
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    io_request(Req, From, ReplyAs, Drv, Shell, []),
 	    get_chars_echo_off1(Drv, Shell);
-        {reply,{{From,ReplyAs},Reply}} when From =/= undefined ->
+        {reply,{From,ReplyAs},Reply} when From =/= undefined ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
             get_chars_echo_off1(Drv, Shell);
@@ -750,8 +827,10 @@ get_chars_echo_off1(Drv, Shell) ->
 %% - ^d in posix/icanon mode: eof, delete-forward in edlin
 %% - ^r in posix/icanon mode: reprint (silly in echo-off mode :-))
 %% - ^w in posix/icanon mode: word-erase (produces a beep in edlin)
+edit_line(eof, []) ->
+    eof;
 edit_line(eof, Chars) ->
-    {Chars,done};
+    {Chars,eof};
 edit_line([],Chars) ->
     {Chars,[]};
 edit_line([$\r,$\n|Cs],Chars) ->
@@ -877,7 +956,7 @@ get_password1({Chars,[]}, Drv, Shell) ->
 	    %% set to []. But do we expect anything but plain output?
 
 	    get_password1({Chars, []}, Drv, Shell);
-        {reply,{{From,ReplyAs},Reply}} ->
+        {reply,{From,ReplyAs},Reply} ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
             get_password1({Chars, []},Drv, Shell);

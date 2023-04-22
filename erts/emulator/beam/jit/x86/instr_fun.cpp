@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2021-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,14 +32,14 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
 
     a.mov(TMP_MEM1q, ARG5);
 
-    emit_enter_runtime<Update::eHeap | Update::eStack | Update::eReductions>();
+    emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     /* ARG3 and ARG4 have already been set. */
     runtime_call<4>(beam_jit_handle_unloaded_fun);
 
-    emit_leave_runtime<Update::eHeap | Update::eStack | Update::eReductions |
+    emit_leave_runtime<Update::eHeapAlloc | Update::eReductions |
                        Update::eCodeIndex>();
 
     a.test(RET, RET);
@@ -93,14 +93,14 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         a.mov(TMP_MEM1q, ARG4);
         a.mov(TMP_MEM2q, ARG5);
 
-        emit_enter_runtime<Update::eHeap | Update::eStack>();
+        emit_enter_runtime<Update::eHeapAlloc>();
 
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         /* ARG3 is already set. */
         runtime_call<3>(beam_jit_build_argument_list);
 
-        emit_leave_runtime<Update::eHeap | Update::eStack>();
+        emit_leave_runtime<Update::eHeapAlloc>();
 
         a.mov(ARG1, TMP_MEM1q);
         a.mov(getXRef(0), ARG1);
@@ -143,6 +143,19 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     }
 }
 
+/* Handles save_calls for local funs, which is a side-effect of our calling
+ * convention. Fun entry is in RET.
+ *
+ * When the active code index is ERTS_SAVE_CALLS_CODE_IX, all local fun calls
+ * will land here. */
+void BeamGlobalAssembler::emit_dispatch_save_calls_fun() {
+    /* Keep going with the actual code index. */
+    a.mov(ARG1, imm(&the_active_code_index));
+    a.mov(ARG1d, x86::dword_ptr(ARG1));
+
+    a.jmp(emit_setup_dispatchable_call(RET, ARG1));
+}
+
 /* `call_fun` instructions land here to set up their environment before jumping
  * to the actual implementation.
  *
@@ -156,26 +169,17 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
                                                    const ArgWord &NumFree) {
     const ssize_t effective_arity = Arity.get() - NumFree.get();
     const ssize_t num_free = NumFree.get();
-    ssize_t i;
 
     const auto &lambda = lambdas[Lambda.get()];
     a.bind(lambda.trampoline);
 
     emit_ptr_val(ARG4, ARG4);
 
-    for (i = 0; i < num_free - 1; i += 2) {
-        size_t offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
-
-        a.movups(x86::xmm0, emit_boxed_val(ARG4, offset, sizeof(Eterm[2])));
-        a.movups(getXRef(i + effective_arity, sizeof(Eterm[2])), x86::xmm0);
-    }
-
-    if (i < num_free) {
-        size_t offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
-
-        a.mov(RET, emit_boxed_val(ARG4, offset));
-        a.mov(getXRef(i + effective_arity), RET);
-    }
+    ASSERT(num_free > 0);
+    emit_copy_words(emit_boxed_val(ARG4, offsetof(ErlFunThing, env)),
+                    getXRef(effective_arity),
+                    num_free,
+                    RET);
 
     a.jmp(resolve_beam_label(Lbl));
 }
@@ -193,12 +197,12 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
     mov_arg(ARG3, Arity);
     mov_arg(ARG4, NumFree);
 
-    emit_enter_runtime<Update::eHeap>();
+    emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<4>(erts_new_local_fun_thing);
 
-    emit_leave_runtime<Update::eHeap>();
+    emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
     comment("Move fun environment");
     for (unsigned i = 0; i < num_free; i++) {
@@ -242,7 +246,7 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
             a.cmp(ARG1d, imm(NIL));
             a.short_().je(finished);
 
-            a.test(ARG1d, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
+            a.test(ARG1.r8(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
             a.short_().jne(malformed_list);
 
             emit_ptr_val(ARG1, ARG1);
@@ -376,8 +380,8 @@ void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
         mov_imm(ARG3, Arity.get());
 
         auto target = emit_call_fun(
-                always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
-                masked_types(Func, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN,
+                always_one_of<BeamTypeId::AlwaysBoxed>(Func),
+                masked_types<BeamTypeId::MaybeBoxed>(Func) == BeamTypeId::Fun,
                 Tag.as<ArgImmed>().get() == am_safe);
 
         erlang_call(target, ARG6);
@@ -397,8 +401,8 @@ void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
         mov_imm(ARG3, Arity.get());
 
         auto target = emit_call_fun(
-                always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
-                masked_types(Func, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN,
+                always_one_of<BeamTypeId::AlwaysBoxed>(Func),
+                masked_types<BeamTypeId::MaybeBoxed>(Func) == BeamTypeId::Fun,
                 Tag.as<ArgImmed>().get() == am_safe);
 
         emit_deallocate(Deallocate);

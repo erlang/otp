@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -447,7 +447,7 @@ lc_graph_to_dot(OutFile, InFile) ->
     {ok, [LL0]} = file:consult(InFile),
 
     [{"NO LOCK",0} | LL] = LL0,
-    Map = maps:from_list([{Id, Name} || {Name, Id, _, _} <- LL]),
+    Map = #{Id => Name || {Name, Id, _, _} <- LL},
 
     case file:open(OutFile, [exclusive]) of
         {ok, Out} ->

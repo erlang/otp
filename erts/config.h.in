@@ -83,6 +83,9 @@
 /* ESOCK counter size */
 #undef ESOCK_COUNTER_SIZE
 
+/* Enable esock */
+#undef ESOCK_ENABLE
+
 /* Socket address dl length */
 #undef ESOCK_SDL_LEN
 
@@ -136,6 +139,11 @@
 #undef ETHR_HAVE_ETHREAD_DEFINES
 
 /* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'dc cvau' instruction, and are compiling for
+   an ARM processor with ARM DC instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
    capable of generating the ARM 'dmb sy' instruction, and are compiling for
    an ARM processor with ARM DMB instruction support, or not */
 #undef ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION
@@ -149,6 +157,16 @@
    capable of generating the ARM 'dmb st' instruction, and are compiling for
    an ARM processor with ARM DMB instruction support, or not */
 #undef ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'ic ivau' instruction, and are compiling for
+   an ARM processor with ARM IC instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'isb sy' instruction, and are compiling for
+   an ARM processor with ARM ISB instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_ISB_SY_INSTRUCTION
 
 /* Define as a boolean indicating whether you have a gcc __atomic builtins or
    not */
@@ -806,6 +824,9 @@
 /* Define to 1 if you have the `memmove' function. */
 #undef HAVE_MEMMOVE
 
+/* Define to 1 if you have the `memrchr' function. */
+#undef HAVE_MEMRCHR
+
 /* Define if the pthread.h header file is in pthread/mit directory. */
 #undef HAVE_MIT_PTHREAD_H
 
@@ -1009,6 +1030,9 @@
 
 /* Define to 1 if `ifr_map' is a member of `struct ifreq'. */
 #undef HAVE_STRUCT_IFREQ_IFR_MAP
+
+/* Define to 1 if the system has the type `struct ip_mreqn'. */
+#undef HAVE_STRUCT_IP_MREQN
 
 /* Define to 1 if `assoc_id' is a member of `struct sctp_accoc_value'. */
 #undef HAVE_STRUCT_SCTP_ACCOC_VALUE_ASSOC_ID

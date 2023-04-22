@@ -294,6 +294,13 @@ RELEASE_ROOT = $(TESTROOT)
 endif
 endif
 
+# ----------------------------------------------------------------------
+
+ifeq ($(ERL_DETERMINISTIC),yes)
+	DETERMINISM_FLAG = +deterministic
+else
+	DETERMINISM_FLAG =
+endif
 
 # ----------------------------------------------------------------------
 
@@ -372,12 +379,12 @@ endif
 # bootstrap is not included, it requires a pre built emulator...
 ifeq ($(OTP_TINY_BUILD),true)
 all_bootstraps: erl_interface emulator bootstrap_setup \
-     tiny_secondary_bootstrap_build tiny_secondary_bootstrap_copy
+     tiny_secondary_bootstrap_copy
 else
 all_bootstraps: erl_interface emulator \
      bootstrap_setup \
-     secondary_bootstrap_build secondary_bootstrap_copy \
-     tertiary_bootstrap_build tertiary_bootstrap_copy
+     secondary_bootstrap_copy \
+     tertiary_bootstrap_copy
 endif
 
 #
@@ -422,7 +429,7 @@ endif
 # Target only used when building commercial ERTS patches
 # ---------------------------------------------------------------
 
-release_docs docs: doc_bootstrap_build doc_bootstrap_copy mod2app 
+release_docs docs: doc_bootstrap_copy mod2app
 ifeq ($(OTP_SMALL_BUILD),true)
 	cd $(ERL_TOP)/lib && \
 	  PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
@@ -457,7 +464,7 @@ endif
 	$(DOCGEN)/priv/bin/validate_links.escript $(ERL_TOP) make/$(TARGET)/mod2app.xml \
 		lib/*/doc/xml/*.xml erts/doc/xml/*.xml system/doc/xml/*/*.xml
 
-mod2app: doc_bootstrap_build doc_bootstrap_copy $(ERL_TOP)/make/$(TARGET)/mod2app.xml
+mod2app: doc_bootstrap_copy $(ERL_TOP)/make/$(TARGET)/mod2app.xml
 
 $(ERL_TOP)/make/$(TARGET)/mod2app.xml: erts/doc/src/Makefile lib/*/doc/src/Makefile 
 	PATH=$(BOOT_PREFIX)"$${PATH}" escript $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
@@ -618,340 +625,87 @@ $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost: $(ERL_TOP)/bin/$(TARGET)
 	@cp $(ERL_TOP)/bin/$(TARGET)/inet_gethost $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
 
+$(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET):
+	$(V_at)mkdir $@
 
-bootstrap_setup_target:
+bootstrap_setup_target: $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)
 	@{ test -r $(BOOTSTRAP_ROOT)/bootstrap/target && \
 	   test $(TARGET) = `cat $(BOOTSTRAP_ROOT)/bootstrap/target`; } || \
 	 echo $(TARGET) > $(BOOTSTRAP_ROOT)/bootstrap/target
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET) ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET) ; fi
 
-tiny_secondary_bootstrap_build:
+# The TINY SECONDARY bootstrap
+# - sasl needed to create start.boot
+# - parsetools needed by anything with an yrl
+TINY_SECONDARY_BOOTSTRAP=parsetools sasl
+TINY_SECONDARY_BOOTSTRAP_BUILD=$(TINY_SECONDARY_BOOTSTRAP)
+# The SECONDARY bootstrap
+# - asn1 needed by public_key
+SECONDARY_BOOTSTRAP=$(TINY_SECONDARY_BOOTSTRAP) asn1
+SECONDARY_BOOTSTRAP_BUILD=$(TINY_SECONDARY_BOOTSTRAP_BUILD) asn1/src
+
+# The TERTIARY bootstrap
+# - wx is needed for wx_object behaviour in debugger, observer and et
+# - public_key is needed for include files in ssl and ssh
+# - erl_interface is needed by odbc
+# - syntax_tools is needed by diameter
+# - snmp is needed to compile tests
+# - runtime_tools includes are needed by observer
+# - xmerl includes are needed by ct, edoc, erl_docgen and wx
+# - common_test is needed to compile tests
+TERTIARY_BOOTSTRAP_BUILD=parsetools wx public_key erl_interface syntax_tools snmp
+TERTIARY_BOOTSTRAP=$(TERTIARY_BOOTSTRAP_BUILD) runtime_tools xmerl common_test
+
+# The DOC bootstrap
+DOC_BOOTSTRAP_BUILD=xmerl edoc erl_docgen
+DOC_BOOTSTRAP=$(DOC_BOOTSTRAP_BUILD)
+
+$(BOOTSTRAP_ROOT)/bootstrap/lib/%/update:
+	$(V_at)for x in "$(dir $@)" "$(dir $@)/ebin" "$(dir $@)/include"; do \
+	        if [ ! -d "$$x" ]; then mkdir "$$x"; fi \
+        done
+	$(V_at)for x in $(wildcard lib/$*/ebin/*.beam); do \
+		BN=`basename $$x`; \
+		TF=$(dir $@)/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			${INSTALL_DATA} -p $$x $$TF; \
+		test '!' -f $$TF && \
+			${INSTALL_DATA} -p $$x $$TF; \
+		true; \
+	done
+	$(V_at)for x in $(wildcard lib/$*/include/*.hrl) $(wildcard lib/$*/include/*.h); do \
+	      BN=`basename $$x`; \
+	      TF=$(dir $@)/include/$$BN; \
+	      test -f  $$TF && \
+	      test '!' -z "`find $$x -newer $$TF -print`" && \
+		${INSTALL_DATA} -p $$x $$TF; \
+	      test '!' -f $$TF && \
+		${INSTALL_DATA} -p $$x $$TF; \
+	      true; \
+	done
+
+tiny_secondary_bootstrap:
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt SECONDARY_BOOTSTRAP=true TINY_BUILD=true ERL_COMPILE_WARNINGS_AS_ERRORS=yes
+		$(MAKE) opt BOOTSTRAP="$(TINY_SECONDARY_BOOTSTRAP_BUILD)" ERL_COMPILE_WARNINGS_AS_ERRORS=yes
 
-secondary_bootstrap_build:
+secondary_bootstrap:
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt SECONDARY_BOOTSTRAP=true ERL_COMPILE_WARNINGS_AS_ERRORS=yes
+		$(MAKE) opt BOOTSTRAP="$(SECONDARY_BOOTSTRAP_BUILD)" ERL_COMPILE_WARNINGS_AS_ERRORS=yes
 
-tiny_secondary_bootstrap_copy:
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; fi
-	$(V_at)for x in lib/parsetools/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-	$(V_at)for x in lib/parsetools/include/*.hrl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; fi
-	$(V_at)for x in lib/sasl/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
+tiny_secondary_bootstrap_copy: tiny_secondary_bootstrap $(foreach app, $(TINY_SECONDARY_BOOTSTRAP), $(BOOTSTRAP_ROOT)/bootstrap/lib/$(app)/update)
+secondary_bootstrap_copy: secondary_bootstrap $(foreach app, $(SECONDARY_BOOTSTRAP), $(BOOTSTRAP_ROOT)/bootstrap/lib/$(app)/update)
 
-secondary_bootstrap_copy:
-	$(make_verbose)
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; fi
-	$(V_at)for x in lib/parsetools/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#	$(V_at)${INSTALL_DATA} -p lib/parsetools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin
-	$(V_at)for x in lib/parsetools/include/*.hrl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#	$(V_at)${INSTALL_DATA} -p -f lib/parsetools/include/*.hrl $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1 ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1 ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src ; fi
-	$(V_at)for x in lib/asn1/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#	$(V_at)${INSTALL_DATA} -p lib/asn1/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin
-	$(V_at)for x in lib/asn1/src/*.[eh]rl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#	$(V_at)${INSTALL_DATA} -p -f lib/asn1/src/*.erl lib/asn1/src/*.hrl $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/include ; fi
-	$(V_at)for x in lib/xmerl/include/*.hrl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
+tertiary_bootstrap:
+	$(make_verbose) ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
+		$(MAKE) -C lib opt BOOTSTRAP="$(TERTIARY_BOOTSTRAP_BUILD)" ERL_COMPILE_WARNINGS_AS_ERRORS=yes
+tertiary_bootstrap_copy: tertiary_bootstrap $(foreach app, $(TERTIARY_BOOTSTRAP), $(BOOTSTRAP_ROOT)/bootstrap/lib/$(app)/update)
 
-tertiary_bootstrap_build:
-	$(make_verbose)cd lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt TERTIARY_BOOTSTRAP=true ERL_COMPILE_WARNINGS_AS_ERRORS=yes
-
-tertiary_bootstrap_copy:
-	$(make_verbose)
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/include ; fi
-	$(V_at)for x in lib/snmp/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#	$(V_at)${INSTALL_DATA} -p lib/snmp/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools/include ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/public_key ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/public_key ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/public_key/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/public_key/include ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface/include ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/ ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/ ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp/erlang ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp/erlang ; fi
-	$(V_at)for x in lib/sasl/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#	$(V_at)${INSTALL_DATA} -p lib/sasl/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin ; fi
-	$(V_at)for x in lib/syntax_tools/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-	$(V_at)for x in lib/wx/include/*.hrl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#       copy wx_object to remove undef behaviour warnings
-	$(V_at)for x in lib/wx/ebin/wx_object.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-
-#	copy test includes to be able to compile tests with bootstrap compiler
-	$(V_at)for x in lib/common_test/include/*.hrl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-
-#	copy runtime_tool includes to be able to compile with include_lib
-	$(V_at)for x in lib/runtime_tools/include/*.hrl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#	copy public_key includes to be able to compile with include_lib
-	$(V_at)for x in lib/public_key/include/*.hrl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/public_key/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#	copy erl_interface includes
-	$(V_at)for x in lib/erl_interface/include/*.h; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#	copy jinterface priv directory
-	$(V_at)if test -d lib/jinterface/priv; then \
-	    for x in lib/jinterface/priv/OtpErlang.jar; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	    done; \
-	    for x in lib/jinterface/priv/com/ericsson/otp/erlang/*; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp/erlang/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	    done; \
-        fi
-#	$(V_at)${INSTALL_DATA} -p lib/syntax_tools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin
-
-doc_bootstrap_build:
-	$(make_verbose)cd lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt DOC_BOOTSTRAP=true
-
-doc_bootstrap_copy:
-	$(make_verbose)
-#       XMERL
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/ebin ; fi
-	$(V_at)for x in lib/xmerl/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#       xmerl/include already copied in secondary bootstrap
-#       EDOC
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/ebin ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/include ; fi
-	$(V_at)for x in lib/edoc/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-	$(V_at)for x in lib/edoc/include/*.hrl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
-#       ERL_DOCGEN
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/ebin ; fi
-	$(V_at)for x in lib/erl_docgen/ebin/*.beam; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/ebin/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	done
+doc_bootstrap:
+	$(make_verbose) ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
+		$(MAKE) -C lib opt BOOTSTRAP="$(DOC_BOOTSTRAP_BUILD)"
+doc_bootstrap_copy: secondary_bootstrap_copy doc_bootstrap tertiary_bootstrap_copy $(foreach app, $(DOC_BOOTSTRAP), $(BOOTSTRAP_ROOT)/bootstrap/lib/$(app)/update)
 	$(V_at)for d in priv priv/bin priv/css priv/dtd priv/dtd_html_entities priv/dtd_man_entities priv/images priv/js priv/js/flipmenu priv/xsl; do \
 	  if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/$$d ; then mkdir -p $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/$$d ; fi; \
 	  for x in lib/erl_docgen/$$d/*; do \
@@ -1036,9 +790,9 @@ primary_bootstrap:
 
 primary_bootstrap_build: primary_bootstrap_mkdirs primary_bootstrap_compiler \
   primary_bootstrap_stdlib
-	$(make_verbose)cd lib && $(MAKE) ERLC_FLAGS='-pa $(BOOTSTRAP_COMPILER)/ebin' \
-		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
-		BOOTSTRAP=1 opt
+	$(make_verbose)cd lib && $(MAKE) ERLC_FLAGS='-pa $(BOOTSTRAP_COMPILER)/ebin $(DETERMINISM_FLAG)' \
+		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) PRIMARY_BOOTSTRAP=1 \
+		BOOTSTRAP="kernel stdlib compiler" opt
 
 primary_bootstrap_compiler: 
 	$(make_verbose)cd lib/compiler && $(MAKE) \

@@ -31,11 +31,11 @@
 
 -export([create/1, create_pem_cache/1, 
 	 add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
-         refresh_trusted_certs/1,
          refresh_trusted_certs/2,
+         refresh_trusted_certs/3,
 	 extract_trusted_certs/1,
 	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
-	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_cert_by_issuer/2,
+	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_certentries_by_ref/2,
 	 decode_pem_file/1, lookup/2]).
 
 %%====================================================================
@@ -117,7 +117,7 @@ lookup_trusted_cert(_DbHandle, {extracted,Certs}, SerialNumber, Issuer) ->
 	    CertSerial =:= SerialNumber, CertIssuer =:= Issuer],
 	undefined
     catch
-	Cert ->
+	throw:Cert ->
 	    {ok, Cert}
     end.
 
@@ -132,12 +132,12 @@ lookup_trusted_cert(_DbHandle, {extracted,Certs}, SerialNumber, Issuer) ->
 add_trusted_certs(_Pid, {extracted, _} = Certs, _) ->
     {ok, Certs};
 
-add_trusted_certs(_Pid, {der, DerList}, [CertDb, _,_ | _]) ->
+add_trusted_certs(_Pid, {der, DerList}, [CertDb, _, _ | _]) ->
     NewRef = make_ref(),
     add_certs_from_der(DerList, NewRef, CertDb),
     {ok, NewRef};
 
-add_trusted_certs(_Pid, File, [ _, {RefDb, FileMapDb} | _] = Db) ->
+add_trusted_certs(_Pid, File, [_, {RefDb, FileMapDb} | _] = Db) ->
     case lookup(File, FileMapDb) of
 	[Ref] ->
 	    ref_count(Ref, RefDb, 1),
@@ -146,18 +146,18 @@ add_trusted_certs(_Pid, File, [ _, {RefDb, FileMapDb} | _] = Db) ->
 	    new_trusted_cert_entry(File, Db)
     end.
 
-refresh_trusted_certs(File, [CertsDb, {_, FileMapDb} | _]) ->
+refresh_trusted_certs(File, [CertsDb, {_, FileMapDb} | _], PemCache) ->
     case lookup(File, FileMapDb) of
         [Ref] ->
-            {ok, Content} = decode_pem_file(File),
-            remove_trusted_certs(Ref, CertsDb),
-            add_certs_from_pem(Content, Ref, CertsDb);
+            Certs = ssl_certificate:file_to_certificats(File, PemCache),
+            KeyList = select_certentries_by_ref(Ref,CertsDb),
+            update_certs(Ref, Certs, KeyList, CertsDb);
         undefined ->
             ok
     end.
-refresh_trusted_certs([_, {_, FileMapDb} | _] = Db) ->
+refresh_trusted_certs([_, {_, FileMapDb} | _] = Db, PemCache) ->
     Refresh = fun({File, _}, Acc) ->
-                      refresh_trusted_certs(File, Db),
+                      refresh_trusted_certs(File, Db, PemCache),
                       Acc
               end,
     foldl(Refresh, refresh, FileMapDb).
@@ -243,9 +243,13 @@ lookup(Key, Db) ->
 foldl(Fun, Acc0, Cache) ->
     ets:foldl(Fun, Acc0, Cache).
 
-
-select_cert_by_issuer(Cache, Issuer) ->    
-    ets:select(Cache, [{{{'_','_', Issuer},{'_', '$1'}},[],['$$']}]).
+%%--------------------------------------------------------------------
+-spec select_certentries_by_ref(reference(), db_handle()) -> term().
+%%
+%% Description: Select certs entries originating from same source
+%%--------------------------------------------------------------------
+select_certentries_by_ref(Ref, Cache) ->
+    ets:select(Cache, [{{{Ref,'_', '_'}, '_'},[],['$_']}]).
 
 %%--------------------------------------------------------------------
 -spec ref_count(term(), db_handle(), integer()) -> integer().
@@ -297,40 +301,40 @@ remove_certs(Ref, CertsDb) ->
     ok.
 
 add_certs_from_der(DerList, Ref, CertsDb) ->
-    Add = fun(Cert) -> add_certs(Cert, Ref, CertsDb) end,
+    Add = fun(Cert) -> add_cert(Cert, Ref, CertsDb) end,
     [Add(Cert) || Cert <- DerList],
     ok.
 
 certs_from_der(DerList) ->
     Ref = make_ref(),
     [Decoded || Cert <- DerList,
-		Decoded <- [decode_certs(Ref, Cert)],
+		Decoded <- [decode_cert(Ref, Cert)],
 		Decoded =/= undefined].
 
 add_certs_from_pem(PemEntries, Ref, CertsDb) ->
-    Add = fun(Cert) -> add_certs(Cert, Ref, CertsDb) end,
+    Add = fun(Cert) -> add_cert(Cert, Ref, CertsDb) end,
     [Add(Cert) || {'Certificate', Cert, not_encrypted} <- PemEntries],
     ok.
 
-add_certs(Cert, Ref, CertsDb) ->
+add_cert(Cert, Ref, CertsDb) ->
     try
-	 {decoded, {Key, Val}} = decode_certs(Ref, Cert),
+	 {decoded, {Key, Val}} = decode_cert(Ref, Cert),
 	 insert(Key, Val, CertsDb)
     catch
 	error:_ ->
 	    ok
     end.
 
-decode_certs(Ref, #cert{otp=ErlCert} = Cert) ->
+decode_cert(Ref, #cert{otp=ErlCert} = Cert) ->
     TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
     SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
     Issuer = public_key:pkix_normalize_name(
                TBSCertificate#'OTPTBSCertificate'.issuer),
     {decoded, {{Ref, SerialNumber, Issuer}, Cert}};
-decode_certs(Ref, Der) ->
+decode_cert(Ref, Der) ->
     try public_key:pkix_decode_cert(Der, otp) of
         ErlCert ->
-            decode_certs(Ref, #cert{der=Der, otp=ErlCert})
+            decode_cert(Ref, #cert{der=Der, otp=ErlCert})
     catch error:_ ->
 	    ?LOG_NOTICE("SSL WARNING: Ignoring a CA cert as "
                         "it could not be correctly decoded.~n"),
@@ -352,7 +356,7 @@ new_trusted_cert_entry(File, [CertsDb, RefsDb, _ | _]) ->
 add_crls([_,_,_, {_, Mapping} | _], ?NO_DIST_POINT, CRLs) ->
     [add_crls(CRL, Mapping) || CRL <- CRLs];
 add_crls([_,_,_, {Cache, Mapping} | _], Path, CRLs) ->
-    insert(Path, CRLs, Cache), 
+    insert(Path, CRLs, Cache),
     [add_crls(CRL, Mapping) || CRL <- CRLs].
 
 add_crls(CRL, Mapping) ->
@@ -365,7 +369,7 @@ remove_crls([_,_,_, {Cache, Mapping} | _], Path) ->
     case lookup(Path, Cache) of
 	undefined ->
 	    ok;
-	CRLs ->
+	[CRLs] ->
 	    remove(Path, Cache),
 	    [rm_crls(CRL, Mapping) || CRL <- CRLs]
     end.
@@ -378,3 +382,27 @@ crl_issuer(DerCRL) ->
     TBSCRL = CRL#'CertificateList'.tbsCertList,
     TBSCRL#'TBSCertList'.issuer.
 
+update_certs(Ref, CertList, KeyList, CertsDb) ->
+    {Insert, Delete} = insert_delete_lists(Ref, CertList, CertsDb, [], KeyList),
+    insert_cert_entries(Insert, CertsDb),
+    remove_cert_entries(Delete, CertsDb).
+
+insert_delete_lists(_, [], _, Insert, Delete) ->
+    {Insert, Delete};
+insert_delete_lists(Ref, [Cert | Rest], CertsDb, Insert, Delete) ->
+    case decode_cert(Ref, Cert) of
+        {decoded, {Key, Value} = Entry}  ->
+            case lookup(Key, CertsDb) of
+                [Value] -> %% Entry already exists and is unchanged
+                    insert_delete_lists(Ref, Rest, CertsDb, Insert, lists:keydelete(Key, 1, Delete));
+                _ ->
+                    insert_delete_lists(Ref, Rest, CertsDb, [Entry | Insert], lists:keydelete(Key, 1, Delete))
+            end;
+        undefined ->
+            insert_delete_lists(Ref, Rest, CertsDb, Insert, Delete)
+    end.
+
+insert_cert_entries(EntryList, CertsDb) ->
+    ets:insert(CertsDb, EntryList).
+remove_cert_entries(EntryList, CertsDb) ->
+    lists:foreach(fun({Key, Value}) -> remove(Key, Value, CertsDb) end, EntryList).

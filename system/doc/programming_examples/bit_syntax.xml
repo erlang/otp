@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2020</year>
+      <year>2003</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -206,7 +206,7 @@ X:4/little-signed-integer-unit:8</code>
       matching, this default value is only valid for the last
       element. All other binary elements in matching must have a size
       specification.</p>
-    <p>The default unit depends on the the type. For <c>integer</c>,
+    <p>The default unit depends on the type. For <c>integer</c>,
       <c>float</c>, and <c>bitstring</c> it is 1. For binary it is 8.</p>
     <p>The default signedness is <c>unsigned</c>.</p>
     <p>The default endianness is <c>big</c>.</p>
@@ -311,8 +311,8 @@ foo(N, Bin) ->
     <section>
       <title>Binding and Using a Size Variable</title>
       <p>There is one exception to the rule that a variable that is
-      as size must be previously bound. It is possible to match and
-      bind a variable, and use it as a size within the the same
+      used as size must be previously bound. It is possible to match and
+      bind a variable, and use it as a size within the same
       binary pattern. For example:</p>
 
     <code type="none"><![CDATA[

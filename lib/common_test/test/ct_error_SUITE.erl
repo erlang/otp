@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -729,9 +729,8 @@ test_events(lib_error) ->
       {lib_error_1_SUITE,lines_hang,{failed,{timetrap_timeout,3000}}}},
      {?eh,test_stats,{0,3,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,lines_throw}},
-     {?eh,tc_done,
-      {lib_error_1_SUITE,lines_throw,
-       {failed,{error,{thrown,catch_me_if_u_can}}}}},
+     {?eh,tc_done,{lib_error_1_SUITE,lines_throw,{failed,
+        {error,{thrown,{catch_me_if_u_can,'_'}}}}}},
      {?eh,test_stats,{0,4,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,no_lines_error}},
      {?eh,tc_done,
@@ -748,8 +747,8 @@ test_events(lib_error) ->
       {lib_error_1_SUITE,no_lines_hang,{failed,{timetrap_timeout,3000}}}},
      {?eh,test_stats,{0,7,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,no_lines_throw}},
-     {?eh,tc_done,
-      {lib_error_1_SUITE,no_lines_throw,{failed,{error,{thrown,catch_me_if_u_can}}}}},
+     {?eh,tc_done,{lib_error_1_SUITE,no_lines_throw,{failed,
+        {error,{thrown,{catch_me_if_u_can,'_'}}}}}},
      {?eh,test_stats,{0,8,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,init_tc_error}},
      {?eh,tc_done,{lib_error_1_SUITE,init_tc_error,

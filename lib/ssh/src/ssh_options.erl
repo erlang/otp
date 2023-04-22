@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@
          keep_set_options/2,
          no_sensitive/2,
          initial_default_algorithms/2,
-         check_preferred_algorithms/1
+         check_preferred_algorithms/1,
+         merge_options/3
         ]).
 
 -export_type([private_options/0
@@ -153,6 +154,14 @@ delete_key(internal_options, Key, Opts, _CallerMod, _CallerLine) when is_map(Opt
 
 %%%================================================================
 %%%
+%%% Replace 0 or more options in an options map
+%%%
+merge_options(Role, NewPropList, Opts0) when is_list(NewPropList),
+                                             is_map(Opts0) ->
+    check_and_save(NewPropList, default(Role), Opts0).
+
+%%%================================================================
+%%%
 %%% Initialize the options
 %%%
 
@@ -167,8 +176,7 @@ handle_options(Role, PropList0) ->
 handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                          is_list(OptsList0) ->
     OptsList1 = proplists:unfold(
-                  lists:foldr(fun(T,Acc) when is_tuple(T),
-                                              size(T) =/= 2-> [{special_trpt_args,T} | Acc];
+                  lists:foldr(fun(T,Acc) when tuple_size(T) =/= 2 -> [{special_trpt_args,T} | Acc];
                                  (X,Acc) -> [X|Acc]
                               end,
                               [], OptsList0)),
@@ -219,10 +227,8 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
 
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
-        final_preferred_algorithms(
-          lists:foldl(fun(KV, Vals) ->
-                              save(KV, OptionDefinitions, Vals)
-                      end, InitialMap, OptsList2))
+        check_and_save(OptsList2, OptionDefinitions, InitialMap)
+
     catch
         error:{EO, KV, Reason} when EO == eoptions ; EO == eerl_env ->
             if
@@ -234,6 +240,13 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                     {error, {EO,{KV,Reason}}}
             end
     end.
+
+check_and_save(OptsList, OptionDefinitions, InitialMap) ->
+    final_preferred_algorithms(
+      lists:foldl(fun(KV, Vals) ->
+                          save(KV, OptionDefinitions, Vals)
+                  end, InitialMap, OptsList)).
+    
 
 cnf_key(server) -> server_options;
 cnf_key(client) -> client_options.
@@ -477,6 +490,12 @@ default(server) ->
             class => user_option
            },
 
+      no_auth_needed =>
+          #{default => false,
+            chk => fun(V) -> erlang:is_boolean(V) end,
+            class => user_option
+           },
+
       pk_check_user =>
           #{default => false,
             chk => fun(V) -> erlang:is_boolean(V) end,
@@ -510,6 +529,12 @@ default(server) ->
       pwdfun =>
           #{default => undefined,
             chk => fun(V) -> check_function4(V) orelse check_function2(V) end,
+            class => user_option
+           },
+
+      max_initial_idle_time =>
+          #{default => infinity, %% To not break compatibility
+            chk => fun(V) -> check_timeout(V) end,
             class => user_option
            },
 
@@ -768,6 +793,14 @@ default(common) ->
        ssh_msg_debug_fun =>
            #{default => fun(_,_,_,_) -> void end,
              chk => fun(V) -> check_function4(V) end,
+             class => user_option
+            },
+
+       max_log_item_len =>
+           #{default => 500,
+             chk => fun(infinity) -> true;
+                       (I) -> check_non_neg_integer(I)
+                    end,
              class => user_option
             },
 
@@ -1045,7 +1078,7 @@ check_modify_algorithms(M) when is_list(M) ->
     [error_in_check(Op_KVs, "Bad modify_algorithms")
      || Op_KVs <- M,
         not is_tuple(Op_KVs)
-            orelse (size(Op_KVs) =/= 2)
+            orelse (tuple_size(Op_KVs) =/= 2)
             orelse (not lists:member(element(1,Op_KVs), [append,prepend,rm]))],
     {true, [{Op,normalize_mod_algs(KVs,false)} || {Op,KVs} <- M]};
 check_modify_algorithms(_) ->
@@ -1157,7 +1190,7 @@ check_input_ok(Algs) ->
     [error_in_check(KVs, "Bad preferred_algorithms")
      || KVs <- Algs,
         not is_tuple(KVs)
-            orelse (size(KVs) =/= 2)].
+            orelse (tuple_size(KVs) =/= 2)].
 
 %%%----------------------------------------------------------------
 final_preferred_algorithms(Options0) ->

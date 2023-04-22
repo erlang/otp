@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,10 @@
  * - ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER
  *      Data dependency read barrier. Orders *only* loads
  *      according to data dependency across the barrier.
+ * - ERTS_THR_INSTRUCTION_BARRIER
+ *      Instruction synchronization barrier. Orders *only*
+ *      instruction fetches. These are not allowed to be
+ *      reordered over the barrier.
  *
  * --- Atomic operations ---
  *
@@ -266,6 +270,23 @@
 #define ERTS_THR_READ_MEMORY_BARRIER ETHR_READ_MEMORY_BARRIER
 #define ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER ETHR_READ_DEPEND_MEMORY_BARRIER
 
+#ifdef ETHR_INSTRUCTION_BARRIER
+#  define ERTS_THR_INSTRUCTION_BARRIER ETHR_INSTRUCTION_BARRIER
+#else
+/* !! Note that we DO NOT define a fallback !!
+ *
+ * If we cannot issue an instruction barrier ourselves, we are most likely
+ * running on an operating system that disallows this operation from user-space
+ * (e.g. MacOS). In that case, we either:
+ *
+ * 1. Rely on a system call to do everything for us, including core
+ *    synchronization.
+ * 2. Lack a way to control instruction cache, and therefore can't use the JIT
+ *    begin with.
+ *
+ * In either case we want a compile-time error when this barrier is used. */
+#endif
+
 #ifdef ERTS_ENABLE_LOCK_POSITION
 #define erts_mtx_lock(L) erts_mtx_lock_x(L, __FILE__, __LINE__)
 #define erts_mtx_trylock(L) erts_mtx_trylock_x(L, __FILE__, __LINE__)
@@ -409,6 +430,7 @@ ERTS_GLB_INLINE void erts_thr_exit(void *res);
 ERTS_GLB_INLINE void erts_thr_install_exit_handler(void (*exit_handler)(void));
 ERTS_GLB_INLINE erts_tid_t erts_thr_self(void);
 ERTS_GLB_INLINE int erts_thr_getname(erts_tid_t tid, char *buf, size_t len);
+ERTS_GLB_INLINE void erts_thr_setname(char *buf);
 ERTS_GLB_INLINE int erts_equal_tids(erts_tid_t x, erts_tid_t y);
 ERTS_GLB_INLINE void erts_mtx_init(erts_mtx_t *mtx,
                                    const char *name,
@@ -1602,6 +1624,13 @@ erts_thr_getname(erts_tid_t tid, char *buf, size_t len)
     return ethr_getname(tid, buf, len);
 }
 
+ERTS_GLB_INLINE void
+erts_thr_setname(char *buf)
+{
+    if (strlen(buf) > ETHR_THR_NAME_MAX)
+	erts_thr_fatal_error(EINVAL, "too long thread name");
+    ethr_setname(buf);
+}
 
 ERTS_GLB_INLINE int
 erts_equal_tids(erts_tid_t x, erts_tid_t y)

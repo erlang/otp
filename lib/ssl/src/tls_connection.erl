@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 %%       ClientKeyExchange                                             \
 %%       CertificateVerify*                                             Flight 3 part 1
 %%       [ChangeCipherSpec]                                            / 
+%%       NextProtocol*
 %%       Finished                     -------->                       / Flight 3 part 2
 %%                                                [ChangeCipherSpec]  
 %%                                    <--------             Finished Flight 4
@@ -48,6 +49,7 @@
 %%                                                 [ChangeCipherSpec]
 %%                                     <--------             Finished  Abbrev Flight 2 part 2
 %%       [ChangeCipherSpec]
+%%       NextProtocol*
 %%       Finished                      -------->                       Abbrev Flight 3
 %%       Application Data              <------->     Application Data
 %%
@@ -69,13 +71,14 @@
 %%                                             | Send/Recv Flight 2 or Abbrev Flight 1 - Abbrev Flight 2 part 1 
 %%                                             |
 %%                                New session  | Resumed session
-%%  WAIT_OCSP_STAPELING   CERTIFY  <----------------------------------> ABBRIVIATED
-%%     
+%%  WAIT_OCSP_STAPLING   CERTIFY  <----------------------------------> ABBREVIATED
+%%  WAIT_CERT_VERIFY   
 %%  <- Possibly Receive  --  |                                              |
-%%     OCSP Stapel ------>   |  Flight 3 part 1                             |
+%% OCSP Staple/CertVerify -> |  Flight 3 part 1                             |
 %%                           |                                              |
 %%                           V                                              |  Abbrev Flight 2 part 2 to Abbrev Flight 3
 %%                         CIPHER                                           |
+%%                           |                                              |
 %%                           |                                              |
 %%                           | Fligth 3 part 2 to Flight 4                  |   
 %%                           |                                              |   
@@ -111,7 +114,8 @@
 %% Setup
 -export([init/1]).
 
--export([renegotiate/2]).
+-export([renegotiate/2,
+        choose_tls_fsm/2]).
 
 %% gen_statem state functions
 -export([initial_hello/3,
@@ -121,6 +125,7 @@
          user_hello/3,
          wait_ocsp_stapling/3,
          certify/3,
+         wait_cert_verify/3,
          cipher/3,
          abbreviated/3,
 	 connection/3]).
@@ -130,20 +135,21 @@
          terminate/3,
          code_change/4,
          format_status/2]).
- 
+
+%% Tracing
+-export([handle_trace/3]).
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
 init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
-    State0 = #state{protocol_specific = Map} = initial_state(Role, Sender,
-                                                             Host, Port, Socket, Options, User, CbInfo),
-    try 
-	State1 = #state{static_env = #static_env{session_cache = Cache,
+    State0 = initial_state(Role, Sender, Host, Port, Socket, Options, User, CbInfo),
+    try
+        State1 = #state{static_env = #static_env{session_cache = Cache,
                                                  session_cache_cb = CacheCb
                                                 },
                         connection_env = #connection_env{cert_key_alts = CertKeyAlts},
                         ssl_options = SslOptions,
-                        session = Session0} = ssl_gen_statem:ssl_config(State0#state.ssl_options, Role, State0),
+                        session = Session0} = ssl_gen_statem:init_ssl_config(State0#state.ssl_options, Role, State0),
         State = case Role of
                     client ->
                         CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts),
@@ -155,6 +161,7 @@ init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
         tls_gen_connection:initialize_tls_sender(State),
         gen_statem:enter_loop(?MODULE, [], initial_hello, State)
     catch throw:Error ->
+            #state{protocol_specific = Map} = State0,
             EState = State0#state{protocol_specific = Map#{error => Error}},
             gen_statem:enter_loop(?MODULE, [], config_error, EState)
     end.
@@ -208,31 +215,26 @@ config_error(Type, Event, State) ->
 	    #state{}) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-hello(internal, #client_hello{extensions = Extensions} = Hello, 
-      #state{ssl_options = #{handshake := hello},
-             static_env = #static_env{role = server},
-             handshake_env = HsEnv,
+hello(internal, #client_hello{extensions = Extensions},
+      #state{static_env = #static_env{role = server},
+             handshake_env = #handshake_env{continue_status = pause},
              start_or_recv_from = From} = State) ->
-    {next_state, user_hello, State#state{start_or_recv_from = undefined,
-                                         handshake_env = HsEnv#handshake_env{hello = Hello}},
-     [{reply, From, {ok, Extensions}}]};
-hello(internal, #server_hello{extensions = Extensions} = Hello,
-      #state{ssl_options = #{handshake := hello},
+    {next_state, user_hello, State#state{start_or_recv_from = undefined},
+     [{postpone, true}, {reply, From, {ok, Extensions}}]};
+hello(internal, #server_hello{extensions = Extensions},
+      #state{handshake_env = #handshake_env{continue_status = pause},
              static_env = #static_env{role = client},
-             handshake_env = HsEnv,
-             start_or_recv_from = From} = State) ->   
+             start_or_recv_from = From} = State) ->
     {next_state, user_hello,
-     State#state{start_or_recv_from = undefined,
-                 handshake_env = HsEnv#handshake_env{
-                                   hello = Hello}}, [{reply, From, {ok, Extensions}}]};
+     State#state{start_or_recv_from = undefined}, [{postpone, true}, {reply, From, {ok, Extensions}}]};
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{static_env = #static_env{role = server}, connection_env = CEnv} = State0) ->
     try
         #state{ssl_options = SslOpts} = State1 = tls_dtls_connection:handle_sni_extension(State0, Hello),
         case choose_tls_fsm(SslOpts, Hello) of
             tls_1_3_fsm ->
-                %% Continue in TLS 1.3 'start' state
-                {next_state, start, State1, [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]};
+                {next_state, start, State1,
+                 [{change_callback_module, tls_server_connection_1_3}, {next_event, internal, Hello}]};
             tls_1_0_to_1_2_fsm ->
                 {ServerHelloExt, Type, State} = handle_client_hello(Hello, State1),
                 {next_state, hello, State, [{next_event, internal, {common_client_hello, Type, ServerHelloExt}}]}
@@ -254,18 +256,23 @@ hello(internal, #server_hello{} = Hello,
         case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
             %% Legacy TLS 1.2 and older
             {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
-                tls_dtls_connection:handle_session(Hello,
-                                                   Version, NewId, ConnectionStates, ProtoExt, Protocol,
-                                                   State#state{
-                                                     handshake_env = HsEnv#handshake_env{
-                                                                       ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
+                tls_dtls_connection:handle_session(
+                  Hello, Version, NewId, ConnectionStates, ProtoExt, Protocol,
+                  State#state{
+                    handshake_env =
+                        HsEnv#handshake_env{
+                          ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
             %% TLS 1.3
             {next_state, wait_sh, SelectedVersion, OcspState} ->
                 %% Continue in TLS 1.3 'wait_sh' state
                 {next_state, wait_sh,
-                 State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =  maps:merge(OcspState0,OcspState)}, 
-                             connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
-                 [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]}
+                 State#state{handshake_env =
+                                 HsEnv#handshake_env{ocsp_stapling_state =
+                                                         maps:merge(OcspState0, OcspState)},
+                             connection_env =
+                                 CEnv#connection_env{negotiated_version = SelectedVersion}},
+                 [{change_callback_module, tls_client_connection_1_3},
+                  {next_event, internal, Hello}]}
         end
     catch throw:#alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, hello, State)
@@ -315,6 +322,19 @@ wait_ocsp_stapling(Type, Event, State) ->
 certify(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
+    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
+
+
+%%--------------------------------------------------------------------
+-spec wait_cert_verify(gen_statem:event_type(), term(), #state{}) ->
+          gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_cert_verify(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_cert_verify(Type, Event, State) ->
     try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
     catch throw:#alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
@@ -373,8 +393,9 @@ connection(internal, #hello_request{},
                                                                                   ConnectionStates#{current_write => Write},
                                                                               session = Session}),
             tls_gen_connection:next_event(hello, no_record, State, Actions)
-        catch 
-            _:_ ->
+        catch
+            _:Reason:ST ->
+                ?SSL_LOG(info, internal_error, [{error, Reason}, {stacktrace, ST}]),
                 {stop, {shutdown, sender_blocked}, State0}
         end;
 connection(internal, #hello_request{},
@@ -461,10 +482,9 @@ code_change(_OldVsn, StateName, State, _) ->
 %%--------------------------------------------------------------------
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
-    #{erl_dist := IsErlDist,
-      %% Use highest supported version for client/server random nonce generation
-      versions := [Version|_],
-      client_renegotiation := ClientRenegotiation} = SSLOptions,
+    put(log_level, maps:get(log_level, SSLOptions)),
+    %% Use highest supported version for client/server random nonce generation
+    #{versions := [Version|_]} = SSLOptions,
     BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
     ConnectionStates = tls_record:init_connection_states(Role,
                                                          Version,
@@ -490,7 +510,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        handshake_env = #handshake_env{
                           tls_handshake_history = ssl_handshake:init_handshake_history(),
                           renegotiation = {false, first},
-                          allow_renegotiate = ClientRenegotiation
+                          allow_renegotiate = maps:get(client_renegotiation, SSLOptions, undefined)
                          },
        connection_env = #connection_env{user_application = {UserMonitor, User}},
        socket_options = SocketOptions,
@@ -502,7 +522,8 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        start_or_recv_from = undefined,
        flight_buffer = [],
        protocol_specific = #{sender => Sender,
-                             active_n => ssl_config:get_internal_active_n(IsErlDist),
+                             active_n => ssl_config:get_internal_active_n(
+                                           maps:get(erl_dist, SSLOptions, false)),
                              active_n_toggle => true
                             }
       }.
@@ -551,7 +572,8 @@ gen_info(Event, connection = StateName, State) ->
     try
         tls_gen_connection:handle_info(Event, StateName, State)
     catch
-        _:_ ->
+        _:Reason:ST ->
+            ?SSL_LOG(info, internal_error, [{error, Reason}, {stacktrace, ST}]),
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
 						       malformed_data),
 					    StateName, State)
@@ -561,7 +583,8 @@ gen_info(Event, StateName, State) ->
     try
         tls_gen_connection:handle_info(Event, StateName, State)
     catch
-        _:_ ->
+        _:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
 						       malformed_handshake_data),
 					    StateName, State)
@@ -574,10 +597,19 @@ choose_tls_fsm(#{versions := Versions},
                                 }
                  }) ->
     case ssl_handshake:select_supported_version(ClientVersions, Versions) of
-        {3,4} ->
+        ?TLS_1_3 ->
             tls_1_3_fsm;
         _Else ->
             tls_1_0_to_1_2_fsm
     end;
 choose_tls_fsm(_, _) ->
     tls_1_0_to_1_2_fsm.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, wait_ocsp_stapling,
+                     [Type, Event|_]}}, Stack) ->
+    {io_lib:format("Type = ~w Event = ~W", [Type, Event, 10]), Stack}.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3126,8 +3126,7 @@ void erts_lcnt_update_port_locks(int enable) {
  * Parameters:
  * bufsiz - The (maximum) size of the line buffer.
  */
-LineBuf *allocate_linebuf(bufsiz)
-int bufsiz;
+LineBuf *allocate_linebuf(int bufsiz)
 {
     int ovsiz = (bufsiz < LINEBUF_INITIAL) ? bufsiz : LINEBUF_INITIAL;
     LineBuf *lb = (LineBuf *) erts_alloc(ERTS_ALC_T_LINEBUF,
@@ -3772,7 +3771,7 @@ terminate_port(Port *prt)
     if ((state & ERTS_PORT_SFLG_HALT)
 	&& (erts_atomic32_dec_read_nob(&erts_halt_progress) == 0)) {
 	erts_port_release(prt); /* We will exit and never return */
-	erts_flush_async_exit(erts_halt_code, "");
+	erts_flush_exit(erts_halt_code, "");
     }
     if (is_internal_port(send_closed_port_id))
 	deliver_result(NULL, send_closed_port_id, connected_id, am_closed);
@@ -3794,8 +3793,11 @@ static int link_port_exit(ErtsLink *lnk, void *vpectxt, Sint reds)
     ErtsPortExitContext *pectxt = vpectxt;
     Port *port = pectxt->port;
 
-    erts_proc_sig_send_link_exit(&port->common, port->common.id,
-                                 lnk, pectxt->reason, NIL);
+    if (((ErtsILink *) lnk)->unlinking)
+        erts_link_release(lnk);
+    else
+        erts_proc_sig_send_link_exit(&port->common, port->common.id,
+                                     lnk, pectxt->reason, NIL);
     return 1;
 }
 
@@ -4656,6 +4658,7 @@ erts_port_call(Process* c_p,
 	    unsigned ret_flags = 0U;
 	    Eterm term;
             Eterm* hp;
+            ErtsPortOpResult result;
 
 	    res = call_driver_call(c_p->common.id,
 				   prt,
@@ -4669,25 +4672,36 @@ erts_port_call(Process* c_p,
 	    finalize_imm_drv_call(&try_call_state);
 	    if (bufp != &input_buf[0])
 		erts_free(ERTS_ALC_T_TMP, bufp);
-	    if (res == ERTS_PORT_OP_BADARG)
-		return ERTS_PORT_OP_BADARG;
-	    hsz = erts_decode_ext_size((byte *) resp_bufp, resp_size);
-	    if (hsz < 0)
-		return ERTS_PORT_OP_BADARG;
-	    hsz += 3;
-            erts_factory_proc_prealloc_init(&factory, c_p, hsz);
-	    endp = (byte *) resp_bufp;
-	    term = erts_decode_ext(&factory, (const byte**)&endp, 0);
-	    if (term == THE_NON_VALUE)
-		return ERTS_PORT_OP_BADARG;
-            hp = erts_produce_heap(&factory,3,0);
-	    *retvalp = TUPLE2(hp, am_ok, term);
-            erts_factory_close(&factory);
+	    if (res == ERTS_PORT_OP_BADARG) {
+		result = ERTS_PORT_OP_BADARG;
+            }
+            else {
+                hsz = erts_decode_ext_size((byte *) resp_bufp, resp_size);
+                if (hsz < 0) {
+                    result = ERTS_PORT_OP_BADARG;
+                }
+                else {
+                    hsz += 3;
+                    erts_factory_proc_prealloc_init(&factory, c_p, hsz);
+                    endp = (byte *) resp_bufp;
+                    term = erts_decode_ext(&factory, (const byte**)&endp, 0);
+                    if (term == THE_NON_VALUE) {
+                        result = ERTS_PORT_OP_BADARG;
+                    }
+                    else {
+                        hp = erts_produce_heap(&factory,3,0);
+                        *retvalp = TUPLE2(hp, am_ok, term);
+                        result = ERTS_PORT_OP_DONE;
+                    }
+                    erts_factory_close(&factory);
+                }
+            }
 	    if (resp_bufp != &resp_buf[0]
-		&& !(ret_flags & DRIVER_CALL_KEEP_BUFFER))
+		&& !(ret_flags & DRIVER_CALL_KEEP_BUFFER)) {
 		driver_free(resp_bufp);
+            }
 	    BUMP_REDS(c_p, ERTS_PORT_REDS_CALL);
-	    return ERTS_PORT_OP_DONE;
+	    return result;
 	}
 	case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
 	    if (bufp != &input_buf[0])

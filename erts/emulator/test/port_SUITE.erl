@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -226,8 +226,8 @@ init_per_testcase(Case, Config) when Case =:= mon_port_driver_die;
 init_per_testcase(Case, Config) ->
     [{testcase, Case} |Config].
 
-end_per_testcase(_Case, _Config) ->
-    ok.
+end_per_testcase(_Case, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 init_per_suite(Config) when is_list(Config) ->
     ignore_cores:init(Config).
@@ -1915,6 +1915,7 @@ otp_5112(Config) when is_list(Config) ->
     true = lists:member(Port, Links1),
     Port ! {self(), {command, ""}},
     wait_until(fun () -> lists:member(Port, erlang:ports()) == false end),
+    receive after 1000 -> ok end, %% Give signal some time to propagate...
     {links, Links2} = process_info(self(),links),
     io:format("Links2: ~p~n",[Links2]),
     false = lists:member(Port, Links2), %% This used to fail

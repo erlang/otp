@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2021</year>
+      <year>1997</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -177,24 +177,7 @@
 	any data that it needs to keep track of when handling the chunks.
 	</p>
       </desc>
-   </func>
-
-   <func>
-     <name since="">Module:Function(Env, Input)-> Response </name>
-     <fsummary>Creates a dynamic web page and returns it as a list. 
-     This function is deprecated and is only kept for backwards compatibility.</fsummary>
-     <type>
-       <v>Env = env()</v>
-       <v>Input = string() </v>
-       <v>Response = string()</v>
-     </type>
-      <desc>
-        <p>This callback format consumes much memory, as the
-        whole response must be generated before it is sent to the
-        user. This callback format is deprecated. 
-        For new development, use <c>Module:Function/3</c>.</p>
-      </desc>
-   </func>
+   </func>  
  </funcs>
  
 </erlref>

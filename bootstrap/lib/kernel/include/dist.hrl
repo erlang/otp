@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,14 +72,20 @@
              ?DFLAG_BIG_CREATION bor
              ?DFLAG_HANDSHAKE_23)).
 
+%% New mandatory flags in OTP 26
+-define(MANDATORY_DFLAGS_26, (?DFLAG_V4_NC bor
+                                  ?DFLAG_UNLINK_ID)).
+
+%% All mandatory flags
+-define(DFLAGS_MANDATORY, (?MANDATORY_DFLAGS_25 bor
+                               ?MANDATORY_DFLAGS_26)).
+
 %% Also update dflag2str() in ../src/dist_util.erl
 %% when adding flags...
 
+-define(ERL_DIST_VER_6, 6).  % OTP-23 at least
 
--define(ERL_DIST_VER_5, 5).  % OTP-22 or (much) older
--define(ERL_DIST_VER_6, 6).  % OTP-23 (or maybe newer?)
-
--define(ERL_DIST_VER_LOW, ?ERL_DIST_VER_5).
+-define(ERL_DIST_VER_LOW, ?ERL_DIST_VER_6).
 -define(ERL_DIST_VER_HIGH, ?ERL_DIST_VER_6).
 
 %%%

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -69,6 +69,9 @@
     </datatype>
     <datatype>
       <name name="tokens_result"></name>
+    </datatype>
+    <datatype>
+      <name name="text_fun"></name>
     </datatype>
   </datatypes>
  
@@ -220,9 +223,35 @@
           <tag><c>return</c></tag>
           <item><p>Short for <c>[return_comments, return_white_spaces]</c>.</p>
           </item>
-          <tag><c>text</c></tag>
+          <tag><marker id="text"/><c>text</c></tag>
           <item><p>Include the token text in the token annotation. The
-            text is the part of the input corresponding to the token.</p>
+            text is the part of the input corresponding to the token.
+          See also <seeerl marker="#text_fun"><c>text_fun</c></seeerl>.</p>
+          </item>
+          <tag><marker id="text_fun"/><c>{text_fun, text_fun()}</c></tag>
+          <item><p>A callback function used to determine whether the
+          full text for the token shall be included in the token
+          annotation.  Arguments of the function are the category of
+          the token and the full token string.  This is only used when
+          <seeerl marker="#text"><c>text</c></seeerl> is not present.
+          If neither are present the text will not be saved in the
+          token annotation.</p>
+          </item>
+          <tag><marker id="compiler_interal"/>
+	  <c>{compiler_internal, term()}</c>
+	  </tag>
+          <item><p>Pass compiler-internal options to the scanner. The
+          set of internal options understood by the scanner should
+          be considered experimental and can thus be changed at any time
+          without prior warning.</p>
+	  <p>The following options are currently understood:</p>
+	  <taglist>
+            <tag><c>ssa_checks</c></tag>
+            <item>
+              <p>Tokenizes source code annotations used for encoding
+              tests on the BEAM SSA code produced by the compiler.</p>
+            </item>
+          </taglist>
           </item>
         </taglist>
       </desc>

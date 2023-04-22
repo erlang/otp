@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -337,7 +337,7 @@ close_stdin(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Fds = filename:join(DataDir, "my_fds"),
 
-    "-1" = os:cmd(Fds).
+    "0" = os:cmd(Fds).
 
 max_size_command(_Config) ->
     WSL = case os:getenv("WSLENV") of
@@ -396,10 +396,48 @@ do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters) ->
             do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters-1)
     end.
 
-error_info(_Config) ->
-    L = [{cmd, [{no,string}]},
+error_info(Config) ->
+
+
+    ExhaustFDs =
+        fun(M,F,A) ->
+                case no_limit_for_opened_files() of
+                    false ->
+                        {ok, Peer, Node} = ?CT_PEER(),
+                        FN = filename:join(
+                               proplists:get_value(priv_dir, Config),
+                               "error_info"),
+                        try
+                            erpc:call(
+                              Node,
+                              fun() ->
+                                      io:format("Starting to open files..."),
+                                      (fun FDs(N) ->
+                                               case file:open(FN, [write]) of
+                                                   {ok, _ } -> FDs(N+1);
+                                                   {error, _} ->
+                                                       io:format("Opened ~p files",[N])
+                                               end
+                                       end)(0),
+                                      apply(M,F,A)
+                              end)
+                        catch error:{exception, ErrorReason, StackTrace} ->
+                                erlang:raise(error, ErrorReason, StackTrace)
+                        after
+                            peer:stop(Peer)
+                        end;
+                    true ->
+                        apply(M,F,A)
+                end
+        end,
+
+    L = [{cmd, [{no, string}]},
+         {cmd, [["echo 1",0,0,0,1]]},
          {cmd, [{no, string}, #{}]},
          {cmd, [{no, string}, no_map]},
+         {cmd, ["echo 1"], [{general, "too many open files \\(emfile\\)"},
+                            {wrapper, ExhaustFDs}] ++
+              [no_fail || no_limit_for_opened_files()]},
 
          {find_executable, 1},                  %Not a BIF.
          {find_executable, 2},                  %Not a BIF.
@@ -416,7 +454,7 @@ error_info(_Config) ->
 
          {perf_counter,[bad_time_unit]},
 
-         {putenv, [<<"bad_key">>, <<"bad_value">>]},
+         {putenv, [<<"bad_key">>, <<"bad_value">>],[{1,".*"},{2,".*"}]},
          {putenv, ["key", <<"bad_value">>]},
          {putenv, [<<"bad_key">>, "value"]},
          {putenv, ["abc=", "xyz"]},
@@ -424,12 +462,25 @@ error_info(_Config) ->
          {set_signal, [{bad,signal}, ignore]},
          {set_signal, [{bad,signal}, ignore]},
          {set_signal, [bad_signal, bad_handling]},
-         {set_signal, [{bad,signal}, bad_handling]},
+         {set_signal, [{bad,signal}, bad_handling],[{1,".*"},{2,".*"}]},
 
          {system_time, [bad_time_unit]},
          {unsetenv, [{bad,key}]}
         ],
     error_info_lib:test_error_info(os, L).
+
+no_limit_for_opened_files() ->
+    case os:type() of
+        {unix, freebsd} ->
+            %% At least some FreeBSD systems support about one million open
+            %% files, which means that we run out of Erlang processes before we
+            %% reach the open file limit.
+            true;
+        {unix, _} ->
+            false;
+        _ ->
+            true
+    end.
 
 %% Util functions
 

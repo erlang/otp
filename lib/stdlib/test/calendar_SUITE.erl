@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -280,6 +280,9 @@ rfc3339(Config) when is_list(Config) ->
                   [{offset, 120_000_000_000}]++Ns),
     "2000-01-01T10:02:00.000+00:02" =
         do_format(TO * NaPerSec, [{offset, 120 * NaPerSec}]++Na),
+
+    1656147840 = do_parse("2022-06-25 11:04:00+02", []),
+    1656155040 = do_parse("2022-06-25 11:04:00-00", []),
 
 
     NStr = "2000-01-01T09:58:00-00:02",

@@ -67,7 +67,7 @@ enum class MemoryFlags : uint32_t {
   //! in MAC bundles. This flag is not turned on by default, because when a process uses `fork()` the child process
   //! has no access to the pages mapped with `MAP_JIT`, which could break code that doesn't expect this behavior.
   //!
-  //! \note This flag can only be used with \ref VirtMem::alloc().
+  //! \note This flag can only be used with \ref VirtMem::alloc(), `MAP_JIT` only works on OSX and not on iOS.
   kMMapEnableMapJit = 0x00000010u,
 
   //! Pass `PROT_MAX(PROT_READ)` to mmap() on platforms that support `PROT_MAX`.
@@ -95,6 +95,13 @@ enum class MemoryFlags : uint32_t {
   //! A combination of \ref MemoryFlags::kMMapMaxAccessRead, \ref MemoryFlags::kMMapMaxAccessWrite, \ref
   //! MemoryFlags::kMMapMaxAccessExecute.
   kMMapMaxAccessRWX = kMMapMaxAccessRead | kMMapMaxAccessWrite | kMMapMaxAccessExecute,
+
+  //! Use `MAP_SHARED` when calling mmap().
+  //!
+  //! \note In some cases `MAP_SHARED` may be set automatically. For example when using dual mapping it's important to
+  //! to use `MAP_SHARED` instead of `MAP_PRIVATE` to ensure that the OS would not copy pages on write (that would mean
+  //! updating only the RW mapped region and not RX mapped one).
+  kMapShared = 0x00000100u,
 
   //! Not an access flag, only used by `allocDualMapping()` to override the default allocation strategy to always use
   //! a 'tmp' directory instead of "/dev/shm" (on POSIX platforms). Please note that this flag will be ignored if the
@@ -157,13 +164,13 @@ enum class HardenedRuntimeFlags : uint32_t {
   //! Hardened runtime is enabled - it's not possible to have "Write & Execute" memory protection. The runtime
   //! enforces W^X (either write or execute).
   //!
-  //! \note If the runtime is hardened it means that an operating system specific protection is used. For example on
-  //! MacOS platform it's possible to allocate memory with MAP_JIT flag and then use `pthread_jit_write_protect_np()`
+  //! \note If the runtime is hardened it means that an operating system specific protection is used. For example
+  //! on Apple OSX it's possible to allocate memory with MAP_JIT flag and then use `pthread_jit_write_protect_np()`
   //! to temporarily swap access permissions for the current thread. Dual mapping is also a possibility on X86/X64
   //! architecture.
   kEnabled = 0x00000001u,
 
-  //! Read+Write+Execute can only be allocated with MAP_JIT flag (Apple specific).
+  //! Read+Write+Execute can only be allocated with MAP_JIT flag (Apple specific, only available on OSX).
   kMapJit = 0x00000002u
 };
 ASMJIT_DEFINE_ENUM_FLAGS(HardenedRuntimeFlags)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -261,10 +261,9 @@ handle_info({ssh_cm, ConnectionManager, {closed, ChannelId}},
     (catch ssh_connection:close(ConnectionManager, ChannelId)),
     {stop, normal, State#state{close_sent = true}};
 
-handle_info({ssh_cm, _, _} = Msg, #state{cm = ConnectionManager,
-			channel_cb = Module, 
-			channel_state = ChannelState0} = State) ->
-    case Module:handle_ssh_msg(Msg, ChannelState0) of
+handle_info({ssh_cm, _, _} = Msg, #state{channel_cb = Module, 
+                                         channel_state = ChannelState0} = State) ->
+    try Module:handle_ssh_msg(Msg, ChannelState0) of
 	{ok, ChannelState} ->
 	    adjust_window(Msg),
 	    {noreply, State#state{channel_state = ChannelState}};
@@ -272,9 +271,10 @@ handle_info({ssh_cm, _, _} = Msg, #state{cm = ConnectionManager,
 	    adjust_window(Msg),
 	    {noreply, State#state{channel_state = ChannelState}, Timeout};
 	{stop, ChannelId, ChannelState} ->
-	    catch ssh_connection:close(ConnectionManager, ChannelId),
-	    {stop, normal, State#state{close_sent = true,
-				       channel_state = ChannelState}}
+            do_the_close(Msg, ChannelId, State#state{channel_state = ChannelState})
+    catch
+        error:_ ->
+            do_the_close(Msg, State#state.channel_id, State)
     end;
 
 handle_info(Msg, #state{channel_cb = Module, 
@@ -288,7 +288,7 @@ handle_info(Msg, #state{channel_cb = Module,
 	{stop, ChannelId, ChannelState} ->
             do_the_close(Msg, ChannelId, State#state{channel_state = ChannelState})
     catch
-        error:function_clause when size(Msg) == 3,
+        error:function_clause when tuple_size(Msg) == 3,
                                    element(1,Msg) == 'EXIT' ->
             do_the_close(Msg, State#state.channel_id, State)
     end.
@@ -390,7 +390,7 @@ handle_cb_result({stop, Reason, ChannelState}, State) ->
 
 adjust_window({ssh_cm, ConnectionManager,
 	       {data, ChannelId, _, Data}}) ->
-    ssh_connection:adjust_window(ConnectionManager, ChannelId, size(Data));
+    ssh_connection:adjust_window(ConnectionManager, ChannelId, byte_size(Data));
 adjust_window(_) ->
     ok.
     

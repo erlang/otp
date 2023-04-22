@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,10 +71,10 @@ init_per_testcase(Case, Config) ->
     ok = ensure_lttng_started(Name, Config),
     [{session, Name}|Config].
 
-end_per_testcase(Case, _Config) ->
+end_per_testcase(Case, Config) ->
     Name = atom_to_list(Case),
     ok = ensure_lttng_stopped(Name),
-    ok.
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %% Not tested yet
 %%   org_erlang_otp:driver_process_exit

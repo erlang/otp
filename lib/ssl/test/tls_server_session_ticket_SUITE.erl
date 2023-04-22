@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,10 +25,17 @@
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
+-include("ssl_record.hrl").
 
 %% Callback functions
--export([all/0, groups/0, init_per_group/2, end_per_group/2,
-         init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
 %% Testcases
 -export([expired_ticket_test/0,
          expired_ticket_test/1,
@@ -37,49 +44,88 @@
          main_test/0,
          main_test/1,
          misc_test/0,
-         misc_test/1]).
+         misc_test/1,
+         valid_ticket_older_than_windowsize_test/0,
+         valid_ticket_older_than_windowsize_test/1,
+         certificate_encoding_test/0,
+         certificate_encoding_test/1]).
 
--define(LIFETIME, 1). % tickets expire after 1s
+-define(LIFETIME, 3). % tickets expire after 3s
 -define(TICKET_STORE_SIZE, 1).
 -define(MASTER_SECRET, "master_secret").
 -define(PRF, sha).
--define(VERSION, {3,4}).
+-define(VERSION, ?TLS_1_3).
 -define(PSK, <<15,168,18,43,216,33,227,142,114,190,70,183,137,57,64,64,66,152,115,94>>).
+-define(WINDOW_SIZE, 1).
+-define(SEED, <<1,2,3,4,5>>).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
-    [{group, stateful}, {group, stateless}, {group, stateless_antireplay}].
+    [{group, stateful},
+     {group, stateful_with_cert},
+     {group, stateless},
+     {group, stateless_with_cert},
+     {group, stateless_antireplay}
+    ].
 
 groups() ->
     [{stateful, [], [main_test, expired_ticket_test, invalid_ticket_test]},
-     {stateless, [], [expired_ticket_test, invalid_ticket_test, main_test]},
-     {stateless_antireplay, [], [main_test, misc_test]}
+     {stateful_with_cert, [], [main_test, expired_ticket_test, invalid_ticket_test]},
+     {stateless, [], [expired_ticket_test, invalid_ticket_test, main_test, certificate_encoding_test]},
+     {stateless_with_cert, [], [expired_ticket_test, invalid_ticket_test, main_test, certificate_encoding_test]},
+     {stateless_antireplay, [], [main_test, misc_test, valid_ticket_older_than_windowsize_test, certificate_encoding_test]}
     ].
+
+init_per_suite(Config0) ->
+    catch crypto:stop(),
+    try crypto:start() of
+	ok ->
+            ssl_test_lib:clean_start(),
+            Config0
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end.
+
+end_per_suite(_Config) ->
+    ssl:stop(),
+    application:stop(crypto).
 
 init_per_group(stateless_antireplay, Config) ->
     check_environment([{server_session_tickets, stateless},
-                       {anti_replay, {10, 20, 30}}]
+                       {anti_replay, {?WINDOW_SIZE, 20, 30}}]
                       ++ Config);
-init_per_group(Group = stateless, Config) ->
+init_per_group(Group, Config)
+    when Group == stateless orelse Group == stateless_with_cert ->
     check_environment([{server_session_tickets, Group} | Config]);
-init_per_group(Group = stateful, Config) ->
+init_per_group(Group, Config)
+    when Group == stateful orelse Group == stateful_with_cert ->
     [{server_session_tickets, Group} | Config].
 
 end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_TestCase, Config)  ->
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active, false}]),
+    AntiReplay = ?config(anti_replay, Config),
     {ok, Pid} = tls_server_session_ticket:start_link(
-                  ?config(server_session_tickets, Config), ?LIFETIME,
-                  ?TICKET_STORE_SIZE, _MaxEarlyDataSize = 100,
-                  ?config(anti_replay, Config)),
-    [{server_pid, Pid} | Config].
+                  ListenSocket, ?config(server_session_tickets, Config),
+                  ?LIFETIME, ?TICKET_STORE_SIZE, _MaxEarlyDataSize = 100,
+                  AntiReplay, ?SEED),
+    % For all anti-replay test-cases we will sleep longer than the warmup period
+    case AntiReplay of
+        undefined -> undefined;
+        _ ->
+            ct:sleep({seconds, 2 * ?LIFETIME})
+    end,
+    [{server_pid, Pid}, {listen_socket, ListenSocket} | Config].
 
 end_per_testcase(_TestCase, Config) ->
     Pid = ?config(server_pid, Config),
     exit(Pid, normal),
+    ListenSocket = ?config(listen_socket, Config),
+    ok = gen_tcp:close(ListenSocket),
     Config.
 
 %%--------------------------------------------------------------------
@@ -90,12 +136,17 @@ main_test() ->
 main_test(Config) when is_list(Config) ->
     Pid = ?config(server_pid, Config),
     % Fill in GB tree store for stateful setup
-    tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
+    tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
     % Reach ticket store size limit - force GB tree pruning
     SessionTicket = #new_session_ticket{} =
-        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
-    {HandshakeHist, OferredPsks} = get_handshake_hist(SessionTicket, ?PSK),
-    AcceptResponse = {ok, {0, ?PSK}},
+        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
+    TicketRecvTime = erlang:system_time(millisecond),
+    %% Sleep more than the ticket lifetime (which is in seconds) in
+    %% milliseconds, to confirm that the client reported age (which is in
+    %% milliseconds) is compared correctly with the lifetime
+    ct:sleep(5 * ?LIFETIME),
+    {HandshakeHist, OferredPsks} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
+    AcceptResponse = {ok, {0, ?PSK, undefined}},
     AcceptResponse = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
                                       [iolist_to_binary(HandshakeHist)]),
     % check replay attempt result
@@ -109,7 +160,7 @@ invalid_ticket_test() ->
 invalid_ticket_test(Config) when is_list(Config) ->
     Pid = ?config(server_pid, Config),
     #new_session_ticket{ticket=Ticket} =
-        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
+        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
     Ids = [#psk_identity{identity = <<"wrongidentity">>,
                          obfuscated_ticket_age = 0},
            #psk_identity{identity = Ticket,
@@ -131,10 +182,34 @@ expired_ticket_test() ->
     [{doc, "Expired ticket scenario"}].
 expired_ticket_test(Config) when is_list(Config) ->
     Pid = ?config(server_pid, Config),
-    SessionTicket = tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
-    {HandshakeHist, OFPSKs} = get_handshake_hist(SessionTicket, ?PSK),
+    SessionTicket = tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
+    TicketRecvTime = erlang:system_time(millisecond),
     ct:sleep({seconds, 2 * ?LIFETIME}),
+    {HandshakeHist, OFPSKs} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
     {ok, undefined} = tls_server_session_ticket:use(Pid, OFPSKs, ?PRF,
+                                      [iolist_to_binary(HandshakeHist)]),
+    true = is_process_alive(Pid).
+
+valid_ticket_older_than_windowsize_test() ->
+    [{doc, "Verify valid ticket handling of tickets older than WindowSize"}].
+
+valid_ticket_older_than_windowsize_test(Config) when is_list(Config) ->
+    Pid = ?config(server_pid, Config),
+    % Fill in GB tree store for stateful setup (Stateless tests also fail without this)
+    tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
+    % Reach ticket store size limit - force GB tree pruning
+    SessionTicket = #new_session_ticket{} =
+        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
+    TicketRecvTime = erlang:system_time(millisecond),
+    %% Sleep more than the window length (which is in seconds)
+    ct:sleep({seconds, 2 * ?WINDOW_SIZE}),
+    {HandshakeHist, OferredPsks} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
+    AcceptResponse = {ok, {0, ?PSK, undefined}},
+    AcceptResponse = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
+                                      [iolist_to_binary(HandshakeHist)]),
+    % check replay attempt result
+    ExpReplyResult = get_replay_expected_result(Config, AcceptResponse),
+    ExpReplyResult = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
                                       [iolist_to_binary(HandshakeHist)]),
     true = is_process_alive(Pid).
 
@@ -149,21 +224,37 @@ misc_test(Config) when is_list(Config) ->
     Pid = tls_server_session_ticket:format_status(not_relevant, Pid),
     true = is_process_alive(Pid).
 
+certificate_encoding_test() ->
+    [{doc, "Verify certifcate encoding/decoding in ticket"}].
+
+certificate_encoding_test(Config) when is_list(Config) ->
+    Pid = ?config(server_pid, Config),
+    tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
+    Certificate = crypto:strong_rand_bytes(100),
+    SessionTicket = #new_session_ticket{} =
+        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, Certificate),
+    TicketRecvTime = erlang:system_time(millisecond),
+    {HandshakeHist, OferredPsks} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
+    AcceptResponse = {ok, {0, ?PSK, Certificate}},
+    AcceptResponse = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
+                                      [iolist_to_binary(HandshakeHist)]),
+    true = is_process_alive(Pid).
+
 %%--------------------------------------------------------------------
 %% Helpers -----------------------------------------------------------
 %%--------------------------------------------------------------------
-get_handshake_hist(#new_session_ticket{ticket=Ticket} = T, PSK0) ->
-    Ids = [#psk_identity{identity = Ticket, obfuscated_ticket_age = 100}],
-    SomeBinder = <<159, 187, 86, 6, 55, 20, 149, 208, 3, 221, 78, 126, 254, 101,
-                   123, 251, 151, 189, 17, 53>>,
-    OfferedPSKs0 = #offered_psks{identities = Ids, binders = [SomeBinder]},
-    Hello0 = get_client_hello(OfferedPSKs0),
+get_handshake_hist(#new_session_ticket{} = T, TicketRecvTime, PSK0) ->
     M = #{cipher_suite => {nothing, ?PRF},
           sni => nothing,
           psk => PSK0,
-          timestamp => erlang:system_time(seconds),
+          timestamp => TicketRecvTime,
           ticket => T},
     TicketData = tls_handshake_1_3:get_ticket_data(self(), manual, [M]),
+    [#ticket_data{identity = Identity}] = TicketData,
+    SomeBinder = <<159, 187, 86, 6, 55, 20, 149, 208, 3, 221, 78, 126, 254, 101,
+                   123, 251, 151, 189, 17, 53>>,
+    OfferedPSKs0 = #offered_psks{identities = [Identity], binders = [SomeBinder]},
+    Hello0 = get_client_hello(OfferedPSKs0),
     Hello1 = tls_handshake_1_3:maybe_add_binders(Hello0, TicketData, ?VERSION),
     PSK1 =  maps:get(pre_shared_key, Hello1#client_hello.extensions),
     OfferedPSKs1 = PSK1#pre_shared_key_client_hello.offered_psks,
@@ -185,6 +276,9 @@ get_replay_expected_result(Config, AcceptResponse) ->
         stateless ->
             % no protection - replayed ticket is accepted
             AcceptResponse;
+        stateless_with_cert ->
+            % no protection - replayed ticket is accepted
+            AcceptResponse;
         _ ->
             {ok, undefined}
     end.
@@ -192,6 +286,8 @@ get_replay_expected_result(Config, AcceptResponse) ->
 get_alert_reason(Config) ->
     case get_group(Config) of
         stateful ->
+            stateful;
+        stateful_with_cert ->
             stateful;
         _ ->
             stateless

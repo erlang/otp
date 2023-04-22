@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,12 +43,13 @@ call(#c_call{anno=Anno}, lists, all, [Arg1,Arg2]) ->
     CC2 = #c_clause{anno=Anno,
                     pats=[#c_literal{val=false}], guard=#c_literal{val=true},
 		    body=#c_literal{val=false}},
-    CC3 = #c_clause{anno=Anno,
+    CC3 = #c_clause{anno=[compiler_generated|Anno],
                     pats=[X], guard=#c_literal{val=true},
 		    body=match_fail(Anno, Err1)},
     C1 = #c_clause{anno=Anno,
                    pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_case{arg=#c_apply{anno=Anno, op=F, args=[X]},
+		   body=#c_case{anno=Anno,
+                                arg=#c_apply{anno=Anno, op=F, args=[X]},
 				clauses = [CC1, CC2, CC3]}},
     C2 = #c_clause{anno=Anno,
                    pats=[#c_literal{val=[]}],
@@ -59,7 +60,7 @@ call(#c_call{anno=Anno}, lists, all, [Arg1,Arg2]) ->
     C3 = #c_clause{anno=Anno, pats=[Xs], guard=#c_literal{val=true},
 		   body=function_clause(Anno, [F, Xs])},
     Fun = #c_fun{vars=[Xs],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
+		 body=#c_case{anno=Anno, arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     #c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
 	   body=#c_letrec{defs=[{Loop,Fun}],
@@ -76,12 +77,13 @@ call(#c_call{anno=Anno}, lists, any, [Arg1,Arg2]) ->
     CC2 = #c_clause{anno=Anno,
                     pats=[#c_literal{val=false}], guard=#c_literal{val=true},
 		    body=#c_apply{anno=Anno, op=Loop, args=[Xs]}},
-    CC3 = #c_clause{anno=Anno,
+    CC3 = #c_clause{anno=[compiler_generated|Anno],
                     pats=[X], guard=#c_literal{val=true},
 		    body=match_fail(Anno, Err1)},
     C1 = #c_clause{anno=Anno,
                    pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_case{arg=#c_apply{anno=Anno, op=F, args=[X]},
+		   body=#c_case{anno=Anno,
+                                arg=#c_apply{anno=Anno, op=F, args=[X]},
 				clauses = [CC1, CC2, CC3]}},
     C2 = #c_clause{anno=Anno,
                    pats=[#c_literal{val=[]}],
@@ -92,7 +94,7 @@ call(#c_call{anno=Anno}, lists, any, [Arg1,Arg2]) ->
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
 		   body=function_clause(Anno, [F, Xs])},
     Fun = #c_fun{vars=[Xs],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
+		 body=#c_case{anno=Anno, arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     #c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
 	   body=#c_letrec{defs=[{Loop,Fun}],

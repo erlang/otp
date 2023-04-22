@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
 end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    ok.
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 all() -> 
     [wrap_1, compare_list, compare_ets, internal_size, external_size].

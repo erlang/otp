@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@
 %%
 -module(application).
 
--export([ensure_all_started/1, ensure_all_started/2, start/1, start/2,
+-export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,
+	 start/1, start/2,
 	 start_boot/1, start_boot/2, stop/1, 
 	 load/1, load/2, unload/1, takeover/2,
 	 which_applications/0, which_applications/1,
@@ -28,7 +29,7 @@
 -export([set_env/1, set_env/2, set_env/3, set_env/4, unset_env/2, unset_env/3]).
 -export([get_env/1, get_env/2, get_env/3, get_all_env/0, get_all_env/1]).
 -export([get_key/1, get_key/2, get_all_key/0, get_all_key/1]).
--export([get_application/0, get_application/1, info/0]).
+-export([get_application/0, get_application/1, get_supervisor/1, info/0]).
 -export([start_type/0]).
 
 -export_type([start_type/0]).
@@ -117,28 +118,50 @@ unload(Application) ->
     application_controller:unload_application(Application).
 
 
--spec ensure_all_started(Application) -> {'ok', Started} | {'error', Reason} when
-      Application :: atom(),
+-spec ensure_all_started(Applications) -> {'ok', Started} | {'error', Reason} when
+      Applications :: atom() | [atom()],
       Started :: [atom()],
       Reason :: term().
 ensure_all_started(Application) ->
-    ensure_all_started(Application, temporary).
+    ensure_all_started(Application, temporary, serial).
 
--spec ensure_all_started(Application, Type) -> {'ok', Started} | {'error', Reason} when
-      Application :: atom(),
+-spec ensure_all_started(Applications, Type) -> {'ok', Started} | {'error', AppReason} when
+      Applications :: atom() | [atom()],
       Type :: restart_type(),
       Started :: [atom()],
-      Reason :: term().
+      AppReason :: {atom(), term()}.
 ensure_all_started(Application, Type) ->
-    case ensure_all_started([Application], [], Type, []) of
-	{ok, Started} ->
-	    {ok, lists:reverse(Started)};
-	{error, Reason, Started} ->
-	    _ = [stop(App) || App <- Started],
-	    {error, Reason}
+    ensure_all_started(Application, Type, serial).
+
+-spec ensure_all_started(Applications, Type, Mode) -> {'ok', Started} | {'error', AppReason} when
+      Applications :: atom() | [atom()],
+      Type :: restart_type(),
+      Mode :: serial | concurrent,
+      Started :: [atom()],
+      AppReason :: {atom(), term()}.
+ensure_all_started(Application, Type, Mode) when is_atom(Application) ->
+    ensure_all_started([Application], Type, Mode);
+ensure_all_started(Applications, Type, Mode) when is_list(Applications) ->
+    Opts = #{type => Type, mode => Mode},
+
+    case enqueue_or_start(Applications, [], #{}, [], [], Opts) of
+        {ok, DAG, _Pending, Started} when Mode =:= concurrent ->
+            ReqIDs = gen_server:reqids_new(),
+            concurrent_dag_start(maps:to_list(DAG), ReqIDs, [], Started, Type);
+        {ok, DAG, _Pending, Started} when Mode =:= serial ->
+            0 = map_size(DAG),
+            {ok, lists:reverse(Started)};
+        {error, AppReason, Started} ->
+            _ = [stop(Name) || Name <- Started],
+            {error, AppReason}
     end.
 
-ensure_all_started([App | Apps], OptionalApps, Type, Started) ->
+enqueue_or_start([App | Apps], Optional, DAG, Pending, Started, Opts)
+  when is_map_key(App, DAG) ->
+    %% We already traversed the application, so only add it as pending
+    enqueue_or_start(Apps, Optional, DAG, [App | Pending], Started, Opts);
+
+enqueue_or_start([App | Apps], Optional, DAG, Pending, Started, Opts) when is_atom(App) ->
     %% In case the app is already running, we just skip it instead
     %% of attempting to start all of its children - which would
     %% have already been loaded and started anyway.
@@ -146,16 +169,16 @@ ensure_all_started([App | Apps], OptionalApps, Type, Started) ->
         false ->
             case ensure_loaded(App) of
                 {ok, Name} ->
-                    case ensure_started(Name, App, Type, Started) of
-                        {ok, NewStarted} ->
-                            ensure_all_started(Apps, OptionalApps, Type, NewStarted);
-                        Error ->
-                            Error
+                    case enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) of
+                        {ok, NewDAG, NewPending, NewStarted} ->
+                            enqueue_or_start(Apps, Optional, NewDAG, NewPending, NewStarted, Opts);
+                        ErrorAppReasonStarted ->
+                            ErrorAppReasonStarted
                     end;
                 {error, {"no such file or directory", _} = Reason} ->
-                    case lists:member(App, OptionalApps) of
+                    case lists:member(App, Optional) of
                         true ->
-                            ensure_all_started(Apps, OptionalApps, Type, Started);
+                            enqueue_or_start(Apps, Optional, DAG, Pending, Started, Opts);
                         false ->
                             {error, {App, Reason}, Started}
                     end;
@@ -163,27 +186,91 @@ ensure_all_started([App | Apps], OptionalApps, Type, Started) ->
                     {error, {App, Reason}, Started}
             end;
         true ->
-            ensure_all_started(Apps, OptionalApps, Type, Started)
+            enqueue_or_start(Apps, Optional, DAG, Pending, Started, Opts)
     end;
-ensure_all_started([], _OptionalApps, _Type, Started) ->
-    {ok, Started}.
+enqueue_or_start([], _Optional, DAG, Pending, Started, _Opts) ->
+    {ok, DAG, Pending, Started}.
 
-ensure_started(Name, App, Type, Started) ->
+enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) ->
+    #{type := Type, mode := Mode} = Opts,
     {ok, ChildApps} = get_key(Name, applications),
     {ok, OptionalApps} = get_key(Name, optional_applications),
+    {ok, Mod} = get_key(Name, mod),
 
-    case ensure_all_started(ChildApps, OptionalApps, Type, Started) of
-	{ok, NewStarted} ->
-	    case application_controller:start_application(Name, Type) of
-		ok ->
-		    {ok, [App | NewStarted]};
-		{error, {already_started, App}} ->
-		    {ok, NewStarted};
-		{error, Reason} ->
-		    {error, {App, Reason}, NewStarted}
-	    end;
-	Error ->
-	    Error
+    %% If the application has no dependencies and we are either
+    %% on serial mode or the app does not have a module callback,
+    %% we start it immediately. At the end of serial mode, the DAG
+    %% is always empty.
+    case enqueue_or_start(ChildApps, OptionalApps, DAG, [], Started, Opts) of
+        {ok, NewDAG, NewPending, NewStarted}
+        when NewPending =:= [], (Mode =:= serial) or (Mod =:= []) ->
+            case application_controller:start_application(App, Type) of
+                ok ->
+                    {ok, NewDAG, Pending, [App | NewStarted]};
+                {error, {already_started, App}} ->
+                    {ok, NewDAG, Pending, NewStarted};
+                {error, Reason} ->
+                    {error, {App, Reason}, NewStarted}
+            end;
+        {ok, NewDAG, NewPending, NewStarted} ->
+            {ok, NewDAG#{App => NewPending}, [App | Pending], NewStarted};
+        ErrorAppReasonStarted ->
+            ErrorAppReasonStarted
+    end.
+
+concurrent_dag_start([], ReqIDs, _Done, Started, _Type) ->
+    wait_all_enqueued(ReqIDs, Started, false);
+concurrent_dag_start(Pending0, ReqIDs0, Done, Started0, Type) ->
+    {Pending1, ReqIDs1} = enqueue_dag_leaves(Pending0, ReqIDs0, [], Done, Type),
+
+    case wait_one_enqueued(ReqIDs1, Started0) of
+        {ok, App, ReqIDs2, Started1} ->
+            concurrent_dag_start(Pending1, ReqIDs2, [App], Started1, Type);
+        {error, AppReason, ReqIDs2} ->
+            wait_all_enqueued(ReqIDs2, Started0, AppReason)
+    end.
+
+enqueue_dag_leaves([{App, Children} | Rest], ReqIDs, Acc, Done, Type) ->
+    case Children -- Done of
+        [] ->
+            Req = application_controller:start_application_request(App, Type),
+            NewReqIDs = gen_server:reqids_add(Req, App, ReqIDs),
+            enqueue_dag_leaves(Rest, NewReqIDs, Acc, Done, Type);
+        NewChildren ->
+            NewAcc = [{App, NewChildren} | Acc],
+            enqueue_dag_leaves(Rest, ReqIDs, NewAcc, Done, Type)
+    end;
+enqueue_dag_leaves([], ReqIDs, Acc, _Done, _Type) ->
+    {Acc, ReqIDs}.
+
+wait_one_enqueued(ReqIDs0, Started) ->
+    case gen_server:wait_response(ReqIDs0, infinity, true) of
+        {{reply, ok}, App, ReqIDs1} ->
+            {ok, App, ReqIDs1, [App | Started]};
+        {{reply, {error, {already_started, App}}}, App, ReqIDs1} ->
+            {ok, App, ReqIDs1, Started};
+        {{reply, {error, Reason}}, App, ReqIDs1} ->
+            {error, {App, Reason}, ReqIDs1};
+        {{error, {Reason, _Ref}}, _App, _ReqIDs1} ->
+            exit(Reason);
+        no_request ->
+            exit(deadlock)
+    end.
+
+wait_all_enqueued(ReqIDs0, Started0, LastAppReason) ->
+    case gen_server:reqids_size(ReqIDs0) of
+        0 when LastAppReason =:= false ->
+            {ok, lists:reverse(Started0)};
+        0 ->
+            _ = [stop(App) || App <- Started0],
+            {error, LastAppReason};
+        _ ->
+            case wait_one_enqueued(ReqIDs0, Started0) of
+                {ok, _App, ReqIDs1, Started1} ->
+                    wait_all_enqueued(ReqIDs1, Started1, LastAppReason);
+                {error, NewAppReason, ReqIDs1} ->
+                    wait_all_enqueued(ReqIDs1, Started0, NewAppReason)
+            end
     end.
 
 -spec start(Application) -> 'ok' | {'error', Reason} when
@@ -397,13 +484,8 @@ get_env(Application, Key) ->
       Def :: term(),
       Val :: term().
 
-get_env(Application, Key, Def) ->
-    case get_env(Application, Key) of
-    {ok, Val} ->
-        Val;
-    undefined ->
-        Def
-    end.
+get_env(Application, Key, Default) ->
+    application_controller:get_env(Application, Key, Default).
 
 -spec get_all_env() -> Env when
       Env :: [{Par :: atom(), Val :: term()}].
@@ -465,6 +547,20 @@ get_application(Pid) when is_pid(Pid) ->
     end;
 get_application(Module) when is_atom(Module) ->
     application_controller:get_application_module(Module).
+
+-spec get_supervisor(Application) -> 'undefined' | {'ok', Pid} when
+      Pid :: pid(),
+      Application :: atom().
+
+get_supervisor(Application) when is_atom(Application) ->
+    case application_controller:get_master(Application) of
+        undefined -> undefined;
+        Master ->
+            case application_master:get_child(Master) of
+                {Root, _App} -> {ok, Root};
+                error -> undefined
+            end
+    end.
 
 -spec start_type() -> StartType | 'undefined' | 'local' when
       StartType :: start_type().

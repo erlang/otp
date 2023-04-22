@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -281,9 +281,6 @@ get_config(_Config) ->
 		    {excl_sys_filters,[]},
 		    {incl_app_filters,[".*"]},
 		    {excl_app_filters,[]},
-		    {incl_archive_filters,[".*"]},
-		    {excl_archive_filters,["^include$","^priv$"]},
-		    {archive_opts,[]},
 		    {rel_app_type,permanent},
 		    {app_file,keep},
 		    {debug_info,keep}]}},
@@ -312,9 +309,6 @@ get_config(_Config) ->
 		    {excl_sys_filters,[]},
 		    {incl_app_filters,[".*"]},
 		    {excl_app_filters,[]},
-		    {incl_archive_filters,[".*"]},
-		    {excl_archive_filters,["^include$","^priv$"]},
-		    {archive_opts,[]},
 		    {rel_app_type,permanent},
 		    {app_file,keep},
 		    {debug_info,keep}]}},
@@ -1252,7 +1246,7 @@ create_slim(Config) ->
     TargetRelDir = filename:join(TargetDir,"releases"),
     TargetRelVsnDir = filename:join(TargetRelDir,RelVsn),
 
-    {ok,["a-1.0.ez"]} = file:list_dir(TargetLibDir),
+    {ok,["a-1.0"]} = file:list_dir(TargetLibDir),
 
     RootDir = code:root_dir(),
     Erl = filename:join([RootDir, "bin", "erl"]),
@@ -1335,16 +1329,14 @@ otp_9229_dupl_mod_exclude_app(Config) ->
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
 
     AbsTargetDir = filename:absname(TargetDir),
-    XArchive = "x-1.0.ez",
-    AbsXArchive = filename:join([AbsTargetDir,lib,XArchive]),
-    XEbin = ["ebin","x-1.0",XArchive],
-    YArchive = "y-1.0.ez",
-    AbsYArchive = filename:join([AbsTargetDir,lib,YArchive]),
+    AbsX = filename:join([AbsTargetDir,lib,"x-1.0"]),
+    XEbin = ["ebin","x-1.0"],
+    AbsY = filename:join([AbsTargetDir,lib,"y-1.0"]),
 
-    ?m(true, filelib:is_file(AbsXArchive)),
+    ?m(true, filelib:is_file(AbsX)),
     ?m(XEbin, mod_path(Node,x)),
     ?m(XEbin, mod_path(Node,mylib)),
-    ?m(false, filelib:is_file(AbsYArchive)),
+    ?m(false, filelib:is_file(AbsY)),
     ?m(non_existing, mod_path(Node,y)),
 
     ?msym(ok, stop_node(Node)),
@@ -1382,17 +1374,15 @@ otp_9229_dupl_mod_exclude_mod(Config) ->
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
 
     AbsTargetDir = filename:absname(TargetDir),
-    XArchive = "x-1.0.ez",
-    AbsXArchive = filename:join([AbsTargetDir,lib,XArchive]),
-    XEbin = ["ebin","x-1.0",XArchive],
-    YArchive = "y-1.0.ez",
-    AbsYArchive = filename:join([AbsTargetDir,lib,YArchive]),
-    YEbin = ["ebin","y-1.0",YArchive],
+    AbsX = filename:join([AbsTargetDir,lib,"x-1.0"]),
+    XEbin = ["ebin","x-1.0"],
+    AbsY = filename:join([AbsTargetDir,lib,"y-1.0"]),
+    YEbin = ["ebin","y-1.0"],
 
-    ?m(true, filelib:is_file(AbsXArchive)),
+    ?m(true, filelib:is_file(AbsX)),
     ?m(XEbin, mod_path(Node,x)),
     ?m(XEbin, mod_path(Node,mylib)),
-    ?m(true, filelib:is_file(AbsYArchive)),
+    ?m(true, filelib:is_file(AbsY)),
     ?m(YEbin, mod_path(Node,y)),
 
     %% Remove path to XEbin and check that mylib is not located in YEbin
@@ -2197,9 +2187,6 @@ save_config(Config) ->
 		     {excl_sys_filters,[]},
 		     {incl_app_filters,[".*"]},
 		     {excl_app_filters,[]},
-		     {incl_archive_filters,[".*"]},
-		     {excl_archive_filters,["^include$","^priv$"]},
-		     {archive_opts,[]},
 		     {rel_app_type,permanent},
 		     {app_file,keep},
 		     {debug_info,keep}]}]},
@@ -2238,9 +2225,6 @@ save_config(Config) ->
 		     {excl_sys_filters,[]},
 		     {incl_app_filters,[".*"]},
 		     {excl_app_filters,[]},
-		     {incl_archive_filters,[".*"]},
-		     {excl_archive_filters,["^include$","^priv$"]},
-		     {archive_opts,[]},
 		     {rel_app_type,permanent},
 		     {app_file,keep},
 		     {debug_info,keep}]}]},
@@ -2439,7 +2423,6 @@ dep_in_app_not_xref(Config) ->
          [
 	  {lib_dirs,[filename:join(datadir(Config),"dep_in_app_not_xref")]},
 	  {incl_cond,exclude},
-	  {incl_archive_filters,[]},
 	  {erts,[{incl_cond,exclude}]},
           {boot_rel, RelName},
           {rel, RelName, RelVsn, [kernel, stdlib]},

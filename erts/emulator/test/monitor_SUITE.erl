@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,13 +24,14 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([all/0, suite/0, groups/0,
+         init_per_testcase/2, end_per_testcase/2,
          case_1/1, case_1a/1, case_2/1, case_2a/1, mon_e_1/1, demon_e_1/1, demon_1/1,
          demon_2/1, demon_3/1, demonitor_flush/1, gh_5225_demonitor_alias/1,
          local_remove_monitor/1, remote_remove_monitor/1, mon_1/1, mon_2/1,
          large_exit/1, list_cleanup/1, mixer/1, named_down/1, otp_5827/1,
          monitor_time_offset/1, monitor_tag_storage/1,
          unexpected_alias_at_demonitor_gh5310/1,
-         down_on_alias_gh5310/1]).
+         down_on_alias_gh5310/1, monitor_3_noproc_gh6185/1]).
 
 -export([y2/1, g/1, g0/0, g1/0, large_exit_sub/1]).
 
@@ -45,11 +46,16 @@ all() ->
      list_cleanup, mixer, named_down, otp_5827,
      monitor_time_offset, monitor_tag_storage,
      unexpected_alias_at_demonitor_gh5310,
-     down_on_alias_gh5310].
+     down_on_alias_gh5310, monitor_3_noproc_gh6185].
 
 groups() -> 
     [{remove_monitor, [],
       [local_remove_monitor, remote_remove_monitor]}].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %% A monitors B, B kills A and then exits (yielded core dump)
 case_1(Config) when is_list(Config) ->
@@ -1028,6 +1034,228 @@ down_on_alias_gh5310_test(ImmedExitReason, DeMonSched, TermSched) ->
     TermPid ! Go,
     DeMonPid ! Go,
     receive Done -> ok end.
+
+
+monitor_3_noproc_gh6185(Config) when is_list(Config) ->
+    monitor_3_noproc_gh6185_test(false, false),
+    monitor_3_noproc_gh6185_test(true, false),
+    monitor_3_noproc_gh6185_test(false, true),
+    monitor_3_noproc_gh6185_test(true, true),
+    monitor_3_noproc_gh6185_exit_test(false, false),
+    monitor_3_noproc_gh6185_exit_test(true, false),
+    monitor_3_noproc_gh6185_exit_test(false, true),
+    monitor_3_noproc_gh6185_exit_test(true, true).
+
+monitor_3_noproc_gh6185_test(AliasTest, TagTest) ->
+    NodeName = node(),
+    UN = undefined_name_gh6185,
+    UNN = {UN, NodeName},
+    undefined = whereis(UN),
+
+    {AliasOpt, CheckAlias}
+        = case AliasTest of
+              false ->
+                  {[], fun (_NotAnAlias) -> ok end};
+              true ->
+                  {[{alias, explicit_unalias}],
+                   fun (Alias) ->
+                           AMsg1 = make_ref(),
+                           OMsg1 = make_ref(),
+                           Alias ! AMsg1,
+                           self() ! OMsg1,
+                           receive OMsg1 -> ok end,
+                           receive AMsg1 -> ok
+                           after 0 -> ct:fail(missing_alias_message)
+                           end,
+                           unalias(Alias),
+                           AMsg2 = make_ref(),
+                           OMsg2 = make_ref(),
+                           Alias ! AMsg2,
+                           self() ! OMsg2,
+                           receive OMsg2 -> ok end,
+                           receive AMsg2 -> ct:fail(unexpected_alias_message)
+                           after 0 -> ok
+                           end
+                   end}
+          end,
+
+    TagFun = case TagTest of
+                 false ->
+                     fun () ->
+                             {'DOWN', []}
+                     end;
+                 true ->
+                     fun () ->
+                             Tag = make_ref(),
+                             {Tag, [{tag, Tag}]}
+                     end
+             end,
+
+    %% not registerd process...
+    {Tag1, TagOpt1} = TagFun(),
+    M1 = erlang:monitor(process, UN, AliasOpt ++ TagOpt1),
+    receive
+        {Tag1, M1, process, UNN, noproc} ->
+            ok;
+        ID1 when element(2, ID1) == M1 ->
+            ct:fail({invalid_down, ID1})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M1),
+
+    {Tag2, TagOpt2} = TagFun(),
+    M2 = erlang:monitor(process, UNN, AliasOpt ++ TagOpt2),
+    receive
+        {Tag2, M2, process, UNN, noproc} ->
+            ok;
+        ID2 when element(2, ID2) == M2 ->
+            ct:fail({invalid_down, ID2})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M2),
+
+    %% Not registered port...
+    {Tag3, TagOpt3} = TagFun(),
+    M3 = erlang:monitor(port, UN, AliasOpt ++ TagOpt3),
+    receive
+        {Tag3, M3, port, UNN, noproc} ->
+            ok;
+        ID3 when element(2, ID3) == M3 ->
+            ct:fail({invalid_down, ID3})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M3),
+
+    {Tag4, TagOpt4} = TagFun(),
+    M4 = erlang:monitor(port, UNN, AliasOpt ++ TagOpt4),
+    receive
+        {Tag4, M4, port, UNN, noproc} ->
+            ok;
+        ID4 when element(2, ID4) == M4 ->
+            ct:fail({invalid_down, ID4})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M4),
+
+
+    OldCreation = case erlang:system_info(creation) of
+                      Creation when Creation =< 4 -> 16#ffffffff;
+                      Creation -> Creation - 1
+                  end,
+
+    %% Process of old incarnation...
+    Pid = erts_test_utils:mk_ext_pid({NodeName, OldCreation}, 4711, 0),
+    {Tag5, TagOpt5} = TagFun(),
+    M5 = erlang:monitor(process, Pid, AliasOpt ++ TagOpt5),
+    receive
+        {Tag5, M5, process, Pid, noproc} ->
+            ok;
+        ID5 when element(2, ID5) == M5 ->
+            ct:fail({invalid_down, ID5})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M5),
+
+    %% Port of old incarnation...
+    Prt = erts_test_utils:mk_ext_port({NodeName, OldCreation}, 4711),
+    {Tag6, TagOpt6} = TagFun(),
+    M6 = erlang:monitor(port, Prt, AliasOpt ++ TagOpt6),
+    receive
+        {Tag6, M6, port, Prt, noproc} ->
+            ok;
+        ID6 when element(2, ID6) == M6 ->
+            ct:fail({invalid_down, ID6})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M6),
+
+    ok.
+
+monitor_3_noproc_gh6185_exit_test(AliasTest, TagTest) ->
+    %%
+    %% Testing that we handle these quite unusual monitors correct
+    %% in case the monotoring process dies right after setting up
+    %% the monitor. We cannot check any results, but we might hit
+    %% asserts, crashes, or memory leaks if any bugs exist...
+    %%
+
+    NodeName = node(),
+    UN = undefined_name_gh6185,
+    UNN = {UN, NodeName},
+    undefined = whereis(UN),
+
+    AliasOpt = case AliasTest of
+                   false -> [];
+                   true -> [{alias, explicit_unalias}]
+               end,
+
+    TagOpt = case TagTest of
+                 false -> [];
+                 true -> [{tag, make_ref()}]
+             end,
+
+    %% not registerd process...
+    {P1, M1} = spawn_monitor(fun () ->
+                                     erlang:yield(),
+                                     _ = erlang:monitor(process, UN, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M1, process, P1, bang} -> ok end,
+    {P2, M2} = spawn_monitor(fun () ->
+                                     erlang:yield(),
+                                     _ = erlang:monitor(process, UNN, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M2, process, P2, bang} -> ok end,
+
+    %% Not registered port...
+    {P3, M3} = spawn_monitor(fun () ->
+                                     erlang:yield(),
+                                     _ = erlang:monitor(port, UN, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M3, process, P3, bang} -> ok end,
+    {P4, M4} = spawn_monitor(fun () ->
+                                     erlang:yield(),
+                                     _ = erlang:monitor(port, UNN, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M4, process, P4, bang} -> ok end,
+
+
+    OldCreation = case erlang:system_info(creation) of
+                      Creation when Creation =< 4 -> 16#ffffffff;
+                      Creation -> Creation - 1
+                  end,
+
+    %% Process of old incarnation...
+    {P5, M5} = spawn_monitor(fun () ->
+                                     Pid = erts_test_utils:mk_ext_pid({NodeName,
+                                                                       OldCreation},
+                                                                      4711, 0),
+                                     erlang:yield(),
+                                     _ = erlang:monitor(process, Pid, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M5, process, P5, bang} -> ok end,
+
+    %% Port of old incarnation...
+    {P6, M6} = spawn_monitor(fun () ->
+                                     Prt = erts_test_utils:mk_ext_port({NodeName,
+                                                                        OldCreation},
+                                                                       4711),
+                                     erlang:yield(),
+                                     _ = erlang:monitor(port, Prt, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M6, process, P6, bang} -> ok end,
+    ok.
 
 %%
 %% ...

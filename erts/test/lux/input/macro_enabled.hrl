@@ -1,5 +1,0 @@
--if(?FEATURE_ENABLED(unless_expr)).
--define(UNLESS, active).
--else.
--define(UNLESS, inactive).
--endif.

@@ -62,7 +62,8 @@
 -export([format_log/1, format_log/2]).
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
-              del_handler_ret/0, request_id/0, request_id_collection/0]).
+              del_handler_ret/0, request_id/0, request_id_collection/0,
+              format_status/0]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
@@ -122,12 +123,14 @@
       PDict :: [{Key :: term(), Value :: term()}],
       State :: term(),
       Status :: term().
+-type format_status() ::
+        #{ state => term(),
+           message => term(),
+           reason => term(),
+           log => [sys:system_event()] }.
 -callback format_status(Status) -> NewStatus when
-      Status :: #{ state => term(),
-                   message => term(),
-                   reason => term(),
-                   log => [sys:system_event()] },
-      NewStatus :: Status.
+      Status    :: format_status(),
+      NewStatus :: format_status().
 
 -optional_callbacks(
     [handle_info/2, terminate/2, code_change/3, format_status/1, format_status/2]).
@@ -496,19 +499,25 @@ wake_hib(Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
 
 fetch_msg(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib) ->
     receive
+	Msg ->
+	    decode_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib)
+    after HibernateAfterTimeout ->
+	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true)
+    end.
+
+decode_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib) ->
+    case Msg of
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [ServerName, MSL, HibernateAfterTimeout, Hib],Hib);
 	{'EXIT', Parent, Reason} ->
 	    terminate_server(Reason, Parent, MSL, ServerName);
-	Msg when Debug =:= [] ->
+	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, []);
-	Msg ->
+	_Msg ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      ServerName, {in, Msg}),
 	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug1)
-    after HibernateAfterTimeout ->
-	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true)
     end.
 
 handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2022</year>
+      <year>1999</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -229,6 +229,10 @@
      </datatype>
 
      <datatype>
+       <name name="legacy_named_curve"/>
+     </datatype>
+     
+     <datatype>
        <name name="psk_identity"/>
      </datatype>
 
@@ -339,8 +343,8 @@
       <desc>
 	<p>The DER-encoded user's private key or a map referring to a crypto
 	engine and its key reference that optionally can be password protected,
-	see also <seemfa marker="crypto:crypto#engine_load/4"> crypto:engine_load/4
-	</seemfa> and  <seeguide marker="crypto:engine_load"> Crypto's Users Guide</seeguide>. If this option 
+	see also <seemfa marker="crypto:crypto#engine_load/3"> crypto:engine_load/3
+	</seemfa> and <seeguide marker="crypto:engine_load"> Crypto's Users Guide</seeguide>. If this option 
 	is supplied, it overrides option <c>keyfile</c>.</p>
       </desc>
     </datatype>
@@ -475,14 +479,10 @@
 {sha256, ecdsa},
 {sha256, rsa},
 {sha224, ecdsa},
-{sha224, rsa},
-%% SHA
-{sha, ecdsa},
-{sha, rsa},
-{sha, dsa}
+{sha224, rsa}
 ]</code>
 
-<p>Support for {md5, rsa} was removed from the the TLS-1.2 default in ssl-8.0 (OTP-22) </p>
+<p>Support for {md5, rsa} was removed from the the TLS-1.2 default in ssl-8.0 (OTP-22) and support for SHA1 {sha, _} was removed in ssl-11.0 (OTP-26) </p>
 
  <p><c> rsa_pss_schemes =</c></p>
  <code>
@@ -500,8 +500,6 @@ rsa_pss_rsae_sha256]
 rsa_pkcs1_sha512, %% Corresponds to {sha512, rsa}
 rsa_pkcs1_sha384, %% Corresponds to {sha384, rsa}
 rsa_pkcs1_sha256, %% Corresponds to {sha256, rsa}
-ecdsa_sha1,       %% Corresponds to {sha, ecdsa}
-rsa_pkcs1_sha1    %% Corresponds to {sha, rsa}
 ]
 </code>
 
@@ -520,7 +518,7 @@ ecdsa_secp256r1_sha256] ++
 rsa_pss_schemes()
  </code>
 
- <p>EDDSA was made highest priority in ssl-11.0 (OTP-25) </p>
+ <p>EDDSA was made highest priority in ssl-10.8 (OTP-25) </p>
 
 <p>TLS-1.3 default is</p>
 <code>Default_TLS_13_Schemes ++ Legacy_TLS_13_Schemes </code>
@@ -625,11 +623,22 @@ version.
 	<p>The verification fun is to be defined as follows:</p>
 
 	<code>
-fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() |
-             {revoked, atom()}} |
-	     {extension, #'Extension'{}} | valid | valid_peer, InitialUserState :: term()) ->
+fun(OtpCert :: #'OTPCertificate'{},
+    Event, InitialUserState :: term()) ->
 	{valid, UserState :: term()} |
 	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+
+fun(OtpCert :: #'OTPCertificate'{}, DerCert :: public_key:der_encoded(),
+    Event, InitialUserState :: term()) ->
+	{valid, UserState :: term()} |
+	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+
+Types:
+      Event = {bad_cert, Reason :: atom() |
+              {revoked, atom()}} |
+	      {extension, #'Extension'{}} |
+              valid |
+              valid_peer
 	</code>
 
 	<p>The verification fun is called during the X509-path
@@ -639,8 +648,8 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() |
 	allow access to each certificate in the path to the user
 	application. It differentiates between the peer certificate
 	and the CA certificates by using <c>valid_peer</c> or
-	<c>valid</c> as second argument to the verification fun. See
-	the <seeguide marker="public_key:public_key_records">public_key
+	<c>valid</c> as <c>Event</c> argument to the verification fun.
+        See the <seeguide marker="public_key:public_key_records">public_key
 	User's Guide</seeguide> for definition of
 	<c>#'OTPCertificate'{}</c> and <c>#'Extension'{}</c>.</p>
 
@@ -996,9 +1005,14 @@ fun(srp, Username :: binary(), UserState :: term()) ->
    
      <datatype>
       <name name="client_verify_type"/>
-      <desc><p>In mode <c>verify_none</c> the default behavior is to allow
-      all x509-path validation errors. See also option  <seetype marker="#custom_verify">verify_fun</seetype>.</p>
-      </desc>
+      <desc>
+	<p>Defaults to <c>verify_none</c> as additional options are needed to be able to perform the certificate verification.
+	A warning will be emitted unless <c>verify_none</c> is explicitly configured. Usually the applications will want to configure
+	<c>verify_peer</c> together with an appropriate <c>cacert</c> or <c>cacertfile</c> option. For example an <c>HTTPS</c> client would normally
+	use the option <c>{cacerts, public_key:cacerts_get()}</c> (available since OTP-25) to access the CA certificates
+	provided by the OS. Using verify_none means that all x509-certificate path validation errors will be ignored.
+        See also option <seetype marker="#custom_verify">verify_fun</seetype>.</p>
+     </desc>
     </datatype>
 
     <datatype>
@@ -1009,7 +1023,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	explicitly specified by its session id and associated data since OTP-22.3.
 	See also
 	<seeguide marker="ssl:using_ssl#session-reuse-pre-tls-1.3">
-	SSL's Users Guide, Session Reuse pre TLS 1.3</seeguide>
+	SSL's Users Guide, Session Reuse pre TLS 1.3.</seeguide>
       </p>
       </desc>
     </datatype>
@@ -1023,17 +1037,17 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       and used with the client option <seetype marker="#client_reuse_session">reuse_session</seetype>
       The boolean value true specifies that if possible, automated session reuse will
       be performed. If a new session is created, and is unique in regard 
-      to previous stored sessions, it will be saved for possible later reuse. Since OTP-21.3</p>
+      to previous stored sessions, it will be saved for possible later reuse. Since OTP-21.3.</p>
       </desc>
     </datatype>
 
     <datatype>
-      <name name="certificate_authorities"/>
+      <name name="client_certificate_authorities"/>
       <desc>
 	<p>If set to true, sends the certificate authorities extension in TLS-1.3 client hello.
 	The default is false. Note that setting it to true may result in a big overhead if you
 	have many trusted CA certificates. 
-	Since OTP-24.3</p>
+	Since OTP-24.3.</p>
       </desc>
     </datatype>
 
@@ -1049,8 +1063,15 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <name name="client_cafile"/>
       <desc>
 	<p>Path to a file containing PEM-encoded CA certificates. The CA
-      certificates are used during server authentication and when building the
-      client certificate chain.</p>
+        certificates are used during server authentication and when building the
+        client certificate chain.</p>
+        <note><p>When PEM caching is enabled, files provided with
+        this option will be checked for updates at fixed time intervals specified by the
+        <seeapp marker="ssl:ssl_app#configuration">ssl_pem_cache_clean</seeapp> environment parameter.</p>
+        </note>
+        <note><p>Alternatively, CA certificates can be provided as a DER-encoded
+        binary with <seetype marker="#client_cacerts">client_cacerts</seetype>
+        option.</p></note>
       </desc>
     </datatype>
     
@@ -1137,7 +1158,10 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	<name name="customize_hostname_check"/>
 	<desc>
 	  <p> Customizes the hostname verification of the peer certificate, as different protocols that use
-	  TLS such as HTTP or LDAP may want to do it differently, for possible options see
+	  TLS such as HTTP or LDAP may want to do it differently. For example the get standard HTTPS handling
+	  provide the already implememnted fun from the public_key application for HTTPS.
+	  <c>{customize_hostname_check,  [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}]}</c>
+	  For futher description of customize options see
 	  <seemfa marker="public_key:public_key#pkix_verify_hostname/3">public_key:pkix_verify_hostname/3</seemfa> </p>
 	</desc>
       </datatype>
@@ -1208,6 +1232,34 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	</desc>
       </datatype>
 
+      <datatype>
+        <name name="use_srtp"/>
+        <desc>
+          <p>Configures the <c>use_srtp</c> DTLS hello extension.</p>
+          <p>In order to negotiate the use of SRTP data protection, clients
+          include an extension of type "use_srtp" in the DTLS extended client
+          hello.  This extension MUST only be used when the data being
+          transported is RTP or RTCP.</p>
+          <p>The value is a map with a mandatory <c>protection_profiles</c> and
+          an optional <c>mki</c> parameters.</p>
+          <p><c>protection_profiles</c> configures the list of the client's acceptable
+          SRTP Protection Profiles. Each profile is a 2-byte binary. Example:
+          <c>#{protection_profiles =&gt; [&lt;&lt;0,2&gt;&gt;, &lt;&lt;0,5&gt;&gt;]}</c></p>
+          <p><c>mki</c> configures the SRTP Master Key Identifier chosen by the client.</p>
+          <p>The srtp_mki field contains the value of the SRTP MKI which is associated
+          with the SRTP master keys derived from this handshake.  Each SRTP
+          session MUST have exactly one master key that is used to protect
+          packets at any given time.  The client MUST choose the MKI value so
+          that it is distinct from the last MKI value that was used, and it
+          SHOULD make these values unique for the duration of the TLS session.</p>
+          <note><p>This extension MUST only be used with DTLS, and not with TLS.</p></note>
+          <note><p>OTP does not handle SRTP, so an external implementations of SRTP
+          encoder/decoder and a packet demultiplexer are needed to make use
+          of the <c>use_srtp</c> extension. See also
+          <seetype marker="#transport_option">cb_info</seetype> option.</p></note>
+        </desc>
+      </datatype>
+
     <!--   <datatype> -->
   <!-- 	<name name="ocsp_stapling"/> -->
   <!-- 	<desc><p>If true, OCSP stapling will be enabled, an extension of type "status_request" will be -->
@@ -1243,6 +1295,21 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       is supplied it overrides option <c>cacertfile</c>.</p>
 	</desc>
       </datatype>
+
+  <datatype>
+    <name since="OTP 25.2" name="server_certificate_authorities"/>
+      <desc>
+	<p>Determines if a TLS-1.3 server should include the authorities
+	extension in its certificate request message that will be sent if the
+	option <c>verify</c> is set to <c>verify_peer</c>. Defaults to <c>true</c>.</p>
+
+	<p>A reason to exclude the extension would be if the server wants to communicate with clients
+	incapable of sending complete certificate chains that adhere to the
+	extension, but the server still has the capability to recreate a chain that it can verify.</p>
+
+      </desc>
+
+  </datatype>
             
       <datatype>
 	<name name="server_cafile"/>
@@ -1253,6 +1320,12 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	client when a certificate is requested. Can be omitted if
 	there is no need to verify the client and if there are no
 	intermediate CAs for the server certificate.</p>
+        <note><p>When PEM caching is enabled, files provided with
+        this option will be checked for updates at fixed time intervals specified by the
+        <seeapp marker="ssl:ssl_app#configuration">ssl_pem_cache_clean</seeapp> environment parameter.</p>
+        </note>
+        <note><p>Alternatively, CA certificates can be provided as a DER-encoded
+        binary with <seetype marker="#server_cacerts">server_cacerts</seetype> option.</p></note>
 	</desc>
       </datatype>
 
@@ -1278,12 +1351,14 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 
     <datatype>
 	<name name="server_verify_type"/>
-	<desc><p>A server only does x509-path validation in mode
-	<c>verify_peer</c>, as it then sends a certificate request to
-	the client (this message is not sent if the verify option is
-	<c>verify_none</c>).  You can then also want to specify option
-	<c>fail_if_no_peer_cert</c>. </p>
-	</desc>
+	<desc><p> Client certificates are an optional part of the TLS protocol.
+	A server only does x509-certificate path validation in mode
+	<c>verify_peer</c>. By default the server is in <c>verify_none</c> mode
+	an hence will not send an certificate request to the client.
+	When using <c>verify_peer</c> you may also want to specify the options
+	<seetype marker="#fail_if_no_peer_cert">fail_if_no_peer_cert</seetype> and
+  <seetype marker="#server_certificate_authorities">certificate_authorities</seetype>.</p>
+      </desc>
       </datatype>
 
       <datatype>
@@ -1302,7 +1377,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	<desc><p>The boolean value true specifies that the server will
 	agree to reuse sessions. Setting it to false will result in an empty
 	session table, that is no sessions will be reused. 
-	See also option <seetype marker="#server_reuse_session">reuse_session</seetype>
+	See also option <seetype marker="#server_reuse_session">reuse_session</seetype>.
       </p>
 	</desc>
       </datatype>
@@ -1426,20 +1501,59 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <datatype>
 	<name name="server_session_tickets"/>
 	<desc>
-	  <p>Configures the session ticket functionality. Allowed values are <c>disabled</c>,
-	  <c>stateful</c> and <c>stateless</c>.</p>
-	  <p>If it is set to <c>stateful</c> or
-	  <c>stateless</c>, session resumption with pre-shared keys is enabled and the server will
-	  send stateful or stateless session tickets to the client after successful connections.</p>
+          <p>Configures the session ticket functionality. Allowed values are <c>disabled</c>,
+          <c>stateful</c>, <c>stateless</c>, <c>stateful_with_cert</c>, <c>stateless_with_cert</c>.</p>
+          <p>If it is not set to <c>disabled</c>,
+          session resumption with pre-shared keys is enabled and the server will
+          send stateful or stateless session tickets to the client after successful connections.</p>
+          
+          <note><p>
+          Pre-shared key session ticket resumption does not include any certificate exchange, 
+          hence the function <seemfa marker="ssl:ssl#peercert/1">ssl:peercert/1</seemfa> will not 
+          be able to return the peer certificate as it is only communicated in the initial handshake.
+          The server options <c>stateful_with_cert</c> or <c>stateless_with_cert</c> may be used 
+          to make a server associate the client certificate from the original handshake 
+          with the tickets it issues.
+          </p></note>
+
 	  <p>A stateful session ticket is a database reference to internal state information.
 	  A stateless session ticket is a self-encrypted binary that contains both cryptographic keying
 	  material and state data.
 	  </p>
+          
+          <warning><p>
+          If it is set to <c>stateful_with_cert</c> the client certificate
+          is stored with the internal state information, increasing memory consumption.
+          If it is set to <c>stateless_with_cert</c> the client certificate is
+          encoded in the self-encrypted binary that is sent to the client,
+          increasing the payload size.
+          </p></warning>
+
 	  <note><p>This option is supported by TLS 1.3 and above. See also
 	  <seeguide marker="ssl:using_ssl#session-tickets-and-session-resumption-in-tls-1.3">
 	  SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3</seeguide>
 	  </p></note>
 	</desc>
+      </datatype>
+
+      <datatype>
+        <name name="stateless_tickets_seed"/>
+        <desc>
+          <p>Configures the seed used for the encryption of stateless session tickets.
+          Allowed values are any randomly generated <c>binary()</c>. If this option is not
+          configured, an encryption seed will be randomly generated.</p>
+
+          <warning><p>Reusing the ticket encryption seed between multiple server
+          instances enables stateless session tickets to work across multiple server
+          instances, but it breaks anti-replay protection across instances.</p>
+
+          <p>Inaccurate time synchronization between server instances can also
+          affect session ticket freshness checks, potentially causing false negatives as
+          well as false positives.</p></warning>
+
+          <note><p>This option is supported by TLS 1.3 and above and only with stateless
+          session tickets.</p></note>
+        </desc>
       </datatype>
 
       <datatype>
@@ -1450,7 +1564,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	  <p>Allowed values are the pre-defined <c>'10k'</c>, <c>'100k'</c> or a custom 3-tuple that
 	  defines the properties of the bloom filters: <c>{WindowSize, HashFunctions, Bits}</c>.
 	  <c>WindowSize</c> is the number of seconds after the current Bloom filter is rotated
-	  and also the window size used for freshness checks. <c>HashFunctions</c> is the number
+	  and also the window size used for freshness checks of ClientHello. <c>HashFunctions</c> is the number
 	  hash functions and <c>Bits</c> is the number of bits in the bit vector.
 	  <c>'10k'</c> and <c>'100k'</c> are simple defaults with the following properties:</p>
 	  <list type="bulleted">
@@ -1494,6 +1608,40 @@ fun(srp, Username :: binary(), UserState :: term()) ->
           </p>
 	  <warning><p>This option is a placeholder, early data is not yet implemented on the server side.
           </p></warning>
+        </desc>
+      </datatype>
+
+      <datatype>
+        <name name="use_srtp"/>
+        <desc>
+          <p>Configures the <c>use_srtp</c> DTLS hello extension.</p>
+          <p>Servers that receive an extended hello containing a "use_srtp"
+          extension can agree to use SRTP by including an extension of type
+          "use_srtp", with the chosen protection profile in the extended server
+          hello. This extension MUST only be used when the data being
+          transported is RTP or RTCP.</p>
+          <p>The value is a map with a mandatory <c>protection_profiles</c> and
+          an optional <c>mki</c> parameters.</p>
+	  <list type="bulleted">
+            <item><p><c>protection_profiles</c> configures the list of the server's chosen
+            SRTP Protection Profile as a list of a single 2-byte binary. Example:
+            <c>#{protection_profiles =&gt; [&lt;&lt;0,5&gt;&gt;]}</c></p></item>
+            <item><p><c>mki</c> configures the server's SRTP Master Key Identifier.</p>
+            <p>Upon receipt of a "use_srtp" extension containing a "srtp_mki" field,
+            the server MUST either (assuming it accepts the extension at all):</p>
+	    <list type="bulleted">
+	      <item><p>include a matching "srtp_mki" value in its "use_srtp" extension
+              to indicate that it will make use of the MKI, or</p></item>
+              <item><p>return an empty "srtp_mki" value to indicate that it cannot
+              make use of the MKI (default).</p></item>
+	    </list>
+            </item>
+          </list>
+          <note><p>This extension MUST only be used with DTLS, and not with TLS.</p></note>
+          <note><p>OTP does not handle SRTP, so an external implementations of SRTP
+          encoder/decoder and a packet demultiplexer are needed to make use
+          of the <c>use_srtp</c> extension. See also
+          <seetype marker="#transport_option">cb_info</seetype> option.</p></note>
         </desc>
       </datatype>
 
@@ -1604,12 +1752,13 @@ fun(srp, Username :: binary(), UserState :: term()) ->
     
     <func>
       <name name="clear_pem_cache" arity="0" since="OTP 17.5"/>
-      <fsummary> Clears the pem cache</fsummary>
-      <desc><p>PEM files, used by ssl API-functions, are cached. The
-      cache is regularly checked to see if any cache entries should be
-      invalidated, however this function provides a way to
-      unconditionally clear the whole cache.
-      </p>
+      <fsummary>Clears the pem cache</fsummary>
+      <desc>
+        <p>PEM files, used by ssl API-functions, are cached for
+          performance reasons. The cache is automatically checked at
+          regular intervals to see if any cache entries should be invalidated.</p>
+        <p>This function provides a way to unconditionally clear the entire
+          cache, thereby forcing a reload of previously cached PEM files.</p>
       </desc>
     </func>
    
@@ -1972,6 +2121,12 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <c>{error, renegotiation_rejected}</c> indicating that the peer
       refused to go through with the renegotiation, but the connection
       is still active using the previously negotiated session.</p>
+      <p>TLS-1.3 has removed the renegotiate feature of earlier TLS versions
+      and instead adds a new feature called key update that replaces the most
+      important part of renegotiate, that is the refreshing of session keys.
+      This is triggered automatically after reaching a plaintext limit and
+      can be configured by option <seetype marker="ssl:ssl#key_update_at">key_update_at</seetype>.
+      </p>
       </desc>
     </func>
 

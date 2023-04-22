@@ -59,6 +59,12 @@
          send/3
         ]).
 
+-export_type([server_ref/0]).
+
+-type server_ref() :: % What stop, get_state, call, cast, send accepts
+        pid().
+
+
 %% Could be gen_statem too, with peer_state, but most interactions
 %%  are anyway available in all states.
 -behaviour(gen_server).
@@ -74,7 +80,17 @@
 
 %% Internal exports for stdin/stdout, non-distribution RPC, and tests
 -export([
-         start/0 %% this function must be named "start", requirement for user.erl
+         start/0, %% this function must be named "start", requirement for user.erl
+
+         %% Peer supervision...
+         supervision_child_spec/0,
+         start_supervision/0,
+         init_supervision/2,
+         system_continue/3,
+         system_terminate/4,
+         system_code_change/4,
+         system_get_state/1,
+         system_replace_state/2
         ]).
 
 %% Origin node will listen to the specified port (port 0 is auto-select),
@@ -107,9 +123,12 @@
           %%  saving exit reason in the state
           %% crash: when peer terminates, origin process
           %%  terminates with underlying reason
-          exec => exec(),                     %% path to executable, or SSH/Docker support
           connection => connection(),         %% alternative connection specification
+          exec => exec(),                     %% path to executable, or SSH/Docker support
+          detached => boolean(),              %% if the node should be start in detached mode
           args => [string()],                 %% additional command line parameters to append
+          post_process_args =>
+              fun(([string()]) -> [string()]),%% fix the arguments
           env => [{string(), string()}],      %% additional environment variables
           wait_boot => wait_boot(),           %% default is synchronous start with 15 sec timeout
           shutdown => close |                 %% close supervision channel
@@ -144,7 +163,7 @@
 -define (CONNECT_TIMEOUT, 10000).
 
 %% Socket accept timeout, for TCP connection.
--define (ACCEPT_TIMEOUT, 10000).
+-define (ACCEPT_TIMEOUT, 60000).
 
 %% How long to wait for graceful shutdown.
 -define (SHUTDOWN_TIMEOUT, 10000).
@@ -156,6 +175,9 @@
 -define (WAIT_BOOT_TIMEOUT, 15000).
 
 -type disconnect_timeout() :: ?MIN_DISCONNECT_TIMEOUT..?MAX_INT_TIMEOUT | infinity.
+
+%% Peer supervisor channel connect timeout.
+-define(PEER_SUP_CHANNEL_CONNECT_TIMEOUT, 30000).
 
 %% @doc Creates random node name, using "peer" as prefix.
 -spec random_name() -> string().
@@ -174,7 +196,7 @@ random_name(Prefix) ->
 %% @doc Starts a distributed node with random name, on this host,
 %%      and waits for that node to boot. Returns full node name,
 %%      registers local process with the same name as peer node.
--spec start_link() -> {ok, node()} | {error, Reason :: term()}.
+-spec start_link() -> {ok, pid(), node()} | {error, Reason :: term()}.
 start_link() ->
     start_link(#{name => random_name()}).
 
@@ -193,23 +215,23 @@ start(Options) ->
     start_it(Options, start).
 
 %% @doc Stops controlling process, shutting down peer node synchronously
--spec stop(gen_statem:server_ref()) -> ok.
+-spec stop(Dest :: server_ref()) -> ok.
 stop(Dest) ->
     gen_server:stop(Dest).
 
 %% @doc returns peer node state.
--spec get_state(Dest :: gen_statem:server_ref()) -> peer_state().
+-spec get_state(Dest :: server_ref()) -> peer_state().
 get_state(Dest) ->
     gen_server:call(Dest, get_state).
 
 %% @doc Calls M:F(A) remotely, via alternative connection, with default 5 seconds timeout
--spec call(Dest :: gen_statem:server_ref(), Module :: module(), Function :: atom(),
+-spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()]) -> Result :: term().
 call(Dest, M, F, A) ->
     call(Dest, M, F, A, ?SYNC_RPC_TIMEOUT).
 
 %% @doc Call M:F(A) remotely, timeout is explicitly specified
--spec call(Dest :: gen_statem:server_ref(), Module :: module(), Function :: atom(),
+-spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()], Timeout :: timeout()) -> Result :: term().
 call(Dest, M, F, A, Timeout) ->
     case gen_server:call(Dest, {call, M, F, A}, Timeout) of
@@ -222,13 +244,13 @@ call(Dest, M, F, A, Timeout) ->
     end.
 
 %% @doc Cast M:F(A) remotely, don't care about the result
--spec cast(Dest :: gen_statem:server_ref(), Module :: module(), Function :: atom(), Args :: [term()]) -> ok.
+-spec cast(Dest :: server_ref(), Module :: module(), Function :: atom(), Args :: [term()]) -> ok.
 cast(Dest, M, F, A) ->
     gen_server:cast(Dest, {cast, M, F, A}).
 
 %% @doc Sends a message to pid or named process on the peer node
 %%  using alternative connection. No delivery guarantee.
--spec send(Dest :: gen_statem:server_ref(), To :: pid() | atom(), Message :: term()) -> ok.
+-spec send(Dest :: server_ref(), To :: pid() | atom(), Message :: term()) -> ok.
 send(Dest, To, Message) ->
     gen_server:cast(Dest, {send, To, Message}).
 
@@ -272,14 +294,20 @@ init([Notify, Options]) ->
 
     Env = maps:get(env, Options, []),
 
+    PostProcessArgs = maps:get(post_process_args, Options, fun(As) -> As end),
+    FinalArgs = PostProcessArgs(Args),
+
     %% close port if running detached
     Conn =
         case maps:find(connection, Options)  of
             {ok, standard_io} ->
                 %% Cannot detach a peer that uses stdio. Request exit_status.
-                open_port({spawn_executable, Exec}, [{args, Args}, {env, Env}, hide, binary, exit_status]);
+                open_port({spawn_executable, Exec},
+                          [{args, FinalArgs}, {env, Env}, hide,
+                           binary, exit_status, stderr_to_stdout]);
             _ ->
-                Port = open_port({spawn_executable, Exec}, [{args, Args}, {env, Env}, hide, binary]),
+                Port = open_port({spawn_executable, Exec},
+                                 [{args, FinalArgs}, {env, Env}, hide, binary]),
                 %% peer can close the port before we get here which will cause
                 %%  port_close to throw. Catch this and ignore.
                 catch erlang:port_close(Port),
@@ -320,6 +348,22 @@ handle_call({call, M, F, A}, From,
     origin_to_peer(tcp, Socket, {call, Seq, M, F, A}),
     {noreply, State#peer_state{outstanding = Out#{Seq => From}, seq = Seq + 1}};
 
+handle_call({starting, Node}, _From, #peer_state{ options = Options } = State) ->
+    case maps:find(shutdown, Options) of
+        {ok, {Timeout, MainCoverNode}} when is_integer(Timeout),
+                                            is_atom(MainCoverNode) ->
+            %% The node was started using test_server:start_peer/2 with cover enabled
+            %% so we should start cover on the starting node.
+            Modules = erpc:call(MainCoverNode,cover,modules,[]),
+            Sticky = [ begin erpc:call(Node, code, unstick_mod, [M]), M end
+                       || M <- Modules, erpc:call(Node, code, is_sticky,[M])],
+            _ = erpc:call(MainCoverNode, cover, start, [Node]),
+            _ = [erpc:call(Node, code,stick_mod,[M]) || M <- Sticky],
+            ok;
+        _ ->
+            ok
+    end,
+    {reply, ok, State};
 handle_call(get_node, _From, #peer_state{node = Node} = State) ->
     {reply, Node, State};
 
@@ -405,7 +449,7 @@ handle_info({'EXIT', Port, Reason}, #peer_state{connection = Port} = State) ->
 handle_info({tcp_closed, Sock}, #peer_state{connection = Sock} = State) ->
     %% TCP connection closed, no i/o port - assume node is stopped
     catch gen_tcp:close(Sock),
-    maybe_stop(normal, State#peer_state{connection = undefined}).
+    maybe_stop(tcp_closed, State#peer_state{connection = undefined}).
 
 %%--------------------------------------------------------------------
 %% cleanup/termination
@@ -519,8 +563,9 @@ verify_args(Options) ->
     [error({invalid_arg, Arg}) || Arg <- Args, not io_lib:char_list(Arg)],
     %% alternative connection must be requested for non-distributed node,
     %%  or a distributed node when origin is not alive
-    is_map_key(connection, Options) orelse
-                                      (is_map_key(name, Options) andalso erlang:is_alive()) orelse error(not_alive),
+    is_map_key(connection, Options)
+        orelse
+          (is_map_key(name, Options) andalso erlang:is_alive()) orelse error(not_alive),
     %% exec must be a string, or a tuple of string(), [string()]
     case maps:find(exec, Options) of
         {ok, {Exec, Strs}} ->
@@ -560,8 +605,13 @@ verify_args(Options) ->
             ok;
         {ok, Err2} ->
             error({shutdown, Err2})
+    end,
+    case maps:find(detached, Options) of
+        {ok, false} when map_get(connection, Options) =:= standard_io ->
+            error({detached, cannot_detach_with_standard_io});
+        _ ->
+            ok
     end.
-            
 
 make_notify_ref(infinity) ->
     {self(), make_ref()};
@@ -777,6 +827,14 @@ command_line(Listen, Options) ->
     NameArg = name_arg(maps:find(name, Options), maps:find(host, Options), maps:find(longnames, Options)),
     %% additional command line args
     CmdOpts = maps:get(args, Options, []),
+
+    %% If we should detach from the node. We use -detached to tell erl to detach
+    %% and -peer_detached to tell peer:start that we are detached.
+    DetachArgs = case maps:get(detached, Options, true) of
+                     true -> ["-detached","-peer_detached"];
+                     false -> []
+                 end,
+
     %% start command
     StartCmd =
         case Listen of
@@ -784,14 +842,14 @@ command_line(Listen, Options) ->
                 ["-user", atom_to_list(?MODULE)];
             undefined ->
                 Self = base64:encode_to_string(term_to_binary(self())),
-                ["-detached", "-noinput", "-user", atom_to_list(?MODULE), "-origin", Self];
+                DetachArgs ++ ["-user", atom_to_list(?MODULE), "-origin", Self];
             {Ips, Port} ->
                 IpStr = lists:concat(lists:join(",", [inet:ntoa(Ip) || Ip <- Ips])),
-                ["-detached", "-noinput", "-user", atom_to_list(?MODULE), "-origin", IpStr, integer_to_list(Port)]
+                DetachArgs ++ ["-user", atom_to_list(?MODULE), "-origin", IpStr, integer_to_list(Port)]
         end,
     %% build command line
     {Exec, PreArgs} = exec(Options),
-    {Exec, PreArgs ++ NameArg ++ StartCmd ++ CmdOpts}.
+    {Exec, PreArgs ++ NameArg ++ CmdOpts ++ StartCmd}.
 
 exec(#{exec := Prog}) when is_list(Prog) ->
     {Prog, []};
@@ -881,31 +939,162 @@ notify_started(dist, Process) ->
 notify_started(Kind, Port) ->
     peer_to_origin(Kind, Port, {started, node()}).
 
+%%
+%% Supervision of peer user process (which supervise the control channel) making
+%% sure that the peer node is halted if the peer user process crashes...
+%%
+
+supervision_child_spec() ->
+    case init:get_argument(user) of
+        {ok, [["peer"]]} ->
+            {ok, #{id => peer_supervision,
+                   start => {?MODULE, start_supervision, []},
+                   restart => permanent,
+                   shutdown => 1000,
+                   type => worker,
+                   modules => [?MODULE]}};
+        _ ->
+            none
+    end.
+
+start_supervision() ->
+    proc_lib:start_link(?MODULE, init_supervision, [self(), true]).
+
+start_orphan_supervision() ->
+    proc_lib:start(?MODULE, init_supervision, [self(), false]).
+
+-record(peer_sup_state, {parent, channel, in_sup_tree}).
+
+-spec init_supervision(term(), term()) -> no_return().
+init_supervision(Parent, InSupTree) ->
+    try
+        process_flag(priority, high),
+        process_flag(trap_exit, true),
+        register(peer_supervision, self()),
+        proc_lib:init_ack(Parent, {ok, self()}),
+        Channel = receive
+                      {channel_connect, Ref, From, ConnectChannel} ->
+                          true = is_pid(ConnectChannel),
+                          From ! Ref,
+                          try
+                              link(ConnectChannel)
+                          catch error:noproc ->
+                                  exit({peer_channel_terminated, noproc})
+                          end,
+                          ConnectChannel
+                  after
+                      ?PEER_SUP_CHANNEL_CONNECT_TIMEOUT ->
+                          exit(peer_channel_connect_timeout)
+                  end,
+        loop_supervision(#peer_sup_state{parent = Parent,
+                                         channel = Channel,
+                                         in_sup_tree = InSupTree})
+    catch
+        _:_ when not InSupTree ->
+            erlang:halt(1)
+    end.
+
+peer_sup_connect_channel(PeerSupervision, PeerChannelHandler) ->
+    Ref = make_ref(),
+    PeerSupervision ! {channel_connect, Ref, self(), PeerChannelHandler},
+    receive
+        Ref -> ok
+    after
+        ?PEER_SUP_CHANNEL_CONNECT_TIMEOUT ->
+            exit(peer_supervision_connect_timeout)
+    end.
+
+loop_supervision(#peer_sup_state{parent = Parent,
+                                 channel = Channel} = State) ->
+    receive
+        {'EXIT', Channel, Reason} ->
+            exit({peer_channel_terminated, Reason});
+        {system, From, Request} ->
+            sys:handle_system_msg(Request, From, Parent, ?MODULE, [], State);
+        _ ->
+            loop_supervision(State)
+    end.
+
+
+system_continue(_Parent, _, #peer_sup_state{} = State) ->
+    loop_supervision(State).
+
+system_terminate(Reason, _Parent, _Debug, _State) ->
+    exit(Reason).
+
+system_code_change(State, _Module, _OldVsn, _Extra) ->
+    {ok, State}.
+
+system_get_state(State) ->
+    {ok, State}.
+
+system_replace_state(StateFun, State) ->
+    NState = StateFun(State),
+    {ok, NState, NState}.
+
+%% End of peer user supervision
+
 %% I/O redirection: peer side
 -spec start() -> pid().
 start() ->
+    try
+        PeerChannelHandler = start_peer_channel_handler(),
+        PeerSup = case whereis(peer_supervision) of
+                      PeerSup0 when is_pid(PeerSup0) ->
+                          PeerSup0;
+                      undefined ->
+                          {ok, PeerSup0} = start_orphan_supervision(),
+                          PeerSup0
+                  end,
+        peer_sup_connect_channel(PeerSup, PeerChannelHandler),
+        PeerChannelHandler
+    catch _:_ ->
+            erlang:halt(1)
+    end.
+
+start_peer_channel_handler() ->
     case init:get_argument(origin) of
         {ok, [[IpStr, PortString]]} ->
             %% enter this clause when -origin IpList Port is specified in the command line.
             Port = list_to_integer(PortString),
-            Ips = [begin {ok, Addr} = inet:parse_address(Ip), Addr end || Ip <- string:lexemes(IpStr, ",")],
-            spawn(fun () -> tcp_init(Ips, Port) end);
+            Ips = [begin {ok, Addr} = inet:parse_address(Ip), Addr end ||
+                      Ip <- string:lexemes(IpStr, ",")],
+            TCPConnection = spawn(fun () -> tcp_init(Ips, Port) end),
+            _ = case init:get_argument(peer_detached) of
+                    {ok, _} ->
+                        _ = register(user, TCPConnection);
+                    error ->
+                        _= user_sup:init(
+                             [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
+                end,
+            TCPConnection;
         {ok, [[Base64EncProc]]} ->
             %% No alternative connection, but have "-origin Base64EncProc"
             OriginProcess = binary_to_term(base64:decode(Base64EncProc)),
-            %% setup 'user' process, I/O redirection: ask controlling process
-            %%  who is the group leader.
-            GroupLeader = gen_server:call(OriginProcess, group_leader),
-            RelayPid = spawn(fun () -> relay(GroupLeader) end),
-            register(user, RelayPid),
-            spawn(
-              fun () ->
-                      MRef = monitor(process, OriginProcess),
-                      notify_when_started(dist, OriginProcess),
-                      origin_link(MRef, OriginProcess)
-              end),
-            %% return RelayPid for user_sup to link to
-            RelayPid;
+            OriginLink = spawn(
+                           fun () ->
+                                   MRef = monitor(process, OriginProcess),
+                                   notify_when_started(dist, OriginProcess),
+                                   origin_link(MRef, OriginProcess)
+                           end),
+            ok = gen_server:call(OriginProcess, {starting, node()}),
+            _ = case init:get_argument(peer_detached) of
+                    {ok, _} ->
+                        %% We are detached, so setup 'user' process, I/O redirection:
+                        %%   ask controlling process who is the group leader.
+                        GroupLeader = gen_server:call(OriginProcess, group_leader),
+                        RelayPid = spawn(fun () ->
+                                                 link(OriginLink),
+                                                 relay(GroupLeader)
+                                         end),
+                        _ = register(user, RelayPid);
+                    error ->
+                        %% We are not detached, so after we spawn the link process we
+                        %% start the terminal as normal but without the -user peer flag.
+                        _ = user_sup:init(
+                              [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
+                end,
+            OriginLink;
         error ->
             %% no -origin specified, meaning that standard I/O is used for alternative
             spawn(fun io_server/0)
@@ -927,24 +1116,29 @@ origin_link(MRef, Origin) ->
             origin_link(MRef, Origin)
     end.
 
+-spec io_server() -> no_return().
 io_server() ->
-    process_flag(trap_exit, true),
-    Port = erlang:open_port({fd, 0, 1}, [eof, binary]),
-    register(user, self()),
-    group_leader(self(), self()),
-    notify_when_started(port, Port),
-    io_server_loop(port, Port, #{}, #{}, <<>>).
+   try
+       process_flag(trap_exit, true),
+       Port = erlang:open_port({fd, 0, 1}, [eof, binary]),
+       register(user, self()),
+       group_leader(self(), self()),
+       notify_when_started(port, Port),
+       io_server_loop(port, Port, #{}, #{}, <<>>)
+    catch
+        _:_ ->
+            erlang:halt(1)
+    end.
 
+-spec tcp_init([term()], term()) -> no_return().
 tcp_init(IpList, Port) ->
     try
         Sock = loop_connect(IpList, Port),
-        register(user, self()),
         erlang:group_leader(self(), self()),
         notify_when_started(tcp, Sock),
         io_server_loop(tcp, Sock, #{}, #{}, undefined)
     catch
-        Class:Reason:Stack ->
-            io:format(standard_io, "TCP connection failed: ~s:~p~n~120p~n", [Class, Reason, Stack]),
+        _:_ ->
             erlang:halt(1)
     end.
 

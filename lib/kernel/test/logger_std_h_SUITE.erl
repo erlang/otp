@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -812,7 +812,9 @@ sync(Config) ->
     timer:sleep(?IDLE_DETECT_TIME*2),
     logger:notice("fourth", ?domain),
     %% wait for automatic filesync
-    check_tracer(?IDLE_DETECT_TIME*2),
+    timer:sleep(?IDLE_DETECT_TIME*2),
+
+    check_tracer(1000),
 
     %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
@@ -2217,7 +2219,7 @@ tpl([]) ->
     ok.
 
 stop_clear() ->
-    dbg:stop_clear(),
+    dbg:stop(),
     %% Remove tracer from all processes in order to eliminate
     %% race conditions.
     erlang:trace(all,false,[all]).

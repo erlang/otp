@@ -70,6 +70,10 @@ ERL_COMPILE_FLAGS += $(EXTRA_ERLC_FLAGS)
 
 ASN_FLAGS = -bber +der +noobj +asn1config
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+	ASN_FLAGS += +deterministic
+endif
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -194,6 +194,35 @@
       <type name="hf_return"/>
       <desc>
         <p>Print the documentation for <c>Module:Function/Arity</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hcb" arity="1" since="OTP 23.0"/>
+      <fsummary>Module help information</fsummary>
+      <type name="h_return"/>
+      <desc>
+        <p>Print the callback documentation for <c>Module</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hcb" arity="2" since="OTP 23.0"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hcb_return"/>
+      <desc>
+        <p>Print the callback documentation for all <c>Module:Callback</c>s (regardless of arity).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hcb" arity="3" since="OTP 23.0"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hcb_return"/>
+      <desc>
+        <p>Print the callback documentation for <c>Module:Callback/Arity</c>.</p>
       </desc>
     </func>
 

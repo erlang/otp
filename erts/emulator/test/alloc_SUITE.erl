@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     [{testcase, Case}|Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    ok.
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                        %%
@@ -485,16 +485,12 @@ free_memory() ->
     %% Free memory in MB.
     try
 	SMD = memsup:get_system_memory_data(),
-	{value, {free_memory, Free}} = lists:keysearch(free_memory, 1, SMD),
-	TotFree = (Free +
-		   case lists:keysearch(cached_memory, 1, SMD) of
-		       {value, {cached_memory, Cached}} -> Cached;
-		       false -> 0
-		   end +
-		   case lists:keysearch(buffered_memory, 1, SMD) of
-		       {value, {buffered_memory, Buffed}} -> Buffed;
-		       false -> 0
-		   end),
+        TotFree = proplists:get_value(
+                    available_memory, SMD,
+                    proplists:get_value(free_memory, SMD) +
+                        proplists:get_value(cached_memory, SMD, 0) +
+                        proplists:get_value(buffered_memory, SMD, 0)
+                   ),
 	TotFree div (1024*1024)
     catch
 	error : undef ->

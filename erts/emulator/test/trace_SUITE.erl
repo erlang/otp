@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,7 +73,8 @@ end_per_testcase(_Case, Config) ->
     Receiver = proplists:get_value(receiver, Config),
     unlink(Receiver),
     exit(Receiver, die),
-    ok.
+
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %% No longer testing anything, just reporting whether cpu_timestamp
 %% is enabled or not.

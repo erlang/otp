@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2018-2022. All Rights Reserved.
+dnl Copyright Ericsson AB 2018-2023. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -182,14 +182,6 @@ AS_HELP_STRING([--disable-otp-test-engine],
     *)    DISABLE_OTP_TEST_ENGINE=no;;
   esac ], DISABLE_OTP_TEST_ENGINE=default)
 
-AC_ARG_ENABLE(deprecated_warnings,
-AS_HELP_STRING([--disable-deprecated-warnings],
-	       [disable warnings for deprecated functions in cryptolib (default is to warn, except for OpenSSL 3.x where the default is not to warn)]),
-[ case "$enableval" in
-    no)   deprecated_warnings=no;;
-    *)    deprecated_warnings=yes;;
-  esac ], deprecated_warnings=default_yes)
-
 AC_DEFUN([ERL_LINK_CRYPTO_IFELSE], [
     test_cflags=$1
     test_ldflags=$2
@@ -294,6 +286,13 @@ yes
           [test "$host_os" = "win32"],
           [
               # Windows...
+              AS_IF([test "x$ac_cv_sizeof_void_p" = "x8"],
+                    [
+                        lib_bits=64
+                    ],
+                    [
+                        lib_bits=32
+                    ])
               AS_IF([test -f "$dir/lib/VC/static/libcrypto${lib_bits}MD.lib"],
                     [
                         static_crypto_lib_name=libcrypto${lib_bits}MD
@@ -491,11 +490,9 @@ AS_CASE(["$erl_xcomp_without_sysroot-$with_ssl"],
                       AS_IF([test "x$ac_cv_sizeof_void_p" = "x8"],
                             [
 	                        std_win_ssl_locations="/mnt/c/OpenSSL-Win64 /c/OpenSSL-Win64 /mnt/c/opt/local64/pgm/OpenSSL /opt/local64/pgm/OpenSSL /cygdrive/c/OpenSSL-Win64"
-	                        lib_bits=64
                             ],
                             [
                                 std_win_ssl_locations="/mnt/c/OpenSSL-Win32 /c/OpenSSL-Win32 /mnt/c/OpenSSL /c/OpenSSL /cygdrive/c/OpenSSL /opt/local/pgm/OpenSSL /opt/local32/pgm/OpenSSL /mnt/c/opt/local/pgm/OpenSSL /mnt/c/opt/local32/pgm/OpenSSL /cygdrive/c/OpenSSL-Win32"
-	                        lib_bits=32
                             ])
 	          ])
 
@@ -815,21 +812,15 @@ AS_CASE(["$with_ssl_rpath"],
                   ],
                   [test "$CRYPTO_APP" = ""],
                   [
-                      AS_IF([test "$with_ssl_rpath" = yes],
-                            [AC_MSG_ERROR([runtime library path requested by user, but could not be set since no crypto library was found])])
-                      AC_MSG_RESULT([])
+                      AC_MSG_ERROR([runtime library path requested by user, but could not be set since no crypto library was found])
                   ],
                   [test "$ded_ld_rflg" = ""],
                   [
-                      AS_IF([test "$with_ssl_rpath" = yes],
-                            [AC_MSG_ERROR([runtime library path requested by user, but cannot be set on this platform])])
-                      AC_MSG_RESULT([])
-                  ]
+                      AC_MSG_ERROR([runtime library path requested by user, but cannot be set on this platform])
+                  ],
                   [test "$SSL_DYNAMIC_ONLY" != "yes"],
                   [
-                      AS_IF([test "$with_ssl_rpath" = yes],
-                            [AC_MSG_WARN([runtime library path requested by user, but dynamic linking will not be used])],
-                            [AC_MSG_RESULT([])])
+                      AC_MSG_WARN([runtime library path requested by user, but dynamic linking will not be used])
                   ],
                   [
                       # Check that it links...
@@ -894,22 +885,19 @@ AS_IF([test "$enable_fips_support" = "yes"],
       ])
 
 AS_IF([test "x$v3_include" = "xyes"],
-      [echo "Using OpenSSL 3.0 is not yet recommended for production code." >> ./CONF_INFO
-       AC_MSG_WARN(******************************************************************)
-       AC_MSG_WARN(* Using OpenSSL 3.0 is not yet recommended for production code.  *)
+      [
        AS_IF([test "x$SSL_DYNAMIC_ONLY" = "xno" ],
-             [echo "Static linking with OpenSSL 3.0 *MAY* require special configuring of the cryptolib." >> ./CONF_INFO
+             [
+              echo "Static linking with OpenSSL 3.0 *MAY* require special configuring of the cryptolib." >> ./CONF_INFO
+              AC_MSG_WARN(******************************************************************)
               AC_MSG_WARN(* Static linking *MAY* require re-configuring the 3.0 cryptolib. *)
+              AC_MSG_WARN(******************************************************************)
              ])
-       AC_MSG_WARN(******************************************************************)
       ])
 
-AS_IF([test "x$v3_include" = "xyes" && test "x$deprecated_warnings" = "xdefault_yes" && test "$CRYPTO_APP" != ""],
-      [deprecated_warnings=no
-      ])
-
-AS_IF([test "x$deprecated_warnings" = "xno"  &&  test "$CRYPTO_APP" != ""],
-      [SSL_FLAGS="$SSL_FLAGS -Wno-deprecated-declarations"
+CRYPTO_NO_DEPRECATE_WARN=
+AS_IF([test "x$v3_include" = "xyes" && test "$CRYPTO_APP" != ""],
+      [CRYPTO_NO_DEPRECATE_WARN="-Wno-deprecated-declarations"
       ])
 
 saveCFLAGS="$CFLAGS"
@@ -965,6 +953,7 @@ AC_SUBST(SSL_DYNAMIC_ONLY)
 AC_SUBST(DISABLE_EVP_DH)
 AC_SUBST(DISABLE_EVP_HMAC)
 AC_SUBST(DISABLE_OTP_TEST_ENGINE)
+AC_SUBST(CRYPTO_NO_DEPRECATE_WARN)
 
 AC_CONFIG_FILES([c_src/$host/Makefile:c_src/Makefile.in])
 AC_OUTPUT

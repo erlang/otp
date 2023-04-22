@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,9 +106,9 @@ encode_decode(_Config) ->
                            <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
                              147,61,168,145,177,118,160,153,33,53,48,108,191,174>>},
                 sequence_number => 0,server_verify_data => undefined,
-                max_early_data_size => 0,
+                pending_early_data_size => 0,
                 trial_decryption => false,
-                early_data_limit => false},
+                early_data_accepted => false},
           current_write =>
               #{beast_mitigation => one_n_minus_one,
                 cipher_state =>
@@ -174,9 +174,9 @@ encode_decode(_Config) ->
                    146,152,146,151,107,126,216,210,9,93,0,0>>],
 
     {[_Header|Encoded], _} = tls_record_1_3:encode_plain_text(22, PlainText, ConnectionStates),
-    CipherText = #ssl_tls{type = 23, version = {3,3}, fragment = Encoded},
+    CipherText = #ssl_tls{type = 23, version = ?TLS_1_2, fragment = Encoded},
 
-    {#ssl_tls{type = 22, version = {3,4}, fragment = DecodedText}, _} =
+    {#ssl_tls{type = 22, version = ?TLS_1_3, fragment = DecodedText}, _} =
         tls_record_1_3:decode_cipher_text(CipherText, ConnectionStates),
 
     DecodedText = iolist_to_binary(PlainText),
@@ -260,7 +260,7 @@ encode_decode(_Config) ->
           01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01"),
 
     {CHEncrypted, _} =
-	tls_record:encode_handshake(ClientHello, {3,4}, ConnStatesNull),
+	tls_record:encode_handshake(ClientHello, ?TLS_1_3, ConnStatesNull),
     ClientHelloRecord = iolist_to_binary(CHEncrypted),
 
     %% {server}  extract secret "early":
@@ -515,7 +515,7 @@ encode_decode(_Config) ->
           cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f 00 2b 00 02 03 04"),
 
     {SHEncrypted, _} =
-	tls_record:encode_handshake(ServerHello, {3,4}, ConnStatesNull),
+	tls_record:encode_handshake(ServerHello, ?TLS_1_3, ConnStatesNull),
     ServerHelloRecord = iolist_to_binary(SHEncrypted),
 
     %% {server}  derive write traffic keys for handshake data:
@@ -685,7 +685,7 @@ encode_decode(_Config) ->
 
     FinishedHS = #finished{verify_data = FinishedVerifyData},
 
-    FinishedIOList = tls_handshake:encode_handshake(FinishedHS, {3,4}),
+    FinishedIOList = tls_handshake:encode_handshake(FinishedHS, ?TLS_1_3),
     FinishedHSBin = iolist_to_binary(FinishedIOList),
 
     %% {server}  derive secret "tls13 c ap traffic":
@@ -907,7 +907,7 @@ encode_decode(_Config) ->
 
     CFinished = #finished{verify_data = CFinishedVerifyData},
 
-    CFinishedIOList = tls_handshake:encode_handshake(CFinished, {3,4}),
+    CFinishedIOList = tls_handshake:encode_handshake(CFinished, ?TLS_1_3),
     CFinishedBin = iolist_to_binary(CFinishedIOList),
 
     %% {client}  derive write traffic keys for application data:
@@ -1054,7 +1054,7 @@ encode_decode(_Config) ->
        ticket_nonce = Nonce,
        ticket = Ticket,
        extensions = _Extensions
-      } = tls_handshake:decode_handshake({3,4}, NWT, TicketBody),
+      } = tls_handshake:decode_handshake(?TLS_1_3, NWT, TicketBody),
 
     %% ResPRK = resumption master secret
     ResExpanded = tls_v1:pre_shared_key(ResPRK, Nonce, HKDFAlgo),
@@ -1288,7 +1288,7 @@ encode_decode(_Config) ->
 
     <<?BYTE(CH), ?UINT24(_Length), ClientHelloBody/binary>> = ClientHelloRecord,
     #client_hello{extensions = #{pre_shared_key := PreSharedKey}} =
-        tls_handshake:decode_handshake({3,4}, CH, ClientHelloBody),
+        tls_handshake:decode_handshake(?TLS_1_3, CH, ClientHelloBody),
 
     #pre_shared_key_client_hello{
        offered_psks = #offered_psks{

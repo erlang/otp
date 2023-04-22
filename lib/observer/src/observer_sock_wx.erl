@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -241,9 +241,14 @@ handle_event(#wx{event = #wxList{type      = command_list_item_activated,
 	     State = #state{grid      = Grid,
 			    sockets   = Sockets,
 			    open_wins = Opened}) ->
-    Socket    = lists:nth(Index+1, Sockets),
-    NewOpened = display_socket_info(Grid, Socket, Opened),
-    {noreply, State#state{open_wins = NewOpened}};
+    if
+        length(Sockets) >= (Index+1) ->
+            Socket    = lists:nth(Index+1, Sockets),
+            NewOpened = display_socket_info(Grid, Socket, Opened),
+            {noreply, State#state{open_wins = NewOpened}};
+        true -> % Race - should we do somthing here?
+            {noreply, State}
+    end;
 
 handle_event(#wx{event = #wxList{type      = command_list_item_right_click,
 				 itemIndex = Index}},

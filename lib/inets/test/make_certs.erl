@@ -20,6 +20,7 @@
 
 -module(make_certs).
 -compile([export_all]).
+-compile(nowarn_export_all).
 
 %-export([all/1, all/2, rootCA/2, intermediateCA/3, endusers/3, enduser/3, revoke/3, gencrl/2, verify/3]).
 

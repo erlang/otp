@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -114,6 +114,9 @@ replace_labels_1([{get_map_elements=I,{f,Lbl},Src,List}|Is], Acc, D, Fb) when Lb
     replace_labels_1(Is, [{I,{f,label(Lbl, D, Fb)},Src,List}|Acc], D, Fb);
 replace_labels_1([{bs_start_match4,{f,Lbl},Live,Src,Dst}|Is], Acc, D, Fb) ->
     I = {bs_start_match4,{f,label(Lbl, D, Fb)},Live,Src,Dst},
+    replace_labels_1(Is, [I | Acc], D, Fb);
+replace_labels_1([{bs_match,{f,Lbl},Ctx,List}|Is], Acc, D, Fb) ->
+    I = {bs_match,{f,label(Lbl, D, Fb)},Ctx,List},
     replace_labels_1(Is, [I | Acc], D, Fb);
 replace_labels_1([I|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [I|Acc], D, Fb);

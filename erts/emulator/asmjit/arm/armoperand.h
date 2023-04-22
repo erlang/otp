@@ -110,14 +110,14 @@ public:
   static inline bool isVecQ(const Operand_& op) noexcept { return op.as<Reg>().isVecQ(); }
   static inline bool isVecV(const Operand_& op) noexcept { return op.as<Reg>().isVecV(); }
 
-  static inline bool isGpW(const Operand_& op, uint32_t id) noexcept { return isGpW(op) & (op.id() == id); }
-  static inline bool isGpX(const Operand_& op, uint32_t id) noexcept { return isGpX(op) & (op.id() == id); }
-  static inline bool isVecB(const Operand_& op, uint32_t id) noexcept { return isVecB(op) & (op.id() == id); }
-  static inline bool isVecH(const Operand_& op, uint32_t id) noexcept { return isVecH(op) & (op.id() == id); }
-  static inline bool isVecS(const Operand_& op, uint32_t id) noexcept { return isVecS(op) & (op.id() == id); }
-  static inline bool isVecD(const Operand_& op, uint32_t id) noexcept { return isVecD(op) & (op.id() == id); }
-  static inline bool isVecQ(const Operand_& op, uint32_t id) noexcept { return isVecQ(op) & (op.id() == id); }
-  static inline bool isVecV(const Operand_& op, uint32_t id) noexcept { return isVecV(op) & (op.id() == id); }
+  static inline bool isGpW(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isGpW(op)) & unsigned(op.id() == id)); }
+  static inline bool isGpX(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isGpX(op)) & unsigned(op.id() == id)); }
+  static inline bool isVecB(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isVecB(op)) & unsigned(op.id() == id)); }
+  static inline bool isVecH(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isVecH(op)) & unsigned(op.id() == id)); }
+  static inline bool isVecS(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isVecS(op)) & unsigned(op.id() == id)); }
+  static inline bool isVecD(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isVecD(op)) & unsigned(op.id() == id)); }
+  static inline bool isVecQ(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isVecQ(op)) & unsigned(op.id() == id)); }
+  static inline bool isVecV(const Operand_& op, uint32_t id) noexcept { return bool(unsigned(isVecV(op)) & unsigned(op.id() == id)); }
 };
 
 //! General purpose register (ARM).
@@ -455,11 +455,12 @@ public:
 
   //! \}
 
-  //! \name ARM Specific Features
+  //! \name Clone
   //! \{
 
   //! Clones the memory operand.
   inline constexpr Mem clone() const noexcept { return Mem(*this); }
+
   //! Gets new memory operand adjusted by `off`.
   inline Mem cloneAdjusted(int64_t off) const noexcept {
     Mem result(*this);
@@ -467,12 +468,62 @@ public:
     return result;
   }
 
+  //! Clones the memory operand and makes it pre-index.
+  inline Mem pre() const noexcept {
+    Mem result(*this);
+    result.setPredicate(kOffsetPreIndex);
+    return result;
+  }
+
+  //! Clones the memory operand, applies a given offset `off` and makes it pre-index.
+  inline Mem pre(int64_t off) const noexcept {
+    Mem result(*this);
+    result.setPredicate(kOffsetPreIndex);
+    result.addOffset(off);
+    return result;
+  }
+
+  //! Clones the memory operand and makes it post-index.
+  inline Mem post() const noexcept {
+    Mem result(*this);
+    result.setPredicate(kOffsetPostIndex);
+    return result;
+  }
+
+  //! Clones the memory operand, applies a given offset `off` and makes it post-index.
+  inline Mem post(int64_t off) const noexcept {
+    Mem result(*this);
+    result.setPredicate(kOffsetPostIndex);
+    result.addOffset(off);
+    return result;
+  }
+
+  //! \}
+
+  //! \name Base & Index
+  //! \{
+
+  //! Converts memory `baseType` and `baseId` to `arm::Reg` instance.
+  //!
+  //! The memory must have a valid base register otherwise the result will be wrong.
+  inline Reg baseReg() const noexcept { return Reg::fromTypeAndId(baseType(), baseId()); }
+
+  //! Converts memory `indexType` and `indexId` to `arm::Reg` instance.
+  //!
+  //! The memory must have a valid index register otherwise the result will be wrong.
+  inline Reg indexReg() const noexcept { return Reg::fromTypeAndId(indexType(), indexId()); }
+
   using BaseMem::setIndex;
 
   inline void setIndex(const BaseReg& index, uint32_t shift) noexcept {
     setIndex(index);
     setShift(shift);
   }
+
+  //! \}
+
+  //! \name ARM Specific Features
+  //! \{
 
   //! Gets whether the memory operand has shift (aka scale) constant.
   inline constexpr bool hasShift() const noexcept { return _signature.hasField<kSignatureMemShiftValueMask>(); }
@@ -498,32 +549,6 @@ public:
   inline void resetToFixedOffset() noexcept { resetPredicate(); }
   inline void makePreIndex() noexcept { setPredicate(kOffsetPreIndex); }
   inline void makePostIndex() noexcept { setPredicate(kOffsetPostIndex); }
-
-  inline Mem pre() const noexcept {
-    Mem result(*this);
-    result.setPredicate(kOffsetPreIndex);
-    return result;
-  }
-
-  inline Mem pre(int64_t off) const noexcept {
-    Mem result(*this);
-    result.setPredicate(kOffsetPreIndex);
-    result.addOffset(off);
-    return result;
-  }
-
-  inline Mem post() const noexcept {
-    Mem result(*this);
-    result.setPredicate(kOffsetPreIndex);
-    return result;
-  }
-
-  inline Mem post(int64_t off) const noexcept {
-    Mem result(*this);
-    result.setPredicate(kOffsetPostIndex);
-    result.addOffset(off);
-    return result;
-  }
 
   //! \}
 };

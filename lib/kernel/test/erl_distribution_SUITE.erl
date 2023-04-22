@@ -65,6 +65,7 @@
          dyn_node_name_do/2,
          epmd_reconnect_do/2,
 	 setopts_do/2,
+         setopts_deadlock_test/2,
 	 keep_conn/1, time_ping/1,
          ddc_remote_run/2]).
 
@@ -220,14 +221,14 @@ tick_test(DCfg, _Config, CheckIntensityArg) ->
 				"-kernel net_ticktime 100 -connect_all false"),
     rpc:call(ServNode, erl_distribution_SUITE, tick_serv_test, [Node, node()]),
 
-    %% We set min/max half a second lower/higher than expected since it
-    %% takes time for termination dist controller, delivery of messages
-    %% scheduling of process receiving nodedown, etc...
+    %% We set min/max a second lower/higher than expected since it takes
+    %% time for termination of the dist controller, delivery of messages,
+    %% scheduling of the process receiving nodedown, etc...
     {IArg, Min, Max} = case CheckIntensityArg of
                            false ->
-                               {"", 7500, 16500};
+                               {"", 7000, 17000};
                            true ->
-                               {" -kernel net_tickintensity 24", 11000, 13000}
+                               {" -kernel net_tickintensity 24", 10500, 13500}
                        end,
     
     {ok, Node} = start_node(DCfg, Name1,
@@ -577,28 +578,27 @@ wait_for_names(Names, N, Wait) when N > 0 ->
 
 
 dyn_node_name(Config) when is_list(Config) ->
-    %%run_dist_configs(fun dyn_node_name/2, Config).
-    dyn_node_name("", Config).
+    run_dist_configs(fun dyn_node_name/2, Config).
 
 dyn_node_name(DCfg, _Config) ->
-    DomainType = case net_kernel:get_state() of
-                     #{domain_type := short} -> "short";
-                     #{domain_type := long} -> "long"
+    NameDomain = case net_kernel:get_state() of
+                     #{name_domain := shortnames} -> "shortnames";
+                     #{name_domain := longnames} -> "longnames"
                  end,
-    {_N1F,Port1} = start_node_unconnected(DCfg ++ " -dist_listen false",
+    {_N1F,Port1} = start_node_unconnected(DCfg,
                                           undefined, ?MODULE, run_remote_test,
                                           ["dyn_node_name_do", atom_to_list(node()),
-                                           DomainType]),
+                                           NameDomain]),
     0 = wait_for_port_exit(Port1),
     ok.
 
-dyn_node_name_do(TestNode, [DomainTypeStr]) ->
+dyn_node_name_do(TestNode, [NameDomainStr]) ->
     nonode@nohost = node(),
     [] = nodes(),
     [] = nodes(hidden),
-    DomainType = list_to_atom(DomainTypeStr),
+    NameDomain = list_to_atom(NameDomainStr),
     #{started := static, name_type := dynamic, name := undefined,
-     domain_type := DomainType} = net_kernel:get_state(),
+     name_domain := NameDomain} = net_kernel:get_state(),
     net_kernel:monitor_nodes(true, [{node_type,all}]),
     net_kernel:connect_node(TestNode),
     [] = nodes(),
@@ -606,43 +606,56 @@ dyn_node_name_do(TestNode, [DomainTypeStr]) ->
     MyName = node(),
     false = (MyName =:= undefined),
     false = (MyName =:= nonode@nohost),
-    #{started := static, name_type := dynamic, name := MyName}
-        = net_kernel:get_state(),
+    #{started := static, name_type := dynamic, name := MyName,
+      name_domain := NameDomain} = net_kernel:get_state(),
     check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
 
-    {nodeup, MyName, [{node_type, visible}]} = receive_any(0),
-    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(0),
+    {nodeup, MyName, [{node_type, visible}]} = receive_any(),
+    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(),
 
     true = net_kernel:disconnect(TestNode),
 
-    {nodedown, TestNode, [{node_type, hidden}]} = receive_any(0),
-    [] = nodes(hidden),
-    {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
+    %% We don't know the order of these nodedown messages. Often
+    %% nodedown from the connection comes first, but not always...
 
+    NodedownMsgsA = lists:sort([{nodedown, TestNode, [{node_type, hidden}]},
+                                {nodedown, MyName, [{node_type, visible}]}]),
+    NodedownMsgA1 = receive_any(),
+    NodedownMsgA2 = receive_any(),
+    NodedownMsgsA = lists:sort([NodedownMsgA1, NodedownMsgA2]),
+
+    [] = nodes(hidden),
     nonode@nohost = node(),
-    #{started := static, name_type := dynamic, name := undefined}
-        = net_kernel:get_state(),
+    #{started := static, name_type := dynamic, name := undefined,
+      name_domain := NameDomain} = net_kernel:get_state(),
 
     net_kernel:connect_node(TestNode),
     [] = nodes(),
     [TestNode] = nodes(hidden),
     MyName = node(),
-    #{started := static, name_type := dynamic, name := MyName}
-        = net_kernel:get_state(),
+    #{started := static, name_type := dynamic, name := MyName,
+      name_domain := NameDomain} = net_kernel:get_state(),
 
     check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
 
-    {nodeup, MyName, [{node_type, visible}]} = receive_any(0),
-    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(0),
+    {nodeup, MyName, [{node_type, visible}]} = receive_any(),
+    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(),
 
     true = rpc:cast(TestNode, net_kernel, disconnect, [MyName]),
 
-    {nodedown, TestNode, [{node_type, hidden}]} = receive_any(1000),
+    %% We don't know the order of these nodedown messages. Often
+    %% nodedown from the connection comes first, but not always...
+
+    NodedownMsgsB = lists:sort([{nodedown, TestNode, [{node_type, hidden}]},
+                                {nodedown, MyName, [{node_type, visible}]}]),
+    NodedownMsgB1 = receive_any(),
+    NodedownMsgB2 = receive_any(),
+    NodedownMsgsB = lists:sort([NodedownMsgB1, NodedownMsgB2]),
+
     [] = nodes(hidden),
-    {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
     nonode@nohost = node(),
-    #{started := static, name_type := dynamic, name := undefined}
-        = net_kernel:get_state(),
+    #{started := static, name_type := dynamic, name := undefined,
+      name_domain := NameDomain} = net_kernel:get_state(),
     ok.
 
 check(X, X) -> ok.
@@ -652,7 +665,7 @@ setopts(Config) when is_list(Config) ->
 
 setopts(DCfg, _Config) ->
     register(setopts_regname, self()),
-    [N1,N2,N3,N4] = get_nodenames(4, setopts),
+    [N1,N2,N3,N4,N5] = get_nodenames(5, setopts),
 
     {_N1F,Port1} = start_node_unconnected(DCfg, N1, ?MODULE, run_remote_test,
 					["setopts_do", atom_to_list(node()), "1", "ping"]),
@@ -676,6 +689,32 @@ setopts(DCfg, _Config) ->
 					 "2", integer_to_list(LTcpPort)]),
     wait_and_connect(LSock, N4F, Port4),
     0 = wait_for_port_exit(Port4),
+
+    %% net_kernel:setopts(new, _) used to be able to produce a deadlock
+    %% in net_kernel. GH-6129/OTP-18198
+    {N5F,Port5} = start_node_unconnected(DCfg, N5, ?MODULE, run_remote_test,
+					["setopts_deadlock_test", atom_to_list(node()),
+					 integer_to_list(LTcpPort)]),
+    wait_and_connect(LSock, N5F, Port5),
+    repeat(fun () ->
+                   receive after 10 -> ok end,
+                   erlang:disconnect_node(N5F),
+                   WD = spawn_link(fun () ->
+                                           receive after 2000 -> ok end,
+                                           exit({net_kernel_probably_deadlocked, N5F})
+                                   end),
+                   pong = net_adm:ping(N5F),
+                   unlink(WD),
+                   exit(WD, kill),
+                   false = is_process_alive(WD)
+           end,
+           200),
+    try
+        erpc:call(N5F, erlang, halt, [])
+    catch
+        error:{erpc,noconnection} -> ok
+    end,
+    0 = wait_for_port_exit(Port5),
 
     unregister(setopts_regname),
     ok.
@@ -765,6 +804,19 @@ setopts_do(TestNode, [OptNr, ConnectData]) ->
 
     ok.
 
+setopts_deadlock_test(_TestNode, [TcpPort]) ->
+    {ok, Sock} = gen_tcp:connect("localhost", list_to_integer(TcpPort),
+                                 [{active,false},{packet,2}]),
+    ok = gen_tcp:send(Sock, "Connect please"),
+    {ok, "Connect done"} = gen_tcp:recv(Sock, 0),
+    gen_tcp:close(Sock),
+    setopts_new_loop().
+    
+setopts_new_loop() ->
+    ok = net_kernel:setopts(new, [{nodelay, true}]),
+    receive after 10 -> ok end,
+    setopts_new_loop().
+    
 opt_from_nr("1") -> {nodelay, true};
 opt_from_nr("2") -> {nodelay, false}.
 
@@ -1003,8 +1055,14 @@ run_tick_change_test(DCfg, B, C, PrevTT, TT) ->
 hidden_node(Config) when is_list(Config) ->
     run_dist_configs(fun hidden_node/2, Config).
 
-hidden_node(DCfg, _Config) ->
-    HArgs = "-hidden",
+hidden_node(DCfg, Config) ->
+    hidden_node(DCfg, "-hidden", Config),
+    hidden_node(DCfg, "-hidden -hidden", Config),
+    hidden_node(DCfg, "-hidden true -hidden true", Config),
+    ok.
+
+hidden_node(DCfg, HArgs, _Config) ->
+    ct:pal("--- Hidden argument(s): ~s~n", [HArgs]),
     {ok, V} = start_node(DCfg, visible_node),
     VMN = start_monitor_nodes_proc(V),
     {ok, H} = start_node(DCfg, hidden_node, HArgs),
@@ -1231,9 +1289,9 @@ monitor_nodes_nodedown_reason(DCfg, _Config) ->
     Names = get_numbered_nodenames(5, node),
     [NN1, NN2, NN3, NN4, NN5] = Names,
 
-    {ok, N1} = start_node(DCfg, NN1),
-    {ok, N2} = start_node(DCfg, NN2),
-    {ok, N3} = start_node(DCfg, NN3),
+    {ok, N1} = start_node(DCfg, NN1, "-connect_all false"),
+    {ok, N2} = start_node(DCfg, NN2, "-connect_all false"),
+    {ok, N3} = start_node(DCfg, NN3, "-connect_all false"),
     {ok, N4} = start_node(DCfg, NN4, "-hidden"),
 
     receive {nodeup, N1} -> ok end,
@@ -1409,7 +1467,9 @@ monitor_nodes_misc(DCfg, _Config) ->
     MonNodeState = monitor_node_state(),
     ok = net_kernel:monitor_nodes(true),
     ok = net_kernel:monitor_nodes(true, [{node_type, all}, nodedown_reason]),
-    ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}]),
+    ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}, connection_id]),
+    ok = net_kernel:monitor_nodes(true, #{node_type => all, nodedown_reason => true}),
+    ok = net_kernel:monitor_nodes(true, #{node_type => all, nodedown_reason => true, connection_id => true}),
     Names = get_numbered_nodenames(3, node),
     [NN1, NN2, NN3] = Names,
 
@@ -1418,27 +1478,90 @@ monitor_nodes_misc(DCfg, _Config) ->
 
     receive {nodeup, N1} -> ok end,
 
-    receive {nodeup, N1, [{node_type, visible}]} -> ok end,
+    receive {nodeup, N1, #{node_type := visible}} -> ok end,
+    receive {nodeup, N2, #{node_type := hidden}} -> ok end,
     receive {nodeup, N1, [{node_type, visible}]} -> ok end,
     receive {nodeup, N2, [{node_type, hidden}]} -> ok end,
-    receive {nodeup, N2, [{node_type, hidden}]} -> ok end,
+
+    NodesInfo = erlang:nodes(connected, #{connection_id => true}),
+
+    {N1, #{connection_id := N1CId}} = lists:keyfind(N1, 1, NodesInfo),
+    {N2, #{connection_id := N2CId}} = lists:keyfind(N2, 1, NodesInfo),
+
+    ct:pal("N1: ~p ~p~n", [N1, N1CId]),
+    ct:pal("N2: ~p ~p~n", [N2, N2CId]),
+
+    receive {nodeup, N1, #{node_type := visible, connection_id := N1CId}} -> ok end,
+    receive {nodeup, N2, #{node_type := hidden, connection_id := N2CId}} -> ok end,
+
+    N1UpInfoSorted = lists:sort([{node_type, visible},{connection_id, N1CId}]),
+    N2UpInfoSorted = lists:sort([{node_type, hidden},{connection_id, N2CId}]),
+
+    receive {nodeup, N1, UpN1Info} -> N1UpInfoSorted = lists:sort(UpN1Info) end,
+    receive {nodeup, N2, UpN2Info} -> N2UpInfoSorted = lists:sort(UpN2Info) end,
 
     stop_node(N1),
     stop_node(N2),
 
-    VisbleDownInfo = lists:sort([{node_type, visible},
-				 {nodedown_reason, connection_closed}]),
-    HiddenDownInfo = lists:sort([{node_type, hidden},
-				 {nodedown_reason, connection_closed}]),
-
     receive {nodedown, N1} -> ok end,
 
-    receive {nodedown, N1, Info1A} -> VisbleDownInfo = lists:sort(Info1A) end,
-    receive {nodedown, N1, Info1B} -> VisbleDownInfo = lists:sort(Info1B) end,
-    receive {nodedown, N2, Info2A} -> HiddenDownInfo = lists:sort(Info2A) end,
-    receive {nodedown, N2, Info2B} -> HiddenDownInfo = lists:sort(Info2B) end,
+    receive {nodedown, N1, #{node_type := visible,
+                             nodedown_reason := connection_closed}} -> ok end,
+    receive {nodedown, N1, #{node_type := visible,
+                             nodedown_reason := connection_closed,
+                             connection_id := N1CId}} -> ok end,
+    receive {nodedown, N2, #{node_type := hidden,
+                             nodedown_reason := connection_closed}} -> ok end,
+    receive {nodedown, N2, #{node_type := hidden,
+                             nodedown_reason := connection_closed,
+                             connection_id := N2CId}} -> ok end,
+
+    N1ADownInfoSorted = lists:sort([{node_type, visible},
+                                    {nodedown_reason, connection_closed}]),
+    N1BDownInfoSorted = lists:sort([{node_type, visible},
+                                    {nodedown_reason, connection_closed},
+                                    {connection_id, N1CId}]),
+    N2ADownInfoSorted = lists:sort([{node_type, hidden},
+                                    {nodedown_reason, connection_closed}]),
+    N2BDownInfoSorted = lists:sort([{node_type, hidden},
+                                    {nodedown_reason, connection_closed},
+                                    {connection_id, N2CId}]),
+
+    receive
+        {nodedown, N1, N1Info1} ->
+            case lists:sort(N1Info1) of
+                N1ADownInfoSorted ->
+                    receive
+                        {nodedown, N1, N1Info2} ->
+                            N1BDownInfoSorted = lists:sort(N1Info2)
+                    end;
+                N1BDownInfoSorted ->
+                    receive
+                        {nodedown, N1, N1Info2} ->
+                            N1ADownInfoSorted = lists:sort(N1Info2)
+                    end
+            end
+    end,
+    receive
+        {nodedown, N2, N2Info1} ->
+            case lists:sort(N2Info1) of
+                N2ADownInfoSorted ->
+                    receive
+                        {nodedown, N2, N2Info2} ->
+                            N2BDownInfoSorted = lists:sort(N2Info2)
+                    end;
+                N2BDownInfoSorted ->
+                    receive
+                        {nodedown, N2, N2Info2} ->
+                            N2ADownInfoSorted = lists:sort(N2Info2)
+                    end
+            end
+    end,
 
     ok = net_kernel:monitor_nodes(false, [{node_type, all}, nodedown_reason]),
+    ok = net_kernel:monitor_nodes(false, [nodedown_reason, {node_type, all}, connection_id]),
+    ok = net_kernel:monitor_nodes(false, #{node_type => all, nodedown_reason => true}),
+    ok = net_kernel:monitor_nodes(false, #{node_type => all, nodedown_reason => true, connection_id => true}),
 
     {ok, N3} = start_node(DCfg, NN3),
     receive {nodeup, N3} -> ok end,
@@ -1574,7 +1697,11 @@ monitor_nodes_errors(Config) when is_list(Config) ->
       [gurka]}} = net_kernel:monitor_nodes(true,
 					   [gurka]),
     {error,
-     {options_not_a_list,
+     {unknown_options,
+      #{gurka := true}}} = net_kernel:monitor_nodes(true,
+                                                    #{gurka => true}),
+    {error,
+     {invalid_options,
       gurka}} = net_kernel:monitor_nodes(true,
 					 gurka),
     {error,
@@ -1596,6 +1723,10 @@ monitor_nodes_errors(Config) when is_list(Config) ->
       {node_type,
        blaha}}}
 	= net_kernel:monitor_nodes(true, [{node_type, blaha}]),
+    {error,
+     {bad_option_value,
+      #{node_type := blaha}}}
+	= net_kernel:monitor_nodes(true, #{node_type => blaha}),
     MonNodeState = monitor_node_state(),
     ok.
 
@@ -2134,21 +2265,34 @@ erl_1424(Config) when is_list(Config) ->
 net_kernel_start(Config) when is_list(Config) ->
     MyName = net_kernel_start_tester,
     register(MyName, self()),
-    net_kernel_start_test(MyName, 120, 8),
-    net_kernel_start_test(MyName, undefined, undefined).
+    net_kernel_start_test(MyName, 120, 8, true, false),
+    net_kernel_start_test(MyName, 120, 8, false, false),
+    net_kernel_start_test(MyName, 120, 8, true, true),
+    net_kernel_start_test(MyName, undefined, undefined, undefined, undefined).
 
-net_kernel_start_test(MyName, NetTickTime, NetTickIntesity) ->
+net_kernel_start_test(MyName, NetTickTime, NetTickIntesity, DistListen, Hidden) ->
     TestNameStr = "net_kernel_start_test_node-"
         ++ integer_to_list(erlang:system_time(seconds))
         ++ "-" ++ integer_to_list(erlang:unique_integer([monotonic,positive])),
     TestNode = list_to_atom(TestNameStr ++ "@" ++ atom_to_list(gethostname())),
     CmdLine = net_kernel_start_cmdline(MyName, list_to_atom(TestNameStr),
-                                       NetTickTime, NetTickIntesity),
+                                       NetTickTime, NetTickIntesity, DistListen, Hidden),
     io:format("Starting test node ~p: ~s~n", [TestNode, CmdLine]),
     case open_port({spawn, CmdLine}, []) of
 	Port when is_port(Port) ->
+            case DistListen == false of
+                false ->
+                    ok;
+                true ->
+                    receive after 1500 -> ok end,
+                    pang = net_adm:ping(TestNode),
+                    ok
+            end,
             receive
                 {i_am_alive, Pid, Node, NTT} = Msg ->
+                    IsHidden = lists:member(TestNode, nodes(hidden)),
+                    IsVisible = lists:member(TestNode, nodes(visible)),
+                    io:format("IsVisible = ~p~nIsHidden = ~p~n", [IsVisible, IsHidden]),
                     io:format("Response from ~p: ~p~n", [Node, Msg]),
                     rpc:cast(Node, erlang, halt, []),
                     catch erlang:port_close(Port),
@@ -2160,6 +2304,14 @@ net_kernel_start_test(MyName, NetTickTime, NetTickIntesity) ->
                             DefNTT = NTT;
                         false ->
                             NetTickTime = NTT
+                    end,
+                    case DistListen == false orelse Hidden == true of
+                        true ->
+                            true = IsHidden,
+                            false = IsVisible;
+                        false ->
+                            false = IsHidden,
+                            true = IsVisible
                     end
             end,
             ok;
@@ -2167,7 +2319,7 @@ net_kernel_start_test(MyName, NetTickTime, NetTickIntesity) ->
 	    error({open_port_failed, TestNode, Error})
     end.
 
-net_kernel_start_cmdline(TestName, Name, NetTickTime, NetTickIntensity) ->
+net_kernel_start_cmdline(TestName, Name, NetTickTime, NetTickIntensity, DistListen, Hidden) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Prog = case catch init:get_argument(progname) of
 	       {ok, [[Prg]]} -> Prg;
@@ -2191,21 +2343,36 @@ net_kernel_start_cmdline(TestName, Name, NetTickTime, NetTickIntensity) ->
                false ->
                    " " ++ integer_to_list(NetTickTime) ++
                        " " ++ integer_to_list(NetTickIntensity)
+           end
+        ++ case DistListen == undefined of
+               true -> "";
+               false -> " " ++ atom_to_list(DistListen)
+           end
+        ++ case Hidden == undefined of
+               true -> "";
+               false -> " " ++ atom_to_list(Hidden)
            end.
 
 net_kernel_start_do_test([TestName, TestNode, Name, NameDomain]) ->
     net_kernel_start_do_test(TestName, TestNode, list_to_atom(Name),
                              #{name_domain => list_to_atom(NameDomain)});
 
-net_kernel_start_do_test([TestName, TestNode, Name, NameDomain, NetTickTime, NetTickIntensity]) ->
+net_kernel_start_do_test([TestName, TestNode, Name, NameDomain, NetTickTime, NetTickIntensity,
+                          DistListen, Hidden]) ->
     net_kernel_start_do_test(TestName, TestNode, list_to_atom(Name),
                              #{net_ticktime => list_to_integer(NetTickTime),
                                name_domain => list_to_atom(NameDomain),
-                               net_tickintensity => list_to_integer(NetTickIntensity)}).
+                               net_tickintensity => list_to_integer(NetTickIntensity),
+                               dist_listen => list_to_atom(DistListen),
+                               hidden => list_to_atom(Hidden)}).
 
 net_kernel_start_do_test(TestName, TestNode, Name, Options) ->
     case net_kernel:start(Name, Options) of
         {ok, _Pid} ->
+            case maps:get(dist_listen, Options, true) of
+                false -> receive after 3000 -> ok end;
+                true -> ok
+            end,
             Tester = {list_to_atom(TestName), list_to_atom(TestNode)},
             Tester ! {i_am_alive, self(), node(), net_kernel:get_net_ticktime()},
             receive after 60000 -> ok end,

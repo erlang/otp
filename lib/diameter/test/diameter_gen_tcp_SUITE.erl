@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,14 +75,14 @@ send_long() ->
     {Sock, SendF} = connection(),
     B = binary:copy(<<$X>>, 1 bsl 20),
     ok = SendF(B),
-    B = recv(Sock, size(B), []).
+    B = recv(Sock, byte_size(B), []).
 
 recv(_, 0, Acc) ->
     list_to_binary(lists:reverse(Acc));
 recv(Sock, N, Acc) ->
     receive
         {tcp, Sock, Bin} ->
-            recv(Sock, N - size(Bin), [Bin | Acc]);
+            recv(Sock, N - byte_size(Bin), [Bin | Acc]);
         T ->
             {T, Acc}
     end.

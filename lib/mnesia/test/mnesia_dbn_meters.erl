@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,12 +64,12 @@ start(Config,Nodes,Meters) ->
 
 config(one_ram_only,[Single|_]) ->
     [{ram_copies,[Single]}];
-config(ram_and_ram,[Master|[Slave|_]]) ->
-    [{ram_copies,[Master,Slave]}];
+config(ram_and_ram,[N1,N2|_]) ->
+    [{ram_copies,[N1,N2]}];
 config(one_disc_only,[Single|_]) ->
     [{disc_copies,[Single]}];
-config(disc_and_disc,[Master|[Slave|_]]) ->
-    [{disc_copies,[Master,Slave]}];
+config(disc_and_disc,[N1,N2|_]) ->
+    [{disc_copies,[N1,N2]}];
 config(Config,Nodes) ->
     io:format("<ERROR> Config ~p not supported or too few nodes ~p given~n",[Config,Nodes]).
 

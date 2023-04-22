@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -74,7 +74,7 @@
         <p>Stops profiling started with
           <seemfa marker="#start_profiling/1"><c>start_profiling/1</c></seemfa>
           or
-          <seemfa marker="#profile/1"><c>prifile/1</c></seemfa>.</p>
+          <seemfa marker="#profile/1"><c>profile/1</c></seemfa>.</p>
       </desc>
     </func>
     <func>

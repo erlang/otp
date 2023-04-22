@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,9 +32,12 @@
 #include "erl_sys_driver.h"
 #include "global.h"
 #include "erl_threads.h"
-#include "../../drivers/win32/win_con.h"
 #include "erl_cpu_topology.h"
 #include <malloc.h>
+
+#if defined(__WIN32__) && !defined(WINDOWS_H_INCLUDES_WINSOCK2_H)
+#include <winsock2.h>
+#endif
 
 void erts_sys_init_float(void);
 
@@ -77,7 +80,7 @@ static BOOL create_child_process(wchar_t *, HANDLE, HANDLE,
 static int create_pipe(LPHANDLE, LPHANDLE, BOOL, BOOL);
 static int application_type(const wchar_t* originalName, wchar_t fullPath[MAX_PATH],
                             BOOL search_in_path, BOOL handle_quotes,
-                            int *error_return, BOOL *requote);
+                            int *error_return);
 static void *build_env_block(const erts_osenv_t *env);
 
 HANDLE erts_service_event;
@@ -125,8 +128,6 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType);
 static int max_files = 1024;
 
 static BOOL use_named_pipes;
-static BOOL win_console = FALSE;
-
 
 static OSVERSIONINFO int_os_version;	/* Version information for Win32. */
 
@@ -205,10 +206,6 @@ erts_sys_misc_mem_sz(void)
  */
 void sys_tty_reset(int exit_code)
 {
-    if (exit_code == ERTS_ERROR_EXIT)
-	ConWaitForExit();
-    else
-	ConNormalExit();
 }
 
 void erl_sys_args(int* argc, char** argv)
@@ -304,25 +301,16 @@ int erts_set_signal(Eterm signal, Eterm type) {
     return 0;
 }
 
+static DWORD dwOriginalOutMode = 0;
+static DWORD dwOriginalInMode = 0;
+
 static void
 init_console(void)
 {
-    char* mode = erts_read_env("ERL_CONSOLE_MODE");
-
-    if (!mode || strcmp(mode, "window") == 0) {
-	win_console = TRUE;
-	ConInit();
-	/*nohup = 0;*/
-    } else if (strncmp(mode, "tty:", 4) == 0) {
-	if (mode[5] == 'c') {
-	    setvbuf(stdout, NULL, _IONBF, 0);
-	}
-	if (mode[6] == 'c') {
-	    setvbuf(stderr, NULL, _IONBF, 0);
-	}
-    }
-
-    erts_free_read_env(mode);
+    GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwOriginalOutMode);
+    GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &dwOriginalInMode);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
 }
 
 int sys_max_files(void) 
@@ -1542,7 +1530,9 @@ create_child_process
     HANDLE hProcess = GetCurrentProcess();
     STARTUPINFOW siStartInfo = {0};
     wchar_t execPath[MAX_PATH];
-    BOOL requote = FALSE;
+    BOOL need_quote;
+    int quotedLen;
+    wchar_t *ptr;
 
     *errno_return = -1;
     siStartInfo.cb = sizeof(STARTUPINFOW);
@@ -1557,22 +1547,25 @@ create_child_process
 	 * contain spaces).
 	 */
 	cmdlength = parse_command(origcmd);
-	newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (MAX_PATH+wcslen(origcmd)-cmdlength)*sizeof(wchar_t));
 	thecommand = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (cmdlength+1)*sizeof(wchar_t));
 	wcsncpy(thecommand, origcmd, cmdlength);
 	thecommand[cmdlength] = L'\0';
 	DEBUGF(("spawn command: %S\n", thecommand));
 
 	applType =
-            application_type(thecommand, execPath, TRUE, TRUE, errno_return, &requote);
+            application_type(thecommand, execPath, TRUE, TRUE, errno_return);
 	DEBUGF(("application_type returned for (%S) is %d\n", thecommand, applType));
 	erts_free(ERTS_ALC_T_TMP, (void *) thecommand);
-	if (applType == APPL_NONE) {
-	    erts_free(ERTS_ALC_T_TMP,newcmdline);
+	if (applType == APPL_NONE) { 
 	    return FALSE;
 	}
-	newcmdline[0] = L'\0';
 
+        quotedLen = escape_and_quote(execPath, NULL, &need_quote);
+        newcmdline = (wchar_t *)
+            erts_alloc(ERTS_ALC_T_TMP,
+                       (11+quotedLen+wcslen(origcmd)-cmdlength)*sizeof(wchar_t));
+
+        ptr = newcmdline;
 	if (applType == APPL_DOS) {
 	    /*
 	     * Under NT, 16-bit DOS applications will not run unless they
@@ -1584,7 +1577,8 @@ create_child_process
 	    siStartInfo.wShowWindow = SW_HIDE;
 	    siStartInfo.dwFlags |= STARTF_USESHOWWINDOW;
 	    createFlags = CREATE_NEW_CONSOLE;
-	    wcscat(newcmdline, L"cmd.exe /c ");
+	    wcscpy(newcmdline, L"cmd.exe /c ");
+            ptr += 11;
 	} else if (hide) {
 	    DEBUGF(("hiding window\n"));
 	    siStartInfo.wShowWindow = SW_HIDE;
@@ -1592,14 +1586,9 @@ create_child_process
 	    createFlags = 0;
 	}
 
-        if (requote) {
-            wcscat(newcmdline, L"\"");
-        }
-	wcscat(newcmdline, execPath);
-        if (requote) {
-            wcscat(newcmdline, L"\"");
-        }
-	wcscat(newcmdline, origcmd+cmdlength);
+        ptr += escape_and_quote(execPath, ptr, &need_quote);
+
+	wcscpy(ptr, origcmd+cmdlength);
 	DEBUGF(("Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
 	ok = CreateProcessW((applType == APPL_DOS) ? appname : execPath,
 			    newcmdline,
@@ -1617,7 +1606,7 @@ create_child_process
 	int run_cmd = 0;
 
 	applType =
-            application_type(origcmd, execPath, FALSE, FALSE, errno_return, &requote);
+            application_type(origcmd, execPath, FALSE, FALSE, errno_return);
 	if (applType == APPL_NONE) {
 	    return FALSE;
 	} 
@@ -1640,7 +1629,7 @@ create_child_process
 	    wchar_t cmdPath[MAX_PATH];
 	    int cmdType;
 	    cmdType =
-                application_type(L"cmd.exe", cmdPath, TRUE, FALSE, errno_return, &requote);
+                application_type(L"cmd.exe", cmdPath, TRUE, FALSE, errno_return);
 	    if (cmdType == APPL_NONE || cmdType == APPL_DOS) {
 		return FALSE;
 	    }
@@ -1832,8 +1821,7 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
 							  * application. */
 			     BOOL search_in_path,      /* If we should search the system wide path */
 			     BOOL handle_quotes,       /* If we should handle quotes around executable */
-			     int *error_return,        /* A place to put an error code */
-                             BOOL *requote)         /* The path needs requoting */
+			     int *error_return)        /* A place to put an error code */
 {
     int applType, i;
     HANDLE hFile;
@@ -1844,15 +1832,17 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
     static wchar_t extensions[][5] = {L"", L".com", L".exe", L".bat"};
     int len;
     wchar_t xfullpath[MAX_PATH];
+    BOOL is_quoted;
 
     len = wcslen(originalName);
-    *requote = handle_quotes && len > 0 && originalName[0] == L'"' &&
-	originalName[len-1] == L'"';
+    is_quoted = (handle_quotes && len > 0
+                 && originalName[0] == L'"'
+                 && originalName[len-1] == L'"');
 
     applType = APPL_NONE;
     *error_return = ENOENT;
     for (i = 0; i < (int) (sizeof(extensions) / sizeof(extensions[0])); i++) {
-	if(*requote) {
+	if(is_quoted) {
 	   lstrcpynW(xfullpath, originalName+1, MAX_PATH - 7); /* Cannot start using StringCchCopy yet, we support
 							   older platforms */
 	   len = wcslen(xfullpath);
@@ -2194,7 +2184,6 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	    return ERL_DRV_ERROR_GENERAL;
 	}
 	
-	fd_driver_input = &(dp->in);
 	dp->in.flags = DF_XLAT_CR;
 	if (is_std_error) {
 	    dp->out.flags |= DF_DROP_IF_INVH; /* Just drop messages if stderror
@@ -2202,6 +2191,7 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	}
 	
 	if ( in == 0 && out == 1) {
+        fd_driver_input = &(dp->in);
 	    save_01_port = dp;
 	} else if (in == 2 && out == 2) {
 	    save_22_port = dp;
@@ -2781,6 +2771,11 @@ void sys_get_pid(char *buffer, size_t buffer_size){
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
 }
 
+int sys_get_hostname(char *buf, size_t size)
+{
+    return gethostname(buf, size);
+}
+
 void
 sys_init_io(void)
 {
@@ -2945,10 +2940,6 @@ sys_get_key(int fd)
 {
     ASSERT(fd == 0);
 
-    if (win_console) {
-        return ConGetKey();
-    }
-
     /*
      * Black magic follows. (Code stolen from get_overlapped_result())
      */
@@ -2972,6 +2963,32 @@ sys_get_key(int fd)
 		}
 		return key;
 	    }
+	}
+    }
+    else {
+	char c[64];
+	DWORD dwBytesRead, dwCurrentOutMode = 0, dwCurrentInMode = 0;
+
+	/* Get current console information */
+	GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwCurrentOutMode);
+	GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &dwCurrentInMode);
+
+	/* Set the a "oldstyle" terminal with line input that we can use ReadFile on */
+	SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), dwOriginalOutMode);
+	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE),
+		ENABLE_PROCESSED_INPUT |
+		ENABLE_LINE_INPUT |
+		ENABLE_ECHO_INPUT |
+		ENABLE_INSERT_MODE |
+		ENABLE_QUICK_EDIT_MODE |
+		ENABLE_AUTO_POSITION
+		);
+
+	if (ReadFile(GetStdHandle(STD_INPUT_HANDLE), &c, sizeof(c), &dwBytesRead, NULL) && dwBytesRead > 0) {
+	    /* Restore original console information */
+	    SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), dwCurrentOutMode);
+	    SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), dwCurrentInMode);
+	    return c[0];
 	}
     }
     return '*';		/* Error! */

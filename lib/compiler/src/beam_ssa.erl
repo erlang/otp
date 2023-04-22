@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -105,7 +105,8 @@
 %% To avoid the collapsing, change the value of SET_LIMIT to 50 in the
 %% file erl_types.erl in the dialyzer application.
 
--type prim_op() :: 'bs_extract' | 'bs_get_tail' | 'bs_init_writable' |
+-type prim_op() :: 'bs_create_bin' |
+                   'bs_extract' | 'bs_ensure' | 'bs_get_tail' | 'bs_init_writable' |
                    'bs_match' | 'bs_start_match' | 'bs_test_tail' |
                    'build_stacktrace' |
                    'call' | 'catch_end' |
@@ -115,20 +116,28 @@
                    'is_nonempty_list' | 'is_tagged_tuple' |
                    'kill_try_tag' |
                    'landingpad' |
-                   'make_fun' | 'match_fail' | 'new_try_tag' | 'old_make_fun' |
+                   'make_fun' | 'match_fail' | 'new_try_tag' |
+                   'nif_start' |
+                   'old_make_fun' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
-                   'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
+                   'raw_raise' |
+                   'recv_marker_bind' |
+                   'recv_marker_clear' |
+                   'recv_marker_reserve' |
+                   'recv_next' | 'remove_message' | 'resume' |
+                   'update_tuple' | 'update_record' |
                    'wait_timeout'.
 
 -type float_op() :: 'checkerror' | 'clearerror' | 'convert' | 'get' | 'put' |
                     '+' | '-' | '*' | '/'.
 
 %% Primops only used internally during code generation.
--type cg_prim_op() :: 'bs_get' | 'bs_get_position' | 'bs_match_string' |
+-type cg_prim_op() :: 'bs_checked_get' | 'bs_checked_skip' |
+                      'bs_get' | 'bs_get_position' | 'bs_match_string' |
                       'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
                       'copy' | 'match_fail' | 'put_tuple_arity' |
-                      'put_tuple_element' | 'put_tuple_elements' |
-                      'set_tuple_element' | 'succeeded'.
+                      'set_tuple_element' | 'succeeded' |
+                      'update_record'.
 
 -import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
@@ -221,6 +230,8 @@ no_side_effect(#b_set{op=Op}) ->
         put_tuple -> true;
         raw_raise -> true;
         {succeeded,guard} -> true;
+        update_record -> true;
+        update_tuple -> true;
         _ -> false
     end.
 
@@ -239,7 +250,7 @@ no_side_effect(#b_set{op=Op}) ->
     Count :: label(),
     Result :: {block_map(), label()}.
 
-insert_on_edges(Insertions, Blocks, Count) ->
+insert_on_edges(Insertions, Blocks, Count) when is_map(Blocks) ->
     %% Sort insertions to simplify the handling of duplicates.
     insert_on_edges_1(sort(Insertions), Blocks, Count).
 
@@ -329,7 +340,7 @@ is_loop_header(#b_set{op=Op}) ->
       Result :: predecessor_map().
 
 predecessors(Blocks) ->
-    P0 = [{S,L} || {L,Blk} <- maps:to_list(Blocks),
+    P0 = [{S,L} || L := Blk <- Blocks,
                    S <- successors(Blk)],
     P1 = sofs:relation(P0),
     P2 = sofs:rel2fam(P1),
@@ -374,11 +385,9 @@ successors(#b_blk{last=Terminator}) ->
 
 normalize(#b_set{op={bif,Bif},args=Args}=Set) ->
     case {is_commutative(Bif),Args} of
-        {false,_} ->
-            Set;
-        {true,[#b_literal{}=Lit,#b_var{}=Var]} ->
+        {true, [#b_literal{}=Lit,#b_var{}=Var]} ->
             Set#b_set{args=[Var,Lit]};
-        {true,_} ->
+        {_, _} ->
             Set
     end;
 normalize(#b_set{}=Set) ->
@@ -428,7 +437,7 @@ successors(L, Blocks) ->
       Blocks :: block_map(),
       Def :: ordsets:ordset(var_name()).
 
-def(Ls, Blocks) ->
+def(Ls, Blocks) when is_map(Blocks) ->
     Blks = [map_get(L, Blocks) || L <- Ls],
     def_1(Blks, []).
 
@@ -439,7 +448,7 @@ def(Ls, Blocks) ->
       Def :: ordsets:ordset(var_name()),
       Unused :: ordsets:ordset(var_name()).
 
-def_unused(Ls, Unused, Blocks) ->
+def_unused(Ls, Unused, Blocks) when is_map(Blocks) ->
     Blks = [map_get(L, Blocks) || L <- Ls],
     Preds = sets:from_list(Ls, [{version, 2}]),
     def_unused_1(Blks, Preds, [], Unused).
@@ -461,7 +470,7 @@ def_unused(Ls, Unused, Blocks) ->
       Labels :: [label()],
       Blocks :: block_map(),
       Result :: {dominator_map(), numbering_map()}.
-dominators(Labels, Blocks) ->
+dominators(Labels, Blocks) when is_map(Blocks) ->
     Preds = predecessors(Blocks),
     dominators_from_predecessors(Labels, Preds).
 
@@ -469,7 +478,7 @@ dominators(Labels, Blocks) ->
       Labels :: [label()],
       Preds :: predecessor_map(),
       Result :: {dominator_map(), numbering_map()}.
-dominators_from_predecessors(Top0, Preds) ->
+dominators_from_predecessors(Top0, Preds) when is_map(Preds) ->
     Df = maps:from_list(number(Top0, 0)),
     [{0,[]}|Top] = [{L,map_get(L, Preds)} || L <- Top0],
 
@@ -483,7 +492,7 @@ dominators_from_predecessors(Top0, Preds) ->
 %%  and Dominators and Numbering as returned from dominators/1.
 
 -spec common_dominators([label()], dominator_map(), numbering_map()) -> [label()].
-common_dominators(Ls, Dom, Numbering) ->
+common_dominators(Ls, Dom, Numbering) when is_map(Dom) ->
     Doms = [map_get(L, Dom) || L <- Ls],
     dom_intersection(Doms, Numbering).
 
@@ -493,7 +502,7 @@ common_dominators(Ls, Dom, Numbering) ->
       Acc0 :: any(),
       Blocks :: block_map().
 
-fold_instrs(Fun, Labels, Acc0, Blocks) ->
+fold_instrs(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
     fold_instrs_1(Labels, Fun, Blocks, Acc0).
 
 %% mapfold_blocks(Fun, [Label], Acc, BlockMap) -> {BlockMap,Acc}.
@@ -506,7 +515,7 @@ fold_instrs(Fun, Labels, Acc0, Blocks) ->
       Acc :: any(),
       Blocks :: block_map(),
       Result :: {block_map(), any()}.
-mapfold_blocks(Fun, Labels, Acc, Blocks) ->
+mapfold_blocks(Fun, Labels, Acc, Blocks) when is_map(Blocks) ->
     foldl(fun(Lbl, A) ->
                   mapfold_blocks_1(Fun, Lbl, A)
           end, {Blocks, Acc}, Labels).
@@ -525,7 +534,7 @@ mapfold_blocks_1(Fun, Lbl, {Blocks0, Acc0}) ->
       Blocks0 :: block_map(),
       Blocks :: block_map().
 
-mapfold_instrs(Fun, Labels, Acc0, Blocks) ->
+mapfold_instrs(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
     mapfold_instrs_1(Labels, Fun, Blocks, Acc0).
 
 -spec flatmapfold_instrs(Fun, Labels, Acc0, Blocks0) -> {Blocks,Acc} when
@@ -536,7 +545,7 @@ mapfold_instrs(Fun, Labels, Acc0, Blocks) ->
       Blocks0 :: block_map(),
       Blocks :: block_map().
 
-flatmapfold_instrs(Fun, Labels, Acc0, Blocks) ->
+flatmapfold_instrs(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
     flatmapfold_instrs_1(Labels, Fun, Blocks, Acc0).
 
 -type fold_fun() :: fun((label(), b_blk(), any()) -> any()).
@@ -551,7 +560,7 @@ flatmapfold_instrs(Fun, Labels, Acc0, Blocks) ->
       Acc0 :: any(),
       Blocks :: #{label():=b_blk()}.
 
-fold_blocks(Fun, Labels, Acc0, Blocks) ->
+fold_blocks(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
     fold_blocks_1(Labels, Fun, Blocks, Acc0).
 
 %% linearize(Blocks) -> [{BlockLabel,#b_blk{}}].
@@ -565,7 +574,7 @@ fold_blocks(Fun, Labels, Acc0, Blocks) ->
       Blocks :: block_map(),
       Linear :: [{label(),b_blk()}].
 
-linearize(Blocks) ->
+linearize(Blocks) when is_map(Blocks) ->
     Seen = sets:new([{version, 2}]),
     {Linear0,_} = linearize_1([0], Blocks, Seen, []),
     Linear = fix_phis(Linear0, #{}),
@@ -583,7 +592,7 @@ rpo(Blocks) ->
       Blocks :: block_map(),
       Labels :: [label()].
 
-rpo(From, Blocks) ->
+rpo(From, Blocks) when is_map(Blocks) ->
     Seen = sets:new([{version, 2}]),
     {Ls,_} = rpo_1(From, Blocks, Seen, []),
     Ls.
@@ -600,7 +609,7 @@ rpo(From, Blocks) ->
       Blocks :: block_map(),
       Labels :: [label()].
 
-between(From, To, Preds, Blocks) ->
+between(From, To, Preds, Blocks) when is_map(Preds), is_map(Blocks) ->
     %% Gather the predecessors of `To` and then walk forward from `From`,
     %% skipping the blocks that don't precede `To`.
     %%
@@ -618,7 +627,7 @@ between(From, To, Preds, Blocks) ->
 
 rename_vars(Rename, Labels, Blocks) when is_list(Rename) ->
     rename_vars(maps:from_list(Rename), Labels, Blocks);
-rename_vars(Rename, Labels, Blocks) when is_map(Rename)->
+rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
     Preds = sets:from_list(Labels, [{version, 2}]),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
@@ -635,8 +644,8 @@ rename_vars(Rename, Labels, Blocks) when is_map(Rename)->
         end,
     map_instrs_1(Labels, F, Blocks).
 
-%% split_blocks(Predicate, Blocks0, Count0) -> {Blocks,Count}.
-%%  Call Predicate(Instruction) for each instruction in all
+%% split_blocks(Labels, Predicate, Blocks0, Count0) -> {Blocks,Count}.
+%%  Call Predicate(Instruction) for each instruction in the given
 %%  blocks. If Predicate/1 returns true, split the block
 %%  before this instruction.
 
@@ -649,7 +658,7 @@ rename_vars(Rename, Labels, Blocks) when is_map(Rename)->
       Blocks :: block_map(),
       Count :: label().
 
-split_blocks(Ls, P, Blocks, Count) ->
+split_blocks(Ls, P, Blocks, Count) when is_map(Blocks) ->
     split_blocks_1(Ls, P, Blocks, Count).
 
 -spec trim_unreachable(SSA0) -> SSA when
@@ -698,7 +707,7 @@ definitions(Labels, Blocks) ->
 -spec uses(Labels, Blocks) -> usage_map() when
       Labels :: [label()],
       Blocks :: block_map().
-uses(Labels, Blocks) ->
+uses(Labels, Blocks) when is_map(Blocks) ->
     fold_blocks(fun fold_uses_block/3, Labels, #{}, Blocks).
 
 fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->

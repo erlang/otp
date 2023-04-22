@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -232,8 +232,8 @@ cast(Msg) ->
 init([Parent]) ->
     ?d("init -> entry", []),
     process_flag(trap_exit, true),
-    ets:new(megaco_requests, [public, named_table, {keypos, 2}]),
-    ets:new(megaco_replies,  [public, named_table, {keypos, 2}]),
+    _ = ets:new(megaco_requests, [public, named_table, {keypos, 2}]),
+    _ = ets:new(megaco_replies,  [public, named_table, {keypos, 2}]),
     ?d("init -> done", []),
     {ok, #state{parent_pid = Parent}}.
 

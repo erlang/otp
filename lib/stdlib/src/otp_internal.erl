@@ -31,50 +31,28 @@ obsolete(auth, is_auth, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
-obsolete(code, is_module_native, 1) ->
-    {deprecated, "HiPE has been removed", "OTP 26"};
-obsolete(code, rehash, 0) ->
-    {deprecated, "the code path cache feature has been removed", "OTP 26"};
 obsolete(crypto, crypto_dyn_iv_init, 3) ->
     {deprecated, "see the documentation for details", "OTP 27"};
 obsolete(crypto, crypto_dyn_iv_update, 3) ->
     {deprecated, "see the documentation for details", "OTP 27"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
-obsolete(disk_log, accessible_logs, 0) ->
-    {deprecated, "use disk_log:all/0 instead", "OTP 26"};
-obsolete(disk_log, lclose, 1) ->
-    {deprecated, "use disk_log:close/1 instead", "OTP 26"};
-obsolete(disk_log, lclose, 2) ->
-    {deprecated, "use disk_log:close/1 instead", "OTP 26"};
+obsolete(dbg, stop_clear, 0) ->
+    {deprecated, "use dbg:stop/0 instead", "OTP 27"};
+obsolete(disk_log, inc_wrap_file, 1) ->
+    {deprecated, "use disk_log:next_file/1 instead", "OTP 28"};
 obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(erlang, phash, 2) ->
     {deprecated, "use erlang:phash2/2 instead"};
-obsolete(ftp, start_service, 1) ->
-    {deprecated, "use ftp:open/2 instead", "OTP 26"};
-obsolete(ftp, stop_service, 1) ->
-    {deprecated, "use ftp:close/1 instead", "OTP 26"};
+obsolete(file, pid2name, 1) ->
+    {deprecated, "this functionality is no longer supported", "OTP 27"};
 obsolete(http_uri, decode, 1) ->
-    {deprecated, "use uri_string:unquote function instead", "OTP 26"};
+    {deprecated, "use uri_string:unquote function instead", "OTP 27"};
 obsolete(http_uri, encode, 1) ->
-    {deprecated, "use uri_string:quote function instead", "OTP 26"};
+    {deprecated, "use uri_string:quote function instead", "OTP 27"};
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
-obsolete(httpd_util, decode_hex, 1) ->
-    {deprecated, "use uri_string:unquote function instead", "OTP 26"};
-obsolete(httpd_util, encode_hex, 1) ->
-    {deprecated, "use uri_string:quote function instead", "OTP 26"};
-obsolete(httpd_util, flatlength, 1) ->
-    {deprecated, "use erlang:iolist_size/1 instead", "OTP 26"};
-obsolete(httpd_util, hexlist_to_integer, 1) ->
-    {deprecated, "use erlang:list_to_integer/2 with base 16 instead", "OTP 26"};
-obsolete(httpd_util, integer_to_hexlist, 1) ->
-    {deprecated, "use erlang:integer_to_list/2 with base 16 instead", "OTP 26"};
-obsolete(httpd_util, strip, 1) ->
-    {deprecated, "use string:trim/1 instead", "OTP 26"};
-obsolete(httpd_util, suffix, 1) ->
-    {deprecated, "use filename:extension/1 and string:trim/2 instead", "OTP 26"};
 obsolete(net, broadcast, 3) ->
     {deprecated, "use rpc:eval_everywhere/3 instead"};
 obsolete(net, call, 4) ->
@@ -115,6 +93,10 @@ obsolete(zlib, inflateChunk, 2) ->
     {deprecated, "use safeInflate/2 instead", "OTP 27"};
 obsolete(zlib, setBufSize, 2) ->
     {deprecated, "this function will be removed in a future release", "OTP 27"};
+obsolete(code, is_module_native, 1) ->
+    {removed, "HiPE has been removed"};
+obsolete(code, rehash, 0) ->
+    {removed, "the code path cache feature has been removed"};
 obsolete(core_lib, get_anno, 1) ->
     {removed, "use cerl:get_ann/1 instead"};
 obsolete(core_lib, is_literal, 1) ->
@@ -155,6 +137,12 @@ obsolete(crypto, stream_decrypt, 2) ->
     {removed, "use crypto:crypto_update/2 instead"};
 obsolete(crypto, stream_encrypt, 2) ->
     {removed, "use crypto:crypto_update/2 instead"};
+obsolete(disk_log, accessible_logs, 0) ->
+    {removed, "use disk_log:all/0 instead"};
+obsolete(disk_log, lclose, 1) ->
+    {removed, "use disk_log:close/1 instead"};
+obsolete(disk_log, lclose, 2) ->
+    {removed, "use disk_log:close/1 instead"};
 obsolete(erl_lint, modify_line, 2) ->
     {removed, "use erl_parse:map_anno/2 instead"};
 obsolete(erl_parse, get_attribute, 2) ->
@@ -171,6 +159,10 @@ obsolete(erlang, hash, 2) ->
     {removed, "use erlang:phash2/2 instead"};
 obsolete(filename, safe_relative_path, 1) ->
     {removed, "use filelib:safe_relative_path/2 instead"};
+obsolete(ftp, start_service, 1) ->
+    {removed, "use ftp:open/2 instead"};
+obsolete(ftp, stop_service, 1) ->
+    {removed, "use ftp:close/1 instead"};
 obsolete(http_uri, parse, 1) ->
     {removed, "use uri_string functions instead"};
 obsolete(http_uri, parse, 2) ->
@@ -189,6 +181,20 @@ obsolete(httpd_conf, is_file, 1) ->
     {removed, "use filelib:is_file/1 instead"};
 obsolete(httpd_conf, make_integer, 1) ->
     {removed, "use erlang:list_to_integer/1 instead"};
+obsolete(httpd_util, decode_hex, 1) ->
+    {removed, "use uri_string:unquote function instead"};
+obsolete(httpd_util, encode_hex, 1) ->
+    {removed, "use uri_string:quote function instead"};
+obsolete(httpd_util, flatlength, 1) ->
+    {removed, "use erlang:iolist_size/1 instead"};
+obsolete(httpd_util, hexlist_to_integer, 1) ->
+    {removed, "use erlang:list_to_integer/2 with base 16 instead"};
+obsolete(httpd_util, integer_to_hexlist, 1) ->
+    {removed, "use erlang:integer_to_list/2 with base 16 instead"};
+obsolete(httpd_util, strip, 1) ->
+    {removed, "use string:trim/1 instead"};
+obsolete(httpd_util, suffix, 1) ->
+    {removed, "use filename:extension/1 and string:trim/2 instead"};
 obsolete(net, relay, 1) ->
     {removed, "use fun Relay(Pid) -> receive X -> Pid ! X end, Relay(Pid) instead"};
 obsolete(public_key, ssh_decode, 2) ->
@@ -231,14 +237,14 @@ obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl_handshake/1,2,3 instead"};
 obsolete(ct_slave, _, _) ->
     {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 27"};
-obsolete(erts_alloc_config, _, _) ->
-    {deprecated, "this module will be removed in OTP 26.0. See the documentation for details", "OTP 26"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(slave, _, _) ->
     {deprecated, "use the 'peer' module instead", "OTP 27"};
+obsolete(erts_alloc_config, _, _) ->
+    {removed, "this module has as of OTP 26.0 been removed"};
 obsolete(os_mon_mib, _, _) ->
     {removed, "this module was removed in OTP 22.0"};
 obsolete(pg2, _, _) ->
@@ -275,6 +281,8 @@ obsolete_type(http_uri, path, 0) ->
 obsolete_type(http_uri, query, 0) ->
     {removed, "use uri_string instead"};
 obsolete_type(http_uri, scheme, 0) ->
+    {removed, "use uri_string instead"};
+obsolete_type(http_uri, uri, 0) ->
     {removed, "use uri_string instead"};
 obsolete_type(http_uri, user_info, 0) ->
     {removed, "use uri_string instead"};

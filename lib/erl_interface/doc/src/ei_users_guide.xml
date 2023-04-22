@@ -241,7 +241,7 @@ const char* node_name = "einode@durin";
 const char *cookie = NULL;
 short creation = time(NULL) + 1;
 ei_cnode ec;
-ei_connect_init(ec,
+ei_connect_init(&ec,
                 node_name,
                 cookie,
                 creation);    ]]></code>
@@ -257,7 +257,7 @@ ei_connect_init(ec,
     <code type="none"><![CDATA[
 int sockfd;
 const char* node_name = "einode@durin"; /* An example */
-if ((sockfd = ei_connect(ec, nodename)) < 0)
+if ((sockfd = ei_connect(&ec, nodename)) < 0)
   fprintf(stderr, "ERROR: ei_connect failed");    ]]></code>
 
   </section>
@@ -289,7 +289,7 @@ if ((sockfd = ei_connect(ec, nodename)) < 0)
     <code type="none"><![CDATA[
 int pub;
 
-pub = ei_publish(ec, port);    ]]></code>
+pub = ei_publish(&ec, port);    ]]></code>
 
     <p><c>pub</c> is a file descriptor now connected to
       <c>epmd</c>. <c>epmd</c>
@@ -347,7 +347,7 @@ ei_x_encode_tuple_header(&buf, 2);
 ei_x_encode_pid(&buf, ei_self(ec));
 ei_x_encode_atom(&buf, "Hello world");
 
-ei_reg_send(ec,fd,"my_server",buf,buf.index);]]></code>
+ei_reg_send(&ec,fd,"my_server",buf,buf.index);]]></code>
 
       <p>The first element of the tuple that is sent is your own
         pid. This enables <c>my_server</c> to reply.
@@ -458,7 +458,7 @@ char **names;
 int count;
 int i;
 
-names = ei_global_names(ec,fd,&count);
+names = ei_global_names(&ec,fd,&count);
 
 if (names) 
   for (i=0; i<count; i++) 
@@ -487,7 +487,7 @@ ETERM *pid;
 char node[256];
 erlang_pid the_pid;
 
-if (ei_global_whereis(ec,fd,"schedule",&the_pid,node) < 0)
+if (ei_global_whereis(&ec,fd,"schedule",&the_pid,node) < 0)
    fprintf(stderr, "ei_global_whereis error\n");    ]]></code>
 
     <p>If <c>"schedule"</c> is known to the
@@ -524,7 +524,7 @@ ei_global_register(fd,servicename,ei_self(ec));    ]]></code>
     <p>To unregister a name:</p>
 
     <code type="none"><![CDATA[
-ei_global_unregister(ec,fd,servicename);    ]]></code>
+ei_global_unregister(&ec,fd,servicename);    ]]></code>
   </section>
 
 </chapter>

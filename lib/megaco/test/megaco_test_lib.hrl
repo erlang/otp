@@ -90,6 +90,8 @@
 
 -define(TRY_TC(TCN, N, V, PRE, CASE, POST),
         ?LIB:try_tc(TCN, N, V, PRE, CASE, POST)).
+-define(TRY_TC(TCN, N, V, COND, PRE, CASE, POST),
+        ?LIB:try_tc(TCN, N, V, COND, PRE, CASE, POST)).
 
 -define(ACQUIRE_NODES(N, Config),
 	?LIB:prepare_test_case([init, {stop_app, megaco}],

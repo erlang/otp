@@ -192,7 +192,7 @@ init_per_testcase(sanity_check, Config) ->
         {ok,<<"DEVELOPMENT",_/binary>>} ->
             {skip, "This is a development version, test might fail "
              "because of incorrect version numbers"};
-        {ok,S} ->
+        {ok,_S} ->
             Config
     end;
 init_per_testcase(_TestCase, Config) ->
@@ -293,7 +293,6 @@ validate_loaded_report() ->
     ok = system_information:application(kernel,[full]),
     ok = system_information:module(gen_server),
     ok = system_information:module(gen_server,[full]),
-    ok = system_information:modules(native),
     ok.
 
 

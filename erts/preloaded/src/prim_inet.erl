@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% The SCTP protocol was added 2006
@@ -564,47 +564,32 @@ peeloff(S, AssocId) ->
 %%
 send(S, Data, OptList) when is_port(S), is_list(OptList) ->
     ?DBG_FORMAT("prim_inet:send(~p, _, ~p)~n", [S,OptList]),
-    try erlang:port_command(S, Data, OptList) of
-	false -> % Port busy and nosuspend option passed
+    Mref = monitor(port, S),
+    MrefBin = term_to_binary(Mref, [local]),
+    MrefBinSize = byte_size(MrefBin),
+    MrefBinSize = MrefBinSize band 16#FFFF,
+    try
+        erlang:port_command(
+          S, [<<MrefBinSize:16,MrefBin/binary>>, Data], OptList)
+    of
+        false -> % Port busy when nosuspend option was passed
 	    ?DBG_FORMAT("prim_inet:send() -> {error,busy}~n", []),
-	    {error,busy};
-	true ->
-            send_recv_reply(S, undefined)
-    catch
-	error:_Error ->
+            {error,busy};
+        true ->
+            receive
+                {inet_reply,S,Status,Mref} ->
+                    demonitor(Mref, [flush]),
+                    Status;
+                {'DOWN',Mref,_,_,_Reason} ->
+                    ?DBG_FORMAT(
+                       "prim_inet:send_recv_reply(~p, _) 'DOWN' ~p~n",
+                       [S,_Reason]),
+                    {error,closed}
+            end
+    catch error: _ ->
 	    ?DBG_FORMAT("prim_inet:send() -> {error,einval}~n", []),
 	     {error,einval}
     end.
-
-send_recv_reply(S, Mref) ->
-    ReplyTimeout =
-        case Mref of
-            undefined ->
-                ?INET_CLOSE_TIMEOUT;
-            _ ->
-                infinity
-        end,
-    receive
-        {inet_reply,S,Status} ->
-            ?DBG_FORMAT(
-               "prim_inet:send_recv_reply(~p, _): inet_reply ~p~n",
-               [S,Status]),
-            case Mref of
-                undefined -> ok;
-                _ ->
-                    demonitor(Mref, [flush]),
-                    ok
-            end,
-            Status;
-        {'DOWN',Mref,_,_,_Reason} when Mref =/= undefined ->
-            ?DBG_FORMAT(
-               "prim_inet:send_recv_reply(~p, _) 'DOWN' ~p~n",
-               [S,_Reason]),
-            {error,closed}
-    after ReplyTimeout ->
-            send_recv_reply(S, monitor(port, S))
-    end.
-
 
 send(S, Data) ->
     send(S, Data, []).
@@ -645,10 +630,19 @@ do_sendto(S, Address, AncOpts, Data) ->
                         [enc_value(set, addr, Address),
                          enc_value(set, uint32, AncDataLen), AncData,
                          Data],
-                    try erlang:port_command(S, PortCommandData) of
+                    Ref = make_ref(),
+                    RefBin = term_to_binary(Ref, [local]),
+                    RefBinSize = byte_size(RefBin),
+                    RefBinSize = RefBinSize band 16#FFFF,
+                    try
+                        erlang:port_command(
+                          S,
+                          [<<RefBinSize:16,RefBin/binary>>,
+                           PortCommandData])
+                    of
                         true ->
                             receive
-                                {inet_reply,S,Reply} ->
+                                {inet_reply,S,Reply,Ref} ->
                                     ?DBG_FORMAT(
                                        "prim_inet:sendto() -> ~p~n", [Reply]),
                                     Reply
@@ -669,7 +663,6 @@ do_sendto(S, Address, AncOpts, Data) ->
                "prim_inet:sendto() -> {error,einval}~n", []),
             {error,einval}
     end.
-    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -1513,6 +1506,9 @@ is_sockopt_val(Opt, Val) ->
 %% Socket options processing: Encoding option NAMES:
 %%
 enc_opt(reuseaddr)       -> ?INET_OPT_REUSEADDR;
+enc_opt(reuseport)       -> ?INET_OPT_REUSEPORT;
+enc_opt(reuseport_lb)    -> ?INET_OPT_REUSEPORT_LB;
+enc_opt(exclusiveaddruse) -> ?INET_OPT_EXCLUSIVEADDRUSE;
 enc_opt(keepalive)       -> ?INET_OPT_KEEPALIVE;
 enc_opt(dontroute)       -> ?INET_OPT_DONTROUTE;
 enc_opt(linger)          -> ?INET_OPT_LINGER;
@@ -1556,6 +1552,7 @@ enc_opt(show_econnreset) -> ?INET_LOPT_TCP_SHOW_ECONNRESET;
 enc_opt(line_delimiter)  -> ?INET_LOPT_LINE_DELIM;
 enc_opt(raw)             -> ?INET_OPT_RAW;
 enc_opt(bind_to_device)  -> ?INET_OPT_BIND_TO_DEVICE;
+enc_opt(debug)           -> ?INET_OPT_DEBUG;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
 enc_opt(sctp_associnfo)	 	   -> ?SCTP_OPT_ASSOCINFO;
@@ -1580,6 +1577,9 @@ enc_opt(sctp_get_peer_addr_info)   -> ?SCTP_OPT_GET_PEER_ADDR_INFO.
 %% Decoding option NAMES:
 %%
 dec_opt(?INET_OPT_REUSEADDR)      -> reuseaddr;
+dec_opt(?INET_OPT_REUSEPORT)      -> reuseport;
+dec_opt(?INET_OPT_REUSEPORT_LB)   -> reuseport_lb;
+dec_opt(?INET_OPT_EXCLUSIVEADDRUSE) -> exclusiveaddruse;
 dec_opt(?INET_OPT_KEEPALIVE)      -> keepalive;
 dec_opt(?INET_OPT_DONTROUTE)      -> dontroute;
 dec_opt(?INET_OPT_LINGER)         -> linger;
@@ -1623,6 +1623,7 @@ dec_opt(?INET_LOPT_TCP_SHOW_ECONNRESET) -> show_econnreset;
 dec_opt(?INET_LOPT_LINE_DELIM)      -> line_delimiter;
 dec_opt(?INET_OPT_RAW)              -> raw;
 dec_opt(?INET_OPT_BIND_TO_DEVICE) -> bind_to_device;
+dec_opt(?INET_OPT_DEBUG)          -> debug;
 dec_opt(I) when is_integer(I)     -> undefined.
 
 
@@ -1662,6 +1663,9 @@ type_opt(_,   Opt) ->
 %% Types of option values, by option name:
 %%
 type_opt_1(reuseaddr)       -> bool;
+type_opt_1(reuseport)       -> bool;
+type_opt_1(reuseport_lb)    -> bool;
+type_opt_1(exclusiveaddruse) -> bool;
 type_opt_1(keepalive)       -> bool;
 type_opt_1(dontroute)       -> bool;
 type_opt_1(linger)          -> {bool,int};
@@ -1682,9 +1686,9 @@ type_opt_1(ipv6_v6only)     -> bool;
 %% multicast
 type_opt_1(multicast_ttl)   -> int;
 type_opt_1(multicast_loop)  -> bool;
-type_opt_1(multicast_if)    -> ip;
-type_opt_1(add_membership)  -> {ip,ip};
-type_opt_1(drop_membership) -> {ip,ip};
+type_opt_1(multicast_if)    -> mif;
+type_opt_1(add_membership)  -> membership;
+type_opt_1(drop_membership) -> membership;
 %% driver options
 type_opt_1(header)          -> uint;
 type_opt_1(buffer)          -> int;
@@ -1731,6 +1735,7 @@ type_opt_1(read_packets)    -> uint;
 type_opt_1(netns)           -> binary;
 type_opt_1(show_econnreset) -> bool;
 type_opt_1(bind_to_device)  -> binary;
+type_opt_1(debug)           -> bool;
 %% 
 %% SCTP options (to be set). If the type is a record type, the corresponding
 %% record signature is returned, otherwise, an "elementary" type tag 
@@ -1918,7 +1923,23 @@ type_value_2(uint16, X) when X band 16#ffff =:= X     -> true;
 type_value_2(uint8, X)  when X band 16#ff =:= X       -> true;
 type_value_2(time, infinity)                          -> true;
 type_value_2(time, X) when is_integer(X), X >= 0      -> true;
-type_value_2(ip,{A,B,C,D}) when ?ip(A,B,C,D)          -> true;
+%% type_value_2(ip,{A,B,C,D}) when ?ip(A,B,C,D)          -> true;
+type_value_2(mif,{A,B,C,D}) when ?ip(A,B,C,D)         -> true;
+type_value_2(mif,Idx) when is_integer(Idx)            -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, {A2,B2,C2,D2}})
+  when ?ip(A1,B1,C1,D1) andalso ?ip(A2,B2,C2,D2)      -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, any})
+  when ?ip(A1,B1,C1,D1)                               -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, {A2,B2,C2,D2}, Idx})
+  when ?ip(A1,B1,C1,D1) andalso
+       ?ip(A2,B2,C2,D2) andalso
+       is_integer(Idx)                                -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, any, Idx})
+  when ?ip(A1,B1,C1,D1) andalso
+       is_integer(Idx)                                -> true;
+type_value_2(membership,{{A,B,C,D,E,F,G,H}, Idx})
+  when ?ip6(A,B,C,D,E,F,G,H) andalso
+       is_integer(Idx)                                -> true;
 %%
 type_value_2(addr, {any,Port}) ->
     type_value_2(uint16, Port);
@@ -2078,21 +2099,58 @@ enc_value_tuple(_, _, _, _) -> [].
 %%
 %% Encoding of option VALUES:
 %%
-enc_value_2(bool, true)     -> [0,0,0,1];
-enc_value_2(bool, false)    -> [0,0,0,0];
-enc_value_2(bool8, true)    -> [1];
-enc_value_2(bool8, false)   -> [0];
-enc_value_2(int, Val)       -> ?int32(Val);
-enc_value_2(uint, Val)      -> ?int32(Val);
-enc_value_2(uint32, Val)    -> ?int32(Val);
-enc_value_2(uint24, Val)    -> ?int24(Val);
-enc_value_2(uint16, Val)    -> ?int16(Val);
-enc_value_2(uint8, Val)     -> ?int8(Val);
-enc_value_2(time, infinity) -> ?int32(-1);
-enc_value_2(time, Val)      -> ?int32(Val);
-enc_value_2(ip,{A,B,C,D})   -> [A,B,C,D];
-enc_value_2(ip, any)        -> ip4_any();
-enc_value_2(ip, loopback)   -> ip4_loopback();
+enc_value_2(bool, true)      -> [0,0,0,1];
+enc_value_2(bool, false)     -> [0,0,0,0];
+enc_value_2(bool8, true)     -> [1];
+enc_value_2(bool8, false)    -> [0];
+enc_value_2(int, Val)        -> ?int32(Val);
+enc_value_2(uint, Val)       -> ?int32(Val);
+enc_value_2(uint32, Val)     -> ?int32(Val);
+enc_value_2(uint24, Val)     -> ?int24(Val);
+enc_value_2(uint16, Val)     -> ?int16(Val);
+enc_value_2(uint8, Val)      -> ?int8(Val);
+enc_value_2(time, infinity)  -> ?int32(-1);
+enc_value_2(time, Val)       -> ?int32(Val);
+%% enc_value_2(ip, IP)
+%%   when (tuple_size(IP) =:= 4) -> ip4_to_bytes(IP);
+%% enc_value_2(ip, any)          -> ip4_any();
+%% enc_value_2(ip, loopback)     -> ip4_loopback();
+enc_value_2(mif, IP)
+  when (tuple_size(IP) =:= 4) -> ip4_to_bytes(IP);
+enc_value_2(mif, Idx)
+  when is_integer(Idx)        -> ?int32(Idx);
+enc_value_2(membership, {IP1, IP2})
+  when (tuple_size(IP1) =:= 4) andalso
+       (tuple_size(IP2) =:= 4) ->
+    enc_value_2(membership, {IP1, IP2, 0});
+enc_value_2(membership, {IP1, IP2})
+  when (tuple_size(IP1) =:= 4) andalso
+       (IP2 =:= any) ->
+    enc_value_2(membership, {IP1, IP2, 0});
+%% enc_value_2(membership, {IP1, any = _IP2})
+%%   when (tuple_size(IP1) =:= 4) ->
+%%     [?INET_AF_INET, ?int32(0), ip4_to_bytes(IP1), ip4_any()];
+enc_value_2(membership, {IP1, IP2, Idx})
+  when (tuple_size(IP1) =:= 4) andalso
+       (tuple_size(IP2) =:= 4) andalso
+       is_integer(Idx) ->
+    %% The reason for turning this thing around (the interface
+    %% before the two address'es) so that we as much as possible
+    %% "look like" IPv6...se below
+    [?int32(?INET_AF_INET), ?int32(Idx), ip4_to_bytes(IP1), ip4_to_bytes(IP2)];
+enc_value_2(membership, {IP1, any = _IP2, Idx})
+  when (tuple_size(IP1) =:= 4) andalso
+       is_integer(Idx) ->
+    [?int32(?INET_AF_INET), ?int32(Idx), ip4_to_bytes(IP1), ip4_any()];
+enc_value_2(membership, {IP, Idx})
+  when (tuple_size(IP) =:= 8) andalso
+       is_integer(Idx) ->
+    %% The reason for turning this thing around (the interface
+    %% before the address) is because of the inet-driver (it reads out a
+    %% 32-bit value for *all* options, so we might as well put a 32-bit
+    %% value "first".
+    [?int32(?INET_AF_INET6), ?int32(Idx), ip6_to_bytes(IP)];
+
 %%
 enc_value_2(addr, {any,Port}) ->
     [?INET_AF_ANY|?int16(Port)];
@@ -2192,7 +2250,15 @@ dec_value(time, [X3,X2,X1,X0|T]) ->
 	-1 -> {infinity, T};
 	Val -> {Val, T}
     end;
-dec_value(ip, [A,B,C,D|T])             -> {{A,B,C,D}, T};
+%% dec_value(ip,  [A,B,C,D|T])             -> {{A,B,C,D}, T};
+dec_value(mif, [A,B,C,D, X3,X2,X1,X0|T]) ->
+    Domain = ?i32(X3, X2, X1, X0),
+    case Domain of
+        ?INET_AF_INET ->
+            {{A,B,C,D}, T};
+        ?INET_AF_INET6 ->
+            {?i32(A,B,C,D), T}
+    end;
 %% dec_value(ether, [X1,X2,X3,X4,X5,X6|T]) -> {[X1,X2,X3,X4,X5,X6],T};
 dec_value(sockaddr, [X|T]) ->
     get_ip(X, T);
@@ -2498,7 +2564,8 @@ decode_ifopts([B | Buf], Acc) ->
 	undefined -> 
 	    {error, einval};
 	Opt ->
-	    {Val,T} = dec_value(type_ifopt(Opt), Buf),
+            OptType = type_ifopt(Opt),
+	    {Val,T} = dec_value(OptType, Buf),
 	    decode_ifopts(T, [{Opt,Val} | Acc])
     end;
 decode_ifopts(_,Acc) -> {ok,Acc}.

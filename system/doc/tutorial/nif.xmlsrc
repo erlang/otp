@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2021</year>
+      <year>2000</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,8 +32,7 @@
   <p>This section outlines an example of how to solve the example
     problem in <seeguide marker="example">Problem Example</seeguide>
     by using Native Implemented Functions (NIFs).</p>
-  <p>NIFs were introduced in Erlang/OTP R13B03 as an experimental
-    feature. It is a simpler and more efficient way of calling C-code
+  <p>NIFs are a simpler and more efficient way of calling C-code
     than using port drivers. NIFs are most suitable for synchronous
     functions, such as <c>foo</c> and <c>bar</c> in the example, that
     do some relatively short calculations without side effects and
@@ -99,7 +98,7 @@
 
     <codeinclude file="complex6_nif.c" tag="" type="none"></codeinclude>
 
-    <p>Here,<c>ERL_NIF_INIT</c> has the following arguments:</p>
+    <p>Here, <c>ERL_NIF_INIT</c> has the following arguments:</p>
     <list type="bulleted">
       <item><p>The first argument must be the name of the
       Erlang module as a C-identifier. It will be stringified by the

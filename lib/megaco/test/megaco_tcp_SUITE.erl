@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -318,10 +318,10 @@ start_and_stop(doc) ->
 start_and_stop(Config) when is_list(Config) ->
     Pre = fun() ->
 		  p("create nodes"),
-		  ServerNode = make_node_name(server),
-		  ClientNode = make_node_name(client),
+		  ServerNode = make_node_name(t_sas_server),
+		  ClientNode = make_node_name(t_sas_client),
 		  Nodes = [ServerNode, ClientNode], 
-		  ok = ?START_NODES(Nodes),
+		  ok = ?START_NODES(Nodes, true),
 		  Nodes
 	  end,
     Case = fun(X) -> do_start_and_stop(Config, X) end,
@@ -461,10 +461,10 @@ sendreceive(suite) ->
 sendreceive(Config) when is_list(Config) ->
     Pre = fun() ->
 		  p("create nodes"),
-		  ServerNode = make_node_name(server),
-		  ClientNode = make_node_name(client),
+		  ServerNode = make_node_name(t_sr_server),
+		  ClientNode = make_node_name(t_sr_client),
 		  Nodes = [ServerNode, ClientNode], 
-		  ok = ?START_NODES(Nodes),
+		  ok = ?START_NODES(Nodes, true),
 		  Nodes
 	  end,
     Case = fun(X) -> do_sendreceive(Config, X) end,
@@ -673,10 +673,10 @@ block_unblock(suite) ->
 block_unblock(Config) when is_list(Config) ->
     Pre = fun() ->
 		  p("create nodes"),
-		  ServerNode = make_node_name(server),
-		  ClientNode = make_node_name(client),
+		  ServerNode = make_node_name(t_bb_server),
+		  ClientNode = make_node_name(t_bb_client),
 		  Nodes = [ServerNode, ClientNode], 
-		  ok = ?START_NODES(Nodes),
+		  ok = ?START_NODES(Nodes, true),
 		  Nodes
 	  end,
     Case = fun(X) -> do_block_unblock(Config, X) end,
@@ -1054,14 +1054,22 @@ process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg)
 await_server_listening(Server, Client) ->
     receive
         {listening, Server} ->
-            p("received listening message from server [~p] => "
+            p("[await-server-listening] "
+              "received listening message from server [~p] => "
               "send continue to client [~p]"
               "~n", [Server, Client]),
             Client ! {continue, self()},
             ok;
 	{'EXIT', Server, SReason} ->
+            p("[await-server-listening] unexpected server (~p) exit: "
+              "~n       ~p"
+              "~n", [Server, SReason]),
 	    exit({server_crash, SReason});
 	{'EXIT', Client, CReason} ->
+            p("[await-server-listening] "
+              "unexpected client (~p) exit: "
+              "~n       ~p"
+              "~n", [Client, CReason]),
 	    exit({client_crash, CReason})
     after 5000 ->
             %% There is no normal reason why this should take any time.
@@ -1076,13 +1084,22 @@ await_server_listening(Server, Client) ->
 await_client_blocked(Server, Client) ->
     receive
         {blocked, Client} ->
-            p("received blocked message from client [~p] => "
+            p("[await-client-blocked] "
+              "received blocked message from client [~p] => "
               "send continue to server [~p]~n", [Client, Server]),
             Server ! {continue, self()},
             ok;
 	{'EXIT', Client, CReason} ->
+            p("[await-client-blocked] "
+              "unexpected client (~p) exit: "
+              "~n       ~p"
+              "~n", [Client, CReason]),
 	    exit({client_crash, CReason});
 	{'EXIT', Server, SReason} ->
+            p("[await-client-blocked] "
+              "unexpected server (~p) exit: "
+              "~n       ~p"
+              "~n", [Server, SReason]),
 	    exit({server_crash, SReason})
     after 5000 ->
             %% There is no normal reason why this should take any time.

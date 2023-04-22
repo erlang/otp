@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -623,17 +623,16 @@ sys_mem_cond_run(ReqSizeMB, TestFun) when is_integer(ReqSizeMB) ->
 
 
 total_memory() ->
-    %% Totat memory in MB.
+    %% Total memory in MB.
     try
-	MemoryData = memsup:get_system_memory_data(),
-	case lists:keysearch(total_memory, 1, MemoryData) of
-	    {value, {total_memory, TM}} ->
-		TM div (1024*1024);
-	    false ->
-		{value, {system_total_memory, STM}} =
-		    lists:keysearch(system_total_memory, 1, MemoryData),
-		STM div (1024*1024)
-	end
+	SMD = memsup:get_system_memory_data(),
+        TM = proplists:get_value(
+               available_memory, SMD,
+               proplists:get_value(
+                 total_memory, SMD,
+                 proplists:get_value(
+                   system_total_memory, SMD))),
+        TM div (1024*1024)
     catch
 	_ : _ ->
 	    undefined

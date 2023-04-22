@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -434,25 +434,45 @@ do_recv_delim(Config) ->
 %%% gen_tcp:shutdown/2
 
 t_shutdown_write(Config) when is_list(Config) ->
+    ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-                                   ?INET_BACKEND_OPTS(Config) ++
-                                       [{active, false}]),
+    ?P("create connect socket (C)"),
+    {ok, C} = gen_tcp:connect(localhost, Port,
+                              ?INET_BACKEND_OPTS(Config) ++
+                                  [{active, false}]),
+    ?P("create accept socket (A)"),
     {ok, A} = gen_tcp:accept(L),
+    ?P("send message A -> C"),
+    ok = gen_tcp:send(A, "Hej Client"),
+    ?P("socket A shutdown(write)"),
     ok = gen_tcp:shutdown(A, write),
-    {error, closed} = gen_tcp:recv(Client, 0),
+    ?P("socket C recv - expect message"),
+    {ok, "Hej Client"} = gen_tcp:recv(C, 0),
+    ?P("socket C recv - expect closed"),
+    {error, closed} = gen_tcp:recv(C, 0),
+    ?P("done"),
     ok.
 
 t_shutdown_both(Config) when is_list(Config) ->
+    ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-                                   ?INET_BACKEND_OPTS(Config) ++
-                                       [{active, false}]),
+    ?P("create connect socket (C)"),
+    {ok, C} = gen_tcp:connect(localhost, Port,
+                              ?INET_BACKEND_OPTS(Config) ++
+                                  [{active, false}]),
+    ?P("create accept socket (A)"),
     {ok, A} = gen_tcp:accept(L),
+    ?P("send message A -> C"),
+    ok = gen_tcp:send(A, "Hej Client"),
+    ?P("socket A shutdown(read_write)"),
     ok = gen_tcp:shutdown(A, read_write),
-    {error, closed} = gen_tcp:recv(Client, 0),
+    ?P("socket C recv - expect message"),
+    {ok, "Hej Client"} = gen_tcp:recv(C, 0),
+    ?P("socket C recv - expect closed"),
+    {error, closed} = gen_tcp:recv(C, 0),
+    ?P("done"),
     ok.
 
 t_shutdown_error(Config) when is_list(Config) ->
@@ -568,9 +588,23 @@ t_fdopen(Config) when is_list(Config) ->
 
 
 t_fdconnect(Config) when is_list(Config) ->
-    ?TC_TRY(t_fdconnect, fun() -> do_t_fdconnect(Config) end).
+    Cond = fun() ->
+                   ?P("Try verify if IPv4 is supported"),
+                   ?HAS_SUPPORT_IPV4()
+           end,
+    Pre  = fun() ->
+                   {ok, Addr} = ?WHICH_LOCAL_ADDR(inet),
+                   ?P("Use (local) address: ~p", [Addr]),
+                   #{local_addr => Addr}
+           end,
+    Case = fun(#{local_addr := Addr}) ->
+                   do_t_fdconnect(Addr, Config)
+           end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+            Cond, Pre, Case, Post).
 
-do_t_fdconnect(Config) ->
+do_t_fdconnect(Addr, Config) ->
     Question  = "Aaaa... Long time ago in a small town in Germany,",
     Question1 = list_to_binary(Question),
     Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
@@ -593,7 +627,7 @@ do_t_fdconnect(Config) ->
             ?SKIPT("failed loading util nif lib")
     end,
     ?P("try create listen socket"),
-    LOpts = ?INET_BACKEND_OPTS(Config) ++ [{active, false}],
+    LOpts = ?INET_BACKEND_OPTS(Config) ++ [{ifaddr, Addr}, {active, false}],
     L = try gen_tcp:listen(0, LOpts) of
             {ok, LSock} ->
                 LSock;
@@ -617,9 +651,13 @@ do_t_fdconnect(Config) ->
     ?P("try create file descriptor"),
     FD = gen_tcp_api_SUITE:getsockfd(),
     ?P("try connect (to port ~w) using file descriptor ~w", [LPort, FD]),
-    COpts = ?INET_BACKEND_OPTS(Config) ++ [{fd, FD}, {active, false}],
-    Client = try gen_tcp:connect(localhost, LPort, COpts) of
+    COpts = ?INET_BACKEND_OPTS(Config) ++ [{fd,     FD},
+                                           {ifaddr, Addr},
+                                           {active, false}],
+    %% The debug is just to "see" that it (debug) "works"...
+    Client = try gen_tcp:connect(Addr, LPort, COpts ++ [{debug, true}]) of
                  {ok, CSock} ->
+                     ok = inet:setopts(CSock, [{debug, false}]),
                      CSock;
                  {error, eaddrnotavail = CReason} ->
                      gen_tcp:close(L),
@@ -870,6 +908,7 @@ do_local_fdopen(Config) ->
     ?P("listen socket created: ~p"
        "~n   => try connect ~p", [L, ConnectOpts]),
     C0 = ok(gen_tcp:connect(SAddr, 0, ConnectOpts)),
+    ok = inet:setopts(C0, [{debug, true}]),
     ?P("connected: ~p"
        "~n   => get fd", [C0]),
     Fd = if
@@ -1313,7 +1352,9 @@ do_simple_sockaddr_send_recv(SockAddr, _) ->
 %% we have to skip on that platform.
 s_accept_with_explicit_socket_backend(Config) when is_list(Config) ->
     ?TC_TRY(s_accept_with_explicit_socket_backend,
-            fun() -> is_socket_supported() end,
+            fun() ->
+                    is_socket_supported()
+            end,
             fun() -> do_s_accept_with_explicit_socket_backend() end).
 
 do_s_accept_with_explicit_socket_backend() ->
@@ -1346,8 +1387,11 @@ do_s_accept_with_explicit_socket_backend() ->
 
 is_socket_supported() ->
     try socket:info() of
-	_ ->
-            ok
+	#{io_backend := #{name := BackendName}}
+          when (BackendName =/= win_esaio) ->
+            ok;
+        _ ->
+            {skip, "Temporary exclusion"}
     catch
         error : notsup ->
             {skip, "esock not supported"};

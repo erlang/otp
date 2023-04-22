@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -178,7 +178,7 @@ do_start(Quiet,
        is_function(Notify) andalso
        (is_atom(Transport) orelse is_tuple(Transport)) andalso
        (is_boolean(Active) orelse (Active =:= once)) andalso
-       (is_tuple(ServerInfo) orelse is_list(ServerInfo)) andalso 
+       (is_tuple(ServerInfo) orelse is_list(ServerInfo) orelse is_binary(ServerInfo)) andalso 
        (is_integer(MsgID) andalso (MsgID >= 1) andalso (MsgID =< 3)) andalso
        (is_integer(MaxOutstanding) andalso (MaxOutstanding > 0)) andalso
        (is_integer(RunTime) andalso (RunTime > 0)) ->
@@ -206,7 +206,13 @@ do_start(Quiet,
 
 %% We should not normally stop this (it terminates when its done).
 stop(Pid) when is_pid(Pid) ->
-    req(Pid, stop).
+    case req(Pid, stop, 2 * ?RECV_TIMEOUT) of
+        {error, timeout} ->
+            exit(Pid, kill),
+            ok;
+        Else ->
+            Else
+    end.
 
 
 %% ==========================================================================
@@ -617,7 +623,11 @@ maybe_activate(_, _, _) ->
 
 %% ==========================================================================
 
-req(Pid, Req) ->
+%% req(Pid, Req) ->
+%%     req(Pid, Req, infinity).
+
+req(Pid, Req, Timeout) when (Timeout =:= infinity) orelse
+                            (is_integer(Timeout) andalso (Timeout >= 0)) ->
     Ref = make_ref(),
     Pid ! {?MODULE, Ref, Pid, Req},
     receive
@@ -625,6 +635,8 @@ req(Pid, Req) ->
             {error, {exit, Reason}};
         {?MODULE, Ref, Reply} ->
             Reply
+    after Timeout ->
+            {error, timeout}
     end.
 
 reply(Pid, Ref, Reply) ->

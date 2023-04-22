@@ -14,6 +14,7 @@ TAGS
 .idea
 
 autom4te.cache
+configure.result.*
 *.beam
 *.asn1db
 
@@ -126,15 +127,12 @@ JAVADOC-GENERATED
 /bootstrap/lib/edoc
 /bootstrap/lib/erl_docgen
 /bootstrap/lib/erl_interface
-/bootstrap/lib/hipe
-/bootstrap/lib/jinterface
 /bootstrap/lib/parsetools
 /bootstrap/lib/public_key
 /bootstrap/lib/runtime_tools
 /bootstrap/lib/sasl
 /bootstrap/lib/snmp
 /bootstrap/lib/syntax_tools
-/bootstrap/lib/test_server
 /bootstrap/lib/wx
 /bootstrap/lib/xmerl
 
@@ -235,11 +233,13 @@ JAVADOC-GENERATED
 
 /lib/compiler/test/*_no_opt_SUITE.erl
 /lib/compiler/test/*_no_copt_SUITE.erl
+/lib/compiler/test/*_no_copt_ssa_SUITE.erl
 /lib/compiler/test/*_no_ssa_opt_SUITE.erl
 /lib/compiler/test/*_post_opt_SUITE.erl
 /lib/compiler/test/*_inline_SUITE.erl
 /lib/compiler/test/*_r23_SUITE.erl
 /lib/compiler/test/*_r24_SUITE.erl
+/lib/compiler/test/*_r25_SUITE.erl
 /lib/compiler/test/*_no_module_opt_SUITE.erl
 /lib/compiler/test/*_no_type_opt_SUITE.erl
 /lib/compiler/test/*_dialyzer_SUITE.erl

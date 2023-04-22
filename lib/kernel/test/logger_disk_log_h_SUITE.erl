@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -646,13 +646,14 @@ sync(Config) ->
                   {disk_log,sync}]),
 
     logger:notice("second", ?domain),
-    timer:sleep(?IDLE_DETECT_TIME*2),
+    timer:sleep(?IDLE_DETECT_TIME*2), %% wait for automatic disk_log_sync
     logger:notice("third", ?domain),
-    %% wait for automatic disk_log_sync
-    check_tracer(?IDLE_DETECT_TIME*2),
+    timer:sleep(?IDLE_DETECT_TIME*2), %% wait for automatic disk_log_sync
+
+    check_tracer(1000),
 
     try_read_file(Log, {ok,<<"first\nsecond\nthird\n">>}, 1000),
-    
+
     %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
     WaitT = 4500,
@@ -664,7 +665,7 @@ sync(Config) ->
 
     HConfig2 = HConfig#{filesync_repeat_interval => SyncInt},
     ok = logger:update_handler_config(?MODULE, config, HConfig2),
-                      
+
     SyncInt = maps:get(filesync_repeat_interval,
                        maps:get(cb_state,logger_olp:info(h_proc_name()))),
     timer:sleep(WaitT),
@@ -673,7 +674,7 @@ sync(Config) ->
     check_tracer(100),
     ok.
 sync(cleanup,_Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).
 
 disk_log_wrap(Config) ->
@@ -719,7 +720,7 @@ disk_log_wrap(Config) ->
 
     %% wait for trace messages
     timer:sleep(1000),
-    dbg:stop_clear(),
+    dbg:stop(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
                                   [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
@@ -731,7 +732,7 @@ disk_log_wrap(Config) ->
     ok.
 
 disk_log_wrap(cleanup,_Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).
 
 disk_log_full(Config) ->
@@ -765,7 +766,7 @@ disk_log_full(Config) ->
 
     %% wait for trace messages
     timer:sleep(2000),
-    dbg:stop_clear(),
+    dbg:stop(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
                                   [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
@@ -781,7 +782,7 @@ disk_log_full(Config) ->
     %%  {trace,{error_status,{error,{full,_}}}}] = Received,
     ok.
 disk_log_full(cleanup, _Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).    
 
 disk_log_events(_Config) ->
@@ -815,7 +816,7 @@ disk_log_events(_Config) ->
     [whereis(h_proc_name()) ! E || E <- Events],
     %% wait for trace messages
     timer:sleep(2000),
-    dbg:stop_clear(),
+    dbg:stop(),
     Received = lists:map(fun({trace,_M,handle_info,
                               [_,Got,_]}) -> Got
                          end, test_server:messages_get()),
@@ -827,7 +828,7 @@ disk_log_events(_Config) ->
                   end, Received),
     ok.
 disk_log_events(cleanup, _Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).    
 
 write_failure(Config) ->
@@ -1602,7 +1603,7 @@ tpl([{{M,F,A},MS}|Trace]) ->
         {_,_,1} ->
             ok;
         _ ->
-            dbg:stop_clear(),
+            dbg:stop(),
             throw({skip,"Can't trace "++atom_to_list(M)++":"++
                        atom_to_list(F)++"/"++integer_to_list(A)})
     end,
@@ -1635,13 +1636,13 @@ maybe_tracer_done(Pid,Expected,Got,Caller) ->
 check_tracer(T) ->
     receive
         tracer_done ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ok;
         {tracer_got_unexpected,Got,Expected} ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({tracer_got_unexpected,Got,Expected})
     after T ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({timeout,tracer})
     end.
 

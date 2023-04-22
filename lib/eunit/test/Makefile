@@ -21,6 +21,7 @@ include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES =  \
+	eunit_test_listener \
 	eunit_SUITE \
 	tc0 \
 	tlatin \
@@ -45,6 +46,7 @@ RELSYSDIR = $(RELEASE_PATH)/eunit_test
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
 

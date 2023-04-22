@@ -69,7 +69,7 @@
 		    rawWarnings       :: list(),
 		    backend_pid       :: pid() | 'undefined',
 		    expl_pid          :: pid() | 'undefined'}).
-	       
+
 %%------------------------------------------------------------------------
 
 -spec start(#options{}) -> ?RET_NOTHING_SUSPICIOUS.
@@ -84,7 +84,7 @@ create_window(Wx, #options{init_plts = InitPltFiles} = DialyzerOptions) ->
   {ok, Host} = inet:gethostname(),
 
   %%---------- initializing frame ---------
-  Frame = wxFrame:new(Wx, -1,  "Dialyzer " ++ ?VSN ++ " @ " ++ Host),  
+  Frame = wxFrame:new(Wx, -1,  "Dialyzer " ++ ?VSN ++ " @ " ++ Host),
   wxFrame:connect(Frame, close_window),
   FileMenu = createFileMenu(),
   WarningsMenu = createWarningsMenu(),
@@ -119,7 +119,7 @@ create_window(Wx, #options{init_plts = InitPltFiles} = DialyzerOptions) ->
 			 {style, ?wxTE_MULTILINE
 			  bor ?wxTE_READONLY bor ?wxHSCROLL}]),
   DefaultPath = code:root_dir(),
- 
+
   FilePicker = wxFilePickerCtrl:new(Frame, ?FilePicker,
 				   [{path, DefaultPath},
 				    {message, "Choose File to Analyse"},
@@ -184,7 +184,7 @@ create_window(Wx, #options{init_plts = InitPltFiles} = DialyzerOptions) ->
   WarnButtons = wxBoxSizer:new(?wxHORIZONTAL),
   RunButtons = wxBoxSizer:new(?wxHORIZONTAL),
   Buttons = wxFlexGridSizer:new(3),
-  
+
   _ = wxSizer:add(ChooseButtons, DeleteButton, ?BorderOpt),
   _ = wxSizer:add(ChooseButtons, DeleteAllButton, ?BorderOpt),
   _ = wxSizer:add(ChooseItem, Lab1, Center),
@@ -232,7 +232,7 @@ create_window(Wx, #options{init_plts = InitPltFiles} = DialyzerOptions) ->
   wxWindow:setSizer(Frame, All),
   wxWindow:setSizeHints(Frame, {1150,600}),
   wxWindow:show(Frame),
- 
+
   Warnings = [{?WARN_RETURN_NO_RETURN, ?menuID_WARN_NO_RETURN_FUN},
 	      {?WARN_RETURN_ONLY_EXIT, ?menuID_WARN_ERROR_HANDLING_FUN},
 	      {?WARN_NOT_CALLED, ?menuID_WARN_UNUSED_FUN},
@@ -256,22 +256,22 @@ create_window(Wx, #options{init_plts = InitPltFiles} = DialyzerOptions) ->
     case InitPltFiles of
       [] -> dialyzer_plt:new();
       _ ->
-        Plts = [dialyzer_plt:from_file(F) || F <- InitPltFiles],
-        dialyzer_plt:merge_plts_or_report_conflicts(InitPltFiles, Plts)
+        Plts = [dialyzer_cplt:from_file(F) || F <- InitPltFiles],
+        dialyzer_cplt:merge_plts_or_report_conflicts(InitPltFiles, Plts)
     end,
-  
+
   #gui_state{add = AddButton,
 	     add_dir = AddDirButton,
 	     add_rec = AddRecButton,
-	     chosen_box = ChosenBox, 
-	     clear_chosen = DeleteAllButton, 
-	     clear_log = ClearLogButton, 
+	     chosen_box = ChosenBox,
+	     clear_chosen = DeleteAllButton,
+	     clear_log = ClearLogButton,
 	     explain_warn = ExplainWarnButton,
-	     clear_warn = ClearWarningsButton, 
-	     del_file = DeleteButton, 
+	     clear_warn = ClearWarningsButton,
+	     del_file = DeleteButton,
 	     doc_plt = dialyzer_plt:new(),
 	     dir_entry = DirPicker,
-	     file_box = FilePicker, 
+	     file_box = FilePicker,
 	     files_to_analyze = ordsets:new(),
 	     gui = Wx,
 	     init_plt = InitPlt,
@@ -281,7 +281,7 @@ create_window(Wx, #options{init_plts = InitPltFiles} = DialyzerOptions) ->
 	     options = DialyzerOptions,
 	     run = RunButton,
 	     stop = StopButton,
-	     frame = Frame, 
+	     frame = Frame,
 	     warnings_box = WarningsBox,
 	     wantedWarnings = Warnings,
 	     rawWarnings = []}.
@@ -318,7 +318,7 @@ createWarningsMenu() ->
   WarningsMenu.
 
 addCheckedItem(Menu, ItemId, Str) ->
-  _ = wxMenu:appendCheckItem(Menu, ItemId, Str), 
+  _ = wxMenu:appendCheckItem(Menu, ItemId, Str),
   wxMenu:check(Menu, ItemId, true).
 
 createPltMenu() ->
@@ -359,57 +359,57 @@ createHelpMenu() ->
 gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
 		    log = Log, frame = Frame,
 		    warnings_box = WarningsBox} = State) ->
-  receive 
+  receive
     #wx{event = #wxClose{}} ->
       %% io:format("~p Closing window ~n", [self()]),
       ok = wxFrame:setStatusText(Frame, "Closing...",[]),
       wxWindow:destroy(Frame),
       ?RET_NOTHING_SUSPICIOUS;
     %% ----- Menu -----
-    #wx{id = ?menuID_FILE_SAVE_LOG, obj = Frame, 
+    #wx{id = ?menuID_FILE_SAVE_LOG, obj = Frame,
 	event = #wxCommand{type = command_menu_selected}} ->
       save_file(State, log),
       gui_loop(State);
-    #wx{id=?menuID_FILE_SAVE_WARNINGS, obj=Frame, 
+    #wx{id=?menuID_FILE_SAVE_WARNINGS, obj=Frame,
 	event=#wxCommand{type=command_menu_selected}} ->
       save_file(State, warnings),
       gui_loop(State);
-    #wx{id=?menuID_FILE_QUIT, obj=Frame, 
+    #wx{id=?menuID_FILE_QUIT, obj=Frame,
 	event=#wxCommand{type=command_menu_selected}} ->
       case maybe_quit(State) of
 	true -> ?RET_NOTHING_SUSPICIOUS;
 	false -> gui_loop(State)
       end;
-    #wx{id=?menuID_PLT_SHOW_CONTENTS, obj=Frame, 
+    #wx{id=?menuID_PLT_SHOW_CONTENTS, obj=Frame,
 	event=#wxCommand{type=command_menu_selected}} ->
       show_doc_plt(State),
       gui_loop(State);
-    #wx{id=?menuID_PLT_SEARCH_CONTENTS, obj=Frame, 
+    #wx{id=?menuID_PLT_SEARCH_CONTENTS, obj=Frame,
 	event=#wxCommand{type=command_menu_selected}} ->
       case dialyzer_plt:get_specs(DocPlt) of
 	"" -> error_sms(State, "No analysis has been made yet!\n");
 	_ -> search_doc_plt(State)
       end,
       gui_loop(State);
-    #wx{id=?menuID_OPTIONS_INCLUDE_DIR, obj=Frame, 
+    #wx{id=?menuID_OPTIONS_INCLUDE_DIR, obj=Frame,
 	event=#wxCommand{type=command_menu_selected}} ->
       NewOptions = include_dialog(State),
       NewState = State#gui_state{options = NewOptions},
       gui_loop(NewState);
-    #wx{id=?menuID_OPTIONS_MACRO, obj=Frame, 
+    #wx{id=?menuID_OPTIONS_MACRO, obj=Frame,
 	event=#wxCommand{type=command_menu_selected}} ->
       NewOptions = macro_dialog(State),
       NewState = State#gui_state{options = NewOptions},
       gui_loop(NewState);
-    #wx{id=?menuID_HELP_MANUAL, obj=Frame, 
+    #wx{id=?menuID_HELP_MANUAL, obj=Frame,
 	event=#wxCommand{type=command_menu_selected}} ->
       handle_help(State, "Dialyzer Manual", "manual.txt"),
       gui_loop(State);
-    #wx{id=?menuID_HELP_WARNING_OPTIONS, obj=Frame, 
+    #wx{id=?menuID_HELP_WARNING_OPTIONS, obj=Frame,
 	event=#wxCommand{type=command_menu_selected}} ->
       handle_help(State, "Dialyzer Warnings", "warnings.txt"),
       gui_loop(State);
-    #wx{id=?menuID_HELP_ABOUT, obj=Frame, 
+    #wx{id=?menuID_HELP_ABOUT, obj=Frame,
 	event=#wxCommand{type=command_menu_selected}} ->
       Message = "	       This is DIALYZER version "  ++ ?VSN ++  " \n"++
 	"DIALYZER is a DIscrepancy AnaLYZer for ERlang programs.\n\n"++
@@ -494,8 +494,8 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
       gui_loop(NewState);
     {BackendPid, cserver, CServer, Plt} ->
       Self = self(),
-      Fun = 
-	fun() -> 
+      Fun =
+	fun() ->
 	    dialyzer_explanation:expl_loop(Self, CServer, Plt)
 	end,
       ExplanationPid = spawn_link(Fun),
@@ -527,7 +527,7 @@ maybe_quit(#gui_state{frame = Frame} = State) ->
 %% ------------ Yes/No Question ------------
 dialog(#gui_state{frame = Frame}, Message, Title) ->
   MessageWin = wxMessageDialog:new(Frame, Message, [{caption, Title},{style, ?wxYES_NO bor ?wxICON_QUESTION bor ?wxNO_DEFAULT}]),
-  case wxDialog:showModal(MessageWin) of 
+  case wxDialog:showModal(MessageWin) of
     ?wxID_YES ->
       true;
     ?wxID_NO ->
@@ -535,7 +535,7 @@ dialog(#gui_state{frame = Frame}, Message, Title) ->
     ?wxID_CANCEL ->
       false
   end.
- 
+
 search_doc_plt(#gui_state{gui = Wx} = State) ->
   Dialog = wxFrame:new(Wx, ?SearchPltDialog, "Search the PLT",[{size,{400,100}},{style, ?wxSTAY_ON_TOP}]),
   Size = {size,{120,30}},
@@ -591,8 +591,8 @@ search_plt_loop(State= #gui_state{doc_plt = DocPlt, frame = Frame}, Win, ModText
       M = format_search(wxTextCtrl:getValue(ModText)),
       F = format_search(wxTextCtrl:getValue(FunText)),
       A = format_search(wxTextCtrl:getValue(ArText)),
-      
-      if 
+
+      if
 	(M =:= '_') orelse (F =:= '_') orelse (A =:= '_') ->
 	  error_sms(State, "Please give:\n Module (atom)\n Function (atom)\n Arity (integer)\n"),
 	  search_plt_loop(State, Win, ModText, FunText, ArText, Search, Cancel);
@@ -606,15 +606,15 @@ search_plt_loop(State= #gui_state{doc_plt = DocPlt, frame = Frame}, Win, ModText
 	      free_editor(State, "Content of PLT", NonEmptyString)
 	  end
       end
-  end. 
+  end.
 
 format_search([]) ->
   '_';
 format_search(String) ->
   try list_to_integer(String)
   catch error:_ -> list_to_atom(String)
-  end. 
- 
+  end.
+
 show_doc_plt(#gui_state{doc_plt = DocPLT} = State) ->
   case dialyzer_plt:get_specs(DocPLT) of
     "" -> error_sms(State, "No analysis has been made yet!\n");
@@ -648,8 +648,8 @@ free_editor(#gui_state{gui = Wx, frame = Frame}, Title, Contents0) ->
   Width0 = LongestLine * 7 + 60,
   Width = if Width0 > 800 -> 800; true -> Width0 end,
   Size = {size,{Width, Height}},
-  Win = wxFrame:new(Wx, ?Message, Title, [{size,{Width+4, Height+50}}]),  
-  
+  Win = wxFrame:new(Wx, ?Message, Title, [{size,{Width+4, Height+50}}]),
+
   Editor = wxTextCtrl:new(Win, ?Message_Info,
 			  [Size,
 			   {style, ?wxTE_MULTILINE
@@ -659,7 +659,7 @@ free_editor(#gui_state{gui = Wx, frame = Frame}, Title, Contents0) ->
   Ok = wxButton:new(Win, ?Message_Ok, [{label, "OK"}]),
   wxButton:connect(Ok, command_button_clicked),
   Layout = wxBoxSizer:new(?wxVERTICAL),
-  
+
   _ = wxSizer:add(Layout, Editor, ?BorderOpt),
   Flag = ?wxALIGN_CENTER bor ?wxBOTTOM bor ?wxALL,
   _ = wxSizer:add(Layout, Ok, [{flag, Flag}, ?Border]),
@@ -686,7 +686,7 @@ handle_add_files(#gui_state{chosen_box = ChosenBox, file_box = FileBox,
     File ->
       NewFile = ordsets:new(),
       NewFile1 = ordsets:add_element(File,NewFile),
-      Ext = 
+      Ext =
 	case wxRadioBox:getSelection(Mode) of
 	  0 -> ".beam";
 	  1-> ".erl"
@@ -699,7 +699,7 @@ handle_add_dir(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox,
   case wxDirPickerCtrl:getPath(DirBox) of
     "" ->
       State;
-    Dir -> 
+    Dir ->
       NewDir = ordsets:new(),
       NewDir1 = ordsets:add_element(Dir,NewDir),
       Ext = case wxRadioBox:getSelection(Mode) of
@@ -708,13 +708,13 @@ handle_add_dir(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox,
 	    end,
       State#gui_state{files_to_analyze = add_files(filter_mods(NewDir1,Ext), FileList, ChosenBox, Ext)}
   end.
-	    
+
 handle_add_rec(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox,
 			  files_to_analyze = FileList, mode = Mode} = State) ->
   case wxDirPickerCtrl:getPath(DirBox) of
     "" ->
       State;
-    Dir -> 
+    Dir ->
       NewDir = ordsets:new(),
       NewDir1 = ordsets:add_element(Dir,NewDir),
       TargetDirs = ordsets:union(NewDir1, all_subdirs(NewDir1)),
@@ -736,7 +736,7 @@ handle_file_delete(#gui_state{chosen_box = ChosenBox,
 handle_file_delete_all(#gui_state{chosen_box = ChosenBox} = State) ->
   wxListBox:clear(ChosenBox),
   State#gui_state{files_to_analyze = ordsets:new()}.
-	    
+
 add_files(File, FileList, ChosenBox, Ext) ->
   Set = filter_mods(FileList, Ext),
   Files = ordsets:union(File, Set),
@@ -747,7 +747,7 @@ add_files(File, FileList, ChosenBox, Ext) ->
 filter_mods(Mods, Extension) ->
   Fun = fun(X) ->
 	    filename:extension(X) =:= Extension
-	      orelse 
+	      orelse
 		(filelib:is_dir(X) andalso
 		 contains_files(X, Extension))
 	end,
@@ -781,7 +781,7 @@ start_analysis(State) ->
       Msg = "You must choose one or more files or dirs\n"
 	"before starting the analysis!",
       error_sms(State, Msg),
-      config_gui_stop(State),      
+      config_gui_stop(State),
       State;
     {ok, Files} ->
       Msg = "\n========== Starting Analysis ==========\n\n",
@@ -825,8 +825,8 @@ run_analysis(State, Analysis) ->
   Self = self(),
   NewAnalysis = Analysis#analysis{doc_plt = dialyzer_plt:new()},
   LegalWarnings = find_legal_warnings(State),
-  Fun = 
-    fun() -> 
+  Fun =
+    fun() ->
 	dialyzer_analysis_callgraph:start(Self, LegalWarnings, NewAnalysis)
     end,
   BackendPid = spawn_link(Fun),
@@ -834,13 +834,13 @@ run_analysis(State, Analysis) ->
 
 find_legal_warnings(#gui_state{menu = #menu{warnings = MenuWarnings},
 			       wantedWarnings = Warnings }) ->
-  ordsets:from_list([Tag || {Tag, MenuItem} <- Warnings, 
+  ordsets:from_list([Tag || {Tag, MenuItem} <- Warnings,
 			    wxMenu:isChecked(MenuWarnings, MenuItem)]).
 
 update_editor(Editor, Msg) ->
   wxTextCtrl:appendText(Editor,Msg).
 
-config_gui_stop(State) ->  
+config_gui_stop(State) ->
   wxWindow:disable(State#gui_state.stop),
   wxWindow:enable(State#gui_state.run),
   wxWindow:enable(State#gui_state.del_file),
@@ -904,7 +904,7 @@ save_file(#gui_state{frame = Frame, warnings_box = WBox, log = Log} = State, Typ
 	_ -> error_sms(State, "Could not write to file:\n")
       end
   end.
-					
+
 include_dialog(#gui_state{gui = Wx, frame = Frame, options = Options}) ->
   Size = {size,{300,480}},
   Dialog = wxFrame:new(Wx, ?IncludeDir, "Include Directories",[Size]),
@@ -913,11 +913,11 @@ include_dialog(#gui_state{gui = Wx, frame = Frame, options = Options}) ->
   DirPicker = wxDirPickerCtrl:new(Dialog, ?InclPicker,
 				   [{path, DefaultPath},
 				    {message, "Choose Directory to Include"},
-				    {style,?wxDIRP_DIR_MUST_EXIST bor ?wxDIRP_USE_TEXTCTRL}]), 
+				    {style,?wxDIRP_DIR_MUST_EXIST bor ?wxDIRP_USE_TEXTCTRL}]),
   Box = wxListBox:new(Dialog, ?InclBox,
 			[{size, {200,300}},
 			 {style, ?wxLB_EXTENDED bor ?wxLB_HSCROLL
-			  bor ?wxLB_NEEDED_SB}]), 
+			  bor ?wxLB_NEEDED_SB}]),
   AddButton = wxButton:new(Dialog, ?InclAdd, [{label, "Add"}]),
   DeleteButton = wxButton:new(Dialog, ?InclDel, [{label, "Delete"}]),
   DeleteAllButton = wxButton:new(Dialog, ?InclDelAll, [{label, "Delete All"}]),
@@ -954,7 +954,7 @@ include_loop(Options, Win, Box, DirPicker, Frame) ->
   receive
     #wx{id = ?InclCancel,
 	event = #wxCommand{type = command_button_clicked}} ->
-      wxWindow:destroy(Win), 
+      wxWindow:destroy(Win),
       Options;
     #wx{id = ?IncludeDir, event = #wxClose{type = close_window}} ->
       wxWindow:destroy(Win),
@@ -994,8 +994,8 @@ include_loop(Options, Win, Box, DirPicker, Frame) ->
       wxListBox:clear(Box),
       NewOptions = Options#options{include_dirs = []},
       include_loop(NewOptions, Win, Box, DirPicker, Frame)
-  end. 
-  
+  end.
+
 macro_dialog(#gui_state{gui = Wx, frame = Frame, options = Options}) ->
   Size = {size,{300,480}},
   Size1 = {size,{120,30}},
@@ -1020,9 +1020,9 @@ macro_dialog(#gui_state{gui = Wx, frame = Frame, options = Options}) ->
   wxButton:connect(Ok, command_button_clicked),
   wxButton:connect(Cancel, command_button_clicked),
 
-  Macros = [io_lib:format("~p = ~p", [X, Y]) 
+  Macros = [io_lib:format("~p = ~p", [X, Y])
 	    || {X,Y} <- Options#options.defines],
-  
+
   wxListBox:set(Box, Macros),
   Layout = wxBoxSizer:new(?wxVERTICAL),
   Item = wxBoxSizer:new(?wxHORIZONTAL),
@@ -1056,7 +1056,7 @@ macro_loop(Options, Win, Box, MacroText, TermText, Frame) ->
   receive
     #wx{id = ?MacroCancel,
 	event = #wxCommand{type = command_button_clicked}} ->
-      wxWindow:destroy(Win), 
+      wxWindow:destroy(Win),
       Options;
     #wx{id = ?MacroDir, event = #wxClose{type = close_window}} ->
       wxWindow:destroy(Win),
@@ -1071,12 +1071,12 @@ macro_loop(Options, Win, Box, MacroText, TermText, Frame) ->
     #wx{id = ?MacroAdd,
 	event = #wxCommand{type = command_button_clicked}} ->
       Defines = Options#options.defines,
-       NewDefines = 
+       NewDefines =
 	case wxTextCtrl:getValue(MacroText) of
 	  "" -> Defines;
 	  Macro ->
 	    case wxTextCtrl:getValue(TermText) of
-	      "" -> 
+	      "" ->
 		orddict:store(list_to_atom(Macro), true, Defines);
 	      String ->
 		orddict:store(list_to_atom(Macro), String, Defines)
@@ -1092,7 +1092,7 @@ macro_loop(Options, Win, Box, MacroText, TermText, Frame) ->
 	case wxListBox:getSelections(Box) of
 	  {0, _} -> Options;
 	  {_, List} ->
-	    Fun = 
+	    Fun =
 	      fun(X) ->
 		  Val = wxControlWithItems:getString(Box,X),
 		  [MacroName|_] = re:split(Val, " ", [{return, list}, unicode]),
@@ -1113,19 +1113,19 @@ macro_loop(Options, Win, Box, MacroText, TermText, Frame) ->
       wxListBox:clear(Box),
       NewOptions = Options#options{defines = []},
       macro_loop(NewOptions, Win, Box,  MacroText, TermText, Frame)
-  end.   
+  end.
 
 handle_help(State, Title, Txt) ->
   FileName = filename:join([code:lib_dir(dialyzer), "doc", Txt]),
   case file:open(FileName, [read]) of
     {error, Reason} ->
-      error_sms(State, 
+      error_sms(State,
 		io_lib:format("Could not find doc/~ts file!\n\n ~tp",
 			      [Txt, Reason]));
     {ok, _Handle} ->
       case file:read_file(FileName) of
 	{error, Reason} ->
-	  error_sms(State, 
+	  error_sms(State,
 		    io_lib:format("Could not read doc/~ts file!\n\n ~tp",
 				  [Txt, Reason]));
 	{ok, Binary} ->
@@ -1143,7 +1143,7 @@ add_warnings(#gui_state{warnings_box = WarnBox,
                W <- NewRawWarns],
   wxListBox:set(WarnBox, WarnList),
   State#gui_state{rawWarnings = NewRawWarns}.
-  
+
 handle_explanation(#gui_state{rawWarnings = RawWarns,
 			      warnings_box = WarnBox,
 			      expl_pid = ExplPid} = State) ->
@@ -1173,13 +1173,13 @@ explanation_loop(#gui_state{expl_pid = ExplPid} = State) ->
 show_explanation(#gui_state{gui = Wx} = State, Explanation) ->
   case Explanation of
     none ->
-      output_sms(State, ?DIALYZER_MESSAGE_TITLE, 
+      output_sms(State, ?DIALYZER_MESSAGE_TITLE,
 		 "There is not any explanation for this error!\n", info);
     Expl ->
       ExplString = format_explanation(Expl),
       Size = {size,{700, 300}},
-      Win = wxFrame:new(Wx, ?ExplWin, "Dialyzer Explanation", [{size,{740, 350}}]),  
-      
+      Win = wxFrame:new(Wx, ?ExplWin, "Dialyzer Explanation", [{size,{740, 350}}]),
+
       Editor = wxTextCtrl:new(Win, ?ExplText,
 			      [Size,
 			       {style, ?wxTE_MULTILINE
@@ -1201,11 +1201,11 @@ show_explanation(#gui_state{gui = Wx} = State, Explanation) ->
       NewState = State#gui_state{explanation_box = Editor},
       show_explanation_loop(NewState, Win, Explanation)
   end.
-  
+
 show_explanation_loop(#gui_state{frame = Frame, expl_pid = ExplPid} = State, Win, Explanation) ->
   receive
-    {ExplPid, none, _} -> 
-      output_sms(State, ?DIALYZER_MESSAGE_TITLE, 
+    {ExplPid, none, _} ->
+      output_sms(State, ?DIALYZER_MESSAGE_TITLE,
 		       "There is not any other explanation for this error!\n", info),
       show_explanation_loop(State, Win,  Explanation);
     {ExplPid, further, NewExplanation} ->

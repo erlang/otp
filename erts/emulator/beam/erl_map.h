@@ -114,6 +114,8 @@ const Eterm *erts_maps_get(Eterm key, Eterm map);
 
 const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
+Sint erts_map_size(Eterm map);
+
 /* hamt nodes v2.0
  *
  * node :: leaf | array | bitmap

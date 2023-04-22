@@ -76,6 +76,7 @@ static ErlNifFunc nif_funcs[] = {
     {"hash_init_nif", 1, hash_init_nif, 0},
     {"hash_update_nif", 2, hash_update_nif, 0},
     {"hash_final_nif", 1, hash_final_nif, 0},
+    {"hash_final_xof_nif", 2, hash_final_xof_nif, 0},
     {"mac_nif", 4, mac_nif, 0},
     {"mac_init_nif", 3, mac_init_nif, 0},
     {"mac_update_nif", 2, mac_update_nif, 0},
@@ -129,7 +130,8 @@ static ErlNifFunc nif_funcs[] = {
     {"engine_get_next_nif", 1, engine_get_next_nif, 0},
     {"engine_get_id_nif", 1, engine_get_id_nif, 0},
     {"engine_get_name_nif", 1, engine_get_name_nif, 0},
-    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0}
+    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0},
+    {"ensure_engine_loaded_nif", 2, ensure_engine_loaded_nif, 0}
 };
 
 #ifdef HAS_3_0_API
@@ -213,6 +215,9 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!init_engine_ctx(env)) {
         return __LINE__;
     }
+    if (!create_engine_mutex(env)) {
+        return __LINE__;
+    }
 
 #ifdef HAS_3_0_API
     prov_cnt = 0;
@@ -221,7 +226,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #endif
     if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) return __LINE__;
     if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) return __LINE__;
-    if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "legacy"))) return __LINE__;
+    if (prov_cnt<MAX_NUM_PROVIDERS) {prov_cnt++; OSSL_PROVIDER_load(NULL, "legacy");}
 #endif
 
     if (library_initialized) {
@@ -327,8 +332,10 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 
 static void unload(ErlNifEnv* env, void* priv_data)
 {
-    if (--library_refc == 0)
+    if (--library_refc == 0) {
         cleanup_algorithms_types(env);
+        destroy_engine_mutex(env);
+    }
 
 #ifdef HAS_3_0_API
     while (prov_cnt>0)

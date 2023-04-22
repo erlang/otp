@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@
          match_built_terms/1,elusive_common_exit/1,
          return_before_receive/1,trapping/1,
          after_expression/1,in_after/1,
-         type_optimized_markers/1]).
+         type_optimized_markers/1,
+         bs_get_tail/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -53,7 +54,8 @@ groups() ->
        match_built_terms,elusive_common_exit,
        return_before_receive,trapping,
        after_expression,in_after,
-       type_optimized_markers]},
+       type_optimized_markers,
+       bs_get_tail]},
      {slow,[],[ref_opt]}].
 
 init_per_suite(Config) ->
@@ -198,7 +200,7 @@ coverage(Config) when is_list(Config) ->
 
 receive_in_called_function() ->
     RefA = make_ref(),
-    RefB = make_ref(),
+    RefB = returns_reference(),
 
     self() ! hello,
     self() ! RefA,
@@ -219,6 +221,9 @@ receive_in_called_function() ->
     ricf_1(Foo, Bar),
 
     ok.
+
+returns_reference() ->
+    make_ref().
 
 ricf_1(A, B) ->
     %% Both A and B are fed a reference at least once, so both of these loops
@@ -933,6 +938,21 @@ tom_3(S, Mref, ReplyTimeout) ->
     after
         ReplyTimeout ->
             tom_3(S, monitor(process, S), ReplyTimeout)
+    end.
+
+bs_get_tail(_Config) ->
+    Ref = make_ref(),
+    self() ! {<<1,"abc">>, Ref},
+    {<<"abc">>,Ref} = do_bs_get_tail(),
+
+    ok.
+
+do_bs_get_tail() ->
+    receive
+        {<<1, FieldsBin/bits>>, StreamRef} ->
+            A = id(FieldsBin),
+            B = id(StreamRef),
+            {A,B}
     end.
 
 %%%

@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "8.3.1"},
+  {vsn, "8.5.2"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -83,9 +83,9 @@
 	     os,
 	     ram_file,
 	     rpc,
-	     user,
 	     user_drv,
 	     user_sup,
+             prim_tty,
              disk_log,
              disk_log_1,
              disk_log_server,
@@ -158,6 +158,7 @@
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-17951:OTP-17968:OTP-16464@", "stdlib-@OTP-17720@", "sasl-3.0", "crypto-5.0"]}
+  {runtime_dependencies, ["erts-@OTP-18248@", "stdlib-@OTP-17932@",
+                          "sasl-3.0", "crypto-5.0"]}
   ]
 }.

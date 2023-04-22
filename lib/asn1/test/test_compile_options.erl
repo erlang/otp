@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,10 +22,11 @@
 -module(test_compile_options).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 
 -export([wrong_path/1,comp/2,path/1,noobj/1,
-	 record_name_prefix/1,verbose/1,maps/1]).
+	 record_name_prefix/1,verbose/1,maps/1,determinism/1]).
 
 %% OTP-5689
 wrong_path(Config) ->
@@ -149,6 +150,51 @@ do_maps(Erule, InFile, OutDir) ->
     _ = [file:delete(N) || N <- All],
 
     ok.
+
+determinism(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir,Config),
+    OutDir = proplists:get_value(priv_dir,Config),
+    Asn1File = filename:join([DataDir,"Comment.asn"]),
+    ErlFile = filename:join([OutDir,"Comment.erl"]),
+
+    ContainsNonDeterministicOptions =
+       fun
+           ({attribute,_Anno,asn1_info,Elems}) ->
+               lists:any(
+                   fun
+                       ({options, Opts}) ->
+                           lists:any(fun ({i, _}) -> true; (_) -> false end, Opts)
+                           andalso
+                           lists:any(fun ({outdir, _}) -> true; (_) -> false end, Opts)
+                           andalso
+                           lists:any(fun ({cwd, _}) -> true; (_) -> false end, Opts);
+                       (_) ->
+                           false
+                   end,
+                   Elems);
+           (_) ->
+               false
+       end,
+
+    BaseOptions = [{i,DataDir},{outdir,OutDir},{cwd,DataDir},noobj],
+
+    %% Test deterministic compile
+    ok = asn1ct:compile(Asn1File, BaseOptions ++ [deterministic]),
+    {ok, List1} = epp:parse_file(ErlFile, [{includes, [DataDir]},
+                                       {source_name, "Comment.erl"}]),
+    ?assertNot(lists:any(ContainsNonDeterministicOptions, List1),
+            "Expected no debugging option values (i, outdir, cwd) in asn1_info attribute " ++
+            "in deterministic mode"),
+
+    %% Test non-deterministic compile
+    ok = asn1ct:compile(Asn1File, BaseOptions),
+    {ok, List2} = epp:parse_file(ErlFile, [{includes, [DataDir]},
+                                       {source_name, "Comment.erl"}]),
+    ?assert(lists:any(ContainsNonDeterministicOptions, List2),
+            "Expected debugging option values (i, outdir, cwd) in asn1_info attribute " ++
+            "in non-deterministic mode"),
+    ok.
+
 
 outfiles_check(OutDir) ->
     outfiles_check(OutDir,outfiles1()).

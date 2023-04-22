@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,12 +37,14 @@
 	 error_stacktrace_during_call_trace/1,
          group_leader_prio/1, group_leader_prio_dirty/1,
          is_process_alive/1,
+         is_process_alive_signal_from/1,
          process_info_blast/1,
          os_env_case_sensitivity/1,
          verify_middle_queue_save/1,
          test_length/1,
          fixed_apply_badarg/1,
-         external_fun_apply3/1]).
+         external_fun_apply3/1,
+         node_1/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -57,9 +59,10 @@ all() ->
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
-     is_process_alive, process_info_blast, os_env_case_sensitivity,
+     is_process_alive, is_process_alive_signal_from,
+     process_info_blast, os_env_case_sensitivity,
      verify_middle_queue_save, test_length,fixed_apply_badarg,
-     external_fun_apply3].
+     external_fun_apply3, node_1].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
@@ -70,8 +73,8 @@ init_per_testcase(shadow_comments, Config) when is_list(Config) ->
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
-end_per_testcase(_Func, _Config) ->
-    ok.
+end_per_testcase(_Func, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %% erl_bif_types comes from dialyzer which some test runs skip building, so
 %% we'll skip the tests that use it as the result shouldn't vary based on
@@ -354,6 +357,11 @@ auto_imports([], Errors) ->
 extract_functions(M, Abstr) ->
     [{{M,F,A},Body} || {function,_,F,A,Body} <- Abstr].
 
+check_stub({_,F,2}, _B) when F =:= min; F =:= max ->
+    %% In Erlang/OTP 26, min/2 and max/2 are guard BIFs. For backward
+    %% compatibility with code compiled with an earlier version, the
+    %% Erlang implementation of them is kept.
+    ok;
 check_stub({_,F,A}, B) ->
     try
 	[{clause,_,Args,[],Body}] = B,
@@ -388,6 +396,9 @@ list_to_utf8_atom(Config) when is_list(Config) ->
     _ = atom_roundtrip([16#1000]),
     _ = atom_roundtrip([16#10FFFF]),
     atom_badarg([16#110000]),
+
+    atom_badarg([-1]),
+    [atom_badarg([(-1 bsl N) + $A]) || N <- lists:seq(8,16)],
     ok.
 
 atom_roundtrip(String) ->
@@ -719,33 +730,147 @@ fail_atom_to_binary(Term) ->
     end.
 
 
-min_max(Config) when is_list(Config) ->	
-    a = erlang:min(id(a), a),
-    a = erlang:min(id(a), b),
-    a = erlang:min(id(b), a),
-    b = erlang:min(id(b), b),
-    a = erlang:max(id(a), a),
-    b = erlang:max(id(a), b),
-    b = erlang:max(id(b), a),
-    b = erlang:max(id(b), b),
-
-    42.0 = erlang:min(42.0, 42),
-    42.0 = erlang:max(42.0, 42),
-    %% And now (R14) they are also autoimported!
+min_max(Config) when is_list(Config) ->
+    Self = self(),
+    Port = hd(erlang:ports()),
+    Ref = make_ref(),
     a = min(id(a), a),
     a = min(id(a), b),
     a = min(id(b), a),
     b = min(id(b), b),
+    Ref = min(id(Self), id(Ref)),
+
+    -3 = min(id(5), -3),
+    -3 = min(-3, id(5)),
+    -3 = min(0, id(-3)),
+    -3 = min(id(-3), 0),
+    0 = min(0, id(17)),
+
     a = max(id(a), a),
     b = max(id(a), b),
     b = max(id(b), a),
     b = max(id(b), b),
+    Self = max(id(Self), id(Ref)),
 
-    42.0 = min(42.0, 42),
-    42.0 = max(42.0, 42),
+    5 = max(id(5), -3),
+    5 = max(-3, id(5)),
+    0 = max(0, id(-3)),
+    0 = max(id(-3), 0),
+    17 = max(0, id(17)),
+
+    %% Return the first argument when arguments are equal.
+    42.0 = min(id(42.0), 42),
+    42.0 = max(id(42.0), 42),
+
+    Min = id(min),
+    Max = id(max),
+
+    "abc" = erlang:Min("abc", "def"),
+    <<"def">> = erlang:Max(<<"abc">>, <<"def">>),
+
+    %% Make sure that the JIT doesn't do any unsafe optimizations.
+    {0, 0} = min_max_zero(0),
+    {-7, 0} = min_max_zero(-7),
+    {0, 555} = min_max_zero(555),
+    {0, 1 bsl 64} = min_max_zero(1 bsl 64),
+    {-1 bsl 64, 0} = min_max_zero(-1 bsl 64),
+
+    {-99, 23} = do_min_max(-99, 23),
+    {-10, 0} = do_min_max(0, -10),
+    {0, 77} = do_min_max(77, 0),
+    {1, 2} = do_min_max(1, 2),
+    {42, 99} = do_min_max(99, 42),
+    {100, 1 bsl 64} = do_min_max(100, 1 bsl 64),
+    {-1 bsl 64, 77} = do_min_max(77, -1 bsl 64),
+    {-1 bsl 64, 1 bsl 64} = do_min_max(1 bsl 64, -1 bsl 64),
+    {42.0, 43} = do_min_max(42.0, 43),
+    {42.0, 50.0} = do_min_max(42.0, 50.0),
+    {42.0, 42.0} = do_min_max(42.0, id(40.0 + 2.0)),
+    {{1,2}, {a,b}} = do_min_max({id(a), id(b)}, {id(1), id(2)}),
+    {{a,b}, [a,b]} = do_min_max({a,id(b)}, [a,id(b)]),
+    {{1.0,b}, {1.0,b}} = do_min_max({id(1.0), id(b)}, {id(1), id(b)}),
+    {{7,b}, {7,b}} = do_min_max({id(7), id(b)}, {id(7.0), id(b)}),
+
+    {42,Self} = do_min_max(42, Self),
+    {42,Self} = do_min_max(Self, 42),
+    {42,Port} = do_min_max(42, Port),
+    {42,Port} = do_min_max(Port, 42),
+
     ok.
 
+min_max_zero(A0) ->
+    Result = {min(A0, 0), max(A0, 0)},
+    Result = {min(0, A0), max(0, A0)},
+    A = id(A0),
+    Result = {min(A, 0), max(A, 0)},
+    Result = {min(0, A), max(0, A)}.
 
+do_min_max(A0, B0) ->
+    Result = {min(A0, B0), max(A0, B0)},
+
+    A0 = min(id(A0), A0),
+    A0 = max(id(A0), A0),
+    B0 = min(id(B0), B0),
+    B0 = max(id(B0), B0),
+
+    A = id(A0),
+    B = id(B0),
+    Result = {min(A, B), max(A, B)},
+
+    if
+        is_integer(A), is_atom(node(B)) orelse is_integer(B) ->
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        is_atom(node(A)) orelse is_integer(A), is_integer(B) ->
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        true ->
+            ok
+    end,
+
+    if
+        is_integer(A), 0 =< A, A =< 1000, is_atom(node(B)) orelse is_integer(B) ->
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        is_atom(node(A)) orelse is_integer(A), is_integer(B), 0 =< B, B =< 1000 ->
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        true ->
+            ok
+    end,
+
+    Result = do_min_max_1(1, 2, 3, 4, 5, A, B).
+
+do_min_max_1(_, _, _, _, _, A, B) ->
+    if
+        is_integer(A), 0 =< A, A < 16#1_0000,
+        is_integer(B), 0 =< B, B < 16#1_0000 ->
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)};
+        is_integer(A), is_integer(B) ->
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)};
+        is_float(A), is_float(B) ->
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)};
+        is_number(A), is_number(B) ->
+            Result = {min(A, B),max(A, B)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        true ->
+            Result = {min(A, B),max(A, B)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)}
+    end.
 
 erlang_halt(Config) when is_list(Config) ->
     try erlang:halt(undefined) of
@@ -1205,6 +1330,51 @@ is_process_alive(Config) when is_list(Config) ->
                   Ps),
     ok.
 
+is_process_alive_signal_from(Config) when is_list(Config) ->
+    process_flag(priority, high),
+    process_flag(scheduler, 1),
+    Schdlr = case erlang:system_info(schedulers_online) of
+                 1 -> 1;
+                 _ -> 2
+             end,
+    X = is_process_alive_signal_from_test(100000, 0, Schdlr),
+    erlang:display({exits_detected, X}),
+    {comment, integer_to_list(X) ++ " exited processes detected"}.
+
+is_process_alive_signal_from_test(0, X, _Schdlr) ->
+    X;
+is_process_alive_signal_from_test(N, X, Schdlr) ->
+    Tester = self(),
+    {Testee, TMon} = spawn_opt(fun () ->
+                                       Mon = erlang:monitor(process, Tester),
+                                       Tester ! {self(), ready},
+                                       busy_wait_go(),
+                                       _ = erlang:demonitor(Mon),
+                                       exit(normal)
+                               end,
+                               [link,
+                                monitor,
+                                {priority, high},
+                                {scheduler, Schdlr}]),
+    receive {Testee, ready} -> ok end,
+    {monitored_by, MBList1} = process_info(self(), monitored_by),
+    true = lists:member(Testee, MBList1),
+    erlang:yield(),
+    Testee ! {go, ok},
+    erlang:yield(),
+    NewX = case erlang:is_process_alive(Testee) of
+               true ->
+                   X;
+               false ->
+                   %% Demonitor signal should have reached us before the
+                   %% is-process-alive reply...
+                   {monitored_by, MBList2} = process_info(self(), monitored_by),
+                   false = lists:member(Testee, MBList2),
+                   X+1
+           end,
+    receive {'DOWN', TMon, process, Testee, normal} -> ok end,
+    is_process_alive_signal_from_test(N-1, NewX, Schdlr).
+
 process_info_blast(Config) when is_list(Config) ->
     Tester = self(),
     NoAttackers = 1000,
@@ -1395,8 +1565,84 @@ external_fun_apply3(_Config) ->
 
     ok.
 
+node_1(_Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
+
+    local_node(self()),
+    LocalPort = lists:last(erlang:ports()),
+    local_node(LocalPort),
+    local_node(make_ref()),
+
+    external_node(erpc:call(Node, erlang, self, []), Node),
+    ExtPort = hd(erpc:call(Node, erlang, ports, [])),
+    external_node(ExtPort, Node),
+    external_node(erpc:call(Node, erlang, make_ref, []), Node),
+
+    node_error(a),
+    node_error(42),
+    node_error({a,b,c}),
+    node_error({tag,self()}),
+    node_error([self()]),
+    node_error(1 bsl 133),
+    node_error(#{}),
+    node_error(#{id(a) => b}),
+    node_error(<<"binary">>),
+
+    peer:stop(Peer),
+    ok.
+
+local_node(E) ->
+    test_node(E, node()).
+
+external_node(E, Node) ->
+    test_node(E, Node).
+
+test_node(E0, Node) ->
+    true = node(id(E0)) =:= Node,
+    E = id(E0),
+    if
+        node(E) =:= Node ->
+            ok
+    end,
+    test_node_2(id(E), Node).
+
+test_node_2(E, Node) when is_pid(E); is_port(E); is_reference(E) ->
+    true = node(E) =:= Node,
+    if
+        node(E) =:= Node ->
+            ok
+    end,
+    test_node_3(id(E), Node),
+    ok.
+
+test_node_3(E, Node) when is_pid(E) ->
+    true = node(E) =:= Node;
+test_node_3(E, Node) when is_port(E) ->
+    true = node(E) =:= Node;
+test_node_3(E, Node) when is_reference(E) ->
+    true = node(E) =:= Node.
+
+node_error(E0) ->
+    E = id(E0),
+    {'EXIT',{badarg,[{erlang,node,[E],_}|_]}} = catch node(E),
+    if
+        node(E) ->
+            ct:fail(should_fail);
+        true ->
+            ok
+    end.
+
 %% helpers
-    
+
+busy_wait_go() ->
+    receive
+        {go, Info} ->
+            Info
+    after
+        0 ->
+            busy_wait_go()
+    end.
+
 id(I) -> I.
 
 %% Get code path, including the path for the erts application.

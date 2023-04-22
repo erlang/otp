@@ -65,6 +65,20 @@ TARGET_FILES= \
 	$(ERL_FILES:%.erl=%.$(EMULATOR))
 
 
+DIA_PLT      = snmp_example_ex2.plt
+DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
+ifeq ($(DIAW_EH),true)
+DIA_WARNINGS += -Werror_handling
+endif
+ifeq ($(DIAW_US),true)
+DIA_WARNINGS += -Wunderspecs
+endif
+ifeq ($(DIAW_UR),true)
+DIA_WARNINGS += -Wunmatched_returns
+endif
+DIA_PLT_APPS = erts kernel stdlib crypto mnesia runtime_tools compiler
+
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -78,6 +92,28 @@ clean:
 docs:
 
 build: $(TARGET_FILES)
+
+
+dclean:
+	rm -f $(DIA_PLT)
+	rm -f $(DIA_ANALYSIS)
+
+dialyzer_plt: $(DIA_PLT)
+
+$(DIA_PLT): $(ERL_FILES)
+	@echo "Building ($(basename $(DIA_PLT))) plt file"
+	@dialyzer --build_plt \
+                  --output_plt $@ \
+                  --apps $(sort snmp $(DIA_PLT_APPS)) \
+                  --output $(DIA_ANALYSIS) \
+                  --verbose
+
+dialyzer: $(DIA_PLT)
+	@echo "Running dialyzer on snmp example ex2"
+	@dialyzer --plt $< \
+                  $(ERL_TOP)/lib/snmp/examples/ex2 \
+                  $(DIA_WARNINGS) \
+                  --verbose
 
 
 # ----------------------------------------------------

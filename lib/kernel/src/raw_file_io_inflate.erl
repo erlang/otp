@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,12 +32,19 @@
 callback_mode() -> state_functions.
 
 init({Owner, Secret, [compressed]}) ->
-    Monitor = monitor(process, Owner),
-    %% We're using the undocumented inflateInit/3 to open the stream in
     %% 'reset mode', which resets the inflate state at the end of every stream,
     %% allowing us to read concatenated gzip files.
+    init(Owner, Secret, reset);
+init({Owner, Secret, [compressed_one]}) ->
+    %% 'cut mode', which stops the inflate after one member
+    %% allowing us to read gzipped tar files
+    init(Owner, Secret, cut).
+
+init(Owner, Secret, Mode) ->
+    Monitor = monitor(process, Owner),
+    %% We're using the undocumented inflateInit/3 to set the mode
     Z = zlib:open(),
-    ok = zlib:inflateInit(Z, ?GZIP_WBITS, reset),
+    ok = zlib:inflateInit(Z, ?GZIP_WBITS, Mode),
     Data =
         #{ owner => Owner,
            monitor => Monitor,

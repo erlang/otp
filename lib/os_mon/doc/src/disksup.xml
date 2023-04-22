@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -57,15 +57,42 @@
       longer valid.</p>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name>time()</name>
+      <desc>
+        <p>Supported units:</p>
+        <taglist>
+          <tag><c>integer() >= 1</c></tag>
+          <item>
+            <p>The time interval in minutes.</p>
+          </item>
+          <tag><c>{TimeUnit, Time}</c></tag>
+          <item>
+            <p>
+              The time interval <c>Time</c> in a time unit specified by <c>TimeUnit</c> where
+              <c>TimeUnit</c> is of the type
+              <seetype marker="erts:erlang#time_unit"><c>erlang:time_unit()</c></seetype>
+              and <c>Time</c> is a positive integer. The time interval needs to be at least one
+              millisecond long.
+            </p>
+          </item>
+        </taglist>
+      </desc>
+    </datatype>
+  </datatypes>
+
   <section>
     <marker id="config"></marker>
     <title>Configuration</title>
     <p>The following configuration parameters can be used to change
       the default values for time interval and threshold:</p>
     <taglist>
-      <tag><c>disk_space_check_interval = int()>0</c></tag>
+      <tag>
+        <c>disk_space_check_interval = </c><seetype marker="#time"><c>time()</c></seetype>
+      </tag>
       <item>
-        <p>The time interval, in minutes, for the periodic disk space
+        <p>The time interval for the periodic disk space
           check. The default is 30 minutes.</p>
       </item>
       <tag><c>disk_almost_full_threshold = float()</c></tag>
@@ -95,19 +122,60 @@
       <name since="">get_disk_data() -> [DiskData]</name>
       <fsummary>Get data for the disks in the system</fsummary>
       <type>
-        <v>DiskData = {Id, KByte, Capacity}</v>
+        <v>DiskData = {Id, TotalKiB, Capacity}</v>
         <v>&nbsp;Id = string()</v>
-        <v>&nbsp;KByte = int()</v>
+        <v>&nbsp;TotalKiB = int()</v>
         <v>&nbsp;Capacity = int()</v>
       </type>
       <desc>
         <p>Returns the result of the latest disk check. <c>Id</c> is a
-          string that identifies the disk or partition. <c>KByte</c> is
-          the total size of the disk or partition in kbytes.
+          string that identifies the disk or partition. <c>TotalKiB</c> is
+          the total size of the disk or partition in kibibytes.
           <c>Capacity</c> is the percentage of disk space used.</p>
         <p>The function is asynchronous in the sense that it does not
           invoke a disk check, but returns the latest available value.</p>
         <p>Returns <c>[{"none",0,0}]</c> if <c>disksup</c> is not
+          available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP @OTP-18303@">get_disk_info() -> [DiskData]</name>
+      <fsummary>Immediately get information for the disks in the system</fsummary>
+      <type>
+        <v>DiskData = {Id, TotalKiB, AvailableKiB, Capacity}</v>
+        <v>&nbsp;Id = string()</v>
+        <v>&nbsp;TotalKiB = int()</v>
+        <v>&nbsp;AvailableKiB = int()</v>
+        <v>&nbsp;Capacity = int()</v>
+      </type>
+      <desc>
+        <p>Immediately fetches total space, available space and capacity for local disks.
+          <c>Id</c> is a string that identifies the disk or partition.
+          <c>TotalKiB</c> is the total size of the disk or partition in kibibytes.
+          <c>AvailableKiB</c> is the disk space used in kibibytes.
+          <c>Capacity</c> is the percentage of disk space used.</p>
+        <p>Returns <c>[{"none",0,0,0}]</c> if <c>disksup</c> is not
+          available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP @OTP-18303@">get_disk_info(Path) -> DiskData</name>
+      <fsummary>Immediately get information for a single path</fsummary>
+      <type>
+        <v>DiskData = [{Id, TotalKiB, AvailableKiB, Capacity}]</v>
+        <v>&nbsp;Id = string()</v>
+        <v>&nbsp;TotalKiB = int()</v>
+        <v>&nbsp;AvailableKiB = int()</v>
+        <v>&nbsp;Capacity = int()</v>
+      </type>
+      <desc>
+        <p>Immediately fetches total space, available space and capacity for a path.
+          <c>Id</c> is a string that identifies the disk or partition.
+          <c>TotalKiB</c> is the total size of the disk or partition in kibibytes.
+          <c>AvailableKiB</c> is the disk space used in kibibytes.
+          <c>Capacity</c> is the percentage of disk space used.</p>
+        <p>Returns <c>[{Path,0,0,0}]</c> if the <c>Path</c> is invalid or space
+          can't be determined. Returns <c>[{"none",0,0,0}]</c> if <c>disksup</c> is not
           available.</p>
       </desc>
     </func>
@@ -123,13 +191,13 @@
       </desc>
     </func>
     <func>
-      <name since="">set_check_interval(Minutes) -> ok</name>
-      <fsummary>Set time interval, in minutes, for the periodic disk space check</fsummary>
+      <name since="">set_check_interval(Time) -> ok</name>
+      <fsummary>Set time interval for the periodic disk space check</fsummary>
       <type>
-        <v>Minutes = int()>=1</v>
+        <v>Time = <seetype marker="#time">time()</seetype></v>
       </type>
       <desc>
-        <p>Changes the time interval, given in minutes, for the periodic
+        <p>Changes the time interval for the periodic
           disk space check.</p>
         <p>The change will take effect after the next disk space check
           and is non-persist. That is, in case of a process restart,

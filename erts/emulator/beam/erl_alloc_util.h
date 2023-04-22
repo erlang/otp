@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,6 +67,7 @@ typedef struct {
     UWord smbcs;
     UWord mbcgs;
     UWord acul;
+    UWord acful;
     UWord acnl;
     UWord acfml;
 
@@ -127,6 +128,7 @@ typedef struct {
     1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
     0,			/* (%)      acul:  abandon carrier utilization limit */\
+    0,			/* (%)      acful:  carrier free utilization limit */\
     1000,		/* (amount) acnl:  abandoned carriers number limit */\
     0,			/* (bytes)  acfml: abandoned carrier fblk min limit */\
     /* --- Data not options -------------------------------------------- */\
@@ -167,6 +169,7 @@ typedef struct {
     128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
     0,			/* (%)      acul:  abandon carrier utilization limit */\
+    0,			/* (%)      acful:  carrier free utilization limit */\
     1000,		/* (amount) acnl:  abandoned carriers number limit */\
     0,			/* (bytes)  acfml: abandoned carrier fblk min limit */\
     /* --- Data not options -------------------------------------------- */\
@@ -476,6 +479,7 @@ typedef struct {
     ErtsThrPrgrVal thr_prgr;
     erts_atomic_t max_size;
     UWord abandon_limit;
+    UWord discard_limit;
     UWord blocks[ERTS_ALC_A_COUNT];
     UWord blocks_size[ERTS_ALC_A_COUNT];
     UWord total_blocks_size;
@@ -697,6 +701,7 @@ struct Allctr_t_ {
 	int		disable_abandon;
 	int		check_limit_count;
 	UWord		util_limit;       /* acul */
+	UWord		free_util_limit;  /* acful */
         UWord           in_pool_limit;    /* acnl */
         UWord           fblk_min_limit;   /* acmfl */
         int             carrier_pool;     /* cp */

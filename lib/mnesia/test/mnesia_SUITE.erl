@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -162,8 +162,8 @@ clean_up_suite(suite) ->
     [];
 clean_up_suite(Config) when is_list(Config)->
     mnesia:kill(),
-    Slaves = mnesia_test_lib:lookup_config(nodenames, Config),
-    Nodes = lists:delete(node(), Slaves),
+    NodeNames = mnesia_test_lib:lookup_config(nodenames, Config),
+    Nodes = lists:delete(node(), NodeNames),
     rpc:multicall(Nodes, erlang, halt, []),
     ok.
 
