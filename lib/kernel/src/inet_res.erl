@@ -574,12 +574,13 @@ res_getby_search(Name, [Dom | Ds], _Reason, Type, Timer) ->
     QueryName =
         %% Join Name and Dom with a single dot.
         %% Allow Dom to be "." or "", but not to lead with ".".
-        %% Do not allow Name to be "".
         if
-            Name =/= "" andalso (Dom =:= "." orelse Dom =:= "") ->
+            Dom =:= "."; Dom =:= "" ->
                 Name;
-            Name =/= "" andalso hd(Dom) =/= $. ->
-                Name++"."++Dom;
+            Name =/= "", hd(Dom) =/= $. ->
+                Name ++ "." ++ Dom;
+            Name =:= "", hd(Dom) =/= $. ->
+                Dom;
             true ->
                 erlang:error({if_clause, Name, Dom})
         end,

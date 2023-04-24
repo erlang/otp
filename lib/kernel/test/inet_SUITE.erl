@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 
 	 t_gethostbyaddr/0, t_gethostbyaddr/1,
 	 t_getaddr/0, t_getaddr/1,
-	 t_gethostbyname/0, t_gethostbyname/1,
+	 t_gethostbyname/0, t_gethostbyname/1, t_gethostbyname_empty/1,
 	 t_gethostbyaddr_v6/0, t_gethostbyaddr_v6/1,
 	 t_getaddr_v6/0, t_getaddr_v6/1,
 	 t_gethostbyname_v6/0, t_gethostbyname_v6/1,
@@ -70,7 +70,7 @@ suite() ->
 
 all() -> 
     [
-     t_gethostbyaddr, t_gethostbyname, t_getaddr,
+     t_gethostbyaddr, t_gethostbyname, t_gethostbyname_empty, t_getaddr,
      t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
      ipv4_to_ipv6, host_and_addr, is_ip_address, {group, parse},
      t_gethostnative, gethostnative_parallell, cname_loop,
@@ -366,6 +366,18 @@ do_gethostbyname(Config) when is_list(Config) ->
     {error,nxdomain} = inet:gethostbyname(DName),
     {error,nxdomain} = inet:gethostbyname(IP_46_Str),
     ok.
+
+
+t_gethostbyname_empty(Config) when is_list(Config) ->
+    element(1, os:type()) =:= unix andalso
+        begin
+            {error,nxdomain} = inet:gethostbyname(""),
+            {error,nxdomain} = inet:gethostbyname('')
+        end,
+    {error,nxdomain} = inet:gethostbyname("."),
+    {error,nxdomain} = inet:gethostbyname('.'),
+    ok.
+
 
 t_gethostbyname_v6() -> required(v6).
 %% Test the inet:gethostbyname/1 inet6 function.
