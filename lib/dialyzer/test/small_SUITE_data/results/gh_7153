@@ -1,0 +1,3 @@
+
+gh_7153.erl:4:1: Function t/1 has no local return
+gh_7153.erl:5:7: Binary construction will fail since the value field X in segment X/utf8 has type '原子'
