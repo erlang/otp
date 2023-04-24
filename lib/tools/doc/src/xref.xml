@@ -330,8 +330,13 @@ represented by
       <tag><c>L</c></tag>
       <item>Local Functions (*). All local functions of analyzed modules.</item>
       <tag><c>X</c></tag>
-      <item>Exported Functions. All exported functions of analyzed 
+      <item>Exported Functions. All exported functions of analyzed
        modules and all used exported functions of library modules.</item>
+      <tag><c>IX</c></tag>
+      <item>All functions from <c>X</c> with an attribute tag <c>internal_export</c>.
+       Use <seeguide
+            marker="system/reference_manual:features#existing-features">internal_export</seeguide>
+       feature to tag functions with both <c>internal_export</c> and <c>export</c>.</item>
       <tag><c>F</c></tag>
       <item>Functions (*).</item>
       <tag><c>B</c></tag>
@@ -878,7 +883,7 @@ Evaluates a predefined analysis.
           Returns a sorted list without duplicates of <c>call()</c> or
           <c>constant()</c>, depending on the chosen analysis. The
           predefined analyses, which operate on all <seeerl marker="#analyzed_module">analyzed modules</seeerl>, are
-          (analyses marked with (*) are available in <c>functions</c><seeerl marker="#mode">mode</seeerl> only):</p>
+          (analyses marked with (*) are available in <c>functions</c><seeerl marker="#mode"> mode</seeerl> only):</p>
         <taglist>
           <tag><c>undefined_function_calls</c>(*)</tag>
           <item>Returns a list of calls to <seeerl marker="#undefined_function">undefined functions</seeerl>.</item>
@@ -892,6 +897,35 @@ Evaluates a predefined analysis.
            externally used. Note that in <c>modules</c> mode,
 	    <c>M:behaviour_info/1</c> is never reported as unused.
 	  </item>
+          <tag><c>internal_use</c>(*)</tag>
+          <item>Returns a list of internally exported functions that have been
+           used.
+	        </item>
+          <tag><c>illegal_internal_use</c>(*)</tag>
+          <item>Returns a list of internally exported functions that have been
+           illegally used. Usage of internally exported functions is legal
+           if one of the following is satisfied:
+          <list type="bulleted">
+            <item>Internally exported function is used from within the module</item>
+            <item>Internally exported function is used from within the application</item>
+            <item>Internally exported function is used from any of it's application's dependencies</item>
+          </list>
+          All compiled modules that share <c>ebin</c> directory with some application resource
+           file belong to that application. Each usage of internally exported function
+           have source and target modules from which we can get source and target application.
+          Note that if module is not part of any application it can only call it's own
+           internally exported functions. 
+          Dependencies between applications are defined recursively in a following way:
+          <list type="bulleted">
+            <item>Application <c>a</c> is <i>directly dependent</i> on application <c>b</c> if
+             <c>b</c> is defined as <c>applications</c>, <c>included_applications</c> or
+             <c>optional_applications</c> in <c>a</c>'s application resource file.</item>
+            <item>Application <c>a</c> is <i>dependent</i> on application <c>b</c> if
+             it is <i>directly dependent</i> on <c>b</c> or some of <c>a</c>'s direct depenencies
+             is dependent on <c>b</c>.
+             </item>
+          </list>
+	        </item>
           <tag><c>deprecated_function_calls</c>(*)</tag>
           <item>Returns a list of external calls to <seeerl marker="#deprecated_function">deprecated functions</seeerl>.</item>
           <tag><c>{deprecated_function_calls, <anno>DeprFlag</anno>}</c>(*)</tag>
