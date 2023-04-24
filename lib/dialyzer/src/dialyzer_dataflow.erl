@@ -1602,20 +1602,23 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
   UnitVal = cerl:concrete(cerl:bitstr_unit(Seg)),
   Size = cerl:bitstr_size(Seg),
   case bitstr_bitsize_type(Size) of
-    all ->
-      binary = SegType, [] = Segs, %% just an assert
+    {literal, all} ->
+      binary = SegType, [] = Segs,              %Assertion.
       T = t_inf(t_bitstr(UnitVal, 0), BinType),
       {Map1, [Type]} = do_bind_pat_vars([Val], [T], Map,
                                         State, false, []),
       Type1 = remove_local_opaque_types(Type, State#state.opaques),
       bind_bin_segs(Segs, t_bitstr(0, 0), [Type1|Acc], Map1, State);
-    utf ->                         % XXX: can possibly be strengthened
-      true = lists:member(SegType, [utf8, utf16, utf32]),
+    SizeType when SegType =:= utf8; SegType =:= utf16; SegType =:= utf32 ->
+      {literal, undefined} = SizeType,          %Assertion.
       {Map1, [_]} = do_bind_pat_vars([Val], [t_integer()],
                                      Map, State, false, []),
       Type = t_binary(),
       bind_bin_segs(Segs, BinType, [Type|Acc], Map1, State);
-    any ->
+    {literal, N} when not is_integer(N); N < 0 ->
+      %% Bogus literal size, fails in runtime.
+      bind_error([Seg], BinType, t_none(), bind);
+    _ ->
       {Map1, [SizeType]} = do_bind_pat_vars([Size], [t_non_neg_integer()],
                                             Map, State, false, []),
       Opaques = State#state.opaques,
@@ -1668,14 +1671,8 @@ bind_bin_segs([], _BinType, Acc, Map, _State) ->
 
 bitstr_bitsize_type(Size) ->
   case cerl:is_literal(Size) of
-    true ->
-      case cerl:concrete(Size) of
-        all -> all;
-        undefined -> utf;
-        _ -> any
-      end;
-    false ->
-      any
+    true -> {literal, cerl:concrete(Size)};
+    false -> variable
   end.
 
 %% Return the infimum (meet) of ExpectedType and Type if it describes a
