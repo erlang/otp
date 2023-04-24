@@ -5898,10 +5898,10 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         ok_result = ref;
     else {
         Eterm *hp = HAlloc(BIF_P, 3);
-        Eterm bool = ((monitor_oflags & ERTS_ML_FLG_SPAWN_MONITOR)
+        Eterm spawns_monitor = ((monitor_oflags & ERTS_ML_FLG_SPAWN_MONITOR)
                       ? am_true : am_false);
         ASSERT(BIF_ARG_4 == am_spawn_opt);
-        ok_result = TUPLE2(hp, ref, bool);
+        ok_result = TUPLE2(hp, ref, spawns_monitor);
     }
 
     code = erts_dsig_prepare(&ctx, dep,
