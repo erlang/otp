@@ -27,7 +27,7 @@
          beam_ssa_dead_crash/1,stack_init/1,
          mapfoldl/0,mapfoldl/1,
          grab_bag/1,redundant_br/1,
-         coverage/1]).
+         coverage/1,normalize/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -48,7 +48,8 @@ groups() ->
        stack_init,
        grab_bag,
        redundant_br,
-       coverage
+       coverage,
+       normalize
       ]}].
 
 init_per_suite(Config) ->
@@ -1259,6 +1260,91 @@ coverage_5() ->
         _:_ ->
             error
     end#coverage{name = whatever}.
+
+%% Test beam_ssa:normalize/1, especially that argument types are
+%% correctly updated when arguments are swapped.
+normalize(_Config) ->
+    normalize_commutative({bif,'band'}),
+    normalize_commutative({bif,'+'}),
+
+    normalize_noncommutative({bif,'div'}),
+
+    ok.
+
+-record(b_var, {name}).
+-record(b_literal, {val}).
+
+normalize_commutative(Op) ->
+    A = #b_var{name=a},
+    B = #b_var{name=b},
+    Lit = #b_literal{val=42},
+
+    normalize_same(Op, [A,B]),
+    normalize_same(Op, [A,Lit]),
+
+    normalize_swapped(Op, [Lit,A]),
+
+    ok.
+
+normalize_noncommutative(Op) ->
+    A = #b_var{name=a},
+    B = #b_var{name=b},
+    Lit = #b_literal{val=42},
+
+    normalize_same(Op, [A,B]),
+    normalize_same(Op, [A,Lit]),
+
+    ArgTypes0 = [{1,beam_types:make_integer(0, 1023)}],
+    I1 = make_bset(ArgTypes0, Op, [Lit,A]),
+    I1 = beam_ssa:normalize(I1),
+
+    ok.
+
+normalize_same(Op, Args) ->
+    I0 = make_bset(#{}, Op, Args),
+    I0 = beam_ssa:normalize(I0),
+
+    ArgTypes0 = [{0,beam_types:make_integer(0, 1023)}],
+    I1 = make_bset(ArgTypes0, Op, Args),
+    I1 = beam_ssa:normalize(I1),
+
+    case Args of
+        [#b_var{},#b_var{}] ->
+            ArgTypes1 = [{0,beam_types:make_integer(0, 1023)},
+                         {1,beam_types:make_integer(42)}],
+            I2 = make_bset(ArgTypes1, Op, Args),
+            I2 = beam_ssa:normalize(I2);
+        [_,_] ->
+            ok
+    end,
+
+    ok.
+
+normalize_swapped(Op, [#b_literal{}=Lit,#b_var{}=Var]=Args) ->
+    EmptyAnno = #{},
+    I0 = make_bset(EmptyAnno, Op, Args),
+    {b_set,EmptyAnno,#b_var{name=1000},Op,[Var,Lit]} = beam_ssa:normalize(I0),
+
+    EmptyTypes = #{arg_types => #{}},
+    I1 = make_bset(EmptyTypes, Op, Args),
+    {b_set,EmptyTypes,#b_var{name=1000},Op,[Var,Lit]} = beam_ssa:normalize(I1),
+
+    IntRange = beam_types:make_integer(0, 1023),
+    ArgTypes0 = [{1,IntRange}],
+    I2 = make_bset(ArgTypes0, Op, Args),
+    {[{0,IntRange}],Op,[Var,Lit]} = unpack_bset(beam_ssa:normalize(I2)),
+
+    ok.
+
+make_bset(ArgTypes, Op, Args) when is_list(ArgTypes) ->
+    Anno = #{arg_types => maps:from_list(ArgTypes)},
+    {b_set,Anno,#b_var{name=1000},Op,Args};
+make_bset(Anno, Op, Args) when is_map(Anno) ->
+    {b_set,Anno,#b_var{name=1000},Op,Args}.
+
+unpack_bset({b_set,Anno,{b_var,1000},Op,Args}) ->
+    ArgTypes = maps:get(arg_types, Anno, #{}),
+    {lists:sort(maps:to_list(ArgTypes)),Op,Args}.
 
 %% The identity function.
 id(I) -> I.

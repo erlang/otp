@@ -741,10 +741,16 @@ record_float(R, N0) ->
 
 binary_float(_Config) ->
     <<-1/float>> = binary_negate_float(<<1/float>>),
+    {'EXIT',{badarg,_}} = catch binary_float_1(id(64.0), id(0)),
     ok.
 
 binary_negate_float(<<Float/float>>) ->
     <<-Float/float>>.
+
+%% GH-7147.
+binary_float_1(X, Y) ->
+    _ = <<Y:(ceil(64.0 = X))/float, (binary_to_integer(ok))>>,
+    ceil(X) band Y.
 
 float_compare(_Config) ->
     false = do_float_compare(-42.0),
