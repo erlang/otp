@@ -2378,6 +2378,9 @@ ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
 #endif
 
 #if defined(ERROR_MORE_DATA)
+        /*
+         * https://stackoverflow.com/questions/31883438/sockets-using-getqueuedcompletionstatus-and-error-more-data
+         */
     case ERROR_MORE_DATA:
         return MKA(env, "more_data");
         break;

@@ -121,6 +121,8 @@
 
 #define ERRNO_BLOCK                  WSAEWOULDBLOCK
 
+#define ESAIO_RECVFROM_MIN_BUFSZ     0x8000
+
 
 /* ======================================================================== *
  *                               Socket wrappers                            *
@@ -4074,6 +4076,8 @@ ERL_NIF_TERM esaio_recvfrom(ErlNifEnv*       env,
     WSABUF          wbuf;
     DWORD           f = flags;
     size_t          bufSz = (len != 0 ? len : descP->rBufSz);
+
+    if (bufSz < ESAIO_RECVFROM_MIN_BUFSZ) bufSz = ESAIO_RECVFROM_MIN_BUFSZ;
 
     SSDBG( descP, ("WIN-ESAIO", "essio_recvfrom {%d} -> entry with"
                    "\r\n   bufSz: %d"
@@ -8396,7 +8400,7 @@ void esaio_completion_recvfrom_more_data(ErlNifEnv*           env,
         if (IS_OPEN(descP->readState)) {
             /* We do not actually need to call this function
              * since we already know its 'more_data', but just
-             * get the same format...
+             * to get the same format...
              */
             ERL_NIF_TERM reason           = MKT2(env,
                                                  esock_atom_completion_status,
@@ -8659,7 +8663,7 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*           env,
             "\r\n   CompletionInfo: %T"
             "\r\n", MKPID(env, opCaller), completionInfo) );
 
-    /* Send a 'send' completion message */
+    /* Send a 'sendrecvfrom' completion message */
     esaio_send_completion_msg(env,              // Send env
                               descP,            // Descriptor
                               opCaller,         // Msg destination

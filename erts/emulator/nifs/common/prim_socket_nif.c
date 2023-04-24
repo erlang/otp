@@ -452,7 +452,11 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 
 #define ESOCK_RECV_BUFFER_COUNT_DEFAULT     0
-#define ESOCK_RECV_BUFFER_SIZE_DEFAULT      8192
+#if defined(__WIN32__)
+#define ESOCK_RECV_BUFFER_SIZE_DEFAULT      (32*1024)
+#else
+#define ESOCK_RECV_BUFFER_SIZE_DEFAULT      (8*1024)
+#endif
 #define ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT 1024
 #define ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT 1024
 
