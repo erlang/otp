@@ -703,10 +703,15 @@ erts_debug_monitor_tree_destroying_foreach(ErtsMonitor *root,
                                            void *arg,
                                            void *vysp)
 {
-    void *tmp_vysp = erts_alloc(ERTS_ALC_T_ML_YIELD_STATE,
-                                sizeof(ErtsMonLnkYieldState));
+    void *tmp_vysp;
     Sint reds;
-    sys_memcpy(tmp_vysp, tmp_vysp, sizeof(ErtsMonLnkYieldState));
+    if (!vysp)
+        tmp_vysp = NULL;
+    else {
+        tmp_vysp = erts_alloc(ERTS_ALC_T_ML_YIELD_STATE,
+                              sizeof(ErtsMonLnkYieldState));
+        sys_memcpy(tmp_vysp, tmp_vysp, sizeof(ErtsMonLnkYieldState));
+    }
     do {
         reds = ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
                                        (ErtsMonLnkNodeFunc) func,
@@ -1338,10 +1343,15 @@ erts_debug_link_tree_destroying_foreach(ErtsLink *root,
                                         void *arg,
                                         void *vysp)
 {
-    void *tmp_vysp = erts_alloc(ERTS_ALC_T_ML_YIELD_STATE,
-                                sizeof(ErtsMonLnkYieldState));
+    void *tmp_vysp;
     Sint reds;
-    sys_memcpy(tmp_vysp, vysp, sizeof(ErtsMonLnkYieldState));
+    if (!vysp)
+        tmp_vysp = NULL;
+    else {
+        tmp_vysp = erts_alloc(ERTS_ALC_T_ML_YIELD_STATE,
+                              sizeof(ErtsMonLnkYieldState));
+        sys_memcpy(tmp_vysp, vysp, sizeof(ErtsMonLnkYieldState));
+    }
     do {
         reds = ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
                                        (ErtsMonLnkNodeFunc) func,
