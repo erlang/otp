@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11518,15 +11518,13 @@ void ecb_glDebugMessageInsert(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   GLenum type;
   GLuint id;
   GLenum severity;
-  GLsizei length;
   ErlNifBinary buf;
   if(!enif_get_uint(env, argv[0],  &source)) Badarg(5803,"source");
   if(!enif_get_uint(env, argv[1],  &type)) Badarg(5803,"type");
   if(!enif_get_uint(env, argv[2],  &id)) Badarg(5803,"id");
   if(!enif_get_uint(env, argv[3],  &severity)) Badarg(5803,"severity");
-  if(!enif_get_int(env, argv[4],  &length)) Badarg(5803,"length");
-  if(!enif_inspect_binary(env, argv[5], &buf)) Badarg(5803,"buf");
-  weglDebugMessageInsert(source,type,id,severity,length,(GLchar *) buf.data);
+  if(!enif_inspect_binary(env, argv[4], &buf)) Badarg(5803,"buf");
+  weglDebugMessageInsert(source,type,id,severity,(GLsizei) buf.size,(GLchar *) buf.data);
 }
 
 void ecb_glGetDebugMessageLog(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
@@ -11549,6 +11547,8 @@ void ecb_glGetDebugMessageLog(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   std::vector <GLsizei> lengths (count);
   std::vector <ERL_NIF_TERM> lengths_ts (count);
   messageLog = (unsigned char *) enif_alloc((int) bufSize*sizeof(GLchar));
+  unsigned char *messageLog_ptr = messageLog;
+  std::vector <ERL_NIF_TERM> messageLog_ts (count);
   result = weglGetDebugMessageLog(count,bufSize,sources.data(),types.data(),ids.data(),severities.data(),lengths.data(),(GLchar *) messageLog);
   for(int ri=0; ri < (int) result; ri++)
     sources_ts[ri] =      enif_make_int(env, sources[ri]);
@@ -11558,16 +11558,20 @@ void ecb_glGetDebugMessageLog(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
     ids_ts[ri] =      enif_make_int(env, ids[ri]);
   for(int ri=0; ri < (int) result; ri++)
     severities_ts[ri] =      enif_make_int(env, severities[ri]);
+  for(int ri=0; ri < (int) result; ri++) {
+    messageLog_ts[ri] =      enif_make_string(env, (const char *) messageLog, ERL_NIF_LATIN1);
+    messageLog += lengths[ri];
+   }
   reply = enif_make_tuple6(env,
           enif_make_int(env, result),
      enif_make_list_from_array(env, sources_ts.data(), result),
      enif_make_list_from_array(env, types_ts.data(), result),
      enif_make_list_from_array(env, ids_ts.data(), result),
      enif_make_list_from_array(env, severities_ts.data(), result),
-     enif_make_string(env, (const char *) messageLog, ERL_NIF_LATIN1) );
+     enif_make_list_from_array(env, messageLog_ts.data(), result) );
   enif_send(NULL, self, env,
    enif_make_tuple2(env, EGL_ATOM_REPLY, reply));
- enif_free(messageLog);
+ enif_free(messageLog_ptr);
 }
 
 void ecb_glPushDebugGroup(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])

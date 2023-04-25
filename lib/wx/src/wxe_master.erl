@@ -80,8 +80,9 @@ init_opengl() ->
     case get(wx_init_opengl) of
         true -> {ok, "already  initialized"};
         _ ->
-            Opaque = gl:lookup_func(),
-            {ok, wxe_util:init_opengl(Opaque)}
+            Opaque = gl:lookup_func(functions),
+            Debug = gl:lookup_func(function_names),
+            {ok, wxe_util:init_opengl(Opaque, Debug)}
     end.
 
 %%--------------------------------------------------------------------
