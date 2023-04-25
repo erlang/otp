@@ -1296,6 +1296,11 @@ bs_skip_utf16 Fail=f Ms=xy Unit=u Flags=u => bs_get_utf16 Fail Ms Unit Flags x
 
 i_bs_get_utf16 xy f? t d
 
+bs_get_utf32 Fail=f Ms=xy Live=u Flags=u Dst | equal(Ms, Dst) =>
+    bs_get_integer2 Fail Ms Live i=32 u=1 Flags x |
+    i_bs_validate_unicode_retract Fail x Ms |
+    move x Dst
+
 bs_get_utf32 Fail=f Ms=xy Live=u Flags=u Dst=d =>
     bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst |
     i_bs_validate_unicode_retract Fail Dst Ms

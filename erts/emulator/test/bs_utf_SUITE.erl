@@ -356,6 +356,10 @@ utf32_illegal_sequences(Config) when is_list(Config) ->
     utf32_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
     utf32_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
     utf32_fail_range(-100, -1),
+
+    <<>> = id(<< 0 || <<X/utf32>> <= <<"àxxx">>, _ = X >>),
+    <<>> = id(<< 0 || <<X/little-utf32>> <= <<"àxxx">>, _ = X >>),
+
     ok.
 
 utf32_fail_range(Char, End) when Char =< End ->
