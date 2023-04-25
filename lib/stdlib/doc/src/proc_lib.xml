@@ -230,8 +230,8 @@ init(Parent) ->
     </func>
 
     <func>
-      <name since="OTP-26.0">init_fail(Ret, Exception) -> no_return()</name>
-      <name since="OTP-26.0">init_fail(Parent, Ret, Exception) -> no_return()</name>
+      <name since="OTP 26.0">init_fail(Ret, Exception) -> no_return()</name>
+      <name since="OTP 26.0">init_fail(Parent, Ret, Exception) -> no_return()</name>
       <fsummary>Used by a process that fails to start.</fsummary>
       <type>
         <v>Parent = <seetype marker="erts:erlang#pid">pid()</seetype></v>
