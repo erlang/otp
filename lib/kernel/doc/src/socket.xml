@@ -1591,7 +1591,72 @@
 
     <func>
       <name name="cancel" arity="2" clause_i="1" since="OTP 22.1"/>
-      <name name="cancel" arity="2" clause_i="2" since="OTP-18029"/>
+      <fsummary>Cancel an asynchronous request.</fsummary>
+      <desc>
+	<p>Cancel an asynchronous (select) request.</p>
+	<p>
+	  Call this function in order to cancel a previous
+	  asynchronous call to, e.g.
+	  <seemfa marker="#recv/3"><c>recv/3</c></seemfa>.
+	</p>
+        <p>
+          An ongoing asynchronous operation blocks the socket
+          until the operation has been finished in good order,
+          or until it has been cancelled by this function.
+        </p>
+        <p>
+          Any other process that tries an operation
+          of the same basic type (accept / send / recv) will be
+          enqueued and notified with the regular <c>select</c>
+          mechanism for asynchronous operations
+          when the current operation and all enqueued before it
+          has been completed.
+        </p>
+        <p>
+	  If <c><anno>SelectInfo</anno></c> does not match an
+          operation in progress for the calling process,
+          this function returns
+          <c>{error,&nbsp;{invalid,&nbsp;SelectInfo}}</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cancel" arity="2" clause_i="2" since="OTP 26.0"/>
+      <fsummary>Cancel an asynchronous request.</fsummary>
+      <desc>
+	<p>Cancel an asynchronous (completion) request.</p>
+	<p>
+	  Call this function in order to cancel a previous
+	  asynchronous call to, e.g.
+	  <seemfa marker="#recv/3"><c>recv/3</c></seemfa>.
+	</p>
+        <p>
+          An ongoing asynchronous operation blocks the socket
+          until the operation has been finished in good order,
+          or until it has been cancelled by this function.
+        </p>
+        <p>
+          Any other process that tries an operation
+          of the same basic type (accept / send / recv) will be
+          enqueued and notified with the regular <c>select</c>
+          mechanism for asynchronous operations
+          when the current operation and all enqueued before it
+          has been completed.
+        </p>
+        <p>
+	  If <c><anno>CompletionInfo</anno></c> does not match an
+          operation in progress for the calling process,
+          this function returns
+          <c>{error,&nbsp;{invalid,&nbsp;CompletionInfo}}</c>.
+        </p>
+      </desc>
+    </func>
+
+    <!--
+    <func>
+      <name name="cancel" arity="2" clause_i="1" since="OTP 22.1"/>
+      <name name="cancel" arity="2" clause_i="2" since="OTP 26.0"/>
       <fsummary>Cancel an asynchronous request.</fsummary>
       <desc>
 	<p>Cancel an asynchronous request.</p>
@@ -1622,6 +1687,7 @@
         </p>
       </desc>
     </func>
+    -->
 
     <func>
       <name name="close" arity="1" since="OTP 22.0"/>
