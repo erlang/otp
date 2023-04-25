@@ -31,6 +31,73 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in the loader that prevented certain
+	    modules compiled with <c>no_ssa_opt</c> from being
+	    loaded.</p>
+          <p>
+	    Own Id: OTP-18519 Aux Id: GH-7024 </p>
+        </item>
+        <item>
+          <p>
+	    Implementations of the <seecref
+	    marker="erts:driver_entry#call"><c>call()</c></seecref>
+	    driver callback that returned a faulty encoded result
+	    could cause a memory leak and could cause invalid data on
+	    the heap of the processes calling <seemfa
+	    marker="erts:erlang#port_call/3"><c>erlang:port_call/3</c></seemfa>.</p>
+          <p>
+	    Own Id: OTP-18525 Aux Id: PR-7049 </p>
+        </item>
+        <item>
+	    <p>Fixed a memory corruption issue when upgrading code.
+	    The bug was introduced in <c>OTP 25.3</c></p>
+          <p>
+	    Own Id: OTP-18553</p>
+        </item>
+        <item>
+	    <p>Fixed configure tests for a few ARM-specific
+	    instructions, which prevented the emulator from being
+	    built on some platforms.</p>
+          <p>
+	    Own Id: OTP-18554</p>
+        </item>
+        <item>
+          <p>
+	    Aliases created in combination with a monitor using the
+	    <c>{alias, explicit_unalias}</c> option stopped working
+	    from remote nodes when a <c>'DOWN'</c> signal had been
+	    received due to the monitor or if the monitor was removed
+	    using the <c>erlang:demonitor()</c> BIF.</p>
+          <p>
+	    This bug was introduced in OTP 24.3.4.10 and OTP 25.3.</p>
+          <p>
+	    Own Id: OTP-18557 Aux Id: PR-7131, OTP-18496 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, bit syntax matching of an
+	    invalid code point for a <c>utf32</c> would crash the
+	    runtime system.</p>
+          <p>
+	    Own Id: OTP-18560</p>
+        </item>
+        <item>
+          <p>
+	    Building the runtime system failed when native atomic
+	    support was missing. Note that execution on such systems
+	    have only been rudimentary tested.</p>
+          <p>
+	    Own Id: OTP-18563 Aux Id: GH-7114, PR-7159 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

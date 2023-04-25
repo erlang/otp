@@ -33,7 +33,33 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.3</title>
+  <section><title>Inets 8.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct timing related pipelining/keepalive queue bug,
+	    that could result in unexpected "socket_remotly_closed"
+	    errors.</p>
+          <p>
+	    Own Id: OTP-18509 Aux Id: OTP-18476 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, upon remote socket closure current
+	    request is added to a retried queue (either pipeline or
+	    keep_alive, but not both).</p>
+          <p>
+	    Own Id: OTP-18545 Aux Id: OTP-18509, ERIERL-937,
+	    ERIERL-928 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

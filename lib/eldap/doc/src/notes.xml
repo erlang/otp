@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
+<section><title>Eldap 1.2.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added a new function eldap:info/1 that returns the socket
+	    and the transport protocol for the eldap connection.</p>
+          <p>
+	    Own Id: OTP-18480</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eldap 1.2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

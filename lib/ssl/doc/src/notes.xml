@@ -27,6 +27,30 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, ssl:connection_information/2 returns
+	    correct keylog data after TLS1.3 key update.</p>
+          <p>
+	    Own Id: OTP-18489</p>
+        </item>
+        <item>
+          <p>
+	    Client signature algorithm list input order is now
+	    honored again , it was accidently reversed by a previous
+	    fix.</p>
+          <p>
+	    Own Id: OTP-18550</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When a map update such as <c>#{}#{key:=value}</c> that
+	    should fail with an exception was unused, the exception
+	    would be lost.</p>
+          <p>
+	    Own Id: OTP-18497 Aux Id: GH-6960, PR-6965 </p>
+        </item>
+        <item>
+	    <p>Fixed bug in the validator that made it reject valid
+	    code.</p>
+          <p>
+	    Own Id: OTP-18516 Aux Id: GH-6969 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
