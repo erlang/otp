@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -903,7 +903,7 @@
 -define(wxDF_LOCALE, 16).
 -define(wxDF_PRIVATE, 20).
 -define(wxDF_HTML, 30).
--define(wxDF_MAX, 31).
+-define(wxDF_MAX, wxe_util:get_const(wxDF_MAX)).
 %%%  From "defs.h": wxDeprecatedGUIConstants
 -define(wxDEFAULT, 70).
 -define(wxDECORATIVE, 71).

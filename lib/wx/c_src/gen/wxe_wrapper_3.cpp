@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2620,6 +2620,51 @@ void wxGLCanvas_SetCurrent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 
 }
 
+#if wxUSE_GLCANVAS_EGL
+// wxGLCanvas::CreateSurface
+void wxGLCanvas_CreateSurface(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxGLCanvas *This;
+  This = (wxGLCanvas *) memenv->getPtr(env, argv[0], "This");
+ 
+#if !wxCHECK_VERSION(3,2,3)
+  if(!This) throw wxe_badarg(0);
+  if(This->GetEGLSurface() != EGL_NO_SURFACE)
+     eglDestroySurface(This->GetEGLDisplay(), This->GetEGLSurface());
+#endif
+;
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->CreateSurface();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+#endif
+// wxGLCanvas::IsDisplaySupported
+void wxGLCanvas_IsDisplaySupported(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  int attribList_tmp;
+  unsigned int attribListLen;
+  ERL_NIF_TERM attribListHead, attribListTail;
+  if(!enif_get_list_length(env, argv[0], &attribListLen)) Badarg("attribList");
+  std::vector <int> attribList;
+  attribListTail = argv[0];
+  while(!enif_is_empty_list(env, attribListTail)) {
+    if(!enif_get_list_cell(env, attribListTail, &attribListHead, &attribListTail)) Badarg("attribList");
+    if(!enif_get_int(env, attribListHead, &attribList_tmp)) Badarg("attribList");
+    attribList.push_back( (int) attribList_tmp);
+  };
+  bool Result = wxGLCanvas::IsDisplaySupported(attribList.data());
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
 // wxGLCanvas::SwapBuffers
 void wxGLCanvas_SwapBuffers(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
@@ -2680,6 +2725,22 @@ void wxGLContext_SetCurrent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 
 }
 
+#if wxCHECK_VERSION(3,1,0)
+// wxGLContext::IsOK
+void wxGLContext_IsOK(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxGLContext *This;
+  This = (wxGLContext *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->IsOK();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+#endif
 #endif // wxUSE_GLCANVAS
 // wxGauge::wxGauge
 void wxGauge_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
