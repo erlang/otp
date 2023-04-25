@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 -module(wxGLContext).
 -include("wxe.hrl").
--export([destroy/1,new/1,new/2,setCurrent/2]).
+-export([destroy/1,isOK/1,new/1,new/2,setCurrent/2]).
 
 %% inherited exports
 -export([parent_class/1]).
@@ -59,6 +59,14 @@ setCurrent(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
   ?CLASS(WinT,wxGLCanvas),
   wxe_util:queue_cmd(This,Win,?get_env(),?wxGLContext_SetCurrent),
   wxe_util:rec(?wxGLContext_SetCurrent).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxglcontext.html#wxglcontextisok">external documentation</a>.
+-spec isOK(This) -> boolean() when
+	This::wxGLContext().
+isOK(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxGLContext),
+  wxe_util:queue_cmd(This,?get_env(),?wxGLContext_IsOK),
+  wxe_util:rec(?wxGLContext_IsOK).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxGLContext()) -> 'ok'.

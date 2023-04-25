@@ -115,4 +115,7 @@ typedef struct {
 
 extern wxe_fns_t wxe_fns[];
 
+void wx_print_term(ErlNifEnv * env, ERL_NIF_TERM t);
+
+
 #endif  //_WXE_IMPL_H
