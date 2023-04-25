@@ -63,6 +63,8 @@ all() ->
             [load_api, util_api, util_values, port, unavailable];
         {unix, freebsd} ->
             [load_api, util_api, util_values, port, unavailable];
+        {unix, openbsd} ->
+            [load_api, util_api, util_values, port, unavailable];
         {unix, darwin} ->
             [load_api, util_api, util_values, port, unavailable];
         {unix, netbsd} -> [unavailable];
