@@ -42,7 +42,6 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/ssl_connection.hrl").
-
 all() ->
     [{group, 'tlsv1.3'}].
 
@@ -107,24 +106,22 @@ key_update_at_server(Config) ->
 key_update_at(Config, Role) ->
     Data = "123456789012345",  %% 15 bytes
     Server = ssl_test_lib:start_server(erlang,
-                                       [{options, [{key_update_at, 14}]}],
+                                       [{options, [{keep_secrets, true},
+                                                   {key_update_at, 14}]}],
                                        Config),
     Port = ssl_test_lib:inet_port(Server),
-    {Client,
-     #sslsocket{pid =
-                    [ClientReceiverPid, ClientSenderPid]}} =
-        ssl_test_lib:start_client(erlang,
-                                  [return_socket, {port, Port},
-                                   {options, [{key_update_at, 14}]}],
-                                  Config),
+    ClientResult = ssl_test_lib:start_client(erlang,
+                                             [return_socket, {port, Port},
+                                              {options, [{keep_secrets, true},
+                                                         {key_update_at, 14}]}],
+                                             Config),
+    {Client, ClientSocket} = ClientResult,
     Server ! get_socket,
-    #sslsocket{pid =
-                   [ServerReceiverPid, ServerSenderPid]} =
-        receive
-            {Server, {socket, S}} -> S
-        end,
-    Keys0 = get_keys(ClientReceiverPid, ClientSenderPid,
-                     ServerReceiverPid, ServerSenderPid),
+    ServerSocket = receive
+                       {Server, {socket, S}} -> S
+                   end,
+    Keys0 = get_traffic_secrets(ClientSocket, ServerSocket),
+    ct:log("connected", []),
     {Sender, Receiver} = case Role of
                              client -> {Client, Server};
                              server -> {Server, Client}
@@ -134,53 +131,67 @@ key_update_at(Config, Role) ->
     Data = ssl_test_lib:check_active_receive(Receiver, Data),
     %% TODO check if key has been updated (needs debug logging of secrets)
     ct:sleep(500),
-    Keys1 = get_keys(ClientReceiverPid, ClientSenderPid,
-                     ServerReceiverPid, ServerSenderPid),
+    ct:log("sent and waited", []),
+    Keys1 = get_traffic_secrets(ClientSocket, ServerSocket),
     verify_key_update(Keys0, Keys1),
     %% Test mechanism to prevent infinite loop of key updates
     BigData = binary:copy(<<"1234567890">>, 10),  %% 100 bytes
     ok = ssl_test_lib:send(Sender, BigData),
     ct:sleep(500),
-    Keys2 = get_keys(ClientReceiverPid, ClientSenderPid,
-                     ServerReceiverPid, ServerSenderPid),
+    ct:log("sent and waited 2", []),
+    Keys2 = get_traffic_secrets(ClientSocket, ServerSocket),
     verify_key_update(Keys1, Keys2),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-get_keys(ClientReceiverPid, ClientSenderPid,
-         ServerReceiverPid, ServerSenderPid) ->
-    F = fun(Pid) ->
-                {connection, D} = sys:get_state(Pid),
-                M0 = element(3, D),
-                Cr = maps:get(current_write, M0),
-                {Pid, {maps:get(security_parameters, Cr),
-                 maps:get(cipher_state, Cr)}}
+get_traffic_secrets(ClientSocket, ServerSocket) ->
+    ProcessSocket =
+        fun(Socket, Role) ->
+                {ok, [{keylog, KeyLog}]} = ssl:connection_information(Socket, [keylog]),
+                Interesting =
+                    fun(S) ->
+                            Patterns = ["CLIENT_TRAFFIC_SECRET", "SERVER_TRAFFIC_SECRET"],
+                            SearchResults = [string:find(S, P) || P <- Patterns],
+                            lists:any(fun(I) -> I /= nomatch end, SearchResults)
+                    end,
+                TrafficSecrets = lists:filter(Interesting, KeyLog),
+                Print = fun(Secret) ->
+                                [Name, _A, B] = string:lexemes(Secret, " "),
+                                [Key] = io_lib:format("~s", [B]),
+                                {Name, {Role, Key}}
+                        end,
+                [Print(Scr) || Scr <- TrafficSecrets]
         end,
-    SendersKeys = [F(P) || P <- [ClientSenderPid, ServerSenderPid]],
-
-    G = fun(Pid) ->
-                {connection, D} = sys:get_state(Pid),
-                #state{connection_states = Cs} = D,
-                Cr = maps:get(current_read, Cs),
-                {Pid, {maps:get(security_parameters,Cr),
-                 maps:get(cipher_state, Cr)}}
+    Secrets = lists:flatten(
+                [ProcessSocket(S, R) ||
+                    {S, R} <-
+                        [{ClientSocket, client}, {ServerSocket, server}]]),
+    P = fun(Direction) ->
+                Vals = proplists:get_all_values(Direction, Secrets),
+                ct:log("~30s ~10s(c) ~10s(s)",
+                     [Direction, proplists:get_value(client, Vals),
+                      proplists:get_value(server, Vals)]),
+                {Direction, [proplists:get_value(client, Vals),
+                             proplists:get_value(server, Vals)]}
         end,
-    ReceiversKeys = [G(P) || P <- [ClientReceiverPid, ServerReceiverPid]],
-    maps:from_list(SendersKeys ++ ReceiversKeys).
+    [P(Direction) ||
+        Direction <-
+            ["CLIENT_TRAFFIC_SECRET_0", "SERVER_TRAFFIC_SECRET_0"]].
 
 verify_key_update(Keys0, Keys1) ->
-    V = fun(Pid, CurrentKeys) ->
-                BaseKeys = maps:get(Pid, Keys0),
-                ct:log("Pid = ~p~nBaseKeys = ~p~nCurrentKeys = ~p",
-                      [Pid, BaseKeys, CurrentKeys], [esc_chars]),
-                case BaseKeys == CurrentKeys of
-                    true ->
-                        ct:fail("Keys don't differ for ~w", [Pid]);
-                    false ->
-                        ok
-                end
-        end,
-    maps:foreach(V, Keys1).
+    CTS0 = proplists:get_value("CLIENT_TRAFFIC_SECRET_0", Keys0),
+    CTS1 = proplists:get_value("CLIENT_TRAFFIC_SECRET_0", Keys1),
+    STS0 = proplists:get_value("SERVER_TRAFFIC_SECRET_0", Keys0),
+    STS1 = proplists:get_value("SERVER_TRAFFIC_SECRET_0", Keys1),
+    CTS = lists:zip(CTS0, CTS1),
+    STS = lists:zip(STS0, STS1),
+    Pred = fun({A, B}) when A == B ->
+                   ct:fail(no_key_update),
+                   false;
+              (_) ->
+                   true
+           end,
+    [true = lists:all(Pred, X) || X <- [CTS, STS]].
 
 explicit_key_update() ->
     [{doc,"Test ssl:update_key/2 between erlang client and erlang server."}].
