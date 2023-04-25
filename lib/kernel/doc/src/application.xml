@@ -190,7 +190,7 @@
       </desc>
     </func>
     <func>
-      <name name="get_supervisor" arity="1" since="OTP 25.1"/>
+      <name name="get_supervisor" arity="1" since="OTP @OTP-18444@"/>
       <fsummary>Get the supervisor of an application.</fsummary>
       <desc>
         <p>Returns the <c><anno>Pid</anno></c> of the supervisor running
