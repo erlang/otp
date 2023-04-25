@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -475,7 +475,7 @@ groups() ->
      {aes_128_ccm,  [], [aead_ng, aead_bad_tag]},
      {aes_192_ccm,  [], [aead_ng, aead_bad_tag]},
      {aes_256_ccm,  [], [aead_ng, aead_bad_tag]},
-     {aes_128_ecb,  [], [api_ng, api_ng_one_shot, cmac_update]},
+     {aes_128_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_192_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_128_gcm,  [], [aead_ng, aead_bad_tag]},
@@ -2805,8 +2805,6 @@ hmac_inc(_) ->
 
 
 cmac_key(aes_128_cbc) ->
-    hexstr2bin("8eeca0d146fd09ffbbe0d47edcddfcec");
-cmac_key(aes_128_ecb) ->
     hexstr2bin("8eeca0d146fd09ffbbe0d47edcddfcec").
 
 cmac_inc(_) ->
