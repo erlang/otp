@@ -2906,12 +2906,16 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                    H2Bin = unicode:characters_to_binary(OutFileInfo,Enc,Enc),
                    ok = file:write(OutFd, H2Bin),
 
-		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
-		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
-                    CovLines0 =
-                        lists:keysort(1, ets:select(?COLLECTION_TABLE, MS)),
-                    CovLines = merge_dup_lines(CovLines0),
-		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
+		    Pattern = {#bump{module=Module,line='$1',clause='$2',_='_'},'$3'},
+		    LineMS = [{Pattern,[{is_integer,'$1'},{'>','$1',0},{is_integer,'$2'}],[{{'$1','$3'}}]}],
+            CovLines0 =
+                lists:keysort(1, ets:select(?COLLECTION_TABLE, LineMS)),
+            CovLines = merge_dup_lines(CovLines0),
+
+            BranchMS = [{Pattern,[{is_integer,'$1'},{'>','$1',0},{'=:=','$3',0},{is_tuple,'$2'}],['$1']}],
+            UncovBranches = ets:select(?COLLECTION_TABLE, BranchMS),
+
+		    print_lines(Module, CovLines, UncovBranches, InFd, OutFd, 1, HTML),
 		    
 		    if HTML ->
                            ok = file:write(OutFd, close_html());
@@ -2933,14 +2937,14 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 
 merge_dup_lines(CovLines) ->
     merge_dup_lines(CovLines, []).
-merge_dup_lines([{L, N}|T], [{L, NAcc}|TAcc]) ->
-    merge_dup_lines(T, [{L, NAcc + N}|TAcc]);
+merge_dup_lines([{L, _C, N}|T], [{L, CAcc, NAcc}|TAcc]) ->
+    merge_dup_lines(T, [{L, CAcc, NAcc + N}|TAcc]);
 merge_dup_lines([{L, N}|T], Acc) ->
     merge_dup_lines(T, [{L, N}|Acc]);
 merge_dup_lines([], Acc) ->
     lists:reverse(Acc).
 
-print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
+print_lines(Module, CovLines, UncovBranches, InFd, OutFd, L, HTML) ->
     case file:read_line(InFd) of
 	eof ->
 	    ignore;
@@ -2948,12 +2952,16 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
 	    case CovLines of
 	       [{L,N}|CovLines1] ->
+                    UncovBranch = lists:member(L, UncovBranches),
                     if N=:=0, HTML=:=true ->
                            MissedLine = table_row("miss", Line, L, N),
                            ok = file:write(OutFd, MissedLine);
+                       UncovBranch, HTML=:=true ->
+                           MissedLine = table_row("branch", Line, L, N),
+                           ok = file:write(OutFd, MissedLine);
                        HTML=:=true ->
                            HitLine = table_row("hit", Line, L, N),
-                           ok = file:write(OutFd, HitLine);
+                            ok = file:write(OutFd, HitLine);
                        N < 1000000 ->
                            Str = string:pad(integer_to_list(N), 6, leading, $\s),
                            ok = file:write(OutFd, [Str,fill1(),Line]);
@@ -2964,14 +2972,14 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
                            Str = integer_to_list(N),
                            ok = file:write(OutFd, [Str,fill3(),Line])
                     end,
-		    print_lines(Module, CovLines1, InFd, OutFd, L+1, HTML);
+		    print_lines(Module, CovLines1, UncovBranches, InFd, OutFd, L+1, HTML);
 		_ ->                            %Including comment lines
         NonCoveredContent =
                     if HTML -> table_row(Line, L);
                     true -> [tab(),Line]
                     end,
 		    ok = file:write(OutFd, NonCoveredContent),
-		    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML)
+		    print_lines(Module, CovLines, UncovBranches, InFd, OutFd, L+1, HTML)
 	    end
     end.
 

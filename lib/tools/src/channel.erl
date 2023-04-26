@@ -18,12 +18,10 @@ alloc() ->
         1 == 1 -> 
             if 
                 2 == 1 -> 
-                    true; 
-                true -> 
-                    false 
-            end; 
-        true -> 
-            false 
+                ok;
+                true ->
+                ok
+            end 
     end,
     gen_server:call(channel,alloc).
 
