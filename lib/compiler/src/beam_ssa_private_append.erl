@@ -565,6 +565,8 @@ patch_literal_term(<<>>, self, Cnt0) ->
     {V,Cnt} = new_var(Cnt0),
     I = #b_set{op=bs_init_writable,dst=V,args=[#b_literal{val=256}]},
     {V, [I], Cnt};
+patch_literal_term(Lit, self, Cnt) ->
+    {#b_literal{val=Lit}, [], Cnt};
 patch_literal_term([H0|T0], {hd,Element}, Cnt0) ->
     {H,Extra,Cnt1} = patch_literal_term(H0, Element, Cnt0),
     {T,[],Cnt1} = patch_literal_term(T0, [], Cnt1),

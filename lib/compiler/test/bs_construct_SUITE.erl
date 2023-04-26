@@ -755,18 +755,25 @@ bad_binary_size2() ->
 bad_binary_size3(Bin) ->
     <<Bin:all/binary>>.
 
-%% GH-7121: Alias analysis would not mark fun arguments as aliased, fooling
-%% the beam_ssa_private_append pass.
 private_append(_Config) ->
     <<"alpha=\"alpha\",beta=\"beta\"">> =
         private_append_1(#{ <<"alpha">> => <<"alpha">>,
                             <<"beta">> => <<"beta">> }),
 
+    <<>> = private_append_2(false),
+    {'EXIT', _} = catch private_append_2(true),
+
     ok.
 
+%% GH-7121: Alias analysis would not mark fun arguments as aliased, fooling
+%% the beam_ssa_private_append pass.
 private_append_1(M) when is_map(M) ->
     maps:fold(fun (K, V, Acc = <<>>) ->
                         <<Acc/binary, K/binary, "=\"", V/binary, "\"">>;
                     (K, V, Acc) ->
                         <<Acc/binary, ",", K/binary, "=\"", V/binary, "\"">>
                 end, <<>>, M).
+
+%% GH-7142: The private append pass crashed on oddly structured code.
+private_append_2(Boolean) ->
+    <<<<(id(Boolean) orelse <<>>)/binary>>/binary>>.
