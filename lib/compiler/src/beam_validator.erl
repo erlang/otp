@@ -2830,7 +2830,13 @@ unpack_typed_arg(#tr{r=Reg,t=Type}, Vst) ->
     %% The validator is not yet clever enough to do proper range analysis like
     %% the main type pass, so our types will be a bit cruder here, but they
     %% should at the very least not be in direct conflict.
-    true = none =/= beam_types:meet(get_movable_term_type(Reg, Vst), Type),
+    Current = get_movable_term_type(Reg, Vst),
+    case beam_types:meet(Current, Type) of
+        none ->
+            throw({bad_typed_register, Current, Type});
+        _ ->
+            ok
+    end,
     Reg;
 unpack_typed_arg(Arg, _Vst) ->
     Arg.
