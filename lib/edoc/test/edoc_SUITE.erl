@@ -24,13 +24,14 @@
 
 %% Test cases
 -export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1,
-         build_app/1, otp_14285/1, infer_module_app_test/1]).
+         build_app/1, otp_14285/1, infer_module_app_test/1,
+         module_with_feature/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app,appup,build_std,build_map_module,otp_12008, build_app, otp_14285,
-     infer_module_app_test].
+     infer_module_app_test, module_with_feature].
 
 groups() -> 
     [].
@@ -159,3 +160,13 @@ infer_module_app_test_({M, Beam}) ->
 	    R2 = filelib:is_regular(BeamPath2),
 	    R1 orelse R2
     end.
+
+module_with_feature(Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    Source = filename:join(DataDir, "module_with_feature.erl"),
+    DodgerOpts = [{dir, PrivDir}],
+    ok = edoc:files([Source], DodgerOpts),
+    PreprocessOpts = [{preprocess, true}, {dir, PrivDir}],
+    ok = edoc:files([Source], PreprocessOpts),
+    ok.
