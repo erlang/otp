@@ -893,7 +893,7 @@ clean_id_creation(Id) when is_port(Id) ->
     <<131, PortTag, AtomTag>> = H,
     LL = atomlen_bits(AtomTag),
     CL = creation_bits(PortTag),
-    <<L:LL, Node:L/binary, Ids:4/binary, _Creation/binary>> = Rest,
+    <<L:LL, Node:L/binary, Ids:8/binary, _Creation/binary>> = Rest,
     Bin2 = list_to_binary([H, <<L:LL>>, Node, Ids, <<0:CL>>]),
     binary_to_term(Bin2);
 clean_id_creation(Id) ->
@@ -901,8 +901,7 @@ clean_id_creation(Id) ->
 
 -define(PID_EXT, $g).
 -define(NEW_PID_EXT, $X).
--define(PORT_EXT, $f).
--define(NEW_PORT_EXT, $Y).
+-define(V4_PORT_EXT, $x).
 -define(ATOM_EXT, $d).
 -define(SMALL_ATOM_EXT, $s).
 -define(ATOM_UTF8_EXT, $v).
@@ -915,8 +914,7 @@ atomlen_bits(?SMALL_ATOM_UTF8_EXT) -> 8.
 
 creation_bits(?PID_EXT) -> 8;
 creation_bits(?NEW_PID_EXT) -> 32;
-creation_bits(?PORT_EXT) -> 8;
-creation_bits(?NEW_PORT_EXT) -> 32.
+creation_bits(?V4_PORT_EXT) -> 32.
 
 %% serializer
 
