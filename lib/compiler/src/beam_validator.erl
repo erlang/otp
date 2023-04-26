@@ -1582,7 +1582,7 @@ update_create_bin_list([], Vst) -> Vst.
 update_create_bin_type(append) -> #t_bitstring{};
 update_create_bin_type(private_append) -> #t_bitstring{};
 update_create_bin_type(binary) -> #t_bitstring{};
-update_create_bin_type(float) -> #t_float{};
+update_create_bin_type(float) -> #t_number{};
 update_create_bin_type(integer) -> #t_integer{};
 update_create_bin_type(utf8) -> #t_integer{};
 update_create_bin_type(utf16) -> #t_integer{};
