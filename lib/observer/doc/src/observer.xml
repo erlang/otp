@@ -58,14 +58,14 @@
       </desc>
     </func>
     <func>
-      <name since="OTP 26">start(Node) -> ok</name>
+      <name since="OTP 26.0">start(Node) -> ok</name>
       <fsummary>Start the Observer GUI connected against <c>Node</c>.</fsummary>
       <desc>
         <p>Starts the Observer GUI and tries to connect it to <c>Node</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="OTP 26">start_and_wait() -> ok</name>
+      <name since="OTP 26.0">start_and_wait() -> ok</name>
       <fsummary>Start the Observer GUI blocking.</fsummary>
       <desc>
         <p>Starts the Observer GUI and only return when it is either stopped or
@@ -73,7 +73,7 @@
       </desc>
     </func>
     <func>
-      <name since="OTP 26">start_and_wait(Node) -> ok</name>
+      <name since="OTP 26.0">start_and_wait(Node) -> ok</name>
       <fsummary>Start the Observer GUI blocking and connect it to <c>Node</c>.</fsummary>
       <desc>
         <p>Starts the Observer GUI and only return when it is either stopped or
@@ -83,7 +83,7 @@
       </desc>
     </func>
     <func>
-      <name since="OTP 26">stop() -> ok</name>
+      <name since="OTP 26.0">stop() -> ok</name>
       <fsummary>Stop the Observer GUI.</fsummary>
       <desc>
         <p>Stops the Observer GUI.</p>
