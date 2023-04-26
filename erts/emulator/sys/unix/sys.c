@@ -256,9 +256,6 @@ erts_sys_pre_init(void)
     /* After creation in parent */
     eid.thread_create_parent_func = thr_create_cleanup,
 
-    /* Must be done really early. */
-    sys_init_signal_stack();
-
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_pre_thr_init();
 #endif
@@ -341,12 +338,27 @@ erl_sys_init(void)
 SIGFUNC sys_signal(int sig, SIGFUNC func)
 {
     struct sigaction act, oact;
+    int extra_flags = 0;
 
     sigemptyset(&act.sa_mask);
-    act.sa_flags = 0;
+
+#if (defined(BEAMASM) && defined(NATIVE_ERLANG_STACK))
+    /* The JIT assumes that signals don't execute on the current stack (as our
+     * Erlang process stacks may be too small to execute a signal handler).
+     *
+     * Make sure the SA_ONSTACK flag is set when needed so that signals execute
+     * on their own signal-specific stack. */
+    if (func != SIG_DFL && func != SIG_IGN) {
+        extra_flags |= SA_ONSTACK;
+    }
+#endif
+
+    act.sa_flags = extra_flags;
     act.sa_handler = func;
+
     sigaction(sig, &act, &oact);
-    return(oact.sa_handler);
+
+    return oact.sa_handler;
 }
 
 #undef  sigprocmask
