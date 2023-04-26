@@ -427,7 +427,7 @@ zip:create("mnesia-4.4.7.ez",
     </func>
     <func>
       <name name="add_pathsa" arity="1" since=""/>
-      <name name="add_pathsa" arity="2" since=""/>
+      <name name="add_pathsa" arity="2" since="OTP @OTP-18466@"/>
       <fsummary>Add directories to the beginning of the code path.</fsummary>
       <desc>
 	<p>Traverses <c><anno>Dirs</anno></c> and adds
