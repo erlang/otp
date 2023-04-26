@@ -1450,6 +1450,12 @@ cg_copy_1([], _St) -> [].
                           element(1, Val) =:= atom orelse
                           element(1, Val) =:= literal)).
 
+bif_to_test(min, Args, Fail, St) ->
+    %% The min/2 and max/2 BIFs can only be rewritten to tests when
+    %% both arguments are known to be booleans.
+    bif_to_test('and', Args, Fail, St);
+bif_to_test(max, Args, Fail, St) ->
+    bif_to_test('or', Args, Fail, St);
 bif_to_test('or', [V1,V2], {f,Lbl}=Fail, St0) when Lbl =/= 0 ->
     {SuccLabel,St} = new_label(St0),
     {[{test,is_eq_exact,{f,SuccLabel},[V1,{atom,false}]},
