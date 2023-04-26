@@ -369,10 +369,11 @@ void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
     ranges.reserve(functions.size() + 2);
 
     ASSERT((ErtsCodePtr)getBaseAddress() == (ErtsCodePtr)header);
+    ASSERT(functions.size() == header->num_functions);
 
     /* Push info about the header */
     ranges.push_back({.start = (ErtsCodePtr)getBaseAddress(),
-                      .stop = getCode(functions[0]),
+                      .stop = (ErtsCodePtr)&header->functions[functions.size()],
                       .name = module_name + "::codeHeader"});
 
     for (unsigned i = 0; i < functions.size(); i++) {
