@@ -713,7 +713,7 @@
       </desc>
     </func>
     <func>
-      <name name="next_file" arity="1" since=""/>
+      <name name="next_file" arity="1" since="OTP @OTP-18331@"/>
       <fsummary>Change to the next log file of a disk log.</fsummary>
       <type name="next_file_error_rsn"/>
       <type name="invalid_header"/>
