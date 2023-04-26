@@ -883,6 +883,12 @@ static void esaio_completion_recvfrom_success(ErlNifEnv*           env,
                                               ErlNifEnv*           opEnv,
                                               ErlNifPid*           opCaller,
                                               ESAIOOpDataRecvFrom* opDataP);
+static void esaio_completion_recvfrom_more_data(ErlNifEnv*           env,
+                                                ESockDescriptor*     descP,
+                                                ErlNifEnv*           opEnv,
+                                                ErlNifPid*           opCaller,
+                                                ESAIOOpDataRecvFrom* opDataP,
+                                                int                  error);
 static void esaio_completion_recvfrom_aborted(ErlNifEnv*           env,
                                               ESockDescriptor*     descP,
                                               ErlNifPid*           opCaller,
@@ -8264,6 +8270,20 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData*     dataP,
         MUNLOCK(descP->readMtx);
         break;
 
+    case ERROR_MORE_DATA:
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recvfrom(%d) -> more data"
+                "\r\n", descP->sock) );
+        MLOCK(descP->readMtx);
+
+        esaio_completion_recvfrom_more_data(env, descP,
+                                            opEnv, opCaller, opDataP,
+                                            error);
+
+        MUNLOCK(descP->readMtx);
+        break;
+
     case WSA_OPERATION_ABORTED:
         SSDBG( descP,
                ("WIN-ESAIO",
@@ -8349,6 +8369,77 @@ void esaio_completion_recvfrom_success(ErlNifEnv*           env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvfrom_success(%d) -> "
+            "maybe (%s) update (read) state (ox%X)\r\n",
+            descP->sock,
+            B2S((descP->readersQ.first == NULL)), descP->readState) );
+    if (descP->readersQ.first == NULL) {
+        descP->readState &= ~ESOCK_STATE_SELECTED;
+    }
+
+}
+
+
+static
+void esaio_completion_recvfrom_more_data(ErlNifEnv*           env,
+                                         ESockDescriptor*     descP,
+                                         ErlNifEnv*           opEnv,
+                                         ErlNifPid*           opCaller,
+                                         ESAIOOpDataRecvFrom* opDataP,
+                                         int                  error)
+{
+    ESockRequestor req;
+
+    if (esock_reader_get(env, descP,
+                         &opDataP->recvRef,
+                         opCaller,
+                         &req)) {
+        if (IS_OPEN(descP->readState)) {
+            /* We do not actually need to call this function
+             * since we already know its 'more_data', but just
+             * get the same format...
+             */
+            ERL_NIF_TERM reason           = MKT2(env,
+                                                 esock_atom_completion_status,
+                                                 ENO2T(env, error));
+            ERL_NIF_TERM completionStatus = esock_make_error(env, reason);
+            ERL_NIF_TERM completionInfo   = MKT2(opEnv,
+                                                 opDataP->recvRef,
+                                                 completionStatus);
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_completion_recvfrom_more_data(%d) -> "
+                    "send completion message: "
+                    "\r\n   Completion Status: %T"
+                    "\r\n", descP->sock, completionStatus) );
+
+            /* Send a 'recvfrom' completion message */
+            esaio_send_completion_msg(env,              // Send env
+                                      descP,            // Descriptor
+                                      opCaller,         // Msg destination
+                                      opEnv,            // Msg env
+                                      opDataP->sockRef, // Dest socket
+                                      completionInfo);  // Info
+
+        }
+
+        FREE_BIN( &opDataP->buf );
+
+    } else {
+        /* Request was actually completed directly
+         * (and was therefor not put into the "queue")
+         * => Nothing to do here, other than cleanup (see below).
+         * => But we do not free the "buffer" since it was "used up"
+         *    when we (as assumed) got the result (directly)...
+         */
+    }
+
+    /* *Maybe* update socket (write) state
+     * (depends on if the queue is now empty)
+     */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recvfrom_more_data(%d) -> "
             "maybe (%s) update (read) state (ox%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
