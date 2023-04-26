@@ -252,6 +252,8 @@ Note:
     the syntax of defines and includes is the same as that used by \"erlc\".
 
 " ++ warning_options_msg() ++ "
+" ++ configuration_file_msg() ++ "
+
 The exit status of the command line version is:
   0 - No problems were encountered during the analysis and no
       warnings were emitted.
@@ -382,4 +384,30 @@ They are primarily intended to be used with the -dialyzer attribute:
      Suppress warnings about functions whose specification includes types that the function cannot return.
   -Wno_missing_return
      Suppress warnings about functions that return values that are not part of the specification.
+".
+
+configuration_file_msg() ->
+    "Configuration file:
+     Dialyzer's configuration file may also be used to augment the default
+     options and those given directly to the Dialyzer command. It is commonly
+     used to avoid repeating options which would otherwise need to be given
+     explicitly to Dialyzer on every invocation.
+
+     The location of the configuration file can be set via the
+     DIALYZER_CONFIG environment variable, and defaults to
+     within the user_config location given by filename:basedir/3.
+
+     On your system, the location is currently configured as:
+       " ++ dialyzer_options:get_default_config_filename() ++
+     "
+
+     An example configuration file's contents might be:
+
+       {incremental,
+         {default_apps,[stdlib,kernel,erts]},
+         {default_warning_apps,[stdlib]}
+       }.
+       {warnings, [no_improper_lists]}.
+       {add_pathsa,[\"/users/samwise/potatoes/ebin\"]}.
+       {add_pathsz,[\"/users/smeagol/fish/ebin\"]}.
 ".

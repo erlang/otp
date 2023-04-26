@@ -30,6 +30,8 @@
          default_apps_config_xdg/1,
          default_apps_config_env_var/1,
          default_apps_config_env_var_prioritised_over_xdg/1,
+         legal_warnings_config_xdg/1,
+         paths_config_xdg/1,
          multiple_plts_unsupported_in_incremental_mode/1]).
 
 suite() ->
@@ -54,6 +56,8 @@ all() -> [report_new_plt_test,
           default_apps_config_xdg,
           default_apps_config_env_var,
           default_apps_config_env_var_prioritised_over_xdg,
+          legal_warnings_config_xdg,
+          paths_config_xdg,
           multiple_plts_unsupported_in_incremental_mode].
 
 erlang_module() ->
@@ -739,7 +743,7 @@ default_apps_config_xdg(Config) ->
                 [{"HOME", TestHome}]
         end,
 
-    io:format("~p\n", [HomeEnv]),
+    io:format("~p~n", [HomeEnv]),
 
     PrivDir = ?config(priv_dir, Config),
     PltFile = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME) ++ ".iplt"),
@@ -888,6 +892,176 @@ default_apps_config_env_var_prioritised_over_xdg(Config) ->
         ?assertMatch([], sets:to_list(sets:intersection(
                            sets:from_list(UnexpectedModules),
                            sets:from_list(Modules))))
+      end),
+
+    peer:stop(Peer).
+
+legal_warnings_config_xdg(Config) ->
+    TestHome = filename:join(?config(priv_dir, Config), ?FUNCTION_NAME),
+
+    %% We change the $HOME of the emulator to run this test
+    HomeEnv =
+        case os:type() of
+            {win32, _} ->
+                [Drive | Path] = filename:split(TestHome),
+                [{"APPDATA", filename:join(TestHome, "AppData")},
+                 {"HOMEDRIVE", Drive},
+                 {"HOMEPATH", filename:join(Path)}];
+            _ ->
+                [{"HOME", TestHome}]
+        end,
+
+    io:format("~p~n", [HomeEnv]),
+
+    {ok, Peer, Node} = ?CT_PEER(#{ env => HomeEnv }),
+
+    SrcWithImproperList = <<"
+      -module(my_improper_list_module).
+      -export([g/0]).
+
+      g() -> [a|b]. % Improper list: Last element is not the empty list
+      ">>,
+
+    {ok, BeamFileWithImproperList} =
+      compile(Config, SrcWithImproperList, my_improper_list_module, []),
+
+    AppsConfig =
+        {incremental, {default_apps, [stdlib, kernel, erts, compiler, mnesia, ftp]}},
+
+    erpc:call(
+      Node,
+      fun() ->
+          %% Find out the path of the config file
+          HomeConfigFilename =
+              filename:join(filename:basedir(user_config, "erlang"),
+                            "dialyzer.config"),
+          io:format("~ts\n", [HomeConfigFilename]),
+          ok = filelib:ensure_dir(HomeConfigFilename),
+
+          %% Write configuration file
+          WarningsConfig1 =
+              {warnings, [no_unknown, no_improper_lists]},
+          ok = file:write_file(HomeConfigFilename,
+                               io_lib:format("~p.~n~p.~n", [AppsConfig, WarningsConfig1])),
+          WarningsWithConfigSet =
+            dialyzer:run([{analysis_type, incremental},
+                          {files, [BeamFileWithImproperList]},
+                          {from, byte_code}]),
+          ?assertEqual([], WarningsWithConfigSet),
+
+          %% Write alternative configuration file
+          WarningsConfig2 =
+              {warnings, [no_unknown]},
+          ok = file:write_file(HomeConfigFilename,
+                               io_lib:format("~p.~n~p.~n", [AppsConfig, WarningsConfig2])),
+          WarningsWithoutConfigSet =
+            dialyzer:run([{analysis_type, incremental},
+                          {files, [BeamFileWithImproperList]},
+                          {from, byte_code}]),
+          ?assertMatch([{warn_non_proper_list, _Loc, _Msg}], WarningsWithoutConfigSet)
+      end),
+
+    peer:stop(Peer).
+
+paths_config_xdg(Config) ->
+    TestHome = filename:join(?config(priv_dir, Config), ?FUNCTION_NAME),
+
+    %% We change the $HOME of the emulator to run this test
+    HomeEnv =
+        case os:type() of
+            {win32, _} ->
+                [Drive | Path] = filename:split(TestHome),
+                [{"APPDATA", filename:join(TestHome, "AppData")},
+                 {"HOMEDRIVE", Drive},
+                 {"HOMEPATH", filename:join(Path)}];
+            _ ->
+                [{"HOME", TestHome}]
+        end,
+
+    io:format("~p~n", [HomeEnv]),
+
+    ExtraModulesDirOrig =
+      filename:join(?config(data_dir, Config), "extra_modules"),
+    ExtraModulesDir =
+      filename:join(?config(priv_dir, Config), "extra_modules"),
+    ok = filelib:ensure_path(ExtraModulesDir),
+    ok = filelib:ensure_path(filename:join(ExtraModulesDir,"ebin")),
+    ok = filelib:ensure_path(filename:join(ExtraModulesDir,"src")),
+
+    {ok, _} =
+      file:copy(
+        filename:join([ExtraModulesDirOrig, "src", "extra_modules.app.src"]),
+        filename:join([ExtraModulesDir, "src", "extra_modules.app.src"])
+      ),
+    {ok, _} =
+      file:copy(
+        filename:join([ExtraModulesDirOrig, "src", "extra_module.erl"]),
+        filename:join([ExtraModulesDir, "src", "extra_module.erl"])
+      ),
+
+    {ok, Peer, Node} = ?CT_PEER(#{ env => HomeEnv }),
+    {ok, _} =
+      compile:file(
+        filename:join([ExtraModulesDir,"src","extra_module.erl"]),
+        [{outdir, filename:join([ExtraModulesDir,"ebin"])}, debug_info]
+      ),
+
+    AppsConfig =
+        {incremental,
+          {default_apps,
+            [stdlib,
+             kernel,
+             erts,
+             extra_modules
+            ]
+          },
+          {default_warning_apps,
+            [extra_modules % Only on path if added explicitly via config below
+            ]
+          }
+        },
+
+    WarningsConfig =
+        {warnings, [no_unknown]},
+
+    erpc:call(
+      Node,
+      fun() ->
+          %% Find out the path of the config file
+          HomeConfigFilename =
+              filename:join(filename:basedir(user_config, "erlang"),
+                            "dialyzer.config"),
+          io:format("~ts~n", [HomeConfigFilename]),
+          ok = filelib:ensure_dir(HomeConfigFilename),
+
+          %% Write configuration file
+          PathConfig = {add_pathsa, [ExtraModulesDir, filename:join(ExtraModulesDir, "ebin"), filename:join(ExtraModulesDir, "src")]},
+          ok =
+            file:write_file(
+              HomeConfigFilename,
+              io_lib:format(
+                "~p.~n~p.~n~p.~n",
+                [AppsConfig, WarningsConfig, PathConfig])),
+
+          {Warnings, ModAnalyzed} =
+            % Will analyse apps from config, including the `extra_modules` app
+            % which contains a Dialyzer error
+            dialyzer:run_report_modules_analyzed([
+                {analysis_type, incremental},
+                {from, byte_code}]),
+
+          % Check we did actually analyze the module
+          ?assert(
+             lists:member(extra_module, ModAnalyzed),
+             lists:flatten(io_lib:format("Looking for 'extra_module' in ~tp~n", [ModAnalyzed]))),
+
+          % Check we got the warnings we expected from modules
+          % added to the path
+          ?assertMatch(
+             [ {warn_contract_types, {_,_}, {invalid_contract, [extra_module,f,1, {[1],true}, "(atom()) -> string()", "(integer()) -> nonempty_improper_list(integer(),3)"]}},
+               {warn_non_proper_list, {_,_}, {improper_list_constr,["3"]}}
+             ],
+             Warnings)
       end),
 
     peer:stop(Peer).
