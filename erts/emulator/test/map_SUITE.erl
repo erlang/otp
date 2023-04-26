@@ -276,6 +276,8 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
 
     60 = map_size(M0),
     60 = maps:size(M0),
+    60 = apply(erlang, id(map_size), [M0]),
+    60 = apply(maps, id(size), [M0]),
 
     % with repeating
     M1 = id(#{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
@@ -312,6 +314,8 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
 
     60 = map_size(M1),
     60 = maps:size(M1),
+    60 = apply(erlang, id(map_size), [M1]),
+    60 = apply(maps, id(size), [M1]),
 
     % with floats
 
@@ -365,6 +369,8 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
 
     90 = map_size(M2),
     90 = maps:size(M2),
+    90 = apply(erlang, id(map_size), [M2]),
+    90 = apply(maps, id(size), [M2]),
 
     % with bignums
     M3 = id(#{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
@@ -428,6 +434,8 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
 
     98 = map_size(M3),
     98 = maps:size(M3),
+    98 = apply(erlang, id(map_size), [M3]),
+    98 = apply(maps, id(size), [M3]),
 
     %% with maps
 
@@ -548,6 +556,8 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
 
     95 = map_size(M4),
     95 = maps:size(M4),
+    95 = apply(erlang, id(map_size), [M4]),
+    95 = apply(maps, id(size), [M4]),
 
     % call for value
 
@@ -645,6 +655,8 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
 
     95 = map_size(M5),
     95 = maps:size(M5),
+    95 = apply(erlang, id(map_size), [M5]),
+    95 = apply(maps, id(size), [M5]),
 
     %% remember
 
@@ -2220,6 +2232,10 @@ t_bif_map_merge(Config) when is_list(Config) ->
 		      {'EXIT',{{badmap,T},[{maps,merge,_,_}|_]}} =
 			  (catch maps:merge(T, #{})),
 		      {'EXIT',{{badmap,T},[{maps,merge,_,_}|_]}} =
+			  (catch maps:merge(M11, T)),
+		      {'EXIT',{{badmap,T},[{maps,merge,_,_}|_]}} =
+			  (catch maps:merge(T, M11)),
+		      {'EXIT',{{badmap,T},[{maps,merge,_,_}|_]}} =
 			  (catch maps:merge(T, T))
 	      end),
     ok.
@@ -2462,6 +2478,16 @@ t_bif_erlang_phash2() ->
     70249457 = erlang:phash2(M0), % 118679416
     59617982 = erlang:phash2(M1), % 51612236
     70249457 = erlang:phash2(M2), % 118679416
+
+    M1000 = maps:from_list([{K,K} || K <- lists:seq(1,1000)]),
+    66609305 = erlang:phash2(M1000),
+
+    Mnested1 = #{flatmap => M0, M0 => flatmap, hashmap => M1000, M1000 => hashmap},
+    113689339 = erlang:phash2(Mnested1),
+
+    Mnested2 = maps:merge(Mnested1, M1000),
+    29167443 = erlang:phash2(Mnested2),
+
     ok.
 
 t_bif_erlang_phash() ->
@@ -2482,6 +2508,16 @@ t_bif_erlang_phash() ->
     2620391445 = erlang:phash(M0,Sz), % 3590546636
     1670235874 = erlang:phash(M1,Sz), % 4066388227
     2620391445 = erlang:phash(M2,Sz), % 3590546636
+
+    M1000 = maps:from_list([{K,K} || K <- lists:seq(1,1000)]),
+    1945662653 = erlang:phash(M1000, Sz),
+
+    Mnested1 = #{flatmap => M0, M0 => flatmap, hashmap => M1000, M1000 => hashmap},
+    113694495 = erlang:phash(Mnested1, Sz),
+
+    Mnested2 = maps:merge(Mnested1, M1000),
+    431825783 = erlang:phash(Mnested2, Sz),
+
     ok.
 
 t_map_encode_decode(Config) when is_list(Config) ->
@@ -2957,25 +2993,31 @@ t_maps_without(_Config) ->
 %% Verify that the the number of nodes in hashmaps
 %% of different types and sizes does not deviate too
 %% much from the theoretical model.
+%% For debug with DBG_HASHMAP_COLLISION_BONANZA the test will expect
+%% the hashmaps to NOT be well balanced.
 t_hashmap_balance(_Config) ->
-    io:format("Integer keys\n", []),
-    hashmap_balance(fun(I) -> I end),
-    io:format("Float keys\n", []),
-    hashmap_balance(fun(I) -> float(I) end),
-    io:format("String keys\n", []),
-    hashmap_balance(fun(I) -> integer_to_list(I) end),
-    io:format("Binary (big) keys\n", []),
-    hashmap_balance(fun(I) -> <<I:16/big>> end),
-    io:format("Binary (little) keys\n", []),
-    hashmap_balance(fun(I) -> <<I:16/little>> end),
-    io:format("Atom keys\n", []),
     erts_debug:set_internal_state(available_internal_state, true),
-    hashmap_balance(fun(I) -> erts_debug:get_internal_state({atom,I}) end),
+    ExpectBalance = not erts_debug:get_internal_state(hashmap_collision_bonanza),
+    hashmap_balance(ExpectBalance),
     erts_debug:set_internal_state(available_internal_state, false),
-
     ok.
 
-hashmap_balance(KeyFun) ->
+hashmap_balance(EB) ->
+    io:format("Integer keys\n", []),
+    hashmap_balance(fun(I) -> I end, EB),
+    io:format("Float keys\n", []),
+    hashmap_balance(fun(I) -> float(I) end, EB),
+    io:format("String keys\n", []),
+    hashmap_balance(fun(I) -> integer_to_list(I) end, EB),
+    io:format("Binary (big) keys\n", []),
+    hashmap_balance(fun(I) -> <<I:16/big>> end, EB),
+    io:format("Binary (little) keys\n", []),
+    hashmap_balance(fun(I) -> <<I:16/little>> end, EB),
+    io:format("Atom keys\n", []),
+    hashmap_balance(fun(I) -> erts_debug:get_internal_state({atom,I}) end, EB),
+    ok.
+
+hashmap_balance(KeyFun, ExpectBalance) ->
     %% For uniformly distributed hash values, the average number of nodes N
     %% in a hashmap varies between 0.3*K and 0.4*K where K is number of keys.
     %% The standard deviation of N is about sqrt(K)/3.
@@ -3019,9 +3061,10 @@ hashmap_balance(KeyFun) ->
 		       erts_debug:flat_size(MaxMap)])
     end,
 
-    true = (MaxDiff < 6),  % The probability of this line failing is about 0.000000001
-                           % for a uniform hash. I've set the probability this "high" for now
-                           % to detect flaws in our make_internal_hash.
+    %% The probability of this line failing is about 0.000000001
+    %% for a uniform hash. I've set the probability this "high" for now
+    %% to detect flaws in our make_internal_hash.
+    ExpectBalance = (MaxDiff < 6),
     ok.
 
 hashmap_nodes(M) ->
@@ -3030,6 +3073,7 @@ hashmap_nodes(M) ->
 			case element(1,Tpl) of
 			    bitmaps -> Acc + element(2,Tpl);
 			    arrays -> Acc + element(2,Tpl);
+			    collisions -> Acc + element(2,Tpl);
 			    _ -> Acc
 			end
 		end,

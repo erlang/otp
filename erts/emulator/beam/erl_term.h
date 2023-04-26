@@ -331,7 +331,7 @@ _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define is_sane_arity_value(x)	((((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL) && \
 				 (((x) >> _HEADER_ARITY_OFFS) <= MAX_ARITYVAL))
 #define is_not_arity_value(x)	(!is_arity_value((x)))
-#define _unchecked_arityval(x)	_unchecked_header_arity((x))
+#define _unchecked_arityval(x)	((x) >> _HEADER_ARITY_OFFS)
 _ET_DECLARE_CHECKED(Uint,arityval,Eterm)
 #define arityval(x)		_ET_APPLY(arityval,(x))
 

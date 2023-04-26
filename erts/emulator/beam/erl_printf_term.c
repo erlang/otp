@@ -722,71 +722,46 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                 }
             } else {
                 Uint n, mapval;
+                Eterm* assoc;
+                Eterm key, val;
+
                 mapval = MAP_HEADER_VAL(*head);
                 switch (MAP_HEADER_TYPE(*head)) {
                 case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
                 case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
                     PRINT_STRING(res, fn, arg, "#{");
                     WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
-                    n = hashmap_bitcount(mapval);
-                    ASSERT(n < 17);
-                    head += 2;
-                    if (n > 0) {
-			Eterm* assoc;
-			Eterm key, val;
-                        n--;
-                        if (is_list(head[n])) {
-                            assoc = list_val(head[n]);
-                            key = CAR(assoc);
-                            val = CDR(assoc);
-                            WSTACK_PUSH5(s, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
-                        } else {
-                            WSTACK_PUSH(s, head[n]);
-                            WSTACK_PUSH(s, PRT_TERM);
-			}
-                        while (n--) {
-                            if (is_list(head[n])) {
-                                assoc = list_val(head[n]);
-                                key = CAR(assoc);
-                                val = CDR(assoc);
-                                WSTACK_PUSH6(s, PRT_COMMA, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
-                            } else {
-                                WSTACK_PUSH(s, PRT_COMMA);
-                                WSTACK_PUSH(s, head[n]);
-                                WSTACK_PUSH(s, PRT_TERM);
-                            }
-                        }
-                    }
-                    break;
+                    head++;
+                    /* fall through */
                 case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
                     n = hashmap_bitcount(mapval);
-                    head++;
-                    ASSERT(n < 17);
-                    if (n > 0) {
-			Eterm* assoc;
-			Eterm key, val;
-                        n--;
+                    ASSERT(0 < n && n < 17);
+                    while (1) {
                         if (is_list(head[n])) {
                             assoc = list_val(head[n]);
                             key = CAR(assoc);
                             val = CDR(assoc);
                             WSTACK_PUSH5(s, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
-                        } else {
-                            WSTACK_PUSH(s, head[n]);
-                            WSTACK_PUSH(s, PRT_TERM);
                         }
-                        while (n--) {
-                            if (is_list(head[n])) {
-                                assoc = list_val(head[n]);
+                        else if (is_tuple(head[n])) { /* collision node */
+                            Eterm *tpl = tuple_val(head[n]);
+                            Uint arity = arityval(tpl[0]);
+                            ASSERT(arity >= 2);
+                            while (1) {
+                                assoc = list_val(tpl[arity]);
                                 key = CAR(assoc);
                                 val = CDR(assoc);
-                                WSTACK_PUSH6(s, PRT_COMMA, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
-                            } else {
+                                WSTACK_PUSH5(s, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
+                                if (--arity == 0)
+                                    break;
                                 WSTACK_PUSH(s, PRT_COMMA);
-                                WSTACK_PUSH(s, head[n]);
-                                WSTACK_PUSH(s, PRT_TERM);
                             }
+                        } else {
+                            WSTACK_PUSH2(s, head[n], PRT_TERM);
                         }
+                        if (--n == 0)
+                            break;
+                        WSTACK_PUSH(s, PRT_COMMA);
                     }
                     break;
                 }

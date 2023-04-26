@@ -1441,8 +1441,8 @@ tailrecur_ne:
 			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 			ASSERT(sz > 0 && sz < 17);
 			break;
-		    default:
-			erts_exit(ERTS_ERROR_EXIT, "Unknown hashmap subsubtag\n");
+                    default:
+                        erts_exit(ERTS_ERROR_EXIT, "bad header");
 		    }
 		    goto term_array;
 		}
@@ -1983,6 +1983,11 @@ tailrecur_ne:
                      A minimal key can only be candidate as tie-breaker if we
                      have passed that hash value in the other tree (which means
                      the key did not exist in the other tree).
+
+                   Collision node amendment:
+                     The leafs in collision nodes are sorted in map-key order.
+                     If keys are different but hashes are equal we advance the
+                     one lagging behind key-wise.
                 */
 
                     sp = PSTACK_PUSH(map_stack);
@@ -2395,12 +2400,19 @@ pop_next:
                 ASSERT(sp->is_hashmap);
                 if (j) {
                     /* Key diff found, enter phase 2 */
-                    if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
+                    int hash_cmp = hashmap_key_hash_cmp(sp->ap, sp->bp);
+                    if (hash_cmp == 0) {
+                        /* Hash collision. Collision nodes are sorted by map key
+                         * order, so we advance the one with the lesser key */
+                        hash_cmp = j;
+                    }
+                    if (hash_cmp < 0) {
                         sp->min_key = CAR(sp->ap);
                         sp->cmp_res = -1;
                         sp->ap = hashmap_iterator_next(&stack);
                     }
                     else {
+                        ASSERT(hash_cmp > 0);
                         sp->min_key = CAR(sp->bp);
                         sp->cmp_res = 1;
                         sp->bp = hashmap_iterator_next(&b_stack);
@@ -2452,7 +2464,7 @@ pop_next:
                 sp->bp = hashmap_iterator_next(&b_stack);
                 if (!sp->ap) {
                     /* end of maps with identical keys */
-                    ASSERT(!sp->bp);
+                    ASSERT(!sp->bp);  /* as we assume indentical map sizes */
                     j = sp->cmp_res;
                     exact = sp->was_exact;
                     (void) PSTACK_POP(map_stack);
@@ -2488,14 +2500,21 @@ pop_next:
                 /* fall through */
             case_HASHMAP_PHASE2_NEXT_STEP:
                 if (sp->ap || sp->bp) {
-                    if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
+                    int hash_cmp = hashmap_key_hash_cmp(sp->ap, sp->bp);
+                    if (hash_cmp == 0) {
+                        /* Hash collision. Collision nodes are sorted by map key
+                         * order, so we advance the one with the lesser key */
+                        hash_cmp = j;
+                    }
+                    if (hash_cmp < 0) {
                         ASSERT(sp->ap);
                         a = CAR(sp->ap);
                         b = sp->min_key;
                         ASSERT(exact);
                         WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_IS_MIN_KEY_A));
                     }
-                    else { /* hash_cmp > 0 */
+                    else {
+                        ASSERT(hash_cmp > 0);
                         ASSERT(sp->bp);
                         a = CAR(sp->bp);
                         b = sp->min_key;
