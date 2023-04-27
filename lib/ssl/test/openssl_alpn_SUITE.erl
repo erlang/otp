@@ -194,7 +194,7 @@ erlang_client_alpn_openssl_server_alpn(Config) when is_list(Config) ->
 
 erlang_server_alpn_openssl_client_alpn(Config) when is_list(Config) ->
     ClientOpts = proplists:get_value(client_rsa_opts, Config),
-    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Protocol = <<"spdy/2">>,
     Server = ssl_test_lib:start_server(erlang, [{from, self()}],
                                        [{server_opts, [{alpn_preferred_protocols,

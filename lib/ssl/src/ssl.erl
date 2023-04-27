@@ -1703,18 +1703,22 @@ validate_versions(dtls, Vsns0) ->
 opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
     {Verify, Opts1} =
         case get_opt_of(verify, [verify_none, verify_peer], default_verify(Role), UserOpts, Opts0) of
+            {old, Val} ->
+                {Val, Opts0};
             {_, verify_none} ->
                 {verify_none, Opts0#{verify => verify_none, verify_fun => {none_verify_fun(), []}}};
             {_, verify_peer} ->
                 %% If 'verify' is changed from verify_none to verify_peer, (via update_options/3)
                 %% the 'verify_fun' must also be changed to undefined.
                 %% i.e remove verify_none fun
-                {verify_peer, Opts0#{verify => verify_peer, verify_fun => undefined}}
+                Temp = Opts0#{verify => verify_peer, verify_fun => undefined},
+                {verify_peer, maps:remove(fail_if_no_peer_cert, Temp)}
         end,
     Opts2 = opt_cacerts(UserOpts, Opts1, Env),
     {_, PartialChain} = get_opt_fun(partial_chain, 1, fun(_) -> unknown_ca end, UserOpts, Opts2),
 
-    {_, FailNoPeerCert} = get_opt_bool(fail_if_no_peer_cert, false, UserOpts, Opts2),
+    DefFailNoPeer = Role =:= server andalso Verify =:= verify_peer,
+    {_, FailNoPeerCert} = get_opt_bool(fail_if_no_peer_cert, DefFailNoPeer, UserOpts, Opts2),
     assert_server_only(Role, FailNoPeerCert, fail_if_no_peer_cert),
     option_incompatible(FailNoPeerCert andalso Verify =:= verify_none,
                         [{verify, verify_none}, {fail_if_no_peer_cert, true}]),

@@ -230,7 +230,7 @@ erlang_server_openssl_client_nowrap_seqnum() ->
 erlang_server_openssl_client_nowrap_seqnum(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 
     {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
 
