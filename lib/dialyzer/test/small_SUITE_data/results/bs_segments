@@ -1,0 +1,3 @@
+
+bs_segments.erl:6:1: Function t/1 has no local return
+bs_segments.erl:6:1: The pattern <<_>> can never match the type any()
