@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve debug prints from the nifs. Some minor fixes for
+	    wxWidgets-3.2. Fixed OpenGL debug functions.</p>
+          <p>
+	    Own Id: OTP-18512</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 2.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
