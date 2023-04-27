@@ -2342,7 +2342,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
 
     <func>
       <name since="OTP R14B"><ret>ERL_NIF_TERM</ret>
-        <nametext>enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid)</nametext>
+        <nametext>enif_make_pid(ErlNifEnv* env, ErlNifPid* pid)</nametext>
       </name>
       <fsummary>Make a pid term.</fsummary>
       <desc>
