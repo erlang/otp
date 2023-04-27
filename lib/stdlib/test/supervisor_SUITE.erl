@@ -3679,6 +3679,8 @@ significant_upgrade_child(_Config) ->
 
 %% Test trying to start a child that uses an already registered name.
 already_started_outside_supervisor(_Config) ->
+    %% Avoid inter-testcase flakiness
+    ensure_supervisor_is_stopped(),
     process_flag(trap_exit, true),
     {ok, SupPid} = start_link({ok, {#{}, []}}),
     RegName = registered_name,
@@ -3795,3 +3797,11 @@ check_no_exit(Timeout) ->
 
 start_registered_name(Name) ->
     supervisor:start_link({local, Name}, ?MODULE, []).
+
+ensure_supervisor_is_stopped() ->
+    case whereis(sup_test) of
+        undefined ->
+            ok;
+        Pid ->
+            terminate(Pid, shutdown)
+    end.
