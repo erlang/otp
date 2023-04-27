@@ -3435,7 +3435,17 @@ bif_types(Op, Ss, Vst) ->
                     Other
             end;
         {_,_} ->
-            beam_call_types:types(erlang, Op, Args)
+            Res0 = beam_call_types:types(erlang, Op, Args),
+            {Ret0, ArgTypes, SubSafe} = Res0,
+
+            %% Match the non-converging range analysis done in
+            %% `beam_ssa_type:opt_ranges/1`. This is safe since the validator
+            %% doesn't have to worry about convergence.
+            case beam_call_types:arith_type({bif, Op}, Args) of
+                any -> Res0;
+                Ret0 -> Res0;
+                Ret -> {meet(Ret, Ret0), ArgTypes, SubSafe}
+            end
     end.
 
 join_tuple_elements(Tuple) ->
