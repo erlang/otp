@@ -5261,16 +5261,19 @@ erts_get_ethread_info(Process *c_p)
 
 static BIF_RETTYPE
 gather_histograms_helper(Process * c_p, Eterm arg_tuple,
-                         int gather(Process *, int, int, int, UWord, Eterm))
+                         int gather(Process *, int, int, int, UWord, int, Eterm))
 {
     SWord hist_start, hist_width, aux_work_tid;
     int msg_count, alloc_num;
     Eterm *args;
+    int flags;
 
-    /* This is an internal BIF, so the error checking is mostly left to erlang
-     * code. */
+    /* This is an internal BIF so the error checking is mostly left to erlang
+     * code, we'll just make sure we won't crash the emulator outright. */
+    if (!is_tuple_arity(arg_tuple, 6)) {
+        BIF_ERROR(c_p, BADARG);
+    }
 
-    ASSERT(is_tuple_arity(arg_tuple, 5));
     args = tuple_val(arg_tuple);
 
     for (alloc_num = ERTS_ALC_A_MIN; alloc_num <= ERTS_ALC_A_MAX; alloc_num++) {
@@ -5286,12 +5289,14 @@ gather_histograms_helper(Process * c_p, Eterm arg_tuple,
     aux_work_tid = signed_val(args[2]);
     hist_width = signed_val(args[3]);
     hist_start = signed_val(args[4]);
+    flags = signed_val(args[5]);
 
     if (aux_work_tid < 0 || erts_no_aux_work_threads <= aux_work_tid) {
         BIF_ERROR(c_p, BADARG);
     }
 
-    msg_count = gather(c_p, alloc_num, aux_work_tid, hist_width, hist_start, args[5]);
+    msg_count = gather(c_p, alloc_num, aux_work_tid, hist_width, hist_start,
+                       flags, args[6]);
 
     BIF_RET(make_small(msg_count));
 }

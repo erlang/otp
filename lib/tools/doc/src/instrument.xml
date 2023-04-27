@@ -54,8 +54,8 @@
            that returned the histogram, and the last interval has no upper
            bound.</p>
         <p>For example, the histogram below has 40 (<c>message</c>) blocks
-           between 256-512 bytes in size, 78 blocks between 512-1024 bytes,2
-           blocks between 1-2KB, and 2 blocks between 2-4KB.</p>
+           between 128-256 bytes in size, 78 blocks between 256-512 bytes,2
+           blocks between 512-1024 bytes, and 2 blocks between 1-2KB.</p>
         <code type="none"><![CDATA[
 > instrument:allocations(#{ histogram_start => 128, histogram_width => 15 }).
 {ok, {128, 0, #{ message => {0,40,78,2,2,0,0,0,0,0,0,0,0,0,0}, ... } }}
@@ -78,6 +78,9 @@
           the responsiveness of the system, <c><anno>UnscannedSize</anno></c>
           is the number of bytes that had to be skipped.</p>
        </desc>
+    </datatype>
+    <datatype>
+      <name name="allocation_origin"/>
     </datatype>
     <datatype>
       <name name="carrier_info_list"/>
@@ -154,6 +157,12 @@
           <item>
             <p>The number of intervals in the allocated block size histograms.
               Defaults to 18.</p>
+          </item>
+          <tag><c>flags</c></tag>
+          <item>
+            <p>Controls how to group the output, for example showing
+              allocations on a per-process basis (when possible) rather than
+              only a NIF/driver-basis. Defaults to <c>[]</c>.</p>
           </item>
         </taglist>
         <p><em>Example:</em></p>

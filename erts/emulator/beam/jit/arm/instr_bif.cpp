@@ -621,6 +621,12 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     a.mov(XREG0, ARG1);
 
     emit_leave_erlang_frame();
+
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(a64::x30, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
     a.ret(a64::x30);
 
     a.bind(check_trap);
@@ -858,6 +864,11 @@ void BeamGlobalAssembler::emit_dispatch_nif(void) {
 
 void BeamGlobalAssembler::emit_call_nif_yield_helper() {
     Label yield = a.newLabel();
+
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+    }
 
     a.subs(FCALLS, FCALLS, imm(1));
     a.b_le(yield);

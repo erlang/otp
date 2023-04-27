@@ -682,10 +682,21 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     emit_leave_frame();
 
 #ifdef NATIVE_ERLANG_STACK
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.mov(RET, x86::qword_ptr(E));
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), RET);
+    }
+
     a.ret();
 #else
     a.mov(RET, getCPRef());
     a.mov(getCPRef(), imm(NIL));
+
+    if (erts_alcu_enable_code_atags) {
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), RET);
+    }
+
     a.jmp(RET);
 #endif
 
@@ -939,6 +950,11 @@ void BeamGlobalAssembler::emit_dispatch_nif(void) {
 
 void BeamGlobalAssembler::emit_call_nif_yield_helper() {
     Label yield = a.newLabel();
+
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG3);
+    }
 
     a.dec(FCALLS);
     a.short_().jl(yield);
