@@ -653,7 +653,12 @@ start_portprogram() ->
 
 port_shutdown(Port) ->
     Port ! {self(), {command, [?EXIT]}},
-    port_close(Port).
+    try
+        port_close(Port)
+    catch
+        error:badarg ->
+            true
+    end.
 
 %% The connected process loops are a bit awkward (several different
 %% functions doing almost the same thing) as

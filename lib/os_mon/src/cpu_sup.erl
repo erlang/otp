@@ -614,7 +614,12 @@ port_server_loop(Port, Timeout) ->
 	% Close port and this server
 	{Pid, ?quit} ->
 	    port_command(Port, ?quit),
-	    port_close(Port),
+	    try
+	        port_close(Port)
+	    catch
+	        error:badarg ->
+	            true
+	    end,
 	    Pid ! {self(), {data, quit}},
 	    ok;
 
