@@ -25,7 +25,8 @@
 	 init_per_group/2,end_per_group/2,
 	 beam_validator/1,trunc_and_friends/1,cover_safe_and_pure_bifs/1,
          cover_trim/1,
-         head_tail/1]).
+         head_tail/1,
+         min_max/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -34,12 +35,13 @@ all() ->
     [{group,p}].
 
 groups() ->
-    [{p,[parallel],
+    [{p,test_lib:parallel(),
       [beam_validator,
        trunc_and_friends,
        cover_safe_and_pure_bifs,
        cover_trim,
-       head_tail
+       head_tail,
+       min_max
       ]}].
 
 init_per_suite(Config) ->
@@ -191,6 +193,41 @@ tail_case() ->
         X when tl(X) -> blurf;
         X -> {X, ok}
     end.
+
+min_max(_Config) ->
+    False = id(false),
+    True = id(true),
+
+    false = bool_min_false(False, False),
+    false = bool_min_false(False, True),
+    false = bool_min_false(True, False),
+    true = bool_min_true(True, True),
+
+    false = bool_max_false(False, False),
+    true = bool_max_true(False, True),
+    true = bool_max_true(True, False),
+    true = bool_max_true(True, True),
+
+    ok.
+
+%% GH-7170: The following functions would cause a crash in
+%% beam_ssa_codegen.
+
+bool_min_false(A, B) when is_boolean(A), is_boolean(B) ->
+    false = min(A, B).
+
+bool_min_true(A, B) when is_boolean(A), is_boolean(B) ->
+    true = min(A, B).
+
+bool_max_false(A, B) when is_boolean(A), is_boolean(B) ->
+    false = max(A, B).
+
+bool_max_true(A, B) when is_boolean(A), is_boolean(B) ->
+    true = max(A, B).
+
+%%%
+%%% Common utilities.
+%%%
 
 id(I) ->
     I.
