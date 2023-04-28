@@ -22,7 +22,8 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integers/1,numbers/1,coverage/1,booleans/1,setelement/1,
-	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
+         cons/1,tuple/1,
+         record_float/1,binary_float/1,float_compare/1,float_overflow/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
@@ -51,6 +52,7 @@ groups() ->
        record_float,
        binary_float,
        float_compare,
+       float_overflow,
        arity_checks,
        elixir_binaries,
        find_best,
@@ -770,6 +772,39 @@ do_float_compare(X) ->
         T when (T =:= nil) or (T =:= false) -> T;
         _T -> Y > 0
     end.
+
+float_overflow(_Config) ->
+    Res1 = id((1 bsl 1023) * two()),
+    Res1 = float_overflow_1(),
+
+    Res2 = id((-1 bsl 1023) * two()),
+    Res2 = float_overflow_2(),
+
+    ok.
+
+%% GH-7178: There would be an overflow when converting a number range
+%% to a float range.
+float_overflow_1() ->
+    round(
+      try
+          round(float(1 bsl 1023)) * two()
+      catch
+          _:_ ->
+              0.0
+      end
+     ).
+
+float_overflow_2() ->
+    round(
+      try
+          round(float(-1 bsl 1023)) * two()
+      catch
+          _:_ ->
+              0.0
+      end
+     ).
+
+two() -> 2.
 
 arity_checks(_Config) ->
     %% ERL-549: an unsafe optimization removed a test_arity instruction,
