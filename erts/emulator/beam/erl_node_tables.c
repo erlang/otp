@@ -885,6 +885,18 @@ erts_node_table_info(fmtfn_t to, void *to_arg)
 	erts_rwmtx_runlock(&erts_node_table_rwmtx);
 }
 
+ErlNode *erts_find_node(Eterm sysname, Uint32 creation)
+{
+    ErlNode *res;
+    ErlNode ne;
+    ne.sysname = sysname;
+    ne.creation = creation;
+
+    erts_rwmtx_rlock(&erts_node_table_rwmtx);
+    res = hash_get(&erts_node_table, (void *) &ne);
+    erts_rwmtx_runlock(&erts_node_table_rwmtx);
+    return res;
+}
 
 ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation, Eterm book)
 {
