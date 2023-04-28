@@ -483,7 +483,8 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 {aa_pair_extraction(Dst, Arg, tl, SS1), AAS0};
             get_tuple_element ->
                 [Arg,Idx] = Args,
-                {aa_tuple_extraction(Dst, Arg, Idx, SS1), AAS0};
+                Types = maps:get(arg_types, Anno0, #{}),
+                {aa_tuple_extraction(Dst, Arg, Idx, Types, SS1), AAS0};
             landingpad ->
                 {aa_set_aliased(Dst, SS1), AAS0};
             make_fun ->
@@ -823,7 +824,11 @@ aa_get_element_extraction_status(V=#b_var{}, State) ->
         #{V:=#vas{tuple_elems=Elems}} when Elems =/= [] ->
             unique;
         #{V:=#vas{pair_elems=Elems}} when Elems =/= none ->
-            unique
+            unique;
+        #{V:=#vas{status=unique}} ->
+            unique;
+        _ ->
+            aa_get_status(V, State)
     end;
 aa_get_element_extraction_status(#b_literal{}, _State) ->
     unique.
@@ -1234,21 +1239,29 @@ aa_all_vars_unique([], _, _, _) ->
 %% value or behaves as it was (for example pid, ports and references).
 aa_is_plain_value(V, Types) ->
     case Types of
-        #{V:=#t_atom{}} ->
-            true;
-        #{V:=#t_number{}} ->
-            true;
-        #{V:=#t_integer{}} ->
-            true;
-        #{V:=#t_float{}} ->
-            true;
-        #{V:='pid'} ->
-            true;
-        #{V:='port'} ->
-            true;
-        #{V:='reference'} ->
-            true;
+        #{V:=Type} ->
+            aa_is_plain_type(Type);
         #{} ->
+            false
+    end.
+
+aa_is_plain_type(Type) ->
+    case Type of
+        #t_atom{} ->
+            true;
+        #t_number{} ->
+            true;
+        #t_integer{} ->
+            true;
+        #t_float{} ->
+            true;
+        'pid' ->
+            true;
+        'port' ->
+            true;
+        'reference' ->
+            true;
+        _ ->
             false
     end.
 
@@ -1288,7 +1301,12 @@ aa_update_record_get_vars([]) ->
 
 aa_bif(Dst, element, [#b_literal{val=Idx},Tuple], SS, _AAS)
   when is_integer(Idx), Idx > 0 ->
-    aa_tuple_extraction(Dst, Tuple, #b_literal{val=Idx-1}, SS);
+    %% The element bif is always rewritten to a get_tuple_element
+    %% instruction when the index is an integer and the second
+    %% argument is a known to be a tuple. Therefore this code is only
+    %% reached when the type of is unknown, thus there is no point in
+    %% trying to provide aa_tuple_extraction/5 with type information.
+    aa_tuple_extraction(Dst, Tuple, Idx, #{}, SS);
 aa_bif(Dst, element, [#b_literal{},Tuple], SS, _AAS) ->
     %% This BIF will fail, but in order to avoid any later transforms
     %% making use of uniqueness, conservatively alias.
@@ -1424,8 +1442,25 @@ aa_map_extraction(Dst, Map, SS, AAS) ->
       aa_alias_inherit_and_alias_if_arg_does_not_die(Dst, Map, SS, AAS)).
 
 %% Extracting elements from a tuple.
-aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, SS) ->
+aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, Types, SS) ->
+    TupleType = maps:get(0, Types, any),
+    IsPlainValue = case TupleType of
+                       #t_tuple{elements=#{I:=T}} ->
+                           aa_is_plain_type(T);
+                       _ ->
+                           %% There is no type information,
+                           %% conservatively assume this isn't a plain
+                           %% value.
+                           false
+                   end,
+    ?DP("tuple-extraction dst:~p, tuple: ~p, idx: ~p,"
+        " type: ~p, plain: ~p~n",
+        [Dst, Tuple, I, TupleType, IsPlainValue]),
     case SS of
+        _ when IsPlainValue ->
+            %% A plain value was extracted, it doesn't change the
+            %% alias status of Dst nor the tuple.
+            SS;
         #{Tuple:=#vas{status=aliased}} ->
             %% The tuple is aliased, so what is extracted will be
             %% aliased.
@@ -1449,8 +1484,10 @@ aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, SS) ->
                     aa_set_aliased([Dst,Tuple], SS)
             end
     end;
-aa_tuple_extraction(_, #b_literal{}, _, SS) ->
-    SS.
+aa_tuple_extraction(_, #b_literal{}, _, _, SS) ->
+    SS;
+aa_tuple_extraction(Dst, Var, I, Types, SS) when is_integer(I) ->
+    aa_tuple_extraction(Dst, Var, #b_literal{val=I}, Types, SS).
 
 aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
             Env0, SS0,

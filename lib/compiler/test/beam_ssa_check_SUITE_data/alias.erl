@@ -92,7 +92,9 @@
          double_map_lookup/2,
          double_tuple_element/2,
          tuple_element_aliasing/0,
-         tuple_element_from_tuple_with_existing_child/0]).
+         tuple_element_from_tuple_with_existing_child/0,
+
+         extract_tuple_element/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -936,3 +938,23 @@ variables_in_put_tuple_aliased(A) ->
 %ssa% X = put_tuple(...),
 %ssa% ret(X) { aliased => [X] }.
     #variables_in_put_tuple{a=A,b=A}.
+
+%% Check that we don't unnecessarily flag a tuple as aliased just
+%% because we extract a plain type from it.
+generate_integer() ->
+    case ex:f() of
+        a ->
+            1;
+        b ->
+            2
+    end.
+
+make_tuple() ->
+    {generate_integer(), generate_integer()}.
+
+extract_tuple_element() ->
+%ssa% xfail () when post_ssa_opt ->
+%ssa% R = put_tuple(X, Y, Z)  {unique => [Z, Y, X]} ,
+%ssa% ret(R) { unique => [R] }.
+    {X,Y} = Z = make_tuple(),
+    {X,Y,Z}.
