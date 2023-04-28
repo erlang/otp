@@ -125,19 +125,18 @@ connect_lookup(Address, Port, Opts, Timer) ->
     ErrRef = make_ref(),
     try
         IPs = val(ErrRef, Mod:getaddrs(Address, Timer)),
-        TP = val(ErrRef, Mod:getserv(Port)),
-        CO = val(ErrRef, inet:connect_options(Opts_3, Mod)),
+        TP  = val(ErrRef, Mod:getserv(Port)),
+        CO  = val(ErrRef, inet:connect_options(Opts_3, Mod)),
         {sockaddrs(IPs, TP, Domain), CO}
     of
         {Addrs,
-         #connect_opts{
-            fd = Fd,
-            ifaddr = BindIP,
-            port = BindPort,
-            opts = ConnectOpts}} ->
+         #connect_opts{fd     = Fd,
+                       ifaddr = BindIP,
+                       port   = BindPort,
+                       opts   = ConnectOpts}} ->
             %%
             %% ?DBG({Domain, BindIP}),
-            BindAddr = bind_addr(Domain, BindIP, BindPort),
+            BindAddr  = bind_addr(Domain, BindIP, BindPort),
             ExtraOpts = extra_opts(Fd),
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, ExtraOpts,
@@ -224,10 +223,19 @@ default_any(Domain, undefined, _Opts) ->
 default_any(_Domain, BindAddr, _Opts) ->
     BindAddr.
 
-bind_addr(_Domain, BindIP, BindPort)
+bind_addr(Domain, BindIP, BindPort)
   when ((BindIP =:= undefined) andalso (BindPort =:= 0)) ->
-    %% Do not bind!
-    undefined;
+    %% *Maybe* Do not bind! On Windows we actually need to bind
+    %% ?DBG([{bind_ip, BindIP}, {bind_port, BindPort}, {fd, Fd}]),
+    case os:type() of
+        {win32, nt} ->
+            Addr = which_bind_address(Domain, BindIP),
+            #{family => Domain,
+              addr   => Addr,
+              port   => BindPort};
+        _ ->
+            undefined
+    end;
 bind_addr(local = Domain, BindIP, _BindPort) ->
     case BindIP of
 	any ->
@@ -238,10 +246,59 @@ bind_addr(local = Domain, BindIP, _BindPort) ->
     end;
 bind_addr(Domain, BindIP, BindPort)
   when (Domain =:= inet) orelse (Domain =:= inet6) ->
-    Addr = if (BindIP =:= undefined) -> any; true -> BindIP end,
+    %% ?DBG([{domain, Domain}, {bind_ip, BindIP}, {bind_port, BindPort}]),
+    Addr = which_bind_address(Domain, BindIP),
     #{family => Domain,
       addr   => Addr,
       port   => BindPort}.
+
+which_bind_address(Domain, BindIP) when (BindIP =:= undefined) ->
+    which_default_bind_address(Domain);
+which_bind_address(_Domain, BindIP) ->
+    %% We should really check if its any here,
+    %% since that will not work on Windows...
+    BindIP.
+
+which_default_bind_address(Domain) ->
+    case os:type() of
+        {win32, nt} ->
+            %% Binding to 'any' causes "issues" on Windows:
+            %% The socket is actually auto-bound when first *sending*,
+            %% so since the server process start *reading* directly,
+            %% that (reading) fails.
+            %% Therefor pick a "proper" address...
+            which_default_bind_address2(Domain);
+        _ ->
+            any
+    end.
+
+which_default_bind_address2(Domain) ->
+    %% ?DBG([{domain, Domain}]),
+    case net_getifaddrs(Domain) of
+        {ok, Addrs} ->
+            %% ?DBG([{addrs, Addrs}]),
+            %% Pick first *non-loopback* interface that is 'up'
+            UpNonLoopbackAddrs =
+                [Addr ||
+                    #{flags := Flags} = Addr <-
+                        Addrs,
+                    (not lists:member(loopback, Flags)) andalso
+                        lists:member(up, Flags)],
+            %% ?DBG([{up_non_loopback_addrs, UpNonLoopbackAddrs}]),
+            case UpNonLoopbackAddrs of
+                [#{addr := #{addr := Addr}} | _] ->
+                    Addr;
+                _ ->
+                    any % better than nothing
+            end;
+        {error, _} ->
+            any % better than nothing
+    end.
+
+net_getifaddrs(local = _Domain) ->
+    net:getifaddrs(#{family => local, flags => any});
+net_getifaddrs(Domain) ->
+    net:getifaddrs(Domain).
 
 call_bind(_Server, undefined) ->
     ok;
@@ -260,8 +317,8 @@ default_active_true(Opts) ->
 %% -------------------------------------------------------------------------
 
 listen(Port, Opts) ->
-    Opts_1 = internalize_setopts(Opts),
-    {Mod, Opts_2} = inet:tcp_module(Opts_1),
+    Opts_1              = internalize_setopts(Opts),
+    {Mod, Opts_2}       = inet:tcp_module(Opts_1),
     {StartOpts, Opts_3} = split_start_opts(Opts_2),
     case Mod:getserv(Port) of
         {ok, TP} ->
@@ -269,18 +326,17 @@ listen(Port, Opts) ->
                 {error, badarg} ->
                     exit(badarg);
                 {ok,
-                 #listen_opts{
-                    fd = Fd,
-                    ifaddr = BindIP,
-                    port = BindPort,
-                    opts = ListenOpts,
-                    backlog = Backlog}} ->
+                 #listen_opts{fd      = Fd,
+                              ifaddr  = BindIP,
+                              port    = BindPort,
+                              opts    = ListenOpts,
+                              backlog = Backlog}} ->
                     %%
-                    Domain = domain(Mod),
-                    %% ?DBG({Domain, BindIP}),
-                    BindAddr = bind_addr(Domain, BindIP, BindPort),
+                    Domain    = domain(Mod),
+                    %% ?DBG([{domain, Domain}, {bind_ip, BindIP},
+                    %%       {listen_opts, ListenOpts}, {backlog, Backlog}]),
+                    BindAddr  = bind_addr(Domain, BindIP, BindPort),
                     ExtraOpts = extra_opts(Fd),
-		    %% ?DBG([{listen_opts, ListenOpts}, {backlog, Backlog}]),
                     listen_open(
                       Domain, ListenOpts, StartOpts, ExtraOpts,
                       Backlog, BindAddr)
@@ -298,15 +354,14 @@ listen_open(Domain, ListenOpts, StartOpts, ExtraOpts, Backlog, BindAddr) ->
         {ok, Server} ->
             ErrRef = make_ref(),
             try
+                %% On *Windows* we need to bind before everything else...
+                ok(ErrRef, call_bind(Server,
+                                     default_any(Domain, BindAddr, ExtraOpts))),
                 Setopts =
                     default_active_true(
                       [{start_opts, StartOpts} |
                        setopts_opts(ErrRef, ListenOpts)]),
                 ok(ErrRef, call(Server, {setopts, Setopts})),
-                ok(ErrRef, call_bind(
-                             Server,
-                             default_any(Domain, BindAddr, ExtraOpts)
-                            )),
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?MODULE_socket(Server, Socket)}
             catch
@@ -1868,7 +1923,7 @@ handle_closed(Type, Content, State, {P, _D}) ->
 
 handle_connect(
   #params{socket = Socket} = P, D, From, Addr, Timeout, Status)
-  when (Status =:= connect) orelse (Status =:= select) ->
+  when (Status =:= connect) ->
     %%
     %% ?DBG([{d, D}, {addr, Addr}]),
     case socket:connect(Socket, Addr, nowait) of
@@ -1877,11 +1932,43 @@ handle_connect(
               P, D#{type => connect},
               [{{timeout, connect}, cancel},
                {reply, From, {ok, Socket}}]);
-        {select, ?select_info(_) = SelectInfo} ->
+
+        {select, ?select_info(_) = Info} ->
             {next_state,
-             #connect{info = SelectInfo, from = From, addr = Addr},
+             #connect{info = Info, from = From, addr = Addr},
              {P, D#{type => connect}},
              [{{timeout, connect}, Timeout, connect}]};
+
+        {completion, ?completion_info(_) = Info} ->
+            {next_state,
+             #connect{info = Info, from = From, addr = Addr},
+             {P, D#{type => connect}},
+             [{{timeout, connect}, Timeout, connect}]};
+
+        {error, _} = Error ->
+            {next_state,
+             'connect', {P, D},
+             [{{timeout, connect}, cancel},
+              {reply, From, Error}]}
+    end;
+handle_connect(
+  #params{socket = Socket} = P, D, From, Addr, Timeout, Status)
+  when (Status =:= select) ->
+    %%
+    %% ?DBG([{d, D}, {addr, Addr}]),
+    case socket:connect(Socket, Addr, nowait) of
+        ok ->
+            handle_connected(
+              P, D#{type => connect},
+              [{{timeout, connect}, cancel},
+               {reply, From, {ok, Socket}}]);
+
+        {select, ?select_info(_) = Info} ->
+            {next_state,
+             #connect{info = Info, from = From, addr = Addr},
+             {P, D#{type => connect}},
+             [{{timeout, connect}, Timeout, connect}]};
+
         {error, _} = Error ->
             {next_state,
              'connect', {P, D},
