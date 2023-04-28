@@ -1356,6 +1356,19 @@ if test "x$enable_esock_rcvsndtimeo" = "xyes"; then
 fi
 
 
+dnl *** ESOCK_USE_EXTERNDED_ERROR_INFO ***
+
+AC_ARG_ENABLE(esock_extended_error_info,
+AS_HELP_STRING([--enable-esock-extended-error-info], [enable use of extended error info])
+AS_HELP_STRING([--disable-esock-extended-error-info], [disable use of extended error info (default)]))
+
+dnl Temporary! Currently we require eei to be *explicitly*
+dnl disabled (for debug reasons).
+if test "x$enable_esock_extended_error_info" != "xno"; then
+    AC_DEFINE(ESOCK_USE_EXTENDED_ERROR_INFO, [1], [Use extended error info])
+fi
+
+
 dnl *** ESOCK_COUNTER_SIZE ***
 
 AC_ARG_WITH(esock-counter-size, 

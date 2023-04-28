@@ -512,8 +512,10 @@ send(SockRef, Bin, EFlags, SendRef) when is_integer(EFlags) ->
         {select, Written} ->
             <<_:Written/binary, RestBin/binary>> = Bin,
             {select, RestBin, EFlags};
-        completion ->
-            completion;
+
+        completion = C ->
+            C;
+
         {error, _Reason} = Result ->
             Result
     end;
@@ -560,11 +562,13 @@ sendto(SockRef, Bin, To, Flags, SendRef) ->
                         sockaddr ->
                             {error, {invalid, {Cause, To}}}
                     end;
+
                 ok ->
                     ok;
                 {ok, Written} ->
                     <<_:Written/binary, RestBin/binary>> = Bin,
                     {ok, RestBin};
+
                 select ->
                     Cont = {To, ETo, EFlags},
                     {select, Cont};
@@ -572,6 +576,10 @@ sendto(SockRef, Bin, To, Flags, SendRef) ->
                     <<_:Written/binary, RestBin/binary>> = Bin,
                     Cont = {To, ETo, EFlags},
                     {select, RestBin, Cont};
+
+                completion = C->
+                    C;
+
                 {error, _Reason} = Result ->
                     Result
             end

@@ -1955,6 +1955,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(cmsg_cloexec);                    \
     GLOBAL_ATOM_DECL(command);                         \
     GLOBAL_ATOM_DECL(completion);                      \
+    GLOBAL_ATOM_DECL(completion_status);               \
     GLOBAL_ATOM_DECL(confirm);                         \
     GLOBAL_ATOM_DECL(congestion);                      \
     GLOBAL_ATOM_DECL(connect);                         \
@@ -2291,6 +2292,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(do);               \
     LOCAL_ATOM_DECL(dont);             \
     LOCAL_ATOM_DECL(dtor);             \
+    LOCAL_ATOM_DECL(eei);              \
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
     LOCAL_ATOM_DECL(frag_needed);      \
@@ -3844,7 +3846,7 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
         numBits, numSockets, numTypeDGrams, numTypeStreams,
         numTypeSeqPkgs, numDomLocal, numDomInet, numDomInet6,
         numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP,
-        sockDbg, iovMax, dbg, useReg, iow;
+        sockDbg, iovMax, dbg, useReg, iow, eei;
 
     MLOCK(data.cntMtx);
     numBits        = MKUI(env, ESOCK_COUNTER_SIZE);
@@ -3860,6 +3862,7 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
     numProtoUDP    = MKUI(env, data.numProtoUDP);
     numProtoSCTP   = MKUI(env, data.numProtoSCTP);
     sockDbg        = BOOL2ATOM(data.sockDbg);
+    eei            = BOOL2ATOM(data.eei);
     MUNLOCK(data.cntMtx);
 
     iovMax         = MKI(env,  data.iov_max);
@@ -3891,6 +3894,7 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
             ERL_NIF_TERM
                 keys[] = {esock_atom_debug,
                           atom_socket_debug,
+                          atom_eei,
                           esock_atom_use_registry,
                           atom_iow,
                           esock_atom_counters,
@@ -3898,6 +3902,7 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
                           atom_io_backend},
                 vals[] = {dbg,
                           sockDbg,
+                          eei,
                           useReg,
                           iow,
                           gcnt,
@@ -13140,6 +13145,13 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
         esock_get_bool_from_map(env, load_info,
                                 atom_iow,
                                 ESOCK_NIF_IOW_DEFAULT);
+
+    /* --enable-extended-error-info */
+#if defined(ESOCK_USE_EXTENDED_ERROR_INFO)
+    data.eei = TRUE;
+#else
+    data.eei = FALSE;
+#endif
 
     /* --esock-debug-file=<filename> */
     {

@@ -148,69 +148,8 @@
       <c>Info</c> will be <c>{SelectHandle, closed}</c>. </p>
     </note>
 
-    <marker id="asynchronous-call"/>
     <note>
-      <p>OLD NOTE</p>
-      <p>Select-based <i>asynchronous</i> message interface. </p>
-      <p>
-	Some functions allow for an <i>asynchronous</i> call.
-	This is achieved by setting the <c>Timeout</c> argument to
-        <c>nowait</c>.
-	For instance, if calling the
-        <seeerl marker="#recv-nowait"><c>recv/3</c></seeerl>
-        function with Timeout set to <c>nowait</c>
-        (<c>recv(Sock, 0, nowait)</c>)
-        when there is actually nothing to read, it will return with
-        <c>{select, </c>
-        <seetype marker="#select_info"><c>SelectInfo</c></seetype><c>}</c>
-        (<c>SelectInfo</c> contains the
-        <seetype marker="socket#select_handle">SelectHandle</seetype>).
-        When data eventually arrives a 'select' message
-        will be sent to the caller:
-      </p>
-      <taglist>
-	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
-	<tag></tag>
-	<item><c>{'$socket', socket(), select, SelectHandle}</c></item>
-      </taglist>
-      <p>
-	The caller can now call the <c>recv</c> function again
-        and probably expect data
-        (it is really up to the OS network protocol implementation).
-      </p>
-      <p>
-	Note that all other users are <em>locked out</em> until the
-	'current user' has called the function (<c>recv</c> in this case)
-        and its return value shows that the operation has completed.
-        An operation can also be cancelled with
-	<seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>.
-      </p>
-      <p>
-	Instead of <c>Timeout = nowait</c> it is equivalent to create a
-	<seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>)
-	with
-	<seemfa marker="erts:erlang#make_ref/0"><c>make_ref()</c></seemfa>
-	and give as <c>Timeout</c>.
-	This will then be the <c>SelectHandle</c> in the 'select' message,
-	which enables a compiler optimization for receiving
-	a message containing a newly created <c>reference()</c>
-	(ignore the part of the message queue that had arrived
-	before the the <c>reference()</c> was created).
-      </p>
-      <p>Another message the user must be prepared for (when making asynchronous
-      calls) is the <c>abort</c> message:</p>
-      <taglist>
-	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
-	<tag></tag>
-	<item><c>{'$socket', socket(), abort, Info}</c></item>
-      </taglist>
-      <p>This message indicates
-      that the (asynchronous) operation has been aborted.
-      If, for instance, the socket has been closed (by another process),
-      <c>Info</c> will be <c>{SelectHandle, closed}</c>. </p>
-    </note>
-    <note>
-      <p>There is currently <em>no</em> support for Windows. </p>
+      <p>The Windows support has currently <em>pre-release</em> status. </p>
       <p>Support for IPv6 has been implemented but not <em>fully</em>
       tested. </p>
       <p>SCTP has only been partly implemented (and not tested). </p>
@@ -1652,7 +1591,72 @@
 
     <func>
       <name name="cancel" arity="2" clause_i="1" since="OTP 22.1"/>
-      <name name="cancel" arity="2" clause_i="2" since="OTP-18029"/>
+      <fsummary>Cancel an asynchronous request.</fsummary>
+      <desc>
+	<p>Cancel an asynchronous (select) request.</p>
+	<p>
+	  Call this function in order to cancel a previous
+	  asynchronous call to, e.g.
+	  <seemfa marker="#recv/3"><c>recv/3</c></seemfa>.
+	</p>
+        <p>
+          An ongoing asynchronous operation blocks the socket
+          until the operation has been finished in good order,
+          or until it has been cancelled by this function.
+        </p>
+        <p>
+          Any other process that tries an operation
+          of the same basic type (accept / send / recv) will be
+          enqueued and notified with the regular <c>select</c>
+          mechanism for asynchronous operations
+          when the current operation and all enqueued before it
+          has been completed.
+        </p>
+        <p>
+	  If <c><anno>SelectInfo</anno></c> does not match an
+          operation in progress for the calling process,
+          this function returns
+          <c>{error,&nbsp;{invalid,&nbsp;SelectInfo}}</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cancel" arity="2" clause_i="2" since="OTP 26.0"/>
+      <fsummary>Cancel an asynchronous request.</fsummary>
+      <desc>
+	<p>Cancel an asynchronous (completion) request.</p>
+	<p>
+	  Call this function in order to cancel a previous
+	  asynchronous call to, e.g.
+	  <seemfa marker="#recv/3"><c>recv/3</c></seemfa>.
+	</p>
+        <p>
+          An ongoing asynchronous operation blocks the socket
+          until the operation has been finished in good order,
+          or until it has been cancelled by this function.
+        </p>
+        <p>
+          Any other process that tries an operation
+          of the same basic type (accept / send / recv) will be
+          enqueued and notified with the regular <c>select</c>
+          mechanism for asynchronous operations
+          when the current operation and all enqueued before it
+          has been completed.
+        </p>
+        <p>
+	  If <c><anno>CompletionInfo</anno></c> does not match an
+          operation in progress for the calling process,
+          this function returns
+          <c>{error,&nbsp;{invalid,&nbsp;CompletionInfo}}</c>.
+        </p>
+      </desc>
+    </func>
+
+    <!--
+    <func>
+      <name name="cancel" arity="2" clause_i="1" since="OTP 22.1"/>
+      <name name="cancel" arity="2" clause_i="2" since="OTP 26.0"/>
       <fsummary>Cancel an asynchronous request.</fsummary>
       <desc>
 	<p>Cancel an asynchronous request.</p>
@@ -1683,6 +1687,7 @@
         </p>
       </desc>
     </func>
+    -->
 
     <func>
       <name name="close" arity="1" since="OTP 22.0"/>
