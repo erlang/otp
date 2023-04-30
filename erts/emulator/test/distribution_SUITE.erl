@@ -84,7 +84,9 @@
          dyn_node_name_monitor/1,
          async_dist_flag/1,
          async_dist_port_dctrlr/1,
-         async_dist_proc_dctrlr/1]).
+         async_dist_proc_dctrlr/1,
+         creation_selection/1,
+         creation_selection_test/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -118,7 +120,7 @@ all() ->
      start_epmd_false, no_epmd, epmd_module, system_limit,
      hopefull_data_encoding, hopefull_export_fun_bug,
      huge_iovec, is_alive, dyn_node_name_monitor_node, dyn_node_name_monitor,
-     {group, async_dist}].
+     {group, async_dist}, creation_selection].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -519,9 +521,6 @@ nodes2(Config) when is_list(Config) ->
     catch error:badarg -> ok
     end,
     ok.
-
-id(X) ->
-    X.
 
 %% Test optimistic distribution flags toward pending connections (DFLAG_DIST_HOPEFULLY)
 optimistic_dflags(Config) when is_list(Config) ->
@@ -3631,7 +3630,125 @@ async_dist_test(Node) ->
 
     ok.
 
+creation_selection(Config) when is_list(Config) ->
+    register(creation_selection_test_supervisor, self()),
+    Name = atom_to_list(?FUNCTION_NAME) ++ "-"
+        ++ integer_to_list(erlang:system_time()),
+    Host = hostname(),
+    Cmd = lists:append(
+            [ct:get_progname(),
+             " -noshell",
+             " -setcookie ", atom_to_list(erlang:get_cookie()),
+             " -pa ", filename:dirname(code:which(?MODULE)),
+             " -s ", atom_to_list(?MODULE), " ",
+             " creation_selection_test ", atom_to_list(node()), " ",
+             atom_to_list(net_kernel:longnames()), " ", Name, " ", Host]),
+    ct:pal("Node command: ~p~n", [Cmd]),
+    Port = open_port({spawn, Cmd}, [exit_status]),
+    Node = list_to_atom(lists:append([Name, "@", Host])),
+    ok = receive_creation_selection_info(Port, Node).
+
+receive_creation_selection_info(Port, Node) ->
+    receive
+        {creation_selection_test, Node, Creations, InvalidCreation,
+         ClashResolvedCreation} = Msg ->
+            ct:log("Test result: ~p~n", [Msg]),
+            %% Verify that creation values are created as expected. The
+            %% list of creations is in reverse start order...
+            MaxC = (1 bsl 32) - 1,
+            MinC = 4,
+            StartOrderCreations = lists:reverse(Creations),
+            InvalidCreation = lists:foldl(fun (C, C) when is_integer(C),
+                                                          MinC =< C,
+                                                          C =< MaxC ->
+                                                  %% Return next expected
+                                                  %% creation...
+                                                  if C == MaxC -> MinC;
+                                                     true -> C+1
+                                                  end
+                                          end,
+                                          hd(StartOrderCreations),
+                                          StartOrderCreations),
+            false = lists:member(ClashResolvedCreation, [InvalidCreation
+                                                        | Creations]),
+            receive
+                {Port, {exit_status, 0}} ->
+                    Port ! {self(), close},
+                    ok;
+                {Port, {exit_status, EStat}} ->
+                    ct:fail({"node exited abnormally: ", EStat})
+            end;
+        {Port, {exit_status, EStat}} ->
+            ct:fail({"node prematurely exited: ", EStat});
+        {Port, {data, Data}} ->
+            ct:log("~ts", [Data]),
+            receive_creation_selection_info(Port, Node)
+    end,
+    ok.
+
+creation_selection_test([TestSupNode, LongNames, Name, Host]) ->
+    try
+        StartArgs = [Name,
+                     case LongNames of
+                         true -> longnames;
+                         false -> shortnames
+                     end],
+        Node = list_to_atom(lists:append([atom_to_list(Name),
+                                          "@", atom_to_list(Host)])),
+        GoDistributed = fun (F) ->
+                                {ok, _} = net_kernel:start(StartArgs),
+                                Node = node(),
+                                Creation = erlang:system_info(creation),
+                                _ = F(Creation),
+                                net_kernel:stop(),
+                                Creation
+                        end,
+        %% We start multiple times to verify that the creation values
+        %% we get from epmd are delivered in sequence. This is a
+        %% must for the test case such as it is written now, but can be
+        %% changed. If changed, this test case must be updated...
+        {Creations,
+         LastCreation} = lists:foldl(fun (_, {Cs, _LC}) ->
+                                             CFun = fun (X) -> X end,
+                                             C = GoDistributed(CFun),
+                                             {[C|Cs], C}
+                                     end, {[], 0}, lists:seq(1, 5)),
+        %% We create a pid with the creation that epmd will offer us the next
+        %% time we start the distribution and then start the distribution
+        %% once more. The node should avoid this creation, since this would
+        %% cause external identifiers in the system with same
+        %% nodename/creation pair as used by the local node, which in turn
+        %% would cause these identifers not to work as expected. That is, the
+        %% node should silently reject this creation and chose another one when
+        %% starting the distribution.
+        InvalidCreation = LastCreation+1,
+        Pid = erts_test_utils:mk_ext_pid({Node, InvalidCreation}, 4711, 0),
+        true = erts_debug:size(Pid) > 0, %% External pid
+        ResultFun = fun (ClashResolvedCreation) ->
+                            pong = net_adm:ping(TestSupNode),
+                            Msg = {creation_selection_test, node(), Creations,
+                                   InvalidCreation, ClashResolvedCreation},
+                            {creation_selection_test_supervisor, TestSupNode}
+                                ! Msg,
+                            %% Wait a bit so the message have time to get
+                            %% through before we take down the distribution...
+                            receive after 500 -> ok end
+                    end,
+        _ = GoDistributed(ResultFun),
+        %% Ensure Pid is not garbage collected before starting the
+        %% distribution...
+        _ = id(Pid),
+        erlang:halt(0)
+    catch
+        Class:Reason:StackTrace ->
+            erlang:display({Class, Reason, StackTrace}),
+            erlang:halt(17)
+    end.
+
 %%% Utilities
+
+id(X) ->
+    X.
 
 wait_until(Fun) ->
     wait_until(Fun, 24*60*60*1000).

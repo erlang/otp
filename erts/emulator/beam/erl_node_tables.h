@@ -255,6 +255,7 @@ void erts_set_dist_entry_not_connected(DistEntry *);
 void erts_set_dist_entry_pending(DistEntry *);
 void erts_set_dist_entry_connected(DistEntry *, Eterm, Uint64);
 ErlNode *erts_find_or_insert_node(Eterm, Uint32, Eterm);
+ErlNode *erts_find_node(Eterm, Uint32);
 void erts_schedule_delete_node(ErlNode *);
 void erts_set_this_node(Eterm, Uint32);
 Uint erts_node_table_size(void);
@@ -282,6 +283,7 @@ ERTS_GLB_INLINE void erts_deref_node_entry__(ErlNode *np, Eterm term, char *file
 ERTS_GLB_INLINE erts_aint_t erts_ref_node_entry(ErlNode *np, int min_val, Eterm term);
 ERTS_GLB_INLINE void erts_deref_node_entry(ErlNode *np, Eterm term);
 #endif
+ERTS_GLB_INLINE erts_aint_t erts_node_refc(ErlNode *np);
 ERTS_GLB_INLINE void erts_de_rlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_runlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_rwlock(DistEntry *dep);
@@ -330,6 +332,12 @@ erts_deref_node_entry(ErlNode *np, Eterm term)
 {
     if (erts_refc_dectest(&np->refc, 0) == 0)
 	erts_schedule_delete_node(np);
+}
+
+ERTS_GLB_INLINE erts_aint_t
+erts_node_refc(ErlNode *np)
+{
+    return erts_refc_read(&np->refc, 0);
 }
 
 #endif

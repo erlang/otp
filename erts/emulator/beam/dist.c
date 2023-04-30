@@ -4886,6 +4886,19 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     success = (!ERTS_PROC_IS_EXITING(net_kernel)
                & !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
     if (success) {
+        /*
+         * Ensure we don't use a nodename-creation pair with
+         * external identifiers existing in the system.
+         */
+        while (!0) {
+            ErlNode *nep;
+            if (creation < 4)
+                creation = 4;
+            nep = erts_find_node(BIF_ARG_1, creation);
+            if (!nep || erts_node_refc(nep) == 0)
+                break;
+            creation++;
+        }
         inc_no_nodes();
         erts_set_this_node(BIF_ARG_1, (Uint32) creation);
         erts_this_dist_entry->creation = creation;
