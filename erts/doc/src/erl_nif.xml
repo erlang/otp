@@ -3041,7 +3041,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <c>enif_make_resource</c></seecref>
           can only be removed by the garbage collector.</p>
         <p> You may call this function only after the resource object has been
-          bound to a term using <seecref marker="#enif_make_resource><c>
+          bound to a term using <seecref marker="#enif_make_resource"><c>
               enif_make_resource</c></seecref>; calling it beforehand is undefined
               behaviour.</p>
 	<p>There are no guarantees exactly when the destructor of an
