@@ -3043,7 +3043,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
         <p> You may call this function only after the resource object has been
           bound to a term using <seecref marker="#enif_make_resource><c>
               enif_make_resource</c></seecref>; calling it beforehand is undefined
-              behaviour.
+              behaviour.</p>
 	<p>There are no guarantees exactly when the destructor of an
 	  unreferenced resource is called. It could be called directly by
 	  <c>enif_release_resource</c> but it could also be scheduled to be
