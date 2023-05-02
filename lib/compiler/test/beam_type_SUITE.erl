@@ -30,7 +30,8 @@
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
-         not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1]).
+         not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
+         funs/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -73,7 +74,8 @@ groups() ->
        not_equal,
        infer_relops,
        binary_unit,
-       premature_concretization
+       premature_concretization,
+       funs
       ]}].
 
 init_per_suite(Config) ->
@@ -1403,6 +1405,21 @@ pm_concretization_2(_, Tagged) -> {error, Tagged}.
 
 pm_concretization_3(_) -> ok.
 pm_concretization_4(_) -> ok.
+
+funs(_Config) ->
+    {'EXIT',{badarg,_}} = catch gh_7179(),
+    false = is_function(id(fun() -> ok end), 1024),
+
+    ok.
+
+%% GH-7179: The beam_ssa_type pass would crash.
+gh_7179() ->
+    << <<0>> || is_function([0 || <<_>> <= <<>>], -1),
+                [] <- [] >>.
+
+%%%
+%%% Common utilities.
+%%%
 
 id(I) ->
     I.
