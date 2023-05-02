@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -411,11 +411,11 @@ groups() ->
      {ecdh,                 [], [compute, generate, use_all_ecdh_generate_compute]},
      {eddh,                 [], [compute, generate, use_all_eddh_generate_compute]},
      {srp,                  [], [generate_compute]},
-     {des_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
      {des_cfb,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {des_ede3_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
+     {des_ede3_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
      {des_ede3_cfb,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {rc2_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {rc2_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
      {aes_cfb8,             [], []},
      {aes_128_cfb8,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_192_cfb8,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
@@ -426,7 +426,7 @@ groups() ->
      {aes_192_cfb128,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_256_cfb128,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {no_aes_cfb128,        [], [no_support]},
-     {blowfish_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
      {blowfish_ecb,         [], [api_ng, api_ng_one_shot]},
      {blowfish_cfb64,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {blowfish_ofb64,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
@@ -473,15 +473,15 @@ groups() ->
      {des_ede3_cbc, [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {des_ede3_cfb, [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
-     {aes_192_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
+     {aes_192_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
+     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
      {aes_128_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_192_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_256_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_128_ccm,  [], [aead_ng, aead_bad_tag]},
      {aes_192_ccm,  [], [aead_ng, aead_bad_tag]},
      {aes_256_ccm,  [], [aead_ng, aead_bad_tag]},
-     {aes_128_ecb,  [], [api_ng, api_ng_one_shot, cmac_update]},
+     {aes_128_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_192_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_128_gcm,  [], [aead_ng, aead_bad_tag]},
@@ -2378,6 +2378,8 @@ do_configure_mac(cmac, Cipher, Config) ->
     case Cipher of
         aes_128_cbc ->
             fun() -> read_rsp(Config, Cipher,  ["CMACGenAES128.rsp", "CMACVerAES128.rsp"]) end;
+        aes_192_cbc ->
+            fun() -> read_rsp(Config, Cipher,  ["CMACGenAES192.rsp", "CMACVerAES192.rsp"]) end;
         aes_256_cbc ->
             fun() -> read_rsp(Config, Cipher,  ["CMACGenAES256.rsp", "CMACVerAES256.rsp"]) end;
         des_ede3_cbc ->
@@ -2933,10 +2935,9 @@ hmac_inc(_) ->
     [<<"Sampl">>, <<"e #1">>].
 
 
-cmac_key(aes_128_cbc) ->
-    hexstr2bin("8eeca0d146fd09ffbbe0d47edcddfcec");
-cmac_key(aes_128_ecb) ->
-    hexstr2bin("8eeca0d146fd09ffbbe0d47edcddfcec").
+cmac_key(SubType) ->
+    rand:bytes(
+      maps:get(key_length, crypto:cipher_info(SubType))).
 
 cmac_inc(_) ->
     [<<"Sampl">>, <<"e #1">>].
