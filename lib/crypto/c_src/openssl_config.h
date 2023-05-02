@@ -127,6 +127,15 @@
 #  define HAS_EVP_PKEY_CTX
 #  define HAVE_EVP_CIPHER_CTX_COPY
 # endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3070200fL
+#   define HAVE_PKEY_new_raw_private_key
+# endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3030300fL
+#   define HAVE_EVP_PKEY_new_CMAC_key
+# endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3040100fL
+#   define HAVE_DigestSign_as_single_op
+# endif
 #endif
 
 #if defined(HAS_EVP_PKEY_CTX)                                           \
