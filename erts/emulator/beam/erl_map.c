@@ -1519,10 +1519,10 @@ BIF_RETTYPE maps_merge_trap_1(BIF_ALIST_1) {
 
 #define MAP_MERGE_LOOP_FACTOR 8
 
-static Eterm merge_maybe_collision_node(Process* p,
-                                        Eterm* srcA, Uint szA,
-                                        Eterm* srcB, Uint szB,
-                                        Uint* map_sizep)
+static Eterm merge_collision_node(Process* p,
+                                  Eterm* srcA, Uint szA,
+                                  Eterm* srcB, Uint szB,
+                                  Uint* map_sizep)
 {
     Eterm *hp;
     Eterm *hdr_ptr;
@@ -1555,12 +1555,7 @@ static Eterm merge_maybe_collision_node(Process* p,
             }
         }
     }
-    if (arity == 1) {   /* no collision node needed */
-        Eterm ret_cons = hdr_ptr[1];
-        ASSERT(!szA && !szB);
-        HRelease(p, hp_end, hdr_ptr);
-        return ret_cons;
-    }
+    ASSERT(arity >= 2);
 
     for ( ; szA; szA--)
         *hp++ = *srcA++;
@@ -1744,8 +1739,8 @@ merge_nodes:
 	    ASSERT(!(sp->rbm == 0 && ctx->lvl > 0));
 	}
         else {
-            res = merge_maybe_collision_node(p, sp->srcA, coll_szA,
-                                             sp->srcB, coll_szB, &ctx->size);
+            res = merge_collision_node(p, sp->srcA, coll_szA,
+                                       sp->srcB, coll_szB, &ctx->size);
             sp->mix = 3;
             coll_szA = coll_szB = 0;
             continue;
