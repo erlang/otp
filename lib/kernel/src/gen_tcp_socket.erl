@@ -1752,8 +1752,20 @@ handle_event(
   #connect{info = ?completion_info(CompletionRef), from = From} = _State,
   {#params{socket = Socket} = _P, _D} = P_D) ->
     _ = socket_close(Socket),
+    NewReason = case Reason of
+                    {completion_status, #{info := netname_deleted}} ->
+                        closed;
+                    {completion_status, netname_deleted} ->
+                        closed;
+                    {completion_status, #{info := INFO}} ->
+                        INFO;
+                    {completion_status, INFO} ->
+                        INFO;
+                    _ ->
+                        Reason
+                end,
     {next_state, 'closed', P_D,
-     [{reply, From, {error, Reason}}]};
+     [{reply, From, {error, NewReason}}]};
 
 handle_event(
   {timeout, connect}, connect,
@@ -1820,8 +1832,20 @@ handle_event(
   info, ?socket_abort(Socket, CompletionRef, Reason),
   #recv{info = ?completion_info(CompletionRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
-    %% ?DBG({abort, Reason}),
-    handle_connected(P, cleanup_recv_reply(P, D, [], Reason));
+    ?DBG({abort, Reason}),
+    NewReason = case Reason of
+                    {completion_status, #{info := netname_deleted}} ->
+                        closed;
+                    {completion_status, netname_deleted} ->
+                        closed;
+                    {completion_status, #{info := INFO}} ->
+                        INFO;
+                    {completion_status, INFO} ->
+                        INFO;
+                    _ ->
+                        Reason
+                end,
+    handle_connected(P, cleanup_recv_reply(P, D, [], NewReason));
 
 %%
 %% Timeout on recv in non-active mode

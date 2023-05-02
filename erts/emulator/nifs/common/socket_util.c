@@ -2377,6 +2377,12 @@ ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
         break;
 #endif
 
+#if defined(ERROR_NETNAME_DELETED)
+    case ERROR_NETNAME_DELETED:
+        return MKA(env, "netname_deleted");
+        break;
+#endif
+
 #if defined(ERROR_MORE_DATA)
         /*
          * https://stackoverflow.com/questions/31883438/sockets-using-getqueuedcompletionstatus-and-error-more-data
