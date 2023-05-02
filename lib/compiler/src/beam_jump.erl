@@ -464,6 +464,7 @@ add_scope([I|Is], Scope) ->
     [I|add_scope(Is, Scope)];
 add_scope([], _Scope) -> [].
 
+is_shareable([{badmatch,_}|_]) -> false;
 is_shareable([build_stacktrace|_]) -> false;
 is_shareable([{case_end,_}|_]) -> false;
 is_shareable([{'catch',_,_}|_]) -> false;
