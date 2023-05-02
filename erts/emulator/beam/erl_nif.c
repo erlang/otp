@@ -2922,7 +2922,7 @@ void erts_nif_demonitored(ErtsResource* resource)
     ASSERT(resource->type->fn.down);
 
     erts_mtx_lock(&rmp->lock);
-    free_me = ((rmon_refc_dec_read(rmp) == 0) & !!rmon_is_dying(rmp));
+    free_me = ((rmon_refc_dec_read(rmp) == 0) && !!rmon_is_dying(rmp));
     erts_mtx_unlock(&rmp->lock);
 
     if (free_me)

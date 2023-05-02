@@ -4884,7 +4884,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     erts_thr_progress_block();
 
     success = (!ERTS_PROC_IS_EXITING(net_kernel)
-               & !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
+               && !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
     if (success) {
         /*
          * Ensure we don't use a nodename-creation pair with

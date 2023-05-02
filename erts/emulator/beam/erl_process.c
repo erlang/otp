@@ -7397,7 +7397,7 @@ static ERTS_INLINE int
 have_dirty_work(void)
 {
     return !(ERTS_EMPTY_RUNQ(ERTS_DIRTY_CPU_RUNQ)
-             | ERTS_EMPTY_RUNQ(ERTS_DIRTY_IO_RUNQ));
+             || ERTS_EMPTY_RUNQ(ERTS_DIRTY_IO_RUNQ));
 }
 
 #define ERTS_MSB_NONE_PRIO_BIT PORT_BIT
