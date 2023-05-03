@@ -973,15 +973,19 @@ openssl_server_loop(Pid, SslPort, Args) ->
 
 start_openssl_client(Args0, Config) ->
     {ClientNode, _, Hostname} = run_where(Config),
-    ClientOpts = get_client_opts(Config),
+
+    %% io:format("~p:~p: ~p~n",[?MODULE, ?LINE, Args0]),
+    %% io:format("~p:~p: ~p~n",[?MODULE, ?LINE, Config]),
+
+    ClientOpts0 = get_client_opts(Config),
+    ClientOpts = proplists:get_value(options, Args0, []) ++ ClientOpts0,
     DefaultVersions = default_tls_version(ClientOpts),
     [Version | _] = proplists:get_value(versions, ClientOpts, DefaultVersions),
     Node = proplists:get_value(node, Args0, ClientNode),
-    Args = [{from, self()},
-            {host, Hostname},
-            {options, ClientOpts} | Args0],
+    Args = [{from, self()}, {host, Hostname} | ClientOpts ++ Args0],
 
-    Result = spawn_link(Node, ?MODULE, init_openssl_client, [[{version, Version} | lists:delete(return_port, Args)]]),
+    Result = spawn_link(Node, ?MODULE, init_openssl_client,
+                        [[{version, Version} | lists:delete(return_port, Args)]]),
     receive
 	{connected, OpenSSLPort} ->
 	    case lists:member(return_port, Args) of
@@ -1636,9 +1640,7 @@ make_ec_cert_chains(UserConf, ClientChainType, ServerChainType, Config, Curve) -
     [{server_config, ServerConf}, 
      {client_config, ClientConf}] = 
         x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
-    {[{verify, verify_peer} | ClientConf],
-     [{reuseaddr, true}, {verify, verify_peer} | ServerConf]
-    }.
+    {ClientConf, [{reuseaddr, true} | ServerConf]}.
 
 default_cert_chain_conf() ->
     %% Use only default options
@@ -1654,8 +1656,8 @@ make_rsa_pss_pem(Alg, _UserConf, Config, Suffix) ->
     Conf = x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
     CConf = proplists:get_value(client_config, Conf),
     SConf = proplists:get_value(server_config, Conf),
-    #{server_config => [{verify, verify_peer} | SConf],
-      client_config => [{verify, verify_peer} | CConf]}.
+    #{server_config => SConf,
+      client_config => CConf}.
 
 make_rsa_sni_configs() ->
     Sha = appropriate_sha(crypto:supports()),
@@ -2032,7 +2034,7 @@ make_rsa_ecdsa_cert(Config, Curve) ->
 	    [{server_rsa_ecdsa_opts, [{reuseaddr, true} | ServerConf]},
 	     {server_rsa_ecdsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
                                             {verify, verify_peer} | ServerConf]},
-	     {client_rsa_ecdsa_opts, [{verify, cerify_none} | ClientConf]} | Config];
+	     {client_rsa_ecdsa_opts, [{verify, verify_none} | ClientConf]} | Config];
 	_ ->
 	    Config
     end.
@@ -2449,7 +2451,7 @@ start_server(erlang, _, ServerOpts, Config) ->
                            {mfa, {ssl_test_lib,
                                   check_key_exchange_send_active,
                                   [KeyEx]}},
-                           {options, [{verify, verify_peer} | ServerOpts]}]),
+                           {options, ServerOpts}]),
     {Server, inet_port(Server)}.
  
 sig_algs(undefined) ->
