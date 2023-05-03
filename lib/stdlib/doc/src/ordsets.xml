@@ -48,6 +48,11 @@
       that while <c>sets</c> considers two elements as different if they
       do not match (<c>=:=</c>), this module considers two elements as
       different if and only if they do not compare equal (<c>==</c>).</p>
+
+    <p>See the <seeerl marker="sets#compatibility">Compatibility Section
+      in the <c>sets(3)</c> module</seeerl> for more information about
+      the compatibility of the different implementations of sets in the
+      Standard Library.</p>
   </description>
 
   <datatypes>
