@@ -466,22 +466,11 @@ fold_1(Fun, Acc, Iter) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 filter(F, #{}=D) when is_function(F, 1)->
-    maps:from_keys(filter_1(F, maps:iterator(D)), ?VALUE);
+    %% For this purpose, it is more efficient to use
+    %% maps:from_keys than a map comprehension.
+    maps:from_keys([K || K := _ <- D, F(K)], ?VALUE);
 filter(F, #set{}=D) when is_function(F, 1)->
     filter_set(F, D).
-
-filter_1(Fun, Iter) ->
-    case maps:next(Iter) of
-        {K, _, NextIter} ->
-            case Fun(K) of
-                true ->
-                    [K | filter_1(Fun, NextIter)];
-                false ->
-                    filter_1(Fun, NextIter)
-            end;
-        none ->
-            []
-    end.
 
 %% get_slot(Hashdb, Key) -> Slot.
 %%  Get the slot.  First hash on the new range, if we hit a bucket
