@@ -441,40 +441,64 @@ send_result(Server, Data, Meta, Result) ->
                         false -> {error, closed}
                     end;
 
-                {completion_status, #{info := econnreset}} ->
+                {completion_status, #{info := econnreset = R}} ->
                     case maps:get(show_econnreset, Meta) of
-                        true  -> Result;
+                        true  -> R;
                         false -> {error, closed}
                     end;
-		{completion_status, econnreset} ->
+		{completion_status, econnreset = R} ->
                     case maps:get(show_econnreset, Meta) of
-                        true  -> Result;
+                        true  -> R;
                         false -> {error, closed}
                     end;
-
-		%% Shall we really use (abuse) the show_econnreset option?
-                {completion_status, #{info := econnaborted}} ->
+                #{info := econnreset = R} ->
                     case maps:get(show_econnreset, Meta) of
-                        true  -> Result;
-                        false -> {error, closed}
-                    end;
-		{completion_status, econnaborted} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> Result;
+                        true  -> R;
                         false -> {error, closed}
                     end;
 
 		%% Shall we really use (abuse) the show_econnreset option?
-                {completion_status, #{info := netname_deleted}} ->
+                {completion_status, #{info := econnaborted = R}} ->
                     case maps:get(show_econnreset, Meta) of
-                        true  -> Result;
+                        true  -> R;
                         false -> {error, closed}
                     end;
-		{completion_status, netname_deleted} ->
+		{completion_status, econnaborted = R} ->
                     case maps:get(show_econnreset, Meta) of
-                        true  -> Result;
+                        true  -> R;
                         false -> {error, closed}
                     end;
+                #{info := econnaborted = R} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> R;
+                        false -> {error, closed}
+                    end;
+
+		%% Shall we really use (abuse) the show_econnreset option?
+                {completion_status, #{info := netname_deleted = R}} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> R;
+                        false -> {error, closed}
+                    end;
+		{completion_status, netname_deleted = R} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> R;
+                        false -> {error, closed}
+                    end;
+                #{info := netname_deleted = R} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> R;
+                        false -> {error, closed}
+                    end;
+
+                {completion_status, #{info := too_many_cmds}} ->
+		    {error, closed};
+		{completion_status, too_many_cmds} ->
+		    {error, closed};
+                #{info := too_many_cmds} ->
+		    {error, closed};
+                too_many_cmds ->
+		    {error, closed};
 
                 {timeout = R, RestData} when is_binary(RestData) ->
                     %% To handle RestData we would have to pass
@@ -508,6 +532,7 @@ send_result(Server, Data, Meta, Result) ->
                         false ->
                             {error, {Reason, iolist_to_binary(Data)}}
                     end;
+
                 _ ->
                     ?badarg_exit(Result)
             end;
