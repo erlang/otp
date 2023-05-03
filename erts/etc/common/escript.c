@@ -286,7 +286,7 @@ find_prog(char *origpath)
                     beg = end + 1;
                     continue;
                 }
-                strncpy(dir, beg, sz);
+                memcpy(dir, beg, sz);
                 dir[sz] = '\0';
                 beg = end + 1;
 

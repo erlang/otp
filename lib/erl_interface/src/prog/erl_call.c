@@ -441,11 +441,11 @@ int main(int argc, char *argv[])
 
       memcpy(&h_ipadr.s_addr, *hp->h_addr_list, sizeof(struct in_addr));
       if (h_alivename) {
-          if (strlen(h_alivename) + strlen(h_hostname) + 2 > sizeof(h_nodename_buf)) {
+          if (snprintf(h_nodename_buf, sizeof(h_nodename_buf), "%s@%s",
+                       h_alivename, h_hostname) > sizeof(h_nodename_buf)) {;
               fprintf(stderr,"erl_call: hostname too long: %s\n", h_hostname);
               exit_free_flags_fields(1, &flags);
           }
-          sprintf(h_nodename, "%s@%s", h_alivename, h_hostname);
       }
       else {
           /* dynamic node name */
@@ -490,11 +490,11 @@ int main(int argc, char *argv[])
     }
 
     if (flags.port == -1) {
-        if (strlen(flags.node) + strlen(host_name) + 2 > sizeof(nodename)) {
+        if (snprintf(nodename, sizeof(nodename),
+                     "%s@%s", flags.node, host_name) > sizeof(nodename)) {
             fprintf(stderr,"erl_call: nodename too long: %s\n", flags.node);
             exit_free_flags_fields(1, &flags);
         }
-        sprintf(nodename, "%s@%s", flags.node, host_name);
     }
     /* 
      * Try to connect. Start an Erlang system if the
