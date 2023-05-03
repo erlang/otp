@@ -53,8 +53,8 @@
 -include("inet_int.hrl").
 -include("socket_int.hrl").
 
-%%-define(DBG(T),
-%%        erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%% -define(DBG(T),
+%%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 
 %% -------------------------------------------------------------------------
@@ -440,6 +440,42 @@ send_result(Server, Data, Meta, Result) ->
                         true  -> Result;
                         false -> {error, closed}
                     end;
+
+                {completion_status, #{info := econnreset}} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> Result;
+                        false -> {error, closed}
+                    end;
+		{completion_status, econnreset} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> Result;
+                        false -> {error, closed}
+                    end;
+
+		%% Shall we really use (abuse) the show_econnreset option?
+                {completion_status, #{info := econnaborted}} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> Result;
+                        false -> {error, closed}
+                    end;
+		{completion_status, econnaborted} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> Result;
+                        false -> {error, closed}
+                    end;
+
+		%% Shall we really use (abuse) the show_econnreset option?
+                {completion_status, #{info := netname_deleted}} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> Result;
+                        false -> {error, closed}
+                    end;
+		{completion_status, netname_deleted} ->
+                    case maps:get(show_econnreset, Meta) of
+                        true  -> Result;
+                        false -> {error, closed}
+                    end;
+
                 {timeout = R, RestData} when is_binary(RestData) ->
                     %% To handle RestData we would have to pass
                     %% all writes through a single process that buffers
@@ -1832,7 +1868,7 @@ handle_event(
   info, ?socket_abort(Socket, CompletionRef, Reason),
   #recv{info = ?completion_info(CompletionRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
-    ?DBG({abort, Reason}),
+    %% ?DBG([{reason, Reason}]),
     NewReason = case Reason of
                     {completion_status, #{info := netname_deleted}} ->
                         closed;
@@ -2583,6 +2619,9 @@ handle_recv_error(P, D, ActionsR, Reason) ->
         closed ->
             {next_state, 'closed_read', {P, D_1}, reverse(ActionsR_1)};
         econnreset ->
+            _ = socket_close(P#params.socket),
+            {next_state, 'closed', {P, D_1}, reverse(ActionsR_1)};
+        econnaborted ->
             _ = socket_close(P#params.socket),
             {next_state, 'closed', {P, D_1}, reverse(ActionsR_1)};
         emsgsize ->

@@ -8663,7 +8663,7 @@ void esaio_completion_recvfrom_completed(ErlNifEnv*           env,
             "\r\n   CompletionInfo: %T"
             "\r\n", MKPID(env, opCaller), completionInfo) );
 
-    /* Send a 'sendrecvfrom' completion message */
+    /* Send a 'recvfrom' completion message */
     esaio_send_completion_msg(env,              // Send env
                               descP,            // Descriptor
                               opCaller,         // Msg destination
