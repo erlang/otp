@@ -1179,14 +1179,13 @@ float_from_range(none) ->
     none;
 float_from_range(any) ->
     #t_float{};
-float_from_range({'-inf','+inf'}) ->
-    #t_float{};
-float_from_range({'-inf',Max}) ->
-    make_float_range('-inf', safe_float(Max));
-float_from_range({Min,'+inf'}) ->
-    make_float_range(safe_float(Min), '+inf');
-float_from_range({Min,Max}) ->
-    make_float_range(safe_float(Min), safe_float(Max)).
+float_from_range({Min0,Max0}) ->
+    case {safe_float(Min0),safe_float(Max0)} of
+        {'-inf','+inf'} ->
+            #t_float{};
+        {Min,Max} ->
+            #t_float{elements={Min,Max}}
+    end.
 
 safe_float(N) when is_number(N) ->
     try
@@ -1194,12 +1193,9 @@ safe_float(N) when is_number(N) ->
     catch
         error:_ when N < 0 -> '-inf';
         error:_ when N > 0 -> '+inf'
-    end.
-
-make_float_range('-inf', '+inf') ->
-    #t_float{};
-make_float_range(Min, Max) ->
-    #t_float{elements={Min, Max}}.
+    end;
+safe_float('-inf'=NegInf) -> NegInf;
+safe_float('+inf'=PosInf) -> PosInf.
 
 integer_from_range(none) ->
     none;

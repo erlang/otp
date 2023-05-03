@@ -782,6 +782,8 @@ float_overflow(_Config) ->
     Res2 = id((-1 bsl 1023) * two()),
     Res2 = float_overflow_2(),
 
+    {'EXIT',{{bad_filter,[0]},_}} = catch float_overflow_3(),
+
     ok.
 
 %% GH-7178: There would be an overflow when converting a number range
@@ -807,6 +809,11 @@ float_overflow_2() ->
      ).
 
 two() -> 2.
+
+float_overflow_3() ->
+    [0 || <<>> <= <<>>,
+          [0 || (floor(1.7976931348623157e308) bsl 1) >= (1.0 + map_size(#{}))]
+    ].
 
 arity_checks(_Config) ->
     %% ERL-549: an unsafe optimization removed a test_arity instruction,
