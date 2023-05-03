@@ -109,7 +109,9 @@
          accept_pool/0,
          accept_pool/1,
          reuseaddr/0,
-         reuseaddr/1
+         reuseaddr/1,
+         signature_algs/0,
+         signature_algs/1
         ]).
 
 %% Apply export
@@ -1305,6 +1307,24 @@ tls_password_badarg(Config) when is_list(Config) ->
     %% so different server error is observed
     F(fun() -> ?BADARG_PASSWORD end, {error, closed},
       {error, {keyfile,badarg}}).
+
+%%--------------------------------------------------------------------
+signature_algs() ->
+    [{doc, "Check that listing of signature algorithms for different version and configure combinations"}].
+signature_algs(Config) when is_list(Config) ->
+    true = [] =/= [Alg || Alg <- ssl:signature_algs(default, 'tlsv1.3'), is_tuple(Alg)],
+    true = [] == [Alg || Alg <- ssl:signature_algs(exclusive, 'tlsv1.3'), is_tuple(Alg)],
+    true = ssl:signature_algs(exclusive, 'tlsv1.3') =/=  ssl:signature_algs(exclusive, 'tlsv1.2'),
+    true = length(ssl:signature_algs(defalt, 'tlsv1.2')) <
+        length(ssl:signature_algs(all, 'tlsv1.2')),
+    TLS_1_3_All = ssl:signature_algs(all, 'tlsv1.3'),
+    true = lists:member(rsa_pkcs1_sha512, TLS_1_3_All) andalso (not lists:member({sha512, rsa}, TLS_1_3_All)),
+    true = lists:member(rsa_pkcs1_sha384, TLS_1_3_All) andalso (not lists:member({sha384, rsa}, TLS_1_3_All)),
+    true = lists:member(rsa_pkcs1_sha256, TLS_1_3_All) andalso (not lists:member({sha256, rsa}, TLS_1_3_All)),
+    TLS_1_2_All = ssl:signature_algs(all, 'tlsv1.2'),
+    true = (not lists:member(rsa_pkcs1_sha512, TLS_1_2_All)) andalso lists:member({sha512, rsa}, TLS_1_2_All),
+    true = (not lists:member(rsa_pkcs1_sha384, TLS_1_2_All)) andalso lists:member({sha384, rsa}, TLS_1_2_All),
+    true = (not lists:member(rsa_pkcs1_sha256, TLS_1_2_All)) andalso lists:member({sha256, rsa}, TLS_1_2_All).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
