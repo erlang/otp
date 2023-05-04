@@ -614,8 +614,8 @@ port_server_loop(Port, Timeout) ->
 
 	% Close port and this server
 	{Pid, ?quit} ->
-	    port_command(Port, ?quit),
-	    port_close(Port),
+            Port ! {self(), {command, ?quit}},
+	    Port ! {self(), close},
 	    Pid ! {self(), {data, quit}},
 	    ok;
 
