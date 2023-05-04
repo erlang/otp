@@ -86,6 +86,17 @@ find_appends_blk([], _, Found) ->
     Found.
 
 find_appends_is([#b_set{dst=Dst, op=bs_create_bin,
+                        args=[#b_literal{val=append},
+                              _,
+                              Lit=#b_literal{val= <<>>}|_]}|Is],
+                Fun, Found0) ->
+    %% Special case for when the first fragment is a literal <<>> as
+    %% it won't be annotated as unique nor will it die with the
+    %% instruction.
+    AlreadyFound = maps:get(Fun, Found0, []),
+    Found = Found0#{Fun => [{append,Dst,Lit}|AlreadyFound]},
+    find_appends_is(Is, Fun, Found);
+find_appends_is([#b_set{dst=Dst, op=bs_create_bin,
                         args=[#b_literal{val=append},SegmentInfo,Var|_],
                         anno=#{first_fragment_dies:=Dies}=Anno}|Is],
                 Fun, Found0) ->
@@ -468,6 +479,16 @@ patch_appends_is([I0=#b_set{dst=Dst}|Rest], PD0, Cnt0, Acc, BlockAdditions0)
             Ps = keysort(1, map(ExtractOpargs, Patches)),
             {Is, Cnt} = patch_opargs(I0, Ps, Cnt0),
             patch_appends_is(Rest, PD, Cnt, Is++Acc, BlockAdditions0);
+        [{append,Dst,#b_literal{val= <<>>}=Lit}] ->
+            %% Special case for when the first fragment is a literal
+            %% <<>> and it has to be replaced with a bs_init_writable.
+            #b_set{op=bs_create_bin,dst=Dst,args=Args0}=I0,
+            [#b_literal{val=append},SegInfo,Lit|OtherArgs] = Args0,
+            {V,Cnt} = new_var(Cnt0),
+            Init = #b_set{op=bs_init_writable,dst=V,args=[#b_literal{val=256}]},
+            I = I0#b_set{args=[#b_literal{val=private_append},
+                               SegInfo,V|OtherArgs]},
+            patch_appends_is(Rest, PD, Cnt, [I,Init|Acc], BlockAdditions0);
         [{append,Dst,_}] ->
             #b_set{op=bs_create_bin,dst=Dst,args=Args0}=I0,
             [#b_literal{val=append}|OtherArgs] = Args0,
