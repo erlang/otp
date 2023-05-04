@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid error report from failing <c>erlang:port_close</c>
+	    at shutdown of <c>cpu_sup</c> and <c>memsup</c>. Bug
+	    exists since OTP 25.3 (os_mon-2.8.1).</p>
+          <p>
+	    Own Id: OTP-18559 Aux Id: ERIERL-942 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed type handling bugs that could cause an internal
+	    error in the compiler for correct code.</p>
+          <p>
+	    Own Id: OTP-18565 Aux Id: GH-7147 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
