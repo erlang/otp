@@ -770,65 +770,65 @@ find_regular_file([File|Files]) ->
       Cwd :: filename_all(),
       SafeFilename :: filename_all().
 
+safe_relative_path(Path, "") ->
+    safe_relative_path(Path, ".");
 safe_relative_path(Path, Cwd) ->
-    case filename:pathtype(Path) of
-        relative -> safe_relative_path(filename:split(Path), Cwd, [], "");
-        _ -> unsafe
-    end.
+    srp_path(filename:split(Path),
+             Cwd,
+             sets:new([{version, 2}]),
+             []).
 
-safe_relative_path([], _Cwd, _PrevLinks, Acc) ->
-    Acc;
-
-safe_relative_path([Segment | Segments], Cwd, PrevLinks, Acc) ->
-    AccSegment = join(Acc, Segment),
-    case safe_relative_path(AccSegment) of
-        unsafe ->
-            unsafe;
-        SafeAccSegment ->
-            case file:read_link(join(Cwd, SafeAccSegment)) of
-                {ok, LinkPath} ->
-                    case lists:member(LinkPath, PrevLinks) of
-                        true ->
-                            unsafe;
-                        false ->
-                            case safe_relative_path(filename:split(LinkPath), Cwd, [LinkPath | PrevLinks], Acc) of
-                                unsafe -> unsafe;
-                                NewAcc -> safe_relative_path(Segments, Cwd, [], NewAcc)
-                            end
-                    end;
-                {error, _} ->
-                    safe_relative_path(Segments, Cwd, PrevLinks, SafeAccSegment)
-            end
-  end.
-
-join([], Path) -> Path;
-join(Left, Right) -> filename:join(Left, Right).
-
-safe_relative_path(Path) ->
-    case filename:pathtype(Path) of
+srp_path([], _Cwd, _Seen, []) ->
+    "";
+srp_path([], _Cwd, _Seen, Acc) ->
+    filename:join(Acc);
+srp_path(["."|Segs], Cwd, Seen, Acc) ->
+    srp_path(Segs, Cwd, Seen, Acc);
+srp_path([<<".">>|Segs], Cwd, Seen, Acc) ->
+    srp_path(Segs, Cwd, Seen, Acc);
+srp_path([".."|_Segs], _Cwd, _Seen, []) ->
+    unsafe;
+srp_path([".."|Segs], Cwd, Seen, [_|_]=Acc) ->
+    srp_path(Segs, Cwd, Seen, lists:droplast(Acc));
+srp_path([<<"..">>|_Segs], _Cwd, _Seen, []) ->
+    unsafe;
+srp_path([<<"..">>|Segs], Cwd, Seen, [_|_]=Acc) ->
+    srp_path(Segs, Cwd, Seen, lists:droplast(Acc));
+srp_path([clear|Segs], Cwd, _Seen, Acc) ->
+    srp_path(Segs, Cwd, sets:new([{version, 2}]), Acc);
+srp_path([Seg|_]=Segs, Cwd, Seen, Acc) ->
+    case filename:pathtype(Seg) of
         relative ->
-            Cs0 = filename:split(Path),
-            safe_relative_path_1(Cs0, []);
+            srp_segment(Segs, Cwd, Seen, Acc);
         _ ->
             unsafe
     end.
 
-safe_relative_path_1(["."|T], Acc) ->
-    safe_relative_path_1(T, Acc);
-safe_relative_path_1([<<".">>|T], Acc) ->
-    safe_relative_path_1(T, Acc);
-safe_relative_path_1([".."|T], Acc) ->
-    climb(T, Acc);
-safe_relative_path_1([<<"..">>|T], Acc) ->
-    climb(T, Acc);
-safe_relative_path_1([H|T], Acc) ->
-    safe_relative_path_1(T, [H|Acc]);
-safe_relative_path_1([], []) ->
-    [];
-safe_relative_path_1([], Acc) ->
-    filename:join(lists:reverse(Acc)).
+srp_segment([Seg|Segs], Cwd, Seen, Acc) ->
+    Path = filename:join([Cwd|Acc]),
+    case file:read_link(filename:join(Path, Seg)) of
+        {ok, LinkPath} ->
+            srp_link(Path,
+                     LinkPath,
+                     Segs,
+                     Cwd,
+                     Seen,
+                     Acc);
+        {error, _} ->
+            srp_path(Segs,
+                     Cwd,
+                     Seen,
+                     Acc++[Seg])
+    end.
 
-climb(_, []) ->
-    unsafe;
-climb(T, [_|Acc]) ->
-    safe_relative_path_1(T, Acc).
+srp_link(Path, LinkPath, Segs, Cwd, Seen, Acc) ->
+    FullLinkPath = filename:join(Path, LinkPath),
+    case sets:is_element(FullLinkPath, Seen) of
+        true ->
+            unsafe;
+        false ->
+            srp_path(filename:split(LinkPath)++[clear|Segs],
+                     Cwd,
+                     sets:add_element(FullLinkPath, Seen),
+                     Acc)
+    end.
