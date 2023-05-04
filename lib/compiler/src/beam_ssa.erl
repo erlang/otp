@@ -372,13 +372,22 @@ successors(#b_blk{last=Terminator}) ->
 -spec normalize(b_set() | terminator()) ->
           b_set() | terminator().
 
-normalize(#b_set{op={bif,Bif},args=Args}=Set) ->
+normalize(#b_set{anno=Anno0,op={bif,Bif},args=Args}=Set) ->
     case {is_commutative(Bif),Args} of
-        {false,_} ->
-            Set;
-        {true,[#b_literal{}=Lit,#b_var{}=Var]} ->
-            Set#b_set{args=[Var,Lit]};
-        {true,_} ->
+        {true, [#b_literal{}=Lit,#b_var{}=Var]} ->
+            Anno = case Anno0 of
+                       #{arg_types := ArgTypes0} ->
+                           case ArgTypes0 of
+                               #{1 := Type} ->
+                                   Anno0#{arg_types => #{0 => Type}};
+                               #{} ->
+                                   Anno0
+                           end;
+                       #{} ->
+                           Anno0
+                   end,
+            Set#b_set{anno=Anno,args=[Var,Lit]};
+        {_, _} ->
             Set
     end;
 normalize(#b_set{}=Set) ->
