@@ -1410,12 +1410,22 @@ funs(_Config) ->
     {'EXIT',{badarg,_}} = catch gh_7179(),
     false = is_function(id(fun() -> ok end), 1024),
 
+    {'EXIT',{badarg,_}} = catch gh_7197(),
+
     ok.
 
 %% GH-7179: The beam_ssa_type pass would crash.
 gh_7179() ->
     << <<0>> || is_function([0 || <<_>> <= <<>>], -1),
                 [] <- [] >>.
+
+%% GH-7197: The beam_ssa_type pass would crash.
+gh_7197() ->
+    [0 || is_function([ok || <<_>> <= <<>>], get_keys()),
+          fun (_) ->
+                  ok
+          end].
+
 
 %%%
 %%% Common utilities.
