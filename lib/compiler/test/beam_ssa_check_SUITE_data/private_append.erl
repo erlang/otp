@@ -22,6 +22,8 @@
 %%
 -module(private_append).
 
+-feature(maybe_expr, enable).
+
 -export([transformable0/1,
 	 transformable1/1,
 	 transformable1b/1,
@@ -76,7 +78,9 @@
          not_transformable14/0,
          not_transformable15/2,
 
-         id/1]).
+         id/1,
+
+         bs_create_bin_on_literal/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -977,3 +981,24 @@ not_transformable15(_, V) ->
 
 id(I) ->
     I.
+
+%% Check that we don't try to private_append to something created by
+%% bs_create_bin `append`, _, `<<>>`, ...
+bs_create_bin_on_literal() ->
+%ssa% () when post_ssa_opt ->
+%ssa% X = bs_init_writable(_),
+%ssa% Y = bs_create_bin(private_append, _, X, ...),
+%ssa% Z = bs_create_bin(private_append, _, Y, ...),
+%ssa% ret(Z).
+    <<
+      <<
+	(maybe
+	     2147483647 ?= ok
+	 else
+	     <<_>> ->
+		 ok;
+	     _ ->
+		 <<>>
+	 end)/bytes
+      >>/binary
+    >>.
