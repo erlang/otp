@@ -1,0 +1,156 @@
+name: Run fuzz tester
+
+on: # Allow manual runs via special PR comment '/run-fuzzer'
+  issue_comment:
+    types: [created, edited]
+  # Allow manual runs via GitHub web interface, CLI etc.
+  workflow_dispatch:
+
+# Allow responding to user by writing a comment on the PR
+permissions:
+  pull-requests: write
+  contents: read
+  issues: read
+  packages: read
+
+env:
+    BASE_BRANCH: ${{ github.base_ref }}
+
+jobs:
+
+  starting-fuzzer:
+    name: Notify user of fuzzing
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/run-fuzzer') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6.4.1
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "🤖 Running `erlfuzz` as requested by **${{ github.actor }}** ⏱️\n\nYou can follow the progress of the job using the following link:\n👉 ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} 👈"
+            })
+
+  build-otp:
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/run-fuzzer')}}
+    uses: ./.github/workflows/base-build.yaml
+    permissions:
+      packages: read
+    with:
+      base-branch: ${{ github.ref_name }}
+
+  fuzz:
+    name: Fuzz test Erlang/OTP
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/run-fuzzer')}}
+    runs-on: ubuntu-latest
+    needs: build-otp
+    steps:
+      - uses: actions/checkout@v3
+      - name: Cache BASE image
+        uses: actions/cache@v3
+        with:
+          path: otp_docker_base.tar
+          key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
+      - name: Docker login
+        uses: docker/login-action@v2
+        with:
+          registry: docker.pkg.github.com
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build BASE image
+        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
+      - name: Cache pre-built tar archives
+        uses: actions/cache@v3
+        with:
+          path: |
+              otp_src.tar.gz
+              otp_cache.tar.gz
+          key: prebuilt-${{ github.job }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+              prebuilt-${{ github.ref_name }}-${{ github.sha }}
+      - name: Build image
+        run: |
+          .github/scripts/restore-from-prebuilt.sh `pwd` .github/otp.tar.gz
+          rm -f otp_{src,cache}.tar.gz
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
+      - name: Run erlfuzz
+        id: run-erlfuzz
+        run: |
+          docker run -v $PWD:/github --entrypoint "" otp /bin/bash -c "/github/.github/scripts/run-fuzzer.sh fuzzer/ /github/ /github/ 1000"
+      - name: Collect erlfuzz results
+        if: always()
+        run: |
+          tar czf minimized-erl-results.tar.gz minimized-erl
+          tar czf minimized-erlc-opts-results.tar.gz minimized-erlc-opts
+          tar czf minimized-jit-results.tar.gz minimized-jit
+      - name: Upload erl fuzzing results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: minimized-erl-results
+          path: minimized-erl-results.tar.gz
+      - name: Upload erlc opts fuzzing results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: minimized-erlc-opts-results
+          path: minimized-erlc-opts-results.tar.gz
+      - name: Upload jit fuzzing results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: minimized-jit-results
+          path: minimized-jit-results.tar.gz
+
+  report:
+    name: Report results of fuzzing
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    needs: fuzz
+    steps:
+      - name: Fetch results
+        uses: actions/download-artifact@v3
+      - name: Analyse results
+        run: |
+          echo "::group::Decompressing results"
+          tar -xvzf minimized-erl-results/minimized-erl-results.tar.gz
+          tar -xvzf minimized-erlc-opts-results/minimized-erlc-opts-results.tar.gz
+          tar -xvzf minimized-jit-results/minimized-jit-results.tar.gz
+          echo "::endgroup::"
+          ls -laH .
+          ls -laH minimized-erl
+          echo "::group::Counting the number of issues found"
+          echo "NUM_ERL_ISSUES_FOUND=$(ls -1q minimized-erl/*.erl | wc -l)" >> "${GITHUB_ENV}"
+          echo "NUM_ERLC_OPTS_ISSUES_FOUND=$(ls -1q minimized-erlc-opts/*.erl | wc -l)" >> "${GITHUB_ENV}"
+          echo "NUM_JIT_ISSUES_FOUND=$(ls -1q minimized-jit/*.erl | wc -l)" >> "${GITHUB_ENV}"
+          echo "::endgroup::"
+      - name: Comment on pull request with results
+        env:
+          NUM_ERL_ISSUES_FOUND: ${{ env.NUM_ERL_ISSUES_FOUND }}
+          NUM_ERLC_OPTS_ISSUES_FOUND: ${{ env.NUM_ERLC_OPTS_ISSUES_FOUND }}
+          NUM_JIT_ISSUES_FOUND: ${{ env.NUM_JIT_ISSUES_FOUND }}
+        uses: actions/github-script@v6.4.1
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const { NUM_ERL_ISSUES_FOUND, NUM_ERLC_OPTS_ISSUES_FOUND, NUM_JIT_ISSUES_FOUND } = process.env
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body:
+                "🤖 A run of `erlfuzz` requested by **${{ github.actor }}** is complete ✔️\n\n" +
+                "Number of issues with erl found: " + NUM_ERL_ISSUES_FOUND + "\n" +
+                "Number of issues with erlc opts found: " + NUM_ERLC_OPTS_ISSUES_FOUND + "\n" +
+                "Number of issues with the jit found: " + NUM_JIT_ISSUES_FOUND + "\n\n" +
+                "You can see the results of the job using the following link, and looking\n" +
+                "for the archived files containing the affected source files in the artifacts section at the bottom:\n" +
+                "👉 ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} 👈"
+            })
+

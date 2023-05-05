@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       ## We create an initial comment with some useful help to the user
-      - uses: actions/github-script@v5.1.1
+      - uses: actions/github-script@v6.4.1
         with:
           script: |
             const script = require('./.github/scripts/pr-comment.js');
@@ -117,7 +117,7 @@ jobs:
 
         ## Append some usefull links and tips to the test results posted by
         ## Publish CT Test Results
-      - uses: actions/github-script@v5.1.1
+      - uses: actions/github-script@v6.4.1
         if: always()
         with:
           script: |
