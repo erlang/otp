@@ -164,6 +164,7 @@
                       sig => boolean()
                     }.
 -type request() ::
+        {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
         {expand, unicode:unicode_binary()} |
         {insert, unicode:unicode_binary()} |
@@ -525,6 +526,8 @@ writer_loop(TTY, WriterRef) ->
 -spec handle_request(state(), request()) -> {erlang:iovec(), state()}.
 handle_request(State = #state{ options = #{ tty := false } }, Request) ->
     case Request of
+        {putc_raw, Binary} ->
+            {Binary, State};
         {putc, Binary} ->
             {encode(Binary, State#state.unicode), State};
         beep ->
@@ -565,6 +568,8 @@ handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
             {_, _, _, NewBA} = split(NewLength - OldLength, NewState#state.buffer_after, U),
             {encode(PutBuffer, U), NewState#state{ buffer_after = NewBA }}
     end;
+handle_request(State, {putc_raw, Binary}) ->
+    handle_request(State, {putc, unicode:characters_to_binary(Binary, latin1)});
 handle_request(State = #state{ unicode = U }, {delete, N}) when N > 0 ->
     {_DelNum, DelCols, _, NewBA} = split(N, State#state.buffer_after, U),
     BBCols = cols(State#state.buffer_before, U),

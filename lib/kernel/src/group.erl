@@ -40,6 +40,7 @@ server(Ancestors, Drv, Shell, Options) ->
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
+    put(unicode_state, true),
     ExpandFun = normalize_expand_fun(Options, fun edlin_expand:expand/2),
     put(expand_fun, ExpandFun),
     put(echo, proplists:get_value(echo, Options, true)),
@@ -239,17 +240,27 @@ io_request({put_chars,unicode,M,F,As}, Drv, _Shell, From, Buf) ->
 	    end
     end;
 io_request({put_chars,latin1,Binary}, Drv, _Shell, From, Buf) when is_binary(Binary) ->
-    send_drv(Drv, {put_chars_sync, unicode,
-                   unicode:characters_to_binary(Binary,latin1),
-                   From}),
+    IsUnicode = get(unicode_state),
+    if IsUnicode ->
+            send_drv(Drv,
+                     {put_chars_sync, unicode,
+                      unicode:characters_to_binary(Binary,latin1),
+                      From});
+        true ->
+            send_drv(Drv, {put_chars_sync, latin1, Binary, From})
+    end,
     {noreply,Buf};
 io_request({put_chars,latin1,Chars}, Drv, _Shell, From, Buf) ->
-    case catch unicode:characters_to_binary(Chars,latin1) of
-	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
-	    {noreply,Buf};
-	_ ->
-	    {error,{error,{put_chars,latin1,Chars}},Buf}
+    IsUnicode = get(unicode_state),
+    if IsUnicode ->
+            case catch unicode:characters_to_binary(Chars,latin1) of
+                Binary when is_binary(Binary) ->
+                    send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
+                    {noreply,Buf};
+                _ ->
+                    {error,{error,{put_chars,latin1,Chars}},Buf}
+            end;
+        true -> send_drv(Drv, {put_chars_sync, latin1, Chars, From})
     end;
 io_request({put_chars,latin1,M,F,As}, Drv, _Shell, From, Buf) ->
     case catch apply(M, F, As) of
@@ -396,9 +407,11 @@ do_setopts(Opts, Drv, Buf) ->
     put(echo, proplists:get_value(echo, Opts, get(echo))),
     case proplists:get_value(encoding,Opts) of
 	Valid when Valid =:= unicode; Valid =:= utf8 ->
-	    set_unicode_state(Drv,true);
+           set_unicode_state(Drv,true),
+           put(unicode_state, true);
 	latin1 ->
-	    set_unicode_state(Drv,false);
+           set_unicode_state(Drv,false),
+           put(unicode_state, false);
 	_ ->
 	    ok
     end,
