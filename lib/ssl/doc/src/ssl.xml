@@ -819,7 +819,7 @@ marker="public_key:public_key#pkix_path_validation/3">public_key:pkix_path_valid
       <desc>
 	<code>
 fun(Chain::[public_key:der_encoded()]) ->
-	{trusted_ca, DerCert::public_key:der_encoded()} | unknown_ca}
+	{trusted_ca, DerCert::public_key:der_encoded()} | unknown_ca.
 	</code>
 	<p>Claim an intermediate CA in the chain as trusted. TLS then
 	performs <seemfa
