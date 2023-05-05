@@ -155,6 +155,30 @@
       <p>We plan to introduce the same warning in OTP 26.1, but by default it
       will be disabled.</p>
     </section>
+
+    <section>
+      <marker id="singleton_typevars"/>
+      <title>Singleton type variables will become a compile-time error</title>
+
+      <p>Before Erlang/OTP 26, the compiler would silenty accept the
+      following spec:</p>
+
+      <pre>
+-spec f(Opts) -> term() when
+    Opts :: {ok, Unknown} | {error, Unknown}.
+f(_) -> error.</pre>
+
+    <p>In OTP 26, the compiler emits a warning pointing out that the type variable
+    <c>Unknown</c> is unbound:</p>
+
+    <pre>
+t.erl:6:18: Warning: type variable 'Unknown' is only used once (is unbound)
+%    6|     Opts :: {ok, Unknown} | {error, Unknown}.
+%     |                  ^</pre>
+
+    <p>In OTP 27, that warning will become an error.</p>
+    </section>
+
   </section>
 
   <section>
