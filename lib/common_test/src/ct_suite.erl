@@ -47,9 +47,9 @@
             {group, ct_groupname(), ct_group_props_ref()} |
             {group, ct_groupname(), ct_group_props_ref(), ct_subgroups_def()}.
 -type ct_testcase_ref() :: {testcase, ct_testname(), ct_testcase_repeat_prop()}.
--type ct_testcase_repeat_prop() :: {repeat, ct_test_repeat()} |
+-type ct_testcase_repeat_prop() :: [{repeat, ct_test_repeat()} |
             {repeat_until_ok, ct_test_repeat()} |
-            {repeat_until_fail, ct_test_repeat()}.
+            {repeat_until_fail, ct_test_repeat()}].
 -type ct_info() :: {timetrap, ct_info_timetrap()} |
             {require, ct_info_required()} |
             {require, Name :: atom(), ct_info_required()} |

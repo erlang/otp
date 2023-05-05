@@ -85,7 +85,9 @@
       <fsummary>Returns the list of all test case groups and test cases
 	in the module.</fsummary>
       <type>
-	<v><seetype marker="#ct_test_def">ct_test_def()</seetype> = TestCase | {group, GroupName} | {group, GroupName, Properties} | {group, GroupName, Properties, SubGroups}</v>
+	<v><seetype marker="#ct_test_def">ct_test_def()</seetype> = TestCase |
+        {group, GroupName} | {group, GroupName, Properties} | {group, GroupName,
+        Properties, SubGroups} | {testcase, TestCase, TestCaseRepeatType}</v>
 	<v>TestCase = <seetype marker="#ct_testname">ct_testname()</seetype></v>
 	<v>GroupName = <seetype marker="#ct_groupname">ct_groupname()</seetype></v>
 	<v>Properties = [parallel | sequence | Shuffle | {RepeatType, N}] | default</v>
@@ -93,6 +95,7 @@
 	<v>Shuffle = shuffle | {shuffle, Seed}</v>
 	<v>Seed = {integer(), integer(), integer()}</v>
 	<v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+        <v>TestCaseRepeatType = [{repeat, N} | {repeat_until_ok, N} | {repeat_until_fail, N}]</v>
 	<v>N = integer() | forever</v>
 	<v>Reason = term()</v>
       </type>
@@ -135,11 +138,12 @@
         <v><seetype marker="#ct_group_def">ct_group_def()</seetype> = {GroupName, Properties, GroupsAndTestCases}</v>
         <v>GroupName = <seetype marker="#ct_groupname">ct_groupname()</seetype></v>
         <v>Properties = [parallel | sequence | Shuffle | {RepeatType, N}]</v>
-        <v>GroupsAndTestCases = [Group | {group, GroupName} | TestCase]</v>
+        <v>GroupsAndTestCases = [Group | {group, GroupName} | TestCase | {testcase, TestCase, TestCaseRepeatType}]</v>
         <v>TestCase = <seetype marker="#ct_testname">ct_testname()</seetype></v>
         <v>Shuffle = shuffle | {shuffle, Seed}</v>
         <v>Seed = {integer(), integer(), integer()}</v>
         <v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+        <v>TestCaseRepeatType = [{repeat, N} | {repeat_until_ok, N} | {repeat_until_fail, N}]</v>
         <v>N = integer() | forever</v>
       </type>
 

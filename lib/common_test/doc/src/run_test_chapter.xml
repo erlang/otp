@@ -763,7 +763,7 @@
 	finally function <c>end_per_group</c>. Also, if particular
 	test cases in a group are specified, <c>init_per_group</c>
 	and <c>end_per_group</c>, for the group in question, are
-	called. If a group defined (in <c>Suite:group/0</c>) as
+	called. If a group defined (in <c>Suite:groups/0</c>) as
 	a subgroup of another group, is specified (or if particular test
 	cases of a subgroup are), <c>Common Test</c> calls the configuration
 	functions for the top-level groups and for the subgroup
