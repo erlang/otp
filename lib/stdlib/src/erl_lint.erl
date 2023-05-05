@@ -669,6 +669,9 @@ start(File, Opts) ->
                       false, Opts)},
          {redefined_builtin_type,
           bool_option(warn_redefined_builtin_type, nowarn_redefined_builtin_type,
+                      true, Opts)},
+         {singleton_typevar,
+          bool_option(warn_singleton_typevar, nowarn_singleton_typevar,
                       true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
@@ -2931,6 +2934,16 @@ check_type(Types, St) ->
 			  "_"++_ -> AccSt;
 			  _ -> add_error(Anno, {singleton_typevar, Var}, AccSt)
 		      end;
+                 (Var, {seen_once_union, Anno}, AccSt) ->
+                      case is_warn_enabled(singleton_typevar, AccSt) of
+                          true ->
+                              case atom_to_list(Var) of
+                                  "_"++_ -> AccSt;
+                                  _ -> add_warning(Anno, {singleton_typevar, Var}, AccSt)
+                              end;
+                          false ->
+                              AccSt
+                      end;
 		 (_Var, seen_multiple, AccSt) ->
 		      AccSt
 	      end, St1, SeenVars).
@@ -2971,6 +2984,7 @@ check_type_2({var, A, Name}, SeenVars, St) ->
     NewSeenVars =
 	case maps:find(Name, SeenVars) of
 	    {ok, {seen_once, _}} -> maps:put(Name, seen_multiple, SeenVars);
+	    {ok, {seen_once_union, _}} -> maps:put(Name, seen_multiple, SeenVars);
 	    {ok, seen_multiple} -> SeenVars;
 	    error -> maps:put(Name, {seen_once, A}, SeenVars)
 	end,
@@ -3022,16 +3036,30 @@ check_type_2({type, _A, Tag, Args}=_F, SeenVars, St) when Tag =:= product;
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
                         check_type_1(T, AccSeenVars, AccSt)
                 end, {SeenVars, St}, Args);
-check_type_2({type, _A, union, Args}=_F, SeenVars, St) ->
-    lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
-                        {SeenVars0, St0} = check_type_1(T, SeenVars, AccSt),
-                        UpdatedSeenVars = maps:merge_with(fun (_K, {seen_once, _}, {seen_once, _}=R) -> R;
-                                                              (_K, {seen_once, _}, Else) -> Else;
-                                                              (_K, Else, {seen_once, _}) -> Else;
-                                                              (_K, Else1, _Else2)        -> Else1
-                                                          end, SeenVars0, AccSeenVars),
-                        {UpdatedSeenVars, St0}
-                end, {SeenVars, St}, Args);
+check_type_2({type, _A, union, Args}=_F, SeenVars0, St) ->
+    lists:foldl(fun(T, {AccSeenVars0, AccSt}) ->
+                        {SeenVars1, St0} = check_type_1(T, SeenVars0, AccSt),
+                        AccSeenVars = maps:merge_with(
+                                        fun (K, {seen_once, Anno}, {seen_once, _}) ->
+                                                case SeenVars0 of
+                                                    #{K := _} ->
+                                                        %% Unused outside of this union.
+                                                        {seen_once, Anno};
+                                                    #{} ->
+                                                        {seen_once_union, Anno}
+                                                end;
+                                            (_K, {seen_once, Anno}, {seen_once_union, _}) ->
+                                                {seen_once_union, Anno};
+                                            (_K, {seen_once_union, _}=R, {seen_once, _}) -> R;
+                                            (_K, {seen_once_union, _}=R, {seen_once_union, _}) -> R;
+                                            (_K, {seen_once_union, _}, Else) -> Else;
+                                            (_K, {seen_once, _}, Else) -> Else;
+                                            (_K, Else, {seen_once_union, _}) -> Else;
+                                            (_K, Else, {seen_once, _}) -> Else;
+                                            (_K, Else1, _Else2)        -> Else1
+                                        end, AccSeenVars0, SeenVars1),
+                        {AccSeenVars, St0}
+                end, {SeenVars0, St}, Args);
 check_type_2({type, Anno, TypeName, Args}, SeenVars, St) ->
     #lint{module = Module, types=Types} = St,
     Arity = length(Args),
