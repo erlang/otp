@@ -2230,7 +2230,7 @@ ERL_NIF_TERM accept_check_pending(ErlNifEnv*       env,
                   esock_atom_acc_waits, &descP->accWaits, 1);
 
     if (descP->acceptorsQ.first == NULL)
-        descP->readState |= ESOCK_STATE_ACCEPTING;
+        descP->readState |= (ESOCK_STATE_ACCEPTING | ESOCK_STATE_SELECTED);
 
     /* Will be picked up by the (worker) threads when the event comes */
     esock_acceptor_push(env, descP, caller, accRef, opP);
@@ -6115,8 +6115,9 @@ void esaio_completion_accept_success(ErlNifEnv*         env,
             "maybe (%s) update (read) state (ox%X)\r\n",
             descP->sock,
             B2S((descP->acceptorsQ.first == NULL)), descP->readState) );
-    if (descP->acceptorsQ.first == NULL)
-        descP->readState &= ~ESOCK_STATE_SELECTED;
+    if (descP->acceptorsQ.first == NULL) {
+        descP->readState &= ~(ESOCK_STATE_ACCEPTING | ESOCK_STATE_SELECTED);
+    }
 }
 
 
@@ -6183,7 +6184,7 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
             descP->sock,
             B2S((descP->acceptorsQ.first == NULL)), descP->readState) );
     if (descP->acceptorsQ.first == NULL) {
-        descP->readState &= ~ESOCK_STATE_SELECTED;
+        descP->readState &= ~(ESOCK_STATE_ACCEPTING | ESOCK_STATE_SELECTED);
     }
 
 }
@@ -6229,7 +6230,7 @@ void esaio_completion_accept_failure(ErlNifEnv*         env,
             descP->sock,
             B2S((descP->acceptorsQ.first == NULL)), descP->readState) );
     if (descP->acceptorsQ.first == NULL) {
-        descP->readState &= ~ESOCK_STATE_SELECTED;
+        descP->readState &= ~(ESOCK_STATE_ACCEPTING | ESOCK_STATE_SELECTED);
     }
 
 }
