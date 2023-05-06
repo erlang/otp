@@ -326,6 +326,7 @@ ms() ->
      mnesia_app,
      mnesia_backup,
      mnesia_bup,
+     mnesia_causal,
      mnesia_checkpoint,
      mnesia_controller,
      mnesia_dumper,

@@ -47,6 +47,7 @@ MODULES= \
 	mnesia_backend_type \
 	mnesia_backup \
 	mnesia_bup \
+	mnesia_causal \
 	mnesia_checkpoint \
 	mnesia_checkpoint_sup \
 	mnesia_controller \
@@ -58,7 +59,7 @@ MODULES= \
 	mnesia_index \
 	mnesia_kernel_sup \
 	mnesia_late_loader \
-	mnesia_lib\
+	mnesia_lib \
 	mnesia_loader \
 	mnesia_locker \
 	mnesia_log \

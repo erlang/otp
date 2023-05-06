@@ -46,6 +46,7 @@
 alias(all) -> mnesia_SUITE;
 alias(atomicity) -> mnesia_atomicity_test;
 alias(backup) -> mnesia_evil_backup;
+alias(causal) -> mnesia_causal_test;
 alias(config) -> mnesia_config_test;
 alias(consistency) -> mnesia_consistency_test;
 alias(dirty) -> mnesia_dirty_access_test;

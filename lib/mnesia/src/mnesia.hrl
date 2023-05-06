@@ -111,7 +111,9 @@
 		 disc_copies = [],
 		 disc_only_copies = [],
 		 ext = [],
-		 schema_ops = []
+		 schema_ops = [],
+         sender = node(),
+         ts = #{}
 		}).
 
 -record(decision, {tid,
