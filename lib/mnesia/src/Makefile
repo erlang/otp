@@ -52,6 +52,7 @@ MODULES= \
 	mnesia_checkpoint_sup \
 	mnesia_controller \
 	mnesia_dumper\
+	mnesia_ec \
 	mnesia_event \
 	mnesia_ext_sup \
 	mnesia_frag \
@@ -64,6 +65,7 @@ MODULES= \
 	mnesia_locker \
 	mnesia_log \
 	mnesia_monitor \
+	mnesia_pawset \
 	mnesia_recover \
 	mnesia_registry \
 	mnesia_rpc \

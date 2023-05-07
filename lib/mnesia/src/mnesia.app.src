@@ -12,6 +12,7 @@
 	     mnesia_checkpoint_sup,
 	     mnesia_controller,
 	     mnesia_dumper,
+         mnesia_ec,
 	     mnesia_event,
 	     mnesia_ext_sup,
 	     mnesia_frag,
@@ -24,6 +25,7 @@
 	     mnesia_locker,
 	     mnesia_log,
 	     mnesia_monitor,
+         mnesia_pawset,
 	     mnesia_recover,
 	     mnesia_registry,
              mnesia_rpc,
@@ -38,6 +40,7 @@
   {registered, [
         mnesia_causal,
 		mnesia_dumper_load_regulator,
+        mnesia_ec,
 		mnesia_event,
 		mnesia_fallback,
 		mnesia_controller,
