@@ -2393,7 +2393,7 @@ ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
 #if defined(ERROR_DUP_NAME)
         /*  Not connected because a duplicate name exists on the network */
     case ERROR_DUP_NAME:
-        return MKA(env, "dup_name");
+        return MKA(env, "duplicate_name");
         break;
 #endif        
 
