@@ -477,12 +477,10 @@
 {sha384, ecdsa},
 {sha384, rsa},
 {sha256, ecdsa},
-{sha256, rsa},
-{sha224, ecdsa},
-{sha224, rsa}
+{sha256, rsa}
 ]</code>
 
-<p>Support for {md5, rsa} was removed from the the TLS-1.2 default in ssl-8.0 (OTP-22) and support for SHA1 {sha, _} was removed in ssl-11.0 (OTP-26) </p>
+<p>Support for {md5, rsa} was removed from the the TLS-1.2 default in ssl-8.0 (OTP-22) and support for SHA1 {sha, _}  and SHA224 {sha224, _} was removed in ssl-11.0 (OTP-26) </p>
 
  <p><c> rsa_pss_schemes =</c></p>
  <code>
@@ -521,10 +519,10 @@ rsa_pss_schemes()
  <p>EDDSA was made highest priority in ssl-10.8 (OTP-25) </p>
 
 <p>TLS-1.3 default is</p>
-<code>Default_TLS_13_Schemes ++ Legacy_TLS_13_Schemes </code>
+<code>Default_TLS_13_Schemes</code>
 
 <p>If both TLS-1.3 and TLS-1.2 are supported the default will be</p>
-<code>Default_TLS_13_Schemes ++ Default_TLS_12_Alg_Pairs </code>
+<code>Default_TLS_13_Schemes ++ TLS_13_Legacy_Schemes ++ Default_TLS_12_Alg_Pairs (not represented in TLS_13_Legacy_Schemes) </code>
 
 <p>so appropriate algorithms can be chosen for the negotiated
 version.
@@ -2173,6 +2171,60 @@ fun(srp, Username :: binary(), UserState :: term()) ->
         <p>To be able to handle that the peer has done a shutdown on
           the write side, option <c>{exit_on_close, false}</c>
           is useful.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-18572@" name="signature_algs" arity="2" />
+      <fsummary>Returns a list of signature algorithms/schemes </fsummary>
+      <desc>
+        <p>Lists all possible signature algorithms corresponding to
+        <c>Description</c> that are available. The
+        <c>exclusive</c> option will exclusively list
+        algorithms/schemes for that protocol version, whereas the
+        <c>default</c> and <c>all</c> options lists the combined list to support the
+        range of protocols from (D)TLS-1.2, the first version to support
+        configuration of the signature algorithms, to <c>Version</c>.</p>
+
+      <p> Example: <c>
+
+      1&gt; ssl:signature_algs(default, 'tlsv1.3').
+      [eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+      ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+      rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
+      rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,
+      rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,
+      {sha512,ecdsa},
+      {sha384,ecdsa},
+      {sha256,ecdsa}]
+
+      2&gt;ssl:signature_algs(all, 'tlsv1.3').
+      [eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+      ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+      rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
+      rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,
+      rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,
+      {sha512,ecdsa},
+      {sha384,ecdsa},
+      {sha256,ecdsa},
+      {sha224,ecdsa},
+      {sha224,rsa},
+      {sha,rsa},
+      {sha,dsa}]
+
+      3&gt; ssl:signature_algs(exclusive, 'tlsv1.3').
+      [eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+      ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+      rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
+      rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256]
+      </c></p>
+      
+	<note><p>Some TLS-1-3 scheme names overlap with TLS-1.2
+	algorithm-tuple-pair-names and then TLS-1.3 names will be
+	used, for example <c>rsa_pkcs1_sha256</c> instead of
+	<c>{sha256, rsa}</c> these are legacy algorithms in TLS-1.3
+	that apply only to certificate signatures in this version of
+	the protocol.</p></note>
       </desc>
     </func>
     

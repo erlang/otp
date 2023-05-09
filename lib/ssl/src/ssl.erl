@@ -81,6 +81,7 @@
          filter_cipher_suites/2,
          prepend_cipher_suites/2, 
          append_cipher_suites/2,
+         signature_algs/2,
          eccs/0, 
          eccs/1, 
          versions/0, 
@@ -183,12 +184,11 @@
 -type hash()                     :: sha2() |
                                     legacy_hash(). % exported
 
--type sha2()                    ::  sha224 |
-                                    sha256 |
-                                    sha384 |
-                                    sha512.
+-type sha2()                    :: sha256 |
+                                   sha384 |
+                                   sha512.
 
--type legacy_hash()             :: sha | md5.
+-type legacy_hash()             :: sha224 | sha | md5.
 
 -type sign_algo()               :: rsa | dsa | ecdsa | eddsa. % exported
 
@@ -1104,6 +1104,41 @@ append_cipher_suites([First | _] = Deferred, Suites0) when is_map(First)->
 append_cipher_suites(Filters, Suites) ->
     Deferred = filter_cipher_suites(Suites, Filters), 
     (Suites -- Deferred) ++  Deferred.
+
+%%--------------------------------------------------------------------
+-spec signature_algs(Description, Version) -> [signature_algs()] when
+      Description :: default | all | exclusive,
+      Version :: protocol_version().
+
+%% Description: Returns possible signature algorithms/schemes
+%% for TLS/DTLS version
+%%--------------------------------------------------------------------
+
+signature_algs(default, 'tlsv1.3') ->
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'), 
+                                   tls_record:protocol_version_name('tlsv1.2')]);
+signature_algs(default, 'tlsv1.2') ->
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]);
+signature_algs(all, 'tlsv1.3') ->
+   tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'), 
+                                  tls_record:protocol_version_name('tlsv1.2')]) ++ 
+        tls_v1:legacy_signature_algs_pre_13();
+signature_algs(all, 'tlsv1.2') ->
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]) ++ 
+        tls_v1:legacy_signature_algs_pre_13();
+signature_algs(exclusive, 'tlsv1.3') ->
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3')]);
+signature_algs(exclusive, 'tlsv1.2') ->
+    Algs = tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]),
+    Algs ++ tls_v1:legacy_signature_algs_pre_13();
+signature_algs(Description, 'dtlsv1.2') ->
+    signature_algs(Description, 'tlsv1.2');
+signature_algs(Description, Version) when Description == default;
+                                          Description == all;
+                                          Description == exclusive->
+    {error, {signature_algs_not_supported_in_protocol_version, Version}};
+signature_algs(Description,_) ->
+    {error, {badarg, Description}}.
 
 %%--------------------------------------------------------------------
 -spec eccs() -> NamedCurves when
