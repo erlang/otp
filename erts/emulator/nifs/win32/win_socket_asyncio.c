@@ -3854,12 +3854,22 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
             if (read == opP->data.recv.buf.size) {
 
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recv_check_ok(%T, %d) -> complete success"
+                        "\r\n", sockRef, descP->sock) );
+
                 /* This transfers "ownership" of the *allocated* binary to an
                  * erlang term (no need for an explicit free).
                  */
                 data = MKBIN(env, &opP->data.recv.buf);
 
             } else {
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recv_check_ok(%T, %d) -> partial (%d) success"
+                        "\r\n", sockRef, descP->sock, read) );
 
                 /* This transfers "ownership" of the *allocated* binary to an
                  * erlang term (no need for an explicit free).
@@ -3877,7 +3887,6 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             /* (maybe) Update max */
             if (read > descP->readPkgMax)
                 descP->readPkgMax = read;
-
 
             result = esock_make_ok2(env, data);
 
@@ -3956,10 +3965,9 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
     }
 
     SSDBG( descP,
-           ("WIN-ESAIO", "recv_check_ok(%T) {%d} -> done with"
-            "\r\n   result: %T"
+           ("WIN-ESAIO", "recv_check_ok(%T) {%d} -> done"
             "\r\n",
-            sockRef, descP->sock, result) );
+            sockRef, descP->sock) );
 
     return result;
 }
@@ -7562,8 +7570,8 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_recv(%d) -> entry with"
-            "\r\n   error: %s (%d)"
-            "\r\n", descP->sock, erl_errno_id(error), error) );
+            "\r\n   error: %T"
+            "\r\n", descP->sock, ENO2T(env, error)) );
 
     switch (error) {
     case NO_ERROR:
@@ -7665,7 +7673,7 @@ void esaio_completion_recv_success(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recv_success(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {

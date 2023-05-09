@@ -7031,15 +7031,15 @@ ERL_NIF_TERM esock_setopt(ErlNifEnv*       env,
     MLOCK(descP->writeMtx);
 
     SSDBG( descP,
-           ("SOCKET", "esock_setopt {%d} -> entry with"
-            "\r\n   level:       %d"
-            "\r\n   opt:        %d"
-            "\r\n   eVal:        %T"
+           ("SOCKET", "esock_setopt(%d) -> entry with"
+            "\r\n   level: %d"
+            "\r\n   opt:   %d"
+            "\r\n   eVal:  %T"
             "\r\n", descP->sock, level, opt, eVal) );
 
     if (! IS_OPEN(descP->writeState)) {
         SSDBG( descP,
-               ("SOCKET", "esock_setopt {%d} -> done closed\r\n",
+               ("SOCKET", "esock_setopt(%d) -> done closed\r\n",
                 descP->sock) );
 
         MUNLOCK(descP->writeMtx);
@@ -7054,7 +7054,7 @@ ERL_NIF_TERM esock_setopt(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET",
-                "esock_setopt {%d} -> unknown option\r\n",
+                "esock_setopt(%d) -> unknown option\r\n",
                 descP->sock) );
 
     } else if (optP->setopt == NULL) {
@@ -7063,7 +7063,7 @@ ERL_NIF_TERM esock_setopt(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET",
-                "esock_setopt {%d} -> opt not settable\r\n",
+                "esock_setopt(%d) -> opt not settable\r\n",
                 descP->sock) );
 
     } else {
@@ -7071,7 +7071,7 @@ ERL_NIF_TERM esock_setopt(ErlNifEnv*       env,
         result = (optP->setopt)(env, descP, level, opt, eVal);
 
         SSDBG( descP,
-               ("SOCKET", "esock_setopt {%d} -> done when"
+               ("SOCKET", "esock_setopt(%d) -> done when"
                 "\r\n   result: %T"
                 "\r\n", descP->sock, result) );
     }
@@ -7106,13 +7106,20 @@ ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
     BOOLEAN_T onOff;
     struct linger val;
 
+    SSDBG( descP,
+           ("SOCKET", "esock_setopt_linger(%d) -> entry with"
+            "\r\n   level: %d"
+            "\r\n   opt:   %d"
+            "\r\n   eVal:  %T"
+            "\r\n", descP->sock, level, opt, eVal) );
+    
     sys_memzero(&val, sizeof(val));
 
     if ((! GET_MAP_VAL(env, eVal, atom_onoff, &eOnOff)) ||
         (! GET_MAP_VAL(env, eVal, esock_atom_linger, &eLinger))) {
 
         if (COMPARE(eVal, esock_atom_abort) == 0) {
-            val.l_onoff = 1;
+            val.l_onoff  = 1;
             val.l_linger = 0;
             return esock_setopt_level_opt(env, descP, level, opt,
                                           &val, sizeof(val));
@@ -7127,6 +7134,12 @@ ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
     }
     val.l_onoff = onOff ? 1 : 0;
 
+    SSDBG( descP,
+           ("SOCKET", "esock_setopt_linger(%d) -> entry with"
+            "\r\n   val.l_onoff:  %d"
+            "\r\n   val.l_linger: %d"
+            "\r\n", descP->sock, val.l_onoff, val.l_linger) );
+    
     return esock_setopt_level_opt(env, descP, level, opt,
                                   &val, sizeof(val));
 }
@@ -8883,9 +8896,24 @@ ERL_NIF_TERM esock_getopt_linger(ErlNifEnv*       env,
             linger;
         size_t numKeys = NUM(keys);
 
+        SSDBG( descP,
+               ("SOCKET", "esock_getopt_linger(%d) -> "
+                "\r\n   val.l_onoff:  %d"
+                "\r\n   lOnOff:       %T"
+                "\r\n   val.l_linger: %d"
+                "\r\n   lSecs:        %T"
+                "\r\n", descP->sock,
+                val.l_onoff, lOnOff,
+                val.l_linger, lSecs) );
+    
         ESOCK_ASSERT( numKeys == NUM(vals) );
         ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &linger) );
 
+        SSDBG( descP,
+               ("SOCKET", "esock_getopt_linger(%d) -> "
+                "\r\n   linger: %T"
+                "\r\n", descP->sock, linger) );
+    
         result = esock_make_ok2(env, linger);
     }
 
