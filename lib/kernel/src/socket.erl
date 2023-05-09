@@ -157,7 +157,8 @@
 -include("file_int.hrl").
 %% -include("socket_int.hrl").
 
-%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%% -define(DBG(T),
+%%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
@@ -2223,6 +2224,7 @@ send_common_deadline_result(
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     send_common_error(Reason, Data, false)
             after Timeout ->
+		    %% ?DBG(['completion send timeout - cancel']),
                     _ = cancel(SockRef, Op, Handle),
                     send_common_error(timeout, Data, false)
             end;
@@ -4603,11 +4605,12 @@ cancel(SockRef, Op, Handle) ->
             _ = flush_abort_msg(SockRef, Handle),
             invalid;
         Result ->
-            %% Since we do not actually if we are using
+            %% Since we do not actually know if we are using
             %% select or completion here, so flush both...
             _ = flush_select_msg(SockRef, Handle),
             _ = flush_completion_msg(SockRef, Handle),
             _ = flush_abort_msg(SockRef, Handle),
+	    %% ?DBG([{op, Op}, {result, Result}]),
             Result
     end.
 

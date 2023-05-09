@@ -54,7 +54,7 @@
 -include("socket_int.hrl").
 
 %% -define(DBG(T),
-%%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%% 	erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 
 %% -------------------------------------------------------------------------
@@ -203,9 +203,9 @@ connect_loop([], _Server, Error, _Timer) ->
 connect_loop([Addr | Addrs], Server, _Error, Timer) ->
     Result = call(Server, {connect, Addr, inet:timeout(Timer)}),
     case Result of
-        {ok, _Socket} -> Result;
-        {error, badarg} -> Result;
-        {error, einval} -> Result;
+        {ok, _Socket}    -> Result;
+        {error, badarg}  -> Result;
+        {error, einval}  -> Result;
         {error, timeout} -> Result;
         {error, _} ->
 	    %% ?DBG([{addr, Addr}, {result, Result}]),
@@ -452,7 +452,7 @@ send_result(Server, Data, Meta, Result) ->
     %% ?DBG([{meta, Meta}, {send_result, Result}]),
     case Result of
         {error, Reason} ->
-            %% ?DBG(Result),
+            %% ?DBG(['send failure', {reason, Reason}]),
             case Reason of
                 econnreset ->
                     case maps:get(show_econnreset, Meta) of
@@ -534,6 +534,8 @@ send_result(Server, Data, Meta, Result) ->
                     %%
                     %% For send_timeout_close we have to waste RestData.
                     %%
+		    %% ?DBG(['timeout with restdata',
+		    %% 	  {restdata_size, byte_size(RestData)}]),
                     case maps:get(send_timeout_close, Meta) of
                         true ->
                             close_server(Server),
@@ -552,6 +554,7 @@ send_result(Server, Data, Meta, Result) ->
                     %% and inserting a new packet header into the
                     %% stream would be dead wrong.
                     %%
+		    %% ?DBG(['timeout']),
                     case maps:get(send_timeout_close, Meta) of
                         true ->
                             close_server(Server),
@@ -1932,14 +1935,14 @@ handle_event(
   info, ?socket_completion(Socket, CompletionRef, CompletionStatus),
   #recv{info = ?completion_info(CompletionRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
-    %% ?DBG([info, {socket, Socket}, {ref, CompletionRef}]),
+    %% ?DBG(['completion msg', {socket, Socket}, {ref, CompletionRef}]),
     handle_recv(P, D, [], CompletionStatus);
 %%
 handle_event(
   info, ?socket_abort(Socket, CompletionRef, Reason),
   #recv{info = ?completion_info(CompletionRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
-    %% ?DBG([{reason, Reason}]),
+    %% ?DBG(['abort msg', {reason, Reason}]),
     NewReason = case Reason of
                     {completion_status, #{info := netname_deleted}} ->
                         closed;
@@ -2437,12 +2440,14 @@ handle_recv_length(P, D, ActionsR, Length, Buffer, CS)
              {P, D#{buffer := [Data | Buffer], recv_length := N}},
              reverse(ActionsR)};
         {select, ?select_info(_) = SelectInfo} ->
+	    %% ?DBG(['recv select']),
             {next_state,
              #recv{info = SelectInfo},
              {P, D#{buffer := Buffer}},
              reverse(ActionsR)};
 
         {completion, ?completion_info(_) = CompletionInfo} ->
+	    %% ?DBG(['recv completion']),
             {next_state,
              #recv{info = CompletionInfo},
              {P, D#{buffer := Buffer}},
@@ -2478,21 +2483,21 @@ handle_recv_length(P, D, ActionsR, Length, Buffer, CS)
             handle_recv_error(P, D#{buffer := Buffer}, ActionsR, Reason)
     end;
 handle_recv_length(P, D, ActionsR, _0, Buffer, CS) when (CS =:= recv) ->
-    %% ?DBG([{buffer, byte_size(Buffer)}, {cs, CS}]),
+    %% ?DBG([{buffer_size, byte_size(Buffer)}, {cs, CS}]),
     case Buffer of
         <<>> ->
             %% We should not need to update the buffer field here
             %% since the only way to get here with empty Buffer
             %% is when Buffer comes from the buffer field
             Socket = P#params.socket,
-	    %% ?DBG({'try read some more', byte_size(Buffer)}),
+	    %% ?DBG(['try read some more', {buffer_size, byte_size(Buffer)}]),
             case socket_recv(Socket, 0) of
                 {ok, <<Data/binary>>} ->
-		    %% ?DBG({'got some', byte_size(Data)}),
+		    %% ?DBG(['got some data', {data_size, byte_size(Data)}]),
                     handle_recv_deliver(P, D, ActionsR, Data);
 
                 {select, {?select_info(_) = SelectInfo, Data}} ->
-		    %% ?DBG({'got another select with data', byte_size(Data)}),
+		    %% ?DBG({'select with data', byte_size(Data)}),
                     case socket:cancel(Socket, SelectInfo) of
                         ok ->
                             handle_recv_deliver(P, D, ActionsR, Data);
@@ -2500,24 +2505,26 @@ handle_recv_length(P, D, ActionsR, _0, Buffer, CS) when (CS =:= recv) ->
                             handle_recv_error(P, D, ActionsR, Reason, Data)
                     end;
                 {select, ?select_info(_) = SelectInfo} ->
-		    %% ?DBG({'got another select', SelectInfo}),
+		    %% ?DBG({'select', SelectInfo}),
                     {next_state,
                      #recv{info = SelectInfo},
                      {P, D},
                      reverse(ActionsR)};
 
                 {completion, ?completion_info(_) = CompletionInfo} ->
-		    %% ?DBG({'got another completion', CompletionInfo}),
+		    %% ?DBG(['completion',
+		    %% 	  {completion_info, CompletionInfo}]),
                     {next_state,
                      #recv{info = CompletionInfo},
                      {P, D},
                      reverse(ActionsR)};
 
                 {error, {Reason, <<Data/binary>>}} ->
-		    %% ?DBG({'error with data', Reason, byte_size(Data)}),
+		    %% ?DBG(['error with data',
+		    %% 	  {reason, Reason}, {data_size, byte_size(Data)}]),
                     handle_recv_error(P, D, ActionsR, Reason, Data);
                 {error, Reason} ->
-		    %% ?DBG({'error', Reason}),
+		    %% ?DBG(['error', {reason, Reason}]),
                     handle_recv_error(P, D, ActionsR, Reason)
             end;
         <<Data/binary>> ->
@@ -2527,7 +2534,7 @@ handle_recv_length(P, D, ActionsR, _0, Buffer, CS) when (CS =:= recv) ->
             handle_recv_deliver(P, D#{buffer := <<>>}, ActionsR, Data)
     end;
 handle_recv_length(P, D, ActionsR, _0, Buffer, CS) ->
-    %% ?DBG([{byffer, byte_size(Buffer)}, {cs, CS}]),
+    %% ?DBG([{buffer, byte_size(Buffer)}, {cs_result, element(1, CS)}]),
     case Buffer of
         <<>> ->
             %% We should not need to update the buffer field here
@@ -2539,29 +2546,29 @@ handle_recv_length(P, D, ActionsR, _0, Buffer, CS) ->
                     handle_recv_deliver(P, D, ActionsR, Data);
 
                 {error, Reason} ->
-		    %% ?DBG({'error', Reason}),
+		    %% ?DBG(['error', {reason, Reason}]),
                     handle_recv_error(P, D, ActionsR, Reason)
             end;
         <<_/binary>> ->
             case CS of
                 {ok, <<Data/binary>>} ->
-		    %% ?DBG({'got some', byte_size(Data)}),
+		    %% ?DBG(['got some data', {data_size, byte_size(Data)}]),
                     handle_recv_deliver(P, D#{buffer := <<>>}, ActionsR,
                                         condense_buffer([Data | Buffer]));
 
                 {error, Reason} ->
-		    %% ?DBG({'error', Reason}),
+		    %% ?DBG(['error', {reason, Reason}]),
                     handle_recv_error(P, D, ActionsR, Reason)
             end;                
         _ when is_list(Buffer) ->
             case CS of
                 {ok, <<Data/binary>>} ->
-		    %% ?DBG({'got some', byte_size(Data)}),
+		    %% ?DBG(['got some data', {data_size, byte_size(Data)}]),
                     handle_recv_deliver(P, D#{buffer := <<>>}, ActionsR,
                                         condense_buffer([Data | Buffer]));
 
                 {error, Reason} ->
-		    %% ?DBG({'error', Reason}),
+		    %% ?DBG(['error', {reason, Reason}]),
                     handle_recv_error(P, D, ActionsR, Reason)
             end
     end.
