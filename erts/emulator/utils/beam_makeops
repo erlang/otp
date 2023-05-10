@@ -2716,27 +2716,28 @@ sub tr_gen {
     print "const Uint op_transform[] = {\n";
     foreach $key (sort keys %gen_transform) {
 	$gen_transform_offset{$key} = $offset;
-	my @instr = @{$gen_transform{$key}};
+        my $lref = $gen_transform{$key};
 
-	foreach $instr (@instr) {
-	    my($size, $instr_ref, $comment) = @$instr;
-	    my($op, @args) = @$instr_ref;
-	    if (!defined $op) {
-		$comment =~ s/\n(.)/\n    $1/g;
-		print $comment;
-	    } else {
+        for (my $i = 0; $i < @$lref; $i++) {
+            my(undef,undef,undef,$comment,@instr) = @{${$lref}[$i]};
+            $comment =~ s/\n(.)/\n    $1/g;
+            print $comment;
+
+            foreach $instr (@instr) {
+                my($size, $instr_ref, $comment) = @$instr;
+                my($op, @args) = @$instr_ref;
                 print "    ";
-		$op = "TOP_$op";
-		$match_engine_ops{$op} = 1;
-		if ($comment ne '') {
-		    printf "%-30s /* %s */\n", (join(", ", ($op, @args)) . ","),
-		    $comment;
-		} else {
-		    print join(", ", ($op, @args)), ",\n";
-		}
-		$offset += $size;
-	    }
-	}
+                $op = "TOP_$op";
+                $match_engine_ops{$op} = 1;
+                if ($comment ne '') {
+                    printf "%-30s /* %s */\n", (join(", ", ($op, @args)) . ","),
+                        $comment;
+                } else {
+                    print join(", ", ($op, @args)), ",\n";
+                }
+                $offset += $size;
+            }
+        }
 	print "\n";
     }
     print starred_comment("Total number of words: $offset");
@@ -3103,16 +3104,7 @@ sub group_tr {
         }
     }
 
-    #
-    # Flatten the code to a one-dimensional sequence of instructions.
-    #
-    my @code;
-    for (my $i = 0; $i < @$lref; $i++) {
-        my($first,$second,$cannot_fail,$comment,@c) = @{${$lref}[$i]};
-        push @code, make_op($comment);
-        push @code, @c;
-    }
-    \@code;
+    $lref;
 }
 
 sub tr_maybe_keep {
