@@ -884,7 +884,7 @@ signature_algs(?TLS_1_2, HashSigns) ->
     lists:reverse(Supported).
 
 default_signature_algs([?TLS_1_3]) ->
-    default_signature_schemes(?TLS_1_3);
+    default_signature_schemes(?TLS_1_3) ++ legacy_signature_schemes(?TLS_1_3);
 default_signature_algs([?TLS_1_3, ?TLS_1_2 | _]) ->
     default_signature_schemes(?TLS_1_3) ++ legacy_signature_schemes(?TLS_1_3) 
         ++ default_pre_1_3_signature_algs_only();
