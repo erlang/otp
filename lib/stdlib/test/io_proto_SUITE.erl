@@ -25,7 +25,7 @@
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
 	 binary_options/1, read_modes_gl/1,
 	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
-         unicode_prompt/1, shell_slogan/1, raw_stdout/1]).
+         unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1]).
 
 
 -export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
@@ -53,7 +53,7 @@ all() ->
     [setopts_getopts, unicode_options, unicode_options_gen,
      binary_options, read_modes_gl, read_modes_ogl,
      broken_unicode, eof_on_pipe, unicode_prompt,
-     shell_slogan, raw_stdout].
+     shell_slogan, raw_stdout, raw_stdout_isatty].
 
 groups() -> 
     [].
@@ -1124,8 +1124,14 @@ write_raw_to_stdout() ->
             io:format(standard_error, "~p~p~p", [Class, Reason, StackTrace]),
             halt(17)
     end.
-    
 
+raw_stdout_isatty(Config) when is_list(Config) ->
+    rtnode:run(
+        [{putline,"io:setopts(group_leader(), [{encoding, latin1}])."},
+         {putline,"file:write(group_leader(),[90, 127, 128, 255, 131, 90, 10])."},%
+         {expect, "\\QZ^?\\200\\377\\203Z\\E"}
+        ],[]),
+        ok.
 %%
 %% Test I/O-server
 %%
