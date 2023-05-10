@@ -83,51 +83,17 @@ erts_transform_engine(LoaderState* st)
 	    if (((1 << instr->a[ap].type) & mask) == 0)
 		goto restart;
 	    break;
-#if defined(TOP_is_type_next_arg)
-	case TOP_is_type_next_arg:
-	    mask = *pc++;
-	    ASSERT(ap < instr->arity);
-	    ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
-	    if (((1 << instr->a[ap].type) & mask) == 0)
-		goto restart;
-            ap++;
-	    break;
-#endif
 	case TOP_pred:
 	    i = *pc++;
             i = erts_beam_eval_predicate((unsigned) i, st, var, rest_args);
 	    if (i == 0)
 		goto restart;
 	    break;
-#if defined(TOP_is_eq)
 	case TOP_is_eq:
 	    ASSERT(ap < instr->arity);
 	    if (*pc++ != instr->a[ap].val)
 		goto restart;
 	    break;
-#endif
-	case TOP_is_type_eq:
-	    mask = *pc++;
-
-	    ASSERT(ap < instr->arity);
-	    ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
-	    if (((1 << instr->a[ap].type) & mask) == 0)
-		goto restart;
-	    if (*pc++ != instr->a[ap].val)
-		goto restart;
-	    break;
-#if defined(TOP_is_type_eq_next_arg)
-	case TOP_is_type_eq_next_arg:
-	    mask = *pc++;
-            ASSERT(ap < instr->arity);
-            ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
-            if (((1 << instr->a[ap].type) & mask) == 0)
-                goto restart;
-            if (*pc++ != instr->a[ap].val)
-                goto restart;
-            ap++;
-            break;
-#endif
 #if defined(TOP_is_bif)
 	case TOP_is_bif:
 	    {
@@ -249,50 +215,12 @@ erts_transform_engine(LoaderState* st)
 	    }
 	    break;
 #endif
-	case TOP_set_var_next_arg:
+	case TOP_set_var:
 	    ASSERT(ap < instr->arity);
 	    i = *pc++;
 	    ASSERT(i < TE_MAX_VARS);
-	    var[i].type = instr->a[ap].type;
-	    var[i].val = instr->a[ap].val;
-	    ap++;
-	    break;
-#if defined(TOP_is_type_set_var_next_arg)
-	case TOP_is_type_set_var_next_arg:
-            mask = pc[0];
-            i = pc[1];
-	    ASSERT(i < TE_MAX_VARS);
-            ASSERT(ap < instr->arity);
-	    ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
-	    if (((1 << instr->a[ap].type) & mask) == 0)
-		goto restart;
-	    ASSERT(i < TE_MAX_VARS);
 	    var[i] = instr->a[ap];
-	    ap++;
-            pc += 2;
 	    break;
-#endif
-#if defined(TOP_is_type_eq_set_var_next_arg)
-	case TOP_is_type_eq_set_var_next_arg:
-            {
-                Eterm val;
-                mask = pc[0];
-                val = pc[1];
-                i = pc[2];
-                ASSERT(i < TE_MAX_VARS);
-                ASSERT(ap < instr->arity);
-                ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
-                if (((1 << instr->a[ap].type) & mask) == 0)
-                    goto restart;
-                if (val != instr->a[ap].val)
-                    goto restart;
-                ASSERT(i < TE_MAX_VARS);
-                var[i] = instr->a[ap];
-                ap++;
-                pc += 3;
-            }
-	    break;
-#endif
 #if defined(TOP_rest_args)
 	case TOP_rest_args:
 	    {
@@ -331,8 +259,8 @@ erts_transform_engine(LoaderState* st)
 	    keep = instr;
 	    break;
 #endif
-#if defined(TOP_call_end)
-	case TOP_call_end:
+#if defined(TOP_call)
+	case TOP_call:
 	    {
 		BeamOp** lastp;
 		BeamOp* new_instr;
@@ -352,7 +280,7 @@ erts_transform_engine(LoaderState* st)
 		*lastp = keep;
                 instr = new_instr;
 	    }
-	    /* FALLTHROUGH */
+            break;
 #endif
 	case TOP_end:
             st->genop = instr;
@@ -382,18 +310,15 @@ erts_transform_engine(LoaderState* st)
 	    instr->arity = gen_opc[op].arity;
 	    return TE_OK;
 #endif
-	case TOP_store_val_next_arg:
+	case TOP_store_val:
             instr->a[ap].type = pc[0];
             instr->a[ap].val = pc[1];
-            ap++;
             pc += 2;
             break;
-	case TOP_store_var_next_arg:
+	case TOP_store_var:
 	    i = *pc++;
 	    ASSERT(i < TE_MAX_VARS);
-	    instr->a[ap].type = var[i].type;
-	    instr->a[ap].val = var[i].val;
-	    ap++;
+	    instr->a[ap] = var[i];
 	    break;
 #if defined(TOP_store_rest_args)
 	case TOP_store_rest_args:
@@ -416,6 +341,10 @@ erts_transform_engine(LoaderState* st)
 	case TOP_try_me_else_fail:
 	    restart = restart_fail;
 	    break;
+#if defined(TOP_nop)
+	case TOP_nop:
+            break;
+#endif
 	case TOP_fail:
 	    return TE_FAIL;
 #if defined(TOP_skip_unless)
