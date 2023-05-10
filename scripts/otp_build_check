@@ -48,50 +48,59 @@ progress() {
 }
 
 print_usage() {
-    echo "Usage:"
-    echo "  otp_build check [--help|-h] [--only-opt|-o] [--no-docs|-d] \\"
-    echo "                  [--no-dialyzer|-y] [--no-tests|-n] [--no-format-check|-f] \\"
-    echo "                  [--tests|-t <App0> ... <AppN>]"
-    echo ""
-    echo ""
-    echo "By default all currently implemented checks will be performed. If any"
-    echo "of the currently used tools are missing, checking will fail. If libraries"
-    echo "needed to support certain features are missing, those features will not"
-    echo "be checked. If any of these checks do not pass, the code is *not* ready"
-    echo "for testing in OTP daily builds. Note that this script does not check"
-    echo "all requirements for testing in OTP daily builds. These checks are the"
-    echo "bare minimum for even considering testing in OTP daily builds."
-    echo "Currently the following will be performed by default:"
-    echo ""
-    echo " * Build all applications in optimized mode. If configure already"
-    echo "   has been run, it wont be run again."
-    echo " * Debug compile C-code in all applications."
-    echo " * Format checking of JIT code."
-    echo " * Run dialyzer on all applications."
-    echo " * Build all documentation."
-    echo " * Run xmllint on all documentation."
-    echo " * Run html link check on all documentation."
-    echo " * Build all tests."
-    echo ""
-    echo "Certain testing can be disabled using the following options:"
-    echo "* [--only-opt|-o] - Only compilebuild optimized system. No debug, etc."
-    echo "* [--no-docs|-d] - No documentation checking."
-    echo "* [--no-dialyzer|-y] - No dialyzer checking."
-    echo "* [--no-tests|-n] - No if building tests."
-    echo "* [--no-format-check|-f] - No JIT format checking."
-    echo "* [--tests|-t <App0> ... <AppN>] - Only build tests for listed applications"
-    echo ""
-    echo "Environment variables used:"
-    echo "* CONFIG_FLAGS - Arguments to pass to configure if it is executed."
-    echo ""
-    echo "Build results will be placed under the \$ERL_TOP/release/<TARGET> directory"
-    echo ""
-    
+    cat <<EOF
+Usage:
+  otp_build check [--help|-h] [--only-opt|-o] [--no-docs|-d] \\
+                  [--no-dialyzer|-y] [--no-tests|-n] [--no-format-check|-f] \\
+                  [--tests|-t <App0> ... <AppN>]
+
+
+By default all currently implemented checks will be performed. If any of the
+currently used tools are missing, checking will fail. If libraries or tools
+needed to support certain conditional features are missing, those features
+will not be checked.
+
+If any of these checks do not pass, the code is *not* ready for testing in OTP
+daily builds. Note that this script does not check all requirements for testing
+in OTP daily builds. These checks are the bare minimum for even considering
+testing in OTP daily builds. Currently the following will be performed by
+default:
+
+ * Build all applications in optimized mode. If configure already has been run,
+   it wont be run again.
+ * Debug compile C-code in all applications.
+ * Format checking of JIT code.
+ * Run dialyzer on all applications.
+ * Build all documentation.
+ * Run xmllint on all documentation.
+ * Run html link check on all documentation.
+ * Build all test suites.
+
+Certain build checking can be disabled using the following options:
+* [--only-opt|-o] - Only build optimized system. No debug, etc.
+* [--no-format-check|-f] - No JIT format checking.
+* [--no-docs|-d] - No documentation checking.
+* [--no-dialyzer|-y] - No dialyzer checking.
+* [--no-tests|-n] - No build checking of test suites.
+* [--tests|-t <App0> ... <AppN>] - Only build checking of test suites for
+  listed applications.
+
+Only disable build checking for parts of the system that you are certain your
+changes wont effect. Note that even though you've made no changes in
+documentation source files, documentation build is effected by type changes
+in code.
+
+Environment variables used:
+* CONFIG_FLAGS - Arguments to pass to configure if it is executed.
+
+Build results will be placed under the \$ERL_TOP/release/<TARGET> directory
+
+EOF
 }
 
 usage () {
     print_error "$1"
-    print_usage
+    print_usage >&2
     exit 1
 }
 
