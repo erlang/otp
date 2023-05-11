@@ -109,10 +109,10 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
     a.cmp(RET, imm(BeamOpCodeAddr(op_i_debug_breakpoint)));
     a.je(labels[debug_bp]);
 
+#ifdef NATIVE_ERLANG_STACK
     /* Note that we don't restore our return addresses in the `debug_bp` case
      * above, since it tail calls the error handler and thus never returns to
      * module code or `call_nif_early`. */
-#ifdef NATIVE_ERLANG_STACK
     a.push(TMP_MEM1q);
     a.push(TMP_MEM2q);
 #endif
@@ -126,6 +126,12 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
  * The only place that we can come to here is from generic_bp_local */
 void BeamGlobalAssembler::emit_debug_bp() {
     Label error = a.newLabel();
+
+#ifndef NATIVE_ERLANG_STACK
+    /* We're never going to return to module code, so we have to discard the
+     * return addresses added by the breakpoint trampoline. */
+    a.add(x86::rsp, imm(sizeof(ErtsCodePtr[2])));
+#endif
 
     emit_assert_erlang_stack();
 
@@ -204,16 +210,19 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
-    emit_enter_runtime<Update::eHeapAlloc>();
+    /* Remove our stack frame so that `beam_jit_return_to_trace` can inspect
+     * the next one.
+     *
+     * (This doesn't do anything if the native stack is used.) */
+    emit_deallocate(ArgWord(BEAM_RETURN_TO_TRACE_FRAME_SZ));
+
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<1>(beam_jit_return_to_trace);
 
-    emit_leave_runtime<Update::eHeapAlloc>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
-    /* Remove the zero-sized stack frame. (Will actually do nothing if
-     * the native stack is used.) */
-    emit_deallocate(ArgWord(BEAM_RETURN_TO_TRACE_FRAME_SZ));
     emit_return();
 }
 
