@@ -25,7 +25,7 @@
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
 	 binary_options/1, read_modes_gl/1,
 	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
-         unicode_prompt/1, shell_slogan/1]).
+         unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1]).
 
 
 -export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
@@ -34,6 +34,8 @@
 -export([answering_machine1/3, answering_machine2/3]).
 
 -export([uprompt/1, slogan/0, session_slogan/0]).
+
+-export([write_raw_to_stdout/0]).
 
 %%-define(debug, true).
 
@@ -51,7 +53,7 @@ all() ->
     [setopts_getopts, unicode_options, unicode_options_gen,
      binary_options, read_modes_gl, read_modes_ogl,
      broken_unicode, eof_on_pipe, unicode_prompt,
-     shell_slogan].
+     shell_slogan, raw_stdout, raw_stdout_isatty].
 
 groups() -> 
     [].
@@ -1091,6 +1093,45 @@ eof_on_pipe(Config) when is_list(Config) ->
 	    {skipped,"Only on linux"}
     end.
 
+raw_stdout(Config) when is_list(Config) ->
+    Cmd = lists:append(
+            [ct:get_progname(),
+             " -noshell -noinput",
+             " -pa ", filename:dirname(code:which(?MODULE)),
+             " -s ", atom_to_list(?MODULE), " write_raw_to_stdout"]),
+    ct:log("~p~n", [Cmd]),
+    Port = open_port({spawn, Cmd}, [stream, eof]),
+    Expected = lists:seq(0,255),
+    Expected = get_all_port_data(Port, []),
+    Port ! {self(), close},
+    ok.
+
+get_all_port_data(Port, Acc) ->
+    receive
+        {Port, {data, Data}} ->
+            get_all_port_data(Port, [Acc|Data]);
+        {Port, eof} ->
+            lists:flatten(Acc)
+    end.
+
+write_raw_to_stdout() ->
+    try
+        ok = io:setopts(standard_io, [{encoding, latin1}]),
+        ok = file:write(standard_io, lists:seq(0,255)),
+        halt(0)
+    catch
+        Class:Reason:StackTrace ->
+            io:format(standard_error, "~p~p~p", [Class, Reason, StackTrace]),
+            halt(17)
+    end.
+
+raw_stdout_isatty(Config) when is_list(Config) ->
+    rtnode:run(
+        [{putline,"io:setopts(group_leader(), [{encoding, latin1}])."},
+         {putline,"file:write(group_leader(),[90, 127, 128, 255, 131, 90, 10])."},%
+         {expect, "\\QZ^?\\200\\377\\203Z\\E"}
+        ],[]),
+        ok.
 %%
 %% Test I/O-server
 %%

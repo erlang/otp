@@ -56,6 +56,8 @@ usage ()
     echo "    release <target_dir> - creates a small release to <target_dir>"
     echo "    release [-a|-s|-t] <target_dir> - creates full release to <target_dir>"
     echo "    tests <dir> - Build testsuites to <dir>"
+    echo "    check [--help|...] - Perform various build checks. See --help for more info"
+    echo "                         and options."
     echo ""
     echo "-a builds all applications"
     echo "-s builds a small system (default)"
@@ -998,6 +1000,11 @@ do_tests ()
     fi
 }
 
+do_check ()
+{
+    exec $ERL_TOP/scripts/otp_build_check "$@"
+}
+
 do_debuginfo_win32 ()
 {
     setup_make
@@ -1294,6 +1301,9 @@ case "$1" in
 		echo_env_cross "$2";;
         env_bootstrap)
 	        echo_env_bootstrap;;
+	check)
+		shift;
+		do_check "$@";;
 	*)
 		usage;;
 esac

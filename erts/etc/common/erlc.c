@@ -748,8 +748,10 @@ call_compile_server(char** argv)
     ei_x_encode_atom(&args, "command_line");
     argc = 0;
     while (argv[argc]) {
+        char *arg;
         ei_x_encode_list_header(&args, 1);
-        ei_x_encode_binary(&args, possibly_unquote(argv[argc]), strlen(argv[argc]));
+        arg = possibly_unquote(argv[argc]);
+        ei_x_encode_binary(&args, arg, strlen(arg));
         argc++;
     }
     ei_x_encode_empty_list(&args); /* End of command_line */
