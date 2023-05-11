@@ -2339,6 +2339,23 @@ delete(Config) when is_list(Config) ->
     {error, _} = ?FILE_MODULE:open(Name2, read),
     %% Try deleting a nonexistent file with the raw option
     {error, enoent} = ?FILE_MODULE:delete(Name2, [raw]),
+
+    Name3 = filename:join(RootDir,
+                          atom_to_list(?MODULE)
+                          ++"_delete_3.fil"),
+    {ok, Fd5} = ?FILE_MODULE:open(Name3, write),
+    io:format(Fd5,"ok.\n",[]),
+    ok = ?FILE_MODULE:close(Fd5),
+    %% Check that the file is readable
+    {ok, Fd6} = ?FILE_MODULE:open(Name3, read),
+    ok = ?FILE_MODULE:close(Fd6),
+    %% Try deleting with no option, should be equivalent to delete/1
+    ok = ?FILE_MODULE:delete(Name3, []),
+    %% Check that the file is not readable anymore
+    {error, _} = ?FILE_MODULE:open(Name3, read),
+    %% Try deleting a nonexistent file with no option
+    {error, enoent} = ?FILE_MODULE:delete(Name3, []),
+
     [] = flush(),
     ok.
 

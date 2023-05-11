@@ -220,15 +220,14 @@ delete(Name) ->
       Reason :: posix() | badarg.
 
 delete(Name, Opts) when is_list(Opts) ->
-    Args = [file_name(Name), Opts],
-    case check_args(Args) of
+    FileName = file_name(Name),
+    case check_args(Opts) of
         ok ->
             case lists:member(raw, Opts) of
                 true ->
-                    [FileName|_] = Args,
                     ?PRIM_FILE:delete(FileName);
                 false ->
-                    call(delete, Args)
+                    call(delete, [FileName])
             end;
         Error ->
             Error
