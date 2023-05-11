@@ -31,7 +31,7 @@
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
          not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
-         funs/1]).
+         funs/1,will_succeed/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -75,7 +75,8 @@ groups() ->
        infer_relops,
        binary_unit,
        premature_concretization,
-       funs
+       funs,
+       will_succeed
       ]}].
 
 init_per_suite(Config) ->
@@ -1433,6 +1434,18 @@ gh_7197() ->
                   ok
           end].
 
+will_succeed(_Config) ->
+    b = will_succeed_1(id(ok), id(#{})),
+    ok.
+
+%% OTP-18576: the beam_call_types:will_succeed/3 check was incorrect for 'bsl',
+%% erroneously stating that it would never fail in some instances.
+will_succeed_1(_V0, _V1)
+  when (1 bsl ((map_size(_V1) bxor 288230376151711743)
+               band 288230376151711743)) =:= _V0 ->
+    a;
+will_succeed_1(_, _) ->
+    b.
 
 %%%
 %%% Common utilities.
