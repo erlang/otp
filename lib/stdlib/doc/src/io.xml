@@ -1157,6 +1157,15 @@ enter><input>1.0er.</input>
             <p>This option is supported by the standard shell
               (<c>group.erl</c>), the 'oldshell' (<c>user.erl</c>), and the
               file I/O servers.</p>
+            <note>
+              Since OTP 26 <c>user.erl</c> has been deprecated, all I/O is now passed
+              through <c>group.erl</c>. I/O defaults to unicode if its supported, otherwise
+              latin1 (0-127), all text is however converted to unicode as an intermediate
+              representation. This means that 128-255 will be converted to unicode.
+              If you have an escript that sends raw bytes on standard_io, those bytes
+              will be translated to unicode and then back to latin1.
+              To avoid this, set the encoding to latin1.
+            </note>
           </item>
           <tag><c>{echo, boolean()}</c></tag>
           <item>
