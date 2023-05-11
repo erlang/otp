@@ -507,7 +507,9 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             update_record ->
                 [_Hint,_Size,Src|Updates] = Args,
                 Values = [Src|aa_update_record_get_vars(Updates)],
-                {aa_construct_term(Dst, Values, SS1, AAS0), AAS0};
+                Types = aa_map_arg_to_type(Args,
+                                           maps:get(arg_types, Anno0, #{})),
+                {aa_construct_term(Dst, Values, Types, SS1, AAS0), AAS0};
 
             %% Instructions which don't change the alias status
             {float,_} ->

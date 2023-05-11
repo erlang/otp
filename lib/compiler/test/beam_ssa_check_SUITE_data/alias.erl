@@ -94,7 +94,9 @@
          tuple_element_aliasing/0,
          tuple_element_from_tuple_with_existing_child/0,
 
-         extract_tuple_element/0]).
+         extract_tuple_element/0,
+
+         update_record0/1]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -958,3 +960,21 @@ extract_tuple_element() ->
 %ssa% ret(R) { unique => [R] }.
     {X,Y} = Z = make_tuple(),
     {X,Y,Z}.
+
+-record(the_record,
+	{
+	 sum=0,
+	 last,
+	 extra
+	}).
+
+update_record0(Xs) ->
+    update_record0(Xs, #the_record{}).
+
+%% Unless there is a type annotation for update_record, there will be
+%% no type information for X and the record will end up as aliased.
+update_record0([X|Xs], #the_record{sum=C}=Acc) ->
+%ssa% (_, _) when post_ssa_opt ->
+%ssa% A = update_record(...),
+%ssa% _ = call(fun update_record0/2, _, A) {unique => [A]}.
+    update_record0(Xs, Acc#the_record{sum=C+X,last=X}).
