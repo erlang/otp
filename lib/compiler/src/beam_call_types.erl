@@ -56,7 +56,7 @@ will_succeed(erlang, 'bsr', [#t_integer{elements={_,_}},
                              #t_integer{elements={S,_}}])
   when S >= 0 ->
     yes;
-will_succeed(erlang, 'bsl', [#t_integer{}=LHS,#t_integer{elements={S,_}}])
+will_succeed(erlang, 'bsl', [#t_integer{}=LHS,#t_integer{elements={_,S}}])
   when S < 64 ->
     succeeds_if_smallish(LHS);
 will_succeed(erlang, '++', [LHS, _RHS]) ->
