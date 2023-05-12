@@ -833,8 +833,8 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
 void BeamGlobalAssembler::emit_handle_map_get_badmap() {
     static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
     mov_imm(TMP1, BADMAP);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
-    a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
+    a.stp(TMP1, ARG1, arm::Mem(c_p, offsetof(Process, freason)));
     a.mov(XREG0, ARG2);
     a.mov(XREG1, ARG1);
     mov_imm(ARG4, &mfa);
@@ -844,8 +844,8 @@ void BeamGlobalAssembler::emit_handle_map_get_badmap() {
 void BeamGlobalAssembler::emit_handle_map_get_badkey() {
     static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
     mov_imm(TMP1, BADKEY);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
-    a.str(ARG2, arm::Mem(c_p, offsetof(Process, fvalue)));
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
+    a.stp(TMP1, ARG2, arm::Mem(c_p, offsetof(Process, freason)));
     a.mov(XREG0, ARG2);
     a.mov(XREG1, ARG1);
     mov_imm(ARG4, &mfa);
@@ -939,8 +939,8 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
 void BeamGlobalAssembler::emit_handle_map_size_error() {
     static ErtsCodeMFA mfa = {am_erlang, am_map_size, 1};
     mov_imm(TMP1, BADMAP);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
-    a.str(XREG0, arm::Mem(c_p, offsetof(Process, fvalue)));
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
+    a.stp(TMP1, XREG0, arm::Mem(c_p, offsetof(Process, freason)));
     mov_imm(ARG4, &mfa);
     a.b(labels[raise_exception]);
 }

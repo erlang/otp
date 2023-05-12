@@ -837,7 +837,7 @@ Eterm trace_info_2(BIF_ALIST_2)
 }
 
 static Eterm
-build_trace_flags_term(Eterm **hpp, Uint *szp, Uint trace_flags)
+build_trace_flags_term(Eterm **hpp, Uint *szp, Uint32 trace_flags)
 {
 
 #define ERTS_TFLAG__(F, FN)                             \
@@ -955,7 +955,7 @@ static Eterm
 trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 {
     Eterm tracer;
-    Uint trace_flags = am_false;
+    Uint32 trace_flags = 0;
     Eterm* hp;
 
     if (pid_spec == am_new || pid_spec == am_new_processes) {

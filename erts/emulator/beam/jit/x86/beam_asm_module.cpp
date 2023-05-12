@@ -285,7 +285,8 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
 
     a.add(ARG1, imm(offsetof(ErtsCodeInfo, mfa)));
 
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_FUNCTION_CLAUSE);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)),
+          imm(EXC_FUNCTION_CLAUSE));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG1);
 
     mov_imm(ARG2, 0);
@@ -297,7 +298,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
                                            const ArgAtom &Module,
                                            const ArgAtom &Function,
                                            const ArgWord &Arity) {
-    ErtsCodeInfo info;
+    ErtsCodeInfo info = {};
 
     /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
      * label is always encoded as a word, even though the signature ought to
@@ -307,7 +308,6 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     info.mfa.module = Module.get();
     info.mfa.function = Function.get();
     info.mfa.arity = Arity.get();
-    info.gen_bp = NULL;
 
     comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
 

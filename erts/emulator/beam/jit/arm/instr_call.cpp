@@ -29,7 +29,7 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     a.mov(ARG3, a64::x30);
     a.str(ZERO, arm::Mem(c_p, offsetof(Process, current)));
     mov_imm(TMP1, 1);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, arity)));
+    a.strb(TMP1.w(), arm::Mem(c_p, offsetof(Process, arity)));
     a.b(labels[context_switch_simplified]);
 }
 

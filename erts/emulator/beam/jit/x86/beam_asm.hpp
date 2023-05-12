@@ -93,7 +93,7 @@ protected:
 #endif
 
     const x86::Gp c_p = x86::r13;
-    const x86::Gp FCALLS = x86::r14;
+    const x86::Gp FCALLS = x86::r14d;
     const x86::Gp HTOP = x86::r15;
 
     /* Local copy of the active code index.
@@ -690,7 +690,7 @@ protected:
         }
 
         if (Spec & Update::eReductions) {
-            a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+            a.mov(x86::dword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
         }
 
 #ifdef NATIVE_ERLANG_STACK
@@ -747,7 +747,7 @@ protected:
         }
 
         if (Spec & Update::eReductions) {
-            a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
+            a.mov(FCALLS, x86::dword_ptr(c_p, offsetof(Process, fcalls)));
         }
 
         if (Spec & Update::eCodeIndex) {

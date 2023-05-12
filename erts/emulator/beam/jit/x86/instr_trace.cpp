@@ -240,9 +240,8 @@ void BeamModuleAssembler::emit_i_hibernate() {
     a.test(RET, RET);
     a.je(error);
 
-    a.mov(ARG1, x86::qword_ptr(c_p, offsetof(Process, flags)));
-    a.and_(ARG1, imm(~F_HIBERNATE_SCHED));
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, flags)), ARG1);
+    a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)),
+           imm(~F_HIBERNATE_SCHED));
     a.jmp(resolve_fragment(ga->get_do_schedule()));
 
     a.bind(error);

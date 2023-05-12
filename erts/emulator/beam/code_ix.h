@@ -87,7 +87,7 @@ typedef unsigned ErtsCodeIndex;
 typedef struct ErtsCodeMFA_ {
     Eterm module;
     Eterm function;
-    Uint  arity;
+    byte arity;
 } ErtsCodeMFA;
 
 /*

@@ -1106,11 +1106,11 @@ ErtsMessage *beam_jit_decode_dist(Process *c_p, ErtsMessage *msgp) {
 }
 
 /* Remove a (matched) message from the message queue. */
-Sint beam_jit_remove_message(Process *c_p,
-                             Sint FCALLS,
-                             Eterm *HTOP,
-                             Eterm *E,
-                             Uint32 active_code_ix) {
+Sint32 beam_jit_remove_message(Process *c_p,
+                               Sint32 FCALLS,
+                               Eterm *HTOP,
+                               Eterm *E,
+                               Uint32 active_code_ix) {
     ErtsMessage *msgp;
 
     ERTS_CHK_MBUF_SZ(c_p);

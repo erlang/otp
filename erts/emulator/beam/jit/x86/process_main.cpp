@@ -119,7 +119,7 @@ void BeamGlobalAssembler::emit_process_main() {
     {
         /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
         a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])));
-        a.sub(ARG3, FCALLS);
+        a.sub(ARG3d, FCALLS);
 
         a.jmp(schedule_next);
     }
@@ -129,8 +129,8 @@ void BeamGlobalAssembler::emit_process_main() {
     {
         Sint arity_offset = offsetof(ErtsCodeMFA, arity) - sizeof(ErtsCodeMFA);
 
-        a.mov(ARG1, x86::qword_ptr(ARG3, arity_offset));
-        a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), ARG1);
+        a.movzx(ARG1d, x86::byte_ptr(ARG3, arity_offset));
+        a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), ARG1.r8());
 
         a.lea(ARG1, x86::qword_ptr(ARG3, -(Sint)sizeof(ErtsCodeMFA)));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG1);
@@ -182,7 +182,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
             a.lea(ARG1, x86::qword_ptr(labels[process_exit]));
             a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG1);
-            a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
+            a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), imm(0));
             a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
             a.jmp(do_schedule_local);
         }
@@ -190,17 +190,17 @@ void BeamGlobalAssembler::emit_process_main() {
 
         /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
         a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])));
-        a.sub(ARG3, FCALLS);
+        a.sub(ARG3d, FCALLS);
 
         /* Spill reds_used to FCALLS as we no longer need that value */
-        a.mov(FCALLS, ARG3);
+        a.mov(FCALLS, ARG3d);
 
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         runtime_call<2>(copy_out_registers);
 
         /* Restore reds_used from FCALLS */
-        a.mov(ARG3, FCALLS);
+        a.mov(ARG3d, FCALLS);
 
         /* !! Fall through !! */
     }
@@ -274,11 +274,13 @@ void BeamGlobalAssembler::emit_process_main() {
         runtime_call<2>(copy_in_registers);
 
         /* Setup reduction counting */
-        a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
-        a.mov(x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])), FCALLS);
+        a.mov(FCALLS, x86::dword_ptr(c_p, offsetof(Process, fcalls)));
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])),
+              FCALLS.r64());
 
 #ifdef DEBUG
-        a.mov(x86::qword_ptr(c_p, offsetof(Process, debug_reds_in)), FCALLS);
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, debug_reds_in)),
+              FCALLS.r64());
 #endif
 
         /* Check whether save calls is on */

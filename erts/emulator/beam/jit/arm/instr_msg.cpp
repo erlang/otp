@@ -180,7 +180,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
         a.str(ZERO, message_ptr);
         a.mov(ARG1, c_p);
-        a.mov(ARG2, FCALLS);
+        a.mov(ARG2.w(), FCALLS);
         mov_imm(ARG3, 0);
         lea(ARG4, message_ptr);
         lea(ARG5, get_out);
@@ -198,7 +198,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
          * index. */
         emit_leave_runtime<Update::eHeapAlloc | Update::eCodeIndex>(0);
 
-        a.sub(FCALLS, FCALLS, ARG1);
+        a.sub(FCALLS, FCALLS, ARG1.w());
 
         /* Need to spill message_ptr to ARG1 as check_is_distributed uses it. */
         a.ldr(ARG1, message_ptr);
@@ -227,7 +227,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.ldr(TMP1.w(), flags);
         a.and_(TMP1, TMP1, imm(~F_DELAY_GC));
         a.str(TMP1.w(), flags);
-        a.str(ZERO, arm::Mem(c_p, offsetof(Process, arity)));
+        a.strb(ZERO.w(), arm::Mem(c_p, offsetof(Process, arity)));
         a.str(ZERO, arm::Mem(c_p, offsetof(Process, current)));
 
         a.b(labels[do_schedule]);
@@ -282,10 +282,10 @@ void BeamModuleAssembler::emit_remove_message() {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    a.mov(ARG2, FCALLS);
+    a.mov(ARG2.w(), FCALLS);
     a.mov(ARG5, active_code_ix);
     runtime_call<5>(beam_jit_remove_message);
-    a.mov(FCALLS, ARG1);
+    a.mov(FCALLS, ARG1.w());
 
     emit_leave_runtime();
 }

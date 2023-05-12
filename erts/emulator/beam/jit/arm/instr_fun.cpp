@@ -80,8 +80,8 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     a.bind(bad_fun);
     {
         mov_imm(TMP1, EXC_BADFUN);
-        a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
-        a.str(ARG4, arm::Mem(c_p, offsetof(Process, fvalue)));
+        ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
+        a.stp(TMP1, ARG4, arm::Mem(c_p, offsetof(Process, freason)));
 
         a.mov(ARG2, ARG5);
         mov_imm(ARG4, nullptr);
@@ -126,8 +126,8 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         }
 
         a.mov(TMP1, imm(EXC_BADARITY));
-        a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
-        a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
+        ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
+        a.stp(TMP1, ARG1, arm::Mem(c_p, offsetof(Process, freason)));
 
         a.ldr(ARG2, TMP_MEM2q);
         mov_imm(ARG4, nullptr);
@@ -206,7 +206,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
     const ssize_t num_free = NumFree.get();
     ssize_t i;
 
-    ASSERT(num_free == env.size());
+    ASSERT(num_free == (ssize_t)env.size());
 
     a.mov(ARG1, c_p);
     mov_arg(ARG2, Lambda);
