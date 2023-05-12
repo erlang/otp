@@ -118,9 +118,10 @@ $ <input>escript factorial 5</input></pre>
             applies to the script itself. The encoding of the
             I/O-server, however, must be set explicitly as follows:</p>
           <code>
-io:setopts([{encoding, unicode}])</code>
+io:setopts([{encoding, latin1}])</code>
           <p>The default encoding of the I/O-server for <c>standard_io</c>
-            is <c>latin1</c>, as the script runs in a non-interactive terminal
+            is <c>unicode</c> if its supported, as the script runs in a
+            non-interactive terminal.
             (see section
             <seeguide marker="stdlib:unicode_usage#unicode_options_summary">
             Summary of Options</seeguide>) in the STDLIB User's Guide.</p>
