@@ -597,7 +597,7 @@ new() ->
       <change>
 	<p>
 	  The sharing of key tuples by <c>maps:merge/2</c> was introduced in
-	  OTP @OTP-18503@. Older versions always contructed a new key tuple on
+	  OTP @OTP-18523@. Older versions always contructed a new key tuple on
 	  the callers heap.
 	</p>
       </change>
