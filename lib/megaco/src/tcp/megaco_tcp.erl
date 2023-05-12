@@ -33,6 +33,7 @@
 %%-----------------------------------------------------------------
 %% Include files
 %%-----------------------------------------------------------------
+-define(megaco_debug, true).
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/src/tcp/megaco_tcp.hrl"). 
 -include_lib("megaco/src/app/megaco_internal.hrl"). 
@@ -183,18 +184,31 @@ connect(SupPid, Parameters) ->
 			port         = Port,
 			options      = Options,
                         inet_backend = IB} = Rec,
-	    
-	    IpOpt =
+
+	    %% When using 'socket on Windows':
+	    %% Unless 'Options' contain the 'ip' option,
+	    %% we *will* use our own value (selected from net:getifaddr/1).
+	    %% If 'host' is a string, we need to check 'Options'
+	    %% to see if 'local' is present (which does not, currently,
+	    %% work on Windows)?
+	    %% If not (local), we *assume* domain = 'inet'.
+
+	    IpOpts =
                 case IB of
                     default ->
                         [];
                     _ ->
                         [{inet_backend, IB}]
-                end ++ [binary, {packet, tpkt}, {active, once} | Options], 
+                end ++ [binary, {packet, tpkt}, {active, once} |
+			post_process_opts(Host, IB, Options)], 
 
             %%------------------------------------------------------
             %% Connect the other side
-	    case (catch gen_tcp:connect(Host, Port, IpOpt)) of
+	    ?d1("connect -> connect with: "
+		"~n   Host:   ~p"
+		"~n   Port:   ~p"
+		"~n   IpOpts: ~p", [Host, Port, IpOpts]),
+	    case (catch gen_tcp:connect(Host, Port, IpOpts)) of
 		{ok, Socket} ->
 		    ?d1("connect -> connected: "
 			"~n   Socket: ~p", [Socket]),
@@ -217,14 +231,14 @@ connect(SupPid, Parameters) ->
 		{error, Reason} ->
 		    ?d1("connect -> failed connecting: "
 			"~n   Reason: ~p", [Reason]),
-		    Error = {error, {gen_tcp_connect, Reason, {Host, Port, IpOpt}}},
+		    Error = {error, {gen_tcp_connect, Reason, {Host, Port, IpOpts}}},
 		    ?tcp_debug(Rec, "tcp connect failed", [Error]),
 		    Error;
 
 		{'EXIT', _Reason} = Exit ->
 		    ?d1("connect -> connect exited: "
 			"~n   Exit: ~p", [Exit]),
-		    Error = {error, {gen_tcp_connect, Exit, {Host, Port, IpOpt}}},
+		    Error = {error, {gen_tcp_connect, Exit, {Host, Port, IpOpts}}},
 		    ?tcp_debug(Rec, "tcp connect failed", [Error]),
 		    Error
 
@@ -238,6 +252,123 @@ connect(SupPid, Parameters) ->
 	    Error
     end.
 
+
+%% In some cases we must bind and therefor we must have the
+%% ip (or ifaddr) option.
+post_process_opts(Host, socket = _IB, Opts) ->
+    case os:type() of
+	{win32, nt} ->
+	    %% We must bind, and therefor we must provide a "proper" address.
+	    %% Therefor...we need to figure out our domain.
+	    post_process_opts(Host, Opts);
+	_ ->
+	    Opts
+    end;
+post_process_opts(_Host, _IB, Opts) ->
+    Opts.
+
+
+%% Socket on Windows: We need the ip (or ifaddr) option
+post_process_opts(Host, Opts) ->
+    case lists:keymember(ip, 1, Opts) orelse
+	lists:keymember(ifaddr, 1, Opts) of
+	true ->
+	    %% No need to do anything, user has provided an address
+	    Opts;
+	false ->
+	    %% We need to figure out a proper address and provide 
+	    %% the ip option our selves.
+	    post_process_opts2(Host, Opts)
+    end.
+	
+%% We do not have the ip (or ifaddr) option
+post_process_opts2(Host, Opts)
+  when is_tuple(Host) andalso (tuple_size(Host) =:= 4) ->
+    post_process_opts3(inet, Opts);
+post_process_opts2(Host, Opts)
+  when is_tuple(Host) andalso (tuple_size(Host) =:= 8) ->
+    post_process_opts3(inet6, Opts);
+%% This works even if Host is 'undefined'
+post_process_opts2(Host, Opts) when is_atom(Host) ->
+    case lists:member(inet, Opts) of
+	true ->
+	    post_process_opts3(inet, Opts);
+	false ->
+	    case lists:member(inet6, Opts) of
+		true ->
+		    post_process_opts3(inet6, Opts);
+		false ->
+		    post_process_opts3(inet, Opts)
+	    end
+    end;
+post_process_opts2(Host, Opts) when is_list(Host) ->
+    %% Either hostname (inet or inet6) or a path (local)
+    case lists:member(inet, Opts) of
+	true ->
+	    post_process_opts3(inet, Opts);
+	false ->
+	    case lists:member(inet6, Opts) of
+		true ->
+		    post_process_opts3(inet6, Opts);
+		false ->
+		    case lists:member(local, Opts) of
+			true ->
+			    %% Not supported on windows,
+			    %% so we leave it as is and... 
+			    Opts;
+			false ->
+			    post_process_opts3(inet, Opts)
+		    end
+	    end
+    end.
+
+post_process_opts3(Domain, Opts) ->
+    case net:getifaddrs(Domain) of
+	{ok, IfAddrs} ->
+	    post_process_opts4(Domain, IfAddrs, Opts);
+	{error, _} ->
+	    Opts
+    end.
+
+post_process_opts4(_Domain, [] = _IfAddrs, Opts) ->
+    Opts;
+post_process_opts4(inet,
+		   [#{addr := #{family := inet,
+				addr   := {A, B, _, _}}} | IfAddrs],
+		   Opts)
+  when (A =:= 127) orelse ((A =:= 169) andalso (B =:= 254)) ->
+    post_process_opts4(inet, IfAddrs, Opts);
+post_process_opts4(inet,
+		   [#{addr   := #{family := inet,
+				  addr   := Addr},
+		      flags  := Flags} | IfAddrs],
+		   Opts) ->
+    case lists:member(up, Flags) of
+	true ->
+	    [{ip, Addr} | Opts];
+	false ->
+	    post_process_opts4(inet, IfAddrs, Opts)
+    end;
+post_process_opts4(inet6,
+		   [#{addr := #{family := inet6,	
+				addr   := {A, _, _, _, _, _, _, _}}} | IfAddrs],
+		   Opts)
+  when (A =:= 0) orelse (A =:= 16#fe80) ->
+    post_process_opts4(inet6, IfAddrs, Opts);
+post_process_opts4(inet6,
+		   [#{addr  := #{family := inet6,
+				 addr   := Addr},
+		      flags := Flags} | IfAddrs],
+		   Opts) ->
+    %% The loopback should really have been covered above, but just in case...
+    case lists:member(up, Flags) andalso (not lists:member(loopback, Flags)) of
+	true ->
+	    [{ip, Addr} | Opts];
+	false ->
+	    post_process_opts4(inet6, IfAddrs, Opts)
+    end.
+
+    
 
 %%-----------------------------------------------------------------
 %% Func: send_message
@@ -486,7 +617,9 @@ setup(SupPid, Options) ->
 	"~n   Options: ~p", [SupPid, Options]),
     Mand = [port, receive_handle],
     case parse_options(Options, #megaco_tcp{}, Mand) of
-	{ok, TcpRec} ->
+	{ok, #megaco_tcp{port         = Port,
+			 options      = Opts,
+			 inet_backend = IB} = TcpRec} ->
     
 	    ?d1("setup -> options parsed"
 		"~n   TcpRec: ~p", [TcpRec]),
@@ -494,20 +627,22 @@ setup(SupPid, Options) ->
             %%------------------------------------------------------
             %% Setup the listen socket
 	    IpOpts =
-                case TcpRec#megaco_tcp.inet_backend of
+                case IB of
                     default ->
                         [];
-                    IB ->
+                    _ ->
                         [{inet_backend, IB}]
                 end ++
-                [binary, {packet, tpkt}, {active, once},
-                 {reuseaddr, true} | TcpRec#megaco_tcp.options],
-            Port = TcpRec#megaco_tcp.port,
+                [binary, {packet, tpkt}, {active, once}, {reuseaddr, true} |
+		 post_process_opts(undefined, IB, Opts)],
+	    ?d1("setup -> listen with: "
+		"~n   Port:   ~p"
+		"~n   IpOpts: ~p", [Port, IpOpts]),
 	    case catch gen_tcp:listen(Port, IpOpts) of
 		{ok, LSock} ->
 
 		    ?d1("setup -> listen ok"
-			"~n   Listen: ~p", [Listen]),
+			"~n   Listen: ~p", [LSock]),
 
 	            %%-----------------------------------------------
 	            %% Startup the accept process that will wait for 
