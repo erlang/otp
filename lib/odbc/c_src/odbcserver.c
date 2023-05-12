@@ -720,6 +720,20 @@ static db_result_msg db_select_count(byte *sql, db_state *state)
 	DO_EXIT(EXIT_ALLOC);
 
     if(use_srollable_cursors(state)) {
+        /* Db2 requires cursor sensitivity to be set to support scrollable
+         * cursors. By default it is = SQL_UNSPECIFIED  */
+	SQLSetStmtAttr(statement_handle(state),
+		       (SQLINTEGER)SQL_ATTR_CURSOR_SENSITIVITY,
+		       (SQLPOINTER)SQL_INSENSITIVE, (SQLINTEGER)1);
+        /* Db2 z/OS & SQLServer do not support scrollable cursors as
+         * SQL_CURSOR_FORWARD_ONLY. Ideally we would also support passing
+         * `SQL_ATTR_CURSOR_TYPE` as an argument so that we can also support
+         * `SQL_CURSOR_TYPE_STATIC`.
+         * - https://www.ibm.com/docs/en/db2-for-zos/11?topic=odbc-scrollable-cursor-characteristics-in-db2
+         * - https://learn.microsoft.com/en-us/sql/odbc/reference/develop-app/cursor-characteristics-and-cursor-type?view=sql-server-ver16 */
+	SQLSetStmtAttr(statement_handle(state),
+		       (SQLINTEGER)SQL_ATTR_CURSOR_TYPE,
+		       (SQLPOINTER)SQL_CURSOR_DYNAMIC, (SQLINTEGER)2);
 	/* This function will fail if the driver does not support scrollable
 	   cursors, this is expected and will not cause any damage*/
 	SQLSetStmtAttr(statement_handle(state),
