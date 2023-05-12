@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,26 @@
 %%----------------------------------------------------------------------
 %% Purpose: Verify the application specifics of the Megaco application
 %%----------------------------------------------------------------------
+%%
+%% application:set_env(megaco, test_inet_backends, true).
+%%
+%% S = fun() -> ts:run(kernel, megaco_load_SUITE, [batch]) end.
+%% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
+%% S = fun() -> ct:run_test([{suite, megaco_load_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
+%% G = fun(GROUP) -> ts:run(kernel, megaco_load_SUITE, {group, GROUP}, [batch]) end.
+%% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
+%% G = fun(GROUP) -> ct:run_test([{suite, megaco_load_SUITE}, {group, GROUP}]) end.
+%% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
+%% T = fun(TC) -> ts:run(kernel, megaco_load_SUITE, TC, [batch]) end.
+%% T = fun(TC) -> ct:run_test([{suite, megaco_load_SUITE}, {testcase, TC}]) end.
+%% T = fun(TC) -> ct:run_test([{suite, megaco_load_SUITE}, {group, inet_backend_socket}, {testcase, TC}]) end.
+%% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
+%% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
+%%
+%%----------------------------------------------------------------------
+%%
+
 -module(megaco_load_SUITE).
 
 -export([
