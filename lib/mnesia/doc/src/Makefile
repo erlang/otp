@@ -66,7 +66,7 @@ XML_FILES = \
 XML_GEN_FILES = $(XML_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 
 IMAGE_FILES = \
-	company.gif
+	company.png
 
 SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 TOP_SPECS_FILE = specs.xml
