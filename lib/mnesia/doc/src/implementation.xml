@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <title>Implementation</title>
+    <prepared>Johannes Christ</prepared>
+    <docno></docno>
+    <date>2023-05-12</date>
+    <rev>1</rev>
+    <file>implementation.xml</file>
+  </header>
+  <p>
+    This document aims to give a brief introduction of the implementation
+    of Mnesia, its data and functions.
+  </p>
+  <section>
+    <title>Basic concepts</title>
+    <p>In a Mnesia cluster all nodes are equal, there is no concept of
+      master or backup nodes. That said when mixing disc based (uses the
+      disc to store meta information) nodes and ram based (do not use disc
+      at all) nodes the disc based ones sometimes have precedence over ram
+      based nodes.</p>
+  </section>
+  <section>
+    <title>Metadata</title>
+      <p>Mnesia has two types of global meta data, static and dynamic.
+        All the metadata is stored in the ETS table
+        <c>mnesia_gvar</c>.</p>
+    <section>
+      <title>Static metadata</title>
+        <p>The static data is the schema information, which is usually kept in
+          the <c>schema.DAT</c> file. This data is created with
+          <seemfa marker="mnesia#create_schema/1">
+          mnesia:create_schema(Nodes)</seemfa> for disc nodes.
+          RAM-based Mnesia nodes create an empty schema at startup.</p>
+
+        <p>The static data i.e. schema contains information about which nodes
+          are involved in the cluster and which type (RAM or disc) they have.
+          It also contains information about which tables
+          exist on which node.</p>
+
+        <p>The schema information must always be the same on all active nodes
+          in the cluster. Schema information is updated via schema functions
+          such as
+          <seemfa marker="mnesia#add_table_copy/3">mnesia:add_table_copy/3</seemfa>,
+          <seemfa marker="mnesia#change_table_copy_type/3">mnesia:change_table_copy_type/3</seemfa>,
+          <seemfa marker="mnesia#del_table_copy/2">mnesia:del_table_copy/2</seemfa>
+          and others.</p>
+    </section>
+    <section>
+      <title>Dynamic metadata</title>
+      <p>The dynamic data is transient and is local to each Mnesia node in the
+        cluster. Examples of dynamic data are: the currently active Mnesia
+        nodes, which tables are currently available, and where they are
+        located. This data is updated internally by each Mnesia instance
+        during the nodes lifetime, for instance, when nodes go up or down, or
+        are added or removed from the Mnesia cluster.</p>
+    </section>
+  </section>
+  <section>
+    <title>Processes and Files</title>
+    <p>The most important processes in Mnesia are <c>mnesia_monitor</c>,
+      <c>mnesia_controller</c>, <c>mnesia_tm</c> and <c>mnesia_locker</c>.</p>
+    
+    <p><c>mnesia_monitor</c> acts as a supervisor and monitors all resources.
+      It listens for <c>nodeup</c> and <c>nodedown</c> events and keeps links
+      to other Mnesia nodes, if a node goes down, it forward this information
+      to all necessary processes: <c>mnesia_controller</c>,
+      <c>mnesia_locker</c>, <c>mnesia_tm</c> and all transactions. During
+      start, it negotiates the protocol version with the other node and keeps
+      track of which nodes use which version. The monitor process also detects
+      and warns about partitioned networks, it is then up to the user to deal
+      with them. <c>mnesia_monitor</c> also owns all open files, ETS tables and
+      so on.</p>
+
+    <p>The <c>mnesia_controller</c> process is responsible for loading tables,
+      keeping the dynamic metadata updated, synchronizing dangerous work such
+      as schema transactions, dump log operations and table loading
+      &amp; sending.</p>
+
+    <p>The last two processes are involved in all transactions, the
+      <c>mnesia_locker</c> process manages transaction locks, and
+      <c>mnesia_tm</c> manages all transaction work.</p>
+  </section>
+  <section>
+    <title>Startup and table loading</title>
+    <p>The early startup is mostly driven by the <c>mnesia_tm</c> process
+      / module, logs are dumped (see <seeguide marker="#log_dumping">
+      log dumping</seeguide>), node-names of other nodes in the cluster
+      are retrieved from the static metadata or from environment parameters
+      and initial connections are made to the other Mnesia nodes.</p>
+
+    <p>The rest of the startup is driven by the <c>mnesia_controller</c>
+      process where the schema (static metadata) is merged between each node,
+      this is done to keep the schema consistent between all nodes in the
+      cluster. When the schema is merged, all local tables are put in a
+      loading queue, tables which are only available or have local content
+      are loaded directly from disc or created if they are type
+      <c>ram_copies</c>.</p>
+
+    <p>The other tables are kept in the queue until Mnesia decides whether to
+      load them from disk or from another node. If another Mnesia node has
+      already loaded the table, i.e. got a copy in RAM or an open DETS file,
+      the table is always loaded from that node in order to keep the data
+      consistent. If no other node has a loaded copy of the table, some Mnesia
+      node has to load it first, and the other nodes can copy the table from
+      the first node. Mnesia keeps information about when other nodes went
+      down, a starting Mnesia will check which nodes have been down, if some
+      of the nodes have been down, the starting node will let those nodes load
+      the table first. If all other node have been down, then the starting
+      Mnesia will load the table first. The node that is allowed to load
+      the table will load it, and the other nod will copy it from that
+      node.</p>
+
+    <p>If a node, which the starter node has no <c>mnesia_down</c> note from,
+      is down, then the starter node will have to wait until that node comes
+      up and a decision can be taken. This behaviour can be overruled by user
+      settings. The order of table loading could be described as:</p>
+
+    <list type="ordered">
+      <item>Mnesia downs, normally decides from where Mnesia should
+        load tables.</item>
+      <item>Master nodes (overrides Mnesia downs)</item>
+      <item>
+        Force load (override master nodes)
+        <list type="ordered">
+          <item>If possible, load table from active master nodes</item>
+          <item>If no master nodes are active, load from any active node</item>
+          <item>If no active node has an active table, get a local copy
+            (if using <c>ram_copies</c>, create an empty one)</item>
+        </list>
+      </item>
+    </list>
+
+    <p>Currently, Mnesia can handle one download and one upload at the same
+      time. Dumping and loading/sending may run simultaneously but neither
+      of them may run during schema commit. Loaders/senders may not start if
+      a schema commit is enqueued. That synchronization is made to prohibit
+      that the schema transaction modifies the metadata and the prerequisites
+      of the table loading change.</p>
+
+    <p>The actual loading of a table is implemented in
+      <c>mnesia_loader.erl</c>. It currently works as follows:</p>
+
+    <!-- Build with: fig2dev -S4 implementation_table_loading.{fig,png} -->
+    <image file="implementation_table_loading.png" width="90%">
+      <icaption>Mnesia table loading process</icaption>
+    </image>
+  </section>
+  <section>
+    <title>Transaction</title>
+    <p>Transactions are normally driven from the client process
+      calling <seemfa marker="mnesia#transaction/1">mnesia:transaction
+      </seemfa>. The client first acquires a
+      globally unique transaction ID (<c>tid</c>) and temporary transaction
+      storage (<c>ts</c>, an ETS table) from <c>mnesia_tm</c> and then
+      executes the transaction fun. Mnesia API calls such as <seemfa
+      marker="mnesia#write/1">mnesia:write/1</seemfa> and <seemfa
+      marker="mnesia#read/1">mnesia:read/1</seemfa> contain code for
+      acquiring the needed locks. Intermediate database states and acquired
+      locks are kept in the transaction storage, and all Mnesia operations
+      have to be "patched" against that store. For instance, a write operation
+      in a transaction should be seen within (and only within) that
+      transaction, if the same key is read after the write. After the
+      transaction fun is completed, the <c>ts</c> is analyzed to see which
+      nodes are involved in the transaction, and what type of commit protocol
+      shall be used. The result is committed and additional work such as SNMP,
+      checkpoints, and index updates are performed. The transaction is
+      finished by releasing all resources.</p>
+
+    <p>An example:</p>
+    <code type="erl">
+      Example = fun(X) -> 
+              {table1, key, Value} = mnesia:read(table1, key),
+              ok = mnesia:write(table1, {table1, key, Value+X}),
+              {table1, key, Updated} = mnesia:read(table1, key),
+              Updated
+          end,
+      mnesia:transaction(Example, [10]).
+    </code>
+    <p>The message overview of a simple successful asynchronous
+      transaction:</p>
+    <image file="implementation_async_transaction.png" width="90%">
+      <icaption>Asynchronous transaction process</icaption>
+    </image>
+    <p>If all needed resources are available, that is, if the needed tables
+      are loaded somewhere in the in the cluster during the transaction,
+      and the user code doesn't crash, a transaction in Mnesia won't fail. If
+      something happens in the Mnesia cluster, such as a <c>nodedown</c> from
+      the replica the transaction was about to read from, or that a lock
+      couldn't be acquired and the transaction was not allowed to be queued on
+      that lock, the transaction is restarted, i.e. all resources are released
+      and the fun is called again. By default, a transaction can be restarted
+      an infinite amount of times, but the user may choose to limit the number
+      of restarts, for instance, by passing <c>{transaction, Retries}</c> to
+      <seemfa marker="mnesia#activity/2">mnesia:activity/2</seemfa>.
+      </p>
+
+    <p>The dirty operations don't do any of the above: they just find out
+      where to write the data, log the operation to disk, and cast (or call
+      in case of <c>sync_dirty</c> operation) the data to those nodes.
+      Therefore, the dirty operations have the drawback that each write or
+        delete sends a message per operation to the involved nodes.</p>
+
+    <p>There is also a synchronous variant of the 2-phase commit protocol
+      which waits on an additional ack message after the transaction is
+      committed on every node. The intention is to provide the user with a
+      way to solve overloading problems.</p>
+
+    <p>A 3-phase commit protocol is used for schema transactions, or if the
+      transaction result is going to be committed in an asymmetrical way,
+      for instance a transaction that writes to table <c>a</c> and <c>b</c>
+      where table <c>a</c> and <c>b</c> have replicas on different nodes.
+      The outcome of these transactions are temporarily stored in an ETS
+        table and in the log file.</p>
+  </section>
+  <section>
+    <title>Schema transactions</title>
+    <p>Schema transactions are handled differently than ordinary transactions,
+      they are implemented in <c>mnesia_schema</c> and <c>mnesia_dumper</c>.
+      The schema operation is always spawned to protect from the case where
+      the client process dies during the transaction.</p>
+
+    <p>The actual transaction fun checks the pre-conditions, acquires the
+      needed locks and notes the operation in the transaction store. During
+      the commit, the schema transaction runs a schema prepare operation (on
+      every node) that does the needed prerequisite job. The operation is then
+      logged to disc, and the actual commit work is done by dumping the log.
+      Every schema operation has a special clause in <c>mnesia_dumper</c> to
+      handle the finishing work. Every schema prepare operation has a matching
+      <c>undo_prepare</c> operation which needs to be invoked if the
+      transaction is aborted.</p>
+  </section>
+  <section>
+    <title>Locks</title>
+    <p>Per the <seeguide marker="#mnesia_overview"><c>mnesia_overview.pdf</c>
+      paper</seeguide>, the locking algorithm is traditional two-phase
+      locking, and the deadlock prevention is <i>wait-die</i>, with timestamps
+      for the wait-die algorithm being a Lamport clock maintained by
+      <c>mnesia_tm</c>. The Lamport clock is kept when the transaction is
+      restarted to avoid starving.</p>
+
+    <p>What the above means is that read locks are acquired on the replica
+      that Mnesia reads from, write locks are acquired on all nodes which
+      have a replica. Several read locks can lock the same object, but write
+      locks are exclusive. The transaction identifier (<c>tid</c>) is an ever
+      increasing system-unique counter that has the same sort order on every
+      node (a Lamport clock), which enabled <c>mnesia_locker</c> to order the
+      lock requests. When a lock request arrives, <c>mnesia_locker</c> checks
+      whether the lock is available, if it is granted, it is sent back to the
+      client and the lock is noted as taken in an ETS table. If the lock is
+      already occupied, its <c>tid</c> is compared with the <c>tid</c> of the
+      transaction holding the lock. If the <c>tid</c> of the holding
+      transaction is greater than the <c>tid</c> of the asking transaction,
+      it is allowed to be put into the lock queue (another ETS table) and
+      no response is sent back until the lock is released, if not, then the
+      transaction will get a negative response and <c>mnesia_tm</c> will
+      restart the transaction after it has slept for a random time.</p>
+
+    <p><em>Sticky locks</em> work almost as a write lock, the
+      first time a sticky lock is acquired, a request is sent to all nodes.
+      The lock is marked as taken by the requesting node (not transaction),
+      when the lock is later released, it is only released on the node that
+      has the sticky lock, thus the next time a transaction is requesting
+      the lock it won't need to ask the other nodes. If another node wants
+      the lock, it has to request a lock release before it can acquire
+      the lock.</p>
+  </section>
+  <section>
+    <title>Fragmented tables</title>
+    <p>Fragmented tables are used to split a large table into smaller parts.
+      It is implemented as a layer between the client and Mnesia which extends
+      the metadata with additional properties and maps a <c>{Table, Key}</c>
+      tuple to a <c>table_fragment</c>.</p>
+
+    <p>The default mapping is <c>erlang:phash2/2</c>, but the user may provide
+      his own mapping function to be able to predict which records are stored
+      in which table fragment, for instance, the client may want to steer
+      where a record generated from a certain device is placed.</p>
+
+    <!-- This could do with some more detail:
+      which foreign key, which attributes -->
+    <p>The foreign key is used to co-locate other tables to the same node.
+      The other additional table attributes are also used to distribute the
+      table fragments.</p>
+  </section>
+  <section>
+    <marker id="log_dumping"></marker>
+    <title>Log dumping</title>
+    <p>All operations on disk tables are stored on a log <c>LATEST.LOG</c> on
+      disk, so Mnesia can redo the transactions if the node goes down.
+      <em>Dumping the log</em> means that Mnesia moves the
+      committed data from the general log to the table specific disk storage.
+      To avoid that the log grows too large, uses a lot of disk space and makes
+      the startup slow, Mnesia regularly dumps the log at runtime. There are
+      two triggers that start the log dumping: timeouts and the number of
+      commits since the last dump, both are user configurable.</p>
+
+    <p>Tables of type <c>disc_copies</c> are implemented with two
+      <c>disk_log</c> files, one <c>table.DCD</c> (disc copies data) and one
+      <c>table.DCL</c> (disc copies log). The DCD contains raw records, and
+      the DCL contains operations on that table such as
+      <c>{write, {Table, Key, Value}}</c> or <c>{delete, {Table, Key}}</c>.
+      The first time a record for a specific table is found when dumping the
+      table, the size of both the DCD and the DCL files are checked, and if
+      <c>sizeof(dcl) / sizeof(dcd)</c> is greater than a threshold, the
+      current RAM table is dumped to <c>table.DCD</c> and the corresponding
+      DCL file deleted, and all other records in the general log belonging to
+      the table are ignored. If the threshold is not met, then the operations
+      in the general log to that table are appended to the DCL file. On
+      startup, both files are read: first the contents of the DCD are loaded
+      to an ETS table, then it is modified by the operations stored in the
+      corresponding DCL file.</p>
+
+    <p>For <c>disc_only_copies</c> tables, the DETS files are directly updated
+      when committing the data, so those entries can be ignored during normal
+      log dumping, they are only added to the DETS file during startup when
+      Mnesia doesn't know the state of the disk table.</p>
+  </section>
+  <section>
+    <title>Checkpoints and backups</title>
+    <p>Checkpoints are created to be able to take snapshots of the database,
+      which is pretty good when you want consistent backups, i.e. you don't
+      want half of a transaction in the backup. The checkpoint creates a
+      shadow table (called retainer) for each table involved in the
+      checkpoint. When a checkpoint is requested, it will not start until all
+      ongoing transactions are completed. The new transactions will update
+      both the real table and update the shadow table with operations to undo
+      the changes on the real table when a key is modified the first time. As
+      an example, when write operation <c>{table, a, 14}</c> is made, the
+      shadow table is checked if key <c>a</c> has an undo operation if it has,
+      nothing more is made. If not, a <c>{write, table, a, OLD_VALUE}</c> is
+      added to the shadow table if the real table had an old value, if not, a
+      <c>{delete, {table, a}}</c> operation is added to the shadow table.</p>
+
+    <p>The backup is taken by copying every record in the real table and then
+      appending every operation in the shadow table to the backup, thus undoing
+      the changes that were made since the checkpoint were started.</p>
+  </section>
+  <section>
+    <title>Historic information</title>
+    <p>The following archived webpages contain more information on Mnesia's
+        internals that has not yet been integrated here, but may present
+        outdated information:</p>
+    <list type="bulleted">
+      <item>
+        <marker id="mnesia_overview"></marker>
+        <url href="https://web.archive.org/web/20180614011548/http://erlang.org:80/~hakan/padl99.pdf">
+          Mnesia A Distributed Robust DBMS for Telecommunications Applications (1999)
+        </url>
+      </item>
+      <item>
+        <url href="https://web.archive.org/web/20180619120801/http://www.erlang.org:80/~hakan/mnesia_internals_slides.pdf">
+          Mnesia internals (1999)
+        </url>
+      </item>
+      <item>
+        <url href="https://web.archive.org/web/20180607021425/http://www.erlang.org:80/~hakan/mnesia_consumption.txt">
+          Mnesia resource consumption
+        </url>
+      </item>
+      <item>
+        <url href="https://web.archive.org/web/20180609143955/http://www.erlang.org:80/~hakan/mnesia_upgrade_policy.txt">
+          Mnesia upgrade policy
+        </url>
+      </item>
+    </list>
+  </section>
+</chapter>

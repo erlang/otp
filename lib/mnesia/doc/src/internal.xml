@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE part SYSTEM "part.dtd">
+
+<internal xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <title>Mnesia Internal Documentation</title>
+    <prepared>Johannes Christ</prepared>
+    <docno></docno>
+    <date>2023-05-12</date>
+    <rev>4.21.4</rev>
+    <file>internal.xml</file>
+  </header>
+  <description>
+    This part of the documentation contains in-depth information about the internal structure of Mnesia.
+  </description>
+  <xi:include href="implementation.xml"/>
+</internal>

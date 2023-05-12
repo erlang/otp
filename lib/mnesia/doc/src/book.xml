@@ -41,6 +41,9 @@
   <applications>
     <xi:include href="ref_man.xml"/>
   </applications>
+  <internals>
+    <xi:include href="internal.xml"/>
+  </internals>
   <releasenotes>
     <xi:include href="notes.xml"/>
   </releasenotes>

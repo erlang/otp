@@ -39,7 +39,8 @@ XML_REF3_FILES = \
 	mnesia_registry.xml
 
 XML_PART_FILES = \
-	part.xml
+	part.xml \
+	internal.xml
 
 XML_CHAPTER_FILES = \
 	Mnesia_chap1.xml \
@@ -59,14 +60,20 @@ XML_CHAPTER_GEN_FILES = \
 
 BOOK_FILES = book.xml
 
+XML_INTERNAL_FILES = \
+    implementation.xml
+
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
+	$(XML_PART_FILES) $(XML_REF3_FILES) \
+	$(XML_INTERNAL_FILES) $(XML_APPLICATION_FILES)
 
 XML_GEN_FILES = $(XML_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 
 IMAGE_FILES = \
-	company.gif
+	company.gif \
+	implementation_async_transaction.png \
+	implementation_table_loading.png
 
 SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 TOP_SPECS_FILE = specs.xml
