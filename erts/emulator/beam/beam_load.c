@@ -417,7 +417,7 @@ static int load_code(LoaderState* stp)
 
     do_transform:
         ASSERT(stp->genop != NULL);
-        if (gen_opc[stp->genop->op].transform != -1) {
+        if (gen_opc[stp->genop->op].transform) {
             if (stp->genop->next == NULL) {
                 /*
                  * Simple heuristic: Most transformations requires

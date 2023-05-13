@@ -379,15 +379,11 @@ Give the option `-emulator` to produce output files for the emulator.
 The following output files will be generated in the output directory.
 
 * `beam_opcodes.c` - Defines static data used by the loader
-(`beam_load.c`).  Data about generic instructions, specific
-instructions (including how to pack their operands), and
-transformation rules are all part of this file.
+(`beam_load.c`), providing information about generic and specific
+instructions, as well as all C code for the transformation rules.
 
 * `beam_opcodes.h` - Miscellaneous preprocessor definitions, mainly
 used by `beam_load.c` but also by `beam_{hot,warm,cold}.h`.
-
-* `beam_transform.c` - Implementation of guard constraints and generators
-called from transformation rules.
 
 For the traditional BEAM interpreter, the following files are also
 generated:
