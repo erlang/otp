@@ -1458,15 +1458,6 @@ build_stacktrace
 raw_raise
 
 #
-# Specialized move instructions. Since they don't require a second
-# instruction, we have intentionally placed them after any other
-# transformation rules that starts with a move instruction in order to
-# produce better code for the transformation engine.
-#
-
-move n D=y => init D
-
-#
 # OTP 24
 #
 
