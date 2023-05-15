@@ -12484,13 +12484,14 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
     p->sig_qs.recv_mrk_blk = NULL;
-    p->sig_qs.len = 0;
+    p->sig_qs.mq_len = 0;
+    p->sig_qs.mlenoffs = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
     p->sig_inq_contention_counter = 0;
     p->sig_inq.first = NULL;
     p->sig_inq.last = &p->sig_inq.first;
-    p->sig_inq.len = 0;
+    p->sig_inq.mlenoffs = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
     ASSERT(erts_atomic_read_nob(&p->sig_inq_buffers) == (erts_aint_t)NULL);
@@ -13001,13 +13002,14 @@ void erts_init_empty_process(Process *p)
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
     p->sig_qs.recv_mrk_blk = NULL;
-    p->sig_qs.len = 0;
+    p->sig_qs.mq_len = 0;
+    p->sig_qs.mlenoffs = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
     p->sig_inq_contention_counter = 0;
     p->sig_inq.first = NULL;
     p->sig_inq.last = &p->sig_inq.first;
-    p->sig_inq.len = 0;
+    p->sig_inq.mlenoffs = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
     erts_atomic_init_nob(&p->sig_inq_buffers, (erts_aint_t)NULL);
@@ -13087,7 +13089,8 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(ERTS_P_LT_MONITORS(p) == NULL);
     ASSERT(ERTS_P_LINKS(p) == NULL);
     ASSERT(p->sig_qs.first == NULL);
-    ASSERT(p->sig_qs.len == 0);
+    ASSERT(p->sig_qs.mq_len == 0);
+    ASSERT(p->sig_qs.mlenoffs == 0);
     ASSERT(p->bif_timers == NULL);
     ASSERT(p->dictionary == NULL);
     ASSERT(p->catches == 0);
@@ -13097,7 +13100,7 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->parent == am_undefined);
 
     ASSERT(p->sig_inq.first == NULL);
-    ASSERT(p->sig_inq.len == 0);
+    ASSERT(p->sig_inq.mlenoffs == 0);
 
     /* Thing that erts_cleanup_empty_process() cleans up */
 

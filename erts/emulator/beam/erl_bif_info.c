@@ -779,13 +779,6 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_PARENT                               36
 #define ERTS_PI_IX_ASYNC_DIST                           37
 
-#define ERTS_PI_FLAG_SINGELTON                          (1 << 0)
-#define ERTS_PI_FLAG_ALWAYS_WRAP                        (1 << 1)
-#define ERTS_PI_FLAG_WANT_MSGS                          (1 << 2)
-#define ERTS_PI_FLAG_NEED_MSGQ_LEN                      (1 << 3)
-#define ERTS_PI_FLAG_FORCE_SIG_SEND                     (1 << 4)
-#define ERTS_PI_FLAG_REQUEST_FOR_OTHER                  (1 << 5)
-
 #define ERTS_PI_UNRESERVE(RS, SZ) \
     (ASSERT((RS) >= (SZ)), (RS) -= (SZ))
 
@@ -802,8 +795,8 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_current_function, 4, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
     {am_initial_call, 4, 0, ERTS_PROC_LOCK_MAIN},
     {am_status, 0, 0, 0},
-    {am_messages, 0, ERTS_PI_FLAG_WANT_MSGS|ERTS_PI_FLAG_NEED_MSGQ_LEN|ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
-    {am_message_queue_len, 0, ERTS_PI_FLAG_NEED_MSGQ_LEN, ERTS_PROC_LOCK_MAIN},
+    {am_messages, 0, ERTS_PI_FLAG_WANT_MSGS|ERTS_PI_FLAG_NEED_MSGQ|ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
+    {am_message_queue_len, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_links, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
     {am_monitors, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
     {am_monitored_by, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
@@ -812,7 +805,7 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_error_handler, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_heap_size, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_stack_size, 0, 0, ERTS_PROC_LOCK_MAIN},
-    {am_memory, 0, ERTS_PI_FLAG_NEED_MSGQ_LEN|ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
+    {am_memory, 0, ERTS_PI_FLAG_NEED_MSGQ|ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
     {am_garbage_collection, 3+2 + 3+2 + 3+2 + 3+2 + 3+2 + ERTS_MAX_HEAP_SIZE_MAP_SZ, 0, ERTS_PROC_LOCK_MAIN},
     {am_group_leader, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_reductions, 0, 0, ERTS_PROC_LOCK_MAIN},
@@ -823,7 +816,7 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_catchlevel, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_backtrace, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
     {am_last_calls, 0, 0, ERTS_PROC_LOCK_MAIN},
-    {am_total_heap_size, 0, ERTS_PI_FLAG_NEED_MSGQ_LEN|ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
+    {am_total_heap_size, 0, ERTS_PI_FLAG_NEED_MSGQ|ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
     {am_suspending, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, 0},
     {am_min_heap_size, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_min_bin_vheap_size, 0, 0, ERTS_PROC_LOCK_MAIN},
@@ -1105,21 +1098,6 @@ erts_process_info(Process *c_p,
 static void
 pi_setup_grow(int **arr, int *def_arr, Uint *sz, int ix);
 
-#ifdef DEBUG
-static int
-empty_or_adj_msgq_signals_only(ErtsMessage *sig)
-{
-    ErtsSignal *s = (ErtsSignal *) sig;
-    for (s = (ErtsSignal *) sig; s; s = (ErtsSignal *) s->common.next) {
-        if (!ERTS_SIG_IS_NON_MSG(s))
-            return 0;
-        if (ERTS_PROC_SIG_OP(s->common.tag) != ERTS_SIG_Q_OP_ADJ_MSGQ)
-            return 0;
-    }
-    return !0;
-}
-#endif
-
 static ERTS_INLINE int
 pi_maybe_flush_signals(Process *c_p, int pi_flags)
 {
@@ -1128,16 +1106,9 @@ pi_maybe_flush_signals(Process *c_p, int pi_flags)
 
     /*
      * pi_maybe_flush_signals() flush signals in callers
-     * signal queue for two different reasons:
+     * signal queue due to the following reason:
      *
-     * 1. If we need 'message_queue_len', but not 'messages', we need
-     *    to handle all signals in the middle queue in order for
-     *    'c_p->sig_qs.len' to reflect the amount of messages in the
-     *    message queue. We could count traverse the queues, but it
-     *    is better to handle all signals in the queue instead since
-     *    this is work we anyway need to do at some point.
-     *
-     * 2. Ensures that all signals that the caller might have sent to
+     *    Ensures that all signals that the caller might have sent to
      *    itself are handled before we gather information.
      *
      *    This is, however, not strictly necessary. process_info() is
@@ -1158,17 +1129,6 @@ pi_maybe_flush_signals(Process *c_p, int pi_flags)
     if (c_p->sig_qs.flags & FS_FLUSHED_SIGS) {
     flushed:
 
-        /*
-         * Even though we've requested a clean sig queue
-         * the middle queue may contain adjust-message-queue
-         * signals since those may be reinserted if yielding.
-         * Such signals does not effect us though.
-         */
-        ASSERT(((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
-                             | ERTS_PI_FLAG_NEED_MSGQ_LEN))
-                != ERTS_PI_FLAG_NEED_MSGQ_LEN)
-               || empty_or_adj_msgq_signals_only(c_p->sig_qs.cont));
-
         ASSERT(c_p->sig_qs.flags & FS_FLUSHING_SIGS);
 
 	c_p->sig_qs.flags &= ~(FS_FLUSHED_SIGS|FS_FLUSHING_SIGS);
@@ -1179,25 +1139,19 @@ pi_maybe_flush_signals(Process *c_p, int pi_flags)
     state = erts_atomic32_read_nob(&c_p->state);
 
     if (!(c_p->sig_qs.flags & FS_FLUSHING_SIGS)) {
-        int flush_flags = 0;
-        if (erts_atomic32_read_nob(&c_p->xstate)
-            & ERTS_PXSFLG_MAYBE_SELF_SIGS) {
-            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_FROM_ID;
+        if (!(erts_atomic32_read_nob(&c_p->xstate)
+              & ERTS_PXSFLG_MAYBE_SELF_SIGS)) {
+            if (state & ERTS_PSFLG_MSG_SIG_IN_Q) {
+                erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+                erts_proc_sig_fetch(c_p);
+                erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+            }
+            /* done; no need to flush... */
+            return 0;
         }
-	else if (state & ERTS_PSFLG_MSG_SIG_IN_Q) {
-            erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-            erts_proc_sig_fetch(c_p);
-            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
-        }
-        if (((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
-                          | ERTS_PI_FLAG_NEED_MSGQ_LEN))
-             == ERTS_PI_FLAG_NEED_MSGQ_LEN)
-            && (flush_flags || c_p->sig_qs.cont)) {
-            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_CLEAN_SIGQ;
-        }
-        if (!flush_flags)
-	    return 0; /* done; no need to flush... */
-	erts_proc_sig_init_flush_signals(c_p, flush_flags, c_p->common.id);
+	erts_proc_sig_init_flush_signals(c_p,
+                                         ERTS_PROC_SIG_FLUSH_FLG_FROM_ID,
+                                         c_p->common.id);
         if (c_p->sig_qs.flags & FS_FLUSHED_SIGS)
             goto flushed;
     }
@@ -1326,7 +1280,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
             /* wait for it to terminate properly... */
             goto send_signal;
         }
-        if (flags & ERTS_PI_FLAG_NEED_MSGQ_LEN) {
+        if (flags & ERTS_PI_FLAG_NEED_MSGQ) {
             ASSERT(locks & ERTS_PROC_LOCK_MAIN);
             if (rp->sig_qs.flags & FS_FLUSHING_SIGS) {
                 erts_proc_unlock(rp, locks);
@@ -1407,9 +1361,8 @@ yield:
 
 send_signal: {
         Eterm ref = erts_make_ref(c_p);
-        int enqueued, need_msgq_len;
+        int enqueued;
         flags |= ERTS_PI_FLAG_REQUEST_FOR_OTHER;
-        need_msgq_len = (flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
         /*
          * Set save pointer to the end of the message queue so we won't
          * have to scan the whole* message queue for the result. Note
@@ -1418,9 +1371,8 @@ send_signal: {
          */
         erts_msgq_set_save_end(c_p);
         enqueued = erts_proc_sig_send_process_info_request(c_p, pid, item_ix,
-                                                           len, need_msgq_len,
-                                                           flags, reserve_size,
-                                                           ref);
+                                                           len, flags,
+                                                           reserve_size, ref);
         if (!enqueued) {
             /* Restore save pointer... */
 	    erts_msgq_set_save_first(c_p);
@@ -1580,8 +1532,8 @@ process_info_aux(Process *c_p,
     }
 
     case ERTS_PI_IX_MESSAGES: {
-        ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
-	if (rp->sig_qs.len == 0 || (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE)) {
+        ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ);
+	if (rp->sig_qs.mq_len == 0 || (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE)) {
             *msgq_len_p = 0;
             res = NIL;
         }
@@ -1592,7 +1544,7 @@ process_info_aux(Process *c_p,
 	    Uint heap_need;
 
 	    mip = erts_alloc(ERTS_ALC_T_TMP,
-			     rp->sig_qs.len*sizeof(ErtsMessageInfo));
+			     rp->sig_qs.mq_len*sizeof(ErtsMessageInfo));
 
 	    /*
 	     * Note that message queue may shrink when calling
@@ -1634,11 +1586,8 @@ process_info_aux(Process *c_p,
     case ERTS_PI_IX_MESSAGE_QUEUE_LEN: {
         Sint len = *msgq_len_p;
         if (len < 0) {
-            ASSERT((flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)
-                   || !rp->sig_qs.cont);
-            len = rp->sig_qs.len;
+            len = rp->sig_qs.mq_len;
         }
-        ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
         ASSERT(len >= 0);
         if (len <= MAX_SMALL)
             res = make_small(len);
@@ -1923,9 +1872,9 @@ process_info_aux(Process *c_p,
 
 	total_heap_size += rp->mbuf_sz;
 
+        ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ);
         if (rp->sig_qs.flags & FS_ON_HEAP_MSGQ) {
             ErtsMessage *mp;
-            ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
             for (mp = rp->sig_qs.first; mp; mp = mp->next) {
 		if (ERTS_SIG_IS_RECV_MARKER(mp))
 		    continue;
@@ -1933,7 +1882,7 @@ process_info_aux(Process *c_p,
                 if (mp->data.attached)
                     total_heap_size += erts_msg_attached_data_size(mp);
             }
-            *reds += (Uint) rp->sig_qs.len / 4;
+            *reds += (Uint) rp->sig_qs.mq_len / 4;
         }
 
 	(void) erts_bld_uint(NULL, &hsz, total_heap_size);
@@ -1958,8 +1907,8 @@ process_info_aux(Process *c_p,
         hp = erts_produce_heap(hfact, hsz, reserve_size);
 	res = erts_bld_uint(&hp, NULL, size);
 
-        ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
-        *reds += (Uint) rp->sig_qs.len / 4;
+        ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ);
+        *reds += (Uint) rp->sig_qs.mq_len / 4;
 
 	break;
     }
