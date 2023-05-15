@@ -177,7 +177,7 @@
     <func>
       <name name="enumerate" arity="1" since="OTP 25.0"/>
       <name name="enumerate" arity="2" since="OTP 25.0"/>
-      <name name="enumerate" arity="3" since="OTP @OTP-18495@"/>
+      <name name="enumerate" arity="3" since="OTP 26.0"/>
       <fsummary>Annotates elements with their index.</fsummary>
       <desc>
         <p>Returns <c><anno>List1</anno></c> with each element
@@ -1059,7 +1059,7 @@ splitwith(Pred, List) ->
 
     <func>
       <name name="zip" arity="2" since=""/>
-      <name name="zip" arity="3" since="OTP @OTP-18318@"/>
+      <name name="zip" arity="3" since="OTP 26.0"/>
       <fsummary>Zip two lists into a list of two-tuples.</fsummary>
       <desc>
         <p>"Zips" two lists into one list of two-tuples,
@@ -1098,7 +1098,7 @@ splitwith(Pred, List) ->
 
     <func>
       <name name="zip3" arity="3" since=""/>
-      <name name="zip3" arity="4" since="OTP @OTP-18318@"/>
+      <name name="zip3" arity="4" since="OTP 26.0"/>
       <fsummary>Zip three lists into a list of three-tuples.</fsummary>
       <desc>
         <p>"Zips" three lists into one list of
@@ -1113,7 +1113,7 @@ splitwith(Pred, List) ->
 
     <func>
       <name name="zipwith" arity="3" since=""/>
-      <name name="zipwith" arity="4" since="OTP @OTP-18318@"/>
+      <name name="zipwith" arity="4" since="OTP 26.0"/>
       <fsummary>Zip two lists into one list according to a fun.</fsummary>
       <desc>
         <p>Combines the elements of two lists into one list.
@@ -1133,7 +1133,7 @@ splitwith(Pred, List) ->
 
     <func>
       <name name="zipwith3" arity="4" since=""/>
-      <name name="zipwith3" arity="5" since="OTP @OTP-18318@"/>
+      <name name="zipwith3" arity="5" since="OTP 26.0"/>
       <fsummary>Zip three lists into one list according to a fun.</fsummary>
       <desc>
         <p>Combines the elements of three lists into one

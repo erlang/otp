@@ -33,7 +33,82 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.3.1</title>
+  <section><title>Inets 9.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct timing related pipelining/keepalive queue bug,
+	    that could result in unexpected "socket_remotly_closed"
+	    errors.</p>
+          <p>
+	    Own Id: OTP-18476 Aux Id: GH-6380 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    By default ssl connections will use options from
+	    <c>ssl_default_options(true)</c></p>
+          <p>
+	    Own Id: OTP-18167</p>
+        </item>
+        <item>
+	    <p>Runtime dependencies have been updated.</p>
+          <p>
+	    Own Id: OTP-18350</p>
+        </item>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+        <item>
+	    <p> The implementation has been fixed to use
+	    <c>proc_lib:init_fail/2,3</c> where appropriate, instead
+	    of <c>proc_lib:init_ack/1,2</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843 </p>
+        </item>
+        <item>
+          <p>
+	    IP display string will now always be in lower case,
+	    effects ipv6 addresses.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18530</p>
+        </item>
+        <item>
+          <p>
+	    Removed deprecated functions</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18536</p>
+        </item>
+        <item>
+          <p>
+	    Update the code in the inets example directory to reflect
+	    the latest implementation</p>
+          <p>
+	    Own Id: OTP-18544 Aux Id: GH-5276 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

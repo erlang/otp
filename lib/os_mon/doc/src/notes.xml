@@ -31,6 +31,58 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix internal os_mon_sysinfo:get_disk_info/1 function to
+	    not crash when run on Windows with multiple drives.</p>
+          <p>
+	    Own Id: OTP-18246 Aux Id: PR-6284 GH-6156 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a memory leak when calling <c>cpu_sup:util/0,1</c>
+	    on FreeBSD.</p>
+          <p>
+	    Own Id: OTP-18546 Aux Id: GH-7070, PR-7071 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="os_mon:disksup#get_disk_info/0"><c>disksup:get_disk_info/0</c></seemfa>
+	    and <seemfa
+	    marker="os_mon:disksup#get_disk_info/1"><c>disksup:get_disk_info/1</c></seemfa>
+	    functions have been introduced. These can be used in
+	    order to immediately fetch information about current disk
+	    usage.</p>
+          <p>
+	    Own Id: OTP-18303 Aux Id: PR-6384 </p>
+        </item>
+        <item>
+	    <p>Runtime dependencies have been updated.</p>
+          <p>
+	    Own Id: OTP-18350</p>
+        </item>
+        <item>
+          <p>
+	    Support for <c>cpu_sup:util()</c> on OpenBSD.</p>
+          <p>
+	    Own Id: OTP-18566 Aux Id: PR-7080 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

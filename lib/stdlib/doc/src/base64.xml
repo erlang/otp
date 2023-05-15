@@ -103,10 +103,10 @@
     </func>
 
     <func>
-      <name name="decode" arity="2" since="OTP @OTP-18247@"/>
-      <name name="decode_to_string" arity="2" since="OTP @OTP-18247@"/>
-      <name name="mime_decode" arity="2" since="OTP @OTP-18247@"/>
-      <name name="mime_decode_to_string" arity="2" since="OTP @OTP-18247@"/>
+      <name name="decode" arity="2" since="OTP 26.0"/>
+      <name name="decode_to_string" arity="2" since="OTP 26.0"/>
+      <name name="mime_decode" arity="2" since="OTP 26.0"/>
+      <name name="mime_decode_to_string" arity="2" since="OTP 26.0"/>
       <fsummary>Decode a base64 encoded string to data.</fsummary>
       <type variable="Base64"/>
       <type variable="Options" name_i="1"/>
@@ -163,8 +163,8 @@
     </func>
 
     <func>
-      <name name="encode" arity="2" since="OTP @OTP-18247@"/>
-      <name name="encode_to_string" arity="2" since="OTP @OTP-18247@"/>
+      <name name="encode" arity="2" since="OTP 26.0"/>
+      <name name="encode_to_string" arity="2" since="OTP 26.0"/>
       <fsummary>Encode data into base64.</fsummary>
       <type variable="Data"/>
       <type variable="Options"/>

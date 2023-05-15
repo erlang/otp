@@ -517,7 +517,7 @@ new() ->
 
       <change>
         <p>
-          Before OTP @OTP-18502@ <c>maps:get/3</c> was implemented by calling
+          Before OTP 26.0 <c>maps:get/3</c> was implemented by calling
           the function instead of rewriting it as an Erlang expression. It is
           now slightly faster but can no longer be traced.
         </p>
@@ -597,7 +597,7 @@ new() ->
       <change>
 	<p>
 	  The sharing of key tuples by <c>maps:merge/2</c> was introduced in
-	  OTP @OTP-18523@. Older versions always contructed a new key tuple on
+	  OTP 26.0. Older versions always contructed a new key tuple on
 	  the callers heap.
 	</p>
       </change>

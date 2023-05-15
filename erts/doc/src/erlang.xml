@@ -3064,9 +3064,9 @@ os_prompt%</pre>
             </p>
             <change>
                 <p>
-                  Runtime systems prior to OTP @OTP-17771@ called all installed
+                  Runtime systems prior to OTP 26.0 called all installed
                   <c>atexit</c>/<c>on_exit</c> callbacks also when <c>flush</c>
-                  was disabled, but as of OTP @OTP-17771@ this is no longer the case.
+                  was disabled, but as of OTP 26.0 this is no longer the case.
                 </p>
             </change>
           </item>
@@ -11984,7 +11984,7 @@ hello
               This option cannot be combined with the <c>local</c> option.
             </p>
           </item>
-          <tag since="OTP @OTP-18477@"><c>local</c>
+          <tag since="OTP 26.0"><c>local</c>
           <marker id="term_to_binary_local"/></tag>
           <item>
             <p>

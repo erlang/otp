@@ -103,7 +103,7 @@
     <p>On Windows, use semi-colon as separator.</p>
     <p>The code paths specified by <c>$OTP_ROOT</c>, <c>ERL_LIBS</c>,
       and boot scripts have their listings cached by default (except for ".")
-      since OTP @OTP-18466@.
+      since OTP 26.0.
       The code server will lookup the contents in their directories once
       and avoid future file system traversals. Therefore modules added
       to such directories after the Erlang VM boots won't be picked up.
@@ -350,7 +350,7 @@ zip:create("mnesia-4.4.7.ez",
   <funcs>
     <func>
       <name name="set_path" arity="1" since=""/>
-      <name name="set_path" arity="2" since="OTP @OTP-18466@"/>
+      <name name="set_path" arity="2" since="OTP 26.0"/>
       <fsummary>Set the code server search path.</fsummary>
       <desc>
         <p>Sets the code path to the list of directories <c><anno>Path</anno></c>.</p>
@@ -375,9 +375,9 @@ zip:create("mnesia-4.4.7.ez",
     </func>
     <func>
       <name name="add_path" arity="1" since=""/>
-      <name name="add_path" arity="2" since="OTP @OTP-18466@"/>
+      <name name="add_path" arity="2" since="OTP 26.0"/>
       <name name="add_pathz" arity="1" since=""/>
-      <name name="add_pathz" arity="2" since="OTP @OTP-18466@"/>
+      <name name="add_pathz" arity="2" since="OTP 26.0"/>
       <fsummary>Add a directory to the end of the code path.</fsummary>
       <type name="add_path_ret"/>
       <desc>
@@ -394,7 +394,7 @@ zip:create("mnesia-4.4.7.ez",
     </func>
     <func>
       <name name="add_patha" arity="1" since=""/>
-      <name name="add_patha" arity="2" since="OTP @OTP-18466@"/>
+      <name name="add_patha" arity="2" since="OTP 26.0"/>
       <fsummary>Add a directory to the beginning of the code path.</fsummary>
       <type name="add_path_ret"/>
       <desc>
@@ -411,9 +411,9 @@ zip:create("mnesia-4.4.7.ez",
     </func>
     <func>
       <name name="add_paths" arity="1" since=""/>
-      <name name="add_paths" arity="2" since="OTP @OTP-18466@"/>
+      <name name="add_paths" arity="2" since="OTP 26.0"/>
       <name name="add_pathsz" arity="1" since=""/>
-      <name name="add_pathsz" arity="2" since="OTP @OTP-18466@"/>
+      <name name="add_pathsz" arity="2" since="OTP 26.0"/>
       <fsummary>Add directories to the end of the code path.</fsummary>
       <desc>
         <p>Adds the directories in <c><anno>Dirs</anno></c> to the end of the code
@@ -427,7 +427,7 @@ zip:create("mnesia-4.4.7.ez",
     </func>
     <func>
       <name name="add_pathsa" arity="1" since=""/>
-      <name name="add_pathsa" arity="2" since="OTP @OTP-18466@"/>
+      <name name="add_pathsa" arity="2" since="OTP 26.0"/>
       <fsummary>Add directories to the beginning of the code path.</fsummary>
       <desc>
 	<p>Traverses <c><anno>Dirs</anno></c> and adds
@@ -466,7 +466,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="del_paths" arity="1" since="OTP @OTP-18466@"/>
+      <name name="del_paths" arity="1" since="OTP 26.0"/>
       <fsummary>Deletes directories from the code path.</fsummary>
       <desc>
         <p>Deletes directories from the code path. The argument is a list of either
@@ -478,7 +478,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="clear_cache" arity="0" since="OTP @OTP-18466@"/>
+      <name name="clear_cache" arity="0" since="OTP 26.0"/>
       <fsummary>Clears the code path cache.</fsummary>
       <desc>
         <p>Clear the code path cache. If a directory is cached, its cache is
@@ -494,7 +494,7 @@ zip:create("mnesia-4.4.7.ez",
     </func>
     <func>
       <name name="replace_path" arity="2" since=""/>
-      <name name="replace_path" arity="3" since="OTP @OTP-18466@"/>
+      <name name="replace_path" arity="3" since="OTP 26.0"/>
       <fsummary>Replace a directory with another in the code path.</fsummary>
       <desc>
         <p>Replaces an old occurrence of a directory

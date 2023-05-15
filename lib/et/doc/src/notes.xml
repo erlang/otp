@@ -37,6 +37,22 @@
   one section in this document. The title of each section is the
   version number of <c>Event Tracer (ET)</c>.</p>
 
+<section><title>ET 1.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>ET 1.6.5</title>
 
     <section><title>Improvements and New Features</title>

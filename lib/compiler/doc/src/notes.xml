@@ -32,6 +32,123 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler would silently accept singleton (unbound)
+	    type variables in a union type. Starting from Erlang/OTP
+	    26, the compiler will generate a warning for this
+	    example. The warning can be disabled using the
+	    <c>nowarn_singleton_typevar</c> option. In Erlang/OTP 27,
+	    the warning will become an error.</p>
+          <p>
+	    Own Id: OTP-18389 Aux Id: GH-6508, PR-6864, GH-7116 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Optimized record updates.</p>
+          <p>
+	    Own Id: OTP-18126 Aux Id: PR-6033 </p>
+        </item>
+        <item>
+	    <p>There are several new optimization for binary syntax
+	    in the JIT:</p> <list> <item>Creation and matching of
+	    binaries with segments of fixed sizes have been
+	    optimized.</item> <item>Creation and matching of UTF-8
+	    segments have been optimized.</item> <item>Appending to
+	    binaries has been optimized.</item> </list>
+          <p>
+	    Own Id: OTP-18137 Aux Id: PR-6259, PR-6404, PR-6576,
+	    PR-6804 </p>
+        </item>
+        <item>
+	    <p>The compiler and JIT now generate better code for
+	    creation of small maps where all keys are literals known
+	    at compile time.</p>
+          <p>
+	    Own Id: OTP-18185 Aux Id: GH-6139 </p>
+        </item>
+        <item>
+	    <p>A limitation in the binary syntax has been removed. It
+	    is now possible to match binary patterns in parallel.
+	    Example: <c>&lt;&lt;A:8&gt;&gt; = &lt;&lt;B:4,C:4&gt;&gt;
+	    = Bin</c></p>
+          <p>
+	    Own Id: OTP-18297 Aux Id: GH-6348 </p>
+        </item>
+        <item>
+	    <p>It is documented that <c>$\^X</c> is the ASCII code
+	    for Control X, where X is an uppercase or lowercase
+	    letter. However, this notation would work for any
+	    character X, even then it didn't make sense.</p>
+	    <p>In Erlang/OTP 26, it is now documented that the
+	    following characters are also allowed to follow the
+	    <c>\^</c> characters: <c>@</c>, <c>[</c>, <c>\</c>,
+	    <c>]</c>, <c>^</c>, <c>_</c>, and <c>?</c>. Attempt to
+	    use other characters will be rejected with a compiler
+	    error.</p>
+	    <p>The value for <c>$\^?</c> is now 127 (instead of 31 as
+	    in earlier releases).</p>
+          <p>
+	    Own Id: OTP-18337 Aux Id: GH-6477, PR-6503 </p>
+        </item>
+        <item>
+	    <p>The BIFs <c>min/2</c> and <c>max/2</c> are now allowed
+	    to be used in guards and match specs.</p>
+          <p>
+	    Own Id: OTP-18367 Aux Id: GH-6544 </p>
+        </item>
+        <item>
+	    <p>Map comprehensions as suggested in EEP 58 has now been
+	    implemented.</p>
+          <p>
+	    Own Id: OTP-18413 Aux Id: EEP-58, PR-6727 </p>
+        </item>
+        <item>
+	    <p>Improved the selective receive optimization, which can
+	    now be enabled for references returned from other
+	    functions.</p>
+	    <p>This greatly improves the performance of
+	    <c>gen_server:send_request/3</c>,
+	    <c>gen_server:wait_response/2</c>, and similar
+	    functions.</p>
+          <p>
+	    Own Id: OTP-18431 Aux Id: PR-6739 </p>
+        </item>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+        <item>
+	    <p>The compiler will now inline calls to
+	    <c>maps:get/3</c>.</p>
+          <p>
+	    Own Id: OTP-18502</p>
+        </item>
+        <item>
+	    <p>In Erlang/OTP 27, <c>0.0</c> will no longer be
+	    considered to be exactly equal to <c>-0.0</c>. See
+	    <seeguide
+	    marker="system/general_info:upcoming_incompatibilities#float_matching">Upcoming
+	    Potential Incompatibilities</seeguide>.</p>
+          <p>
+	    Own Id: OTP-18574</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

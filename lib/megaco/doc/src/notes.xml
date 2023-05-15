@@ -37,7 +37,25 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 4.4.3</title>
+  <section><title>Megaco 4.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed configure option <c>--enable-sanitizers</c>. It
+	    was untested and broken. Address sanitizer for the
+	    emulator has better support by the <c>asan</c> build
+	    target.</p>
+          <p>
+	    Own Id: OTP-18538 Aux Id: GH-7031, PR-7078 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.4.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>

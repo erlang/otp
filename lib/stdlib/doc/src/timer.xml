@@ -112,7 +112,7 @@
     </func>
 
     <func>
-      <name name="apply_repeatedly" arity="4" since="OTP @OTP-18236@"/>
+      <name name="apply_repeatedly" arity="4" since="OTP 26.0"/>
       <fsummary>Spawn a process evaluating <c>Module:Function(Arguments)</c>
         repeatedly at intervals of <c>Time</c>.</fsummary>
       <desc>
@@ -341,9 +341,9 @@
     </func>
 
     <func>
-      <name name="tc" arity="2" clause_i="2" since="OTP @OTP-18355@"/>
-      <name name="tc" arity="3" clause_i="2" since="OTP @OTP-18355@"/>
-      <name name="tc" arity="4" since="OTP @OTP-18355@"/>
+      <name name="tc" arity="2" clause_i="2" since="OTP 26.0"/>
+      <name name="tc" arity="3" clause_i="2" since="OTP 26.0"/>
+      <name name="tc" arity="4" since="OTP 26.0"/>
       <fsummary>Measure the real time it takes to evaluate <c>apply(Module,
         Function, Arguments)</c> or <c>apply(Fun, Arguments)</c>.</fsummary>
       <type_desc variable="Time">In the specified <c>TimeUnit</c></type_desc>

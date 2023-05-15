@@ -31,6 +31,451 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All process calls in <c>dets</c> have been updated to use
+	    the receive queue optimizations.</p>
+          <p>
+	    Own Id: OTP-18275 Aux Id: PR-6045 </p>
+        </item>
+        <item>
+	    <p> <c>proc_lib:start*/*</c> has become synchronous when
+	    the started process fails. This requires that a failing
+	    process use a new function <c>proc_lib:init_fail/2,3</c>,
+	    or exits, to indicate failure. All OTP behaviours have
+	    been fixed to do this. </p><p> All these start functions
+	    now consume the <c>'EXIT'</c> message from a process link
+	    for all error returns. Previously it was only the
+	    <c>start_link/*</c> functions that did this, and only
+	    when the started function exited, not when it used
+	    <c>init_ack/1,2</c> or <c>init_fail/2,3</c> to create the
+	    return value. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18471 Aux Id: GH-6339, PR-6843 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug where <c>file:read(standard_io, ...)</c>
+	    unexpectedly returned <c>eof</c> in binary mode.</p>
+          <p>
+	    Own Id: OTP-18486 Aux Id: PR-6881 </p>
+        </item>
+        <item>
+	    <p>In the shell, <c>v(N)</c> would fail to retrieve the
+	    command if the command's return value was
+	    <c>undefined</c>.</p>
+          <p>
+	    Own Id: OTP-18548 Aux Id: PR-6967 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The Erlang shell has been improved to support the
+	    following features:</p> <list> <item>Auto-complete
+	    variables, record names, record field names, map keys,
+	    function parameter types and filenames.</item> <item>Open
+	    external editor in the shell (with C-o) to edit the
+	    current expression in an editor.</item> <item>Support
+	    defining records (with types), functions and function
+	    typespecs, and custom types in the shell.</item> <item>Do
+	    not save pager commands, and input to io:getline in
+	    history.</item> </list>
+          <p>
+	    Own Id: OTP-14835 Aux Id: PR-5924 </p>
+        </item>
+        <item>
+          <p>
+	    Gen_server now caches external functions for use in
+	    handle_call, handle_cast and handle_info.</p>
+          <p>
+	    Own Id: OTP-15597 Aux Id: PR-5831 </p>
+        </item>
+        <item>
+	    <p>The TTY/terminal subsystem has been rewritten by
+	    moving more code to Erlang from the old linked-in driver
+	    and implementing all the I/O primitives needed in a NIF
+	    instead. </p><p> On Unix platforms the user should not
+	    notice a lot of difference, besides better handling of
+	    unicode characters and fixing of some long standing bugs.
+	    </p><p> Windows users will notice that erl.exe has the
+	    same functionality as a normal Unix shell and that
+	    werl.exe has been removed and replaced with a symlink to
+	    erl.exe. This makes the Windows Erlang terminal
+	    experience identical to that of Unix. </p><p> The
+	    re-write brings with it a number of bug fixes and feature
+	    additions:</p> <list> <item>The TTY is now reset when
+	    Erlang exits, fixing zsh to not break when terminating an
+	    Erlang session.</item> <item><c>standard_error</c> now
+	    uses the same unicode mode as <c>standard_io</c>.</item>
+	    <item>Hitting backspace when searching the shell history
+	    with an empty search string no longer breaks the
+	    shell.</item> <item>Tab expansion now works on remote
+	    nodes started using the JCL interface.</item> <item>It is
+	    now possible to configure the shell slogan and the
+	    session slogans (that is the texts that appear when you
+	    start an Erlang shell). See the kernel documentation for
+	    more details.</item> <item>Added shell:start_interactive
+	    for starting the interactive shell from a non-interactive
+	    Erlang session (for example an escript).</item> <item>On
+	    Windows, when starting in detached mode the standard
+	    handler are now set to <c>nul</c> devices instead of
+	    being unset.</item> <item> Standard I/O now always
+	    defaults to <c>unicode</c> mode if supported. Previously
+	    the default was <c>latin1</c> if the runtime system had
+	    been started with <c>-oldshell</c> or <c>-noshell</c>
+	    (for example in an <c>escript</c>). To send raw bytes
+	    over standard out, one now explicitly has to specify
+	    <c>io:setopts(standard_io, [{encoding, latin1}]).</c>
+	    </item> </list>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17932 Aux Id: PR-6144 GH-3150 GH-3390 GH-4343
+	    GH-4225 </p>
+        </item>
+        <item>
+	    <p>Added the <c>zip:zip_get_crc32/2</c> function to
+	    retrieve the CRC32 checksum from an opened ZIP
+	    archive.</p>
+          <p>
+	    Own Id: OTP-18159 Aux Id: PR-6904 </p>
+        </item>
+        <item>
+          <p>
+	    Added the options <c>post_process_args</c> and
+	    <c>detached</c> to the <c>peer:start</c> function.</p>
+          <p>
+	    Own Id: OTP-18176 Aux Id: PR-6118 </p>
+        </item>
+        <item>
+	    <p>The <c>re:replace/3,4</c> functions now accept a fun
+	    as the replacement argument.</p>
+          <p>
+	    Own Id: OTP-18221 Aux Id: PR-6197 </p>
+        </item>
+        <item>
+	    <p>The performance of the <c>base64</c> module has been
+	    significantly improved. For example, on an x86_64 system
+	    with the JIT both encode and decode are more than three
+	    times faster than in Erlang/OTP 25.</p>
+          <p>
+	    Own Id: OTP-18228 Aux Id: GH-5639 </p>
+        </item>
+        <item>
+          <p>
+	    Improved implementation of <seemfa
+	    marker="stdlib:timer#apply_interval/4"><c>timer:apply_interval/4</c></seemfa>
+	    reducing load on the timer server, and introduction of
+	    the new function <seemfa
+	    marker="stdlib:timer#apply_repeatedly/4"><c>timer:apply_repeatedly/4</c></seemfa>.
+	    <c>timer:apply_repeatedly/4</c> is similar to
+	    <c>timer:apply_interval/4</c>, but
+	    <c>timer:apply_repeatedly/4</c> prevents parallel
+	    execution of triggered <c>apply</c> operations which
+	    <c>timer:apply_interval/4</c> does not.</p>
+          <p>
+	    Own Id: OTP-18236 Aux Id: PR-6256 </p>
+        </item>
+        <item>
+	    <p>The <c>base64</c> module now supports encoding and
+	    decoding with an alternate URL safe alphabet, and an
+	    option for accepting or adding missing <c>=</c> padding
+	    characters.</p>
+          <p>
+	    Own Id: OTP-18247 Aux Id: PR-6280, PR-6711 </p>
+        </item>
+        <item>
+          <p>
+	    Add <c>shell:whereis/0</c> which can be used to locate
+	    the current shell process.</p>
+          <p>
+	    Own Id: OTP-18272 Aux Id: PR-6279 </p>
+        </item>
+        <item>
+          <p>
+	    The Erlang shell's auto-completion when typing <c>tab</c>
+	    has been changed to happen after the editing current line
+	    instead of before it.</p>
+          <p>
+	    This behaviour can be configured using a the
+	    <c>shell_expand_location</c> STDLIB configuration
+	    parameter.</p>
+          <p>
+	    Own Id: OTP-18278 Aux Id: PR-6260 </p>
+        </item>
+        <item>
+          <p>
+	    New function <c>ets:lookup_element/4</c> with a
+	    <c>Default</c> argument returned if the key did not exist
+	    in the table. The old <c>ets:lookup_element/3</c> raises
+	    a <c>badarg</c> exception which can be both inconvenient
+	    and slower.</p>
+          <p>
+	    Own Id: OTP-18279 Aux Id: PR-6234 </p>
+        </item>
+        <item>
+          <p>
+	    Typing <c>Ctrl+L</c> in a shell now clears the screen and
+	    redraws the current line instead of only redrawing the
+	    current line. To only redraw the current line, you must
+	    now type <c>Alt+L</c>. This brings the behaviour of
+	    <c>Ctrl+L</c> closer to how bash and other shells work.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18285 Aux Id: PR-6262 </p>
+        </item>
+        <item>
+          <p>
+	    <c>peer</c> nodes using <c>standard_io</c> connections
+	    now include standard error from the node in the io stream
+	    from the started node.</p>
+          <p>
+	    Own Id: OTP-18287 Aux Id: PR-5955 </p>
+        </item>
+        <item>
+	    <p>A limitation in the binary syntax has been removed. It
+	    is now possible to match binary patterns in parallel.
+	    Example: <c>&lt;&lt;A:8&gt;&gt; = &lt;&lt;B:4,C:4&gt;&gt;
+	    = Bin</c></p>
+          <p>
+	    Own Id: OTP-18297 Aux Id: GH-6348 </p>
+        </item>
+        <item>
+          <p>
+	    Improve type specification of
+	    <c>unicode:characters_to_list()</c>.</p>
+          <p>
+	    Own Id: OTP-18301 Aux Id: PR-6350 </p>
+        </item>
+        <item>
+	    <p>In the <c>lists</c> module, the <c>zip</c> family of
+	    functions now takes options to allow handling lists of
+	    different lengths.</p>
+          <p>
+	    Own Id: OTP-18318 Aux Id: PR-6347 </p>
+        </item>
+        <item>
+	    <p>It is documented that <c>$\^X</c> is the ASCII code
+	    for Control X, where X is an uppercase or lowercase
+	    letter. However, this notation would work for any
+	    character X, even then it didn't make sense.</p>
+	    <p>In Erlang/OTP 26, it is now documented that the
+	    following characters are also allowed to follow the
+	    <c>\^</c> characters: <c>@</c>, <c>[</c>, <c>\</c>,
+	    <c>]</c>, <c>^</c>, <c>_</c>, and <c>?</c>. Attempt to
+	    use other characters will be rejected with a compiler
+	    error.</p>
+	    <p>The value for <c>$\^?</c> is now 127 (instead of 31 as
+	    in earlier releases).</p>
+          <p>
+	    Own Id: OTP-18337 Aux Id: GH-6477, PR-6503 </p>
+        </item>
+        <item>
+	    <p>The <c>binary:encode_hex/2</c> function has been added
+	    to allow the encoded hexadecimal digits to be in either
+	    lower or upper case.</p>
+          <p>
+	    Own Id: OTP-18354 Aux Id: PR-6297 </p>
+        </item>
+        <item>
+          <p>
+	    Variants of <c>timer:tc()</c> with user specified time
+	    unit have been introduced.</p>
+          <p>
+	    Own Id: OTP-18355 Aux Id: PR-6507 </p>
+        </item>
+        <item>
+          <p>
+	    New function <c>math:tau/0</c>. Returns
+	    <c>2*math:pi()</c>.</p>
+          <p>
+	    Own Id: OTP-18361 Aux Id: PR-6536 </p>
+        </item>
+        <item>
+	    <p>The BIFs <c>min/2</c> and <c>max/2</c> are now allowed
+	    to be used in guards and match specs.</p>
+          <p>
+	    Own Id: OTP-18367 Aux Id: GH-6544 </p>
+        </item>
+        <item>
+          <p>
+	    Optimized <c>gen_server:multi_call()</c>.</p>
+          <p>
+	    Own Id: OTP-18385 Aux Id: PR-6698 </p>
+        </item>
+        <item>
+	    <p>Map comprehensions as suggested in EEP 58 has now been
+	    implemented.</p>
+          <p>
+	    Own Id: OTP-18413 Aux Id: EEP-58, PR-6727 </p>
+        </item>
+        <item>
+	    <p>Some map operations have been optimized by changing
+	    the internal sort order of atom keys. This changes the
+	    (undocumented) order of how atom keys in small maps are
+	    printed and returned by <c>maps:to_list/1</c> and
+	    <c>maps:next/1</c>. The new order is unpredictable and
+	    may change between different invocations of the Erlang
+	    VM.</p>
+	    <p>For applications where order is important, there is a
+	    new function <c>maps:iterator/2</c> for creating
+	    iterators that return the map elements in a deterministic
+	    order. There are also new modifiers <c>k</c> and <c>K</c>
+	    for the format string for <c>io:format()</c> to support
+	    printing map elements ordered.</p>
+          <p>
+	    Own Id: OTP-18414 Aux Id: PR-6151 </p>
+        </item>
+        <item>
+          <p>
+	    Make gen_server fail "silently" with a new return value
+	    for init/1.</p>
+          <p>
+	    Own Id: OTP-18423 Aux Id:
+	    https://github.com/erlang/backlog/issues/142 </p>
+        </item>
+        <item>
+	    <p>Improved the selective receive optimization, which can
+	    now be enabled for references returned from other
+	    functions.</p>
+	    <p>This greatly improves the performance of
+	    <c>gen_server:send_request/3</c>,
+	    <c>gen_server:wait_response/2</c>, and similar
+	    functions.</p>
+          <p>
+	    Own Id: OTP-18431 Aux Id: PR-6739 </p>
+        </item>
+        <item>
+	    <p>It is no longer necessary to enable a feature in the
+	    runtime system in order to load modules that are using
+	    it. It is sufficient to enable the feature in the
+	    compiler when compiling it.</p>
+	    <p>That means that to use feature <c>maybe_expr</c> in
+	    Erlang/OTP 26, it is sufficient to enable it during
+	    compilation.</p>
+	    <p>In Erlang/OTP 27, feature <c>maybe_expr</c> will be
+	    enabled by default, but it will be possible to disable
+	    it.</p>
+          <p>
+	    Own Id: OTP-18445</p>
+        </item>
+        <item>
+          <p>
+	    Static supervisors are very idle processes after they
+	    have started so they will now be hibernated after start
+	    to improve resource management.</p>
+          <p>
+	    Own Id: OTP-18474 Aux Id: PR-6895 </p>
+        </item>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+        <item>
+	    <p>Support has been added in <c>ms_transform</c> for the
+	    actions <c>caller_line/0</c>,
+	    <c>current_stacktrace/0</c>, and
+	    <c>current_stacktrace/1</c>.</p>
+          <p>
+	    Own Id: OTP-18494 Aux Id: PR-6924 </p>
+        </item>
+        <item>
+	    <p>The family of enumeration functions in module
+	    <c>lists</c> has been extended with <c>enumerate/3</c>
+	    that allows a step value to be supplied.</p>
+          <p>
+	    Own Id: OTP-18495 Aux Id: PR-6943 </p>
+        </item>
+        <item>
+          <p>
+	    Update Unicode to version 15.0.0.</p>
+          <p>
+	    Own Id: OTP-18500</p>
+        </item>
+        <item>
+	    <p>The regular expression library powering the <c>re</c>
+	    module is likely to be changed in Erlang/OTP 27. See
+	    <seeguide
+	    marker="system/general_info:upcoming_incompatibilities#new_re_engine">Upcoming
+	    Potential Incompatibilities</seeguide>.</p>
+          <p>
+	    Own Id: OTP-18511 Aux Id: PR-7017 </p>
+        </item>
+        <item>
+	    <p>Improved the performance of <c>sets:subtract/2</c>
+	    when subtracting a small number of elements.</p>
+          <p>
+	    Own Id: OTP-18515 Aux Id: GH-6990 </p>
+        </item>
+        <item>
+	    <p>The linter will no longer raise warnings for
+	    underspecified opaque types.</p>
+          <p>
+	    Own Id: OTP-18518 Aux Id: GH-7015 </p>
+        </item>
+        <item>
+	    <p>Added the new built-in type <c>dynamic()</c>
+	    introduced in EEP-61, improving support for gradual type
+	    checkers.</p>
+          <p>
+	    Own Id: OTP-18522</p>
+        </item>
+        <item>
+          <p>
+	    The by <c>gen_statem</c> previously used call proxy
+	    process that was used for preventing late replies from
+	    reaching the client at timeout or connection loss has
+	    been removed. It is no longer needed since <i>process
+	    aliases</i> take care of this, are used, and supported by
+	    all Erlang nodes that an OTP 26 Erlang node can
+	    communicate with.</p>
+          <p>
+	    Own Id: OTP-18537 Aux Id: PR-7081 </p>
+        </item>
+        <item>
+	    <p>Added the <c>argparse</c> module for simplified
+	    argument handling in escripts and similar.</p>
+          <p>
+	    Own Id: OTP-18558 Aux Id: PR-6852 </p>
+        </item>
+        <item>
+	    <p>Added support for multiple line expressions and
+	    navigation in the shell. Added new keybindings:</p>
+	    <list> <item> navigate up (ctrl+up)/(alt+up) </item>
+	    <item> navigate down (ctrl+down)/(alt+down) </item>
+	    <item> insert newline in middle of line (alt+enter)
+	    </item> <item> navigate top (alt+&lt;)/(alt+shift+up)
+	    </item> <item> navigate bottom
+	    (alt+&gt;)/(alt+shift+down) </item> <item> clear current
+	    expression (alt+c) </item> <item> cancel search (alt+c)
+	    </item> <item> opening editor on mac (option+o)/(alt+o)
+	    </item> </list> <p>Modifies the prompt for new lines to
+	    make it clearer that the prompt has entered multi-line
+	    mode. Supports terminal with small window size, recommend
+	    not go lower than 7 rows and 40 columns. Modifies the
+	    search prompt to support multi-line statements. Redraw
+	    the prompt after continuing from JCL menu. </p>
+          <p>
+	    Own Id: OTP-18575 Aux Id: PR-7169 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 4.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

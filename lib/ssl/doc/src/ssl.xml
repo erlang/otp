@@ -2175,7 +2175,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP @OTP-18572@" name="signature_algs" arity="2" />
+      <name since="OTP 26.0" name="signature_algs" arity="2" />
       <fsummary>Returns a list of signature algorithms/schemes </fsummary>
       <desc>
         <p>Lists all possible signature algorithms corresponding to

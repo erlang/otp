@@ -32,6 +32,34 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Runtime dependencies have been updated.</p>
+          <p>
+	    Own Id: OTP-18350</p>
+        </item>
+        <item>
+          <p>
+	    Added <c>start/1</c>, <c>start_and_wait functions/1|2</c>
+	    functions.</p>
+          <p>
+	    Own Id: OTP-18430 Aux Id: PR-6397 </p>
+        </item>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

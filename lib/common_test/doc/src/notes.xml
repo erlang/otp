@@ -33,6 +33,50 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.25</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    This change improves Common Test docs (CT hook example
+	    code) and adds Emacs skeleton with hook code.</p>
+          <p>
+	    Own Id: OTP-18377 Aux Id: PR-6437 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Updated common_test with a more robust way to fetch old
+	    releases, while ignoring the current release.</p>
+          <p>
+	    Own Id: OTP-18259 Aux Id: PR-5924 </p>
+        </item>
+        <item>
+          <p>
+	    - re-write the XML <c>ct</c> module documentation into
+	    erlang types to make Dialyzer able to catch more precise
+	    errors</p>
+          <p>
+	    Own Id: OTP-18340</p>
+        </item>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.24</title>
 
     <section><title>Improvements and New Features</title>
