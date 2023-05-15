@@ -41,13 +41,13 @@ evil for mnesia_evil_coverage_test etc.
 In order to be able to run the test suite, the Erlang node must
 be started with the distribution enabled and the code path must
 be set to the mnesia/ebin, mnesia/examples, and mnesia/test
-directories. E.g. the following would do:
+directories. Running the following in this directory would do:
 
+    top=$ERL_TOP/lib/mnesia
     erl -sname a -pa $top/examples -pa $top/src -pa $top/ebin
 
-where $top is the path to the Mnesia installation. Many test
-cases needs 2 or 3 nodes. The node names may explicitly be
-stated as test suite configuration parameters, but by default
+Many test cases need 2 or 3 nodes. The node names may explicitly
+be stated as test suite configuration parameters, but by default
 the extra node names are generated. In this example the names
 will be: a, a1 and a2. It is enough to start the first node
 manually, the extra nodes will automatically be started if
@@ -95,10 +95,12 @@ commit protocols work it is essential that it is possible to
 ensure that we are able to kill Mnesia in the most critical
 situations. Normally Mnesia is compiled with the debug
 functions disabled and this means that test cases which
-requires this functionality will be skipped. The mnesia:ni(),
-mentioned above, functions ensures that the interpreted code is
-instrumented with Mnesia's debug functionality. The mnesia:nc()
-functions compiles Mnesia with the debug setting enabled.
+require this functionality will be skipped. To compile mnesia
+with debug functionality, (re-)compile it with erlc flag
+"-Ddebug", for instance, with make:
+
+    make clean
+    make ERLC=$(pwd)/../../bin/erlc ERL_COMPILE_FLAGS="-Ddebug"
 
 Happy bug hunting!
 
