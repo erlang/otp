@@ -119,6 +119,14 @@ typedef struct {
 
 typedef ErlNifBinary efile_path_t;
 
+#ifdef DEBUG
+#define EFILE_MAX_IOVLEN                                                       \
+    ((1ull << (32 - 1)) - 1)
+#else
+#define EFILE_MAX_IOVLEN                                                       \
+    ((1ull << (sizeof(((SysIOVec*)0)->iov_len) * 8 - 1)) - 1)
+#endif
+
 /** @brief Translates the given "raw name" into the format expected by the APIs
  * used by the underlying implementation. The result is transient and does not
  * need to be released.

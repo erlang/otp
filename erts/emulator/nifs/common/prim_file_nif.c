@@ -643,9 +643,37 @@ static ERL_NIF_TERM close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     }
 }
 
+static size_t initialize_tmp_iovec(unsigned char *data,
+                                   size_t size,
+                                   SysIOVec **out) {
+    SysIOVec *result = *out;
+    size_t count;
+
+    count = (size / EFILE_MAX_IOVLEN) + 1;
+
+    if (count > 1) {
+        result = enif_alloc(sizeof(SysIOVec) * count);
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        size_t base = i * EFILE_MAX_IOVLEN;
+
+        result[i].iov_base = &data[base];
+        result[i].iov_len = MIN(size - base, EFILE_MAX_IOVLEN);
+    }
+
+    *out = result;
+    return count;
+}
+
+static void free_tmp_iovec(SysIOVec *prealloc, SysIOVec *vec) {
+    if (vec != prealloc) {
+        enif_free(vec);
+    }
+}
+
 static ERL_NIF_TERM read_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     Sint64 bytes_read, block_size;
-    SysIOVec read_vec[1];
     ErlNifBinary result;
 
     ASSERT(argc == 1);
@@ -661,11 +689,16 @@ static ERL_NIF_TERM read_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, con
         return posix_error_to_tuple(env, ENOMEM);
     }
 
-    read_vec[0].iov_base = result.data;
-    read_vec[0].iov_len = result.size;
+    {
+        SysIOVec __read_vec[1], *read_vec = __read_vec;
+        size_t count;
 
-    bytes_read = efile_readv(d, read_vec, 1);
-    ASSERT(bytes_read <= block_size);
+        count = initialize_tmp_iovec(result.data, result.size, &read_vec);
+        bytes_read = efile_readv(d, read_vec, count);
+        free_tmp_iovec(__read_vec, read_vec);
+
+        ASSERT(bytes_read <= block_size);
+    }
 
     if(bytes_read < 0) {
         enif_release_binary(&result);
@@ -708,7 +741,6 @@ static ERL_NIF_TERM write_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, co
 
 static ERL_NIF_TERM pread_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     Sint64 bytes_read, block_size, offset;
-    SysIOVec read_vec[1];
     ErlNifBinary result;
 
     ASSERT(argc == 2);
@@ -726,10 +758,14 @@ static ERL_NIF_TERM pread_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, co
         return posix_error_to_tuple(env, ENOMEM);
     }
 
-    read_vec[0].iov_base = result.data;
-    read_vec[0].iov_len = result.size;
+    {
+        SysIOVec __read_vec[1], *read_vec = __read_vec;
+        size_t count;
 
-    bytes_read = efile_preadv(d, offset, read_vec, 1);
+        count = initialize_tmp_iovec(result.data, result.size, &read_vec);
+        bytes_read = efile_preadv(d, offset, read_vec, count);
+        free_tmp_iovec(__read_vec, read_vec);
+    }
 
     if(bytes_read < 0) {
         enif_release_binary(&result);
@@ -954,10 +990,14 @@ static ERL_NIF_TERM ipread_s32bu_p32bu_nif_impl(efile_data_t *d, ErlNifEnv *env,
         return posix_error_to_tuple(env, ENOMEM);
     }
 
-    read_vec[0].iov_base = payload.data;
-    read_vec[0].iov_len = payload.size;
+    {
+        SysIOVec __read_vec[1], *read_vec = __read_vec;
+        size_t count;
 
-    bytes_read = efile_preadv(d, payload_offset, read_vec, 1);
+        count = initialize_tmp_iovec(payload.data, payload.size, &read_vec);
+        bytes_read = efile_preadv(d, payload_offset, read_vec, count);
+        free_tmp_iovec(__read_vec, read_vec);
+    }
 
     if(bytes_read < 0) {
         enif_release_binary(&payload);
@@ -1312,12 +1352,17 @@ static posix_errno_t read_file(efile_data_t *d, size_t size, ErlNifBinary *resul
 
     for(;;) {
         ssize_t block_bytes_read;
-        SysIOVec read_vec[1];
 
-        read_vec[0].iov_base = result->data + bytes_read;
-        read_vec[0].iov_len = result->size - bytes_read;
+        {
+            SysIOVec __read_vec[1], *read_vec = __read_vec;
+            size_t count;
 
-        block_bytes_read = efile_readv(d, read_vec, 1);
+            count = initialize_tmp_iovec(&result->data[bytes_read],
+                                         result->size - bytes_read,
+                                         &read_vec);
+            block_bytes_read = efile_readv(d, read_vec, count);
+            free_tmp_iovec(__read_vec, read_vec);
+        }
 
         if(block_bytes_read < 0) {
             enif_release_binary(result);

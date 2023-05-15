@@ -88,7 +88,8 @@
 -export([unicode/1]).
 -export([altname/1]).
 
--export([large_file/0, large_file/1, large_write/0, large_write/1]).
+-export([large_file/0, large_file/1, large_write/0, large_write/1,
+         large_read/0, large_read/1]).
 
 -export([read_line_1/1, read_line_2/1, read_line_3/1,read_line_4/1]).
 
@@ -137,7 +138,8 @@ all() ->
      {group, errors}, {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
      ipread, pid2name, interleaved_read_write, otp_5814, otp_10852,
-     large_file, large_write, read_line_1, read_line_2, read_line_3,
+     large_file, large_write, large_read,
+     read_line_1, read_line_2, read_line_3,
      read_line_4, standard_io, old_io_protocol,
      unicode_mode, {group, bench}
     ].
@@ -4163,6 +4165,34 @@ do_large_write(Name) ->
             ok = file:write_file(Name, binary:part(Bin, 0, 1 bsl 31)),
 	    {ok,#file_info{size=1 bsl 31}} = file:read_file_info(Name),
 	    ok
+    end.
+
+large_read() ->
+    [{timetrap,{minutes,20}}].
+
+large_read(Config) when is_list(Config) ->
+    run_large_file_test(Config,
+			fun(Name) -> do_large_read(Name) end,
+			"_large_read").
+
+do_large_read(Name) ->
+    Memsize = memsize(),
+    io:format("Memsize = ~w Bytes~n", [Memsize]),
+    case {erlang:system_info(wordsize),Memsize} of
+        {4,_} ->
+            {skip,"Needs a 64-bit emulator"};
+        {8,N} when N < 14 bsl 30 ->
+            {skip,
+                "This machine has < 14 GB memory: "
+                ++integer_to_list(N)};
+        {8,_} ->
+            Size = 4*1024*1024*1024+1,
+            Bin = <<512:Size/unit:8>>,
+
+            ok = file:write_file(Name, Bin),
+            {ok, Bin} = file:read_file(Name),
+
+            ok
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
