@@ -1997,7 +1997,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
       <item><c>eusers</c> - Too many users</item>
       <item><c>eversion</c> - Version mismatch</item>
       <item><c>ewouldblock</c> - Operation would block</item>
-      <item><c>exdev</c> - Cross-domain link</item>
+      <item><c>exdev</c> - Cross-device link</item>
       <item><c>exfull</c> - Message tables full</item>
       <item><c>nxdomain</c> - Hostname or domain name cannot be found</item>
     </list>
