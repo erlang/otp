@@ -2962,7 +2962,9 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
         <p>Notice that <c>enif_open_resource_type</c> is only allowed to be
           called in the two callbacks
           <seecref marker="#load"><c>load</c></seecref> and
-          <seecref marker="#upgrade"><c>upgrade</c></seecref>.</p>
+          <seecref marker="#upgrade"><c>upgrade</c></seecref>. The resource type
+          is only created or taken over if the calling <c>load</c>/<c>upgrade</c>
+          function returns successfully.</p>
 	<p>See also <seecref marker="#enif_open_resource_type_x">
 	  <c>enif_open_resource_type_x</c></seecref>.</p>
       </desc>
