@@ -52,8 +52,14 @@ all() ->
     [{group,group1}].
 
 groups() ->
-    [{group1,[],[test_case]}].
-    
+    [{group1,[],[test_case, test_case_timetrap]}].
+
 %% Test cases starts here.
 test_case(Config) when is_list(Config) ->
     ok.
+
+test_case_timetrap() ->
+    [{timetrap, {seconds, 1}}].
+
+test_case_timetrap(_) ->
+    ct:sleep(infinity).
