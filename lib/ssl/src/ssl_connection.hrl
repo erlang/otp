@@ -133,8 +133,7 @@
                 user_data_buffer     :: undefined | {[binary()],non_neg_integer(),[binary()]} | secret_printout(),
                 bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
                 %% recv and start handling
-                start_or_recv_from   :: term(),
-                log_level
+                start_or_recv_from   :: term()
                }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,
