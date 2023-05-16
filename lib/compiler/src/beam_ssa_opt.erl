@@ -49,7 +49,8 @@
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
 
-module(Module, Opts) ->
+module(Module0, Opts) ->
+    {Module,NifInfo} = isolate_nifs(Module0),
     FuncDb = case proplists:get_value(no_module_opt, Opts, false) of
                  false -> build_func_db(Module);
                  true -> #{}
@@ -69,7 +70,7 @@ module(Module, Opts) ->
               {once, Order, late_epilogue_passes(Opts)}],
 
     StMap = run_phases(Phases, StMap0, FuncDb),
-    {ok, finish(Module, StMap)}.
+    {ok, restore_nifs(finish(Module, StMap), NifInfo)}.
 
 run_phases([{module, Passes} | Phases], StMap0, FuncDb0) ->
     {StMap, FuncDb} = compile:run_sub_passes(Passes, {StMap0, FuncDb0}),
@@ -333,13 +334,7 @@ passes_1(Ps, Opts0) ->
 -spec build_func_db(#b_module{}) -> func_info_db().
 build_func_db(#b_module{body=Fs,attributes=Attr,exports=Exports0}) ->
     Exports = fdb_exports(Attr, Exports0),
-    try
-        fdb_fs(Fs, Exports, #{})
-    catch
-        %% All module-level optimizations are invalid when a NIF can override a
-        %% function, so we have to bail out.
-        throw:load_nif -> #{}
-    end.
+    fdb_fs(Fs, Exports, #{}).
 
 fdb_exports([{on_load, L} | Attrs], Exports) ->
     %% Functions marked with on_load must be treated as exported to prevent
@@ -380,11 +375,6 @@ fdb_is([#b_set{op=call,
                args=[#b_local{}=Callee | _]} | Is],
        Caller, FuncDb) ->
     fdb_is(Is, Caller, fdb_update(Caller, Callee, FuncDb));
-fdb_is([#b_set{op=call,
-               args=[#b_remote{mod=#b_literal{val=erlang},
-                               name=#b_literal{val=load_nif}},
-                     _Path, _LoadInfo]} | _Is], _Caller, _FuncDb) ->
-    throw(load_nif);
 fdb_is([#b_set{op=MakeFun,
                args=[#b_local{}=Callee | _]} | Is],
        Caller, FuncDb) when MakeFun =:= make_fun;
@@ -3532,3 +3522,125 @@ sub_arg(Old, Sub) ->
 
 new_var(Count) ->
     {#b_var{name=Count},Count+1}.
+
+%%%
+%%% NIF handling
+%%%
+%%% NIFs are problematic for the SSA optimization passes as when a
+%%% loaded NIF replaces a function, essentially all bets are off as
+%%% callers of the NIF cannot make any assumptions on the result of
+%%% calling the NIF.
+%%%
+%%% A safe way to handle NIFs, but still allow optimization of
+%%% functions not calling NIFs is to make calls to NIFs look like
+%%% external calls. For the beam_ssa_opt compiler pass this is handled
+%%% by the functions isolate_nifs/1 and restore_nifs/2.
+%%%
+%%% The function isolate_nifs/1 transforms the input #b_module{} by
+%%% rewriting all calls to NIFs in the module to calls to external
+%%% functions with the same names.  As this also removes all callers
+%%% to the NIF, all non-exported NIFs are forcibly exported, to avoid
+%%% them being removed as dead code.
+%%%
+%%% As all passes know how handle external calls, this allows for safe
+%%% optimization of the module. That a NIF function can contain BEAM
+%%% code which calls other functions in the module is not a problem,
+%%% at worst it leads to missed optimizations.
+%%%
+%%% When all sub-passes of beam_ssa_opt have been executed
+%%% restore_nifs/2 undoes the module transforms done by
+%%% isolate_nifs/1. To avoid extra book-keeping to keep track of
+%%% rewritten calls for use by restore_nifs/2, the module to which the
+%%% calls are redirected is given a name, '\nnifs', which cannot be
+%%% created by the user.
+%%%
+-define(ISOLATION_MODULE, #b_literal{val='\nnifs'}).
+
+isolate_nifs(#b_module{body=Body0, exports=Exports0}=Module0) ->
+    %% Scan to find NIFs
+    NIFs = foldl(fun(#b_function{}=F, Acc) ->
+                         case is_nif(F) of
+                             true ->
+                                 sets:add_element(get_func_id(F), Acc);
+                             false ->
+                                 Acc
+                         end
+                 end, sets:new([{version,2}]), Body0),
+
+    %% Determine the set of previously not exported NIFs which should
+    %% be exported.
+    ExportsSet = foldl(fun({N,A}, Acc) ->
+                               FA = #b_local{name=#b_literal{val=N},arity=A},
+                               sets:add_element(FA, Acc)
+                       end, sets:new([{version,2}]), Exports0),
+    NIFsToExport = sets:subtract(NIFs, ExportsSet),
+    Exports = Exports0 ++ [{N,A}
+                           || #b_local{name=#b_literal{val=N},arity=A}
+                                  <- sets:to_list(NIFsToExport)],
+
+    %% Replace all calls to the NIFs with a call to an external
+    %% function with the same name, but with a module name which
+    %% cannot be created by the user ('\nnifs').
+    CallReplacer =
+        fun(#b_set{op=call,args=[#b_local{name=N,arity=A}=Callee|Rest]}=I)->
+                case sets:is_element(Callee, NIFs) of
+                    true ->
+                        Args = [#b_remote{mod=?ISOLATION_MODULE,
+                                          name=N,arity=A}|Rest],
+                        I#b_set{args=Args};
+                    false ->
+                        I
+                end;
+           (I) ->
+                I
+        end,
+    #b_module{body=Body} = map_module_instrs(CallReplacer, Module0),
+    NIFsAsExternal = sets:fold(fun(#b_local{name=N,arity=A}, Acc) ->
+                                       R = #b_remote{mod=?ISOLATION_MODULE,
+                                                     name=N,arity=A},
+                                       sets:add_element(R, Acc)
+                               end, sets:new([{version,2}]), NIFs),
+    {Module0#b_module{exports=Exports,body=Body},
+     {NIFsToExport, NIFsAsExternal}}.
+
+map_module_instrs(Fun, #b_module{body=Body}=Module) ->
+    Module#b_module{body=[map_module_instrs_f(Fun, F) || F <- Body]}.
+
+map_module_instrs_f(Fun, #b_function{bs=Bs}=F) ->
+    F#b_function{bs=#{Lbl => map_module_instrs_b(Fun, Blk) || Lbl:=Blk <- Bs}}.
+
+map_module_instrs_b(Fun, #b_blk{is=Is}=Blk) ->
+    Blk#b_blk{is=[Fun(I) || I <- Is]}.
+
+restore_nifs(#b_module{exports=Exports0}=Module0, {NIFsToExport, NIFs}) ->
+    %% Remove the NIFs which where were forcibly exported by
+    %% isolate_nifs/1 from the export list.
+    Exports = [E
+               || E={N,A} <- Exports0,
+                  not sets:is_element(#b_local{name=#b_literal{val=N},
+                                               arity=A}, NIFsToExport)],
+
+    %% Restore all calls that were turned into calls to external
+    %% functions in the '\nnifs' module by converting them to local
+    %% calls.
+    CallRestorer =
+        fun(#b_set{op=call,args=[#b_remote{name=N,arity=A}=Callee|Rest]}=I)->
+                case sets:is_element(Callee, NIFs) of
+                    true ->
+                        I#b_set{args=[#b_local{name=N,arity=A}|Rest]};
+                    false ->
+                        I
+                end;
+           (I) ->
+                I
+        end,
+    #b_module{body=Body} = map_module_instrs(CallRestorer, Module0),
+    Module0#b_module{exports=Exports,body=Body}.
+
+%%%
+%%% Predicate to check if a function is the stub for a nif.
+%%%
+is_nif(#b_function{bs=#{0:=#b_blk{is=[#b_set{op=nif_start}|_]}}}) ->
+    true;
+is_nif(_) ->
+    false.
