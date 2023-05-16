@@ -32,14 +32,6 @@
 #include "erl_binary.h"
 #include "erl_bits.h"
 
-#ifdef ERL_INTERNAL_HASH_CRC32C
-#   if defined(__x86_64__)
-#       include <immintrin.h>
-#   elif defined(__aarch64__)
-#       include <arm_acle.h>
-#   endif
-#endif
-
 /*                                                                           *\
  *                                                                           *
 \* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1532,6 +1524,16 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 #undef TRAP_LOCATION_NO_CTX
 }
 
+#undef HASH_MAP_TAIL
+#undef HASH_MAP_PAIR
+
+#undef UINT32_HASH_2
+#undef UINT32_HASH
+#undef SINT32_HASH
+
+#undef HCONST
+#undef MIX
+
 Uint32
 make_hash2(Eterm term)
 {
@@ -1559,124 +1561,256 @@ trapping_make_hash2(Eterm term, Eterm* state_mref_write_back, Process* p)
  * hashmap implementation that now uses collision nodes at the bottom of
  * the HAMT when all hash bits are exhausted.
  *
- */
+ * The underlying hash primitive is the public-domain `MurmurHash3` by Austin
+ * Appleby, which has been modified to work incrementally over our terms rather
+ * than plain byte arrays. It provides a decent 128-bit hash with good
+ * performance on most hardware, only narrowly losing to variants that use
+ * specialized instructions (e.g. SHA3 or AES) that are much harder to
+ * maintain.
+ *
+ * Note that we only implement the 64-bit variant of MurmurHash and skip the
+ * 32-bit optimized version, as the difference in performance appears to be
+ * modest on the most popular 32-bit platform (ARM). It should not be terribly
+ * difficult to adapt this for both versions if that becomes a problem. */
 
-/* Use a better mixing function if available. */
-#if defined(ERL_INTERNAL_HASH_CRC32C)
-#   undef MIX
-#   if defined(__x86_64__)
-#       define MIX(a,b,c)                                                     \
-            do {                                                              \
-                Uint32 initial_hash = c;                                      \
-                c = __builtin_ia32_crc32si(c, a);                             \
-                c = __builtin_ia32_crc32si(c + initial_hash, b);              \
-            } while(0)
-#   elif defined(__aarch64__)
-#       define MIX(a,b,c)                                                     \
-            do {                                                              \
-                Uint32 initial_hash = c;                                      \
-                c = __crc32cw(c, a);                                          \
-                c = __crc32cw(c + initial_hash, b);                           \
-            } while(0)
-#   else
-#   error "No suitable CRC32 intrinsic available."
-#   endif
+enum {
+    IHASH_TYPE_IMMEDIATE = 1,
+    IHASH_TYPE_ARRAY_ELEMENT,
+    IHASH_TYPE_CAR,
+    IHASH_TYPE_CDR,
+    IHASH_TYPE_STRING,
+    IHASH_TYPE_TUPLE,
+    IHASH_TYPE_FLATMAP,
+    IHASH_TYPE_HASHMAP_HEAD_ARRAY,
+    IHASH_TYPE_HASHMAP_HEAD_BITMAP,
+    IHASH_TYPE_HASHMAP_NODE,
+    IHASH_TYPE_BINARY,
+    IHASH_TYPE_LOCAL_FUN,
+    IHASH_TYPE_EXTERNAL_FUN,
+    IHASH_TYPE_NEG_BIGNUM,
+    IHASH_TYPE_POS_BIGNUM,
+    IHASH_TYPE_LOCAL_REF,
+    IHASH_TYPE_EXTERNAL_REF,
+    IHASH_TYPE_EXTERNAL_PID,
+    IHASH_TYPE_EXTERNAL_PORT,
+    IHASH_TYPE_FLOAT
+};
+
+#define IHASH_CAR_MARKER      (_make_header(1,_TAG_HEADER_REF))
+#define IHASH_CDR_MARKER      (_make_header(2,_TAG_HEADER_REF))
+
+#define ROTL64(x, y) (x << y) | (x >> (64 - y));
+
+static const Uint64 IHASH_C1 = 0x87C37B91114253D5ull;
+static const Uint64 IHASH_C2 = 0x4CF5AD432745937Full;
+
+#define IHASH_MIX_ALPHA(Expr)                                                 \
+    do {                                                                      \
+        Uint64 expr = (Uint64)(Expr);                                         \
+        expr *= IHASH_C1;                                                     \
+        expr = ROTL64(expr, 31);                                              \
+        expr *= IHASH_C2;                                                     \
+        hash_alpha ^= expr;                                                   \
+        hash_alpha = ROTL64(hash_alpha, 27)                                   \
+        hash_alpha += hash_beta;                                              \
+        hash_alpha = hash_alpha * 5 + 0x52DCE729ull;                          \
+        hash_ticks += 1;                                                      \
+    } while(0)
+
+#define IHASH_MIX_ALPHA_2F32(Expr1, Expr2)                                     \
+    IHASH_MIX_ALPHA((Uint64)(Expr1) | ((Uint64)(Expr2) << 32))
+
+#define IHASH_MIX_BETA(Expr)                                                  \
+    do {                                                                      \
+        Uint64 expr = (Uint64)(Expr);                                         \
+        expr *= IHASH_C2;                                                     \
+        expr = ROTL64(expr, 33);                                              \
+        expr *= IHASH_C1;                                                     \
+        hash_beta ^= expr;                                                    \
+        hash_beta = ROTL64(hash_beta, 31);                                    \
+        hash_beta += hash_alpha;                                              \
+        hash_beta = hash_beta * 5 + 0x38495AB5ull;                            \
+        hash_ticks += 1;                                                      \
+    } while(0)
+
+#define IHASH_MIX_BETA_2F32(Expr1, Expr2)                                     \
+    IHASH_MIX_BETA((Uint64)(Expr1) | ((Uint64)(Expr2) << 32))
+
+#ifdef ARCH_64
+#   define IHASH_MIX_IMMEDIATE(term)                                          \
+        do {                                                                  \
+            IHASH_MIX_ALPHA(IHASH_TYPE_IMMEDIATE);                            \
+            IHASH_MIX_BETA(term);                                             \
+        } while(0)
+#else
+#   define IHASH_MIX_IMMEDIATE(term)                                          \
+    IHASH_MIX_ALPHA_2F32(IHASH_TYPE_IMMEDIATE, term);
 #endif
 
-#define CONST_HASH(AConst)                                                    \
-    do {  /* Lightweight mixing of constant (type info) */                    \
-        hash ^= AConst;                                                       \
-        hash = (hash << 17) ^ (hash >> (32-17));                              \
-    } while (0)
+/* Pushes a term to the stack, optionally handling it up-front if it's an
+ * immediate to speed up `{atom(), immed()}` keys in maps. We hash the presence
+ * of non-immediates to ensure that terms with a different internal order hash
+ * differently.
+ *
+ * Take for example `{a,{},b,{}}` and `{{},a,{},b}`. This will be processed in
+ * the order `a,b,{},{}` in both cases as the non-immediates are deferred. If
+ * we don't hash the order of the terms, they will always hash equally. */
+#define IHASH_PUSH_TERM(stack, term)                                          \
+    do {                                                                      \
+        if (ERTS_LIKELY(is_immed(term))) {                                    \
+            IHASH_MIX_IMMEDIATE(term);                                        \
+        } else {                                                              \
+            IHASH_MIX_ALPHA(IHASH_TYPE_ARRAY_ELEMENT);                        \
+            ESTACK_PUSH(stack, (term));                                       \
+        }                                                                     \
+    } while(0)
 
-/*
- * Start with salt, 32-bit prime number, to avoid getting same hash as phash2
- * which can cause bad hashing in distributed ETS tables for example.
- */
-#define INTERNAL_HASH_SALT 3432918353U
+/* Endian-agnostic 64-bit read. This helps the compiler generate optimized code
+ * in a hot loop where the data is unlikely to be properly aligned, saving us
+ * from having to wrangle that manually. */
+static ERTS_FORCE_INLINE
+Uint64 read_u64(const byte *data) {
+    Uint64 value = 0;
 
-Uint32
-make_internal_hash(Eterm term, Uint32 salt)
-{
-    Uint32 hash = salt ^ INTERNAL_HASH_SALT;
-
-    /* Optimization. Simple cases before declaration of estack. */
-    if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
-    #if ERTS_SIZEOF_ETERM == 8
-        UINT32_HASH_2((Uint32)term, (Uint32)(term >> 32), HCONST);
-    #elif ERTS_SIZEOF_ETERM == 4
-        UINT32_HASH(term, HCONST);
-    #else
-    #  error "No you don't"
-    #endif
-        return hash;
+    for (int i = 0; i < sizeof(Uint64); i++) {
+#ifdef WORDS_BIGENDIAN
+        value = ((Uint64)data[i]) | (value << CHAR_BIT);
+#else
+        value |= ((Uint64)data[i]) << (i * CHAR_BIT);
+#endif
     }
-    {
-    Eterm tmp;
+
+    return value;
+}
+
+static Uint64 ihash_mix64(Uint64 input)
+{
+    Uint64 hash = input;
+
+    hash ^= hash >> 33;
+    hash *= 0xFF51AFD7ED558CCDull;
+    hash ^= hash >> 33;
+    hash *= 0xC4CEB9FE1A85EC53ull;
+    hash ^= hash >> 33;
+
+    /* Inverse, if needed for testing. The constants are the modular inverse of
+     * the ones above (over 1 << 64).
+     *
+     * hash ^= hash >> 33;
+     * hash *= 0x9CB4B2F8129337DBull;
+     * hash ^= hash >> 33;
+     * hash *= 0x4F74430C22A54005ull;
+     * hash ^= hash >> 33; */
+
+    return hash;
+}
+
+static erts_ihash_t
+make_internal_hash(Eterm term, erts_ihash_t salt)
+{
+    Uint64 hash_alpha, hash_beta;
+    Uint hash_ticks;
+
     DECLARE_ESTACK(s);
+
+    hash_alpha = (Uint64)salt;
+    hash_beta = (Uint64)salt;
+    hash_ticks = 0;
 
     for (;;) {
         switch (primary_tag(term)) {
         case TAG_PRIMARY_LIST:
         {
-            int c = 0;
-            Uint32 sh = 0;
-            Eterm* ptr = list_val(term);
-            while (is_byte(*ptr)) {
-                /* Optimization for strings. */
-                sh = (sh << 8) + unsigned_val(*ptr);
-                if (c == 3) {
-                    UINT32_HASH(sh, HCONST_4);
-                    c = sh = 0;
-                } else {
-                    c++;
-                }
-                term = CDR(ptr);
-                if (is_not_list(term))
+            const Eterm *cell;
+            UWord value = 0;
+            int bytes = 0;
+
+            /* Optimization for strings. */
+            while (is_list(term)) {
+                cell = list_val(term);
+
+                if (!is_byte(CAR(cell))) {
                     break;
-                ptr = list_val(term);
+                }
+
+                value = (value << 8) | unsigned_val(CAR(cell));
+                bytes++;
+
+                if ((bytes % 4) == 0) {
+                    IHASH_MIX_ALPHA_2F32(IHASH_TYPE_STRING | (bytes << 8),
+                                         value);
+                    value = 0;
+                    bytes = 0;
+                }
+
+                term = CDR(cell);
             }
-            if (c > 0)
-                UINT32_HASH_2(sh, (Uint32)c, HCONST_22);
+
+            if (bytes > 0) {
+                IHASH_MIX_ALPHA_2F32(IHASH_TYPE_STRING | (bytes << 8), value);
+            }
 
             if (is_list(term)) {
-                tmp = CDR(ptr);
-                CONST_HASH(HCONST_17);  /* Hash CAR in cons cell */
-                ESTACK_PUSH(s, tmp);
-                if (is_not_list(tmp)) {
-                    ESTACK_PUSH(s, HASH_CDR);
+                Eterm head, tail;
+
+                cell = list_val(term);
+                head = CAR(cell);
+                tail = CDR(cell);
+
+                if (is_immed(head)) {
+                    IHASH_MIX_ALPHA_2F32(IHASH_TYPE_IMMEDIATE, IHASH_TYPE_CAR);
+                    IHASH_MIX_BETA(head);
+
+                    if (is_not_list(tail)) {
+                        IHASH_MIX_ALPHA(IHASH_TYPE_CDR);
+                    }
+
+                    term = tail;
+                } else {
+                    ESTACK_PUSH(s, tail);
+                    if (is_not_list(tail)) {
+                        ESTACK_PUSH(s, IHASH_CDR_MARKER);
+                    }
+
+                    IHASH_MIX_ALPHA(IHASH_TYPE_CAR);
+                    term = head;
                 }
-                term = CAR(ptr);
             }
+
+            continue;
         }
         break;
         case TAG_PRIMARY_BOXED:
         {
             Eterm hdr = *boxed_val(term);
             ASSERT(is_header(hdr));
+
             switch (hdr & _TAG_HEADER_MASK) {
             case ARITYVAL_SUBTAG:
             {
-                int i;
-                int arity = header_arity(hdr);
-                Eterm* elem = tuple_val(term);
-                UINT32_HASH(arity, HCONST_9);
-                if (arity == 0) /* Empty tuple */
-                    goto pop_next;
-                for (i = arity; ; i--) {
-                    term = elem[i];
-                    if (i == 1)
-                        break;
-                    ESTACK_PUSH(s, term);
+                const Eterm *elements = &tuple_val(term)[0];
+                const int arity = header_arity(hdr);
+
+                IHASH_MIX_ALPHA(IHASH_TYPE_TUPLE);
+                IHASH_MIX_BETA(arity);
+
+                if (arity > 0) {
+                    for (int i = 1; i < arity; i++) {
+                        IHASH_PUSH_TERM(s, elements[i]);
+                    }
+
+                    term = elements[arity];
+                    continue;
                 }
+
+                goto pop_next;
             }
             break;
 
             case MAP_SUBTAG:
             {
-                Eterm* ptr = boxed_val(term) + 1;
+                const Eterm *elements = &boxed_val(term)[1];
                 Uint size;
-                int i;
 
                 /*
                  * We rely on key-value iteration order being constant
@@ -1685,79 +1819,113 @@ make_internal_hash(Eterm term, Uint32 salt)
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
                 case HAMT_SUBTAG_HEAD_FLATMAP:
                 {
-                    flatmap_t *mp = (flatmap_t *)flatmap_val(term);
-                    Eterm *ks = flatmap_get_keys(mp);
-                    Eterm *vs = flatmap_get_values(mp);
-                    size      = flatmap_get_size(mp);
-                    UINT32_HASH(size, HCONST_16);
-                    if (size == 0)
-                        goto pop_next;
+                    const flatmap_t *mp = (const flatmap_t *)flatmap_val(term);
+                    const Eterm *ks = flatmap_get_keys(mp);
+                    const Eterm *vs = flatmap_get_values(mp);
+                    size = flatmap_get_size(mp);
 
-                    for (i = size - 1; i >= 0; i--) {
-                        ESTACK_PUSH(s, vs[i]);
-                        ESTACK_PUSH(s, ks[i]);
+                    IHASH_MIX_ALPHA(IHASH_TYPE_FLATMAP);
+                    IHASH_MIX_BETA(size);
+
+                    if (size > 0) {
+                        for (int i = 0; i < size - 1; i++) {
+                            IHASH_PUSH_TERM(s, vs[i]);
+                            IHASH_PUSH_TERM(s, ks[i]);
+                        }
+
+                        IHASH_PUSH_TERM(s, vs[size - 1]);
+                        term = ks[size - 1];
+                        continue;
                     }
+
                     goto pop_next;
                 }
                 case HAMT_SUBTAG_HEAD_ARRAY:
-                case HAMT_SUBTAG_HEAD_BITMAP:
-                    size = *ptr++;
-                    UINT32_HASH(size, HCONST_16);
-                    if (size == 0)
+                    size = *elements++;
+
+                    IHASH_MIX_ALPHA(IHASH_TYPE_HASHMAP_HEAD_ARRAY);
+                    IHASH_MIX_BETA(size);
+
+                    if (size == 0) {
                         goto pop_next;
+                    }
+                    break;
+                case HAMT_SUBTAG_HEAD_BITMAP:
+                    size = *elements++;
+
+                    IHASH_MIX_ALPHA(IHASH_TYPE_HASHMAP_HEAD_BITMAP);
+                    IHASH_MIX_BETA(size);
+
+                    if (size == 0) {
+                        goto pop_next;
+                    }
+                    break;
+                case HAMT_SUBTAG_NODE_BITMAP:
+                    IHASH_MIX_ALPHA(IHASH_TYPE_HASHMAP_NODE);
+                    break;
                 }
+
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
                 case HAMT_SUBTAG_HEAD_ARRAY:
-                    i = 16;
+                    size = 16;
                     break;
                 case HAMT_SUBTAG_HEAD_BITMAP:
                 case HAMT_SUBTAG_NODE_BITMAP:
-                    i = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                    size = hashmap_bitcount(MAP_HEADER_VAL(hdr));
                     break;
                 default:
                     erts_exit(ERTS_ERROR_EXIT, "bad header");
                 }
-                while (i) {
-                    if (is_list(*ptr)) {
-                        Eterm* cons = list_val(*ptr);
-                        ESTACK_PUSH(s, CDR(cons));
-                        ESTACK_PUSH(s, CAR(cons));
+
+                for (int i = 0; i < size; i++) {
+                    if (is_list(elements[i])) {
+                        /* [Key | Value] */
+                        const Eterm *cons = list_val(elements[i]);
+                        IHASH_PUSH_TERM(s, CDR(cons));
+                        IHASH_PUSH_TERM(s, CAR(cons));
+                    } else {
+                        /* Child or collision node. We don't need to treat the
+                         * latter in any special way, and can hash them as the
+                         * tuples they are. */
+                        ASSERT(is_boxed(elements[i]));
+                        ESTACK_PUSH(s, elements[i]);
                     }
-                    else {
-                        ASSERT(is_boxed(*ptr));
-                        /* no special treatment of collision nodes needed,
-                           hash them as the tuples they are */
-                        ESTACK_PUSH(s, *ptr);
-                    }
-                    i--; ptr++;
                 }
+
                 goto pop_next;
             }
             break;
             case FUN_SUBTAG:
             {
-                ErlFunThing* funp = (ErlFunThing *) fun_val(term);
+                const ErlFunThing *funp = (const ErlFunThing*)fun_val(term);
 
                 if (is_local_fun(funp)) {
-                    ErlFunEntry* fe = funp->entry.fun;
+                    const ErlFunEntry *fe = funp->entry.fun;
                     Uint num_free = funp->num_free;
-                    UINT32_HASH_2(num_free, fe->module, HCONST_20);
-                    UINT32_HASH_2(fe->index, fe->old_uniq, HCONST_21);
-                    if (num_free == 0) {
-                        goto pop_next;
-                    } else {
-                        Eterm* bptr = funp->env + num_free - 1;
-                        while (num_free-- > 1) {
-                            term = *bptr--;
-                            ESTACK_PUSH(s, term);
+
+                    IHASH_MIX_ALPHA_2F32(IHASH_TYPE_LOCAL_FUN, num_free);
+                    IHASH_MIX_BETA_2F32(fe->index, fe->old_uniq);
+
+                    IHASH_MIX_ALPHA(IHASH_TYPE_IMMEDIATE);
+                    IHASH_MIX_BETA(fe->module);
+
+                    if (num_free > 0) {
+                        for (int i = 0; i < num_free - 1; i++) {
+                            IHASH_PUSH_TERM(s, funp->env[i]);
                         }
-                        term = *bptr;
+
+                        term = funp->env[num_free - 1];
+                        continue;
                     }
+
+                    goto pop_next;
                 } else {
                     ASSERT(is_external_fun(funp) && funp->next == NULL);
 
                     /* Assumes Export entries never move */
-                    POINTER_HASH(funp->entry.exp, HCONST_14);
+                    IHASH_MIX_ALPHA(IHASH_TYPE_EXTERNAL_FUN);
+                    IHASH_MIX_BETA((UWord)funp->entry.exp);
+
                     goto pop_next;
                 }
             }
@@ -1766,249 +1934,303 @@ make_internal_hash(Eterm term, Uint32 salt)
             case HEAP_BINARY_SUBTAG:
             case SUB_BINARY_SUBTAG:
             {
-                byte* bptr;
-                Uint sz = binary_size(term);
-                Uint32 con = HCONST_13 + hash;
-                Uint bitoffs;
-                Uint bitsize;
+                Uint bit_offset, bit_size, byte_size;
+                const byte *data;
 
-                ERTS_GET_BINARY_BYTES(term, bptr, bitoffs, bitsize);
-                if (sz == 0 && bitsize == 0) {
-                    hash = con;
-                } else {
-                    if (bitoffs == 0) {
-                        hash = block_hash(bptr, sz, con);
-                        if (bitsize > 0) {
-                            UINT32_HASH_2(bitsize, (bptr[sz] >> (8 - bitsize)),
-                                          HCONST_15);
+                ERTS_GET_BINARY_BYTES(term, data, bit_offset, bit_size);
+                byte_size = binary_size(term);
+
+                IHASH_MIX_ALPHA_2F32(IHASH_TYPE_BINARY, bit_size);
+                IHASH_MIX_BETA(byte_size);
+
+                if (byte_size > 0 || bit_size > 0) {
+                    const byte *bytes = data;
+                    Uint64 value;
+                    Uint it;
+
+                    if (ERTS_UNLIKELY(bit_offset != 0)) {
+                        byte *tmp = (byte*)erts_alloc(ERTS_ALC_T_TMP,
+                                                  byte_size + (bit_size != 0));
+                        erts_copy_bits(data, bit_offset, 1, tmp, 0, 1,
+                                       byte_size * 8 + bit_size);
+                        bytes = tmp;
+                    }
+
+                    for (it = 0;
+                         (it + sizeof(Uint64[2])) <= byte_size;
+                         it += sizeof(Uint64[2])) {
+                        IHASH_MIX_ALPHA(read_u64(&bytes[it]));
+                        IHASH_MIX_BETA(read_u64(&bytes[it + sizeof(Uint64)]));
+                    }
+
+                    value = 0;
+                    switch(byte_size % sizeof(Uint64[2]))
+                    {
+                    case 15: value ^= ((Uint64)bytes[it + 14]) << 0x30;
+                    case 14: value ^= ((Uint64)bytes[it + 13]) << 0x28;
+                    case 13: value ^= ((Uint64)bytes[it + 12]) << 0x20;
+                    case 12: value ^= ((Uint64)bytes[it + 11]) << 0x18;
+                    case 11: value ^= ((Uint64)bytes[it + 10]) << 0x10;
+                    case 10: value ^= ((Uint64)bytes[it +  9]) << 0x08;
+                    case  9: value ^= ((Uint64)bytes[it +  8]) << 0x00;
+                        {
+                            value *= IHASH_C2;
+                            value = ROTL64(value, 33);
+                            value *= IHASH_C1;
+                            hash_beta ^= value;
+                            value = 0;
+                            /* !! FALL THROUGH !! */
                         }
-                    } else {
-                        byte* buf = (byte *) erts_alloc(ERTS_ALC_T_TMP,
-                                                        sz + (bitsize != 0));
-                        erts_copy_bits(bptr, bitoffs, 1, buf, 0, 1, sz*8+bitsize);
-                        hash = block_hash(buf, sz, con);
-                        if (bitsize > 0) {
-                            UINT32_HASH_2(bitsize, (buf[sz] >> (8 - bitsize)),
-                                          HCONST_15);
+                    case  8: value ^= ((Uint64)bytes[it + 7]) << 0x38;
+                    case  7: value ^= ((Uint64)bytes[it + 6]) << 0x30;
+                    case  6: value ^= ((Uint64)bytes[it + 5]) << 0x28;
+                    case  5: value ^= ((Uint64)bytes[it + 4]) << 0x20;
+                    case  4: value ^= ((Uint64)bytes[it + 3]) << 0x18;
+                    case  3: value ^= ((Uint64)bytes[it + 2]) << 0x10;
+                    case  2: value ^= ((Uint64)bytes[it + 1]) << 0x08;
+                    case  1: value ^= ((Uint64)bytes[it + 0]) << 0x00;
+                        {
+                            value *= IHASH_C1;
+                            value = ROTL64(value, 31);
+                            value *= IHASH_C2;
+                            hash_alpha ^= value;
+                            break;
                         }
-                        erts_free(ERTS_ALC_T_TMP, (void *) buf);
+                    };
+
+                    if (bit_size > 0) {
+                        IHASH_MIX_ALPHA(bytes[byte_size] >> (8 - bit_size));
+                    }
+
+                    if (bytes != data) {
+                        erts_free(ERTS_ALC_T_TMP, (void *)bytes);
                     }
                 }
+
                 goto pop_next;
             }
             break;
             case POS_BIG_SUBTAG:
             case NEG_BIG_SUBTAG:
             {
-                Eterm* ptr = big_val(term);
-                Uint i = 0;
-                Uint n = BIG_SIZE(ptr);
-                Uint32 con = BIG_SIGN(ptr) ? HCONST_10 : HCONST_11;
-#if D_EXP == 16
-                do {
-                    Uint32 x, y;
-                    x = i < n ? BIG_DIGIT(ptr, i++) : 0;
-                    x += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
-                    y = i < n ? BIG_DIGIT(ptr, i++) : 0;
-                    y += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
-                    UINT32_HASH_2(x, y, con);
-                } while (i < n);
-#elif D_EXP == 32
-                do {
-                    Uint32 x, y;
-                    x = i < n ? BIG_DIGIT(ptr, i++) : 0;
-                    y = i < n ? BIG_DIGIT(ptr, i++) : 0;
-                    UINT32_HASH_2(x, y, con);
-                } while (i < n);
-#elif D_EXP == 64
-                do {
-                    Uint t;
-                    Uint32 x, y;
-                    ASSERT(i < n);
-                    t = BIG_DIGIT(ptr, i++);
-                    x = t & 0xffffffff;
-                    y = t >> 32;
-                    UINT32_HASH_2(x, y, con);
-                } while (i < n);
-#else
-#error "unsupported D_EXP size"
-#endif
+                const Eterm *ptr = big_val(term);
+                int i, n;
+
+                /* `n` must fit in a signed int. */
+                ERTS_CT_ASSERT((1ull << 31) > (Uint64)BIG_ARITY_MAX);
+                n = BIG_SIZE(ptr);
+                ASSERT(n < BIG_ARITY_MAX);
+
+                IHASH_MIX_ALPHA_2F32((BIG_SIGN(ptr) ?
+                                      IHASH_TYPE_NEG_BIGNUM :
+                                      IHASH_TYPE_POS_BIGNUM),
+                                     n);
+
+                for (i = 0; (i + 2) <= n; i += 2) {
+                    IHASH_MIX_ALPHA(BIG_DIGIT(ptr, i+0));
+                    IHASH_MIX_BETA(BIG_DIGIT(ptr, i+1));
+                }
+
+                if (i < n) {
+                    IHASH_MIX_BETA(BIG_DIGIT(ptr, i));
+                }
+
                 goto pop_next;
             }
             break;
             case REF_SUBTAG: {
                 Uint32 *numbers = internal_ref_numbers(term);
                 ASSERT(internal_ref_no_numbers(term) >= 3);
-                UINT32_HASH(numbers[0], HCONST_7);
-                UINT32_HASH_2(numbers[1], numbers[2], HCONST_8);
+
+                IHASH_MIX_ALPHA_2F32(IHASH_TYPE_LOCAL_REF, numbers[0]);
+                IHASH_MIX_BETA_2F32(numbers[1], numbers[2]);
+
                 if (is_internal_pid_ref(term)) {
 #ifdef ARCH_64
                     ASSERT(internal_ref_no_numbers(term) == 5);
-                    UINT32_HASH_2(numbers[3], numbers[4], HCONST_9);
+                    IHASH_MIX_ALPHA_2F32(numbers[3], numbers[4]);
 #else
                     ASSERT(internal_ref_no_numbers(term) == 4);
-                    UINT32_HASH(numbers[3], HCONST_9);
+                    IHASH_MIX_ALPHA(numbers[3]);
 #endif
                 }
+
                 goto pop_next;
             }
             case EXTERNAL_REF_SUBTAG:
             {
-                ExternalThing* thing = external_thing_ptr(term);
-                Uint n = external_thing_ref_no_numbers(thing);
-                Uint32 *numbers = external_thing_ref_numbers(thing);
+                const ExternalThing* thing = external_thing_ptr(term);
+                const Uint32 *numbers;
+                int i, n;
 
                 /* Can contain 0 to 5 32-bit numbers... */
+                n = external_thing_ref_no_numbers(thing);
+                numbers = external_thing_ref_numbers(thing);
+                ASSERT(n <= 5);
 
-                /* See limitation #2 */
-                switch (n) {
-                case 5: {
-                    Uint32 num4 = numbers[4];
-                    if (0) {
-                    case 4:
-                        num4 = 0;
-                        /* Fall through... */
-                    }
-                    UINT32_HASH_2(numbers[3], num4, HCONST_9);
-                    /* Fall through... */
+                IHASH_MIX_ALPHA_2F32(IHASH_TYPE_EXTERNAL_REF, n);
+
+                for (i = 0; (i + 2) <= n; i += 2) {
+                    IHASH_MIX_BETA_2F32(numbers[i], numbers[i + 1]);
                 }
-                case 3: {
-                    Uint32 num2 = numbers[2];
-                    if (0) {
-                    case 2:
-                        num2 = 0;
-                        /* Fall through... */
-                    }
-                    UINT32_HASH_2(numbers[1], num2, HCONST_8);
-                    /* Fall through... */
+
+                if (i < n) {
+                    IHASH_MIX_BETA(numbers[i]);
                 }
-                case 1:
-#ifdef ARCH_64
-                    POINTER_HASH(thing->node, HCONST_7);
-                    UINT32_HASH(numbers[0], HCONST_7);
-#else
-                    UINT32_HASH_2(thing->node, numbers[0], HCONST_7);
-#endif
-                    break;
-                case 0:
-                    POINTER_HASH(thing->node, HCONST_7);
-                    break;
-                default:
-                    ASSERT(!"Invalid amount of external reference numbers");
-                    break;
-                }
+
+                IHASH_MIX_ALPHA((UWord)thing->node);
                 goto pop_next;
             }
             case EXTERNAL_PID_SUBTAG: {
-                ExternalThing* thing = external_thing_ptr(term);
+                const ExternalThing *thing = external_thing_ptr(term);
                 /* See limitation #2 */
-                POINTER_HASH(thing->node, HCONST_5);
-                UINT32_HASH_2(thing->data.pid.num, thing->data.pid.ser, HCONST_5);
+                IHASH_MIX_ALPHA(IHASH_TYPE_EXTERNAL_PID);
+                IHASH_MIX_BETA((UWord)thing->node);
+                IHASH_MIX_ALPHA_2F32(thing->data.pid.num, thing->data.pid.ser);
                 goto pop_next;
             }
             case EXTERNAL_PORT_SUBTAG: {
-                ExternalThing* thing = external_thing_ptr(term);
+                const ExternalThing *thing = external_thing_ptr(term);
                 /* See limitation #2 */
-                POINTER_HASH(thing->node, HCONST_6);
-                UINT32_HASH_2(thing->data.ui32[0], thing->data.ui32[1], HCONST_6);
+                IHASH_MIX_ALPHA(IHASH_TYPE_EXTERNAL_PORT);
+                IHASH_MIX_BETA((UWord)thing->node);
+#ifdef ARCH_64
+                IHASH_MIX_ALPHA(thing->data.port.id);
+#else
+                IHASH_MIX_ALPHA_2F32(thing->data.port.low,
+                                     thing->data.port.high);
+#endif
                 goto pop_next;
             }
             case FLOAT_SUBTAG:
             {
                 FloatDef ff;
+
                 GET_DOUBLE(term, ff);
+
                 if (ff.fd == 0.0f) {
                     /* ensure positive 0.0 */
                     ff.fd = erts_get_positive_zero_float();
                 }
-                UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
+
+                IHASH_MIX_ALPHA(IHASH_TYPE_FLOAT);
+                IHASH_MIX_BETA_2F32(ff.fw[0], ff.fw[1]);
+
                 goto pop_next;
             }
             default:
-                erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_internal_hash(0x%X, %lu)\n", term, salt);
+                erts_exit(ERTS_ERROR_EXIT,
+                          "Invalid tag in make_internal_hash(0x%X, _, %i)\n",
+                          term);
             }
         }
         break;
         case TAG_PRIMARY_IMMED1:
-        #if ERTS_SIZEOF_ETERM == 8
-            UINT32_HASH_2((Uint32)term, (Uint32)(term >> 32), HCONST);
-        #else
-            UINT32_HASH(term, HCONST);
-        #endif
+            IHASH_MIX_IMMEDIATE(term);
             goto pop_next;
 
         default:
-            erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_internal_hash(0x%X, %lu)\n", term, salt);
+            erts_exit(ERTS_ERROR_EXIT,
+                      "Invalid tag in make_internal_hash(0x%X, _, %i)\n",
+                      term);
 
         pop_next:
             if (ESTACK_ISEMPTY(s)) {
                 DESTROY_ESTACK(s);
 
-                return hash;
+                hash_alpha ^= hash_ticks;
+                hash_beta ^= hash_ticks;
+
+                hash_alpha += hash_beta;
+                hash_beta += hash_alpha;
+
+                hash_alpha = ihash_mix64(hash_alpha);
+                hash_beta = ihash_mix64(hash_beta);
+
+                hash_alpha += hash_beta;
+                hash_beta += hash_alpha;
+
+                return (erts_ihash_t)(hash_alpha ^ hash_beta);
             }
 
             term = ESTACK_POP(s);
 
             switch (term) {
-                case HASH_CDR:
-                    CONST_HASH(HCONST_18);   /* Hash CDR i cons cell */
-                    goto pop_next;
-                default:
-                    break;
+            case IHASH_CAR_MARKER:
+                /* Hash CAR in cons cell */
+                IHASH_MIX_BETA(IHASH_TYPE_CAR);
+                term = ESTACK_POP(s);
+                continue;
+            case IHASH_CDR_MARKER:
+                /* Hash CDR in cons cell */
+                IHASH_MIX_BETA(IHASH_TYPE_CDR);
+                term = ESTACK_POP(s);
+                continue;
             }
         }
     }
-    }
-
 }
 
 #ifdef DBG_HASHMAP_COLLISION_BONANZA
-Uint32 erts_dbg_hashmap_collision_bonanza(Uint32 hash, Eterm key)
+erts_ihash_t erts_dbg_hashmap_collision_bonanza(erts_ihash_t hash, Eterm key)
 {
-/*{
-        static Uint32 hashvec[7] = {
-            0x02345678,
-            0x12345678,
-            0xe2345678,
-            0xf2345678,
-            0x12abcdef,
-            0x13abcdef,
-            0xcafebabe
-        };
-        hash = hashvec[hash % (sizeof(hashvec) / sizeof(hashvec[0]))];
-    }*/
-    const Uint32 bad_hash = (hash & 0x12482481) * 1442968193;
-    const Uint32 bad_bits = hash % 67;
-    if (bad_bits < 32) {
-        /* Mix in a number of high good bits to get "randomly" close
-           to the collision nodes */
-        const Uint32 bad_mask = (1 << bad_bits) - 1;
-        return (hash & ~bad_mask) | (bad_hash & bad_mask);
+    /* Keep only 8 bits to ensure a high collision rate (1/256). */
+    erts_ihash_t bad_hash = (hash & 0x12482481u);
+    erts_ihash_t bad_bits;
+
+    switch (sizeof(erts_ihash_t) * CHAR_BIT) {
+    case 64:
+        bad_hash *= UWORD_CONSTANT(11400714819323198485);
+        bad_hash ^= (bad_hash >> 31);
+        bad_bits = hash % 137;
+        break;
+    case 32:
+        bad_hash *= UWORD_CONSTANT(2654435769);
+        bad_hash ^= (bad_hash >> 15);
+        bad_bits = hash % 67;
+        break;
+    default:
+        ASSERT(!"Unknown sizeof(erts_ihash_t)");
     }
+
+    (void)key;
+
+    if (bad_bits < (sizeof(erts_ihash_t) * CHAR_BIT)) {
+        /* Mix in a number of high good bits to get "randomly" close
+         * to the collision nodes */
+        const erts_ihash_t bad_mask = (1 << bad_bits) - 1;
+        bad_hash = (hash & ~bad_mask) | (bad_hash & bad_mask);
+    }
+
     return bad_hash;
 }
 #endif
 
-/* Term hash function for hashmaps */
-Uint32 make_map_hash(Eterm key) {
-    Uint32 hash;
+erts_ihash_t erts_internal_salted_hash(Eterm term, erts_ihash_t salt) {
+    if (ERTS_LIKELY(is_immed(term))) {
+        /* Fast path for immediates. The vast majority of calls land here. */
+        return ihash_mix64(term + salt);
+    }
 
-    hash = make_internal_hash(key, 0);
+    return make_internal_hash(term, salt);
+}
+
+erts_ihash_t erts_internal_hash(Eterm term) {
+    if (ERTS_LIKELY(is_immed(term))) {
+        return ihash_mix64(term);
+    }
+
+    return make_internal_hash(term, 0);
+}
+
+/* Term hash function for hashmaps, identical to erts_internal_hash except in
+ * certain debug configurations that weaken the hash. */
+erts_ihash_t erts_map_hash(Eterm key) {
+    erts_ihash_t hash = erts_internal_hash(key);
 
 #ifdef DBG_HASHMAP_COLLISION_BONANZA
     hash = erts_dbg_hashmap_collision_bonanza(hash, key);
 #endif
+
     return hash;
 }
-
-#undef CONST_HASH
-#undef HASH_MAP_TAIL
-#undef HASH_MAP_PAIR
-#undef HASH_CDR
-
-#undef UINT32_HASH_2
-#undef UINT32_HASH
-#undef SINT32_HASH
-
-#undef HCONST
-#undef MIX

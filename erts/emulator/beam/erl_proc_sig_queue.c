@@ -8686,7 +8686,7 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
         /* Use the sender id to hash to an outer signal queue buffer. This
          * guarantees that all signals from the same process are ordered in
          * send order. */
-        slot = make_internal_hash(from, 0) %
+        slot = erts_internal_hash(from) %
                 ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS;
         buffer = &buffers->slots[slot];
         nonempty_slots_before = 1;

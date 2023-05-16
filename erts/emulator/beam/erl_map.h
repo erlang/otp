@@ -23,14 +23,31 @@
 #define __ERL_MAP_H__
 
 #include "sys.h"
+#include "erl_term_hashing.h"
 
 /* intrinsic wrappers */
-#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0)
-#define hashmap_clz(x)       ((Uint32) __builtin_clz((unsigned int)(x)))
-#define hashmap_bitcount(x)  ((Uint32) __builtin_popcount((unsigned int) (x)))
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_clz)
+#  if defined(ARCH_64)
+#    define hashmap_clz(x) \
+    ((erts_ihash_t)__builtin_clzl((erts_ihash_t)(x)))
+#  elif defined(ARCH_32)
+#    define hashmap_clz(x) \
+    ((erts_ihash_t)__builtin_clz((erts_ihash_t)(x)))
+#  endif
 #else
-Uint32 hashmap_clz(Uint32 x);
-Uint32 hashmap_bitcount(Uint32 x);
+erts_ihash_t hashmap_clz(erts_ihash_t x);
+#endif
+
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_popcount)
+#  if defined(ARCH_64)
+#    define hashmap_bitcount(x) \
+    ((erts_ihash_t)__builtin_popcountl((erts_ihash_t)(x)))
+#  elif defined(ARCH_32)
+#    define hashmap_bitcount(x) \
+    ((erts_ihash_t)__builtin_popcount((erts_ihash_t)(x)))
+#  endif
+#else
+erts_ihash_t hashmap_bitcount(erts_ihash_t x);
 #endif
 
 /* MAP */
@@ -56,10 +73,10 @@ typedef struct flatmap_s {
 /* the head-node is a bitmap or array with an untagged size */
 
 #define hashmap_size(x)               (((hashmap_head_t*) hashmap_val(x))->size)
-#define hashmap_make_hash(Key)        make_map_hash(Key)
+#define hashmap_make_hash(Key)        erts_map_hash(Key)
 
 #define hashmap_restore_hash(Lvl, Key)                                        \
-    (ASSERT(Lvl < 8),                                                         \
+    (ASSERT(Lvl < HAMT_MAX_LEVEL),                                            \
      hashmap_make_hash(Key) >> (4*(Lvl)))
 
 #define hashmap_shift_hash(Hx, Lvl, Key)                                      \
@@ -85,9 +102,9 @@ int    erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *re
 int    erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
 int    erts_maps_take(Process *p, Eterm key, Eterm map, Eterm *res, Eterm *value);
 
-Eterm  erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
+Eterm  erts_hashmap_insert(Process *p, erts_ihash_t hx, Eterm key, Eterm value,
 			   Eterm node, int is_update);
-int    erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint *sz,
+int    erts_hashmap_insert_down(erts_ihash_t hx, Eterm key, Eterm value, Eterm node, Uint *sz,
 			        Uint *upsz, struct ErtsEStack_ *sp, int is_update);
 Eterm  erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 			      Uint upsz, struct ErtsEStack_ *sp);
@@ -110,7 +127,7 @@ Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
 
 const Eterm *erts_maps_get(Eterm key, Eterm map);
 
-const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
+const Eterm *erts_hashmap_get(erts_ihash_t hx, Eterm key, Eterm map);
 
 Sint erts_map_size(Eterm map);
 
@@ -191,9 +208,9 @@ typedef struct hashmap_head_s {
 #define HAMT_SUBTAG_HEAD_BITMAP  ((MAP_HEADER_TAG_HAMT_HEAD_BITMAP << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
 #define HAMT_SUBTAG_HEAD_FLATMAP ((MAP_HEADER_TAG_FLATMAP_HEAD << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
 
-#define hashmap_index(hash)      (((Uint32)hash) & 0xf)
+#define hashmap_index(hash)      ((hash) & 0xf)
 
-#define HAMT_MAX_LEVEL 8
+#define HAMT_MAX_LEVEL ((sizeof(erts_ihash_t) * CHAR_BIT) / 4)
 
 /* hashmap heap size:
    [one cons cell + one list term in parent node] per key

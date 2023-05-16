@@ -751,7 +751,7 @@ nofail_bif2 S1=d S2 Bif Dst | is_ne_exact_bif(Bif) => bif_is_ne_exact S1 S2 Dst
 nofail_bif2 S1 S2 Bif Dst | is_ge_bif(Bif) => bif_is_ge S1 S2 Dst
 nofail_bif2 S1 S2 Bif Dst | is_lt_bif(Bif) => bif_is_lt S1 S2 Dst
 
-i_get_hash c I d
+i_get_hash c W d
 i_get s d
 
 self d
@@ -1244,7 +1244,7 @@ i_get_map_elements f s I *
 
 i_get_map_element_hash Fail Src=c Key Hash Dst =>
     move Src x | i_get_map_element_hash Fail x Key Hash Dst
-i_get_map_element_hash f S c I S
+i_get_map_element_hash f S c W S
 
 i_get_map_element Fail Src=c Key Dst =>
     move Src x | i_get_map_element Fail x Key Dst

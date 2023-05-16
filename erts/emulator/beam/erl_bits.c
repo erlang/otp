@@ -2162,13 +2162,13 @@ erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t siz
 
 
 void 
-erts_copy_bits(byte* src,	/* Base pointer to source. */
-	       size_t soffs,	/* Bit offset for source relative to src. */
-	       int sdir,	/* Direction: 1 (forward) or -1 (backward). */
-	       byte* dst,	/* Base pointer to destination. */
-	       size_t doffs,	/* Bit offset for destination relative to dst. */
-	       int ddir,	/* Direction: 1 (forward) or -1 (backward). */
-	       size_t n)	/* Number of bits to copy. */
+erts_copy_bits(const byte* src, /* Base pointer to source. */
+               size_t soffs,    /* Bit offset for source relative to src. */
+               int sdir,        /* Direction: 1 (forward) or -1 (backward). */
+               byte* dst,       /* Base pointer to destination. */
+               size_t doffs,    /* Bit offset for destination relative to dst. */
+               int ddir,        /* Direction: 1 (forward) or -1 (backward). */
+               size_t n)        /* Number of bits to copy. */
 {
     Uint lmask;
     Uint rmask;

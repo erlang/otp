@@ -3130,7 +3130,7 @@ static int tracer_cmp_fun(void* a, void* b)
 
 static HashValue tracer_hash_fun(void* obj)
 {
-    return make_internal_hash(((ErtsTracerNif*)obj)->module, 0);
+    return erts_internal_hash(((ErtsTracerNif*)obj)->module);
 }
 
 static void *tracer_alloc_fun(void* tmpl)
