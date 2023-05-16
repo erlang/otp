@@ -84,6 +84,8 @@
       </item>
       <item><seemfa marker="#filter/2"><c>filter/2</c></seemfa>
       </item>
+      <item><seemfa marker="#filtermap/2"><c>filtermap/2</c></seemfa>
+      </item>
       <item><seemfa marker="#fold/3"><c>fold/3</c></seemfa>
       </item>
       <item><seemfa marker="#from_list/1"><c>from_list/1</c></seemfa>
@@ -99,6 +101,8 @@
       <item><seemfa marker="#is_set/1"><c>is_set/1</c></seemfa>
       </item>
       <item><seemfa marker="#is_subset/2"><c>is_subset/2</c></seemfa>
+      </item>
+      <item><seemfa marker="#map/2"><c>map/2</c></seemfa>
       </item>
       <item><seemfa marker="#new/0"><c>new/0</c></seemfa>
       </item>
@@ -170,6 +174,15 @@ true</pre>
       <desc>
         <p>Filters elements in <c><anno>Set1</anno></c> with boolean function
           <c><anno>Pred</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="filtermap" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Filter and map set elements.</fsummary>
+      <desc>
+        <p>Filters and maps elements in <c><anno>Set1</anno></c> with function
+          <c><anno>Fun</anno></c>.</p>
       </desc>
     </func>
 
@@ -264,6 +277,15 @@ true</pre>
       <desc>
         <p>Returns <c>true</c> when every element of <c><anno>Set1</anno></c> is
           also a member of <c><anno>Set2</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="map" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Map set elements.</fsummary>
+      <desc>
+        <p>Maps elements in <c><anno>Set1</anno></c> with mapping function
+          <c><anno>Fun</anno></c>.</p>
       </desc>
     </func>
 

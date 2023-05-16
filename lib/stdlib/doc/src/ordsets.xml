@@ -92,6 +92,15 @@
     </func>
 
     <func>
+      <name name="filtermap" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Filter and map set elements.</fsummary>
+      <desc>
+        <p>Filters and maps elements in <c><anno>Ordset1</anno></c> with function
+          <c><anno>Fun</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="fold" arity="3" since=""/>
       <fsummary>Fold over set elements.</fsummary>
       <desc>
@@ -173,6 +182,15 @@
         <p>Returns <c>true</c> when every element of <c><anno>Ordset1</anno></c>
           is also a member of <c><anno>Ordset2</anno></c>, otherwise
           <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="map" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Map set elements.</fsummary>
+      <desc>
+        <p>Maps elements in <c><anno>Ordset1</anno></c> with mapping function
+          <c><anno>Fun</anno></c>.</p>
       </desc>
     </func>
 
