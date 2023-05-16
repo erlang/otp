@@ -2554,7 +2554,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
                             ckey = CAR(kv);
                             c = CMP_TERM(key, ckey);
                             if (c == 0) {
-                                if (CDR(ptr) == value) {
+                                if (CDR(kv) == value) {
                                     *sz = 0;
                                     return 1;
                                 }
