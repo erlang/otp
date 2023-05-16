@@ -82,6 +82,8 @@ ambiguous_catch_try_state(Config) ->
     {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_2()),
     {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_3()),
 
+    {'EXIT',{badarg,_}} = catch ambiguous_catch_try_state_4(),
+
     ok.
 
 river() -> song.
@@ -228,6 +230,12 @@ ambiguous_catch_try_state_3() ->
                 case x of y -> way end after [] end of [] -> case x of $X -> "D" end
     end.
 
+
+ambiguous_catch_try_state_4() ->
+    0.0 = try binary_to_float(garbage_collect() orelse ((1.0 = tuple_to_list(ok)) -- ok))
+          after
+              ok
+          end.
 
 -record(message2, {id, p1}).
 -record(message3, {id, p1, p2}).

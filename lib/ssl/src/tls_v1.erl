@@ -55,6 +55,7 @@
          oid_to_enum/1,
          enum_to_oid/1,
          default_signature_algs/1,
+         legacy_signature_algs_pre_13/0,
          signature_algs/2,
          signature_schemes/2,
          rsa_schemes/0,
@@ -885,7 +886,8 @@ signature_algs(?TLS_1_2, HashSigns) ->
 default_signature_algs([?TLS_1_3]) ->
     default_signature_schemes(?TLS_1_3) ++ legacy_signature_schemes(?TLS_1_3);
 default_signature_algs([?TLS_1_3, ?TLS_1_2 | _]) ->
-    default_signature_schemes(?TLS_1_3) ++ default_pre_1_3_signature_algs_only();
+    default_signature_schemes(?TLS_1_3) ++ legacy_signature_schemes(?TLS_1_3) 
+        ++ default_pre_1_3_signature_algs_only();
 default_signature_algs([?TLS_1_2 = Version |_]) ->
     Default = [%% SHA2 ++ PSS
                {sha512, ecdsa},
@@ -899,9 +901,7 @@ default_signature_algs([?TLS_1_2 = Version |_]) ->
                {sha256, ecdsa},
                rsa_pss_pss_sha256,
                rsa_pss_rsae_sha256,
-               {sha256, rsa},
-               {sha224, ecdsa},
-               {sha224, rsa}
+               {sha256, rsa}
               ],
     signature_algs(Version, Default);
 default_signature_algs(_) ->
@@ -910,15 +910,13 @@ default_signature_algs(_) ->
 default_pre_1_3_signature_algs_only() ->
     Default = [%% SHA2
                {sha512, ecdsa},
-               {sha512, rsa},
                {sha384, ecdsa},
-               {sha384, rsa},
-               {sha256, ecdsa},
-               {sha256, rsa},
-               {sha224, ecdsa},
-               {sha224, rsa}
+               {sha256, ecdsa}
               ],
     signature_algs(?TLS_1_2, Default).
+
+legacy_signature_algs_pre_13() ->
+    [{sha224, ecdsa}, {sha224, rsa}, {sha, rsa}, {sha, dsa}].
 
 signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
                                                          andalso ?TLS_GTE(Version, ?TLS_1_2) ->

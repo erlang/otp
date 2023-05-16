@@ -947,8 +947,8 @@ static Eterm dmc_lookup_bif_reversed(void *f);
 static int cmp_uint(void *a, void *b);
 static int cmp_guard_bif(void *a, void *b);
 static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info);
-static Uint my_size_object(Eterm t);
-static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap);
+static Uint my_size_object(Eterm t, int is_hashmap_node);
+static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap, int);
 
 /* Guard subroutines */
 static void
@@ -4130,11 +4130,11 @@ static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
         if (is_immed(t)) {
 	    tmp = t;
 	} else {
-	    sz = my_size_object(t);
+	    sz = my_size_object(t, 0);
             if (sz) {
                 emb = new_message_buffer(sz);
                 hp = emb->mem;
-                tmp = my_copy_struct(t,&hp,&(emb->off_heap));
+                tmp = my_copy_struct(t,&hp,&(emb->off_heap), 0);
                 emb->next = context->save;
                 context->save = emb;
             }
@@ -5672,33 +5672,39 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info)
 /*
  ** Simple size object that takes care of function calls and constant tuples
  */
-static Uint my_size_object(Eterm t) 
+static Uint my_size_object(Eterm t, int is_hashmap_node)
 {
     Uint sum = 0;
-    Eterm tmp;
     Eterm *p;
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
-	sum += 2 + my_size_object(CAR(list_val(t))) + 
-	    my_size_object(CDR(list_val(t)));
+	sum += 2 + my_size_object(CAR(list_val(t)), 0) +
+	    my_size_object(CDR(list_val(t)), 0);
 	break;
     case TAG_PRIMARY_BOXED:
         if (is_tuple(t)) {
-            if (tuple_val(t)[0] == make_arityval(1) && is_tuple(tmp = tuple_val(t)[1])) {
-                Uint i,n;
-                p = tuple_val(tmp);
-                n = arityval(p[0]);
-                sum += 1 + n;
-                for (i = 1; i <= n; ++i)
-                    sum += my_size_object(p[i]);
-            } else if (tuple_val(t)[0] == make_arityval(2) &&
-                       is_atom(tmp = tuple_val(t)[1]) &&
-                       tmp == am_const) {
+            Eterm* tpl = tuple_val(t);
+            Uint i,n;
+
+            if (is_hashmap_node) {
+                /* hashmap collision node, no matchspec syntax here */
+            }
+            else if (tpl[0] == make_arityval(1) && is_tuple(tpl[1])) {
+                tpl = tuple_val(tpl[1]);
+            }
+            else if (tpl[0] == make_arityval(2) && tpl[1] == am_const) {
                 sum += size_object(tuple_val(t)[2]);
-            } else {
+                break;
+            }
+            else {
                 erts_exit(ERTS_ERROR_EXIT,"Internal error, sizing unrecognized object in "
                           "(d)ets:match compilation.");
             }
+
+            n = arityval(tpl[0]);
+            sum += 1 + n;
+            for (i = 1; i <= n; ++i)
+                sum += my_size_object(tpl[i], 0);
             break;
         } else if (is_map(t)) {
             if (is_flatmap(t)) {
@@ -5711,7 +5717,7 @@ static Uint my_size_object(Eterm t)
                 n = arityval(p[0]);
                 sum += 1 + n;
                 for (int i = 1; i <= n; ++i)
-                    sum += my_size_object(p[i]);
+                    sum += my_size_object(p[i], 0);
 
                 /* Calculate size of values */
                 p = (Eterm *)mp;
@@ -5719,18 +5725,19 @@ static Uint my_size_object(Eterm t)
                 sum += n + 3;
                 p += 3; /* hdr + size + keys words */
                 while (n--) {
-                    sum += my_size_object(*p++);
+                    sum += my_size_object(*p++, 0);
                 }
             } else {
                 Eterm *head = (Eterm *)hashmap_val(t);
                 Eterm hdr = *head;
                 Uint sz;
+
                 sz    = hashmap_bitcount(MAP_HEADER_VAL(hdr));
                 sum  += 1 + sz + header_arity(hdr);
                 head += 1 + header_arity(hdr);
 
                 while(sz-- > 0) {
-                    sum += my_size_object(head[sz]);
+                    sum += my_size_object(head[sz], 1);
                 }
             }
             break;
@@ -5743,46 +5750,54 @@ static Uint my_size_object(Eterm t)
     return sum;
 }
 
-static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
+static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap,
+                            int is_hashmap_node)
 {
     Eterm ret = NIL, a, b;
     Eterm *p;
     Uint sz;
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
-	a = my_copy_struct(CAR(list_val(t)), hp, off_heap);
-	b = my_copy_struct(CDR(list_val(t)), hp, off_heap);
+	a = my_copy_struct(CAR(list_val(t)), hp, off_heap, 0);
+	b = my_copy_struct(CDR(list_val(t)), hp, off_heap, 0);
 	ret = CONS(*hp, a, b);
 	*hp += 2;
 	break;
     case TAG_PRIMARY_BOXED:
 	if (is_tuple(t)) {
-	    if (tuple_val(t)[0] == make_arityval(1) &&
-		is_tuple(a = tuple_val(t)[1])) {
-		Uint i,n;
-		p = tuple_val(a);
-		n = arityval(p[0]);
-                if (n == 0) {
-                    ret = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-                } else {
-                    Eterm *savep = *hp;
-                    ret = make_tuple(savep);
-                    *hp += n + 1;
-                    *savep++ = make_arityval(n);
-                    for(i = 1; i <= n; ++i)
-                        *savep++ = my_copy_struct(p[i], hp, off_heap);
-                }
+            Eterm* tpl = tuple_val(t);
+            Uint i,n;
+            Eterm *savep;
+
+            if (is_hashmap_node) {
+                /* hashmap collision node, no matchspec syntax here */
+            }
+            else if (tpl[0] == make_arityval(1) && is_tuple(tpl[1])) {
+                /* A {{...}} expression */
+                tpl = tuple_val(tpl[1]);
 	    }
-            else if (tuple_val(t)[0] == make_arityval(2) &&
-                     tuple_val(t)[1] == am_const) {
+            else if (tpl[0] == make_arityval(2) && tpl[1] == am_const) {
 		/* A {const, XXX} expression */
-		b = tuple_val(t)[2];
+		b = tpl[2];
 		sz = size_object(b);
 		ret = copy_struct(b,sz,hp,off_heap);
+                break;
 	    } else {
 		erts_exit(ERTS_ERROR_EXIT, "Trying to constant-copy non constant expression "
 			 "0x%bex in (d)ets:match compilation.", t);
 	    }
+            n = arityval(tpl[0]);
+            if (n == 0) {
+                ret = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+            } else {
+                savep = *hp;
+                ret = make_tuple(savep);
+                *hp += n + 1;
+                *savep++ = tpl[0];
+                for(i = 1; i <= n; ++i)
+                    *savep++ = my_copy_struct(tpl[i], hp, off_heap, 0);
+            }
+
         } else if (is_map(t)) {
             if (is_flatmap(t)) {
                 Uint i,n;
@@ -5803,7 +5818,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
                     *hp += n + 1;
                     *savep++ = make_arityval(n);
                     for(i = 1; i <= n; ++i)
-                        *savep++ = my_copy_struct(p[i], hp, off_heap);
+                        *savep++ = my_copy_struct(p[i], hp, off_heap, 0);
                 }
                 savep = *hp;
                 ret = make_flatmap(savep);
@@ -5815,7 +5830,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
                 *savep++ = keys;
                 p += 3; /* hdr + size + keys words */
                 for (i = 0; i < n; i++)
-                    *savep++ = my_copy_struct(p[i], hp, off_heap);
+                    *savep++ = my_copy_struct(p[i], hp, off_heap, 0);
                 erts_usort_flatmap((flatmap_t*)flatmap_val(ret));
             } else {
                 Eterm *head = hashmap_val(t);
@@ -5832,7 +5847,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
                     *savep++ = *head++;  /* map size */
 
                 for (int i = 0; i < sz; i++) {
-                    *savep++ = my_copy_struct(head[i],hp,off_heap);
+                    *savep++ = my_copy_struct(head[i],hp,off_heap, 1);
                 }
             }
 	} else {

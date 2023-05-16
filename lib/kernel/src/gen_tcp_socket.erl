@@ -729,8 +729,10 @@ socket_close(Socket) ->
 -compile({inline, [socket_cancel/2]}).
 socket_cancel(Socket, SelectInfo) ->
     case socket:cancel(Socket, SelectInfo) of
-        ok -> ok;
-        {error, closed} -> ok
+        ok                 -> ok;
+        {error, closed}    -> ok;
+        {error, _} = ERROR -> ERROR
+
     end.
 
 %%% ========================================================================
@@ -1575,7 +1577,7 @@ handle_event(
      info = SelectInfo, from = From,
      listen_socket = ListenSocket},
   {P, D}) ->
-    socket_cancel(ListenSocket, SelectInfo),
+    _ = socket_cancel(ListenSocket, SelectInfo),
     {next_state, 'closed', {P, D},
      [{reply, From, {error, timeout}}]};
 handle_event(Type, Content, #accept{} = State, P_D) ->
@@ -1661,7 +1663,7 @@ handle_event(
   {timeout, connect}, connect,
   #connect{info = SelectInfo, from = From},
   {#params{socket = Socket} = _P, _D} = P_D) ->
-    socket_cancel(Socket, SelectInfo),
+    _ = socket_cancel(Socket, SelectInfo),
     _ = socket_close(Socket),
     {next_state, 'closed', P_D,
      [{reply, From, {error, timeout}}]};
@@ -2268,11 +2270,11 @@ cleanup_close_read(P, D, State, Reason) ->
     case State of
         #accept{
            info = SelectInfo, from = From, listen_socket = ListenSocket} ->
-            socket_cancel(ListenSocket, SelectInfo),
+            _ = socket_cancel(ListenSocket, SelectInfo),
             {D,
              [{reply, From, {error, Reason}}]};
         #connect{info = SelectInfo, from = From} ->
-            socket_cancel(P#params.socket, SelectInfo),
+            _ = socket_cancel(P#params.socket, SelectInfo),
             {D,
              [{reply, From, {error, Reason}}]};
         _ ->
@@ -2283,7 +2285,7 @@ cleanup_recv(P, D, State, Reason) ->
     %% ?DBG({P#params.socket, State, Reason}),    
     case State of
         #recv{info = SelectInfo} ->
-            socket_cancel(P#params.socket, SelectInfo),
+            _ = socket_cancel(P#params.socket, SelectInfo),
             cleanup_recv_reply(P, D, [], Reason);
         _ ->
             cleanup_recv_reply(P, D, [], Reason)

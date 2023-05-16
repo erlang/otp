@@ -1058,11 +1058,11 @@ int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
 	    strcpy(thishostname, hp->h_name);
 	}
     }
-    if (strlen(this_node_name) + 1 + strlen(thishostname) > MAXNODELEN) {
+    if (snprintf(thisnodename, sizeof(thisnodename), "%s@%s",
+                 this_node_name, thishostname) > sizeof(thisnodename)) {
         EI_TRACE_ERR0("ei_connect_init_ussi","this node name is too long");
         return ERL_ERROR;
     }
-    sprintf(thisnodename, "%s@%s", this_node_name, thishostname);
     res = ei_connect_xinit_ussi(ec, thishostname, thisalivename, thisnodename,
                                 (struct in_addr *)*hp->h_addr_list, cookie, creation,
                                 cbs, cbs_sz, setup_context);

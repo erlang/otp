@@ -517,6 +517,8 @@ quickscan_form([{'-', _Anno}, {'else', AnnoA} | _Ts]) ->
     kill_form(AnnoA);
 quickscan_form([{'-', _Anno}, {atom, AnnoA, endif} | _Ts]) ->
     kill_form(AnnoA);
+quickscan_form([{'-', _Anno}, {atom, AnnoA, feature} | _Ts]) ->
+   kill_form(AnnoA);
 quickscan_form([{'-', Anno}, {'?', _}, {Type, _, _}=N | [{'(', _} | _]=Ts])
   when Type =:= atom; Type =:= var ->
     %% minus, macro and open parenthesis at start of form - assume that

@@ -163,6 +163,7 @@ handle_call({?util, D, PC}, {Client, _Tag},
 	when Flavor == sunos;
 	     Flavor == linux;
 	     Flavor == freebsd;
+	     Flavor == openbsd;
 	     Flavor == darwin ->
     case measurement_server_call(State#state.server, {?util, D, PC, Client}) of
 	{error, Reason} -> 
@@ -613,8 +614,8 @@ port_server_loop(Port, Timeout) ->
 
 	% Close port and this server
 	{Pid, ?quit} ->
-	    port_command(Port, ?quit),
-	    port_close(Port),
+            Port ! {self(), {command, ?quit}},
+	    Port ! {self(), close},
 	    Pid ! {self(), {data, quit}},
 	    ok;
 

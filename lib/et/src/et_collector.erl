@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -684,7 +684,7 @@ monitor_trace_port(CollectorPid, Parameters) ->
 		  MonitorRef = erlang:monitor(process, CollectorPid),
 		  receive
 		      {'DOWN', MonitorRef, _, _, _} ->
-			  dbg:stop_clear()
+			  dbg:stop()
 		  end
 	  end),
     Res.

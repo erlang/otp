@@ -1356,6 +1356,19 @@ if test "x$enable_esock_rcvsndtimeo" = "xyes"; then
 fi
 
 
+dnl *** ESOCK_USE_EXTERNDED_ERROR_INFO ***
+
+AC_ARG_ENABLE(esock_extended_error_info,
+AS_HELP_STRING([--enable-esock-extended-error-info], [enable use of extended error info])
+AS_HELP_STRING([--disable-esock-extended-error-info], [disable use of extended error info (default)]))
+
+dnl Temporary! Currently we require eei to be *explicitly*
+dnl disabled (for debug reasons).
+if test "x$enable_esock_extended_error_info" != "xno"; then
+    AC_DEFINE(ESOCK_USE_EXTENDED_ERROR_INFO, [1], [Use extended error info])
+fi
+
+
 dnl *** ESOCK_COUNTER_SIZE ***
 
 AC_ARG_WITH(esock-counter-size, 
@@ -2855,7 +2868,26 @@ AS_IF([test ${enable_jit} != no],
            JIT_ARCH=x86
            ;;
         arm64)
-           JIT_ARCH=arm
+           case "$OPSYS" in
+              win32|darwin)
+                # These platforms have dedicated system calls for clearing
+                # instruction cache, and don't require us to manually issue
+                # instruction barriers on all threads.
+                JIT_ARCH=arm
+              ;;
+              *)
+                # We need to use `DC CVAU`, `IC IVAU`, and `ISB SY` to clear
+                # instruction cache. These have already been tested as part of
+                # ETHR_CHK_GCC_ATOMIC_OPS([]).
+
+                if test "$ethr_arm_isb_sy_instr_val$ethr_arm_dc_cvau_instr_val$ethr_arm_ic_ivau_instr_val" = "111"; then
+                  JIT_ARCH=arm
+                else
+                  enable_jit=no
+                  AC_MSG_WARN([JIT disabled due to lack of cache-clearing instructions])
+                fi
+              ;;
+           esac
            ;;
         *)
            if test ${enable_jit} = yes; then

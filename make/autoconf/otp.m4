@@ -1458,7 +1458,7 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 			   [
 				ethr_cv_arm_isb_sy_instr=no
 				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
-						__asm__ __volatile__("isb sy" : : : "memory");
+						__asm__ __volatile__("isb sy\n" : : : "memory");
 					    ]])],[ethr_cv_arm_isb_sy_instr=yes],[])
 			   ])
 	    if test $ethr_cv_arm_isb_sy_instr = yes; then
@@ -1468,7 +1468,7 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 			   [
 				ethr_cv_arm_dc_cvau_instr=no
 				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
-						char data[512]; __asm__ __volatile__("dc cvau, %0" : "r" (data) : : "memory");
+						char data[512]; __asm__ __volatile__("dc cvau, %0\n" :: "r" (data) : "memory");
 					    ]])],[ethr_cv_arm_dc_cvau_instr=yes],[])
 			   ])
 	    if test $ethr_cv_arm_dc_cvau_instr = yes; then
@@ -1478,7 +1478,7 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 			   [
 				ethr_cv_arm_ic_ivau_instr=no
 				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
-						char data[512]; __asm__ __volatile__("ic ivau, %0" : "r" (data) : : "memory");
+						char data[512]; __asm__ __volatile__("ic ivau, %0\n" :: "r" (data) : "memory");
 					    ]])],[ethr_cv_arm_ic_ivau_instr=yes],[])
 			   ])
 	    if test $ethr_cv_arm_ic_ivau_instr = yes; then

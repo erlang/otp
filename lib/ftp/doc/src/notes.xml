@@ -33,7 +33,53 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Ftp 1.1.4</title>
+  <section><title>Ftp 1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixes the documentation for the <c>ftp</c> module and
+	    updates the typing of <c>ftp</c> functions that return
+	    errors.</p>
+          <p>
+	    The documentation has been improved and the types of the
+	    functions are now read from source code, instead of being
+	    hard-coded in XML.</p>
+          <p>
+	    Functions returning errors of the form <c>{error, Reason
+	    :: 'ehost' | ...}</c> are now similar to other modules,
+	    i.e., <c>{error, Reason :: term()}</c>. If one wants to
+	    understand the error, one must call the function
+	    <c>ftp:formaterror({error, Reason})</c>.</p>
+          <p>
+	    Own Id: OTP-18359 Aux Id: PR-6545 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+        <item>
+          <p>
+	    Remove deprecated functions in OTP-26</p>
+          <p>
+	    Own Id: OTP-18541</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ftp 1.1.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>

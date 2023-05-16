@@ -276,7 +276,7 @@ int erts_try_seize_code_stage_permission(Process* c_p)
     return try_seize_code_permission(&code_stage_permission, c_p, NULL, NULL);
 }
 
-void erts_release_code_stage_permission() {
+void erts_release_code_stage_permission(void) {
     release_code_permission(&code_stage_permission);
 }
 
@@ -304,7 +304,7 @@ int erts_try_seize_code_load_permission(Process* c_p) {
     return 0;
 }
 
-void erts_release_code_load_permission() {
+void erts_release_code_load_permission(void) {
     erts_release_code_mod_permission();
     erts_release_code_stage_permission();
 }
@@ -474,7 +474,7 @@ static void schedule_blocking_code_barriers(void *ignored) {
 }
 #endif
 
-void erts_blocking_code_barrier()
+void erts_blocking_code_barrier(void)
 {
 #ifdef DEBUG
     erts_debug_unrequire_code_barrier();
@@ -487,7 +487,7 @@ void erts_blocking_code_barrier()
 #endif
 }
 
-void erts_code_ix_finalize_wait() {
+void erts_code_ix_finalize_wait(void) {
 #ifdef CODE_IX_ISSUE_INSTRUCTION_BARRIERS
     if (erts_atomic32_read_nob(&outstanding_blocking_code_barriers) != 0) {
         ERTS_THR_INSTRUCTION_BARRIER;

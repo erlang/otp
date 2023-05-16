@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -126,6 +126,15 @@
 # if LIBRESSL_VERSION_NUMBER >= 0x3050000fL
 #  define HAS_EVP_PKEY_CTX
 #  define HAVE_EVP_CIPHER_CTX_COPY
+# endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3070200fL
+#   define HAVE_PKEY_new_raw_private_key
+# endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3030300fL
+#   define HAVE_EVP_PKEY_new_CMAC_key
+# endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3040100fL
+#   define HAVE_DigestSign_as_single_op
 # endif
 #endif
 

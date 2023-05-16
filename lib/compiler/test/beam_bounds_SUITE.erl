@@ -197,6 +197,8 @@ bnot_bounds(_Config) ->
     {'-inf',-8} = beam_bounds:bounds('bnot', {7,'+inf'}),
     {'-inf',9} = beam_bounds:bounds('bnot', {-10,'+inf'}),
 
+    -1 = bnot_bounds_2(0),
+
     ok.
 
 bnot_bounds_1(R) ->
@@ -210,6 +212,10 @@ bnot_bounds_1(R) ->
                       [R,{Min,Max},{HighestMin,LowestMax}]),
             ct:fail(bad_min_or_max)
         end.
+
+%% GH-7145: 'bnot' converged too slowly, effectively hanging the compiler.
+bnot_bounds_2(0) -> -1;
+bnot_bounds_2(N) -> abs(bnot bnot_bounds_2(N)).
 
 bsr_bounds(_Config) ->
     test_noncommutative('bsr', {-12,12}, {0,7}),

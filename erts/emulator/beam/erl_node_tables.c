@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -885,6 +885,18 @@ erts_node_table_info(fmtfn_t to, void *to_arg)
 	erts_rwmtx_runlock(&erts_node_table_rwmtx);
 }
 
+ErlNode *erts_find_node(Eterm sysname, Uint32 creation)
+{
+    ErlNode *res;
+    ErlNode ne;
+    ne.sysname = sysname;
+    ne.creation = creation;
+
+    erts_rwmtx_rlock(&erts_node_table_rwmtx);
+    res = hash_get(&erts_node_table, (void *) &ne);
+    erts_rwmtx_runlock(&erts_node_table_rwmtx);
+    return res;
+}
 
 ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation, Eterm book)
 {

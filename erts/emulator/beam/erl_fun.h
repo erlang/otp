@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,14 +74,15 @@ typedef struct erl_fun_thing {
 
     /* -- The following may be compound Erlang terms ---------------------- */
     Eterm creator;          /* Pid of creator process (contains node). */
-    Eterm env[1];           /* Environment (free variables). */
+    Eterm env[];            /* Environment (free variables). */
 } ErlFunThing;
 
 #define is_local_fun(FunThing) ((FunThing)->creator != am_external)
 #define is_external_fun(FunThing) ((FunThing)->creator == am_external)
 
-/* ERL_FUN_SIZE does _not_ include space for the environment */
-#define ERL_FUN_SIZE ((sizeof(ErlFunThing)/sizeof(Eterm))-1)
+/* ERL_FUN_SIZE does _not_ include space for the environment which is a
+ * C99-style flexible array */
+#define ERL_FUN_SIZE ((sizeof(ErlFunThing)/sizeof(Eterm)))
 
 ErlFunThing *erts_new_export_fun_thing(Eterm **hpp, Export *exp, int arity);
 ErlFunThing *erts_new_local_fun_thing(Process *p,

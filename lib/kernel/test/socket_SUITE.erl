@@ -744,8 +744,11 @@
 -define(TPP_LARGE_NUM,  50).
 -define(TPP_NUM(Config, Base), (Base) div lookup(kernel_factor, 1, Config)).
 
+-define(WINDOWS, {win32,nt}).
+
 -define(TTEST_RUNTIME,                       ?SECS(1)).
 -define(TTEST_MIN_FACTOR,                    3).
+-define(TTEST_MIN_FACTOR_WIN,                ?TTEST_MIN_FACTOR-1).
 -define(TTEST_DEFAULT_SMALL_MAX_OUTSTANDING, 50).
 -define(TTEST_DEFAULT_MEDIUM_MAX_OUTSTANDING,
         ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
@@ -1404,7 +1407,12 @@ traffic_pp_sendmsg_recvmsg_cases() ->
 %% No point in running these cases unless the machine is
 %% reasonably fast.
 ttest_condition(Config) ->
+    OsType = os:type(),
     case ?config(kernel_factor, Config) of
+        Factor when (OsType =:= ?WINDOWS) andalso
+                    is_integer(Factor) andalso
+                    (Factor =< ?TTEST_MIN_FACTOR_WIN) ->
+            ok;
         Factor when is_integer(Factor) andalso (Factor =< ?TTEST_MIN_FACTOR) ->
             ok;
         Factor when is_integer(Factor) ->
@@ -3492,7 +3500,10 @@ api_b_send_and_recv_seqpL(_Config) when is_list(_Config) ->
 api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_b_sendmsg_and_recvmsg_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   Msg = #{iov => [Data]},
@@ -6926,7 +6937,8 @@ api_a_connect_tcp(InitState) ->
                                    {ok, State#{asynch_tag  => select,
                                                connect_tag => ST}};
 
-                               {completion, {completion_info, CT, CompletionRef}}
+                               {completion,
+                                {completion_info, CT, CompletionRef}}
                                  when SR =:= nowait ->
                                    ?SEV_IPRINT("completion nowait ->"
                                                "~n   tag: ~p"
@@ -6935,7 +6947,8 @@ api_a_connect_tcp(InitState) ->
                                    {ok, State#{asynch_tag  => completion,
                                                connect_tag => CT,
                                                connect_ref => CompletionRef}};
-                               {completion, {completion_info, CT, CR}}
+                               {completion,
+                                {completion_info, CT, CR}}
                                  when is_reference(CR) ->
                                    ?SEV_IPRINT("completion ref ->"
                                                "~n   tag: ~p"
@@ -7988,7 +8001,10 @@ api_a_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
     Nowait = nowait(Config),
     tc_try(api_a_sendmsg_and_recvmsg_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   Msg = #{iov => [Data]},
@@ -9488,6 +9504,7 @@ api_a_recv_cancel_tcp(InitState) ->
            cmd  => fun(#{tester := Tester} = _State) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, recv)
                    end},
+
          #{desc => "try recv request (with nowait, expect select|completion)",
            cmd  => fun(#{csock    := Sock,
                          recv     := Recv,
@@ -9506,13 +9523,15 @@ api_a_recv_cancel_tcp(InitState) ->
                                                "~n   Ref: ~p", [T, Ref]),
                                    {ok, State#{recv_select_info => SI}};
 
-                               {completion, {completion_info, T, R} = CI}
+                               {completion,
+                                {completion_info, T, R} = CI}
                                  when Ref =:= nowait ->
                                    ?SEV_IPRINT("recv completion nowait: "
                                                "~n   Tag: ~p"
                                                "~n   Ref: ~p", [T, R]),
                                    {ok, State#{recv_completion_info => CI}};
-                               {completion, {completion_info, T, Ref} = CI}
+                               {completion,
+                                {completion_info, T, Ref} = CI}
                                  when is_reference(Ref) ->
                                    ?SEV_IPRINT("recv completion ref: "
                                                "~n   Tag: ~p"
@@ -10913,6 +10932,7 @@ api_a_mrecvmsg_cancel_tcp4(Config) when is_list(Config) ->
     Nowait = nowait(Config),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_windows(),
                    has_support_ipv4()
            end,
            fun() ->
@@ -10937,7 +10957,10 @@ api_a_mrecvmsg_cancel_tcp6(Config) when is_list(Config) ->
     ?TT(?SECS(20)),
     Nowait = nowait(Config),
     tc_try(?FUNCTION_NAME,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv6()
+           end,
            fun() ->
                    Recv = fun(Sock) ->
                                   socket:recvmsg(Sock, Nowait)
@@ -14034,6 +14057,10 @@ api_opt_sock_broadcast() ->
                                    ?SEV_IPRINT("Expected Success: "
                                                "broadcast message sent"),
                                    ok;
+                               {error, eaddrnotavail = Reason} ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p => SKIP",
+                                               [Reason]),
+                                   {skip, Reason};
                                {error, eacces = Reason} ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p => SKIP",
 					       [Reason]),
@@ -21126,6 +21153,37 @@ api_opt_ip_recvttl_udp(InitState) ->
                                    {skip,
                                     ?F("Cannot send with TTL: ~p", [Info])};
 
+                               {error,
+                                {completion_status,
+                                 #{file     := File,
+                                   function := Function,
+                                   line     := Line,
+                                   raw_info := RawInfo,
+                                   info     := invalid_parameter = Info}}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TTL: "
+                                               "~p => SKIP: "
+                                               "~n   File:     ~s"
+                                               "~n   Function: ~s"
+                                               "~n   Line:     ~p"
+                                               "~n   Raw Info: ~p",
+                                               [Info,
+                                                File, Function, Line,
+                                                RawInfo]),
+                                   (catch socket:close(SSock)),
+                                   (catch socket:close(DSock)),
+                                   {skip,
+                                    ?F("Cannot send with TTL: ~p", [Info])};
+                               {error, {completion_status,
+                                        invalid_parameter = Info}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TTL: "
+                                               "~p => SKIP", [Info]),
+                                   (catch socket:close(SSock)),
+                                   (catch socket:close(DSock)),
+                                   {skip,
+                                    ?F("Cannot send with TTL: ~p", [Info])};
+
                                {error, _Reason} = ERROR ->
                                    ERROR
                            end
@@ -23420,7 +23478,7 @@ api_opt_ipv6_tclass_udp(InitState) ->
          #{desc => "send req (to dst) (w explicit tc = 1)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
                            case Send(Sock, ?BASIC_REQ, Dst, 1) of
-                              {error,
+                               {error,
                                 {get_overlapped_result,
                                  #{file     := File,
                                    function := Function,
@@ -23441,6 +23499,35 @@ api_opt_ipv6_tclass_udp(InitState) ->
                                    {skip,
                                     ?F("Cannot send with TClass: ~p", [Info])};
                                {error, {get_overlapped_result,
+                                        invalid_parameter = Info}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TClass: "
+                                               "~p => SKIP", [Info]),
+                                   (catch socket:close(Sock)),
+                                   {skip,
+                                    ?F("Cannot send with TClass: ~p", [Info])};
+
+                               {error,
+                                {completion_status,
+                                 #{file     := File,
+                                   function := Function,
+                                   line     := Line,
+                                   raw_info := RawInfo,
+                                   info     := invalid_parameter = Info}}} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TClass: "
+                                               "~p => SKIP: "
+                                               "~n   File:     ~s"
+                                               "~n   Function: ~s"
+                                               "~n   Line:     ~p"
+                                               "~n   Raw Info: ~p",
+                                               [Info,
+                                                File, Function, Line,
+                                                RawInfo]),
+                                   (catch socket:close(Sock)),
+                                   {skip,
+                                    ?F("Cannot send with TClass: ~p", [Info])};
+                               {error, {completion_status,
                                         invalid_parameter = Info}} ->
                                    %% IF we can't send it the test will not work
                                    ?SEV_EPRINT("Cannot send TClass: "
@@ -32985,8 +33072,11 @@ sc_lc_receive_response_udp(InitState) ->
 
 sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(sc_lc_recvmsg_response_tcp4,
-           fun() -> has_support_ipv4() end,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet,
@@ -33003,8 +33093,11 @@ sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
 
 sc_lc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(sc_recvmsg_response_tcp6,
-           fun() -> has_support_ipv6() end,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv6()
+           end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet6,
@@ -36503,7 +36596,10 @@ traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
 traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_sendmsg_and_recvmsg_counters_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
            fun() ->
                    InitState = #{domain => inet,
                                  proto  => tcp,
@@ -36532,7 +36628,10 @@ traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
 traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_sendmsg_and_recvmsg_counters_tcp6,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv6()
+           end,
            fun() ->
                    InitState = #{domain => inet6,
                                  proto  => tcp,
@@ -48842,7 +48941,7 @@ otp16359_maccept_tcp(InitState) ->
 
 %% This test case is to verify that we do not leak monitors.
 otp18240_accept_mon_leak_tcp4(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
@@ -48857,7 +48956,7 @@ otp18240_accept_mon_leak_tcp4(Config) when is_list(Config) ->
 
 %% This test case is to verify that we do not leak monitors.
 otp18240_accept_mon_leak_tcp6(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -48883,26 +48982,42 @@ otp18240_accept_tcp(#{domain    := Domain,
 
 otp18240_await_acceptor(Pid, Mon) ->
     receive
-	{'DOWN', Mon, process, Pid, Info} ->
-	    i("acceptor terminated: "
-	      "~n   ~p", [Info])
+	{'DOWN', Mon, process, Pid, ok} ->
+	    i("acceptor successfully terminated"),
+            ok;
+	{'DOWN', Mon, process, Pid, {skip, _} = SKIP} ->
+	    i("acceptor successfully terminated"),
+            exit(SKIP);
+        {'DOWN', Mon, process, Pid, Info} ->
+            i("acceptor unexpected termination: "
+              "~n   ~p", [Info]),
+            exit({unexpected_result, Info})
     after 5000 ->
-	    i("acceptor info"
+	    i("acceptor process (~p) info"
 	      "~n   Refs: ~p"
 	      "~n   Info: ~p",
-	      [monitored_by(Pid), erlang:process_info(Pid)]),
+	      [Pid, monitored_by(Pid), erlang:process_info(Pid)]),
 	    otp18240_await_acceptor(Pid, Mon)
     end.
 
 otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
     i("[acceptor] begin with: "
+      "~n   Parent:   ~p"
       "~n   Domain:   ~p"
-      "~n   Protocol: ~p", [Domain, Proto]),
+      "~n   Protocol: ~p", [Parent, Domain, Proto]),
     MonitoredBy0 = monitored_by(),
-    {ok, LSock}  = socket:open(Domain, stream, Proto,
-                               #{use_registry => false}),
-    ok = socket:bind(LSock, #{family => Domain, port => 0, addr => any}),
+    ?SLEEP(?SECS(5)),
+    Addr = case ?LIB:which_local_host_info(Domain) of
+               {ok, #{addr := A}} ->
+                   A;
+               {error, Reason} ->
+                   exit({skip, Reason})
+           end,
+    {ok, LSock} = socket:open(Domain, stream, Proto,
+                              #{use_registry => false}),
+    ok = socket:bind(LSock, #{family => Domain, addr => Addr, port => 0}),
     ok = socket:listen(LSock, NumSocks),
+    ?SLEEP(?SECS(5)),
     MonitoredBy1 = monitored_by(),
     i("[acceptor]: listen socket created"
       "~n   'Montored By' before listen socket: ~p"
@@ -48922,7 +49037,7 @@ otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
     _Clients = [spawn_link(fun() ->
                                    otp18240_client(CID,
                                                    Domain, Proto,
-                                                   Port)
+                                                   Addr, Port)
                            end) || CID <- lists:seq(1, NumSocks)],
 
     i("[acceptor] accept ~w connections", [NumSocks]),
@@ -48956,26 +49071,49 @@ otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
     end.
 
 
-otp18240_client(ID, Domain, Proto, PortNo) ->
+otp18240_client(ID, Domain, Proto, Addr, PortNo) ->
     i("[connector ~w] try create connector socket", [ID]),
     {ok, Sock} = socket:open(Domain, stream, Proto, #{use_registry => false}),
-    ok = socket:bind(Sock, #{family => Domain, port => 0, addr => any}),
+    ok = socket:bind(Sock, #{family => Domain, addr => Addr, port => 0}),
     %% ok = socket:setopt(Sock, otp, debug, true),
     i("[connector ~w] try connect", [ID]),
-    ok = socket:connect(Sock, #{family => Domain, addr => any, port => PortNo}),
-    i("[connector ~w] connected - now try recv", [ID]),
-    case socket:recv(Sock) of
-	{ok, Data} ->
-	    i("[connector ~w] received unexpected data: "
-	      "~n   ~p", [ID, Data]),
-	    (catch socket:close(Sock)),
-	    exit('unexpected data');
-	{error, closed} ->
-	    i("[connector ~w] expected socket close", [ID]);
-	{error, Reason} ->
-	    i("[connector ~w] unexpected error when reading: "
-	      "~n   ~p", [ID, Reason]),
-	    (catch socket:close(Sock))
+    case socket:connect(Sock,
+                        #{family => Domain, addr => Addr, port => PortNo}) of
+        ok ->
+            i("[connector ~w] connected - now try recv", [ID]),
+            case socket:recv(Sock) of
+                {ok, Data} ->
+                    i("[connector ~w] received unexpected data: "
+                      "~n   ~p", [ID, Data]),
+                    (catch socket:close(Sock)),
+                    exit('unexpected data');
+                {error, closed} ->
+                    i("[connector ~w] expected socket close", [ID]);
+                {error, Reason} ->
+                    i("[connector ~w] unexpected error when reading: "
+                      "~n   ~p", [ID, Reason]),
+                    (catch socket:close(Sock))
+            end;
+        {error, {completion_status, #{info := invalid_netname = R} = Reason}} ->
+            i("[connector ~w] failed connecting: "
+              "~n   ~p", [ID, Reason]),
+            (catch socket:close(Sock)),
+            exit({skip, R});
+        {error, {completion_status, invalid_netname = Reason}} ->
+            i("[connector ~w] failed connecting: "
+              "~n   ~p", [ID, Reason]),
+            (catch socket:close(Sock)),
+            exit({skip, Reason});
+        {error, enetunreach = Reason} ->
+            i("[connector ~w] failed connecting: "
+              "~n   ~p", [ID, Reason]),
+            (catch socket:close(Sock)),
+            exit({skip, Reason});
+
+        {error, Reason} ->
+            i("[connector ~w] failed connecting: "
+              "~n   ~p", [ID, Reason]),
+            (catch socket:close(Sock))
     end,
     i("[connector ~w] done", [ID]),
     ok.

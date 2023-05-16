@@ -31,6 +31,518 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug where duplicate keys were allowed in the .app
+	    file of an application. Duplicate keys are now rejected
+	    and the application will not start if they exist.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18210 Aux Id: GH-5877 PR-5878 </p>
+        </item>
+        <item>
+          <p>
+	    Fix inconsistent handling in logger_formatter of the
+	    branched values in conditional branches. For example
+	    using <c>msg</c> in a conditional branch would not be
+	    formatted as it should before this fix.</p>
+          <p>
+	    Own Id: OTP-18225 Aux Id: PR-6036 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the logger_std_h handler to log to standard_error if
+	    logging to standard_io fails for any reason.</p>
+          <p>
+	    Own Id: OTP-18226 Aux Id: PR-6253 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the TLS distribution to work when starting Erlang in
+	    embedded mode and a connection is done before kernel is
+	    fully started.</p>
+          <p>
+	    Own Id: OTP-18248 Aux Id: PR-6227 GH-6085 </p>
+        </item>
+        <item>
+          <p>
+	    erl <c>-remsh</c> has been improved to provide better
+	    error reasons and work when using a shell without
+	    terminal support (that is an "oldshell").</p>
+          <p>
+	    Own Id: OTP-18271 Aux Id: PR-6279 </p>
+        </item>
+        <item>
+          <p>
+	    Fix logging of log events generated before kernel is
+	    started to not fail if the code for formatting those log
+	    messaged have not yet been loaded.</p>
+          <p>
+	    Own Id: OTP-18286 Aux Id: PR-5955 </p>
+        </item>
+        <item>
+	    <p> <c>proc_lib:start*/*</c> has become synchronous when
+	    the started process fails. This requires that a failing
+	    process use a new function <c>proc_lib:init_fail/2,3</c>,
+	    or exits, to indicate failure. All OTP behaviours have
+	    been fixed to do this. </p><p> All these start functions
+	    now consume the <c>'EXIT'</c> message from a process link
+	    for all error returns. Previously it was only the
+	    <c>start_link/*</c> functions that did this, and only
+	    when the started function exited, not when it used
+	    <c>init_ack/1,2</c> or <c>init_fail/2,3</c> to create the
+	    return value. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18471 Aux Id: GH-6339, PR-6843 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug where <c>file:read(standard_io, ...)</c>
+	    unexpectedly returned <c>eof</c> in binary mode.</p>
+          <p>
+	    Own Id: OTP-18486 Aux Id: PR-6881 </p>
+        </item>
+        <item>
+          <p>
+	    Return type for <c>seq_trace:get_token/1</c> fixed.</p>
+          <p>
+	    Own Id: OTP-18528 Aux Id: PR-7009 </p>
+        </item>
+        <item>
+          <p>
+	    Looking up, connecting to and sending to a host with an
+	    empty name is now handled by trying to look up the
+	    address of the root domain, which fails. Previously some
+	    of these operations caused an internal exception, which
+	    contradicted type specifications.</p>
+          <p>
+	    Own Id: OTP-18543 Aux Id: GH-6353 </p>
+        </item>
+        <item>
+          <p>
+	    Replaced a regex with a special case handling of ANSI
+	    Select Graphic Rendition escape characters, to speed up
+	    io output that make use of these escape sequences.</p>
+          <p>
+	    Own Id: OTP-18547 Aux Id: PR-7092 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The Erlang shell has been improved to support the
+	    following features:</p> <list> <item>Auto-complete
+	    variables, record names, record field names, map keys,
+	    function parameter types and filenames.</item> <item>Open
+	    external editor in the shell (with C-o) to edit the
+	    current expression in an editor.</item> <item>Support
+	    defining records (with types), functions and function
+	    typespecs, and custom types in the shell.</item> <item>Do
+	    not save pager commands, and input to io:getline in
+	    history.</item> </list>
+          <p>
+	    Own Id: OTP-14835 Aux Id: PR-5924 </p>
+        </item>
+        <item>
+	    <p>The TTY/terminal subsystem has been rewritten by
+	    moving more code to Erlang from the old linked-in driver
+	    and implementing all the I/O primitives needed in a NIF
+	    instead. </p><p> On Unix platforms the user should not
+	    notice a lot of difference, besides better handling of
+	    unicode characters and fixing of some long standing bugs.
+	    </p><p> Windows users will notice that erl.exe has the
+	    same functionality as a normal Unix shell and that
+	    werl.exe has been removed and replaced with a symlink to
+	    erl.exe. This makes the Windows Erlang terminal
+	    experience identical to that of Unix. </p><p> The
+	    re-write brings with it a number of bug fixes and feature
+	    additions:</p> <list> <item>The TTY is now reset when
+	    Erlang exits, fixing zsh to not break when terminating an
+	    Erlang session.</item> <item><c>standard_error</c> now
+	    uses the same unicode mode as <c>standard_io</c>.</item>
+	    <item>Hitting backspace when searching the shell history
+	    with an empty search string no longer breaks the
+	    shell.</item> <item>Tab expansion now works on remote
+	    nodes started using the JCL interface.</item> <item>It is
+	    now possible to configure the shell slogan and the
+	    session slogans (that is the texts that appear when you
+	    start an Erlang shell). See the kernel documentation for
+	    more details.</item> <item>Added shell:start_interactive
+	    for starting the interactive shell from a non-interactive
+	    Erlang session (for example an escript).</item> <item>On
+	    Windows, when starting in detached mode the standard
+	    handler are now set to <c>nul</c> devices instead of
+	    being unset.</item> <item> Standard I/O now always
+	    defaults to <c>unicode</c> mode if supported. Previously
+	    the default was <c>latin1</c> if the runtime system had
+	    been started with <c>-oldshell</c> or <c>-noshell</c>
+	    (for example in an <c>escript</c>). To send raw bytes
+	    over standard out, one now explicitly has to specify
+	    <c>io:setopts(standard_io, [{encoding, latin1}]).</c>
+	    </item> </list>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17932 Aux Id: PR-6144 GH-3150 GH-3390 GH-4343
+	    GH-4225 </p>
+        </item>
+        <item>
+	    <p>Add support for socket on Windows.</p> <list>
+	    <item>Pre release status.</item> <item>Error codes not
+	    finalized.</item> <item>No explicit support for Windows
+	    specific options (socket options, flags for read and
+	    write).</item> <item>New async api for Windows
+	    (completion). See the <c>Asynchronous calls</c> chapter
+	    in the (Socket Usage) Users Guide.</item> <item>To ensure
+	    platform independence, gen_tcp and gen_udp is
+	    <em>intended</em> to be used (not yet updated).</item>
+	    </list>
+          <p>
+	    Own Id: OTP-18029</p>
+        </item>
+        <item>
+	    <p>As announced since the release of OTP 24, support
+	    for:</p> <list> <item><p> version 4 node container types
+	    in the external term format are now mandatory. That is,
+	    references supporting up to 5 32-bit integer identifiers,
+	    and process and port identifiers with support for 64-bit
+	    data storage. The distribution flag <seeguide
+	    marker="erts:erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
+	    is therefor now also mandatory. OTP has since OTP 24
+	    supported this. Also note that the external format
+	    produced by <c>term_to_binary()</c> and
+	    <c>term_to_iovec()</c> will unconditionally produce pids,
+	    ports, and references supporting this larger format.
+	    </p></item> <item><p> the <seeguide
+	    marker="erts:erl_dist_protocol#new_link_protocol">new
+	    link protocol</seeguide> introduced in OTP 23.3 is now
+	    mandatory. The distribution flag <seeguide
+	    marker="erts:erl_dist_protocol#DFLAG_UNLINK_ID"><c>DFLAG_UNLINK_ID</c></seeguide>
+	    is therefor now also mandatory. </p></item> </list>
+	    <p>Due to the above, OTP 26 nodes will refuse to connect
+	    to OTP nodes from releases prior to OTP 24.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18140 Aux Id: PR-6072 </p>
+        </item>
+        <item>
+	    <p> Support for Kernel TLS (kTLS), has been added to the
+	    SSL application, for TLS distribution (<c>-proto_dist
+	    inet_tls</c>), the SSL option <c>{ktls, true}</c>. Using
+	    this for general SSL sockets is uncomfortable,
+	    undocumented and not recommended since it requires very
+	    platform dependent raw options. </p><p> This, for now,
+	    only works for some not too old Linux distributions.
+	    Roughly, a kernel 5.2.0 or later with support for
+	    UserLand Protocols and the kernel module <c>tls</c> is
+	    required. </p>
+          <p>
+	    Own Id: OTP-18235 Aux Id: PR-6104, PR-5840 </p>
+        </item>
+        <item>
+          <p>
+	    Add code:get_doc/2 which adds support to fetch
+	    documentation skeletons of functions using debug_info
+	    chunks instead of eep48 doc chunks.</p>
+          <p>
+	    Own Id: OTP-18261 Aux Id: PR-5924 </p>
+        </item>
+        <item>
+          <p>
+	    The Erlang shell's auto-completion when typing <c>tab</c>
+	    has been changed to happen after the editing current line
+	    instead of before it.</p>
+          <p>
+	    This behaviour can be configured using a the
+	    <c>shell_expand_location</c> STDLIB configuration
+	    parameter.</p>
+          <p>
+	    Own Id: OTP-18278 Aux Id: PR-6260 </p>
+        </item>
+        <item>
+          <p>
+	    Typing <c>Ctrl+L</c> in a shell now clears the screen and
+	    redraws the current line instead of only redrawing the
+	    current line. To only redraw the current line, you must
+	    now type <c>Alt+L</c>. This brings the behaviour of
+	    <c>Ctrl+L</c> closer to how bash and other shells work.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18285 Aux Id: PR-6262 </p>
+        </item>
+        <item>
+          <p>
+	    gen_server optimized by caching callback functions</p>
+          <p>
+	    Own Id: OTP-18305 Aux Id: PR-5831 </p>
+        </item>
+        <item>
+          <p>
+	    Prepare the <c>pg</c> communication protocol for upgrade.
+	    The plan is for OTP-28 nodes to be able to use an
+	    upgraded <c>pg</c> protocol while still being able to
+	    talk with OTP 26 nodes.</p>
+          <p>
+	    Own Id: OTP-18327 Aux Id: PR-6433 </p>
+        </item>
+        <item>
+          <p>
+	    New <c>disk_log</c> log type <c>rotate</c>, where the log
+	    files are compressed upon rotation.</p>
+          <p>
+	    Own Id: OTP-18331 Aux Id: ERIERL-870 </p>
+        </item>
+        <item>
+	    <p>The following <seemfa
+	    marker="kernel:inet#setopts/2"><c>inet:setopts/2</c></seemfa>
+	    options have been introduced:</p> <taglist> <tag><seeerl
+	    marker="kernel:inet#option-reuseport"><c>reuseport</c></seeerl></tag>
+	    <item><p>Reuse of local port. Load balancing may or may
+	    not be provided depending on underlying OS.</p></item>
+	    <tag><seeerl
+	    marker="kernel:inet#option-reuseport_lb"><c>reuseport_lb</c></seeerl></tag>
+	    <item><p>Reuse of local port. Load balancing
+	    provided.</p></item> <tag><seeerl
+	    marker="kernel:inet#option-exclusiveaddruse"><c>exclusiveaddruse</c></seeerl></tag>
+	    <item><p>Exclusive address/port usage on Windows. This
+	    socket option is Windows specific and will silently be
+	    ignored on other systems.</p></item> </taglist> <p>The
+	    behavior of setting <seeerl
+	    marker="kernel:inet#option-reuseaddr"><c>reuseaddr</c></seeerl>
+	    on Windows have changed in a <em>backwards
+	    incompatible</em> way. The underlying <c>SO_REUSEADDR</c>
+	    socket option is now only set if both the <c>reusaddr</c>
+	    and the <c>reuseport</c> <c>inet</c> options have been
+	    set. This since the underlying <c>SO_REUSEADDR</c> socket
+	    option on Windows behaves similar to how BSD behaves if
+	    both the underlying socket options <c>SO_REUSEADDR</c>
+	    and <c>SO_REUSEPORT</c> have been set. See the
+	    documentation of the <c>reuseaddr</c> option for more
+	    information.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18344 Aux Id: PR-6522, PR-6944, OTP-18324,
+	    PR-6481, GH-6461 </p>
+        </item>
+        <item>
+          <p>
+	    Replace size/1 with either tuple_size/1 or byte_size/1</p>
+          <p>
+	    The <c>size/1</c> BIF is not optimized by the JIT, and
+	    its use can result in worse types for Dialyzer.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    tuple, <c>tuple_size/1</c> should always be preferred.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    binary, <c>byte_size/1</c> should be preferred. However,
+	    <c>byte_size/1</c> also accepts a bitstring (rounding up
+	    size to a whole number of bytes), so one must make sure
+	    that the call to <c>byte_size/</c> is preceded by a call
+	    to <c>is_binary/1</c> to ensure that bitstrings are
+	    rejected. Note that the compiler removes redundant calls
+	    to <c>is_binary/1</c>, so if one is not sure whether
+	    previous code had made sure that the argument is a
+	    binary, it does not harm to add an <c>is_binary/1</c>
+	    test immediately before the call to <c>byte_size/1</c>.</p>
+          <p>
+	    Own Id: OTP-18405 Aux Id:
+	    GH-6672,PR-6702,PR-6768,PR-6700,PR-6769,PR-6812,PR-6814 </p>
+        </item>
+        <item>
+	    <p>The function <c>file:pid2name/1</c> is deprecated and
+	    will be removed in Erlang/OTP 27.</p>
+          <p>
+	    Own Id: OTP-18419</p>
+        </item>
+        <item>
+          <p>
+	    The modules Erlang DNS resolver <c>inet_res</c> and
+	    helper modules have been updated for RFC6891; to handle
+	    OPT RR with DNSSEC OK (DO) bit.</p>
+          <p>
+	    Own Id: OTP-18442 Aux Id: PR-6786, GH-6606 </p>
+        </item>
+        <item>
+          <p>
+	    Introduced <seemfa
+	    marker="kernel:application#get_supervisor/1"><c>application:get_supervisor/1</c></seemfa>.</p>
+          <p>
+	    Own Id: OTP-18444 Aux Id: PR-6035 </p>
+        </item>
+        <item>
+	    <p> Handling of <c>on_load</c> modules during boot has
+	    been improved by adding an extra step in the boot order
+	    for embedded mode that runs all <c>on_load</c> handlers,
+	    instead of relying on explicit invocation of them, later,
+	    when the kernel supervision tree starts. </p><p> This is
+	    mostly a code improvement and OTP internal simplification
+	    to avoid future bugs and to simplify code maintenance.
+	    </p>
+          <p>
+	    Own Id: OTP-18447</p>
+        </item>
+        <item>
+          <p>
+	    Reduce contention on the code_server by doing the code
+	    preparation on the client.</p>
+          <p>
+	    Own Id: OTP-18448 Aux Id: PR-6736 </p>
+        </item>
+        <item>
+          <p>
+	    Added a mode to ensure_all_loaded, to start children
+	    application and their dependencies concurrently.</p>
+          <p>
+	    Own Id: OTP-18451 Aux Id: PR-6737 </p>
+        </item>
+        <item>
+          <p>
+	    Cache OTP boot code paths, to limit how many folders that
+	    are being accessed during a module lookup. Can be
+	    disabled with -cache_boot_path false. OTP boot code paths
+	    consists of ERL_LIB environment variables. The various
+	    otp/*/ebin folders. And the {path, ...} clauses in the
+	    init script.</p>
+          <p>
+	    Own Id: OTP-18452 Aux Id: PR-6729 </p>
+        </item>
+        <item>
+          <p>
+	    Erlang distribution code in Kernel and SSL has been
+	    refactored a bit to facilitate debugging and
+	    re-usability, which shouldn't have any noticeable effects
+	    on behaviour or performance.</p>
+          <p>
+	    Own Id: OTP-18456</p>
+        </item>
+        <item>
+          <p>
+	    Add cache attribute to code path apis.</p>
+          <p>
+	    Added an optional cache/nocache argument to all
+	    code:add_path*, code:set_path*, and code:replace_path*
+	    functions. These functions will then avoid doing
+	    file-accesses if they are cached. Cache can be cleared
+	    with code:clear_cache/0. Added code:del_paths/1 to make
+	    it easier to clear multiple paths.</p>
+          <p>
+	    Own Id: OTP-18466 Aux Id: PR-6832 </p>
+        </item>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+        <item>
+          <p>
+	    Improvements to code:ensure_modules_loaded/1: Previously
+	    it would prepare modules and then abandon references to
+	    said modules if they had on_load callbacks. This pull
+	    request makes it so they keep the references around and
+	    then serially load them without having to fetch the
+	    object code and prepare them again.</p>
+          <p>
+	    Own Id: OTP-18484 Aux Id: PR-6844 </p>
+        </item>
+        <item>
+          <p>
+	    The internal DNS resolver has been updated to handle DNS
+	    LOC RR:s (RFC 1876). This is an undocumented module,
+	    although still used by power users. See the source code.</p>
+          <p>
+	    Own Id: OTP-18510 Aux Id: GH-6098, PR-6982 </p>
+        </item>
+        <item>
+          <p>
+	    Reduced memory consumption in <c>global</c> when
+	    informing other nodes about lost connections.</p>
+          <p>
+	    Own Id: OTP-18521 Aux Id: PR-7025 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>net_kernel</c>, <c>global</c>, and
+	    <c>global_group</c> servers now have <seeerl
+	    marker="erts:erlang#process_flag_async_dist"><i>fully
+	    asynchronous distributed signaling</i></seeerl> enabled
+	    all the time which prevents them from ever getting
+	    blocked on send of distributed signals.</p>
+          <p>
+	    Documentation about blocking distributed signals has also
+	    been improved.</p>
+          <p>
+	    Own Id: OTP-18533 Aux Id: PR-7061 </p>
+        </item>
+        <item>
+          <p>
+	    Allow IPv6 addresses as host in <c>http</c> packets
+	    decoded by <c>erlang:decode_packet/3</c> and
+	    <c>gen_tcp</c> packet option. The IPv6 address should be
+	    enclosed within <c>[]</c> according to RFC2732.</p>
+          <p>
+	    Own Id: OTP-18540 Aux Id: PR-6900 </p>
+        </item>
+        <item>
+          <p>
+	    Remove deprecated functions in OTP-26</p>
+          <p>
+	    Own Id: OTP-18542</p>
+        </item>
+        <item>
+          <p>
+	    Removed <c>code:is_module_native/1</c> since HiPE has
+	    been removed. It has since OTP 24 been deprecated and
+	    scheduled for removal in OTP 26. </p>
+          <p>
+	    Removed <c>code:rehash/0</c> since the code path feature
+	    no longer is present. It has since OTP 19 been deprecated
+	    and has since OTP 24 been scheduled for removal in OTP
+	    26.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18551 Aux Id: PR-7106 </p>
+        </item>
+        <item>
+	    <p>Added support for multiple line expressions and
+	    navigation in the shell. Added new keybindings:</p>
+	    <list> <item> navigate up (ctrl+up)/(alt+up) </item>
+	    <item> navigate down (ctrl+down)/(alt+down) </item>
+	    <item> insert newline in middle of line (alt+enter)
+	    </item> <item> navigate top (alt+&lt;)/(alt+shift+up)
+	    </item> <item> navigate bottom
+	    (alt+&gt;)/(alt+shift+down) </item> <item> clear current
+	    expression (alt+c) </item> <item> cancel search (alt+c)
+	    </item> <item> opening editor on mac (option+o)/(alt+o)
+	    </item> </list> <p>Modifies the prompt for new lines to
+	    make it clearer that the prompt has entered multi-line
+	    mode. Supports terminal with small window size, recommend
+	    not go lower than 7 rows and 40 columns. Modifies the
+	    search prompt to support multi-line statements. Redraw
+	    the prompt after continuing from JCL menu. </p>
+          <p>
+	    Own Id: OTP-18575 Aux Id: PR-7169 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.5.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

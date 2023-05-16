@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,27 +113,46 @@ void meta_command(ErlNifEnv *env, int what, wxe_me_ref *mp) {
 void send_msg(const char * type, const wxString * msg) {
   WxeApp * app = (WxeApp *) wxTheApp;
   wxeReturn rt = wxeReturn(app->global_me, init_caller);
+  ErlNifEnv *env = enif_alloc_env();
+  rt.env = env;
   ERL_NIF_TERM emsg = enif_make_tuple3(rt.env,
                                        rt.make_atom((char *) "wxe_driver"),
                                        rt.make_atom((char *) type),
                                        rt.make(msg));
   rt.send(emsg);
+  enif_free_env(env);
 }
+
+void wx_print_term(ErlNifEnv * env, ERL_NIF_TERM t)
+{
+  if(enif_is_binary(env, t)) {
+    ErlNifBinary bin;
+    enif_inspect_binary(env, t, &bin);
+    if(bin.size > 128) {
+      enif_fprintf(stderr, "<<...LARGE BIN>");
+    } else {
+      enif_fprintf(stderr, "%T", t);
+    }
+  } else {
+    enif_fprintf(stderr, "%T", t);
+  }
+}
+
+
 
 void print_cmd(wxeCommand& event)
 {
   int i;
   wxe_fns_t *func = &wxe_fns[event.op];
   enif_fprintf(stderr, "  %T %d %s::%s(", event.caller, event.op, func->cname, func->fname);
-  for(i=0; i < event.argc-1; i++) {
-    enif_fprintf(stderr, "%T,", event.args[i]);
+  for(i=0; i < event.argc; i++) {
+    wx_print_term(event.env, event.args[i]);
+    if(i < event.argc - 1)
+      enif_fprintf(stderr, ", ");
   }
-  if(i > 0) {
-    enif_fprintf(stderr, "%T)\r\n", event.args[i]);
-  } else {
-    enif_fprintf(stderr, ")\r\n");
-  }
+  enif_fprintf(stderr, ")\r\n");
 }
+ 
 
 /* ************************************************************
  *  Init WxeApp the application emulator

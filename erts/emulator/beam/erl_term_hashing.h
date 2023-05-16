@@ -53,7 +53,13 @@ Uint32 make_hash2(Eterm);
 Uint32 trapping_make_hash2(Eterm, Eterm*, struct process*);
 Uint32 make_hash(Eterm);
 Uint32 make_internal_hash(Eterm, Uint32 salt);
-Uint32 make_map_hash(Eterm key, int level);
+#ifdef DEBUG
+#  define DBG_HASHMAP_COLLISION_BONANZA
+#endif
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+Uint32 erts_dbg_hashmap_collision_bonanza(Uint32 hash, Eterm key);
+#endif
+Uint32 make_map_hash(Eterm key);
 void erts_block_hash_init(ErtsBlockHashState *state,
                           const byte *ptr,
                           Uint len,

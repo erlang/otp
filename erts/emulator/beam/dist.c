@@ -4884,8 +4884,21 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     erts_thr_progress_block();
 
     success = (!ERTS_PROC_IS_EXITING(net_kernel)
-               & !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
+               && !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
     if (success) {
+        /*
+         * Ensure we don't use a nodename-creation pair with
+         * external identifiers existing in the system.
+         */
+        while (!0) {
+            ErlNode *nep;
+            if (creation < 4)
+                creation = 4;
+            nep = erts_find_node(BIF_ARG_1, creation);
+            if (!nep || erts_node_refc(nep) == 0)
+                break;
+            creation++;
+        }
         inc_no_nodes();
         erts_set_this_node(BIF_ARG_1, (Uint32) creation);
         erts_this_dist_entry->creation = creation;
@@ -5898,10 +5911,10 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         ok_result = ref;
     else {
         Eterm *hp = HAlloc(BIF_P, 3);
-        Eterm bool = ((monitor_oflags & ERTS_ML_FLG_SPAWN_MONITOR)
+        Eterm spawns_monitor = ((monitor_oflags & ERTS_ML_FLG_SPAWN_MONITOR)
                       ? am_true : am_false);
         ASSERT(BIF_ARG_4 == am_spawn_opt);
-        ok_result = TUPLE2(hp, ref, bool);
+        ok_result = TUPLE2(hp, ref, spawns_monitor);
     }
 
     code = erts_dsig_prepare(&ctx, dep,

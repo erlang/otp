@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1460,7 +1460,9 @@ gen_macros() ->
     w("#if wxUSE_WEBVIEW && wxUSE_WEBVIEW_IE~n"),
     w("#include <wx/msw/webview_ie.h>~n"),
     w("#endif~n"),
-
+    w("#if wxUSE_GLCANVAS_EGL && !wxCHECK_VERSION(3,2,3)~n"),
+    w("#include <EGL/egl.h>~n"),
+    w("#endif~n"),
 
     w("~n~n", []),
     w("#ifndef wxICON_DEFAULT_BITMAP_TYPE~n",[]),

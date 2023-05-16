@@ -907,105 +907,121 @@ unused_import(Config) when is_list(Config) ->
 
 %% Test singleton type variables
 singleton_type_var_errors(Config) when is_list(Config) ->
-    Ts = [ {singleton_error1
-           , <<"-spec test_singleton_typevars_in_union(Opts) -> term() when
+    Ts = [{singleton_error1,
+           <<"-spec test_singleton_typevars_in_union(Opts) -> term() when
                       Opts :: {ok, Unknown} | {error, Unknown}.
                 test_singleton_typevars_in_union(_) ->
                   error.
-             ">>
-           , []
-           , {  errors
-             , [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]
-             , []
-             }
-           }
-         , { singleton_error2
-           , <<"-spec test_singleton_list_typevars_in_union([Opts]) -> term() when
+             ">>,
+           [],
+           {warnings,[{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]}},
+
+          {singleton_error2,
+           <<"-spec test_singleton_list_typevars_in_union([Opts]) -> term() when
                       Opts :: {ok, Unknown} | {error, Unknown}.
                 test_singleton_list_typevars_in_union(_) ->
-                    error.">>
-           , []
-           , {  errors
-             , [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]
-             , []
-             }
-           }
-         , { singleton_error3
-           , <<"-spec test_singleton_list_typevars_in_list([Opts]) -> term() when
+                    error.">>,
+           [],
+           {warnings,[{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]}},
+
+          {singleton_error3,
+           <<"-spec test_singleton_list_typevars_in_list([Opts]) -> term() when
                       Opts :: {ok, Unknown}.
                 test_singleton_list_typevars_in_list(_) ->
-                    error.">>
-           , []
-           , {  errors
-             , [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]
-             , []
-             }
-           }
-         , { singleton_error4
-           , <<"-spec test_singleton_list_typevars_in_list_with_type_subst([{ok, Unknown}]) -> term().
+                    error.">>,
+           [],
+           {errors,
+            [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}],[]}},
+
+          {singleton_error4,
+           <<"-spec test_singleton_list_typevars_in_list_with_type_subst([{ok, Unknown}]) -> term().
                 test_singleton_list_typevars_in_list_with_type_subst(_) ->
-                    error.">>
-           , []
-           , {  errors
-             , [{{1,86},erl_lint,{singleton_typevar,'Unknown'}}]
-             , []
-             }
-           }
-         , { singleton_error5
-           , <<"-spec test_singleton_buried_typevars_in_union(Opts) -> term() when
+                    error.">>,
+           [],
+           {errors,[{{1,86},erl_lint,{singleton_typevar,'Unknown'}}],[]}},
+
+          {singleton_error5,
+           <<"-spec test_singleton_buried_typevars_in_union(Opts) -> term() when
                       Opts :: {ok, Foo} | {error, Foo},
                       Foo  :: {true, X} | {false, X}.
                 test_singleton_buried_typevars_in_union(_) ->
-                    error.">>
-           , []
-           , {  errors
-             , [{{3,38},erl_lint,{singleton_typevar,'X'}}]
-             , []
-             }
-           }
-         , { singleton_error6
-           , <<"-spec test_multiple_subtypes_to_same_typevar(Opts) -> term() when
+                    error.">>,
+           [],
+           {warnings,[{{3,38},erl_lint,{singleton_typevar,'X'}}]}},
+
+          {singleton_error6,
+           <<"-spec test_multiple_subtypes_to_same_typevar(Opts) -> term() when
                       Opts :: {Foo, Bar} | Y,
                       Foo  :: X,
                       Bar  :: X,
                       Y    :: Z.
                 test_multiple_subtypes_to_same_typevar(_) ->
-                    error.">>
-           , []
-           , {  errors
-             , [{{5,31},erl_lint,{singleton_typevar,'Z'}}]
-             , []
-             }
-           }
-         , { singleton_error7
-           , <<"-spec test_duplicate_non_terminal_var_in_union(Opts) -> term() when
+                    error.">>,
+           [],
+           {errors,[{{5,31},erl_lint,{singleton_typevar,'Z'}}],[]}},
+
+          {singleton_error7,
+           <<"-spec test_duplicate_non_terminal_var_in_union(Opts) -> term() when
                       Opts :: {ok, U, U} | {error, U, U},
                       U    :: Foo.
                 test_duplicate_non_terminal_var_in_union(_) ->
-                    error.">>
-           , []
-           , {  errors
-             , [{{3,31},erl_lint,{singleton_typevar,'Foo'}}]
-             , []
-             }
-           }
-         , { singleton_ok1
-           , <<"-spec test_multiple_occurrences_singleton(Opts) -> term() when
+                    error.">>,
+           [],
+           {errors,[{{3,31},erl_lint,{singleton_typevar,'Foo'}}],[]}},
+
+          {singleton_error8,
+           <<"-spec test_unused_outside_union(Opts) -> term() when
+                    Unused :: Unknown,
+                    A :: Unknown,
+                    Opts :: {Unknown | A}.
+              test_unused_outside_union(_) ->
+                  error.">>,
+           [],
+           {errors,[{{2,21},erl_lint,{singleton_typevar,'Unused'}}],[]}},
+
+          {singleton_disabled_warning,
+           <<"-spec test_singleton_typevars_in_union(Opts) -> term() when
+                      Opts :: {ok, Unknown} | {error, Unknown}.
+                test_singleton_typevars_in_union(_) ->
+                  error.
+             ">>,
+           [nowarn_singleton_typevar],
+           []},
+
+          {singleton_ok1,
+           <<"-spec test_multiple_occurrences_singleton(Opts) -> term() when
                       Opts :: {Foo, Foo}.
                 test_multiple_occurrences_singleton(_) ->
-                    ok.">>
-           , []
-           , []
-           }
-         , { singleton_ok2
-           , <<"-spec id(X) -> X.
-                id(X) ->
-                    X.">>
-           , []
-           , []
-           }
+                    ok.">>,
+           [],
+           []},
 
-         ],
+          {singleton_ok2,
+           <<"-spec id(X) -> X.
+                id(X) ->
+                    X.">>,
+           [],
+           []},
+
+          {singleton_ok3,
+           <<"-spec ok(Opts) -> term() when
+                    Opts :: {Unknown, {ok, Unknown} | {error, Unknown}}.
+              ok(_) ->
+                  error.">>,
+           [],
+           []},
+
+          {singleton_ok4,
+           <<"-spec ok(Opts) -> term() when
+                    Union :: {ok, Unknown} | {error, Unknown},
+                    Opts :: {{tag, Unknown} | Union}.
+              ok(_) ->
+                  error.">>,
+           [],
+           []}
+
+          ],
+
     [] = run(Config, Ts),
     ok.
 

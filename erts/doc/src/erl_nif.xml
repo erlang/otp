@@ -1647,7 +1647,7 @@ enif_free_iovec(iovec);]]></code>
 
 
     <func>
-      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_get_string_length(ErlNifEnv *env,
+      <name since="OTP 26.0"><ret>int</ret><nametext>enif_get_string_length(ErlNifEnv *env,
         ERL_NIF_TERM list, unsigned *len, ErlNifCharEncoding encoding)</nametext>
       </name>
       <fsummary>Get the length of a C-string <c>list</c>.</fsummary>
@@ -2395,7 +2395,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom(ErlNifEnv *env,
+      <name since="OTP 26.0"><ret>int</ret><nametext>enif_make_new_atom(ErlNifEnv *env,
         const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create a new or existing atom term.</fsummary>
@@ -2412,7 +2412,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom_len(ErlNifEnv *env,
+      <name since="OTP 26.0"><ret>int</ret><nametext>enif_make_new_atom_len(ErlNifEnv *env,
         const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create a new or existing atom term.</fsummary>
@@ -2962,7 +2962,9 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
         <p>Notice that <c>enif_open_resource_type</c> is only allowed to be
           called in the two callbacks
           <seecref marker="#load"><c>load</c></seecref> and
-          <seecref marker="#upgrade"><c>upgrade</c></seecref>.</p>
+          <seecref marker="#upgrade"><c>upgrade</c></seecref>. The resource type
+          is only created or taken over if the calling <c>load</c>/<c>upgrade</c>
+          function returns successfully.</p>
 	<p>See also <seecref marker="#enif_open_resource_type_x">
 	  <c>enif_open_resource_type_x</c></seecref>.</p>
       </desc>
@@ -3526,7 +3528,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name since="OTP @OTP-17771@">
+      <name since="OTP 26.0">
         <ret>int</ret><nametext>enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...)</nametext>
       </name>
       <fsummary>

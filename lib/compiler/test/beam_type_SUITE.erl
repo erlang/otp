@@ -22,14 +22,16 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integers/1,numbers/1,coverage/1,booleans/1,setelement/1,
-	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
+         cons/1,tuple/1,
+         record_float/1,binary_float/1,float_compare/1,float_overflow/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
-         not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1]).
+         not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
+         funs/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -51,6 +53,7 @@ groups() ->
        record_float,
        binary_float,
        float_compare,
+       float_overflow,
        arity_checks,
        elixir_binaries,
        find_best,
@@ -71,7 +74,8 @@ groups() ->
        not_equal,
        infer_relops,
        binary_unit,
-       premature_concretization
+       premature_concretization,
+       funs
       ]}].
 
 init_per_suite(Config) ->
@@ -741,10 +745,16 @@ record_float(R, N0) ->
 
 binary_float(_Config) ->
     <<-1/float>> = binary_negate_float(<<1/float>>),
+    {'EXIT',{badarg,_}} = catch binary_float_1(id(64.0), id(0)),
     ok.
 
 binary_negate_float(<<Float/float>>) ->
     <<-Float/float>>.
+
+%% GH-7147.
+binary_float_1(X, Y) ->
+    _ = <<Y:(ceil(64.0 = X))/float, (binary_to_integer(ok))>>,
+    ceil(X) band Y.
 
 float_compare(_Config) ->
     false = do_float_compare(-42.0),
@@ -764,6 +774,46 @@ do_float_compare(X) ->
         T when (T =:= nil) or (T =:= false) -> T;
         _T -> Y > 0
     end.
+
+float_overflow(_Config) ->
+    Res1 = id((1 bsl 1023) * two()),
+    Res1 = float_overflow_1(),
+
+    Res2 = id((-1 bsl 1023) * two()),
+    Res2 = float_overflow_2(),
+
+    {'EXIT',{{bad_filter,[0]},_}} = catch float_overflow_3(),
+
+    ok.
+
+%% GH-7178: There would be an overflow when converting a number range
+%% to a float range.
+float_overflow_1() ->
+    round(
+      try
+          round(float(1 bsl 1023)) * two()
+      catch
+          _:_ ->
+              0.0
+      end
+     ).
+
+float_overflow_2() ->
+    round(
+      try
+          round(float(-1 bsl 1023)) * two()
+      catch
+          _:_ ->
+              0.0
+      end
+     ).
+
+two() -> 2.
+
+float_overflow_3() ->
+    [0 || <<>> <= <<>>,
+          [0 || (floor(1.7976931348623157e308) bsl 1) >= (1.0 + map_size(#{}))]
+    ].
 
 arity_checks(_Config) ->
     %% ERL-549: an unsafe optimization removed a test_arity instruction,
@@ -1362,6 +1412,31 @@ pm_concretization_2(_, Tagged) -> {error, Tagged}.
 
 pm_concretization_3(_) -> ok.
 pm_concretization_4(_) -> ok.
+
+funs(_Config) ->
+    {'EXIT',{badarg,_}} = catch gh_7179(),
+    false = is_function(id(fun() -> ok end), 1024),
+
+    {'EXIT',{badarg,_}} = catch gh_7197(),
+
+    ok.
+
+%% GH-7179: The beam_ssa_type pass would crash.
+gh_7179() ->
+    << <<0>> || is_function([0 || <<_>> <= <<>>], -1),
+                [] <- [] >>.
+
+%% GH-7197: The beam_ssa_type pass would crash.
+gh_7197() ->
+    [0 || is_function([ok || <<_>> <= <<>>], get_keys()),
+          fun (_) ->
+                  ok
+          end].
+
+
+%%%
+%%% Common utilities.
+%%%
 
 id(I) ->
     I.

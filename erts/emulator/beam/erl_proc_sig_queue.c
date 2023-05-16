@@ -5626,6 +5626,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                                                mdp->ref, c_p->common.id,
                                                NIL, NIL, THE_NON_VALUE);
                     amdp->origin.flags = ERTS_ML_STATE_ALIAS_UNALIAS;
+                    omon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
                     erts_monitor_tree_replace(&ERTS_P_MONITORS(c_p),
                                               omon,
                                               &amdp->origin);

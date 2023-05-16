@@ -157,7 +157,7 @@ docs:
 
 clean:
 	rm -f $(TARGET_FILES)
-	rm -f $(EGEN)/beam_opcodes.erl $(EGEN)/beam_opcodes.hrl
+	rm -f $(EGEN)/beam_opcodes.erl $(EGEN)/beam_opcodes.hrl $(EGEN)/OPCODES-GENERATED
 	rm -f $(EGEN)/core_parse.erl
 	rm -f core
 

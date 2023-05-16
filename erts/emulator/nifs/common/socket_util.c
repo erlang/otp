@@ -2371,6 +2371,18 @@ ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
         break;
 #endif
 
+#if defined(ERROR_INVALID_NETNAME)
+    case ERROR_INVALID_NETNAME:
+        return MKA(env, "invalid_netname");
+        break;
+#endif
+
+#if defined(ERROR_MORE_DATA)
+    case ERROR_MORE_DATA:
+        return MKA(env, "more_data");
+        break;
+#endif
+
     default:
         {
             char* str = erl_errno_id(err);
@@ -2666,7 +2678,7 @@ MSG_FUNCS
  */
 
 extern
-ErlNifTime esock_timestamp()
+ErlNifTime esock_timestamp(void)
 {
     ErlNifTime monTime = enif_monotonic_time(ERL_NIF_USEC);
     ErlNifTime offTime = enif_time_offset(ERL_NIF_USEC);

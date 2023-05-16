@@ -1009,12 +1009,14 @@ http_options_default() ->
 		error
 	end,
 
+    SslOpts = ssl_verify_host_options(true),
+
     UrlDecodePost =  boolfun(),
     [
      {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
      {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
      {autoredirect,    {value, true},                  #http_options.autoredirect,    AutoRedirectPost},
-     {ssl,             {value, {ssl, []}},             #http_options.ssl,             SslPost},
+     {ssl,             {value, {ssl, SslOpts}},        #http_options.ssl,             SslPost},
      {proxy_auth,      {value, undefined},             #http_options.proxy_auth,      ProxyAuthPost},
      {relaxed,         {value, false},                 #http_options.relaxed,         RelaxedPost},
      {url_encode,      {value, false},                 #http_options.url_encode,      UrlDecodePost},

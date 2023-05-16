@@ -4548,6 +4548,7 @@ ioctl(Socket, SetRequest, Arg1, Arg2) ->
       Socket         :: socket(),
       SelectInfo     :: select_info(),
       Reason         :: 'closed' | invalid();
+
             (Socket, CompletionInfo) -> 'ok' | {'error', Reason} when
       Socket         :: socket(),
       CompletionInfo :: completion_info(),
@@ -4590,14 +4591,10 @@ cancel(Socket, Info) ->
     erlang:error(badarg, [Socket, Info]).
 
 
-%% What about completion? There is no way to cancel a 
-%% I/O completion "request" once it has been issued.
-%% But we may still have "stuff" in our own queues,
-%% which needs to be cleared out.
 cancel(SockRef, Op, Handle) ->
     case prim_socket:cancel(SockRef, Op, Handle) of
         select_sent ->
-            flush_select_msg(SockRef, Handle),
+            _ = flush_select_msg(SockRef, Handle),
             _ = flush_abort_msg(SockRef, Handle),
             ok;
         not_found ->
@@ -4605,6 +4602,9 @@ cancel(SockRef, Op, Handle) ->
             _ = flush_abort_msg(SockRef, Handle),
             invalid;
         Result ->
+            %% Since we do not actually if we are using
+            %% select or completion here, so flush both...
+            _ = flush_select_msg(SockRef, Handle),
             _ = flush_completion_msg(SockRef, Handle),
             _ = flush_abort_msg(SockRef, Handle),
             Result

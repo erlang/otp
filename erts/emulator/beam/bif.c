@@ -374,6 +374,7 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
                                                    NIL,
                                                    THE_NON_VALUE);
        amdp->origin.flags = mon->flags & ERTS_ML_STATE_ALIAS_MASK;
+       mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
        erts_monitor_tree_replace(&ERTS_P_MONITORS(c_p), mon, &amdp->origin);
        break;
    }

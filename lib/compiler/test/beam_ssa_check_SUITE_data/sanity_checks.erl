@@ -18,6 +18,8 @@
 
 -module(sanity_checks).
 
+-compile(no_ssa_opt_private_append).
+
 -export([check_fail/0,
          check_wrong_pass/0,
          check_xfail/0,
@@ -33,7 +35,9 @@
          t25/0, t26/0, t27/0, t28/0, t29/0,
          t30/0, t31/0, t32/1, t33/1, t34/1,
          t35/1, t36/0, t37/0, t38/0, t39/1,
-         t40/0, t41/0, t42/0, t43/0, t44/0]).
+         t40/0, t41/0, t42/0, t43/0, t44/0,
+
+         check_env/0]).
 
 %% Check that we do not trigger on the wrong pass
 check_wrong_pass() ->
@@ -325,3 +329,13 @@ t44() ->
 %ssa% () when post_ssa_opt ->
 %ssa% _ = call(fun e:f0/1, {...}).
     e:f0({}).
+
+%% Ensure bug which trashed the environment after matching a literal
+%% bitstring stays fixed.
+check_env() ->
+%ssa% () when post_ssa_opt ->
+%ssa% X = bs_create_bin(append, _, <<>>, ...),
+%ssa% ret(X).
+    A = <<>>,
+    B = ex:f(),
+    <<A/binary, B/binary>>.

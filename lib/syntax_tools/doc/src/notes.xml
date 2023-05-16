@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Map comprehensions as suggested in EEP 58 has now been
+	    implemented.</p>
+          <p>
+	    Own Id: OTP-18413 Aux Id: EEP-58, PR-6727 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 3.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

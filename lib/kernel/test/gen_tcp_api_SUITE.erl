@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1998-2023. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(gen_tcp_api_SUITE).
@@ -353,15 +353,22 @@ t_connect_src_port(Config) when is_list(Config) ->
 %% invalid things.
 t_connect_bad(Config) when is_list(Config) ->
     NonExistingPort = 45638,		% Not in use, I hope.
-    {error, Reason1} = gen_tcp:connect(localhost, NonExistingPort, 
-                                       ?INET_BACKEND_OPTS(Config)),
-    io:format("Error for connection attempt to port not in use: ~p",
-	      [Reason1]),
+    t_connect_bad(Config, localhost, NonExistingPort, "port not in use"),
+    t_connect_bad(Config, "non-existing-host-xxx", 7, "non-existing host"),
+    element(1, os:type()) =:= unix andalso
+        begin
+            t_connect_bad(Config, "",              7, "empty host string"),
+            t_connect_bad(Config, '',              7, "empty host atom")
+        end,
+    t_connect_bad(Config, ".",                     7, "root domain string"),
+    t_connect_bad(Config, '.',                     7, "root domain atom").
 
-    {error, Reason2} = gen_tcp:connect("non-existing-host-xxx", 7,
-                                       ?INET_BACKEND_OPTS(Config)),
-    io:format("Error for connection attempt to non-existing host: ~p",
-	      [Reason2]),
+t_connect_bad(Config, Host, Port, Descr) ->
+    {error, Reason} =
+        gen_tcp:connect(Host, Port,?INET_BACKEND_OPTS(Config)),
+    io:format(
+      "Error for connection attempt to " ++ Descr ++ ": ~p~n",
+      [Reason]),
     ok.
 
 

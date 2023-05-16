@@ -1,0 +1,5 @@
+# Ignore everything in this directory
+*
+# Except this file, to force the directory to stick around
+# for the tests to later make use of
+!.gitignore

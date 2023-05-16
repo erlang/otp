@@ -479,10 +479,7 @@ wait_cert_verify(info, Event, State) ->
 wait_cert_verify(state_timeout, Event, State) ->
     handle_state_timeout(Event, ?FUNCTION_NAME, State);
 wait_cert_verify(Type, Event, State) ->
-    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
-    catch throw:#alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
-    end.
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(), term(), #state{}) ->
@@ -506,7 +503,7 @@ cipher(internal = Type, #finished{} = Event, #state{connection_states = Connecti
 cipher(state_timeout, Event, State) ->
     handle_state_timeout(Event, ?FUNCTION_NAME, State);
 cipher(Type, Event, State) ->
-     gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec connection(gen_statem:event_type(),
@@ -761,6 +758,8 @@ alert_or_reset_connection(Alert, StateName, #state{connection_states = Cs} = Sta
             {next_state, connection, NewState}
     end.
 
+gen_handshake(_, {call, _From}, {application_data, _Data}, _State) ->
+    {keep_state_and_data, [postpone]};
 gen_handshake(StateName, Type, Event, State) ->
     try tls_dtls_connection:StateName(Type, Event, State)
     catch

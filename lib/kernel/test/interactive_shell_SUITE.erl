@@ -46,9 +46,9 @@
          shell_history_custom/1, shell_history_custom_errors/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
-         shell_navigation/1, shell_xnfix/1, shell_delete/1,
+         shell_navigation/1, shell_multiline_navigation/1, shell_xnfix/1, shell_delete/1,
          shell_transpose/1, shell_search/1, shell_insert/1,
-         shell_update_window/1, shell_huge_input/1,
+         shell_update_window/1, shell_small_window_multiline_navigation/1, shell_huge_input/1,
          shell_invalid_unicode/1, shell_support_ansi_input/1,
          shell_invalid_ansi/1, shell_suspend/1, shell_full_queue/1,
          shell_unicode_wrap/1, shell_delete_unicode_wrap/1,
@@ -66,7 +66,7 @@
 -export([load/0, add/1]).
 %% For custom prompt testing
 -export([prompt/1]).
-
+-record(tmux, {peer, node, name, orig_location }).
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,3}}].
@@ -124,9 +124,9 @@ groups() ->
       ]},
      {tty_latin1,[],[{group,tty_tests}]},
      {tty_tests, [parallel],
-      [shell_navigation, shell_xnfix, shell_delete,
+      [shell_navigation, shell_multiline_navigation, shell_xnfix, shell_delete,
        shell_transpose, shell_search, shell_insert,
-       shell_update_window, shell_huge_input,
+       shell_update_window, shell_small_window_multiline_navigation, shell_huge_input,
        shell_support_ansi_input,
        shell_standard_error_nlcr,
        shell_expand_location_above,
@@ -404,7 +404,68 @@ shell_navigation(Config) ->
     after
         stop_tty(Term)
     end.
+shell_multiline_navigation(Config) ->
+    Term = start_tty(Config),
 
+    try
+        [begin
+             check_location(Term, {0, 0}),
+             send_tty(Term,"{aaa,"),
+             check_location(Term, {0,width("{aaa,")}),
+             send_tty(Term,"\n'b"++U++"b',"),
+             check_location(Term, {0, width("'b"++U++"b',")}),
+             send_tty(Term,"\nccc}"),
+             check_location(Term, {-2, 0}), %% Check that cursor jump backward (blink)
+             timer:sleep(1000), %% Wait for cursor to jump back
+             check_location(Term, {0, width("ccc}")}),
+             send_tty(Term,"Home"),
+             check_location(Term, {0, 0}),
+             send_tty(Term,"End"),
+             check_location(Term, {0, width("ccc}")}),
+             send_tty(Term,"Left"),
+             check_location(Term, {0, width("ccc")}),
+             send_tty(Term,"C-Left"),
+             check_location(Term, {0, 0}),
+             send_tty(Term,"C-Left"),
+             check_location(Term, {-1, width("'b"++U++"b',")}),
+             send_tty(Term,"C-Left"),
+             check_location(Term, {-1, 0}),
+             %send_tty(Term,"C-Left"),
+             %check_location(Term, {-1, 0}),
+             %send_tty(Term,"C-Right"),
+             %check_location(Term, {-1, 1}),
+             send_tty(Term,"C-Right"),
+             check_location(Term, {-1, width("'b"++U++"b'")}),
+             send_tty(Term,"C-Up"),
+             check_location(Term, {-2, width("{aaa,")}),
+             send_tty(Term,"C-Down"),
+             send_tty(Term,"C-Down"),
+             check_location(Term, {0, width("ccc}")}),
+             send_tty(Term,"Left"),
+             send_tty(Term,"C-Up"),
+             check_location(Term, {-1, width("'b"++U)}),
+             send_tty(Term,"M-<"),
+             check_location(Term, {-2, 0}),
+             send_tty(Term,"M->"),
+             send_tty(Term,"Left"),
+             check_location(Term, {0,width("ccc")}),
+             send_tty(Term,"Enter"),
+             send_tty(Term,"Right"),
+             check_location(Term, {0,0}),
+             send_tty(Term,"C-h"), % Backspace
+             check_location(Term, {-1,width("ccc}")}),
+             send_tty(Term,"Left"),
+             send_tty(Term,"M-Enter"),
+             send_tty(Term,"Right"),
+             check_location(Term, {0,1}),
+             send_tty(Term,"M-c"),
+             check_location(Term, {-3,0}),
+             send_tty(Term,"{'"++U++"',\n\n\nworks}.\n")
+            end || U <- hard_unicode()],
+        ok
+    after
+        stop_tty(Term)
+    end.
 shell_clear(Config) ->
 
     Term = start_tty(Config),
@@ -727,9 +788,7 @@ shell_transpose(Config) ->
     end.
 
 shell_search(C) ->
-
     Term = start_tty(C),
-    {_Row, Cols} = get_location(Term),
 
     try
         send_tty(Term,"a"),
@@ -743,20 +802,22 @@ shell_search(C) ->
         send_tty(Term,"Enter"),
         check_location(Term, {0, 0}),
         send_tty(Term,"C-r"),
-        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
+        check_content(Term, "search:\\s*\n\\s*'a😀'."),
         send_tty(Term,"C-a"),
-        check_location(Term, {0, width(C, "'a😀'.")}),
+        check_location(Term, {-1, width(C, "'a😀'.")}),
         send_tty(Term,"Enter"),
         send_tty(Term,"C-r"),
-        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
+        check_content(Term, "search:\\s*\n\\s*'a😀'."),
         send_tty(Term,"a"),
-        check_location(Term, {0, - Cols + width(C, "(search)`a': 'a😀'.") }),
+        check_content(Term, "search: a\\s*\n\\s*'a😀'."),
         send_tty(Term,"C-r"),
-        check_location(Term, {0, - Cols + width(C, "(search)`a': a.") }),
+        check_content(Term, "search: a\\s*\n\\s*a."),
         send_tty(Term,"BSpace"),
-        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
+        check_content(Term, "search:\\s*\n\\s*'a😀'."),
         send_tty(Term,"BSpace"),
-        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
+        check_content(Term, "search:\\s*\n\\s*'a😀'."),
+        send_tty(Term,"M-c"),
+        check_location(Term, {-1, 0}),
         ok
     after
         stop_tty(Term),
@@ -811,7 +872,49 @@ shell_update_window(Config) ->
     after
         stop_tty(Term)
     end.
-
+shell_small_window_multiline_navigation(Config) ->
+    Term0 = start_tty(Config),
+    tmux(["resize-window -t ",tty_name(Term0)," -x ",30, " -y ", 6]),
+    {Row, Col} = get_location(Term0),
+    Term = Term0#tmux{orig_location = {Row, Col}},
+    Text = ("xbcdefghijklmabcdefghijklm\n"++
+        "abcdefghijkl\n"++
+        "abcdefghijklmabcdefghijklm\n"++
+        "abcdefghijklmabcdefghijklx"),
+    try
+        send_tty(Term,Text),
+        check_location(Term, {0, -4}),
+        send_tty(Term,"Home"),
+        check_location(Term, {-1, 0}),
+        send_tty(Term, "C-Up"),
+        check_location(Term, {-2, 0}),
+        send_tty(Term, "C-Down"),
+        check_location(Term, {-1, 0}),
+        send_tty(Term, "Left"),
+        check_location(Term, {-1, -4}),
+        send_tty(Term, "Right"),
+        check_location(Term, {-1, 0}),
+        send_tty(Term, "\e[1;4A"),
+        check_location(Term, {-5, 0}),
+        check_content(Term,"xbc"),
+        send_tty(Term, "\e[1;4B"),
+        check_location(Term, {0, -4}),
+        check_content(Term,"klx"),
+        send_tty(Term, " sets:is_e\t"),
+        check_content(Term,"is_element"),
+        check_content(Term,"is_empty"),
+        check_location(Term, {-3, 6}),
+        send_tty(Term, "C-Up"),
+        send_tty(Term,"Home"),
+        check_location(Term, {-2, 0}),
+        send_tty(Term, "sets:is_e\t"),
+        check_content(Term,"is_element"),
+        check_content(Term,"is_empty"),
+        check_location(Term, {-4, 9}),
+        ok
+    after
+        stop_tty(Term)
+    end.
 shell_huge_input(Config) ->
     Term = start_tty(Config),
 
@@ -968,7 +1071,7 @@ shell_expand_location_below(Config) ->
         send_stdin(Term, "\t"),
         %% The expansion does not fit on screen, verify that
         %% expand above mode is used
-        check_content(fun() -> get_content(Term, "-S -5") end,
+        check_content(fun() -> get_content(Term, "-S -7") end,
                       "3> long_module:" ++ FunctionName ++ "\nfunctions"),
         check_content(Term, "3> long_module:" ++ FunctionName ++ "$"),
 
@@ -1063,18 +1166,19 @@ external_editor(Config) ->
                 tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
                 send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
                 send_tty(Term, "\"some text with\nnewline in it\""),
-                check_content(Term,"3> \"some text with\\s*\n.+3>\\s*newline in it\""),
+                check_content(Term,"3> \"some text with\\s*\n.+\\s*newline in it\""),
                 send_tty(Term, "C-O"),
                 check_content(Term,"GNU nano [\\d.]+"),
-                check_content(Term,"newline in it\""),
+                check_content(Term,"\"some text with\\s*\n\\s*newline in it\""),
+                send_tty(Term, "Right"),
                 send_tty(Term, "still"),
                 send_tty(Term, "Enter"),
                 send_tty(Term, "C-O"), %% save in nano
                 send_tty(Term, "Enter"),
                 send_tty(Term, "C-X"), %% quit in nano
-                check_content(Term,"still\n.+3> newline in it\""),
+                check_content(Term,"3> \"still\\s*\n\\s*.+\\s*some text with\\s*\n.+\\s*newline in it\""),
                 send_tty(Term,".\n"),
-                check_content(Term,"\\Q\"some text with\\nstill\\nnewline in it\"\\E"),
+                check_content(Term,"\\Q\"still\\nsome text with\\nnewline in it\"\\E"),
                 ok
             after
                 stop_tty(Term),
@@ -1379,8 +1483,6 @@ npwcwidth(CP) ->
                     end
             end
     end.
-
--record(tmux, {peer, node, name, orig_location }).
 
 tmux([Cmd|_] = Command) when is_list(Cmd) ->
     tmux(lists:concat(Command));
@@ -2125,15 +2227,13 @@ test_remote_job_control(Node) ->
        {expect, "Unknown job"},
        {expect, " --> $"},
        {putline, "c 1"},
-       {expect, "\r\n"},
-       {putline, ""},
        {expect, "\\Q("++RemNode++"@\\E[^)]*\\)[12]> $"},
        {putdata, "\^g"},
        {expect, " --> $"},
        {putline, "j"},
        {expect, "1[*] {shell,start,\\[init]}"},
        {putline, "c"},
-       {expect, "\r\n"},
+       {expect, "\\Q("++RemNode++"@\\E[^)]*\\)[123]> $"},
        {sleep, 100},
        {putline, "35."},
        {expect, "\\Q("++RemNode++"@\\E[^)]*\\)[123]> $"}

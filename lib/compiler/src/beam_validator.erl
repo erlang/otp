@@ -1582,7 +1582,7 @@ update_create_bin_list([], Vst) -> Vst.
 update_create_bin_type(append) -> #t_bitstring{};
 update_create_bin_type(private_append) -> #t_bitstring{};
 update_create_bin_type(binary) -> #t_bitstring{};
-update_create_bin_type(float) -> #t_float{};
+update_create_bin_type(float) -> #t_number{};
 update_create_bin_type(integer) -> #t_integer{};
 update_create_bin_type(utf8) -> #t_integer{};
 update_create_bin_type(utf16) -> #t_integer{};
@@ -2830,7 +2830,13 @@ unpack_typed_arg(#tr{r=Reg,t=Type}, Vst) ->
     %% The validator is not yet clever enough to do proper range analysis like
     %% the main type pass, so our types will be a bit cruder here, but they
     %% should at the very least not be in direct conflict.
-    true = none =/= beam_types:meet(get_movable_term_type(Reg, Vst), Type),
+    Current = get_movable_term_type(Reg, Vst),
+    case beam_types:meet(Current, Type) of
+        none ->
+            throw({bad_typed_register, Current, Type});
+        _ ->
+            ok
+    end,
     Reg;
 unpack_typed_arg(Arg, _Vst) ->
     Arg.
@@ -3429,7 +3435,17 @@ bif_types(Op, Ss, Vst) ->
                     Other
             end;
         {_,_} ->
-            beam_call_types:types(erlang, Op, Args)
+            Res0 = beam_call_types:types(erlang, Op, Args),
+            {Ret0, ArgTypes, SubSafe} = Res0,
+
+            %% Match the non-converging range analysis done in
+            %% `beam_ssa_type:opt_ranges/1`. This is safe since the validator
+            %% doesn't have to worry about convergence.
+            case beam_call_types:arith_type({bif, Op}, Args) of
+                any -> Res0;
+                Ret0 -> Res0;
+                Ret -> {meet(Ret, Ret0), ArgTypes, SubSafe}
+            end
     end.
 
 join_tuple_elements(Tuple) ->

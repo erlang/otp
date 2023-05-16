@@ -32,6 +32,174 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When checking behaviors, Dialyzer could generate false
+	    warning that a callback function did not have the correct
+	    type according to the spec in the behavior
+	    definition.</p>
+          <p>
+	    Own Id: OTP-18237 Aux Id: GH-6221, PR-6243 </p>
+        </item>
+        <item>
+	    <p>In a spec, <c>list(none())</c> used to mean
+	    <c>none()</c>. It has now been corrected to mean the
+	    empty list.</p>
+          <p>
+	    Own Id: OTP-18276 Aux Id: GH-6333 </p>
+        </item>
+        <item>
+	    <p>The compiler would silently accept singleton (unbound)
+	    type variables in a union type. Starting from Erlang/OTP
+	    26, the compiler will generate a warning for this
+	    example. The warning can be disabled using the
+	    <c>nowarn_singleton_typevar</c> option. In Erlang/OTP 27,
+	    the warning will become an error.</p>
+          <p>
+	    Own Id: OTP-18389 Aux Id: GH-6508, PR-6864, GH-7116 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug that prevented the <c>--plts</c> option
+	    from being used together with <c>--add-to-plt</c>.</p>
+          <p>
+	    Own Id: OTP-18485 Aux Id: GH-6850, PR-6854 </p>
+        </item>
+        <item>
+	    <p>Fixed a crash when analyzing code that contained
+	    illegal bitstring segment sizes.</p>
+          <p>
+	    Own Id: OTP-18562</p>
+        </item>
+        <item>
+	    <p>Fixed a crash when formatting certain warnings that
+	    contained multi-byte unicode characters.</p>
+          <p>
+	    Own Id: OTP-18564 Aux Id: GH-7153 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Dialyzer has a new incremental mode that be invoked by
+	    giving the <c>--incremental</c> option when running
+	    Dialyzer. This new incremental mode is likely to become
+	    the default in a future release.</p>
+	    <p>Incremental mode primarily differs from the previous,
+	    "classic", ways of running Dialyzer, in that its model is
+	    optimised around the common use case of regularly
+	    analysing a single codebase, tweaking the code, analysing
+	    it again, and so on, without explicit reference to the
+	    building and checking of a PLT.</p>
+	    <p>In this mode the PLT file acts much more like a true
+	    cache, where users provide a codebase and a set of files
+	    they care about, and Dialyzer does the legwork in terms
+	    of deciding how to most efficiently report all of the
+	    relevant warnings given the cached results it may already
+	    have in the PLT (and if a PLT doesn't exist, incremental
+	    mode will create one).</p>
+          <p>
+	    Own Id: OTP-18188 Aux Id: PR-5997 </p>
+        </item>
+        <item>
+	    <p>Dialyzer now produces clearer error messages for
+	    contract violations.</p>
+          <p>
+	    Own Id: OTP-18238 Aux Id: PR-6271 </p>
+        </item>
+        <item>
+	    <p>The name of a built-in type can now be reused as the
+	    name of type locally. That is useful when an OTP release
+	    introduces a new built-in type; having the possibility to
+	    redefine built-in types locally can make it easier to
+	    maintain code that works in multiple OTP releases.</p>
+          <p>
+	    Own Id: OTP-18282 Aux Id: GH-6132, PR-6335 </p>
+        </item>
+        <item>
+	    <p>There is new option <c>-no_spec</c> to ignore all
+	    specs. It is useful for debugging when one suspects that
+	    some specs could be incorrect.</p>
+          <p>
+	    Own Id: OTP-18310</p>
+        </item>
+        <item>
+	    <p>Dialyzer's overloaded domain warning is now disabled
+	    by default, and can be enabled with the flag
+	    <c>-Woverlapping_contract</c>.</p>
+	    <p>Dialyzer used to issue a warning for overloaded
+	    domains stating <c>"such contracts are currently
+	    unsupported and are simply ignored"</c>. </p>
+	    <p>These contracts are not "ignored" but rather, Dialyzer
+	    takes the union of the overloaded domains. This means
+	    that we lose the dependency from each corresponding input
+	    to output type. Because of this, the warning is really
+	    about not being able to establish a dependency between
+	    the input and output types of each respective overloaded
+	    function specification.</p>
+          <p>
+	    Own Id: OTP-18342 Aux Id: GH-6117, PR-6654 </p>
+        </item>
+        <item>
+          <p>
+	    Dialyzer has enabled (by default) warnings about unknown
+	    types and functions.</p>
+          <p>
+	    Prior to this change, Dialyzer had warnings about unknown
+	    types and functions disabled (by default).</p>
+          <p>
+	    This default value has been overwritten; Dialyzer now
+	    warns about unknown types and functions (as requested by
+	    the community in GH-5695). Thus, the following two
+	    examples are equivalent, i.e., passing the
+	    <c>-Wunknown</c> function is enabled by default:</p>
+          <p>
+	    <c>dialyzer moduler.erl -Wunknown -Wmissing_return</c></p>
+          <p>
+	    <c>dialyzer moduler.erl -Wmissing_return</c></p>
+          <p>
+	    Dialyzer has a new flag, <c>-Wno_unknown</c>. Its purpose
+	    is to suppress warnings about unknown functions and
+	    types.</p>
+          <p>
+	    Users who wish to suppress these warnings can invoke
+	    Dialyzer using this flag. Example: <c>dialyzer module.erl
+	    -Wno_unknown</c></p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18439 Aux Id: GH-5695,PR-6822, GH-6942 </p>
+        </item>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+        <item>
+	    <p>Added the new built-in type <c>dynamic()</c>
+	    introduced in EEP-61, improving support for gradual type
+	    checkers.</p>
+          <p>
+	    Own Id: OTP-18522</p>
+        </item>
+        <item>
+	    <p>Added the <c>argparse</c> module for simplified
+	    argument handling in escripts and similar.</p>
+          <p>
+	    Own Id: OTP-18558 Aux Id: PR-6852 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 5.0.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

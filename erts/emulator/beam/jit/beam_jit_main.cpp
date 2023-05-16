@@ -421,9 +421,9 @@ extern "C"
         /* Issues full memory/instruction barriers on all threads for us. */
         sys_icache_invalidate((char *)address, size);
 #elif defined(__aarch64__) && defined(__GNUC__) &&                             \
-        defined(ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION) &&                  \
-        defined(ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION) &&                  \
-        defined(ERTS_THR_INSTRUCTION_BARRIER)
+        defined(ERTS_THR_INSTRUCTION_BARRIER) &&                               \
+        ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION &&                           \
+        ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION
         /* Note that we do not issue any barriers here, whether instruction or
          * memory. This is on purpose as we must issue those on all schedulers
          * and not just the calling thread, and the chances of us forgetting to

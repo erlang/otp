@@ -184,9 +184,12 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
 
     Allversions = all_versions(),
 
+    AllSigAlgs = ssl:signature_algs(all, 'tlsv1.3'),
+
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
-                                        {options, [{versions, Allversions} | ServerOpts]}]),
+                                        {options, [{versions, Allversions}, 
+                                                   {signature_algs, AllSigAlgs} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     %% TLS-1.X Hello with SSL-3.0 record version

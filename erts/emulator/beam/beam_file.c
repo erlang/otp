@@ -1318,7 +1318,7 @@ int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk)
     return read_beam_chunks(iff, 1, &id, chunk);
 }
 
-void beamfile_init() {
+void beamfile_init(void) {
     Eterm suffix;
     Eterm *hp;
 

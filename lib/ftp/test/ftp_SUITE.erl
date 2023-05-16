@@ -1084,7 +1084,7 @@ error_datafail(Config) ->
     dbg:tpl(ftp_internal, verbose, []),
     dbg:p(Pid, [call]),
     {error,_} = ftp:ls(Pid),
-    dbg:stop_clear(),
+    dbg:stop(),
     Recv = fun(Recv) ->
         receive
             Msg when is_list(Msg) ->

@@ -542,7 +542,7 @@ ignore_undefs() ->
                 %% The following functions are optional dependencies for diameter
                 #{{dbg,ctp,0} => true,
                   {dbg,p,2} => true,
-                  {dbg,stop_clear,0} => true,
+                  {dbg,stop,0} => true,
                   {dbg,trace_port,2} => true,
                   {dbg,tracer,2} => true,
                   {erl_prettypr,format,1} => true,

@@ -47,8 +47,7 @@
  */
 
 char *
-erl_errno_id(error)
-    int error;			/* Posix error number (as from errno). */
+erl_errno_id(int error /* Posix error number (as from errno). */)
 {
     switch (error) {
 #ifdef E2BIG

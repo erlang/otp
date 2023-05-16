@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -281,7 +281,7 @@ ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_FORCE_INLINE ErtsSysPerfCounter
-erts_sys_perf_counter()
+erts_sys_perf_counter(void)
 {
     return (*erts_sys_time_data__.r.o.perf_counter)();
 }

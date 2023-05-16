@@ -136,6 +136,8 @@
                 writer,
                 options,
                 unicode,
+                lines_before = [],   %% All lines before the current line in reverse order
+                lines_after = [],    %% All lines after the current line.
                 buffer_before = [],  %% Current line before cursor in reverse
                 buffer_after = [],   %% Current line after  cursor not in reverse
                 buffer_expand,       %% Characters in expand buffer
@@ -164,11 +166,22 @@
                       sig => boolean()
                     }.
 -type request() ::
+        {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
+        {putc_keep_state, unicode:unicode_binary()} |
         {expand, unicode:unicode_binary()} |
+        {expand_with_trim, unicode:unicode_binary()} |
         {insert, unicode:unicode_binary()} |
         {delete, integer()} |
+        delete_after_cursor |
+        delete_line |
+        redraw_prompt |
+        {redraw_prompt, string(), string(), tuple()} |
+        redraw_prompt_pre_deleted |
+        new_prompt |
         {move, integer()} |
+        {move_line, integer()} |
+        {move_combo, integer(), integer(), integer()} |
         clear |
         beep.
 -opaque state() :: #state{}.
@@ -275,9 +288,9 @@ init(State, {unix,_}) ->
     %% See https://www.gnu.org/software/termutils/manual/termcap-1.3/html_mono/termcap.html#SEC23
     %% for a list of all possible termcap capabilities
     Clear = case tgetstr("clear") of
-             {ok, C} -> C;
-             false -> (#state{})#state.clear
-         end,
+                {ok, C} -> C;
+                false -> (#state{})#state.clear
+            end,
     Cols = case tgetnum("co") of
                {ok, Cs} -> Cs;
                _ -> (#state{})#state.cols
@@ -320,7 +333,7 @@ init(State, {unix,_}) ->
                    {ok, <<"\e[6n">> = U7} ->
                        %% User 7 should contain the codes for getting
                        %% cursor position.
-                       % User 6 should contain how to parse the reply
+                       %% User 6 should contain how to parse the reply
                        {ok, <<"\e[%i%d;%dR">>} = tgetstr("u6"),
                        <<"\e[6n">> = U7;
                    false -> (#state{})#state.position
@@ -525,6 +538,8 @@ writer_loop(TTY, WriterRef) ->
 -spec handle_request(state(), request()) -> {erlang:iovec(), state()}.
 handle_request(State = #state{ options = #{ tty := false } }, Request) ->
     case Request of
+        {putc_raw, Binary} ->
+            {Binary, State};
         {putc, Binary} ->
             {encode(Binary, State#state.unicode), State};
         beep ->
@@ -532,26 +547,62 @@ handle_request(State = #state{ options = #{ tty := false } }, Request) ->
         _Ignore ->
             {<<>>, State}
     end;
+handle_request(State, {redraw_prompt, Pbs, Pbs2, {LB, {Bef, Aft}, LA}}) ->
+    {ClearLine, Cleared} = handle_request(State, delete_line),
+    CL = lists:reverse(Bef,Aft),
+    Text = Pbs ++ lists:flatten(lists:join("\n"++Pbs2, lists:reverse(LB)++[CL|LA])),
+    Moves = if LA /= [] ->
+                    [Last|_] = lists:reverse(LA),
+                    {move_combo, -logical(Last), length(LA), logical(Bef)};
+               true ->
+                    {move, -logical(Aft)}
+            end,
+    {_, InsertedText} = handle_request(Cleared, {insert, unicode:characters_to_binary(Text)}),
+    {_, Moved} = handle_request(InsertedText, Moves),
+    {Redraw, NewState} = handle_request(Moved, redraw_prompt_pre_deleted),
+    {[ClearLine, Redraw], NewState};
+handle_request(State, redraw_prompt) ->
+    {ClearLine, _} = handle_request(State, delete_line),
+    {Redraw, NewState} = handle_request(State, redraw_prompt_pre_deleted),
+    {[ClearLine, Redraw], NewState};
+handle_request(State = #state{unicode = U, cols = W}, redraw_prompt_pre_deleted) ->
+    {Movement, TextInView} = in_view(State),
+    {_, NewPrompt} = handle_request(State, new_prompt),
+    {Redraw, RedrawState} = insert_buf(NewPrompt#state{xn = false}, unicode:characters_to_binary(TextInView)),
+    {Output, _} = case State#state.buffer_expand of
+                      undefined ->
+                        {[encode(Redraw, U), xnfix(RedrawState, RedrawState#state.buffer_before), Movement], RedrawState};
+                      BufferExpand ->
+                          BBCols = cols(State#state.buffer_before, U),
+                          End = BBCols + cols(State#state.buffer_after,U),
+                          {ExpandBuffer, NewState} = insert_buf(RedrawState#state{ buffer_expand = [] }, iolist_to_binary(BufferExpand)),
+                          BECols = cols(W, End, NewState#state.buffer_expand, U),
+                          MoveToEnd = move_cursor(RedrawState, BECols, End),
+                          {[encode(Redraw,U),encode(ExpandBuffer, U), MoveToEnd, Movement], RedrawState}
+
+                  end,
+    {Output, State};
 %% Clear the expand buffer after the cursor when we handle any request.
-handle_request(State = #state{ buffer_expand = Expand, unicode = U }, Request)
+handle_request(State = #state{ buffer_expand = Expand, unicode = U}, Request)
   when Expand =/= undefined ->
-    BBCols = cols(State#state.buffer_before, U),
-    BACols = cols(State#state.buffer_after, U),
-    ClearExpand = [move_cursor(State, BBCols, BBCols + BACols),
-                   State#state.delete_after_cursor,
-                   move_cursor(State, BBCols + BACols, BBCols)],
-    {Output, NewState} = handle_request(State#state{ buffer_expand = undefined }, Request),
-    {[ClearExpand, encode(Output, U)], NewState};
+    {Redraw, NoExpandState} = handle_request(State#state{ buffer_expand = undefined }, redraw_prompt),
+    {Output, NewState} = handle_request(NoExpandState#state{ buffer_expand = undefined }, Request),
+    {[encode(Redraw, U), encode(Output, U)], NewState};
+handle_request(State, new_prompt) ->
+    {"", State#state{buffer_before = [],
+                     buffer_after = [],
+                     lines_before = [],
+                     lines_after = []}};
 %% Print characters in the expandbuffer after the cursor
-handle_request(State = #state{ unicode = U }, {expand, Binary}) ->
-    BBCols = cols(State#state.buffer_before, U),
-    BACols = cols(State#state.buffer_after, U),
-    Expand = iolist_to_binary(["\r\n",string:trim(Binary, both)]),
-    MoveToEnd = move_cursor(State, BBCols, BBCols + BACols),
-    {ExpandBuffer, NewState} = insert_buf(State#state{ buffer_expand = [] }, Expand),
-    BECols = cols(NewState#state.cols, BBCols + BACols, NewState#state.buffer_expand, U),
-    MoveToOrig = move_cursor(State, BECols, BBCols),
-    {[MoveToEnd, encode(ExpandBuffer, U), MoveToOrig], NewState};
+handle_request(State, {expand, Expand}) ->
+    handle_request(State#state{buffer_expand = Expand}, redraw_prompt);
+handle_request(State, {expand_with_trim, Binary}) ->
+    handle_request(State, 
+                   {expand, iolist_to_binary(["\r\n",string:trim(Binary, both)])});
+%% putc_keep_state prints Binary and keeps the current prompt unchanged
+handle_request(State = #state{ unicode = U }, {putc_keep_state, Binary})  ->
+    {PutBuffer, _NewState} = insert_buf(State, Binary),
+    {encode(PutBuffer, U), State};
 %% putc prints Binary and overwrites any existing characters
 handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
     %% Todo should handle invalid unicode?
@@ -560,34 +611,136 @@ handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
             {encode(PutBuffer, U), NewState};
        true ->
             %% Delete any overwritten characters after current the cursor
-            OldLength = logical(State#state.buffer_before),
-            NewLength = logical(NewState#state.buffer_before),
+            OldLength = logical(State#state.buffer_before) + lists:sum([logical(L) || L <- State#state.lines_before]),
+            NewLength = logical(NewState#state.buffer_before) + lists:sum([logical(L) || L <- NewState#state.lines_before]),
             {_, _, _, NewBA} = split(NewLength - OldLength, NewState#state.buffer_after, U),
             {encode(PutBuffer, U), NewState#state{ buffer_after = NewBA }}
     end;
-handle_request(State = #state{ unicode = U }, {delete, N}) when N > 0 ->
+handle_request(State, {putc_raw, Binary}) ->
+    handle_request(State, {putc, unicode:characters_to_binary(Binary, latin1)});
+handle_request(State = #state{}, delete_after_cursor) ->
+    {[State#state.delete_after_cursor],
+     State#state{buffer_after = [],
+                 lines_after = []}};
+handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
+                              lines_before = LinesBefore,
+                              lines_after = _LinesAfter}, delete_line) ->
+    MoveToBeg = move_cursor(State, cols_multiline(Bef, LinesBefore, W, U), 0),
+    {[MoveToBeg, State#state.delete_after_cursor],
+     State#state{buffer_before = [],
+                 buffer_after = [],
+                 lines_before = [],
+                 lines_after = []}};
+handle_request(State = #state{ unicode = U, cols = W }, {delete, N}) when N > 0 ->
     {_DelNum, DelCols, _, NewBA} = split(N, State#state.buffer_after, U),
     BBCols = cols(State#state.buffer_before, U),
-    NewBACols = cols(NewBA, U),
-    {[encode(NewBA, U),
-      lists:duplicate(DelCols, $\s),
-      xnfix(State, BBCols + NewBACols + DelCols),
-      move_cursor(State,
-                  BBCols + NewBACols + DelCols,
-                  BBCols)],
-      State#state{ buffer_after = NewBA }};
-handle_request(State = #state{ unicode = U }, {delete, N}) when N < 0 ->
-    {_DelNum, DelCols, _, NewBB} = split(-N, State#state.buffer_before, U),
-    NewBBCols = cols(NewBB, U),
     BACols = cols(State#state.buffer_after, U),
-    {[move_cursor(State, NewBBCols + DelCols, NewBBCols),
-      encode(State#state.buffer_after,U),
-      lists:duplicate(DelCols, $\s),
-      xnfix(State, NewBBCols + BACols + DelCols),
-      move_cursor(State, NewBBCols + BACols + DelCols, NewBBCols)],
-     State#state{ buffer_before = NewBB } };
+    NewBACols = cols(NewBA, U),
+    Output = [encode(NewBA, U),
+              lists:duplicate(DelCols, $\s),
+              xnfix(State, BBCols + NewBACols + DelCols),
+              move_cursor(State,
+                          BBCols + NewBACols + DelCols,
+                          BBCols)],
+    NewState0 = State#state{ buffer_after = NewBA },
+    if State#state.lines_after =/= [], (BBCols + BACols-N) rem W =:= 0 ->
+            {Delete, _} = handle_request(State, delete_line),
+            {Redraw, NewState1} = handle_request(NewState0, redraw_prompt_pre_deleted),
+            {[Delete, Redraw], NewState1};
+       true ->
+            {Output, NewState0}
+    end;
+handle_request(State = #state{ unicode = U, cols = W }, {delete, N}) when N < 0 ->
+    {_DelNum, DelCols, _, NewBB} = split(-N, State#state.buffer_before, U),
+    BBCols = cols(State#state.buffer_before, U),
+    BACols = cols(State#state.buffer_after, U),
+    NewBBCols = cols(NewBB, U),
+    Output = [move_cursor(State, NewBBCols + DelCols, NewBBCols),
+              encode(State#state.buffer_after,U),
+              lists:duplicate(DelCols, $\s),
+              xnfix(State, NewBBCols + BACols + DelCols),
+              move_cursor(State, NewBBCols + BACols + DelCols, NewBBCols)],
+    NewState0 = State#state{ buffer_before = NewBB },
+    if State#state.lines_after =/= [], (BBCols+BACols+N) rem W =:= 0 ->
+            {Delete, _} = handle_request(State, delete_line),
+            {Redraw, NewState1} = handle_request(NewState0, redraw_prompt_pre_deleted),
+            {[Delete, Redraw], NewState1};
+       true ->
+            {Output, NewState0}
+    end;
 handle_request(State, {delete, 0}) ->
     {"",State};
+%% {move_combo, before_line_movement, line_movement, after_line_movement}
+%% Many of the move operations comes in threes, this is a helper to make
+%% movement a little bit easier. We move to the beginning of
+%% the line before switching line and then move to the right column on
+%% the next line.
+handle_request(State, {move_combo, V1, L, V2}) ->
+    {Moves1, NewState1} = handle_request(State, {move, V1}),
+    {Moves2, NewState2} = handle_request(NewState1, {move_line, L}),
+    {Moves3, NewState3} = handle_request(NewState2, {move, V2}),
+    {Moves1 ++ Moves2 ++ Moves3, NewState3};
+handle_request(State = #state{ cols = W,
+                               rows = R,
+                               unicode = U,
+                               buffer_before = Bef,
+                               buffer_after = Aft,
+                               lines_before = LinesBefore,
+                               lines_after = LinesAfter},
+               {move_line, L}) when L < 0, length(LinesBefore) >= -L ->
+    {LinesJumped, [B|NewLinesBefore]} = lists:split(-L -1, LinesBefore),
+    PrevLinesCols = cols_multiline([B|LinesJumped], W, U),
+    N_Cols = min(cols(Bef, U), cols(B, U)),
+    {_, _, NewBB, NewBA} = split_cols(N_Cols, B, U),
+    Moves = move_cursor(State, PrevLinesCols, 0),
+    CL = lists:reverse(Bef,Aft),
+    NewLinesAfter = lists:reverse([CL|LinesJumped], LinesAfter),
+    NewState = State#state{buffer_before = NewBB,
+                           buffer_after = NewBA,
+                           lines_before = NewLinesBefore,
+                           lines_after = NewLinesAfter},
+    RowsInView = cols_multiline([B,CL|LinesBefore], W, U) div W,
+    Output = if
+                 %% When we move up and the view is "full"
+                 RowsInView >= R ->
+                     {Movement, TextInView} = in_view(NewState),
+                     {ClearLine, Cleared} = handle_request(State, delete_line),
+                     {Redraw, _} = handle_request(Cleared, {insert, unicode:characters_to_binary(TextInView)}),
+                     [ClearLine, Redraw, Movement];
+                 true -> Moves
+             end,
+    {Output, NewState};
+handle_request(State = #state{ cols = W,
+                               rows = R,
+                               unicode = U,
+                               buffer_before = Bef,
+                               buffer_after = Aft,
+                               lines_before = LinesBefore,
+                               lines_after = LinesAfter},
+               {move_line, L}) when L > 0, length(LinesAfter) >= L ->
+    {LinesJumped, [A|NewLinesAfter]} = lists:split(L - 1, LinesAfter),
+    NextLinesCols = cols_multiline([(Bef++Aft)|LinesJumped], W, U),
+    N_Cols = min(cols(Bef, U), cols(A, U)),
+    {_, _, NewBB, NewBA} = split_cols(N_Cols, A, U),
+    Moves = move_cursor(State, 0, NextLinesCols),
+    CL = lists:reverse(Bef, Aft),
+    NewLinesBefore = lists:reverse([CL|LinesJumped],LinesBefore),
+    NewState = State#state{buffer_before = NewBB,
+                           buffer_after = NewBA,
+                           lines_before = NewLinesBefore,
+                           lines_after = NewLinesAfter},
+    RowsInView = cols_multiline([A|NewLinesBefore], W, U) div W,
+    Output = if
+                 RowsInView >= R ->
+                     {Movement, TextInView} = in_view(NewState),
+                     {ClearLine, Cleared} = handle_request(State, delete_line),
+                     {Redraw, _} = handle_request(Cleared, {insert, unicode:characters_to_binary(TextInView)}),
+                     [ClearLine, Redraw, Movement];
+                 true -> Moves
+             end,
+    {Output, NewState};
+handle_request(State, {move_line, _}) ->
+    {"", State};
 handle_request(State = #state{ unicode = U }, {move, N}) when N < 0 ->
     {_DelNum, DelCols, NewBA, NewBB} = split(-N, State#state.buffer_before, U),
     NewBBCols = cols(NewBB, U),
@@ -597,28 +750,56 @@ handle_request(State = #state{ unicode = U }, {move, N}) when N < 0 ->
 handle_request(State = #state{ unicode = U }, {move, N}) when N > 0 ->
     {_DelNum, DelCols, NewBB, NewBA} = split(N, State#state.buffer_after, U),
     BBCols = cols(State#state.buffer_before, U),
-    {move_cursor(State, BBCols, BBCols + DelCols),
-     State#state{ buffer_after = NewBA,
-                  buffer_before = NewBB ++ State#state.buffer_before} };
+    Moves = move_cursor(State, BBCols, BBCols + DelCols),
+    {Moves, State#state{ buffer_after = NewBA,
+                         buffer_before = NewBB ++ State#state.buffer_before} };
 handle_request(State, {move, 0}) ->
     {"",State};
-handle_request(State = #state{ xn = OrigXn, unicode = U }, {insert, Chars}) ->
+handle_request(State = #state{cols = W, xn = OrigXn, unicode = U,lines_after = LinesAfter}, {insert, Chars}) ->
     {InsertBuffer, NewState0} = insert_buf(State#state{ xn = false }, Chars),
-    NewState = NewState0#state{ xn = OrigXn },
-    BBCols = cols(NewState#state.buffer_before, U),
-    BACols = cols(NewState#state.buffer_after, U),
-    {[ encode(InsertBuffer, U),
-       encode(NewState#state.buffer_after, U),
-       xnfix(State, BBCols + BACols),
-       move_cursor(State, BBCols + BACols, BBCols) ],
-     NewState};
+    NewState1 = NewState0#state{ xn = OrigXn },
+    NewBBCols = cols(NewState1#state.buffer_before, U),
+    NewBACols = cols(NewState1#state.buffer_after, U),
+    Output = [ encode(InsertBuffer, U),
+               encode(NewState1#state.buffer_after, U),
+               xnfix(State, NewBBCols + NewBACols),
+               move_cursor(State, NewBBCols + NewBACols, NewBBCols) ],
+    if LinesAfter =:= []; (NewBBCols + NewBACols) rem W =:= 0 ->
+            {Output, NewState1};
+       true ->
+            {Delete, _} = handle_request(State, delete_line),
+            {Redraw, NewState2} = handle_request(NewState1, redraw_prompt_pre_deleted),
+            {[Delete, Redraw,""], NewState2}
+    end;
 handle_request(State, beep) ->
     {<<7>>, State};
 handle_request(State, clear) ->
-    {State#state.clear, State};
+    {State#state.clear, State#state{buffer_before = [],
+                                    buffer_after = [],
+                                    lines_before = [],
+                                    lines_after = []}};
 handle_request(State, Req) ->
     erlang:display({unhandled_request, Req}),
     {"", State}.
+
+%% Split the buffer after N cols
+%% Returns the number of characters deleted, and the column length (N)
+%% of those characters.
+split_cols(N_Cols, Buff, Unicode) ->
+    split_cols(N_Cols, Buff, [], 0, 0, Unicode).
+split_cols(N, [SkipChars | T], Acc, Cnt, Cols, Unicode) when is_binary(SkipChars) ->
+    split_cols(N, T, [SkipChars | Acc], Cnt, Cols, Unicode);
+split_cols(0, Buff, Acc, Chars, Cols, _Unicode) ->
+    {Chars, Cols, Acc, Buff};
+split_cols(N, _Buff, _Acc, _Chars, _Cols, _Unicode) when N < 0 ->
+    error;
+split_cols(_N, [], Acc, Chars, Cols, _Unicode) ->
+    {Chars, Cols, Acc, []};
+split_cols(N, [Char | T], Acc, Cnt, Cols, Unicode) when is_integer(Char) ->
+    split_cols(N - npwcwidth(Char), T, [Char | Acc], Cnt + 1, Cols + npwcwidth(Char, Unicode), Unicode);
+split_cols(N, [Chars | T], Acc, Cnt, Cols, Unicode) when is_list(Chars) ->
+    split_cols(N - length(Chars), T, [Chars | Acc],
+               Cnt + length(Chars), Cols + cols(Chars, Unicode), Unicode).
 
 %% Split the buffer after N logical characters returning
 %% the number of real characters deleted and the column length
@@ -630,7 +811,7 @@ split(0, Buff, Acc, Chars, Cols, _Unicode) ->
     ?dbg({?FUNCTION_NAME, {Chars, Cols, Acc, Buff}}),
     {Chars, Cols, Acc, Buff};
 split(N, _Buff, _Acc, _Chars, _Cols, _Unicode) when N < 0 ->
-    ok = N;
+    error;
 split(_N, [], Acc, Chars, Cols, _Unicode) ->
     {Chars, Cols, Acc, []};
 split(N, [Char | T], Acc, Cnt, Cols, Unicode) when is_integer(Char) ->
@@ -680,6 +861,77 @@ move(left, #state{ left = Left }, N) ->
 move(right, #state{ right = Right }, N) ->
     lists:duplicate(N, Right).
 
+in_view(#state{lines_after = LinesAfter, buffer_before = Bef, buffer_after = Aft, lines_before = LinesBefore, rows=R, cols=W, unicode=U, buffer_expand = BufferExpand} = State) ->
+    BufferExpandLines = case BufferExpand of
+                            undefined -> [];
+                            _ -> string:split(erlang:binary_to_list(BufferExpand), "\r\n", all)
+                        end,
+    ExpandRows = (cols_multiline(BufferExpandLines, W, U) div W),
+    InputBeforeRows = (cols_multiline(LinesBefore, W, U) div W),
+    InputRows = (cols_multiline([Bef ++ Aft], W, U) div W),
+    InputAfterRows = (cols_multiline(LinesAfter, W, U) div W),
+    %% Dont print lines after if we have expansion rows
+    SumRows = InputBeforeRows+ InputRows + ExpandRows + InputAfterRows,
+    if SumRows > R -> 
+            RowsLeftAfterInputRows = R - InputRows,
+            RowsLeftAfterExpandRows = RowsLeftAfterInputRows - ExpandRows,
+            RowsLeftAfterInputBeforeRows = RowsLeftAfterExpandRows - InputBeforeRows,
+            Cols1 = max(0,W*max(RowsLeftAfterInputBeforeRows, RowsLeftAfterExpandRows)),
+            {_, LBAfter, _, {_, LBAHalf}} = split_cols_multiline(Cols1, LinesBefore, U, W),
+            LBAfter0 = case LBAHalf of [] -> LBAfter;
+                           _ -> [LBAHalf|LBAfter]
+                       end,
+
+            RowsLeftAfterInputAfterRows = RowsLeftAfterInputBeforeRows - InputAfterRows,
+            LAInViewLines = case BufferExpandLines of
+                                [] ->
+                                    %% We must remove one line extra, since we may have an xnfix at the end which will
+                                    %% adds one extra line, so for consistency always remove one line
+                                    Cols2 = max(0,W*max(RowsLeftAfterInputAfterRows, RowsLeftAfterInputBeforeRows)-W),
+                                    {_, LABefore, _, {LABHalf, _}} = split_cols_multiline(Cols2, LinesAfter, U, W),
+                                    case LABHalf of [] -> LABefore;
+                                        _ -> [LABHalf|LABefore]
+                                    end;
+                                _ ->
+                                    []
+                            end,
+            LAInView = lists:flatten(["\n"++LA||LA<-lists:reverse(LAInViewLines)]),    
+            LBInView = lists:flatten([LB++"\n"||LB<-LBAfter0]),
+            Text = LBInView ++ lists:reverse(Bef,Aft) ++ LAInView,
+            Movement = move_cursor(State,
+                                   cols_after_cursor(State#state{lines_after = LAInViewLines++[lists:reverse(Bef, Aft)]}),
+                                   cols(Bef,U)),
+            {Movement, Text};
+
+       true ->
+            %% Everything fits in the current window, just output everything
+            Movement = move_cursor(State, cols_after_cursor(State#state{lines_after = lists:reverse(LinesAfter)++[lists:reverse(Bef, Aft)]}), cols(Bef,U)),
+            Text = lists:flatten([LB++"\n"||LB<-lists:reverse(LinesBefore)]) ++
+                lists:reverse(Bef,Aft) ++ lists:flatten(["\n"++LA||LA<-LinesAfter]),
+            {Movement, Text}
+    end.
+cols_after_cursor(#state{lines_after=[LAST|LinesAfter],cols=W, unicode=U}) ->
+    cols_multiline(LAST, LinesAfter, W, U).
+split_cols_multiline(Cols, Lines, U, W) ->
+    split_cols_multiline(Cols, Lines, U, W, 0, []).
+split_cols_multiline(0, Lines, _U, _W, ColsAcc, AccBefore) ->
+    {ColsAcc, AccBefore, Lines, {[],[]}};
+split_cols_multiline(_Cols, [], _U, _W, ColsAcc, AccBefore) ->
+    {ColsAcc, AccBefore, [], {[],[]}};
+split_cols_multiline(Cols, [L|Lines], U, W, ColsAcc, AccBefore) ->
+    case cols(L, U) > Cols of
+        true ->
+            {_, _, LB, LA} = split_cols(Cols, L, U),
+            {ColsAcc+Cols, AccBefore, Lines, {lists:reverse(LB), LA}};
+        _ ->
+            Cols2 = (((cols(L,U)-1) div W)*W+W),
+            split_cols_multiline(Cols-Cols2, Lines, U, W, ColsAcc+Cols2, [L|AccBefore])
+    end.
+cols_multiline(Lines, W, U) ->
+    cols_multiline("", Lines, W, U).
+cols_multiline(ExtraCols, Lines, W, U) ->
+    cols(ExtraCols, U) + lists:sum([((cols(LB,U)-1) div W)*W + W || LB <- Lines]).
+
 cols([],_Unicode) ->
     0;
 cols([Char | T], Unicode) when is_integer(Char) ->
@@ -723,6 +975,7 @@ npwcwidthstring(String) ->
                 _ ->
                     npwcwidth($\e) + npwcwidthstring(Rest)
             end;
+        [H|Rest] when is_list(H)-> lists:sum([npwcwidth(A)||A<-H]) + npwcwidthstring(Rest);
         [H|Rest] -> npwcwidth(H) + npwcwidthstring(Rest)
     end.
 
@@ -774,7 +1027,7 @@ characters_to_output(Chars) ->
                    (Char) ->
                         Char
                 end, Chars)
-              )
+             )
     end.
 characters_to_buffer(Chars) ->
     lists:flatmap(
@@ -810,12 +1063,12 @@ insert_buf(State, Bin, LineAcc, Acc) ->
                             insert_buf(State, AnsiRest, [{ansi, Ansi} | LineAcc], Acc);
                         _ ->
                             insert_buf(State, Rest, [$\e | LineAcc], Acc)
-                        end;
+                    end;
                 {Ansi, AnsiRest} ->
                     %% We include the graphics ansi sequences in the
                     %% buffer that we step over
                     insert_buf(State, AnsiRest, [Ansi | LineAcc], Acc)
-        end;
+            end;
         [NLCR | Rest] when NLCR =:= $\n; NLCR =:= $\r ->
             Tail =
                 if NLCR =:= $\n ->
@@ -824,10 +1077,22 @@ insert_buf(State, Bin, LineAcc, Acc) ->
                         <<$\r>>
                 end,
             if State#state.buffer_expand =:= undefined ->
-                    insert_buf(State#state{ buffer_before = [], buffer_after = [] }, Rest, [],
-                               [Acc, [characters_to_output(lists:reverse(LineAcc)), Tail]]);
-               true ->
-                    insert_buf(State, Rest, [binary_to_list(Tail) | LineAcc], Acc)
+                    CurrentLine = lists:reverse(State#state.buffer_before),
+                    LinesBefore = State#state.lines_before,
+                    LinesBefore1 =
+                        case {CurrentLine, LineAcc} of
+                            {[], []} ->
+                                LinesBefore;
+                            {[],_} ->
+                                [lists:reverse(LineAcc)|LinesBefore];
+                            {_,_} ->
+                                [CurrentLine++lists:reverse(LineAcc)|LinesBefore]
+                        end,
+                    insert_buf(State#state{ buffer_before = [],
+                                            buffer_after = State#state.buffer_after,
+                                            lines_before=LinesBefore1},
+                               Rest, [], [Acc, [characters_to_output(lists:reverse(LineAcc)), Tail]]);
+               true -> insert_buf(State, Rest, [binary_to_list(Tail) | LineAcc], Acc)
             end;
         [Cluster | Rest] when is_list(Cluster) ->
             insert_buf(State, Rest, [Cluster | LineAcc], Acc);

@@ -3116,7 +3116,6 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, const byte* ep,
 #define ENC_BIN_COPY ((Eterm) 3)
 #define ENC_MAP_PAIR ((Eterm) 4)
 #define ENC_HASHMAP_NODE ((Eterm) 5)
-#define ENC_STORE_MAP_ELEMENT ((Eterm) 6)
 #define ENC_START_SORTING_MAP ((Eterm) 7)
 #define ENC_CONTINUE_SORTING_MAP ((Eterm) 8)
 #define ENC_PUSH_SORTED_MAP ((Eterm) 9)
@@ -3315,18 +3314,32 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case ENC_HASHMAP_NODE:
 	    if (is_list(obj)) { /* leaf node [K|V] */
 		ptr = list_val(obj);
+                if (dflags & DFLAG_DETERMINISTIC) {
+                    *next_map_element++ = CAR(ptr);
+                    *next_map_element++ = CDR(ptr);
+                    goto outer_loop;
+                }
 		WSTACK_PUSH2(s, ENC_TERM, CDR(ptr));
 		obj = CAR(ptr);
 	    }
-	    break;
-	case ENC_STORE_MAP_ELEMENT:  /* option `deterministic` */
-	    if (is_list(obj)) { /* leaf node [K|V] */
-		ptr = list_val(obj);
-                *next_map_element++ = CAR(ptr);
-                *next_map_element++ = CDR(ptr);
+            else if (is_tuple(obj)) { /* collision node */
+                Uint tpl_sz;
+                ptr = tuple_val(obj);
+                tpl_sz = arityval(*ptr);
+                ASSERT(tpl_sz >= 2);
+                ptr++;
+                WSTACK_RESERVE(s, tpl_sz * 2);
+                while(tpl_sz--) {
+                    ASSERT(is_list(*ptr));
+                    WSTACK_FAST_PUSH(s, ENC_HASHMAP_NODE);
+                    WSTACK_FAST_PUSH(s, *ptr++);
+                }
                 goto outer_loop;
-	    }
-	    break;
+            }
+            else
+                ASSERT((*boxed_val(obj) & _HEADER_MAP_SUBTAG_MASK)
+                       == HAMT_SUBTAG_NODE_BITMAP);
+            break;
 	case ENC_START_SORTING_MAP: /* option `deterministic` */
             {
                 long num_reductions = r;
@@ -3654,7 +3667,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    } else {
 		Eterm hdr;
 		Uint node_sz;
-                Eterm node_processor;
 		ptr = boxed_val(obj);
 		hdr = *ptr;
 		ASSERT(is_header(hdr));
@@ -3695,17 +3707,14 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 		    ASSERT(node_sz < 17);
 		    break;
-		default:
-		    erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
-		}
-
+                default:
+                    erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
+                }
 		ptr++;
-                node_processor = (dflags & DFLAG_DETERMINISTIC) ?
-                    ENC_STORE_MAP_ELEMENT : ENC_HASHMAP_NODE;
 		WSTACK_RESERVE(s, node_sz*2);
 		while(node_sz--) {
-                    WSTACK_FAST_PUSH(s, node_processor);
-		    WSTACK_FAST_PUSH(s, *ptr++);
+                    WSTACK_FAST_PUSH(s, ENC_HASHMAP_NODE);
+                    WSTACK_FAST_PUSH(s, *ptr++);
 		}
 	    }
 	    break;
@@ -5459,8 +5468,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 		    ASSERT(node_sz < 17);
 		    break;
-		default:
-		    erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
+                default:
+                    erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
 		}
 
 		ptr++;

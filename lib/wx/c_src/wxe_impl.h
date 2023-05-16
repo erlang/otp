@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,5 +114,8 @@ typedef struct {
 } wxe_fns_t;
 
 extern wxe_fns_t wxe_fns[];
+
+void wx_print_term(ErlNifEnv * env, ERL_NIF_TERM t);
+
 
 #endif  //_WXE_IMPL_H

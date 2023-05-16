@@ -860,6 +860,7 @@ with_threadnames
 enable_builtin_zlib
 enable_esock
 enable_esock_use_rcvsndtimeo
+enable_esock_extended_error_info
 with_esock_counter_size
 enable_esock_socket_registry
 with_clock_resolution
@@ -1596,6 +1597,10 @@ Optional Features:
   --disable-esock-rcvsndtimeo
                           disable use of the option(s) rcvtimeo and sndtimeo
                           (default)
+  --enable-esock-extended-error-info
+                          enable use of extended error info
+  --disable-esock-extended-error-info
+                          disable use of extended error info (default)
   --enable-esock-socket-registry
                           enable use of the socket registry by default
                           (default)
@@ -14193,7 +14198,7 @@ int
 main (void)
 {
 
-						__asm__ __volatile__("isb sy" : : : "memory");
+						__asm__ __volatile__("isb sy\n" : : : "memory");
 
   ;
   return 0;
@@ -14227,7 +14232,7 @@ int
 main (void)
 {
 
-						char data[512]; __asm__ __volatile__("dc cvau, %0" : "r" (data) : : "memory");
+						char data[512]; __asm__ __volatile__("dc cvau, %0\n" :: "r" (data) : "memory");
 
   ;
   return 0;
@@ -14261,7 +14266,7 @@ int
 main (void)
 {
 
-						char data[512]; __asm__ __volatile__("ic ivau, %0" : "r" (data) : : "memory");
+						char data[512]; __asm__ __volatile__("ic ivau, %0\n" :: "r" (data) : "memory");
 
   ;
   return 0;
@@ -16065,6 +16070,21 @@ fi
 if test "x$enable_esock_rcvsndtimeo" = "xyes"; then
 
 printf "%s\n" "#define ESOCK_USE_RCVSNDTIMEO 1" >>confdefs.h
+
+fi
+
+
+
+# Check whether --enable-esock_extended_error_info was given.
+if test ${enable_esock_extended_error_info+y}
+then :
+  enableval=$enable_esock_extended_error_info;
+fi
+
+
+if test "x$enable_esock_extended_error_info" != "xno"; then
+
+printf "%s\n" "#define ESOCK_USE_EXTENDED_ERROR_INFO 1" >>confdefs.h
 
 fi
 
@@ -24539,7 +24559,27 @@ then :
            JIT_ARCH=x86
            ;;
         arm64)
-           JIT_ARCH=arm
+           case "$OPSYS" in
+              win32|darwin)
+                # These platforms have dedicated system calls for clearing
+                # instruction cache, and don't require us to manually issue
+                # instruction barriers on all threads.
+                JIT_ARCH=arm
+              ;;
+              *)
+                # We need to use `DC CVAU`, `IC IVAU`, and `ISB SY` to clear
+                # instruction cache. These have already been tested as part of
+                # ETHR_CHK_GCC_ATOMIC_OPS([]).
+
+                if test "$ethr_arm_isb_sy_instr_val$ethr_arm_dc_cvau_instr_val$ethr_arm_ic_ivau_instr_val" = "111"; then
+                  JIT_ARCH=arm
+                else
+                  enable_jit=no
+                  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to lack of cache-clearing instructions" >&5
+printf "%s\n" "$as_me: WARNING: JIT disabled due to lack of cache-clearing instructions" >&2;}
+                fi
+              ;;
+           esac
            ;;
         *)
            if test ${enable_jit} = yes; then

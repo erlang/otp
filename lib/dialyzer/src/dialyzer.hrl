@@ -157,6 +157,11 @@
                                            'incremental'}
                        | {'warnings', [warn_option()]}
                        | {'get_warnings', boolean()}
+                       | {'use_spec', boolean()}
+                       | {'filename_opt', filename_opt()}
+                       | {'callgraph_file', file:filename()}
+                       | {'mod_deps_file', file:filename()}
+                       | {'warning_files_rec', [DirName :: file:filename()]}
                        | {'error_location', error_location()}.
 -type dial_options()  :: [dial_option()].
 -type filename_opt()  :: 'basename' | 'fullpath'.

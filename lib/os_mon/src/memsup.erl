@@ -653,7 +653,7 @@ start_portprogram() ->
 
 port_shutdown(Port) ->
     Port ! {self(), {command, [?EXIT]}},
-    port_close(Port).
+    Port ! {self(), close}.
 
 %% The connected process loops are a bit awkward (several different
 %% functions doing almost the same thing) as

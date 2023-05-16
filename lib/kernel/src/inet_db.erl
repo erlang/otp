@@ -505,7 +505,7 @@ res_check_option(nameservers, NSs) ->
 res_check_option(alt_nameservers, NSs) ->
     res_check_list(NSs, fun res_check_ns/1);
 res_check_option(domain, Dom) ->
-    Dom =:= "" orelse inet_parse:visible_string(Dom);
+    inet_parse:visible_string(Dom);
 res_check_option(lookup, Methods) ->
     try lists_subtract(Methods, valid_lookup()) of
 	[] -> true;
@@ -558,7 +558,6 @@ res_check_ns({{A,B,C,D}, Port})
   when ?ip(A,B,C,D), Port band 65535 =:= Port -> true;
 res_check_ns(_) -> false.
 
-res_check_search("") -> true;
 res_check_search(Dom) -> inet_parse:visible_string(Dom).
 
 socks_option(server)  -> db_get(socks5_server);
@@ -1057,7 +1056,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    end;
 
 	{set_hostname, Name} ->
-	    case inet_parse:visible_string(Name) of
+	    case inet_parse:visible_string(Name) andalso Name =/= "" of
 		true ->
 		    ets:insert(Db, {hostname, Name}),
 		    {reply, ok, State};

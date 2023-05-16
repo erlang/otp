@@ -43,7 +43,7 @@
          container_performance/1,
          infer_relops/1,
          not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
-         inert_update_type/1]).
+         inert_update_type/1,range_inference/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -80,7 +80,7 @@ groups() ->
        bs_saved_position_units,parent_container,
        container_performance,infer_relops,
        not_equal_inference,bad_bin_unit,singleton_inference,
-       inert_update_type]}].
+       inert_update_type,range_inference]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1128,6 +1128,23 @@ mike([Head | _Rest]) -> joe(Head).
 
 joe({Name, 42}) -> Name;
 joe({sys_period, {A, _B}}) -> {41, 42, A}.
+
+range_inference(_Config) ->
+    ok = range_inference_1(id(<<$a>>)),
+    ok = range_inference_1(id(<<0>>)),
+    ok = range_inference_1(id(<<1114111/utf8>>)),
+
+    ok.
+
+range_inference_1(<<X/utf8>>) ->
+    case 9223372036854775807 - abs(X) of
+        Y when X < Y ->
+            ok;
+        9223372036854775807 ->
+            ok;
+        -2147483648 ->
+            ok
+    end.
 
 id(I) ->
     I.

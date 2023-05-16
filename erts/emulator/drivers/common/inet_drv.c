@@ -4421,7 +4421,7 @@ static void inet_init_sctp(void) {
 }
 #endif /* HAVE_SCTP */
 
-static int inet_init()
+static int inet_init(void)
 {
     if (!sock_init())
 	goto error;
@@ -13875,7 +13875,7 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s,
 
 
 #ifdef HAVE_UDP
-static int packet_inet_init()
+static int packet_inet_init(void)
 {
     sys_memzero((char *)&disassoc_sa, sizeof(disassoc_sa));
 #ifdef AF_UNSPEC
@@ -15060,8 +15060,7 @@ static MultiTimerData *add_multi_timer(tcp_descriptor *desc, ErlDrvPort port,
 -----------------------------------------------------------------------------*/
 
 static int
-save_subscriber(subs, subs_pid)
-subs_list *subs; ErlDrvTermData subs_pid;
+save_subscriber(subs_list *subs, ErlDrvTermData subs_pid)
 {
   subs_list *tmp;
 
@@ -15083,8 +15082,7 @@ subs_list *subs; ErlDrvTermData subs_pid;
 }
 
 static void
-free_subscribers(subs)
-subs_list *subs;
+free_subscribers(subs_list *subs)
 {
   subs_list *this;
   subs_list *next;

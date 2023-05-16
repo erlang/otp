@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1310,6 +1310,6 @@ Eterm erts_bnot(Process* p, Eterm arg)
 } 
 
 /* Needed to remove compiler optimization */
-double erts_get_positive_zero_float() {
+double erts_get_positive_zero_float(void) {
     return 0.0f;
 }

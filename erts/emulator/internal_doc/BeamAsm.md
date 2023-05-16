@@ -385,8 +385,9 @@ not need the symbols in the executable.
 Using the same data we can also produce a graph where the scheduler profile data
 has been merged by using `sed`:
 
-    ## Strip [0-9]+_ from all scheduler names
-    sed -e 's/^[0-9]\+_//' out.folded > out.folded_sched
+    ## Strip [0-9]+_ and/or _[0-9]+ from all scheduler names
+    ## scheduler names changed in OTP26, hence two expressions
+    sed -e 's/^[0-9]\+_//' -e 's/^erts_\([^_]\+\)_[0-9]\+/erts_\1/' out.folded > out.folded_sched
     ## Create the svg
     flamegraph.pl out.folded_sched > out_sched.svg
 

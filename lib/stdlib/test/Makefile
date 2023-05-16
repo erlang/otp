@@ -7,6 +7,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	array_SUITE \
+	argparse_SUITE \
 	base64_SUITE \
 	base64_property_test_SUITE \
 	beam_lib_SUITE \

@@ -2633,7 +2633,7 @@ order_of_children(_Config) ->
     [{ok,[_]} = dbg:p(P,procs) || P <- Expected1],
     terminate(Pid3, abnormal),
     receive {exited,ExitedPids1} ->
-            dbg:stop_clear(),
+            dbg:stop(),
             case ExitedPids1 of
                 Expected1 -> ok;
                 _ -> ct:fail({faulty_termination_order,
@@ -2641,7 +2641,7 @@ order_of_children(_Config) ->
                               {got,ExitedPids1}})
             end
     after 3000 ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({shutdown_fail,timeout})
     end,
 
@@ -2662,7 +2662,7 @@ order_of_children(_Config) ->
     [{ok,[_]} = dbg:p(P,procs) || P <- Expected2],
     exit(SupPid,shutdown),
     receive {exited,ExitedPids2} ->
-            dbg:stop_clear(),
+            dbg:stop(),
             case ExitedPids2 of
                 Expected2 -> ok;
                 _ -> ct:fail({faulty_termination_order,
@@ -2670,7 +2670,7 @@ order_of_children(_Config) ->
                               {got,ExitedPids2}})
             end
     after 3000 ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({shutdown_fail,timeout})
     end,
     ok.

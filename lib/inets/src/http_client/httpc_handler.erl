@@ -292,64 +292,35 @@ handle_info(Info, State) ->
 %% Function: terminate(Reason, State) -> _  (ignored by gen_server)
 %% Description: Shutdown the httpc_handler
 %%--------------------------------------------------------------------
-
 terminate(normal, #state{session = undefined}) ->
-    ok;  
-
+    ok;
 %% Init error sending, no session information has been setup but
 %% there is a socket that needs closing.
-terminate(normal, 
-          #state{session = #session{id = undefined} = Session}) ->  
+terminate(normal,
+          #state{session = #session{id = undefined} = Session}) ->
     close_socket(Session);
-
 %% Socket closed remotely
-terminate(normal, 
-          #state{session = #session{socket      = {remote_close, Socket},
-                                    socket_type = SocketType, 
-                                    id          = Id}, 
-                 profile_name = ProfileName,
-                 request      = Request,
-                 timers       = Timers,
-                 pipeline     = Pipeline,
-                 keep_alive   = KeepAlive} = State) ->  
-    %% Clobber session
-    (catch httpc_manager:delete_session(Id, ProfileName)),
-
-    maybe_retry_queue(Pipeline, State),
-    maybe_retry_queue(KeepAlive, State),
-
-    %% Cancel timers
+terminate(normal, #state{session = #session{socket = {remote_close, Socket},
+                                            socket_type = SocketType},
+                         request = Request,
+                         timers = Timers} = State) ->
+    clobber_and_retry(State),
     cancel_timers(Timers),
-
     maybe_deliver_answer(Request, State),
-
     %% And, just in case, close our side (**really** overkill)
     http_transport:close(SocketType, Socket);
-
-terminate(_Reason, #state{session = #session{id          = Id,
-                                            socket      = Socket, 
-                                            socket_type = SocketType},
-                    request      = undefined,
-                    profile_name = ProfileName,
-                    timers       = Timers,
-                    pipeline     = Pipeline,
-                    keep_alive   = KeepAlive} = State) -> 
-
-    %% Clobber session
-    (catch httpc_manager:delete_session(Id, ProfileName)),
-
-    maybe_retry_queue(Pipeline, State),
-    maybe_retry_queue(KeepAlive, State),
-
+terminate(_Reason, #state{session = #session{socket = Socket,
+                                             socket_type = SocketType},
+                          request = undefined,
+                          timers = Timers} = State) ->
+    clobber_and_retry(State),
     cancel_timer(Timers#timers.queue_timer, timeout_queue),
     http_transport:close(SocketType, Socket);
-
-terminate(_Reason, #state{request = undefined}) -> 
+terminate(_Reason, #state{request = undefined}) ->
     ok;
-
-terminate(Reason, #state{request = Request} = State) -> 
-    NewState = maybe_send_answer(Request, 
-                                 httpc_response:error(Request, Reason), 
+terminate(Reason, #state{request = Request} = State) ->
+    NewState = maybe_send_answer(Request,
+                                 httpc_response:error(Request, Reason),
                                  State),
     terminate(Reason, NewState#state{request = undefined}).
 
@@ -1725,3 +1696,17 @@ format_address({[$[|T], Port}) ->
     {Address, Port};
 format_address(HostPort) ->
     HostPort.
+
+clobber_and_retry(#state{session = #session{id = Id,
+                                            type = Type},
+                         profile_name = ProfileName,
+                         pipeline = Pipeline,
+                         keep_alive = KeepAlive} = State) ->
+    %% Clobber session
+    (catch httpc_manager:delete_session(Id, ProfileName)),
+    case Type of
+        pipeline ->
+            maybe_retry_queue(Pipeline, State);
+        _ ->
+            maybe_retry_queue(KeepAlive, State)
+    end.

@@ -33,7 +33,25 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Tftp 1.0.4</title>
+  <section><title>Tftp 1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The implementation has been fixed to use
+	    <c>proc_lib:init_fail/2,3</c> where appropriate, instead
+	    of <c>proc_lib:init_ack/1,2</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tftp 1.0.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>

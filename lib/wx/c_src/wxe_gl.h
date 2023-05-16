@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ void setActiveGL(wxeMemEnv *memenv, ErlNifPid caller, wxGLCanvas *canvas, wxGLCo
 void deleteActiveGL(wxGLCanvas *canvas);
 void gl_dispatch(wxeCommand *);
 extern "C" {
-    void wxe_initOpenGL(void * fptr);
+    void wxe_initOpenGL(void * fptr, void *name_fptr);
 }
 
 

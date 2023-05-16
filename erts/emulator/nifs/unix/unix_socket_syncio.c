@@ -29,6 +29,8 @@
 #    include "config.h"
 #endif
 
+#ifdef ESOCK_ENABLE
+
 #ifdef HAVE_SENDFILE
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))
     #include <sys/sendfile.h>
@@ -7385,3 +7387,4 @@ void essio_down_reader(ErlNifEnv*           env,
 }
 
 
+#endif

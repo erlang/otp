@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,8 +80,9 @@ init_opengl() ->
     case get(wx_init_opengl) of
         true -> {ok, "already  initialized"};
         _ ->
-            Opaque = gl:lookup_func(),
-            {ok, wxe_util:init_opengl(Opaque)}
+            Opaque = gl:lookup_func(functions),
+            Debug = gl:lookup_func(function_names),
+            {ok, wxe_util:init_opengl(Opaque, Debug)}
     end.
 
 %%--------------------------------------------------------------------

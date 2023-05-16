@@ -5523,7 +5523,7 @@ erts_db_foreach_thr_prgr_offheap(void (*func)(ErlOffHeap *, void *),
 
 /* retrieve max number of ets tables */
 Uint
-erts_db_get_max_tabs()
+erts_db_get_max_tabs(void)
 {
     return db_max_tabs;
 }

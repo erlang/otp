@@ -52,14 +52,25 @@
         %% Same as put_chars/3, but sends Reply to From when the characters are
         %% guaranteed to have been written to the terminal
         {put_chars_sync, unicode, binary(), {From :: pid(), Reply :: term()}} |
+        %% Put text in expansion area
+        {put_expand} |
+        {put_expand_no_trim} |
         %% Move the cursor X characters left or right (negative is left)
         {move_rel, -32768..32767} |
+        %% Move the cursor Y rows up or down (negative is up)
+        {move_line, -32768..32767} |
+        %% Move combo, helper to simplify some move operations
+        {move_combo, -32768..32767, -32768..32767, -32768..32767} |
         %% Insert characters at current cursor position moving any
         %% characters after the cursor.
         {insert_chars, unicode, binary()} |
         %% Delete X chars before or after the cursor adjusting any test remaining
         %% to the right of the cursor.
         {delete_chars, -32768..32767} |
+        %% Deletes the current prompt and expression
+        delete_line |
+        %% Delete after the cursor
+        delete_after_cursor |
         %% Trigger a terminal "bell"
         beep |
         %% Clears the screen
@@ -67,7 +78,12 @@
         %% Execute multiple request() actions
         {requests, [request()]} |
         %% Open external editor
-        {open_editor, string()}.
+        {open_editor, string()} |
+        %% Redraws the current prompt and expression
+        redraw_prompt |
+        {redraw_prompt, string(), string(), tuple()} |
+        %% Clears the state, not touching the characters
+        new_prompt.
 
 -export_type([message/0]).
 -export([start/0, start/1, start_shell/0, start_shell/1, whereis_group/0]).
@@ -298,7 +314,6 @@ init_remote_shell(State, Node, {M, F, A}) ->
     end.
 
 init_local_shell(State, InitialShell) ->
-
   Slogan =
       case application:get_env(
              stdlib, shell_slogan,
@@ -595,8 +610,9 @@ switch_loop(internal, {line, Line}, State) ->
                 {ok, Groups} ->
                     Curr = gr_cur_pid(Groups),
                     put(current_group, Curr),
+                    Curr ! {self(), activate},
                     {next_state, server,
-                     State#state{ current_group = Curr, groups = Groups } };
+                        State#state{ current_group = Curr, groups = Groups }};
                 {retry, Requests} ->
                     {keep_state, State#state{ tty = io_requests(Requests, State#state.tty) },
                      {next_event, internal, line}};
@@ -617,7 +633,7 @@ switch_loop(internal, {line, Line}, State) ->
     end;
 switch_loop(info,{ReadHandle,{data,Cs}}, {Cont, #state{ read = ReadHandle } = State}) ->
     case edlin:edit_line(unicode:characters_to_list(Cs), Cont) of
-        {done,Line,_Rest, Rs} ->
+        {done,{[Line],_,_},_Rest, Rs} ->
             {keep_state, State#state{ tty = io_requests(Rs, State#state.tty) },
              {next_event, internal, {line, Line}}};
         {undefined,_Char,MoreCs,NewCont,Rs} ->
@@ -759,16 +775,38 @@ group_opts() ->
           {term(), reference(), prim_tty:state()}.
 io_request({requests,Rs}, TTY) ->
     {noreply, io_requests(Rs, TTY)};
+io_request(redraw_prompt, TTY) ->
+    write(prim_tty:handle_request(TTY, redraw_prompt));
+io_request({redraw_prompt, Pbs, Pbs2, LineState}, TTY) ->
+    write(prim_tty:handle_request(TTY, {redraw_prompt, Pbs, Pbs2, LineState}));
+io_request(new_prompt, TTY) ->
+    write(prim_tty:handle_request(TTY, new_prompt));
+io_request(delete_after_cursor, TTY) ->
+    write(prim_tty:handle_request(TTY, delete_after_cursor));
+io_request(delete_line, TTY) ->
+    write(prim_tty:handle_request(TTY, delete_line));
+io_request({put_chars_keep_state, unicode, Chars}, TTY) ->
+    write(prim_tty:handle_request(TTY, {putc_keep_state, unicode:characters_to_binary(Chars)}));
 io_request({put_chars, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}));
 io_request({put_chars_sync, unicode, Chars, Reply}, TTY) ->
     {Output, NewTTY} = prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}),
     {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
     {Reply, MonitorRef, NewTTY};
+io_request({put_chars_sync, latin1, Chars, Reply}, TTY) ->
+    {Output, NewTTY} = prim_tty:handle_request(TTY, {putc_raw, Chars}),
+    {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
+    {Reply, MonitorRef, NewTTY};
 io_request({put_expand, unicode, Chars}, TTY) ->
+    write(prim_tty:handle_request(TTY, {expand_with_trim, unicode:characters_to_binary(Chars)}));
+io_request({put_expand_no_trim, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {expand, unicode:characters_to_binary(Chars)}));
 io_request({move_rel, N}, TTY) ->
     write(prim_tty:handle_request(TTY, {move, N}));
+io_request({move_line, R}, TTY) ->
+    write(prim_tty:handle_request(TTY, {move_line, R}));
+io_request({move_combo, V1, R, V2}, TTY) ->
+    write(prim_tty:handle_request(TTY, {move_combo, V1, R, V2}));
 io_request({insert_chars, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {insert, unicode:characters_to_binary(Chars)}));
 io_request({delete_chars, N}, TTY) ->
@@ -786,6 +824,12 @@ io_requests([{insert_chars, unicode, C1},{insert_chars, unicode, C2}|Rs], TTY) -
     io_requests([{insert_chars, unicode, [C1,C2]}|Rs], TTY);
 io_requests([{put_chars, unicode, C1},{put_chars, unicode, C2}|Rs], TTY) ->
     io_requests([{put_chars, unicode, [C1,C2]}|Rs], TTY);
+io_requests([{move_rel, N}, {move_line, R}, {move_rel, M}|Rs], TTY) ->
+    io_requests([{move_combo, N, R, M}|Rs], TTY);
+io_requests([{move_rel, N}, {move_line, R}|Rs], TTY) ->
+    io_requests([{move_combo, N, R, 0}|Rs], TTY);
+io_requests([{move_line, R}, {move_rel, M}|Rs], TTY) ->
+    io_requests([{move_combo, 0, R, M}|Rs], TTY);
 io_requests([R|Rs], TTY) ->
     {noreply, NewTTY} = io_request(R, TTY),
     io_requests(Rs, NewTTY);

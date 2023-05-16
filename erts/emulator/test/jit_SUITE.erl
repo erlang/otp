@@ -207,11 +207,13 @@ jmsingle(Config) ->
     %% true/false option and fails with a non-boolean, that is, we
     %% parse the command line correctly.
     case os:type() of
-        {_, netbsd} ->
-            %% +JMsingle true does not work on NetBSD.
-
-            %% The emulator will dump a core here, so we set the cwd
-            %% to a temporary directory that we delete when the test is done.
+        {_, BSD} when BSD =:= netbsd;
+                      BSD =:= openbsd ->
+            %% +JMsingle true might not work on these platforms, and dump core
+            %% because the emulator cannot be started.
+            %% 
+            %% Set the cwd to a temporary directory that we'll delete when the
+            %% test is done.
             {ok, Cwd} = file:get_cwd(),
             TestDir = filename:join(proplists:get_value(priv_dir, Config),
                                     "jmsingle"),

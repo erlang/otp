@@ -1211,13 +1211,19 @@ fun("") -> {yes, "quit", []};
               is in <c>{encoding, unicode}</c> mode if the I/O device supports
               it. The mode can be changed, if the assumption of the runtime
               system is wrong, by setting this option.</p>
-            <p>The I/O device used when Erlang is started with the "-oldshell"
-              or "-noshell" flags is by default set to <c>latin1</c> encoding,
-              meaning that any characters &gt; codepoint 255 are escaped
-              and that input is expected to be plain 8-bit ISO Latin-1.
-              If the encoding is changed to Unicode, input and output from
-              the standard file descriptors are in UTF-8 (regardless of
-              operating system).</p>
+            <note><p>
+              Prior to OTP 26.0, when Erlang was started with the
+              <c>-oldshell</c> or <c>-noshell</c> flags (for example, in an
+              <c>escript</c>), the default encoding for <c>standard_io</c> was
+              set to <c>latin1</c>, meaning that any characters &gt; codepoint
+              255 were escaped and that input was expected to be plain 8-bit
+              ISO Latin-1. As of OTP 26.0, <c>standard_io</c> always defaults
+              to <c>unicode</c> if its supported, otherwise <c>latin1</c>.
+            </p><p>
+              If you want to send raw bytes on <c>standard_io</c>, you now
+              always need to explicitly set the encoding to <c>latin1</c>;
+              otherwise, code points 128-255 will be converted to UTF-8.
+            </p></note>
             <p>Files can also be set in <c>{encoding, unicode}</c>, meaning
               that data is written and read as UTF-8. More encodings are
               possible for files, see below.</p>

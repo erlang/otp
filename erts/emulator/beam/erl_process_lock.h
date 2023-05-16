@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2007-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -991,6 +991,7 @@ erts_proc_lock_wait_until_released(Process *p, ErtsProcLocks locks)
 #if ERTS_PROC_LOCK_OWN_IMPL
 #if !ERTS_PROC_LOCK_ATOMIC_IMPL
         Uint32 was_locked;
+        erts_pix_lock_t *pix_lck = ERTS_PID2PIXLOCK(p->common.id);
 	erts_pix_lock(pix_lck);
 	was_locked =  (ERTS_PROC_LOCK_FLGS_READ_(&p->lock) & locks);
         erts_pix_unlock(pix_lck);

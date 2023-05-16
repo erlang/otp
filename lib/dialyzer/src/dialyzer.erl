@@ -415,8 +415,8 @@ message_to_string({app_call, [M, F, Args, Culprit, ExpectedType, FoundType]},
 		[M, F, a(Args, I), c(Culprit, I),
                  t(ExpectedType, I), t(FoundType, I)]);
 message_to_string({bin_construction, [Culprit, Size, Seg, Type]}, I, _E) ->
-  io_lib:format("Binary construction will fail since the ~s field ~s in"
-		" segment ~s has type ~s\n",
+  io_lib:format("Binary construction will fail since the ~ts field ~ts in"
+		" segment ~ts has type ~ts\n",
                 [Culprit, c(Size, I), c(Seg, I), t(Type, I)]);
 message_to_string({call, [M, F, Args, ArgNs, FailReason,
 			  SigArgs, SigRet, Contract]}, I, _E) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1577,7 +1577,7 @@ pre_load_check(Config) ->
             try
                 do_pre_load_check(Config)
             after
-                dbg:stop_clear()
+                dbg:stop()
             end
     end.
 

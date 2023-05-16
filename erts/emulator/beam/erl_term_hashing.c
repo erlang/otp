@@ -1141,7 +1141,18 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                     }
                     else {
                         ASSERT(is_boxed(*ctx.ptr));
-                        ESTACK_PUSH(s, *ctx.ptr);
+                        if (is_tuple(*ctx.ptr)) { /* collision node */
+                            Eterm *coll_ptr = tuple_val(*ctx.ptr);
+                            Uint n = arityval(*coll_ptr);
+                            ASSERT(n >= 2);
+                            coll_ptr++;
+                            for (; n; n--, coll_ptr++) {
+                                Eterm* cons = list_val(*coll_ptr);
+                                ESTACK_PUSH3(s, HASH_MAP_PAIR, CDR(cons), CAR(cons));
+                            }
+                        }
+                        else
+                            ESTACK_PUSH(s, *ctx.ptr);
                     }
                     ctx.i--; ctx.ptr++;
                     TRAP_LOCATION(map_subtag);
@@ -1543,12 +1554,10 @@ trapping_make_hash2(Eterm term, Eterm* state_mref_write_back, Process* p)
  * with a new ErlNode struct, externals from that node will hash different than
  * before.
  *
- * One IMPORTANT property must hold (for hamt).
- * EVERY BIT of the term that is significant for equality (see EQ)
- * MUST BE USED AS INPUT FOR THE HASH. Two different terms must always have a
- * chance of hashing different when salted.
- *
- * This is why we cannot use cached hash values for atoms for example.
+ * The property "EVERY BIT of the term that is significant for equality
+ * MUST BE USED AS INPUT FOR THE HASH" is nice but no longer crucial for the
+ * hashmap implementation that now uses collision nodes at the bottom of
+ * the HAMT when all hash bits are exhausted.
  *
  */
 
@@ -1716,6 +1725,8 @@ make_internal_hash(Eterm term, Uint32 salt)
                     }
                     else {
                         ASSERT(is_boxed(*ptr));
+                        /* no special treatment of collision nodes needed,
+                           hash them as the tuples they are */
                         ESTACK_PUSH(s, *ptr);
                     }
                     i--; ptr++;
@@ -1951,15 +1962,43 @@ make_internal_hash(Eterm term, Uint32 salt)
 
 }
 
-/* Term hash function for maps, with a separate depth parameter */
-Uint32 make_map_hash(Eterm key, int depth) {
-    Uint32 hash = 0;
-
-    if (depth > 0) {
-        UINT32_HASH_2(depth, 1, HCONST_22);
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+Uint32 erts_dbg_hashmap_collision_bonanza(Uint32 hash, Eterm key)
+{
+/*{
+        static Uint32 hashvec[7] = {
+            0x02345678,
+            0x12345678,
+            0xe2345678,
+            0xf2345678,
+            0x12abcdef,
+            0x13abcdef,
+            0xcafebabe
+        };
+        hash = hashvec[hash % (sizeof(hashvec) / sizeof(hashvec[0]))];
+    }*/
+    const Uint32 bad_hash = (hash & 0x12482481) * 1442968193;
+    const Uint32 bad_bits = hash % 67;
+    if (bad_bits < 32) {
+        /* Mix in a number of high good bits to get "randomly" close
+           to the collision nodes */
+        const Uint32 bad_mask = (1 << bad_bits) - 1;
+        return (hash & ~bad_mask) | (bad_hash & bad_mask);
     }
+    return bad_hash;
+}
+#endif
 
-    return make_internal_hash(key, hash);
+/* Term hash function for hashmaps */
+Uint32 make_map_hash(Eterm key) {
+    Uint32 hash;
+
+    hash = make_internal_hash(key, 0);
+
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+    hash = erts_dbg_hashmap_collision_bonanza(hash, key);
+#endif
+    return hash;
 }
 
 #undef CONST_HASH
