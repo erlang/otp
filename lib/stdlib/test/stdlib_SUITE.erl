@@ -27,7 +27,7 @@
          init_per_testcase/2, end_per_testcase/2,
          app_test/1, appup_test/1, assert_test/1]).
 
--compile(r22).
+-compile(r24).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

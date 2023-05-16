@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r22).
+-compile(r24).
 
 %% Test Controller interface
 -export([is_release_available/1, find_release/1]).
