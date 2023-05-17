@@ -2,7 +2,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,10 @@ groups() ->
                  fragmented_xml_directive,
                  old_dom_event_fun_endDocument_bug, 
                  event_fun_endDocument_error_test,
-                 event_fun_startDocument_error_test]}].
+                 event_fun_startDocument_error_test,
+                 allow_entities_test, entity_recurse_limit_test,
+                 external_entities_test, fail_undeclared_ref_test
+                ]}].
 
 %%======================================================================
 %% Tests
@@ -151,6 +154,61 @@ event_fun_startDocument_error_test(_Config) ->
             (_, _, S) -> S
          end,
     {event_error, _, _, _, _} = xmerl_sax_parser:stream(Stream, [{event_fun, Ef}]),
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: allow_entities_test
+allow_entities_test(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "lol_1_test.xml"), %% Depth 9
+    %% Disallow entities
+    {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File, [disallow_entities]),
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: entity_recurse_limit_test
+entity_recurse_limit_test(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File1 = filename:join(DataDir, "lol_1_test.xml"), %% Depth 9
+    File2 = filename:join(DataDir, "lol_2_test.xml"), %% Depth 2
+    %% Default recurse limit is 3
+    {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File1, []),
+    %% Change recurse limit
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, []),
+    {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File2, [{entity_recurse_limit, 1}]),
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: external_entities_test
+external_entities_test(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File1 = filename:join(DataDir, "entity_test_1.xml"),
+    File2 = filename:join(DataDir, "entity_test_2.xml"),
+    %% Allow all (default)
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File1, []),
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, []),
+    %% Allow file
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File1, [{external_entities, file}]),
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, [{external_entities, file}]),
+    %% Allow none
+    {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File1, [{external_entities, none}]),
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, [{external_entities, none}]), %% Not included but parsed, See if it can be fixed
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: fail_undeclared_ref_test
+fail_undeclared_ref_test(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "entity_test_1.xml"),
+    %% Allow none
+    %% fail_undeclared_ref == true (default)
+    {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File, [{external_entities, none}]),
+    %% fail_undeclared_ref == false
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File, [{external_entities, none}, {fail_undeclared_ref, false}]),
     ok.
 
 %%======================================================================
