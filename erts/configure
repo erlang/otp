@@ -24677,45 +24677,14 @@ then :
       # https://undeadly.org/cgi?action=article;sid=20180310000858
       enable_native_stack=no
      ;; #(
-  win32*) :
-
-      # Windows never messes with the stack, so it's safe by default.
-      enable_native_stack=yes
-     ;; #(
   *) :
 
-      # Use the native stack if we can safely redirect OS signals to a
-      # different stack.
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for safe signal delivery" >&5
-printf %s "checking for safe signal delivery... " >&6; }
-      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <signal.h>
-int
-main (void)
-{
-#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-         #define __DARWIN__ 1
-         #endif
-         #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
-         #error "Unknown libc. Assume musl, which does not allow safe signals"
-         #endif
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-         enable_native_stack=yes
-else $as_nop
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no, disabling native stack in JIT" >&5
-printf "%s\n" "no, disabling native stack in JIT" >&6; }
-         enable_native_stack=no
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+      # Windows never messes with the stack under any circumstances (and RSP
+      # can safely be used as a general-purpose register).
+      #
+      # On other platforms we'll wrangle sigaltstack(2) to let signals execute
+      # on an alternate stack.
+      enable_native_stack=yes
      ;;
 esac
 
