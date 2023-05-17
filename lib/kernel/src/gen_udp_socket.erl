@@ -716,7 +716,7 @@ socket_cancel(Socket, Info) ->
         {error, closed} -> ok;
 
         %% Race - shall we await the message (to flush) or just ignore?
-        {error, select_sent} -> ok
+        {error, _} = ERROR -> ERROR
 
     end.
 
@@ -1717,7 +1717,7 @@ handle_reading(#recv{info = Info} = _State,
   when (Active =:= false) ->
     %% ?DBG(['recv', {info, Info},
     %%       {p, P}, {d, D}, {actions_r, ActionsR}]),
-    socket_cancel(Socket, Info),
+    _ = socket_cancel(Socket, Info),
     {D2, ActionsR2} = cleanup_recv_reply(P, D, ActionsR, normal),
     {next_state, 'open',
      {P, recv_stop(D2#{active := false})}, reverse(ActionsR2)};
@@ -1889,7 +1889,7 @@ cleanup_recv(P, D, State, Reason) ->
     %% ?DBG([{socket, P#params.socket}, {state, State}, {reason, Reason}]),    
     case State of
         #recv{info = Info} ->
-            socket_cancel(P#params.socket, Info),
+            _ = socket_cancel(P#params.socket, Info),
             cleanup_recv_reply(P, D, [], Reason);
         _ ->
             cleanup_recv_reply(P, D, [], Reason)

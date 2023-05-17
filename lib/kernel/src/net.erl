@@ -90,7 +90,8 @@
 -type ifaddrs_filter()     :: all | default | inet | inet6 | packet |
                               ifaddrs_filter_map() |
                               ifaddrs_filter_fun().
--type ifaddrs_filter_map() :: #{family := default | inet | inet6 | packet | all,
+-type ifaddrs_filter_map() :: #{family := default | local |
+                                inet | inet6 | packet | all,
                                 flags  := any | [ifaddrs_flag()]}.
 -type ifaddrs_filter_fun() :: fun((ifaddrs()) -> boolean()).
 

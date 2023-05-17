@@ -2554,7 +2554,7 @@ handle_recv_length(P, D, ActionsR, _0, Buffer, CS) ->
                 {ok, <<Data/binary>>} ->
 		    %% ?DBG(['got some data', {data_size, byte_size(Data)}]),
                     handle_recv_deliver(P, D#{buffer := <<>>}, ActionsR,
-                                        condense_buffer([Data | Buffer]));
+                                        condense_buffer([Data, Buffer]));
 
                 {error, Reason} ->
 		    %% ?DBG(['error', {reason, Reason}]),
@@ -2734,7 +2734,7 @@ cleanup_close_read(P, D, State, Reason) ->
             {D,
              [{reply, From, {error, Reason}}]};
         #connect{info = Info, from = From} ->
-            socket_cancel(P#params.socket, Info),
+            _ = socket_cancel(P#params.socket, Info),
             {D,
              [{reply, From, {error, Reason}}]};
         _ ->
@@ -2745,7 +2745,7 @@ cleanup_recv(P, D, State, Reason) ->
     %% ?DBG({P#params.socket, State, Reason}),    
     case State of
         #recv{info = Info} ->
-            socket_cancel(P#params.socket, Info),
+            _ = socket_cancel(P#params.socket, Info),
             cleanup_recv_reply(P, D, [], Reason);
         _ ->
             cleanup_recv_reply(P, D, [], Reason)
