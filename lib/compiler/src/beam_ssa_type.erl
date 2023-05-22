@@ -2512,6 +2512,24 @@ infer_types_br_1(V, Ts, Ds) ->
             {TrueTypes, FalseTypes}
     end.
 
+infer_relop('=:=', [LHS,RHS],
+            [#t_bitstring{appendable=LHSApp}=LType0,
+             #t_bitstring{appendable=RHSApp}=RType0], Ds)
+  when LHSApp ; RHSApp ->
+    %% Bit strings are special in that nothing about their
+    %% appendable-status can be deduced from a comparison. The only
+    %% information gained is the size_unit. The appendable status is
+    %% unchanged by the comparison.
+    %%
+    %% In order to avoid narrowing the types with regard to
+    %% appendable-status, deduce the types for the case when neither
+    %% LHS or RHS are appendable, then restore the appendable-status.
+    [{LHS,LType},{RHS,RType}|EqTypes] =
+        infer_relop('=:=', [LHS,RHS],
+                    [LType0#t_bitstring{appendable=false},
+                     RType0#t_bitstring{appendable=false}], Ds),
+    [{LHS,LType#t_bitstring{appendable=LHSApp}},
+     {RHS,RType#t_bitstring{appendable=RHSApp}}|EqTypes];
 infer_relop('=:=', [LHS,RHS], [LType,RType], Ds) ->
     EqTypes = infer_eq_type(map_get(LHS, Ds), RType),
 
