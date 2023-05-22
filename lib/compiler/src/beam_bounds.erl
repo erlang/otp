@@ -46,6 +46,9 @@
 
 bounds('bnot', R0) ->
     case R0 of
+        {Exact, Exact} when is_integer(Exact) ->
+            N = -Exact - 1,
+            {N, N};
         {A, B} when is_integer(A), is_integer(B), A =/= B ->
             %% While it's easy to get an exact range, doing so can make certain
             %% chains of operations slow to converge, e.g.
@@ -68,7 +71,10 @@ bounds('bnot', R0) ->
                     any
             end;
         {A, B} ->
-            R = {inf_add(inf_neg(B), -1), inf_add(inf_neg(A), -1)},
+            %% Widen the range as above to ensure that we get the same result
+            %% on the finite component(s).
+            R = {inf_add(inf_neg(inf_add(B, B)), -1),
+                 inf_add(inf_neg(inf_add(A, A)), -1)},
             normalize(R);
         _ ->
             any
