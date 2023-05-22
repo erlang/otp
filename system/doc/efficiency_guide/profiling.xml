@@ -85,6 +85,19 @@
       is a collection of Erlang profiling and debugging tools.
       This tool comes with an accompanying E-book called
       <url href="https://www.erlang-in-anger.com/">Erlang in Anger</url>.</item>
+      <item>
+        <p><url href="https://perf.wiki.kernel.org/index.php/Main_Page">perf</url>
+          is a sampling profiler for Linux that provides functionality similar
+          to <c>fprof</c> but with much lower overhead. Profiling Erlang code
+          is possible when the emulator has been started with the
+          <c>+JPperf true</c> emulator flag, and is only available when the JIT
+          is enabled.
+        </p>
+        <p>For more details about how to run <c>perf</c> see the
+          <seeguide marker="erts:BeamAsm#linux-perf-support">perf support</seeguide>
+          section in the BeamAsm internal documentation.
+        </p>
+      </item>
     </list>
   </section>
 

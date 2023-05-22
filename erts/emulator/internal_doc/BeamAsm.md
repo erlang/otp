@@ -302,9 +302,11 @@ The files are:
 
 ## Linux perf support
 
-perf can also be instrumented using BeamAsm symbols to provide more information. As with
-gdb, only the currently executing function will show up in the stack trace, which means
-that perf provides functionality similar to that of [eprof](https://erlang.org/doc/man/eprof.html).
+The JIT can provide symbols to the Linux profiler `perf`, making it possible to
+profile Erlang code with it. Depending on the mode used, `perf` will provide
+functionality similar to [eprof](https://erlang.org/doc/man/eprof.html) or
+[fprof](https://erlang.org/doc/man/fprof.html) but with much lower (and
+configurable) overhead.
 
 You can run perf on BeamAsm like this:
 
@@ -319,9 +321,10 @@ and then look at the results using `perf report` as you normally would with
 perf.
 
 Frame pointers are enabled when the `+JPperf true` option is passed, so you can
-use `perf record --call-graph=fp` to get more context. This will give you
-accurate call graphs for pure Erlang code, but in rare cases it fails to track
-transitions from Erlang to C code and back. [`perf record --call-graph=lbr`](https://lwn.net/Articles/680985/)
+use `perf record --call-graph=fp` to get more context, making the results
+similar to that of `fprof`. This will give you accurate call graphs for pure
+Erlang code, but in rare cases it fails to track transitions from Erlang to C
+code and back. [`perf record --call-graph=lbr`](https://lwn.net/Articles/680985/)
 may work better in those cases, but it's worse at tracking in general.
 
 For example, you can run perf to analyze dialyzer building a PLT like this:
@@ -332,7 +335,8 @@ For example, you can run perf to analyze dialyzer building a PLT like this:
        sasl runtime_tools snmp ssl tftp wx xmerl tools
 
 The above code is run using `+S 1` to make the perf output easier to understand.
-If you then run `perf report -f --no-children` you may get something similar to this:
+If you then run `perf report -f --no-children` you may get something similar to
+this:
 
 ![Linux Perf report: dialyzer PLT build](figures/perf-beamasm.png)
 
@@ -430,6 +434,32 @@ compiler options to tell `perf` where to find the source code.
 > and in `~/.debug/tmp/`. So make sure to cleanup in those directories from time to
 > time or you may run out of inodes.
 
+### Inspecting perf data on another host
+
+Sometimes it's not possible or desirable to inspect a recording on the target
+machine, which gets a bit tricky because `perf report` relies on having all
+symbols available.
+
+To inspect recordings on another machine, you can use the `perf archive`
+command to bundle all the required symbols into an archive. This requires that
+the recording is made with the `-k mono` flag and that it has been processed
+with `perf inject --jit`:
+
+    perf inject --jit -i perf.data -o perf.jitted.data
+    perf archive perf.jitted.data
+
+Once you have the archive, move it together with the processed recording to
+the host you wish to inspect the recording on, and extract the archive to
+`~/.debug`. You can then use `perf report -i perf.jitted.data` as usual.
+
+If you get an error message along the lines of:
+
+   perf: 'archive' is not a perf-command. See 'perf --help'.
+
+Then your `perf` version is too old, and you should use
+[this bash script](https://github.com/torvalds/linux/blob/master/tools/perf/perf-archive.sh)
+instead.
+
 ### perf tips and tricks
 
 You can do a lot of neat things with `perf`. Below is a list of some of the options
@@ -439,10 +469,6 @@ we have found useful:
     Do not include the accumulation of all children in a call.
 * `perf report  --call-graph callee`
     Show the callee rather than the caller when expanding a function call.
-* `perf archive`
-    Create an archive with all the artifacts needed to inspect the data
-    on another host. In early version of perf this command does not work,
-    instead you can use [this bash script](https://github.com/torvalds/linux/blob/master/tools/perf/perf-archive.sh).
 * `perf report` gives "failed to process sample" and/or "failed to process type: 68"
     This probably means that you are running a bugged version of perf. We have
     seen this when running Ubuntu 18.04 with kernel version 4. If you update
