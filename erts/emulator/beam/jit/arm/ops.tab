@@ -56,6 +56,16 @@ func_info M=a a==am_module_info A=u==1 | label L | move n x==0 => too_old_compil
 bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
 
 #
+# Old guard BIFs that creates heap fragments are no longer allowed.
+#
+bif1 Fail u$bif:erlang:length/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:size/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:abs/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:float/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:round/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
+
+#
 # All the other instructions.
 #
 
@@ -1391,16 +1401,6 @@ i_bsr j I s s d
 i_bsl j I s s d
 
 #
-# Old guard BIFs that creates heap fragments are no longer allowed.
-#
-bif1 Fail u$bif:erlang:length/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:size/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:abs/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:float/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:round/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
-
-#
 # Handle the length/1 guard BIF specially to make it trappable.
 #
 
@@ -1456,15 +1456,6 @@ i_recv_set
 
 build_stacktrace
 raw_raise
-
-#
-# Specialized move instructions. Since they don't require a second
-# instruction, we have intentionally placed them after any other
-# transformation rules that starts with a move instruction in order to
-# produce better code for the transformation engine.
-#
-
-move n D=y => init D
 
 #
 # OTP 24

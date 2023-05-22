@@ -584,7 +584,6 @@ $(TTF_DIR)/beam_warm.h \
 $(TTF_DIR)/beam_hot.h \
 $(TTF_DIR)/beam_opcodes.c \
 $(TTF_DIR)/beam_opcodes.h \
-$(TTF_DIR)/beam_transform.c \
 	: $(TTF_DIR)/OPCODES-GENERATED
 $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 	$(gen_verbose)LANG=C $(PERL) utils/beam_makeops \
@@ -1013,8 +1012,6 @@ COMMON_OBJS = \
     $(OBJDIR)/beam_load.o \
     $(OBJDIR)/beam_opcodes.o \
     $(OBJDIR)/beam_ranges.o \
-    $(OBJDIR)/beam_transform.o \
-    $(OBJDIR)/beam_transform_engine.o \
     $(OBJDIR)/beam_transform_helpers.o \
     $(OBJDIR)/code_ix.o
 
