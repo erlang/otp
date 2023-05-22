@@ -81,6 +81,12 @@
 
 #if (defined(BEAMASM) && defined(NATIVE_ERLANG_STACK))
 
+#if defined(NSIG)
+#  define HIGHEST_SIGNAL NSIG
+#elif defined(_NSIG)
+#  define HIGHEST_SIGNAL _NSIG
+#endif
+
 /*
  * Set alternate signal stack for the invoking thread.
  */
@@ -115,7 +121,7 @@ void sys_init_signal_stack(void) {
 
     sys_thread_init_signal_stack();
 
-    for (i = 1; i < _NSIG; ++i) {
+    for (i = 1; i < HIGHEST_SIGNAL; ++i) {
         if (sigaction(i, NULL, &sa)) {
             /* This will fail with EINVAL on Solaris if 'i' is one of the
                thread library's private signals. We DO catch the initial
