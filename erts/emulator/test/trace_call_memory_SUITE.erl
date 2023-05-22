@@ -309,7 +309,7 @@ spawn_memory_lambda(Config) when is_list(Config) ->
     receive {'DOWN', MRef, process, Pid, _} -> ok end,
     1 = erlang:trace(self(), false, [all]),
     %% 16-elements list translates into 34-words for spawn, and 6 more words for apply itself
-    {call_memory, [{Pid, 1, 40}]} = erlang:trace_info({erlang, apply, 2}, call_memory).
+    {call_memory, [{Pid, 1, 39}]} = erlang:trace_info({erlang, apply, 2}, call_memory).
 
 spawn_memory_internal(Array) ->
     Array.

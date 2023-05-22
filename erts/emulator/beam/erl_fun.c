@@ -308,7 +308,7 @@ ErlFunThing *erts_new_export_fun_thing(Eterm **hpp, Export *exp, int arity)
     funp->next = NULL;
     funp->entry.exp = exp;
     funp->num_free = 0;
-    funp->creator = am_external;
+    funp->external = 1;
     funp->arity = arity;
 
 #ifdef DEBUG
@@ -335,7 +335,7 @@ ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
     MSO(p).first = (struct erl_off_heap_header*) funp;
     funp->entry.fun = fe;
     funp->num_free = num_free;
-    funp->creator = p->common.id;
+    funp->external = 0;
     funp->arity = arity;
 
 #ifdef DEBUG

@@ -3893,7 +3893,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                     ep = enc_atom(acmp, fe->module, ep, dflags);
                     ep = enc_term(acmp, make_small(fe->old_index), ep, dflags, off_heap);
                     ep = enc_term(acmp, make_small(fe->old_uniq), ep, dflags, off_heap);
-                    ep = enc_pid(acmp, funp->creator, ep, dflags);
+                    ep = enc_pid(acmp, erts_init_process_id, ep, dflags);
 
                     for (ei = funp->num_free-1; ei >= 0; ei--) {
                         WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
@@ -4981,6 +4981,7 @@ dec_term_atom_common:
 		hp += num_free;
 		funp->thing_word = HEADER_FUN;
 		funp->num_free = num_free;
+		funp->external = 0;
 		*objp = make_fun(funp);
 
 		/* Module */
@@ -5006,6 +5007,15 @@ dec_term_atom_common:
 		}
 		old_uniq = unsigned_val(temp);
 
+                /* Creator pid, discarded */
+                if ((ep = dec_term(edep, factory, ep, &temp, NULL,
+                                   internal_nc)) == NULL) {
+                    goto error;
+                }
+                if (!is_pid(temp)) {
+                    goto error;
+                }
+
 		/*
 		 * It is safe to link the fun into the fun list only when
 		 * no more validity tests can fail.
@@ -5024,9 +5034,6 @@ dec_term_atom_common:
 		    funp->env[i] = (Eterm) next;
 		    next = funp->env + i;
 		}
-		/* Creator */
-		funp->creator = (Eterm) next;
-		next = &(funp->creator);
 		break;
 	    }
 	case ATOM_INTERNAL_REF2:
@@ -5586,7 +5593,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                 if (is_local_fun(funp)) {
                     result += 20+1+1+4;	/* New ID + Tag */
                     result += 4; /* Length field (number of free variables */
-                    result += encode_pid_size(acmp, funp->creator, dflags);
+                    result += encode_pid_size(acmp, erts_init_process_id, dflags);
                     result += encode_atom_size(acmp, funp->entry.fun->module, dflags);
                     result += 2 * (1+4);	/* Index, Uniq */
                     if (funp->num_free > 1) {

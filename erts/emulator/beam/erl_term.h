@@ -387,7 +387,7 @@ _ET_DECLARE_CHECKED(Eterm*,binary_val,Wterm)
 #define HEADER_PROC_BIN	_make_header(PROC_BIN_SIZE-1,_TAG_HEADER_REFC_BIN)
 
 /* fun objects */
-#define HEADER_FUN              _make_header(ERL_FUN_SIZE-2,_TAG_HEADER_FUN)
+#define HEADER_FUN              _make_header(ERL_FUN_SIZE-1,_TAG_HEADER_FUN)
 #define is_fun_header(x)        ((x) == HEADER_FUN)
 #define make_fun(x)             make_boxed((Eterm*)(x))
 #define is_any_fun(x)           (is_boxed((x)) && is_fun_header(*boxed_val((x))))

@@ -59,10 +59,10 @@ typedef struct erl_fun_thing {
          * pointer to improve performance. */
         ErtsDispatchable *disp;
 
-        /* Pointer to function entry, valid iff `creator != am_external`.*/
+        /* Pointer to function entry, valid iff `external == 0`.*/
         ErlFunEntry *fun;
 
-        /* Pointer to export entry, valid iff `creator == am_external`.*/
+        /* Pointer to export entry, valid iff `external == 1`.*/
         Export *exp;
     } entry;
 
@@ -71,14 +71,14 @@ typedef struct erl_fun_thing {
 
     byte arity;             /* The _apparent_ arity of the fun. */
     byte num_free;          /* Number of free variables (in env). */
+    byte external;          /* Whether this is an external fun or not */
 
     /* -- The following may be compound Erlang terms ---------------------- */
-    Eterm creator;          /* Pid of creator process (contains node). */
     Eterm env[];            /* Environment (free variables). */
 } ErlFunThing;
 
-#define is_local_fun(FunThing) ((FunThing)->creator != am_external)
-#define is_external_fun(FunThing) ((FunThing)->creator == am_external)
+#define is_local_fun(FunThing) ((FunThing)->external == 0)
+#define is_external_fun(FunThing) ((FunThing)->external != 0)
 
 /* ERL_FUN_SIZE does _not_ include space for the environment which is a
  * C99-style flexible array */
