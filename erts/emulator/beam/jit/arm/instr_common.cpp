@@ -2481,7 +2481,8 @@ void BeamModuleAssembler::emit_raw_raise() {
 }
 
 #define TEST_YIELD_RETURN_OFFSET                                               \
-    (BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(Uint32[3]))
+    (BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(Uint32[3]) +                         \
+     (erts_alcu_enable_code_atags ? sizeof(Uint32) : 0))
 
 /* ARG3 = current_label */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
@@ -2502,6 +2503,16 @@ void BeamModuleAssembler::emit_i_test_yield() {
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 
     a.adr(ARG3, current_label);
+
+    if (erts_alcu_enable_code_atags) {
+        /* The point-of-origin allocation tags are vastly improved when the
+         * instruction pointer is updated frequently. This has a relatively low
+         * impact on performance but there's little point in doing this unless
+         * the user has requested it -- it's an undocumented feature for
+         * now. */
+        a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
     a.subs(FCALLS, FCALLS, imm(1));
     a.b_le(resolve_fragment(ga->get_i_test_yield_shared(), disp1MB));
 

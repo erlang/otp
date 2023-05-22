@@ -2486,8 +2486,9 @@ void BeamModuleAssembler::emit_raw_raise() {
 }
 
 #define TEST_YIELD_RETURN_OFFSET                                               \
-    (BEAM_ASM_FUNC_PROLOGUE_SIZE + 16 +                                        \
-     (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA ? 4 : 0))
+    (BEAM_ASM_FUNC_PROLOGUE_SIZE + 16u +                                       \
+     (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA ? 4u : 0u) +                \
+     (erts_alcu_enable_code_atags ? 8u : 0u))
 
 /* ARG3 = return address, current_label + TEST_YIELD_RETURN_OFFSET */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
@@ -2510,8 +2511,19 @@ void BeamModuleAssembler::emit_i_test_yield() {
     emit_enter_frame();
 
     a.lea(ARG3, x86::qword_ptr(current_label, TEST_YIELD_RETURN_OFFSET));
+
+    if (erts_alcu_enable_code_atags) {
+        /* The point-of-origin allocation tags are vastly improved when the
+         * instruction pointer is updated frequently. This has a relatively low
+         * impact on performance but there's little point in doing this unless
+         * the user has requested it -- it's an undocumented feature for
+         * now. */
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG3);
+    }
+
     a.dec(FCALLS);
     a.long_().jle(resolve_fragment(ga->get_i_test_yield_shared()));
+    a.align(AlignMode::kCode, 4);
 
     ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            TEST_YIELD_RETURN_OFFSET);

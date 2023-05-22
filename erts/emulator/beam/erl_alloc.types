@@ -289,7 +289,7 @@ type    MAP_TRAP        SHORT_LIVED     PROCESSES       map_bif_trap_state
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
-type	PERSISTENT_TERM	LONG_LIVED	CODE		persisten_term
+type	PERSISTENT_TERM	LONG_LIVED	CODE		persistent_term
 type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
 type	PERSISTENT_TERM_TMP SHORT_LIVED	SYSTEM		persistent_term_tmp_table
 

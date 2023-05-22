@@ -22,13 +22,20 @@
 -export([allocations/0, allocations/1,
          carriers/0, carriers/1]).
 
+%% Matches the same declarations in erl_alloc_util.c
+-define(GATHER_AHIST_FLAG_PER_PID, (1 bsl 0)).
+-define(GATHER_AHIST_FLAG_PER_PORT, (1 bsl 1)).
+-define(GATHER_AHIST_FLAG_PER_MFA, (1 bsl 2)).
+
 -type block_histogram() :: tuple().
 
 -type allocation_summary() ::
     {HistogramStart :: non_neg_integer(),
      UnscannedSize :: non_neg_integer(),
-     Allocations :: #{ Origin :: atom() =>
+     Allocations :: #{ Origin :: allocation_origin() =>
                        #{ Type :: atom() => block_histogram() }}}.
+
+-type allocation_origin() :: atom() | mfa() | pid() | port().
 
 -spec allocations() -> {ok, Result} | {error, Reason} when
     Result :: allocation_summary(),
@@ -42,26 +49,63 @@ allocations() ->
     Options :: #{ scheduler_ids => list(non_neg_integer()),
                   allocator_types => list(atom()),
                   histogram_start => pos_integer(),
-                  histogram_width => pos_integer() }.
-allocations(Options) ->
-    Ref = make_ref(),
+                  histogram_width => pos_integer(),
+                  flags => [per_process | per_port | per_mfa] }.
+allocations(Options0) ->
+    SchedIds = lists:seq(0, erts_internal:no_aux_work_threads() - 1),
 
-    Defaults = #{ scheduler_ids => lists:seq(0, erts_internal:no_aux_work_threads()-1),
+    Defaults = #{ scheduler_ids => SchedIds,
                   allocator_types => erlang:system_info(alloc_util_allocators),
                   histogram_start => 128,
-                  histogram_width => 18 },
+                  histogram_width => 18,
+                  flags => [] },
 
+    Options = maps:merge(Defaults, Options0),
+    Flags = allocations_flags(Options),
+
+    Ref = make_ref(),
     {HistStart, MsgCount} =
-        dispatch_gather(maps:merge(Defaults, Options), Ref,
+        dispatch_gather(Options, Flags, Ref,
                         fun erts_internal:gather_alloc_histograms/1),
 
-    alloc_hist_receive(HistStart, MsgCount, Ref).
+    alloc_hist_receive(HistStart, MsgCount, Flags, Ref).
 
-alloc_hist_receive(_HistStart, 0, _Ref) ->
+allocations_flags(#{ flags := Flags }) ->
+    lists:foldl(fun(per_process, Acc) ->
+                        Acc bor ?GATHER_AHIST_FLAG_PER_PID;
+                    (per_port, Acc) ->
+                        Acc bor ?GATHER_AHIST_FLAG_PER_PORT;
+                    (per_mfa, Acc) ->
+                        Acc bor ?GATHER_AHIST_FLAG_PER_MFA
+                end, 0, Flags).
+
+alloc_hist_receive(_HistStart, 0, _Flags, _Ref) ->
     {error, not_enabled};
-alloc_hist_receive(HistStart, MsgCount, Ref) when MsgCount > 0 ->
-    {Unscanned, Histograms} = alloc_hist_receive_1(MsgCount, Ref, 0, #{}),
+alloc_hist_receive(HistStart, MsgCount, Flags, Ref) when MsgCount > 0 ->
+    {Unscanned, Histograms0} =
+        alloc_hist_receive_1(MsgCount, Ref, 0, #{}),
+
+    Histograms = case (Flags band ?GATHER_AHIST_FLAG_PER_PID) =/= 0 of
+                     true -> alloc_hist_registered(Histograms0);
+                     false -> Histograms0
+                 end,
+
     {ok, {HistStart, Unscanned, Histograms}}.
+
+alloc_hist_registered(Histograms) ->
+    alloc_hist_registered_1(registered(), Histograms).
+
+alloc_hist_registered_1([Name | Names], Histograms0) ->
+    Pid = whereis(Name),
+    case Histograms0 of
+        #{ Pid := Hist } ->
+            Histograms = maps:remove(Pid, Histograms0),
+            alloc_hist_registered_1(Names, Histograms#{ Name => Hist });
+        #{} ->
+            alloc_hist_registered_1(Names, Histograms0)
+    end;
+alloc_hist_registered_1([], Histograms) ->
+    Histograms.
 
 alloc_hist_receive_1(0, _Ref, Unscanned, Result) ->
     {Unscanned, Result};
@@ -115,19 +159,27 @@ carriers() ->
                   allocator_types => list(atom()),
                   histogram_start => pos_integer(),
                   histogram_width => pos_integer() }.
-carriers(Options) ->
-    Ref = make_ref(),
+carriers(Options0) ->
+    SchedIds = lists:seq(0, erts_internal:no_aux_work_threads() - 1),
 
-    Defaults = #{ scheduler_ids => lists:seq(0, erts_internal:no_aux_work_threads()-1),
+    Defaults = #{ scheduler_ids => SchedIds,
                   allocator_types => erlang:system_info(alloc_util_allocators),
                   histogram_start => 512,
-                  histogram_width => 14 },
+                  histogram_width => 14,
+                  flags => [] },
 
+    Options = maps:merge(Defaults, Options0),
+    Flags = carriers_flags(Options),
+
+    Ref = make_ref(),
     {HistStart, MsgCount} =
-        dispatch_gather(maps:merge(Defaults, Options), Ref,
+        dispatch_gather(Options, Flags, Ref,
                         fun erts_internal:gather_carrier_info/1),
 
     carrier_info_receive(HistStart, MsgCount, Ref).
+
+carriers_flags(#{ flags := Flags }) when length(Flags) >= 0 ->
+    0.
 
 carrier_info_receive(_HistStart, 0, _Ref) ->
     {error, not_enabled};
@@ -145,15 +197,15 @@ carrier_info_receive_1(MsgCount, Ref, Result0) ->
 dispatch_gather(#{ allocator_types := AllocatorTypes,
                    scheduler_ids := SchedulerIds,
                    histogram_start := HistStart,
-                   histogram_width := HistWidth }, Ref, Gather)
+                   histogram_width := HistWidth }, Flags, Ref, Gather)
         when is_list(AllocatorTypes),
              is_list(SchedulerIds),
              HistStart >= 1, HistStart =< (1 bsl 28),
              HistWidth >= 1, HistWidth =< 32 ->
     MsgCount = lists:sum(
-        [Gather({AllocatorType, SchedId, HistWidth, HistStart, Ref}) ||
+        [Gather({AllocatorType, SchedId, HistWidth, HistStart, Flags, Ref}) ||
          SchedId <- SchedulerIds,
          AllocatorType <- AllocatorTypes]),
     {HistStart, MsgCount};
-dispatch_gather(_, _, _) ->
+dispatch_gather(_, _, _, _) ->
     error(badarg).

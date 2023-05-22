@@ -576,7 +576,7 @@
             <seeerl marker="runtime_tools:instrument"><c>instrument</c></seeerl>
             module to inspect this information.</p>
 
-          <p>The runtime overhead is one word per allocation when enabled. This
+          <p>The runtime overhead is two words per allocation when enabled. This
             may change at any time in the future.</p>
 
           <p>The default is <c>true</c> for <c>binary_alloc</c> and

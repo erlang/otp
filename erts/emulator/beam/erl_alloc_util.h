@@ -179,6 +179,8 @@ typedef struct {
 
 #endif
 
+extern int erts_alcu_enable_code_atags;
+
 void *	erts_alcu_alloc(ErtsAlcType_t, void *, Uint);
 void *	erts_alcu_realloc(ErtsAlcType_t, void *, void *, Uint);
 void *	erts_alcu_realloc_mv(ErtsAlcType_t, void *, void *, Uint);
@@ -244,7 +246,8 @@ int erts_alcu_try_set_dyn_param(Allctr_t*, Eterm param, Uint value);
  * for. */
 int erts_alcu_gather_alloc_histograms(struct process *p, int allocator_num,
                                       int sched_id, int hist_width,
-                                      UWord hist_start, Eterm ref);
+                                      UWord hist_start, int flags,
+                                      Eterm ref);
 
 /* Gathers per-carrier info from the given allocator number (ERTS_ALC_A_*) and
  * scheduler id. An id of 0 means the global instance will be used.
@@ -253,7 +256,8 @@ int erts_alcu_gather_alloc_histograms(struct process *p, int allocator_num,
  * for. */
 int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
                                   int sched_id, int hist_width,
-                                  UWord hist_start, Eterm ref);
+                                  UWord hist_start, int flags,
+                                  Eterm ref);
 
 struct alcu_blockscan;
 
