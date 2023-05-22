@@ -535,6 +535,9 @@ read_write_file(Config) when is_list(Config) ->
     {error, enoent} = ?FILE_MODULE:read_file(Name2),
     {error, enoent} = ?FILE_MODULE:read_file(""),
     {error, enoent} = ?FILE_MODULE:read_file(''),
+    {error, enoent} = ?FILE_MODULE:read_file(Name2, [raw]),
+    {error, enoent} = ?FILE_MODULE:read_file("", [raw]),
+    {error, enoent} = ?FILE_MODULE:read_file('', [raw]),
 
     %% Try writing to a bad filename
     {error, enoent} = do_read_write_file("", Bin2),
@@ -559,12 +562,15 @@ do_read_write_file(Name, Data) ->
 	ok ->
 	    BinData = iolist_to_binary(Data),
 	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name, [raw]),
 
 	    ok = ?FILE_MODULE:write_file(Name, Data, []),
 	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name, [raw]),
 
 	    ok = ?FILE_MODULE:write_file(Name, Data, [raw]),
 	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name, [raw]),
 
 	    ok;
 	{error,_}=Res ->
@@ -2333,6 +2339,23 @@ delete(Config) when is_list(Config) ->
     {error, _} = ?FILE_MODULE:open(Name2, read),
     %% Try deleting a nonexistent file with the raw option
     {error, enoent} = ?FILE_MODULE:delete(Name2, [raw]),
+
+    Name3 = filename:join(RootDir,
+                          atom_to_list(?MODULE)
+                          ++"_delete_3.fil"),
+    {ok, Fd5} = ?FILE_MODULE:open(Name3, write),
+    io:format(Fd5,"ok.\n",[]),
+    ok = ?FILE_MODULE:close(Fd5),
+    %% Check that the file is readable
+    {ok, Fd6} = ?FILE_MODULE:open(Name3, read),
+    ok = ?FILE_MODULE:close(Fd6),
+    %% Try deleting with no option, should be equivalent to delete/1
+    ok = ?FILE_MODULE:delete(Name3, []),
+    %% Check that the file is not readable anymore
+    {error, _} = ?FILE_MODULE:open(Name3, read),
+    %% Try deleting a nonexistent file with no option
+    {error, enoent} = ?FILE_MODULE:delete(Name3, []),
+
     [] = flush(),
     ok.
 
