@@ -2951,24 +2951,13 @@ AS_IF([test ${enable_jit} != no],
       # https://undeadly.org/cgi?action=article;sid=20180310000858
       enable_native_stack=no
     ],
-    [win32*],
     [
-      # Windows never messes with the stack, so it's safe by default.
+      # Windows never messes with the stack under any circumstances (and RSP
+      # can safely be used as a general-purpose register).
+      #
+      # On other platforms we'll wrangle sigaltstack(2) to let signals execute
+      # on an alternate stack.
       enable_native_stack=yes
-    ],
-    [
-      # Use the native stack if we can safely redirect OS signals to a
-      # different stack.
-      AC_MSG_CHECKING([for safe signal delivery])
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <signal.h>]], [[#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-         #define __DARWIN__ 1
-         #endif
-         #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
-         #error "Unknown libc. Assume musl, which does not allow safe signals"
-         #endif]])],[AC_MSG_RESULT([yes])
-         enable_native_stack=yes],[AC_MSG_RESULT([no, disabling native stack in JIT])
-         enable_native_stack=no
-      ])
     ])
 
   case "$JIT_ARCH" in
