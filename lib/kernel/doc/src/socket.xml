@@ -3291,7 +3291,7 @@
 	  If some of the data was sent, the function will return
 	  <seetype marker="#select_info">
 	    <c>
-              {ok,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
+              {select,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
             </c>
 	  </seetype>
           which can only happen (on <i>Unix</i>) for a socket of
@@ -3525,7 +3525,7 @@
 	  If some of the data was sent, the function will return
 	  <seetype marker="#select_info">
 	    <c>
-              {ok,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
+              {select,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
             </c>
 	  </seetype>
           which can only happen for a socket of
@@ -3723,7 +3723,7 @@
 	  If some of the data was sent, the function will return
 	  <seetype marker="#select_info">
 	    <c>
-              {ok,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
+              {select,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
             </c>
 	  </seetype>
           which can only happen (on <i>Unix</i>) for a socket of
