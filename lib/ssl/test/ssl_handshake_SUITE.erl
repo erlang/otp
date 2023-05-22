@@ -209,7 +209,7 @@ signature_algorithms(Config) ->
                  signature_scheme_list = [rsa_pkcs1_sha256,
                                           ecdsa_sha1]},
     {sha512, rsa} = ssl_handshake:select_hashsign(
-                      {HashSigns0, Schemes0},
+                      {HashSigns0, undefined},
                       Cert, ecdhe_rsa,
                       tls_v1:default_signature_algs([?TLS_1_2]),
                       ?TLS_1_2),

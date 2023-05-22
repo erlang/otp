@@ -1626,7 +1626,7 @@ select_hashsign({ClientHashSigns, ClientSignatureSchemes},
 select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
                  ClientSignatureSchemes0},
                 Cert, KeyExAlgo, SupportedHashSigns, ?TLS_1_2) ->
-    ClientSignatureSchemes = get_signature_scheme(ClientSignatureSchemes0),
+    ClientSignatureSchemes = client_signature_schemes(ClientHashSigns, ClientSignatureSchemes0),
     {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0, Param),
     PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
@@ -1647,7 +1647,7 @@ select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
     %% If no "signature_algorithms_cert" extension is
     %% present, then the "signature_algorithms" extension also applies to
     %% signatures appearing in certificates.
-    case is_supported_sign(SignAlgo, Param, ClientHashSigns, ClientSignatureSchemes) of
+    case is_supported_sign(SignAlgo, ClientSignatureSchemes) of
         true ->
             case
                 (KeyExAlgo == psk) orelse
@@ -1657,9 +1657,9 @@ select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
                 (KeyExAlgo == dh_anon) orelse
                 (KeyExAlgo == ecdhe_anon) of
                 true ->
-                    ClientHashSigns;
+                    ClientSignatureSchemes;
                 false ->
-                    do_select_hashsign(ClientHashSigns, PublicKeyAlgo, SupportedHashSigns)
+                    do_select_hashsign(ClientSignatureSchemes, PublicKeyAlgo, SupportedHashSigns)
             end;
         false ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
@@ -1684,11 +1684,10 @@ select_hashsign(#certificate_request{
                 SupportedHashSigns,
 		?TLS_1_2) ->
     {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
-    SignAlgo = {_, KeyType} = sign_algo(SignAlgo0, Param),
+    SignAlgo = sign_algo(SignAlgo0, Param),
     PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
-    SignatureSchemes = [Scheme  || Scheme <- HashSigns, is_atom(Scheme), (KeyType == rsa_pss_pss) or (KeyType == rsa)],
     case is_acceptable_cert_type(PublicKeyAlgo, Types) andalso
-        is_supported_sign(SignAlgo, Param, HashSigns, SignatureSchemes) of
+        is_supported_sign(SignAlgo, HashSigns) of
 	true ->
             do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns);
 	false ->
@@ -1706,25 +1705,55 @@ select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Versio
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
     end.
 
-
 do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns) ->
-    case lists:filter(fun({H, rsa_pss_pss = S} = Algos) when S == PublicKeyAlgo ->
-                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns) orelse
-                                  is_acceptable_hash_sign(Algos, SupportedHashSigns);
-                         ({H, rsa_pss_rsae = S} = Algos) when PublicKeyAlgo == rsa ->
-                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns) orelse
-                                  is_acceptable_hash_sign(Algos, SupportedHashSigns);
-                         ({_, S} = Algos) when S == PublicKeyAlgo ->
-                              is_acceptable_hash_sign(Algos, SupportedHashSigns);
-                         (_A)  ->
-                              false
-                      end, HashSigns) of
+    TLS12Scheme = 
+        fun(Scheme) ->
+                {H, S, _} = ssl_cipher:scheme_to_components(Scheme),
+                case S of
+                    rsa_pkcs1 when PublicKeyAlgo == rsa ->
+                        is_acceptable_hash_sign({H, rsa}, SupportedHashSigns) %% TLS-1.2 name
+                            orelse is_acceptable_hash_sign(Scheme, SupportedHashSigns); %% TLS-1.3 legacy name
+                    rsa_pss_rsae when PublicKeyAlgo == rsa  -> %% Backported
+                        is_acceptable_hash_sign(Scheme, SupportedHashSigns);
+                    rsa_pss_pss when PublicKeyAlgo  == rsa_pss_pss -> %% Backported
+                        is_acceptable_hash_sign(Scheme, SupportedHashSigns);
+                              ecdsa when (PublicKeyAlgo == ecdsa) andalso (H == sha) ->
+                        is_acceptable_hash_sign({H, S}, SupportedHashSigns) orelse  %% TLS-1.2 name
+                            is_acceptable_hash_sign(Scheme, SupportedHashSigns); %% TLS-1.3 legacy name
+                              _ ->
+                        false
+                end
+        end,
+
+    case lists:filter(
+           fun({H, rsa_pss_pss = S} = Algos) when S == PublicKeyAlgo -> 
+                   %% Backported from TLS-1.3, but only TLS-1.2 configured
+                   is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), 
+                                           SupportedHashSigns) orelse 
+                       is_acceptable_hash_sign(Algos, SupportedHashSigns);
+              ({H, rsa_pss_rsae = S} = Algos) when PublicKeyAlgo == rsa -> 
+                   %% Backported from TLS-1.3, but only TLS-1.2 configured
+                   is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), 
+                                           SupportedHashSigns) orelse
+                       is_acceptable_hash_sign(Algos, SupportedHashSigns);
+              ({_, S} = Algos) when S == PublicKeyAlgo ->
+                   is_acceptable_hash_sign(Algos, SupportedHashSigns);
+              %% Backported or legacy schemes from TLS-1.3 (TLS-1.2 negotiated when TLS-1.3 supported)
+              (Scheme) when is_atom(Scheme) ->
+                   TLS12Scheme(Scheme);
+              (_) ->
+                   false
+           end, HashSigns) of
         [] ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
         [HashSign | _] ->
-            HashSign
+            case ssl_cipher:scheme_to_components(HashSign) of
+                {Hash, rsa_pkcs1, _} ->
+                    {Hash, rsa};
+                {Hash, Sign, _} ->
+                    {Hash, Sign}
+            end
     end.
-
 
 %% Gets the relevant parameters of a certificate:
 %% - signature algorithm
@@ -1845,10 +1874,10 @@ select_own_cert([OwnCert| _]) ->
 select_own_cert(undefined) ->
     undefined.
 
-get_signature_scheme(undefined) ->
-    [];
-get_signature_scheme(#signature_algorithms_cert{
-                        signature_scheme_list = ClientSignatureSchemes}) ->
+client_signature_schemes(ClientHashSigns, undefined) ->
+    ClientHashSigns;
+client_signature_schemes(_, #signature_algorithms_cert{
+                               signature_scheme_list = ClientSignatureSchemes}) ->
     ClientSignatureSchemes.
 
 
@@ -3470,9 +3499,6 @@ is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
 is_acceptable_cert_type(Sign, Types) ->
     lists:member(sign_type(Sign), binary_to_list(Types)).
 
-%% signature_algorithms_cert = undefined
-is_supported_sign(SignAlgo, _, HashSigns, []) ->
-    ssl_cipher:is_supported_sign(SignAlgo, HashSigns);
 %% {'SignatureAlgorithm',{1,2,840,113549,1,1,11},'NULL'}
 %% TODO: Implement validation for the curve used in the signature
 %% RFC 3279 - 2.2.3 ECDSA Signature Algorithm
@@ -3484,13 +3510,17 @@ is_supported_sign(SignAlgo, _, HashSigns, []) ->
 %% The elliptic curve parameters in the subjectPublicKeyInfo field of
 %% the certificate of the issuer SHALL apply to the verification of the
 %% signature.
-is_supported_sign({Hash, Sign}, _Param, _, SignatureSchemes) ->
+is_supported_sign({Hash, Sign}, SignatureSchemes) ->
     Fun = fun (Scheme) ->
                   {H, S0, _} = ssl_cipher:scheme_to_components(Scheme),
                   S1 = case S0 of
-                             rsa_pkcs1 -> rsa;
-                             S -> S
-                         end,
+                           rsa_pkcs1 ->
+                               rsa;
+                           rsa_pss_rsae ->
+                               rsa; 
+                           S ->
+                               S
+                       end,
                   (Sign  =:= S1) andalso (Hash  =:= H)
           end,
     lists:any(Fun, SignatureSchemes).
