@@ -192,10 +192,11 @@ bnot_bounds(_Config) ->
             A <- Seq,
             B <- lists:nthtail(A-Min, Seq)],
 
-    {-43,'+inf'} = beam_bounds:bounds('bnot', {'-inf',42}),
-    {99,'+inf'} = beam_bounds:bounds('bnot', {'-inf',-100}),
-    {'-inf',-8} = beam_bounds:bounds('bnot', {7,'+inf'}),
-    {'-inf',9} = beam_bounds:bounds('bnot', {-10,'+inf'}),
+    {-85,'+inf'} = beam_bounds:bounds('bnot', {'-inf',42}),
+    {199,'+inf'} = beam_bounds:bounds('bnot', {'-inf',-100}),
+    {'-inf',-15} = beam_bounds:bounds('bnot', {7,'+inf'}),
+    {'-inf',19} = beam_bounds:bounds('bnot', {-10,'+inf'}),
+    {-2228221,'+inf'} = beam_bounds:bounds('bnot', {'-inf', 1114110}),
 
     -1 = bnot_bounds_2(0),
 
