@@ -76,8 +76,8 @@ will_succeed(erlang, Op, [LHS, RHS]=Args) when Op =:= 'div';
 will_succeed(erlang, 'bsr'=Op, [LHS, RHS]=Args) ->
     case {meet(LHS, #t_integer{}), meet(RHS, #t_integer{})} of
         {#t_integer{elements={_,_}}=LHS,
-         #t_integer{elements={Shift,_}}=RHS}
-          when is_integer(Shift), Shift >= 0 ->
+         #t_integer{elements={MinShift,_}}=RHS}
+          when is_integer(MinShift), MinShift >= 0 ->
             'yes';
         {#t_integer{}, #t_integer{}} ->
             fails_on_conflict(erlang, Op, Args);
@@ -86,8 +86,8 @@ will_succeed(erlang, 'bsr'=Op, [LHS, RHS]=Args) ->
     end;
 will_succeed(erlang, 'bsl'=Op, [LHS, RHS]=Args) ->
     case {meet(LHS, #t_integer{}), meet(RHS, #t_integer{})} of
-        {LHS, #t_integer{elements={Shift,_}}=RHS}
-          when is_integer(Shift), Shift < 64 ->
+        {LHS, #t_integer{elements={_,MaxShift}}=RHS}
+          when is_integer(MaxShift), MaxShift < 64 ->
             succeeds_if_smallish(LHS);
         {#t_integer{}, #t_integer{}} ->
             fails_on_conflict(erlang, Op, Args);
