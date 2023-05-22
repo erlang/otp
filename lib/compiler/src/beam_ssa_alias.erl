@@ -740,6 +740,11 @@ aa_bif(Dst, tl, Args, SS, AAS) ->
 %% TODO: Ignored for now, as we don't track what's inside maps.
 %% aa_bif(_Dst, map_get, _Args, SS, _AAS) ->
 %%     SS;
+aa_bif(Dst, binary_part, Args, SS, _AAS) ->
+    %% bif:binary_part/{2,3} is the only guard bif which could lead to
+    %% aliasing, it extracts a sub-binary with a reference to its
+    %% argument.
+    aa_set_aliased([Dst|Args], SS);
 aa_bif(Dst, Bif, Args, SS, _AAS) ->
     Arity = length(Args),
     case erl_internal:guard_bif(Bif, Arity)
