@@ -1438,19 +1438,6 @@ unsupported_guard_bif A B C | never() => _
 on_load
 
 #
-# R14A.
-#
-# Superseded in OTP 24 by 'recv_marker_reserve' and friends.
-#
-
-recv_mark f => i_recv_mark
-i_recv_mark
-
-recv_set Fail | label Lbl | loop_rec Lf Reg =>
-    i_recv_set | label Lbl | loop_rec Lf Reg
-i_recv_set
-
-#
 # OTP 21.
 #
 

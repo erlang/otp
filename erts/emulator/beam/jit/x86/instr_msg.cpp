@@ -30,50 +30,6 @@ extern "C"
 #endif
 }
 
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-
-static void recv_mark(Process *p) {
-    /* inlined here... */
-    erts_msgq_recv_marker_insert_bind(p, erts_old_recv_marker_id);
-}
-
-static void recv_mark_set(Process *p) {
-    /* inlined here... */
-    erts_msgq_recv_marker_set_save(p, erts_old_recv_marker_id);
-}
-
-void BeamModuleAssembler::emit_i_recv_mark() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * Save the current end of message queue
-     */
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<1>(recv_mark);
-
-    emit_leave_runtime();
-}
-
-void BeamModuleAssembler::emit_i_recv_set() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * If previously saved recv mark, set save pointer to it
-     */
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<1>(recv_mark_set);
-
-    emit_leave_runtime();
-}
-
-#endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
-
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
     emit_enter_runtime<Update::eHeapAlloc>();
 

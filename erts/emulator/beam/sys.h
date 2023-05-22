@@ -21,8 +21,6 @@
 #ifndef __SYS_H__
 #define __SYS_H__
 
-#define ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-
 #if !defined(__GNUC__) || defined(__e2k__)
 #  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
 #elif !defined(__GNUC_MINOR__)

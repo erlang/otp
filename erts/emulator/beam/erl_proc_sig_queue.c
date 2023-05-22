@@ -67,26 +67,12 @@ Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler);
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler_high);
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler_max);
 
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-Eterm erts_old_recv_marker_id;
-#endif
-
 void
 erts_proc_sig_queue_init(void)
 {
     ERTS_CT_ASSERT(ERTS_SIG_Q_OP_MASK > ERTS_SIG_Q_OP_MAX);
     ERTS_CT_ASSERT(ERTS_SIG_Q_OP_MSGQ_LEN_OFFS_MARK > ERTS_SIG_Q_OP_MAX);
     ERTS_CT_ASSERT(ERTS_SIG_Q_TYPE_MASK >= ERTS_SIG_Q_TYPE_MAX);
-
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    {
-	Eterm *hp = erts_alloc(ERTS_ALC_T_LITERAL,
-			       ERTS_REF_THING_SIZE*sizeof(Eterm));
-	erts_old_recv_marker_id = erts_make_ref_in_buffer(hp);
-	erts_set_literal_tag(&erts_old_recv_marker_id, hp, ERTS_REF_THING_SIZE);
-    }
-#endif
-
 }
 
 typedef struct {
@@ -3417,12 +3403,6 @@ recv_marker_deallocate(Process *c_p, ErtsRecvMarker *markp)
 	    ASSERT(blkp->unused > 0);
 	    blkp->unused--;
 	}
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-	else if (blkp->ref[ix] == erts_old_recv_marker_id) {
-	    ASSERT(blkp->old_recv_marker_ix == ix);
-	    blkp->old_recv_marker_ix = -1;
-	}
-#endif
 
 	blkp->marker[pix].next_ix = nix;
 	blkp->marker[nix].prev_ix = pix;
@@ -3516,13 +3496,6 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
     markp = &blkp->marker[0];
     markp->next_ix = markp->prev_ix = 0;
     blkp->used_ix = 0;
-
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    if (*uniqp == erts_old_recv_marker_id)
-	blkp->old_recv_marker_ix = 0;
-    else
-	blkp->old_recv_marker_ix = -1;
-#endif
 
     /* Put the rest in a free list in the ref words... */
     blkp->free_ix = 1;
@@ -3687,13 +3660,6 @@ recv_marker_alloc(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 
     blkp->ref[ix] = recv_marker_uniq(c_p, uniqp);
 
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    if (*uniqp == erts_old_recv_marker_id) {
-	ASSERT(blkp->old_recv_marker_ix == -1);
-	blkp->old_recv_marker_ix = ix;
-    }
-#endif
-	
     ERTS_HDBG_CHK_RECV_MRKS(c_p);
 
     return markp;
@@ -8301,9 +8267,7 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
 {
     int ix, used, unused, free;
     ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    int old_recv_marker = 0;
-#endif    
+
     if (!blkp)
 	return;
 
@@ -8321,13 +8285,6 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
 		    || is_big(ref)
 		    || ref == am_undefined
 		    || is_nil(ref));
-
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-	if (ref == erts_old_recv_marker_id) {
-	    ERTS_ASSERT(blkp->old_recv_marker_ix == ix);
-	    old_recv_marker++;
-	}
-#endif
 
 	if (ref == am_undefined)
 	    unused++;

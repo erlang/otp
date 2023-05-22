@@ -19,55 +19,6 @@
 // %CopyrightEnd%
 //
 
-// /*
-//  * Skeleton for receive statement:
-//  *
-//  *             recv_mark L1                     Optional
-//  *             call make_ref/monitor            Optional
-//  *             ...
-//  *             recv_set L1                      Optional
-//  *      L1:          <-------------------+
-//  *                   <-----------+       |
-//  *                               |       |
-//  *             loop_rec L2 ------+---+   |
-//  *             ...               |   |   |
-//  *             remove_message    |   |   |
-//  *             jump L3           |   |   |
-//  *		...                 |   |   |
-//  *		loop_rec_end L1   --+   |   |
-//  *      L2:          <---------------+   |
-//  *	   	wait L1  -------------------+      or wait_timeout
-//  *		timeout
-//  *
-//  *	 L3:    Code after receive...
-//  *
-//  */
-
-i_recv_mark() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * Save the current end of message queue
-     */
-    /* inlined here... */
-    erts_msgq_recv_marker_insert_bind(c_p, erts_old_recv_marker_id);
-}
-
-i_recv_set() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * If previously saved recv mark, set save pointer to it
-     */
-    /* inlined here... */
-    erts_msgq_recv_marker_set_save(c_p, erts_old_recv_marker_id);
-    SET_I($NEXT_INSTRUCTION);
-    goto loop_rec_top__;
-    //| -no_next
-}
-
 recv_marker_reserve(Dst) {
     SWAPOUT;
 
@@ -97,9 +48,6 @@ i_loop_rec(Dest) {
      */
 
     ErtsMessage* msgp;
-
-    /* Entry point from recv_set */
- loop_rec_top__:
 
     /*
      * We need to disable GC while matching messages

@@ -200,10 +200,6 @@ typedef struct {
 
 #define ERTS_SIG_HANDLE_REDS_MAX_PREFERED (CONTEXT_REDS/40)
 
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-extern Eterm erts_old_recv_marker_id;
-#endif
-
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 #  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(P)       \
     ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((P), "")
@@ -1894,25 +1890,6 @@ erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
 	}								\
     } while (0)
 
-#undef ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-
-#define ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(BLKP)			\
-    do {								\
-	if ((BLKP)->old_recv_marker_ix >= 0) {				\
-	    int ix__ = (BLKP)->old_recv_marker_ix;			\
-	    ASSERT((BLKP)->ref[ix__] == erts_old_recv_marker_id);	\
-	    ASSERT((BLKP)->marker[ix__].in_sigq);			\
-	    ASSERT(!(BLKP)->marker[ix__].set_save);			\
-	    (BLKP)->unused++;						\
-	    (BLKP)->ref[ix__] = am_undefined;				\
-	    (BLKP)->marker[ix__].pass = ERTS_RECV_MARKER_PASS_MAX;	\
-	    (BLKP)->old_recv_marker_ix = -1;				\
-	}								\
-    } while (0)
-
-#endif
-
 ERTS_GLB_INLINE int
 erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2)
 {
@@ -1994,13 +1971,6 @@ erts_msgq_recv_marker_clear(Process *c_p, Eterm id)
 
     if (!blkp)
 	return;
-    
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    if (id == erts_old_recv_marker_id) {
-	ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(blkp);
-	return;
-    }
-#endif
 
     for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
 	if (erts_msgq_eq_recv_mark_id__(blkp->ref[ix], id)) {
@@ -2030,9 +2000,6 @@ ERTS_GLB_INLINE void erts_msgq_recv_marker_bind(Process *c_p,
 						Eterm bind_id)
 {
     ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    ASSERT(bind_id != erts_old_recv_marker_id);
-#endif
 
     if (is_small(insert_id) || is_big(insert_id)) {
 	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
@@ -2061,12 +2028,6 @@ erts_msgq_recv_marker_insert_bind(Process *c_p, Eterm id)
 {
     ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     if (is_internal_ref(id)) {
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
-	if (blkp && erts_old_recv_marker_id == id)
-	    ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(blkp);
-#endif
-
         erts_proc_sig_queue_lock(c_p);
 	erts_proc_sig_fetch(c_p);
 	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
@@ -2131,9 +2092,6 @@ erts_msgq_set_save_first(Process *c_p)
     ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     if (blkp) {
 	ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(blkp);
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-	ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(blkp);
-#endif
     }    
 
     /*
