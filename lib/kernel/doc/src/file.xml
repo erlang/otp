@@ -1413,7 +1413,7 @@ f.txt:  {person, "kalle", 25}.
     </func>
     <func>
       <name name="read_file" arity="1" since=""/>
-      <name name="read_file" arity="2" since=""/>
+      <name name="read_file" arity="2" since="OTP @OTP-18589@"/>
       <fsummary>Read a file.</fsummary>
       <type name="read_file_option"/>
       <desc>
