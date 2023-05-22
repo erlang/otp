@@ -126,7 +126,8 @@
              ldefs=#{},
              count :: beam_ssa:label(),
              dom,
-             uses}).
+             uses,
+             in_or=false :: boolean()}).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
@@ -909,7 +910,7 @@ do_opt_digraph([A|As], G0, St) ->
         G ->
             do_opt_digraph(As, G, St)
     catch
-        throw:not_possible ->
+        throw:not_possible when not St#st.in_or ->
             do_opt_digraph(As, G0, St)
     end;
 do_opt_digraph([], G, _St) -> G.
@@ -923,19 +924,33 @@ opt_digraph_instr(#b_set{dst=Dst}=I, G0, St) ->
         #b_set{op={bif,'and'},args=Args} ->
             G2 = convert_to_br_node(I, Succ, G1, St),
             {First,Second} = order_args(Args, G2, St),
+            case St of
+                #st{in_or=true} ->
+                    %% This code is part of the left-hand side operand
+                    %% of `or`.  The optimization is unsafe if there
+                    %% any instructions that may fail.
+                    ensure_no_failing_instructions(First, Second, G1, St);
+                #st{} ->
+                    ok
+            end,
             G = redirect_test(First, {fail,Fail}, G2, St),
             redirect_test(Second, {fail,Fail}, G, St);
         #b_set{op={bif,'or'},args=Args} ->
             {First,Second} = order_args(Args, G1, St),
 
-            %% Here we give up the optimization if the optimization
-            %% would skip instructions that may fail. A possible
-            %% future improvement would be to hoist the failing
-            %% instructions so that they would always be executed.
+            %% Here we give up if the optimization would skip
+            %% instructions that may fail in the right-hand side
+            %% operand.
             ensure_no_failing_instructions(First, Second, G1, St),
 
             G2 = convert_to_br_node(I, Succ, G1, St),
-            G = redirect_test(First, {succ,Succ}, G2, St),
+
+            %% Be sure to give up if the left-hand side operation of
+            %% the `or` has a failing operation thay may be
+            %% skipped. Example:
+            %%
+            %%   f(_, B) when ((ok == B) and (ok =/= trunc(ok))) or (ok < B) -> ...
+            G = redirect_test(First, {succ,Succ}, G2, St#st{in_or=true}),
             redirect_test(Second, {fail,Fail}, G, St);
         #b_set{op={bif,'xor'}} ->
             %% Rewriting 'xor' is not practical. Fortunately,
@@ -999,8 +1014,8 @@ convert_to_br_node(I, Target, G0, St) ->
 
 %% ensure_no_failing_instructions(First, Second, G, St) -> ok.
 %%  Ensure that there are no instructions that can fail that would not
-%%  be executed if right-hand side of the `or` would be skipped. That
-%%  means that the `or` could succeed when it was supposed to
+%%  be executed if right-hand side of the operation would be skipped. That
+%%  means that the operation could succeed when it was supposed to
 %%  fail. Example:
 %%
 %%    (element(1, T) =:= tag) or
