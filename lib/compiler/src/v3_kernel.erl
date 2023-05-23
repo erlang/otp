@@ -1437,9 +1437,15 @@ match_fun(Val) ->
 reorder_bin_ints([_]=Cs) ->
     Cs;
 reorder_bin_ints(Cs0) ->
-    %% It is safe to reorder clauses that matches binaries if the
-    %% first segments for all of them match the same number of bits
-    %% and if the patterns that follow are also safe to re-order.
+    %% It is safe to reorder clauses that match binaries if all
+    %% of the followings conditions are true:
+    %%
+    %% * The first segments for all of them match the same number of
+    %%   bits (guaranteed by caller).
+    %%
+    %% * All segments have fixed sizes.
+    %%
+    %% * The patterns that follow are also safe to re-order.
     try
         Cs = sort([{reorder_bin_int_sort_key(C),C} || C <- Cs0]),
         [C || {_,C} <- Cs]
@@ -1448,7 +1454,7 @@ reorder_bin_ints(Cs0) ->
             Cs0
     end.
 
-reorder_bin_int_sort_key(#iclause{pats=[Pats|More],guard=#c_literal{val=true}}) ->
+reorder_bin_int_sort_key(#iclause{pats=[Pat|More],guard=#c_literal{val=true}}) ->
     case all(fun(#k_var{}) -> true;
                 (_) -> false
              end, More) of
@@ -1461,7 +1467,14 @@ reorder_bin_int_sort_key(#iclause{pats=[Pats|More],guard=#c_literal{val=true}}) 
             %%    f([<<"prefix">>, Variable]) -> ...
             throw(not_possible)
     end,
-    case Pats of
+
+    %% Ensure that the remaining segments have fixed sizes. For example, the following
+    %% clauses are not safe to re-order:
+    %%    f(<<"dd",_/binary>>) -> dd;
+    %%    f(<<"d",_/binary>>) -> d.
+    ensure_fixed_size(Pat#k_bin_int.next),
+
+    case Pat of
         #k_bin_int{val=Val,next=#k_bin_end{}} ->
             %% Sort before clauses with additional segments. This usually results in
             %% better code.
@@ -1471,6 +1484,16 @@ reorder_bin_int_sort_key(#iclause{pats=[Pats|More],guard=#c_literal{val=true}}) 
     end;
 reorder_bin_int_sort_key(#iclause{}) ->
     throw(not_possible).
+
+ensure_fixed_size(#k_bin_seg{size=Size,next=Next}) ->
+    case Size of
+        #k_literal{val=Sz} when is_integer(Sz) ->
+            ensure_fixed_size(Next);
+        _ ->
+            throw(not_possible)
+    end;
+ensure_fixed_size(#k_bin_end{}) ->
+    ok.
 
 %% match_value([Var], Con, [Clause], Default, State) -> {SelectExpr,State}.
 %%  At this point all the clauses have the same constructor, we must

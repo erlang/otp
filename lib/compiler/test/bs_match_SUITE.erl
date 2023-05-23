@@ -19,7 +19,10 @@
 %%
 
 -module(bs_match_SUITE).
--compile(nowarn_shadow_vars).
+
+%% Limiting error locations to lines makes it more likely that unsafe
+%% reordering of clauses will be noticed.
+-compile([nowarn_shadow_vars, {error_location,line}]).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -1327,7 +1330,7 @@ match_string(Config) when is_list(Config) ->
     %% To make sure that native endian really is handled correctly
     %% (i.e. that the compiler does not attempt to use bs_match_string/4
     %% instructions for native segments), running this test is not enough.
-    %% Either examine the generated for do_match_string_native/1 or
+    %% Either examine the generated code for do_match_string_native/1 or
     %% check the coverage for the v3_kernel module.
     case erlang:system_info(endian) of
 	little ->
@@ -1345,6 +1348,14 @@ match_string(Config) when is_list(Config) ->
     plain = no_match_string_opt(<<"abc">>),
     strange = no_match_string_opt(<<$a:9,$b:9,$c:9>>),
 
+    d = do_match_string_tail(id(<<"d">>)),
+    dd = do_match_string_tail(id(<<"dd">>)),
+
+    a = do_match_string_var_size(id(<<"a">>), id(0)),
+    a = do_match_string_var_size(id(<<"ab">>), id(8)),
+    ab = do_match_string_var_size(id(<<"ab">>), id(0)),
+    ab = do_match_string_var_size(id(<<"abc">>), id(8)),
+
     ok.
 
 do_match_string_native(<<$a:16/native,$b:16/native>>) -> ok.
@@ -1359,7 +1370,13 @@ do_match_string_little_signed(<<(-1):16/little-signed>>) -> ok.
 
 no_match_string_opt(<<"abc">>) -> plain;
 no_match_string_opt(<<$a:9,$b:9,$c:9>>) -> strange.
-    
+
+%% GH-7259: Unsafe reordering of clauses. (The clauses must be on the
+%% same line to trigger this bug.)
+do_match_string_tail(<<"dd", _T/binary>>) -> dd; do_match_string_tail(<<"d", _T/binary>>) -> d.
+
+do_match_string_var_size(Bin, Size) ->
+    case Bin of <<"ab",_T:Size>> -> ab; <<"a",_T:Size>> -> a end.
 
 %% OTP-7591: A zero-width segment in matching would crash the compiler.
 
