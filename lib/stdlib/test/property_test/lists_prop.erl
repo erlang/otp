@@ -50,8 +50,6 @@
 -endif.
 -endif.
 
--define(RANDOM_ATOMS, 1000).
-
 %%%%%%%%%%%%%%%%%%
 %%% Properties %%%
 %%%%%%%%%%%%%%%%%%
@@ -1822,46 +1820,33 @@ gen_any_simple() ->
 %%   - well-known atoms like `ok', `undefined', `infinity'...
 %%   - randomly generated "weird" atoms
 gen_atom() ->
-    oneof(
-        [
-            oneof([ok, error, true, false, undefined, infinity]),
-            oneof(['', '"', '\'', '(', ')', '()', '[', '[', '[]', '{', '}', '{}']),
-            gen_random_atom()
-        ]
-    ).
+    noshrink(gen_existing_atom()).
 
-%% Generator for a limited set of random atoms. The number of
-%% atoms that will be generated is set in `?RANDOM_ATOMS'.
-gen_random_atom() ->
+%% Generator for existing atoms.
+gen_existing_atom() ->
     ?LAZY(
         ?LET(
             N,
-            range(1, ?RANDOM_ATOMS),
-            try
-                persistent_term:get({?MODULE, random_atoms})
-            of
-                Atoms ->
-                    maps:get(N, Atoms)
-            catch
-                error:badarg ->
-                    ?LET(
-                        AtomsList,
-                        vector(?RANDOM_ATOMS, ?SIZED(Size, resize(Size * 100, atom()))),
-                        begin
-                            Fn = fun
-                                F(_, [], Acc) ->
-                                    Acc;
-                                F(Index, [A|As], Acc) ->
-                                    F(Index + 1, As, Acc#{Index => A})
-                            end,
-                            Atoms = Fn(1, AtomsList, #{}),
-                            persistent_term:put({?MODULE, random_atoms}, Atoms),
-                            maps:get(N, Atoms)
-                        end
-                    )
-            end
+            non_neg_integer(),
+            get_existing_atom(N)
         )
     ).
+
+%% Using an undocumented "trick" to obtain the atom registered at the given index.
+-define(ATOM_TERM_BIN(Index), <<131, 75, Index:24>>).
+get_existing_atom(Index) ->
+    get_existing_atom(Index, erlang:system_info(atom_count)).
+
+%% PropEr may get confused by atoms starting with a $, so we do not return those
+%% but retry with the next index. This will lead to atoms following ones starting
+%% with a $ to be returned more often than others, but this should be acceptable.
+get_existing_atom(Index0, Max) ->
+    Index1 = Index0 rem Max,
+    Atom = binary_to_term(?ATOM_TERM_BIN(Index1)),
+    case Atom =:= '' orelse hd(atom_to_list(Atom)) =/= $$ of
+        true -> Atom;
+        false -> get_existing_atom(Index1 + 1, Max)
+    end.
 
 %% Generator for ordering functions, to be used for sorting and merging.
 %% The generated ordering functions are designed to fulfill the requirements given
