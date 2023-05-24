@@ -1394,6 +1394,11 @@ error_info(_Config) ->
     Binary = id(<<"abc">>),
     HugeBig = id(1 bsl 1500),
     LongList = lists:seq(1, 100),
+    BadBinary = id(ok),
+    BadSize = case Atom of
+                  a -> 0;
+                  _ -> bad_size
+              end,
 
     {badarg, {1,binary,type,Atom}, _} = ?ERROR_INFO(<<Atom/binary, Binary/binary>>),
     {badarg, {2,binary,type,Atom}, _} = ?ERROR_INFO(<<Binary/binary, Atom/binary>>),
@@ -1416,6 +1421,8 @@ error_info(_Config) ->
     {badarg, {1,binary,size,Atom}, _} = ?ERROR_INFO(<<Binary:Atom/binary>>),
     {badarg, {1,binary,size,NegSize}, _} = ?ERROR_INFO(<<Binary:NegSize/binary>>),
     {badarg, {1,binary,size,HugeNegSize}, _} = ?ERROR_INFO(<<Binary:HugeNegSize/binary>>),
+    {badarg, {1,binary,size,BadSize}, _} = ?ERROR_INFO(<<Binary:BadSize/binary>>),
+    {badarg, {1,binary,size,BadSize}, _} = ?ERROR_INFO(<<BadBinary:BadSize/binary>>),
     {badarg, {1,binary,short,Binary}, _} = ?ERROR_INFO(<<Binary:10/binary>>),
     {badarg, {1,binary,short,Binary}, _} = ?ERROR_INFO(<<Binary:(id(10))/binary>>),
     {badarg, {1,binary,type,Atom}, _} = ?ERROR_INFO(<<Atom/binary>>),
