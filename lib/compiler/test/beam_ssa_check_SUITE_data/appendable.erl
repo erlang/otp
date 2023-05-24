@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 -module(appendable).
 -export([make_empty/0, t0/0, t1/0, t2/0, t3/0, t4/0,
-	 t5/0, t6/0, t7/0, t8/1, t9/1, t10/1, t11/1, t12/0]).
+	 t5/0, t6/0, t7/0, t8/1, t9/1, t10/1, t11/1, t12/0, t13/0]).
 
 %% Check that just returning an empty bitstring is considered
 %% appendable.
@@ -160,3 +160,12 @@ t12() ->
 
 t12_inner([x|B]) ->
     [x|<<B/binary,1:8>>].
+
+%% Check that the compiler doesn't infer anything about the appendable
+%% status of a bitstring from a comparison.
+t13() ->
+%ssa% () when post_ssa_opt ->
+%ssa% B = bif:binary_part(A, 0, 0),
+%ssa% C = bif:'=:='(B, A) { arg_types => #{ 0 => {t_bitstring,8,false}, 1 => {t_bitstring,256,true}} },
+%ssa% _ = bs_create_bin(append, _, B, ...) { arg_types => #{ 2 => {t_bitstring,256,false} } }.
+   <<(_V4 = binary_part(_V4 = <<0 || _ <- []>>, 0, 0))/bitstring>>.
