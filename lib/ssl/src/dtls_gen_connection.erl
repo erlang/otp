@@ -320,7 +320,7 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
+    MaxFragmentLength = maps:get(max_fragment_length, ConnectionStates0, undefined),
     MaxSize = mtu(MaxFragmentLength, DataTag),
     {Encoded, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight), Version, MaxSize, Epoch, ConnectionStates0),
@@ -338,7 +338,7 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
+    MaxFragmentLength = maps:get(max_fragment_length, ConnectionStates0, undefined),
     MaxSize = mtu(MaxFragmentLength, DataTag),
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch, ConnectionStates0),
@@ -358,7 +358,7 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
+    MaxFragmentLength = maps:get(max_fragment_length, ConnectionStates0, undefined),
     MaxSize = mtu(MaxFragmentLength, DataTag),
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch-1, ConnectionStates0),
@@ -382,7 +382,7 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
+    MaxFragmentLength = maps:get(max_fragment_length, ConnectionStates0, undefined),
     MaxSize = mtu(MaxFragmentLength, DataTag),
     {EncChangeCipher, ConnectionStates1} = 
 	encode_change_cipher(ChangeCipher, Version, Epoch-1, ConnectionStates0),

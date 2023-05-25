@@ -108,10 +108,10 @@ init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
         Buffer0 :: binary() | {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}},
         tls_max_frag_len(),
         ssl_options()) ->
-                             {Records :: [#ssl_tls{}],
-                              Buffer :: {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}} |
-                             #alert{}.
-%%			     
+          {Records :: [#ssl_tls{}],
+           Buffer :: {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}} |
+          #alert{}.
+%%
 %% and returns it as a list of binaries also returns leftover
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
@@ -133,18 +133,13 @@ get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, SslOpts) -
 %%--------------------------------------------------------------------
 encode_handshake(Frag, ?TLS_1_3, ConnectionStates) ->
     tls_record_1_3:encode_handshake(Frag, ConnectionStates);
-encode_handshake(Frag, Version, 
+encode_handshake(Frag, Version,
 		 #{current_write :=
 		       #{beast_mitigation := BeastMitigation,
-                         max_fragment_length := MaxFragmentLength,
-			  security_parameters :=
-			     #security_parameters{bulk_cipher_algorithm = BCA}}} = 
+                         security_parameters :=
+			     #security_parameters{bulk_cipher_algorithm = BCA}}} =
 		     ConnectionStates) ->
-    MaxLength = if is_integer(MaxFragmentLength) ->
-                        MaxFragmentLength;
-                   true ->
-                        ?MAX_PLAIN_TEXT_LENGTH
-                end,
+    MaxLength = maps:get(max_fragment_length, ConnectionStates, ?MAX_PLAIN_TEXT_LENGTH),
     case iolist_size(Frag) of
 	N when N > MaxLength ->
             Data = split_iovec(erlang:iolist_to_iovec(Frag), Version, BCA, BeastMitigation, MaxLength),
@@ -184,16 +179,12 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
 encode_data(Data, ?TLS_1_3, ConnectionStates) ->
     tls_record_1_3:encode_data(Data, ConnectionStates);
 encode_data(Data, Version,
-	    #{current_write := #{beast_mitigation := BeastMitigation,
-                                 max_fragment_length := MaxFragmentLength,
-				 security_parameters :=
-				     #security_parameters{bulk_cipher_algorithm = BCA}}} =
+	    #{current_write :=
+                  #{beast_mitigation := BeastMitigation,
+                    security_parameters :=
+                        #security_parameters{bulk_cipher_algorithm = BCA}}} =
 		ConnectionStates) ->
-    MaxLength = if is_integer(MaxFragmentLength) ->
-                        MaxFragmentLength;
-                   true ->
-                        ?MAX_PLAIN_TEXT_LENGTH
-                end,
+    MaxLength = maps:get(max_fragment_length, ConnectionStates, ?MAX_PLAIN_TEXT_LENGTH),
     Fragments = split_iovec(Data, Version, BCA, BeastMitigation, MaxLength),
     encode_fragments(?APPLICATION_DATA, Version, Fragments, ConnectionStates).
 
@@ -479,7 +470,6 @@ initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
       client_verify_data => undefined,
       server_verify_data => undefined,
       pending_early_data_size => MaxEarlyDataSize,
-      max_fragment_length => undefined,
       trial_decryption => false,
       early_data_expected => false
      }.

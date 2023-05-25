@@ -1840,7 +1840,7 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
                                           cipher_suite = CipherSuite,
                                           srp_username = SrpUsername,
                                           ecc = ECCCurve} = Session,
-                       connection_states = #{current_write := CurrentWrite},
+                       connection_states = ConnectionStates,
 		       connection_env = #connection_env{negotiated_version =  {_,_} = Version},
 		       ssl_options = #{protocol := Protocol} = Opts}) ->
     RecordCB = record_cb(Protocol),
@@ -1853,7 +1853,7 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
 		    _ ->
 			[]
 		end,
-    MFLInfo = case maps:get(max_fragment_length, CurrentWrite, undefined) of
+    MFLInfo = case maps:get(max_fragment_length, ConnectionStates, undefined) of
                   MaxFragmentLength when is_integer(MaxFragmentLength) ->
                       [{max_fragment_length, MaxFragmentLength}];
                   _ ->

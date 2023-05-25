@@ -46,15 +46,8 @@
 %
 %% Description: Encodes a handshake message to send on the tls-1.3-socket.
 %%--------------------------------------------------------------------
-encode_handshake(Frag, #{current_write :=
-                             #{max_fragment_length := MaxFragmentLength}} =
-                     ConnectionStates) ->
-    MaxLength = if is_integer(MaxFragmentLength) ->
-                        MaxFragmentLength;
-                   true ->
-                        %% TODO: Consider padding here
-                        ?MAX_PLAIN_TEXT_LENGTH
-                end,
+encode_handshake(Frag,ConnectionStates) ->
+    MaxLength = maps:get(max_fragment_length, ConnectionStates, ?MAX_PLAIN_TEXT_LENGTH),
     case iolist_size(Frag) of
 	N  when N > MaxLength ->
 	    Data = tls_record:split_iovec(erlang:iolist_to_iovec(Frag), MaxLength),
@@ -79,14 +72,8 @@ encode_alert_record(#alert{level = Level, description = Description},
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_data(Frag, #{current_write :=
-                        #{max_fragment_length := MaxFragmentLength}} =
-                     ConnectionStates) ->
-    MaxLength = if is_integer(MaxFragmentLength) ->
-                        MaxFragmentLength;
-                   true ->
-                        ?MAX_PLAIN_TEXT_LENGTH
-                end,
+encode_data(Frag, ConnectionStates) ->
+    MaxLength = maps:get(max_fragment_length, ConnectionStates, ?MAX_PLAIN_TEXT_LENGTH),
     Data = tls_record:split_iovec(Frag, MaxLength),
     encode_iolist(?APPLICATION_DATA, Data, ConnectionStates).
 

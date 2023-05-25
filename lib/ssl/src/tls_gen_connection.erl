@@ -658,7 +658,7 @@ next_tls_record(Data, StateName,
             _ ->
                 State0#state.connection_env#connection_env.negotiated_version
         end,
-    #{current_write := #{max_fragment_length := MaxFragLen}} = State0#state.connection_states,
+    MaxFragLen = maps:get(max_fragment_length, State0#state.connection_states, undefined),
     SslOpts = maps:put(downgrade, Downgrade, SslOpts0),
     case tls_record:get_tls_records(Data, Versions, Buf0, MaxFragLen, SslOpts) of
 	{Records, Buf1} ->

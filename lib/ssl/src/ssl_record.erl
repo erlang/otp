@@ -222,29 +222,14 @@ set_renegotiation_flag(Flag, #{current_read := CurrentRead0,
 %%
 %% Description: Set maximum fragment length in all connection states
 %%--------------------------------------------------------------------
-set_max_fragment_length(#max_frag_enum{enum = MaxFragEnum},
-                        #{current_read := CurrentRead0,
-                          current_write := CurrentWrite0,
-                          pending_read := PendingRead0,
-                          pending_write := PendingWrite0}
-                        = ConnectionStates) when (MaxFragEnum == 1) orelse
-                                                 (MaxFragEnum == 2) orelse
-                                                 (MaxFragEnum == 3) orelse
-                                                 (MaxFragEnum == 4)
-                                                 ->
+set_max_fragment_length(#max_frag_enum{enum = MaxFragEnum}, ConnectionStates)
+  when is_integer(MaxFragEnum), 1 =< MaxFragEnum, MaxFragEnum =< 4 ->
     MaxFragmentLength = if MaxFragEnum == 1 -> ?MAX_FRAGMENT_LENGTH_BYTES_1;
                            MaxFragEnum == 2 -> ?MAX_FRAGMENT_LENGTH_BYTES_2;
                            MaxFragEnum == 3 -> ?MAX_FRAGMENT_LENGTH_BYTES_3;
                            MaxFragEnum == 4 -> ?MAX_FRAGMENT_LENGTH_BYTES_4
                         end,
-    CurrentRead = CurrentRead0#{max_fragment_length => MaxFragmentLength},
-    CurrentWrite = CurrentWrite0#{max_fragment_length => MaxFragmentLength},
-    PendingRead = PendingRead0#{max_fragment_length => MaxFragmentLength},
-    PendingWrite = PendingWrite0#{max_fragment_length => MaxFragmentLength},
-    ConnectionStates#{current_read => CurrentRead,
-		      current_write => CurrentWrite,
-		      pending_read => PendingRead,
-		      pending_write => PendingWrite};
+    ConnectionStates#{max_fragment_length => MaxFragmentLength};
 set_max_fragment_length(_,ConnectionStates) ->
     ConnectionStates.
 
@@ -462,7 +447,6 @@ empty_connection_state(ConnectionEnd, Version,
       client_verify_data => undefined,
       server_verify_data => undefined,
       pending_early_data_size => MaxEarlyDataSize,
-      max_fragment_length => undefined,
       trial_decryption => false,
       early_data_accepted => false
      }.

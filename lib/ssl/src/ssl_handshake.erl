@@ -1505,7 +1505,7 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite,
     %% RFC 6066: handle received/expected maximum fragment length
     if IsNew ->
             ServerMaxFragEnum = maps:get(max_frag_enum, Exts, undefined),
-            #{current_write := #{max_fragment_length := ConnMaxFragLen}} = ConnectionStates,
+            ConnMaxFragLen = maps:get(max_fragment_length, ConnectionStates0, undefined),
             ClientMaxFragEnum = max_frag_enum(ConnMaxFragLen),
 
             if ServerMaxFragEnum == ClientMaxFragEnum ->

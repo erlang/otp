@@ -223,13 +223,8 @@ encode_change_cipher_spec(Version, Epoch, ConnectionStates) ->
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
 encode_data(Data, Version, ConnectionStates) ->
-    #{epoch := Epoch, max_fragment_length := MaxFragmentLength}
-        = ssl_record:current_connection_state(ConnectionStates, write),
-    MaxLength = if is_integer(MaxFragmentLength) ->
-                        MaxFragmentLength;
-                   true ->
-                        ?MAX_PLAIN_TEXT_LENGTH
-                end,
+    #{epoch := Epoch} = ssl_record:current_connection_state(ConnectionStates, write),
+    MaxLength = maps:get(max_fragment_length, ConnectionStates, ?MAX_PLAIN_TEXT_LENGTH),
     case iolist_size(Data) of
 	N when N > MaxLength ->
             Frags = tls_record:split_iovec(erlang:iolist_to_iovec(Data), MaxLength),
@@ -417,8 +412,7 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       mac_secret  => undefined,
       secure_renegotiation => undefined,
       client_verify_data => undefined,
-      server_verify_data => undefined,
-      max_fragment_length => undefined
+      server_verify_data => undefined
      }.
 
 get_dtls_records_aux({DataTag, StateName, _, Versions} = Vinfo,
