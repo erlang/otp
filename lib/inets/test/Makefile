@@ -129,6 +129,7 @@ MODULES =                 		\
 	httpd_bench_SUITE               \
 	http_test_lib    		\
 	httpd_basic_SUITE		\
+	httpd_serve_SUITE       	\
 	httpd_load        		\
 	httpd_time_test	  		\
 	httpd_1_1         		\
@@ -164,7 +165,7 @@ INETS_FILES = inets.config $(INETS_SPECS)
 
 
 INETS_DATADIRS = inets_SUITE_data inets_socketwrap_SUITE_data
-HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data httpd_bench_SUITE_data
+HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data httpd_bench_SUITE_data httpd_serve_SUITE_data
 
 HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
 
