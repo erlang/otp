@@ -955,10 +955,12 @@ http_options([{Tag, Default, Idx, Post} | Defaults], HttpOptions, Acc) ->
 	false ->
 	    DefaultVal = 
 		case Default of
-		    {value, Val} ->
-			Val;
-		    {field, DefaultIdx} ->
-			element(DefaultIdx, Acc)
+            {value, Val} ->
+                Val;
+            {value_lazy, ValFn} ->
+                ValFn();
+            {field, DefaultIdx} ->
+                element(DefaultIdx, Acc)
 		end,
 	    Acc2 = setelement(Idx, Acc, DefaultVal),
 	    http_options(Defaults, HttpOptions, Acc2)
@@ -1009,14 +1011,17 @@ http_options_default() ->
 		error
 	end,
 
-    SslOpts = ssl_verify_host_options(true),
+    SslOptsLazyFn = fun() ->
+        {ssl, ssl_verify_host_options(true)}
+    end,
 
     UrlDecodePost =  boolfun(),
     [
      {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
      {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
      {autoredirect,    {value, true},                  #http_options.autoredirect,    AutoRedirectPost},
-     {ssl,             {value, {ssl, SslOpts}},        #http_options.ssl,             SslPost},
+     %% can crash if no os bundle is present. therefore the options are only evaluated on demand
+     {ssl,             {value_lazy, SslOptsLazyFn},    #http_options.ssl,             SslPost},
      {proxy_auth,      {value, undefined},             #http_options.proxy_auth,      ProxyAuthPost},
      {relaxed,         {value, false},                 #http_options.relaxed,         RelaxedPost},
      {url_encode,      {value, false},                 #http_options.url_encode,      UrlDecodePost},
