@@ -375,9 +375,11 @@ void BeamGlobalAssembler::emit_i_get_map_element_shared() {
 
     a.bind(generic);
     {
+        emit_enter_frame();
         emit_enter_runtime();
         runtime_call<2>(get_map_element);
         emit_leave_runtime();
+        emit_leave_frame();
 
         emit_test_the_non_value(RET);
 
