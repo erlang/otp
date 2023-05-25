@@ -155,10 +155,11 @@ tls13_client_tls12_server() ->
     [{doc,"Test that a TLS 1.3 client can connect to a TLS 1.2 server."}].
 
 tls13_client_tls12_server(Config) when is_list(Config) ->
-    ClientOpts = [{versions,
-                   ['tlsv1.3', 'tlsv1.2']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{versions,
-                   ['tlsv1.1', 'tlsv1.2']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+    ClientOpts = [{versions, ['tlsv1.3', 'tlsv1.2']} |
+                  ssl_test_lib:ssl_options(client_cert_opts, Config)],
+    ServerOpts =  [{versions, ['tlsv1.1', 'tlsv1.2']},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true}
+                  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
     
 tls13_client_with_ext_tls12_server() ->
@@ -168,24 +169,30 @@ tls13_client_with_ext_tls12_server() ->
 tls13_client_with_ext_tls12_server(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
-  
-    ServerOpts = [{versions, ['tlsv1.2']}|ServerOpts0],
+
+    ServerOpts = [{versions, ['tlsv1.2']},
+                  {verify, verify_peer}, {fail_if_no_peer_cert, true},
+                  {signature_algs, [rsa_pss_rsae_sha256,
+                                    {sha256, rsa},
+                                    {sha256, ecdsa},
+                                    {sha, ecdsa}]}| ServerOpts0],
     ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
                   {signature_algs_cert, [ecdsa_secp384r1_sha384,
                                          ecdsa_secp256r1_sha256,
                                          rsa_pss_rsae_sha256,
                                          rsa_pkcs1_sha256,
-                                         {sha256,rsa},{sha256,dsa}]}|ClientOpts0],
+                                         ecdsa_sha1]}|ClientOpts0],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
    
 tls12_client_tls13_server() ->
     [{doc,"Test that a TLS 1.2 client can connect to a TLS 1.3 server."}].
 
 tls12_client_tls13_server(Config) when is_list(Config) ->    
-    ClientOpts = [{versions,
-                   ['tlsv1.1', 'tlsv1.2']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{versions,
-                   ['tlsv1.3', 'tlsv1.2']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+    ClientOpts = [{versions, ['tlsv1.1', 'tlsv1.2']} |
+                  ssl_test_lib:ssl_options(client_cert_opts, Config)],
+    ServerOpts =  [{versions, ['tlsv1.3', 'tlsv1.2']},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true}
+                  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 tls_client_tls10_server() ->
@@ -196,13 +203,11 @@ tls_client_tls10_server(Config) when is_list(Config) ->
                                                            (srp_anon) -> false;
                                                            (srp_dss) -> false;
                                                            (_) -> true end}]),        
-    ClientOpts = [{versions,
-                   ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
-                  {ciphers, CCiphers}
-                 |
+    ClientOpts = [{versions, ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
+                  {ciphers, CCiphers} |
                   ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{versions,
-                   ['tlsv1']},
+    ServerOpts =  [{versions, ['tlsv1']},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true},
                    {ciphers, ssl:cipher_suites(all, 'tlsv1')}
                   | ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
@@ -219,8 +224,8 @@ tls_client_tls11_server(Config) when is_list(Config) ->
                    ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
                   {ciphers, CCiphers} |
                   ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{versions,
-                    ['tlsv1.1']},   
+    ServerOpts =  [{versions,['tlsv1.1']},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true},
                    {ciphers, ssl:cipher_suites(all, 'tlsv1.1')}  
                   | ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
@@ -231,8 +236,9 @@ tls_client_tls12_server(Config) when is_list(Config) ->
     ClientOpts = [{versions,
                    ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3']} |
                   ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{versions,
-                   ['tlsv1.2']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+    ServerOpts =  [{versions, ['tlsv1.2']},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true}
+                  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 tls10_client_tls_server() ->
@@ -243,12 +249,12 @@ tls10_client_tls_server(Config) when is_list(Config) ->
                                                            (srp_anon) -> false;
                                                            (srp_dss) -> false;
                                                            (_) -> true end}]),    
-    ClientOpts = [{versions,
-                   ['tlsv1']}, {ciphers, ssl:cipher_suites(all, 'tlsv1')} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{versions,
-                   ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
-                   {ciphers, SCiphers}
-                  |
+    ClientOpts = [{versions, ['tlsv1']},
+                  {ciphers, ssl:cipher_suites(all, 'tlsv1')} |
+                  ssl_test_lib:ssl_options(client_cert_opts, Config)],
+    ServerOpts =  [{versions, ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true},
+                   {ciphers, SCiphers} |
                    ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
@@ -261,13 +267,12 @@ tls11_client_tls_server(Config) when is_list(Config) ->
                                                            (srp_dss) -> false;
                                                            (_) -> true end}]),
     
-    ClientOpts = [{versions,
-                   ['tlsv1.1']},  {ciphers, ssl:cipher_suites(all, 'tlsv1.1')} | 
+    ClientOpts = [{versions, ['tlsv1.1']},
+                  {ciphers, ssl:cipher_suites(all, 'tlsv1.1')} |
                   ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{versions,
-                   ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
-                    {ciphers, SCiphers}
-                  |
+    ServerOpts =  [{versions, ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true},
+                   {ciphers, SCiphers} |
                    ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
@@ -277,7 +282,8 @@ tls12_client_tls_server(Config) when is_list(Config) ->
     ClientOpts = [{versions,
                    ['tlsv1.2']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
     ServerOpts =  [{versions,
-                   ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']} |
+                   ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true} |
                    ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
