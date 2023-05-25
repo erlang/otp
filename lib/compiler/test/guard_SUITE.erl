@@ -2618,6 +2618,7 @@ beam_bool_SUITE(_Config) ->
     bad_map_in_guard(),
     gh_6164(),
     gh_6184(),
+    gh_7252(),
     ok.
 
 before_and_inside_if() ->
@@ -3164,6 +3165,33 @@ bad_map_in_guard_1() when (a#{key => value})#bad_map_in_guard.name ->
     ok;
 bad_map_in_guard_1() ->
     error.
+
+gh_7252() ->
+    bar = gh_7252_a(id(bar), id([])),
+    bar = gh_7252_a(id(bar), id(ok)),
+
+    foo = gh_7252_b(id(ok), id(<<>>)),
+    bar = gh_7252_b(id(ok), id(ok)),
+
+    bar = gh_7252_c(id(ok)),
+
+    ok.
+
+gh_7252_a(_, B) when ((ok == B) and (ok =/= trunc(ok))) or (ok < B) ->
+    foo;
+gh_7252_a(A, _) ->
+    A.
+
+gh_7252_b(A, B)
+  when (true xor is_float(A)) or (is_bitstring(B) orelse <<(ok):(ok)>>) ->
+    foo;
+gh_7252_b(_, _) ->
+    bar.
+
+gh_7252_c(A) when ((ok > A) and ((bnot ok) =:= ok)) or (not (ok > A)) ->
+    foo;
+gh_7252_c(_) ->
+    bar.
 
 %%%
 %%% End of beam_bool_SUITE tests.
