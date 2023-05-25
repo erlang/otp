@@ -734,11 +734,12 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello, State
 
 handle_state_timeout(flight_retransmission_timeout, StateName,
                      #state{protocol_specific = 
-                                #{flight_state := {retransmit, _NextTimeout}}} = State0) ->
+                                #{flight_state := {retransmit, CurrentTimeout}}} = State0) ->
     {State1, Actions0} = dtls_gen_connection:send_handshake_flight(State0, 
                                                                    retransmit_epoch(StateName, State0)),
-    {next_state, StateName, State, Actions} = 
+    {next_state, StateName, #state{protocol_specific = PS} = State2, Actions} =
         dtls_gen_connection:next_event(StateName, no_record, State1, Actions0),
+    State = State2#state{protocol_specific = PS#{flight_state => {retransmit, new_timeout(CurrentTimeout)}}},
     %% This will reset the retransmission timer by repeating the enter state event
     {repeat_state, State, Actions}.
 
@@ -813,7 +814,7 @@ handle_flight_timer(#state{protocol_specific = #{flight_state := reliable}} = St
     {State, []}.
 
 start_retransmision_timer(Timeout, #state{protocol_specific = PS} = State) ->
-    {State#state{protocol_specific = PS#{flight_state => {retransmit, new_timeout(Timeout)}}}, 
+    {State#state{protocol_specific = PS#{flight_state => {retransmit, Timeout}}},
      [{state_timeout, Timeout, flight_retransmission_timeout}]}.
 
 new_timeout(N) when N =< 30000 ->
