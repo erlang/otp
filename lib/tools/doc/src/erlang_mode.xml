@@ -107,25 +107,25 @@
   </section>
 
   <section>
-    <title>Edit - Moving the marker </title>
+    <title>Edit - Moving the point </title>
     <list type="bulleted">
-      <item><em><c>C-a M-a </c></em>
+      <item><em><c>M-C-a </c></em>
        (<c>erlang-beginning-of-function</c>) - Move the point to the
        beginning of the current or preceding Erlang function.  With an
-       numeric argument (ex <em><c>C-u 2 C-a M-a</c></em>) the function
+       numeric argument (ex <em><c>C-u 2 M-C-a</c></em>) the function
        skips backwards over this many Erlang functions. Should the
        argument be negative the point is moved to the beginning of a
        function below the current function. </item>
-      <item><em><c>M-C-a </c></em> (<c>erlang-beginning-of-clause</c>) - As
+      <item><em><c>C-c M-a </c></em> (<c>erlang-beginning-of-clause</c>) - As
        above but move point to the beginning of the current or
        preceding Erlang clause.</item>
-      <item><em><c>C-a M-e </c></em> (<c>erlang-end-of-function</c>)
+      <item><em><c>M-C-e </c></em> (<c>erlang-end-of-function</c>)
        - Move to the end of the current or following Erlang function.  With
-       an numeric argument (ex <em><c>C-u 2 C-a M-e</c></em>) the function
+       an numeric argument (ex <em><c>C-u 2 M-C-e</c></em>) the function
        skips backwards over this many Erlang functions. Should the argument
        be negative the point is moved to the end of a function below
        the current function.</item>
-      <item><em><c>M-C-e </c></em> (<c>erlang-end-of-clause</c>) - As above
+      <item><em><c>C-c M-e </c></em> (<c>erlang-end-of-clause</c>) - As above
        but move point to the end of the current or following Erlang
        clause.</item>
     </list>
@@ -134,11 +134,11 @@
   <section>
     <title>Edit - Marking </title>
     <list type="bulleted">
-      <item><em><c>C-c M-h</c></em> (<c>erlang-mark-function</c>) - Put the
+      <item><em><c>M-C-h</c></em> (<c>erlang-mark-function</c>) - Put the
        region around the current Erlang function.  The point is
        placed in the beginning and the mark at the end of the
        function.</item>
-      <item><em><c>M-C-h </c></em> (<c>erlang-mark-clause</c>) Put the region
+      <item><em><c>C-c M-h </c></em> (<c>erlang-mark-clause</c>) Put the region
        around the current Erlang clause.  The point is placed in the
        beginning and the mark at the end of the function. </item>
     </list>
