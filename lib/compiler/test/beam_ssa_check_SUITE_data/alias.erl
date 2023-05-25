@@ -65,7 +65,8 @@
          stacktrace1/0,
          in_cons/0,
          make_fun/0,
-         gh6925/0]).
+         gh6925/0,
+         binary_part_aliases/2]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -672,3 +673,13 @@ gh6925() ->
     A = << <<"x">> || true >>,
     B = <<A/binary, "z">>,
     {A, B}.
+
+%% Check that bif:binary_part/3 is correctly flagged as an operation
+%% which aliases its operands
+binary_part_aliases(A, B) ->
+%ssa% (_,_) when post_ssa_opt ->
+%ssa% X = bif:binary_part(_, _, _),
+%ssa% ret(X) {aliased => [X]}.
+    binary_part(<<>>, A, B).
+
+
