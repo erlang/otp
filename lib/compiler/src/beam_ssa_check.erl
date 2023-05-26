@@ -151,33 +151,32 @@ op_check([set,Result,{atom,_,Op}|PArgs], PAnno,
          #b_set{dst=Dst,args=AArgs,op=Op,anno=AAnno}=_I, Env0) ->
     ?DP("trying set ~p:~n  res: ~p <-> ~p~n  args: ~p <-> ~p~n  i: ~p~n",
         [Op, Result, Dst, PArgs, AArgs, _I]),
-    Env = check_annos(PAnno, AAnno, Env0),
-    op_check_call(Op, Result, Dst, PArgs, AArgs, Env);
+    Env = op_check_call(Op, Result, Dst, PArgs, AArgs, Env0),
+    check_annos(PAnno, AAnno, Env);
 op_check([set,Result,{{atom,_,bif},{atom,_,Op}}|PArgs], PAnno,
          #b_set{dst=Dst,args=AArgs,op={bif,Op},anno=AAnno}=_I, Env0) ->
     ?DP("trying bif ~p:~n  res: ~p <-> ~p~n  args: ~p <-> ~p~n  i: ~p~n",
         [Op, Result, Dst, PArgs, AArgs, _I]),
-    Env = check_annos(PAnno, AAnno, Env0),
-    op_check_call(Op, Result, Dst, PArgs, AArgs, Env);
+    Env = op_check_call(Op, Result, Dst, PArgs, AArgs, Env0),
+    check_annos(PAnno, AAnno, Env);
 op_check([none,{atom,_,ret}|PArgs], PAnno,
-         #b_ret{arg=AArg,anno=AAnno}=_I, Env0) ->
+         #b_ret{arg=AArg,anno=AAnno}=_I, Env) ->
     ?DP("trying return:, arg: ~p <-> ~p~n  i: ~p~n",
         [PArgs, [AArg], _I]),
-    Env = check_annos(PAnno, AAnno, Env0),
-    post_args(PArgs, [AArg], Env);
+    check_annos(PAnno, AAnno, post_args(PArgs, [AArg], Env));
 op_check([none,{atom,_,br}|PArgs], PAnno,
          #b_br{bool=ABool,succ=ASucc,fail=AFail,anno=AAnno}=_I, Env0) ->
     ?DP("trying br: arg: ~p <-> ~p~n  i: ~p~n",
         [PArgs, [ABool,ASucc,AFail], _I]),
-    Env = check_annos(PAnno, AAnno, Env0),
-    post_args(PArgs, [ABool,#b_literal{val=ASucc},#b_literal{val=AFail}], Env);
+    Env = post_args(PArgs,
+                    [ABool,#b_literal{val=ASucc},#b_literal{val=AFail}], Env0),
+    check_annos(PAnno, AAnno, Env);
 op_check([none,{atom,_,switch},PArg,PFail,{list,_,PArgs}], PAnno,
          #b_switch{arg=AArg,fail=AFail,list=AList,anno=AAnno}=_I, Env0) ->
     ?DP("trying switch: arg: ~p <-> ~p~n  i: ~p~n",
         [PArgs, [AArg,AFail,AList], _I]),
-    Env1 = env_post(PArg, AArg, env_post(PFail, #b_literal{val=AFail}, Env0)),
-    Env = check_annos(PAnno, AAnno, Env1),
-    post_switch_args(PArgs, AList, Env);
+    Env = env_post(PArg, AArg, env_post(PFail, #b_literal{val=AFail}, Env0)),
+    check_annos(PAnno, AAnno, post_switch_args(PArgs, AList, Env));
 op_check([label,PLbl], _Anno, {label,ALbl}, Env) when is_integer(ALbl) ->
     env_post(PLbl, #b_literal{val=ALbl}, Env).
 
@@ -317,8 +316,8 @@ post_tuple([], [], Env) ->
     Env.
 
 post_map([{Key,Val}|Items], Map, Env) ->
-    K = build_map_key(Key),
-    V = build_map_key(Val),
+    K = build_map_key(Key, Env),
+    V = build_map_key(Val, Env),
     #{K := V} = Map,
 
     post_map(Items, maps:remove(K, Map), Env);
@@ -326,38 +325,41 @@ post_map([], Map, Env) ->
     0 = maps:size(Map),
     Env.
 
-build_map_key({atom,_,A}) ->
+build_map_key({atom,_,A}, _Env) ->
     A;
-build_map_key({local_fun,{atom,_,N},{integer,_,A}}) ->
+build_map_key({local_fun,{atom,_,N},{integer,_,A}}, _Env) ->
     #b_local{name=#b_literal{val=N},arity=A};
-build_map_key({integer,_,V}) ->
+build_map_key({integer,_,V}, _Env) ->
     V;
-build_map_key({float,_,V}) ->
+build_map_key({float,_,V}, _Env) ->
     V;
-build_map_key({binary,_,Bits}) ->
+build_map_key({binary,_,Bits}, _Env) ->
     build_bitstring(Bits, <<>>);
-build_map_key({list,_,Elems}) ->
-    build_map_key_list(Elems);
-build_map_key({tuple,_,Elems}) ->
-    list_to_tuple([build_map_key(E) || E <- Elems]);
-build_map_key({map,_,Elems}) ->
-    #{build_map_key(K) => build_map_key(V) || {K,V} <- Elems};
-build_map_key(_Key) ->
+build_map_key({list,_,Elems}, Env) ->
+    build_map_key_list(Elems, Env);
+build_map_key({tuple,_,Elems}, Env) ->
+    list_to_tuple([build_map_key(E, Env) || E <- Elems]);
+build_map_key({map,_,Elems}, Env) ->
+    #{build_map_key(K, Env) => build_map_key(V, Env) || {K,V} <- Elems};
+build_map_key({var,_,V}, Env) ->
+    map_get(V, Env);
+build_map_key(_Key, _Env) ->
     ?DP("Failed to match ~p~n", [_Key]),
     error({internal_pattern_match_error,build_map_key}).
 
-build_map_key_list([E|Elems]) ->
-    [build_map_key(E)|build_map_key_list(Elems)];
-build_map_key_list([]) ->
+build_map_key_list([E|Elems], Env) ->
+    [build_map_key(E, Env)|build_map_key_list(Elems, Env)];
+build_map_key_list([], _Env) ->
     [];
-build_map_key_list(E) ->
-    build_map_key(E).
+build_map_key_list(E, Env) ->
+    build_map_key(E, Env).
 
 check_annos([{term,{atom,_,Key},PTerm}|Patterns], Actual, Env0) ->
-    ?DP("Checking term anno ~p: ~p~nkeys: ~p~n",
-        [Key, PTerm, maps:keys(Actual)]),
+    ?DP("Checking term anno~n  wanted anno-key ~p~n", [Key]),
+    ?DP("  actual anno keys ~p~n", [maps:keys(Actual)]),
+    ?DP("  pattern on selected anno ~p~n", [PTerm]),
     #{ Key := ATerm } = Actual,
-    ?DP("~p <-> ~p~n", [PTerm, ATerm]),
+    ?DP("  actual selected anno ~p~n", [ATerm]),
     Env = env_post(PTerm, #b_literal{val=ATerm}, Env0),
     ?DP("ok~n"),
     check_annos(Patterns, Actual, Env);

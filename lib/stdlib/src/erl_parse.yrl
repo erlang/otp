@@ -684,6 +684,7 @@ ssa_check_list_lit_ls -> ssa_check_pat '|' ssa_check_pat : ['$1'|'$3'].
 ssa_check_map_key -> atom : '$1'.
 ssa_check_map_key -> integer : '$1'.
 ssa_check_map_key -> float : '$1'.
+ssa_check_map_key -> var : '$1'.
 ssa_check_map_key -> '{' ssa_check_map_key_tuple_elements '}' :
     {tuple, ?anno('$1'), '$2'}.
 ssa_check_map_key -> '{' '}' : {tuple, ?anno('$1'), []}.
