@@ -92,7 +92,7 @@
 
   <section>
     <title>Applications that Still do Not Allow Code Upgrade</title>
-    <p>A few applications, such as HiPE, do not support upgrade.
+    <p>A few applications, such as erl_interface, do not support upgrade.
       This is indicated by an application upgrade file containing only
       <c>{Vsn,[],[]}</c>. Any attempt at creating a release upgrade file
       with such input fails. The only way to force an upgrade involving

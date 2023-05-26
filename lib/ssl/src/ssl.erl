@@ -999,7 +999,7 @@ peercert(#sslsocket{pid = {_Listen, #config{}}}) ->
 -spec negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, Reason} when
       SslSocket :: sslsocket(),
       Protocol :: binary(),
-      Reason :: protocol_not_negotiated.
+      Reason :: protocol_not_negotiated | closed.
 %%
 %% Description: Returns the protocol that has been negotiated. If no
 %% protocol has been negotiated will return {error, protocol_not_negotiated}
