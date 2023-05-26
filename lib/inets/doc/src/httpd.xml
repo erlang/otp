@@ -101,11 +101,6 @@
 	determine which port was picked.</p>
       </item>
 
-      <tag><marker id="prop_server_name"></marker>{server_name, string()}</tag>
-      <item>
-	<p>The name of your server, normally a fully qualified domain name.</p>
-      </item>
-
       <tag><marker id="prop_server_root"></marker>{server_root, path()}</tag>
       <item>
 	<p>Defines the home directory of the server, where log files, and so on,
@@ -126,6 +121,12 @@
       <tag><marker id="prop_bind_address"></marker>{bind_address, ip_address() | hostname() | any}</tag>
       <item>
 	<p>Default is <c>any</c></p>
+      </item>
+
+      <tag><marker id="prop_server_name"></marker>{server_name, string()}</tag>
+      <item>
+	<p>The name of your server, normally a fully qualified domain name.</p>
+        <p>If not given, this defaults to <c>net_adm:localhost()</c>.</p>
       </item>
 
       <tag><marker id="profile"></marker>{profile, atom()}</tag>
