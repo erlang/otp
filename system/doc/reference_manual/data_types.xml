@@ -132,6 +132,9 @@ exactly as floats.</p>
         then you should use a library that handles that or work in cents instead of euros so
         that you do not need decimal fractions.
       </p>
+      <p>Please also note that Erlang's floats do not exactly match IEEE 754 floats, in that neither Inf nor NaN are supported in Erlang.
+        Any operation that would result in NaN, +Inf, or -Inf, will instead raise a <c>badarith</c> exception.
+      </p>
     </section>
   </section>
 
@@ -568,4 +571,3 @@ hello
 7.0</pre>
   </section>
 </chapter>
-
