@@ -997,14 +997,14 @@ void beam_load_finalize_code(LoaderState *stp,
                 literal = beamfile_get_literal(&stp->beam,
                                                stp->lambda_literals[i]);
                 funp = (ErlFunThing *)fun_val(literal);
-                ASSERT(funp->external == 1);
 
                 funp->entry.fun = fun_entry;
 
                 funp->next = literal_area->off_heap;
                 literal_area->off_heap = (struct erl_off_heap_header *)funp;
 
-                funp->external = 0;
+                ASSERT(funp->thing_word & (1 << FUN_HEADER_EXTERNAL_OFFS));
+                funp->thing_word &= ~(1 << FUN_HEADER_EXTERNAL_OFFS);
 
                 erts_refc_inc(&fun_entry->refc, 2);
             }

@@ -318,12 +318,9 @@ MakeLiteralLambda(Op, Index, DstType, DstVal) {
          * created by the user. We also disable deduplication to prevent it
          * from colliding with other placeholder lambdas of the same arity. */
         funp = (ErlFunThing*)tmp_hp;
-        funp->thing_word = HEADER_FUN;
+        funp->thing_word = MAKE_FUN_HEADER(entry->arity, 0, 1);
         funp->entry.exp = NULL;
         funp->next = NULL;
-        funp->arity = entry->arity;
-        funp->num_free = 0;
-        funp->external = 1;
 
         literal = beamfile_add_literal(&S->beam, make_fun(tmp_hp), 0);
         S->lambda_literals[$Index] = literal;

@@ -304,12 +304,9 @@ ErlFunThing *erts_new_export_fun_thing(Eterm **hpp, Export *exp, int arity)
     funp = (ErlFunThing*)(*hpp);
     *hpp += ERL_FUN_SIZE;
 
-    funp->thing_word = HEADER_FUN;
-    funp->next = NULL;
+    funp->thing_word = MAKE_FUN_HEADER(arity, 0, 1);
     funp->entry.exp = exp;
-    funp->num_free = 0;
-    funp->external = 1;
-    funp->arity = arity;
+    funp->next = NULL;
 
 #ifdef DEBUG
     {
@@ -330,13 +327,11 @@ ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
     p->htop += ERL_FUN_SIZE + num_free;
     erts_refc_inc(&fe->refc, 2);
 
-    funp->thing_word = HEADER_FUN;
+    funp->thing_word = MAKE_FUN_HEADER(arity, num_free, 0);
+    funp->entry.fun = fe;
+
     funp->next = MSO(p).first;
     MSO(p).first = (struct erl_off_heap_header*) funp;
-    funp->entry.fun = fe;
-    funp->num_free = num_free;
-    funp->external = 0;
-    funp->arity = arity;
 
 #ifdef DEBUG
     {
@@ -345,7 +340,7 @@ ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
          * sanity-check the arity at this point. If the fun is called while in
          * this state, the `error_handler` module will take care of it. */
         const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe, erts_active_code_ix());
-        ASSERT(!mfa || funp->arity == mfa->arity - num_free);
+        ASSERT(!mfa || fun_arity(funp) == mfa->arity - num_free);
         ASSERT(arity == fe->arity);
     }
 #endif

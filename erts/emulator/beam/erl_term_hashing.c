@@ -231,7 +231,7 @@ tail_recur:
             if (is_local_fun(funp)) {
 
                 ErlFunEntry* fe = funp->entry.fun;
-                Uint num_free = funp->num_free;
+                Uint num_free = fun_num_free(funp);
 
                 hash = hash * FUNNY_NUMBER10 + num_free;
                 hash = hash*FUNNY_NUMBER1 +
@@ -1160,7 +1160,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 if (is_local_fun(funp)) {
                     ErlFunEntry* fe = funp->entry.fun;
                     ErtsMakeHash2Context_FUN_SUBTAG ctx = {
-                        .num_free = funp->num_free,
+                        .num_free = fun_num_free(funp),
                         .bptr = NULL};
 
                     UINT32_HASH_2
@@ -1901,7 +1901,7 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
 
                 if (is_local_fun(funp)) {
                     const ErlFunEntry *fe = funp->entry.fun;
-                    Uint num_free = funp->num_free;
+                    Uint num_free = fun_num_free(funp);
 
                     IHASH_MIX_ALPHA_2F32(IHASH_TYPE_LOCAL_FUN, num_free);
                     IHASH_MIX_BETA_2F32(fe->index, fe->old_uniq);

@@ -1196,8 +1196,7 @@ protected:
     x86::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
 
     x86::Gp emit_call_fun(bool skip_box_test = false,
-                          bool skip_fun_test = false,
-                          bool skip_arity_test = false);
+                          bool skip_header_test = false);
 
     void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
         BeamAssembler::emit_is_boxed(Fail, Src, dist);
