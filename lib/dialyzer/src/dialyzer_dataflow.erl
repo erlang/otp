@@ -1998,7 +1998,7 @@ handle_guard_is_function(Guard, Map, Env, Eval, State) ->
 	case t_number_vals(ArityType, State#state.opaques) of
 	  unknown -> t_fun();
 	  Vals ->
-	    t_sup([t_fun(lists:duplicate(X, t_any()), t_any()) || X <- Vals])
+	    t_sup([t_fun(lists:duplicate(X, t_any()), t_any()) || X <- Vals, X >= 0, X =< 255])
 	end,
       FunType = t_inf(FunType0, FunTypeConstr, Opaques),
       case t_is_none(FunType) of

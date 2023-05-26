@@ -145,6 +145,14 @@ t17(X) when #{x => X} ->
 t18(X) when <<X>> ->
     ok.
 
+%% Should give a warning, see https://github.com/erlang/otp/issues/7181
+t19() when is_function(ok, -9223372036854775808) ->
+    never.
+
+% Could give a warning, see the same link
+t20(X) ->
+    (is_function(ok, 9223372036854775807) andalso X) bor X.
+
 %% Coverage
 
 cover1() when 1 < 2; 1 > 2 ->

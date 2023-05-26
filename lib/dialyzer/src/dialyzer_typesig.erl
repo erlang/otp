@@ -1368,7 +1368,7 @@ get_bif_constr({erlang, is_function, 2}, Dst, [Fun, Arity], _State) ->
 		   ArityType = lookup_type(Arity, Map),
 		   case t_number_vals(ArityType) of
 		     unknown -> t_fun();
-		     Vals -> t_sup([t_fun(X, t_any()) || X <- Vals])
+		     Vals -> t_sup([t_fun(X, t_any()) || X <- Vals, X >= 0, X =< 255])
 		   end;
 		 false -> t_any()
 	       end
