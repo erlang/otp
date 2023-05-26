@@ -310,7 +310,7 @@ pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
                 {#b_set{}=Test0,#b_br{}=Br0} ->
                     %% Here is a #b_switch{} that has been reduced to
                     %% a '=:=' followed by a two-way `br`.
-                    Bool = #b_var{name={'@ssa_bool',Count0}},
+                    Bool = #b_var{name=Count0},
                     Count = Count0 + 1,
                     Test = Test0#b_set{dst=Bool},
                     Br = beam_ssa:normalize(Br0#b_br{bool=Bool}),

@@ -366,7 +366,7 @@ nomatch(Config) when is_list(Config) ->
                     end]).
         ">>,
         [],
-        {warnings,[{{5,24},v3_kernel,{nomatch,{shadow,4}}}]}},
+        {warnings,[{{5,24},beam_core_to_ssa,{nomatch,{shadow,4}}}]}},
 
        {nomatch1,
         <<"generator1() ->

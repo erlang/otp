@@ -51,6 +51,7 @@ MODULES =  \
 	beam_bounds \
 	beam_block \
 	beam_call_types \
+	beam_core_to_ssa \
 	beam_clean \
 	beam_dict \
 	beam_digraph \
@@ -76,7 +77,6 @@ MODULES =  \
 	beam_ssa_share \
 	beam_ssa_throw \
 	beam_ssa_type \
-	beam_kernel_to_ssa \
 	beam_trim \
 	beam_types \
 	beam_utils \
@@ -102,9 +102,7 @@ MODULES =  \
 	sys_core_prepare \
 	sys_messages \
 	sys_pre_attributes \
-	v3_core \
-	v3_kernel \
-	v3_kernel_pp
+	v3_core
 
 BEAM_H = $(wildcard ../priv/beam_h/*.h)
 
@@ -114,8 +112,7 @@ HRL_FILES= \
 	beam_ssa_opt.hrl \
 	beam_ssa.hrl \
 	beam_types.hrl \
-	core_parse.hrl \
-	v3_kernel.hrl
+	core_parse.hrl
 
 YRL_FILE = core_parse.yrl
 
@@ -206,14 +203,14 @@ release_docs_spec:
 
 $(EBIN)/beam_a.beam: beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_asm.beam: beam_asm.hrl $(EGEN)/beam_opcodes.hrl beam_types.hrl
-$(EBIN)/beam_call_types.beam: beam_types.hrl
 $(EBIN)/beam_block.beam: beam_asm.hrl
+$(EBIN)/beam_call_types.beam: beam_types.hrl
+$(EBIN)/beam_core_to_ssa.beam: core_parse.hrl beam_ssa.hrl
 $(EBIN)/beam_dict.beam: beam_types.hrl
 $(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl \
      beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_jump.beam: beam_asm.hrl
-$(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
-$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl \
+$(EBIN)/beam_listing.beam: core_parse.hrl beam_ssa.hrl \
      beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_alias_opt.beam: beam_ssa_opt.hrl beam_types.hrl
@@ -245,5 +242,3 @@ $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
 $(EBIN)/v3_core.beam: core_parse.hrl
-$(EBIN)/v3_kernel.beam: core_parse.hrl v3_kernel.hrl
-$(EBIN)/v3_kernel_pp.beam: v3_kernel.hrl

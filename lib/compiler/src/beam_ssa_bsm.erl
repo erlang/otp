@@ -393,7 +393,7 @@ amb_create_alias(#b_var{}=Arg0, Context, Lbl, State0) ->
             %% promotion will be inserted later by amb_insert_promotions/2.
 
             Counter = State0#amb.cnt,
-            Alias = #b_var{name={'@ssa_bsm_alias', Counter}},
+            Alias = #b_var{name=Counter},
             Promotion = #b_set{op=bs_get_tail,dst=Alias,args=[Context]},
 
             Promotions = maps:put({Lbl, Arg0}, Promotion, Promotions0),
@@ -767,7 +767,7 @@ aca_cs_is([#b_set{op=Op,
                _ -> aca_cs_args(Args0, VRs0)
            end,
     Counter = Counter0 + 1,
-    Dst = #b_var{name={'@ssa_bsm_aca',Counter}},
+    Dst = #b_var{name=Counter0},
     I = I0#b_set{dst=Dst,args=Args},
     VRs = maps:put(Dst0, Dst, VRs0),
     aca_cs_is(Is, Counter, VRs, BRs, [I | Acc]);

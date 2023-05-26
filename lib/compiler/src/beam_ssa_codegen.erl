@@ -34,14 +34,14 @@
                 splitwith/2,takewhile/2]).
 
 -record(cg, {lcount=1 :: beam_label(),          %Label counter
-	     functable=#{} :: #{fa()=>beam_label()},
-             labels=#{} :: #{ssa_label()=>0|beam_label()},
+	     functable=#{} :: #{fa() => beam_label()},
+             labels=#{} :: #{ssa_label() => 0|beam_label()},
              used_labels=gb_sets:empty() :: gb_sets:set(ssa_label()),
-             regs=#{} :: #{beam_ssa:var_name()=>ssa_register()},
+             regs=#{} :: #{beam_ssa:b_var() => ssa_register()},
              ultimate_fail=1 :: beam_label(),
              catches=gb_sets:empty() :: gb_sets:set(ssa_label()),
              fc_label=1 :: beam_label()
-             }).
+            }).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_asm:module_code()}.
@@ -68,7 +68,7 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
                    stack=none :: 'none' | pos_integer(),
                    words=#need{} :: #need{},
                    live :: 'undefined' | pos_integer(),
-                   def_yregs=[] :: [yreg()]
+                   def_yregs=[] :: [b_var()]
                   }).
 
 -record(cg_br, {bool :: beam_ssa:value(),

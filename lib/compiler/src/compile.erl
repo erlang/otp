@@ -865,10 +865,7 @@ kernel_passes() ->
      {iff,clint,?pass(core_lint_module)},
 
      %% Kernel Erlang and code generation.
-     ?pass(v3_kernel),
-     {iff,dkern,{listing,"kernel"}},
-     {iff,'to_kernel',{done,"kernel"}},
-     {pass,beam_kernel_to_ssa},
+     ?pass(core_to_ssa),
      {iff,dssa,{listing,"ssa"}},
      {iff,ssalint,{pass,beam_ssa_lint}},
      {delay,
@@ -1527,8 +1524,8 @@ core_fold_module_after_inlining(Code0, #compile{options=Opts}=St) ->
     {ok,Code,_Ws} = sys_core_fold:module(Code0, Opts),
     {ok,Code,St}.
 
-v3_kernel(Code0, #compile{options=Opts,warnings=Ws0}=St) ->
-    {ok,Code,Ws} = v3_kernel:module(Code0, Opts),
+core_to_ssa(Code0, #compile{options=Opts,warnings=Ws0}=St) ->
+    {ok,Code,Ws} = beam_core_to_ssa:module(Code0, Opts),
     case Ws =:= [] orelse test_core_inliner(St) of
 	false ->
 	    {ok,Code,St#compile{warnings=Ws0++Ws}};
@@ -1838,7 +1835,7 @@ ignore_warning({_Location,Pass,{Category,_}}, Ignore) ->
     IgnoreMod = case Pass of
                     v3_core -> true;
                     sys_core_fold -> true;
-                    v3_kernel -> true;
+                    beam_core_to_ssa -> true;
                     _ -> false
                 end,
     IgnoreMod andalso sets:is_element(Category, Ignore);
@@ -2094,11 +2091,11 @@ pre_load() ->
 	 beam_block,
 	 beam_call_types,
 	 beam_clean,
+         beam_core_to_ssa,
 	 beam_dict,
 	 beam_digraph,
 	 beam_flatten,
 	 beam_jump,
-	 beam_kernel_to_ssa,
 	 beam_opcodes,
 	 beam_ssa,
 	 beam_ssa_alias,
@@ -2133,7 +2130,6 @@ pre_load() ->
 	 sys_core_alias,
 	 sys_core_bsm,
 	 sys_core_fold,
-	 v3_core,
-	 v3_kernel],
+	 v3_core],
     _ = code:ensure_modules_loaded(L),
     ok.

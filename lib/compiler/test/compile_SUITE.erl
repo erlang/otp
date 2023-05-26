@@ -30,7 +30,7 @@
 	 debug_info/4, custom_debug_info/1, custom_compile_info/1,
 	 file_1/1, forms_2/1, module_mismatch/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
-	 other_output/1, kernel_listing/1, encrypted_abstr/1,
+	 other_output/1, encrypted_abstr/1,
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
 	 cover/1, env/1, core_pp/1, tuple_calls/1,
 	 core_roundtrip/1, asm/1, asm_labels/1,
@@ -52,7 +52,7 @@ all() ->
     [app_test, appup_test, bigE_roundtrip, file_1,
      forms_2, module_mismatch, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
-     other_output, kernel_listing, encrypted_abstr, tuple_calls,
+     other_output, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
      cover, env, core_pp, core_roundtrip, asm, asm_labels, no_core_prepare,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
@@ -519,7 +519,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
             {dcore, ".core"},
             {dcopt, ".copt"},
             {dcbsm, ".core_bsm"},
-            {dkern, ".kernel"},
             {dssa, ".ssa"},
             {dbool, ".bool"},
             {dssashare, ".ssashare"},
@@ -539,7 +538,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, to_core0, ".core"),
     ok = file:delete(filename:join(TargetDir, File ++ ".core")),
     do_listing(Simple, TargetDir, to_core, ".core"),
-    do_listing(Simple, TargetDir, to_kernel, ".kernel"),
     do_listing(Simple, TargetDir, to_dis, ".dis"),
 
     %% Final clean up.
@@ -555,7 +553,6 @@ listings_big(Config) when is_list(Config) ->
     List = [{'S',".S"},
             {'E',".E"},
             {'P',".P"},
-            {dkern, ".kernel"},
             {dssa, ".ssa"},
             {dssaopt, ".ssaopt"},
             {dprecg, ".precodegen"},
@@ -610,12 +607,6 @@ other_output(Config) when is_list(Config) ->
     io:put_chars("to_core (forms)"),
     {ok,simple,Core} = compile:forms(PP, [to_core,binary,time]),
 
-    io:put_chars("to_kernel (file)"),
-    {ok,simple,Kernel} = compile:file(Simple, [to_kernel,binary,time]),
-    k_mdef = element(1, Kernel),
-    io:put_chars("to_kernel (forms)"),
-    {ok,simple,Kernel} = compile:forms(PP, [to_kernel,binary,time]),
-
     io:put_chars("to_asm (file)"),
     {ok,simple,Asm} = compile:file(Simple, [to_asm,binary,time]),
     {simple,_,_,_,_} = Asm,
@@ -623,33 +614,6 @@ other_output(Config) when is_list(Config) ->
     {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
 
     ok.
-
-%% Smoke test and cover of pretty-printing of Kernel code.
-kernel_listing(_Config) ->
-    TestBeams = get_unique_beam_files(),
-    Abstr = [begin {ok,{Mod,[{abstract_code,
-			      {raw_abstract_v1,Abstr}}]}} =
-		       beam_lib:chunks(Beam, [abstract_code]),
-		   {Mod,Abstr} end || Beam <- TestBeams],
-    test_lib:p_run(fun(F) -> do_kernel_listing(F) end, Abstr).
-
-do_kernel_listing({M,A}) ->
-    try
-	{ok,M,Kern} = compile:forms(A, [to_kernel]),
-	IoList = v3_kernel_pp:format(Kern),
-	case unicode:characters_to_binary(IoList) of
-	    Bin when is_binary(Bin) ->
-		ok
-	end
-    catch
-	throw:{error,Error} ->
-	    io:format("*** compilation failure '~p' for module ~s\n",
-		      [Error,M]),
-	    error;
-	Class:Error:Stk ->
-	    io:format("~p: ~p ~p\n~p\n", [M,Class,Error,Stk]),
-	    error
-    end.
 
 encrypted_abstr(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, "encrypted_abstr"),

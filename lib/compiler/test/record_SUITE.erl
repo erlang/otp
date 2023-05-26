@@ -270,10 +270,16 @@ record_test_3(Config) when is_list(Config) ->
     false = is_record(#foo{}, barf, 5),
     false = is_record(#foo{}, barf, 6),
     false = is_record({foo}, foo, 5),
+    false = is_record({foo}, foo, -1),
+    false = is_record(id({foo}), foo, -1),
 
     true = erlang:is_record(#foo{}, foo, 5),
+    true = erlang:is_record(#foo{}, id(foo), 5),
     false = erlang:is_record(#foo{}, barf, 5),
     false = erlang:is_record({foo}, foo, 5),
+    false = erlang:is_record({foo}, foo, -1),
+    false = erlang:is_record(id({foo}), foo, -1),
+    false = erlang:is_record({foo}, id(foo), -1),
 
     false = is_record([], foo),
     false = is_record(Config, foo),

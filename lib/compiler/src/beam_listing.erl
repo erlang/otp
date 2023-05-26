@@ -22,7 +22,6 @@
 -export([module/2]).
 
 -include("core_parse.hrl").
--include("v3_kernel.hrl").
 -include("beam_ssa.hrl").
 -include("beam_disasm.hrl").
 
@@ -30,25 +29,22 @@
 
 -type code() :: cerl:c_module()
               | beam_utils:module_code()
-              | #k_mdef{}
               | [_].                            %form-based format
 
 -spec module(file:io_device(), code()) -> 'ok'.
 
 module(File, #c_module{}=Core) ->
-    %% This is a core module.
+    %% This is a Core Erlang module.
     io:put_chars(File, core_pp:format(Core));
-module(File, #k_mdef{}=Kern) ->
-    %% This is a kernel module.
-    io:put_chars(File, v3_kernel_pp:format(Kern));
 module(File, #b_module{name=Mod,exports=Exp,attributes=Attr,body=Fs}) ->
+    %% This an SSA module.
     io:format(File, "module ~p.\n", [Mod]),
     io:format(File, "exports ~p.\n", [Exp]),
     io:format(File, "attributes ~kp.\n\n", [Attr]),
     PP = [beam_ssa_pp:format_function(F) || F <- Fs],
     io:put_chars(File, lists:join($\n, PP));
 module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
-    %% This is output from v3_codegen.
+    %% This is BEAM code.
     io:format(Stream, "{module, ~kp}.  %% version = ~w\n",
 	      [Mod, beam_opcodes:format_number()]),
     io:format(Stream, "\n{exports, ~p}.\n", [Exp]),

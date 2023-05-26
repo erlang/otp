@@ -214,13 +214,6 @@ format_var(Var, FuncAnno) ->
         [_|_]=Reg -> [Reg,$/,VarString]
     end.
 
-format_var_1(#b_var{name={Name,Uniq}}) ->
-    if
-        is_atom(Name) ->
-            io_lib:format("~ts:~p", [Name,Uniq]);
-        is_integer(Name) ->
-            io_lib:format("_~p:~p", [Name,Uniq])
-    end;
 format_var_1(#b_var{name=Name}) when is_atom(Name) ->
     atom_to_list(Name);
 format_var_1(#b_var{name=Name}) when is_integer(Name) ->

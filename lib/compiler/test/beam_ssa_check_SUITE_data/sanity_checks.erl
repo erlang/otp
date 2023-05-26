@@ -244,7 +244,7 @@ t32(X) ->
 t33(X) ->
 %ssa% (X) when post_ssa_opt ->
 %ssa% A = bif:'=='(X, 1),
-%ssa% br(A, 5, 4).
+%ssa% br(A, 9, 8).
     true = X == 1.
 
 %% Check that we handle a branch and variable labels

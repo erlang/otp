@@ -682,7 +682,7 @@ opt_tail_phi_arg({PredL,Sub0}, Is0, Ret0, {Blocks0,Count0,Cost0}) ->
     {Blocks,Count,Cost}.
 
 new_names([#b_set{dst=Dst}=I|Is], Sub0, Count0, Acc) ->
-    {NewDst,Count} = new_var(Dst, Count0),
+    {NewDst,Count} = new_var(Count0),
     Sub = Sub0#{Dst=>NewDst},
     new_names(Is, Sub, Count, [I#b_set{dst=NewDst}|Acc]);
 new_names([], Sub, Count, Acc) ->
@@ -1208,8 +1208,9 @@ are_map_keys_literals([]) ->
 %%% bother implementing a new instruction?
 %%%
 
+-type fr_status() :: 'original' | 'copy'.
 -record(fs,
-        {regs=#{} :: #{beam_ssa:b_var():=beam_ssa:b_var()},
+        {regs=#{} :: #{beam_ssa:b_var() := {beam_ssa:b_var(),fr_status()}},
          non_guards :: gb_sets:set(beam_ssa:label()),
          bs :: beam_ssa:block_map(),
          preds :: #{beam_ssa:label() => [beam_ssa:label()]}
@@ -1302,7 +1303,7 @@ float_number([B|Bs0], Count0) ->
 float_conv([{L,#b_blk{is=Is0,last=Last}=Blk0}|Bs0], Fail, Count0) ->
     case Is0 of
         [#b_set{op={float,convert}}=Conv] ->
-            {Bool,Count1} = new_var('@ssa_bool', Count0),
+            {Bool,Count1} = new_var(Count0),
             Succeeded = #b_set{op={succeeded,body},dst=Bool,
                                args=[Conv#b_set.dst]},
             Is = [Conv,Succeeded],
@@ -1365,7 +1366,7 @@ float_optimizable_is(_) ->
 float_opt_is([#b_set{op={succeeded,_},args=[Src]}=I0],
              #fs{regs=Rs}=Fs, Count, Acc) ->
     case Rs of
-        #{Src:=Fr} ->
+        #{Src := {Fr,_}} ->
             I = I0#b_set{args=[Fr]},
             {reverse(Acc, [I]),Fs,Count};
         #{} ->
@@ -1400,9 +1401,9 @@ float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0,anno=Anno}=I0,
               Ts, ArgTypes, #fs{regs=Rs0}=Fs, Count0) ->
     {As1,Rs1,Count1} = float_load(As0, Ts, ArgTypes, Anno, Rs0, Count0, []),
     {As,Is0} = unzip(As1),
-    {FrDst,Count2} = new_var('@fr', Count1),
+    {FrDst,Count2} = new_var(Count1),
     I = I0#b_set{op={float,Op},dst=FrDst,args=As},
-    Rs = Rs1#{Dst=>FrDst},
+    Rs = Rs1#{Dst => {FrDst,original}},
     Is = append(Is0) ++ [I],
     {Is,Fs#fs{regs=Rs},Count2}.
 
@@ -1414,17 +1415,17 @@ float_load([], [], [], _Anno, Rs, Count, Acc) ->
 
 float_reg_arg(A, T, AT, Anno0, Rs, Count0) ->
     case Rs of
-        #{A:=Fr} ->
+        #{A := {Fr,_}} ->
             {{Fr,[]},Rs,Count0};
         #{} ->
-            {Dst,Count} = new_var('@fr_copy', Count0),
+            {Dst,Count} = new_var(Count0),
             I0 = float_load_reg(T, A, Dst),
             Anno = case AT of
-                       any-> Anno0;
+                       any -> Anno0;
                        _ -> Anno0#{arg_types => #{0 => AT}}
                    end,
             I = I0#b_set{anno=Anno},
-            {{Dst,[I]},Rs#{A=>Dst},Count}
+            {{Dst,[I]},Rs#{A => {Dst,copy}},Count}
     end.
 
 float_load_reg(convert, #b_var{}=Src, Dst) ->
@@ -1442,9 +1443,9 @@ float_load_reg(float, Src, Dst) ->
     #b_set{op={float,put},dst=Dst,args=[Src]}.
 
 float_flush_regs(#fs{regs=Rs}) ->
-    maps:fold(fun(_, #b_var{name={'@fr_copy',_}}, Acc) ->
+    maps:fold(fun(_, {#b_var{},copy}, Acc) ->
                       Acc;
-                 (Dst, Fr, Acc) ->
+                 (Dst, {Fr,original}, Acc) ->
                       [#b_set{op={float,get},dst=Dst,args=[Fr]}|Acc]
               end, [], Rs).
 
@@ -2317,7 +2318,7 @@ opt_tup_size_1(_, _, _, Count, Acc) ->
 opt_tup_size_2(PreIs, TupleSizeIs, PreL, EqL, Tuple, Fail, Count0, Acc) ->
     IsTupleL = Count0,
     TupleSizeL = Count0 + 1,
-    Bool = #b_var{name={'@ssa_bool',Count0+2}},
+    Bool = #b_var{name=Count0+2},
     Count = Count0 + 3,
 
     True = #b_literal{val=true},
@@ -2358,7 +2359,7 @@ opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
     case Sw0 of
         #b_switch{arg=Arg,fail=Fail,list=[{Lit,Lbl}]} ->
             %% Rewrite a single value switch to a br.
-            {Bool,Count} = new_var('@ssa_bool', Count0),
+            {Bool,Count} = new_var(Count0),
             IsEq = #b_set{op={bif,'=:='},dst=Bool,args=[Arg,Lit]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsEq],last=Br},
@@ -2367,7 +2368,7 @@ opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
                   list=[{#b_literal{val=B1},Lbl},{#b_literal{val=B2},Lbl}]}
           when B1 =:= not B2 ->
             %% Replace with is_boolean test.
-            {Bool,Count} = new_var('@ssa_bool', Count0),
+            {Bool,Count} = new_var(Count0),
             IsBool = #b_set{op={bif,is_boolean},dst=Bool,args=[Arg]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsBool],last=Br},
@@ -3450,8 +3451,8 @@ is_viable_match(#b_set{op=bs_match,args=Args}) ->
 build_bs_ensure_match(L, {_,Size,Unit}, Count0, Blocks0) ->
     BsMatchL = Count0,
     Count1 = Count0 + 1,
-    {NewCtx,Count2} = new_var('@context', Count1),
-    {SuccBool,Count} = new_var('@ssa_bool', Count2),
+    {NewCtx,Count2} = new_var(Count1),
+    {SuccBool,Count} = new_var(Count2),
 
     BsMatchBlk0 = map_get(L, Blocks0),
 
@@ -3529,10 +3530,5 @@ sub_arg(Old, Sub) ->
         #{} -> Old
     end.
 
-new_var(#b_var{name={Base,N}}, Count) ->
-    true = is_integer(N),                       %Assertion.
-    {#b_var{name={Base,Count}},Count+1};
-new_var(#b_var{name=Base}, Count) ->
-    {#b_var{name={Base,Count}},Count+1};
-new_var(Base, Count) when is_atom(Base) ->
-    {#b_var{name={Base,Count}},Count+1}.
+new_var(Count) ->
+    {#b_var{name=Count},Count+1}.
