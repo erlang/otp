@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "8.5.2"},
+  {vsn, "9.0"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -55,6 +55,8 @@
 	     inet6_udp,
 	     inet6_sctp,
 	     inet_config,
+             inet_epmd_dist,
+             inet_epmd_socket,
 	     inet_hosts,
 	     inet_gethost_native,
 	     inet_tcp_dist,
@@ -158,7 +160,7 @@
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-18248@", "stdlib-@OTP-17932@",
+  {runtime_dependencies, ["erts-14.0", "stdlib-5.0",
                           "sasl-3.0", "crypto-5.0"]}
   ]
 }.
