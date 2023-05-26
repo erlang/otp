@@ -393,7 +393,7 @@ restart_new_emulator</pre>
     <warning>
       <p>As stated earlier, instruction <c>restart_new_emulator</c>
         causes the emulator to be restarted with new versions of
-        ERTS>, Kernel, STDLIB, and SASL.
+        ERTS, Kernel, STDLIB, and SASL.
         However, all other applications do at startup run their old
         versions in this new emulator. This is usually no problem,
         but every now and then incompatible changes occur to the
