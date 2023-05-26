@@ -35,8 +35,7 @@ APPLICATION=mnesia
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = \
 	mnesia.xml \
-	mnesia_frag_hash.xml \
-	mnesia_registry.xml
+	mnesia_frag_hash.xml
 
 XML_PART_FILES = \
 	part.xml

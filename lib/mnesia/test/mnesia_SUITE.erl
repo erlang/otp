@@ -69,14 +69,13 @@ groups() ->
     %% covered.
     [{light, [],
       [{group, install}, {group, nice}, {group, evil},
-       {group, mnesia_frag_test, light}, {group, qlc}, {group, index_plugins},
-       {group, registry}, {group, config}, {group, examples}]},
+       {group, mnesia_frag_test, light}, {group, qlc},
+       {group, index_plugins}, {group, config}, {group, examples}]},
      {install, [], [{mnesia_install_test, all}]},
      {nice, [], [{mnesia_nice_coverage_test, all}]},
      {evil, [], [{mnesia_evil_coverage_test, all}]},
      {qlc, [], [{mnesia_qlc_test, all}]},
      {index_plugins, [], [{mnesia_index_plugin_test, all}]},
-     {registry, [], [{mnesia_registry_test, all}]},
      {config, [], [{mnesia_config_test, all}]},
      {examples, [], [{mnesia_examples_test, all}]},
      %% The 'medium' test suite verfies the ACID (atomicity, consistency
@@ -112,7 +111,7 @@ groups() ->
        {mnesia_evil_coverage_test, offline_set_master_nodes},
        {mnesia_evil_coverage_test, record_name},
        {mnesia_evil_coverage_test, user_properties},
-       {mnesia_registry_test, all}, {group, otp_2363}]},
+       {group, otp_2363}]},
      %% Index on disc only tables
      {otp_2363, [],
       [{mnesia_dirty_access_test,

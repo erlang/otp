@@ -3091,7 +3091,6 @@ raise(Name, Amount) ->
       <seeerl marker="stdlib:dets">dets(3)</seeerl>,
       <seeerl marker="kernel:disk_log">disk_log(3)</seeerl>,
       <seeerl marker="stdlib:ets">ets(3)</seeerl>,
-      <seeerl marker="mnesia:mnesia_registry">mnesia_registry(3)</seeerl>,
       <seeerl marker="stdlib:qlc">qlc(3)</seeerl></p>
   </section>
 
