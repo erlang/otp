@@ -454,6 +454,10 @@ maps(_Config) ->
 
     [] = maps_3(),
 
+    {'EXIT',{{badmap,true},_}} = catch maps_4(id(true), id(true)),
+    error = maps_4(id(#{}), id(true)),
+    error = maps_4(id(#{}), id(#{})),
+
     ok.
 
 maps_1(K) ->
@@ -534,6 +538,16 @@ maps_3() ->
              _ ->
                  []
          end -- [].
+
+maps_4(A, B = A) when B; A ->
+    A#{ok := ok},
+    try A of
+        B -> B
+    after
+        ok
+    end#{ok := ok};
+maps_4(_, _) ->
+    error.
 
 -record(wx_ref, {type=any_type,ref=any_ref}).
 
