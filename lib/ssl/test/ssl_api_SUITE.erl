@@ -187,7 +187,9 @@
          check_random_nonce/0,
          check_random_nonce/1,
          cipher_listing/0,
-         cipher_listing/1
+         cipher_listing/1,
+         format_error/0,
+         format_error/1
         ]).
 
 %% Apply export
@@ -275,7 +277,8 @@ simple_api_tests() ->
      invalid_cacertfile,
      invalid_options,
      options_not_proplist,
-     options_whitebox
+     options_whitebox,
+     format_error
     ].
 
 
@@ -3544,6 +3547,34 @@ cipher_listing() ->
 cipher_listing(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config, tuple),
     length_exclusive(Version) == length_all(Version).
+
+format_error() ->
+    "".
+format_error(Config) when is_list(Config) ->
+    Errors = [{error, enotconn},
+              {error, closed},
+              {options, {keyfile, "TestFileName", {error,enoent}}},
+              {options, {certfile, "TestFileName", {error,enoent}}},
+              {options, {cacertfile, "TestFileName",{error,enoent}}},
+              {options, {option_not_a_key_value_tuple, [foo]}},
+              {options, {insufficient_crypto_support,{'tlsv1.3','tlsv1.1'}}},
+              {options, incompatible, [{verify,verify_peer},{cacerts,undefined}]},
+              {options, {protocol, foo}},
+              {option, server_only, alpn_preferred_protocols},
+              {options, {alpn_advertised_protocols, undefined}},
+              {options, missing_version, {'tlsv1.2',{versions, ['tlsv1.1','tlsv1.3']}}},
+              {options, {no_supported_algorithms, {signature_algs,[]}}},
+              {options, {no_supported_signature_schemes, {signature_algs_cert,[]}}}
+             ],
+    Check = fun(Err) ->
+                    Str = ssl:format_error(Err),
+                    io:format("~p => ~s ~n", [Err, Str]),
+                    %% Verify flat string (why do ssl flatten strings?)
+                    Str = [C || C <- Str, is_integer(C)]
+            end,
+    [Check(Err) || Err <- Errors],
+    ok.
+
 
 %%--------------------------------------------------------------------
 
