@@ -78,8 +78,8 @@ void BeamModuleAssembler::emit_error(int reason) {
 void BeamModuleAssembler::emit_error(int reason, const ArgSource &Src) {
     auto src = load_source(Src, TMP2);
 
-    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
     mov_imm(TMP1, reason);
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
     a.stp(TMP1, src.reg, arm::Mem(c_p, offsetof(Process, freason)));
     emit_raise_exception();
 }
@@ -240,7 +240,7 @@ void BeamModuleAssembler::emit_normal_exit() {
 
     mov_imm(TMP1, EXC_NORMAL);
     a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
-    a.str(ZERO, arm::Mem(c_p, offsetof(Process, arity)));
+    a.strb(ZERO.w(), arm::Mem(c_p, offsetof(Process, arity)));
     a.mov(ARG1, c_p);
     mov_imm(ARG2, am_normal);
     runtime_call<2>(erts_do_exit_process);
@@ -2489,8 +2489,8 @@ void BeamGlobalAssembler::emit_i_test_yield_shared() {
     a.add(ARG3, ARG3, imm(TEST_YIELD_RETURN_OFFSET));
 
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, current)));
-    a.ldr(ARG2, arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
-    a.str(ARG2, arm::Mem(c_p, offsetof(Process, arity)));
+    a.ldr(ARG2.w(), arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
+    a.strb(ARG2.w(), arm::Mem(c_p, offsetof(Process, arity)));
 
     a.b(labels[context_switch_simplified]);
 }

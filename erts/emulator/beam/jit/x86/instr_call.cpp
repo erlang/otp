@@ -33,8 +33,8 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     /* ARG3 already contains the place to jump to. */
 #endif
 
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
+    a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), imm(1));
     a.jmp(labels[context_switch_simplified]);
 }
 

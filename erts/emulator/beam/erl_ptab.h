@@ -59,8 +59,6 @@ typedef struct {
 	erts_atomic_t atmc;
 	Sint sint;
     } refc;
-    ErtsTracer tracer;
-    Uint trace_flags;
     erts_atomic_t timer;
     union {
 	/* --- While being alive --- */
@@ -78,6 +76,8 @@ typedef struct {
 	/* --- While being released --- */
 	ErtsThrPrgrLaterOp release;
     } u;
+    ErtsTracer tracer;
+    Uint32 trace_flags;
 } ErtsPTabElementCommon;
 
 typedef struct ErtsPTabDeletedElement_ ErtsPTabDeletedElement;

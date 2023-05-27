@@ -315,6 +315,7 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
     /* a64::x30 now points 4 bytes into the ErtsCodeInfo struct for the
      * function. Put the address of the MFA into ARG1. */
     a.add(ARG1, a64::x30, offsetof(ErtsCodeInfo, mfa) - 4);
+
     mov_imm(TMP1, EXC_FUNCTION_CLAUSE);
     a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
     a.str(ARG1, arm::Mem(c_p, offsetof(Process, current)));
@@ -329,7 +330,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
                                            const ArgAtom &Module,
                                            const ArgAtom &Function,
                                            const ArgWord &Arity) {
-    ErtsCodeInfo info;
+    ErtsCodeInfo info = {};
 
     /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
      * label is always encoded as a word, even though the signature ought to
@@ -339,7 +340,6 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     info.mfa.module = Module.get();
     info.mfa.function = Function.get();
     info.mfa.arity = Arity.get();
-    info.gen_bp = NULL;
 
     comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
 
@@ -395,7 +395,7 @@ void BeamModuleAssembler::bind_veneer_target(const Label &target) {
         ASSERT(veneer.target == target);
 
         if (!code.isLabelBound(veneer.anchor)) {
-            ASSERT(a.offset() <= veneer.latestOffset);
+            ASSERT((ssize_t)a.offset() <= veneer.latestOffset);
             a.bind(veneer.anchor);
 
             /* TODO: remove from pending stubs? */

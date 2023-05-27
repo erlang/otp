@@ -115,9 +115,9 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     /* ARG2 is already loaded. */
     load_x_reg_array(ARG3);
     /* ARG4 (live registers) is already loaded. */
-    a.mov(ARG5, FCALLS);
+    a.mov(ARG5.w(), FCALLS);
     runtime_call<5>(erts_garbage_collect_nobump);
-    a.sub(FCALLS, FCALLS, ARG1);
+    a.sub(FCALLS, FCALLS, ARG1.w());
 
     emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
     emit_leave_runtime_frame();

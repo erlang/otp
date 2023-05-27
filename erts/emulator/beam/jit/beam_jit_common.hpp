@@ -616,11 +616,11 @@ Eterm beam_jit_bs_get_integer(Process *c_p,
                               Uint Live);
 
 ErtsMessage *beam_jit_decode_dist(Process *c_p, ErtsMessage *msgp);
-Sint beam_jit_remove_message(Process *c_p,
-                             Sint FCALLS,
-                             Eterm *HTOP,
-                             Eterm *E,
-                             Uint32 active_code_ix);
+Sint32 beam_jit_remove_message(Process *c_p,
+                               Sint32 FCALLS,
+                               Eterm *HTOP,
+                               Eterm *E,
+                               Uint32 active_code_ix);
 
 void beam_jit_bs_construct_fail_info(Process *c_p,
                                      Uint packed_error_info,

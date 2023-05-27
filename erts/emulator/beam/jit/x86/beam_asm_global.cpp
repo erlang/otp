@@ -125,9 +125,9 @@ void BeamGlobalAssembler::emit_garbage_collect() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG3);
-    a.mov(ARG5, FCALLS);
+    a.mov(ARG5d, FCALLS);
     runtime_call<5>(erts_garbage_collect_nobump);
-    a.sub(FCALLS, RET);
+    a.sub(FCALLS, RETd);
 
     emit_leave_runtime<Update::eStack | Update::eHeap>();
 

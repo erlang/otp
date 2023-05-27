@@ -858,7 +858,7 @@ int_func_start Func_Label Func_Line M F A |
     func_line Func_Line |
     aligned_label Func_Label u=8 |
     i_func_info Func_Label M F A |
-      aligned_label Entry_Label u=8 |
+      aligned_label Entry_Label u=4 |
       i_breakpoint_trampoline |
       line Entry_Line |
       call_bif_mfa M F A
@@ -868,7 +868,7 @@ int_func_start Func_Label Func_Line M F A |
     func_line Func_Line |
     aligned_label Func_Label u=8 |
     i_func_info Func_Label M F A |
-      aligned_label Entry_Label u=8 |
+      aligned_label Entry_Label u=4 |
       i_breakpoint_trampoline |
       line Entry_Line |
       i_test_yield

@@ -77,12 +77,12 @@ ErtsTracer erts_set_system_seq_tracer(Process *c_p,
                                       ErtsProcLocks c_p_locks,
                                       ErtsTracer new_);
 ErtsTracer erts_get_system_seq_tracer(void);
-void erts_change_default_proc_tracing(int setflags, Uint flagsp,
+void erts_change_default_proc_tracing(int setflags, Uint32 flags,
                                       const ErtsTracer tracerp);
-void erts_get_default_proc_tracing(Uint *flagsp, ErtsTracer *tracerp);
-void erts_change_default_port_tracing(int setflags, Uint flagsp,
+void erts_get_default_proc_tracing(Uint32 *flagsp, ErtsTracer *tracerp);
+void erts_change_default_port_tracing(int setflags, Uint32 flags,
                                       const ErtsTracer tracerp);
-void erts_get_default_port_tracing(Uint *flagsp, ErtsTracer *tracerp);
+void erts_get_default_port_tracing(Uint32 *flagsp, ErtsTracer *tracerp);
 void erts_set_system_monitor(Eterm monitor);
 Eterm erts_get_system_monitor(void);
 int erts_is_tracer_valid(Process* p);

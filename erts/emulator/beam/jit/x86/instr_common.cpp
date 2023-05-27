@@ -270,7 +270,7 @@ void BeamModuleAssembler::emit_normal_exit() {
     emit_proc_lc_unrequire();
 
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(EXC_NORMAL));
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
+    a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), imm(0));
     a.mov(ARG1, c_p);
     mov_imm(ARG2, am_normal);
     runtime_call<2>(erts_do_exit_process);
@@ -2495,8 +2495,8 @@ void BeamGlobalAssembler::emit_i_test_yield_shared() {
 
     a.lea(ARG2, x86::qword_ptr(ARG3, mfa_offset));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG2);
-    a.mov(ARG2, x86::qword_ptr(ARG2, offsetof(ErtsCodeMFA, arity)));
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), ARG2);
+    a.movzx(ARG2d, x86::byte_ptr(ARG2, offsetof(ErtsCodeMFA, arity)));
+    a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), ARG2.r8());
 
     a.jmp(labels[context_switch_simplified]);
 }

@@ -28,6 +28,8 @@ extern "C"
 #include "export.h"
 }
 
+#undef x
+
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 static Process *erts_debug_schedule(ErtsSchedulerData *esdp,
                                     Process *c_p,
@@ -93,7 +95,7 @@ void BeamGlobalAssembler::emit_process_main() {
     {
         /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
         a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
-        a.sub(ARG3, TMP1, FCALLS);
+        a.sub(ARG3.w(), TMP1.w(), FCALLS);
         a.b(schedule_next);
     }
 
@@ -106,10 +108,10 @@ void BeamGlobalAssembler::emit_process_main() {
     {
         Sint arity_offset = offsetof(ErtsCodeMFA, arity) - sizeof(ErtsCodeMFA);
 
-        a.ldur(TMP1, arm::Mem(ARG3, arity_offset));
-        a.str(TMP1, arm::Mem(c_p, offsetof(Process, arity)));
+        a.ldur(TMP1.w(), arm::Mem(ARG3, arity_offset));
+        a.strb(TMP1.w(), arm::Mem(c_p, offsetof(Process, arity)));
 
-        a.sub(TMP1, ARG3, imm((Uint)sizeof(ErtsCodeMFA)));
+        a.sub(TMP1, ARG3, imm(sizeof(ErtsCodeMFA)));
         a.str(TMP1, arm::Mem(c_p, offsetof(Process, current)));
 
         /* !! Fall through !! */
@@ -139,7 +141,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
             a.adr(TMP1, labels[process_exit]);
             a.str(TMP1, arm::Mem(c_p, offsetof(Process, i)));
-            a.str(ZERO, arm::Mem(c_p, offsetof(Process, arity)));
+            a.strb(ZERO.w(), arm::Mem(c_p, offsetof(Process, arity)));
             a.str(ZERO, arm::Mem(c_p, offsetof(Process, current)));
             a.b(do_schedule_local);
         }
@@ -147,8 +149,8 @@ void BeamGlobalAssembler::emit_process_main() {
         a.bind(not_exiting);
 
         /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
-        a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
-        a.sub(FCALLS, TMP1, FCALLS);
+        a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
+        a.sub(FCALLS, TMP1.w(), FCALLS);
 
         comment("Copy out X registers");
         a.mov(ARG1, c_p);
@@ -156,7 +158,7 @@ void BeamGlobalAssembler::emit_process_main() {
         runtime_call<2>(copy_out_registers);
 
         /* Restore reds_used from FCALLS */
-        a.mov(ARG3, FCALLS);
+        a.mov(ARG3.w(), FCALLS);
 
         /* !! Fall through !! */
     }
@@ -223,10 +225,10 @@ void BeamGlobalAssembler::emit_process_main() {
 
         /* Setup reduction counting */
         a.ldr(FCALLS, arm::Mem(c_p, offsetof(Process, fcalls)));
-        a.str(FCALLS, arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
+        a.str(FCALLS.x(), arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
 
 #ifdef DEBUG
-        a.str(FCALLS, a64::Mem(c_p, offsetof(Process, debug_reds_in)));
+        a.str(FCALLS.x(), a64::Mem(c_p, offsetof(Process, debug_reds_in)));
 #endif
 
         comment("check whether save calls is on");
