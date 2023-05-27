@@ -323,7 +323,7 @@ MakeLiteralLambda(Op, Index, DstType, DstVal) {
         funp->next = NULL;
         funp->arity = entry->arity;
         funp->num_free = 0;
-        funp->creator = am_external;
+        funp->external = 1;
 
         literal = beamfile_add_literal(&S->beam, make_fun(tmp_hp), 0);
         S->lambda_literals[$Index] = literal;

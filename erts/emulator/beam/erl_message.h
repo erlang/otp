@@ -306,9 +306,6 @@ typedef struct {
     signed char used_ix;
     signed char unused;
     signed char pending_set_save_ix;
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    signed char old_recv_marker_ix;
-#endif
 } ErtsRecvMarkerBlock;
 
 /* Size of default message buffer (erl_message.c) */

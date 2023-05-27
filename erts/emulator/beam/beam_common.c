@@ -556,10 +556,6 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
             /* To avoid keeping stale references. */
             c_p->stop[0] = NIL;
 #endif
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-	    /* No longer safe to use this position */
-            erts_msgq_recv_marker_clear(c_p, erts_old_recv_marker_id);
-#endif
             c_p->ftrace = NIL;
 	    return new_pc;
 	}

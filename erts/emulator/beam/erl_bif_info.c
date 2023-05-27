@@ -3674,7 +3674,7 @@ fun_info_2(BIF_ALIST_2)
         hp = HAlloc(p, 3);
         break;
     case am_pid:
-        val = is_local_fun(funp) ? funp->creator : am_undefined;
+        val = is_local_fun(funp) ? erts_init_process_id : am_undefined;
         hp = HAlloc(p, 3);
         break;
     case am_module:

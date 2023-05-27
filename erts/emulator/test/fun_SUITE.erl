@@ -838,8 +838,7 @@ id(X) ->
     X.
 
 spawn_call(Node, AFun) ->
-    Parent = self(),
-    Init = erlang:whereis(init),
+    Self = self(),
     Pid = spawn_link(Node,
 		     fun() ->
 			     receive
@@ -850,10 +849,7 @@ spawn_call(Node, AFun) ->
 						_ -> lists:seq(0, Arity-1)
 					    end,
 				     Res = apply(Fun, Args),
-                     case erlang:fun_info(Fun, pid) of
-                        {pid,Init} -> Parent ! {result,Res};
-                        {pid,Creator} -> Creator ! {result,Res}
-                     end
+                                     Self ! {result,Res}
 			     end
 		     end),
     Pid ! {AFun,AFun,AFun},
