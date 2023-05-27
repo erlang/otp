@@ -744,8 +744,8 @@ Uint beam_jit_get_map_elements(Eterm map,
         ASSERT(is_hashmap(map));
 
         while (n--) {
+            erts_ihash_t hx;
             const Eterm *v;
-            Uint32 hx;
 
             hx = fs[2];
             ASSERT(hx == hashmap_make_hash(fs[0]));

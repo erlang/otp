@@ -88,7 +88,6 @@ my @beam_global_funcs = qw(
     int_div_rem_guard_shared
     is_in_range_shared
     is_ge_lt_shared
-    internal_hash_helper
     minus_body_shared
     minus_guard_shared
     new_map_shared
@@ -184,6 +183,7 @@ $decl_emit_funcs
 
     x86::Mem emit_i_length_common(Label fail, int state_size);
 
+    void emit_internal_hash_helper();
     void emit_flatmap_get_element();
     void emit_hashmap_get_element();
 

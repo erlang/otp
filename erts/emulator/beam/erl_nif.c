@@ -1535,7 +1535,7 @@ ErlNifUInt64 enif_hash(ErlNifHash type, Eterm term, ErlNifUInt64 salt)
 {
     switch (type) {
         case ERL_NIF_INTERNAL_HASH:
-            return make_internal_hash(term, (Uint32) salt);
+            return erts_internal_salted_hash(term, (erts_ihash_t)salt);
         case ERL_NIF_PHASH2:
             /* It appears that make_hash2 doesn't always react to seasoning
              * as well as it should. Therefore, let's make it ignore the salt

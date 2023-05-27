@@ -3747,7 +3747,7 @@ test_bit_distribution_fitness(Integers, BitSize) ->
 
     (FailureText =:= [] orelse ct:fail(FailureText)).
 
-nif_hash_result_bitsize(internal) -> 32;
+nif_hash_result_bitsize(internal) -> erlang:system_info(wordsize) * 8;
 nif_hash_result_bitsize(phash2) -> 27.
 
 unique(List) ->

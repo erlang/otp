@@ -1873,7 +1873,7 @@ is_function2(Eterm Term, Uint arity)
 
 Eterm get_map_element(Eterm map, Eterm key)
 {
-    Uint32 hx;
+    erts_ihash_t hx;
     const Eterm *vs;
     if (is_flatmap(map)) {
 	flatmap_t *mp;
@@ -1906,7 +1906,7 @@ Eterm get_map_element(Eterm map, Eterm key)
     return vs ? *vs : THE_NON_VALUE;
 }
 
-Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx)
+Eterm get_map_element_hash(Eterm map, Eterm key, erts_ihash_t hx)
 {
     const Eterm *vs;
 
@@ -2078,7 +2078,7 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
     map = reg[live];
 
     if (is_not_flatmap(map)) {
-	Uint32 hx;
+	erts_ihash_t hx;
 	Eterm val;
 
 	ASSERT(is_hashmap(map));
@@ -2321,7 +2321,7 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
     map = reg[live];
 
     if (is_not_flatmap(map)) {
-	Uint32 hx;
+	erts_ihash_t hx;
 	Eterm val;
 
 	/* apparently the compiler does not emit is_map instructions,

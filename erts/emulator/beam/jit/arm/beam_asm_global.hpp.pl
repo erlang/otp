@@ -94,7 +94,6 @@ my @beam_global_funcs = qw(
     i_bxor_body_shared
     int_div_rem_body_shared
     int_div_rem_guard_shared
-    internal_hash_helper
     is_in_range_shared
     is_ge_lt_shared
     minus_body_shared
@@ -194,6 +193,7 @@ $decl_emit_funcs
     void emit_bif_element_helper(Label fail);
     void emit_bif_tuple_size_helper(Label fail);
 
+    void emit_internal_hash_helper();
     void emit_flatmap_get_element();
     void emit_hashmap_get_element();
 
