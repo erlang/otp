@@ -144,7 +144,7 @@ ET_DEFINE_CHECKED(struct erl_node_*,external_port_node,Wterm,is_external_port);
 ET_DEFINE_CHECKED(Uint,external_ref_data_words,Wterm,is_external_ref);
 ET_DEFINE_CHECKED(Uint32*,external_ref_data,Wterm,is_external_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,external_ref_node,Eterm,is_external_ref);
-ET_DEFINE_CHECKED(Uint,external_thing_data_words,ExternalThing*,is_thing_ptr);
+ET_DEFINE_CHECKED(Uint,external_thing_data_words,const ExternalThing*,is_thing_ptr);
 
 ET_DEFINE_CHECKED(Eterm,make_cp,ErtsCodePtr,_is_legal_cp);
 ET_DEFINE_CHECKED(ErtsCodePtr,cp_val,Eterm,is_CP);

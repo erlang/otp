@@ -1168,7 +1168,7 @@ _ET_DECLARE_CHECKED(Eterm*,external_val,Wterm)
 
 #define _unchecked_external_thing_data_words(thing) \
     (_unchecked_thing_arityval((thing)->header) + (1 - EXTERNAL_THING_HEAD_SIZE))
-_ET_DECLARE_CHECKED(Uint,external_thing_data_words,ExternalThing*)
+_ET_DECLARE_CHECKED(Uint,external_thing_data_words,const ExternalThing*)
 #define external_thing_data_words(thing) _ET_APPLY(external_thing_data_words,(thing))
 
 #define _unchecked_external_data_words(x) \
