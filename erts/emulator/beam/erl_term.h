@@ -390,7 +390,7 @@ _ET_DECLARE_CHECKED(Eterm*,binary_val,Wterm)
 
 /* Fun objects.
  *
- * This has a special tag scheme to make the representation as compact as
+ * These have a special tag scheme to make the representation as compact as
  * possible. For normal headers, we have:
  *
  *     aaaaaaaaaaaaaaaa aaaaaaaaaatttt00       arity:26, tag:4
