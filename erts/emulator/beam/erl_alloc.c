@@ -1381,7 +1381,35 @@ handle_au_arg(struct au_init *auip,
 		auip->init.util.acful = 0;
             }
 	} else if (has_prefix("atags", sub_param)) {
-            auip->init.util.atags = get_bool_value(sub_param + 5, argv, ip);
+            char *param_end = &sub_param[5];
+            char *value;
+            
+            value = get_value(param_end, argv, ip);
+
+            if (sys_strcmp(value, "true") == 0) {
+                auip->init.util.atags = 1;
+            } else if (sys_strcmp(value, "false") == 0) {
+                auip->init.util.atags = 0;
+            } else if (sys_strcmp(value, "code") == 0) {
+                /* Undocumented option for point-of-origin tracking: overrides
+                 * per-pid/port tracking in favor of tracking which Erlang code
+                 * led to the allocation (best effort, but pretty accurate
+                 * under the JIT). */
+                auip->init.util.atags = 2;
+
+#if !defined(BEAMASM)
+                if (!erts_alcu_enable_code_atags) {
+                    erts_fprintf(stderr,
+                                 "WARNING: The experimental +M<S>atags code "
+                                 "flag is inaccurate under the interpreter. "
+                                 "Consider running with the JIT instead\n");
+                }
+#endif
+
+                erts_alcu_enable_code_atags = 1;
+            } else {
+                bad_value(sub_param, param_end, value);
+            }
         }
 	else
 	    goto bad_switch;

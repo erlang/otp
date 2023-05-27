@@ -41,6 +41,11 @@ void BeamModuleAssembler::emit_return() {
     emit_validate(ArgVal(ArgVal::Word, 1));
 #endif
 
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(a64::x30, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */
     a.subs(FCALLS, FCALLS, imm(1));

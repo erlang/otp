@@ -154,30 +154,42 @@ MBC after allocating first block, with allocation tagging enabled:
 /* Allocation tags ...
  *
  * These are added to the footer of every block when enabled. Currently they
- * consist of the allocation type and an atom identifying the allocating
- * driver/nif (or 'system' if that can't be determined), but the format is not
- * supposed to be set in stone.
+ * consist of the allocation type, an atom identifying the allocating
+ * driver/nif (or 'system' if that can't be determined), and a pid/port/CP but
+ * the format is not supposed to be set in stone.
  *
- * The packing scheme requires that the atom values are small enough to fit
- * into a word with ERTS_ALC_N_BITS to spare. Users must check for overflow
- * before MAKE_ATAG(). */
+ * The packing scheme requires that the atom values identifying the allocating
+ * driver/NIF are small enough to fit into a word with ERTS_ALC_N_BITS to
+ * spare, falling back to a known-safe value if it does not. */
 
-typedef UWord alcu_atag_t;
+typedef struct {
+    UWord packed; /* Packed identifying entity (atom) and allocator type. */
+    Eterm term;
+} alcu_atag_t;
 
-#define MAKE_ATAG(IdAtom, TypeNum) \
-    (ASSERT((TypeNum) >= ERTS_ALC_N_MIN && (TypeNum) <= ERTS_ALC_N_MAX), \
-     ASSERT(atom_val(IdAtom) <= MAX_ATAG_ATOM_ID), \
-     (atom_val(IdAtom) << ERTS_ALC_N_BITS) | (TypeNum))
-
-#define ATAG_ID(AT) (make_atom((AT) >> ERTS_ALC_N_BITS))
-#define ATAG_TYPE(AT) ((AT) & ERTS_ALC_N_MASK)
+#define ATAG_PACKED_ID(P) (make_atom((P) >> ERTS_ALC_N_BITS))
+#define ATAG_PACKED_TYPE(P) ((P) & ERTS_ALC_N_MASK)
 
 #define MAX_ATAG_ATOM_ID (ERTS_UWORD_MAX >> ERTS_ALC_N_BITS)
 
 #define DBG_IS_VALID_ATAG(AT) \
-    (ATAG_TYPE(AT) >= ERTS_ALC_N_MIN && \
-     ATAG_TYPE(AT) <= ERTS_ALC_N_MAX && \
-     ATAG_ID(AT) <= MAX_ATAG_ATOM_ID)
+    (ATAG_PACKED_TYPE((AT)->packed) >= ERTS_ALC_N_MIN &&                      \
+     ATAG_PACKED_TYPE((AT)->packed) <= ERTS_ALC_N_MAX &&                      \
+     ATAG_PACKED_ID((AT)->packed) <= MAX_ATAG_ATOM_ID &&                      \
+     (is_non_value((AT)->term) || is_immed((AT)->term) || is_CP(((AT)->term))))
+
+/* Note that we fall back to 'system' if we can't pack the driver/NIF name into
+ * the tag. This may be a bit misleading but we've made no promises that the
+ * information is complete.
+ *
+ * This can only happen on 32-bit emulators when a new driver/NIF has been
+ * loaded after 16 million atoms have been used, and supporting that fringe
+ * case is not worth an extra word. 64-bit emulators are unaffected since the
+ * atom cache limits atom indexes to 32 bits. */
+#define PACK_ATAG_ID_TYPE(Id, TypeNum)                                        \
+    (ASSERT((TypeNum) >= ERTS_ALC_N_MIN && (TypeNum) <= ERTS_ALC_N_MAX),      \
+     ((atom_val((atom_val(Id) <= MAX_ATAG_ATOM_ID) ? (Id) : (am_system))      \
+       << ERTS_ALC_N_BITS)) | (TypeNum))
 
 /* Blocks ... */
 
@@ -195,12 +207,7 @@ typedef UWord alcu_atag_t;
 #define BLK_HAS_ATAG(B) \
     (!!((B)->bhdr & ATAG_BLK_HDR_FLG))
 
-#define GET_BLK_ATAG(B) \
-    (ASSERT(BLK_HAS_ATAG(B)), \
-     ((alcu_atag_t *) (((char *) (B)) + (BLK_SZ(B))))[-1])
-#define SET_BLK_ATAG(B, T) \
-    ((B)->bhdr |= ATAG_BLK_HDR_FLG, \
-     ((alcu_atag_t *) (((char *) (B)) + (BLK_SZ(B))))[-1] = (T))
+#define BLK_ATAG(B) (&((alcu_atag_t*)(((char*)(B)) + (BLK_SZ(B))))[-1])
 
 #define BLK_ATAG_SZ(AP) ((AP)->atags ? sizeof(alcu_atag_t) : 0)
 
@@ -788,15 +795,26 @@ static void destroy_carrier(Allctr_t *, Block_t *, Carrier_t **);
 static void mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp);
 static void dealloc_block(Allctr_t *, ErtsAlcType_t, Uint32, void *, ErtsAlcFixList_t *);
 
-static alcu_atag_t determine_alloc_tag(Allctr_t *allocator, ErtsAlcType_t type)
+int ERTS_WRITE_UNLIKELY(erts_alcu_enable_code_atags);
+
+static void set_alloc_tag(Allctr_t *allctr, void *p, ErtsAlcType_t type)
 {
     ErtsSchedulerData *esdp;
+    alcu_atag_t *alloc_tag;
+    Block_t *block;
     Eterm id;
 
-    ERTS_CT_ASSERT(_unchecked_atom_val(am_system) <= MAX_ATAG_ATOM_ID);
-    ASSERT(allocator->atags);
+    ASSERT(p != NULL);
 
     esdp = erts_get_scheduler_data();
+
+    block = UMEM2BLK(p);
+    block->bhdr |= ATAG_BLK_HDR_FLG;
+
+    ERTS_CT_ASSERT(sizeof(alcu_atag_t) == sizeof(UWord[2]));
+    alloc_tag = BLK_ATAG(block);
+
+    alloc_tag->term = THE_NON_VALUE;
     id = am_system;
 
     if (esdp) {
@@ -808,40 +826,29 @@ static alcu_atag_t determine_alloc_tag(Allctr_t *allocator, ErtsAlcType_t type)
             if (mod) {
                 id = make_atom(mod->module);
             }
-        } else if (esdp->current_port) {
-            Port *p = esdp->current_port;
-            id = (p->drv_ptr)->name_atom;
         }
 
-        /* We fall back to 'system' if we can't pack the driver/NIF name into
-         * the tag. This may be a bit misleading but we've made no promises
-         * that the information is complete.
-         *
-         * This can only happen on 32-bit emulators when a new driver/NIF has
-         * been loaded *after* 16 million atoms have been used, and supporting
-         * that fringe case is not worth an extra word. 64-bit emulators are
-         * unaffected since the atom cache limits atom indexes to 32 bits. */
-        if(MAX_ATOM_TABLE_SIZE > MAX_ATAG_ATOM_ID) {
-            if (atom_val(id) > MAX_ATAG_ATOM_ID) {
-                id = am_system;
+        /* Current port has precedence since both `current_port` and
+         * `current_process` are set during immediate driver calls. */
+        if (esdp->current_port) {
+            Port *p = esdp->current_port;
+
+            id = (p->drv_ptr)->name_atom;
+            alloc_tag->term = p->common.id;
+        } else if (esdp->current_process) {
+            Process *p = esdp->current_process;
+
+            if (allctr->atags > 1) {
+                ASSERT(erts_alcu_enable_code_atags);
+                alloc_tag->term = make_cp(p->i);
+            } else {
+                alloc_tag->term = p->common.id;
             }
         }
     }
 
-    return MAKE_ATAG(id, ERTS_ALC_T2N(type));
-}
-
-static void set_alloc_tag(Allctr_t *allocator, void *p, alcu_atag_t tag)
-{
-    Block_t *block;
-
-    ASSERT(DBG_IS_VALID_ATAG(tag));
-    ASSERT(allocator->atags && p);
-    (void)allocator;
-
-    block = UMEM2BLK(p);
-
-    SET_BLK_ATAG(block, tag);
+    alloc_tag->packed = PACK_ATAG_ID_TYPE(id, ERTS_ALC_T2N(type));
+    ASSERT(DBG_IS_VALID_ATAG(alloc_tag));
 }
 
 /* internal data... */
@@ -6003,7 +6010,7 @@ void *erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
     res = do_erts_alcu_alloc(type, allctr, size);
 
     if (allctr->atags && res) {
-        set_alloc_tag(allctr, res, determine_alloc_tag(allctr, type));
+        set_alloc_tag(allctr, res, type);
     }
 
     DEBUG_CHECK_ALIGNMENT(res);
@@ -6017,19 +6024,14 @@ void *
 erts_alcu_alloc_ts(ErtsAlcType_t type, void *extra, Uint size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
-    alcu_atag_t tag = 0;
     void *res;
-
-    if (allctr->atags) {
-        tag = determine_alloc_tag(allctr, type);
-    }
 
     erts_mtx_lock(&allctr->mutex);
 
     res = do_erts_alcu_alloc(type, allctr, size);
 
     if (allctr->atags && res) {
-        set_alloc_tag(allctr, res, tag);
+        set_alloc_tag(allctr, res, type);
     }
 
     erts_mtx_unlock(&allctr->mutex);
@@ -6045,7 +6047,6 @@ erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int ix;
-    alcu_atag_t tag = 0;
     Allctr_t *allctr;
     void *res;
 
@@ -6055,21 +6056,19 @@ erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
 
     allctr = tspec->allctr[ix];
 
-    if (allctr->atags) {
-        tag = determine_alloc_tag(allctr, type);
+    if (allctr->thread_safe) {
+        erts_mtx_lock(&allctr->mutex);
     }
-
-    if (allctr->thread_safe)
-	erts_mtx_lock(&allctr->mutex);
 
     res = do_erts_alcu_alloc(type, allctr, size);
 
     if (allctr->atags && res) {
-        set_alloc_tag(allctr, res, tag);
+        set_alloc_tag(allctr, res, type);
     }
 
-    if (allctr->thread_safe)
-	erts_mtx_unlock(&allctr->mutex);
+    if (allctr->thread_safe) {
+        erts_mtx_unlock(&allctr->mutex);
+    }
 
     DEBUG_CHECK_ALIGNMENT(res);
 
@@ -6080,14 +6079,9 @@ void *
 erts_alcu_alloc_thr_pref(ErtsAlcType_t type, void *extra, Uint size)
 {
     Allctr_t *pref_allctr;
-    alcu_atag_t tag = 0;
     void *res;
 
     pref_allctr = get_pref_allctr(extra);
-
-    if (pref_allctr->atags) {
-        tag = determine_alloc_tag(pref_allctr, type);
-    }
 
     if (pref_allctr->thread_safe)
 	erts_mtx_lock(&pref_allctr->mutex);
@@ -6105,11 +6099,12 @@ erts_alcu_alloc_thr_pref(ErtsAlcType_t type, void *extra, Uint size)
     }
 
     if (pref_allctr->atags && res) {
-        set_alloc_tag(pref_allctr, res, tag);
+        set_alloc_tag(pref_allctr, res, type);
     }
 
-    if (pref_allctr->thread_safe)
-	erts_mtx_unlock(&pref_allctr->mutex);
+    if (pref_allctr->thread_safe) {
+        erts_mtx_unlock(&pref_allctr->mutex);
+    }
 
     DEBUG_CHECK_ALIGNMENT(res);
 
@@ -6347,11 +6342,11 @@ erts_alcu_realloc(ErtsAlcType_t type, void *extra, void *p, Uint size)
 
     res = do_erts_alcu_realloc(type, allctr, p, size, 0, NULL);
 
-    DEBUG_CHECK_ALIGNMENT(res);
-
     if (allctr->atags && res) {
-        set_alloc_tag(allctr, res, determine_alloc_tag(allctr, type));
+        set_alloc_tag(allctr, res, type);
     }
+
+    DEBUG_CHECK_ALIGNMENT(res);
 
     return res;
 }
@@ -6377,11 +6372,11 @@ erts_alcu_realloc_mv(ErtsAlcType_t type, void *extra, void *p, Uint size)
 	do_erts_alcu_free(type, allctr, p, NULL);
     }
 
-    DEBUG_CHECK_ALIGNMENT(res);
-
     if (allctr->atags && res) {
-        set_alloc_tag(allctr, res, determine_alloc_tag(allctr, type));
+        set_alloc_tag(allctr, res, type);
     }
+
+    DEBUG_CHECK_ALIGNMENT(res);
 
     return res;
 }
@@ -6391,19 +6386,14 @@ void *
 erts_alcu_realloc_ts(ErtsAlcType_t type, void *extra, void *ptr, Uint size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
-    alcu_atag_t tag = 0;
     void *res;
-
-    if (allctr->atags) {
-        tag = determine_alloc_tag(allctr, type);
-    }
 
     erts_mtx_lock(&allctr->mutex);
 
     res = do_erts_alcu_realloc(type, allctr, ptr, size, 0, NULL);
 
     if (allctr->atags && res) {
-        set_alloc_tag(allctr, res, tag);
+        set_alloc_tag(allctr, res, type);
     }
 
     erts_mtx_unlock(&allctr->mutex);
@@ -6417,12 +6407,7 @@ void *
 erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, Uint size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
-    alcu_atag_t tag = 0;
     void *res;
-
-    if (allctr->atags) {
-        tag = determine_alloc_tag(allctr, type);
-    }
 
     erts_mtx_lock(&allctr->mutex);
     res = do_erts_alcu_alloc(type, allctr, size);
@@ -6441,7 +6426,7 @@ erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, Uint size)
     }
 
     if (allctr->atags && res) {
-        set_alloc_tag(allctr, res, tag);
+        set_alloc_tag(allctr, res, type);
     }
 
     erts_mtx_unlock(&allctr->mutex);
@@ -6454,11 +6439,10 @@ erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, Uint size)
 
 void *
 erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
-			   void *ptr, Uint size)
+                           void *ptr, Uint size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int ix;
-    alcu_atag_t tag = 0;
     Allctr_t *allctr;
     void *res;
 
@@ -6468,21 +6452,19 @@ erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
 
     allctr = tspec->allctr[ix];
 
-    if (allctr->atags) {
-        tag = determine_alloc_tag(allctr, type);
+    if (allctr->thread_safe) {
+        erts_mtx_lock(&allctr->mutex);
     }
-
-    if (allctr->thread_safe)
-	erts_mtx_lock(&allctr->mutex);
 
     res = do_erts_alcu_realloc(type, allctr, ptr, size, 0, NULL);
 
     if (allctr->atags && res) {
-        set_alloc_tag(allctr, res, tag);
+        set_alloc_tag(allctr, res, type);
     }
 
-    if (allctr->thread_safe)
-	erts_mtx_unlock(&allctr->mutex);
+    if (allctr->thread_safe) {
+        erts_mtx_unlock(&allctr->mutex);
+    }
 
     DEBUG_CHECK_ALIGNMENT(res);
 
@@ -6491,11 +6473,10 @@ erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
 
 void *
 erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
-			      void *ptr, Uint size)
+                              void *ptr, Uint size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int ix;
-    alcu_atag_t tag = 0;
     Allctr_t *allctr;
     void *res;
 
@@ -6504,10 +6485,6 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
     ASSERT(0 <= ix && ix < tspec->size);
 
     allctr = tspec->allctr[ix];
-
-    if (allctr->atags) {
-        tag = determine_alloc_tag(allctr, type);
-    }
 
     if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
@@ -6529,11 +6506,12 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
     }
 
     if (allctr->atags && res) {
-        set_alloc_tag(allctr, res, tag);
+        set_alloc_tag(allctr, res, type);
     }
 
-    if (allctr->thread_safe)
+    if (allctr->thread_safe) {
         erts_mtx_unlock(&allctr->mutex);
+    }
 
     DEBUG_CHECK_ALIGNMENT(res);
 
@@ -6542,21 +6520,17 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
 
 static ERTS_INLINE void *
 realloc_thr_pref(ErtsAlcType_t type, Allctr_t *pref_allctr, void *p, Uint size,
-		 int force_move)
+                 int force_move)
 {
     void *res;
     Allctr_t *used_allctr;
     UWord old_user_size;
     Carrier_t *busy_pcrr_p;
-    alcu_atag_t tag = 0;
     int retried;
 
-    if (pref_allctr->atags) {
-        tag = determine_alloc_tag(pref_allctr, type);
+    if (pref_allctr->thread_safe) {
+        erts_mtx_lock(&pref_allctr->mutex);
     }
-
-    if (pref_allctr->thread_safe)
-	erts_mtx_lock(&pref_allctr->mutex);
 
     ASSERT(pref_allctr->dd.use);
     ERTS_ALCU_HANDLE_DD_IN_OP(pref_allctr, 1);
@@ -6570,6 +6544,7 @@ restart:
 
     if (!force_move && used_allctr == pref_allctr) {
 	ERTS_ALCU_DBG_CHK_THR_ACCESS(used_allctr);
+
 	res = do_erts_alcu_realloc(type,
 				   used_allctr,
 				   p,
@@ -6577,29 +6552,33 @@ restart:
 				   0,
 				   &busy_pcrr_p);
 	clear_busy_pool_carrier(used_allctr, busy_pcrr_p);
+
 	if (!res && !retried && ERTS_ALCU_HANDLE_DD_IN_OP(pref_allctr, 1)) {
 	    /* Cleaned up a bit more; try one more time... */
 	    retried = 1;
 	    goto restart;
 	}
 
-        if (pref_allctr->atags && res) {
-            set_alloc_tag(pref_allctr, res, tag);
+        if (pref_allctr->atags) {
+            set_alloc_tag(pref_allctr, res, type);
         }
 
-	if (pref_allctr->thread_safe)
-	    erts_mtx_unlock(&pref_allctr->mutex);
+        if (pref_allctr->thread_safe) {
+            erts_mtx_unlock(&pref_allctr->mutex);
+        }
     }
     else {
 	res = do_erts_alcu_alloc(type, pref_allctr, size);
-	if (!res)
+
+	if (!res) {
 	    goto unlock_ts_return;
-	else {
+	} else {
             if (pref_allctr->atags) {
-                set_alloc_tag(pref_allctr, res, tag);
+                set_alloc_tag(pref_allctr, res, type);
             }
 
-	    DEBUG_CHECK_ALIGNMENT(res);
+            DEBUG_CHECK_ALIGNMENT(res);
+
 
 	    if (used_allctr != pref_allctr) {
 		if (pref_allctr->thread_safe)
@@ -6647,7 +6626,7 @@ erts_alcu_realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size)
 
 void *
 erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t type, void *extra,
-			      void *p, Uint size)
+                              void *p, Uint size)
 {
     if (p) {
         Allctr_t *pref_allctr = get_pref_allctr(extra);
@@ -7507,17 +7486,21 @@ void erts_alcu_blockscan_init(ErtsAuxWorkData *awdp)
 
 /* ------------------------------------------------------------------------- */
 
-static ERTS_INLINE int u64_log2(Uint64 v)
+static ERTS_INLINE int get_hist_slot(Uint64 v)
 {
-    static const int log2_tab64[64] = {
-        63,  0, 58,  1, 59, 47, 53,  2,
-        60, 39, 48, 27, 54, 33, 42,  3,
-        61, 51, 37, 40, 49, 18, 28, 20,
-        55, 30, 34, 11, 43, 14, 22,  4,
-        62, 57, 46, 52, 38, 26, 32, 41,
-        50, 36, 17, 19, 29, 10, 13, 21,
-        56, 45, 25, 31, 35, 16,  9, 12,
-        44, 24, 15,  8, 23,  7,  6,  5};
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_clzl)
+    return v ? (64 - __builtin_clzl(v)) : 0;
+#else
+    static const int hist_slot_tab[64] = {
+        0x40, 0x01, 0x3b, 0x02, 0x3c, 0x30, 0x36, 0x03,
+        0x3d, 0x28, 0x31, 0x1c, 0x37, 0x22, 0x2b, 0x04,
+        0x3e, 0x34, 0x26, 0x29, 0x32, 0x13, 0x1d, 0x15,
+        0x38, 0x1f, 0x23, 0x0c, 0x2c, 0x0f, 0x17, 0x05,
+        0x3f, 0x3a, 0x2f, 0x35, 0x27, 0x1b, 0x21, 0x2a,
+        0x33, 0x25, 0x12, 0x14, 0x1e, 0x0b, 0x0e, 0x16,
+        0x39, 0x2e, 0x1a, 0x20, 0x24, 0x11, 0x0a, 0x0d,
+        0x2d, 0x19, 0x10, 0x09, 0x18, 0x08, 0x07, 0x06
+    };
 
     v |= v >> 1;
     v |= v >> 2;
@@ -7526,42 +7509,76 @@ static ERTS_INLINE int u64_log2(Uint64 v)
     v |= v >> 16;
     v |= v >> 32;
 
-    return log2_tab64[((Uint64)((v - (v >> 1))*0x07EDD5E59A4E28C2)) >> 58];
+    return hist_slot_tab[((Uint64)((v - (v >> 1)) * 0x07EDD5E59A4E28C2)) >> 58];
+#endif
 }
 
 /* ------------------------------------------------------------------------- */
 
+typedef struct {
+    UWord packed;
+    union {
+        ErtsCodeMFA mfa;
+        Eterm term;
+    } u;
+} hist_key_t;
+
 typedef struct hist_tree__ {
-    struct hist_tree__ *parent;
+    UWord parent; /* Parent pointer and flag bits. */
     struct hist_tree__ *left;
     struct hist_tree__ *right;
 
-    int is_red;
-
-    alcu_atag_t tag;
+    hist_key_t key;
     UWord histogram[1];
 } hist_tree_t;
 
+static int hist_tag_is_lt(const hist_key_t *lhs, const hist_key_t *rhs) {
+    return (lhs->packed < rhs->packed) ||
+           (lhs->u.mfa.module < rhs->u.mfa.module) ||
+           (lhs->u.mfa.function < rhs->u.mfa.function) ||
+           (lhs->u.mfa.arity < rhs->u.mfa.arity);
+}
+
+static int hist_tag_is_eq(const hist_key_t *lhs, const hist_key_t *rhs) {
+    return (lhs->packed == rhs->packed) &&
+           (lhs->u.mfa.module == rhs->u.mfa.module) &&
+           (lhs->u.mfa.function == rhs->u.mfa.function) &&
+           (lhs->u.mfa.arity == rhs->u.mfa.arity);
+}
+
+#define ERTS_AHIST_FLG_RED  (((UWord) 1) << 0)
+#define ERTS_AHIST_FLG_MASK ERTS_AHIST_FLG_RED
+
 #define ERTS_RBT_PREFIX hist_tree
 #define ERTS_RBT_T hist_tree_t
-#define ERTS_RBT_KEY_T UWord
+#define ERTS_RBT_KEY_T const hist_key_t*
 #define ERTS_RBT_FLAGS_T int
 #define ERTS_RBT_INIT_EMPTY_TNODE(T) ((void)0)
-#define ERTS_RBT_IS_RED(T) ((T)->is_red)
-#define ERTS_RBT_SET_RED(T) ((T)->is_red = 1)
+#define ERTS_RBT_IS_RED(T) ((T)->parent & ERTS_AHIST_FLG_RED)
+#define ERTS_RBT_SET_RED(T) ((T)->parent |= ERTS_AHIST_FLG_RED)
 #define ERTS_RBT_IS_BLACK(T) (!ERTS_RBT_IS_RED(T))
-#define ERTS_RBT_SET_BLACK(T) ((T)->is_red = 0)
-#define ERTS_RBT_GET_FLAGS(T) ((T)->is_red)
-#define ERTS_RBT_SET_FLAGS(T, F) ((T)->is_red = F)
-#define ERTS_RBT_GET_PARENT(T) ((T)->parent)
-#define ERTS_RBT_SET_PARENT(T, P) ((T)->parent = P)
+#define ERTS_RBT_SET_BLACK(T) ((T)->parent &= ~ERTS_AHIST_FLG_RED)
+#define ERTS_RBT_GET_FLAGS(T) ((T)->parent & ERTS_AHIST_FLG_MASK)
+#define ERTS_RBT_SET_FLAGS(T, F)                                              \
+    do {                                                                      \
+        ASSERT((((UWord)(F)) & ~ERTS_AHIST_FLG_MASK) == 0);                   \
+        (T)->parent |= (UWord)(F);                                            \
+    } while(0)
+#define ERTS_RBT_GET_PARENT(T)                                                \
+    ((hist_tree_t*)((T)->parent & ~ERTS_AHIST_FLG_MASK))
+#define ERTS_RBT_SET_PARENT(T, P)                                             \
+    do {                                                                      \
+        ASSERT((((UWord)(P)) & ERTS_AHIST_FLG_MASK) == 0);                    \
+        (T)->parent &= ERTS_AHIST_FLG_MASK;                                   \
+        (T)->parent |= (UWord)(P);                                            \
+    } while(0)
 #define ERTS_RBT_GET_RIGHT(T) ((T)->right)
 #define ERTS_RBT_SET_RIGHT(T, R) ((T)->right = (R))
 #define ERTS_RBT_GET_LEFT(T) ((T)->left)
 #define ERTS_RBT_SET_LEFT(T, L) ((T)->left = (L))
-#define ERTS_RBT_GET_KEY(T) ((T)->tag)
-#define ERTS_RBT_IS_LT(KX, KY) (KX < KY)
-#define ERTS_RBT_IS_EQ(KX, KY) (KX == KY)
+#define ERTS_RBT_GET_KEY(T) (&(T)->key)
+#define ERTS_RBT_IS_LT(KX, KY) hist_tag_is_lt((KX), (KY))
+#define ERTS_RBT_IS_EQ(KX, KY) hist_tag_is_eq((KX), (KY))
 #define ERTS_RBT_WANT_FOREACH_DESTROY_YIELDING
 #define ERTS_RBT_WANT_FOREACH_DESTROY
 #define ERTS_RBT_WANT_INSERT
@@ -7569,6 +7586,12 @@ typedef struct hist_tree__ {
 #define ERTS_RBT_UNDEF
 
 #include "erl_rbtree.h"
+
+enum {
+    GATHER_AHIST_FLAG_PER_PID = (1 << 0),
+    GATHER_AHIST_FLAG_PER_PORT = (1 << 1),
+    GATHER_AHIST_FLAG_PER_MFA = (1 << 2),
+};
 
 typedef struct {
     blockscan_t common;
@@ -7583,6 +7606,8 @@ typedef struct {
     UWord hist_slot_start;
     int hist_slot_count;
 
+    int flags;
+
     UWord unscanned_size;
 
     ErtsHeapFactory msg_factory;
@@ -7590,30 +7615,53 @@ typedef struct {
     Eterm result_list;
 } gather_ahist_t;
 
-static void gather_ahist_update(gather_ahist_t *state, UWord tag, UWord size)
+static void gather_ahist_update(gather_ahist_t *state,
+                                const alcu_atag_t *tag,
+                                UWord size)
 {
+    hist_key_t key = { .packed = tag->packed,
+                       .u = { .mfa.module = THE_NON_VALUE, /* aliases u.term */
+                              .mfa.function = THE_NON_VALUE,
+                              .mfa.arity = 0 } };
     hist_tree_t *hist_node;
-    UWord size_interval;
     int hist_slot;
 
-    hist_node = hist_tree_rbt_lookup(state->hist_tree, tag);
+    if (is_value(tag->term)) {
+        if ((is_internal_pid(tag->term) &&
+             (state->flags & GATHER_AHIST_FLAG_PER_PID)) ||
+            (is_internal_port(tag->term) &&
+             (state->flags & GATHER_AHIST_FLAG_PER_PORT))) {
+            key.u.term = tag->term;
+        } else if (is_CP(tag->term)) {
+            const ErtsCodeMFA *mfa;
+
+            ASSERT(erts_alcu_enable_code_atags);
+            mfa = erts_find_function_from_pc(cp_val(tag->term));
+
+            if (mfa && (state->flags & GATHER_AHIST_FLAG_PER_MFA)) {
+                key.u.mfa = *mfa;
+            } else if (mfa) {
+                key.u.mfa.module = mfa->module;
+            }
+        }
+    }
+
+    hist_node = hist_tree_rbt_lookup(state->hist_tree, &key);
 
     if (hist_node == NULL) {
         /* Plain calloc is intentional. */
-        hist_node = (hist_tree_t*)calloc(1, sizeof(hist_tree_t) +
-                                            (state->hist_slot_count - 1) *
-                                            sizeof(hist_node->histogram[0]));
-        hist_node->tag = tag;
+        hist_node = (hist_tree_t*)calloc(1,
+                                         sizeof(hist_tree_t) +
+                                         (state->hist_slot_count - 1) *
+                                         sizeof(hist_node->histogram[0]));
+        hist_node->key = key;
 
         hist_tree_rbt_insert(&state->hist_tree, hist_node);
         state->hist_count++;
     }
 
-    size_interval = (size / state->hist_slot_start);
-    size_interval = u64_log2(size_interval + 1);
-
-    hist_slot = MIN(size_interval, state->hist_slot_count - 1);
-
+    hist_slot = MIN(get_hist_slot(size / state->hist_slot_start),
+                    state->hist_slot_count - 1);
     hist_node->histogram[hist_slot]++;
 }
 
@@ -7629,12 +7677,11 @@ static int gather_ahist_scan(Allctr_t *allocator,
     blocks_scanned = 1;
 
     if (IS_SB_CARRIER(carrier)) {
-        alcu_atag_t tag;
 
         block = SBC2BLK(allocator, carrier);
 
         if (BLK_HAS_ATAG(block)) {
-            tag = GET_BLK_ATAG(block);
+            const alcu_atag_t *tag = BLK_ATAG(block);
 
             ASSERT(DBG_IS_VALID_ATAG(tag));
 
@@ -7651,7 +7698,7 @@ static int gather_ahist_scan(Allctr_t *allocator,
             UWord block_size = MBC_BLK_SZ(block);
 
             if (IS_ALLOCED_BLK(block) && BLK_HAS_ATAG(block)) {
-                alcu_atag_t tag = GET_BLK_ATAG(block);
+                const alcu_atag_t *tag = BLK_ATAG(block);
 
                 ASSERT(DBG_IS_VALID_ATAG(tag));
 
@@ -7679,17 +7726,26 @@ static int gather_ahist_append_result(hist_tree_t *node, void *arg, Sint reds)
 {
     gather_ahist_t *state = (gather_ahist_t*)arg;
 
-    Eterm histogram_tuple, tag_tuple;
+    Eterm histogram_tuple, tag_tuple, identity;
 
+    int heap_size;
     Eterm *hp;
     int ix;
 
     ASSERT(state->building_result);
 
-    hp = erts_produce_heap(&state->msg_factory,
-                           7 + state->hist_slot_count +
-                           (state->hist_slot_count == 0 ? -1 : 0),
-                           0);
+    /* Histogram. */
+    heap_size = state->hist_slot_count + (state->hist_slot_count == 0 ? -1 : 0);
+
+    /* 3-tuple plus cons cell. */
+    heap_size += 7;
+
+    if (is_value(node->key.u.mfa.function)) {
+        /* 3-tuple for MFA. */
+        heap_size += 4;
+    }
+
+    hp = erts_produce_heap(&state->msg_factory, heap_size, 0);
     if (state->hist_slot_count == 0) {
         histogram_tuple = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
     } else {
@@ -7703,9 +7759,23 @@ static int gather_ahist_append_result(hist_tree_t *node, void *arg, Sint reds)
         hp += 1 + state->hist_slot_count;
     }
 
+    if (is_value(node->key.u.mfa.function)) {
+        hp[0] = make_arityval(3);
+        hp[1] = node->key.u.mfa.module;
+        hp[2] = node->key.u.mfa.function;
+        hp[3] = make_small(node->key.u.mfa.arity);
+
+        identity = make_tuple(hp);
+        hp += 4;
+    } else if (is_value(node->key.u.term)) {
+        identity = node->key.u.term;
+    } else {
+        identity = ATAG_PACKED_ID(node->key.packed);
+    }
+
     hp[0] = make_arityval(3);
-    hp[1] = ATAG_ID(node->tag);
-    hp[2] = alloc_type_atoms[ATAG_TYPE(node->tag)];
+    hp[1] = identity;
+    hp[2] = alloc_type_atoms[ATAG_PACKED_TYPE(node->key.packed)];
     hp[3] = histogram_tuple;
 
     tag_tuple = make_tuple(hp);
@@ -7809,7 +7879,8 @@ static void gather_ahist_abort(void *arg)
 
 int erts_alcu_gather_alloc_histograms(Process *p, int allocator_num,
                                       int aux_work_tid, int hist_width,
-                                      UWord hist_start, Eterm ref)
+                                      UWord hist_start, int flags,
+                                      Eterm ref)
 {
     gather_ahist_t *gather_state;
     blockscan_t *scanner;
@@ -7827,6 +7898,8 @@ int erts_alcu_gather_alloc_histograms(Process *p, int allocator_num,
 
     /* Plain calloc is intentional. */
     gather_state = (gather_ahist_t*)calloc(1, sizeof(gather_ahist_t));
+    gather_state->flags = flags;
+
     scanner = &gather_state->common;
 
     scanner->abort = gather_ahist_abort;
@@ -7925,13 +7998,10 @@ static int gather_cinfo_scan(Allctr_t *allocator,
             scanned_bytes += block_size;
 
             if (IS_FREE_BLK(block)) {
-                UWord size_interval;
                 int hist_slot;
 
-                size_interval = (block_size / state->hist_slot_start);
-                size_interval = u64_log2(size_interval + 1);
-
-                hist_slot = MIN(size_interval, state->hist_slot_count - 1);
+                hist_slot = get_hist_slot(block_size / state->hist_slot_start);
+                hist_slot = MIN(hist_slot + 1, state->hist_slot_count - 1);
 
                 node->free_histogram[hist_slot]++;
             }
@@ -8135,7 +8205,7 @@ static void gather_cinfo_abort(void *arg)
 
 int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
                                   int aux_work_tid, int hist_width,
-                                  UWord hist_start, Eterm ref)
+                                  UWord hist_start, int flags, Eterm ref)
 {
     gather_cinfo_t *gather_state;
     blockscan_t *scanner;
@@ -8154,6 +8224,8 @@ int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
     /* Plain calloc is intentional. */
     gather_state = (gather_cinfo_t*)calloc(1, sizeof(gather_cinfo_t));
     scanner = &gather_state->common;
+
+    (void)flags;
 
     scanner->abort = gather_cinfo_abort;
     scanner->scan = gather_cinfo_scan;

@@ -51,6 +51,14 @@ void BeamModuleAssembler::emit_return() {
     a.mov(getCPRef(), imm(NIL));
 #endif
 
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+#if defined(NATIVE_ERLANG_STACK)
+        a.mov(ARG3, x86::qword_ptr(E));
+#endif
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG3);
+    }
+
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */
     a.dec(FCALLS);
