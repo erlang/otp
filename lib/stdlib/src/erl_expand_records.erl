@@ -371,6 +371,12 @@ expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}},
 expr({call,Anno,{tuple,_,[{atom,_,erlang},{atom,_,is_record}]},
       [A,{atom,_,Name}]}, St) ->
     record_test(Anno, A, Name, St);
+expr({call,Anno,{atom,_,is_record},[_,_,{integer,_,Sz}]}, St)
+  when is_integer(Sz), Sz =< 0 ->
+    {{atom,Anno,false},St};
+expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}},
+      [_,_,{integer,_,Sz}]}, St) when is_integer(Sz), Sz =< 0 ->
+    {{atom,Anno,false},St};
 expr({call,Anno,{atom,_AnnoA,record_info},[_,_]=As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     record_info_call(Anno, As, St1);
@@ -919,11 +925,13 @@ opt_rec_vars_2({op,_,'orelse',Arg,{atom,_,fail}}, Rs) ->
     %% Since the second argument guarantees failure,
     %% it is safe to inspect the first argument.
     opt_rec_vars_2(Arg, Rs);
-opt_rec_vars_2({call,_,{remote,_,{atom,_,erlang},{atom,_,is_record}},
-		[{var,_,V},{atom,_,Tag},{integer,_,Sz}]}, Rs) ->
-    orddict:store(V, {Tag,Sz}, Rs);
+opt_rec_vars_2({call,Anno,
+                {remote,_,{atom,_,erlang},{atom,_,is_record}=IsRecord},
+		Args}, Rs) ->
+    opt_rec_vars_2({call,Anno,IsRecord,Args}, Rs);
 opt_rec_vars_2({call,_,{atom,_,is_record},
-		[{var,_,V},{atom,_,Tag},{integer,_,Sz}]}, Rs) ->
+		[{var,_,V},{atom,_,Tag},{integer,_,Sz}]}, Rs)
+  when is_integer(Sz), 0 < Sz, Sz < 100 ->
     orddict:store(V, {Tag,Sz}, Rs);
 opt_rec_vars_2(_, Rs) -> Rs.
 
