@@ -117,7 +117,6 @@
                    'landingpad' |
                    'make_fun' | 'match_fail' | 'new_try_tag' |
                    'nif_start' |
-                   'old_make_fun' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
                    'raw_raise' |
                    'recv_marker_bind' |
@@ -187,7 +186,6 @@ clobbers_xregs(#b_set{op=Op}) ->
         build_stacktrace -> true;
         call -> true;
         landingpad -> true;
-        old_make_fun -> true;
         peek_message -> true;
         raw_raise -> true;
         wait_timeout -> true;

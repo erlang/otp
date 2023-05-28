@@ -33,10 +33,9 @@ module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Used = find_all_used(WorkList, All, sets:from_list(WorkList, [{version, 2}])),
     Fs1 = remove_unused(Order, Used, All),
     {Fs2,Lc} = clean_labels(Fs1),
-    Fs3 = fix_swap(Fs2, Opts),
-    Fs4 = fix_bs_create_bin(Fs3, Opts),
-    Fs5 = fix_badrecord(Fs4, Opts),
-    Fs = maybe_remove_lines(Fs5, Opts),
+    Fs3 = fix_bs_create_bin(Fs2, Opts),
+    Fs4 = fix_badrecord(Fs3, Opts),
+    Fs = maybe_remove_lines(Fs4, Opts),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% Determine the rootset, i.e. exported functions and
@@ -66,8 +65,6 @@ find_all_used([F|Fs0], All, Used0) ->
 find_all_used([], _All, Used) -> Used.
 
 update_work_list([{call,_,{f,L}}|Is], Sets) ->
-    update_work_list(Is, add_to_work_list(L, Sets));
-update_work_list([{make_fun2,{f,L},_,_,_}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([{make_fun3,{f,L},_,_,_,_}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
@@ -132,24 +129,6 @@ function_replace([{function,Name,Arity,Entry,Asm0}|Fs], Dict, Acc) ->
 	  end,
     function_replace(Fs, Dict, [{function,Name,Arity,Entry,Asm}|Acc]);
 function_replace([], _, Acc) -> Acc.
-
-%%%
-%%% If compatibility with a previous release (OTP 22 or earlier) has
-%%% been requested, replace swap instructions with a sequence of moves.
-%%%
-
-fix_swap(Fs, Opts) ->
-    case proplists:get_bool(no_swap, Opts) of
-        false -> Fs;
-        true -> fold_functions(fun swap_moves/1, Fs)
-    end.
-
-swap_moves([{swap,Reg1,Reg2}|Is]) ->
-    Temp = {x,1022},
-    [{move,Reg1,Temp},{move,Reg2,Reg1},{move,Temp,Reg2}|swap_moves(Is)];
-swap_moves([I|Is]) ->
-    [I|swap_moves(Is)];
-swap_moves([]) -> [].
 
 %%%
 %%% Remove line instructions if requested.

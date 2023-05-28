@@ -704,19 +704,6 @@ vi({call_fun,Live}, Vst) ->
                                          Fun, SuccVst0),
                    validate_body_call('fun', Live+1, SuccVst)
            end);
-vi({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
-    #{ name := Name, arity := TotalArity } = map_get(Lbl, Ft),
-    Arity = TotalArity - NumFree,
-
-    true = Arity >= 0,                          %Assertion.
-
-    Vst = prune_x_regs(NumFree, Vst0),
-    verify_call_args(make_fun, NumFree, Vst),
-    verify_y_init(Vst),
-
-    Type = #t_fun{target={Name,TotalArity},arity=Arity},
-
-    create_term(Type, make_fun, [], {x,0}, Vst);
 vi({make_fun3,{f,Lbl},_,_,Dst,{list,Env}}, #vst{ft=Ft}=Vst0) ->
     _ = [assert_term(E, Vst0) || E <- Env],
     NumFree = length(Env),

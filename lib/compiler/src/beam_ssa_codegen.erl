@@ -403,7 +403,6 @@ classify_heap_need(match_fail) -> gc;
 classify_heap_need(nif_start) -> neutral;
 classify_heap_need(nop) -> neutral;
 classify_heap_need(new_try_tag) -> neutral;
-classify_heap_need(old_make_fun) -> gc;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
 classify_heap_need(raw_raise) -> gc;
@@ -428,9 +427,9 @@ classify_heap_need(wait_timeout) -> gc.
 %%% since the BEAM interpreter have more optimized instructions
 %%% operating on X registers than on Y registers.
 %%%
-%%% In call and 'call' and 'old_make_fun' instructions there is also the
-%%% possibility that a 'move' instruction can be eliminated because
-%%% a value is already in the correct X register.
+%%% In call instructions there is also the possibility that a 'move'
+%%% instruction can be eliminated because a value is already in the
+%%% correct X register.
 %%%
 %%% Because of the new 'swap' instruction introduced in OTP 23, it
 %%% is always beneficial to prefer X register over Y registers. That
@@ -480,9 +479,6 @@ prefer_xregs_is([#cg_set{op=copy,dst=Dst,args=[Src]}=I|Is], St, Copies0, Acc) ->
 prefer_xregs_is([#cg_set{op=call,dst=Dst}=I0|Is], St, Copies, Acc) ->
     I = prefer_xregs_call(I0, Copies, St),
     prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
-prefer_xregs_is([#cg_set{op=old_make_fun,dst=Dst}=I0|Is], St, Copies, Acc) ->
-    I = prefer_xregs_call(I0, Copies, St),
-    prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
 prefer_xregs_is([#cg_set{op=Op}=I|Is], St, Copies0, Acc)
   when Op =:= bs_checked_get;
        Op =:= bs_checked_skip;
@@ -517,7 +513,7 @@ prefer_xregs_prune(#cg_set{dst=Dst}, Copies, St) ->
                     beam_arg(Alias, St) =/= DstReg}.
 
 %% prefer_xregs_call(Instruction, Copies, St) -> Instruction.
-%%  Given a 'call' or 'old_make_fun' instruction rewrite the arguments
+%%  Given a 'call' instruction rewrite the arguments
 %%  to use an X register instead of a Y register if a value is
 %%  is available in both.
 
@@ -1300,28 +1296,19 @@ cg_block([#cg_set{op=call}=Call|T], Context, St0) ->
     {Is0,St1} = cg_call(Call, body, none, St0),
     {Is1,St} = cg_block(T, Context, St1),
     {Is0++Is1,St};
-cg_block([#cg_set{anno=Anno,op=MakeFun,dst=Dst0,args=[Local|Args0]}|T],
-         Context, St0) when MakeFun =:= make_fun;
-                            MakeFun =:= old_make_fun ->
+cg_block([#cg_set{anno=Anno,op=make_fun,dst=Dst0,args=[Local|Args0]}|T],
+         Context, St0) ->
     #b_local{name=#b_literal{val=Func},arity=Arity} = Local,
     [Dst|Args] = beam_args([Dst0|Args0], St0),
     {FuncLbl,St1} = local_func_label(Func, Arity, St0),
-    Is0 = case MakeFun of
-              make_fun ->
-                  [{make_fun3,{f,FuncLbl},0,0,Dst,{list,Args}}];
-              old_make_fun ->
-                  setup_args(Args) ++
-                      [{make_fun2,{f,FuncLbl},0,0,length(Args)}
-                       | copy({x,0}, Dst)]
-          end,
+    Is0 = [{make_fun3,{f,FuncLbl},0,0,Dst,{list,Args}}],
     Is1 = case Anno of
-             #{ result_type := Type } ->
-                 Info = {var_info, Dst, [{fun_type, Type}]},
-                 Is0 ++ [{'%', Info}];
-             #{} ->
-                 Is0
+              #{result_type := Type} ->
+                  Info = {var_info, Dst, [{fun_type, Type}]},
+                  Is0 ++ [{'%', Info}];
+              #{} ->
+                  Is0
           end,
-
     {Is2,St} = cg_block(T, Context, St1),
     {Is1++Is2,St};
 cg_block([#cg_set{op=copy}|_]=T0, Context, St0) ->
@@ -1614,8 +1601,6 @@ alloc(#need{h=Words,l=Lambdas,f=Floats}) ->
 is_call([#cg_set{op=call,args=[#b_var{}|Args]}|_]) ->
     {yes,1+length(Args)};
 is_call([#cg_set{op=call,args=[_|Args]}|_]) ->
-    {yes,length(Args)};
-is_call([#cg_set{op=old_make_fun,args=[_|Args]}|_]) ->
     {yes,length(Args)};
 is_call(_) ->
     no.

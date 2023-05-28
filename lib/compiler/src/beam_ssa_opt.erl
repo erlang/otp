@@ -375,10 +375,8 @@ fdb_is([#b_set{op=call,
                args=[#b_local{}=Callee | _]} | Is],
        Caller, FuncDb) ->
     fdb_is(Is, Caller, fdb_update(Caller, Callee, FuncDb));
-fdb_is([#b_set{op=MakeFun,
-               args=[#b_local{}=Callee | _]} | Is],
-       Caller, FuncDb) when MakeFun =:= make_fun;
-                            MakeFun =:= old_make_fun ->
+fdb_is([#b_set{op=make_fun,args=[#b_local{}=Callee | _]} | Is],
+       Caller, FuncDb) ->
     %% The make_fun instruction's type depends on the return type of the
     %% function in question, so we treat this as a function call.
     fdb_is(Is, Caller, fdb_update(Caller, Callee, FuncDb));
@@ -472,7 +470,6 @@ ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
            (#b_set{op=call}) -> true;
            (#b_set{op=bs_init_writable}) -> true;
            (#b_set{op=make_fun}) -> true;
-           (#b_set{op=old_make_fun}) -> true;
            (_) -> false
         end,
     RPO = beam_ssa:rpo(Blocks0),
@@ -3058,11 +3055,10 @@ unfold_lit_is([#b_set{op=match_fail,
     {reverse(Acc, [I | Is]), false};
 unfold_lit_is([#b_set{op=Op,args=Args0}=I0|Is], LitMap, Acc) ->
     %% Using a register instead of a literal is a clear win only for
-    %% `call` and `old_make_fun` instructions. Substituting into other
-    %% instructions is unlikely to be an improvement.
+    %% `call` instructions. Substituting into other instructions is
+    %% unlikely to be an improvement.
     Unfold = case Op of
                  call -> true;
-                 old_make_fun -> true;
                  _ -> false
              end,
     I = case Unfold of
