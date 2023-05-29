@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -210,7 +210,19 @@ parse_options([{current_location, CL} |Options], State) ->
 parse_options([{entity, Entity} |Options], State) ->
     parse_options(Options, State#xmerl_sax_parser_state{entity = Entity});
 parse_options([skip_external_dtd |Options], State) ->
-    parse_options(Options, State#xmerl_sax_parser_state{skip_external_dtd = true});
+    %% Skip external DTD also sets fail_undeclared_ref to false to be compatible
+    parse_options(Options, State#xmerl_sax_parser_state{skip_external_dtd = true,
+                                                        fail_undeclared_ref = false});
+parse_options([disallow_entities |Options], State) ->
+    parse_options(Options, State#xmerl_sax_parser_state{allow_entities = false});
+parse_options([{entity_recurse_limit, N} |Options], State) when is_integer(N) ->
+    parse_options(Options, State#xmerl_sax_parser_state{entity_recurse_limit = N});
+parse_options([{external_entities, Type} |Options], State) when Type =:= all;
+                                                                Type =:= file;
+                                                                Type =:= none ->
+    parse_options(Options, State#xmerl_sax_parser_state{external_entities = Type});
+parse_options([{fail_undeclared_ref, Bool} |Options], State) when is_boolean(Bool) ->
+    parse_options(Options, State#xmerl_sax_parser_state{fail_undeclared_ref = Bool});
 parse_options([O |_], _State) ->
      {error, lists:flatten(io_lib:format("Option: ~p not supported", [O]))}.
 
