@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,6 +110,9 @@
 %%  <dt><code>{default_attrs, Flag}</code></dt>
 %%    <dd>Set to 'true' if xmerl should add to elements missing attributes
 %%    with a defined default value (default 'false').</dd>
+%%  <dt><code>{allow_entities, Flag}</code></dt>
+%%    <dd>Set to 'false' if xmerl_scan should fail when there is an ENTITY declaration
+%%        in the XML document (default 'true').</dd>
 %% </dl>
 %% @type xmlElement() = #xmlElement{}.
 %% The record definition is found in xmerl.hrl.
@@ -417,6 +420,8 @@ initial_state([{xmlbase, D}|T], S) ->
     initial_state(T, S#xmerl_scanner{xmlbase = D});
 initial_state([{encoding, Enc}|T], S) ->
     initial_state(T, S#xmerl_scanner{encoding = Enc});
+initial_state([{allow_entities, F} |T], S) when F==true; F==false ->
+    initial_state(T, S#xmerl_scanner{allow_entities = F});
 initial_state([], S=#xmerl_scanner{rules = undefined}) ->
     Tab = ets:new(rules, [set, public]),
     S#xmerl_scanner{rules = Tab};
@@ -1688,10 +1693,15 @@ scan_markup_decl("<!ENTITY" ++ T, S0) ->
     %% <!ENTITY [%] entity.name "replacement text">
     %% <!ENTITY [%] entity.name SYSTEM "system.identifier">
     %% <!ENTITY [%] entity.name PUBLIC public.identifier "system.identifier">
-    ?bump_col(8),
-    {_,T1,S1} = mandatory_strip(T,S),
-    {T2, S2} = scan_entity(T1, S1),
-    strip(T2,S2);
+    case S0#xmerl_scanner.allow_entities of
+        false ->
+            ?fatal( {error, entities_not_allowed}, S0);
+        true ->
+            ?bump_col(8),
+            {_,T1,S1} = mandatory_strip(T,S),
+            {T2, S2} = scan_entity(T1, S1),
+            strip(T2,S2)
+    end;
 scan_markup_decl("<!NOTATION" ++ T, S0) ->
     %% <!NOTATION notation.name "public.identifier" "helper.application">
     ?bump_col(10),
