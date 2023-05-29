@@ -54,7 +54,7 @@ struct erl_bits_state {
      * Used for building binaries.
      */
     byte *byte_buf_;
-    int byte_buf_len_;
+    Uint byte_buf_len_;
     /*
      * Used for building binaries using the new instruction set.
      */
