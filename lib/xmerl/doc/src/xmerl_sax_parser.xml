@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2021</year>
+      <year>2023</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -89,12 +89,38 @@
          <tag><c>skip_external_dtd</c></tag>
          <item>
            Skips the external DTD during parsing.
+           This option is the same as {external_entities, none} and
+           {fail_undeclared_ref, false} but just for the DTD.
          </item>
+         <tag><c>disallow_entities</c></tag>
+         <item>
+           Implies that parsing fails if an ENTITY declaration is found.
+         </item>
+         <tag><c>{entity_recurse_limit, N}</c></tag>
+         <item>
+           Sets how many levels of recursion that is allowed for entities.
+           Default is 3 levels.
+         </item>
+         <tag><c>{external_entities, AllowedType}</c></tag>
+         <item>
+           Sets which types of external entities that should be allowed,
+           if not allowed it's just skipped.
+           <list>
+             <item><c>AllowedType = all | file | none</c></item>
+           </list>
+         </item>
+         <tag><c>{fail_undeclared_ref, Boolean}</c></tag>
+         <item>
+           Decides how the parser should behave when an undeclared reference
+           is found. Can be useful if one has turned of external entities
+           so that an external DTD is not parsed.
+           Default is true.
+         </item>         
        </taglist>
        </item>
-      <tag></tag>
- <item>
-<p></p>
+       <tag></tag>
+       <item>
+         <p></p>
        </item>
       <tag><c>event()</c></tag>
        <item>
