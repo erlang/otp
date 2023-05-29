@@ -3882,20 +3882,20 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                     WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
                                 (UWord) ep); /* Position for patching in size */
                     ep += 4;
-                    *ep = funp->arity;
+                    *ep = fun_arity(funp);
                     ep += 1;
                     sys_memcpy(ep, fe->uniq, 16);
                     ep += 16;
                     put_int32(fe->index, ep);
                     ep += 4;
-                    put_int32((Uint32)funp->num_free, ep);
+                    put_int32((Uint32)fun_num_free(funp), ep);
                     ep += 4;
                     ep = enc_atom(acmp, fe->module, ep, dflags);
                     ep = enc_term(acmp, make_small(fe->old_index), ep, dflags, off_heap);
                     ep = enc_term(acmp, make_small(fe->old_uniq), ep, dflags, off_heap);
                     ep = enc_pid(acmp, erts_init_process_id, ep, dflags);
 
-                    for (ei = funp->num_free-1; ei >= 0; ei--) {
+                    for (ei = fun_num_free(funp)-1; ei >= 0; ei--) {
                         WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
                     }
                 } else {
@@ -4979,9 +4979,7 @@ dec_term_atom_common:
 		ep += 4;
 		hp += ERL_FUN_SIZE;
 		hp += num_free;
-		funp->thing_word = HEADER_FUN;
-		funp->num_free = num_free;
-		funp->external = 0;
+		funp->thing_word = MAKE_FUN_HEADER(arity, num_free, 0);
 		*objp = make_fun(funp);
 
 		/* Module */
@@ -5026,7 +5024,6 @@ dec_term_atom_common:
                 funp->entry.fun = erts_put_fun_entry2(module, old_uniq,
                                                       old_index, uniq,
                                                       index, arity);
-		funp->arity = arity;
 		hp = factory->hp;
 
 		/* Environment */
@@ -5596,11 +5593,11 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                     result += encode_pid_size(acmp, erts_init_process_id, dflags);
                     result += encode_atom_size(acmp, funp->entry.fun->module, dflags);
                     result += 2 * (1+4);	/* Index, Uniq */
-                    if (funp->num_free > 1) {
+                    if (fun_num_free(funp) > 1) {
                         WSTACK_PUSH2(s, (UWord) (funp->env + 1),
-                                    (UWord) TERM_ARRAY_OP(funp->num_free-1));
+                                    (UWord) TERM_ARRAY_OP(fun_num_free(funp)-1));
                     }
-                    if (funp->num_free != 0) {
+                    if (fun_num_free(funp) != 0) {
                         obj = funp->env[0];
                         continue; /* big loop */
                     }

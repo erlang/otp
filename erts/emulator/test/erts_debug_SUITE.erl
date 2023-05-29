@@ -82,7 +82,7 @@ test_size(Config) when is_list(Config) ->
 
     %% Fun environment size = 0 (the smallest fun possible)
     SimplestFun = fun() -> ok end,
-    FunSz0 = 4,
+    FunSz0 = 3,
     FunSz0 = do_test_size(SimplestFun),
 
     %% Fun environment size = 1

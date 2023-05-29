@@ -1091,8 +1091,7 @@ protected:
     arm::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
 
     arm::Gp emit_call_fun(bool skip_box_test = false,
-                          bool skip_fun_test = false,
-                          bool skip_arity_test = false);
+                          bool skip_header_test = false);
 
     void emit_is_boxed(Label Fail, arm::Gp Src) {
         BeamAssembler::emit_is_boxed(Fail, Src);

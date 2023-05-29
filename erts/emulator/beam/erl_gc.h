@@ -82,7 +82,7 @@ ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **h
         if (is_flatmap_header(hdr)) nelts+=flatmap_get_size(ptr) + 1;
         else nelts += hashmap_bitcount(MAP_HEADER_VAL(hdr));
     break;
-    case FUN_SUBTAG: nelts+=((ErlFunThing*)(ptr))->num_free; break;
+    case FUN_SUBTAG: nelts+=fun_num_free((ErlFunThing*)(ptr)); break;
     }
     gval    = make_boxed(htop);
     *orig   = gval;

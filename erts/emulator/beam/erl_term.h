@@ -299,8 +299,10 @@ _ET_DECLARE_CHECKED(Uint,atom_val,Eterm)
 /* header (arityval or thing) access methods */
 #define _make_header(sz,tag) ((Uint)(((Uint)(sz) << _HEADER_ARITY_OFFS) + (tag)))
 #define is_header(x)	(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_HEADER)
-#define _unchecked_header_arity(x) \
-    (is_map_header(x) ? MAP_HEADER_ARITY(x) : ((x) >> _HEADER_ARITY_OFFS))
+#define _unchecked_header_arity(x)                                            \
+    (is_map_header(x) ? MAP_HEADER_ARITY(x) :                                 \
+     (is_fun_header(x) ? (ERL_FUN_SIZE - 1) :                                 \
+      ((x) >> _HEADER_ARITY_OFFS)))
 _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define header_arity(x)	_ET_APPLY(header_arity,(x))
 
@@ -386,9 +388,35 @@ _ET_DECLARE_CHECKED(Eterm*,binary_val,Wterm)
 /* process binaries stuff (special case of binaries) */
 #define HEADER_PROC_BIN	_make_header(PROC_BIN_SIZE-1,_TAG_HEADER_REFC_BIN)
 
-/* fun objects */
-#define HEADER_FUN              _make_header(ERL_FUN_SIZE-1,_TAG_HEADER_FUN)
-#define is_fun_header(x)        ((x) == HEADER_FUN)
+/* Fun objects.
+ *
+ * These have a special tag scheme to make the representation as compact as
+ * possible. For normal headers, we have:
+ *
+ *     aaaaaaaaaaaaaaaa aaaaaaaaaatttt00       arity:26, tag:4
+ *
+ * Since the arity and number of free variables are both limited to 255, and we
+ * only need one bit to signify whether the fun is local or external, we can
+ * fit all of that information in the header word.
+ *
+ *     0000000effffffff aaaaaaaa00010100       external:1, free:8, arity:8
+ *
+ * Note that the lowest byte contains only the function subtag, and the next
+ * byte after that contains only the arity. This lets us combine the type
+ * and/or arity check into a single comparison without masking, by using 8- or
+ * 16-bit operations on the header word. */
+
+#define FUN_HEADER_ARITY_OFFS (_HEADER_ARITY_OFFS + 2)
+#define FUN_HEADER_NUM_FREE_OFFS (FUN_HEADER_ARITY_OFFS + 8)
+#define FUN_HEADER_EXTERNAL_OFFS (FUN_HEADER_NUM_FREE_OFFS + 8)
+
+#define MAKE_FUN_HEADER(Arity, NumFree, External)                             \
+    (_TAG_HEADER_FUN |                                                        \
+     (((Arity)) << FUN_HEADER_ARITY_OFFS) |                                   \
+     (((NumFree)) << FUN_HEADER_NUM_FREE_OFFS) |                              \
+     ((!!(External)) << FUN_HEADER_EXTERNAL_OFFS))
+
+#define is_fun_header(x)        (((x) & _HEADER_SUBTAG_MASK) == FUN_SUBTAG)
 #define make_fun(x)             make_boxed((Eterm*)(x))
 #define is_any_fun(x)           (is_boxed((x)) && is_fun_header(*boxed_val((x))))
 #define is_not_any_fun(x)       (!is_any_fun((x)))
@@ -1168,7 +1196,7 @@ _ET_DECLARE_CHECKED(Eterm*,external_val,Wterm)
 
 #define _unchecked_external_thing_data_words(thing) \
     (_unchecked_thing_arityval((thing)->header) + (1 - EXTERNAL_THING_HEAD_SIZE))
-_ET_DECLARE_CHECKED(Uint,external_thing_data_words,ExternalThing*)
+_ET_DECLARE_CHECKED(Uint,external_thing_data_words,const ExternalThing*)
 #define external_thing_data_words(thing) _ET_APPLY(external_thing_data_words,(thing))
 
 #define _unchecked_external_data_words(x) \

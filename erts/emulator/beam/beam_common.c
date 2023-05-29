@@ -1725,8 +1725,9 @@ call_fun(Process* p,    /* Current process. */
     code_ix = erts_active_code_ix();
     code_ptr = (funp->entry.disp)->addresses[code_ix];
 
-    if (ERTS_LIKELY(code_ptr != beam_unloaded_fun && funp->arity == arity)) {
-        for (int i = 0, num_free = funp->num_free; i < num_free; i++) {
+    if (ERTS_LIKELY(code_ptr != beam_unloaded_fun &&
+                    fun_arity(funp) == arity)) {
+        for (int i = 0, num_free = fun_num_free(funp); i < num_free; i++) {
             reg[i + arity] = funp->env[i];
         }
 
@@ -1765,7 +1766,7 @@ call_fun(Process* p,    /* Current process. */
             }
         }
 
-        if (funp->arity != arity) {
+        if (fun_arity(funp) != arity) {
             /* There is a fun defined, but the call has the wrong arity. */
             Eterm *hp = HAlloc(p, 3);
             p->freason = EXC_BADARITY;
@@ -1865,7 +1866,7 @@ is_function2(Eterm Term, Uint arity)
 {
     if (is_any_fun(Term)) {
         ErlFunThing *funp = (ErlFunThing*)fun_val(Term);
-        return funp->arity == arity;
+        return fun_arity(funp) == arity;
     }
 
     return 0;

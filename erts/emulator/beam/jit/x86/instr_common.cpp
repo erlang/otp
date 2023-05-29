@@ -1009,8 +1009,7 @@ void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
         comment("skipped header test since we know it's a fun when boxed");
     } else {
         x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-        a.cmp(RET, imm(HEADER_FUN));
+        a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(byte)), imm(FUN_SUBTAG));
         a.jne(resolve_beam_label(Fail));
     }
 }
@@ -1048,16 +1047,10 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
 
-    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Fun) {
-        comment("skipped header test since we know it's a fun when boxed");
-    } else {
-        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-        a.cmp(RETd, imm(HEADER_FUN));
-        a.jne(resolve_beam_label(Fail));
-    }
-
-    a.cmp(emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity), sizeof(byte)),
-          imm(arity));
+    /* Combined header word and arity check: both the tag and arity live in the
+     * lowest 16 bits. */
+    a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint16)),
+          imm(MAKE_FUN_HEADER(arity, 0, 0) & 0xFFFF));
     a.jne(resolve_beam_label(Fail));
 }
 

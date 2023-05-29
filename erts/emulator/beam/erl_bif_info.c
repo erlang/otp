@@ -3702,7 +3702,7 @@ fun_info_2(BIF_ALIST_2)
         break;
     case am_env:
         {
-            Uint num_free = funp->num_free;
+            Uint num_free = fun_num_free(funp);
             int i;
 
             hp = HAlloc(p, 3 + 2 * num_free);
@@ -3724,7 +3724,7 @@ fun_info_2(BIF_ALIST_2)
         hp = HAlloc(p, 3);
         break;
     case am_arity:
-        val = make_small(funp->arity);
+        val = make_small(fun_arity(funp));
         hp = HAlloc(p, 3);
         break;
     case am_name:
@@ -3763,7 +3763,7 @@ fun_info_mfa_1(BIF_ALIST_1)
                 BIF_RET(TUPLE3(hp,
                                funp->entry.fun->module,
                                NIL,
-                               make_small(funp->arity)));
+                               make_small(fun_arity(funp))));
             }
         } else {
             ASSERT(is_external_fun(funp) && funp->next == NULL);
@@ -3773,7 +3773,7 @@ fun_info_mfa_1(BIF_ALIST_1)
         BIF_RET(TUPLE3(hp,
                        mfa->module,
                        mfa->function,
-                       make_small(funp->arity)));
+                       make_small(fun_arity(funp))));
     }
 
     BIF_ERROR(p, BADARG);

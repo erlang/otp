@@ -1220,6 +1220,10 @@ tailrecur_ne:
                     f1 = (ErlFunThing *) fun_val(a);
                     f2 = (ErlFunThing *) fun_val(b);
 
+                    if (f1->thing_word != f2->thing_word) {
+                        goto not_equal;
+                    }
+
                     if (is_local_fun(f1) && is_local_fun(f2)) {
                         ErlFunEntry *fe1, *fe2;
 
@@ -1228,12 +1232,11 @@ tailrecur_ne:
 
                         if (fe1->module != fe2->module ||
                             fe1->index != fe2->index ||
-                            fe1->old_uniq != fe2->old_uniq ||
-                            f1->num_free != f2->num_free) {
+                            fe1->old_uniq != fe2->old_uniq) {
                             goto not_equal;
                         }
 
-                        if ((sz = f1->num_free) == 0) {
+                        if ((sz = fun_num_free(f1)) == 0) {
                             goto pop_next;
                         }
 
@@ -2057,13 +2060,14 @@ tailrecur_ne:
                             RETURN_NEQ(diff);
                         }
 
-                        diff = f1->num_free - f2->num_free;
+                        diff = fun_num_free(f1) - fun_num_free(f2);
                         if (diff != 0) {
                             RETURN_NEQ(diff);
                         }
 
-                        i = f1->num_free;
+                        i = fun_num_free(f1);
                         if (i == 0) goto pop_next;
+
                         aa = f1->env;
                         bb = f2->env;
                         goto term_array;

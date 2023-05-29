@@ -1015,8 +1015,8 @@ void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
         comment("skipped header test since we know it's a fun when boxed");
     } else {
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-        a.cmp(TMP1, imm(HEADER_FUN));
+        a.ldurb(TMP1.w(), emit_boxed_val(boxed_ptr));
+        a.cmp(TMP1, imm(FUN_SUBTAG));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 }
@@ -1058,16 +1058,9 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
 
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
 
-    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Fun) {
-        comment("skipped header test since we know it's a fun when boxed");
-    } else {
-        a.ldur(TMP2, emit_boxed_val(boxed_ptr));
-        a.cmp(TMP2, imm(HEADER_FUN));
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
-    }
-
-    a.ldurb(TMP2.w(), emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity)));
-    emit_branch_if_ne(TMP2, arity, resolve_beam_label(Fail, dispUnknown));
+    a.ldurh(TMP2.w(), emit_boxed_val(boxed_ptr));
+    a.cmp(TMP2, imm(MAKE_FUN_HEADER(arity, 0, 0) & 0xFFFF));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,

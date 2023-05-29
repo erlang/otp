@@ -729,7 +729,7 @@ dump_externally(fmtfn_t to, void *to_arg, Eterm term)
 	 * The crashdump_viewer does not allow inspection of them anyway.
 	 */
 	ErlFunThing* funp = (ErlFunThing *) fun_val(term);
-	Uint num_free = funp->num_free;
+	Uint num_free = fun_num_free(funp);
 	Uint i;
 
 	for (i = 0; i < num_free; i++) {
@@ -1035,7 +1035,7 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
             size = 1 + header_arity(w);
             switch (w & _HEADER_SUBTAG_MASK) {
             case FUN_SUBTAG:
-                ASSERT(((ErlFunThing*)(htop))->num_free == 0);
+                ASSERT(fun_num_free((ErlFunThing*)(htop)) == 0);
                 break;
             case MAP_SUBTAG:
                 if (is_flatmap_header(w)) {
