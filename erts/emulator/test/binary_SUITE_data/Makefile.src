@@ -26,7 +26,7 @@ CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
 CROSSLDFLAGS = @CROSSLDFLAGS@
 
 SHLIB_EXTRA_CFLAGS = @EI_CFLAGS@ -I@erl_interface_include@ 
-SHLIB_EXTRA_LDLIBS = @erl_interface_eilib@
+SHLIB_EXTRA_LDLIBS = @erl_interface_eilib@ @erl_interface_sock_libs@
 
 all: send_term_local_drv@dll@ call_local_drv@dll@
 
