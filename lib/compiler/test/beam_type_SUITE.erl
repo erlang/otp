@@ -27,7 +27,7 @@
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
-         switch_fail_inference/1,failures/1]).
+         switch_fail_inference/1,failures/1,will_succeed/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -63,7 +63,8 @@ groups() ->
        is_list_opt,
        connected_tuple_elements,
        switch_fail_inference,
-       failures
+       failures,
+       will_succeed
       ]}].
 
 init_per_suite(Config) ->
@@ -932,6 +933,19 @@ failures_1([] = V1, V2, V3)  ->
     %% generation of incorrect BEAM code that would ultimately cause
     %% beam_clean to crash.
     {V1 - V3, (V1 = V2) - V3}.
+
+will_succeed(_Config) ->
+    b = will_succeed_1(id(ok), id(#{})),
+    ok.
+
+%% OTP-18576: the beam_call_types:will_succeed/3 check was incorrect for 'bsl',
+%% erroneously stating that it would never fail in some instances.
+will_succeed_1(_V0, _V1)
+  when (1 bsl ((map_size(_V1) bxor 288230376151711743)
+               band 288230376151711743)) =:= _V0 ->
+    a;
+will_succeed_1(_, _) ->
+    b.
 
 id(I) ->
     I.
