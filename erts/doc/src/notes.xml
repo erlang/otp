@@ -31,6 +31,67 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.3.2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstances, bit syntax matching of an
+	    invalid code point for a <c>utf32</c> would crash the
+	    runtime system.</p>
+          <p>
+	    Own Id: OTP-18560</p>
+        </item>
+        <item>
+          <p>
+	    If a runtime system which was starting the distribution
+	    already had existing pids, ports, or references referring
+	    to a node with the same nodename/creation pair that the
+	    runtime system was about to use, these already existing
+	    pids, ports, or references would not work as expected in
+	    various situations after the node had gone alive. This
+	    could only occur if the runtime system was communicated
+	    such pids, ports, or references prior to the distribution
+	    was started. That is, it was extremely unlikely to happen
+	    unless the distribution was started dynamically and was
+	    even then very unlikely to happen. The runtime system now
+	    checks for already existing pids, ports, and references
+	    with the same nodename/creation pair that it is about to
+	    use. If such are found another creation will be chosen in
+	    order to avoid these issues.</p>
+          <p>
+	    Own Id: OTP-18570 Aux Id: PR-7190 </p>
+        </item>
+        <item>
+	    <p>Constructing a binary segment not aligned with a byte
+	    boundary, with a size not fitting in 31 bits, and with a
+	    value not fitting in a 64-bit word could crash the
+	    runtime system.</p>
+          <p>
+	    Own Id: OTP-18597</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Further robustify implementation of large maps (> 32
+	    keys). Keys that happen to have same internal 32-bit hash
+	    values are now put in collision nodes which are traversed
+	    with linear search. This removes the demand for the
+	    internal hash function when salted to eventually produce
+	    different hashes for all possible pairs of unequal terms.</p>
+          <p>
+	    Own Id: OTP-18569</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3.2.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
