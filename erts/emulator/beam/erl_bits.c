@@ -786,7 +786,7 @@ fmt_int(byte *buf, Uint sz, Eterm val, Uint size, Uint flags)
 }
 
 static void
-ERTS_INLINE need_byte_buf(ERL_BITS_PROTO_1(int need))
+ERTS_INLINE need_byte_buf(ERL_BITS_PROTO_1(Uint need))
 {
     if (byte_buf_len < need) {
 	erts_atomic_add_nob(&bits_bufs_size, need - byte_buf_len);
