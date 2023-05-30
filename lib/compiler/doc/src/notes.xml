@@ -149,6 +149,30 @@
 
 </section>
 
+<section><title>Compiler 8.2.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug where a failing <c>bsl</c> expression in a
+	    guard threw an exception instead of causing the guard to
+	    fail.</p>
+          <p>
+	    Own Id: OTP-18576</p>
+        </item>
+        <item>
+	    <p>Complex guard expression using the <c>or</c> operator
+	    and guard BIFs that can fail could sometimes be
+	    miscompiled so that the guard would succeed even if a
+	    call to a guard BIF failed.</p>
+          <p>
+	    Own Id: OTP-18593 Aux Id: GH-7252 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
