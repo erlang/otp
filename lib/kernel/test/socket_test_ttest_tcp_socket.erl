@@ -213,8 +213,8 @@ do_connect(LocalSA, ServerSA, Cleanup, #{domain := Domain,
     end.
 
 mk_unique_path() ->
-    [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
-    ?LIB:f("/tmp/esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]).
+    ?LIB:mk_unique_path().
+
 
 maybe_start_stats_timer(#{stats_to       := Pid,
                           stats_interval := T},

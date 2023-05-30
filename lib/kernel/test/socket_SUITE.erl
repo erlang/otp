@@ -82,6 +82,9 @@
 %% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
+%%
+%% Some official info about AF_UNIX
+%% https://devblogs.microsoft.com/commandline/windowswsl-interop-with-af_unix/
 
 
 
@@ -2901,7 +2904,10 @@ api_b_open_and_close_tcp6(_Config) when is_list(_Config) ->
 api_b_open_and_close_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_open_and_close_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    InitState = #{domain   => local,
                                  type     => dgram,
@@ -2933,7 +2939,10 @@ api_b_open_and_close_tcpL(_Config) when is_list(_Config) ->
 api_b_open_and_close_seqpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(?FUNCTION_NAME,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+                   is_not_windows()
+	   end,
            fun() ->
                    InitState = #{domain   => local,
                                  type     => seqpacket,
@@ -3187,6 +3196,7 @@ api_b_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
     tc_try(api_b_sendto_and_recvfrom_udpL,
            fun() ->
                    has_support_unix_domain_socket(),
+		   is_not_windows(),
                    unix_domain_socket_host_cond()
            end,
            fun() ->
@@ -3254,6 +3264,7 @@ api_b_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) ->
     tc_try(api_b_sendmsg_and_recvmsg_udpL,
            fun() ->
                    has_support_unix_domain_socket(),
+		   is_not_windows(),
                    unix_domain_socket_host_cond()
            end,
            fun() ->
@@ -3484,7 +3495,10 @@ api_b_send_and_recv_tcpL(_Config) when is_list(_Config) ->
 api_b_send_and_recv_seqpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(?FUNCTION_NAME,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+                   is_not_windows()
+	   end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   socket:send(Sock, Data)
@@ -3545,7 +3559,10 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
 api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_b_sendmsg_and_recvmsg_tcpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   Msg = #{iov => [Data]},
@@ -3594,7 +3611,10 @@ api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
 api_b_sendmsg_and_recvmsg_seqpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(?FUNCTION_NAME,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+                   is_not_windows()
+	   end,
            fun() ->
                    Send =
                        fun(Sock, Data) ->
@@ -3641,6 +3661,7 @@ api_b_sendmsg_and_recvmsg_seqpL(_Config) when is_list(_Config) ->
 
 api_b_send_and_recv_conn(InitState) ->
     process_flag(trap_exit, true),
+
     ServerSeq = 
         [
          %% *** Wait for start order ***
@@ -3659,6 +3680,7 @@ api_b_send_and_recv_conn(InitState) ->
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            LSA = which_local_socket_addr(Domain),
+			   ?SEV_IPRINT("LSA: ~p", [LSA]),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -3678,11 +3700,18 @@ api_b_send_and_recv_conn(InitState) ->
            cmd  => fun(#{domain := local,
                          lsock  := LSock,
                          lsa    := LSA} = _State) ->
+			   ?SEV_IPRINT("try bind to: "
+				       "~n   ~p", [LSA]),
+			   %% _ = socket:setopt(LSock, otp, debug, true),
                            case socket:bind(LSock, LSA) of
                                ok ->
                                    %% We do not care about the port for local
+				   %% _ = socket:setopt(LSock, otp, debug, false),
                                    ok;
-                               {error, _} = ERROR ->
+                               {error, Reason} = ERROR ->
+				   %% _ = socket:setopt(LSock, otp, debug, false),
+				   ?SEV_EPRINT("failed binding: "
+					       "~n   ~p", [Reason]),
                                    ERROR
                            end;
                       (#{lsock := LSock, lsa := LSA} = State) ->
@@ -3717,11 +3746,17 @@ api_b_send_and_recv_conn(InitState) ->
                    end},
          #{desc => "await connection",
            cmd  => fun(#{lsock := LSock} = State) ->
+			   %% _ = socket:setopt(LSock, otp, debug, true),
+			   ?SEV_IPRINT("try accept"),
                            case socket:accept(LSock) of
                                {ok, Sock} ->
+				   %% _ = socket:setopt(LSock, otp, debug, false),
                                    ?SEV_IPRINT("accepted: ~n   ~p", [Sock]),
                                    {ok, State#{csock => Sock}};
-                               {error, _} = ERROR ->
+                               {error, Reason} = ERROR ->
+				   %% _ = socket:setopt(LSock, otp, debug, false),
+                                   ?SEV_EPRINT("accept failed: "
+					       "~n   ~p", [Reason]),
                                    ERROR
                            end
                    end},
@@ -4601,6 +4636,7 @@ api_b_sendmsg_iov_dgram_inet6(Config) when is_list(Config) ->
     api_b_sendmsg_iov_dgram(inet6).
 %%
 api_b_sendmsg_iov_dgram_local(Config) when is_list(Config) ->
+    is_not_windows(),
     has_support_unix_domain_socket(),
     api_b_sendmsg_iov_dgram(local).
 
@@ -26301,6 +26337,8 @@ reg_s_single_open_and_close_and_count(_Config) when is_list(_Config) ->
 reg_s_single_open_and_close_and_count() ->
     socket:use_registry(true),
 
+    {OS, _} = os:type(),
+
     %% We may have some sockets already existing.
     %% Make sure we dont count them when we test.
     Existing = socket:which_sockets(),
@@ -26341,10 +26379,14 @@ reg_s_single_open_and_close_and_count() ->
                 []
         end ++
         case SupportsLOCAL of
-            true ->
+            true when (OS =/= win32) ->
                 [
                  {local, stream, default},
                  {local, dgram,  default}
+                ];
+            true ->
+                [
+                 {local, stream, default}
                 ];
             false ->
                 []
@@ -26555,8 +26597,8 @@ reg_s_single_open_and_close_and_count() ->
     OwnSockets = lists:sort(
                    [fun({D, T})->
                             i("create ~w:~w socket", [D, T]),
-                            {ok, OS} = socket:open(D, T, default),
-                            OS
+                            {ok, OSocks} = socket:open(D, T, default),
+                            OSocks
                     end(SockInfo) || SockInfo <-
                                          [{inet, dgram},
                                           {inet, dgram},
@@ -31779,7 +31821,10 @@ sc_cpe_socket_cleanup_udp6(_Config) when is_list(_Config) ->
 sc_cpe_socket_cleanup_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
     tc_try(sc_cpe_socket_cleanup_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    InitState = #{domain   => local,
                                  type     => dgram,
@@ -31973,7 +32018,9 @@ sc_lc_recv_response_tcp6(_Config) when is_list(_Config) ->
 sc_lc_recv_response_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(sc_lc_recv_response_tcpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket()
+	   end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => local,
@@ -32653,7 +32700,10 @@ sc_lc_recvfrom_response_udp6(_Config) when is_list(_Config) ->
 sc_lc_recvfrom_response_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    Recv      = fun(Sock, To) ->
                                        socket:recvfrom(Sock, [], To)
@@ -33178,7 +33228,10 @@ sc_lc_recvmsg_response_udp6(_Config) when is_list(_Config) ->
 sc_lc_recvmsg_response_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(sc_recvmsg_response_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    Recv      = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain   => local,
@@ -37782,7 +37835,10 @@ traffic_sendto_and_recvfrom_counters_udp6(_Config) when is_list(_Config) ->
 traffic_sendto_and_recvfrom_counters_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_sendto_and_recvfrom_counters_udp4,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
@@ -37867,7 +37923,10 @@ traffic_sendmsg_and_recvmsg_counters_udp6(_Config) when is_list(_Config) ->
 traffic_sendmsg_and_recvmsg_counters_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_sendmsg_and_recvmsg_counters_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
@@ -40123,7 +40182,10 @@ traffic_ping_pong_small_sendto_and_recvfrom_udpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => local,
@@ -40197,7 +40259,10 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udpL(Config) when is_list(Config) -
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => local,
@@ -40276,7 +40341,10 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   is_not_windows(),
+		   has_support_unix_domain_socket()
+	   end,
            fun() ->
                    ?TT(?SECS(20)),
                    InitState = #{domain => local,
@@ -40354,7 +40422,10 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(Config) when is_list(Config) -
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   is_not_windows(),
+		   has_support_unix_domain_socket()
+	   end,
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => local,
@@ -40445,7 +40516,10 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   is_not_windows(),
+		   has_support_unix_domain_socket()
+	   end,
            fun() ->
                    ?TT(?SECS(60)),
                    InitState = #{domain => local,
@@ -40518,7 +40592,10 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    ?TT(?SECS(60)),
                    InitState = #{domain => local,
@@ -40591,7 +40668,10 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(Config) when is_list(Config) -
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+		   has_support_unix_domain_socket(),
+		   is_not_windows()
+	   end,
            fun() ->
                    ?TT(?SECS(60)),
                    InitState = #{domain => local,
@@ -49230,37 +49310,11 @@ local_host() ->
 
 %% The point of this is to "ensure" that paths from different test runs
 %% don't clash.
+
 mk_unique_path() ->
-    [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
-    Path = ?LIB:f("/tmp/esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]),
-    ensure_unique_path(Path).
+    ?LIB:mk_unique_path().
 
-ensure_unique_path(Path) ->
-    case file:read_file_info(Path) of
-        {ok, _} -> % Ouch, append a unique ID and try again
-            ensure_unique_path(Path, 1);
-        {error, _} ->
-            %% We assume this means it does not exist yet...
-            %% If we have several process in parallel trying to create
-            %% (unique) path's, then we are in trouble. To *really* be
-            %% on the safe side we should have a (central) path registry...
-            encode_path(Path)
-    end.
 
-ensure_unique_path(Path, ID) when (ID < 100) -> % If this is not enough...
-    NewPath = ?LIB:f("~s_~w", [Path, ID]),
-    case file:read_file_info(NewPath) of
-        {ok, _} -> % Ouch, this also existed, increment and try again
-            ensure_unique_path(Path, ID + 1);
-        {error, _} -> % We assume this means it does not exist yet...
-            encode_path(NewPath)
-    end;
-ensure_unique_path(_, _) -> 
-    skip("Could not create unique path").
-
-encode_path(Path) ->
-    unicode:characters_to_binary(Path, file:native_name_encoding()).
-            
 which_local_socket_addr(local = Domain) ->
     #{family => Domain,
       path   => mk_unique_path()};
@@ -49619,16 +49673,11 @@ unix_domain_socket_host_cond(_, _) ->
     ok.
 
 has_support_unix_domain_socket() ->
-    case os:type() of
-        {win32, _} ->
-            skip("Not supported");
-        _ ->
-            case socket:is_supported(local) of
-                true ->
-                    ok;
-                false ->
-                    skip("Not supported")
-            end
+    case socket:is_supported(local) of
+	true ->
+	    ok;
+	false ->
+	    skip("Not supported")
     end.
 
 has_support_sctp() ->
