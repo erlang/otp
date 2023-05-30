@@ -791,8 +791,8 @@
               no automatic repair is attempted. Instead, the
               tuple <c>{error, {need_repair, <anno>Log</anno>}}</c> is returned if an
               attempt is made to open a corrupt log file. 
-              If <c>truncate</c> is specified, the log file becomes
-              truncated, creating an empty log. Defaults to
+              If <c>truncate</c> is specified, the log file becomes truncated,
+	      creating an empty log, regardless of previous content. Defaults to
               <c>true</c>, which has no effect on logs opened in 
               read-only mode.
               </p>
