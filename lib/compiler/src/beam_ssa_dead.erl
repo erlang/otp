@@ -1176,9 +1176,19 @@ opt_redundant_tests_is([#b_set{op=Op,args=Args,dst=Bool}=I0], Tests, Acc) ->
         {Test,MustInvert} ->
             case old_result(Test, Tests) of
                 Result0 when is_boolean(Result0) ->
-                    Result = #b_literal{val=Result0 xor MustInvert},
-                    I = I0#b_set{op={bif,'=:='},args=[Result,#b_literal{val=true}]},
-                    {old_test,reverse(Acc, [I]),Bool,Result};
+                    case gains_type_information(I0) of
+                        false ->
+                            Result = #b_literal{val=Result0 xor MustInvert},
+                            I = I0#b_set{op={bif,'=:='},args=[Result,#b_literal{val=true}]},
+                            {old_test,reverse(Acc, [I]),Bool,Result};
+                        true ->
+                            %% At least one variable will gain type
+                            %% information from this `=:=`
+                            %% operation. Removing it could make it
+                            %% impossible for beam_validator to
+                            %% realize that the code is type-safe.
+                            none
+                    end;
                 none ->
                     {new_test,Bool,Test,MustInvert}
             end
@@ -1186,6 +1196,33 @@ opt_redundant_tests_is([#b_set{op=Op,args=Args,dst=Bool}=I0], Tests, Acc) ->
 opt_redundant_tests_is([I|Is], Tests, Acc) ->
     opt_redundant_tests_is(Is, Tests, [I|Acc]);
 opt_redundant_tests_is([], _Tests, _Acc) -> none.
+
+%% Will any of the variables gain type information from this
+%% operation?
+gains_type_information(#b_set{anno=Anno,op={bif,'=:='},args=Args}) ->
+    Types0 = maps:get(arg_types, Anno, #{}),
+    Types = complete_type_information(Args, 0, Types0),
+    case map_size(Types) of
+        0 ->
+            false;
+        1 ->
+            true;
+        2 ->
+            case Types of
+                #{0 := Same,1 := Same} ->
+                    false;
+                #{} ->
+                    true
+            end
+    end;
+gains_type_information(#b_set{}) -> false.
+
+complete_type_information([#b_literal{val=Value}|As], N, Types) ->
+    Type = beam_types:make_type_from_value(Value),
+    complete_type_information(As, N+1, Types#{N => Type});
+complete_type_information([#b_var{}|As], N, Types) ->
+    complete_type_information(As, N+1, Types);
+complete_type_information([], _, Types) -> Types.
 
 old_result(Test, Tests) ->
     case Tests of
