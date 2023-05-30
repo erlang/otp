@@ -815,9 +815,8 @@ do_sanitize_is(#b_set{op=Op,dst=Dst,args=Args0}=I0,
                Is, Last, InBlocks, Blocks, Count, Values, Changed0, Acc) ->
     Args = sanitize_args(Args0, Values),
     case sanitize_instr(Op, Args, I0, Blocks) of
-        {value,Value0} ->
-            Value = #b_literal{val=Value0},
-            sanitize_is(Is, Last, InBlocks, Blocks, Count, Values#{Dst=>Value},
+        {subst,Subst} ->
+            sanitize_is(Is, Last, InBlocks, Blocks, Count, Values#{Dst => Subst},
                         true, Acc);
         {ok,I} ->
             sanitize_is(Is, Last, InBlocks, Blocks, Count, Values, true, [I|Acc]);
@@ -865,20 +864,43 @@ sanitize_arg(Arg, _Values) ->
 sanitize_instr(phi, PhiArgs0, I, Blocks) ->
     PhiArgs = [{V,L} || {V,L} <- PhiArgs0,
                         is_map_key(L, Blocks)],
-    case phi_all_same_literal(PhiArgs) of
+    case phi_all_same(PhiArgs) of
         true ->
             %% (Can only happen when some optimizations have been
             %% turned off.)
             %%
-            %% This phi node always produces the same literal value.
-            %% We must do constant propagation of the value to ensure
-            %% that we can sanitize any instructions that don't accept
-            %% literals (such as `get_hd`). This is necessary for
-            %% correctness, because beam_ssa_codegen:prefer_xregs/2
-            %% does constant propagation and could propagate a literal
-            %% into an instruction that don't accept literals.
-            [{#b_literal{val=Val},_}|_] = PhiArgs,
-            {value,Val};
+            %% This phi node always produces the same literal value or
+            %% variable.
+            %%
+            %% We must do constant propagation of literal values to
+            %% ensure that we can sanitize any instructions that don't
+            %% accept literals (such as `get_hd`). This is necessary
+            %% for correctness, because
+            %% beam_ssa_codegen:prefer_xregs/2 does constant
+            %% propagation and could propagate a literal into an
+            %% instruction that don't accept literals.
+            %%
+            %% The singleton phi nodes generated for the try/catch
+            %% construct are problematic. For example:
+            %%
+            %%   try B = (A = bit_size(iolist_to_binary("a"))) rem 1 of
+            %%      _ -> A;
+            %%      _ -> B
+            %%   after
+            %%      ok
+            %%   end.
+            %%
+            %% The try expression exports three values, resulting in three
+            %% singleton phi nodes (with optimizations disabled):
+            %%
+            %%   _4 = phi { B, ^15 }
+            %%    A = phi { _2, ^15 }
+            %%   _14 = phi { B, ^15 }
+            %%
+            %% All three variable will be assigned to the same register,
+            %% causing the correct variable (`A`) to be overwritten by `_14`.
+            [{Subst,_}|_] = PhiArgs,
+            {subst,Subst};
         false ->
             {ok,I#b_set{args=PhiArgs}}
     end;
@@ -891,7 +913,7 @@ sanitize_instr({bif,Bif}, [#b_literal{val=Lit}], _I) ->
             ok;
         true ->
             try
-                {value,erlang:Bif(Lit)}
+                {subst,#b_literal{val=erlang:Bif(Lit)}}
             catch
                 error:_ ->
                     ok
@@ -900,7 +922,7 @@ sanitize_instr({bif,Bif}, [#b_literal{val=Lit}], _I) ->
 sanitize_instr({bif,Bif}, [#b_literal{val=Lit1},#b_literal{val=Lit2}], _I) ->
     true = erl_bifs:is_pure(erlang, Bif, 2),    %Assertion.
     try
-        {value,erlang:Bif(Lit1, Lit2)}
+        {subst,#b_literal{val=erlang:Bif(Lit1, Lit2)}}
     catch
         error:_ ->
             ok
@@ -913,43 +935,42 @@ sanitize_instr(bs_match, Args, I) ->
     %% other data types as well.
     {ok,I#b_set{op=bs_get,args=Args}};
 sanitize_instr(get_hd, [#b_literal{val=[Hd|_]}], _I) ->
-    {value,Hd};
+    {subst,#b_literal{val=Hd}};
 sanitize_instr(get_tl, [#b_literal{val=[_|Tl]}], _I) ->
-    {value,Tl};
+    {subst,#b_literal{val=Tl}};
 sanitize_instr(get_tuple_element, [#b_literal{val=T},
                                    #b_literal{val=I}], _I)
   when I < tuple_size(T) ->
-    {value,element(I+1, T)};
-sanitize_instr(is_nonempty_list, [#b_literal{val=Lit}], _I) ->
-    {value,case Lit of
-               [_|_] -> true;
-               _ -> false
-           end};
+    {subst,#b_literal{val=element(I+1, T)}};
+sanitize_instr(is_nonempty_list, [#b_literal{val=Term}], _I) ->
+    Lit = case Term of
+              [_|_] -> true;
+              _ -> false
+          end,
+    {subst,#b_literal{val=Lit}};
 sanitize_instr(is_tagged_tuple, [#b_literal{val=Tuple},
                                  #b_literal{val=Arity},
                                  #b_literal{val=Tag}], _I)
   when is_integer(Arity), is_atom(Tag) ->
     if
         tuple_size(Tuple) =:= Arity, element(1, Tuple) =:= Tag ->
-            {value,true};
+            {subst,#b_literal{val=true}};
         true ->
-            {value,false}
+            {subst,#b_literal{val=false}}
     end;
 sanitize_instr(succeeded, [#b_literal{}], _I) ->
-    {value,true};
+    {subst,#b_literal{val=true}};
 sanitize_instr(_, _, _) ->
     ok.
 
-phi_all_same_literal([{#b_literal{}=Arg, _From} | Phis]) ->
-    phi_all_same_literal_1(Phis, Arg);
-phi_all_same_literal([_|_]) ->
-    false.
+phi_all_same([{Arg,_From}|Phis]) ->
+    phi_all_same_1(Phis, Arg).
 
-phi_all_same_literal_1([{Arg, _From} | Phis], Arg) ->
-    phi_all_same_literal_1(Phis, Arg);
-phi_all_same_literal_1([], _Arg) ->
+phi_all_same_1([{Arg,_From}|Phis], Arg) ->
+    phi_all_same_1(Phis, Arg);
+phi_all_same_1([], _Arg) ->
     true;
-phi_all_same_literal_1(_Phis, _Arg) ->
+phi_all_same_1(_Phis, _Arg) ->
     false.
 
 %%% Rewrite certain calls to erlang:error/{1,2} to specialized

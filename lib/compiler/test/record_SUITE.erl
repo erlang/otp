@@ -52,6 +52,7 @@ groups() ->
 
 
 init_per_suite(Config) ->
+    _ = id(Config),                  %Make return value unpredicatble.
     test_lib:recompile(?MODULE),
     Config.
 
@@ -399,6 +400,28 @@ record_test_3(Config) when is_list(Config) ->
 
     true = is_record(Rec, Good, Size) orelse error,
     error = is_record(Rec, Bad, Size) orelse error,
+
+    %% GH-7298: Zero size.
+    TupleA = id({a}),
+
+    false = is_record(TupleA, a, 0),
+    false = is_record(Bad, a, 0),
+
+    ZeroF = fun(A) when is_record(A, a, 0) -> ok;
+               (_) -> error
+            end,
+    error = ZeroF(TupleA),
+    error = ZeroF(Bad),
+
+    %% GH-7317: Huge tuple size used to take forever to compile.
+    false = is_record(TupleA, a, 10_000_000),
+    false = is_record(Bad, a, 10_000_000),
+
+    HugeF = fun(A) when is_record(A, a, 10_000_000) -> ok;
+               (_) -> error
+            end,
+    error = HugeF(TupleA),
+    error = HugeF(Bad),
 
     ok.
 
