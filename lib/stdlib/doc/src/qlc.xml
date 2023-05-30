@@ -1247,6 +1247,11 @@ ets:match_spec_run(
           <anno>Options</anno>, erl_eval:new_bindings())</c>.</p>
         <p>This function is probably mainly useful when called from
           outside of Erlang, for example from a driver written in C.</p>
+        <note>
+          <p>Query handles created this way may have worse
+            performance than when created directly via
+            <seemfa marker="#q/1"><c>q/1,2</c></seemfa>.</p>
+        </note>
       </desc>
     </func>
 
