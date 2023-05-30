@@ -416,8 +416,10 @@
     <item>Each <c>Instructions</c> is a list of release handling
     instructions.</item>
   </list>
-    <p>For information about the syntax and contents of the <c>.appup</c>
-      file, see the <c>appup(4)</c> manual page in SASL.</p>
+    <p><c>UpFromVsn</c> and <c>DownToVsn</c> can also be specified as regular
+      expressions. For more information about the syntax and contents of the
+      <c>.appup</c> file, see the <seefile marker="sasl:appup"><c>appup(4)</c>
+      manual page in SASL</seefile>.</p>
     <p><seeguide marker="appup_cookbook">Appup Cookbook</seeguide>
       includes examples of <c>.appup</c> files for typical upgrade/downgrade
       cases.</p>
