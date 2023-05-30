@@ -2071,7 +2071,7 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
     opP->caller               = caller;
 
     /* Create the accepting socket
-     * domain   - should be AF_INET | AF_INET6 (sould we make sure?)
+     * domain   - should be AF_INET | AF_INET6 | AF_LOCAL (sould we make sure?)
      * type     - should be SOCK_STREAM | SOCK_SEQPACKET (should we make sure?)
      * protocol - should be IPPROTO_TCP | IPPROTO_SCTP (should we make sure?)
      * See check above!
@@ -2117,6 +2117,9 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
         break;
     case AF_INET6:
         addrSz = sizeof(struct sockaddr_in6) + 16;
+        break;
+    case AF_LOCAL:
+        addrSz = sizeof(struct sockaddr_un) + 16;
         break;
     default:
         return esock_make_error_invalid(env, esock_atom_domain);
