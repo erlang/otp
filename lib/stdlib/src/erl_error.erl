@@ -216,6 +216,8 @@ explain_reason({case_clause,V}, error=Cl, [], PF, S, _Enc, CL) ->
     %% "there is no case clause with a true guard sequence and a
     %% pattern matching..."
     format_value(V, <<"no case clause matching ">>, Cl, PF, S, CL);
+explain_reason({else_clause,V}, error=Cl, [], PF, S, _Enc, CL) ->
+    format_value(V, <<"no else clause matching ">>, Cl, PF, S, CL);
 explain_reason(function_clause, error, [{F,A}], _PF, _S, _Enc, _CL) ->
     %% Shell commands
     FAs = io_lib:fwrite(<<"~w/~w">>, [F, A]),
