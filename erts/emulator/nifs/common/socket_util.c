@@ -1040,10 +1040,11 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
     size_t       n, m;
 
     UDBG( ("SUTIL", "esock_encode_sockaddr_un -> entry with"
-           "\r\n.  addrLen: %d"
+           "\r\n   addrLen: %d"
            "\r\n", addrLen) );
 
     n = sockAddrP->sun_path - (char *)sockAddrP; // offsetof
+
     if (addrLen >= n) {
         n = addrLen - n; // sun_path length
         if (255 < n) {
@@ -1055,6 +1056,7 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
             unsigned char *path;
 
             m = esock_strnlen(sockAddrP->sun_path, n);
+
 #ifdef __linux__
             /* Assume that the address is a zero terminated string,
              * except when the first byte is \0 i.e the string length is 0,
@@ -1066,6 +1068,8 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
                 m = n;
             }
 #endif
+
+            UDBG( ("SUTIL", "esock_encode_sockaddr_un -> m: %d\r\n", m) );
 
             /* And finally build the 'path' attribute */
             path = enif_make_new_binary(env, m, &ePath);
