@@ -67,7 +67,7 @@
 
 -define(STOP_NODE(__N__),        ?LIB:stop_node(__N__)).
                          
--define(F(FORMAT, ARGS),         ?LIB:f(FORMAT, ARGS)).
+-define(F(FORMAT, ARGS),         ?LIB:f((FORMAT), (ARGS))).
 -define(P(F),                    ?LIB:print(F)).
 -define(P(F,A),                  ?LIB:print(F, A)).
 -define(FTS(),                   ?LIB:formated_timestamp()).

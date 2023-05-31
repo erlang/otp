@@ -47,6 +47,7 @@
          %% Generic 'has support' test function(s)
          has_support_ipv4/0,
          has_support_ipv6/0,
+	 has_support_unix_domain_socket/0,
 
          which_local_host_info/1, which_local_host_info/2,
          which_local_addr/1, which_link_local_addr/1,
@@ -2684,7 +2685,8 @@ has_support_ipv6() ->
             skip("IPv6 Not Supported")
     end.
 
-
+has_support_unix_domain_socket() ->
+    socket:is_supported(local).
 
 %% This gets the local "proper" address
 %% (not {127, ...} or {169,254, ...} or {0, ...} or {16#fe80, ...})
