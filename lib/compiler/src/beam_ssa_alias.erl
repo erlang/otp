@@ -80,9 +80,8 @@
 
 opt(StMap0, FuncDb0) ->
     %% Ignore functions which are not in the function db (never
-    %% called) or are stubs for nifs.
-    Funs = [ F || F <- maps:keys(StMap0),
-                  is_map_key(F, FuncDb0), not is_nif(F, StMap0)],
+    %% called).
+    Funs = [ F || F <- maps:keys(StMap0), is_map_key(F, FuncDb0)],
     Liveness = liveness(Funs, StMap0),
     KillsMap = killsets(Liveness, StMap0),
 
@@ -175,19 +174,6 @@ liveness_make_cache([{Lbl,Blk}|Blocks], Cache0) ->
     liveness_make_cache(Blocks, Cache);
 liveness_make_cache([], Cache) ->
     Cache.
-
-%%%
-%%% Predicate to check if a function is the stub for a nif.
-%%%
--spec is_nif(func_id(), st_map()) -> boolean().
-
-is_nif(F, StMap) ->
-    #opt_st{ssa=[{0,#b_blk{is=Is}}|_]} = map_get(F, StMap),
-    case Is of
-        [#b_set{op=nif_start}|_] ->
-            true;
-        _ -> false
-    end.
 
 %%%
 %%% Calculate the killset for all functions in the liveness
@@ -768,9 +754,8 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
         #aas{alias_map=AliasMap,st_map=StMap}) ->
     #b_local{name=#b_literal{val=_N},arity=_A} = Callee,
     ?DP("A Call~n  callee: ~p/~p~n  args: ~p~n", [_N, _A, Args]),
-    IsNif = is_nif(Callee, StMap),
     case AliasMap of
-        #{ Callee := CalleeSS } when not IsNif ->
+        #{ Callee := CalleeSS } ->
             ?DP("  The callee is known~n"),
             #opt_st{args=CalleeArgs} = map_get(Callee, StMap),
             ?DP("  args in caller: ~p~n",
@@ -797,10 +782,6 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
                                                  ReturnStatusByType),
             ?DP("  result status: ~p~n", [ResultStatus]),
             aa_set_status(Dst, ResultStatus, SS);
-        _ when IsNif ->
-            %% This is a nif, assume that all arguments will be
-            %% aliased and that the result is aliased.
-            aa_set_aliased([Dst|Args], SS0);
         #{} ->
             %% We don't know anything about the function, don't change
             %% the status of any variables

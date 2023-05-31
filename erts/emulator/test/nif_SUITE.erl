@@ -75,6 +75,7 @@
          nif_whereis/1, nif_whereis_parallel/1,
          nif_whereis_threaded/1, nif_whereis_proxy/1,
          nif_ioq/1,
+         non_exported_nif/1,
          match_state_arg/1,
          pid/1,
          id/1,
@@ -210,7 +211,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [basic]
+    [basic,
+     non_exported_nif]
         ++
     [{group, G} || G <- api_groups()]
         ++
@@ -328,6 +330,13 @@ basic(Config) when is_list(Config) ->
     [{load,1,1,101},{lib_version,1,2,102}] = call_history(),
     [] = call_history(),
     true = lists:member(?MODULE, erlang:system_info(taints)),
+    ok.
+
+%% Check that non-exported NIFs aren't exported by the compiler's
+%% beam_ssa_opt-pass.
+non_exported_nif(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+    false = lists:member({lib_version,0}, ?MODULE:module_info(exports)),
     ok.
 
 %% Test old reload feature now always fails
