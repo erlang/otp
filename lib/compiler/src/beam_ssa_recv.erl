@@ -740,7 +740,7 @@ plan_clears(UsageMap, Graph) ->
                           [] ->
                               Acc
                       end
-              end, #{}, UsageMap).
+              end, #{}, maps:iterator(UsageMap, ordered)).
 
 plan_clears_1([{From, To, branch} | Edges], ActiveRefs, UsageMap) ->
     %% Clear all references that are no longer active on the `To` block.
