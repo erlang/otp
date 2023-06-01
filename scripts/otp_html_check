@@ -60,9 +60,9 @@ my %anchor_defs;		# <a name="..."> in the form "$page#$anchor"
 
 @ARGV or usage("No base directory given");
 my $base = shift @ARGV;
-my @print_external_links = 0;
+my $print_external_links = 0;
 if ($base eq "--print-external-links") {
-    @print_external_links = 1;
+    $print_external_links = 1;
     $base = shift @ARGV;
 }
 -d $base or usage("Not a directory: $base");
@@ -284,7 +284,10 @@ sub normalize_link {
 
     # mailto: http: .....
     if ($link =~ /^\w{3,10}:/i) {
-        if ((@print_external_links)
+        # Exclude "Edit on GitHub" links. These would make up
+        # the majority of the output and there's likely little
+        # value in checking them.
+        if (($print_external_links)
             && ($link !~ /github\.com\/erlang\/otp/) 
             && ($link =~ /^http/)) {
                 push(@external_links, [$page, $link]);
@@ -421,16 +424,13 @@ if (keys %anchor_refs) {
     }
 }
 
-if (@print_external_links) {
+if ($print_external_links) {
   print "\n**** External links (excluding github.com/erlang/otp)\n\n";
 
   while (@external_links) {
     my $page_and_link = shift @external_links;
     my ($page, $link) = @$page_and_link;
     if ($link =~ /^\w{3,10}:/i) {
-      # Exclude "Edit on GitHub" links. These would make up
-      # the majority of the output and there's likely little
-      # value in checking them.
       print "$page -> $link\n";
     }
   }
