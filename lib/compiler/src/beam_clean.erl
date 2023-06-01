@@ -35,7 +35,8 @@ module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     {Fs2,Lc} = clean_labels(Fs1),
     Fs3 = fix_swap(Fs2, Opts),
     Fs4 = fix_bs_create_bin(Fs3, Opts),
-    Fs = maybe_remove_lines(Fs4, Opts),
+    Fs5 = fix_badrecord(Fs4, Opts),
+    Fs = maybe_remove_lines(Fs5, Opts),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% Determine the rootset, i.e. exported functions and
@@ -313,6 +314,28 @@ bs_puts([{atom,Type},_Seg,Unit,Flags0,Src,Size|Is], Fail) ->
         end,
     [I|bs_puts(Is, Fail)];
 bs_puts([], _Fail) -> [].
+
+%%%
+%%% If compatibility with a previous release (OTP 24 or earlier) has
+%%% been requested, eliminate badrecord instructions by translating
+%%% them to calls to error({badrecord,Value}).
+%%%
+
+fix_badrecord(Fs, Opts) ->
+    case proplists:get_bool(no_badrecord, Opts) of
+        false -> Fs;
+        true -> fold_functions(fun fix_badrecord/1, Fs)
+    end.
+
+fix_badrecord([{badrecord,Value}|Is]) ->
+    [{move,Value,{x,0}},
+     {test_heap,3,1},
+     {put_tuple2,{x,0},{list,[{atom,badrecord},{x,0}]}},
+     {call_ext_only,1,{extfunc,erlang,error,1}}|fix_badrecord(Is)];
+fix_badrecord([I|Is]) ->
+    [I|fix_badrecord(Is)];
+fix_badrecord([]) -> [].
+
 
 %%%
 %%% Helpers.

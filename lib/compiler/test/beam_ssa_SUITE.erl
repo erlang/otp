@@ -28,7 +28,7 @@
          mapfoldl/0,mapfoldl/1,
          grab_bag/1,redundant_br/1,
          coverage/1,normalize/1,
-         trycatch/1]).
+         trycatch/1,gh_6599/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -51,7 +51,8 @@ groups() ->
        redundant_br,
        coverage,
        normalize,
-       trycatch
+       trycatch,
+       gh_6599
       ]}].
 
 init_per_suite(Config) ->
@@ -1410,6 +1411,88 @@ trycatch_3(A) ->
     after
         ok
     end.
+
+%% GH-6599. beam_validator would not realize that the code was safe.
+gh_6599(_Config) ->
+    ok = gh_6599_1(id(42), id(42)),
+    #{ok := ok} = gh_6599_1(id(#{ok => 0}), id(#{ok => 0})),
+
+    {'EXIT',{{try_clause,#{ok:=ok}},_}} =
+        catch gh_6599_2(id(whatever), id(#{0 => whatever})),
+
+    ok = gh_6599_3(id(true), id(true)),
+    {'EXIT',{function_clause,_}} = catch gh_6599_3(id(false), id(false)),
+    0.0 = gh_6599_3(id(0.0), id(0.0)),
+
+    {'EXIT',{{badmatch,true},_}} = catch gh_6599_4(id(false)),
+
+    {'EXIT',{{badmatch,ok},_}} = catch gh_6599_5(id([a]), id(#{0 => [a]}), id([a])),
+
+    #{ok := ok} = gh_6599_6(id(#{}), id(#{})),
+    {'EXIT',{{badmap,a},_}} = catch gh_6599_6(id(a), id(a)),
+
+    {'EXIT',{{badarg,ok},_}} = catch gh_6599_7(id([a]), id([a])),
+
+    ok.
+
+gh_6599_1(X, X) when is_integer(X) ->
+    ok;
+gh_6599_1(Y, Y = #{}) ->
+    Y#{ok := ok}.
+
+gh_6599_2(X, #{0 := X, 0 := Y}) ->
+    try #{ok => ok} of
+        Y ->
+            bnot (Y = X)
+    after
+        ok
+    end.
+
+gh_6599_3(X, X) when X ->
+    ok;
+gh_6599_3(X, X = 0.0) ->
+    X + X.
+
+gh_6599_4(X) ->
+    Y =
+        try
+            false = X
+        catch
+            _ ->
+                ok
+        end /= ok,
+    X = Y,
+    false = Y,
+    0 = ok.
+
+%% Crashes in beam_ssa_type because a type assertion fails.
+gh_6599_5(X, #{0 := X, 0 := Y}, Y=[_ | _]) ->
+    try
+        Y = ok
+    catch
+        _ ->
+            [_ | []] = Y = X
+    end.
+
+gh_6599_6(A, B = A) ->
+    A#{},
+    case A of B -> B end#{ok => ok}.
+
+gh_6599_7(X, Y) ->
+    try Y of
+        X ->
+            (id(
+                try ([_ | _] = Y) of
+                    X ->
+                        ok
+                after
+                    ok
+                end
+            ) orelse X) bsl 0
+    after
+        ok
+    end.
+
 
 %% The identity function.
 id(I) -> I.
