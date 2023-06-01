@@ -3,7 +3,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@ usage() ->
               "~n                                  Defaults to: false"
               "~n     --transport <transport>      Which transport to use: gen|sock[:plain|msg]"
               "~n                                     gen:  gen_tcp"
+              "~n                                     gs:   gen_tcp with socket backend"
               "~n                                     sock: socket"
               "~n                                          plain: recv/send (default)"
               "~n                                          msg:   recvmsg/sendmsg"
@@ -137,6 +138,8 @@ process_server_args(["--active", Active|Args], State)
         (Active =:= "true")) ->
     process_server_args(Args, State#{active => list_to_atom(Active)});
 
+process_server_args(["--transport", "gs" | Args], State) ->
+    process_server_args(Args, State#{transport => gs});
 process_server_args(["--transport", "gen" | Args], State) ->
     process_server_args(Args, State#{transport => gen});
 process_server_args(["--transport", "sock" | Args], State) ->
@@ -178,6 +181,8 @@ process_client_args(["--active", Active|Args], State)
 
 process_client_args(["--transport", "gen" | Args], State) ->
     process_client_args(Args, State#{transport => gen});
+process_client_args(["--transport", "gs" | Args], State) ->
+    process_client_args(Args, State#{transport => gs});
 process_client_args(["--transport", "sock" | Args], State) ->
     process_client_args(Args, State#{transport => {sock, plain}});
 process_client_args(["--transport", "sock:plain" | Args], State) ->
@@ -291,6 +296,23 @@ exec(#{role      := server,
     end;
 exec(#{role      := server,
        domain    := Domain,
+       active    := Active,
+       transport := gs})
+  when (Domain =:= inet) orelse (Domain =:= inet6) ->
+    case socket_test_ttest_tcp_server_gs:start(Domain, Active) of
+        {ok, {Pid, _}} ->
+            MRef = erlang:monitor(process, Pid),
+            receive
+                {'DOWN', MRef, process, Pid, Info} ->
+                    Info
+            end;
+        {error, Reason} ->
+            eprint(f("Failed starting server: "
+                     "~n   ~p", [Reason])),
+            error
+    end;
+exec(#{role      := server,
+       domain    := Domain,
        async     := Async,
        active    := Active,
        transport := {sock, Method}}) ->
@@ -322,6 +344,29 @@ exec(#{role            := client,
                                                 Active,
                                                 MsgID, MaxOutstanding,
                                                 RunTime) of
+        {ok, Pid} ->
+            MRef = erlang:monitor(process, Pid),
+            receive
+                {'DOWN', MRef, process, Pid, Info} ->
+                    Info
+            end;
+        {error, Reason} ->
+            eprint(f("Failed starting server: "
+                     "~n   ~p", [Reason])),
+            error
+    end;
+exec(#{role            := client,
+       server          := {_Addr, _Port} = ServerInfo,
+       active          := Active,
+       transport       := gs,
+       msg_id          := MsgID,
+       max_outstanding := MaxOutstanding,
+       runtime         := RunTime}) ->
+    case socket_test_ttest_tcp_client_gs:start(true,
+                                               ServerInfo,
+                                               Active,
+                                               MsgID, MaxOutstanding,
+                                               RunTime) of
         {ok, Pid} ->
             MRef = erlang:monitor(process, Pid),
             receive
