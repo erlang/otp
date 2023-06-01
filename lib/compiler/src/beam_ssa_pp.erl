@@ -427,5 +427,5 @@ format_tuple_set(RecordSet) ->
                 " | ").
 
 format_tuple_set_1({{Arity,Key},#t_tuple{size=Arity,elements=Elems}=Tuple}) ->
-    Key = map_get(1, Elems), % Assertion
+    false = none =:= beam_types:meet(Key, map_get(1, Elems)), % Assertion
     format_type(Tuple).
