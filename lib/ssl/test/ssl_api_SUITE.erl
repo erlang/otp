@@ -182,6 +182,8 @@
          server_options_negative_stateless_tickets_seed/1,
          invalid_options_tls13/0,
          invalid_options_tls13/1,
+         ssl_not_started/0,
+         ssl_not_started/1,
          cookie/0,
          cookie/1,
          check_random_nonce/0,
@@ -319,6 +321,7 @@ gen_api_tests() ->
      der_input,
      max_handshake_size,
      cb_info,
+     ssl_not_started,
      log_alert,
      getstat,
      check_random_nonce,
@@ -3498,6 +3501,23 @@ invalid_options_tls13(Config) when is_list(Config) ->
                   end
           end,
     [Fun(Option, ErrorMsg, Type) || {Option, ErrorMsg, Type} <- TestOpts].
+
+
+ssl_not_started() ->
+    [{doc, "Test that an error is returned if ssl is not started"}].
+ssl_not_started(Config) when is_list(Config) ->
+    application:stop(ssl),
+    Protocol = proplists:get_value(protocol, Config, tls),
+    Version = proplists:get_value(version, Config),
+    Opts = [{verify, verify_none},
+            {versions, [Version]},
+            {protocol, Protocol}],
+    try
+        {error, ssl_not_started} = ssl:connect("localhost", 22, Opts)
+    after
+        ssl:start()
+    end,
+    ok.
 
 cookie() ->
     [{doc, "Test cookie extension in TLS 1.3"}].
