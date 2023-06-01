@@ -2618,6 +2618,7 @@ beam_bool_SUITE(_Config) ->
     bad_map_in_guard(),
     gh_6164(),
     gh_6184(),
+    gh_7339(),
     ok.
 
 before_and_inside_if() ->
@@ -3164,6 +3165,17 @@ bad_map_in_guard_1() when (a#{key => value})#bad_map_in_guard.name ->
     ok;
 bad_map_in_guard_1() ->
     error.
+
+gh_7339() ->
+    b = do_gh_7339(id(42)),
+    b = do_gh_7339(id(42.0)),
+    b = do_gh_7339(id(#{})),
+    ok.
+
+do_gh_7339(M) when is_number(M) or (not is_map(M#{a => b})) ->
+  a;
+do_gh_7339(_) ->
+  b.
 
 %%%
 %%% End of beam_bool_SUITE tests.
