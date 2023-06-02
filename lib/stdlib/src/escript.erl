@@ -431,7 +431,7 @@ do_parse_file(Type, File, Fd, StartLine, HeaderSz, CheckOnly) ->
 initial_state(File) ->
     #state{file = File,
 	   n_errors = 0,
-	   mode = interpret,
+	   mode = compile,
 	   exports_main = false,
 	   has_records = false}.
 

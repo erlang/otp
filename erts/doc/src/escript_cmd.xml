@@ -185,15 +185,16 @@ halt(1).</pre>
           <c>127</c>.</p>
         <p>Both the module declaration and the export declaration of
           the <c>main/1</c> function are optional.</p>
-        <p>By default, the script will be interpreted. You can force
-          it to be compiled by including the following line somewhere
-          in the script file:</p>
+        <p>By default, the script will be compiled by the Erlang compiler.</p>
+        <p>It is possible to force it to be interpreted by including
+        the following line somewhere in the script file:</p>
         <pre>
--mode(compile).</pre>
-        <p>Execution of interpreted code is slower than compiled code.
-          If much of the execution takes place in interpreted code, it
-          can be worthwhile to compile it, although the compilation
-          itself takes a little while.</p>
+-mode(interpret).</pre>
+        <p>Execution of interpreted code is slower than compiled code,
+        and some language constructs will not work, but there is no
+        requirement for the Erlang compiler application to be available.</p>
+        <change><p>Before the Erlang/OTP 27 the script would be
+        interpreted by default.</p></change>
         <p>As mentioned earlier, a script can
           contains precompiled <c>beam</c> code. In a precompiled
           script, the interpretation of the script header is
