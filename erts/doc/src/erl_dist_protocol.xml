@@ -585,8 +585,8 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
         <c>gen_challenge()</c> returns a random 32-bit integer used as a
         challenge.</p>
 
-      <p>A digest is a (16 bytes) MD5 hash of the challenge (as text)
-        concatenated with the cookie (as text). Below, the function
+      <p>A digest is a (16 bytes) MD5 hash of the cookie (as text)
+        concatenated with the challenge (as text). Below, the function
         <c>gen_digest(Challenge, Cookie)</c> generates a digest as described
         above.</p>
 
