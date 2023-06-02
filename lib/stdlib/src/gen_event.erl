@@ -63,7 +63,7 @@
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
               del_handler_ret/0, request_id/0, request_id_collection/0,
-              format_status/0]).
+              response_timeout/0, format_status/0, sup_ref/0, sup_name/0]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
@@ -142,16 +142,9 @@
 -type add_handler_ret()  :: ok | term() | {'EXIT',term()}.
 -type del_handler_ret()  :: ok | term() | {'EXIT',term()}.
 
--type emgr_name() :: {'local', atom()} | {'global', term()}
-                   | {'via', atom(), term()}.
--type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
-                    | {'logfile', string()}.
--type option() :: {'timeout', timeout()}
-                | {'debug', [debug_flag()]}
-                | {'spawn_opt', [proc_lib:start_spawn_option()]}
-                | {'hibernate_after', timeout()}.
--type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', term()}
-                   | {'via', atom(), term()} | pid().
+-type sup_name() :: proc_lib:sup_name().
+-type option() :: proc_lib:option().
+-type sup_ref()  :: proc_lib:sup_ref().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 -type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
 
@@ -187,13 +180,13 @@
 start() ->
     gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
 
--spec start(emgr_name() | [option()]) -> start_ret().
+-spec start(sup_name() | [option()]) -> start_ret().
 start(Name) when is_tuple(Name) ->
     gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []);
 start(Options) when is_list(Options) ->
     gen:start(?MODULE, nolink, ?NO_CALLBACK, [], Options).
 
--spec start(emgr_name(), [option()]) -> start_ret().
+-spec start(sup_name(), [option()]) -> start_ret().
 start(Name, Options) ->
     gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], Options).
 
@@ -201,13 +194,13 @@ start(Name, Options) ->
 start_link() ->
     gen:start(?MODULE, link, ?NO_CALLBACK, [], []).
 
--spec start_link(emgr_name() | [option()]) -> start_ret().
+-spec start_link(sup_name() | [option()]) -> start_ret().
 start_link(Name) when is_tuple(Name) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []);
 start_link(Options) when is_list(Options) ->
     gen:start(?MODULE, link, ?NO_CALLBACK, [], Options).
 
--spec start_link(emgr_name(), [option()]) -> start_ret().
+-spec start_link(sup_name(), [option()]) -> start_ret().
 start_link(Name, Options) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options).
 
@@ -215,17 +208,17 @@ start_link(Name, Options) ->
 start_monitor() ->
     gen:start(?MODULE, monitor, ?NO_CALLBACK, [], []).
 
--spec start_monitor(emgr_name() | [option()]) -> start_mon_ret().
+-spec start_monitor(sup_name() | [option()]) -> start_mon_ret().
 start_monitor(Name) when is_tuple(Name) ->
     gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
 start_monitor(Options) when is_list(Options) ->
     gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options).
 
--spec start_monitor(emgr_name(), [option()]) -> start_mon_ret().
+-spec start_monitor(sup_name(), [option()]) -> start_mon_ret().
 start_monitor(Name, Options) ->
     gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options).
 
-%% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) -> 
+%% -spec init_it(pid(), 'self' | pid(), sup_name(), module(), [term()], [_]) ->
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, _, _, Options) ->
@@ -236,26 +229,26 @@ init_it(Starter, Parent, Name0, _, _, Options) ->
     proc_lib:init_ack(Starter, {ok, self()}),
     loop(Parent, Name, [], HibernateAfterTimeout, Debug, false).
 
--spec add_handler(emgr_ref(), handler(), term()) -> term().
+-spec add_handler(sup_ref(), handler(), term()) -> term().
 add_handler(M, Handler, Args) -> rpc(M, {add_handler, Handler, Args}).
 
--spec add_sup_handler(emgr_ref(), handler(), term()) -> term().
+-spec add_sup_handler(sup_ref(), handler(), term()) -> term().
 add_sup_handler(M, Handler, Args)  ->
     rpc(M, {add_sup_handler, Handler, Args, self()}).
 
--spec notify(emgr_ref(), term()) -> 'ok'.
+-spec notify(sup_ref(), term()) -> 'ok'.
 notify(M, Event) -> send(M, {notify, Event}).
 
--spec sync_notify(emgr_ref(), term()) -> 'ok'.
+-spec sync_notify(sup_ref(), term()) -> 'ok'.
 sync_notify(M, Event) -> rpc(M, {sync_notify, Event}).
 
--spec call(emgr_ref(), handler(), term()) -> term().
+-spec call(sup_ref(), handler(), term()) -> term().
 call(M, Handler, Query) -> call1(M, Handler, Query).
 
--spec call(emgr_ref(), handler(), term(), timeout()) -> term().
+-spec call(sup_ref(), handler(), term(), timeout()) -> term().
 call(M, Handler, Query, Timeout) -> call1(M, Handler, Query, Timeout).
 
--spec send_request(EventMgrRef::emgr_ref(), Handler::handler(), Request::term()) ->
+-spec send_request(EventMgrRef::sup_ref(), Handler::handler(), Request::term()) ->
           ReqId::request_id().
 send_request(M, Handler, Request) ->
     try
@@ -265,7 +258,7 @@ send_request(M, Handler, Request) ->
             error(badarg, [M, Handler, Request])
     end.
 
--spec send_request(EventMgrRef::emgr_ref(),
+-spec send_request(EventMgrRef::sup_ref(),
                    Handler::handler(),
                    Request::term(),
                    Label::term(),
@@ -283,7 +276,7 @@ send_request(M, Handler, Request, Label, ReqIdCol) ->
       ReqId :: request_id(),
       WaitTime :: response_timeout(),
       Response :: {reply, Reply::term()}
-                | {error, {Reason::term(), emgr_ref()}},
+                | {error, {Reason::term(), sup_ref()}},
       Result :: Response | 'timeout'.
 
 wait_response(ReqId, WaitTime) ->
@@ -300,7 +293,7 @@ wait_response(ReqId, WaitTime) ->
       WaitTime :: response_timeout(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), emgr_ref()}},
+                  {error, {Reason::term(), sup_ref()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -322,7 +315,7 @@ wait_response(ReqIdCol, WaitTime, Delete) ->
       ReqId :: request_id(),
       Timeout :: response_timeout(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), emgr_ref()}},
+                  {error, {Reason::term(), sup_ref()}},
       Result :: Response | 'timeout'.
 
 receive_response(ReqId, Timeout) ->
@@ -339,7 +332,7 @@ receive_response(ReqId, Timeout) ->
       Timeout :: response_timeout(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), emgr_ref()}},
+                  {error, {Reason::term(), sup_ref()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -361,7 +354,7 @@ receive_response(ReqIdCol, Timeout, Delete) ->
       Msg :: term(),
       ReqId :: request_id(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), emgr_ref()}},
+                  {error, {Reason::term(), sup_ref()}},
       Result :: Response | 'no_reply'.
 
 check_response(Msg, ReqId) ->
@@ -378,7 +371,7 @@ check_response(Msg, ReqId) ->
       ReqIdCollection :: request_id_collection(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), emgr_ref()}},
+                  {error, {Reason::term(), sup_ref()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -433,22 +426,22 @@ reqids_to_list(ReqIdCollection) ->
         error:badarg -> error(badarg, [ReqIdCollection])
     end.
 
--spec delete_handler(emgr_ref(), handler(), term()) -> term().
+-spec delete_handler(sup_ref(), handler(), term()) -> term().
 delete_handler(M, Handler, Args) -> rpc(M, {delete_handler, Handler, Args}).
 
--spec swap_handler(emgr_ref(), {handler(), term()}, {handler(), term()}) ->
+-spec swap_handler(sup_ref(), {handler(), term()}, {handler(), term()}) ->
 	    'ok' | {'error', term()}.
 swap_handler(M, {H1, A1}, {H2, A2}) -> rpc(M, {swap_handler, H1, A1, H2, A2}).
 
--spec swap_sup_handler(emgr_ref(), {handler(), term()}, {handler(), term()}) ->
+-spec swap_sup_handler(sup_ref(), {handler(), term()}, {handler(), term()}) ->
 	    'ok' | {'error', term()}.
 swap_sup_handler(M, {H1, A1}, {H2, A2}) ->
     rpc(M, {swap_sup_handler, H1, A1, H2, A2, self()}).
 
--spec which_handlers(emgr_ref()) -> [handler()].
+-spec which_handlers(sup_ref()) -> [handler()].
 which_handlers(M) -> rpc(M, which_handlers).
 
--spec stop(emgr_ref()) -> 'ok'.
+-spec stop(sup_ref()) -> 'ok'.
 stop(M) ->
     gen:stop(M).
 
