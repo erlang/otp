@@ -628,7 +628,7 @@ handle_event(_, _, State, Data) ->
 	  <tag><c>debug</c></tag>
 	  <item>
 	    <p>
-	      For every entry in <c><anno>Dbgs</anno></c>,
+	      For every entry in <c>Dbgs</c>,
 	      the corresponding function in
 	      <seeerl marker="sys"><c>sys</c></seeerl> is called.
 	    </p>

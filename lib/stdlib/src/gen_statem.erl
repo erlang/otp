@@ -124,7 +124,6 @@
         'timeout' | {'timeout', Name :: term()} | 'state_timeout'.
 
 -type event_content() :: term().
-
 -type callback_mode_result() ::
 	callback_mode() | [callback_mode() | state_enter()].
 -type callback_mode() :: 'state_functions' | 'handle_event_function'.
@@ -547,26 +546,15 @@ event_type(Type) ->
 %%%==========================================================================
 %%% API
 
--type server_name() :: % Duplicate of gen:emgr_name()
-        {'local', atom()}
-      | {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), Name :: term()}.
+-type server_name() :: proc_lib:sup_name().
 
--type server_ref() :: % What gen:call/3,4 and gen:stop/1,3 accepts
-        pid()
-      | (LocalName :: atom())
-      | {Name :: atom(), Node :: atom()}
-      | {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), ViaName :: term()}.
+% What gen:call/3,4 and gen:stop/1,3 accepts
+-type server_ref() :: proc_lib:sup_ref().
 
--type start_opt() :: % Duplicate of gen:option()
-        {'timeout', Time :: timeout()}
-      | {'spawn_opt', [proc_lib:spawn_option()]}
-      | enter_loop_opt().
-%%
--type enter_loop_opt() :: % Some gen:option()s works for enter_loop/*
-	{'hibernate_after', HibernateAfterTimeout :: timeout()}
-      | {'debug', Dbgs :: [sys:debug_option()]}.
+% Some gen:option()s works for enter_loop/*
+-type enter_loop_opt() :: proc_lib:enter_loop_opt().
+
+-type start_opt() :: proc_lib:option() | enter_loop_opt().
 
 -type start_ret() :: % gen:start_ret() without monitor return
         {'ok', pid()}
@@ -577,9 +565,6 @@ event_type(Type) ->
         {'ok', {pid(),reference()}}
       | 'ignore'
       | {'error', term()}.
-
-
-
 
 %% Start a state machine
 -spec start(
