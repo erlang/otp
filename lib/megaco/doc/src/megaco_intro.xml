@@ -120,16 +120,16 @@
       Megaco/H.248 and about the Erlang/OTP development system:</p>
     <list type="bulleted">
       <item>
-        <p><url href="http://www.erlang.org/project/megaco/standard/rfc3525.txt">version 1, RFC 3525</url></p>
+        <p><url href="https://www.erlang.org/doc/standard/rfc3525.txt">version 1, RFC 3525</url></p>
       </item>
       <item>
         <p><url href="http://www.ietf.org/rfc/rfc3015.txt">old version 1, RFC 3015</url></p>
       </item>
       <item>
-        <p><url href="http://www.erlang.org/project/megaco/standard/H.248.1-Corr1-200403.doc">Version 2 Corrigendum 1</url></p>
+        <p><url href="https://web.archive.org/web/20100704020645/http://www.erlang.org/project/megaco/standard/H.248.1-Corr1-200403.doc">Version 2 Corrigendum 1</url></p>
       </item>
       <item>
-        <p><url href="http://www.erlang.org/project/megaco/standard/draft-ietf-megaco-h248v2-04.txt">version 2, draft-ietf-megaco-h248v2-04</url></p>
+        <p><url href="https://web.archive.org/web/20100620185420/http://erlang.org/project/megaco/standard/draft-ietf-megaco-h248v2-04.txt">version 2, draft-ietf-megaco-h248v2-04</url></p>
       </item>
       <item>
         <p><url href="http://www.itu.int/">H.248.1 version 3</url></p>

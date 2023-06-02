@@ -1272,8 +1272,8 @@
 	    performed through JavaScript code, automatically inserted into the HTML 
 	    log files. <c>Common Test</c> uses the <url href="http://jquery.com">jQuery</url> 
 	    library and the
-	    <url href="http://tablesorter.com">tablesorter</url> plugin, 
-	    with customized sorting functions, for this implementation.</p>
+	    <url href="https://mottie.github.io/tablesorter/docs/">tablesorter</url>
+	    plugin, with customized sorting functions, for this implementation.</p>
 	</section>
 
 	<section>

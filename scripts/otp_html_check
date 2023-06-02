@@ -38,6 +38,7 @@ my @indexes =			# The order to try URL expansion
 my $html_ext = 'shtml|html|htm'; # HTML pages ends in these
 
 my @links;			# Set of [page,link] we want to check
+my @external_links;	        # Set of [page,link] for external links
 my @exclude;			# Pages/dir/prefix to exclude
 my %pages;			# Set of all files found in the file system
 				# limited by the script arguments.
@@ -59,6 +60,11 @@ my %anchor_defs;		# <a name="..."> in the form "$page#$anchor"
 
 @ARGV or usage("No base directory given");
 my $base = shift @ARGV;
+my $print_external_links = 0;
+if ($base eq "--print-external-links") {
+    $print_external_links = 1;
+    $base = shift @ARGV;
+}
 -d $base or usage("Not a directory: $base");
 $base =~ m&^/& or usage("Has to be absolute path: $base");
 $base =~ s&/+$&&;		# Remove ending slash if any
@@ -276,7 +282,18 @@ sub normalize_link {
 	$link = "$dir/$mod";
     }
 
-    return $link if $link =~ /^\w{3,10}:/i; # mailto: http: .....
+    # mailto: http: .....
+    if ($link =~ /^\w{3,10}:/i) {
+        # Exclude "Edit on GitHub" links. These would make up
+        # the majority of the output and there's likely little
+        # value in checking them.
+        if (($print_external_links)
+            && ($link !~ /github\.com\/erlang\/otp/) 
+            && ($link =~ /^http/)) {
+                push(@external_links, [$page, $link]);
+        }
+        return $link;
+    }
 
     $link =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
 
@@ -407,6 +424,18 @@ if (keys %anchor_refs) {
     }
 }
 
+if ($print_external_links) {
+  print "\n**** External links (excluding github.com/erlang/otp)\n\n";
+
+  while (@external_links) {
+    my $page_and_link = shift @external_links;
+    my ($page, $link) = @$page_and_link;
+    if ($link =~ /^\w{3,10}:/i) {
+      print "$page -> $link\n";
+    }
+  }
+}
+
 if (keys %missing || keys %anchor_refs) {
     exit 1;
 }
@@ -417,13 +446,16 @@ if (keys %missing || keys %anchor_refs) {
 sub usage {
   print STDERR "ERROR: ",join("\n",@_),"\n" if @_;
   print <<HERE;
-Usage: $0 BaseDirectory URL [ URLs... ] [ -- ExcludeURLs... ]
+Usage: $0 [ --print-external-links ] BaseDirectory URL [ URLs... ] [ -- ExcludeURLs... ]
 
 This script try to find out what files are used and not of your
 HTML documents, graphic files etc. It doesn't use HTTP, i.e. you
 work off-line, so this script may fail to find a link. Javascripts
 and other extensions also makes it very hard. But for many sites
 it work very well.
+
+If --print-external-links is given, the script will print any links that it
+finds to external sites, excluding links to the Erlang/OTP GitHub repository.
 
 The base directory given has to start with a slash.
 

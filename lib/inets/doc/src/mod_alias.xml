@@ -75,7 +75,7 @@
         <marker id="path"></marker>
         <p><c>path/3</c> returns the file <c>Path</c> in the
 	<c>RequestURI</c> (see 
-	<url href="http://www.rfc-base.org/rfc-1945.html">RFC 1945</url>). 
+	<url href="https://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).
 	If the interaction data <c>{real_name,{Path,AfterPath}}</c> 
 	has been exported by <c>mod_alias</c>,
 	<c>Path</c> is returned. If no interaction data has been
