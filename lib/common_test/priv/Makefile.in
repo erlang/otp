@@ -57,7 +57,7 @@ ifneq ($(findstring win32,$(TARGET)),win32)
 #
 # Files
 #
-FILES = vts.tool
+FILES =
 SCRIPTS = 
 IMAGES = tile1.jpg
 CSS = ct_default.css
@@ -101,7 +101,7 @@ else
 #
 # Files
 #
-FILES = vts.tool 
+FILES =
 IMAGES = tile1.jpg
 CSS = ct_default.css
 JS = jquery-latest.js jquery.tablesorter.min.js 
