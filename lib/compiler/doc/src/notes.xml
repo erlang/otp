@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.2.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler could be very slow when compiling guards
+	    with multiple guard tests separated with '<c>or</c>' or
+	    '<c>;</c>'.</p>
+          <p>
+	    Own Id: OTP-18617 Aux Id: GH-7338 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
