@@ -1179,9 +1179,8 @@ ets_take('$end_of_table', T, F, A) ->
     Key -> ets_take(Key, T, F, A)
   end;
 ets_take(Key, T, F, A) ->
-  Vs = ets:lookup(T, Key),
   Key1 = ets:next(T, Key),
-  true = ets:delete(T, Key),
+  Vs = ets:take(T, Key),
   ets_take(Key1, T, F, F(Vs, A)).
 
 -spec parallelism() -> integer().
