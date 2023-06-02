@@ -117,7 +117,7 @@
 -module(beam_ssa_bool).
 -export([module/2]).
 
--import(lists, [all/2,foldl/3,keyfind/3,last/1,partition/2,
+-import(lists, [all/2,any/2,foldl/3,keyfind/3,last/1,partition/2,
                 reverse/1,reverse/2,sort/1]).
 
 -include("beam_ssa.hrl").
@@ -1022,14 +1022,22 @@ convert_to_br_node(I, Target, G0, St) ->
 %%    (element(10, T) =:= y)
 
 ensure_no_failing_instructions(First, Second, G, St) ->
-    Vs0 = covered(get_vertex(First, St), get_vertex(Second, St), G),
-    Vs = [{V,beam_digraph:vertex(G, V)} || V <- Vs0],
-    Failing = [P || {V,#b_set{op={succeeded,_}}}=P <- Vs,
-                    not eaten_by_phi(V, G)],
-    case Failing of
-        [] -> ok;
-        [_|_] -> not_possible()
+    Vs = covered(get_vertex(First, St), get_vertex(Second, St), G),
+    case any(fun(V) ->
+                     case beam_digraph:vertex(G, V) of
+                         #b_set{op=Op} ->
+                             can_fail(Op, V, G);
+                         _ ->
+                             false
+                     end
+             end, Vs) of
+        true -> not_possible();
+        false -> ok
     end.
+
+can_fail({succeeded,_}, V, G) -> not eaten_by_phi(V, G);
+can_fail(put_map, _, _) -> true;
+can_fail(_, _, _) -> false.
 
 eaten_by_phi(V, G) ->
     {br,_,Fail} = get_targets(V, G),
@@ -1650,35 +1658,34 @@ del_out_edges(V, G) ->
     beam_digraph:del_edges(G, beam_digraph:out_edges(G, V)).
 
 covered(From, To, G) ->
-    Seen0 = sets:new([{version, 2}]),
+    Seen0 = #{},
     {yes,Seen} = covered_1(From, To, G, Seen0),
-    sets:to_list(Seen).
+    [V || {V,reached} <- maps:to_list(Seen)].
 
 covered_1(To, To, _G, Seen) ->
     {yes,Seen};
-covered_1(From, To, G, Seen0) ->
-    Vs0 = beam_digraph:out_neighbours(G, From),
-    Vs = [V || V <- Vs0, not sets:is_element(V, Seen0)],
-    Seen = sets:union(sets:from_list(Vs, [{version, 2}]), Seen0),
-    case Vs of
-        [] ->
-            no;
-        [_|_] ->
-            covered_list(Vs, To, G, Seen, false)
-    end.
+covered_1(From, To, G, Seen) ->
+    Vs = beam_digraph:out_neighbours(G, From),
+    covered_list(Vs, To, G, Seen, no).
 
 covered_list([V|Vs], To, G, Seen0, AnyFound) ->
-    case covered_1(V, To, G, Seen0) of
-        {yes,Seen} ->
-            covered_list(Vs, To, G, Seen, true);
-        no ->
-            covered_list(Vs, To, G, Seen0, AnyFound)
+    case Seen0 of
+        #{V := reached} ->
+            covered_list(Vs, To, G, Seen0, yes);
+        #{V := not_reached} ->
+            covered_list(Vs, To, G, Seen0, AnyFound);
+        #{} ->
+            case covered_1(V, To, G, Seen0) of
+                {yes,Seen1} ->
+                    Seen = Seen1#{V => reached},
+                    covered_list(Vs, To, G, Seen, yes);
+                {no,Seen1} ->
+                    Seen = Seen1#{V => not_reached},
+                    covered_list(Vs, To, G, Seen, AnyFound)
+            end
     end;
 covered_list([], _, _, Seen, AnyFound) ->
-    case AnyFound of
-        true -> {yes,Seen};
-        false -> no
-    end.
+    {AnyFound,Seen}.
 
 digraph_roots(G) ->
     digraph_roots_1(beam_digraph:vertices(G), G).
