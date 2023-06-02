@@ -43,6 +43,8 @@
 -export_type([spawn_option/0]).
 -export_type([start_spawn_option/0]).
 
+-export_type([sup_name/0, sup_ref/0, option/0, debug/0, enter_loop_opt/0]).
+
 -include("logger.hrl").
 
 %%-----------------------------------------------------------------------------
@@ -80,6 +82,31 @@
 -type dict_or_pid()    :: pid()
                         | (ProcInfo :: [_])
                         | {X :: integer(), Y :: integer(), Z :: integer()}.
+
+%%-----------------------------------------------------------------------------
+%%-----------------------------------------------------------------------------
+
+-type sup_name()      :: {'local', Name :: atom()}
+                       | {'global', Name :: term()}
+                       | {'via', Module :: module(), Name :: any()}.
+
+-type sup_ref()       :: (Name :: atom())
+                       | {Name :: atom(), Node :: node()}
+                       | {'global', Name :: term()}
+                       | {'via', Module :: module(), Name :: any()}
+                       | pid().
+
+-type option() :: {'timeout', Timeout :: timeout()}
+                | {'debug', Dbgs :: [debug()]}
+                | {'spawn_opt', [proc_lib:start_spawn_option()]}
+                | enter_loop_opt().
+
+-type enter_loop_opt() ::   {'hibernate_after', HibernateAfterTimeout :: timeout()}
+                          | {'debug', Dbgs :: [sys:debug_option()]}.
+
+
+-type debug () :: 'trace' | 'log' | 'statistics' | 'debug'
+                | {'logfile', string()}.
 
 %%-----------------------------------------------------------------------------
 
