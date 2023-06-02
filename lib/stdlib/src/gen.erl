@@ -63,10 +63,7 @@
                     | 'ignore'
                     | {'error', term()}.
 
--type option()     :: {'timeout', timeout()}
-		    | {'debug', [sys:debug_option()]}
-		    | {'hibernate_after', timeout()}
-		    | {'spawn_opt', [proc_lib:spawn_option()]}.
+-type option()     :: proc_lib:option().
 
 -type server_ref() :: pid() | atom() | {atom(), node()}
                     | {global, term()} | {via, module(), term()}.
