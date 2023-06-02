@@ -45,6 +45,7 @@
          proxy_call/3,
 
          %% Generic 'has support' test function(s)
+         is_socket_supported/0,
          has_support_ipv4/0,
          has_support_ipv6/0,
 	 has_support_unix_domain_socket/0,
@@ -2683,6 +2684,17 @@ has_support_ipv6() ->
             ok;
         {error, _R1} ->
             skip("IPv6 Not Supported")
+    end.
+
+is_socket_supported() ->
+    try socket:info() of
+        #{} ->
+            true
+    catch
+        error : notsup ->
+            false;
+        error : undef ->
+            false
     end.
 
 has_support_unix_domain_socket() ->
