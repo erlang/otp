@@ -446,7 +446,6 @@ bif erts_debug:same/2
 bif erts_debug:flat_size/1
 bif erts_debug:get_internal_state/1
 bif erts_debug:set_internal_state/2
-bif erts_debug:display/1
 bif erts_debug:dist_ext_to_term/2
 bif erts_debug:instructions/0
 bif erts_debug:interpreter_size/0
@@ -784,3 +783,4 @@ bif maps:from_keys/2
 #
 ubif erlang:min/2
 ubif erlang:max/2
+bif erts_internal:term_to_string/2
