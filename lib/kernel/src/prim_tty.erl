@@ -234,7 +234,10 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
     TTYState =
         case maps:get(tty, Options) of
             true ->
-                ok = tty_init(TTY, stdout, Options),
+                case tty_init(TTY, stdout, Options) of
+		     ok -> ok;
+		     {error, enotsup} -> error(enotsup)
+		end,
                 NewState = init(State, os:type()),
                 ok = tty_set(TTY),
                 NewState;
