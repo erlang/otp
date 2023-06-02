@@ -58,7 +58,7 @@
 
 -export_type([sup_flags/0, child_spec/0, strategy/0,
               startchild_ret/0, startchild_err/0,
-              startlink_ret/0, startlink_err/0]).
+              startlink_ret/0, startlink_err/0, sup_name/0, sup_ref/0]).
 
 %%--------------------------------------------------------------------------
 
@@ -71,14 +71,8 @@
 -type significant()   :: boolean().
 -type shutdown()      :: 'brutal_kill' | timeout().
 -type worker()        :: 'worker' | 'supervisor'.
--type sup_name()      :: {'local', Name :: atom()}
-                       | {'global', Name :: term()}
-                       | {'via', Module :: module(), Name :: any()}.
--type sup_ref()       :: (Name :: atom())
-                       | {Name :: atom(), Node :: node()}
-                       | {'global', Name :: term()}
-                       | {'via', Module :: module(), Name :: any()}
-                       | pid().
+-type sup_name()      :: proc_lib:sup_name().
+-type sup_ref()       :: proc_lib:sup_ref().
 -type child_spec()    :: #{id := child_id(),             % mandatory
 			   start := mfargs(),            % mandatory
 			   restart => restart(),         % optional

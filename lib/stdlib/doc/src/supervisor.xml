@@ -405,6 +405,9 @@ child_spec() = #{id => child_id(),             % mandatory
       <name name="sup_ref"/>
     </datatype>
     <datatype>
+      <name name="sup_name"/>
+    </datatype>
+    <datatype>
       <name name="worker"/>
     </datatype>
   </datatypes>
@@ -631,14 +634,14 @@ child_spec() = #{id => child_id(),             % mandatory
           </item>
           <item>
             <p>If
-              <c><anno>SupName</anno>={via,<anno>Module</anno>,<anno>Name</anno>}</c>,
+              <c><anno>SupName</anno>={via,<anno>Module</anno>,Name}</c>,
               the supervisor is registered as <c>Name</c> using the registry
               represented by <c>Module</c>. The <c>Module</c> callback must
               export the functions <c>register_name/2</c>,
               <c>unregister_name/1</c>, and <c>send/2</c>, which must behave
               like the corresponding functions in
               <seeerl marker="kernel:global"><c>global</c></seeerl>. Thus,
-              <c>{via,global,<anno>Name</anno>}</c> is a valid reference.</p>
+              <c>{via,global,Name}</c> is a valid reference.</p>
           </item>
         </list>
         <p>If no name is provided, the supervisor is not registered.</p>
