@@ -133,19 +133,19 @@ gen_server:abcast     -----> Module:handle_cast/2
           <seemfa marker="#enter_loop/3"><c>enter_loop/3,4,5</c></seemfa>,
           and the type
 	  <seetype marker="#server_ref"><c>server_ref()</c></seetype>
-	  below.
+	  is an alias to <seetype marker="stdlib:supervisor#sup_name"><c>supervisor:sup_name()</c></seetype>.
         </p>
         <taglist>
-          <tag><c>{local,<anno>LocalName</anno>}</c></tag>
+          <tag><c>{local,LocalName}</c></tag>
           <item>
             <p>
               Register the <c>gen_server</c> locally
-              as <c><anno>LocalName</anno></c> using
+              as <c>LocalName</c> using
               <seemfa marker="erts:erlang#register/2">
                 <c>register/2</c></seemfa>.
             </p>
           </item>
-          <tag><c>{global,<anno>GlobalName</anno>}</c></tag>
+          <tag><c>{global,GlobalName}</c></tag>
           <item>
             <p>
               Register the <c>gen_server</c> process id
@@ -154,19 +154,19 @@ gen_server:abcast     -----> Module:handle_cast/2
                 <c>global:register_name/2</c></seemfa>.
             </p>
           </item>
-          <tag><c>{via,<anno>RegMod</anno>,<anno>ViaName</anno>}</c></tag>
+          <tag><c>{via,RegMod,ViaName}</c></tag>
           <item>
             <p>
               Register the <c>gen_server</c> process with the registry
-              represented by <c><anno>RegMod</anno></c>.
-              The <c><anno>RegMod</anno></c> callback is to export
+              represented by <c>RegMod</c>.
+              The <c>RegMod</c> callback is to export
               the functions <c>register_name/2</c>, <c>unregister_name/1</c>,
               <c>whereis_name/1</c>, and <c>send/2</c>, which are to behave
               like the corresponding functions in
               <seeerl marker="kernel:global"><c>global</c></seeerl>.
-              Thus, <c>{via,global,<anno>GlobalName</anno>}</c>
+              Thus, <c>{via,global,GlobalName}</c>
               is a valid reference equivalent to
-              <c>{global,<anno>GlobalName</anno>}</c>.
+              <c>{global,GlobalName}</c>.
             </p>
           </item>
         </taglist>
@@ -197,42 +197,42 @@ gen_server:abcast     -----> Module:handle_cast/2
               The <c>gen_server</c>'s process identifier.
             </p>
           </item>
-	  <tag><c><anno>LocalName</anno></c></tag>
+	  <tag><c>LocalName</c></tag>
 	  <item>
             <p>
               The <c>gen_server</c> is locally registered
-              as <c><anno>LocalName</anno></c> with
+              as <c>LocalName</c> with
               <seemfa marker="erts:erlang#register/2">
                 <c>register/2</c></seemfa>.
             </p>
           </item>
-	  <tag><c>{<anno>Name</anno>,<anno>Node</anno>}</c></tag>
+	  <tag><c>{Name,Node}</c></tag>
 	  <item>
             <p>
 	      The <c>gen_server</c> is locally registered
 	      on another node.
             </p>
 	  </item>
-	  <tag><c>{global,<anno>GlobalName</anno>}</c></tag>
+	  <tag><c>{global,GlobalName}</c></tag>
 	  <item>
             <p>
 	      The <c>gen_server</c> is globally registered in
 	      <seeerl marker="kernel:global"><c>global</c></seeerl>.
             </p>
 	  </item>
-	  <tag><c>{via,<anno>RegMod</anno>,<anno>ViaName</anno>}</c></tag>
+	  <tag><c>{via,RegMod,ViaName}</c></tag>
 	  <item>
             <p>
 	      The <c>gen_server</c> is registered in
 	      an alternative process registry.
-	      The registry callback module <c><anno>RegMod</anno></c>
+	      The registry callback module <c>RegMod</c>
 	      is to export functions
 	      <c>register_name/2</c>, <c>unregister_name/1</c>,
 	      <c>whereis_name/1</c>, and <c>send/2</c>,
 	      which are to behave like the corresponding functions in
 	      <seeerl marker="kernel:global"><c>global</c></seeerl>.
-	      Thus, <c>{via,global,<anno>GlobalName</anno>}</c>
-              is the same as <c>{global,<anno>GlobalName</anno>}</c>.
+	      Thus, <c>{via,global,GlobalName}</c>
+              is the same as <c>{global,GlobalName}</c>.
             </p>
 	  </item>
 	</taglist>
@@ -248,7 +248,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
 	</p>
         <taglist>
-          <tag><c>{timeout,<anno>Timeout</anno>}</c></tag>
+          <tag><c>{timeout,Timeout}</c></tag>
           <item>
             <p>
               How many milliseconds the <c>gen_server</c> process is allowed
@@ -257,11 +257,11 @@ gen_server:abcast     -----> Module:handle_cast/2
             </p>
           </item>
           <tag>
-            <c>{spawn_opt,<anno>SpawnOptions</anno>}</c>
+            <c>{spawn_opt,SpawnOptions}</c>
           </tag>
           <item>
             <p>
-              The <c><anno>SpawnOptions</anno></c> option list
+              The <c>SpawnOptions</c> option list
               is passed to the function used to spawn
               the <c>gen_server</c>; see
               <seemfa marker="erts:erlang#spawn_opt/2">
@@ -298,7 +298,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
 	</p>
 	<taglist>
-	  <tag><c>{hibernate_after,<anno>HibernateAfterTimeout</anno>}</c></tag>
+	  <tag><c>{hibernate_after,HibernateAfterTimeout}</c></tag>
 	  <item>
             <p>
 	      Specifies that the <c>gen_server</c> process awaits
@@ -309,10 +309,10 @@ gen_server:abcast     -----> Module:handle_cast/2
                 <c>proc_lib:hibernate/3</c></seemfa>).
             </p>
 	  </item>
-	  <tag><c>{debug,<anno>Dbgs</anno>}</c></tag>
+	  <tag><c>{debug,Dbgs}</c></tag>
 	  <item>
             <p>
-	      For every entry in <c><anno>Dbgs</anno></c>,
+	      For every entry in <c>Dbgs</c>,
 	      the corresponding function in
 	      <seeerl marker="sys"><c>sys(3)</c></seeerl> is called.
             </p>

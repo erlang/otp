@@ -128,6 +128,7 @@
     reply_tag/0,
     request_id/0,
     request_id_collection/0,
+    response_timeout/0,
     format_status/0]).
 
 -export_type(
@@ -246,25 +247,16 @@
 %%% -----------------------------------------------------------------
 
 -type server_name() :: % Duplicate of gen:emgr_name()
-        {'local', LocalName :: atom()}
-      | {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), ViaName :: term()}.
+        proc_lib:sup_name().
 
--type server_ref() :: % What gen:call/3,4 and gen:stop/1,3 accepts
-        pid()
-      | (LocalName :: atom())
-      | {Name :: atom(), Node :: atom()}
-      | {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), ViaName :: term()}.
+% What gen:call/3,4 and gen:stop/1,3 accepts
+-type server_ref() :: proc_lib:sup_ref().
 
--type start_opt() :: % Duplicate of gen:option()
-        {'timeout', Timeout :: timeout()}
-      | {'spawn_opt', SpawnOptions :: [proc_lib:spawn_option()]}
-      | enter_loop_opt().
+% Duplicate of gen:option()
+-type start_opt() :: proc_lib:option().
 %%
--type enter_loop_opt() :: % Some gen:option()s works for enter_loop/*
-	{'hibernate_after', HibernateAfterTimeout :: timeout()}
-      | {'debug', Dbgs :: [sys:debug_option()]}.
+% Some gen:option()s works for enter_loop/*
+-type enter_loop_opt() :: proc_lib:enter_loop_opt().
 
 -type start_ret() :: % gen:start_ret() without monitor return
         {'ok', Pid :: pid()}
