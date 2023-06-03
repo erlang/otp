@@ -166,6 +166,21 @@ si_is([#b_set{op=raw_raise,args=[_,_,Stacktrace]} | Is],
 si_is([#b_set{op=build_stacktrace,args=[Stacktrace]} | Is],
       Id, Lbl, Last, Lst, Gst) ->
     si_handler_end(Is, Id, Lbl, Last, Stacktrace, Lst, Gst);
+si_is([#b_set{op=MakeFun,args=[#b_local{}=Callee | _]} | _Is],
+      _Id, _Lbl, _Last, Lst, Gst)
+  when MakeFun =:= make_fun;
+       MakeFun =:= old_make_fun ->
+    #gst{tlh_roots = Roots0} = Gst,
+
+    %% Funs may be called from anywhere which may result in a throw escaping
+    %% the module, so we'll add an unsuitable top-level handler to all funs.
+    Handlers = case gb_trees:lookup(Callee, Roots0) of
+                    {value, Handlers0} -> gb_sets:add(unsuitable, Handlers0);
+                    none -> gb_sets:singleton(unsuitable)
+                end,
+    Roots = gb_trees:enter(Callee, Handlers, Roots0),
+
+    {Lst, Gst#gst{tlh_roots=Roots}};
 si_is([#b_set{op=call,
               dst=Dst,
               args=[#b_remote{mod=#b_literal{val=erlang},
