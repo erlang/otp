@@ -262,24 +262,11 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(no_bsm4, Os) ->
-    %% bsm4 instructions are only used when type optimization has determined
-    %% that a match instruction won't fail.
-    expand_opt(no_type_opt, Os);
-expand_opt(r22, Os) ->
-    expand_opt(r23, [no_bs_create_bin, no_shared_fun_wrappers,
-                     no_swap | expand_opt(no_bsm4, Os)]);
-expand_opt(r23, Os) ->
-    expand_opt(no_make_fun3, [no_bs_create_bin, no_ssa_opt_float,
-                              no_recv_opt, no_init_yregs |
-                              expand_opt(r24, Os)]);
 expand_opt(r24, Os) ->
     expand_opt(no_type_opt, [no_badrecord, no_bs_create_bin, no_ssa_opt_ranges |
                              expand_opt(r25, Os)]);
 expand_opt(r25, Os) ->
     [no_ssa_opt_update_tuple, no_bs_match, no_min_max_bifs | Os];
-expand_opt(no_make_fun3, Os) ->
-    [no_make_fun3, no_fun_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_type_opt=O, Os) ->
@@ -1506,10 +1493,16 @@ is_obsolete(r18) -> true;
 is_obsolete(r19) -> true;
 is_obsolete(r20) -> true;
 is_obsolete(r21) -> true;
+is_obsolete(r22) -> true;
+is_obsolete(r23) -> true;
 is_obsolete(no_bsm3) -> true;
 is_obsolete(no_get_hd_tl) -> true;
 is_obsolete(no_put_tuple2) -> true;
 is_obsolete(no_utf8_atoms) -> true;
+is_obsolete(no_swap) -> true;
+is_obsolete(no_init_yregs) -> true;
+is_obsolete(no_shared_fun_wrappers) -> true;
+is_obsolete(no_make_fun3) -> true;
 is_obsolete(_) -> false.
 
 core(Forms, #compile{options=Opts}=St) ->

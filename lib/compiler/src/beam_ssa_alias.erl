@@ -417,9 +417,6 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, Acc, AAS0) ->
             make_fun ->
                 [Callee|Env] = Args,
                 aa_make_fun(Dst, Callee, Env, SS1, AAS0);
-            old_make_fun ->
-                [Callee|Env] = Args,
-                aa_make_fun(Dst, Callee, Env, SS1, AAS0);
             peek_message ->
                 {aa_set_aliased(Dst, SS1), AAS0};
             phi ->

@@ -180,7 +180,9 @@ file_1(Config) when is_list(Config) ->
     error = compile:file(filename:join(DataDir, "bad_core_tokens"), [from_core,report]),
 
     %% Cover handling of obsolete options.
-    ObsoleteOptions = [r18,r19,r20,r21,no_bsm3,no_get_hd_tl,no_put_tuple2,no_utf8_atoms],
+    ObsoleteOptions = [r18,r19,r20,r21,r22,r23,
+                       no_bsm3,no_get_hd_tl,no_put_tuple2,no_utf8_atoms,
+                       no_swap,no_init_yregs,no_shared_fun_wrappers,no_make_fun3],
     _ = [begin
              {error,[{_Simple,
                       [{none,compile,{obsolete_option,Opt}}]}],
@@ -1664,47 +1666,41 @@ bc_options(Config) ->
 
     DataDir = proplists:get_value(data_dir, Config),
 
-    L = [{101, small_float, [no_shared_fun_wrappers,no_line_info]},
-         {125, small_float, [no_shared_fun_wrappers,
-                             no_line_info,
+    L = [{171, small_float, [no_line_info,
                              no_ssa_opt_float,
                              no_type_opt]},
+         {171, small_float, [no_line_info]},
+         {171, small_float, []},
+         {171, small_float, [r24]},
+         {171, small_float, [r25]},
 
-         {153, small_float, [no_shared_fun_wrappers]},
-
-         {164, small_maps, [no_init_yregs,no_shared_fun_wrappers,no_type_opt]},
-         {164, small_maps, [r22]},
-         {164, big, [r22]},
-         {164, funs, [r22]},
-         {164, funs, [no_init_yregs,no_shared_fun_wrappers,
-                      no_ssa_opt_record,
-                      no_line_info,no_stack_trimming,
-                      no_make_fun3,no_type_opt]},
-
-         {168, small, [r22]},
-         {168, small, [no_init_yregs,no_shared_fun_wrappers,
-                       no_ssa_opt_record,no_make_fun3,
-                       no_ssa_opt_float,no_line_info,no_type_opt,
+         {172, small, [no_ssa_opt_record,
+                       no_ssa_opt_float,
+                       no_line_info,
+                       no_type_opt,
                        no_bs_match]},
-         {169, small, [r23]},
+         {172, small, [r24]},
 
-         {169, big, [no_init_yregs,no_shared_fun_wrappers,
-                     no_ssa_opt_record,
-                     no_line_info,no_stack_trimming,
-                     no_make_fun3,no_type_opt]},
-         {169, big, [r23]},
-
-         {169, small_maps, [no_init_yregs,no_type_opt]},
-
-         {171, big, [no_init_yregs,no_shared_fun_wrappers,
-                     no_ssa_opt_record,
-                     no_ssa_opt_float,no_line_info,
-                     no_type_opt]},
-         {171, funs, [no_init_yregs,no_shared_fun_wrappers,
-                      no_ssa_opt_record,
+         {172, funs, [no_ssa_opt_record,
                       no_ssa_opt_float,no_line_info,
                       no_type_opt]},
+         {172, funs, [no_ssa_opt_record,
+                      no_line_info,
+                      no_stack_trimming,
+                      no_type_opt]},
+         {172, funs, [r24]},
 
+         {172, small_maps, [r24]},
+         {172, small_maps, [no_type_opt]},
+
+         {172, big, [no_ssa_opt_record,
+                     no_ssa_opt_float,
+                     no_line_info,
+                     no_type_opt]},
+         {172, big, [r24]},
+
+         {178, small, [r25]},
+         {178, big, [r25]},
          {178, funs, []},
          {178, big, []}
         ],

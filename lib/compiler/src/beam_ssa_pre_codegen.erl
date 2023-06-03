@@ -1336,24 +1336,6 @@ need_frame(#b_blk{is=Is,last=#b_ret{arg=Ret}}) ->
 need_frame(#b_blk{is=Is}) ->
     need_frame_1(Is, body).
 
-need_frame_1([#b_set{op=old_make_fun,dst=Fun}|Is], {return,Ret}=Context) ->
-    case need_frame_1(Is, Context) of
-        true ->
-            true;
-        false ->
-            %% Since old_make_fun clobbers X registers, a stack frame is
-            %% needed if any of the following instructions use any
-            %% other variable than the one holding the reference to
-            %% the created fun.
-            Defs = ordsets:from_list([Dst || #b_set{dst=Dst} <- Is]),
-            Blk = #b_blk{is=Is,last=#b_ret{arg=Ret}},
-            Used = ordsets:subtract(beam_ssa:used(Blk), Defs),
-            case Used of
-                [] -> false;
-                [Fun] -> false;
-                [_|_] -> true
-            end
-        end;
 need_frame_1([#b_set{op=new_try_tag}|_], _) ->
     true;
 need_frame_1([#b_set{op=call,dst=Val}]=Is, {return,Ret}) ->
@@ -1860,9 +1842,9 @@ used_args([]) -> [].
 
 %%%
 %%% Try to reduce the size of the stack frame, by adding an explicit
-%%% 'copy' instructions for return values from 'call' and 'old_make_fun' that
-%%% need to be saved in Y registers. Here is an example to show
-%%% how that's useful. First, here is the Erlang code:
+%%% 'copy' instructions for return values from 'call' that need to be
+%%% saved in Y registers. Here is an example to show how that's
+%%% useful. First, here is the Erlang code:
 %%%
 %%% f(Pid) ->
 %%%    Res = foo(42),
@@ -1980,16 +1962,15 @@ copy_retval_2([L|Ls], Yregs, Copy0, Blocks0, Count0) ->
 copy_retval_2([], _Yregs, none, Blocks, Count) ->
     {Blocks,Count}.
 
-copy_retval_is([#b_set{op=Op}=I0], false, Yregs, Copy, Count0, Acc0)
-  when Op =:= call; Op =:= old_make_fun ->
+copy_retval_is([#b_set{op=call}=I0], false, Yregs, Copy, Count0, Acc0) ->
     {I,Count,Acc} = place_retval_copy(I0, Yregs, Copy, Count0, Acc0),
     {reverse(Acc, [I]),Count};
 copy_retval_is([#b_set{}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
 copy_retval_is([#b_set{},#b_set{op=succeeded}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
-copy_retval_is([#b_set{op=Op,dst=#b_var{}=Dst}=I0|Is], RC, Yregs,
-           Copy0, Count0, Acc0) when Op =:= call; Op =:= old_make_fun ->
+copy_retval_is([#b_set{op=call,dst=#b_var{}=Dst}=I0|Is], RC, Yregs,
+           Copy0, Count0, Acc0) ->
     {I1,Count1,Acc} = place_retval_copy(I0, Yregs, Copy0, Count0, Acc0),
     case sets:is_element(Dst, Yregs) of
         true ->
@@ -2675,7 +2656,7 @@ reserve_freg([], Res) -> Res.
 %%  Reserve all remaining variables as X registers.
 %%
 %%  If a variable will need to be in a specific X register for a
-%%  'call' or 'old_make_fun' (and there is nothing that will kill it
+%%  'call' instruction (and there is nothing that will kill it
 %%  between the definition and use), reserve the register using a
 %%  {prefer,{x,X} annotation. That annotation means that the linear
 %%  scan algorithm will place the variable in the preferred register,
@@ -2717,8 +2698,7 @@ reserve_xregs([], _, _, Res) -> Res.
 
 res_place_gc_instrs([#b_set{op=phi}=I|Is], Acc) ->
     res_place_gc_instrs(Is, [I|Acc]);
-res_place_gc_instrs([#b_set{op=Op}=I|Is], Acc)
-  when Op =:= call; Op =:= old_make_fun ->
+res_place_gc_instrs([#b_set{op=call}=I|Is], Acc) ->
     case Acc of
         [] ->
             res_place_gc_instrs(Is, [I|Acc]);
@@ -2785,9 +2765,6 @@ reserve_xregs_is([#b_set{op=Op,dst=Dst,args=Args}=I|Is], Res0, Xs0, Used0) ->
     Used = ordsets:del_element(Dst, Used1),
     case Op of
         call ->
-            Xs = reserve_call_args(tl(Args)),
-            reserve_xregs_is(Is, Res, Xs, Used);
-        old_make_fun ->
             Xs = reserve_call_args(tl(Args)),
             reserve_xregs_is(Is, Res, Xs, Used);
         _ ->

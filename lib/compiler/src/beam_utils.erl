@@ -95,8 +95,6 @@ replace_labels_1([{call,Ar,{f,Lbl}}|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [{call,Ar,{f,label(Lbl, D, Fb)}}|Acc], D, Fb);
 replace_labels_1([{call_fun2,{f,Lbl},Ar,Func}|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [{call_fun2,{f,label(Lbl, D, Fb)},Ar,Func}|Acc], D, Fb);
-replace_labels_1([{make_fun2,{f,Lbl},U1,U2,U3}|Is], Acc, D, Fb) ->
-    replace_labels_1(Is, [{make_fun2,{f,label(Lbl, D, Fb)},U1,U2,U3}|Acc], D, Fb);
 replace_labels_1([{make_fun3,{f,Lbl},U1,U2,U3,U4}|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [{make_fun3,{f,label(Lbl, D, Fb)},U1,U2,U3,U4}|Acc], D, Fb);
 replace_labels_1([{bs_create_bin,{f,Lbl},Alloc,Live,Unit,Dst,{list,List}}|Is], Acc, D, Fb)

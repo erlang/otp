@@ -66,7 +66,7 @@
                 map/2,mapfoldl/3,member/2,
                 keyfind/3,keysort/2,last/1,
                 partition/2,reverse/1,reverse/2,
-                seq/2,sort/1,sort/2,splitwith/2,
+                sort/1,sort/2,splitwith/2,
                 zip/2]).
 -import(ordsets, [add_element/2,del_element/2,intersection/2,
                   subtract/2,union/2,union/1]).
@@ -148,8 +148,6 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
                funs=[],                         %Fun functions
                free=#{},                        %Free variables
                ws=[]   :: [warning()],          %Warnings.
-               no_make_fun3 :: boolean(),
-               no_shared_fun_wrappers=false :: boolean(),
                no_min_max_bifs=false :: boolean()
               }).
 
@@ -159,14 +157,9 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
 module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options) ->
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
-    NoSharedFunWrappers = proplists:get_bool(no_shared_fun_wrappers,
-                                             Options),
     NoMinMaxBifs = proplists:get_bool(no_min_max_bifs, Options),
-    NoMakeFun3 = proplists:get_bool(no_make_fun3, Options),
     St0 = #kern{module=Mod,
-                no_shared_fun_wrappers=NoSharedFunWrappers,
-                no_min_max_bifs=NoMinMaxBifs,
-                no_make_fun3=NoMakeFun3},
+                no_min_max_bifs=NoMinMaxBifs},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     Body = Kfs ++ St#kern.funs,
     Code = #b_module{name=Mod,exports=Kes,attributes=Kas,body=Body},
@@ -281,21 +274,9 @@ gexpr_test_add(Ke, St0) ->
 %% expr(Cexpr, Sub, State) -> {Kexpr,[PreKexpr],State}.
 %%  Convert a Core expression, flattening it at the same time.
 
-expr(#c_var{anno=A,name={Name0,Arity}}=Fname, Sub, St) ->
-    case St#kern.no_shared_fun_wrappers of
-        false ->
-            Name = get_fsub(Name0, Arity, Sub),
-            {#b_local{name=#b_literal{val=Name},arity=Arity},[],St};
-        true ->
-            %% For backward compatibility with OTP 22 and earlier,
-            %% use the pre-generated name for the fun wrapper.
-            %% There will be one wrapper function for each occurrence
-            %% of `fun F/A`.
-            Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
-                     V <- seq(1, Arity)],
-            Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
-            expr(Fun, Sub, St)
-    end;
+expr(#c_var{name={Name0,Arity}}, Sub, St) ->
+    Name = get_fsub(Name0, Arity, Sub),
+    {#b_local{name=#b_literal{val=Name},arity=Arity},[],St};
 expr(#c_var{name=V}, Sub, St) ->
     {#b_var{name=get_vsub(V, Sub)},[],St};
 expr(#c_literal{val=V}, _Sub, St) ->
@@ -2140,11 +2121,7 @@ uexpr(Atomic, {break,[Dst]}, St0) ->
 
 make_fun(Rs, Local, FreeVars, St0) ->
     {[Dst],St1} = ensure_return_vars(Rs, St0),
-    Op = case St1 of
-             #kern{no_make_fun3=false} -> make_fun;
-             #kern{no_make_fun3=true} -> old_make_fun
-         end,
-    {#b_set{op=Op,dst=Dst,args=[Local|FreeVars]},St1}.
+    {#b_set{op=make_fun,dst=Dst,args=[Local|FreeVars]},St1}.
 
 add_local_function(_, #kern{funs=ignore}=St) ->
     St;

@@ -65,7 +65,7 @@ assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     {0,Dict2} = beam_dict:type(any, Dict1),
-    Dict3 = shared_fun_wrappers(CompilerOpts, Dict2),
+    Dict3 = reject_unsupported_versions(Dict2),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = sets:from_list(Exp0, [{version, 2}]),
@@ -73,22 +73,11 @@ assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts
     build_file(Code, Attr, Dict, NumLabels, NumFuncs,
                ExtraChunks, CompileInfo, CompilerOpts).
 
-shared_fun_wrappers(Opts, Dict) ->
-    case proplists:get_bool(no_shared_fun_wrappers, Opts) of
-        false ->
-            %% The compiler in OTP 23 depends on the on the loader
-            %% using the new indices in funs and being able to have
-            %% multiple make_fun2 instructions referring to the same
-            %% fun entry. Artificially set the highest opcode for the
-            %% module to ensure that it cannot be loaded in OTP 22
-            %% and earlier.
-            Swap = beam_opcodes:opcode(swap, 2),
-            beam_dict:opcode(Swap, Dict);
-        true ->
-            %% Fun wrappers are not shared for compatibility with a
-            %% previous OTP release.
-            Dict
-    end.
+reject_unsupported_versions(Dict) ->
+    %% Emit an instruction that was added in our lowest supported
+    %% version so that it cannot be loaded by earlier releases.
+    Instr = beam_opcodes:opcode(make_fun3, 3),  %OTP 24
+    beam_dict:opcode(Instr, Dict).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
@@ -391,9 +380,6 @@ make_op({test,Cond,Fail,Ops}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail|Ops], Dict);
 make_op({test,Cond,Fail,Live,[Op|Ops],Dst}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail,Op,Live|Ops++[Dst]], Dict);
-make_op({make_fun2,{f,Lbl},_Index,_OldUniq,NumFree}, Dict0) ->
-    {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
-    make_op({make_fun2,Fun}, Dict);
 make_op({make_fun3,{f,Lbl},_Index,_OldUniq,Dst,{list,Env}}, Dict0) ->
     NumFree = length(Env),
     {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
