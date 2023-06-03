@@ -433,31 +433,6 @@ gen.combine_conses(Len, Dst, Hd) {
     return cons;
 }
 
-gen.allocate_heap_zero(Ns, Nh, Live) {
-    BeamOp* alloc;
-    BeamOp* init;
-    int i;
-
-    $NewBeamOp(S, alloc);
-    $NewBeamOp(S, init);
-
-    $BeamOpNameArity(alloc, allocate_heap, 3);
-    alloc->a[0] = Ns;
-    alloc->a[1] = Nh;
-    alloc->a[2] = Live;
-    alloc->next = init;
-
-    $BeamOpNameArity(init, init_yregs, 1);
-    $BeamOpArity(init, Ns.val+1);
-    init->a[0] = Ns;
-    for (i = 0; i < Ns.val; i++) {
-	init->a[i+1].type = TAG_y;
-	init->a[i+1].val = i;
-    }
-
-    return alloc;
-}
-
 gen.func_end(Func_Label, Entry_Label) {
     BeamOp *op = NULL;
 

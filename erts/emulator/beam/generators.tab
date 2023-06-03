@@ -335,61 +335,6 @@ MakeLiteralLambda(Op, Index, DstType, DstVal) {
     ($Op)->a[1].val = $DstVal;
 }
 
-gen.make_fun2(Idx) {
-    BeamOp* op;
-    BeamOp* th;
-
-    $NewBeamOp(S, op);
-
-    if (Idx.val >= S->beam.lambdas.count) {
-        $BeamOpNameArity(op, i_lambda_error, 1);
-        op->a[0].type = TAG_o;
-        op->a[0].val = 0;
-        return op;
-    } else {
-        BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[Idx.val];
-        unsigned num_free = entry->num_free;
-        unsigned arity = entry->arity;
-        int i;
-
-        /* Literal lambdas are all owned by the init process as a workaround
-         * for all local funs needing a creator pid. Skip the optimization if
-         * this module is being loaded before said process has started
-         * (just preloaded modules, really). */
-        if (num_free == 0 && erts_init_process_id != ERTS_INVALID_PID) {
-            $MakeLiteralLambda(op, Idx.val, TAG_x, 0);
-            return op;
-        }
-
-        $NewBeamOp(S, th);
-
-        $BeamOpNameArity(th, test_heap, 2);
-        th->a[0].type = TAG_u;
-        th->a[0].val = ERL_FUN_SIZE + num_free;
-        th->a[1].type = TAG_u;
-        th->a[1].val = num_free;
-        th->next = op;
-
-        $BeamOpNameArity(op, i_make_fun3, 4);
-        $BeamOpArity(op, 4 + num_free);
-        op->a[0].type = TAG_u;
-        op->a[0].val = Idx.val;
-        op->a[1].type = TAG_x;
-        op->a[1].val = 0;
-        op->a[2].type = TAG_u;
-        op->a[2].val = arity - num_free;
-        op->a[3].type = TAG_u;
-        op->a[3].val = num_free;
-
-        for (i = 0; i < num_free; i++) {
-            op->a[i+4].type = TAG_x;
-            op->a[i+4].val = i;
-        }
-
-        return th;
-    }
-}
-
 gen.make_fun3(Idx, Dst, NumFree, Env) {
     BeamOp* op;
 

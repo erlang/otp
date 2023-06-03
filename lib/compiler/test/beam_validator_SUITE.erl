@@ -153,8 +153,8 @@ stack(Config) when is_list(Config) ->
     Errors = do_val(stack, Config),
     [{{t,a,2},{return,9,{stack_frame,2}}},
      {{t,b,2},{{deallocate,2},4,{allocated,none}}},
-     {{t,bad_1,0},{{allocate_zero,2,10},4,{{x,9},not_live}}},
-     {{t,bad_2,0},{{move,{y,0},{x,0}},5,{unassigned,{y,0}}}},
+     {{t,bad_1,0},{{allocate,2,10},4,{{x,9},not_live}}},
+     {{t,bad_2,0},{{move,{y,0},{x,0}},6,{unassigned,{y,0}}}},
      {{t,c,2},{{deallocate,2},10,{allocated,none}}},
      {{t,d,2},
       {{allocate,2,2},5,{existing_stack_frame,{size,2}}}},
@@ -203,7 +203,7 @@ uninit(Config) when is_list(Config) ->
       {{call,1,{f,8}},5,{uninitialized_reg,{y,0}}}},
      {{t,sum_3,2},
       {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
-       6,
+       7,
        {unassigned,{y,0}}}}] = Errors,
     ok.
 
@@ -212,7 +212,7 @@ unsafe_catch(Config) when is_list(Config) ->
     [{{t,small,2},
       {{bs_put_integer,{f,0},{integer,16},1,
         {field_flags,[unsigned,big]},{y,0}},
-       20,
+       21,
        {unassigned,{y,0}}}}] = Errors,
     ok.
 
@@ -229,7 +229,7 @@ overwrite_catchtag(Config) when is_list(Config) ->
 overwrite_trytag(Config) when is_list(Config) ->
     Errors = do_val(overwrite_trytag, Config),
     [{{overwrite_trytag,foo,1},
-      {{kill,{y,2}},8,{trytag,_}}}] = Errors,
+      {{init_yregs,{list,[{y,2}]}},9,{trytag,_}}}] = Errors,
     ok.
 
 accessing_tags(Config) when is_list(Config) ->
@@ -251,11 +251,11 @@ bad_catch_try(Config) when is_list(Config) ->
      {{bad_catch_try,bad_3,1},
       {{catch_end,{y,1}},9,{invalid_tag,{y,1},{t_atom,[kalle]}}}},
      {{bad_catch_try,bad_4,1},
-      {{'try',{x,0},{f,15}},5,{invalid_tag_register,{x,0}}}},
+      {{'try',{x,0},{f,15}},6,{invalid_tag_register,{x,0}}}},
      {{bad_catch_try,bad_5,1},
-      {{try_case,{y,1}},12,{invalid_tag,{y,1},any}}},
+      {{try_case,{y,1}},13,{invalid_tag,{y,1},any}}},
      {{bad_catch_try,bad_6,1},
-      {{move,{integer,1},{y,1}},7,
+      {{move,{integer,1},{y,1}},8,
        {invalid_store,{y,1}}}}] = Errors,
     ok.
 
@@ -327,7 +327,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{try_case_end,{x,0}},166,ambiguous_catch_try_state}}] = Errors,
+      {{try_case_end,{x,0}},152,ambiguous_catch_try_state}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
@@ -534,7 +534,7 @@ bad_try_catch_nesting(Config) ->
     Errors = do_val(bad_try_catch_nesting, Config),
     [{{bad_try_catch_nesting,main,2},
       {{'try',{y,2},{f,3}},
-       8,
+       9,
        {bad_try_catch_nesting,{y,2},[{{y,1},{trytag,[5]}}]}}}] = Errors,
     ok.
 
@@ -543,33 +543,33 @@ receive_stacked(Config) ->
     Errors = do_val(Mod, Config),
     [{{receive_stacked,f1,0},
       {{loop_rec_end,{f,3}},
-       18,
+       19,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f2,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f3,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f4,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f5,0},
       {{loop_rec_end,{f,23}},
-       22,
+       23,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f6,0},
       {{gc_bif,byte_size,{f,29},0,[{y,_}],{x,0}},
-       13,
+       14,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f7,0},
       {{loop_rec_end,{f,33}},
-       21,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f8,0},
       {{loop_rec_end,{f,38}},
-       21,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m1,0},
       {{loop_rec_end,{f,43}},
-       20,
+       21,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m2,0},
       {{loop_rec_end,{f,48}},

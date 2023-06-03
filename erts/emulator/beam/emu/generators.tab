@@ -805,7 +805,7 @@ INIT_YREGS(S, N) {
 	BeamOp* init;
 
 	$NewBeamOp($S, init);
-	$BeamOpNameArity(init, init, 1);
+	$BeamOpNameArity(init, i_init, 1);
 	init->a[0] = Yregs[i];
 	*p = init;
 	p = &init->next;
@@ -825,7 +825,7 @@ gen.allocate(Ns, Live, N, Yregs) {
 	 * At least half of the Y registers need explicit
 	 * initialization. It will be cheaper to zero all Y registers.
 	 */
-	$BeamOpNameArity(alloc, allocate_zero, 2);
+	$BeamOpNameArity(alloc, i_allocate_zero, 2);
     } else {
 	$BeamOpNameArity(alloc, allocate, 2);
 	p = &alloc->next;
@@ -848,7 +848,7 @@ gen.allocate_heap(Ns, Nh, Live, N, Yregs) {
 	 * At least half of the Y registers need explicit
 	 * initialization. It will be cheaper to zero all Y registers.
 	 */
-	$BeamOpNameArity(alloc, allocate_heap_zero, 3);
+	$BeamOpNameArity(alloc, i_allocate_heap_zero, 3);
     } else {
 	$BeamOpNameArity(alloc, allocate_heap, 3);
 	p = &alloc->next;

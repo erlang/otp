@@ -39,7 +39,7 @@ allocate_init(NeedStack, Live, Y) {
     make_blank($Y);
 }
 
-allocate_zero(NeedStack, Live) {
+i_allocate_zero(NeedStack, Live) {
     Eterm* ptr;
     int i = $NeedStack;
     $AH(i, 0, $Live);
@@ -48,7 +48,7 @@ allocate_zero(NeedStack, Live) {
     }
 }
 
-allocate_heap_zero(NeedStack, NeedHeap, Live) {
+i_allocate_heap_zero(NeedStack, NeedHeap, Live) {
     Eterm* ptr;
     int i = $NeedStack;
     $AH(i, $NeedHeap, $Live);
@@ -501,18 +501,18 @@ fast_element_group.execute(Fail, Index, Dst) {
     $BIF_ERROR_ARITY_2($Fail, BIF_element_2, make_small($Index), fast_element_tuple);
 }
 
-init(Y) {
+i_init(Y) {
     make_blank($Y);
 }
 
-init_seq3(Y1) {
+i_init_seq3(Y1) {
     Eterm* dst = &$Y1;
     make_blank(dst[0]);
     make_blank(dst[1]);
     make_blank(dst[2]);
 }
 
-init_seq4(Y1) {
+i_init_seq4(Y1) {
     Eterm* dst = &$Y1;
     make_blank(dst[0]);
     make_blank(dst[1]);
@@ -520,7 +520,7 @@ init_seq4(Y1) {
     make_blank(dst[3]);
 }
 
-init_seq5(Y1) {
+i_init_seq5(Y1) {
     Eterm* dst = &$Y1;
     make_blank(dst[0]);
     make_blank(dst[1]);
@@ -529,12 +529,12 @@ init_seq5(Y1) {
     make_blank(dst[4]);
 }
 
-init2(Y1, Y2) {
+i_init2(Y1, Y2) {
     make_blank($Y1);
     make_blank($Y2);
 }
 
-init3(Y1, Y2, Y3) {
+i_init3(Y1, Y2, Y3) {
     make_blank($Y1);
     make_blank($Y2);
     make_blank($Y3);

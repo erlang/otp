@@ -404,10 +404,6 @@ vi({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_freg_set(Src, Vst0),
     Vst = eat_heap_float(Vst0),
     create_term(#t_float{}, fmove, [], Dst, Vst);
-vi({kill,Reg}, Vst) ->
-    create_tag(initialized, kill, [], Reg, Vst);
-vi({init,Reg}, Vst) ->
-    create_tag(initialized, init, [], Reg, Vst);
 vi({init_yregs,{list,Yregs}}, Vst0) ->
     case ordsets:from_list(Yregs) of
         [] -> error(empty_list);
@@ -590,10 +586,6 @@ vi({allocate,Stk,Live}, Vst) ->
     allocate(uninitialized, Stk, 0, Live, Vst);
 vi({allocate_heap,Stk,Heap,Live}, Vst) ->
     allocate(uninitialized, Stk, Heap, Live, Vst);
-vi({allocate_zero,Stk,Live}, Vst) ->
-    allocate(initialized, Stk, 0, Live, Vst);
-vi({allocate_heap_zero,Stk,Heap,Live}, Vst) ->
-    allocate(initialized, Stk, Heap, Live, Vst);
 vi({deallocate,StkSize}, #vst{current=#st{numy=StkSize}}=Vst) ->
     verify_no_ct(Vst),
     deallocate(Vst);

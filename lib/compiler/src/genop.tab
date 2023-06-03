@@ -108,7 +108,7 @@ BEAM_FORMAT_NUMBER=0
 ##
 ##      OTP 24: This instruction has been superseded by allocate/2 followed
 ##      by init_yregs/1.
-14: allocate_zero/2
+14: -allocate_zero/2
 
 ## @spec allocate_heap_zero StackNeed HeapNeed Live
 ## @doc Allocate space for StackNeed words on the stack and HeapNeed words
@@ -119,7 +119,7 @@ BEAM_FORMAT_NUMBER=0
 ##
 ##      OTP 24: This instruction has been superseded by allocate_heap/2
 ##      followed by init_yregs/1.
-15: allocate_heap_zero/3
+15: -allocate_heap_zero/3
 
 ## @spec test_heap HeapNeed Live
 ## @doc Ensure there is space for HeapNeed words on the heap. If a GC is needed
@@ -130,7 +130,7 @@ BEAM_FORMAT_NUMBER=0
 ## @doc  Clear the Nth stack word. (By writing NIL.)
 ##
 ##       OTP 24: This instruction has been superseded by init_yregs/1.
-17: init/1
+17: -init/1
 
 ## @spec deallocate N
 ## @doc  Restore the continuation pointer (CP) from the stack and deallocate
@@ -400,8 +400,8 @@ BEAM_FORMAT_NUMBER=0
 # The fclearerror and fcheckerror instructions are not used in OTP 24
 # and later.
 #
-94: fclearerror/0
-95: fcheckerror/1
+94: -fclearerror/0
+95: -fcheckerror/1
 96: fmove/2
 97: fconv/2
 98: fadd/4
@@ -411,7 +411,7 @@ BEAM_FORMAT_NUMBER=0
 102: fnegate/3
 
 # New fun construction (R8).
-103: make_fun2/1
+103: -make_fun2/1
 
 # Try/catch/raise (R10B).
 104: try/2

@@ -32,34 +32,7 @@ FORBIDDEN_TYPES=h
 # instruction transformations; thus, they never occur in BEAM files.
 #
 
-# The too_old_compiler/0 instruction is specially handled in beam_load.c
-# to produce a user-friendly message informing the user that the module
-# needs to be re-compiled with a modern compiler.
-
-too_old_compiler/0
-too_old_compiler | never() => _
-
-# In R9C and earlier, the loader used to insert special instructions inside
-# the module_info/0,1 functions. (In R10B and later, the compiler inserts
-# an explicit call to an undocumented BIF, so that no loader trickery is
-# necessary.) Since the instructions don't work correctly in R12B, simply
-# refuse to load the module.
-
-func_info M=a a==am_module_info A=u==0 | label L | move n x==0 =>
-    too_old_compiler
-func_info M=a a==am_module_info A=u==1 | label L | move n x==0 =>
-    too_old_compiler
-
-# The undocumented and unsupported guard BIF is_constant/1 was removed
-# in R13. The is_constant/2 operation is marked as obsolete in genop.tab,
-# so the loader will automatically generate a too_old_compiler message
-# it is used, but we need to handle the is_constant/1 BIF specially here.
-
-bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
-
-#
-# All the other instructions.
-#
+func_info a a u | never() => _
 
 %cold
 label L
@@ -135,10 +108,10 @@ init_yregs N Yregs=* =>
 
 allocate t t?
 allocate_heap t I t?
-allocate_zero t t?
-allocate_heap_zero t I t?
+i_allocate_zero t t?
+i_allocate_heap_zero t I t?
 
-init y
+i_init y
 
 # This instruction when a BIF is called tail-recursively when
 # there is a stack frame.
@@ -153,21 +126,21 @@ i_trim t
 test_heap I t?
 
 allocate_heap S u==0 R => allocate S R
-allocate_heap_zero S u==0 R => allocate_zero S R
+i_allocate_heap_zero S u==0 R => i_allocate_zero S R
 
-init Y1 | init Y2 | init Y3 | succ(Y1,Y2) | succ(Y2,Y3) => init_seq3 Y1
-init_seq3 Y1 | init Y4 | succ3(Y1,Y4) => init_seq4 Y1
-init_seq4 Y1 | init Y5 | succ4(Y1,Y5) => init_seq5 Y1
+i_init Y1 | i_init Y2 | i_init Y3 | succ(Y1,Y2) | succ(Y2,Y3) => i_init_seq3 Y1
+i_init_seq3 Y1 | i_init Y4 | succ3(Y1,Y4) => i_init_seq4 Y1
+i_init_seq4 Y1 | i_init Y5 | succ4(Y1,Y5) => i_init_seq5 Y1
 
-init_seq3 y
-init_seq4 y
-init_seq5 y
+i_init_seq3 y
+i_init_seq4 y
+i_init_seq5 y
 
-init Y1 | init Y2 | init Y3 => init3 Y1 Y2 Y3
-init Y1 | init Y2 => init2 Y1 Y2
+i_init Y1 | i_init Y2 | i_init Y3 => i_init3 Y1 Y2 Y3
+i_init Y1 | i_init Y2 => i_init2 Y1 Y2
 
-init2 y y
-init3 y y y
+i_init2 y y
+i_init3 y y y
 
 # Selecting values.
 
@@ -391,7 +364,7 @@ move SD=y    D=x | move Src=x  SDOther=y  |
   equal(SD, SDOther) | distinct(D, Src) =>
     move_shift Src SD D
 
-move SD=y    D=x | init SDOther           |
+move SD=y    D=x | i_init SDOther           |
   equal(SD, SDOther) =>
      move_shift n   SD D
 
@@ -848,9 +821,9 @@ cold_is_function2 f? x x
 %hot
 hot_is_function2 f? S t
 
-# Allocating & initializing.
-allocate Need Regs | init Y => allocate_init Need Regs Y
-init Y1 | init Y2 => init2 Y1 Y2
+# Allocating & i_initializing.
+allocate Need Regs | i_init Y => allocate_init Need Regs Y
+i_init Y1 | i_init Y2 => i_init2 Y1 Y2
 
 allocate_init t t? y
 
@@ -1083,11 +1056,8 @@ call_fun2 Tag Arity Func => call_fun2(Tag, Arity, Func)
 
 #
 # A fun with an empty environment can be converted to a literal.
-# As a further optimization, the we try to move the fun to its
-# final destination directly.
+#
 
-make_fun2 OldIndex=u =>
-    make_fun2(OldIndex)
 make_fun3 OldIndex=u Dst=d NumFree=u Env=* =>
     make_fun3(OldIndex, Dst, NumFree, Env)
 
@@ -1497,13 +1467,6 @@ i_fmul l l l
 i_fdiv l l l
 i_fnegate l l
 
-#
-# FPE signals were disabled in OTP 21 and we don't intend to ever
-# enable them again.
-#
-fclearerror => _
-fcheckerror p => _
-
 %hot
 
 #
@@ -1691,16 +1654,6 @@ i_int_bnot Fail Src=c Dst => move Src x | i_int_bnot Fail x Dst
 i_int_bnot j? S d
 
 #
-# Old guard BIFs that creates heap fragments are no longer allowed.
-#
-bif1 Fail u$bif:erlang:length/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:size/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:abs/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:float/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:round/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
-
-#
 # Handle the length/1 guard BIF specially to make it trappable.
 #
 
@@ -1756,7 +1709,7 @@ raw_raise
 move C=aiq X=x==1 => move_x1 C
 move C=aiq X=x==2 => move_x2 C
 
-move n D=y => init D
+move n D=y => i_init D
 
 move_x1 c
 move_x2 c

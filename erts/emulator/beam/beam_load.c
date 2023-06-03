@@ -188,6 +188,26 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
                        "  (Use of opcode %d; this emulator supports "
                        "only up to %d.)",
                        stp->beam.code.max_opcode, MAX_GENERIC_OPCODE);
+    } else if (stp->beam.code.max_opcode < genop_swap_2) {
+        /*
+         * This BEAM file was produced by OTP 22 or earlier.
+         *
+         * We know that because OTP 23/24/25/26 artifically set the
+         * highest used op code to the op code for the `swap`
+         * instruction introduced in OTP 23. (OTP 27 artificially sets
+         * the highest op code to `make_fun3` introduced in OTP 24.)
+         *
+         * Old BEAM files produced by OTP R12 and earlier may be
+         * incompatible with the current runtime system. We used to
+         * reject such BEAM files using transformation rules that
+         * specifically targeted the known problematic constructs, but
+         * rejecting them this way is much easier.
+         */
+        BeamLoadError0(stp,
+                       "This BEAM file was compiled for an old version of "
+                       "the runtime system.\n"
+                       "  To fix this, please re-compile this module with "
+                       "Erlang/OTP 24 or later.\n");
     }
 
     if (!load_code(stp)) {
@@ -556,8 +576,6 @@ static int load_code(LoaderState* stp)
                  * error message.
                  */
                 switch (stp->genop->op) {
-                case genop_too_old_compiler_0:
-                    BeamLoadError0(stp, PLEASE_RECOMPILE);
                 case genop_unsupported_guard_bif_3:
                     {
                         Eterm Mod = (Eterm) stp->genop->a[0].val;

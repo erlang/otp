@@ -527,10 +527,6 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
     }
 }
 
-void BeamModuleAssembler::emit_init(const ArgYRegister &Dst) {
-    mov_arg(Dst, NIL);
-}
-
 void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
                                           const Span<ArgVal> &args) {
     unsigned count = Size.get();
@@ -2396,7 +2392,7 @@ void BeamModuleAssembler::emit_catch_end(const ArgYRegister &CatchTag) {
 
 void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
     a.dec(x86::qword_ptr(c_p, offsetof(Process, catches)));
-    emit_init(CatchTag);
+    mov_arg(CatchTag, NIL);
 }
 
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
