@@ -741,7 +741,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           must correspond to requests that have been made using
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa> or
           <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>,
-          and all request must have been made by the process calling this
+          and all requests must have been made by the process calling this
           function.
 	</p>
         <p>
@@ -997,7 +997,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           that have been made using
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa> or
           <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>,
-          and all request must have been made by the process calling this
+          and all requests must have been made by the process calling this
           function.
 	</p>
         <p>
@@ -1426,7 +1426,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           that have been made using
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa> or
           <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>,
-          and all request must have been made by the process calling this
+          and all requests must have been made by the process calling this
           function.
 	</p>
         <p>
@@ -1463,7 +1463,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  The difference between
           <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>
 	  and <c>wait_response/3</c> is that <c>receive_response/3</c>
-	  abandons requests at timeout so that a potential future
+	  abandons requests at timeout so that potential future
 	  responses are ignored, while <c>wait_response/3</c> does not.
 	</p>
         <p>
