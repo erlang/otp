@@ -302,10 +302,8 @@ in the snmp_config file!
 	{req_limit,        req_limit()} |
 	{filter,           agent_net_if_filter_options()} |
 	{open_err_filters, agent_net_if_open_err_filters()} |
-	{extra_sock_opts,
-	<seeguide marker="#extra_sock_opts">extra_socket_options()</seeguide>} |
-	{inet_backend,
-	<seeguide marker="#inet_backend">inet_backend()</seeguide>}</c></p>
+	{extra_sock_opts,  extra_socket_options()} |
+	{inet_backend,     inet_backend()}</c></p>
 	<p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>agent_net_if_module()</c>.</p>
@@ -826,10 +824,8 @@ in the snmp_config file!
 	{recbuf,          recbuf()}     | 
 	{no_reuse,        no_reuse()}   |
 	{filter,          manager_net_if_filter_options()} |
-	{extra_sock_opts,
-	<seeguide marker="#extra_sock_opts">extra_socket_options()</seeguide>}} |
-	{inet_backend,
-	<seeguide marker="#inet_backend">inet_backend()</seeguide>}</c></p>
+	{extra_sock_opts, extra_socket_options()}} |
+	{inet_backend,    inet_backend()}</c></p>
         <p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>manager_net_if_module()</c>.</p>
