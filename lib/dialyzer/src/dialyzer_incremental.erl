@@ -81,25 +81,30 @@ start_report_modules_changed_and_analyzed( #options{analysis_type = incremental}
     case dialyzer_iplt:check_incremental_plt(InitPlt, Opts1, Files) of
         {ok, #iplt_info{files = Md5, warning_map = none}, ModuleToPathLookup} ->
             report_no_stored_warnings(Opts1, Md5),
+            halt_on_dry_run(Options),
             PltInfo = #iplt_info{files = Md5, legal_warnings = LegalWarnings},
             write_module_to_path_lookup(Opts1, ModuleToPathLookup),
             enrich_with_modules_changed(do_analysis(maps:values(ModuleToPathLookup), Opts1, dialyzer_plt:new(), PltInfo), []);
         {ok, #iplt_info{warning_map=WarningMap, files = Md5}, ModuleToPathLookup} ->
             report_stored_warnings_no_changes(Opts1, Md5),
+            halt_on_dry_run(Options),
             write_module_to_path_lookup(Opts1, ModuleToPathLookup),
             enrich_with_modules_changed(return_existing_errors(Opts1, WarningMap), []);
         {old_version, Md5, ModuleToPathLookup} ->
             report_different_plt_version(Opts1, Md5),
+            halt_on_dry_run(Options),
             PltInfo = #iplt_info{files = Md5, legal_warnings = LegalWarnings},
             write_module_to_path_lookup(Opts1, ModuleToPathLookup),
             enrich_with_modules_changed(do_analysis(maps:values(ModuleToPathLookup), Opts1, dialyzer_plt:new(), PltInfo), undefined);
         {new_file, Md5, ModuleToPathLookup} ->
             report_new_plt_file(Opts1, InitPlt, Md5),
+            halt_on_dry_run(Options),
             PltInfo = #iplt_info{files = Md5, legal_warnings = LegalWarnings},
             write_module_to_path_lookup(Opts1, ModuleToPathLookup),
             enrich_with_modules_changed(do_analysis(maps:values(ModuleToPathLookup), Opts1, dialyzer_plt:new(), PltInfo), undefined);
         {differ, Md5, _DiffMd5, _ModDeps, none, ModuleToPathLookup} ->
             report_no_stored_warnings(Opts1, Md5),
+            halt_on_dry_run(Options),
             PltInfo = #iplt_info{files = Md5, legal_warnings = LegalWarnings},
             AllFiles = maps:values(ModuleToPathLookup),
             write_module_to_path_lookup(Opts1, ModuleToPathLookup),
@@ -122,16 +127,19 @@ start_report_modules_changed_and_analyzed( #options{analysis_type = incremental}
                 true ->
                     %% Only removed stuff that's unused. Just write the PLT.
                     report_stored_warnings_only_safe_removals(Opts1, Md5, DiffMd5),
+                    halt_on_dry_run(Options),
                     dialyzer_iplt:to_file(Opts1#options.output_plt, Plt, ModDepsInRemainingPlt, PltInfo),
                     write_module_to_path_lookup(Opts1, ModuleToPathLookup),
                     enrich_with_modules_changed(return_existing_errors(Opts1, WarningsInRemainingPlt), ChangedOrRemovedMods);
                 false ->
                     report_degree_of_incrementality(Opts1, Md5, DiffMd5, AnalFiles),
+                    halt_on_dry_run(Options),
                     write_module_to_path_lookup(Opts1, ModuleToPathLookup),
                     enrich_with_modules_changed(do_analysis(AnalFiles, Opts1, Plt, PltInfo), ChangedOrRemovedMods)
             end;
         {legal_warnings_changed, Md5, ModuleToPathLookup} ->
             report_change_in_legal_warnings(Opts1, Md5),
+            halt_on_dry_run(Options),
             PltInfo = #iplt_info{files = Md5, legal_warnings = LegalWarnings},
             AllFiles = maps:values(ModuleToPathLookup),
             write_module_to_path_lookup(Opts1, ModuleToPathLookup),
@@ -154,6 +162,11 @@ enrich_with_modules_changed({{Ret,Warns}, Analyzed}, Changed) ->
 
 default_plt_error_msg() ->
     "Remove the broken PLT file or point to the correct location.\n".
+
+halt_on_dry_run(#options{dry_run = false}) ->
+  ok;
+halt_on_dry_run(#options{dry_run = true}) ->
+  halt(?RET_NOTHING_SUSPICIOUS).
 
 init_opts_for_incremental(Opts) ->
   InitPlt =

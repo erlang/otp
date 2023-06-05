@@ -222,6 +222,11 @@ cli() ->
                         "modules considered, how many modules were changed since the PLT was "
                         "last updated, how many modules needed to be analyzed) to a file. This "
                         "can be useful for tracking and debugging Dialyzer's incrementality.">>},
+            #{name => dry_run, long => "-dry_run", type => boolean,
+                help => <<"Perform initial setup stages, including reading the PLT and checking "
+                          "which modules will need to be analysed, then exit before running the full "
+                          "analysis. Useful for checking the expected size of the analysis, etc. "
+                          "Only valid in incremental mode.">>},
             #{name => warning_files_rec, long => "-warning_apps", type => {custom, fun parse_app/1},
                 nargs => list, action => extend,
                 help => <<"By default, warnings will be reported to all applications given by "

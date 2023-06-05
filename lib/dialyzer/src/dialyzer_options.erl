@@ -104,6 +104,7 @@ postprocess_opts(Opts = #options{}) ->
     end,
   check_file_existence(Opts1),
   check_metrics_file_validity(Opts1),
+  check_dry_run_validity(Opts1),
   check_module_lookup_file_validity(Opts1),
   Opts2 = check_output_plt(Opts1),
   check_init_plt_kind(Opts2),
@@ -118,6 +119,13 @@ check_metrics_file_validity(#options{analysis_type = _NotIncremental, metrics_fi
   ok;
 check_metrics_file_validity(#options{analysis_type = _NotIncremental, metrics_file = FileName}) ->
   bad_option("A metrics filename may only be given when in incremental mode", {metrics_file, FileName}).
+
+check_dry_run_validity(#options{analysis_type = incremental}) ->
+  ok;
+check_dry_run_validity(#options{analysis_type = _NotIncremental, dry_run = false}) ->
+  ok;
+check_dry_run_validity(#options{analysis_type = _NotIncremental, dry_run = true}) ->
+  bad_option("The dry_run flag may only be given when in incremental mode", {dry_run, true}).
 
 check_module_lookup_file_validity(#options{analysis_type = incremental, module_lookup_file = none}) ->
   ok;
@@ -337,6 +345,8 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     metrics_file ->
       assert_filename(Value),
       build_options(Rest, Options#options{metrics_file = Value});
+    dry_run when is_boolean(Value) ->
+      build_options(Rest, Options#options{dry_run = Value});
     module_lookup_file ->
       assert_filename(Value),
       build_options(Rest, Options#options{module_lookup_file = Value});
