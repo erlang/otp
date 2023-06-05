@@ -212,6 +212,10 @@ static int tty_get_fd(ErlNifEnv *env, ERL_NIF_TERM atom, int *fd) {
 
 static ERL_NIF_TERM isatty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     int fd;
+#ifdef __WIN32__
+    TTYResource *tty;
+#endif
+
     if (tty_get_fd(env, argv[0], &fd)) {
         if (isatty(fd)) {
             return atom_true;
@@ -221,7 +225,18 @@ static ERL_NIF_TERM isatty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             return atom_ebadf;
         }
     }
+
+#ifdef __WIN32__
+    if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
+        return enif_make_badarg(env);
+    if (tty->tty && tty->dwInMode)
+        return atom_true;
+    else
+        return atom_false;
+#else
     return enif_make_badarg(env);
+#endif
+
 }
 
 static ERL_NIF_TERM isprint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -353,7 +368,7 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         return enif_make_badarg(env);
 
 #ifdef __WIN32__
-    if (tty->dwInMode) {
+    if (tty->tty && tty->dwInMode) {
         ssize_t inputs_read, num_characters = 0;
         wchar_t *characters = NULL;
         INPUT_RECORD inputs[128];
