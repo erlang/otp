@@ -26,7 +26,11 @@ main([Repo, Target]) ->
                   false ->
                       cmd("rm -rf " ++ filename:join(Target,PRNo))
               end
-      end, AllPrs);
+      end, AllPrs),
+
+    purge_prs(Target).
+
+
 main([Repo, Target, PRNo]) ->
     handle_prs(Repo, Target, [ghapi("gh api /repos/"++Repo++"/pulls/"++PRNo)]).
 
@@ -153,6 +157,32 @@ purge_suite(SuiteFilePath) ->
                       end
               end, filelib:wildcard(filename:join(SuiteDir,"*.html")))
     end.
+
+%% If we have more the 10 GB of PR data we need to remove some otherwise
+%% github actions will not work them. So we purge the largest files until we
+%% reach the 10 GB limit.
+purge_prs(Target) ->
+    Files = string:split(cmd("find prs -type f -exec du -a {} \+"),"\n",all),
+    SortedFiles =
+        lists:sort(fun([A|_]=As,[B|_]=Bs) ->
+                           try
+                               binary_to_integer(A) >= binary_to_integer(B)
+                           catch E:R ->
+                                   io:format("~p  ~p",[As, Bs]),
+                                   false
+                           end
+                   end, [string:split(F,"\t") || F <- Files, F =/= <<>>]),
+    purge_prs(SortedFiles, Target, get_directory_size(Target)).
+purge_prs(Files, Target, Size) when Size > 10_000_000_000 ->
+    {H,T} = lists:split(10, Files),
+    [file:write_file(File, "Large file truncated by github") || [_Sz, File] <- H],
+    purge_prs(T, Target, get_directory_size(Target));
+purge_prs(_, _, _) ->
+    ok.
+
+get_directory_size(Dir) ->
+    binary_to_integer(hd(string:split(cmd("du -b --max-depth=0 " ++ Dir),"\t"))).
+
 
 ghapi(CMD) ->
     decode(cmd(CMD)).
