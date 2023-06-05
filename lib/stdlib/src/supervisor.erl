@@ -716,6 +716,8 @@ handle_start_child(Child, State) ->
 		    {{ok, Pid}, save_child(Child#child{pid = Pid}, State)};
 		{ok, Pid, Extra} ->
 		    {{ok, Pid, Extra}, save_child(Child#child{pid = Pid}, State)};
+		{error, {already_started, _Pid} = What} ->
+		    {{error, What}, State};
 		{error, What} ->
 		    {{error, {What, Child}}, State}
 	    end;

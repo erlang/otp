@@ -30,7 +30,7 @@
 
 %% Internal export
 -export([init/1, terminate_all_children/1,
-         middle9212/0, gen_server9212/0, handle_info/2]).
+         middle9212/0, gen_server9212/0, handle_info/2, start_registered_name/1]).
 
 %% API tests
 -export([ sup_start_normal/1, sup_start_ignore_init/1, 
@@ -90,7 +90,7 @@
 	 hanging_restart_loop_simple/1, code_change/1, code_change_map/1,
 	 code_change_simple/1, code_change_simple_map/1,
          order_of_children/1, scale_start_stop_many_children/1,
-         format_log_1/1, format_log_2/1]).
+         format_log_1/1, format_log_2/1, already_started_outside_supervisor/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -119,7 +119,7 @@ all() ->
      hanging_restart_loop_rest_for_one, hanging_restart_loop_simple,
      code_change, code_change_map, code_change_simple, code_change_simple_map,
      order_of_children, scale_start_stop_many_children,
-     format_log_1, format_log_2].
+     format_log_1, format_log_2, already_started_outside_supervisor].
 
 groups() -> 
     [{sup_start, [],
@@ -3677,6 +3677,31 @@ significant_upgrade_child(_Config) ->
 
     ok.
 
+%% Test trying to start a child that uses an already registered name.
+already_started_outside_supervisor(_Config) ->
+    %% Avoid inter-testcase flakiness
+    ensure_supervisor_is_stopped(),
+    process_flag(trap_exit, true),
+    {ok, SupPid} = start_link({ok, {#{}, []}}),
+    RegName = registered_name,
+    Child = #{id => child,
+	      start => {?MODULE, start_registered_name, [RegName]},
+	      restart => transient,
+	      significant => false},
+    %% We start another process and register the name.
+    Pid = spawn_link(fun() ->
+                             true = register(RegName, self()),
+                             receive
+                                 die -> ok
+                             end
+                     end),
+    {error, {already_started, P}} = supervisor:start_child(SupPid, Child),
+    Pid = P,
+    terminate(SupPid, shutdown),
+    Pid ! die,
+    ok = check_exit([SupPid]),
+    ok.
+
 %%-------------------------------------------------------------------------
 terminate(Pid, Reason) when Reason =/= supervisor ->
     terminate(dummy, Pid, dummy, Reason).
@@ -3768,4 +3793,15 @@ check_no_exit(Timeout) ->
             ct:fail({unexpected_message, Exit})
     after Timeout ->
             ok
+    end.
+
+start_registered_name(Name) ->
+    supervisor:start_link({local, Name}, ?MODULE, []).
+
+ensure_supervisor_is_stopped() ->
+    case whereis(sup_test) of
+        undefined ->
+            ok;
+        Pid ->
+            terminate(Pid, shutdown)
     end.
