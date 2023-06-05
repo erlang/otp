@@ -32,6 +32,44 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.27.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> New options to <c>xmerl_scan</c> and
+	    <c>xmerl_sax_parser</c> so one can limit the behaviour of
+	    the parsers to avoid some XML security issues. </p> <p>
+	    <c>xmerl_scan</c> gets one new option: </p> <taglist>
+	    <tag><c>{allow_entities, Boolean}</c></tag> <item>Gives
+	    the possibility to disallow entities by setting this
+	    option to false (<c>true</c> is default)</item>
+	    </taglist> <p> <c>xmerl_sax_parser</c> gets the following
+	    options: </p> <taglist>
+	    <tag><c>disallow_entities</c></tag> <item>Don't allow
+	    entities in document</item>
+	    <tag><c>{entity_recurse_limit, N}</c></tag> <item>Set a
+	    limit on entity recursion depth (default is 3)</item>
+	    <tag><c>{external_entities, AllowedType}</c></tag>
+	    <item>Specify which types of external entities that are
+	    allowed, this also affect external DTD's. The types are
+	    <c>all</c>(default), <c>file</c> and <c>none</c></item>
+	    <tag><c>{fail_undeclared_ref, Boolean}</c></tag>
+	    <item>Sets the behavior for undeclared references due to
+	    an external file is not parsed (<c>true</c> is
+	    default)</item> </taglist> <p> The old option
+	    <c>skip_external_dtd</c> is still valid and the same as
+	    <c>{external_entities, none}</c> and
+	    <c>{fail_undeclared_ref, false}</c> but just affects
+	    DTD's and not other external references. </p>
+          <p>
+	    Own Id: OTP-18595 Aux Id: ERIERL-944 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.27</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
