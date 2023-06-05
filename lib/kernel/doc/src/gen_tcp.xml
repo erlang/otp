@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2022</year>
+      <year>1997</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -127,7 +127,7 @@ do_recv(Sock, Bs) ->
 	A send operation will detect a remote close and immediately
 	return this to the caller, but do nothing else.
 	A reader will therefore be able to extract any data from the OS buffers.
-	If the socket is set to <c>active</c> to not <c>false</c>, the data
+	If the socket is set to <c>active</c> not <c>false</c>, the data
 	will be received as expected (<c>{tcp, ...}</c> and then a closed
 	message (<c>{tcp_closed, ...}</c> will be received (not an error). </p>
 	</item>
@@ -166,6 +166,15 @@ do_recv(Sock, Bs) ->
 	  unlike for a socket created with <c>inet_backend = inet</c>.</p>
 	  <p>See <seeerl marker="#async_shutdown_write">async shutdown write</seeerl>
 	  for more info. </p>
+	</item>
+
+	<item>
+	  <p>Windows require sockets (domain = <c>inet | inet6</c>)
+	  to be bound.</p>
+	  <p><em>Currently</em> all sockets created on Windows with
+	  <c>inet_backend = socket</c> will be bound.
+	  If the user does not provide an address, gen_tcp will try to
+	  'figure out' an address itself. </p>
 	</item>
       </list>
     </note>
