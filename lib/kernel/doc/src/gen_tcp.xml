@@ -539,9 +539,10 @@ do_recv(Sock, Bs) ->
       in ERTS.
       </type_desc>
       <desc>
-        <p>Receives a packet from a socket in passive
+        <p>Receives a packet from a socket in <em>passive</em>
           mode. A closed socket is indicated by return value
-          <c>{error, closed}</c>.</p>
+          <c>{error, closed}</c>. If the socket is not in passive mode,
+          the return value is <c>{error, einval}</c>.</p>
         <p>Argument <c><anno>Length</anno></c> is only meaningful when
           the socket is in <c>raw</c> mode and denotes the number of
           bytes to read. If <c><anno>Length</anno></c> is <c>0</c>, all
@@ -552,6 +553,12 @@ do_recv(Sock, Bs) ->
           data when the socket is closed from the other side.</p>
         <p>The optional <c><anno>Timeout</anno></c> parameter specifies a
           time-out in milliseconds. Defaults to <c>infinity</c>.</p>
+        <p>Any process can receive data from a passive socket, even if that
+          process is not the controlling process of the socket. However,
+          only one process can call this function on a socket at any given time.
+          Using simultaneous calls to <c>recv</c> is not recommended as its behavior
+          is dependent on the socket implementation, and could return errors
+          such as <c>{error, ealready}</c>.</p>
       </desc>
     </func>
 
