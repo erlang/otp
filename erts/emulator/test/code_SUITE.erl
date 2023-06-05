@@ -26,6 +26,7 @@
          call_purged_fun_code_gone/1,
          call_purged_fun_code_reload/1,
          call_purged_fun_code_there/1,
+         call_purged_fun_code_altered/1,
          multi_proc_purge/1, t_check_old_code/1,
          external_fun/1,get_chunk/1,module_md5/1,
          constant_pools/1,constant_refc_binaries/1,
@@ -47,6 +48,7 @@ all() ->
      bad_beam_file, literal_leak,
      call_purged_fun_code_gone,
      call_purged_fun_code_reload, call_purged_fun_code_there,
+     call_purged_fun_code_altered,
      multi_proc_purge, t_check_old_code, external_fun, get_chunk,
      module_md5,
      constant_pools, constant_refc_binaries, fake_literals,
@@ -250,6 +252,18 @@ call_purged_fun_code_there_test(Config) when is_list(Config) ->
     call_purged_fun_test(Priv, Data, code_there),
     ok.
 
+%% GH-7288: calling a fun defined by a module that had been purged after
+%% loading a different version of the same module (and therefore did not
+%% inherit the old fun entries) could cause the emulator to crash.
+call_purged_fun_code_altered(Config) when is_list(Config) ->
+    run_sys_proc_test(fun call_purged_fun_code_altered_test/1, Config).
+
+call_purged_fun_code_altered_test(Config) when is_list(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    call_purged_fun_test(Priv, Data, code_altered),
+    ok.
+
 call_purged_fun_test(Priv, Data, Type) ->
     SrcFile = filename:join(Data, "call_purged_fun_tester.erl"),
     ObjFile = filename:join(Priv, "call_purged_fun_tester.beam"),
@@ -257,7 +271,6 @@ call_purged_fun_test(Priv, Data, Type) ->
     {module,Mod} = code:load_binary(Mod, ObjFile, Code),
 
     call_purged_fun_tester:do(Priv, Data, Type, []).
-
 
 multi_proc_purge(Config) when is_list(Config) ->
     run_sys_proc_test(fun multi_proc_purge_test/1, Config).

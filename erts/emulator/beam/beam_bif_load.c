@@ -1948,21 +1948,14 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
                 purge_state.module = BIF_ARG_1;
                 erts_mtx_unlock(&purge_state.mtx);
 
-                /* Because fun calls always land in the latest instance, there
-                 * is no need to set up purge markers if there's current code
-                 * for this module. */
-                if (!modp->curr.code_hdr) {
-                    /* Set up "pending purge" markers for the funs in this
-                     * module. Processes trying to call these funs will be
-                     * suspended _before_ calling them, which will then either
-                     * crash or succeed when resumed after the purge finishes
-                     * or is aborted.
-                     *
-                     * This guarantees that we won't get any more direct
-                     * references into the code while checking for such
-                     * funs. */
-                    erts_fun_purge_prepare(&modp->old);
-                }
+                /* Set up "pending purge" markers for the funs in this module.
+                 * Processes trying to call these funs will be suspended
+                 * _before_ calling them, which will then either crash or
+                 * succeed when resumed after the purge finishes or is aborted.
+                 *
+                 * This guarantees that we won't get any more direct references
+                 * into the code while checking for such funs. */
+                erts_fun_purge_prepare(&modp->old);
 
                 res = am_true;
             }
