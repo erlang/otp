@@ -161,7 +161,7 @@ purge_suite(SuiteFilePath) ->
 %% github actions will not work them. So we purge the largest files until we
 %% reach the 10 GB limit.
 purge_prs(Target) ->
-    Files = string:split(cmd("find prs -type f -exec du -a {} \+"),"\n",all),
+    Files = string:split(cmd("find " ++ Target ++ " -type f -exec du -a {} \+"),"\n",all),
     SortedFiles =
         lists:sort(fun([A|_]=As,[B|_]=Bs) ->
                                binary_to_integer(A) >= binary_to_integer(B)
