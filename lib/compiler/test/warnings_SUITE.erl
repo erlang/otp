@@ -99,8 +99,7 @@ pattern(Config) when is_list(Config) ->
 	   [warn_unused_vars],
 	   {warnings,
 	    [{2,v3_core,nomatch},
-	     {6,v3_core,nomatch},
-	     {11,v3_core,nomatch} ] }}],
+	     {6,v3_core,nomatch} ] }}],
     [] = run(Config, Ts),
     ok.
 
