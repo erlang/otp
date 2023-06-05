@@ -28,8 +28,7 @@ main([Repo, Target]) ->
               end
       end, AllPrs),
 
-    purge_prs(Target).
-
+    purge_prs(Target);
 
 main([Repo, Target, PRNo]) ->
     handle_prs(Repo, Target, [ghapi("gh api /repos/"++Repo++"/pulls/"++PRNo)]).
@@ -165,12 +164,7 @@ purge_prs(Target) ->
     Files = string:split(cmd("find prs -type f -exec du -a {} \+"),"\n",all),
     SortedFiles =
         lists:sort(fun([A|_]=As,[B|_]=Bs) ->
-                           try
                                binary_to_integer(A) >= binary_to_integer(B)
-                           catch E:R ->
-                                   io:format("~p  ~p",[As, Bs]),
-                                   false
-                           end
                    end, [string:split(F,"\t") || F <- Files, F =/= <<>>]),
     purge_prs(SortedFiles, Target, get_directory_size(Target)).
 purge_prs(Files, Target, Size) when Size > 10_000_000_000 ->
