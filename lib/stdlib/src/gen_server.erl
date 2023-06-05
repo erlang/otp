@@ -247,10 +247,10 @@
 %%% -----------------------------------------------------------------
 
 -type server_name() :: % Duplicate of gen:emgr_name()
-        proc_lib:sup_name().
+        proc_lib:process_name().
 
 % What gen:call/3,4 and gen:stop/1,3 accepts
--type server_ref() :: proc_lib:sup_ref().
+-type server_ref() :: proc_lib:process_ref().
 
 % Duplicate of gen:option()
 -type start_opt() :: proc_lib:option().

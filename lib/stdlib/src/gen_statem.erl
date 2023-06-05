@@ -546,10 +546,10 @@ event_type(Type) ->
 %%%==========================================================================
 %%% API
 
--type server_name() :: proc_lib:sup_name().
+-type server_name() :: proc_lib:process_name().
 
 % What gen:call/3,4 and gen:stop/1,3 accepts
--type server_ref() :: proc_lib:sup_ref().
+-type server_ref() :: proc_lib:process_ref().
 
 % Some gen:option()s works for enter_loop/*
 -type enter_loop_opt() :: proc_lib:enter_loop_opt().

@@ -146,7 +146,7 @@ gen_event:stop             ----->  Module:terminate/2
     </datatype>
 
     <datatype>
-      <name name="sup_name"/>
+      <name name="process_name"/>
     </datatype>
     
     <datatype>

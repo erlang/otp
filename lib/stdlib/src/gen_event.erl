@@ -63,7 +63,7 @@
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
               del_handler_ret/0, request_id/0, request_id_collection/0,
-              response_timeout/0, format_status/0, sup_ref/0, sup_name/0]).
+              response_timeout/0, format_status/0, sup_ref/0, process_name/0]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
@@ -142,9 +142,9 @@
 -type add_handler_ret()  :: ok | term() | {'EXIT',term()}.
 -type del_handler_ret()  :: ok | term() | {'EXIT',term()}.
 
--type sup_name() :: proc_lib:sup_name().
+-type process_name() :: proc_lib:process_name().
 -type option() :: proc_lib:option().
--type sup_ref()  :: proc_lib:sup_ref().
+-type sup_ref()  :: proc_lib:process_ref().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 -type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
 
@@ -180,13 +180,13 @@
 start() ->
     gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
 
--spec start(sup_name() | [option()]) -> start_ret().
+-spec start(process_name() | [option()]) -> start_ret().
 start(Name) when is_tuple(Name) ->
     gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []);
 start(Options) when is_list(Options) ->
     gen:start(?MODULE, nolink, ?NO_CALLBACK, [], Options).
 
--spec start(sup_name(), [option()]) -> start_ret().
+-spec start(process_name(), [option()]) -> start_ret().
 start(Name, Options) ->
     gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], Options).
 
@@ -194,13 +194,13 @@ start(Name, Options) ->
 start_link() ->
     gen:start(?MODULE, link, ?NO_CALLBACK, [], []).
 
--spec start_link(sup_name() | [option()]) -> start_ret().
+-spec start_link(process_name() | [option()]) -> start_ret().
 start_link(Name) when is_tuple(Name) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []);
 start_link(Options) when is_list(Options) ->
     gen:start(?MODULE, link, ?NO_CALLBACK, [], Options).
 
--spec start_link(sup_name(), [option()]) -> start_ret().
+-spec start_link(process_name(), [option()]) -> start_ret().
 start_link(Name, Options) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options).
 
@@ -208,17 +208,17 @@ start_link(Name, Options) ->
 start_monitor() ->
     gen:start(?MODULE, monitor, ?NO_CALLBACK, [], []).
 
--spec start_monitor(sup_name() | [option()]) -> start_mon_ret().
+-spec start_monitor(process_name() | [option()]) -> start_mon_ret().
 start_monitor(Name) when is_tuple(Name) ->
     gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
 start_monitor(Options) when is_list(Options) ->
     gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options).
 
--spec start_monitor(sup_name(), [option()]) -> start_mon_ret().
+-spec start_monitor(process_name(), [option()]) -> start_mon_ret().
 start_monitor(Name, Options) ->
     gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options).
 
-%% -spec init_it(pid(), 'self' | pid(), sup_name(), module(), [term()], [_]) ->
+%% -spec init_it(pid(), 'self' | pid(), process_name(), module(), [term()], [_]) ->
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, _, _, Options) ->

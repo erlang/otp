@@ -43,7 +43,7 @@
 -export_type([spawn_option/0]).
 -export_type([start_spawn_option/0]).
 
--export_type([sup_name/0, sup_ref/0, option/0, debug/0, enter_loop_opt/0]).
+-export_type([process_name/0, process_ref/0, option/0, debug/0, enter_loop_opt/0]).
 
 -include("logger.hrl").
 
@@ -86,11 +86,11 @@
 %%-----------------------------------------------------------------------------
 %%-----------------------------------------------------------------------------
 
--type sup_name()      :: {'local', Name :: atom()}
+-type process_name()   :: {'local', Name :: atom()}
                        | {'global', Name :: term()}
                        | {'via', Module :: module(), Name :: any()}.
 
--type sup_ref()       :: (Name :: atom())
+-type process_ref()    :: (Name :: atom())
                        | {Name :: atom(), Node :: node()}
                        | {'global', Name :: term()}
                        | {'via', Module :: module(), Name :: any()}

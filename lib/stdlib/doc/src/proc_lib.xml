@@ -97,10 +97,10 @@
       <name name="dict_or_pid"/>
     </datatype>
     <datatype>
-      <name name="sup_name"/>
+      <name name="process_name"/>
     </datatype>
     <datatype>
-      <name name="sup_ref"/>
+      <name name="process_ref"/>
     </datatype>
     <datatype>
       <name name="option"/>

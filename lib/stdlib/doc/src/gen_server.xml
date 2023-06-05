@@ -133,7 +133,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           <seemfa marker="#enter_loop/3"><c>enter_loop/3,4,5</c></seemfa>,
           and the type
 	  <seetype marker="#server_ref"><c>server_ref()</c></seetype>
-	  is an alias to <seetype marker="stdlib:supervisor#sup_name"><c>supervisor:sup_name()</c></seetype>.
+	  is an alias to <seetype marker="stdlib:supervisor#sup_name"><c>supervisor:process_name()</c></seetype>.
         </p>
         <taglist>
           <tag><c>{local,LocalName}</c></tag>

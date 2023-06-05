@@ -71,8 +71,8 @@
 -type significant()   :: boolean().
 -type shutdown()      :: 'brutal_kill' | timeout().
 -type worker()        :: 'worker' | 'supervisor'.
--type sup_name()      :: proc_lib:sup_name().
--type sup_ref()       :: proc_lib:sup_ref().
+-type sup_name()      :: proc_lib:process_name().
+-type sup_ref()       :: proc_lib:process_ref().
 -type child_spec()    :: #{id := child_id(),             % mandatory
 			   start := mfargs(),            % mandatory
 			   restart => restart(),         % optional
