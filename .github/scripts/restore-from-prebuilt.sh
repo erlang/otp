@@ -33,7 +33,7 @@ if [ -z "${CONFIGURE}" ] || [ "${CONFIGURE}" = "false" ]; then
 fi
 
 ## If bootstrap has been changed, we do not use the cached .beam files
-EXCLUDE_BOOTSTRAP=""
+EXCLUDE_BOOTSTRAP=()
 if [ "${BOOTSTRAP}" = "true" ]; then
     find "${CACHE_DIR}/otp/lib" -name "*.beam" -exec rm -f {} \;
 else
