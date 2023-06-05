@@ -58,11 +58,11 @@ non_local_allowed(_,_,State) ->
 -spec start_interactive() -> ok | {error, already_started}.
 start_interactive() ->
     user_drv:start_shell().
--spec start_interactive(noshell | mfa()) ->
+-spec start_interactive(noshell | {module(), atom(), [term()]}) ->
           ok | {error, already_started};
                        ({remote, string()}) ->
           ok | {error, already_started | noconnection};
-                       ({node(), mfa()} | {remote, string(), mfa()}) ->
+                       ({node(), {module(), atom(), [term()]}} | {remote, string(), {module(), atom(), [term()]}}) ->
           ok | {error, already_started | noconnection | badfile | nofile | on_load_failure}.
 start_interactive({Node, {M, F, A}}) ->
     user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
