@@ -69,20 +69,28 @@ init_tool(Config) ->
 	{ok,ToolModule} ->
             case code:where_is_file(lists:concat([ToolModule,".beam"])) of
                 non_existing ->
-                    ct:log("Found ~p, but ~tp~n is not found",
+                    ct:log("Found ~p, but ~ts was not found",
                            [ToolModule, lists:concat([ToolModule,".beam"])]),
                     {skip, "Strange Property testing tool installation"};
                 ToolPath ->
-                    ct:pal("Found property tester ~p~n"
-                           "at ~tp",
+                    ct:pal("Found property tester ~p at ~ts",
                            [ToolModule, ToolPath]),
+                    init_tool_extensions(ToolModule),
                     [{property_test_tool, ToolModule} | Config]
             end;
         not_found ->
             ct:pal("No property tester found",[]),
             {skip, "No property testing tool found"}
     end.
-	
+
+init_tool_extensions(proper) ->
+    ProperExtDir = code:lib_dir(common_test, proper_ext),
+    true = code:add_patha(ProperExtDir),
+    ct:pal("Added ~ts to code path~n", [ProperExtDir]),
+    ok;
+init_tool_extensions(_) ->
+    ok.
+
 %%%----------------------------------------------------------------
 %%%
 %%% Call the found property tester (if any)
