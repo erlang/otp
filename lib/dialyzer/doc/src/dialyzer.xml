@@ -35,7 +35,7 @@
   <description>
     <p>Dialyzer is a static analysis tool that identifies software
       discrepancies, such as definite type errors, code that has become dead
-      or unreachable because of programming error, and unnecessary tests,
+      or unreachable because of programming errors, and unnecessary tests,
       in single Erlang modules or entire (sets of) applications.</p>
 
     <p>Dialyzer starts its analysis from either
