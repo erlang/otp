@@ -740,14 +740,10 @@ aa_bif(Dst, element, [#b_literal{},Tuple], SS, _AAS) ->
     aa_set_aliased([Dst,Tuple], SS);
 aa_bif(Dst, element, [#b_var{},Tuple], SS, _AAS) ->
     aa_set_aliased([Dst,Tuple], SS);
-aa_bif(Dst, hd, Args, SS, AAS) ->
-    %% If we extract a value and the aggregate dies and wasn't aliased,
-    %% we should not consider this an aliasing operation.
-    aa_alias_if_args_dont_die(Args, Dst, SS, AAS);
-aa_bif(Dst, tl, Args, SS, AAS) ->
-    %% If we extract a value and the aggregate dies and wasn't aliased,
-    %% we should not consider this an aliasing operation.
-    aa_alias_if_args_dont_die(Args, Dst, SS, AAS);
+aa_bif(Dst, hd, [Pair], SS, _AAS) ->
+    aa_pair_extraction(Dst, Pair, hd, SS);
+aa_bif(Dst, tl, [Pair], SS, _AAS) ->
+    aa_pair_extraction(Dst, Pair, tl, SS);
 aa_bif(Dst, map_get, [_Key,Map], SS, AAS) ->
     aa_map_extraction(Dst, Map, SS, AAS);
 aa_bif(Dst, Bif, Args, SS, _AAS) ->

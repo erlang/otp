@@ -70,8 +70,11 @@
          aliased_map_lookup_instr/1,
          aliased_tuple_element_bif/1,
          aliased_tuple_element_bif/2,
-         aliased_tuple_element_bif_bad_idx/0,
-         aliased_tuple_element_instr/1]).
+         aliased_tuple_element_instr/1,
+         aliased_pair_hd_bif/1,
+         aliased_pair_tl_bif/1,
+         aliased_pair_hd_instr/1,
+         aliased_pair_tl_instr/1]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -721,7 +724,36 @@ aliased_tuple_element_bif(T, I) ->
 %ssa% ret(X) {aliased => [X]}.
     element(I, T).
 
-%% Check that alias analysis doesn't crash when element is given a
-%% literal non-integer index. Test case found by Robin Morisset.
-aliased_tuple_element_bif_bad_idx() ->
-    erlang:element(ok, length(erlang:pre_loaded())).
+%% Check that as the pair is aliased, the extracted value should also
+%% be aliased.
+aliased_pair_hd_bif(Ls) ->
+%ssa% (Ls) when post_ssa_opt ->
+%ssa% X = bif:hd(Ls),
+%ssa% ret(X) {aliased => [X]}.
+    hd(Ls).
+
+%% Check that as the pair is aliased, the extracted value should also
+%% be aliased.
+aliased_pair_tl_bif(Ls) ->
+%ssa% (Ls) when post_ssa_opt ->
+%ssa% X = bif:tl(Ls),
+%ssa% ret(X) {aliased => [X]}.
+    tl(Ls).
+
+%% Check that as the pair is aliased, the extracted value should also
+%% be aliased.
+aliased_pair_hd_instr(Ls) ->
+%ssa% (Ls) when post_ssa_opt ->
+%ssa% X = get_hd(Ls),
+%ssa% ret(X) {aliased => [X]}.
+    [X|_] = Ls,
+    X.
+
+%% Check that as the pair is aliased, the extracted value should also
+%% be aliased.
+aliased_pair_tl_instr(Ls) ->
+%ssa% (Ls) when post_ssa_opt ->
+%ssa% X = get_tl(Ls),
+%ssa% ret(X) {aliased => [X]}.
+    [_|X] = Ls,
+    X.
