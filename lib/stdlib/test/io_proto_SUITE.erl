@@ -28,7 +28,8 @@
          unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1,
          file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
          io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1,
-         io_get_chars_file_read_stdin_binary_mode/1
+         io_get_chars_file_read_stdin_binary_mode/1,
+         file_read_stdin_latin1_mode/1
         ]).
 
 
@@ -62,7 +63,8 @@ all() ->
      file_read_stdin_list_mode,
      io_get_chars_stdin_binary_mode,
      io_get_chars_stdin_list_mode,
-     io_get_chars_file_read_stdin_binary_mode
+     io_get_chars_file_read_stdin_binary_mode,
+     file_read_stdin_latin1_mode
     ].
 
 groups() -> 
@@ -361,12 +363,47 @@ io_get_chars_file_read_stdin_binary_mode(_Config) ->
 
     ok.
 
+%% Test that reading from stdin using file:read_line works when io is not utf8
+file_read_stdin_latin1_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() -> file:read_line(standard_io) end,
+                         [binary],
+                         "-kernel standard_io_encoding latin1"),
+
+    %% Invalid utf8
+    erlang:port_command(ErlPort, <<192,128,10,192,128,10,192,128,10>>),
+
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P, 0, 5000),
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P, 0, 5000),
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P, 0, 5000),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0, 5000),
+
+    {ok, P2, ErlPort2} = start_stdin_node(
+                         fun() -> file:read(standard_io, 5) end,
+                         [binary],
+                         "-kernel standard_io_encoding latin1"),
+
+    %% Valid utf8
+    erlang:port_command(ErlPort2, <<"duπaduπaduπa"/utf8>>),
+
+    {ok, "got: <<100,117,207,128,97>>\n"} = gen_tcp:recv(P2, 0, 5000),
+    {ok, "got: <<100,117,207,128,97>>\n"} = gen_tcp:recv(P2, 0, 5000),
+    {ok, "got: <<100,117,207,128,97>>\n"} = gen_tcp:recv(P2, 0, 5000),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P2, 0, 5000),
+
+    ok.
+
 start_stdin_node(ReadFun, IoOptions) ->
+    start_stdin_node(ReadFun, IoOptions, "").
+start_stdin_node(ReadFun, IoOptions, ExtraArgs) ->
     {ok, L} = gen_tcp:listen(0,[{active, false},{packet,4}]),
     {ok, Port} = inet:port(L),
     Cmd = lists:append(
             [ct:get_progname(),
-             " -noshell",
+             " -noshell ",
+             ExtraArgs,
              " -pa ", filename:dirname(code:which(?MODULE)),
              " -s ", atom_to_list(?MODULE), " read_raw_from_stdin ", integer_to_list(Port)]),
     ct:log("~p~n", [Cmd]),
@@ -383,6 +420,10 @@ read_raw_from_stdin([Port]) ->
         {ok, OptionsBin} = gen_tcp:recv(P, 0),
         io:setopts(standard_io, binary_to_term(OptionsBin)),
         {ok, ReadFunBin} = gen_tcp:recv(P, 0),
+        spawn(fun() ->
+                      gen_tcp:recv(P, 0),
+                      init:stop("crash")
+              end),
         read_raw_from_stdin(binary_to_term(ReadFunBin), P)
     catch E:R:ST ->
             io:format(standard_error, "~p  ~p",[Port,{E,R,ST}])

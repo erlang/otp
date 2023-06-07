@@ -20,6 +20,11 @@
 -module(group).
 
 %% A group leader process for user io.
+%% This process receives input data from user_drv in this format
+%%   {Drv,{data,unicode:charlist()}}
+%% It then keeps that data as unicode in its state and converts it
+%% to latin1/unicode on a per request basis. If any data is left after
+%% a request, that data is again kept as unicode.
 
 -export([start/2, start/3, whereis_shell/0, server/4]).
 
@@ -108,6 +113,9 @@ start_shell1(Fun) ->
 	    exit(Error)				% let the group process crash
     end.
 
+-spec server_loop(UserDrv :: pid(), Shell:: pid(),
+                  Buffer :: unicode:chardata()) ->
+          no_return().
 server_loop(Drv, Shell, Buf0) ->
     receive
         {io_request,From,ReplyAs,Req} when is_pid(From) ->
@@ -499,14 +507,12 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, LineCont0, Encoding) ->
                  false ->
                      %% get_line_echo_off only deals with lists,
                      %% so convert to list before calling it.
-                     get_line_echo_off(
-                       if Buf0 =:= eof -> eof;
-                          true -> unicode:characters_to_list(Buf0, Encoding)
-                       end, Pbs, Drv, Shell)
+                     get_line_echo_off(cast(Buf0, list, Encoding), Pbs, Drv, Shell)
              end,
     case Result of
         {done,LineCont1,Buf} ->
-            get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State, LineCont1, Encoding);
+            get_chars_apply(Pbs, M, F, Xa, Drv, Shell, append(Buf, [], Encoding),
+                            State, LineCont1, Encoding);
 
         interrupted ->
             {error,{error,interrupted},[]};
@@ -541,7 +547,7 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
 get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
     try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
         {stop,Result,Rest} ->
-            {ok, Result, Rest};
+            {ok, Result, append(Rest,[],Encoding)};
         State1 ->
             case get_chars_echo_off(Pbs, Drv, Shell) of
                 interrupted ->
@@ -605,13 +611,12 @@ get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding)
             send_drv_reqs(Drv, edlin:erase_line()),
             {more_chars,Ncont,Nrs} = edlin:start(edlin:prompt(Cont)),
             send_drv_reqs(Drv, Nrs),
-            get_line1(edlin:edit_line1(string:to_graphemes(lists:sublist(Lcs,
-                                                                         1,
-                                                                         length(Lcs)-1)),
-                                       Ncont),
-                      Drv,
-                      Shell,
-                      Ls, Encoding)
+            get_line1(
+              edlin:edit_line1(
+                string:to_graphemes(
+                  lists:sublist(Lcs, 1, length(Lcs)-1)),
+                Ncont),
+              Drv, Shell, Ls, Encoding)
     end;
 get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding)
   when Mode =:= none, Char =:= $\^N;
@@ -801,7 +806,8 @@ more_data(What, Cont0, Drv, Shell, Ls, Encoding) ->
             send_drv_reqs(Drv, edlin:redraw_line(Cont0)),
             more_data(What, Cont0, Drv, Shell, Ls, Encoding);
         {Drv,{data,Cs}} ->
-            get_line1(edlin:edit_line(Cs, Cont0), Drv, Shell, Ls, Encoding);
+            get_line1(edlin:edit_line(cast(Cs, list), Cont0),
+                      Drv, Shell, Ls, Encoding);
         {Drv,eof} ->
             get_line1(edlin:edit_line(eof, Cont0), Drv, Shell, Ls, Encoding);
         {io_request,From,ReplyAs,Req} when is_pid(From) ->
@@ -832,7 +838,7 @@ get_line_echo_off(Chars, Pbs, Drv, Shell) ->
 get_line_echo_off1({Chars,[]}, Drv, Shell) ->
     receive
 	{Drv,{data,Cs}} ->
-	    get_line_echo_off1(edit_line(Cs, Chars), Drv, Shell);
+	    get_line_echo_off1(edit_line(cast(Cs, list), Chars), Drv, Shell);
 	{Drv,eof} ->
 	    get_line_echo_off1(edit_line(eof, Chars), Drv, Shell);
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
@@ -861,7 +867,7 @@ get_chars_echo_off(Pbs, Drv, Shell) ->
 get_chars_echo_off1(Drv, Shell) ->
     receive
         {Drv, {data, Cs}} ->
-            Cs;
+            cast(Cs, list);
         {Drv, eof} ->
             eof;
         {io_request,From,ReplyAs,Req} when is_pid(From) ->
@@ -1009,7 +1015,7 @@ get_password_line(Chars, Drv, Shell) ->
 get_password1({Chars,[]}, Drv, Shell) ->
     receive
 	{Drv,{data,Cs}} ->
-	    get_password1(edit_password(Cs,Chars),Drv,Shell);
+	    get_password1(edit_password(Cs,cast(Chars,list)),Drv,Shell);
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    io_request(Req, From, ReplyAs, Drv, Shell, []), %WRONG!!!
 	    %% I guess the reason the above line is wrong is that Buf is
@@ -1049,20 +1055,18 @@ edit_password([Char|Cs],Chars) ->
 prompt_bytes(Prompt, Encoding) ->
     lists:flatten(io_lib:format_prompt(Prompt, Encoding)).
 
-cast(L, binary,latin1) when is_list(L) ->
-    list_to_binary(L);
-cast(L, list, latin1) when is_list(L) ->
-    binary_to_list(list_to_binary(L)); %% Exception if not bytes
-cast(L, binary,unicode) when is_list(L) ->
-    unicode:characters_to_binary(L,utf8);
-cast(Other, _, _) ->
-    Other.
+cast(Buf, Type) ->
+    cast(Buf, Type, utf8).
+cast(eof, _, _) ->
+    eof;
+cast(L, binary, ToEnc) ->
+    unicode:characters_to_binary(L, utf8, ToEnc);
+cast(L, list, _ToEnc) ->
+    unicode:characters_to_list(L, utf8).
 
-append(B, L, latin1) when is_binary(B) ->
-    binary_to_list(B)++L;
-append(B, L, unicode) when is_binary(B) ->
-    unicode:characters_to_list(B,utf8)++L;
-append(L1, L2, _) when is_list(L1) ->
-    L1++L2;
-append(_Eof, L, _) ->
-    L.
+append(eof, [], _) ->
+    eof;
+append(eof, L, _) ->
+    L;
+append(B, L, FromEnc) ->
+    unicode:characters_to_list(B, FromEnc) ++ L.

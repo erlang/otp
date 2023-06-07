@@ -218,7 +218,7 @@ init(UserOptions) when is_map(UserOptions) ->
     {ok, TTY} = tty_create(),
 
     %% Initialize the locale to see if we support utf-8 or not
-    UnicodeMode =
+    UnicodeSupported =
         case setlocale(TTY) of
             primitive ->
                 lists:any(
@@ -228,6 +228,11 @@ init(UserOptions) when is_map(UserOptions) ->
             UnicodeLocale when is_boolean(UnicodeLocale) ->
                 UnicodeLocale
         end,
+    IOEncoding = application:get_env(kernel, standard_io_encoding, default),
+    UnicodeMode = if IOEncoding =:= latin1 -> false;
+                     IOEncoding =:= unicode -> true;
+                     true -> UnicodeSupported
+                  end,
     {ok, ANSI_RE_MP} = re:compile(?ANSI_REGEXP, [unicode]),
     init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options, ansi_regexp = ANSI_RE_MP }).
 init_term(State = #state{ tty = TTY, options = Options }) ->
@@ -252,7 +257,12 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
     ReaderState =
         case {maps:get(input, Options), TTYState#state.reader} of
             {true, undefined} ->
-                {ok, Reader} = proc_lib:start_link(?MODULE, reader, [[State#state.tty, self()]]),
+                DefaultReaderEncoding = if State#state.unicode -> utf8;
+                                           not State#state.unicode -> latin1
+                                        end,
+                {ok, Reader} = proc_lib:start_link(
+                                 ?MODULE, reader,
+                                 [[State#state.tty, DefaultReaderEncoding, self()]]),
                 WriterState#state{ reader = Reader };
             {true, _} ->
                 WriterState;
@@ -421,14 +431,15 @@ call(Pid, Msg) ->
             {error, Reason}
     end.
 
-reader([TTY, Parent]) ->
+reader([TTY, Encoding, Parent]) ->
     register(user_drv_reader, self()),
     ReaderRef = make_ref(),
     SignalRef = make_ref(),
+
     ok = tty_select(TTY, SignalRef, ReaderRef),
     proc_lib:init_ack({ok, {self(), ReaderRef}}),
     FromEnc = case os:type() of
-                  {unix, _} -> utf8;
+                  {unix, _} -> Encoding;
                   {win32, _} ->
                       case isatty(stdin) of
                           true ->
@@ -436,7 +447,7 @@ reader([TTY, Parent]) ->
                           _ ->
                               %% When not reading from a console
                               %% the data read is utf8 encoded
-                              utf8
+                              Encoding
                       end
               end,
     reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, <<>>).
@@ -486,7 +497,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                                         Alias ! {Alias, true}
                                 end,
                                 receive
-                                    {Parent, set_unicode_state, true} -> ok
+                                    {Parent, set_unicode_state, _} -> ok
                                 end,
                                 Latin1Chars = unicode:characters_to_binary(Error, latin1, utf8),
                                 {<<B/binary,Latin1Chars/binary>>, <<>>, latin1};
