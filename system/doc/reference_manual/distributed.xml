@@ -235,7 +235,7 @@ dilbert@uab</pre>
       user&apos;s home directory</seeerl> and then in
       <seeerl marker="stdlib:filename#user_config">
         <c>filename:basedir(user_config, "erlang")</c></seeerl>.
-      If none of the files exist, a <c>.erlang.cooke</c> file is created
+      If none of the files exist, a <c>.erlang.cookie</c> file is created
       in the user&apos;s home directory.
       The UNIX permissions mode of the file is set to octal
       400 (read-only by user) and its content is a random string. An
