@@ -1351,6 +1351,16 @@ normalize_swapped(Op, [#b_literal{}=Lit,#b_var{}=Var]=Args) ->
     I2 = make_bset(ArgTypes0, Op, Args),
     {[{0,IntRange}],Op,[Var,Lit]} = unpack_bset(beam_ssa:normalize(I2)),
 
+    LitType = beam_types:make_type_from_value(Lit),
+
+    ArgTypes1 = [{0,LitType}],
+    I3 = make_bset(ArgTypes1, Op, Args),
+    {[],Op,[Var,Lit]} = unpack_bset(beam_ssa:normalize(I3)),
+
+    ArgTypes2 = [{0,LitType},{1,IntRange}],
+    I4 = make_bset(ArgTypes1, Op, Args),
+    {[],Op,[Var,Lit]} = unpack_bset(beam_ssa:normalize(I4)),
+
     ok.
 
 make_bset(ArgTypes, Op, Args) when is_list(ArgTypes) ->

@@ -389,7 +389,7 @@ normalize(#b_set{anno=Anno0,op={bif,Bif},args=Args}=Set) ->
                                #{1 := Type} ->
                                    Anno0#{arg_types => #{0 => Type}};
                                #{} ->
-                                   Anno0
+                                   Anno0#{arg_types => #{}}
                            end;
                        #{} ->
                            Anno0
