@@ -212,7 +212,7 @@ then
 		    red_off
 		    exit 1
 		fi
-		NFILES=`git diff --name-only $remote_sha $local_sha | wc --lines`
+		NFILES=`git diff --name-only $remote_sha $local_sha | wc -l`
 		if [ $NFILES -gt $NFILES_MAX ]
 		then
 		    red_on
