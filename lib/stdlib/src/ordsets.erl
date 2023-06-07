@@ -24,7 +24,7 @@
 -export([union/2,union/1,intersection/2,intersection/1]).
 -export([is_disjoint/2]).
 -export([subtract/2,is_subset/2]).
--export([fold/3,filter/2]).
+-export([fold/3,filter/2,map/2,filtermap/2]).
 
 -export_type([ordset/1]).
 
@@ -262,3 +262,24 @@ fold(F, Acc, Set) ->
 
 filter(F, Set) ->
     lists:filter(F, Set).
+
+%% map(Fun, OrdSet) -> OrdSet.
+%%  Map OrdSet with Fun.
+
+-spec map(Fun, Ordset1) -> Ordset2 when
+    Fun :: fun((Element1 :: T1) -> Element2 :: T2),
+    Ordset1 :: ordset(T1),
+    Ordset2 :: ordset(T2).
+
+map(F, Set) ->
+    from_list(lists:map(F, Set)).
+
+%% filtermap(Fun, OrdSet) -> OrdSet.
+%%  Filter and map Ordset with Fun.
+-spec filtermap(Fun, Ordset1) -> Ordset2 when
+      Fun :: fun((Element1 :: T1) -> boolean | ({true, Element2 :: T2})),
+      Ordset1 :: ordset(T1),
+      Ordset2 :: ordset(T1 | T2).
+
+filtermap(F, Set) ->
+    from_list(lists:filtermap(F, Set)).

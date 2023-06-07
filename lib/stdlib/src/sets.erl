@@ -46,7 +46,7 @@
 -export([union/2,union/1,intersection/2,intersection/1]).
 -export([is_disjoint/2]).
 -export([subtract/2,is_subset/2]).
--export([fold/3,filter/2]).
+-export([fold/3,filter/2,map/2,filtermap/2]).
 -export([new/1, from_list/2]).
 
 -export_type([set/0, set/1]).
@@ -471,6 +471,40 @@ filter(F, #{}=D) when is_function(F, 1)->
     maps:from_keys([K || K := _ <- D, F(K)], ?VALUE);
 filter(F, #set{}=D) when is_function(F, 1)->
     filter_set(F, D).
+
+%% map(Fun, Set) -> Set.
+%%  Map Set with Map.
+-spec map(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> Element2),
+      Set1 :: set(Element1),
+      Set2 :: set(Element2).
+map(F, #{}=D) when is_function(F, 1) ->
+    %% For this purpose, it is more efficient to use
+    %% maps:from_keys than a map comprehension.
+    maps:from_keys([F(K) || K := _ <- D], ?VALUE);
+map(F, #set{}=D) when is_function(F, 1) ->
+    fold(fun(E, Acc) -> add_element(F(E), Acc) end,
+         sets:new([{version, 1}]),
+         D).
+
+%% filtermap(Fun, Set) -> Set.
+%%  Filter and map Set with Fun.
+-spec filtermap(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> boolean() | {true, Element2}),
+      Set1 :: set(Element1),
+      Set2 :: set(Element1 | Element2).
+filtermap(F, #{}=D) when is_function(F, 1) ->
+    maps:from_keys(lists:filtermap(F, to_list(D)), ?VALUE);
+filtermap(F, #set{}=D) when is_function(F, 1) ->
+    fold(fun(E0, Acc) ->
+             case F(E0) of
+                 true -> add_element(E0, Acc);
+                 {true, E1} -> add_element(E1, Acc);
+                 false -> Acc
+             end
+         end,
+         sets:new([{version, 1}]),
+         D).
 
 %% get_slot(Hashdb, Key) -> Slot.
 %%  Get the slot.  First hash on the new range, if we hit a bucket

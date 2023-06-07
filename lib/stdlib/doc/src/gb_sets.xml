@@ -178,6 +178,15 @@
     </func>
 
     <func>
+      <name name="filtermap" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Filter and map set elements.</fsummary>
+      <desc>
+        <p>Filters and maps elements in <c><anno>Set1</anno></c> using function
+          <c><anno>Fun</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="fold" arity="3" since=""/>
       <fsummary>Fold over set elements.</fsummary>
       <desc>
@@ -332,6 +341,15 @@
       <desc>
         <p>Returns the largest element in <c><anno>Set</anno></c>. Assumes that
           <c><anno>Set</anno></c> is not empty.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="map" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Map set elements.</fsummary>
+      <desc>
+        <p>Maps elements in <c><anno>Set1</anno></c> using mapping function
+          <c><anno>Fun</anno></c>.</p>
       </desc>
     </func>
 

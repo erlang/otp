@@ -28,8 +28,8 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 create/1,add_element/1,del_element/1,
 	 subtract/1,intersection/1,union/1,is_subset/1,
-	 is_disjoint/1,is_set/1,is_empty/1,fold/1,filter/1,
-	 take_smallest/1,take_largest/1, iterate/1]).
+	 is_disjoint/1,is_set/1,is_empty/1,fold/1,filter/1, map/1,
+	 filtermap/1, take_smallest/1,take_largest/1, iterate/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -47,8 +47,9 @@ suite() ->
 
 all() -> 
     [create, add_element, del_element, subtract,
-     intersection, union, is_subset, is_set, fold, filter,
-     take_smallest, take_largest, iterate, is_empty, is_disjoint].
+     intersection, union, is_subset, is_set, fold, filter, map,
+     filtermap, take_smallest, take_largest, iterate, is_empty,
+     is_disjoint].
 
 groups() -> 
     [].
@@ -392,6 +393,32 @@ filter_1(List, M) ->
     M(equal, {M(from_list, lists:filter(IsNumber, List)),
 	      M(filter, {IsNumber,S})}),
     M(filter, {fun(X) -> is_atom(X) end,S}).
+
+map(Config) when is_list(Config) ->
+    test_all([{0,69},{126,130},{254,259},{510,513},{1023,1025},{7999,8000}],
+	     fun map_1/2).
+
+map_1(List, M) ->
+    S = M(from_list, List),
+    ToTuple = fun(X) -> {X} end,
+    M(equal, {M(from_list, lists:map(ToTuple, List)),
+	      M(map, {ToTuple, S})}),
+    M(map, {fun(_) -> x end, S}).
+
+filtermap(Config) when is_list(Config) ->
+    test_all([{0,69},{126,130},{254,259},{510,513},{1023,1025},{7999,8000}],
+	     fun filtermap_1/2).
+
+filtermap_1(List, M) ->
+    S = M(from_list, List),
+    FMFun = fun
+                (X) when is_float(X) -> false;
+		(X) when is_integer(X) -> true;
+		(X) -> {true, {X}}
+            end,
+    M(equal, {M(from_list, lists:filtermap(FMFun, List)),
+	      M(filtermap, {FMFun, S})}),
+    M(empty, []).
 
 %%%
 %%% Test specifics for gb_sets.

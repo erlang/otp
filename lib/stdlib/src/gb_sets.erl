@@ -156,7 +156,8 @@
 	 union/1, intersection/2, intersection/1, is_disjoint/2, difference/2,
 	 is_subset/2, to_list/1, from_list/1, from_ordset/1, smallest/1,
 	 largest/1, take_smallest/1, take_largest/1, iterator/1,
-         iterator_from/2, next/1, filter/2, fold/3, is_set/1]).
+         iterator_from/2, next/1, filter/2, fold/3, map/2, filtermap/2,
+         is_set/1]).
 
 %% `sets' compatibility aliases:
 
@@ -875,6 +876,37 @@ is_set(_) -> false.
 
 filter(F, S) when is_function(F, 1) ->
     from_ordset([X || X <- to_list(S), F(X)]).
+
+-spec map(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> Element2),
+      Set1 :: set(Element1),
+      Set2 :: set(Element2).
+
+map(F, {_, T}) when is_function(F, 1) ->
+    from_list(map_1(T, F, [])).
+
+map_1({Key, Small, Big}, F, L) ->
+    map_1(Small, F, [F(Key) | map_1(Big, F, L)]);
+map_1(nil, _F, L) -> L.
+
+-spec filtermap(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> boolean() | {true, Element2}),
+      Set1 :: set(Element1),
+      Set2 :: set(Element1 | Element2).
+
+filtermap(F, {_, T}) when is_function(F, 1) ->
+    from_list(filtermap_1(T, F, [])).
+
+filtermap_1({Key, Small, Big}, F, L) ->
+    case F(Key) of
+        true ->
+            filtermap_1(Small, F, [Key | filtermap_1(Big, F, L)]);
+        {true,Val} ->
+            filtermap_1(Small, F, [Val | filtermap_1(Big, F, L)]);
+        false ->
+            filtermap_1(Small, F, filtermap_1(Big, F, L))
+    end;
+filtermap_1(nil, _F, L) -> L.
 
 -spec fold(Function, Acc0, Set) -> Acc1 when
       Function :: fun((Element, AccIn) -> AccOut),

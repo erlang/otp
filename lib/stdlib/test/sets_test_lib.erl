@@ -31,6 +31,7 @@ new(Mod, Eq, New, FromList) ->
 	(empty, []) -> New();
 	(equal, {S1,S2}) -> Eq(S1, S2);
 	(filter, {F,S}) -> filter(Mod, F, S);
+	(filtermap, {F,S}) -> filtermap(Mod, F, S);
 	(fold, {F,A,S}) -> fold(Mod, F, A, S);
 	(from_list, L) -> FromList(L);
 	(intersection, {S1,S2}) -> intersection(Mod, Eq, S1, S2);
@@ -41,6 +42,7 @@ new(Mod, Eq, New, FromList) ->
 	(is_subset, {S,Set}) -> is_subset(Mod, Eq, S, Set);
         (iterator, S) -> Mod:iterator(S);
         (iterator_from, {Start, S}) -> Mod:iterator_from(Start, S);
+	(map, {F, S}) -> map(Mod, F, S);
 	(module, []) -> Mod;
         (next, I) -> Mod:next(I);
 	(singleton, E) -> singleton(Mod, FromList, E);
@@ -121,3 +123,11 @@ fold(Mod, F, A, S) ->
 filter(Mod, F, S) ->
     true = Mod:is_set(S),
     Mod:filter(F, S).
+
+map(Mod, F, S) ->
+    true = Mod:is_set(S),
+    Mod:map(F, S).
+
+filtermap(Mod, F, S) ->
+    true = Mod:is_set(S),
+    Mod:filtermap(F, S).
