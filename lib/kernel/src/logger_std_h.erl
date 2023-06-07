@@ -673,6 +673,10 @@ maybe_notify_error(Op, Result, #{write_res:=WR,sync_res:=SR})
        (Op==filesync andalso Result==SR) ->
     %% don't report same error twice
     ok;
+maybe_notify_error(filesync, {error, einval}, #{file_name:="/dev/null"}) ->
+    %% If logging to /dev/null, output should be discarded
+    %% Ignore any EINVAL errors for filesync operations
+    ok;
 maybe_notify_error(Op, Error, #{handler_name:=HandlerName,file_name:=FileName}) ->
     logger_h_common:error_notify({HandlerName,Op,FileName,Error}),
     ok.

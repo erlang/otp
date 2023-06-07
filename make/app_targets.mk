@@ -23,8 +23,13 @@ APPLICATION ?= $(basename $(notdir $(PWD)))
 .PHONY: test info gclean dialyzer dialyzer_plt dclean
 
 ifndef NO_TEST_TARGET
+
+ifeq ($(findstring s,${MAKEFLAGS}),s)
+TEST_ENV = SILENT=1
+endif
+
 test:
-	TEST_NEEDS_RELEASE=$(TEST_NEEDS_RELEASE) TYPE=$(TYPE) \
+	TEST_NEEDS_RELEASE=$(TEST_NEEDS_RELEASE) TYPE=$(TYPE) $(TEST_ENV) \
 	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 endif
 

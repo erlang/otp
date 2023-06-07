@@ -1007,8 +1007,12 @@ bootstrap_clean:
 
 .PHONY: test dialyzer
 
+ifeq ($(findstring s,${MAKEFLAGS}),s)
+	TEST_EXTRA_ARGS = --quiet
+endif
+
 test: all release release_tests
-	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+	$(ERL_TOP)/make/test_target_script.sh $(TEST_EXTRA_ARGS) $(ERL_TOP)
 
 ifeq ($(TYPE),)
 dialyzer: all

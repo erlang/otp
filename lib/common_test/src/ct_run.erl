@@ -2825,6 +2825,12 @@ merge_arguments([CoverStop={cover_stop,_}|Args], Merged) ->
 merge_arguments([{'case',TC}|Args], Merged) ->
     merge_arguments(Args, handle_arg(merge, {testcase,TC}, Merged));
 
+merge_arguments([{ct_hooks,_}=Entry|Args], Merged) ->
+    % "stack" does not actually have any special handling - it
+    % just falls back into the default behaviour and allows each
+    % distinct `-ct_hooks` option to be stored separately.
+    merge_arguments(Args, handle_arg(stack, Entry, Merged));
+
 merge_arguments([Arg|Args], Merged) ->
     merge_arguments(Args, handle_arg(merge, Arg, Merged));
 

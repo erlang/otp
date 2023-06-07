@@ -511,6 +511,22 @@ results(State) ->
         use another level either change the <c>default</c> handler level before
         starting common_test, or use the <seemfa marker="kernel:logger#set_handler_config/3">
         <c>logger:set_handler_config/3</c></seemfa> API.</p>
+        <p>This hook supports the following options:</p>
+        <taglist>
+          <tag><c>{mode, replace}</c></tag>
+          <item>
+            <p>Replace the <c>default</c> logging handler by the log redirect
+              instead of logging to both the default handler and the
+              <c>cth_log_redirect</c> handler. To use this mode, disable the builtin
+              hook and reconfigure it:</p>
+            <p><c>-enable_builtin_hooks false -ct_hooks cth_log_redirect [{mode,replace}]</c></p>
+          </item>
+          <tag><c>{mode, add}</c></tag>
+          <item>
+            <p>Add the logging handler instead of replacing the default logging
+              handler. This is the default behaviour.</p>
+          </item>
+        </taglist>
        </item>
        <tag><c>cth_surefire</c></tag>
        <item>

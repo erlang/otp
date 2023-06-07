@@ -213,6 +213,14 @@ for all process you would do this:
 ERL_ARGS="+hmqd off_heap" make emulator_test
 ```
 
+If you want logger messages to only be printed into the Common Test HTML logs
+and keep test script information about starting and stopping the run to a
+minimum, you can pass `-s` or `--silent`:
+
+```bash
+make test -s
+```
+
 ### Build and test a specific application
 
 You can also build the application from within itself. Like this:
