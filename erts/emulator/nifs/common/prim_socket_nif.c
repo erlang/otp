@@ -6837,8 +6837,8 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
 	 * "current process", push the requester onto the (acceptor) queue.
          */
 
-        SSDBG( descP, ("SOCKET", "esock_accept_accepting -> check: "
-                       "is caller current acceptor:"
+        SSDBG( descP, ("SOCKET", "esock_accept_accepting -> "
+                       "check: is caller current acceptor:"
                        "\r\n   Caller:      %T"
                        "\r\n   Current:     %T"
                        "\r\n   Current Mon: %T"
@@ -6851,10 +6851,12 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
 
             SSDBG( descP,
                    ("SOCKET",
-                    "esock_accept_accepting {%d} -> current acceptor"
+                    "esock_accept_accepting {%d} -> "
+                    "current acceptor - try again"
                     "\r\n", descP->sock) );
 
-            return esock_accept_accepting_current(env, descP, sockRef, accRef);
+            return esock_accept_accepting_current(env, descP,
+                                                  sockRef, accRef);
 
         } else {
 
@@ -6973,6 +6975,7 @@ ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
     int           save_errno;
     ERL_NIF_TERM  res;
 
+    
     SSDBG( descP,
            ("SOCKET",
             "esock_accept_accepting_current {%d} -> try accept\r\n",
@@ -7123,11 +7126,11 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
  * acceptor queue.
  */
 #ifndef __WIN32__
-ERL_NIF_TERM
-esock_accept_accepting_other(ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             ERL_NIF_TERM     ref,
-                             ErlNifPid        caller)
+static
+ERL_NIF_TERM esock_accept_accepting_other(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     ref,
+                                          ErlNifPid        caller)
 {
     if (! acceptor_search4pid(env, descP, &caller)) {
         acceptor_push(env, descP, caller, ref);
@@ -7183,8 +7186,13 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                  MKT2(env, atom_select_read,
                                       MKI(env, sres)));
     } else {
+
+        descP->currentAcceptor.ref =
+            CP_TERM(descP->currentAcceptor.env, accRef);
+
         descP->readState |=
             (ESOCK_STATE_ACCEPTING | ESOCK_STATE_SELECTED);
+
         res = atom_select;
     }
 
