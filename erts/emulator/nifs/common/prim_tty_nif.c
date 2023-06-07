@@ -426,7 +426,7 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                 if (inputs[i].Event.KeyEvent.bKeyDown) {
                     if (inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
                         num_characters++;
-                    } else if (i + 1 < input_read && !inputs[i].Event.KeyEvent.bKeyDown) {
+                    } else if (i + 1 < inputs_read && !inputs[i].Event.KeyEvent.bKeyDown) {
                         num_characters++;
                     }
                 }
@@ -441,7 +441,7 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                 if (inputs[i].Event.KeyEvent.bKeyDown) {
                     if (inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
                         characters[res++] = inputs[i].Event.KeyEvent.uChar.UnicodeChar;
-                    } else if (i + 1 < input_read && !inputs[i].Event.KeyEvent.bKeyDown) {
+                    } else if (i + 1 < inputs_read && !inputs[i].Event.KeyEvent.bKeyDown) {
                         characters[res++] = inputs[i+1].Event.KeyEvent.uChar.UnicodeChar;
                     }
                 }
