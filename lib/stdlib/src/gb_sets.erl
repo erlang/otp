@@ -153,11 +153,12 @@
 
 -export([empty/0, is_empty/1, size/1, singleton/1, is_member/2,
 	 insert/2, add/2, delete/2, delete_any/2, balance/1, union/2,
-	 union/1, intersection/2, intersection/1, is_disjoint/2, difference/2,
-	 is_subset/2, to_list/1, from_list/1, from_ordset/1, smallest/1,
-	 largest/1, take_smallest/1, take_largest/1, iterator/1,
-         iterator_from/2, next/1, filter/2, fold/3, map/2, filtermap/2,
-         is_set/1]).
+	 union/1, intersection/2, intersection/1, is_equal/2,
+	 is_disjoint/2, difference/2, is_subset/2, to_list/1,
+	 from_list/1, from_ordset/1, smallest/1, largest/1,
+	 take_smallest/1, take_largest/1, iterator/1,
+	 iterator_from/2, next/1, filter/2, fold/3, map/2,
+	 filtermap/2, is_set/1]).
 
 %% `sets' compatibility aliases:
 
@@ -229,6 +230,32 @@ is_empty(_) ->
 
 size({Size, _}) ->
     Size.
+
+-spec is_equal(Set1, Set2) -> boolean() when
+      Set1 :: set(),
+      Set2 :: set().
+
+is_equal({Size, S1}, {Size, _} = S2)  ->
+    try is_equal_1(S1, to_list(S2)) of
+        [] ->
+            true
+    catch
+        throw:not_equal ->
+            false
+    end;
+is_equal({_, _}, {_, _}) ->
+    false.
+
+is_equal_1(nil, Keys) ->
+    Keys;
+is_equal_1({Key1, Smaller, Bigger}, Keys0) ->
+    [Key2 | Keys] = is_equal_1(Smaller, Keys0),
+    if
+        Key1 == Key2 ->
+            is_equal_1(Bigger, Keys);
+        true ->
+            throw(not_equal)
+    end.
 
 -spec singleton(Element) -> set(Element).
 
