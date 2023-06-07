@@ -1863,22 +1863,14 @@ log(Msg) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% capture_start() -> ok
-%% capture_stop() -> ok
-%%
-%% Starts/stops capturing all output from io:format, and similar. Capturing
-%% output doesn't stop output from happening. It just makes it possible
-%% to retrieve the output using capture_get/0.
-%% Starting and stopping capture doesn't affect already captured output.
-%% All output is stored as messages in the message queue until retrieved
+%% @see test_server_gl:capture_start/2
 
 capture_start() ->
-    group_leader() ! {capture,self()},
-    ok.
+    test_server_gl:capture_start(group_leader(), self()).
 
+%% @see test_server_gl:capture_stop/1
 capture_stop() ->
-    group_leader() ! {capture,false},
-    ok.
+    test_server_gl:capture_stop(group_leader()).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% capture_get() -> Output
