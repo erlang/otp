@@ -134,7 +134,7 @@
     <marker id="files"/>
     <p>File <c>.hosts.erlang</c> consists of a number of host names
       written as Erlang terms. It is looked for in the current work
-      directory, the user's home directory, and <c>$OTP_ROOT</c>
+      directory, the user's home directory, and <c>$OTPROOT</c>
       (the root directory of Erlang/OTP), in that order.</p>
     <p>The format of file <c>.hosts.erlang</c> must be one host
       name per line. The host names must be within quotes.</p>

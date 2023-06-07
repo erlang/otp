@@ -236,13 +236,13 @@ unix> <input>gcc -o cclient \\ </input>
 <input>-lerl_interface -lei -lsocket -lnsl</input></pre>
      <p>In Erlang/OTP R5B and later versions of OTP, the
       <c>include</c> and <c>lib</c> directories are situated under
-      <c>OTPROOT/lib/erl_interface-VSN</c>, where <c>OTPROOT</c> is
+      <c>$OTPROOT/lib/erl_interface-VSN</c>, where <c>$OTPROOT</c> is
       the root directory of the OTP installation
       (<c>/usr/local/otp</c> in the recent example) and <c>VSN</c> is
       the version of the Erl_Interface application (3.2.1 in the
       recent example).</p>
     <p>In R4B and earlier versions of OTP, <c>include</c> and
-      <c>lib</c> are situated under <c>OTPROOT/usr</c>.</p>
+      <c>lib</c> are situated under <c>$OTPROOT/usr</c>.</p>
     <p><em>Step 2.</em> Compile the Erlang code:</p>
     <pre>
 unix> <input>erl -compile complex3 complex4</input></pre>

@@ -772,7 +772,7 @@ do_spec_rel_files(#rel{name = RelName} = Rel,  Sys) ->
 	case Sys#sys.excl_lib of
 	    otp_root ->
 		%% All applications that are fetched from somewhere
-		%% other than $OTP_ROOT/lib will get $RELTOOL_EXT_LIB
+		%% other than $OTPROOT/lib will get $RELTOOL_EXT_LIB
 		%% as path prefix in the .script file.
 		[{"RELTOOL_EXT_LIB",LibDir} ||  LibDir <- Sys#sys.lib_dirs] ++
 		    [{"RELTOOL_EXT_LIB",filename:dirname(AppLibDir)} ||
