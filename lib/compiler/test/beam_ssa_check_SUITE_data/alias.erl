@@ -65,7 +65,9 @@
          stacktrace1/0,
          in_cons/0,
          make_fun/0,
-         gh6925/0]).
+         gh6925/0,
+         aliased_map_lookup_bif/1,
+         aliased_map_lookup_instr/1]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -672,3 +674,20 @@ gh6925() ->
     A = << <<"x">> || true >>,
     B = <<A/binary, "z">>,
     {A, B}.
+
+%% Check that as the map is aliased, the extracted value should also
+%% be aliased.
+aliased_map_lookup_bif(M) ->
+%ssa% (M) when post_ssa_opt ->
+%ssa% X = bif:map_get(a, M),
+%ssa% ret(X) {aliased => [X]}.
+    map_get(a, M).
+
+%% Check that as the map is aliased, the extracted value should also
+%% be aliased.
+aliased_map_lookup_instr(M) ->
+%ssa% (M) when post_ssa_opt ->
+%ssa% X = get_map_element(M, a),
+%ssa% ret(X) {aliased => [X]}.
+    #{a:=X} = M,
+    X.

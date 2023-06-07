@@ -419,7 +419,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, Acc, AAS0) ->
                 {aa_pair_extraction(Dst, Arg, hd, SS1), AAS0};
             get_map_element ->
                 [Map,_Key] = Args,
-                {aa_join(Dst, Map, SS1), AAS0};
+                {aa_map_extraction(Dst, Map, SS1, AAS0), AAS0};
             get_tl ->
                 [Arg] = Args,
                 {aa_pair_extraction(Dst, Arg, tl, SS1), AAS0};
@@ -694,6 +694,12 @@ aa_alias_if_args_dont_die(Args, Where, SS, AAS) ->
             aa_set_aliased([Where|Args], SS)
     end.
 
+%% Dst inherits the alias status of Arg, if Arg doesn't die here, it
+%% becomes aliased by default.
+aa_alias_inherit_and_alias_if_arg_does_not_die(Dst, Arg, SS0, AAS) ->
+    SS1 = aa_alias_if_args_dont_die([Arg], Dst, SS0, AAS),
+    aa_set_status(Dst, aa_get_status(Arg, SS1), SS1).
+
 %% Check that a variable in Args only occurs once, literals are
 %% ignored.
 aa_all_vars_unique(Args) ->
@@ -737,9 +743,8 @@ aa_bif(Dst, tl, Args, SS, AAS) ->
     %% If we extract a value and the aggregate dies and wasn't aliased,
     %% we should not consider this an aliasing operation.
     aa_alias_if_args_dont_die(Args, Dst, SS, AAS);
-%% TODO: Ignored for now, as we don't track what's inside maps.
-%% aa_bif(_Dst, map_get, _Args, SS, _AAS) ->
-%%     SS;
+aa_bif(Dst, map_get, [_Key,Map], SS, AAS) ->
+    aa_map_extraction(Dst, Map, SS, AAS);
 aa_bif(Dst, Bif, Args, SS, _AAS) ->
     Arity = length(Args),
     case erl_internal:guard_bif(Bif, Arity)
@@ -850,6 +855,10 @@ aa_pair_extraction(Dst, Pair, Element, SS0) ->
             %% Nothing has been extracted from this pair
             aa_join(Dst, Pair, SS0#{{pair,Pair}=>Element})
     end.
+
+aa_map_extraction(Dst, Map, SS, AAS) ->
+    aa_join(Dst, Map,
+            aa_alias_inherit_and_alias_if_arg_does_not_die(Dst, Map, SS, AAS)).
 
 aa_tuple_extraction(Dst, Tuple, #b_literal{val=I}, SS1) ->
     case SS1 of
