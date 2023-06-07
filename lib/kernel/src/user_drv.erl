@@ -419,10 +419,13 @@ server({call, From}, {start_shell, Args},
 server({call, From}, {start_shell, _Args}, _State) ->
     gen_statem:reply(From, {error, already_started}),
     keep_state_and_data;
-server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle })
+server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle, tty = TTYState })
   when State#state.current_group =:= State#state.user ->
-    State#state.current_group !
-        {self(), {data, unicode:characters_to_list(UTF8Binary, utf8)}},
+    List = case prim_tty:unicode(TTYState) of
+        false -> binary_to_list(UTF8Binary);
+        true -> unicode:characters_to_list(UTF8Binary, utf8)
+    end,
+    State#state.current_group ! {self(), {data, List}},
     keep_state_and_data;
 server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }) ->
     case contains_ctrl_g_or_ctrl_c(UTF8Binary) of

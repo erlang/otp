@@ -218,7 +218,7 @@ init(UserOptions) when is_map(UserOptions) ->
     {ok, TTY} = tty_create(),
 
     %% Initialize the locale to see if we support utf-8 or not
-    UnicodeMode =
+    UnicodeSupported =
         case setlocale(TTY) of
             primitive ->
                 lists:any(
@@ -228,6 +228,11 @@ init(UserOptions) when is_map(UserOptions) ->
             UnicodeLocale when is_boolean(UnicodeLocale) ->
                 UnicodeLocale
         end,
+    IOEncoding = application:get_env(kernel, standard_io_encoding, default),
+    UnicodeMode = if IOEncoding =:= latin1 -> false;
+       IOEncoding =:= utf8 -> true;
+       true -> UnicodeSupported
+    end,
     {ok, ANSI_RE_MP} = re:compile(?ANSI_REGEXP, [unicode]),
     init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options, ansi_regexp = ANSI_RE_MP }).
 init_term(State = #state{ tty = TTY, options = Options }) ->
