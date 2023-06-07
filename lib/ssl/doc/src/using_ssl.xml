@@ -247,7 +247,63 @@ ok</code>
    #{cipher => aes_256_cbc,key_exchange => ecdhe_ecdsa,
      mac => sha384,prf => sha384}, ...]
     </code>
-  </section>      
+  </section>
+
+    <section>
+    <title>Customizing signature algorithms(TLS-1.2)/schemes(TLS-1.3)</title>
+
+    <p> Starting from TLS-1.2 signature algorithms (called signature
+    schemes in TLS-1.3) is something that can be negotiated and hence
+    also configured. These algorithms/schemes will be used for digital
+    signatures in protocol messages and in certificates. </p>
+
+    <note><p>TLS-1.3 schemes have atom names whereas TLS-1.2
+    configuration is two element tuples composed by one hash algorithm
+    and one signature algorithm. When both versions are supported the
+    configuration can be a mix of these as both versions might be
+    negotiated. All <c>rsa_pss</c> based schemes are back ported to
+    TLS-1.2 and can be used also in a TLS-1.2 configuration. In
+    TLS-1.2 the signature algorithms chosen by the server will also
+    be affected by the chiper suite that is chosen, which is not the
+    case in TLS-1.3. </p></note>
+    
+    <p> Using the function <seemfa
+    marker="ssl:ssl#signature_algs/2"><c>ssl:signature_algs/2</c></seemfa>
+    will let you inspect diffrent aspects of possible configurations
+    for your system. For example if TLS-1.3 and TLS-1.2 is supported the
+    default signature_algorithm list in OTP-26 and cryptolib from
+    OpenSSL 3.0.2 would look like:
+    </p>
+
+       <code type="erl"> 1>  ssl:signature_algs(default, 'tlsv1.3').
+ %% TLS-1.3 schemes
+ [eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+  ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+  rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
+  rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,
+  %% Legacy schemes only valid for certificate signatures in TLS-1.3
+  %% (would have a tuple name in TLS-1.2 only configuration)
+  rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256
+  %% TLS 1.2 algorithms
+  {sha512,ecdsa},
+  {sha384,ecdsa},
+  {sha256,ecdsa}]
+   </code>
+   
+    <p>If you want to add support for non default supported
+    algorithms you should append them to the default list as the
+    configuration is in prefered order, something like this:</p>
+
+    <code>
+    MySignatureAlgs = ssl:signature_algs(default, 'tlsv1.3') ++ [{sha, rsa}, {sha, dsa}],
+    ssl:connect(Host,Port,[{signature_algs, MySignatureAlgs,...]}),
+    ...
+    </code>
+
+    <p>See also  <seemfa
+    marker="ssl:ssl#signature_algs/2"><c>ssl:signature_algs/2</c></seemfa>
+    and <seetype marker="ssl:ssl#signature_algs">sign_algo()</seetype></p>
+    </section>
 
   <section>
     <title>Using an Engine Stored Key</title>
