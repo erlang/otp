@@ -67,7 +67,11 @@
          make_fun/0,
          gh6925/0,
          aliased_map_lookup_bif/1,
-         aliased_map_lookup_instr/1]).
+         aliased_map_lookup_instr/1,
+         aliased_tuple_element_bif/1,
+         aliased_tuple_element_bif/2,
+         aliased_tuple_element_bif_bad_idx/0,
+         aliased_tuple_element_instr/1]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -691,3 +695,33 @@ aliased_map_lookup_instr(M) ->
 %ssa% ret(X) {aliased => [X]}.
     #{a:=X} = M,
     X.
+
+%% Check that as the tuple is aliased, the extracted value should also
+%% be aliased.
+aliased_tuple_element_bif(T) ->
+%ssa% (T) when post_ssa_opt ->
+%ssa% X = bif:element(1, T),
+%ssa% ret(X) {aliased => [X]}.
+    element(1, T).
+
+%% Check that as the tuple is aliased, the extracted value should also
+%% be aliased.
+aliased_tuple_element_instr(T) ->
+%ssa% (T) when post_ssa_opt ->
+%ssa% X = get_tuple_element(T, 0),
+%ssa% ret(X) {aliased => [X]}.
+    {X} = T,
+    X.
+
+%% Check that alias analysis doesn't crash when element is given a
+%% non-constant index.
+aliased_tuple_element_bif(T, I) ->
+%ssa% (T, I) when post_ssa_opt ->
+%ssa% X = bif:element(I, T),
+%ssa% ret(X) {aliased => [X]}.
+    element(I, T).
+
+%% Check that alias analysis doesn't crash when element is given a
+%% literal non-integer index. Test case found by Robin Morisset.
+aliased_tuple_element_bif_bad_idx() ->
+    erlang:element(ok, length(erlang:pre_loaded())).

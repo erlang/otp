@@ -731,10 +731,15 @@ aa_update_record_get_vars([#b_literal{}, Value|Updates]) ->
 aa_update_record_get_vars([]) ->
     [].
 
-aa_bif(Dst, element, [_Idx,Tuple], SS, AAS) ->
-    %% If we extract a value and the aggregate dies and wasn't aliased,
-    %% we should not consider this an aliasing operation.
-    aa_alias_if_args_dont_die([Tuple], Dst, SS, AAS);
+aa_bif(Dst, element, [#b_literal{val=Idx},Tuple], SS, _AAS)
+  when is_integer(Idx), Idx > 0 ->
+    aa_tuple_extraction(Dst, Tuple, #b_literal{val=Idx-1}, SS);
+aa_bif(Dst, element, [#b_literal{},Tuple], SS, _AAS) ->
+    %% This BIF will fail, but in order to avoid any later transforms
+    %% making use of uniqueness, conservatively alias.
+    aa_set_aliased([Dst,Tuple], SS);
+aa_bif(Dst, element, [#b_var{},Tuple], SS, _AAS) ->
+    aa_set_aliased([Dst,Tuple], SS);
 aa_bif(Dst, hd, Args, SS, AAS) ->
     %% If we extract a value and the aggregate dies and wasn't aliased,
     %% we should not consider this an aliasing operation.
