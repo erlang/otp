@@ -189,15 +189,8 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
         } else
             assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad last field"));
 
-        {
-            ErlNifBinary tmp;
-                        
-            if (!enif_inspect_binary(env, bin_from_bn(env,p), &tmp) || // Allocate buf
-                BN_bn2nativepad(p, tmp.data, tmp.size) < 0) {// Fill with BN in right endianity
-                assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "BN padding failed"));
-            }
-            params[(*i)++] = OSSL_PARAM_construct_BN("p", tmp.data, tmp.size);
-        }
+        if (!get_ossl_BN_param_from_bn(env, "p", p, &params[(*i)++]))
+            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "BN padding failed"));
 #  endif
     }
     else

@@ -212,22 +212,37 @@ int get_ossl_BN_param_from_bin(ErlNifEnv* env, char* key, ERL_NIF_TERM bin, OSSL
     return get_ossl_BN_param_from_bin_sz(env, key, bin, dest, NULL);
 }
 
-int get_ossl_BN_param_from_bin_sz(ErlNifEnv* env, char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest, size_t *size)
+int get_ossl_BN_param_from_bin_sz(ErlNifEnv* env, char* key, ERL_NIF_TERM bin,
+                                  OSSL_PARAM *dest, size_t *size)
 {
     BIGNUM *bn = NULL;
-    ErlNifBinary tmp;
+    int ok = 0;
 
-    if (!get_bn_from_bin_sz(env, bin, &bn, size) ||
-        !enif_inspect_binary(env, bin_from_bn(env,bn), &tmp) || // Allocate buf
-        BN_bn2nativepad(bn, tmp.data, tmp.size) < 0) {// Fill with BN in right endianity
-        if (bn) BN_free(bn);
+    if (!get_bn_from_bin_sz(env, bin, &bn, size))
         return 0;
-    }
-    
-    *dest = OSSL_PARAM_construct_BN(key, tmp.data, tmp.size);
-    if (bn) BN_free(bn);
+
+    ok = get_ossl_BN_param_from_bn(env, key, bn, dest);
+    BN_free(bn);
+    return ok;
+}
+
+int get_ossl_BN_param_from_bn(ErlNifEnv* env, char* key, const BIGNUM* bn,
+                              OSSL_PARAM *dest)
+{
+    const size_t bn_sz = BN_num_bytes(bn);
+    unsigned char* tmp_buf;
+    ERL_NIF_TERM dummy_term;
+
+    /* Create a binary term just as a convenient tmp buffer */
+    tmp_buf = enif_make_new_binary(env, bn_sz, &dummy_term);
+    if (BN_bn2nativepad(bn, tmp_buf, bn_sz) < 0) // Fill with BN in right endianity
+        return 0;
+
+    *dest = OSSL_PARAM_construct_BN(key, tmp_buf, bn_sz);
     return 1;
 }
+
+
 
 int get_ossl_param_from_bin_in_list(ErlNifEnv* env, char* key, ERL_NIF_TERM *listcell, OSSL_PARAM *dest)
 {
