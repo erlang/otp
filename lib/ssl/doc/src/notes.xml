@@ -27,6 +27,45 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 11.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure that selection of client certificates handle
+	    both TLS-1.3 and TLS-1.2 names correctly. Could cause
+	    valid client certificate to not be selected, and an empty
+	    client certificate message to be sent to server.</p>
+          <p>
+	    Own Id: OTP-18588 Aux Id: GH-7264, PR-7277 </p>
+        </item>
+        <item>
+          <p>
+	    Improved <c>ssl:format_error/1</c> to handle more error
+	    tuples.</p>
+          <p>
+	    Own Id: OTP-18596 Aux Id: GH-7247 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed hanging <c>ssl:connect</c> when ssl application is
+	    not started.</p>
+          <p>
+	    Own Id: OTP-18603 Aux Id: GH-7297 </p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of retransmission timers, current
+	    behavior could cause unwanted delays.</p>
+          <p>
+	    Own Id: OTP-18632 Aux Id: PR-7300, GH-7301 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 11.0</title>
 
     <section><title>Improvements and New Features</title>
