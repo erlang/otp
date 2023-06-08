@@ -163,7 +163,7 @@ esac</pre>
       <p>File <c>/export/home/otpuser/otp/bin/start</c> referred to
         in the above script is precisely the <c>start</c> script
         described in <em>Starting Erlang</em>. The
-        script variable <c>OTP_ROOT</c> in that <c>start</c> script
+        script variable <c>$OTPROOT</c> in that <c>start</c> script
         corresponds to the following example path used in this
 	section:</p>
       <pre>
@@ -313,7 +313,7 @@ chmod 644 /etc/syslog.conf.OTP</code>
 	      <c>/priv/bin/mod_syslog</c>. The generic full name
 	      of the binary executable file is thus:</p>
 	      <code type="none"><![CDATA[
-<OTP_ROOT>/lib/os_mon-<REV>/priv/bin/mod_syslog]]></code>
+<$OTPROOT>/lib/os_mon-<REV>/priv/bin/mod_syslog]]></code>
 	      <p><em>Example:</em> If the path to <c>otp-root</c> is
 	      <c>/usr/otp</c>, then the path to the <c>os_mon</c>
 	      application is <c>/usr/otp/lib/os_mon-1.0</c>
@@ -327,7 +327,7 @@ chmod 644 /etc/syslog.conf.OTP</code>
               <item><p>A simple way to do this is to issue the following
 	      commands:</p>
 	      <code type="none"><![CDATA[
-cd <OTP_ROOT>/lib/os_mon-<REV>/priv/bin/mod_syslog
+cd <$OTPROOT>/lib/os_mon-<REV>/priv/bin/mod_syslog
 chmod 4755 mod_syslog
 chown root mod_syslog]]></code>
 	    </item>
@@ -350,7 +350,7 @@ chown root mod_syslog]]></code>
 	<c>/ebin/os_mon.app</c>.</p>
 	<p>The generic full name of the file is thus:</p>
 	<code type="none"><![CDATA[
-<OTP_ROOT>/lib/os_mon-<REV>/ebin/os_mon.app.]]></code>
+<$OTPROOT>/lib/os_mon-<REV>/ebin/os_mon.app.]]></code>
 	<p><em>Example:</em> If the path to <c>otp-root</c> is
 	<c>/usr/otp</c>, then the path to the <c>os_mon</c> application
 	is <c>/usr/otp/lib/os_mon-1.0 </c> (assuming revision 1.0) and

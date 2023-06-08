@@ -106,13 +106,13 @@ unix> <input>gcc -o extprg -I/usr/local/otp/lib/erl_interface-3.9.2/include \ </
 <input>      complex.c erl_comm.c ei.c -lei -lpthread</input></pre>
     <p>In Erlang/OTP R5B and later versions of OTP, the <c>include</c>
       and <c>lib</c> directories are situated under
-      <c>OTPROOT/lib/erl_interface-VSN</c>, where <c>OTPROOT</c> is
+      <c>$OTPROOT/lib/erl_interface-VSN</c>, where <c>$OTPROOT</c> is
       the root directory of the OTP installation
       (<c>/usr/local/otp</c> in the recent example) and <c>VSN</c> is
       the version of the Erl_interface application (3.2.1 in the
       recent example).</p>
     <p>In R4B and earlier versions of OTP, <c>include</c> and <c>lib</c>
-      are situated under <c>OTPROOT/usr</c>.</p>
+      are situated under <c>$OTPROOT/usr</c>.</p>
     <p><em>Step 2.</em> Start Erlang and compile the Erlang code:</p>
     <pre>
 unix> <input>erl</input>

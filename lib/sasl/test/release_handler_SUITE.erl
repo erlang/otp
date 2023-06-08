@@ -3230,7 +3230,7 @@ create_fake_release(Dir,RelName,RelVsn,AppDirs) ->
     ok = copy_file(Rel++".boot", filename:join(RelDir,"start.boot")),
 
     %% Use an own 'releases' directory - we don't want to change the
-    %% contents of $OTP_ROOT/releases
+    %% contents of $OTPROOT/releases
     %% Inform SASL about this via sys.config
     ReleasesDir = filename:join(Dir, "releases"),
     Config = [{sasl,[{releases_dir,ReleasesDir}]}],
