@@ -131,11 +131,11 @@
 -endif.
 %% Copied from https://github.com/chalk/ansi-regex/blob/main/index.js
 -define(ANSI_REGEXP, <<"^[\e",194,155,"][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?",7,")|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))">>).
--record(state, {tty,
-                reader,
-                writer,
+-record(state, {tty :: tty() | undefined,
+                reader :: {pid(), reference()} | undefined,
+                writer :: {pid(), reference()} | undefined,
                 options,
-                unicode,
+                unicode = true :: boolean(),
                 lines_before = [],   %% All lines before the current line in reverse order
                 lines_after = [],    %% All lines after the current line.
                 buffer_before = [],  %% Current line before cursor in reverse
@@ -184,6 +184,7 @@
         {move_combo, integer(), integer(), integer()} |
         clear |
         beep.
+-type tty() :: reference().
 -opaque state() :: #state{}.
 -export_type([state/0]).
 
@@ -433,7 +434,7 @@ reader([TTY, Parent]) ->
     FromEnc = case os:type() of
                   {unix, _} -> utf8;
                   {win32, _} ->
-                      case isatty(stdin) of
+                      case isatty(TTY) of
                           true ->
                               {utf16, little};
                           _ ->
@@ -1212,9 +1213,10 @@ dbg(_) ->
 -endif.
 
 %% Nif functions
--spec isatty(stdin | stdout | stderr) -> boolean() | ebadf.
+-spec isatty(stdin | stdout | stderr | tty()) -> boolean() | ebadf.
 isatty(_Fd) ->
     erlang:nif_error(undef).
+-spec tty_create() -> {ok, tty()}.
 tty_create() ->
     erlang:nif_error(undef).
 tty_init(_TTY, _Fd, _Options) ->
