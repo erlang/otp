@@ -54,7 +54,7 @@ struct erl_bits_state {
      * Temporary buffer sometimes used by erts_new_bs_put_integer().
      */
     byte *byte_buf_;
-    int byte_buf_len_;
+    Uint byte_buf_len_;
 
     /*
      * Pointer to the beginning of the current binary.
