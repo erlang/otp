@@ -74,7 +74,13 @@
          aliased_pair_hd_bif/1,
          aliased_pair_tl_bif/1,
          aliased_pair_hd_instr/1,
-         aliased_pair_tl_instr/1]).
+         aliased_pair_tl_instr/1,
+         aliasing_after_tuple_extract/1,
+         alias_after_pair_hd/1,
+         alias_after_pair_tl/1,
+
+         double_map_lookup/2,
+         double_tuple_element/2]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -271,8 +277,8 @@ transformable12b(L) ->
 %% The type analysis can't handle the list yet
 transformable12([H|T], {Acc}) ->
 %ssa% (_, _) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, A, _, _, _, B, _) { aliased => [B, A], first_fragment_dies => true },
-%ssa% _ = bs_create_bin(append, _, C, _, _, _, D, _) { aliased => [D, C], first_fragment_dies => true }.
+%ssa% _ = bs_create_bin(append, _, A, _, _, _, B, _) { aliased => [B], unique => [A], first_fragment_dies => true },
+%ssa% _ = bs_create_bin(append, _, C, _, _, _, D, _) { aliased => [D], unique => [C], first_fragment_dies => true }.
     transformable12([H|T], {<<Acc/binary,H:8>>});
 transformable12([H|T], [Acc]) ->
     transformable12([H|T], [<<Acc/binary,H:8>>]);
@@ -757,3 +763,75 @@ aliased_pair_tl_instr(Ls) ->
 %ssa% ret(X) {aliased => [X]}.
     [_|X] = Ls,
     X.
+
+aliasing_after_tuple_extract(N) ->
+    aliasing_after_tuple_extract(N, {<<>>, dummy}).
+
+%% Check that both the tuple (Acc) and the extracted element (X) are
+%% aliased.
+aliasing_after_tuple_extract(0, Acc) ->
+%ssa% (_,Acc) when post_ssa_opt ->
+%ssa% X = get_tuple_element(Acc, 0) {aliased => [Acc]},
+%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
+    Acc;
+aliasing_after_tuple_extract(N, Acc) ->
+    {X,_} = Acc,
+    aliasing_after_tuple_extract(N - 1, {<<X/bitstring, 1>>, Acc}).
+
+
+%% Check that both the pair (Acc) and the extracted element (X) are
+%% aliased.
+alias_after_pair_hd(N) ->
+    alias_after_pair_hd(N, [<<>>|dummy]).
+
+alias_after_pair_hd(0, Acc) ->
+    Acc;
+alias_after_pair_hd(N, Acc) ->
+%ssa% (_,Acc) when post_ssa_opt ->
+%ssa% X = get_hd(Acc) {aliased => [Acc]},
+%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
+    [X|_] = Acc,
+    alias_after_pair_hd(N - 1, [<<X/bitstring, 1>>|Acc]).
+
+%% Check that both the pair (Acc) and the extracted element (X) are
+%% aliased.
+alias_after_pair_tl(N) ->
+    alias_after_pair_tl(N, [dummy|<<>>]).
+
+alias_after_pair_tl(0, Acc) ->
+    Acc;
+alias_after_pair_tl(N, Acc) ->
+%ssa% (_,Acc) when post_ssa_opt ->
+%ssa% X = get_tl(Acc) {aliased => [Acc]},
+%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
+    [_|X] = Acc,
+    alias_after_pair_tl(N - 1, [Acc|<<X/bitstring, 1>>]).
+
+%% Check that although the map is unique, the extracted values should
+%% always be aliased as we can't know if they are the same.
+%%
+double_map_lookup(A, B) ->
+%ssa% (A, B) when post_ssa_opt ->
+%ssa% X = bif:map_get(A, Map),
+%ssa% Y = bif:map_get(B, Map),
+%ssa% _ = put_tuple(X, Y) {aliased => [X,Y]}.
+    Map = make_map(),
+    X = map_get(A, Map),
+    Y = map_get(B, Map),
+    {X, Y}.
+
+make_map() ->
+    #{a=> <<>>, b=> <<>>}.
+
+%% Check that although the tuple is unique, the extracted values should
+%% always be aliased as we can't know if they are the same.
+%%
+double_tuple_element(A, B) ->
+%ssa% (A, B) when post_ssa_opt ->
+%ssa% X = bif:element(A, T),
+%ssa% Y = bif:element(B, T),
+%ssa% _ = put_tuple(X, Y) {aliased => [X,Y]}.
+    T = make_empty_binary_tuple(),
+    X = element(A, T),
+    Y = element(B, T),
+    {X, Y}.

@@ -315,31 +315,30 @@ transformable11([_|T], Acc)->
 transformable11([], Acc) ->
     Acc.
 
-% Broken, type analysis can't handle the list
 transformable12a(L) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% B = put_tuple(A),
 %ssa% _ = call(fun transformable12/2, _, B).
     transformable12(L, {<<>>}).
 
 transformable12b(L) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
-%ssa% B = put_list(A, '_'),
+%ssa% B = put_list(A, _),
 %ssa% _ = call(fun transformable12/2, _, B).
     transformable12(L, [<<>>]).
 
 %% The type analysis can't handle the list yet
 transformable12([H|T], {Acc}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_hd(Arg1),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_list(B, _),
 %ssa% _ = call(fun transformable12/2, _, C),
 %ssa% D = get_tuple_element(Arg1, 0),
 %ssa% E = bs_create_bin(private_append, _, D, ...),
-%ssa% F = put_tuple('E'),
+%ssa% F = put_tuple(E),
 %ssa% _ = call(fun transformable12/2, _, F).
     transformable12([H|T], {<<Acc/binary,H:8>>});
 transformable12([H|T], [Acc]) ->

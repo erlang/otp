@@ -535,14 +535,45 @@ aa_get_representative(Var, State) ->
 
 aa_get_status(V=#b_var{}, State) ->
     Repr = aa_get_representative(V, State),
-    #{ Repr := {status, S} } = State,
-    S;
+    case State of
+        #{{tuple_element,Repr}:=_} ->
+            aliased;
+        #{{pair,Repr}:=_} ->
+            aliased;
+        #{Repr:={status,S}} ->
+            S
+    end;
 aa_get_status(#b_literal{}, _State) ->
     unique.
 
-aa_set_status(V=#b_var{}, Status, State) ->
+%% aa_get_status but for instructions extracting values from pairs and
+%% tuples.
+aa_get_element_extraction_status(V=#b_var{}, State) ->
     Repr = aa_get_representative(V, State),
-    State#{ Repr => {status, Status} };
+    case State of
+        #{{tuple_element,Repr}:=_,Repr:={status,unique}} ->
+            unique;
+        #{{pair,Repr}:=_,Repr:={status,unique}} ->
+            unique;
+        #{Repr:={status,S}} ->
+            S
+    end;
+aa_get_element_extraction_status(#b_literal{}, _State) ->
+    unique.
+
+aa_set_status(V=#b_var{}, Status, State0) ->
+    Repr = aa_get_representative(V, State0),
+    ?DP("SET_STATUS: ~p(~p): ~p~n", [V,Repr,Status]),
+    State = State0#{Repr=>{status,Status}},
+    case State of
+        #{{extracted,Repr}:=Extracts} when Status =:= aliased ->
+            ?DP("  EXTRACTS: ~p~n", [Extracts]),
+            foldl(fun(E, StateAcc) ->
+                          aa_set_status(E, Status, StateAcc)
+                  end, State, Extracts);
+        _ ->
+            State
+    end;
 aa_set_status(#b_literal{}, _Status, State) ->
     State;
 aa_set_status([X|T], Status, State) ->
@@ -550,18 +581,45 @@ aa_set_status([X|T], Status, State) ->
 aa_set_status([], _, State) ->
     State.
 
-aa_update_annotation(I=#b_set{anno=Anno0,args=Args,op=Op}, SS, AAS) ->
+aa_update_annotation(I=#b_set{args=[Tuple,Idx],op=get_tuple_element}, SS, AAS) ->
+    Args = [{Tuple,aa_get_element_extraction_status(Tuple, SS)},
+            {Idx,aa_get_status(Idx, SS)}],
+    aa_update_annotation1(Args, I, AAS);
+aa_update_annotation(I=#b_set{args=[Idx,Tuple],op={bif,element}}, SS, AAS) ->
+    Args = [{Idx,aa_get_status(Idx, SS)},
+            {Tuple,aa_get_element_extraction_status(Tuple, SS)}],
+    aa_update_annotation1(Args, I, AAS);
+aa_update_annotation(I=#b_set{args=[Pair],op=get_hd}, SS, AAS) ->
+    Args = [{Pair,aa_get_element_extraction_status(Pair, SS)}],
+    aa_update_annotation1(Args, I, AAS);
+aa_update_annotation(I=#b_set{args=[Pair],op=get_tl}, SS, AAS) ->
+    Args = [{Pair,aa_get_element_extraction_status(Pair, SS)}],
+    aa_update_annotation1(Args, I, AAS);
+aa_update_annotation(I=#b_set{args=[Pair],op={bif,hd}}, SS, AAS) ->
+    Args = [{Pair,aa_get_element_extraction_status(Pair, SS)}],
+    aa_update_annotation1(Args, I, AAS);
+aa_update_annotation(I=#b_set{args=[Pair],op={bif,tl}}, SS, AAS) ->
+    Args = [{Pair,aa_get_element_extraction_status(Pair, SS)}],
+    aa_update_annotation1(Args, I, AAS);
+aa_update_annotation(I=#b_set{args=Args0}, SS, AAS) ->
+    Args = [{V,aa_get_status(V, SS)} || #b_var{}=V <- Args0],
+    aa_update_annotation1(Args, I, AAS);
+aa_update_annotation(I=#b_ret{arg=#b_var{}=V}, SS, AAS) ->
+    aa_update_annotation1(aa_get_status(V, SS), I, AAS);
+aa_update_annotation(I, _SS, _AAS) ->
+    %% For now we don't care about the other terminators.
+    I.
+
+aa_update_annotation1(ArgsStatus,
+                      I=#b_set{anno=Anno0,args=Args,op=Op}, AAS) ->
     {Aliased,Unique} =
-        foldl(fun(#b_var{}=V, {As,Us}) ->
-                      case aa_get_status(V, SS) of
-                          aliased ->
-                              {ordsets:add_element(V, As), Us};
-                          unique ->
-                              {As, ordsets:add_element(V, Us)}
-                      end;
-                 (_, A) ->
-                      A
-              end, {ordsets:new(),ordsets:new()}, Args),
+        foldl(fun({#b_var{}=V,aliased}, {As,Us}) ->
+                      {ordsets:add_element(V, As), Us};
+                 ({#b_var{}=V,unique}, {As,Us}) ->
+                      {As, ordsets:add_element(V, Us)};
+                 (_, S) ->
+                      S
+              end, {ordsets:new(),ordsets:new()}, ArgsStatus),
     Anno1 = case Aliased of
                 [] -> maps:remove(aliased, Anno0);
                 _ -> Anno0#{aliased => Aliased}
@@ -589,17 +647,14 @@ aa_update_annotation(I=#b_set{anno=Anno0,args=Args,op=Op}, SS, AAS) ->
                    Anno2
            end,
     I#b_set{anno=Anno};
-aa_update_annotation(I=#b_ret{arg=#b_var{}=V,anno=Anno0}, SS, _AAS) ->
-    Anno = case aa_get_status(V, SS) of
+aa_update_annotation1(Status, I=#b_ret{arg=#b_var{}=V,anno=Anno0}, _AAS) ->
+    Anno = case Status of
                aliased ->
                    maps:remove(unique, Anno0#{aliased=>[V]});
                unique ->
                    maps:remove(aliased, Anno0#{unique=>[V]})
            end,
-    I#b_ret{anno=Anno};
-aa_update_annotation(I, _SS, _AAS) ->
-    %% For now we don't care about the other terminators.
-    I.
+    I#b_ret{anno=Anno}.
 
 aa_set_aliased(Args, SS) ->
     aa_set_status(Args, aliased, SS).
@@ -623,6 +678,7 @@ aa_join_ls(_, [], State) ->
 aa_join(#b_var{}=VarA, #b_var{}=VarB, State) ->
     ARepr = aa_get_representative(VarA, State),
     BRepr = aa_get_representative(VarB, State),
+    ?DP("JOIN ~p(~p) ~p(~p)~n", [VarA,ARepr,VarB,BRepr]),
     case {ARepr, BRepr} of
         {Repr, Repr} ->
             State;
@@ -633,6 +689,13 @@ aa_join(#b_var{}=VarA, #b_var{}=VarB, State) ->
     end;
 aa_join(_, _, State) ->
     State.
+
+aa_register_extracted(Extracted, Aggregate, State) ->
+    E = aa_get_representative(Extracted, State),
+    A = aa_get_representative(Aggregate, State),
+    ?DP("REGISTER ~p(~p): ~p(~p)~n", [Aggregate,A,Extracted,E]),
+    Key = {extracted,A},
+    State#{Key=>ordsets:add_element(E, maps:get(Key, State, []))}.
 
 aa_meet(#b_var{}=Var, SetStatus, State) ->
     Repr = aa_get_representative(Var, State),
@@ -700,25 +763,26 @@ aa_alias_inherit_and_alias_if_arg_does_not_die(Dst, Arg, SS0, AAS) ->
     SS1 = aa_alias_if_args_dont_die([Arg], Dst, SS0, AAS),
     aa_set_status(Dst, aa_get_status(Arg, SS1), SS1).
 
-%% Check that a variable in Args only occurs once, literals are
-%% ignored.
-aa_all_vars_unique(Args) ->
-    aa_all_vars_unique(Args, #{}).
+%% Check that a variable in Args only occurs once and that it is not
+%% aliased, literals are ignored.
+aa_all_vars_unique(Args, SS) ->
+    aa_all_vars_unique(Args, #{}, SS).
 
-aa_all_vars_unique([#b_literal{}|Args], Seen) ->
-    aa_all_vars_unique(Args, Seen);
-aa_all_vars_unique([#b_var{}=V|Args], Seen) ->
-    case Seen of
-        #{ V := _ } ->
-            false;
-        #{} ->
-            aa_all_vars_unique(Args, Seen#{V => true })
-    end;
-aa_all_vars_unique([], _) ->
+aa_all_vars_unique([#b_literal{}|Args], Seen,SS) ->
+    aa_all_vars_unique(Args, Seen, SS);
+aa_all_vars_unique([#b_var{}=V|Args], Seen, SS) ->
+    aa_get_status(V, SS) =:= unique andalso
+        case Seen of
+            #{ V := _ } ->
+                false;
+            #{} ->
+                aa_all_vars_unique(Args, Seen#{V => true }, SS)
+        end;
+aa_all_vars_unique([], _, _) ->
     true.
 
 aa_construct_term(Dst, Values, SS, AAS) ->
-    case aa_all_vars_unique(Values)
+    case aa_all_vars_unique(Values, SS)
         andalso aa_all_dies(Values, Dst, AAS) of
         true ->
             aa_join_ls(Dst, Values, SS);
@@ -841,40 +905,60 @@ aa_get_call_args_status(Args, Callee, #aas{call_args=Info}) ->
     #{ Callee := Status } = Info,
     zip(Args, Status).
 
-aa_pair_extraction(Dst, Pair, Element, SS0) ->
-    case SS0 of
-        #{{pair,Pair}:=both} ->
-            %% Both elements have already been extracted
-            aa_set_aliased([Dst,Pair], SS0);
-        #{{pair,Pair}:=Element} ->
-            %% This element has already been extracted
-            aa_set_aliased([Dst,Pair], SS0);
-        #{{pair,Pair}:=_Other} ->
-            %% Both elements have now been extracted
-            aa_join(Dst, Pair, SS0#{{pair,Pair}=>both});
-        _ ->
-            %% Nothing has been extracted from this pair
-            aa_join(Dst, Pair, SS0#{{pair,Pair}=>Element})
-    end.
+aa_pair_extraction(Dst, #b_var{}=Pair, Element, SS0) ->
+    Repr = aa_get_representative(Pair, SS0),
+    #{Repr:={status,S}} = SS0,
+    case S of
+        unique ->
+            case SS0 of
+                #{{pair,Repr}:=both} ->
+                    %% Both elements have already been extracted
+                    aa_set_aliased([Dst,Repr], SS0);
+                #{{pair,Repr}:=Element} ->
+                    %% This element has already been extracted
+                    aa_set_aliased([Dst,Repr], SS0);
+                #{{pair,Repr}:=_Other} ->
+                    %% Both elements have now been extracted
+                    aa_register_extracted(Dst, Repr, SS0#{{pair,Repr}=>both});
+                _ ->
+                    %% Nothing has been extracted from this pair yet
+                    aa_register_extracted(Dst, Repr, SS0#{{pair,Repr}=>Element})
+            end;
+        aliased ->
+            aa_set_aliased(Dst, SS0)
+    end;
+aa_pair_extraction(_Dst, #b_literal{}, _Element, SS) ->
+    SS.
 
 aa_map_extraction(Dst, Map, SS, AAS) ->
     aa_join(Dst, Map,
             aa_alias_inherit_and_alias_if_arg_does_not_die(Dst, Map, SS, AAS)).
 
-aa_tuple_extraction(Dst, Tuple, #b_literal{val=I}, SS1) ->
-    case SS1 of
-        #{{tuple_element,Tuple}:=OrdSet0} ->
-            case ordsets:is_element(I, OrdSet0) of
-                true ->
-                    aa_set_aliased([Dst,Tuple], SS1);
-                false ->
-                    OrdSet = ordsets:add_element(I, OrdSet0),
-                    aa_join(Dst, Tuple, SS1#{{tuple_element,Tuple}=>OrdSet})
+aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, SS1) ->
+    Repr = aa_get_representative(Tuple, SS1),
+    #{Repr:={status,S}} = SS1,
+    case S of
+        unique ->
+            case SS1 of
+                #{{tuple_element,Repr}:=OrdSet0} ->
+                    case ordsets:is_element(I, OrdSet0) of
+                        true ->
+                            aa_set_aliased([Dst,Repr], SS1);
+                        false ->
+                            OrdSet = ordsets:add_element(I, OrdSet0),
+                            aa_register_extracted(
+                              Dst, Repr, SS1#{{tuple_element,Repr}=>OrdSet})
+                    end;
+                _ ->
+                    %% Nothing has been extracted from this tuple yet
+                    aa_register_extracted(
+                      Dst, Repr, SS1#{{tuple_element,Repr}=>[I]})
             end;
-        _ ->
-            %% There are no aliases yet.
-            aa_join(Dst, Tuple, SS1#{{tuple_element,Tuple}=>[I]})
-    end.
+        aliased ->
+            aa_set_aliased(Dst, SS1)
+    end;
+aa_tuple_extraction(_, #b_literal{}, _, SS) ->
+    SS.
 
 aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
             Env0, SS0,
