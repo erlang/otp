@@ -2619,9 +2619,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             bool can_fail = true;
             comment("size binary/integer/float/string");
 
-            if (std::get<0>(getClampedRange(seg.size)) >= 0) {
-                /* Can't fail if size is always positive. */
-                can_fail = false;
+            if (always_small(seg.size)) {
+                auto min = std::get<0>(getClampedRange(seg.size));
+                if (min >= 0) {
+                    can_fail = false;
+                }
             }
 
             if (can_fail && Fail.get() == 0) {
