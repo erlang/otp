@@ -27,7 +27,8 @@
          beam_ssa_dead_crash/1,stack_init/1,
          mapfoldl/0,mapfoldl/1,
          grab_bag/1,redundant_br/1,
-         coverage/1,normalize/1]).
+         coverage/1,normalize/1,
+         trycatch/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -49,7 +50,8 @@ groups() ->
        grab_bag,
        redundant_br,
        coverage,
-       normalize
+       normalize,
+       trycatch
       ]}].
 
 init_per_suite(Config) ->
@@ -1345,6 +1347,55 @@ make_bset(Anno, Op, Args) when is_map(Anno) ->
 unpack_bset({b_set,Anno,{b_var,1000},Op,Args}) ->
     ArgTypes = maps:get(arg_types, Anno, #{}),
     {lists:sort(maps:to_list(ArgTypes)),Op,Args}.
+
+trycatch(_Config) ->
+    8 = trycatch_1(),
+
+    ok = trycatch_2(id(ok)),
+    ok = trycatch_2(id(z)),
+
+    false = trycatch_3(id(42)),
+
+    ok.
+
+trycatch_1() ->
+    try B = (A = bit_size(iolist_to_binary("a"))) rem 1 of
+        _ ->
+            A;
+        _ ->
+            B
+    after
+        ok
+    end.
+
+trycatch_2(A) ->
+    try not (B = (ok >= A)) of
+        B ->
+            iolist_size(maybe
+                            [] ?= B,
+                            <<>> ?= list_to_binary(ok)
+                        end);
+        _ ->
+            ok
+    after
+        ok
+    end.
+
+trycatch_3(A) ->
+    try erlang:bump_reductions(A) of
+        B ->
+            try not (C = (B andalso is_number(ok))) of
+                C ->
+                    ok andalso ok;
+                _ ->
+                    C
+            catch
+                _ ->
+                    ok
+            end
+    after
+        ok
+    end.
 
 %% The identity function.
 id(I) -> I.
