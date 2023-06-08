@@ -1449,8 +1449,8 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
 	 * "current process", push the requester onto the (acceptor) queue.
          */
 
-        SSDBG( descP, ("UNIX-ESSIO", "essio_accept_accepting -> check: "
-                       "is caller current acceptor:"
+        SSDBG( descP, ("UNIX-ESSIO", "essio_accept_accepting -> "
+                       "check: is caller current acceptor:"
                        "\r\n   Caller:      %T"
                        "\r\n   Current:     %T"
                        "\r\n   Current Mon: %T"
@@ -1463,7 +1463,8 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
 
             SSDBG( descP,
                    ("UNIX-ESSIO",
-                    "essio_accept_accepting {%d} -> current acceptor"
+                    "essio_accept_accepting {%d} -> "
+                    "current acceptor - try again"
                     "\r\n", descP->sock) );
 
             return essio_accept_accepting_current(env, descP, sockRef, accRef);
@@ -1787,8 +1788,13 @@ ERL_NIF_TERM essio_accept_busy_retry(ErlNifEnv*       env,
                                  MKT2(env, esock_atom_select_read,
                                       MKI(env, sres)));
     } else {
+
+        descP->currentAcceptor.ref =
+            CP_TERM(descP->currentAcceptor.env, accRef);
+
         descP->readState |=
             (ESOCK_STATE_ACCEPTING | ESOCK_STATE_SELECTED);
+
         res = esock_atom_select;
     }
 
