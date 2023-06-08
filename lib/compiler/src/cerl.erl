@@ -2385,21 +2385,22 @@ bitstr_size(Node) ->
 -spec bitstr_bitsize(c_bitstr()) -> 'all' | 'any' | 'utf' | non_neg_integer().
 
 bitstr_bitsize(Node) ->
-    Size = Node#c_bitstr.size,
+    #c_bitstr{size=Size,type=Type,unit=Unit} = Node,
     case is_literal(Size) of
-	true ->
-	    case concrete(Size) of
-		all ->
-		    all;
-		undefined ->
-		     %% just an assertion below
-		    "utf" ++ _ = atom_to_list(concrete(Node#c_bitstr.type)),
-		    utf;
-		S when is_integer(S) ->
-		    S * concrete(Node#c_bitstr.unit)
-	    end;
-	false ->
-	    any
+        true ->
+            case {concrete(Size), concrete(Type)} of
+                {all, binary} ->
+                    all;
+                {undefined, T} when T =:= utf8; T =:= utf16; T =:= utf32 ->
+                    utf;
+                {S, _} when is_integer(S), S >= 0 ->
+                    S * concrete(Unit);
+                {_, _} ->
+                    %% Bogus literal size, fails in runtime.
+                    any
+            end;
+        false ->
+            any
     end.
 
 
