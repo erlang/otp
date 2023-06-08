@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,26 +71,31 @@
 %%----------------------------------------------------------------------
 %% State record for the SAX parser
 %%----------------------------------------------------------------------
--record(xmerl_sax_parser_state, {
-	  event_state,              % User state for events
-	  event_fun,                % Fun used for each event
-	  continuation_state,       % User state for continuation calls
-	  continuation_fun,         % Fun used to fetch more input
-	  encoding=utf8,            % Which encoding is used
-	  line_no = 1,              % Current line number
-	  ns = [],                  % List of current namespaces
-	  current_tag = [],         % Current tag 
-	  end_tags = [],            % Stack of tags used for end tag matching 
-	  match_end_tags = true,    % Flag which defines if the parser should match on end tags
-	  ref_table,                % Table containing entity definitions
-	  standalone = no,          % yes if the document is standalone and don't need an external DTD.
-	  file_type = normal,       % Can be normal, dtd and entity
-	  current_location,         % Location of the currently parsed XML entity
-	  entity,                   % Parsed XML entity
-	  skip_external_dtd = false,% If true the external DTD is skipped during parsing
-	  input_type,               % Source type: file | stream
-      attribute_values = []     % default attribute values
-	 }).
+-record(xmerl_sax_parser_state,
+        {
+         event_state,               % User state for events
+         event_fun,                 % Fun used for each event
+         continuation_state,        % User state for continuation calls
+         continuation_fun,          % Fun used to fetch more input
+         encoding=utf8,             % Which encoding is used
+         line_no = 1,               % Current line number
+         ns = [],                   % List of current namespaces
+         current_tag = [],          % Current tag 
+         end_tags = [],             % Stack of tags used for end tag matching 
+         match_end_tags = true,     % Flag which defines if the parser should match on end tags
+         ref_table,                 % Table containing entitity definitions
+         standalone = no,           % yes if the document is standalone and don't need an external DTD.
+         file_type = normal,        % Can be normal, dtd and entity
+         current_location,          % Location of the currently parsed XML entity
+         entity,                    % Parsed XML entity
+         skip_external_dtd = false, % If true the external DTD is skipped during parsing
+         input_type,                % Source type: file | stream
+         attribute_values = [],     % default attribute values
+         allow_entities = true,     % If true entities are allowed in the document
+         entity_recurse_limit = 3,  % How many levels of recursion is allowed for entities
+         external_entities = all,   % Which types of external entities are allowed: all(default), file or none
+         fail_undeclared_ref = true % If false the reference will be left unresolved in the document, true is default
+        }).
 
 
 
