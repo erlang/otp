@@ -1156,11 +1156,19 @@ do_complex_guard_2(X, Y, Z) ->
 gbif(Config) when is_list(Config) ->
     error = gbif_1(1, {false,true}),
     ok = gbif_1(2, {false,true}),
+
+    error = gbif_2(id(0)),
+    error = gbif_2(id(<<>>)),
+
     ok.
 
 gbif_1(P, T) when element(P, T) -> ok;
 gbif_1(_, _) -> error.
 
+gbif_2(A) when bnot trunc((<<(true orelse ok)>> =/= A orelse 0) + 1) =:= A ->
+    ok;
+gbif_2(_) ->
+    error.
 
 t_is_boolean(Config) when is_list(Config) ->
     true = is_boolean(true),
@@ -2405,6 +2413,8 @@ binary_part(Config) when is_list(Config) ->
 		    true ->
 			error
 		end,
+    error = bp_coverage_1(id(<<>>)),
+
     ok.
 
 
@@ -2461,6 +2471,11 @@ bptest(B,A,C) when erlang:binary_part(B,A,C) =:= <<1>> ->
 bptest(B,A,C)  when erlang:binary_part(B,{A,C}) =:= <<3,3>> ->
     3;
 bptest(_,_,_) ->
+    error.
+
+bp_coverage_1(A) when binary_part(A, A, floor(float(0))) ->
+    ok;
+bp_coverage_1(_) ->
     error.
 
 -define(FAILING(C),
@@ -3117,6 +3132,12 @@ do_gh4788(N) ->
 beam_ssa_bool_coverage() ->
     {"*","abc"} = collect_modifiers("abc*", []),
     error = beam_ssa_bool_coverage_1(true),
+
+    ok = beam_ssa_bool_coverage_2(self()),
+    ok = beam_ssa_bool_coverage_2(true),
+    error = beam_ssa_bool_coverage_2(false),
+    error = beam_ssa_bool_coverage_2(42),
+
     ok.
 
 collect_modifiers([H | T], Buffer)
@@ -3129,6 +3150,11 @@ collect_modifiers(Rest, Buffer) ->
 beam_ssa_bool_coverage_1(V) when V andalso 0, tuple_size(0) ->
     ok;
 beam_ssa_bool_coverage_1(_) ->
+    error.
+
+beam_ssa_bool_coverage_2(A) when is_pid(A) andalso true; A ->
+    ok;
+beam_ssa_bool_coverage_2(_) ->
     error.
 
 gh_6164() ->

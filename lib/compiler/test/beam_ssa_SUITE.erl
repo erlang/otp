@@ -76,6 +76,11 @@ calls(Config) ->
     {'EXIT',{badarg,_}} = (catch call_error()),
     {'EXIT',{badarg,_}} = (catch call_error(42)),
     5 = start_it([erlang,length,1,2,3,4,5]),
+
+    {_,ok} = cover_call(id(true)),
+    {_,ok} = cover_call(id(false)),
+    {'EXIT',{{case_clause,ok},_}} = catch cover_call(id(ok)),
+
     ok.
 
 fun_call(Fun, X0) ->
@@ -105,6 +110,16 @@ start_it([_|_]=MFA) ->
     case MFA of
 	[M,F|Args] -> M:F(Args)
     end.
+
+cover_call(A) ->
+    case A =/= ok of
+        B ->
+            {(term_to_binary(ok)),
+             case ok of
+                 _  when B -> ok
+             end}
+    end.
+
 
 tuple_matching(_Config) ->
     do_tuple_matching({tag,42}),

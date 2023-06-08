@@ -197,8 +197,11 @@ bnot_bounds(_Config) ->
     {'-inf',-15} = beam_bounds:bounds('bnot', {7,'+inf'}),
     {'-inf',19} = beam_bounds:bounds('bnot', {-10,'+inf'}),
     {-2228221,'+inf'} = beam_bounds:bounds('bnot', {'-inf', 1114110}),
+    any = beam_bounds:bounds('bnot', {0, 1 bsl 256}),
 
     -1 = bnot_bounds_2(0),
+    -43 = bnot_bounds_2_coverage(id(42)),
+    {'EXIT',{badarith,_}} = catch bnot_bounds_2_coverage(id(bad)),
 
     ok.
 
@@ -217,6 +220,8 @@ bnot_bounds_1(R) ->
 %% GH-7145: 'bnot' converged too slowly, effectively hanging the compiler.
 bnot_bounds_2(0) -> -1;
 bnot_bounds_2(N) -> abs(bnot bnot_bounds_2(N)).
+
+bnot_bounds_2_coverage(N) -> bnot N.
 
 bsr_bounds(_Config) ->
     test_noncommutative('bsr', {-12,12}, {0,7}),
@@ -555,3 +560,10 @@ test_redundant_masking({A,B}=R, M) ->
 test_redundant_masking(A, B, M) when A =< B ->
     A band M =:= A andalso test_redundant_masking(A + 1, B, M);
 test_redundant_masking(_, _, _) -> true.
+
+%%%
+%%% Common utilities.
+%%%
+
+id(I) ->
+    I.
