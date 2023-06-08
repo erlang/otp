@@ -174,8 +174,8 @@ get_chnl_no(NodeName) when is_atom(NodeName) ->
     erts_debug:get_internal_state({channel_number, NodeName}).
 
 chk_display(Term, Expect) when is_list(Expect) ->
-    Dstr = erts_debug:display(Term),
-    case Expect ++ io_lib:nl() of
+    Dstr = erts_internal:term_to_string(Term),
+    case Expect of
         Dstr ->
             io:format("Test of \"~p\" succeeded.~n"
                       "  Expected and got: ~s~n",

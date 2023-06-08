@@ -31,7 +31,7 @@
 
 %%% BIFs
 
--export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
+-export([breakpoint/2, disassemble/1, dist_ext_to_term/2,
          flat_size/1, get_internal_state/1, instructions/0,
          interpreter_size/0,
          map_info/1, same/2, set_internal_state/2,
@@ -67,12 +67,6 @@ breakpoint(_, _) ->
       Code :: binary().
 
 disassemble(_) ->
-    erlang:nif_error(undef).
-
--spec display(Term) -> string() when
-      Term :: term().
-
-display(_) ->
     erlang:nif_error(undef).
 
 -spec dist_ext_to_term(Tuple, Binary) -> term() when

@@ -119,6 +119,8 @@
 
 -export([dynamic_node_name/0, dynamic_node_name/1]).
 
+-export([term_to_string/1, term_to_string/2]).
+
 %%
 %% Await result of send to port
 %%
@@ -1060,3 +1062,15 @@ dynamic_node_name(false) ->
         false -> ok;
         _ -> _ = persistent_term:erase({?MODULE, dynamic_node_name}), ok
     end.
+
+-spec term_to_string(T :: term()) -> string().
+
+term_to_string(T) ->
+    term_to_string(T, undefined).
+
+-spec term_to_string(T, Limit) -> string() when
+    T :: term(),
+    Limit :: undefined | pos_integer().
+
+term_to_string(_T, _Limit) ->
+    erlang:nif_error(undefined).
