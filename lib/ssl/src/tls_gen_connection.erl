@@ -104,7 +104,7 @@ handle_sender_options(ErlDist, SpawnOpts) ->
 start_connection_tree(User, IsErlDist, SenderOpts, Role, ReceiverOpts) ->
     StartConnectionTree =
         fun() ->
-                case start_dyn_connection_sup(IsErlDist) of
+                try start_dyn_connection_sup(IsErlDist) of
                     {ok, DynSup} ->
                         case tls_dyn_connection_sup:start_child(DynSup, sender, SenderOpts) of
                             {ok, Sender} ->
@@ -122,6 +122,11 @@ start_connection_tree(User, IsErlDist, SenderOpts, Role, ReceiverOpts) ->
                         end;
                     {error, Error} ->
                         User ! {self(), Error}
+                catch exit:{noproc, _} ->
+                        User ! {self(), {error, ssl_not_started}};
+                      _:Reason:ST ->  %% Don't hang signal internal error
+                        ?SSL_LOG(notice, internal_error, [{error, Reason}, {stacktrace, ST}]),
+                        User ! {self(), {error, internal_error}}
                 end
         end,
     spawn(StartConnectionTree).
