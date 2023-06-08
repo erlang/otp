@@ -2444,7 +2444,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
 
         if (seg.effectiveSize < 0 && seg.type != am_append &&
             seg.type != am_private_append) {
-            sizeReg = FCALLS;
+            /* We need a callee-save register for the size. We'll pick the
+             * active code index register because it's not used in any capacity
+             * here. Note that we have to spill it since `save_calls` may be
+             * enabled and we'll lose that information if we blindly re-read
+             * the index. */
+            sizeReg = active_code_ix;
             need_error_handler = true;
         }
 
@@ -2515,6 +2520,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         error = a.newLabel();
         a.bind(error);
         bs_maybe_leave_runtime(runtime_entered);
+
+        if (sizeReg.isValid()) {
+            a.mov(sizeReg, TMP_MEM5q);
+        }
+
         comment("handle error");
         if (Fail.get() != 0) {
             a.jmp(resolve_beam_label(Fail));
@@ -2531,6 +2541,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
      * word. */
     if (sizeReg.isValid()) {
         comment("calculate sizes");
+        a.mov(TMP_MEM5q, sizeReg);
         mov_imm(sizeReg, num_bits);
     }
 
@@ -3318,6 +3329,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
     }
 
     bs_maybe_leave_runtime(runtime_entered);
+
+    if (sizeReg.isValid()) {
+        a.mov(sizeReg, TMP_MEM5q);
+    }
+
     comment("done");
     a.mov(RET, TMP_MEM1q);
     mov_arg(Dst, RET);
