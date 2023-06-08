@@ -702,7 +702,8 @@
          otp16359_maccept_tcp6/1,
          otp16359_maccept_tcpL/1,
          otp18240_accept_mon_leak_tcp4/1,
-         otp18240_accept_mon_leak_tcp6/1
+         otp18240_accept_mon_leak_tcp6/1,
+         otp18635/1
         ]).
 
 
@@ -2197,7 +2198,8 @@ ttest_ssockt_csockt_cases() ->
 tickets_cases() ->
     [
      {group, otp16359},
-     {group, otp18240}
+     {group, otp18240},
+     otp18635
     ].
 
 otp16359_cases() ->
@@ -49138,6 +49140,148 @@ otp18240_do_close({ID, Sock}) ->
 	    error
     end.
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is to verify that we do not leak monitors.
+otp18635(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_otp18635(InitState)
+           end).
+
+
+do_otp18635(_) ->
+    Parent = self(),
+
+    ?P("try create (listen) socket when"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p",
+       [socket:info(), socket:which_sockets()]),
+
+    {ok, LSock} = socket:open(inet, stream, #{use_registry => true}),
+
+    ?P("make listen socket"),
+    ok = socket:listen(LSock),
+
+    ?P("get sockname for listen socket"),
+    {ok, Addr} = socket:sockname(LSock),
+
+    %% ok = socket:setopt(LSock, otp, debug, true),
+
+    % show handle returned from nowait accept
+    ?P("try accept with timeout = nowait - expect select when"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p",
+       [socket:info(), socket:which_sockets()]),
+    {select, {select_info, _, Handle}} = socket:accept(LSock, nowait),
+    ?P("expected select result: "
+       "~n   Select Handle:     ~p"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p",
+       [Handle, socket:info(), socket:which_sockets()]),
+
+    ?SLEEP(?SECS(1)),
+
+    %% perform a blocking accept that will fail (timeout)
+    ?P("attempt accept with timeout = 500 - expect failure (timeout)"),
+    {error, timeout} = socket:accept(LSock, 500),
+
+    %% spawn a client to connect
+    ?P("spawn connector when"
+       "~n   (gen socket) info:  ~p"
+       "~n   Listen Socket info: ~p"
+       "~n   Sockets:            ~p",
+       [socket:info(), socket:info(LSock), socket:which_sockets()]),
+    {Connector, MRef} =
+        spawn_monitor(
+          fun() ->
+                  ?P("[connector] try create socket"),
+                  {ok, CSock} = socket:open(inet, stream),
+                  ?P("[connector] try connect (to server)"),
+                  ok = socket:connect(CSock, Addr),
+                  ?P("[connector] connected - inform parent"),
+                  Parent ! {self(), connected},
+                  ?P("[connector] await termination command"),
+                  receive
+                      {Parent, terminate} ->
+                          ?P("[connector] terminate - close socket"),
+                          (catch socket:close(CSock)),
+                          exit(normal)
+                  end
+              end),
+
+    ?P("await (connection-) confirmation from connector (~p)", [Connector]),
+    receive
+        {Connector, connected} ->
+            ?P("connector connected"),
+            ok
+    end,
+
+    %% We should *not* get *any* select messages;
+    %% since the second call (that *replaced* the current active request)
+    %% timeout out
+    ?P("wait for a select message that should never come"),
+    Result =
+        receive
+            {'$socket', LSock, select, AnyHandle} ->
+                ?P("received unexpected select message when"
+                   "~n   Unexpected Handle:  ~p"
+                   "~n   (gen socket) info:  ~p"
+                   "~n   Listen Socket info: ~p"
+                   "~n   Sockets:            ~p",
+                   [AnyHandle,
+                    socket:info(), socket:info(LSock), socket:which_sockets()]),
+                error
+        after 5000 ->
+                ?P("expected timeout"),
+                ok
+        end,
+
+    ?P("try accept the waiting connection when"
+       "~n   (gen socket) info:  ~p"
+       "~n   Listen Socket info: ~p"
+       "~n   Sockets:            ~p",
+       [socket:info(), socket:info(LSock), socket:which_sockets()]),
+
+    {ok, ASock} = socket:accept(LSock),
+
+    ?P("connection accepted"
+       "~n   (gen socket) info:    ~p"
+       "~n   Accepted socket:      ~p"
+       "~n   Accepted Socket info: ~p"
+       "~n   Listen Socket info:   ~p"
+       "~n   Sockets:              ~p",
+       [socket:info(),
+        ASock,
+        socket:info(ASock),
+        socket:info(LSock),
+        socket:which_sockets()]),
+
+    ?P("cleanup"),
+    socket:close(LSock),
+    socket:close(ASock),
+    Connector ! {self(), terminate},
+    receive
+        {'DOWN', MRef, process, Connector, _} ->
+            ?P("connector terminated"),
+            ok
+    end,
+
+    ?SLEEP(?SECS(1)),
+
+    ?P("done when"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p", [socket:info(), socket:which_sockets()]),
+
+    Result.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
