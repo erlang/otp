@@ -117,7 +117,7 @@
 -module(beam_ssa_bool).
 -export([module/2]).
 
--import(lists, [all/2,foldl/3,keyfind/3,last/1,partition/2,
+-import(lists, [all/2,any/2,foldl/3,keyfind/3,last/1,partition/2,
                 reverse/1,reverse/2,sort/1]).
 
 -include("beam_ssa.hrl").
@@ -1022,14 +1022,22 @@ convert_to_br_node(I, Target, G0, St) ->
 %%    (element(10, T) =:= y)
 
 ensure_no_failing_instructions(First, Second, G, St) ->
-    Vs0 = covered(get_vertex(First, St), get_vertex(Second, St), G),
-    Vs = [{V,beam_digraph:vertex(G, V)} || V <- Vs0],
-    Failing = [P || {V,#b_set{op={succeeded,_}}}=P <- Vs,
-                    not eaten_by_phi(V, G)],
-    case Failing of
-        [] -> ok;
-        [_|_] -> not_possible()
+    Vs = covered(get_vertex(First, St), get_vertex(Second, St), G),
+    case any(fun(V) ->
+                     case beam_digraph:vertex(G, V) of
+                         #b_set{op=Op} ->
+                             can_fail(Op, V, G);
+                         _ ->
+                             false
+                     end
+             end, Vs) of
+        true -> not_possible();
+        false -> ok
     end.
+
+can_fail({succeeded,_}, V, G) -> not eaten_by_phi(V, G);
+can_fail(put_map, _, _) -> true;
+can_fail(_, _, _) -> false.
 
 eaten_by_phi(V, G) ->
     {br,_,Fail} = get_targets(V, G),
