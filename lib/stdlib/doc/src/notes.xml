@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The POSIX error <c>exdev</c> was sometimes incorrectly
+	    described as "cross domain link" in some error
+	    messages.</p>
+          <p>
+	    Own Id: OTP-18578 Aux Id: GH-7213 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 5.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
