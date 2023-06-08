@@ -315,60 +315,9 @@ boot(Start,Flags,Args) ->
 		   bootpid = BootPid},
     boot_loop(BootPid,State).
 
-%%% Convert a term to a printable string, if possible.
-to_string(X, D) when is_list(X), D < 4 ->			% assume string
-    F = flatten(X, []),
-    case printable_list(F) of
-	true when length(F) > 0 ->  F;
-	_false ->
-            List = [to_string(E, D+1) || E <- X],
-            flatten(["[",join(List),"]"], [])
-    end;
-to_string(X, _D) when is_list(X) ->
-    "[_]";
-to_string(X, _D) when is_atom(X) ->
-    atom_to_list(X);
-to_string(X, _D) when is_pid(X) ->
-    pid_to_list(X);
-to_string(X, _D) when is_float(X) ->
-    float_to_list(X);
-to_string(X, _D) when is_integer(X) ->
-    integer_to_list(X);
-to_string(X, D) when is_tuple(X), D < 4 ->
-    List = [to_string(E, D+1) || E <- tuple_to_list(X)],
-    flatten(["{",join(List),"}"], []);
-to_string(X, _D) when is_tuple(X) ->
-    "{_}";
-to_string(_X, _D) ->
-    "".						% can't do anything with it
-
-%% This is an incorrect and narrow definition of printable characters.
-%% The correct one is in io_lib:printable_list/1
-%%
-printable_list([H|T]) when is_integer(H), H >= 32, H =< 126 ->
-    printable_list(T);
-printable_list([$\n|T]) -> printable_list(T);
-printable_list([$\r|T]) -> printable_list(T);
-printable_list([$\t|T]) -> printable_list(T);
-printable_list([]) -> true;
-printable_list(_) ->  false.
-
-join([] = T) ->
-    T;
-join([_Elem] = T) ->
-    T;
-join([Elem|T]) ->
-    [Elem,","|join(T)].
-
-flatten([H|T], Tail) when is_list(H) ->
-    flatten(H, flatten(T, Tail));
-flatten([H|T], Tail) ->
-    [H|flatten(T, Tail)];
-flatten([], Tail) ->
-    Tail.
-
 things_to_string([X|Rest]) ->
-    " (" ++ to_string(X, 0) ++ ")" ++ things_to_string(Rest);
+    " (" ++ erts_internal:term_to_string(X, 32768) ++ ")" ++
+        things_to_string(Rest);
 things_to_string([]) ->
     "".
 
