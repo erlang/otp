@@ -508,10 +508,10 @@
 	    A new sys level configuration parameter
 	    <c>{excl_lib,otp_root}</c> is added. When this is set,
 	    the target system will not contain anything from
-	    <c>$OTP_ROOT</c>. It will only contain a releases
+	    <c>$OTPROOT</c>. It will only contain a releases
 	    directory with rel, script and boot files, and a lib
 	    directory with applications found outside of
-	    <c>$OTP_ROOT</c> (i.e. "your own" applications).</p>
+	    <c>$OTPROOT</c> (i.e. "your own" applications).</p>
           <p>
 	    Own Id: OTP-9743</p>
         </item>

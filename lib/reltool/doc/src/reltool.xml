@@ -237,11 +237,11 @@
 	<warning><p>This option is experimental.</p></warning>
         <p>If the <c>excl_lib</c> option is set to <c>otp_root</c>
         then reltool will not copy anything from the Erlang/OTP
-        installation ($OTP_ROOT) into the target structure. The goal
+        installation ($OTPROOT) into the target structure. The goal
         is to create a "slim" release which can be used together with
         an existing Erlang/OTP installation. The target structure will
         therefore only contain a <c>lib</c> directory with the
-        applications that were found outside of $OTP_ROOT (typically
+        applications that were found outside of $OTPROOT (typically
         your own applications), and a <c>releases</c> directory with
         the generated <c>.rel,</c> <c>.script</c> and <c>.boot</c>
         files.</p>
@@ -251,14 +251,14 @@
 	  <tag><em>Which <c>releases</c> directory to use</em></tag>
 	  <item>Tell the release handler to use the <c>releases</c>
 	  directory in our target structure instead of
-	  <c>$OTP_ROOT/releases</c>. This is done by setting the SASL
+	  <c>$OTPROOT/releases</c>. This is done by setting the SASL
 	  environment variable <c>releases_dir</c>, either from the
 	  command line (<c>-sasl releases_dir
 	  &lt;target-dir&gt;/releases</c>) or in
 	  <c>sys.config</c>.</item>
 
 	  <tag><em>Which boot file to use</em></tag>
-	  <item>The default boot file is <c>$OTP_ROOT/bin/start</c>,
+	  <item>The default boot file is <c>$OTPROOT/bin/start</c>,
 	  but in this case we need to specify a boot file from our
 	  target structure, typically
 	  <c>&lt;target-dir&gt;/releases/&lt;vsn&gt;/&lt;RelName&gt;</c>. This

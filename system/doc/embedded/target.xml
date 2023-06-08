@@ -149,7 +149,7 @@ esac    </pre>
     <p>The file <c>/export/home/otpuser/otp/bin/start</c> referred to in the 
       above script, is precisely the script <c>start</c> described in the next
       chapter of this guide, <em>Starting an Embedded System</em>. The script 
-      variable <c>OTP_ROOT</c> in that <c>start</c> script corresponds to 
+      variable <c>$OTPROOT</c> in that <c>start</c> script corresponds to 
       the example path </p>
     <pre>
 /export/home/otpuser/otp    </pre>
@@ -316,7 +316,7 @@ TERM=sun    </pre>
                 <c>/priv/bin/mod_syslog</c>. The generic full name of the binary executable
                 file is thus</p>
               <code type="none"><![CDATA[
-  <OTP_ROOT>/lib/os_mon-<rev>/priv/bin/mod_syslog              ]]></code>
+  <$OTPROOT>/lib/os_mon-<rev>/priv/bin/mod_syslog              ]]></code>
               <p><em>Example:</em> If the path to the otp-root is
                 <c>/usr/otp</c>, thus the path to the <c>os_mon</c> application is 
                 <c>/usr/otp/lib/os_mon-1.0</c> (assuming revision 1.0) and the full name 
@@ -331,7 +331,7 @@ TERM=sun    </pre>
             <item>
               <p>A simple way to do this is to issue the commands</p>
               <code type="none"><![CDATA[
-  cd <OTP_ROOT>/lib/os_mon-<rev>/priv/bin/mod_syslog
+  cd <$OTPROOT>/lib/os_mon-<rev>/priv/bin/mod_syslog
   chmod 4755 mod_syslog
   chown root mod_syslog              ]]></code>
             </item>
@@ -355,7 +355,7 @@ TERM=sun    </pre>
             <c>/ebin/os_mon.app</c>.</p>
           <p>The generic full name of the file is thus</p>
           <code type="none"><![CDATA[
-   <OTP_ROOT>/lib/os_mon-<rev>/ebin/os_mon.app.          ]]></code>
+   <$OTPROOT>/lib/os_mon-<rev>/ebin/os_mon.app.          ]]></code>
           <p><em>Example:</em> If the path to the otp-root is <c>/usr/otp</c>,
             thus the path to the <c>os_mon</c> application is <c>/usr/otp/lib/os_mon-1.0</c> (assuming revision 1.0) and the full name of the binary executable file
             is <c>/usr/otp/lib/os_mon-1.0/ebin/os_mon.app</c>.</p>

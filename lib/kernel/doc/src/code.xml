@@ -101,7 +101,7 @@
       <code>
 /usr/local/jungerl:/home/some_user/my_erlang_lib</code>
     <p>On Windows, use semi-colon as separator.</p>
-    <p>The code paths specified by <c>$OTP_ROOT</c>, <c>ERL_LIBS</c>,
+    <p>The code paths specified by <c>$OTPROOT</c>, <c>ERL_LIBS</c>,
       and boot scripts have their listings cached by default (except for ".")
       since OTP 26.0.
       The code server will lookup the contents in their directories once

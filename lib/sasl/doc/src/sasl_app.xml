@@ -54,7 +54,7 @@
       <item>
         <p>Specifies the program to be used when restarting the system
           during release installation. Default is
-          <c>$OTP_ROOT/bin/start</c>.</p>
+          <c>$OTPROOT/bin/start</c>.</p>
       </item>
       <tag><c><![CDATA[masters = [atom()] ]]></c></tag>
       <item>
@@ -84,7 +84,7 @@
           The release handler writes all its files to this directory.
           If this parameter is not set, the OS environment parameter
           <c>RELDIR</c> is used. By default, this is
-          <c>$OTP_ROOT/releases</c>.</p>
+          <c>$OTPROOT/releases</c>.</p>
       </item>
     </taglist>
   </section>
