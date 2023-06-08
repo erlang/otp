@@ -1090,6 +1090,42 @@
 
 </section>
 
+<section><title>Compiler 7.6.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>It is not allowed to call functions from guards. The
+	    compiler failed to reject a call in a guard when done by
+	    constructing a record with a default initialization
+	    expression that called a function.</p>
+          <p>
+	    Own Id: OTP-18325 Aux Id: GH-6465, GH-6466 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug that could cause legal code to fail
+	    validation.</p>
+          <p>
+	    Own Id: OTP-18365</p>
+        </item>
+        <item>
+	    <p>The compiler would generate incorrect code for the
+	    following type of expression:</p>
+	    <p><c>Pattern = BoundVar1 = . . . = BoundVarN =
+	    Expression</c></p>
+	    <p>An exception should be raised if any of the bound
+	    variables have different values than <c>Expression</c>.
+	    The compiler would generate code that would cause the
+	    bound variables to be bound to the value of
+	    <c>Expression</c>whether the value matched or not.</p>
+          <p>
+	    Own Id: OTP-18470 Aux Id: GH-6873, PR-6877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
