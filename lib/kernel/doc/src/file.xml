@@ -2189,7 +2189,7 @@ f.txt:  {person, "kalle", 25}.
       <item><c>espipe</c> - Invalid seek</item>
       <item><c>esrch</c> - No such process</item>
       <item><c>estale</c> - Stale remote file handle</item>
-      <item><c>exdev</c> - Cross-domain link</item>
+      <item><c>exdev</c> - Cross-device link</item>
     </list>
   </section>
 
