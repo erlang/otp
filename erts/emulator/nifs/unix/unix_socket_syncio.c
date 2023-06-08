@@ -31,6 +31,16 @@
 
 #ifdef ESOCK_ENABLE
 
+/* If we HAVE_SCTP_H and Solaris, we need to define the following in
+ * order to get SCTP working:
+ */
+#if (defined(HAVE_SCTP_H) && defined(__sun) && defined(__SVR4))
+#define SOLARIS10    1
+/* WARNING: This is not quite correct, it may also be Solaris 11! */
+#define _XPG4_2
+#define __EXTENSIONS__
+#endif
+
 #ifdef HAVE_SENDFILE
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))
     #include <sys/sendfile.h>
