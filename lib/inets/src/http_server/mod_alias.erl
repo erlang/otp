@@ -123,8 +123,7 @@ real_name(ConfigDB, RequestURI, [{MP,Replacement}| _] = Aliases)
 real_name(ConfigDB, RequestURI,  [{_,_}|_] = Aliases) ->
     case longest_match(Aliases, RequestURI) of
 	{match, {FakeName, RealName}} ->
-	    ActualName = re:replace(RequestURI,
-				    "^" ++ FakeName, RealName, [{return,list}]),
+	    ActualName = re:replace(RequestURI, FakeName, RealName, [{return,list}]),
  	    {ShortPath, _AfterPath} = httpd_util:split_path(ActualName),
 	    {Path, AfterPath} =
 		httpd_util:split_path(default_index(ConfigDB, ActualName)),
@@ -137,7 +136,7 @@ longest_match(Aliases, RequestURI) ->
     longest_match(Aliases, RequestURI, _LongestNo = 0, _LongestAlias = undefined).
 
 longest_match([{FakeName, RealName} | Rest], RequestURI, LongestNo, LongestAlias) ->
-    case re:run(RequestURI, "^" ++ FakeName, [{capture, first}]) of
+    case re:run(RequestURI, FakeName, [{capture, first}]) of
 	{match, [{_, Length}]} ->
 	    if
 		Length > LongestNo ->
@@ -158,10 +157,10 @@ longest_match([], _RequestURI, _LongestNo, LongestAlias) ->
 real_script_name(_ConfigDB, _RequestURI, []) ->
     not_a_script;
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
-    case re:run(RequestURI, "^" ++ FakeName, [{capture, none}]) of
+    case re:run(RequestURI, FakeName, [{capture, none}]) of
 	match ->
 	    ActualName0 =
-		re:replace(RequestURI, "^" ++ FakeName, RealName,  [{return,list}]),
+		re:replace(RequestURI, FakeName, RealName,  [{return,list}]),
             ActualName = abs_script_path(ConfigDB, ActualName0),
 	    httpd_util:split_script_path(default_index(ConfigDB, ActualName));
 	nomatch ->
@@ -234,14 +233,17 @@ store({directory_index, Value} = Conf, _) when is_list(Value) ->
     end;
 store({directory_index, Value}, _) ->
     {error, {wrong_type, {directory_index, Value}}};
-store({alias, {Fake, Real}} = Conf, _)
+store({alias, {Fake, Real}}, _)
   when is_list(Fake), is_list(Real) ->
+    {ok, {alias,{"^"++Fake,Real}}};
+store({alias, {MP, _}} = Conf, _)
+  when element(1, MP) =:= re_pattern ->
     {ok, Conf};
 store({alias, Value}, _) ->
     {error, {wrong_type, {alias, Value}}};
 store({re_write, {Re, Replacement}} = Conf, _)
   when is_list(Re), is_list(Replacement) ->
-    case re:compile(Re) of
+    case re:compile("^"++Re) of
 	{ok, MP} ->
 	    {ok, {alias, {MP, Replacement}}};
 	{error,_} ->
@@ -249,14 +251,17 @@ store({re_write, {Re, Replacement}} = Conf, _)
     end;
 store({re_write, _} = Conf, _) ->
     {error, {wrong_type, Conf}};
-store({script_alias, {Fake, Real}} = Conf, _) 
+store({script_alias, {Fake, Real}}, _)
   when is_list(Fake), is_list(Real) ->
+    {ok, {script_alias,{"^"++Fake,Real}}};
+store({script_alias, {MP, _}} = Conf, _)
+  when element(1, MP) =:= re_pattern ->
     {ok, Conf};
 store({script_alias, Value}, _) ->
     {error, {wrong_type, {script_alias, Value}}};
 store({script_re_write, {Re, Replacement}} = Conf, _)
   when is_list(Re), is_list(Replacement) ->
-    case re:compile(Re) of
+    case re:compile("^"++Re) of
 	{ok, MP} ->
 	    {ok, {script_alias, {MP, Replacement}}};
 	{error,_} ->
