@@ -13504,7 +13504,7 @@ api_opt_sock_bindtodevice() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
+                           case which_local_host_info(Domain) of
                                {ok, #{name := Name, addr := Addr}} ->
                                    ?SEV_IPRINT("local host info (~p): "
                                                "~n   Name: ~p"
@@ -13788,10 +13788,11 @@ api_opt_sock_broadcast() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
+                           case which_local_host_info(Domain) of
                                {ok, #{name      := Name,
                                       addr      := Addr,
-                                      broadaddr := BAddr}} ->
+                                      broadaddr := BAddr}}
+				 when (BAddr =/= undefined) ->
                                    ?SEV_IPRINT("local host info: "
                                                "~n   Name:           ~p"
                                                "~n   Addr:           ~p"
@@ -13803,6 +13804,8 @@ api_opt_sock_broadcast() ->
                                            addr   => BAddr},
                                    {ok, State#{lsa => LSA,
                                                bsa => BSA}};
+			       {ok, _} ->
+				   {skip, no_broadcast_address};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -14161,7 +14164,7 @@ api_opt_sock_debug() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
+                           case which_local_host_info(Domain) of
                                {ok, #{name      := Name,
                                       addr      := Addr}} ->
                                    ?SEV_IPRINT("local host info: "
@@ -14271,12 +14274,12 @@ api_opt_sock_domain() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
-                               {ok, #{name      := Name,
-                                      addr      := Addr}} ->
+                           case which_local_host_info(Domain) of
+                               {ok, #{name := Name,
+                                      addr := Addr}} ->
                                    ?SEV_IPRINT("local host info: "
-                                               "~n   Name:           ~p"
-                                               "~n   Addr:           ~p",
+                                               "~n   Name: ~p"
+                                               "~n   Addr: ~p",
                                                [Name, Addr]),
                                    LSA = #{family => Domain,
                                            addr   => Addr},
@@ -14390,12 +14393,12 @@ api_opt_sock_dontroute() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
-                               {ok, #{name      := Name,
-                                      addr      := Addr}} ->
+                           case which_local_host_info(Domain) of
+                               {ok, #{name := Name,
+                                      addr := Addr}} ->
                                    ?SEV_IPRINT("local host info: "
-                                               "~n   Name:           ~p"
-                                               "~n   Addr:           ~p",
+                                               "~n   Name: ~p"
+                                               "~n   Addr: ~p",
                                                [Name, Addr]),
                                    LSA = #{family => Domain,
                                            addr   => Addr},
@@ -14519,12 +14522,12 @@ api_opt_sock_keepalive() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
+                           case which_local_host_info(Domain) of
                                {ok, #{name      := Name,
                                       addr      := Addr}} ->
                                    ?SEV_IPRINT("local host info: "
-                                               "~n   Name:           ~p"
-                                               "~n   Addr:           ~p",
+                                               "~n   Name: ~p"
+                                               "~n   Addr: ~p",
                                                [Name, Addr]),
                                    LSA = #{family => Domain,
                                            addr   => Addr},
@@ -49405,10 +49408,18 @@ which_local_socket_addr(local = Domain) ->
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_socket_addr(Domain) ->
-    case ?LIB:which_local_host_info(Domain) of
-        {ok, #{addr := Addr}} ->
+    case ?KLIB:which_local_host_info(Domain) of
+        {ok, [#{addr := Addr}|_]} ->
             #{family => Domain,
               addr   => Addr};
+        {error, Reason} ->
+            ?FAIL(Reason)
+    end.
+
+which_local_host_info(Domain) ->
+    case ?KLIB:which_local_host_info(Domain) of
+        {ok, [Info|_]} ->
+            {ok, Info#{family => Domain}};
         {error, Reason} ->
             ?FAIL(Reason)
     end.
@@ -49788,10 +49799,10 @@ has_support_sctp() ->
 %% support for IPv4 or IPv6. If not, there is no point in running corresponding tests.
 %% Currently we just skip.
 has_support_ipv4() ->
-    ?LIB:has_support_ipv4().
+    ?KLIB:has_support_ipv4().
 
 has_support_ipv6() ->
-    ?LIB:has_support_ipv6().
+    ?KLIB:has_support_ipv6().
 
 inet_or_inet6() ->
     try
