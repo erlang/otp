@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -138,7 +138,7 @@ get_status(Name, Timeout) -> send_system_msg(Name, get_status, Timeout).
 get_state(Name) ->
     case send_system_msg(Name, get_state) of
 	{error, Reason} -> error(Reason);
-	State -> State
+	{ok, State} -> State
     end.
 
 -spec get_state(Name, Timeout) -> State when
@@ -148,7 +148,7 @@ get_state(Name) ->
 get_state(Name, Timeout) ->
     case send_system_msg(Name, get_state, Timeout) of
 	{error, Reason} -> error(Reason);
-	State -> State
+	{ok, State} -> State
     end.
 
 -spec replace_state(Name, StateFun) -> NewState when
@@ -158,7 +158,7 @@ get_state(Name, Timeout) ->
 replace_state(Name, StateFun) ->
     case send_system_msg(Name, {replace_state, StateFun}) of
 	{error, Reason} -> error(Reason);
-	State -> State
+	{ok, State} -> State
     end.
 
 -spec replace_state(Name, StateFun, Timeout) -> NewState when
@@ -169,7 +169,7 @@ replace_state(Name, StateFun) ->
 replace_state(Name, StateFun, Timeout) ->
     case send_system_msg(Name, {replace_state, StateFun}, Timeout) of
 	{error, Reason} -> error(Reason);
-	State -> State
+	{ok, State} -> State
     end.
 
 -spec change_code(Name, Module, OldVsn, Extra) -> 'ok' | {error, Reason} when
@@ -333,15 +333,19 @@ remove(Name, FuncOrFuncId, Timeout) ->
 %% The receiving side should send Msg to handle_system_msg/5.
 %%-----------------------------------------------------------------
 send_system_msg(Name, Request) ->
-    case catch gen:call(Name, system, Request) of
-	{ok,Res} -> Res;
-	{'EXIT', Reason} -> exit({Reason, mfa(Name, Request)})
+    try gen:call(Name, system, Request) of
+        {ok, Res} ->
+            Res
+    catch exit : Reason ->
+            exit({Reason, mfa(Name, Request)})
     end.
 
 send_system_msg(Name, Request, Timeout) ->
-    case catch gen:call(Name, system, Request, Timeout) of
-	{ok,Res} -> Res;
-	{'EXIT', Reason} -> exit({Reason, mfa(Name, Request, Timeout)})
+    try gen:call(Name, system, Request, Timeout) of
+        {ok, Res} ->
+            Res
+    catch exit : Reason ->
+            exit({Reason, mfa(Name, Request, Timeout)})
     end.
 
 mfa(Name, {debug, {Func, Arg2}}) ->
@@ -503,34 +507,50 @@ do_cmd(SysState, Other, _Parent, _Mod, Debug, Misc) ->
 do_get_state(Mod, Misc) ->
     case erlang:function_exported(Mod, system_get_state, 1) of
 	true ->
-	    try
-		{ok, State} = Mod:system_get_state(Misc),
-		State
-	    catch
-		Cl:Exc ->
-		    {error, {callback_failed,{Mod,system_get_state},{Cl,Exc}}}
-	    end;
+	    try Mod:system_get_state(Misc) of
+                {ok, _} = Result ->
+                    Result;
+                Other ->
+		    {error,
+                     {callback_failed, {Mod,system_get_state},
+                      {bad_return,Other}}}
+            catch
+                Cl : Exc ->
+		    {error,
+                     {callback_failed, {Mod,system_get_state},
+                      {Cl,Exc}}}
+            end;
 	false ->
-	    Misc
+	    {ok, Misc}
     end.
 
 do_replace_state(StateFun, Mod, Misc) ->
     case erlang:function_exported(Mod, system_replace_state, 2) of
 	true ->
-	    try
-		{ok, State, NMisc} = Mod:system_replace_state(StateFun, Misc),
-		{State, NMisc}
+	    try Mod:system_replace_state(StateFun, Misc) of
+		{ok, State, NMisc} ->
+                    {{ok, State}, NMisc};
+                Other ->
+		    {{error,
+                      {callback_failed, {Mod,system_replace_state},
+                       {bad_return,Other}}},
+                     Misc}
 	    catch
-		Cl:Exc ->
-		    {{error, {callback_failed,{Mod,system_replace_state},{Cl,Exc}}}, Misc}
+		Cl : Exc ->
+		    {{error,
+                      {callback_failed, {Mod,system_replace_state},
+                       {Cl,Exc}}},
+                     Misc}
 	    end;
 	false ->
-	    try
-		NMisc = StateFun(Misc),
-		{NMisc, NMisc}
+	    try StateFun(Misc) of
+		NMisc ->
+                    {{ok, NMisc}, NMisc}
 	    catch
-		Cl:Exc ->
-		    {{error, {callback_failed,StateFun,{Cl,Exc}}}, Misc}
+		Cl : Exc ->
+		    {{error,
+                      {callback_failed, StateFun, {Cl,Exc}}},
+                     Misc}
 	    end
     end.
 

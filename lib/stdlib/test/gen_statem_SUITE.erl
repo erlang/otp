@@ -1563,6 +1563,13 @@ replace_state(Config) ->
     {state0,NState3} = sys:replace_state(Pid, Replace4),
     ok = sys:resume(Pid),
     {state0,NState3} = sys:get_state(Pid, 5000),
+    %% State 'error' does not exist but is never touched,
+    %% just verify that sys handles it as a state, not as an error return
+    {error,NState3} =
+        sys:replace_state(Pid, fun ({state0, SD}) -> {error, SD} end),
+    {error, NState3} = sys:get_state(Pid),
+    {state0,NState3} =
+        sys:replace_state(Pid, fun ({error, SD}) -> {state0, SD} end),
     stop_it(Pid),
     ok = verify_empty_msgq().
 
