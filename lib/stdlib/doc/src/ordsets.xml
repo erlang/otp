@@ -165,6 +165,17 @@
     </func>
 
     <func>
+      <name name="is_equal" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Test for equality.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Ordset1</anno></c> and
+          <c><anno>Ordset2</anno></c> are equal, that is when every element of
+          one set is also a member of the respective other set, otherwise
+          <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="is_set" arity="1" since=""/>
       <fsummary>Test for an <c>Ordset</c>.</fsummary>
       <desc>

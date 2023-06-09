@@ -44,7 +44,7 @@
 -export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
 -export([is_element/2,add_element/2,del_element/2]).
 -export([union/2,union/1,intersection/2,intersection/1]).
--export([is_disjoint/2]).
+-export([is_equal/2, is_disjoint/2]).
 -export([subtract/2,is_subset/2]).
 -export([fold/3,filter/2,map/2,filtermap/2]).
 -export([new/1, from_list/2]).
@@ -145,6 +145,25 @@ size(#set{size=Size}) -> Size.
       Set :: set().
 is_empty(#{}=S) -> map_size(S)=:=0;
 is_empty(#set{size=Size}) -> Size=:=0.
+
+%% is_equal(Set1, Set2) -> boolean().
+%%  Return 'true' if Set1 and Set2 contain the same elements,
+%%  otherwise 'false'.
+-spec is_equal(Set1, Set2) -> boolean() when
+      Set1 :: set(),
+      Set2 :: set().
+is_equal(S1, S2) ->
+    case size(S1) =:= size(S2) of
+        true when S1 =:= S2 ->
+            true;
+        true ->
+            canonicalize_v2(S1) =:= canonicalize_v2(S2);
+        false ->
+            false
+    end.
+
+canonicalize_v2(S) ->
+    from_list(to_list(S), [{version, 2}]).
 
 %% to_list(Set) -> [Elem].
 %%  Return the elements in Set as a list.

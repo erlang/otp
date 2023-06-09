@@ -22,7 +22,7 @@
 -export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
 -export([is_element/2,add_element/2,del_element/2]).
 -export([union/2,union/1,intersection/2,intersection/1]).
--export([is_disjoint/2]).
+-export([is_equal/2, is_disjoint/2]).
 -export([subtract/2,is_subset/2]).
 -export([fold/3,filter/2,map/2,filtermap/2]).
 
@@ -66,6 +66,16 @@ size(S) -> length(S).
       Ordset :: ordset(_).
 
 is_empty(S) -> S=:=[].
+
+%% is_equal(OrdSet1, OrdSet2) -> boolean().
+%%  Return 'true' if OrdSet1 and OrdSet2 contain the same elements,
+%%  otherwise 'false'.
+-spec is_equal(Ordset1, Ordset2) -> boolean() when
+      Ordset1 :: ordset(_),
+      Ordset2 :: ordset(_).
+
+is_equal(S1, S2) when is_list(S1), is_list(S2) ->
+    S1 == S2.
 
 %% to_list(OrdSet) -> [Elem].
 %%  Return the elements in OrdSet as a list.
