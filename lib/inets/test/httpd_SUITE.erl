@@ -1149,10 +1149,19 @@ alias() ->
     [{doc, "Test mod_alias"}].
 
 alias(Config) when is_list(Config) ->
+    Cgi = case os:type() of
+        {win32, _} ->
+            "printenv.bat";
+        _ ->
+            "printenv.sh"
+    end,
     TestURIs200 = [
                    {"GET /pics/icon.sheet.gif ", 200, "image/gif"},
+                   {"GET /pictures/icon.sheet.gif ", 200, "image/gif"},
                    {"GET / ", 200, "text/html"},
-                   {"GET /misc/ ", 200, "text/html"}
+                   {"GET /misc/ ", 200, "text/html"},
+                   {"GET /cgi-bin/" ++ Cgi ++ " ", 200, "text/html"},
+                   {"GET /cgi-UNWANTED-bin/" ++ Cgi ++ " ", 200, "text/html"}
                   ],
     Test200 =
         fun({Request, ResultCode, ContentType}) ->
@@ -2160,9 +2169,10 @@ config_template(Config, ServerRoot, ScriptPath, Modules) ->
      {mime_types, [{"html","text/html"},{"htm","text/html"}, {"shtml","text/html"},
 		   {"gif", "image/gif"}]},
      {alias, {"/icons/", filename:join(ServerRoot,"icons") ++ "/"}},
-     {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
-     {script_alias, {"/cgi-bin/", ScriptPath}},
+     {re_write, {"/pic(ture)?s/",  filename:join(ServerRoot,"icons") ++ "/"}},
      {script_alias, {"/htbin/", ScriptPath}},
+     {script_alias, {"/cgi-bin/", ScriptPath}},
+     {script_re_write, {"/cgi-([a-zA-Z-]*)bin/", ScriptPath}},
      {erl_script_alias, {"/cgi-bin/erl", Modules}}
     ].
 
