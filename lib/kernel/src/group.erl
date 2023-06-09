@@ -537,10 +537,8 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
 
 get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
     try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
-        {stop,Result,eof} ->
-            {ok,Result,eof};
         {stop,Result,Rest} ->
-            {ok,Result,append(Rest, [], Encoding)};
+            {ok, Result, Rest};
         State1 ->
             case get_chars_echo_off(Pbs, Drv, Shell) of
                 interrupted ->
