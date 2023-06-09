@@ -144,6 +144,7 @@ static ErlNifFunc nif_funcs[] = {
     {"tgetnum_nif", 1, tty_tgetnum_nif},
     {"tgetflag_nif", 1, tty_tgetflag_nif},
     {"tgetstr_nif", 1, tty_tgetstr_nif},
+    {"tgoto_nif", 1, tty_tgoto_nif},
     {"tgoto_nif", 2, tty_tgoto_nif},
     {"tgoto_nif", 3, tty_tgoto_nif}
 };
@@ -633,16 +634,13 @@ static ERL_NIF_TERM tty_tgoto_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #ifdef HAVE_TERMCAP
     ErlNifBinary TERM;
     char *ent;
-    int value1, value2 = 0;
+    int value1 = 0, value2 = 0;
     if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM) ||
-        !enif_get_int(env, argv[1], &value1))
+        (argc > 1 && !enif_get_int(env, argv[1], &value1)) ||
+        (argc > 2 && !enif_get_int(env, argv[2], &value2))
+        )
         return enif_make_badarg(env);
-    if (argc == 2) {
-        ent = tgoto((char*)TERM.data, 0, value1);
-    } else {
-        ASSERT(argc == 3);
-        ent = tgoto((char*)TERM.data, value1, value2);
-    }
+    ent = tgoto((char*)TERM.data, value1, value2);
     if (!ent) return make_errno_error(env, "tgoto");
 
     tputs_buffer_index = 0;
