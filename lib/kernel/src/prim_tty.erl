@@ -113,10 +113,10 @@
        tty_select/3, tty_window_size/1, write_nif/2, read_nif/2, isprint/1,
        wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
-       tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
+       tgoto_nif/1, tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
 
 %% Exported in order to remove "unused function" warning
--export([sizeof_wchar/0, wcswidth/1, tgoto/2, tgoto/3]).
+-export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3]).
 
 %% proc_lib exports
 -export([reader/1, writer/1]).
@@ -152,10 +152,10 @@
                 %% Tab to next 8 column windows is "\e[1I", for unix "ta" termcap
                 tab = <<"\e[1I">>,
                 delete_after_cursor = <<"\e[J">>,
-                insert = false,
-                delete = false,
-                position = <<"\e[6n">>, %% "u7" on my Linux
-                position_reply = <<"\e\\[([0-9]+);([0-9]+)R">>,
+                insert = false, %% Not used
+                delete = false, %% Not used
+                position = <<"\e[6n">>, %% "u7" on my Linux, Not used
+                position_reply = <<"\e\\[([0-9]+);([0-9]+)R">>, %% Not used
                 ansi_regexp
                }).
 
@@ -1248,7 +1248,14 @@ tgetnum(Char) ->
 tgetflag(Char) ->
     tgetflag_nif([Char,0]).
 tgetstr(Char) ->
-    tgetstr_nif([Char,0]).
+    case tgetstr_nif([Char,0]) of
+        {ok, Str} ->
+            {ok, re:replace(Str, "\\$<[^>]*>","")};
+        Error ->
+            Error
+    end.
+tgoto(Char) ->
+    tgoto_nif([Char,0]).
 tgoto(Char, Arg) ->
     tgoto_nif([Char,0], Arg).
 tgoto(Char, Arg1, Arg2) ->
@@ -1260,6 +1267,8 @@ tgetnum_nif(_Char) ->
 tgetflag_nif(_Char) ->
     erlang:nif_error(undef).
 tgetstr_nif(_Char) ->
+    erlang:nif_error(undef).
+tgoto_nif(_Ent) ->
     erlang:nif_error(undef).
 tgoto_nif(_Ent, _Arg) ->
     erlang:nif_error(undef).
