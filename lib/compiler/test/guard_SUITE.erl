@@ -2635,6 +2635,7 @@ beam_bool_SUITE(_Config) ->
     gh_6184(),
     gh_7252(),
     gh_7339(),
+    gh_7370(),
     ok.
 
 before_and_inside_if() ->
@@ -3230,6 +3231,16 @@ do_gh_7339(M) when is_number(M) or (not is_map(M#{a => b})) ->
   a;
 do_gh_7339(_) ->
   b.
+
+gh_7370() ->
+    b = gh_7370(id(42)),
+    b = gh_7370(id(42.0)),
+    ok.
+
+gh_7370(A) when (not (not is_float(A))) =/= ((ok and ok) or true) ->
+    a;
+gh_7370(_) ->
+    b.
 
 %%%
 %%% End of beam_bool_SUITE tests.
