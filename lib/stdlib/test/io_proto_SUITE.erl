@@ -25,7 +25,10 @@
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
 	 binary_options/1, read_modes_gl/1,
 	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
-         unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1]).
+         unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1,
+         file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
+         io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1
+        ]).
 
 
 -export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
@@ -35,7 +38,7 @@
 
 -export([uprompt/1, slogan/0, session_slogan/0]).
 
--export([write_raw_to_stdout/0]).
+-export([write_raw_to_stdout/0, read_raw_from_stdin/1]).
 
 %%-define(debug, true).
 
@@ -53,7 +56,13 @@ all() ->
     [setopts_getopts, unicode_options, unicode_options_gen,
      binary_options, read_modes_gl, read_modes_ogl,
      broken_unicode, eof_on_pipe, unicode_prompt,
-     shell_slogan, raw_stdout, raw_stdout_isatty].
+     shell_slogan, raw_stdout, raw_stdout_isatty,
+     file_read_stdin_binary_mode,
+     file_read_stdin_list_mode,
+     io_get_chars_stdin_binary_mode,
+     io_get_chars_stdin_list_mode
+
+    ].
 
 groups() -> 
     [].
@@ -269,6 +278,106 @@ setopts_getopts(Config) when is_list(Config) ->
       ],[],"",["-oldshell"]),
     ok.
 
+%% Test that reading from stdin using file:read works when io is in binary mode
+file_read_stdin_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read(standard_io, 3) end, [binary]),
+
+    erlang:port_command(ErlPort, "abc"),
+    {ok, "got: <<\"abc\">>\n"} = gen_tcp:recv(P, 0),
+    erlang:port_command(ErlPort, "def"),
+    {ok, "got: <<\"def\">>\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read works when io is in binary mode
+file_read_stdin_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read(standard_io, 3) end, [list]),
+
+    erlang:port_command(ErlPort, "abc"),
+    {ok, "got: \"abc\"\n"} = gen_tcp:recv(P, 0),
+    erlang:port_command(ErlPort, "def"),
+    {ok, "got: \"def\"\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read works when io is in binary mode
+io_get_chars_stdin_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() ->
+                                 case io:get_chars(standard_io, "", 1) of
+                                     eof -> eof;
+                                     Chars -> {ok, Chars}
+                                 end
+                         end, [binary]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {ok, "got: <<\"x\">>\n"} = gen_tcp:recv(P, 0),
+    {ok, "got: <<\"\\n\">>\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read works when io is in binary mode
+io_get_chars_stdin_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() -> case io:get_chars(standard_io, "", 1) of
+                                      eof -> eof;
+                                      Chars -> {ok, Chars}
+                                  end
+                         end, [list]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {ok, "got: \"x\"\n"} = gen_tcp:recv(P, 0),
+    {ok, "got: \"\\n\"\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+start_stdin_node(ReadFun, IoOptions) ->
+    {ok, L} = gen_tcp:listen(0,[{active, false},{packet,4}]),
+    {ok, Port} = inet:port(L),
+    Cmd = lists:append(
+            [ct:get_progname(),
+             " -noshell",
+             " -pa ", filename:dirname(code:which(?MODULE)),
+             " -s ", atom_to_list(?MODULE), " read_raw_from_stdin ", integer_to_list(Port)]),
+    ct:log("~p~n", [Cmd]),
+    ErlPort = open_port({spawn, Cmd}, [stream, eof]),
+    {ok, P} = gen_tcp:accept(L),
+    gen_tcp:send(P, term_to_binary(IoOptions)),
+    gen_tcp:send(P, term_to_binary(ReadFun)),
+    {ok, P, ErlPort}.
+
+read_raw_from_stdin([Port]) ->
+    try
+        dbg:tracer(file, "/home/eluklar/git/otp/trace.txt"),
+        dbg:p(whereis(user),[c,m]),
+        dbg:tpl(io_lib, x),
+        {ok, P} = gen_tcp:connect(localhost, list_to_integer(atom_to_list(Port)),
+                                  [binary, {packet, 4}, {active, false}]),
+        {ok, OptionsBin} = gen_tcp:recv(P, 0),
+        io:setopts(standard_io, binary_to_term(OptionsBin)),
+        {ok, ReadFunBin} = gen_tcp:recv(P, 0),
+        read_raw_from_stdin(binary_to_term(ReadFunBin), P)
+    catch E:R:ST ->
+            io:format(standard_error, "~p  ~p",[Port,{E,R,ST}])
+    end.
+read_raw_from_stdin(ReadFun, P) ->
+    case ReadFun() of
+        eof ->
+            gen_tcp:send(P, "got: eof"),
+            init:stop();
+        {ok, Char} ->
+            gen_tcp:send(P, unicode:characters_to_binary(
+                              io_lib:format("got: ~p\n",[Char]))),
+            read_raw_from_stdin(ReadFun, P)
+    end.
 
 get_lc_ctype() ->
     case {os:type(),os:version()} of
