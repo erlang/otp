@@ -111,7 +111,6 @@ do {									\
 
 #define x(N) reg[N]
 #define y(N) E[N]
-#define r(N) x(N)
 #define Q(N) (N*sizeof(Eterm *))
 #define l(N) (freg[N].fd)
 

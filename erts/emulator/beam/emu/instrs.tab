@@ -311,7 +311,7 @@ apply_last(Arity, Deallocate) {
 
 APPLY_FUN(Next) {
     HEAVY_SWAPOUT;
-    $Next = apply_fun(c_p, r(0), x(1), reg);
+    $Next = apply_fun(c_p, x(0), x(1), reg);
     HEAVY_SWAPIN;
 
     if (ERTS_UNLIKELY(next == NULL)) {
@@ -378,7 +378,7 @@ return() {
     //| -no_next
     DTRACE_RETURN_FROM_PC(c_p, I);
     $RETURN();
-    CHECK_TERM(r(0));
+    CHECK_TERM(x(0));
     HEAP_SPACE_VERIFIED(0);
 
     $DISPATCH_RETURN();
@@ -1129,11 +1129,11 @@ catch_end(Y) {
      *    x3 = Exception class
      */
     $try_end($Y);
-    if (is_non_value(r(0))) {
+    if (is_non_value(x(0))) {
         ASSERT(c_p->fvalue == NIL);
         ASSERT(c_p->ftrace == NIL);
         if (x(3) == am_throw) {
-            r(0) = x(1);
+            x(0) = x(1);
         } else {
             if (x(3) == am_error) {
                 SWAPOUT;
@@ -1150,11 +1150,11 @@ catch_end(Y) {
                 SWAPIN;
                 $MAYBE_EXIT_AFTER_GC();
             }
-            r(0) = TUPLE2(HTOP, am_EXIT, x(1));
+            x(0) = TUPLE2(HTOP, am_EXIT, x(1));
             HTOP += 3;
         }
     }
-    CHECK_TERM(r(0));
+    CHECK_TERM(x(0));
 }
 
 try_end(Y) {
@@ -1164,10 +1164,10 @@ try_end(Y) {
 
 try_case(Y) {
     $try_end($Y);
-    ASSERT(is_non_value(r(0)));
+    ASSERT(is_non_value(x(0)));
     ASSERT(c_p->fvalue == NIL);
     ASSERT(c_p->ftrace == NIL);
-    r(0) = x(3);
+    x(0) = x(3);
 }
 
 try_case_end(Src) {

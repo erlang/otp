@@ -136,7 +136,7 @@ i_loop_rec(Dest) {
     ASSERT(msgp == erts_msgq_peek_msg(c_p));
     ASSERT(ERTS_SIG_IS_INTERNAL_MSG(msgp));
 
-    r(0) = ERL_MESSAGE_TERM(msgp);
+    x(0) = ERL_MESSAGE_TERM(msgp);
 }
 
 remove_message() {
