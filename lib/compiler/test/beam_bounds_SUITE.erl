@@ -287,6 +287,10 @@ min_bounds(_Config) ->
     {1,100} = min_bounds({1,100}, {100,'+inf'}),
     {100,200} = min_bounds({150,200}, {100,'+inf'}),
 
+    {'-inf',10} = min_bounds({1,10}, any),
+    any = min_bounds({1,'+inf'}, any),
+    {'-inf',777} = min_bounds(any, {'-inf',777}),
+
     ok.
 
 min_bounds(R1, R2) ->
@@ -308,6 +312,10 @@ max_bounds(_Config) ->
     {100,'+inf'} = max_bounds({1,99}, {100,'+inf'}),
     {100,'+inf'} = max_bounds({1,100}, {100,'+inf'}),
     {150,'+inf'} = max_bounds({150,200}, {100,'+inf'}),
+
+    {1,'+inf'} = max_bounds({1,99}, any),
+    {10,'+inf'} = max_bounds({10,'+inf'}, any),
+    any = max_bounds({'-inf',70}, any),
 
     ok.
 
