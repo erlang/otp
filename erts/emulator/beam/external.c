@@ -4735,7 +4735,7 @@ dec_term_atom_common:
 	    }
 	case BINARY_EXT:
 	    {
-		Uint32 nu = get_uint32(ep);
+                Uint nu = get_uint32(ep);
 		ep += 4;
 	    
                 ASSERT(IS_BINARY_SIZE_OK(nu));
@@ -4801,7 +4801,7 @@ dec_term_atom_common:
 		Eterm bin;
 		ErlSubBin* sb;
 		Uint bitsize;
-                Uint32 nu = get_uint32(ep);
+                Uint nu = get_uint32(ep);
 
                 ASSERT(IS_BINARY_SIZE_OK(nu));
 
