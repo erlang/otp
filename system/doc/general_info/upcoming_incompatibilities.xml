@@ -179,6 +179,21 @@ t.erl:6:18: Warning: type variable 'Unknown' is only used once (is unbound)
     <p>In OTP 27, that warning will become an error.</p>
     </section>
 
+    <section>
+      <marker id="escripts_will_be_compiled"/>
+      <title>Escripts will be compiled by default</title>
+
+      <p>Escripts will be compiled by default instead of interpreted.
+      That means that the <c>compiler</c> application must be available.</p>
+
+      <p>The old behavior of interpreting escripts can be restored by adding
+      the following line to the script file:</p>
+      <pre>
+-mode(interpret).</pre>
+
+      <p>In OTP 28, support for interpreting an escript will be removed.</p>
+    </section>
+
   </section>
 
   <section>
@@ -193,6 +208,15 @@ t.erl:6:18: Warning: type variable 'Unknown' is only used once (is unbound)
         will not include the <c>{pid,_}</c> element and the function
         <seemfa marker="erts:erlang#fun_info/2"><c>erlang:fun_info/2</c></seemfa>
         will no longer accept <c>pid</c> as the second argument.</p>
+    </section>
+
+    <section>
+      <marker id="escript_interpret_mode_removed"/>
+      <title>Support for interpreting escripts will be removed</title>
+
+      <p>Escripts will be compiled, and it will no longer be possible
+      to force an escript to be interpreted by using the directive
+      <c>-mode(interpret)</c>.</p>
     </section>
   </section>
 
