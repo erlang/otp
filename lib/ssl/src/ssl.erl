@@ -1322,8 +1322,21 @@ getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}},
 %%
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
-shutdown(#sslsocket{pid = {dtls, #config{}}},_) ->
-    {error, enotconn};
+shutdown(#sslsocket{pid = {dtls, #config{transport_info = Info}}}, _) ->
+    Transport = element(1, Info),
+    %% enotconn is what gen_tcp:shutdown on a listen socket will result with.
+    %% shutdown really is handling TCP functionality not present
+    %% with gen_udp or gen_sctp, but if a callback wrapper is supplied let
+    %% the error be the same as for gen_tcp as a wrapper could have
+    %% supplied it own logic and this is backwards compatible.
+    case Transport of
+        gen_udp ->
+            {error, notsup};
+        gen_sctp ->
+            {error, notsup};
+        _  ->
+            {error, enotconn}
+    end;
 shutdown(#sslsocket{pid = {Listen, #config{transport_info = Info}}}, How) ->
     Transport = element(1, Info),
     Transport:shutdown(Listen, How);    
