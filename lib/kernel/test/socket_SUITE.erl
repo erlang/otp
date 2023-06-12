@@ -48077,6 +48077,17 @@ do_otp18635(_) ->
     ?P("attempt accept with timeout = 500 - expect failure (timeout)"),
     {error, timeout} = socket:accept(LSock, 500),
 
+    ?P("await abort message for the first accept call: "
+       "~n   Select Handle:     ~p"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p",
+       [Handle, socket:info(), socket:which_sockets()]),
+    receive
+        {'$socket', LSock, abort, {Handle, cancelled}} ->
+            ?P("received expected abort message"),
+            ok
+    end,
+
     %% spawn a client to connect
     ?P("spawn connector when"
        "~n   (gen socket) info:  ~p"
