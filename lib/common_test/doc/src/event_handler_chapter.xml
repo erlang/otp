@@ -380,7 +380,7 @@
     <seemfa marker="ct#log/2"><c>ct:log/2,3</c></seemfa> or 
     <seemfa marker="ct#pal/2"><c>ct:pal,2,3</c></seemfa>) get written to the test case log
     file, and not to the <c>Common Test</c> framework log, you can synchronize
-    with the <c>Common Test</c> server by matching on evvents <c>tc_start</c> and <c>tc_done</c>.
+    with the <c>Common Test</c> server by matching on events <c>tc_start</c> and <c>tc_done</c>.
     In the period between these events, all I/O is directed to the
     test case log file. These events are sent synchronously to avoid potential
     timing problems (for example, that the test case log file is closed just before
