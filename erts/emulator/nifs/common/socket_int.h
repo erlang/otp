@@ -218,6 +218,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(block_source);             \
     GLOBAL_ATOM_DEF(broadcast);                \
     GLOBAL_ATOM_DEF(busy_poll);                \
+    GLOBAL_ATOM_DEF(cancelled);                \
     GLOBAL_ATOM_DEF(cantconfig);	       \
     GLOBAL_ATOM_DEF(chaos);                    \
     GLOBAL_ATOM_DEF(checksum);                 \
@@ -531,6 +532,8 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 
 #define COMPARE(A, B)        enif_compare((A), (B))
 #define COMPARE_PIDS(P1, P2) enif_compare_pids((P1), (P2))
+#define IS_IDENTICAL(A, B)   enif_is_identical((A), (B))
+#define IS_OK(T)             IS_IDENTICAL((T), esock_atom_ok)
 
 #define IS_ATOM(E,    TE) enif_is_atom((E),   (TE))
 #define IS_BIN(E,     TE) enif_is_binary((E), (TE))
