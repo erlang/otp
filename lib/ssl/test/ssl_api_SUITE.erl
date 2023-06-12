@@ -1303,7 +1303,7 @@ listen_socket() ->
 listen_socket(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ok, ListenSocket} = ssl:listen(0, ServerOpts),
-
+    Protocol = proplists:get_value(protocol, ServerOpts, tls),
     %% This can be a valid thing to do as
     %% options are inherited by the accept socket
     ok = ssl:controlling_process(ListenSocket, self()),
@@ -1317,8 +1317,12 @@ listen_socket(Config) ->
     {error, enotconn} = ssl:peercert(ListenSocket),
     {error, enotconn} = ssl:renegotiate(ListenSocket),
     {error, enotconn} = ssl:prf(ListenSocket, 'master_secret', <<"Label">>, [client_random], 256),
-    {error, enotconn} = ssl:shutdown(ListenSocket, read_write),
-
+    case Protocol of
+        tls ->
+            {error, enotconn} = ssl:shutdown(ListenSocket, read_write);
+        dtls ->
+            {error, notsup} = ssl:shutdown(ListenSocket, read_write)
+    end,
     ok = ssl:close(ListenSocket).
 
 %%--------------------------------------------------------------------

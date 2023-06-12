@@ -824,13 +824,16 @@ handle_call({shutdown, read_write = How}, From, StateName,
     try send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
                    StateName, State) of
         _ ->
-            case Transport:shutdown(Socket, How) of
+            try Transport:shutdown(Socket, How) of
                 ok ->
                     {next_state, StateName, State#state{connection_env =
                                                             CEnv#connection_env{socket_terminated = true}},
                      [{reply, From, ok}]};
                 Error ->
                     {stop_and_reply, {shutdown, normal}, {reply, From, Error},
+                     State#state{connection_env = CEnv#connection_env{socket_terminated = true}}}
+            catch error:{undef, _} ->
+                    {stop_and_reply, {shutdown, normal}, {reply, From, {error, notsup}},
                      State#state{connection_env = CEnv#connection_env{socket_terminated = true}}}
             end
     catch
