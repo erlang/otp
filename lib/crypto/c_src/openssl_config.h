@@ -232,7 +232,7 @@
 # define HAVE_DH
 #endif
 
-#ifndef OPENSSL_NO_DSA
+#if !defined(OPENSSL_NO_DSA) && !(HAS_LIBRESSL_VSN >= 0x2060100fL)
 # define HAVE_DSA
 #endif
 
