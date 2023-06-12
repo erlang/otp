@@ -349,15 +349,15 @@ static int has_code_permission(struct code_permission *perm)
     return 0;
 }
 
-int erts_has_code_load_permission() {
+int erts_has_code_load_permission(void) {
     return erts_has_code_stage_permission() && erts_has_code_mod_permission();
 }
 
-int erts_has_code_stage_permission() {
+int erts_has_code_stage_permission(void) {
     return has_code_permission(&code_stage_permission);
 }
 
-int erts_has_code_mod_permission() {
+int erts_has_code_mod_permission(void) {
     return has_code_permission(&code_mod_permission);
 }
 #endif
