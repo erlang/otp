@@ -982,12 +982,12 @@ typedef union {
 
 #define is_ordinary_ref_thing(x)                                        \
     ((*((Eterm *)(x)) == ERTS_REF_THING_HEADER)                         \
-     & (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER))
+     && (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER))
 
 /* the _with_hdr variant usable when header word may be broken (copy_shared) */
 #define is_magic_ref_thing_with_hdr(PTR,HDR)                            \
     (((HDR) == ERTS_REF_THING_HEADER)                                   \
-     & (((ErtsRefThing *) (PTR))->o.marker != ERTS_ORDINARY_REF_MARKER))
+     && (((ErtsRefThing *) (PTR))->o.marker != ERTS_ORDINARY_REF_MARKER))
 
 #else /* Ordinary and magic references of different sizes... */
 
