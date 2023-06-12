@@ -110,7 +110,7 @@
 -export([reader_stop/1, disable_reader/1, enable_reader/1]).
 
 -nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
-       tty_select/3, tty_window_size/1, write_nif/2, read_nif/2, isprint/1,
+       tty_select/3, tty_window_size/1, tty_encoding/1, write_nif/2, read_nif/2, isprint/1,
        wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
        tgoto_nif/1, tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
@@ -431,18 +431,7 @@ reader([TTY, Parent]) ->
     SignalRef = make_ref(),
     ok = tty_select(TTY, SignalRef, ReaderRef),
     proc_lib:init_ack({ok, {self(), ReaderRef}}),
-    FromEnc = case os:type() of
-                  {unix, _} -> utf8;
-                  {win32, _} ->
-                      case isatty(TTY) of
-                          true ->
-                              {utf16, little};
-                          _ ->
-                              %% When not reading from a console
-                              %% the data read is utf8 encoded
-                              utf8
-                      end
-              end,
+    FromEnc = tty_encoding(TTY),
     reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, <<>>).
 
 reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
@@ -459,7 +448,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
             Parent ! {ReaderRef,{signal,Signal}},
             reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {Alias, {set_unicode_state, _}} when FromEnc =:= {utf16, little} ->
-            %% Ignore requests on windows
+            %% Ignore requests on windows when in console mode
             Alias ! {Alias, true},
             reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {Alias, {set_unicode_state, Bool}} ->
@@ -473,6 +462,12 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                 {error, closed} ->
                     Parent ! {ReaderRef, eof},
                     ok;
+                {error, aborted} ->
+                    %% The read operation was aborted. This only happens on
+                    %% Windows when we change from "noshell" to "newshell".
+                    %% When it happens we need to re-read the tty_encoding as
+                    %% it has changed.
+                    reader_loop(TTY, Parent, SignalRef, ReaderRef, tty_encoding(TTY), Acc);
                 {ok, <<>>} ->
                     %% EAGAIN or EINTR
                     reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
@@ -1226,6 +1221,8 @@ tty_set(_TTY) ->
 setlocale(_TTY) ->
     erlang:nif_error(undef).
 tty_select(_TTY, _SignalRef, _ReadRef) ->
+    erlang:nif_error(undef).
+tty_encoding(_TTY) ->
     erlang:nif_error(undef).
 write_nif(_TTY, _IOVec) ->
     erlang:nif_error(undef).
