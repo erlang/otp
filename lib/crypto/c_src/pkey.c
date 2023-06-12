@@ -100,7 +100,7 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
         
 
 #ifdef HAVE_EDDSA
-    if (FIPS_MODE())
+    if (FIPS_MODE() && algorithm == atom_eddsa)
         assign_goto(*err_return, err, EXCP_NOTSUP_N(env, alg_arg_num, "Unsupported algorithm in FIPS mode"));
 #endif    
 
