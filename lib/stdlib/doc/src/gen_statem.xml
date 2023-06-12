@@ -512,26 +512,26 @@ handle_event(_, _, State, Data) ->
 
   <datatypes>
     <datatype>
-      <name name="server_name"/>
+      <name name="process_name"/>
       <desc>
 	<p>
 	  Name specification to use when starting
 	  a <c>gen_statem</c> server. See
 	  <seemfa marker="#start_link/3"><c>start_link/3</c></seemfa>
 	  and
-	  <seetype marker="#server_ref"><c>server_ref()</c></seetype>
+	  <seetype marker="#process_ref"><c>process_ref()</c></seetype>
 	  below.
 	</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="server_ref"/>
+      <name name="process_ref"/>
       <desc>
 	<p>
 	  Server specification to use when addressing
 	  a <c>gen_statem</c> server.
 	  See <seemfa marker="#call/2"><c>call/2</c></seemfa> and
-	  <seetype marker="#server_name"><c>server_name()</c></seetype>
+	  <seetype marker="#process_name"><c>process_name()</c></seetype>
 	  above.
 	</p>
 	<p>It can be:</p>
@@ -1761,7 +1761,7 @@ handle_event(_, _, State, Data) ->
       <desc>
         <p>
 	  Makes a synchronous call to the <c>gen_statem</c>
-	  <seetype marker="#server_ref"><c><anno>ServerRef</anno></c></seetype>
+	  <seetype marker="#process_ref"><c><anno>ServerRef</anno></c></seetype>
 	  by sending a request
 	  and waiting until its reply arrives.
 	  The <c>gen_statem</c> calls the
@@ -1825,7 +1825,7 @@ handle_event(_, _, State, Data) ->
       <desc>
 	<p>
 	  Sends an asynchronous event to the <c>gen_statem</c>
-	  <seetype marker="#server_ref"><c><anno>ServerRef</anno></c></seetype>
+	  <seetype marker="#process_ref"><c><anno>ServerRef</anno></c></seetype>
 	  and returns <c>ok</c> immediately,
 	  ignoring if the destination node or <c>gen_statem</c>
 	  does not exist.
@@ -1945,7 +1945,7 @@ handle_event(_, _, State, Data) ->
 	  The same as
 	  <seemfa marker="#enter_loop/6"><c>enter_loop/6</c></seemfa>
 	  with <c>Actions = []</c> except that no
-	  <seetype marker="#server_name"><c>server_name()</c></seetype>
+	  <seetype marker="#process_name"><c>process_name()</c></seetype>
 	  must have been registered.  This creates an anonymous server.
 	</p>
       </desc>
@@ -1960,7 +1960,7 @@ handle_event(_, _, State, Data) ->
 	  the same as
 	  <seemfa marker="#enter_loop/6"><c>enter_loop/6</c></seemfa>
 	  except that no
-	  <seetype marker="#server_name"><c>server_name()</c></seetype>
+	  <seetype marker="#process_name"><c>process_name()</c></seetype>
 	  must have been registered and
 	  <c>Actions = <anno>Server_or_Actions</anno></c>.
 	  This creates an anonymous server.
@@ -2005,11 +2005,11 @@ handle_event(_, _, State, Data) ->
 	  server is created just as when using 
 	  <seemfa marker="#start_link/3"><c>start[_link|_monitor]/3</c></seemfa>.
 	  If <c><anno>Server</anno></c> is a
-	  <seetype marker="#server_name"><c>server_name()</c></seetype>
+	  <seetype marker="#process_name"><c>process_name()</c></seetype>
 	  a named server is created just as when using
 	  <seemfa marker="#start_link/4"><c>start[_link|_monitor]/4</c></seemfa>.
 	  However, the
-	  <seetype marker="#server_name"><c>server_name()</c></seetype>
+	  <seetype marker="#process_name"><c>process_name()</c></seetype>
 	  name must have been registered accordingly
 	  <em>before</em> this function is called.
 	</p>
@@ -2027,7 +2027,7 @@ handle_event(_, _, State, Data) ->
 	  <seeerl marker="proc_lib"><c>proc_lib</c></seeerl>
 	  start function, or if it is not registered
 	  according to
-	  <seetype marker="#server_name"><c>server_name()</c></seetype>.
+	  <seetype marker="#process_name"><c>process_name()</c></seetype>.
 	</p>
       </desc>
     </func>
@@ -2401,11 +2401,11 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  <c><anno>ServerName</anno></c> specifies the
-	  <seetype marker="#server_name"><c>server_name()</c></seetype>
-	  to register for the <c>gen_statem</c> process.
-	  If the <c>gen_statem</c> process is started with <c>start_link/3</c>,
-          no <c><anno>ServerName</anno></c> is provided and
-	  the <c>gen_statem</c> process is not registered.
+	  <seetype marker="#process_name"><c>process_name()</c></seetype>
+	  to register for the <c>gen_statem</c>.
+	  If the <c>gen_statem</c> is started with <c>start_link/3</c>,
+	  no <c><anno>ServerName</anno></c> is provided and
+	  the <c>gen_statem</c> is not registered.
 	</p>
         <p><c><anno>Module</anno></c> is the name of the callback module.</p>
         <p>
@@ -2603,7 +2603,7 @@ handle_event(_, _, State, Data) ->
       <desc>
 	<p>
 	  Orders the <c>gen_statem</c>
-	  <seetype marker="#server_ref"><c><anno>ServerRef</anno></c></seetype>
+	  <seetype marker="#process_ref"><c><anno>ServerRef</anno></c></seetype>
 	  to exit with the specified <c><anno>Reason</anno></c>
 	  and waits for it to terminate.
 	  The <c>gen_statem</c> calls

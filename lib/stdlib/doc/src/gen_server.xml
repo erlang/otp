@@ -122,7 +122,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 
   <datatypes>
     <datatype>
-      <name name="server_name"/>
+      <name name="process_name"/>
       <desc>
         <p>
           Name specification to use when starting a <c>gen_server</c>.
@@ -132,8 +132,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <seemfa marker="#start_monitor/3"><c>start_monitor/3,4</c></seemfa>,
           <seemfa marker="#enter_loop/3"><c>enter_loop/3,4,5</c></seemfa>,
           and the type
-	  <seetype marker="#server_ref"><c>server_ref()</c></seetype>
-	  is an alias to <seetype marker="stdlib:supervisor#sup_name"><c>supervisor:process_name()</c></seetype>.
+	  <seetype marker="#process_ref"><c>process_ref()</c></seetype>
+	  is an alias to <seetype marker="stdlib:supervisor#process_name"><c>supervisor:process_name()</c></seetype>.
         </p>
         <taglist>
           <tag><c>{local,LocalName}</c></tag>
@@ -174,7 +174,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </datatype>
 
     <datatype>
-      <name name="server_ref"/>
+      <name name="process_ref"/>
       <desc>
 	<p>
 	  Server specification to use when addressing
@@ -186,7 +186,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>,
 	  <seemfa marker="#stop/1"><c>stop/2,3</c></seemfa>
           and the type
-	  <seetype marker="#server_name"><c>server_name()</c></seetype>
+	  <seetype marker="#process_name"><c>process_name()</c></seetype>
 	  above.
 	</p>
 	<p>It can be:</p>
@@ -574,7 +574,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         </p>
         <p>
           See also <c><anno>ServerRef</anno></c>'s type
-          <seetype marker="#server_ref"><c>server_ref()</c></seetype>.
+          <seetype marker="#process_ref"><c>process_ref()</c></seetype>.
         </p>
         <p>
           <c><anno>Request</anno></c> is any term that is passed as the
@@ -703,7 +703,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         </p>
         <p>
           See also <c><anno>ServerRef</anno></c>'s type
-          <seetype marker="#server_ref"><c>server_ref()</c></seetype>.
+          <seetype marker="#process_ref"><c>process_ref()</c></seetype>.
         </p>
         <p>
           <c><anno>Request</anno></c> is any term that is passed as
@@ -1211,7 +1211,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	</p>
         <p>
           See the type
-          <seetype marker="#server_ref"><c>server_ref()</c></seetype>
+          <seetype marker="#process_ref"><c>process_ref()</c></seetype>
           for the possible values for <c><anno>ServerRef</anno></c>.
         </p>
         <p>
@@ -1293,7 +1293,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           Using the argument <c><anno>ServerName</anno></c>
           creates a <c>gen_server</c> with a registered name.
           See type
-          <seetype marker="#server_name"><c>server_name()</c></seetype>
+          <seetype marker="#process_name"><c>process_name()</c></seetype>
           for different name registrations.
           If no <c><anno>ServerName</anno></c> is provided,
           the <c>gen_server</c> process is not registered.

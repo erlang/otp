@@ -54,9 +54,7 @@
               request_id_collection/0]).
 
 -type linkage()    :: 'monitor' | 'link' | 'nolink'.
--type emgr_name()  :: {'local', atom()}
-                    | {'global', term()}
-                    | {'via', Module :: module(), Name :: term()}.
+-type process_name()  :: proc_lib:process_name().
 
 -type start_ret()  :: {'ok', pid()}
                     | {'ok', {pid(), reference()}}
@@ -65,8 +63,7 @@
 
 -type option()     :: proc_lib:option().
 
--type server_ref() :: pid() | atom() | {atom(), node()}
-                    | {global, term()} | {via, module(), term()}.
+-type process_ref() :: proc_lib:process_ref().
 
 -opaque reply_tag() :: % As accepted by reply/2
           reference()
@@ -97,7 +94,7 @@
 %%    The 'already_started' is returned only if Name is given 
 %%-----------------------------------------------------------------
 
--spec start(module(), linkage(), emgr_name(), module(), term(), [option()]) ->
+-spec start(module(), linkage(), process_name(), module(), term(), [option()]) ->
 	start_ret().
 
 start(GenMod, LinkP, Name, Mod, Args, Options) ->
@@ -286,7 +283,7 @@ get_node(Process) ->
 	    node(Process)
     end.
 
--spec send_request(Name::server_ref(), Tag::term(), Request::term()) ->
+-spec send_request(Name::process_ref(), Tag::term(), Request::term()) ->
           request_id().
 send_request(Process, Tag, Request) when is_pid(Process) ->
     do_send_request(Process, Tag, Request);
@@ -300,7 +297,7 @@ send_request(Process, Tag, Request) ->
             Mref
     end.
 
--spec send_request(Name::server_ref(), Tag::term(), Request::term(),
+-spec send_request(Name::process_ref(), Tag::term(), Request::term(),
                    Label::term(), ReqIdCol::request_id_collection()) ->
           request_id_collection().
 send_request(Process, Tag, Request, Label, ReqIdCol) when is_map(ReqIdCol) ->
@@ -331,7 +328,7 @@ do_send_request(Process, Tag, Request) ->
 -spec wait_response(ReqId, Timeout) -> Result when
       ReqId :: request_id(),
       Timeout :: response_timeout(),
-      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), process_ref()}},
       Result :: Resp | 'timeout'.
 
 wait_response(ReqId, Timeout) ->
@@ -350,7 +347,7 @@ wait_response(ReqId, Timeout) ->
       ReqIdCol :: request_id_collection(),
       Timeout :: response_timeout(),
       Delete :: boolean(),
-      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), process_ref()}},
       Result :: {Resp, Label::term(), NewReqIdCol::request_id_collection()} |
                 'no_request' | 'timeout'.
 
@@ -373,7 +370,7 @@ wait_response(ReqIdCol, Timeout, Delete) when is_map(ReqIdCol),
 -spec receive_response(ReqId, Timeout) -> Result when
       ReqId :: request_id(),
       Timeout :: response_timeout(),
-      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), process_ref()}},
       Result :: Resp | 'timeout'.
 
 receive_response(ReqId, Timeout) ->
@@ -398,7 +395,7 @@ receive_response(ReqId, Timeout) ->
       ReqIdCol :: request_id_collection(),
       Timeout :: response_timeout(),
       Delete :: boolean(),
-      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), process_ref()}},
       Result :: {Resp, Label::term(), NewReqIdCol::request_id_collection()}
               | 'no_request' | 'timeout'.
 
@@ -427,9 +424,9 @@ receive_response(ReqIdCol, Timeout, Delete) when is_map(ReqIdCol),
 -spec check_response(Msg::term(), ReqIdOrReqIdCol) -> Result when
       ReqIdOrReqIdCol :: request_id() | request_id_collection(),
       ReqIdResp :: {reply, Reply::term()} |
-                   {error, {Reason::term(), server_ref()}},
+                   {error, {Reason::term(), process_ref()}},
       ReqIdColResp :: {{reply, Reply::term()}, Label::term()} |
-                             {{error, {Reason::term(), server_ref()}}, Label::term()},
+                             {{error, {Reason::term(), process_ref()}}, Label::term()},
       Result :: ReqIdResp | ReqIdColResp | 'no_reply'.
 
 check_response(Msg, ReqId) when is_reference(ReqId) ->
@@ -449,7 +446,7 @@ check_response(_, _) ->
       Msg :: term(),
       ReqIdCol :: request_id_collection(),
       Delete :: boolean(),
-      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), process_ref()}},
       Result :: {Resp, Label::term(), NewReqIdCol::request_id_collection()}
               | 'no_request' | 'no_reply'.
 

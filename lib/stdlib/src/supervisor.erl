@@ -58,7 +58,7 @@
 
 -export_type([sup_flags/0, child_spec/0, strategy/0,
               startchild_ret/0, startchild_err/0,
-              startlink_ret/0, startlink_err/0, sup_name/0, sup_ref/0]).
+              startlink_ret/0, startlink_err/0, process_name/0, process_ref/0]).
 
 %%--------------------------------------------------------------------------
 
@@ -71,8 +71,8 @@
 -type significant()   :: boolean().
 -type shutdown()      :: 'brutal_kill' | timeout().
 -type worker()        :: 'worker' | 'supervisor'.
--type sup_name()      :: proc_lib:process_name().
--type sup_ref()       :: proc_lib:process_ref().
+-type process_name()      :: proc_lib:process_name().
+-type process_ref()       :: proc_lib:process_ref().
 -type child_spec()    :: #{id := child_id(),             % mandatory
 			   start := mfargs(),            % mandatory
 			   restart => restart(),         % optional
@@ -170,7 +170,7 @@ start_link(Mod, Args) ->
     gen_server:start_link(supervisor, {self, Mod, Args}, []).
  
 -spec start_link(SupName, Module, Args) -> startlink_ret() when
-      SupName :: sup_name(),
+      SupName :: process_name(),
       Module :: module(),
       Args :: term().
 start_link(SupName, Mod, Args) ->
@@ -187,13 +187,13 @@ start_link(SupName, Mod, Args) ->
 			| {'error', startchild_err()}.
 
 -spec start_child(SupRef, ChildSpec) -> startchild_ret() when
-      SupRef :: sup_ref(),
+      SupRef :: process_ref(),
       ChildSpec :: child_spec() | (List :: [term()]).
 start_child(Supervisor, ChildSpec) ->
     call(Supervisor, {start_child, ChildSpec}).
 
 -spec restart_child(SupRef, Id) -> Result when
-      SupRef :: sup_ref(),
+      SupRef :: process_ref(),
       Id :: child_id(),
       Result :: {'ok', Child :: child()}
               | {'ok', Child :: child(), Info :: term()}
@@ -204,7 +204,7 @@ restart_child(Supervisor, Id) ->
     call(Supervisor, {restart_child, Id}).
 
 -spec delete_child(SupRef, Id) -> Result when
-      SupRef :: sup_ref(),
+      SupRef :: process_ref(),
       Id :: child_id(),
       Result :: 'ok' | {'error', Error},
       Error :: 'running' | 'restarting' | 'not_found' | 'simple_one_for_one'.
@@ -219,7 +219,7 @@ delete_child(Supervisor, Id) ->
 %%-----------------------------------------------------------------
 
 -spec terminate_child(SupRef, Id) -> Result when
-      SupRef :: sup_ref(),
+      SupRef :: process_ref(),
       Id :: pid() | child_id(),
       Result :: 'ok' | {'error', Error},
       Error :: 'not_found' | 'simple_one_for_one'.
@@ -227,7 +227,7 @@ terminate_child(Supervisor, Id) ->
     call(Supervisor, {terminate_child, Id}).
 
 -spec get_childspec(SupRef, Id) -> Result when
-      SupRef :: sup_ref(),
+      SupRef :: process_ref(),
       Id :: pid() | child_id(),
       Result :: {'ok', child_spec()} | {'error', Error},
       Error :: 'not_found'.
@@ -235,7 +235,7 @@ get_childspec(Supervisor, Id) ->
     call(Supervisor, {get_childspec, Id}).
 
 -spec which_children(SupRef) -> [{Id,Child,Type,Modules}] when
-      SupRef :: sup_ref(),
+      SupRef :: process_ref(),
       Id :: child_id() | undefined,
       Child :: child() | 'restarting',
       Type :: worker(),
@@ -244,7 +244,7 @@ which_children(Supervisor) ->
     call(Supervisor, which_children).
 
 -spec count_children(SupRef) -> PropListOfCounts when
-      SupRef :: sup_ref(),
+      SupRef :: process_ref(),
       PropListOfCounts :: [Count],
       Count :: {specs, ChildSpecCount :: non_neg_integer()}
              | {active, ActiveProcessCount :: non_neg_integer()}
@@ -308,7 +308,7 @@ get_callback_module(Pid) ->
 %%% 
 %%% ---------------------------------------------------
 
--type init_sup_name() :: sup_name() | 'self'.
+-type init_process_name() :: process_name() | 'self'.
 
 -type stop_rsn() :: {'shutdown', term()}
                   | {'bad_return', {module(),'init', term()}}
@@ -316,7 +316,7 @@ get_callback_module(Pid) ->
                   | {'start_spec', term()}
                   | {'supervisor_data', term()}.
 
--spec init({init_sup_name(), module(), [term()]}) ->
+-spec init({init_process_name(), module(), [term()]}) ->
         {'ok', state()} | 'ignore' | {'stop', stop_rsn()}.
 
 init({SupName, Mod, Args}) ->

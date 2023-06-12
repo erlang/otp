@@ -402,10 +402,10 @@ child_spec() = #{id => child_id(),             % mandatory
         <seeerl marker="#sup_flags">above</seeerl>.</p></desc>
     </datatype>
     <datatype>
-      <name name="sup_ref"/>
+      <name name="process_ref"/>
     </datatype>
     <datatype>
-      <name name="sup_name"/>
+      <name name="process_name"/>
     </datatype>
     <datatype>
       <name name="worker"/>
@@ -609,7 +609,7 @@ child_spec() = #{id => child_id(),             % mandatory
       <fsummary>Create a supervisor process.</fsummary>
       <type name="startlink_ret"/>
       <type name="startlink_err"/>
-      <type name="sup_name"/>
+      <type name="process_name"/>
       <desc>
         <p>Creates a supervisor process as part of a supervision tree.
           For example, the function ensures that the supervisor is linked to

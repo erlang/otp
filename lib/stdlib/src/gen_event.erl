@@ -63,7 +63,7 @@
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
               del_handler_ret/0, request_id/0, request_id_collection/0,
-              response_timeout/0, format_status/0, sup_ref/0, process_name/0]).
+              response_timeout/0, format_status/0, process_ref/0, process_name/0]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
@@ -144,7 +144,7 @@
 
 -type process_name() :: proc_lib:process_name().
 -type option() :: proc_lib:option().
--type sup_ref()  :: proc_lib:process_ref().
+-type process_ref()  :: proc_lib:process_ref().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 -type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
 
@@ -229,26 +229,26 @@ init_it(Starter, Parent, Name0, _, _, Options) ->
     proc_lib:init_ack(Starter, {ok, self()}),
     loop(Parent, Name, [], HibernateAfterTimeout, Debug, false).
 
--spec add_handler(sup_ref(), handler(), term()) -> term().
+-spec add_handler(process_ref(), handler(), term()) -> term().
 add_handler(M, Handler, Args) -> rpc(M, {add_handler, Handler, Args}).
 
--spec add_sup_handler(sup_ref(), handler(), term()) -> term().
+-spec add_sup_handler(process_ref(), handler(), term()) -> term().
 add_sup_handler(M, Handler, Args)  ->
     rpc(M, {add_sup_handler, Handler, Args, self()}).
 
--spec notify(sup_ref(), term()) -> 'ok'.
+-spec notify(process_ref(), term()) -> 'ok'.
 notify(M, Event) -> send(M, {notify, Event}).
 
--spec sync_notify(sup_ref(), term()) -> 'ok'.
+-spec sync_notify(process_ref(), term()) -> 'ok'.
 sync_notify(M, Event) -> rpc(M, {sync_notify, Event}).
 
--spec call(sup_ref(), handler(), term()) -> term().
+-spec call(process_ref(), handler(), term()) -> term().
 call(M, Handler, Query) -> call1(M, Handler, Query).
 
--spec call(sup_ref(), handler(), term(), timeout()) -> term().
+-spec call(process_ref(), handler(), term(), timeout()) -> term().
 call(M, Handler, Query, Timeout) -> call1(M, Handler, Query, Timeout).
 
--spec send_request(EventMgrRef::sup_ref(), Handler::handler(), Request::term()) ->
+-spec send_request(EventMgrRef::process_ref(), Handler::handler(), Request::term()) ->
           ReqId::request_id().
 send_request(M, Handler, Request) ->
     try
@@ -258,7 +258,7 @@ send_request(M, Handler, Request) ->
             error(badarg, [M, Handler, Request])
     end.
 
--spec send_request(EventMgrRef::sup_ref(),
+-spec send_request(EventMgrRef::process_ref(),
                    Handler::handler(),
                    Request::term(),
                    Label::term(),
@@ -276,7 +276,7 @@ send_request(M, Handler, Request, Label, ReqIdCol) ->
       ReqId :: request_id(),
       WaitTime :: response_timeout(),
       Response :: {reply, Reply::term()}
-                | {error, {Reason::term(), sup_ref()}},
+                | {error, {Reason::term(), process_ref()}},
       Result :: Response | 'timeout'.
 
 wait_response(ReqId, WaitTime) ->
@@ -293,7 +293,7 @@ wait_response(ReqId, WaitTime) ->
       WaitTime :: response_timeout(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), sup_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -315,7 +315,7 @@ wait_response(ReqIdCol, WaitTime, Delete) ->
       ReqId :: request_id(),
       Timeout :: response_timeout(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), sup_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: Response | 'timeout'.
 
 receive_response(ReqId, Timeout) ->
@@ -332,7 +332,7 @@ receive_response(ReqId, Timeout) ->
       Timeout :: response_timeout(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), sup_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -354,7 +354,7 @@ receive_response(ReqIdCol, Timeout, Delete) ->
       Msg :: term(),
       ReqId :: request_id(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), sup_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: Response | 'no_reply'.
 
 check_response(Msg, ReqId) ->
@@ -371,7 +371,7 @@ check_response(Msg, ReqId) ->
       ReqIdCollection :: request_id_collection(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), sup_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -426,22 +426,22 @@ reqids_to_list(ReqIdCollection) ->
         error:badarg -> error(badarg, [ReqIdCollection])
     end.
 
--spec delete_handler(sup_ref(), handler(), term()) -> term().
+-spec delete_handler(process_ref(), handler(), term()) -> term().
 delete_handler(M, Handler, Args) -> rpc(M, {delete_handler, Handler, Args}).
 
--spec swap_handler(sup_ref(), {handler(), term()}, {handler(), term()}) ->
+-spec swap_handler(process_ref(), {handler(), term()}, {handler(), term()}) ->
 	    'ok' | {'error', term()}.
 swap_handler(M, {H1, A1}, {H2, A2}) -> rpc(M, {swap_handler, H1, A1, H2, A2}).
 
--spec swap_sup_handler(sup_ref(), {handler(), term()}, {handler(), term()}) ->
+-spec swap_sup_handler(process_ref(), {handler(), term()}, {handler(), term()}) ->
 	    'ok' | {'error', term()}.
 swap_sup_handler(M, {H1, A1}, {H2, A2}) ->
     rpc(M, {swap_sup_handler, H1, A1, H2, A2, self()}).
 
--spec which_handlers(sup_ref()) -> [handler()].
+-spec which_handlers(process_ref()) -> [handler()].
 which_handlers(M) -> rpc(M, which_handlers).
 
--spec stop(sup_ref()) -> 'ok'.
+-spec stop(process_ref()) -> 'ok'.
 stop(M) ->
     gen:stop(M).
 
