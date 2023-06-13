@@ -202,8 +202,7 @@ start_httpd() ->
 start_httpd(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     PrivDir = proplists:get_value(priv_dir, Config),
-    HttpdConf = [{server_name, "httpd_test"}, {server_root, PrivDir},
-		 {document_root, PrivDir}, {bind_address, any}],
+    HttpdConf = [{server_root, PrivDir}, {document_root, PrivDir}, {bind_address, any}],
     
     ok = inets:start(),
     {ok, Pid0} = inets:start(httpd, [{port, 0}, {ipfamily, inet} | HttpdConf]),

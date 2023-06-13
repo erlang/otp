@@ -75,12 +75,23 @@ load_mime_types(MimeTypesFile) ->
 	    {error, ?NICE("Can't open " ++ MimeTypesFile)}
     end.
 
+%% Add any optional properties if they are not present.
+optional_properties(Properties) ->
+    case proplists:get_value(server_name, Properties) of
+        undefined ->
+            Localhost = net_adm:localhost(),
+            [{server_name, Localhost} | Properties];
+        _Name ->
+            Properties
+    end.
 
-validate_properties(Properties) ->
-    %% First, check that all mandatory properties are present
+validate_properties(RawProperties) ->
+    %% First, prefill any optional properties
+    Properties = optional_properties(RawProperties),
+    %% Then check that all mandatory properties are present
     case mandatory_properties(Properties) of
 	ok -> 
-	    %% Second, check that property dependency are ok
+	    %% Finally, check that property dependency are ok
 	    {ok, check_minimum_bytes_per_second(validate_properties2(Properties))};
 	Error ->
 	    throw(Error)

@@ -117,8 +117,7 @@
        number that was picked:</p>
 
     <code type="none">
-      2 > {ok, Pid} = inets:start(httpd, [{port, 0},
-      {server_name,"httpd_test"}, {server_root,"/tmp"},
+      2 > {ok, Pid} = inets:start(httpd, [{port, 0}, {server_root,"/tmp"},
       {document_root,"/tmp/htdocs"}, {bind_address, "localhost"}]).
       {ok, 0.79.0}      </code>
     
@@ -126,7 +125,7 @@
     <code type="none">
       3 >  httpd:info(Pid).
       [{mime_types,[{"html","text/html"},{"htm","text/html"}]},
-      {server_name,"httpd_test"},
+      {server_name,"machine.local"},
       {bind_address, {127,0,0,1}},
       {server_root,"/tmp"},
       {port,59408},
@@ -137,8 +136,7 @@
     </p>
     <code type="none">
     4 > httpd:reload_config([{port, 59408},
-      {server_name,"httpd_test"}, {server_root,"/tmp/www_test"},
-      {document_root,"/tmp/www_test/htdocs"},
+      {server_root,"/tmp/www_test"}, {document_root,"/tmp/www_test/htdocs"},
       {bind_address, "localhost"}], non_disturbing).
     ok.</code>
 
