@@ -1728,7 +1728,7 @@ sub code_gen {
                 last SWITCH;
             };
 	    /r/ and do {
-                push(@f, "r(0)");
+                push(@f, "x(0)");
                 last SWITCH;
             };
 	    /[lxyS]/ and do {

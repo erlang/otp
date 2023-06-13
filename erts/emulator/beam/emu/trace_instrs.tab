@@ -24,7 +24,7 @@ return_trace() {
 
     SWAPOUT;		/* Needed for shared heap */
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    erts_trace_return(c_p, mfa, r(0), ERTS_TRACER_FROM_ETERM(E+2)/* tracer */);
+    erts_trace_return(c_p, mfa, x(0), ERTS_TRACER_FROM_ETERM(E+2)/* tracer */);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     SWAPIN;
     E += 1 + BEAM_RETURN_TRACE_FRAME_SZ;
@@ -135,10 +135,10 @@ i_perf_counter() {
 
     ts = erts_sys_perf_counter();
     if (IS_SSMALL(ts)) {
-        r(0) = make_small((Sint)ts);
+        x(0) = make_small((Sint)ts);
     } else {
         $GC_TEST(0, ERTS_SINT64_HEAP_SIZE(ts), 0);
-        r(0) = make_big(HTOP);
+        x(0) = make_big(HTOP);
 #if defined(ARCH_32)
         if (ts >= (((Uint64) 1) << 32)) {
             *HTOP = make_pos_bignum_header(2);

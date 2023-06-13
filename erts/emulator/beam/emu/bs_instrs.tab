@@ -738,7 +738,7 @@ i_bs_private_append(Fail, Unit, Size, Src, Dst) {
 
 bs_init_writable() {
     HEAVY_SWAPOUT;
-    r(0) = erts_bs_init_writable(c_p, r(0));
+    x(0) = erts_bs_init_writable(c_p, x(0));
     HEAVY_SWAPIN;
 }
 
