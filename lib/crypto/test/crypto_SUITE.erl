@@ -2388,7 +2388,12 @@ rsa_sign_verify_tests(Config, Msg, Public, Private, PublicS, PrivateS, OptsToTry
         end.
 
 rsa_sign_verify_tests(Msg, Public, Private, PublicS, PrivateS, OptsToTry) ->
-    gen_rsa_sign_verify_tests([md5, ripemd160, sha, sha224, sha256], Msg, Public, Private,
+    Hashs0 = [sha224, sha256],
+    Hashs = case crypto:info_fips() of
+                enabled -> Hashs0;
+                _ -> [md5, ripemd160, sha | Hashs0]
+            end,
+    gen_rsa_sign_verify_tests(Hashs, Msg, Public, Private,
                               [undefined | OptsToTry]) ++
 	gen_rsa_sign_verify_tests([sha384, sha512], Msg, PublicS, PrivateS,
                                   [undefined | OptsToTry]).
