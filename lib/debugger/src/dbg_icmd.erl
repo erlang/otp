@@ -291,7 +291,8 @@ handle_int_msg({break_options, Break}, _Status, _Bs, _Ieval) ->
 handle_int_msg(no_break, _Status, _Bs, _Ieval) ->
     put(breakpoints, []);
 handle_int_msg({no_break,M}, _Status, _Bs, _Ieval) ->
-    put(breakpoints, [ML || {Mod,_L}=ML <- get(breakpoints), Mod=/=M]);
+    put(breakpoints, [B || {{Mod,_L},_Flags}=B <- get(breakpoints),
+                           Mod =/= M]);
 handle_int_msg(stop, exit_at, _Bs, _Ieval) ->
     erlang:exit(normal).
 
