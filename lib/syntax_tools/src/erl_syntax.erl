@@ -2456,17 +2456,23 @@ list(Elements, Tail) when Elements =/= [] ->
 
 revert_list(Node) ->
     Pos = get_pos(Node),
-    P = list_prefix(Node),
-    S = case list_suffix(Node) of
+    Prefix = list_prefix(Node),
+    Suffix = case list_suffix(Node) of
 	    none ->
-		revert_nil(set_pos(nil(), Pos));
-	    S1 ->
-		S1
+            LastPos = get_pos(lists:last(Prefix)),
+            LastLocation = case erl_anno:end_location(LastPos) of
+                undefined -> erl_anno:location(LastPos);
+                Location -> Location
+            end,
+            revert_nil(set_pos(nil(), erl_anno:set_location(LastLocation, Pos)));
+	    Suffix1 ->
+            Suffix1
 	end,
-    lists:foldr(fun (X, A) ->
-			{cons, Pos, X, A}
-		end,
-		S, P).
+    lists:foldr(fun (Head, Tail) ->
+        HeadPos = get_pos(Head),
+        HeadLocation = erl_anno:location(HeadPos),
+        {cons, erl_anno:set_location(HeadLocation, Pos), Head, Tail}
+    end, Suffix, Prefix).
 
 %% =====================================================================
 %% @doc Creates an abstract empty list. The result represents
