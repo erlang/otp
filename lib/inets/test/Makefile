@@ -129,7 +129,6 @@ MODULES =                 		\
 	httpd_bench_SUITE               \
 	http_test_lib    		\
 	httpd_basic_SUITE		\
-	httpd_mod 	  		\
 	httpd_load        		\
 	httpd_time_test	  		\
 	httpd_1_1         		\

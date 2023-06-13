@@ -40,11 +40,7 @@ MODULE=
 AUTH_FILES = auth/group \
 	auth/passwd 
 CGI_FILES = cgi-bin/printenv.sh 
-CONF_FILES = conf/8080.conf \
-	conf/8888.conf \
-	conf/httpd.conf \
-	conf/ssl.conf \
-	conf/mime.types 
+CONF_FILES = conf/mime.types
 OPEN_FILES = htdocs/open/dummy.html 
 MNESIA_OPEN_FILES = htdocs/mnesia_open/dummy.html 
 MISC_FILES = htdocs/misc/friedrich.html \
