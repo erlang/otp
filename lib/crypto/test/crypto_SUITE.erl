@@ -2227,15 +2227,19 @@ group_config(dss = Type, Config) ->
     Public = dss_params() ++ [dss_public()], 
     Private = dss_params() ++ [dss_private()], 
     SupportedHashs = proplists:get_value(hashs, crypto:supports(), []),
-    DssHashs = 
+    DssHashs0 =
         case crypto:info_lib() of
             [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer > 16#10001000 ->
-                [sha, sha224, sha256, sha384, sha512];
+                [sha224, sha256, sha384, sha512];
             [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer > 16#10000000 ->
-                [sha, sha224, sha256];
+                [sha224, sha256];
             _Else ->
-                [sha]
+                []
         end,
+    DssHashs = case crypto:info_fips() of
+                   enabled -> DssHashs0;
+                   _ -> [sha | DssHashs0]
+               end,
     SignVerify = [{Type, Hash, Public, Private, Msg} 
                   || Hash <- DssHashs,
                      lists:member(Hash, SupportedHashs)],
