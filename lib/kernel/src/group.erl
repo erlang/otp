@@ -497,9 +497,12 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, LineCont0, Encoding) ->
                  true ->
                      get_line(Buf0, Pbs, LineCont0, Drv, Shell, Encoding);
                  false ->
-                     %% get_line_echo_off only deals with lists
-                     %% and does not need encoding...
-                     get_line_echo_off(Buf0, Pbs, Drv, Shell)
+                     %% get_line_echo_off only deals with lists,
+                     %% so convert to list before calling it.
+                     get_line_echo_off(
+                       if Buf0 =:= eof -> eof;
+                          true -> unicode:characters_to_list(Buf0, Encoding)
+                       end, Pbs, Drv, Shell)
              end,
     case Result of
         {done,LineCont1,Buf} ->

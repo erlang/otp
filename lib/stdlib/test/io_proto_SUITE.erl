@@ -27,7 +27,8 @@
 	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
          unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1,
          file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
-         io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1
+         io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1,
+         io_get_chars_file_read_stdin_binary_mode/1
         ]).
 
 
@@ -60,8 +61,8 @@ all() ->
      file_read_stdin_binary_mode,
      file_read_stdin_list_mode,
      io_get_chars_stdin_binary_mode,
-     io_get_chars_stdin_list_mode
-
+     io_get_chars_stdin_list_mode,
+     io_get_chars_file_read_stdin_binary_mode
     ].
 
 groups() -> 
@@ -339,6 +340,27 @@ io_get_chars_stdin_list_mode(_Config) ->
 
     ok.
 
+%% Test that mixing io:get_chars and file:read works when stdin is in binary mode.
+io_get_chars_file_read_stdin_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() -> case file:read(standard_io, 1) of
+                                      eof -> eof;
+                                      {ok, Chars} ->
+                                          case io:get_line(standard_io, "") of
+                                              eof -> Chars;
+                                              Line ->
+                                                  {ok, [Chars, Line]}
+                                          end
+                                  end
+                         end, [binary]),
+
+    erlang:port_command(ErlPort, "1\n"),
+    {ok, "got: [<<\"1\">>,<<\"\\n\">>]\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
 start_stdin_node(ReadFun, IoOptions) ->
     {ok, L} = gen_tcp:listen(0,[{active, false},{packet,4}]),
     {ok, Port} = inet:port(L),
@@ -356,9 +378,6 @@ start_stdin_node(ReadFun, IoOptions) ->
 
 read_raw_from_stdin([Port]) ->
     try
-        dbg:tracer(file, "/home/eluklar/git/otp/trace.txt"),
-        dbg:p(whereis(user),[c,m]),
-        dbg:tpl(io_lib, x),
         {ok, P} = gen_tcp:connect(localhost, list_to_integer(atom_to_list(Port)),
                                   [binary, {packet, 4}, {active, false}]),
         {ok, OptionsBin} = gen_tcp:recv(P, 0),
