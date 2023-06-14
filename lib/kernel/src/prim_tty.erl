@@ -168,10 +168,10 @@
 -type request() ::
         {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
-        {putc_keep_state, unicode:unicode_binary()} |
         {expand, unicode:unicode_binary()} |
         {expand_with_trim, unicode:unicode_binary()} |
         {insert, unicode:unicode_binary()} |
+        {insert_over, unicode:unicode_binary()} |
         {delete, integer()} |
         delete_after_cursor |
         delete_line |
@@ -599,22 +599,19 @@ handle_request(State, {expand, Expand}) ->
 handle_request(State, {expand_with_trim, Binary}) ->
     handle_request(State, 
                    {expand, iolist_to_binary(["\r\n",string:trim(Binary, both)])});
-%% putc_keep_state prints Binary and keeps the current prompt unchanged
-handle_request(State = #state{ unicode = U }, {putc_keep_state, Binary})  ->
-    {PutBuffer, _NewState} = insert_buf(State, Binary),
-    {encode(PutBuffer, U), State};
 %% putc prints Binary and overwrites any existing characters
 handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
     %% Todo should handle invalid unicode?
-    {PutBuffer, NewState} = insert_buf(State, Binary),
-    if NewState#state.buffer_after =:= [] ->
-            {encode(PutBuffer, U), NewState};
-       true ->
-            %% Delete any overwritten characters after current the cursor
-            OldLength = logical(State#state.buffer_before) + lists:sum([logical(L) || L <- State#state.lines_before]),
-            NewLength = logical(NewState#state.buffer_before) + lists:sum([logical(L) || L <- NewState#state.lines_before]),
-            {_, _, _, NewBA} = split(NewLength - OldLength, NewState#state.buffer_after, U),
-            {encode(PutBuffer, U), NewState#state{ buffer_after = NewBA }}
+    %% print above the prompt if we have a prompt.
+    %% otherwise print on the current line.
+    case {State#state.lines_before,{State#state.buffer_before, State#state.buffer_after}, State#state.lines_after} of
+        {[],{[],[]},[]} -> {PutBuffer, _} = insert_buf(State, Binary),
+            {[encode(PutBuffer, U)], State};
+        _ ->
+            {Delete, DeletedState} = handle_request(State, delete_line),
+            {PutBuffer, _} = insert_buf(DeletedState, Binary),
+            {Redraw, _} = handle_request(State, redraw_prompt_pre_deleted),
+            {[Delete, encode(PutBuffer, U), Redraw], State}
     end;
 handle_request(State, {putc_raw, Binary}) ->
     handle_request(State, {putc, unicode:characters_to_binary(Binary, latin1)});
@@ -622,9 +619,11 @@ handle_request(State = #state{}, delete_after_cursor) ->
     {[State#state.delete_after_cursor],
      State#state{buffer_after = [],
                  lines_after = []}};
+handle_request(State = #state{buffer_before = [], buffer_after = [],
+                              lines_before = [], lines_after = []}, delete_line) ->
+    {[],State};
 handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
-                              lines_before = LinesBefore,
-                              lines_after = _LinesAfter}, delete_line) ->
+                              lines_before = LinesBefore}, delete_line) ->
     MoveToBeg = move_cursor(State, cols_multiline(Bef, LinesBefore, W, U), 0),
     {[MoveToBeg, State#state.delete_after_cursor],
      State#state{buffer_before = [],
@@ -755,6 +754,18 @@ handle_request(State = #state{ unicode = U }, {move, N}) when N > 0 ->
                          buffer_before = NewBB ++ State#state.buffer_before} };
 handle_request(State, {move, 0}) ->
     {"",State};
+handle_request(State = #state{ unicode = U }, {insert_over, Chars}) ->
+    %% Todo should handle invalid unicode?
+    {PutBuffer, NewState} = insert_buf(State, Chars),
+    if NewState#state.buffer_after =:= [] ->
+            {encode(PutBuffer, U), NewState};
+       true ->
+            %% Delete any overwritten characters after current the cursor
+            OldLength = logical(State#state.buffer_before) + lists:sum([logical(L) || L <- State#state.lines_before]),
+            NewLength = logical(NewState#state.buffer_before) + lists:sum([logical(L) || L <- NewState#state.lines_before]),
+            {_, _, _, NewBA} = split(NewLength - OldLength, NewState#state.buffer_after, U),
+            {encode(PutBuffer, U), NewState#state{ buffer_after = NewBA }}
+    end;
 handle_request(State = #state{cols = W, xn = OrigXn, unicode = U,lines_after = LinesAfter}, {insert, Chars}) ->
     {InsertBuffer, NewState0} = insert_buf(State#state{ xn = false }, Chars),
     NewState1 = NewState0#state{ xn = OrigXn },
