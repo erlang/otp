@@ -555,7 +555,7 @@ handle_request(State, {redraw_prompt, Pbs, Pbs2, {LB, {Bef, Aft}, LA}}) ->
     Text = Pbs ++ lists:flatten(lists:join("\n"++Pbs2, lists:reverse(LB)++[CL|LA])),
     Moves = if LA /= [] ->
                     [Last|_] = lists:reverse(LA),
-                    {move_combo, -logical(Last), length(LA), logical(Bef)};
+                    {move_combo, -logical(Last), -length(LA), logical(Bef)};
                true ->
                     {move, -logical(Aft)}
             end,

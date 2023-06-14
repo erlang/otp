@@ -456,10 +456,12 @@ shell_multiline_navigation(Config) ->
              check_location(Term, {0,0}),
              send_tty(Term,"C-h"), % Backspace
              check_location(Term, {-1,width("ccc}")}),
+             send_tty(Term, "C-Up"),
+             send_tty(Term, "End"),
              send_tty(Term,"Left"),
              send_tty(Term,"M-Enter"),
-             send_tty(Term,"Right"),
-             check_location(Term, {0,1}),
+             check_content(Term, ".. ,"),
+             check_location(Term, {-1,0}),
              send_tty(Term,"M-c"),
              check_location(Term, {-3,0}),
              send_tty(Term,"{'"++U++"',\n\n\nworks}.\n")
@@ -913,6 +915,8 @@ shell_small_window_multiline_navigation(Config) ->
         check_content(Term,"is_element"),
         check_content(Term,"is_empty"),
         check_location(Term, {-4, 9}),
+        send_tty(Term, "M-Enter"),
+        check_location(Term, {-1, 0}),
         ok
     after
         stop_tty(Term)
