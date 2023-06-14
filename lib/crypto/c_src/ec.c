@@ -28,7 +28,8 @@
 
 int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
                          OSSL_PARAM params[], int *i,
-                         size_t *order_size)
+                         size_t *order_size,
+                         struct get_curve_def_ctx* gcd)
 {
     const ERL_NIF_TERM* curve;
     int c_arity = -1;
@@ -39,6 +40,7 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
     BIGNUM *p = NULL;
     int arity = -1;
     const ERL_NIF_TERM* curve_tuple;
+
 
     /* Here are two random curve definition examples, one prime_field and
        one characteristic_two_field. Both are from the crypto/src/crypto_ec_curves.erl.
@@ -78,6 +80,23 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
     if (!enif_get_tuple(env, curve_tuple[0], &c_arity, &curve) ||
         c_arity != 5)
         assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad curve def. Expect 5-tuple."));
+
+    if (gcd->use_curve_name
+        && curve_tuple[1] != atom_undefined
+        && enif_get_atom(env, curve_tuple[1], gcd->curve_name,
+                         sizeof(gcd->curve_name), ERL_NIF_LATIN1)) {
+        ErlNifBinary order_bin;
+        params[(*i)++] = OSSL_PARAM_construct_utf8_string("group", gcd->curve_name, 0);
+
+        if (order_size) {
+            if (!enif_inspect_binary(env, curve[3], &order_bin))
+                assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad order"));
+            *order_size = order_bin.size;
+        }
+        gcd->use_curve_name = 1;
+        return 1;
+    }
+    gcd->use_curve_name = 0;
 
     if (!get_ossl_octet_string_param_from_bin(env, "generator", curve[2], &params[(*i)++]))
         assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad Generator (Point)"));
@@ -211,6 +230,7 @@ int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     int tpl_arity;
     int i = 0;
     OSSL_PARAM params[15];
+    struct get_curve_def_ctx gcd;
     EVP_PKEY_CTX *pctx = NULL;
     
     if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms) ||
@@ -222,19 +242,27 @@ int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     if (!get_ossl_octet_string_param_from_bin(env, "pub",  tpl_terms[1], &params[i++]))
         assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad public key"));
 
-    if (!get_curve_definition(env, &ret, tpl_terms[0], params, &i, NULL))
+    if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
+
+    gcd.use_curve_name = 1;
+retry_without_name:
+    if (!get_curve_definition(env, &ret, tpl_terms[0], params, &i, NULL, &gcd))
         goto err;
 
     params[i++] = OSSL_PARAM_construct_end();
 
-    if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
-        assign_goto(ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
-
     if (EVP_PKEY_fromdata_init(pctx) <= 0)
         assign_goto(ret, err, EXCP_ERROR(env, "Can't init fromdata"));
     
-    if (EVP_PKEY_fromdata(pctx, pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+    if (EVP_PKEY_fromdata(pctx, pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0) {
+        if (gcd.use_curve_name) {
+            gcd.use_curve_name = 0;
+            i = 1;
+            goto retry_without_name;
+        }
         assign_goto(ret, err, EXCP_ERROR(env, "Can't do fromdata"));
+    }
 
     if (!*pkey)
         assign_goto(ret, err, EXCP_ERROR(env, "Couldn't get a public key"));
@@ -256,24 +284,33 @@ static int get_ec_private_key_2(ErlNifEnv* env,
 {
     int i = 0;
     OSSL_PARAM params[15];
+    struct get_curve_def_ctx gcd;
     EVP_PKEY_CTX *pctx = NULL;
 
     if (!get_ossl_BN_param_from_bin(env, "priv",  key, &params[i++]))
         assign_goto(*ret, err, EXCP_BADARG_N(env, 0, "Bad private key"));
 
-    if (!get_curve_definition(env, ret, curve, params, &i, order_size))
+    if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
+        assign_goto(*ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
+
+    gcd.use_curve_name = 1;
+retry_without_name:
+    if (!get_curve_definition(env, ret, curve, params, &i, order_size, &gcd))
         goto err;
 
     params[i++] = OSSL_PARAM_construct_end();
 
-    if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
-        assign_goto(*ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
-
     if (EVP_PKEY_fromdata_init(pctx) <= 0)
         assign_goto(*ret, err, EXCP_ERROR(env, "Can't init fromdata"));
     
-    if (EVP_PKEY_fromdata(pctx, pkey, EVP_PKEY_KEYPAIR, params) <= 0)
+    if (EVP_PKEY_fromdata(pctx, pkey, EVP_PKEY_KEYPAIR, params) <= 0) {
+        if (gcd.use_curve_name) {
+            gcd.use_curve_name = 0;
+            i = 1;
+            goto retry_without_name;
+        }
         assign_goto(*ret, err, EXCP_ERROR(env, "Can't do fromdata"));
+    }
 
     if (!*pkey)
         assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get a private key"));
@@ -316,9 +353,10 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ERL_NIF_TERM ret = atom_undefined;
     int i = 0;
     OSSL_PARAM params[15];
+    struct get_curve_def_ctx gcd;
     EVP_PKEY_CTX *pctx = NULL;
     EVP_PKEY *pkey = NULL, *peer_pkey = NULL;
-    size_t sz, order_size;
+    size_t sz, order_size = 0;
     BIGNUM *priv_bn = NULL;
     ErlNifBinary pubkey_bin;
     
@@ -338,26 +376,36 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         }
     else
         {
+            /* Neither the private nor the public key is known, so we generate the pair: */
+            if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_new_from_name"));
+
+            gcd.use_curve_name = 1;
+    retry_without_name:
             /* PrivKey (that is, argv[1]) == atom_undefined */
-            if (!get_curve_definition(env, &ret, argv[0], params, &i, &order_size))
+            if (!get_curve_definition(env, &ret, argv[0], params, &i,
+                                      &order_size, &gcd))
                 // INSERT "ret" parameter in get_curve_definition !!
                 assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Couldn't get Curve definition"));
     
             params[i++] = OSSL_PARAM_construct_end();
-
-            /* Neither the private nor the public key is known, so we generate the pair: */
-            if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_new_from_name"));
 
             if (EVP_PKEY_keygen_init(pctx) <= 0)
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen_init"));
 
             if (!EVP_PKEY_CTX_set_params(pctx, params))
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_set_params"));
-        
-            if (!EVP_PKEY_generate(pctx, &pkey))
+
+            if (!EVP_PKEY_generate(pctx, &pkey)) {
+                if (gcd.use_curve_name) {
+                    gcd.use_curve_name = 0;
+                    i = 0;
+                    goto retry_without_name;
+                }
                 assign_goto(ret, err, EXCP_ERROR(env, "Couldn't generate EC key"));
-    
+            }
+
+
             /* Get the two keys, pub as binary and priv as BN */
             if (!EVP_PKEY_get_octet_string_param(pkey, "encoded-pub-key", NULL, 0, &sz))
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't get pub octet string size"));
@@ -375,6 +423,8 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                 assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get priv key bytes"));
         }
 
+    if (order_size == 0)
+        order_size = BN_num_bytes(priv_bn);
     ret = enif_make_tuple2(env,
                            enif_make_binary(env, &pubkey_bin),
                            bn2term(env, order_size, priv_bn));
