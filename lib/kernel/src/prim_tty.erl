@@ -568,20 +568,23 @@ handle_request(State, redraw_prompt) ->
     {Redraw, NewState} = handle_request(State, redraw_prompt_pre_deleted),
     {[ClearLine, Redraw], NewState};
 handle_request(State = #state{unicode = U, cols = W}, redraw_prompt_pre_deleted) ->
-    {Movement, TextInView} = in_view(State),
+    {Movement, TextInView, EverythingFitsInView} = in_view(State),
     {_, NewPrompt} = handle_request(State, new_prompt),
     {Redraw, RedrawState} = insert_buf(NewPrompt#state{xn = false}, unicode:characters_to_binary(TextInView)),
     {Output, _} = case State#state.buffer_expand of
                       undefined ->
                         {[encode(Redraw, U), xnfix(RedrawState, RedrawState#state.buffer_before), Movement], RedrawState};
                       BufferExpand ->
-                          BBCols = cols(State#state.buffer_before, U),
-                          End = BBCols + cols(State#state.buffer_after,U),
+                          %% If everything fits in the view, then we output the expand buffer after the whole expression.
+                          Last = last_or_empty(State#state.lines_after),
+                          End = case EverythingFitsInView of
+                            true when Last =/= [] -> cols(Last, U);
+                            _ -> cols(State#state.buffer_before, U) + cols(State#state.buffer_after,U)
+                          end,
                           {ExpandBuffer, NewState} = insert_buf(RedrawState#state{ buffer_expand = [] }, iolist_to_binary(BufferExpand)),
                           BECols = cols(W, End, NewState#state.buffer_expand, U),
                           MoveToEnd = move_cursor(RedrawState, BECols, End),
                           {[encode(Redraw,U),encode(ExpandBuffer, U), MoveToEnd, Movement], RedrawState}
-
                   end,
     {Output, State};
 %% Clear the expand buffer after the cursor when we handle any request.
@@ -704,7 +707,7 @@ handle_request(State = #state{ cols = W,
     Output = if
                  %% When we move up and the view is "full"
                  RowsInView >= R ->
-                     {Movement, TextInView} = in_view(NewState),
+                     {Movement, TextInView, _} = in_view(NewState),
                      {ClearLine, Cleared} = handle_request(State, delete_line),
                      {Redraw, _} = handle_request(Cleared, {insert, unicode:characters_to_binary(TextInView)}),
                      [ClearLine, Redraw, Movement];
@@ -733,7 +736,7 @@ handle_request(State = #state{ cols = W,
     RowsInView = cols_multiline([A|NewLinesBefore], W, U) div W,
     Output = if
                  RowsInView >= R ->
-                     {Movement, TextInView} = in_view(NewState),
+                     {Movement, TextInView, _} = in_view(NewState),
                      {ClearLine, Cleared} = handle_request(State, delete_line),
                      {Redraw, _} = handle_request(Cleared, {insert, unicode:characters_to_binary(TextInView)}),
                      [ClearLine, Redraw, Movement];
@@ -794,6 +797,10 @@ handle_request(State, clear) ->
 handle_request(State, Req) ->
     erlang:display({unhandled_request, Req}),
     {"", State}.
+
+last_or_empty([]) -> [];
+last_or_empty([H]) -> H;
+last_or_empty(L) -> [H|_] = lists:reverse(L), H.
 
 %% Split the buffer after N cols
 %% Returns the number of characters deleted, and the column length (N)
@@ -914,14 +921,14 @@ in_view(#state{lines_after = LinesAfter, buffer_before = Bef, buffer_after = Aft
             Movement = move_cursor(State,
                                    cols_after_cursor(State#state{lines_after = LAInViewLines++[lists:reverse(Bef, Aft)]}),
                                    cols(Bef,U)),
-            {Movement, Text};
+            {Movement, Text, false};
 
        true ->
             %% Everything fits in the current window, just output everything
             Movement = move_cursor(State, cols_after_cursor(State#state{lines_after = lists:reverse(LinesAfter)++[lists:reverse(Bef, Aft)]}), cols(Bef,U)),
             Text = lists:flatten([LB++"\n"||LB<-lists:reverse(LinesBefore)]) ++
                 lists:reverse(Bef,Aft) ++ lists:flatten(["\n"++LA||LA<-LinesAfter]),
-            {Movement, Text}
+            {Movement, Text, true}
     end.
 cols_after_cursor(#state{lines_after=[LAST|LinesAfter],cols=W, unicode=U}) ->
     cols_multiline(LAST, LinesAfter, W, U).
