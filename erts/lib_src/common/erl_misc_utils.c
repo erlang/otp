@@ -1126,7 +1126,7 @@ get_cgroup_path(const char *controller, const char **path) {
          * This fails if any of the fs options contain a hyphen, but this is
          * not likely to happen on a cgroup, so we just skip such lines. */
         if (sscanf(line_buf,
-                   "%*d %*d %*d:%*d %4095s %4095s %*s %*[^-]- "
+                   "%*d %*d %*d:%*d %4095s %4095s %*s%*[^-]- "
                    "%63s %*s %511[^\n]\n",
                    root_path, mount_path,
                    fs_type, fs_flags) != 4) {
