@@ -71,8 +71,10 @@ erl</pre>
         <c>f</c> simultaneously.</item>
       <item><c>Home</c> and <c>End</c> represent the keys with the same
         name on the keyboard.</item>
-      <item><c>Left</c> and <c>Right</c> represent the corresponding arrow
-        keys.</item>
+      <item><c>Left</c>, <c>Right</c>, <c>Up</c> and <c>Down</c> represent
+        the corresponding arrow keys.</item>
+      <item>When a function has multiple possible key sequences they are
+        listed on individual lines in the <c>Key Sequence</c> column.</item>
     </list>
 
     <table>
@@ -184,6 +186,30 @@ erl</pre>
       <row>
         <cell align="left" valign="middle">C-]</cell>
         <cell align="left" valign="middle">Insert matching closing bracket</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-Up<br />M-Up</cell>
+        <cell align="left" valign="middle">Navigate one row up when editing multiple lines</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-Down<br />M-Down</cell>
+        <cell align="left" valign="middle">Navigate one row down when editing multiple lines</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">M-Enter</cell>
+        <cell align="left" valign="middle">Insert a new line at cursor</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">M-&lt;<br />M-S-Up</cell>
+        <cell align="left" valign="middle">Navigate to the start of the current expression</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">M-&gt;<br />M-S-Down</cell>
+        <cell align="left" valign="middle">Navigate to the end of the current expression</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">M-c</cell>
+        <cell align="left" valign="middle">Clear current expression</cell>
       </row>
       <tcaption>tty Text Editing</tcaption>
     </table>
