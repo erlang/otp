@@ -6134,6 +6134,12 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
 {
     ESockRequestor req;
 
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_accept_aborted(%d) -> "
+            "try get request"
+            "\r\n", descP->sock) );
+
     if (esock_acceptor_get(env, descP,
                            &opDataP->accRef,
                            opCaller,
@@ -6141,32 +6147,55 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
 
         ERL_NIF_TERM reason = esock_atom_closed;
 
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_accept_aborted(%d) -> "
+                "send abort message to %T"
+                "\r\n", descP->sock, req.pid) );
+
         /* Inform the user waiting for a reply */
         esock_send_abort_msg(env, descP, opDataP->lSockRef,
                              &req, reason);
 
-        /* The socket not being open (assumed closing),
-         * means we are in the closing phase...
+    }
+
+    /* The socket not being open (assumed closing),
+     * means we are in the closing phase...
+     */
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_accept_aborted(%d) -> "
+            "maybe send close message => "
+            "\r\n   is socket (read) open: %s"
+            "\r\n",
+            descP->sock, B2S((IS_OPEN(descP->readState)))) );
+
+    if (! IS_OPEN(descP->readState)) {
+
+        /* We can only send the 'close' message to the closer
+         * when all requests has been processed!
          */
-        if (! IS_OPEN(descP->readState)) {
 
-            /* We can only send the 'close' message to the closer
-             * when all requests has been processed!
-             */
+        /* Check "our" queue */
+        if (descP->acceptorsQ.first == NULL) {
 
-            /* Check "our" queue */
-            if (descP->acceptorsQ.first == NULL) {
+            /* Check "other" queue(s) and if there is a closer pid */
+            if ((descP->readersQ.first == NULL) &&
+                (descP->writersQ.first == NULL)) {
 
-                /* Check "other" queue(s) and if there is a closer pid */
-                if ((descP->readersQ.first == NULL) &&
-                    (descP->writersQ.first == NULL)) {
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "esaio_completion_accept_aborted(%d) -> "
+                        "all queues are empty => "
+                        "\r\n   send close message"
+                        "\r\n",
+                        descP->sock) );
 
-                    esaio_stop(env, descP);
+                esaio_stop(env, descP);
 
-                }
             }
         }
-
     }
 
     /* *Maybe* update socket (read) state
@@ -6175,7 +6204,7 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_accept_aborted(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->acceptorsQ.first == NULL)), descP->readState) );
     if (descP->acceptorsQ.first == NULL) {
@@ -6613,6 +6642,12 @@ void esaio_completion_send_aborted(ErlNifEnv*         env,
 {
     ESockRequestor req;
 
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_send_aborted(%d) -> "
+            "try get request"
+            "\r\n", descP->sock) );
+
     if (esock_writer_get(env, descP,
                          &opDataP->sendRef,
                          opCaller,
@@ -6620,32 +6655,55 @@ void esaio_completion_send_aborted(ErlNifEnv*         env,
 
         ERL_NIF_TERM reason = esock_atom_closed;
 
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_send_aborted(%d) -> "
+                "send abort message to %T"
+                "\r\n", descP->sock, req.pid) );
+
         /* Inform the user waiting for a reply */
         esock_send_abort_msg(env, descP, opDataP->sockRef,
                              &req, reason);
 
-        /* The socket not being open (assumed closing),
-         * means we are in the closing phase...
+    }
+
+    /* The socket not being open (assumed closing),
+     * means we are in the closing phase...
+     */
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_send_aborted(%d) -> "
+            "maybe send close message => "
+            "\r\n   is socket (write) open: %s"
+            "\r\n",
+            descP->sock, B2S((IS_OPEN(descP->writeState)))) );
+
+    if (! IS_OPEN(descP->writeState)) {
+
+        /* We can only send the 'close' message to the closer
+         * when all requests has been processed!
          */
-        if (! IS_OPEN(descP->writeState)) {
 
-            /* We can only send the 'close' message to the closer
-             * when all requests has been processed!
-             */
+        /* Check "our" queue */
+        if (descP->writersQ.first == NULL) {
 
-            /* Check "our" queue */
-            if (descP->writersQ.first == NULL) {
+            /* Check "other" queue(s) and if there is a closer pid */
+            if ((descP->readersQ.first == NULL) &&
+                (descP->acceptorsQ.first == NULL)) {
 
-                /* Check "other" queue(s) and if there is a closer pid */
-                if ((descP->readersQ.first == NULL) &&
-                    (descP->acceptorsQ.first == NULL)) {
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "esaio_completion_send_aborted(%d) -> "
+                        "all queues are empty => "
+                        "\r\n   send close message"
+                        "\r\n",
+                        descP->sock) );
 
-                    esaio_stop(env, descP);
+                esaio_stop(env, descP);
 
-                }
             }
         }
-
     }
 
     /* *Maybe* update socket (write) state
@@ -6654,7 +6712,7 @@ void esaio_completion_send_aborted(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_send_aborted(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -7100,6 +7158,12 @@ void esaio_completion_sendto_aborted(ErlNifEnv*         env,
 {
     ESockRequestor req;
 
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_sendto_aborted(%d) -> "
+            "try get request"
+            "\r\n", descP->sock) );
+
     if (esock_writer_get(env, descP,
                          &opDataP->sendRef,
                          opCaller,
@@ -7107,32 +7171,55 @@ void esaio_completion_sendto_aborted(ErlNifEnv*         env,
 
         ERL_NIF_TERM reason = esock_atom_closed;
 
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_sendto_aborted(%d) -> "
+                "send abort message to %T"
+                "\r\n", descP->sock, req.pid) );
+
         /* Inform the user waiting for a reply */
         esock_send_abort_msg(env, descP, opDataP->sockRef,
                              &req, reason);
 
-        /* The socket not being open (assumed closing),
-         * means we are in the closing phase...
+    }
+
+    /* The socket not being open (assumed closing),
+     * means we are in the closing phase...
+     */
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_sendto_aborted(%d) -> "
+            "maybe send close message => "
+            "\r\n   is socket (write) open: %s"
+            "\r\n",
+            descP->sock, B2S((IS_OPEN(descP->writeState)))) );
+
+    if (! IS_OPEN(descP->writeState)) {
+
+        /* We can only send the 'close' message to the closer
+         * when all requests has been processed!
          */
-        if (! IS_OPEN(descP->writeState)) {
 
-            /* We can only send the 'close' message to the closer
-             * when all requests has been processed!
-             */
+        /* Check "our" queue */
+        if (descP->writersQ.first == NULL) {
 
-            /* Check "our" queue */
-            if (descP->writersQ.first == NULL) {
+            /* Check "other" queue(s) and if there is a closer pid */
+            if ((descP->readersQ.first == NULL) &&
+                (descP->acceptorsQ.first == NULL)) {
 
-                /* Check "other" queue(s) and if there is a closer pid */
-                if ((descP->readersQ.first == NULL) &&
-                    (descP->acceptorsQ.first == NULL)) {
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "esaio_completion_sendto_aborted(%d) -> "
+                        "all queues are empty => "
+                        "\r\n   send close message"
+                        "\r\n",
+                        descP->sock) );
 
-                    esaio_stop(env, descP);
+                esaio_stop(env, descP);
 
-                }
             }
         }
-
     }
 
     /* *Maybe* update socket (write) state
@@ -7141,7 +7228,7 @@ void esaio_completion_sendto_aborted(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendto_aborted(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -7402,6 +7489,12 @@ void esaio_completion_sendmsg_aborted(ErlNifEnv*          env,
 {
     ESockRequestor req;
 
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_sendmsg_aborted(%d) -> "
+            "try get request"
+            "\r\n", descP->sock) );
+
     if (esock_writer_get(env, descP,
                          &opDataP->sendRef,
                          opCaller,
@@ -7409,32 +7502,55 @@ void esaio_completion_sendmsg_aborted(ErlNifEnv*          env,
 
         ERL_NIF_TERM reason = esock_atom_closed;
 
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_sendmsg_aborted(%d) -> "
+                "send abort message to %T"
+                "\r\n", descP->sock, req.pid) );
+
         /* Inform the user waiting for a reply */
         esock_send_abort_msg(env, descP, opDataP->sockRef,
                              &req, reason);
 
-        /* The socket not being open (assumed closing),
-         * means we are in the closing phase...
+    }
+
+    /* The socket not being open (assumed closing),
+     * means we are in the closing phase...
+     */
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_sendmsg_aborted(%d) -> "
+            "maybe send close message => "
+            "\r\n   is socket (write) open: %s"
+            "\r\n",
+            descP->sock, B2S((IS_OPEN(descP->writeState)))) );
+
+    if (! IS_OPEN(descP->writeState)) {
+
+        /* We can only send the 'close' message to the closer
+         * when all requests has been processed!
          */
-        if (! IS_OPEN(descP->writeState)) {
 
-            /* We can only send the 'close' message to the closer
-             * when all requests has been processed!
-             */
+        /* Check "our" queue */
+        if (descP->writersQ.first == NULL) {
 
-            /* Check "our" queue */
-            if (descP->writersQ.first == NULL) {
+            /* Check "other" queue(s) and if there is a closer pid */
+            if ((descP->readersQ.first == NULL) &&
+                (descP->acceptorsQ.first == NULL)) {
 
-                /* Check "other" queue(s) and if there is a closer pid */
-                if ((descP->readersQ.first == NULL) &&
-                    (descP->acceptorsQ.first == NULL)) {
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "esaio_completion_sendmsg_aborted(%d) -> "
+                        "all queues are empty => "
+                        "\r\n   send close message"
+                        "\r\n",
+                        descP->sock) );
 
-                    esaio_stop(env, descP);
+                esaio_stop(env, descP);
 
-                }
             }
         }
-
     }
 
     /* *Maybe* update socket (write) state
@@ -7443,7 +7559,7 @@ void esaio_completion_sendmsg_aborted(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendmsg_aborted(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -7687,6 +7803,12 @@ void esaio_completion_recv_aborted(ErlNifEnv*       env,
 {
     ESockRequestor req;
 
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recv_aborted(%d) -> "
+            "try get request"
+            "\r\n", descP->sock) );
+
     if (esock_reader_get(env, descP,
                          &opDataP->recvRef,
                          opCaller,
@@ -7694,29 +7816,53 @@ void esaio_completion_recv_aborted(ErlNifEnv*       env,
 
         ERL_NIF_TERM reason = esock_atom_closed;
 
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recv_aborted(%d) -> "
+                "send abort message to %T"
+                "\r\n", descP->sock, req.pid) );
+
         /* Inform the user waiting for a reply */
         esock_send_abort_msg(env, descP, opDataP->sockRef,
                              &req, reason);
 
-        /* The socket not being open (assumed closing),
-         * means we are in the closing phase...
+    }
+
+    /* The socket not being open (assumed closing),
+     * means we are in the closing phase...
+     */
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recv_aborted(%d) -> "
+            "maybe send close message => "
+            "\r\n   is socket (read) open: %s"
+            "\r\n",
+            descP->sock, B2S((IS_OPEN(descP->readState)))) );
+
+    if (! IS_OPEN(descP->readState)) {
+
+        /* We can only send the 'close' message to the closer
+         * when all requests has been processed!
          */
-        if (! IS_OPEN(descP->readState)) {
 
-            /* We can only send the 'close' message to the closer
-             * when all requests has been processed!
-             */
+        /* Check "our" queue */
+        if (descP->readersQ.first == NULL) {
 
-            /* Check "our" queue */
-            if (descP->readersQ.first == NULL) {
+            /* Check "other" queue(s) and if there is a closer pid */
+            if ((descP->writersQ.first == NULL) &&
+                (descP->acceptorsQ.first == NULL)) {
 
-                /* Check "other" queue(s) and if there is a closer pid */
-                if ((descP->writersQ.first == NULL) &&
-                    (descP->acceptorsQ.first == NULL)) {
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "esaio_completion_recv_aborted(%d) -> "
+                        "all queues are empty => "
+                        "\r\n   send close message"
+                        "\r\n",
+                        descP->sock) );
 
-                    esaio_stop(env, descP);
+                esaio_stop(env, descP);
 
-                }
             }
         }
     }
@@ -7729,7 +7875,7 @@ void esaio_completion_recv_aborted(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recv_aborted(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -8466,6 +8612,12 @@ void esaio_completion_recvfrom_aborted(ErlNifEnv*           env,
 {
     ESockRequestor req;
 
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recvfrom_aborted(%d) -> "
+            "try get request"
+            "\r\n", descP->sock) );
+
     if (esock_reader_get(env, descP,
                          &opDataP->recvRef,
                          opCaller,
@@ -8473,29 +8625,53 @@ void esaio_completion_recvfrom_aborted(ErlNifEnv*           env,
 
         ERL_NIF_TERM reason = esock_atom_closed;
 
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recvfrom_aborted(%d) -> "
+                "send abort message to %T"
+                "\r\n", descP->sock, req.pid) );
+
         /* Inform the user waiting for a reply */
         esock_send_abort_msg(env, descP, opDataP->sockRef,
                              &req, reason);
 
-        /* The socket not being open (assumed closing),
-         * means we are in the closing phase...
+    }
+
+    /* The socket not being open (assumed closing),
+     * means we are in the closing phase...
+     */
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recvfrom_aborted(%d) -> "
+            "maybe send close message => "
+            "\r\n   is socket (read) open: %s"
+            "\r\n",
+            descP->sock, B2S((IS_OPEN(descP->readState)))) );
+
+    if (! IS_OPEN(descP->readState)) {
+
+        /* We can only send the 'close' message to the closer
+         * when all requests has been processed!
          */
-        if (! IS_OPEN(descP->readState)) {
 
-            /* We can only send the 'close' message to the closer
-             * when all requests has been processed!
-             */
+        /* Check "our" queue */
+        if (descP->readersQ.first == NULL) {
 
-            /* Check "our" queue */
-            if (descP->readersQ.first == NULL) {
+            /* Check "other" queue(s) and if there is a closer pid */
+            if ((descP->writersQ.first == NULL) &&
+                (descP->acceptorsQ.first == NULL)) {
 
-                /* Check "other" queue(s) and if there is a closer pid */
-                if ((descP->writersQ.first == NULL) &&
-                    (descP->acceptorsQ.first == NULL)) {
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "esaio_completion_recvfrom_aborted(%d) -> "
+                        "all queues are empty => "
+                        "\r\n   send close message"
+                        "\r\n",
+                        descP->sock) );
 
-                    esaio_stop(env, descP);
+                esaio_stop(env, descP);
 
-                }
             }
         }
     }
@@ -8508,7 +8684,7 @@ void esaio_completion_recvfrom_aborted(ErlNifEnv*           env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvfrom_aborted(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -9007,6 +9183,12 @@ void esaio_completion_recvmsg_aborted(ErlNifEnv*          env,
 {
     ESockRequestor req;
 
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recvmsg_aborted(%d) -> "
+            "try get request"
+            "\r\n", descP->sock) );
+
     if (esock_reader_get(env, descP,
                          &opDataP->recvRef,
                          opCaller,
@@ -9014,32 +9196,55 @@ void esaio_completion_recvmsg_aborted(ErlNifEnv*          env,
 
         ERL_NIF_TERM reason = esock_atom_closed;
 
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recvmsg_aborted(%d) -> "
+                "send abort message to %T"
+                "\r\n", descP->sock, req.pid) );
+
         /* Inform the user waiting for a reply */
         esock_send_abort_msg(env, descP, opDataP->sockRef,
                              &req, reason);
 
-        /* The socket not being open (assumed closing),
-         * means we are in the closing phase...
+    }
+
+    /* The socket not being open (assumed closing),
+     * means we are in the closing phase...
+     */
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recvmsg_aborted(%d) -> "
+            "maybe send close message => "
+            "\r\n   is socket (read) open: %s"
+            "\r\n",
+            descP->sock, B2S((IS_OPEN(descP->readState)))) );
+
+    if (! IS_OPEN(descP->readState)) {
+
+        /* We can only send the 'close' message to the closer
+         * when all requests has been processed!
          */
-        if (! IS_OPEN(descP->readState)) {
 
-            /* We can only send the 'close' message to the closer
-             * when all requests has been processed!
-             */
+        /* Check "our" queue */
+        if (descP->readersQ.first == NULL) {
 
-            /* Check "our" queue */
-            if (descP->readersQ.first == NULL) {
+            /* Check "other" queue(s) and if there is a closer pid */
+            if ((descP->writersQ.first == NULL) &&
+                (descP->acceptorsQ.first == NULL)) {
 
-                /* Check "other" queue(s) and if there is a closer pid */
-                if ((descP->writersQ.first == NULL) &&
-                    (descP->acceptorsQ.first == NULL)) {
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "esaio_completion_recvmsg_aborted(%d) -> "
+                        "all queues are empty => "
+                        "\r\n   send close message"
+                        "\r\n",
+                        descP->sock) );
 
-                    esaio_stop(env, descP);
+                esaio_stop(env, descP);
 
-                }
             }
         }
-
     }
 
     FREE_BIN( &opDataP->data[0] );
@@ -9051,7 +9256,7 @@ void esaio_completion_recvmsg_aborted(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvmsg_aborted(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
