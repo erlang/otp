@@ -49169,13 +49169,20 @@ do_otp18635(_) ->
        "~n   Sockets:           ~p",
        [socket:info(), socket:which_sockets()]),
 
+    ?P("Get \"proper\" local socket address"),
+    LSA = which_local_socket_addr(inet),
+
     {ok, LSock} = socket:open(inet, stream, #{use_registry => true}),
+
+    ?P("bind (listen) socket to: "
+       "~n   ~p", [LSA]),
+    ok = socket:bind(LSock, LSA),
 
     ?P("make listen socket"),
     ok = socket:listen(LSock),
 
     ?P("get sockname for listen socket"),
-    {ok, Addr} = socket:sockname(LSock),
+    {ok, SA} = socket:sockname(LSock),
 
     %% ok = socket:setopt(LSock, otp, debug, true),
 
@@ -49219,8 +49226,9 @@ do_otp18635(_) ->
           fun() ->
                   ?P("[connector] try create socket"),
                   {ok, CSock} = socket:open(inet, stream),
-                  ?P("[connector] try connect (to server)"),
-                  ok = socket:connect(CSock, Addr),
+                  ?P("[connector] try connect: "
+                       "~n   (server) ~p", [SA]),
+                  ok = socket:connect(CSock, SA),
                   ?P("[connector] connected - inform parent"),
                   Parent ! {self(), connected},
                   ?P("[connector] await termination command"),
