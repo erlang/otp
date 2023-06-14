@@ -51,12 +51,6 @@ typedef struct erl_bin_match_buffer {
 
 struct erl_bits_state {
     /*
-     * Temporary buffer sometimes used by erts_new_bs_put_integer().
-     */
-    byte *byte_buf_;
-    Uint byte_buf_len_;
-
-    /*
      * Pointer to the beginning of the current binary.
      */
     byte* erts_current_bin_;
@@ -127,11 +121,6 @@ typedef struct erl_bin_match_struct{
     }											    \
   }  while (0)
 
-void erts_init_bits(void);	/* Initialization once. */
-void erts_bits_init_state(ERL_BITS_PROTO_0);
-void erts_bits_destroy_state(ERL_BITS_PROTO_0);
-
-
 /*
  * NBYTES(x) returns the number of bytes needed to store x bits.
  */
@@ -177,7 +166,6 @@ int erts_new_bs_put_binary_all(Process *c_p, Eterm Bin, Uint unit);
 Eterm erts_new_bs_put_float(Process *c_p, Eterm Float, Uint num_bits, int flags);
 void erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes));
 
-Uint erts_bits_bufs_size(void);
 Uint32 erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb);
 Eterm erts_bs_get_utf8(ErlBinMatchBuffer* mb);
 Eterm erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags);
