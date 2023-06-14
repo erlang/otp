@@ -410,7 +410,8 @@ typedef struct {
     ErtsSignalInQueueBuffer slots[ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS];
     ErtsThrPrgrLaterOp free_item;
     erts_atomic64_t nonempty_slots;
-    erts_atomic64_t nonmsg_slots;
+    erts_atomic32_t nonmsgs_in_slots;
+    erts_atomic32_t msgs_in_slots;
     /*
      * dirty_refc is incremented by dirty schedulers that access the
      * buffer array to prevent deallocation while they are accessing

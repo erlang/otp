@@ -320,8 +320,8 @@ erts_queue_dist_message(Process *rcvr,
 #endif
 	ERL_MESSAGE_TOKEN(mp) = token;
 
-    /* If the sender is known, try to enqueue to an outer message queue buffer
-     * instead of directly to the outer message queue.
+    /* If the sender is known, try to enqueue to an outer signal queue buffer
+     * instead of directly to the outer signal queue.
      *
      * Otherwise, the code below flushes the buffer before adding the message
      * to ensure the signal order is maintained. This should only happen for
@@ -329,7 +329,7 @@ erts_queue_dist_message(Process *rcvr,
     if (is_external_pid(from) &&
          erts_proc_sig_queue_try_enqueue_to_buffer(from, rcvr, rcvr_locks,
                                                    mp, &mp->next,
-                                                   NULL, 1, 0)) {
+                                                   NULL, 1)) {
         return;
     }
 
@@ -401,11 +401,11 @@ queue_messages(Eterm from,
                    == (receiver_locks & ERTS_PROC_LOCK_MSGQ));
 
     /*
-     * Try to enqueue to an outer message queue buffer instead of
-     * directly to the outer message queue
+     * Try to enqueue to an outer signal queue buffer instead of
+     * directly to the outer signal queue
      */
     if (erts_proc_sig_queue_try_enqueue_to_buffer(from, receiver, receiver_locks,
-                                                  first, last, NULL, len, 0)) {
+                                                  first, last, NULL, len)) {
         return;
     }
 
@@ -452,7 +452,7 @@ queue_messages(Eterm from,
         LINK_MESSAGE(receiver, first);
     }
     else {
-        erts_enqueue_signals(receiver, first, last, NULL, len, state);
+        state = erts_enqueue_signals(receiver, first, last, len, state);
     }
 
     if (locked_msgq) {
