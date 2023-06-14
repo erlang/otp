@@ -588,13 +588,13 @@ switch_loop(internal, init, State) ->
 			end
 		end,
 	    NewGroup = group:start(self(), {shell,start,[]}),
-            NewTTYState = io_requests([{put_chars,unicode,<<"\n">>}], State#state.tty),
+            NewTTYState = io_requests([{insert_chars,unicode,<<"\n">>}], State#state.tty),
             {next_state, server,
              State#state{ tty = NewTTYState,
                           groups = gr_add_cur(Gr1, NewGroup, {shell,start,[]})}};
 	jcl ->
             NewTTYState =
-                io_requests([{put_chars,unicode,<<"\nUser switch command (type h for help)\n">>}],
+                io_requests([{insert_chars,unicode,<<"\nUser switch command (type h for help)\n">>}],
                             State#state.tty),
 	    %% init edlin used by switch command and have it copy the
 	    %% text buffer from current group process
@@ -614,22 +614,23 @@ switch_loop(internal, {line, Line}, State) ->
                     put(current_group, Curr),
                     Curr ! {self(), activate},
                     {next_state, server,
-                        State#state{ current_group = Curr, groups = Groups }};
+                        State#state{ current_group = Curr, groups = Groups,
+                                     tty = io_requests([{insert_chars, unicode, <<"\n">>},new_prompt], State#state.tty)}};
                 {retry, Requests} ->
-                    {keep_state, State#state{ tty = io_requests(Requests, State#state.tty) },
+                    {keep_state, State#state{ tty = io_requests([{insert_chars, unicode, <<"\n">>},new_prompt|Requests], State#state.tty) },
                      {next_event, internal, line}};
                 {retry, Requests, Groups} ->
                     Curr = gr_cur_pid(Groups),
                     put(current_group, Curr),
                     {keep_state, State#state{
-                                   tty = io_requests(Requests, State#state.tty),
+                                   tty = io_requests([{insert_chars, unicode, <<"\n">>},new_prompt|Requests], State#state.tty),
                                    current_group = Curr,
                                    groups = Groups },
                      {next_event, internal, line}}
             end;
         {error, _, _} ->
             NewTTYState =
-                io_requests([{put_chars,unicode,<<"Illegal input\n">>}], State#state.tty),
+                io_requests([{insert_chars,unicode,<<"Illegal input\n">>}], State#state.tty),
             {keep_state, State#state{ tty = NewTTYState },
              {next_event, internal, line}}
     end;

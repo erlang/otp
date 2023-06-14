@@ -542,6 +542,8 @@ handle_request(State = #state{ options = #{ tty := false } }, Request) ->
             {Binary, State};
         {putc, Binary} ->
             {encode(Binary, State#state.unicode), State};
+        {insert, Binary} ->
+            {encode(Binary, State#state.unicode), State};
         beep ->
             {<<7>>, State};
         _Ignore ->
