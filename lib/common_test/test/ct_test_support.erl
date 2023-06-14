@@ -522,7 +522,7 @@ verify_events(TEvs, Evs, Node, Config) ->
 
 verify_events1([TestEv|_], [{TEH,#event{name=stop_logging,node=Node,data=_}}|_], Node, _)
   when element(1,TestEv) == TEH, element(2,TestEv) =/= stop_logging ->
-    test_server:format("Failed to find ~tp in the list of events!~n", [TestEv]),
+    test_server:format("(I) Failed to find ~tp in the list of events!~n", [TestEv]),
     exit({event_not_found,TestEv});
 
 verify_events1(TEvs = [TestEv | TestEvs], Evs = [_|Events], Node, Config) ->
@@ -545,7 +545,7 @@ verify_events1(TEvs = [TestEv | TestEvs], Evs = [_|Events], Node, Config) ->
     end;
 
 verify_events1([TestEv|_], [], _, _) ->
-    test_server:format("Failed to find ~tp in the list of events!~n", [TestEv]),
+    test_server:format("(II) Failed to find ~tp in the list of events!~n", [TestEv]),
     exit({event_not_found,TestEv});
 
 verify_events1([], Evs, _, Config) ->
