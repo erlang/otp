@@ -697,6 +697,10 @@
          ttest_ssockt_csockt_large_tcp6/1,
          ttest_ssockt_csockt_large_tcpL/1,
 
+         ttest_simple_ssockt_csocko_small_tcp4/1,
+         ttest_simple_ssockt_csocko_small_tcp6/1,
+         ttest_simple_ssockt_csocko_small_tcpL/1,
+
          %% Tickets
          otp16359_maccept_tcp4/1,
          otp16359_maccept_tcp6/1,
@@ -906,6 +910,9 @@ groups() ->
      {ttest_ssockt_csockf,         [], ttest_ssockt_csockf_cases()},
      {ttest_ssockt_csocko,         [], ttest_ssockt_csocko_cases()},
      {ttest_ssockt_csockt,         [], ttest_ssockt_csockt_cases()},
+     {ttest_simple_ssockt,         [], ttest_simple_ssockt_cases()},
+     {ttest_simple_ssockt_csock,   [], ttest_simple_ssockt_csock_cases()},
+     {ttest_simple_ssockt_csocko,  [], ttest_simple_ssockt_csocko_cases()},
 
      %% Ticket groups
      {tickets,                     [], tickets_cases()},
@@ -1496,7 +1503,10 @@ ttest_cases() ->
      {group, ttest_ssocko},
 
      %% Server: transport = socket(tcp), active = true
-     {group, ttest_ssockt}
+     {group, ttest_ssockt},
+
+     %% simple: Server: transport = socket(tcp), active = true
+     {group, ttest_simple_ssockt}
 
     ].
 
@@ -2193,6 +2203,34 @@ ttest_ssockt_csockt_cases() ->
       [ttest_ssockt_csockt_large_tcp4,
        ttest_ssockt_csockt_large_tcp6,
        ttest_ssockt_csockt_large_tcpL]).
+
+%% Server: transport = socket(tcp), active = true
+ttest_simple_ssockt_cases() ->
+    [
+     {group, ttest_simple_ssockt_csock}
+    ].
+
+%% Server: transport = socket(tcp), active = true
+%% Client: transport = socket(tcp)
+ttest_simple_ssockt_csock_cases() ->
+    [
+     %% {group, ttest_simple_ssockt_csockf},
+     {group, ttest_simple_ssockt_csocko}%% ,
+     %% {group, ttest_simple_ssockt_csockt}
+    ].
+
+%% Server: transport = socket(tcp), active = true
+%% Client: transport = socket(tcp), active = once
+ttest_simple_ssockt_csocko_cases() ->
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_simple_ssockt_csocko_small_tcp4,
+       ttest_simple_ssockt_csocko_small_tcp6,
+       ttest_simple_ssockt_csocko_small_tcpL],
+      %% Medium
+      [],
+      %% Large
+      []).
 
 tickets_cases() ->
     [
@@ -47417,6 +47455,70 @@ ttest_ssockt_csockt_large_tcpL(Config) when is_list(Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = once
+%% Message Size: small (=1)
+%% Domain:       inet
+%% Remote:       false (run everything on the local node)
+%%
+
+ttest_simple_ssockt_csocko_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet,
+              sock, true,
+              sock, once,
+              1, ttest_small_max_outstanding(Config),
+	      false).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = once
+%% Message Size: small (=1)
+%% Domain:       inet6
+%% 
+
+ttest_simple_ssockt_csocko_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet6,
+              sock, true,
+              sock, once,
+              1, ttest_small_max_outstanding(Config),
+	      false).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = once
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_simple_ssockt_csocko_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              local,
+              sock, true,
+              sock, once,
+              1, ttest_small_max_outstanding(Config),
+	      false).
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 which_ttest_runtime(Config) when is_list(Config) ->
     case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
@@ -47474,6 +47576,20 @@ ttest_tcp(TC,
           ServerMod, ServerActive,
           ClientMod, ClientActive,
           MsgID, MaxOutstanding) ->
+    ttest_tcp(TC,
+	      Runtime,
+	      Domain,
+	      ServerMod, ServerActive,
+	      ClientMod, ClientActive,
+	      MsgID, MaxOutstanding, true).
+
+ttest_tcp(TC,
+          Runtime,
+          Domain,
+          ServerMod, ServerActive,
+          ClientMod, ClientActive,
+          MsgID, MaxOutstanding,
+	  Remote) ->
     tc_try(TC,
            fun() ->
                    if
@@ -47505,9 +47621,11 @@ ttest_tcp(TC,
                       "~n   Server Module:   ~p"
                       "~n   Server Active:   ~p"
                       "~n   Client Module:   ~p"
-                      "~n   Client Active:   ~p",
+                      "~n   Client Active:   ~p"
+                      "~n   Remote:          ~p",
                       [Domain, MsgID, MaxOutstanding, Runtime,
-                       ServerMod, ServerActive, ClientMod, ClientActive]),
+                       ServerMod, ServerActive, ClientMod, ClientActive,
+		       Remote]),
                    InitState = #{domain          => Domain,
                                  msg_id          => MsgID,
                                  max_outstanding => MaxOutstanding,
@@ -47515,7 +47633,8 @@ ttest_tcp(TC,
                                  server_mod      => ServerMod,
                                  server_active   => ServerActive,
                                  client_mod      => ClientMod,
-                                 client_active   => ClientActive},
+                                 client_active   => ClientActive,
+				 remote          => Remote},
                    ok = ttest_tcp(InitState)
            end).
 
@@ -47539,15 +47658,25 @@ ttest_tcp(InitState) ->
 
 
          %% *** Init part ***
-         #{desc => "create node",
-           cmd  => fun(State) ->
+         #{desc => "(maybe) create node",
+           cmd  => fun(#{remote := true} = State) ->
                            {Peer, Node} = ?START_NODE("server"),
-                           {ok, State#{peer => Peer, node => Node}}
+			   ?SEV_IPRINT("server node created:"
+				       "~n   Peer: ~p"
+				       "~n   Node: ~p", [Peer, Node]),
+                           {ok, State#{peer => Peer, node => Node}};
+		      (State) ->
+			   ?SEV_IPRINT("use local node for server"),
+			   {ok, State#{peer => undefined, node => node()}}
                    end},
-         #{desc => "monitor server node",
-           cmd  => fun(#{node := Node} = _State) ->
+         #{desc => "(maybe) monitor server node",
+           cmd  => fun(#{node := Node} = _State) when (Node =/= node) ->
                            true = erlang:monitor_node(Node, true),
-                           ok
+			   ?SEV_IPRINT("~p monitored", [Node]),
+                           ok;
+		      (_State) ->
+			   ?SEV_IPRINT("nothing"),
+			   ok
                    end},
          #{desc => "start ttest (remote) server",
            cmd  => fun(#{domain := local = Domain,
@@ -47627,8 +47756,8 @@ ttest_tcp(InitState) ->
                            State1 = maps:remove(rserver, State),
                            {ok, State1}
                    end},
-         #{desc => "stop (server) node",
-           cmd  => fun(#{peer := Peer} = State) ->
+         #{desc => "(maybe) stop (server) node",
+           cmd  => fun(#{peer := Peer} = State)  when (Peer =/= undefined) ->
                            {ok,
                             try peer:stop(Peer) of
                                 ok ->
@@ -47644,10 +47773,14 @@ ttest_tcp(InitState) ->
                                                 "~n   Error: ~p"
                                                 "~n   Stack: ~p",[C, E, S]),
                                     State#{node_stop => error}
-                            end}
+                            end};
+		      (_) ->
+                           ?SEV_IPRINT("nothing"),
+			   ok
                    end},
-         #{desc => "await (server) node termination",
-           cmd  => fun(#{node := Node, node_stop := ok} = State) ->
+         #{desc => "(maybe) await (server) node termination",
+           cmd  => fun(#{node := Node, node_stop := ok} = State)
+			 when (Node =/= node()) ->
                            ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
@@ -47657,6 +47790,10 @@ ttest_tcp(InitState) ->
                            end;
                       (#{node_stop := error} = State) ->
                            ?SEV_IPRINT("Failed node stop - cleanup"),
+                           State1 = maps:remove(node, State),
+                           {ok, State1};
+		      (State) ->
+                           ?SEV_IPRINT("nothing"),
                            State1 = maps:remove(node, State),
                            {ok, State1}
                    end},
@@ -47697,18 +47834,24 @@ ttest_tcp(InitState) ->
 
          %% *** Init part ***
          #{desc => "create node",
-           cmd  => fun(#{host := _Host} = State) ->
+           cmd  => fun(#{remote := true, host := _Host} = State) ->
                            %% Because peer does not accept a host argument,
                            %% we can no longer start "remote" nodes...
                            %% Not that we actually did that. We always
                            %% used local-host.
                            {Peer, Node} = ?START_NODE("client"),
-                           {ok, State#{peer => Peer, node => Node}}
+                           {ok, State#{peer => Peer, node => Node}};
+		      (State) ->
+			   {ok, State#{peer => undefined, node => node()}}
                    end},
-         #{desc => "monitor client node",
-           cmd  => fun(#{node := Node} = _State) ->
+         #{desc => "(maybe) monitor client node",
+           cmd  => fun(#{node := Node} = _State) when (Node =/= node()) ->
                            true = erlang:monitor_node(Node, true),
-                           ok
+			   ?SEV_IPRINT("~p monitored", [Node]),
+                           ok;
+		      (_) ->
+			   ?SEV_IPRINT("nothing"),
+			   ok
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester}) ->
@@ -47809,8 +47952,8 @@ ttest_tcp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "stop (client) node",
-           cmd  => fun(#{peer := Peer} = State) ->
+         #{desc => "(maybe) stop (client) node",
+           cmd  => fun(#{peer := Peer} = State) when (Peer =/= undefined) ->
                            {ok,
                             try peer:stop(Peer) of
                                 ok ->
@@ -47826,10 +47969,14 @@ ttest_tcp(InitState) ->
                                                 "~n   Error: ~p"
                                                 "~n   Stack: ~p",[C, E, S]),
                                     State#{node_stop => error}
-                            end}
+                            end};
+		      (_) ->
+			   ?SEV_IPRINT("nothing"),
+			   ok
                    end},
-         #{desc => "await (client) node termination",
-           cmd  => fun(#{node := Node, node_stop := ok} = State) ->
+         #{desc => "(maybe) await (client) node termination",
+           cmd  => fun(#{node := Node, node_stop := ok} = State)
+			 when (Node =/= node()) ->
                            ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
@@ -47840,7 +47987,10 @@ ttest_tcp(InitState) ->
                       (#{node_stop := error} = State) ->
                            ?SEV_IPRINT("Failed node stop - cleanup"),
                            State1 = maps:remove(node, State),
-                           {ok, State1}
+                           {ok, State1};
+		      (_) ->
+			   ?SEV_IPRINT("nothing"),
+			   ok
                    end},
 
 

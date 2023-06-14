@@ -112,7 +112,7 @@ start_monitor(_, Notify, Transport, ServerInfo, Active,
               MsgID, MaxOutstanding, RunTime) ->
     case do_start(false,
 		  self(), Notify,
-                  Transport, Active, ServerInfo,
+                  Transport, ServerInfo, Active,
                   MsgID, MaxOutstanding, RunTime) of
         {ok, Pid} ->
             MRef = erlang:monitor(process, Pid),
@@ -268,8 +268,17 @@ init(Quiet,
 			     bcnt            => 0,
 			     num             => undefined,
 			     acc             => <<>>}),
+            if not Quiet -> ?I("send result");
+	       true      -> ok
+	    end,
             Notify(Results),
+            if not Quiet -> ?I("close socket");
+	       true      -> ok
+	    end,
             (catch Mod:close(Sock)),
+            if not Quiet -> ?I("done");
+	       true      -> ok
+	    end,
             exit(normal);
         {error, Reason} ->
             ?E("connect failed: ~p"

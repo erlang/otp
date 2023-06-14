@@ -1901,7 +1901,8 @@ analyze_and_print_win_host_info(Version) ->
                 %% Anyway, filter out both of them!
                 TotPhysMem1 = lists:delete($,, TotPhysMem),
                 TotPhysMem2 = lists:delete(255, TotPhysMem1),
-                [MStr, MUnit|_] = string:tokens(TotPhysMem2, [$\ ]),
+                TotPhysMem3 = lists:delete(160, TotPhysMem2),
+                [MStr, MUnit|_] = string:tokens(TotPhysMem3, [$\ ]),
                 case string:to_lower(MUnit) of
                     "gb" ->
                         try list_to_integer(MStr) of
@@ -2805,15 +2806,27 @@ which_local_host_info2(LinkLocal, inet = _Domain, IFO) ->
                      ({_, _, _, _}) -> not LinkLocal;
                      (_) -> false
                   end),
-    NetMask   = which_local_host_info3(netmask,  IFO,
-                                       fun({_, _, _, _}) -> true;
-                                          (_) -> false
-                                       end),
-    BroadAddr = which_local_host_info3(broadaddr,  IFO,
-                                       fun({_, _, _, _}) -> true;
-                                          (_) -> false
-                                       end),
-    Flags     = which_local_host_info3(flags, IFO, fun(_) -> true end),
+    NetMask   = try which_local_host_info3(netmask,  IFO,
+					   fun({_, _, _, _}) -> true;
+					      (_) -> false
+					   end)
+		catch
+		    throw:{error, no_address} ->
+			undefined
+		end,
+    BroadAddr = try which_local_host_info3(broadaddr,  IFO,
+					   fun({_, _, _, _}) -> true;
+					      (_) -> false
+					   end)
+		catch
+		    throw:{error, no_address} ->
+			undefined
+		end,
+    Flags     = try which_local_host_info3(flags, IFO, fun(_) -> true end)
+		catch
+		    throw:{error, no_address} ->
+			[]
+		end,
     #{flags     => Flags,
       addr      => Addr,
       broadaddr => BroadAddr,
