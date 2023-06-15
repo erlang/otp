@@ -67,10 +67,11 @@ ARG EXTRA_LIBS="erlang erlang-doc"
 RUN apt-get install -y \
     unixodbc odbc-postgresql postgresql ssh openssh-server groff-base gdb \
     tinyproxy bind9 nsd expect vsftpd python emacs nano vim \
-    linux-tools-common linux-tools-generic linux-tools-`uname -r` jq \
+    linux-tools-common linux-tools-generic jq \
     xvfb libgl1-mesa-dri && \
     for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
     if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi
+RUN apt-get install -y linux-tools-$(uname -r) || true
 
 ## We use tmux to test terminals
 RUN apt-get install -y libevent-dev libutf8proc-dev && \
