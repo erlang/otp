@@ -35,7 +35,8 @@
   <section>
     <title>Windows</title>
     <p>The system is delivered as a Windows Installer executable.
-    Get it from http://www.erlang.org/download.html</p>
+      Get it from <url href="https://erlang.org/downloads">
+      https://erlang.org/downloads</url>.</p>
 
     <section>
       <title>Installing</title>
