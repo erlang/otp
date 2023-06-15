@@ -304,34 +304,39 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
 %%%   to detect incomplete information in a hypothetical
 %%%   ssa_opt_alias_finish pass.
 %%%
-aa_fixpoint(Funs, AAS=#aas{func_db=FuncDb}) ->
+aa_fixpoint(Funs, AAS=#aas{alias_map=AliasMap,call_args=CallArgs,
+                           func_db=FuncDb}) ->
     Order = aa_breadth_first(Funs, FuncDb),
-    aa_fixpoint(Order, Order, AAS#aas.alias_map, AAS, ?MAX_REPETITIONS).
+    aa_fixpoint(Order, Order, AliasMap, CallArgs, AAS, ?MAX_REPETITIONS).
 
-aa_fixpoint([F|Fs], Order, OldAliasMap, AAS0=#aas{st_map=StMap}, Limit) ->
+aa_fixpoint([F|Fs], Order, OldAliasMap, OldCallArgs, AAS0=#aas{st_map=StMap},
+            Limit) ->
     #b_local{name=#b_literal{val=_N},arity=_A} = F,
     AAS1 = AAS0#aas{caller=F},
     ?DP("-= ~p/~p =-~n", [_N, _A]),
     {OptSt,AAS2} = aa_fun(F, map_get(F, StMap), AAS1),
     AAS = AAS2#aas{st_map=StMap#{F => OptSt}},
-    aa_fixpoint(Fs, Order, OldAliasMap, AAS, Limit);
-aa_fixpoint([], _Order, OldAliasMap,
-            #aas{alias_map=OldAliasMap,func_db=FuncDb,st_map=StMap}, _) ->
-    ?DP("**** End of iteration ****~n"),
+    aa_fixpoint(Fs, Order, OldAliasMap, OldCallArgs, AAS, Limit);
+aa_fixpoint([], _Order, OldAliasMap, OldCallArgs,
+            #aas{alias_map=OldAliasMap,call_args=OldCallArgs,
+                 func_db=FuncDb,st_map=StMap}, _) ->
+    ?DP("**** End of iteration ~p ****~n"),
     {StMap, FuncDb};
-aa_fixpoint([], _, _, #aas{func_db=FuncDb,orig_st_map=StMap}, 0) ->
+aa_fixpoint([], _, _, _, #aas{func_db=FuncDb,orig_st_map=StMap}, 0) ->
     ?DP("**** End of iteration, too many iterations ****~n"),
     {StMap, FuncDb};
-aa_fixpoint([], Order, _OldAliasMap,
-            AAS=#aas{alias_map=AliasMap,repeats=Repeats}, Limit) ->
+aa_fixpoint([], Order, _OldAliasMap, _OldCallArgs,
+            #aas{alias_map=AliasMap,call_args=CallArgs,repeats=Repeats}=AAS,
+            Limit) ->
     ?DP("**** Things have changed, starting next iteration ****~n"),
     %% Following the depth first order, select those in Repeats.
     NewOrder = [Id || Id <- Order, sets:is_element(Id, Repeats)],
-    aa_fixpoint(NewOrder, Order, AliasMap,
+    aa_fixpoint(NewOrder, Order, AliasMap, CallArgs,
                 AAS#aas{repeats=sets:new([{version,2}])}, Limit - 1).
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args}=St,
-       AAS0=#aas{alias_map=AliasMap0,func_db=FuncDb,repeats=Repeats0}) ->
+       AAS0=#aas{alias_map=AliasMap0,call_args=CallArgs0,
+                 func_db=FuncDb,repeats=Repeats0}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
@@ -341,13 +346,12 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args}=St,
                         aa_new_ssa_var(Var, Status, Acc)
                 end, #{}, ArgsStatus),
     ?DP("@@ Args: ~p~n", [ArgsStatus]),
-    {Linear1,SS,AAS1} = aa_blocks(Linear0, SS0, AAS0),
-    ?DP("SS:~n~s~n~n", [SS]),
-    AAS = aa_merge_call_args_status(SS, AAS1),
+    {Linear1,SS,#aas{call_args=CallArgs}=AAS} = aa_blocks(Linear0, SS0, AAS0),
+    ?DP("SS:~n~p~n~n", [SS]),
 
     AliasMap = AliasMap0#{ F => SS },
     PrevSS = maps:get(F, AliasMap0, #{}),
-    Repeats = case PrevSS =/= SS of
+    Repeats = case PrevSS =/= SS orelse CallArgs0 =/= CallArgs of
                   true ->
                       %% Alias status has changed, so schedule both
                       %% our callers and callees for renewed analysis.
@@ -407,7 +411,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, Acc, AAS0) ->
                 %% variables which are dead is harmless.
                 {aa_alias_all(SS1), AAS0};
             call ->
-                {aa_call(Dst, Args, Anno0, SS1, AAS0), AAS0};
+                aa_call(Dst, Args, Anno0, SS1, AAS0);
             'catch_end' ->
                 [_Tag,Arg] = Args,
                 {aa_join(Dst, Arg, SS1), AAS0};
@@ -830,7 +834,7 @@ aa_phi(Dst, Args0, SS) ->
     aa_join_ls(Dst, Args, SS).
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
-        #aas{alias_map=AliasMap,st_map=StMap}) ->
+        #aas{alias_map=AliasMap,st_map=StMap}=AAS0) ->
     #b_local{name=#b_literal{val=_N},arity=_A} = Callee,
     ?DP("A Call~n  callee: ~p/~p~n  args: ~p~n", [_N, _A, Args]),
     IsNif = is_nif(Callee, StMap),
@@ -842,10 +846,10 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
                 [[{Arg, aa_get_status(Arg, SS0)} || Arg <- Args]]),
             ArgStates = [ aa_get_status(Arg, CalleeSS) || Arg <- CalleeArgs],
             ?DP("  callee arg states: ~p~n", [ArgStates]),
-            SS1 = aa_add_call_info(Callee, Args, SS0),
-            SS = aa_meet(Args, ArgStates, SS1),
+            AAS = aa_add_call_info(Callee, Args, SS0, AAS0),
+            SS = aa_meet(Args, ArgStates, SS0),
             ?DP("  meet: ~p~n",
-                [[{Arg, aa_get_status(Arg, SS1)} || Arg <- Args]]),
+                [[{Arg, aa_get_status(Arg, SS)} || Arg <- Args]]),
             ReturnStatusByType = maps:get(returns, CalleeSS, #{}),
             ?DP("  status by type: ~p~n", [ReturnStatusByType]),
             ReturnedType = case Anno of
@@ -861,7 +865,7 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             ResultStatus = aa_get_status_by_type(ReturnedType,
                                                  ReturnStatusByType),
             ?DP("  result status: ~p~n", [ResultStatus]),
-            aa_set_status(Dst, ResultStatus, SS);
+            {aa_set_status(Dst, ResultStatus, SS), AAS};
         _ when IsNif ->
             %% This is a nif, assume that all arguments will be
             %% aliased and that the result is aliased.
@@ -869,36 +873,20 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
         #{} ->
             %% We don't know anything about the function, don't change
             %% the status of any variables
-            SS0
+            {SS0, AAS0}
     end;
-aa_call(Dst, [_Callee|Args], _Anno, SS, _AAS) ->
+aa_call(Dst, [_Callee|Args], _Anno, SS, AAS) ->
     %% This is either a call to a fun or to an external function,
     %% assume that all arguments and the result escape.
-    aa_set_aliased([Dst|Args], SS).
+    {aa_set_aliased([Dst|Args], SS), AAS}.
 
-%% Add info about the aliasing status of the arguments to the call
-aa_add_call_info(Callee, Args, SS0) ->
+%% Incorporate aliasing information for the arguments to a call when
+%% analysing the body of a function into the global state.
+aa_add_call_info(Callee, Args, SS0, #aas{call_args=Info0}=AAS) ->
     ArgStats = [aa_get_status(Arg, SS0) || Arg <- Args],
-    NewStats = case SS0 of
-                   #{{call_info, Callee} := Stats} ->
-                       [aa_meet(A, B) || {A,B} <- zip(Stats, ArgStats)];
-                   #{} ->
-                       ArgStats
-               end,
-    SS0#{{call_info, Callee} => NewStats}.
-
-%% Incorporate aliasing information derived when analysing the body of
-%% a function into the module-global state.
-aa_merge_call_args_status(SS, AAS=#aas{call_args=Info0}) ->
-    Info =
-        maps:fold(fun({call_info,Callee}, NewArgs, Acc) ->
-                          #{ Callee := OldArgs } = Acc,
-                          Args = [aa_meet(A, B)
-                                  || {A,B} <- zip(NewArgs, OldArgs)],
-                          Acc#{Callee => Args};
-                     (_, _, Acc) ->
-                          Acc
-                  end, Info0, SS),
+    #{Callee := Stats} = Info0,
+    NewStats = [aa_meet(A, B) || {A,B} <- zip(Stats, ArgStats)],
+    Info = Info0#{Callee => NewStats},
     AAS#aas{call_args=Info}.
 
 aa_get_call_args_status(Args, Callee, #aas{call_args=Info}) ->
