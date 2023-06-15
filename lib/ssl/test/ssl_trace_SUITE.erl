@@ -58,7 +58,7 @@ suite() -> [{ct_hooks,[ts_install_cth]},
             {timetrap,{seconds,60}}].
 
 all() -> [tc_basic, tc_no_trace, tc_api_profile, tc_rle_profile,
-         tc_budget_option, tc_write, tc_file_option, tc_check_profiles].
+          tc_budget_option, tc_write, tc_file_option, tc_check_profiles].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -110,7 +110,9 @@ tc_basic(_Config) ->
     ok = ssl_trace:stop(),
     undefined = whereis(ssl_trace),
 
-    {ok, [api, crt, csp, hbn, kdt, rle, ssn]} = ssl_trace:start(),
+    {ok, EnabledProfiles} = ssl_trace:start(),
+    [true = lists:member(ExpectedProfile, EnabledProfiles) ||
+        ExpectedProfile <- [api, crt, csp, hbn, kdt, rle, ssn]],
     {ok, [api]} = ssl_trace:on(api),
     {ok, []} = ssl_trace:off(api),
     ok = ssl_trace:stop(),

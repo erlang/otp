@@ -46,6 +46,8 @@
 -export([unique_timestamp/0]).
 
 -export([rm_dir/1]).
+%% Tracing
+-export([handle_trace/3]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -1469,3 +1471,14 @@ slave_stop(Node) ->
 	    receive {nodedown, Node} -> ok after 0 -> ok end %flush
     end,
     ok.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(ct,
+             {return_from, {?MODULE, start_slave, 3}, Return},
+             Stack) ->
+    {io_lib:format("CT Node = ~p",
+                   [proplists:get_value(ct_node, Return, not_found)]), Stack}.
+
