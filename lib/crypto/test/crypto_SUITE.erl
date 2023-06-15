@@ -1254,6 +1254,12 @@ use_all_ec_sign_verify(_Config) ->
                                                          crypto:info_fips(),
                                                          Curves,
                                                          Hashs]),
+    SkipHashs0 = [md4, md5, ripemd160, sha3_224, sha3_256, sha3_384, sha3_512,
+                  blake2b, blake2s],
+    SkipHashs = case crypto:info_fips() of
+                    enabled -> [sha | SkipHashs0];
+                    _ -> SkipHashs0
+                end,
     Results =
         [{{Curve,Hash},
           try
@@ -1268,7 +1274,7 @@ use_all_ec_sign_verify(_Config) ->
                   {C,E}
           end}
          || Curve <- Curves -- [ed25519, ed448, x25519, x448, ipsec3, ipsec4],
-            Hash <- Hashs -- [md4, md5, ripemd160, sha3_224, sha3_256, sha3_384, sha3_512, blake2b, blake2s]
+            Hash <- Hashs -- SkipHashs
         ],
     Fails =
         lists:filter(fun({_,true}) -> false;
@@ -1706,14 +1712,19 @@ do_sign_verify({Type, undefined=Hash, Private, Public, Msg, Signature}) ->
     end;
 
 do_sign_verify({Type, Hash, Public, Private, Msg}) ->
-    Signature = crypto:sign(Type, Hash, Msg, Private),
-    case crypto:verify(Type, Hash, Msg, Signature, Public) of
-	true ->
-            ct:log("OK crypto:sign(~p, ~p, ..., ..., ...)", [Type,Hash]),
-	    negative_verify(Type, Hash, Msg, <<10,20>>, Public);
-	false ->
-            ct:log("ERROR crypto:sign(~p, ~p, ..., ..., ...)", [Type,Hash]),
-	    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public]}})
+    case {Hash, crypto:info_fips()} of
+        {sha, enabled} ->
+            io:format("Skip sign with SHA for FIPS\n");
+        _ ->
+            Signature = crypto:sign(Type, Hash, Msg, Private),
+            case crypto:verify(Type, Hash, Msg, Signature, Public) of
+                true ->
+                    ct:log("OK crypto:sign(~p, ~p, ..., ..., ...)", [Type,Hash]),
+                    negative_verify(Type, Hash, Msg, <<10,20>>, Public);
+                false ->
+                    ct:log("ERROR crypto:sign(~p, ~p, ..., ..., ...)", [Type,Hash]),
+                    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public]}})
+            end
     end;
 do_sign_verify({Type, Hash, Public, Private, Msg, Options}) ->
     LibVer =
