@@ -1242,8 +1242,19 @@ no_generate_compute(Config) when is_list(Config) ->
 compute() ->
      [{doc, " Test crypto:compute_key"}].
 compute(Config) when is_list(Config) ->
-    Gen = proplists:get_value(compute, Config),
+    Gen0 = proplists:get_value(compute, Config),
+    Gen = case crypto:info_fips() of
+              enabled ->
+                  SkipCurves = [secp192r1],
+                  lists:filter(fun({_,_,_,Curve,_}) ->
+                                       not lists:member(Curve,SkipCurves)
+                               end,
+                               Gen0);
+              _ ->
+                  Gen0
+    end,
     lists:foreach(fun do_compute/1, Gen).
+
 %%--------------------------------------------------------------------
 use_all_ec_sign_verify(_Config) ->
     Msg = <<"hello world!">>,
@@ -1256,10 +1267,17 @@ use_all_ec_sign_verify(_Config) ->
                                                          Hashs]),
     SkipHashs0 = [md4, md5, ripemd160, sha3_224, sha3_256, sha3_384, sha3_512,
                   blake2b, blake2s],
-    SkipHashs = case crypto:info_fips() of
-                    enabled -> [sha | SkipHashs0];
-                    _ -> SkipHashs0
-                end,
+    SkipCurves0 = [ed25519, ed448, x25519, x448, ipsec3, ipsec4],
+
+    {SkipHashs, SkipCurves}
+        = case crypto:info_fips() of
+              enabled ->
+                  {[sha | SkipHashs0],
+                   [secp192r1, prime192v1, sect163k1, sect163r2]};
+              _ ->
+                  {SkipHashs0, SkipCurves0}
+          end,
+
     Results =
         [{{Curve,Hash},
           try
@@ -1273,7 +1291,7 @@ use_all_ec_sign_verify(_Config) ->
               C:E ->
                   {C,E}
           end}
-         || Curve <- Curves -- [ed25519, ed448, x25519, x448, ipsec3, ipsec4],
+         || Curve <- Curves -- SkipCurves,
             Hash <- Hashs -- SkipHashs
         ],
     Fails =
@@ -1302,7 +1320,15 @@ use_all_ec_sign_verify(_Config) ->
 
 %%--------------------------------------------------------------------
 use_all_ecdh_generate_compute(Config) ->
-    Curves = crypto:supports(curves) -- [ed25519, ed448, x25519, x448],
+    SkipCurves0 = [ed25519, ed448, x25519, x448],
+    SkipCurves =
+        case crypto:info_fips() of
+            enabled ->
+                [secp192r1, prime192v1, sect163k1, sect163r2 | SkipCurves0];
+            _ ->
+                SkipCurves0
+        end,
+    Curves = crypto:supports(curves) -- SkipCurves,
     do_dh_curves(Config, Curves).
 
 use_all_eddh_generate_compute(Config) ->
