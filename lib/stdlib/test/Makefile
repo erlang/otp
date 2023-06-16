@@ -133,7 +133,7 @@ ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 EBIN = .
 
 EMAKEFILE=Emakefile
-COVERFILE=stdlib.cover
+COVERFILE=stdlib.cover tty.cover
 
 # ----------------------------------------------------
 # Targets
