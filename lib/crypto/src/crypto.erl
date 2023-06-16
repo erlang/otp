@@ -2346,14 +2346,12 @@ nif_curve_params(CurveName) when is_atom(CurveName) ->
         x448   -> {evp,CurveName};
         x25519 -> {evp,CurveName};
         _ ->
-            Spec =
-                try
-                    crypto_ec_curves:curve(CurveName)
-                catch
-                    _:_ ->
-                        undefined
-                end,
-            {Spec, CurveName}
+            try
+                crypto_ec_curves:curve_with_name(CurveName)
+            catch
+                _:_ ->
+                    {undefined, CurveName}
+            end
     end.
 
 
