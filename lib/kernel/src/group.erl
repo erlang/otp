@@ -28,6 +28,8 @@
 
 -export([start/2, start/3, whereis_shell/0, server/4]).
 
+-export([server_loop/3]).
+
 start(Drv, Shell) ->
     start(Drv, Shell, []).
 
@@ -122,20 +124,20 @@ server_loop(Drv, Shell, Buf0) ->
             %% This io_request may cause a transition to a couple of
             %% selective receive loops elsewhere in this module.
             Buf = io_request(Req, From, ReplyAs, Drv, Shell, Buf0),
-            server_loop(Drv, Shell, Buf);
+            ?MODULE:server_loop(Drv, Shell, Buf);
         {reply,{From,ReplyAs},Reply} ->
             io_reply(From, ReplyAs, Reply),
-	    server_loop(Drv, Shell, Buf0);
+	    ?MODULE:server_loop(Drv, Shell, Buf0);
 	{driver_id,ReplyTo} ->
 	    ReplyTo ! {self(),driver_id,Drv},
-	    server_loop(Drv, Shell, Buf0);
+	    ?MODULE:server_loop(Drv, Shell, Buf0);
 	{Drv, echo, Bool} ->
 	    put(echo, Bool),
-	    server_loop(Drv, Shell, Buf0);
+	    ?MODULE:server_loop(Drv, Shell, Buf0);
 	{'EXIT',Drv,interrupt} ->
 	    %% Send interrupt to the shell.
 	    exit_shell(interrupt),
-	    server_loop(Drv, Shell, Buf0);
+	    ?MODULE:server_loop(Drv, Shell, Buf0);
 	{'EXIT',Drv,R} ->
 	    exit(R);
 	{'EXIT',Shell,R} ->
@@ -147,7 +149,7 @@ server_loop(Drv, Shell, Buf0) ->
 			 (tuple_size(NotDrvTuple) =/= 2) orelse
 			 (element(1, NotDrvTuple) =/= Drv) ->
 	    %% Ignore this unknown message.
-	    server_loop(Drv, Shell, Buf0)
+	    ?MODULE:server_loop(Drv, Shell, Buf0)
     end.
 
 exit_shell(Reason) ->

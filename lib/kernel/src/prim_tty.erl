@@ -115,6 +115,8 @@
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
        tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
 
+-export([reader_loop/6, writer_loop/2]).
+
 %% Exported in order to remove "unused function" warning
 -export([sizeof_wchar/0, wcswidth/1, tgoto/2, tgoto/3]).
 
@@ -459,20 +461,20 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
             receive
                 {EnableAlias, enable} ->
                     EnableAlias ! {EnableAlias, ok},
-                    reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc)
+                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc)
             end;
         {select, TTY, SignalRef, ready_input} ->
             {ok, Signal} = tty_read_signal(TTY, SignalRef),
             Parent ! {ReaderRef,{signal,Signal}},
-            reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {Alias, {set_unicode_state, _}} when FromEnc =:= {utf16, little} ->
             %% Ignore requests on windows
             Alias ! {Alias, true},
-            reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {Alias, {set_unicode_state, Bool}} ->
             Alias ! {Alias, FromEnc =/= latin1},
             NewFromEnc = if Bool -> utf8; not Bool -> latin1 end,
-            reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
+            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
         {_Alias, stop} ->
             ok;
         {select, TTY, ReaderRef, ready_input} ->
@@ -482,7 +484,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                     ok;
                 {ok, <<>>} ->
                     %% EAGAIN or EINTR
-                    reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
                 {ok, UtfXBytes} ->
 
                     {Bytes, NewAcc, NewFromEnc} =
@@ -507,7 +509,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                                 {B, <<>>, FromEnc}
                         end,
                     Parent ! {ReaderRef, {data, Bytes}},
-                    reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, NewAcc)
+                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, NewAcc)
             end
     end.
 
@@ -529,18 +531,18 @@ write(#state{ writer = {WriterPid, _WriterRef}}, Chars, From) ->
 writer_loop(TTY, WriterRef) ->
     receive
         {write, []} ->
-            writer_loop(TTY, WriterRef);
+            ?MODULE:writer_loop(TTY, WriterRef);
         {write, Chars} ->
             _ = write_nif(TTY, Chars),
-            writer_loop(TTY, WriterRef);
+            ?MODULE:writer_loop(TTY, WriterRef);
         {write, From, []} ->
             From ! {WriterRef, ok},
-            writer_loop(TTY, WriterRef);
+            ?MODULE:writer_loop(TTY, WriterRef);
         {write, From, Chars} ->
             case write_nif(TTY, Chars) of
                 ok ->
                     From ! {WriterRef, ok},
-                    writer_loop(TTY, WriterRef);
+                    ?MODULE:writer_loop(TTY, WriterRef);
                 {error, Reason} ->
                     exit(self(), Reason)
             end
