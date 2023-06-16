@@ -1499,8 +1499,21 @@ check_clauses(Cs, Name, Arity) ->
     [case C of
          {clause,A,N,As,G,B} when N =:= Name, length(As) =:= Arity ->
              {clause,A,As,G,B};
-         {clause,A,_N,_As,_G,_B} ->
-             ret_err(A, "head mismatch")
+         {clause,A,N,As,_G,_B} when N =:= Name ->
+             Detail = io_lib:format(
+                 "head mismatch: function ~s with arities ~w and ~w is "
+                 "regarded as two distinct functions. Is the number of "
+                 "arguments incorrect or is the semicolon in ~s/~w unwanted?",
+                 [Name, Arity, length(As), Name, Arity]
+             ),
+             ret_err(A, Detail);
+         {clause,A,N,As,_G,_B} ->
+             Detail = io_lib:format(
+                 "head mismatch: previous function ~s/~w is distinct from ~s/~w. "
+                 "Is the semicolon in ~s/~w unwanted?",
+                 [Name, Arity, N, length(As), Name, Arity]
+             ),
+             ret_err(A, Detail)
      end || C <- Cs].
 
 build_try(A,Es,Scs,{Ccs,As}) ->
