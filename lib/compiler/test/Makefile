@@ -32,6 +32,7 @@ MODULES= \
 	compile_SUITE \
 	compilation_SUITE \
 	core_SUITE \
+	core_scan_SUITE \
 	error_SUITE \
 	float_SUITE \
 	fun_SUITE \

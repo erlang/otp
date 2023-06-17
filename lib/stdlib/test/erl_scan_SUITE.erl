@@ -24,7 +24,7 @@
 
 -export([error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
 	 otp_10990/1, otp_10992/1, otp_11807/1, otp_16480/1, otp_17024/1,
-         text_fun/1]).
+         text_fun/1, triple_quoted_string/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -57,11 +57,11 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,20}}].
 
-all() -> 
+all() ->
     [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992,
-     otp_11807, otp_16480, otp_17024, text_fun].
+     otp_11807, otp_16480, otp_17024, text_fun, triple_quoted_string].
 
-groups() -> 
+groups() ->
     [{error, [], [error_1, error_2]}].
 
 init_per_suite(Config) ->
@@ -1299,6 +1299,78 @@ text_fun(Config) when is_list(Config) ->
         erl_scan:string(String(All), 7, [{text_fun, KeepClass('{')}]),
     [Sep1] = lists:filter(fun(T) -> T /= undefined end, Texts(Tokens5)).
 
+triple_quoted_string(Config) when is_list(Config) ->
+    {ok,[{string,1,""}],2} =
+        erl_scan:string("\"\"\"\n"
+                       "\"\"\""),
+
+    {ok,[{string,1,"\\\"\\\"\\\""}],3} =
+        erl_scan:string("\"\"\"\n"
+                        "\\\"\\\"\\\"\n"
+                        "\"\"\""),
+
+    {ok,[{string,1,"\n"}],4} =
+        erl_scan:string("\"\"\"\n"
+                        "\n\n"
+                        "\"\"\""),
+
+    {ok,[{string,1,"this is a\nvery long\nstring"}],5} =
+        erl_scan:string("\"\"\"\n"
+                       "this is a\n"
+                       "very long\n"
+                       "string\n"
+                       "\"\"\""),
+
+    {ok,[{string,1,"this is a\r\nvery long\r\nstring"}],5} =
+        erl_scan:string("\"\"\"\r\n"
+                       "this is a\r\n"
+                       "very long\r\n"
+                       "string\r\n"
+                       "\"\"\""),
+
+    {ok,[{string,1,"  this is a\n    very long\n  string"}],5} =
+        erl_scan:string("\"\"\"\n"
+                        "  this is a\n"
+                        "    very long\n"
+                        "  string\n"
+                        "\"\"\""),
+
+    {ok,[{string,1,"this contains \"quotes\"\n"
+                   "and \"\"\"triple quotes\"\"\" and\n"
+                   "ends here"}],5} =
+        erl_scan:string("\"\"\"\n"
+                         "this contains \"quotes\"\n"
+                         "and \"\"\"triple quotes\"\"\" and\n"
+                         "ends here\n"
+                         "\"\"\""),
+
+    {ok,[{string,1,"```erlang\n"
+                   "foo() ->\n"
+                   "    \"\"\"\n"
+                   "    foo\n"
+                   "    bar\n"
+                   "    \"\"\".\n"
+                   "```"}],9} =
+        erl_scan:string("\"\"\"\"\n"
+                        "```erlang\n"
+                        "foo() ->\n"
+                        "    \"\"\"\n"
+                        "    foo\n"
+                        "    bar\n"
+                        "    \"\"\".\n"
+                        "```\n"
+                        "\"\"\"\""),
+
+    {error,{1,erl_scan,{triple_quoted_string,syntax}},1} =
+        erl_scan:string("\"\"\"foo\n"
+                        "\"\"\""),
+
+    {error,{2,erl_scan,{triple_quoted_string,outdented}},3} =
+        erl_scan:string("\"\"\"\n"
+                        "foo\n"
+                        "  \"\"\""),
+
+    ok.
 
 test_string(String, ExpectedWithCol) ->
     {ok, ExpectedWithCol, _EndWithCol} = erl_scan_string(String, {1, 1}, []),

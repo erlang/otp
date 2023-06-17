@@ -122,6 +122,41 @@ format_error(char) -> "unterminated character";
 format_error(scan) -> "premature end";
 format_error({base,Base}) -> io_lib:fwrite("illegal base '~w'", [Base]);
 format_error(float) -> "bad float";
+format_error({triple_quoted_string,syntax}) ->
+    % Elixir's example of this error:
+    % iex(1)> """foo
+    % ** (SyntaxError) iex:1:1: heredoc allows only zero or more whitespace characters followed by a new line after """
+    %   |
+    % 1 | """foo
+    %   | ^
+    "triple-quoted strings allows only zero or more whitespace characters followed by a new line after \"\"\"";
+format_error({triple_quoted_string,outdented}) ->
+    % Elixir's shows a warning instead of an error:
+    % iex(1)>   """
+    % ...(1)> foo
+    % ...(1)>   """
+    % warning: outdented heredoc line. The contents inside the heredoc should be indented at the same level as the closing """. The following is forbidden:
+    %
+    %     def text do
+    %       """
+    %     contents
+    %       """
+    %     end
+    %
+    % Instead make sure the contents are indented as much as the heredoc closing:
+    %
+    %     def text do
+    %       """
+    %       contents
+    %       """
+    %     end
+    %
+    % The current heredoc line is indented too little
+    %   iex:3:3
+    %
+    % "foo\n"
+    "outdented triple-quoted string line";
+format_error({triple_quoted_string,eof}) -> "premature triple-quoted string end";
 format_error(Other) -> io_lib:write(Other).
 
 string_thing($') -> "atom";    %' stupid emacs
@@ -298,6 +333,22 @@ scan1([$'|Cs0], Toks, Pos) ->				%Atom (always quoted)
         error:_ ->
             scan_error({illegal,atom}, Pos)
     end;
+scan1([$",$",$"|Cs0], Toks, Pos) ->				%Triple-Quoted Strings
+    {Cs,N} = collect_quotes(Cs0,3),
+    Del = fun
+          ([$\\,$"|Dcs], Dpos, Acc) ->
+              {false, Dcs, Dpos, [$",$\\|Acc]};
+          ([$",$",$"|Dcs], Dpos, Acc) ->
+              case collect_quotes(Dcs,3) of
+                  {Ndcs,Dn} when Dn =:= N ->
+                      {true, Ndcs, Dpos, Acc};
+                  {_,_} ->
+                     false
+              end;
+          (_,_,_) ->
+              false
+          end,
+    scan_triple_quoted_string(Cs, Toks, Pos, Del);
 scan1([$"|Cs0], Toks, Pos) ->				%String
     {S,Cs1,Pos1} = scan_string(Cs0, $", Pos),
     scan1(Cs1, [{string,Pos,S}|Toks], Pos1);
@@ -356,6 +407,88 @@ name_char(C) when C >= $0, C =< $9 -> true;
 name_char($_) -> true;
 name_char($@) -> true;
 name_char(_) -> false.
+
+collect_quotes([$"|Cs],N) ->
+    collect_quotes(Cs,N+1);
+collect_quotes(Cs,N) ->
+    {Cs,N}.
+
+%% scan_triple_quoted_string([Char], Position, Delimiter)
+
+scan_triple_quoted_string(Cs, Toks, Pos, Del) ->
+    case trim_triple_quoted_string(Cs, Pos) of
+        {ok, Tcs, Tpos} ->
+            case scan_triple_quoted_string_1(Tcs, {indent,0}, Tpos, Del, []) of
+                {ok, Str, Ncs, Npos} ->
+                    scan1(Ncs, [{string,Pos,Str}|Toks], Npos);
+                {error, Reason} ->
+                    scan_error(Reason, Pos)
+            end;
+        {error, Reason} ->
+            scan_error(Reason, Pos)
+    end.
+
+scan_triple_quoted_string_1(Cs, {indent, _} = Indent, Pos, Del, Acc) ->
+    case Del(Cs, Pos, Acc) of
+        {true, Ncs, Npos, Nacc} ->
+            case indent_triple_quoted_string(lists:reverse(Nacc), Indent) of
+                {ok, Str} ->
+                    {ok, Str, Ncs, Npos};
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        {false, Ncs, Npos, Nacc} ->
+            scan_triple_quoted_string_2(Ncs, push, Npos, Del, Nacc);
+        false ->
+            scan_triple_quoted_string_2(Cs, Indent, Pos, Del, Acc)
+    end.
+
+scan_triple_quoted_string_2([$\r,$\n|Cs], _, Pos, Del, Acc) ->
+    scan_triple_quoted_string_1(Cs, {indent, 0}, Pos+1, Del, [$\n,$\r|Acc]);
+scan_triple_quoted_string_2([$\n|Cs], _, Pos, Del, Acc) ->
+    scan_triple_quoted_string_1(Cs, {indent, 0}, Pos+1, Del, [$\n|Acc]);
+scan_triple_quoted_string_2([32|Cs], {indent, I}, Pos, Del, Acc) ->
+    scan_triple_quoted_string_1(Cs, {indent, I+1}, Pos, Del, [32|Acc]);
+scan_triple_quoted_string_2([C|Cs], _, Pos, Del, Acc) ->
+    scan_triple_quoted_string_2(Cs, push, Pos, Del, [C|Acc]);
+scan_triple_quoted_string_2([], _, _, _, _) ->
+    {error, {triple_quoted_string,eof}}.
+
+trim_triple_quoted_string([32|Cs], Pos) ->
+    trim_triple_quoted_string(Cs, Pos);
+trim_triple_quoted_string([$\r,$\n|Cs], Pos) ->
+    {ok, Cs, Pos+1};
+trim_triple_quoted_string([$\n|Cs], Pos) ->
+    {ok, Cs, Pos+1};
+trim_triple_quoted_string(_, _) ->
+    {error, {triple_quoted_string,syntax}}.
+
+indent_triple_quoted_string(Str, Indent) ->
+    indent_triple_quoted_string_1(Str, Indent, Indent, []).
+
+indent_triple_quoted_string_1([$\r,$\n|Cs], _, InitIndent, Acc) ->
+    indent_triple_quoted_string_1(Cs, InitIndent, InitIndent, [$\n,$\r|Acc]);
+indent_triple_quoted_string_1([$\n|Cs], _, InitIndent, Acc) ->
+    indent_triple_quoted_string_1(Cs, InitIndent, InitIndent, [$\n|Acc]);
+indent_triple_quoted_string_1([C|Cs], {indent, 0}, InitIndent, Acc) ->
+    indent_triple_quoted_string_1(Cs, push, InitIndent, [C|Acc]);
+indent_triple_quoted_string_1([32|Cs], {indent, I}, InitIndent, Acc) ->
+    indent_triple_quoted_string_1(Cs, {indent, I-1}, InitIndent, Acc);
+indent_triple_quoted_string_1([C|Cs], push, InitIndent, Acc) ->
+    indent_triple_quoted_string_1(Cs, push, InitIndent, [C|Acc]);
+indent_triple_quoted_string_1([], _, _, Acc) ->
+    {ok, normalize_triple_quoted_string(Acc)};
+indent_triple_quoted_string_1(_, {indent, _}, _, _) ->
+    {error, {triple_quoted_string,outdented}}.
+
+normalize_triple_quoted_string([32|Cs]) ->
+    normalize_triple_quoted_string(Cs);
+normalize_triple_quoted_string([$\n,$\r|Cs]) ->
+    lists:reverse(Cs);
+normalize_triple_quoted_string([$\n|Cs]) ->
+    lists:reverse(Cs);
+normalize_triple_quoted_string([]) ->
+    [].
 
 %% scan_string(CharList, QuoteChar, Pos) -> {StringChars,RestChars,NewPos}.
 
