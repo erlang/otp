@@ -615,6 +615,9 @@ static dsize_t I_mul(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDig
     ErtsDigit* r0 = r;
     ErtsDigit* rt = r;
 
+    ASSERT(xl >= yl);
+    ZERO_DIGITS(r, xl);
+
     while(xl--) {
 	ErtsDigit cp = 0;
 	ErtsDigit c = 0;
@@ -677,9 +680,11 @@ static dsize_t I_sqr(ErtsDigit* x, dsize_t xl, ErtsDigit* r)
     ErtsDigit* r0 = r;
     ErtsDigit* s = r;
 
+    ZERO_DIGITS(r, (xl+1));
+
     if ((r + xl) == x)	/* "Inline" operation */
 	*x = 0;
-	
+
     while(xl--) {
 	ErtsDigit* y;
 	ErtsDigit y_0 = 0, y_1 = 0, y_2 = 0, y_3 = 0;
@@ -726,6 +731,178 @@ static dsize_t I_sqr(ErtsDigit* x, dsize_t xl, ErtsDigit* r)
 	return (s - r0) + 1;
 }
 
+/*
+ * Multiply using the Karatsuba algorithm.
+ *
+ * Reference: https://en.wikipedia.org/wiki/Karatsuba_algorithm
+ */
+static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
+                               dsize_t yl, ErtsDigit* r)
+{
+    ASSERT(xl >= yl);
+
+    if (yl < 16) {
+        /* Use the basic algorithm. */
+        if (x == y) {
+            ASSERT(xl == yl);
+            return I_sqr(x, xl, r);
+        } else {
+            return I_mul(x, xl, y, yl, r);
+        }
+    } else {
+        /* Use the Karatsuba algorithm. */
+        Eterm *heap;
+        Uint temp_heap_size;
+        Uint z0_len, z1_len, z2_len, sum0_len, sum1_len, res_len;
+        Uint low_x_len, low_y_len, high_x_len, high_y_len;
+        Eterm *z0_buf, *z1_buf, *z2_buf, *z_res_buf;
+        Eterm *sum0_buf, *sum1_buf;
+#ifdef DEBUG
+        Eterm *sum_buf_end, *z_buf_end;
+#endif
+        Eterm *low_x, *low_y, *high_x, *high_y;
+        ErtsDigit zero = 0;
+        Uint m = (xl+1) / 2;
+
+        /* Set up pointers and sizes. */
+        low_x = x;
+        low_x_len = m;
+        high_x = x + m;
+        high_x_len = xl - m;
+
+        low_y = y;
+        if (yl <= m) {
+            /* High part of y is zero. */
+            low_y_len = yl;
+            high_y = &zero;
+            high_y_len = 1;
+        } else {
+            low_y_len = m;
+            high_y = y + m;
+            high_y_len = yl - m;
+        }
+
+        ASSERT(low_x_len <= m);
+        ASSERT(high_x_len <= m);
+        ASSERT(low_y_len <= m);
+        ASSERT(high_y_len <= m);
+
+        /* Set up buffers for the sums for z1 in the result area. */
+        sum0_buf = r;
+        sum1_buf = r + m + 1;
+
+#ifdef DEBUG
+        sum_buf_end = sum1_buf + m + 1;
+        ASSERT(sum_buf_end - sum0_buf + 1 <= xl + yl);
+        sum1_buf[0] = ERTS_HOLE_MARKER;
+        sum_buf_end[0] = ERTS_HOLE_MARKER;
+#endif
+
+        /* Set up temporary buffers in the allocated memory. */
+        temp_heap_size = (3*(2*m+2) + (xl+yl+1) + 1) * sizeof(Eterm);
+        heap = (Eterm *) erts_alloc(ERTS_ALC_T_TMP, temp_heap_size);
+        z0_buf = heap;
+        z1_buf = z0_buf + 2*m + 2;
+        z2_buf = z1_buf + 2*m + 2;
+        z_res_buf = z2_buf + 2*m + 2;
+#ifdef DEBUG
+        z_buf_end = z_res_buf + xl+yl+1;
+#endif
+
+#ifdef DEBUG
+        z1_buf[0] = ERTS_HOLE_MARKER;
+        z2_buf[0] = ERTS_HOLE_MARKER;
+        z_res_buf[0] = ERTS_HOLE_MARKER;
+        z_buf_end[0] = ERTS_HOLE_MARKER;
+#endif
+
+        /* z0 = low_x * low_y */
+        z0_len = I_mul_karatsuba(low_x, low_x_len, low_y, low_y_len, z0_buf);
+
+        ASSERT(z1_buf[0] == ERTS_HOLE_MARKER);
+
+#define I_OPERATION(_result, _op, _p1, _sz1, _p2, _sz2, _buf)   \
+        do {                                                    \
+            if ((_sz1) >= (_sz2)) {                             \
+                _result = _op(_p1, _sz1, _p2, _sz2, _buf);      \
+            } else {                                            \
+                _result = _op(_p2, _sz2, _p1, _sz1, _buf);      \
+            }                                                   \
+        } while (0)
+
+        /*
+         * z1 = (low1 + high1) * (low2 + high2)
+         */
+        I_OPERATION(sum0_len, I_add, low_x, low_x_len, high_x, high_x_len, sum0_buf);
+        ASSERT(sum1_buf[0] == ERTS_HOLE_MARKER);
+
+        I_OPERATION(sum1_len, I_add, low_y, low_y_len, high_y, high_y_len, sum1_buf);
+        ASSERT(sum_buf_end[0] == ERTS_HOLE_MARKER);
+
+        I_OPERATION(z1_len, I_mul_karatsuba, sum0_buf, sum0_len, sum1_buf, sum1_len, z1_buf);
+        ASSERT(z2_buf[0] == ERTS_HOLE_MARKER);
+
+        /*
+         * z2 = high_x * high_y
+         */
+
+        if (high_y != &zero) {
+            I_OPERATION(z2_len, I_mul_karatsuba, high_x, high_x_len, high_y, high_y_len, z2_buf);
+        } else {
+            z2_buf[0] = 0;
+            z2_len = 1;
+        }
+        ASSERT(z_res_buf[0] == ERTS_HOLE_MARKER);
+
+        /*
+         * z0 + (z1 × base ^ m) + (z2 × base ^ (m × 2)) - ((z0 + z2) × base ^ m)
+         *
+         * Note that the result of expression before normalization is
+         * not guaranteed to fit in the result buffer provided by the
+         * caller (r). Therefore, we must use a temporary buffer when
+         * calculating it.
+         */
+
+        /* Copy z0 to temporary result buffer. */
+        res_len = I_add(z0_buf, z0_len, &zero, 1, z_res_buf);
+
+        while (res_len <= m) {
+            z_res_buf[res_len++] = 0;
+        }
+
+        /* Add z1 × base ^ m */
+        I_OPERATION(res_len, I_add, z_res_buf+m, res_len-m, z1_buf, z1_len, z_res_buf+m);
+
+        while (res_len <= m) {
+            z_res_buf[m+res_len++] = 0;
+        }
+
+        /* Add z2 × base ^ (m × 2) */
+        I_OPERATION(res_len, I_add, z_res_buf+2*m, res_len-m, z2_buf, z2_len, z_res_buf+2*m);
+
+        /* Calculate z0 + z2 */
+        I_OPERATION(z0_len, I_add, z0_buf, z0_len, z2_buf, z2_len, z0_buf);
+
+        /* Subtract (z0 + z2) × base ^ m */
+        res_len = I_sub(z_res_buf+m, res_len+m, z0_buf, z0_len, z_res_buf+m);
+
+        ASSERT(z_buf_end[0] == ERTS_HOLE_MARKER);
+
+        /* Normalize */
+        while (z_res_buf[m + res_len - 1] == 0 && res_len > 0) {
+            res_len--;
+        }
+        res_len += m;
+        ASSERT(res_len <= xl + yl);
+
+        /* Copy result to the the final result buffer. */
+        (void) I_add(z_res_buf, res_len, &zero, 1, r);
+
+        erts_free(ERTS_ALC_T_TMP, (void *) heap);
+        return res_len;
+    }
+#undef I_OPERATION
+}
 
 /*
 ** Multiply digits d with digits in x and store in r
@@ -2358,20 +2535,14 @@ Eterm big_times(Eterm x, Eterm y, Eterm *r)
     dsize_t rsz;
 
     if (ysz == 1)
-      rsz = D_mul(BIG_V(xp), xsz, BIG_DIGIT(yp, 0), BIG_V(r));
+        rsz = D_mul(BIG_V(xp), xsz, BIG_DIGIT(yp, 0), BIG_V(r));
     else if (xsz == 1)
 	rsz = D_mul(BIG_V(yp), ysz, BIG_DIGIT(xp, 0), BIG_V(r));
-    else if (xp == yp) {
-	ZERO_DIGITS(BIG_V(r), xsz+1);
-	rsz = I_sqr(BIG_V(xp), xsz, BIG_V(r));
-    }
     else if (xsz >= ysz) {
-	ZERO_DIGITS(BIG_V(r), xsz);
-	rsz = I_mul(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
+	rsz = I_mul_karatsuba(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
     }
     else {
-	ZERO_DIGITS(BIG_V(r), ysz);
-	rsz = I_mul(BIG_V(yp), ysz, BIG_V(xp), xsz, BIG_V(r));
+	rsz = I_mul_karatsuba(BIG_V(yp), ysz, BIG_V(xp), xsz, BIG_V(r));
     }
     return big_norm(r, rsz, sign);
 }

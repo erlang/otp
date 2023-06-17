@@ -790,8 +790,16 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 
 		do_big:
 		    need_heap = BIG_NEED_SIZE(sz);
+#ifdef DEBUG
+                    need_heap++;
+#endif
                     hp = HeapFragOnlyAlloc(p, need_heap);
+
+#ifdef DEBUG
+                    hp[need_heap-1] = ERTS_HOLE_MARKER;
+#endif
 		    res = big_times(arg1, arg2, hp);
+                    ASSERT(hp[need_heap-1] == ERTS_HOLE_MARKER);
 
 		    /*
 		     * Note that the result must be big in this case, since

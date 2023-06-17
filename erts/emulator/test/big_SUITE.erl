@@ -22,10 +22,12 @@
 
 -export([all/0, suite/0, groups/0]).
 
--export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, big_literals/1,
-	 borders/1, negative/1, big_float_1/1, big_float_2/1,
+-export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, eq_big_mul_div/1,
+         big_literals/1, borders/1, negative/1, karatsuba/1,
+         big_float_1/1, big_float_2/1,
          bxor_2pow/1, band_2pow/1,
-	 shift_limit_1/1, powmod/1, system_limit/1, toobig/1, otp_6692/1]).
+         shift_limit_1/1, powmod/1, system_limit/1, toobig/1, otp_6692/1,
+         properties/1]).
 
 %% Internal exports.
 -export([eval/1]).
@@ -41,10 +43,12 @@ suite() ->
      {timetrap, {minutes, 3}}].
 
 all() -> 
-    [t_div, eq_28, eq_32, eq_big, eq_math, big_literals,
-     borders, negative, {group, big_float}, shift_limit_1,
+    [t_div, eq_28, eq_32, eq_big, eq_math, eq_big_mul_div,
+     big_literals, borders, negative, karatsuba,
+     {group, big_float}, shift_limit_1,
      bxor_2pow, band_2pow,
-     powmod, system_limit, toobig, otp_6692].
+     powmod, system_limit, toobig, otp_6692,
+     properties].
 
 groups() -> 
     [{big_float, [], [big_float_1, big_float_2]}].
@@ -61,36 +65,43 @@ groups() ->
 %% lcm(Q, R)
 %%
 eq_28(Config) when is_list(Config) ->
-    TestFile = test_file(Config, "eq_28.dat"),
+    TestFile = test_file(Config, ?FUNCTION_NAME),
     test(TestFile).
 
 eq_32(Config) when is_list(Config) ->
-    TestFile = test_file(Config, "eq_32.dat"),
+    TestFile = test_file(Config, ?FUNCTION_NAME),
     test(TestFile).
 
 eq_big(Config) when is_list(Config) ->
-    TestFile = test_file(Config, "eq_big.dat"),
+    TestFile = test_file(Config, ?FUNCTION_NAME),
     test(TestFile).
 
 eq_math(Config) when is_list(Config) ->
-    TestFile = test_file(Config, "eq_math.dat"),
+    TestFile = test_file(Config, ?FUNCTION_NAME),
     test(TestFile).
 
+eq_big_mul_div(Config) when is_list(Config) ->
+    TestFile = test_file(Config, ?FUNCTION_NAME),
+    test(TestFile).
 
 %% Tests border cases between small/big.
 borders(Config) when is_list(Config) ->
-    TestFile = test_file(Config, "borders.dat"),
+    TestFile = test_file(Config, ?FUNCTION_NAME),
     test(TestFile).
 
 negative(Config) when is_list(Config) ->
-    TestFile = test_file(Config, "negative.dat"),
+    TestFile = test_file(Config, ?FUNCTION_NAME),
     test(TestFile).
-    
+
+karatsuba(Config) when is_list(Config) ->
+    TestFile = test_file(Config, ?FUNCTION_NAME),
+    test(TestFile).
+
 
 %% Find test file
 test_file(Config, Name) ->
     DataDir = proplists:get_value(data_dir, Config),
-    filename:join(DataDir, Name).
+    filename:join(DataDir, Name) ++ ".dat".
 
 %%
 %%
@@ -369,8 +380,6 @@ maxbig() ->
     Ws = erlang:system_info(wordsize),
     (((1 bsl ((16777184 * (Ws div 4))-1)) - 1) bsl 1) + 1.
 
-id(I) -> I.
-
 toobig(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,_},_}} = (catch toobig()),
     ok.
@@ -507,3 +516,68 @@ band_2pow_2(A, B) ->
 %% Implement band without band
 my_band(A, B) ->
     bnot ((bnot A) bor (bnot B)).
+
+properties(_Config) ->
+    rand_seed(),
+    _ = [begin
+             A = id(rand_int()),
+             B = id(rand_int()),
+             io:format("~.36#\n~.36#\n", [A,B]),
+             test_properties(A, B)
+         end || _ <- lists:seq(1, 1000)],
+    ok.
+
+test_properties(A, B) ->
+    SquaredA = id(A * A),
+    SquaredB = id(B * B),
+
+    P = id(A * B),
+    P = id(B * A),
+    A = id(P div B),
+    B = id(P div A),
+    A = SquaredA div A,
+    B = SquaredB div B,
+    0 = P rem A,
+    0 = P rem B,
+
+    Sum = id(A + B),
+    Sum = id(B + A),
+    A = id(Sum - B),
+    B = id(Sum - A),
+    0 = Sum - A - B,
+
+    NegA = id(-A),
+    A = -NegA,
+    NegB = id(-B),
+    B = -NegB,
+
+    Diff = id(A - B),
+    Diff = -id(B - A),
+    Diff = id(A + NegB),
+    Diff = -id(NegA + B),
+
+    SquaredSum = id(Sum * Sum),
+    SquaredSum = Sum * id(A + B),
+    SquaredSum = SquaredA + SquaredB + 2*P,
+
+    SumTimesDiff = id(Sum * Diff),
+    SumTimesDiff = SquaredA - SquaredB,
+
+    ok.
+
+
+rand_int() ->
+    Sz = max(floor(rand:normal() * 512 + 256), 7),
+    <<Int:Sz/signed-unit:8>> = rand:bytes(Sz),
+    Int.
+
+%%%
+%%% Common utilities.
+%%%
+
+rand_seed() ->
+    rand:seed(default),
+    io:format("\n*** rand:export_seed() = ~w\n\n", [rand:export_seed()]),
+    ok.
+
+id(I) -> I.
