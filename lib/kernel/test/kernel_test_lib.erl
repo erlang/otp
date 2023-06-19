@@ -2716,7 +2716,8 @@ which_local_host_info(Domain) ->
 
 
 which_local_host_info(LinkLocal, Domain)
-  when is_boolean(LinkLocal) andalso ((Domain =:= inet) orelse (Domain =:= inet6)) ->
+  when is_boolean(LinkLocal) andalso
+       ((Domain =:= inet) orelse (Domain =:= inet6)) ->
     case inet:getifaddrs() of
         {ok, IFL} ->
             which_local_host_info(LinkLocal, Domain, IFL, []);
@@ -2778,7 +2779,7 @@ which_local_host_info(LinkLocal, Domain, [{Name, IFO}|IFL], Acc) ->
                     which_local_host_info(LinkLocal, Domain, IFL,
                                           [Info#{name => Name}|Acc])
             catch
-                throw:_:_ ->
+                throw:_E:_ ->
                     which_local_host_info(LinkLocal, Domain, IFL, Acc)
             end;
         false ->
@@ -2805,15 +2806,27 @@ which_local_host_info2(LinkLocal, inet = _Domain, IFO) ->
                      ({_, _, _, _}) -> not LinkLocal;
                      (_) -> false
                   end),
-    NetMask   = which_local_host_info3(netmask,  IFO,
-                                       fun({_, _, _, _}) -> true;
-                                          (_) -> false
-                                       end),
-    BroadAddr = which_local_host_info3(broadaddr,  IFO,
-                                       fun({_, _, _, _}) -> true;
-                                          (_) -> false
-                                       end),
-    Flags     = which_local_host_info3(flags, IFO, fun(_) -> true end),
+    NetMask   = try which_local_host_info3(netmask,  IFO,
+					   fun({_, _, _, _}) -> true;
+					      (_) -> false
+					   end)
+		catch
+		    throw:{error, no_address} ->
+			undefined
+		end,
+    BroadAddr = try which_local_host_info3(broadaddr,  IFO,
+					   fun({_, _, _, _}) -> true;
+					      (_) -> false
+					   end)
+		catch
+		    throw:{error, no_address} ->
+			undefined
+		end,
+    Flags     = try which_local_host_info3(flags, IFO, fun(_) -> true end)
+		catch
+		    throw:{error, no_address} ->
+			[]
+		end,
     #{flags     => Flags,
       addr      => Addr,
       broadaddr => BroadAddr,

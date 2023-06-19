@@ -702,7 +702,8 @@
          otp16359_maccept_tcp6/1,
          otp16359_maccept_tcpL/1,
          otp18240_accept_mon_leak_tcp4/1,
-         otp18240_accept_mon_leak_tcp6/1
+         otp18240_accept_mon_leak_tcp6/1,
+         otp18635/1
         ]).
 
 
@@ -2197,7 +2198,8 @@ ttest_ssockt_csockt_cases() ->
 tickets_cases() ->
     [
      {group, otp16359},
-     {group, otp18240}
+     {group, otp18240},
+     otp18635
     ].
 
 otp16359_cases() ->
@@ -13502,7 +13504,7 @@ api_opt_sock_bindtodevice() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
+                           case which_local_host_info(Domain) of
                                {ok, #{name := Name, addr := Addr}} ->
                                    ?SEV_IPRINT("local host info (~p): "
                                                "~n   Name: ~p"
@@ -13786,10 +13788,11 @@ api_opt_sock_broadcast() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
+                           case which_local_host_info(Domain) of
                                {ok, #{name      := Name,
                                       addr      := Addr,
-                                      broadaddr := BAddr}} ->
+                                      broadaddr := BAddr}}
+				 when (BAddr =/= undefined) ->
                                    ?SEV_IPRINT("local host info: "
                                                "~n   Name:           ~p"
                                                "~n   Addr:           ~p"
@@ -13801,6 +13804,8 @@ api_opt_sock_broadcast() ->
                                            addr   => BAddr},
                                    {ok, State#{lsa => LSA,
                                                bsa => BSA}};
+			       {ok, _} ->
+				   {skip, no_broadcast_address};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -14159,7 +14164,7 @@ api_opt_sock_debug() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
+                           case which_local_host_info(Domain) of
                                {ok, #{name      := Name,
                                       addr      := Addr}} ->
                                    ?SEV_IPRINT("local host info: "
@@ -14269,12 +14274,12 @@ api_opt_sock_domain() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
-                               {ok, #{name      := Name,
-                                      addr      := Addr}} ->
+                           case which_local_host_info(Domain) of
+                               {ok, #{name := Name,
+                                      addr := Addr}} ->
                                    ?SEV_IPRINT("local host info: "
-                                               "~n   Name:           ~p"
-                                               "~n   Addr:           ~p",
+                                               "~n   Name: ~p"
+                                               "~n   Addr: ~p",
                                                [Name, Addr]),
                                    LSA = #{family => Domain,
                                            addr   => Addr},
@@ -14388,12 +14393,12 @@ api_opt_sock_dontroute() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
-                               {ok, #{name      := Name,
-                                      addr      := Addr}} ->
+                           case which_local_host_info(Domain) of
+                               {ok, #{name := Name,
+                                      addr := Addr}} ->
                                    ?SEV_IPRINT("local host info: "
-                                               "~n   Name:           ~p"
-                                               "~n   Addr:           ~p",
+                                               "~n   Name: ~p"
+                                               "~n   Addr: ~p",
                                                [Name, Addr]),
                                    LSA = #{family => Domain,
                                            addr   => Addr},
@@ -14517,12 +14522,12 @@ api_opt_sock_keepalive() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case ?LIB:which_local_host_info(Domain) of
+                           case which_local_host_info(Domain) of
                                {ok, #{name      := Name,
                                       addr      := Addr}} ->
                                    ?SEV_IPRINT("local host info: "
-                                               "~n   Name:           ~p"
-                                               "~n   Addr:           ~p",
+                                               "~n   Name: ~p"
+                                               "~n   Addr: ~p",
                                                [Name, Addr]),
                                    LSA = #{family => Domain,
                                            addr   => Addr},
@@ -49142,6 +49147,167 @@ otp18240_do_close({ID, Sock}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% This test case is to verify that we do not leak monitors.
+otp18635(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_otp18635(InitState)
+           end).
+
+
+do_otp18635(_) ->
+    Parent = self(),
+
+    ?P("try create (listen) socket when"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p",
+       [socket:info(), socket:which_sockets()]),
+
+    ?P("Get \"proper\" local socket address"),
+    LSA = which_local_socket_addr(inet),
+
+    {ok, LSock} = socket:open(inet, stream, #{use_registry => true}),
+
+    ?P("bind (listen) socket to: "
+       "~n   ~p", [LSA]),
+    ok = socket:bind(LSock, LSA),
+
+    ?P("make listen socket"),
+    ok = socket:listen(LSock),
+
+    ?P("get sockname for listen socket"),
+    {ok, SA} = socket:sockname(LSock),
+
+    %% ok = socket:setopt(LSock, otp, debug, true),
+
+    % show handle returned from nowait accept
+    ?P("try accept with timeout = nowait - expect select when"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p",
+       [socket:info(), socket:which_sockets()]),
+    {select, {select_info, _, Handle}} = socket:accept(LSock, nowait),
+    ?P("expected select result: "
+       "~n   Select Handle:     ~p"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p",
+       [Handle, socket:info(), socket:which_sockets()]),
+
+    ?SLEEP(?SECS(1)),
+
+    %% perform a blocking accept that will fail (timeout)
+    ?P("attempt accept with timeout = 500 - expect failure (timeout)"),
+    {error, timeout} = socket:accept(LSock, 500),
+
+    ?P("await abort message for the first accept call: "
+       "~n   Select Handle:     ~p"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p",
+       [Handle, socket:info(), socket:which_sockets()]),
+    receive
+        {'$socket', LSock, abort, {Handle, cancelled}} ->
+            ?P("received expected abort message"),
+            ok
+    end,
+
+    %% spawn a client to connect
+    ?P("spawn connector when"
+       "~n   (gen socket) info:  ~p"
+       "~n   Listen Socket info: ~p"
+       "~n   Sockets:            ~p",
+       [socket:info(), socket:info(LSock), socket:which_sockets()]),
+    {Connector, MRef} =
+        spawn_monitor(
+          fun() ->
+                  ?P("[connector] try create socket"),
+                  {ok, CSock} = socket:open(inet, stream),
+                  ?P("[connector] try connect: "
+                       "~n   (server) ~p", [SA]),
+                  ok = socket:connect(CSock, SA),
+                  ?P("[connector] connected - inform parent"),
+                  Parent ! {self(), connected},
+                  ?P("[connector] await termination command"),
+                  receive
+                      {Parent, terminate} ->
+                          ?P("[connector] terminate - close socket"),
+                          (catch socket:close(CSock)),
+                          exit(normal)
+                  end
+              end),
+
+    ?P("await (connection-) confirmation from connector (~p)", [Connector]),
+    receive
+        {Connector, connected} ->
+            ?P("connector connected"),
+            ok
+    end,
+
+    %% We should *not* get *any* select messages;
+    %% since the second call (that *replaced* the current active request)
+    %% timeout out
+    ?P("wait for a select message that should never come"),
+    Result =
+        receive
+            {'$socket', LSock, select, AnyHandle} ->
+                ?P("received unexpected select message when"
+                   "~n   Unexpected Handle:  ~p"
+                   "~n   (gen socket) info:  ~p"
+                   "~n   Listen Socket info: ~p"
+                   "~n   Sockets:            ~p",
+                   [AnyHandle,
+                    socket:info(), socket:info(LSock), socket:which_sockets()]),
+                error
+        after 5000 ->
+                ?P("expected timeout"),
+                ok
+        end,
+
+    ?P("try accept the waiting connection when"
+       "~n   (gen socket) info:  ~p"
+       "~n   Listen Socket info: ~p"
+       "~n   Sockets:            ~p",
+       [socket:info(), socket:info(LSock), socket:which_sockets()]),
+
+    {ok, ASock} = socket:accept(LSock),
+
+    ?P("connection accepted"
+       "~n   (gen socket) info:    ~p"
+       "~n   Accepted socket:      ~p"
+       "~n   Accepted Socket info: ~p"
+       "~n   Listen Socket info:   ~p"
+       "~n   Sockets:              ~p",
+       [socket:info(),
+        ASock,
+        socket:info(ASock),
+        socket:info(LSock),
+        socket:which_sockets()]),
+
+    ?P("cleanup"),
+    socket:close(LSock),
+    socket:close(ASock),
+    Connector ! {self(), terminate},
+    receive
+        {'DOWN', MRef, process, Connector, _} ->
+            ?P("connector terminated"),
+            ok
+    end,
+
+    ?SLEEP(?SECS(1)),
+
+    ?P("done when"
+       "~n   (gen socket) info: ~p"
+       "~n   Sockets:           ~p", [socket:info(), socket:which_sockets()]),
+
+    Result.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 sock_open(Domain, Type, Proto) ->
     try socket:open(Domain, Type, Proto) of
         {ok, Socket} ->
@@ -49261,10 +49427,18 @@ which_local_socket_addr(local = Domain) ->
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_socket_addr(Domain) ->
-    case ?LIB:which_local_host_info(Domain) of
-        {ok, #{addr := Addr}} ->
+    case ?KLIB:which_local_host_info(Domain) of
+        {ok, [#{addr := Addr}|_]} ->
             #{family => Domain,
               addr   => Addr};
+        {error, Reason} ->
+            ?FAIL(Reason)
+    end.
+
+which_local_host_info(Domain) ->
+    case ?KLIB:which_local_host_info(Domain) of
+        {ok, [Info|_]} ->
+            {ok, Info#{family => Domain}};
         {error, Reason} ->
             ?FAIL(Reason)
     end.
@@ -49644,10 +49818,10 @@ has_support_sctp() ->
 %% support for IPv4 or IPv6. If not, there is no point in running corresponding tests.
 %% Currently we just skip.
 has_support_ipv4() ->
-    ?LIB:has_support_ipv4().
+    ?KLIB:has_support_ipv4().
 
 has_support_ipv6() ->
-    ?LIB:has_support_ipv6().
+    ?KLIB:has_support_ipv6().
 
 inet_or_inet6() ->
     try
