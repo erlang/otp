@@ -239,14 +239,28 @@ init_per_group(inet_backend_socket = _GroupName, Config) ->
     end;
 init_per_group(local, Config) ->
     ?P("init_per_group(local) -> do we support 'local'"),
-    case ?OPEN(Config, 0, [local]) of
-	{ok,S} ->
-            ?P("init_per_group(local) -> we support 'local'"),
-	    ok = gen_udp:close(S),
-	    Config;
-	{error, eafnosupport} ->
-            ?P("init_per_group(local) -> we *do not* support 'local'"),
-	    {skip, "AF_LOCAL not supported"}
+    try socket:info() of
+        #{} ->
+            case socket:is_supported(local) of
+                true ->
+                    Config;
+                false ->
+                    {skip, "AF_LOCAL not supported"}
+            end
+    catch
+        _ : _ ->
+            case ?OPEN(Config, 0, [local]) of
+                {ok,S} ->
+                    ?P("init_per_group(local) -> we support 'local'"),
+                    ok = gen_udp:close(S),
+                    Config;
+                {error, eafnosupport} ->
+                    ?P("init_per_group(local) -> we *do not* support 'local'"),
+                    {skip, "AF_LOCAL not supported"};
+                {error, {invalid, {domain, local}}} ->
+                    ?P("init_per_group(local) -> we *do not* support 'local'"),
+                    {skip, "AF_LOCAL not supported"}
+            end
     end;
 init_per_group(sockaddr = _GroupName, Config) ->
     ?P("init_per_group(sockaddr) -> do we support 'socket'"),
@@ -332,9 +346,10 @@ send_to_closed(Config) when is_list(Config) ->
 
 do_send_to_closed(Config) ->
     {ok, Sock} = ?OPEN(Config, 0),
-    ok = gen_udp:send(Sock, {127,0,0,1}, ?CLOSED_PORT, "foo"),
+    {ok, Addr} = ?LIB:which_local_addr(inet),
+    ok = gen_udp:send(Sock, Addr, ?CLOSED_PORT, "foo"),
     timer:sleep(2),
-    ok = gen_udp:send(Sock, {127,0,0,1}, ?CLOSED_PORT, "foo"),
+    ok = gen_udp:send(Sock, Addr, ?CLOSED_PORT, "foo"),
     ok = gen_udp:close(Sock),
     ok.
 
@@ -362,16 +377,37 @@ do_send_to_empty(Config) ->
 
 %% Test UDP buffer size setting.
 buffer_size(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_buffer_size(Config) end).
+    Cond = fun() ->
+                   case os:type() of
+                       {win32, nt} ->
+                           case ?IS_SOCKET_BACKEND(Config) of
+                               true ->
+                                   {skip, "TC not compliant with socket (yet)"};
+                               false ->
+                                   ok
+                           end;
+                       _ ->
+                           ok
+                   end
+           end,
+    TC   = fun() -> do_buffer_size(Config) end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, TC).
 
 do_buffer_size(Config) when is_list(Config) ->
+    {ok, Addr} = ?LIB:which_local_addr(inet),
+    ClientIP = Addr,
+    ServerIP = Addr,
     Len = 256,
     Bin = list_to_binary(lists:seq(0, Len-1)),
     M = 8192 div Len,
+    SAFE = 3,
+    LONG = 1,
     Spec0 =
-	[{opt,M},{safe,M-3},{long,M+1},
-	 {opt,2*M},{safe,2*M-3},{long,2*M+1},
-	 {opt,4*M},{safe,4*M-3},{long,4*M+1}],
+	[
+         {opt, M},   {safe, M   - SAFE}, {long, M   + LONG},
+	 {opt, 2*M}, {safe, 2*M - SAFE}, {long, 2*M + LONG},
+	 {opt, 4*M}, {safe, 4*M - SAFE}, {long, 4*M + LONG}
+        ],
     Spec =
 	[case Tag of
 	     opt ->
@@ -384,17 +420,18 @@ do_buffer_size(Config) when is_list(Config) ->
 		  [truncated,emsgsize,timeout]}
 	 end || {Tag,Val} <- Spec0],
     %%
-    {ok, ClientSocket}  = ?OPEN(Config, 0, [binary]),
-    {ok, ClientPort} = inet:port(ClientSocket),
+    {ok, ClientSocket} = ?OPEN(Config, 0, [binary, {ip, ClientIP}]),
+    {ok, ClientPort}   = inet:port(ClientSocket),
     Client = self(),
-    ClientIP = {127,0,0,1},
-    ServerIP = {127,0,0,1},
     ?P("Client: {~p, ~p}, ~p", [ClientIP, ClientPort, ClientSocket]),
     Server =
 	spawn_link(
-	  fun () -> 
-		  {ok, ServerSocket}  = ?OPEN(Config, 0, [binary]),
-		  {ok, ServerPort} = inet:port(ServerSocket),
+	  fun () ->
+                  ?P("buffer_size[server] -> starting"),
+		  {ok, ServerSocket} =
+                      ?OPEN(Config, 0, [binary, {ip, ServerIP}]),
+		  {ok, ServerPort}   =
+                      inet:port(ServerSocket),
 		  Client ! {self(),port,ServerPort},
 		  buffer_size_server(Client, ClientIP, ClientPort, 
 				     ServerSocket, 1, Spec),
@@ -417,35 +454,48 @@ buffer_size_client(_, _, _, _, _, []) ->
     ok;
 buffer_size_client(Server, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
-    ?P("buffer_size_client -> Cnt=~w setopts ~p", [Cnt, Opts]),
+    ?P("buffer_size_client(~w) -> entry with"
+       "~n   Opts: ~p", [Cnt, Opts]),
     ok = inet:setopts(Socket, Opts),
     GOpts = [K || {K, _} <- Opts],
-    ?P("buffer_size_client -> opts result: ~p", [inet:getopts(Socket, GOpts)]),
+    ?P("buffer_size_client(~w) -> options after set: "
+       "~n   ~p", [Cnt, inet:getopts(Socket, GOpts)]),
     Server ! {self(),setopts,Cnt},
     receive {Server,setopts,Cnt} -> ok end,
     buffer_size_client(Server, IP, Port, Socket, Cnt+1, T);
 buffer_size_client(Server, IP, Port, 
 		   Socket, Cnt, [{B,Replies}|T]=Opts) when is_binary(B) ->
-    ?P("buffer_size_client -> Cnt=~w send size ~w expecting ~p when"
-       "~n   Info: ~p",
+    ?P("buffer_size_client(~w) -> entry with"
+       "~n   send size:   ~w"
+       "~n   expecting:   ~p"
+       "~nwhen"
+       "~n   Socket Info: ~p",
        [Cnt, byte_size(B), Replies, inet:info(Socket)]),
     case gen_udp:send(Socket, IP, Port, <<Cnt,B/binary>>) of
 	ok ->
 	    receive
 		{Server, Cnt, Reply} ->
+                    ?P("buffer_size_client(~w) -> "
+                       "~n   Reply: ~p", [Cnt, Reply]),
 		    Tag =
-			if
-			    is_tuple(Reply) ->
-				element(1, Reply);
-			    is_atom(Reply) ->
-				Reply
-			end,
+                        case Reply of
+                            %% {completion_status, #{info := Tag0}}
+                            %%   when is_atom(Tag0) ->
+                            %%     Tag0;
+                            %% {completion_status, Tag0} when is_atom(Tag0) ->
+                            %%     Tag0;
+                            {Tag0, _} ->
+                                Tag0;
+                            Tag0 when is_atom(Tag0) ->
+                                Tag0
+                        end,
 		    case lists:member(Tag, Replies) of
 			true -> ok;
 			false ->
-                            ?P("missing from expected replies: "
+                            ?P("buffer_size_client(~w) -> "
+                               "missing from expected replies: "
                                "~n   Tag:     ~p"
-                               "~n   Replies: ~p", [Tag, Replies]),
+                               "~n   Replies: ~p", [Cnt, Tag, Replies]),
 			    ct:fail({reply_mismatch,Cnt,Reply,Replies,
 				     byte_size(B),
 				     inet:getopts(Socket,
@@ -453,6 +503,7 @@ buffer_size_client(Server, IP, Port,
 		    end,
 		    buffer_size_client(Server, IP, Port, Socket, Cnt+1, T)
 	    after 1313 ->
+                    %% ?P("buffer_size_client(~w) -> timeout", [Cnt]),
 		    buffer_size_client(Server, IP, Port, Socket, Cnt, Opts)
 	    end;
 
@@ -472,23 +523,34 @@ buffer_size_server(_, _, _, _, _, []) ->
     ok;
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
-    ?P("buffer_size_server -> await client setopts"),
+    ?P("buffer_size_server(~w) -> entry when await client setopts", [Cnt]),
     receive {Client, setopts, Cnt} -> ok end,
-    ?P("buffer_size_server -> Cnt=~w setopts ~p", [Cnt, Opts]),
+    ?P("buffer_size_server(~w) -> setopts with "
+       "~n   Opts:        ~p"
+       "~nwhen"
+       "~n   Socket info: ~p", [Cnt, Opts, inet:info(Socket)]),
     ok = inet:setopts(Socket, Opts),
     GOpts = [K || {K, _} <- Opts],
-    ?P("buffer_size_server -> opts result: ~p", [inet:getopts(Socket, GOpts)]),
+    ?P("buffer_size_server(~w) -> options after set: "
+       "~n                ~p"
+       "~nwhen"
+       "~n   Socket info: ~p",
+       [Cnt, inet:getopts(Socket, GOpts), inet:info(Socket)]),
     Client ! {self(), setopts, Cnt},
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T);
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [{B,_}|T]) when is_binary(B) ->
-    ?P("buffer_size_server -> try receive: Cnt=~w and ~w bytes of data",
-       [Cnt, byte_size(B)]),
+    ?P("buffer_size_server(~w) -> entry when"
+       "~n   expect ~w bytes of data"
+       "~nwhen"
+       "~n   Socket info: ~p"
+       "~n   MQ:          ~p", [Cnt, byte_size(B), inet:info(Socket), mq()]),
     Reply = case buffer_size_server_recv(Socket, IP, Port, Cnt) of
                 D when is_binary(D) ->
                     SizeD = byte_size(D),
-                    ?P("buffer_size_server -> received: ~w bytes of data",
-                       [SizeD]),
+                    ?P("buffer_size_server(~w) -> received: ~w bytes of data"
+                      "~nwhen"
+                       "~n   Socket Info: ~p", [Cnt, SizeD, inet:info(Socket)]),
                     case B of
                         D ->
                             correct;
@@ -498,51 +560,69 @@ buffer_size_server(Client, IP, Port,
                             {unexpected,D}
                     end;
                 Error ->
-                    ?P("buffer_size_server -> error: Cnt=~w received error ~w",
-                       [Cnt, Error]),
+                    ?P("buffer_size_server(~w) -> error:"
+                       "~n                ~p"
+                       "~nwhen"
+                       "~n   Socket Info: ~p",
+                       [Cnt, Error, inet:info(Socket)]),
                     Error
             end,
-    ?P("buffer_size_server -> send reply '~p'", [Reply]),
+    ?P("buffer_size_server(~w) -> send reply '~p' when"
+       "~n   Socket Info: ~p", [Cnt, Reply, inet:info(Socket)]),
     Client ! {self(), Cnt, Reply},
+    ?SLEEP(?SECS(1)),
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T).
 
 buffer_size_server_recv(Socket, IP, Port, Cnt) ->
-    ?P("buffer_size_server -> await data: "
-       "~n   Socket: ~p"
-       "~n   IP:     ~p"
-       "~n   Port:   ~p"
-       "~n   Cnt:    ~p", [Socket, IP, Port, Cnt]),
+    ?P("buffer_size_server(~w) -> await data: "
+       "~n   Socket:      ~p"
+       "~n   IP:          ~p"
+       "~n   Port:        ~p"
+       "~nwhen"
+       "~n   Socket Info: ~p", [Cnt, Socket, IP, Port, inet:info(Socket)]),
     receive
 	{udp, Socket, IP, Port, <<Cnt, B/binary>>} ->
-            ?P("buffer_size_server -> received (~w) ~w bytes", [Cnt, byte_size(B)]),
+            ?P("buffer_size_server(~w) -> received ~w bytes",
+               [Cnt, byte_size(B)]),
 	    B;
 	{udp, Socket, IP, Port, <<_B/binary>>} ->
-            ?P("buffer_size_server -> received unexpected ~w bytes",
-               [byte_size(_B)]),
+            ?P("buffer_size_server(~w) -> received unexpected ~w bytes",
+               [Cnt, byte_size(_B)]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, Socket, IP, Port, _CRAP} ->
-            ?P("buffer_size_server -> received unexpected crap"),
+            ?P("buffer_size_server(~w) -> received unexpected crap", [Cnt]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, XSocket, XIP, XPort, _CRAP} ->
-            ?P("buffer_size_server -> received unexpected udp message: "
+            ?P("buffer_size_server(~w) -> received unexpected udp message: "
                "~n   XSocket: ~p"
                "~n   Socket:  ~p"
                "~n   XIP:     ~p"
                "~n   IP:      ~p"
                "~n   XPort:   ~p"
                "~n   Port:    ~p",
-               [XSocket, Socket, XIP, IP, XPort, Port]),
+               [Cnt, XSocket, Socket, XIP, IP, XPort, Port]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
+	{udp_closed, Socket} ->
+            ?P("buffer_size_server(~w) -> received unexpected 'closed'", [Cnt]),
+	    closed;
+
 	{udp_error, Socket, Error} ->
-            ?P("buffer_size_server -> error: ~p", [Error]),
+            ?P("buffer_size_server(~w) -> error: "
+               "~n   ~p", [Cnt, Error]),
+            ok = inet:setopts(Socket, [{active, true}]),
 	    Error
 
     after 5000 ->
-            ?P("buffer_size_server -> timeout"),
-	    {timeout, flush()}
+            ?P("buffer_size_server(~w) -> timeout: "
+               "~n   Socket:       ~p"
+               "~n   Socket Info:  ~p"
+               "~n   Process Info: ~p",
+               [Cnt,
+                Socket, inet:info(Socket), erlang:process_info(self())]),
+	    {timeout, mq()}
     end.
 
 
@@ -605,6 +685,7 @@ do_binary_passive_recv(Config) when is_list(Config) ->
 		<<>>, $a, [[], " lazy ", <<"dog">>]],
     D2       = iolist_to_binary(D3),
     B        = D2,
+    {ok, Addr} = ?LIB:which_local_addr(inet),
     ?P("open receive socket"),
     {ok, R}  = ?OPEN(Config, 0, [binary, {active, false}, {debug, true}]),
     ok = inet:setopts(R, [{debug, false}]),
@@ -613,17 +694,17 @@ do_binary_passive_recv(Config) when is_list(Config) ->
     {ok, S}  = ?OPEN(Config, 0),
     {ok, SP} = inet:port(S),
     ?P("try send (to port ~w) ~w bytes (as a list)", [RP, length(D1)]),
-    ok       = gen_udp:send(S, localhost, RP, D1),
+    ok       = gen_udp:send(S, Addr, RP, D1),
     ?P("try recv (from port ~w) ~w bytes", [SP, byte_size(B)+1]),
-    {ok, {{127, 0, 0, 1}, SP, B}} = gen_udp:recv(R, byte_size(B)+1),
+    {ok, {Addr, SP, B}} = gen_udp:recv(R, byte_size(B)+1),
     ?P("try send (to port ~w) ~w bytes (as a binary)", [RP, byte_size(D2)]),
-    ok       = gen_udp:send(S, localhost, RP, D2),
+    ok       = gen_udp:send(S, Addr, RP, D2),
     ?P("try recv (from port ~w) ~w bytes", [SP, byte_size(B)+1]),
-    {ok, {{127, 0, 0, 1}, SP, B}} = gen_udp:recv(R, byte_size(B)+1),
+    {ok, {Addr, SP, B}} = gen_udp:recv(R, byte_size(B)+1),
     ?P("try send (to port ~w) ~w bytes (as a iolist)", [RP, iolist_size(D3)]),
-    ok       = gen_udp:send(S, localhost, RP, D3),
+    ok       = gen_udp:send(S, Addr, RP, D3),
     ?P("try recv (from port ~w) ~w bytes", [SP, byte_size(B)+1]),
-    {ok, {{127, 0, 0, 1}, SP, B}} = gen_udp:recv(R, byte_size(B)+1),
+    {ok, {Addr, SP, B}} = gen_udp:recv(R, byte_size(B)+1),
     ?P("cleanup"),
     ok       = gen_udp:close(S),
     ok       = gen_udp:close(R),
@@ -708,21 +789,26 @@ do_read_packets(Config) when is_list(Config) ->
     N1   = 5,
     N2   = 1,
     Msgs = 30000,
+    {ok, Addr} = ?LIB:which_local_addr(inet),
     ?P("open socket (with read-packets: ~p)", [N1]),
-    {ok, R}   = ?OPEN(Config, 0, [{read_packets,N1}]),
-    {ok, RP}  = inet:port(R),
+    {ok, R}   = ?OPEN(Config, 0, [{ip, Addr}, {read_packets,N1}]),
+    {ok, {RA, RP}}  = inet:sockname(R),
+    ?P("reader: "
+       "~n   Addr: ~p"
+       "~n   Port: ~p", [RA, RP]),
+
     ?P("create slave node"),
     {ok,Peer,Node} = ?CT_PEER(),
     %%
     ?P("perform read-packets test"),
-    {V1, Trace1} = read_packets_test(Config, R, RP, Msgs, Node),
+    {V1, Trace1} = read_packets_test(Config, R, RA, RP, Msgs, Node),
     ?P("verify read-packets (to ~w)", [N1]),
     {ok,[{read_packets,N1}]} = inet:getopts(R, [read_packets]),
     %%
     ?P("set new read-packets: ~p", [N2]),
     ok = inet:setopts(R, [{read_packets, N2}]),
     ?P("perform read-packets test"),
-    {V2, Trace2} = read_packets_test(Config, R, RP, Msgs, Node),
+    {V2, Trace2} = read_packets_test(Config, R, RA, RP, Msgs, Node),
     ?P("verify read-packets (to ~w)", [N2]),
     {ok, [{read_packets,N2}]} = inet:getopts(R, [read_packets]),
     %%
@@ -762,7 +848,7 @@ dump_terms(Config, Name, Terms) ->
     file:write_file(FName, term_to_binary(Terms)),
     ct:log("Logged terms to ~s",[FName]).
 
-read_packets_test(Config, R, RP, Msgs, Node) ->
+read_packets_test(Config, R, RA, RP, Msgs, Node) ->
     Receiver = self(),
     Tracer =
 	spawn_link(
@@ -776,17 +862,19 @@ read_packets_test(Config, R, RP, Msgs, Node) ->
 	spawn_opt(
 	  Node,
 	  fun () ->
-		  {ok, S}  = ?OPEN(Config, 0),
-		  {ok, SP} = inet:port(S),
-		  Receiver ! {self(),{port,SP}},
+                  %% We run on the same "machine" as R,
+                  %% so use the same addr
+		  {ok, S}  = ?OPEN(Config, 0, [{ip, RA}]),
+		  {ok, {SA, SP}} = inet:sockname(S),
+		  Receiver ! {self(),{sockname, {SA, SP}}},
 		  receive
 		      {Receiver,go} ->
-			  read_packets_send(S, RP, Msgs)
+			  read_packets_send(S, RA, RP, Msgs)
 		  end
 	  end, 
 	  [link,{priority,high}]),
     receive
-	{Sender,{port,SP}} ->
+	{Sender, {sockname, {SA, SP}}} ->
 	    erlang:trace(R, true,
 			 [running_ports,'send',{tracer,Tracer}]),
 	    erlang:yield(),
@@ -796,15 +884,15 @@ read_packets_test(Config, R, RP, Msgs, Node) ->
 	    Tracer ! {Receiver,get_trace},
 	    receive
 		{Tracer,{trace,Trace}} ->
-		    {read_packets_verify(R, SP, Trace), Trace}
+		    {read_packets_verify(R, SA, SP, Trace), Trace}
 	    end
     end.
 
-read_packets_send(_S, _RP, 0) ->
+read_packets_send(_S, _RA, _RP, 0) ->
     ok;
-read_packets_send(S, RP, Msgs) ->
-    ok = gen_udp:send(S, localhost, RP, "UDP FLOOOOOOD"),
-    read_packets_send(S, RP, Msgs - 1).
+read_packets_send(S, RA, RP, Msgs) ->
+    ok = gen_udp:send(S, RA, RP, "UDP FLOOOOOOD"),
+    read_packets_send(S, RA, RP, Msgs - 1).
 
 read_packets_recv(0) ->
     ok;
@@ -816,27 +904,28 @@ read_packets_recv(N) ->
 	    timeout
     end.
 
-read_packets_verify(R, SP, Trace) ->
-    [Max | _] = Pkts = lists:reverse(lists:sort(read_packets_verify(R, SP, Trace, 0))),
+read_packets_verify(R, SA, SP, Trace) ->
+    [Max | _] = Pkts =
+        lists:reverse(lists:sort(read_packets_verify(R, SA, SP, Trace, 0))),
     ?P("read-packets verify: ~p", [lists:sublist(Pkts,10)]),
     Max.
 
-read_packets_verify(R, SP, [{trace,R,OutIn,_}|Trace], M) 
+read_packets_verify(R, SA, SP, [{trace,R,OutIn,_}|Trace], M) 
   when OutIn =:= out; OutIn =:= in ->
-    push(M, read_packets_verify(R, SP, Trace, 0));
-read_packets_verify(R, SP, [{trace, R,'receive',timeout}|Trace], M) ->
-    push(M, read_packets_verify(R, SP, Trace, 0));
-read_packets_verify(R, SP,
-		    [{trace,R,'send',{udp,R,{127,0,0,1},SP,_Msg}, Self} | Trace], M)
+    push(M, read_packets_verify(R, SA, SP, Trace, 0));
+read_packets_verify(R, SA, SP, [{trace, R,'receive',timeout}|Trace], M) ->
+    push(M, read_packets_verify(R, SA, SP, Trace, 0));
+read_packets_verify(R, SA, SP,
+		    [{trace,R,'send',{udp, R, SA, SP,_Msg}, Self} | Trace], M)
   when Self =:= self() ->
-    read_packets_verify(R, SP, Trace, M+1);
-read_packets_verify(_R, _SP, [], M) ->
+    read_packets_verify(R, SA, SP, Trace, M+1);
+read_packets_verify(_R, _SA, _SP, [], M) ->
     push(M, []);
-read_packets_verify(R, SP, [T | Trace], M) ->
+read_packets_verify(R, SA, SP, [T | Trace], M) ->
     ct:fail(
       {read_packets_verify, mismatch, self(),
-       {R, SP, [T, length(Trace)], M}});
-read_packets_verify(_R, _SP, Trace, M) ->
+       {R, SA, SP, [T, length(Trace)], M}});
+read_packets_verify(_R, _SA, _SP, Trace, M) ->
     ct:fail({read_packets_verify,mismatch,Trace,M}).
 
 push(0, Vs) ->
@@ -859,10 +948,11 @@ flush() ->
 recv_poll_after_active_once(Config) when is_list(Config) ->
     Msg1 = <<"Hej!">>,
     Msg2 = <<"Hej igen!">>,
-    Addr = {127,0,0,1},
-    {ok,S1} = ?OPEN(Config, 0, [binary, {active, once}]),
+    {ok, Addr} = ?LIB:which_local_addr(inet),
+    %% Addr = {127,0,0,1},
+    {ok,S1} = ?OPEN(Config, 0, [binary, {ip, Addr}, {active, once}]),
     {ok,P1} = inet:port(S1),
-    {ok,S2} = ?OPEN(Config, 0, [binary, {active, false}]),
+    {ok,S2} = ?OPEN(Config, 0, [binary, {ip, Addr}, {active, false}]),
     {ok,P2} = inet:port(S2),
     ok = gen_udp:send(S2, Addr, P1, Msg1),
     receive
@@ -877,7 +967,9 @@ recv_poll_after_active_once(Config) when is_list(Config) ->
 
 %% Test that the 'fd' option works.
 open_fd(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_open_fd(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> is_not_windows() end,
+            fun() -> do_open_fd(Config) end).
 
 do_open_fd(Config) when is_list(Config) ->
     Msg = "Det gör ont när knoppar brista. Varför skulle annars våren tveka?",
@@ -957,7 +1049,8 @@ active_n(Config) when is_list(Config) ->
 do_active_n(Config) when is_list(Config) ->
     N = 3,
     ?P("create socket (1) with active = ~w", [N]),
-    S1 = ok(?OPEN(Config, 0, [{active,N}])),
+    {ok, Addr} = ?LIB:which_local_addr(inet),
+    S1 = ok(?OPEN(Config, 0, [{ip, Addr}, {active,N}])),
     ?P("verify socket active = ~w (~p)", [N, which_info(S1)]),
     [{active,N}] = ok(inet:getopts(S1, [active])),
 
@@ -1049,10 +1142,21 @@ do_active_n(Config) when is_list(Config) ->
     ?P("verify socket active passive (=false) (~p)", [which_info(S1)]),
     [{active,false}] = ok(inet:getopts(S1, [active])),
 
-    S1Port = ok(inet:port(S1)),
+     %% S1Port = ok(inet:port(S1)),
+    {S1Addr, S1Port} = ok(inet:sockname(S1)),
+    ?P("S1 sockname: "
+       "~n   Addr: ~p"
+       "~n   Port: ~p", [S1Addr, S1Port]),
+
     ?P("create socket (2) with active = ~w", [N]),
-    S2 = ok(?OPEN(Config, 0, [{active,N}])),
-    S2Port = ok(inet:port(S2)),
+    S2 = ok(?OPEN(Config, 0, [{ip, Addr}, {active,N}])),
+
+    %% S2Port = ok(inet:port(S2)),
+    {S2Addr, S2Port} = ok(inet:sockname(S2)),
+    ?P("S2 sockname: "
+       "~n   Addr: ~p"
+       "~n   Port: ~p", [S2Addr, S2Port]),
+
     ?P("verify socket (2) active = ~w (~p)", [N, which_info(S2)]),
     [{active,N}] = ok(inet:getopts(S2, [active])),
     ?P("set socket (1) active = ~w and expect success", [N]),
@@ -1065,18 +1169,25 @@ do_active_n(Config) when is_list(Config) ->
     lists:foreach(
       fun(I) ->
               Msg = "message "++integer_to_list(I),
-              ?P("send message ~w from S2 to S1 (~w):"
-                 "~n   S1: ~p"
-                 "~n   S2: ~p",
-                 [I, S1Port, inet:info(S1), inet:info(S2)]),
-              ok = gen_udp:send(S2, "localhost", S1Port, Msg),
+              ?P("send message ~w from S2 to S1 (~p, ~w):"
+                 "~n   S1 info: ~p"
+                 "~n   S2 info: ~p",
+                 [I, S1Addr, S1Port, inet:info(S1), inet:info(S2)]),
+              case gen_udp:send(S2, S1Addr, S1Port, Msg) of
+                  ok ->
+                      ok;
+                  {error, Reason} = ERROR ->
+                      ?P("Failed sending message ~w: "
+                         "~n   ~p", [N, Reason]),
+                      exit(ERROR)
+              end,
               ?P("expect message on S1"),
               receive
                   {udp, S1, _, S2Port, Msg} ->
                       ?P("expected message received on S1 - "
-                         "send message back: from S1 to S2 (~w): "
-                         "~n   ~p", [S2Port, inet:info(S1)]),
-                      ok = gen_udp:send(S1, "localhost", S2Port, Msg)
+                         "send message back: from S1 to S2 (~p, ~w): "
+                         "~n   ~p", [S2Addr, S2Port, inet:info(S1)]),
+                      ok = gen_udp:send(S1, S2Addr, S2Port, Msg)
               after
                   5000 ->
                       ?P("ERROR: received nothing (->S1)"),
@@ -1118,7 +1229,7 @@ do_active_n(Config) when is_list(Config) ->
     end,
 
     ?P("create socket (3) with active = ~w and expect passive message", [0]),
-    S3 = ok(?OPEN(Config, 0, [{active,0}])),
+    S3 = ok(?OPEN(Config, 0, [{ip, Addr}, {active,0}])),
     receive
         {udp_passive,S3} ->
             ?P("received passive message for socket (3) - "
@@ -1742,7 +1853,10 @@ recv_close(Config) when is_list(Config) ->
 
 %% Test that connect/3 has effect.
 connect(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_connect(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+            %% *Currently* not implemented
+            fun() -> is_not_windows() end,
+            fun() -> do_connect(Config) end).
 
 do_connect(Config) when is_list(Config) ->
     ?P("begin"),
@@ -1787,7 +1901,10 @@ do_connect(Config) when is_list(Config) ->
 
 
 reconnect(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun () -> do_reconnect(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+            %% *Currently* not implemented
+            fun() -> is_not_windows() end,
+            fun () -> do_reconnect(Config) end).
 
 do_reconnect(Config) ->
     LoopAddr = {127,0,0,1},
@@ -1843,6 +1960,7 @@ open_port_0(Config, Port, Opts, N) ->
         {error, _} = Error ->
             Error
     end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -3038,10 +3156,15 @@ is_net_supported() ->
 is_not_darwin() ->
     is_not_platform(darwin, "Darwin").
 
+is_not_windows() ->
+    is_not_platform(win32, "Windows").
+
 is_not_platform(Platform, PlatformStr)
   when is_atom(Platform) andalso is_list(PlatformStr) ->
       case os:type() of
         {unix, Platform} ->
+            skip("This does not work on " ++ PlatformStr);
+        {win32, nt} when (Platform =:= win32) ->
             skip("This does not work on " ++ PlatformStr);
         _ ->
             ok

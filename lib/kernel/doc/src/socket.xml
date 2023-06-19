@@ -161,6 +161,16 @@
       <name name="invalid"/>
     </datatype>
     <datatype>
+      <name name="eei"/>
+      <desc>
+	<p>
+	  Extended Error Info.
+	  A term containing additional (error) info <em>if</em>
+	  the socket nif has been configured to produce it.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="domain"/>
       <desc>
 	<p>
