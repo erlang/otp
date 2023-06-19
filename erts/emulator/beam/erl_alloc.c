@@ -2642,11 +2642,6 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
     i++;
 
     values[i].arity = 2;
-    values[i].name = "bits_bufs_size";
-    values[i].ui[0] = erts_bits_bufs_size();
-    i++;
-
-    values[i].arity = 2;
     values[i].name = "bif_timer";
     values[i].ui[0] = erts_bif_timer_memory_size();
     i++;

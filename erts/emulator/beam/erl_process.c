@@ -5889,8 +5889,6 @@ init_scheduler_registers(ErtsSchedulerData* esdp) {
         registers =
             erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
                                                sizeof(ErtsSchedulerRegisters));
-
-        erts_bits_init_state(&registers->aux_regs.d.erl_bits_state);
     }
 
     esdp->registers = registers;

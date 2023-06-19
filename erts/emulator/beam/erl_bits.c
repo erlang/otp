@@ -83,46 +83,6 @@ static byte get_bit(byte b, size_t a_offs);
 #define GROW_PROC_BIN_SIZE(size) \
     (((size) > (1ull << 24)) ? 1.2*(size) : 2*(size))
 
-/* the state resides in the current process' scheduler data */
-
-#define byte_buf	(ErlBitsState.byte_buf_)
-#define byte_buf_len	(ErlBitsState.byte_buf_len_)
-
-static erts_atomic_t bits_bufs_size;
-
-Uint
-erts_bits_bufs_size(void)
-{
-    return (Uint) erts_atomic_read_nob(&bits_bufs_size);
-}
-
-void
-erts_bits_init_state(ERL_BITS_PROTO_0)
-{
-    byte_buf_len = 1;
-    byte_buf = erts_alloc(ERTS_ALC_T_BITS_BUF, byte_buf_len);
-
-    erts_bin_offset = 0;
-}
-
-void
-erts_bits_destroy_state(ERL_BITS_PROTO_0)
-{
-    erts_free(ERTS_ALC_T_BITS_BUF, byte_buf);
-}
-
-void
-erts_init_bits(void)
-{
-    ERTS_CT_ASSERT(offsetof(Binary,orig_bytes) % 8 == 0);
-    ERTS_CT_ASSERT(offsetof(ErtsMagicBinary,u.aligned.data) % 8 == 0);
-    ERTS_CT_ASSERT(offsetof(ErtsBinary,driver.binary.orig_bytes)
-                == offsetof(Binary,orig_bytes));
-
-    erts_atomic_init_nob(&bits_bufs_size, 0);
-    /* erl_process.c calls erts_bits_init_state() on all state instances */
-}
-
 /*****************************************************************
  ***
  *** New matching binaries functions
@@ -614,6 +574,33 @@ erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb)
    } \
  } while(0)
 
+static void
+fmt_small(byte *buf, Uint num_bytes, Eterm arg, Uint num_bits, Uint flags)
+{
+    Uint bit_offset;
+    Sint val;
+
+    ASSERT(is_small(val));
+    ASSERT(num_bits != 0);      /* Tested by caller */
+
+    bit_offset = BIT_OFFSET(num_bits);
+    val = signed_val(arg);
+
+    if (flags & BSF_LITTLE) { /* Little endian */
+        num_bytes--;
+        COPY_VAL(buf, 1, val, num_bytes);
+        *buf = bit_offset ? (val << (8-bit_offset)) : val;
+    } else {		/* Big endian */
+        buf += num_bytes - 1;
+        if (bit_offset) {
+            *buf-- = val << (8-bit_offset);
+            num_bytes--;
+            val >>= bit_offset;
+        }
+        COPY_VAL(buf, -1, val, num_bytes);
+    }
+}
+
 /* calculate a - *cp (carry)  (store result in b), *cp is updated! */
 #define SUBc(a, cp, b) do { \
    byte __x = (a); \
@@ -621,177 +608,150 @@ erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb)
    (*cp) = (__y > __x); \
    *(b) = ~__y; \
  } while(0)
-  
-static int
-fmt_int(byte *buf, Uint sz, Eterm val, Uint size, Uint flags)
-{
-    unsigned long offs;
-
-    offs = BIT_OFFSET(size);
-    if (is_small(val)) {
-	Sint v = signed_val(val);
-
-	ASSERT(size != 0);	  /* Tested by caller */
-	if (flags & BSF_LITTLE) { /* Little endian */
-	    sz--;
-	    COPY_VAL(buf,1,v,sz);
-	    *buf = offs ? ((v << (8-offs)) & 0xff) : (v & 0xff);
-	} else {		/* Big endian */
-	    buf += (sz - 1);
-	    if (offs) {
-		*buf-- = (v << (8-offs)) & 0xff;
-		sz--;
-		v >>= offs;
-	    }
-	    COPY_VAL(buf,-1,v,sz);
-	}
-    } else if (is_big(val)) {
-	int sign   = big_sign(val);
-	Uint ds  = big_size(val)*sizeof(ErtsDigit);  /* number of digits bytes */
-	ErtsDigit* dp = big_v(val);
-	int n = MIN(sz,ds);
-
-	if (size == 0) {
-	    return 0;
-	}
-	if (flags & BSF_LITTLE) {
-	    sz -= n;                       /* pad with this amount */
-	    if (sign) {
-		int c = 1;
-		while(n >= sizeof(ErtsDigit)) {
-		    ErtsDigit d = *dp++;
-		    int i;
-		    for(i = 0; i < sizeof(ErtsDigit); ++i) {
-			SUBc((d&0xff), &c, buf);
-			buf++;
-			d >>= 8;
-		    }
-		    n -= sizeof(ErtsDigit);
-		}
-		if (n) {
-		    ErtsDigit d = *dp;
-		    do {
-			SUBc((d&0xff), &c, buf);
-			buf++;
-			d >>= 8;
-		    } while (--n > 0);
-		}
-		/* pad */
-		while(sz--) {
-		    SUBc(0, &c, buf);
-		    buf++;
-		}
-	    }
-	    else {
-		while(n >= sizeof(ErtsDigit)) {
-		    ErtsDigit d = *dp++;
-		    int i;
-		    for(i = 0; i < sizeof(ErtsDigit); ++i) {
-			*buf++ = (d & 0xff);
-			d >>= 8;
-		    }
-		    n -= sizeof(ErtsDigit);
-		}
-		if (n) {
-		    ErtsDigit d = *dp;
-		    do {
-			*buf++ = (d & 0xff);
-			d >>= 8;
-		    } while (--n > 0);
-		}
-		/* pad */
-		while(sz) {
-		    *buf++ = 0;
-		    sz--;
-		}
-	    }
-	    /* adjust MSB!!! */
-	    if (offs) {
-		buf--;
-		*buf <<= (8 - offs);
-	    }
-	}
-	else {   /* BIG ENDIAN */
-	    ErtsDigit acc = 0;
-	    ErtsDigit d;
-
-	    buf += (sz - 1);              /* end of buffer */
-	    sz -= n;                      /* pad with this amount */
-	    offs = offs ? (8-offs) : 0;   /* shift offset */
-
-	    if (sign) { /* SIGNED */
-		int c = 1;
-
-		while (n >= sizeof(ErtsDigit)) {
-		    int i;
-
-		    d = *dp++;
-		    acc |= d << offs;
-		    SUBc((acc&0xff), &c, buf);
-		    buf--;
-		    acc = d >> (8-offs);
-		    for (i = 0; i < sizeof(ErtsDigit)-1; ++i) {
-			SUBc((acc&0xff), &c, buf);
-			buf--;
-			acc >>= 8;
-		    }
-		    n -= sizeof(ErtsDigit);
-		}
-		if (n) {
-		    acc |= ((ErtsDigit)*dp << offs);
-		    do {
-			SUBc((acc & 0xff), &c, buf);
-			buf--;
-			acc >>= 8;
-		    } while (--n > 0);
-		}
-		/* pad */
-		while(sz--) {
-		    SUBc((acc & 0xff), &c, buf);
-		    buf--;
-		    acc >>= 8;
-		}
-	    }
-	    else { /* UNSIGNED */
-		while (n >= sizeof(ErtsDigit)) {
-		    int i;
-
-		    d = *dp++;
-		    acc |= d << offs;
-		    *buf-- = acc;
-		    acc = d >> (8-offs);
-		    for (i = 0; i < sizeof(ErtsDigit)-1; ++i) {
-			*buf-- = acc;
-			acc >>= 8;
-		    }
-		    n -= sizeof(ErtsDigit);
-		}
-		if (n) {
-		    acc |= ((ErtsDigit)*dp << offs);
-		    do {
-			*buf-- = acc & 0xff;
-			acc >>= 8;
-		    } while (--n > 0);
-		}
-		while (sz--) {
-		    *buf-- = acc & 0xff;
-		    acc >>= 8;
-		}
-	    }
-	}
-    } else {			/* Neither small nor big */
-	return -1;
-    }
-    return 0;
-}
 
 static void
-ERTS_INLINE need_byte_buf(ERL_BITS_PROTO_1(Uint need))
+fmt_big(byte *buf, Uint num_bytes, Eterm val, Uint num_bits, Uint flags)
 {
-    if (byte_buf_len < need) {
-	erts_atomic_add_nob(&bits_bufs_size, need - byte_buf_len);
-	byte_buf_len = need;
-	byte_buf = erts_realloc(ERTS_ALC_T_BITS_BUF, byte_buf, byte_buf_len);
+    unsigned long offs;
+    int sign;
+    Uint ds;
+    ErtsDigit* dp;
+    int n;
+
+    ASSERT(is_big(val));
+
+    if (num_bits == 0) {
+        return;
+    }
+
+    sign = big_sign(val);
+    ds = big_size(val)*sizeof(ErtsDigit); /* number of digits bytes */
+    dp = big_v(val);
+    n = MIN(num_bytes, ds);
+
+    offs = BIT_OFFSET(num_bits);
+    if (flags & BSF_LITTLE) {
+        num_bytes -= n;         /* pad with this amount */
+        if (sign) {             /* negative */
+            int c = 1;
+            while (n >= sizeof(ErtsDigit)) {
+                ErtsDigit d = *dp++;
+                int i;
+                for (i = 0; i < sizeof(ErtsDigit); i++) {
+                    SUBc(d & 0xff, &c, buf);
+                    buf++;
+                    d >>= 8;
+                }
+                n -= sizeof(ErtsDigit);
+            }
+            if (n) {
+                ErtsDigit d = *dp;
+                do {
+                    SUBc(d & 0xff, &c, buf);
+                    buf++;
+                    d >>= 8;
+                } while (--n > 0);
+            }
+            /* pad */
+            while (num_bytes--) {
+                SUBc(0, &c, buf);
+                buf++;
+            }
+        } else {                /* positive */
+            while (n >= sizeof(ErtsDigit)) {
+                ErtsDigit d = *dp++;
+                int i;
+                for(i = 0; i < sizeof(ErtsDigit); i++) {
+                    *buf++ = d;
+                    d >>= 8;
+                }
+                n -= sizeof(ErtsDigit);
+            }
+            if (n) {
+                ErtsDigit d = *dp;
+                do {
+                    *buf++ = d;
+                    d >>= 8;
+                } while (--n > 0);
+            }
+            /* pad */
+            while (num_bytes) {
+                *buf++ = 0;
+                num_bytes--;
+            }
+        }
+
+        /* adjust MSB */
+        if (offs) {
+            buf--;
+            *buf <<= (8 - offs);
+        }
+    } else {   /* BIG ENDIAN */
+        ErtsDigit acc = 0;
+        ErtsDigit d;
+
+        buf += num_bytes - 1;       /* end of buffer */
+        num_bytes -= n;             /* pad with this amount */
+        offs = offs ? (8-offs) : 0; /* shift offset */
+
+        if (sign) {             /* negative bignum */
+            int c = 1;
+
+            while (n >= sizeof(ErtsDigit)) {
+                int i;
+
+                d = *dp++;
+                acc |= d << offs;
+                SUBc(acc & 0xff, &c, buf);
+                buf--;
+                acc = d >> (8-offs);
+                for (i = 0; i < sizeof(ErtsDigit)-1; i++) {
+                    SUBc(acc & 0xff, &c, buf);
+                    buf--;
+                    acc >>= 8;
+                }
+                n -= sizeof(ErtsDigit);
+            }
+            if (n) {
+                acc |= ((ErtsDigit)*dp << offs);
+                do {
+                    SUBc(acc & 0xff, &c, buf);
+                    buf--;
+                    acc >>= 8;
+                } while (--n > 0);
+            }
+            /* pad */
+            while (num_bytes--) {
+                SUBc(acc & 0xff, &c, buf);
+                buf--;
+                acc >>= 8;
+            }
+        } else {                /* positive bignum */
+            while (n >= sizeof(ErtsDigit)) {
+                int i;
+
+                d = *dp++;
+                acc |= d << offs;
+                *buf-- = acc;
+                acc = d >> (8-offs);
+                for (i = 0; i < sizeof(ErtsDigit)-1; i++) {
+                    *buf-- = acc;
+                    acc >>= 8;
+                }
+                n -= sizeof(ErtsDigit);
+            }
+            if (n) {
+                acc |= (*dp << offs);
+                do {
+                    *buf-- = acc;
+                    acc >>= 8;
+                } while (--n > 0);
+            }
+            while (num_bytes--) {
+                *buf-- = acc;
+                acc >>= 8;
+            }
+        }
     }
 }
 
@@ -812,7 +772,7 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
 	} else if (bit_offset + num_bits <= 8) {
 	    /*
 	     * All bits are in the same byte.
-	     */ 
+	     */
 	    iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
 	    b = *iptr & (0xff << rbits);
 	    b |= (signed_val(arg) & ((1 << num_bits)-1)) << (8-bit_offset-num_bits);
@@ -820,17 +780,72 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
 	} else if (bit_offset == 0) {
 	    /*
 	     * More than one bit, starting at a byte boundary.
-	     * That will be quite efficiently handled by fmt_int().
-	     *
-	     * (We know that fmt_int() can't fail here.)
 	     */
-	    (void) fmt_int(erts_current_bin+BYTE_OFFSET(bin_offset),
-			   NBYTES(num_bits), arg, num_bits, flags);
+            iptr = erts_current_bin + BYTE_OFFSET(bin_offset);
+            fmt_small(iptr, NBYTES(num_bits), arg, num_bits, flags);
 	} else if (flags & BSF_LITTLE) {
-	    /*
-	     * Can't handle unaligned little-endian in a simple way.
-	     */
-	    goto unaligned;
+            /*
+             * Little endian small in more than one byte, not
+             * aligned on a byte boundary.
+             */
+            Sint val = signed_val(arg);
+            Uint rshift = bit_offset;
+            Uint lshift = rbits;
+            Uint lmask = MAKE_MASK(8 - bit_offset);
+            Uint count = (num_bits - (8 - bit_offset)) / 8;
+            Uint bits, bits1;
+
+            iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
+
+            if (BIT_OFFSET(num_bits) == 0) {
+                bits = val;
+                bits1 = bits >> rshift;
+                *iptr = MASK_BITS(bits1, *iptr, lmask);
+                iptr++;
+                val >>= 8;
+
+                while (count--) {
+                    bits1 = bits << lshift;
+                    bits = val & 0xff;
+                    *iptr++ = bits1 | (bits >> rshift);
+                    val >>= 8;
+                }
+
+                *iptr = bits << lshift;
+            } else {
+                Sint num_bytes = NBYTES(num_bits) - 1;
+                Uint deoffs = BIT_OFFSET(bit_offset + num_bits);
+
+                if (num_bytes-- > 0) {
+                    bits = val;
+                } else {
+                    bits = (val << (8 - BIT_OFFSET(num_bits)));
+                }
+                bits1 = bits >> rshift;
+                *iptr = MASK_BITS(bits1, *iptr, lmask);
+                iptr++;
+                val >>= 8;
+
+                while (count--) {
+                    bits1 = bits << lshift;
+                    if (num_bytes-- > 0) {
+                        bits = val & 0xff;
+                    } else {
+                        bits = (val << (8 - BIT_OFFSET(num_bits))) & 0xff;
+                    }
+                    *iptr++ = bits1 | (bits >> rshift);
+                    val >>= 8;
+                }
+
+                if (deoffs) {
+                    bits1 = bits << lshift;
+                    if (rshift < deoffs) {
+                        bits = (val << (8 - BIT_OFFSET(num_bits))) & 0xff;
+                        bits1 |= bits >> rshift;
+                    }
+                    *iptr = bits1;
+                }
+            }
 	} else {		/* Big endian */
 	    /*
 	     * Big-endian, more than one byte, but not aligned on a byte boundary.
@@ -857,34 +872,61 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
 	    }
 	    *iptr++ = b;
 
-	    /* fmt_int() can't fail here. */
-	    (void) fmt_int(iptr, NBYTES(num_bits-rbits), arg,
-			   num_bits-rbits, flags);
+            fmt_small(iptr, NBYTES(num_bits-rbits), arg, num_bits-rbits, flags);
 	}
-    } else if (bit_offset == 0) {
+    } else if (is_big(arg) && bit_offset == 0) {
 	/*
 	 * Big number, aligned on a byte boundary. We can format the
 	 * integer directly into the binary.
 	 */
-	if (fmt_int(erts_current_bin+BYTE_OFFSET(bin_offset),
-		    NBYTES(num_bits), arg, num_bits, flags) < 0) {
-	    return 0;
-	}
+	fmt_big(erts_current_bin+BYTE_OFFSET(bin_offset),
+                NBYTES(num_bits), arg, num_bits, flags);
+    } else if (is_big(arg)) {
+        /*
+         * Big number, not aligned on a byte boundary.
+         */
+        Uint rshift = bit_offset;
+        Uint lshift = 8 - bit_offset;
+        Uint deoffs = BIT_OFFSET(bit_offset + num_bits);
+        Uint lmask = MAKE_MASK(8 - bit_offset);
+        Uint rmask = (deoffs) ? (MAKE_MASK(deoffs)<<(8-deoffs)) : 0;
+        Uint count = (num_bits - (8 - bit_offset)) / 8;
+        Uint bits, bits1;
+
+        /*
+         * Format it byte-aligned using the binary itself as a
+         * temporary buffer.
+         */
+        iptr = erts_current_bin + BYTE_OFFSET(bin_offset);
+        b = *iptr;
+        fmt_big(iptr, NBYTES(num_bits), arg, num_bits, flags);
+
+        /*
+         * Now restore the overwritten bits of the first byte and
+         * shift everything to the right.
+         */
+        bits = *iptr;
+        bits1 = bits >> rshift;
+        *iptr = MASK_BITS(bits1, b, lmask);
+        iptr++;
+
+        while (count--) {
+            bits1 = bits << lshift;
+            bits = *iptr;
+            *iptr++ = bits1 | (bits >> rshift);
+        }
+
+        if (rmask) {
+            bits1 = bits << lshift;
+            if ((rmask << rshift) & 0xff) {
+                bits = *iptr;
+                bits1 |= (bits >> rshift);
+            }
+            *iptr = MASK_BITS(bits1, *iptr, rmask);
+        }
     } else {
-    unaligned:
-	/*
-	 * Big number or small little-endian number, not byte-aligned,
-	 * or not a number at all.
-	 *
-	 * We must format the number into a temporary buffer, and then
-	 * copy that into the binary.
-	 */
-	need_byte_buf(ERL_BITS_ARGS_1(NBYTES(num_bits)));
-	iptr = byte_buf;
-	if (fmt_int(iptr, NBYTES(num_bits), arg, num_bits, flags) < 0) {
-	    return 0;
-	}
-	erts_copy_bits(iptr, 0, 1, erts_current_bin, bin_offset, 1, num_bits);
+        /* Not an integer. */
+        return 0;
     }
     erts_bin_offset = bin_offset + num_bits;
     return 1;

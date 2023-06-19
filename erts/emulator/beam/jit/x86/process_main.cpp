@@ -75,9 +75,6 @@ void BeamGlobalAssembler::emit_process_main() {
           x86::qword_ptr(x86::rsp,
                          offsetof(ErtsSchedulerRegisters, x_reg_array.d)));
 
-    load_erl_bits_state(ARG1);
-    runtime_call<1>(erts_bits_init_state);
-
 #if defined(DEBUG) && defined(NATIVE_ERLANG_STACK)
     /* Save stack bounds so they can be tested without clobbering anything. */
     runtime_call<0>(erts_get_stacklimit);

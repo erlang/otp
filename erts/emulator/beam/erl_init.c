@@ -343,7 +343,6 @@ erl_init(int ncpu,
     BIN_VH_MIN_SIZE = erts_next_heap_size(BIN_VH_MIN_SIZE, 0);
 
     erts_init_trace();
-    erts_init_bits();
     erts_code_ix_init();
     erts_init_fun_table();
     init_atom_table();

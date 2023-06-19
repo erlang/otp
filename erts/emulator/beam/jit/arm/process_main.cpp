@@ -72,9 +72,6 @@ void BeamGlobalAssembler::emit_process_main() {
 
     a.mov(scheduler_registers, a64::sp);
 
-    load_erl_bits_state(ARG1);
-    runtime_call<1>(erts_bits_init_state);
-
     /* Save the initial SP of the thread so that we can verify that it
      * doesn't grow. */
 #ifdef JIT_HARD_DEBUG
