@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@
          stop_node/3,
          ping/1, ping/2,
 
+	 which_inet_backend/1,
          is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0, test_inet_backends/0,
@@ -3150,25 +3151,17 @@ explicit_inet_backend() ->
     end.
 
 test_inet_backends() ->
-    case init:get_argument(megaco) of
-        {ok, SnmpArgs} when is_list(SnmpArgs) ->
-            test_inet_backends(SnmpArgs, atom_to_list(?FUNCTION_NAME));
-        error ->
-            false
-    end.
-
-test_inet_backends([], _) ->
-    false;
-test_inet_backends([[Key, Val] | _], Key) ->
-    case list_to_atom(string:to_lower(Val)) of
-        Bool when is_boolean(Bool) ->
-            Bool;
+    case application:get_all_env(megaco) of
+        Env when is_list(Env) ->
+            case lists:keysearch(test_inet_backends, 1, Env) of
+                {value, {test_inet_backends, true}} ->
+                    true;
+                _ ->
+                    false
+            end;
         _ ->
-            false
-    end;
-test_inet_backends([_|Args], Key) ->
-    test_inet_backends(Args, Key).
-
+            false 
+    end.
 
 inet_backend_opts(Config) when is_list(Config) ->
     case lists:keysearch(socket_create_opts, 1, Config) of
@@ -3178,13 +3171,16 @@ inet_backend_opts(Config) when is_list(Config) ->
             []
     end.
 
-is_socket_backend(Config) when is_list(Config) ->
+which_inet_backend(Config) ->
     case lists:keysearch(socket_create_opts, 1, Config) of
-        {value, {socket_create_opts, [{inet_backend, socket}]}} ->
-            true;
+        {value, {socket_create_opts, [{inet_backend, Backend}]}} ->
+            Backend;
         _ ->
-            false
+            default
     end.
+    
+is_socket_backend(Config) when is_list(Config) ->
+    (which_inet_backend(Config) =:= socket).
 
 
 open(Config, Pid, Opts)

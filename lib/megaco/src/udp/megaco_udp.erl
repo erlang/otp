@@ -110,20 +110,22 @@ stop_transport(Pid, Reason) ->
 open(SupPid, Options) ->
     Mand = [port, receive_handle],
     case parse_options(Options, #megaco_udp{}, Mand) of
-	{ok, UdpRec} ->
+	{ok, #megaco_udp{port         = Port,
+			 options      = Opts,
+			 inet_backend = IB} = UdpRec} ->
 
 	    %%------------------------------------------------------
 	    %% Setup the socket
 	    IpOpts =
-                case UdpRec#megaco_udp.inet_backend of
+                case IB of
                     default ->
                         [];
                     IB ->
                         [{inet_backend, IB}]
                 end ++
                 [binary, {reuseaddr, true}, {active, once} |
-                 UdpRec#megaco_udp.options],
-	    case (catch gen_udp:open(UdpRec#megaco_udp.port, IpOpts)) of
+                 post_process_opts(IB, Opts)],
+	    case (catch gen_udp:open(Port, IpOpts)) of
 		{ok, Socket} ->
 		    ?udp_debug(UdpRec, "udp open", []),
 		    NewUdpRec = UdpRec#megaco_udp{socket = Socket},
@@ -153,6 +155,95 @@ open(SupPid, Options) ->
 	    {error, Reason}
     end.
 
+
+%% In some cases we must bind and therefor we must have the
+%% ip (or ifaddr) option.
+post_process_opts(socket = _IB, Opts) ->
+    case os:type() of
+	{win32, nt} ->
+	    %% We must bind, and therefor we must provide a "proper" address.
+	    %% Therefor...we need to figure out our domain.
+	    post_process_opts(Opts);
+	_ ->
+	    Opts
+    end;
+post_process_opts(_IB, Opts) ->
+    Opts.
+
+
+%% Socket on Windows: We need the ip (or ifaddr) option
+post_process_opts(Opts) ->
+    case lists:keymember(ip, 1, Opts) orelse
+	lists:keymember(ifaddr, 1, Opts) of
+	true ->
+	    %% No need to do anything, user has provided an address
+	    Opts;
+	false ->
+	    %% We need to figure out a proper address and provide 
+	    %% the ip option our selves.
+	    post_process_opts2(Opts)
+    end.
+	
+post_process_opts2(Opts) ->
+    case lists:member(inet, Opts) of
+	true ->
+	    post_process_opts3(inet, Opts);
+	false ->
+	    case lists:member(inet6, Opts) of
+		true ->
+		    post_process_opts3(inet6, Opts);
+		false ->
+		    post_process_opts3(inet, Opts)
+	    end
+    end.
+
+post_process_opts3(Domain, Opts) ->
+    case net:getifaddrs(Domain) of
+	{ok, IfAddrs} ->
+	    post_process_opts4(Domain, IfAddrs, Opts);
+	{error, _} ->
+	    Opts
+    end.
+
+post_process_opts4(_Domain, [] = _IfAddrs, Opts) ->
+    Opts;
+post_process_opts4(inet,
+		   [#{addr := #{family := inet,
+				addr   := {A, B, _, _}}} | IfAddrs],
+		   Opts)
+  when (A =:= 127) orelse ((A =:= 169) andalso (B =:= 254)) ->
+    post_process_opts4(inet, IfAddrs, Opts);
+post_process_opts4(inet,
+		   [#{addr   := #{family := inet,
+				  addr   := Addr},
+		      flags  := Flags} | IfAddrs],
+		   Opts) ->
+    case lists:member(up, Flags) of
+	true ->
+	    [{ip, Addr} | Opts];
+	false ->
+	    post_process_opts4(inet, IfAddrs, Opts)
+    end;
+post_process_opts4(inet6,
+		   [#{addr := #{family := inet6,	
+				addr   := {A, _, _, _, _, _, _, _}}} | IfAddrs],
+		   Opts)
+  when (A =:= 0) orelse (A =:= 16#fe80) ->
+    post_process_opts4(inet6, IfAddrs, Opts);
+post_process_opts4(inet6,
+		   [#{addr  := #{family := inet6,
+				 addr   := Addr},
+		      flags := Flags} | IfAddrs],
+		   Opts) ->
+    %% The loopback should really have been covered above, but just in case...
+    case lists:member(up, Flags) andalso (not lists:member(loopback, Flags)) of
+	true ->
+	    [{ip, Addr} | Opts];
+	false ->
+	    post_process_opts4(inet6, IfAddrs, Opts)
+    end.
+
+    
 
 %%-----------------------------------------------------------------
 %% Func: socket

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2021</year>
+      <year>2000</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -84,6 +84,13 @@
 	      <item><p>process_received_message</p></item>
 	    </taglist>
 	    <p>Default value is <em>megaco</em>.</p>
+	  </item>
+	  <tag><c><![CDATA[inet_backend]]></c></tag>
+	  <item>
+	    <p>Choose the inet-backend. </p>
+	    <p>This option make it possible to use a
+	    different inet-backend ('default', 'inet' or 'socket'). </p>
+	    <p>Default is <c>default</c> (system default).</p>
 	  </item>
 	</taglist>
       </desc>
