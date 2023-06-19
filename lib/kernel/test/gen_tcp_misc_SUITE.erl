@@ -6745,8 +6745,10 @@ setup_closed_ao(Config, Addr) ->
             {error, Reason} ->
                 ?SKIPT(?F("failed starting node: ~p", [Reason]))
         end,
+    ?P("[setup] get (\"proper\")local address"),
+    {ok, Addr} = ?LIB:which_local_addr(inet),
     Host = get_hostname(node()),
-    ?P("[setup] create listen socket"),
+    ?P("[setup] create listen socket (with ~p)", [Addr]),
     L = case ?LISTEN(Config, 0, [{ip, Addr}, {active,false},{packet,2}]) of
             {ok, LSock} ->
                 LSock;
@@ -6754,6 +6756,9 @@ setup_closed_ao(Config, Addr) ->
                 (catch ?STOP_NODE(R)),
                 ?SKIPT(listen_failed_str(LReason))
         end,
+    {ok, Port} = inet:port(L),
+    ?P("[setup] listen socket port: "
+       "~n   Port: ~p", [Port]),
     Fun = fun(F) ->
                   receive
                       {From,X} when is_function(X) ->
@@ -6763,13 +6768,12 @@ setup_closed_ao(Config, Addr) ->
           end,
     ?P("[setup] create remote runner"),
     Pid = rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
-    {ok, Port} = inet:port(L),
     Remote = fun(Fu) ->
                      Pid ! {self(), Fu},
                      receive {Pid,X} -> X end
              end,
     Connect = fun() -> 
-                      ?CONNECT(Config, Host, Port,
+                      ?CONNECT(Config, Addr, Port,
                                [{ip, Addr}, {active, false}, {packet, 2}]) 
               end,
     ?P("[setup] create (remote) connection"),
