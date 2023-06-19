@@ -55,6 +55,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-define(LIB,     kernel_test_lib).
 -define(FAIL(R), exit(R)).
 
 
@@ -225,91 +226,12 @@ which_local_addr(Domain) ->
 %% Returns the interface (name), flags and address (not 127...)
 %% of the local host.
 which_local_host_info(Domain) ->
-    case inet:getifaddrs() of
-        {ok, IFL} ->
-            which_local_host_info(Domain, IFL);
+    case ?LIB:which_local_host_info(Domain) of
+        {ok, [H|_]} ->
+	    {ok, H};
         {error, _} = ERROR ->
             ERROR
     end.
-
-which_local_host_info(_Domain, []) ->
-    {error, no_address};
-which_local_host_info(Domain, [{"docker" ++ _, _}|IFL]) ->
-    which_local_host_info(Domain, IFL);
-which_local_host_info(Domain, [{"br-" ++ _, _}|IFL]) ->
-    which_local_host_info(Domain, IFL);
-which_local_host_info(Domain, [{Name, IFO}|IFL]) ->
-    case if_is_running_and_not_loopback(IFO) of
-        true ->
-            try which_local_host_info2(Domain, IFO) of
-                Info ->
-                    {ok, Info#{name => Name}}
-            catch
-                throw:_:_ ->
-                    which_local_host_info(Domain, IFL)
-            end;
-        false ->
-            which_local_host_info(Domain, IFL)
-    end;
-which_local_host_info(Domain, [_|IFL]) ->
-    which_local_host_info(Domain, IFL).
-
-if_is_running_and_not_loopback(If) ->
-    lists:keymember(flags, 1, If) andalso
-        begin
-            {value, {flags, Flags}} = lists:keysearch(flags, 1, If),
-            (not lists:member(loopback, Flags)) andalso
-                lists:member(running, Flags)
-        end.
-
-
-which_local_host_info2(inet = _Domain, IFO) ->
-    Addr      = which_local_host_info3(addr,  IFO,
-                                       fun({A, _, _, _}) when (A =/= 127) -> true;
-                                          (_) -> false
-                                       end),
-    NetMask   = which_local_host_info3(netmask,  IFO,
-                                       fun({_, _, _, _}) -> true;
-                                          (_) -> false
-                                       end),
-    BroadAddr = which_local_host_info3(broadaddr,  IFO,
-                                       fun({_, _, _, _}) -> true;
-                                          (_) -> false
-                                       end),
-    Flags     = which_local_host_info3(flags, IFO, fun(_) -> true end),
-    #{flags     => Flags,
-      addr      => Addr,
-      broadaddr => BroadAddr,
-      netmask   => NetMask};
-which_local_host_info2(inet6 = _Domain, IFO) ->
-    Addr    = which_local_host_info3(addr,  IFO,
-                                     fun({A, _, _, _, _, _, _, _}) 
-                                           when (A =/= 0) andalso 
-                                                (A =/= 16#fe80) -> true;
-                                        (_) -> false
-                                     end),
-    NetMask = which_local_host_info3(netmask,  IFO,
-                                       fun({_, _, _, _, _, _, _, _}) -> true;
-                                          (_) -> false
-                                       end),
-    Flags   = which_local_host_info3(flags, IFO, fun(_) -> true end),
-    #{flags   => Flags,
-      addr    => Addr,
-      netmask => NetMask}.
-
-which_local_host_info3(_Key, [], _) ->
-    throw({error, no_address});
-which_local_host_info3(Key, [{Key, Val}|IFO], Check) ->
-    case Check(Val) of
-        true ->
-            Val;
-        false ->
-            which_local_host_info3(Key, IFO, Check)
-    end;
-which_local_host_info3(Key, [_|IFO], Check) ->
-    which_local_host_info3(Key, IFO, Check).
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
