@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -118,6 +118,7 @@
 -define(INET_BACKEND_OPTS(C),    ?LIB:inet_backend_opts(C)).
 -define(EXPLICIT_INET_BACKEND(), ?LIB:explicit_inet_backend()).
 -define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
+-define(WHICH_INET_BACKEND(C),   ?LIB:which_inet_backend(C)).
 -define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
 
 -define(OPEN(C, P, O),           ?LIB:open(C, P, O)).
@@ -142,6 +143,6 @@
 	io:format(user, "~n*** ~s *** case ~w:~w end~n~n", 
 		  [?FTS(), ?MODULE, C])).
 
--define(UNIQUE(__PreName__),
+-define(UNIQUE(PreName),
         list_to_atom(
-          ?F("~w_~w", [__PreName__, erlang:system_time(millisecond)]))).
+          ?F("~w_~w", [(PreName), erlang:system_time(millisecond)]))).
