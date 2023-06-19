@@ -580,7 +580,7 @@ fmt_small(byte *buf, Uint num_bytes, Eterm arg, Uint num_bits, Uint flags)
     Uint bit_offset;
     Sint val;
 
-    ASSERT(is_small(val));
+    ASSERT(is_small(arg));
     ASSERT(num_bits != 0);      /* Tested by caller */
 
     bit_offset = BIT_OFFSET(num_bits);
