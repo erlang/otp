@@ -1901,7 +1901,8 @@ analyze_and_print_win_host_info(Version) ->
                 %% Anyway, filter out both of them!
                 TotPhysMem1 = lists:delete($,, TotPhysMem),
                 TotPhysMem2 = lists:delete(255, TotPhysMem1),
-                [MStr, MUnit|_] = string:tokens(TotPhysMem2, [$\ ]),
+                TotPhysMem3 = lists:delete(160, TotPhysMem2),
+                [MStr, MUnit|_] = string:tokens(TotPhysMem3, [$\ ]),
                 case string:to_lower(MUnit) of
                     "gb" ->
                         try list_to_integer(MStr) of
