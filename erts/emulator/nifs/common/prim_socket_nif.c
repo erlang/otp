@@ -9833,8 +9833,8 @@ ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
     return esock_make_error_closed(env);
 
   SSDBG( descP,
-         ("SOCKET", "esock_peername {%d} -> open - try get peername\r\n",
-          descP->sock) );
+         ("SOCKET", "esock_peername {%d} -> open - try get peername (%d)\r\n",
+          descP->sock, sz) );
 
   sys_memzero((char*) saP, sz);
   if (sock_peer(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
@@ -9844,8 +9844,8 @@ ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
 
       SSDBG( descP,
              ("SOCKET", "esock_peername {%d} -> "
-              "got peername - try decode\r\n",
-              descP->sock) );
+              "got peername (%d) - try decode\r\n",
+              descP->sock, sz) );
 
       esock_encode_sockaddr(env, saP, (SOCKLEN_T) sz, &esa);
 

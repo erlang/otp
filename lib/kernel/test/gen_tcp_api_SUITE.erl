@@ -234,14 +234,24 @@ init_per_group(inet_backend_socket = _GroupName, Config) ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(t_local = _GroupName, Config) ->
-    try gen_tcp:connect({local,<<"/">>}, 0, []) of
-	{error, eafnosupport} ->
-            {skip, "AF_LOCAL not supported"};
-	{error,_} ->
-	    Config
-    catch
-        _C:_E:_S ->
-            {skip, "AF_LOCAL not supported"}
+    case ?IS_SOCKET_BACKEND(Config) of
+	true ->
+	    case ?LIB:has_support_unix_domain_socket() of
+		true ->
+		    Config;
+		false ->
+		    {skip, "AF_LOCAL not supported"}
+	    end;
+	_ ->
+	    try gen_tcp:connect({local,<<"/">>}, 0, []) of
+		{error, eafnosupport} ->
+		    {skip, "AF_LOCAL not supported"};
+		{error,_} ->
+		    Config
+	    catch
+		_C:_E:_S ->
+		    {skip, "AF_LOCAL not supported"}
+	    end
     end;
 init_per_group(sockaddr = _GroupName, Config) ->
     case is_socket_supported() of
@@ -1008,7 +1018,9 @@ t_local_basic(Config) ->
 
 
 t_local_unbound(Config) ->
-    ?TC_TRY(t_local_unbound, fun() -> do_local_unbound(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+	    fun() -> is_not_windows() end,
+	    fun() -> do_local_unbound(Config) end).
 
 do_local_unbound(Config) ->
     ?P("create local (server) filename"),
@@ -1048,7 +1060,9 @@ do_local_unbound(Config) ->
 
 
 t_local_fdopen(Config) ->
-    ?TC_TRY(t_local_fdopen, fun() -> do_local_fdopen(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+	    fun() -> is_not_windows() end,
+	    fun() -> do_local_fdopen(Config) end).
 
 do_local_fdopen(Config) ->
     ?P("create local (server) filename"),
@@ -1108,7 +1122,9 @@ do_local_fdopen(Config) ->
     ok.
 
 t_local_fdopen_listen(Config) ->
-    ?TC_TRY(t_local_fdopen_listen, fun() -> do_local_fdopen_listen(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+	    fun() -> is_not_windows() end,
+	    fun() -> do_local_fdopen_listen(Config) end).
 
 do_local_fdopen_listen(Config) ->
     ?P("create local (server) filename"),
@@ -1156,6 +1172,11 @@ do_local_fdopen_listen(Config) ->
     ok.
 
 t_local_fdopen_listen_unbound(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+	    fun() -> is_not_windows() end,
+	    fun() -> do_local_fdopen_listen_unbound(Config) end).
+
+do_local_fdopen_listen_unbound(Config) ->
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     _ = file:delete(SFile),
@@ -1178,6 +1199,11 @@ t_local_fdopen_listen_unbound(Config) ->
     ok.
 
 t_local_fdopen_connect(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+	    fun() -> is_not_windows() end,
+	    fun() -> do_local_fdopen_connect(Config) end).
+
+do_local_fdopen_connect(Config) ->
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     CFile = local_filename(client),
@@ -1204,6 +1230,11 @@ t_local_fdopen_connect(Config) ->
     ok.
 
 t_local_fdopen_connect_unbound(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+	    fun() -> is_not_windows() end,
+	    fun() -> do_local_fdopen_connect_unbound(Config) end).
+
+do_local_fdopen_connect_unbound(Config) ->
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     _ = file:delete(SFile),
@@ -1271,17 +1302,35 @@ do_local_abstract(Config) ->
 
 
 local_handshake(S, SAddr, C, CAddr) ->
-    ?P("~w(~p, ~p, ~p, ~p)~n", [?FUNCTION_NAME, S, SAddr, C, CAddr]),
+    ?P("~w -> entry with"
+       "~n   Server Sock:          ~p"
+       "~n   Server Sock Info:     ~p"
+       "~n   Server Addr:          ~p"
+       "~n   Client Sock:          ~p"
+       "~n   Client Sock Info:     ~p"
+       "~n   Client Addr:          ~p"
+       "~n", [?FUNCTION_NAME,
+	      S, inet:info(S), SAddr,
+	      C, inet:info(C), CAddr]),
     SData = "9876543210",
     CData = "0123456789",
+    ?P("~w -> verify server sockname", [?FUNCTION_NAME]),
     SAddr = ok(inet:sockname(S)),
+    ?P("~w -> verify client sockname", [?FUNCTION_NAME]),
     CAddr = ok(inet:sockname(C)),
+    ?P("~w -> verify server peername", [?FUNCTION_NAME]),
     CAddr = ok(inet:peername(S)),
+    ?P("~w -> verify client peername", [?FUNCTION_NAME]),
     SAddr = ok(inet:peername(C)),
+    ?P("~w -> send data on client socket", [?FUNCTION_NAME]),
     ok = gen_tcp:send(C, CData),
+    ?P("~w -> send data on server socket", [?FUNCTION_NAME]),
     ok = gen_tcp:send(S, SData),
+    ?P("~w -> recv data on server socket", [?FUNCTION_NAME]),
     CData = ok(gen_tcp:recv(S, length(CData))),
+    ?P("~w -> recv data on client socket", [?FUNCTION_NAME]),
     SData = ok(gen_tcp:recv(C, length(SData))),
+    ?P("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 t_accept_inet6_tclass(Config) when is_list(Config) ->
@@ -1671,22 +1720,57 @@ get_localaddr([Localhost|Ls]) ->
 getsockfd() -> undefined.
 closesockfd(_FD) -> undefined.
 
+-define(WIN32_LOCAL_PRE, "").
+-define(UNIX_LOCAL_PRE,  "/tmp/").
+ 
 local_filename(Tag) ->
-    "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_" ++ atom_to_list(Tag).
+    {OSF, _} = os:type(),
+    local_filename(OSF, Tag).
+
+local_filename(win32, Tag) ->
+    local_filename(?WIN32_LOCAL_PRE, ".sock", Tag);
+local_filename(_, Tag) ->
+    local_filename(?UNIX_LOCAL_PRE, "", Tag).
+
+local_filename(Pre, Post, Tag) ->
+    ?F("~s~s_~s_~w_~w~s",
+       [Pre,
+	?MODULE_STRING,os:getpid(),erlang:system_time(millisecond),Tag,
+	Post]).
+    %% Pre ++
+    %% 	?MODULE_STRING "_" ++ os:getpid() ++ "_" ++ atom_to_list(Tag) ++
+    %% 	Post.
 
 bin_filename(String) ->
     unicode:characters_to_binary(String, file:native_name_encoding()).
 
 delete_local_filenames() ->
+    {OSF, _} = os:type(),
+    delete_local_filenames(OSF).
+
+delete_local_filenames(win32) ->
+    do_delete_local_filenames(?WIN32_LOCAL_PRE);
+delete_local_filenames(_) ->
+    do_delete_local_filenames(?UNIX_LOCAL_PRE).
+
+do_delete_local_filenames(Pre) ->
     _ =
 	[file:delete(F) ||
 	    F <-
 		filelib:wildcard(
-		  "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_*")],
+		  Pre ++ ?MODULE_STRING "_" ++ os:getpid() ++ "_*")],
     ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+is_not_windows() ->
+    case os:type() of
+        {win32, nt} ->
+            skip("This does not work on Windows");
+        _ ->
+            ok
+    end.
 
 is_net_supported() ->
     try net:info() of

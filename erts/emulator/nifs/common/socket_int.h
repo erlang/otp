@@ -54,6 +54,12 @@
 #endif
 #include <iphlpapi.h>
 
+/* Since we can't get configure to work properly on Windows... */
+#if defined(AF_UNIX)
+#include <afunix.h>
+#define HAVE_STRUCT_SOCKADDR_UN_SUN_PATH 1
+#endif
+
 #else /* !__WIN32__ */
 
 #include <sys/socket.h>
