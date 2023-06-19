@@ -177,6 +177,7 @@ nif(Conf) ->
 	nif_compile_to_cerl(Conf, [{d,'WITH_ATTRIBUTE'},{d,'WITH_LOAD_NIF'}]),
     false = nif_first_instruction_is_nif_start(init, 1, Funs),
     true = nif_first_instruction_is_nif_start(start, 1, Funs),
+    false = nif_first_instruction_is_nif_start(bug0, 1, Funs),
     false = nif_first_instruction_is_nif_start(module_info, 0, Funs),
     false = nif_first_instruction_is_nif_start(module_info, 1, Funs),
     ok.
@@ -186,6 +187,7 @@ no_nif(Conf) ->
     Funs = nif_compile_to_cerl(Conf, [{d,'WITH_LOAD_NIF'}]),
     true = nif_first_instruction_is_nif_start(init, 1, Funs),
     true = nif_first_instruction_is_nif_start(start, 1, Funs),
+    true = nif_first_instruction_is_nif_start(bug0, 1, Funs),
     true = nif_first_instruction_is_nif_start(module_info, 0, Funs),
     true = nif_first_instruction_is_nif_start(module_info, 1, Funs),
     ok.
@@ -195,6 +197,7 @@ no_load_nif(Conf) ->
     Funs = nif_compile_to_cerl(Conf, []),
     false = nif_first_instruction_is_nif_start(init, 1, Funs),
     false = nif_first_instruction_is_nif_start(start, 1, Funs),
+    false = nif_first_instruction_is_nif_start(bug0, 1, Funs),
     false = nif_first_instruction_is_nif_start(module_info, 0, Funs),
     false = nif_first_instruction_is_nif_start(module_info, 1, Funs),
     ok.
@@ -207,11 +210,7 @@ nif_compile_to_cerl(Conf, Flags) ->
 
 nif_first_instruction_is_nif_start(F, A, [{{F,A},Body}|_]) ->
     try
-	Primop = cerl:seq_arg(Body),
-	Name = cerl:primop_name(Primop),
-	0 = cerl:primop_arity(Primop),
-	nif_start = cerl:atom_val(Name),
-	true
+        assert_body_starts_with_nif_start(Body)
     catch
 	error:_ ->
 	    false
@@ -220,3 +219,27 @@ nif_first_instruction_is_nif_start(F, A, [_|Rest]) ->
     nif_first_instruction_is_nif_start(F, A, Rest);
 nif_first_instruction_is_nif_start(_, _, []) ->
     not_found.
+
+%% Return true if the body starts with nif_start or not at all if
+%% not. Descend into letrecs.
+assert_body_starts_with_nif_start(Body0) ->
+    Body = case cerl:is_c_letrec(Body0) of
+               true ->
+                   %% For the compiler generated functions in the
+                   %% defs-part of the letrec, we just check that
+                   %% they start with a nif-start, regardless of
+                   %% their names.
+                   lists:foreach(fun({_, F}) ->
+                                         assert_body_starts_with_nif_start(
+                                           cerl:fun_body(F))
+                                 end, cerl:letrec_defs(Body0)),
+                   %% Return the body of the letrec for checking.
+                   cerl:letrec_body(Body0);
+               false ->
+                   Body0
+           end,
+    Primop = cerl:seq_arg(Body),
+    Name = cerl:primop_name(Primop),
+    0 = cerl:primop_arity(Primop),
+    nif_start = cerl:atom_val(Name),
+    true.
