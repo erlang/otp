@@ -1896,8 +1896,9 @@ analyze_and_print_win_host_info(Version) ->
         try
             begin
                 %% "Normally" this looks like this: "16,123 MB"
-                %% But sometimes the "," is replaced by a 255 char
-                %% which I assume must be some unicode screwup...
+                %% But sometimes the "," is replaced by a
+		%% 255 or 160 char, which I assume must be some
+		%% unicode screwup...
                 %% Anyway, filter out both of them!
                 TotPhysMem1 = lists:delete($,, TotPhysMem),
                 TotPhysMem2 = lists:delete(255, TotPhysMem1),

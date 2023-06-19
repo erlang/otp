@@ -309,7 +309,21 @@ end_per_testcase(_Func, Config) ->
 
 %% Test that gen_tcp:accept/2 (with timeout) works.
 t_accept_timeout(Config) when is_list(Config) ->
-    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_accept_timeout(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_accept_timeout(Config, Addr) ->
+    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{ip, Addr}]),
     timeout({gen_tcp, accept, [L, 200]}, 0.2, 1.0).
 
 %%% gen_tcp:connect/X
@@ -317,15 +331,29 @@ t_accept_timeout(Config) when is_list(Config) ->
 
 %% Test that gen_tcp:connect/4 (with timeout) works.
 t_connect_timeout(Config) when is_list(Config) ->
-    ?TC_TRY(t_connect_timeout, fun() -> do_connect_timeout(Config) end).
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_connect_timeout(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
 
-do_connect_timeout(Config)->
+do_connect_timeout(Config, Addr)->
     %%BadAddr = {134,138,177,16},
     %%TcpPort = 80,
     {ok, BadAddr} =  unused_ip(),
     TcpPort = 45638,
     ok = ?P("Connecting to ~p, port ~p", [BadAddr, TcpPort]),
-    connect_timeout({gen_tcp,connect, [BadAddr,TcpPort, ?INET_BACKEND_OPTS(Config),200]}, 0.2, 5.0).
+    connect_timeout({gen_tcp, connect,
+		     [BadAddr,TcpPort,
+		      ?INET_BACKEND_OPTS(Config) ++ [{ip, Addr}], 200]},
+		    0.2, 5.0).
 
 
 %% Test that setting only the source port for a connection works.
@@ -377,37 +405,78 @@ t_connect_bad(Config, Host, Port, Descr) ->
 
 %% Test that gen_tcp:recv/3 (with timeout works).
 t_recv_timeout(Config) when is_list(Config) ->
-    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
-    {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            skip(Reason)
+                    end
+           end,
+    TC   = fun(Addr) -> do_recv_timeout(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_recv_timeout(Config, Addr) ->
+    {ok, L}      = gen_tcp:listen(0,
+				  ?INET_BACKEND_OPTS(Config) ++ [{ip, Addr}]),
+    {ok, Port}   = inet:port(L),
+    {ok, Client} = gen_tcp:connect(Addr, Port,
                                    ?INET_BACKEND_OPTS(Config) ++
-                                       [{active, false}]),
-    {ok, _A} = gen_tcp:accept(L),
+                                       [{ip, Addr}, {active, false}]),
+    {ok, _A}     = gen_tcp:accept(L),
     timeout({gen_tcp, recv, [Client, 0, 200]}, 0.2, 5.0).
 
 %% Test that end of file on a socket is reported correctly.
 t_recv_eof(Config) when is_list(Config) ->
-    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
-    {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            skip(Reason)
+                    end
+           end,
+    TC   = fun(Addr) -> do_recv_eof(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_recv_eof(Config, Addr) ->
+    {ok, L}      = gen_tcp:listen(0,
+				  ?INET_BACKEND_OPTS(Config) ++ [{ip, Addr}]),
+    {ok, Port}   = inet:port(L),
+    {ok, Client} = gen_tcp:connect(Addr, Port,
                                    ?INET_BACKEND_OPTS(Config) ++
-                                       [{active, false}]),
-    {ok, A} = gen_tcp:accept(L),
-    ok = gen_tcp:close(A),
+                                       [{ip, Addr}, {active, false}]),
+    {ok, A}         = gen_tcp:accept(L),
+    ok              = gen_tcp:close(A),
     {error, closed} = gen_tcp:recv(Client, 0),
     ok.
 
 %% Test using message delimiter $X.
 t_recv_delim(Config) when is_list(Config) ->
-    ?TC_TRY(t_recv_delim, fun() -> do_recv_delim(Config) end).
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            skip(Reason)
+                    end
+           end,
+    TC   = fun(Addr) -> do_recv_delim(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
 
-do_recv_delim(Config) ->
-    ?P("init"),
-    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
+do_recv_delim(Config, Addr) ->
+    ?P("create listen socket"),
+    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{ip, Addr}]),
     {ok, Port} = inet:port(L),
     Opts = ?INET_BACKEND_OPTS(Config) ++
-        [{active,false}, {packet,line}, {line_delimiter,$X}],
-    {ok, Client} = gen_tcp:connect(localhost, Port, Opts),
+        [{ip, Addr}, {active,false}, {packet,line}, {line_delimiter,$X}],
+    {ok, Client} = gen_tcp:connect(Addr, Port, Opts),
     {ok, A} = gen_tcp:accept(L),
 
     ?P("send the data"),
@@ -441,13 +510,28 @@ do_recv_delim(Config) ->
 %%% gen_tcp:shutdown/2
 
 t_shutdown_write(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            skip(Reason)
+                    end
+           end,
+    TC   = fun(Addr) -> do_shutdown_write(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_shutdown_write(Config, Addr) ->
     ?P("create listen socket"),
-    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
+    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++
+				 [{ip, Addr}]),
     {ok, Port} = inet:port(L),
     ?P("create connect socket (C)"),
-    {ok, C} = gen_tcp:connect(localhost, Port,
+    {ok, C} = gen_tcp:connect(Addr, Port,
                               ?INET_BACKEND_OPTS(Config) ++
-                                  [{active, false}]),
+                                  [{ip, Addr}, {active, false}]),
     ?P("create accept socket (A)"),
     {ok, A} = gen_tcp:accept(L),
     ?P("send message A -> C"),
@@ -462,13 +546,28 @@ t_shutdown_write(Config) when is_list(Config) ->
     ok.
 
 t_shutdown_both(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            skip(Reason)
+                    end
+           end,
+    TC   = fun(Addr) -> do_shutdown_both(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_shutdown_both(Config, Addr) ->
     ?P("create listen socket"),
-    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
+    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++
+				 [{ip, Addr}]),
     {ok, Port} = inet:port(L),
     ?P("create connect socket (C)"),
-    {ok, C} = gen_tcp:connect(localhost, Port,
+    {ok, C} = gen_tcp:connect(Addr, Port,
                               ?INET_BACKEND_OPTS(Config) ++
-                                  [{active, false}]),
+                                  [{ip, Addr}, {active, false}]),
     ?P("create accept socket (A)"),
     {ok, A} = gen_tcp:accept(L),
     ?P("send message A -> C"),
@@ -483,11 +582,22 @@ t_shutdown_both(Config) when is_list(Config) ->
     ok.
 
 t_shutdown_error(Config) when is_list(Config) ->
-    ?TC_TRY(t_shutdown_error, fun() -> do_shutdown_error(Config) end).
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            skip(Reason)
+                    end
+           end,
+    TC = fun(Addr) -> do_shutdown_error(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	   Cond, Pre, TC, Post).
 
-do_shutdown_error(Config) ->
+do_shutdown_error(Config, Addr) ->
     ?P("create listen socket"),
-    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
+    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{ip, Addr}]),
     ?P("shutdown socket (with How = read_write)"),
     {error, enotconn} = gen_tcp:shutdown(L, read_write),
     ?P("close socket"),
@@ -498,26 +608,39 @@ do_shutdown_error(Config) ->
     ok.
 
 t_shutdown_async(Config) when is_list(Config) ->
-    ?TC_TRY(t_shutdown_async, fun() -> do_shutdown_async(Config) end).
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            skip(Reason)
+                    end
+           end,
+    TC = fun(Addr) -> do_shutdown_async(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	   Cond, Pre, TC, Post).
 
-do_shutdown_async(Config) ->
+do_shutdown_async(Config, Addr) ->
     ?P("create listen socket"),
-    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{sndbuf, 4096}]),
+    {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++
+				 [{ip, Addr}, {sndbuf, 4096}]),
     if
         is_port(L) ->
-            do_shutdown_async2(Config, L);
+            do_shutdown_async2(Config, Addr, L);
         true ->
             (catch gen_tcp:close(L)),
             exit({skip, "inet-only testcase"})
     end.
 
-do_shutdown_async2(Config, L) ->
+do_shutdown_async2(Config, Addr, L) ->
     {OS, _} = os:type(),
     {ok, Port} = inet:port(L),
     ?P("connect"),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
+    {ok, Client} = gen_tcp:connect(Addr, Port,
 				   ?INET_BACKEND_OPTS(Config) ++
-                                       [{recbuf, 4096},
+                                       [{ip, Addr},
+					{recbuf, 4096},
                                         {active, false}]),
     ?P("accept connection"),
     {ok, S} = gen_tcp:accept(L),
@@ -554,17 +677,33 @@ do_shutdown_async2(Config, L) ->
 %%% gen_tcp:fdopen/2
 
 t_fdopen(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            skip(Reason)
+                    end
+           end,
+    TC   = fun(Addr) -> do_fdopen(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_fdopen(Config, Addr) ->
     Question  = "Aaaa... Long time ago in a small town in Germany,",
     Question1 = list_to_binary(Question),
     Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
 		 ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
     Question1 = iolist_to_binary(Question2),
     Answer    = "there was a shoemaker, Schumacher was his name.",
-    {ok, L}      = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{active, false}]),
+    {ok, L}      = gen_tcp:listen(0,
+				  ?INET_BACKEND_OPTS(Config) ++
+				      [{ip, Addr}, {active, false}]),
     {ok, Port}   = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
+    {ok, Client} = gen_tcp:connect(Addr, Port,
                                    ?INET_BACKEND_OPTS(Config) ++
-                                       [{active, false}]),
+                                       [{ip, Addr}, {active, false}]),
     {A, FD} = case gen_tcp:accept(L) of
                   {ok, ASock} when is_port(ASock) ->
                       {ok, FileDesc} = prim_inet:getfd(ASock),
@@ -577,7 +716,17 @@ t_fdopen(Config) when is_list(Config) ->
     ?P("fdopen -> accepted: "
        "~n   A:  ~p"
        "~n   FD: ~p", [A, FD]),
-    {ok, Server}    = gen_tcp:fdopen(FD, ?INET_BACKEND_OPTS(Config)),
+    {ok, Server}    = try gen_tcp:fdopen(FD, ?INET_BACKEND_OPTS(Config)) of
+			  {ok, _} = OK ->
+			      OK;
+			  {error, notsup = R} ->
+			      %% This is not supported for 'socket on Windows'
+			      skip({fdopen, R})
+		      catch
+			  throw:{error, notsup = R} ->
+			      %% This is not supported for 'socket on Windows'
+			      skip({fdopen, R})
+		      end,
     ok              = gen_tcp:send(Client, Question),
     {ok, Question}  = gen_tcp:recv(Server, length(Question), 2000),
     ok              = gen_tcp:send(Client, Question1),
@@ -1358,20 +1507,30 @@ do_simple_sockaddr_send_recv(SockAddr, _) ->
 %% Note that since 'socket' currently does not work on windows
 %% we have to skip on that platform.
 s_accept_with_explicit_socket_backend(Config) when is_list(Config) ->
-    ?TC_TRY(s_accept_with_explicit_socket_backend,
-            fun() ->
-                    is_socket_supported()
-            end,
-            fun() -> do_s_accept_with_explicit_socket_backend() end).
+    Cond = fun() ->
+		   is_socket_supported()
+	   end,
+    Pre  = fun() ->
+		   case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+		       {error, Reason} ->
+			   skip(Reason)
+                    end
+	   end,
+    TC   = fun(Addr) -> do_s_accept_with_explicit_socket_backend(Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
 
-do_s_accept_with_explicit_socket_backend() ->
+do_s_accept_with_explicit_socket_backend(Addr) ->
     ?P("try create listen socket"),
-    {ok, S}         = gen_tcp:listen(0, [{inet_backend, socket}]),
+    {ok, S}         = gen_tcp:listen(0, [{inet_backend, socket}, {ip, Addr}]),
     ?P("try get port number (via sockname)"),
     {ok, {_, Port}} = inet:sockname(S),
     ClientF = fun() ->
                       ?P("[client] try connect (tp ~p)", [Port]),
-		      {ok, _} = gen_tcp:connect("localhost", Port, []),
+		      {ok, _} = gen_tcp:connect(Addr, Port, [{ip, Addr}]),
                       ?P("[client] connected - wait for termination command"),
 		      receive
                           die ->
@@ -1394,11 +1553,7 @@ do_s_accept_with_explicit_socket_backend() ->
 
 is_socket_supported() ->
     try socket:info() of
-	#{io_backend := #{name := BackendName}}
-          when (BackendName =/= win_esaio) ->
-            ok;
-        _ ->
-            {skip, "Temporary exclusion"}
+        _ -> ok
     catch
         error : notsup ->
             {skip, "esock not supported"};

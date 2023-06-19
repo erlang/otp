@@ -58,7 +58,7 @@
 
 -define(HAS_SUPPORT_IPV4(),      ?LIB:has_support_ipv4()).
 -define(HAS_SUPPORT_IPV6(),      ?LIB:has_support_ipv6()).
--define(WHICH_LOCAL_ADDR(__D__), ?LIB:which_local_addr(__D__)).
+-define(WHICH_LOCAL_ADDR(D),     ?LIB:which_local_addr((D))).
 
 -define(START_NODE(__N__, __A__),
         ?LIB:start_node(__N__, __A__)).

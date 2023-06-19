@@ -93,6 +93,7 @@
               completion_info/0,
 
               invalid/0,
+              eei/0,
 
               socket_counters/0,
               socket_info/0,
@@ -155,13 +156,20 @@
 
 %% We need #file_descriptor{} for sendfile/2,3,4,5
 -include("file_int.hrl").
+%% -include("socket_int.hrl").
 
-%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%% -define(DBG(T),
+%%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
 
 -type invalid() :: {invalid, What :: term()}.
+
+%% Extended Error Information
+-type eei() :: #{info := econnreset | econnaborted |
+                 netname_deleted | too_many_cmds | atom(),
+                 raw_info := term()}.
 
 -type info() ::
         #{counters     := #{atom() := non_neg_integer()},
@@ -1933,7 +1941,8 @@ send(Socket, Data) ->
       RestData       :: binary(),
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid();
+      Reason         :: posix() | 'closed' | invalid() |
+                        netname_deleted | too_many_cmds | eei();
 
           (Socket, Data, Handle :: select_handle() | completion_handle()) ->
                   'ok' |
@@ -1948,7 +1957,8 @@ send(Socket, Data) ->
       RestData       :: binary(),
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid();
+      Reason         :: posix() | 'closed' | invalid() |
+                        netname_deleted | too_many_cmds | eei();
 
           (Socket, Data, Timeout :: 'infinity') ->
                   'ok' |
@@ -1959,7 +1969,8 @@ send(Socket, Data) ->
       Socket     :: socket(),
       Data       :: iodata(),
       RestData   :: binary(),
-      Reason     :: posix() | 'closed' | invalid();
+      Reason     :: posix() | 'closed' | invalid() |
+                    netname_deleted | too_many_cmds | eei();
 
           (Socket, Data, Timeout :: non_neg_integer()) ->
                   'ok' |
@@ -1970,7 +1981,8 @@ send(Socket, Data) ->
       Socket     :: socket(),
       Data       :: iodata(),
       RestData   :: binary(),
-      Reason     :: posix() | 'closed' | invalid().
+      Reason     :: posix() | 'closed' | invalid() |
+                    netname_deleted | too_many_cmds | eei().
 
 send(Socket, Data, Flags_Cont)
   when is_list(Flags_Cont);
@@ -1994,7 +2006,8 @@ send(Socket, Data, Timeout) ->
       RestData       :: binary(),
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid();
+      Reason         :: posix() | 'closed' | invalid() |
+                        netname_deleted | too_many_cmds | eei();
 
           (Socket, Data, Flags, Handle :: select_handle() | completion_handle()) ->
                   'ok' |
@@ -2010,7 +2023,8 @@ send(Socket, Data, Timeout) ->
       RestData       :: binary(),
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid();
+      Reason         :: posix() | 'closed' | invalid() |
+                        netname_deleted | too_many_cmds | eei();
 
           (Socket, Data, Flags, Timeout :: 'infinity') ->
                   'ok' |
@@ -2022,7 +2036,8 @@ send(Socket, Data, Timeout) ->
       Data       :: iodata(),
       Flags      :: [msg_flag() | integer()],
       RestData   :: binary(),
-      Reason     :: posix() | 'closed' | invalid();
+      Reason     :: posix() | 'closed' | invalid() |
+                    netname_deleted | too_many_cmds | eei();
 
           (Socket, Data, Flags, Timeout :: non_neg_integer()) ->
                   'ok' |
@@ -2034,7 +2049,8 @@ send(Socket, Data, Timeout) ->
       Data       :: iodata(),
       Flags      :: [msg_flag() | integer()],
       RestData   :: binary(),
-      Reason     :: posix() | 'closed' | invalid();
+      Reason     :: posix() | 'closed' | invalid() |
+                    netname_deleted | too_many_cmds | eei();
 
           (Socket, Data, Cont, SelectHandle :: 'nowait') ->
                   'ok' |
@@ -2222,6 +2238,7 @@ send_common_deadline_result(
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     send_common_error(Reason, Data, false)
             after Timeout ->
+		    %% ?DBG(['completion send timeout - cancel']),
                     _ = cancel(SockRef, Op, Handle),
                     send_common_error(timeout, Data, false)
             end;
@@ -4602,11 +4619,12 @@ cancel(SockRef, Op, Handle) ->
             _ = flush_abort_msg(SockRef, Handle),
             invalid;
         Result ->
-            %% Since we do not actually if we are using
+            %% Since we do not actually know if we are using
             %% select or completion here, so flush both...
             _ = flush_select_msg(SockRef, Handle),
             _ = flush_completion_msg(SockRef, Handle),
             _ = flush_abort_msg(SockRef, Handle),
+	    %% ?DBG([{op, Op}, {result, Result}]),
             Result
     end.
 

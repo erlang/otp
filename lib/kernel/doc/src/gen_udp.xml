@@ -69,6 +69,15 @@
 	    is currently <em>ignored</em>.
 	  </p>
 	</item>
+
+	<item>
+	  <p>Windows require sockets (domain = <c>inet | inet6</c>)
+	  to be bound.</p>
+	  <p><em>Currently</em> all sockets created on Windows with
+	  <c>inet_backend = socket</c> will be bound.
+	  If the user does not provide an address, gen_udp will try to
+	  'figure out' an address itself. </p>
+	</item>
       </list>
     </note>
 
