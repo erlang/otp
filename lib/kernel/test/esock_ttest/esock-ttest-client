@@ -3,7 +3,7 @@
 # 
 #  %CopyrightBegin%
 #  
-#  Copyright Ericsson AB 2019-2021. All Rights Reserved.
+#  Copyright Ericsson AB 2019-2023. All Rights Reserved.
 #  
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,10 +24,13 @@
 # This is just a simple convenience wrapper to the esock-ttest.
 # That means that there are some options not available here.
 #
+# Example:
+# Assuming your pwd is $ERL_TOP
+# (cd lib/kernel/test && ./esock_ttest/esock-ttest-client 1 1.2.3.4 11111)
 
-EMU=$ERL_TOP/erts/emulator
-EMU_TEST=$EMU/test
-ESOCK_TTEST=$EMU_TEST/esock_ttest
+KERNEL=$ERL_TOP/lib/kernel
+KERNEL_TEST=$KERNEL/test
+ESOCK_TTEST=$KERNEL_TEST/esock_ttest
 
 RUNTIME=30
 # RUNTIME=60
@@ -41,6 +44,9 @@ if [ $# = 3 ]; then
        gen  false $MSGID
        gen  true  $MSGID
        gen  once  $MSGID
+       gs   false $MSGID
+       gs   true  $MSGID
+       gs   once  $MSGID
        sock false $MSGID --async
        sock true  $MSGID --async
        sock once  $MSGID --async"
@@ -70,6 +76,9 @@ fi
 #   gen  false  $MSGID
 #   gen  true   $MSGID
 #   gen  once   $MSGID
+#   gs   false  $MSGID
+#   gs   true   $MSGID
+#   gs   once   $MSGID
 #   sock false  $MSGID
 #   sock true   $MSGID
 #   sock once   $MSGID"
@@ -88,5 +97,3 @@ echo "$ITERATIONS" |
       echo ""
 
   done
-
-
