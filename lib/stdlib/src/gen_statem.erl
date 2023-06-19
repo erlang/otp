@@ -127,6 +127,13 @@
 
 -type callback_mode_result() ::
 	callback_mode() | [callback_mode() | state_enter()].
+
+-type handle_event_enter_fun() :: fun(('enter', OldState :: state(), CurrentState, data()) ->
+    state_enter_result(CurrentState)).
+-type handle_event_event_fun() :: fun((event_type(), event_content(), state(), data()) ->
+    event_handler_result(state())).
+-type handle_event_fun() :: handle_event_enter_fun() | handle_event_event_fun().
+-type callback_mode_internal() :: 'state_functions' | {'handle_event_function', handle_event_fun()}.
 -type callback_mode() :: 'state_functions' | 'handle_event_function'.
 -type state_enter() :: 'state_enter'.
 
@@ -415,13 +422,13 @@
 %% - return true if the value is of the type, false otherwise
 -compile(
    {inline,
-    [callback_mode/1, state_enter/1,
+    [callback_mode_internal/2, state_enter/1,
      event_type/1, from/1, timeout_event_type/1]}).
 %%
-callback_mode(CallbackMode) ->
+callback_mode_internal(CallbackMode, CallbackModule) ->
     case CallbackMode of
-	state_functions -> true;
-	handle_event_function -> true;
+	state_functions -> {true, state_functions};
+	handle_event_function -> {true, {handle_event_function, fun CallbackModule:handle_event/4}};
 	_ -> false
     end.
 %%
@@ -492,7 +499,7 @@ event_type(Type) ->
     end).
 
 -record(params,
-        {callback_mode = state_functions :: callback_mode(),
+        {callback_mode = state_functions :: callback_mode_internal(),
          state_enter = false :: boolean(),
          parent :: pid(),
          modules = [?MODULE] :: nonempty_list(module()),
@@ -1375,8 +1382,8 @@ loop_state_callback(
 	case CallbackMode of
 	    state_functions ->
 		Module:State(Type, Content, Data);
-	    handle_event_function ->
-		Module:handle_event(Type, Content, State, Data)
+            {handle_event_function, HandleEvent} ->
+		HandleEvent(Type, Content, State, Data)
 	end
     of
 	Result ->
@@ -2471,19 +2478,19 @@ callback_mode_result(P, Modules, CallbackModeResult) ->
       listify(CallbackModeResult), undefined, false).
 %%
 callback_mode_result(
-  P, Modules, CallbackModeResult,
-  [H|T], CallbackMode, StateEnter) ->
-    case callback_mode(H) of
-        true ->
+  P, [Module | _] = Modules, CallbackModeResult,
+  [H|T], CurrentCallbackMode, StateEnter) ->
+    case callback_mode_internal(H, Module) of
+        {true, InternalCallbackMode} ->
             callback_mode_result(
               P, Modules, CallbackModeResult,
-              T, H, StateEnter);
+              T, InternalCallbackMode, StateEnter);
         false ->
             case state_enter(H) of
                 true ->
                     callback_mode_result(
                       P, Modules, CallbackModeResult,
-                      T, CallbackMode, true);
+                      T, CurrentCallbackMode, true);
                 false ->
                     {error,
                      {bad_return_from_callback_mode, CallbackModeResult},
@@ -2492,16 +2499,16 @@ callback_mode_result(
     end;
 callback_mode_result(
   P, Modules, CallbackModeResult,
-  [], CallbackMode, StateEnter) ->
+  [], CurrentCallbackMode, StateEnter) ->
     if
-        CallbackMode =:= undefined ->
+        CurrentCallbackMode =:= undefined ->
             {error,
              {bad_return_from_callback_mode, CallbackModeResult},
              ?STACKTRACE()};
         true ->
             P#params{
               modules = Modules,
-              callback_mode = CallbackMode,
+              callback_mode = CurrentCallbackMode,
               state_enter = StateEnter}
     end.
 
