@@ -3360,6 +3360,11 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #endif
     } else if (ERTS_IS_ATOM_STR("system_logger", BIF_ARG_1)) {
         BIF_RET(erts_get_system_logger());
+    } else if (ERTS_IS_ATOM_STR("max_integer", BIF_ARG_1)) {
+        Eterm *hp = HAlloc(BIF_P, BIG_ARITY_MAX+1);
+        hp[0] = make_pos_bignum_header(BIG_ARITY_MAX);
+        sys_memset(hp + 1, 0xff, BIG_ARITY_MAX*sizeof(Eterm));
+        BIF_RET(make_big(hp));
     }
 
     BIF_ERROR(BIF_P, BADARG);

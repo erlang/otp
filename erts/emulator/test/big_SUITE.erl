@@ -376,9 +376,7 @@ system_limit(Config) when is_list(Config) ->
     ok.
 
 maxbig() ->
-    %% We assume that the maximum arity is (1 bsl 19) - 1.
-    Ws = erlang:system_info(wordsize),
-    (((1 bsl ((16777184 * (Ws div 4))-1)) - 1) bsl 1) + 1.
+    erlang:system_info(max_integer).
 
 toobig(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,_},_}} = (catch toobig()),
