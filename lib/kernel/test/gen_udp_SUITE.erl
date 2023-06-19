@@ -237,28 +237,47 @@ init_per_group(inet_backend_socket = _GroupName, Config) ->
         false ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
-init_per_group(local, Config) ->
-    ?P("init_per_group(local) -> do we support 'local'"),
-    try socket:info() of
-        #{} ->
-            case socket:is_supported(local) of
+init_per_group(local, Config) -> 
+    ?P("init_per_group(local) -> "
+       "is socket supported and is inet-backend = socket ?"),
+    case ?LIB:is_socket_supported() andalso ?IS_SOCKET_BACKEND(Config) of
+        true ->
+            ?P("init_per_group(local) -> [socket] do we support 'local'?"),
+            case ?LIB:has_support_unix_domain_socket() of
                 true ->
-                    Config;
+                    ?P("init_per_group(local) -> [socket] which platform?"),
+                    case os:type() of
+                        {win32, _} ->
+                            %% AF_LOCAL (AF_UNIX) is *not* (yet) supported
+                            %% for DGRAM (UDP) 
+                            ?P("init_per_group(local) -> "
+                               "[socket,win32] 'local' not (currently) "
+                               "supported for DGRAM on windows"),
+                            {skip, "AF_LOCAL not supported"};
+                        {OSF, _} ->
+                            ?P("init_per_group(local) -> "
+                               "[socket,~w] we support (DGRAM) 'local'!",
+                               [OSF]),
+                            Config
+                    end;
                 false ->
                     {skip, "AF_LOCAL not supported"}
-            end
-    catch
-        _ : _ ->
+            end;
+        false ->
+            ?P("init_per_group(local) -> [inet] do we support 'local'?"),
             case ?OPEN(Config, 0, [local]) of
                 {ok,S} ->
-                    ?P("init_per_group(local) -> we support 'local'"),
+                    ?P("init_per_group(local) -> "
+                       "[inet] we support (DGRAM) 'local'!"),
                     ok = gen_udp:close(S),
                     Config;
                 {error, eafnosupport} ->
-                    ?P("init_per_group(local) -> we *do not* support 'local'"),
+                    ?P("init_per_group(local) -> "
+                       "[inet] we *do not* support 'local'"),
                     {skip, "AF_LOCAL not supported"};
                 {error, {invalid, {domain, local}}} ->
-                    ?P("init_per_group(local) -> we *do not* support 'local'"),
+                    ?P("init_per_group(local) -> "
+                       "[inet] we *do not* support 'local'"),
                     {skip, "AF_LOCAL not supported"}
             end
     end;

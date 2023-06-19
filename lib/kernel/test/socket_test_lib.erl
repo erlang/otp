@@ -44,6 +44,7 @@
          has_support_ipv4/0,
          has_support_ipv6/0,
 
+	 mk_unique_path/0,
          which_local_host_info/1,
          which_local_addr/1,
 
@@ -207,6 +208,50 @@ has_support_ipv6() ->
             skip("Not supported: socket")
     end.
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+mk_unique_path() ->
+    {OSF, _} = os:type(),
+    mk_unique_path(OSF).
+       
+mk_unique_path(win32) ->
+    [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
+    Path = f("esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]),
+    ensure_unique_path(Path, ".sock");
+mk_unique_path(_) ->
+    [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
+    Path = f("/tmp/esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]),
+    ensure_unique_path(Path, "").
+
+ensure_unique_path(Path, Ext) ->
+    NewPath = Path ++ Ext,
+    case file:read_file_info(NewPath) of
+        {ok, _} -> % Ouch, append a unique ID and try again
+            ensure_unique_path(Path, Ext, 1);
+        {error, _} ->
+            %% We assume this means it does not exist yet...
+            %% If we have several process in parallel trying to create
+            %% (unique) path's, then we are in trouble. To *really* be
+            %% on the safe side we should have a (central) path registry...
+            encode_path(NewPath)
+    end.
+
+ensure_unique_path(Path, Ext, ID) when (ID < 100) -> % If this is not enough...
+    NewPath = f("~s_~w", [Path, ID]) ++ Ext,
+    case file:read_file_info(NewPath) of
+        {ok, _} -> % Ouch, this also existed, increment and try again
+            ensure_unique_path(Path, Ext, ID + 1);
+        {error, _} -> % We assume this means it does not exist yet...
+            encode_path(NewPath)
+    end;
+ensure_unique_path(_, _, _) -> 
+    skip("Could not create unique path").
+
+encode_path(Path) ->
+    unicode:characters_to_binary(Path, file:native_name_encoding()).
+            
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
