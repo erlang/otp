@@ -2314,6 +2314,9 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(eei);              \
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
+    LOCAL_ATOM_DECL(fionread);         \
+    LOCAL_ATOM_DECL(fionspace);        \
+    LOCAL_ATOM_DECL(fionwrite);        \
     LOCAL_ATOM_DECL(frag_needed);      \
     LOCAL_ATOM_DECL(gifaddr);          \
     LOCAL_ATOM_DECL(gifbrdaddr);       \
@@ -4789,7 +4792,6 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 }
 
 
-
 static
 ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 {
@@ -4798,6 +4800,22 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
   requests = MKEL(env);
 
   /* --- GET REQUESTS --- */
+#if defined(SIOCGIFCONF)
+  requests = MKC(env, MKT2(env, atom_gifconf, MKUL(env, SIOCGIFCONF)), requests);
+#endif
+
+#if defined(FIONREAD)
+  requests = MKC(env, MKT2(env, atom_fionread, MKUL(env, FIONREAD)), requests);
+#endif
+
+#if defined(FIONWRITE)
+  requests = MKC(env, MKT2(env, atom_fionwrite, MKUL(env, FIONWRITE)), requests);
+#endif
+
+#if defined(FIONSPACE)
+  requests = MKC(env, MKT2(env, atom_fionspace, MKUL(env, FIONSPACE)), requests);
+#endif
+
 #if defined(SIOCGIFNAME)
   requests = MKC(env, MKT2(env, atom_gifname, MKUL(env, SIOCGIFNAME)), requests);
 #endif
@@ -4840,10 +4858,6 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCGIFTXQLEN)
   requests = MKC(env, MKT2(env, atom_giftxqlen, MKUL(env, SIOCGIFTXQLEN)), requests);
-#endif
-
-#if defined(SIOCGIFCONF)
-  requests = MKC(env, MKT2(env, atom_gifconf, MKUL(env, SIOCGIFCONF)), requests);
 #endif
 
   /* --- SET REQUESTS --- */
@@ -13581,7 +13595,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.getopt_native  = esock_getopt_native;
     io_backend.getopt_otp     = esock_getopt_otp;
 
-    io_backend.ioctl_2        = NULL;
+    io_backend.ioctl_2        = esaio_ioctl2;
     io_backend.ioctl_3        = NULL;
     io_backend.ioctl_4        = NULL;
 

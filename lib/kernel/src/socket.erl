@@ -4426,10 +4426,20 @@ peername(Socket) ->
       Socket     :: socket(),
       GetRequest :: 'gifconf',
       IFConf     :: [#{name := string, addr := sockaddr()}],
+      Reason     :: posix() | 'closed';
+           (Socket, GetRequest) -> {'ok', NumBytes} | {'error', Reason} when
+      Socket     :: socket(),
+      GetRequest :: 'fionread' | 'fionwrite' | 'fionspace',
+      NumBytes   :: non_neg_integer(),
       Reason     :: posix() | 'closed'.
 
-%% gifconf | {gifaddr, string()} | {gifindex, string()} | {gifname, integer()}
+%% gifconf | fionread | fionwrite | fionspace |
+%% {gifaddr, string()} | {gifindex, string()} | {gifname, integer()}
 ioctl(?socket(SockRef), gifconf = GetRequest) ->
+    prim_socket:ioctl(SockRef, GetRequest);
+ioctl(?socket(SockRef), GetRequest) when (fionread =:= GetRequest) orelse
+                                         (fionwrite =:= GetRequest) orelse
+                                         (fionspace =:= GetRequest) ->
     prim_socket:ioctl(SockRef, GetRequest);
 ioctl(Socket, GetRequest) ->
     erlang:error(badarg, [Socket, GetRequest]).
