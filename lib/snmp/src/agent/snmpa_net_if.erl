@@ -829,9 +829,12 @@ handle_udp_error(S, #transport{socket = Socket,
     try inet:sockname(Socket) of
         {ok, {IP, Port}} ->
             error_msg("UDP Error for transport: "
-                      "~n      Socket: ~p (~p, ~p)"
+                      "~n      Socket: ~s"
+                      "~n         Addr: ~p"
+                      "~n         Port: ~p"
                       "~n      Kind:   ~p"
-                      "~n      Error:  ~p", [Socket, IP, Port, Kind, Error]);
+                      "~n      Error:  ~p",
+		      [inet:socket_to_list(Socket), IP, Port, Kind, Error]);
         {error, _} ->
             error_msg("UDP Error for transport: "
                       "~n      Socket: ~p"
@@ -2017,6 +2020,21 @@ socket_opts(Domain, {IpAddr, PortInfo}, SocketOpts, DefaultOpts) ->
             "~n      SocketOpts:  ~p"
             "~n      DefaultOpts: ~p",
             [Domain, IpAddr, PortInfo, SocketOpts, DefaultOpts]),
+    {RequireBind, InetBackend} =
+        case get_inet_backend(SocketOpts, DefaultOpts) of
+            use_default ->
+                {false, []};
+            Backend when (Backend =:= inet) ->
+                {false, [{inet_backend, Backend}]};
+            Backend when (Backend =:= socket) ->
+		{case os:type() of
+		     {win32, nt} ->
+			 true;
+		     _ ->
+			 false
+		 end,
+		 [{inet_backend, Backend}]}
+        end,
     Opts =
         [binary |
          case snmp_conf:tdomain_to_family(Domain) of
@@ -2025,7 +2043,8 @@ socket_opts(Domain, {IpAddr, PortInfo}, SocketOpts, DefaultOpts) ->
              Family ->
                  [Family]
          end ++
-         case get_bind_to_ip_address(SocketOpts, DefaultOpts) of
+         case RequireBind orelse
+	     get_bind_to_ip_address(SocketOpts, DefaultOpts) of
              true ->
                  [{ip, IpAddr}];
              _ ->
@@ -2057,13 +2076,6 @@ socket_opts(Domain, {IpAddr, PortInfo}, SocketOpts, DefaultOpts) ->
                 error_msg("Invalid 'extra socket options' (=> ignored):"
                           "~n   ~p", [BadESO]),
                 []
-        end,
-    InetBackend =
-        case get_inet_backend(SocketOpts, DefaultOpts) of
-            use_default ->
-                [];
-            Backend when (Backend =:= inet) orelse (Backend =:= socket) ->
-                [{inet_backend, Backend}]
         end,
     %% <EPHEMERAL-FOR-FUTUR-USE>
     %% Ephm = get_ephemeral(SocketOpts),
