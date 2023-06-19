@@ -451,6 +451,15 @@
          ttest_sgenf_csockt_large_tcp4/1,
          ttest_sgenf_csockt_large_tcp6/1,
 
+         %% Server: transport = gen_tcp(socket), active = false
+         %% Client: transport = socket(tcp)
+         ttest_sgsf_csockf_small_tcp4/1,
+         ttest_sgsf_csockf_small_tcp6/1,
+         ttest_sgsf_csockf_medium_tcp4/1,
+         ttest_sgsf_csockf_medium_tcp6/1,
+         ttest_sgsf_csockf_large_tcp4/1,
+         ttest_sgsf_csockf_large_tcp6/1,
+
          %% Server: transport = gen_tcp, active = once
          %% Client: transport = gen_tcp
          ttest_sgeno_cgenf_small_tcp4/1,
@@ -565,6 +574,15 @@
          ttest_ssockf_cgent_medium_tcp6/1,
          ttest_ssockf_cgent_large_tcp4/1,
          ttest_ssockf_cgent_large_tcp6/1,
+
+         %% Server: transport = socket(tcp), active = false
+         %% Client: transport = gen_tcp(socket)
+         ttest_ssockf_cgsf_small_tcp4/1,
+         ttest_ssockf_cgsf_small_tcp6/1,
+         ttest_ssockf_cgsf_medium_tcp4/1,
+         ttest_ssockf_cgsf_medium_tcp6/1,
+         ttest_ssockf_cgsf_large_tcp4/1,
+         ttest_ssockf_cgsf_large_tcp6/1,
 
          %% Server: transport = socket(tcp), active = false
          %% Client: transport = socket(tcp)
@@ -877,6 +895,9 @@ groups() ->
      {ttest_sgenf_csockf,          [], ttest_sgenf_csockf_cases()},
      {ttest_sgenf_csocko,          [], ttest_sgenf_csocko_cases()},
      {ttest_sgenf_csockt,          [], ttest_sgenf_csockt_cases()},
+     {ttest_sgsf,                  [], ttest_sgsf_cases()},
+     {ttest_sgsf_csock,            [], ttest_sgsf_csock_cases()},
+     {ttest_sgsf_csockf,           [], ttest_sgsf_csockf_cases()},
      {ttest_sgeno,                 [], ttest_sgeno_cases()},
      {ttest_sgeno_cgen,            [], ttest_sgeno_cgen_cases()},
      {ttest_sgeno_cgenf,           [], ttest_sgeno_cgenf_cases()},
@@ -900,6 +921,8 @@ groups() ->
      {ttest_ssockf_cgenf,          [], ttest_ssockf_cgenf_cases()},
      {ttest_ssockf_cgeno,          [], ttest_ssockf_cgeno_cases()},
      {ttest_ssockf_cgent,          [], ttest_ssockf_cgent_cases()},
+     {ttest_ssockf_cgs,            [], ttest_ssockf_cgs_cases()},
+     {ttest_ssockf_cgsf,           [], ttest_ssockf_cgsf_cases()},
      {ttest_ssockf_csock,          [], ttest_ssockf_csock_cases()},
      {ttest_ssockf_csockf,         [], ttest_ssockf_csockf_cases()},
      {ttest_ssockf_csocko,         [], ttest_ssockf_csocko_cases()},
@@ -1508,6 +1531,9 @@ ttest_cases() ->
      %% Server: transport = gen_tcp, active = true
      {group, ttest_sgent},
 
+     %% Server: transport = gen_tcp(socket), active = false
+     {group, ttest_sgsf},
+
      %% Server: transport = socket(tcp), active = false
      {group, ttest_ssockf},
 
@@ -1537,6 +1563,13 @@ ttest_sgenf_cgen_cases() ->
      {group, ttest_sgenf_cgenf},
      {group, ttest_sgenf_cgeno},
      {group, ttest_sgenf_cgent}
+    ].
+
+%% Server: transport = gen_tcp(socket), active = false
+ttest_sgsf_cases() ->
+    [
+     %% {group, ttest_sgenf_cgen},
+     {group, ttest_sgsf_csock}
     ].
 
 %% Server: transport = gen_tcp, active = false
@@ -1655,6 +1688,27 @@ ttest_sgenf_csockt_cases() ->
       %% Large
      [ttest_sgenf_csockt_large_tcp4,
       ttest_sgenf_csockt_large_tcp6]).
+
+%% Server: transport = gen_tcp(socket), active = false
+%% Client: transport = socket(tcp)
+ttest_sgsf_csock_cases() ->
+    [
+     {group, ttest_sgsf_csockf}%% ,
+     %% {group, ttest_sgsf_csocko},
+     %% {group, ttest_sgsf_csockt}
+    ].
+
+ttest_sgsf_csockf_cases() ->
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgsf_csockf_small_tcp4,
+       ttest_sgsf_csockf_small_tcp6],
+      %% Medium
+      [ttest_sgsf_csockf_medium_tcp4,
+       ttest_sgsf_csockf_medium_tcp6],
+      %% Large
+      [ttest_sgsf_csockf_large_tcp4,
+       ttest_sgsf_csockf_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = once
 ttest_sgeno_cases() ->
@@ -1866,7 +1920,8 @@ ttest_sgent_csockt_cases() ->
 ttest_ssockf_cases() ->
     [
      {group, ttest_ssockf_cgen},
-     {group, ttest_ssockf_csock}
+     {group, ttest_ssockf_csock},
+     {group, ttest_ssockf_cgsf}
     ].
 
 %% Server: transport = socket(tcp), active = false
@@ -1919,6 +1974,29 @@ ttest_ssockf_cgent_cases() ->
       %% Large
       [ttest_ssockf_cgent_large_tcp4,
        ttest_ssockf_cgent_large_tcp6]).
+
+%% Server: transport = socket(tcp), active = false
+%% Client: transport = gen_tcp(socket)
+ttest_ssockf_cgs_cases() ->
+    [
+     {group, ttest_ssockf_cgsf}%% ,
+     %% {group, ttest_ssockf_cgeno},
+     %% {group, ttest_ssockf_cgent}
+    ].
+
+%% Server: transport = socket(tcp), active = false
+%% Client: transport = gen_tcp(socket), active = false
+ttest_ssockf_cgsf_cases() ->
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_cgsf_small_tcp4,
+       ttest_ssockf_cgsf_small_tcp6],
+      %% Medium
+      [ttest_ssockf_cgsf_medium_tcp4,
+       ttest_ssockf_cgsf_medium_tcp6],
+      %% Large
+      [ttest_ssockf_cgsf_large_tcp4,
+       ttest_ssockf_cgsf_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp)
@@ -43158,6 +43236,126 @@ ttest_sgenf_csockf_large_tcp6(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case uses the time test (ttest) utility to implement a 
 %% ping-pong like test case.
+%% Server:       Transport = gen_tcp(socket), Active = false
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: small (=1)
+%% Domain:       inet
+%%
+
+ttest_sgsf_csockf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet,
+              gs, false,
+              sock, false,
+              1, ttest_small_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = gen_tcp(socket), Active = false
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: small (=1)
+%% Domain:       inet6
+%% 
+
+ttest_sgsf_csockf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet6,
+              gs, false,
+              sock, false,
+              1, ttest_small_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = gen_tcp(socket), Active = false
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: medium (=2)
+%% Domain:       inet
+%%
+
+ttest_sgsf_csockf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet,
+              gs, false,
+              sock, false,
+              2, ttest_medium_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = gen_tcp(socket), Active = false
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: medium (=2)
+%% Domain:       inet6
+%% 
+
+ttest_sgsf_csockf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet6,
+              gs, false,
+              sock, false,
+              2, ttest_medium_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = gen_tcp(socket), Active = false
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: large (=3)
+%% Domain:       inet
+%%
+
+ttest_sgsf_csockf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet,
+              gs, false,
+              sock, false,
+              3, ttest_large_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = gen_tcp(socket), Active = false
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: large (=3)
+%% Domain:       inet6
+%% 
+
+ttest_sgsf_csockf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet6,
+              gs, false,
+              sock, false,
+              3, ttest_large_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
 %% Server:       Transport = gen_tcp, Active = false
 %% Client:       Transport = socket(tcp), Active = once
 %% Message Size: small (=1)
@@ -45203,6 +45401,126 @@ ttest_ssockf_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, true,
+              3, ttest_large_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = gen_tcp(socket), Active = false
+%% Message Size: small (=1)
+%% Domain:       inet
+%%
+
+ttest_ssockf_cgsf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet,
+              sock, false,
+              gs, false,
+              1, ttest_small_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = gen_tcp(socket), Active = false
+%% Message Size: small (=1)
+%% Domain:       inet6
+%% 
+
+ttest_ssockf_cgsf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet6,
+              sock, false,
+              gs, false,
+              1, ttest_small_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = gen_tcp(socket), Active = false
+%% Message Size: medium (=2)
+%% Domain:       inet
+%%
+
+ttest_ssockf_cgsf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet,
+              sock, false,
+              gs, false,
+              2, ttest_medium_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = gen_tcp(socket), Active = false
+%% Message Size: medium (=2)
+%% Domain:       inet6
+%% 
+
+ttest_ssockf_cgsf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet6,
+              sock, false,
+              gs, false,
+              2, ttest_medium_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = gen_tcp(socket), Active = false
+%% Message Size: large (=3)
+%% Domain:       inet
+%%
+
+ttest_ssockf_cgsf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet,
+              sock, false,
+              gs, false,
+              3, ttest_large_max_outstanding(Config)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = gen_tcp(socket), Active = false
+%% Message Size: large (=3)
+%% Domain:       inet6
+%% 
+
+ttest_ssockf_cgsf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(?FUNCTION_NAME,
+              Runtime,
+              inet6,
+              sock, false,
+              gs, false,
               3, ttest_large_max_outstanding(Config)).
 
 
@@ -48306,6 +48624,10 @@ ttest_tcp_server_start(Node, Domain, gen, Active) ->
     TransportMod = socket_test_ttest_tcp_gen,
     Transport    = {TransportMod, #{domain => Domain}},
     socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active);
+ttest_tcp_server_start(Node, Domain, gs, Active) ->
+    TransportMod = socket_test_ttest_tcp_gs,
+    Transport    = {TransportMod, #{domain => Domain}},
+    socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active);
 ttest_tcp_server_start(Node, Domain, sock, Active) ->
     TransportMod = socket_test_ttest_tcp_socket,
     Transport    = {TransportMod, #{domain => Domain,
@@ -48321,6 +48643,18 @@ ttest_tcp_client_start(Node,
                        Domain, gen,
                        ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     TransportMod = socket_test_ttest_tcp_gen,
+    Transport    = {TransportMod, #{domain => Domain}},    
+    socket_test_ttest_tcp_client:start_monitor(Node,
+                                               Notify,
+                                               Transport,
+                                               ServerInfo,
+                                               Active,
+                                               MsgID, MaxOutstanding, RunTime);
+ttest_tcp_client_start(Node,
+                       Notify,
+                       Domain, gs,
+                       ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
+    TransportMod = socket_test_ttest_tcp_gs,
     Transport    = {TransportMod, #{domain => Domain}},    
     socket_test_ttest_tcp_client:start_monitor(Node,
                                                Notify,
