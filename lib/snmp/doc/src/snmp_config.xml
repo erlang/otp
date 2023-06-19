@@ -287,9 +287,9 @@
 	{no_reuse,         no_reuse()} | 
 	{req_limit,        req_limit()} |
 	{filter,           agent_net_if_filter_options()} |
-	{extra_sock_opts,  extra_socket_options()} |
 	{open_err_filters, agent_net_if_open_err_filters()} |
-	{inet_backend,     inet | socket}</c></p>
+	{extra_sock_opts,  extra_socket_options()} |
+	{inet_backend,     inet_backend()}</c></p>
         <p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>agent_net_if_module()</c>.</p>
@@ -841,13 +841,13 @@ in so far as it will be converted to the new format if found.
         <c><![CDATA[manager_net_if_options() = [manager_net_if_option()] <optional>]]></c></tag>
       <item>
 	<p><c>manager_net_if_option() =
-	    {bind_to,         bind_to()}  |
-            {sndbuf,          sndbuf()}   |
-            {recbuf,          recbuf()}   |
-            {no_reuse,        no_reuse()} |
-            {filter,          manager_net_if_filter_options()} |
-	    {extra_sock_opts, extra_socket_options()} |
-	    {inet_backend,    inet | socket}</c></p>
+	{bind_to,         bind_to()}  |
+	{sndbuf,          sndbuf()}   |
+	{recbuf,          recbuf()}   |
+	{no_reuse,        no_reuse()} |
+	{filter,          manager_net_if_filter_options()} |
+	{extra_sock_opts, extra_socket_options()} |
+	{inet_backend,    inet_backend()}</c></p>
         <p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>manager_net_if_module()</c>. </p>
@@ -988,6 +988,15 @@ in so far as it will be converted to the new format if found.
 	its a list). Its the users responsibility to ensure that these
 	are valid options and does not conflict with the "normal" options. </p>
         <p>Default is <c>[]</c>.</p>
+      </item>
+
+      <tag><marker id="inet_backend"></marker>
+        <c><![CDATA[inet_backend() = inet | socket <optional>]]></c></tag>
+      <item>
+	<p>Choose the inet-backend. </p>
+	<p>This option make it possible to use net_if (gen_udp) with a
+	different inet-backend ('inet' or 'socket'). </p>
+        <p>Default is <c>inet</c>.</p>
       </item>
 
       <tag><marker id="note_store"></marker>

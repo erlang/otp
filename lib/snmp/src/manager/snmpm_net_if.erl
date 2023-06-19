@@ -292,14 +292,26 @@ do_init(Server, NoteStore) ->
     ?vdebug("DomainAddresses: ~w", [DomainAddresses]),
     CommonSocketOpts = common_socket_opts(Opts),
     BindTo = get_opt(Opts, bind_to, false),
-    InetBackend = case get_opt(Opts, inet_backend, use_default) of
-                      use_default -> [];
-                      IB          -> [{inet_backend, IB}]
-                  end,
+    {RequireBind, InetBackend} =
+	case get_opt(Opts, inet_backend, use_default) of
+	    use_default ->
+		{false, []};
+	    IB when (IB =:= inet) ->
+		{false, [{inet_backend, IB}]};
+	    IB when (IB =:= socket) ->
+		{case os:type() of
+		     {win32, nt} ->
+			 true;
+		     _ ->
+			 false
+		 end,
+		 [{inet_backend, IB}]}
+	end,
     case
 	[begin
 	     {IpPort, SocketOpts} =
-		 socket_params(Domain, Address, BindTo, CommonSocketOpts),
+		 socket_params(Domain, Address,
+			       RequireBind, BindTo, CommonSocketOpts),
              %% The 'inet-backend' option has to be first,
              %% so we might as well add it last.
 	     Socket = socket_open(IpPort, InetBackend ++ SocketOpts),
@@ -356,7 +368,8 @@ socket_open(IpPort, SocketOpts) ->
 	    Socket
     end.
 
-socket_params(Domain, {IpAddr, IpPort} = Addr, BindTo, CommonSocketOpts) ->
+socket_params(Domain, {IpAddr, IpPort} = Addr,
+	      RequireBind, BindTo, CommonSocketOpts) ->
     Family = snmp_conf:tdomain_to_family(Domain),
     SocketOpts =
 	case Family of
@@ -370,22 +383,22 @@ socket_params(Domain, {IpAddr, IpPort} = Addr, BindTo, CommonSocketOpts) ->
 	    case init:get_argument(snmpm_fd) of
 		{ok, [[FdStr]]} ->
 		    Fd = list_to_integer(FdStr),
-		    case BindTo of
+		    case RequireBind orelse BindTo of
 			true ->
 			    {IpPort, [{ip, IpAddr}, {fd, Fd} | SocketOpts]};
 			_ ->
 			    {0, [{fd, Fd} | SocketOpts]}
 		    end;
 		error ->
-		    socket_params(SocketOpts, Addr, BindTo)
+		    socket_params(SocketOpts, Addr, RequireBind, BindTo)
 	    end;
 	_ ->
-	    socket_params(SocketOpts, Addr, BindTo)
+	    socket_params(SocketOpts, Addr, RequireBind, BindTo)
     end.
 
 %%
-socket_params(SocketOpts, {IpAddr, IpPort}, BindTo) ->
-    case BindTo of
+socket_params(SocketOpts, {IpAddr, IpPort}, RequireBind, BindTo) ->
+    case RequireBind orelse BindTo of
 	true ->
 	    {IpPort, [{ip, IpAddr} | SocketOpts]};
 	_ ->
