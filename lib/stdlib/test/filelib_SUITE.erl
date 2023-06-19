@@ -840,7 +840,10 @@ safe_relative_path_links(Config) ->
                 nested_links_test(BaseDir),
                 loop_test(BaseDir),
                 loop_with_parent_test(BaseDir),
-                revist_links_test(BaseDir);
+                revist_links_test(BaseDir),
+                descend_climb_cwd_link_test(BaseDir),
+                chained_links_same_target_name_test(BaseDir),
+                ok;
             false ->
                 {skipped, "This platform/user can't create symlinks."}
         end
@@ -913,6 +916,32 @@ revist_links_test(BaseDir) ->
     "file" = filelib:safe_relative_path("x/y/z/x/y/z/file", filename:join(BaseDir, "revist_links_test")),
     "file" = filelib:safe_relative_path("x/x/y/y/file", filename:join(BaseDir, "revist_links_test")),
     "file" = filelib:safe_relative_path("x/z/y/x/./z/foo/../x/./y/file", filename:join(BaseDir, "revist_links_test")).
+
+descend_climb_cwd_link_test(BaseDir) ->
+    Dir = filename:join(BaseDir, ?FUNCTION_NAME),
+
+    ok = file:make_dir(Dir),
+    ok = file:make_dir(filename:join(Dir, "cwd")),
+
+    ok = file:make_symlink("cwd", filename:join(Dir, "cwd_link")),
+
+    "" = filelib:safe_relative_path("foo/..", filename:join(Dir, "cwd_link")),
+    "bar" = filelib:safe_relative_path("foo/../bar", filename:join(Dir, "cwd_link")),
+    "" = filelib:safe_relative_path("foo/..", filename:join(Dir, "cwd")),
+    "bar" = filelib:safe_relative_path("foo/../bar", filename:join(Dir, "cwd")).
+
+chained_links_same_target_name_test(BaseDir) ->
+    Dir = filename:join(BaseDir, ?FUNCTION_NAME),
+
+    ok = file:make_dir(Dir),
+    ok = file:make_dir(filename:join(Dir, "foo")),
+    ok = file:make_dir(filename:join(Dir, "foo/foo")),
+    ok = file:make_dir(filename:join(Dir, "foo/foo/bar")),
+
+    ok = file:make_symlink("foo/bar", filename:join(Dir, "foo/bar")),
+    ok = file:make_symlink("foo/bar", filename:join(Dir, "bar")),
+
+    "foo/foo/bar" = filelib:safe_relative_path("bar", Dir).
 
 rm_rf(Dir) ->
     case file:read_link_info(Dir) of
