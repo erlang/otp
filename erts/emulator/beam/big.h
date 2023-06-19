@@ -37,8 +37,11 @@ typedef Uint16   ErtsHalfDigit;
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint16   ErtsHalfDigit;
 
+#elif (SIZEOF_VOID_P == 8) && defined(__GNUC__) && (__GNUC__ >= 4)
+typedef __uint128_t ErtsDoubleDigit;
+#define BIG_HAVE_DOUBLE_DIGIT 1
+
 #elif (SIZEOF_VOID_P == 8)
-/* Assume 64-bit machine, does it exist 128 bit long long long ? */
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint32   ErtsHalfDigit;
 #else
