@@ -47,6 +47,8 @@
 #   -icount	Run emulator compiled for instruction counting
 #   -rr         Run emulator under "rr record"
 #               Can be combined with compile targets (like -debug) except valgrind.
+#   -rr replay|eplay [rr-replay-options]
+#               Run "rr replay" without or with emacs
 #   -nox        Unset the DISPLAY variable to disable us of X Windows
 #
 # FIXME For GDB you can also set the break point using "-break FUNCTION".
@@ -252,7 +254,7 @@ while [ $# -gt 0 ]; do
 	    cargs="$cargs -rr"
 	    run_rr=yes
             case "$1" in
-                "replay"|"ps")
+                "replay"|"eplay"|"ps")
                     ;;
                 *)
 	            skip_erlexec=yes
@@ -399,15 +401,21 @@ if [ "x$GDB" = "x" ]; then
             exec $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
         fi
     elif [ $run_rr = yes ]; then
-        if [ $1 = replay ]; then
+        if [ $1 = replay ] || [ $1 = eplay ]; then
+	    rr_cmd=$1
             shift
             cmdfile="/tmp/.cerlgdb.$$"
             echo "set \$etp_beam_executable = \"$BINDIR/$EMU_NAME\"" > $cmdfile
             if [ "$1" = "-p" ]; then
                 echo 'set $etp_rr_run_until_beam = 1' >> $cmdfile
             fi
-            cat $ROOTDIR/erts/etc/unix/etp-commands >> $cmdfile
-            exec rr replay -x $cmdfile $*
+	    echo "source $ROOTDIR/erts/etc/unix/etp-commands" >> $cmdfile
+            if [ $rr_cmd = replay ]; then
+		exec rr replay -x $cmdfile $*
+	    else
+		# eplay
+		exec emacs -eval "(progn (gdb \"rr replay -i=mi -x $cmdfile $*\"))"
+	    fi
         elif [ $1 = ps ]; then
             shift
             rr ps $* | head -1
