@@ -864,7 +864,6 @@ export_import(Config) when is_list(Config) ->
     %% warning is written when data is deleted for imported module.
     test_server:capture_start(),
     {ok,f} = cover:compile(f),
-    timer:sleep(10), % capture needs some time
     [Text3] = test_server:capture_get(),
     "WARNING: Deleting data for module f imported from" ++ _ = lists:flatten(Text3),
     test_server:capture_stop(),
