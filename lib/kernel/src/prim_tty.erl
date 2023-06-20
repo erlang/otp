@@ -115,6 +115,8 @@
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
        tgoto_nif/1, tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
 
+-export([reader_loop/6, writer_loop/2]).
+
 %% Exported in order to remove "unused function" warning
 -export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3]).
 
@@ -219,7 +221,7 @@ init(UserOptions) when is_map(UserOptions) ->
     {ok, TTY} = tty_create(),
 
     %% Initialize the locale to see if we support utf-8 or not
-    UnicodeMode =
+    UnicodeSupported =
         case setlocale(TTY) of
             primitive ->
                 lists:any(
@@ -229,6 +231,11 @@ init(UserOptions) when is_map(UserOptions) ->
             UnicodeLocale when is_boolean(UnicodeLocale) ->
                 UnicodeLocale
         end,
+    IOEncoding = application:get_env(kernel, standard_io_encoding, default),
+    UnicodeMode = if IOEncoding =:= latin1 -> false;
+                     IOEncoding =:= unicode -> true;
+                     true -> UnicodeSupported
+                  end,
     {ok, ANSI_RE_MP} = re:compile(?ANSI_REGEXP, [unicode]),
     init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options, ansi_regexp = ANSI_RE_MP }).
 init_term(State = #state{ tty = TTY, options = Options }) ->
@@ -256,7 +263,12 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
     ReaderState =
         case {maps:get(input, Options), TTYState#state.reader} of
             {true, undefined} ->
-                {ok, Reader} = proc_lib:start_link(?MODULE, reader, [[State#state.tty, self()]]),
+                DefaultReaderEncoding = if State#state.unicode -> utf8;
+                                           not State#state.unicode -> latin1
+                                        end,
+                {ok, Reader} = proc_lib:start_link(
+                                 ?MODULE, reader,
+                                 [[State#state.tty, DefaultReaderEncoding, self()]]),
                 WriterState#state{ reader = Reader };
             {true, _} ->
                 WriterState;
@@ -425,13 +437,17 @@ call(Pid, Msg) ->
             {error, Reason}
     end.
 
-reader([TTY, Parent]) ->
+reader([TTY, Encoding, Parent]) ->
     register(user_drv_reader, self()),
     ReaderRef = make_ref(),
     SignalRef = make_ref(),
+
     ok = tty_select(TTY, SignalRef, ReaderRef),
     proc_lib:init_ack({ok, {self(), ReaderRef}}),
-    FromEnc = tty_encoding(TTY),
+    FromEnc = case tty_encoding(TTY) of
+                  utf8 -> Encoding;
+                  Else -> Else
+              end,
     reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, <<>>).
 
 reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
@@ -441,20 +457,20 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
             receive
                 {EnableAlias, enable} ->
                     EnableAlias ! {EnableAlias, ok},
-                    reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc)
+                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc)
             end;
         {select, TTY, SignalRef, ready_input} ->
             {ok, Signal} = tty_read_signal(TTY, SignalRef),
             Parent ! {ReaderRef,{signal,Signal}},
-            reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {Alias, {set_unicode_state, _}} when FromEnc =:= {utf16, little} ->
             %% Ignore requests on windows when in console mode
             Alias ! {Alias, true},
-            reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {Alias, {set_unicode_state, Bool}} ->
             Alias ! {Alias, FromEnc =/= latin1},
             NewFromEnc = if Bool -> utf8; not Bool -> latin1 end,
-            reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
+            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
         {_Alias, stop} ->
             ok;
         {select, TTY, ReaderRef, ready_input} ->
@@ -470,7 +486,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                     reader_loop(TTY, Parent, SignalRef, ReaderRef, tty_encoding(TTY), Acc);
                 {ok, <<>>} ->
                     %% EAGAIN or EINTR
-                    reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
                 {ok, UtfXBytes} ->
 
                     {Bytes, NewAcc, NewFromEnc} =
@@ -485,7 +501,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                                         Alias ! {Alias, true}
                                 end,
                                 receive
-                                    {Parent, set_unicode_state, true} -> ok
+                                    {Parent, set_unicode_state, _} -> ok
                                 end,
                                 Latin1Chars = unicode:characters_to_binary(Error, latin1, utf8),
                                 {<<B/binary,Latin1Chars/binary>>, <<>>, latin1};
@@ -495,7 +511,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                                 {B, <<>>, FromEnc}
                         end,
                     Parent ! {ReaderRef, {data, Bytes}},
-                    reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, NewAcc)
+                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, NewAcc)
             end
     end.
 
@@ -517,18 +533,18 @@ write(#state{ writer = {WriterPid, _WriterRef}}, Chars, From) ->
 writer_loop(TTY, WriterRef) ->
     receive
         {write, []} ->
-            writer_loop(TTY, WriterRef);
+            ?MODULE:writer_loop(TTY, WriterRef);
         {write, Chars} ->
             _ = write_nif(TTY, Chars),
-            writer_loop(TTY, WriterRef);
+            ?MODULE:writer_loop(TTY, WriterRef);
         {write, From, []} ->
             From ! {WriterRef, ok},
-            writer_loop(TTY, WriterRef);
+            ?MODULE:writer_loop(TTY, WriterRef);
         {write, From, Chars} ->
             case write_nif(TTY, Chars) of
                 ok ->
                     From ! {WriterRef, ok},
-                    writer_loop(TTY, WriterRef);
+                    ?MODULE:writer_loop(TTY, WriterRef);
                 {error, Reason} ->
                     exit(self(), Reason)
             end
