@@ -42,16 +42,16 @@
 #include <signal.h>
 #include <locale.h>
 #ifdef HAVE_TERMCAP
-  #include <termios.h>
-  #include <curses.h>
-  #include <term.h>
+#include <termios.h>
+#include <curses.h>
+#include <term.h>
 #endif
 #ifndef __WIN32__
-  #include <unistd.h>
-  #include <sys/ioctl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 #endif
 #ifdef HAVE_SYS_UIO_H
-  #include <sys/uio.h>
+#include <sys/uio.h>
 #endif
 
 #if defined IOV_MAX
@@ -79,10 +79,15 @@ typedef struct {
 #ifdef __WIN32__
     HANDLE ofd;
     HANDLE ifd;
+    HANDLE ifdOverlapped;
     DWORD dwOriginalOutMode;
     DWORD dwOriginalInMode;
     DWORD dwOutMode;
     DWORD dwInMode;
+
+    /* Fields to handle the threaded reader */
+    OVERLAPPED overlapped;
+    ErlNifBinary overlappedBuffer;
 #else
     int ofd;       /* stdout */
     int ifd;       /* stdin */
@@ -90,9 +95,6 @@ typedef struct {
     ErlNifPid self;
     ErlNifPid reader;
     int tty;       /* if the tty is initialized */
-#ifdef THREADED_READER
-    ErlNifTid reader_tid;
-#endif
 #ifndef __WIN32__
     int signal[2]; /* Pipe used for signal (winch + cont) notifications */
 #endif
@@ -101,6 +103,15 @@ typedef struct {
     struct termios tty_rmode;
 #endif
 } TTYResource;
+
+// #define HARD_DEBUG
+#ifdef HARD_DEBUG
+static FILE *logFile = NULL;
+
+#define debug(fmt, ...) do { if (logFile) { erts_fprintf(logFile, fmt, __VA_ARGS__); fflush(logFile); } } while(0)
+#else
+#define debug(...) do { } while(0)
+#endif
 
 static ErlNifResourceType *tty_rt;
 
@@ -112,6 +123,7 @@ static ERL_NIF_TERM tty_set_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM setlocale_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_encoding_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM isprint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM wcwidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -135,6 +147,7 @@ static ErlNifFunc nif_funcs[] = {
     {"tty_select", 3, tty_select_nif},
     {"tty_window_size", 1, tty_window_size_nif},
     {"write_nif", 2, tty_write_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"tty_encoding", 1, tty_encoding_nif},
     {"read_nif", 2, tty_read_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"isprint", 1, isprint_nif},
     {"wcwidth", 1, wcwidth_nif},
@@ -156,19 +169,21 @@ static void unload(ErlNifEnv* env, void* priv_data);
 
 ERL_NIF_INIT(prim_tty, nif_funcs, load, NULL, upgrade, unload)
 
-#define ATOMS                                     \
-    ATOM_DECL(canon);                             \
-    ATOM_DECL(echo);                              \
-    ATOM_DECL(ebadf);                             \
-    ATOM_DECL(undefined);                         \
-    ATOM_DECL(error);                             \
-    ATOM_DECL(true);                              \
-    ATOM_DECL(ok);                                \
-    ATOM_DECL(input);                             \
-    ATOM_DECL(false);                             \
-    ATOM_DECL(stdin);                             \
-    ATOM_DECL(stdout);                            \
-    ATOM_DECL(stderr);                            \
+#define ATOMS                                   \
+    ATOM_DECL(canon);                           \
+    ATOM_DECL(echo);                            \
+    ATOM_DECL(ebadf);                           \
+    ATOM_DECL(undefined);                       \
+    ATOM_DECL(error);                           \
+    ATOM_DECL(true);                            \
+    ATOM_DECL(stdout);                          \
+    ATOM_DECL(ok);                              \
+    ATOM_DECL(input);                           \
+    ATOM_DECL(false);                           \
+    ATOM_DECL(stdin);                           \
+    ATOM_DECL(stdout);                          \
+    ATOM_DECL(stderr);                          \
+    ATOM_DECL(select);                          \
     ATOM_DECL(sig);
 
 
@@ -213,9 +228,6 @@ static int tty_get_fd(ErlNifEnv *env, ERL_NIF_TERM atom, int *fd) {
 
 static ERL_NIF_TERM isatty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     int fd;
-#ifdef __WIN32__
-    TTYResource *tty;
-#endif
 
     if (tty_get_fd(env, argv[0], &fd)) {
         if (isatty(fd)) {
@@ -227,18 +239,21 @@ static ERL_NIF_TERM isatty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         }
     }
 
+    return enif_make_badarg(env);
+}
+
+static ERL_NIF_TERM tty_encoding_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef __WIN32__
+    TTYResource *tty;
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
-    if (tty->tty && tty->dwInMode)
-        return atom_true;
-    else
-        return atom_false;
-#else
-    return enif_make_badarg(env);
+    if (tty->tty)
+        return enif_make_tuple2(env, enif_make_atom(env, "utf16"),
+                                enif_make_atom(env, "little"));
 #endif
-
+    return enif_make_atom(env, "utf8");
 }
+
 
 static ERL_NIF_TERM isprint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     int i;
@@ -324,6 +339,10 @@ static ERL_NIF_TERM tty_write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #else
             for (int i = 0; i < iovec->iovcnt; i++) {
                 ssize_t written;
+#ifdef HARD_DEBUG
+		for (int y = 0; y < iovec->iov[i].iov_len; y++)
+                    debug("Write %u\r\n",iovec->iov[i].iov_base[y]);
+#endif
                 BOOL r = WriteFile(tty->ofd, iovec->iov[i].iov_base,
                                    iovec->iov[i].iov_len, &written, NULL);
                 if (!r) {
@@ -364,123 +383,212 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ErlNifBinary bin;
     ERL_NIF_TERM res_term;
     ssize_t res = 0;
+#ifdef __WIN32__
+    HANDLE select_event;
+#else
+    int select_event;
+#endif
 
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
 
+    select_event = tty->ifd;
+
 #ifdef __WIN32__
-    if (tty->tty && tty->dwInMode) {
-        ssize_t inputs_read, num_characters = 0;
-        wchar_t *characters = NULL;
-        INPUT_RECORD inputs[128];
-        if (!ReadConsoleInputW(tty->ifd, inputs, sizeof(inputs)/sizeof(*inputs),
-                              &inputs_read)) {
-            return make_errno_error(env, "ReadConsoleInput");
-        }
+    debug("tty_read_nif(%T, %T, %T)\r\n",argv[0],argv[1],argv[2]);
+    /**
+     * We have three different read scenarios we need to deal with
+     * using different approaches.
+     *
+     * ### New Shell
+     *
+     * Here characters need to be delivered as they are typed and we
+     * also need to handle terminal resize events. So we use ReadConsoleInputW
+     * to read.
+     *
+     * ### Input is a terminal, but there is no shell, or old shell
+     *
+     * Here we should operate in "line mode", that is characters should only
+     * be delivered when the user hits enter. Therefore we cannot use
+     * ReadConsoleInputW, and we also cannot use ReadFile in synchronous mode
+     * as it will block until a complete line is done. So we use the
+     * OVERLAPPED support of ReadFile to read data.
+     *
+     * From this mode it is important to be able to upgrade to a "New Shell"
+     * terminal.
+     *
+     * Unfortunately it does not seem like unicode works at all when in this
+     * mode. At least when I try it, all unicode characters are translated to
+     * "?". Maybe it could be solved by using ReadConsoleW?
+     *
+     * ### Input is an anonymous pipe
+     *
+     * Since ReadConsoleInputW and OVERLAPPED ReadFile do not work on pipes
+     * we use blocking ReadFile calls to read from pipes. On pipes the ReadFile
+     * call will not block until a full line is complete, so this is safe to do.
+     *
+     **/
+    if (GetFileType(tty->ifd) == FILE_TYPE_CHAR) {
+        if (tty->ifdOverlapped == INVALID_HANDLE_VALUE) {
+            /* Input is a terminal and we are in "new shell" mode */
 
-        /**
-         * Reading keyevents using ReadConsoleInput is a bit fragile as
-         * different consoles and different input modes cause events to
-         * be triggered in different ways. I've so far identified four
-         * different input methods that work slightly differently and
-         * two classes of consoles that also work slightly differently.
-         *
-         * The input methods are:
-         *   - Normal key presses
-         *   - Microsoft IME
-         *   - Pasting into console
-         *   - Using ALT+ modifiers
-         *
-         * ### Normal key presses
-         *
-         * When typing normally both key down and up events are sent with
-         * the typed character. If typing a Unicode character (for instance if
-         * you are using a keyboard with Cyrillic layout), that character also
-         * is sent as both key up and key down. This behavior is the same on all
-         * consoles.
-         *
-         * ### Microsoft IME
-         *
-         * When typing Japanese, Chinese and many other languages it is common to
-         * use a "Input Method Editor". Basically what it does is that if you type
-         * "sushi" using the Japanese IME it convert that to "すし". All characters
-         * typed using IME end up as only keydown events on cmd.exe and powershell,
-         * while in Windows Terminal and Alacritty both keydown and keyup events
-         * are sent.
-         *
-         * ### Pasting into console
-         *
-         * When text pasting into the console, any ascii text pasted ends up as both
-         * keydown and keyup events. Any non-ascii text pasted seem to be sent using
-         * a keydown event with UnicodeChar set to 0 and then immediately followed by a
-         * keyup event with the non-ascii text.
-         *
-         * ### Using ALT+ modifiers
-         *
-         * A very old way of inputting Unicode characters on Windows is to press
-         * the left alt key and then some numbers on the number pad. For instance
-         * you can type ALT+1 to write a ☺. When doing this first a keydown
-         * with 0 is sent and then some events later a keyup with the character
-         * is sent. This behavior seems to only work on cmd.exe and powershell.
-         *
-         *
-         * So to summarize:
-         *  - Normal presses -- Always keydown and keyup events
-         *  - IME -- Always keydown, sometimes keyup
-         *  - Pasting -- Always keydown=0 directly followed by keyup=value
-         *  - ALT+ -- Sometimes keydown=0 followed eventually by keyup=value
-         *
-         * So in order to read characters we should always read the keydown event,
-         * except when it is 0, then we should read the adjacent keyup event.
-         * This covers all modes and consoles except ALT+. If we want ALT+ to work
-         * we probably have to use PeekConsoleInput to make sure the correct events
-         * are available and inspect the state of the key event somehow.
-         **/
+            ssize_t inputs_read, num_characters = 0;
+            wchar_t *characters = NULL;
+            INPUT_RECORD inputs[128];
 
-        for (int i = 0; i < inputs_read; i++) {
-            if (inputs[i].EventType == KEY_EVENT) {
-                if (inputs[i].Event.KeyEvent.bKeyDown) {
-                    if (inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
-                        num_characters++;
-                    } else if (i + 1 < inputs_read && !inputs[i].Event.KeyEvent.bKeyDown) {
-                        num_characters++;
+            ASSERT(tty->tty);
+
+            if (!ReadConsoleInputW(tty->ifd, inputs, sizeof(inputs)/sizeof(*inputs),
+                                   &inputs_read)) {
+                return make_errno_error(env, "ReadConsoleInput");
+            }
+
+            /**
+             * Reading keyevents using ReadConsoleInput is a bit fragile as
+             * different consoles and different input modes cause events to
+             * be triggered in different ways. I've so far identified four
+             * different input methods that work slightly differently and
+             * two classes of consoles that also work slightly differently.
+             *
+             * The input methods are:
+             *   - Normal key presses
+             *   - Microsoft IME
+             *   - Pasting into console
+             *   - Using ALT+ modifiers
+             *
+             * ### Normal key presses
+             *
+             * When typing normally both key down and up events are sent with
+             * the typed character. If typing a Unicode character (for instance if
+             * you are using a keyboard with Cyrillic layout), that character also
+             * is sent as both key up and key down. This behavior is the same on all
+             * consoles.
+             *
+             * ### Microsoft IME
+             *
+             * When typing Japanese, Chinese and many other languages it is common to
+             * use a "Input Method Editor". Basically what it does is that if you type
+             * "sushi" using the Japanese IME it convert that to "すし". All characters
+             * typed using IME end up as only keydown events on cmd.exe and powershell,
+             * while in Windows Terminal and Alacritty both keydown and keyup events
+             * are sent.
+             *
+             * ### Pasting into console
+             *
+             * When text pasting into the console, any ascii text pasted ends up as both
+             * keydown and keyup events. Any non-ascii text pasted seem to be sent using
+             * a keydown event with UnicodeChar set to 0 and then immediately followed by a
+             * keyup event with the non-ascii text.
+             *
+             * ### Using ALT+ modifiers
+             *
+             * A very old way of inputting Unicode characters on Windows is to press
+             * the left alt key and then some numbers on the number pad. For instance
+             * you can type ALT+1 to write a ☺. When doing this first a keydown
+             * with 0 is sent and then some events later a keyup with the character
+             * is sent. This behavior seems to only work on cmd.exe and powershell.
+             *
+             *
+             * So to summarize:
+             *  - Normal presses -- Always keydown and keyup events
+             *  - IME -- Always keydown, sometimes keyup
+             *  - Pasting -- Always keydown=0 directly followed by keyup=value
+             *  - ALT+ -- Sometimes keydown=0 followed eventually by keyup=value
+             *
+             * So in order to read characters we should always read the keydown event,
+             * except when it is 0, then we should read the adjacent keyup event.
+             * This covers all modes and consoles except ALT+. If we want ALT+ to work
+             * we probably have to use PeekConsoleInput to make sure the correct events
+             * are available and inspect the state of the key event somehow.
+             **/
+
+            for (int i = 0; i < inputs_read; i++) {
+                if (inputs[i].EventType == KEY_EVENT) {
+                    if (inputs[i].Event.KeyEvent.bKeyDown) {
+                        if (inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
+                            num_characters++;
+                        } else if (i + 1 < inputs_read && !inputs[i+1].Event.KeyEvent.bKeyDown) {
+                            num_characters++;
+                        }
                     }
                 }
             }
-        }
-        enif_alloc_binary(num_characters * sizeof(wchar_t), &bin);
-        characters = (wchar_t*)bin.data;
-        for (int i = 0; i < inputs_read; i++) {
-            switch (inputs[i].EventType)
-            {
-            case KEY_EVENT:
-                if (inputs[i].Event.KeyEvent.bKeyDown) {
-                    if (inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
-                        characters[res++] = inputs[i].Event.KeyEvent.uChar.UnicodeChar;
-                    } else if (i + 1 < inputs_read && !inputs[i].Event.KeyEvent.bKeyDown) {
-                        characters[res++] = inputs[i+1].Event.KeyEvent.uChar.UnicodeChar;
+            enif_alloc_binary(num_characters * sizeof(wchar_t), &bin);
+            characters = (wchar_t*)bin.data;
+            for (int i = 0; i < inputs_read; i++) {
+                switch (inputs[i].EventType)
+                {
+                case KEY_EVENT:
+                    if (inputs[i].Event.KeyEvent.bKeyDown) {
+                        if (inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
+			    debug("Read %u\r\n",inputs[i].Event.KeyEvent.uChar.UnicodeChar);
+                            characters[res++] = inputs[i].Event.KeyEvent.uChar.UnicodeChar;
+                        } else if (i + 1 < inputs_read && !inputs[i+1].Event.KeyEvent.bKeyDown) {
+                            debug("Read %u\r\n",inputs[i+1].Event.KeyEvent.uChar.UnicodeChar);
+                            characters[res++] = inputs[i+1].Event.KeyEvent.uChar.UnicodeChar;
+                        }
                     }
+                    break;
+                case WINDOW_BUFFER_SIZE_EVENT:
+                    enif_send(env, &tty->self, NULL,
+                              enif_make_tuple2(
+                                  env, enif_make_atom(env, "resize"),
+                                  enif_make_tuple2(
+                                      env,
+                                      enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.Y),
+                                      enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.X))));
+                    break;
+                case MENU_EVENT:
+                case FOCUS_EVENT:
+                    /* Should be ignored according to
+                       https://docs.microsoft.com/en-us/windows/console/input-record-str */
+                    break;
+                default:
+                    fprintf(stderr,"Unknown event: %d\r\n", inputs[i].EventType);
+                    break;
                 }
-                break;
-            case WINDOW_BUFFER_SIZE_EVENT:
-                enif_send(env, &tty->self, NULL,
-                    enif_make_tuple2(env, enif_make_atom(env, "resize"),
-                        enif_make_tuple2(env,
-                            enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.Y),
-                            enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.X))));
-                break;
-            case MENU_EVENT:
-            case FOCUS_EVENT:
-                /* Should be ignored according to
-                   https://docs.microsoft.com/en-us/windows/console/input-record-str */
-                break;
-            default:
-                fprintf(stderr,"Unknown event: %d\r\n", inputs[i].EventType);
-                break;
             }
+            res *= sizeof(wchar_t);
+        } else {
+            /* Input is a terminal and we are in "noshell" or "oldshell" mode */
+	    DWORD bytesRead = 0;
+	    debug("GetOverlapped on %d\r\n", tty->ifdOverlapped);
+	    if (!GetOverlappedResult(tty->ifdOverlapped, &tty->overlapped, &bytesRead, TRUE)) {
+		if (GetLastError() == ERROR_OPERATION_ABORTED && tty->tty) {
+                    /* The overlapped operation was cancels by CancelIo because
+                       we are upgrading to "newshell". So we close the handles
+                       involved with the overlapped io and select on the stdin
+                       handle. From now on we use ReadConsoleInputW to get
+                       input. */
+                    CloseHandle(tty->ifdOverlapped);
+                    CloseHandle(tty->overlapped.hEvent);
+                    tty->ifdOverlapped = INVALID_HANDLE_VALUE;
+                    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
+                    /* Return {error,aborted} to signal that the encoding has changed . */
+                    return make_error(env, enif_make_atom(env, "aborted"));
+		}
+		return make_errno_error(env, "GetOverlappedResult");
+	    }
+	    if (bytesRead == 0) {
+		return make_error(env, enif_make_atom(env, "closed"));
+	    }
+	    debug("Read %d bytes\r\n", bytesRead);
+#ifdef HARD_DEBUG
+	    for (int i = 0; i < bytesRead; i++)
+                debug("Read %u\r\n", tty->overlappedBuffer.data[i]);
+#endif
+	    bin = tty->overlappedBuffer;
+	    res = bytesRead;
+	    enif_alloc_binary(1024, &tty->overlappedBuffer);
+	    if (!ReadFile(tty->ifdOverlapped, tty->overlappedBuffer.data,
+                          tty->overlappedBuffer.size, NULL, &tty->overlapped)) {
+		if (GetLastError() != ERROR_IO_PENDING)
+                    return make_errno_error(env, "ReadFile");
+	    }
+	    select_event = tty->overlapped.hEvent;
         }
-        res *= sizeof(wchar_t);
     } else {
+        /* Input is not a terminal */
         DWORD bytesTransferred;
         enif_alloc_binary(1024, &bin);
         if (ReadFile(tty->ifd, bin.data, bin.size,
@@ -512,7 +620,8 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         return make_error(env, enif_make_atom(env, "closed"));
     }
 #endif
-    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
+    debug("select on %d\r\n",select_event);
+    enif_select(env, select_event, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
     if (res == bin.size) {
 	res_term = enif_make_binary(env, &bin);
     } else if (res < bin.size / 2) {
@@ -666,6 +775,9 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     tty->ifd = 0;
     tty->ofd = 1;
 #else
+#ifdef HARD_DEBUG
+    logFile = fopen("tty.log","w+");
+#endif
     tty->ifd = GetStdHandle(STD_INPUT_HANDLE);
     if (tty->ifd == INVALID_HANDLE_VALUE || tty->ifd == NULL) {
         tty->ifd = CreateFile("nul", GENERIC_READ, 0,
@@ -692,6 +804,7 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return make_errno_error(env, "SetConsoleMode");
         }
     }
+    tty->ifdOverlapped = INVALID_HANDLE_VALUE;
 #endif
 
     tty_term = enif_make_resource(env, tty);
@@ -709,6 +822,8 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ERL_NIF_TERM canon, echo, sig;
     TTYResource *tty;
     int fd;
+
+    debug("tty_init_nif(%T,%T,%T)\r\n", argv[0], argv[1], argv[2]);
 
     if (argc != 3 ||
         !tty_get_fd(env, argv[1], &fd) ||
@@ -788,8 +903,8 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 
 #else
-    /* fprintf(stderr, "origOutMode: %x origInMode: %x\r\n", */
-    /*     tty->dwOriginalOutMode, tty->dwOriginalInMode); */
+    debug("origOutMode: %x origInMode: %x\r\n", 
+          tty->dwOriginalOutMode, tty->dwOriginalInMode);
 
     /* If we cannot disable NEWLINE_AUTO_RETURN we continue anyway as things work */
     if (SetConsoleMode(tty->ofd, tty->dwOutMode | DISABLE_NEWLINE_AUTO_RETURN)) {
@@ -801,6 +916,15 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     {
         /* Failed to set disable echo or line input mode */
         return make_errno_error(env, "SetConsoleMode");
+    }
+
+    /* If we are changing from "-noshell" to a shell we
+       need to cancel any outstanding async io. This
+       will cause the enif_select to trigger which allows
+       us to do more cleanup in tty_read_nif. */
+    if (tty->ifdOverlapped != INVALID_HANDLE_VALUE) {
+        debug("CancelIo on %d\r\n", tty->ifdOverlapped);
+        CancelIoEx(tty->ifdOverlapped, &tty->overlapped);
     }
 
 #endif /* __WIN32__ */
@@ -865,12 +989,12 @@ static ERL_NIF_TERM tty_window_size_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         return make_enotsup(env);
     }
     return enif_make_tuple2(
-                env, atom_ok,
-                enif_make_tuple2(
-                    env,
-                    enif_make_int(env, width),
-                    enif_make_int(env, height)
-                    ));
+        env, atom_ok,
+        enif_make_tuple2(
+            env,
+            enif_make_int(env, width),
+            enif_make_int(env, height)
+            ));
 }
 
 #ifndef __WIN32__
@@ -927,75 +1051,12 @@ static ERL_NIF_TERM tty_read_signal_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 #endif
 }
 
-#ifdef THREADED_READED
-struct tty_reader_init {
-    ErlNifEnv *env;
-    ERL_NIF_TERM tty;
-};
-
-#define TTY_READER_BUF_SIZE 1024
-
-static void *tty_reader_thread(void *args) {
-    struct tty_reader_init *tty_reader_init = (struct tty_reader_init*)args;
-    TTYResource *tty;
-    ErlNifBinary binary;
-    ErlNifEnv *env = NULL;
-    ERL_NIF_TERM data[10];
-    int cnt = 0;
-
-    enif_alloc_binary(TTY_READER_BUF_SIZE, &binary);
-
-    enif_get_resource(tty_reader_init->env, tty_reader_init->tty, tty_rt, (void **)&tty);
-
-    SET_BLOCKING(tty->ifd);
-
-    while(true) {
-        ssize_t i = read(tty->ifd, binary.data, TTY_READER_BUF_SIZE);
-        /* fprintf(stderr,"Read: %ld bytes from %d\r\n", i, tty->ifd); */
-        if (i < 0) {
-            int saved_errno = errno;
-            if (env) {
-                ERL_NIF_TERM msg = enif_make_list_from_array(env, data, cnt);
-                enif_send(env, &tty->self, NULL, enif_make_tuple2(env, atom_input, msg));
-                cnt = 0;
-                env = NULL;
-            }
-            if (saved_errno != EAGAIN) {
-                env = enif_alloc_env();
-                errno = saved_errno;
-                enif_send(env, &tty->self, NULL, make_errno_error(env, "read"));
-                break;
-            }
-        } else {
-            if (!env) {
-                env = enif_alloc_env();
-            }
-            enif_realloc_binary(&binary, i);
-            data[cnt++] = enif_make_binary(env, &binary);
-            if (cnt == 10 || i != TTY_READER_BUF_SIZE) {
-                ERL_NIF_TERM msg = enif_make_list_from_array(env, data, cnt);
-                enif_send(env, &tty->self, NULL, enif_make_tuple2(env, atom_input, msg));
-                cnt = 0;
-                env = NULL;
-            }
-            enif_alloc_binary(TTY_READER_BUF_SIZE, &binary);
-        }
-    }
-
-    enif_free_env(tty_reader_init->env);
-    enif_free(tty_reader_init);
-    return (void*)0;
-}
-
-#endif
-
 static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     TTYResource *tty;
-#ifdef THREADED_READER
-    struct tty_reader_init *tty_reader_init;
-#endif
 #ifndef __WIN32__
     extern int using_oldshell; /* set this to let the rest of erts know */
+#else
+    struct tty_reader *tty_reader;
 #endif
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
@@ -1013,27 +1074,30 @@ static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     using_oldshell = 0;
 
-#endif
-
     enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
+#else
+    if (tty->tty || GetFileType(tty->ifd) != FILE_TYPE_CHAR) {
+        debug("Select on %d\r\n",  tty->ifd);
+        enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
+    } else {
+        tty->ifdOverlapped = CreateFile("CONIN$", GENERIC_READ, FILE_SHARE_READ, NULL,
+                                        OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+        enif_alloc_binary(1024, &tty->overlappedBuffer);
+        tty->overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        debug("Calling ReadFile on %d\r\n", tty->ifdOverlapped);
+        if (!ReadFile(tty->ifdOverlapped, tty->overlappedBuffer.data, tty->overlappedBuffer.size, NULL, &tty->overlapped)) {
+            if (GetLastError() != ERROR_IO_PENDING) {
+                return make_errno_error(env, "ReadFile");
+            }
+        }
+        debug("Select on %d\r\n",  tty->overlapped.hEvent);
+        enif_select(env, tty->overlapped.hEvent, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
+    }
+#endif
 
     enif_self(env, &tty->reader);
     enif_monitor_process(env, tty, &tty->reader, NULL);
 
-#ifdef THREADED_READER
-
-    tty_reader_init = enif_alloc(sizeof(struct tty_reader_init));
-    tty_reader_init->env = enif_alloc_env();
-    tty_reader_init->tty = enif_make_copy(tty_reader_init->env, argv[0]);
-
-    if (enif_thread_create(
-            "stdin_reader",
-            &tty->reader_tid,
-            tty_reader_thread, tty_reader_init, NULL)) {
-        enif_free(tty_reader_init);
-        return make_errno_error(env, "enif_thread_create");
-    }
-#endif
     return atom_ok;
 }
 
@@ -1070,10 +1134,10 @@ static void load_resources(ErlNifEnv* env, ErlNifResourceFlags rt_flags) {
         tty_monitor_down};
 
 #define ATOM_DECL(A) atom_##A = enif_make_atom(env, #A)
-ATOMS
+    ATOMS
 #undef ATOM_DECL
 
-    tty_rt = enif_open_resource_type_x(env, "tty", &rt, rt_flags, NULL);
+        tty_rt = enif_open_resource_type_x(env, "tty", &rt, rt_flags, NULL);
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
@@ -1089,13 +1153,13 @@ static void unload(ErlNifEnv* env, void* priv_data)
 }
 
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
-		   ERL_NIF_TERM load_info)
+                   ERL_NIF_TERM load_info)
 {
     if (*old_priv_data != NULL) {
-	return -1; /* Don't know how to do that */
+        return -1; /* Don't know how to do that */
     }
     if (*priv_data != NULL) {
-	return -1; /* Don't know how to do that */
+        return -1; /* Don't know how to do that */
     }
     *priv_data = NULL;
     load_resources(env, ERL_NIF_RT_TAKEOVER);
