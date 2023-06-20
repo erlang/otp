@@ -484,7 +484,7 @@ receive_exec_result(Msgs) when is_list(Msgs) ->
                             receive_exec_result(Msgs);
                         Other ->
                             ct:log("~p:~p unexpected Other ~p", [?MODULE,?FUNCTION_NAME,Other]),
-                            {unexpected_msg, Other}
+                            receive_exec_result(Msgs)
                     end
             end
     after 

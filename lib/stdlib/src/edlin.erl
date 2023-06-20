@@ -72,13 +72,10 @@ start(Pbs) ->
 %% Only two modes used: 'none' and 'search'. Other modes can be
 %% handled inline through specific character handling.
 start(Pbs, {_,{_,_},_}=Cont) ->
-    Rs1 = erase_line(),
-    Rs2 = redraw(Pbs, Cont, Rs1),
-    Rs3 = reverse(Rs2),
-    {more_chars,{line,Pbs,Cont,none},Rs3};
+    {more_chars,{line,Pbs,Cont,none},redraw(Pbs, Cont, [])};
 
 start(Pbs, Mode) ->
-    {more_chars,{line,Pbs,{[],{[],[]},[]},Mode},[new_prompt, {put_chars,unicode,Pbs}]}.
+    {more_chars,{line,Pbs,{[],{[],[]},[]},Mode},[new_prompt, {insert_chars,unicode,Pbs}]}.
 
 edit_line(Cs, {line,P,L,{blink,N_Rs}}) ->
     edit(Cs, P, L, none, N_Rs);
@@ -90,8 +87,7 @@ edit_line1(Cs, {line,P,L,{blink,N_Rs}}) ->
 edit_line1(Cs, {line,P,{B,{[],[]},A},none}) ->
     [CurrentLine|Lines] = [string:to_graphemes(Line) || Line <- reverse(string:split(Cs, "\n",all))],
     Cont = {Lines ++ B,{reverse(CurrentLine),[]},A},
-    Rs = reverse(redraw(P, Cont, [])),
-    %erlang:display({P, Cont, Cs, CurrentLine}),
+    Rs = redraw(P, Cont, []),
     {more_chars, {line,P,Cont,none},[delete_line|Rs]};
 edit_line1(Cs, {line,P,L,M}) ->
     edit(Cs, P, L, M, []).
@@ -119,17 +115,12 @@ edit([C|Cs], P, {LB, {Bef,Aft}, LA}=MultiLine, Prefix, Rs0) ->
         ctlx ->
             edit(Cs, P, MultiLine, ctlx, Rs0);
         new_line ->
-            case Bef of
-                [] -> edit(Cs, P, MultiLine, none, Rs0);
-                _ -> MultiLine1 = {[lists:reverse(Bef)|LB],{[],Aft},LA},
-                    edit(Cs, P, MultiLine1, none, redraw(P, MultiLine1, Rs0))
-                end;
+            MultiLine1 = {[lists:reverse(Bef)|LB],{[],Aft},LA},
+            edit(Cs, P, MultiLine1, none, reverse(redraw(P, MultiLine1, Rs0)));
         new_line_finish ->
-            [Last|LAR]=LA1 = lists:reverse([lists:reverse(Bef,Aft)|LA]),
-            MultiLine1 = {LA1 ++ LB,{[],[]},[]},
-            % Move to end and redraw
-            Rs1 = redraw(P, {LAR ++ LB, {lists:reverse(Last), []},[]}, Rs0),
-            {done, MultiLine1, Cs, reverse(Rs1, [{insert_chars, unicode, "\n"}])};
+            % Move to end
+            {{LB1,{Bef1,[]},[]}, Rs1} = do_op(end_of_expression, MultiLine, Rs0),
+            {done, {[lists:reverse(Bef1)|LB1],{[],[]},[]}, Cs, reverse(Rs1, [{insert_chars, unicode, "\n"}])};
         redraw_line ->
             Rs1 = erase_line(Rs0),
             Rs = redraw(P, MultiLine, Rs1),
@@ -400,10 +391,10 @@ do_op(backward_delete_char, {LB,{[GC|Bef], Aft},LA}, Rs) ->
     {{LB, {Bef,Aft}, LA},[{delete_chars,-gc_len(GC)}|Rs]};
 do_op(transpose_char, {LB,{[C1,C2|Bef], []},LA}, Rs) ->
     Len = gc_len(C1)+gc_len(C2),
-    {{LB, {[C2,C1|Bef],[]}, LA},[{put_chars, unicode,[C1,C2]},{move_rel,-Len}|Rs]};
+    {{LB, {[C2,C1|Bef],[]}, LA},[{insert_chars_over, unicode,[C1,C2]},{move_rel,-Len}|Rs]};
 do_op(transpose_char, {LB,{[C2|Bef], [C1|Aft]},LA}, Rs) ->
     Len = gc_len(C2),
-    {{LB, {[C2,C1|Bef],Aft}, LA},[{put_chars, unicode,[C1,C2]},{move_rel,-Len}|Rs]};
+    {{LB, {[C2,C1|Bef],Aft}, LA},[{insert_chars_over, unicode,[C1,C2]},{move_rel,-Len}|Rs]};
 do_op(kill_word, {LB,{Bef, Aft0},LA}, Rs) ->
     {Aft1,Kill0,N0} = over_non_word(Aft0, [], 0),
     {Aft,Kill,N} = over_word(Aft1, Kill0, N0),
@@ -421,7 +412,7 @@ do_op(clear_line, _, Rs) ->
     {redraw, {[], {[],[]},[]}, Rs};
 do_op(yank, {LB,{Bef, []},LA}, Rs) ->
     Kill = get(kill_buffer),
-    {{LB, {reverse(Kill, Bef),[]}, LA},[{put_chars, unicode,Kill}|Rs]};
+    {{LB, {reverse(Kill, Bef),[]}, LA},[{insert_chars, unicode,Kill}|Rs]};
 do_op(yank, {LB,{Bef, Aft},LA}, Rs) ->
     Kill = get(kill_buffer),
     {{LB, {reverse(Kill, Bef),Aft}, LA},[{insert_chars, unicode,Kill}|Rs]};
@@ -468,7 +459,7 @@ do_op(end_of_expression, {LB,{Bef, []},[]}, Rs) ->
     {{LB, {Bef,[]}, []},Rs};
 do_op(end_of_expression, {LB,{Bef, Aft},LA}, Rs) ->
     [Last|Rest] = lists:reverse(LA) ++ [lists:reverse(Bef, Aft)],
-    {{LB ++ Rest, {lists:reverse(Last),[]}, []},[{move_combo, -cp_len(Bef), length(LA), cp_len(Last)}|Rs]};
+    {{Rest ++ LB, {lists:reverse(Last),[]}, []},[{move_combo, -cp_len(Bef), length(LA), cp_len(Last)}|Rs]};
 do_op(beginning_of_line, {LB,{[_|_]=Bef, Aft},LA}, Rs) ->
     {{LB, {[],reverse(Bef, Aft)}, LA},[{move_rel,-(cp_len(Bef))}|Rs]};
 do_op(beginning_of_line, {LB,{[], Aft},LA}, Rs) ->
