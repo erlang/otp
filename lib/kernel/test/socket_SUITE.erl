@@ -344,6 +344,7 @@
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
+         ioctl_fionread/1,
          %% Socket IOCTL get requests
          ioctl_get_gifname/1,
          ioctl_get_gifindex/1,
@@ -1353,7 +1354,8 @@ ioctl_cases() ->
 
 ioctl_simple_cases() ->
     [
-     ioctl_simple1
+     ioctl_simple1,
+     ioctl_fionread
     ].
 
 
@@ -37215,6 +37217,69 @@ do_ioctl_simple(_State) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test "some" ioctl features.
+%%
+
+ioctl_fionread(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ioctl_requests(),
+                   has_support_ioctl_fionread()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_fionread(InitState)
+           end).
+
+do_ioctl_fionread(_) ->
+    i("get local socket address"),
+    LSA = which_local_socket_addr(inet),
+
+    i("create dgram:UDP socket 1"),
+    {ok, S1} = socket:open(inet, dgram, udp),
+
+    i("bind socket 1"),
+    ok = socket:bind(S1, LSA),
+
+    i("create dgram:UDP socket 2"),
+    {ok, S2} = socket:open(inet, dgram, udp),
+
+    i("bind socket 2"),
+    ok = socket:bind(S2, LSA),
+
+    i("check data to read - expect 0 bytes"),
+    {ok, 0} = socket:ioctl(S1, fionread),
+    
+    i("get socket 1 port number"),
+    {ok, #{port := Port1}} = socket:sockname(S1),
+    
+    i("send data to socket 1 (from socket 2)"),
+    Data   = <<0,1,2,3,4,5,6,7,8,9>>,
+    DataSz = byte_size(Data),
+    ok = socket:sendto(S2, Data, LSA#{port => Port1}),
+    
+    i("give it some time to arrive"),
+    ?SLEEP(?SECS(1)),
+    
+    i("verify that the correct amount of data (~p) is available", [DataSz]),
+    {ok, DataSz} = socket:ioctl(S1, fionread),
+
+    i("read the data"),
+    {ok, {_, Data}} = socket:recvfrom(S1),
+    
+    i("verify that the data has been read (no more data is available)"),
+    {ok, 0} = socket:ioctl(S1, fionread),
+
+    i("cleanup"),
+    socket:close(S1),
+    socket:close(S2),
+
+    i("done"),
+    ok.
+
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% These test case(s) are intended to (simply) test "some" ioctl get
 %% request(s).
 %%
@@ -51681,6 +51746,9 @@ has_support_ioctl_requests() ->
 
 has_support_ioctl_gifconf() ->
     has_support_ioctl_request(gifconf).
+
+has_support_ioctl_fionread() ->
+    has_support_ioctl_request(fionread).
 
 has_support_ioctl_gifname() ->
     has_support_ioctl_request(gifname).
