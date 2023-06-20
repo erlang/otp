@@ -50,9 +50,9 @@
     LibreSSL should also work.</p>
 
     <p>The crypto app is tested daily with at least one version of each of the
-    OpenSSL 1.0.1, 1.0.2, 1.1.0, 1.1.1 and 3.0. FIPS mode is also tested for 1.0.1 and 1.0.2.</p>
+    OpenSSL 1.0.1, 1.0.2, 1.1.0, 1.1.1 and 3.0. FIPS mode is also tested for 1.0.1, 1.0.2 and 3.0.</p>
     
-    <p>Using OpenSSL 3.0 with Engines or in FIPS mode is not yet supported by the OTP/crypto app.</p>
+    <p>Using OpenSSL 3.0 with Engines is not yet supported by the OTP/crypto app.</p>
 
     <p>Source releases of OpenSSL can be downloaded from the <url href="http://www.openssl.org">OpenSSL</url> project home page,
     or mirror sites listed there.
