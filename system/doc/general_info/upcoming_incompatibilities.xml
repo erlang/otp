@@ -194,6 +194,32 @@ t.erl:6:18: Warning: type variable 'Unknown' is only used once (is unbound)
       <p>In OTP 28, support for interpreting an escript will be removed.</p>
     </section>
 
+    <section>
+      <title>-code_path_choice will default to strict</title>
+      <p>
+        This command line option controls if paths given in the command
+        line, boot scripts, and the code server should be interpreted as
+        is strict or relaxed.
+      </p>
+      <p>
+        OTP 26 and earlier defaults to <c>relaxed</c>, which means
+        <c>-pa myapp/ebin</c> would attempt to load <c>-pa myapp/ebin</c>
+        and <c>-pa myapp/myapp/ebin</c>. The option will default to
+        strict in OTP 27.
+      </p>
+    </section>
+
+    <section>
+      <title>Archive fallbacks will be removed</title>
+      <p>
+        OTP 26 and earlier allows an application to have part of its
+        directories as regular folders and others as archives.
+        This functionality was previously used by reltool but it is
+        no longer the case from OTP 26. Support for archive fallbacks
+        will be removed from the code server in OTP 27.
+      </p>
+    </section>
+
   </section>
 
   <section>
