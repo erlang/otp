@@ -183,19 +183,4 @@ int term_equals_2pow32(Eterm);
 
 Eterm erts_uint64_to_big(Uint64, Eterm **);
 Eterm erts_sint64_to_big(Sint64, Eterm **);
-
-Eterm erts_chars_to_integer(Process *, char*, Uint, const int);
-
-/* How list_to_integer classifies the input, was it even a string? */
-typedef enum {
-    LTI_BAD_STRUCTURE = 0,
-    LTI_NO_INTEGER    = 1,
-    LTI_SOME_INTEGER  = 2,
-    LTI_ALL_INTEGER   = 3,
-    LTI_SYSTEM_LIMIT  = 4,
-} LTI_result_t;
-
-LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
-                                  const Uint base,
-                                  Eterm *integer_out, Eterm *tail_out);
 #endif
