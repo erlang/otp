@@ -56,6 +56,7 @@
          shell_expand_location_above/1,
          shell_expand_location_below/1,
          shell_update_window_unicode_wrap/1,
+         shell_receive_standard_out/1,
          shell_standard_error_nlcr/1, shell_clear/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
@@ -128,6 +129,7 @@ groups() ->
        shell_transpose, shell_search, shell_insert,
        shell_update_window, shell_small_window_multiline_navigation, shell_huge_input,
        shell_support_ansi_input,
+       shell_receive_standard_out,
        shell_standard_error_nlcr,
        shell_expand_location_above,
        shell_expand_location_below,
@@ -454,10 +456,12 @@ shell_multiline_navigation(Config) ->
              check_location(Term, {0,0}),
              send_tty(Term,"C-h"), % Backspace
              check_location(Term, {-1,width("ccc}")}),
+             send_tty(Term, "C-Up"),
+             send_tty(Term, "End"),
              send_tty(Term,"Left"),
              send_tty(Term,"M-Enter"),
-             send_tty(Term,"Right"),
-             check_location(Term, {0,1}),
+             check_content(Term, ".. ,"),
+             check_location(Term, {-1,0}),
              send_tty(Term,"M-c"),
              check_location(Term, {-3,0}),
              send_tty(Term,"{'"++U++"',\n\n\nworks}.\n")
@@ -911,6 +915,8 @@ shell_small_window_multiline_navigation(Config) ->
         check_content(Term,"is_element"),
         check_content(Term,"is_empty"),
         check_location(Term, {-4, 9}),
+        send_tty(Term, "M-Enter"),
+        check_location(Term, {-1, 0}),
         ok
     after
         stop_tty(Term)
@@ -929,7 +935,17 @@ shell_huge_input(Config) ->
     after
         stop_tty(Term)
     end.
-
+shell_receive_standard_out(Config) ->
+    Term = start_tty(Config),
+    try
+        send_tty(Term,"my_fun(5) -> ok; my_fun(N) -> receive after 100 -> io:format(\"~p\\n\", [N]), my_fun(N+1) end.\n"),
+        send_tty(Term, "spawn(shell_default, my_fun, [0]). ABC\n"),
+        timer:sleep(1000),
+        check_content(Term, "3\\s+4\\s+.+>\\sABC\\s+..\\s"),
+        ok
+    after
+        stop_tty(Term)
+    end.
 %% Test that the shell works when invalid utf-8 (aka latin1) is sent to it
 shell_invalid_unicode(Config) ->
     Term = start_tty(Config),
@@ -1071,8 +1087,8 @@ shell_expand_location_below(Config) ->
         send_stdin(Term, "\t"),
         %% The expansion does not fit on screen, verify that
         %% expand above mode is used
-        check_content(fun() -> get_content(Term, "-S -7") end,
-                      "3> long_module:" ++ FunctionName ++ "\nfunctions"),
+        check_content(fun() -> get_content(Term, "-S -5") end,
+                      "\nfunctions\n"),
         check_content(Term, "3> long_module:" ++ FunctionName ++ "$"),
 
         %% We resize the terminal to make everything fit and test that

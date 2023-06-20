@@ -170,10 +170,10 @@
 -type request() ::
         {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
-        {putc_keep_state, unicode:unicode_binary()} |
         {expand, unicode:unicode_binary()} |
         {expand_with_trim, unicode:unicode_binary()} |
         {insert, unicode:unicode_binary()} |
+        {insert_over, unicode:unicode_binary()} |
         {delete, integer()} |
         delete_after_cursor |
         delete_line |
@@ -557,6 +557,8 @@ handle_request(State = #state{ options = #{ tty := false } }, Request) ->
             {Binary, State};
         {putc, Binary} ->
             {encode(Binary, State#state.unicode), State};
+        {insert, Binary} ->
+            {encode(Binary, State#state.unicode), State};
         beep ->
             {<<7>>, State};
         _Ignore ->
@@ -568,7 +570,7 @@ handle_request(State, {redraw_prompt, Pbs, Pbs2, {LB, {Bef, Aft}, LA}}) ->
     Text = Pbs ++ lists:flatten(lists:join("\n"++Pbs2, lists:reverse(LB)++[CL|LA])),
     Moves = if LA /= [] ->
                     [Last|_] = lists:reverse(LA),
-                    {move_combo, -logical(Last), length(LA), logical(Bef)};
+                    {move_combo, -logical(Last), -length(LA), logical(Bef)};
                true ->
                     {move, -logical(Aft)}
             end,
@@ -581,20 +583,23 @@ handle_request(State, redraw_prompt) ->
     {Redraw, NewState} = handle_request(State, redraw_prompt_pre_deleted),
     {[ClearLine, Redraw], NewState};
 handle_request(State = #state{unicode = U, cols = W}, redraw_prompt_pre_deleted) ->
-    {Movement, TextInView} = in_view(State),
+    {Movement, TextInView, EverythingFitsInView} = in_view(State),
     {_, NewPrompt} = handle_request(State, new_prompt),
     {Redraw, RedrawState} = insert_buf(NewPrompt#state{xn = false}, unicode:characters_to_binary(TextInView)),
     {Output, _} = case State#state.buffer_expand of
                       undefined ->
                         {[encode(Redraw, U), xnfix(RedrawState, RedrawState#state.buffer_before), Movement], RedrawState};
                       BufferExpand ->
-                          BBCols = cols(State#state.buffer_before, U),
-                          End = BBCols + cols(State#state.buffer_after,U),
+                          %% If everything fits in the view, then we output the expand buffer after the whole expression.
+                          Last = last_or_empty(State#state.lines_after),
+                          End = case EverythingFitsInView of
+                            true when Last =/= [] -> cols(Last, U);
+                            _ -> cols(State#state.buffer_before, U) + cols(State#state.buffer_after,U)
+                          end,
                           {ExpandBuffer, NewState} = insert_buf(RedrawState#state{ buffer_expand = [] }, iolist_to_binary(BufferExpand)),
                           BECols = cols(W, End, NewState#state.buffer_expand, U),
                           MoveToEnd = move_cursor(RedrawState, BECols, End),
                           {[encode(Redraw,U),encode(ExpandBuffer, U), MoveToEnd, Movement], RedrawState}
-
                   end,
     {Output, State};
 %% Clear the expand buffer after the cursor when we handle any request.
@@ -614,22 +619,19 @@ handle_request(State, {expand, Expand}) ->
 handle_request(State, {expand_with_trim, Binary}) ->
     handle_request(State, 
                    {expand, iolist_to_binary(["\r\n",string:trim(Binary, both)])});
-%% putc_keep_state prints Binary and keeps the current prompt unchanged
-handle_request(State = #state{ unicode = U }, {putc_keep_state, Binary})  ->
-    {PutBuffer, _NewState} = insert_buf(State, Binary),
-    {encode(PutBuffer, U), State};
 %% putc prints Binary and overwrites any existing characters
 handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
     %% Todo should handle invalid unicode?
-    {PutBuffer, NewState} = insert_buf(State, Binary),
-    if NewState#state.buffer_after =:= [] ->
-            {encode(PutBuffer, U), NewState};
-       true ->
-            %% Delete any overwritten characters after current the cursor
-            OldLength = logical(State#state.buffer_before) + lists:sum([logical(L) || L <- State#state.lines_before]),
-            NewLength = logical(NewState#state.buffer_before) + lists:sum([logical(L) || L <- NewState#state.lines_before]),
-            {_, _, _, NewBA} = split(NewLength - OldLength, NewState#state.buffer_after, U),
-            {encode(PutBuffer, U), NewState#state{ buffer_after = NewBA }}
+    %% print above the prompt if we have a prompt.
+    %% otherwise print on the current line.
+    case {State#state.lines_before,{State#state.buffer_before, State#state.buffer_after}, State#state.lines_after} of
+        {[],{[],[]},[]} -> {PutBuffer, _} = insert_buf(State, Binary),
+            {[encode(PutBuffer, U)], State};
+        _ ->
+            {Delete, DeletedState} = handle_request(State, delete_line),
+            {PutBuffer, _} = insert_buf(DeletedState, Binary),
+            {Redraw, _} = handle_request(State, redraw_prompt_pre_deleted),
+            {[Delete, encode(PutBuffer, U), Redraw], State}
     end;
 handle_request(State, {putc_raw, Binary}) ->
     handle_request(State, {putc, unicode:characters_to_binary(Binary, latin1)});
@@ -637,9 +639,11 @@ handle_request(State = #state{}, delete_after_cursor) ->
     {[State#state.delete_after_cursor],
      State#state{buffer_after = [],
                  lines_after = []}};
+handle_request(State = #state{buffer_before = [], buffer_after = [],
+                              lines_before = [], lines_after = []}, delete_line) ->
+    {[],State};
 handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
-                              lines_before = LinesBefore,
-                              lines_after = _LinesAfter}, delete_line) ->
+                              lines_before = LinesBefore}, delete_line) ->
     MoveToBeg = move_cursor(State, cols_multiline(Bef, LinesBefore, W, U), 0),
     {[MoveToBeg, State#state.delete_after_cursor],
      State#state{buffer_before = [],
@@ -718,7 +722,7 @@ handle_request(State = #state{ cols = W,
     Output = if
                  %% When we move up and the view is "full"
                  RowsInView >= R ->
-                     {Movement, TextInView} = in_view(NewState),
+                     {Movement, TextInView, _} = in_view(NewState),
                      {ClearLine, Cleared} = handle_request(State, delete_line),
                      {Redraw, _} = handle_request(Cleared, {insert, unicode:characters_to_binary(TextInView)}),
                      [ClearLine, Redraw, Movement];
@@ -747,7 +751,7 @@ handle_request(State = #state{ cols = W,
     RowsInView = cols_multiline([A|NewLinesBefore], W, U) div W,
     Output = if
                  RowsInView >= R ->
-                     {Movement, TextInView} = in_view(NewState),
+                     {Movement, TextInView, _} = in_view(NewState),
                      {ClearLine, Cleared} = handle_request(State, delete_line),
                      {Redraw, _} = handle_request(Cleared, {insert, unicode:characters_to_binary(TextInView)}),
                      [ClearLine, Redraw, Movement];
@@ -770,6 +774,18 @@ handle_request(State = #state{ unicode = U }, {move, N}) when N > 0 ->
                          buffer_before = NewBB ++ State#state.buffer_before} };
 handle_request(State, {move, 0}) ->
     {"",State};
+handle_request(State = #state{ unicode = U }, {insert_over, Chars}) ->
+    %% Todo should handle invalid unicode?
+    {PutBuffer, NewState} = insert_buf(State, Chars),
+    if NewState#state.buffer_after =:= [] ->
+            {encode(PutBuffer, U), NewState};
+       true ->
+            %% Delete any overwritten characters after current the cursor
+            OldLength = logical(State#state.buffer_before) + lists:sum([logical(L) || L <- State#state.lines_before]),
+            NewLength = logical(NewState#state.buffer_before) + lists:sum([logical(L) || L <- NewState#state.lines_before]),
+            {_, _, _, NewBA} = split(NewLength - OldLength, NewState#state.buffer_after, U),
+            {encode(PutBuffer, U), NewState#state{ buffer_after = NewBA }}
+    end;
 handle_request(State = #state{cols = W, xn = OrigXn, unicode = U,lines_after = LinesAfter}, {insert, Chars}) ->
     {InsertBuffer, NewState0} = insert_buf(State#state{ xn = false }, Chars),
     NewState1 = NewState0#state{ xn = OrigXn },
@@ -796,6 +812,10 @@ handle_request(State, clear) ->
 handle_request(State, Req) ->
     erlang:display({unhandled_request, Req}),
     {"", State}.
+
+last_or_empty([]) -> [];
+last_or_empty([H]) -> H;
+last_or_empty(L) -> [H|_] = lists:reverse(L), H.
 
 %% Split the buffer after N cols
 %% Returns the number of characters deleted, and the column length (N)
@@ -916,14 +936,14 @@ in_view(#state{lines_after = LinesAfter, buffer_before = Bef, buffer_after = Aft
             Movement = move_cursor(State,
                                    cols_after_cursor(State#state{lines_after = LAInViewLines++[lists:reverse(Bef, Aft)]}),
                                    cols(Bef,U)),
-            {Movement, Text};
+            {Movement, Text, false};
 
        true ->
             %% Everything fits in the current window, just output everything
             Movement = move_cursor(State, cols_after_cursor(State#state{lines_after = lists:reverse(LinesAfter)++[lists:reverse(Bef, Aft)]}), cols(Bef,U)),
             Text = lists:flatten([LB++"\n"||LB<-lists:reverse(LinesBefore)]) ++
                 lists:reverse(Bef,Aft) ++ lists:flatten(["\n"++LA||LA<-LinesAfter]),
-            {Movement, Text}
+            {Movement, Text, true}
     end.
 cols_after_cursor(#state{lines_after=[LAST|LinesAfter],cols=W, unicode=U}) ->
     cols_multiline(LAST, LinesAfter, W, U).

@@ -914,14 +914,17 @@ get_doc(Mod, #{sources:=[Source|Sources]}=Options) ->
     end,
     case which(Mod) of
         preloaded ->
-            ErtsDir = code:lib_dir(erts),
-            ErtsEbinDir =
-                case filelib:is_dir(filename:join([ErtsDir,"ebin"])) of
-                    true -> filename:join([ErtsDir,"ebin"]);
-                    false -> filename:join([ErtsDir,"preloaded","ebin"])
-                end,
-            Fn = filename:join([ErtsEbinDir, atom_to_list(Mod) ++ ".beam"]),
-            GetDoc(Fn);
+            case code:lib_dir(erts) of
+                {error, _} -> {error, missing};
+                ErtsDir ->
+                    ErtsEbinDir =
+                        case filelib:is_dir(filename:join([ErtsDir,"ebin"])) of
+                            true -> filename:join([ErtsDir,"ebin"]);
+                            false -> filename:join([ErtsDir,"preloaded","ebin"])
+                        end,
+                    Fn = filename:join([ErtsEbinDir, atom_to_list(Mod) ++ ".beam"]),
+                    GetDoc(Fn)
+            end;
         Error when is_atom(Error) ->
             {error, Error};
         Fn ->

@@ -1584,7 +1584,8 @@ new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
 		    ct:log("Matched echo ~ts",[RecStr]),
 		    new_do_shell(IO, N, More);
 		false ->
-		    ct:fail("*** Expected ~p, but got ~p",[string:strip(ExpStr),RecStr])
+		    ct:log("*** Expected ~p, but got ~p",[string:strip(ExpStr),RecStr]),
+            new_do_shell(IO, N, Ops)
 	    end
     after 30000 ->
 	    ct:log("Message queue of ~p:~n~p",

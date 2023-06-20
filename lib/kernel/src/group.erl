@@ -533,6 +533,8 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
         {stop,Result,eof} ->
             {ok,Result,eof};
         {stop,Result,Rest} ->
+            %% Prompt was valid expression, clear the prompt in user_drv
+            send_drv_reqs(Drv, [new_prompt]),
             _ = case {M,F} of
                     {io_lib, get_until} ->
                         save_line_buffer(string:trim(Line, both)++"\n", get_lines(new_stack(get(line_buffer))));
@@ -704,12 +706,12 @@ get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
                                      _ ->
                                          %% If there are more results than fit on
                                          %% screen we expand above
-                                         send_drv_reqs(Drv, [{put_chars_keep_state, unicode, NlMatchStr},redraw_prompt]),
+                                         send_drv_reqs(Drv, [{put_chars, unicode, NlMatchStr}]),
                                          [$\e, $l | Cs1]
                                  end
                          end;
                      false ->
-                         send_drv(Drv, {put_chars_keep_state, unicode, NlMatchStr}),
+                         send_drv(Drv, {put_chars, unicode, NlMatchStr}),
                          [$\e, $l | Cs1]
                  end
          end,
@@ -780,7 +782,7 @@ get_line1({What,{line,Prompt,{_,{RevCmd0,_},_},search},_Rs},
                              send_drv(Drv, beep),
                              put(search_result, []),
                              send_drv(Drv, delete_line),
-                             send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary(Prompt++Cmd)}),
+                             send_drv(Drv, {insert_chars, unicode, unicode:characters_to_binary(Prompt++Cmd)}),
                              {Ls2, {[],{RevCmd, []},[]}};
                          {Line, Ls2} -> % found. Complete the output edlin couldn't have done.
                              Lines = string:split(string:to_graphemes(Line), "\n", all),
@@ -792,7 +794,7 @@ get_line1({What,{line,Prompt,{_,{RevCmd0,_},_},search},_Rs},
                                       end,
                              put(search_result, Lines),
                              send_drv(Drv, delete_line),
-                             send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary(Prompt++Cmd)}),
+                             send_drv(Drv, {insert_chars, unicode, unicode:characters_to_binary(Prompt++Cmd)}),
                              send_drv(Drv, {put_expand_no_trim, unicode, unicode:characters_to_binary(Output)}),
                              {Ls2, {[],{RevCmd, []},[]}}
                      end,
@@ -863,7 +865,7 @@ get_line_echo_off1({Chars,Rest}, _Drv, _Shell) ->
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
 
 get_chars_echo_off(Pbs, Drv, Shell) ->
-    send_drv_reqs(Drv, [{put_chars, unicode,Pbs}]),
+    send_drv_reqs(Drv, [{insert_chars, unicode,Pbs}]),
     get_chars_echo_off1(Drv, Shell).
 
 get_chars_echo_off1(Drv, Shell) ->
@@ -1036,7 +1038,7 @@ get_password1({Chars,[]}, Drv, Shell) ->
 	    exit(R)
     end;
 get_password1({Chars,Rest},Drv,_Shell) ->
-    send_drv_reqs(Drv,[{put_chars, unicode, "\n"}]),
+    send_drv_reqs(Drv,[{insert_chars, unicode, "\n"}]),
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
 
 edit_password([],Chars) ->
