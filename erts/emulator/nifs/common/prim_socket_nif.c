@@ -13069,6 +13069,24 @@ BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
 
 
 
+/*
+ * Misc ioctl utility functions.
+ */
+extern
+ERL_NIF_TERM esock_encode_ioctl_ivalue(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       int              ivalue)
+{
+  ERL_NIF_TERM eivalue = MKI(env, ivalue);
+
+  SSDBG( descP, ("SOCKET", "esock_encode_ioctl_ivalue -> done with"
+		 "\r\n    iValue: %T (%d)"
+		 "\r\n", eivalue, ivalue) );
+
+  return esock_make_ok2(env, eivalue);
+}
+
+
 /* ----------------------------------------------------------------------
  *  C a l l b a c k   F u n c t i o n s
  * ----------------------------------------------------------------------
