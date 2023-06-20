@@ -421,8 +421,7 @@ server({call, From}, {start_shell, _Args}, _State) ->
     keep_state_and_data;
 server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle })
   when State#state.current_group =:= State#state.user ->
-    State#state.current_group !
-        {self(), {data, unicode:characters_to_list(UTF8Binary, utf8)}},
+    State#state.current_group ! {self(), {data,UTF8Binary}},
     keep_state_and_data;
 server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }) ->
     case contains_ctrl_g_or_ctrl_c(UTF8Binary) of
@@ -435,7 +434,7 @@ server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }
             keep_state_and_data;
         none ->
             State#state.current_group !
-                {self(), {data, unicode:characters_to_list(UTF8Binary, utf8)}},
+                {self(), {data, UTF8Binary}},
             keep_state_and_data
     end;
 server(info, {ReadHandle,eof}, State = #state{ read = ReadHandle }) ->
