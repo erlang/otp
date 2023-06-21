@@ -80,7 +80,7 @@ groups() ->
      {http_unix_socket, [], simulated_unix_socket()},
      {https, [], [def_ssl_opt | real_requests()]},
      {sim_https, [], only_simulated()},
-     {misc, [], misc()},
+     {misc, [parallel], misc()},
      {sim_mixed, [], sim_mixed()}
     ].
 
@@ -347,13 +347,13 @@ init_per_testcase(pipeline, Config) ->
     httpc:set_options([{pipeline_timeout, 50000},
                        {max_pipeline_length, 3}], pipeline),
 
-    Config;
+    [{profile, pipeline} | Config];
 init_per_testcase(persistent_connection, Config) ->
-    inets:start(httpc, [{profile, persistent}]),
+    inets:start(httpc, [{profile, persistent_connection}]),
     httpc:set_options([{keep_alive_timeout, 50000},
 		       {max_keep_alive_length, 3}], persistent),
 
-    Config;
+    [{profile, persistent_connection} | Config];
 init_per_testcase(Case, Config) when Case == wait_for_whole_response;
                                      Case == remote_socket_close_parallel ->
     ct:timetrap({seconds, 60*3}),
@@ -364,13 +364,16 @@ init_per_testcase(Case, Config) when Case == post;
 				     Case == post_stream ->
     ct:timetrap({seconds, 30}),
     Config;
+init_per_testcase(Case, Config) when Case == timeout_memory_leak ->
+    {ok, _Pid} = inets:start(httpc, [{profile, Case}]),
+    [{profile, Case} | Config];
 init_per_testcase(_Case, Config) ->
     Config.
 
-end_per_testcase(pipeline, _Config) ->
-    inets:stop(httpc, pipeline);
-end_per_testcase(persistent_connection, _Config) ->
-    inets:stop(httpc, persistent);
+end_per_testcase(Case, Config) when Case == timeout_memory_leak;
+                                    Case == pipeline;
+                                    Case == persistent_connection ->
+    inets:stop(httpc, ?config(profile, Config));
 end_per_testcase(Case, Config)
   when Case == server_closing_connection_on_first_response;
        Case == server_closing_connection_on_second_response ->
@@ -562,11 +565,11 @@ pipeline(Config) when is_list(Config) ->
 
 persistent_connection(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-    {ok, _} = httpc:request(get, Request, [?SSL_NO_VERIFY], [], persistent),
+    {ok, _} = httpc:request(get, Request, [?SSL_NO_VERIFY], [], persistent_connection),
 
     %% Make sure pipeline session is registered
     ct:sleep(4000),
-    keep_alive_requests(Request, persistent).
+    keep_alive_requests(Request, persistent_connection).
 
 %%-------------------------------------------------------------------------
 async() ->
@@ -1594,12 +1597,13 @@ timeout_memory_leak() ->
     [{doc, "Check OTP-8739"}].
 timeout_memory_leak(Config) when is_list(Config) ->
     {_DummyServerPid, Port} = otp_8739_dummy_server(),
-    {ok,Host} = inet:gethostname(),
+    {ok, Host} = inet:gethostname(),
     Request = {?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ "/dummy.html", []},
-    case httpc:request(get, Request, [{connect_timeout, 500}, {timeout, 1}], [{sync, true}]) of
+    Profile = ?config(profile, Config),
+    case httpc:request(get, Request, [{connect_timeout, 500}, {timeout, 1}], [{sync, true}], Profile) of
 	{error, timeout} ->
 	    %% And now we check the size of the handler db
-	    Info = httpc:info(),
+	    Info = httpc:info(Profile),
 	    ct:log("Info: ~p", [Info]),
 	    {value, {handlers, Handlers}} =
 		lists:keysearch(handlers, 1, Info),
