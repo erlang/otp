@@ -464,6 +464,8 @@ no_reuses_session_server_restart_new_cert() ->
 no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_der_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_der_verify_opts, Config),
+    POpts = proplists:get_value(protocol_opts, Config, []),
+
     #{client_config := NewCOpts,
       server_config := NewSOpts} = ssl_test_lib:make_cert_chains_der(rsa,
                                                                      [[{key, ssl_test_lib:hardcode_rsa_key(4)}],
@@ -493,12 +495,12 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     Server1 = ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
                                          {from, self()},
                                          {mfa, {ssl_test_lib, session_info_result, []}},
-                                         {options, [{reuseaddr, true} | NewSOpts]}]),
+                                         {options, [{reuseaddr, true} | NewSOpts ++ POpts]}]),
 
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_info_result, []}},
-                                         {from, self()},  {options, NewCOpts}]),
+                                         {from, self()},  {options, NewCOpts ++ POpts}]),
     Info1 = receive {Server1, Info10} -> Info10 end,
 
     receive
@@ -520,6 +522,8 @@ no_reuses_session_server_restart_new_cert_file() ->
 no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    POpts = proplists:get_value(protocol_opts, Config, []),
+
     #{client_config := NewCOpts,
       server_config := NewSOpts} = ssl_test_lib:make_cert_chains_pem(rsa,
                                                                      [[{key, ssl_test_lib:hardcode_rsa_key(4)}],
@@ -534,14 +538,14 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-		      {mfa, {ssl_test_lib, session_info_result, []}},
+                                   {mfa, {ssl_test_lib, session_info_result, []}},
 				   {options, NewServerOpts0}]),
     Port = ssl_test_lib:inet_port(Server),
     Client0 =
 	ssl_test_lib:start_client([{node, ClientNode},
-		      {port, Port}, {host, Hostname},
-			    {mfa, {ssl_test_lib, no_result, []}},
-		      {from, self()},  {options, ClientOpts}]),
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {from, self()},  {options, ClientOpts}]),
     SessionInfo =
 	receive
 	    {Server, Info} ->
@@ -561,13 +565,13 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     Server1 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
 				   {from, self()},
-		      {mfa, {ssl_test_lib, no_result, []}},
-				   {options,  [{reuseaddr, true} | NewServerOpts1]}]),
+                                   {mfa, {ssl_test_lib, no_result, []}},
+				   {options,  [{reuseaddr, true} | NewServerOpts1 ++ POpts]}]),
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode},
-		      {port, Port}, {host, Hostname},
-		      {mfa, {ssl_test_lib, session_info_result, []}},
-				   {from, self()},  {options, NewCOpts}]),
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, session_info_result, []}},
+				   {from, self()},  {options, NewCOpts ++ POpts}]),
     receive
 	{Client1, SessionInfo} ->
 	    ct:fail(session_reused_when_server_has_new_cert);

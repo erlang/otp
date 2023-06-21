@@ -217,7 +217,7 @@ client_unique_session(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     LastClient = clients_start(Server, ClientNode, Hostname, Port, ClientOpts, 20, []),
-    receive 
+    receive
 	{LastClient, {ok, _}} ->
 	    ok
     end,
@@ -227,10 +227,10 @@ client_unique_session(Config) when is_list(Config) ->
     ClientCache = element(2, State),
 
     1 = ?CLIENT_CB:size(ClientCache),
-  
+
     ssl_test_lib:close(Server, 500),
     ssl_test_lib:close(LastClient).
-		
+
 session_cleanup() ->
     [{doc, "Test that sessions are cleaned up eventually, so that the session table "
      "does not grow and grow ..."}].
@@ -560,8 +560,11 @@ clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N, Opts) ->
     spawn_link(ssl_test_lib, start_client, 
 	       [[{node, ClientNode},
 		 {port, Port}, {host, Hostname},
-		 {mfa, {ssl_test_lib, no_result, []}},
+		 {mfa, {?MODULE, connection_info_result, []}},
 		 {from, self()},  {options, Opts ++ ClientOpts}]]),
+    receive  %% Sync client connect
+        {_, {ok, _}} -> ok
+    end,
     Server ! listen,
     wait_for_server(),
     clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1, Opts).
