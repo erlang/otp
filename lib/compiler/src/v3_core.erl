@@ -4097,7 +4097,12 @@ insert_nif_start([VF={V,F=#c_fun{body=Body}}|Funs]) ->
         #c_case{} ->
             NifStart = #c_primop{name=#c_literal{val=nif_start},args=[]},
             [{V,F#c_fun{body=#c_seq{arg=NifStart,body=Body}}}
-            |insert_nif_start(Funs)]
+            |insert_nif_start(Funs)];
+        #c_letrec{defs=Defs,body=LetrecBody0}=LR0 ->
+            NifStart = #c_primop{name=#c_literal{val=nif_start},args=[]},
+            LetrecBody = #c_seq{arg=NifStart,body=LetrecBody0},
+            LR = LR0#c_letrec{defs=insert_nif_start(Defs), body=LetrecBody},
+            [{V,F#c_fun{body=LR}}|insert_nif_start(Funs)]
     end;
 insert_nif_start([]) ->
     [].
