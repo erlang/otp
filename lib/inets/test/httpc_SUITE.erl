@@ -68,7 +68,7 @@ all() ->
 
 groups() ->
     [
-     {http, [], real_requests()},
+     {http, [parallel], real_requests()},
      {http_ipv6, [], [request_options]},
      %% process_leak_on_keepalive is depending on stream_fun_server_close
      %% and it shall be the last test case in the suite otherwise cookie
@@ -81,7 +81,7 @@ groups() ->
      {https, [], [def_ssl_opt | real_requests()]},
      {sim_https, [], only_simulated()},
      {misc, [parallel], misc()},
-     {sim_mixed, [], sim_mixed()}
+     {sim_mixed, [parallel], sim_mixed()}
     ].
 
 real_requests()->
