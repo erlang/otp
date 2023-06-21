@@ -28,6 +28,7 @@
 #include "big.h"
 #include "error.h"
 #include "bif.h"
+#include "erl_binary.h"
 
 #define ZERO_DIGITS(v, sz) do {			\
 	dsize_t _t_sz = sz;			\
@@ -3244,4 +3245,200 @@ LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
          return LTI_SOME_INTEGER;
      }
      return LTI_ALL_INTEGER;
+}
+
+static Eterm chars_to_integer(char *bytes, Uint size, const Uint base)
+{
+    Sint i = 0;
+    int neg = 0;
+
+    if (size == 0) {
+	return am_badarg;
+    }
+
+    if (bytes[0] == '-') {
+	neg = 1;
+	bytes++;
+	size--;
+    } else if (bytes[0] == '+') {
+	bytes++;
+	size--;
+    }
+
+    if (size == 0) {
+	return am_badarg;
+    }
+
+    /* Trim leading zeroes */
+    while (*bytes == '0') {
+        bytes++;
+        size--;
+        if (size == 0) {
+            /* All zero! */
+            return make_small(0);
+        }
+    }
+
+    if (size > get_digits_per_small(base)) {
+	return am_big;
+    }
+
+    if (base <= 10) {
+        /*
+         * Take shortcut if we know that all chars are '0' < b < '9'.
+         * This improves speed by about 10% over the generic small
+         * case.
+         */
+        while (size--) {
+            Uint digit = *bytes++ - '0';
+            if (digit >= base) {
+                return am_badarg;
+            }
+            i = i * base + digit;
+        }
+    } else {
+        while (size) {
+            byte b = *bytes++;
+            size--;
+
+            if (c2int_is_invalid_char(b, base)) {
+                return am_badarg;
+            }
+
+            i = i * base + c2int_digit_from_base(b);
+        }
+    }
+
+    if (neg) {
+        i = -i;
+    }
+    ASSERT(IS_SSMALL(i));
+    return make_small(i);
+}
+
+BIF_RETTYPE erts_internal_binary_to_integer_2(BIF_ALIST_2)
+{
+    byte *temp_alloc = NULL;
+    char *bytes;
+    Uint size;
+    Uint base;
+    Eterm res;
+
+    if (!is_small(BIF_ARG_2)) {
+        BIF_RET(am_badarg);
+    }
+
+    base = (Uint) signed_val(BIF_ARG_2);
+
+    if (base < 2 || base > 36) {
+        BIF_RET(am_badarg);
+    }
+
+    if ((bytes = (char*)erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc)) == NULL) {
+        BIF_RET(am_badarg);
+    }
+
+    size = binary_size(BIF_ARG_1);
+    res = chars_to_integer(bytes, size, base);
+    erts_free_aligned_binary_bytes(temp_alloc);
+    BIF_RET(res);
+}
+
+BIF_RETTYPE erts_internal_list_to_integer_2(BIF_ALIST_2)
+{
+    Eterm res;
+    Sint i = 0;
+    Uint ui = 0;
+    int neg = 0;
+    Sint n = 0;
+    byte c;
+    Eterm list = BIF_ARG_1;
+    Uint base;
+    Uint digits_per_small;
+    Eterm *hp;
+
+    if (is_nil(list) ) {
+        BIF_RET(am_no_integer);
+    } else if (is_not_list(list)) {
+        BIF_RET(am_not_a_list);
+    }
+
+    if (is_not_small(BIF_ARG_2)) {
+        BIF_RET(am_badarg);
+    }
+    base = unsigned_val(BIF_ARG_2);
+    if (base < 2 || base > 36) {
+        BIF_RET(am_badarg);
+    }
+
+    if (CAR(list_val(list)) == make_small('-')) {
+        neg = 1;
+        list = CDR(list_val(list));
+    } else if (CAR(list_val(list)) == make_small('+')) {
+        list = CDR(list_val(list));
+    }
+
+    while (is_list(list)) {     /* Skip zero digits */
+        Eterm *list_ptr = list_val(list);
+
+        if (is_not_small(CAR(list_ptr))) {
+            break;
+        }
+        c = unsigned_val(CAR(list_ptr));
+        if (c != '0') {
+            if (c2int_is_invalid_char(c, base)) {
+                if (n == 0) {
+                    BIF_RET(am_no_integer);
+                } else {
+                    res = make_small(0);
+                    hp = HAlloc(BIF_P, 3);
+                    BIF_RET(TUPLE2(hp, res, list));
+                }
+            }
+            break;
+        }
+        n++;
+        list = CDR(list_ptr);
+    }
+
+    if (is_not_list(list)) {
+        if (n == 0) {
+            BIF_RET(am_no_integer);
+        } else {
+            res = make_small(0);
+            hp = HAlloc(BIF_P, 3);
+            BIF_RET(TUPLE2(hp, res, list));
+        }
+    }
+
+    n = 0;
+    digits_per_small = get_digits_per_small(base);
+    while (n <= digits_per_small) {
+        if (is_not_small(CAR(list_val(list)))) {
+            break;
+        }
+        c = unsigned_val(CAR(list_val(list)));
+        if (c2int_is_invalid_char(c, base)) {
+            break;
+        }
+        ui = ui * base + c2int_digit_from_base(c);
+        n++;
+        list = CDR(list_val(list));
+        if (is_not_list(list)) {
+            break;
+        }
+    }
+
+    if (n == 0) {
+        BIF_RET(am_no_integer);
+    }
+
+    if (n > digits_per_small) {
+        BIF_RET(am_big);
+    } else {
+        i = neg ? -(Sint)ui : (Sint)ui;
+        res = make_small(i);
+        hp = HAlloc(BIF_P, 3);
+        BIF_RET(TUPLE2(hp, res, list));
+    }
 }

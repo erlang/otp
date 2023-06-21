@@ -779,6 +779,10 @@ bif erlang:monitor/3
 bif erlang:error/3
 bif maps:from_keys/2
 
+# New in 24 (in a patch)
+bif erts_internal:binary_to_integer/2
+bif erts_internal:list_to_integer/2
+
 #
 # New in 26
 #
