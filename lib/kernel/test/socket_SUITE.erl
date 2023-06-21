@@ -344,6 +344,7 @@
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
+         ioctl_simple2/1,
          ioctl_fionread/1,
          %% Socket IOCTL get requests
          ioctl_get_gifname/1,
@@ -1355,6 +1356,7 @@ ioctl_cases() ->
 ioctl_simple_cases() ->
     [
      ioctl_simple1,
+     ioctl_simple2,
      ioctl_fionread
     ].
 
@@ -37136,10 +37138,34 @@ sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test "some" ioctl features.
+%% This test case is intended to (*really* simply) test
+%% "some" ioctl features.
 %%
 
 ioctl_simple1(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ioctl_requests()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_simple1(InitState)
+           end).
+
+
+do_ioctl_simple1(_State) ->
+    Requests = socket:supports(ioctl_requests),
+    ?P("Requests: ~p", [Requests]),
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test "some" ioctl features.
+%%
+
+ioctl_simple2(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(?FUNCTION_NAME,
            fun() ->
@@ -37148,11 +37174,11 @@ ioctl_simple1(_Config) when is_list(_Config) ->
            end,
            fun() ->
                    InitState = #{},
-                   ok = do_ioctl_simple(InitState)
+                   ok = do_ioctl_simple2(InitState)
            end).
 
 
-do_ioctl_simple(_State) ->
+do_ioctl_simple2(_State) ->
     i("create dummy dgram:UDP socket"),
     {ok, Sock1} = socket:open(inet, dgram, udp),
     i("perform simple ioctl (expect success)"),
@@ -37217,7 +37243,7 @@ do_ioctl_simple(_State) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test "some" ioctl features.
+%% This test case is intended to (simply) test the ioctl fionread feature.
 %%
 
 ioctl_fionread(_Config) when is_list(_Config) ->
