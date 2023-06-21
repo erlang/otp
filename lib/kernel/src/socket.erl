@@ -4422,16 +4422,16 @@ peername(Socket) ->
 %%
 %%
 
--spec ioctl(Socket, GetRequest) -> {'ok', IFConf} | {'error', Reason} when
-      Socket     :: socket(),
-      GetRequest :: 'gifconf',
-      IFConf     :: [#{name := string, addr := sockaddr()}],
-      Reason     :: posix() | 'closed';
-           (Socket, GetRequest) -> {'ok', NumBytes} | {'error', Reason} when
-      Socket     :: socket(),
-      GetRequest :: 'fionread' | 'fionwrite' | 'fionspace',
-      NumBytes   :: non_neg_integer(),
-      Reason     :: posix() | 'closed'.
+-spec ioctl(Socket, GetRequest :: 'gifconf') ->
+          {'ok', IFConf :: [#{name := string, addr := sockaddr()}]} |
+          {'error', Reason} when
+      Socket :: socket(),
+      Reason :: posix() | 'closed';
+
+           (Socket, GetRequest :: 'fionread' | 'fionwrite' | 'fionspace') ->
+          {'ok', NumBytes :: non_neg_integer()} | {'error', Reason} when
+      Socket :: socket(),
+      Reason :: posix() | 'closed'.
 
 %% gifconf | fionread | fionwrite | fionspace |
 %% {gifaddr, string()} | {gifindex, string()} | {gifname, integer()}
