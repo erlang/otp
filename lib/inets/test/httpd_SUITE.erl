@@ -127,12 +127,14 @@ groups() ->
      {security, [], [security_1_1, security_1_0]},
      {logging, [], [disk_log_internal, disk_log_exists,
              disk_log_bad_size, disk_log_bad_file]},
-     {http_1_1, [],
+     {http_1_1, [], [esi_propagate, esi_atom_leak, {group, http_1_1_parallel}] ++ load()},
+     {http_1_1_parallel, [parallel],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
-       esi_put, esi_patch, esi_post, esi_proagate, esi_atom_leak, esi_headers]
-      ++ http_head() ++ http_get() ++ load()},
-     {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
+       esi_put, esi_patch, esi_post, esi_headers]
+      ++ http_head() ++ http_get()},
+     {http_1_0, [], [{group, http_1_0_parallel} | load()]},
+     {http_1_0_parallel, [parallel], [host, cgi, trace] ++ http_head() ++ http_get()},
      {http_rel_path_script_alias, [], [cgi]},
      {esi, [], [erl_script_timeout_default,
                 erl_script_timeout_option,
@@ -242,9 +244,11 @@ init_per_group(Group, Config0)  when  Group == http_basic;
 				      ->
     ok = start_apps(Group),
     init_httpd(Group, [{http_version, "HTTP/1.0"}, {type, ip_comm} | Config0]);
-init_per_group(http_1_1, Config) ->
+init_per_group(Group, Config) when Group == http_1_1_parallel;
+                                   Group == http_1_1 ->
     [{http_version, "HTTP/1.1"} | Config];
-init_per_group(http_1_0, Config) ->
+init_per_group(Group, Config) when Group == http_1_0_parallel;
+                                   Group == http_1_0 ->
     [{http_version, "HTTP/1.0"} | Config];
 init_per_group(auth_api, Config) -> 
     [{auth_prefix, ""} | Config];
@@ -308,7 +312,11 @@ init_per_testcase(Case, Config) when Case == host; Case == trace ->
     Cb = case Name of
 	     http_1_0 ->
 		 httpd_1_0;
+	     http_1_0_parallel ->
+		 httpd_1_0;
 	     http_1_1 ->
+		 httpd_1_1;
+	     http_1_1_parallel ->
 		 httpd_1_1
 	 end,
     dbg(
@@ -992,7 +1000,7 @@ mod_esi_chunk_timeout(Config) when is_list(Config) ->
 					 proplists:get_value(host, Config),
 					 proplists:get_value(node, Config)).
 %%-------------------------------------------------------------------------
-esi_proagate(Config)  when is_list(Config) -> 
+esi_propagate(Config) when is_list(Config) ->
     register(propagate_test, self()),
     ok = http_status("GET /cgi-bin/erl/httpd_example:new_status_and_location ",
                   Config, [{statuscode, 201}]),
