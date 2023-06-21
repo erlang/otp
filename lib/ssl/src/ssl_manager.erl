@@ -33,7 +33,7 @@
 	 lookup_trusted_cert/4,
 	 clean_cert_db/2,
          refresh_trusted_db/1, refresh_trusted_db/2,
-	 register_session/2, register_session/4, invalidate_session/2,
+	 register_session/4, invalidate_session/2,
 	 insert_crls/2, insert_crls/3, delete_crls/1, delete_crls/2, 
 	 invalidate_session/3, name/1]).
 
@@ -185,9 +185,6 @@ register_session(Host, Port, Session, true) ->
 register_session(Host, Port, Session, unique = Save) ->
     cast({register_session, Host, Port, Session, Save}).
 
--spec register_session(inet:port_number(), #session{}) -> ok.
-register_session(Port, Session) ->
-    cast({register_session, Port, Session}).
 %%--------------------------------------------------------------------
 %%
 %% Description: Make the session unavailable for reuse. After
@@ -308,7 +305,7 @@ handle_call({{delete_crls, CRLsOrPath}, _}, _From,
 	    #state{certificate_db = Db} = State) ->
     ssl_pkix_db:remove_crls(Db, CRLsOrPath),
     {reply, ok, State};
-handle_call({{register_session, Host, Port, Session},_}, _, State0) ->
+handle_call({{register_session, Host, Port, Session}, _}, _, State0) ->
     State = client_register_session(Host, Port, Session, State0), 
     {reply, ok, State};
 handle_call({refresh_trusted_db, _}, _, #state{certificate_db = Db} = State) ->
@@ -332,9 +329,6 @@ handle_cast({register_session, Host, Port, Session, unique}, State0) ->
     State = client_register_unique_session(Host, Port, Session, State0), 
     {noreply, State};
 
-handle_cast({register_session, Host, Port, Session, true}, State0) ->
-    State = client_register_session(Host, Port, Session, State0), 
-    {noreply, State};
 handle_cast({invalidate_session, Host, Port,
 	     #session{session_id = ID} = Session},
 	    #state{session_cache_client = Cache,

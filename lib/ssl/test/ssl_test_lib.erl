@@ -3926,66 +3926,66 @@ session_id(Socket) ->
     
 reuse_session(ClientOpts, ServerOpts, Config) ->
     {ClientNode, ServerNode, Hostname} = run_where(Config),
-    
+
     Server0 =
 	start_server([{node, ServerNode}, {port, 0},
-				   {from, self()},
-				   {mfa, {ssl_test_lib, no_result, []}},
-				   {tcp_options, [{active, false}]},
-				   {options, ServerOpts}]),
+                      {from, self()},
+                      {mfa, {ssl_test_lib, no_result, []}},
+                      {tcp_options, [{active, false}]},
+                      {options, ServerOpts}]),
     Port0 = inet_port(Server0),
-    
+
     Client0 = start_client([{node, ClientNode},
-                                         {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+                            {port, Port0}, {host, Hostname},
+                            {mfa, {ssl_test_lib, session_id, []}},
+                            {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
     Server0 ! listen,
-    
-    Client1 = start_client([{node, ClientNode},
-                                         {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, ClientOpts}]),    
 
     SID = receive
               {Client0, Id0} ->
                   Id0
           end,
-       
+
+    Client1 = start_client([{node, ClientNode},
+                            {port, Port0}, {host, Hostname},
+                            {mfa, {ssl_test_lib, session_id, []}},
+                            {from, self()},  {options, ClientOpts}]),
+
     receive
         {Client1, SID} ->
             ok
     after ?SLEEP ->
-              ct:fail(session_not_reused)
+            ct:fail(session_not_reused)
     end,
-  
+
     Server0 ! listen,
-    
+
     Client2 =
         start_client([{node, ClientNode},
-                                   {port, Port0}, {host, Hostname},
-                                   {mfa, {ssl_test_lib, session_id, []}},
-                                   {from, self()},  {options, [{reuse_sessions, false}
-         					  | ClientOpts]}]),   
+                      {port, Port0}, {host, Hostname},
+                      {mfa, {ssl_test_lib, session_id, []}},
+                      {from, self()},  {options, [{reuse_sessions, false}
+                                                 | ClientOpts]}]),   
     receive
-         {Client2, SID} ->
+        {Client2, SID} ->
             ct:fail(session_reused_when_session_reuse_disabled_by_client);
-         {Client2, _} ->
+        {Client2, _} ->
             ok
     end,
-    
+
     close(Server0),
     close(Client0),
     close(Client1),
     close(Client2),
-    
+
     Server1 =
 	start_server([{node, ServerNode}, {port, 0},
-				   {from, self()},
-				   {mfa, {ssl_test_lib, no_result, []}},
-				   {tcp_options, [{active, false}]},
-				   {options, [{reuse_sessions, false} | ServerOpts]}]),
+                      {from, self()},
+                      {mfa, {ssl_test_lib, no_result, []}},
+                      {tcp_options, [{active, false}]},
+                      {options, [{reuse_sessions, false} | ServerOpts]}]),
     Port1 = inet_port(Server1),
-    
+
     Client3 = start_client([{node, ClientNode},
                             {port, Port1}, {host, Hostname},
                             {mfa, {ssl_test_lib, session_id, []}},
@@ -3996,7 +3996,7 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
            end,
 
     Server1 ! listen,
-    
+
     Client4 =
         start_client([{node, ClientNode},
                       {port, Port1}, {host, Hostname},
@@ -4009,7 +4009,7 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
         {Client4, _} ->
             ok
     end,
-    
+
     close(Server1),
     close(Client3),
     close(Client4).
