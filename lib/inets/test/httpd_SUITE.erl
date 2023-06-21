@@ -1381,9 +1381,7 @@ security(Config) ->
     Node = proplists:get_value(node, Config),
     ServerRoot = proplists:get_value(server_root, Config),
 
-    global:register_name(mod_security_test, self()),   % Receive events
-
-    ct:sleep(5000),
+    yes = global:register_name(mod_security_test, self()),   % Receive events
 
     OpenDir = filename:join([ServerRoot, "htdocs", "open"]),
 
