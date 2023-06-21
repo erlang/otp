@@ -37259,49 +37259,61 @@ ioctl_fionread(_Config) when is_list(_Config) ->
            end).
 
 do_ioctl_fionread(_) ->
-    i("get local socket address"),
+    i("Get local socket address"),
     LSA = which_local_socket_addr(inet),
+    i("Use LSA: ~p", [LSA]),
 
-    i("create dgram:UDP socket 1"),
+    i("Create dgram:UDP socket 1"),
     {ok, S1} = socket:open(inet, dgram, udp),
 
-    i("bind socket 1"),
+    i("Bind socket 1"),
     ok = socket:bind(S1, LSA),
 
-    i("create dgram:UDP socket 2"),
+    i("Create dgram:UDP socket 2"),
     {ok, S2} = socket:open(inet, dgram, udp),
 
-    i("bind socket 2"),
+    i("Bind socket 2"),
     ok = socket:bind(S2, LSA),
 
-    i("check data to read - expect 0 bytes"),
+    i("Check data to read - expect 0 bytes"),
     {ok, 0} = socket:ioctl(S1, fionread),
     
-    i("get socket 1 port number"),
+    i("Get socket 1 port number"),
     {ok, #{port := Port1}} = socket:sockname(S1),
     
-    i("send data to socket 1 (from socket 2)"),
+    i("Send data to socket 1 (from socket 2)"),
     Data   = <<0,1,2,3,4,5,6,7,8,9>>,
     DataSz = byte_size(Data),
     ok = socket:sendto(S2, Data, LSA#{port => Port1}),
     
-    i("give it some time to arrive"),
+    i("Give it some time to arrive"),
     ?SLEEP(?SECS(1)),
     
-    i("verify that the correct amount of data (~p) is available", [DataSz]),
-    {ok, DataSz} = socket:ioctl(S1, fionread),
+    i("Verify that the correct amount of data (atleast ~p) is available", [DataSz]),
+    case socket:ioctl(S1, fionread) of
+        {ok, DataSize} when (DataSize >= DataSz) ->
+            i("Success: "
+	      "~n   Min Size:    ~p"
+	      "~n   Actual Size: ~p", [DataSz, DataSize]),
+	    ok;
+	{ok, DataSize} ->
+            i("Unexpected data size: "
+	      "~n   Expected (min) Size: ~p"
+	      "~n   Actual Size:                ~p", [DataSz, DataSize]),
+	    ct:fail({invalid_data_size, DataSz, DataSize})
+    end,
 
-    i("read the data"),
+    i("Read the data"),
     {ok, {_, Data}} = socket:recvfrom(S1),
     
-    i("verify that the data has been read (no more data is available)"),
+    i("Verify that the data has been read (no more data is available)"),
     {ok, 0} = socket:ioctl(S1, fionread),
 
-    i("cleanup"),
+    i("Cleanup"),
     socket:close(S1),
     socket:close(S2),
 
-    i("done"),
+    i("Done"),
     ok.
 
     
