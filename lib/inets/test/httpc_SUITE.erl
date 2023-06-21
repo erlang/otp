@@ -871,18 +871,17 @@ cookie(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(get, Request0, [?SSL_NO_VERIFY], []),
 
-    %% Populate table to be used by the "dummy" server
-    ets:new(cookie, [named_table, public, set]),
-    ets:insert(cookie, {cookies, true}),
-
     Request1 = {url(group_name(Config), "/", Config), []},
 
-    {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request1, [?SSL_NO_VERIFY], []),
+    {ok, {{_,200,_}, [_ | _], [_|_]}} = global:trans(
+        {cookies, verify},
+        fun() -> httpc:request(get, Request1, [?SSL_NO_VERIFY], []) end,
+        [node()],
+        100
+    ),
 
    [{session_cookies, [_|_]}] = httpc:which_cookies(httpc:default_profile()),
 
-    ets:delete(cookie),
     ok = httpc:set_options([{cookies, disabled}]).
 
 
@@ -899,16 +898,15 @@ cookie_profile(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(get, Request0, [?SSL_NO_VERIFY], [], cookie_test),
 
-    %% Populate table to be used by the "dummy" server
-    ets:new(cookie, [named_table, public, set]),
-    ets:insert(cookie, {cookies, true}),
-
     Request1 = {url(group_name(Config), "/", Config), []},
 
-    {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request1, [?SSL_NO_VERIFY], [], cookie_test),
+    {ok, {{_,200,_}, [_ | _], [_|_]}} = global:trans(
+        {cookies, verify},
+        fun() -> httpc:request(get, Request1, [?SSL_NO_VERIFY], [], cookie_test) end,
+        [node()],
+        100
+    ),
 
-    ets:delete(cookie),
     inets:stop(httpc, cookie_test).
 
 %%-------------------------------------------------------------------------
@@ -2454,11 +2452,12 @@ handle_http_msg({Method, RelUri, _, {_, Headers}, Body}, Socket, _) ->
 		end
 	end,
    
-    case (catch ets:lookup(cookie, cookies)) of 
-	[{cookies, true}]->
-	    check_cookie(Headers);
-	_ ->
-	    ok
+    case global:trans({cookies, verify}, fun() -> unset end, [node()], 0) of
+        aborted->
+            % somebody has the lock and wants us to check
+            check_cookie(Headers);
+        unset ->
+            ok
     end,
 
    {ok, {_, Port}} = sockname(Socket),
