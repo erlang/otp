@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -121,12 +121,16 @@
 format_error({string,Quote,Head}) ->
     lists:flatten(["unterminated " ++ string_thing(Quote) ++
                    " starting with " ++
-                   io_lib:write_string(Head, Quote)]);
+                   io_lib:write_string(Head, string_quote(Quote))]);
 format_error({illegal,Type}) ->
     lists:flatten(io_lib:fwrite("illegal ~w", [Type]));
 format_error(char) -> "unterminated character";
 format_error({base,Base}) ->
     lists:flatten(io_lib:fwrite("illegal base '~w'", [Base]));
+format_error(indentation) ->
+    "bad indentation in triple-quoted string";
+format_error(white_space) ->
+    "non-whitespace after start of triple-quoted string";
 format_error(Other) ->
     lists:flatten(io_lib:write(Other)).
 
@@ -262,12 +266,20 @@ symbol(T) ->
 %%% Local functions
 %%%
 
-string_thing($') -> "atom";   %' Stupid Emacs
-string_thing(_) -> "string".
+string_thing($') -> %' Stupid Emacs
+    "atom";
+string_thing($") -> %"
+    "string";
+string_thing({$",_}) -> %"
+    "triple-quoted string".
+
+string_quote($') -> $';
+string_quote($") -> $";
+string_quote({$",_}) -> $".
 
 -define(WHITE_SPACE(C),
-        is_integer(C) andalso
-         (C >= $\000 andalso C =< $\s orelse C >= $\200 andalso C =< $\240)).
+        (is_integer(C) andalso
+         (C >= $\000 andalso C =< $\s orelse C >= $\200 andalso C =< $\240))).
 -define(DIGIT(C), (is_integer(C) andalso $0 =< C andalso C =< $9)).
 -define(CHAR(C), (is_integer(C) andalso 0 =< C andalso C < 16#110000)).
 -define(UNICODE(C),
@@ -370,6 +382,7 @@ string1(Cs, St, Line, Col, Toks) ->
             Error
     end.
 
+
 scan(Cs, #erl_scan{}=St, Line, Col, Toks, _) ->
     scan1(Cs, St, Line, Col, Toks).
 
@@ -425,6 +438,12 @@ scan1("."=Cs, St, Line, Col, Toks) ->
     {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1([$.=C|Cs], St, Line, Col, Toks) ->
     scan_dot(Cs, St, Line, Col, Toks, [C]);
+scan1([$",$",$"|Cs], St, Line, Col, Toks) -> %" Emacs
+    scan_tqstring(Cs, St, Line, Col, Toks, 3); % Number of quote chars
+scan1([$",$"]=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
+scan1([$"]=Cs, St, Line, Col, Toks) -> %" Emacs
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1([$"|Cs], St, Line, Col, Toks) -> %" Emacs
     State0 = {[],[],Line,Col},
     scan_string(Cs, St, Line, incr_column(Col, 1), Toks, State0);
@@ -827,6 +846,222 @@ scan_char([], St, Line, Col, Toks) ->
     {more,{[$$],St,Col,Toks,Line,[],fun scan/6}};
 scan_char(eof, _St, Line, Col, _Toks) ->
     scan_error(char, Line, Col, Line, incr_column(Col, 1), eof).
+
+-record(tqs, % Triple-quoted String state
+        {line,                  % Line number of first quote character
+         col,                   % Column number of  - " -
+         qs,                    % Number of quote characters in delimiter
+         content_r = []}).      % Reverse list of reversed content lines
+
+%% Scan leading $" characters until we have them all, then scan lines
+%%
+scan_tqstring(Cs, St, Line, Col, Toks, Qs) ->
+    case Cs of
+        [$"|Ncs] ->
+            scan_tqstring(Ncs, St, Line, Col, Toks, Qs+1);
+        [] ->
+            {more, {[], St, Col, Toks, Line, Qs, fun scan_tqstring/6}};
+        _ ->
+            Tqs = #tqs{ line = Line, col = Col, qs = Qs },
+            scan_tqstring_line(
+              Cs, St, Line, incr_column(Col, Qs), Toks,
+              0, Tqs, [])
+    end.
+
+scan_tqstring_line(Cs, St, Line, Col, Toks, {Qs, Tqs, Acc}) ->
+    scan_tqstring_line(Cs, St, Line, Col, Toks, Qs, Tqs, Acc).
+%%
+scan_tqstring_line(Cs, St, Line, Col, Toks, Qs, Tqs, Acc) ->
+    %% Qs  :: Number of end quote chars to search for, 0 means not searching
+    %% Tqs :: #tqs{}
+    %% Acc :: Reversed current line
+    case Cs of
+        [$\n=C|Ncs] ->
+            Ncol = new_column(Col, 1),
+            Nacc = [C|Acc],
+            Nqs = Tqs#tqs.qs, % Start searching for end quote chars
+            scan_tqstring_line(
+              Ncs, St, Line+1, Ncol, Toks,
+              Nqs, Tqs#tqs{ content_r = [Nacc | Tqs#tqs.content_r] }, []);
+        [$"=C|Ncs] when Qs =/= 0 ->
+            %% Possible end quote char
+            Ncol = incr_column(Col, 1),
+            Nacc = [C|Acc],
+            if
+                Qs =:= 1 ->
+                    %% This is the last end quote char
+                    %% - post process the content
+                    scan_tqstring_finish(
+                      Ncs, St, Line, Ncol, Toks, Tqs,
+                      lists:nthtail(Tqs#tqs.qs, Nacc)); % Strip them
+                true ->
+                    %% Collect and Count this end quote char
+                    scan_tqstring_line(
+                      Ncs, St, Line, Ncol, Toks,
+                      Qs-1, Tqs, Nacc)
+            end;
+        [C|Ncs] ->
+            Ncol = incr_column(Col, 1),
+            Nacc = [C|Acc],
+            if
+                Qs =/= 0, ?WHITE_SPACE(C) ->
+                    %% White space while searching for end quote chars
+                    if
+                        Qs =:= Tqs#tqs.qs ->
+                            %% White space before first end quote char
+                            %% - just collect
+                            scan_tqstring_line(
+                              Ncs, St, Line, Ncol, Toks,
+                              Qs, Tqs, Nacc);
+                        true ->
+                            %% White space after too few quote chars
+                            %% - stop searching for end quote chars
+                            scan_tqstring_line(
+                              Ncs, St, Line, Ncol, Toks,
+                              0, Tqs, Nacc)
+                    end;
+                ?UNI255(C) ->
+                    scan_tqstring_line(
+                      Ncs, St, Line, Ncol, Toks,
+                      0, Tqs, Nacc); % Stop searching for end quote chars
+                ?CHAR(C) ->
+                    %% Illegal Unicode character
+                    scan_error(
+                      {illegal,character}, Line, Col, Line, Ncol, Ncs)
+            end;
+        [] ->
+            {more,
+             {[], St, Col, Toks, Line, {Qs, Tqs, Acc},
+              fun scan_tqstring_line/6}};
+        eof ->
+            ContentR = [Acc|Tqs#tqs.content_r],
+            Estr = string:slice(tqstring_chars(ContentR), 0, 16),
+            scan_error(
+              {string,{$",Tqs#tqs.qs},Estr},%"
+              Tqs#tqs.line, Tqs#tqs.col, Line, Col, eof)
+    end.
+
+%% Strip last line newline,
+%% strip indentation,
+%% check white space on first line,
+%% create the string token,
+%% done
+%%
+scan_tqstring_finish(Cs, St, Line, Col, Toks, Tqs, IndentR) ->
+    %% IndentR :: Indentation characters, reversed
+    #tqs{ line = Line0, col = Col0, content_r = ContentR } = Tqs,
+    {Stripped, NcontentR} = strip_last_line_newline(ContentR),
+    case
+        tqstring_finish(lists:reverse(IndentR), NcontentR, Line-1, Stripped)
+    of
+        Content when is_list(Content) ->
+            Qs = Tqs#tqs.qs,
+            Chars =
+                lists_duplicate(
+                  Qs, $",%"
+                  tqstring_chars(ContentR, lists:duplicate(Qs, $"))),%"
+            Anno = anno(Line0, Col0, St, ?STR(string, St, Chars)),
+            scan1(Cs, St, Line, Col, [{string,Anno,Content}|Toks]);
+        {Tag=indentation, ErrorLine, ErrorCol, StringR} ->
+            scan_error(
+              Tag, ErrorLine, new_column(Col, 1),
+              ErrorLine, new_column(Col, ErrorCol),
+              lists:nthtail(ErrorCol, lists:reverse(StringR)));
+        {Tag=white_space, N, String} ->
+            scan_error(
+              Tag, Line0, incr_column(Col0, Tqs#tqs.qs),
+              Line0, incr_column(Col0, Tqs#tqs.qs+length(String)),
+              lists:nthtail(N, String))
+    end.
+
+%% Reconstruct the scanned triple-quoted string from content lines
+%%
+tqstring_chars(ContentR) ->
+    tqstring_chars(ContentR, "").
+%%
+tqstring_chars([], Chars) -> Chars;
+tqstring_chars([StringR|StringsR], Chars) ->
+    tqstring_chars(StringsR, lists:reverse(StringR, Chars)).
+
+%% Strip newline from the last line, but not if it is the only line,
+%% and return the newline character(s)
+%%
+strip_last_line_newline(ContentR=[_]) ->
+    {"", ContentR};
+strip_last_line_newline([LastLineR|ContentR]) ->
+    {Newline, NlastLineR} = strip_newline(LastLineR),
+    {Newline, [NlastLineR|ContentR]}.
+
+strip_newline("\n\r"++R) ->
+    {"\n\r", R};
+strip_newline("\n"++R) ->
+    {"\n", R}.
+
+%% Strip indentation from all content lines but the first,
+%% which contains the characters after the start quote chars,
+%% check that they are white space.
+%%
+%% Loop from last to first line and remember the last error,
+%% so the last error that is found will be the one reported,
+%% that is: the first in the string.
+%%
+%% Build the string content by prepending all indentation stripped
+%% lines onto the string: Content.
+%%
+tqstring_finish(Indent, ContentR, Line, Stripped) ->
+    tqstring_finish(Indent, ContentR, Line, Stripped, undefined, "").
+%%
+tqstring_finish(_Indent, [FirstLineR], _Line, _Stripped, Error, Content) ->
+    {_, NfirstLineR} = strip_newline(FirstLineR),
+    FirstLine = lists:reverse(NfirstLineR),
+    %% First line; check that it is all white space
+    case check_white_space(FirstLine) of
+        ok ->
+            if
+                Error =:= undefined ->
+                    Content;
+                true ->
+                    Error
+            end;
+        N ->
+            {white_space, N, FirstLine}
+    end;
+tqstring_finish(
+  Indent, [StringR|StringsR], Line, Stripped, Error, Content) ->
+    %% Stripped :: newline characters stripped from the last line,
+    %%             only used if there is an error on that line
+    case strip_indent(Indent, lists:reverse(StringR, Content)) of
+        Ncontent when is_list(Ncontent) ->
+            tqstring_finish(Indent, StringsR, Line-1, "", Error, Ncontent);
+        ErrorCol when is_integer(ErrorCol) ->
+            Nerror = {indentation, Line, ErrorCol, Stripped++StringR},
+            tqstring_finish(Indent, StringsR, Line-1, "", Nerror, "")
+    end.
+
+%% Strip indentation
+%%
+strip_indent(Indent, Cs) ->
+    strip_indent(Indent, Cs, 1).
+%%
+strip_indent([C|Indent], [C|Cs], Col) ->
+    strip_indent(Indent, Cs, Col+1);    % Strip
+strip_indent([], Cs, _) -> Cs;          % Done
+strip_indent(_, _, Col) -> Col.         % Incorrect indentation
+
+%% Check that all characters are white space and return 'ok',
+%% or return the number of white space characters
+check_white_space(Cs) ->
+    check_white_space(Cs, 0).
+%%
+check_white_space([], _) ->
+    ok;
+check_white_space([C|Cs], N) ->
+    if
+        ?WHITE_SPACE(C) ->
+            check_white_space(Cs, N+1);
+        true ->
+            N
+    end.
 
 scan_string(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
     case scan_string0(Cs, St, Line, Col, $\", Str, Wcs) of %"
@@ -1321,6 +1556,10 @@ new_column(no_col=Col, _Ncol) ->
     Col;
 new_column(Col, Ncol) when is_integer(Col) ->
     Ncol.
+
+%% lists:duplicate/3
+lists_duplicate(0, _, L) -> L;
+lists_duplicate(N, X, L) -> lists_duplicate(N-1, X, [X|L]).
 
 nl_spcs(2)  -> "\n ";
 nl_spcs(3)  -> "\n  ";
