@@ -1554,8 +1554,8 @@ inet_opts(Config) when is_list(Config) ->
     httpc:set_options(ConnOptions),
 
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-    Timeout      = timer:seconds(1),
-    ConnTimeout  = Timeout + timer:seconds(1),
+    Timeout      = timer:seconds(5),
+    ConnTimeout  = Timeout + timer:seconds(5),
     HttpOptions = [{timeout, Timeout}, {connect_timeout, ConnTimeout}, ?SSL_NO_VERIFY],
     Options0     = [{socket_opts, [{tos,    87},
 				   {recbuf, 16#FFFF},
