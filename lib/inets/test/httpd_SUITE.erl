@@ -395,7 +395,7 @@ end_per_testcase(Case, Config) ->
 
 
 dbg(Case, Config, Status) ->
-    Cases = [esi_put],
+    Cases = [],
     case lists:member(Case, Cases) of
 	true ->
 	    case Status of
