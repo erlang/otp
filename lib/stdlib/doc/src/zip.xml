@@ -368,8 +368,11 @@
           <seeerl marker="erl_tar"><c>erl_tar</c></seeerl>.</p>
         <p><c><anno>FileList</anno></c> is a list of files, with paths relative 
           to the current directory, which are stored with this path in the
-          archive. Files can also be specified with data in binaries
-          to create an archive directly from data.</p>
+          archive. File system operations are performed to read the file metadata
+          and, when compression is enabled, to stream the file contents without
+          loading whole files into memory. Files can also be specified as binaries
+          to create an archive directly from data. In such cases, no metadata or
+          file system reads are performed.</p>
         <p>Files are compressed using the DEFLATE compression, as
           described in the "Appnote.txt" file. However, files are
           stored without compression if they are already compressed.
