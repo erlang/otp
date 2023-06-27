@@ -779,10 +779,16 @@ dynamic_3(Bef, N, {Int0,Lpad,Rpad,Dynamic}=Data, Count) ->
     Dynamic(Bef, N, Int1, Lpad, Rpad),
     Dynamic(Bef, N, -Int1, Lpad, Rpad),
 
-    %% OTP-7085: Test a small number in a wide field.
+    %% OTP-7085: Test a small number in a wide segment.
     Int2 = Int0 band 16#FFFFFF,
     Dynamic(Bef, N, Int2, Lpad, Rpad),
     Dynamic(Bef, N, -Int2, Lpad, Rpad),
+
+    %% Test a bignum in a short segment.
+    Int4 = ((Lpad bxor Rpad) bsl N) bor Int0,
+    Dynamic(Bef, N, Int4, Lpad, Rpad),
+    Dynamic(Bef, N, -Int4, Lpad, Rpad),
+
     dynamic_3(Bef, N-1, Data, Count+1).
 
 dynamic_big(Bef, N, Int, Lpad, Rpad) ->

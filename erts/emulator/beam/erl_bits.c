@@ -775,7 +775,7 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
 	     */
 	    iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
 	    b = *iptr & (0xff << rbits);
-	    b |= (signed_val(arg) & ((1 << num_bits)-1)) << (8-bit_offset-num_bits);
+	    b |= (signed_val(arg) & ((1 << num_bits)-1)) << (rbits-num_bits);
 	    *iptr = b;
 	} else if (bit_offset == 0) {
 	    /*
@@ -791,8 +791,8 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
             Sint val = signed_val(arg);
             Uint rshift = bit_offset;
             Uint lshift = rbits;
-            Uint lmask = MAKE_MASK(8 - bit_offset);
-            Uint count = (num_bits - (8 - bit_offset)) / 8;
+            Uint lmask = MAKE_MASK(rbits);
+            Uint count = (num_bits - rbits) / 8;
             Uint bits, bits1;
 
             iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
@@ -881,6 +881,19 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
 	 */
 	fmt_big(erts_current_bin+BYTE_OFFSET(bin_offset),
                 NBYTES(num_bits), arg, num_bits, flags);
+    } else if (is_big(arg) && bit_offset + num_bits <= 8) {
+        /*
+         * All bits are in the same byte.
+         */
+        Uint rbits = 8 - bit_offset;
+        Sint sign = big_sign(arg);
+        ErtsDigit* dp = big_v(arg);
+        Uint val = sign ? -*dp : *dp;
+
+        iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
+        b = *iptr & (0xff << rbits);
+        b |= (val & ((1 << num_bits)-1)) << (rbits-num_bits);
+        *iptr = b;
     } else if (is_big(arg)) {
         /*
          * Big number, not aligned on a byte boundary.
@@ -890,12 +903,14 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
         Uint deoffs = BIT_OFFSET(bit_offset + num_bits);
         Uint lmask = MAKE_MASK(8 - bit_offset);
         Uint rmask = (deoffs) ? (MAKE_MASK(deoffs)<<(8-deoffs)) : 0;
-        Uint count = (num_bits - (8 - bit_offset)) / 8;
+        Uint count = (num_bits - lshift) / 8;
         Uint bits, bits1;
 
+        ASSERT(num_bits - lshift >= 0);
+
         /*
-         * Format it byte-aligned using the binary itself as a
-         * temporary buffer.
+         * Format the integer byte-aligned using the binary itself as
+         * a temporary buffer.
          */
         iptr = erts_current_bin + BYTE_OFFSET(bin_offset);
         b = *iptr;
