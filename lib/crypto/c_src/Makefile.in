@@ -211,7 +211,7 @@ $(OBJDIR)/ec$(TYPEMARKER).o: ec.c
 
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
-	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_CC) -MMD -c -o $@ $(ALL_CFLAGS) $<
 
 $(LIBDIR)/crypto$(TYPEMARKER).so: $(CRYPTO_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
@@ -277,3 +277,4 @@ endif
 
 release_docs_spec:
 
+-include $(CRYPTO_OBJS:%.o=%.d)
