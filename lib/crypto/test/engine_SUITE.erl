@@ -136,20 +136,23 @@ groups() ->
 
 
 init_per_suite(Config) ->
-    try {os:type(), crypto:info_lib()} of
-        {_, [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}]} ->
+    try {engine_supported(), os:type(), crypto:info_lib()} of
+        {false,_,[{_,_,OpenSSLversion}]} ->
+            {skip, "Engine not supported by " ++ OpenSSLversion};
+
+        {_,_, [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}]} ->
             {skip, "Problem with engine on OpenSSL 1.0.1s-freebsd"};
 
-        {_, [{_,_,<<"LibreSSL 2.1.",_/binary>>}]} ->
+        {_,_, [{_,_,<<"LibreSSL 2.1.",_/binary>>}]} ->
             {skip, "Problem with engine on older LibreSSL 2.1.*"};
 
-        {{unix,darwin}, _} ->
+        {_,{unix,darwin}, _} ->
             {skip, "Engine unsupported on Darwin"};
-        
-        {{win32,_}, _} ->
+
+        {_,{win32,_}, _} ->
             {skip, "Engine unsupported on Windows"};
-        
-        {OS, Res} ->
+
+        {_,OS, Res} ->
             ct:log("crypto:info_lib() -> ~p\nos:type() -> ~p", [Res,OS]),
             try crypto:start() of
                 ok ->
@@ -165,6 +168,11 @@ init_per_suite(Config) ->
 
 end_per_suite(_Config) ->
     ok.
+
+engine_supported() ->
+    try crypto:engine_list(), true
+    catch error:notsup -> false
+    end.
 
 %%--------------------------------------------------------------------
 init_per_group(engine_stored_key, Config) ->

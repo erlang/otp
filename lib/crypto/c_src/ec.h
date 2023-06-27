@@ -26,9 +26,17 @@
 #if defined(HAVE_EC)
 
 # if defined(HAS_3_0_API)
+
+struct get_curve_def_ctx
+{
+    char curve_name[20];
+    int use_curve_name;
+};
+
 int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
                          OSSL_PARAM params[], int *i,
-                         size_t *order_size);
+                         size_t *order_size,
+                         struct get_curve_def_ctx*);
 # endif /* HAS_3_0_API */
 
 # if ! defined(HAS_3_0_API)
