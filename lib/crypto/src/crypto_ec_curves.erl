@@ -1,11 +1,22 @@
 -module(crypto_ec_curves).
 
--export([curve/1, curves/0]).
+-export([curve/1, curves/0, curve_with_name/1]).
 
 curves() ->
     proplists:get_value(curves,  crypto:supports()) -- [x25519,x448].
 
-curve(secp112r1) ->
+real_name(secp192r1) -> prime192v1;
+real_name(secp256r1) -> prime256v1;
+real_name(Name) -> Name.
+
+curve_with_name(Curve) ->
+    RealName = real_name(Curve),
+    {params(RealName), RealName}.
+
+curve(Curve) ->
+    params(real_name(Curve)).
+
+params(secp112r1) ->
     {
      {prime_field, <<16#DB7C2ABF62E35E668076BEAD208B:112>>},                                        %% Prime
      {<<16#DB7C2ABF62E35E668076BEAD2088:112>>,                                                      %% A
@@ -18,7 +29,7 @@ curve(secp112r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp112r2) ->
+params(secp112r2) ->
     {
      {prime_field, <<16#DB7C2ABF62E35E668076BEAD208B:112>>},                                        %% Prime
      {<<16#6127C24C05F38A0AAAF65C0EF02C:112>>,                                                      %% A
@@ -31,7 +42,7 @@ curve(secp112r2) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(secp128r1) ->
+params(secp128r1) ->
     {
      {prime_field, <<16#FFFFFFFDFFFFFFFFFFFFFFFFFFFFFFFF:128>>},                                    %% Prime
      {<<16#FFFFFFFDFFFFFFFFFFFFFFFFFFFFFFFC:128>>,                                                  %% A
@@ -44,7 +55,7 @@ curve(secp128r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp128r2) ->
+params(secp128r2) ->
     {
      {prime_field, <<16#FFFFFFFDFFFFFFFFFFFFFFFFFFFFFFFF:128>>},                                    %% Prime
      {<<16#D6031998D1B3BBFEBF59CC9BBFF9AEE1:128>>,                                                  %% A
@@ -57,7 +68,7 @@ curve(secp128r2) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(secp160k1) ->
+params(secp160k1) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFAC73:160>>},                            %% Prime
      {<<16#00:8>>,                                                                                  %% A
@@ -70,7 +81,7 @@ curve(secp160k1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp160r1) ->
+params(secp160r1) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7FFFFFFF:160>>},                            %% Prime
      {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7FFFFFFC:160>>,                                          %% A
@@ -83,7 +94,7 @@ curve(secp160r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp160r2) ->
+params(secp160r2) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFAC73:160>>},                            %% Prime
      {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFAC70:160>>,                                          %% A
@@ -96,20 +107,7 @@ curve(secp160r2) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp192r1) ->
-    {
-     {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFF:192>>},                    %% Prime
-     {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFC:192>>,                                  %% A
-      <<16#64210519E59C80E70FA7E9AB72243049FEB8DEECC146B9B1:192>>,                                  %% B
-      <<16#3045AE6FC8422F64ED579528D38120EAE12196D5:160>>},                                         %% Seed
-      <<16#04:8,
-        16#188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012:192,                                    %% X(p0)
-        16#07192B95FFC8DA78631011ED6B24CDD573F977A11E794811:192>>,                                  %% Y(p0)
-      <<16#FFFFFFFFFFFFFFFFFFFFFFFF99DEF836146BC9B1B4D22831:192>>,                                  %% Order
-      <<16#01:8>>                                                                                   %% CoFactor
-    };
-
-curve(secp192k1) ->
+params(secp192k1) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFEE37:192>>},                    %% Prime
      {<<16#00:8>>,                                                                                  %% A
@@ -122,7 +120,7 @@ curve(secp192k1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp224k1) ->
+params(secp224k1) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFE56D:224>>},            %% Prime
      {<<16#00:8>>,                                                                                  %% A
@@ -135,7 +133,7 @@ curve(secp224k1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp224r1) ->
+params(secp224r1) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000001:224>>},            %% Prime
      {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFE:224>>,                          %% A
@@ -148,7 +146,7 @@ curve(secp224r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp256k1) ->
+params(secp256k1) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F:256>>},    %% Prime
      {<<16#00:8>>,                                                                                  %% A
@@ -161,20 +159,7 @@ curve(secp256k1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp256r1) ->
-    {
-     {prime_field, <<16#FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF:256>>},    %% Prime
-     {<<16#FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC:256>>,                  %% A
-      <<16#5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B:256>>,                  %% B
-      <<16#C49D360886E704936A6678E1139D26B7819F7E90:160>>},                                         %% Seed
-      <<16#04:8,
-        16#6B17D1F2E12C4247F8BCE6E563A440F277037D812DEB33A0F4A13945D898C296:256,                    %% X(p0)
-        16#4FE342E2FE1A7F9B8EE7EB4A7C0F9E162BCE33576B315ECECBB6406837BF51F5:256>>,                  %% Y(p0)
-      <<16#FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551:256>>,                  %% Order
-      <<16#01:8>>                                                                                   %% CoFactor
-    };
-
-curve(secp384r1) ->
+params(secp384r1) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE:256,       %% Prime
                      16#FFFFFFFF0000000000000000FFFFFFFF:128>>},
@@ -193,7 +178,7 @@ curve(secp384r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(secp521r1) ->
+params(secp521r1) ->
     {
      {prime_field, <<16#01FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:256,       %% Prime
                      16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:256,
@@ -218,7 +203,7 @@ curve(secp521r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(prime192v1) ->
+params(prime192v1) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFF:192>>},                    %% Prime
      {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFC:192>>,                                  %% A
@@ -231,7 +216,7 @@ curve(prime192v1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(prime192v2) ->
+params(prime192v2) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFF:192>>},                    %% Prime
      {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFC:192>>,                                  %% A
@@ -244,7 +229,7 @@ curve(prime192v2) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(prime192v3) ->
+params(prime192v3) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFF:192>>},                    %% Prime
      {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFC:192>>,                                  %% A
@@ -257,7 +242,7 @@ curve(prime192v3) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(prime239v1) ->
+params(prime239v1) ->
     {
      {prime_field, <<16#7FFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFF8000000000007FFFFFFFFFFF:240>>},        %% Prime
      {<<16#7FFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFF8000000000007FFFFFFFFFFC:240>>,                      %% A
@@ -270,7 +255,7 @@ curve(prime239v1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(prime239v2) ->
+params(prime239v2) ->
     {
      {prime_field, <<16#7FFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFF8000000000007FFFFFFFFFFF:240>>},        %% Prime
      {<<16#7FFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFF8000000000007FFFFFFFFFFC:240>>,                      %% A
@@ -283,7 +268,7 @@ curve(prime239v2) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(prime239v3) ->
+params(prime239v3) ->
     {
      {prime_field, <<16#7FFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFF8000000000007FFFFFFFFFFF:240>>},        %% Prime
      {<<16#7FFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFF8000000000007FFFFFFFFFFC:240>>,                      %% A
@@ -296,7 +281,7 @@ curve(prime239v3) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(prime256v1) ->
+params(prime256v1) ->
     {
      {prime_field, <<16#FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF:256>>},    %% Prime
      {<<16#FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC:256>>,                  %% A
@@ -309,7 +294,7 @@ curve(prime256v1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(sect113r1) ->
+params(sect113r1) ->
     {
      {characteristic_two_field, 113, {tpbasis,9}},
      {<<16#3088250CA6E7C7FE649CE85820F7:112>>,                                                      %% A
@@ -322,7 +307,7 @@ curve(sect113r1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect113r2) ->
+params(sect113r2) ->
     {
      {characteristic_two_field, 113, {tpbasis,9}},
      {<<16#689918DBEC7E5A0DD6DFC0AA55C7:112>>,                                                      %% A
@@ -335,7 +320,7 @@ curve(sect113r2) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect131r1) ->
+params(sect131r1) ->
     {
      {characteristic_two_field, 131, {ppbasis,2,3,8}},
      {<<16#07A11B09A76B562144418FF3FF8C2570B8:136>>,                                                %% A
@@ -348,7 +333,7 @@ curve(sect131r1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect131r2) ->
+params(sect131r2) ->
     {
      {characteristic_two_field, 131, {ppbasis,2,3,8}},
      {<<16#03E5A88919D7CAFCBF415F07C2176573B2:136>>,                                                %% A
@@ -361,7 +346,7 @@ curve(sect131r2) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect163k1) ->
+params(sect163k1) ->
     {
      {characteristic_two_field, 163, {ppbasis,3,6,7}},
      {<<16#01:8>>,                                                                                  %% A
@@ -374,7 +359,7 @@ curve(sect163k1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect163r1) ->
+params(sect163r1) ->
     {
      {characteristic_two_field, 163, {ppbasis,3,6,7}},
      {<<16#07B6882CAAEFA84F9554FF8428BD88E246D2782AE2:168>>,                                        %% A
@@ -387,7 +372,7 @@ curve(sect163r1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect163r2) ->
+params(sect163r2) ->
     {
      {characteristic_two_field, 163, {ppbasis,3,6,7}},
      {<<16#01:8>>,                                                                                  %% A
@@ -400,7 +385,7 @@ curve(sect163r2) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect193r1) ->
+params(sect193r1) ->
     {
      {characteristic_two_field, 193, {tpbasis,15}},
      {<<16#17858FEB7A98975169E171F77B4087DE098AC8A911DF7B01:192>>,                                  %% A
@@ -413,7 +398,7 @@ curve(sect193r1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect193r2) ->
+params(sect193r2) ->
     {
      {characteristic_two_field, 193, {tpbasis,15}},
      {<<16#0163F35A5137C2CE3EA6ED8667190B0BC43ECD69977702709B:200>>,                                %% A
@@ -426,7 +411,7 @@ curve(sect193r2) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect233k1) ->
+params(sect233k1) ->
     {
      {characteristic_two_field, 233, {tpbasis,74}},
      {<<16#00:8>>,                                                                                  %% A
@@ -439,7 +424,7 @@ curve(sect233k1) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(sect233r1) ->
+params(sect233r1) ->
     {
      {characteristic_two_field, 233, {tpbasis,74}},
      {<<16#01:8>>,                                                                                  %% A
@@ -452,7 +437,7 @@ curve(sect233r1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect239k1) ->
+params(sect239k1) ->
     {
      {characteristic_two_field, 239, {tpbasis,158}},
      {<<16#00:8>>,                                                                                  %% A
@@ -465,7 +450,7 @@ curve(sect239k1) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(sect283k1) ->
+params(sect283k1) ->
     {
      {characteristic_two_field, 283, {ppbasis,5,7,12}},
      {<<16#00:8>>,                                                                                  %% A
@@ -481,7 +466,7 @@ curve(sect283k1) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(sect283r1) ->
+params(sect283r1) ->
     {
      {characteristic_two_field, 283, {ppbasis,5,7,12}},
      {<<16#01:8>>,                                                                                  %% A
@@ -498,7 +483,7 @@ curve(sect283r1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect409k1) ->
+params(sect409k1) ->
     {
      {characteristic_two_field, 409, {tpbasis,87}},
      {<<16#00:8>>,                                                                                  %% A
@@ -514,7 +499,7 @@ curve(sect409k1) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(sect409r1) ->
+params(sect409r1) ->
     {
      {characteristic_two_field, 409, {tpbasis,87}},
      {<<16#01:8>>,                                                                                  %% A
@@ -531,7 +516,7 @@ curve(sect409r1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(sect571k1) ->
+params(sect571k1) ->
     {
      {characteristic_two_field, 571, {ppbasis,2,5,10}},
      {<<16#00:8>>,                                                                                  %% A
@@ -550,7 +535,7 @@ curve(sect571k1) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(sect571r1) ->
+params(sect571r1) ->
     {
      {characteristic_two_field, 571, {ppbasis,2,5,10}},
      {<<16#01:8>>,                                                                                  %% A
@@ -571,7 +556,7 @@ curve(sect571r1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(c2pnb163v1) ->
+params(c2pnb163v1) ->
     {
      {characteristic_two_field, 163, {ppbasis,1,2,8}},
      {<<16#072546B5435234A422E0789675F432C89435DE5242:168>>,                                        %% A
@@ -584,7 +569,7 @@ curve(c2pnb163v1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(c2pnb163v2) ->
+params(c2pnb163v2) ->
     {
      {characteristic_two_field, 163, {ppbasis,1,2,8}},
      {<<16#0108B39E77C4B108BED981ED0E890E117C511CF072:168>>,                                        %% A
@@ -597,7 +582,7 @@ curve(c2pnb163v2) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(c2pnb163v3) ->
+params(c2pnb163v3) ->
     {
      {characteristic_two_field, 163, {ppbasis,1,2,8}},
      {<<16#07A526C63D3E25A256A007699F5447E32AE456B50E:168>>,                                        %% A
@@ -610,7 +595,7 @@ curve(c2pnb163v3) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(c2pnb176v1) ->
+params(c2pnb176v1) ->
     {
      {characteristic_two_field, 176, {ppbasis,1,2,43}},
      {<<16#E4E6DB2995065C407D9D39B8D0967B96704BA8E9C90B:176>>,                                      %% A
@@ -623,7 +608,7 @@ curve(c2pnb176v1) ->
       <<16#FF6E:16>>                                                                                %% CoFactor
     };
 
-curve(c2tnb191v1) ->
+params(c2tnb191v1) ->
     {
      {characteristic_two_field, 191, {tpbasis,9}},
      {<<16#2866537B676752636A68F56554E12640276B649EF7526267:192>>,                                  %% A
@@ -636,7 +621,7 @@ curve(c2tnb191v1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(c2tnb191v2) ->
+params(c2tnb191v2) ->
     {
      {characteristic_two_field, 191, {tpbasis,9}},
      {<<16#401028774D7777C7B7666D1366EA432071274F89FF01E718:192>>,                                  %% A
@@ -649,7 +634,7 @@ curve(c2tnb191v2) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(c2tnb191v3) ->
+params(c2tnb191v3) ->
     {
      {characteristic_two_field, 191, {tpbasis,9}},
      {<<16#6C01074756099122221056911C77D77E77A777E7E7E77FCB:192>>,                                  %% A
@@ -662,7 +647,7 @@ curve(c2tnb191v3) ->
       <<16#06:8>>                                                                                   %% CoFactor
     };
 
-curve(c2pnb208w1) ->
+params(c2pnb208w1) ->
     {
      {characteristic_two_field, 208, {ppbasis,1,2,83}},
      {<<16#00:8>>,                                                                                  %% A
@@ -675,7 +660,7 @@ curve(c2pnb208w1) ->
       <<16#FE48:16>>                                                                                %% CoFactor
     };
 
-curve(c2tnb239v1) ->
+params(c2tnb239v1) ->
     {
      {characteristic_two_field, 239, {tpbasis,36}},
      {<<16#32010857077C5431123A46B808906756F543423E8D27877578125778AC76:240>>,                      %% A
@@ -688,7 +673,7 @@ curve(c2tnb239v1) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(c2tnb239v2) ->
+params(c2tnb239v2) ->
     {
      {characteristic_two_field, 239, {tpbasis,36}},
      {<<16#4230017757A767FAE42398569B746325D45313AF0766266479B75654E65F:240>>,                      %% A
@@ -701,7 +686,7 @@ curve(c2tnb239v2) ->
       <<16#06:8>>                                                                                   %% CoFactor
     };
 
-curve(c2tnb239v3) ->
+params(c2tnb239v3) ->
     {
      {characteristic_two_field, 239, {tpbasis,36}},
      {<<16#01238774666A67766D6676F778E676B66999176666E687666D8766C66A9F:240>>,                      %% A
@@ -714,7 +699,7 @@ curve(c2tnb239v3) ->
       <<16#0A:8>>                                                                                   %% CoFactor
     };
 
-curve(c2pnb272w1) ->
+params(c2pnb272w1) ->
     {
      {characteristic_two_field, 272, {ppbasis,1,3,56}},
      {<<16#91A091F03B5FBA4AB2CCF49C4EDD220FB028712D42BE752B2C40094DBACDB586:256,                    %% A
@@ -732,7 +717,7 @@ curve(c2pnb272w1) ->
       <<16#FF06:16>>                                                                                %% CoFactor
     };
 
-curve(c2pnb304w1) ->
+params(c2pnb304w1) ->
     {
      {characteristic_two_field, 304, {ppbasis,1,2,11}},
      {<<16#FD0D693149A118F651E6DCE6802085377E5F882D1B510B44160074C128807836:256,                    %% A
@@ -750,7 +735,7 @@ curve(c2pnb304w1) ->
       <<16#FE2E:16>>                                                                                %% CoFactor
     };
 
-curve(c2tnb359v1) ->
+params(c2tnb359v1) ->
     {
      {characteristic_two_field, 359, {tpbasis,68}},
      {<<16#5667676A654B20754F356EA92017D946567C46675556F19556A04616B567D223:256,                    %% A
@@ -768,7 +753,7 @@ curve(c2tnb359v1) ->
       <<16#4C:8>>                                                                                   %% CoFactor
     };
 
-curve(c2pnb368w1) ->
+params(c2pnb368w1) ->
     {
      {characteristic_two_field, 368, {ppbasis,1,2,85}},
      {<<16#E0D2EE25095206F5E2A4F9ED229F1F256E79A0E2B455970D8D0D865BD94778C5:256,                    %% A
@@ -786,7 +771,7 @@ curve(c2pnb368w1) ->
       <<16#FF70:16>>                                                                                %% CoFactor
     };
 
-curve(c2tnb431r1) ->
+params(c2tnb431r1) ->
     {
      {characteristic_two_field, 431, {tpbasis,120}},
      {<<16#1A827EF00DD6FC0E234CAF046C6A5D8A85395B236CC4AD2CF32A0CADBDC9DDF6:256,                    %% A
@@ -804,7 +789,7 @@ curve(c2tnb431r1) ->
       <<16#2760:16>>                                                                                %% CoFactor
     };
 
-curve(wtls1) ->
+params(wtls1) ->
     {
      {characteristic_two_field, 113, {tpbasis,9}},
      {<<16#01:8>>,                                                                                  %% A
@@ -817,7 +802,7 @@ curve(wtls1) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls3) ->
+params(wtls3) ->
     {
      {characteristic_two_field, 163, {ppbasis,3,6,7}},
      {<<16#01:8>>,                                                                                  %% A
@@ -830,7 +815,7 @@ curve(wtls3) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls4) ->
+params(wtls4) ->
     {
      {characteristic_two_field, 113, {tpbasis,9}},
      {<<16#3088250CA6E7C7FE649CE85820F7:112>>,                                                      %% A
@@ -843,7 +828,7 @@ curve(wtls4) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls5) ->
+params(wtls5) ->
     {
      {characteristic_two_field, 163, {ppbasis,1,2,8}},
      {<<16#072546B5435234A422E0789675F432C89435DE5242:168>>,                                        %% A
@@ -856,7 +841,7 @@ curve(wtls5) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls6) ->
+params(wtls6) ->
     {
      {prime_field, <<16#DB7C2ABF62E35E668076BEAD208B:112>>},                                        %% Prime
      {<<16#DB7C2ABF62E35E668076BEAD2088:112>>,                                                      %% A
@@ -869,7 +854,7 @@ curve(wtls6) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls7) ->
+params(wtls7) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFAC73:160>>},                            %% Prime
      {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFAC70:160>>,                                          %% A
@@ -882,7 +867,7 @@ curve(wtls7) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls8) ->
+params(wtls8) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFDE7:112>>},                                        %% Prime
      {<<16#00:8>>,                                                                                  %% A
@@ -895,7 +880,7 @@ curve(wtls8) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls9) ->
+params(wtls9) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC808F:160>>},                            %% Prime
      {<<16#00:8>>,                                                                                  %% A
@@ -908,7 +893,7 @@ curve(wtls9) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls10) ->
+params(wtls10) ->
     {
      {characteristic_two_field, 233, {tpbasis,74}},
      {<<16#00:8>>,                                                                                  %% A
@@ -921,7 +906,7 @@ curve(wtls10) ->
       <<16#04:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls11) ->
+params(wtls11) ->
     {
      {characteristic_two_field, 233, {tpbasis,74}},
      {<<16#01:8>>,                                                                                  %% A
@@ -934,7 +919,7 @@ curve(wtls11) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(wtls12) ->
+params(wtls12) ->
     {
      {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000001:224>>},            %% Prime
      {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFE:224>>,                          %% A
@@ -947,7 +932,7 @@ curve(wtls12) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(ipsec3) ->
+params(ipsec3) ->
     {
      {characteristic_two_field, 155, {tpbasis,62}},
      {<<16#00:8>>,                                                                                  %% A
@@ -960,7 +945,7 @@ curve(ipsec3) ->
       <<16#03:8>>                                                                                   %% CoFactor
     };
 
-curve(ipsec4) ->
+params(ipsec4) ->
     {
      {characteristic_two_field, 185, {tpbasis,69}},
      {<<16#00:8>>,                                                                                  %% A
@@ -973,7 +958,7 @@ curve(ipsec4) ->
       <<16#02:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP160r1) ->
+params(brainpoolP160r1) ->
     {
      {prime_field, <<16#E95E4A5F737059DC60DFC7AD95B3D8139515620F:160>>},                            %% Prime
      {<<16#340E7BE2A280EB74E2BE61BADA745D97E8F7C300:160>>,                                          %% A
@@ -986,7 +971,7 @@ curve(brainpoolP160r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP160t1) ->
+params(brainpoolP160t1) ->
     {
      {prime_field, <<16#E95E4A5F737059DC60DFC7AD95B3D8139515620F:160>>},                            %% Prime
      {<<16#E95E4A5F737059DC60DFC7AD95B3D8139515620C:160>>,                                          %% A
@@ -999,7 +984,7 @@ curve(brainpoolP160t1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP192r1) ->
+params(brainpoolP192r1) ->
     {
      {prime_field, <<16#C302F41D932A36CDA7A3463093D18DB78FCE476DE1A86297:192>>},                    %% Prime
      {<<16#6A91174076B1E0E19C39C031FE8685C1CAE040E5C69A28EF:192>>,                                  %% A
@@ -1012,7 +997,7 @@ curve(brainpoolP192r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP192t1) ->
+params(brainpoolP192t1) ->
     {
      {prime_field, <<16#C302F41D932A36CDA7A3463093D18DB78FCE476DE1A86297:192>>},                    %% Prime
      {<<16#C302F41D932A36CDA7A3463093D18DB78FCE476DE1A86294:192>>,                                  %% A
@@ -1025,7 +1010,7 @@ curve(brainpoolP192t1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP224r1) ->
+params(brainpoolP224r1) ->
     {
      {prime_field, <<16#D7C134AA264366862A18302575D1D787B09F075797DA89F57EC8C0FF:224>>},            %% Prime
      {<<16#68A5E62CA9CE6C1C299803A6C1530B514E182AD8B0042A59CAD29F43:224>>,                          %% A
@@ -1038,7 +1023,7 @@ curve(brainpoolP224r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP224t1) ->
+params(brainpoolP224t1) ->
     {
      {prime_field, <<16#D7C134AA264366862A18302575D1D787B09F075797DA89F57EC8C0FF:224>>},            %% Prime
      {<<16#D7C134AA264366862A18302575D1D787B09F075797DA89F57EC8C0FC:224>>,                          %% A
@@ -1051,7 +1036,7 @@ curve(brainpoolP224t1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP256r1) ->
+params(brainpoolP256r1) ->
     {
      {prime_field, <<16#A9FB57DBA1EEA9BC3E660A909D838D726E3BF623D52620282013481D1F6E5377:256>>},    %% Prime
      {<<16#7D5A0975FC2C3057EEF67530417AFFE7FB8055C126DC5C6CE94A4B44F330B5D9:256>>,                  %% A
@@ -1064,7 +1049,7 @@ curve(brainpoolP256r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP256t1) ->
+params(brainpoolP256t1) ->
     {
      {prime_field, <<16#A9FB57DBA1EEA9BC3E660A909D838D726E3BF623D52620282013481D1F6E5377:256>>},    %% Prime
      {<<16#A9FB57DBA1EEA9BC3E660A909D838D726E3BF623D52620282013481D1F6E5374:256>>,                  %% A
@@ -1077,7 +1062,7 @@ curve(brainpoolP256t1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP320r1) ->
+params(brainpoolP320r1) ->
     {
      {prime_field, <<16#D35E472036BC4FB7E13C785ED201E065F98FCFA6F6F40DEF4F92B9EC7893EC28:256,       %% Prime
                      16#FCD412B1F1B32E27:64>>},
@@ -1096,7 +1081,7 @@ curve(brainpoolP320r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP320t1) ->
+params(brainpoolP320t1) ->
     {
      {prime_field, <<16#D35E472036BC4FB7E13C785ED201E065F98FCFA6F6F40DEF4F92B9EC7893EC28:256,       %% Prime
                      16#FCD412B1F1B32E27:64>>},
@@ -1115,7 +1100,7 @@ curve(brainpoolP320t1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP384r1) ->
+params(brainpoolP384r1) ->
     {
      {prime_field, <<16#8CB91E82A3386D280F5D6F7E50E641DF152F7109ED5456B412B1DA197FB71123:256,       %% Prime
                      16#ACD3A729901D1A71874700133107EC53:128>>},
@@ -1134,7 +1119,7 @@ curve(brainpoolP384r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP384t1) ->
+params(brainpoolP384t1) ->
     {
      {prime_field, <<16#8CB91E82A3386D280F5D6F7E50E641DF152F7109ED5456B412B1DA197FB71123:256,       %% Prime
                      16#ACD3A729901D1A71874700133107EC53:128>>},
@@ -1153,7 +1138,7 @@ curve(brainpoolP384t1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP512r1) ->
+params(brainpoolP512r1) ->
     {
      {prime_field, <<16#AADD9DB8DBE9C48B3FD4E6AE33C9FC07CB308DB3B3C9D20ED6639CCA70330871:256,       %% Prime
                      16#7D4D9B009BC66842AECDA12AE6A380E62881FF2F2D82C68528AA6056583A48F3:256>>},
@@ -1172,7 +1157,7 @@ curve(brainpoolP512r1) ->
       <<16#01:8>>                                                                                   %% CoFactor
     };
 
-curve(brainpoolP512t1) ->
+params(brainpoolP512t1) ->
     {
      {prime_field, <<16#AADD9DB8DBE9C48B3FD4E6AE33C9FC07CB308DB3B3C9D20ED6639CCA70330871:256,       %% Prime
                      16#7D4D9B009BC66842AECDA12AE6A380E62881FF2F2D82C68528AA6056583A48F3:256>>},

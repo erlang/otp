@@ -42,6 +42,7 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     int ret_bin_alloc = 0;
     int i = 0, i_key = 0;
     OSSL_PARAM params[15];
+    struct get_curve_def_ctx gcd;
     EVP_PKEY_CTX *own_pctx = NULL, *peer_pctx = NULL, *pctx_gen = NULL;
     EVP_PKEY *own_pkey = NULL, *peer_pkey = NULL;
     int err;
@@ -53,21 +54,29 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if (!get_ossl_octet_string_param_from_bin(env, "pub",  argv[0], &params[i++]))
         assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad peer public key; binary expected"));
 
+    /* Build the remote public key in peer_pkey */
+    peer_pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+
+    gcd.use_curve_name = 1;
+retry_without_name:
     /* Curve definition/name */
-    if (!get_curve_definition(env, &ret, argv[1], params, &i, NULL))
+    if (!get_curve_definition(env, &ret, argv[1], params, &i, NULL, &gcd))
         goto err;
 
     /* End of params */
     params[i++] = OSSL_PARAM_construct_end();
 
-    /* Build the remote public key in peer_pkey */
-    peer_pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
-
     if (EVP_PKEY_fromdata_init(peer_pctx) <= 0)
         assign_goto(ret, err, EXCP_ERROR(env, "Can't init fromdata"));
     
-    if (EVP_PKEY_fromdata(peer_pctx, &peer_pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+    if (EVP_PKEY_fromdata(peer_pctx, &peer_pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0) {
+        if (gcd.use_curve_name) {
+            gcd.use_curve_name = 0;
+            i = 1;
+            goto retry_without_name;
+        }
         assign_goto(ret, err, EXCP_ERROR(env, "Can't do fromdata"));
+    }
 
     if (!peer_pkey)
         assign_goto(ret, err, EXCP_ERROR(env, "No peer_pkey"));
