@@ -2179,18 +2179,6 @@ ssl_options_list([{Key, Value}|T], Acc) ->
 maybe_add_keylog(Info) ->
     maybe_add_keylog(lists:keyfind(protocol, 1, Info), Info).
 
-maybe_add_keylog({_, 'tlsv1.2'}, Info) ->
-    try
-        {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
-        {master_secret, MasterSecretBin} = lists:keyfind(master_secret, 1, Info),
-        ClientRandom = binary:decode_unsigned(ClientRandomBin),
-        MasterSecret = binary:decode_unsigned(MasterSecretBin),
-        Keylog = [io_lib:format("CLIENT_RANDOM ~64.16.0B ~96.16.0B", [ClientRandom, MasterSecret])],
-        Info ++ [{keylog,Keylog}]
-    catch
-        _Cxx:_Exx ->
-            Info
-    end;
 maybe_add_keylog({_, 'tlsv1.3'}, Info) ->
     try
         {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
@@ -2233,6 +2221,18 @@ maybe_add_keylog({_, 'tlsv1.3'}, Info) ->
                      _ ->
                          Keylog0
                  end,
+        Info ++ [{keylog,Keylog}]
+    catch
+        _Cxx:_Exx ->
+            Info
+    end;
+maybe_add_keylog({_, _}, Info) ->
+    try
+        {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
+        {master_secret, MasterSecretBin} = lists:keyfind(master_secret, 1, Info),
+        ClientRandom = binary:decode_unsigned(ClientRandomBin),
+        MasterSecret = binary:decode_unsigned(MasterSecretBin),
+        Keylog = [io_lib:format("CLIENT_RANDOM ~64.16.0B ~96.16.0B", [ClientRandom, MasterSecret])],
         Info ++ [{keylog,Keylog}]
     catch
         _Cxx:_Exx ->
