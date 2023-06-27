@@ -294,7 +294,11 @@ relop(Config) when is_list(Config) ->
     Big2 = 19738924729729787487784874,
     F1 = float(Big1),
     F2 = float(Big2),
-    Vs0 = [a,b,-33,-33.0,0,0.0,42,42.0,Big1,Big2,F1,F2],
+    Bin = <<"abc">>,
+    BitString = <<0:7>>,
+    Map = #{a => b},
+    Vs0 = [a,b,-33,-33.0,0,0.0,42,42.0,Big1,Big2,F1,F2,
+           Bin,BitString,Map],
     Vs = [unvalue(V) || V <- Vs0],
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     binop(Ops, Vs).
@@ -303,7 +307,10 @@ relop(Config) when is_list(Config) ->
 complex_relop(Config) when is_list(Config) ->
     Big = 99678557475484872464269855544643333,
     Float = float(Big),
-    Vs0 = [an_atom,42.0,42,Big,Float],
+    Bin = <<"abc">>,
+    BitString = <<0:7>>,
+    Map = #{a => b},
+    Vs0 = [an_atom,42.0,42,Big,Float,Bin,BitString,Map],
     Vs = flatmap(fun(X) -> [unvalue({X}),unvalue([X])] end, Vs0),
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     binop(Ops, Vs).
@@ -935,6 +942,17 @@ ge_ge_int_range_4(_) ->
 %% Tests operators where type hints are significant.
 typed_relop(Config) when is_list(Config) ->
     _ = [compare_integer_pid(1 bsl N) || N <- lists:seq(1, 64)],
+
+    {error,<<7:3>>} = compare_bitstring({text, <<7:3>>, 0}),
+    {error,<<0:8>>} = compare_bitstring({text, <<0:8>>, 0}),
+    {error,<<0:9>>} = compare_bitstring({text, <<0:9>>, 0}),
+    {text, 42} = compare_bitstring({text, <<0:3>>, 42}),
+
+    {error,<<7:3>>} = compare_bitstring({binary, <<7:3>>, 0}),
+    {error,<<0:8>>} = compare_bitstring({binary, <<0:8>>, 0}),
+    {error,<<0:9>>} = compare_bitstring({binary, <<0:9>>, 0}),
+    {binary, 42} = compare_bitstring({binary, <<0:3>>, 42}),
+
     ok.
 
 compare_integer_pid(N) when is_integer(N) ->
@@ -944,6 +962,17 @@ compare_integer_pid(N) when is_integer(N) ->
         N >= Immed -> ct:fail("integer compared greater than pid");
         N < Immed -> ok
     end.
+
+%% GH-7433. Equality and non-equality tests with a bitstring could fail when it
+%% should succeed and vice versa.
+compare_bitstring({text, Res, _Data}) when is_bitstring(Res), Res =/= <<0:3>> ->
+    {error, Res};
+compare_bitstring({binary, Res, _Data}) when is_bitstring(Res), Res =/= <<0:3>> ->
+    {error, Res};
+compare_bitstring({binary, _Res, Data}) ->
+    {binary, Data};
+compare_bitstring({text, _Res, Data}) ->
+    {text, Data}.
 
 %%%
 %%% Utilities.
@@ -961,7 +990,10 @@ value({atom,_,X})    -> X;
 value({tuple,_,Es}) ->
     list_to_tuple(lists:map(fun(X) -> value(X) end, Es));
 value({cons,_,H,T}) ->
-    [value(H) | value(T)].
+    [value(H) | value(T)];
+value(Other) ->
+    {value,Value,_} = erl_eval:expr(Other, erl_eval:new_bindings()),
+    Value.
 
 repeat(_, 0) -> ok;
 repeat(Fun, N) ->

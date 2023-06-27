@@ -1416,8 +1416,12 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
 
     bool is_empty_binary = false;
     if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-        is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+        auto unit = getSizeUnit(X);
+        if (unit != 0 && std::gcd(unit, 8) == 8) {
+            Eterm literal =
+                    beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+            is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+        }
     }
 
     if (is_empty_binary) {
