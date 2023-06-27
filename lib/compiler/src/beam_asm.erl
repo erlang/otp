@@ -390,8 +390,6 @@ make_op({call_fun2,{f,Lbl},Arity,Func}, Dict0) ->
     NumFree = TotalArity - Arity,
     {Lambda,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
     make_op({call_fun2,Lambda,Arity,Func}, Dict);
-make_op({kill,Y}, Dict) ->
-    make_op({init,Y}, Dict);
 make_op({Name,Arg1}, Dict) ->
     encode_op(Name, [Arg1], Dict);
 make_op({Name,Arg1,Arg2}, Dict) ->

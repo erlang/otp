@@ -12,7 +12,8 @@
     {line,[{location,"bad_try_catch_nesting.erl",4}]}.
     {func_info,{atom,bad_try_catch_nesting},{atom,main},2}.
   {label,2}.
-    {allocate_zero,3,2}.
+    {allocate,3,2}.
+    {init_yregs,{list,[{y,0},{y,1},{y,2}]}}.
     {'try',{y,1},{f,5}}.
     {move,{x,1},{y,0}}.
     {'try',{y,2},{f,3}}.
