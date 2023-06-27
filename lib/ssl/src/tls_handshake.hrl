@@ -34,7 +34,6 @@
 	  session_id,          % opaque SessionID<0..32>
 	  cookie,              % opaque<2..2^16-1>
 	  cipher_suites,       % cipher_suites<2..2^16-1>
-	  compression_methods, % compression_methods<1..2^8-1>,
 	  %% Extensions
 	  extensions
 	 }).

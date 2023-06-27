@@ -95,7 +95,6 @@ client_hello(_Host, _Port, ConnectionStates,
     #client_hello{session_id = Id,
 		  client_version = LegacyVersion,
 		  cipher_suites = CipherSuites,
-		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
 		  extensions = Extensions
 		 }.
@@ -155,7 +154,6 @@ hello(#server_hello{server_version = {Major, Minor},
 hello(#server_hello{server_version = LegacyVersion,
                     random = Random,
 		    cipher_suite = CipherSuite,
-		    compression_method = Compression,
 		    session_id = SessionId,
                     extensions =
                         #{server_hello_selected_version :=
@@ -180,7 +178,7 @@ hello(#server_hello{server_version = LegacyVersion,
                             IsNew = ssl_session:is_new(OldId, SessionId),
                             %% TLS 1.2 ServerHello with "supported_versions" (special case)
                             handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-                                                           Compression, HelloExt, SslOpt,
+                                                           HelloExt, SslOpt,
                                                            ConnectionStates0, Renegotiation, IsNew);
                         SelectedVersion ->
                             %% TLS 1.3
@@ -196,7 +194,6 @@ hello(#server_hello{server_version = LegacyVersion,
 hello(#server_hello{server_version = Version,
                     random = Random,
 		    cipher_suite = CipherSuite,
-		    compression_method = Compression,
 		    session_id = SessionId,
                     extensions = HelloExt},
       #{versions := SupportedVersions} = SslOpt,
@@ -205,7 +202,7 @@ hello(#server_hello{server_version = Version,
     case tls_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
 	    handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-					   Compression, HelloExt, SslOpt, 
+					   HelloExt, SslOpt,
                                            ConnectionStates0, Renegotiation, IsNew);
 	false ->
 	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
@@ -326,7 +323,6 @@ ocsp_nonce(SslOpts) ->
 handle_client_hello(Version, 
                     #client_hello{session_id = SugesstedId,
                                   cipher_suites = CipherSuites,
-                                  compression_methods = Compressions,
                                   random = Random,
                                   extensions = HelloExt},
 		    #{versions := Versions,
@@ -346,7 +342,7 @@ handle_client_hello(Version,
 	    {Type, #session{cipher_suite = CipherSuite,
                             own_certificates = [OwnCert |_]} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites,
-                                               AvailableHashSigns, Compressions,
+                                               AvailableHashSigns,
 					       SessIdTracker, Session0#session{ecc = ECCCurve},
                                                Version, SslOpts, CertKeyPairs),
 	    case CipherSuite of
@@ -384,10 +380,10 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
     {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}.
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-                               Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
+                               HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
     {ConnectionStates, ProtoExt, Protocol, OcspState} =
         ssl_handshake:handle_server_hello_extensions(tls_record, Random, CipherSuite,
-                                                     Compression, HelloExt, Version,
+                                                     HelloExt, Version,
                                                      SslOpt, ConnectionStates0,
                                                      Renegotiation, IsNew),
     {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}.
@@ -415,10 +411,9 @@ enc_handshake(#client_hello{client_version = ServerVersion,
 		     random = Random,
 		     session_id = SessionID,
 		     cipher_suites = CipherSuites,
-		     compression_methods = CompMethods, 
 		     extensions = HelloExtensions}, _Version) ->
     SIDLength = byte_size(SessionID),
-    BinCompMethods = list_to_binary(CompMethods),
+    BinCompMethods = list_to_binary([?NO_COMPRESSION]),
     CmLength = byte_size(BinCompMethods),
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
@@ -458,7 +453,7 @@ decode_handshake(Version, ?CLIENT_HELLO,
                  <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
                    ?BYTE(SID_length), Session_ID:SID_length/binary,
                    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
-                   ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
+                   ?BYTE(Cm_length), _CompMethods:Cm_length/binary,
                    Extensions/binary>>) ->
     Exts = ssl_handshake:decode_vector(Extensions),
     DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, Version, {Major, Minor},
@@ -468,7 +463,6 @@ decode_handshake(Version, ?CLIENT_HELLO,
        random = Random,
        session_id = Session_ID,
        cipher_suites = ssl_handshake:decode_suites('2_bytes', CipherSuites),
-       compression_methods = erlang:binary_to_list(Comp_methods),
        extensions = DecodedExtensions
       };
 decode_handshake(?TLS_1_3, Tag, Msg) ->

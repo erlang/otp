@@ -108,7 +108,6 @@ server_hello(MsgType, SessionId, KeyShare, PSK, ConnectionStates) ->
     Extensions = server_hello_extensions(MsgType, KeyShare, PSK),
     #server_hello{server_version = ?LEGACY_VERSION, %% legacy_version
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
-                  compression_method = 0, %% legacy attribute
 		  random = server_hello_random(MsgType, SecParams),
 		  session_id = SessionId,
 		  extensions = Extensions
@@ -384,13 +383,11 @@ create_change_cipher_spec(#state{ssl_options = #{log_level := LogLevel}}) ->
     %% Dummy connection_states with NULL cipher
     ConnectionStates =
         #{current_write =>
-              #{compression_state => undefined,
-                cipher_state => undefined,
+              #{cipher_state => undefined,
                 sequence_number => 1,
                 security_parameters =>
                     #security_parameters{
                        bulk_cipher_algorithm = 0,
-                       compression_algorithm = ?NULL,
                        mac_algorithm = ?NULL
                       },
                 mac_secret => undefined}},
@@ -602,7 +599,7 @@ encode_early_data(Cipher,
 
 decode_handshake(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
                                   ?BYTE(SID_length), Session_ID:SID_length/binary,
-                                  Cipher_suite:2/binary, ?BYTE(Comp_method),
+                                  Cipher_suite:2/binary, ?BYTE(_CompMethod),
                                   ?UINT16(ExtLen), Extensions:ExtLen/binary>>)
   when Random =:= ?HELLO_RETRY_REQUEST_RANDOM ->
     HelloExtensions = ssl_handshake:decode_hello_extensions(Extensions, ?TLS_1_3, {Major, Minor},
@@ -612,7 +609,6 @@ decode_handshake(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
        random = Random,
        session_id = Session_ID,
        cipher_suite = Cipher_suite,
-       compression_method = Comp_method,
        extensions = HelloExtensions};
 decode_handshake(?CERTIFICATE_REQUEST, <<?BYTE(0), ?UINT16(Size), EncExts:Size/binary>>) ->
     Exts = decode_extensions(EncExts, certificate_request),

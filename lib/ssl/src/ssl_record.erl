@@ -48,9 +48,6 @@
          step_encryption_state_read/1,
          step_encryption_state_write/1]).
 
-%% Compression
--export([compress/3, uncompress/3, compressions/0]).
-
 %% Payload encryption/decryption
 -export([cipher/4, cipher/5, decipher/4,
          cipher_aead/4, cipher_aead/5, decipher_aead/5,
@@ -336,24 +333,6 @@ set_pending_cipher_state(#{pending_read := Read,
       pending_write => Write#{cipher_state => ClientState}}.
 
 %%====================================================================
-%% Compression
-%%====================================================================
-
-uncompress(?NULL, Data, CS) ->
-    {Data, CS}.
-
-compress(?NULL, Data, CS) ->
-    {Data, CS}.
-
-%%--------------------------------------------------------------------
--spec compressions() -> [integer()].
-%%
-%% Description: return a list of compressions supported (currently none)
-%%--------------------------------------------------------------------
-compressions() ->
-    [?NULL].
-
-%%====================================================================
 %% Payload encryption/decryption
 %%====================================================================
 
@@ -476,7 +455,6 @@ empty_connection_state(ConnectionEnd, Version,
     SecParams = init_security_parameters(ConnectionEnd, Version),
     #{security_parameters => SecParams,
       beast_mitigation => BeastMitigation,
-      compression_state  => undefined,
       cipher_state  => undefined,
       mac_secret  => undefined,
       secure_renegotiation => undefined,
@@ -516,8 +494,7 @@ record_protocol_role(server) ->
     ?SERVER.
 
 initial_security_params(ConnectionEnd) ->
-    SecParams = #security_parameters{connection_end = ConnectionEnd,
-				     compression_algorithm = ?NULL},
+    SecParams = #security_parameters{connection_end = ConnectionEnd},
     ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, SecParams).
 
 -define(end_additional_data(AAD, Len), << (begin(AAD)end)/binary, ?UINT16(begin(Len)end) >>).

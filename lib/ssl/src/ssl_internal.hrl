@@ -74,6 +74,9 @@
 -define(TRUE, 0).
 -define(FALSE, 1).
 
+
+-define(NO_COMPRESSION, ?NULL).
+
 %% sslv3 is considered insecure due to lack of padding check (Poodle attack)
 %% Keep as interop with legacy software but do not support as default
 %% tlsv1.0 and tlsv1.1 is now also considered legacy
