@@ -21,7 +21,6 @@
 -type dial_cl_parse_ret() :: {'check_init', #options{}}
                            | {'plt_info', #options{}}
                            | {'cl', #options{}}
-                           | {'gui', #options{}}
                            | {'error', string()}.
 
 -spec start() -> dial_cl_parse_ret().
@@ -150,8 +149,6 @@ cli() ->
                 no_underspecs, no_unknown, no_unused, underspecs, unknown, unmatched_returns,
                 overspecs, specdiffs, extra_return, no_extra_return, missing_return, no_missing_return]},
                 help => {<<"[-Wwarn]*">>, [<<"A family of options which selectively turn on/off warnings">>]}},
-            #{name => shell, long => "-shell", type => boolean,
-                help => <<"Do not disable the Erlang shell while running the GUI.">>},
             #{name => version, short => $v, long => "-version", type => boolean,
                 help => <<"Print the Dialyzer version and some more information and exit.">>},
             #{name => help, short => $h, long => "-help", type => boolean,
@@ -215,8 +212,6 @@ cli() ->
             #{name => indent_opt, long => "-no_indentation", type => boolean, action => {store, false},
                 help => <<"Do not indent contracts and success typings. Note that this option has "
                         "no effect when combined with the --raw option.">>},
-            #{name => gui, long => "-gui", type => boolean,
-                help => <<"Use the GUI.">>},
             #{name => metrics_file, long => "-metrics_file",
                 help => <<"Write metrics about Dialyzer's incrementality (for example, total number of "
                         "modules considered, how many modules were changed since the PLT was "
@@ -248,8 +243,7 @@ cli() ->
             arguments, options, "
 Note:
   * denotes that multiple occurrences of these options are possible.
- ** options -D and -I work both from command-line and in the Dialyzer GUI;
-    the syntax of defines and includes is the same as that used by \"erlc\".
+ ** the syntax of defines and includes is the same as that used by \"erlc\".
 
 " ++ warning_options_msg() ++ "
 " ++ configuration_file_msg() ++ "
@@ -304,11 +298,6 @@ postprocess_side_effects(ArgMap) ->
         plt_check ->
             %% plt_check is a hidden "check_init" command
             {check_init, ArgMap1};
-        _ when map_get(gui, ArgMap1) ->
-            %% filter out command-line only arguments
-            Allowed = [defines, from, include_dirs, plts, output_plt, report_mode,
-                use_spec, warnings, check_plt, solvers],
-            {gui, maps:with(Allowed, ArgMap1)};
         _ ->
             {cl, ArgMap1}
     end.

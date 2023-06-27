@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -56,10 +56,6 @@
     <code type="none">
 dialyzer --help</code>
 
-    <p>For more details about the operation of Dialyzer, see section
-      <seeguide marker="dialyzer_chapter#dialyzer_gui">
-      Using Dialyzer from the GUI</seeguide> in the User's Guide.</p>
-
     <p><em>Exit status of the command-line version:</em></p>
 
     <taglist>
@@ -85,7 +81,7 @@ dialyzer --help</code>
 dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
          [--error_location flag] [files_or_dirs] [--fullpath]
-         [--get_warnings] [--gui] [--help] [-I include_dir]*
+         [--get_warnings] [--help] [-I include_dir]*
          [--incremental] [--metrics_file] [--no_check_plt] [--no_indentation]
          [--no_spec] [-o outfile] [--output_plt file] [-pa dir]* [--plt plt]
          [--plt_info] [--plts plt*] [--quiet] [-r dirs] [--raw]
@@ -185,9 +181,6 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
         <p>Make Dialyzer emit warnings even when manipulating the PLT.
           Warnings are only emitted for files that are analyzed.</p>
       </item>
-      <tag><c>--gui</c></tag>
-      <item>
-        <p>Use the GUI.</p></item>
       <tag><c>--help</c> (or <c>-h</c>)</tag>
       <item>
         <p>Print this message and exit.</p>
@@ -304,10 +297,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
           the PLT. Notice that this can cause a reanalysis of the remaining
           dependent files.</p>
       </item>
-      <tag><c>--shell</c></tag>
-      <item>
-        <p>Do not disable the Erlang shell while running the GUI.</p>
-      </item>
       <tag><c>--src</c></tag>
       <item>
         <p>Override the default, which is to analyze BEAM files, and
@@ -340,9 +329,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     </taglist>
 
     <note>
-      <p>** options <c>-D</c> and <c>-I</c> work both
-        from the command line and in the Dialyzer GUI; the syntax of
-        defines and includes is the same as that used by
+      <p>** the syntax of defines and includes is the same as that used by
         <seecom marker="erts:erlc">erlc(1)</seecom>.</p>
     </note>
 
@@ -482,9 +469,8 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
 
   <section>
     <title>Using Dialyzer from Erlang</title>
-    <p>Dialyzer can be used directly from Erlang. Both the GUI and the
-      command-line versions are also available. The options are similar to the
-      ones given from the command line, see section
+    <p>Dialyzer can be used directly from Erlang. The options are
+      similar to the ones given from the command line, see section
       <seeerl marker="#command_line">
       Using Dialyzer from the Command Line</seeerl>.</p>
   </section>
@@ -659,15 +645,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
           locations are formatted as <c>Line:Column</c> if the column
           number is available, otherwise locations are formatted as
           <c>Line</c> even if the column number is available.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="gui" arity="0" since=""></name>
-      <name name="gui" arity="1" since=""></name>
-      <fsummary>Dialyzer GUI version.</fsummary>
-      <desc>
-        <p>Dialyzer GUI version.</p>
       </desc>
     </func>
 

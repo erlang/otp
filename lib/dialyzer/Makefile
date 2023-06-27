@@ -1,8 +1,8 @@
 #
 # %CopyrightBegin%
-# 
+#
 # Copyright Ericsson AB 2006-2021. All Rights Reserved.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #=============================================================================
@@ -42,6 +42,6 @@ SPECIAL_TARGETS =
 #
 include $(ERL_TOP)/make/otp_subdir.mk
 
-DIA_PLT_APPS=compiler syntax_tools wx
+DIA_PLT_APPS=compiler syntax_tools
 
 include $(ERL_TOP)/make/app_targets.mk
