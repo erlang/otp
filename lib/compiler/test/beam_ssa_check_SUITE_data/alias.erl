@@ -19,6 +19,7 @@
 %% This module tests that beam_ssa_alias_opt:opt/2 correctly annotates
 %% instructions with information about unique and aliased operands.
 %%
+-feature(maybe_expr, enable).
 
 -compile(no_ssa_opt_private_append).
 
@@ -80,7 +81,9 @@
          alias_after_pair_tl/1,
 
          double_map_lookup/2,
-         double_tuple_element/2]).
+         double_tuple_element/2,
+         tuple_element_aliasing/0,
+         tuple_element_from_tuple_with_existing_child/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -835,3 +838,31 @@ double_tuple_element(A, B) ->
     X = element(A, T),
     Y = element(B, T),
     {X, Y}.
+
+%% Check that both T and X are aliased to prevent the append to be
+%% rewritten to a private_append.
+tuple_element_aliasing() ->
+%ssa% () when post_ssa_opt ->
+%ssa% T = call(fun make_empty_binary_tuple/0),
+%ssa% X = get_tuple_element(T, 0) { aliased => [T]},
+%ssa% Y = bs_create_bin(append, _, X, _, _, _, B, _) { aliased => [X] },
+%ssa% Z = put_tuple(Y, T) {aliased => [T, Y] }.
+    T = make_empty_binary_tuple(),
+    X = element(1, T),
+    Z = <<X/binary,1:8>>,
+    {Z, T}.
+
+%% Check that alias analysis doesn't crash when extracting an element
+%% from a tuple which already has a derived value associated with it.
+%% Test case found by Robin Morisset.
+tuple_element_from_tuple_with_existing_child() ->
+    [ 0 || _V1 <- erlang:memory(),
+	   { maybe
+		 error ?= _V1,
+		 ok
+	     end,
+	     maybe
+		 {<<_>>} ?= _V1,
+		 ok
+	     end } ].
+
