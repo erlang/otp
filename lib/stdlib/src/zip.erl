@@ -1620,6 +1620,9 @@ dos_date_time_to_datetime(DosDate, DosTime) ->
     {{YearFrom1980+1980, Month, Day},
      {Hour, Min, Sec}}.
 
+dos_date_time_from_datetime(Seconds) when is_integer(Seconds) ->
+    DateTime = calendar:now_to_datetime({0, Seconds, 0}),
+    dos_date_time_from_datetime(DateTime);
 dos_date_time_from_datetime({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     YearFrom1980 = Year-1980,
     <<DosTime:16>> = <<Hour:5, Min:6, Sec:5>>,
