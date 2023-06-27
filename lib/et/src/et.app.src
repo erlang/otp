@@ -31,7 +31,8 @@
     et_wx_viewer
    ]},
   {registered, [et_collector]},
-  {applications, [stdlib, kernel]},
+  {applications, [stdlib, kernel, runtime_tools]},
+  {optional_applications, [wx, runtime_tools]},
   {env, []},
   {runtime_dependencies, ["wx-1.2","stdlib-3.4","runtime_tools-1.10",
 			  "kernel-5.3","erts-9.0"]}
