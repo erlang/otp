@@ -32,6 +32,7 @@ MODULES= \
 	ssh_basic_SUITE \
 	ssh_bench_SUITE \
 	ssh_chan_behaviours_SUITE \
+	ssh_collect_labmachine_info_SUITE \
 	ssh_compat_SUITE \
 	ssh_connection_SUITE \
 	ssh_agent_mock_server \
