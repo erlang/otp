@@ -110,13 +110,13 @@
 -export([reader_stop/1, disable_reader/1, enable_reader/1]).
 
 -nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
-       tty_select/3, tty_window_size/1, write_nif/2, read_nif/2, isprint/1,
+       tty_select/3, tty_window_size/1, tty_encoding/1, write_nif/2, read_nif/2, isprint/1,
        wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
-       tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
+       tgoto_nif/1, tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
 
 %% Exported in order to remove "unused function" warning
--export([sizeof_wchar/0, wcswidth/1, tgoto/2, tgoto/3]).
+-export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3]).
 
 %% proc_lib exports
 -export([reader/1, writer/1]).
@@ -131,11 +131,11 @@
 -endif.
 %% Copied from https://github.com/chalk/ansi-regex/blob/main/index.js
 -define(ANSI_REGEXP, <<"^[\e",194,155,"][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?",7,")|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))">>).
--record(state, {tty,
-                reader,
-                writer,
+-record(state, {tty :: tty() | undefined,
+                reader :: {pid(), reference()} | undefined,
+                writer :: {pid(), reference()} | undefined,
                 options,
-                unicode,
+                unicode = true :: boolean(),
                 lines_before = [],   %% All lines before the current line in reverse order
                 lines_after = [],    %% All lines after the current line.
                 buffer_before = [],  %% Current line before cursor in reverse
@@ -152,10 +152,10 @@
                 %% Tab to next 8 column windows is "\e[1I", for unix "ta" termcap
                 tab = <<"\e[1I">>,
                 delete_after_cursor = <<"\e[J">>,
-                insert = false,
-                delete = false,
-                position = <<"\e[6n">>, %% "u7" on my Linux
-                position_reply = <<"\e\\[([0-9]+);([0-9]+)R">>,
+                insert = false, %% Not used
+                delete = false, %% Not used
+                position = <<"\e[6n">>, %% "u7" on my Linux, Not used
+                position_reply = <<"\e\\[([0-9]+);([0-9]+)R">>, %% Not used
                 ansi_regexp
                }).
 
@@ -184,6 +184,7 @@
         {move_combo, integer(), integer(), integer()} |
         clear |
         beep.
+-type tty() :: reference().
 -opaque state() :: #state{}.
 -export_type([state/0]).
 
@@ -234,7 +235,10 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
     TTYState =
         case maps:get(tty, Options) of
             true ->
-                ok = tty_init(TTY, stdout, Options),
+                case tty_init(TTY, stdout, Options) of
+		     ok -> ok;
+		     {error, enotsup} -> error(enotsup)
+		end,
                 NewState = init(State, os:type()),
                 ok = tty_set(TTY),
                 NewState;
@@ -427,18 +431,7 @@ reader([TTY, Parent]) ->
     SignalRef = make_ref(),
     ok = tty_select(TTY, SignalRef, ReaderRef),
     proc_lib:init_ack({ok, {self(), ReaderRef}}),
-    FromEnc = case os:type() of
-                  {unix, _} -> utf8;
-                  {win32, _} ->
-                      case isatty(stdin) of
-                          true ->
-                              {utf16, little};
-                          _ ->
-                              %% When not reading from a console
-                              %% the data read is utf8 encoded
-                              utf8
-                      end
-              end,
+    FromEnc = tty_encoding(TTY),
     reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, <<>>).
 
 reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
@@ -455,7 +448,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
             Parent ! {ReaderRef,{signal,Signal}},
             reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {Alias, {set_unicode_state, _}} when FromEnc =:= {utf16, little} ->
-            %% Ignore requests on windows
+            %% Ignore requests on windows when in console mode
             Alias ! {Alias, true},
             reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {Alias, {set_unicode_state, Bool}} ->
@@ -469,6 +462,12 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                 {error, closed} ->
                     Parent ! {ReaderRef, eof},
                     ok;
+                {error, aborted} ->
+                    %% The read operation was aborted. This only happens on
+                    %% Windows when we change from "noshell" to "newshell".
+                    %% When it happens we need to re-read the tty_encoding as
+                    %% it has changed.
+                    reader_loop(TTY, Parent, SignalRef, ReaderRef, tty_encoding(TTY), Acc);
                 {ok, <<>>} ->
                     %% EAGAIN or EINTR
                     reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
@@ -1209,9 +1208,10 @@ dbg(_) ->
 -endif.
 
 %% Nif functions
--spec isatty(stdin | stdout | stderr) -> boolean() | ebadf.
+-spec isatty(stdin | stdout | stderr | tty()) -> boolean() | ebadf.
 isatty(_Fd) ->
     erlang:nif_error(undef).
+-spec tty_create() -> {ok, tty()}.
 tty_create() ->
     erlang:nif_error(undef).
 tty_init(_TTY, _Fd, _Options) ->
@@ -1221,6 +1221,8 @@ tty_set(_TTY) ->
 setlocale(_TTY) ->
     erlang:nif_error(undef).
 tty_select(_TTY, _SignalRef, _ReadRef) ->
+    erlang:nif_error(undef).
+tty_encoding(_TTY) ->
     erlang:nif_error(undef).
 write_nif(_TTY, _IOVec) ->
     erlang:nif_error(undef).
@@ -1243,7 +1245,14 @@ tgetnum(Char) ->
 tgetflag(Char) ->
     tgetflag_nif([Char,0]).
 tgetstr(Char) ->
-    tgetstr_nif([Char,0]).
+    case tgetstr_nif([Char,0]) of
+        {ok, Str} ->
+            {ok, re:replace(Str, "\\$<[^>]*>","")};
+        Error ->
+            Error
+    end.
+tgoto(Char) ->
+    tgoto_nif([Char,0]).
 tgoto(Char, Arg) ->
     tgoto_nif([Char,0], Arg).
 tgoto(Char, Arg1, Arg2) ->
@@ -1255,6 +1264,8 @@ tgetnum_nif(_Char) ->
 tgetflag_nif(_Char) ->
     erlang:nif_error(undef).
 tgetstr_nif(_Char) ->
+    erlang:nif_error(undef).
+tgoto_nif(_Ent) ->
     erlang:nif_error(undef).
 tgoto_nif(_Ent, _Arg) ->
     erlang:nif_error(undef).
