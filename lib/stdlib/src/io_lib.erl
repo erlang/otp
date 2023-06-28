@@ -809,41 +809,51 @@ collect_chars(Tag, Data, N) ->
 %% Now we are aware of encoding...    
 collect_chars(start, Data, unicode, N) when is_binary(Data), is_integer(N) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
-    if Size >= N ->
+    if Size > N ->
 	    {B1,B2} = split_binary(Data, Npos),
 	    {stop,B1,B2};
        Size < N ->
-	    {binary,[Data],N-Size}
+	    {binary,[Data],N-Size};
+       true ->
+	    {stop,Data,<<>>}
     end;
 collect_chars(start, Data, latin1, N) when is_binary(Data), is_integer(N) ->
     Size = byte_size(Data),
-    if Size >= N ->
+    if Size > N ->
 	    {B1,B2} = split_binary(Data, N),
 	    {stop,B1,B2};
        Size < N ->
-	    {binary,[Data],N-Size}
+	    {binary,[Data],N-Size};
+       true ->
+	    {stop,Data,<<>>}
     end;
 collect_chars(start,Data,_,N) when is_list(Data), is_integer(N) ->
     collect_chars_list([], N, Data);
 collect_chars(start, eof, _,_) ->
     {stop,eof,eof};
+collect_chars({binary,[<<>>],_N}, eof, _,_) ->
+    {stop,eof,eof};
 collect_chars({binary,Stack,_N}, eof, _,_) ->
     {stop,binrev(Stack),eof};
 collect_chars({binary,Stack,N}, Data,unicode, _) when is_integer(N) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
-    if Size >= N ->
+    if Size > N ->
 	    {B1,B2} = split_binary(Data, Npos),
 	    {stop,binrev(Stack, [B1]),B2};
        Size < N ->
-	    {binary,[Data|Stack],N-Size}
+	    {binary,[Data|Stack],N-Size};
+       true ->
+	    {stop,binrev(Stack, [Data]),<<>>}
     end;
 collect_chars({binary,Stack,N}, Data,latin1, _) when is_integer(N) ->
     Size = byte_size(Data),
-    if Size >= N ->
+    if Size > N ->
 	    {B1,B2} = split_binary(Data, N),
 	    {stop,binrev(Stack, [B1]),B2};
        Size < N ->
-	    {binary,[Data|Stack],N-Size}
+	    {binary,[Data|Stack],N-Size};
+       true ->
+	    {stop,binrev(Stack, [Data]),<<>>}
     end;
 collect_chars({list,Stack,N}, Data, _,_) when is_integer(N) ->
     collect_chars_list(Stack, N, Data);
@@ -871,6 +881,8 @@ collect_chars1(N, [], Stack) ->
 
 collect_chars_list(Stack, 0, Data) ->
     {stop,lists:reverse(Stack, []),Data};
+collect_chars_list([], _N, eof) ->
+    {stop,eof,eof};
 collect_chars_list(Stack, _N, eof) ->
     {stop,lists:reverse(Stack, []),eof};
 collect_chars_list(Stack, N, []) ->

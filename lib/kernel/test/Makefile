@@ -150,7 +150,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
-COVERFILE=kernel.cover logger.cover
+COVERFILE=kernel.cover logger.cover tty.cover
 
 # ----------------------------------------------------
 # Release directory specification
