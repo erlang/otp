@@ -3656,12 +3656,10 @@ check_keylog_info('tlsv1.3', [{keylog, ["CLIENT_HANDSHAKE_TRAFFIC_SECRET"++_,_|_
     {ok, Keylog};
 check_keylog_info('tlsv1.3', []=Keylog, false) ->
     {ok, Keylog};
-check_keylog_info('tlsv1.2', [{keylog, ["CLIENT_RANDOM"++_]=Keylog}], _) ->
+check_keylog_info(_, [{keylog, ["CLIENT_RANDOM"++_]=Keylog}], _) ->
     {ok, Keylog};
-check_keylog_info(NotSup, [], _) when NotSup == 'tlsv1.1'; NotSup == tlsv1; NotSup == 'dtlsv1.2'; NotSup == dtlsv1 ->
-    {ok, []};
-check_keylog_info(_, Unexpected, _) ->
-    {unexpected, Unexpected}.
+check_keylog_info(_, Unexpected, Keep) ->
+    {unexpected, Keep, Unexpected}.
 
 check_srp_in_connection_information(_Socket, _Username, client) ->
     ok;
