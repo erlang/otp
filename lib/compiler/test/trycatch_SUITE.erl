@@ -31,7 +31,8 @@
          no_return_in_try_block/1,
          expression_export/1,
          throw_opt_crash/1,
-         coverage/1]).
+         coverage/1,
+         throw_opt_funs/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -50,7 +51,8 @@ groups() ->
        stacktrace,nested_stacktrace,raise,
        no_return_in_try_block,expression_export,
        throw_opt_crash,
-       coverage]}].
+       coverage,
+       throw_opt_funs]}].
 
 
 init_per_suite(Config) ->
@@ -1671,5 +1673,29 @@ bad_class(Config) ->
         [never_ever] -> bad_class;
         _ -> also_bad
     end.
+
+%% GH-7356: Funs weren't considered when checking whether an exception could
+%% escape the module, erroneously triggering the optimization in some cases.
+throw_opt_funs(_Config) ->
+    try throw_opt_funs_1(id(a)) of
+        _ -> unreachable
+    catch
+        _:Val -> a = id(Val)                    %Assertion.
+    end,
+
+    F = id(fun throw_opt_funs_1/1),
+
+    try F(a) of
+        _ -> unreachable
+    catch
+        _:_:Stack -> true = length(Stack) > 0   %Assertion.
+    end,
+
+    ok.
+
+throw_opt_funs_1(a) ->
+    throw(a);
+throw_opt_funs_1(I) ->
+    I.
 
 id(I) -> I.
