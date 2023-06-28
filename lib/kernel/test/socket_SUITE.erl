@@ -33253,7 +33253,7 @@ sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(?FUNCTION_NAME,
            fun() ->
-                   is_not_windows(),
+                   is_not_windows(), % recvmsg does not work on Windows
                    has_support_ipv4()
            end,
            fun() ->
@@ -33274,7 +33274,7 @@ sc_lc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(?FUNCTION_NAME,
            fun() ->
-                   is_not_windows(),
+                   is_not_windows(), % recvmsg does not work on Windows
                    has_support_ipv6()
            end,
            fun() ->
@@ -33293,8 +33293,11 @@ sc_lc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
 
 sc_lc_recvmsg_response_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(sc_recvmsg_response_tcpL,
-           fun() -> has_support_unix_domain_socket() end,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(), % recvmsg does not work on Windows
+                   has_support_unix_domain_socket()
+           end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => local,
