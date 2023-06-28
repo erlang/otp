@@ -650,9 +650,19 @@ scan_name(Cs, Ncs) ->
     {lists:reverse(Ncs),Cs}.
 
 -define(STR(Cl, St, S),
-        case (St#erl_scan.has_fun)
-            andalso (St#erl_scan.text_fun)(Cl, S) of
-            true -> S;
+        case ((St)#erl_scan.has_fun)
+            andalso ((St)#erl_scan.text_fun)((Cl), begin S end) of
+            true  -> begin S end;
+            false -> []
+        end).
+-define(STR(Cl, St, Tmp, S),
+        case ((St)#erl_scan.has_fun) of
+            true ->
+                Tmp = begin S end,
+                case ((St)#erl_scan.text_fun)((Cl), Tmp) of
+                    true ->  Tmp;
+                    false -> []
+                end;
             false -> []
         end).
 
@@ -956,11 +966,15 @@ scan_tqstring_finish(Cs, St, Line, Col, Toks, Tqs, IndentR) ->
     of
         Content when is_list(Content) ->
             Qs = Tqs#tqs.qs,
-            Chars =
-                lists_duplicate(
-                  Qs, $",%"
-                  tqstring_chars_r(ContentR, lists:duplicate(Qs, $"))),%"
-            Anno = anno(Line0, Col0, St, ?STR(string, St, Chars)),
+            Anno =
+                anno(
+                  Line0, Col0, St,
+                  ?STR(
+                     string, St, Chars,
+                     lists_duplicate(
+                       Qs, $",%"
+                       tqstring_chars_r(
+                         ContentR, lists:duplicate(Qs, $"))))),%"
             scan1(Cs, St, Line, Col, [{string,Anno,Content}|Toks]);
         {Tag=indentation, ErrorLine, ErrorCol} ->
             scan_error(
