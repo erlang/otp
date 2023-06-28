@@ -32,6 +32,35 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a type handling bug that would cause an internal
+	    consistence failure for correct code.</p>
+          <p>
+	    Own Id: OTP-18625 Aux Id: GH-7354 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug that could cause the stack trace of
+	    <c>throw</c> exceptions to be erroneously optimized
+	    out.</p>
+          <p>
+	    Own Id: OTP-18626 Aux Id: GH-7356 </p>
+        </item>
+        <item>
+	    <p>Complex guard expression using '<c>or</c>' were not
+	    always fully evaluated, making guards that were supposed
+	    to fail succeed.</p>
+          <p>
+	    Own Id: OTP-18634 Aux Id: GH-7370 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,113 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where when you entered Alt+Enter in the terminal,
+	    the cursor would move to the last line, instead of moving
+	    to the next line.</p>
+          <p>
+	    Own Id: OTP-18580 Aux Id: PR-7242 </p>
+        </item>
+        <item>
+          <p>
+	    Fix so that the shell does not crash on startup when
+	    termcap is not available.</p>
+          <p>
+	    Own Id: OTP-18624 Aux Id: GH-7296 </p>
+        </item>
+        <item>
+          <p>
+	    Multiple socket:accept calls issue. When making multiple
+	    accept calls, only the last call is active.</p>
+          <p>
+	    Own Id: OTP-18635 Aux Id: #7328 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the shell to ignore terminal delay when the terminal
+	    capabilities report that they should be used.</p>
+          <p>
+	    Own Id: OTP-18636 Aux Id: PR-7352 GH-7308 </p>
+        </item>
+        <item>
+          <p>
+	    Fix "oldshell" to echo characters while typing on
+	    Windows.</p>
+          <p>
+	    Own Id: OTP-18637 Aux Id: PR-7359 GH-7324 </p>
+        </item>
+        <item>
+          <p>
+	    Fix eof handling when reading from stdin when erlang is
+	    started using <c>-noshell</c>.</p>
+          <p>
+	    Own Id: OTP-18640 Aux Id: PR-7384 GH-7368 GH-7286 GH-6881 </p>
+        </item>
+        <item>
+          <p>
+	    On Windows, a call to the function socket:close, when
+	    there are waiting active calls to read, write or accept
+	    functions, could hang.</p>
+          <p>
+	    Own Id: OTP-18646</p>
+        </item>
+        <item>
+          <p>
+	    Fix issues when reading or configuring <c>standard_io</c>
+	    on Windows when erl.exe is started using <c>-noshell</c>
+	    flag.</p>
+          <p>
+	    Own Id: OTP-18649 Aux Id: GH-7261 PR-7400 </p>
+        </item>
+        <item>
+          <p>
+	    gen_udp:connect with inet_backend = socket fails when the
+	    Address is a hostname (string or atom).</p>
+          <p>
+	    Own Id: OTP-18650</p>
+        </item>
+        <item>
+          <p>
+	    Fixed problem which would cause shell to crash if
+	    particular escape sequence was written to stdout.</p>
+          <p>
+	    Own Id: OTP-18651 Aux Id: PR-7242 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed problem where output would disappear if it was
+	    received after a prompt was written in the shell.</p>
+          <p>
+	    Own Id: OTP-18652 Aux Id: PR-7242 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a crash where the location of erts could not be found
+	    in rebar3 dev builds.</p>
+          <p>
+	    Own Id: OTP-18656 Aux Id: PR-7404 GH-7390 </p>
+        </item>
+        <item>
+          <p>
+	    Introduce the KERNEL application parameter
+	    <c>standard_io_encoding</c> that can be used to set the
+	    default encoding for standard_io. This option needs to be
+	    set to <c>latin1</c> if the application wants to treat
+	    all input data as bytes rather than utf-8 encoded
+	    characters.</p>
+          <p>
+	    Own Id: OTP-18657 Aux Id: GH-7230 PR-7384 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

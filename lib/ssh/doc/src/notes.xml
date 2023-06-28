@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added multiline editing support to ssh clients connected
+	    through OTP ssh daemon.</p>
+          <p>
+	    Own Id: OTP-18653 Aux Id: PR-7242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.0</title>
 
     <section><title>Improvements and New Features</title>
