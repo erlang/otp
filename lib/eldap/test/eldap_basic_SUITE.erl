@@ -189,9 +189,38 @@ init_per_suite(Config) ->
 	    false ->
 		undefined
 	end,
-    [{ssl_available, SSL_available},
-     {ldap_server,   LDAP_server},
-     {ldaps_server,  LDAPS_server} | Config].
+    log_ldap_servers([{ssl_available, SSL_available},
+                      {ldap_server,   LDAP_server},
+                      {ldaps_server,  LDAPS_server} | Config]).
+
+
+log_ldap_servers(Config) ->
+    case true == (catch
+                      lists:member({save_eldap_data,3},
+                                   eldap_collect_labmachine_info_SUITE:module_info(exports)))
+    of
+        true ->
+            HostName = 
+                case inet:gethostname() of
+                    {ok,Name} -> string:to_lower(Name);
+                    _ -> "undefined"
+                end,
+            Entry =
+                     [{hostname,           HostName},
+                      {type,               host},
+                      {date,               date()},
+                      {time,               time()},
+                      {os_type,            os:type()},
+                      {os_version,         os:version()},
+                      {ldap_server,        proplists:get_value(ldap_server, Config)},
+                      {ldaps_server,       proplists:get_value(ldaps_server, Config)}
+                     ],
+            eldap_collect_labmachine_info_SUITE:save_eldap_data(HostName, Entry, Config),
+            Config;
+        false ->
+            Config
+    end.
+
 
 end_per_suite(_Config) ->
     try ssl:stop()

@@ -100,6 +100,7 @@ init_per_suite(Config) ->
                {skip, "No docker"};
            _ ->
                ssh:start(),
+               log_image_versions(ssh_image_versions(), Config),
                ct:log("Crypto info: ~p",[crypto:info_lib()]),
                ct:log("ssh image versions: ~p",[ssh_image_versions()]),
                Config
@@ -1485,4 +1486,51 @@ renegotiate_test(Kex1, ConnectionRef) ->
         _ ->
             %% ct:log("Renegotiate test passed!",[]),
             ok
+    end.
+
+%%%----------------------------------------------------------------
+%% ImageVersions = ['dropbearv2016.72',
+%%                  'openssh4.4p1-openssl0.9.8c',
+%%                  ...
+%%                  'openssh8.8p1-openssl1.1.1l']
+
+log_image_versions(ImageVersions, Config) ->
+    case true == (catch
+                      lists:member({save_ssh_data,3},
+                                   ssh_collect_labmachine_info_SUITE:module_info(exports)))
+    of
+        true ->
+            HostPfx = hostname()++"_docker",
+            {_Imax, Entries} = lists:foldl(fix_entry(HostPfx), {0,[]}, ImageVersions),
+            ssh_collect_labmachine_info_SUITE:save_ssh_data(HostPfx, Entries, Config);
+        false ->
+            Config
+    end.
+
+
+fix_entry(HostPfx) ->
+    fun(E, {I,Acc}) ->
+            Entry =
+                [{hostname,           lists:flatten(io_lib:format("~s:~2..0w",[HostPfx,I]))},
+                 {type,               compat_test},
+                 {date,               date()},
+                 {time,               time()},
+                 {os_type,            os:type()},
+                 {os_version,         os:version()},
+                 {full_ssh_version,   fix_version(E)}
+                ],
+            {I+1, [Entry|Acc]}
+    end.
+
+fix_version(E) ->
+    case string:tokens(atom_to_list(E), "-") of
+        ["openssh"++Vs, "openssl"++Vc ] -> lists:concat(["OpenSSH_",Vs," OpenSSL ",Vc]);
+        ["openssh"++Vs, "libressl"++Vc] -> lists:concat(["OpenSSH_",Vs," LibreSSL ",Vc]);
+        _ -> atom_to_list(E)
+    end.
+
+hostname() ->
+    case inet:gethostname() of
+	{ok,Name} -> string:to_lower(Name);
+	_ -> "undefined"
     end.

@@ -30,6 +30,7 @@ INCLUDES= -I. -I ../include
 
 MODULES= \
 	eldap_basic_SUITE \
+	eldap_collect_labmachine_info_SUITE \
 	make_certs
 
 
