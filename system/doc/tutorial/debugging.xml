@@ -50,9 +50,9 @@
       may be long gone.
     </p>
     <p>
-      Another kind of bugs that are hard to find are <em>memory
-      leaks</em>. They may go unnoticed and not cause problem until a
-      deployed system has been running for a long time.
+      Another kind of bugs that are hard to find are <em>memory leaks</em>. They
+      may go unnoticed and not cause problem until a deployed system has been
+      running for a long time.
     </p>
     <p>
       The following sections describe tools that make it easier to both detect
