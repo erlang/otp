@@ -48324,6 +48324,17 @@ ttest_tcp(InitState) ->
                                                        RunTime) of
                                {ok, {Pid, _MRef}} ->
                                    {ok, State#{rclient => Pid}};
+                               {error, {connect, Reason, ServerInfo} = EI} ->
+                                   ?SEV_EPRINT("Failed connecting to server: "
+                                               "~n   Reason: ~p"
+                                               "~n   Server: ~p",
+                                               [Reason, ServerInfo]),
+                                   case Reason of
+                                       eaddrnotavail ->
+                                           {skip, Reason};
+                                       _ ->
+                                           {error, EI}
+                                   end;
                                {error, _} = ERROR ->
                                    ERROR
                            end
