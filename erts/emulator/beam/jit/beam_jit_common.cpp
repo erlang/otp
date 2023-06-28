@@ -1087,6 +1087,24 @@ Sint beam_jit_bs_bit_size(Eterm term) {
     return (Sint)-1;
 }
 
+Eterm beam_jit_int128_to_big(Process *p, Uint sign, Uint low, Uint high) {
+    Eterm *hp;
+    Uint arity;
+
+    arity = high ? 2 : 1;
+    hp = HeapFragOnlyAlloc(p, BIG_NEED_SIZE(arity));
+    if (sign) {
+        hp[0] = make_neg_bignum_header(arity);
+    } else {
+        hp[0] = make_pos_bignum_header(arity);
+    }
+    BIG_DIGIT(hp, 0) = low;
+    if (arity == 2) {
+        BIG_DIGIT(hp, 1) = high;
+    }
+    return make_big(hp);
+}
+
 ErtsMessage *beam_jit_decode_dist(Process *c_p, ErtsMessage *msgp) {
     if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
         /*

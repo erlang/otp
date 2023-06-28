@@ -23,10 +23,12 @@
 
 -export([all/0, suite/0, groups/0]).
 -export([edge_cases/1,
-         addition/1, subtraction/1, negation/1, multiplication/1, division/1,
+         addition/1, subtraction/1, negation/1,
+         multiplication/1, mul_add/1, division/1,
          test_bitwise/1, test_bsl/1,
          element/1,
          range_optimization/1]).
+-export([mul_add/0]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +42,7 @@ all() ->
 groups() ->
     [{p, [parallel],
       [edge_cases,
-       addition, subtraction, negation, multiplication, division,
+       addition, subtraction, negation, multiplication, mul_add, division,
        test_bitwise, test_bsl,
        element,
        range_optimization]}].
@@ -420,7 +422,9 @@ mul_gen_pairs() ->
                  _ <- lists:seq(1, 75)],
 
     %% Generate pairs of numbers whose product is small.
-    Pairs1 = [{N, MaxSmall div N} || N <- [1,2,3,5,17,63,64,1111,22222]] ++ Pairs0,
+    SmallPairs = [{N, MaxSmall div N} ||
+                     N <- [1,2,3,4,5,8,16,17,32,63,64,1111,22222]],
+    Pairs1 = [{N,M-1} || {N,M} <- SmallPairs] ++ SmallPairs ++ Pairs0,
 
     %% Add prime factors of 2^59 - 1 (MAX_SMALL for 64-bit architecture
     %% at the time of writing).
@@ -460,7 +464,11 @@ gen_mul_function({Name,{A,B}}) ->
            Res = Y * X;
         '@Name@'(X, fixed, number) when -_@APlusOne@ < X, X < _@APlusOne@ ->
            X * _@B@;
+        '@Name@'(X, fixed, any) ->
+           X * _@B@;
         '@Name@'(fixed, Y, number) when -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           _@A@ * Y;
+        '@Name@'(fixed, Y, any) ->
            _@A@ * Y. ").
 
 test_multiplication([{Name,{A,B}}|T], Mod) ->
@@ -474,7 +482,9 @@ test_multiplication([{Name,{A,B}}|T], Mod) ->
         Res0 = F(-A, -B, false),
         Res0 = F(A, B, number),
         Res0 = F(fixed, B, number),
+        Res0 = F(fixed, B, any),
         Res0 = F(A, fixed, number),
+        Res0 = F(A, fixed, any),
         Res0 = F(-A, -B, number),
 
         Res1 = -(A * B),
@@ -483,7 +493,9 @@ test_multiplication([{Name,{A,B}}|T], Mod) ->
         Res1 = F(-A, B, number),
         Res1 = F(A, -B, number),
         Res1 = F(-A, fixed, number),
-        Res1 = F(fixed, -B, number)
+        Res1 = F(-A, fixed, any),
+        Res1 = F(fixed, -B, number),
+        Res1 = F(fixed, -B, any)
     catch
         C:R:Stk ->
             io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
@@ -493,6 +505,212 @@ test_multiplication([{Name,{A,B}}|T], Mod) ->
     test_multiplication(T, Mod);
 test_multiplication([], _) ->
     ok.
+
+mul_add() ->
+    [{timetrap, {minutes, 5}}].
+mul_add(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Triples = mul_add_triples(),
+    Fs0 = gen_func_names(Triples, 0),
+    Fs = [gen_mul_add_function(F) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all]).",
+               "id(I) -> I."]) ++ Fs,
+    %% merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_mul_add(Fs0, Mod),
+    unload(Mod),
+
+    test_mul_add_float(),
+    test_mul_add_exceptions(),
+
+    ok.
+
+mul_add_triples() ->
+    {_, MaxSmall} = determine_small_limits(0),
+    SqrtMaxSmall = floor(math:sqrt(MaxSmall)),
+
+    Numbers0 = [1,2,3,4,5,8,9,
+                (MaxSmall div 2) band -2,
+                MaxSmall band -2,
+                MaxSmall * 2],
+    Numbers = [rand:uniform(SqrtMaxSmall) || _ <- lists:seq(1, 5)] ++ Numbers0,
+
+    %% Generate pairs of numbers whose product is small.
+    SmallPairs = [{MaxSmall div M,M} || M <- Numbers],
+    Pairs = [{N+M,M} || {N,M} <- SmallPairs] ++ SmallPairs,
+
+    Triples0 = [{A,B,rand:uniform(MaxSmall)} || {A,B} <- Pairs],
+    Triples1a = [{A,B,abs(MaxSmall - A * B)} || {A,B} <- Pairs],
+    Triples1 = [{A,B,C+Offset} ||
+                   {A,B,C} <- Triples1a,
+                   Offset <- [-2,-1,0,1,2],
+                   C + Offset >= 0],
+    Triples2 = [{A,B,MaxSmall+1} || {A,B} <- Pairs],
+    [{3,4,5},
+     {MaxSmall div 2,2,42},                     %Result is not small.
+     {MaxSmall,MaxSmall,MaxSmall}|Triples0 ++ Triples1 ++ Triples2].
+
+gen_mul_add_function({Name,{A,B,C}}) ->
+    APlusOne = A + 1,
+    BPlusOne = B + 1,
+    CPlusOne = C + 1,
+    ?Q("'@Name@'(int_vvv_plus_z, X, Y, Z)
+          when is_integer(X), is_integer(Y), is_integer(Z),
+               -_@APlusOne@ < X, X < _@APlusOne@,
+               -_@BPlusOne@ < Y, Y < _@BPlusOne@,
+               -_@CPlusOne@ < Z, Z < _@CPlusOne@ ->
+           Res = id(X * Y + Z),
+           Res = id(Y * X + Z),
+           Res = id(Z + X * Y),
+           Res = id(Z + Y * X),
+           Res;
+        '@Name@'(int_vvv_minus_z, X, Y, Z)
+           when is_integer(X), is_integer(Y), is_integer(Z),
+               -_@APlusOne@ < X, X < _@APlusOne@,
+               -_@BPlusOne@ < Y, Y < _@BPlusOne@,
+               -_@CPlusOne@ < Z, Z < _@CPlusOne@ ->
+           Res = id(X * Y - Z),
+           Res = id(Y * X - Z),
+           Res;
+        '@Name@'(pos_int_vvv_plus_z, X, Y, Z)
+          when is_integer(X), is_integer(Y), is_integer(Z),
+               0 =< X, X < _@APlusOne@,
+               0 =< Y, Y < _@BPlusOne@,
+               0 =< Z, Z < _@CPlusOne@ ->
+           Res = id(X * Y + Z),
+           Res = id(Y * X + Z),
+           Res = id(Z + X * Y),
+           Res = id(Z + Y * X),
+           Res;
+        '@Name@'(neg_int_vvv_plus_z, X, Y, Z)
+          when is_integer(X), is_integer(Y), is_integer(Z),
+               -_@APlusOne@ < X, X < 0,
+               -_@BPlusOne@ < Y, Y < 0,
+               -_@CPlusOne@ < Z, Z < 0 ->
+           Res = id(X * Y + Z),
+           Res = id(Y * X + Z),
+           Res = id(Z + X * Y),
+           Res = id(Z + Y * X),
+           Res;
+        '@Name@'(any_vvv_plus_z, X, Y, Z) ->
+           Res = id(X * Y + Z),
+           Res = id(Y * X + Z),
+           Res = id(Z + X * Y),
+           Res = id(Z + Y * X),
+           Res = '@Name@'(int_vvv_plus_z, id(X), id(Y), id(Z)),
+           Res;
+        '@Name@'(any_vvv_minus_z, X, Y, Z) ->
+           Res = id(X * Y - Z),
+           Res = id(Y * X - Z),
+           Res = '@Name@'(int_vvv_minus_z, id(X), id(Y), id(Z)),
+           Res;
+        '@Name@'(any_vvi_plus_z, X, Y, _Z) ->
+           Z = _@C@,
+           Res = id(X * Y + Z),
+           Res = id(Y * X + Z),
+           Res = id(Z + X * Y),
+           Res = id(Z + Y * X),
+           Res = '@Name@'(any_vvv_plus_z, X, Y, id(Z)),
+           Res = '@Name@'(any_vvv_minus_z, X, Y, id(-Z)),
+           Res;
+        '@Name@'(any_vvi_minus_z, X, Y, _Z) ->
+           Z = _@C@,
+           Res = id(X * Y - Z),
+           Res = id(Y * X - Z),
+           Res = id(-Z + X * Y),
+           Res = id(-Z + Y * X),
+           Res = '@Name@'(any_vvv_plus_z, X, Y, id(-Z)),
+           Res = '@Name@'(any_vvv_minus_z, X, Y, id(Z)),
+           Res;
+        '@Name@'(any_vii_plus_z, X, fixed, fixed) ->
+           Y = _@B@,
+           Z = _@C@,
+           Res = id(X * Y + Z),
+           Res = id(Y * X + Z),
+           Res = id(Z + X * Y),
+           Res = id(Z + Y * X),
+           Res = '@Name@'(any_vvi_plus_z, X, id(Y), fixed),
+           Res = '@Name@'(any_vvv_minus_z, X, id(Y), id(-Z)),
+           Res;
+        '@Name@'(any_vii_minus_z, X, fixed, fixed) ->
+           Y = _@B@,
+           Z = _@C@,
+           Res = id(X * Y - Z),
+           Res = id(Y * X - Z),
+           Res = id(-Z + X * Y),
+           Res = id(-Z + Y * X),
+           Res = '@Name@'(any_vvi_minus_z, X, id(Y), fixed),
+           Res = '@Name@'(any_vvv_plus_z, X, Y, id(-Z)),
+           Res;
+        '@Name@'({guard_plus_z,Res}, X, Y, Z) when X * Y + Z =:= Res ->
+           ok;
+        '@Name@'({guard_minus_z,Res}, X, Y, Z) when X * Y - Z =:= Res ->
+           ok. ").
+
+test_mul_add([{Name,{A,B,C}}|T], Mod) ->
+    F = fun Mod:Name/4,
+    try
+        Res0 = A * B + C,
+        Res0 = F(any_vii_plus_z, A, fixed, fixed),
+        Res0 = F(pos_int_vvv_plus_z, A, B, C),
+        ok = F({guard_plus_z,Res0}, A, B, C),
+        ok = F({guard_plus_z,Res0}, -A, -B, C),
+
+        Res1 = A * B - C,
+        Res1 = F(any_vii_minus_z, A, fixed, fixed),
+        Res1 = if
+                   A > 0, B > 0, C > 0 ->
+                       F(neg_int_vvv_plus_z, -A, -B, -C);
+                   true ->
+                       Res1
+              end,
+        ok = F({guard_minus_z,Res1}, A, B, C),
+        ok = F({guard_minus_z,Res1}, -A, -B, C),
+
+        Res2 = -A * B + C,
+        Res2 = A * -B + C,
+        Res2 = F(any_vii_plus_z, -A, fixed, fixed),
+        ok = F({guard_plus_z,Res2}, -A, B, C),
+
+        Res3 = -A * B - C,
+        Res3 = A * -B - C,
+        Res3 = F(any_vii_minus_z, -A, fixed, fixed),
+        ok = F({guard_minus_z,Res3}, -A, B, C)
+    catch
+        Class:R:Stk ->
+            io:format("~p failed. numbers: ~p ~p ~p\n", [Name,A,B,C]),
+            erlang:raise(Class, R, Stk)
+    end,
+    test_mul_add(T, Mod);
+test_mul_add([], _) ->
+    ok.
+
+test_mul_add_float() ->
+    Res = madd(id(2.0), id(3.0), id(7.0)),
+    Res = madd(id(2.0), id(3.0), id(7)),
+    ok = madd(id(2.0), id(3.0), id(7), id(Res)).
+
+test_mul_add_exceptions() ->
+    error = madd(id(a), id(2), id(3), id(whatever)),
+    error = madd(id(7), id(b), id(3), id(whatever)),
+    error = madd(id(7), id(15), id(c), id(whatever)),
+
+    {'EXIT',{badarith,[{erlang,'*',[a,2],_}|_]}} = catch madd(id(a), id(2), id(0)),
+    {'EXIT',{badarith,[{erlang,'*',[a,2],_}|_]}} = catch madd(id(a), id(2), id(42)),
+    {'EXIT',{badarith,[{erlang,'*',[a,2],_}|_]}} = catch madd(id(a), id(2), id(c)),
+    {'EXIT',{badarith,[{erlang,'*',[3,b],_}|_]}} = catch madd(id(3), id(b), id(c)),
+    {'EXIT',{badarith,[{erlang,'+',[6,c],_}|_]}} = catch madd(id(2), id(3), id(c)),
+
+    ok.
+
+madd(A, B, C) -> A * B + C.
+
+madd(A, B, C, Res) when Res =:= A * B + C -> ok;
+madd(_, _, _, _) -> error.
+
 
 %% Test that the JIT only omits the overflow check when it's safe.
 division(_Config) ->

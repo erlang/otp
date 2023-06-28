@@ -2561,6 +2561,36 @@ Eterm big_times(Eterm x, Eterm y, Eterm *r)
 }
 
 /*
+** Fused multiplication and addition of bignums
+*/
+
+Eterm big_mul_add(Eterm x, Eterm y, Eterm z, Eterm *r)
+{
+    Eterm* xp = big_val(x);
+    Eterm* yp = big_val(y);
+    Eterm* zp = big_val(z);
+
+    short sign = BIG_SIGN(xp) != BIG_SIGN(yp);
+    dsize_t xsz = BIG_SIZE(xp);
+    dsize_t ysz = BIG_SIZE(yp);
+    dsize_t rsz;
+
+    if (ysz == 1)
+        rsz = D_mul(BIG_V(xp), xsz, BIG_DIGIT(yp, 0), BIG_V(r));
+    else if (xsz == 1)
+        rsz = D_mul(BIG_V(yp), ysz, BIG_DIGIT(xp, 0), BIG_V(r));
+    else if (xsz >= ysz) {
+        rsz = I_mul_karatsuba(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
+    }
+    else {
+        rsz = I_mul_karatsuba(BIG_V(yp), ysz, BIG_V(xp), xsz, BIG_V(r));
+    }
+    return B_plus_minus(BIG_V(r), rsz, sign,
+                        BIG_V(zp), BIG_SIZE(zp), (short) BIG_SIGN(zp),
+                        r);
+}
+
+/*
 ** Fused div_rem for bignums
 */
 int big_div_rem(Eterm lhs, Eterm rhs,

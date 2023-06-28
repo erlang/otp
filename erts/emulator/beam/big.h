@@ -135,6 +135,7 @@ Eterm small_times(Sint, Sint, Eterm*);
 Eterm big_plus(Wterm, Wterm, Eterm*);
 Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
+Eterm big_mul_add(Eterm x, Eterm y, Eterm z, Eterm *r);
 
 int big_div_rem(Eterm lhs, Eterm rhs,
                 Eterm *q_hp, Eterm *q,

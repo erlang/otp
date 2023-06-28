@@ -628,6 +628,8 @@ void beam_jit_bs_construct_fail_info(Process *c_p,
                                      Eterm arg1);
 Sint beam_jit_bs_bit_size(Eterm term);
 
+Eterm beam_jit_int128_to_big(Process *p, Uint sign, Uint low, Uint high);
+
 void beam_jit_take_receive_lock(Process *c_p);
 void beam_jit_wait_locked(Process *c_p, ErtsCodePtr cp);
 void beam_jit_wait_unlocked(Process *c_p, ErtsCodePtr cp);

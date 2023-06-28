@@ -823,16 +823,32 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
     mov_arg(Dst, RET);
 }
 
-/* ARG2 = LHS, ARG3 (!) = RHS
+/* ARG2 = Src1
+ * ARG3 = Src2
+ * ARG4 = Increment
  *
  * Result is returned in RET, error is indicated by ZF. */
-void BeamGlobalAssembler::emit_times_guard_shared() {
+void BeamGlobalAssembler::emit_mul_add_guard_shared() {
+    Label done = a.newLabel();
+
     emit_enter_frame();
     emit_enter_runtime();
 
+    a.mov(TMP_MEM1q, ARG4);
+
     a.mov(ARG1, c_p);
     runtime_call<3>(erts_mixed_times);
+    emit_test_the_non_value(RET);
+    a.short_().je(done);
 
+    a.mov(ARG3, TMP_MEM1q);
+    a.mov(ARG2, RET);
+    a.mov(ARG1, c_p);
+    a.cmp(ARG3, imm(make_small(0)));
+    a.short_().je(done);
+    runtime_call<3>(erts_mixed_plus);
+
+    a.bind(done);
     emit_leave_runtime();
     emit_leave_frame();
 
@@ -841,13 +857,14 @@ void BeamGlobalAssembler::emit_times_guard_shared() {
     a.ret();
 }
 
-/* ARG2 = LHS, ARG3 (!) = RHS
+/* ARG2 = Src1
+ * ARG3 = Src2
+ * ARG4 = Increment
  *
  * Result is returned in RET. */
-void BeamGlobalAssembler::emit_times_body_shared() {
-    static const ErtsCodeMFA bif_mfa = {am_erlang, am_Times, 2};
-
-    Label error = a.newLabel();
+void BeamGlobalAssembler::emit_mul_add_body_shared() {
+    Label mul_only = a.newLabel(), error = a.newLabel(),
+          mul_error = a.newLabel(), do_error = a.newLabel();
 
     emit_enter_frame();
     emit_enter_runtime();
@@ -855,61 +872,166 @@ void BeamGlobalAssembler::emit_times_body_shared() {
     /* Save original arguments for the error path. */
     a.mov(TMP_MEM1q, ARG2);
     a.mov(TMP_MEM2q, ARG3);
-
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_times);
+    a.cmp(ARG4, imm(make_small(0)));
+    a.short_().je(mul_only);
+    a.mov(TMP_MEM4q, ARG4);
+
+    a.lea(ARG5, TMP_MEM3q);
+    runtime_call<5>(erts_mul_add);
 
     emit_leave_runtime();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
     a.short_().je(error);
+
     a.ret();
+
+    a.bind(mul_only);
+    {
+        runtime_call<3>(erts_mixed_times);
+
+        emit_leave_runtime();
+        emit_leave_frame();
+
+        emit_test_the_non_value(RET);
+        a.short_().je(mul_error);
+
+        a.ret();
+    }
 
     a.bind(error);
     {
-        /* Place the original arguments in x-registers. */
+        static const ErtsCodeMFA mul_mfa = {am_erlang, am_Times, 2};
+        static const ErtsCodeMFA add_mfa = {am_erlang, am_Plus, 2};
+
+        a.mov(ARG1, TMP_MEM3q);
+        a.mov(ARG2, TMP_MEM4q);
+        mov_imm(ARG4, &add_mfa);
+        emit_test_the_non_value(ARG1);
+        a.short_().jne(do_error);
+
+        a.bind(mul_error);
         a.mov(ARG1, TMP_MEM1q);
         a.mov(ARG2, TMP_MEM2q);
+        mov_imm(ARG4, &mul_mfa);
+
+        a.bind(do_error);
         a.mov(getXRef(0), ARG1);
         a.mov(getXRef(1), ARG2);
-
-        a.mov(ARG4, imm(&bif_mfa));
         a.jmp(labels[raise_exception]);
     }
 }
 
-void BeamModuleAssembler::emit_i_times(const ArgLabel &Fail,
-                                       const ArgSource &LHS,
-                                       const ArgSource &RHS,
-                                       const ArgRegister &Dst) {
-    bool small_result = is_product_small_if_args_are_small(LHS, RHS);
+/* ARG2 = Src1
+ * ARG3 = Src2
+ *
+ * The result is returned in RET.
+ */
+void BeamGlobalAssembler::emit_mul_body_shared() {
+    mov_imm(ARG4, make_small(0));
+    a.jmp(labels[mul_add_body_shared]);
+}
 
-    if (always_small(LHS) && always_small(RHS) && small_result) {
-        comment("multiplication without overflow check");
-        if (RHS.isSmall()) {
-            Sint factor = RHS.as<ArgSmall>().getSigned();
+/* ARG2 = Src1
+ * ARG3 = Src2
+ *
+ * Result is returned in RET, error is indicated by ZF.
+ */
+void BeamGlobalAssembler::emit_mul_guard_shared() {
+    mov_imm(ARG4, make_small(0));
+    a.jmp(labels[mul_add_guard_shared]);
+}
 
-            mov_arg(RET, LHS);
+void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
+                                         const ArgSource &Src1,
+                                         const ArgSource &Src2,
+                                         const ArgSource &Src3,
+                                         const ArgSource &Src4,
+                                         const ArgRegister &Dst) {
+    bool is_product_small = is_product_small_if_args_are_small(Src1, Src2);
+    bool is_sum_small = is_sum_small_if_args_are_small(Src3, Src4);
+    bool is_increment_zero =
+            Src4.isSmall() && Src4.as<ArgSmall>().getSigned() == 0;
+    Sint factor = 0;
+    int left_shift = -1;
+
+    if (is_increment_zero) {
+        comment("(adding zero)");
+    }
+
+    if (Src2.isSmall()) {
+        factor = Src2.as<ArgSmall>().getSigned();
+        if (Support::isPowerOf2(factor)) {
+            left_shift = Support::ctz<Eterm>(factor);
+        }
+    }
+
+    if (always_small(Src1) && Src2.isSmall() && Src4.isSmall() &&
+        is_product_small && is_sum_small) {
+        x86::Mem p;
+        Sint increment = Src4.as<ArgSmall>().get();
+        increment -= factor * _TAG_IMMED1_SMALL;
+
+        switch (factor) {
+        case 2:
+            p = ptr(RET, RET, 0, increment);
+            break;
+        case 3:
+            p = ptr(RET, RET, 1, increment);
+            break;
+        case 4:
+            p = ptr(x86::Gp(), RET, 2, increment);
+            break;
+        case 5:
+            p = ptr(RET, RET, 2, increment);
+            break;
+        case 8:
+            p = ptr(x86::Gp(), RET, 3, increment);
+            break;
+        case 9:
+            p = ptr(RET, RET, 3, increment);
+            break;
+        }
+
+        if (Support::isInt32(increment) && p.hasIndex()) {
+            comment("optimizing multiplication and addition using LEA");
+            mov_arg(RET, Src1);
+            a.lea(RET, p);
+            mov_arg(Dst, RET);
+            return;
+        }
+    }
+
+    if (always_small(Src1) && Src2.isSmall() && always_small(Src4) &&
+        is_product_small && is_sum_small) {
+        comment("multiplication and addition without overflow check");
+        if (Src2.isSmall()) {
+            mov_arg(RET, Src1);
             a.and_(RET, imm(~_TAG_IMMED1_MASK));
             if (Support::isPowerOf2(factor)) {
-                int trailing_bits = Support::ctz<Eterm>(factor);
                 comment("optimized multiplication by replacing with left "
                         "shift");
-                a.shl(RET, imm(trailing_bits));
+                a.shl(RET, imm(left_shift));
             } else {
                 mov_imm(ARG2, factor);
                 a.imul(RET, ARG2);
             }
         } else {
-            mov_arg(RET, LHS);
-            mov_arg(ARG2, RHS);
+            mov_arg(RET, Src1);
+            mov_arg(ARG2, Src2);
             a.and_(RET, imm(~_TAG_IMMED1_MASK));
             a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
             a.imul(RET, ARG2);
         }
 
-        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        if (is_increment_zero) {
+            a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        } else {
+            mov_arg(ARG2, Src4);
+            a.add(RET, ARG2);
+        }
         mov_arg(Dst, RET);
 
         return;
@@ -917,39 +1039,81 @@ void BeamModuleAssembler::emit_i_times(const ArgLabel &Fail,
 
     Label next = a.newLabel(), mixed = a.newLabel();
 
-    mov_arg(ARG2, LHS); /* Used by erts_mixed_times in this slot */
-    mov_arg(ARG3, RHS); /* Used by erts_mixed_times in this slot */
+    mov_arg(ARG2, Src1);
+    mov_arg(ARG3, Src2);
+    if (!is_increment_zero) {
+        mov_arg(ARG4, Src4);
+    }
 
-    if (RHS.isSmall()) {
-        Sint val = RHS.as<ArgSmall>().getSigned();
-        emit_is_small(mixed, LHS, ARG2);
+    if (Src2.isSmall()) {
+        Sint val = Src2.as<ArgSmall>().getSigned();
+        emit_are_both_small(mixed, Src1, ARG2, Src4, ARG4);
         a.mov(RET, ARG2);
-        a.mov(ARG4, imm(val));
+        mov_imm(ARG5, val);
     } else {
-        emit_are_both_small(mixed, LHS, ARG2, RHS, ARG3);
+        if (is_increment_zero) {
+            emit_are_both_small(mixed, Src1, ARG2, Src2, ARG3);
+        } else if (always_small(Src1)) {
+            emit_are_both_small(mixed, Src2, ARG3, Src4, ARG4);
+        } else {
+            a.mov(RETd, ARG2.r32());
+            a.and_(RETd, ARG3.r32());
+            a.and_(RETd, ARG4.r32());
+            if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                        Src1) &&
+                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                        Src2) &&
+                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                        Src4)) {
+                emit_is_not_boxed(mixed, RET);
+            } else {
+                a.and_(RETb, imm(_TAG_IMMED1_MASK));
+                a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+                a.short_().jne(mixed);
+            }
+        }
         a.mov(RET, ARG2);
-        a.mov(ARG4, ARG3);
-        a.sar(ARG4, imm(_TAG_IMMED1_SIZE));
+        a.mov(ARG5, ARG3);
+        a.sar(ARG5, imm(_TAG_IMMED1_SIZE));
     }
 
     a.and_(RET, imm(~_TAG_IMMED1_MASK));
-    a.imul(RET, ARG4);
-    if (small_result) {
-        comment("skipped overflow check because the result is always small");
+    a.imul(RET, ARG5);
+    if (is_product_small) {
+        comment("skipped overflow check because product is always small");
     } else {
         a.short_().jo(mixed);
     }
-    a.or_(RET, imm(_TAG_IMMED1_SMALL));
+
+    if (is_increment_zero) {
+        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+    } else {
+        a.add(RET, ARG4);
+        if (is_sum_small) {
+            comment("skipped overflow check because sum is always small");
+        } else {
+            a.short_().jo(mixed);
+        }
+    }
+
     a.short_().jmp(next);
 
     /* Call mixed multiplication. */
     a.bind(mixed);
     {
         if (Fail.get() != 0) {
-            safe_fragment_call(ga->get_times_guard_shared());
+            if (is_increment_zero) {
+                safe_fragment_call(ga->get_mul_guard_shared());
+            } else {
+                safe_fragment_call(ga->get_mul_add_guard_shared());
+            }
             a.je(resolve_beam_label(Fail));
         } else {
-            safe_fragment_call(ga->get_times_body_shared());
+            if (is_increment_zero) {
+                safe_fragment_call(ga->get_mul_body_shared());
+            } else {
+                safe_fragment_call(ga->get_mul_add_body_shared());
+            }
         }
     }
 
