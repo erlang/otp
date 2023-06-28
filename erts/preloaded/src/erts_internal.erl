@@ -117,6 +117,8 @@
 
 -export([no_aux_work_threads/0]).
 
+-export([binary_to_integer/2, list_to_integer/2]).
+
 -export([dynamic_node_name/0, dynamic_node_name/1]).
 
 -export([term_to_string/1, term_to_string/2]).
@@ -1037,6 +1039,23 @@ beamfile_module_md5(_Bin) ->
 -spec no_aux_work_threads() -> pos_integer().
 
 no_aux_work_threads() ->
+    erlang:nif_error(undefined).
+
+%% Helper BIF for binary_to_integer/{1,2}.
+
+-spec binary_to_integer(Bin, Base) -> integer() | big | 'badarg' when
+      Bin :: binary(),
+      Base :: 2..36.
+binary_to_integer(_Bin, _Base) ->
+    erlang:nif_error(undefined).
+
+%% Helper BIF for list_to_integer/{1,2}.
+
+-spec list_to_integer(List, Base) ->
+          {integer(),list()} | 'big' | 'badarg' | 'no_integer' | 'not_a_list' when
+      List :: [any()],
+      Base :: 2..36.
+list_to_integer(_List, _Base) ->
     erlang:nif_error(undefined).
 
 %%

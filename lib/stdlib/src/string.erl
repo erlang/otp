@@ -106,8 +106,33 @@ list_to_float(_) ->
       Rest :: string(),
       Reason :: 'no_integer' | 'not_a_list'.
 
-list_to_integer(_) ->
-    erlang:nif_error(undef).
+list_to_integer(String) ->
+    Base = 10,
+    case erts_internal:list_to_integer(String, Base) of
+        {_, _}=Result ->
+            Result;
+        big ->
+            {Binary, Tail} = split_string(String),
+            try binary_to_integer(Binary) of
+                N ->
+                    {N, Tail}
+            catch
+                error:system_limit ->
+                    {error, system_limit}
+            end;
+        Reason ->
+            {error, Reason}
+    end.
+
+split_string([C|Cs]) when C =:= $+; C =:= $- ->
+    split_string(Cs, [C]);
+split_string(Cs) ->
+    split_string(Cs, []).
+
+split_string([C|Cs], Acc) when is_integer(C), $0 =< C, C =< $9 ->
+    split_string(Cs, [C|Acc]);
+split_string(Cs, Acc) ->
+    {list_to_binary(lists:reverse(Acc)),Cs}.
 
 %%% End of BIFs
 

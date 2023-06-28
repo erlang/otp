@@ -534,7 +534,7 @@ trunc_and_friends(F) ->
     end,
     Trunc.
 
-%% Tests integer_to_binary/1.
+%% Tests integer_to_binary/{1,2} and integer_to_list/{1,2}.
 
 t_integer_to_string(Config) when is_list(Config) ->
     test_its("0",0),
@@ -599,21 +599,22 @@ test_its(List,Int,Base) ->
     Binary = list_to_binary(List),
     Binary = integer_to_binary(Int, Base).
 
-%% Tests binary_to_integer/1.
+%% Tests list_to_integer/{1,2} and binary_to_integer/{1,2}.
 
 t_string_to_integer(Config) when is_list(Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+
     0 = erlang:binary_to_integer(id(<<"00">>)),
     0 = erlang:binary_to_integer(id(<<"-0">>)),
     0 = erlang:binary_to_integer(id(<<"+0">>)),
 
     test_sti(0),
     test_sti(1),
-    test_sti(-1),
+    test_sti(12),
     test_sti(42),
-    test_sti(-12),
     test_sti(32768),
     test_sti(268435455),
-    test_sti(-268435455),
 
     %% Interesting values around 2-pows, such as MIN_SMALL and MAX_SMALL.
     lists:foreach(fun(Bits) ->
@@ -625,14 +626,15 @@ t_string_to_integer(Config) when is_list(Config) ->
 		  lists:seq(16, 130)),
 
     %% Bignums
-    test_sti(123456932798748738738,16),
+    _ = [test_sti(rand_bignum()) || _ <- lists:seq(1, 1000)],
+    test_sti(123456932798748738738, 16),
     test_sti(list_to_integer(lists:duplicate(2000, $1))),
 
     %% Unaligned string
     Str = <<"10">>,
     UnalignStr = <<0:3, (id(Str))/binary, 0:5>>,
     <<_:3, SomeStr:2/binary, _:5>> = id(UnalignStr),
-    10 = erlang:binary_to_integer(SomeStr),
+    10 = binary_to_integer(SomeStr),
 
     %% Invalid types
     lists:foreach(fun(Value) ->
@@ -677,6 +679,11 @@ t_string_to_integer(Config) when is_list(Config) ->
     {error,system_limit} = string:to_integer(Digits),
 
     ok.
+
+rand_bignum() ->
+    Sz = max(floor(rand:normal() * 128 + 64), 2*8),
+    <<Int:Sz/unit:8>> = rand:bytes(Sz),
+    Int.
 
 %% Tests edge cases for list_to_integer; compares with known good values
 
@@ -735,21 +742,34 @@ test_sti(Num) ->
 	 test_sti(Num,Base)
      end|| Base <- lists:seq(2,36)].
 
-test_sti(Num,Base) ->
+test_sti(Num, Base) ->
     Neg = -Num,
-    Num = list_to_integer(int2list(Num,Base),Base),
-    Neg = list_to_integer(int2list(Num*-1,Base),Base),
-    Num = binary_to_integer(int2bin(Num,Base),Base),
-    Neg = binary_to_integer(int2bin(Num*-1,Base),Base).
 
-% Calling this function (which is not supposed to be inlined) prevents
-% the compiler from calculating the answer, so we don't test the compiler
-% instead of the newest runtime system.
+    NumList = int2list(Num, Base),
+    NegNumList = int2list(Neg, Base),
+
+    Num = list_to_integer(NumList, Base),
+    Neg = list_to_integer(NegNumList, Base),
+    Num = binary_to_integer(iolist_to_binary(NumList), Base),
+    Neg = binary_to_integer(iolist_to_binary(NegNumList), Base),
+
+    if
+        Base =:= 10 ->
+            Num = list_to_integer(NumList),
+            Neg = list_to_integer(NegNumList),
+            Num = binary_to_integer(iolist_to_binary(NumList)),
+            Neg = binary_to_integer(iolist_to_binary(NegNumList));
+        true ->
+            ok
+    end,
+
+    ok.
+
+%% Calling this function (which is not supposed to be inlined)
+%% prevents the compiler from calculating the answer, so we don't test
+%% the compiler instead of the newest runtime system.
 id(X) -> X.
 
-%% Uses the printing library to to integer_to_binary conversions.
-int2bin(Int,Base) when Base < 37 ->
-    iolist_to_binary(int2list(Int,Base)).
-
-int2list(Int,Base) when Base < 37 ->
+%% Use the printing library to convert to list.
+int2list(Int, Base) when is_integer(Base), 2 =< Base, Base =< 36 ->
     lists:flatten(io_lib:format("~."++integer_to_list(Base)++"B",[Int])).
