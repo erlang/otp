@@ -331,7 +331,7 @@ merge(Fun, D1, D2) ->
 2> <input>orddict:store(a, 99, OrdDict1).</input>
 [{a,99},{b,2}]
 3> <input>orddict:store(c, 100, OrdDict1).</input>
-[{a,1},{b,2},{c,99}]</pre>
+[{a,1},{b,2},{c,100}]</pre>
       </desc>
     </func>
 
