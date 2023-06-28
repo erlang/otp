@@ -367,7 +367,10 @@ pre_opt_is([#b_set{op={succeeded,_},dst=Dst,args=Args0}=I0|Is],
             Sub = Sub0#{Dst=>#b_literal{val=true}},
             pre_opt_is(Is, Reached, Sub, Acc);
         false ->
-            pre_opt_is(Is, Reached, Sub0, [I|Acc])
+            %% Don't remember boolean expressions that can potentially fail,
+            %% because that can cause unsafe optimizations.
+            Sub = maps:remove(Arg, Sub0),
+            pre_opt_is(Is, Reached, Sub, [I|Acc])
     end;
 pre_opt_is([#b_set{dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
     Args = sub_args(Args0, Sub0),
