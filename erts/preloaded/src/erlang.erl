@@ -531,15 +531,181 @@ binary_to_float(_Binary) ->
 %% binary_to_integer/1
 -spec binary_to_integer(Binary) -> integer() when
       Binary :: binary().
-binary_to_integer(_Binary) ->
-    erlang:nif_error(undefined).
+binary_to_integer(Binary) ->
+    case erts_internal:binary_to_integer(Binary, 10) of
+        N when erlang:is_integer(N) ->
+            N;
+        big ->
+            case big_binary_to_int(Binary, 10) of
+                N when erlang:is_integer(N) ->
+                    N;
+                Reason ->
+                    error_with_info(Reason, [Binary])
+            end;
+        badarg ->
+            badarg_with_info([Binary])
+    end.
 
 %% binary_to_integer/2
--spec binary_to_integer(Binary,Base) -> integer() when
+-spec binary_to_integer(Binary, Base) -> integer() when
       Binary :: binary(),
       Base :: 2..36.
-binary_to_integer(_Binary,_Base) ->
-    erlang:nif_error(undefined).
+binary_to_integer(Binary, Base) ->
+    case erts_internal:binary_to_integer(Binary, Base) of
+        N when erlang:is_integer(N) ->
+            N;
+        big ->
+            case big_binary_to_int(Binary, Base) of
+                N when erlang:is_integer(N) ->
+                    N;
+                Reason ->
+                    error_with_info(Reason, [Binary,Base])
+            end;
+        badarg ->
+            badarg_with_info([Binary,Base])
+    end.
+
+big_binary_to_int(Bin0, Base)
+  when erlang:is_binary(Bin0),
+       erlang:is_integer(Base), 2 =< Base, Base =< 36 ->
+    {Bin1,Sign} = get_sign(Bin0),
+    Bin = trim_zeroes(Bin1),
+    Size = erlang:byte_size(Bin),
+    if
+        Size > 4_194_304 ->
+            %% Too large even for base 2.
+            system_limit;
+        Size > 1_262_611, Base >= 10 ->
+            system_limit;
+        true ->
+            WordSize = erlang:system_info(wordsize),
+            LogRadix = digits_per_small(WordSize, Base),
+            case segmentize(Bin, Size, Base, LogRadix) of
+                [_|_]=Segments ->
+                    Radix = radix(WordSize, Base),
+                    try Sign * combine(Segments, Radix) of
+                        Result ->
+                            Result
+                    catch
+                        error:Reason ->
+                            Reason
+                    end;
+                badarg ->
+                    badarg
+            end
+    end.
+
+segmentize(Bin, Size, Base, LogRadix) ->
+    case Size rem LogRadix of
+        0 ->
+            segmentize_1(Bin, LogRadix, Base, []);
+        NumFirst ->
+            <<First:NumFirst/binary,T/binary>> = Bin,
+            case erts_internal:binary_to_integer(First, Base) of
+                FirstInt when erlang:is_integer(FirstInt) ->
+                    segmentize_1(T, LogRadix, Base, [FirstInt]);
+                badarg ->
+                    badarg
+            end
+    end.
+
+segmentize_1(Bin, LogRadix, Base, Acc) ->
+    case Bin of
+        <<B:LogRadix/binary,T/binary>> ->
+            case erts_internal:binary_to_integer(B, Base) of
+                Int when erlang:is_integer(Int) ->
+                    segmentize_1(T, LogRadix, Base, [Int|Acc]);
+                badarg ->
+                    badarg
+            end;
+        <<>> ->
+            Acc
+    end.
+
+combine(L0, Radix) ->
+    case combine_pairs(L0, Radix) of
+        [Result] -> Result;
+        [_|_]=L -> combine(L, Radix * Radix)
+    end.
+
+combine_pairs([A,B|Pairs], Radix) ->
+    [B * Radix + A|combine_pairs(Pairs, Radix)];
+combine_pairs(L, _Radix) ->
+    L.
+
+get_sign(<<$-:8,B/binary>>) ->
+    {B,-1};
+get_sign(<<$+:8,B/binary>>) ->
+    {B,1};
+get_sign(B) ->
+    {B,1}.
+
+trim_zeroes(<<$0:8,B/binary>>) ->
+    trim_zeroes(B);
+trim_zeroes(B) ->
+    B.
+
+digits_per_small(WordSize, Base) ->
+    T = case WordSize of
+            4 ->
+                %% Wolfram Alpha formula:
+                %% Table [Trunc[27 / log[2,n]]-1, {n, 2, 36}]
+                {27, 17, 13, 11, 10, 9, 9, 8,
+                 8, 7, 7, 7, 7, 6, 6, 6, 6,
+                 6, 6, 6, 6, 5, 5, 5, 5, 5,
+                 5, 5, 5, 5, 5, 5, 5, 5, 5};
+            8 ->
+                %% Wolfram Alpha formula:
+                %% Table [Trunc[59 / log[2,n]]-1, {n, 2, 36}]
+                {59, 37, 29, 25, 22, 21, 19, 18, 17,
+                 17, 16, 15, 15, 15, 14, 14, 14, 13,
+                 13, 13, 13, 13, 12, 12, 12, 12, 12,
+                 12, 12, 11, 11, 11, 11, 11, 11}
+        end,
+    erlang:element(Base - 1, T).
+
+radix(WordSize, Base) ->
+    %% The tables are generated using the following function:
+    %%
+    %%    gen(WordSize) ->
+    %%        IntPow = fun IP(_Base, 0, P) -> P;
+    %%                     IP(Base, N, P) -> IP(Base, N - 1, Base * P)
+    %%                 end,
+    %%        L = [IntPow(Base, digits_per_small(WordSize, Base), 1) ||
+    %%                Base <- lists:seq(2, 36)],
+    %%        io:format("~50p\n", [list_to_tuple(L)]).
+    T = case WordSize of
+            4 ->
+                %% gen(4)
+                {134217728,129140163,67108864,48828125,60466176,
+                 40353607,134217728,43046721,100000000,19487171,
+                 35831808,62748517,105413504,11390625,16777216,
+                 24137569,34012224,47045881,64000000,85766121,
+                 113379904,6436343,7962624,9765625,11881376,
+                 14348907,17210368,20511149,24300000,28629151,
+                 33554432,39135393,45435424,52521875,60466176};
+            8 ->
+                %% gen(8)
+                {576460752303423488,450283905890997363,
+                 288230376151711744,298023223876953125,
+                 131621703842267136,558545864083284007,
+                 144115188075855872,150094635296999121,
+                 100000000000000000,505447028499293771,
+                 184884258895036416,51185893014090757,
+                 155568095557812224,437893890380859375,
+                 72057594037927936,168377826559400929,
+                 374813367582081024,42052983462257059,
+                 81920000000000000,154472377739119461,
+                 282810057883082752,504036361936467383,
+                 36520347436056576,59604644775390625,
+                 95428956661682176,150094635296999121,
+                 232218265089212416,353814783205469041,
+                 531441000000000000,25408476896404831,
+                 36028797018963968,50542106513726817,
+                 70188843638032384,96549157373046875,
+                 131621703842267136}
+        end,
+    erlang:element(Base - 1, T).
 
 %% binary_to_list/1
 -spec binary_to_list(Binary) -> [byte()] when
@@ -1371,15 +1537,52 @@ list_to_float(_String) ->
 %% list_to_integer/1
 -spec list_to_integer(String) -> integer() when
       String :: string().
-list_to_integer(_String) ->
-    erlang:nif_error(undefined).
+list_to_integer(String) ->
+    Base = 10,
+    case erts_internal:list_to_integer(String, Base) of
+        {Int,[]} ->
+            Int;
+        big ->
+            try erlang:list_to_binary(String) of
+                Binary ->
+                    case big_binary_to_int(Binary, Base) of
+                        N when erlang:is_integer(N) ->
+                            N;
+                        Reason ->
+                            error_with_info(Reason, [String])
+                    end
+            catch
+                error:Reason ->
+                    error_with_info(Reason, [String])
+            end;
+        _ ->
+            badarg_with_info([String])
+    end.
 
 %% list_to_integer/2
 -spec list_to_integer(String, Base) -> integer() when
       String :: string(),
       Base :: 2..36.
-list_to_integer(_String,_Base) ->
-    erlang:nif_error(undefined).
+list_to_integer(String, Base) ->
+    case erts_internal:list_to_integer(String, Base) of
+        {Int,[]} ->
+            Int;
+        big ->
+            try erlang:list_to_binary(String) of
+                Binary ->
+                    case big_binary_to_int(Binary, Base) of
+                        N when erlang:is_integer(N) ->
+                            N;
+                        Reason ->
+                            error_with_info(Reason, [String,Base])
+                    end
+            catch
+                error:Reason ->
+                    error_with_info(Reason, [String,Base])
+            end;
+        _ ->
+            badarg_with_info([String,Base])
+    end.
 
 %% list_to_pid/1
 -spec list_to_pid(String) -> pid() when

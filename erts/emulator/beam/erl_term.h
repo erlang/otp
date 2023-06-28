@@ -437,7 +437,12 @@ _ET_DECLARE_CHECKED(Eterm,bignum_header_neg,Eterm)
 #define _unchecked_bignum_header_arity(x)	_unchecked_header_arity((x))
 _ET_DECLARE_CHECKED(Uint,bignum_header_arity,Eterm)
 #define bignum_header_arity(x)	_ET_APPLY(bignum_header_arity,(x))
-#define BIG_ARITY_MAX		((1 << 19)-1)
+
+#if defined(ARCH_64)
+#  define BIG_ARITY_MAX		((1 << 16)-1)
+#else
+#  define BIG_ARITY_MAX		((1 << 17)-1)
+#endif
 #define make_big(x)	make_boxed((x))
 #define is_big(x)	(is_boxed((x)) && _is_bignum_header(*boxed_val((x))))
 #define is_not_big(x)	(!is_big((x)))
