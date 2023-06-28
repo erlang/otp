@@ -33,6 +33,21 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 5.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The call <c>int:no_break(Module)</c> did not remove
+	    any breakpoints.</p>
+          <p>
+	    Own Id: OTP-18644 Aux Id: GH-7336 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 5.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

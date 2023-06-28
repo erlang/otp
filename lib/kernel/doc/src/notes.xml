@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.5.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Multiple socket:accept calls issue. When making multiple
+	    accept calls, only the last call is active.</p>
+          <p>
+	    Own Id: OTP-18635 Aux Id: #7328 </p>
+        </item>
+        <item>
+          <p>
+	    gen_udp:connect with inet_backend = socket fails when the
+	    Address is a hostname (string or atom).</p>
+          <p>
+	    Own Id: OTP-18650</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.5.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

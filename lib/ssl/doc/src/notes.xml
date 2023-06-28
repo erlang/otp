@@ -27,6 +27,35 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.9.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added keylog information to all protocol versions in
+	    <c>ssl:connection_information/2</c>.</p>
+          <p>
+	    Own Id: OTP-18643 Aux Id: ERIERL-932 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add RFC-6083 considerations for DTLS to enable gen_sctp
+	    based callback for the transport.</p>
+          <p>
+	    Own Id: OTP-18618 Aux Id: ERIERL-932 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
