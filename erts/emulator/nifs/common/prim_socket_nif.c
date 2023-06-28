@@ -1552,11 +1552,12 @@ esock_accept_accepting_current_accept(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
                                       SOCKET           accSock);
-static ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
-                                                         ESockDescriptor* descP,
-                                                         ERL_NIF_TERM     sockRef,
-                                                         ERL_NIF_TERM     opRef,
-                                                         int              save_errno);
+static ERL_NIF_TERM
+esock_accept_accepting_current_error(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     opRef,
+                                     int              save_errno);
 static ERL_NIF_TERM esock_accept_accepting_other(ErlNifEnv*       env,
 						 ESockDescriptor* descP,
 						 ERL_NIF_TERM     ref,
@@ -4021,6 +4022,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(block_source);                    \
     GLOBAL_ATOM_DECL(broadcast);                       \
     GLOBAL_ATOM_DECL(busy_poll);                       \
+    GLOBAL_ATOM_DECL(cancelled);		       \
     GLOBAL_ATOM_DECL(cantconfig);		       \
     GLOBAL_ATOM_DECL(chaos);                           \
     GLOBAL_ATOM_DECL(checksum);                        \
@@ -6837,8 +6839,8 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
 	 * "current process", push the requester onto the (acceptor) queue.
          */
 
-        SSDBG( descP, ("SOCKET", "esock_accept_accepting -> check: "
-                       "is caller current acceptor:"
+        SSDBG( descP, ("SOCKET", "esock_accept_accepting -> "
+                       "check: is caller current acceptor:"
                        "\r\n   Caller:      %T"
                        "\r\n   Current:     %T"
                        "\r\n   Current Mon: %T"
@@ -6851,10 +6853,12 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
 
             SSDBG( descP,
                    ("SOCKET",
-                    "esock_accept_accepting {%d} -> current acceptor"
+                    "esock_accept_accepting {%d} -> "
+                    "current acceptor - try again"
                     "\r\n", descP->sock) );
 
-            return esock_accept_accepting_current(env, descP, sockRef, accRef);
+            return esock_accept_accepting_current(env, descP,
+                                                  sockRef, accRef);
 
         } else {
 
@@ -6973,6 +6977,7 @@ ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
     int           save_errno;
     ERL_NIF_TERM  res;
 
+    
     SSDBG( descP,
            ("SOCKET",
             "esock_accept_accepting_current {%d} -> try accept\r\n",
@@ -7058,10 +7063,10 @@ static
 ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
                                                   ERL_NIF_TERM     sockRef,
-                                                  ERL_NIF_TERM     opRef,
+                                                  ERL_NIF_TERM     accRef,
                                                   int              save_errno)
 {
-    ERL_NIF_TERM   res, reason;
+    ERL_NIF_TERM res, reason;
 
     if (save_errno == ERRNO_BLOCK ||
         save_errno == EAGAIN) {
@@ -7072,20 +7077,53 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET",
-                "esock_accept_accepting_current_error {%d} -> "
+                "esock_accept_accepting_current_error(%d) -> "
                 "would block: try again\r\n", descP->sock) );
 
         ESOCK_CNT_INC(env, descP, sockRef, atom_acc_waits, &descP->accWaits, 1);
 
-        res = esock_accept_busy_retry(env, descP, sockRef, opRef,
-                                      &descP->currentAcceptor.pid);
+        /* Maybe cancel "current" select */
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_accept_accepting_current_error(%d) -> "
+                "cancel current select"
+                "\r\n", descP->sock) );
+        res = esock_cancel_read_select(env, descP, descP->currentAcceptor.ref);
+
+        if (IS_OK(res)) {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_accept_accepting_current_error(%d) -> "
+                    "send abort message"
+                    "\r\n", descP->sock) );
+            esock_send_abort_msg(env, descP, sockRef,
+                                 &descP->currentAcceptor,
+                                 esock_atom_cancelled);
+            /* We need a new env,
+             * since sending the abort message uses up the old */
+            descP->currentAcceptor.env = esock_alloc_env("current acceptor");
+
+            /* And update the currentr acceptor ref (handle) */
+            descP->currentAcceptor.ref =
+                CP_TERM(descP->currentAcceptor.env, accRef);
+        
+            /* And finally - retry */
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_accept_accepting_current_error(%d) -> "
+                    "try new select"
+                    "\r\n", descP->sock) );
+            res = esock_accept_busy_retry(env, descP, sockRef, accRef,
+                                          &descP->currentAcceptor.pid);
+        }
 
     } else {
         ESockRequestor req;
 
         SSDBG( descP,
                ("SOCKET",
-                "esock_accept_accepting_current_error {%d} -> "
+                "esock_accept_accepting_current_error(%d) -> "
                 "error: %d\r\n", descP->sock, save_errno) );
 
         ESOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
@@ -7100,7 +7138,7 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
         while (acceptor_pop(env, descP, &req)) {
             SSDBG( descP,
                    ("SOCKET",
-                    "esock_accept_accepting_current_error {%d} -> abort %T\r\n",
+                    "esock_accept_accepting_current_error(%d) -> abort %T\r\n",
                     descP->sock, req.pid) );
 
             esock_send_abort_msg(env, descP, sockRef, &req, reason);
@@ -7123,11 +7161,11 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
  * acceptor queue.
  */
 #ifndef __WIN32__
-ERL_NIF_TERM
-esock_accept_accepting_other(ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             ERL_NIF_TERM     ref,
-                             ErlNifPid        caller)
+static
+ERL_NIF_TERM esock_accept_accepting_other(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     ref,
+                                          ErlNifPid        caller)
 {
     if (! acceptor_search4pid(env, descP, &caller)) {
         acceptor_push(env, descP, caller, ref);
@@ -7183,8 +7221,10 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                  MKT2(env, atom_select_read,
                                       MKI(env, sres)));
     } else {
+
         descP->readState |=
             (ESOCK_STATE_ACCEPTING | ESOCK_STATE_SELECTED);
+
         res = atom_select;
     }
 

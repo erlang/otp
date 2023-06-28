@@ -1383,6 +1383,24 @@
 	  if no connection has been accepted after
 	  <c><anno>Timeout</anno></c> milliseconds.
 	</p>
+	<note>
+	  <p>Note that if multiple calls are made <em>only</em>
+	  the <em>last</em> call is "valid": </p>
+	  <code>
+	    {select, {select_info, _Handle}} = socket:accept(LSock, nowait),
+	    {error, timeout} = socket:accept(LSock, 500),
+	    . 
+            .
+	    .
+	  </code>
+	  <p>In the example above, <c>Handle</c> is <em>not</em> valid once
+	  the second (accept-) call has been made (the first call is
+	  automatically "cancelled" and an abort messaage sent,
+	  when the second call is made).
+	  After the (accept-) call
+	  resulting in the timeout has been made, there is no longer an
+	  active accept call!</p>
+	</note>
       </desc>
     </func>
 
@@ -1435,6 +1453,26 @@
 	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>
           to cancel the operation.
 	</p>
+
+	<note>
+	  <p>Note that if multiple calls are made <em>only</em>
+	  the <em>last</em> call is "valid": </p>
+	  <code>
+	    {select, {select_info, _Handle1}} = socket:accept(LSock, nowait),
+	    {select, {select_info, _Handle2}} = socket:accept(LSock, nowait),
+	    receive
+	        {'$socket', LSock, select, Handle2} ->
+	             {ok, ASock} = socket:accept(LSock, nowait),
+	             . 
+                     .
+	             .
+	    end
+	  </code>
+	  <p>In the example above, only <c>Handle2</c> is valid once the
+	  second (accept-) call has been made (the first call is
+	  automatically "cancelled" and an abort messaage sent,
+	  when the second call is made). </p>
+	</note>
       </desc>
     </func>
 
