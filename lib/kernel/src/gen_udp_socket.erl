@@ -116,20 +116,37 @@ close_server(Server) ->
 %% -- connect ----------------------------------------------------------------
 
 connect(?MODULE_socket(_Server, Socket), Address, Port) ->
-    Dest = dest2sockaddr({Address, Port}),
-    case os:type() of
-        {unix,linux} ->
-            case socket:peername(Socket) of
-                {error, enotconn} ->
-                    socket:connect(Socket, Dest);
-                {error, closed} = Error ->
-                    Error;
-                _ -> % Matches {ok, _} and unknown errors
-                    _ = socket:connect(Socket, #{family => unspec}),
+    {Mod, _} = inet:udp_module([], Address),
+    Domain   = domain(Mod),
+    try
+        begin
+            Dest =
+                case Mod:getaddr(Address) of
+                    {ok, IP} when (Domain =:= local) ->
+                        dest2sockaddr(IP);
+                    {ok, IP} ->
+                        dest2sockaddr({IP, Port});
+                    {error, _Reason} = ERROR ->
+                        throw(ERROR)
+                end,
+            case os:type() of
+                {unix,linux} ->
+                    case socket:peername(Socket) of
+                        {error, enotconn} ->
+                            socket:connect(Socket, Dest);
+                        {error, closed} = Error ->
+                            Error;
+                        _X -> % Matches {ok, _} and unknown errors
+                            _ = socket:connect(Socket, #{family => unspec}),
+                            socket:connect(Socket, Dest)
+                    end;
+                _ ->
                     socket:connect(Socket, Dest)
-            end;
-        _ ->
-            socket:connect(Socket, Dest)
+            end
+        end
+    catch
+        throw:E:_ ->
+            E
     end.
 
 

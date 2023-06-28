@@ -42,7 +42,9 @@
          ntoa/1, ipv4_mapped_ipv6_address/1]).
 
 -export([connect_options/2, listen_options/2, udp_options/2, sctp_options/2]).
--export([udp_module/1, tcp_module/1, tcp_module/2, sctp_module/1]).
+-export([udp_module/1, udp_module/2,
+         tcp_module/1, tcp_module/2,
+         sctp_module/1]).
 -export([gen_tcp_module/1, gen_udp_module/1]).
 
 -export([i/0, i/1, i/2]).
@@ -1258,8 +1260,16 @@ udp_add(Name, Val, #udp_opts{} = R, Opts, As) ->
     end.
 
 udp_module(Opts) ->
+    udp_module_1(Opts, undefined).
+
+udp_module(Opts, Addr) ->
+    Address = {undefined, Addr},
+    %% Address has to be a 2-tuple but the first element is ignored
+    udp_module_1(Opts, Address).
+
+udp_module_1(Opts, Address) ->
     mod(
-      Opts, udp_module, undefined,
+      Opts, udp_module, Address,
       #{inet => inet_udp, inet6 => inet6_udp, local => local_udp}).
 
 gen_udp_module([{inet_backend, Flag}|Opts]) ->
