@@ -1646,35 +1646,34 @@ del_out_edges(V, G) ->
     beam_digraph:del_edges(G, beam_digraph:out_edges(G, V)).
 
 covered(From, To, G) ->
-    Seen0 = sets:new([{version, 2}]),
+    Seen0 = #{},
     {yes,Seen} = covered_1(From, To, G, Seen0),
-    sets:to_list(Seen).
+    [V || {V,reached} <- maps:to_list(Seen)].
 
 covered_1(To, To, _G, Seen) ->
     {yes,Seen};
-covered_1(From, To, G, Seen0) ->
-    Vs0 = beam_digraph:out_neighbours(G, From),
-    Vs = [V || V <- Vs0, not sets:is_element(V, Seen0)],
-    Seen = sets:union(sets:from_list(Vs, [{version, 2}]), Seen0),
-    case Vs of
-        [] ->
-            no;
-        [_|_] ->
-            covered_list(Vs, To, G, Seen, false)
-    end.
+covered_1(From, To, G, Seen) ->
+    Vs = beam_digraph:out_neighbours(G, From),
+    covered_list(Vs, To, G, Seen, no).
 
 covered_list([V|Vs], To, G, Seen0, AnyFound) ->
-    case covered_1(V, To, G, Seen0) of
-        {yes,Seen} ->
-            covered_list(Vs, To, G, Seen, true);
-        no ->
-            covered_list(Vs, To, G, Seen0, AnyFound)
+    case Seen0 of
+        #{V := reached} ->
+            covered_list(Vs, To, G, Seen0, yes);
+        #{V := not_reached} ->
+            covered_list(Vs, To, G, Seen0, AnyFound);
+        #{} ->
+            case covered_1(V, To, G, Seen0) of
+                {yes,Seen1} ->
+                    Seen = Seen1#{V => reached},
+                    covered_list(Vs, To, G, Seen, yes);
+                {no,Seen1} ->
+                    Seen = Seen1#{V => not_reached},
+                    covered_list(Vs, To, G, Seen, AnyFound)
+            end
     end;
 covered_list([], _, _, Seen, AnyFound) ->
-    case AnyFound of
-        true -> {yes,Seen};
-        false -> no
-    end.
+    {AnyFound,Seen}.
 
 digraph_roots(G) ->
     digraph_roots_1(beam_digraph:vertices(G), G).
