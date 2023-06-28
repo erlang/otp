@@ -46,15 +46,14 @@
         %%   `{DrvPid :: pid(), set_unicode_state, SupportedUnicode :: boolean()}`
         {Sender :: pid(), set_unicode_state, boolean()}.
 -type request() ::
-        %% Put characters at current cursor position,
-        %% overwriting any characters it encounters.
+        %% Put characters above the prompt
         {put_chars, unicode, binary()} |
         %% Same as put_chars/3, but sends Reply to From when the characters are
         %% guaranteed to have been written to the terminal
         {put_chars_sync, unicode, binary(), {From :: pid(), Reply :: term()}} |
         %% Put text in expansion area
-        {put_expand} |
-        {put_expand_no_trim} |
+        {put_expand, unicode, binary()} |
+        {put_expand_no_trim,  unicode, binary()} |
         %% Move the cursor X characters left or right (negative is left)
         {move_rel, -32768..32767} |
         %% Move the cursor Y rows up or down (negative is up)
@@ -64,6 +63,9 @@
         %% Insert characters at current cursor position moving any
         %% characters after the cursor.
         {insert_chars, unicode, binary()} |
+        %% Put characters at current cursor position,
+        %% overwriting any characters it encounters.
+        {insert_chars_over, unicode, binary()} |
         %% Delete X chars before or after the cursor adjusting any test remaining
         %% to the right of the cursor.
         {delete_chars, -32768..32767} |
@@ -585,13 +587,13 @@ switch_loop(internal, init, State) ->
 			end
 		end,
 	    NewGroup = group:start(self(), {shell,start,[]}),
-            NewTTYState = io_requests([{put_chars,unicode,<<"\n">>}], State#state.tty),
+            NewTTYState = io_requests([{insert_chars,unicode,<<"\n">>}], State#state.tty),
             {next_state, server,
              State#state{ tty = NewTTYState,
                           groups = gr_add_cur(Gr1, NewGroup, {shell,start,[]})}};
 	jcl ->
             NewTTYState =
-                io_requests([{put_chars,unicode,<<"\nUser switch command (type h for help)\n">>}],
+                io_requests([{insert_chars,unicode,<<"\nUser switch command (type h for help)\n">>}],
                             State#state.tty),
 	    %% init edlin used by switch command and have it copy the
 	    %% text buffer from current group process
@@ -611,22 +613,23 @@ switch_loop(internal, {line, Line}, State) ->
                     put(current_group, Curr),
                     Curr ! {self(), activate},
                     {next_state, server,
-                        State#state{ current_group = Curr, groups = Groups }};
+                        State#state{ current_group = Curr, groups = Groups,
+                                     tty = io_requests([{insert_chars, unicode, <<"\n">>},new_prompt], State#state.tty)}};
                 {retry, Requests} ->
-                    {keep_state, State#state{ tty = io_requests(Requests, State#state.tty) },
+                    {keep_state, State#state{ tty = io_requests([{insert_chars, unicode, <<"\n">>},new_prompt|Requests], State#state.tty) },
                      {next_event, internal, line}};
                 {retry, Requests, Groups} ->
                     Curr = gr_cur_pid(Groups),
                     put(current_group, Curr),
                     {keep_state, State#state{
-                                   tty = io_requests(Requests, State#state.tty),
+                                   tty = io_requests([{insert_chars, unicode, <<"\n">>},new_prompt|Requests], State#state.tty),
                                    current_group = Curr,
                                    groups = Groups },
                      {next_event, internal, line}}
             end;
         {error, _, _} ->
             NewTTYState =
-                io_requests([{put_chars,unicode,<<"Illegal input\n">>}], State#state.tty),
+                io_requests([{insert_chars,unicode,<<"Illegal input\n">>}], State#state.tty),
             {keep_state, State#state{ tty = NewTTYState },
              {next_event, internal, line}}
     end;
@@ -784,8 +787,6 @@ io_request(delete_after_cursor, TTY) ->
     write(prim_tty:handle_request(TTY, delete_after_cursor));
 io_request(delete_line, TTY) ->
     write(prim_tty:handle_request(TTY, delete_line));
-io_request({put_chars_keep_state, unicode, Chars}, TTY) ->
-    write(prim_tty:handle_request(TTY, {putc_keep_state, unicode:characters_to_binary(Chars)}));
 io_request({put_chars, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}));
 io_request({put_chars_sync, unicode, Chars, Reply}, TTY) ->
@@ -808,6 +809,8 @@ io_request({move_combo, V1, R, V2}, TTY) ->
     write(prim_tty:handle_request(TTY, {move_combo, V1, R, V2}));
 io_request({insert_chars, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {insert, unicode:characters_to_binary(Chars)}));
+io_request({insert_chars_over, unicode, Chars}, TTY) ->
+    write(prim_tty:handle_request(TTY, {insert_over, unicode:characters_to_binary(Chars)}));
 io_request({delete_chars, N}, TTY) ->
     write(prim_tty:handle_request(TTY, {delete, N}));
 io_request(clear, TTY) ->

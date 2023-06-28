@@ -430,6 +430,32 @@ io_request({insert_chars, unicode, Cs}, Buf, Tty, _Group) ->
     insert_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
 io_request({move_rel, N}, Buf, Tty, _Group) ->
     move_rel(N, Buf, Tty);
+io_request({move_line, N}, Buf, Tty, _Group) ->
+    move_line(N, Buf, Tty);
+io_request({move_combo, L, V, R}, Buf, Tty, _Group) ->
+    {ML, Buf1} = move_rel(L, Buf, Tty),
+    {MV, Buf2} = move_line(V, Buf1, Tty),
+    {MR, Buf3} = move_rel(R, Buf2, Tty),
+    {[ML,MV,MR], Buf3};
+io_request(new_prompt, _Buf, _Tty, _Group) ->
+    {[], {[], {[],[]}, [], 0 }};
+io_request(delete_line, {_, {_, _}, _, Col}, Tty, _Group) ->
+    MoveToBeg = move_cursor(Col, 0, Tty),
+    {[MoveToBeg, "\e[J"],
+     {[],{[],[]},[],0}};
+io_request({redraw_prompt, Pbs, Pbs2, {LB, {Bef, Aft}, LA}}, Buf, Tty, _Group) ->
+    {ClearLine, Cleared} = io_request(delete_line, Buf, Tty, _Group),
+    CL = lists:reverse(Bef,Aft),
+    Text = Pbs ++ lists:flatten(lists:join("\n"++Pbs2, lists:reverse(LB)++[CL|LA])),
+    Moves = if LA /= [] ->
+                    [Last|_] = lists:reverse(LA),
+                    {move_combo, -length(Last), -length(LA), length(Bef)};
+               true ->
+                    {move_rel, -length(Aft)}
+            end,
+    {T, InsertedText} = io_request({insert_chars, unicode:characters_to_binary(Text)}, Cleared, Tty, _Group),
+    {M, Moved} = io_request(Moves, InsertedText, Tty, _Group),
+    {[ClearLine, T, M], Moved};
 io_request({delete_chars,N}, Buf, Tty, _Group) ->
     delete_chars(N, Buf, Tty);
 io_request(clear, Buf, _Tty, _Group) ->
@@ -447,7 +473,6 @@ io_request({requests,Rs}, Buf, Tty, Group) ->
 io_request(tty_geometry, Buf, Tty, Group) ->
     io_requests([{move_rel, 0}, {put_chars, unicode, [10]}],
                 Buf, Tty, [], Group);
-     %{[], Buf};
 
 %% New in 18
 io_request({put_chars_sync, Class, Cs, Reply}, Buf, Tty, Group) ->
@@ -486,55 +511,58 @@ get_tty_command(left, N, _TerminalType) ->
 %% convert input characters to buffer and to writeout
 %% Note that the buf is reversed but the buftail is not
 %% (this is handy; the head is always next to the cursor)
-conv_buf([], AccBuf, AccBufTail, AccWrite, Col, _Tty) ->
-    {AccBuf, AccBufTail, lists:reverse(AccWrite), Col};
-conv_buf([13, 10 | Rest], _AccBuf, AccBufTail, AccWrite, _Col, Tty) ->
-    conv_buf(Rest, [], tl2(AccBufTail), [10, 13 | AccWrite], 0, Tty);
-conv_buf([13 | Rest], _AccBuf, AccBufTail, AccWrite, _Col, Tty) ->
-    conv_buf(Rest, [], tl1(AccBufTail), [13 | AccWrite], 0, Tty);
-conv_buf([10 | Rest], _AccBuf, AccBufTail, AccWrite0, _Col, Tty) ->
+conv_buf([], {LB, {Bef, Aft}, LA, Col}, AccWrite, _Tty) ->
+    {{LB, {Bef, Aft}, LA}, lists:reverse(AccWrite), Col};
+conv_buf([13, 10 | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty = #ssh_pty{width = W}) ->
+    conv_buf(Rest, {[lists:reverse(Bef)|LB], {[], tl2(Aft)}, LA, Col+(W-(Col rem W))}, [10, 13 | AccWrite], Tty);
+conv_buf([13 | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty = #ssh_pty{width = W}) ->
+    conv_buf(Rest, {[lists:reverse(Bef)|LB], {[], tl1(Aft)}, LA, Col+(W-(Col rem W))}, [13 | AccWrite], Tty);
+conv_buf([10 | Rest],{LB, {Bef, Aft}, LA, Col}, AccWrite0, Tty = #ssh_pty{width = W}) ->
     AccWrite =
         case pty_opt(onlcr,Tty) of
             0 -> [10 | AccWrite0];
             1 -> [10,13 | AccWrite0];
             undefined -> [10 | AccWrite0]
         end,
-    conv_buf(Rest, [], tl1(AccBufTail), AccWrite, 0, Tty);
-conv_buf([C | Rest], AccBuf, AccBufTail, AccWrite, Col, Tty) ->
-    conv_buf(Rest, [C | AccBuf], tl1(AccBufTail), [C | AccWrite], Col + 1, Tty).
+    conv_buf(Rest, {[lists:reverse(Bef)|LB], {[], tl1(Aft)}, LA, Col+(W - (Col rem W))}, AccWrite, Tty);
+conv_buf([C | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty) ->
+    conv_buf(Rest, {LB, {[C|Bef], tl1(Aft)}, LA, Col+1}, [C | AccWrite], Tty).
 
-
-%%% put characters at current position (possibly overwriting
-%%% characters after current position in buffer)
-put_chars(Chars, {Buf, BufTail, Col}, Tty) ->
-    {NewBuf, NewBufTail, WriteBuf, NewCol} =
-	conv_buf(Chars, Buf, BufTail, [], Col, Tty),
-    {WriteBuf, {NewBuf, NewBufTail, NewCol}}.
+%%% put characters before the prompt
+put_chars(Chars, Buf, Tty) ->
+    case Buf of
+        {[],{[],[]},[],_} -> {_, WriteBuf, _} = conv_buf(Chars, Buf, [], Tty),
+            {WriteBuf, Buf};
+        _ ->
+            {Delete, DeletedState} = io_request(delete_line, Buf, Tty, []),
+            {_, PutBuffer, _} = conv_buf(Chars, DeletedState, [], Tty),
+            {Redraw, _} = io_request(redraw_prompt_pre_deleted, Buf, Tty, []),
+            {[Delete, PutBuffer, Redraw], Buf}
+    end.
 
 %%% insert character at current position
-insert_chars([], {Buf, BufTail, Col}, _Tty) ->
-    {[], {Buf, BufTail, Col}};
-insert_chars(Chars, {Buf, BufTail, Col}, Tty) ->
-    {NewBuf, _NewBufTail, WriteBuf, NewCol} =
-	conv_buf(Chars, Buf, [], [], Col, Tty),
-    M = move_cursor(special_at_width(NewCol+length(BufTail), Tty), NewCol, Tty),
-    {[WriteBuf, BufTail | M], {NewBuf, BufTail, NewCol}}.
+insert_chars([], Buf, _Tty) ->
+    {[], Buf};
+insert_chars(Chars, {_LB,{_Bef, Aft},LA, _Col}=Buf, Tty) ->
+    {{NewLB, {NewBef, _NewAft}, _NewLA}, WriteBuf, NewCol} = conv_buf(Chars, Buf, [], Tty),
+    M = move_cursor(special_at_width(NewCol+length(Aft), Tty), NewCol, Tty),
+    {[WriteBuf, Aft | M], {NewLB,{NewBef, Aft},LA, NewCol}}.
 
 %%% delete characters at current position, (backwards if negative argument)
-delete_chars(0, {Buf, BufTail, Col}, _Tty) ->
-    {[], {Buf, BufTail, Col}};
-delete_chars(N, {Buf, BufTail, Col}, Tty) when N > 0 ->
-    NewBufTail = nthtail(N, BufTail),
-    M = move_cursor(Col + length(NewBufTail) + N, Col, Tty),
-    {[NewBufTail, lists:duplicate(N, $ ) | M],
-     {Buf, NewBufTail, Col}};
-delete_chars(N, {Buf, BufTail, Col}, Tty) -> % N < 0
-    NewBuf = nthtail(-N, Buf),
+delete_chars(0, {LB,{Bef, Aft},LA, Col}, _Tty) ->
+    {[], {LB,{Bef, Aft},LA, Col}};
+delete_chars(N, {LB,{Bef, Aft},LA, Col}, Tty) when N > 0 ->
+    NewAft = nthtail(N, Aft),
+    M = move_cursor(Col + length(NewAft) + N, Col, Tty),
+    {[NewAft, lists:duplicate(N, $ ) | M],
+     {LB,{Bef, NewAft},LA, Col}};
+delete_chars(N, {LB,{Bef, Aft},LA, Col}, Tty) -> % N < 0
+    NewBef = nthtail(-N, Bef),
     NewCol = case Col + N of V when V >= 0 -> V; _ -> 0 end,
     M1 = move_cursor(Col, NewCol, Tty),
-    M2 = move_cursor(special_at_width(NewCol+length(BufTail)-N, Tty), NewCol, Tty),
-    {[M1, BufTail, lists:duplicate(-N, $ ) | M2],
-     {NewBuf, BufTail, NewCol}}.
+    M2 = move_cursor(special_at_width(NewCol+length(Aft)-N, Tty), NewCol, Tty),
+    {[M1, Aft, lists:duplicate(-N, $ ) | M2],
+     {LB,{NewBef, Aft},LA, NewCol}}.
 
 %%% Window change, redraw the current line (and clear out after it
 %%% if current window is wider than previous)
@@ -542,52 +570,74 @@ window_change(Tty, OldTty, Buf)
   when OldTty#ssh_pty.width == Tty#ssh_pty.width ->
      %% No line width change
     {[], Buf};
-window_change(Tty, OldTty, {Buf, BufTail, Col}) ->
+window_change(Tty, OldTty, {LB, {Bef, Aft}, LA, Col}) ->
     case OldTty#ssh_pty.width - Tty#ssh_pty.width of
         0 ->
             %% No line width change
-            {[], {Buf,BufTail,Col}};
+            {[], {LB, {Bef, Aft}, LA, Col}};
 
         DeltaW0 when DeltaW0 < 0,
-                     BufTail == [] ->
+                     Aft == [] ->
             % Line width is decreased, cursor is at end of input
-            {[], {Buf,BufTail,Col}};
+            {[], {LB, {Bef, Aft}, LA, Col}};
 
         DeltaW0 when DeltaW0 < 0,
-                     BufTail =/= [] ->
+                     Aft =/= [] ->
             % Line width is decreased, cursor is not at end of input
-            {[], {Buf,BufTail,Col}};
+            {[], {LB, {Bef, Aft}, LA, Col}};
 
         DeltaW0 when DeltaW0 > 0 ->
             % Line width is increased
-            {[], {Buf,BufTail,Col}}
+            {[], {LB, {Bef, Aft}, LA, Col}}
         end.
 
 %% move around in buffer, respecting pad characters
-step_over(0, Buf, [?PAD | BufTail], Col) ->
-    {[?PAD | Buf], BufTail, Col+1};
-step_over(0, Buf, BufTail, Col) ->
-    {Buf, BufTail, Col};
-step_over(N, [C | Buf], BufTail, Col) when N < 0 ->
+step_over(0, {LB, {Bef, [?PAD |Aft]}, LA, Col}) ->
+    {LB, {[?PAD | Bef], Aft}, LA, Col+1};
+step_over(0, {LB, {Bef, Aft}, LA, Col}) ->
+    {LB, {Bef, Aft}, LA, Col};
+step_over(N, {LB, {[C | Bef], Aft}, LA, Col}) when N < 0 ->
     N1 = ifelse(C == ?PAD, N, N+1),
-    step_over(N1, Buf, [C | BufTail], Col-1);
-step_over(N, Buf, [C | BufTail], Col) when N > 0 ->
+    step_over(N1, {LB, {Bef, [C | Aft]}, LA, Col-1});
+step_over(N, {LB, {Bef, [C | Aft]}, LA, Col}) when N > 0 ->
     N1 = ifelse(C == ?PAD, N, N-1),
-    step_over(N1, [C | Buf], BufTail, Col+1).
+    step_over(N1, {LB, {[C | Bef], Aft}, LA, Col+1}).
 
 %%% an empty line buffer
-empty_buf() -> {[], [], 0}.
+empty_buf() -> {[], {[], []}, [], 0}.
 
 %%% col and row from position with given width
 col(N, W) -> N rem W.
 row(N, W) -> N div W.
 
 %%% move relative N characters
-move_rel(N, {Buf, BufTail, Col}, Tty) ->
-    {NewBuf, NewBufTail, NewCol} = step_over(N, Buf, BufTail, Col),
+move_rel(N, {_LB, {_Bef, _Aft}, _LA, Col}=Buf, Tty) ->
+    {NewLB, {NewBef, NewAft}, NewLA, NewCol} = step_over(N, Buf),
     M = move_cursor(Col, NewCol, Tty),
-    {M, {NewBuf, NewBufTail, NewCol}}.
+    {M, {NewLB, {NewBef, NewAft}, NewLA, NewCol}}.
 
+move_line(V, {_LB, {_Bef, _Aft}, _LA, Col}, Tty = #ssh_pty{width=W})
+        when V < 0, length(_LB) >= -V ->
+    {LinesJumped, [B|NewLB]} = lists:split(-V -1, _LB),
+    CL = lists:reverse(_Bef,_Aft),
+    NewLA = lists:reverse([CL|LinesJumped], _LA),
+    {NewBB, NewAft} = lists:split(min(length(_Bef),length(B)), B),
+    NewBef = lists:reverse(NewBB),
+    NewCol = Col - length(_Bef) - lists:sum([((length(L)-1) div W)*W + W || L <- [B|LinesJumped]]) + length(NewBB),
+    M = move_cursor(Col, NewCol, Tty),
+    {M, {NewLB, {NewBef, NewAft}, NewLA, NewCol}};
+move_line(V, {_LB, {_Bef, _Aft}, _LA, Col}, Tty = #ssh_pty{width=W})
+        when V > 0, length(_LA) >= V ->
+    {LinesJumped, [A|NewLA]} = lists:split(V -1, _LA),
+    CL = lists:reverse(_Bef,_Aft),
+    NewLB = lists:reverse([CL|LinesJumped],_LB),
+    {NewBB, NewAft} = lists:split(min(length(_Bef),length(A)), A),
+    NewBef = lists:reverse(NewBB),
+    NewCol = Col - length(_Bef) + lists:sum([((length(L)-1) div W)*W + W || L <- [CL|LinesJumped]]) + length(NewBB),
+    M = move_cursor(Col, NewCol, Tty),
+    {M, {NewLB, {NewBef, NewAft}, NewLA, NewCol}};
+move_line(_, Buf, _) ->
+    {"", Buf}.
 %%% give move command for tty
 move_cursor(A, A, _Tty) ->
     [];
