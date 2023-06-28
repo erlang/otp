@@ -1390,24 +1390,24 @@ triple_quoted_string(Config) when is_list(Config) ->
           "```\n"
           "\"\"\"\"", {1,1}, []),
 
-    {ok,[{string,1,"5-quoted"}],3} =
+    {ok,[{string,{1,1},"5-quoted"}],{3,8}} =
         erl_scan:string(
           "\"\"\"\"\"\n"
           "  5-quoted\n"
-          "  \"\"\"\"\""),
+          "  \"\"\"\"\"", {1,1}, []),
 
-    {error,{{1,4},erl_scan,white_space},{1,7}} =
+    {error,{{1,4},erl_scan,white_space},{2,4}} =
         erl_scan:string(
           "\"\"\"foo\n"
           "\"\"\"", {1,1}, []),
 
-    {error,{{2,1},erl_scan,indentation},{2,2}} =
+    {error,{{2,2},erl_scan,indentation},{3,6}} =
         erl_scan:string(
           "\"\"\"\n"
           " foo\n"
           "  \"\"\"", {1,1}, []),
 
-    {error,{{2,1},erl_scan,indentation},{2,8}} =
+    {error,{{2,8},erl_scan,indentation},{3,12}} =
         erl_scan:string(
           "\"\"\"\n"
           "       \tfoo\n"

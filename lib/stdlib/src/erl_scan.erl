@@ -935,7 +935,7 @@ scan_tqstring_line(Cs, St, Line, Col, Toks, Qs, Tqs, Acc) ->
               fun scan_tqstring_line/6}};
         eof ->
             ContentR = [Acc|Tqs#tqs.content_r],
-            Estr = string:slice(tqstring_chars(ContentR), 0, 16),
+            Estr = string:slice(tqstring_chars_r(ContentR), 0, 16),
             scan_error(
               {string,{$",Tqs#tqs.qs},Estr},%"
               Tqs#tqs.line, Tqs#tqs.col, Line, Col, eof)
@@ -950,52 +950,46 @@ scan_tqstring_line(Cs, St, Line, Col, Toks, Qs, Tqs, Acc) ->
 scan_tqstring_finish(Cs, St, Line, Col, Toks, Tqs, IndentR) ->
     %% IndentR :: Indentation characters, reversed
     #tqs{ line = Line0, col = Col0, content_r = ContentR } = Tqs,
-    {Stripped, NcontentR} = strip_last_line_newline(ContentR),
+    NcontentR = strip_last_line_newline_r(ContentR),
     case
-        tqstring_finish(lists:reverse(IndentR), NcontentR, Line-1, Stripped)
+        tqstring_finish(lists:reverse(IndentR), NcontentR, Line-1)
     of
         Content when is_list(Content) ->
             Qs = Tqs#tqs.qs,
             Chars =
                 lists_duplicate(
                   Qs, $",%"
-                  tqstring_chars(ContentR, lists:duplicate(Qs, $"))),%"
+                  tqstring_chars_r(ContentR, lists:duplicate(Qs, $"))),%"
             Anno = anno(Line0, Col0, St, ?STR(string, St, Chars)),
             scan1(Cs, St, Line, Col, [{string,Anno,Content}|Toks]);
-        {Tag=indentation, ErrorLine, ErrorCol, StringR} ->
+        {Tag=indentation, ErrorLine, ErrorCol} ->
             scan_error(
-              Tag, ErrorLine, new_column(Col, 1),
-              ErrorLine, new_column(Col, ErrorCol),
-              lists:nthtail(ErrorCol, lists:reverse(StringR)));
-        {Tag=white_space, N, String} ->
+              Tag, ErrorLine, new_column(Col, ErrorCol),
+              Line, Col, Cs);
+        {Tag=white_space, N} ->
             scan_error(
-              Tag, Line0, incr_column(Col0, Tqs#tqs.qs),
-              Line0, incr_column(Col0, Tqs#tqs.qs+length(String)),
-              lists:nthtail(N, String))
+              Tag, Line0, incr_column(Col0, Tqs#tqs.qs+N),
+              Line, Col, Cs)
     end.
 
 %% Reconstruct the scanned triple-quoted string from content lines
 %%
-tqstring_chars(ContentR) ->
-    tqstring_chars(ContentR, "").
+tqstring_chars_r(ContentR) ->
+    tqstring_chars_r(ContentR, "").
 %%
-tqstring_chars([], Chars) -> Chars;
-tqstring_chars([StringR|StringsR], Chars) ->
-    tqstring_chars(StringsR, lists:reverse(StringR, Chars)).
+tqstring_chars_r([], Chars) -> Chars;
+tqstring_chars_r([StringR|StringsR], Chars) ->
+    tqstring_chars_r(StringsR, lists:reverse(StringR, Chars)).
 
-%% Strip newline from the last line, but not if it is the only line,
-%% and return the newline character(s)
+%% Strip newline from the last line, but not if it is the only line
 %%
-strip_last_line_newline(ContentR=[_]) ->
-    {"", ContentR};
-strip_last_line_newline([LastLineR|ContentR]) ->
-    {Newline, NlastLineR} = strip_newline(LastLineR),
-    {Newline, [NlastLineR|ContentR]}.
+strip_last_line_newline_r(ContentR=[_]) ->
+    ContentR;
+strip_last_line_newline_r([LastLineR|ContentR]) ->
+    [strip_newline_r(LastLineR)|ContentR].
 
-strip_newline("\n\r"++R) ->
-    {"\n\r", R};
-strip_newline("\n"++R) ->
-    {"\n", R}.
+strip_newline_r("\n\r"++Rcs) -> Rcs;
+strip_newline_r("\n"++Rcs) -> Rcs.
 
 %% Strip indentation from all content lines but the first,
 %% which contains the characters after the start quote chars,
@@ -1008,11 +1002,11 @@ strip_newline("\n"++R) ->
 %% Build the string content by prepending all indentation stripped
 %% lines onto the string: Content.
 %%
-tqstring_finish(Indent, ContentR, Line, Stripped) ->
-    tqstring_finish(Indent, ContentR, Line, Stripped, undefined, "").
+tqstring_finish(Indent, ContentR, Line) ->
+    tqstring_finish(Indent, ContentR, Line, undefined, "").
 %%
-tqstring_finish(_Indent, [FirstLineR], _Line, _Stripped, Error, Content) ->
-    {_, NfirstLineR} = strip_newline(FirstLineR),
+tqstring_finish(_Indent, [FirstLineR], _Line, Error, Content) ->
+    NfirstLineR = strip_newline_r(FirstLineR),
     FirstLine = lists:reverse(NfirstLineR),
     %% First line; check that it is all white space
     case check_white_space(FirstLine) of
@@ -1024,18 +1018,16 @@ tqstring_finish(_Indent, [FirstLineR], _Line, _Stripped, Error, Content) ->
                     Error
             end;
         N ->
-            {white_space, N, FirstLine}
+            {white_space, N}
     end;
 tqstring_finish(
-  Indent, [StringR|StringsR], Line, Stripped, Error, Content) ->
-    %% Stripped :: newline characters stripped from the last line,
-    %%             only used if there is an error on that line
+  Indent, [StringR|StringsR], Line, Error, Content) ->
     case strip_indent(Indent, lists:reverse(StringR, Content)) of
         Ncontent when is_list(Ncontent) ->
-            tqstring_finish(Indent, StringsR, Line-1, "", Error, Ncontent);
+            tqstring_finish(Indent, StringsR, Line-1, Error, Ncontent);
         ErrorCol when is_integer(ErrorCol) ->
-            Nerror = {indentation, Line, ErrorCol, Stripped++StringR},
-            tqstring_finish(Indent, StringsR, Line-1, "", Nerror, "")
+            Nerror = {indentation, Line, ErrorCol},
+            tqstring_finish(Indent, StringsR, Line-1, Nerror, "")
     end.
 
 %% Strip indentation
