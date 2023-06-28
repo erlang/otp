@@ -3287,9 +3287,7 @@ void db_free_term(DbTable *tb, void* basep, Uint offset)
 	size = db_alloced_size_comp(db);
     }
     else {
-	ErlOffHeap tmp_oh;
-	tmp_oh.first = db->first_oh;
-	erts_cleanup_offheap(&tmp_oh);
+        erts_cleanup_offheap_list(db->first_oh);
 	size = offset + offsetof(DbTerm,tpl) + db->size*sizeof(Eterm);
     }
     erts_db_free(ERTS_ALC_T_DB_TERM, tb, basep, size);
@@ -3315,9 +3313,7 @@ void db_free_term_no_tab(int compress, void* basep, Uint offset)
 	size = db_alloced_size_comp(db);
     }
     else {
-	ErlOffHeap tmp_oh;
-	tmp_oh.first = db->first_oh;
-	erts_cleanup_offheap(&tmp_oh);
+        erts_cleanup_offheap_list(db->first_oh);
 	size = offset + offsetof(DbTerm,tpl) + db->size*sizeof(Eterm);
     }
     erts_db_free(ERTS_ALC_T_DB_TERM, NULL, basep, size);
@@ -3472,9 +3468,7 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
 
     if (old != 0) {
 	basep = ((byte*) old) - offset;
-	tmp_offheap.first  = old->first_oh;
-	erts_cleanup_offheap(&tmp_offheap);
-	old->first_oh = tmp_offheap.first;
+	erts_cleanup_offheap_list(old->first_oh);
 	if (size == old->size) {
 	    newp = old;
 	}
@@ -6024,9 +6018,7 @@ DbTerm* db_alloc_tmp_uncompressed(DbTableCommon* tb, DbTerm* org)
 
 void db_free_tmp_uncompressed(DbTerm* obj)
 {
-    ErlOffHeap off_heap;
-    off_heap.first = obj->first_oh;
-    erts_cleanup_offheap(&off_heap);
+    erts_cleanup_offheap_list(obj->first_oh);
 #ifdef DEBUG_CLONE
     ASSERT(obj->debug_clone == NULL);
 #endif
