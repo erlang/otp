@@ -363,7 +363,7 @@ erts_queue_dist_message(Process *rcvr,
             erts_proc_sig_queue_flush_buffers(rcvr);
         }
 
-        LINK_MESSAGE(rcvr, mp);
+        LINK_MESSAGE(rcvr, mp, state);
 
         if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
             erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
@@ -449,7 +449,7 @@ queue_messages(Eterm from,
              */
             erts_proc_sig_queue_flush_buffers(receiver);
         }
-        LINK_MESSAGE(receiver, first);
+        LINK_MESSAGE(receiver, first, state);
     }
     else {
         state = erts_enqueue_signals(receiver, first, last, len, state);
@@ -542,6 +542,7 @@ erts_queue_proc_message(Process* sender,
     if (sender == receiver)
 	(void) erts_atomic32_read_bor_nob(&sender->xstate,
 					  ERTS_PXSFLG_MAYBE_SELF_SIGS);
+
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = sender->common.id;
     queue_messages(sender->common.id, receiver, receiver_locks,
@@ -558,6 +559,7 @@ erts_queue_proc_messages(Process* sender,
     if (sender == receiver)
 	(void) erts_atomic32_read_bor_nob(&sender->xstate,
 					  ERTS_PXSFLG_MAYBE_SELF_SIGS);
+
     queue_messages(sender->common.id, receiver, receiver_locks,
                    prepend_pending_sig_maybe(sender, receiver, first),
                    last, len);

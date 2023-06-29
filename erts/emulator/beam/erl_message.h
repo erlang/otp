@@ -373,7 +373,7 @@ typedef struct {
     Uint32 flags;
 } ErtsSignalPrivQueues;
 
-typedef struct {
+typedef struct ErtsSignalInQueue_ {
     ErtsMessage* first;
     ErtsMessage** last;  /* point to the last next pointer */
     Sint len;            /* number of messages in queue */
@@ -451,14 +451,17 @@ typedef struct erl_trace_message_queue__ {
 #endif
 
 /* Add one message last in message queue */
-#define LINK_MESSAGE(p, msg) \
+#define LINK_MESSAGE(p, msg, ps)                                        \
     do {                                                                \
         ASSERT(ERTS_SIG_IS_MSG(msg));                                   \
-        ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), "before");               \
+        ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), &(p)->sig_inq, "before");\
         *(p)->sig_inq.last = (msg);                                     \
         (p)->sig_inq.last = &(msg)->next;                               \
         (p)->sig_inq.len++;                                             \
-        ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), "after");                \
+        if (!((ps) & ERTS_PSFLG_MSG_SIG_IN_Q))                          \
+            (void) erts_atomic32_read_bor_nob(&(p)->state,              \
+                                              ERTS_PSFLG_MSG_SIG_IN_Q); \
+        ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), &(p)->sig_inq, "after"); \
     } while(0)
 
 #define ERTS_HEAP_FRAG_SIZE(DATA_WORDS) \

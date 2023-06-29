@@ -6615,7 +6615,7 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
         n = e = a;
         if (a & ERTS_PSFLG_ACTIVE_SYS) {
             if (a & (ERTS_PSFLG_SIG_Q
-                     | ERTS_PSFLG_SIG_IN_Q
+                     | ERTS_PSFLG_NMSG_SIG_IN_Q
                      | ERTS_PSFLG_SYS_TASKS))
                 break;
             /* Clear active-sys */
@@ -9552,6 +9552,24 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	state = erts_atomic32_read_nob(&p->state);
 
+        if ((state & ERTS_PSFLG_MSG_SIG_IN_Q)
+            && ERTS_MSG_RECV_TRACED(p)
+            && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
+            if (!(state & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_ACTIVE_SYS))) {
+                goto sched_out_fetch_signals;
+            }
+            else if ((p->sig_qs.flags
+                      & FS_NON_FETCH_CNT_MASK) != FS_NON_FETCH_CNT_MASK) {
+                p->sig_qs.flags += FS_NON_FETCH_CNT1;
+            }
+            else {
+            sched_out_fetch_signals:
+                erts_proc_sig_queue_lock(p);
+                erts_proc_sig_fetch(p);
+                erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+            }
+        }
+
 	if (IS_TRACED(p))
             trace_schedule_out(p, state);
 
@@ -9586,8 +9604,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                 p->scheduler_data = NULL;
 
             erts_proc_unlock(p, (ERTS_PROC_LOCK_MAIN
-                                     | ERTS_PROC_LOCK_STATUS
-                                     | ERTS_PROC_LOCK_TRACE));
+                                 | ERTS_PROC_LOCK_STATUS
+                                 | ERTS_PROC_LOCK_TRACE));
 
             ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 
@@ -9962,6 +9980,18 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                             ASSERT(state & ERTS_PSFLG_IN_RUNQ);
 			    erts_proc_dec_refc(p);
 			}
+                        if (state & ERTS_PSFLG_MSG_SIG_IN_Q) {
+                            erts_runq_unlock(rq);
+                            erts_proc_lock(p, (ERTS_PROC_LOCK_MAIN
+                                               | ERTS_PROC_LOCK_MSGQ));
+                            if (ERTS_MSG_RECV_TRACED(p)
+                                && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
+                                erts_proc_sig_fetch(p);
+                            }
+                            erts_proc_unlock(p, (ERTS_PROC_LOCK_MAIN
+                                                 | ERTS_PROC_LOCK_MSGQ));
+                            erts_runq_lock(rq);
+                        }
                         if (!is_normal_sched)
                             erts_proc_dec_refc(p);
 			goto pick_next_process;
@@ -10075,10 +10105,15 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         if (!is_normal_sched) {
             /* On dirty scheduler */
             if (!!(state & ERTS_PSFLG_DIRTY_RUNNING)
-                & !!(state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))) {
+                & !!(state & (ERTS_PSFLG_SIG_Q
+                              | ERTS_PSFLG_NMSG_SIG_IN_Q
+                              | ERTS_PSFLG_MSG_SIG_IN_Q))) {
                 /* Ensure signals are handled while executing dirty... */
                 int prio = ERTS_PSFLGS_GET_ACT_PRIO(state);
-                erts_make_dirty_proc_handled(p->common.id, state, prio);
+                erts_ensure_dirty_proc_signals_handled(p,
+                                                       state,
+                                                       prio,
+                                                       ERTS_PROC_LOCK_MAIN);
             }
         }
         else {
@@ -10091,7 +10126,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             state = erts_proc_sig_check_wait_dirty_handle_signals(p, state);
 
             if (state & ERTS_PSFLG_RUNNING_SYS) {
-                if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
+                if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_NMSG_SIG_IN_Q)) {
 		    int sig_reds;
 		    /*
 		     * If we have dirty work scheduled we allow
@@ -11215,7 +11250,9 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
         state = erts_atomic32_read_acqb(&rp->state);
         if (state & fail_state & ERTS_PSFLG_EXITING)
             goto noproc;
-        if (state & (ERTS_PSFLG_SIG_Q | ERTS_PSFLG_SIG_IN_Q)) {
+        if (state & (ERTS_PSFLG_SIG_Q
+                     | ERTS_PSFLG_NMSG_SIG_IN_Q
+                     | ERTS_PSFLG_MSG_SIG_IN_Q)) {
             /*
              * Send rpc request signal without reply,
              * and reply from the system task...
@@ -14457,7 +14494,9 @@ erts_try_lock_sig_free_proc(Eterm pid, ErtsProcLocks locks,
                             erts_aint32_t *statep)
 {
     Process *rp = erts_proc_lookup_raw(pid);
-    erts_aint32_t fail_state = ERTS_PSFLG_SIG_IN_Q|ERTS_PSFLG_SIG_Q;
+    erts_aint32_t fail_state = (ERTS_PSFLG_SIG_Q
+                                | ERTS_PSFLG_NMSG_SIG_IN_Q
+                                | ERTS_PSFLG_MSG_SIG_IN_Q);
     erts_aint32_t state;
     ErtsProcLocks tmp_locks = ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_MSGQ;
 

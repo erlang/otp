@@ -205,23 +205,25 @@ extern Eterm erts_old_recv_marker_id;
 #endif
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
-#  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(P)       \
-    ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((P), "")
+#  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(P, B) \
+    ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((P), (B), "")
 #  define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(P, QL) \
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__((P), (QL), "")
-#  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__(P, What)   \
-    erts_proc_sig_hdbg_check_in_queue((P), (What), __FILE__, __LINE__)
+#  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__(P, B , What) \
+    erts_proc_sig_hdbg_check_in_queue((P), (B), (What), __FILE__, __LINE__)
 #  define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(P, QL, What)              \
     erts_proc_sig_hdbg_check_priv_queue((P), (QL), (What), __FILE__, __LINE__)
 struct process;
 void erts_proc_sig_hdbg_check_priv_queue(struct process *c_p, int qlock,
                                          char *what, char *file, int line);
-void erts_proc_sig_hdbg_check_in_queue(struct process *c_p, char *what,
-                                       char *file, int line);
+struct ErtsSignalInQueue_;
+void erts_proc_sig_hdbg_check_in_queue(struct process *c_p,
+                                       struct ErtsSignalInQueue_ *buffer,
+                                       char *what, char *file, int line);
 #else
-#  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(P)
+#  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(P, B)
 #  define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(P, QL)
-#  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__(P, What)
+#  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__(P, B, What)
 #define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(P, QL, What)
 #endif
 
@@ -316,7 +318,9 @@ struct dist_entry_;
 
 #define ERTS_PROC_HAS_INCOMING_SIGNALS(P)                               \
     (!!(erts_atomic32_read_nob(&(P)->state)                             \
-        & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)))
+        & (ERTS_PSFLG_SIG_Q                                             \
+           | ERTS_PSFLG_NMSG_SIG_IN_Q                                   \
+           | ERTS_PSFLG_MSG_SIG_IN_Q)))
 
 /*
  * Send operations of currently supported process signals follow...
@@ -1399,10 +1403,14 @@ erts_proc_sig_send_dist_to_alias(Eterm from, Eterm alias,
  */
 ERTS_GLB_INLINE void erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
                                               erts_aint32_t enable_flag);
+ERTS_GLB_INLINE void erts_proc_notify_new_message(Process *p,
+                                                  ErtsProcLocks locks);
 
-void erts_make_dirty_proc_handled(Eterm pid, erts_aint32_t state,
-                                  erts_aint32_t prio);
-
+void
+erts_ensure_dirty_proc_signals_handled(Process *proc,
+                                       erts_aint32_t state,
+                                       erts_aint32_t prio,
+                                       ErtsProcLocks locks);
 
 typedef struct {
     Uint size;
@@ -1858,8 +1866,10 @@ erts_proc_sig_fetch(Process *proc)
 
     ASSERT(!(proc->sig_qs.flags & FS_HANDLING_SIGS));
 
-    ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(proc);
+    ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(proc, &proc->sig_inq);
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
+
+    proc->sig_qs.flags &= ~FS_NON_FETCH_CNT_MASK;
 
     buffers = erts_proc_sig_queue_get_buffers(proc, &need_unget_buffers);
 
@@ -1904,8 +1914,7 @@ erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
                          erts_aint32_t enable_flag)
 {
     if ((!(state & (ERTS_PSFLG_EXITING
-                    | ERTS_PSFLG_ACTIVE_SYS)))
-        | (~state & enable_flag)) {
+                    | ERTS_PSFLG_ACTIVE_SYS))) | (~state & enable_flag)) {
         /* Schedule process... */
         state = erts_proc_sys_schedule(rp, state, enable_flag);
     }
@@ -1916,9 +1925,27 @@ erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
          * more info see erts_execute_dirty_system_task()
          * in erl_process.c.
          */
-        erts_make_dirty_proc_handled(rp->common.id, state, -1);
+        erts_ensure_dirty_proc_signals_handled(rp, state, -1, 0);
     }
 }
+
+ERTS_GLB_INLINE void
+erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
+{
+    /* No barrier needed, due to msg lock */
+    erts_aint32_t state = erts_atomic32_read_nob(&p->state);
+    if (!(state & ERTS_PSFLG_ACTIVE))
+	erts_schedule_process(p, state, locks);
+    if (state & ERTS_PSFLG_DIRTY_RUNNING) {
+        /*
+         * We ignore ERTS_PSFLG_DIRTY_RUNNING_SYS. For
+         * more info see erts_execute_dirty_system_task()
+         * in erl_process.c.
+         */
+        erts_ensure_dirty_proc_signals_handled(p, state, -1, locks);
+    }
+}
+
 
 #undef ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__
 #define ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(BLKP) 		\
