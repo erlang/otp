@@ -31,8 +31,6 @@
 	 run/1,
 	 run_report_modules_analyzed/1,
 	 run_report_modules_changed_and_analyzed/1,
-	 gui/0,
-	 gui/1,
 	 plt_info/1,
 	 format_warning/1,
 	 format_warning/2]).
@@ -51,7 +49,6 @@
 %%                      had to be analyzed to compute the result, plus the
 %%                      set of modules that have changed since the PLT was
 %%                      created (if applicable)
-%%  - gui/0/1:          Erlang interface for the gui.
 %%  - format_warning/1: Get the string representation of a warning.
 %%  - format_warning/2: Likewise, but with an option whether
 %%			to display full path names or not
@@ -66,19 +63,6 @@ plain_cl() ->
       cl_halt(cl_check_init(Opts), Opts);
     {plt_info, Opts} ->
       cl_halt(cl_print_plt_info(Opts), Opts);
-    {gui, Opts} ->
-      try check_gui_options(Opts)
-      catch throw:{dialyzer_error, Msg} -> cl_error(Msg)
-      end,
-      case Opts#options.check_plt of
-	true ->
-	  case cl_check_init(Opts#options{get_warnings = false}) of
-	    {ok, _} -> gui_halt(internal_gui(Opts), Opts);
-	    {error, _} = Error -> cl_halt(Error, Opts)
-	  end;
-	false ->
-	  gui_halt(internal_gui(Opts), Opts)
-      end;
     {cl, Opts} ->
       case Opts#options.check_plt of
 	true ->
@@ -243,46 +227,6 @@ check_init(#options{check_plt = true} = OptsRecord) ->
 check_init(#options{check_plt = false}) ->
     ok.
 
-internal_gui(OptsRecord) ->
-  F = fun() ->
-	  dialyzer_gui_wx:start(OptsRecord),
-	  ?RET_NOTHING_SUSPICIOUS
-      end,
-  doit(F).
-
--spec gui() -> 'ok'.
-
-gui() ->
-  gui([]).
-
--spec gui(Options) -> 'ok' when
-    Options :: [dial_option()].
-
-gui(Opts) ->
-  try dialyzer_options:build([{report_mode, quiet}|Opts]) of
-    {error, Msg} ->
-      throw({dialyzer_error, Msg});
-    OptsRecord ->
-      ok = check_gui_options(OptsRecord),
-      ok = check_init(OptsRecord),
-      F = fun() ->
-          dialyzer_gui_wx:start(OptsRecord)
-      end,
-      case doit(F) of
-	  {ok, _} -> ok;
-	  {error, Msg} -> throw({dialyzer_error, Msg})
-      end
-  catch
-    throw:{dialyzer_error, ErrorMsg} ->
-      erlang:error({dialyzer_error, lists:flatten(ErrorMsg)})
-  end.
-
-check_gui_options(#options{analysis_type = succ_typings}) ->
-  ok;
-check_gui_options(#options{analysis_type = Mode}) ->
-  Msg = io_lib:format("Analysis mode ~w is illegal in GUI mode", [Mode]),
-  throw({dialyzer_error, Msg}).
-
 -spec plt_info(Plt) ->
      {'ok', ClassicResult | IncrementalResult } | {'error', Reason} when
     Plt :: file:filename(),
@@ -325,11 +269,6 @@ doit(F) ->
 
 cl_error(Msg) ->
   cl_halt({error, Msg}, #options{}).
-
--spec gui_halt(doit_ret(), #options{}) -> no_return().
-
-gui_halt(R, Opts) ->
-  cl_halt(R, Opts#options{report_mode = quiet}).
 
 -spec cl_halt(doit_ret(), #options{}) -> no_return().
 

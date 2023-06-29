@@ -60,8 +60,6 @@ MODULES = \
 	dialyzer_dataflow \
 	dialyzer_dep \
 	dialyzer_dot \
-	dialyzer_explanation \
-	dialyzer_gui_wx \
 	dialyzer_incremental \
 	dialyzer_options \
 	dialyzer_iplt \
@@ -79,7 +77,7 @@ MODULES = \
 	typer \
 	typer_core
 
-HRL_FILES= dialyzer.hrl dialyzer_gui_wx.hrl
+HRL_FILES= dialyzer.hrl
 ERL_FILES= $(MODULES:%=%.erl)
 INSTALL_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 TARGET_FILES= $(INSTALL_FILES)
@@ -127,9 +125,6 @@ $(EBIN)/dialyzer_cplt.$(EMULATOR): dialyzer_cplt.erl ../vsn.mk
 $(EBIN)/dialyzer_iplt.$(EMULATOR): dialyzer_iplt.erl ../vsn.mk
 	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_iplt.erl
 
-$(EBIN)/dialyzer_gui_wx.$(EMULATOR): dialyzer_gui_wx.erl ../vsn.mk
-	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_gui_wx.erl
-
 $(EBIN)/typer.$(EMULATOR): typer.erl ../vsn.mk
 	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) typer.erl
 
@@ -153,8 +148,6 @@ $(EBIN)/dialyzer_codeserver.beam: dialyzer.hrl
 $(EBIN)/dialyzer_contracts.beam: dialyzer.hrl
 $(EBIN)/dialyzer_dataflow.beam: dialyzer.hrl
 $(EBIN)/dialyzer_dep.beam: dialyzer.hrl
-$(EBIN)/dialyzer_explanation.beam: dialyzer.hrl
-$(EBIN)/dialyzer_gui_wx.beam: dialyzer.hrl dialyzer_gui_wx.hrl
 $(EBIN)/dialyzer_options.beam: dialyzer.hrl
 $(EBIN)/dialyzer_plt.beam: dialyzer.hrl
 $(EBIN)/dialyzer_race_data_server.beam: dialyzer.hrl
@@ -166,7 +159,7 @@ $(EBIN)/dialyzer_utils.beam: dialyzer.hrl
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
