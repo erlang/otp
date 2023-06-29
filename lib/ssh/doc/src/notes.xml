@@ -286,6 +286,22 @@
 
 </section>
 
+<section><title>Ssh 4.13.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, error logging related crashes in
+	    ssh_connection_handler module are fixed.</p>
+          <p>
+	    Own Id: OTP-18620 Aux Id: OTP-18386,PR-6611 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.13.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
