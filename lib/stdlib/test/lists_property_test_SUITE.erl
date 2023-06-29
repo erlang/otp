@@ -112,7 +112,6 @@ init_per_suite(Config) ->
     ct_property_test:init_per_suite(Config).
 
 end_per_suite(Config) ->
-    persistent_term:erase({lists_prop, random_atoms}),
     Config.
 
 do_proptest(Prop, Config) ->
