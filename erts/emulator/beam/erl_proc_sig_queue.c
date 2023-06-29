@@ -947,8 +947,8 @@ proc_queue_signal(ErtsPTabElementCommon *sender, Eterm from, Eterm pid,
 first_last_done:
 
     if ((void *) sender == (void *) rp)
-	(void) erts_atomic32_read_bor_nob(&((Process *) sender)->state,
-					  ERTS_PSFLG_MAYBE_SELF_SIGS);
+	(void) erts_atomic32_read_bor_nob(&((Process *) sender)->xstate,
+					  ERTS_PXSFLG_MAYBE_SELF_SIGS);
 
     sig->common.specific.next = NULL;
 
@@ -6285,20 +6285,18 @@ stop: {
             res = !0;
         }
 
-	if (!!(state & ERTS_PSFLG_MAYBE_SELF_SIGS)
-	    & !(state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))) {
+	if (!(state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))) {
 	    /*
 	     * We know we do not have any outstanding signals
 	     * from ourselves...
 	     */
-	    state = erts_atomic32_read_band_nob(&c_p->state,
-                                                ~ERTS_PSFLG_MAYBE_SELF_SIGS);
-	    state &= ~ERTS_PSFLG_MAYBE_SELF_SIGS;
+	    (void) erts_atomic32_read_band_nob(&c_p->xstate,
+                                               ~ERTS_PXSFLG_MAYBE_SELF_SIGS);
 	}
 
         if (delayed_nm_signals.first) {
             /*
-             * We do this after clearing ERTS_PSFLG_MAYBE_SELF_SIGS
+             * We do this after clearing ERTS_PXSFLG_MAYBE_SELF_SIGS
              * since there currently are no signals that can be delayed
              * that should be counted as originating from the process
              * itself. If such signals appear in the future this has to

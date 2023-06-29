@@ -1164,7 +1164,7 @@ pi_maybe_flush_signals(Process *c_p, int pi_flags)
             && c_p->sig_qs.cont) {
             flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_CLEAN_SIGQ;
         }
-        if (state & ERTS_PSFLG_MAYBE_SELF_SIGS)
+        if (erts_atomic32_read_nob(&c_p->xstate) & ERTS_PXSFLG_MAYBE_SELF_SIGS)
             flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_FROM_ID;
 	if (!flush_flags)
 	    return 0; /* done; no need to flush... */

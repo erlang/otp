@@ -4261,12 +4261,12 @@ clear_proc_dirty_queue_bit(Process *p, ErtsRunQueue *rq, int prio_bit)
     erts_aint32_t old;
     erts_aint32_t qb = prio_bit;
     if (rq == ERTS_DIRTY_CPU_RUNQ)
-	qb <<= ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET;
+	qb <<= ERTS_PXSFLGS_IN_CPU_PRQ_MASK_OFFSET;
     else {
 	ASSERT(rq == ERTS_DIRTY_IO_RUNQ);
-	qb <<= ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET;
+	qb <<= ERTS_PXSFLGS_IN_IO_PRQ_MASK_OFFSET;
     }
-    old = (int) erts_atomic32_read_band_mb(&p->dirty_state, ~qb);
+    old = (int) erts_atomic32_read_band_mb(&p->xstate, ~qb);
     ASSERT(old & qb); (void)old;
 }
 
@@ -6407,17 +6407,17 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
     if ((*newp) & ERTS_PSFLG_ACTIVE_SYS)
 	return ERTS_ENQUEUE_NORMAL_QUEUE;
 
-    dact = erts_atomic32_read_mb(&c_p->dirty_state);
+    dact = erts_atomic32_read_mb(&c_p->xstate);
     if (actual & (ERTS_PSFLG_DIRTY_ACTIVE_SYS
 		  | ERTS_PSFLG_DIRTY_CPU_PROC)) {
-	max_qbit = ((dact >> ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET)
-		    & ERTS_PDSFLGS_QMASK);
+	max_qbit = ((dact >> ERTS_PXSFLGS_IN_CPU_PRQ_MASK_OFFSET)
+		    & ERTS_PXSFLGS_QMASK);
 	queue = ERTS_ENQUEUE_DIRTY_CPU_QUEUE;
     }
     else {
 	ASSERT(actual & ERTS_PSFLG_DIRTY_IO_PROC);
-	max_qbit = ((dact >> ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET)
-		    & ERTS_PDSFLGS_QMASK);
+	max_qbit = ((dact >> ERTS_PXSFLGS_IN_IO_PRQ_MASK_OFFSET)
+		    & ERTS_PXSFLGS_QMASK);
 	queue = ERTS_ENQUEUE_DIRTY_IO_QUEUE;
     }
 
@@ -6452,7 +6452,7 @@ fin_dirty_enq_s_change(Process *p,
     erts_aint32_t qbit = 1 << enq_prio;
     qbit <<= qmask_offset;
 
-    if (qbit & erts_atomic32_read_bor_mb(&p->dirty_state, qbit)) {
+    if (qbit & erts_atomic32_read_bor_mb(&p->xstate, qbit)) {
 	/* Already enqueue by someone else... */
 	if (pstruct_reserved) {
 	    /* We reserved process struct for enqueue; clear it... */
@@ -6547,7 +6547,7 @@ select_enqueue_run_queue(int enqueue, int enq_prio, Process *p, erts_aint32_t st
     case -ERTS_ENQUEUE_DIRTY_CPU_QUEUE:
 
 	if (fin_dirty_enq_s_change(p, enqueue > 0, enq_prio,
-				   ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET))
+				   ERTS_PXSFLGS_IN_CPU_PRQ_MASK_OFFSET))
 	    return ERTS_DIRTY_CPU_RUNQ;
 
 	return NULL;
@@ -6557,7 +6557,7 @@ select_enqueue_run_queue(int enqueue, int enq_prio, Process *p, erts_aint32_t st
     case -ERTS_ENQUEUE_DIRTY_IO_QUEUE:
 
 	if (fin_dirty_enq_s_change(p, enqueue > 0, enq_prio,
-				   ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET))
+				   ERTS_PXSFLGS_IN_IO_PRQ_MASK_OFFSET))
 	    return ERTS_DIRTY_IO_RUNQ;
 
 	return NULL;
@@ -11914,7 +11914,7 @@ static void early_init_process_struct(void *varg, Eterm data)
     Process *proc = arg->proc;
 
     proc->common.id = make_internal_pid(data);
-    erts_atomic32_init_nob(&proc->dirty_state, 0);
+    erts_atomic32_init_nob(&proc->xstate, 0);
     proc->dirty_sys_tasks = NULL;
     erts_init_runq_proc(proc, arg->run_queue, arg->bound);
     erts_atomic_init_nob(&proc->sig_inq_buffers, (erts_aint_t)NULL);
@@ -12978,7 +12978,7 @@ void erts_init_empty_process(Process *p)
     p->last_old_htop = NULL;
 #endif
 
-    erts_atomic32_init_nob(&p->dirty_state, 0);
+    erts_atomic32_init_nob(&p->xstate, 0);
     p->dirty_sys_tasks = NULL;
     erts_atomic32_init_nob(&p->state, (erts_aint32_t) PRIORITY_NORMAL);
 

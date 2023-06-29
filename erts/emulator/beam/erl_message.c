@@ -540,8 +540,8 @@ erts_queue_proc_message(Process* sender,
                         ErtsMessage* mp, Eterm msg)
 {
     if (sender == receiver)
-	(void) erts_atomic32_read_bor_nob(&sender->state,
-					  ERTS_PSFLG_MAYBE_SELF_SIGS);
+	(void) erts_atomic32_read_bor_nob(&sender->xstate,
+					  ERTS_PXSFLG_MAYBE_SELF_SIGS);
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = sender->common.id;
     queue_messages(sender->common.id, receiver, receiver_locks,
@@ -556,8 +556,8 @@ erts_queue_proc_messages(Process* sender,
                          ErtsMessage* first, ErtsMessage** last, Uint len)
 {
     if (sender == receiver)
-	(void) erts_atomic32_read_bor_nob(&sender->state,
-					  ERTS_PSFLG_MAYBE_SELF_SIGS);
+	(void) erts_atomic32_read_bor_nob(&sender->xstate,
+					  ERTS_PXSFLG_MAYBE_SELF_SIGS);
     queue_messages(sender->common.id, receiver, receiver_locks,
                    prepend_pending_sig_maybe(sender, receiver, first),
                    last, len);

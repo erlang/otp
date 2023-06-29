@@ -1128,8 +1128,8 @@ erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg) 
                 erts_print(to, to_arg, "FREE"); break;
             case ERTS_PSFLG_EXITING:
                 erts_print(to, to_arg, "EXITING"); break;
-            case ERTS_PSFLG_MAYBE_SELF_SIGS:
-                erts_print(to, to_arg, "MAYBE_SELF_SIGS"); break;
+            case ERTS_PSFLG_UNDEFINED:
+                erts_print(to, to_arg, "UNDEFINED"); break;
             case ERTS_PSFLG_ACTIVE:
                 erts_print(to, to_arg, "ACTIVE"); break;
             case ERTS_PSFLG_IN_RUNQ:
