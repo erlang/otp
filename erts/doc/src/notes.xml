@@ -31,6 +31,77 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix using the IME (Input Method Editor) to enter text in
+	    cmd.exe and powershell.exe on Windows.</p>
+          <p>
+	    Own Id: OTP-18630 Aux Id: PR-7275 GH-7029 </p>
+        </item>
+        <item>
+          <p>
+	    Multiple socket:accept calls issue. When making multiple
+	    accept calls, only the last call is active.</p>
+          <p>
+	    Own Id: OTP-18635 Aux Id: #7328 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the shell to ignore terminal delay when the terminal
+	    capabilities report that they should be used.</p>
+          <p>
+	    Own Id: OTP-18636 Aux Id: PR-7352 GH-7308 </p>
+        </item>
+        <item>
+          <p>
+	    Fix "oldshell" to echo characters while typing on
+	    Windows.</p>
+          <p>
+	    Own Id: OTP-18637 Aux Id: PR-7359 GH-7324 </p>
+        </item>
+        <item>
+          <p>
+	    On Windows, a call to the function socket:close, when
+	    there are waiting active calls to read, write or accept
+	    functions, could hang.</p>
+          <p>
+	    Own Id: OTP-18646</p>
+        </item>
+        <item>
+          <p>
+	    Fix issues when reading or configuring <c>standard_io</c>
+	    on Windows when erl.exe is started using <c>-noshell</c>
+	    flag.</p>
+          <p>
+	    Own Id: OTP-18649 Aux Id: GH-7261 PR-7400 </p>
+        </item>
+        <item>
+	    <p>The following functions are now much faster when given
+	    a long list or binary:</p> <list>
+	    <item>erlang:list_to_integer/1</item>
+	    <item>erlang:binary_to_integer/1</item>
+	    <item>erlang:binary_to_integer/2</item>
+	    <item>erlang:list_to_integer/2</item>
+	    <item>string:to_integer/1</item> </list>
+          <p>
+	    Own Id: OTP-18659 Aux Id: PR-7426 </p>
+        </item>
+        <item>
+	    <p>On AArch64 (ARM64), equality and non-equality tests
+	    with literal bitstrings could succeed when they should
+	    fail and vice versa.</p>
+          <p>
+	    Own Id: OTP-18663 Aux Id: GH-7433, PR-7437 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

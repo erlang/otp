@@ -31,6 +31,48 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where when you entered Alt+Enter in the terminal,
+	    the cursor would move to the last line, instead of moving
+	    to the next line.</p>
+          <p>
+	    Own Id: OTP-18580 Aux Id: PR-7242 </p>
+        </item>
+        <item>
+          <p>
+	    Fix eof handling when reading from stdin when erlang is
+	    started using <c>-noshell</c>.</p>
+          <p>
+	    Own Id: OTP-18640 Aux Id: PR-7384 GH-7368 GH-7286 GH-6881 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed problem where output would disappear if it was
+	    received after a prompt was written in the shell.</p>
+          <p>
+	    Own Id: OTP-18652 Aux Id: PR-7242 </p>
+        </item>
+        <item>
+	    <p>The following functions are now much faster when given
+	    a long list or binary:</p> <list>
+	    <item>erlang:list_to_integer/1</item>
+	    <item>erlang:binary_to_integer/1</item>
+	    <item>erlang:binary_to_integer/2</item>
+	    <item>erlang:list_to_integer/2</item>
+	    <item>string:to_integer/1</item> </list>
+          <p>
+	    Own Id: OTP-18659 Aux Id: PR-7426 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 5.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
