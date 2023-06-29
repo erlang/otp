@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -425,6 +425,12 @@ scan1("."=Cs, St, Line, Col, Toks) ->
     {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1([$.=C|Cs], St, Line, Col, Toks) ->
     scan_dot(Cs, St, Line, Col, Toks, [C]);
+scan1([$",$",$"|Cs], St, Line, Col, Toks) -> %" Emacs
+    scan_tqstring(Cs, St, Line, Col, Toks, 3); % Number of quote chars
+scan1([$",$"]=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
+scan1([$"]=Cs, St, Line, Col, Toks) -> %" Emacs
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1([$"|Cs], St, Line, Col, Toks) -> %" Emacs
     State0 = {[],[],Line,Col},
     scan_string(Cs, St, Line, incr_column(Col, 1), Toks, State0);
@@ -827,6 +833,29 @@ scan_char([], St, Line, Col, Toks) ->
     {more,{[$$],St,Col,Toks,Line,[],fun scan/6}};
 scan_char(eof, _St, Line, Col, _Toks) ->
     scan_error(char, Line, Col, Line, incr_column(Col, 1), eof).
+
+%% Scan leading $" characters until we have them all
+%%
+scan_tqstring(Cs, St, Line, Col, Toks, Qs) ->
+    case Cs of
+        [$"|Ncs] ->
+            scan_tqstring(Ncs, St, Line, Col, Toks, Qs+1);
+        [] ->
+            {more, {[], St, Col, Toks, Line, Qs, fun scan_tqstring/6}};
+        _ ->
+            Anno = anno(Line, Col, St, []),
+            Chars = lists:duplicate(Qs, $"),%"
+            scan_tqstring_finish(
+              Cs, St, Line, Col, [{tqstring_warning, Anno, Chars}|Toks], Qs)
+    end.
+
+scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs) when 1 < Qs ->
+    Anno = anno(Line, Col, St, ?STR(string, St, "\"\"")),
+    scan_tqstring_finish(
+      Cs, St, Line, incr_column(Col, 2), [{string, Anno, ""}|Toks], Qs-2);
+scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs) ->
+    Ncs = lists_duplicate(Qs, $", Cs),%"
+    scan1(Ncs, St, Line, incr_column(Col, Qs), Toks).
 
 scan_string(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
     case scan_string0(Cs, St, Line, Col, $\", Str, Wcs) of %"
@@ -1321,6 +1350,10 @@ new_column(no_col=Col, _Ncol) ->
     Col;
 new_column(Col, Ncol) when is_integer(Col) ->
     Ncol.
+
+%% lists:duplicate/3
+lists_duplicate(0, _, L) -> L;
+lists_duplicate(N, X, L) -> lists_duplicate(N-1, X, [X|L]).
 
 nl_spcs(2)  -> "\n ";
 nl_spcs(3)  -> "\n  ";
