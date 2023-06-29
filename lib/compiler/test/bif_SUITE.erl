@@ -45,6 +45,7 @@ groups() ->
       ]}].
 
 init_per_suite(Config) ->
+    _ = id(Config),
     test_lib:recompile(?MODULE),
     Config.
 
@@ -208,6 +209,36 @@ min_max(_Config) ->
     true = bool_max_true(True, False),
     true = bool_max_true(True, True),
 
+    11 = min_increment(100),
+    11 = min_increment(10),
+    10 = min_increment(9),
+    1 = min_increment(0),
+    0 = min_increment(-1),
+    11 = min_increment(a),
+
+    {42,42} = max_number(id(42)),
+    {42,42.0} = max_number(id(42.0)),
+    {-1,1} = max_number(id(-1)),
+    {-1,1} = max_number(id(-1.0)),
+
+    100 = int_clamped_add(-1),
+    100 = int_clamped_add(0),
+    105 = int_clamped_add(5),
+    110 = int_clamped_add(10),
+    110 = int_clamped_add(11),
+
+    100 = num_clamped_add(-1),
+    100 = num_clamped_add(0),
+    105 = num_clamped_add(5),
+    110 = num_clamped_add(10),
+    110 = num_clamped_add(11),
+
+    105 = num_clamped_add(5),
+    105.0 = num_clamped_add(5.0),
+    110 = num_clamped_add(a),
+    110 = num_clamped_add({a,b,c}),
+    110 = num_clamped_add({a,b,c}),
+
     ok.
 
 %% GH-7170: The following functions would cause a crash in
@@ -222,8 +253,27 @@ bool_min_true(A, B) when is_boolean(A), is_boolean(B) ->
 bool_max_false(A, B) when is_boolean(A), is_boolean(B) ->
     false = max(A, B).
 
-bool_max_true(A, B) when is_boolean(A), is_boolean(B) ->
-    true = max(A, B).
+bool_max_true(A, B) when is_boolean(B) ->
+    true = max(A, B),
+    if
+        is_boolean(A) ->
+            true = max(A, B)
+    end.
+
+max_number(A) ->
+    Res = {trunc(A), max(A, 1)},
+    Res = {trunc(A), max(1, A)}.
+
+min_increment(A) ->
+    Res = min(10, A) + 1,
+    Res = min(A, 10) + 1,
+    Res = min(id(A), 10) + 1.
+
+int_clamped_add(A) when is_integer(A) ->
+    min(max(A, 0), 10) + 100.
+
+num_clamped_add(A) ->
+    min(max(A, 0), 10) + 100.
 
 %%%
 %%% Common utilities.

@@ -222,19 +222,13 @@ bounds('bsl', R1, R2) ->
             any
     end;
 bounds(max, R1, R2) ->
-    case {R1,R2} of
-        {{A,B},{C,D}} ->
-            normalize({inf_max(A, C),inf_max(B, D)});
-        {_,_} ->
-            any
-    end;
+    {A,B} = expand(R1),
+    {C,D} = expand(R2),
+    normalize({inf_max(A, C),inf_max(B, D)});
 bounds(min, R1, R2) ->
-    case {R1,R2} of
-        {{A,B},{C,D}} ->
-            normalize({inf_min(A, C),inf_min(B, D)});
-        {_,_} ->
-            any
-    end.
+    {A,B} = expand(R1),
+    {C,D} = expand(R2),
+    normalize({inf_min(A, C),inf_min(B, D)}).
 
 -spec relop(relop(), range(), range()) -> bool_result().
 
@@ -510,6 +504,9 @@ infer_relop_types_1('>', {A,B}, {C,D}) ->
 %%% Atoms are greater than all integers. Therefore, we don't
 %%% need any special handling of '+inf'.
 %%%
+
+expand(any) -> {'-inf','+inf'};
+expand({_,_}=R) -> R.
 
 normalize({'-inf','-inf'}) ->
     {'-inf',-1};
