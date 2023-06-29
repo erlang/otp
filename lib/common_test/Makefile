@@ -25,15 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-ifeq ($(findstring linux,$(TARGET)),linux)
-SUB_DIRECTORIES = doc/src src priv
-else
-ifeq ($(findstring solaris,$(TARGET)),solaris)
-SUB_DIRECTORIES = doc/src src priv
-else
-SUB_DIRECTORIES = doc/src src priv
-endif
-endif
+SUB_DIRECTORIES = doc/src src priv proper_ext
 
 include vsn.mk
 VSN = $(COMMON_TEST_VSN)
