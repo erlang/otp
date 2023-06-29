@@ -133,11 +133,12 @@ init_per_suite(Config0) ->
 
         Config1 when is_list(Config1) ->
             
+            %% We need a monitor on this node also
+            ?P("init_per_suite -> try start system monitor"),
+            kernel_test_sys_monitor:start(),
+
             ?P("init_per_suite -> end when "
                "~n      Config: ~p", [Config1]),
-            
-            %% We need a monitor on this node also
-            kernel_test_sys_monitor:start(),
 
             Config1
     end.
@@ -148,10 +149,11 @@ end_per_suite(Config0) ->
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
-    Config1 = ?LIB:end_per_suite(Config0),
-
     %% Stop the local monitor
+    ?P("init_per_suite -> try stop system monitor"),
     kernel_test_sys_monitor:stop(),
+
+    Config1 = ?LIB:end_per_suite(Config0),
 
     ?P("end_per_suite -> "
             "~n      Nodes: ~p", [erlang:nodes()]),
@@ -172,7 +174,7 @@ init_per_testcase(Case, Config0) ->
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
        "~n   Monitors: ~p",
-       [Config0, erlang:nodes(), pi(links), pi(monitors)]),
+       [Config0, erlang:nodes(), links(), monitors()]),
 
     kernel_test_global_sys_monitor:reset_events(),
 
@@ -182,7 +184,7 @@ init_per_testcase(Case, Config0) ->
        "~n   Config:   ~p"
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
-       "~n   Monitors: ~p", [Config1, erlang:nodes(), pi(links), pi(monitors)]),
+       "~n   Monitors: ~p", [Config1, erlang:nodes(), links(), monitors()]),
     Config1.
 
 init_per_testcase2(gethostnative_debug_level, Config) ->
@@ -210,7 +212,7 @@ end_per_testcase(Case, Config) ->
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
        "~n   Monitors: ~p",
-       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+       [Config, erlang:nodes(), links(), monitors()]),
 
     ?P("system events during test: "
        "~n   ~p", [kernel_test_global_sys_monitor:events()]),
@@ -220,7 +222,7 @@ end_per_testcase(Case, Config) ->
     ?P("end_per_testcase -> done with"
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
-       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
+       "~n   Monitors: ~p", [erlang:nodes(), links(), monitors()]),
     ok.
 
 end_per_testcase2(lookup_bad_search_option, Config) ->
@@ -2096,6 +2098,8 @@ do_socknames_udp1(Conf) ->
                "~n      ~p", [Reason1]),
             exit({skip, {listen_socket, Reason1}})
     end,
+    ?P("enable debug"),
+    inet:setopts(S1, [{debug, true}]),
     ?P("close socket"),
     (catch gen_udp:close(S1)),
     ?P("done"),
@@ -2104,6 +2108,12 @@ do_socknames_udp1(Conf) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+links() ->
+    pi(links).
+
+monitors() ->
+    pi(monitors).
 
 pi(Item) ->
     {Item, Val} = process_info(self(), Item),

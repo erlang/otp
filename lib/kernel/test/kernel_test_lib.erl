@@ -113,10 +113,23 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
                     SKIP
             end;
 
-        {Factor, _HostInfo} when (AllowSkip =:= false) andalso
+        {Factor, HostInfo} when (AllowSkip =:= false) andalso
                                  is_integer(Factor) ->
-            [{kernel_factor, Factor} | Config]
-
+            print("try start (global) system monitor"),
+            case kernel_test_global_sys_monitor:start() of
+                {ok, _} ->
+                    print("(global) system monitor started"),
+                    case lists:keysearch(label, 1, HostInfo) of
+                        {value, Label} ->
+                            [{kernel_factor, Factor}, Label | Config];
+                        false ->
+                            [{kernel_factor, Factor} | Config]
+                    end;
+                {error, Reason} ->
+                    print("Failed start (global) system monitor:"
+                          "~n      ~p", [Reason]),
+                    [{kernel_factor, Factor} | Config]
+            end
     catch
         throw:{skip, _} = SKIP ->
             SKIP

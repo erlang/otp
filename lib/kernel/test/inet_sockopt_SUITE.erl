@@ -80,27 +80,43 @@ all() ->
 groups() -> 
     [].
 
-init_per_suite(Config) ->
+init_per_suite(Config0) ->
 
     ?P("init_per_suite -> entry with"
        "~n      Config: ~p"
-       "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
-    %% We need a monitor on this node also
-    kernel_test_sys_monitor:start(),
+    case ?LIB:init_per_suite([{allow_skip, false} | Config0]) of
+        {skip, _} = SKIP ->
+            SKIP;
 
-    Config.
+        Config1 when is_list(Config1) ->
+            
+            %% We need a monitor on this node also
+            kernel_test_sys_monitor:start(),
 
-end_per_suite(Config) ->
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+
+            Config1
+    end.
+
+end_per_suite(Config0) ->
 
     ?P("end_per_suite -> entry with"
        "~n      Config: ~p"
-       "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
     %% Stop the local monitor
+    ?P("init_per_suite -> try stop system monitor"),
     kernel_test_sys_monitor:stop(),
 
-    ok.
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+            "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -110,9 +126,36 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Func, Config) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), links(), monitors()]),
+
+    kernel_test_global_sys_monitor:reset_events(),
+
+    ?P("init_per_testcase -> done when"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), links(), monitors()]),
     Config.
 
-end_per_testcase(_Func, _Config) ->
+end_per_testcase(_Func, Config) ->
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), links(), monitors()]),
+
+    ?P("system events during test: "
+       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), links(), monitors()]),
     ok.
 
 %% Test inet:setopt/getopt simple functionality.
@@ -1135,3 +1178,15 @@ skip(Reason) ->
     throw({skip, Reason}).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+links() ->
+    pi(links).
+
+monitors() ->
+    pi(monitors).
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
