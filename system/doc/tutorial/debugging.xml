@@ -49,9 +49,27 @@
       have indicated which specific buggy NIF/driver that caused the corruption
       may be long gone.
     </p>
+    <p>
+      Another kind of bugs that are hard to find are <em>memory leaks</em>. They
+      may go unnoticed and not cause problem until a deployed system has been
+      running for a long time.
+    </p>
+    <p>
+      The following sections describe tools that make it easier to both detect
+      and find the root cause of bugs like this. These tools are actively
+      used during development, testing and troubleshooting of the Erlang runtime
+      system itself.
+    </p>
+    <list type="bulleted">
+      <item><seeguide marker="#debug">Debug emulator</seeguide></item>
+      <item><seeguide marker="#asan">Address Sanitizer</seeguide></item>
+      <item><seeguide marker="#valgrind">Valgrind</seeguide></item>
+      <item><seeguide marker="#rr">rr - Record and Replay</seeguide></item>
+    </list>
   </section>
   <section>
-    <title>The debug emulator</title>
+    <marker id="debug"/>
+    <title>Debug emulator</title>
     <p>
       One way to make debugging easier is to run an emulator built with target
       <c>debug</c>. It will
@@ -143,6 +161,7 @@ or
     </p>
   </section>
   <section>
+    <marker id="asan"/>
     <title>Address Sanitizer</title>
     <p>
       <url href="https://clang.llvm.org/docs/AddressSanitizer.html">
@@ -218,6 +237,7 @@ Eshell V13.0.2  (abort with ^G)
     </p>
   </section>
   <section>
+    <marker id="valgrind"/>
     <title>Valgrind</title>
     <p>
       An even more heavy weight debugging tool is <url
@@ -257,6 +277,7 @@ Eshell V13.0.2  (abort with ^G)
 </pre>
   </section>
   <section>
+    <marker id="rr"/>
     <title>rr - Record and Replay</title>
     <p>
       Last but not least, the fantastic interactive debugging tool <url
