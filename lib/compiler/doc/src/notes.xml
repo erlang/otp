@@ -245,6 +245,22 @@
 
 </section>
 
+<section><title>Compiler 8.2.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that could cause the stack trace of
+	    <c>throw</c> exceptions to be erroneously optimized
+	    out.</p>
+          <p>
+	    Own Id: OTP-18626 Aux Id: GH-7356 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
