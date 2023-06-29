@@ -136,6 +136,9 @@ init_per_suite(Config0) ->
             ?P("init_per_suite -> end when "
                "~n      Config: ~p", [Config1]),
             
+            %% We need a monitor on this node also
+            kernel_test_sys_monitor:start(),
+
             Config1
     end.
 
@@ -146,6 +149,9 @@ end_per_suite(Config0) ->
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
     Config1 = ?LIB:end_per_suite(Config0),
+
+    %% Stop the local monitor
+    kernel_test_sys_monitor:stop(),
 
     ?P("end_per_suite -> "
             "~n      Nodes: ~p", [erlang:nodes()]),

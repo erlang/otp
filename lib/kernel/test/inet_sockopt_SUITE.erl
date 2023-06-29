@@ -81,9 +81,25 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
+
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    %% We need a monitor on this node also
+    kernel_test_sys_monitor:start(),
+
     Config.
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    %% Stop the local monitor
+    kernel_test_sys_monitor:stop(),
+
     ok.
 
 init_per_group(_GroupName, Config) ->
