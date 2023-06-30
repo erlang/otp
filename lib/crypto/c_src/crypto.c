@@ -218,6 +218,8 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!create_engine_mutex(env)) {
         return __LINE__;
     }
+    if (!create_curve_mutex())
+        return __LINE__;
 
 #ifdef HAS_3_0_API
     prov_cnt = 0;
@@ -333,7 +335,7 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 static void unload(ErlNifEnv* env, void* priv_data)
 {
     if (--library_refc == 0) {
-        cleanup_algorithms_types(env);
+        destroy_curve_mutex();
         destroy_engine_mutex(env);
     }
 
