@@ -1975,18 +1975,28 @@ socknames_sctp(Config) when is_list(Config) ->
 
 
 socknames_tcp(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_socknames_tcp0(Config) end).
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_socknames_tcp0(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
-do_socknames_tcp0(_Config) ->
+do_socknames_tcp0(_Config, Addr) ->
     %% Begin with a the plain old boring (= port) socket(s)
     ?P("Test socknames for 'old' socket (=port)"),
-    do_socknames_tcp1([]),
+    do_socknames_tcp1([], Addr),
 
     %% And *maybe* also check the 'new' shiny socket sockets
     try socket:info() of
         #{} ->
             ?P("Test socknames for 'new' socket (=socket nif)"),
-            do_socknames_tcp1([{inet_backend, socket}])
+            do_socknames_tcp1([{inet_backend, socket}], Addr)
     catch
         error:notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
@@ -1999,9 +2009,13 @@ do_socknames_tcp0(_Config) ->
     end.
 
 
-do_socknames_tcp1(Conf) ->
+do_socknames_tcp1(Conf, Addr) ->
+    %% For socket on windows, we require binding...
+    ?P("try to bind to ~p", [Addr]),
+    BaseOpts = [{ip, Addr}],
+
     ?P("try create listen socket"),
-    {ok, S1} = gen_tcp:listen(0, Conf),
+    {ok, S1} = gen_tcp:listen(0, Conf ++ BaseOpts),
     ?P("try get socknames for (listen) socket: "
        "~n      ~p", [S1]),
     PortNumber1 = case inet:socknames(S1) of
@@ -2017,7 +2031,7 @@ do_socknames_tcp1(Conf) ->
 			  exit({skip, {listen_socket, Reason1}})
 		  end,
     ?P("try connect to listen socket on port ~p", [PortNumber1]),
-    {ok, S2} = gen_tcp:connect("localhost", PortNumber1, Conf),
+    {ok, S2} = gen_tcp:connect(Addr, PortNumber1, Conf ++ BaseOpts),
     ?P("try get socknames for (connected) socket: "
        "~n      ~p", [S2]),
     case inet:socknames(S2) of
@@ -2057,18 +2071,28 @@ do_socknames_tcp1(Conf) ->
 
 
 socknames_udp(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_socknames_udp0(Config) end).
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_socknames_udp0(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
-do_socknames_udp0(_Config) ->
+do_socknames_udp0(_Config, Addr) ->
     %% Begin with a the plain old boring (= port) socket(s)
     ?P("Test socknames for 'old' socket (=port)"),
-    do_socknames_udp1([]),
+    do_socknames_udp1([], Addr),
 
     %% And *maybe* also check the 'new' shiny socket sockets
     try socket:info() of
         #{} ->
             ?P("Test socknames for 'new' socket (=socket nif)"),
-            do_socknames_udp1([{inet_backend, socket}])
+            do_socknames_udp1([{inet_backend, socket}], Addr)
     catch
         error : notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
@@ -2081,9 +2105,13 @@ do_socknames_udp0(_Config) ->
     end.
 
 
-do_socknames_udp1(Conf) ->
+do_socknames_udp1(Conf, Addr) ->
+    %% For socket on windows, we require binding...
+    ?P("try to bind to ~p", [Addr]),
+    BaseOpts = [{ip, Addr}],
+
     ?P("try create socket"),
-    {ok, S1} = gen_udp:open(0, Conf),
+    {ok, S1} = gen_udp:open(0, Conf ++ BaseOpts),
     ?P("try get socknames for socket: "
        "~n      ~p", [S1]),
     case inet:socknames(S1) of
