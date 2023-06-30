@@ -843,19 +843,21 @@ scan_tqstring(Cs, St, Line, Col, Toks, Qs) ->
         [] ->
             {more, {[], St, Col, Toks, Line, Qs, fun scan_tqstring/6}};
         _ ->
-            Anno = anno(Line, Col, St, []),
-            Chars = lists:duplicate(Qs, $"),%"
-            scan_tqstring_finish(
-              Cs, St, Line, Col, [{tqstring_warning, Anno, Chars}|Toks], Qs)
+            scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs, tqstring)
     end.
 
-scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs) when 1 < Qs ->
-    Anno = anno(Line, Col, St, ?STR(string, St, "\"\"")),
+scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs, TokTag) when 1 < Qs ->
+    Anno = anno(Line, Col, St, ?STR(string, St, [$",$"])),
+    Tok = {TokTag, Anno, ""},
     scan_tqstring_finish(
-      Cs, St, Line, incr_column(Col, 2), [{string, Anno, ""}|Toks], Qs-2);
-scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs) ->
-    Ncs = lists_duplicate(Qs, $", Cs),%"
-    scan1(Ncs, St, Line, incr_column(Col, Qs), Toks).
+      Cs, St, Line, incr_column(Col, 2), [Tok|Toks], Qs-2, string);
+scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs, _TokTag) ->
+    Ncs =
+        case Qs of
+            1 -> [$"|Cs];%"
+            0 -> Cs
+        end,
+    scan1(Ncs, St, Line, Col, Toks).
 
 scan_string(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
     case scan_string0(Cs, St, Line, Col, $\", Str, Wcs) of %"
@@ -1350,10 +1352,6 @@ new_column(no_col=Col, _Ncol) ->
     Col;
 new_column(Col, Ncol) when is_integer(Col) ->
     Ncol.
-
-%% lists:duplicate/3
-lists_duplicate(0, _, L) -> L;
-lists_duplicate(N, X, L) -> lists_duplicate(N-1, X, [X|L]).
 
 nl_spcs(2)  -> "\n ";
 nl_spcs(3)  -> "\n  ";

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
 	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1,
+         triple_quotes_warning/1,
    deterministic_include/1, nondeterministic_include/1]).
 
 -export([epp_parse_erl_form/2]).
@@ -73,6 +74,7 @@ all() ->
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
      otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro,
+     triple_quotes_warning,
      deterministic_include, nondeterministic_include].
 
 groups() ->
@@ -2055,6 +2057,73 @@ otp_16824(Config) when is_list(Config) ->
     [] = compile(Config, Cs),
     ok.
 
+triple_quotes_warning(Config) when is_list(Config) ->
+    Cs1 =
+        [{triple_quotes_warning_1,
+          <<"\n-doc \"foo\".\n">>,
+          []},
+         {triple_quotes_warning_2,
+          <<"\n-doc \"\" \"foo\" \"\".\n">>,
+          []},
+         {triple_quotes_warning_3,
+          <<"\n"
+            "-doc \"\"\"\n"
+            "    foo\n"
+            "    \"\"\".\n">>,
+          {warnings,[{{2,6},epp,tqstring}]}},
+         {triple_quotes_warning_4,
+          <<"\n"
+            "-doc  \"\"\"\"\n"
+            "      \"\"\"\".\n">>,
+          {warnings,
+           [{{2,7},epp,tqstring},
+            {{3,7},epp,tqstring}]}},
+         {triple_quotes_warning_5,
+          <<"\n"
+            "-doc   \"\"\"\"\"\n"
+            "       foo\n"
+            "       \"\"\"\"\".\n">>,
+          {warnings,
+           [{{2,8},epp,tqstring},
+            {{4,9},epp,tqstring}]}}
+        ],
+    [] = compile(Config, Cs1),
+
+    Cs2 =
+        [{triple_quotes_warning_10,
+          <<"\n"
+            "-export([foo/0]).\n"
+            "foo() ->\n"
+            "    \"\"\"\n"
+            "    bar\n"
+            "    \"\"\".\n">>,
+          {warnings,[{{4,5},epp,tqstring}]}},
+         {triple_quotes_warning_11,
+          <<"\n"
+            "-export([foo/0]).\n"
+            "foo() ->\n"
+            "    \"\"\"\"\n"
+            "    ++ lists:duplicate(4, $x) ++\n"
+            "    \"\"\"\".\n">>,
+          {warnings,
+           [{{4,5},epp,tqstring},
+            {{6,5},epp,tqstring}]}},
+         {triple_quotes_warning_12,
+          <<"\n"
+            "-export([foo/0]).\n"
+            "foo() ->\n"
+            "    \"\"\"\"\"\n"
+            "    bar\n"
+            "    \"\"\"\"\".\n">>,
+          {warnings,
+           [{{4,5},epp,tqstring},
+            {{6,6},epp,tqstring}]}} ],
+    [] = compile(Config, Cs2),
+
+    ok.
+
+
+
 %% Start location is 1.
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/3, Tests).
@@ -2084,6 +2153,8 @@ eval_tests(Config, Fun, Tests) ->
                     true ->
                         case E of
                             {errors, Errors} ->
+                                call_format_error(Errors);
+                            {warnings, Errors} ->
                                 call_format_error(Errors);
                             _ ->
                                 ok
