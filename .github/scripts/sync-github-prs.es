@@ -5,6 +5,7 @@
 %% into the Target folder. It tries its best to not create too large
 %% files so that gh will still be happy with us when this is published to
 %% gh pages
+-module('sync-github-prs').
 -mode(compile).
 
 main([Repo, Target]) ->
