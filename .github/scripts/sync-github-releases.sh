@@ -212,7 +212,7 @@ fi
 
 ## If no assets were uploaded, we try to build one instead
 if [ ${UPLOADED} = false ]; then
-    for name in "${#MISSING_PREBUILD[@]}"; do
+    for name in "${MISSING_PREBUILD[@]}"; do
         stripped_name=$(_strip_name "${name}")
         release=$(echo "${stripped_name}" | awk -F. '{print $1}')
         if [[ $release < 24 ]]; then
