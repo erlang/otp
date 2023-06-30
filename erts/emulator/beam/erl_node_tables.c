@@ -1527,7 +1527,7 @@ static void
 insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 {
     union erl_off_heap_ptr u;
-    struct erts_tmp_aligned_offheap tmp;
+    union erts_tmp_aligned_offheap tmp;
     struct insert_offheap2_arg a;
     a.type = BIN_REF;
 
