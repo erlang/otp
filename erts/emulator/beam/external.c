@@ -3367,7 +3367,22 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    ep = enc_pid(acmp, obj, ep, dflags);
 	    break;
 
-	case REF_DEF:
+        case REF_DEF:
+            if ((dflags & DFLAG_ETS_COMPRESSED) && is_internal_magic_ref(obj)) {
+                ErtsMRefThing tmp;
+                ErtsMRefThing *mrtp = (ErtsMRefThing *) internal_ref_val(obj);
+
+                erts_refc_inc(&mrtp->mb->intern.refc, 2);
+
+                *ep++ = MAGIC_REF_INTERNAL_REF;
+                sys_memcpy(&tmp, mrtp, sizeof(ErtsMRefThing));
+                tmp.next = *off_heap;
+                sys_memcpy(ep, &tmp, sizeof(ErtsMRefThing));
+                *off_heap = (struct erl_off_heap_header*) ep;
+                ep += sizeof(ErtsMRefThing);
+                break;
+            }
+            /*else fall through */
 	case EXTERNAL_REF_DEF: {
 	    Uint32 *ref_num;
 	    Eterm sysname = (((dflags & DFLAG_ETS_COMPRESSED) && is_internal_ref(obj))
@@ -4839,6 +4854,19 @@ dec_term_atom_common:
 		*objp = make_binary(sub);
 		break;
 	    }
+        case MAGIC_REF_INTERNAL_REF:
+            {
+                ErtsMRefThing* mrtp = (ErtsMRefThing*) hp;
+                sys_memcpy(mrtp, ep, sizeof(ErtsMRefThing));
+                ep += sizeof(ErtsMRefThing);
+                erts_refc_inc(&mrtp->mb->intern.refc, 2);
+                hp += ERTS_MAGIC_REF_THING_SIZE;
+                mrtp->next = factory->off_heap->first;
+                factory->off_heap->first = (struct erl_off_heap_header*)mrtp;
+                *objp = make_internal_ref(mrtp);
+                ASSERT(is_internal_magic_ref(*objp));
+                break;
+            }
 
 	default:
 	    goto error;
@@ -5063,8 +5091,13 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    result += (1 + encode_size_struct2(acmp, pid_node_name(obj), dflags) +
 		       4 + 4 + 4);
 	    break;
+        case REF_DEF:
+            if ((dflags & DFLAG_ETS_COMPRESSED) && is_internal_magic_ref(obj)) {
+                result += 1 + sizeof(ErtsMRefThing);
+                break;
+            }
+            /* else fall through */
         case EXTERNAL_REF_DEF:
-	case REF_DEF:
 	    i = ref_no_numbers(obj);
 	    result += (1 + 2 + encode_size_struct2(acmp, ref_node_name(obj), dflags) +
 		       4 + 4*i);
@@ -5678,6 +5711,12 @@ init_done:
 	    SKIP(2+sizeof(ProcBin));
 	    heap_size += PROC_BIN_SIZE + ERL_SUB_BIN_SIZE;
 	    break;
+        case MAGIC_REF_INTERNAL_REF:
+            if (!internal_tags)
+                goto error;
+            SKIP(sizeof(ErtsMRefThing));
+            heap_size += ERTS_MAGIC_REF_THING_SIZE;
+            break;
 	default:
 	    goto error;
 	}

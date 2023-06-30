@@ -100,6 +100,7 @@
 -export([otp_9932/1]).
 -export([otp_9423/1]).
 -export([otp_10182/1]).
+-export([compress_magic_ref/1]).
 -export([ets_all/1]).
 -export([massive_ets_all/1]).
 -export([take/1]).
@@ -173,6 +174,7 @@ all() ->
      otp_10182,
      otp_9932,
      otp_9423,
+     compress_magic_ref,
      ets_all,
      massive_ets_all,
      take,
@@ -7753,6 +7755,28 @@ otp_10182(Config) when is_list(Config) ->
               ets:delete(Db),
               In = Out
       end).
+
+%% Verify magic refs in compressed table are reference counted correctly
+compress_magic_ref(Config) when is_list(Config)->
+    F = fun(Opts) ->
+                T = ets:new(banana, Opts),
+                ets:insert(T, {key, atomics:new(2, [])}),
+                erlang:garbage_collect(),  % make really sure no ref on heap
+                [{_, Ref}] = ets:lookup(T, key),
+                #{size := 2} = atomics:info(Ref), % Still alive!
+
+                %% Now test ets:delete will deallocate if last ref
+                WeakRef = term_to_binary(Ref),
+                erlang:garbage_collect(),  % make sure no Ref on heap
+                ets:delete(T, key),
+                StaleRef = binary_to_term(WeakRef),
+                badarg = try atomics:info(StaleRef)
+                         catch error:badarg -> badarg end,
+                ets:delete(T),
+                ok
+          end,
+    repeat_for_opts(F, [[set, ordered_set], compressed]),
+    ok.
 
 %% Test that ets:all include/exclude tables that we know are created/deleted
 ets_all(Config) when is_list(Config) ->
