@@ -398,6 +398,10 @@ handle_event(#wx{id=Id, obj=LogWin, event=Ev},
 	    {noreply, State}
     end;
 
+handle_event(#wx{id=?wxID_CLOSE, obj=Obj, event=#wxCommand{type=command_menu_selected}} = Event, State) ->
+    wxWindow:close(Obj, []),
+    {noreply, State};
+
 handle_event(#wx{id=?LOG_CLEAR, userData=TCtrl}, State) ->
     wxTextCtrl:clear(TCtrl),
     {noreply, State};
