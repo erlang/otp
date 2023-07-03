@@ -4813,7 +4813,12 @@ extern
 ERL_NIF_TERM esaio_close(ErlNifEnv*       env,
                          ESockDescriptor* descP)
 {
-    if (! IS_OPEN(descP->readState)) {
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_close(%d) -> begin closing\r\n",
+            descP->sock) );
+
+     if (! IS_OPEN(descP->readState)) {
         /* A bit of cheeting; maybe not closed yet - do we need a queue? */
         return esock_make_error_closed(env);
     }
@@ -4887,12 +4892,14 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
          * (will result in OPERATION_ABORTED for the threads).
          */
         if (! CancelIoEx((HANDLE) descP->sock, NULL) ) {
-            int save_errno = sock_errno();
+            int          save_errno = sock_errno();
+            ERL_NIF_TERM ereason    = ENO2T(env, save_errno);
 
             SSDBG( descP,
                    ("WIN-ESAIO",
-                    "do_stop {%d} -> cancel I/O failed: %s (%d)\r\n",
-                    descP->sock, erl_errno_id(save_errno), save_errno) );
+                    "do_stop {%d} -> cancel I/O failed: "
+                    "\r\n   %T\r\n",
+                    descP->sock, ereason) );
 
             /* Only issue an error message for errors *other* than
              * 'not found' (since 'not found' means there is no active
@@ -4902,10 +4909,9 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
             if (save_errno != ERROR_NOT_FOUND)
                 esock_error_msg("Failed cancel outstanding I/O operations:"
                                 "\r\n   Socket: " SOCKET_FORMAT_STR
-                                "\r\n   Reason: %s (%d)"
+                                "\r\n   Reason: %T"
                                 "\r\n",
-                                descP->sock,
-                                erl_errno_id(save_errno), save_errno);
+                                descP->sock, ereason);
             
             ret = FALSE;
 
@@ -9556,8 +9562,12 @@ void esaio_stop(ErlNifEnv*       env,
      * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
      */
 
-    if (! IS_PID_UNDEF(&descP->closerPid)) {
-        /* We have a waiting closer process after nif_close()
+    if ( !IS_PID_UNDEF(&descP->closerPid) &&
+        (descP->closeEnv != NULL) ) {
+
+        /* We will only send this message if the user was made to 
+         * wait (async close). In that case we have en env!
+         * We have a waiting closer process after nif_close()
          * - send message to trigger nif_finalize_close()
          */
 
