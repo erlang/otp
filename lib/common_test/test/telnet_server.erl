@@ -1,5 +1,6 @@
 -module(telnet_server).
 -compile(export_all).
+-compile([export_all,nowarn_export_all]).
 
 %% telnet control characters
 -define(SE,	240).
