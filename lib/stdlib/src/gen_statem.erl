@@ -345,6 +345,22 @@
 	    CurrentState :: state(),
 	    data()) ->
     event_handler_result(state()). % New state
+%% The following fun() should have the same type as the previous callback,
+%% but ...
+%% the type language cannot express a fun() with multiple clauses
+%% so we have to specify the union fun() here.  Furthermore this
+%% type is only used for record field #params.callback_mode
+%% so the type checker can verify that we use correct arguments
+%% (could, but all end up in term() so that will be in vain),
+%% but the return value comes from some Module:handle_event/4
+%% function so we cannot assume it is correct, and a type checker
+%% cannot make the connection between such an external function
+%% and this type anyway...
+-type handle_event_fun() ::
+        fun (('enter'                  | event_type(),
+              (OldState :: state())    | event_content(),
+              CurrentState :: state(),
+              data()) -> term()).
 
 %% Clean up before the server terminates.
 -callback terminate(
@@ -410,6 +426,15 @@
    ]).
 
 
+%% Helper function for #params.callback_mode, that caches callback_mode()
+-compile({inline, [params_callback_mode/2]}).
+params_callback_mode(CallbackMode, Modules) ->
+    case CallbackMode of
+        state_functions -> CallbackMode;
+        handle_event_function ->
+            Module = hd(Modules),
+            fun Module:handle_event/4
+end.
 
 %% Type validation functions
 %% - return true if the value is of the type, false otherwise
@@ -492,7 +517,8 @@ event_type(Type) ->
     end).
 
 -record(params,
-        {callback_mode = state_functions :: callback_mode(),
+        {callback_mode = state_functions ::
+           'state_functions' | handle_event_fun(),
          state_enter = false :: boolean(),
          parent :: pid(),
          modules = [?MODULE] :: nonempty_list(module()),
@@ -1375,8 +1401,8 @@ loop_state_callback(
 	case CallbackMode of
 	    state_functions ->
 		Module:State(Type, Content, Data);
-	    handle_event_function ->
-		Module:handle_event(Type, Content, State, Data)
+            HandleEventFun when is_function(HandleEventFun, 4) ->
+		HandleEventFun(Type, Content, State, Data)
 	end
     of
 	Result ->
@@ -2501,7 +2527,7 @@ callback_mode_result(
         true ->
             P#params{
               modules = Modules,
-              callback_mode = CallbackMode,
+              callback_mode = params_callback_mode(CallbackMode, Modules),
               state_enter = StateEnter}
     end.
 
