@@ -48335,6 +48335,8 @@ ttest_tcp(InitState) ->
                                    case Reason of
                                        eaddrnotavail ->
                                            {skip, Reason};
+                                       network_unreachable ->
+                                           {skip, Reason};
                                        _ ->
                                            {error, EI}
                                    end;
