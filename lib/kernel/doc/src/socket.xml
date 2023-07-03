@@ -534,25 +534,63 @@
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)}
 	    </c>
 	    - Receive buffer size.
-	    The value <c>default</c> is only valid to <em>set</em>.
-	    <c>N</c> specifies the number of read attempts to do
-	    in a tight loop before assuming no more data is pending.
+            <p>
+	      The value <c>default</c> is only valid to <em>set</em>.
+            </p>
+            <p>
+	      <c>N</c> specifies the number of read attempts to do
+	      in a tight loop before assuming no more data is pending.
+            </p>
+            <p>
+              This is the allocation size for the receive buffer
+              used when calling the OS protocol stack's receive API,
+              when no specific size (size 0) is requested.
+              When the receive function returns the receive buffer
+              is reallocated to the actually received size.
+              If the data is copied or shrinked in place is up to
+              the allocator, and can to some extent be configured
+              in the Erlang VM.
+            </p>
+            <p>
+              The similar socket option; <c>{socket,rcvbuf}</c>
+              is a related option for the OS' protocol stack
+              that on Unix corresponds to <c>SOL_SOCKET,SO_RCVBUF</c>.
+            </p>
 	  </item>
 	  <tag><c>rcvctrlbuf</c></tag>
 	  <item>
 	    <c>
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
 	    </c>
-	    - Buffer size for received ancillary messages.
-	    The value <c>default</c> is only valid to <em>set</em>.
+	    - Allocation size for the ancillary data buffer used
+            when calling the OS protocol stack's receive API.
+            <p>
+	      The value <c>default</c> is only valid to <em>set</em>.
+            </p>
 	  </item>
 	  <tag><c>sndctrlbuf</c></tag>
 	  <item>
 	    <c>
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
 	    </c>
-	    - Buffer size for sent ancillary messages.
-	    The value <c>default</c> is only valid to <em>set</em>.
+	    - Allocation size for the ancillary data buffer used
+            when calling the OS protocol stack's
+            <seemfa marker="#sendmsg/2">sendmsg</seemfa>
+            API.
+            <p>
+	      The value <c>default</c> is only valid to <em>set</em>.
+            </p>
+            <p>
+              It is the user's responsibility to set a buffer size
+              that has room for the encoded ancillary data
+              in the message to send.
+            </p>
+            <p>
+              See <seemfa marker="#sendmsg/2">sendmsg</seemfa> and
+              also the <c>ctrl</c> field of the
+              <seetype marker="#msg_send"><c>msg_send()</c></seetype>
+              type.
+            </p>
 	  </item>
 	  <tag><c>fd</c></tag>
 	  <item>
