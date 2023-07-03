@@ -28,7 +28,7 @@
 %%%-------------------------------------------------------------------
 -module(ct_hooks_SUITE).
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
@@ -95,7 +95,7 @@ all(suite) ->
        fail_pre_suite_cth, double_fail_pre_suite_cth,
        fail_post_suite_cth, skip_pre_suite_cth, skip_pre_end_cth,
        skip_pre_init_tc_cth, fail_post_init_tc_cth,
-       skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
+       skip_post_suite_cth, recover_post_suite_cth, update_config_cth, update_config_cth2,
        state_update_cth, update_result_cth, options_cth, same_id_cth,
        fail_n_skip_with_minimal_cth, prio_cth, no_config,
        no_init_suite_config, no_init_config, no_end_config,
@@ -225,6 +225,10 @@ recover_post_suite_cth(Config) when is_list(Config) ->
 
 update_config_cth(Config) when is_list(Config) ->
     do_test(update_config_cth, "ct_update_config_SUITE.erl",
+	    [update_config_cth],Config).
+%% no init/end_per_testcase functions in suite
+update_config_cth2(Config) when is_list(Config) ->
+    do_test(update_config_cth2, "ct_update_config_SUITE2.erl",
 	    [update_config_cth],Config).
 
 state_update_cth(Config) when is_list(Config) ->
@@ -1193,122 +1197,134 @@ test_events(recover_post_suite_cth) ->
     ];
 
 test_events(update_config_cth) ->
-    [
-     {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,cth,{'_',init,['_',[]]}},
-
-     {?eh,tc_start,{ct_update_config_SUITE,init_per_suite}},
-     {?eh,cth,{'_',pre_init_per_suite,
-	       [ct_update_config_SUITE,contains([]),[]]}},
-     {?eh,cth,{'_',post_init_per_suite,
-	       [ct_update_config_SUITE,
-		'$proplist',
-		contains(
-			  [init_per_suite,
-			   pre_init_per_suite]),
-		[]]}},
-     {?eh,tc_done,{ct_update_config_SUITE,init_per_suite,ok}},
-
-     {?eh,tc_start,{ct_update_config_SUITE, {init_per_group,group1,[]}}},
-     {?eh,cth,{'_',pre_init_per_group,
-	       [ct_update_config_SUITE,
-                group1,contains(
-			 [post_init_per_suite,
-			  init_per_suite,
-			  pre_init_per_suite]),
-		[]]}},
-     {?eh,cth,{'_',post_init_per_group,
-	       [ct_update_config_SUITE,
-                group1,
-		contains(
-		  [post_init_per_suite,
-		   init_per_suite,
-		   pre_init_per_suite]),
-		contains(
-		  [init_per_group,
-		   pre_init_per_group,
-		   post_init_per_suite,
-		   init_per_suite,
-		   pre_init_per_suite]),
-	       []]}},
-     {?eh,tc_done,{ct_update_config_SUITE,{init_per_group,group1,[]},ok}},
-
-     {?eh,tc_start,{ct_update_config_SUITE,test_case}},
-     {?eh,cth,{'_',pre_init_per_testcase,
-	       [ct_update_config_SUITE,
-                test_case,contains(
-			    [post_init_per_group,
-			     init_per_group,
-			     pre_init_per_group,
-			     post_init_per_suite,
-			     init_per_suite,
-			     pre_init_per_suite]),
-		[]]}},
-     {?eh,cth,{'_',post_end_per_testcase,
-	       [ct_update_config_SUITE,
-                test_case,contains(
-			    [init_per_testcase,
-			     pre_init_per_testcase,
-			     post_init_per_group,
-			     init_per_group,
-			     pre_init_per_group,
-			     post_init_per_suite,
-			     init_per_suite,
-			     pre_init_per_suite]),
-		ok,[]]}},
-     {?eh,tc_done,{ct_update_config_SUITE,test_case,ok}},
-
-     {?eh,tc_start,{ct_update_config_SUITE, {end_per_group,group1,[]}}},
-     {?eh,cth,{'_',pre_end_per_group,
-	       [ct_update_config_SUITE,
-                group1,contains(
-			 [post_init_per_group,
-			  init_per_group,
-			  pre_init_per_group,
-			  post_init_per_suite,
-			  init_per_suite,
-			  pre_init_per_suite]),
-		[]]}},
-     {?eh,cth,{'_',post_end_per_group,
-	       [ct_update_config_SUITE,
-                group1,
-		contains(
-		  [pre_end_per_group,
-		   post_init_per_group,
-		   init_per_group,
-		   pre_init_per_group,
-		   post_init_per_suite,
-		   init_per_suite,
-		   pre_init_per_suite]),
-	       ok,[]]}},
-     {?eh,tc_done,{ct_update_config_SUITE,{end_per_group,group1,[]},ok}},
-
-     {?eh,tc_start,{ct_update_config_SUITE,end_per_suite}},
-     {?eh,cth,{'_',pre_end_per_suite,
-	       [ct_update_config_SUITE,contains(
-					 [post_init_per_suite,
-					  init_per_suite,
-					  pre_init_per_suite]),
-		[]]}},
-     {?eh,cth,{'_',post_end_per_suite,
-	       [ct_update_config_SUITE,contains(
-					 [pre_end_per_suite,
-					  post_init_per_suite,
-					  init_per_suite,
-					  pre_init_per_suite]),
-	       '_',[]]}},
-     {?eh,tc_done,{ct_update_config_SUITE,end_per_suite,ok}},
-     {?eh,test_done,{'DEF','STOP_TIME'}},
-     {?eh,cth,{'_',terminate,[contains(
-				[post_end_per_suite,
-				 pre_end_per_suite,
-				 post_init_per_suite,
-				 init_per_suite,
-				 pre_init_per_suite])]}},
-     {?eh,stop_logging,[]}
-    ];
-
+    Suite = ct_update_config_SUITE,
+    TestCaseEvents =
+        fun(Case, Result) ->
+                [
+                 {?eh,tc_start,{Suite,Case}},
+                 {?eh,cth,{'_',pre_init_per_testcase,
+                           [Suite,
+                            Case,contains(
+                                        [post_init_per_group,
+                                         init_per_group,
+                                         pre_init_per_group,
+                                         post_init_per_suite,
+                                         init_per_suite,
+                                         pre_init_per_suite]),
+                            []]}},
+                 {?eh,cth,{'_',post_init_per_testcase,
+                           [Suite,
+                            Case,contains(
+                                        [init_per_testcase,
+                                         pre_init_per_testcase,
+                                         post_init_per_group,
+                                         init_per_group,
+                                         pre_init_per_group,
+                                         post_init_per_suite,
+                                         init_per_suite,
+                                         pre_init_per_suite]),
+                            ok,[]]}},
+                 {?eh,cth,{'_',pre_end_per_testcase,
+                           [Suite,
+                            Case,contains(
+                                        [post_init_per_testcase,
+                                         init_per_testcase,
+                                         pre_init_per_testcase,
+                                         post_init_per_group,
+                                         init_per_group,
+                                         pre_init_per_group,
+                                         post_init_per_suite,
+                                         init_per_suite,
+                                         pre_init_per_suite]),
+                            []]}},
+                 {?eh,cth,{'_',post_end_per_testcase,
+                           [Suite,
+                            Case,contains(
+                                        [pre_end_per_testcase,
+                                         post_init_per_testcase,
+                                         init_per_testcase,
+                                         pre_init_per_testcase,
+                                         post_init_per_group,
+                                         init_per_group,
+                                         pre_init_per_group,
+                                         post_init_per_suite,
+                                         init_per_suite,
+                                         pre_init_per_suite]),
+                            Result,[]]}},
+                 {?eh,tc_done,{Suite,Case,ok}}
+                ]
+        end,
+    update_config_cth_test_events(TestCaseEvents, Suite);
+test_events(update_config_cth2) ->
+    Suite = ct_update_config_SUITE2,
+    TestCaseEvents =
+        fun(Case, Result) ->
+                {PreEndPerTestcaseHookEventAdd, PostEndPerTestcaseEventAdd} =
+                    %% Case below is unexpected thing which needs clarification
+                    %% test_case_timetrap should behave the same
+                    case lists:member(Case, [test_case_timetrap]) of
+                        true ->
+                            {[], []};
+                        _ ->
+                            {
+                             [{?eh,cth,{'_',pre_end_per_testcase,
+                                        [Suite,
+                                         Case,contains(
+                                                [post_init_per_testcase,
+                                                 %% init_per_testcase,
+                                                 pre_init_per_testcase,
+                                                 post_init_per_group,
+                                                 init_per_group,
+                                                 pre_init_per_group,
+                                                 post_init_per_suite,
+                                                 init_per_suite,
+                                                 pre_init_per_suite]),
+                                         []]}}], [pre_end_per_testcase]}
+                    end,
+                [
+                 {?eh,tc_start,{Suite,Case}},
+                 {?eh,cth,{'_',pre_init_per_testcase,
+                           [Suite,
+                            Case,contains(
+                                        [post_init_per_group,
+                                         init_per_group,
+                                         pre_init_per_group,
+                                         post_init_per_suite,
+                                         init_per_suite,
+                                         pre_init_per_suite]),
+                            []]}},
+                 {?eh,cth,{'_',post_init_per_testcase,
+                           [Suite,
+                            Case,contains(
+                                        [
+                                         %% init_per_testcase,
+                                         pre_init_per_testcase,
+                                         post_init_per_group,
+                                         init_per_group,
+                                         pre_init_per_group,
+                                         post_init_per_suite,
+                                         init_per_suite,
+                                         pre_init_per_suite
+                                        ]),
+                            ok,[]]}}] ++
+                    PreEndPerTestcaseHookEventAdd ++
+                 [{?eh,cth,{'_',post_end_per_testcase,
+                           [Suite,
+                            Case,contains(PostEndPerTestcaseEventAdd ++
+                                        [post_init_per_testcase,
+                                         %% init_per_testcase,
+                                         pre_init_per_testcase,
+                                         post_init_per_group,
+                                         init_per_group,
+                                         pre_init_per_group,
+                                         post_init_per_suite,
+                                         init_per_suite,
+                                         pre_init_per_suite]),
+                            Result,[]]}},
+                 {?eh,tc_done,{Suite,Case,ok}}
+                ]
+        end,
+    update_config_cth_test_events(TestCaseEvents, Suite);
 test_events(state_update_cth) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
@@ -2822,6 +2838,113 @@ test_events(crash_all) ->
 
 test_events(ok) ->
     ok.
+
+update_config_cth_test_events(TestCaseEvents, Suite) ->
+    MaybeEndPerTestcaseCrashEvents =
+        case Suite of
+            ct_update_config_SUITE ->
+                TestCaseEvents(test_case_timetrap_end_per_testcase_crash,
+                               {timetrap_timeout,1000}) ++
+                    TestCaseEvents(test_case_badmatch,
+                                   {error, {{badmatch,2}, '_'}}) ++
+                    TestCaseEvents(test_case_spawn_crash, {'EXIT',bam});
+            _ ->
+                []
+        end,
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,cth,{'_',init,['_',[]]}},
+
+     {?eh,tc_start,{Suite,init_per_suite}},
+     {?eh,cth,{'_',pre_init_per_suite,
+	       [Suite,contains([]),[]]}},
+     {?eh,cth,{'_',post_init_per_suite,
+	       [Suite,
+		'$proplist',
+		contains(
+                  [init_per_suite,
+                   pre_init_per_suite]),
+		[]]}},
+     {?eh,tc_done,{Suite,init_per_suite,ok}},
+
+     {?eh,tc_start,{Suite, {init_per_group,group1,[]}}},
+     {?eh,cth,{'_',pre_init_per_group,
+	       [Suite,
+                group1,contains(
+			 [post_init_per_suite,
+			  init_per_suite,
+			  pre_init_per_suite]),
+		[]]}},
+     {?eh,cth,{'_',post_init_per_group,
+	       [Suite,
+                group1,
+		contains(
+		  [post_init_per_suite,
+		   init_per_suite,
+		   pre_init_per_suite]),
+		contains(
+		  [init_per_group,
+		   pre_init_per_group,
+		   post_init_per_suite,
+		   init_per_suite,
+		   pre_init_per_suite]),
+                []]}},
+     {?eh,tc_done,{Suite,{init_per_group,group1,[]},ok}}] ++
+        TestCaseEvents(test_case, ok) ++
+        TestCaseEvents(test_case_fail,
+                       {error,{test_case_failed,because_i_want_failure}}) ++
+        TestCaseEvents(test_case_timetrap, {timetrap_timeout,1000}) ++
+        MaybeEndPerTestcaseCrashEvents ++
+        [{?eh,tc_start,{Suite, {end_per_group,group1,[]}}},
+         {?eh,cth,{'_',pre_end_per_group,
+                   [Suite,
+                    group1,contains(
+                             [post_init_per_group,
+                              init_per_group,
+                              pre_init_per_group,
+                              post_init_per_suite,
+                              init_per_suite,
+                              pre_init_per_suite]),
+                    []]}},
+         {?eh,cth,{'_',post_end_per_group,
+                   [Suite,
+                    group1,
+                    contains(
+                      [pre_end_per_group,
+                       post_init_per_group,
+                       init_per_group,
+                       pre_init_per_group,
+                       post_init_per_suite,
+                       init_per_suite,
+                       pre_init_per_suite]),
+                    ok,[]]}},
+         {?eh,tc_done,{Suite,{end_per_group,group1,[]},ok}},
+
+         {?eh,tc_start,{Suite,end_per_suite}},
+         {?eh,cth,{'_',pre_end_per_suite,
+                   [Suite,contains(
+                                             [post_init_per_suite,
+                                              init_per_suite,
+                                              pre_init_per_suite]),
+                    []]}},
+         {?eh,cth,{'_',post_end_per_suite,
+                   [Suite,contains(
+                                             [pre_end_per_suite,
+                                              post_init_per_suite,
+                                              init_per_suite,
+                                              pre_init_per_suite]),
+                    '_',[]]}},
+         {?eh,tc_done,{Suite,end_per_suite,ok}},
+         {?eh,test_done,{'DEF','STOP_TIME'}},
+         {?eh,cth,{'_',terminate,[contains(
+                                    [post_end_per_suite,
+                                     pre_end_per_suite,
+                                     post_init_per_suite,
+                                     init_per_suite,
+                                     pre_init_per_suite])]}},
+         {?eh,stop_logging,[]}
+        ].
 
 %% test events help functions
 contains(List) ->
