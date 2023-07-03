@@ -28,6 +28,8 @@
          no_auth/1,
          auth/0,
          auth/1,
+         client_auth_custom_sign/0,
+         client_auth_custom_sign/1,
          client_auth_empty_cert_accepted/0,
          client_auth_empty_cert_accepted/1,
          client_auth_empty_cert_rejected/0,
@@ -96,7 +98,42 @@ auth(Config) ->
                   end,
     ServerOpts =  [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+%%--------------------------------------------------------------------
+client_auth_custom_sign() ->
+    [{doc,"Test that client and server can connect using their own signature function"}].
 
+client_auth_custom_sign(Config) when is_list(Config) ->
+    KeyAlg =  proplists:get_value(cert_key_alg, Config),
+    % 'rsa_pss_rsae' is not an expected config value here, 
+    % using rsa or rsa_pss_pss instad seams to work,
+    % Not sure how to modify SSL to add it in the acceptable key pair groups...
+    CompatibleKeyAlg = case KeyAlg of rsa_pss_rsae -> rsa_pss_pss; _ -> KeyAlg end,
+    Version = proplists:get_value(version,Config),
+    ClientOpts0 =  case Version of
+                      'tlsv1.3' ->
+                          [{verify, verify_peer},
+                           {certificate_authorities, true} |
+                           ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)];
+                      _ ->[{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)]
+                  end,
+    ClientKeyFilePath =  proplists:get_value(keyfile, ClientOpts0),
+    [ClientKeyEntry] = ssl_test_lib:pem_to_der(ClientKeyFilePath),
+    ClientKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ClientKeyEntry)),
+    ClientSignFun = choose_sign_fun(ClientKey),
+
+    ClientCustomKey = {key, #{algorithm => CompatibleKeyAlg, sign_fun => ClientSignFun}},
+    ClientOpts = [ ClientCustomKey | proplists:delete(key, proplists:delete(keyfile, ClientOpts0))],
+
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    ServerKeyFilePath =  proplists:get_value(keyfile, ServerOpts0),
+    [ServerKeyEntry] = ssl_test_lib:pem_to_der(ServerKeyFilePath),
+    ServerKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ServerKeyEntry)),
+    ServerSignFun = choose_sign_fun(ServerKey),
+
+    ServerCustomKey = {key, #{algorithm => CompatibleKeyAlg, sign_fun => ServerSignFun}},
+    ServerOpts = [ ServerCustomKey, {verify, verify_peer} | ServerOpts0],
+
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 %%--------------------------------------------------------------------
 client_auth_empty_cert_accepted() ->
     [{doc,"Client sends empty cert chain as no cert is configured and server allows it"}].
@@ -516,3 +553,30 @@ group_config(Config, ServerOpts, ClientOpts) ->
                 {[{supported_groups, [x448, x25519]} | ServerOpts],
                  [{groups,"P-256:X25519"} | ClientOpts]}
         end.
+
+choose_sign_fun(#'RSAPrivateKey'{} = Key) ->
+    fun (_, {digest, Digest}, _HashAlgo, _KeyOpts, rsa) ->
+            public_key:encrypt_private(Digest, Key, [{rsa_pad, rsa_pkcs1_padding}]);
+        (_, Msg, HashAlgo, _KeyOpts, SignAlgo) ->
+            Options = signature_options(SignAlgo, HashAlgo),
+            public_key:sign(Msg, HashAlgo, Key, Options)
+    end;
+choose_sign_fun({#'RSAPrivateKey'{} = Key, #'RSASSA-PSS-params'{}}) ->
+    fun(_, Msg, HashAlgo, _KeyOpts, SignAlgo) ->
+        Options = signature_options(SignAlgo, HashAlgo),
+        public_key:sign(Msg, HashAlgo, Key, Options)
+    end;
+choose_sign_fun(Key) ->
+    fun
+        (_, Msg, HashAlgo, _KeyOpts, SignAlgo) ->
+            Options = signature_options(SignAlgo, HashAlgo),
+            public_key:sign(Msg, HashAlgo, Key, Options)
+    end.
+
+signature_options(SignAlgo, HashAlgo) when SignAlgo =:= rsa_pss_rsae orelse
+                                           SignAlgo =:= rsa_pss_pss ->
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, -1},
+     {rsa_mgf1_md, HashAlgo}];
+signature_options(_, _) ->
+    [].

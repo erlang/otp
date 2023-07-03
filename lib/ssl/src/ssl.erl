@@ -351,7 +351,9 @@
                                      #{algorithm := rsa | dss | ecdsa, 
                                        engine := crypto:engine_ref(), 
                                        key_id := crypto:key_id(), 
-                                       password => crypto:password()}. % exported
+                                       password => crypto:password()} |
+                                     #{algorithm := rsa | dss | ecdsa, 
+                                       sign_fun := custom_sign()}. % exported
 -type key_pem()                   :: file:filename().
 -type key_pem_password()          :: iodata() | fun(() -> iodata()).
 -type certs_keys()                :: [cert_key_conf()].
@@ -369,6 +371,7 @@
 -type keep_secrets()              :: boolean().
 -type secure_renegotiation()      :: boolean(). 
 -type allowed_cert_chain_length() :: integer().
+-type custom_sign()               :: SignFun :: fun() | {Module :: atom(), Fun :: atom()}.
 
 -type custom_verify()               ::  {Verifyfun :: fun(), InitialUserState :: any()}.
 -type crl_check()                :: boolean() | peer | best_effort.
@@ -1891,6 +1894,8 @@ check_cert_key(UserOpts, CertKeys, LogLevel) ->
                            KF == 'ECPrivateKey'; KF == 'PrivateKeyInfo' ->
                         CertKeys0#{key => Key};
                     {_, #{engine := _, key_id := _, algorithm := _} = Key} ->
+                        CertKeys0#{key => Key};
+                    {_, #{sign_fun := _, algorithm := _} = Key} ->
                         CertKeys0#{key => Key};
                     {new, Err1} ->
                         option_error(key, Err1)

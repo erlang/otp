@@ -2148,6 +2148,12 @@ digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 
+do_digitally_signed(Version, Msg, HashAlgo, #{algorithm := _KeyAlg, 
+                                              sign_fun := Sign} = Key, SignAlgo) when is_function(Sign) ->
+    Sign(Version, Msg, HashAlgo, Key, SignAlgo);
+do_digitally_signed(Version, Msg, HashAlgo, #{algorithm := _KeyAlg,
+                                              sign_fun := {Mod, Fun}} = Key, SignAlgo) ->
+    Mod:Fun(Version, Msg, HashAlgo, Key, SignAlgo);
 do_digitally_signed(Version, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
                                              #'RSASSA-PSS-params'{}}, SignAlgo) when ?TLS_GTE(Version, ?TLS_1_2) ->
     Options = signature_options(SignAlgo, HashAlgo),

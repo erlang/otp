@@ -614,7 +614,27 @@ version.
       ROOT-CA, and so on. The default value is 10.</p>
       </desc>
     </datatype>
-    
+
+    <datatype>
+      <name name="custom_sign"/>
+      <desc><p>The signature fun is to be defined as follows:</p>
+      <code>
+fun(SSL_Verision :: {Major, Minor},
+    Msg :: binary(),
+    HashAlgo :: hash(),
+    Key :: key(),
+    SignAlgo :: sign_algo()) ->
+	Signed :: binary()
+	    </code>
+      <p> The signature fun is called during the tls handshake to use the provided Key to sign the ssl message.
+      By using this option it is possible to completly controll how the signature is done.
+      This comes particularly usefull in cases where the private key is not available to the ssl application.
+      You can use this to implement you own signature or delegate it to other entities or devices.</p>
+      <p> For example: if your private key is stored in a Secure Element, like a TPM or any HSM device,
+      you can use this feature to call your specific drivers to sign the ssl handshake.</p>
+      </desc>
+    </datatype>
+
     <datatype>
       <name name="custom_verify"/>
       <desc>

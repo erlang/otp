@@ -42,7 +42,9 @@
 -export([no_auth/0,
          no_auth/1,
          auth/0,
-         auth/1,
+         auth/1,         
+         client_auth_custom_sign/0,
+         client_auth_custom_sign/1,
          client_auth_empty_cert_accepted/0,
          client_auth_empty_cert_accepted/1,
          client_auth_empty_cert_rejected/0,
@@ -227,7 +229,8 @@ tls_1_2_rsa_tests() ->
 all_version_tests() ->
     [
      no_auth,
-     auth,
+     auth,      
+     client_auth_custom_sign,
      client_auth_empty_cert_accepted,
      client_auth_empty_cert_rejected,
      client_auth_use_partial_chain,
@@ -458,6 +461,11 @@ auth() ->
     ssl_cert_tests:auth().
 auth(Config) ->
     ssl_cert_tests:auth(Config).
+%%--------------------------------------------------------------------
+client_auth_custom_sign() ->
+    ssl_cert_tests:client_auth_custom_sign().
+client_auth_custom_sign(Config) ->
+    ssl_cert_tests:client_auth_custom_sign(Config).
 %%--------------------------------------------------------------------
 client_auth_empty_cert_accepted() ->
     ssl_cert_tests:client_auth_empty_cert_accepted().
