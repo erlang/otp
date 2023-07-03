@@ -2147,14 +2147,18 @@ do_digitally_signed(Version, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
                                              #'RSASSA-PSS-params'{}}, SignAlgo) when ?TLS_GTE(Version, ?TLS_1_2) ->
     Options = signature_options(SignAlgo, HashAlgo),
     public_key:sign(Msg, HashAlgo, Key, Options);
-do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
+do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa)
+  when ?TLS_LTE(Version, ?TLS_1_1) ->
     public_key:encrypt_private(Digest, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
+do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #{algorithm := rsa, encrypt_fun := _} = Key, rsa)
+  when ?TLS_LTE(Version, ?TLS_1_1) ->
+    public_key:encrypt_private(Digest, Key, [{rsa_pad, rsa_pkcs1_padding}]);
 do_digitally_signed(Version, {digest, Digest}, _,
-                    #{algorithm := rsa} = Engine, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
+                    #{algorithm := rsa, engine := _} = Engine, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
     crypto:private_encrypt(rsa, Digest, maps:remove(algorithm, Engine),
                            rsa_pkcs1_padding);
-do_digitally_signed(_, Msg, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
+do_digitally_signed(_, Msg, HashAlgo, #{algorithm := Alg, engine := _} = Engine, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
     crypto:sign(Alg, HashAlgo, Msg, maps:remove(algorithm, Engine), Options);
 do_digitally_signed(Version, {digest, _} = Msg , HashAlgo, Key, _) when ?TLS_LTE(Version,?TLS_1_1) ->
@@ -2162,7 +2166,6 @@ do_digitally_signed(Version, {digest, _} = Msg , HashAlgo, Key, _) when ?TLS_LTE
 do_digitally_signed(_, Msg, HashAlgo, Key, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
     public_key:sign(Msg, HashAlgo, Key, Options).
-
     
 signature_options(SignAlgo, HashAlgo) when SignAlgo =:= rsa_pss_rsae orelse
                                            SignAlgo =:= rsa_pss_pss ->
@@ -2191,6 +2194,10 @@ bad_key(#'ECPrivateKey'{}) ->
     unacceptable_ecdsa_key;
 bad_key(#{algorithm := rsa}) ->
     unacceptable_rsa_key;
+bad_key(#{algorithm := rsa_pss_pss}) ->
+    unacceptable_rsa_pss_pss_key;
+bad_key(#{algorithm := eddsa}) ->
+    unacceptable_eddsa_key;
 bad_key(#{algorithm := ecdsa}) ->
     unacceptable_ecdsa_key.
 
