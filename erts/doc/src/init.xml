@@ -310,6 +310,28 @@ BF</pre>
           <seemfa marker="#get_plain_arguments/0">
           <c>get_plain_arguments/0</c></seemfa>.</p>
       </item>
+      <tag><c>-S Mod [Func [Arg1, Arg2, ...]]</c></tag>
+      <item>
+        <p>Evaluates the specified function call during system
+          initialization. <c>Func</c> defaults to <c>start</c>. If no
+          arguments are provided, the function is assumed to be of arity
+          0. Otherwise it is assumed to be of arity 1, taking the list
+          <c>[Arg1,Arg2,...]</c> as argument. All arguments are passed
+          as strings. If an exception is raised, Erlang stops with an
+          error message.</p>
+        <p>Example:</p>
+        <pre>
+          % <input>erl -S httpd serve --port 8080 /var/www/html</input></pre>
+        <p>This starts the Erlang runtime system and evaluates
+          the function <c>httpd:serve(["--port", "8080", "/var/www/html"])</c>.
+          All arguments up to the end of the command line will be passed
+          to the called function.</p>
+        <p>The function is executed sequentially in an initialization
+          process, which then terminates normally and passes control to
+          the user. This means that a <c>-S</c> call that does not
+          return blocks further processing; to avoid this, use
+          some variant of <c>spawn</c> in such cases.</p>
+      </item>
       <tag><c>-run Mod [Func [Arg1, Arg2, ...]]</c></tag>
       <item>
         <p>Evaluates the specified function call during system
@@ -333,6 +355,10 @@ foo:bar(["baz", "1", "2"]).</code>
           the user. This means that a <c>-run</c> call that does not
           return blocks further processing; to avoid this, use
           some variant of <c>spawn</c> in such cases.</p>
+        <note><p>This flag will not forward arguments beginning with
+          a hyphen (-) to the specified function, as these will be
+          interpreted as flags to the runtime. If the function uses
+          flags in this form, it is advised to use <c>-S</c> instead.</p></note>
       </item>
       <tag><c>-s Mod [Func [Arg1, Arg2, ...]]</c></tag>
       <item>
@@ -359,6 +385,12 @@ foo:bar([baz, '1', '2']).</code>
           some variant of <c>spawn</c> in such cases.</p>
         <p>Because of the limited length of atoms, it is recommended to
           use <c>-run</c> instead.</p>
+        <note><p>This flag will not forward arguments beginning with
+          a hyphen (-) to the specified function, as these will be
+          interpreted as flags to the runtime. If the function uses
+          flags in this form, it is advised to use <c>-S</c> instead,
+          with the additional caveat that arguments are passed as strings
+          instead of atoms.</p></note>
       </item>
     </taglist>
   </section>
