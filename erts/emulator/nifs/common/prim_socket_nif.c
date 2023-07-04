@@ -2294,6 +2294,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(adm_prohibited);   \
     LOCAL_ATOM_DECL(association);      \
     LOCAL_ATOM_DECL(assoc_id);         \
+    LOCAL_ATOM_DECL(atmark);           \
     LOCAL_ATOM_DECL(authentication);   \
     LOCAL_ATOM_DECL(boolean);          \
     LOCAL_ATOM_DECL(bound);	       \
@@ -2314,9 +2315,6 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(eei);              \
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
-    LOCAL_ATOM_DECL(fionread);         \
-    LOCAL_ATOM_DECL(fionspace);        \
-    LOCAL_ATOM_DECL(fionwrite);        \
     LOCAL_ATOM_DECL(frag_needed);      \
     LOCAL_ATOM_DECL(gifaddr);          \
     LOCAL_ATOM_DECL(gifbrdaddr);       \
@@ -2367,6 +2365,9 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(none);             \
     LOCAL_ATOM_DECL(noroute);          \
     LOCAL_ATOM_DECL(not_neighbour);    \
+    LOCAL_ATOM_DECL(nread);            \
+    LOCAL_ATOM_DECL(nspace);           \
+    LOCAL_ATOM_DECL(nwrite);           \
     LOCAL_ATOM_DECL(null);             \
     LOCAL_ATOM_DECL(num_acceptors);    \
     LOCAL_ATOM_DECL(num_cnt_bits);     \
@@ -4805,15 +4806,19 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 #endif
 
 #if defined(FIONREAD)
-  requests = MKC(env, MKT2(env, atom_fionread, MKUL(env, FIONREAD)), requests);
+  requests = MKC(env, MKT2(env, atom_nread, MKUL(env, FIONREAD)), requests);
 #endif
 
 #if defined(FIONWRITE)
-  requests = MKC(env, MKT2(env, atom_fionwrite, MKUL(env, FIONWRITE)), requests);
+  requests = MKC(env, MKT2(env, atom_nwrite, MKUL(env, FIONWRITE)), requests);
 #endif
 
 #if defined(FIONSPACE)
-  requests = MKC(env, MKT2(env, atom_fionspace, MKUL(env, FIONSPACE)), requests);
+  requests = MKC(env, MKT2(env, atom_nspace, MKUL(env, FIONSPACE)), requests);
+#endif
+
+#if defined(SIOCATMARK)
+  requests = MKC(env, MKT2(env, atom_atmark, MKUL(env, SIOCATMARK)), requests);
 #endif
 
 #if defined(SIOCGIFNAME)
@@ -13077,13 +13082,28 @@ ERL_NIF_TERM esock_encode_ioctl_ivalue(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
                                        int              ivalue)
 {
-  ERL_NIF_TERM eivalue = MKI(env, ivalue);
+    ERL_NIF_TERM eivalue = MKI(env, ivalue);
 
-  SSDBG( descP, ("SOCKET", "esock_encode_ioctl_ivalue -> done with"
-		 "\r\n    iValue: %T (%d)"
-		 "\r\n", eivalue, ivalue) );
+    SSDBG( descP, ("SOCKET", "esock_encode_ioctl_ivalue -> done with"
+                   "\r\n    iValue: %T (%d)"
+                   "\r\n", eivalue, ivalue) );
 
-  return esock_make_ok2(env, eivalue);
+    return esock_make_ok2(env, eivalue);
+}
+
+
+extern
+ERL_NIF_TERM esock_encode_ioctl_bvalue(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       int              bvalue)
+{
+    ERL_NIF_TERM ebvalue = ((bvalue) ? esock_atom_true : esock_atom_false);
+
+    SSDBG( descP, ("SOCKET", "esock_encode_ioctl_bvalue -> done with"
+                   "\r\n    bValue: %T (%d)"
+                   "\r\n", ebvalue, bvalue) );
+
+    return esock_make_ok2(env, ebvalue);
 }
 
 

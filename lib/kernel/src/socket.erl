@@ -4428,18 +4428,19 @@ peername(Socket) ->
       Socket :: socket(),
       Reason :: posix() | 'closed';
 
-           (Socket, GetRequest :: 'fionread' | 'fionwrite' | 'fionspace') ->
+           (Socket, GetRequest :: 'nread' | 'nwrite' | 'nspace' | 'atmark') ->
           {'ok', NumBytes :: non_neg_integer()} | {'error', Reason} when
       Socket :: socket(),
       Reason :: posix() | 'closed'.
 
-%% gifconf | fionread | fionwrite | fionspace |
+%% gifconf | nread | nwrite | nspace | atmark |
 %% {gifaddr, string()} | {gifindex, string()} | {gifname, integer()}
 ioctl(?socket(SockRef), gifconf = GetRequest) ->
     prim_socket:ioctl(SockRef, GetRequest);
-ioctl(?socket(SockRef), GetRequest) when (fionread =:= GetRequest) orelse
-                                         (fionwrite =:= GetRequest) orelse
-                                         (fionspace =:= GetRequest) ->
+ioctl(?socket(SockRef), GetRequest) when (nread =:= GetRequest) orelse
+                                         (nwrite =:= GetRequest) orelse
+                                         (nspace =:= GetRequest) orelse
+                                         (atmark =:= GetRequest) ->
     prim_socket:ioctl(SockRef, GetRequest);
 ioctl(Socket, GetRequest) ->
     erlang:error(badarg, [Socket, GetRequest]).

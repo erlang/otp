@@ -450,10 +450,18 @@ static ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
 #define IOCTL_FIONSPACE_FUNC2_DEF
 #endif
 
+/* esock_ioctl_siocatmark */
+#if defined(SIOCATMARK)
+#define IOCTL_SIOCATMARK_FUNC2_DEF IOCTL_GET_FUNC2_DEF(siocatmark)
+#else
+#define IOCTL_SIOCATMARK_FUNC2_DEF
+#endif
+
 #define IOCTL_GET_FUNCS2_DEF			\
     IOCTL_FIONREAD_FUNC2_DEF;			\
     IOCTL_FIONWRITE_FUNC2_DEF;			\
-    IOCTL_FIONSPACE_FUNC2_DEF;
+    IOCTL_FIONSPACE_FUNC2_DEF;			\
+    IOCTL_SIOCATMARK_FUNC2_DEF;
 #define IOCTL_GET_FUNC2_DEF(F)					\
     static ERL_NIF_TERM essio_ioctl_##F(ErlNifEnv*       env,	\
                                         ESockDescriptor* descP)
@@ -3854,6 +3862,12 @@ ERL_NIF_TERM essio_ioctl2(ErlNifEnv*       env,
       break;
 #endif
 
+#if defined(SIOCATMARK)
+  case SIOCATMARK:
+      return essio_ioctl_siocatmark(env, descP);
+      break;
+#endif
+
   default:
     return esock_make_error(env, esock_atom_enotsup);
     break;
@@ -4162,8 +4176,16 @@ ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
 
 /* *** essio_ioctl_fionspace *** */
 #if defined(FIONSPACE)
-#define IOCTL_FIONSPACE_FUNC2_DECL                       \
+#define IOCTL_FIONSPACE_FUNC2_DECL                              \
     IOCTL_GET_REQUEST2_DECL(fionspace, FIONSPACE, ivalue)
+#else
+#define IOCTL_FIONSPACE_FUNC2_DECL
+#endif
+
+/* *** essio_ioctl_siocatmark *** */
+#if defined(SIOCATMARK)
+#define IOCTL_SIOCATMARK_FUNC2_DECL                             \
+    IOCTL_GET_REQUEST2_DECL(siocatmark, SIOCATMARK, bvalue)
 #else
 #define IOCTL_FIONSPACE_FUNC2_DECL
 #endif
@@ -4171,7 +4193,8 @@ ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
 #define IOCTL_GET_FUNCS2                        \
   IOCTL_FIONREAD_FUNC2_DECL			\
   IOCTL_FIONWRITE_FUNC2_DECL			\
-  IOCTL_FIONSPACE_FUNC2_DECL
+  IOCTL_FIONSPACE_FUNC2_DECL			\
+  IOCTL_SIOCATMARK_FUNC2_DECL
 
 #define IOCTL_GET_REQUEST2_DECL(OR, R, EF)				\
   static								\

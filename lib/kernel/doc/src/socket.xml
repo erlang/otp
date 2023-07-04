@@ -2233,23 +2233,29 @@
 	    <p>Result, a list of interfaces, map with name and address. </p>
           </item>
 
-          <tag><c>fionread</c></tag>
+          <tag><c>nread</c></tag>
           <item>
 	    <p>Get the number of bytes that are immediately available
 	    for	reading. </p>
 	    <p>Result, number of bytes, is a <c>integer()</c>. </p>
           </item>
 
-          <tag><c>fionwrite</c></tag>
+          <tag><c>nwrite</c></tag>
           <item>
 	    <p>The number of bytes in the send queue. </p>
 	    <p>Result, number of bytes, is a <c>integer()</c>. </p>
           </item>
 
-          <tag><c>fionspace</c></tag>
+          <tag><c>nspace</c></tag>
           <item>
 	    <p>Get the free space in the send queue. </p>
 	    <p>Result, number of bytes, is a <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>atmark</c></tag>
+          <item>
+	    <p>Test if there is oob (out-of-bound) data waiting to be read. </p>
+	    <p>Result is a <c>boolean()</c>. </p>
           </item>
 
 	</taglist>
