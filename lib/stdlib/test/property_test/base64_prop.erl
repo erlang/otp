@@ -19,36 +19,7 @@
 %%
 -module(base64_prop).
 
--compile([export_all, nowarn_export_all]).
-
--proptest(eqc).
--proptest([triq, proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC, true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
+-include_lib("common_test/include/ct_property_test.hrl").
 
 %%%%%%%%%%%%%%%%%%
 %%% Properties %%%
