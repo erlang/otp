@@ -401,7 +401,8 @@ unicode(State) ->
 unicode(#state{ reader = Reader } = State, Bool) ->
     case Reader of
         {ReaderPid, _} ->
-            call(ReaderPid, {set_unicode_state, Bool});
+            ReaderPid ! {set_unicode_state, Bool},
+            ok;
         undefined ->
             ok
     end,
@@ -463,17 +464,15 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
             {ok, Signal} = tty_read_signal(TTY, SignalRef),
             Parent ! {ReaderRef,{signal,Signal}},
             ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
-        {Alias, {set_unicode_state, _}} when FromEnc =:= {utf16, little} ->
-            %% Ignore requests on windows when in console mode
-            Alias ! {Alias, true},
+        {set_unicode_state, _} when FromEnc =:= {utf16, little} ->
             ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
-        {Alias, {set_unicode_state, Bool}} ->
-            Alias ! {Alias, FromEnc =/= latin1},
+        {set_unicode_state, Bool} ->
             NewFromEnc = if Bool -> utf8; not Bool -> latin1 end,
             ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
         {_Alias, stop} ->
             ok;
         {select, TTY, ReaderRef, ready_input} ->
+            %% This call may block until data is available
             case read_nif(TTY, ReaderRef) of
                 {error, closed} ->
                     Parent ! {ReaderRef, eof},
@@ -489,30 +488,42 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                     ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
                 {ok, UtfXBytes} ->
 
+                    %% read_nif may have blocked for a long time, so we check if
+                    %% there have been any changes to the unicode state before
+                    %% decoding the data.
+                    UpdatedFromEnc = flush_unicode_state(FromEnc),
+
                     {Bytes, NewAcc, NewFromEnc} =
-                        case unicode:characters_to_binary([Acc, UtfXBytes], FromEnc, utf8) of
+                        case unicode:characters_to_binary([Acc, UtfXBytes], UpdatedFromEnc, utf8) of
                             {error, B, Error} ->
                                 %% We should only be able to get incorrect encoded data when
-                                %% using utf8 (i.e. we are on unix)
+                                %% using utf8
                                 FromEnc = utf8,
                                 Parent ! {self(), set_unicode_state, false},
                                 receive
-                                    {Alias, {set_unicode_state, false}} ->
-                                        Alias ! {Alias, true}
-                                end,
-                                receive
-                                    {Parent, set_unicode_state, _} -> ok
+                                    {set_unicode_state, false} ->
+                                        receive
+                                            {Parent, set_unicode_state, _} -> ok
+                                        end
                                 end,
                                 Latin1Chars = unicode:characters_to_binary(Error, latin1, utf8),
                                 {<<B/binary,Latin1Chars/binary>>, <<>>, latin1};
                             {incomplete, B, Inc} ->
-                                {B, Inc, FromEnc};
+                                {B, Inc, UpdatedFromEnc};
                             B when is_binary(B) ->
-                                {B, <<>>, FromEnc}
+                                {B, <<>>, UpdatedFromEnc}
                         end,
                     Parent ! {ReaderRef, {data, Bytes}},
                     ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, NewAcc)
             end
+    end.
+
+flush_unicode_state(FromEnc) ->
+    receive
+        {set_unicode_state, Bool} ->
+            flush_unicode_state(if Bool -> utf8; not Bool -> latin1 end)
+    after 0 ->
+            FromEnc
     end.
 
 writer(TTY) ->
