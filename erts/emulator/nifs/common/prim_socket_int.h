@@ -856,5 +856,8 @@ extern int esock_close_socket(ErlNifEnv*       env,
 extern ERL_NIF_TERM esock_encode_ioctl_ivalue(ErlNifEnv*       env,
                                               ESockDescriptor* descP,
                                               int              ivalue);
+extern ERL_NIF_TERM esock_encode_ioctl_bvalue(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              int              bvalue);
 
 #endif // PRIM_SOCKET_INT_H__

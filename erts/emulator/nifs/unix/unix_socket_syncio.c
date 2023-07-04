@@ -689,6 +689,9 @@ static BOOLEAN_T decode_ioctl_ivalue(ErlNifEnv*       env,
 static ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					int              ivalue);
+static ERL_NIF_TERM encode_ioctl_bvalue(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        int              bvalue);
 
 
 /*
@@ -5027,6 +5030,14 @@ ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
 				 int              ivalue)
 {
     return esock_encode_ioctl_ivalue(env, descP, ivalue);
+}
+
+static
+ERL_NIF_TERM encode_ioctl_bvalue(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 int              bvalue)
+{
+    return esock_encode_ioctl_bvalue(env, descP, bvalue);
 }
 
 static

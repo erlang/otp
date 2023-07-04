@@ -2221,6 +2221,8 @@
 	    anchor="ioctl-gifconf"/>
       <name name="ioctl" arity="2" clause_i="2" since="@OTP-OTP18660@"
 	    anchor="ioctl-fion"/>
+      <name name="ioctl" arity="2" clause_i="3" since="@OTP-OTP18660@"
+	    anchor="ioctl-fion"/>
       <fsummary>Control device.</fsummary>
       <desc>
         <p>Retrieve socket (device) parameters.</p>
@@ -2264,7 +2266,7 @@
 	  <p>To see if a ioctl request is supported on the
 	  current platform: </p>
 	  <code>
-	    Request = fionread,
+	    Request = nread,
 	    {ok, true} = socket:is_supported(ioctl_requests, Request),
 	    . 
             .
