@@ -72,6 +72,9 @@ handle_pr(_Repo, Target,
             io:format("Checking for ~ts~n", [filename:join(PRDir, Ident)]),
             case file:read_file_info(filename:join(PRDir, Ident)) of
                 {error, enoent} ->
+                    io:format("Did not find ~ts. Files in dir are: ~p~n",
+                              [filename:join(PRDir, Ident),
+                               filelib:wildcard(filename:join(PRDir, "*"))]),
                     cmd("rm -rf "++PRDir),
                     ok = file:make_dir(PRDir),
                     ok = file:write_file(filename:join(PRDir,Ident), integer_to_list(Number)),
