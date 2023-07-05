@@ -725,14 +725,14 @@ Eshell V5.10.1  (abort with ^G)
       sessions works just the same as for interactive sessions.
     </p>
     <p>In some situations you may need to be able to read and write raw bytes
-      from <seeerl marker="stdlib:io#standard-input-output"><c>standard_io</c></seeerl>.
+      from <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>.
       If that is the case, then you want to set
       the <seeapp marker="kernel:kernel_app#standard_io_encoding">standard_io_encoding</seeapp>
       configuration parameter to <c>latin1</c> and use the <seeerl marker="kernel:file"><c>file</c></seeerl>
       API to read and write data (as explained in <seeguide marker="#unicode-data-in-files">Unicode Data in Files</seeguide>).
     </p>
-    <p>In the example below we first read the character <c>ξ</c> from <c>standard_io</c>
-      and then print the <seetype marker="unicode:charlist">charlist()</seetype>
+    <p>In the example below we first read the character <c>ξ</c> from <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>
+      and then print the <seetype marker="unicode#charlist">charlist()</seetype>
       represented by it.
     </p>
 <pre>
@@ -753,7 +753,8 @@ $ escript test.es
     <p><c>ξ</c> would normally be represented as the integer 958, but since we are
       using bytewise encoding (<c>latin1</c>), it is represented by 206 and 190,
       which is the utf-8 bytes representing <c>ξ</c>. When we echo those bytes back
-      to standard_io, the terminal will see the bytes as utf-8 and show the
+      to <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>,
+      the terminal will see the bytes as utf-8 and show the
       correct value even though in Erlang we never knew that it was indeed a unicode
       string.</p>
   </section>
@@ -1257,23 +1258,24 @@ ok
         and <seeapp marker="kernel:kernel_app#standard_io_encoding">
         <c>standard_io_encoding</c></seeapp></tag>
       <item>
-        <p>When Erlang is started the I/O server for <c>standard_io</c> is by
-          default set to what the environment variables says. You can override
-          the default by setting the kernel configuration parameter
+        <p>When Erlang is started the encoding for <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype> is by
+          default set to what the <seeguide marker="#the-interactive-shell">locale settings indicate</seeguide>.
+          You can override the default by setting the kernel configuration parameter
           <seeapp marker="kernel:kernel_app#standard_io_encoding">
           <c>standard_io_encoding</c></seeapp> to the desired encoding.</p>
         <p>You can set the encoding of a file or other I/O server with function
           <seemfa marker="stdlib:io#setopts/1"><c>io:setopts/2</c></seemfa>.
           This can also be set when opening a file. Setting the terminal (or
-          other <c>standard_io</c> server) unconditionally to option
-          <c>{encoding,utf8}</c> implies that UTF-8 encoded characters are
-          written to the device, regardless of how Erlang was started or the
-          user's environment.</p>
-        <note>If you use <seemfa marker="stdlib:io#setopts/1"><c>io:setopts/2</c></seemfa>
-          to change the encoding of <c>standard_io</c> the I/O server may already have
+          other <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype> server)
+          unconditionally to option <c>{encoding,utf8}</c> implies that UTF-8
+          encoded characters are written to the device, regardless of how Erlang
+          was started or the user's environment.</p>
+        <note><p>If you use <seemfa marker="stdlib:io#setopts/1"><c>io:setopts/2</c></seemfa>
+          to change the encoding of <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>
+          the I/O server may already have
           read some data using the default encoding. To avoid this you should set
           the encoding using <seeapp marker="kernel:kernel_app#standard_io_encoding">
-          <c>standard_io_encoding</c></seeapp>.</note>
+          <c>standard_io_encoding</c></seeapp>.</p></note>
         <p>Opening files with option <c>encoding</c> is convenient when
           writing or reading text files in a known encoding.</p>
         <p>You can retrieve the <c>encoding</c> setting for an I/O server with
@@ -1404,7 +1406,8 @@ ok</pre>
         terminal: "oldshell" or "noshell") or whatever is suitable to show the
         character properly (for an interactive terminal: the regular shell).</p>
 
-      <p>So, you can always send Unicode data to the <c>standard_io</c> device.
+      <p>So, you can always send Unicode data to the
+        <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype> device.
         Files, however, accept only Unicode code points beyond ISO Latin-1 if
         <c>encoding</c> is set to something else than <c>latin1</c>.</p>
     </section>

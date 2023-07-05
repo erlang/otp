@@ -2915,8 +2915,23 @@ uncompiled code with the same arity are mapped to the same list by
           groups have a <em>group leader</em>. All I/O from the group
           is channeled to the group leader. When a new process is
           spawned, it gets the same group leader as the spawning
-          process. Initially, at system startup, <c>init</c> is both
-          its own group leader and the group leader of all processes.</p>
+          process.</p>
+        <p>Initially, at system startup, <c>init</c> is both
+          its own group leader and the group leader of all processes.
+          During the boot of a system the group leader for processes
+          will be changed depending on the need of the system. Some examples
+          where this is done are:</p>
+        <list type="bulleted">
+          <item>When an application is started, the top supervisor of that
+            application will have its group leader set to the application
+            master. See <seemfa marker="kernel:application#start/2"><c>
+            application:start/2</c></seemfa> for more details.</item>
+          <item>When running tests, both <seeapp marker="common_test:index"><c>common_test</c></seeapp> and
+            <seeerl marker="eunit:eunit"><c>eunit</c></seeerl> set the
+            group leader in order to capture any I/O from the testcase.</item>
+          <item>The <seeerl marker="stdlib:shell">interactive shell</seeerl>
+            sets the group leader to intercept I/O.</item>
+        </list>
       </desc>
     </func>
 

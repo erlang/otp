@@ -41,7 +41,7 @@
      protocols. Normally, it is a <c>IoDevice</c> returned by
      <seemfa marker="kernel:file#open/2"><c>file:open/2</c></seemfa>.
      If no <seetype marker="#device"><c>IoDevice</c></seetype> is given,
-     <c>standard_io</c> is used.</p>
+     <seetype marker="#standard_io"><c>standard_io</c></seetype> is used.</p>
 
     <p>For a description of the I/O protocols, see section
       <seeguide marker="io_protocol">The Erlang I/O Protocol</seeguide>
@@ -71,12 +71,74 @@
     <datatype>
       <name name="device"/>
       <desc>
-        <p>An I/O device, either <c>standard_io</c>, <c>standard_error</c>, a
-          registered name, or a pid handling I/O protocols (returned from
+        <p>An I/O device, either <c>standard_io</c>, <c>standard_error</c>, <c>user</c>,
+          a registered name, or a pid handling I/O protocols (returned from
           <seemfa marker="kernel:file#open/2"><c>file:open/2</c></seemfa>).</p>
-        <p>For more information about the built-in devices see
-          <seeerl marker="#standard-input-output">Standard Input/Output</seeerl>
-          and <seeerl marker="#standard-error">Standard Error</seeerl>.
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="standard_io"/>
+      <desc>
+        <p>All Erlang processes have a default standard I/O device. This
+          device is used when no <c>IoDevice</c> argument is specified in
+          the function calls in this module. However, it is sometimes desirable to
+          use an explicit <c>IoDevice</c> argument that refers to the
+          default I/O device. This is the case with functions that can
+          access either a file or the default I/O device. The atom
+          <c>standard_io</c> has this special meaning. The following example
+          illustrates this:
+        </p>
+
+        <pre>
+27> <input>io:read('enter>').</input>
+enter><input>foo.</input>
+{ok,foo}
+28> <input>io:read(standard_io, 'enter>').</input>
+enter><input>bar.</input>
+{ok,bar}</pre>
+
+         <p>By default all I/O sent to <c>standard_io</c> will en up in the
+           <seetype marker="#user"><c>user</c></seetype> I/O device of the node
+           that spawned the calling process.
+        </p>
+
+        <p><c>standard_io</c> is an alias for <seemfa marker="erts:erlang#group_leader/0"><c>
+          group_leader/0</c></seemfa>, so in order to change where the default input/output
+          requests are sent you can change the group leader for the current process using
+          <seemfa marker="erts:erlang#group_leader/2"><c>
+            group_leader(NewGroupLeader, self())</c></seemfa>.
+        </p>
+
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="standard_error"/>
+      <desc>
+        <p>The I/O device <c>standard_error</c> can be used to direct
+          output to whatever the current operating system considers a suitable
+          I/O device for error output. This can be useful when standard output is
+          redirected. Example on a Unix-like operating system:
+        </p>
+
+        <pre>
+$ <input>erl -noinput -eval 'io:format(standard_error,"Error: ~s~n",["error 11"]),'\</input>
+<input>'init:stop().' > /dev/null</input>
+Error: error 11</pre>
+        </desc>
+    </datatype>
+    <datatype>
+      <name name="user"/>
+      <desc>
+        <p>An I/O device that can be used to interact with the node local
+          <c>stdout</c> and <c>stdin</c>. This can be either a terminal,
+          a pipe, a file, or a combination. You can use <seemfa marker="#getopts/0">
+          <c>getopts/0</c></seemfa> to get more information about the
+          I/O device.
+        </p>
+        <p>See <seeguide marker="unicode_usage#the-interactive-shell">The Interactive Shell</seeguide>
+          and <seeguide marker="unicode_usage#escripts-and-non-interactive-i-o">Escripts and non-interactive I/O</seeguide>
+          in the Using Unicode In Erlang User's Guide for details on how Unicode
+          is handled by <c>user</c>.
         </p>
       </desc>
     </datatype>
@@ -743,7 +805,10 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
               the data can represent codepoints &gt; 255 (the
               <c>latin1</c> range). If the I/O server is set to deliver
               binaries, they are encoded in UTF-8 (regardless of whether
-              the I/O device supports Unicode).</p>
+              the I/O device supports Unicode). If you want the data to
+              be returned as a latin1 encoded binary you should use
+              <seemfa marker="kernel:file#read/2"><c>file:read/2</c></seemfa>
+              instead.</p>
           </item>
           <tag><c>eof</c></tag>
           <item>
@@ -775,7 +840,10 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
               the data can represent codepoints &gt; 255 (the
               <c>latin1</c> range). If the I/O server is set to deliver
               binaries, they are encoded in UTF-8 (regardless of if
-              the I/O device supports Unicode).</p>
+              the I/O device supports Unicode). If you want the data to
+              be returned as a latin1 encoded binary you should use
+              <seemfa marker="kernel:file#read_line/1"><c>file:read_line/1</c></seemfa>
+              instead.</p>
           </item>
           <tag><c>eof</c></tag>
           <item>
@@ -816,8 +884,11 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
       <p>This example is, as can be seen, run in an environment where the
         terminal supports Unicode input and output.</p>
       <p>The <c>terminal</c> option is read only and indicates whether
-        the output stream is a terminal or not.
-        See <seemfa marker="#setopts/1"><c>setopts/1</c></seemfa> for a description
+        the output stream is a terminal or not. When it is a terminal,
+        most systems that Erlang runs on allows the use of
+        <url href="https://en.wikipedia.org/wiki/ANSI_escape_code">ANSI escape codes</url>
+        to control what the terminal outputs.</p>
+      <p>See <seemfa marker="#setopts/1"><c>setopts/1</c></seemfa> for a description
         of the other options.</p>
       </desc>
     </func>
@@ -965,7 +1036,10 @@ enter><input>abc("hey".</input>
       <fsummary>Write a list of characters.</fsummary>
       <desc>
         <p>Writes the characters of <c><anno>CharData</anno></c> to the I/O
-          server (<c><anno>IoDevice</anno></c>).</p>
+          server (<c><anno>IoDevice</anno></c>). If you want to write latin1 encoded
+          bytes to the I/O server you should use
+          <seemfa marker="kernel:file#write/2"><c>file:write/2</c></seemfa>
+          instead.</p>
       </desc>
     </func>
 
@@ -1214,15 +1288,19 @@ fun("") -> {yes, "quit", []};
             <note><p>
               Prior to OTP 26.0, when Erlang was started with the
               <c>-oldshell</c> or <c>-noshell</c> flags (for example, in an
-              <c>escript</c>), the default encoding for <c>standard_io</c> was
-              set to <c>latin1</c>, meaning that any characters &gt; codepoint
-              255 were escaped and that input was expected to be plain 8-bit
-              ISO Latin-1. As of OTP 26.0, <c>standard_io</c> always defaults
+              <c>escript</c>), the default encoding for <seetype marker="#standard_io">
+              <c>standard_io</c></seetype> was set to <c>latin1</c>, meaning
+              that any characters &gt; codepoint 255 were escaped and that input
+              was expected to be plain 8-bit ISO Latin-1. As of OTP 26.0,
+              <seetype marker="#standard_io"><c>standard_io</c></seetype> always defaults
               to <c>unicode</c> if its supported, otherwise <c>latin1</c>.
             </p><p>
-              If you want to send raw bytes on <c>standard_io</c>, you now
-              always need to explicitly set the encoding to <c>latin1</c>;
+              If you want to send raw bytes on <seetype marker="#standard_io"><c>standard_io</c></seetype>,
+              you now always need to explicitly set the encoding to <c>latin1</c>;
               otherwise, code points 128-255 will be converted to UTF-8.
+              This is best done by setting the kernel configuration parameter
+              <seeapp marker="kernel:kernel_app#standard_io_encoding">standard_io_encoding</seeapp>
+              to <c>latin1</c>.
             </p></note>
             <p>Files can also be set in <c>{encoding, unicode}</c>, meaning
               that data is written and read as UTF-8. More encodings are
@@ -1260,49 +1338,6 @@ fun("") -> {yes, "quit", []};
       </desc>
     </func>
   </funcs>
-
-  <section>
-    <title>Standard Input/Output</title>
-    <p>All Erlang processes have a default standard I/O device. This
-      device is used when no <c>IoDevice</c> argument is specified in
-      the function calls in this module. However, it is sometimes desirable to
-      use an explicit <c>IoDevice</c> argument that refers to the
-      default I/O device. This is the case with functions that can
-      access either a file or the default I/O device. The atom
-      <c>standard_io</c> has this special meaning. The following example
-      illustrates this:</p>
-
-    <pre>
-27> <input>io:read('enter>').</input>
-enter><input>foo.</input>
-{ok,foo}
-28> <input>io:read(standard_io, 'enter>').</input>
-enter><input>bar.</input>
-{ok,bar}</pre>
-
-    <p><c>standard_io</c> is an alias for <seemfa marker="erts:erlang#group_leader/0"><c>
-      group_leader/0</c></seemfa>, so in order to change where the default input/output
-      requests are sent you can change the group leader for the current process using
-      <seemfa marker="erts:erlang#group_leader/2"><c>
-      group_leader(NewGroupLeader, self()).</c></seemfa></p>
-
-    <p>There is always a process registered under the name of
-      <c>user</c>. This can be used for sending output to the user.</p>
-  </section>
-
- <section>
-    <title>Standard Error</title>
-    <p>In certain situations, especially when the standard output is
-      redirected, access to an I/O server specific for error messages can be
-      convenient. The I/O device <c>standard_error</c> can be used to direct
-      output to whatever the current operating system considers a suitable
-      I/O device for error output. Example on a Unix-like operating system:</p>
-
-<pre>
-$ <input>erl -noshell -noinput -eval 'io:format(standard_error,"Error: ~s~n",["error 11"]),'\</input>
-<input>'init:stop().' > /dev/null</input>
-Error: error 11</pre>
-  </section>
 
   <section>
     <title>Error Information</title>

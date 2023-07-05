@@ -1169,7 +1169,7 @@
 	<item>A confirmation when the test run is complete.</item>
 	<item>Some special information, such as error reports, progress
 	  reports, and printouts written with <c>erlang:display/1</c>, or <c>io:format/3</c>
-	  specifically addressed to a receiver other than <c>standard_io</c>
+	  specifically addressed to a receiver other than <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>
 	  (for example, the default group leader process <c>user</c>).</item>
       </list>
 
