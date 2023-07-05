@@ -116,6 +116,7 @@
     </section>
    
     <section>
+      <marker id="cth_execution_order"/>
       <title>CTH Execution Order</title>
       <p>By default, each CTH installed is executed in the order that
       they are installed for init calls, and then reversed for end calls.
