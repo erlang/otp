@@ -102,6 +102,9 @@
         <p><c>Priority</c> is the relative priority of this hook. Hooks with a
           lower priority are executed first. If no priority is specified, it 
           is set to <c>0</c>.</p>
+        <p>For details about hook execution order, see section
+        <seeguide marker="ct_hooks_chapter#cth_execution_order">CTH Execution Order</seeguide>
+        in the User's Guide.</p>
 
         <p>For details about when <c>init</c> is called, see section
           <seeguide marker="ct_hooks_chapter#scope">CTH Scope</seeguide>
