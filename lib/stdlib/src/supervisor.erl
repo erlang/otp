@@ -1534,9 +1534,9 @@ add_restart(State) ->
     end.
 
 add_restart(Restarts0, Now, Period) ->
-    Treshold = Now - Period,
+    Threshold = Now - Period,
     Restarts1 = lists:takewhile(
-                  fun (R) -> R >= Treshold end,
+                  fun (R) -> R >= Threshold end,
                   Restarts0
                  ),
     [Now | Restarts1].
