@@ -3098,6 +3098,7 @@ tuple_to_list(_Tuple) ->
       CpuTopology :: cpu_topology();
          ({cpu_topology, defined | detected | used}) -> CpuTopology when
       CpuTopology :: cpu_topology();
+         (cpu_quota) -> pos_integer() | unknown;
          (creation) -> integer();
          (debug_compiled) -> boolean();
          (delayed_node_table_gc) -> infinity | non_neg_integer();
