@@ -9,6 +9,10 @@
 -mode(compile).
 
 main([Repo, Target]) ->
+
+    io:format("Updating PRs in ~ts, current PRs are: ~p~n",
+              [Target, filelib:wildcard(filename:join(Target,"*"))]),
+
     AllOpenPrs = ghapi("gh api --paginate -X GET /repos/"++Repo++"/pulls -f state=open"),
     %% Download all updates, there really should not be any to download as they
     %% are updated when a PR is updated, but we do it anyways just to be safe.
@@ -165,7 +169,9 @@ purge_suite(SuiteFilePath) ->
 %% github actions will not work them. So we purge the largest files until we
 %% reach the 10 GB limit.
 purge_prs(Target) ->
-    Files = string:split(cmd("find " ++ Target ++ " -type f -exec du -a {} \+"),"\n",all),
+    %% Start by deleting all data from common_test test runs as they are huge.
+    os:cmd("rm -rf "++Target++"*/ct_logs/ct_run*/*common_test_test*/run*/log_private/ct_run*"),
+    Files = string:split(cmd("find " ++ Target ++ " -type f -a -name \! suite.log.html -exec du -a {} \+"),"\n",all),
     SortedFiles =
         lists:sort(fun([A|_]=As,[B|_]=Bs) ->
                                binary_to_integer(A) >= binary_to_integer(B)
@@ -173,7 +179,8 @@ purge_prs(Target) ->
     purge_prs(SortedFiles, Target, get_directory_size(Target)).
 purge_prs(Files, Target, Size) when Size > 10_000_000_000 ->
     {H,T} = lists:split(10, Files),
-    [file:write_file(File, "Large file truncated by github") || [_Sz, File] <- H],
+    [file:write_file(File, io_lib:format("Large file (~p bytes) truncated", [Sz]))
+     || [Sz, File] <- H],
     purge_prs(T, Target, get_directory_size(Target));
 purge_prs(_, _, _) ->
     ok.
