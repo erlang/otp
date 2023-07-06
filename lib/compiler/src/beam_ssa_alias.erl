@@ -407,6 +407,10 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
     AAS#aas{alias_map=AliasMap,repeats=Repeats}.
 
 %% Main entry point for the alias analysis
+aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Lbl2SS, AAS) ->
+    %% Nothing happening in the exception block can propagate to the
+    %% other block.
+    aa_blocks(Bs, Lbl2SS, AAS);
 aa_blocks([{L,#b_blk{is=Is0,last=T0}}|Bs0], Lbl2SS0, AAS0) ->
     #{L:=SS0} = Lbl2SS0,
     {SS1,AAS1} = aa_is(Is0, L, SS0, AAS0),
@@ -575,6 +579,8 @@ aa_set_block_exit_ss(ThisBlockLbl, SS, Lbl2SS) ->
     Lbl2SS#{ThisBlockLbl=>SS}.
 
 %% Extend the SS valid on entry to the blocks in the list with NewSS.
+aa_add_block_entry_ss([?EXCEPTION_BLOCK|BlockLabels], NewSS, Lbl2SS) ->
+    aa_add_block_entry_ss(BlockLabels, NewSS, Lbl2SS);
 aa_add_block_entry_ss([L|BlockLabels], NewSS, Lbl2SS) ->
     aa_add_block_entry_ss(BlockLabels, NewSS, aa_merge_ss(L, NewSS, Lbl2SS));
 aa_add_block_entry_ss([], _, Lbl2SS) ->
@@ -928,6 +934,10 @@ aa_update_fun_annotation(#opt_st{ssa=SSA0}=OptSt0, Lbl2SS0, AAS) ->
     {SSA,Lbl2SS} = aa_update_annotation_blocks(reverse(SSA0), [], Lbl2SS0, AAS),
     {OptSt0#opt_st{ssa=SSA},Lbl2SS}.
 
+aa_update_annotation_blocks([{?EXCEPTION_BLOCK,_}=Block|Blocks],
+                            Acc, Lbl2SS, AAS) ->
+    %% There is no point in touching the exception block.
+    aa_update_annotation_blocks(Blocks, [Block|Acc], Lbl2SS, AAS);
 aa_update_annotation_blocks([{Lbl, Block0}|Blocks], Acc, Lbl2SS0, AAS) ->
     Successors = beam_ssa:successors(Block0),
     Lbl2SS = foldl(fun(?EXCEPTION_BLOCK, Lbl2SSAcc) ->
