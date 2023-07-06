@@ -78,7 +78,7 @@ typedef struct process Process;
 #define ERTS_MAX_NO_OF_DIRTY_CPU_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
 #define ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
 
-#define ERTS_DEFAULT_MAX_PROCESSES (1 << 18)
+#define ERTS_DEFAULT_MAX_PROCESSES (1 << 20)
 
 #define ERTS_HEAP_ALLOC(Type, Size)					\
      erts_alloc((Type), (Size))

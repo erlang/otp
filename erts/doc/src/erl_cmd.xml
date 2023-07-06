@@ -1131,7 +1131,7 @@ $ <input>erl \
 	however, be changed in the future. The actual value chosen can be
 	checked by calling
 	<seeerl marker="erlang#system_info_process_limit">erlang:system_info(process_limit)</seeerl>.</p>
-	<p>The default value is <c>262144</c></p>
+	<p>The default value is <c>1048576</c></p>
       </item>
       <tag><marker id="+Q"/><marker id="max_ports"/><c><![CDATA[+Q Number]]></c></tag>
       <item>
