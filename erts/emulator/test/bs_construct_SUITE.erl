@@ -29,7 +29,8 @@
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
          bs_append_offheap/1,
-         reductions/1, fp16/1, zero_init/1, error_info/1, little/1]).
+         reductions/1, fp16/1, zero_init/1, error_info/1, little/1,
+         heap_binary_unit/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -44,7 +45,7 @@ all() ->
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
      bad_append, bs_append_overflow, bs_append_offheap,
      reductions, fp16, zero_init,
-     error_info, little].
+     error_info, little, heap_binary_unit].
 
 init_per_suite(Config) ->
     Config.
@@ -1671,6 +1672,35 @@ do_little_1(126, I) -> <<I:126/little-integer>>;
 do_little_1(127, I) -> <<I:127/little-integer>>;
 do_little_1(128, I) -> <<I:128/little-integer>>.
 
+%% GH-7469: The unit of variable-sized segments wasn't checked properly,
+%% resulting in the creation of heap binaries for non-binary bitstrings.
+heap_binary_unit(_Config) ->
+    {ok, 14524} = heap_binary_unit_1(id(<<184,188,2,66,172,19,0,3>>)),
+    ok.
+
+heap_binary_unit_1(<<2:2/integer,Rest:62/bitstring>>) ->
+    heap_binary_unit_2(<<2:2/integer>>, Rest).
+
+heap_binary_unit_2(Variant, Rest) ->
+    VariantSize = bit_size(Variant),
+    ClockHiSize = 8 - VariantSize,
+    ClockSize = 8 + ClockHiSize,
+    case Rest of
+        <<ClockHi:ClockHiSize/bitstring,
+          ClockLo:8/bitstring,
+          _:48/bitstring>> ->
+            case
+                <<ClockHi:ClockHiSize/bitstring,
+                  ClockLo:8/bitstring>>
+            of
+                <<Clock:ClockSize/integer-unsigned>> ->
+                    {ok, Clock};
+                Bin1 ->
+                    {error1, Bin1}
+            end;
+        Bin2 ->
+            {error2, Bin2}
+    end.
 
 %%%
 %%% Common utilities.
