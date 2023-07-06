@@ -1620,7 +1620,26 @@ Other commands:
              ("\\(?:^\\|[^$]\\)'\\(?:[^'\n]\\|\\\\'\\)*\\(\\$\\)'" 1 "w")
              ;; And the dollar sign in $\" or $\' escapes two
              ;; characters, not just one.
-             ("\\(\\$\\)\\\\[\"']" 1 "'"))))))
+             ("\\(\\$\\)\\\\[\"']" 1 "'")
+             ;; To highlight triple-or-more quoted strings decently:
+             ;; mark the second to last character in a sequence
+             ;; containing an even number of " characters
+             ;; as an expression prefix character.
+             ;; This makes an opening even number of (4 or above)
+             ;; " characters one or more empty strings
+             ;; followed by one prefixed single opening ",
+             ;; so effectively just a single ".
+             ;; A closing even number of " becomes a single closing "
+             ;; followed by zero or more empty strings,
+             ;; and then one string containing just a prefix ".
+             ;; An odd number of opening or closing " works without
+             ;; any tricks since they become empty strings and
+             ;; an opening or closing single " last or first.
+             ;; " chars within a triple-or-more quoted string really
+             ;; does not work, but a single "-quoted string on one line
+             ;; only looses the string highlighting.
+             ("\\(?:\"\"\\)+\\(\"?\\)\"" 1 "'")
+             )))))
 
 
 
