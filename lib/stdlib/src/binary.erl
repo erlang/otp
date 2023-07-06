@@ -108,7 +108,8 @@ bin_to_list(Subject, Pos, Len) ->
     badarg_with_info([Subject, Pos, Len]).
 
 -spec compile_pattern(Pattern) -> cp() when
-      Pattern :: binary() | [binary()].
+      Pattern :: PatternBinary | [PatternBinary,...],
+      PatternBinary :: nonempty_binary().
 
 compile_pattern(_) ->
     erlang:nif_error(undef).
@@ -173,20 +174,21 @@ list_to_bin(_) ->
     erlang:nif_error(undef).
 
 -spec longest_common_prefix(Binaries) -> non_neg_integer() when
-      Binaries :: [binary()].
+      Binaries :: [binary(),...].
 
 longest_common_prefix(_) ->
     erlang:nif_error(undef).
 
 -spec longest_common_suffix(Binaries) -> non_neg_integer() when
-      Binaries :: [binary()].
+      Binaries :: [binary(),...].
 
 longest_common_suffix(_) ->
     erlang:nif_error(undef).
 
 -spec match(Subject, Pattern) -> Found | nomatch when
       Subject :: binary(),
-      Pattern :: binary() | [binary()] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      PatternBinary :: nonempty_binary(),
       Found :: part().
 
 match(_, _) ->
@@ -194,7 +196,8 @@ match(_, _) ->
 
 -spec match(Subject, Pattern, Options) -> Found | nomatch when
       Subject :: binary(),
-      Pattern :: binary() | [binary()] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      PatternBinary :: nonempty_binary(),
       Found :: part(),
       Options :: [Option],
       Option :: {scope, part()}.
@@ -204,7 +207,8 @@ match(_, _, _) ->
 
 -spec matches(Subject, Pattern) -> Found when
       Subject :: binary(),
-      Pattern :: binary() | [binary()] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      PatternBinary :: nonempty_binary(),
       Found :: [part()].
 
 matches(_, _) ->
@@ -212,7 +216,8 @@ matches(_, _) ->
 
 -spec matches(Subject, Pattern, Options) -> Found when
       Subject :: binary(),
-      Pattern :: binary() | [binary()] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      PatternBinary :: nonempty_binary(),
       Found :: [part()],
       Options :: [Option],
       Option :: {scope, part()}.
@@ -243,7 +248,8 @@ referenced_byte_size(_) ->
 
 -spec split(Subject, Pattern) -> Parts when
       Subject :: binary(),
-      Pattern :: binary() | [binary()] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      PatternBinary :: nonempty_binary(),
       Parts :: [binary()].
 
 split(_, _) ->
@@ -251,7 +257,8 @@ split(_, _) ->
 
 -spec split(Subject, Pattern, Options) -> Parts when
       Subject :: binary(),
-      Pattern :: binary() | [binary()] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      PatternBinary :: nonempty_binary(),
       Options :: [Option],
       Option :: {scope, part()} | trim | global | trim_all,
       Parts :: [binary()].
@@ -267,7 +274,8 @@ split(_, _, _) ->
 
 -spec replace(Subject, Pattern, Replacement) -> Result when
       Subject :: binary(),
-      Pattern :: binary() | [ binary() ] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      PatternBinary :: nonempty_binary(),
       Replacement :: binary(),
       Result :: binary().
 
@@ -281,7 +289,8 @@ replace(H,N,R) ->
 
 -spec replace(Subject, Pattern, Replacement, Options) -> Result when
       Subject :: binary(),
-      Pattern :: binary() | [ binary() ] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      PatternBinary :: nonempty_binary(),
       Replacement :: binary(),
       Options :: [Option],
       Option :: global | {scope, part()} | {insert_replaced, InsPos},

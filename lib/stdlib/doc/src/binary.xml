@@ -149,11 +149,12 @@
       only one element. The order of alternatives in a pattern is
       not significant.</p>
 
-      <p>The list of binaries used for search alternatives must be flat and
-      proper.</p>
+      <p>The list of binaries used for search alternatives must be flat,
+      proper and non-empty.</p>
 
-      <p>If <c><anno>Pattern</anno></c> is not a binary or a flat proper list of
-      binaries with length &gt; 0, a <c>badarg</c> exception is raised.</p>
+      <p>If <c><anno>Pattern</anno></c> is not a binary or a flat proper
+      non-empty list of binaries with length &gt; 0, a <c>badarg</c>
+      exception is raised.</p>
       </desc>
     </func>
 
@@ -324,8 +325,8 @@
 2> binary:longest_common_prefix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"perl"&gt;&gt;]).
 0</code>
 
-      <p>If <c><anno>Binaries</anno></c> is not a flat list of binaries, a
-      <c>badarg</c> exception is raised.</p>
+      <p>If <c><anno>Binaries</anno></c> is not a flat non-empty list of
+      binaries, a <c>badarg</c> exception is raised.</p>
       </desc>
     </func>
 
@@ -345,8 +346,8 @@
 2> binary:longest_common_suffix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"perl"&gt;&gt;]).
 0</code>
 
-      <p>If <c>Binaries</c> is not a flat list of binaries, a <c>badarg</c>
-      exception is raised.</p>
+      <p>If <c>Binaries</c> is not a flat non-empty list of binaries, a
+      <c>badarg</c> exception is raised.</p>
       </desc>
     </func>
 
