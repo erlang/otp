@@ -1226,6 +1226,12 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             %% the status of any variables
             {SS0, AAS0}
     end;
+aa_call(_Dst, [#b_remote{mod=#b_literal{val=erlang},
+                         name=#b_literal{val=exit},
+                         arity=1}|_], _Anno, SS, AAS) ->
+    %% The function will never return, so nothing that happens after
+    %% this can influence the aliasing status.
+    {SS, AAS};
 aa_call(Dst, [_Callee|Args], _Anno, SS, AAS) ->
     %% This is either a call to a fun or to an external function,
     %% assume that all arguments and the result escape.
