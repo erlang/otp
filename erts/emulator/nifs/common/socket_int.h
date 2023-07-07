@@ -647,7 +647,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define GET_MAP_VAL(E, M, K, V)     enif_get_map_value((E), (M), (K), (V))
 
 #define ALLOC_BIN(SZ, BP)         enif_alloc_binary((SZ), (BP))
-#define REALLOC_BIN(SZ, BP)       enif_realloc_binary((SZ), (BP))
+#define REALLOC_BIN(BP, SZ)       enif_realloc_binary((BP), (SZ))
 #define FREE_BIN(BP)              enif_release_binary((BP))
 
 #define FREE_IOVEC(IV)            enif_free_iovec((IV))

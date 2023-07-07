@@ -2816,21 +2816,10 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
                               fromAddrP, fromAddrLen,
                               &eSockAddr);
 
-        if (read == bufP->size) {
-
-            data = MKBIN(env, bufP);
-
-        } else {
-
-            /* +++ We got a chunk of data but +++
-             * +++ since we did not fill the  +++
-             * +++ buffer, we must split it   +++
-             * +++ into a sub-binary.         +++
-             */
-
-            data = MKBIN(env, bufP);
-            data = MKSBIN(env, data, 0, read);
+        if (read != bufP->size) {
+            ESOCK_ASSERT( REALLOC_BIN(bufP, read) );
         }
+        data = MKBIN(env, bufP);
 
         ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_pkg,
                       &descP->readPkgCnt, 1);
@@ -7066,8 +7055,8 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
     /* This transfers "ownership" of the *allocated* binary to an
      * erlang term (no need for an explicit free).
      */
+    ESOCK_ASSERT( REALLOC_BIN(bufP, read) );
     data = MKBIN(env, bufP);
-    data = MKSBIN(env, data, 0, read);
 
     SSDBG( descP,
            ("UNIX-ESSIO", "recv_check_partial_done(%T) {%d} -> [%ld] done\r\n",
@@ -7116,8 +7105,8 @@ ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
         ERL_NIF_TERM data;
 
         descP->readState |= ESOCK_STATE_SELECTED;
+        ESOCK_ASSERT( REALLOC_BIN(bufP, read) );
 	data = MKBIN(env, bufP);
-	data = MKSBIN(env, data, 0, read);
 	res  = MKT2(env, esock_atom_select, data);
     }
 
