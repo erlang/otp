@@ -1043,17 +1043,28 @@ simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
 simplify(#b_set{op=bs_create_bin=Op,dst=Dst,args=Args0,anno=Anno}=I0,
          Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
-    I1 = I0#b_set{args=Args},
-    #t_bitstring{size_unit=Unit} = T = type(Op, Args, Anno, Ts0, Ds0),
-    I2 = case T of
-             #t_bitstring{appendable=true} ->
-                 beam_ssa:add_anno(result_type, T, I1);
-             _ -> I1
-         end,
-    I = beam_ssa:add_anno(unit, Unit, I2),
-    Ts = Ts0#{ Dst => T },
-    Ds = Ds0#{ Dst => I },
-    {I, Ts, Ds};
+
+    case Args of
+        [#b_literal{val=binary},
+         #b_literal{val=[1|_]},
+         #b_literal{val=Bitstring}=Lit,
+         #b_literal{val=all}] when is_bitstring(Bitstring) ->
+            %% If all we're doing is creating a single constant bitstring, we
+            %% may as well return it directly.
+            Sub#{ Dst => Lit };
+        [_|_] ->
+            I1 = I0#b_set{args=Args},
+            #t_bitstring{size_unit=Unit} = T = type(Op, Args, Anno, Ts0, Ds0),
+            I2 = case T of
+                    #t_bitstring{appendable=true} ->
+                        beam_ssa:add_anno(result_type, T, I1);
+                    _ -> I1
+                end,
+            I = beam_ssa:add_anno(unit, Unit, I2),
+            Ts = Ts0#{ Dst => T },
+            Ds = Ds0#{ Dst => I },
+            {I, Ts, Ds}
+    end;
 simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
