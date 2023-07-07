@@ -33,11 +33,11 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           token: ${{ secrets.ERLANG_TOKEN }}
           repository: 'erlang/erlang.github.io'
           path: erlang.github.io
-      - uses: actions/checkout@v3
       - name: Update PRs
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
