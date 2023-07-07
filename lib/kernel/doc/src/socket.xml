@@ -2269,7 +2269,7 @@
 	    Request = nread,
 	    {ok, true} = socket:is_supported(ioctl_requests, Request),
 	    . 
-            .
+	    .
 	    .
 	  </code>
 	</note>
