@@ -54,8 +54,8 @@ groups() ->
        cpd_expl_provided_DTD]},
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
-       pe_ref1, copyright, testXSEIF, export_simple1, export,
-       default_attrs_bug, xml_ns, scan_splits_string_bug,
+       pe_ref1, copyright, testXSEIF, export_simple1, export_simple_cdata,
+       export_embedded_cdata, export, default_attrs_bug, xml_ns, scan_splits_string_bug,
        allow_entities_test]},
      {eventp_tests, [], [sax_parse_and_export]},
      {ticket_tests, [],
@@ -295,6 +295,20 @@ export_simple1(_Config) ->
     true = (Res2 =:= Res),
     ok.
 
+export_simple_cdata(_Config) ->
+    Simple = "<?xml version=\"1.0\"?><value><![CDATA[<html><body><p>Some text</p></body></html>]]></value>",
+    SimpleXml = simple_cdata(),
+    Res = xmerl:export_simple([SimpleXml],xmerl_xml),
+    true = (Simple =:= lists:flatten(Res)),
+    ok.
+
+export_embedded_cdata(_Config) ->
+    Embedded = "<?xml version=\"1.0\"?><value><![CDATA[<html><body><p>Some ]]]]><![CDATA[> text</p></body></html>]]></value>",
+    SimpleXml = embedded_cdata(),
+    Res = xmerl:export_simple([SimpleXml],xmerl_xml),
+    true = (Embedded =:= lists:flatten(Res)),
+    ok.
+
 export(Config) ->
     DataDir = datadir(Config),
     Prolog = ["<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<!DOCTYPE motorcycles SYSTEM \"motorcycles.dtd\">\n"],
@@ -436,6 +450,22 @@ generate_heading_col(0) ->
     done;
 generate_heading_col(N) ->
     {{col,[lists:concat(["head",N])]},N-1}.
+
+simple_cdata() ->
+    {xmlElement,value,value,[],
+     {xmlNamespace,[],[]},
+     [],1,[],
+     [{xmlText,[{value,1}],
+               1,[],"<html><body><p>Some text</p></body></html>",cdata}],
+     [],"",undeclared}.
+
+embedded_cdata() ->
+    {xmlElement,value,value,[],
+     {xmlNamespace,[],[]},
+     [],1,[],
+     [{xmlText,[{value,1}],
+               1,[],"<html><body><p>Some ]]> text</p></body></html>",cdata}],
+     [],"",undeclared}.
 
 %%----------------------------------------------------------------------
 %% Ticket Tests

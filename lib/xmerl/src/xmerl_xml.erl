@@ -27,9 +27,10 @@
 
 -export(['#root#'/4,
 	 '#element#'/5,
-	 '#text#'/1]).
+	 '#text#'/1,
+	 '#cdata#'/1]).
 
--import(xmerl_lib, [markup/3, empty_tag/2, export_text/1]).
+-import(xmerl_lib, [markup/3, empty_tag/2, export_text/1, export_cdata/1]).
 
 -include("xmerl.hrl").
 -include("xmerl_internal.hrl").
@@ -38,12 +39,17 @@
 '#xml-inheritance#'() -> [].
 
 
-%% The '#text#' function is called for every text segment.
+%% The '#text#' function is called for every text segment where type is 'text'.
 
 '#text#'(Text) ->
 %?dbg("Text=~p~n",[Text]),
     export_text(Text).
 
+%% The '#cdata#' function is called for every text segment where type is 'cdata'.
+
+'#cdata#'(Text) ->
+%?dbg("Cdata Text=~p~n",[Text]),
+    export_cdata(Text).
 
 %% The '#root#' tag is called when the entire structure has been
 %% exported. It does not appear in the structure itself.
