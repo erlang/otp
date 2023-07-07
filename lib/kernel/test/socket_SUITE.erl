@@ -345,7 +345,7 @@
          %% Socket IOCTL simple
          ioctl_simple1/1,
          ioctl_simple2/1,
-         ioctl_fionread/1,
+         ioctl_nread/1,
          %% Socket IOCTL get requests
          ioctl_get_gifname/1,
          ioctl_get_gifindex/1,
@@ -1357,7 +1357,7 @@ ioctl_simple_cases() ->
     [
      ioctl_simple1,
      ioctl_simple2,
-     ioctl_fionread
+     ioctl_nread
     ].
 
 
@@ -37243,22 +37243,22 @@ do_ioctl_simple2(_State) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test the ioctl fionread feature.
+%% This test case is intended to (simply) test the ioctl nread feature.
 %%
 
-ioctl_fionread(_Config) when is_list(_Config) ->
+ioctl_nread(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(?FUNCTION_NAME,
            fun() ->
                    has_support_ioctl_requests(),
-                   has_support_ioctl_fionread()
+                   has_support_ioctl_nread()
            end,
            fun() ->
                    InitState = #{},
-                   ok = do_ioctl_fionread(InitState)
+                   ok = do_ioctl_nread(InitState)
            end).
 
-do_ioctl_fionread(_) ->
+do_ioctl_nread(_) ->
     i("Get local socket address"),
     LSA = which_local_socket_addr(inet),
     i("Use LSA: ~p", [LSA]),
@@ -37276,7 +37276,7 @@ do_ioctl_fionread(_) ->
     ok = socket:bind(S2, LSA),
 
     i("Check data to read - expect 0 bytes"),
-    {ok, 0} = socket:ioctl(S1, fionread),
+    {ok, 0} = socket:ioctl(S1, nread),
     
     i("Get socket 1 port number"),
     {ok, #{port := Port1}} = socket:sockname(S1),
@@ -37290,7 +37290,7 @@ do_ioctl_fionread(_) ->
     ?SLEEP(?SECS(1)),
     
     i("Verify that the correct amount of data (atleast ~p) is available", [DataSz]),
-    case socket:ioctl(S1, fionread) of
+    case socket:ioctl(S1, nread) of
         {ok, DataSize} when (DataSize >= DataSz) ->
             i("Success: "
 	      "~n   Min Size:    ~p"
@@ -37307,7 +37307,7 @@ do_ioctl_fionread(_) ->
     {ok, {_, Data}} = socket:recvfrom(S1),
     
     i("Verify that the data has been read (no more data is available)"),
-    {ok, 0} = socket:ioctl(S1, fionread),
+    {ok, 0} = socket:ioctl(S1, nread),
 
     i("Cleanup"),
     socket:close(S1),
@@ -51785,8 +51785,8 @@ has_support_ioctl_requests() ->
 has_support_ioctl_gifconf() ->
     has_support_ioctl_request(gifconf).
 
-has_support_ioctl_fionread() ->
-    has_support_ioctl_request(fionread).
+has_support_ioctl_nread() ->
+    has_support_ioctl_request(nread).
 
 has_support_ioctl_gifname() ->
     has_support_ioctl_request(gifname).
