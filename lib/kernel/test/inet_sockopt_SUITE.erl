@@ -80,11 +80,43 @@ all() ->
 groups() -> 
     [].
 
-init_per_suite(Config) ->
-    Config.
+init_per_suite(Config0) ->
 
-end_per_suite(_Config) ->
-    ok.
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite([{allow_skip, false} | Config0]) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+            
+            %% We need a monitor on this node also
+            kernel_test_sys_monitor:start(),
+
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+
+            Config1
+    end.
+
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    %% Stop the local monitor
+    ?P("init_per_suite -> try stop system monitor"),
+    kernel_test_sys_monitor:stop(),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+            "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -94,9 +126,36 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Func, Config) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), links(), monitors()]),
+
+    kernel_test_global_sys_monitor:reset_events(),
+
+    ?P("init_per_testcase -> done when"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), links(), monitors()]),
     Config.
 
-end_per_testcase(_Func, _Config) ->
+end_per_testcase(_Func, Config) ->
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), links(), monitors()]),
+
+    ?P("system events during test: "
+       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), links(), monitors()]),
     ok.
 
 %% Test inet:setopt/getopt simple functionality.
@@ -196,21 +255,30 @@ nintbin2int(<<>>) -> 0.
 
 %% Test setopt/getopt of multiple raw options.
 multiple_raw(Config) when is_list(Config) ->
-    do_multiple_raw(Config,false).
+    Cond = fun() -> is_not_openbsd() end,
+    Pre  = fun() -> false end,
+    Case = fun(State) -> do_multiple_raw(Config, State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+    
 
 %% Test setopt/getopt of multiple raw options, with binaries in
 %% getopt.
 multiple_raw_getbin(Config) when is_list(Config) ->
-    do_multiple_raw(Config,true).
+    Cond = fun() -> is_not_openbsd() end,
+    Pre  = fun() -> true end,
+    Case = fun(State) -> do_multiple_raw(Config, State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
 do_multiple_raw(Config, Binary) ->
-    Port = start_helper(Config),
-    SolSocket = ask_helper(Port, ?C_GET_SOL_SOCKET),
-    SoKeepalive = ask_helper(Port, ?C_GET_SO_KEEPALIVE),
-    SoKeepaliveTrue = {raw,SolSocket,SoKeepalive,<<1:32/native>>},
+    Port             = start_helper(Config),
+    SolSocket        = ask_helper(Port, ?C_GET_SOL_SOCKET),
+    SoKeepalive      = ask_helper(Port, ?C_GET_SO_KEEPALIVE),
+    SoKeepaliveTrue  = {raw,SolSocket,SoKeepalive,<<1:32/native>>},
     SoKeepaliveFalse = {raw,SolSocket,SoKeepalive,<<0:32/native>>},
-    SoDontroute = ask_helper(Port, ?C_GET_SO_DONTROUTE),
-    SoDontrouteTrue = {raw,SolSocket,SoDontroute,<<1:32/native>>},
+    SoDontroute      = ask_helper(Port, ?C_GET_SO_DONTROUTE),
+    SoDontrouteTrue  = {raw,SolSocket,SoDontroute,<<1:32/native>>},
     SoDontrouteFalse = {raw,SolSocket,SoDontroute,<<0:32/native>>},
     {S1,S2} =
 	create_socketpair(
@@ -1085,3 +1153,40 @@ binarify(Size,Binary) when Binary =:= true ->
     <<0:Size/unit:8>>;
 binarify(Size,Binary) when Binary =:= false ->
     Size.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Here are all the *general* test case condition functions.
+
+is_not_openbsd() ->
+    is_not_platform(openbsd, "OpenBSD").
+
+is_not_platform(Platform, PlatformStr)
+  when is_atom(Platform) andalso is_list(PlatformStr) ->
+      case os:type() of
+          {unix, Platform} ->
+              skip("This does not work on " ++ PlatformStr);
+        _ ->
+            ok
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+skip(Reason) ->
+    throw({skip, Reason}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+links() ->
+    pi(links).
+
+monitors() ->
+    pi(monitors).
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
