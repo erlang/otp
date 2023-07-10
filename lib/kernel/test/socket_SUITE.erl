@@ -4754,57 +4754,78 @@ api_b_sendmsg_iov_dgram_inet6(Config) when is_list(Config) ->
     api_b_sendmsg_iov_dgram(inet6).
 %%
 api_b_sendmsg_iov_dgram_local(Config) when is_list(Config) ->
-    is_not_windows(),
     has_support_unix_domain_socket(),
+    is_not_windows(), % on Windows, local only works for stream sockets
     api_b_sendmsg_iov_dgram(local).
 
 api_b_sendmsg_iov_stream_inet(Config) when is_list(Config) ->
     has_support_ipv4(),
+    is_not_windows(), % sendmsg does not work on Windows
     api_b_sendmsg_iov_stream(inet).
 %%
 api_b_sendmsg_iov_stream_inet6(Config) when is_list(Config) ->
     has_support_ipv6(),
+    is_not_windows(), % sendmsg does not work on Windows
     api_b_sendmsg_iov_stream(inet6).
 %%
 api_b_sendmsg_iov_stream_local(Config) when is_list(Config) ->
     has_support_unix_domain_socket(),
+    is_not_windows(), % sendmsg does not work on Windows
     api_b_sendmsg_iov_stream(local).
 
 
 api_b_sendmsg_iov_dgram(Domain) ->
+    ?P("api_b_sendmsg_iov_dgram -> entry with"
+       "~n   Domain: ~p", [Domain]),
     ?TT(?SECS(5)),
     #{iov_max := IOVMax} = socket:info(),
+    ?P("api_b_sendmsg_iov_dgram -> IOVMax: ~p", [IOVMax]),
     IOV =
         lists:map(
           fun (N) -> <<(rand:uniform(N) - 1)>> end,
           lists:duplicate(IOVMax, 256)),
     IOVTooLarge = IOV ++ IOV,
     Data = erlang:iolist_to_binary(IOV),
-    {ok, Sa} = socket:open(Domain, dgram),
+    ?P("api_b_sendmsg_iov_dgram -> a: create socket"),
+    {ok, Sa} = socket:open(Domain, dgram, #{debug => true}),
     try
+	?P("api_b_sendmsg_iov_dgram -> b: create socket"),
         {ok, Sb} = socket:open(Domain, dgram),
         try
+	    ?P("api_b_sendmsg_iov_dgram -> a: bind socket"),
             ok = socket:bind(Sa, which_local_socket_addr(Domain)),
+	    ?P("api_b_sendmsg_iov_dgram -> b: bind socket"),
             ok = socket:bind(Sb, which_local_socket_addr(Domain)),
+	    ?P("api_b_sendmsg_iov_dgram -> a: get sockname"),
             {ok, Aa} = socket:sockname(Sa),
+	    ?P("api_b_sendmsg_iov_dgram -> b: get sockname"),
             {ok, Ab} = socket:sockname(Sb),
             %%
+	    ?P("api_b_sendmsg_iov_dgram -> a: sendmsg"),
             ok = socket:sendmsg(Sa, #{addr => Ab, iov => IOV}),
+	    ?P("api_b_sendmsg_iov_dgram -> b: recvfrom"),
             {ok, {Aa, Data}} = socket:recvfrom(Sb),
             %%
+	    ?P("api_b_sendmsg_iov_dgram -> b: sendmsg (too large => fail)"),
             {error, {invalid, _}} =
                 socket:sendmsg(Sb, #{addr => Aa, iov => IOVTooLarge}),
+	    ?P("api_b_sendmsg_iov_dgram -> done"),
             ok
         after
+	    ?P("api_b_sendmsg_iov_dgram -> b: close socket"),
             socket:close(Sb)
         end
     after
+	?P("api_b_sendmsg_iov_dgram -> a: close socket"),
         socket:close(Sa)
     end.
 
 api_b_sendmsg_iov_stream(Domain) ->
+    ?P("api_b_sendmsg_iov_stream -> entry with"
+       "~n   Domain: ~p", [Domain]),
     ?TT(?SECS(5)),
     #{iov_max := IOVMax} = socket:info(),
+    ?P("api_b_sendmsg_iov_stream -> IOVMax: ~p", [IOVMax]),
     IOV =
         lists:map(
           fun (N) -> <<(rand:uniform(N) - 1)>> end,
@@ -4812,44 +4833,64 @@ api_b_sendmsg_iov_stream(Domain) ->
     IOVTooLarge = IOV ++ IOV,
     Data = erlang:iolist_to_binary(IOV),
     DataTooLarge = erlang:iolist_to_binary(IOVTooLarge),
+    ?P("api_b_sendmsg_iov_stream -> create stream socket a"),
     {ok, Sa} = socket:open(Domain, stream),
     try
         case os:type() of
             {win32,nt} ->
+		?P("api_b_sendmsg_iov_stream-> [win] a: bind socket"),
                 ok = socket:bind(Sa, which_local_socket_addr(Domain));
             _ ->
                 ok
         end,
+	?P("api_b_sendmsg_iov_stream -> create stream socket b"),
         {ok, Sb} = socket:open(Domain, stream),
         try
+	    ?P("api_b_sendmsg_iov_stream -> b: bind socket"),
             ok = socket:bind(Sb, which_local_socket_addr(Domain)),
+	    ?P("api_b_sendmsg_iov_stream -> b: get sockname"),
             {ok, Ab} = socket:sockname(Sb),
+	    ?P("api_b_sendmsg_iov_stream -> b: make socket listen"),
             ok = socket:listen(Sb),
+	    ?P("api_b_sendmsg_iov_stream -> a: connect socket to b"),
             ok = socket:connect(Sa, Ab),
+	    ?P("api_b_sendmsg_iov_stream -> a: get sockname"),
             {ok, Aa} = socket:sockname(Sa),
+	    ?P("api_b_sendmsg_iov_stream -> a: get peername"),
             {ok, Ab} = socket:peername(Sa),
+	    ?P("api_b_sendmsg_iov_stream -> accept connection (=> c)"),
             {ok, Sc} = socket:accept(Sb),
             try
+		?P("api_b_sendmsg_iov_stream -> c: get sockname"),
                 {ok, Ab} = socket:sockname(Sc),
+		?P("api_b_sendmsg_iov_stream -> c: get peername"),
                 {ok, Aa} = socket:peername(Sc),
                 %%
+		?P("api_b_sendmsg_iov_stream -> a: sendmsg"),
                 ok = socket:sendmsg(Sa, #{iov => IOV}),
+		?P("api_b_sendmsg_iov_stream -> c: recv"),
                 {ok, Data} =
                     socket:recv(Sc, byte_size(Data)),
+		?P("api_b_sendmsg_iov_stream -> c: sendmsg (too large)"),
                 ok = socket:sendmsg(Sc, #{iov => IOVTooLarge}),
+		?P("api_b_sendmsg_iov_stream -> a: recv"),
                 {ok, DataTooLarge} =
                     socket:recv(Sa, byte_size(DataTooLarge)),
+		?P("api_b_sendmsg_iov_stream -> done"),
                 ok
             catch
                 error:notsup = Reason:_ ->
+		    ?P("api_b_sendmsg_iov_stream -> notsup"),
                     exit({skip, Reason})
             after
                 socket:close(Sc)
             end
         after
+	    ?P("api_b_sendmsg_iov_stream -> after - b: close socket"),
             socket:close(Sb)
         end
     after
+	?P("api_b_sendmsg_iov_stream -> after - a: close socket"),
         socket:close(Sa)
     end.
 
