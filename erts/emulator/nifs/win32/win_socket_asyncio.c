@@ -647,10 +647,14 @@ static ERL_NIF_TERM recvmsg_check_fail(ErlNifEnv*       env,
                                        int              saveErrno,
                                        ERL_NIF_TERM     sockRef);
 
+#if defined(FIONREAD)
 static ERL_NIF_TERM esaio_ioctl_fionread(ErlNifEnv*       env,
                                          ESockDescriptor* descP);
+#endif
+#if defined(SIOCATMARK)
 static ERL_NIF_TERM esaio_ioctl_siocatmark(ErlNifEnv*       env,
                                            ESockDescriptor* descP);
+#endif
 
 static void* esaio_completion_main(void* threadDataP);
 static BOOLEAN_T esaio_completion_terminate(ESAIOThreadData* dataP,
@@ -5439,13 +5443,14 @@ ERL_NIF_TERM esaio_ioctl2(ErlNifEnv*       env,
 #endif
 
   default:
-    return esock_make_error(env, esock_atom_enotsup);
-    break;
+      return esock_make_error(env, esock_atom_enotsup);
+      break;
   }
 
 }
 
 
+#if defined(FIONREAD)
 static
 ERL_NIF_TERM esaio_ioctl_fionread(ErlNifEnv*       env,
                                   ESockDescriptor* descP)
@@ -5486,12 +5491,14 @@ ERL_NIF_TERM esaio_ioctl_fionread(ErlNifEnv*       env,
 
     return result;
 }
+#endif
 
 
 /* For a stream socket that has been configured for inline reception of any
  * OOB data (SO_OOBINLINE), tests if there is any OOB data waiting to be read.
  * Returns TRUE if there data waiting to be read, FALSE otherwise.
  */
+#if defined(SIOCATMARK)
 static
 ERL_NIF_TERM esaio_ioctl_siocatmark(ErlNifEnv*       env,
                                     ESockDescriptor* descP)
@@ -5533,6 +5540,7 @@ ERL_NIF_TERM esaio_ioctl_siocatmark(ErlNifEnv*       env,
 
     return result;
 }
+#endif
 
 
 
