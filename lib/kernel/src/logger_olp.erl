@@ -473,7 +473,7 @@ check_load(State = #{id:=_Name, mode_ref := ModeRef, mode := Mode,
                      sync_mode_qlen := SyncModeQLen,
                      drop_mode_qlen := DropModeQLen,
                      flush_qlen := FlushQLen}) ->
-    {_,Mem} = process_info(self(), memory),
+    Mem = maybe_self_memory(State),
     ?observe(_Name,{max_mem,Mem}),
     {_,QLen} = process_info(self(), message_queue_len),
     ?observe(_Name,{max_qlen,QLen}),
@@ -506,6 +506,24 @@ check_load(State = #{id:=_Name, mode_ref := ModeRef, mode := Mode,
     {Mode1, QLen, Mem,
      ?update_other(flushes,FLUSHES,_NewFlushes,
                    State4#{last_qlen => QLen})}.
+
+%% Calling process_info(self(), memory) is linear on the size of the message queue,
+%% which is an extremely bad thing to do in high load situations, so only do that
+%% if the value actually is required.
+-ifdef(OBSERVER_MOD). % does ?observe/2 use Mem
+maybe_self_memory(_State) -> do_self_memory().
+-else.
+-ifdef(SAVE_STATS). % does ?update_max_mem/2 use Mem
+maybe_self_memory(_State) -> do_self_memory().
+-else.
+maybe_self_memory(#{overload_kill_enable := KillIfOL}) -> % does kill_if_choked/3 use Mem
+    KillIfOL andalso do_self_memory(). % deliberate non-number if unused
+-endif.
+-endif.
+
+do_self_memory() ->
+  {_, Mem} = process_info(self(), memory),
+  Mem.
 
 limit_burst(#{burst_limit_enable := false}=State) ->
      {true,State};
