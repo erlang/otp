@@ -111,7 +111,7 @@ init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
                               Buffer :: {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}} |
                              #alert{}.
 %%			     
-%% and returns it as a list of tls_compressed binaries also returns leftover
+%% and returns it as a list of binaries also returns leftover
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
@@ -227,17 +227,11 @@ decode_cipher_text(_, CipherTextRecord,
            BulkCipherAlgo, CipherS, StartAdditionalData, Fragment, Version)
     of
 	PlainFragment when is_binary(PlainFragment) ->
-            #{current_read :=
-                  #{security_parameters := SecParams,
-                    compression_state := CompressionS0} = ReadState0} = ConnectionStates0,
-	    {Plain, CompressionS} = ssl_record:uncompress(SecParams#security_parameters.compression_algorithm,
-                                                          PlainFragment, CompressionS0),
-	    ConnectionStates = ConnectionStates0#{
-				  current_read => ReadState0#{
-                                                    cipher_state => CipherS,
-                                                    sequence_number => Seq + 1,
-                                                    compression_state => CompressionS}},
-	    {CipherTextRecord#ssl_tls{fragment = Plain}, ConnectionStates};
+            #{current_read := ReadState0} = ConnectionStates0,
+            ConnectionStates =
+                ConnectionStates0#{current_read => ReadState0#{cipher_state => CipherS,
+                                                               sequence_number => Seq + 1}},
+            {CipherTextRecord#ssl_tls{fragment = PlainFragment}, ConnectionStates};
 	#alert{} = Alert ->
 	    Alert
     end;
@@ -247,24 +241,19 @@ decode_cipher_text(_, #ssl_tls{version = Version,
 		   #{current_read := ReadState0} = ConnnectionStates0, PaddingCheck) ->
     case ssl_record:decipher(Version, CipherFragment, ReadState0, PaddingCheck) of
 	{PlainFragment, Mac, ReadState1} ->
-	    MacHash = ssl_cipher:calc_mac_hash(CipherTextRecord#ssl_tls.type, Version, PlainFragment, ReadState1),
+	    MacHash = ssl_cipher:calc_mac_hash(CipherTextRecord#ssl_tls.type, Version,
+                                               PlainFragment, ReadState1),
 	    case ssl_record:is_correct_mac(Mac, MacHash) of
 		true ->
-                    #{sequence_number := Seq,
-                      compression_state := CompressionS0,
-                      security_parameters :=
-                          #security_parameters{compression_algorithm = CompAlg}} = ReadState0,
-		    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
-								   PlainFragment, CompressionS0),
+                    #{sequence_number := Seq} = ReadState0,
 		    ConnnectionStates =
                         ConnnectionStates0#{current_read =>
-                                                ReadState1#{sequence_number => Seq + 1,
-                                                            compression_state => CompressionS1}},
-		    {CipherTextRecord#ssl_tls{fragment = Plain}, ConnnectionStates};
+                                                ReadState1#{sequence_number => Seq + 1}},
+		    {CipherTextRecord#ssl_tls{fragment = PlainFragment}, ConnnectionStates};
 		false ->
                     ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
 	    end;
-	    #alert{} = Alert ->
+        #alert{} = Alert ->
 	    Alert
     end.
 
@@ -483,7 +472,6 @@ initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
 	  ssl_record:initial_security_params(ConnectionEnd),
       sequence_number => 0,
       beast_mitigation => BeastMitigation,
-      compression_state  => undefined,
       cipher_state  => undefined,
       mac_secret  => undefined,
       secure_renegotiation => undefined,
@@ -666,47 +654,43 @@ encode_plain_text(Type, Version, Data, ConnectionStates0) ->
     {CipherText,ConnectionStates}.
 %%--------------------------------------------------------------------
 encode_fragments(Type, Version, Data,
-              #{current_write := #{compression_state := CompS,
-                                   cipher_state := CipherS,
-                                   sequence_number := Seq}} = ConnectionStates) ->
-    encode_fragments(Type, Version, Data, ConnectionStates, CompS, CipherS, Seq, []).
+                 #{current_write := #{cipher_state := CipherS,
+                                      sequence_number := Seq}} = ConnectionStates) ->
+    encode_fragments(Type, Version, Data, ConnectionStates, CipherS, Seq, []).
 %%
 encode_fragments(_Type, _Version, [], #{current_write := WriteS} = CS,
-              CompS, CipherS, Seq, CipherFragments) ->
+                 CipherS, Seq, CipherFragments) ->
     {lists:reverse(CipherFragments),
-     CS#{current_write := WriteS#{compression_state := CompS,
-                                  cipher_state := CipherS,
-                                  sequence_number := Seq}}};
+     CS#{current_write := WriteS#{cipher_state := CipherS, sequence_number := Seq}}};
 encode_fragments(Type, Version, [Text|Data],
-              #{current_write := #{security_parameters :=
-                                       #security_parameters{cipher_type = ?AEAD,
-                                                            bulk_cipher_algorithm = BCAlg,
-                                                            compression_algorithm = CompAlg} = SecPars}} = CS,
-              CompS0, CipherS0, Seq, CipherFragments) ->
-    {CompText, CompS} = ssl_record:compress(CompAlg, Text, CompS0),
+                 #{current_write :=
+                       #{security_parameters :=
+                             #security_parameters{cipher_type = ?AEAD,
+                                                  bulk_cipher_algorithm = BCAlg} = SecPars}} = CS,
+                 CipherS0, Seq, CipherFragments) ->
     SeqBin = <<?UINT64(Seq)>>,
     CipherS1 = ssl_record:nonce_seed(BCAlg, SeqBin, CipherS0),
     {MajVer, MinVer} = Version,
     VersionBin = <<?BYTE(MajVer), ?BYTE(MinVer)>>,
     StartAdditionalData = <<SeqBin/binary, ?BYTE(Type), VersionBin/binary>>,
-    {CipherFragment,CipherS} = ssl_record:cipher_aead(Version, CompText, CipherS1, StartAdditionalData, SecPars),
+    {CipherFragment,CipherS} = ssl_record:cipher_aead(Version, Text, CipherS1,
+                                                      StartAdditionalData, SecPars),
     Length = byte_size(CipherFragment),
     CipherHeader = <<?BYTE(Type), VersionBin/binary, ?UINT16(Length)>>,
-    encode_fragments(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
-                  [[CipherHeader, CipherFragment] | CipherFragments]);
+    encode_fragments(Type, Version, Data, CS, CipherS, Seq + 1,
+                     [[CipherHeader, CipherFragment] | CipherFragments]);
 encode_fragments(Type, Version, [Text|Data],
-              #{current_write := #{security_parameters :=
-                                       #security_parameters{compression_algorithm = CompAlg,
-                                                            mac_algorithm = MacAlgorithm} = SecPars,
-                                   mac_secret := MacSecret}} = CS,
-              CompS0, CipherS0, Seq, CipherFragments) ->
-    {CompText, CompS} = ssl_record:compress(CompAlg, Text, CompS0),
-    MacHash = ssl_cipher:calc_mac_hash(Type, Version, CompText, MacAlgorithm, MacSecret, Seq),
-    {CipherFragment,CipherS} = ssl_record:cipher(Version, CompText, CipherS0, MacHash, SecPars),
+                 #{current_write :=
+                       #{security_parameters :=
+                             #security_parameters{mac_algorithm = MacAlgorithm} = SecPars,
+                         mac_secret := MacSecret}} = CS,
+                 CipherS0, Seq, CipherFragments) ->
+    MacHash = ssl_cipher:calc_mac_hash(Type, Version, Text, MacAlgorithm, MacSecret, Seq),
+    {CipherFragment,CipherS} = ssl_record:cipher(Version, Text, CipherS0, MacHash, SecPars),
     Length = byte_size(CipherFragment),
     {MajVer, MinVer} = Version,
     CipherHeader = <<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>,
-    encode_fragments(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
+    encode_fragments(Type, Version, Data, CS, CipherS, Seq + 1,
                      [[CipherHeader, CipherFragment] | CipherFragments]).
 
 

@@ -43,7 +43,6 @@
                   peer_certificate,
                   own_certificates,
                   private_key,
-                  compression_method,
                   cipher_suite,
                   master_secret,
                   srp_username,
@@ -123,10 +122,9 @@
 
 -record(server_hello, {
 	  server_version,
-	  random,             
+	  random,
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suite,       % cipher_suites
-	  compression_method, % compression_method
 	  extensions
 	 }).
 

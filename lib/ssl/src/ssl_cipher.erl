@@ -925,9 +925,9 @@ generic_block_cipher_from_bin(?TLS_1_0, T, IV, HashSize)->
 		    PadLength0 >= Sz1 -> 0;
 		    true -> PadLength0
 		end,
-    CompressedLength = byte_size(T) - PadLength - 1 - HashSize,
-    <<Content:CompressedLength/binary, Mac:HashSize/binary,
-     Padding:PadLength/binary, ?BYTE(PadLength0)>> = T,
+    Length = byte_size(T) - PadLength - 1 - HashSize,
+    <<Content:Length/binary, Mac:HashSize/binary,
+      Padding:PadLength/binary, ?BYTE(PadLength0)>> = T,
     #generic_block_cipher{content=Content, mac=Mac,
 			  padding=Padding, padding_length=PadLength0,
 			  next_iv = IV};
@@ -937,8 +937,8 @@ generic_block_cipher_from_bin(Version, T, IV, HashSize)
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
     IVLength = byte_size(IV),
-    CompressedLength = byte_size(T) - IVLength - PadLength - 1 - HashSize,
-    <<NextIV:IVLength/binary, Content:CompressedLength/binary, Mac:HashSize/binary,
+    Length = byte_size(T) - IVLength - PadLength - 1 - HashSize,
+    <<NextIV:IVLength/binary, Content:Length/binary, Mac:HashSize/binary,
       Padding:PadLength/binary, ?BYTE(PadLength)>> = T,
     #generic_block_cipher{content=Content, mac=Mac,
 			  padding=Padding, padding_length=PadLength,
@@ -946,8 +946,8 @@ generic_block_cipher_from_bin(Version, T, IV, HashSize)
 
 generic_stream_cipher_from_bin(T, HashSz) ->
     Sz = byte_size(T),
-    CompressedLength = Sz - HashSz,
-    <<Content:CompressedLength/binary, Mac:HashSz/binary>> = T,
+    Length = Sz - HashSz,
+    <<Content:Length/binary, Mac:HashSz/binary>> = T,
     #generic_stream_cipher{content=Content,
 			   mac=Mac}.
 

@@ -117,7 +117,6 @@ client_hello(?TLS_1_3 = Version) ->
     #client_hello{session_id = session_id(),
                   client_version = ?TLS_1_2,
                   cipher_suites = cipher_suites(Version),
-                  compression_methods = compressions(Version),
                   random = client_random(Version),
                   extensions = client_hello_extensions(Version)
                  };
@@ -125,7 +124,6 @@ client_hello(Version) ->
     #client_hello{session_id = session_id(),
 		  client_version = Version,
                   cipher_suites = cipher_suites(Version),
-		  compression_methods = compressions(Version),
 		  random = client_random(Version),
 		  extensions = client_hello_extensions(Version)    
                  }.
@@ -135,7 +133,6 @@ server_hello(?TLS_1_3 = Version) ->
 		  session_id = session_id(),
                   random = server_random(Version),
                   cipher_suite = cipher_suite(Version),
-		  compression_method = compression(Version),
 		  extensions = server_hello_extensions(Version)    
                  };
 server_hello(Version) ->
@@ -143,7 +140,6 @@ server_hello(Version) ->
 		  session_id = session_id(),
                   random = server_random(Version),
                   cipher_suite = cipher_suite(Version),
-		  compression_method = compression(Version),
 		  extensions = server_hello_extensions(Version)    
                  }.
 
@@ -204,12 +200,6 @@ cipher_suites(Version) ->
 
 session_id() ->
     crypto:strong_rand_bytes(?NUM_OF_SESSION_ID_BYTES).
- 
-compression(Version) ->
-     oneof(compressions(Version)).
-
-compressions(_) -> 
-    ssl_record:compressions().
 
 client_random(_) ->
     crypto:strong_rand_bytes(32).

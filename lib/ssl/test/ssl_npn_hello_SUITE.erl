@@ -142,7 +142,6 @@ create_client_handshake(Npn) ->
 				      random = <<1:256>>,
 				      session_id = <<>>,
 				      cipher_suites = [?TLS_DHE_DSS_WITH_DES_CBC_SHA],
-				      compression_methods = "",
 				      extensions = #{next_protocol_negotiation => Npn,
 						      renegotiation_info => #renegotiation_info{}}
 				     }, Vsn).
@@ -154,7 +153,6 @@ create_server_handshake(Npn) ->
 				      random = <<1:256>>,
 				      session_id = <<>>,
 				      cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA,
-				      compression_method = 1,
 				      extensions = #{next_protocol_negotiation => Npn,
                                                      renegotiation_info => #renegotiation_info{}}
 				     }, Vsn).
@@ -162,7 +160,6 @@ create_server_handshake(Npn) ->
 create_connection_states() ->
     #{pending_read => #{security_parameters => #security_parameters{
 						  server_random = <<1:256>>,
-						  compression_algorithm = 1,
 						  cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA
 						 }
 		       },

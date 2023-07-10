@@ -70,13 +70,13 @@
 
 %% Cipher suites handling
 -export([available_suites/2, available_signature_algs/2,  available_signature_algs/3,
-         cipher_suites/3, prf/6, select_session/9,
+         cipher_suites/3, prf/6, select_session/8,
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %% Extensions handling
 -export([client_hello_extensions/10,
 	 handle_client_hello_extensions/10, %% Returns server hello extensions
-	 handle_server_hello_extensions/10, select_curve/2, select_curve/3,
+	 handle_server_hello_extensions/9, select_curve/2, select_curve/3,
          select_hashsign/4, select_hashsign/5,
 	 select_hashsign_algs/3, empty_extensions/2, add_server_share/3,
 	 add_alpn/2, add_selected_version/1, decode_alpn/1, max_frag_enum/1
@@ -115,8 +115,6 @@ server_hello(SessionId, Version, ConnectionStates, Extensions) ->
 	ssl_record:pending_connection_state(ConnectionStates, read),
     #server_hello{server_version = Version,
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
-                  compression_method =
-		  SecParams#security_parameters.compression_algorithm,
 		  random = SecParams#security_parameters.server_random,
 		  session_id = SessionId,
 		  extensions = Extensions
@@ -544,14 +542,13 @@ encode_handshake(#server_hello{server_version = ServerVersion,
 			       random = Random,
 			       session_id = Session_ID,
 			       cipher_suite = CipherSuite,
-			       compression_method = Comp_method,
 			       extensions = Extensions}, _Version) ->
 			SID_length = byte_size(Session_ID),
     {Major,Minor} = ServerVersion,
     ExtensionsBin = encode_hello_extensions(Extensions),
     {?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
-		     ?BYTE(SID_length), Session_ID/binary,
-                     CipherSuite/binary, ?BYTE(Comp_method), ExtensionsBin/binary>>};
+                      ?BYTE(SID_length), Session_ID/binary,
+                      CipherSuite/binary, ?BYTE(?NO_COMPRESSION), ExtensionsBin/binary>>};
 encode_handshake(#certificate{asn1_certificates = ASN1CertList}, _Version) ->
     ASN1Certs = certs_from_list(ASN1CertList),
     ACLen = erlang:iolist_size(ASN1Certs),
@@ -850,28 +847,26 @@ decode_handshake(_, ?NEXT_PROTOCOL, <<?BYTE(SelectedProtocolLength),
     #next_protocol{selected_protocol = SelectedProtocol};
 
 decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
-					    ?BYTE(SID_length), Session_ID:SID_length/binary,
-					    Cipher_suite:2/binary, ?BYTE(Comp_method)>>) ->
+                                           ?BYTE(SID_length), Session_ID:SID_length/binary,
+                                           Cipher_suite:2/binary, ?BYTE(?NO_COMPRESSION)>>) ->
     #server_hello{
        server_version = {Major,Minor},
        random = Random,
        session_id = Session_ID,
        cipher_suite = Cipher_suite,
-       compression_method = Comp_method,
        extensions = empty_extensions(Version, server_hello)};
 
-decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
-		       ?BYTE(SID_length), Session_ID:SID_length/binary,
-		       Cipher_suite:2/binary, ?BYTE(Comp_method),
-		       ?UINT16(ExtLen), Extensions:ExtLen/binary>>) ->
+decode_handshake(Version, ?SERVER_HELLO,
+                 <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
+                   ?BYTE(SID_length), Session_ID:SID_length/binary,
+                   Cipher_suite:2/binary, ?BYTE(?NO_COMPRESSION),
+                   ?UINT16(ExtLen), Extensions:ExtLen/binary>>) ->
     HelloExtensions = decode_hello_extensions(Extensions, Version, {Major, Minor}, server_hello),
-
     #server_hello{
        server_version = {Major,Minor},
        random = Random,
        session_id = Session_ID,
        cipher_suite = Cipher_suite,
-       compression_method = Comp_method,
        extensions = HelloExtensions};
 decode_handshake(_Version, ?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
@@ -1064,7 +1059,8 @@ prf(Version, PRFAlgo, Secret, Label, Seed, WantedLength)
   when ?TLS_1_X(Version)->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
-select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, Session0, Version, SslOpts, CertKeyAlts) ->
+select_session(SuggestedSessionId, CipherSuites, HashSigns, SessIdTracker, Session0,
+               Version, SslOpts, CertKeyAlts) ->
     CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, Version),
     {SessionId, Resumed} = ssl_session:server_select_session(Version, SessIdTracker, SuggestedSessionId,
                                                              SslOpts, CertKeyPairs),
@@ -1072,25 +1068,22 @@ select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessId
         undefined ->
             %% Select Cert
             Session = new_session_parameters(SessionId, Session0, CipherSuites,
-                                             SslOpts, Version, Compressions,
-                                             HashSigns, CertKeyPairs),
+                                             SslOpts, Version, HashSigns, CertKeyPairs),
 	    {new, Session};
 	_ ->
 	    {resumed, Resumed}
     end.
 
-
 new_session_parameters(SessionId, #session{ecc = ECCCurve0} = Session, CipherSuites, SslOpts,
-                       Version, Compressions, HashSigns, CertKeyPairs) ->
-    Compression = select_compression(Compressions),
-    {Certs, Key, {ECCCurve, CipherSuite}} = server_select_cert_key_pair_and_params(CipherSuites, CertKeyPairs, HashSigns,
-                                                                            ECCCurve0, SslOpts, Version),
+                       Version, HashSigns, CertKeyPairs) ->
+    {Certs, Key, {ECCCurve, CipherSuite}} =
+        server_select_cert_key_pair_and_params(CipherSuites, CertKeyPairs, HashSigns,
+                                               ECCCurve0, SslOpts, Version),
     Session#session{session_id = SessionId,
                     ecc = ECCCurve,
                     own_certificates = Certs,
                     private_key = Key,
-                    cipher_suite = CipherSuite,
-                    compression_method = Compression}.
+                    cipher_suite = CipherSuite}.
 
 %% Possibly support part of "trusted_ca_keys" extension that corresponds to TLS-1.3 certificate_authorities?!
 
@@ -1473,15 +1466,14 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                                Exts, Version,
 			       #{secure_renegotiate := SecureRenegotation,
                                  alpn_preferred_protocols := ALPNPreferredProtocols} = Opts,
-			       #session{cipher_suite = NegotiatedCipherSuite,
-					compression_method = Compression} = Session0,
+			       #session{cipher_suite = NegotiatedCipherSuite} = Session0,
 			       ConnectionStates0, Renegotiation, IsResumed) ->
     Session = handle_srp_extension(maps:get(srp, Exts, undefined), Session0),
     MaxFragEnum = handle_mfl_extension(maps:get(max_frag_enum, Exts, undefined)),
     ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
     ConnectionStates = handle_renegotiation_extension(server, RecordCB, Version, maps:get(renegotiation_info, Exts, undefined),
 						      Random, NegotiatedCipherSuite, 
-						      ClientCipherSuites, Compression,
+						      ClientCipherSuites,
 						      ConnectionStates1, Renegotiation, SecureRenegotation),
 
     Empty = empty_extensions(Version, server_hello),
@@ -1515,7 +1507,7 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                                         encode_protocols_advertised_on_server(ProtocolsToAdvertise)}}
     end.
 
-handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
+handle_server_hello_extensions(RecordCB, Random, CipherSuite,
                                Exts, Version,
 			       #{secure_renegotiate := SecureRenegotation} =
                                    SslOpts,
@@ -1523,7 +1515,7 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
     ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  
                                                       maps:get(renegotiation_info, Exts, undefined), Random, 
 						      CipherSuite, undefined,
-						      Compression, ConnectionStates0,
+						      ConnectionStates0,
 						      Renegotiation, SecureRenegotation),
 
     %% RFC 6066: handle received/expected maximum fragment length
@@ -2376,7 +2368,7 @@ calc_master_secret(Version, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom
 %% hello messages
 %% NOTE : Role is the role of the receiver of the hello message
 %%        currently being processed.
-hello_pending_connection_states(_RecordCB, Role, Version, CipherSuite, Random, Compression,
+hello_pending_connection_states(_RecordCB, Role, Version, CipherSuite, Random,
 				 ConnectionStates) ->
     ReadState =
 	ssl_record:pending_connection_state(ConnectionStates, read),
@@ -2384,35 +2376,26 @@ hello_pending_connection_states(_RecordCB, Role, Version, CipherSuite, Random, C
 	ssl_record:pending_connection_state(ConnectionStates, write),
 
     NewReadSecParams =
-	hello_security_parameters(Role, Version, ReadState, CipherSuite,
-			    Random, Compression),
-
+	hello_security_parameters(Role, Version, ReadState, CipherSuite, Random),
+    
     NewWriteSecParams =
-	hello_security_parameters(Role, Version, WriteState, CipherSuite,
-			    Random, Compression),
+	hello_security_parameters(Role, Version, WriteState, CipherSuite, Random),
 
     ssl_record:set_security_params(NewReadSecParams,
 				    NewWriteSecParams,
 				    ConnectionStates).
 
-hello_security_parameters(client, Version, #{security_parameters := SecParams}, CipherSuite, Random,
-			  Compression) ->
+hello_security_parameters(client, Version, #{security_parameters := SecParams},
+                          CipherSuite, Random) ->
     NewSecParams = ssl_cipher:security_parameters(Version, CipherSuite, SecParams),
-    NewSecParams#security_parameters{
-      server_random = Random,
-      compression_algorithm = Compression
-     };
+    NewSecParams#security_parameters{server_random = Random};
 
-hello_security_parameters(server, Version, #{security_parameters := SecParams}, CipherSuite, Random,
-			  Compression) ->
+hello_security_parameters(server, Version, #{security_parameters := SecParams},
+                          CipherSuite, Random) ->
     NewSecParams = ssl_cipher:security_parameters(Version, CipherSuite, SecParams),
     NewSecParams#security_parameters{
-      client_random = Random,
-      compression_algorithm = Compression
+      client_random = Random
      }.
-
-select_compression(_CompressionMetodes) ->
-    ?NULL.
 
 do_select_version(_, ClientVersion, []) ->
     ClientVersion;
@@ -3413,7 +3396,7 @@ filter_unavailable_ecc_suites(_, Suites) ->
 %%-------------Extension handling --------------------------------
 
 handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, NegotiatedCipherSuite, 
-			       ClientCipherSuites, Compression,
+			       ClientCipherSuites,
 			       ConnectionStates0, Renegotiation, SecureRenegotation) ->
     {ok, ConnectionStates} = handle_renegotiation_info(Version, RecordCB, Role, Info, ConnectionStates0,
                                                        Renegotiation, SecureRenegotation,
@@ -3422,7 +3405,6 @@ handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, Negotiated
                                     Version,
                                     NegotiatedCipherSuite,
                                     Random,
-                                    Compression,
                                     ConnectionStates).
 
 %% Receive protocols, choose one from the list, return it.

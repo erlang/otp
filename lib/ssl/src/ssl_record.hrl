@@ -33,7 +33,6 @@
 %% For documentation purposes are now maps in implementation
 %% -record(connection_state, {
 %% 	  security_parameters,
-%% 	  compression_state,
 %% 	  cipher_state,
 %% 	  mac_secret,
 %% 	  sequence_number,
@@ -64,7 +63,6 @@
           mac_algorithm,			% unit 8  
           prf_algorithm,			% unit 8
           hash_size,				% unit 8
-          compression_algorithm,		% unit 8 
           master_secret,			% opaque 48
           resumption_master_secret,
           application_traffic_secret,
@@ -124,15 +122,6 @@
 -define(SHA384, 5).
 -define(SHA512, 6).
 
-%% CompressionMethod
-% -define(NULL, 0). %% Already defined by ssl_internal.hrl
-
-
--record(compression_state, {
-	  method,
-	  state
-	 }).
-
 %% See also cipher.hrl for #cipher_state{}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -152,7 +141,6 @@
 -define(KNOWN_RECORD_TYPE(Type),
         (is_integer(Type) andalso (20 =< (Type)) andalso ((Type) =< 23))).
 -define(MAX_PLAIN_TEXT_LENGTH, 16384).
--define(MAX_COMPRESSED_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+1024)).
 -define(MAX_CIPHER_TEXT_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+2048)).
 -define(TLS13_MAX_CIPHER_TEXT_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+256)).
 -define(MAX_PADDING_LENGTH,256).

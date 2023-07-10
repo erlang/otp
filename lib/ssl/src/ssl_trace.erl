@@ -432,7 +432,7 @@ trace_profiles() ->
                         {client_hello_extensions, 10}, {cert_status_check, 5},
                         {get_ocsp_responder_list, 1}, {handle_ocsp_extension, 2},
                         {path_validation, 10},
-                        {handle_server_hello_extensions, 10},
+                        {handle_server_hello_extensions, 9},
                         {handle_client_hello_extensions, 10},
                         {cert_status_check, 5}]},
        {public_key, [{ocsp_extensions, 1}, {pkix_ocsp_validate, 5},

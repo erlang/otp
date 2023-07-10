@@ -268,7 +268,6 @@ get_client_hello(OfferedPSKs) ->
        random = <<1:256>>,
        session_id = <<>>,
        cipher_suites = [?TLS_AES_256_GCM_SHA384],
-       compression_methods = "",
        extensions = Ext0#{pre_shared_key => PreSharedKey}}.
 
 get_replay_expected_result(Config, AcceptResponse) ->

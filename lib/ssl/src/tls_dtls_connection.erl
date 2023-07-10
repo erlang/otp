@@ -108,8 +108,7 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 		     binary(), ssl_record:connection_states(), _,_, #state{}) ->
 			    gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-handle_session(#server_hello{cipher_suite = CipherSuite,
-			     compression_method = Compression}, 
+handle_session(#server_hello{cipher_suite = CipherSuite},
 	       Version, NewId, ConnectionStates, ProtoExt, Protocol0,
 	       #state{session = Session,
 		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv,
@@ -134,11 +133,9 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
     
     case ssl_session:is_new(Session, NewId) of
 	true ->
-	    handle_new_session(NewId, CipherSuite, Compression,
-			       State#state{connection_states = ConnectionStates});
+	    handle_new_session(NewId, CipherSuite, State#state{connection_states = ConnectionStates});
 	false ->
-	    handle_resumed_session(NewId,
-				   State#state{connection_states = ConnectionStates})
+	    handle_resumed_session(NewId, State#state{connection_states = ConnectionStates})
     end.
 
 
@@ -832,21 +829,18 @@ override_server_random(Random, _, _) ->
     Random.
 
 new_server_hello(#server_hello{cipher_suite = CipherSuite,
-			      compression_method = Compression,
-			      session_id = SessionId},
-                 #state{session = Session0,
-                        static_env = #static_env{protocol_cb = Connection}} = State0, Connection) ->
+                               session_id = SessionId},
+                 #state{session = Session0} = State0, Connection) ->
     #state{} = State1 = server_certify_and_key_exchange(State0, Connection),
     {State, Actions} = server_hello_done(State1, Connection),
     Session = Session0#session{session_id = SessionId,
-                               cipher_suite = CipherSuite,
-                               compression_method = Compression},
+                               cipher_suite = CipherSuite},
     Connection:next_event(certify, no_record, State#state{session = Session}, Actions).
 
 resumed_server_hello(#state{session = Session,
 			    connection_states = ConnectionStates0,
-                            static_env = #static_env{protocol_cb = Connection},
-			    connection_env = #connection_env{negotiated_version = Version}} = State0, Connection) ->
+			    connection_env = #connection_env{negotiated_version = Version}} = State0,
+                     Connection) ->
 
     case ssl_handshake:master_secret(ssl:tls_version(Version), Session,
 				     ConnectionStates0, server) of
@@ -1612,13 +1606,12 @@ host_id(client, _Host, #{server_name_indication := Hostname}) when is_list(Hostn
 host_id(_, Host, _) ->
     Host.
 
-handle_new_session(NewId, CipherSuite, Compression, 
+handle_new_session(NewId, CipherSuite,
 		   #state{static_env = #static_env{protocol_cb = Connection},
                           session = Session0
 			 } = State0) ->
     Session = Session0#session{session_id = NewId,
-			       cipher_suite = CipherSuite,
-			       compression_method = Compression},
+			       cipher_suite = CipherSuite},
     Connection:next_event(certify, no_record, State0#state{session = Session}).
 
 handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
