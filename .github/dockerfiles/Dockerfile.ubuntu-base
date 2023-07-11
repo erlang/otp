@@ -66,7 +66,7 @@ RUN apt-get install -y git curl && \
 ARG EXTRA_LIBS="erlang erlang-doc"
 RUN apt-get install -y \
     unixodbc odbc-postgresql postgresql ssh openssh-server groff-base gdb \
-    tinyproxy bind9 nsd expect vsftpd python emacs nano vim \
+    tinyproxy knot ldnsutils expect vsftpd python emacs nano vim \
     linux-tools-common linux-tools-generic jq \
     xvfb libgl1-mesa-dri && \
     for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
