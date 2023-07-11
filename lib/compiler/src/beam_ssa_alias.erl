@@ -87,7 +87,9 @@
 
 %% A code location refering to either the #b_set{} defining a variable
 %% or the terminator of a block.
--type kill_loc() :: #b_var{} | {terminator, beam_ssa:label()}.
+-type kill_loc() :: #b_var{}
+                  | {terminator, beam_ssa:label()}
+                  | {live_outs, beam_ssa:label()}.
 
 %% Map a code location to the set of variables which die at that
 %% location.
@@ -98,12 +100,6 @@
 -type alias_map() :: #{ func_id() => lbl2ss() }.
 
 -type lbl2ss() :: #{ beam_ssa:label() => sharing_state() }.
-
-%% Record holding the liveness information for a code location.
--record(liveness_st, {
-                      in = sets:new([{version,2}]) :: sets:set(#b_var{}),
-                      out = sets:new([{version,2}]) :: sets:set(#b_var{})
-                     }).
 
 %% The sharing state for a variable.
 -record(vas, {
@@ -130,141 +126,137 @@ opt(StMap0, FuncDb0) ->
     %% Ignore functions which are not in the function db (never
     %% called).
     Funs = [ F || F <- maps:keys(StMap0), is_map_key(F, FuncDb0)],
-    Liveness = liveness(Funs, StMap0),
-    KillsMap = killsets(Liveness, StMap0),
-
+    KillsMap = killsets(Funs, StMap0),
     aa(Funs, KillsMap, StMap0, FuncDb0).
 
 %%%
-%%% Calculate liveness for each function using the standard iterative
-%%% fixpoint method.
+%%% Calculate the set of variables killed at each instruction. The
+%%% algorithm traverses the basic blocks of the CFG post-order. It
+%%% traverses the instructions within a basic block in reverse order,
+%%% starting with the terminator. When starting the traversal of a
+%%% basic block, the set of variables that are live is initialized to
+%%% the variables that are live in to the block's successors. When a
+%%% def for a variable is found, it is pruned from the live set. When
+%%% a use which is not in the live-set is found, it is a kill. The
+%%% killed variable is added to the kill set for the current
+%%% instruction and added to the live set.
+%%%
+%%% As the only back-edges occuring in BEAM are for receives and
+%%% constructing terms are not allowed within the receive loop,
+%%% back-edges can be safely ignored as they won't change the alias
+%%% status of any variable.
 %%%
 
--spec liveness([func_id()], st_map()) ->
-          [{func_id(), #{func_id() => {beam_ssa:label(), #liveness_st{}}}}].
+killsets(Funs, StMap) ->
+    OptStates = [{F,map_get(F, StMap)} || F <- Funs],
+    #{ F=>killsets_fun(reverse(SSA)) || {F,#opt_st{ssa=SSA}} <- OptStates }.
 
-liveness([F|Funs], StMap) ->
-    Liveness = liveness_fun(F, StMap),
-    [{F,Liveness}|liveness(Funs, StMap)];
-liveness([], _StMap) ->
-    [].
+killsets_fun(Blocks) ->
+    %% Pre-calculate the live-ins due to Phi-instructions.
+    PhiLiveIns = killsets_phi_live_ins(Blocks),
+    killsets_blks(Blocks, #{}, #{}, PhiLiveIns).
 
-liveness_fun(F, StMap0) ->
-    #opt_st{ssa=SSA} = map_get(F, StMap0),
-    State0 = #{Lbl => #liveness_st{} || {Lbl,_} <- SSA},
-    UseDefCache = liveness_make_cache(SSA),
-    liveness_blks_fixp(reverse(SSA), State0, false, UseDefCache).
+killsets_blks([{Lbl,Blk}|Blocks], LiveIns0, Kills0, PhiLiveIns) ->
+    {LiveIns,Kills} = killsets_blk(Lbl, Blk, LiveIns0, Kills0, PhiLiveIns),
+    killsets_blks(Blocks, LiveIns, Kills, PhiLiveIns);
+killsets_blks([], _LiveIns0, Kills, _PhiLiveIns) ->
+    Kills.
 
-liveness_blks_fixp(_SSA, State0, State0, _UseDefCache) ->
-    State0;
-liveness_blks_fixp(SSA, State0, _Old, UseDefCache) ->
-    State = liveness_blks(SSA, State0, UseDefCache),
-    liveness_blks_fixp(SSA, State, State0, UseDefCache).
+killsets_blk(Lbl, #b_blk{is=Is0,last=L}=Blk, LiveIns0, Kills0, PhiLiveIns) ->
+    Successors = beam_ssa:successors(Blk),
+    Live1 = killsets_blk_live_outs(Successors, Lbl, LiveIns0, PhiLiveIns),
+    Kills1 = Kills0#{{live_outs,Lbl}=>Live1},
+    Is = [L|reverse(Is0)],
+    {Live,Kills} = killsets_is(Is, Live1, Kills1, Lbl),
+    LiveIns = LiveIns0#{Lbl=>Live},
+    {LiveIns, Kills}.
 
-liveness_blks([{Lbl,Blk}|Blocks], State0, UseDefCache) ->
-    OutOld = get_live_out(Lbl, State0),
-    #{Lbl:={Defs,Uses}} = UseDefCache,
-    In = sets:union(Uses, sets:subtract(OutOld, Defs)),
-    Out = successor_live_ins(Blk, State0),
-    liveness_blks(Blocks, set_block_liveness(Lbl, In, Out, State0),
-                  UseDefCache);
-liveness_blks([], State0, _UseDefCache) ->
-    State0.
+killsets_is([#b_set{op=phi,dst=Dst}|Is], Live, Kills, Lbl) ->
+    %% The Phi uses are logically located in the predecessors.
+    killsets_is(Is, sets:del_element(Dst, Live), Kills, Lbl);
+killsets_is([I|Is], Live0, Kills0, Lbl) ->
+    Uses = beam_ssa:used(I),
+    {Live,LastUses} =
+        foldl(fun(Use, {LiveAcc,LastAcc}=Acc) ->
+                      case sets:is_element(Use, LiveAcc) of
+                          true ->
+                              Acc;
+                          false ->
+                              {sets:add_element(Use, LiveAcc),
+                               sets:add_element(Use, LastAcc)}
+                      end
+              end, {Live0,sets:new([{version,2}])}, Uses),
+    case I of
+        #b_set{dst=Dst} ->
+            killsets_is(Is, sets:del_element(Dst, Live),
+                        killsets_add_kills(Dst, LastUses, Kills0), Lbl);
+        _ ->
+            killsets_is(Is, Live,
+                        killsets_add_kills({terminator,Lbl}, LastUses, Kills0),
+                        Lbl)
+    end;
+killsets_is([], Live, Kills, _) ->
+    {Live,Kills}.
 
-get_live_in(Lbl, State) ->
-    #liveness_st{in=In} = map_get(Lbl, State),
-    In.
-
-get_live_out(Lbl, State) ->
-    #liveness_st{out=Out} = map_get(Lbl, State),
-    Out.
-
-set_block_liveness(Lbl, In, Out, State) ->
-    L = map_get(Lbl, State),
-    State#{Lbl => L#liveness_st{in=In,out=Out}}.
-
-successor_live_ins(Blk, State) ->
-    foldl(fun(Lbl, Acc) ->
-                  sets:union(Acc, get_live_in(Lbl, State))
-          end, sets:new([{version,2}]), beam_ssa:successors(Blk)).
-
-blk_defs(#b_blk{is=Is}) ->
-    foldl(fun(#b_set{dst=Dst}, Acc) ->
-                  sets:add_element(Dst, Acc)
-          end, sets:new([{version,2}]), Is).
-
-blk_effective_uses(#b_blk{is=Is,last=Last}) ->
-    %% We can't use beam_ssa:used/1 on the whole block as it considers
-    %% a use after a def a use and that will derail the liveness
-    %% calculation.
-    blk_effective_uses([Last|reverse(Is)], sets:new([{version,2}])).
-
-blk_effective_uses([I|Is], Uses0) ->
-    Uses = case I of
-               #b_set{dst=Dst} ->
-                   %% The uses after the def do not count
-                   sets:del_element(Dst, Uses0);
-               _ -> % A terminator, no defs
-                   Uses0
-           end,
-    LocalUses = sets:from_list(beam_ssa:used(I), [{version,2}]),
-    blk_effective_uses(Is, sets:union(Uses, LocalUses));
-blk_effective_uses([], Uses) ->
-    Uses.
-
-liveness_make_cache(SSA) ->
-    liveness_make_cache(SSA, #{}).
-
-liveness_make_cache([{Lbl,Blk}|Blocks], Cache0) ->
-    Defs = blk_defs(Blk),
-    Uses = blk_effective_uses(Blk),
-    Cache = Cache0#{Lbl=>{Defs,Uses}},
-    liveness_make_cache(Blocks, Cache);
-liveness_make_cache([], Cache) ->
-    Cache.
+killsets_add_kills(Dst, LastUses, Kills) ->
+    Kills#{Dst=>LastUses}.
 
 %%%
-%%% Calculate the killset for all functions in the liveness
-%%% information.
+%%% Pre-calculate the live-ins due to Phi-instructions in order to
+%%% avoid having to repeatedly scan the first instruction(s) of a
+%%% basic block in order to find them when calculating live-in sets.
 %%%
--spec killsets([{func_id(),
-                 #{func_id() => {beam_ssa:label(), #liveness_st{}}}}],
-               st_map()) -> kills_map().
+killsets_phi_live_ins(Blocks) ->
+    killsets_phi_live_ins(Blocks, #{}).
 
-killsets(Liveness, StMap) ->
-    #{F => kills_fun(F, StMap, Live) || {F, Live} <- Liveness}.
+killsets_phi_live_ins([{Lbl,#b_blk{is=Is}}|Blocks], PhiLiveIns0) ->
+    killsets_phi_live_ins(Blocks,
+                          killsets_phi_uses_in_block(Lbl, Is, PhiLiveIns0));
+killsets_phi_live_ins([], PhiLiveIns) ->
+    PhiLiveIns.
+
+killsets_phi_uses_in_block(Lbl, [#b_set{op=phi,args=Args}|Is], PhiLiveIns0) ->
+    PhiLiveIns = foldl(fun({#b_var{}=Var,From}, Acc) ->
+                               Key = {From,Lbl},
+                               Old = case Acc of
+                                         #{Key:=O} -> O;
+                                         #{} -> sets:new([{version,2}])
+                                     end,
+                               Acc#{Key=>sets:add_element(Var, Old)};
+                          ({#b_literal{},_},Acc) ->
+                               Acc
+                       end, PhiLiveIns0, Args),
+    killsets_phi_uses_in_block(Lbl, Is, PhiLiveIns);
+killsets_phi_uses_in_block(_Lbl, _, PhiLiveIns) ->
+    %% No more phis.
+    PhiLiveIns.
+
+%% Create a set of variables which are live out from this block.
+killsets_blk_live_outs(Successors, ThisBlock, LiveIns, PhiLiveIns) ->
+    killsets_blk_live_outs(Successors, ThisBlock, LiveIns,
+                           PhiLiveIns, sets:new([{version,2}])).
+
+killsets_blk_live_outs([Successor|Successors],
+                       ThisBlock, LiveIns, PhiLiveIns, Acc0) ->
+    Acc = case LiveIns of
+              #{Successor:=LI} ->
+                  Tmp = sets:union(Acc0, LI),
+                  case PhiLiveIns of
+                      #{{ThisBlock,Successor}:=PhiUses} ->
+                          sets:union(Tmp, PhiUses);
+                      #{} ->
+                          Tmp
+                  end;
+              #{} ->
+                  %% This is a back edge, we can ignore it as it only occurs
+                  %% in combination with a receive.
+                  Acc0
+          end,
+    killsets_blk_live_outs(Successors, ThisBlock, LiveIns, PhiLiveIns, Acc);
+killsets_blk_live_outs([], _, _, _, Acc) ->
+    Acc.
 
 %%%
-%%% Calculate the killset for a function. The killset allows us to
-%%% look up the variables that die at a code location.
-%%%
-kills_fun(Fun, StMap, Liveness) ->
-    #opt_st{ssa=SSA} = map_get(Fun, StMap),
-    kills_fun1(SSA, #{}, Liveness).
-
-kills_fun1([{Lbl,Blk}|Blocks], KillsMap0, Liveness) ->
-    KillsMap = kills_block(Lbl, Blk, map_get(Lbl, Liveness), KillsMap0),
-    kills_fun1(Blocks, KillsMap, Liveness);
-kills_fun1([], KillsMap, _) ->
-    KillsMap.
-
-kills_block(Lbl, #b_blk{is=Is,last=Last}, #liveness_st{out=Out}, KillsMap0) ->
-    kills_is([Last|reverse(Is)], Out, KillsMap0, Lbl).
-
-kills_is([I|Is], Live0, KillsMap0, Blk) ->
-    {Live, Key} = case I of
-                      #b_set{dst=Dst} ->
-                          {sets:del_element(Dst, Live0), Dst};
-                      _ ->
-                          {Live0, {terminator, Blk}}
-                  end,
-    Uses = sets:from_list(beam_ssa:used(I), [{version,2}]),
-    RemainingUses = sets:union(Live0, Uses),
-    Killed = sets:subtract(RemainingUses, Live0),
-    KillsMap = KillsMap0#{Key => Killed},
-    kills_is(Is, sets:union(Live, Killed), KillsMap, Blk);
-kills_is([], _, KillsMap, _) ->
-    KillsMap.
 
 %%%
 %%% Perform an alias analysis of the given functions, alias
