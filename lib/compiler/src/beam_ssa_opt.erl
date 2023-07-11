@@ -273,6 +273,7 @@ repeated_passes(Opts) ->
           ?PASS(ssa_opt_tail_phis),
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_tuple_size),
+          ?PASS(ssa_opt_merge_updates),
           ?PASS(ssa_opt_record),
           ?PASS(ssa_opt_try),
           ?PASS(ssa_opt_type_continue)],        %Must run after ssa_opt_dead to
@@ -454,6 +455,50 @@ ssa_opt_merge_blocks({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
 
 ssa_opt_ranges({#opt_st{ssa=Blocks}=St, FuncDb}) ->
     {St#opt_st{ssa=beam_ssa_type:opt_ranges(Blocks)}, FuncDb}.
+
+%%%
+%%% Merges updates that cannot fail, for example two consecutive updates of the
+%%% same record.
+%%%
+
+ssa_opt_merge_updates({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    Linear = merge_updates_bs(Linear0),
+    {St#opt_st{ssa=Linear}, FuncDb}.
+
+%% As update_record is always converted from setelement/3 operations they can
+%% only occur alone in their blocks at this point, so we don't need to look
+%% deeper than this.
+merge_updates_bs([{LblA,
+                   #b_blk{is=[#b_set{op=update_record,
+                                     dst=DstA,
+                                     args=[SpecA, Size, Src | ListA]}],
+                          last=#b_br{bool=#b_literal{val=true},
+                                     succ=LblB}}=BlkA},
+                  {LblB,
+                   #b_blk{is=[#b_set{op=update_record,
+                                     args=[SpecB, Size, DstA | ListB]}=Update0]
+                          }=BlkB} | Bs]) ->
+    Spec = case SpecA =:= SpecB of
+               true -> SpecA;
+               false -> #b_literal{val=copy}
+           end,
+    List = merge_update_record_lists(ListA ++ ListB, #{}),
+    Update = Update0#b_set{args=[Spec, Size, Src | List]},
+
+    %% Note that we retain the first update_record in case it's used elsewhere,
+    %% it's too rare to warrant special handling here.
+    [{LblA, BlkA}, {LblB, BlkB#b_blk{is=[Update]}}| merge_updates_bs(Bs)];
+merge_updates_bs([{Lbl, Blk} | Bs]) ->
+    [{Lbl, Blk} | merge_updates_bs(Bs)];
+merge_updates_bs([]) ->
+    [].
+
+merge_update_record_lists([Index, Value | List], Updates) ->
+    merge_update_record_lists(List, Updates#{ Index => Value });
+merge_update_record_lists([], Updates) ->
+    maps:fold(fun(K, V, Acc) ->
+                      [K, V | Acc]
+              end, [], Updates).
 
 %%%
 %%% Split blocks before certain instructions to enable more optimizations.
