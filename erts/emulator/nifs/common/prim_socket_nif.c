@@ -139,6 +139,8 @@ ERL_NIF_INIT(prim_socket, esock_funcs, on_load, NULL, NULL, NULL)
 #include <windows.h>
 #include <Ws2tcpip.h>
 
+#include <mstcpip.h>
+
 /* Visual studio 2008+: NTDDI_VERSION needs to be set for iphlpapi.h
  * to define the right structures. It needs to be set to WINXP (or LONGHORN)
  * for IPV6 to work and it's set lower by default, so we need to change it.
@@ -2429,6 +2431,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(socket_level);     \
     LOCAL_ATOM_DECL(socket_option);    \
     LOCAL_ATOM_DECL(sourceaddr);       \
+    LOCAL_ATOM_DECL(tcp_info);         \
     LOCAL_ATOM_DECL(time_exceeded);    \
     LOCAL_ATOM_DECL(true);             \
     LOCAL_ATOM_DECL(txstatus);         \
@@ -4863,6 +4866,17 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCGIFTXQLEN)
   requests = MKC(env, MKT2(env, atom_giftxqlen, MKUL(env, SIOCGIFTXQLEN)), requests);
+#endif
+
+  /*
+  ESOCK_PRINTF("SIO_TCP_INFO: "
+               "\r\n   NTDDI_VERSION:   %d"
+               "\r\n   NTDDI_WIN10_RS3: %d"
+               "\r\n   NTDDI_WIN10_RS2: %d"
+               "\r\n", NTDDI_VERSION, NTDDI_WIN10_RS3, NTDDI_WIN10_RS2);
+  */
+#if defined(SIO_TCP_INFO)
+  requests = MKC(env, MKT2(env, atom_tcp_info, MKUL(env, SIO_TCP_INFO)), requests);
 #endif
 
   /* --- SET REQUESTS --- */
