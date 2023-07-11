@@ -399,7 +399,7 @@ unicode(Config) when is_list(Config) ->
     Prog = [prog()],
     ?assertEqual({ok, Expected, Prog, Cmd}, argparse:parse([], Cmd)), %% default
     ?assertEqual({ok, Expected, Prog, Cmd}, argparse:parse(["★"], Cmd)), %% specified in the command line
-    ?assertEqual("Usage:\n  " ++ prog() ++ " <text>\n\nArguments:\n  text åäö (binary, ★)\n",
+    ?assertEqual("Usage:\n  " ++ prog() ++ " <text>\n\nArguments:\n  text åäö (binary), default: ★\n",
         unicode:characters_to_list(argparse:help(Cmd))),
     %% test command name and argument name in unicode
     Uni = #{commands => #{"åäö" => #{help => "öФ"}}, handler => optional,
@@ -775,7 +775,7 @@ usage(Config) when is_list(Config) ->
         "  -v           verbosity level\n"
         "  -i           interval set (int >= 1)\n"
         "  --req        required optional, right?\n"
-        "  --float      floating-point long form argument (float, 3.14)\n",
+        "  --float      floating-point long form argument (float), default: 3.14\n",
     ?assertEqual(Usage, unicode:characters_to_list(argparse:help(Cmd,
         #{progname => "erl", command => ["start"]}))),
     FullCmd = "Usage:\n  erl"
@@ -790,7 +790,7 @@ usage(Config) when is_list(Config) ->
         "  -v          verbosity level\n"
         "  -i          interval set (int >= 1)\n"
         "  --req       required optional, right?\n"
-        "  --float     floating-point long form argument (float, 3.14)\n",
+        "  --float     floating-point long form argument (float), default: 3.14\n",
     ?assertEqual(FullCmd, unicode:characters_to_list(argparse:help(Cmd,
         #{progname => erl}))),
     CrawlerStatus = "Usage:\n  erl status crawler [-rfv] [---extra <extra>] [--force] [-i <interval>]\n"
@@ -799,7 +799,7 @@ usage(Config) when is_list(Config) ->
         "  -f, --force force\n  -v          verbosity level\n"
         "  -i          interval set (int >= 1)\n"
         "  --req       required optional, right?\n"
-        "  --float     floating-point long form argument (float, 3.14)\n",
+        "  --float     floating-point long form argument (float), default: 3.14\n",
     ?assertEqual(CrawlerStatus, unicode:characters_to_list(argparse:help(Cmd,
         #{progname => "erl", command => ["status", "crawler"]}))),
     ok.
