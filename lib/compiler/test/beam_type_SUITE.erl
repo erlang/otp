@@ -1047,7 +1047,15 @@ sto_1(step_4_3) -> {b, [sto_1(case_3_3)]}.
 %% 3, so we must not subtract 2 on the failure path.
 type_subtraction(Config) when is_list(Config) ->
     true = type_subtraction_1(id(<<"A">>)),
+
+    ok = type_subtraction_2(id(true)),
+    <<"aaaa">> = type_subtraction_2(id(false)),
+    {'EXIT', _} = catch type_subtraction_3(id(false)),
+    ok = catch type_subtraction_4(id(ok)),
+    {'EXIT', _} = catch type_subtraction_4(id(false)),
+
     ok.
+
 
 type_subtraction_1(_x@1) ->
     _a@1 = ts_12(_x@1),
@@ -1071,6 +1079,41 @@ ts_23(_x@1) ->
             1;
         true ->
             2
+    end.
+
+type_subtraction_2(X) ->
+    case ts_34(X) of
+        Tuple when element(1, Tuple) =:= ok ->
+            ok;
+        Tuple when element(1, Tuple) =:= error ->
+            element(2, Tuple)
+    end.
+
+ts_34(X) ->
+    case X of
+        true -> {ok};
+        false -> {error, <<"aaaa">>}
+    end.
+
+type_subtraction_3(_V0) when is_boolean(_V0), is_binary(_V0), _V0 andalso _V0 ->
+    ok.
+
+type_subtraction_4(_V0) ->
+    try
+        _V0 = ok
+    catch
+        _ ->
+            <<
+                0
+             || _V0 := _ <- ok,
+                (try ok of
+                    _ when _V0, (_V0 andalso _V0) orelse trunc(ok) ->
+                        ok
+                catch
+                    _ ->
+                        ok
+                end)
+            >>
     end.
 
 %% GH-4774: The validator didn't update container contents on type subtraction.
