@@ -4574,6 +4574,7 @@ ioctl(?socket(SockRef), gifflags = GetRequest, Name)
 ioctl(?socket(SockRef), gifmap = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
+
 ioctl(?socket(SockRef), tcp_info = GetRequest, Version)
   when (Version =:= 0) ->
     prim_socket:ioctl(SockRef, GetRequest, Version);

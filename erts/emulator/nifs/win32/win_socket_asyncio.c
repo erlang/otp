@@ -5477,8 +5477,8 @@ ERL_NIF_TERM esaio_ioctl3(ErlNifEnv*       env,
 
 
   default:
-    return esock_make_error(env, esock_atom_enotsup);
-    break;
+      return esock_make_error(env, esock_atom_enotsup);
+      break;
   }
 
 }
