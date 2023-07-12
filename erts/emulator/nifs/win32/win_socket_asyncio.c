@@ -90,7 +90,6 @@
 // #include <windows.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
-#include <mstcpip.h>
 #include <stdio.h>
 
 #include <sys.h>
@@ -663,8 +662,10 @@ static ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
                                          ERL_NIF_TERM     eversion);
 static ERL_NIF_TERM encode_tcp_info_v0(ErlNifEnv*   env,
                                        TCP_INFO_v0* infoP);
+#if defined(HAVE_TCP_INFO_V1)
 static ERL_NIF_TERM encode_tcp_info_v1(ErlNifEnv*   env,
                                        TCP_INFO_v1* infoP);
+#endif
 static ERL_NIF_TERM encode_tcp_state(ErlNifEnv* env,
                                      TCPSTATE   state);
 #endif
@@ -5443,7 +5444,7 @@ ERL_NIF_TERM esaio_cancel_recv(ErlNifEnv*       env,
  * tcp_info    version   integer
  */
 extern
-ERL_NIF_TERM essio_ioctl3(ErlNifEnv*       env,
+ERL_NIF_TERM esaio_ioctl3(ErlNifEnv*       env,
 			  ESockDescriptor* descP,
 			  unsigned long    req,
 			  ERL_NIF_TERM     arg)
@@ -5454,7 +5455,7 @@ ERL_NIF_TERM essio_ioctl3(ErlNifEnv*       env,
 
 #if defined(SIO_TCP_INFO)
   case SIO_TCP_INFO:
-    return essio_ioctl_tcp_info(env, descP, arg);
+    return esaio_ioctl_tcp_info(env, descP, arg);
     break;
 #endif
 
@@ -5473,8 +5474,10 @@ ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
                                   ERL_NIF_TERM     eversion)
 {
-  ERL_NIF_TERM result;
-  int          version;
+    DWORD        ndata = 0; // We do not actually use this
+    ERL_NIF_TERM result;
+    int          res;
+    int          version;
   
   SSDBG( descP, ("WIN-ESAIO", "esaio_ioctl_tcp_info(%d) -> entry with"
 		 "\r\n      (e)version: %T"
@@ -5492,6 +5495,7 @@ ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
           res = sock_ioctl2(descP->sock, SIO_TCP_INFO,
                             &version, sizeof(version),
                             &info, sizeof(info), &ndata);
+          (void) ndata;
           if (res != 0) {
               int          saveErrno = sock_errno();
               ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
@@ -5504,13 +5508,14 @@ ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
               result = esock_make_error(env, reason);
 
           } else {
-              ERL_NIF_TERM einfo = encode_tcp_info_v2(env, &info);
+              ERL_NIF_TERM einfo = encode_tcp_info_v0(env, &info);
 
               result = esock_make_ok2(env, einfo);
           }
       }
       break;
 
+#if defined(HAVE_TCP_INFO_V1)      
   case 1:
       {
           TCP_INFO_v1 info;
@@ -5519,6 +5524,7 @@ ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
           res = sock_ioctl2(descP->sock, SIO_TCP_INFO,
                             &version, sizeof(version),
                             &info, sizeof(info), &ndata);
+          (void) ndata;
           if (res != 0) {
               int          saveErrno = sock_errno();
               ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
@@ -5537,6 +5543,7 @@ ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
           }
       }
       break;
+#endif
 
   default:
       return enif_make_badarg(env);
@@ -5618,23 +5625,23 @@ ERL_NIF_TERM encode_tcp_info_v0(ErlNifEnv* env, TCP_INFO_v0* infoP)
         esock_atom_syn_retrans};
     ERL_NIF_TERM vals[]  = {encode_tcp_state(env, infoP->State),
         MKUL(env, infoP->Mss),
-        MKUI64(end, infoP->ConnectionTimeMs),
+        MKUI64(env, infoP->ConnectionTimeMs),
         infoP->TimestampsEnabled ? esock_atom_true : esock_atom_false,
-        MKUL(env, info->RttUs),
-        MKUL(env, info->MinRttUs),
-        MKUL(env, info->BytesInFlight),
-        MKUL(env, info->Cwnd),
-        MKUL(env, info->SndWnd),
-        MKUL(env, info->RcvWnd),
-        MKUL(env, info->RcvBuf),
-        MKUI64(env, info->BytesOut),
-        MKUI64(env, info->BytesIn),
-        MKUL(env, info->BytesReordered),
-        MKUL(env, info->BytesRetrans),
-        MKUL(env, info->FastRetrans),
-        MKUL(env, info->DupAcksIn),
-        MKUL(env, info->TimeoutEpisodes),
-        MKUI(env, info->SynRetrans)};
+        MKUL(env,   infoP->RttUs),
+        MKUL(env,   infoP->MinRttUs),
+        MKUL(env,   infoP->BytesInFlight),
+        MKUL(env,   infoP->Cwnd),
+        MKUL(env,   infoP->SndWnd),
+        MKUL(env,   infoP->RcvWnd),
+        MKUL(env,   infoP->RcvBuf),
+        MKUI64(env, infoP->BytesOut),
+        MKUI64(env, infoP->BytesIn),
+        MKUL(env,   infoP->BytesReordered),
+        MKUL(env,   infoP->BytesRetrans),
+        MKUL(env,   infoP->FastRetrans),
+        MKUL(env,   infoP->DupAcksIn),
+        MKUL(env,   infoP->TimeoutEpisodes),
+        MKUI(env,   infoP->SynRetrans)};
     unsigned int numKeys = NUM(keys);
     unsigned int numVals = NUM(vals);
 
@@ -5678,7 +5685,7 @@ ERL_NIF_TERM encode_tcp_info_v0(ErlNifEnv* env, TCP_INFO_v0* infoP)
   ULONG64  SndLimBytesSnd;
   } TCP_INFO_v1, *PTCP_INFO_v1;
  */
-#if defined(SIO_TCP_INFO)
+#if defined(SIO_TCP_INFO) && defined(HAVE_TCP_INFO_V1)
 static
 ERL_NIF_TERM encode_tcp_info_v1(ErlNifEnv* env, TCP_INFO_v1* infoP)
 {
@@ -5715,30 +5722,30 @@ ERL_NIF_TERM encode_tcp_info_v1(ErlNifEnv* env, TCP_INFO_v1* infoP)
         MKUL(env,   infoP->Mss),
         MKUI64(end, infoP->ConnectionTimeMs),
         infoP->TimestampsEnabled ? esock_atom_true : esock_atom_false,
-        MKUL(env,   info->RttUs),
-        MKUL(env,   info->MinRttUs),
-        MKUL(env,   info->BytesInFlight),
-        MKUL(env,   info->Cwnd),
-        MKUL(env,   info->SndWnd),
-        MKUL(env,   info->RcvWnd),
-        MKUL(env,   info->RcvBuf),
-        MKUI64(env, info->BytesOut),
-        MKUI64(env, info->BytesIn),
-        MKUL(env,   info->BytesReordered),
-        MKUL(env,   info->BytesRetrans),
-        MKUL(env,   info->FastRetrans),
-        MKUL(env,   info->DupAcksIn),
-        MKUL(env,   info->TimeoutEpisodes),
-        MKUI(env,   info->SynRetrans),
-        MKUL(env,   info->SndLimTransRwin),
-        MKUL(env,   info->SndLimTimeRwin),
-        MKUI64(env, info->SndLimBytesRwin),
-        MKUL(env,   info->SndLimTransCwnd),
-        MKUL(env,   info->SndLimTimeCwnd),
-        MKUI64(env, info->SndLimBytesCwnd),
-        MKUL(env,   info->SndLimTransSnd),
-        MKUL(env,   info->SndLimTimeSnd),
-        MKUI64(env, info->SndLimBytesSnd)};
+        MKUL(env,   infoP->RttUs),
+        MKUL(env,   infoP->MinRttUs),
+        MKUL(env,   infoP->BytesInFlight),
+        MKUL(env,   infoP->Cwnd),
+        MKUL(env,   infoP->SndWnd),
+        MKUL(env,   infoP->RcvWnd),
+        MKUL(env,   infoP->RcvBuf),
+        MKUI64(env, infoP->BytesOut),
+        MKUI64(env, infoP->BytesIn),
+        MKUL(env,   infoP->BytesReordered),
+        MKUL(env,   infoP->BytesRetrans),
+        MKUL(env,   infoP->FastRetrans),
+        MKUL(env,   infoP->DupAcksIn),
+        MKUL(env,   infoP->TimeoutEpisodes),
+        MKUI(env,   infoP->SynRetrans),
+        MKUL(env,   infoP->SndLimTransRwin),
+        MKUL(env,   infoP->SndLimTimeRwin),
+        MKUI64(env, infoP->SndLimBytesRwin),
+        MKUL(env,   infoP->SndLimTransCwnd),
+        MKUL(env,   infoP->SndLimTimeCwnd),
+        MKUI64(env, infoP->SndLimBytesCwnd),
+        MKUL(env,   infoP->SndLimTransSnd),
+        MKUL(env,   infoP->SndLimTimeSnd),
+        MKUI64(env, infoP->SndLimBytesSnd)};
     unsigned int numKeys = NUM(keys);
     unsigned int numVals = NUM(vals);
 
@@ -5789,7 +5796,7 @@ ERL_NIF_TERM encode_tcp_state(ErlNifEnv* env, TCPSTATE state)
         estate = esock_atom_last_ack;
         break;
     case TCPSTATE_TIME_WAIT:
-        estate = esock_atom_rime_wait;
+        estate = esock_atom_time_wait;
         break;
     case TCPSTATE_MAX:
         estate = esock_atom_max;
