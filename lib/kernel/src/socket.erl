@@ -4436,6 +4436,11 @@ peername(Socket) ->
            (Socket, GetRequest :: 'atmark') ->
           {'ok', Available :: boolean()} | {'error', Reason} when
       Socket :: socket(),
+      Reason :: posix() | 'closed';
+
+           (Socket, GetRequest :: 'tcp_info') ->
+          {'ok', Info :: map()} | {'error', Reason} when
+      Socket :: socket(),
       Reason :: posix() | 'closed'.
 
 %% gifconf | nread | nwrite | nspace | atmark |
