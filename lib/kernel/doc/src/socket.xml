@@ -2223,6 +2223,8 @@
 	    anchor="ioctl-fion"/>
       <name name="ioctl" arity="2" clause_i="3" since="OTP @OTP-18660@"
 	    anchor="ioctl-atmark"/>
+      <name name="ioctl" arity="2" clause_i="4" since="OTP @OTP-18660@"
+	    anchor="ioctl-atmark"/>
       <fsummary>Control device.</fsummary>
       <desc>
         <p>Retrieve socket (device) parameters.</p>
@@ -2258,6 +2260,13 @@
           <item>
 	    <p>Test if there is oob (out-of-bound) data waiting to be read. </p>
 	    <p>Result is a <c>boolean()</c>. </p>
+          </item>
+
+          <tag><c>tcp_info</c></tag>
+          <item>
+	    <p>Return miscellaneous TCP related information for a
+	    <em>connected</em> socket. </p>
+	    <p>Result is a <c>map()</c>. </p>
           </item>
 
 	</taglist>
