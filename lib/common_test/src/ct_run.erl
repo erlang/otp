@@ -131,8 +131,9 @@ script_start(Args) ->
 			    _ -> ""
 			end
 		end,
-	    io:format("~nCommon Test~s starting (cwd is ~ts)~n~n",
-	              [CTVsn,Cwd]),
+            Header = io_lib:format("common test~s starting", [CTVsn]),
+            ct_console:print_header(Header),
+            io:format("cwd: ~ts~n", [Cwd]),
 	    Self = self(),
 	    Pid = spawn_link(fun() -> script_start1(Self, Args) end),
 	    receive
@@ -706,7 +707,6 @@ script_start3(Opts, Args) ->
 	       true ->
 		    %% no start options, use default "-dir ./"
 		    {ok,Dir} = file:get_cwd(),
-		    io:format("ct_run -dir ~ts~n~n", [Dir]),
 		    script_start4(Opts#opts{tests = tests([Dir])}, Args)
 	    end
     end.
@@ -884,7 +884,8 @@ run_test1(StartOpts) when is_list(StartOpts) ->
 	undefined ->
 	    Tracing = start_trace(StartOpts),
 	    {ok,Cwd} = file:get_cwd(),
-	    io:format("~nCommon Test starting (cwd is ~ts)~n~n", [Cwd]),
+	    ct_console:print_header("common test starting"),
+	    io:format("cwd: ~ts~n", [Cwd]),
 	    Res =
 		case ct_repeat:loop_test(func, StartOpts) of
 		    false ->
@@ -1374,7 +1375,8 @@ run_testspec1_fun(TestSpec) ->
 
 run_testspec1(TestSpec) ->
     {ok,Cwd} = file:get_cwd(),
-    io:format("~nCommon Test starting (cwd is ~ts)~n~n", [Cwd]),
+    ct_console:print_header("common test starting"),
+    io:format("cwd: ~ts~n", [Cwd]),
     case catch run_testspec2(TestSpec) of
 	{'EXIT',Reason} ->
 	    ok = file:set_cwd(Cwd),
@@ -1753,7 +1755,8 @@ compile_and_run(Tests, Skip, Opts, Args) ->
     log_ts_names(Opts#opts.testspec_files),
     TestSuites = suite_tuples(Tests),
     
-    {_TestSuites1,SuiteMakeErrors,AllMakeErrors} =
+    io:format("make: "),
+    {TestSuites2,SuiteMakeErrors,AllMakeErrors} =
 	case application:get_env(common_test, auto_compile) of
 	    {ok,false} ->
 		{TestSuites1,SuitesNotFound} =
@@ -1766,6 +1769,7 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 
     case continue(AllMakeErrors, Opts#opts.abort_if_missing_suites) of
 	true ->
+	    io:format("~p test module(s) compiled~n", [length(TestSuites2)]),
 	    SavedErrors = save_make_errors(SuiteMakeErrors),
 	    ct_repeat:log_loop_info(Args),
 	    
@@ -1856,7 +1860,6 @@ possibly_spawn(true, Tests, Skip, Opts) ->
 
 %% attempt to compile the modules specified in TestSuites
 auto_compile(TestSuites) ->
-    io:format("~nCommon Test: Running make in test directories...~n"),
     UserInclude =
 	case application:get_env(common_test, include) of
 	    {ok,UserInclDirs} when length(UserInclDirs) > 0 ->
@@ -2210,15 +2213,13 @@ do_run_test(Tests, Skip, Opts0) ->
 	    NoOfTests = length(Tests),
 	    NoOfSuites = length(Suites1),
 	    ct_util:warn_duplicates(Suites1),
-	    {ok,Cwd} = file:get_cwd(),
-	    io:format("~nCWD set to: ~tp~n", [Cwd]),
 	    if NoOfCases == unknown ->
-		    io:format("~nTEST INFO: ~w test(s), ~w suite(s)~n~n",
+		    io:format("collected: ~w test(s), ~w suite(s)~n~n",
 			      [NoOfTests,NoOfSuites]),
 		    ct_logs:log("TEST INFO","~w test(s), ~w suite(s)",
 				[NoOfTests,NoOfSuites]);
 	       true ->
-		    io:format("~nTEST INFO: ~w test(s), ~w case(s) "
+		    io:format("collected: ~w test(s), ~w case(s) "
 			      "in ~w suite(s)~n~n",
 			      [NoOfTests,NoOfCases,NoOfSuites]),
 		    ct_logs:log("TEST INFO","~w test(s), ~w case(s) "
@@ -2702,7 +2703,7 @@ run_make(Targets, TestDir0, Mod, UserInclude, COpts) ->
 				   node=node(),
 				   data=TestDir}),
 	    case Result of
-		{up_to_date,_} ->
+		{up_to_date,_Out} ->
 		    ok;
 		{'EXIT',Reason} ->
 		    io:format("{error,{make_crashed,~tp}\n", [Reason]),

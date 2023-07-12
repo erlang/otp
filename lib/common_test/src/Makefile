@@ -47,6 +47,7 @@ MODULES= \
 	ct \
 	ct_logs \
 	ct_framework \
+	ct_console \
 	ct_ftp \
 	ct_ssh \
 	ct_snmp \

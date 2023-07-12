@@ -38,6 +38,20 @@
 all() ->
     all([]).
 
+%% Run compilation via `Emakefile' in the current directory.
+%% Returns one of the following:
+%%
+%% - `Result' when the `noexec' option was passed as `true',
+%% - `{up_to_date, Result}' when all modules are up-to-date, or
+%% - `{error, Result}' when compilation failed for any module
+%%
+%% where `Result' contains tuples in the form:
+%%
+%% - `{File, out_of_date}' if the file needs recompilation but the `noexec'
+%%   option was passed,
+%% - `{File, up_to_date}' if the file does not need any recompilation,
+%% - `{File, {error, Warnings, Errors}}}' on compilation failure, or
+%% - `{File, {ok, Warnings}}' on success.
 all(Options) ->
     {MakeOpts,CompileOpts} = sort_options(Options,[],[]),
     case read_emakefile('Emakefile',CompileOpts) of
@@ -200,12 +214,8 @@ load_opt(Opts) ->
 process([{[],_Opts}|Rest], NoExec, Load, Result) ->
     process(Rest, NoExec, Load, Result);
 process([{[H|T],Opts}|Rest], NoExec, Load, Result) ->
-    case recompilep(coerce_2_list(H), NoExec, Load, Opts) of
-	error ->
-	    process([{T,Opts}|Rest], NoExec, Load, [{H,error}|Result]);
-	Info ->
-	    process([{T,Opts}|Rest], NoExec, Load, [{H,Info}|Result])
-    end;
+    CompileResult = recompilep(coerce_2_list(H), NoExec, Load, Opts),
+    process([{T, Opts} | Rest], NoExec, Load, [{H, CompileResult} | Result]);
 process([], NoExec, _Load, Result) ->
     if not NoExec ->
 	    case lists:keysearch(error, 2, Result) of
@@ -272,25 +282,25 @@ include_opt([]) ->
 %% Actually recompile and load the file, depending on the flags.
 %% Where load can be netload | load | noload
 
-recompile(File, NoExec, Load, Opts) ->
-    case do_recompile(File, NoExec, Load, Opts) of
-	{ok,_} -> ok;
-	Other -> Other
-    end.
-
-do_recompile(_File, true, _Load, _Opts) ->
+recompile(_File, true, _Load, _Opts) ->
     out_of_date;
-do_recompile(File, false, Load, Opts) ->
-    io:format("Recompile: ~ts\n",[File]),
-    case compile:file(File, [report_errors, report_warnings |Opts]) of
-        Ok when is_tuple(Ok), element(1,Ok)==ok ->
-            maybe_load(element(2,Ok), Load, Opts);
-        _Error ->
-            error
+recompile(File, false, Load, Opts) ->
+    case compile:file(File, [return_errors, return_warnings | Opts]) of
+        {ok, Module, Warnings} ->
+            {Loaded, ShouldLoad, Why} = maybe_load(Module, Load, Opts),
+            case {Loaded, ShouldLoad, Why} of
+                %% TODO: This needs checking whether the Reason is in a format we expect
+                {false, true, Reason} when Reason =/= none ->
+                    {ok, [Reason | Warnings]};
+                _ ->
+                    {ok, Warnings}
+            end;
+        {error, _Errors, _Warnings} = Result ->
+            Result
     end.
 
 maybe_load(_Mod, noload, _Opts) ->
-    ok;
+    {false, false, none};
 maybe_load(Mod, Load, Opts) ->
     %% We have compiled File with options Opts. Find out where the
     %% output file went to, and load it.
@@ -299,17 +309,16 @@ maybe_load(Mod, Load, Opts) ->
             Dir = proplists:get_value(outdir,Opts,"."),
             do_load(Dir, Mod, Load);
         false ->
-            io:format("** Warning: No object file created - nothing loaded **~n"),
-            ok
+            {false, true}
     end.
 
 do_load(Dir, Mod, load) ->
     code:purge(Mod),
     case code:load_abs(filename:join(Dir, Mod),Mod) of
         {module,Mod} ->
-            {ok,Mod};
+            {true, true, none};
         Other ->
-            Other
+            {false, true, Other}
     end;
 do_load(Dir, Mod, netload) ->
     Obj = atom_to_list(Mod) ++ code:objfile_extension(),
@@ -317,9 +326,9 @@ do_load(Dir, Mod, netload) ->
     case file:read_file(Fname) of
         {ok,Bin} ->
             rpc:eval_everywhere(code,load_binary,[Mod,Fname,Bin]),
-            {ok,Mod};
+            {true, true};
         Other ->
-            Other
+            {false, true, Other}
     end.
 
 exists(File) ->

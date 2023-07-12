@@ -237,7 +237,11 @@ EOF
     PATH="${RELEASE_ROOT}/bin/":${PATH}
 fi
 
-echo "The tests in test directory for $APPLICATION will be executed with ${CT_RUN}"
+if [ "$SILENT" -ne 1 ]
+then
+    echo "The tests in test directory for $APPLICATION will be executed with ${CT_RUN}"
+fi
+
 if [ -z "${ARGS}" ]
 then
     if [ ! -d "$MAKE_TEST_DIR" ]
