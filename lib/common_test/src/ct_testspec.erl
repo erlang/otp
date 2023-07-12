@@ -981,6 +981,9 @@ add_tests([{event_handler,Node,HOrHs,Args}|Ts],Spec) ->
 add_tests([{enable_builtin_hooks,Bool}|Ts],Spec) ->
     add_tests(Ts, Spec#testspec{enable_builtin_hooks = Bool});
 
+add_tests([{ct_hooks_order,Order}|Ts],Spec) ->
+    add_tests(Ts, Spec#testspec{ct_hooks_order = Order});
+
 add_tests([{release_shell,Bool}|Ts],Spec) ->
     add_tests(Ts, Spec#testspec{release_shell = Bool});
 
@@ -1592,6 +1595,7 @@ valid_terms() ->
      {event_handler,4},
      {ct_hooks,2},
      {ct_hooks,3},
+     {ct_hooks_order,2},
      {enable_builtin_hooks,2},
      {release_shell,2},
      {multiply_timetraps,2},

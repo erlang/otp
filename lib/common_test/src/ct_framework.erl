@@ -606,6 +606,8 @@ configure([{timetrap,Time}|Rest],Info,SuiteInfo,Scope,PostInitHook,Config) ->
     configure(Rest,Info,SuiteInfo,Scope,PostInitHook1,Config);
 configure([{ct_hooks,Hook}|Rest],Info,SuiteInfo,Scope,PostInitHook,Config) ->
     configure(Rest,Info,SuiteInfo,Scope,PostInitHook,[{ct_hooks,Hook}|Config]);
+configure([{ct_hooks_order,Order}|Rest],Info,SuiteInfo,Scope,PostInitHook,Config) ->
+    configure(Rest,Info,SuiteInfo,Scope,PostInitHook,[{ct_hooks_order,Order}|Config]);
 configure([_|Rest],Info,SuiteInfo,Scope,PostInitHook,Config) ->
     configure(Rest,Info,SuiteInfo,Scope,PostInitHook,Config);
 configure([],_,_,_,PostInitHook,Config) ->

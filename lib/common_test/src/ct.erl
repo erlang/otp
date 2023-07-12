@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -170,6 +170,7 @@ run(TestDirs) ->
                       | {esc_chars, boolean()}
                       | {keep_logs,KeepSpec}
                       | {ct_hooks, CTHs}
+                      | {ct_hooks_order, CTHsOrder}
                       | {enable_builtin_hooks, boolean()}
                       | {release_shell, boolean()},
            TestDirs :: [string()] | string(),
@@ -211,6 +212,7 @@ run(TestDirs) ->
            Category :: atom(),
            KeepSpec :: all | pos_integer(),
            CTHs :: [CTHModule | {CTHModule, CTHInitArgs}],
+           CTHsOrder :: atom(),
            CTHModule :: atom(),
            CTHInitArgs :: term(),
            Result :: {Ok, Failed, {UserSkipped, AutoSkipped}} | TestRunnerPid | {error, Reason},
