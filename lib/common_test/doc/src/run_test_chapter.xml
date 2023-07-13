@@ -210,6 +210,11 @@
         <seeguide marker="ct_hooks_chapter#installing">Common Test Hooks</seeguide> 
       including start arguments.</p></item>
 
+      <tag><c><![CDATA[-ct_hooks_order [test|config]]]></c></tag>
+      <item><p>To modify
+        <seeguide marker="ct_hooks_chapter#installing">Common Test Hooks</seeguide>
+      execution order.</p></item>
+
       <tag><c><![CDATA[-enable_builtin_hooks <bool>]]></c></tag>
       <item><p>To enable or disable
         <seeguide marker="ct_hooks_chapter#builtin_cths">Built-in Common Test Hooks</seeguide>. 
@@ -883,6 +888,8 @@
  {ct_hooks, CTHModules}.
  {ct_hooks, NodeRefs, CTHModules}.
 
+ {ct_hooks_order, CTHOrder}.
+
  {enable_builtin_hooks, Bool}.
 
  {basic_html, Bool}.
@@ -952,6 +959,7 @@
 		    {CTHModule, CTHInitArgs, CTHPriority}]
  CTHModule       = atom()
  CTHInitArgs     = term()
+ CTHOrder        = test | config
  Dir             = string()
  Suites          = atom() | [atom()] | all
  Suite           = atom()

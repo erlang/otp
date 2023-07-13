@@ -766,6 +766,7 @@ script_usage() ->
 	      "\n\t [-cover_stop Bool]"
 	      "\n\t [-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
 	      "\n\t [-ct_hooks CTHook1 CTHook2 .. CTHookN]"
+	      "\n\t [-ct_hooks_order test | config]"
 	      "\n\t [-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t [-no_auto_compile]"
 	      "\n\t [-abort_if_missing_suites]"
