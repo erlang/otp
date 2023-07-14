@@ -1224,37 +1224,36 @@ split_lines([Char|Rest],Line,Lines) ->
 split_lines([],Line,Lines) ->
     {Lines,lists:reverse(Line)}.
 
-
-match_prompt(Str,Prx) ->
-    match_prompt(Str,Prx,[]).
-match_prompt(Str,Prx,Acc) ->
+match_prompt(Str, Prx) ->
+    match_prompt(unicode:characters_to_binary(Str), Prx, []).
+match_prompt(Str, Prx, Acc) ->
     case re:run(Str,Prx,[unicode]) of
-	nomatch ->
-	    noprompt;
-	{match,[{Start,Len}]} ->
-	    case split_prompt_string(Str,Start+1,Start+Len,1,[],[]) of
-		{noprompt,Done,Rest} ->
-		    match_prompt(Rest,Prx,Done);
-		{prompt,UptoPrompt,Prompt,Rest} ->
-		    {prompt,lists:reverse(UptoPrompt++Acc),
-		     lists:reverse(Prompt),Rest}
-	    end
+        nomatch ->
+            noprompt;
+        {match,[{Start,Len}]} ->
+            <<UptoPrompt:Start/binary, Prompt:Len/binary, Rest/binary>> = Str,
+            case validate_prompt(Start, UptoPrompt, Prompt) of
+                ok ->
+                    {prompt,
+                     unicode:characters_to_list([lists:reverse(Acc), UptoPrompt, Prompt]),
+                     unicode:characters_to_list(Prompt),
+                     unicode:characters_to_list(Rest)};
+                recurse ->
+                    <<Skip:(Start+Len)/binary, Cont/binary>> = Str,
+                    match_prompt(Cont, Prx, [Skip|Acc])
+            end
     end.
 
-split_prompt_string([Ch|Str],Start,End,N,UptoPrompt,Prompt) when N<Start ->
-    split_prompt_string(Str,Start,End,N+1,[Ch|UptoPrompt],Prompt);
-split_prompt_string([Ch|Str],Start,End,N,UptoPrompt,Prompt) 
-  when N>=Start, N<End->
-    split_prompt_string(Str,Start,End,N+1,UptoPrompt,[Ch|Prompt]);
-split_prompt_string([Ch|Rest],_Start,End,N,UptoPrompt,Prompt) when N==End ->
-    case UptoPrompt of
-	[$",$=,$T,$P,$M,$O,$R,$P|_] ->
-	    %% This is a line from "listenv", it is not a real prompt
-	    {noprompt,[Ch|Prompt]++UptoPrompt,Rest};
-	[$\s,$t,$s,$a|_] when Prompt==":nigol" ->
-	    %% This is probably the "Last login:" statement which is
-	    %% written when telnet connection is opened.
-	    {noprompt,[Ch|Prompt]++UptoPrompt,Rest};
-	_ ->
-	    {prompt,[Ch|Prompt]++UptoPrompt,[Ch|Prompt],Rest}
+validate_prompt(Size, PrePrompt,  Prompt) ->
+    case PrePrompt of
+        %% This is a line from "listenv", it is not a real prompt
+        <<_:(Size-8)/binary, "PROMPT=\"", _/binary>> ->
+            recurse;
+        %% This is probably the "Last login:" statement which is
+        %% written when telnet connection is opened.
+        <<_:(Size-5)/binary, _L:8, "ast ", _/binary>>
+          when Prompt =:= <<"login: ">> ->
+            recurse;
+        _ ->
+            ok
     end.
