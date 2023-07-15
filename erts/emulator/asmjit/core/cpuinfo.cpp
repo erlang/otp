@@ -15,7 +15,9 @@
 
 // Required by `getauxval()` on Linux.
 #if defined(__linux__)
+#if defined(HAVE_SYS_AUXV_H)
   #include <sys/auxv.h>
+#endif
 #endif
 
 //! Required to detect CPU and features on Apple platforms.

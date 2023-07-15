@@ -1655,7 +1655,7 @@ AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
                  sys/socket.h sys/sockio.h sys/socketio.h \
                  net/errno.h malloc.h arpa/nameser.h libdlpi.h \
 		 pty.h util.h libutil.h utmp.h langinfo.h poll.h sdkddkver.h \
-                 elf.h)
+                 elf.h sys/auxv.h)
 
 AC_CHECK_MEMBERS([struct ifreq.ifr_hwaddr], [], [],
 	[#ifdef __WIN32__
