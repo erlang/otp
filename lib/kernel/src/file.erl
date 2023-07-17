@@ -603,7 +603,7 @@ allocate(#file_descriptor{module = Module} = Handle, Offset, Length) ->
     Module:allocate(Handle, Offset, Length).
 
 -spec read(IoDevice, Number) -> {ok, Data} | eof | {error, Reason} when
-      IoDevice :: io_device() | atom(),
+      IoDevice :: io_device() | io:device(),
       Number :: non_neg_integer(),
       Data :: string() | binary(),
       Reason :: posix()
@@ -625,7 +625,7 @@ read(_, _) ->
     {error, badarg}.
 
 -spec read_line(IoDevice) -> {ok, Data} | eof | {error, Reason} when
-      IoDevice :: io_device() | atom(),
+      IoDevice :: io_device() | io:device(),
       Data :: string() | binary(),
       Reason :: posix()
               | badarg
@@ -689,7 +689,7 @@ pread(_, _, _) ->
     {error, badarg}.
 
 -spec write(IoDevice, Bytes) -> ok | {error, Reason} when
-      IoDevice :: io_device() | atom(),
+      IoDevice :: io_device() | io:device(),
       Bytes :: iodata(),
       Reason :: posix() | badarg | terminated.
 

@@ -470,7 +470,7 @@
         <p>If <c><anno>Flag</anno></c> is <c>get</c>, a list of all logged
           events is returned.</p>
         <p>If <c><anno>Flag</anno></c> is <c>print</c>, the logged events
-          are printed to <c>standard_io</c>.</p>
+          are printed to <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>.</p>
         <p>The events are formatted with a function that is defined by the
           process that generated the event (with a call to
           <seemfa marker="#handle_debug/4">
@@ -675,9 +675,9 @@
       <name name="trace" arity="3" since=""/>
       <fsummary>Print all system events on <c>standard_io</c>.</fsummary>
       <desc>
-        <p>Prints all system events on <c>standard_io</c>. The events are
-          formatted with a function that is defined by the process that
-          generated the event (with a call to
+        <p>Prints all system events on <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>.
+          The events are formatted with a function that is defined by
+          the process that generated the event (with a call to
           <seemfa marker="#handle_debug/4"><c>handle_debug/4</c></seemfa>).
         </p>
       </desc>

@@ -401,7 +401,8 @@ unicode(State) ->
 unicode(#state{ reader = Reader } = State, Bool) ->
     case Reader of
         {ReaderPid, _} ->
-            call(ReaderPid, {set_unicode_state, Bool});
+            ReaderPid ! {set_unicode_state, Bool},
+            ok;
         undefined ->
             ok
     end,
@@ -463,17 +464,15 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
             {ok, Signal} = tty_read_signal(TTY, SignalRef),
             Parent ! {ReaderRef,{signal,Signal}},
             ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
-        {Alias, {set_unicode_state, _}} when FromEnc =:= {utf16, little} ->
-            %% Ignore requests on windows when in console mode
-            Alias ! {Alias, true},
+        {set_unicode_state, _} when FromEnc =:= {utf16, little} ->
             ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
-        {Alias, {set_unicode_state, Bool}} ->
-            Alias ! {Alias, FromEnc =/= latin1},
+        {set_unicode_state, Bool} ->
             NewFromEnc = if Bool -> utf8; not Bool -> latin1 end,
             ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
         {_Alias, stop} ->
             ok;
         {select, TTY, ReaderRef, ready_input} ->
+            %% This call may block until data is available
             case read_nif(TTY, ReaderRef) of
                 {error, closed} ->
                     Parent ! {ReaderRef, eof},
@@ -489,30 +488,42 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                     ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
                 {ok, UtfXBytes} ->
 
+                    %% read_nif may have blocked for a long time, so we check if
+                    %% there have been any changes to the unicode state before
+                    %% decoding the data.
+                    UpdatedFromEnc = flush_unicode_state(FromEnc),
+
                     {Bytes, NewAcc, NewFromEnc} =
-                        case unicode:characters_to_binary([Acc, UtfXBytes], FromEnc, utf8) of
+                        case unicode:characters_to_binary([Acc, UtfXBytes], UpdatedFromEnc, utf8) of
                             {error, B, Error} ->
                                 %% We should only be able to get incorrect encoded data when
-                                %% using utf8 (i.e. we are on unix)
+                                %% using utf8
                                 FromEnc = utf8,
                                 Parent ! {self(), set_unicode_state, false},
                                 receive
-                                    {Alias, {set_unicode_state, false}} ->
-                                        Alias ! {Alias, true}
-                                end,
-                                receive
-                                    {Parent, set_unicode_state, _} -> ok
+                                    {set_unicode_state, false} ->
+                                        receive
+                                            {Parent, set_unicode_state, _} -> ok
+                                        end
                                 end,
                                 Latin1Chars = unicode:characters_to_binary(Error, latin1, utf8),
                                 {<<B/binary,Latin1Chars/binary>>, <<>>, latin1};
                             {incomplete, B, Inc} ->
-                                {B, Inc, FromEnc};
+                                {B, Inc, UpdatedFromEnc};
                             B when is_binary(B) ->
-                                {B, <<>>, FromEnc}
+                                {B, <<>>, UpdatedFromEnc}
                         end,
                     Parent ! {ReaderRef, {data, Bytes}},
                     ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, NewAcc)
             end
+    end.
+
+flush_unicode_state(FromEnc) ->
+    receive
+        {set_unicode_state, Bool} ->
+            flush_unicode_state(if Bool -> utf8; not Bool -> latin1 end)
+    after 0 ->
+            FromEnc
     end.
 
 writer(TTY) ->
@@ -556,9 +567,9 @@ handle_request(State = #state{ options = #{ tty := false } }, Request) ->
         {putc_raw, Binary} ->
             {Binary, State};
         {putc, Binary} ->
-            {encode(Binary, State#state.unicode), State};
+            {encode(Binary, State#state.unicode, false), State};
         {insert, Binary} ->
-            {encode(Binary, State#state.unicode), State};
+            {encode(Binary, State#state.unicode, false), State};
         beep ->
             {<<7>>, State};
         _Ignore ->
@@ -625,7 +636,8 @@ handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
     %% print above the prompt if we have a prompt.
     %% otherwise print on the current line.
     case {State#state.lines_before,{State#state.buffer_before, State#state.buffer_after}, State#state.lines_after} of
-        {[],{[],[]},[]} -> {PutBuffer, _} = insert_buf(State, Binary),
+        {[],{[],[]},[]} ->
+            {PutBuffer, _} = insert_buf(State, Binary),
             {[encode(PutBuffer, U)], State};
         _ ->
             {Delete, DeletedState} = handle_request(State, delete_line),
@@ -633,8 +645,6 @@ handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
             {Redraw, _} = handle_request(State, redraw_prompt_pre_deleted),
             {[Delete, encode(PutBuffer, U), Redraw], State}
     end;
-handle_request(State, {putc_raw, Binary}) ->
-    handle_request(State, {putc, unicode:characters_to_binary(Binary, latin1)});
 handle_request(State = #state{}, delete_after_cursor) ->
     {[State#state.delete_after_cursor],
      State#state{buffer_after = [],
@@ -1027,7 +1037,7 @@ npwcwidth(Char, true) ->
         C -> C
     end;
 npwcwidth(Char, false) ->
-    byte_size(char_to_latin1(Char)).
+    byte_size(char_to_latin1(Char, true)).
 
 
 %% Return the xn fix for the current cursor position.
@@ -1182,11 +1192,11 @@ ansi_sgr(<<$m, _Rest/binary>>, Size) ->
     {ok, Size + 1};
 ansi_sgr(<<_/binary>>, _) -> none.
 
--spec to_latin1(erlang:binary()) -> erlang:iovec().
-to_latin1(Bin) ->
+-spec to_latin1(erlang:binary(), TTY :: boolean()) -> erlang:iovec().
+to_latin1(Bin, TTY) ->
     case is_usascii(Bin) of
         true -> [Bin];
-        false -> lists:flatten([binary_to_latin1(Bin)])
+        false -> lists:flatten([binary_to_latin1(Bin, TTY)])
     end.
 
 is_usascii(<<Char/utf8,T/binary>>) when Char < 128 ->
@@ -1196,19 +1206,21 @@ is_usascii(<<>>) ->
 is_usascii(_) ->
     false.
 
-binary_to_latin1(Buffer) ->
-    [char_to_latin1(CP) || CP <- unicode:characters_to_list(Buffer)].
-char_to_latin1(UnicodeChar) when UnicodeChar >= 512 ->
+binary_to_latin1(Buffer, TTY) ->
+    [char_to_latin1(CP, TTY) || CP <- unicode:characters_to_list(Buffer)].
+char_to_latin1(UnicodeChar, _) when UnicodeChar >= 512 ->
     <<"\\x{",(integer_to_binary(UnicodeChar, 16))/binary,"}">>;
-char_to_latin1(UnicodeChar) when UnicodeChar >= 128 ->
+char_to_latin1(UnicodeChar, true) when UnicodeChar >= 128 ->
     <<"\\",(integer_to_binary(UnicodeChar, 8))/binary>>;
-char_to_latin1(UnicodeChar) ->
+char_to_latin1(UnicodeChar, _) ->
     <<UnicodeChar>>.
 
-encode(UnicodeChars, true) ->
+encode(UnicodeChars, Unicode) ->
+    encode(UnicodeChars, Unicode, true).
+encode(UnicodeChars, true, _) ->
     unicode:characters_to_binary(UnicodeChars);
-encode(UnicodeChars, false) ->
-    to_latin1(unicode:characters_to_binary(UnicodeChars)).
+encode(UnicodeChars, false, TTY) ->
+    to_latin1(unicode:characters_to_binary(UnicodeChars), TTY).
 
 %% Using get_position adds about 10ms of latency
 %% get_position(#state{ position = false }) ->

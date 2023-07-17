@@ -1374,8 +1374,8 @@ f.txt:  {person, "kalle", 25}.
 	  read from the file, while the position in the file can be moved much more than
 	  this number when reading a Unicode file.</p>
 	  <p>Also, if <c>encoding</c> is set to something else than <c>latin1</c>,
-	  the <c>read/3</c> call fails if the data contains characters larger than 255,
-	  which is why module <seeerl marker="stdlib:io"><c>io(3)</c></seeerl>
+	  the <c>read/2</c> call fails if the data contains characters larger than 255,
+	  which is why <seemfa marker="stdlib:io#get_chars/3"><c>io:get_chars/3</c></seemfa>
 	  is to be preferred when reading such a file.</p>
 	  <p>The function returns:</p>
         <taglist>
@@ -1631,7 +1631,7 @@ f.txt:  {person, "kalle", 25}.
 	  raw line-oriented reading.</p>
 	  <p>If <c>encoding</c> is set to something else than <c>latin1</c>, the
 	  <c>read_line/1</c> call fails if the data contains characters larger than 255,
-	  why module <seeerl marker="stdlib:io"><c>io(3)</c></seeerl> is to be
+	  why <seemfa marker="stdlib:io#get_line/2"><c>io:get_line/2</c></seemfa> is to be
 	  preferred when reading such a file.</p>
 	  <p>The function returns:</p>
         <taglist>
@@ -1981,7 +1981,10 @@ f.txt:  {person, "kalle", 25}.
 	  <p>If the file is opened with <c>encoding</c> set to something else than
 	  <c>latin1</c>, each byte written can result in many bytes being written to
 	  the file, as the byte range 0..255 can represent anything between one and
-	  four bytes depending on value and UTF encoding type.</p>
+	  four bytes depending on value and UTF encoding type. If you want to write
+          <seetype marker="stdlib:unicode#chardata"><c>unicode:chardata()</c></seetype>
+          to the <c><anno>IoDevice</anno></c> you should use <seemfa marker="stdlib:io#put_chars/2">
+          <c>io:put_chars/2</c></seemfa> instead.</p>
         <p>Typical error reasons:</p>
         <taglist>
           <tag><c>ebadf</c></tag>

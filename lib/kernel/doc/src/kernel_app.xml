@@ -614,13 +614,13 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
 	</p>
 
       </item>
-    <tag><marker id="standard_io_encoding"/><c>standard_io_encoding = Encoding</c></tag>
+      <tag><marker id="standard_io_encoding"/><c>standard_io_encoding = Encoding</c></tag>
       <item>
         <p>Set whether bytes sent or received via standard_io should be interpreted as unicode or latin1.
-        By default input and output is interpreted as Unicode if it is supported on the host. With this flag
-        you may configure the encoding on startup.</p>
+          By default input and output is interpreted as Unicode if it is supported on the host. With this flag
+          you may configure the encoding on startup.</p>
         <p>This works similarly to <seemfa marker="stdlib:io#setopts/2"><c>io:setopts(standard_io, {encoding, Encoding})</c></seemfa>
-        but is applied before any bytes on standard_io may have been read.</p>
+          but is applied before any bytes on standard_io may have been read.</p>
         <p>Encoding is one of:</p>
         <taglist>
           <tag><c>unicode</c></tag>
@@ -631,8 +631,10 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
           <item><p>Anything other than unicode or latin1 will be ignored and the system will
             configure the encoding by itself, typically unicode on modern systems.</p></item>
         </taglist>
+        <p>See <seeguide marker="stdlib:unicode_usage#escripts-and-non-interactive-i-o">
+        Escripts and non-interactive I/O in Unicode Usage in Erlang</seeguide> for more details.</p>
       </item>
-          </taglist>
+    </taglist>
   </section>
 
   <section>

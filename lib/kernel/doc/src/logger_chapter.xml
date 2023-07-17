@@ -829,7 +829,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	configuration file that configures Logger according to the
 	description.</p>
       <p>Modify the default handler to print to a file instead of
-	<c>standard_io</c>:</p>
+	<seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>:</p>
       <code>
 [{kernel,
   [{logger,
