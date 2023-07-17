@@ -58,7 +58,7 @@
     collected to determine the operation result, and the operation
     was requested by passing option [;;4m{allow_gc, false}[0m.
 
-  Note:
+  Change:
     Up until ERTS version 8.*, the check process code operation
     checks for all types of references to the old code. That is,
     direct references (e.g. return addresses on the process

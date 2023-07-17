@@ -1,0 +1,12 @@
+
+  [;1m-type send_destination() ::[0m
+  [;1m          pid() |[0m
+  [;1m          reference() |[0m
+  [;1m          port() |[0m
+  [;1m          (RegName :: atom()) |[0m
+  [;1m          {RegName :: atom(), Node :: node()}.[0m
+
+  The destination for a send operation, can be a remote or local
+  process identifier, a (local) port, a reference denoting a process
+  alias, a locally registered name, or a tuple [;;4m{RegName, Node}[0m for
+  a registered name at another node.

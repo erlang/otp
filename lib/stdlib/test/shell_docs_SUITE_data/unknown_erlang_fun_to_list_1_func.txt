@@ -30,7 +30,7 @@
     environment into account. See [;;4merlang:fun_info/1[0m for how to
     get the environment of a fun.
 
-  Note:
+  Change:
     The output of [;;4mfun_to_list/1[0m can differ between Erlang
     implementations and may change in future versions.
 

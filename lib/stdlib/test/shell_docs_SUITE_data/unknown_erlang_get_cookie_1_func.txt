@@ -6,4 +6,5 @@
   OTP 24.1
 
   Returns the magic cookie for node [;;4mNode[0m if the local node is
-  alive, otherwise the atom [;;4mnocookie[0m.
+  alive, otherwise the atom [;;4mnocookie[0m. This value is set by [;;4m[0m
+  [;;4mset_cookie/2[0m.
