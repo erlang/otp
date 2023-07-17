@@ -163,6 +163,21 @@ end_per_testcase(_Func, _Config) ->
 
 %% Test inet:setopt/getopt simple functionality.
 simple(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   case ?IS_SOCKET_BACKEND(Config) of
+                       true ->
+                           {skip, "'nopush' opt not (yet) implemented"};
+                       false ->
+                           ok
+                   end
+           end,
+    Pre  = fun() -> #{} end,
+    Case = fun(State) -> do_simple(Config, State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+
+do_simple(Config, _) when is_list(Config) ->
     XOpt = case os:type() of
 	       {unix,_} -> [{reuseaddr,true}];
 	       _ -> []
@@ -182,9 +197,43 @@ simple(Config) when is_list(Config) ->
     COpt = [{X,case X of nodelay -> false;_ -> Y end} ||
                {X,Y} <- [NoPushOpt|Opt]],
     COptTags = [X || {X,_} <- COpt],
+    ?P("S1: set options:"
+       "~n   ~p", [COpt]),
     inet:setopts(S1,COpt),
-    {ok,COpt} = inet:getopts(S1,COptTags),
-    {ok,Opt} = inet:getopts(S2,OptTags),
+    ?P("S1: get options: "
+       "~n   ~p", [COptTags]),
+    %% {ok,COpt} = inet:getopts(S1,COptTags),
+    case inet:getopts(S1,COptTags) of
+        {ok,COpt} ->
+            ?P("S1: success"),
+            ok;
+        {ok, COptErr} ->
+            ?P("S1: incorrect success:"
+               "~n   Expected: ~p"
+               "~n   Received: ~p", [COpt, COptErr]),
+            ct:fail({incorrect_success, COpt, COptErr});
+        {error, CReason} ->
+            ?P("S1: unexpected failure:"
+               "~n   ~p", [CReason]),
+            ct:fail({unexpected_failure, CReason})
+    end,
+    ?P("S2: get options: "
+       "~n   ~p", [OptTags]),
+    %% {ok,Opt} = inet:getopts(S2,OptTags),
+    case inet:getopts(S2,OptTags) of
+        {ok, Opt} ->
+            ?P("S2: success"),
+            ok;
+        {ok, OptErr} ->
+            ?P("S2: incorrect success:"
+               "~n   Expected: ~p"
+               "~n   Received: ~p", [Opt, OptErr]),
+            ct:fail({incorrect_success, Opt, OptErr});
+        {error, Reason} ->
+            ?P("S2: unexpected failure:"
+               "~n   ~p", [Reason]),
+            ct:fail({unexpected_failure, Reason})
+    end,
     gen_tcp:close(S1),
     gen_tcp:close(S2),
     ok.
@@ -194,7 +243,7 @@ loop_all(Config) when is_list(Config) ->
     Cond = fun() ->
                    case ?IS_SOCKET_BACKEND(Config) of
                        true ->
-                           {skip, watermark_opts_not_implemented};
+                           {skip, "Watermark options not (yet) implemented"};
                        false ->
                            ok
                    end
