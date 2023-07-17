@@ -77,6 +77,22 @@
 
 </section>
 
+<section><title>Common_Test 1.24.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, prompt search functionality in
+	    ct_telnet handles unicode input.</p>
+          <p>
+	    Own Id: OTP-18664 Aux Id: ERIERL-959 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.24</title>
 
     <section><title>Improvements and New Features</title>
