@@ -595,13 +595,18 @@ render_function(FDocs, D, Config) when is_map(Config) ->
 render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
     Grouping =
         lists:foldl(
-          fun({_Group,_Anno,_Sig,_Doc,#{ equiv := Group }} = Func,Acc) ->
-                  Members = maps:get(Group, Acc, []),
-                  Acc#{ Group => [Func|Members] };
+          fun({_Group,_Anno,_Sig,_Doc,#{ equiv := Group }} = Func, Acc) ->
+                  case lists:keytake(Group, 1, Acc) of
+                      false -> [{Group, [Func]} | Acc];
+                      {value, {Group, Members}, NewAcc} ->
+                          [{Group,[Func|Members]} | NewAcc]
+                  end;
              ({Group, _Anno, _Sig, _Doc, _Meta} = Func, Acc) ->
-                  Members = maps:get(Group, Acc, []),
-                  Acc#{ Group => [Func|Members] }
-          end, #{}, lists:sort(FDocs)),
+                  [{Group, [Func]} | Acc]
+          end, [],
+          %% We sort only on the group element, so that multiple entries with
+          %% the same group do not change order. For example erlang:halt/1.
+          lists:sort(fun(A, B) -> element(1, A) =< element(1, B) end, FDocs)),
     lists:map(
       fun({Group,Members}) ->
               Signatures = lists:flatmap(fun render_signature/1, lists:reverse(Members)),
@@ -621,7 +626,7 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
                                 Signatures, get_local_doc(Group, Doc, D), D, Config)
                       end
               end
-      end, maps:to_list(Grouping)).
+      end, lists:reverse(Grouping)).
 
 %% Render the signature of either function, type, or anything else really.
 render_signature({{_Type,_F,_A},_Anno,_Sigs,_Docs,#{ signature := Specs } = Meta}) ->
