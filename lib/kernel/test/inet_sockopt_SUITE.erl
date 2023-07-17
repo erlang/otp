@@ -110,7 +110,9 @@ inet_backend_socket_cases() ->
 
 all_std_cases() ->
     [
-     simple, loop_all, simple_raw, simple_raw_getbin,
+     simple,
+     loop_all,
+     simple_raw, simple_raw_getbin,
      multiple_raw, multiple_raw_getbin,
      doc_examples_raw, doc_examples_raw_getbin, large_raw,
      large_raw_getbin, combined, combined_getbin,
@@ -189,6 +191,20 @@ simple(Config) when is_list(Config) ->
 
 %% Loop through all socket options and check that they work.
 loop_all(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   case ?IS_SOCKET_BACKEND(Config) of
+                       true ->
+                           {skip, watermark_opts_not_implemented};
+                       false ->
+                           ok
+                   end
+           end,
+    Pre  = fun() -> #{} end,
+    Case = fun(State) -> do_loop_all(Config, State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+do_loop_all(Config, _) ->
     ListenFailures =
 	lists:foldr(make_check_fun(Config, listen),[],all_listen_options()),
     AcceptFailures =
