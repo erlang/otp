@@ -29,7 +29,9 @@
          file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
          io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1,
          io_get_chars_file_read_stdin_binary_mode/1,
-         file_read_stdin_latin1_mode/1
+         file_read_stdin_latin1_binary_mode/1,
+         file_read_stdin_latin1_list_mode/1,
+         io_fwrite_stdin_latin1_mode/1
         ]).
 
 
@@ -64,7 +66,9 @@ all() ->
      io_get_chars_stdin_binary_mode,
      io_get_chars_stdin_list_mode,
      io_get_chars_file_read_stdin_binary_mode,
-     file_read_stdin_latin1_mode
+     file_read_stdin_latin1_binary_mode,
+     file_read_stdin_latin1_list_mode,
+     io_fwrite_stdin_latin1_mode
     ].
 
 groups() -> 
@@ -364,7 +368,7 @@ io_get_chars_file_read_stdin_binary_mode(_Config) ->
     ok.
 
 %% Test that reading from stdin using file:read_line works when io is not utf8
-file_read_stdin_latin1_mode(_Config) ->
+file_read_stdin_latin1_binary_mode(_Config) ->
     {ok, P, ErlPort} = start_stdin_node(
                          fun() -> file:read_line(standard_io) end,
                          [binary],
@@ -393,6 +397,88 @@ file_read_stdin_latin1_mode(_Config) ->
     ErlPort2 ! {self(), close},
     {ok, "got: eof"} = gen_tcp:recv(P2, 0, 5000),
 
+    %% Setting using io:setopts used to hang on Windows, see #7459 for details.
+    {ok, P3, ErlPort3} = start_stdin_node(
+                         fun() -> file:read_line(standard_io) end,
+                         [binary],
+                         "-eval \"io:setopts([{encoding, latin1}])\""),
+
+    %% Invalid utf8
+    erlang:port_command(ErlPort3, <<192,128,10,192,128,10,192,128,10>>),
+
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P3, 0, 5000),
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P3, 0, 5000),
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P3, 0, 5000),
+    ErlPort3 ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P3, 0, 5000),
+
+    ok.
+
+%% Test that reading from stdin using file:read_line works when io is not utf8
+file_read_stdin_latin1_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() -> file:read_line(standard_io) end,
+                         [list],
+                         "-kernel standard_io_encoding latin1"),
+
+    %% Invalid utf8
+    erlang:port_command(ErlPort, <<192,128,10,192,128,10,192,128,10>>),
+
+    {ok, "got: [192,128,10]\n"} = gen_tcp:recv(P, 0, 5000),
+    {ok, "got: [192,128,10]\n"} = gen_tcp:recv(P, 0, 5000),
+    {ok, "got: [192,128,10]\n"} = gen_tcp:recv(P, 0, 5000),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0, 5000),
+
+    {ok, P2, ErlPort2} = start_stdin_node(
+                         fun() -> file:read(standard_io, 5) end,
+                         [list],
+                         "-kernel standard_io_encoding latin1"),
+
+    %% Valid utf8
+    erlang:port_command(ErlPort2, <<"duπaduπaduπa"/utf8>>),
+
+    {ok, "got: [100,117,207,128,97]\n"} = gen_tcp:recv(P2, 0, 5000),
+    {ok, "got: [100,117,207,128,97]\n"} = gen_tcp:recv(P2, 0, 5000),
+    {ok, "got: [100,117,207,128,97]\n"} = gen_tcp:recv(P2, 0, 5000),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P2, 0, 5000),
+
+    ok.
+
+%% Test that reading from stdin using file:read works when io is not utf8,
+%% but unicode is printed out
+io_fwrite_stdin_latin1_mode(_Config) ->
+    {ok, P, ErlPort} =
+        start_stdin_node(
+          fun() -> case file:read(standard_io, 5) of
+                       {ok, Chars} ->
+                           %% We've read a unicode string as latin1,
+                           %% which means that if we convert it to
+                           %% a binary it will be seen as the original
+                           %% unicode string.
+                           io:format("~ts",[list_to_binary(Chars)]),
+                           {ok, Chars};
+                       Else ->
+                           Else
+                   end
+          end,
+          [list],
+          "-kernel standard_io_encoding latin1"),
+
+    %% Valid utf8
+    erlang:port_command(ErlPort, <<"duπa"/utf8>>),
+
+    {ok, "got: [100,117,207,128,97]\n"} = gen_tcp:recv(P, 0, 5000),
+    receive
+        {ErlPort, {data, Data}} ->
+            %% On stdout any unicode should be translated to hex syntax
+            "du\\x{3C0}a" = Data
+    end,
+
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0, 5000),
+
     ok.
 
 start_stdin_node(ReadFun, IoOptions) ->
@@ -407,7 +493,7 @@ start_stdin_node(ReadFun, IoOptions, ExtraArgs) ->
              " -pa ", filename:dirname(code:which(?MODULE)),
              " -s ", atom_to_list(?MODULE), " read_raw_from_stdin ", integer_to_list(Port)]),
     ct:log("~p~n", [Cmd]),
-    ErlPort = open_port({spawn, Cmd}, [stream, eof]),
+    ErlPort = open_port({spawn, Cmd}, [stream, eof, stderr_to_stdout]),
     {ok, P} = gen_tcp:accept(L),
     gen_tcp:send(P, term_to_binary(IoOptions)),
     gen_tcp:send(P, term_to_binary(ReadFun)),
@@ -436,6 +522,10 @@ read_raw_from_stdin(ReadFun, P) ->
         {ok, Char} ->
             gen_tcp:send(P, unicode:characters_to_binary(
                               io_lib:format("got: ~p\n",[Char]))),
+            read_raw_from_stdin(ReadFun, P);
+        {ok, Fmt, Char} ->
+            gen_tcp:send(P, unicode:characters_to_binary(
+                              io_lib:format("got: "++Fmt++"\n",[Char]))),
             read_raw_from_stdin(ReadFun, P)
     end.
 

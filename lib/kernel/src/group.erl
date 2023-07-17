@@ -47,7 +47,6 @@ server(Ancestors, Drv, Shell, Options) ->
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
-    put(unicode_state, true),
     ExpandFun = normalize_expand_fun(Options, fun edlin_expand:expand/2),
     put(expand_fun, ExpandFun),
     put(echo, proplists:get_value(echo, Options, true)),
@@ -217,8 +216,7 @@ io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
 
 
 %% Put_chars, unicode is the normal message, characters are always in
-%%standard unicode
-%% format.
+%% standard unicode format.
 %% You might be tempted to send binaries unchecked, but the driver
 %% expects unicode, so that is what we should send...
 %% io_request({put_chars,unicode,Binary}, Drv, Buf) when is_binary(Binary) ->
@@ -250,27 +248,17 @@ io_request({put_chars,unicode,M,F,As}, Drv, _Shell, From, Buf) ->
 	    end
     end;
 io_request({put_chars,latin1,Binary}, Drv, _Shell, From, Buf) when is_binary(Binary) ->
-    IsUnicode = get(unicode_state),
-    if IsUnicode ->
-            send_drv(Drv,
-                     {put_chars_sync, unicode,
-                      unicode:characters_to_binary(Binary,latin1),
-                      From});
-        true ->
-            send_drv(Drv, {put_chars_sync, latin1, Binary, From})
-    end,
+    send_drv(Drv, {put_chars_sync, unicode,
+                   unicode:characters_to_binary(Binary,latin1),
+                   From}),
     {noreply,Buf};
 io_request({put_chars,latin1,Chars}, Drv, _Shell, From, Buf) ->
-    IsUnicode = get(unicode_state),
-    if IsUnicode ->
-            case catch unicode:characters_to_binary(Chars,latin1) of
-                Binary when is_binary(Binary) ->
-                    send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
-                    {noreply,Buf};
-                _ ->
-                    {error,{error,{put_chars,latin1,Chars}},Buf}
-            end;
-        true -> send_drv(Drv, {put_chars_sync, latin1, Chars, From})
+    case catch unicode:characters_to_binary(Chars,latin1) of
+        Binary when is_binary(Binary) ->
+            send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
+            {noreply,Buf};
+        _ ->
+            {error,{error,{put_chars,latin1,Chars}},Buf}
     end;
 io_request({put_chars,latin1,M,F,As}, Drv, _Shell, From, Buf) ->
     case catch apply(M, F, As) of
@@ -401,13 +389,16 @@ setopts(Opts0,Drv,Buf) ->
     end.
 check_valid_opts([]) ->
     true;
-check_valid_opts([{binary,_}|T]) ->
+check_valid_opts([{binary,Flag}|T]) when is_boolean(Flag) ->
     check_valid_opts(T);
-check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode; Valid =:= utf8; Valid =:= latin1 ->
+check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode;
+                                            Valid =:= utf8;
+                                            Valid =:= latin1 ->
     check_valid_opts(T);
-check_valid_opts([{echo,_}|T]) ->
+check_valid_opts([{echo,Flag}|T]) when is_boolean(Flag) ->
     check_valid_opts(T);
-check_valid_opts([{expand_fun,_}|T]) ->
+check_valid_opts([{expand_fun,Fun}|T]) when is_function(Fun, 1);
+                                            is_function(Fun, 2) ->
     check_valid_opts(T);
 check_valid_opts(_) ->
     false.
@@ -415,14 +406,12 @@ check_valid_opts(_) ->
 do_setopts(Opts, Drv, Buf) ->
     put(expand_fun, normalize_expand_fun(Opts, get(expand_fun))),
     put(echo, proplists:get_value(echo, Opts, get(echo))),
-    case proplists:get_value(encoding,Opts) of
+    case proplists:get_value(encoding, Opts) of
 	Valid when Valid =:= unicode; Valid =:= utf8 ->
-           set_unicode_state(Drv,true),
-           put(unicode_state, true);
+           set_unicode_state(Drv,true);
 	latin1 ->
-           set_unicode_state(Drv,false),
-           put(unicode_state, false);
-	_ ->
+           set_unicode_state(Drv,false);
+	undefined ->
 	    ok
     end,
     case proplists:get_value(binary, Opts, case get(read_mode) of
@@ -434,8 +423,6 @@ do_setopts(Opts, Drv, Buf) ->
 	    {ok,ok,Buf};
 	false ->
 	    put(read_mode, list),
-	    {ok,ok,Buf};
-	_ ->
 	    {ok,ok,Buf}
     end.
 

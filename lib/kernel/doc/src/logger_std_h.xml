@@ -38,8 +38,8 @@
   <description>
     <p>This is the standard handler for Logger.
       Multiple instances of this handler can be added to
-      Logger, and each instance prints logs to <c>standard_io</c>,
-      <c>standard_error</c>, or to file.</p>
+      Logger, and each instance prints logs to <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>,
+      <seetype marker="stdlib:io#standard_error"><c>standard_error</c></seetype>, or to file.</p>
     <p>The handler has an overload protection mechanism that keeps the handler
       process and the Kernel application alive during high loads of log 
       events. How overload protection works, and how to configure it, is
@@ -55,12 +55,14 @@
        is stored in a sub map with the key <c>config</c>, and can contain the
        following parameters:</p>
     <taglist>
-      <tag><marker id="type"/><c>type = standard_io | standard_error | file | {device, io:device()}</c></tag>
+      <tag><marker id="type"/><c>type = </c><seetype marker="stdlib:io#standard_io"><c>io:standard_io()</c></seetype><c>
+        | </c><seetype marker="stdlib:io#standard_error"><c>io:standard_error()</c></seetype><c> | file
+        | {device, </c><seetype marker="stdlib:io#device"><c>io:device()</c></seetype><c>}</c></tag>
       <item>
 	<p>Specifies the log destination.</p>
 	<p>The value is set when the handler is added, and it cannot
 	  be changed in runtime.</p>
-	<p>Defaults to <c>standard_io</c>, unless
+	<p>Defaults to <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>, unless
 	  parameter <seeerl marker="#file"><c>file</c></seeerl> is
 	  given, in which case it defaults to <c>file</c>.</p>
       </item>
@@ -182,7 +184,7 @@ logger:add_handler(my_standard_h, logger_std_h,
                                  filesync_repeat_interval => 1000}}).
     </code>
     <p>To set the default handler, that starts initially with
-    the Kernel application, to log to file instead of <c>standard_io</c>,
+    the Kernel application, to log to file instead of <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>,
     change the Kernel default logger configuration. Example:</p>
     <code type="none">
 erl -kernel logger '[{handler,default,logger_std_h,

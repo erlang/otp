@@ -36,11 +36,15 @@
 %% Implemented in native code
 -export([printable_range/0]).
 
--export_type([device/0, format/0, server_no_data/0]).
+-export_type([device/0, format/0, server_no_data/0,
+              standard_io/0, standard_error/0, user/0]).
 
 %%-------------------------------------------------------------------------
 
--type device() :: atom() | pid().
+-type standard_io() :: standard_io.
+-type standard_error() :: standard_error.
+-type user() :: user.
+-type device() :: atom() | pid() | standard_io() | standard_error() | user().
 -type prompt() :: atom() | unicode:chardata().
 
 %% ErrorDescription is whatever the I/O-server sends.

@@ -793,10 +793,6 @@ io_request({put_chars_sync, unicode, Chars, Reply}, TTY) ->
     {Output, NewTTY} = prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}),
     {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
     {Reply, MonitorRef, NewTTY};
-io_request({put_chars_sync, latin1, Chars, Reply}, TTY) ->
-    {Output, NewTTY} = prim_tty:handle_request(TTY, {putc_raw, Chars}),
-    {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
-    {Reply, MonitorRef, NewTTY};
 io_request({put_expand, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {expand_with_trim, unicode:characters_to_binary(Chars)}));
 io_request({put_expand_no_trim, unicode, Chars}, TTY) ->
