@@ -114,8 +114,9 @@ all_std_cases() ->
      loop_all,
      simple_raw, simple_raw_getbin,
      multiple_raw, multiple_raw_getbin,
-     doc_examples_raw, doc_examples_raw_getbin, large_raw,
-     large_raw_getbin, combined, combined_getbin,
+     doc_examples_raw, doc_examples_raw_getbin,
+     large_raw, large_raw_getbin,
+     combined, combined_getbin,
      ipv6_v6only_udp, ipv6_v6only_tcp, ipv6_v6only_sctp,
      use_ipv6_v6only_udp,
      type_errors,
@@ -501,8 +502,17 @@ do_large_raw(Config,Binary) when is_list(Config) ->
 	    true = Off1 =/= 0,
 	    true = Off2 == 0,
 	    true = Ling1 == 10,
-	    {error,einval} =
-		inet:getopts(Sock1,[{raw,Proto,Linger,TooLargeSize}]),
+            case {?IS_SOCKET_BACKEND(Config),
+                  inet:getopts(Sock1,[{raw,Proto,Linger,TooLargeSize}])} of
+                {false, {error,einval}} ->
+                    ok;
+                {true,  {ok, _}} ->
+                    ok;
+                {_, Unexpected} ->
+                    ?P("unexpected result: "
+                       "~n   ~p", [Unexpected]),
+                    ct:fail({unexpected, Unexpected})
+            end,
 	    gen_tcp:close(Sock1),
 	    gen_tcp:close(Sock2),
 	    ok
