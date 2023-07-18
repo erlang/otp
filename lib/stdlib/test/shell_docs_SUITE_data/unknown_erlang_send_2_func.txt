@@ -1,13 +1,6 @@
 
-  [;1m-spec erlang:send(Dest, Msg) -> Msg when Dest :: dst(), Msg :: term().[0m
-
-  Types:
-    -type dst() ::
-          pid() |
-          reference() |
-          port() |
-          (RegName :: atom()) |
-          {RegName :: atom(), Node :: node()}.
+  [;1m-spec erlang:send(Dest, Msg) -> Msg[0m
+  [;1m                     when Dest :: send_destination(), Msg :: term().[0m
 
   Sends a message and returns [;;4mMsg[0m. This is the same as using the 
   send operator: [;;4mDest ! Msg[0m.
@@ -20,3 +13,8 @@
   atom name, but this name is not registered. This is the only case
   when [;;4msend[0m fails for an unreachable destination [;;4mDest[0m (of
   correct type).
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.

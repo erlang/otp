@@ -10,7 +10,8 @@
               non_neg_integer() |
               #{size => non_neg_integer(),
                 kill => boolean(),
-                error_logger => boolean()}.
+                error_logger => boolean(),
+                include_shared_binaries => boolean()}.
     -type message_queue_data() :: off_heap | on_heap.
     -type priority_level() :: low | normal | high | max.
     -type spawn_opt_option() ::
@@ -21,7 +22,8 @@
           {min_heap_size, Size :: non_neg_integer()} |
           {min_bin_vheap_size, VSize :: non_neg_integer()} |
           {max_heap_size, Size :: max_heap_size()} |
-          {message_queue_data, MQD :: message_queue_data()}.
+          {message_queue_data, MQD :: message_queue_data()} |
+          {async_dist, Enabled :: boolean()}.
 
   Returns the process identifier (pid) of a new process started by
   the application of [;;4mFun[0m to the empty list [;;4m[][0m. Otherwise works

@@ -16,6 +16,11 @@
   [;;4mdemonitor(MonitorRef)[0m if this cleanup is wanted.
 
   Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.
+
+  Change:
     Before Erlang/OTP R11B (ERTS 5.5) [;;4mdemonitor/1[0m behaved
     completely asynchronously, that is, the monitor was active
     until the "demonitor signal" reached the monitored entity.

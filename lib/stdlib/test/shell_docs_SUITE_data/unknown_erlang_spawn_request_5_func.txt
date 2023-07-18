@@ -157,6 +157,10 @@
     [;;4mOption[0ms for the local node of current OTP version can be
     found in the documentation of [;;4mspawn_opt/4[0m.
 
+  If a spawn reply message is delivered, it is guaranteed to be
+  delivered before any other signals from the newly spawned process
+  are delivered to the process issuing the spawn request.
+
   This function will fail with a [;;4mbadarg[0m exception if:
 
    • [;;4mNode[0m is not an atom.
@@ -177,3 +181,8 @@
 
   A spawn request can be abandoned by calling [;;4m[0m
   [;;4mspawn_request_abandon/1[0m.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.
