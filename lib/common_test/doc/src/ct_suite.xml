@@ -293,7 +293,7 @@
         subgroups).</fsummary>
       <type>
 	<v>GroupName = <seetype marker="#ct_groupname">ct_groupname()</seetype></v>
-	<v><seetype marker="#ct_info">ct_info()</seetype> = {timetrap, Time} | {require, Required} | {require, Name, Required} | {userdata, UserData} | {silent_connections, Conns} | {stylesheet, CSSFile} | {ct_hooks, CTHs} | {ct_hooks_order, CTHOrder}</v>
+	<v><seetype marker="#ct_info">ct_info()</seetype> = {timetrap, Time} | {require, Required} | {require, Name, Required} | {userdata, UserData} | {silent_connections, Conns} | {stylesheet, CSSFile} | {ct_hooks, CTHs}</v>
 	<v>Time = TimeVal | TimeFunc</v>
 	<v>TimeVal = MilliSec | {seconds, integer()} | {minutes, integer()} | {hours, integer()}</v>
 	<v>TimeFunc = {Mod, Func, Args} | Fun</v>
@@ -316,7 +316,6 @@
 	<v>CTHModule = atom()</v>
 	<v>CTHInitArgs = term()</v>
 	<v>CTHPriority = integer()</v>
-        <v>CTHOrder = test | config</v>
       </type>
       <desc>
 
@@ -499,7 +498,7 @@
       <name since="OTP R14B">Module:Testcase() -> [ct_info()] </name>
       <fsummary>Test case information function.</fsummary>
       <type>
-      <v><seetype marker="#ct_info">ct_info()</seetype> = {timetrap, Time} | {require, Required} | {require, Name, Required} | {userdata, UserData} | {silent_connections, Conns} | {stylesheet, CSSFile} | {ct_hooks, CTHs} | {ct_hooks_order, CTHOrder}</v>
+      <v><seetype marker="#ct_info">ct_info()</seetype> = {timetrap, Time} | {require, Required} | {require, Name, Required} | {userdata, UserData} | {silent_connections, Conns} | {stylesheet, CSSFile} | {ct_hooks, CTHs}</v>
       <v>Time = TimeVal | TimeFunc</v>
       <v>TimeVal = MilliSec | {seconds, integer()} | {minutes, integer()} | {hours, integer()}</v>
       <v>TimeFunc = {Mod, Func, Args} | Fun</v>
@@ -522,7 +521,6 @@
       <v>CTHModule = atom()</v>
       <v>CTHInitArgs = term()</v>
       <v>CTHPriority = integer()</v>
-      <v>CTHOrder = test | config</v>
       </type>
 
       <desc>

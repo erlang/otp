@@ -106,8 +106,7 @@ all(suite) ->
        skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
        update_config_cth2,
        ct_hooks_order_test_cth, ct_hooks_order_config_suite_cth,
-       ct_hooks_order_config_group_cth,
-       ct_hooks_order_config_ips_cth, ct_hooks_order_config_ipg_cth,
+       ct_hooks_order_config_ips_cth,
        state_update_cth, update_result_cth, options_cth, same_id_cth,
        fail_n_skip_with_minimal_cth, prio_cth, no_config,
        no_init_suite_config, no_init_config, no_end_config,
@@ -251,16 +250,8 @@ ct_hooks_order_config_suite_cth(Config) when is_list(Config) ->
     do_test(ct_hooks_order_config_suite_cth, "ct_hooks_order_config_suite_SUITE.erl",
 	    [ct_hooks_order_a_cth, ct_hooks_order_b_cth],Config).
 
-ct_hooks_order_config_group_cth(Config) when is_list(Config) ->
-    do_test(ct_hooks_order_config_group_cth, "ct_hooks_order_config_group_SUITE.erl",
-	    [ct_hooks_order_a_cth, ct_hooks_order_b_cth],Config).
-
 ct_hooks_order_config_ips_cth(Config) when is_list(Config) ->
     do_test(ct_hooks_order_config_ips_cth, "ct_hooks_order_config_ips_SUITE.erl",
-	    [ct_hooks_order_a_cth, ct_hooks_order_b_cth],Config).
-
-ct_hooks_order_config_ipg_cth(Config) when is_list(Config) ->
-    do_test(ct_hooks_order_config_ipg_cth, "ct_hooks_order_config_ipg_SUITE.erl",
 	    [ct_hooks_order_a_cth, ct_hooks_order_b_cth],Config).
 
 state_update_cth(Config) when is_list(Config) ->
@@ -1372,11 +1363,10 @@ test_events(ct_hooks_order_test_cth) ->
          {pre_ipt_2, [pre_ipt_a], pre_ipt_1},
          {post_ipt_1, [ipt, pre_ipt_b], pre_ipt_2},
          {post_ipt_2, [post_ipt_a], post_ipt_1},
+
          %% "Test centric" (default mode) end functions
          %% Pivot point (testcase) after which hook order is reversed (B hook executed as 1st)
-         {pre_ept_1, [post_ipt_b], post_ipt_1},
-         %% FIXME-1 line below should work instead of line above, maybe bug?
-         %% {pre_ept_1, [post_ipt_b], post_ipt_2},
+         {pre_ept_1, [post_ipt_b], post_ipt_2},
          {pre_ept_2, [pre_ept_b], pre_ept_1},
          {post_ept_1, [pre_ept_a], pre_ept_2},
          {post_ept_2, [post_ept_b], post_ept_1},
@@ -1387,9 +1377,7 @@ test_events(ct_hooks_order_test_cth) ->
          {pre_eps_1, [], post_ips_2},
          {pre_eps_2, [pre_eps_b], pre_eps_1},
          {post_eps_1, [pre_eps_a], pre_eps_2},
-         {post_eps_2, [post_eps_b], post_eps_1},
-         {term_1, [post_eps_a], post_eps_1},
-         {term_2, [post_eps_b], post_eps_1}
+         {post_eps_2, [post_eps_b], post_eps_1}
         ],
     hooks_order_events_helper(Suite, Recipe);
 test_events(TC) when TC == ct_hooks_order_config_suite_cth;
@@ -1403,74 +1391,34 @@ test_events(TC) when TC == ct_hooks_order_config_suite_cth;
     Recipe =
         [{pre_ips_1, [], []},
          {pre_ips_2, [pre_ips_a], []},
-         {post_ips_1, [ips, pre_ips_b], pre_ips_2},
          %% "Config centric" post functions have reversed execution order (B hook executed 1st)
+         {post_ips_1, [ips, pre_ips_b], pre_ips_2},
          {post_ips_2, [post_ips_b], post_ips_1},
+
          {pre_ipg_1, [post_ips_a], post_ips_2},
          {pre_ipg_2, [pre_ipg_a], pre_ipg_1},
          {post_ipg_1, [ipg, pre_ipg_b], pre_ipg_2},
          {post_ipg_2, [post_ipg_b], post_ipg_1},
+
          {pre_ipt_1, [post_ipg_a], post_ipg_2},
          {pre_ipt_2, [pre_ipt_a], pre_ipt_1},
          {post_ipt_1, [ipt, pre_ipt_b], pre_ipt_2},
          {post_ipt_2, [post_ipt_b], post_ipt_1},
-         {pre_ept_1, [post_ipt_a], post_ipt_1},
-         %% FIXME-1 line below should work instead of line above, maybe bug?
-         %% {pre_ept_1, [post_ipt_b], post_ipt_2},
+
+         {pre_ept_1, [post_ipt_a], post_ipt_2},
          {pre_ept_2, [pre_ept_a], pre_ept_1},
          {post_ept_1, [pre_ept_b], pre_ept_2},
          {post_ept_2, [post_ept_b], post_ept_1},
+
          {pre_epg_1, [], pre_ipt_1},
          {pre_epg_2, [pre_epg_a], pre_epg_1},
          {post_epg_1, [pre_epg_b], pre_epg_2},
          {post_epg_2, [post_epg_b], post_epg_1},
+
          {pre_eps_1, [], post_ips_2},
          {pre_eps_2, [pre_eps_a], pre_eps_1},
          {post_eps_1, [pre_eps_b], pre_eps_2},
-         {post_eps_2, [post_eps_b], post_eps_1},
-         {term_1, [post_eps_a], post_eps_1},
-         {term_2, [post_eps_b], post_eps_1}
-        ],
-    hooks_order_events_helper(Suite, Recipe);
-test_events(TC) when TC == ct_hooks_order_config_ipg_cth;
-                     TC == ct_hooks_order_config_group_cth ->
-    Suite = case TC of
-                ct_hooks_order_config_group_cth ->
-                    ct_hooks_order_config_group_SUITE;
-                _ ->
-                    ct_hooks_order_config_ipg_SUITE
-            end,
-    Recipe =
-        [{pre_ips_1, [], []},
-         {pre_ips_2, [pre_ips_a], []},
-         {post_ips_1, [ips, pre_ips_b], pre_ips_2},
-         {post_ips_2, [post_ips_a], post_ips_1},
-         {pre_ipg_1, [post_ips_b], post_ips_2},
-         {pre_ipg_2, [pre_ipg_a], pre_ipg_1},
-         %% "Config centric" post functions have reversed execution order (B hook executed 1st)
-         %% order option in init_per_group
-         {post_ipg_1, [ipg, pre_ipg_b], pre_ipg_2},
-         {post_ipg_2, [post_ipg_b], post_ipg_1},
-         {pre_ipt_1, [post_ipg_a], post_ipg_2},
-         {pre_ipt_2, [pre_ipt_a], pre_ipt_1},
-         {post_ipt_1, [ipt, pre_ipt_b], pre_ipt_2},
-         {post_ipt_2, [post_ipt_b], post_ipt_1},
-         {pre_ept_1, [post_ipt_a], post_ipt_1},
-         %% FIXME-1 line below should work instead of line above, maybe bug?
-         %% {pre_ept_1, [post_ipt_b], post_ipt_2},
-         {pre_ept_2, [pre_ept_a], pre_ept_1},
-         {post_ept_1, [pre_ept_b], pre_ept_2},
-         {post_ept_2, [post_ept_b], post_ept_1},
-         {pre_epg_1, [], pre_ipt_1},
-         {pre_epg_2, [pre_epg_a], pre_epg_1},
-         {post_epg_1, [pre_epg_b], pre_epg_2},
-         {post_epg_2, [post_epg_b], post_epg_1},
-         {pre_eps_1, [], post_ips_2},
-         {pre_eps_2, [pre_eps_b], pre_eps_1},
-         {post_eps_1, [pre_eps_a], pre_eps_2},
-         {post_eps_2, [post_eps_a], post_eps_1},
-         {term_1, [post_eps_a], post_eps_1},
-         {term_2, [post_eps_b], post_eps_1}
+         {post_eps_2, [post_eps_b], post_eps_1}
         ],
     hooks_order_events_helper(Suite, Recipe);
 test_events(state_update_cth) ->
@@ -3179,13 +3127,13 @@ hooks_order_events_helper(Suite, Recipe) ->
      ?cth_event4(pre_init_per_testcase, Suite, test_case, contains(V(pre_ipt_1, M))),
      ?cth_event4(pre_init_per_testcase, Suite, test_case, contains(V(pre_ipt_2, M))),
      ?cth_event5(post_init_per_testcase, Suite, test_case,
-                 contains(V(post_ipt_1, M)), ok), %% FIXME why ok on last argument here?
+                 contains(V(post_ipt_1, M)), ok),
      ?cth_event5(post_init_per_testcase, Suite, test_case,
                  '$proplist', contains(V(post_ipt_2, M))),
      ?cth_event4(pre_end_per_testcase, Suite, test_case, contains(V(pre_ept_1, M))),
      ?cth_event4(pre_end_per_testcase, Suite, test_case, contains(V(pre_ept_2, M))),
      ?cth_event5(post_end_per_testcase, Suite, test_case,
-                 contains(V(post_ept_1, M)), ok), %% FIXME why ok on last argument here?
+                 contains(V(post_ept_1, M)), ok),
      ?cth_event5(post_end_per_testcase, Suite, test_case,
                 '$proplist', contains(V(post_ept_2, M))),
      {?eh,tc_done,{Suite,test_case,ok}},
@@ -3208,12 +3156,5 @@ hooks_order_events_helper(Suite, Recipe) ->
      ?cth_event4(post_end_per_suite, Suite, '$proplist', contains(V(post_eps_1, M))),
      {?eh,tc_done,{Suite,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
-     %% FIXME-2 why terminate callbacks receive only one post_end_per_suite?
-     {?eh,cth,{'_', terminate,
-               [contains(V(term_1, M))]}},
-               %% [contains([post_eps_a] ++ ConfigBPostEndPerSuite)]}},
-     {?eh,cth,{'_', terminate,
-               [contains(V(term_2, M))]}},
-               %% [contains([post_eps_b] ++ ConfigBPostEndPerSuite)]}},
      {?eh,stop_logging,[]}
     ].

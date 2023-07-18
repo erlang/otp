@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 
-
 -module(ct_hooks_order_a_cth).
 
 -include_lib("common_test/src/ct_util.hrl").
@@ -47,9 +46,7 @@ pre_end_per_suite(Suite,Config,State) ->
 
 post_end_per_suite(Suite,Config,Return,State) ->
     empty_cth:post_end_per_suite(Suite,Config,Return,?ADD_LOC(State)),
-    %% FIXME what is the purpose of code below, why it's different
-    NewConfig = [{post_eps_a,?now}|Config],
-    {NewConfig,NewConfig}.
+    {[{post_eps_a,?now}|Config],State}.
 
 pre_init_per_group(Suite, Group,Config,State) ->
     empty_cth:pre_init_per_group(Suite,Group,Config,?ADD_LOC(State)),
@@ -73,7 +70,13 @@ pre_init_per_testcase(Suite,TC,Config,State) ->
 
 post_init_per_testcase(Suite,TC,Config,Return,State) ->
     empty_cth:post_init_per_testcase(Suite,TC,Config,Return,?ADD_LOC(State)),
-    {[{post_ipt_a,?now}|Config],State}.
+    Data = case Return of
+               ok ->
+                   Config;
+               Return when is_list(Return) ->
+                   Return
+           end,
+    {[{post_ipt_a,?now}|Data],State}.
 
 pre_end_per_testcase(Suite,TC,Config,State) ->
     empty_cth:pre_end_per_testcase(Suite,TC,Config,?ADD_LOC(State)),

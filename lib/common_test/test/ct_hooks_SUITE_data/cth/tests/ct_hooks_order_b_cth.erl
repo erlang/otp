@@ -47,8 +47,7 @@ pre_end_per_suite(Suite,Config,State) ->
 
 post_end_per_suite(Suite,Config,Return,State) ->
     empty_cth:post_end_per_suite(Suite,Config,Return,?ADD_LOC(State)),
-    NewConfig = [{post_eps_b,?now}|Config],
-    {NewConfig,NewConfig}.
+    {[{post_eps_b,?now}|Config],State}.
 
 pre_init_per_group(Suite, Group,Config,State) ->
     empty_cth:pre_init_per_group(Suite,Group,Config,?ADD_LOC(State)),
@@ -72,7 +71,13 @@ pre_init_per_testcase(Suite,TC,Config,State) ->
 
 post_init_per_testcase(Suite,TC,Config,Return,State) ->
     empty_cth:post_init_per_testcase(Suite,TC,Config,Return,?ADD_LOC(State)),
-    {[{post_ipt_b,?now}|Config],State}.
+    Data = case Return of
+               ok ->
+                   Config;
+               Return when is_list(Return) ->
+                   Return
+           end,
+    {[{post_ipt_b,?now}|Data],State}.
 
 pre_end_per_testcase(Suite,TC,Config,State) ->
     empty_cth:pre_end_per_testcase(Suite,TC,Config,?ADD_LOC(State)),

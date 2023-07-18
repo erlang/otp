@@ -34,23 +34,29 @@ suite() ->
 
 %% Test server callback functions
 init_per_suite(Config) ->
+    undefined = proplists:get_value(ct_hooks_order, Config),
     [{ips, ?now} | Config].
 
 end_per_suite(Config) ->
+    undefined = proplists:get_value(ct_hooks_order, Config),
     %% result from end functions is not provided to any other callback
     Config.
 
 init_per_testcase(_TestCase, Config) ->
+    undefined = proplists:get_value(ct_hooks_order, Config),
     [{ipt, ?now} | Config].
 
 end_per_testcase(_TestCase, Config) ->
+    undefined = proplists:get_value(ct_hooks_order, Config),
     %% result from end functions is not provided to any other callback
     Config.
 
 init_per_group(_GroupName, Config) ->
+    undefined = proplists:get_value(ct_hooks_order, Config),
     [{ipg, ?now} | Config].
 
 end_per_group(_GroupName, Config) ->
+    undefined = proplists:get_value(ct_hooks_order, Config),
     %% result from end functions is not provided to any other callback
     Config.
 
@@ -61,5 +67,6 @@ groups() ->
     [{group1,[],[test_case]}].
 
 test_case(Config) when is_list(Config) ->
+    undefined = proplists:get_value(ct_hooks_order, Config),
     ok.
 

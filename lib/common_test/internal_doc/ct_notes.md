@@ -40,22 +40,25 @@ flowchart TD
     pre_ipt_B["(B) pre_init_per_testcase"] --Config--> ipt[/"init_per_testcase"/]
     end
     ipt --Config,Return--> post_ipt_A
+    ipt --Config--> post_ipt_B
     subgraph hooks
-    post_ipt_A["(A) post_init_per_testcase"] --Config,Return--> post_ipt_B
+    post_ipt_A["(A) post_init_per_testcase"] --Return--> post_ipt_B
     end
     subgraph suite
     post_ipt_B["(B) post_init_per_testcase"] --Config--> testcase
     testcase((("Testcase")))
     end
     subgraph hooks
-    testcase --Config,Return--> pre_ept_B
-    pre_ept_B["(B) pre_end_per_testcase"] --Config,Return--> pre_ept_A
+    testcase --tc_status--> pre_ept_B
+    pre_ept_B["(B) pre_end_per_testcase"] --Config--> pre_ept_A
     end
     subgraph suite
     pre_ept_A["(A) pre_end_per_testcase"] --Config--> end_per_test_case
     end
     subgraph hooks
     end_per_test_case[/"end_per_testcase"/] --Config,Return--> post_ept_B
+    post_ept_B[/"(B) post_end_per_testcase"/] --Return--> post_ept_A[/"(A) post_end_per_testcase"/]
+    end_per_test_case --Config--> post_ept_A
     end
 ```
 #### Configuration centric (option candidate)

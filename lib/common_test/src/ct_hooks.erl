@@ -160,15 +160,13 @@ init_tc(Mod, TC = error_in_suite, Config) ->
 		 {fail, Reason :: term()} |
 		 ok | '$ct_no_change'.
 
-end_tc(Mod, CFunc = init_per_suite, Config, _Result, Return) ->
-    process_hooks_order(CFunc, Return),
+end_tc(Mod, init_per_suite, Config, _Result, Return) ->
     call(fun call_generic/3, Return, [post_init_per_suite, Mod, Config],
 	 '$ct_no_change');
 end_tc(Mod, end_per_suite, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_suite, Mod, Config],
 	'$ct_no_change');
-end_tc(Mod, {CFunc = init_per_group, GroupName, _}, Config, _Result, Return) ->
-    process_hooks_order(CFunc, Return),
+end_tc(Mod, {init_per_group, GroupName, _}, Config, _Result, Return) ->
     call(fun call_generic_fallback/3, Return,
          [post_init_per_group, Mod, GroupName, Config], '$ct_no_change');
 end_tc(Mod, {end_per_group, GroupName, Properties}, Config, Result, _Return) ->
@@ -291,7 +289,7 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 		    {Hooks ++ [NewHook],
 		     Rest ++ [{NewId, call_init}, {NewId,NextFun}]}
 	    end,
-        {_, Order} = get_hooks_order(),
+        Order = get_hooks_order(),
 	call(resort(NewRest, NewHooks, Meta, Order), Config, Meta,
              NewHooks)
     catch Error:Reason:Trace ->
@@ -308,9 +306,7 @@ call([{HookId, Fun} | Rest], Config, Meta, Hooks) ->
         {NewConf, NewHook} =  Fun(Hook, Config, Meta),
         NewCalls = get_new_hooks(NewConf, Fun),
         NewHooks = lists:keyreplace(HookId, #ct_hook_config.id, Hooks, NewHook),
-        %% FIXME - not needed, but maybe logical?
-        %% process_hooks_order(NewConf),
-        {_, Order} = get_hooks_order(),
+        Order = get_hooks_order(),
         call(resort(NewCalls ++ Rest, NewHooks,
                     Meta, Order), %% Resort if call_init changed prio
 	     remove([?hooks_name, ?hooks_order_name], NewConf), Meta,
@@ -321,7 +317,6 @@ call([{HookId, Fun} | Rest], Config, Meta, Hooks) ->
     end;
 call([], Config, _Meta, Hooks) ->
     save_suite_data_async(Hooks),
-    %% process_hooks_order([{?hooks_order_name, HooksOrder}]),
     Config.
 
 remove([], List) when is_list(List) ->
@@ -536,44 +531,25 @@ catch_apply(M,F,A) ->
                                    [M,F,length(A)]))})
     end.
 
-process_hooks_order(Stage = init, Return) when is_list(Return) ->
-    maybe_save_hooks_order(Stage, Return);
-process_hooks_order(Stage, Return) when is_list(Return) ->
-    {StoredStage, StoredOrder0} = get_hooks_order(),
-    DeleteConditions =
-        [{pre_end_per_suite, init_per_group},
-         {pre_end_per_suite, pre_init_per_group},
-         {pre_end_per_group, pre_init_per_testcase}],
-    StoredOrder =
-        case lists:member({Stage, StoredStage}, DeleteConditions) of
-            true->
-                ct_util:delete_suite_data(?hooks_order_name),
-                undefined;
-            _ ->
-                StoredOrder0
-        end,
-    case StoredOrder of
+process_hooks_order(init, Return) when is_list(Return) ->
+    maybe_save_hooks_order(Return);
+process_hooks_order(_Stage, Return) when is_list(Return) ->
+    case get_hooks_order() of
         undefined ->
-            maybe_save_hooks_order(Stage, Return);
-        _ ->
+            maybe_save_hooks_order(Return);
+        StoredOrder ->
             StoredOrder
     end;
 process_hooks_order(_Stage, _) ->
     nothing_to_save.
 
 get_hooks_order() ->
-    Value = ct_util:read_suite_data(?hooks_order_name),
-    case Value of
-        undefined ->
-            {undefined, undefined};
-        {_, _} ->
-            Value
-    end.
+    ct_util:read_suite_data(?hooks_order_name).
 
-maybe_save_hooks_order(Stage, Return) ->
+maybe_save_hooks_order(Return) ->
     case proplists:get_value(?hooks_order_name, Return) of
         Order when Order == config ->
-            ct_util:save_suite_data_async(?hooks_order_name, {Stage, Order}),
+            ct_util:save_suite_data_async(?hooks_order_name, Order),
             Order;
         _ ->
             test
