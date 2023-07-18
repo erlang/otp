@@ -1203,7 +1203,7 @@ ignore_optname(Tag) ->
         high_watermark      -> true;
         low_msgq_watermark  -> true;
         low_watermark       -> true;
-        nopush              -> true;
+        %% nopush              -> true;
         _ -> false
     end.
 
@@ -1211,61 +1211,86 @@ ignore_optname(Tag) ->
 %%
 -compile({inline, [socket_opts/0]}).
 socket_opts() ->
-    #{
-      %% Level: otp
-      buffer => {otp, rcvbuf},
-      debug  => {otp, debug},
-      fd     => {otp, fd},
+    Opts =
+        #{
+          %% Level: otp
+          buffer => {otp, rcvbuf},
+          debug  => {otp, debug},
+          fd     => {otp, fd},
 
-      %%
-      %% Level: socket
-      bind_to_device   => {socket, bindtodevice},
-      dontroute        => {socket, dontroute},
-      exclusiveaddruse => {socket, exclusiveaddruse},
-      keepalive        => {socket, keepalive},
-      linger           => {socket, linger},
-      priority         => {socket, priority},
-      recbuf           => {socket, rcvbuf},
-      reuseaddr        => {socket, reuseaddr},
-      sndbuf           => {socket, sndbuf},
+          %%
+          %% Level: socket
+          bind_to_device   => {socket, bindtodevice},
+          dontroute        => {socket, dontroute},
+          exclusiveaddruse => {socket, exclusiveaddruse},
+          keepalive        => {socket, keepalive},
+          linger           => {socket, linger},
+          priority         => {socket, priority},
+          recbuf           => {socket, rcvbuf},
+          reuseaddr        => {socket, reuseaddr},
+          sndbuf           => {socket, sndbuf},
 
-      %%
-      %% Level: tcp
-      nodelay => {tcp, nodelay},
+          %%
+          %% Level: tcp
+          nodelay => {tcp, nodelay},
 
-      %%
-      %% Level: ip
-      recvtos => {ip, recvtos},
-      recvttl => {ip, recvttl},
-      tos     => {ip, tos},
-      ttl     => {ip, ttl},
+          %%
+          %% Level: ip
+          recvtos => {ip, recvtos},
+          recvttl => {ip, recvttl},
+          tos     => {ip, tos},
+          ttl     => {ip, ttl},
 
-      %%
-      %% Level: ipv6
-      recvtclass  => {ipv6, recvtclass},
-      ipv6_v6only => {ipv6, v6only},
-      tclass      => {ipv6, tclass},
+          %%
+          %% Level: ipv6
+          recvtclass  => {ipv6, recvtclass},
+          ipv6_v6only => {ipv6, v6only},
+          tclass      => {ipv6, tclass},
 
-      %%
-      %% Raw
-      raw => raw,
+          %%
+          %% Raw
+          raw => raw,
 
-      %%
-      %% Special cases
-      %% These are options that cannot be mapped as above,
-      %% as they, for instance, "belong to" several domains.
-      %% So, we select which level to use based on the domain
-      %% of the socket.
+          %%
+          %% Special cases
+          %% These are options that cannot be mapped as above,
+          %% as they, for instance, "belong to" several domains.
+          %% So, we select which level to use based on the domain
+          %% of the socket.
 
-      %% This is a special case.
-      %% Only supported on Linux and then only actually for IPv6,
-      %% but unofficially also for ip...barf...
-      %% In both cases this is *no longer valid* as the RFC which 
-      %% introduced this, RFC 2292, is *obsoleted* by RFC 3542, where
-      %% this "feature" *does not exist*...
-      pktoptions  =>
-           [{inet, {ip, pktoptions}}, {inet6, {ipv6, pktoptions}}]
-      }.
+          %% This is a special case.
+          %% Only supported on Linux and then only actually for IPv6,
+          %% but unofficially also for ip...barf...
+          %% In both cases this is *no longer valid* as the RFC which 
+          %% introduced this, RFC 2292, is *obsoleted* by RFC 3542, where
+          %% this "feature" *does not exist*...
+          pktoptions  =>
+              [{inet, {ip, pktoptions}}, {inet6, {ipv6, pktoptions}}]
+         },
+    case nopush_or_cork() of
+        undefined ->
+            %% Neither
+            Opts;
+        NopushOpt ->
+            maps:put(nopush, {tcp, NopushOpt}, Opts)
+    end.
+
+-compile({inline, [nopush_or_cork/0]}).
+nopush_or_cork() ->
+    OptsSup = socket:supports(options),
+    NoPushKey = {tcp, nopush},
+    case lists:keysearch(NoPushKey, 1, OptsSup) of
+        {value, {NoPushKey, true}} ->
+            nopush;
+        _ ->
+            CorkKey = {tcp, cork},
+            case lists:keysearch(CorkKey, 1, OptsSup) of
+                {value, {CorkKey, true}} ->
+                    cork;
+                _ ->
+                    undefined
+            end
+    end.
 
 -compile({inline, [server_read_write_opts/0]}).
 server_read_write_opts() ->

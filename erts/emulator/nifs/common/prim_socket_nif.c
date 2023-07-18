@@ -3581,7 +3581,14 @@ static struct ESockOpt optLevelTCP[] =
             &esock_atom_nodelay},
 
         {0, NULL, NULL, &esock_atom_noopt},
-        {0, NULL, NULL, &esock_atom_nopush},
+        {
+#ifdef TCP_NOPUSH
+            TCP_NOPUSH,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+        &esock_atom_nopush},
         {0, NULL, NULL, &esock_atom_syncnt},
         {0, NULL, NULL, &esock_atom_user_timeout}
 
