@@ -1203,8 +1203,15 @@ ignore_optname(Tag) ->
         high_watermark      -> true;
         low_msgq_watermark  -> true;
         low_watermark       -> true;
-        %% nopush              -> true;
-        _ -> false
+        nopush              ->
+            case nopush_or_cork() of
+                undefined ->
+                    true;
+                _ ->
+                    false
+            end;
+        _ ->
+            false
     end.
 
 %% 'socket' options; translation to 'level' and 'opt'
@@ -1277,18 +1284,24 @@ socket_opts() ->
 
 -compile({inline, [nopush_or_cork/0]}).
 nopush_or_cork() ->
-    OptsSup = socket:supports(options),
-    NoPushKey = {tcp, nopush},
-    case lists:keysearch(NoPushKey, 1, OptsSup) of
-        {value, {NoPushKey, true}} ->
-            nopush;
+    case os:type() of
+        {unix, darwin} ->
+            %% This option exist (on Darwin), but does something else!
+            undefined;
         _ ->
-            CorkKey = {tcp, cork},
-            case lists:keysearch(CorkKey, 1, OptsSup) of
-                {value, {CorkKey, true}} ->
-                    cork;
+            OptsSup = socket:supports(options),
+            NoPushKey = {tcp, nopush},
+            case lists:keysearch(NoPushKey, 1, OptsSup) of
+                {value, {NoPushKey, true}} ->
+                    nopush;
                 _ ->
-                    undefined
+                    CorkKey = {tcp, cork},
+                    case lists:keysearch(CorkKey, 1, OptsSup) of
+                        {value, {CorkKey, true}} ->
+                            cork;
+                        _ ->
+                            undefined
+                    end
             end
     end.
 
