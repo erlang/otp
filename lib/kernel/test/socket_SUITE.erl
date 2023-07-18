@@ -14890,7 +14890,7 @@ api_opt_simple_bool(Domain, Level, Type, Option, InitState) ->
         [
          #{desc => "(maybe) which local address",
            cmd  => fun(#{bind := true} = State) ->
-                           case which_local_host_info(Domain) of
+                           case ?LIB:which_local_host_info(Domain) of
                                {ok, #{name      := Name,
                                       addr      := Addr}} ->
                                    ?SEV_IPRINT("local host info: "
