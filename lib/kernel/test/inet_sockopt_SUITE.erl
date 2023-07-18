@@ -224,12 +224,13 @@ end_per_testcase(_Func, Config) ->
 %% Test inet:setopt/getopt simple functionality.
 simple(Config) when is_list(Config) ->
     Cond = fun() ->
-                   case ?IS_SOCKET_BACKEND(Config) of
-                       true ->
-                           {skip, "'nopush' opt not (yet) implemented"};
-                       false ->
-                           ok
-                   end
+                   %% case ?IS_SOCKET_BACKEND(Config) of
+                   %%     true ->
+                   %%         {skip, "'nopush' opt not (yet) implemented"};
+                   %%     false ->
+                   %%         ok
+                   %% end
+                   ok
            end,
     Pre  = fun() -> #{} end,
     Case = fun(State) -> do_simple(Config, State) end,
