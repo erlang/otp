@@ -78,6 +78,12 @@
     is performed for local functions that do not capture the
     environment).
 
+    Change:
+      In Erlang/OTP 27, we plan to change the return value so
+      that it always points to the local [;;4minit[0m process,
+      regardless of which process or node the fun was originally
+      created on. See Upcoming Potential Incompatibilities .
+
   [;;4m[;;4m{index, Index}[0m[0m:
     [;;4mIndex[0m (an integer) is an index into the module fun table.
 

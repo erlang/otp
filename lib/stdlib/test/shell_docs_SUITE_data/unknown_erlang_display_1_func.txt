@@ -4,4 +4,6 @@
   Prints a text representation of [;;4mTerm[0m on the standard output.
 
   Warning:
-    This BIF is intended for debugging only.
+    This BIF is intended for debugging only. The printed
+    representation may contain internal details that do not match
+    the high-level representation of the term in Erlang.

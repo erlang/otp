@@ -13,7 +13,8 @@
   [;1m                               Item ::[0m
   [;1m                                   flags | tracer | traced |[0m
   [;1m                                   match_spec | meta | meta_match_spec |[0m
-  [;1m                                   call_count | call_time | all,[0m
+  [;1m                                   call_count | call_time |[0m
+  [;1m                                   call_memory | all,[0m
   [;1m                               Res :: trace_info_return().[0m
 
   Types:
@@ -31,7 +32,7 @@
           {meta, module(), term()} |
           {meta_match_spec, trace_match_spec() | false | undefined} |
           {call_count, non_neg_integer() | boolean() | undefined} |
-          {call_time,
+          {call_time | call_memory,
            [{pid(),
              non_neg_integer(),
              non_neg_integer(),
@@ -122,6 +123,19 @@
     Otherwise [;;4mfalse[0m is returned. The call time values returned, [;;4m[0m
     [;;4m[{Pid, Count, S, Us}][0m, is a list of each process that
     executed the function and its specific counters.
+
+    See also [;;4merlang:trace_pattern/3[0m.
+
+  [;;4m[;;4mcall_memory[0m[0m:
+    Returns the accumulated number of words allocated by this
+    function. Accumulation stops at the next memory traced
+    function: if there are [;;4mouter[0m, [;;4mmiddle[0m and [;;4minner[0m functions
+    each allocating 3 words, but only [;;4mouter[0m is traced, it will
+    report 9 allocated words. If [;;4mouter[0m and [;;4minner[0m are traced, 6
+    words are reported for [;;4mouter[0m and 3 for [;;4minner[0m. When
+    function is not traced, [;;4mfalse[0m is returned. Returned tuple is [;;4m[0m
+    [;;4m[{Pid, Count, Words}][0m, for each process that executed the
+    function.
 
     See also [;;4merlang:trace_pattern/3[0m.
 

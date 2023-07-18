@@ -13,3 +13,6 @@ These types are documented in this module:
   [;1m          {newline, nl_spec()} |[0m
   [;1m          bsr_anycrlf | bsr_unicode | no_start_optimize | ucp |[0m
   [;1m          never_utf.[0m
+
+  [;1m-type replace_fun() ::[0m
+  [;1m          fun((binary(), [binary()]) -> iodata() | unicode:charlist()).[0m

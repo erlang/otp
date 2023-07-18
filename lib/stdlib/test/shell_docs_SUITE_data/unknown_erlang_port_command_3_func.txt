@@ -28,7 +28,7 @@
     The calling process is not suspended if the port is busy,
     instead the port command is aborted and [;;4mfalse[0m is returned.
 
-  Note:
+  Change:
     More options can be added in a future release.
 
   Failures:
