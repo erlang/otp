@@ -362,8 +362,10 @@ await_socket_ownership_transfer(AcceptTimeout) ->
     end.
 
 
+handle_msg(Body, State) when is_binary(Body) ->
+    handle_response(State#state{body = Body});
 %%% Internal chunking of client body 
-handle_msg({{continue, Chunk}, Module, Function, Args}, #state{chunk = {_, CbState}} = State) ->
+handle_msg({{continue, Chunk}, Module, Function, Args}, #state{chunk = {_, CbState}} = State) when is_binary(Chunk) ->
     handle_internal_chunk(State#state{chunk = {continue, CbState},
                                       body = Chunk}, Module, Function, Args);
 handle_msg({continue, Module, Function, Args}, 	#state{mod = ModData} = State) ->
@@ -375,38 +377,42 @@ handle_msg({last, Body}, #state{headers = Headers, chunk = {_, CbState}} = State
                                 headers = NewHeaders,
                                 body = Body});
 %%% Last data chunked by client
-handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {ChunkState, CbState}} = State) when ChunkState =/= undefined ->
+handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {ChunkState, CbState}} = State) when ChunkState =/= undefined, is_binary(Body) ->
     NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
     handle_response(State#state{chunk = {last, CbState},
                                 headers = NewHeaders,
                                 body = Body});
-handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {undefined, _}} = State) ->
+handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {undefined, _}} = State) when is_binary(Body) ->
     NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
     handle_response(State#state{headers = NewHeaders,
                                 body = Body});
+%%%
 handle_msg(Result, State) ->
     handle_http_msg(Result, State).
 
-handle_http_msg({_, _, Version, {_, _}, _}, 
-		#state{status = busy, mod = ModData} = State) -> 
-    handle_manager_busy(State#state{mod = 
+%% status = busy
+handle_http_msg({_, _, Version, {_, _}, _},
+		#state{status = busy, mod = ModData} = State) ->
+    handle_manager_busy(State#state{mod =
 				    ModData#mod{http_version = Version}}),
-    {stop, normal, State}; 
+    {stop, normal, State};
 
-handle_http_msg({_, _, Version, {_, _}, _}, 
+%% status = blocked
+handle_http_msg({_, _, Version, {_, _}, _},
 		#state{status = blocked, mod = ModData} = State) ->
-    handle_manager_blocked(State#state{mod = 
+    handle_manager_blocked(State#state{mod =
 				       ModData#mod{http_version = Version}}),
-    {stop, normal, State}; 
+    {stop, normal, State};
 
+%% status = accept
 handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
-		#state{status = accept, mod = ModData} = State) ->        
+		#state{status = accept, mod = ModData} = State) ->
+    true = is_binary(Body),
     case httpd_request:validate(Method, Uri, Version) of
 	{ok, NormalizedURI}  ->
-	    {ok, NewModData} = 
+	    {ok, NewModData} =
 		httpd_request:update_mod_data(ModData, Method, NormalizedURI,
 					      Version, Headers),
-      
 	    case is_host_specified_if_required(NewModData#mod.absolute_uri,
 					       RecordHeaders, Version) of
 		true ->
@@ -414,8 +420,8 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
 					    body = Body,
 					    mod = NewModData});
 		false ->
-		    httpd_response:send_status(ModData#mod{http_version = 
-							   Version}, 
+		    httpd_response:send_status(ModData#mod{http_version =
+							   Version},
 					       400, none),
 		    {stop, normal, State#state{response_sent = true}}
 	    end;
@@ -432,9 +438,7 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
             ModData#mod{http_version = httpd_request:default_version()},
             400, Ver, {malformed_syntax, Ver}),
 	    {stop, normal, State#state{response_sent = true}}
-    end;
-handle_http_msg(Body, State) ->
-    handle_response(State#state{body = Body}).
+    end.
 
 handle_manager_busy(#state{mod = #mod{config_db = ConfigDB}} = State) ->
     MaxClients = httpd_util:lookup(ConfigDB, max_clients, 150),
@@ -479,7 +483,7 @@ handle_body(#state{headers = Headers, body = Body,
 		    {noreply, State#state{mfa = 
                                               {Module, Function, Args},
                                           chunk = chunk_start(MaxChunk)}};
-                {ok, {ChunkedHeaders, NewBody}} ->
+                {ok, {ChunkedHeaders, NewBody}} when is_binary(NewBody) ->
 		    NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),	
                     handle_response(State#state{headers = NewHeaders,
                                                 body = NewBody,
@@ -512,12 +516,12 @@ handle_body(#state{headers = Headers, body = Body,
                             setopts(ModData#mod.socket, ModData#mod.socket_type, [{active, once}]),
                             {noreply, State#state{mfa = 
 						      {Module, Function, Args}}};
-                        {ok, {{continue, Chunk}, Module, Function, Args}} ->
+                        {ok, {{continue, Chunk}, Module, Function, Args}} when is_binary(Chunk) ->
                             handle_internal_chunk(State#state{chunk =  chunk_start(MaxChunk), 
                                                               body = Chunk}, Module, Function, Args);                   
                         %% Whole body delivered, if chunking mechanism is enabled the whole
                         %% body fits in one chunk.
-                        {ok, NewBody} ->
+                        {ok, NewBody} when is_binary(NewBody) ->
                             handle_response(State#state{chunk = chunk_finish(ChunkState, 
                                                                              CbState, MaxChunk),
                                                         headers = Headers,
@@ -665,7 +669,7 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
 			   mfa                    = MFA,
 			   max_keep_alive_request = decrease(Max),
 			   headers                = #http_request_h{}, 
-			   body                   = undefined,
+			   body                   = <<>>,
                            chunk                  = chunk_start(MaxChunk),
 			   response_sent          = false},
     
