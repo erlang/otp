@@ -379,7 +379,7 @@ aa_fixpoint([], Order, _OldAliasMap, _OldCallArgs,
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args},
        AAS0=#aas{alias_map=AliasMap0,call_args=CallArgs0,
-                 func_db=FuncDb,repeats=Repeats0}) ->
+                 func_db=FuncDb,kills=KillsMap,repeats=Repeats0}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
@@ -389,7 +389,9 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
                         aa_new_ssa_var(Var, Status, Acc)
                 end, #{}, ArgsStatus),
     ?DP("Args: ~p~n", [ArgsStatus]),
-    {SS,#aas{call_args=CallArgs}=AAS} = aa_blocks(Linear0, #{0=>SS0}, AAS0),
+    #{F:=Kills} = KillsMap,
+    {SS,#aas{call_args=CallArgs}=AAS} =
+        aa_blocks(Linear0, Kills, #{0=>SS0}, AAS0),
     ?DP("SS:~n~p~n~n", [SS]),
 
     AliasMap = AliasMap0#{ F => SS },
@@ -407,20 +409,23 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
     AAS#aas{alias_map=AliasMap,repeats=Repeats}.
 
 %% Main entry point for the alias analysis
-aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Lbl2SS, AAS) ->
+aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Kills, Lbl2SS, AAS) ->
     %% Nothing happening in the exception block can propagate to the
     %% other block.
-    aa_blocks(Bs, Lbl2SS, AAS);
-aa_blocks([{L,#b_blk{is=Is0,last=T0}}|Bs0], Lbl2SS0, AAS0) ->
+    aa_blocks(Bs, Kills, Lbl2SS, AAS);
+aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0, AAS0) ->
     #{L:=SS0} = Lbl2SS0,
-    {SS1,AAS1} = aa_is(Is0, L, SS0, AAS0),
-    Lbl2SS1 = aa_terminator(T0, SS1, L, Lbl2SS0),
-    aa_blocks(Bs0, Lbl2SS1, AAS1);
-aa_blocks([], Lbl2SS, AAS) ->
+    {FullSS,AAS1} = aa_is(Is0, SS0, AAS0),
+    #{{live_outs,L}:=LiveOut} = Kills,
+    {Lbl2SS1,Successors} = aa_terminator(T, FullSS, Lbl2SS0),
+    PrunedSS = aa_prune_ss(FullSS, LiveOut),
+    Lbl2SS2 = aa_add_block_entry_ss(Successors, PrunedSS, Lbl2SS1),
+    Lbl2SS = aa_set_block_exit_ss(L, FullSS, Lbl2SS2),
+    aa_blocks(Bs0, Kills, Lbl2SS, AAS1);
+aa_blocks([], _Kills, Lbl2SS, AAS) ->
     {Lbl2SS,AAS}.
 
-aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is],
-      ThisBlock, SS0, AAS0) ->
+aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
     SS1 = aa_new_ssa_var(Dst, unique, SS0),
     {SS, AAS} =
         case Op of
@@ -542,18 +547,15 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is],
             _ ->
                 exit({unknown_instruction, I})
         end,
-    aa_is(Is, ThisBlock, SS, AAS);
-aa_is([], _, SS, AAS) ->
+    aa_is(Is, SS, AAS);
+aa_is([], SS, AAS) ->
     {SS, AAS}.
 
-aa_terminator(#b_br{succ=S,fail=S},
-              SS, ThisBlock, Lbl2SS) ->
-    aa_set_block_exit_ss(ThisBlock, SS, aa_add_block_entry_ss([S], SS, Lbl2SS));
-aa_terminator(#b_br{succ=S,fail=F},
-              SS, ThisBlock, Lbl2SS) ->
-    aa_set_block_exit_ss(ThisBlock, SS,
-                         aa_add_block_entry_ss([S,F], SS, Lbl2SS));
-aa_terminator(#b_ret{arg=Arg,anno=Anno0}, SS, ThisBlock, Lbl2SS0) ->
+aa_terminator(#b_br{succ=S,fail=S}, _SS, Lbl2SS) ->
+    {Lbl2SS,[S]};
+aa_terminator(#b_br{succ=S,fail=F}, _SS, Lbl2SS) ->
+    {Lbl2SS,[S,F]};
+aa_terminator(#b_ret{arg=Arg,anno=Anno0}, SS, Lbl2SS0) ->
     Type = maps:get(result_type, Anno0, any),
     Status0 = aa_get_status(Arg, SS),
     ?DP("Returned ~p:~p:~p~n", [Arg, Status0, Type]),
@@ -567,11 +569,9 @@ aa_terminator(#b_ret{arg=Arg,anno=Anno0}, SS, ThisBlock, Lbl2SS0) ->
     Type2Status = Type2Status0#{ Type => Status },
     ?DP("New status map: ~p~n", [Type2Status]),
     Lbl2SS = Lbl2SS0#{ returns => Type2Status},
-    aa_set_block_exit_ss(ThisBlock, SS, Lbl2SS);
-aa_terminator(#b_switch{fail=F,list=Ls},
-              SS, ThisBlock, Lbl2SS0) ->
-    Lbl2SS = aa_add_block_entry_ss([F|[L || {_,L} <- Ls]], SS, Lbl2SS0),
-    aa_set_block_exit_ss(ThisBlock, SS, Lbl2SS).
+    {Lbl2SS, []};
+aa_terminator(#b_switch{fail=F,list=Ls}, _SS, Lbl2SS) ->
+    {Lbl2SS,[F|[L || {_,L} <- Ls]]}.
 
 %% Store the updated SS for the point where execution leaves the
 %% block.
@@ -917,6 +917,63 @@ aa_derive_from(#b_var{}=Dst, #b_var{}=Parent, State) ->
             ParentVas = ParentVas0#vas{child=Dst},
             ?aa_assert_ss(State#{Dst=>ChildVas,Parent=>ParentVas})
     end.
+
+aa_prune_ss(SS, Live) ->
+    aa_prune_ss(SS, sets:to_list(Live), Live, #{}).
+aa_prune_ss(SS, [V|Wanted], Live, Pruned) ->
+    case is_map_key(V, Pruned) of
+        false ->
+            %% This variable has to be kept, copy it, add it to the
+            %% set of live nodes and add the parents to the work list.
+            #{V:=#vas{parents=Ps}=Vas} = SS,
+            aa_prune_ss(SS, Ps++Wanted,
+                        sets:add_element(V, Live),
+                        Pruned#{V=>Vas});
+        true ->
+            %% This variable is alread added.
+            aa_prune_ss(SS, Wanted, Live, Pruned)
+    end;
+aa_prune_ss(_SS, [], Live, Pruned) ->
+    %% Now strip all references to variables not in the live set.
+    PruneRefs = fun(#vas{parents=Ps0,child=Child0,extracted=Es0,
+                         tuple_elems=Ts0,pair_elems=Pes0}=Vas) ->
+                        Ps = [P || P <- Ps0, sets:is_element(P, Live)],
+                        Child = case sets:is_element(Child0, Live) of
+                                    true ->
+                                        Child0;
+                                    false ->
+                                        none
+                                end,
+                        Es = [E || E <- Es0, sets:is_element(E, Live)],
+                        Ts = [E
+                              || {_,Var}=E <- Ts0, sets:is_element(Var, Live)],
+                        Pes = case Pes0 of
+                                  {_,X}=P ->
+                                      case sets:is_element(X, Live) of
+                                          true ->
+                                              P;
+                                          _ ->
+                                              none
+                                      end;
+                                  {both,X,Y}=P ->
+                                      case {sets:is_element(X, Live),
+                                            sets:is_element(Y, Live)} of
+                                          {true,true} ->
+                                              P;
+                                          {true,false} ->
+                                              {hd,X};
+                                          {false,true} ->
+                                              {tl,Y};
+                                          _ ->
+                                              none
+                                      end;
+                                  none ->
+                                      none
+                              end,
+                        Vas#vas{parents=Ps,child=Child,extracted=Es,
+                                tuple_elems=Ts,pair_elems=Pes}
+                end,
+    #{V=>PruneRefs(Vas) || V:=Vas <- Pruned}.
 
 aa_update_annotations(Funs, #aas{alias_map=AliasMap0,st_map=StMap0}=AAS) ->
     foldl(fun(F, {StMapAcc,AliasMapAcc}) ->
