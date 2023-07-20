@@ -902,6 +902,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>cork</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>'nopush' one some platforms (FreeBSD)</cell>
+      </row>
+      <row>
 	<cell>maxseg</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>
@@ -914,6 +921,17 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>none</cell>
+      </row>
+      <row>
+	<cell>nopush</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>
+	  'cork' one some platforms (Linux).
+	  On Darwin this has a different meaning than
+	  on, for instance, FreeBSD.
+	</cell>
       </row>
       <tcaption>tcp options</tcaption>
     </table>
