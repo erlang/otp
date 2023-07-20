@@ -4534,7 +4534,12 @@ ioctl(Socket, GetRequest) ->
 		     'tcp_info',
       NameOrIndex :: string() | integer(),
       Result      :: term(),
-      Reason      :: posix() | 'closed'.
+      Reason      :: posix() | 'closed';
+	   (Socket, SetRequest, Value) -> ok | {'error', Reason} when
+      Socket     :: socket(),
+      SetRequest :: 'rcvall',
+      Value      :: off | on | iplevel,
+      Reason     :: posix() | 'closed'.
 
 ioctl(?socket(SockRef), gifname = GetRequest, Index)
   when is_integer(Index) ->
@@ -4572,8 +4577,15 @@ ioctl(?socket(SockRef), gifmap = GetRequest, Name)
 ioctl(?socket(SockRef), tcp_info = GetRequest, Version)
   when (Version =:= 0) ->
     prim_socket:ioctl(SockRef, GetRequest, Version);
-ioctl(Socket, GetRequest, Arg) ->
-    erlang:error(badarg, [Socket, GetRequest, Arg]).
+
+ioctl(?socket(SockRef), rcvall = SetRequest, Value)
+  when (Value =:= off) orelse
+       (Value =:= on)  orelse
+       (Value =:= iplevel) ->
+    prim_socket:ioctl(SockRef, SetRequest, Value);
+
+ioctl(Socket, Request, Arg) ->
+    erlang:error(badarg, [Socket, Request, Arg]).
 
 
 -spec ioctl(Socket, SetRequest, Name, Value) -> 'ok' | {'error', Reason} when
