@@ -310,6 +310,13 @@
 	<cell>type = dgram</cell>
       </row>
       <row>
+	<cell>exclusiveaddruse</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>Windows only</cell>
+      </row>
+      <row>
 	<cell>debug</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>
