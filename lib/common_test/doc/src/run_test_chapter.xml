@@ -269,6 +269,11 @@
       <item><p>Sets <seeguide marker="write_test_chapter#logging">verbosity levels
       for printouts</seeguide>.</p></item>
 
+      <tag><c><![CDATA[-verbose]]></c></tag>
+      <item><p>Enables output of supervisor reports and other logging messages
+      directly to the terminal as the test is running. If not supplied, these
+      messages will be captured and only show up in the HTML report.</p></item>
+
       <tag><c><![CDATA[-no_esc_chars]]></c></tag>
       <item><p>Disables automatic escaping of special HTML characters.
       See the <seeguide marker="write_test_chapter#logging">Logging chapter</seeguide>.</p></item>

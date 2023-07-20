@@ -39,6 +39,7 @@
 		   logopts=[],
 		   basic_html=[],
 		   esc_chars=[],
+		   verbose=false,
 		   verbosity=[],
 		   silent_connections=[],
 		   cover=[],

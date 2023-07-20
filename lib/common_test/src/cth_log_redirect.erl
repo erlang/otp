@@ -138,7 +138,7 @@ start_log_handler(Options) ->
                 {{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG},info}
         end,
     HandlerConfig = #{level => DefaultLevel, formatter => DefaultFormatter},
-    HandlerName = case proplists:get_value(mode, Options, replace) of
+    HandlerName = case proplists:get_value(mode, Options, add) of
                       add ->
                           ?MODULE;
                       replace ->

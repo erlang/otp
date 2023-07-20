@@ -56,6 +56,7 @@
 	       basic_html,
 	       esc_chars = true,
 	       verbosity = [],
+	       verbose = false,
 	       config = [],
 	       event_handlers = [],
 	       ct_hooks = [],
@@ -238,6 +239,7 @@ script_start1(Parent, Args) ->
 			    fun(Os) -> [list_to_atom(O) || O <- Os] end,
 			    [], Args),
     Verbosity = verbosity_args2opts(Args),
+    Verbose = get_start_opt(verbose, fun ([]) -> true end, false, Args),
     MultTT = get_start_opt(multiply_timetraps,
 			   fun([MT]) -> list_to_number(MT) end, Args),
     ScaleTT = get_start_opt(scale_timetraps,
@@ -249,15 +251,26 @@ script_start1(Parent, Args) ->
 				     ([]) -> auto_per_tc
 				  end, Args),
     EvHandlers = event_handler_args2opts(Args),
-    CTHooks = ct_hooks_args2opts(Args),
+    CTHooksRaw = ct_hooks_args2opts(Args),
+    CTHooks = case Verbose of
+                  % "false" by default: replace the default logging handler and capture output
+                  % otherwise, the handler will be configured with the default option telling
+                  % it to add itself to the handlers list (backwards-compatible behaviour)
+                  false -> [{cth_log_redirect, [{mode, replace}], ctfirst} | CTHooksRaw];
+                  _Other -> CTHooksRaw
+              end,
     CTHooksOrder = get_start_opt(ct_hooks_order,
                                  fun([CTHO]) -> list_to_atom(CTHO);
                                     ([]) -> undefined
                                  end, undefined, Args),
-    EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
+    EnableBuiltinHooksRaw = get_start_opt(enable_builtin_hooks,
 				       fun([CT]) -> list_to_atom(CT);
 					  ([]) -> undefined
 				       end, undefined, Args),
+    EnableBuiltinHooks = case {EnableBuiltinHooksRaw, Verbose} of
+                             {undefined, false} -> false;
+                             {Setting, _Verbose} -> Setting
+                         end,
 
     %% check flags and set corresponding application env variables
 
@@ -356,6 +369,7 @@ script_start1(Parent, Args) ->
 		 basic_html = BasicHtml,
 		 esc_chars = EscChars,
 		 verbosity = Verbosity,
+		 verbose = Verbose,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
                  ct_hooks_order = CTHooksOrder,
@@ -518,6 +532,7 @@ combine_test_opts(TS, Specs, Opts) ->
     AllVerbosity =
 	merge_keyvals([Opts#opts.verbosity,
 		       TSOpts#opts.verbosity]),
+    Verbose = choose_val(Opts#opts.verbose, TSOpts#opts.verbose),
     AllSilentConns =
 	merge_vals([Opts#opts.silent_connections,
 		    TSOpts#opts.silent_connections]),
@@ -610,6 +625,7 @@ combine_test_opts(TS, Specs, Opts) ->
 	      basic_html = BasicHtml,
 	      esc_chars = EscChars,
 	      verbosity = AllVerbosity,
+	      verbose = Verbose,
 	      silent_connections = AllSilentConns,
 	      config = TSOpts#opts.config,
 	      event_handlers = AllEvHs,
@@ -760,6 +776,7 @@ script_usage() ->
 	      "\n\t [-logdir LogDir]"
 	      "\n\t [-logopts LogOpt1 LogOpt2 .. LogOptN]"
 	      "\n\t [-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
+	      "\n\t [-verbose]"
 	      "\n\t [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t [-stylesheet CSSFile]"	     
 	      "\n\t [-cover CoverCfgFile]"
@@ -787,6 +804,7 @@ script_usage() ->
 	      "\n\t [-logdir LogDir]"
 	      "\n\t [-logopts LogOpt1 LogOpt2 .. LogOptN]"
 	      "\n\t [-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
+	      "\n\t [-verbose]"
 	      "\n\t [-allow_user_terms]"
 	      "\n\t [-join_specs]"
 	      "\n\t [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
@@ -1434,6 +1452,7 @@ get_data_for_node(#testspec{label = Labels,
 			    esc_chars = EscChs,
 			    stylesheet = SSs,
 			    verbosity = VLvls,
+			    verbose = Verbose,
 			    silent_connections = SilentConnsList,
 			    cover = CoverFs,
 			    cover_stop = CoverStops,
@@ -1490,6 +1509,7 @@ get_data_for_node(#testspec{label = Labels,
 	  esc_chars = EscChars,
 	  stylesheet = Stylesheet,
 	  verbosity = Verbosity,
+	  verbose = Verbose,
 	  silent_connections = SilentConns,
 	  cover = Cover,
 	  cover_stop = CoverStop,

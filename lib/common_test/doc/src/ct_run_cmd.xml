@@ -107,6 +107,7 @@
   [-logopts LogOpts]
   [-verbosity GenVLevel | [Category1 VLevel1 and
    Category2 VLevel2 and .. CategoryN VLevelN]]
+  [-verbose]
   [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
   [-stylesheet CSSFile]
   [-cover CoverCfgFile]
@@ -147,6 +148,7 @@
   [-logopts LogOpts]
   [-verbosity GenVLevel | [Category1 VLevel1 and
    Category2 VLevel2 and .. CategoryN VLevelN]]
+  [-verbose]
   [-allow_user_terms]
   [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
   [-stylesheet CSSFile]
