@@ -462,20 +462,19 @@ count_children(Sup) ->
     Children = supervisor:count_children(whereis(Sup)),
     proplists:get_value(workers, Children).
 
-shutdown_connections(Sup) ->
-    Children = [Child || {_,Child,_,_} <- supervisor:which_children(Sup)],
-    lists:foreach(fun(Pid) -> exit(Pid, kill) end,
-		  Children).
+shutdown_connections(CSup) ->
+    Children = [Child || {_,Child,_,_} <- supervisor:which_children(CSup)],
+    lists:foreach(
+      fun(Child) ->
+              _ = supervisor:terminate_child(CSup, Child)
+      end, Children).
 
-wait_for_shutdown(CSup, Manager) ->	      
-    case count_children(CSup) of
-	0 ->
-	    Manager ! connections_terminated;
-	_ ->
-	    receive 
-	    after 500 ->
-		    ok
-	    end,
-	    wait_for_shutdown(CSup, Manager)
-    end.	
-
+wait_for_shutdown(CSup, Manager) ->
+    Children = [Child || {_,Child,_,_} <- supervisor:which_children(CSup)],
+    Monitors = [erlang:monitor(process, Child) || Child <- Children],
+    lists:foreach(
+      fun(Mref) ->
+              receive {'DOWN', Mref, _, _, _} -> ok end
+      end, Monitors),
+    Manager ! connections_terminated,
+    ok.
