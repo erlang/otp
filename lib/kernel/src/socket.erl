@@ -4539,6 +4539,11 @@ ioctl(Socket, GetRequest) ->
       Socket     :: socket(),
       SetRequest :: 'rcvall',
       Value      :: off | on | iplevel,
+      Reason     :: posix() | 'closed';
+	   (Socket, SetRequest, Value) -> ok | {'error', Reason} when
+      Socket     :: socket(),
+      SetRequest :: 'rcvall_igmpmcast',
+      Value      :: off | on,
       Reason     :: posix() | 'closed'.
 
 ioctl(?socket(SockRef), gifname = GetRequest, Index)
@@ -4583,6 +4588,10 @@ ioctl(?socket(SockRef), rcvall = SetRequest, Value)
   when (Value =:= off) orelse
        (Value =:= on)  orelse
        (Value =:= iplevel) ->
+    prim_socket:ioctl(SockRef, SetRequest, Value);
+ioctl(?socket(SockRef), rcvall_igmpmcast = SetRequest, Value)
+  when (Value =:= off) orelse
+       (Value =:= on) ->
     prim_socket:ioctl(SockRef, SetRequest, Value);
 
 ioctl(Socket, Request, Arg) ->
