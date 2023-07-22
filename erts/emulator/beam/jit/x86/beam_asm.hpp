@@ -1364,8 +1364,10 @@ protected:
                               const ArgVal &Fail,
                               const Span<ArgVal> &args);
 
-    bool emit_optimized_three_way_select(const ArgVal &Fail,
-                                         const Span<ArgVal> &args);
+    bool emit_optimized_two_way_select(bool destructive,
+                                       const ArgVal &value1,
+                                       const ArgVal &value2,
+                                       const ArgVal &label);
 
 #ifdef DEBUG
     void emit_tuple_assertion(const ArgSource &Src, x86::Gp tuple_reg);

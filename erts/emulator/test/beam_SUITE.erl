@@ -24,7 +24,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 packed_registers/1, apply_last/1, apply_last_bif/1,
 	 heap_sizes/1, big_lists/1, fconv/1,
-         select_val/1,
+         select_val/1, select_tuple_arity/1,
          swap_temp_apply/1, beam_init_yregs/1]).
 
 -export([applied/2,swap_temp_applied/1]).
@@ -36,9 +36,9 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [packed_registers, apply_last, apply_last_bif,
-     heap_sizes, big_lists, select_val,
-     swap_temp_apply,
-     beam_init_yregs].
+     heap_sizes, big_lists,
+     select_val, select_tuple_arity,
+     swap_temp_apply, beam_init_yregs].
 
 groups() -> 
     [].
@@ -396,6 +396,45 @@ make_funcs([]) -> [].
 make_func(Name, List) ->
     Cs = [?Q(["(_@I@) -> _@Body@"]) || {I,Body} <- List],
     erl_syntax:function(erl_syntax:atom(Name), Cs).
+
+select_tuple_arity(_Config) ->
+    Mod = ?FUNCTION_NAME,
+
+    {Vs,Cs} = make_tuple_tests(300, [], []),
+    Name = erl_syntax:atom(match_tuple),
+    F = erl_syntax:function(Name, Cs),
+    Code = ?Q(["-module('@Mod@').\n"
+               "-export([match_tuple/1]).\n"]) ++ [F],
+
+    merl:compile_and_load(Code, []),
+
+    %% %% Uncomment the following line to print the generated code.
+    %% merl:print(Code),
+
+    verify_tuple_match(Vs, Mod),
+
+    %% Clean up.
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
+    ok.
+
+make_tuple_tests(0, Clauses, Acc) ->
+    {Acc,Clauses};
+make_tuple_tests(Size, Clauses, Acc) ->
+    V = erlang:phash2(Size),
+    Es = lists:duplicate(Size, erl_syntax:underscore()),
+    Tuple = erl_syntax:tuple(Es),
+    Value = erl_syntax:integer(V),
+    Clause = erl_syntax:clause([Tuple], [], [Value]),
+    make_tuple_tests(Size-1, [Clause|Clauses], [{Size,V}|Acc]).
+
+verify_tuple_match([{Size,Result}|T], Mod) ->
+    Tuple = erlang:make_tuple(Size, a),
+    Result = Mod:match_tuple(Tuple),
+    verify_tuple_match(T, Mod);
+verify_tuple_match([], _) ->
+    ok.
 
 swap_temp_apply(_Config) ->
     {swap_temp_applied,42} = do_swap_temp_apply(41),

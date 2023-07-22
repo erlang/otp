@@ -1289,9 +1289,10 @@ protected:
                               Label fail,
                               const Span<ArgVal> &args);
 
-    bool emit_optimized_three_way_select(arm::Gp reg,
-                                         Label fail,
-                                         const Span<ArgVal> &args);
+    void emit_optimized_two_way_select(arm::Gp reg,
+                                       const ArgVal &value1,
+                                       const ArgVal &value2,
+                                       const ArgVal &label);
 
 #ifdef DEBUG
     void emit_tuple_assertion(const ArgSource &Src, arm::Gp tuple_reg);
