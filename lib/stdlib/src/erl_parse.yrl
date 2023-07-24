@@ -761,6 +761,7 @@ Erlang code.
                        | af_export()
                        | af_import()
                        | af_export_type()
+                       | af_import_type()
                        | af_compile()
                        | af_file()
                        | af_record_decl()
@@ -784,6 +785,8 @@ Erlang code.
 -type af_fa_list() :: [{function_name(), arity()}].
 
 -type af_export_type() :: {'attribute', anno(), 'export_type', af_ta_list()}.
+
+-type af_import_type() :: {'attribute', anno(), 'import_type', {module(), af_ta_list()}}.
 
 -type af_ta_list() :: [{type_name(), arity()}].
 
@@ -1396,6 +1399,12 @@ build_attribute({atom,Aa,import}, Val) ->
 	[{atom,_Am,Mod},ImpList] ->
 	    {attribute,Aa,import,{Mod,farity_list(ImpList)}};
         [_,Other|_] -> error_bad_decl(Other, import)
+    end;
+build_attribute({atom,Aa,import_type}, Val) ->
+    case Val of
+	[{atom,_Am,Mod},ImpList] ->
+	    {attribute,Aa,import_type,{Mod,farity_list(ImpList)}};
+        [_,Other|_] -> error_bad_decl(Other, import_type)
     end;
 build_attribute({atom,Aa,record}, Val) ->
     case Val of

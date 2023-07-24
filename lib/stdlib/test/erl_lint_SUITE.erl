@@ -84,7 +84,8 @@
          redefined_builtin_type/1,
          tilde_k/1,
          match_float_zero/1,
-         undefined_module/1]).
+         undefined_module/1,
+         import_type/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -117,7 +118,8 @@ all() ->
      tilde_k,
      singleton_type_var_errors,
      match_float_zero,
-     undefined_module].
+     undefined_module,
+     import_type].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -5140,6 +5142,45 @@ redefined_builtin_type(Config) ->
              ">>,
            [],
            []}
+         ],
+    [] = run(Config, Ts),
+    ok.
+
+import_type(Config) ->
+    Ts = [{import_type1,
+           <<"-import_type(m, [t/0,t/1]).
+              -record(rec, {t :: t()}).
+              -type t_ref() :: t().
+              -spec t(t(A)) -> t(A).
+              t(X) -> X.
+              mk_rec() -> #rec{}.
+              ">>,
+           [nowarn_unused_type],
+           []},
+           {import_type2,
+           <<"-import_type(m, [t/0]).
+              -type t() :: atom().
+              ">>,
+           [nowarn_unused_type],
+           {errors,[{{2,16},erl_lint,{define_import_type,{t,0}}}],[]}},
+           {import_type3,
+           <<"-import_type(m, [atom/0]).">>,
+           [nowarn_unused_type],
+           {errors,[{{1,22},erl_lint,{redefine_builtin_type_import,{atom,0}}}],[]}},
+           {import_type4,
+           <<"-import_type(m, [t0/0]).">>,
+           [],
+           []},
+           {import_type5,
+           <<"-import_type(m, [t0/0]).">>,
+           [warn_unused_import],
+           {warnings,[{{1,22},erl_lint,{unused_import_type,{{t0,0},m}}}]}},
+           {import_type6,
+           <<"-import_type(m1, [t0/0]).
+              -import_type(m2, [t0/0]).
+             ">>,
+           [],
+           {errors,[{{2,16},erl_lint,{redefine_import_type,{{t0,0},m1}}}],[]}}
          ],
     [] = run(Config, Ts),
     ok.

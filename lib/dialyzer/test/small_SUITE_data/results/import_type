@@ -1,0 +1,5 @@
+
+b.erl:8:2: Invalid type specification for function b:i/1.
+ The success typing is b:i(atom()) -> 'ok'
+ But the spec is b:i(a:i()) -> 'ok'
+ They do not overlap in the 1st argument

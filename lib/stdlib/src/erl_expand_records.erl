@@ -19,6 +19,7 @@
 %%
 %% Purpose: Expand records into tuples. Also add explicit module
 %% names to calls to imported functions and BIFs.
+%% Also add explicit module names to usages of imported types.
 
 -module(erl_expand_records).
 
@@ -29,6 +30,7 @@
 -record(exprec, {compile=[],	% Compile flags
 		 vcount=0,	% Variable counter
 		 calltype=#{},	% Call types
+		 typetype=#{},  % Type types
 		 records=#{},	% Record definitions
                  raw_records=[],% Raw record forms
 		 strict_ra=[],	% strict record accesses
@@ -47,7 +49,8 @@ module(Fs0, Opts0) ->
     Opts = compiler_options(Fs0) ++ Opts0,
     Dialyzer = lists:member(dialyzer, Opts),
     Calltype = init_calltype(Fs0),
-    St0 = #exprec{compile = Opts, dialyzer = Dialyzer, calltype = Calltype},
+    Typetype = init_typetype(Fs0),
+    St0 = #exprec{compile = Opts, dialyzer = Dialyzer, calltype = Calltype, typetype = Typetype},
     {Fs,_St} = forms(Fs0, St0),
     Fs.
 
@@ -68,16 +71,48 @@ init_calltype_imports([_|T], Ctype) ->
     init_calltype_imports(T, Ctype);
 init_calltype_imports([], Ctype) -> Ctype.
 
-forms([{attribute,_,record,{Name,Defs}}=Attr | Fs], St0) ->
+init_typetype(Forms) ->
+    init_typetype_imports(Forms, #{}).
+
+init_typetype_imports([{attribute,_,import_type,{Mod,Fs}}|T], Ttype0) ->
+    true = is_atom(Mod),
+    Ttype = foldl(fun(TA, Acc) -> Acc#{TA=>{imported,Mod}} end, Ttype0, Fs),
+    init_typetype_imports(T, Ttype);
+init_typetype_imports([_|T], Ttype) ->
+    init_typetype_imports(T, Ttype);
+init_typetype_imports([], Ttype) -> Ttype.
+
+forms([{attribute,Anno,record,{Name,Defs}}=Attr | Fs], St0) ->
     NDefs = normalise_fields(Defs),
     St = St0#exprec{records=maps:put(Name, NDefs, St0#exprec.records),
                     raw_records=[Attr | St0#exprec.raw_records]},
+    TDefs = record_defs(Defs, St0#exprec.typetype),
     {Fs1, St1} = forms(Fs, St),
-    {[Attr | Fs1], St1};
+    {[{attribute,Anno,record,{Name,TDefs}} | Fs1], St1};
 forms([{function,Anno,N,A,Cs0} | Fs0], St0) ->
     {Cs,St1} = clauses(Cs0, St0),
     {Fs,St2} = forms(Fs0, St1),
     {[{function,Anno,N,A,Cs} | Fs],St2};
+forms([{attribute,Anno,type,{N,T,Vs}} | Fs0], St0) ->
+    T1 = type(T, St0#exprec.typetype),
+    {Fs,St1} = forms(Fs0, St0),
+    {[{attribute,Anno,type,{N,T1,Vs}} | Fs],St1};
+forms([{attribute,Anno,opaque,{N,T,Vs}} | Fs0], St0) ->
+    T1 = type(T, St0#exprec.typetype),
+    {Fs,St1} = forms(Fs0, St0),
+    {[{attribute,Anno,opaque,{N,T1,Vs}} | Fs],St1};
+forms([{attribute,Anno,spec,{{N,A},FTs}} | Fs0], St0) ->
+    FTs1 = function_type_list(FTs, St0#exprec.typetype),
+    {Fs,St1} = forms(Fs0, St0),
+    {[{attribute,Anno,spec,{{N,A},FTs1}} | Fs],St1};
+forms([{attribute,Anno,spec,{{M,N,A},FTs}} | Fs0], St0) ->
+    FTs1 = function_type_list(FTs, St0#exprec.typetype),
+    {Fs,St1} = forms(Fs0, St0),
+    {[{attribute,Anno,spec,{{M,N,A},FTs1}} | Fs],St1};
+forms([{attribute,Anno,callback,{{N,A},FTs}} | Fs0], St0) ->
+    FTs1 = function_type_list(FTs, St0#exprec.typetype),
+    {Fs,St1} = forms(Fs0, St0),
+    {[{attribute,Anno,callback,{{N,A},FTs1}} | Fs],St1};
 forms([F | Fs0], St0) ->
     {Fs,St} = forms(Fs0, St0),
     {[F | Fs], St};
@@ -1007,3 +1042,120 @@ mark_record(Anno, St) ->
         true -> erl_anno:set_record(true, Anno);
         false -> Anno
     end.
+
+function_type_list([{type,Anno,bounded_fun,[Ft,Fc]}|Fts], TType) ->
+    Ft1 = function_type(Ft, TType),
+    Fc1 = function_constraint(Fc, TType),
+    [{type,Anno,bounded_fun,[Ft1,Fc1]}|function_type_list(Fts, TType)];
+function_type_list([Ft|Fts], TType) ->
+    [function_type(Ft, TType)|function_type_list(Fts, TType)];
+function_type_list([], _TType) -> [].
+
+function_type({type,Anno,'fun',[{type,At,product,As},B]}, TType) ->
+    As1 = type_list(As, TType),
+    B1 = type(B, TType),
+    {type,Anno,'fun',[{type,At,product,As1},B1]}.
+
+function_constraint(Cs, TType) ->
+    [constraint(C, TType) || C <- Cs].
+
+constraint({type,Anno,constraint,[{atom,Annoa,A},[V,T]]}, TType) ->
+    V1 = type(V, TType),
+    T1 = type(T, TType),
+    {type,Anno,constraint,[{atom,Annoa,A},[V1,T1]]}.
+
+type({ann_type,Anno,[{var,Av,V},T]}, TType) ->
+    T1 = type(T, TType),
+    {ann_type,Anno,[{var,Av,V},T1]};
+type({atom,Anno,A}, _TType) ->
+    {atom,Anno,A};
+type({integer,Anno,I}, _TType) ->
+    {integer,Anno,I};
+type({char,Anno,C}, _TType) ->
+    {char,Anno,C};
+type({op,Anno,Op,T}, TType) ->
+    T1 = type(T, TType),
+    {op,Anno,Op,T1};
+type({op,Anno,Op,L,R}, TType) ->
+    L1 = type(L, TType),
+    R1 = type(R, TType),
+    {op,Anno,Op,L1,R1};
+type({type,Anno,binary,[M,N]}, TType) ->
+    M1 = type(M, TType),
+    N1 = type(N, TType),
+    {type,Anno,binary,[M1,N1]};
+type({type,Anno,'fun',[]}, _TType) ->
+    {type,Anno,'fun',[]};
+type({type,Anno,'fun',[{type,At,any},B]}, TType) ->
+    B1 = type(B, TType),
+    {type,Anno,'fun',[{type,At,any},B1]};
+type({type,Anno,range,[L,H]},TType) ->
+    L1 = type(L, TType),
+    H1 = type(H, TType),
+    {type,Anno,range,[L1,H1]};
+type({type,Anno,map,any}, _TType) ->
+    {type,Anno,map,any};
+type({type,Anno,map,Ps}, TType) ->
+    Ps1 = map_pair_types(Ps, TType),
+    {type,Anno,map,Ps1};
+type({type,Anno,record,[{atom,Aa,N}|Fs]}, TType) ->
+    Fs1 = field_types(Fs, TType),
+    {type,Anno,record,[{atom,Aa,N}|Fs1]};
+type({remote_type,Anno,[{atom,Am,M},{atom,An,N},As]}, TType) ->
+    As1 = type_list(As, TType),
+    {remote_type,Anno,[{atom,Am,M},{atom,An,N},As1]};
+type({type,Anno,tuple,any}, _TType) ->
+    {type,Anno,tuple,any};
+type({type,Anno,tuple,Ts}, TType) ->
+    Ts1 = type_list(Ts, TType),
+    {type,Anno,tuple,Ts1};
+type({type,Anno,union,Ts}, TType) ->
+    Ts1 = type_list(Ts, TType),
+    {type,Anno,union,Ts1};
+type({var,Anno,V}, _TType) ->
+    {var,Anno,V};
+type({user_type,Anno,N,As}, TType) ->
+    Arity = length(As),
+    TA = {N, Arity},
+    As1 = type_list(As, TType),
+    case TType of
+        #{TA := {imported,M}} ->
+            {remote_type,Anno,[{atom,Anno,M},{atom,Anno,N},As1]};
+        _ ->
+            {user_type,Anno,N,As1}
+    end;
+type({type,Anno,N,As}, TType) ->
+    As1 = type_list(As, TType),
+    {type,Anno,N,As1}.
+
+map_pair_types([{type,Anno,map_field_assoc,[K,V]}|Ps], TType) ->
+    K1 = type(K, TType),
+    V1 = type(V, TType),
+    [{type,Anno,map_field_assoc,[K1,V1]}|map_pair_types(Ps, TType)];
+map_pair_types([{type,Anno,map_field_exact,[K,V]}|Ps], TType) ->
+    K1 = type(K, TType),
+    V1 = type(V, TType),
+    [{type,Anno,map_field_exact,[K1,V1]}|map_pair_types(Ps, TType)];
+map_pair_types([], _TType) -> [].
+
+field_types([{type,Anno,field_type,[{atom,Aa,A},T]}|Fs], TType) ->
+    T1 = type(T, TType),
+    [{type,Anno,field_type,[{atom,Aa,A},T1]}|field_types(Fs, TType)];
+field_types([], _TType) -> [].
+
+type_list([T|Ts], TType) ->
+    T1 = type(T, TType),
+    [T1|type_list(Ts, TType)];
+type_list([], _TType) -> [].
+
+record_defs([{record_field,Anno,Name,Val}|Is], TType) ->
+    [{record_field,Anno,Name,Val} | record_defs(Is, TType)];
+record_defs([{record_field,Anno,Name}|Is], TType) ->
+    [{record_field,Anno,Name} | record_defs(Is, TType)];
+record_defs([{typed_record_field,{record_field,Anno,Name,Val},Type}| Is], TType) ->
+    Type1 = type(Type, TType),
+    [{typed_record_field,{record_field,Anno,Name,Val},Type1} | record_defs(Is, TType)];
+record_defs([{typed_record_field,{record_field,Anno,Name},Type}|Is], TType) ->
+    Type1 = type(Type, TType),
+    [{typed_record_field,{record_field,Anno,Name},Type1} | record_defs(Is, TType)];
+record_defs([], _TType) -> [].
