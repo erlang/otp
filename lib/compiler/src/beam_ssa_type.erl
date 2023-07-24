@@ -26,6 +26,7 @@
 %% it goes.
 %%
 
+-feature(maybe_expr, enable).
 -module(beam_ssa_type).
 -export([opt_start/2, opt_continue/4, opt_finish/3, opt_ranges/1]).
 
@@ -2502,17 +2503,27 @@ infer_types_br_1(V, Ts, Ds) ->
             FailTs = subtract_types(NegTypes, Ts),
             {SuccTs, FailTs};
         InvOp ->
-            %% This is an relational operator.
+            %% This is a relational operator.
             {bif,Op} = Op0,
 
-            %% Infer the types for both sides of operator succceding.
+            %% Infer the types for both sides of operator succeeding.
             Types = concrete_types(Args, Ts),
-            TrueTypes0 = infer_relop(Op, Args, Types, Ds),
-            TrueTypes = meet_types(TrueTypes0, Ts),
+            {TruePos, TrueNeg} = infer_relop(Op, Args, Types, Ds),
+            TrueTypes = maybe
+                           TrueTypes0 = #{} ?= meet_types(TruePos, Ts),
+                           subtract_types(TrueNeg, TrueTypes0)
+                        else
+                            none -> none
+                        end,
 
             %% Infer the types for both sides of operator failing.
-            FalseTypes0 = infer_relop(InvOp, Args, Types, Ds),
-            FalseTypes = meet_types(FalseTypes0, Ts),
+            {FalsePos, FalseNeg} = infer_relop(InvOp, Args, Types, Ds),
+            FalseTypes = maybe
+                            FalseTypes0 = #{} ?= meet_types(FalsePos, Ts),
+                            subtract_types(FalseNeg, FalseTypes0)
+                         else
+                             none -> none
+                         end,
 
             {TrueTypes, FalseTypes}
     end.
@@ -2529,12 +2540,12 @@ infer_relop('=:=', [LHS,RHS],
     %% In order to avoid narrowing the types with regard to
     %% appendable-status, deduce the types for the case when neither
     %% LHS or RHS are appendable, then restore the appendable-status.
-    [{LHS,LType},{RHS,RType}|EqTypes] =
+    {[{LHS,LType},{RHS,RType} | EqTypes], []} =
         infer_relop('=:=', [LHS,RHS],
                     [LType0#t_bitstring{appendable=false},
                      RType0#t_bitstring{appendable=false}], Ds),
-    [{LHS,LType#t_bitstring{appendable=LHSApp}},
-     {RHS,RType#t_bitstring{appendable=RHSApp}}|EqTypes];
+    {[{LHS,LType#t_bitstring{appendable=LHSApp}},
+      {RHS,RType#t_bitstring{appendable=RHSApp}} | EqTypes], []};
 infer_relop('=:=', [LHS,RHS], [LType,RType], Ds) ->
     EqTypes = infer_eq_type(map_get(LHS, Ds), RType),
 
@@ -2543,11 +2554,10 @@ infer_relop('=:=', [LHS,RHS], [LType,RType], Ds) ->
     %% can be inferred that L1 is 'cons' (the meet of 'cons' and
     %% 'list').
     Type = beam_types:meet(LType, RType),
-    [{LHS,Type},{RHS,Type}] ++ EqTypes;
-infer_relop(Op, Args, Types, _Ds) ->
-    infer_relop(Op, Args, Types).
+    {[{LHS,Type},{RHS,Type}] ++ EqTypes, []};
+infer_relop('=/=', [LHS,RHS], [LType,RType], Ds) ->
+    NeTypes = infer_ne_type(map_get(LHS, Ds), RType),
 
-infer_relop('=/=', [LHS,RHS], [LType,RType]) ->
     %% We must be careful with types inferred from '=/='.
     %%
     %% For example, if we have L =/= [a], we must not subtract 'cons'
@@ -2559,9 +2569,12 @@ infer_relop('=/=', [LHS,RHS], [LType,RType]) ->
     %% value and vice versa. We must not subtract the meet of the two
     %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
     %% for details.
-    [{V,beam_types:subtract(ThisType, OtherType)} ||
-        {V, ThisType, OtherType} <- [{RHS, RType, LType}, {LHS, LType, RType}],
-        beam_types:is_singleton_type(OtherType)];
+    {[{V,beam_types:subtract(ThisType, OtherType)} ||
+         {V, ThisType, OtherType} <- [{RHS, RType, LType}, {LHS, LType, RType}],
+         beam_types:is_singleton_type(OtherType)], NeTypes};
+infer_relop(Op, Args, Types, _Ds) ->
+    {infer_relop(Op, Args, Types), []}.
+
 infer_relop(Op, [Arg1,Arg2], Types0) ->
     case infer_relop(Op, Types0) of
         any ->
@@ -2664,8 +2677,13 @@ infer_br_value(V, Bool, NewTs) ->
 infer_types_switch(V, Lit, Ts0, IsTempVar, Ds) ->
     Args = [V,Lit],
     Types = concrete_types(Args, Ts0),
-    PosTypes = infer_relop('=:=', Args, Types, Ds),
-    Ts = meet_types(PosTypes, Ts0),
+    {PosTypes, NegTypes} = infer_relop('=:=', Args, Types, Ds),
+    Ts = maybe
+            Ts1 = #{} ?= meet_types(PosTypes, Ts0),
+            subtract_types(NegTypes, Ts1)
+         else
+            none -> none
+         end,
     case IsTempVar of
         true -> ts_remove_var(V, Ts);
         false -> Ts
@@ -2749,15 +2767,15 @@ infer_type({bif,'and'}, [#b_var{}=LHS,#b_var{}=RHS], Ts, Ds) ->
     %% rewrite this BIF to plain control flow.
     %%
     %% Note that we can't do anything for the 'false' case as either (or both)
-    %% of the arguments could be false.
+    %% of the arguments could be false, so we must ignore the negations.
     #{ LHS := #b_set{op=LHSOp,args=LHSArgs},
        RHS := #b_set{op=RHSOp,args=RHSArgs} } = Ds,
 
-    LHSTypes = infer_and_type(LHSOp, LHSArgs, Ts, Ds),
-    RHSTypes = infer_and_type(RHSOp, RHSArgs, Ts, Ds),
+    {LHSPos, _} = infer_and_type(LHSOp, LHSArgs, Ts, Ds),
+    {RHSPos, _} = infer_and_type(RHSOp, RHSArgs, Ts, Ds),
 
     True = beam_types:make_atom(true),
-    {[{LHS, True}, {RHS, True}] ++ LHSTypes ++ RHSTypes, []};
+    {[{LHS, True}, {RHS, True}] ++ LHSPos ++ RHSPos, []};
 infer_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
@@ -2806,11 +2824,30 @@ infer_eq_type(#b_set{op=get_tuple_element,
 infer_eq_type(_, _) ->
     [].
 
+infer_ne_type(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
+              #t_integer{elements={Size,Size}}) ->
+    [{Tuple,#t_tuple{exact=true,size=Size}}];
+infer_ne_type(#b_set{op=get_tuple_element,
+                     args=[#b_var{}=Tuple,#b_literal{val=N}]},
+              ElementType) ->
+    Index = N + 1,
+    case {beam_types:is_singleton_type(ElementType),
+          beam_types:set_tuple_element(Index, ElementType, #{})} of
+        {true, #{ Index := _ }=Es} ->
+            [{Tuple,#t_tuple{size=Index,elements=Es}}];
+        {_, #{}} ->
+            %% Subtraction is not safe: either we had a non-singleton element
+            %% type (see inference for `=/=`), or the element index was out of
+            %% range.
+            []
+    end;
+infer_ne_type(_, _) ->
+    [].
+
 infer_and_type(Op, Args, Ts, Ds) ->
     case inv_relop(Op) of
         none ->
-            {LHSTypes0, _} = infer_type(Op, Args, Ts, Ds),
-            LHSTypes0;
+            infer_type(Op, Args, Ts, Ds);
         _InvOp ->
             {bif,RelOp} = Op,
             infer_relop(RelOp, Args, concrete_types(Args, Ts), Ds)
