@@ -5,10 +5,7 @@ I think the most confusing thing is that today OTP behavior and design seems to 
 1. (Configuration centric) CT hook callback looks as designed to wrap around CT Configuration functions (i.e. you have *pre* and *post* to wrapp around init_per_testcase or end_per_testcase)
    - Furthermore if you consider hook callback function names, there are no hooks wrapping around Testcase function at all!
 2. (Testcase centric) AND at the same the hook execution order is determined by relation to CT Testcase callback
-### Next step ideas
-1. improve existing documentation for hooks (actually it was planned for many years but down prioritized)
-2. add mermaid diagrams to docs when that is possible
-3. introduce a CT option for Configuration centric hook execution order (maybe named ct_hooks_order := [testcase(default) | configuration])
+
 ### CT hooks priorities (documentation sketch)
 Let's assume:
 1. cth_A and cth_B being CT hook modules to be installed
@@ -37,29 +34,31 @@ title: Testcase centric CT hook execution order (default)
 ---
 flowchart TD
     subgraph hooks
-    pre_init_pt_A["(A) pre_init_per_testcase"] --> pre_init_pt_B
+    pre_ipt_A["(A) pre_init_per_testcase"] --Config--> pre_ipt_B
     end
     subgraph suite
-    pre_init_pt_B["(B) pre_init_per_testcase"] --> init_pt[/"init_per_testcase"/]
+    pre_ipt_B["(B) pre_init_per_testcase"] --Config--> ipt[/"init_per_testcase"/]
     end
-    init_pt --> post_init_pt_A
+    ipt --Config,Return--> post_ipt_A
+    ipt --Config--> post_ipt_B
     subgraph hooks
-    post_init_pt_A["(A) post_init_per_testcase"] --> post_init_pt_B
+    post_ipt_A["(A) post_init_per_testcase"] --Return--> post_ipt_B
     end
     subgraph suite
-    post_init_pt_B["(B) post_init_per_testcase"] --> testcase
+    post_ipt_B["(B) post_init_per_testcase"] --Config--> testcase
     testcase((("Testcase")))
     end
     subgraph hooks
-    testcase --> pre_end_pt_B
-    pre_end_pt_B["(B) pre_end_per_testcase"] --> pre_end_pt_A
+    testcase --tc_status--> pre_ept_B
+    pre_ept_B["(B) pre_end_per_testcase"] --Config--> pre_ept_A
     end
     subgraph suite
-    pre_end_pt_A["(A) pre_end_per_testcase"] --> end_per_test_case
+    pre_ept_A["(A) pre_end_per_testcase"] --Config--> end_per_test_case
     end
     subgraph hooks
-    end_per_test_case[/"end_per_testcase"/] --> post_end_pt_B
-    post_end_pt_B["(B) post_end_per_testcase"] --> post_end_pt_A["(A) post_end_per_testcase"]
+    end_per_test_case[/"end_per_testcase"/] --Config,Return--> post_ept_B
+    post_ept_B[/"(B) post_end_per_testcase"/] --Return--> post_ept_A[/"(A) post_end_per_testcase"/]
+    end_per_test_case --Config--> post_ept_A
     end
 ```
 #### Configuration centric (option candidate)
@@ -76,29 +75,29 @@ title: Configuration centric CT hook execution order (option)
 ---
 flowchart TD
     subgraph hooks
-    pre_init_pt_A["(A) pre_init_per_testcase"] --> pre_init_pt_B
+    pre_ipt_A["(A) pre_init_per_testcase"] --> pre_ipt_B
     end
     subgraph suite
-    pre_init_pt_B["(B) pre_init_per_testcase"] --> init_pt((("init_per_testcase")))
+    pre_ipt_B["(B) pre_init_per_testcase"] --> ipt((("init_per_testcase")))
     end
-    init_pt --> post_init_pt_B
+    ipt --> post_ipt_B
     subgraph hooks
-    post_init_pt_B["(B) post_init_per_testcase"] --> post_init_pt_A
+    post_ipt_B["(B) post_init_per_testcase"] --> post_ipt_A
     end
     subgraph suite
-    post_init_pt_A["(A) post_init_per_testcase"] --> testcase
+    post_ipt_A["(A) post_init_per_testcase"] --> testcase
     testcase[/"Testcase"/]
     end
     subgraph hooks
-    testcase --> pre_end_pt_A
-    pre_end_pt_A["(A) pre_end_per_testcase"] --> pre_end_pt_B
+    testcase --> pre_ept_A
+    pre_ept_A["(A) pre_end_per_testcase"] --> pre_ept_B
     end
     subgraph suite
-    pre_end_pt_B["(B) pre_end_per_testcase"] --> end_per_test_case
+    pre_ept_B["(B) pre_end_per_testcase"] --> end_per_test_case
     end
     subgraph hooks
-    end_per_test_case((("end_per_testcase"))) --> post_end_pt_B
-    post_end_pt_B["(B) post_end_per_testcase"] --> post_end_pt_A["(A) post_end_per_testcase"]
+    end_per_test_case((("end_per_testcase"))) --> post_ept_B
+    post_ept_B["(B) post_end_per_testcase"] --> post_ept_A["(A) post_end_per_testcase"]
     end
 ```
 

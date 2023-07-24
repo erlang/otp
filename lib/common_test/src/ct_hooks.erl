@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@
 -export([on_tc_fail/2]).
 
 %% If you change this, remember to update ct_util:look -> stop clause as well.
--define(config_name, ct_hooks).
+-define(hooks_name, ct_hooks).
+-define(hooks_order_name, ct_hooks_order).
 
 %% All of the hooks which are to be started by default. Remove by issuing
 %% -enable_builtin_hooks false to when starting common test.
@@ -49,6 +50,7 @@
 -spec init(State :: term()) -> ok |
 			       {fail, Reason :: term()}.
 init(Opts) ->
+    process_hooks_order(?FUNCTION_NAME, Opts),
     call(get_builtin_hooks(Opts) ++ get_new_hooks(Opts, undefined),
 	 ok, init, []).
 
@@ -56,16 +58,16 @@ init(Opts) ->
 groups(Mod, Groups) ->
     Info = try proplists:get_value(ct_hooks, Mod:suite(), []) of
                CTHooks when is_list(CTHooks) ->
-                   [{?config_name,CTHooks}];
+                   [{?hooks_name,CTHooks}];
                CTHook when is_atom(CTHook) ->
-                   [{?config_name,[CTHook]}]
+                   [{?hooks_name,[CTHook]}]
            catch _:_ ->
                    %% since this might be the first time Mod:suite()
                    %% is called, and it might just fail or return
                    %% something bad, we allow any failure here - it
                    %% will be caught later if there is something
                    %% really wrong.
-                   [{?config_name,[]}]
+                   [{?hooks_name,[]}]
            end,
     case call(fun call_generic/3, Info ++ [{'$ct_groups',Groups}], [post_groups, Mod]) of
         [{'$ct_groups',NewGroups}] ->
@@ -78,13 +80,13 @@ groups(Mod, Groups) ->
 all(Mod, Tests) ->
     Info = try proplists:get_value(ct_hooks, Mod:suite(), []) of
                CTHooks when is_list(CTHooks) ->
-                   [{?config_name,CTHooks}];
+                   [{?hooks_name,CTHooks}];
                CTHook when is_atom(CTHook) ->
-                   [{?config_name,[CTHook]}]
+                   [{?hooks_name,[CTHook]}]
            catch _:_ ->
                    %% just allow any failure here - it will be caught
                    %% later if there is something really wrong.
-                   [{?config_name,[]}]
+                   [{?hooks_name,[]}]
            end,
     case call(fun call_generic/3, Info ++ [{'$ct_all',Tests}], [post_all, Mod]) of
         [{'$ct_all',NewTests}] ->
@@ -118,11 +120,11 @@ terminate(Hooks) ->
 init_tc(Mod, init_per_suite, Config) ->
     Info = try proplists:get_value(ct_hooks, Mod:suite(),[]) of
 	       List when is_list(List) -> 
-		   [{?config_name,List}];
+		   [{?hooks_name,List}];
 	       CTHook when is_atom(CTHook) ->
-		   [{?config_name,[CTHook]}]
+		   [{?hooks_name,[CTHook]}]
 	   catch error:undef ->
-		   [{?config_name,[]}]
+		   [{?hooks_name,[]}]
 	   end,
     call(fun call_generic/3, Config ++ Info, [pre_init_per_suite, Mod]);
 
@@ -249,13 +251,15 @@ do_call_generic(#ct_hook_config{ module = Mod, state = State} = Hook,
     {NewValue, Hook#ct_hook_config{ state = NewState } }.
 
 %% Generic call function
-call(Fun, Config, Meta) ->
+call(Fun, Config, [CFunc | _] = Meta) ->
     maybe_lock(),
     Hooks = get_hooks(),
     Calls = get_new_hooks(Config, Fun) ++
 	[{HookId,Fun} || #ct_hook_config{id = HookId} <- Hooks],
-    Res = call(resort(Calls,Hooks,Meta),
-	       remove(?config_name,Config), Meta, Hooks),
+    Order = process_hooks_order(CFunc, Config),
+    Res = call(resort(Calls,Hooks,Meta, Order),
+	       remove([?hooks_name, ?hooks_order_name], Config),
+               Meta, Hooks),
     maybe_unlock(),
     Res.
 
@@ -264,7 +268,6 @@ call(Fun, Config, Meta, NoChangeRet) when is_function(Fun) ->
 	Config -> NoChangeRet;
 	NewReturn -> NewReturn
     end;
-
 call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
     try
 	{Config, #ct_hook_config{ id = NewId } = NewHook} =
@@ -286,7 +289,9 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 		    {Hooks ++ [NewHook],
 		     Rest ++ [{NewId, call_init}, {NewId,NextFun}]}
 	    end,
-	call(resort(NewRest,NewHooks,Meta), Config, Meta, NewHooks)
+        Order = get_hooks_order(),
+	call(resort(NewRest, NewHooks, Meta, Order), Config, Meta,
+             NewHooks)
     catch Error:Reason:Trace ->
 	    ct_logs:log("Suite Hook","Failed to start a CTH: ~tp:~tp",
 			[Error,{Reason,Trace}]),
@@ -301,8 +306,10 @@ call([{HookId, Fun} | Rest], Config, Meta, Hooks) ->
         {NewConf, NewHook} =  Fun(Hook, Config, Meta),
         NewCalls = get_new_hooks(NewConf, Fun),
         NewHooks = lists:keyreplace(HookId, #ct_hook_config.id, Hooks, NewHook),
-        call(resort(NewCalls ++ Rest,NewHooks,Meta), %% Resort if call_init changed prio
-	     remove(?config_name, NewConf), Meta,
+        Order = get_hooks_order(),
+        call(resort(NewCalls ++ Rest, NewHooks,
+                    Meta, Order), %% Resort if call_init changed prio
+	     remove([?hooks_name, ?hooks_order_name], NewConf), Meta,
              terminate_if_scope_ends(HookId, Meta, NewHooks))
     catch throw:{error_in_cth_call,Reason} ->
             call(Rest, {fail, Reason}, Meta,
@@ -312,6 +319,11 @@ call([], Config, _Meta, Hooks) ->
     save_suite_data_async(Hooks),
     Config.
 
+remove([], List) when is_list(List) ->
+    List;
+remove([Key|T], List) when is_list(List) ->
+    NewList = remove(Key, List),
+    remove(T, NewList);
 remove(Key,List) when is_list(List) ->
     [Conf || Conf <- List, is_tuple(Conf) =:= false
 		 orelse element(1, Conf) =/= Key];
@@ -392,9 +404,9 @@ get_new_hooks(Config, Fun) ->
 		end, get_new_hooks(Config)).
 
 get_new_hooks(Config) when is_list(Config) ->
-    lists:flatmap(fun({?config_name, HookConfigs}) when is_list(HookConfigs) ->
+    lists:flatmap(fun({?hooks_name, HookConfigs}) when is_list(HookConfigs) ->
 			  HookConfigs;
-		     ({?config_name, HookConfig}) when is_atom(HookConfig) ->
+		     ({?hooks_name, HookConfig}) when is_atom(HookConfig) ->
 			  [HookConfig];
 		     (_) ->
 			  []
@@ -411,10 +423,10 @@ get_builtin_hooks(Opts) ->
     end.
 
 save_suite_data_async(Hooks) ->
-    ct_util:save_suite_data_async(?config_name, Hooks).
+    ct_util:save_suite_data_async(?hooks_name, Hooks).
 
 get_hooks() ->
-    lists:keysort(#ct_hook_config.prio,ct_util:read_suite_data(?config_name)).
+    lists:keysort(#ct_hook_config.prio,ct_util:read_suite_data(?hooks_name)).
 
 %% Sort all calls in this order:
 %% call_id < call_init < ctfirst < Priority 1 < .. < Priority N < ctlast
@@ -423,17 +435,38 @@ get_hooks() ->
 %% If we are doing a cleanup call i.e. {post,pre}_end_per_*, all priorities
 %% are reversed. Probably want to make this sorting algorithm pluginable
 %% as some point...
-resort(Calls,Hooks,[F|_R]) when F == pre_end_per_testcase;
-				F == post_end_per_testcase;
-				F == pre_end_per_group;
-				F == post_end_per_group;
-				F == pre_end_per_suite;
-				F == post_end_per_suite ->
-    lists:reverse(resort(Calls,Hooks));
-
-resort(Calls,Hooks,_Meta) ->
+resort(Calls, Hooks, [CFunc|_R], HooksOrder) ->
+    Resorted = resort(Calls, Hooks),
+    ReversedHooks =
+        case HooksOrder of
+            config ->
+                %% reversed order for all post hooks (config centric order)
+                %% ct_hooks_order is 'config'
+                [post_init_per_testcase,
+                 post_end_per_testcase,
+                 post_init_per_group,
+                 post_end_per_group,
+                 post_init_per_suite,
+                 post_end_per_suite];
+            _ ->
+                %% reversed order for all end hooks (testcase centric order)
+                %% default or when ct_hooks_order is 'test'
+                [pre_end_per_testcase,
+                 post_end_per_testcase,
+                 pre_end_per_group,
+                 post_end_per_group,
+                 pre_end_per_suite,
+                 post_end_per_suite]
+        end,
+    case lists:member(CFunc, ReversedHooks) of
+        true ->
+            lists:reverse(Resorted);
+        _ ->
+            Resorted
+    end;
+resort(Calls,Hooks,_Meta, _HooksOrder) ->
     resort(Calls,Hooks).
-    
+
 resort(Calls, Hooks) ->
     lists:sort(
       fun({_,_,_},_) ->
@@ -498,6 +531,29 @@ catch_apply(M,F,A) ->
                                    [M,F,length(A)]))})
     end.
 
+process_hooks_order(init, Return) when is_list(Return) ->
+    maybe_save_hooks_order(Return);
+process_hooks_order(_Stage, Return) when is_list(Return) ->
+    case get_hooks_order() of
+        undefined ->
+            maybe_save_hooks_order(Return);
+        StoredOrder ->
+            StoredOrder
+    end;
+process_hooks_order(_Stage, _) ->
+    nothing_to_save.
+
+get_hooks_order() ->
+    ct_util:read_suite_data(?hooks_order_name).
+
+maybe_save_hooks_order(Return) ->
+    case proplists:get_value(?hooks_order_name, Return) of
+        Order when Order == config ->
+            ct_util:save_suite_data_async(?hooks_order_name, Order),
+            Order;
+        _ ->
+            test
+    end.
 
 %% We need to lock around the state for parallel groups only. This is because
 %% we will get several processes reading and writing the state for a single

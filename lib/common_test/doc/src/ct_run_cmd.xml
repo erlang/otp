@@ -128,6 +128,7 @@
   [-keep_logs all | NLogs]
   [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
    CTHModuleN CTHOptsN]
+  [-ct_hooks_order test | config]
   [-exit_status ignore_config]
   [-help]</pre>
   </section>
@@ -168,6 +169,7 @@
   [-keep_logs all | NLogs]
   [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
    CTHModuleN CTHOptsN]
+  [-ct_hooks_order test | config]
   [-exit_status ignore_config]</pre>
   </section>
 
