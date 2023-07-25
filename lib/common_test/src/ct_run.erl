@@ -1789,7 +1789,8 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 
     case continue(AllMakeErrors, Opts#opts.abort_if_missing_suites) of
 	true ->
-	    io:format("~p test module(s) compiled~n", [length(TestSuites2)]),
+	    ModulesPrintout = ct_console:pluralize(length(TestSuites2), "module", "modules"),
+	    io:format("~p test ~s compiled~n", [length(TestSuites2), ModulesPrintout]),
 	    SavedErrors = save_make_errors(SuiteMakeErrors),
 	    ct_repeat:log_loop_info(Args),
 	    
@@ -2233,18 +2234,18 @@ do_run_test(Tests, Skip, Opts0) ->
 	    NoOfTests = length(Tests),
 	    NoOfSuites = length(Suites1),
 	    ct_util:warn_duplicates(Suites1),
+	    TestsPrintout = ct_console:pluralize(NoOfTests, "test", "tests"),
+	    SuitesPrintout = ct_console:pluralize(NoOfSuites, "suite", "suites"),
 	    if NoOfCases == unknown ->
-		    io:format("collected: ~w test(s), ~w suite(s)~n~n",
-			      [NoOfTests,NoOfSuites]),
-		    ct_logs:log("TEST INFO","~w test(s), ~w suite(s)",
-				[NoOfTests,NoOfSuites]);
+		    FormatArgs = [NoOfTests, TestsPrintout, NoOfSuites, SuitesPrintout],
+		    io:format("collected: ~w ~s, ~w ~s~n~n", FormatArgs),
+		    ct_logs:log("TEST INFO","~w ~s, ~w ~s", FormatArgs);
 	       true ->
-		    io:format("collected: ~w test(s), ~w case(s) "
-			      "in ~w suite(s)~n~n",
-			      [NoOfTests,NoOfCases,NoOfSuites]),
-		    ct_logs:log("TEST INFO","~w test(s), ~w case(s) "
-				"in ~w suite(s)",
-				[NoOfTests,NoOfCases,NoOfSuites])
+		    CasesPrintout = ct_console:pluralize(NoOfCases, "case", "cases"),
+		    FormatArgs = [NoOfTests, TestsPrintout, NoOfCases,
+                                  CasesPrintout, NoOfSuites, SuitesPrintout],
+		    io:format("collected: ~w ~s, ~w ~s in ~w ~s~n~n", FormatArgs),
+		    ct_logs:log("TEST INFO","~w ~s, ~w ~s in ~w ~s", FormatArgs)
 	    end,
 	    %% if the verbosity level is set lower than ?STD_IMPORTANCE, tell
 	    %% test_server to ignore stdout printouts to the test case log file

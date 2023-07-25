@@ -28,10 +28,6 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 SILENT="${SILENT:-0}"
-if [ "$SILENT" -eq 1 ] && [ "${WSLcross}" != "true" ]; then
-    # cth_log_redirect is enabled by default, to configure it we need to remove and re-add it
-    ARGS="-enable_builtin_hooks false -ct_hooks cth_log_redirect [{mode,replace}] ${ARGS}"
-fi
 
 
 print_highlighted_msg_with_printer () {

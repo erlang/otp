@@ -1482,9 +1482,6 @@ do_test_cases(TopCases, SkipCases,
 		add_init_and_end_per_suite(TestSpec0, undefined, undefined, FwMod),
 
 	    TI = get_target_info(),
-	    print(1, "Starting test~ts",
-		  [print_if_known(N, {", ~w test cases",[N]},
-				  {" (with repeated test cases)",[]})]),
 	    Test = get(test_server_name),
 	    TestName = 	if is_list(Test) -> 
 				lists:flatten(io_lib:format("~ts", [Test]));
@@ -2158,17 +2155,24 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 	    html_convert_modules(TestSpec, Config, FwMod)
     end,
 
-    run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
+    #{total := #{
+        passed := OkN,
+        failed := FailedN,
+        user_skipped := UserSkipN,
+        auto_skipped := AutoSkipN
+      }
+    } = run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
+    AllSkippedN = UserSkipN + AutoSkipN,
+    SkipStr = case AllSkippedN of
+                  0 -> "";
+                  Skips -> io_lib:format(", ~w skipped", [Skips])
+              end,
 
-    {AllSkippedN,UserSkipN,AutoSkipN,SkipStr} =
-	case get(test_server_skipped) of
-	    {0,0} -> {0,0,0,""};
-	    {US,AS} -> {US+AS,US,AS,io_lib:format(", ~w skipped", [US+AS])}
-	end,
-    OkN = get(test_server_ok),
-    FailedN = get(test_server_failed),
-    print(1, "TEST COMPLETE, ~w ok, ~w failed~ts of ~w test cases\n",
-	  [OkN,FailedN,SkipStr,OkN+FailedN+AllSkippedN]),
+    % We need to run through the user GL here to prevent having our output captured.
+    io:fwrite(user, "~n", []),
+    Trailer = io_lib:format("test finished: ~w ok, ~w failed~ts of ~w test cases",
+                            [OkN, FailedN, SkipStr, OkN + FailedN + AllSkippedN]),
+    ct_console:print_header(Trailer),
     test_server_sup:framework_call(report, [tests_done,
 					    {OkN,FailedN,{UserSkipN,AutoSkipN}}]),
     print(major, "=finished      ~s", [lists:flatten(timestamp_get(""))]),
@@ -3019,8 +3023,16 @@ run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData, Mode0, S
     end;
 
 %% TestSpec processing finished
-run_test_cases_loop([], _Config, _TimetrapData, _, _) ->
-    ok.
+run_test_cases_loop([], _Config, _TimetrapData, _, _Status) ->
+    {UserSkipped, AutoSkipped} = get(test_server_skipped),
+    #{
+      total => #{
+        passed => get(test_server_ok),
+        failed => get(test_server_failed),
+        user_skipped => UserSkipped,
+        auto_skipped => AutoSkipped
+      }
+    }.
 
 %%--------------------------------------------------------------------
 %% various help functions
@@ -4004,15 +4016,14 @@ num2str(N) -> integer_to_list(N).
 %% Note: Strings that are to be written to the minor log must
 %% be prefixed with "=== " here, or the indentation will be wrong.
 
-progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
+progress(skip, _CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	 Comment, {St0,St1}) ->
     {Reason1,{Color,Ret,ReportTag}} = 
 	if_auto_skip(Reason,
 		     fun() -> {?auto_skip_color,auto_skip,auto_skipped} end,
 		     fun() -> {?user_skip_color,skip,skipped} end),
     print(major, "=result        ~w: ~tp", [ReportTag,Reason1]),
-    print(1, "*** SKIPPED ~ts ***",
-	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
+    io:fwrite(user, "s",  []),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {ReportTag,Reason1}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
@@ -4042,11 +4053,10 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
     print(minor, "=== Reason: ~ts", [ReasonStr1]),
     Ret;
 
-progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
+progress(failed, _CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: timeout, ~tp", [Loc]),
-    print(1, "*** FAILED ~ts ***",
-	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
+    io:fwrite(user, "F", []),
     test_server_sup:framework_call(report,
 				   [tc_done,{Mod,{Func,GrName},
 					     {failed,timetrap_timeout}}]),
@@ -4068,11 +4078,10 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
     print(minor, "=== Reason: timetrap timeout", []),
     failed;
 
-progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
+progress(failed, _CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: testcase_aborted, ~tp", [Loc]),
-    print(1, "*** FAILED ~ts ***",
-	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
+    io:fwrite(user, "F", []),
     test_server_sup:framework_call(report,
 				   [tc_done,{Mod,{Func,GrName},
 					     {failed,testcase_aborted}}]),
@@ -4097,11 +4106,10 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
 				     [Reason]))]),
     failed;
 
-progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
+progress(failed, _CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: ~tp, ~w", [Reason,unknown_location]),
-    print(1, "*** FAILED ~ts ***",
-	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
+    io:fwrite(user, "F", []),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {failed,Reason}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
@@ -4136,7 +4144,7 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 	  [escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason]))]),
     failed;
 
-progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
+progress(failed, _CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	 Comment0, {St0,St1}) ->
     {LocMaj,LocMin} = if Func == error_in_suite ->
 			      case get_fw_mod(undefined) of
@@ -4146,8 +4154,7 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 			 true -> {Loc,Loc}
 		       end,
     print(major, "=result        failed: ~tp, ~tp", [Reason,LocMaj]),
-    print(1, "*** FAILED ~ts ***",
-	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
+    io:fwrite(user, "F", []),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {failed,Reason}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
@@ -4174,6 +4181,7 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 
 progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	 Comment0, {St0,St1}) ->
+    io:fwrite(user, ".", []),
     print(minor, "successfully completed test case", []),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},ok}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
@@ -4287,14 +4295,6 @@ update_skip_counters({_T,Pat,_Opts}, {US,AS}) ->
 update_skip_counters(Pat, {US,AS}) ->
     {_,Result} = if_auto_skip(Pat, fun() -> {US,AS+1} end, fun() -> {US+1,AS} end),
     Result.
-
-get_info_str(Mod,Func, 0, _Cases) ->
-    io_lib:format("~tw", [{Mod,Func}]);
-get_info_str(_Mod,_Func, CaseNum, unknown) ->
-    "test case " ++ integer_to_list(CaseNum);
-get_info_str(_Mod,_Func, CaseNum, Cases) ->
-    "test case " ++ integer_to_list(CaseNum) ++
-	" of " ++ integer_to_list(Cases).
 
 print_if_known(Known, {SK,AK}, {SU,AU}) ->
     {S,A} = if Known == unknown -> {SU,AU};
