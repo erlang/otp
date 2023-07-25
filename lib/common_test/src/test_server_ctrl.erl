@@ -2161,18 +2161,9 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
         user_skipped := UserSkipN,
         auto_skipped := AutoSkipN
       }
-    } = run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
-    AllSkippedN = UserSkipN + AutoSkipN,
-    SkipStr = case AllSkippedN of
-                  0 -> "";
-                  Skips -> io_lib:format(", ~w skipped", [Skips])
-              end,
-
-    % We need to run through the user GL here to prevent having our output captured.
-    io:fwrite(user, "~n", []),
-    Trailer = io_lib:format("test finished: ~w ok, ~w failed~ts of ~w test cases",
-                            [OkN, FailedN, SkipStr, OkN + FailedN + AllSkippedN]),
-    ct_console:print_header(Trailer),
+    } = Results = run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
+    io:fwrite(user, "~n~n", []),
+    ct_console:print_results(Results),
     test_server_sup:framework_call(report, [tests_done,
 					    {OkN,FailedN,{UserSkipN,AutoSkipN}}]),
     print(major, "=finished      ~s", [lists:flatten(timestamp_get(""))]),
@@ -2184,7 +2175,7 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% run_test_cases_loop(TestCases, Config, TimetrapData, Mode, Status) -> ok
+%% run_test_cases_loop(TestCases, Config, TimetrapData, Mode, Status) -> Results
 %% TestCases = [Test,...]
 %% Config = [[{Key,Val},...],...]
 %% TimetrapData = {MultiplyTimetrap,ScaleTimetrap}
@@ -2201,6 +2192,7 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %%        repeat_until_all_fail | {repeat_until_all_fail,N}
 %% Status = [{Ref,{{Ok,Skipped,Failed},CopiedCases}}]
 %% Ok = Skipped = Failed = [Case,...]
+%% Results = map()
 %%
 %% Execute the TestCases under configuration Config. Config is a list
 %% of lists, where hd(Config) holds the config tuples for the current

@@ -1,8 +1,45 @@
 % Deals with output formatting for the terminal.
 
 -module(ct_console).
--export([print_header/1, pluralize/3]).
+-export([print_header/1, print_results/1, pluralize/3]).
 
+%% Coloured output formatting charaters
+% If adding a new format here, make sure to add it to `size_on_terminal/1`.
+-define(TERM_BOLD, "\033[;1m").
+-define(TERM_BOLD_GREEN, "\033[;1;32m").
+-define(TERM_BLACK, "\033[;30m").
+-define(TERM_RED, "\033[;31m").
+-define(TERM_GREEN, "\033[;32m").
+-define(TERM_YELLOW, "\033[;33m").
+-define(TERM_CLEAR, "\033[0m").
+
+
+-spec print_results(map()) -> ok.
+print_results(#{total := #{passed := OkN, failed := FailedN,
+                           user_skipped := UserSkipN, auto_skipped := AutoSkipN}}) ->
+    AllSkippedN = UserSkipN + AutoSkipN,
+    PassedStr = format_if_nonzero(OkN, "~s~w passed~s", [?TERM_BOLD_GREEN, OkN, ?TERM_CLEAR]),
+    SkipStr = format_if_nonzero(AllSkippedN, "~s~w skipped~s", [?TERM_YELLOW, AllSkippedN, ?TERM_CLEAR]),
+    FailedStr = format_if_nonzero(FailedN, "~s~w failed~s", [?TERM_RED, FailedN, ?TERM_CLEAR]),
+    NonemptyStrs = lists:filter(fun(Item) -> Item =/= "" end, [PassedStr, SkipStr, FailedStr]),
+    ResultStr = lists:join(", ", NonemptyStrs),
+    PaddingColor = result_padding_color(OkN, FailedN),
+    ResultSize = size_on_terminal(ResultStr),
+    {PaddingSizeLeft, PaddingSizeRight} = centering_padding_size(ResultSize),
+    {PaddingLeft, PaddingRight} = padding_characters(PaddingSizeLeft, PaddingSizeRight),
+    io:fwrite(
+        user,
+        "~s~ts~s~ts~s~ts~s~n",
+        [PaddingColor, PaddingLeft, ?TERM_CLEAR, ResultStr, PaddingColor, PaddingRight, ?TERM_CLEAR]
+    ).
+
+-spec result_padding_color(non_neg_integer(), non_neg_integer()) -> string().
+result_padding_color(_Ok, 0) -> ?TERM_GREEN;
+result_padding_color(_Ok, _Failed) -> ?TERM_RED.
+
+-spec format_if_nonzero(non_neg_integer(), io_lib:format(), [term()]) -> string().
+format_if_nonzero(0, _Format, _Data) -> "";
+format_if_nonzero(_, Format, Data) -> io_lib:format(Format, Data).
 
 -spec print_header(string()) -> ok.
 print_header(Message) ->
@@ -10,23 +47,30 @@ print_header(Message) ->
 
 -spec format_header(string()) -> string().
 format_header(Message) ->
-    {ok, Columns} = terminal_width(user),
-    MessageLength = iolist_size(Message),
-    PaddingSizeLeft = trunc(Columns / 2) - trunc(MessageLength / 2) - 1,
-    PaddingSizeRight = header_right_padding(Columns, PaddingSizeLeft, MessageLength),
+    {PaddingSizeLeft, PaddingSizeRight} = centering_padding_size(iolist_size(Message)),
     % shell_docs contains a lot of useful functions that we could maybe factor
     % out and use here.
-    Start = "\033[;1m",
-    Stop = "\033[0m",
-    case PaddingSizeLeft of
-        Amount when Amount < 0 ->
-            % Not enough space to print the padding, proceed normally.
-            io_lib:format("~s~s~s~n", [Start, Message, Stop]);
-        _Amount ->
-            PaddingLeft = lists:duplicate(PaddingSizeLeft, "="),
-            PaddingRight = lists:duplicate(PaddingSizeRight, "="),
-            io_lib:format("~s~s ~s ~s~s~n", [Start, PaddingLeft, Message, PaddingRight, Stop])
-    end.
+    Start = ?TERM_BOLD,
+    Stop = ?TERM_CLEAR,
+    {PaddingLeft, PaddingRight} = padding_characters(PaddingSizeLeft, PaddingSizeRight),
+    io_lib:format("~s~ts~s~ts~s~n", [Start, PaddingLeft, Message, PaddingRight, Stop]).
+
+
+-spec padding_characters(integer(), integer()) -> {string(), string()}.
+padding_characters(SizeLeft, _SizeRight) when SizeLeft < 0 ->
+    % Not enough space to print the padding, proceed normally.
+    {"", ""};
+padding_characters(SizeLeft, SizeRight) ->
+    Left = lists:duplicate(SizeLeft, "="),
+    Right = lists:duplicate(SizeRight, "="),
+    {Left ++ " ", [" " | Right]}.
+
+-spec centering_padding_size(integer()) -> {integer(), integer()}.
+centering_padding_size(MessageSize) ->
+    {ok, Columns} = terminal_width(user),
+    PaddingSizeLeft = trunc(Columns / 2) - trunc(MessageSize / 2) - 1,
+    PaddingSizeRight = header_right_padding(Columns, PaddingSizeLeft, MessageSize),
+    {PaddingSizeLeft, PaddingSizeRight}.
 
 
 -spec pluralize(non_neg_integer(), string(), string()) -> string().
@@ -44,9 +88,21 @@ terminal_width(Driver) ->
     end.
 
 -spec header_right_padding(pos_integer(), pos_integer(), pos_integer()) -> pos_integer().
-header_right_padding(_Columns, LeftPadding, MessageLength) when MessageLength rem 2 == 1 ->
+header_right_padding(_Columns, LeftPadding, MessageSize) when MessageSize rem 2 == 1 ->
     LeftPadding - 1;
-header_right_padding(Columns, LeftPadding, _MessageLength) when Columns rem 2 == 0 ->
+header_right_padding(Columns, LeftPadding, _MessageSize) when Columns rem 2 == 0 ->
     LeftPadding;
-header_right_padding(_Columns, LeftPadding, _MessageLength) ->
+header_right_padding(_Columns, LeftPadding, _MessageSize) ->
     LeftPadding + 1.
+
+-spec size_on_terminal(iolist()) -> non_neg_integer().
+size_on_terminal(?TERM_BOLD ++ Rest) -> size_on_terminal(Rest);
+size_on_terminal(?TERM_BOLD_GREEN ++ Rest) -> size_on_terminal(Rest);
+size_on_terminal(?TERM_BLACK ++ Rest) -> size_on_terminal(Rest);
+size_on_terminal(?TERM_RED ++ Rest) -> size_on_terminal(Rest);
+size_on_terminal(?TERM_GREEN ++ Rest) -> size_on_terminal(Rest);
+size_on_terminal(?TERM_YELLOW ++ Rest) -> size_on_terminal(Rest);
+size_on_terminal(?TERM_CLEAR ++ Rest) -> size_on_terminal(Rest);
+size_on_terminal([Items | Rest]) when is_list(Items) -> size_on_terminal(Items) + size_on_terminal(Rest);
+size_on_terminal([Char | Rest]) when is_integer(Char) -> 1 + size_on_terminal(Rest);
+size_on_terminal([]) -> 0.

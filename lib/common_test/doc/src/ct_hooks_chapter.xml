@@ -517,14 +517,16 @@ results(State) ->
           <item>
             <p>Replace the <c>default</c> logging handler by the log redirect
               instead of logging to both the default handler and the
-              <c>cth_log_redirect</c> handler. To use this mode, disable the builtin
-              hook and reconfigure it:</p>
-            <p><c>-enable_builtin_hooks false -ct_hooks cth_log_redirect [{mode,replace}]</c></p>
+              <c>cth_log_redirect</c> handler. This is the default behaviour.</p>
           </item>
           <tag><c>{mode, add}</c></tag>
           <item>
             <p>Add the logging handler instead of replacing the default logging
-              handler. This is the default behaviour.</p>
+              handler. To use this mode, pass the <c>-verbose</c> flag to <c>ct_run</c>.
+              <c>-verbose</c> is the short form of disabling the builtin
+              configuration of the hook and reconfiguring it:</p>
+            <p>
+            <p><c>-enable_builtin_hooks false -ct_hooks cth_log_redirect [{mode,replace}]</c></p>
           </item>
         </taglist>
        </item>
