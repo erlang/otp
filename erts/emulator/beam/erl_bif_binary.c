@@ -1039,9 +1039,10 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	characters = binary_size(argument);
     }
 
-    if (characters == 0) {
-	goto badarg;
-    }
+	if (!(argument == THE_NON_VALUE || argument == NIL) && characters == 0) {
+	    goto badarg;
+	}
+
     ASSERT(words > 0);
 
     if (words == 1) {

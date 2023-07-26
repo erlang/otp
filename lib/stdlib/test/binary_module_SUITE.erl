@@ -154,11 +154,11 @@ badargs(Config) when is_list(Config) ->
 	   binary:bin_to_list([1,2,3])),
 
     nomatch =
+	?MASK_ERROR(binary:match(<<1,2,3>>,[])),
+    nomatch =
 	?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,[{scope,{0,0}}])),
     badarg =
 	?MASK_ERROR(binary:match(<<1,2,3>>,{bm,<<>>},[{scope,{0,1}}])),
-    badarg =
-	?MASK_ERROR(binary:match(<<1,2,3>>,[],[{scope,{0,1}}])),
     badarg =
 	?MASK_ERROR(binary:match(<<1,2,3>>,{ac,<<>>},[{scope,{0,1}}])),
     {bm,BMMagic} = binary:compile_pattern([<<1,2,3>>]),
@@ -178,11 +178,11 @@ badargs(Config) when is_list(Config) ->
 			{ac,ets:match_spec_compile([{'_',[],['$_']}])},
 			[{scope,{0,1}}])),
     [] =
+	?MASK_ERROR(binary:matches(<<1,2,3>>,[])),
+    [] =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,<<1>>,[{scope,{0,0}}])),
     badarg =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,{bm,<<>>},[{scope,{0,1}}])),
-    badarg =
-	?MASK_ERROR(binary:matches(<<1,2,3>>,[],[{scope,{0,1}}])),
     badarg =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,{ac,<<>>},[{scope,{0,1}}])),
     badarg =
@@ -358,6 +358,7 @@ interesting(Config) when is_list(Config) ->
     X = do_interesting(binref).
 
 do_interesting(Module) ->
+    nomatch = Module:match(<<"123456">>, Module:compile_pattern([])),
     {0,4} = Module:match(<<"123456">>,
 			 Module:compile_pattern([<<"12">>,<<"1234">>,
 						 <<"23">>,<<"3">>,
@@ -495,6 +496,7 @@ do_interesting(Module) ->
     [] = binary:split(<<>>, <<",">>, [global,trim]),
     [] = binary:split(<<>>, <<",">>, [global,trim_all]),
 
+    <<1,2,3,4,5,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>, [], <<99>>,[global]),
     badarg = ?MASK_ERROR(
 		Module:replace(<<1,2,3,4,5,6,7,8>>,
 			       [<<4,5>>,<<7>>,<<8>>],<<99>>,
