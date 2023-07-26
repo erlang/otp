@@ -1252,17 +1252,21 @@ format_description(#{help := {_Short, Desc}} = Opt) ->
                 String
         end, Desc
     );
-%% default format: "desc", "desc (type)", "desc (default)", "desc (type, default)"
+%% default format:
+%%     "desc"
+%%     "desc (type)"
+%%     "desc, default: abc"
+%%     "desc (type), default: abc"
 format_description(#{name := Name} = Opt) ->
     NameStr = maps:get(help, Opt, io_lib:format("~ts", [Name])),
     case {NameStr, format_type(Opt), format_default(Opt)} of
         {"", "", Type} -> Type;
         {"", Default, ""} -> Default;
         {Desc, "", ""} -> Desc;
-        {Desc, "", Default} -> [Desc, " (", Default, ")"];
+        {Desc, "", Default} -> [Desc, " , default: ", Default];
         {Desc, Type, ""} -> [Desc, " (", Type, ")"];
-        {"", Type, Default} -> [Type, ", ", Default];
-        {Desc, Type, Default} -> [Desc, " (", Type, ", ", Default, ")"]
+        {"", Type, Default} -> [Type, ", default: ", Default];
+        {Desc, Type, Default} -> [Desc, " (", Type, "), default: ", Default]
     end.
 
 %% option formatting helpers
