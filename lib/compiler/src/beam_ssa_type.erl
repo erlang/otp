@@ -109,7 +109,39 @@ opt_start_1([Id | Ids], ArgDb, StMap0, FuncDb0, MetaCache) ->
             opt_start_1(Ids, ArgDb, StMap, FuncDb, MetaCache)
     end;
 opt_start_1([], _CommittedArgs, StMap, FuncDb, _MetaCache) ->
+    %% Although unreachable functions are pruned when the list of
+    %% functions is first traversed above, it doesn't handle the case
+    %% when type inference concludes that a function is never
+    %% called. That is, its #func_info.arg_types is just a list of
+    %% empty dictionaries. Further optimizing such an unreachable
+    %% function is wasteful and will furthermore crash opt_continue/4
+    %% as no type information is available for its
+    %% arguments. Therefore, remove all functions which are
+    %% unreachable.
+    %%
+    %% That a function of zero arity is always considered reachable,
+    %% is harmless as it won't crash opt_continue/4.
+    %%
+    remove_unreachable(maps:keys(StMap), StMap, FuncDb).
+
+remove_unreachable([Id|Ids], StMap, FuncDb) ->
+    #{ Id := #func_info{exported=Exported,arg_types=ArgTypes} } = FuncDb,
+    case Exported orelse is_reachable(ArgTypes) of
+        true ->
+            remove_unreachable(Ids, StMap, FuncDb);
+        false ->
+            remove_unreachable(Ids,
+                               maps:remove(Id, StMap), maps:remove(Id, FuncDb))
+    end;
+remove_unreachable([], StMap, FuncDb) ->
     {StMap, FuncDb}.
+
+is_reachable([X|_]) when map_size(X) == 0 ->
+    false;
+is_reachable([_|Xs]) ->
+    is_reachable(Xs);
+is_reachable([]) ->
+    true.
 
 %%
 %% The initial signature analysis is based on the paper "Practical Type

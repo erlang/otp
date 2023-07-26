@@ -1490,6 +1490,13 @@ will_succeed_1(_V0, _V1)
 will_succeed_1(_, _) ->
     b.
 
+%% GH-7478 and GH-7509: The beam_ssa_type pass would crash when
+%% insisting on optimizing a function the pass had concluded was
+%% unreachable.
+gh_7478(_V0) ->
+    <<0 || erlang:yield() and ([0 || _ <- _V0] =< 9223372036854775807),
+           <<>> <= ok >>.
+
 %%%
 %%% Common utilities.
 %%%
