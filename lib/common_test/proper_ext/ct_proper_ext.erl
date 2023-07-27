@@ -61,22 +61,27 @@ safe_tuple() ->
 %% Atomlimit-safe variant of `proper_types:atom()'.
 -spec existing_atom() -> proper_types:type().
 existing_atom() ->
+    existing_atom(atom_count()).
+
+existing_atom(N) ->
     proper_types:noshrink(
         proper_types:lazy(fun() ->
-                              N = erlang:system_info(atom_count),
-                              get_existing_atom(rand_int0(N - 1), N)
+                              get_existing_atom(rand_int0(N - 1))
                           end)).
 
 -define(ATOM_TERM_BIN(Index), <<131, 75, Index:24>>).
-get_existing_atom(Index, Max) ->
-    Index1 = Index rem Max,
-    case binary_to_term(?ATOM_TERM_BIN(Index1)) of
+get_existing_atom(Index) ->
+    case binary_to_term(?ATOM_TERM_BIN(Index)) of
         '' ->
             '';
         Atom ->
             case hd(atom_to_list(Atom)) of
-                $$ -> get_existing_atom(Index1 + 1, Max);
-                _ -> Atom
+                $$ when Index > 0 ->
+                    get_existing_atom(Index - 1);
+                $$ ->
+                    '';
+                _ ->
+                    Atom
             end
     end.
 
@@ -86,6 +91,9 @@ get_existing_atom(Index, Max) ->
 %% like `undefined', `false', `ok' etc
 -spec safe_atom() -> proper_types:type().
 safe_atom() ->
+    safe_atom(atom_count()).
+
+safe_atom(N) ->
     proper_types:oneof([proper_types:oneof(['', true, false, ok,
                                             error, undefined,
                                             infinity, 'ätöm',
@@ -93,8 +101,8 @@ safe_atom() ->
                                             '\'', '\\', '+', '-',
                                             '*', '/', '(', ')',
                                             '[', ']', '{', '}',
-                                            '#' | erlang:nodes(known)]),
-                        existing_atom()]).
+                                            '#']),
+                        existing_atom(N)]).
 
 
 %% Atomlimit-safe variant of `proper_types:term()'.
@@ -107,36 +115,38 @@ safe_term() ->
 %% Atomlimit-safe variant of `proper_types:any()'.
 -spec safe_any() -> proper_types:type().
 safe_any() ->
-    proper_types:sized(fun(Size) -> safe_any(Size) end).
+    N = atom_count(),
+    proper_types:sized(fun(Size) -> safe_any(N, Size) end).
 
-safe_any(0) ->
-    proper_types:oneof([safe_atom(),
+safe_any(N, 0) ->
+    proper_types:oneof([safe_atom(N),
                         proper_types:integer(),
                         proper_types:float()]);
-safe_any(Size) ->
+safe_any(N, Size) ->
     case pick_type(Size) of
         simple ->
-            safe_any(0);
+            safe_any(N, 0);
         binary ->
             proper_types:resize(Size, proper_types:bitstring());
         {list, 0} ->
             [];
         {list, 1} ->
-            [proper_types:lazy(fun() -> safe_any(Size - 1) end)];
+            [proper_types:lazy(fun() -> safe_any(N, Size - 1) end)];
         {list, NumEls} ->
             ElSizes = distribute(Size - 1, NumEls),
             proper_types:fixed_list([proper_types:lazy(fun() ->
-                                                           safe_any(S)
+                                                           safe_any(N, S)
                                                        end)
                                      || S <- ElSizes]);
         {tuple, 0} ->
             {};
         {tuple, 1} ->
-            {proper_types:lazy(fun() -> safe_any(Size - 1) end)};
+            {proper_types:lazy(fun() -> safe_any(N, Size - 1) end)};
         {tuple, NumEls} ->
             ElSizes = distribute(Size - 1, NumEls),
             proper_types:tuple([proper_types:lazy(fun() ->
-                                                      safe_any(S) end)
+                                                      safe_any(N, S)
+                                                  end)
                                 || S <- ElSizes])
     end.
 
@@ -176,3 +186,8 @@ distribute_1(Slots, Credits) ->
 %% Random non-neg integer
 rand_int0(Max) ->
     rand:uniform(Max + 1) - 1.
+
+
+%% Number of currently existing atoms
+atom_count() ->
+    erlang:system_info(atom_count).
