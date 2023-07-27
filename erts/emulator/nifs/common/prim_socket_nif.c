@@ -1405,6 +1405,17 @@ static ERL_NIF_TERM esock_setopt_so_bindtodevice(ErlNifEnv*       env,
                                                  ERL_NIF_TERM     eVal);
 #endif
 
+#if defined(SO_BSP_STATE)
+static ERL_NIF_TERM esock_getopt_bsp_state(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           int              level,
+                                           int              opt);
+static ERL_NIF_TERM esock_encode_bsp_state_socket_address(ErlNifEnv*      env,
+                                                          SOCKET_ADDRESS* addr);
+static ERL_NIF_TERM esock_encode_bsp_state_type(ErlNifEnv*     env, int type);
+static ERL_NIF_TERM esock_encode_bsp_state_protocol(ErlNifEnv* env, int proto);
+#endif
+
 #if defined(SO_LINGER)
 static
 ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
@@ -1949,6 +1960,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(bindtodevice);                    \
     GLOBAL_ATOM_DECL(block_source);                    \
     GLOBAL_ATOM_DECL(broadcast);                       \
+    GLOBAL_ATOM_DECL(bsp_state);                       \
     GLOBAL_ATOM_DECL(busy_poll);                       \
     GLOBAL_ATOM_DECL(cancel);                          \
     GLOBAL_ATOM_DECL(cancelled);                       \
@@ -2057,9 +2069,9 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(level);                           \
     GLOBAL_ATOM_DECL(linger);                          \
     GLOBAL_ATOM_DECL(link);                            \
-    GLOBAL_ATOM_DECL(link0);                            \
-    GLOBAL_ATOM_DECL(link1);                            \
-    GLOBAL_ATOM_DECL(link2);                            \
+    GLOBAL_ATOM_DECL(link0);                           \
+    GLOBAL_ATOM_DECL(link1);                           \
+    GLOBAL_ATOM_DECL(link2);                           \
     GLOBAL_ATOM_DECL(local);                           \
     GLOBAL_ATOM_DECL(localtlk);                        \
     GLOBAL_ATOM_DECL(local_auth_chunks);               \
@@ -2173,6 +2185,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(reuseaddr);                       \
     GLOBAL_ATOM_DECL(reuseport);                       \
     GLOBAL_ATOM_DECL(rights);                          \
+    GLOBAL_ATOM_DECL(rm);                              \
     GLOBAL_ATOM_DECL(router_alert);                    \
     GLOBAL_ATOM_DECL(rthdr);                           \
     GLOBAL_ATOM_DECL(rtoinfo);                         \
@@ -2330,6 +2343,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(io_backend);       \
     LOCAL_ATOM_DECL(io_num_threads);   \
     LOCAL_ATOM_DECL(listening);	       \
+    LOCAL_ATOM_DECL(local_addr);       \
     LOCAL_ATOM_DECL(local_rwnd);       \
     LOCAL_ATOM_DECL(map);              \
     LOCAL_ATOM_DECL(max);              \
@@ -2392,6 +2406,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(registry);         \
     LOCAL_ATOM_DECL(reject_route);     \
     LOCAL_ATOM_DECL(remote);           \
+    LOCAL_ATOM_DECL(remote_addr);      \
     LOCAL_ATOM_DECL(rstates);          \
     LOCAL_ATOM_DECL(selected);         \
     LOCAL_ATOM_DECL(sender_dry);       \
@@ -2678,6 +2693,17 @@ static struct ESockOpt optLevelSocket[] =
             0, NULL, NULL,
 #endif
             &esock_atom_broadcast},
+
+        {0, NULL, NULL, &esock_atom_busy_poll},
+
+        {
+#ifdef SO_BSP_STATE
+            SO_BSP_STATE,
+            NULL, esock_getopt_bsp_state,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_bsp_state},
 
         {0, NULL, NULL, &esock_atom_busy_poll},
 
@@ -4717,9 +4743,16 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 	protocols);
 
   protocols =
-    MKC(env,
-	MKT2(env, MKL1(env, esock_atom_udp), MKI(env, IPPROTO_UDP)),
-	protocols);
+      MKC(env,
+          MKT2(env, MKL1(env, esock_atom_udp), MKI(env, IPPROTO_UDP)),
+          protocols);
+
+#ifdef IPPROTO_RM
+  protocols =
+      MKC(env,
+          MKT2(env, MKL1(env, esock_atom_rm), MKI(env, IPPROTO_RM)),
+          protocols);
+#endif
 
 #ifdef HAVE_SCTP
   protocols =
@@ -8858,6 +8891,185 @@ ERL_NIF_TERM esock_getopt_so_bindtodevice(ErlNifEnv*       env,
     return esock_getopt_str_opt(env, descP, level, opt, IFNAMSIZ+1, FALSE);
 }
 #endif
+
+
+#if defined(SO_BSP_STATE)
+/* We need to allocate *all* of the memory used by the CSADDR_INFO
+ * structure. *Including* the 'sockaddr' structures pointed to by
+ * LocalAddr and RemoteAddr (lpSockaddr in SOCKET_ADDRESS).
+ * The '2*' is just to "dead sure" that we have enough...
+ */
+static
+ERL_NIF_TERM esock_getopt_bsp_state(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              level,
+                                    int              opt)
+{
+    ERL_NIF_TERM result;
+    SOCKOPTLEN_T valSz = 2*(sizeof(CSADDR_INFO) + 2*sizeof(SOCKADDR));
+    CSADDR_INFO* valP  = MALLOC(valSz);
+    int          res;
+
+    SSDBG( descP,
+           ("SOCKET", "esock_getopt_bsp_state(%d) -> entry\r\n", descP->sock) );
+
+    sys_memzero((void *) valP, valSz);
+
+#ifdef __WIN32__
+    res = sock_getopt(descP->sock, level, opt, (char*) valP, &valSz);
+#else
+    res = sock_getopt(descP->sock, level, opt, valP, &valSz);
+#endif
+
+    if (res != 0) {
+        int          save_errno = sock_errno();
+        ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+        SSDBG( descP,
+               ("SOCKET", "esock_getopt_bsp_state(%d) -> error: "
+                "\r\n   %T"
+                "\r\n", descP->sock, reason) );
+
+        result = esock_make_error(env, reason);
+
+    } else if (valSz > 0) {
+        ERL_NIF_TERM
+            la     = esock_encode_bsp_state_socket_address(env, &valP->LocalAddr),
+            ra     = esock_encode_bsp_state_socket_address(env, &valP->RemoteAddr),
+            type   = esock_encode_bsp_state_type(env,  valP->iSocketType),
+            proto  = esock_encode_bsp_state_protocol(env, valP->iProtocol),
+            keys[] = {atom_local_addr, atom_remote_addr, esock_atom_type, esock_atom_protocol},
+            vals[] = {la, ra, type, proto},
+            bspState;
+        size_t numKeys = NUM(keys);
+
+        SSDBG( descP,
+               ("SOCKET", "esock_getopt_bsp_state(%d) -> values encoded:"
+                "\r\n   la:    %T"
+                "\r\n   ra:    %T"
+                "\r\n   type:  %T"
+                "\r\n   proto: %T"
+                "\r\n", descP->sock,
+                la, ra, type, proto) );
+    
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &bspState) );
+
+        SSDBG( descP,
+               ("SOCKET", "esock_getopt_bsp_state(%d) -> "
+                "\r\n   BSP State: %T"
+                "\r\n", descP->sock, bspState) );
+    
+        result = esock_make_ok2(env, bspState);
+    } else {
+        result = esock_make_ok2(env, esock_atom_undefined);
+    }
+
+    FREE( valP );
+
+    SSDBG( descP,
+           ("SOCKET", "esock_getopt_bsp_state(%d) -> done when"
+            "\r\n   result: %T"
+            "\r\n", descP->sock, result) );
+
+    return result;
+}
+
+
+static
+ERL_NIF_TERM esock_encode_bsp_state_socket_address(ErlNifEnv*      env,
+                                                   SOCKET_ADDRESS* addr)
+{
+    ERL_NIF_TERM eaddr;
+
+    if (addr == NULL)
+        return esock_atom_undefined;
+
+    if ((addr->lpSockaddr == NULL) ||
+        (addr->iSockaddrLength == 0))
+        return esock_atom_undefined;
+
+    esock_encode_sockaddr(env,
+                          (ESockAddress*) addr->lpSockaddr,
+                          addr->iSockaddrLength,
+                          &eaddr);
+
+    return eaddr;
+}
+
+
+static
+ERL_NIF_TERM esock_encode_bsp_state_type(ErlNifEnv* env, int type)
+{
+    ERL_NIF_TERM etype;
+
+    switch (type) {
+    case SOCK_STREAM:
+        etype = esock_atom_stream;
+        break;
+
+    case SOCK_DGRAM:
+        etype = esock_atom_dgram;
+        break;
+
+    case SOCK_RDM:
+        etype = esock_atom_rdm;
+        break;
+
+    case SOCK_SEQPACKET:
+        etype = esock_atom_seqpacket;
+        break;
+
+    default:
+        etype = MKI(env, type);
+        break;
+    }
+
+    return etype;
+}
+
+
+static
+ERL_NIF_TERM esock_encode_bsp_state_protocol(ErlNifEnv* env, int proto)
+{
+    ERL_NIF_TERM eproto;
+
+    switch (proto) {
+    case IPPROTO_TCP:
+        eproto = esock_atom_tcp;
+        break;
+
+    case IPPROTO_UDP:
+        eproto = esock_atom_udp;
+        break;
+
+        /*
+         * In Wista and later the IPPROTO_PGM constant is defined in the
+         * Ws2def.h header file to the same value as the IPPROTO_RM constant
+         * defined in the Wsrm.h header file.
+         * => So we use IPPROTO_PGM also but translate to rm...
+         *
+         */
+#if defined(IPPROTO_RM) || defined(IPPROTO_PGM)
+#if defined(IPPROTO_RM)
+    case IPPROTO_RM:
+#else if defined(IPPROTO_PGM)
+    case IPPROTO_PGM:
+#endif
+        eproto = esock_atom_rm;
+        break;
+#endif
+
+    default:
+        eproto = MKI(env, proto);
+        break;
+    }
+
+    return eproto;
+}
+
+#endif
+
 
 
 #if defined(SO_DOMAIN)
