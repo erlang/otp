@@ -87,7 +87,7 @@
         <p><c>ReplyAs</c> can be any datum and is returned in the
           corresponding <c>io_reply</c>. The
           <seeerl marker="stdlib:io"><c>io</c></seeerl> module monitors the
-          the I/O server and uses the monitor reference as the <c>ReplyAs</c>
+          I/O server and uses the monitor reference as the <c>ReplyAs</c>
           datum. A more complicated client can have many outstanding I/O
           requests to the same I/O server and can use different references (or
           something else) to differentiate among the incoming I/O replies.
