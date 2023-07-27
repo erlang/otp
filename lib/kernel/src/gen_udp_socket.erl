@@ -820,9 +820,17 @@ conv_setopt(Other)  -> Other.
 %% Socket options
 
 socket_setopt(Socket, {raw, Level, Key, Value}) ->
-    socket:setopt_native(Socket, {Level,Key}, Value);
+    try socket:setopt_native(Socket, {Level,Key}, Value)
+    catch
+        throw:{invalid, _} ->
+            {error, einval}
+    end;
 socket_setopt(Socket, {raw, {Level, Key, Value}}) ->
-    socket:setopt_native(Socket, {Level,Key}, Value);
+    try socket:setopt_native(Socket, {Level,Key}, Value)
+    catch
+        throw:{invalid, _} ->
+            {error, einval}
+    end;
 socket_setopt(Socket, {Tag, Value}) ->
     %% ?DBG({Tag, Value}),
     case socket_opt() of
@@ -897,9 +905,21 @@ socket_setopt_value(_Tag, Value, _) ->
     Value.
 
 socket_getopt(Socket, {raw, Level, Key, ValueSpec}) ->
-    socket:getopt_native(Socket, {Level,Key}, ValueSpec);
+    case socket:getopt_native(Socket, {Level,Key}, ValueSpec) of
+        {error, {invalid, _} = _Reason} ->
+            %% ?DBG([{reason, _Reason}]),
+            {error, einval};
+        ELSE ->
+            ELSE
+    end;
 socket_getopt(Socket, {raw, {Level, Key, ValueSpec}}) ->
-    socket:getopt_native(Socket, {Level,Key}, ValueSpec);
+    case socket:getopt_native(Socket, {Level,Key}, ValueSpec) of
+        {error, {invalid, _} = _Reason} ->
+            %% ?DBG([{reason, _Reason}]),
+            {error, einval};
+        ELSE ->
+            ELSE
+    end;
 socket_getopt(Socket, Tag) when is_atom(Tag) ->
     case socket_opt() of
         #{Tag := {Domain, _} = Opt} when is_atom(Domain) ->
@@ -1063,18 +1083,19 @@ socket_opt() ->
 
       %%
       %% Level: socket
-      broadcast      => {socket, broadcast},
-      bind_to_device => {socket, bindtodevice},
-      dontroute      => {socket, dontroute},
-      keepalive      => {socket, keepalive},
-      %% linger         => {socket, linger},
-      %% low_watermark  => {socket, rcvlowat},
-      priority       => {socket, priority},
+      broadcast        => {socket, broadcast},
+      bind_to_device   => {socket, bindtodevice},
+      dontroute        => {socket, dontroute},
+      exclusiveaddruse => {socket, exclusiveaddruse},
+      keepalive        => {socket, keepalive},
+      %% linger           => {socket, linger},
+      %% low_watermark    => {socket, rcvlowat},
+      priority         => {socket, priority},
       %% Note that its the *first* that is the actual option!
       %% The second can be seen as a side effect...
-      recbuf         => [{socket, rcvbuf}, {otp, rcvbuf}],
-      reuseaddr      => {socket, reuseaddr},
-      sndbuf         => {socket, sndbuf},
+      recbuf           => [{socket, rcvbuf}, {otp, rcvbuf}],
+      reuseaddr        => {socket, reuseaddr},
+      sndbuf           => {socket, sndbuf},
 
       %%
       %% Level: udp
@@ -1467,25 +1488,37 @@ handle_event({call, From},
 	     State,
 	     {P, D}) ->
     %% ?DBG([{setopts, Opts}, {state, State}, {d, D}]),
-    {Result, {P_1, D_1}} = state_setopts(P, D, State, Opts),
-    %% ?DBG([{result, Result}, {p1, P_1}, {d1, D_1}]),
-    case Result of
-	{error, einval} ->
-	    %% If we get this error, either the options where crap or
-	    %% the socket is in a "bad state" (maybe its closed).
-	    %% So, if that is the case we accept that we may not be
-	    %% able to update the meta data.
-	    _ = socket:setopt(P_1#params.socket, {otp,meta}, meta(D_1)),
-	    ok;
-	_ ->
-	    %% We should really handle this better. stop_and_reply?
-            %% D_2 = meta(D_1),
-            %% ?DBG([{d2, D_2}]),
-            %% socket:setopt(P_1#params.socket, otp, debug, true),
-	    ok = socket:setopt(P_1#params.socket, {otp,meta}, meta(D_1)),
-            %% socket:setopt(P_1#params.socket, otp, debug, false),
-            ok
-    end,
+    {Result_1, {P_1, D_1}} = state_setopts(P, D, State, Opts),
+    %% ?DBG([{result, Result_1}, {p1, P_1}, {d1, D_1}]),
+    Result =
+        case Result_1 of
+            {error, enoprotoopt} ->
+                %% If we get this error, the options is not valid for
+                %% this (tcp) protocol.
+                _ = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
+                {error, einval};
+
+            {error, {invalid, _}} ->
+                %% If we get this error, the options where crap.
+                _ = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
+                {error, einval};
+            
+            {error, einval} ->
+                %% If we get this error, either the options where crap or
+                %% the socket is in a "bad state" (maybe its closed).
+                %% So, if that is the case we accept that we may not be
+                %% able to update the meta data.
+                _ = socket:setopt(P_1#params.socket, {otp,meta}, meta(D_1)),
+                Result_1;
+            _ ->
+                %% We should really handle this better. stop_and_reply?
+                %% D_2 = meta(D_1),
+                %% ?DBG([{d2, D_2}]),
+                %% socket:setopt(P_1#params.socket, otp, debug, true),
+                ok = socket:setopt(P_1#params.socket, {otp,meta}, meta(D_1)),
+                %% socket:setopt(P_1#params.socket, otp, debug, false),
+                Result_1
+        end,
     Reply = {reply, From, Result},
     handle_reading(State, P_1, D_1, [Reply]);
     

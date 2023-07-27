@@ -51,17 +51,22 @@
 
 -define(C_QUIT,99).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 simple/1, loop_all/1, simple_raw/1, simple_raw_getbin/1, 
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+	 init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
+	 
+         simple/1,
+         loop_all/1,
+         simple_raw/1, simple_raw_getbin/1, 
 	 multiple_raw/1, multiple_raw_getbin/1,
-	 doc_examples_raw/1,doc_examples_raw_getbin/1,
-	 large_raw/1,large_raw_getbin/1,combined/1,combined_getbin/1,
+	 doc_examples_raw/1, doc_examples_raw_getbin/1,
+	 large_raw/1, large_raw_getbin/1,
+         combined/1, combined_getbin/1,
 	 ipv6_v6only_udp/1, ipv6_v6only_tcp/1, ipv6_v6only_sctp/1,
 	 use_ipv6_v6only_udp/1,
-	 type_errors/1, windows_reuseaddr/1]).
-
--export([init_per_testcase/2, end_per_testcase/2]).
+	 type_errors/1,
+         windows_reuseaddr/1]).
 
 
 suite() ->
@@ -69,16 +74,54 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [simple, loop_all, simple_raw, simple_raw_getbin,
-     multiple_raw, multiple_raw_getbin,
-     doc_examples_raw, doc_examples_raw_getbin, large_raw,
-     large_raw_getbin, combined, combined_getbin,
-     ipv6_v6only_udp, ipv6_v6only_tcp, ipv6_v6only_sctp,
-     use_ipv6_v6only_udp,
-     type_errors, windows_reuseaddr].
+    %% This is a temporary measure to ensure that we can 
+    %% test the socket backend without effecting *all*
+    %% applications on *all* machines.
+    %% This flag is set only for *one* host.
+    case ?TEST_INET_BACKENDS() of
+        true ->
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default}
+            ]
+    end.
+
 
 groups() -> 
-    [].
+    [
+     {inet_backend_default,   [], inet_backend_default_cases()},
+     {inet_backend_inet,      [], inet_backend_inet_cases()},
+     {inet_backend_socket,    [], inet_backend_socket_cases()}
+    ].
+
+inet_backend_default_cases() ->
+    all_std_cases().
+
+inet_backend_inet_cases() ->
+    all_std_cases().
+
+inet_backend_socket_cases() ->
+    all_std_cases().
+
+all_std_cases() ->
+    [
+     simple,
+     loop_all,
+     simple_raw, simple_raw_getbin,
+     multiple_raw, multiple_raw_getbin,
+     doc_examples_raw, doc_examples_raw_getbin,
+     large_raw, large_raw_getbin,
+     combined, combined_getbin,
+     ipv6_v6only_udp, ipv6_v6only_tcp, ipv6_v6only_sctp,
+     use_ipv6_v6only_udp,
+     type_errors,
+     windows_reuseaddr
+    ].
 
 init_per_suite(Config0) ->
 
@@ -118,6 +161,26 @@ end_per_suite(Config0) ->
 
     Config1.
 
+init_per_group(inet_backend_default = _GroupName, Config) ->
+    [{socket_create_opts, []} | Config];
+init_per_group(inet_backend_inet = _GroupName, Config) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    end;
+init_per_group(inet_backend_socket = _GroupName, Config) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, socket}]} | Config]
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -160,6 +223,21 @@ end_per_testcase(_Func, Config) ->
 
 %% Test inet:setopt/getopt simple functionality.
 simple(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   case ?IS_SOCKET_BACKEND(Config) of
+                       true ->
+                           {skip, "'nopush' opt not (yet) implemented"};
+                       false ->
+                           ok
+                   end
+           end,
+    Pre  = fun() -> #{} end,
+    Case = fun(State) -> do_simple(Config, State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+
+do_simple(Config, _) when is_list(Config) ->
     XOpt = case os:type() of
 	       {unix,_} -> [{reuseaddr,true}];
 	       _ -> []
@@ -168,30 +246,80 @@ simple(Config) when is_list(Config) ->
 	   {keepalive,true},{packet,4},
 	   {active,false}|XOpt],
     OptTags = [X || {X,_} <- Opt],
-    {S1,S2} = create_socketpair(Opt, Opt),
-    {ok,Opt} = inet:getopts(S1,OptTags),
-    {ok,Opt} = inet:getopts(S2,OptTags),
+    {S1,S2} = create_socketpair(Config, Opt, Opt),
+    {ok,Opt} = inet:getopts(S1, OptTags),
+    {ok,Opt} = inet:getopts(S2, OptTags),
     NoPushOpt = case os:type() of
-                    {unix, Osname} when Osname =:= linux; Osname =:= freebsd -> {nopush, true};
+                    {unix, Osname} when Osname =:= linux;
+                                        Osname =:= freebsd -> {nopush, true};
                     {_,_} -> {nopush, false}
                 end,
-    COpt = [{X,case X of nodelay -> false;_ -> Y end} || {X,Y} <- [NoPushOpt|Opt]],
+    COpt = [{X,case X of nodelay -> false;_ -> Y end} ||
+               {X,Y} <- [NoPushOpt|Opt]],
     COptTags = [X || {X,_} <- COpt],
+    ?P("S1: set options:"
+       "~n   ~p", [COpt]),
     inet:setopts(S1,COpt),
-    {ok,COpt} = inet:getopts(S1,COptTags),
-    {ok,Opt} = inet:getopts(S2,OptTags),
+    ?P("S1: get options: "
+       "~n   ~p", [COptTags]),
+    %% {ok,COpt} = inet:getopts(S1,COptTags),
+    case inet:getopts(S1,COptTags) of
+        {ok,COpt} ->
+            ?P("S1: success"),
+            ok;
+        {ok, COptErr} ->
+            ?P("S1: incorrect success:"
+               "~n   Expected: ~p"
+               "~n   Received: ~p", [COpt, COptErr]),
+            ct:fail({incorrect_success, COpt, COptErr});
+        {error, CReason} ->
+            ?P("S1: unexpected failure:"
+               "~n   ~p", [CReason]),
+            ct:fail({unexpected_failure, CReason})
+    end,
+    ?P("S2: get options: "
+       "~n   ~p", [OptTags]),
+    %% {ok,Opt} = inet:getopts(S2,OptTags),
+    case inet:getopts(S2,OptTags) of
+        {ok, Opt} ->
+            ?P("S2: success"),
+            ok;
+        {ok, OptErr} ->
+            ?P("S2: incorrect success:"
+               "~n   Expected: ~p"
+               "~n   Received: ~p", [Opt, OptErr]),
+            ct:fail({incorrect_success, Opt, OptErr});
+        {error, Reason} ->
+            ?P("S2: unexpected failure:"
+               "~n   ~p", [Reason]),
+            ct:fail({unexpected_failure, Reason})
+    end,
     gen_tcp:close(S1),
     gen_tcp:close(S2),
     ok.
 
 %% Loop through all socket options and check that they work.
 loop_all(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   case ?IS_SOCKET_BACKEND(Config) of
+                       true ->
+                           {skip, "Watermark options not (yet) implemented"};
+                       false ->
+                           ok
+                   end
+           end,
+    Pre  = fun() -> #{} end,
+    Case = fun(State) -> do_loop_all(Config, State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+do_loop_all(Config, _) ->
     ListenFailures =
-	lists:foldr(make_check_fun(listen),[],all_listen_options()),
+	lists:foldr(make_check_fun(Config, listen),[],all_listen_options()),
     AcceptFailures =
-	lists:foldr(make_check_fun(accept),[],all_accept_options()),
+	lists:foldr(make_check_fun(Config, accept),[],all_accept_options()),
     ConnectFailures =
-	lists:foldr(make_check_fun(connect),[],all_connect_options()),
+	lists:foldr(make_check_fun(Config, connect),[],all_connect_options()),
     case ListenFailures++AcceptFailures++ConnectFailures of
 	[] ->
 	    ok;
@@ -205,19 +333,19 @@ loop_all(Config) when is_list(Config) ->
 
 %% Test simple setopt/getopt of raw options.
 simple_raw(Config) when is_list(Config) ->
-    do_simple_raw(Config,false).
+    do_simple_raw(Config, false).
 
 %% Test simple setopt/getopt of raw options, with binaries in getopt.
 simple_raw_getbin(Config) when is_list(Config) ->
-    do_simple_raw(Config,true).
+    do_simple_raw(Config, true).
 
-do_simple_raw(Config,Binary) when is_list(Config) ->
+do_simple_raw(Config, Binary) when is_list(Config) ->
     Port = start_helper(Config),
     SolSocket = ask_helper(Port,?C_GET_SOL_SOCKET),
     SoKeepAlive = ask_helper(Port,?C_GET_SO_KEEPALIVE),
     OptionTrue = {raw,SolSocket,SoKeepAlive,<<1:32/native>>},
     OptionFalse = {raw,SolSocket,SoKeepAlive,<<0:32/native>>},
-    {S1,S2} = create_socketpair([OptionTrue],[{keepalive,true}]),
+    {S1,S2} = create_socketpair(Config, [OptionTrue],[{keepalive,true}]),
     {ok,[{keepalive,true}]} = inet:getopts(S1,[keepalive]),
     {ok,[{keepalive,true}]} = inet:getopts(S2,[keepalive]),
     {ok,[{raw,SolSocket,SoKeepAlive,X1B}]} =
@@ -282,6 +410,7 @@ do_multiple_raw(Config, Binary) ->
     SoDontrouteFalse = {raw,SolSocket,SoDontroute,<<0:32/native>>},
     {S1,S2} =
 	create_socketpair(
+          Config,
 	  [SoDontrouteFalse,SoKeepaliveTrue],
 	  [SoKeepaliveFalse,SoDontrouteTrue]),
     {ok,[{dontroute,false},{keepalive,true}]} =
@@ -339,23 +468,23 @@ do_multiple_raw(Config, Binary) ->
 
 %% Test that the example code from the documentation works.
 doc_examples_raw(Config) when is_list(Config) ->
-    do_doc_examples_raw(Config,false).
+    do_doc_examples_raw(Config, false).
 
 %% Test that the example code from the documentation works when getopt
 %% uses binaries.
 doc_examples_raw_getbin(Config) when is_list(Config) ->
     do_doc_examples_raw(Config,true).
 
-do_doc_examples_raw(Config,Binary) when is_list(Config) ->
-    Port = start_helper(Config),
-    Proto = ask_helper(Port,?C_GET_IPPROTO_TCP),
-    TcpInfo = ask_helper(Port,?C_GET_TCP_INFO),
-    TcpInfoSize = ask_helper(Port,?C_GET_TCP_INFO_SIZE),
-    TcpiSackedOffset = ask_helper(Port,?C_GET_OFF_TCPI_SACKED),
+do_doc_examples_raw(Config, Binary) when is_list(Config) ->
+    Port              = start_helper(Config),
+    Proto             = ask_helper(Port,?C_GET_IPPROTO_TCP),
+    TcpInfo           = ask_helper(Port,?C_GET_TCP_INFO),
+    TcpInfoSize       = ask_helper(Port,?C_GET_TCP_INFO_SIZE),
+    TcpiSackedOffset  = ask_helper(Port,?C_GET_OFF_TCPI_SACKED),
     TcpiOptionsOffset = ask_helper(Port,?C_GET_OFF_TCPI_OPTIONS),
-    TcpiSackedSize = ask_helper(Port,?C_GET_SIZ_TCPI_SACKED),
-    TcpiOptionsSize = ask_helper(Port,?C_GET_SIZ_TCPI_OPTIONS),
-    TcpLinger2 = ask_helper(Port,?C_GET_TCP_LINGER2),
+    TcpiSackedSize    = ask_helper(Port,?C_GET_SIZ_TCPI_SACKED),
+    TcpiOptionsSize   = ask_helper(Port,?C_GET_SIZ_TCPI_OPTIONS),
+    TcpLinger2        = ask_helper(Port,?C_GET_TCP_LINGER2),
     stop_helper(Port),
     case all_ok([Proto,TcpInfo,TcpInfoSize,TcpiSackedOffset,
 		 TcpiOptionsOffset,TcpiSackedSize,TcpiOptionsSize,
@@ -363,7 +492,7 @@ do_doc_examples_raw(Config,Binary) when is_list(Config) ->
 	false ->
 	    {skipped,"Does not run on this OS."};
 	true ->
-	    {Sock,I} = create_socketpair([],[]),
+	    {Sock,I} = create_socketpair(Config, [], []),
 	    {ok,[{raw,Proto,TcpLinger2,<<OrigLinger:32/native>>}]} =
 		inet:getopts(Sock,[{raw,Proto,TcpLinger2,binarify(4,Binary)}]),
 	    NewLinger = OrigLinger div 2,
@@ -417,7 +546,8 @@ do_large_raw(Config,Binary) when is_list(Config) ->
 	false ->
 	    {skipped,"Does not run on this OS."};
 	true ->
-	    {Sock1,Sock2} = create_socketpair([{linger,{true,10}}],
+	    {Sock1,Sock2} = create_socketpair(Config,
+                                              [{linger,{true,10}}],
 					      [{linger,{false,0}}]),
 	    LargeSize = 1024,  % Solaris can take up to 1024*9,
 						% linux 1024*63...
@@ -440,8 +570,17 @@ do_large_raw(Config,Binary) when is_list(Config) ->
 	    true = Off1 =/= 0,
 	    true = Off2 == 0,
 	    true = Ling1 == 10,
-	    {error,einval} =
-		inet:getopts(Sock1,[{raw,Proto,Linger,TooLargeSize}]),
+            case {?IS_SOCKET_BACKEND(Config),
+                  inet:getopts(Sock1,[{raw,Proto,Linger,TooLargeSize}])} of
+                {false, {error,einval}} ->
+                    ok;
+                {true,  {ok, _}} ->
+                    ok;
+                {_, Unexpected} ->
+                    ?P("unexpected result: "
+                       "~n   ~p", [Unexpected]),
+                    ct:fail({unexpected, Unexpected})
+            end,
 	    gen_tcp:close(Sock1),
 	    gen_tcp:close(Sock2),
 	    ok
@@ -525,7 +664,8 @@ do_combined(Config,Binary) when is_list(Config) ->
 	    RawLingerOn = {raw,Proto,Linger,LingerOn},
 	    RawLingerOff = {raw,Proto,Linger,LingerOff},
 	    {Sock1,Sock2} =
-		create_socketpair([{keepalive,true},
+		create_socketpair(Config,
+                                  [{keepalive,true},
 				   RawLingerOn],
 				  [{keepalive,false},
 				   RawLingerOff]),
@@ -548,7 +688,8 @@ do_combined(Config,Binary) when is_list(Config) ->
 	    true = Keep1 =:= true,
 	    true = Keep2 =:= false,
 	    {Sock3,Sock4} =
-		create_socketpair([RawLingerOn,{keepalive,true}],
+		create_socketpair(Config,
+                                  [RawLingerOn,{keepalive,true}],
 				  [RawLingerOff,{keepalive,false}]),
 	    {ok,[{raw,Proto,Linger,Linger3},{keepalive,Keep3}]} =
 		inet:getopts(Sock3,[{raw,Proto,Linger,
@@ -569,7 +710,8 @@ do_combined(Config,Binary) when is_list(Config) ->
 	    true = Keep3 =:= true,
 	    true = Keep4 =:= false,
 	    {Sock5,Sock6} =
-		create_socketpair([{packet,4},RawLingerOn,{keepalive,true}],
+		create_socketpair(Config,
+                                  [{packet,4},RawLingerOn,{keepalive,true}],
 				  [{packet,2},RawLingerOff,{keepalive,false}]),
 	    {ok,[{packet,Pack5},{raw,Proto,Linger,Linger5},
 		 {keepalive,Keep5}]} =
@@ -833,7 +975,7 @@ type_errors(Config) when is_list(Config) ->
 	],
     lists:foreach(fun(Option) ->
 			  case
-			      catch create_socketpair([Option],[]) of
+			      catch create_socketpair(Config, [Option], []) of
 			      {'EXIT',badarg} ->
 				  ok;
 			      Unexpected1 ->
@@ -841,16 +983,16 @@ type_errors(Config) when is_list(Config) ->
 					Unexpected1})
 			  end,
 			  case
-			      catch create_socketpair([],[Option]) of
-			      {'EXIT',badarg} ->
+			      catch create_socketpair(Config, [], [Option]) of
+			      {'EXIT', badarg} ->
 				  ok;
 			      Unexpected2 ->
 				  exit({unexpected,
 					Unexpected2})
 			  end,
-			  {Sock1,Sock2} = create_socketpair([],[]),
+			  {Sock1,Sock2} = create_socketpair(Config, [], []),
 			  case inet:setopts(Sock1, [Option]) of
-			      {error,einval} ->
+			      {error, einval} ->
 				  ok;
 			      Unexpected3 ->
 				  exit({unexpected,
@@ -859,10 +1001,10 @@ type_errors(Config) when is_list(Config) ->
 			  gen_tcp:close(Sock1),
 			  gen_tcp:close(Sock2)
 		  end,BadSetOptions),
-    {Sock1,Sock2} = create_socketpair([],[]),
+    {Sock1,Sock2} = create_socketpair(Config, [], []),
     lists:foreach(fun(Option) ->
 			  case inet:getopts(Sock1, [Option]) of
-			      {error,einval} ->
+			      {error, einval} ->
 				  ok;
 			      Unexpected ->
 				  exit({unexpected,
@@ -883,16 +1025,20 @@ windows_reuseaddr(Config) when is_list(Config) ->
             Def = {ask_helper(Port,?C_GET_SOL_SOCKET),
                    ask_helper(Port,?C_GET_SO_REUSEADDR)},
             stop_helper(Port),
-            {false, false} = windows_reuseaddr_test(Def,
+            {false, false} = windows_reuseaddr_test(Config,
+                                                    Def,
                                                     [{reuseaddr,false},{reuseport,false}],
                                                     [{reuseaddr,false},{reuseport,false}]),
-            {false, false} = windows_reuseaddr_test(Def,
+            {false, false} = windows_reuseaddr_test(Config,
+                                                    Def,
                                                     [{reuseaddr,true},{reuseport,false}],
                                                     [{reuseaddr,true},{reuseport,false}]),
-            {false, false} = windows_reuseaddr_test(Def,
+            {false, false} = windows_reuseaddr_test(Config,
+                                                    Def,
                                                     [{reuseaddr,false},{reuseport,true}],
                                                     [{reuseaddr,false},{reuseport,true}]),
-            {true, true} = windows_reuseaddr_test(Def,
+            {true, true} = windows_reuseaddr_test(Config,
+                                                  Def,
                                                   [{reuseaddr,true},{reuseport,true}],
                                                   [{reuseaddr,true},{reuseport,true}]),
             ok;
@@ -900,11 +1046,11 @@ windows_reuseaddr(Config) when is_list(Config) ->
             {skipped, "Test for Windows only"}
     end.
 
-windows_reuseaddr_test({SolSocket, SoReuseaddr}, LOpts, COpts) ->
+windows_reuseaddr_test(Config, {SolSocket, SoReuseaddr}, LOpts, COpts) ->
     OptNames = fun (Opts) ->
                        lists:map(fun ({Name,_}) -> Name end, Opts)
                end,
-    {L,A,C} = create_socketpair_init(LOpts, COpts),
+    {L,A,C} = create_socketpair_init(Config, LOpts, COpts),
     {ok, LOpts} = inet:getopts(L, OptNames(LOpts)),
     {ok, COpts} = inet:getopts(L, OptNames(COpts)),
     RawOpts = [{raw, SolSocket, SoReuseaddr, 4}],
@@ -932,7 +1078,7 @@ all_ok(_) ->
     false.
 
 
-make_check_fun(Type) ->
+make_check_fun(Config, Type) ->
     fun({Name,V1,V2,Mand,Chang},Acc) ->
             {LO1,CO1} = case Type of
                             connect -> {[],[{Name,V1}]};
@@ -942,8 +1088,8 @@ make_check_fun(Type) ->
                             connect -> {[],[{Name,V2}]};
                             _ -> {[{Name,V2}],[]}
                         end,
-	    {X1,Y1,Z1} = create_socketpair_init(LO1,CO1),
-	    {X2,Y2,Z2} = create_socketpair_init(LO2,CO2),
+	    {X1,Y1,Z1} = create_socketpair_init(Config, LO1, CO1),
+	    {X2,Y2,Z2} = create_socketpair_init(Config, LO2, CO2),
             {S1,S2} = case Type of
                           listen -> {X1,X2};
                           accept -> {Y1,Y2};
@@ -1104,15 +1250,15 @@ mandatory_exclusiveaddruse({win32, _}, {X,Y,_Z}) when X > 5 orelse X == 5 andals
 mandatory_exclusiveaddruse(_OsType, _OsVersion) ->
     false.
 
-create_socketpair_init(ListenOptions,ConnectOptions) ->
-    {ok,LS}=gen_tcp:listen(0,ListenOptions),
-    {ok,Port}=inet:port(LS),
-    {ok,CS}=gen_tcp:connect(localhost,Port,ConnectOptions),
-    {ok,AS}=gen_tcp:accept(LS),
+create_socketpair_init(Config, ListenOptions, ConnectOptions) ->
+    {ok,LS}   = ?LISTEN(Config, 0, ListenOptions),
+    {ok,Port} = inet:port(LS),
+    {ok,CS}   = ?CONNECT(Config, localhost, Port, ConnectOptions),
+    {ok,AS}   = gen_tcp:accept(LS),
     {LS,AS,CS}.
 
-create_socketpair(ListenOptions,ConnectOptions) ->
-    {LS,AS,CS} = create_socketpair_init(ListenOptions,ConnectOptions),
+create_socketpair(Config, ListenOptions, ConnectOptions) ->
+    {LS,AS,CS} = create_socketpair_init(Config, ListenOptions, ConnectOptions),
     gen_tcp:close(LS),
     {AS,CS}.
 
