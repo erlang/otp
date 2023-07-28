@@ -137,34 +137,42 @@ continue_init(Manager, ConfigDB, SocketType, Socket, Peername, Sockname,
                socket_type = SocketType,
                socket = Socket,
                init_data = InitData},
-    
-    MaxHeaderSize = max_header_size(ConfigDB), 
-    MaxURISize    = max_uri_size(ConfigDB), 
-    NrOfRequest   = max_keep_alive_request(ConfigDB), 
+
+    MaxHeaderSize = max_header_size(ConfigDB),
+    MaxURISize    = max_uri_size(ConfigDB),
+    NrOfRequest   = max_keep_alive_request(ConfigDB),
     MaxContentLen = max_content_length(ConfigDB),
     Customize = customize(ConfigDB),
     MaxChunk = max_client_body_chunk(ConfigDB),
-    
-    {_, Status} = httpd_manager:new_connection(Manager),
-    
-    MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
-				   {max_version, ?HTTP_MAX_VERSION_STRING}, 
-				   {max_method, ?HTTP_MAX_METHOD_STRING},
-				   {max_content_length, MaxContentLen},
-				   {customize, Customize}
-				  ]]}, 
 
-    State = #state{mod                    = Mod, 
-		   manager                = Manager, 
-		   status                 = Status,
-		   timeout                = TimeOut, 
-		   max_keep_alive_request = NrOfRequest,
-		   mfa                    = MFA,
-                   chunk                   = chunk_start(MaxChunk)},
-    setopts(Socket, SocketType, [binary, {packet, 0}, {active, once}]),
-    NewState =  data_receive_counter(activate_request_timeout(State), httpd_util:lookup(ConfigDB, minimum_bytes_per_second, false)),
-     gen_server:enter_loop(?MODULE, [], NewState).
+    {Result, Status} = httpd_manager:new_connection(Manager),
+    case Result of
+        error ->
+            httpd_util:error_log(ConfigDB,
+                                 httpd_logger:error_report('TLS', Status,
+                                                           Mod, ?LOCATION)),
+            exit({shutdown, Status});
+        _ ->
+            MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
+                                           {max_version, ?HTTP_MAX_VERSION_STRING},
+                                           {max_method, ?HTTP_MAX_METHOD_STRING},
+                                           {max_content_length, MaxContentLen},
+                                           {customize, Customize}
+                                          ]]},
 
+            State = #state{mod                    = Mod,
+                           manager                = Manager,
+                           status                 = Status,
+                           timeout                = TimeOut,
+                           max_keep_alive_request = NrOfRequest,
+                           mfa                    = MFA,
+                           chunk                   = chunk_start(MaxChunk)},
+            setopts(Socket, SocketType, [binary, {packet, 0}, {active, once}]),
+            NewState =
+                data_receive_counter(activate_request_timeout(State),
+                                     httpd_util:lookup(ConfigDB, minimum_bytes_per_second, false)),
+            gen_server:enter_loop(?MODULE, [], NewState)
+    end.
 
 %%====================================================================
 %% gen_server callbacks

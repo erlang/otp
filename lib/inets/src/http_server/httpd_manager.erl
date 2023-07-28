@@ -454,8 +454,18 @@ report_error(State,String) ->
 call(ServerRef, Request) ->
     try gen_server:call(ServerRef, Request, infinity) 
     catch
-	exit:_ ->
-	    {error, closed} 
+	exit:Reason:Stacktrace ->
+            String =
+                lists:flatten(
+                  io_lib:format(
+                    "Request"
+                    "~n   ~p"
+                    "~nto manager (~p) from ~p failed:"
+                    "~n   ~p"
+                    "~n   ~p",
+                    [Request, ServerRef, self(), Reason, Stacktrace])),
+            error_logger:warning_report(String),
+	    {error, Reason}
     end.
 
 count_children(Sup) ->
