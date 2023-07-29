@@ -28,7 +28,7 @@
          test_bitwise/1, test_bsl/1,
          element/1,
          range_optimization/1]).
--export([mul_add/0]).
+-export([mul_add/0, division/0]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -713,6 +713,8 @@ madd(_, _, _, _) -> error.
 
 
 %% Test that the JIT only omits the overflow check when it's safe.
+division() ->
+    [{timetrap, {minutes, 5}}].
 division(_Config) ->
     _ = rand:uniform(),				%Seed generator
     io:format("Seed: ~p", [rand:export_seed()]),
@@ -944,6 +946,7 @@ gen_div_function({Name,{A,B}}) ->
            put(prevent_div_rem_fusion, Q),
            R = X rem Y,
            {Q, R}. ").
+
 
 test_division([{Name,{A,B}}|T], Mod) ->
     F = fun Mod:Name/3,

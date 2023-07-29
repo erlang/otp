@@ -652,10 +652,10 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
         divisor = RHS.as<ArgSmall>().getSigned();
     }
 
-    if (divisor != (Sint)0 && divisor != (Sint)-1) {
+    mov_arg(x86::rax, LHS);
+
+    if (divisor != 0 && divisor != -1) {
         /* There is no possibility of overflow. */
-        a.mov(ARG6, imm(divisor));
-        mov_arg(x86::rax, LHS);
         if (always_small(LHS)) {
             comment("skipped test for small dividend since it is always small");
             need_generic = false;
@@ -672,10 +672,9 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
             a.short_().jne(generic_div);
         }
 
-        /* Sign-extend and divide. The result is implicitly placed in
-         * RAX and the remainder in RDX (ARG3). */
         if (Support::isPowerOf2(divisor) &&
             std::get<0>(getClampedRange(LHS)) >= 0) {
+            /* Unsigned integer division. */
             int trailing_bits = Support::ctz<Eterm>(divisor);
 
             if (need_rem) {
@@ -692,8 +691,52 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                 a.shr(x86::rax, imm(trailing_bits));
                 a.or_(x86::rax, imm(_TAG_IMMED1_SMALL));
             }
+        } else if (Support::isPowerOf2(divisor)) {
+            /* Signed integer division. */
+            int shift = Support::ctz<Eterm>(divisor);
+            Sint offset = (divisor - 1) << _TAG_IMMED1_SIZE;
+
+            if (need_rem) {
+                a.mov(x86::rdx, x86::rax);
+                ASSERT(x86::rdx != ARG1);
+            }
+
+            if (need_div) {
+                comment("optimized div by replacing with right shift");
+            }
+
+            if (divisor == 2) {
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                a.mov(ARG1, x86::rax);
+                a.shr(ARG1, imm(63));
+                a.add(x86::rax, ARG1);
+            } else {
+                if (Support::isInt32(offset)) {
+                    a.lea(ARG1, x86::qword_ptr(x86::rax, offset));
+                } else {
+                    a.mov(ARG1, offset);
+                    a.add(ARG1, x86::rax);
+                }
+                a.test(x86::rax, x86::rax);
+                a.cmovs(x86::rax, ARG1);
+            }
+
+            if (need_rem) {
+                Uint mask = (Uint)-1 << (shift + _TAG_IMMED1_SIZE);
+                comment("optimized rem by replacing with subtraction");
+                mov_imm(ARG1, mask);
+                a.and_(ARG1, x86::rax);
+                a.sub(x86::rdx, ARG1);
+            }
+
+            if (need_div) {
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                a.sar(x86::rax, imm(shift));
+                a.or_(x86::rax, imm(_TAG_IMMED1_SMALL));
+            }
         } else {
             comment("divide with inlined code");
+            a.mov(ARG6, imm(divisor));
             a.sar(x86::rax, imm(_TAG_IMMED1_SIZE));
             a.cqo();
             a.idiv(ARG6);
@@ -723,7 +766,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
     a.bind(generic_div);
     if (need_generic) {
         mov_arg(ARG4, RHS); /* Done first as mov_arg may clobber ARG1 */
-        mov_arg(ARG1, LHS);
+        a.mov(ARG1, x86::rax);
 
         if (Fail.get() != 0) {
             safe_fragment_call(ga->get_int_div_rem_guard_shared());

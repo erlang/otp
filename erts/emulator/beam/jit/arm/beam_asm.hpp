@@ -1128,6 +1128,15 @@ protected:
                              const a64::Gp rhs_reg,
                              const Label next);
 
+    void emit_div_rem_literal(Sint divisor,
+                              const ArgSource &Dividend,
+                              arm::Gp dividend,
+                              arm::Gp quotient,
+                              arm::Gp remainder,
+                              const Label &generic,
+                              bool need_div,
+                              bool need_rem);
+
     void emit_div_rem(const ArgLabel &Fail,
                       const ArgSource &LHS,
                       const ArgSource &RHS,

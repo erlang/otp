@@ -853,6 +853,97 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     }
 }
 
+void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
+                                               const ArgSource &Dividend,
+                                               arm::Gp dividend,
+                                               arm::Gp quotient,
+                                               arm::Gp remainder,
+                                               const Label &generic,
+                                               bool need_div,
+                                               bool need_rem) {
+    arm::Gp small_tag = TMP6;
+    bool small_dividend = !generic.isValid();
+
+    ASSERT(divisor != (Sint)0);
+
+    if (!small_dividend) {
+        a.and_(small_tag, dividend, imm(_TAG_IMMED1_MASK));
+        a.cmp(small_tag, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+    }
+
+    if (Support::isPowerOf2(divisor)) {
+        arm::Gp original_dividend = dividend;
+        int shift = Support::ctz<Eterm>(divisor);
+
+        if (need_div && small_dividend) {
+            mov_imm(small_tag, _TAG_IMMED1_SMALL);
+        }
+
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        if (std::get<0>(getClampedRange(Dividend)) >= 0) {
+            /* Positive dividend. */
+            if (need_div) {
+                comment("optimized div by replacing with right shift");
+                if (need_rem && quotient == dividend) {
+                    original_dividend = TMP5;
+                    a.mov(original_dividend, dividend);
+                }
+                a.orr(quotient, small_tag, dividend, arm::lsr(shift));
+            }
+            if (need_rem) {
+                auto mask = Support::lsbMask<Uint>(shift + _TAG_IMMED1_SIZE);
+                comment("optimized rem by replacing with masking");
+                a.and_(remainder, original_dividend, imm(mask));
+            }
+        } else {
+            /* Negative dividend. */
+            if (need_div) {
+                comment("optimized div by replacing with right shift");
+            }
+            if (divisor == 2) {
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                a.add(TMP3, dividend, dividend, arm::lsr(63));
+            } else {
+                add(TMP1, dividend, (divisor - 1) << _TAG_IMMED1_SIZE);
+                a.cmp(dividend, imm(0));
+                a.csel(TMP3, TMP1, dividend, imm(arm::CondCode::kLT));
+            }
+            if (need_div) {
+                if (need_rem && quotient == dividend) {
+                    original_dividend = TMP5;
+                    a.mov(original_dividend, dividend);
+                }
+                a.orr(quotient, small_tag, TMP3, arm::asr(shift));
+            }
+            if (need_rem) {
+                Uint mask = (Uint)-1 << (shift + _TAG_IMMED1_SIZE);
+                comment("optimized rem by replacing with subtraction");
+                a.and_(TMP1, TMP3, imm(mask));
+                a.sub(remainder, original_dividend, TMP1);
+            }
+        }
+    } else {
+        a.asr(TMP1, dividend, imm(_TAG_IMMED1_SIZE));
+        mov_imm(TMP2, divisor);
+        a.sdiv(quotient, TMP1, TMP2);
+        if (need_rem) {
+            a.msub(remainder, quotient, TMP2, TMP1);
+        }
+
+        if (small_dividend) {
+            mov_imm(small_tag, _TAG_IMMED1_SMALL);
+        }
+        const arm::Shift tagShift = arm::lsl(_TAG_IMMED1_SIZE);
+        if (need_div) {
+            a.orr(quotient, small_tag, quotient, tagShift);
+        }
+        if (need_rem) {
+            a.orr(remainder, small_tag, remainder, tagShift);
+        }
+    }
+}
+
 void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                                        const ArgSource &LHS,
                                        const ArgSource &RHS,
@@ -865,52 +956,26 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
 
     if (RHS.isSmall()) {
         divisor = RHS.as<ArgSmall>().getSigned();
+        if (divisor == -1) {
+            divisor = 0;
+        }
     }
 
-    if (always_small(LHS) && divisor != (Sint)0 && divisor != (Sint)-1) {
+    if (always_small(LHS) && divisor != 0) {
         auto lhs = load_source(LHS, ARG3);
         auto quotient = init_destination(Quotient, ARG1);
         auto remainder = init_destination(Remainder, ARG2);
+        Label invalidLabel; /* Intentionally not initialized */
 
         comment("skipped test for smalls operands and overflow");
-        if (Support::isPowerOf2(divisor) &&
-            std::get<0>(getClampedRange(LHS)) >= 0) {
-            int trailing_bits = Support::ctz<Eterm>(divisor);
-            arm::Gp LHS_reg = lhs.reg;
-            if (need_div) {
-                comment("optimized div by replacing with right shift");
-                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-                if (need_rem && quotient.reg == lhs.reg) {
-                    LHS_reg = TMP1;
-                    a.mov(LHS_reg, lhs.reg);
-                }
-                a.lsr(quotient.reg, lhs.reg, imm(trailing_bits));
-                a.orr(quotient.reg, quotient.reg, imm(_TAG_IMMED1_SMALL));
-            }
-            if (need_rem) {
-                comment("optimized rem by replacing with masking");
-                auto mask = Support::lsbMask<Uint>(trailing_bits +
-                                                   _TAG_IMMED1_SIZE);
-                a.and_(remainder.reg, LHS_reg, imm(mask));
-            }
-        } else {
-            a.asr(TMP1, lhs.reg, imm(_TAG_IMMED1_SIZE));
-            mov_imm(TMP2, divisor);
-            a.sdiv(quotient.reg, TMP1, TMP2);
-            if (need_rem) {
-                a.msub(remainder.reg, quotient.reg, TMP2, TMP1);
-            }
-
-            mov_imm(TMP3, _TAG_IMMED1_SMALL);
-            const arm::Shift tagShift = arm::lsl(_TAG_IMMED1_SIZE);
-            if (need_div) {
-                a.orr(quotient.reg, TMP3, quotient.reg, tagShift);
-            }
-            if (need_rem) {
-                a.orr(remainder.reg, TMP3, remainder.reg, tagShift);
-            }
-        }
-
+        emit_div_rem_literal(divisor,
+                             LHS,
+                             lhs.reg,
+                             quotient.reg,
+                             remainder.reg,
+                             invalidLabel,
+                             need_div,
+                             need_rem);
         if (need_div) {
             flush_var(quotient);
         }
@@ -918,11 +983,24 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
             flush_var(remainder);
         }
     } else {
+        Label generic = a.newLabel(), done = a.newLabel();
         auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
 
+        if (divisor != (Sint)0) {
+            emit_div_rem_literal(divisor,
+                                 LHS,
+                                 lhs.reg,
+                                 ARG1,
+                                 ARG2,
+                                 generic,
+                                 need_div,
+                                 need_rem);
+            a.b(done);
+        }
+
+        a.bind(generic);
         mov_var(ARG2, lhs);
         mov_var(ARG3, rhs);
-
         if (Fail.get() != 0) {
             fragment_call(ga->get_int_div_rem_guard_shared());
             a.b_eq(resolve_beam_label(Fail, disp1MB));
@@ -931,6 +1009,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
             fragment_call(ga->get_int_div_rem_body_shared());
         }
 
+        a.bind(done);
         if (need_div) {
             mov_arg(Quotient, ARG1);
         }
