@@ -327,6 +327,9 @@ zip:create("mnesia-4.4.7.ez",
       <name name="cache"/>
     </datatype>
     <datatype>
+      <name name="coverage_mode"/>
+    </datatype>
+    <datatype>
       <name name="load_error_rsn"/>
     </datatype>
     <datatype>
@@ -540,6 +543,14 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
+      <name name="coverage_support" arity="0" since="OTP @OTP-18856@"/>
+      <fsummary>Query whether the system supports coverage.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if the system supports coverage and <c>false</c>
+        otherwise.</p>
+      </desc>
+    </func>
+    <func>
       <name name="del_path" arity="1" since=""/>
       <fsummary>Delete a directory from the code path.</fsummary>
       <desc>
@@ -635,6 +646,111 @@ ok = code:finish_loading(Prepared),
 	    <c>-on_load</c> function that never finished.</p>
 	  </item>
 	</taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="get_coverage" arity="2" since="OTP @OTP-18856@"/>
+      <fsummary>Get coverage for a module.</fsummary>
+      <desc>
+        <p>If <anno>Level</anno> is <c>function</c>, returns line coverage
+        for the given module according to its coverage mode:</p>
+        <taglist>
+          <tag><c>function</c></tag>
+          <item>For each function in module <anno>Module</anno>, a
+          boolean indicating whether that function has been executed
+          at least once is returned.
+          </item>
+          <tag><c>function_counters</c></tag>
+          <item>For each function in module <anno>Module</anno>, an
+          integer giving the number of times that line has been
+          executed is returned.
+          </item>
+          <tag><c>line</c></tag>
+          <item>For each function in module <anno>Module</anno>, a
+          boolean indicating whether that function has been executed
+          at least once is returned.
+          </item>
+          <tag><c>line_counters</c></tag>
+          <item>For each function in module <anno>Module</anno>, a
+          boolean indicating whether that function has been executed
+          at least once is returned (note that in this mode, counters for
+	  the number of times each function has been executed <strong>cannot</strong>
+	  be retrieved).
+          </item>
+        </taglist>
+        <p>If <anno>Level</anno> is <c>line</c>, returns line coverage
+        for the given module according to its coverage mode:</p>
+        <taglist>
+          <tag><c>line</c></tag>
+          <item>For each executable line in the module, a boolean
+          indicating whether that line has been executed at least once
+          is returned.
+          </item>
+          <tag><c>line_counters</c></tag>
+          <item>For each executable line in the module, an integer
+          giving the number of times that line was executed is returned.
+          </item>
+        </taglist>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Level</anno></c> is not <c>function</c> or <c>line</c>.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Module</anno></c> is not an atom.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Module</anno></c> does not refer to a loaded module.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Module</anno></c> was not loaded in another
+          coverage mode than <c>none</c>.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If <anno>Level</anno> is <c>line</c> and
+          <c><anno>Module</anno></c> has not been loaded with either
+          <c>line</c> or <c>line_counters</c> enabled.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If the runtime system does not support coverage.
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="get_coverage_mode" arity="0" since="OTP @OTP-18856@"/>
+      <fsummary>Returns the current coverage mode.</fsummary>
+      <type name="coverage_mode"/>
+      <desc>
+        <p>Returns the current coverage mode as set by option
+        <seecom marker="erts:erl#+JPcover">+JPcover</seecom> for <c>erl</c> or
+        <seemfa marker="#set_coverage_mode/1">set_coverage_mode/1</seemfa>.
+        </p>
+        <p>Failure:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>If the runtime system does not support coverage.
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="get_coverage_mode" arity="1" since="OTP @OTP-18856@"/>
+      <fsummary>Get the coverage mode for a module.</fsummary>
+      <desc>
+        <p>Get coverage mode for the given module.</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Module</anno></c> is not an atom.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Module</anno></c> does not refer to a loaded module.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If the runtime system does not support coverage.
+          </item>
+        </taglist>
       </desc>
     </func>
     <func>
@@ -982,6 +1098,29 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
+      <name name="reset_coverage" arity="1" since="OTP @OTP-18856@"/>
+      <fsummary>Reset coverage for a module.</fsummary>
+      <desc>
+        <p>Reset coverage information for module <anno>Module</anno>.</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Module</anno></c> is not an atom.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Module</anno></c> does not refer to a loaded module.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Module</anno></c> was not loaded with
+          coverage enabled.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If the runtime system does not support coverage.
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
       <name name="root_dir" arity="0" since=""/>
       <fsummary>Root directory of Erlang/OTP.</fsummary>
       <desc>
@@ -991,6 +1130,74 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
         <pre>
 > <input>code:root_dir().</input>
 "/usr/local/otp"</pre>
+      </desc>
+    </func>
+    <func>
+      <name name="set_coverage_mode" arity="1" since="OTP @OTP-18856@"/>
+      <fsummary>Set default coverage mode.</fsummary>
+      <type name="coverage_mode"/>
+      <desc>
+        <p>Sets the coverage mode for modules that are subsequently
+        loaded, similar to option <seecom
+        marker="erts:erl#+JPcover">+JPcover</seecom> for <c>erl</c>:</p>
+        <taglist>
+          <tag><c>function</c></tag>
+          <item><p>All modules that are loaded will be instrumented to
+          keep track of which functions are executed. Information
+          about which functions that have been executed can be
+          retrieved by calling <seemfa
+          marker="#get_coverage/2"><c>get_coverage(function, Module)</c></seemfa>.</p>
+          </item>
+          <tag><c>function_counters</c></tag>
+          <item><p>All modules that are loaded will be instrumented to
+          count how many times each function is executed. Information
+          about how many times each function has been executed can be
+          retrieved by calling <seemfa
+          marker="#get_coverage/2"><c>get_coverage(function,
+          Module)</c></seemfa>.</p>
+          </item>
+          <tag><c>line</c></tag>
+          <item><p>When modules that have been compiled with the
+          <seeerl
+          marker="compiler:compile#line_coverage"><c>line_coverage</c></seeerl>
+          option are loaded, they will be instrumented to keep track
+          of which lines have been executed. Information about which
+          lines have been executed can be retrieved by calling <seemfa
+          marker="#get_coverage/2"><c>get_coverage(line,
+          Module)</c></seemfa>, and information about which functions
+          that have been executed can be retrieved by calling <seemfa
+          marker="#get_coverage/2"><c>get_coverage(function,
+          Module)</c></seemfa>.</p>
+          </item>
+          <tag><c>line_counters</c></tag>
+          <item><p>When modules that have been compiled with the
+          <seeerl
+          marker="compiler:compile#line_coverage"><c>line_coverage</c></seeerl>
+          option are loaded, they will be instrumented to count the
+          number of times each line is executed. Information about how
+          many times each line has been executed can be retrieved by
+          calling <seemfa
+          marker="#get_coverage/2"><c>get_coverage(line,
+          Module)</c></seemfa>, and information about which functions
+          that have been executed can be retrieved by calling <seemfa
+          marker="#get_coverage/2"><c>get_coverage(function,
+          Module)</c></seemfa> (note that in this mode, counters for
+	  the number of times each function has been executed <strong>cannot</strong>
+	  be retrieved).</p>
+          </item>
+          <tag><c>none</c></tag>
+          <item><p>Modules will be loaded without coverage instrumentation.</p></item>
+        </taglist>
+        <p>Returns the previous coverage mode.</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>If <c><anno>Mode</anno></c> is not a valid coverage mode.
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>If the runtime system does not support coverage.
+          </item>
+        </taglist>
       </desc>
     </func>
     <func>

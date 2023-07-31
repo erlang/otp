@@ -2079,6 +2079,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
                               modp->old.code_hdr->are_nifs);
                 }
 
+                beam_load_purge_aux(modp->old.code_hdr);
 #ifndef BEAMASM
                 erts_free(ERTS_ALC_T_CODE, (void *) modp->old.code_hdr);
 #else

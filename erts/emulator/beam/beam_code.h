@@ -87,6 +87,18 @@ typedef struct beam_code_header {
      */
     const BeamCodeLineTab *line_table;
 
+#ifdef BEAMASM
+
+    /*
+     * Coverage support.
+     */
+    Uint coverage_mode;
+    void *coverage;
+    byte *line_coverage_valid;
+    Uint line_coverage_len;
+
+#endif
+
     /*
      * Pointer to the module MD5 sum (16 bytes)
      */

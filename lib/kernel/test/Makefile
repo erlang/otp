@@ -66,6 +66,7 @@ MODULES= \
 	appinc2B \
 	code_SUITE \
 	code_b_test \
+	code_coverage_SUITE \
 	disk_log_SUITE \
 	erl_boot_server_SUITE \
 	erl_distribution_SUITE \

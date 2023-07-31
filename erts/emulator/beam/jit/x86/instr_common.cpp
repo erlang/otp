@@ -2700,3 +2700,23 @@ void BeamModuleAssembler::emit_i_perf_counter() {
     a.bind(next);
     a.mov(getXRef(0), RET);
 }
+
+void BeamModuleAssembler::emit_coverage(void *coverage, Uint index, Uint size) {
+    Uint address = Uint(coverage) + index * size;
+    comment("coverage index = %d", index);
+
+    mov_imm(RET, address);
+    if (size == sizeof(Uint)) {
+        a.lock().inc(x86::qword_ptr(RET));
+    } else if (size == sizeof(byte)) {
+        if ((address & 0xff) != 0) {
+            /* The size of this instruction is two bytes. */
+            a.mov(x86::byte_ptr(RET), RETb);
+        } else {
+            /* The size of this instruction is three bytes. */
+            a.mov(x86::byte_ptr(RET), imm(1));
+        }
+    } else {
+        ASSERT(0);
+    }
+}

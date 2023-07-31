@@ -86,8 +86,18 @@
 -export_type([load_error_rsn/0, load_ret/0]).
 -export_type([prepared_code/0]).
 -export_type([module_status/0]).
-
 -include_lib("kernel/include/file.hrl").
+
+-export_type([coverage_mode/0]).
+-type coverage_mode() :: 'none' | 'function' | 'function_counters' |
+                         'line_coverage' | 'line_counters'.
+
+-export([coverage_support/0,
+         get_coverage/2,
+         get_coverage_mode/0,
+         get_coverage_mode/1,
+         reset_coverage/1,
+         set_coverage_mode/1]).
 
 %%----------------------------------------------------------------------------
 %% Some types for basic exported functions of this module
@@ -1191,3 +1201,43 @@ path_files([Path|Tail]) ->
         _Error ->
             path_files(Tail)
     end.
+
+-spec get_coverage(Level, module()) -> Result when
+      Level :: 'function' | 'line',
+      Result :: [{Entity, CoverageInfo}],
+      Entity :: {Function, Arity} | Line,
+      CoverageInfo :: Covered | Counter,
+      Function :: atom(),
+      Arity :: arity(),
+      Line :: non_neg_integer(),
+      Covered :: boolean(),
+      Counter :: non_neg_integer().
+get_coverage(_Level, _Module) ->
+    erlang:nif_error(undefined).
+
+-spec get_coverage_mode() -> Mode when
+      Mode :: coverage_mode().
+get_coverage_mode() ->
+    erlang:nif_error(undefined).
+
+-spec get_coverage_mode(Module) -> Mode when
+      Module :: module(),
+      Mode :: coverage_mode().
+get_coverage_mode(_Module) ->
+    erlang:nif_error(undefined).
+
+-spec set_coverage_mode(Mode) -> OldMode when
+      Mode :: coverage_mode(),
+      OldMode :: coverage_mode().
+set_coverage_mode(_Mode) ->
+    erlang:nif_error(undefined).
+
+-spec reset_coverage(Module) -> 'ok' when
+      Module :: module().
+reset_coverage(_Module) ->
+    erlang:nif_error(undefined).
+
+-spec coverage_support() -> Supported when
+      Supported :: boolean().
+coverage_support() ->
+    erlang:nif_error(undefined).

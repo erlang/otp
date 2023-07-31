@@ -453,8 +453,8 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
      * have to special-case it anywhere else. */
     name_count++;
 
-    /* Flags are unused at the moment. */
-    (void)flags;
+    /* Save flags. */
+    lines->flags = flags;
 
     /* Reserve space for the "undefined location" entry. */
     item_count++;

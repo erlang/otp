@@ -307,6 +307,7 @@ type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 type	T2B_DETERMINISTIC SHORT_LIVED	PROCESSES	term_to_binary_deterministic
 
 type    DSIG_HNDL_NTFY  SHORT_LIVED     PROCESSES       dirty_signal_handler_notification
+type	CODE_COVERAGE   STANDARD        SYSTEM          code_coverage
 
 #
 # Types used for special emulators

@@ -1525,3 +1525,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
 load_error:
     return 0;
 }
+
+void beam_load_purge_aux(const BeamCodeHeader *hdr)
+{
+}

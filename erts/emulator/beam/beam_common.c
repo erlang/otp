@@ -948,6 +948,9 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
             break;
 
             /* Kernel */
+        case am_code:
+            format_module = am_erl_kernel_errors;
+            break;
         case am_os:
             format_module = am_erl_kernel_errors;
             break;

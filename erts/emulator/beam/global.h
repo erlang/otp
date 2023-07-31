@@ -1255,6 +1255,14 @@ extern Eterm erts_error_logger_warnings;
 extern int erts_initialized;
 extern int erts_compat_rel;
 
+#define ERTS_COV_NONE 0
+#define ERTS_COV_FUNCTION 1
+#define ERTS_COV_FUNCTION_COUNTERS 2
+#define ERTS_COV_LINE 3
+#define ERTS_COV_LINE_COUNTERS 4
+
+extern Uint erts_coverage_mode;
+
 #ifdef BEAMASM
 extern int erts_jit_asm_dump;
 #endif

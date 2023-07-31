@@ -1035,6 +1035,62 @@ $ <input>erl \
           descriptor input events.
         </p>
       </item>
+      <tag><marker id="+JPcover"/><c>+JPcover true|false|function|function_counters|line|line_counters</c></tag>
+      <item>
+        <p>Since: OTP 27.0</p>
+        <p>Enables or disables support for coverage when running with
+        the JIT. Defaults to false.</p>
+        <taglist>
+          <tag><c>function</c></tag>
+          <item><p>All modules that are loaded will be instrumented to
+          keep track of which functions are executed. Information
+          about which functions that have been executed can be
+          retrieved by calling <seemfa
+          marker="kernel:code#get_coverage/2"><c>code:get_coverage(function, Module)</c></seemfa>.</p>
+	  </item>
+          <tag><c>function_counters</c></tag>
+          <item><p>All modules that are loaded will be instrumented to
+          count how many times each function is executed. Information
+          about how many times each function has been executed can be
+          retrieved by calling <seemfa
+          marker="kernel:code#get_coverage/2"><c>code:get_coverage(function,
+          Module)</c></seemfa>.</p>
+          </item>
+          <tag><c>line</c></tag>
+          <item><p>When modules that have been compiled with the
+          <seeerl
+          marker="compiler:compile#line_coverage"><c>line_coverage</c></seeerl>
+          option are loaded, they will be instrumented to keep track
+          of which lines have been executed. Information about which
+          lines have been executed can be retrieved by calling <seemfa
+          marker="kernel:code#get_coverage/2"><c>code:get_coverage(line,
+          Module)</c></seemfa>, and information about which functions
+          that have been executed can be retrieved by calling <seemfa
+          marker="kernel:code#get_coverage/2"><c>code:get_coverage(function,
+          Module)</c></seemfa>.</p>
+          </item>
+          <tag><c>line_counters</c></tag>
+          <item><p>When modules that have been compiled with the
+          <seeerl
+          marker="compiler:compile#line_coverage"><c>line_coverage</c></seeerl>
+          option are loaded, they will be instrumented to count the
+          number of times each line is executed. Information about how
+          many times each line has been executed can be retrieved by
+          calling <seemfa
+          marker="kernel:code#get_coverage/2"><c>code:get_coverage(line,
+          Module)</c></seemfa>, and information about which functions
+          that have been executed can be retrieved by calling <seemfa
+          marker="kernel:code#get_coverage/2"><c>code:get_coverage(function,
+          Module)</c></seemfa> (note that in this mode, counters for
+          the number of times each function has been executed
+          <strong>cannot</strong> be retrieved).</p>
+          </item>
+          <tag><c>true</c></tag>
+          <item><p>Same as <c>line_counters</c>.</p></item>
+          <tag><c>false</c></tag>
+          <item><p>Disables coverage.</p></item>
+        </taglist>
+      </item>
       <tag><marker id="+JPperf"/><c>+JPperf true|false|dump|map|fp|no_fp</c></tag>
       <item>
         <p>Enables or disables support for the <c>perf</c> profiler when

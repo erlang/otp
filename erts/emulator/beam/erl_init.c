@@ -199,6 +199,7 @@ int erts_no_crash_dump = 0;	/* Use -d to suppress crash dump. */
 int erts_no_line_info = 0;	/* -L: Don't load line information */
 
 #ifdef BEAMASM
+Uint erts_coverage_mode = ERTS_COV_NONE; /* -JPcover: Enable coverage */
 int erts_jit_asm_dump = 0;	/* -JDdump: Dump assembly code */
 #endif
 
@@ -652,6 +653,7 @@ void erts_usage(void)
 
 #ifdef BEAMASM
     erts_fprintf(stderr, "-JDdump bool   enable or disable dumping of generated assembly code for each module loaded\n");
+    erts_fprintf(stderr, "-JPcover true|false|line|line_counters|function|function_counters  enable or disable instrumentation for coverage\n");
     erts_fprintf(stderr, "-JPperf true|false|dump|map|fp|no_fp   enable or disable support for perf on Linux\n");
     erts_fprintf(stderr, "-JMsingle bool enable the use of single-mapped RWX memory for JIT:ed code\n");
     erts_fprintf(stderr, "\n");
@@ -1766,6 +1768,24 @@ erl_start(int argc, char **argv)
                 erts_fprintf(stderr, "+JPperf is not supported on this platform\n");
                 erts_usage();
 #endif
+                } else if (has_prefix("cover", sub_param)) {
+                    arg = get_arg(sub_param+5, argv[i + 1], &i);
+                    if (sys_strcmp(arg, "true") == 0) {
+                        erts_coverage_mode = ERTS_COV_LINE_COUNTERS;
+                    } else if (sys_strcmp(arg, "false") == 0) {
+                        erts_coverage_mode = ERTS_COV_NONE;
+                    } else if (sys_strcmp(arg, "function") == 0) {
+                        erts_coverage_mode = ERTS_COV_FUNCTION;
+                    } else if (sys_strcmp(arg, "function_counters") == 0) {
+                        erts_coverage_mode = ERTS_COV_FUNCTION_COUNTERS;
+                    } else if (sys_strcmp(arg, "line_coverage") == 0) {
+                        erts_coverage_mode = ERTS_COV_LINE;
+                    } else if (sys_strcmp(arg, "line_counters") == 0) {
+                        erts_coverage_mode = ERTS_COV_LINE_COUNTERS;
+                    } else {
+                        erts_fprintf(stderr, "bad +JPcover flag %s\n", arg);
+                        erts_usage();
+                    }
                 }
                 break;
             case 'M':
@@ -2252,7 +2272,7 @@ erl_start(int argc, char **argv)
 	    /* suggested stack size (Kilo Words) for threads in thread pool */
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    erts_async_thread_suggested_stack_size = atoi(arg);
-	    
+
 	    if ((erts_async_thread_suggested_stack_size
 		 < ERTS_ASYNC_THREAD_MIN_STACK_SIZE)
 		|| (erts_async_thread_suggested_stack_size >
@@ -2516,7 +2536,7 @@ erl_start(int argc, char **argv)
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
 	ASSERT(erts_code_purger && erts_code_purger->common.id == pid);
-	erts_proc_inc_refc(erts_code_purger); 
+	erts_proc_inc_refc(erts_code_purger);
 
 	pid = erl_system_process_otp(erts_init_process_id,
                                      "erts_literal_area_collector",

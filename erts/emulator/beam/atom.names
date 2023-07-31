@@ -313,6 +313,7 @@ atom format_cpu_topology
 atom free
 atom fullsweep_after
 atom function
+atom function_counters
 atom functions
 atom function_clause
 atom garbage_collect
@@ -397,6 +398,7 @@ atom ldflags
 atom Le='=<'
 atom lf
 atom line
+atom line_counters
 atom line_delimiter
 atom line_length
 atom linked_in_driver

@@ -30,6 +30,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
     ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
     Cause = maps:get(cause, ErrorInfoMap, none),
     Res = case M of
+              code ->
+                  format_code_error(F, As);
               erl_ddll ->
                   format_erl_ddll_error(F, As, Cause);
               os ->
@@ -38,6 +40,77 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   []
           end,
     format_error_map(Res, 1, #{}).
+
+format_code_error(get_coverage, [What,Module]) ->
+    coverage(
+      fun() ->
+              Error = case What of
+                          function -> [];
+                          line -> [];
+                          _ -> <<"must be one of: function or line">>
+                      end,
+              case Error of
+                  [] ->
+                      [[],if
+                              not is_atom(Module) ->
+                                  not_atom;
+                              true ->
+                                  case erlang:module_loaded(Module) of
+                                      false -> module_not_loaded;
+                                      true -> coverage_disabled
+                                  end
+                          end];
+                  _ ->
+                      [Error]
+              end
+      end);
+format_code_error(get_coverage_mode, [Module]) ->
+    coverage(
+      fun() ->
+              [if
+                   not is_atom(Module) ->
+                       not_atom;
+                   true ->
+                       case erlang:module_loaded(Module) of
+                           false -> module_not_loaded;
+                           true -> coverage_disabled
+                       end
+               end]
+      end);
+format_code_error(reset_coverage, [Module]) ->
+    coverage(
+      fun () ->
+              [if
+                   not is_atom(Module) ->
+                       not_atom;
+                   true ->
+                       case erlang:module_loaded(Module) of
+                           false -> module_not_loaded;
+                           true -> coverage_disabled
+                       end
+               end]
+      end);
+format_code_error(set_coverage_mode, [Mode]) ->
+    coverage(
+      fun () ->
+              [if
+                   not is_atom(Mode) ->
+                       not_atom;
+                   true ->
+                       <<"must be one of: none, function, function_counters, "
+                         "line, or line_counters">>
+               end]
+      end);
+format_code_error(_, _) ->
+    [].
+
+coverage(Fun) ->
+    case code:coverage_support() of
+        true ->
+            Fun();
+        false ->
+            [<<"this runtime system does not support coverage">>]
+    end.
 
 format_erl_ddll_error(_, _, _) ->
     [].
@@ -146,6 +219,8 @@ format_error_map([E|Es], ArgNum, Map) ->
 format_error_map([], _, Map) ->
     Map.
 
+expand_error(coverage_disabled) ->
+    <<"not loaded with coverage enabled">>;
 expand_error(eq_in_list) ->
     <<"\"=\" characters is not allowed in environment variable names">>;
 expand_error(zero_in_list) ->
@@ -158,6 +233,8 @@ expand_error(invalid_signal_option) ->
     <<"invalid signal handling option">>;
 expand_error(invalid_time_unit) ->
     <<"invalid time unit">>;
+expand_error(module_not_loaded) ->
+    <<"the atom does not refer to a loaded module">>;
 expand_error(not_atom) ->
     <<"not an atom">>;
 expand_error(not_charlist) ->
