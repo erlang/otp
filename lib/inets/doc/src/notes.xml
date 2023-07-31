@@ -125,6 +125,23 @@
 
 </section>
 
+  <section><title>Inets 8.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug so <c>httpd</c> does not crash when stopped
+	    at the wrong time during TLS connection negotiation, or
+	    any other theoretically as slow connection setup.</p>
+          <p>
+	    Own Id: OTP-18688 Aux Id: ERIERL-962 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Inets 8.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
