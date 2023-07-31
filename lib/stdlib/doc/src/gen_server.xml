@@ -647,11 +647,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <item>
             <p>
               The server stopped during the call by returning
-              <c>{stop,Reason,_}</c> from its
-              <seemfa marker="#Module:handle_call/3">
-                <c>Module:handle_call/3</c>
-              </seemfa>
-              callback, without replying.  See also
+              <c>{stop,Reason,_}</c> from one of its callbacks
+              without replying to this call. See also
               <seemfa marker="#stop/3"><c>stop/3</c></seemfa>.
             </p>
           </item>
@@ -659,14 +656,11 @@ gen_server:abcast     -----> Module:handle_cast/2
           <item>
             <p>
               The server process exited during the call,
-              with reason <c>Reason</c>.  Either by returning
-              <c>{stop,Reason,_}</c> from its
-              <seemfa marker="#Module:handle_call/3">
-                <c>Module:handle_call/3</c>
-              </seemfa>
-              callback (without replying),
-              by raising an exception,
-              or due to getting an exit signal it did not trap.
+              with reason <c>Reason</c>. Either by returning
+              <c>{stop,Reason,_}</c> from one of its callbacks
+              (without replying to this call), by raising an
+              exception, or due to getting an exit signal it
+              did not trap.
             </p>
           </item>
         </taglist>
