@@ -258,6 +258,7 @@
          api_opt_tcp_maxseg_tcp4/1,
          api_opt_tcp_nodelay_tcp4/1,
          api_opt_tcp_keepcnt_tcp4/1,
+         api_opt_tcp_keepidle_tcp4/1,
          api_opt_udp_cork_udp4/1,
 
          %% *** API Operation Timeout ***
@@ -1208,7 +1209,8 @@ api_options_tcp_cases() ->
      %% api_opt_tcp_maxseg_tcp6,
      api_opt_tcp_nodelay_tcp4,
      %% api_opt_tcp_nodelay_tcp6
-     api_opt_tcp_keepcnt_tcp4
+     api_opt_tcp_keepcnt_tcp4,
+     api_opt_tcp_keepidle_tcp4
     ].
 
 api_options_udp_cases() ->
@@ -25323,6 +25325,270 @@ api_opt_tcp_keepcnt_tcp(InitState) ->
          #{desc => "await server ready (get-keepcnt(2))",
            cmd  => fun(#{server := Server} = _State) ->
                            ?SEV_AWAIT_READY(Server, server, get_keepcnt)
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           State1 = maps:remove(server, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    i("start server evaluator"),
+    Server = ?SEV_START("server", ServerSeq, InitState),
+
+    i("start tester evaluator"),
+    TesterInitState = #{server => Server#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    ok = ?SEV_AWAIT_FINISH([Server, Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the keepidle tcp socket option.
+%%
+%% "Gets or sets the number of seconds a TCP connection will remain
+%%  idle before keepalive probes are sent to the remote."
+%%
+
+api_opt_tcp_keepidle_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv4(), has_support_tcp_keepidle() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_integer(Value) ->
+                                  socket:setopt(Sock, tcp, keepidle, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, tcp, keepidle)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_tcp_keepidle_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_tcp_keepidle_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    ServerSeq =
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
+                           case sock_bind(LSock, LSA) of
+                               ok ->
+                                   Port = sock_port(LSock),
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+
+         %% The actual test
+         #{desc => "await continue (get keepidle(1))",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, get_keepidle)
+                   end},
+         #{desc => "get keepidle",
+           cmd  => fun(#{sock := Sock, get := Get} = State) ->
+                           case Get(Sock) of
+                               {ok, KeepIdle} ->
+                                   ?SEV_IPRINT("keepidle: ~p", [KeepIdle]),
+                                   {ok, State#{keepidle => KeepIdle}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (get keepidle(1))",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, get_keepidle),
+                           ok
+                   end},
+
+
+         #{desc => "await continue (set keepidle)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, set_keepidle)
+                   end},
+         #{desc => "set keepidle",
+           cmd  => fun(#{sock     := Sock,
+                         set      := Set,
+                         keepidle := KeepIdle} = State) ->
+                           NewKeepIdle = KeepIdle + 1,
+                           case Set(Sock, NewKeepIdle) of
+                               ok ->
+                                   ?SEV_IPRINT("keepidle updated (to ~p)",
+                                               [NewKeepIdle]),
+                                   {ok, State#{keepidle => NewKeepIdle}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (set keepidle)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, set_keepidle),
+                           ok
+                   end},
+
+
+         #{desc => "await continue (get keepidle(2))",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, get_keepidle)
+                   end},
+         #{desc => "get keepidle(2)",
+           cmd  => fun(#{sock     := Sock,
+                         get      := Get,
+                         keepidle := ExpKeepIdle} = State) ->
+                           case Get(Sock) of
+                               {ok, KeepIdle} when (ExpKeepIdle =:= KeepIdle) ->
+                                   ?SEV_IPRINT("expected keepidle (~p)",
+                                               [ExpKeepIdle]),
+                                   ok;
+                               {ok, KeepIdle} ->
+                                   ?SEV_EPRINT("unexpected keepidle:"
+                                               "~n   Expected KeepIdle: ~p"
+                                               "~n   Actual KeepIdle:   ~p",
+                                               [ExpKeepIdle, KeepIdle]),
+                                   {error,
+                                    {unexpected_keepidle,
+                                     ExpKeepIdle, KeepIdle}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("failed get keepidle: "
+                                               "~n   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (get keepidle(2))",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, get_keepidle),
+                           ok
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, server, init),
+                           ok
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "order server to continue (with get-keepidle(1))",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, get_keepidle),
+                           ok
+                   end},
+         #{desc => "await server ready (get-keepidle(1))",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, get_keepidle)
+                   end},
+
+         #{desc => "order server to continue (with set-keepidle)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, set_keepidle),
+                           ok
+                   end},
+         #{desc => "await server ready (set-keepidle)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, set_keepidle)
+                   end},
+
+         #{desc => "order server to continue (with get-keepidle(2))",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, get_keepidle),
+                           ok
+                   end},
+         #{desc => "await server ready (get-keepidle(2))",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, get_keepidle)
                    end},
 
 
@@ -50930,6 +51196,9 @@ has_support_tcp_nodelay() ->
 
 has_support_tcp_keepcnt() ->
     has_support_socket_option_tcp(keepcnt).
+
+has_support_tcp_keepidle() ->
+    has_support_socket_option_tcp(keepidle).
 
 
 %% --- UDP socket option test functions ---
