@@ -314,13 +314,6 @@
 	<cell>map()</cell>
 	<cell>no</cell>
 	<cell>yes</cell>
-	<cell>Windows only socket option.</cell>
-      </row>
-      <row>
-	<cell>exclusiveaddruse</cell>
-	<cell>boolean()</cell>
-	<cell>yes</cell>
-	<cell>yes</cell>
 	<cell>Windows only</cell>
       </row>
       <row>
@@ -343,6 +336,13 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>none</cell>
+      </row>
+      <row>
+	<cell>exclusiveaddruse</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>Windows only</cell>
       </row>
       <row>
 	<cell>keepalive</cell>
@@ -925,6 +925,13 @@
       </row>
       <row>
 	<cell>keepidle</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>keepintvl</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
