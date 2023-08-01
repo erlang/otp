@@ -916,6 +916,14 @@
 	<cell>'nopush' one some platforms (FreeBSD)</cell>
       </row>
       <row>
+	<cell>keepcnt</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>On Windows (at least),
+	It is illegal to set to a value greater than 255.</cell>
+      </row>
+      <row>
 	<cell>maxseg</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>
@@ -935,7 +943,7 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>
-	  'cork' one some platforms (Linux).
+	  'cork' on some platforms (Linux).
 	  On Darwin this has a different meaning than
 	  on, for instance, FreeBSD.
 	</cell>
