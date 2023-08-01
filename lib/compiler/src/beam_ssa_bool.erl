@@ -1040,21 +1040,35 @@ ensure_no_failing_instructions(First, Second, G, St) ->
 
 can_fail({succeeded,_}, V, G) -> not eaten_by_phi(V, G);
 can_fail(put_map, _, _) -> true;
-can_fail(_, _, _) -> false.
-
-eaten_by_phi(V, G) ->
-    {br,_,Fail} = get_targets(V, G),
-    case beam_digraph:vertex(G, Fail) of
-        br ->
-            [To] = beam_digraph:out_neighbours(G, Fail),
-            case beam_digraph:vertex(G, To) of
-                #b_set{op=phi} ->
+can_fail(_, V, G) ->
+    case get_targets(V, G) of
+        {br,_Succ,Fail} ->
+            case follow_branch(G, Fail) of
+                {external,_} ->
                     true;
                 _ ->
                     false
             end;
         _ ->
             false
+    end.
+
+eaten_by_phi(V, G) ->
+    {br,_,Fail} = get_targets(V, G),
+    case follow_branch(G, Fail) of
+        #b_set{op=phi} ->
+            true;
+        _ ->
+            false
+    end.
+
+follow_branch(G, Br) ->
+    case beam_digraph:vertex(G, Br) of
+        br ->
+            [To] = beam_digraph:out_neighbours(G, Br),
+            beam_digraph:vertex(G, To);
+        _ ->
+            none
     end.
 
 %% order_args([Arg1,Arg2], G, St) -> {First,Second}.
