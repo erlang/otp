@@ -921,7 +921,14 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>On Windows (at least),
-	It is illegal to set to a value greater than 255.</cell>
+	it is illegal to set to a value greater than 255.</cell>
+      </row>
+      <row>
+	<cell>keepidle</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
       </row>
       <row>
 	<cell>maxseg</cell>
