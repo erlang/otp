@@ -82,7 +82,8 @@
          unused_type2/1,
          eep49/1,
          redefined_builtin_type/1,
-         tilde_k/1]).
+         tilde_k/1,
+         match_float_zero/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -113,7 +114,8 @@ all() ->
      eep49,
      redefined_builtin_type,
      tilde_k,
-     singleton_type_var_errors].
+     singleton_type_var_errors,
+     match_float_zero].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -5178,6 +5180,35 @@ tilde_k(Config) ->
               {format_error,{"format string invalid (~ts)",
                              ["invalid modifier/control combination ~ks"]}}}]}
           }
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+match_float_zero(Config) ->
+    Ts = [{float_zero_1,
+           <<"t(+0.0) -> ok.\n"
+             "k(-0.0) -> ok.\n">>,
+           [],
+           []},
+          {float_zero_2,
+           <<"t(0.0) -> ok.\n"
+             "k({0.0}) -> ok.\n">>,
+           [],
+           {warnings,[{{1,23},erl_lint,match_float_zero},
+                      {{2,4},erl_lint,match_float_zero}]}},
+          {float_zero_3,
+           <<"t(A) when A =:= 0.0 -> ok;\n" %% Should warn.
+             "t(A) when A =:= {0.0} -> ok.\n" %% Should warn.
+             "k(A) -> A =:= 0.0.\n" %% Should warn.
+             "q(A) -> A =:= {0.0}.\n" %% Should warn.
+             "z(A) when A =:= +0.0 -> ok;\n" %% Should not warn.
+             "z(A) when A =:= {+0.0} -> ok.\n">>, %% Should not warn.
+           [],
+           {warnings,[{{1,37},erl_lint,match_float_zero},
+                      {{2,18},erl_lint,match_float_zero},
+                      {{3,15},erl_lint,match_float_zero},
+                      {{4,16},erl_lint,match_float_zero}]}}
          ],
     [] = run(Config, Ts),
 
