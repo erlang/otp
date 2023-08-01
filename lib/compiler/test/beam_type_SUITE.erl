@@ -1137,6 +1137,11 @@ cs_2({bar,baz}) ->
 is_list_opt(_Config) ->
     true = is_list_opt_1(id(<<"application/a2l">>)),
     false = is_list_opt_1(id(<<"">>)),
+
+    ok = is_list_opt_3(id([])),
+    true = is_list_opt_3(id([a])),
+    {'EXIT',{badarg,_}} = catch is_list_opt_3(id(no_list)),
+
     ok.
 
 is_list_opt_1(Type) ->
@@ -1147,6 +1152,16 @@ is_list_opt_1(Type) ->
 
 is_list_opt_2(<<"application/a2l">>) -> [<<"a2l">>];
 is_list_opt_2(_Type) -> nil.
+
+is_list_opt_3([]) ->
+    ok;
+is_list_opt_3(A) ->
+    %% The call to is_list/1 would be optimized to an is_nonempty_list
+    %% instruction, which only exists as a guard test that cannot
+    %% produce boolean value.
+    _ = (Bool = is_list(A)) orelse binary_to_integer(<<"">>),
+    Bool.
+
 
 %% We used to determine the type of `get_tuple_element` at the time of
 %% extraction, which is simple but sometimes throws away type information when 

@@ -1266,9 +1266,22 @@ cg_block([#cg_set{op=is_tagged_tuple,anno=Anno,dst=Bool,args=Args0}], {Bool,Fail
             [Src,{integer,Arity},Tag] = typed_args(Args0, Anno, St),
             {[{test,is_tagged_tuple,ensure_label(Fail, St),[Src,Arity,Tag]}],St}
     end;
-cg_block([#cg_set{op=is_nonempty_list,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
+cg_block([#cg_set{op=is_nonempty_list,dst=Bool0,args=Args0}=Set], {Bool0,Fail0}, St) ->
+    Fail = ensure_label(Fail0, St),
     Args = beam_args(Args0, St),
-    {[{test,is_nonempty_list,ensure_label(Fail, St),Args}],St};
+    case beam_args([Bool0|Args0], St) of
+        [{z,0}|Args] ->
+            {[{test,is_nonempty_list,Fail,Args}],St};
+        [Dst|Args] ->
+            %% This instruction was a call to is_list/1, which was
+            %% rewritten to an is_nonempty_list test by
+            %% beam_ssa_type. BEAM has no is_nonempty_list instruction
+            %% that will return a boolean, so we must revert it to an
+            %% is_list/1 call.
+            #cg_set{anno=#{was_bif_is_list := true}} = Set, %Assertion.
+            {[{bif,is_list,Fail0,Args,Dst},
+              {test,is_eq_exact,Fail,[Dst,{atom,true}]}],St}
+    end;
 cg_block([#cg_set{op=has_map_field,dst=Dst0,args=Args0}], {Dst0,Fail0}, St) ->
     Fail = ensure_label(Fail0, St),
     case beam_args([Dst0|Args0], St) of

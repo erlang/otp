@@ -2636,6 +2636,7 @@ beam_bool_SUITE(_Config) ->
     gh_7252(),
     gh_7339(),
     gh_7370(),
+    gh_7517(),
     ok.
 
 before_and_inside_if() ->
@@ -3241,6 +3242,17 @@ gh_7370(A) when (not (not is_float(A))) =/= ((ok and ok) or true) ->
     a;
 gh_7370(_) ->
     b.
+
+gh_7517() ->
+    ok = catch do_gh_7517([]),
+    ok = catch do_gh_7517([a,b,c]),
+    {'EXIT',{function_clause,_}} = catch do_gh_7517(ok),
+    {'EXIT',{function_clause,_}} = catch do_gh_7517(<<>>),
+    ok.
+
+do_gh_7517(A) when (ok /= A) or is_float(is_list(A) orelse ok andalso ok) ->
+    ok.
+
 
 %%%
 %%% End of beam_bool_SUITE tests.
