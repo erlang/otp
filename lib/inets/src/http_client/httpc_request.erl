@@ -95,17 +95,23 @@ send(SendAddr, Socket, SocketType,
 		{TmpHdrs2, Path ++ Query}	
 	end,
     
-    FinalHeaders = 
-	case NewHeaders of
-	    HeaderList when is_list(HeaderList) ->
-		http_headers(HeaderList, []);
-	    _  ->
-		http_request:http_headers(NewHeaders)
-	end,
-    Version = HttpOptions#http_options.version,
-
-    do_send_body(SocketType, Socket, Method, Uri, Version, FinalHeaders, Body).
-
+    FinalHeaders = try
+                       case NewHeaders of
+                           HeaderList when is_list(HeaderList) ->
+                               http_headers(HeaderList, []);
+                           _  ->
+                               http_request:http_headers(NewHeaders)
+                       end
+                   catch throw:{invalid_header, _} = Bad ->
+                           {error, Bad}
+                   end,
+    case FinalHeaders of
+        {error,_} = InvalidHeaders ->
+            InvalidHeaders;
+        _ ->
+            Version = HttpOptions#http_options.version,
+            do_send_body(SocketType, Socket, Method, Uri, Version, FinalHeaders, Body)
+    end.
 
 do_send_body(SocketType, Socket, Method, Uri, Version, Headers, 
 	     {ProcessBody, Acc}) when is_function(ProcessBody, 1) ->

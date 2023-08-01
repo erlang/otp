@@ -98,7 +98,6 @@ real_requests()->
      persistent_connection,
      save_to_file,
      save_to_file_async,
-     headers_as_is,
      page_does_not_exist,
      emulate_lower_versions,
      headers,
@@ -134,6 +133,7 @@ real_requests()->
      stream_through_mfa,
      streaming_error,
      inet_opts,
+     invalid_headers,
      invalid_headers_key,
      invalid_headers_value,
      invalid_body,
@@ -944,6 +944,7 @@ headers_as_is(Config) when is_list(Config) ->
 
     {ok, {{_,400,_}, [_|_], [_|_]}} =
 	httpc:request(get, {URL, [{"Te", ""}]}, [?SSL_NO_VERIFY], [{headers_as_is, true}]).
+
 %%-------------------------------------------------------------------------
 
 userinfo(doc) ->
@@ -1281,8 +1282,16 @@ headers_conflict_chunked_with_length(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
+invalid_headers(doc) ->
+    ["Test invalid header format"];
+invalid_headers(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/dummy.html", Config),
+    {error,{invalid_header,{"headers",
+                            [{"user-agent","httpc"}]}}}	=
+        httpc:request(get, {URL, [{"headers", [{"user-agent", "httpc"}]}]},
+                                  [?SSL_NO_VERIFY], []).
 
-
+%%-------------------------------------------------------------------------
 invalid_headers_key(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config),
                 [{cookie, "valid cookie"}]},
