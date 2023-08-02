@@ -588,8 +588,10 @@ handle_event(_, _, State, Data) ->
       <name name="start_ret"/>
       <desc>
 	<p>
-	  Return value from the <c>start()</c> and <c>start_link()</c> functions,
-	  for example, <seemfa marker="#start_link/3"><c>start_link/3</c></seemfa>.
+	  Return value from the
+          <seemfa marker="#start/3"><c>start/3,4</c></seemfa> and
+          <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>
+          functions.
 	</p>
       </desc>
     </datatype>
@@ -598,7 +600,7 @@ handle_event(_, _, State, Data) ->
       <desc>
 	<p>
 	  Return value from the
-	  <seemfa marker="#start_monitor/3"><c>start_monitor()</c></seemfa>
+	  <seemfa marker="#start_monitor/3"><c>start_monitor/3,4</c></seemfa>
 	  functions.
 	</p>
       </desc>
@@ -1502,11 +1504,14 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  For an unsuccesful initialization,
-	  <c>{stop, <anno>Reason</anno>}</c>,
-	  <c>{error, <anno>Reason</anno>}</c>
+	  <c>{stop,<anno>Reason</anno>}</c>,
+	  <c>{error,<anno>Reason</anno>}</c>
 	  or <c>ignore</c> should be used; see
           <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
 	</p>
+        <p>
+          <c>{error,<anno>Reason</anno>}</c> was introduced in OTP 26.0.
+        </p>
       </desc>
     </datatype>
     <datatype>
@@ -2382,7 +2387,7 @@ handle_event(_, _, State, Data) ->
 	  (using
 	  <seeerl marker="proc_lib"><c>proc_lib</c></seeerl>
 	  primitives)
-	  that is linked to the calling process.
+	  that is spawned as linked to the calling process.
 	  This is essential when the <c>gen_statem</c> must be part of
 	  a supervision tree so it gets linked to its supervisor.
 	</p>
@@ -2392,15 +2397,15 @@ handle_event(_, _, State, Data) ->
 	  to initialize the server. To ensure a synchronized startup
 	  procedure, <c>start_link/3,4</c> does not return until
 	  <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
-	  has returned.
+	  has returned or failed.
 	</p>
 	<p>
 	  <c><anno>ServerName</anno></c> specifies the
 	  <seetype marker="#server_name"><c>server_name()</c></seetype>
-	  to register for the <c>gen_statem</c>.
-	  If the <c>gen_statem</c> is started with <c>start_link/3</c>,
-	  no <c><anno>ServerName</anno></c> is provided and
-	  the <c>gen_statem</c> is not registered.
+	  to register for the <c>gen_statem</c> process.
+	  If the <c>gen_statem</c> process is started with <c>start_link/3</c>,
+          no <c><anno>ServerName</anno></c> is provided and
+	  the <c>gen_statem</c> process is not registered.
 	</p>
         <p><c><anno>Module</anno></c> is the name of the callback module.</p>
         <p>
@@ -2416,9 +2421,9 @@ handle_event(_, _, State, Data) ->
 		<c>{timeout,Time}</c>
 	      </seetype>
 	      is present in
-	      <c><anno>Opts</anno></c>, the <c>gen_statem</c>
+	      <c><anno>Opts</anno></c>, the <c>gen_statem</c> process
 	      is allowed to spend <c>Time</c> milliseconds initializing
-	      or it terminates and the start function returns
+	      or it is terminated and the start function returns
 	      <seetype marker="#start_ret"><c>{error,timeout}</c></seetype>.
             </p>
           </item>
@@ -2428,9 +2433,11 @@ handle_event(_, _, State, Data) ->
 	      <c>{hibernate_after,HibernateAfterTimeout}</c>
 	    </seetype>
 	    is present, the <c>gen_statem</c>
-            process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
-            if no message is received, the process goes into hibernation automatically
-            (by calling <seemfa marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seemfa>).
+            process awaits any message for <c>HibernateAfterTimeout</c>
+            milliseconds and if no message is received,
+            the process goes into hibernation automatically
+            (by calling
+            <seemfa marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seemfa>).
             </p>
           </item>
           <item>
@@ -2465,38 +2472,88 @@ handle_event(_, _, State, Data) ->
 	  </p>
         </note>
 	<p>
-	  If the <c>gen_statem</c> is successfully created
+	  If the <c>gen_statem</c> process is successfully created
 	  and initialized, this function returns
 	  <seetype marker="#start_ret"><c>{ok,Pid}</c></seetype>,
 	  where <c>Pid</c> is the <c>pid()</c>
-	  of the <c>gen_statem</c>.
+	  of the <c>gen_statem</c> process.
 	  If a process with the specified <c><anno>ServerName</anno></c>
 	  exists already, this function returns
-	  <seetype marker="#start_ret"><c>{error,{already_started,Pid}}</c></seetype>,
-	  where <c>Pid</c> is the <c>pid()</c> of that process.
+	  <seetype marker="#start_ret"><c>{error,{already_started,OtherPid}}</c></seetype>,
+	  where <c>OtherPid</c> is the <c>pid()</c> of that process,
+          and the <c>gen_statem</c> process exits with reason <c>normal</c>
+          before calling
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.
 	</p>
+        <p>
+          If <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+          does not return within the
+          <seetype marker="#start_opt">start timeout</seetype>,
+          the <c>gen_statem</c> process is killed with
+          <seemfa marker="erts:erlang#exit/2"><c>exit(_, kill)</c></seemfa>,
+          and this function returns
+	  <seetype marker="#start_ret"><c>{error,timeout}</c></seetype>.
+        </p>
 	<p>
-	  If <c>Module:init/1</c> fails with <c>Reason</c>,
-	  this function returns
-	  <seetype marker="#start_ret"><c>{error, Reason}</c></seetype>.
-	  If <c>Module:init/1</c> returns
-	  <seetype marker="#start_ret"><c>{stop, Reason}</c></seetype>,
-	  <seetype marker="#start_ret"><c>{shutdown, Reason}</c></seetype>
-	  or
-	  <seetype marker="#start_ret"><c>ignore</c></seetype>,
-	  the process is terminated and this function
-	  returns
-	  <seetype marker="#start_ret"><c>{error,Reason}</c></seetype>
-	  or
-	  <seetype marker="#start_ret"><c>ignore</c></seetype>,
-	  respectively.
-          An exit signal with the same <c>Reason</c> (or <c>normal</c> if
-          <c>Module:init/1</c> returns <c>ignore</c>) is set to linked processes
-          and ports, including the process calling <c>start_link/3,4</c>.
+          This function returns
+	  <seetype marker="#start_ret"><c>{error,Reason}</c></seetype> if
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+          returns
+	  <seetype marker="#init_result"><c>{stop,Reason}</c></seetype> or
+	  <seetype marker="#init_result"><c>{error,Reason}</c></seetype>,
+          or fails with reason <c>Reason</c>.
+          This function returns
+	  <seetype marker="#start_ret"><c>ignore</c></seetype> if
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+          returns
+	  <seetype marker="#init_result"><c>ignore</c></seetype>.
+          In these cases the <c>gen_statem</c> process exits
+          with reason <c>Reason</c>, except when <c>Module:init/1</c>
+          returns <c>ignore</c> or <c>{error,_}</c>;
+          then the <c>gen_statem</c> process exits with reason <c>normal</c>.
+        </p>
+        <p>
+          If <c>start_link/3,4</c> returns <c>ignore</c> or <c>{error,_}</c>,
+          the started <c>gen_statem</c> process has terminated.
+          If an <c>'EXIT'</c> message was delivered to the calling process
+          (due to the process link), that message has been consumed.
 	</p>
-	<p>The difference between returning <c>{stop, Reason}</c> and
-	<c>{error, Reason}</c> (from <c>Module:init/1</c>) is that
-	<c>error</c> results in a graceful ("silent") termination. </p>
+        <warning>
+          <p>
+            Before OTP 26.0, if the started <c>gen_statem</c> process
+            returned e.g. <c>{stop,Reason}</c> from
+            <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+            this function could return <c>{error,Reason}</c>
+            <em>before</em> the started <c>gen_statem</c> process
+            had terminated so starting again might fail
+            because VM resources such as the registered name
+            was not yet unregistered, and an <c>'EXIT'</c> message
+            could arrive later to the process calling this function.
+          </p>
+          <p>
+            But if the started <c>gen_statem</c> process instead
+            failed during
+            <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+            a process link <c>{'EXIT',Pid,Reason}</c> message
+            caused this function to return <c>{error,Reason}</c>
+            so the <c>'EXIT'</c> message had been consumed
+            and the started <c>gen_statem</c> process had terminated.
+          </p>
+          <p>
+            Since it was impossible to tell the difference
+            between these two cases from
+            <c>start_link/3,4</c>'s return value,
+            this inconsistency was cleaned up in OTP 26.0.
+          </p>
+        </warning>
+	<p>
+          The difference between returning
+          <c>{stop,_}</c> and <c>{error,_}</c> from
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+          is that <c>{error,_}</c> results in a graceful ("silent")
+          termination since the <c>gen_statem</c> process
+          exits with reason <c>normal</c>.
+        </p>
       </desc>
     </func>
 
@@ -2531,7 +2588,7 @@ handle_event(_, _, State, Data) ->
 
     <func>
       <name name="stop" arity="1" since="OTP 19.0"/>
-      <fsummary>Synchronously stop a generic server.</fsummary>
+      <fsummary>Synchronously stop a <c>gen_statem</c> process.</fsummary>
       <desc>
 	<p>
 	  The same as
@@ -2542,7 +2599,7 @@ handle_event(_, _, State, Data) ->
 
     <func>
       <name name="stop" arity="3" since="OTP 19.0"/>
-      <fsummary>Synchronously stop a generic server.</fsummary>
+      <fsummary>Synchronously stop a <c>gen_statem</c> process.</fsummary>
       <desc>
 	<p>
 	  Orders the <c>gen_statem</c>

@@ -345,30 +345,48 @@ gen_server:abcast     -----> Module:handle_cast/2
             <p>
               A process with the specified <c>ServerName</c> exists already
               with the process identifier <c>OtherPid</c>.
-              This <c>gen_server</c> was not started.
+              This <c>gen_server</c> was not started,
+              or rather exited with reason <c>normal</c> before
+              calling
+              <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.
+            </p>
+          </item>
+          <tag><c>{error,timeout}</c></tag>
+          <item>
+            <p>
+              The <c>gen_server</c> process failed to initialize since
+              <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+              did not return within the
+              <seetype marker="#start_opt">start timeout</seetype>.
+              The <c>gen_server</c> process was killed with
+              <seemfa marker="erts:erlang#exit/2"><c>exit(_, kill)</c></seemfa>.
             </p>
           </item>
           <tag><c>ignore</c></tag>
           <item>
             <p>
+              The <c>gen_server</c> process failed to initialize since
               <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
-              returned <c>ignore</c>, the <c>gen_server</c> process
-              is terminated.  An exit signal <c>normal</c> is sent
-              to linked processes and ports.
+              returned <c>ignore</c>.
             </p>
           </item>
           <tag><c>{error,<anno>Reason</anno>}</c></tag>
           <item>
             <p>
+              The <c>gen_server</c> process failed to initialize since
               <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
-              returned <c>{stop,<anno>Reason</anno>}</c>
-              or failed with <c><anno>Reason</anno></c>.
-              The <c>gen_server</c> process is terminated and
-              an exit signal with the same <c><anno>Reason</anno></c>
-              is sent to linked processes and ports.
+              returned <c>{stop,<anno>Reason</anno>}</c>,
+              <c>{error,<anno>Reason</anno>}</c>,
+              or it failed with reason <c><anno>Reason</anno></c>.
             </p>
           </item>
         </taglist>
+        <p>
+          See
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+          about the exit reason for the <c>gen_server</c> process
+          when it fails to initialize.
+        </p>
       </desc>
     </datatype>
 
@@ -1260,7 +1278,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           Creates a <c>gen_server</c> process as part of a supervision tree.
           This function is to be called, directly or indirectly, by
           the supervisor. For example, it ensures that
-          the <c>gen_server</c> process is linked to the supervisor.
+          the <c>gen_server</c> process is spawned as linked
+          to the caller (supervisor).
         </p>
         <p>
           The <c>gen_server</c> process calls
@@ -1268,7 +1287,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           to initialize.
           To ensure a synchronized startup procedure,
           <c>start_link/3,4</c> does not return until
-          <c>Module:init/1</c> has returned.
+          <c>Module:init/1</c> has returned or failed.
         </p>
         <p>
           Using the argument <c><anno>ServerName</anno></c>
@@ -1297,6 +1316,48 @@ gen_server:abcast     -----> Module:handle_cast/2
           See type
           <seetype marker="#start_ret"><c>start_ret()</c></seetype>
           for a description this function's return values.
+        </p>
+        <p>
+          If <c>start_link/3,4</c> returns <c>ignore</c> or <c>{error,_}</c>,
+          the started <c>gen_server</c> process has terminated.
+          If an <c>'EXIT'</c> message was delivered to the calling process
+          (due to the process link), that message has been consumed.
+	</p>
+        <warning>
+          <p>
+            Before OTP 26.0, if the started <c>gen_server</c> process
+            returned e.g. <c>{stop,Reason}</c> from
+            <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+            this function could return <c>{error,Reason}</c>
+            <em>before</em> the started <c>gen_statem</c> process
+            had terminated so starting again might fail
+            because VM resources such as the registered name
+            was not yet unregistered.  An <c>'EXIT'</c> message
+            could arrive later to the process calling this function.
+          </p>
+          <p>
+            But if the started <c>gen_server</c> process instead
+            failed during
+            <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+            a process link <c>{'EXIT',Pid,Reason}</c> message
+            caused this function to return <c>{error,Reason}</c>
+            so the <c>'EXIT'</c> message had been consumed
+            and the started <c>gen_statem</c> process had terminated.
+          </p>
+          <p>
+            Since it was impossible to tell the difference
+            between these two cases from
+            <c>start_link/3,4</c>'s return value,
+            this inconsistency was cleaned up in OTP 26.0.
+          </p>
+        </warning>
+	<p>
+          The difference between returning
+          <c>{stop,_}</c> and <c>{error,_}</c> from
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+          is that <c>{error,_}</c> results in a graceful ("silent")
+          termination since the <c>gen_server</c> process
+          exits with reason <c>normal</c>.
         </p>
       </desc>
     </func>
@@ -1964,30 +2025,34 @@ format_status(Status) ->
           </item>
           <tag>
             <c>{stop,Reason}</c><br/>
+          </tag>
+          <item>
+            <p>
+              Initialization failed.  The <c>gen_server</c> process
+              exits with reason <c>Reason</c>.
+            </p>
+          </item>
+          <tag>
             <c>{error,Reason}</c><br/>
             <c>ignore</c>
           </tag>
           <item>
             <p>
-              Initialization failed.
-	      An exit signal with reason</p>
-	      <taglist>
-		<tag>stop:</tag>
-		<item><c>Reason</c></item>
-		<tag>error:</tag>
-		<item><c>normal</c></item>
-		<tag>ignore:</tag>
-		<item><c>normal</c></item>
-	      </taglist>
-              <p>is sent to linked processes and ports,
-              notably to the process starting the gen_server when
-              <seemfa marker="#start_link/3">
-                <c>start_link/3,4</c>
-              </seemfa>
-              is used.
+              Initialization failed.  The <c>gen_server</c> process
+              exits with reason <c>normal</c>.
+            </p>
+            <p>
+              <c>{error,Reason}</c> was introduced in OTP 26.0.
             </p>
           </item>
         </taglist>
+        <p>
+          See function
+          <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>'s
+          return value
+          <seetype marker="#start_ret"><c>start_ret()</c></seetype>
+          in these different cases.
+        </p>
       </desc>
     </func>
 
