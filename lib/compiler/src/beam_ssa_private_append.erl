@@ -50,6 +50,8 @@
 -ifdef(DEBUG).
 -define(DP(FMT, ARGS), io:format(FMT, ARGS)).
 -define(DP(FMT), io:format(FMT)).
+ff(#b_local{name=#b_literal{val=N},arity=A}) ->
+    io_lib:format("~p/~p", [N,A]).
 -else.
 -define(DP(FMT, ARGS), skip).
 -define(DP(FMT), skip).
@@ -142,14 +144,14 @@ find_defs_1([{Fun,{append,Dst,_Arg}}|Work], DefSt0=#def_st{stmap=StMap}) ->
     #{Fun:=#opt_st{ssa=SSA,args=Args}} = StMap,
     {DefsInFun,DefSt} = defs_in_fun(Fun, Args, SSA, DefSt0),
     ValuesInFun = values_in_fun(Fun, DefSt),
-    ?DP("*** append in: ~p ***~n", [Fun]),
+    ?DP("*** append in: ~s ***~n", [ff(Fun)]),
     track_value_in_fun([{Dst,self}], Fun, Work,
                        DefsInFun, ValuesInFun, DefSt);
 find_defs_1([{Fun,{track_call_argument,Callee,Element,Idx}}|Work],
             DefSt0=#def_st{stmap=StMap}) ->
     #{Fun:=#opt_st{ssa=SSA,args=Args}} = StMap,
-    ?DP("*** Tracking ~p of the ~p:th argument in call to ~p"
-        " in the function ~p ***~n", [Element, Idx, Callee, Fun]),
+    ?DP("*** Tracking ~p of the ~p:th argument in call to ~s"
+        " in the function ~s ***~n", [Element, Idx, ff(Callee), ff(Fun)]),
 
     {DefsInFun,DefSt1} = defs_in_fun(Fun, Args, SSA, DefSt0),
     ValuesInFun = values_in_fun(Fun, DefSt1),
@@ -162,8 +164,7 @@ find_defs_1([{Fun,{track_result,Element}}|Work],
     #{Fun:=#opt_st{ssa=SSA,args=Args}} = StMap,
     {DefsInFun,DefSt1} = defs_in_fun(Fun, Args, SSA, DefSt0),
     ValuesInFun = values_in_fun(Fun, DefSt0),
-    ?DP("*** Tracking ~p of the result of ~p ***~n",
-        [Fun, Element]),
+    ?DP("*** Tracking ~p of the result of ~s ***~n", [Element, ff(Fun)]),
     {Results,DefSt} = get_results(SSA, Element, Fun, DefSt1),
     ?DP("values to track inside the function: ~p~n", [Results]),
     track_value_in_fun(Results, Fun, Work, DefsInFun, ValuesInFun, DefSt);
@@ -208,19 +209,22 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work,
                    Defs, ValuesInFun, DefSt0)
   when is_map_key({V,Element}, ValuesInFun) ->
     %% We have already explored this value.
-    ?DP("We have already explored ~p of ~p in ~p~n", [Element, V, Fun]),
+    ?DP("We have already explored ~p of ~p in ~s~n", [Element, V, ff(Fun)]),
     track_value_in_fun(Rest, Fun, Work, Defs, ValuesInFun, DefSt0);
 track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                    ValuesInFun0, DefSt0=#def_st{}) ->
-    ?DP("Tracking  ~p of ~p in fun ~p~n", [Element, V, Fun]),
+    ?DP("Tracking ~p of ~p in fun ~s~n", [Element, V, ff(Fun)]),
     ValuesInFun = ValuesInFun0#{{V,Element}=>visited},
     case Defs of
         #{V:=#b_set{dst=V,op=Op,args=Args}} ->
             case {Op,Args,Element} of
                 {bs_create_bin,[#b_literal{val=append},_,Arg|_],self} ->
+                    ?DP("value is created by append, adding ~p.~n",
+                        [{Arg,self}]),
                     track_value_in_fun([{Arg,self}|Rest], Fun, Work0,
                                        Defs, ValuesInFun, DefSt0);
                 {bs_create_bin,[#b_literal{val=private_append},_,_|_],self} ->
+                    ?DP("value is created by private_append.~n"),
                     %% If the code has already been rewritten to use
                     %% private_append, tracking the accumulator to
                     %% ensure that it is is writable has already
@@ -228,16 +232,20 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     track_value_in_fun(Rest, Fun, Work0,
                                        Defs, ValuesInFun, DefSt0);
                 {bs_init_writable,_,self} ->
+                    ?DP("value is created by bs_init_writable.~n"),
                     %% bs_init_writable creates a writable binary, so
                     %% we are done.
                     track_value_in_fun(Rest, Fun, Work0,
                                        Defs, ValuesInFun, DefSt0);
                 {call,[#b_local{}=Callee|_Args],_} ->
+                    ?DP("value is created by local call to ~s.~n",
+                        [ff(Callee)]),
                     track_value_into_call(Callee, Element, Fun, Rest, Work0,
                                           Defs, ValuesInFun, DefSt0);
                 {call,[#b_remote{mod=#b_literal{val=erlang},
                                  name=#b_literal{val=error},
                                  arity=1}|_Args],_} ->
+                    ?DP("value is from non-returning external call.~n"),
                     %% As erlang:error/1 never returns, we shouldn't
                     %% try to track this value.
                     track_value_in_fun(Rest, Fun, Work0,
@@ -250,24 +258,32 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     %% be able to safely rewrite an accumulator in the
                     %% tail field of the cons, thus we will never
                     %% have to track it.
+                    ?DP("value is created by a get_hd, adding ~p.~n",
+                        [{List,{hd,Element}}]),
                     track_value_in_fun(
                       [{List,{hd,Element}}|Rest], Fun, Work0,
                       Defs, ValuesInFun, DefSt0);
                 {get_tuple_element,[#b_var{}=Tuple,#b_literal{val=Idx}],_} ->
+                    ?DP("value is created by a get_tuple_element, adding ~p.~n",
+                        [{Tuple,{tuple_element,Idx,Element}}]),
                     track_value_in_fun(
                       [{Tuple,{tuple_element,Idx,Element}}|Rest], Fun, Work0,
                       Defs, ValuesInFun, DefSt0);
                 {phi,_,_} ->
                     {ToExplore,DefSt} = handle_phi(Fun, V, Args,
                                                    Element, DefSt0),
+                    ?DP("value is created by a phi, adding ~p.~n", [ToExplore]),
                     track_value_in_fun(ToExplore ++ Rest, Fun, Work0,
                                        Defs, ValuesInFun, DefSt);
                 {put_tuple,_,_} when Element =/= self ->
+                    ?DP("value is created by a put tuple.~n"),
                     track_put_tuple(Args, Element, Rest, Fun, V, Work0,
                                     Defs, ValuesInFun, DefSt0);
                 {put_list,_,_} when Element =/= self ->
+                    ?DP("value is created by a put list.~n"),
                     track_put_list(Args, Element, Rest, Fun, V, Work0,
                                    Defs, ValuesInFun, DefSt0);
+                %% TODO: Bifs?
                 {_,_,_} ->
                     %% Above we have handled all operations through
                     %% which we are able to track the value to its
@@ -275,10 +291,12 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     %% execution paths not reachable when the actual
                     %% type (at runtime) is a relevant bitstring.
                     %% Thus we can safely abort the tracking here.
+                    ?DP("value is created by unknown instruction.~n"),
                     track_value_in_fun(Rest, Fun, Work0,
                                        Defs, ValuesInFun, DefSt0)
             end;
         #{V:={arg,Idx}} ->
+            ?DP("value is function argument.~n"),
             track_value_into_caller(Element, Idx, Rest, Fun, Work0, Defs,
                                     ValuesInFun, DefSt0)
     end;
@@ -304,15 +322,16 @@ track_value_into_caller(Element, ArgIdx,
                         CalledFunDefs, CalledFunValues,
                         DefSt0=#def_st{funcdb=FuncDb,stmap=StMap}) ->
     #func_info{in=Callers} = map_get(CalledFun, FuncDb),
-    ?DP("Track into callers of ~p, tracking arg-idx:~p, ~p~n  callers:~p~n",
-        [CalledFun, ArgIdx, Element, Callers]),
+    ?DP("Track into callers of ~s, tracking arg-idx:~p, ~p~n  callers:~s~n",
+        [ff(CalledFun), ArgIdx, Element,
+         string:join([ff(C) || C <- Callers],", ")]),
     %% The caller information in func_info does not remove a caller
     %% when it is inlined into another function (although the new
     %% caller is added), so we have to filter out functions which lack
     %% entries in the st_map (as they are dead, they have been removed
     %% from the stmap).
-    Work = [ {Caller,{track_call_argument,CalledFun,Element,ArgIdx}}
-             || Caller <- Callers, is_map_key(Caller, StMap)],
+    Work = [{Caller,{track_call_argument,CalledFun,Element,ArgIdx}}
+            || Caller <- Callers, is_map_key(Caller, StMap)],
     GlobalWorklist = Work ++ GlobalWorklist0,
     track_value_in_fun(CalledFunWorklist, CalledFun, GlobalWorklist,
                        CalledFunDefs, CalledFunValues, DefSt0).
