@@ -6419,7 +6419,7 @@ receive_replies(ReqId, N, Acc) ->
       <desc>
         <p>Used by a process to redefine the error handler
           for undefined function calls and undefined registered
-          processes. Inexperienced users are not to use this flag,
+          processes. Use this flag with substantial caution,
           as code auto-loading depends on the correct
           operation of the error handling module.</p>
         <p>Returns the old value of the flag.</p>
