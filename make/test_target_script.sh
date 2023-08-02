@@ -356,14 +356,3 @@ else
         -rsh ssh\
         ${ERL_ARGS}
 fi
-
-CT_RUN_STATUS=$?
-if [ $CT_RUN_STATUS = "0" ]
-then
-    print_highlighted_msg $GREEN "The test(s) ran successfully (ct_run returned a success code)\nTest logs: file://$MAKE_TEST_CT_LOGS/index.html"
-    exit 0
-else
-    print_on_error_note
-    print_highlighted_msg $RED "ct_run returned the error code $CT_RUN_STATUS\nTest logs: file://$MAKE_TEST_CT_LOGS/index.html"
-    exit $CT_RUN_STATUS
-fi

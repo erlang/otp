@@ -1933,10 +1933,6 @@ make_all_runs_index(When) ->
     put(basic_html, basic_html()),
     AbsName = ?abs(?all_runs_name),
     notify_and_lock_file(AbsName),
-    if When == start -> ok;
-       true -> io:put_chars("Updating " ++ AbsName ++ " ... ")
-    end,
-
     %% check if log cache should be used, and if it exists
     UseCache =
 	if When == refresh ->
@@ -1994,9 +1990,6 @@ make_all_runs_index(When) ->
 					   all_runs_index_footer()))
 	end,
     notify_and_unlock_file(AbsName),
-    if When == start -> ok;
-       true -> io:put_chars("done\n")
-    end,
     Result.
 
 make_all_runs_from_cache(AbsName, Dirs, LogCache) ->
@@ -2694,9 +2687,6 @@ update_tests_in_cache(TempData,LogCache=#log_cache{tests=Tests}) ->
 %%
 make_all_suites_index1(When, AbsIndexName, AllTestLogDirs) ->
     IndexName = ?index_name,
-    if When == start -> ok;
-       true -> io:put_chars("Updating " ++ AbsIndexName ++ " ... ")
-    end,
     case catch make_all_suites_index2(IndexName, AllTestLogDirs) of
 	{'EXIT', Reason} ->
 	    io:put_chars("CRASHED while updating " ++ AbsIndexName ++ "!\n"),
@@ -2713,7 +2703,7 @@ make_all_suites_index1(When, AbsIndexName, AllTestLogDirs) ->
 							    TempData}}),
 		    TempData;
 		_ ->
-		    io:put_chars("done\n"),
+		    io:put_chars("HTML logs can be found at file://" ++ AbsIndexName ++ "."),
 		    TempData
 	    end;
 	Err ->

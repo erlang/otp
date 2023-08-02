@@ -3023,8 +3023,7 @@ rel_to_abs(CtArgs) ->
 		 _ = code:del_path(Dir)
 	 end,
 	 code:add_patha(Abs)
-     end || D <- PA],
-    io:format(user, "~n", []).	    
+     end || D <- PA].
 
 rm_trailing_slash(Dir) ->
     filename:join(filename:split(Dir)).
