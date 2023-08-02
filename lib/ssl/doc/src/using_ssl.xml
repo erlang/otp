@@ -342,6 +342,33 @@ ssl:connect("localhost", 9999,
     
   </section>
 
+ <section>
+   <title>NSS keylog </title>
+   <p>The NSS keylog debug feature can be used by authorized users
+   to for instance enable wireshark to decrypt TLS packets.</p>
+
+   <p><em>Server (with NSS key logging)</em></p>
+    <code type="none">
+    server() ->
+        application:load(ssl),
+        {ok, _} = application:ensure_all_started(ssl),
+        Port = 11029,
+        LOpts = [{certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]},
+        {reuseaddr, true},
+        {versions, ['tlsv1.2','tlsv1.3']},
+        {keep_secrets, true} %% Enable NSS key log (debug option)
+        ],
+        {ok, LSock} = ssl:listen(Port, LOpts),
+        {ok, ASock} = ssl:transport_accept(LSock),
+        {ok, CSock} = ssl:handshake(ASock).
+    </code>
+    <p><em>Exporting the secrets</em></p>
+    <code type="none">
+      {ok, [{keylog, KeylogItems}]} = ssl:connection_information(CSock, [keylog]).
+      file:write_file("key.log", [[KeylogItem,$\n] || KeylogItem &lt;- KeylogItems]).
+    </code>
+ </section>
+
   <section>
     <title>Session Reuse pre TLS 1.3</title>
 
@@ -553,7 +580,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
                {versions, ['tlsv1.2','tlsv1.3']},
                {session_tickets, stateless}].
       {ok, LSock} = ssl:listen(8001, LOpts).
-      {ok, CSock} = ssl:transport_accept(LSock).
+      {ok, ASock} = ssl:transport_accept(LSock).
     </code>
 
     <p><em>Step 2 (client):</em> Start the client and connect to server:</p>
@@ -568,7 +595,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 
     <p><em>Step 3 (server):</em> Start the TLS handshake:</p>
     <code type="erl">
-      ssl:handshake(CSock).
+      {ok, CSocket} = ssl:handshake(ASock).
     </code>
 
     <p>A connection is established using a full handshake.
@@ -590,7 +617,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 
     <p><em>Step 4 (server):</em> Accept a new connection on the server:</p>
     <code type="erl">
-      {ok, CSock2} = ssl:transport_accept(LSock).
+      {ok, ASock2} = ssl:transport_accept(LSock).
     </code>
 
     <p><em>Step 5 (client):</em> Make a new connection:</p>
@@ -600,7 +627,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 
     <p><em>Step 6 (server):</em> Start the handshake:</p>
     <code type="erl">
-      ssl:handshake(CSock2).
+      {ok, CSock2} =ssl:handshake(ASock2).
     </code>
 
     <p>The second connection is a session resumption using keying material
@@ -619,7 +646,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 
     <p><em>Step 7 (server):</em> Accept a new connection on the server:</p>
     <code type="erl">
-      {ok, CSock3} = ssl:transport_accept(LSock).
+      {ok, ASock3} = ssl:transport_accept(LSock).
     </code>
 
     <p><em>Step 8 (client):</em> Make a new connection to server:</p>
@@ -634,7 +661,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 
     <p><em>Step 9 (server):</em> Start the handshake:</p>
     <code type="erl">
-      ssl:handshake(CSock3).
+      {ok, CSock3} = ssl:handshake(ASock3).
     </code>
 
     <p>After the handshake is performed, the user process receivess
@@ -647,7 +674,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 
     <p><em>Step 11 (server):</em> Accept a new connection on the server:</p>
     <code type="erl">
-      {ok, CSock4} = ssl:transport_accept(LSock).
+      {ok, ASock4} = ssl:transport_accept(LSock).
     </code>
 
     <p><em>Step 12 (client):</em> Initiate a new connection to the server with the session ticket
@@ -664,13 +691,13 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 
     <p><em>Step 13 (server):</em> Start the handshake:</p>
     <code type="erl">
-      ssl:handshake(CSock3).
+      {ok, CSock4} = ssl:handshake(ASock4).
     </code>
 </section>
 
 
   <section>
-    <title>Early Data in TLS 1.3</title>
+    <title>Early Data in TLS-1.3 </title>
     <p>TLS 1.3 allows clients to send data on the first flight if the endpoints have
     a shared crypographic secret (pre-shared key). This means that clients can send
     early data if they have a valid session ticket received in a previous
@@ -689,12 +716,8 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
     GET, can usually be regarded as safe but even they can be exploited by a large number of
     replays causing resource limit exhaustion and other similar problems.</p>
     <p>An example of sending early data with automatic and manual session ticket handling:</p>
-    <warning>
-    <p>The Early Data feature is experimental in this version of OTP.
-    </p>
-    </warning>
 
-    <p><em>Server (with NSS key logging)</em></p>
+    <p><em>Server</em></p>
     <code type="none">
     early_data_server() ->
         application:load(ssl),
@@ -705,22 +728,17 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
         {versions, ['tlsv1.2','tlsv1.3']},
         {session_tickets, stateless},
         {early_data, enabled},
-        {keep_secrets, true} %% Enable NSS key log (debug option)
         ],
         {ok, LSock} = ssl:listen(Port, LOpts),
         %% Accept first connection
-        {ok, CSock0} = ssl:transport_accept(LSock),
-        {ok, _} = ssl:handshake(CSock0),
+        {ok, ASock0} = ssl:transport_accept(LSock),
+        {ok, CSock0} = ssl:handshake(ASock0),
         %% Accept second connection
-        {ok, CSock1} = ssl:transport_accept(LSock),
-        {ok, Sock} = ssl:handshake(CSock1),
+        {ok, ASock1} = ssl:transport_accept(LSock),
+        {ok, CSock1} = ssl:handshake(ASock1),
         Sock.
     </code>
-    <p><em>Exporting the secrets (optional)</em></p>
-    <code type="none">
-    {ok, [{keylog, KeylogItems}]} = ssl:connection_information(Sock, [keylog]).
-    file:write_file("key.log", [[KeylogItem,$\n] || KeylogItem &lt;- KeylogItems]).
-    </code>
+
     <p><em>Client (automatic ticket handling):</em></p>
     <code type="erl">
     early_data_auto() -&gt;
