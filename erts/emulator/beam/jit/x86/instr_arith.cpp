@@ -1512,13 +1512,14 @@ void BeamModuleAssembler::emit_i_bsr(const ArgSource &LHS,
                                      const ArgRegister &Dst) {
     Label generic = a.newLabel(), next = a.newLabel();
     bool need_generic = true;
+    bool need_register_load = true;
 
     mov_arg(ARG2, LHS);
 
     if (RHS.isSmall()) {
         Sint shift = RHS.as<ArgSmall>().getSigned();
 
-        if (shift >= 0 && shift < SMALL_BITS - 1) {
+        if (shift >= 0) {
             if (always_small(LHS)) {
                 comment("skipped test for small left operand because it is "
                         "always small");
@@ -1532,6 +1533,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgSource &LHS,
             /* We don't need to clear the mask after shifting because
              * _TAG_IMMED1_SMALL will set all the bits anyway. */
             ERTS_CT_ASSERT(_TAG_IMMED1_MASK == _TAG_IMMED1_SMALL);
+            shift = std::min<Sint>(shift, 63);
             a.sar(RET, imm(shift));
             a.or_(RET, imm(_TAG_IMMED1_SMALL));
 
@@ -1539,14 +1541,33 @@ void BeamModuleAssembler::emit_i_bsr(const ArgSource &LHS,
                 a.short_().jmp(next);
             }
         } else {
-            /* Constant shift is negative or too big to fit the `sar`
-             * instruction, fall back to the generic path. */
+            /* Constant shift is negative; fall back to the generic
+             * path. */
         }
+    } else if (hasCpuFeature(CpuFeatures::X86::kBMI2)) {
+        mov_arg(RET, RHS);
+        need_register_load = false;
+
+        emit_are_both_small(generic, LHS, ARG2, RHS, RET);
+
+        a.mov(ARG1, RET);
+        a.sar(ARG1, imm(_TAG_IMMED1_SIZE));
+        a.js(generic);
+
+        mov_imm(RET, 63);
+        a.cmp(ARG1, RET);
+        a.cmova(ARG1, RET);
+
+        a.sarx(RET, ARG2, ARG1);
+        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        a.short_().jmp(next);
     }
 
     a.bind(generic);
     if (need_generic) {
-        mov_arg(RET, RHS);
+        if (need_register_load) {
+            mov_arg(RET, RHS);
+        }
 
         if (Fail.get() != 0) {
             safe_fragment_call(ga->get_i_bsr_guard_shared());

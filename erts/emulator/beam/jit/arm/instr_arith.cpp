@@ -1485,34 +1485,62 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
     if (RHS.isSmall()) {
         Sint shift = RHS.as<ArgSmall>().getSigned();
 
-        if (shift >= 0 && shift < SMALL_BITS - 1) {
+        if (shift >= 0) {
+            arm::Gp small_tag = TMP1;
             if (always_small(LHS)) {
                 comment("skipped test for small left operand because it is "
                         "always small");
                 need_generic = false;
+                mov_imm(small_tag, _TAG_IMMED1_SMALL);
             } else if (always_one_of<BeamTypeId::Number>(LHS)) {
                 comment("simplified test for small operand since it is a "
                         "number");
                 emit_is_not_boxed(generic, lhs.reg);
+                mov_imm(small_tag, _TAG_IMMED1_SMALL);
             } else {
-                a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-                a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+                a.and_(small_tag, lhs.reg, imm(_TAG_IMMED1_MASK));
+                a.cmp(small_tag, imm(_TAG_IMMED1_SMALL));
                 a.b_ne(generic);
             }
 
             /* We don't need to clear the mask after shifting because
              * _TAG_IMMED1_SMALL will set all the bits anyway. */
             ERTS_CT_ASSERT(_TAG_IMMED1_MASK == _TAG_IMMED1_SMALL);
-            a.asr(TMP1, lhs.reg, imm(shift));
-            a.orr(dst.reg, TMP1, imm(_TAG_IMMED1_SMALL));
+            shift = std::min<Sint>(shift, 63);
+            a.orr(dst.reg, small_tag, lhs.reg, arm::asr(shift));
 
             if (need_generic) {
                 a.b(next);
             }
         } else {
-            /* Constant shift is negative or too big to fit the `asr`
-             * instruction; fall back to the generic path. */
+            /* Constant shift is negative; fall back to the generic
+             * path. */
         }
+    } else {
+        auto rhs = load_source(RHS, ARG3);
+
+        /* Ensure that both operands are small and that the shift
+         * count is positive. */
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.ands(TMP1, rhs.reg, imm((1ull << 63) | _TAG_IMMED1_MASK));
+        a.and_(TMP1, lhs.reg, TMP1);
+        a.ccmp(TMP1,
+               imm(_TAG_IMMED1_SMALL),
+               imm(NZCV::kNone),
+               arm::CondCode::kPL);
+        a.b_ne(generic);
+
+        /* Calculate shift count. */
+        a.asr(TMP1, rhs.reg, imm(_TAG_IMMED1_SIZE));
+        mov_imm(TMP2, 63);
+        a.cmp(TMP1, TMP2);
+        a.csel(TMP1, TMP1, TMP2, imm(arm::CondCode::kLE));
+
+        /* Shift right. */
+        ERTS_CT_ASSERT(_TAG_IMMED1_MASK == _TAG_IMMED1_SMALL);
+        a.asr(dst.reg, lhs.reg, TMP1);
+        a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+        a.b(next);
     }
 
     a.bind(generic);

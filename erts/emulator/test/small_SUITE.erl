@@ -25,7 +25,7 @@
 -export([edge_cases/1,
          addition/1, subtraction/1, negation/1,
          multiplication/1, mul_add/1, division/1,
-         test_bitwise/1, test_bsl/1,
+         test_bitwise/1, test_bsl/1, test_bsr/1,
          element/1,
          range_optimization/1]).
 -export([mul_add/0, division/0]).
@@ -43,7 +43,7 @@ groups() ->
     [{p, [parallel],
       [edge_cases,
        addition, subtraction, negation, multiplication, mul_add, division,
-       test_bitwise, test_bsl,
+       test_bitwise, test_bsl, test_bsr,
        element,
        range_optimization]}].
 
@@ -1217,6 +1217,93 @@ test_bsl([{Name,{N,S}}|T], Mod) ->
     end,
     test_bsl(T, Mod);
 test_bsl([], _) ->
+    ok.
+
+test_bsr(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Pairs = bsr_gen_pairs(),
+    Fs0 = gen_func_names(Pairs, 0),
+    Fs = [gen_bsr_function(F) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all]).",
+               "id(I) -> I."]) ++ Fs,
+    %% merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_bsr(Fs0, Mod),
+    unload(Mod),
+    ok.
+
+bsr_gen_pairs() ->
+    {_MinSmall, MaxSmall} = determine_small_limits(0),
+    SmallBits = num_bits(MaxSmall),
+
+    {Powers,Shifts} =
+        if
+            SmallBits < 32 ->
+                {lists:seq(15, SmallBits+2),
+                 lists:seq(0, 7) ++ lists:seq(24, 36)};
+            true ->
+                {lists:seq(30, SmallBits+2),
+                 lists:seq(0, 7) ++ lists:seq(56, 72)}
+        end,
+
+    [{N,S} ||
+        P <- Powers,
+        N <- [rand:uniform(1 bsl P), (1 bsl P)-1],
+        S <- Shifts].
+
+gen_bsr_function({Name,{N,S}}) ->
+    Mask = (1 bsl num_bits(N)) - 1,
+    ?Q("'@Name@'(N0, fixed, More) ->
+           Res = N0 bsr _@S@,
+           if
+               More ->
+                   N = N0 band _@Mask@,
+                   Res = N0 bsr _@S@,
+                   Res = N bsr _@S@;
+               true ->
+                   Res
+           end;
+        '@Name@'(N0, S, More) ->
+           Res = id(N0 bsr S),
+           if
+               More ->
+                   N = N0 band _@Mask@,
+                   Res = id(N0 bsr S),
+                   Res = id(N bsr S),
+                   if
+                      S >= 0 ->
+                          Res = id(N bsr S);
+                      true ->
+                           Res
+                   end;
+               true ->
+                   Res
+           end. ").
+
+test_bsr([{Name,{N,S}}|T], Mod) ->
+    try
+        Res = N bsr S,
+        Res = Mod:Name(N, fixed, true),
+        Res = Mod:Name(N, S, true),
+
+        NegRes = -N bsr S,
+        NegRes = Mod:Name(-N, fixed, false),
+
+        NegRes = -N bsr S,
+        NegRes = Mod:Name(-N, S, false),
+
+        BslRes = N bsr -S,
+        BslRes = Mod:Name(N, -S, false)
+    catch
+        C:R:Stk ->
+            io:format("~p failed. numbers: ~p ~p\n", [Name,N,S]),
+            erlang:raise(C, R, Stk)
+    end,
+    test_bsr(T, Mod);
+test_bsr([], _) ->
     ok.
 
 element(_Config) ->
