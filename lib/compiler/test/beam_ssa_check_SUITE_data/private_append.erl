@@ -80,7 +80,10 @@
 
          id/1,
 
-         bs_create_bin_on_literal/0]).
+         bs_create_bin_on_literal/0,
+
+         crash_in_value_tracking/3,
+         crash_in_value_tracking_inner/3]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1001,3 +1004,24 @@ bs_create_bin_on_literal() ->
 	 end)/bytes
       >>/binary
     >>.
+
+%% Check that the beam_ssa_private_append pass doesn't crash, if it,
+%% during initial value tracking, ends up in operations which do not
+%% create bit strings. This can happen as the initial value tracking
+%% in beam_ssa_private_append doesn't consider types. As the decision
+%% to apply the private append transform is using type information,
+%% tracking values into not type-compatible execution paths is
+%% harmless.
+crash_in_value_tracking_inner(_, 1.0, _) ->
+%ssa% (_, _, _) when post_ssa_opt ->
+%ssa% _ = bs_init_writable(_).
+    (<<>>);
+crash_in_value_tracking_inner(_V1, _, _) when _V1 ->
+    _V1.
+
+crash_in_value_tracking(_, _V0, _) ->
+%ssa% (_, _, _) when post_ssa_opt ->
+%ssa% _ = bs_create_bin(private_append, ...).
+    ((<<((crash_in_value_tracking_inner(
+            {#{#{ ok => ok || _ := _ <- ok} => ok},
+             _V0, false, _V0, "Bo"}, _V0, ok)))/bytes>>) =/= ok).
