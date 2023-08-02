@@ -299,7 +299,12 @@ jobs:
           export ERTS_SKIP_DEPEND=true
           eval `./otp_build env_win32 x64`
           ./otp_build configure
-          if cat erts/CONF_INFO || cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
+          if cat erts/CONF_INFO ||
+             grep -v "Static linking with OpenSSL 3.0" lib/*/CONF_INFO ||
+             cat lib/*/SKIP ||
+             cat lib/SKIP-APPLICATIONS; then
+             exit 1
+          fi
           ./otp_build boot -a
           ./otp_build release -a
           cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
