@@ -283,7 +283,6 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     ?DP("value is created by a put list.~n"),
                     track_put_list(Args, Element, Rest, Fun, V, Work0,
                                    Defs, ValuesInFun, DefSt0);
-                %% TODO: Bifs?
                 {_,_,_} ->
                     %% Above we have handled all operations through
                     %% which we are able to track the value to its
@@ -291,6 +290,13 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     %% execution paths not reachable when the actual
                     %% type (at runtime) is a relevant bitstring.
                     %% Thus we can safely abort the tracking here.
+                    %%
+                    %% Note: That the bif element/2 is not handled is
+                    %% not an omission. When the element index is
+                    %% statically known, the CSE pass will convert the
+                    %% bif to the instruction get_tuple_element. When
+                    %% not known, the default action is correct. The
+                    %% same reasoning applies to hd, tl, and map_get.
                     ?DP("value is created by unknown instruction.~n"),
                     track_value_in_fun(Rest, Fun, Work0,
                                        Defs, ValuesInFun, DefSt0)
