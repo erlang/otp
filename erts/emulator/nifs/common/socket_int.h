@@ -238,6 +238,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(bindtodevice);             \
     GLOBAL_ATOM_DEF(block_source);             \
     GLOBAL_ATOM_DEF(broadcast);                \
+    GLOBAL_ATOM_DEF(bsp_state);                \
     GLOBAL_ATOM_DEF(busy_poll);                \
     GLOBAL_ATOM_DEF(cancel);                   \
     GLOBAL_ATOM_DEF(cancelled);                \
@@ -462,6 +463,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(reuseaddr);                \
     GLOBAL_ATOM_DEF(reuseport);                \
     GLOBAL_ATOM_DEF(rights);                   \
+    GLOBAL_ATOM_DEF(rm);                       \
     GLOBAL_ATOM_DEF(router_alert);             \
     GLOBAL_ATOM_DEF(rthdr);                    \
     GLOBAL_ATOM_DEF(rtoinfo);                  \
