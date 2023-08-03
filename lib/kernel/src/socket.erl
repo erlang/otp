@@ -425,6 +425,7 @@
            acceptfilter |
            bindtodevice |
            broadcast |
+           bsp_state |
            busy_poll |
            debug |
            domain |

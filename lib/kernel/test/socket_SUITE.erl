@@ -232,6 +232,7 @@
          api_opt_sock_rcvtimeo_udp4/1,
          api_opt_sock_reuseaddr/1,
          api_opt_sock_exclusiveaddruse/1,
+         api_opt_sock_bsp_state/1,
          api_opt_sock_sndbuf_udp4/1,
          api_opt_sock_sndlowat_udp4/1,
          api_opt_sock_sndtimeo_udp4/1,
@@ -1120,7 +1121,8 @@ api_options_socket_cases() ->
      {group, api_option_sock_timeo},
      {group, api_option_sock_timestamp},
      api_opt_sock_reuseaddr,
-     api_opt_sock_exclusiveaddruse
+     api_opt_sock_exclusiveaddruse,
+     api_opt_sock_bsp_state
 
     ].
 
@@ -14865,7 +14867,7 @@ api_opt_sock_exclusiveaddruse(_Config) when is_list(_Config) ->
 
 api_opt_sock_exclusiveaddruse() ->
     api_opt_simple_bool(inet, socket, stream, exclusiveaddruse,
-                       #{bind => false}).
+			#{bind => false}).
 
 
 
@@ -14993,6 +14995,218 @@ api_opt_simple_bool(Domain, Level, Type, Option, InitState) ->
     ok = ?SEV_AWAIT_FINISH([Tester]).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option bsp_state.
+%% This is the most basic of tests. We test that we can,
+%% create sockets, bind and connect and extract bsp-state
+%% in the various state(s) of the socket.
+%% For both dgram and stream sockets.
+
+api_opt_sock_bsp_state(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+		   %% This is not a 'IPv4' option,
+		   %% but since we used it in the test...
+                   has_support_ipv4(),
+                   has_support_sock_bsp_state()
+           end,
+           fun() -> api_opt_sock_bsp_state() end).
+
+
+api_opt_sock_bsp_state() ->
+    LSA        = which_local_socket_addr(inet),
+    BspState   = fun(S) ->
+			 case socket:getopt(S, socket, bsp_state) of
+			     {ok, BS} ->
+				 BS;
+			     {error, Reason} ->
+				 ?FAIL({getopt_bsp_state, Reason})
+			 end
+		 end,
+    CreateSock = fun(T, P) ->
+			 case socket:open(inet, T, P) of
+			     {ok, Sock}      ->
+				 Sock;
+			     {error, Reason} ->
+				 skip({socket_create_fail, Reason})
+			 end
+		 end,
+    CloseSock = fun(S) ->
+			socket:close(S)
+		end,
+    BindSock   = fun(S, SA) ->
+			 case socket:bind(S, SA) of
+			     ok ->
+				 ok;
+			     {error, Reason} ->
+				 ?FAIL({bind, Reason})
+			 end
+		 end,
+    Sockname   = fun(S) ->
+			 case socket:sockname(S) of
+			     {ok, SA} ->
+				 SA;
+			     {error, Reason} ->
+				 ?FAIL({sockname, Reason})
+			 end
+		 end,
+    %% Setopt      = fun(S, L, O, V) ->
+    %% 			  socket:setopt(S, L, O, V)
+    %% 		  end,
+    %% SetOtpOpt = fun(S, O, V) -> Setopt(S, otp, O, V) end,
+    %% SetDebug  = fun(S, D) when is_boolean(D) -> SetOptOpt(S, debug, D) end,
+    %% EnableDebug = fun(S) -> SetDebug(S, true) end,
+    ConnectSock = fun(S, SA) ->
+			  case socket:connect(S, SA) of
+			      ok ->
+				  ok;
+			      {error, Reason} ->
+				  ?FAIL({connect, Reason})
+			  end
+		  end,
+    ListenSock = fun(S) ->
+			 case socket:listen(S) of
+			     ok ->
+				 ok;
+			     {error, Reason} ->
+				 ?FAIL({listen, Reason})
+			 end
+		 end,
+    AcceptSock = fun(S) ->
+			 case socket:accept(S) of
+			     {ok, A} ->
+				 A;
+			     {error, Reason} ->
+				 ?FAIL({accept, Reason})
+			 end
+		 end,
+
+    VerifyBspState = fun(S, Type, Proto,
+			 Bound, Connected) ->
+			     verify_bsp_state(S, Type, Proto,
+					      Bound, Connected)
+		     end,
+
+    ?P("Create UDP socket 1:"),
+    US1 = CreateSock(dgram, udp),
+    ?P("UDP[1] [Unbound | Unconnected] => ~p", [BspState(US1)]),
+    VerifyBspState(BspState(US1), dgram, udp, false, false),
+
+    ?P("Create UDP socket 2:"),
+    US2 = CreateSock(dgram, udp),
+    ?P("UDP[2] [Unbound | Unconnected] => ~p", [BspState(US2)]),
+    VerifyBspState(BspState(US2), dgram, udp, false, false),
+
+    ?P("Bind UDP socket 1"),
+    BindSock(US1, LSA),
+    ?P("UDP[1] [Bound | Unconnected]   => ~p", [BspState(US1)]),
+    VerifyBspState(BspState(US1), dgram, udp, true, false),
+
+    ?P("Bind UDP socket 2"),
+    BindSock(US2, LSA),
+    ?P("UDP[2] [Bound | Unconnected]   => ~p", [BspState(US2)]),
+    VerifyBspState(BspState(US2), dgram, udp, true, false),
+
+    %% We have not yet implemented 'connect' for UDP on Windows,
+    %% so we leave this commented for now:
+
+    %% ?P("socknames"),
+    %% USN1 = Sockname(US1),
+    %% USN2 = Sockname(US2),
+
+    %% ?P("enable debug for US1"),
+    %% EnableDebug(US1),
+
+    %% ?P("Connect UDP socket 1 to"
+    %%    "~n   ~p", [USN2]),
+    %% ConnectSock(US1, USN2),
+    %% ?P("UDP[1] [Bound | Connected]     => ~p", [BspState(US1)]),
+
+    %% ?P("Connect UDP socket 2 to"
+    %%    "~n   ~p", [USN1]),
+    %% ConnectSock(US2, USN1),
+    %% ?P("UDP[2] [Bound | Connected]     => ~p", [BspState(US2)]),
+
+
+    ?P("Create TCP socket 1:"),
+    TS1 = CreateSock(stream, tcp),
+    ?P("TCP[1] [Unbound | Unconnected] => ~p", [BspState(TS1)]),
+    VerifyBspState(BspState(TS1), stream, tcp, false, false),
+
+    ?P("Create TCP socket 2 (listen):"),
+    TS2 = CreateSock(stream, tcp),
+    ?P("TCP[2] [Unbound | Unconnected] => ~p", [BspState(TS2)]),
+    VerifyBspState(BspState(TS2), stream, tcp, false, false),
+
+    ?P("Bind TCP socket 1"),
+    BindSock(TS1, LSA),
+    ?P("TCP[1] [Bound | Unconnected]   => ~p", [BspState(TS1)]),
+    VerifyBspState(BspState(TS1), stream, tcp, true, false),
+
+    ?P("Bind TCP socket 2"),
+    BindSock(TS2, LSA),
+    ?P("TCP[2] [Bound | Unconnected]   => ~p", [BspState(TS2)]),
+    VerifyBspState(BspState(TS2), stream, tcp, true, false),
+
+    ?P("Make TCP socket 2 listen"),
+    ListenSock(TS2),
+
+    ?P("socknames"),
+    TSN2 = Sockname(TS2),
+
+    ?P("Connect TCP socket 1 to"
+       "~n   ~p", [TSN2]),
+    ConnectSock(TS1, TSN2),
+    ?P("TCP[1] [Bound | Connected]   => ~p", [BspState(TS1)]),
+    VerifyBspState(BspState(TS1), stream, tcp, true, true),
+
+    ?P("Accept TCP socket 3"),
+    TS3 = AcceptSock(TS2),
+    ?P("TCP[3] [Bound | Connected]   => ~p", [BspState(TS3)]),
+    VerifyBspState(BspState(TS3), stream, tcp, true, true),
+
+    ?P("Close socket(s)"),
+    CloseSock(TS3),
+    CloseSock(TS2),
+    CloseSock(TS1),
+
+    ?P("done"),
+    ok.
+
+
+verify_bsp_state(#{type        := T,
+		   protocol    := P,
+		   local_addr  := LA,
+		   remote_addr := RA},
+		 Type, Proto,
+		 Bound, Connected) when (T =:= Type) andalso (P =:= Proto) ->
+    case {Bound, LA} of
+	{false, undefined} ->
+	    ok;
+	{true, _} when (LA =/= undefined) ->
+	    ok;
+	_ ->
+	    ?FAIL({invalid_bound_la, Bound, LA})
+    end,
+    case {Connected, RA} of
+	{false, undefined} ->
+	    ok;
+	{true, _} when (RA =/= undefined) ->
+	    ok;
+	_ ->
+	    ?FAIL({invalid_connected_ra, Connected, RA})
+    end,
+    ok;
+verify_bsp_state(#{type     := T,
+		   protocol := P},
+		 Type, Proto,
+		 _Bound, _Connected) ->
+    ?FAIL({invalid_type_or_proto, {T, Type}, {P, Proto}}).
+
+
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Tests the socket option linger. PLACEHOLDER!
@@ -50316,6 +50530,9 @@ has_support_sock_reuseaddr() ->
 
 has_support_sock_exclusiveaddruse() ->
     has_support_socket_option_sock(exclusiveaddruse).
+
+has_support_sock_bsp_state() ->
+    has_support_socket_option_sock(bsp_state).
 
 has_support_sock_oobinline() ->
     has_support_socket_option_sock(oobinline).
