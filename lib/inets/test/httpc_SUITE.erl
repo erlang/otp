@@ -155,6 +155,7 @@ only_simulated() ->
     [
      cookie,
      cookie_profile,
+     cookie_stand_alone,
      empty_set_cookie,
      invalid_set_cookie,
      trace,
@@ -907,6 +908,35 @@ cookie_profile(Config) when is_list(Config) ->
 
     ets:delete(cookie),
     inets:stop(httpc, cookie_test).
+
+%%-------------------------------------------------------------------------
+cookie_stand_alone() ->
+    [{doc, "Test cookies on a stand_alone httpc."}].
+cookie_stand_alone(Config) when is_list(Config) ->    
+    {ok, Pid} = inets:start(httpc, [{profile, cookie_test}],stand_alone),
+    ok = httpc:set_options([{cookies, enabled}], Pid),
+
+    Request0 = {url(group_name(Config), "/cookie.html", Config), []},
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, Request0, [?SSL_NO_VERIFY], [], Pid),
+
+    %%Populate table to be used by the "dummy" server
+    ets:new(cookie, [named_table, public, set, {read_concurrency, true}]),
+    ets:insert(cookie, {cookies, true}),
+
+    Request1 = {url(group_name(Config), "/", Config), []},
+
+    {ok, {{_,Status,_}, [_ | _], [_|_]}}
+	= httpc:request(get, Request1, [?SSL_NO_VERIFY], [], Pid),
+
+    case Status of
+        401 -> ct:fail(no_cookie_header);
+        _ -> ok
+    end,
+
+    ets:delete(cookie),
+    inets:stop(stand_alone, Pid).
 
 %%-------------------------------------------------------------------------
 empty_set_cookie() ->
@@ -2450,21 +2480,28 @@ handle_http_msg({Method, RelUri, _, {_, Headers}, Body}, Socket, _) ->
 		end
 	end,
    
-    case (catch ets:lookup(cookie, cookies)) of 
-	[{cookies, true}]->
-	    check_cookie(Headers);
-	_ ->
-	    ok
-    end,
-
-   {ok, {_, Port}} = sockname(Socket),
-
-
     DefaultResponse = "HTTP/1.1 200 ok\r\n" ++
 	"Content-Length:32\r\n\r\n"
 	"<HTML><BODY>foobar</BODY></HTML>",
 
-    Msg = handle_uri(Method,RelUri, Port, Headers, Socket, DefaultResponse),
+    Response =
+        case (catch ets:lookup(cookie, cookies)) of 
+	    [{cookies, true}]->
+	        case check_cookie(Headers) of 
+            error -> 
+                "HTTP/1.1 401 Unauthorized\r\n" ++
+                "Content-Length:40\r\n\r\n"
+                "<HTML><BODY>cookie-missing</BODY></HTML>";
+            _ ->
+                DefaultResponse
+            end;
+	    _ ->
+	        DefaultResponse
+        end,
+
+   {ok, {_, Port}} = sockname(Socket),
+
+    Msg = handle_uri(Method,RelUri, Port, Headers, Socket, Response),
 
     case Msg of
 	ok ->
@@ -2545,7 +2582,7 @@ handle_auth("Basic " ++ UserInfo, Challenge, DefaultResponse) ->
     end.
 
 check_cookie([]) ->
-    ct:fail(no_cookie_header);
+    error;
 check_cookie([{"cookie", _} | _]) ->
     ok;
 check_cookie([_Head | Tail]) ->
