@@ -150,7 +150,14 @@
 	that is, <c>"\r\n\r\n",</c> the server assumes that no HTTP
 	header fields will be generated.</p>
 
-	<p><c>Env</c> environment data of the request see description above.</p>
+	<p>To set the response status code, the special <c>status</c> response
+	header can be sent. For instance, to acknowledge creation of a resource
+	and annotate the response content type with JSON, one could respond with
+	the following headers:</p>
+
+	<code type="erl">"status: 201 Created\r\n content-type: application/json\r\n\r\n"</code>
+
+	<p><c>Env</c> environment data of the request, see description above.</p>
 		
 	<p><c>Input</c> is query data of a GET request or the body of
 	a PUT or POST request. The default behavior (legacy reasons)
