@@ -201,7 +201,8 @@ headers(Key, Value, Headers) ->
 
 key_value_str(Key, Headers) ->
     case key_value(Key, Headers) of
-        undefined -> undefined;
+        undefined ->
+            undefined;
         Value ->
             mk_key_value_str(atom_to_list(Key), Value)
     end.
@@ -289,7 +290,13 @@ headers_other([{Key, Value} | Rest], Headers) ->
     headers_other(Rest, [mk_key_value_str(Key, Value) | Headers]).
 
 mk_key_value_str(Key, Value) ->
-    Key ++ ": " ++ value_to_list(Value) ++ ?CRLF.
+    try Key ++ ": " ++ value_to_list(Value) ++ ?CRLF of
+        HeaderStr ->
+            HeaderStr
+    catch
+        error:_ ->
+            throw({invalid_header, {Key, Value}})
+    end.
 
 value_to_list(Binary) when is_binary(Binary) ->
     binary_to_list(Binary);
