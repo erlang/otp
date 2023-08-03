@@ -2050,6 +2050,8 @@ get_socket_opts(Connection, Transport, Socket, [Tag | Tags], SockOpts, Acc) ->
     case Connection:getopts(Transport, Socket, [Tag]) of
         {ok, [Opt]} ->
             get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, [Opt | Acc]);
+        {ok, []} ->
+            get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, Acc);
         {error, Reason} ->
             {error, {options, {socket_options, Tag, Reason}}}
     end;
