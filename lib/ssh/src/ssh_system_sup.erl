@@ -53,15 +53,26 @@
 
 start_system(Role, Address0, Options) ->
     case find_system_sup(Role, Address0) of
-        {ok,{SysPid,Address}} ->
+        {ok,{SysPid,Address}} when Role =:= server ->
             restart_acceptor(SysPid, Address, Options);
+        {ok,{SysPid,_Address}} ->
+            {ok, SysPid};
         {error,not_found} ->
-            supervisor:start_child(sup(Role),
+            case supervisor:start_child(sup(Role),
                                    #{id       => {?MODULE,Address0},
                                      start    => {?MODULE, start_link, [Role, Address0, Options]},
                                      restart  => temporary,
                                      type     => supervisor
                                     })
+            of
+                {ok, SysPid} ->
+                    {ok, SysPid};
+                {error, {already_started, SysPid}} ->
+                    %% There was other connection that created the supervisor while
+                    %% this process was trying to create it as well
+                    {ok, SysPid};
+                Others -> Others
+            end
     end.
 
 %%%----------------------------------------------------------------
@@ -100,16 +111,7 @@ start_subsystem(Role, Address=#address{}, Socket, Options0) ->
     Id = make_ref(),
     case get_system_sup(Role, Address, Options) of
         {ok,SysPid} ->
-            case supervisor:start_child(SysPid,
-                                        #{id          => Id,
-                                          start       => {ssh_subsystem_sup, start_link,
-                                                          [Role,Address,Id,Socket,Options]
-                                                         },
-                                          restart     => temporary,
-                                          significant => true,
-                                          type        => supervisor
-                                         })
-            of
+            case start_subsystem_sup(SysPid, Id, [Role,Address,Id,Socket,Options]) of
                 {ok,_SubSysPid} ->
                     try
                         receive
@@ -129,6 +131,10 @@ start_subsystem(Role, Address=#address{}, Socket, Options0) ->
                             supervisor:terminate_child(SysPid, Id),
                             {error, connection_start_timeout}
                     end;
+                {error,noproc} ->
+                    %% The supervisor has shut itself down due to the termination of
+                    %% all the significant children
+                    start_subsystem(Role, Address, Socket, Options0);
                 Others ->
                     Others
             end;
@@ -136,6 +142,19 @@ start_subsystem(Role, Address=#address{}, Socket, Options0) ->
             Others
     end.
 
+start_subsystem_sup(SysPid, Id, StartArgs) ->
+    try
+        supervisor:start_child(SysPid,
+                               #{id          => Id,
+                                 start       => {ssh_subsystem_sup, start_link, StartArgs},
+                                 restart     => temporary,
+                                 significant => true,
+                                 type        => supervisor
+                                })
+    catch
+        exit:{noproc,_} ->
+            {error, noproc}
+    end.
 
 %%%----------------------------------------------------------------
 start_link(Role, Address, Options) ->
