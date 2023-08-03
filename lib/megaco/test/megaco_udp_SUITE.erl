@@ -1118,8 +1118,10 @@ server_open(Config, #{transport_ref := Ref} = State, Options)
               "~n      ControlPid: ~p", [Socket, ControlPid]),
 	    {ok, State#{handle      => {socket, Socket},  % Temporary
 			control_pid => ControlPid}};
-	{error, {could_not_open_udp_port, eaddrinuse}} ->
-	    {skip, {server, eaddrinuse}};
+	{error, {could_not_open_udp_port, SkipReason}}
+          when (SkipReason =:= eaddrinuse) orelse
+               (SkipReason =:= eacces) ->
+	    {skip, {server, SkipReason}};
 	{error, _} = ERROR ->
 	    ERROR
     catch
@@ -1233,8 +1235,10 @@ client_open(Config, #{transport_ref := Ref} = State, Options)
 	    {ok, State#{handle      => {socket, Socket},
                         socket      => Socket,
 			control_pid => ControlPid}};
-	{error, {could_not_open_udp_port, eaddrinuse}} ->
-	    {skip, {client, eaddrinuse}};
+	{error, {could_not_open_udp_port, SkipReason}}
+          when (SkipReason =:= eaddrinuse) orelse
+               (SkipReason =:= eacces) ->
+	    {skip, {client, SkipReason}};
 	{error, _} = ERROR ->
 	    ERROR
     catch
