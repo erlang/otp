@@ -299,7 +299,12 @@ jobs:
           export ERTS_SKIP_DEPEND=true
           eval `./otp_build env_win32 x64`
           ./otp_build configure
-          if cat erts/CONF_INFO || cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
+          if cat erts/CONF_INFO ||
+             grep -v "Static linking with OpenSSL 3.0" lib/*/CONF_INFO ||
+             cat lib/*/SKIP ||
+             cat lib/SKIP-APPLICATIONS; then
+             exit 1
+          fi
           ./otp_build boot -a
           ./otp_build release -a
           cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
@@ -384,6 +389,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cleanup GH Runner
+        run: |
+            ## Delete large files from runner to get more disk space
+            ## See https://github.com/actions/runner-images/issues/2840
+            sudo rm -rf /usr/share/dotnet
+            sudo rm -rf /opt/ghc
+            sudo rm -rf "/usr/local/share/boost"
+            sudo rm -rf "$AGENT_TOOLSDIRECTORY"
       - name: Cache BASE image
         uses: actions/cache@v3
         if: matrix.type == 'clang'
