@@ -1126,6 +1126,8 @@ grab_bag(_Config) ->
 
     {'EXIT',_} = (catch grab_bag_3()),
 
+    true = grab_bag_4(),
+
     ok.
 
 grab_bag_1(V) ->
@@ -1179,6 +1181,16 @@ grab_bag_3() ->
             %% The default clause here (which re-throws the exception)
             %% would not return two values as expected.
     end =:= (V0 = 42).
+
+grab_bag_4() ->
+    try
+        erlang:yield()
+    after
+        %% beam_jump would do an unsafe sharing of blocks, resulting
+        %% in an ambiguous_catch_try_state diagnostic from beam_validator.
+        catch <<>> = size(catch ([_ | _] = ok))
+    end.
+
 
 stacktrace(_Config) ->
     V = [make_ref()|self()],
