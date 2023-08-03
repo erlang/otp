@@ -389,6 +389,14 @@ nomatch(Config) when is_list(Config) ->
 
     <<>> = << <<>> || <<_:8>> <= <<>> >>,
 
+    %% GH-7494. Qualifiers should be evaluated from left to right. The
+    %% second (failing) generator should never be evaluated because the
+    %% first generator is an empty list.
+    <<>> = id(<< <<C:8>> || C <- [], _ <- ok >>),
+    <<>> = id(<<0 || _ <- [], _ <- ok, false>>),
+
+    {'EXIT',{{bad_generator,false},_}} = catch << [] || <<0:0>> <= false >>,
+
     ok.
 
 nomatch_1(Bin, Size) ->
