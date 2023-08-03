@@ -823,7 +823,7 @@ aa_get_element_extraction_status(#b_literal{}, _State) ->
     unique.
 
 aa_set_status(V=#b_var{}, aliased, State) ->
-    %% io:format("Setting ~p to aliased.~n", [V]),
+    ?DP("Setting ~p to aliased.~n", [V]),
     case State of
         #{V:=#vas{status=unique,parents=[]}} ->
             %% This is the initial value.
@@ -853,7 +853,7 @@ aa_set_status([], _, State) ->
 
 %% Propagate the aliased status to the children.
 aa_set_status_1(#b_var{}=V, Parent, State0) ->
-    %% io:format("aa_set_status_1: ~p, parent:~p~n~p.~n", [V,Parent,State0]),
+    ?DP("aa_set_status_1: ~p, parent:~p~n~p.~n", [V,Parent,State0]),
     #{V:=#vas{child=Child,extracted=Extracted,parents=Parents}} = State0,
     State = State0#{V=>#vas{status=aliased}},
     Work = case Child of
@@ -868,12 +868,6 @@ aa_set_status_1([#b_var{}=V|Rest], Parent, State) ->
 aa_set_status_1([], _Parent, State) ->
     State.
 
-%% aa_remove_parent(_V, none, State) ->
-%%     State;
-%% aa_remove_parent(V, Parent, State) ->
-%%     #{V:=#vas{parents=Parents0}=Vas} = State,
-%%     State#{V=>Vas#vas{parents=ordsets:del_element(Parent, Parents0)}}.
-
 aa_derive_from(Dst, [Parent|Parents], State0) ->
     aa_derive_from(Dst, Parents, aa_derive_from(Dst, Parent, State0));
 aa_derive_from(_Dst, [], State0) ->
@@ -881,33 +875,27 @@ aa_derive_from(_Dst, [], State0) ->
 aa_derive_from(#b_var{}, #b_literal{}, State) ->
     State;
 aa_derive_from(#b_var{}=Dst, #b_var{}=Parent, State) ->
-    %% io:format("Deriving ~p from ~p~n~p.~n", [Dst,Parent,State]),
+    ?DP("Deriving ~p from ~p~n~p.~n", [Dst,Parent,State]),
     case State of
         #{Dst:=#vas{status=aliased}} ->
-            %% io:format("Derive 1~n"),
             %% Nothing to do, already aliased. This can happen when
             %% handling Phis, no propagation to the parent should be
             %% done.
             ?aa_assert_ss(State);
         #{Parent:=#vas{status=aliased}} ->
-            %% io:format("Derive 2~n"),
             %% The parent is aliased, the child will become aliased.
             ?aa_assert_ss(aa_set_aliased(Dst, State));
         #{Parent:=#vas{child=Child}} when Child =/= none ->
-            %% io:format("Derive 3~n"),
             %% There already is a child, this will alias both Dst and Parent.
             ?aa_assert_ss(aa_set_aliased([Dst,Parent], State));
         #{Parent:=#vas{child=none,tuple_elems=Elems}} when Elems =/= [] ->
-            %% io:format("Derive 4 ~p~n", [[Dst,Parent]]),
             %% There already is a child, this will alias both Dst and Parent.
             ?aa_assert_ss(aa_set_aliased([Dst,Parent], State));
         #{Parent:=#vas{child=none,pair_elems=Elems}} when Elems =/= none ->
-            %% io:format("Derive 5~n"),
             %% There already is a child, this will alias both Dst and Parent.
             ?aa_assert_ss(aa_set_aliased([Dst,Parent], State));
         #{Dst:=#vas{parents=Parents}=ChildVas0,
           Parent:=#vas{child=none}=ParentVas0} ->
-            %% io:format("Derive 6~n"),
             %% Inherit the status of the parent.
             ChildVas =
                 ChildVas0#vas{parents=ordsets:add_element(Parent, Parents),
