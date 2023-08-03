@@ -2562,7 +2562,7 @@
 	    <br/>Defaults to <c>false</c>. </p>
 	  </item>
 
-	  <tag><c>use_registry></c></tag>
+	  <tag><c>use_registry</c></tag>
 	  <item>
 	    <p>Enable or disable use of the socket registry for this socket.
 	    This overrides the global value.

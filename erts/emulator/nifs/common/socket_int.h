@@ -294,6 +294,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(ether);                    \
     GLOBAL_ATOM_DEF(eui64);                    \
     GLOBAL_ATOM_DEF(events);                   \
+    GLOBAL_ATOM_DEF(exclusiveaddruse);         \
     GLOBAL_ATOM_DEF(explicit_eor);             \
     GLOBAL_ATOM_DEF(faith);                    \
     GLOBAL_ATOM_DEF(false);                    \
