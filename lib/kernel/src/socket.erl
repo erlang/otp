@@ -77,7 +77,9 @@
 
 %% Misc utility functions
 -export([
-	 which_socket_kind/1
+	 which_socket_kind/1,
+         options/0, options/1, options/2, option/1, option/2,
+         protocols/0, protocol/1
 	]).
 
 -export_type([
@@ -428,6 +430,7 @@
            domain |
            dontroute |
            error |
+           exclusiveaddruse |
            keepalive |
            linger |
            mark |
@@ -1401,6 +1404,34 @@ is_supported(Key1, Key2) ->
 %% Undocumented legacy function
 is_supported(options, Level, Opt) when is_atom(Level), is_atom(Opt) ->
     is_supported(options, {Level,Opt}).
+
+
+options() ->
+    lists:sort(supports(options)).
+
+options(Level) ->
+    [{Opt, Supported} || {{Lvl, Opt}, Supported} <- options(), (Lvl =:= Level)].
+
+options(Level, Supported) ->
+    [Opt || {Opt, Sup} <- options(Level), (Sup =:= Supported)].
+
+option({Level, Opt}) ->
+    lists:member(Opt, options(Level, true)).
+option(Level, Opt) ->
+    option({Level, Opt}).
+
+
+protocols() ->
+    lists:sort(supports(protocols)).
+
+protocol(Proto) ->
+    case lists:keysearch(Proto, 1, protocols()) of
+        {value, {Proto, Supported}} ->
+            Supported;
+        false ->
+            false
+    end.
+
 
 
 %% ===========================================================================

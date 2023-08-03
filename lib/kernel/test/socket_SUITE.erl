@@ -230,6 +230,8 @@
          api_opt_sock_rcvbuf_udp4/1,
          api_opt_sock_rcvlowat_udp4/1,
          api_opt_sock_rcvtimeo_udp4/1,
+         api_opt_sock_reuseaddr/1,
+         api_opt_sock_exclusiveaddruse/1,
          api_opt_sock_sndbuf_udp4/1,
          api_opt_sock_sndlowat_udp4/1,
          api_opt_sock_sndtimeo_udp4/1,
@@ -1116,7 +1118,10 @@ api_options_socket_cases() ->
      {group, api_option_sock_buf},
      {group, api_option_sock_lowat},
      {group, api_option_sock_timeo},
-     {group, api_option_sock_timestamp}
+     {group, api_option_sock_timestamp},
+     api_opt_sock_reuseaddr,
+     api_opt_sock_exclusiveaddruse
+
     ].
 
 api_option_sock_acceptconn_cases() ->
@@ -14813,6 +14818,179 @@ api_opt_sock_keepalive() ->
     i("await evaluator(s)"),
     ok = ?SEV_AWAIT_FINISH([Tester]).
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option reuseaddr.
+%% This is the most basic of tests. We only test that we can set the
+%% option and then read back.
+
+api_opt_sock_reuseaddr(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   %% [IPv4] Nothing to do with the option,
+                   %% [IPv4] but we use it the test so make
+                   %% [IPv4] use we have it.
+                   has_support_ipv4(),
+                   has_support_sock_reuseaddr()
+           end,
+           fun() -> api_opt_sock_reuseaddr() end).
+
+
+api_opt_sock_reuseaddr() ->
+    api_opt_simple_bool(inet, socket, stream, reuseaddr,
+                       #{bind => false}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option exclusiveaddruse.
+%% This is the most basic of tests. We only test that we can set the
+%% option and then read back.
+
+api_opt_sock_exclusiveaddruse(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   %% [IPv4] Nothing to do with the option,
+                   %% [IPv4] but we use it the test so make
+                   %% [IPv4] use we have it.
+                   has_support_ipv4(),
+                   has_support_sock_exclusiveaddruse()
+           end,
+           fun() -> api_opt_sock_exclusiveaddruse() end).
+
+
+api_opt_sock_exclusiveaddruse() ->
+    api_opt_simple_bool(inet, socket, stream, exclusiveaddruse,
+                       #{bind => false}).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% *Simple* test for a bool option.
+%% This basically just tests that we can set and get the option.
+%% This assumes that the option is supported.
+%% What if its required that the socket is bound before set/get?
+%% What if its required that set/get is done before bind?
+
+api_opt_simple_bool(Domain, Level, Type, Option, InitState) ->
+
+    Set    = fun(S, Val) when is_boolean(Val) ->
+                     socket:setopt(S, Level, Option, Val)
+             end,
+    Get    = fun(S) ->
+                     socket:getopt(S, Level, Option)
+             end,
+
+    TesterSeq =
+        [
+         #{desc => "(maybe) which local address",
+           cmd  => fun(#{bind := true} = State) ->
+                           case ?LIB:which_local_host_info(Domain) of
+                               {ok, #{name      := Name,
+                                      addr      := Addr}} ->
+                                   ?SEV_IPRINT("local host info: "
+                                               "~n   Name: ~p"
+                                               "~n   Addr: ~p",
+                                               [Name, Addr]),
+                                   LSA = #{family => Domain,
+                                           addr   => Addr},
+                                   {ok, State#{lsa => LSA}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (_State) ->
+                           ?SEV_IPRINT("ignore get local address"),
+                           ok
+                   end},
+
+         #{desc => "create socket",
+           cmd  => fun(State) ->
+                           case socket:open(Domain, Type) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "(maybe) bind",
+           cmd  => fun(#{bind := true, lsa := LSA, sock := Sock} = _State) ->
+                           ?SEV_IPRINT("try binding"),
+                           socket:bind(Sock, LSA);
+                      (_State) ->
+                           ?SEV_IPRINT("ignore binding"),
+                           ok
+                   end},
+
+         #{desc => "Get current value",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case Get(Sock) of
+                               {ok, Val} when is_boolean(Val) ->
+                                   ?SEV_IPRINT("Success: ~p", [Val]),
+                                   {ok, State#{Option => Val}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected failure: ~p",
+                                               [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Try change the value",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           Current = maps:get(Option, State),
+			   New     = not Current,
+                           ?SEV_IPRINT("Try change value from ~p to ~p", 
+                                       [Current, New]),
+                           case Set(Sock, New) of
+                               ok ->
+                                   ?SEV_IPRINT("Expected Success"),
+                                   {ok, State#{Option => New}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Verify (new) current value",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           Val = maps:get(Option, State),
+                           case Get(Sock) of
+                               {ok, Val} ->
+                                   ?SEV_IPRINT("Expected Success (~p)", [Val]),
+                                   ok;
+                               {ok, OtherVal} ->
+                                   ?SEV_IPRINT("Unexpected Success: ~p",
+                                               [OtherVal]),
+                                   {error, {unexpected_success_value,
+                                            Val, OtherVal}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected failure: ~p",
+                                               [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State0) ->
+                           socket:close(Sock),
+			   State1 = maps:remove(sock, State0),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start tester evaluator"),
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Tester]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -50132,6 +50310,12 @@ has_support_sock_dontroute() ->
 
 has_support_sock_keepalive() ->
     has_support_socket_option_sock(keepalive).
+
+has_support_sock_reuseaddr() ->
+    has_support_socket_option_sock(reuseaddr).
+
+has_support_sock_exclusiveaddruse() ->
+    has_support_socket_option_sock(exclusiveaddruse).
 
 has_support_sock_oobinline() ->
     has_support_socket_option_sock(oobinline).

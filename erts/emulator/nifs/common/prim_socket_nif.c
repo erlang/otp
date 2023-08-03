@@ -2005,6 +2005,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(ether);                           \
     GLOBAL_ATOM_DECL(eui64);                           \
     GLOBAL_ATOM_DECL(events);                          \
+    GLOBAL_ATOM_DECL(exclusiveaddruse);                \
     GLOBAL_ATOM_DECL(explicit_eor);                    \
     GLOBAL_ATOM_DECL(faith);                           \
     GLOBAL_ATOM_DECL(false);                           \
@@ -2710,13 +2711,22 @@ static struct ESockOpt optLevelSocket[] =
         {0, NULL, NULL, &esock_atom_error},
 
         {
-#ifdef SO_KEEPALIVE
-            SO_KEEPALIVE,
+#ifdef SO_EXCLUSIVEADDRUSE
+            SO_EXCLUSIVEADDRUSE,
             esock_setopt_bool_opt, esock_getopt_bool_opt,
 #else
             0, NULL, NULL,
 #endif
-            &esock_atom_keepalive},
+            &esock_atom_exclusiveaddruse},
+
+        {
+#ifdef SO_KEEPALIVE
+        SO_KEEPALIVE,
+        esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+        0, NULL, NULL,
+#endif
+        &esock_atom_keepalive},
 
         {
 #ifdef SO_LINGER
