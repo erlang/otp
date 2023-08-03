@@ -43,8 +43,7 @@
 #include <locale.h>
 #ifdef HAVE_TERMCAP
 #include <termios.h>
-#include <curses.h>
-#include <term.h>
+#include <termcap.h>
 #endif
 #ifndef __WIN32__
 #include <unistd.h>
@@ -710,11 +709,12 @@ static ERL_NIF_TERM tty_tgetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     /* tgetstr seems to use a lot of stack buffer space,
        so buff needs to be relatively "small" */
     char *str = NULL;
-    char buff[BUFSIZ] = {0};
+    char buff_area[BUFSIZ] = {0};
+    char *buff = (char*)buff_area;
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
         return enif_make_badarg(env);
-    str = tgetstr((char*)TERM.data, (char**)&buff);
+    str = tgetstr((char*)TERM.data, &buff);
     if (!str) return atom_false;
     enif_alloc_binary(strlen(str), &ret);
     memcpy(ret.data, str, strlen(str));
@@ -742,8 +742,11 @@ static int tty_puts_putc(int c) {
 static ERL_NIF_TERM tty_tgoto_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef HAVE_TERMCAP
     ErlNifBinary TERM;
+    ERL_NIF_TERM ret;
     char *ent;
     int value1 = 0, value2 = 0;
+    unsigned char *buff;
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM) ||
         (argc > 1 && !enif_get_int(env, argv[1], &value1)) ||
         (argc > 2 && !enif_get_int(env, argv[2], &value2))
@@ -753,14 +756,12 @@ static ERL_NIF_TERM tty_tgoto_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if (!ent) return make_errno_error(env, "tgoto");
 
     tputs_buffer_index = 0;
-    if (tputs(ent, 1, tty_puts_putc)) {
-        return make_errno_error(env, "tputs");
-    } else {
-        ERL_NIF_TERM ret;
-        unsigned char *buff = enif_make_new_binary(env, tputs_buffer_index, &ret);
-        memcpy(buff, tputs_buffer, tputs_buffer_index);
-        return enif_make_tuple2(env, atom_ok, ret);
-    }
+    (void)tputs(ent, 1, tty_puts_putc); /* tputs only fails if ent is null,
+                                           which is cannot be. */
+
+    buff = enif_make_new_binary(env, tputs_buffer_index, &ret);
+    memcpy(buff, tputs_buffer, tputs_buffer_index);
+    return enif_make_tuple2(env, atom_ok, ret);
 #else
     return make_enotsup(env);
 #endif
