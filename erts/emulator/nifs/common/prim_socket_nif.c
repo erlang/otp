@@ -3582,9 +3582,33 @@ static struct ESockOpt optLevelTCP[] =
             &esock_atom_cork},
 
         {0, NULL, NULL, &esock_atom_info},
-        {0, NULL, NULL, &esock_atom_keepcnt},
-        {0, NULL, NULL, &esock_atom_keepidle},
-        {0, NULL, NULL, &esock_atom_keepintvl},
+
+        {
+#ifdef TCP_KEEPCNT
+            TCP_KEEPCNT,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_keepcnt},
+
+        {
+#ifdef TCP_KEEPIDLE
+            TCP_KEEPIDLE,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_keepidle},
+
+        {
+#ifdef TCP_KEEPINTVL
+            TCP_KEEPINTVL,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_keepintvl},
 
         {
 #ifdef TCP_MAXSEG
