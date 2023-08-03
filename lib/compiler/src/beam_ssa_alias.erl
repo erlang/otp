@@ -257,8 +257,6 @@ killsets_blk_live_outs([], _, _, _, Acc) ->
     Acc.
 
 %%%
-
-%%%
 %%% Perform an alias analysis of the given functions, alias
 %%% information is added as annotations on the SSA code.
 %%%
