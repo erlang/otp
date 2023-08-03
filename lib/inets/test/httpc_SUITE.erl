@@ -2229,11 +2229,11 @@ esi_post(Sid, _Env, _Input) ->
     mod_esi:deliver(Sid, ["OK"]).
 
 start_apps(https) ->
-    inets_test_lib:start_apps([crypto, public_key, ssl]);
+    inets_test_lib:start_apps([asn1, crypto, public_key, ssl]);
 start_apps(sim_https) ->
-    inets_test_lib:start_apps([crypto, public_key, ssl]);
+    inets_test_lib:start_apps([asn1, crypto, public_key, ssl]);
 start_apps(sim_mixed) ->
-    inets_test_lib:start_apps([crypto, public_key, ssl]);
+    inets_test_lib:start_apps([asn1, crypto, public_key, ssl]);
 start_apps(_) ->
     ok.
 

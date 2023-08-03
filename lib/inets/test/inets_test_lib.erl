@@ -562,7 +562,7 @@ timestamp() ->
 start_apps(Apps) ->
     lists:foreach(fun(App) ->
 			  application:stop(App),
-			  application:start(App)
+			  ok = application:start(App)
 		  end, Apps).
 stop_apps(Apps) ->
     lists:foreach(fun(App) ->

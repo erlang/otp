@@ -2022,7 +2022,7 @@ start_apps(Group) when  Group == https_basic;
                         Group == https_not_sup;
                         Group == https_alert
 			->
-    inets_test_lib:start_apps([inets, asn1, crypto, public_key, ssl]);
+    inets_test_lib:start_apps([asn1, crypto, public_key, ssl, inets]);
 start_apps(Group) when  Group == http_basic;
 			Group == http_limit;
 			Group == http_custom;
