@@ -435,6 +435,7 @@
            keepalive |
            linger |
            mark |
+           max_msg_size |
            oobinline |
            passcred |
            peek_off |
