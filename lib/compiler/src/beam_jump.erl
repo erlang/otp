@@ -487,22 +487,26 @@ is_shareable([]) -> true.
 %% branches to them are located.
 %%
 %% If there is more than one scope in the function (that is, if there
-%% try/catch or catch in the function), the scope identifiers will be
-%% added to the line instructions. Recording the scope in the line
-%% instructions makes beam_jump idempotent, ensuring that beam_jump
-%% will not do any unsafe optimizations when when compiling from a .S
-%% file.
+%% is any try/catch or catch in the function), the scope identifiers
+%% will be added to the line instructions. Recording the scope in the
+%% line instructions makes beam_jump idempotent, ensuring that
+%% beam_jump will not do any unsafe optimizations when compiling from
+%% a .S file.
 %%
 
 classify_labels(Is) ->
     classify_labels(Is, 0, #{}).
 
-classify_labels([{'catch',_,_}|Is], Scope, Safe) ->
-    classify_labels(Is, Scope+1, Safe);
+classify_labels([{'catch',_,{f,L}}|Is], Scope0, Safe0) ->
+    Scope = Scope0 + 1,
+    Safe = classify_add_label(L, Scope, Safe0),
+    classify_labels(Is, Scope, Safe);
 classify_labels([{catch_end,_}|Is], Scope, Safe) ->
     classify_labels(Is, Scope+1, Safe);
-classify_labels([{'try',_,_}|Is], Scope, Safe) ->
-    classify_labels(Is, Scope+1, Safe);
+classify_labels([{'try',_,{f,L}}|Is], Scope0, Safe0) ->
+    Scope = Scope0 + 1,
+    Safe = classify_add_label(L, Scope, Safe0),
+    classify_labels(Is, Scope, Safe);
 classify_labels([{'try_end',_}|Is], Scope, Safe) ->
     classify_labels(Is, Scope+1, Safe);
 classify_labels([{'try_case',_}|Is], Scope, Safe) ->
@@ -512,11 +516,7 @@ classify_labels([{'try_case_end',_}|Is], Scope, Safe) ->
 classify_labels([I|Is], Scope, Safe0) ->
     Labels = instr_labels(I),
     Safe = foldl(fun(L, A) ->
-                         case A of
-                             #{L := [Scope]} -> A;
-                             #{L := Other} -> A#{L => ordsets:add_element(Scope, Other)};
-                             #{} -> A#{L => [Scope]}
-                         end
+                         classify_add_label(L, Scope, A)
                  end, Safe0, Labels),
     classify_labels(Is, Scope, Safe);
 classify_labels([], Scope, Safe) ->
@@ -527,6 +527,16 @@ classify_labels([], Scope, Safe) ->
             #{};
         _ ->
             Safe
+    end.
+
+classify_add_label(L, Scope, Map) ->
+    case Map of
+        #{L := [Scope]} ->
+            Map;
+        #{L := [_|_]=Set} ->
+            Map#{L => ordsets:add_element(Scope, Set)};
+        #{} ->
+            Map#{L => [Scope]}
     end.
 
 %% Eliminate all fallthroughs. Return the result reversed.
