@@ -1037,22 +1037,11 @@ aa_update_annotation(I, _SS, _AAS) ->
 
 aa_update_annotation1(ArgsStatus,
                       I=#b_set{anno=Anno0,args=Args,op=Op}, AAS) ->
-    {Aliased,Unique} =
-        foldl(fun({#b_var{}=V,aliased}, {As,Us}) ->
-                      {ordsets:add_element(V, As), Us};
-                 ({#b_var{}=V,unique}, {As,Us}) ->
-                      {As, ordsets:add_element(V, Us)};
-                 (_, S) ->
-                      S
-              end, {ordsets:new(),ordsets:new()}, ArgsStatus),
-    Anno1 = case Aliased of
-                [] -> maps:remove(aliased, Anno0);
-                _ -> Anno0#{aliased => Aliased}
-            end,
-    Anno2 = case Unique of
-                [] -> maps:remove(unique, Anno1);
-                _ -> Anno1#{unique => Unique}
-            end,
+    Anno1 = foldl(fun({#b_var{}=V,S}, Acc) ->
+                          aa_update_annotation_for_var(V, S, Acc);
+                     (_, Acc) ->
+                          Acc
+                  end, Anno0, ArgsStatus),
     %% Alias analysis indicate the alias status of the instruction
     %% arguments before the instruction is executed. For transforms in
     %% later stages, we need to know if a particular argument dies
@@ -1064,24 +1053,43 @@ aa_update_annotation1(ArgsStatus,
                {bs_create_bin,[#b_literal{val=append},_,Var|_]} ->
                    %% For the private-append optimization we need to
                    %% know if the first fragment dies.
-                   Anno2#{first_fragment_dies => dies_at(Var, I, AAS)};
+                   Anno1#{first_fragment_dies => dies_at(Var, I, AAS)};
                {update_record,[_Hint,_Size,Src|_Updates]} ->
                    %% One of the requirements for valid destructive
                    %% record updates is that the source tuple dies
                    %% with the update.
-                   Anno2#{source_dies => dies_at(Src, I, AAS)};
+                   Anno1#{source_dies => dies_at(Src, I, AAS)};
                _ ->
-                   Anno2
+                   Anno1
            end,
     I#b_set{anno=Anno};
 aa_update_annotation1(Status, I=#b_ret{arg=#b_var{}=V,anno=Anno0}, _AAS) ->
-    Anno = case Status of
-               aliased ->
-                   maps:remove(unique, Anno0#{aliased=>[V]});
-               unique ->
-                   maps:remove(aliased, Anno0#{unique=>[V]})
-           end,
+    Anno = aa_update_annotation_for_var(V, Status, Anno0),
     I#b_ret{anno=Anno}.
+
+aa_update_annotation_for_var(Var, Status, Anno0) ->
+    Aliased0 = maps:get(aliased, Anno0, []),
+    Unique0 = maps:get(unique, Anno0, []),
+    {Aliased, Unique} = case Status of
+                            aliased ->
+                                {ordsets:add_element(Var, Aliased0),
+                                 ordsets:del_element(Var, Unique0)};
+                            unique ->
+                                {ordsets:del_element(Var, Aliased0),
+                                 ordsets:add_element(Var, Unique0)}
+                        end,
+    Anno1 = case Aliased of
+                [] ->
+                    maps:remove(aliased, Anno0);
+                _ ->
+                    Anno0#{aliased=>Aliased}
+            end,
+    case Unique of
+        [] ->
+            maps:remove(unique, Anno1);
+        _ ->
+            Anno1#{unique=>Unique}
+    end.
 
 %% Return true if Var dies with its use (assumed, not checked) in the
 %% instruction.
