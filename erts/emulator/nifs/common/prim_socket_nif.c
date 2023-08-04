@@ -2102,6 +2102,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(master);                          \
     GLOBAL_ATOM_DECL(max);                             \
     GLOBAL_ATOM_DECL(maxburst);                        \
+    GLOBAL_ATOM_DECL(maxdg);                           \
     GLOBAL_ATOM_DECL(maxseg);                          \
     GLOBAL_ATOM_DECL(max_msg_size);                    \
     GLOBAL_ATOM_DECL(md5sig);                          \
@@ -2808,6 +2809,15 @@ static struct ESockOpt optLevelSocket[] =
             &esock_atom_linger},
 
         {0, NULL, NULL, &esock_atom_mark},
+
+        {
+#ifdef SO_MAXDG
+            SO_MAXDG,
+            NULL, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_maxdg},
 
         {
 #ifdef SO_MAX_MSG_SIZE
