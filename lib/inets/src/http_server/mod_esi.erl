@@ -35,7 +35,9 @@
 
 -define(VMODULE,"ESI").
 -define(DEFAULT_ERL_TIMEOUT,15).
-
+-define(ERROR_404,
+        [{status, {404, ModData#mod.request_uri, "Not found"}} |
+         ModData#mod.data]).
 
 %%%=========================================================================
 %%%  API 
@@ -220,47 +222,50 @@ erl(#mod{method = "POST", entity_body = Body} = ModData, ESIBody, Modules) ->
 	    {proceed,[{status, {400, none, BadRequest}} | ModData#mod.data]}
     end.
 
-generate_webpage(ModData, ESIBody, [all], Module, FunctionName,
-		 Input, ScriptElements) ->
+generate_webpage(ModData, ESIBody, AllowedModules0, ModuleString, FunctionString,
+		 Input, ScriptElements)
+  when is_list(ModuleString), is_list(FunctionString) ->
+    case convert_to_atoms(ModuleString, FunctionString, ModData) of
+        {ok, Module, Function} ->
+            verify_module(ModData, ESIBody, AllowedModules0, Module, Function,
+                          Input, ScriptElements);
+        Result ->
+            Result
+    end.
+
+convert_to_atoms(ModuleString, FunctionString, ModData) ->
     try
-        ModuleAtom = list_to_existing_atom(Module),
-        generate_webpage(ModData, ESIBody, [ModuleAtom], Module,
-                         FunctionName, Input, ScriptElements)
-    catch
-        _:_ ->
-            {proceed, [{status, {404, ModData#mod.request_uri, "Not found"}}
-                      | ModData#mod.data]}
-    end;
-generate_webpage(ModData, ESIBody, Modules, Module, Function,
-		 Input, ScriptElements) when is_atom(Module), is_atom(Function) ->
-    case lists:member(Module, Modules) of
-	true ->
-	    Env = httpd_script_env:create_env(esi, ModData, ScriptElements),
-	    case erl_scheme_webpage_chunk(Module, Function, 
-					  Env, Input, ModData) of
-		{error, erl_scheme_webpage_chunk_undefined} ->
-                    {proceed, [{status, {404, ModData#mod.request_uri, "Not found"}}
-                               | ModData#mod.data]};
-		ResponseResult ->
-		    ResponseResult
-	    end;
-	false ->
-	    {proceed, [{status, {403, ModData#mod.request_uri,
-				 ?NICE("Client not authorized to evaluate: "
-				       ++  ESIBody)}} | ModData#mod.data]}
-    end;
-generate_webpage(ModData, ESIBody, Modules, ModuleName, FunctionName,
-		 Input, ScriptElements) ->
-    try
-        Module = list_to_existing_atom(ModuleName),
+        Module = list_to_existing_atom(ModuleString),
         _ = code:ensure_loaded(Module),
-        Function = list_to_existing_atom(FunctionName),
-        generate_webpage(ModData, ESIBody, Modules, Module, Function,
-                         Input, ScriptElements)
+        Function = list_to_existing_atom(FunctionString),
+        {ok, Module, Function}
     catch
-        _:_ ->
-            {proceed, [{status, {404, ModData#mod.request_uri, "Not found"}}
-                      | ModData#mod.data]}
+        error:badarg:_Stacktrace ->
+            {proceed, ?ERROR_404}
+    end.
+
+verify_module(ModData, _ESIBody, [all], Module, Function, Input, ScriptElements) ->
+    do_generate_webpage(ModData, Module, Function, Input, ScriptElements);
+verify_module(ModData, ESIBody, Allowed, Module, Function, Input, ScriptElements) ->
+    case lists:member(Module, Allowed) of
+        true ->
+            do_generate_webpage(ModData, Module, Function, Input, ScriptElements);
+        _ ->
+            Error403 =
+                [{status,
+                  {403, ModData#mod.request_uri,
+                   ?NICE("Client not authorized to evaluate: " ++ ESIBody)}} |
+                 ModData#mod.data],
+            {proceed, Error403}
+    end.
+
+do_generate_webpage(ModData, Module, Function, Input, ScriptElements) ->
+    Env = httpd_script_env:create_env(esi, ModData, ScriptElements),
+    case erl_scheme_webpage_chunk(Module, Function, Env, Input, ModData) of
+        {error, erl_scheme_webpage_chunk_undefined} ->
+            {proceed, ?ERROR_404};
+        ResponseResult ->
+            ResponseResult
     end.
 
 %% API that allows the dynamic wepage to be sent back to the client 
