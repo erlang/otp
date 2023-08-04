@@ -879,7 +879,7 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
 %%--------------------------------------------------------------------
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
-      Length :: integer(),
+      Length :: non_neg_integer(),
       Data :: binary() | list() | HttpPacket,
       HttpPacket :: any().
 
@@ -888,13 +888,15 @@ recv(Socket, Length) ->
 
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
-      Length :: integer(),
+      Length :: non_neg_integer(),
       Data :: binary() | list() | HttpPacket,
       Timeout :: timeout(),
       HttpPacket :: any().
 
-recv(#sslsocket{pid = [Pid|_]}, Length, Timeout) when is_pid(Pid),
-						  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
+recv(#sslsocket{pid = [Pid|_]}, Length, Timeout)
+  when is_pid(Pid) andalso
+       (is_integer(Length) andalso Length >= 0) andalso
+       ((is_integer(Timeout) andalso Timeout >= 0) orelse Timeout == infinity) ->
     ssl_gen_statem:recv(Pid, Length, Timeout);
 recv(#sslsocket{pid = {dtls,_}}, _, _) ->
     {error,enotconn};

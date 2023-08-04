@@ -3720,6 +3720,10 @@ controlling_process_result(Socket, Pid, Msg) ->
 controller_dies_result(_Socket, _Pid, _Msg) ->
     receive Result -> Result end.
 send_recv_result_timeout_client(Socket) ->
+    try ssl:recv(Socket, 11, not_infinity) catch error : function_clause -> ok end,
+    try ssl:recv(Socket, 11, -1) catch error : function_clause -> ok end,
+    try ssl:recv(Socket, not_integer, 500) catch error : function_clause -> ok end,
+    try ssl:recv(Socket, -1, 500) catch error : function_clause -> ok end,
     {error, timeout} = ssl:recv(Socket, 11, 500),
     {error, timeout} = ssl:recv(Socket, 11, 0),
     ssl:send(Socket, "Hello world"),
