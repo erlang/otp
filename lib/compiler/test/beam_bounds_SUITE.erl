@@ -129,6 +129,13 @@ division_bounds(_Config) ->
     any = beam_bounds:bounds('div', {10,'+inf'}, {0,0}),
     {'EXIT', {badarith, _}} = catch division_bounds_1([], ok),
 
+    {-10,10} = beam_bounds:bounds('div', {0,10}, any),
+    {-50,50} = beam_bounds:bounds('div', {-50,-15}, {-10,'+inf'}),
+    {-20,20} = beam_bounds:bounds('div', {-20,10}, any),
+    {-7,7} = beam_bounds:bounds('div', {-5,7}, {'-inf',-1}),
+    any = beam_bounds:bounds('div', {'-inf',10}, any),
+    any = beam_bounds:bounds('div', {0,'+inf'}, any),
+
     ok.
 
 %% GH-6604: Division by zero could cause type analysis to hang forever as

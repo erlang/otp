@@ -299,6 +299,10 @@ div_bounds({'-inf',B}, {C,D}) when is_integer(C), C > 0, is_integer(D) ->
     Min = '-inf',
     Max = max(B div C, B div D),
     normalize({Min,Max});
+div_bounds({A,B}, _) when is_integer(A), is_integer(B) ->
+    Max = max(abs(A), abs(B)),
+    Min = -Max,
+    {Min,Max};
 div_bounds(_, _) ->
     any.
 
