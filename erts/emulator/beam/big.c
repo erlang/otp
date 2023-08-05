@@ -768,22 +768,27 @@ static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
         /* Use the Karatsuba algorithm. */
         Eterm *heap;
         Uint temp_heap_size;
-        Uint z0_len, z1_len, z2_len, sum0_len, sum1_len, res_len;
+        Uint z0_len, z1_len, z2_len, tmp_len, diff0_len, diff1_len, res_len;
         Uint low_x_len, low_y_len, high_x_len, high_y_len;
-        Eterm *z0_buf, *z1_buf, *z2_buf, *z_res_buf;
-        Eterm *sum0_buf, *sum1_buf;
+        Eterm *z0_buf, *z1_buf, *z2_buf, *tmp_buf;
+        Eterm *diff0_buf, *diff1_buf;
 #ifdef DEBUG
-        Eterm *sum_buf_end, *z_buf_end;
+        Eterm *alloc_end;
 #endif
         Eterm *low_x, *low_y, *high_x, *high_y;
         ErtsDigit zero = 0;
         Uint m = (xl+1) / 2;
+        int tmp_prod_negative = 0;
+        int i;
 
         /* Set up pointers and sizes. */
         low_x = x;
         low_x_len = m;
         high_x = x + m;
         high_x_len = xl - m;
+        while (low_x_len > 1 && low_x[low_x_len-1] == 0) {
+            low_x_len--;
+        }
 
         low_y = y;
         if (yl <= m) {
@@ -796,45 +801,49 @@ static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
             high_y = y + m;
             high_y_len = yl - m;
         }
+        while (low_y_len > 1 && low_y[low_y_len-1] == 0) {
+            low_y_len--;
+        }
 
         ASSERT(low_x_len <= m);
         ASSERT(high_x_len <= m);
         ASSERT(low_y_len <= m);
         ASSERT(high_y_len <= m);
 
-        /* Set up buffers for the sums for z1 in the result area. */
-        sum0_buf = r;
-        sum1_buf = r + m + 1;
-
+        /*
+         * Set up temporary buffers in allocated memory.
+         *
+         * z1_buf is not used at the same time as diff0_buf
+         * and diff1_buf, so they can share memory.
+         */
+        temp_heap_size = (4*m + 1) * sizeof(Eterm);
 #ifdef DEBUG
-        sum_buf_end = sum1_buf + m + 1;
-        ASSERT(sum_buf_end - sum0_buf + 1 <= xl + yl);
-        sum1_buf[0] = ERTS_HOLE_MARKER;
-        sum_buf_end[0] = ERTS_HOLE_MARKER;
+        temp_heap_size += sizeof(Eterm);
 #endif
-
-        /* Set up temporary buffers in the allocated memory. */
-        temp_heap_size = (3*(2*m+2) + (xl+yl+1) + 1) * sizeof(Eterm);
         heap = (Eterm *) erts_alloc(ERTS_ALC_T_TMP, temp_heap_size);
-        z0_buf = heap;
-        z1_buf = z0_buf + 2*m + 2;
-        z2_buf = z1_buf + 2*m + 2;
-        z_res_buf = z2_buf + 2*m + 2;
-#ifdef DEBUG
-        z_buf_end = z_res_buf + xl+yl+1;
-#endif
+        z1_buf = heap;
+        diff0_buf = z1_buf + 1;
+        diff1_buf = diff0_buf + m;
+        tmp_buf = diff1_buf + m;
 
 #ifdef DEBUG
         z1_buf[0] = ERTS_HOLE_MARKER;
-        z2_buf[0] = ERTS_HOLE_MARKER;
-        z_res_buf[0] = ERTS_HOLE_MARKER;
-        z_buf_end[0] = ERTS_HOLE_MARKER;
+        diff0_buf[0] = ERTS_HOLE_MARKER;
+        diff1_buf[0] = ERTS_HOLE_MARKER;
+        tmp_buf[0] = ERTS_HOLE_MARKER;
+
+        alloc_end = tmp_buf + 2*m;
+        alloc_end[0] = ERTS_HOLE_MARKER;
+        ASSERT(alloc_end - heap + 1 == temp_heap_size / sizeof(Eterm));
 #endif
 
-        /* z0 = low_x * low_y */
-        z0_len = I_mul_karatsuba(low_x, low_x_len, low_y, low_y_len, z0_buf);
+        /* Set up pointers for the result. */
+        z0_buf = r;
+        z2_buf = r + 2*m;
 
-        ASSERT(z1_buf[0] == ERTS_HOLE_MARKER);
+#ifdef DEBUG
+        z2_buf[0] = ERTS_HOLE_MARKER;
+#endif
 
 #define I_OPERATION(_result, _op, _p1, _sz1, _p2, _sz2, _buf)   \
         do {                                                    \
@@ -846,72 +855,153 @@ static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
         } while (0)
 
         /*
-         * z1 = (low1 + high1) * (low2 + high2)
+         * The Karatsuba algorithm is a divide and conquer algorithm
+         * for multi-word integer multiplication. The numbers to be
+         * multiplied are split up like this:
+         *
+         *   high     low
+         *  +--------+--------+
+         *  | high_x | low_x  |
+         *  +--------+--------+
+         *
+         *  +--------+--------+
+         *  | high_y | low_y  |
+         *  +--------+--------+
+         *
+         * Then the following values are calculated:
+         *
+         *  z0 = low_x * low_y
+         *  z2 = high_x + high_y
+         *  z1 = (low_x - high_x) * (high_y - low_y) + z2 + z0
+         *
+         * Note that this expression for z1 produces the same result
+         * as:
+         *
+         *    low_x * high_y + high_x * low_y
+         *
+         * Finally, the z2, z1, z0 values are combined to form the
+         * product of x and y:
+         *
+         *   high     low
+         *  +--+--+ +--+--+
+         *  | z2  | | z0  |
+         *  +--+--+ +--+--+
+         *      +--+--+
+         *  add | z1  |
+         *      +--+--+
+         *
+         * There is an alternate way to calculate z1 (commonly found
+         * in descriptions of the Karatsuba algorithm);
+         *
+         *  z1 = (high_x + low_x) * (high_y + low_y) - z2 - z0
+         *
+         * But this way can lead to more additions and carry handling.
          */
-        I_OPERATION(sum0_len, I_add, low_x, low_x_len, high_x, high_x_len, sum0_buf);
-        ASSERT(sum1_buf[0] == ERTS_HOLE_MARKER);
 
-        I_OPERATION(sum1_len, I_add, low_y, low_y_len, high_y, high_y_len, sum1_buf);
-        ASSERT(sum_buf_end[0] == ERTS_HOLE_MARKER);
-
-        I_OPERATION(z1_len, I_mul_karatsuba, sum0_buf, sum0_len, sum1_buf, sum1_len, z1_buf);
+        /*
+         * z0 = low_x * low_y
+         *
+         * Store this product in its final location in the result buffer.
+         */
+        I_OPERATION(z0_len, I_mul_karatsuba, low_x, low_x_len, low_y, low_y_len, z0_buf);
         ASSERT(z2_buf[0] == ERTS_HOLE_MARKER);
+        for (i = z0_len; i < 2*m; i++) {
+            z0_buf[i] = 0;
+        }
+        while (z0_len > 1 && z0_buf[z0_len - 1] == 0) {
+            z0_len--;
+        }
+        ASSERT(z0_len == 1 || z0_buf[z0_len-1] != 0);
+        ASSERT(z0_len <= low_x_len + low_y_len);
 
         /*
          * z2 = high_x * high_y
+         *
+         * Store this product in its final location in the result buffer.
          */
-
         if (high_y != &zero) {
-            I_OPERATION(z2_len, I_mul_karatsuba, high_x, high_x_len, high_y, high_y_len, z2_buf);
+            I_OPERATION(z2_len, I_mul_karatsuba, high_x, high_x_len,
+                        high_y, high_y_len, z2_buf);
+            while (z2_len > 1 && z2_buf[z2_len - 1] == 0) {
+                z2_len--;
+            }
+            ASSERT(z2_len == 1 || z2_buf[z2_len-1] != 0);
         } else {
             z2_buf[0] = 0;
             z2_len = 1;
         }
-        ASSERT(z_res_buf[0] == ERTS_HOLE_MARKER);
+        ASSERT(z2_len <= high_x_len + high_y_len);
 
         /*
-         * z0 + (z1 × base ^ m) + (z2 × base ^ (m × 2)) - ((z0 + z2) × base ^ m)
+         * tmp = abs(low_x - high_x) * abs(high_y - low_y)
          *
-         * Note that the result of expression before normalization is
-         * not guaranteed to fit in the result buffer provided by the
-         * caller (r). Therefore, we must use a temporary buffer when
-         * calculating it.
+         * The absolute value of each difference will fit in m words.
+         *
+         * Save the sign of the product so that we later can choose to
+         * subtract or add this value.
          */
+        if (I_comp(low_x, low_x_len, high_x, high_x_len) >= 0) {
+            diff0_len = I_sub(low_x, low_x_len, high_x, high_x_len, diff0_buf);
+        } else {
+            tmp_prod_negative = !tmp_prod_negative;
+            diff0_len = I_sub(high_x, high_x_len, low_x, low_x_len, diff0_buf);
+        }
+        ASSERT(diff1_buf[0] == ERTS_HOLE_MARKER);
+        ASSERT(diff0_len == 1 || diff0_buf[diff0_len-1] != 0);
+        ASSERT(diff0_len <= m);
 
-        /* Copy z0 to temporary result buffer. */
-        res_len = I_add(z0_buf, z0_len, &zero, 1, z_res_buf);
+        if (x == y) {
+            ASSERT(xl == yl);
+            tmp_prod_negative = 1;
+            diff1_buf = diff0_buf;
+            diff1_len = diff0_len;
+        } else if (I_comp(high_y, high_y_len, low_y, low_y_len) >= 0) {
+            diff1_len = I_sub(high_y, high_y_len, low_y, low_y_len, diff1_buf);
+        } else {
+            tmp_prod_negative = !tmp_prod_negative;
+            if (high_y != &zero) {
+                diff1_len = I_sub(low_y, low_y_len, high_y, high_y_len, diff1_buf);
+            } else {
+                diff1_buf = low_y;
+                diff1_len = low_y_len;
+            }
+        }
+        ASSERT(tmp_buf[0] == ERTS_HOLE_MARKER);
+        ASSERT(diff1_len == 1 || diff1_buf[diff1_len-1] != 0);
+        ASSERT(diff1_len <= m);
 
-        while (res_len <= m) {
-            z_res_buf[res_len++] = 0;
+        I_OPERATION(tmp_len, I_mul_karatsuba, diff0_buf, diff0_len, diff1_buf, diff1_len, tmp_buf);
+        ASSERT(alloc_end[0] == ERTS_HOLE_MARKER);
+        while (tmp_len > 1 && tmp_buf[tmp_len - 1] == 0) {
+            tmp_len--;
+        }
+        ASSERT(tmp_len == 1 || tmp_buf[tmp_len-1] != 0);
+        ASSERT(tmp_len <= diff0_len + diff1_len);
+
+        /*
+         * z1 = z0 + z2
+         */
+        I_OPERATION(z1_len, I_add, z0_buf, z0_len, z2_buf, z2_len, z1_buf);
+        ASSERT(z1_len == 1 || z1_buf[z1_len-1] != 0);
+
+        if (tmp_prod_negative) {
+            /* z1 = z1 - tmp */
+            z1_len = I_sub(z1_buf, z1_len, tmp_buf, tmp_len, z1_buf);
+        } else {
+            /* z1 = z1 + tmp */
+            I_OPERATION(z1_len, I_add, z1_buf, z1_len, tmp_buf, tmp_len, z1_buf);
         }
 
-        /* Add z1 × base ^ m */
-        I_OPERATION(res_len, I_add, z_res_buf+m, res_len-m, z1_buf, z1_len, z_res_buf+m);
-
-        while (res_len <= m) {
-            z_res_buf[m+res_len++] = 0;
-        }
-
-        /* Add z2 × base ^ (m × 2) */
-        I_OPERATION(res_len, I_add, z_res_buf+2*m, res_len-m, z2_buf, z2_len, z_res_buf+2*m);
-
-        /* Calculate z0 + z2 */
-        I_OPERATION(z0_len, I_add, z0_buf, z0_len, z2_buf, z2_len, z0_buf);
-
-        /* Subtract (z0 + z2) × base ^ m */
-        res_len = I_sub(z_res_buf+m, res_len+m, z0_buf, z0_len, z_res_buf+m);
-
-        ASSERT(z_buf_end[0] == ERTS_HOLE_MARKER);
+        /* Add z1 shifted into the result */
+        I_OPERATION(res_len, I_add, z0_buf+m, z2_len+m, z1_buf, z1_len, z0_buf+m);
 
         /* Normalize */
-        while (z_res_buf[m + res_len - 1] == 0 && res_len > 0) {
+        res_len += m;
+        while (res_len > 1 && r[res_len - 1] == 0) {
             res_len--;
         }
-        res_len += m;
+        ASSERT(res_len == 1 || r[res_len-1] != 0);
         ASSERT(res_len <= xl + yl);
-
-        /* Copy result to the the final result buffer. */
-        (void) I_add(z_res_buf, res_len, &zero, 1, r);
 
         erts_free(ERTS_ALC_T_TMP, (void *) heap);
         return res_len;
