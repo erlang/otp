@@ -692,44 +692,53 @@ static dsize_t I_sqr(ErtsDigit* x, dsize_t xl, ErtsDigit* r)
 	*x = 0;
 
     while(xl--) {
-	ErtsDigit* y;
-	ErtsDigit y_0 = 0, y_1 = 0, y_2 = 0, y_3 = 0;
-	ErtsDigit b0, b1;
-	ErtsDigit z0, z1, z2;
-	ErtsDigit t;
 	dsize_t y_l = xl;
 
-        d = *x;
-        x++;
-        y = x;
-	s = r;
+        d = *x++;
+        s = r;
 
-	DMUL(d, d, b1, b0);
-	DSUMc(*s, b0, y_3, t);
-	*s++ = t;
-	z1 = b1;
-	while(y_l--) {
-	    DMUL(d, *y, b1, b0);
-	    y++;
-	    DSUMc(b0, b0, y_0, z0);
-	    DSUMc(z0, z1, y_2, z2);
-	    DSUMc(*s, z2, y_3, t);
-	    *s++ = t;
-	    DSUMc(b1, b1, y_1, z1);
-	}
-	z0 = y_0;
-	DSUMc(z0, z1, y_2, z2);
-	DSUMc(*s, z2, y_3, t);
-	*s = t;
-	if (xl != 0) {
-	    s++;
-	    t = (y_1+y_2+y_3);
-	    *s = t;
-	    r += 2;
-	}
-	else {
-	    ASSERT((y_1+y_2+y_3) == 0);
-	}
+        if (d == 0) {
+            s += y_l + 1;
+            if (xl != 0) {
+                *++s = 0;
+                r += 2;
+            }
+        } else {
+            ErtsDigit* y;
+            ErtsDigit y_0 = 0, y_1 = 0, y_2 = 0, y_3 = 0;
+            ErtsDigit b0, b1;
+            ErtsDigit z0, z1, z2;
+            ErtsDigit t;
+
+            y = x;
+
+            DMUL(d, d, b1, b0);
+            DSUMc(*s, b0, y_3, t);
+            *s++ = t;
+            z1 = b1;
+            while(y_l--) {
+                DMUL(d, *y, b1, b0);
+                y++;
+                DSUMc(b0, b0, y_0, z0);
+                DSUMc(z0, z1, y_2, z2);
+                DSUMc(*s, z2, y_3, t);
+                *s++ = t;
+                DSUMc(b1, b1, y_1, z1);
+            }
+            z0 = y_0;
+            DSUMc(z0, z1, y_2, z2);
+            DSUMc(*s, z2, y_3, t);
+            *s = t;
+            if (xl != 0) {
+                s++;
+                t = (y_1+y_2+y_3);
+                *s = t;
+                r += 2;
+            }
+            else {
+                ASSERT((y_1+y_2+y_3) == 0);
+            }
+        }
     }
     if (*s == 0)
 	return (s - r0);
@@ -749,7 +758,7 @@ static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
 
     if (yl < 16) {
         /* Use the basic algorithm. */
-        if (x == y) {
+        if (x == y && xl > 1) {
             ASSERT(xl == yl);
             return I_sqr(x, xl, r);
         } else {
