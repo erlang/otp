@@ -52,18 +52,6 @@
         }							\
     } while(0)
 
-/* add a and b with carry in + out */
-#define DSUMc(a,b,c,s) do {						\
-	ErtsDigit ___cr = (c);						\
-	ErtsDigit ___xr = (a)+(___cr);					\
-	ErtsDigit ___yr = (b);						\
-	___cr = (___xr < ___cr);					\
-	___xr = ___yr + ___xr;						\
-	___cr += (___xr < ___yr);					\
-	s = ___xr;							\
-	c = ___cr;							\
-    }  while(0)
-
 /* add a and b with carry out */
 #define DSUM(a,b,c,s) do {					\
 	ErtsDigit ___xr = (a);					\
@@ -135,6 +123,13 @@
 	ErtsDoubleDigit _t = DDIGIT((a1),(a0));		\
 	r = _t % (b);					\
     } while(0)
+
+/* add a and b with carry in + out */
+#define DSUMc(a,b,c,s) do {                                     \
+        ErtsDoubleDigit _t = (ErtsDoubleDigit)(a) + (b) + (c);  \
+        s = DLOW(_t);                                           \
+        c = DHIGH(_t);                                          \
+    }  while(0)
 
 #else
 
@@ -422,6 +417,18 @@
 	D2DIVREM(a1,a0,b1,b0,q,_tmp_r1,_tmp_r0); \
     } while(0)
 
+/* add a and b with carry in + out */
+#define DSUMc(a,b,c,s) do {                     \
+        ErtsDigit ___cr = (c);                  \
+        ErtsDigit ___xr = (a)+(___cr);          \
+        ErtsDigit ___yr = (b);                  \
+        ___cr = (___xr < ___cr);                \
+        ___xr = ___yr + ___xr;                  \
+        ___cr += (___xr < ___yr);               \
+        s = ___xr;                              \
+        c = ___cr;                              \
+    } while(0)
+
 #endif
 
 /* Forward declaration of lookup tables (See below in this file) used in list to
@@ -487,12 +494,10 @@ static dsize_t I_add(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDig
 
     xl -= yl;
     do {
-	xr = *x++ + c;
-	yr = *y++;
-	c = (xr < c);
-	xr = yr + xr;
-	c += (xr < yr);
-	*r++ = xr;
+        xr = *x++;
+        yr = *y++;
+        DSUMc(xr, yr, c, xr);
+        *r++ = xr;
     } while(--yl);
 
     while(xl--) {
