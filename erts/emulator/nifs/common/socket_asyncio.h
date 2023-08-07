@@ -155,6 +155,21 @@ extern ERL_NIF_TERM esaio_cancel_recv(ErlNifEnv*       env,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     opRef);
 
+extern ERL_NIF_TERM esaio_ioctl2(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 unsigned long    req);
+/*
+extern ERL_NIF_TERM esaio_ioctl3(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 unsigned long    req,
+                                 ERL_NIF_TERM     arg);
+extern ERL_NIF_TERM esaio_ioctl4(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 unsigned long    req,
+                                 ERL_NIF_TERM     ename,
+                                 ERL_NIF_TERM     eval);
+*/
+
 extern void esaio_dtor(ErlNifEnv*       env,
                        ESockDescriptor* descP);
 extern void esaio_stop(ErlNifEnv*       env,

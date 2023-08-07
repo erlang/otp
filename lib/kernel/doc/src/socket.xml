@@ -2217,10 +2217,63 @@
     </func>
 
     <func>
-      <name name="ioctl" arity="2" since="OTP 24.2"/>
+      <name name="ioctl" arity="2" clause_i="1" since="OTP 24.2"
+	    anchor="ioctl-gifconf"/>
+      <name name="ioctl" arity="2" clause_i="2" since="OTP @OTP-18660@"
+	    anchor="ioctl-fion"/>
+      <name name="ioctl" arity="2" clause_i="3" since="OTP @OTP-18660@"
+	    anchor="ioctl-atmark"/>
       <fsummary>Control device.</fsummary>
       <desc>
         <p>Retrieve socket (device) parameters.</p>
+	<p>This function retrieves a specific parameter,
+	according to <c>GetRequest</c> argument. </p>
+        <taglist>
+          <tag><c>gifconf</c></tag>
+          <item>
+	    <p>Return a list of interface (transport layer) addresses. </p>
+	    <p>Result, a list of interfaces, map with name and address. </p>
+          </item>
+
+          <tag><c>nread</c></tag>
+          <item>
+	    <p>Get the number of bytes that are immediately available
+	    for	reading. </p>
+	    <p>Result, number of bytes, is a <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>nwrite</c></tag>
+          <item>
+	    <p>The number of bytes in the send queue. </p>
+	    <p>Result, number of bytes, is a <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>nspace</c></tag>
+          <item>
+	    <p>Get the free space in the send queue. </p>
+	    <p>Result, number of bytes, is a <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>atmark</c></tag>
+          <item>
+	    <p>Test if there is oob (out-of-bound) data waiting to be read. </p>
+	    <p>Result is a <c>boolean()</c>. </p>
+          </item>
+
+	</taglist>
+
+	<note>
+	  <p>To see if a ioctl request is supported on the
+	  current platform: </p>
+	  <code>
+	    Request = nread,
+	    {ok, true} = socket:is_supported(ioctl_requests, Request),
+	    . 
+	    .
+	    .
+	  </code>
+	</note>
+
       </desc>
     </func>
 
@@ -2228,8 +2281,8 @@
       <name name="ioctl" arity="3" since="OTP 24.2"/>
       <fsummary>Control device.</fsummary>
       <desc>
-	<p>Retrieve socket (device) parameters.
-	This function retrieves a specific parameter,
+	<p>Retrieve socket (device) parameters. </p>
+	<p>This function retrieves a specific parameter,
 	according to <c>GetRequest</c> argument. The third
 	argument is the (lookup) "key", identifying the
 	interface (usually the name of the interface).</p>

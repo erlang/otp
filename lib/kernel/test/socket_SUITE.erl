@@ -344,6 +344,8 @@
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
+         ioctl_simple2/1,
+         ioctl_nread/1,
          %% Socket IOCTL get requests
          ioctl_get_gifname/1,
          ioctl_get_gifindex/1,
@@ -1353,7 +1355,9 @@ ioctl_cases() ->
 
 ioctl_simple_cases() ->
     [
-     ioctl_simple1
+     ioctl_simple1,
+     ioctl_simple2,
+     ioctl_nread
     ].
 
 
@@ -37134,10 +37138,34 @@ sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test "some" ioctl features.
+%% This test case is intended to (*really* simply) test
+%% "some" ioctl features.
 %%
 
 ioctl_simple1(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ioctl_requests()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_simple1(InitState)
+           end).
+
+
+do_ioctl_simple1(_State) ->
+    Requests = socket:supports(ioctl_requests),
+    ?P("Requests: ~p", [Requests]),
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test "some" ioctl features.
+%%
+
+ioctl_simple2(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(?FUNCTION_NAME,
            fun() ->
@@ -37146,11 +37174,11 @@ ioctl_simple1(_Config) when is_list(_Config) ->
            end,
            fun() ->
                    InitState = #{},
-                   ok = do_ioctl_simple(InitState)
+                   ok = do_ioctl_simple2(InitState)
            end).
 
 
-do_ioctl_simple(_State) ->
+do_ioctl_simple2(_State) ->
     i("create dummy dgram:UDP socket"),
     {ok, Sock1} = socket:open(inet, dgram, udp),
     i("perform simple ioctl (expect success)"),
@@ -37214,6 +37242,81 @@ do_ioctl_simple(_State) ->
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test the ioctl nread feature.
+%%
+
+ioctl_nread(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ioctl_requests(),
+                   has_support_ioctl_nread()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_nread(InitState)
+           end).
+
+do_ioctl_nread(_) ->
+    i("Get local socket address"),
+    LSA = which_local_socket_addr(inet),
+    i("Use LSA: ~p", [LSA]),
+
+    i("Create dgram:UDP socket 1"),
+    {ok, S1} = socket:open(inet, dgram, udp),
+
+    i("Bind socket 1"),
+    ok = socket:bind(S1, LSA),
+
+    i("Create dgram:UDP socket 2"),
+    {ok, S2} = socket:open(inet, dgram, udp),
+
+    i("Bind socket 2"),
+    ok = socket:bind(S2, LSA),
+
+    i("Check data to read - expect 0 bytes"),
+    {ok, 0} = socket:ioctl(S1, nread),
+    
+    i("Get socket 1 port number"),
+    {ok, #{port := Port1}} = socket:sockname(S1),
+    
+    i("Send data to socket 1 (from socket 2)"),
+    Data   = <<0,1,2,3,4,5,6,7,8,9>>,
+    DataSz = byte_size(Data),
+    ok = socket:sendto(S2, Data, LSA#{port => Port1}),
+    
+    i("Give it some time to arrive"),
+    ?SLEEP(?SECS(1)),
+    
+    i("Verify that the correct amount of data (atleast ~p) is available", [DataSz]),
+    case socket:ioctl(S1, nread) of
+        {ok, DataSize} when (DataSize >= DataSz) ->
+            i("Success: "
+	      "~n   Min Size:    ~p"
+	      "~n   Actual Size: ~p", [DataSz, DataSize]),
+	    ok;
+	{ok, DataSize} ->
+            i("Unexpected data size: "
+	      "~n   Expected (min) Size: ~p"
+	      "~n   Actual Size:                ~p", [DataSz, DataSize]),
+	    ct:fail({invalid_data_size, DataSz, DataSize})
+    end,
+
+    i("Read the data"),
+    {ok, {_, Data}} = socket:recvfrom(S1),
+    
+    i("Verify that the data has been read (no more data is available)"),
+    {ok, 0} = socket:ioctl(S1, nread),
+
+    i("Cleanup"),
+    socket:close(S1),
+    socket:close(S2),
+
+    i("Done"),
+    ok.
+
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% These test case(s) are intended to (simply) test "some" ioctl get
 %% request(s).
@@ -51681,6 +51784,9 @@ has_support_ioctl_requests() ->
 
 has_support_ioctl_gifconf() ->
     has_support_ioctl_request(gifconf).
+
+has_support_ioctl_nread() ->
+    has_support_ioctl_request(nread).
 
 has_support_ioctl_gifname() ->
     has_support_ioctl_request(gifname).

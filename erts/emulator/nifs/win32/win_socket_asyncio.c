@@ -137,6 +137,10 @@
 #define sock_connect_O(s, a, al, sent, o)                               \
     ctrl.connect((s), (struct sockaddr*) (a), (al), NULL, 0, (sent), (o))
 #define sock_errno()                    WSAGetLastError()
+#define sock_ioctl1(s, cc, b)                    \
+    ioctlsocket((s), (cc), (b))
+#define sock_ioctl2(s, cc, ib, ibs, ob, obs, br) \
+    WSAIoctl((s), (cc), (ib), (ibs), (ob), (obs), (br), NULL, NULL)
 // #define sock_listen(s, b)               listen((s), (b))
 // #define sock_name(s, addr, len)        getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
@@ -642,6 +646,15 @@ static ERL_NIF_TERM recvmsg_check_fail(ErlNifEnv*       env,
                                        ESAIOOperation*  opP,
                                        int              saveErrno,
                                        ERL_NIF_TERM     sockRef);
+
+#if defined(FIONREAD)
+static ERL_NIF_TERM esaio_ioctl_fionread(ErlNifEnv*       env,
+                                         ESockDescriptor* descP);
+#endif
+#if defined(SIOCATMARK)
+static ERL_NIF_TERM esaio_ioctl_siocatmark(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
+#endif
 
 static void* esaio_completion_main(void* threadDataP);
 static BOOLEAN_T esaio_completion_terminate(ESAIOThreadData* dataP,
@@ -5402,6 +5415,132 @@ ERL_NIF_TERM esaio_cancel_recv(ErlNifEnv*       env,
 
     return res;
 }
+
+
+
+
+/* ========================================================================
+ * IOCTL with two args (socket and request "key")
+ *
+ */
+extern
+ERL_NIF_TERM esaio_ioctl2(ErlNifEnv*       env,
+			  ESockDescriptor* descP,
+			  unsigned long    req)
+{
+  switch (req) {
+
+#if defined(FIONREAD)
+  case FIONREAD:
+      return esaio_ioctl_fionread(env, descP);
+      break;
+#endif
+
+#if defined(SIOCATMARK)
+  case SIOCATMARK:
+      return esaio_ioctl_siocatmark(env, descP);
+      break;
+#endif
+
+  default:
+      return esock_make_error(env, esock_atom_enotsup);
+      break;
+  }
+
+}
+
+
+#if defined(FIONREAD)
+static
+ERL_NIF_TERM esaio_ioctl_fionread(ErlNifEnv*       env,
+                                  ESockDescriptor* descP)
+{
+    u_long       n     = 0;
+    DWORD        ndata = 0; // We do not actually use this
+    int          res;
+    ERL_NIF_TERM result;
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_ioctl_fionread(%d) -> entry\r\n", descP->sock) );
+
+    res = sock_ioctl2(descP->sock, FIONREAD, NULL, 0, &n, sizeof(n), &ndata);
+    (void) ndata;
+
+    if (res != 0) {
+        int          save_errno = sock_errno();
+        ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_ioctl_fionread(%d) -> failure: "
+                "\r\n      reason: %T"
+                "\r\n", descP->sock, reason) );
+
+        result = esock_make_error(env, reason);
+
+    } else {
+
+        result = esock_encode_ioctl_ivalue(env, descP, n);
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_ioctl_fionread(%d) -> done with: "
+            "\r\n   result: %T"
+            "\r\n", descP->sock, result) );
+
+    return result;
+}
+#endif
+
+
+/* For a stream socket that has been configured for inline reception of any
+ * OOB data (SO_OOBINLINE), tests if there is any OOB data waiting to be read.
+ * Returns TRUE if there data waiting to be read, FALSE otherwise.
+ */
+#if defined(SIOCATMARK)
+static
+ERL_NIF_TERM esaio_ioctl_siocatmark(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
+{
+    int          b     = 0;
+    DWORD        ndata = 0; // We do not actually use this
+    int          res;
+    ERL_NIF_TERM result;
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_ioctl_siocatmark(%d) -> entry\r\n",
+            descP->sock) );
+
+    res = sock_ioctl2(descP->sock, SIOCATMARK, NULL, 0, &b, sizeof(b), &ndata);
+    (void) ndata;
+
+    if (res != 0) {
+        int          save_errno = sock_errno();
+        ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_ioctl_siocatmark(%d) -> failure: "
+                "\r\n      reason: %T"
+                "\r\n", descP->sock, reason) );
+
+        result = esock_make_error(env, reason);
+
+    } else {
+
+        result = esock_encode_ioctl_bvalue(env, descP, b);
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_ioctl_siocatmark(%d) -> done with: "
+            "\r\n   result: %T"
+            "\r\n", descP->sock, result) );
+
+    return result;
+}
+#endif
 
 
 
