@@ -140,17 +140,19 @@ ERL_NIF_INIT(prim_socket, esock_funcs, on_load, NULL, NULL, NULL)
 #include <Ws2tcpip.h>
 
 /* Visual studio 2008+: NTDDI_VERSION needs to be set for iphlpapi.h
- * to define the right structures. It needs to be set to WINXP (or LONGHORN)
- * for IPV6 to work and it's set lower by default, so we need to change it.
+ * to define the right structures.
+ * It needs to be set higher for IPV6 to work and it's set lower by default,
+ * so we need to change it.
  */
 #ifdef HAVE_SDKDDKVER_H
 #  include <sdkddkver.h>
 #  ifdef NTDDI_VERSION
 #    undef NTDDI_VERSION
 #  endif
-#  define NTDDI_VERSION NTDDI_WINXP
+#  define NTDDI_VERSION NTDDI_WIN10_RS2
 #endif
 #include <iphlpapi.h>
+#include <mstcpip.h>
 
 #undef WANT_NONBLOCKING
 #include "sys.h"
@@ -1962,6 +1964,11 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(broadcast);                       \
     GLOBAL_ATOM_DECL(bsp_state);                       \
     GLOBAL_ATOM_DECL(busy_poll);                       \
+    GLOBAL_ATOM_DECL(bytes_in);                        \
+    GLOBAL_ATOM_DECL(bytes_in_flight);                 \
+    GLOBAL_ATOM_DECL(bytes_out);                       \
+    GLOBAL_ATOM_DECL(bytes_reordered);                 \
+    GLOBAL_ATOM_DECL(bytes_retrans);                   \
     GLOBAL_ATOM_DECL(cancel);                          \
     GLOBAL_ATOM_DECL(cancelled);                       \
     GLOBAL_ATOM_DECL(cantconfig);		       \
@@ -1969,6 +1976,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(checksum);                        \
     GLOBAL_ATOM_DECL(close);                           \
     GLOBAL_ATOM_DECL(closed);                          \
+    GLOBAL_ATOM_DECL(close_wait);                      \
+    GLOBAL_ATOM_DECL(closing);                         \
     GLOBAL_ATOM_DECL(cmsg_cloexec);                    \
     GLOBAL_ATOM_DECL(command);                         \
     GLOBAL_ATOM_DECL(completion);                      \
@@ -1978,12 +1987,14 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(connect);                         \
     GLOBAL_ATOM_DECL(connected);                       \
     GLOBAL_ATOM_DECL(connecting);                      \
+    GLOBAL_ATOM_DECL(connection_time);                 \
     GLOBAL_ATOM_DECL(context);                         \
     GLOBAL_ATOM_DECL(cork);                            \
     GLOBAL_ATOM_DECL(counters);                        \
     GLOBAL_ATOM_DECL(credentials);                     \
     GLOBAL_ATOM_DECL(ctrl);                            \
     GLOBAL_ATOM_DECL(ctrunc);                          \
+    GLOBAL_ATOM_DECL(cwnd);                            \
     GLOBAL_ATOM_DECL(data);                            \
     GLOBAL_ATOM_DECL(data_size);                       \
     GLOBAL_ATOM_DECL(debug);                           \
@@ -2002,6 +2013,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(drop_source_membership);          \
     GLOBAL_ATOM_DECL(dstopts);                         \
     GLOBAL_ATOM_DECL(dup);                             \
+    GLOBAL_ATOM_DECL(dup_acks_in);                     \
     GLOBAL_ATOM_DECL(dying);			       \
     GLOBAL_ATOM_DECL(dynamic);                         \
     GLOBAL_ATOM_DECL(echo);                            \
@@ -2014,6 +2026,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(errqueue);                        \
     GLOBAL_ATOM_DECL(esp_network_level);               \
     GLOBAL_ATOM_DECL(esp_trans_level);                 \
+    GLOBAL_ATOM_DECL(established);                     \
     GLOBAL_ATOM_DECL(ether);                           \
     GLOBAL_ATOM_DECL(eui64);                           \
     GLOBAL_ATOM_DECL(events);                          \
@@ -2023,6 +2036,9 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(false);                           \
     GLOBAL_ATOM_DECL(family);                          \
     GLOBAL_ATOM_DECL(fastroute);                       \
+    GLOBAL_ATOM_DECL(fast_retrans);                    \
+    GLOBAL_ATOM_DECL(fin_wait_1);                      \
+    GLOBAL_ATOM_DECL(fin_wait_2);                      \
     GLOBAL_ATOM_DECL(flags);                           \
     GLOBAL_ATOM_DECL(flowinfo);                        \
     GLOBAL_ATOM_DECL(fragment_interleave);             \
@@ -2065,6 +2081,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(keepintvl);                       \
     GLOBAL_ATOM_DECL(kernel);                          \
     GLOBAL_ATOM_DECL(knowsepoch);		       \
+    GLOBAL_ATOM_DECL(last_ack);                        \
     GLOBAL_ATOM_DECL(leave_group);                     \
     GLOBAL_ATOM_DECL(level);                           \
     GLOBAL_ATOM_DECL(linger);                          \
@@ -2072,6 +2089,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(link0);                           \
     GLOBAL_ATOM_DECL(link1);                           \
     GLOBAL_ATOM_DECL(link2);                           \
+    GLOBAL_ATOM_DECL(listen);                          \
     GLOBAL_ATOM_DECL(local);                           \
     GLOBAL_ATOM_DECL(localtlk);                        \
     GLOBAL_ATOM_DECL(local_auth_chunks);               \
@@ -2080,6 +2098,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(lower_up);                        \
     GLOBAL_ATOM_DECL(mark);                            \
     GLOBAL_ATOM_DECL(master);                          \
+    GLOBAL_ATOM_DECL(max);                             \
     GLOBAL_ATOM_DECL(maxburst);                        \
     GLOBAL_ATOM_DECL(maxseg);                          \
     GLOBAL_ATOM_DECL(md5sig);                          \
@@ -2088,9 +2107,11 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(metricom);                        \
     GLOBAL_ATOM_DECL(mincost);                         \
     GLOBAL_ATOM_DECL(minttl);                          \
+    GLOBAL_ATOM_DECL(min_rtt);                         \
     GLOBAL_ATOM_DECL(monitor);			       \
     GLOBAL_ATOM_DECL(more);                            \
     GLOBAL_ATOM_DECL(msfilter);                        \
+    GLOBAL_ATOM_DECL(mss);                             \
     GLOBAL_ATOM_DECL(mtu);                             \
     GLOBAL_ATOM_DECL(mtu_discover);                    \
     GLOBAL_ATOM_DECL(multicast);                       \
@@ -2159,6 +2180,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(rcvbufforce);                     \
     GLOBAL_ATOM_DECL(rcvlowat);                        \
     GLOBAL_ATOM_DECL(rcvtimeo);                        \
+    GLOBAL_ATOM_DECL(rcv_buf);                         \
+    GLOBAL_ATOM_DECL(rcv_wnd);                         \
     GLOBAL_ATOM_DECL(rdm);                             \
     GLOBAL_ATOM_DECL(read_byte);                       \
     GLOBAL_ATOM_DECL(read_fails);                      \
@@ -2189,6 +2212,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(router_alert);                    \
     GLOBAL_ATOM_DECL(rthdr);                           \
     GLOBAL_ATOM_DECL(rtoinfo);                         \
+    GLOBAL_ATOM_DECL(rtt);                             \
     GLOBAL_ATOM_DECL(running);                         \
     GLOBAL_ATOM_DECL(rxq_ovfl);                        \
     GLOBAL_ATOM_DECL(scope_id);                        \
@@ -2220,6 +2244,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(sndbufforce);                     \
     GLOBAL_ATOM_DECL(sndlowat);                        \
     GLOBAL_ATOM_DECL(sndtimeo);                        \
+    GLOBAL_ATOM_DECL(snd_wnd);                         \
     GLOBAL_ATOM_DECL(sockaddr);                        \
     GLOBAL_ATOM_DECL(socket);                          \
     GLOBAL_ATOM_DECL(spec_dst);                        \
@@ -2228,6 +2253,9 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(status);                          \
     GLOBAL_ATOM_DECL(stream);                          \
     GLOBAL_ATOM_DECL(syncnt);                          \
+    GLOBAL_ATOM_DECL(syn_rcvd);                        \
+    GLOBAL_ATOM_DECL(syn_retrans);                     \
+    GLOBAL_ATOM_DECL(syn_sent);                        \
     GLOBAL_ATOM_DECL(tclass);                          \
     GLOBAL_ATOM_DECL(tcp);                             \
     GLOBAL_ATOM_DECL(throughput);                      \
@@ -2235,6 +2263,9 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(tos);                             \
     GLOBAL_ATOM_DECL(transparent);                     \
     GLOBAL_ATOM_DECL(timeout);                         \
+    GLOBAL_ATOM_DECL(timeout_episodes);                \
+    GLOBAL_ATOM_DECL(timestamp_enabled);               \
+    GLOBAL_ATOM_DECL(time_wait);                       \
     GLOBAL_ATOM_DECL(true);                            \
     GLOBAL_ATOM_DECL(trunc);                           \
     GLOBAL_ATOM_DECL(ttl);                             \
@@ -2429,6 +2460,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(socket_level);     \
     LOCAL_ATOM_DECL(socket_option);    \
     LOCAL_ATOM_DECL(sourceaddr);       \
+    LOCAL_ATOM_DECL(tcp_info);         \
     LOCAL_ATOM_DECL(time_exceeded);    \
     LOCAL_ATOM_DECL(true);             \
     LOCAL_ATOM_DECL(txstatus);         \
@@ -4863,6 +4895,10 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCGIFTXQLEN)
   requests = MKC(env, MKT2(env, atom_giftxqlen, MKUL(env, SIOCGIFTXQLEN)), requests);
+#endif
+
+#if defined(SIO_TCP_INFO)
+  requests = MKC(env, MKT2(env, atom_tcp_info, MKUL(env, SIO_TCP_INFO)), requests);
 #endif
 
   /* --- SET REQUESTS --- */
@@ -13634,7 +13670,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.getopt_otp     = esock_getopt_otp;
 
     io_backend.ioctl_2        = esaio_ioctl2;
-    io_backend.ioctl_3        = NULL;
+    io_backend.ioctl_3        = esaio_ioctl3;
     io_backend.ioctl_4        = NULL;
 
     io_backend.dtor           = esaio_dtor;

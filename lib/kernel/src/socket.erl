@@ -4436,6 +4436,11 @@ peername(Socket) ->
            (Socket, GetRequest :: 'atmark') ->
           {'ok', Available :: boolean()} | {'error', Reason} when
       Socket :: socket(),
+      Reason :: posix() | 'closed';
+
+           (Socket, GetRequest :: 'tcp_info') ->
+          {'ok', Info :: map()} | {'error', Reason} when
+      Socket :: socket(),
       Reason :: posix() | 'closed'.
 
 %% gifconf | nread | nwrite | nspace | atmark |
@@ -4448,6 +4453,8 @@ ioctl(?socket(SockRef), GetRequest) when (nread =:= GetRequest) orelse
     prim_socket:ioctl(SockRef, GetRequest);
 ioctl(?socket(SockRef), GetRequest) when (atmark =:= GetRequest) ->
     prim_socket:ioctl(SockRef, GetRequest);
+ioctl(Socket, GetRequest) when (tcp_info =:= GetRequest) ->
+    ioctl(Socket, GetRequest, 0);
 ioctl(Socket, GetRequest) ->
     erlang:error(badarg, [Socket, GetRequest]).
 
@@ -4523,7 +4530,8 @@ ioctl(Socket, GetRequest) ->
       GetRequest  :: 'gifname' | 'gifindex' |
                      'gifaddr' | 'gifdstaddr' | 'gifbrdaddr' |
                      'gifnetmask' | 'gifhwaddr' |
-                     'gifmtu' | 'giftxqlen' | 'gifflags',
+                     'gifmtu' | 'giftxqlen' | 'gifflags' |
+		     'tcp_info',
       NameOrIndex :: string() | integer(),
       Result      :: term(),
       Reason      :: posix() | 'closed'.
@@ -4561,6 +4569,9 @@ ioctl(?socket(SockRef), gifflags = GetRequest, Name)
 ioctl(?socket(SockRef), gifmap = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), tcp_info = GetRequest, Version)
+  when (Version =:= 0) ->
+    prim_socket:ioctl(SockRef, GetRequest, Version);
 ioctl(Socket, GetRequest, Arg) ->
     erlang:error(badarg, [Socket, GetRequest, Arg]).
 

@@ -656,6 +656,20 @@ static ERL_NIF_TERM esaio_ioctl_siocatmark(ErlNifEnv*       env,
                                            ESockDescriptor* descP);
 #endif
 
+#if defined(SIO_TCP_INFO)
+static ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     eversion);
+static ERL_NIF_TERM encode_tcp_info_v0(ErlNifEnv*   env,
+                                       TCP_INFO_v0* infoP);
+#if defined(HAVE_TCP_INFO_V1)
+static ERL_NIF_TERM encode_tcp_info_v1(ErlNifEnv*   env,
+                                       TCP_INFO_v1* infoP);
+#endif
+static ERL_NIF_TERM encode_tcp_state(ErlNifEnv* env,
+                                     TCPSTATE   state);
+#endif
+
 static void* esaio_completion_main(void* threadDataP);
 static BOOLEAN_T esaio_completion_terminate(ESAIOThreadData* dataP,
                                             OVERLAPPED*      ovl);
@@ -5417,6 +5431,384 @@ ERL_NIF_TERM esaio_cancel_recv(ErlNifEnv*       env,
 }
 
 
+
+
+/* ========================================================================
+ * IOCTL with three args (socket, request "key" and one argument)
+ *
+ * The type and value of 'arg' depend on the request,
+ * which we have not yet "analyzed".
+ *
+ * Request     arg       arg type
+ * -------     -------   --------
+ * tcp_info    version   integer
+ */
+extern
+ERL_NIF_TERM esaio_ioctl3(ErlNifEnv*       env,
+			  ESockDescriptor* descP,
+			  unsigned long    req,
+			  ERL_NIF_TERM     arg)
+{
+  /* This for *get* requests */
+
+  switch (req) {
+
+#if defined(SIO_TCP_INFO)
+  case SIO_TCP_INFO:
+    return esaio_ioctl_tcp_info(env, descP, arg);
+    break;
+#endif
+
+  default:
+    return esock_make_error(env, esock_atom_enotsup);
+    break;
+  }
+
+}
+
+
+
+#if defined(SIO_TCP_INFO)
+static
+ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     eversion)
+{
+    DWORD        ndata = 0; // We do not actually use this
+    ERL_NIF_TERM result;
+    int          res;
+    int          version;
+  
+  SSDBG( descP, ("WIN-ESAIO", "esaio_ioctl_tcp_info(%d) -> entry with"
+		 "\r\n      (e)version: %T"
+		 "\r\n", descP->sock, eversion) );
+
+  if (!GET_INT(env, eversion, &version))
+      return enif_make_badarg(env);
+
+  switch (version) {
+  case 0:
+      {
+          TCP_INFO_v0 info;
+
+          sys_memzero((char *) &info, sizeof(info));
+          res = sock_ioctl2(descP->sock, SIO_TCP_INFO,
+                            &version, sizeof(version),
+                            &info, sizeof(info), &ndata);
+          (void) ndata;
+          if (res != 0) {
+              int          saveErrno = sock_errno();
+              ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+              SSDBG( descP,
+                     ("UNIX-ESSIO", "esaio_ioctl_tcp_info(%d,v0) -> failure: "
+                      "\r\n      reason: %T (%d)"
+                      "\r\n", descP->sock, reason, saveErrno) );
+
+              result = esock_make_error(env, reason);
+
+          } else {
+              ERL_NIF_TERM einfo = encode_tcp_info_v0(env, &info);
+
+              result = esock_make_ok2(env, einfo);
+          }
+      }
+      break;
+
+#if defined(HAVE_TCP_INFO_V1)      
+  case 1:
+      {
+          TCP_INFO_v1 info;
+
+          sys_memzero((char *) &info, sizeof(info));
+          res = sock_ioctl2(descP->sock, SIO_TCP_INFO,
+                            &version, sizeof(version),
+                            &info, sizeof(info), &ndata);
+          (void) ndata;
+          if (res != 0) {
+              int          saveErrno = sock_errno();
+              ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+              SSDBG( descP,
+                     ("UNIX-ESSIO", "essio_ioctl_gifname(%d,v1) -> failure: "
+                      "\r\n      reason: %T (%d)"
+                      "\r\n", descP->sock, reason, saveErrno) );
+
+              result = esock_make_error(env, reason);
+
+          } else {
+              ERL_NIF_TERM einfo = encode_tcp_info_v1(env, &info);
+
+              result = esock_make_ok2(env, einfo);
+          }
+      }
+      break;
+#endif
+
+  default:
+      return enif_make_badarg(env);
+  }
+
+  SSDBG( descP,
+	 ("UNIX-ESSIO", "essio_ioctl_gifname(%d -> done with"
+	  "\r\n      result: %T"
+	  "\r\n",
+	  descP->sock, result) );
+    
+  return result;
+
+}
+#endif
+
+
+/*
+  typedef struct _TCP_INFO_v0 {
+  TCPSTATE State;
+  ULONG    Mss;
+  ULONG64  ConnectionTimeMs;
+  BOOLEAN  TimestampsEnabled;
+  ULONG    RttUs;
+  ULONG    MinRttUs;
+  ULONG    BytesInFlight;
+  ULONG    Cwnd;
+  ULONG    SndWnd;
+  ULONG    RcvWnd;
+  ULONG    RcvBuf;
+  ULONG64  BytesOut;
+  ULONG64  BytesIn;
+  ULONG    BytesReordered;
+  ULONG    BytesRetrans;
+  ULONG    FastRetrans;
+  ULONG    DupAcksIn;
+  ULONG    TimeoutEpisodes;
+  UCHAR    SynRetrans;
+  } TCP_INFO_v0, *PTCP_INFO_v0;
+  *
+  typedef enum _TCPSTATE {
+  TCPSTATE_CLOSED,
+  TCPSTATE_LISTEN,
+  TCPSTATE_SYN_SENT,
+  TCPSTATE_SYN_RCVD,
+  TCPSTATE_ESTABLISHED,
+  TCPSTATE_FIN_WAIT_1,
+  TCPSTATE_FIN_WAIT_2,
+  TCPSTATE_CLOSE_WAIT,
+  TCPSTATE_CLOSING,
+  TCPSTATE_LAST_ACK,
+  TCPSTATE_TIME_WAIT,
+  TCPSTATE_MAX
+  } TCPSTATE;
+  */
+#if defined(SIO_TCP_INFO)
+static
+ERL_NIF_TERM encode_tcp_info_v0(ErlNifEnv* env, TCP_INFO_v0* infoP)
+{
+    ERL_NIF_TERM einfo;
+    ERL_NIF_TERM keys[] = {esock_atom_state,
+        esock_atom_mss,
+        esock_atom_connection_time,
+        esock_atom_timestamp_enabled,
+        esock_atom_rtt,
+        esock_atom_min_rtt,
+        esock_atom_bytes_in_flight,
+        esock_atom_cwnd,
+        esock_atom_snd_wnd,
+        esock_atom_rcv_wnd,
+        esock_atom_rcv_buf,
+        esock_atom_bytes_out,
+        esock_atom_bytes_in,
+        esock_atom_bytes_reordered,
+        esock_atom_bytes_retrans,
+        esock_atom_fast_retrans,
+        esock_atom_dup_acks_in,
+        esock_atom_timeout_episodes,
+        esock_atom_syn_retrans};
+    ERL_NIF_TERM vals[]  = {encode_tcp_state(env, infoP->State),
+        MKUL(env, infoP->Mss),
+        MKUI64(env, infoP->ConnectionTimeMs),
+        infoP->TimestampsEnabled ? esock_atom_true : esock_atom_false,
+        MKUL(env,   infoP->RttUs),
+        MKUL(env,   infoP->MinRttUs),
+        MKUL(env,   infoP->BytesInFlight),
+        MKUL(env,   infoP->Cwnd),
+        MKUL(env,   infoP->SndWnd),
+        MKUL(env,   infoP->RcvWnd),
+        MKUL(env,   infoP->RcvBuf),
+        MKUI64(env, infoP->BytesOut),
+        MKUI64(env, infoP->BytesIn),
+        MKUL(env,   infoP->BytesReordered),
+        MKUL(env,   infoP->BytesRetrans),
+        MKUL(env,   infoP->FastRetrans),
+        MKUL(env,   infoP->DupAcksIn),
+        MKUL(env,   infoP->TimeoutEpisodes),
+        MKUI(env,   infoP->SynRetrans)};
+    unsigned int numKeys = NUM(keys);
+    unsigned int numVals = NUM(vals);
+
+    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &einfo) );
+
+    return einfo;
+}
+#endif
+
+
+/*
+  typedef struct _TCP_INFO_v1 {
+  TCPSTATE State;
+  ULONG    Mss;
+  ULONG64  ConnectionTimeMs;
+  BOOLEAN  TimestampsEnabled;
+  ULONG    RttUs;
+  ULONG    MinRttUs;
+  ULONG    BytesInFlight;
+  ULONG    Cwnd;
+  ULONG    SndWnd;
+  ULONG    RcvWnd;
+  ULONG    RcvBuf;
+  ULONG64  BytesOut;
+  ULONG64  BytesIn;
+  ULONG    BytesReordered;
+  ULONG    BytesRetrans;
+  ULONG    FastRetrans;
+  ULONG    DupAcksIn;
+  ULONG    TimeoutEpisodes;
+  UCHAR    SynRetrans;
+  ULONG    SndLimTransRwin;
+  ULONG    SndLimTimeRwin;
+  ULONG64  SndLimBytesRwin;
+  ULONG    SndLimTransCwnd;
+  ULONG    SndLimTimeCwnd;
+  ULONG64  SndLimBytesCwnd;
+  ULONG    SndLimTransSnd;
+  ULONG    SndLimTimeSnd;
+  ULONG64  SndLimBytesSnd;
+  } TCP_INFO_v1, *PTCP_INFO_v1;
+ */
+#if defined(SIO_TCP_INFO) && defined(HAVE_TCP_INFO_V1)
+static
+ERL_NIF_TERM encode_tcp_info_v1(ErlNifEnv* env, TCP_INFO_v1* infoP)
+{
+    ERL_NIF_TERM einfo;
+    ERL_NIF_TERM keys[] = {esock_atom_state,
+        esock_atom_mss,
+        esock_atom_connection_time,
+        esock_atom_timestamp_enabled,
+        esock_atom_rtt,
+        esock_atom_min_rtt,
+        esock_atom_bytes_in_flight,
+        esock_atom_cwnd,
+        esock_atom_snd_wnd,
+        esock_atom_rcv_wnd,
+        esock_atom_rcv_buf,
+        esock_atom_bytes_out,
+        esock_atom_bytes_in,
+        esock_atom_bytes_reordered,
+        esock_atom_bytes_retrans,
+        esock_atom_fast_retrans,
+        esock_atom_dup_acks_in,
+        esock_atom_timeout_episodes,
+        esock_atom_syn_retrans,
+        esock_atom_syn_lim_trans_rwin,
+        esock_atom_syn_lim_time_rwin,
+        esock_atom_syn_lim_bytes_rwin,
+        esock_atom_syn_lim_trans_cwnd,
+        esock_atom_syn_lim_time_cwnd,
+        esock_atom_syn_lim_bytes_cwnd,
+        esock_atom_syn_lim_trans_snd,
+        esock_atom_syn_lim_time_snd,
+        esock_atom_syn_lim_bytes_snd};
+    ERL_NIF_TERM vals[]  = {encode_tcp_state(env, infoP->State),
+        MKUL(env,   infoP->Mss),
+        MKUI64(end, infoP->ConnectionTimeMs),
+        infoP->TimestampsEnabled ? esock_atom_true : esock_atom_false,
+        MKUL(env,   infoP->RttUs),
+        MKUL(env,   infoP->MinRttUs),
+        MKUL(env,   infoP->BytesInFlight),
+        MKUL(env,   infoP->Cwnd),
+        MKUL(env,   infoP->SndWnd),
+        MKUL(env,   infoP->RcvWnd),
+        MKUL(env,   infoP->RcvBuf),
+        MKUI64(env, infoP->BytesOut),
+        MKUI64(env, infoP->BytesIn),
+        MKUL(env,   infoP->BytesReordered),
+        MKUL(env,   infoP->BytesRetrans),
+        MKUL(env,   infoP->FastRetrans),
+        MKUL(env,   infoP->DupAcksIn),
+        MKUL(env,   infoP->TimeoutEpisodes),
+        MKUI(env,   infoP->SynRetrans),
+        MKUL(env,   infoP->SndLimTransRwin),
+        MKUL(env,   infoP->SndLimTimeRwin),
+        MKUI64(env, infoP->SndLimBytesRwin),
+        MKUL(env,   infoP->SndLimTransCwnd),
+        MKUL(env,   infoP->SndLimTimeCwnd),
+        MKUI64(env, infoP->SndLimBytesCwnd),
+        MKUL(env,   infoP->SndLimTransSnd),
+        MKUL(env,   infoP->SndLimTimeSnd),
+        MKUI64(env, infoP->SndLimBytesSnd)};
+    unsigned int numKeys = NUM(keys);
+    unsigned int numVals = NUM(vals);
+
+    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &einfo) );
+
+    return einfo;
+}
+#endif
+
+
+
+#if defined(SIO_TCP_INFO)
+static
+ERL_NIF_TERM encode_tcp_state(ErlNifEnv* env, TCPSTATE state)
+{
+    ERL_NIF_TERM estate;
+
+    switch (state) {
+    case TCPSTATE_CLOSED:
+        estate = esock_atom_closed;
+        break;
+    case TCPSTATE_LISTEN:
+        estate = esock_atom_listen;
+        break;
+    case TCPSTATE_SYN_SENT:
+        estate = esock_atom_syn_sent;
+        break;
+    case TCPSTATE_SYN_RCVD:
+        estate = esock_atom_syn_rcvd;
+        break;
+    case TCPSTATE_ESTABLISHED:
+        estate = esock_atom_established;
+        break;
+    case TCPSTATE_FIN_WAIT_1:
+        estate = esock_atom_fin_wait_1;
+        break;
+    case TCPSTATE_FIN_WAIT_2:
+        estate = esock_atom_fin_wait_2;
+        break;
+    case TCPSTATE_CLOSE_WAIT:
+        estate = esock_atom_close_wait;
+        break;
+    case TCPSTATE_CLOSING:
+        estate = esock_atom_closing;
+        break;
+    case TCPSTATE_LAST_ACK:
+        estate = esock_atom_last_ack;
+        break;
+    case TCPSTATE_TIME_WAIT:
+        estate = esock_atom_time_wait;
+        break;
+    case TCPSTATE_MAX:
+        estate = esock_atom_max;
+        break;
+    default:
+        estate = MKI(env, state);
+        break;
+    }
+
+    return estate;
+}
+#endif
 
 
 /* ========================================================================
