@@ -350,6 +350,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(ip);                       \
     GLOBAL_ATOM_DEF(ipcomp_level);             \
     GLOBAL_ATOM_DEF(ipip);                     \
+    GLOBAL_ATOM_DEF(iplevel);                  \
     GLOBAL_ATOM_DEF(ipv6);                     \
     GLOBAL_ATOM_DEF(irq);                      \
     GLOBAL_ATOM_DEF(i_want_mapped_v4_addr);    \
@@ -423,7 +424,9 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(num_unexpected_writes);    \
     GLOBAL_ATOM_DEF(num_unknown_cmds);         \
     GLOBAL_ATOM_DEF(oactive);		       \
+    GLOBAL_ATOM_DEF(off);                      \
     GLOBAL_ATOM_DEF(ok);                       \
+    GLOBAL_ATOM_DEF(on);                       \
     GLOBAL_ATOM_DEF(oob);                      \
     GLOBAL_ATOM_DEF(oobinline);                \
     GLOBAL_ATOM_DEF(options);                  \

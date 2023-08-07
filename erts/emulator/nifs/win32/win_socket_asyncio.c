@@ -670,6 +670,13 @@ static ERL_NIF_TERM encode_tcp_state(ErlNifEnv* env,
                                      TCPSTATE   state);
 #endif
 
+#if defined(SIO_RCVALL)
+static ERL_NIF_TERM esaio_ioctl_rcvall(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     ecommand);
+#endif
+
+
 static void* esaio_completion_main(void* threadDataP);
 static BOOLEAN_T esaio_completion_terminate(ESAIOThreadData* dataP,
                                             OVERLAPPED*      ovl);
@@ -5429,7 +5436,8 @@ ERL_NIF_TERM esaio_cancel_recv(ErlNifEnv*       env,
  *
  * Request     arg       arg type
  * -------     -------   --------
- * tcp_info    version   integer
+ * tcp_info    version   integer()
+ * rcvall      command   atom() (off | on | iplevel)
  */
 extern
 ERL_NIF_TERM esaio_ioctl3(ErlNifEnv*       env,
@@ -5437,15 +5445,24 @@ ERL_NIF_TERM esaio_ioctl3(ErlNifEnv*       env,
 			  unsigned long    req,
 			  ERL_NIF_TERM     arg)
 {
-  /* This for *get* requests */
-
   switch (req) {
+
+      /* These are *get* requests */
 
 #if defined(SIO_TCP_INFO)
   case SIO_TCP_INFO:
-    return esaio_ioctl_tcp_info(env, descP, arg);
-    break;
+      return esaio_ioctl_tcp_info(env, descP, arg);
+      break;
 #endif
+
+    /* These are *set* requests */
+
+#if defined(SIO_RCVALL)
+  case SIO_RCVALL:
+      return esaio_ioctl_rcvall(env, descP, arg);
+      break;
+#endif
+
 
   default:
     return esock_make_error(env, esock_atom_enotsup);
@@ -5467,83 +5484,83 @@ ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
     int          res;
     int          version;
   
-  SSDBG( descP, ("WIN-ESAIO", "esaio_ioctl_tcp_info(%d) -> entry with"
-		 "\r\n      (e)version: %T"
-		 "\r\n", descP->sock, eversion) );
+    SSDBG( descP, ("WIN-ESAIO", "esaio_ioctl_tcp_info(%d) -> entry with"
+                   "\r\n      (e)version: %T"
+                   "\r\n", descP->sock, eversion) );
 
-  if (!GET_INT(env, eversion, &version))
-      return enif_make_badarg(env);
+    if (!GET_INT(env, eversion, &version))
+        return enif_make_badarg(env);
 
-  switch (version) {
-  case 0:
-      {
-          TCP_INFO_v0 info;
+    switch (version) {
+    case 0:
+        {
+            TCP_INFO_v0 info;
 
-          sys_memzero((char *) &info, sizeof(info));
-          res = sock_ioctl2(descP->sock, SIO_TCP_INFO,
-                            &version, sizeof(version),
-                            &info, sizeof(info), &ndata);
-          (void) ndata;
-          if (res != 0) {
-              int          saveErrno = sock_errno();
-              ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+            sys_memzero((char *) &info, sizeof(info));
+            res = sock_ioctl2(descP->sock, SIO_TCP_INFO,
+                              &version, sizeof(version),
+                              &info, sizeof(info), &ndata);
+            (void) ndata;
+            if (res != 0) {
+                int          save_errno = sock_errno();
+                ERL_NIF_TERM reason     = ENO2T(env, save_errno);
 
-              SSDBG( descP,
-                     ("UNIX-ESSIO", "esaio_ioctl_tcp_info(%d,v0) -> failure: "
-                      "\r\n      reason: %T (%d)"
-                      "\r\n", descP->sock, reason, saveErrno) );
+                SSDBG( descP,
+                       ("WIN-ESAIO", "esaio_ioctl_tcp_info(%d,v0) -> failure: "
+                        "\r\n      reason: %T"
+                        "\r\n", descP->sock, reason) );
 
-              result = esock_make_error(env, reason);
+                result = esock_make_error(env, reason);
 
-          } else {
-              ERL_NIF_TERM einfo = encode_tcp_info_v0(env, &info);
+            } else {
+                ERL_NIF_TERM einfo = encode_tcp_info_v0(env, &info);
 
-              result = esock_make_ok2(env, einfo);
-          }
-      }
-      break;
+                result = esock_make_ok2(env, einfo);
+            }
+        }
+        break;
 
 #if defined(HAVE_TCP_INFO_V1)      
-  case 1:
-      {
-          TCP_INFO_v1 info;
+    case 1:
+        {
+            TCP_INFO_v1 info;
 
-          sys_memzero((char *) &info, sizeof(info));
-          res = sock_ioctl2(descP->sock, SIO_TCP_INFO,
-                            &version, sizeof(version),
-                            &info, sizeof(info), &ndata);
-          (void) ndata;
-          if (res != 0) {
-              int          saveErrno = sock_errno();
-              ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+            sys_memzero((char *) &info, sizeof(info));
+            res = sock_ioctl2(descP->sock, SIO_TCP_INFO,
+                              &version, sizeof(version),
+                              &info, sizeof(info), &ndata);
+            (void) ndata;
+            if (res != 0) {
+                int          save_errno = sock_errno();
+                ERL_NIF_TERM reason     = ENO2T(env, save_errno);
 
-              SSDBG( descP,
-                     ("UNIX-ESSIO", "essio_ioctl_gifname(%d,v1) -> failure: "
-                      "\r\n      reason: %T (%d)"
-                      "\r\n", descP->sock, reason, saveErrno) );
+                SSDBG( descP,
+                       ("WIN-ESAIO", "esaio_ioctl_tcp_info(%d,v1) -> failure: "
+                        "\r\n      reason: %T"
+                        "\r\n", descP->sock, reason) );
 
-              result = esock_make_error(env, reason);
+                result = esock_make_error(env, reason);
 
-          } else {
-              ERL_NIF_TERM einfo = encode_tcp_info_v1(env, &info);
+            } else {
+                ERL_NIF_TERM einfo = encode_tcp_info_v1(env, &info);
 
-              result = esock_make_ok2(env, einfo);
-          }
-      }
-      break;
+                result = esock_make_ok2(env, einfo);
+            }
+        }
+        break;
 #endif
 
-  default:
-      return enif_make_badarg(env);
-  }
+    default:
+        return enif_make_badarg(env);
+    }
 
-  SSDBG( descP,
-	 ("UNIX-ESSIO", "essio_ioctl_gifname(%d -> done with"
-	  "\r\n      result: %T"
-	  "\r\n",
-	  descP->sock, result) );
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_ioctl_tcp_info(%d) -> done with"
+            "\r\n      result: %T"
+            "\r\n",
+            descP->sock, result) );
     
-  return result;
+    return result;
 
 }
 #endif
@@ -5797,6 +5814,68 @@ ERL_NIF_TERM encode_tcp_state(ErlNifEnv* env, TCPSTATE state)
     return estate;
 }
 #endif
+
+
+#if defined(SIO_RCVALL)
+static
+ERL_NIF_TERM esaio_ioctl_rcvall(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     ecommand)
+{
+    DWORD        ndata = 0; // We do not actually use this
+    ERL_NIF_TERM result;
+    int          command, res;
+  
+    SSDBG( descP, ("WIN-ESAIO", "esaio_ioctl_rcvall(%d) -> entry with"
+                   "\r\n      (e)command: %T"
+                   "\r\n", descP->sock, ecommand) );
+
+    if (! IS_ATOM(env, ecommand))
+        return enif_make_badarg(env);
+
+    if (COMPARE(ecommand, esock_atom_off) == 0) {
+        command = RCVALL_OFF;
+    } else if (COMPARE(ecommand, esock_atom_on) == 0) {
+        command = RCVALL_ON;
+    } else if (COMPARE(ecommand, esock_atom_iplevel) == 0) {
+        command = RCVALL_IPLEVEL;
+    } else {
+        return enif_make_badarg(env);
+    }
+
+    res = sock_ioctl2(descP->sock, SIO_RCVALL,
+                      &command, sizeof(command),
+                      NULL, 0, &ndata);
+    (void) ndata;
+
+    if (res != 0) {
+        int          save_errno = sock_errno();
+        ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_ioctl_rcvall(%d) -> failure: "
+                "\r\n      reason: %T"
+                "\r\n", descP->sock, reason) );
+
+        result = esock_make_error(env, reason);
+
+    } else {
+
+        result = esock_atom_ok;
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_ioctl_rcvall(%d) -> done with"
+            "\r\n      result: %T"
+            "\r\n",
+            descP->sock, result) );
+    
+    return result;
+
+}
+#endif
+
 
 
 /* ========================================================================
