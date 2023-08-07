@@ -358,6 +358,7 @@
          ioctl_get_giftxqlen/1,
          ioctl_get_gifflags/1,
          ioctl_get_gifmap/1,
+         ioctl_tcp_info/1,
          %% ioctl_set_requests/1,
 
          %% *** Traffic ***
@@ -1373,7 +1374,8 @@ ioctl_get_cases() ->
      ioctl_get_gifhwaddr,
      ioctl_get_giftxqlen,
      ioctl_get_gifflags,
-     ioctl_get_gifmap
+     ioctl_get_gifmap,
+     ioctl_tcp_info
     ].
 
 
@@ -38055,6 +38057,201 @@ do_ioctl_get_gifmap(_State) ->
 
 
 
+%% --- tcp_info ---
+
+ioctl_tcp_info(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    Cond = fun() ->
+		   has_support_ioctl_tcp_info()
+	   end,
+    TC   = fun() ->
+		   Domain = inet,
+		   case which_local_addr(Domain) of
+		       {ok, Addr} ->
+			   State = #{domain => Domain,
+				     laddr  => Addr},
+			   do_ioctl_tcp_info(State);
+		       {error, Reason} ->
+			   skip({no_local_addr, Reason})
+		   end
+	   end,
+    tc_try(?FUNCTION_NAME, Cond, TC).
+
+
+do_ioctl_tcp_info(#{domain := Domain,
+		    laddr  := LAddr} = _State) ->
+    LSA = #{family => Domain, addr => LAddr},
+
+    i("[server] create stream:TCP server listen socket"),
+    {ok, L} = socket:open(Domain, stream, tcp),
+
+    i("[server] bind to ~p", [LSA]),
+    ok = socket:bind(L, LSA),
+
+    i("[server] make listen socket"),
+    ok = socket:listen(L),
+
+    i("[server] get sockname"),
+    {ok, SSA} = socket:sockname(L),
+
+
+    i("[client] create stream:TCP socket"),
+    {ok, C} = socket:open(Domain, stream, tcp),
+
+    i("[client] bind to ~p", [LSA]),
+    ok = socket:bind(C, LSA),
+
+    i("[client] connect to server: "
+      "~n   ~p", [SSA]),
+    ok = socket:connect(C, SSA),
+
+    
+    i("[server] accept connection"),
+    {ok, A} = socket:accept(L),
+
+    
+    i("[client] try get tcp info"),
+    case socket:ioctl(C, tcp_info) of
+	{ok, CTcpInfo0} ->
+	    i("[client] tcp info: "
+	      "~n   ~p"
+	      "~n", [CTcpInfo0]),
+	    ok;
+	{error, CReason0} ->
+	    i("[client] failed get TCP info: "
+	      "~n   ~p"
+	      "~n", [CReason0]),
+	    skip({client_tcp_info, 0, CReason0})
+    end,
+
+    i("[server] try get tcp info"),
+    case socket:ioctl(A, tcp_info) of
+	{ok, ATcpInfo0} ->
+	    i("[server] tcp info: "
+	      "~n   ~p"
+	      "~n", [ATcpInfo0]),
+	    ok;
+	{error, AReason0} ->
+	    i("[server] failed get TCP info: "
+	      "~n   ~p"
+	      "~n", [AReason0]),
+	    skip({server_tcp_info, 0, AReason0})
+    end,
+
+
+    Data = <<0,1,2,3,4,5,6,7,8,9,
+	     0,1,2,3,4,5,6,7,8,9>>,
+    DSz  = byte_size(Data),
+    i("[client] send some data"),
+    ok = socket:send(C, Data),
+
+    i("[client] try get tcp info (verify bytes-out)"),
+    case socket:ioctl(C, tcp_info) of
+	{ok, #{bytes_out := BytesOut} = CTcpInfo1} when (BytesOut =:= DSz) ->
+	    i("[client] tcp info: "
+	      "~n   ~p"
+	      "~n", [CTcpInfo1]),
+	    ok;
+	{error, CReason1} ->
+	    i("[client] failed get TCP info: "
+	      "~n   ~p"
+	      "~n", [CReason1]),
+	    skip({client_tcp_info, 1, CReason1})
+    end,
+
+    i("[server] try get tcp info (verify bytes-in)"),
+    case socket:ioctl(A, tcp_info) of
+	{ok, #{bytes_in := BytesIn} = ATcpInfo1} when (BytesIn =:= DSz) ->
+	    i("[server] tcp info: "
+	      "~n   ~p"
+	      "~n", [ATcpInfo1]),
+	    ok;
+	{error, AReason1} ->
+	    i("[server] failed get TCP info: "
+	      "~n   ~p"
+	      "~n", [AReason1]),
+	    skip({server_tcp_info, 1, AReason1})
+    end,
+
+
+    i("[server] recv some data"),
+    {ok, _} = socket:recv(A),
+
+    i("[client] try get tcp info"),
+    {ok, CConnTime2} =
+	case socket:ioctl(C, tcp_info) of
+	    {ok, #{connection_time := CCT2} = CTcpInfo2} ->
+		i("[client] tcp info: "
+		  "~n   ~p"
+		  "~n", [CTcpInfo2]),
+		{ok, CCT2};
+	    {error, CReason2} ->
+		i("[client] failed get TCP info: "
+		  "~n   ~p"
+		  "~n", [CReason2]),
+		skip({client_tcp_info, 2, CReason2})
+	end,
+
+    i("[server] try get tcp info"),
+    {ok, AConnTime2} =
+	case socket:ioctl(A, tcp_info) of
+	    {ok, #{connection_time := ACT2} = ATcpInfo2} ->
+		i("[server] tcp info: "
+		  "~n   ~p"
+		  "~n", [ATcpInfo2]),
+		{ok, ACT2};
+	    {error, AReason2} ->
+		i("[server] failed get TCP info: "
+		  "~n   ~p"
+		  "~n", [AReason2]),
+		skip({server_tcp_info, 2, AReason2})
+	end,
+
+    SLEEP = ?SECS(5),
+    ?SLEEP(SLEEP),
+
+    i("[client] try get tcp info (verify connection time)"),
+    case socket:ioctl(C, tcp_info) of
+	{ok, #{connection_time := CCT3} = CTcpInfo3}
+	  when (CCT3 >= (SLEEP+CConnTime2)) ->
+	    i("[client] tcp info: "
+	      "~n   ~p"
+	      "~n", [CTcpInfo3]),
+	    ok;
+	{error, CReason3} ->
+	    i("[client] failed get TCP info: "
+	      "~n   ~p"
+	      "~n", [CReason3]),
+	    skip({client_tcp_info, 3, CReason3})
+    end,
+
+    i("[server] try get tcp info (verify connection time)"),
+    case socket:ioctl(A, tcp_info) of
+	{ok, #{connection_time := ACT3} = ATcpInfo3} 
+	  when (ACT3 >= (SLEEP+AConnTime2)) ->
+	    i("[server] tcp info: "
+	      "~n   ~p"
+	      "~n", [ATcpInfo3]),
+	    ok;
+	{error, AReason3} ->
+	    i("[server] failed get TCP info: "
+	      "~n   ~p"
+	      "~n", [AReason3]),
+	    skip({server_tcp_info, 3, AReason3})
+    end,
+
+
+    i("cleanup"),
+    ok = socket:close(L),
+    ok = socket:close(A),
+    ok = socket:close(C),
+
+    i("done"),
+    ok.
+
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to (simply) test that the counters
 %% for both read and write.
@@ -51354,7 +51551,7 @@ which_local_addr(local = _Domain) ->
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_addr(Domain) ->
-    ?LIB:which_local_addr(Domain).
+    ?KLIB:which_local_addr(Domain).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -51820,6 +52017,9 @@ has_support_ioctl_gifflags() ->
 
 has_support_ioctl_gifmap() ->
     has_support_ioctl_request(gifmap).
+
+has_support_ioctl_tcp_info() ->
+    has_support_ioctl_request(tcp_info).
 
 has_support_ioctl_request(Req) when is_atom(Req) ->
     try socket:is_supported(ioctl_requests, Req) of
