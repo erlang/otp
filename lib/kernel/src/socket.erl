@@ -4422,14 +4422,31 @@ peername(Socket) ->
 %%
 %%
 
--spec ioctl(Socket, GetRequest) -> {'ok', IFConf} | {'error', Reason} when
-      Socket     :: socket(),
-      GetRequest :: 'gifconf',
-      IFConf     :: [#{name := string, addr := sockaddr()}],
-      Reason     :: posix() | 'closed'.
+-spec ioctl(Socket, GetRequest :: 'gifconf') ->
+          {'ok', IFConf :: [#{name := string, addr := sockaddr()}]} |
+          {'error', Reason} when
+      Socket :: socket(),
+      Reason :: posix() | 'closed';
 
-%% gifconf | {gifaddr, string()} | {gifindex, string()} | {gifname, integer()}
+           (Socket, GetRequest :: 'nread' | 'nwrite' | 'nspace') ->
+          {'ok', NumBytes :: non_neg_integer()} | {'error', Reason} when
+      Socket :: socket(),
+      Reason :: posix() | 'closed';
+
+           (Socket, GetRequest :: 'atmark') ->
+          {'ok', Available :: boolean()} | {'error', Reason} when
+      Socket :: socket(),
+      Reason :: posix() | 'closed'.
+
+%% gifconf | nread | nwrite | nspace | atmark |
+%% {gifaddr, string()} | {gifindex, string()} | {gifname, integer()}
 ioctl(?socket(SockRef), gifconf = GetRequest) ->
+    prim_socket:ioctl(SockRef, GetRequest);
+ioctl(?socket(SockRef), GetRequest) when (nread =:= GetRequest) orelse
+                                         (nwrite =:= GetRequest) orelse
+                                         (nspace =:= GetRequest) ->
+    prim_socket:ioctl(SockRef, GetRequest);
+ioctl(?socket(SockRef), GetRequest) when (atmark =:= GetRequest) ->
     prim_socket:ioctl(SockRef, GetRequest);
 ioctl(Socket, GetRequest) ->
     erlang:error(badarg, [Socket, GetRequest]).

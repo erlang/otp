@@ -429,6 +429,45 @@ static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
 
 static ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
 					ESockDescriptor* descP);
+/* esock_ioctl_fionread */
+#if defined(FIONREAD)
+#define IOCTL_FIONREAD_FUNC2_DEF IOCTL_GET_FUNC2_DEF(fionread)
+#else
+#define IOCTL_FIONREAD_FUNC2_DEF
+#endif
+
+/* esock_ioctl_fionwrite */
+#if defined(FIONWRITE)
+#define IOCTL_FIONWRITE_FUNC2_DEF IOCTL_GET_FUNC2_DEF(fionwrite)
+#else
+#define IOCTL_FIONWRITE_FUNC2_DEF
+#endif
+
+/* esock_ioctl_fionspace */
+#if defined(FIONSPACE)
+#define IOCTL_FIONSPACE_FUNC2_DEF IOCTL_GET_FUNC2_DEF(fionspace)
+#else
+#define IOCTL_FIONSPACE_FUNC2_DEF
+#endif
+
+/* esock_ioctl_siocatmark */
+#if defined(SIOCATMARK)
+#define IOCTL_SIOCATMARK_FUNC2_DEF IOCTL_GET_FUNC2_DEF(siocatmark)
+#else
+#define IOCTL_SIOCATMARK_FUNC2_DEF
+#endif
+
+#define IOCTL_GET_FUNCS2_DEF			\
+    IOCTL_FIONREAD_FUNC2_DEF;			\
+    IOCTL_FIONWRITE_FUNC2_DEF;			\
+    IOCTL_FIONSPACE_FUNC2_DEF;			\
+    IOCTL_SIOCATMARK_FUNC2_DEF;
+#define IOCTL_GET_FUNC2_DEF(F)					\
+    static ERL_NIF_TERM essio_ioctl_##F(ErlNifEnv*       env,	\
+                                        ESockDescriptor* descP)
+IOCTL_GET_FUNCS2_DEF
+#undef IOCTL_GET_FUNC2_DEF
+
 #if defined(SIOCGIFNAME)
 static ERL_NIF_TERM essio_ioctl_gifname(ErlNifEnv*       env,
 					ESockDescriptor* descP,
@@ -437,91 +476,91 @@ static ERL_NIF_TERM essio_ioctl_gifname(ErlNifEnv*       env,
 
 /* esock_ioctl_gifindex */
 #if defined(SIOCGIFINDEX)
-#define IOCTL_GIFINDEX_FUNC_DEF IOCTL_GET_FUNC_DEF(gifindex)
+#define IOCTL_GIFINDEX_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifindex)
 #else
-#define IOCTL_GIFINDEX_FUNC_DEF
+#define IOCTL_GIFINDEX_FUNC3_DEF
 #endif
 
 /* esock_ioctl_gifflags */
 #if defined(SIOCGIFFLAGS)
-#define IOCTL_GIFFLAGS_FUNC_DEF IOCTL_GET_FUNC_DEF(gifflags)
+#define IOCTL_GIFFLAGS_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifflags)
 #else
-#define IOCTL_GIFFLAGS_FUNC_DEF
+#define IOCTL_GIFFLAGS_FUNC3_DEF
 #endif
 
 /* esock_ioctl_gifaddr */
 #if defined(SIOCGIFADDR)
-#define IOCTL_GIFADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifaddr)
+#define IOCTL_GIFADDR_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifaddr)
 #else
-#define IOCTL_GIFADDR_FUNC_DEF
+#define IOCTL_GIFADDR_FUNC3_DEF
 #endif
 
 /* esock_ioctl_gifdstaddr */
 #if defined(SIOCGIFDSTADDR)
-#define IOCTL_GIFDSTADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifdstaddr)
+#define IOCTL_GIFDSTADDR_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifdstaddr)
 #else
-#define IOCTL_GIFDSTADDR_FUNC_DEF
+#define IOCTL_GIFDSTADDR_FUNC3_DEF
 #endif
 
 /* esock_ioctl_gifbrdaddr */
 #if defined(SIOCGIFBRDADDR)
-#define IOCTL_GIFBRDADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifbrdaddr)
+#define IOCTL_GIFBRDADDR_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifbrdaddr)
 #else
-#define IOCTL_GIFBRDADDR_FUNC_DEF
+#define IOCTL_GIFBRDADDR_FUNC3_DEF
 #endif
 
 /* esock_ioctl_gifnetmask */
 #if defined(SIOCGIFNETMASK)
-#define IOCTL_GIFNETMASK_FUNC_DEF IOCTL_GET_FUNC_DEF(gifnetmask)
+#define IOCTL_GIFNETMASK_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifnetmask)
 #else
-#define IOCTL_GIFNETMASK_FUNC_DEF
+#define IOCTL_GIFNETMASK_FUNC3_DEF
 #endif
 
 /* esock_ioctl_gifmtu */
 #if defined(SIOCGIFMTU)
-#define IOCTL_GIFMTU_FUNC_DEF IOCTL_GET_FUNC_DEF(gifmtu)
+#define IOCTL_GIFMTU_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifmtu)
 #else
-#define IOCTL_GIFMTU_FUNC_DEF
+#define IOCTL_GIFMTU_FUNC3_DEF
 #endif
 
 /* esock_ioctl_gifhwaddr */
 #if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
-#define IOCTL_GIFHWADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifhwaddr)
+#define IOCTL_GIFHWADDR_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifhwaddr)
 #else
-#define IOCTL_GIFHWADDR_FUNC_DEF
+#define IOCTL_GIFHWADDR_FUNC3_DEF
 #endif
 
 /* esock_ioctl_gifmap */
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
-#define IOCTL_GIFMAP_FUNC_DEF IOCTL_GET_FUNC_DEF(gifmap)
+#define IOCTL_GIFMAP_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifmap)
 #else
-#define IOCTL_GIFMAP_FUNC_DEF
+#define IOCTL_GIFMAP_FUNC3_DEF
 #endif
 
 /* esock_ioctl_giftxqlen */
 #if defined(SIOCGIFTXQLEN)
-#define IOCTL_GIFTXQLEN_FUNC_DEF IOCTL_GET_FUNC_DEF(giftxqlen)
+#define IOCTL_GIFTXQLEN_FUNC3_DEF IOCTL_GET_FUNC3_DEF(giftxqlen)
 #else
-#define IOCTL_GIFTXQLEN_FUNC_DEF
+#define IOCTL_GIFTXQLEN_FUNC3_DEF
 #endif
 
-#define IOCTL_GET_FUNCS_DEF			\
-  IOCTL_GIFINDEX_FUNC_DEF;			\
-  IOCTL_GIFFLAGS_FUNC_DEF;			\
-  IOCTL_GIFADDR_FUNC_DEF;			\
-  IOCTL_GIFDSTADDR_FUNC_DEF;			\
-  IOCTL_GIFBRDADDR_FUNC_DEF;			\
-  IOCTL_GIFNETMASK_FUNC_DEF;			\
-  IOCTL_GIFMTU_FUNC_DEF;			\
-  IOCTL_GIFHWADDR_FUNC_DEF;			\
-  IOCTL_GIFMAP_FUNC_DEF;			\
-  IOCTL_GIFTXQLEN_FUNC_DEF;
-#define IOCTL_GET_FUNC_DEF(F)					\
-  static ERL_NIF_TERM essio_ioctl_##F(ErlNifEnv*       env,	\
-				      ESockDescriptor* descP,	\
-				      ERL_NIF_TERM     ename)
-IOCTL_GET_FUNCS_DEF
-#undef IOCTL_GET_FUNC_DEF
+#define IOCTL_GET_FUNCS3_DEF			\
+    IOCTL_GIFINDEX_FUNC3_DEF;			\
+    IOCTL_GIFFLAGS_FUNC3_DEF;			\
+    IOCTL_GIFADDR_FUNC3_DEF;			\
+    IOCTL_GIFDSTADDR_FUNC3_DEF;			\
+    IOCTL_GIFBRDADDR_FUNC3_DEF;			\
+    IOCTL_GIFNETMASK_FUNC3_DEF;			\
+    IOCTL_GIFMTU_FUNC3_DEF;			\
+    IOCTL_GIFHWADDR_FUNC3_DEF;			\
+    IOCTL_GIFMAP_FUNC3_DEF;			\
+    IOCTL_GIFTXQLEN_FUNC3_DEF;
+#define IOCTL_GET_FUNC3_DEF(F)					\
+    static ERL_NIF_TERM essio_ioctl_##F(ErlNifEnv*       env,	\
+                                        ESockDescriptor* descP,	\
+                                        ERL_NIF_TERM     ename)
+IOCTL_GET_FUNCS3_DEF
+#undef IOCTL_GET_FUNC3_DEF
 
 /* esock_ioctl_sifflags */
 #if defined(SIOCSIFFLAGS)
@@ -650,6 +689,9 @@ static BOOLEAN_T decode_ioctl_ivalue(ErlNifEnv*       env,
 static ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					int              ivalue);
+static ERL_NIF_TERM encode_ioctl_bvalue(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        int              bvalue);
 
 
 /*
@@ -3790,8 +3832,32 @@ ERL_NIF_TERM essio_ioctl2(ErlNifEnv*       env,
 
 #if defined(SIOCGIFCONF)
   case SIOCGIFCONF:
-    return essio_ioctl_gifconf(env, descP);
-    break;
+      return essio_ioctl_gifconf(env, descP);
+      break;
+#endif
+
+#if defined(FIONREAD)
+  case FIONREAD:
+      return essio_ioctl_fionread(env, descP);
+      break;
+#endif
+
+#if defined(FIONWRITE)
+  case FIONWRITE:
+      return essio_ioctl_fionwrite(env, descP);
+      break;
+#endif
+
+#if defined(FIONSPACE)
+  case FIONSPACE:
+      return essio_ioctl_fionspace(env, descP);
+      break;
+#endif
+
+#if defined(SIOCATMARK)
+  case SIOCATMARK:
+      return essio_ioctl_siocatmark(env, descP);
+      break;
 #endif
 
   default:
@@ -4000,111 +4066,276 @@ ERL_NIF_TERM essio_ioctl4(ErlNifEnv*       env,
  *
  */
 
+static
+ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
+				 ESockDescriptor* descP)
+{
+    struct ifconf ifc;
+    int           ifc_len = 0;
+    int           buflen  = 100 * sizeof(struct ifreq);
+    char         *buf     = MALLOC(buflen);
+    ERL_NIF_TERM  result;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_ioctl_gifconf {%d} -> entry\r\n", descP->sock) );
+
+    for (;;) {
+        ifc.ifc_len = buflen;
+        ifc.ifc_buf = buf;
+        if (ioctl(descP->sock, SIOCGIFCONF, (char *) &ifc) < 0) {
+            int saveErrno = sock_errno();
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO", "essio_ioctl_gifconf {%d} -> failure: "
+                    "\r\n      errno: %d (%s)"
+                    "\r\n", descP->sock, saveErrno, erl_errno_id(saveErrno)) );
+
+            if (saveErrno != EINVAL || ifc_len) {
+                ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
+                FREE(buf);
+                return esock_make_error(env, reason);
+            }
+        } else {
+            if (ifc.ifc_len == ifc_len) break; /* buf large enough */
+            ifc_len = ifc.ifc_len;
+        }
+        buflen += 10 * sizeof(struct ifreq);
+        buf     = (char *) REALLOC(buf, buflen);
+    }
+
+    result = encode_ioctl_ifconf(env, descP, &ifc);
+
+    FREE(ifc.ifc_buf);
+
+    return result;
+}
+
+/*
+  static
+  ERL_NIF_TERM essio_ioctl_fionread(ErlNifEnv*       env,
+  ESockDescriptor* descP)
+  {
+  int          n = 0;
+  ERL_NIF_TERM result;
+
+  SSDBG( descP,
+  ("UNIX-ESSIO",
+  "essio_ioctl_fionread(%d) -> entry\r\n", descP->sock) );
+
+  if (ioctl(descP->sock, FIONREAD, (char *) &n) < 0) {
+  ERL_NIF_TERM reason;
+  int          saveErrno = sock_errno();
+
+  SSDBG( descP,
+  ("UNIX-ESSIO", "essio_ioctl_fionread(%d) -> failure: "
+  "\r\n      errno: %d (%s)"
+  "\r\n", descP->sock, saveErrno, erl_errno_id(saveErrno)) );
+
+  reason = MKA(env, erl_errno_id(saveErrno));
+
+  result = esock_make_error(env, reason);
+  } else {
+
+  result = encode_ioctl_ivalue(env, descP, n);
+
+  }
+
+  SSDBG( descP,
+  ("UNIX-ESSIO",
+  "essio_ioctl_fionread(%d) -> done with: "
+  "\r\n   result: %T"
+  "\r\n", descP->sock, result) );
+
+  return result;
+  }
+*/
+
+/* *** essio_ioctl_fionread *** */
+#if defined(FIONREAD)
+#define IOCTL_FIONREAD_FUNC2_DECL                       \
+    IOCTL_GET_REQUEST2_DECL(fionread, FIONREAD, ivalue)
+#else
+#define IOCTL_FIONREAD_FUNC2_DECL
+#endif
+
+/* *** essio_ioctl_fionwrite *** */
+#if defined(FIONWRITE)
+#define IOCTL_FIONWRITE_FUNC2_DECL                       \
+    IOCTL_GET_REQUEST2_DECL(fionwrite, FIONWRITE, ivalue)
+#else
+#define IOCTL_FIONWRITE_FUNC2_DECL
+#endif
+
+/* *** essio_ioctl_fionspace *** */
+#if defined(FIONSPACE)
+#define IOCTL_FIONSPACE_FUNC2_DECL                              \
+    IOCTL_GET_REQUEST2_DECL(fionspace, FIONSPACE, ivalue)
+#else
+#define IOCTL_FIONSPACE_FUNC2_DECL
+#endif
+
+/* *** essio_ioctl_siocatmark *** */
+#if defined(SIOCATMARK)
+#define IOCTL_SIOCATMARK_FUNC2_DECL                             \
+    IOCTL_GET_REQUEST2_DECL(siocatmark, SIOCATMARK, bvalue)
+#else
+#define IOCTL_FIONSPACE_FUNC2_DECL
+#endif
+
+#define IOCTL_GET_FUNCS2                        \
+  IOCTL_FIONREAD_FUNC2_DECL			\
+  IOCTL_FIONWRITE_FUNC2_DECL			\
+  IOCTL_FIONSPACE_FUNC2_DECL			\
+  IOCTL_SIOCATMARK_FUNC2_DECL
+
+#define IOCTL_GET_REQUEST2_DECL(OR, R, EF)				\
+  static								\
+  ERL_NIF_TERM essio_ioctl_##OR(ErlNifEnv*       env,			\
+                                ESockDescriptor* descP)			\
+  {									\
+    ERL_NIF_TERM result;						\
+    int          n = 0;							\
+									\
+    SSDBG( descP,                                                       \
+           ("UNIX-ESSIO", "essio_ioctl_" #OR "(%d) -> entry"            \
+            "\r\n", descP->sock) );                                     \
+									\
+    if (ioctl(descP->sock, R, &n) < 0) {                                \
+      int          saveErrno = sock_errno();                            \
+      ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));       \
+									\
+      SSDBG( descP,                                                     \
+	     ("UNIX-ESSIO", "essio_ioctl_" #OR "(%d) -> failure: "      \
+	      "\r\n      reason: %T (%d)"                               \
+	      "\r\n", descP->sock, reason, saveErrno) );                \
+									\
+      result = esock_make_error(env, reason);                           \
+									\
+    } else {                                                            \
+      SSDBG( descP,                                                     \
+	     ("UNIX-ESSIO", "essio_ioctl_" #OR "(%d) -> encode value\r\n", \
+	      descP->sock) );                                           \
+      result = encode_ioctl_##EF(env, descP, n);                        \
+    }									\
+									\
+    SSDBG( descP,                                                       \
+        ("UNIX-ESSIO",                                                  \
+         "essio_ioctl_" #OR "(%d) -> done with: "                       \
+         "\r\n   result: %T"                                            \
+         "\r\n", descP->sock, result) );                                \
+                                                                        \
+    return result;                                                      \
+									\
+  }
+IOCTL_GET_FUNCS2
+#undef IOCTL_GET_FUNCS2
+
+
 /* *** essio_ioctl_gifindex *** */
 #if defined(SIOCGIFINDEX)
 #if defined(ESOCK_USE_IFINDEX)
-#define IOCTL_GIFINDEX_FUNC_DECL					\
-  IOCTL_GET_REQUEST_DECL(gifindex, SIOCGIFINDEX, ivalue, ifreq.ifr_ifindex)
+#define IOCTL_GIFINDEX_FUNC3_DECL					\
+  IOCTL_GET_REQUEST3_DECL(gifindex, SIOCGIFINDEX, ivalue, ifreq.ifr_ifindex)
 #elif defined(ESOCK_USE_INDEX)
-#define IOCTL_GIFINDEX_FUNC_DECL					\
-  IOCTL_GET_REQUEST_DECL(gifindex, SIOCGIFINDEX, ivalue, ifreq.ifr_index)
+#define IOCTL_GIFINDEX_FUNC3_DECL					\
+  IOCTL_GET_REQUEST3_DECL(gifindex, SIOCGIFINDEX, ivalue, ifreq.ifr_index)
 #else
-#define IOCTL_GIFINDEX_FUNC_DECL
+#define IOCTL_GIFINDEX_FUNC3_DECL
 #endif
 #else
-#define IOCTL_GIFINDEX_FUNC_DECL
+#define IOCTL_GIFINDEX_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_gifflags *** */
 #if defined(SIOCGIFFLAGS)
-#define IOCTL_GIFFLAGS_FUNC_DECL					\
-  IOCTL_GET_REQUEST_DECL(gifflags, SIOCGIFFLAGS, flags,  ifreq.ifr_flags)
+#define IOCTL_GIFFLAGS_FUNC3_DECL					\
+  IOCTL_GET_REQUEST3_DECL(gifflags, SIOCGIFFLAGS, flags,  ifreq.ifr_flags)
 #else
-#define IOCTL_GIFFLAGS_FUNC_DECL
+#define IOCTL_GIFFLAGS_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_gifaddr *** */
 #if defined(SIOCGIFADDR)
-#define IOCTL_GIFADDR_FUNC_DECL						\
-  IOCTL_GET_REQUEST_DECL(gifaddr, SIOCGIFADDR, ifraddr, &ifreq.ifr_addr)
+#define IOCTL_GIFADDR_FUNC3_DECL						\
+  IOCTL_GET_REQUEST3_DECL(gifaddr, SIOCGIFADDR, ifraddr, &ifreq.ifr_addr)
 #else
-#define IOCTL_GIFADDR_FUNC_DECL
+#define IOCTL_GIFADDR_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_gifdstaddr *** */
 #if defined(SIOCGIFDSTADDR)
-#define IOCTL_GIFDSTADDR_FUNC_DECL					\
-  IOCTL_GET_REQUEST_DECL(gifdstaddr, SIOCGIFDSTADDR, ifraddr, &ifreq.ifr_dstaddr)
+#define IOCTL_GIFDSTADDR_FUNC3_DECL					\
+  IOCTL_GET_REQUEST3_DECL(gifdstaddr, SIOCGIFDSTADDR, ifraddr, &ifreq.ifr_dstaddr)
 #else
-#define IOCTL_GIFDSTADDR_FUNC_DECL
+#define IOCTL_GIFDSTADDR_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_gifbrdaddr *** */
 #if defined(SIOCGIFBRDADDR)
-#define IOCTL_GIFBRDADDR_FUNC_DECL					\
-  IOCTL_GET_REQUEST_DECL(gifbrdaddr, SIOCGIFBRDADDR, ifraddr, &ifreq.ifr_broadaddr)
+#define IOCTL_GIFBRDADDR_FUNC3_DECL					\
+  IOCTL_GET_REQUEST3_DECL(gifbrdaddr, SIOCGIFBRDADDR, ifraddr, &ifreq.ifr_broadaddr)
 #else
-#define IOCTL_GIFBRDADDR_FUNC_DECL
+#define IOCTL_GIFBRDADDR_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_gifnetmask *** */
 #if defined(SIOCGIFNETMASK)
 #ifdef __linux__
-#define IOCTL_GIFNETMASK_FUNC_DECL					\
-  IOCTL_GET_REQUEST_DECL(gifnetmask, SIOCGIFNETMASK, ifraddr, &ifreq.ifr_netmask)
+#define IOCTL_GIFNETMASK_FUNC3_DECL					\
+  IOCTL_GET_REQUEST3_DECL(gifnetmask, SIOCGIFNETMASK, ifraddr, &ifreq.ifr_netmask)
 #else
-#define IOCTL_GIFNETMASK_FUNC_DECL					\
-  IOCTL_GET_REQUEST_DECL(gifnetmask, SIOCGIFNETMASK, ifraddr, &ifreq.ifr_addr)
+#define IOCTL_GIFNETMASK_FUNC3_DECL					\
+  IOCTL_GET_REQUEST3_DECL(gifnetmask, SIOCGIFNETMASK, ifraddr, &ifreq.ifr_addr)
 #endif
 #else
-#define IOCTL_GIFNETMASK_FUNC_DECL
+#define IOCTL_GIFNETMASK_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_gifmtu *** */
 #if defined(SIOCGIFMTU)
-#define IOCTL_GIFMTU_FUNC_DECL						\
-  IOCTL_GET_REQUEST_DECL(gifmtu, SIOCGIFMTU, ivalue,  ifreq.ifr_mtu)
+#define IOCTL_GIFMTU_FUNC3_DECL						\
+  IOCTL_GET_REQUEST3_DECL(gifmtu, SIOCGIFMTU, ivalue,  ifreq.ifr_mtu)
 #else
-#define IOCTL_GIFMTU_FUNC_DECL
+#define IOCTL_GIFMTU_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_gifhwaddr *** */
 #if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
-#define IOCTL_GIFHWADDR_FUNC_DECL					\
-  IOCTL_GET_REQUEST_DECL(gifhwaddr, SIOCGIFHWADDR, hwaddr, &ifreq.ifr_hwaddr)
+#define IOCTL_GIFHWADDR_FUNC3_DECL					\
+  IOCTL_GET_REQUEST3_DECL(gifhwaddr, SIOCGIFHWADDR, hwaddr, &ifreq.ifr_hwaddr)
 #else
-#define IOCTL_GIFHWADDR_FUNC_DECL
+#define IOCTL_GIFHWADDR_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_gifmap *** */
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
-#define IOCTL_GIFMAP_FUNC_DECL						\
-  IOCTL_GET_REQUEST_DECL(gifmap, SIOCGIFMAP, ifrmap, &ifreq.ifr_map)
+#define IOCTL_GIFMAP_FUNC3_DECL						\
+  IOCTL_GET_REQUEST3_DECL(gifmap, SIOCGIFMAP, ifrmap, &ifreq.ifr_map)
 #else
-#define IOCTL_GIFMAP_FUNC_DECL
+#define IOCTL_GIFMAP_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_giftxqlen *** */
 #if defined(SIOCGIFTXQLEN)
-#define IOCTL_GIFTXQLEN_FUNC_DECL					\
-  IOCTL_GET_REQUEST_DECL(giftxqlen, SIOCGIFTXQLEN, ivalue,  ifreq.ifr_qlen)
+#define IOCTL_GIFTXQLEN_FUNC3_DECL					\
+  IOCTL_GET_REQUEST3_DECL(giftxqlen, SIOCGIFTXQLEN, ivalue,  ifreq.ifr_qlen)
 #else
-#define IOCTL_GIFTXQLEN_FUNC_DECL
+#define IOCTL_GIFTXQLEN_FUNC3_DECL
 #endif
 
-#define IOCTL_GET_FUNCS				\
-  IOCTL_GIFINDEX_FUNC_DECL			\
-  IOCTL_GIFFLAGS_FUNC_DECL			\
-  IOCTL_GIFADDR_FUNC_DECL			\
-  IOCTL_GIFDSTADDR_FUNC_DECL			\
-  IOCTL_GIFBRDADDR_FUNC_DECL			\
-  IOCTL_GIFNETMASK_FUNC_DECL			\
-  IOCTL_GIFMTU_FUNC_DECL			\
-  IOCTL_GIFHWADDR_FUNC_DECL			\
-  IOCTL_GIFMAP_FUNC_DECL			\
-  IOCTL_GIFTXQLEN_FUNC_DECL
+#define IOCTL_GET_FUNCS3				\
+  IOCTL_GIFINDEX_FUNC3_DECL			\
+  IOCTL_GIFFLAGS_FUNC3_DECL			\
+  IOCTL_GIFADDR_FUNC3_DECL			\
+  IOCTL_GIFDSTADDR_FUNC3_DECL			\
+  IOCTL_GIFBRDADDR_FUNC3_DECL			\
+  IOCTL_GIFNETMASK_FUNC3_DECL			\
+  IOCTL_GIFMTU_FUNC3_DECL			\
+  IOCTL_GIFHWADDR_FUNC3_DECL			\
+  IOCTL_GIFMAP_FUNC3_DECL			\
+  IOCTL_GIFTXQLEN_FUNC3_DECL
 
-#define IOCTL_GET_REQUEST_DECL(OR, R, EF, UV)				\
+#define IOCTL_GET_REQUEST3_DECL(OR, R, EF, UV)				\
   static								\
   ERL_NIF_TERM essio_ioctl_##OR(ErlNifEnv*       env,			\
                                 ESockDescriptor* descP,			\
@@ -4156,60 +4387,15 @@ ERL_NIF_TERM essio_ioctl4(ErlNifEnv*       env,
     return result;                                                      \
 									\
   }
-IOCTL_GET_FUNCS
-#undef IOCTL_GET_FUNCS
+IOCTL_GET_FUNCS3
+#undef IOCTL_GET_FUNCS3
 
 
 /* ===========================================================================
- * The "rest" of the implemented (ioctl) get requests
+ * The "rest" of the implemented (ioctl) get requests(3)
  *
- * These (get) requests could not be 'generated' by the macros above.
+ * These (get) requests could not be 'generated' by the (simple) macros above.
  */
-
-static
-ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
-				 ESockDescriptor* descP)
-{
-  struct ifconf ifc;
-  int           ifc_len = 0;
-  int           buflen  = 100 * sizeof(struct ifreq);
-  char         *buf     = MALLOC(buflen);
-  ERL_NIF_TERM  result;
-
-  SSDBG( descP,
-         ("UNIX-ESSIO", "essio_ioctl_gifconf {%d} -> entry\r\n", descP->sock) );
-
-  for (;;) {
-    ifc.ifc_len = buflen;
-    ifc.ifc_buf = buf;
-    if (ioctl(descP->sock, SIOCGIFCONF, (char *) &ifc) < 0) {
-      int saveErrno = sock_errno();
-
-      SSDBG( descP,
-	     ("UNIX-ESSIO", "essio_ioctl_gifconf {%d} -> failure: "
-	      "\r\n      errno: %d (%s)"
-	      "\r\n", descP->sock, saveErrno, erl_errno_id(saveErrno)) );
-
-      if (saveErrno != EINVAL || ifc_len) {
-	ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
-	FREE(buf);
-	return esock_make_error(env, reason);
-      }
-    } else {
-      if (ifc.ifc_len == ifc_len) break; /* buf large enough */
-      ifc_len = ifc.ifc_len;
-    }
-    buflen += 10 * sizeof(struct ifreq);
-    buf     = (char *) REALLOC(buf, buflen);
-  }
-
-  result = encode_ioctl_ifconf(env, descP, &ifc);
-
-  FREE(ifc.ifc_buf);
-
-  return result;
-}
-
 
 #if defined(SIOCGIFNAME)
 static
@@ -4832,13 +5018,15 @@ ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
 				 int              ivalue)
 {
-  ERL_NIF_TERM eivalue = MKI(env, ivalue);
+    return esock_encode_ioctl_ivalue(env, descP, ivalue);
+}
 
-  SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_ivalue -> done with"
-		 "\r\n    iValue: %T (%d)"
-		 "\r\n", eivalue, ivalue) );
-
-  return esock_make_ok2(env, eivalue);;
+static
+ERL_NIF_TERM encode_ioctl_bvalue(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 int              bvalue)
+{
+    return esock_encode_ioctl_bvalue(env, descP, bvalue);
 }
 
 static
