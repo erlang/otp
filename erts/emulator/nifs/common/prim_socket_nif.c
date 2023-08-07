@@ -2071,6 +2071,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(ip);                              \
     GLOBAL_ATOM_DECL(ipcomp_level);                    \
     GLOBAL_ATOM_DECL(ipip);                            \
+    GLOBAL_ATOM_DECL(iplevel);                         \
     GLOBAL_ATOM_DECL(ipv6);                            \
     GLOBAL_ATOM_DECL(irq);                             \
     GLOBAL_ATOM_DECL(i_want_mapped_v4_addr);           \
@@ -2144,7 +2145,9 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(num_unexpected_writes);           \
     GLOBAL_ATOM_DECL(num_unknown_cmds);                \
     GLOBAL_ATOM_DECL(oactive);			       \
+    GLOBAL_ATOM_DECL(off);                             \
     GLOBAL_ATOM_DECL(ok);                              \
+    GLOBAL_ATOM_DECL(on);                              \
     GLOBAL_ATOM_DECL(oob);                             \
     GLOBAL_ATOM_DECL(oobinline);                       \
     GLOBAL_ATOM_DECL(options);                         \
@@ -2433,6 +2436,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(port_unreach);     \
     LOCAL_ATOM_DECL(probe);            \
     LOCAL_ATOM_DECL(protocols);        \
+    LOCAL_ATOM_DECL(rcvall);           \
     LOCAL_ATOM_DECL(rcvctrlbuf);       \
     LOCAL_ATOM_DECL(read);             \
     LOCAL_ATOM_DECL(read_pkg_max);     \
@@ -4924,6 +4928,10 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCSIFTXQLEN)
   requests = MKC(env, MKT2(env, atom_siftxqlen, MKUL(env, SIOCSIFTXQLEN)), requests);
+#endif
+
+#if defined(SIO_RCVALL)
+  requests = MKC(env, MKT2(env, atom_rcvall, MKUL(env, SIO_RCVALL)), requests);
 #endif
 
   return requests;

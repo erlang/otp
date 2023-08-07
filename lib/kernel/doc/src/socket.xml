@@ -2287,14 +2287,16 @@
     </func>
 
     <func>
-      <name name="ioctl" arity="3" since="OTP 24.2"/>
+      <name name="ioctl" arity="3" clause_i="1" since="OTP 24.2"
+	    anchor="ioctl-misc-get"/>
       <fsummary>Control device.</fsummary>
       <desc>
 	<p>Retrieve socket (device) parameters. </p>
 	<p>This function retrieves a specific parameter,
 	according to <c>GetRequest</c> argument. The third
-	argument is the (lookup) "key", identifying the
-	interface (usually the name of the interface).</p>
+	argument is a the (lookup) "key", identifying the
+	interface (usually the name of the interface) or a
+	command to set.</p>
         <taglist>
           <tag><c>gifname</c></tag>
           <item>
@@ -2312,7 +2314,8 @@
           <tag><c>gifaddr</c></tag>
           <item>
 	    <p>Get the address of the interface with the specified name.
-	    Result, address of the interface, is a <c>socket:sockaddr()</c>. </p>
+	    Result, address of the interface,
+	    is a <c>socket:sockaddr()</c>. </p>
           </item>
 
           <tag><c>gifdstaddr</c></tag>
@@ -2370,6 +2373,44 @@
 	    <p>Result, the active flag word of the interface,
 	    is an list of <c>socket:ioctl_device_flag() | integer()</c>. </p>
           </item>
+
+	</taglist>
+
+      </desc>
+    </func>
+
+    <func>
+      <name name="ioctl" arity="3" clause_i="2" since="OTP @OTP-18660@"
+	    anchor="ioctl-rcvall"/>
+      <fsummary>Control device.</fsummary>
+      <desc>
+	<p>Set socket (device) parameters. </p>
+	<p>This function sets a specific parameter,
+	according to <c>SetRequest</c> argument. The third
+	argument is the value to set.</p>
+        <taglist>
+          <tag><c>rcvall</c></tag>
+          <item>
+	    <p>Enables (or disables) a socket to receive all IPv4 or IPv6
+	    packages passing through a network interface. </p>
+	    <p>The socket has to be either one of: </p>
+	    <taglist>
+	      <tag>An IPv4 socket</tag>
+	      <item>
+		<p>Created with the address family of <c>inet</c>,
+		socket type of <c>raw</c> and protocol set to <c>ip</c>. </p>
+	      </item>
+	      <tag>An IPv6 socket</tag>
+	      <item>
+		<p>Created with the address family of <c>inet6</c>,
+		socket type of <c>raw</c> and protocol set to <c>ipv6</c>. </p>
+	      </item>
+	    </taglist>
+	    <p>The socket must also be bound to an (explicit) local IPv4
+	    or IPv6 interface (<c>any</c> not allowed). </p>
+	    <p>Setting this IOCTL requires admin privileges. </p>
+          </item>
+
 	</taglist>
 
       </desc>
