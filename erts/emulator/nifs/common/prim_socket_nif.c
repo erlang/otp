@@ -35,7 +35,8 @@
  * esock_dbg_printf("DEMONP", "[%d] %s: %T\r\n",
  *                  descP->sock, slogan,
  *                  esock_make_monitor_term(env, &mon));
- *
+ * ESOCK_PRINTF("foobar: %d\r\n", foo);
+ * ESOCK_EPRINTF("foobar: %d\r\n", foo);
  */
 
 #define STATIC_ERLANG_NIF 1
@@ -2437,6 +2438,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(probe);            \
     LOCAL_ATOM_DECL(protocols);        \
     LOCAL_ATOM_DECL(rcvall);           \
+    LOCAL_ATOM_DECL(rcvall_igmpmcast); \
     LOCAL_ATOM_DECL(rcvctrlbuf);       \
     LOCAL_ATOM_DECL(read);             \
     LOCAL_ATOM_DECL(read_pkg_max);     \
@@ -4790,9 +4792,9 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
    */
 
   protocols =
-    MKC(env,
-	MKT2(env, MKL1(env, esock_atom_ip), MKI(env, protoIP)),
-	protocols);
+      MKC(env,
+          MKT2(env, MKL1(env, esock_atom_ip), MKI(env, protoIP)),
+          protocols);
 
 #ifdef HAVE_IPV6
   protocols =
@@ -4824,6 +4826,11 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 	MKT2(env, MKL1(env, esock_atom_sctp), MKI(env, IPPROTO_SCTP)),
 	protocols);
 #endif
+
+  protocols =
+      MKC(env,
+          MKT2(env, MKL1(env, esock_atom_igmp), MKI(env, IPPROTO_IGMP)),
+          protocols);
 
   return protocols;
 }
@@ -4932,6 +4939,10 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIO_RCVALL)
   requests = MKC(env, MKT2(env, atom_rcvall, MKUL(env, SIO_RCVALL)), requests);
+#endif
+
+#if defined(SIO_RCVALL_IGMPMCAST)
+  requests = MKC(env, MKT2(env, atom_rcvall_igmpmcast, MKUL(env, SIO_RCVALL_IGMPMCAST)), requests);
 #endif
 
   return requests;
