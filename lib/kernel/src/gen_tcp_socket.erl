@@ -24,7 +24,8 @@
 -compile({no_auto_import, [monitor/1]}).
 
 %% gen_tcp
--export([connect/4, listen/2, accept/2,
+-export([connect/3, connect/4,
+         listen/2, accept/2,
          send/2, recv/3,
          sendfile/4,
          shutdown/2, close/1, controlling_process/2]).
@@ -97,6 +98,14 @@ socket_inherit_opts() ->
 %%% API
 %%%
 
+connect(SockAddr, Opts, Timeout) ->
+    Timer = inet:start_timer(Timeout),
+    try
+        connect_lookup(SockAddr, Opts, Timer)
+    after
+        _ = inet:stop_timer(Timer)
+    end.
+
 connect(Address, Port, Opts, Timeout) ->
     Timer = inet:start_timer(Timeout),
     try
@@ -105,29 +114,48 @@ connect(Address, Port, Opts, Timeout) ->
         _ = inet:stop_timer(Timer)
     end.
 
+
 %% Helpers -------
 
-connect_lookup(Address, Port, Opts, Timer) ->
-    Opts_1 = internalize_setopts(Opts),
-    {Mod, Opts_2} = inet:tcp_module(Opts_1, Address),
-    Domain = domain(Mod),
-    {StartOpts, Opts_3} = split_start_opts(Opts_2),
+connect_lookup(#{family := Domain,
+                 addr   := Address,
+                 port   := Port} = _SockAddr, Opts0, Timer) ->
+    %% ?DBG([{domain, Domain}, {addr, Address}, {port, Port},
+    %%       {opts0, Opts0}, {timer, Timer}]),
+    Opts1        = internalize_setopts(Opts0),
+    {Mod, Opts2} = inet:tcp_module(Opts1, Address),
+    connect_lookup(Domain, Address, Port, Mod, Opts2, Timer).
+
+
+connect_lookup(Address, Port, Opts0, Timer) ->
+    %% ?DBG([{addr, Address}, {port, Port},
+    %%       {opts0, Opts0}, {timer, Timer}]),
+    Opts1        = internalize_setopts(Opts0),
+    {Mod, Opts2} = inet:tcp_module(Opts1, Address),
+    Domain       = domain(Mod),
+    connect_lookup(Domain, Address, Port, Mod, Opts2, Timer).
+
+connect_lookup(Domain, Address, Port, Mod, Opts0, Timer) ->
+    %% ?DBG([{domain, Domain}, {addr, Address}, {port, Port},
+    %%       {mod, Mod}, {opts0, Opts0}, {timer, Timer}]),
+    {StartOpts, Opts} = split_start_opts(Opts0),
     ErrRef = make_ref(),
     try
         IPs = val(ErrRef, Mod:getaddrs(Address, Timer)),
-        TP = val(ErrRef, Mod:getserv(Port)),
-        CO = val(ErrRef, inet:connect_options(Opts_3, Mod)),
-        {sockaddrs(IPs, TP, Domain), CO}
+        TP  = val(ErrRef, Mod:getserv(Port)),
+        CO  = val(ErrRef, inet:connect_options(Opts, Mod)),
+        SAs = sockaddrs(IPs, TP, Domain),
+        {SAs, CO}
     of
         {Addrs,
          #connect_opts{
-            fd = Fd,
+            fd     = Fd,
             ifaddr = BindIP,
-            port = BindPort,
-            opts = ConnectOpts}} ->
+            port   = BindPort,
+            opts   = ConnectOpts}} ->
             %%
             %% ?DBG({Domain, BindIP}),
-            BindAddr = bind_addr(Domain, BindIP, BindPort),
+            BindAddr  = bind_addr(Domain, BindIP, BindPort),
             ExtraOpts = extra_opts(Fd),
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, ExtraOpts,
