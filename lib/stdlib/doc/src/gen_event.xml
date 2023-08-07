@@ -861,8 +861,8 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
-        <v>Result = {ok,Pid} | {error,{already_started,Pid}}</v>
-        <v>&nbsp;Pid = pid()</v>
+        <v>Result = {ok,Pid} | {error,{already_started,OtherPid}} | {error,timeout}</v>
+        <v>&nbsp;Pid = OtherPid = pid()</v>
       </type>
       <desc>
         <p>Creates a stand-alone event manager process, that is, an event
@@ -888,14 +888,14 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
-        <v>Result = {ok,Pid} | {error,{already_started,Pid}}</v>
-        <v>&nbsp;Pid = pid()</v>
+        <v>Result = {ok,Pid} | {error,{already_started,OtherPid}} | {error,timeout}</v>
+        <v>&nbsp;Pid = OtherPid = pid()</v>
       </type>
       <desc>
         <p>Creates an event manager process as part of a supervision
           tree. The function is to be called, directly or indirectly,
           by the supervisor. For example, it ensures that
-          the event manager is linked to the supervisor.</p>
+          the event manager is linked to the caller (supervisor).</p>
         <list type="bulleted">
           <item>
             <p>If <c>EventMgrName={local,Name}</c>, the event manager is
@@ -927,10 +927,50 @@ gen_event:stop             ----->  Module:terminate/2
         </list>
         <p>If the event manager is successfully created, the function
           returns <c>{ok,Pid}</c>, where <c>Pid</c> is the pid of
-          the event manager. If a process with the specified
+        the event manager.</p>
+        <p>If a process with the specified
           <c>EventMgrName</c> exists already, the function returns
-          <c>{error,{already_started,Pid}}</c>, where <c>Pid</c> is
-          the pid of that process.</p>
+          <c>{error,{already_started,OtherPid}}</c>, where <c>OtherPid</c> is
+          the pid of that process, and the event manager process
+          exits with reason <c>normal</c>.</p>
+        <p>
+          If the event manager fails to start within the specified
+          start timeout <c>{timeout,Time}</c>, which is very unlikely
+          since the start does not interact with other processes,
+          the function returns <c>{error,timeout}</c> and the
+          failed event manager is killed with
+          <seemfa marker="erts:erlang#exit/2"><c>exit(_, kill)</c></seemfa>.
+        </p>
+        <p>
+          If <c>start_link/1,2</c> returns <c>{error,_}</c>,
+          the started event manager process has terminated.
+          If an <c>'EXIT'</c> message was delivered to the calling process
+          (due to the process link), that message has been consumed.
+	</p>
+        <warning>
+          <p>
+            Before OTP 26.0, if the started event manager
+            failed to register its name, this founction could return
+            <c>{error,{already_started,OtherPid}}</c>
+            <em>before</em> the started event manager process
+            had terminated so starting again might fail
+            because the registered name was not yet unregistered,
+            and an <c>'EXIT'</c> message could arrive later
+            to the process calling this function.
+          </p>
+          <p>
+            But if the start timed out, this function killed
+            the started event manager process and returned
+            <c>{error,timeout}</c>, and then the process link
+            <c>{'EXIT',Pid,killed}</c> message <em>was</em> consumed.
+          </p>
+          <p>
+            The start was made synchronous in OTP 26.0
+            and the guarantee was implemented
+            that no process link <c>'EXIT'</c> message from a failed start
+            will linger in the caller's inbox.
+          </p>
+        </warning>
       </desc>
     </func>
 
@@ -948,8 +988,8 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
-        <v>Result = {ok,{Pid,Mon}} | {error,{already_started,Pid}}</v>
-        <v>&nbsp;Pid = pid()</v>
+        <v>Result = {ok,{Pid,Mon}} | {error,{already_started,OtherPid}} | {error,timeout}</v>
+        <v>&nbsp;Pid = OtherPid = pid()</v>
       </type>
       <desc>
         <p>Creates a stand-alone event manager process, that is, an event
