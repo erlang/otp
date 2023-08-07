@@ -2439,6 +2439,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(protocols);        \
     LOCAL_ATOM_DECL(rcvall);           \
     LOCAL_ATOM_DECL(rcvall_igmpmcast); \
+    LOCAL_ATOM_DECL(rcvall_mcast);     \
     LOCAL_ATOM_DECL(rcvctrlbuf);       \
     LOCAL_ATOM_DECL(read);             \
     LOCAL_ATOM_DECL(read_pkg_max);     \
@@ -4943,6 +4944,10 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIO_RCVALL_IGMPMCAST)
   requests = MKC(env, MKT2(env, atom_rcvall_igmpmcast, MKUL(env, SIO_RCVALL_IGMPMCAST)), requests);
+#endif
+
+#if defined(SIO_RCVALL_MCAST)
+  requests = MKC(env, MKT2(env, atom_rcvall_mcast, MKUL(env, SIO_RCVALL_MCAST)), requests);
 #endif
 
   return requests;

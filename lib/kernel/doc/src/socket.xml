@@ -2456,7 +2456,7 @@
 
     <func>
       <name name="ioctl" arity="3" clause_i="3" since="OTP @OTP-18660@"
-	    anchor="ioctl-rcvall_igmpmcall"/>
+	    anchor="ioctl-rcvall_x"/>
       <fsummary>Control device.</fsummary>
       <desc>
 	<p>Set socket (device) parameters. </p>
@@ -2473,6 +2473,20 @@
 	    to <c>igmp</c>. </p>
 	    <p>The socket must also be bound to an (explicit) local interface
 	    (<c>any</c> not allowed). </p>
+	    <p>Must have a sufficiently large buffer. </p>
+	    <p>Setting this IOCTL requires admin privileges. </p>
+          </item>
+
+          <tag><c>rcvall_mcall</c></tag>
+          <item>
+	    <p>Enables (or disables) a socket to receive all multicast
+	    IP traffic (as in; all IP packets destined for IP addresses
+	    in the range of 224.0.0.0 to 239.255.255.255). </p>
+	    <p>The socket has to be created with the address family of
+	    <c>inet</c>, socket type of <c>raw</c> and protocol set
+	    to <c>udp</c>. </p>
+	    <p>The socket must also be bound to an (explicit) local interface
+	    (<c>any</c> not allowed). And bind to port zero</p>
 	    <p>Must have a sufficiently large buffer. </p>
 	    <p>Setting this IOCTL requires admin privileges. </p>
           </item>

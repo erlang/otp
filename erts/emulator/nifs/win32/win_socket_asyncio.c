@@ -682,6 +682,12 @@ static ERL_NIF_TERM esaio_ioctl_rcvall_igmpmcast(ErlNifEnv*       env,
                                                  ERL_NIF_TERM     evalue);
 #endif
 
+#if defined(SIO_RCVALL_MCAST)
+static ERL_NIF_TERM esaio_ioctl_rcvall_mcast(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     evalue);
+#endif
+
 
 static void* esaio_completion_main(void* threadDataP);
 static BOOLEAN_T esaio_completion_terminate(ESAIOThreadData* dataP,
@@ -5475,6 +5481,12 @@ ERL_NIF_TERM esaio_ioctl3(ErlNifEnv*       env,
       break;
 #endif
 
+#if defined(SIO_RCVALL_MCAST)
+  case SIO_RCVALL_MCAST:
+      return esaio_ioctl_rcvall_mcast(env, descP, arg);
+      break;
+#endif
+
 
   default:
       return esock_make_error(env, esock_atom_enotsup);
@@ -5939,6 +5951,70 @@ ERL_NIF_TERM esaio_ioctl_rcvall_igmpmcast(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_ioctl_rcvall_igmpmcast(%d) -> done with"
+            "\r\n      result: %T"
+            "\r\n",
+            descP->sock, result) );
+    
+    return result;
+
+}
+#endif
+
+
+
+#if defined(SIO_RCVALL_MCAST)
+/*
+ * We should really have a common function for this,
+ * since igmpmcast and mcast is basically identical.
+ */
+static
+ERL_NIF_TERM esaio_ioctl_rcvall_mcast(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     evalue)
+{
+    DWORD        ndata = 0; // We do not actually use this
+    ERL_NIF_TERM result;
+    int          value, res;
+  
+    SSDBG( descP, ("WIN-ESAIO", "esaio_ioctl_rcvall_mcast(%d) -> entry with"
+                   "\r\n      (e)value: %T"
+                   "\r\n", descP->sock, evalue) );
+
+    if (! IS_ATOM(env, evalue))
+        return enif_make_badarg(env);
+
+    if (COMPARE(evalue, esock_atom_off) == 0) {
+        value = RCVALL_OFF;
+    } else if (COMPARE(evalue, esock_atom_on) == 0) {
+        value = RCVALL_ON;
+    } else {
+        return enif_make_badarg(env);
+    }
+
+    res = sock_ioctl2(descP->sock, SIO_RCVALL_MCAST,
+                      &value, sizeof(value),
+                      NULL, 0, &ndata);
+    (void) ndata;
+
+    if (res != 0) {
+        int          save_errno = sock_errno();
+        ERL_NIF_TERM reason     = ENO2T(env, save_errno);
+
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_ioctl_rcvall_mcast(%d) -> failure: "
+                "\r\n      reason: %T"
+                "\r\n", descP->sock, reason) );
+
+        result = esock_make_error(env, reason);
+
+    } else {
+
+        result = esock_atom_ok;
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_ioctl_rcvall_mcast(%d) -> done with"
             "\r\n      result: %T"
             "\r\n",
             descP->sock, result) );
