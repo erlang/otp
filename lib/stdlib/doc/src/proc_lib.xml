@@ -458,7 +458,7 @@ init(Parent) ->
         <note>
           <p>
             If the started process gets killed or crashes with a reason
-            that is not `normal`, the process link will kill the calling
+            that is not <c>normal</c>, the process link will kill the calling
             process so this function does not return,
             unless the calling process traps exits.
             For example, if this function times out it will kill

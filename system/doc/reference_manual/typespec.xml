@@ -91,14 +91,14 @@
     </p>
     <p>
       To facilitate <url href="https://en.wikipedia.org/wiki/Gradual_typing">
-      gradual typing</url> of Erlang, the type `dynamic()` is provided.
+      gradual typing</url> of Erlang, the type <c>dynamic()</c> is provided.
       It is similar to
       <url href="https://docs.python.org/3/library/typing.html#the-any-type">Any</url>
       in Python,
       <url href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#any">any</url>
       in TypeScript and
       <url href="https://docs.hhvm.com/hack/built-in-types/dynamic">dynamic</url>
-      in Hack. `any()` and `dynamic()` interact with
+      in Hack. <c>any()</c> and <c>dynamic()</c> interact with
       <url href="https://learnyousomeerlang.com/dialyzer#success-typing">success typing</url>
       the same way, so Dialyzer doesn't distinguish between them.
     </p>
