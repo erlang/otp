@@ -1060,8 +1060,11 @@ aa_update_annotation(I=#b_set{args=[Pair],op={bif,hd}}, SS, AAS) ->
 aa_update_annotation(I=#b_set{args=[Pair],op={bif,tl}}, SS, AAS) ->
     Args = [{Pair,aa_get_element_extraction_status(Pair, SS)}],
     aa_update_annotation1(Args, I, AAS);
-aa_update_annotation(I=#b_set{args=Args0}, SS, AAS) ->
-    Args = [{V,aa_get_status(V, SS)} || #b_var{}=V <- Args0],
+aa_update_annotation(I=#b_set{args=Args0,anno=Anno}, SS, AAS) ->
+    Types = maps:get(arg_types, Anno, #{}),
+    Arg2Type = #{V=>maps:get(Idx, Types, any)
+                 || {Idx,#b_var{}=V} <- lists:enumerate(0, 1, Args0)},
+    Args = [{V,aa_get_status(V, SS, Arg2Type)} || #b_var{}=V <- Args0],
     aa_update_annotation1(Args, I, AAS);
 aa_update_annotation(I=#b_ret{arg=#b_var{}=V}, SS, AAS) ->
     aa_update_annotation1(aa_get_status(V, SS), I, AAS);
