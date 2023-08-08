@@ -19,36 +19,7 @@
 %%
 -module(queue_prop).
 
--compile(export_all).
-
--proptest(eqc).
--proptest([triq, proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC, true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
+-include_lib("common_test/include/ct_property_test.hrl").
 
 %%%%%%%%%%%%%%%%%%
 %%% Properties %%%
@@ -72,7 +43,7 @@ prop_is_queue() ->
 prop_list_conversion() ->
     ?FORALL(
         List,
-        list(),
+        ct_proper_ext:safe_list(),
         begin
             Queue = queue:from_list(List),
             queue:is_queue(Queue) andalso
@@ -83,7 +54,7 @@ prop_list_conversion() ->
 prop_from_list_invalid() ->
     ?FORALL(
         NonList,
-        ?SUCHTHAT(T, term(), not is_list(T)),
+        ?SUCHTHAT(T, ct_proper_ext:safe_any(), not is_list(T)),
         expect_badarg(fun queue:from_list/1, [NonList])
     ).
 
@@ -93,7 +64,8 @@ prop_to_list_invalid() ->
 prop_all() ->
     ?FORALL(
         {L, Q},
-        oneof([list_queue(atom()), list_queue(term())]),
+        oneof([list_queue(ct_proper_ext:safe_atom()),
+               list_queue(ct_proper_ext:safe_any())]),
         begin
             lists:all(fun is_atom/1, L) =:= queue:all(fun is_atom/1, Q)
         end
@@ -129,7 +101,7 @@ prop_daeh_invalid() ->
 prop_delete() ->
     ?FORALL(
         {X, {L, Q}},
-        {term(), list_queue()},
+        {ct_proper_ext:safe_any(), list_queue()},
         begin
             R1 = if
                 L =:= [] ->
@@ -150,7 +122,7 @@ prop_delete_invalid() ->
 prop_delete_r() ->
     ?FORALL(
         {X, {L, Q}},
-        {term(), list_queue()},
+        {ct_proper_ext:safe_any(), list_queue()},
         begin
             R1 = if
                 L =:= [] ->
@@ -327,7 +299,7 @@ prop_head_invalid() ->
 prop_in() ->
     ?FORALL(
         L,
-        list(),
+        ct_proper_ext:safe_list(),
         begin
             Q = lists:foldl(
                 fun(I, Acc) ->
@@ -410,7 +382,7 @@ prop_liat_invalid() ->
 prop_member() ->
     ?FORALL(
         {X, {L, Q}},
-        {term(), list_queue()},
+        {ct_proper_ext:safe_any(), list_queue()},
         begin
             % all members of L are members of Q
             lists:all(
@@ -526,7 +498,7 @@ prop_reverse_invalid() ->
 prop_snoc() ->
     ?FORALL(
         L,
-        list(),
+        ct_proper_ext:safe_list(),
         begin
             Q = lists:foldl(
                 fun(I, Acc) ->
@@ -542,7 +514,7 @@ prop_snoc() ->
 prop_snoc_invalid() ->
     ?FORALL(
         {I, NonQueue},
-        {term(), non_queue()},
+        {ct_proper_ext:safe_any(), non_queue()},
         expect_badarg(fun queue:snoc/2, [NonQueue, I])
     ).
 
@@ -568,7 +540,7 @@ prop_split_invalid() ->
                 {non_queue(), 0},
                 ?SUCHTHAT(
                     {Q1, N1},
-                    {queue(), term()},
+                    {queue(), ct_proper_ext:safe_any()},
                     not(is_integer(N1) andalso N1>=0 andalso N1=<queue:len(Q1))
                 )
             ]
@@ -588,15 +560,15 @@ prop_ops() ->
         {Ops, {L, Q}},
         {
             list(
-                oneof([{cons, term()},
+                oneof([{cons, ct_proper_ext:safe_any()},
                        daeh,
                        drop,
                        drop_r,
                        get,
                        get_r,
                        head,
-                       {in, term()},
-                       {in_r, term()},
+                       {in, ct_proper_ext:safe_any()},
+                       {in_r, ct_proper_ext:safe_any()},
                        init,
                        liat,
                        last,
@@ -604,7 +576,7 @@ prop_ops() ->
                        out_r,
                        peek,
                        peek_r,
-                       {snoc, term()},
+                       {snoc, ct_proper_ext:safe_any()},
                        tail])
             ),
             list_queue()
@@ -785,7 +757,7 @@ common_drop_tail(Fn) ->
 common_in_r_cons(Fn) ->
     ?FORALL(
         L,
-        list(),
+        ct_proper_ext:safe_list(),
         begin
             Q = lists:foldl(
                 fun(I, Acc) ->
@@ -815,7 +787,7 @@ common_invalid_pred(Fn) ->
 common_invalid_term(Fn) ->
     ?FORALL(
         {I, NonQueue},
-        {term(), non_queue()},
+        {ct_proper_ext:safe_any(), non_queue()},
         expect_badarg(Fn, [I, NonQueue])
     ).
 
@@ -824,7 +796,7 @@ common_invalid_term(Fn) ->
 %%%%%%%%%%%%%%%%%%
 
 list_queue() ->
-    list_queue(term()).
+    list_queue(ct_proper_ext:safe_any()).
 
 list_queue(Type) ->
     ?LET(
@@ -841,7 +813,7 @@ list_queue(Type) ->
     ).
 
 queue() ->
-    queue(term()).
+    queue(ct_proper_ext:safe_any()).
 
 queue(Type) ->
     ?LET(List, list(Type), queue:from_list(List)).
@@ -857,7 +829,7 @@ queue(Type) ->
 non_queue() ->
     ?SUCHTHAT(
         T,
-        term(),
+        ct_proper_ext:safe_any(),
         not(
             is_tuple(T) andalso
             tuple_size(T) =:= 2 andalso
@@ -869,7 +841,7 @@ non_queue() ->
 non_fun(Arity) ->
     ?SUCHTHAT(
         T,
-        term(),
+        ct_proper_ext:safe_any(),
         not is_function(T, Arity)
     ).
 
