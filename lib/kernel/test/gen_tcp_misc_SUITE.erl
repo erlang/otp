@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,7 +68,8 @@
 	 socket_monitor2/1,
 	 socket_monitor2_manys/1,
 	 socket_monitor2_manyc/1,
-	 otp_17492/1
+	 otp_17492/1,
+	 otp_18707/1
 	]).
 
 %% Internal exports.
@@ -193,7 +194,8 @@ all_cases() ->
      otp_12242, delay_send_error,
      bidirectional_traffic,
      {group, socket_monitor},
-     otp_17492
+     otp_17492,
+     otp_18707
     ].
 
 close_cases() ->
@@ -7469,7 +7471,8 @@ do_socket_monitor2_manyc(Config) ->
 %% processes that create monitors to it...
 otp_17492(Config) when is_list(Config) ->
     ct:timetrap(?MINS(1)),
-    ?TC_TRY(otp_17492, fun() -> do_otp_17492(Config) end).
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> do_otp_17492(Config) end).
 
 do_otp_17492(Config) ->
     ?P("begin"),
@@ -7523,6 +7526,72 @@ do_otp_17492(Config) ->
 
     ?P("done"),
     ok.
+
+
+%% This is the most basic of tests.
+otp_18707(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() ->
+                    %% We are not actually trying to make a connection...
+                    is_socket_supported(),
+                    case ?EXPLICIT_INET_BACKEND() of
+                        true ->
+                            case ?WHICH_INET_BACKEND(Config) of
+                                socket ->
+                                    ok;
+                                Backend ->
+                                    ?SKIPT({backend, Backend})
+                            end;
+                        _ ->
+                            ok
+                    end
+            end,
+            fun() -> do_otp_18707(Config) end).
+
+do_otp_18707(_Config) ->
+    ?P("begin"),
+
+    try gen_tcp:connect(#{port   => 80,
+                          addr   => {127, 0, 0, 1},
+                          family => inet},
+                        [{inet_backend, socket}]) of
+        {ok, Sock} ->
+            %% Since we do not know what is going on
+            %% on the machines we run the tests, this
+            %% call "might" actually succeed...
+            ?P("(expected) connect success"),
+            gen_tcp:close(Sock),
+            ok;
+        {error, _Reason} ->
+            ?P("expected failure: "
+               "~n   ~p", [_Reason]),
+            ok
+    catch
+        C:E:S ->
+            ?P("unexpected failure: "
+               "~n   C: ~p"
+               "~n   E: ~p"
+               "~n   S: ~p", [C, E, S]),
+            ct:fail({unexpected_failure, C, E, S})
+    end,
+
+    ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+is_socket_supported() ->
+    try socket:info() of
+        _ ->
+            ok
+    catch
+        error : notsup ->
+            {skip, "esock not supported"};
+        error : undef ->
+            {skip, "esock not configured"}
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
