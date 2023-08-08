@@ -88,6 +88,8 @@
          aliasing_after_tuple_extract/1,
          alias_after_pair_hd/1,
          alias_after_pair_tl/1,
+         unique_pair/0,
+         make_unique_pair/1,
 
          double_map_lookup/2,
          double_tuple_element/2,
@@ -829,6 +831,23 @@ alias_after_pair_tl(N, Acc) ->
 %ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
     [_|X] = Acc,
     alias_after_pair_tl(N - 1, [Acc|<<X/bitstring, 1>>]).
+
+make_unique_pair(X) when is_integer(X) ->
+    [X|X].
+
+%% No aliasing occurs as Pair dies and only plain values are
+%% extracted.
+unique_pair() ->
+%ssa% () when post_ssa_opt ->
+%ssa% P = call(fun make_unique_pair/1, ...),
+%ssa% H = get_hd(P),
+%ssa% T = get_tl(P),
+%ssa% R = put_tuple(H, T, P) {unique => [H, P, T]},
+%ssa% ret(R) {unique => [R]}.
+    Pair = make_unique_pair(e:f()),
+    H = hd(Pair),
+    T = tl(Pair),
+    {H, T, Pair}.
 
 %% Check that although the map is unique, the extracted values should
 %% always be aliased as we can't know if they are the same.

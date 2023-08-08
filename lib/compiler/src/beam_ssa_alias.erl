@@ -474,13 +474,15 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 {aa_derive_from(Dst, Arg, SS1), AAS0};
             get_hd ->
                 [Arg] = Args,
-                {aa_pair_extraction(Dst, Arg, hd, SS1), AAS0};
+                Type = maps:get(0, maps:get(arg_types, Anno0, #{0=>any}), any),
+                {aa_pair_extraction(Dst, Arg, hd, Type, SS1), AAS0};
             get_map_element ->
                 [Map,_Key] = Args,
                 {aa_map_extraction(Dst, Map, SS1, AAS0), AAS0};
             get_tl ->
                 [Arg] = Args,
-                {aa_pair_extraction(Dst, Arg, tl, SS1), AAS0};
+                Type = maps:get(0, maps:get(arg_types, Anno0, #{0=>any}), any),
+                {aa_pair_extraction(Dst, Arg, tl, Type, SS1), AAS0};
             get_tuple_element ->
                 [Arg,Idx] = Args,
                 Types = maps:get(arg_types, Anno0, #{}),
@@ -495,7 +497,9 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             phi ->
                 {aa_phi(Dst, Args, SS1), AAS0};
             put_list ->
-                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+                Types = aa_map_arg_to_type(Args,
+                                           maps:get(arg_types, Anno0, #{})),
+                {aa_construct_term(Dst, Args, Types, SS1, AAS0), AAS0};
             put_map ->
                 {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
             put_tuple ->
@@ -1327,8 +1331,16 @@ aa_bif(Dst, element, [#b_literal{},Tuple], SS, _AAS) ->
 aa_bif(Dst, element, [#b_var{},Tuple], SS, _AAS) ->
     aa_set_aliased([Dst,Tuple], SS);
 aa_bif(Dst, hd, [Pair], SS, _AAS) ->
+    %% The hd bif is always rewritten to a get_hd instruction when the
+    %% argument is known to be a pair. Therefore this code is only
+    %% reached when the type of is unknown, thus there is no point in
+    %% trying to provide aa_pair_extraction/5 with type information.
     aa_pair_extraction(Dst, Pair, hd, SS);
 aa_bif(Dst, tl, [Pair], SS, _AAS) ->
+    %% The tl bif is always rewritten to a get_tl instruction when the
+    %% argument is known to be a pair. Therefore this code is only
+    %% reached when the type of is unknown, thus there is no point in
+    %% trying to provide aa_pair_extraction/5 with type information.
     aa_pair_extraction(Dst, Pair, tl, SS);
 aa_bif(Dst, map_get, [_Key,Map], SS, AAS) ->
     aa_map_extraction(Dst, Map, SS, AAS);
@@ -1421,8 +1433,26 @@ aa_get_call_args_status(Args, Callee, #aas{call_args=Info}) ->
     zip(Args, Status).
 
 %% Pair extraction.
-aa_pair_extraction(Dst, #b_var{}=Pair, Element, SS) ->
+aa_pair_extraction(Dst, Pair, Element, SS) ->
+    aa_pair_extraction(Dst, Pair, Element, any, SS).
+
+aa_pair_extraction(Dst, #b_var{}=Pair, Element, Type, SS) ->
+    IsPlainValue = case {Type,Element} of
+                       {#t_cons{type=Ty},hd} ->
+                           aa_is_plain_type(Ty);
+                       {#t_cons{terminator=Ty},tl} ->
+                           aa_is_plain_type(Ty);
+                       _ ->
+                           %% There is no type information,
+                           %% conservatively assume this isn't a plain
+                           %% value.
+                           false
+                   end,
     case SS of
+        _ when IsPlainValue ->
+            %% A plain value was extracted, it doesn't change the
+            %% alias status of Dst nor the pair.
+            SS;
         #{Pair:=#vas{status=aliased}} ->
             %% The pair is aliased, so what is extracted will be aliased.
             aa_set_aliased(Dst, SS);
@@ -1446,7 +1476,7 @@ aa_pair_extraction(Dst, #b_var{}=Pair, Element, SS) ->
             aa_register_extracted(Dst, Pair,
                                   SS#{Pair=>Vas#vas{pair_elems={both,H,Dst}}})
     end;
-aa_pair_extraction(_Dst, #b_literal{}, _Element, SS) ->
+aa_pair_extraction(_Dst, #b_literal{}, _Element, _, SS) ->
     SS.
 
 aa_map_extraction(Dst, Map, SS, AAS) ->
