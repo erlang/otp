@@ -37,12 +37,26 @@
 
 start_link(Manager, SocketType, Addr, Port, IpFamily, ConfigDb, AcceptTimeout) ->
     Args = [self(), Manager, SocketType, Addr, Port, IpFamily, ConfigDb, AcceptTimeout],
-    proc_lib:start_link(?MODULE, acceptor_init, Args).
+    start_link(Args).
 
 start_link(Manager, SocketType, Addr, Port, ListenSocket, IpFamily, ConfigDb, AcceptTimeout) ->
     Args = [self(), Manager, SocketType, Addr, Port, ListenSocket, IpFamily, 
 	    ConfigDb, AcceptTimeout],
-    proc_lib:start_link(?MODULE, acceptor_init, Args).
+    start_link(Args).
+
+%% This synchronization for server start error is solved in OTP-26.0
+%% through using proc_lib:init_fail/2 instead
+%%
+start_link(Args) ->
+    case proc_lib:start_link(?MODULE, acceptor_init, Args) of
+        {ok, _} = Result->
+            Result;
+        {error, Pid, Error} ->
+            Mref = erlang:monitor(process, Pid),
+            receive {'DOWN', Mref, _, _, _} ->
+                    Error
+            end
+    end.
 
 acceptor_init(Parent, Manager, SocketType, Addr, Port, {ListenOwner, ListenSocket}, IpFamily,
 	      ConfigDb, AcceptTimeout) ->
@@ -66,7 +80,7 @@ acceptor_init(Parent, Manager, SocketType, Addr, Port, IpFamily,
 	    acceptor_loop(Manager, SocketType, Addr, Port, 
 			  ListenSocket, IpFamily,ConfigDb, AcceptTimeout);
 	Error ->
-	    proc_lib:init_ack(Parent, Error),
+	    proc_lib:init_ack(Parent, {error, self(), Error}),
 	    error
     end.
    
