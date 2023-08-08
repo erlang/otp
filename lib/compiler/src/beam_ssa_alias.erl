@@ -565,7 +565,7 @@ aa_terminator(#b_br{succ=S,fail=F}, _SS, Lbl2SS) ->
     {Lbl2SS,[S,F]};
 aa_terminator(#b_ret{arg=Arg,anno=Anno0}, SS, Lbl2SS0) ->
     Type = maps:get(result_type, Anno0, any),
-    Status0 = aa_get_status(Arg, SS),
+    Status0 = aa_get_status(Arg, SS, #{Arg=>Type}),
     ?DP("Returned ~p:~p:~p~n", [Arg, Status0, Type]),
     Type2Status0 = maps:get(returns, Lbl2SS0, #{}),
     Status = case Type2Status0 of
@@ -816,6 +816,14 @@ aa_get_status([V=#b_var{}], State) ->
     aa_get_status(V, State);
 aa_get_status([V=#b_var{}|Parents], State) ->
     aa_meet(aa_get_status(V, State), aa_get_status(Parents, State)).
+
+aa_get_status(V, State, Types) ->
+    case aa_is_plain_value(V, Types) of
+        true ->
+            unique;
+        false ->
+            aa_get_status(V, State)
+    end.
 
 %% aa_get_status but for instructions extracting values from pairs and
 %% tuples.
