@@ -428,6 +428,8 @@ Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
 Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
 Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
+Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
+Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_off);
 struct erts_system_monitor_flags_t erts_system_monitor_flags;
 
 /* system performance monitor */
@@ -9564,7 +9566,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	state = erts_atomic32_read_nob(&p->state);
 
         if ((state & ERTS_PSFLG_MSG_SIG_IN_Q)
-            && ERTS_MSG_RECV_TRACED(p)
+            && ((p->sig_qs.flags & FS_MON_MSGQ_LEN)
+                || ERTS_MSG_RECV_TRACED(p))
             && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
             if (!(state & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_ACTIVE_SYS))) {
                 goto sched_out_fetch_signals;
@@ -10007,7 +10010,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                             erts_runq_unlock(rq);
                             erts_proc_lock(p, (ERTS_PROC_LOCK_MAIN
                                                | ERTS_PROC_LOCK_MSGQ));
-                            if (ERTS_MSG_RECV_TRACED(p)
+                            if (((p->sig_qs.flags & FS_MON_MSGQ_LEN)
+                                 || ERTS_MSG_RECV_TRACED(p))
                                 && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
                                 erts_proc_sig_fetch(p);
                             }
@@ -10045,7 +10049,16 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	erts_proc_lock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
 
-	state = erts_atomic32_read_nob(&p->state);
+        if (erts_system_monitor_long_msgq_off < 0) {
+            if (p->sig_qs.flags & FS_MON_MSGQ_LEN)
+                p->sig_qs.flags &= ~(FS_MON_MSGQ_LEN|FS_MON_MSGQ_LEN_LONG);
+        }
+        else {
+            if (!(p->sig_qs.flags & FS_MON_MSGQ_LEN))
+                p->sig_qs.flags |= FS_MON_MSGQ_LEN;
+        }
+
+        state = erts_atomic32_read_nob(&p->state);
 
 	if (erts_sched_stat.enabled) {
 	    int prio;

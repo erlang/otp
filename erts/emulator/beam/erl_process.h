@@ -1529,6 +1529,8 @@ extern Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_off);
 struct erts_system_monitor_flags_t {
 	 unsigned int busy_port : 1;
     unsigned int busy_dist_port : 1;
@@ -1591,6 +1593,8 @@ extern int erts_system_profile_ts_type;
 #define FS_NON_FETCH_CNT1      (1 << 9) /* First bit of non-fetch signals counter */
 #define FS_NON_FETCH_CNT2      (1 << 10)/* Second bit of non-fetch signals counter */
 #define FS_NON_FETCH_CNT4      (1 << 11)/* Third bit of non-fetch signals counter */
+#define FS_MON_MSGQ_LEN        (1 << 12) /* Monitor of msgq len enabled */
+#define FS_MON_MSGQ_LEN_LONG   (1 << 13)/* --"-- and it is currently long */
 
 #define FS_NON_FETCH_CNT_MASK \
     (FS_NON_FETCH_CNT1|FS_NON_FETCH_CNT2|FS_NON_FETCH_CNT4)

@@ -1817,6 +1817,8 @@ extern Process *erts_dirty_process_signal_handler_max;
 void erts_proc_sig_fetch__(Process *proc,
                            ErtsSignalInQueueBufferArray* buffers,
                            int need_unget_buffers);
+ERTS_GLB_INLINE void erts_chk_sys_mon_long_msgq_on(Process *proc);
+ERTS_GLB_INLINE void erts_chk_sys_mon_long_msgq_off(Process *proc);
 ERTS_GLB_INLINE int erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2);
 ERTS_GLB_INLINE void erts_msgq_recv_marker_set_save__(Process *c_p,
 				 ErtsRecvMarkerBlock *blkp,
@@ -1900,6 +1902,28 @@ erts_proc_sig_queue_unget_buffers(ErtsSignalInQueueBufferArray* buffers,
             erts_mtx_destroy(&buffers->slots[i].b.lock);
         }
         erts_free(ERTS_ALC_T_SIGQ_BUFFERS, buffers);
+    }
+}
+
+ERTS_GLB_INLINE void
+erts_chk_sys_mon_long_msgq_on(Process *proc)
+{
+    if (((proc->sig_qs.flags & (FS_MON_MSGQ_LEN|FS_MON_MSGQ_LEN_LONG))
+         == FS_MON_MSGQ_LEN)
+        && proc->sig_qs.mq_len >= erts_system_monitor_long_msgq_on) {
+        proc->sig_qs.flags |= FS_MON_MSGQ_LEN_LONG;
+        monitor_generic(proc, am_long_message_queue, am_true);
+    }
+}
+
+ERTS_GLB_INLINE void
+erts_chk_sys_mon_long_msgq_off(Process *proc)
+{
+    if (((proc->sig_qs.flags & (FS_MON_MSGQ_LEN|FS_MON_MSGQ_LEN_LONG))
+         == (FS_MON_MSGQ_LEN|FS_MON_MSGQ_LEN_LONG))
+        && proc->sig_qs.mq_len <= erts_system_monitor_long_msgq_off) {
+        proc->sig_qs.flags &= ~FS_MON_MSGQ_LEN_LONG;
+        monitor_generic(proc, am_long_message_queue, am_false);
     }
 }
 
@@ -2241,6 +2265,7 @@ erts_msgq_unlink_msg(Process *c_p, ErtsMessage *msgp)
     *c_p->sig_qs.save = sigp;
     c_p->sig_qs.mq_len--;
     ASSERT(c_p->sig_qs.mq_len >= 0);
+    erts_chk_sys_mon_long_msgq_off(c_p);
     if (sigp && ERTS_SIG_IS_RECV_MARKER(sigp)) {
         ErtsMessage **sigpp = c_p->sig_qs.save;
         ((ErtsRecvMarker *) sigp)->prev_next = sigpp;
@@ -2284,6 +2309,7 @@ erts_msgq_unlink_msg_set_save_first(Process *c_p, ErtsMessage *msgp)
     *c_p->sig_qs.save = sigp;
     c_p->sig_qs.mq_len--;
     ASSERT(c_p->sig_qs.mq_len >= 0);
+    erts_chk_sys_mon_long_msgq_off(c_p);
     if (!sigp)
         c_p->sig_qs.last = c_p->sig_qs.save;
     else if (ERTS_SIG_IS_RECV_MARKER(sigp))

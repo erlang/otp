@@ -1310,6 +1310,7 @@ erts_proc_sig_fetch__(Process *proc,
                 proc->sig_qs.last = proc->sig_inq.last;
                 ASSERT(proc->sig_qs.mlenoffs == 0);
                 proc->sig_qs.mq_len += proc->sig_inq.mlenoffs;
+                erts_chk_sys_mon_long_msgq_on(proc);
             }
             else {
                 *proc->sig_qs.cont_last = proc->sig_inq.first;
@@ -3436,6 +3437,7 @@ inc_converted_msgs_len(Process *c_p,
     if (!tracing->messages.active) {
         /* The converted messages were moved into the message queue... */
         c_p->sig_qs.mq_len += len;
+        erts_chk_sys_mon_long_msgq_on(c_p);
     }
     else {
         /*
@@ -3501,6 +3503,7 @@ remove_innerq_m_sig(Process *c_p, ErtsMessage *sig, ErtsMessage **next_sig)
     ASSERT(!ERTS_SIG_IS_NON_MSG(sig));
     c_p->sig_qs.mq_len--;
     ASSERT(c_p->sig_qs.mq_len >= 0);
+    erts_chk_sys_mon_long_msgq_off(c_p);
     remove_innerq_sig(c_p, sig, next_sig);
 }
 
@@ -5624,6 +5627,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
         tag = ((ErtsNonMsgSignal *) sig)->tag;
         c_p->sig_qs.mq_len += ((ErtsNonMsgSignal *) sig)->mlenoffs;
+        erts_chk_sys_mon_long_msgq_on(c_p);
 
         switch (ERTS_PROC_SIG_OP(tag)) {
 
@@ -6287,6 +6291,7 @@ stop: {
             ASSERT(next->nm_sig.mlenoffs >= 0);
             c_p->sig_qs.mq_len += next->nm_sig.mlenoffs;
             next->nm_sig.mlenoffs = 0;
+            erts_chk_sys_mon_long_msgq_on(c_p);
 
             if (*next_nm_sig != &c_p->sig_qs.cont) {
                 if (ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.cont)) {
@@ -6322,6 +6327,7 @@ stop: {
             ASSERT(c_p->sig_qs.mlenoffs >= 0);
             c_p->sig_qs.mq_len += c_p->sig_qs.mlenoffs;
             c_p->sig_qs.mlenoffs = 0;
+            erts_chk_sys_mon_long_msgq_on(c_p);
 
             if (c_p->sig_qs.cont_last != &c_p->sig_qs.cont) {
                 if (ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.cont)) {
@@ -7901,6 +7907,7 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
         cnt++;
 
         c_p->sig_qs.mq_len++;
+        erts_chk_sys_mon_long_msgq_on(c_p);
         next_sig = &(*next_sig)->next;
         sig = *next_sig;
     }
