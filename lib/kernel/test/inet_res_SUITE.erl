@@ -69,7 +69,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+     {timetrap,{seconds,15}}].
 
 all() -> 
     [basic, resolve, name_addr_and_cached,
@@ -169,14 +169,17 @@ init_per_testcase(Func, Config) ->
             %% dbg:p(all, c),
             %% dbg:tpl(inet_res, query_nss_res, cx),
             ?P("init_per_testcase -> done:"
-               "~n      NsSpec: ~p"
-               "~n      Lookup: ~p", [NsSpec, Lookup]),
+               "~n    NsSpec: ~p"
+               "~n    Lookup: ~p", [NsSpec, Lookup]),
 	    [{nameserver, NsSpec}, {res_lookup, Lookup} | Config]
     catch
 	SkipReason ->
-            ?P("init_per_testcase -> caught:"
-               "~n      SkipReason: ~p", [SkipReason]),
-	    {skip, SkipReason}
+            ?P("init_per_testcase -> skip: ~p", [SkipReason]),
+	    {skip, SkipReason};
+        Class : Reason : Stacktrace ->
+            ?P("init_per_testcase -> ~w: ~p"
+               "~n    ~p~n", [Class, Reason, Stacktrace]),
+            {fail, Reason}
     end.
 
 end_per_testcase(_Func, Config) ->
@@ -252,11 +255,16 @@ ns_start(ZoneDir, PrivDir, NS, P) ->
 	"Running: "++_ ->
             ?P("ns_start -> running"),
 	    {ZoneDir,NS,P};
+	"Skip: "++Reason ->
+            ?P("ns_start -> skip: "
+               "~n      ~p", [Reason]),
+	    ns_printlog(filename:join([PrivDir,ZoneDir,?LOG_FILE])),
+	    throw(Reason);
 	"Error: "++Error ->
             ?P("ns_start -> error: "
                "~n      ~p", [Error]),
 	    ns_printlog(filename:join([PrivDir,ZoneDir,?LOG_FILE])),
-	    throw(Error);
+	    error(Error);
 	_X ->
             ?P("ns_start -> retry"),
 	    ns_start(ZoneDir, PrivDir, NS, P)
