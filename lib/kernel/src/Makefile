@@ -100,6 +100,7 @@ MODULES = \
 	inet_config \
 	inet_db \
 	inet_dns \
+	inet_dns_tsig \
 	inet_epmd_dist \
 	inet_epmd_socket \
 	inet_gethost_native \
@@ -268,6 +269,7 @@ $(EBIN)/inet6_sctp.beam: inet_int.hrl
 $(EBIN)/inet_config.beam: inet_config.hrl ../include/inet.hrl
 $(EBIN)/inet_db.beam: ../include/inet.hrl inet_int.hrl inet_res.hrl inet_dns.hrl inet_config.hrl
 $(EBIN)/inet_dns.beam: inet_int.hrl inet_dns.hrl inet_dns_record_adts.hrl
+$(EBIN)/inet_dns_tsig.beam: inet_dns.hrl
 $(EBIN)/inet_gethost_native.beam: ../include/inet.hrl
 $(EBIN)/inet_hosts.beam: ../include/inet.hrl
 $(EBIN)/inet_parse.beam: ../include/file.hrl

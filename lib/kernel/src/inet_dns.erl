@@ -33,8 +33,10 @@
 %% RFC 6762: Multicast DNS
 %% RFC 6891: Extension Mechanisms for DNS (EDNS0)
 %% RFC 7553: The Uniform Resource Identifier (URI) DNS Resource Record
+%% RFC 8945: Secret Key Transaction Authentication for DNS (TSIG)
 
 -export([decode/1, encode/1]).
+-export([decode_algname/1, encode_algname/1]).
 
 -import(lists, [reverse/1]).
 
@@ -253,6 +255,28 @@ decode_rr_section(Opcode, Bin, N, Buffer, RRs) ->
                           z                = Z,
                           data             = D,
                           do               = DnssecOk};
+                   ?S_TSIG ->
+                       %% RFC 8945: 5.2. FORMERR if not last
+                       %% RFC 8945: 5.2. FORMERR if more than one dns_rr_tsig
+                       %%                        (...covered by being last)
+                       Rest =/= <<>> andalso throw(?DECODE_ERROR),
+                       {DR,AlgName} = decode_name(D, Buffer),
+                       ?MATCH_ELSE_DECODE_ERROR(
+                          DR,
+                          <<Now:48, Fudge:16, MACSize:16, MAC:MACSize/binary,
+                            OriginalId:16, Error:16,
+                            OtherLen:16, OtherData:OtherLen/binary>>,
+                          #dns_rr_tsig{
+                             domain        = Name,
+                             type          = Type,
+                             offset        = byte_size(Buffer) - byte_size(Bin),
+                             algname       = AlgName,
+                             now           = Now,
+                             fudge         = Fudge,
+                             mac           = MAC,
+                             original_id   = OriginalId,
+                             error         = Error,
+                             other_data    = OtherData});
                    _ ->
                        {Class,CacheFlush} = decode_class(C),
                        Data = if
@@ -347,7 +371,22 @@ encode_res_section(
     DO = case DnssecOk of true -> 1; false -> 0 end,
     encode_res_section_rr(
       Opcode, Bin, Comp, Rs, DName, ?S_OPT, UdpPayloadSize, false,
-      <<ExtRCode,Version,DO:1,Z:15>>, Data).
+      <<ExtRCode,Version,DO:1,Z:15>>, Data);
+encode_res_section(
+  Opcode, Bin, Comp,
+  [#dns_rr_tsig{
+      domain           = DName,
+      algname          = AlgName,
+      now              = Now,
+      fudge            = Fudge,
+      mac              = MAC,
+      original_id      = OriginalId,
+      error            = Error,
+      other_data       = OtherData}]) ->
+    Data = {AlgName,Now,Fudge,MAC,OriginalId,Error,OtherData},
+    encode_res_section_rr(
+      Opcode, Bin, Comp, [], DName, ?S_TSIG, ?S_ANY, false,
+      <<0:32/signed>>, Data).
 
 encode_res_section_rr(
   Opcode, Bin0, Comp0, Rs, DName, Type, Class, CacheFlush, TTL, Data) ->
@@ -399,6 +438,7 @@ decode_type(Type) ->
 	?T_UID -> ?S_UID;
 	?T_GID -> ?S_GID;
 	?T_UNSPEC -> ?S_UNSPEC;
+	?T_TSIG -> ?S_TSIG;
 	?T_IXFR -> ?S_IXFR;
 	?T_AXFR -> ?S_AXFR;
 	?T_MAILB -> ?S_MAILB;
@@ -441,6 +481,7 @@ encode_type(Type) ->
 	?S_UID -> ?T_UID;
 	?S_GID -> ?T_GID;
 	?S_UNSPEC -> ?T_UNSPEC;
+	?S_TSIG -> ?T_TSIG;
 	?S_IXFR -> ?T_IXFR;
 	?S_AXFR -> ?T_AXFR;
 	?S_MAILB -> ?T_MAILB;
@@ -833,6 +874,17 @@ encode_data(Comp, _, ?S_CAA, Data)->
         _ ->
             {encode_txt(Data),Comp}
     end;
+encode_data(Comp, _, ?S_TSIG, Data)->
+    {AlgName,Now,Fudge,MAC,OriginalId,Error,OtherData} = Data,
+    %% Bypass name compression (RFC 8945, section 4.2)
+    {AlgNameEncoded,_} = encode_name(gb_trees:empty(), 0, AlgName),
+    MACSize = byte_size(MAC),
+    OtherLen = byte_size(OtherData),
+    DataB = <<AlgNameEncoded/binary,
+	     Now:48, Fudge:16, MACSize:16, MAC:MACSize/binary,
+	     OriginalId:16, Error:16,
+	     OtherLen:16, OtherData:OtherLen/binary>>,
+    {DataB,Comp};
 %%
 %% sofar unknown or non standard
 encode_data(Comp, _Pos, Type, Data) when is_integer(Type) ->
@@ -972,3 +1024,35 @@ encode_loc_size(X)
     Multiplier = round(math:pow(10, Exponent)),
     Base = (X + Multiplier - 1) div Multiplier,
     <<Base:4, Exponent:4>>.
+
+decode_algname(AlgName) ->
+    case AlgName of
+        ?T_TSIG_HMAC_MD5 -> ?S_TSIG_HMAC_MD5;
+        ?T_TSIG_GSS_TSIG -> ?S_TSIG_GSS_TSIG;
+        ?T_TSIG_HMAC_SHA1 -> ?S_TSIG_HMAC_SHA1;
+        ?T_TSIG_HMAC_SHA1_96 -> ?S_TSIG_HMAC_SHA1_96;
+        ?T_TSIG_HMAC_SHA224 -> ?S_TSIG_HMAC_SHA224;
+        ?T_TSIG_HMAC_SHA256 -> ?S_TSIG_HMAC_SHA256;
+        ?T_TSIG_HMAC_SHA256_128 -> ?S_TSIG_HMAC_SHA256_128;
+        ?T_TSIG_HMAC_SHA384 -> ?S_TSIG_HMAC_SHA384;
+        ?T_TSIG_HMAC_SHA384_192 -> ?S_TSIG_HMAC_SHA384_192;
+        ?T_TSIG_HMAC_SHA512 -> ?S_TSIG_HMAC_SHA512;
+        ?T_TSIG_HMAC_SHA512_256 -> ?S_TSIG_HMAC_SHA512_256;
+       _ -> AlgName  % raw unknown algname
+    end.
+
+encode_algname(Alg) ->
+    case Alg of
+        ?S_TSIG_HMAC_MD5 -> ?T_TSIG_HMAC_MD5;
+        ?S_TSIG_GSS_TSIG -> ?T_TSIG_GSS_TSIG;
+        ?S_TSIG_HMAC_SHA1 -> ?T_TSIG_HMAC_SHA1;
+        ?S_TSIG_HMAC_SHA1_96 -> ?T_TSIG_HMAC_SHA1_96;
+        ?S_TSIG_HMAC_SHA224 -> ?T_TSIG_HMAC_SHA224;
+        ?S_TSIG_HMAC_SHA256 -> ?T_TSIG_HMAC_SHA256;
+        ?S_TSIG_HMAC_SHA256_128 -> ?T_TSIG_HMAC_SHA256_128;
+        ?S_TSIG_HMAC_SHA384 -> ?T_TSIG_HMAC_SHA384;
+        ?S_TSIG_HMAC_SHA384_192 -> ?T_TSIG_HMAC_SHA384_192;
+        ?S_TSIG_HMAC_SHA512 -> ?T_TSIG_HMAC_SHA512;
+        ?S_TSIG_HMAC_SHA512_256 -> ?T_TSIG_HMAC_SHA512_256;
+       Alg when is_list(Alg) -> Alg  % raw unknown algname
+    end.

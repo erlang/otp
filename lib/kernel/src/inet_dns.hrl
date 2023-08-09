@@ -45,6 +45,10 @@
 -define(NOTAUTH,  9).		%% server not authoritative for zone (DDNS)
 -define(NOTZONE,  10).		%% name not contained in zone (DDNS)
 -define(BADVERS,  16).		%% bad version EDNS pseudo-rr RFC6891: 6.1.3
+-define(BADSIG,   16).		%% TSIG Signature Failure (TSIG)
+-define(BADKEY,   17).		%% Key not recognized (TSIG)
+-define(BADTIME,  18).		%% Signature out of time window (TSIG)
+-define(BADTRUNC, 22).		%% Bad Truncation (TSIG)
 
 %%
 %% Type values for resources and queries
@@ -80,6 +84,7 @@
 -define(T_UID,		101).		%% user ID
 -define(T_GID,		102).		%% group ID
 -define(T_UNSPEC,	103).		%% Unspecified format (binary data)
+-define(T_TSIG,		250).		%% transaction signature
 -define(T_IXFR,		251).		%% incremental zone transfer
 -define(T_AXFR,		252).		%% zone transfer
 -define(T_MAILB,	253).		%% transfer mailbox records
@@ -124,6 +129,7 @@
 -define(S_UID,		uid).		%% user ID
 -define(S_GID,		gid).		%% group ID
 -define(S_UNSPEC,	unspec).        %% Unspecified format (binary data)
+-define(S_TSIG,		tsig).		%% transaction signature
 -define(S_IXFR,		ixfr).		%% incremental zone transfer
 -define(S_AXFR,		axfr).		%% zone transfer
 -define(S_MAILB,	mailb).		%% transfer mailbox records
@@ -142,6 +148,33 @@
 -define(C_HS,		4).		%% for Hesiod name server at MIT
 -define(C_NONE,		254).		%% for DDNS (RFC2136, section 2.4)
 -define(C_ANY,		255).		%% wildcard match
+
+%%
+%% TSIG Algorithms and Identifiers (RFC8945, section 6)
+%%
+-define(T_TSIG_HMAC_MD5,		"HMAC-MD5.SIG-ALG.REG.INT").
+-define(T_TSIG_GSS_TSIG,		"gss-tsig").
+-define(T_TSIG_HMAC_SHA1,		"hmac-sha1").
+-define(T_TSIG_HMAC_SHA1_96,		"hmac-sha1_96").
+-define(T_TSIG_HMAC_SHA224,		"hmac-sha224").
+-define(T_TSIG_HMAC_SHA256,		"hmac-sha256").
+-define(T_TSIG_HMAC_SHA256_128,		"hmac-sha256-128").
+-define(T_TSIG_HMAC_SHA384,		"hmac-sha384").
+-define(T_TSIG_HMAC_SHA384_192,		"hmac-sha384-192").
+-define(T_TSIG_HMAC_SHA512,		"hmac-sha512").
+-define(T_TSIG_HMAC_SHA512_256,		"hmac-sha512-256").
+% map mostly to crypto:hmac_hash_algorithm()
+-define(S_TSIG_HMAC_MD5,		md5).
+-define(S_TSIG_GSS_TSIG,		gss_tsig).
+-define(S_TSIG_HMAC_SHA1,		sha).
+-define(S_TSIG_HMAC_SHA1_96,		{sha,96}).
+-define(S_TSIG_HMAC_SHA224,		sha224).
+-define(S_TSIG_HMAC_SHA256,		sha256).
+-define(S_TSIG_HMAC_SHA256_128,		{sha256,128}).
+-define(S_TSIG_HMAC_SHA384,		sha384).
+-define(S_TSIG_HMAC_SHA384_192,		{sha384,192}).
+-define(S_TSIG_HMAC_SHA512,		sha512).
+-define(S_TSIG_HMAC_SHA512_256,		{sha512,256}).
 
 %%
 %% Structure for query header, the order of the fields is machine and
@@ -204,6 +237,21 @@
 	  z = 0,              %% RFC6891(6.1.3 Z)
 	  data = [],          %% RFC6891(6.1.2 RDATA)
           do = false          %% RFC6891(6.1.3 DO)
+	 }).
+
+-record(dns_rr_tsig,          %% TSIG RR OPT (RFC8945), dns_rr{type=tsig}
+	{
+	  domain = "",        %% name of the key
+	  type = tsig,
+	  offset,             %% position of RR in packet
+	  %% RFC8945(4.2 TSIG Record Format)
+	  algname,
+	  now,
+	  fudge,
+	  mac,
+	  original_id = #dns_header{}#dns_header.id,
+	  error = #dns_header{}#dns_header.rcode,
+	  other_data = <<>>
 	 }).
 
 -record(dns_query,

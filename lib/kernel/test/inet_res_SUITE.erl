@@ -35,7 +35,7 @@
          edns0/1, edns0_multi_formerr/1, txt_record/1, files_monitor/1,
 	 nxdomain_reply/1, last_ms_answer/1, intermediate_error/1,
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
-         label_compression_limit/1, update/1
+         label_compression_limit/1, update/1, tsig_client/1, tsig_server/1
         ]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
@@ -77,7 +77,7 @@ all() ->
      nxdomain_reply, last_ms_answer,
      intermediate_error,
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
-     label_compression_limit, update,
+     label_compression_limit, update, tsig_client, tsig_server,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -134,6 +134,7 @@ zone_dir(TC) ->
 	nxdomain_reply       -> otptest;
 	last_ms_answer       -> otptest;
 	update               -> otptest;
+	tsig_client          -> otptest;
         intermediate_error   ->
             {internal,
              #{rcode => ?REFUSED}};
@@ -1468,6 +1469,196 @@ update(Config) when is_list(Config) ->
     #dns_rec{ header = #dns_header{ rcode = ?NOERROR } } = ResponseRec,
 
     ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Tests for TSIG
+
+% note for implementors reading this, the usage of
+% inet_dns_tsig.erl is identical except you do not need
+% to inspect the reponse for the presence of a TSIG RR
+tsig_client(Config) when is_list(Config) ->
+    {NSIP,NSPort} = ns(Config),
+    Domain = "otptest",
+    Request = #dns_rec{
+        header = #dns_header{},
+        qdlist = [#dns_query{ domain = Domain, class = in, type = axfr }]
+    },
+    Pkt = inet_dns:encode(Request),
+
+    Key = {"testkey","ded5ada3-07f2-42b9-84bf-82d30f6795ee"},
+    TS0 = inet_dns_tsig:init([{key,Key}]),
+    {ok,PktS,TS1} = inet_dns_tsig:sign(Pkt, TS0),
+
+    SockOpts = [binary,{active,false},{nodelay,true},{packet,2}],
+    {ok,Sock} = gen_tcp:connect(NSIP, NSPort, SockOpts),
+    ok = gen_tcp:send(Sock, PktS),
+    ok = gen_tcp:shutdown(Sock, write),
+    Recv = fun(Recv, A) ->
+        case gen_tcp:recv(Sock, 0) of
+            {ok,P} ->
+                Recv(Recv, [P|A]);
+            {error,closed} ->
+                lists:reverse(A)
+        end
+    end,
+    PktR = Recv(Recv, []),
+    ok = gen_tcp:close(Sock),
+
+    true = PktR =/= [],
+
+    {_TS,Response} = lists:foldl(fun(P, {T0,R0}) ->
+        {ok,R} = inet_dns:decode(P),
+        {ok,T} = inet_dns_tsig:verify(P, R, T0),
+        {T,R0 ++ [R]}
+    end, {TS1,[]}, PktR),
+
+    % not necessary for the test, but helpful to those using this
+    % to understand how to validate TCP responses, we need to check
+    % that the last message has a TSIG RR (RRC8945, section 5.3.1)
+    % N.B. unnecessary for UDP as handled by inet_dns_tsig:verify()
+    #dns_rec{ arlist = ARList } = lists:last(Response),
+    true = ARList =/= [],
+    #dns_rr_tsig{} = lists:last(ARList),
+
+    % actual implementations would here now consider if the additional
+    % checks described in the WARNING at the top of inet_dns_tsig.erl
+    % are applicable to their use case and if so implement them
+    ok.
+
+tsig_server(Config) when is_list(Config) ->
+    case os:find_executable("dig") of
+        false ->
+            case os:find_executable("drill") of
+                false ->
+                    {skip, "Cannot find executable: dig|drill"};
+                Drill ->
+                    tsig_server(Config, Drill)
+            end;
+        Dig ->
+            tsig_server(Config, Dig)
+    end.
+%%
+tsig_server(_Config, DigDrill) ->
+    Domain = "otptest",
+
+    Key = {"testkey","b0b8006a-04ad-4a96-841a-a4eae78011a1"},
+    Keys0 = [Key,{"grease0",""},{"grease1",""},{"grease2",""}],
+    Rand = [ rand:uniform() || _ <- lists:seq(1, length(Keys0)) ],
+    {_,Keys} = lists:unzip(lists:keysort(1, lists:zip(Rand, Keys0))),
+    TS0 = inet_dns_tsig:init([{keys,Keys}]),
+
+    SockOpts = [binary,{active,false},{nodelay,true},{packet,2}],
+    {ok,LSock} = gen_tcp:listen(0, [{ip,{127,0,0,1}}|SockOpts]),
+    {ok,LPort} = inet:port(LSock),
+
+    _ = process_flag(trap_exit, true),
+    {_, MRef} =
+        spawn_opt(
+          fun() ->
+                  KeyName = element(1, Key),
+                  KeySecret = base64:encode_to_string(element(2, Key)),
+                  Command = DigDrill ++
+                      " -p " ++ integer_to_list(LPort) ++
+                      " -y hmac-sha256:" ++ KeyName ++ ":" ++ KeySecret ++
+                      " " ++ Domain ++ ". @127.0.0.1 AXFR IN",
+                  Opts = [in,eof,exit_status,stderr_to_stdout,hide],
+                  Port = erlang:open_port({spawn,Command}, Opts),
+                  Collect =
+                      fun C(A) ->
+                              receive
+                                  {Port,{data,B}} ->
+                                      C([B|A]);
+                                  {Port,eof} ->
+                                      C(A);
+                                  {Port,{exit_status,Status}} ->
+                                      {ok,{Status,lists:reverse(A)}};
+                                  {Port,closed} ->
+                                      {error,closed}
+                              after 1000 ->
+                                      {error,timeout}
+                              end
+                      end,
+                  ClientResult = Collect([]),
+                  true = erlang:port_close(Port),
+                  exit({done,ClientResult})
+          end, [link,monitor]),
+
+    Result =
+        case gen_tcp:accept(LSock, 5000) of
+            {ok,Sock} ->
+                try
+                    ok = gen_tcp:close(LSock),
+                    tsig_server(Domain, TS0, Sock)
+                of
+                    _ ->
+                        gen_tcp:close(Sock)
+                catch
+                    Class : Reason : Stacktrace ->
+                        _ = catch gen_tcp:close(Sock),
+                        {Class,Reason,Stacktrace}
+                end;
+            Error ->
+                _ = catch gen_tcp:close(LSock),
+                Error
+        end,
+
+    receive
+        {'DOWN',MRef,_,_,{done,{ok,{Code,Output}}}} ->
+            ?P("Output of ~s (exit code ~B):~n~s~n",
+               [DigDrill, Code, Output]),
+            {0,ok} = {Code,Result};
+        {'DOWN',MRef,_,_,CError} ->
+            error({CError,Result})
+    after 1000 ->
+            error({timeout,Result})
+    end.
+
+tsig_server(Domain, TS0, Sock) ->
+    SOAData = {"ns","lsa.soa",1,60,10,300,30},
+    SOA = #dns_rr{ domain = Domain, class = in, type = soa, data = SOAData },
+    PadData = ["0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"],
+    Padding = #dns_rr{ class = in, type = txt, data = PadData },
+
+    {ok,Pkt} = gen_tcp:recv(Sock, 0),
+    ok = gen_tcp:shutdown(Sock, read),
+
+    {ok,Request} = inet_dns:decode(Pkt),
+    {ok,TS1} = inet_dns_tsig:verify(Pkt, Request, TS0),
+
+    % actual implementations would here now consider if the additional
+    % checks described in the WARNING at the top of inet_dns_tsig.erl
+    % are applicable to their use case and if so implement them
+
+    PktR0 = #dns_rec{
+        header = #dns_header{
+            id = Request#dns_rec.header#dns_header.id,
+            qr = true
+        },
+        qdlist = Request#dns_rec.qdlist
+    },
+
+    Format = "~2.10.0B.padding." ++ Domain,
+    AnList1 = [SOA] ++ [ Padding#dns_rr{
+                    domain = io_lib:format(Format, [X]) } ||
+                  X <- lists:seq(0, 9) ],
+    PktR1 = inet_dns:encode(PktR0#dns_rec{ anlist = AnList1 }),
+    {ok,PktR1S,TS2} = inet_dns_tsig:sign(PktR1, TS1),
+    ok = gen_tcp:send(Sock, PktR1S),
+
+    AnList2 = [ Padding#dns_rr{
+                    domain = io_lib:format(Format, [X]) } ||
+                  X <- lists:seq(10, 19) ],
+    PktR2 = inet_dns:encode(PktR0#dns_rec{ anlist = AnList2 }),
+    {ok,PktR2S,TS3} = inet_dns_tsig:sign(PktR2, TS2),
+    ok = gen_tcp:send(Sock, PktR2S),
+
+    AnList3 = [ Padding#dns_rr{
+                    domain = io_lib:format(Format, [X]) } ||
+                  X <- lists:seq(20, 29) ] ++ [SOA],
+    PktR3 = inet_dns:encode(PktR0#dns_rec{ anlist = AnList3 }),
+    {ok,PktR3S,_TS} = inet_dns_tsig:sign(PktR3, TS3),
+    ok = gen_tcp:send(Sock, PktR3S).
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
