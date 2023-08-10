@@ -221,6 +221,8 @@
          api_opt_sock_keepalive/1,
          api_opt_sock_linger/1,
          api_opt_sock_mark/1,
+         api_opt_sock_maxdg/1,
+         api_opt_sock_max_msg_size/1,
          api_opt_sock_oobinline/1,
          api_opt_sock_passcred_tcp4/1,
          api_opt_sock_peek_off_tcpL/1,
@@ -1117,6 +1119,8 @@ api_options_socket_cases() ->
      api_opt_sock_keepalive,
      api_opt_sock_linger,
      api_opt_sock_mark,
+     api_opt_sock_maxdg,
+     api_opt_sock_max_msg_size,
      api_opt_sock_oobinline,
      {group, api_option_sock_passcred},
      api_opt_sock_peek_off_tcpL,
@@ -15241,6 +15245,60 @@ api_opt_sock_mark(_Config) when is_list(_Config) ->
            fun() -> not_yet_implemented() end,
            fun() -> ok end).
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option maxdg.
+
+api_opt_sock_maxdg(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+	   fun() ->
+		   %% This is not a 'IPv4' option,
+		   %% but since we used it in the test...
+                   has_support_ipv4(),
+                   has_support_sock_maxdg()
+           end,
+           fun() -> do_api_opt_sock_maxdg() end).
+
+do_api_opt_sock_maxdg() ->
+    ?P("create DGRAM socket"),
+    {ok, S} = socket:open(inet, dgram),
+    ?P("get maxdg"),
+    case socket:getopt(S, socket, maxdg) of
+	{ok, Sz} ->
+	    ?P("success: Sz = ~p", [Sz]),
+	    ok;
+	{error, Reason} ->
+	    ?FAIL({failed_get_maxdg, Reason})
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option max_msg_size.
+
+api_opt_sock_max_msg_size(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+	   fun() ->
+		   %% This is not a 'IPv4' option,
+		   %% but since we used it in the test...
+                   has_support_ipv4(),
+                   has_support_sock_max_msg_size()
+           end,
+           fun() -> do_api_opt_sock_max_msg_size() end).
+
+do_api_opt_sock_max_msg_size() ->
+    {ok, S} = socket:open(inet, dgram),
+    case socket:getopt(S, socket, max_msg_size) of
+	{ok, Sz} ->
+	    ?P("success: Sz = ~p", [Sz]),
+	    ok;
+	{error, Reason} ->
+	    ?FAIL({failed_get_max_msg_size, Reason})
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -51632,11 +51690,17 @@ has_support_sock_keepalive() ->
 has_support_sock_reuseaddr() ->
     has_support_socket_option_sock(reuseaddr).
 
+has_support_sock_bsp_state() ->
+    has_support_socket_option_sock(bsp_state).
+
 has_support_sock_exclusiveaddruse() ->
     has_support_socket_option_sock(exclusiveaddruse).
 
-has_support_sock_bsp_state() ->
-    has_support_socket_option_sock(bsp_state).
+has_support_sock_maxdg() ->
+    has_support_socket_option_sock(maxdg).
+
+has_support_sock_max_msg_size() ->
+    has_support_socket_option_sock(max_msg_size).
 
 has_support_sock_oobinline() ->
     has_support_socket_option_sock(oobinline).
