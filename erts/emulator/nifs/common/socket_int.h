@@ -380,7 +380,9 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(master);                   \
     GLOBAL_ATOM_DEF(max);                      \
     GLOBAL_ATOM_DEF(maxburst);                 \
+    GLOBAL_ATOM_DEF(maxdg);                    \
     GLOBAL_ATOM_DEF(maxseg);                   \
+    GLOBAL_ATOM_DEF(max_msg_size);             \
     GLOBAL_ATOM_DEF(md5sig);                   \
     GLOBAL_ATOM_DEF(mem_end);                  \
     GLOBAL_ATOM_DEF(mem_start);                \

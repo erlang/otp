@@ -359,6 +359,20 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>maxdg</cell>
+	<cell>integer()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>Windows only</cell>
+      </row>
+      <row>
+	<cell>max_msg_size</cell>
+	<cell>integer()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>Windows only</cell>
+      </row>
+      <row>
 	<cell>oobinline</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
