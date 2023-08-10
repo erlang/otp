@@ -294,7 +294,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
     erts_print(to, to_arg, "Spawned as: %T:%T/%bpu\n",
 	       p->u.initial.module,
 	       p->u.initial.function,
-	       p->u.initial.arity);
+	       (Uint)p->u.initial.arity);
     
     if (p->current != NULL) {
 	if (running) {
@@ -305,7 +305,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 	erts_print(to, to_arg, "%T:%T/%bpu\n",
 		   p->current->module,
 		   p->current->function,
-		   p->current->arity);
+		   (Uint)p->current->arity);
     }
 
     erts_print(to, to_arg, "Spawned by: %T\n",
@@ -366,7 +366,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 		 erts_print(to, to_arg, "%T:%T/%bpu\n",
 			    scb->ct[j]->info.mfa.module,
 			    scb->ct[j]->info.mfa.function,
-			    scb->ct[j]->info.mfa.arity);
+			    (Uint)scb->ct[j]->info.mfa.arity);
        }
        erts_print(to, to_arg, "\n");
     }
