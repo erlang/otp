@@ -1599,6 +1599,7 @@ disturbing_1_0(Config) when is_list(Config) ->
     disturbing([{http_version, "HTTP/1.0"} | Config]).
 
 disturbing(Config) when is_list(Config)->
+    LogWatcher = start_log_watcher(),
     Server =  proplists:get_value(server_pid, Config),
     Version = proplists:get_value(http_version, Config),
     Host = proplists:get_value(host, Config),
@@ -1615,12 +1616,13 @@ disturbing(Config) when is_list(Config)->
     Close = list_to_atom((typestr(Type)) ++ "_closed"),
     receive 
 	{Close, Socket} ->
-	    ok;
-	Msg ->
-	    ct:fail({{expected, {Close, Socket}}, {got, Msg}})
-    end,
-    inets_test_lib:close(Type, Socket),
-    [{server_name, "httpd_disturbing_" ++ Version}] =  httpd:info(Server, [server_name]).
+            inets_test_lib:close(Type, Socket),
+            [{server_name, "httpd_disturbing_" ++ Version}] =
+                httpd:info(Server, [server_name]),
+            [] = stop_log_watcher(LogWatcher),
+            [] = inets_test_lib:flush(),
+	    ok
+    end.
 %%-------------------------------------------------------------------------
 non_disturbing_1_1(Config) when is_list(Config) -> 
     non_disturbing([{http_version, "HTTP/1.1"} | Config]).
@@ -1680,7 +1682,6 @@ reload_config_file(Config) when is_list(Config) ->
     ok = file:write_file(HttpdConf, NewConfig),
     ok = httpd:reload_config(HttpdConf, non_disturbing),
     "httpd_test_new" = proplists:get_value(server_name, httpd:info(Server)).
-
 %%-------------------------------------------------------------------------
 mime_types_format(Config) when is_list(Config) -> 
     DataDir = proplists:get_value(data_dir, Config),
@@ -2654,3 +2655,56 @@ peer(Config) ->
       _ ->
         "false"
    end.   
+
+start_log_watcher() ->
+    Spawner = self(),
+    EventDest = erlang:alias(),
+    HandlerId = ?MODULE,
+    _ =
+        spawn(
+          fun () ->
+                  MonAlias =
+                      monitor(process, Spawner, [{alias,reply_demonitor}]),
+                  EventDest ! {started,EventDest,MonAlias},
+                  receive
+                      {stop,MonAlias} ->
+                          _ = logger:remove_handler(HandlerId),
+                          EventDest ! {stopped,EventDest},
+                          ok;
+                      {'DOWN',MonAlias,_,_,_} ->
+                          _ = logger:remove_handler(HandlerId),
+                          ok
+                  end
+          end),
+    receive
+        {started,EventDest,Watcher} ->
+            Config = #{ config => EventDest },
+            ok = logger:add_handler(HandlerId, ?MODULE, Config),
+            {EventDest,Watcher}
+    end.
+
+stop_log_watcher({EventDest,Watcher}) ->
+    Watcher ! {stop,Watcher},
+    receive
+        {stopped,EventDest} ->
+            true = unalias(EventDest),
+            stop_log_watcher_collect(EventDest)
+    end.
+%%
+stop_log_watcher_collect(EventDest) ->
+    receive
+        {event,EventDest,Event} ->
+            [Event | stop_log_watcher_collect(EventDest)]
+    after 0 ->
+            []
+    end.
+
+log(#{level := Level} = Event, #{ config := EventDest }) ->
+    %% Pass on events of level 'error' or worse
+    case logger:compare_levels(Level, error) of
+        lt ->
+            ok;
+        _ ->
+            EventDest ! {event,EventDest,Event},
+            ok
+    end.
