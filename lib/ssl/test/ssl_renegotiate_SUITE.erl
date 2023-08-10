@@ -61,7 +61,9 @@
          renegotiate_dos_mitigate_passive/0,
          renegotiate_dos_mitigate_passive/1,
          renegotiate_dos_mitigate_absolute/0,
-         renegotiate_dos_mitigate_absolute/1
+         renegotiate_dos_mitigate_absolute/1,
+         active_error_disallowed_client_renegotiate/0,
+         active_error_disallowed_client_renegotiate/1
         ]).
 
 %% Apply export
@@ -105,7 +107,8 @@ renegotiate_tests() ->
      server_no_wrap_sequence_number,
      renegotiate_dos_mitigate_active,
      renegotiate_dos_mitigate_passive,
-     renegotiate_dos_mitigate_absolute].
+     renegotiate_dos_mitigate_absolute,
+     active_error_disallowed_client_renegotiate].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -465,6 +468,31 @@ renegotiate_dos_mitigate_absolute(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Client, ok, Server, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+active_error_disallowed_client_renegotiate() ->
+    [{doc,"Test that an active client socket gets an error when server denies client renegotiation."}].
+active_error_disallowed_client_renegotiate(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, [{client_renegotiation, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    {ok, Client} = ssl:connect(Hostname, Port, [{renegotiate_at, 1}, {active, true} | ClientOpts]),
+
+    {error, closed} = ssl:send(Client, crypto:strong_rand_bytes(20)),
+
+    receive
+        {ssl_error, Client, _} ->
+            ok
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
