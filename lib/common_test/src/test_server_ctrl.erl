@@ -2319,14 +2319,14 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %%
 
 run_test_cases_loop([{SkipTag,CaseData={Type,_Ref,_Case,_Comment}}|Cases],
-		    Config, TimetrapData, Mode, TestResults, Status) when
+		    Config, TimetrapData, Mode, Status, TestResults) when
       ((SkipTag==auto_skip_case) or (SkipTag==skip_case)) and
       ((Type==conf) or (Type==make)) ->
     run_test_cases_loop([{SkipTag,CaseData,Mode}|Cases],
-			Config, TimetrapData, Mode, TestResults, Status);
+			Config, TimetrapData, Mode, Status, TestResults);
 
 run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
-		    Config, TimetrapData, Mode, TestResults, Status) when
+		    Config, TimetrapData, Mode, Status, TestResults) when
       ((SkipTag==auto_skip_case) or (SkipTag==skip_case)) and
       ((Type==conf) or (Type==make)) ->
     ok = file:set_cwd(filename:dirname(get(test_server_dir))),
@@ -2484,6 +2484,11 @@ run_test_cases_loop([{skip_case,{Case,Comment},SkipMode}|Cases],
 %% a start *or* end conf case, wrapping test cases or other conf cases
 run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		    Config, TimetrapData, Mode0, Status, TestResults) ->
+    if Func == init_per_suite ->
+           io:fwrite(user, "~n~s ", [Mod]);
+       true ->
+           ok
+    end,
     CurrIOHandler = get(test_server_common_io_handler),
     %% check and update the mode for test case execution and io msg handling
     {StartConf,Mode,IOHandler,ConfTime,Status1} =
@@ -4054,7 +4059,7 @@ progress(skip, _CaseNum, Mod, Func, GrName, Loc, Reason, Time,
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor, "=== Reason: ~ts", [ReasonStr1]),
-    {Ret, #{reason => element(2, Reason1)}};
+    {Ret, #{}};
 
 progress(failed, _CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->

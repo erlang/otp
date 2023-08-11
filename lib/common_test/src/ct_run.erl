@@ -2238,13 +2238,13 @@ do_run_test(Tests, Skip, Opts0) ->
 	    SuitesPrintout = ct_console:pluralize(NoOfSuites, "suite", "suites"),
 	    if NoOfCases == unknown ->
 		    FormatArgs = [NoOfTests, TestsPrintout, NoOfSuites, SuitesPrintout],
-		    io:format("collected: ~w ~s, ~w ~s~n~n", FormatArgs),
+		    io:format("collected: ~w ~s, ~w ~s~n", FormatArgs),
 		    ct_logs:log("TEST INFO","~w ~s, ~w ~s", FormatArgs);
 	       true ->
 		    CasesPrintout = ct_console:pluralize(NoOfCases, "case", "cases"),
 		    FormatArgs = [NoOfTests, TestsPrintout, NoOfCases,
                                   CasesPrintout, NoOfSuites, SuitesPrintout],
-		    io:format("collected: ~w ~s, ~w ~s in ~w ~s~n~n", FormatArgs),
+		    io:format("collected: ~w ~s, ~w ~s in ~w ~s~n", FormatArgs),
 		    ct_logs:log("TEST INFO","~w ~s, ~w ~s in ~w ~s", FormatArgs)
 	    end,
 	    %% if the verbosity level is set lower than ?STD_IMPORTANCE, tell
