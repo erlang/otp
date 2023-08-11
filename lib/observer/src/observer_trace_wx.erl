@@ -701,7 +701,7 @@ handle_event(#wx{id=?REMOVE_NODES}, #state{n_view=Nview, nodes=Ns0} = State) ->
     {noreply, State#state{nodes = Ns}};
 
 handle_event(#wx{id=ID, event = What}, State) ->
-    io:format("~p:~p: Unhandled event: ~p, ~tp ~n", [?MODULE, ?LINE, ID, What]),
+    io:format(user,"~p:~p: Unhandled event: ~p, ~tp ~n", [?MODULE, ?LINE, ID, What]),
     {noreply, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
