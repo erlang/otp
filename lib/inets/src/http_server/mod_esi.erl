@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -297,7 +297,7 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid) ->
     deliver_webpage_chunk(ModData, Pid, Timeout).
 
 deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
-    case receive_headers(Timeout) of
+    case receive_headers(Pid, Timeout) of
 	{error, Reason} ->
 	    %% Happens when webpage generator callback/3 is undefined
 	    {error, Reason}; 
@@ -334,17 +334,17 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
 	    {proceed,[{response, {already_sent, 504, 0}} | ModData#mod.data]}
     end.
 
-receive_headers(Timeout) ->
+receive_headers(Pid, Timeout) ->
     receive
 	{esi_data, Chunk} ->
 	    httpd_esi:parse_headers(lists:flatten(Chunk));		
 	{ok, Chunk} ->
 	    httpd_esi:parse_headers(lists:flatten(Chunk));		
-	{'EXIT', Pid, erl_scheme_webpage_chunk_undefined} when is_pid(Pid) ->
+	{'EXIT', Pid, erl_scheme_webpage_chunk_undefined} ->
 	    {error, erl_scheme_webpage_chunk_undefined};
-	{'EXIT', Pid, {continue, _} = Continue} when is_pid(Pid) ->
+	{'EXIT', Pid, {continue, _} = Continue} ->
             Continue;
-        {'EXIT', Pid, Reason} when is_pid(Pid) ->
+        {'EXIT', Pid, Reason} ->
 	    exit({mod_esi_linked_process_died, Pid, Reason})
     after Timeout ->
 	    timeout
