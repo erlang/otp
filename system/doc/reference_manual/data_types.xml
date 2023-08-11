@@ -87,6 +87,37 @@
 11> <input>1_234.333_333</input>
 1234.333333
 </pre>
+<marker id="numeric_comparisons" />
+    <section>
+      <title>Comparisons</title>
+      <p>Both integers and floats share the same linear order. That is,
+        <c>1</c> compares less than <c>2.4</c>, <c>3</c> compares greater than
+        <c>2.99999</c>, and <c>5</c> is equal to <c>5.0</c>.</p>
+      <p>When wanting to compare an integer with another integer or a float
+        with another float, it may be tempting to use the term equivalence
+        operators (<c>=:=</c>, <c>=/=</c>) or pattern matching. This works for
+        integers which has a distinct representation for every number, but
+        there's a surprising edge case for floating-point as the latter has two
+        representations for zero which are considered different by the term
+        equivalence operators and pattern matching.</p>
+      <p>If you wish to compare floating-point numbers <em>numerically</em>,
+        use the regular comparison operators (such as <c>==</c>) and add guards
+        that require both the arguments to be floating-point.</p>
+      <note>
+        <p>Prior to OTP 27, the term equivalence operators had a bug where they
+          considered <c>0.0</c> and <c>-0.0</c> to be the same term. Legacy
+          code that makes equality comparisons on floating-point zero should
+          migrate to using the equal-to (<c>==</c>) operator with
+          <c>is_float/1</c> guards, and compiler warnings have been added to
+          that effect. These can be silenced by writing <c>+0.0</c> instead,
+          which is the same as <c>0.0</c> but makes the compiler interpret the
+          comparison as being purposely made against <c>0.0</c>.</p>
+        <p>Note that this does <em>not</em> break compatibility with IEEE 754
+          which mandates that <c>0.0</c> and <c>-0.0</c> should compare
+          equal: they are equal when interpreted as numbers (<c>==</c>), and
+          unequal when interpreted as opaque terms (<c>=:=</c>).</p>
+      </note>
+    </section>
 <marker id="float_representation_problem" />
     <section>
       <title>Representation of Floating Point Numbers</title>
