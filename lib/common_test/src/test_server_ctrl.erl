@@ -4189,7 +4189,10 @@ progress(failed, _CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 
 progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	 Comment0, {St0,St1}) ->
-    io:fwrite(user, ".", []),
+    IsConfigFunction = is_config_function(Func),
+    if IsConfigFunction -> ok;
+       true -> io:fwrite(user, ".", [])
+    end,
     print(minor, "successfully completed test case", []),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},ok}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
@@ -4296,6 +4299,14 @@ if_auto_skip({auto_skip,Reason}, True, _False) ->
     {Reason,True()};
 if_auto_skip(Reason, _True, False) ->
     {Reason,False()}.
+
+is_config_function(Func) when Func == init_per_testcase;
+                              Func == end_per_testcase;
+                              Func == init_per_group;
+                              Func == end_per_group;
+                              Func == init_per_suite;
+                              Func == end_per_suite -> true;
+is_config_function(_) -> false.
 
 update_skip_counters({_T,Pat,_Opts}, {US,AS}) ->
     {_,Result} = if_auto_skip(Pat, fun() -> {US,AS+1} end, fun() -> {US+1,AS} end),
