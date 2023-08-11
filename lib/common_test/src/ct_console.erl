@@ -23,14 +23,16 @@ print_results(#{results := [_ | _]} = Results) ->
 
 print_results(#{total := #{passed := OkN, failed := FailedN,
                            user_skipped := UserSkipN, auto_skipped := AutoSkipN},
-                elapsed := _Elapsed}) ->
+                elapsed := Elapsed}) ->
     AllSkippedN = UserSkipN + AutoSkipN,
     PassedStr = format_if_nonzero(OkN, "~s~w passed~s", [?TERM_BOLD_GREEN, OkN, ?TERM_CLEAR]),
     SkipStr = format_if_nonzero(AllSkippedN, "~s~w skipped~s", [?TERM_YELLOW, AllSkippedN, ?TERM_CLEAR]),
     FailedStr = format_if_nonzero(FailedN, "~s~w failed~s", [?TERM_RED, FailedN, ?TERM_CLEAR]),
     NonemptyStrs = lists:filter(fun(Item) -> Item =/= "" end, [PassedStr, SkipStr, FailedStr]),
-    ResultStr = lists:join(", ", NonemptyStrs),
+    TimeDescription = format_time(Elapsed),
     PaddingColor = result_padding_color(OkN, FailedN),
+    FormattedTimeDescription = io_lib:format("~s in ~s~s", [PaddingColor, TimeDescription, ?TERM_CLEAR]),
+    ResultStr = lists:join(", ", NonemptyStrs) ++ FormattedTimeDescription,
     ResultSize = size_on_terminal(ResultStr),
     {PaddingSizeLeft, PaddingSizeRight} = centering_padding_size(ResultSize),
     {PaddingLeft, PaddingRight} = padding_characters(PaddingSizeLeft, PaddingSizeRight),
@@ -39,6 +41,7 @@ print_results(#{total := #{passed := OkN, failed := FailedN,
         "~s~ts~s~ts~s~ts~s~n",
         [PaddingColor, PaddingLeft, ?TERM_CLEAR, ResultStr, PaddingColor, PaddingRight, ?TERM_CLEAR]
     ).
+
 
 print_failed_test_results([#{reason := Reason, module := Module, function := Function} | Rest]) ->
     io:fwrite(user, "=> test case ~s:~s:~n", [Module, Function]),
@@ -93,6 +96,10 @@ centering_padding_size(MessageSize) ->
     {PaddingSizeLeft, PaddingSizeRight}.
 
 
+-spec pluralize(non_neg_integer(), string()) -> string().
+pluralize(Amount, Singular) ->
+    pluralize(Amount, Singular, Singular ++ "s").
+
 -spec pluralize(non_neg_integer(), string(), string()) -> string().
 pluralize(1, Singular, _Plural) -> Singular;
 pluralize(_, _Singular, Plural) -> Plural.
@@ -135,3 +142,17 @@ elide_framework_code([Frame | Rest]) ->
     [Frame | elide_framework_code(Rest)];
 elide_framework_code([]) ->
     [].
+
+
+%% @doc Turn the given seconds into a human-readable string.
+-spec format_time(non_neg_integer()) -> string().
+format_time(Seconds) ->
+    Minutes = trunc(Seconds / 60),
+    RemainingSeconds = Seconds rem 60,
+    case Minutes of
+        0 ->
+            io_lib:format("~w ~s", [Seconds, pluralize(Seconds, "second")]);
+        _ ->
+            io_lib:format("~w ~s and ~w ~s", [Minutes, pluralize(Minutes, "minute"),
+                                              RemainingSeconds, pluralize(RemainingSeconds, "second")])
+    end.

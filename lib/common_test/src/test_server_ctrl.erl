@@ -3028,7 +3028,7 @@ run_test_cases_loop([], _Config, _TimetrapData, _, _Status, TestResults) ->
         auto_skipped => AutoSkipped
       },
       results => TestResults,
-      elapsed => get(test_server_total_time)
+      elapsed => trunc(get(test_server_total_time))
     }.
 
 %%--------------------------------------------------------------------
