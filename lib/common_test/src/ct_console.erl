@@ -3,7 +3,7 @@
 -module(ct_console).
 -export([print_header/1, print_results/1, pluralize/3]).
 
-%% Coloured output formatting charaters
+%% Colored output formatting charaters
 % If adding a new format here, make sure to add it to `size_on_terminal/1`.
 -define(TERM_BOLD, "\033[;1m").
 -define(TERM_BOLD_GREEN, "\033[;1;32m").
@@ -13,11 +13,10 @@
 -define(TERM_YELLOW, "\033[;33m").
 -define(TERM_CLEAR, "\033[0m").
 
-
 -spec print_results(map()) -> ok.
 print_results(#{results := [_ | _]} = Results) ->
     {FailedTestResults, ResultsWithoutFailures} = maps:take(results, Results),
-    print_header("failed tests follow", ?TERM_RED),
+    print_header("failed tests follow", mc(?TERM_RED)),
     print_failed_test_results(FailedTestResults),
     print_results(ResultsWithoutFailures);
 
@@ -25,9 +24,9 @@ print_results(#{total := #{passed := OkN, failed := FailedN,
                            user_skipped := UserSkipN, auto_skipped := AutoSkipN},
                 elapsed := Elapsed}) ->
     AllSkippedN = UserSkipN + AutoSkipN,
-    PassedStr = format_if_nonzero(OkN, "~s~w passed~s", [?TERM_BOLD_GREEN, OkN, ?TERM_CLEAR]),
-    SkipStr = format_if_nonzero(AllSkippedN, "~s~w skipped~s", [?TERM_YELLOW, AllSkippedN, ?TERM_CLEAR]),
-    FailedStr = format_if_nonzero(FailedN, "~s~w failed~s", [?TERM_RED, FailedN, ?TERM_CLEAR]),
+    PassedStr = format_if_nonzero(OkN, "~s~w passed~s", [mc(?TERM_BOLD_GREEN), OkN, ?TERM_CLEAR]),
+    SkipStr = format_if_nonzero(AllSkippedN, "~s~w skipped~s", [mc(?TERM_YELLOW), AllSkippedN, ?TERM_CLEAR]),
+    FailedStr = format_if_nonzero(FailedN, "~s~w failed~s", [mc(?TERM_RED), FailedN, ?TERM_CLEAR]),
     NonemptyStrs = lists:filter(fun(Item) -> Item =/= "" end, [PassedStr, SkipStr, FailedStr]),
     TimeDescription = format_time(Elapsed),
     PaddingColor = result_padding_color(OkN, FailedN),
@@ -53,8 +52,8 @@ print_failed_test_results([]) ->
     ok.
 
 -spec result_padding_color(non_neg_integer(), non_neg_integer()) -> string().
-result_padding_color(_Ok, 0) -> ?TERM_GREEN;
-result_padding_color(_Ok, _Failed) -> ?TERM_RED.
+result_padding_color(_Ok, 0) -> mc(?TERM_GREEN);
+result_padding_color(_Ok, _Failed) -> mc(?TERM_RED).
 
 -spec format_if_nonzero(non_neg_integer(), io_lib:format(), [term()]) -> string().
 format_if_nonzero(0, _Format, _Data) -> "";
@@ -62,7 +61,7 @@ format_if_nonzero(_, Format, Data) -> io_lib:format(Format, Data).
 
 -spec print_header(string()) -> ok.
 print_header(Message) ->
-    print_header(Message, ?TERM_BOLD).
+    print_header(Message, mc(?TERM_BOLD)).
 
 -spec print_header(string(), string()) -> ok.
 print_header(Message, StartingColor) ->
@@ -155,4 +154,18 @@ format_time(Seconds) ->
         _ ->
             io_lib:format("~w ~s and ~w ~s", [Minutes, pluralize(Minutes, "minute"),
                                               RemainingSeconds, pluralize(RemainingSeconds, "second")])
+    end.
+
+
+%% @doc
+%% Return the given string if colorized output is wanted, else an empty string.
+%% `mc' => "maybe color".
+%% @end
+-spec mc(string()) -> string().
+mc(Color) ->
+    case os:getenv("NO_COLOR") of
+        false ->
+            Color;
+        Value when Value =/= "" ->
+            ""
     end.
