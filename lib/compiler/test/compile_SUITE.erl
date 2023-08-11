@@ -2101,7 +2101,7 @@ annotations_pp(Config) when is_list(Config) ->
     10 = length(Uniques),
 
     Aliased = get_annotations("  %% Aliased:", Lines),
-    17 = length(Aliased),
+    13 = length(Aliased),
 
     ok = file:del_dir_r(TargetDir),
     ok.

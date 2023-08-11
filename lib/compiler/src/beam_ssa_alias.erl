@@ -87,7 +87,9 @@
 
 %% A code location refering to either the #b_set{} defining a variable
 %% or the terminator of a block.
--type kill_loc() :: #b_var{} | {terminator, beam_ssa:label()}.
+-type kill_loc() :: #b_var{}
+                  | {terminator, beam_ssa:label()}
+                  | {live_outs, beam_ssa:label()}.
 
 %% Map a code location to the set of variables which die at that
 %% location.
@@ -98,12 +100,6 @@
 -type alias_map() :: #{ func_id() => lbl2ss() }.
 
 -type lbl2ss() :: #{ beam_ssa:label() => sharing_state() }.
-
-%% Record holding the liveness information for a code location.
--record(liveness_st, {
-                      in = sets:new([{version,2}]) :: sets:set(#b_var{}),
-                      out = sets:new([{version,2}]) :: sets:set(#b_var{})
-                     }).
 
 %% The sharing state for a variable.
 -record(vas, {
@@ -130,141 +126,135 @@ opt(StMap0, FuncDb0) ->
     %% Ignore functions which are not in the function db (never
     %% called).
     Funs = [ F || F <- maps:keys(StMap0), is_map_key(F, FuncDb0)],
-    Liveness = liveness(Funs, StMap0),
-    KillsMap = killsets(Liveness, StMap0),
-
+    KillsMap = killsets(Funs, StMap0),
     aa(Funs, KillsMap, StMap0, FuncDb0).
 
 %%%
-%%% Calculate liveness for each function using the standard iterative
-%%% fixpoint method.
+%%% Calculate the set of variables killed at each instruction. The
+%%% algorithm traverses the basic blocks of the CFG post-order. It
+%%% traverses the instructions within a basic block in reverse order,
+%%% starting with the terminator. When starting the traversal of a
+%%% basic block, the set of variables that are live is initialized to
+%%% the variables that are live in to the block's successors. When a
+%%% def for a variable is found, it is pruned from the live set. When
+%%% a use which is not in the live-set is found, it is a kill. The
+%%% killed variable is added to the kill set for the current
+%%% instruction and added to the live set.
+%%%
+%%% As the only back-edges occuring in BEAM are for receives and
+%%% constructing terms are not allowed within the receive loop,
+%%% back-edges can be safely ignored as they won't change the alias
+%%% status of any variable.
 %%%
 
--spec liveness([func_id()], st_map()) ->
-          [{func_id(), #{func_id() => {beam_ssa:label(), #liveness_st{}}}}].
+killsets(Funs, StMap) ->
+    OptStates = [{F,map_get(F, StMap)} || F <- Funs],
+    #{ F=>killsets_fun(reverse(SSA)) || {F,#opt_st{ssa=SSA}} <- OptStates }.
 
-liveness([F|Funs], StMap) ->
-    Liveness = liveness_fun(F, StMap),
-    [{F,Liveness}|liveness(Funs, StMap)];
-liveness([], _StMap) ->
-    [].
+killsets_fun(Blocks) ->
+    %% Pre-calculate the live-ins due to Phi-instructions.
+    PhiLiveIns = killsets_phi_live_ins(Blocks),
+    killsets_blks(Blocks, #{}, #{}, PhiLiveIns).
 
-liveness_fun(F, StMap0) ->
-    #opt_st{ssa=SSA} = map_get(F, StMap0),
-    State0 = #{Lbl => #liveness_st{} || {Lbl,_} <- SSA},
-    UseDefCache = liveness_make_cache(SSA),
-    liveness_blks_fixp(reverse(SSA), State0, false, UseDefCache).
+killsets_blks([{Lbl,Blk}|Blocks], LiveIns0, Kills0, PhiLiveIns) ->
+    {LiveIns,Kills} = killsets_blk(Lbl, Blk, LiveIns0, Kills0, PhiLiveIns),
+    killsets_blks(Blocks, LiveIns, Kills, PhiLiveIns);
+killsets_blks([], _LiveIns0, Kills, _PhiLiveIns) ->
+    Kills.
 
-liveness_blks_fixp(_SSA, State0, State0, _UseDefCache) ->
-    State0;
-liveness_blks_fixp(SSA, State0, _Old, UseDefCache) ->
-    State = liveness_blks(SSA, State0, UseDefCache),
-    liveness_blks_fixp(SSA, State, State0, UseDefCache).
+killsets_blk(Lbl, #b_blk{is=Is0,last=L}=Blk, LiveIns0, Kills0, PhiLiveIns) ->
+    Successors = beam_ssa:successors(Blk),
+    Live1 = killsets_blk_live_outs(Successors, Lbl, LiveIns0, PhiLiveIns),
+    Kills1 = Kills0#{{live_outs,Lbl}=>Live1},
+    Is = [L|reverse(Is0)],
+    {Live,Kills} = killsets_is(Is, Live1, Kills1, Lbl),
+    LiveIns = LiveIns0#{Lbl=>Live},
+    {LiveIns, Kills}.
 
-liveness_blks([{Lbl,Blk}|Blocks], State0, UseDefCache) ->
-    OutOld = get_live_out(Lbl, State0),
-    #{Lbl:={Defs,Uses}} = UseDefCache,
-    In = sets:union(Uses, sets:subtract(OutOld, Defs)),
-    Out = successor_live_ins(Blk, State0),
-    liveness_blks(Blocks, set_block_liveness(Lbl, In, Out, State0),
-                  UseDefCache);
-liveness_blks([], State0, _UseDefCache) ->
-    State0.
+killsets_is([#b_set{op=phi,dst=Dst}|Is], Live, Kills, Lbl) ->
+    %% The Phi uses are logically located in the predecessors.
+    killsets_is(Is, sets:del_element(Dst, Live), Kills, Lbl);
+killsets_is([I|Is], Live0, Kills0, Lbl) ->
+    Uses = beam_ssa:used(I),
+    {Live,LastUses} =
+        foldl(fun(Use, {LiveAcc,LastAcc}=Acc) ->
+                      case sets:is_element(Use, LiveAcc) of
+                          true ->
+                              Acc;
+                          false ->
+                              {sets:add_element(Use, LiveAcc),
+                               sets:add_element(Use, LastAcc)}
+                      end
+              end, {Live0,sets:new([{version,2}])}, Uses),
+    case I of
+        #b_set{dst=Dst} ->
+            killsets_is(Is, sets:del_element(Dst, Live),
+                        killsets_add_kills(Dst, LastUses, Kills0), Lbl);
+        _ ->
+            killsets_is(Is, Live,
+                        killsets_add_kills({terminator,Lbl}, LastUses, Kills0),
+                        Lbl)
+    end;
+killsets_is([], Live, Kills, _) ->
+    {Live,Kills}.
 
-get_live_in(Lbl, State) ->
-    #liveness_st{in=In} = map_get(Lbl, State),
-    In.
-
-get_live_out(Lbl, State) ->
-    #liveness_st{out=Out} = map_get(Lbl, State),
-    Out.
-
-set_block_liveness(Lbl, In, Out, State) ->
-    L = map_get(Lbl, State),
-    State#{Lbl => L#liveness_st{in=In,out=Out}}.
-
-successor_live_ins(Blk, State) ->
-    foldl(fun(Lbl, Acc) ->
-                  sets:union(Acc, get_live_in(Lbl, State))
-          end, sets:new([{version,2}]), beam_ssa:successors(Blk)).
-
-blk_defs(#b_blk{is=Is}) ->
-    foldl(fun(#b_set{dst=Dst}, Acc) ->
-                  sets:add_element(Dst, Acc)
-          end, sets:new([{version,2}]), Is).
-
-blk_effective_uses(#b_blk{is=Is,last=Last}) ->
-    %% We can't use beam_ssa:used/1 on the whole block as it considers
-    %% a use after a def a use and that will derail the liveness
-    %% calculation.
-    blk_effective_uses([Last|reverse(Is)], sets:new([{version,2}])).
-
-blk_effective_uses([I|Is], Uses0) ->
-    Uses = case I of
-               #b_set{dst=Dst} ->
-                   %% The uses after the def do not count
-                   sets:del_element(Dst, Uses0);
-               _ -> % A terminator, no defs
-                   Uses0
-           end,
-    LocalUses = sets:from_list(beam_ssa:used(I), [{version,2}]),
-    blk_effective_uses(Is, sets:union(Uses, LocalUses));
-blk_effective_uses([], Uses) ->
-    Uses.
-
-liveness_make_cache(SSA) ->
-    liveness_make_cache(SSA, #{}).
-
-liveness_make_cache([{Lbl,Blk}|Blocks], Cache0) ->
-    Defs = blk_defs(Blk),
-    Uses = blk_effective_uses(Blk),
-    Cache = Cache0#{Lbl=>{Defs,Uses}},
-    liveness_make_cache(Blocks, Cache);
-liveness_make_cache([], Cache) ->
-    Cache.
+killsets_add_kills(Dst, LastUses, Kills) ->
+    Kills#{Dst=>LastUses}.
 
 %%%
-%%% Calculate the killset for all functions in the liveness
-%%% information.
+%%% Pre-calculate the live-ins due to Phi-instructions in order to
+%%% avoid having to repeatedly scan the first instruction(s) of a
+%%% basic block in order to find them when calculating live-in sets.
 %%%
--spec killsets([{func_id(),
-                 #{func_id() => {beam_ssa:label(), #liveness_st{}}}}],
-               st_map()) -> kills_map().
+killsets_phi_live_ins(Blocks) ->
+    killsets_phi_live_ins(Blocks, #{}).
 
-killsets(Liveness, StMap) ->
-    #{F => kills_fun(F, StMap, Live) || {F, Live} <- Liveness}.
+killsets_phi_live_ins([{Lbl,#b_blk{is=Is}}|Blocks], PhiLiveIns0) ->
+    killsets_phi_live_ins(Blocks,
+                          killsets_phi_uses_in_block(Lbl, Is, PhiLiveIns0));
+killsets_phi_live_ins([], PhiLiveIns) ->
+    PhiLiveIns.
 
-%%%
-%%% Calculate the killset for a function. The killset allows us to
-%%% look up the variables that die at a code location.
-%%%
-kills_fun(Fun, StMap, Liveness) ->
-    #opt_st{ssa=SSA} = map_get(Fun, StMap),
-    kills_fun1(SSA, #{}, Liveness).
+killsets_phi_uses_in_block(Lbl, [#b_set{op=phi,args=Args}|Is], PhiLiveIns0) ->
+    PhiLiveIns = foldl(fun({#b_var{}=Var,From}, Acc) ->
+                               Key = {From,Lbl},
+                               Old = case Acc of
+                                         #{Key:=O} -> O;
+                                         #{} -> sets:new([{version,2}])
+                                     end,
+                               Acc#{Key=>sets:add_element(Var, Old)};
+                          ({#b_literal{},_},Acc) ->
+                               Acc
+                       end, PhiLiveIns0, Args),
+    killsets_phi_uses_in_block(Lbl, Is, PhiLiveIns);
+killsets_phi_uses_in_block(_Lbl, _, PhiLiveIns) ->
+    %% No more phis.
+    PhiLiveIns.
 
-kills_fun1([{Lbl,Blk}|Blocks], KillsMap0, Liveness) ->
-    KillsMap = kills_block(Lbl, Blk, map_get(Lbl, Liveness), KillsMap0),
-    kills_fun1(Blocks, KillsMap, Liveness);
-kills_fun1([], KillsMap, _) ->
-    KillsMap.
+%% Create a set of variables which are live out from this block.
+killsets_blk_live_outs(Successors, ThisBlock, LiveIns, PhiLiveIns) ->
+    killsets_blk_live_outs(Successors, ThisBlock, LiveIns,
+                           PhiLiveIns, sets:new([{version,2}])).
 
-kills_block(Lbl, #b_blk{is=Is,last=Last}, #liveness_st{out=Out}, KillsMap0) ->
-    kills_is([Last|reverse(Is)], Out, KillsMap0, Lbl).
-
-kills_is([I|Is], Live0, KillsMap0, Blk) ->
-    {Live, Key} = case I of
-                      #b_set{dst=Dst} ->
-                          {sets:del_element(Dst, Live0), Dst};
-                      _ ->
-                          {Live0, {terminator, Blk}}
-                  end,
-    Uses = sets:from_list(beam_ssa:used(I), [{version,2}]),
-    RemainingUses = sets:union(Live0, Uses),
-    Killed = sets:subtract(RemainingUses, Live0),
-    KillsMap = KillsMap0#{Key => Killed},
-    kills_is(Is, sets:union(Live, Killed), KillsMap, Blk);
-kills_is([], _, KillsMap, _) ->
-    KillsMap.
+killsets_blk_live_outs([Successor|Successors],
+                       ThisBlock, LiveIns, PhiLiveIns, Acc0) ->
+    Acc = case LiveIns of
+              #{Successor:=LI} ->
+                  Tmp = sets:union(Acc0, LI),
+                  case PhiLiveIns of
+                      #{{ThisBlock,Successor}:=PhiUses} ->
+                          sets:union(Tmp, PhiUses);
+                      #{} ->
+                          Tmp
+                  end;
+              #{} ->
+                  %% This is a back edge, we can ignore it as it only occurs
+                  %% in combination with a receive.
+                  Acc0
+          end,
+    killsets_blk_live_outs(Successors, ThisBlock, LiveIns, PhiLiveIns, Acc);
+killsets_blk_live_outs([], _, _, _, Acc) ->
+    Acc.
 
 %%%
 %%% Perform an alias analysis of the given functions, alias
@@ -387,7 +377,7 @@ aa_fixpoint([], Order, _OldAliasMap, _OldCallArgs,
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args},
        AAS0=#aas{alias_map=AliasMap0,call_args=CallArgs0,
-                 func_db=FuncDb,repeats=Repeats0}) ->
+                 func_db=FuncDb,kills=KillsMap,repeats=Repeats0}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
@@ -397,7 +387,9 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
                         aa_new_ssa_var(Var, Status, Acc)
                 end, #{}, ArgsStatus),
     ?DP("Args: ~p~n", [ArgsStatus]),
-    {SS,#aas{call_args=CallArgs}=AAS} = aa_blocks(Linear0, #{0=>SS0}, AAS0),
+    #{F:=Kills} = KillsMap,
+    {SS,#aas{call_args=CallArgs}=AAS} =
+        aa_blocks(Linear0, Kills, #{0=>SS0}, AAS0),
     ?DP("SS:~n~p~n~n", [SS]),
 
     AliasMap = AliasMap0#{ F => SS },
@@ -415,16 +407,23 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
     AAS#aas{alias_map=AliasMap,repeats=Repeats}.
 
 %% Main entry point for the alias analysis
-aa_blocks([{L,#b_blk{is=Is0,last=T0}}|Bs0], Lbl2SS0, AAS0) ->
+aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Kills, Lbl2SS, AAS) ->
+    %% Nothing happening in the exception block can propagate to the
+    %% other block.
+    aa_blocks(Bs, Kills, Lbl2SS, AAS);
+aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0, AAS0) ->
     #{L:=SS0} = Lbl2SS0,
-    {SS1,AAS1} = aa_is(Is0, L, SS0, AAS0),
-    Lbl2SS1 = aa_terminator(T0, SS1, L, Lbl2SS0),
-    aa_blocks(Bs0, Lbl2SS1, AAS1);
-aa_blocks([], Lbl2SS, AAS) ->
+    {FullSS,AAS1} = aa_is(Is0, SS0, AAS0),
+    #{{live_outs,L}:=LiveOut} = Kills,
+    {Lbl2SS1,Successors} = aa_terminator(T, FullSS, Lbl2SS0),
+    PrunedSS = aa_prune_ss(FullSS, LiveOut),
+    Lbl2SS2 = aa_add_block_entry_ss(Successors, PrunedSS, Lbl2SS1),
+    Lbl2SS = aa_set_block_exit_ss(L, FullSS, Lbl2SS2),
+    aa_blocks(Bs0, Kills, Lbl2SS, AAS1);
+aa_blocks([], _Kills, Lbl2SS, AAS) ->
     {Lbl2SS,AAS}.
 
-aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is],
-      ThisBlock, SS0, AAS0) ->
+aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
     SS1 = aa_new_ssa_var(Dst, unique, SS0),
     {SS, AAS} =
         case Op of
@@ -546,18 +545,15 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is],
             _ ->
                 exit({unknown_instruction, I})
         end,
-    aa_is(Is, ThisBlock, SS, AAS);
-aa_is([], _, SS, AAS) ->
+    aa_is(Is, SS, AAS);
+aa_is([], SS, AAS) ->
     {SS, AAS}.
 
-aa_terminator(#b_br{succ=S,fail=S},
-              SS, ThisBlock, Lbl2SS) ->
-    aa_set_block_exit_ss(ThisBlock, SS, aa_add_block_entry_ss([S], SS, Lbl2SS));
-aa_terminator(#b_br{succ=S,fail=F},
-              SS, ThisBlock, Lbl2SS) ->
-    aa_set_block_exit_ss(ThisBlock, SS,
-                         aa_add_block_entry_ss([S,F], SS, Lbl2SS));
-aa_terminator(#b_ret{arg=Arg,anno=Anno0}, SS, ThisBlock, Lbl2SS0) ->
+aa_terminator(#b_br{succ=S,fail=S}, _SS, Lbl2SS) ->
+    {Lbl2SS,[S]};
+aa_terminator(#b_br{succ=S,fail=F}, _SS, Lbl2SS) ->
+    {Lbl2SS,[S,F]};
+aa_terminator(#b_ret{arg=Arg,anno=Anno0}, SS, Lbl2SS0) ->
     Type = maps:get(result_type, Anno0, any),
     Status0 = aa_get_status(Arg, SS),
     ?DP("Returned ~p:~p:~p~n", [Arg, Status0, Type]),
@@ -571,11 +567,9 @@ aa_terminator(#b_ret{arg=Arg,anno=Anno0}, SS, ThisBlock, Lbl2SS0) ->
     Type2Status = Type2Status0#{ Type => Status },
     ?DP("New status map: ~p~n", [Type2Status]),
     Lbl2SS = Lbl2SS0#{ returns => Type2Status},
-    aa_set_block_exit_ss(ThisBlock, SS, Lbl2SS);
-aa_terminator(#b_switch{fail=F,list=Ls},
-              SS, ThisBlock, Lbl2SS0) ->
-    Lbl2SS = aa_add_block_entry_ss([F|[L || {_,L} <- Ls]], SS, Lbl2SS0),
-    aa_set_block_exit_ss(ThisBlock, SS, Lbl2SS).
+    {Lbl2SS, []};
+aa_terminator(#b_switch{fail=F,list=Ls}, _SS, Lbl2SS) ->
+    {Lbl2SS,[F|[L || {_,L} <- Ls]]}.
 
 %% Store the updated SS for the point where execution leaves the
 %% block.
@@ -583,6 +577,8 @@ aa_set_block_exit_ss(ThisBlockLbl, SS, Lbl2SS) ->
     Lbl2SS#{ThisBlockLbl=>SS}.
 
 %% Extend the SS valid on entry to the blocks in the list with NewSS.
+aa_add_block_entry_ss([?EXCEPTION_BLOCK|BlockLabels], NewSS, Lbl2SS) ->
+    aa_add_block_entry_ss(BlockLabels, NewSS, Lbl2SS);
 aa_add_block_entry_ss([L|BlockLabels], NewSS, Lbl2SS) ->
     aa_add_block_entry_ss(BlockLabels, NewSS, aa_merge_ss(L, NewSS, Lbl2SS));
 aa_add_block_entry_ss([], _, Lbl2SS) ->
@@ -827,7 +823,7 @@ aa_get_element_extraction_status(#b_literal{}, _State) ->
     unique.
 
 aa_set_status(V=#b_var{}, aliased, State) ->
-    %% io:format("Setting ~p to aliased.~n", [V]),
+    ?DP("Setting ~p to aliased.~n", [V]),
     case State of
         #{V:=#vas{status=unique,parents=[]}} ->
             %% This is the initial value.
@@ -857,7 +853,7 @@ aa_set_status([], _, State) ->
 
 %% Propagate the aliased status to the children.
 aa_set_status_1(#b_var{}=V, Parent, State0) ->
-    %% io:format("aa_set_status_1: ~p, parent:~p~n~p.~n", [V,Parent,State0]),
+    ?DP("aa_set_status_1: ~p, parent:~p~n~p.~n", [V,Parent,State0]),
     #{V:=#vas{child=Child,extracted=Extracted,parents=Parents}} = State0,
     State = State0#{V=>#vas{status=aliased}},
     Work = case Child of
@@ -872,12 +868,6 @@ aa_set_status_1([#b_var{}=V|Rest], Parent, State) ->
 aa_set_status_1([], _Parent, State) ->
     State.
 
-%% aa_remove_parent(_V, none, State) ->
-%%     State;
-%% aa_remove_parent(V, Parent, State) ->
-%%     #{V:=#vas{parents=Parents0}=Vas} = State,
-%%     State#{V=>Vas#vas{parents=ordsets:del_element(Parent, Parents0)}}.
-
 aa_derive_from(Dst, [Parent|Parents], State0) ->
     aa_derive_from(Dst, Parents, aa_derive_from(Dst, Parent, State0));
 aa_derive_from(_Dst, [], State0) ->
@@ -885,33 +875,27 @@ aa_derive_from(_Dst, [], State0) ->
 aa_derive_from(#b_var{}, #b_literal{}, State) ->
     State;
 aa_derive_from(#b_var{}=Dst, #b_var{}=Parent, State) ->
-    %% io:format("Deriving ~p from ~p~n~p.~n", [Dst,Parent,State]),
+    ?DP("Deriving ~p from ~p~n~p.~n", [Dst,Parent,State]),
     case State of
         #{Dst:=#vas{status=aliased}} ->
-            %% io:format("Derive 1~n"),
             %% Nothing to do, already aliased. This can happen when
             %% handling Phis, no propagation to the parent should be
             %% done.
             ?aa_assert_ss(State);
         #{Parent:=#vas{status=aliased}} ->
-            %% io:format("Derive 2~n"),
             %% The parent is aliased, the child will become aliased.
             ?aa_assert_ss(aa_set_aliased(Dst, State));
         #{Parent:=#vas{child=Child}} when Child =/= none ->
-            %% io:format("Derive 3~n"),
             %% There already is a child, this will alias both Dst and Parent.
             ?aa_assert_ss(aa_set_aliased([Dst,Parent], State));
         #{Parent:=#vas{child=none,tuple_elems=Elems}} when Elems =/= [] ->
-            %% io:format("Derive 4 ~p~n", [[Dst,Parent]]),
             %% There already is a child, this will alias both Dst and Parent.
             ?aa_assert_ss(aa_set_aliased([Dst,Parent], State));
         #{Parent:=#vas{child=none,pair_elems=Elems}} when Elems =/= none ->
-            %% io:format("Derive 5~n"),
             %% There already is a child, this will alias both Dst and Parent.
             ?aa_assert_ss(aa_set_aliased([Dst,Parent], State));
         #{Dst:=#vas{parents=Parents}=ChildVas0,
           Parent:=#vas{child=none}=ParentVas0} ->
-            %% io:format("Derive 6~n"),
             %% Inherit the status of the parent.
             ChildVas =
                 ChildVas0#vas{parents=ordsets:add_element(Parent, Parents),
@@ -919,6 +903,63 @@ aa_derive_from(#b_var{}=Dst, #b_var{}=Parent, State) ->
             ParentVas = ParentVas0#vas{child=Dst},
             ?aa_assert_ss(State#{Dst=>ChildVas,Parent=>ParentVas})
     end.
+
+aa_prune_ss(SS, Live) ->
+    aa_prune_ss(SS, sets:to_list(Live), Live, #{}).
+aa_prune_ss(SS, [V|Wanted], Live, Pruned) ->
+    case is_map_key(V, Pruned) of
+        false ->
+            %% This variable has to be kept, copy it, add it to the
+            %% set of live nodes and add the parents to the work list.
+            #{V:=#vas{parents=Ps}=Vas} = SS,
+            aa_prune_ss(SS, Ps++Wanted,
+                        sets:add_element(V, Live),
+                        Pruned#{V=>Vas});
+        true ->
+            %% This variable is alread added.
+            aa_prune_ss(SS, Wanted, Live, Pruned)
+    end;
+aa_prune_ss(_SS, [], Live, Pruned) ->
+    %% Now strip all references to variables not in the live set.
+    PruneRefs = fun(#vas{parents=Ps0,child=Child0,extracted=Es0,
+                         tuple_elems=Ts0,pair_elems=Pes0}=Vas) ->
+                        Ps = [P || P <- Ps0, sets:is_element(P, Live)],
+                        Child = case sets:is_element(Child0, Live) of
+                                    true ->
+                                        Child0;
+                                    false ->
+                                        none
+                                end,
+                        Es = [E || E <- Es0, sets:is_element(E, Live)],
+                        Ts = [E
+                              || {_,Var}=E <- Ts0, sets:is_element(Var, Live)],
+                        Pes = case Pes0 of
+                                  {_,X}=P ->
+                                      case sets:is_element(X, Live) of
+                                          true ->
+                                              P;
+                                          _ ->
+                                              none
+                                      end;
+                                  {both,X,Y}=P ->
+                                      case {sets:is_element(X, Live),
+                                            sets:is_element(Y, Live)} of
+                                          {true,true} ->
+                                              P;
+                                          {true,false} ->
+                                              {hd,X};
+                                          {false,true} ->
+                                              {tl,Y};
+                                          _ ->
+                                              none
+                                      end;
+                                  none ->
+                                      none
+                              end,
+                        Vas#vas{parents=Ps,child=Child,extracted=Es,
+                                tuple_elems=Ts,pair_elems=Pes}
+                end,
+    #{V=>PruneRefs(Vas) || V:=Vas <- Pruned}.
 
 aa_update_annotations(Funs, #aas{alias_map=AliasMap0,st_map=StMap0}=AAS) ->
     foldl(fun(F, {StMapAcc,AliasMapAcc}) ->
@@ -936,6 +977,10 @@ aa_update_fun_annotation(#opt_st{ssa=SSA0}=OptSt0, Lbl2SS0, AAS) ->
     {SSA,Lbl2SS} = aa_update_annotation_blocks(reverse(SSA0), [], Lbl2SS0, AAS),
     {OptSt0#opt_st{ssa=SSA},Lbl2SS}.
 
+aa_update_annotation_blocks([{?EXCEPTION_BLOCK,_}=Block|Blocks],
+                            Acc, Lbl2SS, AAS) ->
+    %% There is no point in touching the exception block.
+    aa_update_annotation_blocks(Blocks, [Block|Acc], Lbl2SS, AAS);
 aa_update_annotation_blocks([{Lbl, Block0}|Blocks], Acc, Lbl2SS0, AAS) ->
     Successors = beam_ssa:successors(Block0),
     Lbl2SS = foldl(fun(?EXCEPTION_BLOCK, Lbl2SSAcc) ->
@@ -1224,6 +1269,12 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             %% the status of any variables
             {SS0, AAS0}
     end;
+aa_call(_Dst, [#b_remote{mod=#b_literal{val=erlang},
+                         name=#b_literal{val=exit},
+                         arity=1}|_], _Anno, SS, AAS) ->
+    %% The function will never return, so nothing that happens after
+    %% this can influence the aliasing status.
+    {SS, AAS};
 aa_call(Dst, [_Callee|Args], _Anno, SS, AAS) ->
     %% This is either a call to a fun or to an external function,
     %% assume that all arguments and the result escape.
