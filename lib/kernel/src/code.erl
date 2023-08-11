@@ -1030,7 +1030,7 @@ set_primary_archive(ArchiveFile0, ArchiveBin, #file_info{} = FileInfo,
 	{ok, _Mode, Ebins} ->
 	    %% Prepend the code path with the ebins found in the archive
 	    Ebins2 = [filename:join([ArchiveFile, E]) || E <- Ebins],
-	    add_pathsa(Ebins2); % Returns ok
+	    add_pathsa(Ebins2, cache); % Returns ok
 	{error, _Reason} = Error ->
 	    Error
     end.
