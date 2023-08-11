@@ -985,10 +985,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
     end,
 
     PrintError = fun(ErrorFormat, ErrorArgs) ->
-                      Div = "\n- - - - - - - - - - - - - - - - - - - "
-                            "- - - - - - - - - - - - - - - - - - - - -\n",
 		       ErrorStr2 = io_lib:format(ErrorFormat, ErrorArgs),
-                      io:format(?def_gl, "~ts~n", [lists:concat([Div,ErrorStr2,Div])]),
 		       Link =
 			   "\n\n<a href=\"#end\">"
 			   "Full error description and stacktrace"

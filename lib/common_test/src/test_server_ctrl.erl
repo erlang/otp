@@ -2161,7 +2161,7 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
         user_skipped := UserSkipN,
         auto_skipped := AutoSkipN
       }
-    } = Results = run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
+    } = Results = run_test_cases_loop(TestSpec, [Config], TimetrapData, [], [], []),
     io:fwrite(user, "~n~n", []),
     ct_console:print_results(Results),
     test_server_sup:framework_call(report, [tests_done,
@@ -2175,7 +2175,7 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% run_test_cases_loop(TestCases, Config, TimetrapData, Mode, Status) -> Results
+%% run_test_cases_loop(TestCases, Config, TimetrapData, Mode, Status, TestResults) -> SuiteResults
 %% TestCases = [Test,...]
 %% Config = [[{Key,Val},...],...]
 %% TimetrapData = {MultiplyTimetrap,ScaleTimetrap}
@@ -2192,7 +2192,8 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %%        repeat_until_all_fail | {repeat_until_all_fail,N}
 %% Status = [{Ref,{{Ok,Skipped,Failed},CopiedCases}}]
 %% Ok = Skipped = Failed = [Case,...]
-%% Results = map()
+%% TestResults = list()
+%% SuiteResults = map()
 %%
 %% Execute the TestCases under configuration Config. Config is a list
 %% of lists, where hd(Config) holds the config tuples for the current
@@ -2318,14 +2319,14 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %%
 
 run_test_cases_loop([{SkipTag,CaseData={Type,_Ref,_Case,_Comment}}|Cases],
-		    Config, TimetrapData, Mode, Status) when
+		    Config, TimetrapData, Mode, TestResults, Status) when
       ((SkipTag==auto_skip_case) or (SkipTag==skip_case)) and
       ((Type==conf) or (Type==make)) ->
     run_test_cases_loop([{SkipTag,CaseData,Mode}|Cases],
-			Config, TimetrapData, Mode, Status);
+			Config, TimetrapData, Mode, TestResults, Status);
 
 run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
-		    Config, TimetrapData, Mode, Status) when
+		    Config, TimetrapData, Mode, TestResults, Status) when
       ((SkipTag==auto_skip_case) or (SkipTag==skip_case)) and
       ((Type==conf) or (Type==make)) ->
     ok = file:set_cwd(filename:dirname(get(test_server_dir))),
@@ -2352,7 +2353,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    test_server_sup:framework_call(report,
 						   [ReportTag,ConfData]),
 		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
-					delete_status(Ref, Status));
+					delete_status(Ref, Status), TestResults);
 		_ ->
 		    %% this is a skipped end conf for a parallel group nested
 		    %% under a parallel group (io buffering is active)
@@ -2372,7 +2373,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    end,
 		    run_test_cases_loop(Cases, Config,
 					TimetrapData, ParentMode,
-					delete_status(Ref, Status))
+					delete_status(Ref, Status), TestResults)
 	    end;
 	{Ref,false} ->
 	    %% this is a skipped end conf for a non-parallel group that's not
@@ -2407,7 +2408,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 			Cases
 		end,
 	    run_test_cases_loop(Cases1, Config, TimetrapData, ParentMode,
-				delete_status(Ref, Status));
+				delete_status(Ref, Status), TestResults);
 	{Ref,_} ->
 	    %% this is a skipped end conf for a non-parallel group nested under
 	    %% a parallel group (io buffering is active)
@@ -2425,7 +2426,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    ok
 	    end,
 	    run_test_cases_loop(Cases, Config, TimetrapData, tl(Mode),
-				delete_status(Ref, Status));
+				delete_status(Ref, Status), TestResults);
 	{_,false} ->
 	    %% this is a skipped start conf for a group which is not nested
 	    %% under a parallel group
@@ -2434,7 +2435,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
 	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 	    run_test_cases_loop(Cases, Config, TimetrapData,
-				[conf(Ref,[])|Mode], Status);
+				[conf(Ref,[])|Mode], Status, TestResults);
 	{_,Ref0} when is_reference(Ref0) ->
 	    %% this is a skipped start conf for a group nested under a parallel
 	    %% group and if this is the first nested group, io buffering must
@@ -2449,40 +2450,40 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
 	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 	    run_test_cases_loop(Cases, Config, TimetrapData,
-				[conf(Ref,[])|Mode], Status)
+				[conf(Ref,[])|Mode], Status, TestResults)
     end;
 
 run_test_cases_loop([{auto_skip_case,{Case,Comment},SkipMode}|Cases],
-		    Config, TimetrapData, Mode, Status) ->
+		    Config, TimetrapData, Mode, Status, TestResults) ->
     {Mod,Func} = skip_case(auto, undefined, get(test_server_case_num)+1,
 			   Case, Comment, is_io_buffered(), SkipMode),
     test_server_sup:framework_call(report, [tc_auto_skip,
 					    {Mod,{Func,get_name(SkipMode)},
 					     Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
-			update_status(skipped, Mod, Func, Status));
+			update_status(skipped, Mod, Func, Status), TestResults);
 
 run_test_cases_loop([{skip_case,{{Mod,all}=Case,Comment},SkipMode}|Cases],
-		    Config, TimetrapData, Mode, Status) ->
+		    Config, TimetrapData, Mode, Status, TestResults) ->
     _ = skip_case(user, undefined, 0, Case, Comment, false, SkipMode),
     test_server_sup:framework_call(report, [tc_user_skip,
 					    {Mod,{all,get_name(SkipMode)},
 					     Comment}]),
-    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status);
+    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status, TestResults);
 
 run_test_cases_loop([{skip_case,{Case,Comment},SkipMode}|Cases],
-		    Config, TimetrapData, Mode, Status) ->
+		    Config, TimetrapData, Mode, Status, TestResults) ->
     {Mod,Func} = skip_case(user, undefined, get(test_server_case_num)+1,
 			   Case, Comment, is_io_buffered(), SkipMode),
     test_server_sup:framework_call(report, [tc_user_skip,
 					    {Mod,{Func,get_name(SkipMode)},
 					     Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
-			update_status(skipped, Mod, Func, Status));
+			update_status(skipped, Mod, Func, Status), TestResults);
 
 %% a start *or* end conf case, wrapping test cases or other conf cases
 run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
-		    Config, TimetrapData, Mode0, Status) ->
+		    Config, TimetrapData, Mode0, Status, TestResults) ->
     CurrIOHandler = get(test_server_common_io_handler),
     %% check and update the mode for test case execution and io msg handling
     {StartConf,Mode,IOHandler,ConfTime,Status1} =
@@ -2717,7 +2718,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 				   TimetrapData, CurrMode),
 
     case ConfCaseResult of
-	{_,NewCfg,_} when Func == init_per_suite, is_list(NewCfg) ->
+	{_,NewCfg,_,_} when Func == init_per_suite, is_list(NewCfg) ->
 	    %% check that init_per_suite returned data on correct format
 	    case lists:filter(fun({_,_}) -> false;
 				 (_) -> true end, NewCfg) of
@@ -2725,7 +2726,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		    set_io_buffering(IOHandler),
 		    stop_minor_log_file(),
 		    run_test_cases_loop(Cases, [NewCfg|Config],
-					TimetrapData, Mode, Status2);
+					TimetrapData, Mode, Status2, TestResults);
 		Bad ->
 		    print(minor,
 			  "~n*** ~tw returned bad elements in Config: ~tp.~n",
@@ -2736,19 +2737,19 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		    set_io_buffering(IOHandler),
 		    stop_minor_log_file(),
 		    run_test_cases_loop(Cases2, Config, TimetrapData, Mode,
-					delete_status(Ref, Status2))
+					delete_status(Ref, Status2), TestResults)
 	    end;
-	{_,NewCfg,_} when StartConf, is_list(NewCfg) ->
+	{_,NewCfg,_,_} when StartConf, is_list(NewCfg) ->
 	    print_conf_time(ConfTime),
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
-	    run_test_cases_loop(Cases, [NewCfg|Config], TimetrapData, Mode, Status2);
-	{_,{framework_error,{FwMod,FwFunc},Reason},_} ->
+	    run_test_cases_loop(Cases, [NewCfg|Config], TimetrapData, Mode, Status2, TestResults);
+	{_,{framework_error,{FwMod,FwFunc},Reason},_,_} ->
 	    print(minor, "~n*** ~w failed in ~tw. Reason: ~tp~n",
 		  [FwMod,FwFunc,Reason]),
 	    print(1, "~w failed in ~tw. Reason: ~tp~n", [FwMod,FwFunc,Reason]),
 	    exit(framework_error);
-	{_,Fail,_} when element(1,Fail) == 'EXIT';
+	{_,Fail,_,_} when element(1,Fail) == 'EXIT';
 			element(1,Fail) == timetrap_timeout;
 			element(1,Fail) == user_timetrap_error;
 			element(1,Fail) == failed ->
@@ -2770,9 +2771,9 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		end,
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
-	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3);
+	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3, TestResults);
 
-	{_,{auto_skip,SkipReason},_} ->
+	{_,{auto_skip,SkipReason},_,_} ->
 	    %% this case can only happen if the framework (not the user)
 	    %% decides to skip execution of a conf function
 	    {Cases2,Config1,Status3} =
@@ -2791,9 +2792,9 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		end,
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
-	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3);
+	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3, TestResults);
 
-	{_,{Skip,Reason},_} when StartConf and ((Skip==skip) or (Skip==skipped)) ->
+	{_,{Skip,Reason},_,_} when StartConf and ((Skip==skip) or (Skip==skipped)) ->
 	    ReportAbortRepeat(skipped),
 	    print(minor, "~n*** ~tw skipped.~n"
 		  "    Skipping all cases.", [Func]),
@@ -2802,8 +2803,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    run_test_cases_loop(skip_cases_upto(Ref, Cases, Reason, conf,
 						CurrMode, skip_case),
 				Config, TimetrapData, Mode,
-				delete_status(Ref, Status2));
-	{_,{skip_and_save,Reason,_SavedConfig},_} when StartConf ->
+				delete_status(Ref, Status2), TestResults);
+	{_,{skip_and_save,Reason,_SavedConfig},_,_} when StartConf ->
 	    ReportAbortRepeat(skipped),
 	    print(minor, "~n*** ~tw skipped.~n"
 		  "    Skipping all cases.", [Func]),
@@ -2812,8 +2813,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    run_test_cases_loop(skip_cases_upto(Ref, Cases, Reason, conf,
 						CurrMode, skip_case),
 				[hd(Config)|Config], TimetrapData, Mode,
-				delete_status(Ref, Status2));
-	{_,_Other,_} when Func == init_per_suite ->
+				delete_status(Ref, Status2), TestResults);
+	{_,_Other,_,_} when Func == init_per_suite ->
 	    print(minor, "~n*** init_per_suite failed to return a Config list.~n", []),
 	    Reason = {failed,{Mod,init_per_suite,bad_return}},
 	    Cases2 = skip_cases_upto(Ref, Cases, Reason, conf, CurrMode,
@@ -2821,15 +2822,15 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
 	    run_test_cases_loop(Cases2, Config, TimetrapData, Mode,
-				delete_status(Ref, Status2));
-	{_,_Other,_} when StartConf ->
+				delete_status(Ref, Status2), TestResults);
+	{_,_Other,_,_} when StartConf ->
 	    print_conf_time(ConfTime),
 	    set_io_buffering(IOHandler),
 	    ReportRepeatStop(),
 	    stop_minor_log_file(),
 	    run_test_cases_loop(Cases, [hd(Config)|Config], TimetrapData,
-				Mode, Status2);
-	{_,_EndConfRetVal,Opts} ->
+				Mode, Status2, TestResults);
+	{_,_EndConfRetVal,Opts,_} ->
 	    %% Check if return_group_result is set (ok, skipped or failed) and
 	    %% if so:
 	    %% 1) *If* the parent group is a sequence, skip all proceeding tests
@@ -2863,31 +2864,31 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
 	    run_test_cases_loop(Cases2, tl(Config), TimetrapData,
-				Mode, Status3)
+				Mode, Status3, TestResults)
     end;
 
 run_test_cases_loop([{make,Ref,{Mod,Func,Args}}|Cases0], Config, TimetrapData,
-		    Mode, Status) ->
+		    Mode, Status, TestResults) ->
     case run_test_case(Ref, 0, Mod, Func, Args, skip_init, TimetrapData) of
-	{_,Why={'EXIT',_},_} ->
+	{_,Why={'EXIT',_},_,_} ->
 	    print(minor, "~n*** ~tw failed.~n"
  		  "    Skipping all cases.", [Func]),
 	    Reason = {failed,{Mod,Func,Why}},
 	    Cases = skip_cases_upto(Ref, Cases0, Reason, conf, Mode,
 				    auto_skip_case),
 	    stop_minor_log_file(),
-	    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status);
-	{_,_Whatever,_} ->
+	    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status, TestResults);
+	{_,_Whatever,_,_} ->
 	    stop_minor_log_file(),
-	    run_test_cases_loop(Cases0, Config, TimetrapData, Mode, Status)
+	    run_test_cases_loop(Cases0, Config, TimetrapData, Mode, Status, TestResults)
     end;
 
 run_test_cases_loop([{conf,_Ref,_Props,_X}=Conf|_Cases0],
-		    Config, _TimetrapData, _Mode, _Status) ->
+		    Config, _TimetrapData, _Mode, _Status, _TestResults) ->
     erlang:error(badarg, [Conf,Config]);
 
 run_test_cases_loop([{repeat,Case,{RepeatType,N}}|Cases0], Config,
-                    TimeTrapData, Mode, Status) ->
+                    TimeTrapData, Mode, Status, TestResults) ->
     Ref = make_ref(),
     Parallel = check_prop(parallel, Mode) =/= false,
     Sequence = check_prop(sequence, Mode) =/= false,
@@ -2906,10 +2907,10 @@ run_test_cases_loop([{repeat,Case,{RepeatType,N}}|Cases0], Config,
        true ->
             Mode1 = [{Ref,[{repeat,{RepeatType,1,N}}],?now}|Mode],
             run_test_cases_loop([Case | Cases0], Config, TimeTrapData,
-                                Mode1, Status)
+                                Mode1, Status, TestResults)
     end;
 
-run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
+run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status, TestResults) ->
     ActualCfg =
 	case get(test_server_create_priv_dir) of
 	    auto_per_run ->
@@ -2919,9 +2920,10 @@ run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
 		update_config(hd(Config), [{data_dir,get_data_dir(Mod)}])
 	end,
     run_test_cases_loop([{Mod,Case,[ActualCfg]}|Cases], Config,
-			TimetrapData, Mode, Status);
+			TimetrapData, Mode, Status, TestResults);
 
-run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData, Mode0, Status) ->
+run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData,
+                    Mode0, Status, TestResults) ->
     {Num,RunInit} =
 	case FwMod = get_fw_mod(?MODULE) of
 	    Mod when Func == error_in_suite ->
@@ -2954,14 +2956,14 @@ run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData, Mode0, S
     case run_test_case(undefined, Num+1, Mod, Func, Args,
 		       RunInit, TimetrapData, Mode) of
 	%% callback to framework module failed, exit immediately
-	{_,{framework_error,{FwMod,FwFunc},Reason},_} ->
+	{_,{framework_error,{FwMod,FwFunc},Reason},_,_} ->
 	    print(minor, "~n*** ~w failed in ~tw. Reason: ~tp~n",
 		  [FwMod,FwFunc,Reason]),
 	    print(1, "~w failed in ~tw. Reason: ~tp~n", [FwMod,FwFunc,Reason]),
 	    stop_minor_log_file(),
 	    exit(framework_error);
 	%% sequential execution of test case finished
-	{Time,RetVal,_} ->
+	{Time,RetVal,_,Metadata} ->
             RetTag =
                 if is_tuple(RetVal) -> element(1,RetVal);
                    true -> undefined
@@ -2977,12 +2979,13 @@ run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData, Mode0, S
                     _ ->
                         {ok,false,update_status(ok, Mod, Func, Status)}
                 end,
+            NewResults = update_test_results(TestResults, Failed, Metadata),
 	    case check_prop(sequence, Mode) of
 		false ->
                     {Cases1,Mode1} =
                         check_repeat_testcase(Case,Result,Cases,Mode0),
 		    stop_minor_log_file(),
-		    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status1);
+		    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status1, NewResults);
 		Ref ->
 		    %% the case is in a sequence; we must check the result and
 		    %% determine if the following cases should run or be skipped
@@ -2990,7 +2993,7 @@ run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData, Mode0, S
                             {Cases1,Mode1} =
                                 check_repeat_testcase(Case,Result,Cases,Mode0),
 			    stop_minor_log_file(),
-			    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status1);
+			    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status1, NewResults);
 		       true ->	              % skip rest of cases in sequence
 			    print(minor, "~n*** ~tw failed.~n"
 				  "    Skipping all other cases in sequence.",
@@ -3001,7 +3004,7 @@ run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData, Mode0, S
 			    Cases2 = skip_cases_upto(Ref, Cases1, Reason, tc,
 						     Mode, auto_skip_case),
 			    stop_minor_log_file(),
-			    run_test_cases_loop(Cases2, Config, TimetrapData, Mode1, Status1)
+			    run_test_cases_loop(Cases2, Config, TimetrapData, Mode1, Status1, NewResults)
 		    end
 	    end;
 	%% the test case is being executed in parallel with the main process (and
@@ -3011,11 +3014,11 @@ run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData, Mode0, S
 	    %% handled later, so we have to save info about the case
 	    queue_test_case_io(undefined, Pid, Num+1, Mod, Func),
             {Cases1,Mode1} = check_repeat_testcase(Case,ok,Cases,Mode0),
-	    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status)
+	    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status, TestResults)
     end;
 
 %% TestSpec processing finished
-run_test_cases_loop([], _Config, _TimetrapData, _, _Status) ->
+run_test_cases_loop([], _Config, _TimetrapData, _, _Status, TestResults) ->
     {UserSkipped, AutoSkipped} = get(test_server_skipped),
     #{
       total => #{
@@ -3023,11 +3026,17 @@ run_test_cases_loop([], _Config, _TimetrapData, _, _Status) ->
         failed => get(test_server_failed),
         user_skipped => UserSkipped,
         auto_skipped => AutoSkipped
-      }
+      },
+      results => TestResults,
+      elapsed => get(test_server_total_time)
     }.
 
 %%--------------------------------------------------------------------
 %% various help functions
+
+-spec update_test_results(list(), boolean(), map()) -> list().
+update_test_results(Results, false, _Metadata) -> Results;
+update_test_results(Results, true, Metadata) -> [Metadata | Results].
 
 new_status(Ref, Status) ->
     [{Ref,{{[],[],[]},[]}} | Status].
@@ -3499,7 +3508,7 @@ is_io_buffered() ->
 %% Save info about test case that gets its io buffered. This can
 %% be a parallel test case or it can be a test case (conf or normal)
 %% that belongs to a group nested under a parallel group. The queue
-%% is processed after io buffering is disabled. See run_test_cases_loop/4
+%% is processed after io buffering is disabled. See run_test_cases_loop/5
 %% and handle_test_case_io_and_status/0 for more info.
 
 queue_test_case_io(Ref, Pid, Num, Mod, Func) ->
@@ -3593,7 +3602,7 @@ rm_cases_upto(Ref, [_|Ps]) ->
 %% by the main process (note that these cases do not generate 'EXIT'
 %% messages, only 'start' and 'finished' messages).
 %%
-%% See the header comment for run_test_cases_loop/4 for more
+%% See the header comment for run_test_cases_loop/5 for more
 %% info about IO handling.
 %%
 %% Note: It is important that the type of messages handled here
@@ -3853,7 +3862,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     do_unless_parallel(Main, fun() -> file:set_cwd(filename:dirname(TSDir)) end),
 
     %% call the appropriate progress function clause to print the results to log
-    Status =
+    {Status, Metadata} =
 	case {Time,RetVal} of
 	    {died,{timetrap_timeout,TimetrapTimeout}} ->
 		progress(failed, Num, Mod, Func, GrName, Loc,
@@ -3965,7 +3974,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     end,
     %% if the test case was executed sequentially, this updates the execution
     %% time count on the main process (adding execution time of parallel test
-    %% case groups is done in run_test_cases_loop/4)
+    %% case groups is done in run_test_cases_loop/5)
     if is_number(Time) ->
 	    put(test_server_total_time, get(test_server_total_time)+Time);
        true ->
@@ -3984,7 +3993,9 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		    ?mod_result(Status),{Time,RetVal,Opts}},
 		    ok
     end,
-    {Time,RetVal,Opts}.
+    ExecutionMetadata = #{module => Mod, function => Func},
+    FullMetadata = maps:merge(Metadata, ExecutionMetadata),
+    {Time,RetVal,Opts,FullMetadata}.
 
 
 %%--------------------------------------------------------------------
@@ -4043,7 +4054,7 @@ progress(skip, _CaseNum, Mod, Func, GrName, Loc, Reason, Time,
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor, "=== Reason: ~ts", [ReasonStr1]),
-    Ret;
+    {Ret, #{reason => element(2, Reason1)}};
 
 progress(failed, _CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->
@@ -4068,7 +4079,7 @@ progress(failed, _CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor, "=== Reason: timetrap timeout", []),
-    failed;
+    {failed, #{reason => timetrap_timeout}};
 
 progress(failed, _CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
 	 Comment0, {St0,St1}) ->
@@ -4096,7 +4107,7 @@ progress(failed, _CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T
           "~ts",
 	  [escape_chars(io_lib:format("=== Reason: {testcase_aborted,~tp}",
 				     [Reason]))]),
-    failed;
+    {failed, #{reason => {testcase_aborted, Reason}}};
 
 progress(failed, _CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 	 Comment0, {St0,St1}) ->
@@ -4134,7 +4145,7 @@ progress(failed, _CaseNum, Mod, Func, GrName, unknown, Reason, Time,
     print(minor,
           "~ts",
 	  [escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason]))]),
-    failed;
+    {failed, #{reason => unknown}};
 
 progress(failed, _CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	 Comment0, {St0,St1}) ->
@@ -4169,7 +4180,7 @@ progress(failed, _CaseNum, Mod, Func, GrName, Loc, Reason, Time,
     print(minor, "~ts",
           ["=== Reason: " ++
            escape_chars(io_lib:format(FStr, [FormattedReason]))]),
-    failed;
+    {failed, #{reason => Reason}};
 
 progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	 Comment0, {St0,St1}) ->
@@ -4204,7 +4215,7 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
     print(minor,
           "~ts",
 	  [escape_chars(io_lib:format("=== Returned value: ~tp", [RetVal]))]),
-    ok.
+    {ok, #{}}.
 
 %%--------------------------------------------------------------------
 %% various help functions

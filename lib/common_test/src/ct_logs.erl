@@ -2703,7 +2703,7 @@ make_all_suites_index1(When, AbsIndexName, AllTestLogDirs) ->
 							    TempData}}),
 		    TempData;
 		_ ->
-		    io:put_chars("HTML logs can be found at file://" ++ AbsIndexName ++ "."),
+		    io:put_chars("HTML logs at file://" ++ AbsIndexName ++ "."),
 		    TempData
 	    end;
 	Err ->

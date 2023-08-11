@@ -15,8 +15,15 @@
 
 
 -spec print_results(map()) -> ok.
+print_results(#{results := [_ | _]} = Results) ->
+    {FailedTestResults, ResultsWithoutFailures} = maps:take(results, Results),
+    print_header("failed tests follow", ?TERM_RED),
+    print_failed_test_results(FailedTestResults),
+    print_results(ResultsWithoutFailures);
+
 print_results(#{total := #{passed := OkN, failed := FailedN,
-                           user_skipped := UserSkipN, auto_skipped := AutoSkipN}}) ->
+                           user_skipped := UserSkipN, auto_skipped := AutoSkipN},
+                elapsed := _Elapsed}) ->
     AllSkippedN = UserSkipN + AutoSkipN,
     PassedStr = format_if_nonzero(OkN, "~s~w passed~s", [?TERM_BOLD_GREEN, OkN, ?TERM_CLEAR]),
     SkipStr = format_if_nonzero(AllSkippedN, "~s~w skipped~s", [?TERM_YELLOW, AllSkippedN, ?TERM_CLEAR]),
@@ -33,6 +40,15 @@ print_results(#{total := #{passed := OkN, failed := FailedN,
         [PaddingColor, PaddingLeft, ?TERM_CLEAR, ResultStr, PaddingColor, PaddingRight, ?TERM_CLEAR]
     ).
 
+print_failed_test_results([#{reason := Reason, module := Module, function := Function} | Rest]) ->
+    io:fwrite(user, "=> test case ~s:~s:~n", [Module, Function]),
+    {CrashReason, Traceback} = Reason,
+    io:fwrite(user, "~tp~n~tp~n~n", [CrashReason, elide_framework_code(Traceback)]),
+    print_failed_test_results(Rest);
+
+print_failed_test_results([]) ->
+    ok.
+
 -spec result_padding_color(non_neg_integer(), non_neg_integer()) -> string().
 result_padding_color(_Ok, 0) -> ?TERM_GREEN;
 result_padding_color(_Ok, _Failed) -> ?TERM_RED.
@@ -43,23 +59,27 @@ format_if_nonzero(_, Format, Data) -> io_lib:format(Format, Data).
 
 -spec print_header(string()) -> ok.
 print_header(Message) ->
-    io:fwrite(user, "~s", [format_header(Message)]).
+    print_header(Message, ?TERM_BOLD).
 
--spec format_header(string()) -> string().
-format_header(Message) ->
+-spec print_header(string(), string()) -> ok.
+print_header(Message, StartingColor) ->
+    io:fwrite(user, "~s", [format_header(Message, StartingColor)]).
+
+-spec format_header(string(), string()) -> string().
+format_header(Message, StartingColor) ->
     {PaddingSizeLeft, PaddingSizeRight} = centering_padding_size(iolist_size(Message)),
     % shell_docs contains a lot of useful functions that we could maybe factor
     % out and use here.
-    Start = ?TERM_BOLD,
     Stop = ?TERM_CLEAR,
     {PaddingLeft, PaddingRight} = padding_characters(PaddingSizeLeft, PaddingSizeRight),
-    io_lib:format("~s~ts~s~ts~s~n", [Start, PaddingLeft, Message, PaddingRight, Stop]).
+    io_lib:format("~s~ts~s~ts~s~n", [StartingColor, PaddingLeft, Message, PaddingRight, Stop]).
 
 
 -spec padding_characters(integer(), integer()) -> {string(), string()}.
-padding_characters(SizeLeft, _SizeRight) when SizeLeft < 0 ->
-    % Not enough space to print the padding, proceed normally.
-    {"", ""};
+% Dialyzer said this can't happen
+%padding_characters(SizeLeft, _SizeRight) when SizeLeft < 0 ->
+%    % Not enough space to print the padding, proceed normally.
+%    {"", ""};
 padding_characters(SizeLeft, SizeRight) ->
     Left = lists:duplicate(SizeLeft, "="),
     Right = lists:duplicate(SizeRight, "="),
@@ -106,3 +126,12 @@ size_on_terminal(?TERM_CLEAR ++ Rest) -> size_on_terminal(Rest);
 size_on_terminal([Items | Rest]) when is_list(Items) -> size_on_terminal(Items) + size_on_terminal(Rest);
 size_on_terminal([Char | Rest]) when is_integer(Char) -> 1 + size_on_terminal(Rest);
 size_on_terminal([]) -> 0.
+
+%% @doc Elide framework code from the given traceback.
+-spec elide_framework_code(list()) -> list().
+elide_framework_code([{test_server, _Function, _Arguments, _Location} | Rest]) ->
+    elide_framework_code(Rest);
+elide_framework_code([Frame | Rest]) ->
+    [Frame | elide_framework_code(Rest)];
+elide_framework_code([]) ->
+    [].
