@@ -479,7 +479,7 @@ is_bs_matchable_type(Type) ->
       Result :: {ok, term()} | error.
 get_singleton_value(#t_atom{elements=[Atom]}) ->
     {ok, Atom};
-get_singleton_value(#t_float{elements={Float,Float}}) when Float =/= 0.0 ->
+get_singleton_value(#t_float{elements={Float,Float}}) when Float /= 0 ->
     %% 0.0 is not actually a singleton as it has two encodings: 0.0 and -0.0
     {ok, Float};
 get_singleton_value(#t_integer{elements={Int,Int}}) ->
