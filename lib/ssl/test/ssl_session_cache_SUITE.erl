@@ -380,7 +380,7 @@ max_table_size(Config) when is_list(Config) ->
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),	
     M = ?CLIENT_CB:size(ClientCache),
-    ct:pal("Cache size ~p",[M]),
+    ct:log("Cache size ~p",[M]),
     ssl_test_lib:close(Server, 500),
     ssl_test_lib:close(LastClient),
     true = M =< ?MAX_TABLE_SIZE.

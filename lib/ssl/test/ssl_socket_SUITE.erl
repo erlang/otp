@@ -179,21 +179,21 @@ getstat(Config) when is_list(Config) ->
     %% Passive socket.
 
     {ok, InitialStats} = ssl:getstat(PassiveC),
-    ct:pal("InitialStats  ~p~n", [InitialStats]),
+    ct:log("InitialStats  ~p~n", [InitialStats]),
     [true] = lists:usort([0 =/= proplists:get_value(Name, InitialStats)
         || Name <- [recv_cnt, recv_oct, recv_avg, recv_max, send_cnt, send_oct, send_avg, send_max]]),
 
     ok = ssl:send(PassiveC, "Hello world"),
     wait_for_send(PassiveC),
     {ok, SStats} = ssl:getstat(PassiveC, [send_cnt, send_oct]),
-    ct:pal("SStats  ~p~n", [SStats]),
+    ct:log("SStats  ~p~n", [SStats]),
     [true] = lists:usort([proplists:get_value(Name, SStats) =/= proplists:get_value(Name, InitialStats)
         || Name <- [send_cnt, send_oct]]),
 
     %% Active socket.
 
     {ok, InitialAStats} = ssl:getstat(ActiveC),
-    ct:pal("InitialAStats  ~p~n", [InitialAStats]),
+    ct:log("InitialAStats  ~p~n", [InitialAStats]),
     [true] = lists:usort([0 =/= proplists:get_value(Name, InitialAStats)
         || Name <- [recv_cnt, recv_oct, recv_avg, recv_max, send_cnt, send_oct, send_avg, send_max]]),
 
@@ -208,7 +208,7 @@ getstat(Config) when is_list(Config) ->
     ok = ssl:send(ActiveC, "Hello world"),
     wait_for_send(ActiveC),
     {ok, ASStats} = ssl:getstat(ActiveC, [send_cnt, send_oct]),
-    ct:pal("ASStats  ~p~n", [ASStats]),
+    ct:log("ASStats  ~p~n", [ASStats]),
     [true] = lists:usort([proplists:get_value(Name, ASStats) =/= proplists:get_value(Name, InitialAStats)
         || Name <- [send_cnt, send_oct]]),
 

@@ -1899,7 +1899,7 @@ der_input(Config) when is_list(Config) ->
     [CADb | _] = element(5, State),
     ct:sleep(?SLEEP*2), %%Make sure there is no outstanding clean cert db msg in manager
     Size = ets:info(CADb, size),
-    ct:pal("Size ~p", [Size]),
+    ct:log("Size ~p", [Size]),
 
     SeverVerifyOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ServerCert, ServerKey, ServerCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
@@ -4015,7 +4015,7 @@ start_client_negative(Config, Options, Error) ->
                                         {return_error, econnrefused},
 					{mfa, {?MODULE, connection_info_result, []}},
 					{options, Options ++ ClientOpts}]),
-    ct:pal("Actual: ~p~nExpected: ~p", [Client, {connect_failed, Error}]),
+    ct:log("Actual: ~p~nExpected: ~p", [Client, {connect_failed, Error}]),
     {connect_failed, Error} = Client.
 
 start_server_negative(Config, Options, Error) ->
@@ -4026,7 +4026,7 @@ start_server_negative(Config, Options, Error) ->
 					{mfa, {?MODULE, connection_info_result, []}},
 					{options,  Options ++ ServerOpts}]),
 
-    ct:pal("Actual: ~p~nExpected: ~p", [Server,Error]),
+    ct:log("Actual: ~p~nExpected: ~p", [Server,Error]),
     Error = Server.
 
 der_input_opts(Opts) ->

@@ -95,7 +95,7 @@ stop_ssl_node(#node_handle{connection_handler = Handler,
 	    ct:pal("stop_ssl_node/1 ~s Warning ~p ~n", [Name,Error])
     end,
     ssl_test_lib:ct_pal_file(LogPath),
-    ct:pal("DumpPath(~pB) = ~p~n", [filelib:file_size(DumpPath), DumpPath]).
+    ct:log("DumpPath(~pB) = ~p~n", [filelib:file_size(DumpPath), DumpPath]).
 
 start_ssl_node(Name, Args) ->
     start_ssl_node(Name, Args, 1).

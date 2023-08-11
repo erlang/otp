@@ -648,7 +648,7 @@ multiple_tickets(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ct:log("Received tickets: ~p~n", [Tickets0]),
 
     ssl_test_lib:check_result(Server0, ok),
 
@@ -710,7 +710,7 @@ multiple_tickets_2hash(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ct:log("Received tickets: ~p~n", [Tickets0]),
 
     ssl_test_lib:check_result(Server0, ok),
 
@@ -734,7 +734,7 @@ multiple_tickets_2hash(Config) when is_list(Config) ->
 
     Tickets1 = ssl_test_lib:check_tickets(Client1),
 
-    ct:pal("Received tickets: ~p~n", [Tickets1]),
+    ct:log("Received tickets: ~p~n", [Tickets1]),
 
     ssl_test_lib:check_result(Server0, ok),
 

@@ -817,7 +817,7 @@ incomplete_chain_length(Config) when is_list(Config)->
                          %% than the one received
                          {valid, UserState};
                     (_,{extension, _} = Extension, #{ext := N} = UserState) ->
-                         ct:pal("~p", [Extension]),
+                         ct:log("~p", [Extension]),
                          {unknown,  UserState#{ext => N +1}};
                     (_, valid, #{intermediates := N} = UserState) ->
                          {valid, UserState#{intermediates => N +1}};
@@ -825,7 +825,7 @@ incomplete_chain_length(Config) when is_list(Config)->
                                       ext := 1} = UserState) ->
                          {valid, UserState};
                     (_, valid_peer, UserState) ->
-                         ct:pal("~p", [UserState]),
+                         ct:log("~p", [UserState]),
                          {error, {bad_cert, too_short_path}}
                  end, #{intermediates => 0,
                         ext => 0}},

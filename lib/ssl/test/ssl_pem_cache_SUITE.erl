@@ -512,7 +512,7 @@ new_root_pem_helper(Config, CleanMode,
     %% ConnectedN - state after establishing Nth connection
     %% Cleaned - state after periodical cleanup
     %% DisconnectedN - state after closing Nth connection
-    ?CT_PAL(">>> IntermediateServerKeyId = ~w", [IntermediateServerKeyId]),
+    ?CT_LOG(">>> IntermediateServerKeyId = ~w", [IntermediateServerKeyId]),
     {ServerCAFile, ClientConf0, ServerConf, ServerRootCert0, ClientBase, ServerBase} =
         create_initial_config(Config),
 
