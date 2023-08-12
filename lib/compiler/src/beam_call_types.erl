@@ -562,6 +562,50 @@ types(erlang, 'spawn_monitor', [_, _, _]) ->
 types(erlang, 'spawn_request', [_ | _]=Args) when length(Args) =< 5 ->
     sub_unsafe(reference, [any || _ <- Args]);
 
+%% Conversion functions.
+types(erlang, atom_to_binary, [_]) ->
+    sub_safe(binary(), [#t_atom{}]);
+types(erlang, binary_to_integer, [_]) ->
+    sub_unsafe(#t_integer{}, [binary()]);
+types(erlang, binary_to_list, [_]) ->
+    sub_safe(proper_list(), [binary()]);
+types(erlang, integer_to_list, [_]) ->
+    sub_safe(proper_cons(), [#t_integer{}]);
+types(erlang, list_to_atom, [_]) ->
+    sub_unsafe(#t_atom{}, [#t_list{}]);
+types(erlang, list_to_tuple, [Arg]) ->
+    Sz = case meet(Arg, #t_list{}) of
+             #t_cons{} -> 1;
+             _ -> 0
+         end,
+    sub_unsafe(#t_tuple{size=Sz}, [#t_list{}]);
+types(erlang, term_to_binary, [_]) ->
+    sub_unsafe(binary(), [any]);
+types(erlang, tuple_to_list, [Arg]) ->
+    T = case meet(Arg, #t_tuple{}) of
+            #t_tuple{size=Sz} when Sz >= 1 ->
+                proper_cons();
+            _ ->
+                proper_list()
+        end,
+    sub_safe(T, [#t_tuple{}]);
+
+%% Misc functions returning integers.
+types(erlang, convert_time_unit, [_, _, _]) ->
+    sub_unsafe(#t_integer{}, [any, any, any]);
+types(erlang, monotonic_time, []) ->
+    sub_unsafe(#t_integer{}, []);
+types(erlang, phash2, [_]) ->
+    R = {0, (1 bsl 27) - 1},
+    sub_unsafe(#t_integer{elements=R}, [any]);
+types(erlang, phash2, [_, _]) ->
+    R = {0, (1 bsl 32) - 1},
+    sub_unsafe(#t_integer{elements=R}, [any, any]);
+types(erlang, unique_integer, []) ->
+    sub_unsafe(#t_integer{}, []);
+types(erlang, unique_integer, [_]) ->
+    sub_unsafe(#t_integer{}, [any]);
+
 %% Misc ops.
 types(erlang, 'binary_part', [_, _]) ->
     PosLen = make_two_tuple(#t_integer{}, #t_integer{}),
@@ -590,6 +634,13 @@ types(erlang, self, []) ->
 types(erlang, 'size', [_]) ->
     ArgType = join(#t_tuple{}, #t_bitstring{}),
     sub_unsafe(#t_integer{}, [ArgType]);
+types(erlang, split_binary, [_, _]) ->
+    %% Note that, contrary to the documentation at the time of writing,
+    %% split_binary/2 accepts a bitstring and that it can return a
+    %% bitstring in the second element of the result tuple.
+    Binary = binary(),
+    T = make_two_tuple(Binary, #t_bitstring{}),
+    sub_unsafe(T, [#t_bitstring{}, #t_integer{}]);
 
 %% Tuple element ops
 types(erlang, element, [Pos, Tuple0]) ->
@@ -1383,6 +1434,9 @@ proper_list() ->
 
 proper_list(ElementType) ->
     #t_list{type=ElementType,terminator=nil}.
+
+binary() ->
+    #t_bitstring{size_unit=8}.
 
 %% Constructs a new list type based on another, optionally keeping the same
 %% length and/or making it proper.
