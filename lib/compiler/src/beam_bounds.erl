@@ -156,12 +156,13 @@ bounds('band', R1, R2) ->
     end;
 bounds('bor', R1, R2) ->
     case {R1,R2} of
-        {{A,B}, {C,D}} when A bsr ?NUM_BITS =:= 0, A >= 0,
-                            C bsr ?NUM_BITS =:= 0, C >= 0,
-                            is_integer(B), is_integer(D) ->
+        {{A,B}, {C,D}} when A =:= '-inf' orelse abs(A) bsr ?NUM_BITS =:= 0,
+                            C =:= '-inf' orelse abs(C) bsr ?NUM_BITS =:= 0,
+                            B =:= '+inf' orelse abs(B) bsr ?NUM_BITS =:= 0,
+                            D =:= '+inf' orelse abs(D) bsr ?NUM_BITS =:= 0 ->
             Min = min_bor(A, B, C, D),
             Max = max_bor(A, B, C, D),
-            {Min,Max};
+            normalize({Min,Max});
         {_, _} ->
             any
     end;
@@ -379,8 +380,13 @@ max_band(A, B, C, D, M) ->
     end.
 
 min_bor(A, B, C, D) ->
-    M = 1 bsl upper_bit(A bxor C),
-    min_bor(A, B, C, D, M).
+    case inf_lt(inf_min(A, C), 0) of
+        true ->
+            '-inf';
+        false ->
+            M = 1 bsl upper_bit(A bxor C),
+            min_bor(A, B, C, D, M)
+    end.
 
 min_bor(A, _B, C, _D, 0) ->
     A bor C;
@@ -404,10 +410,23 @@ min_bor(A, B, C, D, M) ->
             min_bor(A, B, C, D, M bsr 1)
     end.
 
-max_bor(A, B, C, D) ->
-    Intersection = B band D,
-    M = 1 bsl upper_bit(Intersection),
-    max_bor(Intersection, A, B, C, D, M).
+max_bor(A0, B, C0, D) ->
+    A = inf_max(A0, 0),
+    C = inf_max(C0, 0),
+    case inf_max(B, D) of
+        '+inf' ->
+            '+inf';
+        Max when Max < 0 ->
+            %% Both B and D are negative. The intersection would be
+            %% infinite.
+            -1;
+        _ ->
+            %% At least one of B and D are positive. The intersection
+            %% has a finite size.
+            Intersection = B band D,
+            M = 1 bsl upper_bit(Intersection),
+            max_bor(Intersection, A, B, C, D, M)
+    end.
 
 max_bor(_Intersection, _A, B, _C, D, 0) ->
     B bor D;

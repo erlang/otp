@@ -181,8 +181,18 @@ band_bounds(_Config) ->
 bor_bounds(_Config) ->
     test_commutative('bor'),
 
-    any = beam_bounds:bounds('bor', {-10,0},{-1,10}),
-    any = beam_bounds:bounds('bor', {-20,-10}, {-1,10}),
+    {'-inf',15} = beam_bounds:bounds('bor', {-10,7},{3,10}),
+    {'-inf',11} = beam_bounds:bounds('bor', {-10,1},{-1,10}),
+    {'-inf',-1} = beam_bounds:bounds('bor', {-20,-10}, {-2,10}),
+
+    {'-inf',15} = beam_bounds:bounds('bor', {'-inf',10}, {3,5}),
+    {'-inf',-1} = beam_bounds:bounds('bor', {-20,-10}, {-100,-50}),
+
+    any = beam_bounds:bounds('bor', {-20,-10}, {-2,'+inf'}),
+    any = beam_bounds:bounds('bor', {-20,'+inf'}, {-7,-3}),
+
+    {16,'+inf'} = beam_bounds:bounds('bor', {0,8}, {16,'+inf'}),
+    {16,'+inf'} = beam_bounds:bounds('bor', {3,'+inf'}, {16,'+inf'}),
 
     ok.
 
