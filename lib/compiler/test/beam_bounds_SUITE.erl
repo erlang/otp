@@ -154,11 +154,14 @@ rem_bounds(_Config) ->
     {-7,7} = beam_bounds:bounds('rem', {'-inf',10}, {1,8}),
     {0,7} = beam_bounds:bounds('rem', {10,'+inf'}, {1,8}),
 
-    any = beam_bounds:bounds('rem', {1,10}, {'-inf',10}),
-    any = beam_bounds:bounds('rem', {1,10}, {10,'+inf'}),
+    {1,10} = beam_bounds:bounds('rem', {1,10}, {'-inf',10}),
+    {20,'+inf'} = beam_bounds:bounds('rem', {20,'+inf'}, {10,'+inf'}),
+    {'-inf',10} = beam_bounds:bounds('rem', {'-inf',10}, any),
 
-    any = beam_bounds:bounds('rem', {-10,10}, {'-inf',10}),
-    any = beam_bounds:bounds('rem', {-10,10}, {10,'+inf'}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {'-inf',89}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {7,'+inf'}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {'-inf',113}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {55,'+inf'}),
 
     ok.
 

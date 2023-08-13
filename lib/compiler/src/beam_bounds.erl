@@ -319,6 +319,12 @@ rem_bounds(_, {C,D}) when is_integer(C), is_integer(D),
     Max = max(abs(C), abs(D)) - 1,
     Min = -Max,
     normalize({Min,Max});
+rem_bounds({A,B}, _) ->
+    %% The sign of the remainder is the same as the sign of the
+    %% left-hand side operand; it does not depend on the sign of the
+    %% right-hand side operand. Therefore, the range of the remainder
+    %% is the same as the range of the left-hand side operand.
+    {A,B};
 rem_bounds(_, _) ->
     any.
 
