@@ -267,7 +267,12 @@ bsl_bounds(_Config) ->
 
     {2,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {1,10_000}),
     {0,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {-10,10_000}),
+    {'-inf',-20} = beam_bounds:bounds('bsl', {-30,-10}, {1,10_000}),
+    {'-inf',-2} = beam_bounds:bounds('bsl', {-9,-1}, {1,10_000}),
     any = beam_bounds:bounds('bsl', {-7,10}, {1,10_000}),
+
+    {0,'+inf'} = beam_bounds:bounds('bsl', {0,'+inf'}, {0,'+inf'}),
+    {20,'+inf'} = beam_bounds:bounds('bsl', {20,30}, {0,'+inf'}),
 
     any = beam_bounds:bounds('bsl', {-10,100}, {0,'+inf'}),
     any = beam_bounds:bounds('bsl', {-10,100}, {1,'+inf'}),
@@ -280,6 +285,11 @@ bsl_bounds(_Config) ->
 
     {'-inf',-1} = beam_bounds:bounds('bsl', {-10,-1}, {500,1024}),
     {0,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {500,1024}),
+
+    {'-inf',-40} = beam_bounds:bounds('bsl', {'-inf',-10}, {2,64}),
+    {'-inf',224} = beam_bounds:bounds('bsl', {'-inf',7}, {3,5}),
+
+    any = beam_bounds:bounds('bsl', {'-inf',7}, {3,'+inf'}),
 
     ok.
 

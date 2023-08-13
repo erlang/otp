@@ -186,8 +186,8 @@ bounds('bsr', R1, R2) ->
     end;
 bounds('bsl', R1, R2) ->
     case {R1,R2} of
-        {{A,B}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
-                            abs(B) bsr ?NUM_BITS =:= 0 ->
+        {{A,B}, {C,D}} when A =:= '-inf' orelse abs(A) bsr ?NUM_BITS =:= 0,
+                            B =:= '+inf' orelse abs(B) bsr ?NUM_BITS =:= 0 ->
             Min = inf_min(inf_bsl(A, C), inf_bsl(A, D)),
             Max = inf_max(inf_bsl(B, C), inf_bsl(B, D)),
             normalize({Min,Max});
