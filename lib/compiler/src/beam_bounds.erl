@@ -46,35 +46,8 @@
 
 bounds('bnot', R0) ->
     case R0 of
-        {Exact, Exact} when is_integer(Exact) ->
-            N = -Exact - 1,
-            {N, N};
-        {A, B} when is_integer(A), is_integer(B), A =/= B ->
-            %% While it's easy to get an exact range, doing so can make certain
-            %% chains of operations slow to converge, e.g.
-            %%
-            %%     f(0) -> -1; f(N) -> abs(bnot f(N)).
-            %%
-            %% Where the range increases by 1 every time we pass through,
-            %% making it more or less impossible to reach a fixpoint.
-            %%
-            %% We therefore widen the range a bit quicker to ensure that we
-            %% converge on 'any' within a reasonable time frame, hoping that
-            %% the range will still be tight enough in the cases where we
-            %% don't feed the result into itself.
-            case {abs(A) bsr ?NUM_BITS, abs(B) bsr ?NUM_BITS} of
-                {0, 0} ->
-                    Min = min(-B - 1, -(B bsl 1) - 1),
-                    Max = max(-A - 1, -(A bsl 1) - 1),
-                    normalize({Min, Max});
-                {_, _} ->
-                    any
-            end;
-        {A, B} ->
-            %% Widen the range as above to ensure that we get the same result
-            %% on the finite component(s).
-            R = {inf_add(inf_neg(inf_add(B, B)), -1),
-                 inf_add(inf_neg(inf_add(A, A)), -1)},
+        {A,B} ->
+            R = {inf_add(inf_neg(B), -1), inf_add(inf_neg(A), -1)},
             normalize(R);
         _ ->
             any
