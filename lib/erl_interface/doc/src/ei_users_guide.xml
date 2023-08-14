@@ -347,7 +347,7 @@ ei_x_encode_tuple_header(&buf, 2);
 ei_x_encode_pid(&buf, ei_self(ec));
 ei_x_encode_atom(&buf, "Hello world");
 
-ei_reg_send(&ec,fd,"my_server",buf,buf.index);]]></code>
+ei_reg_send(&ec, fd, "my_server", buf.buff, buf.index);]]></code>
 
       <p>The first element of the tuple that is sent is your own
         pid. This enables <c>my_server</c> to reply.
