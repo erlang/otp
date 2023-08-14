@@ -118,6 +118,9 @@ bounds('*', R1, R2) ->
             Min = lists:min(All),
             Max = lists:max(All),
             normalize({Min,Max});
+        {{A,'+inf'}, {C,'+inf'}} when abs(A) bsr ?NUM_BITS =:= 0, A >= 0,
+                                      abs(C) bsr ?NUM_BITS =:= 0, C >= 0 ->
+            {A*C,'+inf'};
         {{A,'+inf'}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
                                  abs(C) bsr ?NUM_BITS =:= 0,
                                  abs(D) bsr ?NUM_BITS =:= 0,

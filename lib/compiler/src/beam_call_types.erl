@@ -484,6 +484,24 @@ types(erlang, Op, [LHS, RHS]) when Op =:= '+'; Op =:= '-' ->
             mixed_arith_types([LHS, RHS])
     end;
 
+types(erlang, '*', [LHS, RHS]) ->
+    case get_range(LHS, RHS, #t_number{}) of
+        {Type, {A,B}, {C,D}} ->
+            case beam_bounds:bounds('*', {A,B}, {C,D}) of
+                {Min,_Max} when is_integer(Min), Min >= 0 ->
+                    R = {Min,'+inf'},
+                    RetType = case Type of
+                                  integer -> #t_integer{elements=R};
+                                  number -> #t_number{elements=R}
+                              end,
+                    sub_unsafe(RetType, [#t_number{}, #t_number{}]);
+                _ ->
+                    mixed_arith_types([LHS, RHS])
+            end;
+        _ ->
+            mixed_arith_types([LHS, RHS])
+    end;
+
 types(erlang, abs, [Type]) ->
     case meet(Type, #t_number{}) of
         #t_float{} ->
