@@ -1094,11 +1094,16 @@ decode_answer(Answer, Q_Msg, Verbose) ->
     case inet_dns:decode(Answer) of
 	{ok, #dns_rec{header = H, arlist = ARList} = Msg} ->
 	    ?verbose(Verbose, "Got reply: ~p~n", [dns_msg(Msg)]),
+	    T = case lists:keyfind(dns_rr_tsig, 1, ARList) of
+		    false -> false;
+		    #dns_rr_tsig{error=?NOERROR} -> false;
+		    #dns_rr_tsig{error=TsigError} -> TsigError
+		end,
 	    E = case lists:keyfind(dns_rr_opt, 1, ARList) of
 		    false -> 0;
 		    #dns_rr_opt{ext_rcode=ExtRCode} -> ExtRCode
 		end,
-	    RCode = (E bsl 4) bor H#dns_header.rcode,
+	    RCode = T orelse (E bsl 4) bor H#dns_header.rcode,
 	    case RCode of
 		?NOERROR  -> decode_answer_noerror(Q_Msg, Msg, H);
 		?FORMERR  -> {error,{qfmterror,Msg}};
@@ -1106,7 +1111,16 @@ decode_answer(Answer, Q_Msg, Verbose) ->
 		?NXDOMAIN -> {error,{nxdomain,Msg}};
 		?NOTIMP   -> {error,{notimp,Msg}};
 		?REFUSED  -> {error,{refused,Msg}};
-		?BADVERS  -> {error,{badvers,Msg}};
+		?YXDOMAIN -> {error,{yxdomain,Msg}};
+		?YXRRSET  -> {error,{yxrrset,Msg}};
+		?NXRRSET  -> {error,{nxrrset,Msg}};
+		?NOTAUTH  -> {error,{noauth,Msg}};
+		?NOTZONE  -> {error,{nozone,Msg}};
+		?BADVERS when not T -> {error,{badvers,Msg}};
+		?BADSIG   -> {error,{badsig,Msg}};
+		?BADKEY   -> {error,{badkey,Msg}};
+		?BADTIME  -> {error,{badtime,Msg}};
+		?BADTRUNC -> {error,{badtrunc,Msg}};
 		_         -> {error,{unknown,Msg}}
 	    end;
 	{error, formerr} = Error ->
