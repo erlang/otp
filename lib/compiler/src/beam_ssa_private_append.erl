@@ -261,10 +261,10 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                                                    Element, DefSt0),
                     track_value_in_fun(ToExplore ++ Rest, Fun, Work0,
                                        Defs, ValuesInFun, DefSt);
-                {put_tuple,_,_} ->
+                {put_tuple,_,_} when Element =/= self ->
                     track_put_tuple(Args, Element, Rest, Fun, V, Work0,
                                     Defs, ValuesInFun, DefSt0);
-                {put_list,_,_} ->
+                {put_list,_,_} when Element =/= self ->
                     track_put_list(Args, Element, Rest, Fun, V, Work0,
                                    Defs, ValuesInFun, DefSt0);
                 {_,_,_} ->
