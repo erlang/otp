@@ -192,16 +192,21 @@ bnot_bounds(_Config) ->
             A <- Seq,
             B <- lists:nthtail(A-Min, Seq)],
 
-    {-85,'+inf'} = beam_bounds:bounds('bnot', {'-inf',42}),
-    {199,'+inf'} = beam_bounds:bounds('bnot', {'-inf',-100}),
-    {'-inf',-15} = beam_bounds:bounds('bnot', {7,'+inf'}),
-    {'-inf',19} = beam_bounds:bounds('bnot', {-10,'+inf'}),
-    {-2228221,'+inf'} = beam_bounds:bounds('bnot', {'-inf', 1114110}),
-    any = beam_bounds:bounds('bnot', {0, 1 bsl 256}),
+    {-43,'+inf'} = beam_bounds:bounds('bnot', {'-inf',42}),
+    {99,'+inf'} = beam_bounds:bounds('bnot', {'-inf',-100}),
+    {'-inf',-8} = beam_bounds:bounds('bnot', {7,'+inf'}),
+    {'-inf',9} = beam_bounds:bounds('bnot', {-10,'+inf'}),
+    {-1114111,'+inf'} = beam_bounds:bounds('bnot', {'-inf', 1114110}),
 
     -1 = bnot_bounds_2(0),
     -43 = bnot_bounds_2_coverage(id(42)),
     {'EXIT',{badarith,_}} = catch bnot_bounds_2_coverage(id(bad)),
+
+    {'EXIT',{_,_}} = catch bnot_bounds_3(id(true)),
+    {'EXIT',{_,_}} = catch bnot_bounds_3(id(false)),
+    {'EXIT',{_,_}} = catch bnot_bounds_3(id(0)),
+
+    {'EXIT',{{bad_generator,-3},_}} = catch bnot_bounds_4(),
 
     ok.
 
@@ -222,6 +227,15 @@ bnot_bounds_2(0) -> -1;
 bnot_bounds_2(N) -> abs(bnot bnot_bounds_2(N)).
 
 bnot_bounds_2_coverage(N) -> bnot N.
+
+%% GH-7468. Would result in a bad_typed_register failure in beam_validator.
+bnot_bounds_3(A) ->
+    (bnot round(((A xor false) andalso 1) + 2)) bsr ok.
+
+%% GH-7468. Would result in a bad_arg_type failure in beam_validator.
+bnot_bounds_4() ->
+    << 0 || A <- [1,2], _ <- bnot round(A + trunc(A))>>.
+
 
 bsr_bounds(_Config) ->
     test_noncommutative('bsr', {-12,12}, {0,7}),

@@ -424,9 +424,24 @@ types(erlang, 'bsl', [_,_]=Args) ->
 types(erlang, 'bsr', [_,_]=Args) ->
     sub_unsafe(beam_bounds_type('bsr', #t_integer{}, Args),
                [#t_integer{}, #t_integer{}]);
-types(erlang, 'bnot', [_]=Args) ->
-    sub_unsafe(beam_bounds_type('bnot', #t_integer{}, Args),
-               [#t_integer{}]);
+types(erlang, 'bnot', [_]) ->
+    %% Calculating the tighest possible range for the result would
+    %% cause the type analysis pass to loop for a very long time for
+    %% code such as:
+    %%
+    %%     f(0) -> -1;
+    %%     f(N) -> abs(bnot f(N)).
+    %%
+    %% By calculating looser bounds and widening the range to `any` at
+    %% some suitable limit, convergence can be ensured (see
+    %% 8e5b1fbb16d186). However, that can cause a contradiction
+    %% between the ranges calculated by the type pass and by
+    %% beam_validator.
+    %%
+    %% Therefore, don't attempt to calculate a range now. Save the
+    %% range calculation for the opt_ranges pass (arith_type/2), which
+    %% is only run once.
+    sub_unsafe(#t_integer{}, [#t_integer{}]);
 
 %% Fixed-type arithmetic
 types(erlang, 'float', [_]) ->
@@ -1139,17 +1154,6 @@ beam_bounds_type(Op, Type, [LHS, RHS]) ->
             #t_integer{elements=beam_bounds:bounds(Op, R1, R2)};
         {number, R1, R2} ->
             #t_number{elements=beam_bounds:bounds(Op, R1, R2)}
-    end;
-beam_bounds_type(Op, Type, [Arg]) ->
-    case beam_types:meet(Arg, Type) of
-        #t_float{elements=R} ->
-            #t_float{elements=beam_bounds:bounds(Op, R)};
-        #t_integer{elements=R} ->
-            #t_integer{elements=beam_bounds:bounds(Op, R)};
-        #t_number{elements=R} ->
-            #t_number{elements=beam_bounds:bounds(Op, R)};
-        none ->
-            none
     end.
 
 get_range(LHS, RHS, Type) ->
