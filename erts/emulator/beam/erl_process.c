@@ -6404,7 +6404,7 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
      * If we have system tasks, we enqueue on ordinary run-queue
      * and take care of those system tasks first.
      */
-    if ((*newp) & ERTS_PSFLG_ACTIVE_SYS)
+    if ((*newp) & ERTS_PSFLG_SYS_TASKS)
 	return ERTS_ENQUEUE_NORMAL_QUEUE;
 
     dact = erts_atomic32_read_mb(&c_p->xstate);
@@ -6494,7 +6494,10 @@ check_enqueue_in_prio_queue(Process *c_p,
 
     *prq_prio_p = aprio;
 
-    if (actual & ERTS_PSFLGS_DIRTY_WORK) {
+    if (((actual & (ERTS_PSFLG_SUSPENDED
+                    | ERTS_PSFLG_ACTIVE_SYS)) != (ERTS_PSFLG_SUSPENDED
+                                                  | ERTS_PSFLG_ACTIVE_SYS))
+        & (!!(actual & ERTS_PSFLGS_DIRTY_WORK))) {
 	int res = check_dirty_enqueue_in_prio_queue(c_p, newp, actual,
 						    aprio, qbit);
 	if (res != ERTS_ENQUEUE_NORMAL_QUEUE)
@@ -9466,6 +9469,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     Uint32 flags;
     erts_aint32_t state = 0; /* Suppress warning... */
     int is_normal_sched;
+    ErtsSchedType sched_type;
 #ifdef DEBUG
     int aborted_execution = 0;
 #endif
@@ -9505,6 +9509,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	else {
 	    ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
 	}
+        sched_type = esdp->type;
 	rq = erts_get_runq_current(esdp);
 	ASSERT(esdp);
 	actual_reds = reds = 0;
@@ -9525,6 +9530,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	ASSERT(esdp->current_process == p
 	       || esdp->free_process == p);
 
+        sched_type = esdp->type;
 
 	reds = actual_reds = calls - esdp->virtual_reds;
 
@@ -9636,7 +9642,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     ERTS_LC_ASSERT(!is_normal_sched || !erts_thr_progress_is_blocking());
 
  check_activities_to_run: {
-	erts_aint32_t psflg_running, psflg_running_sys;
 	ErtsMigrationPaths *mps;
 	ErtsMigrationPath *mp;
 
@@ -9885,14 +9890,10 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 #endif
 
 	    if (is_normal_sched) {
-		psflg_running = ERTS_PSFLG_RUNNING;
-		psflg_running_sys = ERTS_PSFLG_RUNNING_SYS;
 		psflg_band_mask = ~(((erts_aint32_t) 1) << (ERTS_PSFLGS_GET_PRQ_PRIO(state)
 							    + ERTS_PSFLGS_IN_PRQ_MASK_OFFSET));
 	    }
 	    else {
-		psflg_running = ERTS_PSFLG_DIRTY_RUNNING;
-		psflg_running_sys = ERTS_PSFLG_DIRTY_RUNNING_SYS;
 		psflg_band_mask = ~((erts_aint32_t) 0);
                 qbit = ((erts_aint32_t) 1) << ERTS_PSFLGS_GET_PRQ_PRIO(state);
 	    }
@@ -9954,12 +9955,29 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                                & ((!is_running) | need_forced_exit));
 
 		if (run_process) {
-		    if (state & (ERTS_PSFLG_ACTIVE_SYS
-				 | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-			new |= psflg_running_sys;
-		    else
-			new |= psflg_running;
-		}
+                    switch (sched_type) {
+                    case ERTS_SCHED_NORMAL:
+                        if (state & ERTS_PSFLG_ACTIVE_SYS)
+                            new |= ERTS_PSFLG_RUNNING_SYS;
+                        else
+                            new |= ERTS_PSFLG_RUNNING;
+                        break;
+                    case ERTS_SCHED_DIRTY_CPU:
+                        if (state & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
+                            new |= ERTS_PSFLG_DIRTY_RUNNING_SYS;
+                        else
+                            new |= ERTS_PSFLG_DIRTY_RUNNING;
+                        break;
+                    case ERTS_SCHED_DIRTY_IO:
+                        new |= ERTS_PSFLG_DIRTY_RUNNING;
+                        break;
+#ifdef DEBUG
+                    default:
+                        ASSERT(0);
+                        break;
+#endif
+                    }
+                }
 		state = erts_atomic32_cmpxchg_relb(&p->state, new, exp);
 		if (state == exp) {
 		    if (!run_process) {
@@ -10045,7 +10063,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	state = erts_atomic32_read_nob(&p->state);
 
-	if (is_normal_sched) {
+        switch (sched_type) {
+        case ERTS_SCHED_NORMAL:
             ASSERT(!p->scheduler_data);
 	    p->scheduler_data = esdp;
 	    if ((!!(state & ERTS_PSFLGS_DIRTY_WORK))
@@ -10060,41 +10079,51 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 #endif
 		goto sched_out_proc;
 	    }
-	}
-	else {
-            /* On dirty scheduler */
-	    if (!(state & ERTS_PSFLGS_DIRTY_WORK)
-                | !!(state & (ERTS_PSFLG_SYS_TASKS
-                              | ERTS_PSFLG_EXITING
-                              | ERTS_PSFLG_DIRTY_ACTIVE_SYS))) {
-                
-                if (!(state & ERTS_PSFLGS_DIRTY_WORK)) {
-                    /* Dirty work completed... */
-                    goto sunlock_sched_out_proc;
-                }
-                if (state & (ERTS_PSFLG_SYS_TASKS
-                             | ERTS_PSFLG_EXITING)) {
-                    /*
-                     * IMPORTANT! We need to take care of
-                     * scheduled check-process-code requests
-                     * before continuing with dirty execution!
-                     */
-                    /* Migrate to normal scheduler... */
-                    goto sunlock_sched_out_proc;
-                }
-                if ((state & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
-                    && rq == ERTS_DIRTY_IO_RUNQ) {
-                    /* Migrate to dirty cpu scheduler... */
-                    goto sunlock_sched_out_proc;
-                }
+            break;
 
+        case ERTS_SCHED_DIRTY_IO:
+
+            /*
+             * IMPORTANT! We need to take care of
+             * scheduled check-process-code sys-tasks
+             * before continuing with dirty execution!
+             */
+
+            if ((state & (ERTS_PSFLG_SYS_TASKS
+                          | ERTS_PSFLG_EXITING
+                          | ERTS_PSFLG_DIRTY_ACTIVE_SYS
+                          | ERTS_PSFLG_SUSPENDED))
+                | !(state & ERTS_PSFLG_DIRTY_IO_PROC)) {
+                /* Migrate to another type of scheduler... */
+                goto sunlock_sched_out_proc;
             }
 
-	    ASSERT(rq == ERTS_DIRTY_CPU_RUNQ
-		   ? (state & (ERTS_PSFLG_DIRTY_CPU_PROC
-			       | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-		   : (rq == ERTS_DIRTY_IO_RUNQ
-		      && (state & ERTS_PSFLG_DIRTY_IO_PROC)));	    
+            ASSERT((state & ERTS_PSFLG_DIRTY_RUNNING));
+            break;
+
+        case ERTS_SCHED_DIRTY_CPU:
+
+            /*
+             * IMPORTANT! We need to take care of
+             * scheduled check-process-code sys-tasks
+             * before continuing with dirty execution!
+             */
+
+            if ((state & (ERTS_PSFLG_SYS_TASKS
+                          | ERTS_PSFLG_EXITING))
+                | (!(state & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
+                   & ((state & (ERTS_PSFLG_DIRTY_CPU_PROC
+                                | ERTS_PSFLG_SUSPENDED))
+                      != ERTS_PSFLG_DIRTY_CPU_PROC))) {
+                /* Migrate to another type of scheduler... */
+                goto sunlock_sched_out_proc;
+            }
+
+            ASSERT((state & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
+                   ? (state & ERTS_PSFLG_DIRTY_RUNNING_SYS)
+                   : (state & ERTS_PSFLG_DIRTY_RUNNING));
+
+            break;
 	}
 
 	erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
@@ -10182,8 +10211,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                 if (reds <= 0 || (state & ERTS_PSFLGS_DIRTY_WORK))
                     goto sched_out_proc;
 
-                ASSERT(state & psflg_running_sys);
-                ASSERT(!(state & psflg_running));
+                ASSERT(state & ERTS_PSFLG_RUNNING_SYS);
+                ASSERT(!(state & ERTS_PSFLG_RUNNING));
 
                 while (1) {
                     erts_aint32_t n, e;
@@ -10206,8 +10235,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                     }
 
                     n = e = state;
-                    n &= ~psflg_running_sys;
-                    n |= psflg_running;
+                    n &= ~ERTS_PSFLG_RUNNING_SYS;
+                    n |= ERTS_PSFLG_RUNNING;
 
                     state = erts_atomic32_cmpxchg_mb(&p->state, n, e);
                     if (state == e) {
@@ -10215,8 +10244,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                         break;
                     }
 
-                    ASSERT(state & psflg_running_sys);
-                    ASSERT(!(state & psflg_running));
+                    ASSERT(state & ERTS_PSFLG_RUNNING_SYS);
+                    ASSERT(!(state & ERTS_PSFLG_RUNNING));
                 }
             }
 
