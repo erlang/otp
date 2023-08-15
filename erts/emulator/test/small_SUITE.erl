@@ -139,6 +139,7 @@ addition(_Config) ->
     %% merl:print(Tree),
     {ok,_Bin} = merl:compile_and_load(Tree, []),
     test_addition(Fs0, Mod),
+    unload(Mod),
     ok.
 
 add_gen_pairs() ->
@@ -247,6 +248,7 @@ subtraction(_Config) ->
     %% merl:print(Tree),
     {ok,_Bin} = merl:compile_and_load(Tree, []),
     test_subtraction(Fs0, Mod),
+    unload(Mod),
     ok.
 
 sub_gen_pairs() ->
@@ -340,6 +342,7 @@ negation(_Config) ->
     merl:print(Tree),
     {ok,_Bin} = merl:compile_and_load(Tree, []),
     test_negation(Fs0, Mod),
+    unload(Mod),
     ok.
 
 neg_gen_integers() ->
@@ -405,6 +408,7 @@ multiplication(_Config) ->
     %% merl:print(Tree),
     {ok,_Bin} = merl:compile_and_load(Tree, []),
     test_multiplication(Fs0, Mod),
+    unload(Mod),
     ok.
 
 mul_gen_pairs() ->
@@ -506,6 +510,8 @@ division(_Config) ->
 
     3 = ignore_rem(ignore, 10, 3),
     1 = ignore_div(ignore, 16, 5),
+
+    unload(Mod),
 
     ok.
 
@@ -802,6 +808,7 @@ test_bitwise(_Config) ->
     merl:print(Tree),
     {ok,_Bin} = merl:compile_and_load(Tree, []),
     test_bitwise(Fs0, Mod),
+    unload(Mod),
 
     %% Test invalid operands.
     expect_badarith(fun(X) -> 42 band X end),
@@ -932,6 +939,7 @@ test_bsl(_Config) ->
     %% merl:print(Tree),
     {ok,_Bin} = merl:compile_and_load(Tree, []),
     test_bsl(Fs0, Mod),
+    unload(Mod),
     ok.
 
 bsl_gen_pairs() ->
@@ -1197,5 +1205,9 @@ determine_small_limits(N) ->
         true -> determine_small_limits(N + 1);
         false -> {-1 bsl (N - 1), (1 bsl (N - 1)) - 1}
     end.
+
+unload(Mod) ->
+    _ = code:delete(Mod),
+    code:purge(Mod).
 
 id(I) -> I.
