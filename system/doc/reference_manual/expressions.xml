@@ -566,7 +566,7 @@ end]]></code>
 
     <p>Finally, let us assume that <c>a()</c> returns
     <c>-1</c>. Because <c>true = A >= 0</c> uses the match operator
-    `=`, a <c>{badmatch,false}</c> run-time error occurs when the
+    <c>=</c>, a <c>{badmatch,false}</c> run-time error occurs when the
     expression fails to match the pattern.</p>
 
     <p>The example can be written in a less succient way using nested
