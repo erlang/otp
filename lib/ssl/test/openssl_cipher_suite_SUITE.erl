@@ -22,6 +22,7 @@
 
 -module(openssl_cipher_suite_SUITE).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %% Callback functions
@@ -926,9 +927,9 @@ cipher_suite_test(CipherSuite, Version, Config) ->
       client_config := COpts} = proplists:get_value(tls_config, Config),
     ServerOpts = ssl_test_lib:ssl_options(SOpts, Config),
     ClientOpts = ssl_test_lib:ssl_options(COpts, Config),
-    ct:log("Testing CipherSuite ~p~n", [CipherSuite]),
-    ct:log("Server Opts ~p~n", [ServerOpts]),
-    ct:log("Client Opts ~p~n", [ClientOpts]),
+    ?CT_LOG("Testing CipherSuite ~p~n", [CipherSuite]),
+    ?CT_LOG("Server Opts ~p~n", [ServerOpts]),
+    ?CT_LOG("Client Opts ~p~n", [ClientOpts]),
     case proplists:get_value(server_type, Config) of
         erlang ->
             ssl_test_lib:basic_test([{ciphers, ssl:cipher_suites(all, Version)} | COpts],
@@ -949,11 +950,11 @@ test_ciphers(Kex, Cipher, Version) ->
                                          fun(Cipher0) when Cipher0 == Cipher -> true;
                                             (_) -> false
                                          end}]),
-    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = ssl_test_lib:openssl_ciphers(),
-    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    ?CT_LOG("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
     lists:filter(fun(C) ->
-                         ct:log("Cipher ~p~n", [C]),
+                         ?CT_LOG("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers).
 

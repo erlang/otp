@@ -23,6 +23,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/inet.hrl").
@@ -137,7 +138,7 @@ init_per_testcase(customize_hostname_check, Config) ->
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Version = proplists:get_value(version, Config),
-    ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites(default, Version)]),
+    ?CT_LOG("Ciphers: ~p~n ", [ ssl:cipher_suites(default, Version)]),
     ct:timetrap(?TIMEOUT),
     Config.
 
@@ -449,7 +450,7 @@ recv_and_certificate(SSLSocket) ->
     {ok, PeerCert} = ssl:peercert(SSLSocket),
     #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = {rdnSequence, Subject}}} 
 	= public_key:pkix_decode_cert(PeerCert, otp),
-    ct:log("Subject of certificate received from server: ~p", [Subject]),
+    ?CT_LOG("Subject of certificate received from server: ~p", [Subject]),
     rdn_to_string(rdnPart(Subject, ?'id-at-commonName')).
 
 %%--------------------------------------------------------------------

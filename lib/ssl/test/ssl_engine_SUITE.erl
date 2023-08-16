@@ -23,6 +23,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
@@ -70,7 +71,7 @@ init_per_suite(Config) ->
                                 {ok, Engine} ->
                                     [{engine, Engine} |Config];
                                 {error, Reason} ->
-                                    ct:pal("Reason ~p", [Reason]),
+                                    ?CT_PAL("Reason ~p", [Reason]),
                                     {skip, "No dynamic engine support"}
                             catch error:notsup ->
                                     {skip, "No engine support in OpenSSL"}    

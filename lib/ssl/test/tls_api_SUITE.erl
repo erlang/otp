@@ -21,6 +21,7 @@
 %%
 -module(tls_api_SUITE).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
@@ -248,8 +249,7 @@ tls_upgrade(Config) when is_list(Config) ->
 				   {ssl_options,  [{verify, verify_peer},
                                                    {server_name_indication, Hostname} | ClientOpts]}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -285,8 +285,7 @@ tls_upgrade_new_opts(Config) when is_list(Config) ->
                                                    {mode, list},
                                                    {server_name_indication, Hostname} | ClientOpts]}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -328,8 +327,7 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
                                                    {ciphers, Ciphers},
                                                    {server_name_indication, Hostname} | ClientOpts]}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -366,8 +364,7 @@ tls_upgrade_with_timeout(Config) when is_list(Config) ->
 						{ssl_options, [{verify, verify_peer},
                                                                {server_name_indication, Hostname} | ClientOpts]}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -401,7 +398,7 @@ tls_upgrade_with_client_timeout(Config) when is_list(Config) ->
 				   {ssl_options,  [{verify, verify_peer},
                                                    {server_name_indication, Hostname} | ClientOpts]}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p", [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p", [Client, Server]),
     ok = ssl_test_lib:check_result(Client, {error, timeout}),
     ssl_test_lib:close(Server).
 
@@ -671,14 +668,14 @@ tls_tcp_msg(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
-    ct:log("Testcase ~p connected to Server ~p ~n", [self(), Server]),
+    ?CT_LOG("connected to Server ~p ~n", [Server]),
     gen_tcp:send(Socket, "<SOME GARBLED NON SSL MESSAGE>"),
 
     receive
 	{tcp_closed, Socket} ->
 	    receive
 		{Server, {error, Error}} ->
-		    ct:log("Error ~p", [Error])
+		    ?CT_LOG("Error ~p", [Error])
 	    end
     end.
 %%--------------------------------------------------------------------
@@ -701,7 +698,7 @@ tls_tcp_msg_big(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
-    ct:log("Testcase ~p connected to Server ~p ~n", [self(), Server]),
+    ?CT_LOG("connected to Server ~p ~n", [Server]),
 
     gen_tcp:send(Socket, <<?BYTE(0),
 			   ?BYTE(3), ?BYTE(1), ?UINT16(?MAX_CIPHER_TEXT_LENGTH), Rand/binary>>),
@@ -712,7 +709,7 @@ tls_tcp_msg_big(Config) when is_list(Config) ->
 		{Server, {error, timeout}} ->
 		    ct:fail("hangs");
 		{Server, {error, Error}} ->
-		    ct:log("Error ~p", [Error]);
+		    ?CT_LOG("Error ~p", [Error]);
 		{'EXIT', Server, _} ->
 		    ok
 	    end
@@ -932,8 +929,7 @@ peername(Config) when is_list(Config) ->
     ServerMsg = {ok, {ClientIp, ClientPort}},
     ClientMsg = {ok, {ServerIp, Port}},
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
 
@@ -964,8 +960,7 @@ sockname(Config) when is_list(Config) ->
     ServerMsg = {ok, {ServerIp, Port}},
     ClientMsg = {ok, {ClientIp, ClientPort}},
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-			 [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
 
@@ -1018,8 +1013,7 @@ transport_close(Config) when is_list(Config) ->
     {ok, SslS} = rpc:call(ClientNode, ssl, connect,
 			  [TcpS,[{active, false}|ClientOpts]]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), self(), Server]),
+    ?CT_LOG("Server ~p ~n", [Server]),
     ok = ssl:send(SslS, "Hello world"),
     {ok,<<"Hello world">>} = ssl:recv(SslS, 11),
     gen_tcp:close(TcpS),
@@ -1423,7 +1417,7 @@ tls_socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues)
     ssl:setopts(Socket, [{nodelay, true}]),
     {ok,[{nodelay, true}]} = ssl:getopts(Socket, [nodelay]),
     {ok, All} = ssl:getopts(Socket, []),
-    ct:log("All opts ~p~n", [All]),
+    ?CT_LOG("All opts ~p~n", [All]),
     ok.
 
 active_tcp_recv(Socket, N) ->

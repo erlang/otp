@@ -21,6 +21,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("ssl_record.hrl").
 
@@ -181,11 +182,11 @@ run_mfl_handshake_continue(Config, MFL) ->
     MflEnum = mfl_enum(MFL),
     PostF = fun(Server, Client) ->
                     receive {Server, {ext, ServerExt}} ->
-                            ct:log("Server handshake Ext ~p~n", [ServerExt]),
+                            ?CT_LOG("Server handshake Ext ~p~n", [ServerExt]),
                             MflEnum = maps:get(max_frag_enum, ServerExt, undefined)
                     end,
                     receive {Client, {ext, ClientExt}} ->
-                            ct:log("Client handshake Ext ~p~n", [ClientExt]),
+                            ?CT_LOG("Client handshake Ext ~p~n", [ClientExt]),
                             case maps:get(server_hello_selected_version, ClientExt, undefined) of
                                 ?TLS_1_3 ->
                                     %% For TLS 1.3 the ssl {handshake, hello} API is inconsistent:
@@ -220,7 +221,7 @@ ssl_receive(Socket, Data) ->
 ssl_receive(Socket, Data, Buffer) ->
     receive
         {ssl, Socket, MoreData} ->
-            ct:log("Received ~p~n",[MoreData]),
+            ?CT_LOG("Received ~p~n",[MoreData]),
             NewBuffer = Buffer ++ MoreData,
             case NewBuffer of
                 Data ->
