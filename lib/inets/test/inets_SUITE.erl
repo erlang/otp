@@ -84,10 +84,6 @@ end_per_suite(_Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
-init_per_testcase(httpd_reload, Config) ->
-    inets:stop(),
-    ct:timetrap({seconds, 40}),
-    Config;
 init_per_testcase(_Case, Config) ->
     inets:stop(),
     Config.
@@ -261,26 +257,20 @@ httpd_reload(Config) when is_list(Config) ->
 		 {bind_address,  "localhost"}],
 
     ok = inets:start(),
-    ct:sleep(5000),
 
     {ok, Pid0} = inets:start(httpd, [{port, 0}, 
 				     {ipfamily, inet} | HttpdConf]),
-    ct:sleep(5000),
 
     [{port, Port0}] = httpd:info(Pid0, [port]),         
-    ct:sleep(5000),
 
     [{document_root, PrivDir}] =  httpd:info(Pid0, [document_root]),
-    ct:sleep(5000),
 
     ok = httpd:reload_config([{port, Port0}, {ipfamily, inet},
 			      {server_name, "httpd_test"}, 
 			      {server_root, PrivDir},
 			      {document_root, DataDir}, 
 			      {bind_address, "localhost"}], non_disturbing),
-    ct:sleep(5000),    
     [{document_root, DataDir}] =  httpd:info(Pid0, [document_root]),
-    ct:sleep(5000),    
 
     ok = httpd:reload_config([{port, Port0}, {ipfamily, inet},
 			      {server_name, "httpd_test"}, 
