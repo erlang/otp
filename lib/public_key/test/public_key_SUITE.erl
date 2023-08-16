@@ -836,8 +836,12 @@ pkix_path_validation(Config) when is_list(Config) ->
     
     {error, {bad_cert,invalid_issuer}} = 
 	public_key:pkix_path_validation(Trusted, [Cert2], []),
-    
+   
     {ok, _} = public_key:pkix_path_validation(Trusted, [Cert1, Cert2], []),    
+
+    {error, {bad_cert, duplicate_cert_in_path}} =
+	public_key:pkix_path_validation(Trusted, [Cert1, Cert1, Cert2], []),
+
     {error, issuer_not_found} = public_key:pkix_issuer_id(Cert2, other),
 
     CertK3 = {Cert3,_}  = erl_make_certs:make_cert([{issuer, CertK1}, 
