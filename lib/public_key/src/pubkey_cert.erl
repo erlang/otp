@@ -411,9 +411,8 @@ match_name(emailAddress, Name, [PermittedName | Rest]) ->
 match_name(dNSName, Name, [PermittedName | Rest]) ->
     Fun = fun(Domain, [$.|Domain]) -> true;
 	     (Name1,Name2) ->
-		  lists:suffix(string:to_lower(Name2),
-			       string:to_lower(Name1))
-	  end,
+		  is_suffix(Name2, Name1)
+          end,
     match_name(Fun, Name, [$.|PermittedName], Rest);
 
 match_name(x400Address, OrAddress, [PermittedAddr | Rest]) ->
@@ -561,11 +560,11 @@ root_cert(Name, Opts) ->
 %%--------------------------------------------------------------------
 do_normalize_general_name(Issuer) ->
     Normalize = fun([{Description, Type, {printableString, Value}}]) ->
-			NewValue = string:to_lower(strip_spaces(Value)),
-			[{Description, Type, {printableString, NewValue}}];
-		   (Atter)  ->
-			Atter
-		end,
+            NewValue = string:casefold(strip_spaces(Value, false)),
+            [{Description, Type, {printableString, NewValue}}];
+           (Atter)  ->
+            Atter
+        end,
     lists:map(Normalize, Issuer).
 
 %% See rfc3280 4.1.2.6 Subject: regarding emails.
@@ -718,14 +717,28 @@ is_dir_name(_,[],false) ->
 is_dir_name(_,_,_) ->
     false.
 
-is_dir_name2(Value, Value) -> true;
-is_dir_name2({printableString, Value1}, {printableString, Value2}) ->
-    string:to_lower(strip_spaces(Value1)) =:= 
-	string:to_lower(strip_spaces(Value2));
-is_dir_name2({utf8String, Value1}, String) ->
-    is_dir_name2({printableString, unicode:characters_to_list(Value1)}, String);
-is_dir_name2(String, {utf8String, Value1}) ->
-    is_dir_name2(String, {printableString, unicode:characters_to_list(Value1)});
+%% attribute values in types other than PrintableString are case
+%% sensitive (this permits matching of attribute values as binary
+%% objects); that is term comparison will compare. Rules origninate
+%% from RFC 3280 section 4.1.24. However fallback to case insensite
+%% matching also for utf8 strings, as this is done by the
+%% pkits_suite interop suite
+is_dir_name2(Str, Str) ->
+    true;
+is_dir_name2({T1, Str1}, Str2)
+  when T1 == printableString; T1 == utf8String ->
+    is_dir_name2(Str1, Str2);
+is_dir_name2(Str1, {T2, Str2})
+  when T2 == printableString; T2 == utf8String ->
+    is_dir_name2(Str1, Str2);
+is_dir_name2(Str1, Str2)
+  when (is_list(Str1) orelse is_binary(Str1)) andalso
+       (is_list(Str2) orelse is_binary(Str2)) ->
+    %%attribute values in PrintableString are compared after
+    %%removing leading and trailing white space and converting internal
+    %%substrings of one or more consecutive white space characters to a
+    %%single space. They are case insensetive.
+    string:equal(strip_spaces(Str1, true), strip_spaces(Str2, true), true);
 is_dir_name2(_, _) ->
     false.
 
@@ -743,13 +756,19 @@ decode_general_name([{directoryName, Issuer}]) ->
 decode_general_name([{_, Issuer}]) ->
     Issuer.
 
-%% Strip all leading and trailing spaces and make
-%% sure there is no double spaces in between. 
-strip_spaces(String) ->   
-    NewString = 
-	lists:foldl(fun(Char, Acc) -> Acc ++ Char ++ " " end, [], 
-		    string:tokens(String, " ")),
-    string:strip(NewString).
+strip_spaces(String0, KeepDeep) ->
+    Trimmed = string:trim(String0),
+    strip_many_spaces(string:split(Trimmed, "  ", all), KeepDeep).
+
+strip_many_spaces([OnlySingleSpace], _) ->
+    OnlySingleSpace;
+strip_many_spaces(Strings, KeepDeep) ->
+    Split = [string:trim(Str, leading, " ") || Str <- Strings, Str /= []],
+    DeepList = lists:join(" ", Split),
+    case KeepDeep of
+        true -> DeepList;
+        false -> unicode:characters_to_list(DeepList)
+    end.
 
 %% No extensions present
 validate_extensions(OtpCert, asn1_NOVALUE, ValidationState, ExistBasicCon,
@@ -1099,9 +1118,9 @@ is_valid_email_address(Canditate, Permitted, [_, _]) ->
     case_insensitive_match(Canditate, Permitted).
 
 is_suffix(Suffix, Str) ->
-    lists:suffix(string:to_lower(Suffix), string:to_lower(Str)).
+    lists:suffix(string:casefold(Suffix), string:casefold(Str)).
 case_insensitive_match(Str1, Str2) ->
-    string:to_lower(Str1) == string:to_lower(Str2).
+    string:equal(Str1, Str2, true).
 
 is_or_address(Address, Canditate) ->
     %% TODO: Is case_insensitive_match sufficient?
