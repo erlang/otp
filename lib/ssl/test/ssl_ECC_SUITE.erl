@@ -24,6 +24,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -127,7 +128,7 @@ end_per_suite(_Config) ->
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_protocol_version(GroupName) of
 	true ->
-            ct:log("Ciphers: ~p~n ", [ssl:cipher_suites(default, GroupName)]),
+            ?CT_LOG("Ciphers: ~p~n ", [ssl:cipher_suites(default, GroupName)]),
             ssl_test_lib:init_per_group(GroupName,
                                         [{client_type, erlang},
                                          {server_type, erlang},

@@ -21,6 +21,7 @@
 
 -module(openssl_reject_SUITE).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 %% Common test
 -export([all/0,
@@ -187,7 +188,7 @@ erlang_server_reject_sslv3(Config) when is_list(Config) ->
 
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
 
-    ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]),
+    ?CT_LOG("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]),
     ssl_test_lib:consume_port_exit(OpenSslPort),
     ssl_test_lib:check_server_alert(Server, protocol_version),
     process_flag(trap_exit, false).

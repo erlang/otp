@@ -23,6 +23,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("kernel/include/net_address.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -331,7 +332,7 @@ ktls_encrypt_decrypt(Client, Server) ->
         {ok, Data} ->
             ct:fail(recv_cleartext_data);
         {ok, RandomData} when length(Data) < length(RandomData) ->
-            ct:log("Received ~p", [RandomData]),
+            ?CT_LOG("Received ~p", [RandomData]),
             %% A TLS block should be longer than Data
             ok
     end,
@@ -504,7 +505,7 @@ listen_port_options(Config) when is_list(Config) ->
     {ok, C}    = gen_tcp:connect({127,0,0,1}, Port, []),
     {ok, S}    = gen_tcp:accept(L),
     ok         = gen_tcp:close(L),
-    ct:pal("Port: ~w", [Port]),
+    ?CT_LOG("Port: ~w", [Port]),
     %%
     %% Start a node on the server port, {reuseaddr,true}
     %% is used per default on the listening socket
@@ -870,9 +871,9 @@ listen_options_test(NH1, NH2, Config) ->
 	apply_on_ssl_node(NH2, fun get_socket_priorities/0),
 
     Elevated1 = [P || P <- PrioritiesNode1, P =:= Prio],
-    ct:pal("Elevated1: ~p~n", [Elevated1]),
+    ?CT_LOG("Elevated1: ~p~n", [Elevated1]),
     Elevated2 = [P || P <- PrioritiesNode2, P =:= Prio],
-    ct:pal("Elevated2: ~p~n", [Elevated2]),
+    ?CT_LOG("Elevated2: ~p~n", [Elevated2]),
     [_|_] = Elevated1,
     [_|_] = Elevated2.
 
@@ -895,9 +896,9 @@ connect_options_test(NH1, NH2, Config) ->
 	apply_on_ssl_node(NH2, fun get_socket_priorities/0),
 
     Elevated1 = [P || P <- PrioritiesNode1, P =:= Prio],
-    ct:pal("Elevated1: ~p~n", [Elevated1]),
+    ?CT_LOG("Elevated1: ~p~n", [Elevated1]),
     Elevated2 = [P || P <- PrioritiesNode2, P =:= Prio],
-    ct:pal("Elevated2: ~p~n", [Elevated2]),
+    ?CT_LOG("Elevated2: ~p~n", [Elevated2]),
     %% Node 1 will have a socket with elevated priority.
     [_|_] = Elevated1,
     %% Node 2 will not, since it only applies to outbound connections.
@@ -914,8 +915,8 @@ net_ticker_spawn_options_test(NH1, NH2, _Config) ->
     FullsweepOptionNode2 =
         apply_on_ssl_node(NH2, fun () -> get_dist_util_fullsweep_option(Node1) end),
 
-    ct:pal("FullsweepOptionNode1: ~p~n", [FullsweepOptionNode1]),
-    ct:pal("FullsweepOptionNode2: ~p~n", [FullsweepOptionNode2]),
+    ?CT_LOG("FullsweepOptionNode1: ~p~n", [FullsweepOptionNode1]),
+    ?CT_LOG("FullsweepOptionNode2: ~p~n", [FullsweepOptionNode2]),
 
     0 = FullsweepOptionNode1,
     0 = FullsweepOptionNode2.
@@ -1111,18 +1112,18 @@ add_ssl_opts_config(Config) ->
 		   VSN_PKEY,
 		   SSL_VSN]),
 	ok = file:close(RelFile),
-        ct:pal("Bootscript: ~p", [Script]),
+        ?CT_LOG("Bootscript: ~p", [Script]),
 	case systools:make_script(Script, []) of
             ok ->
                 ok;
             NotOk ->
-                ct:pal("Bootscript problem: ~p", [NotOk]),
+                ?CT_PAL("Bootscript problem: ~p", [NotOk]),
                 erlang:error(NotOk)
         end,
 	[{app_opts, "-boot " ++ Script} | Config]
     catch
 	Class : Reason : Stacktrace ->
-            ct:pal("Exception while generating bootscript:~n~p",
+            ?CT_LOG("Exception while generating bootscript:~n~p",
                    [{Class, Reason, Stacktrace}]),
 	    [{app_opts, "-pa \"" ++ filename:dirname(code:which(ssl))++"\""}
 	     | add_comment_config(

@@ -21,6 +21,7 @@
 %%
 -module(ssl_cert_tests).
 
+-include("ssl_test_lib.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Test cases
@@ -458,32 +459,32 @@ hello_retry_client_auth_empty_cert_rejected(Config) ->
 
 test_ciphers(_, 'tlsv1.3' = Version) ->
     Ciphers = ssl:cipher_suites(default, Version),
-    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = openssl_ciphers(),
-    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    ?CT_LOG("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
     lists:filter(fun(C) ->
-                         ct:log("Cipher ~p~n", [C]),
+                         ?CT_LOG("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers);
 test_ciphers(_, Version) when Version == 'dtlsv1';
                                 Version == 'dtlsv1.2' ->
     NVersion = dtls_record:protocol_version_name(Version),
     Ciphers = [ssl_cipher_format:suite_bin_to_map(Bin) ||  Bin <- dtls_v1:suites(NVersion)],
-    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = openssl_ciphers(),
-    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    ?CT_LOG("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
     lists:filter(fun(C) ->
-                         ct:log("Cipher ~p~n", [C]),
+                         ?CT_LOG("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers);
 test_ciphers(Kex, Version) ->
     Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(default, Version), 
                                        [{key_exchange, Kex}]),
-    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = openssl_ciphers(),
-    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    ?CT_LOG("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
     lists:filter(fun(C) ->
-                         ct:log("Cipher ~p~n", [C]),
+                         ?CT_LOG("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers).
 

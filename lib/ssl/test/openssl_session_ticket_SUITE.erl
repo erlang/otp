@@ -56,6 +56,7 @@
          openssl_client_early_data_basic/0,
          openssl_client_early_data_basic/1]).
 
+-include("ssl_test_lib.hrl").
 -include("tls_handshake.hrl").
 
 -include_lib("common_test/include/ct.hrl").
@@ -346,7 +347,7 @@ openssl_server_hrr_multiple_tickets(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -479,7 +480,7 @@ openssl_server_early_data_manual(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -528,7 +529,7 @@ openssl_server_early_data_manual_big(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -575,7 +576,7 @@ openssl_server_early_data_manual_2_tickets(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -626,7 +627,7 @@ openssl_server_early_data_manual_2_chacha_tickets(Config) when is_list(Config) -
     %% Receive 2 tickets that used Chacha20-Poly1305 and sha256
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),

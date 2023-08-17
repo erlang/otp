@@ -24,6 +24,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
@@ -227,8 +228,7 @@ connect_twice(Config) when is_list(Config) ->
 				   {options, [{keepalive, true},{active, false}
 					      | ClientOpts]}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-			 [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:check_result(Server, ok, Client1, ok),
@@ -817,7 +817,7 @@ incomplete_chain_length(Config) when is_list(Config)->
                          %% than the one received
                          {valid, UserState};
                     (_,{extension, _} = Extension, #{ext := N} = UserState) ->
-                         ct:pal("~p", [Extension]),
+                         ?CT_LOG("~p", [Extension]),
                          {unknown,  UserState#{ext => N +1}};
                     (_, valid, #{intermediates := N} = UserState) ->
                          {valid, UserState#{intermediates => N +1}};
@@ -825,7 +825,7 @@ incomplete_chain_length(Config) when is_list(Config)->
                                       ext := 1} = UserState) ->
                          {valid, UserState};
                     (_, valid_peer, UserState) ->
-                         ct:pal("~p", [UserState]),
+                         ?CT_LOG("~p", [UserState]),
                          {error, {bad_cert, too_short_path}}
                  end, #{intermediates => 0,
                         ext => 0}},
@@ -925,8 +925,7 @@ version_option_test(Config, Version) ->
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
 				   {options, [{active, false}, {versions, [Version]}| ClientOpts]}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-	   [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
@@ -1100,7 +1099,8 @@ check_process_count(Count, Try) ->
         Count ->
             ok;
         Other ->
-            ct:pal("Not expected number of cildren ~p on try ~p", [Other, Try]),
+            ?CT_PAL("Not expected number of cildren ~p on try ~p",
+                    [Other, Try]),
             ct:sleep(500), %% Wait long enough
             check_process_count(Count, Try - 1)
     end.

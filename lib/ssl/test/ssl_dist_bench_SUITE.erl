@@ -22,6 +22,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
@@ -447,12 +448,12 @@ setup(A, B, Prefix, Effort, HA, HB) ->
     _ = ssl_apply(HA, fun () -> set_cpu_affinity(client) end),
     {Log, Before, After} =
         ssl_apply(HB, fun () -> set_cpu_affinity(server) end),
-    ct:pal("Server CPU affinity: ~w -> ~w~n~s", [Before, After, Log]),
+    ?CT_PAL("Server CPU affinity: ~w -> ~w~n~s", [Before, After, Log]),
     MemStart = mem_start(HA, HB),
     ChildCountResult =
         ssl_dist_test_lib:apply_on_ssl_node(
           HA, supervisor, count_children, [tls_dist_connection_sup]),
-    ct:log("TLS Connection Child Count Result: ~p", [ChildCountResult]),
+    ?CT_LOG("TLS Connection Child Count Result: ~p", [ChildCountResult]),
     {SetupTime, CycleTime} =
         ssl_apply(HA, fun () -> setup_runner(A, B, Rounds) end),
     ok = ssl_apply(HB, fun () -> setup_wait_nodedown(A, 10000) end),
@@ -579,7 +580,7 @@ parallel_setup(Config, Clients, _0, HNs) ->
     try
         {Log, Before, After} =
             ssl_apply(ServerHandle, fun () -> set_cpu_affinity(server) end),
-        ct:pal("Server CPU affinity: ~w -> ~w~n~s", [Before, After, Log]),
+        ?CT_PAL("Server CPU affinity: ~w -> ~w~n~s", [Before, After, Log]),
         ServerMemBefore =
             ssl_apply(ServerHandle, fun mem/0),
         parallel_setup_result(
@@ -726,7 +727,7 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
     MemStart = mem_start(HA, HB),
     PidA = ssl_apply(HA, os, getpid, []),
     PidB = ssl_apply(HB, os, getpid, []),
-    ct:pal("Starting scheduler utilization run effort ~w:~n"
+    ?CT_PAL("Starting scheduler utilization run effort ~w:~n"
            "    [~s] ~w~n"
            "    [~s] ~w~n",
            [Effort, PidA, A, PidB, B]),
@@ -740,17 +741,17 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
                     "sched_utilization.Result", Result),
                   Result
           end),
-    ct:log("Got ~p busy_dist_port msgs",[tail(BusyDistPortMsgs)]),
+    ?CT_LOG("Got ~p busy_dist_port msgs",[tail(BusyDistPortMsgs)]),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
     {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
-    ct:log("Microstate accounting for node ~w:", [A]),
+    ?CT_LOG("Microstate accounting for node ~w:", [A]),
     msacc:print(ClientMsacc),
-    ct:log("Microstate accounting for node ~w:", [B]),
+    ?CT_LOG("Microstate accounting for node ~w:", [B]),
     msacc:print(ServerMsacc),
-    ct:log("Stats of B from A: ~p",
+    ?CT_LOG("Stats of B from A: ~p",
            [ssl_apply(HA, net_kernel, node_info, [B])]),
-    ct:log("Stats of A from B: ~p",
+    ?CT_LOG("Stats of A from B: ~p",
            [ssl_apply(HB, net_kernel, node_info, [A])]),
     SchedUtilClient =
         round(10000 * msacc:stats(system_runtime,ClientMsacc) /
@@ -765,7 +766,7 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
             is_integer(BusyDistPortMsgs) ->
                 " ?";
             true ->
-                ct:log("Stray Msgs: ~p", [BusyDistPortMsgs]),
+                ?CT_LOG("Stray Msgs: ~p", [BusyDistPortMsgs]),
                 " ???"
         end,
     _ = report(Prefix++" Sched Utilization Client Mem", MemA, "KByte"),
@@ -1422,7 +1423,7 @@ microseconds(Time) ->
     erlang:convert_time_unit(Time, native, microsecond).
 
 report(Name, Value, Suffix) ->
-    ct:pal("~s: ~w ~s", [Name, Value, Suffix]),
+    ?CT_PAL("~s: ~w ~s", [Name, Value, Suffix]),
     ct_event:notify(
       #event{
          name = benchmark_data,

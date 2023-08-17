@@ -24,6 +24,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include("ssl_record.hrl").
@@ -498,9 +499,9 @@ active_error_disallowed_client_renegotiate(Config) when is_list(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 renegotiate(Socket, Data) ->
-    ct:log("Renegotiating ~n", []),
+    ?CT_LOG("Renegotiating ~n", []),
     Result = ssl:renegotiate(Socket),
-    ct:log("Result ~p~n", [Result]),
+    ?CT_LOG("Result ~p~n", [Result]),
     ssl:send(Socket, Data),
     case Result of
 	ok ->
@@ -520,7 +521,7 @@ renegotiate_immediately(Socket) ->
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     ct:sleep(?RENEGOTIATION_DISABLE_TIME + ?SLEEP),
     ok = ssl:renegotiate(Socket),
-    ct:log("Renegotiated again"),
+    ?CT_LOG("Renegotiated again"),
     ssl:send(Socket, "Hello world"),
     ok.
 
@@ -530,7 +531,7 @@ renegotiate_rejected(Socket) ->
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     ct:sleep(?RENEGOTIATION_DISABLE_TIME +1),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
-    ct:log("Failed to renegotiate again"),
+    ?CT_LOG("Failed to renegotiate again"),
     ssl:send(Socket, "Hello world"),
     ok.
 

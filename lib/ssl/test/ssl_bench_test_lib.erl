@@ -25,6 +25,7 @@
 %% Internal exports
 -export([setup_server/1]).
 
+-include("ssl_test_lib.hrl").
 -define(remote_host, "NETMARKS_REMOTE_HOST").
 
 setup(Name) ->
@@ -46,7 +47,7 @@ setup(Name) ->
             PeerOptions =
                 #{name => NameStr,
                   host => Host},
-            ct:pal("PeerOptions: ~p~n", [PeerOptions]),
+            ?CT_PAL("PeerOptions: ~p~n", [PeerOptions]),
             {ok, _Pid, Node} =
                 peer:start(
                   case Remote of
@@ -60,7 +61,7 @@ setup(Name) ->
             Path = code:get_path(),
             true = erpc:call(Node, code, set_path, [Path]),
             ok = erpc:call(Node, ?MODULE, setup_server, [node()]),
-            ct:pal("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
+            ?CT_PAL("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
             (Node =:= node()) andalso restrict_schedulers(client),
             Node
     end.
@@ -73,7 +74,7 @@ find_executable(Prog) ->
 
 setup_server(ClientNode) ->
     (ClientNode =:= node()) andalso restrict_schedulers(server),
-    ct:pal("Server (~p) using ~ts~n",[node(), code:which(ssl)]),
+    ?CT_PAL("Server (~p) using ~ts~n",[node(), code:which(ssl)]),
     ok.
 
 restrict_schedulers(Type) ->

@@ -20,6 +20,7 @@
 
 -module(ssl_dist_test_lib).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include("ssl_dist_test_lib.hrl").
@@ -85,17 +86,17 @@ stop_ssl_node(#node_handle{connection_handler = Handler,
 			normal ->
 			    ok;
 			_ ->
-			    ct:pal(
+			    ?CT_PAL(
                               "stop_ssl_node/1 ~s Down  ~p ~n",
                               [Name,Reason])
 		    end
 	    end;
 	Error ->
 	    erlang:demonitor(Mon, [flush]),
-	    ct:pal("stop_ssl_node/1 ~s Warning ~p ~n", [Name,Error])
+	    ?CT_PAL("stop_ssl_node/1 ~s Warning ~p ~n", [Name,Error])
     end,
     ssl_test_lib:ct_pal_file(LogPath),
-    ct:pal("DumpPath(~pB) = ~p~n", [filelib:file_size(DumpPath), DumpPath]).
+    ?CT_LOG("DumpPath(~pB) = ~p~n", [filelib:file_size(DumpPath), DumpPath]).
 
 start_ssl_node(Name, Args) ->
     start_ssl_node(Name, Args, 1).

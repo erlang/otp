@@ -56,6 +56,7 @@
          client_restarts_multiple_acceptors/1
         ]).
 
+-include("ssl_test_lib.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 
 %%--------------------------------------------------------------------
@@ -384,10 +385,10 @@ client_restarts(Config) ->
 
     ReConnect =  %% Whitebox re-connect test
         fun({sslsocket, {gen_udp,_,dtls_gen_connection}, [Pid]} = Socket, ssl) ->
-                ct:log("~p Client Socket: ~p ~n", [self(), Socket]),
+                ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
                 {{Address,CPort},UDPSocket}=IntSocket,
-                ct:log("Info: ~p~n", [inet:info(UDPSocket)]),
+                ?CT_LOG("Info: ~p~n", [inet:info(UDPSocket)]),
 
                 {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
                              ssl = SslOpts0}} =
@@ -395,7 +396,7 @@ client_restarts(Config) ->
                 SslOpts = {SslOpts0, #socket_options{}, undefined},
 
                 ct:sleep(250),
-                ct:log("Client second connect: ~p ~p~n", [Socket, CbInfo]),
+                ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
                 {ok, NewSocket} = ssl_gen_statem:connect(ConnectionCb, Address, CPort, IntSocket,
                                                          SslOpts, self(), CbInfo, infinity),
                 {replace, NewSocket}
@@ -404,10 +405,10 @@ client_restarts(Config) ->
     Client0 ! {apply, self(), ReConnect},
     receive
         {apply_res, {replace, Res}} ->
-            ct:log("Apply res: ~p~n", [Res]),
+            ?CT_LOG("Apply res: ~p~n", [Res]),
             ok;
         ErrMsg ->
-            ct:log("Unhandled: ~p~n", [ErrMsg]),
+            ?CT_LOG("Unhandled: ~p~n", [ErrMsg]),
             ct:fail({wrong_msg, ErrMsg})
     end,
 
@@ -468,10 +469,10 @@ client_restarts_multiple_acceptors(Config) ->
 
     ReConnect =  %% Whitebox re-connect test
         fun({sslsocket, {gen_udp,_,dtls_gen_connection}, [Pid]} = Socket, ssl) ->
-                ct:log("~p Client Socket: ~p ~n", [self(), Socket]),
+                ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
                 {{Address,CPort},UDPSocket}=IntSocket,
-                ct:log("Info: ~p~n", [inet:info(UDPSocket)]),
+                ?CT_LOG("Info: ~p~n", [inet:info(UDPSocket)]),
 
                 {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
                              ssl = SslOpts0}} =
@@ -479,7 +480,7 @@ client_restarts_multiple_acceptors(Config) ->
                 SslOpts = {SslOpts0, #socket_options{}, undefined},
 
                 ct:sleep(250),
-                ct:log("Client second connect: ~p ~p~n", [Socket, CbInfo]),
+                ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
                 {ok, NewSocket} = ssl_gen_statem:connect(ConnectionCb, Address, CPort, IntSocket,
                                                          SslOpts, self(), CbInfo, infinity),
                 {replace, NewSocket}
@@ -488,10 +489,10 @@ client_restarts_multiple_acceptors(Config) ->
     Client0 ! {apply, self(), ReConnect},
     receive
         {apply_res, {replace, Res}} ->
-            ct:log("Apply res: ~p~n", [Res]),
+            ?CT_LOG("Apply res: ~p~n", [Res]),
             ok;
         ErrMsg ->
-            ct:log("Unhandled: ~p~n", [ErrMsg]),
+            ?CT_LOG("Unhandled: ~p~n", [ErrMsg]),
             ct:fail({wrong_msg, ErrMsg})
     end,
 

@@ -2866,21 +2866,21 @@ openssl_tls_version_support(Proto, Opts, Port, Exe, Args0) ->
                     close_port(OpensslPort),
                     true;
                 {error, {tls_alert, {protocol_version, _}}} ->
-                    ?CT_PAL("OpenSSL does not support ~p", [proplists:get_value(versions, Opts)]),
+                    ?CT_LOG("OpenSSL does not support ~p", [proplists:get_value(versions, Opts)]),
                     close_port(OpensslPort),
                     false;
                 {error, {tls_alert, Alert}} ->
-                    ?CT_PAL("OpenSSL returned alert ~p", [Alert]),
+                    ?CT_LOG("OpenSSL returned alert ~p", [Alert]),
                     close_port(OpensslPort),
                     false;
                 {error, timeout} ->
-                    ?CT_PAL("Timed out connection to OpenSSL", []),
+                    ?CT_LOG("Timed out connection to OpenSSL", []),
                     close_port(OpensslPort),
                     false
             end
     catch
         _:_ ->
-            ?CT_PAL("OpenSSL does not support ~p", [proplists:get_value(versions, Opts)]),
+            ?CT_LOG("OpenSSL does not support ~p", [proplists:get_value(versions, Opts)]),
             close_port(OpensslPort),
             false
     end.
@@ -2946,7 +2946,7 @@ check_key_exchange(KeyEx1, KeyEx2, Version) ->
         'dtlsv1.2' ->
             v_1_2_check(element(1, KeyEx1), KeyEx2);
         _ ->       
-            ?CT_PAL("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
+            ?CT_LOG("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
             false
     end.
 
@@ -4284,9 +4284,9 @@ ktls_set_cipher(Socket, OS, TxRx, Seed) ->
 ct_pal_file(FilePath) ->
     case file:read_file(FilePath) of
         {ok, Binary} ->
-            ?CT_PAL("~s ~pB~n~s",
+            ?CT_LOG("~s ~pB~n~s",
                     [FilePath, filelib:file_size(FilePath), Binary]);
         _ ->
-            ?CT_PAL("Failed to log ~s", [FilePath]),
+            ?CT_LOG("Failed to log ~s", [FilePath]),
             ok
     end.

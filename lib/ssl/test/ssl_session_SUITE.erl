@@ -23,6 +23,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include("tls_handshake.hrl").
 -include("ssl_record.hrl").
 
@@ -507,7 +508,7 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
 	{Client1, Info0} ->
 	    ct:fail(session_reused_when_server_has_new_cert);
 	{Client1, Info1} ->
-            ct:pal("First: ~p~nSecond ~p~n",[Info0, Info1]);
+            ?CT_LOG("First: ~p~nSecond ~p~n",[Info0, Info1]);
         Unexpected ->
             ct:fail({unexpected, Unexpected, {Client1, Info1}})
     end,
@@ -653,7 +654,7 @@ session_cachce_info(SessionCache) ->
 
 check_table_did_not_grow(SessionCachePid, N) ->
     {SessionCacheCb, SessionCacheDb} = session_cachce_info(SessionCachePid),
-    ct:pal("Run ~p ~p", [SessionCacheCb, SessionCacheDb]),
+    ?CT_LOG("Run ~p ~p", [SessionCacheCb, SessionCacheDb]),
     case catch SessionCacheCb:size(SessionCacheDb) of
         N ->
             ok;
