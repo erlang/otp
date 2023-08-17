@@ -160,7 +160,7 @@
 -type oid()                  :: tuple().
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
--type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | {revoked, crl_reason()} | atom().
+-type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | duplicate_cert_in_path | {revoked, crl_reason()} | atom().
 
 -type combined_cert()        :: #cert{}.
 -type cert()                 :: der_cert() | otp_cert().
@@ -1161,7 +1161,12 @@ pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
                                                                 MaxPathDefault, 
                                                                 [{verify_fun, {VerifyFun, UserState1}} | 
                                                                  proplists:delete(verify_fun, Options)]),
-            path_validation(CertChain, ValidationState)
+            case exists_duplicate_cert(CertChain) of
+                true ->
+                    {error, {bad_cert, duplicate_cert_in_path}};
+                false ->
+                    path_validation(CertChain, ValidationState)
+            end
     catch
         throw:{bad_cert, _} = Result ->
             {error, Result}
@@ -1552,6 +1557,20 @@ do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password) ->
 do_pem_entry_decode({Asn1Type,_, _} = PemEntry, Password) ->
     Der = pubkey_pem:decipher(PemEntry, Password),
     der_decode(Asn1Type, Der).
+
+%% The only way a path with duplicates could be somehow wrongly
+%% passed is if the certs are located together and also are
+%% self-signed. This is what we need to possible protect against. We
+%% only check for togetherness here as it helps with the case not
+%% otherwise caught. It can result in a different error message for
+%% cases already failing before but that is not important, the
+%% important thing is that it will be rejected.
+exists_duplicate_cert([]) ->
+    false;
+exists_duplicate_cert([Cert, Cert | _]) ->
+    true;
+exists_duplicate_cert([_ | Rest]) ->
+    exists_duplicate_cert(Rest).
 
 path_validation([], #path_validation_state{working_public_key_algorithm
 					   = Algorithm,
