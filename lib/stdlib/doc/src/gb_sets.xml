@@ -120,6 +120,7 @@
 
     <func>
       <name name="del_element" arity="2" since=""/>
+      <name name="delete_any" arity="2" since=""/>
       <fsummary>Remove a (possibly non-existing) element from a set.</fsummary>
       <desc>
         <p>Returns a new set formed from <c><anno>Set1</anno></c> with
@@ -141,18 +142,8 @@
     </func>
 
     <func>
-      <name name="delete_any" arity="2" since=""/>
-      <fsummary>Remove a (possibly non-existing) element from a set.</fsummary>
-      <desc>
-        <p>Returns a new set formed from <c><anno>Set1</anno></c> with
-          <c><anno>Element</anno></c> removed. If <c><anno>Element</anno></c>
-          is not an element
-          in <c><anno>Set1</anno></c>, nothing is changed.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="difference" arity="2" since=""/>
+      <name  name="subtract" arity="2" since=""/>
       <fsummary>Return the difference of two sets.</fsummary>
       <desc>
         <p>Returns only the elements of <c><anno>Set1</anno></c> that are not
@@ -254,6 +245,7 @@
 
     <func>
       <name name="is_element" arity="2" since=""/>
+      <name name="is_member" arity="2" since=""/>
       <fsummary>Test for membership of a set.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
@@ -278,15 +270,6 @@
           <c><anno>Set2</anno></c> are equal, that is when every element of
           one set is also a member of the respective other set, otherwise
           <c>false</c>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="is_member" arity="2" since=""/>
-      <fsummary>Test for membership of a set.</fsummary>
-      <desc>
-        <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
-          <c><anno>Set</anno></c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
 
@@ -408,15 +391,6 @@
       <desc>
         <p>Returns the smallest element in <c><anno>Set</anno></c>. Assumes that
           <c><anno>Set</anno></c> is not empty.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name  name="subtract" arity="2" since=""/>
-      <fsummary>Return the difference of two sets.</fsummary>
-      <desc>
-        <p>Returns only the elements of <c><anno>Set1</anno></c> that are not
-          also elements of <c><anno>Set2</anno></c>.</p>
       </desc>
     </func>
 
