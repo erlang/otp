@@ -129,6 +129,13 @@ division_bounds(_Config) ->
     any = beam_bounds:bounds('div', {10,'+inf'}, {0,0}),
     {'EXIT', {badarith, _}} = catch division_bounds_1([], ok),
 
+    {-10,10} = beam_bounds:bounds('div', {0,10}, any),
+    {-50,50} = beam_bounds:bounds('div', {-50,-15}, {-10,'+inf'}),
+    {-20,20} = beam_bounds:bounds('div', {-20,10}, any),
+    {-7,7} = beam_bounds:bounds('div', {-5,7}, {'-inf',-1}),
+    any = beam_bounds:bounds('div', {'-inf',10}, any),
+    any = beam_bounds:bounds('div', {0,'+inf'}, any),
+
     ok.
 
 %% GH-6604: Division by zero could cause type analysis to hang forever as
@@ -147,11 +154,14 @@ rem_bounds(_Config) ->
     {-7,7} = beam_bounds:bounds('rem', {'-inf',10}, {1,8}),
     {0,7} = beam_bounds:bounds('rem', {10,'+inf'}, {1,8}),
 
-    any = beam_bounds:bounds('rem', {1,10}, {'-inf',10}),
-    any = beam_bounds:bounds('rem', {1,10}, {10,'+inf'}),
+    {1,10} = beam_bounds:bounds('rem', {1,10}, {'-inf',10}),
+    {20,'+inf'} = beam_bounds:bounds('rem', {20,'+inf'}, {10,'+inf'}),
+    {'-inf',10} = beam_bounds:bounds('rem', {'-inf',10}, any),
 
-    any = beam_bounds:bounds('rem', {-10,10}, {'-inf',10}),
-    any = beam_bounds:bounds('rem', {-10,10}, {10,'+inf'}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {'-inf',89}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {7,'+inf'}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {'-inf',113}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {55,'+inf'}),
 
     ok.
 
@@ -171,8 +181,18 @@ band_bounds(_Config) ->
 bor_bounds(_Config) ->
     test_commutative('bor'),
 
-    any = beam_bounds:bounds('bor', {-10,0},{-1,10}),
-    any = beam_bounds:bounds('bor', {-20,-10}, {-1,10}),
+    {'-inf',15} = beam_bounds:bounds('bor', {-10,7},{3,10}),
+    {'-inf',11} = beam_bounds:bounds('bor', {-10,1},{-1,10}),
+    {'-inf',-1} = beam_bounds:bounds('bor', {-20,-10}, {-2,10}),
+
+    {'-inf',15} = beam_bounds:bounds('bor', {'-inf',10}, {3,5}),
+    {'-inf',-1} = beam_bounds:bounds('bor', {-20,-10}, {-100,-50}),
+
+    any = beam_bounds:bounds('bor', {-20,-10}, {-2,'+inf'}),
+    any = beam_bounds:bounds('bor', {-20,'+inf'}, {-7,-3}),
+
+    {16,'+inf'} = beam_bounds:bounds('bor', {0,8}, {16,'+inf'}),
+    {16,'+inf'} = beam_bounds:bounds('bor', {3,'+inf'}, {16,'+inf'}),
 
     ok.
 
@@ -257,7 +277,12 @@ bsl_bounds(_Config) ->
 
     {2,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {1,10_000}),
     {0,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {-10,10_000}),
+    {'-inf',-20} = beam_bounds:bounds('bsl', {-30,-10}, {1,10_000}),
+    {'-inf',-2} = beam_bounds:bounds('bsl', {-9,-1}, {1,10_000}),
     any = beam_bounds:bounds('bsl', {-7,10}, {1,10_000}),
+
+    {0,'+inf'} = beam_bounds:bounds('bsl', {0,'+inf'}, {0,'+inf'}),
+    {20,'+inf'} = beam_bounds:bounds('bsl', {20,30}, {0,'+inf'}),
 
     any = beam_bounds:bounds('bsl', {-10,100}, {0,'+inf'}),
     any = beam_bounds:bounds('bsl', {-10,100}, {1,'+inf'}),
@@ -270,6 +295,11 @@ bsl_bounds(_Config) ->
 
     {'-inf',-1} = beam_bounds:bounds('bsl', {-10,-1}, {500,1024}),
     {0,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {500,1024}),
+
+    {'-inf',-40} = beam_bounds:bounds('bsl', {'-inf',-10}, {2,64}),
+    {'-inf',224} = beam_bounds:bounds('bsl', {'-inf',7}, {3,5}),
+
+    any = beam_bounds:bounds('bsl', {'-inf',7}, {3,'+inf'}),
 
     ok.
 
