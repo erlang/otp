@@ -34,7 +34,7 @@ do0b(A, B) ->
     r0(Ls, #r{a=A+B,b=A+B}).
 
 r0([{Key,Val}|Updates], Acc=#r{a=A,b=B,c=C,tot=T}) ->
-%ssa% xfail (_, Rec) when post_ssa_opt ->
+%ssa% (_, Rec) when post_ssa_opt ->
 %ssa% _ = update_record(inplace, 5, Rec, ...),
 %ssa% _ = update_record(inplace, 5, Rec, ...),
 %ssa% _ = update_record(inplace, 5, Rec, ...).

@@ -129,8 +129,11 @@ opt(StMap0, FuncDb0) ->
     %% Ignore functions which are not in the function db (never
     %% called).
     Funs = [ F || F <- maps:keys(StMap0), is_map_key(F, FuncDb0)],
-    KillsMap = killsets(Funs, StMap0),
-    aa(Funs, KillsMap, StMap0, FuncDb0).
+    StMap1 = #{ F=>expand_record_update(OptSt) || F:=OptSt <- StMap0},
+    KillsMap = killsets(Funs, StMap1),
+    {StMap2, FuncDb} = aa(Funs, KillsMap, StMap1, FuncDb0),
+    StMap = #{ F=>restore_update_record(OptSt) || F:=OptSt <- StMap2},
+    {StMap, FuncDb}.
 
 %%%
 %%% Calculate the set of variables killed at each instruction. The
@@ -509,10 +512,15 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             update_tuple ->
                 {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
             update_record ->
-                [_Hint,_Size,Src|Updates] = Args,
-                Values = [Src|aa_update_record_get_vars(Updates)],
-                Types = aa_map_arg_to_type(Args,
-                                           maps:get(arg_types, Anno0, #{})),
+                [_Hint,_Size,_Src|Updates] = Args,
+                RecordType = maps:get(arg_types, Anno0, #{}),
+                ?DP("UPDATE RECORD dst: ~p, src: ~p, type:~p~n",
+                    [Dst,_Src,RecordType]),
+                Values = aa_update_record_get_vars(Updates),
+                ?DP("values: ~p~n", [Values]),
+                Types = aa_map_arg_to_type(Args, RecordType),
+                ?DP("updates: ~p~n", [Updates]),
+                ?DP("type-mapping: ~p~n", [Types]),
                 {aa_construct_term(Dst, Values, Types, SS1, AAS0), AAS0};
 
             %% Instructions which don't change the alias status
@@ -1589,6 +1597,123 @@ aa_breadth_first([], [], _Seen, _FuncDb) ->
     [];
 aa_breadth_first([], Next, Seen, FuncDb) ->
     aa_breadth_first(Next, [], Seen, FuncDb).
+
+expand_record_update(#opt_st{ssa=Linear0,cnt=First,anno=Anno0}=OptSt) ->
+    {Linear,Cnt} = eru_blocks(Linear0, First),
+    Anno = Anno0#{orig_cnt=>First},
+    OptSt#opt_st{ssa=Linear,cnt=Cnt,anno=Anno}.
+
+eru_blocks(Linear, First) ->
+    eru_blocks(Linear, First, []).
+
+eru_blocks([{Lbl,#b_blk{is=Is0}=Blk}|Rest], First, Acc) ->
+    {Is,Next} = eru_is(Is0, First, []),
+    eru_blocks(Rest, Next, [{Lbl,Blk#b_blk{is=Is}}|Acc]);
+eru_blocks([], Cnt, Acc) ->
+    {reverse(Acc),Cnt}.
+
+eru_is([#b_set{op=update_record,
+               args=[_Hint,#b_literal{val=Size},Src|Updates]=Args,
+               anno=Anno0}=I0|Rest], First, Acc) ->
+    ArgTypes0 = maps:get(arg_types, Anno0, #{}),
+    TupleType = maps:get(2, ArgTypes0, any),
+    {Extracts,ExtraArgs,Next,ArgTypes} =
+        eru_args(Updates, First, Src, Size, TupleType, ArgTypes0),
+    Anno = if map_size(ArgTypes) =:= 0 ->
+                   Anno0;
+              true ->
+                   Anno0#{arg_types=>ArgTypes}
+           end,
+    I = I0#b_set{args=Args++ExtraArgs,anno=Anno},
+    eru_is(Rest, Next, [I|Extracts]++Acc);
+eru_is([I|Rest], First, Acc) ->
+    eru_is(Rest, First, [I|Acc]);
+eru_is([], First, Acc) ->
+    {reverse(Acc), First}.
+
+eru_args(Updates, First, Src, Size, TupleType, ArgTypes) ->
+    eru_args1(Updates, sets:from_list(lists:seq(1, Size), [{version,2}]),
+              4, First, Src, TupleType, ArgTypes).
+
+eru_args1([#b_literal{val=Idx},_Val|Updates],
+          Remaining, ArgIdx, First, Src, TupleType, ArgTypes) ->
+    eru_args1(Updates, sets:del_element(Idx, Remaining), ArgIdx+2,
+              First, Src, TupleType, ArgTypes);
+eru_args1([], Remaining, ArgIdx, First, Src, TupleType, ArgTypes) ->
+    eru_args2(sets:to_list(Remaining), [], [], ArgIdx,
+              First, Src, TupleType, ArgTypes).
+
+eru_args2([Idx|Remaining], Extracts, Args0, ArgIdx, First,
+          Src, TupleType, ArgTypes0) ->
+    Dst = #b_var{name=First},
+    I = #b_set{dst=Dst,op=get_tuple_element,
+               args=[Src,#b_literal{val=Idx-1}],
+               anno=#{arg_types=>#{0=>TupleType}}},
+    ArgTypes = case TupleType of
+                   #t_tuple{elements=#{Idx:=ET}} ->
+                       ArgTypes0#{ArgIdx=>ET};
+                   _ ->
+                       ArgTypes0
+               end,
+    %% built in reverse to make argument indexes end up in the right
+    %% order after the final reverse.
+    Args = [Dst,#b_literal{val=Idx-1}|Args0],
+    eru_args2(Remaining, [I|Extracts], Args,
+              ArgIdx+2, First+1, Src, TupleType, ArgTypes);
+eru_args2([], Extracts, Args, _, First, _, _, ArgTypes) ->
+    {Extracts,reverse(Args),First,ArgTypes}.
+
+restore_update_record(#opt_st{ssa=Linear,anno=Anno}=OptSt) ->
+    Limit = map_get(orig_cnt, Anno),
+    OptSt#opt_st{ssa=rur_blocks(Linear, Limit),
+                 cnt=Limit,anno=maps:remove(orig_cnt, Anno)}.
+
+rur_blocks([{Lbl,#b_blk{is=Is}=Blk}|Rest], Limit) ->
+    [{Lbl,Blk#b_blk{is=rur_is(Is, Limit)}}|rur_blocks(Rest, Limit)];
+rur_blocks([], _) ->
+    [].
+
+rur_is([#b_set{dst=#b_var{name=Name},op=get_tuple_element}|Rest], Limit)
+  when is_integer(Name), Name >= Limit ->
+    rur_is(Rest, Limit);
+rur_is([#b_set{op=update_record,
+               args=[Hint,Size,Src|Updates],
+               anno=Anno0}=I0|Rest], Limit) ->
+    Anno = rur_filter_anno(
+             rur_filter_anno(Anno0, unique, Limit),
+             aliased, Limit),
+    Args = [Hint,Size,Src] ++ rur_args(Updates, Limit),
+    I = I0#b_set{args=Args,anno=Anno},
+    [I|rur_is(Rest, Limit)];
+rur_is([I|Rest], Limit) ->
+    [I|rur_is(Rest, Limit)];
+rur_is([], _) ->
+    [].
+
+rur_filter_anno(Anno, Key, Limit) ->
+    Vars = maps:get(Key, Anno, []),
+    case rur_filter_synthetic(Vars, Limit) of
+        [] ->
+            maps:remove(Key, Anno);
+        Vs ->
+            Anno#{Key=>Vs}
+    end.
+
+rur_filter_synthetic([#b_var{name=N}|Rest], Limit)
+  when is_integer(N), N >= Limit ->
+    rur_filter_synthetic(Rest, Limit);
+rur_filter_synthetic([V|Rest], Limit) ->
+    [V|rur_filter_synthetic(Rest, Limit)];
+rur_filter_synthetic([], _) ->
+    [].
+
+rur_args([_,#b_var{name=Name}|Updates], Limit)
+  when is_integer(Name), Name >= Limit ->
+    rur_args(Updates, Limit);
+rur_args([Idx,V|Updates], Limit) ->
+    [Idx,V|rur_args(Updates, Limit)];
+rur_args([], _) ->
+    [].
 
 -ifdef(EXTRA_ASSERTS).
 
