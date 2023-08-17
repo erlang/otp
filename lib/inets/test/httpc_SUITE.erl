@@ -2265,7 +2265,6 @@ keep_alive_requests(Request, Profile) ->
     ct:log("Cancel ~p~n", [RequestIdB1]),
     receive_replys([RequestIdB0, RequestIdB2]).
 
-
 receive_replys([]) ->
     ok;
 receive_replys([ID|IDs]) ->
@@ -2276,8 +2275,6 @@ receive_replys([ID|IDs]) ->
 	    ct:pal("~p",[{recived_canceld_id, Other}])
     end.
 
-
-
 inet_version() ->
     inet. %% Just run inet for now
     %% case gen_tcp:listen(0,[inet6]) of
@@ -2287,119 +2284,6 @@ inet_version() ->
     %% 	_ ->
     %% 	    inet
     %%end.
-
-dummy_server(Inet) ->
-    dummy_server(self(), ip_comm, Inet, []).
-
-dummy_server(SocketType, Inet, Extra) ->
-    dummy_server(self(), SocketType, Inet, Extra).
-
-dummy_server(Caller, SocketType, Inet, Extra) ->
-    Args = [Caller, SocketType, Inet, Extra],
-    Pid = spawn(httpc_SUITE, dummy_server_init, Args),
-    receive
-	{port, Port} ->
-	    {Pid, Port}
-    end.
-
-dummy_server_init(Caller, ip_comm, Inet, _) ->
-    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {keepalive, true}, {active, false}], 
-    {ok, ListenSocket} = gen_tcp:listen(0, [Inet | BaseOpts]),
-    {ok, Port} = inet:port(ListenSocket),
-    Caller ! {port, Port},
-    dummy_ipcomm_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
-						      {max_header, ?HTTP_MAX_HEADER_SIZE},
-						      {max_version,?HTTP_MAX_VERSION_STRING}, 
-						      {max_method, ?HTTP_MAX_METHOD_STRING},
-						      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
-						      {customize, httpd_custom}
-						     ]]},
-    [], ListenSocket);
-
-dummy_server_init(Caller, ssl, Inet, SSLOptions) ->
-    BaseOpts = [binary, {reuseaddr,true}, {active, false} |
-	        SSLOptions], 
-    dummy_ssl_server_init(Caller, BaseOpts, Inet).
-
-dummy_ssl_server_init(Caller, BaseOpts, Inet) ->
-    {ok, ListenSocket} = ssl:listen(0, [Inet | BaseOpts]),
-    {ok, {_, Port}} = ssl:sockname(ListenSocket),
-    Caller ! {port, Port},
-    dummy_ssl_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
-						   {max_method, ?HTTP_MAX_METHOD_STRING},
-						   {max_version,?HTTP_MAX_VERSION_STRING}, 
-						   {max_method, ?HTTP_MAX_METHOD_STRING},
-						   {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
-						   {customize, httpd_custom}
-						  ]]},
-			  [], ListenSocket).
-
-dummy_ipcomm_server_loop(MFA, Handlers, ListenSocket) ->
-    receive
-	stop ->
-	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers);
-	{stop, From} ->
-	    Stopper = fun(Handler) -> Handler ! stop end, 
-	    lists:foreach(Stopper, Handlers),
-	    From ! {stopped, self()}
-    after 0 ->
-	    {ok, Socket} = gen_tcp:accept(ListenSocket),
-	    HandlerPid  = dummy_request_handler(MFA, Socket),
-	    gen_tcp:controlling_process(Socket, HandlerPid),
-	    HandlerPid ! ipcomm_controller,
-	    dummy_ipcomm_server_loop(MFA, [HandlerPid | Handlers],
-				     ListenSocket)
-    end.
-
-dummy_ssl_server_loop(MFA, Handlers, ListenSocket) ->
-    receive
-	stop ->
-	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers);
-	{stop, From} ->
-	    Stopper = fun(Handler) -> Handler ! stop end, 
-	    lists:foreach(Stopper, Handlers),
-	    From ! {stopped, self()}
-    after 0 ->
-	    {ok, Tsocket} = ssl:transport_accept(ListenSocket),
-	    {ok, Ssocket} = ssl:handshake(Tsocket, infinity),
-	    HandlerPid  = dummy_request_handler(MFA, Ssocket),
-	    ssl:controlling_process(Ssocket, HandlerPid),
-	    HandlerPid ! ssl_controller,
-	    dummy_ssl_server_loop(MFA, [HandlerPid | Handlers],
-				  ListenSocket)
-    end.
-
-dummy_request_handler(MFA, Socket) ->
-    spawn(httpc_SUITE, dummy_request_handler_init, [MFA, Socket]).
-
-dummy_request_handler_init(MFA, Socket) ->
-    SockType = 
-	receive 
-	    ipcomm_controller ->
-		inet:setopts(Socket, [{active, true}]),
-		ip_comm;
-	    ssl_controller ->
-		ssl:setopts(Socket, [{active, true}]),
-		ssl
-	end,
-    dummy_request_handler_loop(MFA, SockType, Socket).
-    
-dummy_request_handler_loop({Module, Function, Args}, SockType, Socket) ->
-    receive 
-	{Proto, _, Data} when (Proto =:= tcp) orelse (Proto =:= ssl) ->
-	    case handle_request(Module, Function, [Data | Args], Socket) of
-		stop when Proto =:= tcp ->
-		    gen_tcp:close(Socket);
-		stop when Proto =:= ssl ->
-		    ssl:close(Socket);
-		NewMFA ->
-		    dummy_request_handler_loop(NewMFA, SockType, Socket)
-	    end;
-	stop when SockType =:= ip_comm ->
-	    gen_tcp:close(Socket);
-	stop when SockType =:= ssl ->
-	    ssl:close(Socket)
-    end.
 
 handle_request(Module, Function, Args, Socket) ->
     case Module:Function(Args) of
@@ -2485,31 +2369,6 @@ handle_http_msg({Method, RelUri, _, {_, Headers}, Body}, Socket, _) ->
 	    end
     end,
     NextRequest.
-
-dummy_ssl_server_hang(Caller, Inet, SslOpt) ->
-    Pid = spawn(httpc_SUITE, dummy_ssl_server_hang_init, [Caller, Inet, SslOpt]),
-    receive
-	{port, Port} ->
-	    {Pid, Port}
-    end.
-
-dummy_ssl_server_hang_init(Caller, Inet, SslOpt) ->
-    {ok, ListenSocket} =
-	ssl:listen(0, [binary, Inet, {packet, 0},
-			       {reuseaddr,true},
-			       {active, false}] ++ SslOpt),
-    {ok, {_,Port}} = ssl:sockname(ListenSocket),
-    Caller ! {port, Port},
-    {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),
-    dummy_ssl_server_hang_loop(AcceptSocket).
-
-dummy_ssl_server_hang_loop(_) ->
-    %% Do not do ssl:handshake as we
-    %% want to time out the underlying gen_tcp:connect
-    receive
-	stop ->
-	    ok
-    end.
 
 ensure_host_header_with_port([]) ->
     false;
