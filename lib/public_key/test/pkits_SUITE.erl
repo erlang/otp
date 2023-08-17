@@ -379,7 +379,7 @@ string_name_chain() ->
     [{doc,"Test name chaining"}].
 string_name_chain(Config) when is_list(Config) ->
     run([{ "4.3.9", "Valid UTF8String Encoded Names Test9 EE", ok},
-	 %%{ "4.3.10", "Valid Rollover from PrintableString to UTF8String Test10 EE", ok},
+         { "4.3.10", "Valid Rollover from PrintableString to UTF8String Test10 EE", ok},
 	 { "4.3.11", "Valid UTF8String Case Insensitive Match Test11 EE", ok}]).
 
 %%----------------------------verifying_paths_with_self_issued_certificates-------------------------------------------------
@@ -1478,7 +1478,8 @@ intermidiate_cas(Chap) when Chap == "4.5.8" ->
 
 
 %%%%%%%%%%%%%%% CRL mappings %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+crl_names("4.3.10") ->
+    ["PrintableString to UTF8String CA CRL"];
 crl_names("4.4.1") ->
     ["Trust Anchor Root CRL"];
 crl_names("4.4.2") ->

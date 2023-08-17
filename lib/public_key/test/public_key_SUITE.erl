@@ -117,6 +117,8 @@
          pkix_test_data_all_default/1,
          pkix_test_data/0,
          pkix_test_data/1,
+         pkix_is_issuer/0,
+         pkix_is_issuer/1,
          short_cert_issuer_hash/0,
          short_cert_issuer_hash/1,
          short_crl_issuer_hash/0,
@@ -167,6 +169,7 @@ all() ->
      pkix_dist_point_uri,
      pkix_test_data_all_default,
      pkix_test_data,
+     pkix_is_issuer,
      short_cert_issuer_hash, 
      short_crl_issuer_hash,
      cacerts_load
@@ -1245,6 +1248,7 @@ pkix_test_data_all_default(Config) when is_list(Config) ->
     check_conf_member(ServerConf1, [key, cert, cacerts]),
     check_conf_member(ClientConf1, [key, cert, cacerts]).
     
+%%--------------------------------------------------------------------
 
 pkix_test_data() ->
     [{doc, "Test API function pkix_test_data/1"}].
@@ -1289,6 +1293,23 @@ check_conf_member(Conf, [Member | Rest]) ->
             ct:fail({misssing_conf, Member})
     end.
                               
+%%--------------------------------------------------------------------
+pkix_is_issuer() ->
+    [{doc, "Test pubkey_cert:pkix_is_issuer with cert that have diffent cases on countryname"}].
+
+pkix_is_issuer(Config) when is_list(Config) ->
+    Upper = {rdnSequence,
+             [[{'AttributeTypeAndValue',{2,5,4,6},"GB"}],
+              [{'AttributeTypeAndValue',{2,5,4,10},{utf8String,<<"MYORG">>}}],
+              [{'AttributeTypeAndValue',{2,5,4,11},{utf8String,<<"INTERMEDIATE">>}}],
+              [{'AttributeTypeAndValue',{2,5,4,3},{utf8String,<<"INTERMEDIATE">>}}]]},
+    Lower = {rdnSequence,
+             [[{'AttributeTypeAndValue',{2,5,4,6},"gb"}],
+              [{'AttributeTypeAndValue',{2,5,4,10},{utf8String,<<"MYORG">>}}],
+              [{'AttributeTypeAndValue',{2,5,4,11},{utf8String,<<"INTERMEDIATE">>}}],
+              [{'AttributeTypeAndValue',{2,5,4,3},{utf8String,<<"INTERMEDIATE">>}}]]},
+    true = pubkey_cert:is_issuer(Upper, Lower).
+
 %%--------------------------------------------------------------------
 short_cert_issuer_hash() ->
     [{doc, "Test OpenSSL-style hash for certificate issuer"}].
