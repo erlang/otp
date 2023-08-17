@@ -82,8 +82,8 @@
          stateless_multiple_servers/0,
          stateless_multiple_servers/1]).
 
+-include("ssl_test_lib.hrl").
 -include("tls_handshake.hrl").
-
 -include_lib("common_test/include/ct.hrl").
 
 -define(SLEEP, 500).
@@ -648,7 +648,7 @@ multiple_tickets(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     ssl_test_lib:check_result(Server0, ok),
 
@@ -710,7 +710,7 @@ multiple_tickets_2hash(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     ssl_test_lib:check_result(Server0, ok),
 
@@ -734,7 +734,7 @@ multiple_tickets_2hash(Config) when is_list(Config) ->
 
     Tickets1 = ssl_test_lib:check_tickets(Client1),
 
-    ct:pal("Received tickets: ~p~n", [Tickets1]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets1]),
 
     ssl_test_lib:check_result(Server0, ok),
 

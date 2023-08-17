@@ -24,6 +24,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("ssl/src/tls_record.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
@@ -118,7 +119,7 @@ encode_and_decode_npn_server_hello_test(Config) ->
 	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
                                         default_options_map()),
     Extensions = DecodedHandshakeMessage#server_hello.extensions, 
-    ct:log("~p ~n", [Extensions]),
+    ?CT_LOG("~p ~n", [Extensions]),
     #{next_protocol_negotiation := #next_protocol_negotiation{extension_data = <<6, "spdy/2">>}} = Extensions.
 
 %%--------------------------------------------------------------------

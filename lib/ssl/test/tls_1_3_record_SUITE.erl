@@ -20,6 +20,7 @@
 
 -module(tls_1_3_record_SUITE).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/tls_record.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
@@ -180,7 +181,7 @@ encode_decode(_Config) ->
         tls_record_1_3:decode_cipher_text(CipherText, ConnectionStates),
 
     DecodedText = iolist_to_binary(PlainText),
-    ct:log("Decoded: ~p ~n", [DecodedText]),
+    ?CT_LOG("Decoded: ~p ~n", [DecodedText]),
     ok.
 %%--------------------------------------------------------------------
 '1_RTT_handshake'() ->

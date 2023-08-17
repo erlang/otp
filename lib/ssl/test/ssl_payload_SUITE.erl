@@ -22,6 +22,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 %% Common test
 -export([all/0,
@@ -792,40 +793,40 @@ send_close(Socket, Data) ->
     ssl:close(Socket).
 
 sender(Socket, Data) ->
-    ct:log("Sender recv: ~p~n", [ssl:getopts(Socket, [active])]),
+    ?CT_LOG("Sender recv: ~p~n", [ssl:getopts(Socket, [active])]),
     send(Socket, Data, 100,
               fun() -> 
                       ssl_test_lib:recv_disregard(Socket, byte_size(Data)) 
               end).
 
 sender_active_once(Socket, Data) ->
-    ct:log("Sender active once: ~p~n", [ssl:getopts(Socket, [active])]),
+    ?CT_LOG("Sender active once: ~p~n", [ssl:getopts(Socket, [active])]),
     send(Socket, Data, 100,
          fun() -> 
                  ssl_test_lib:active_once_disregard(Socket, byte_size(Data)) 
          end).
 
 sender_active(Socket, Data) ->
-    ct:log("Sender active: ~p~n", [ssl:getopts(Socket, [active])]),
+    ?CT_LOG("Sender active: ~p~n", [ssl:getopts(Socket, [active])]),
     send(Socket, Data, 100,
          fun() -> 
                  ssl_test_lib:active_disregard(Socket, byte_size(Data)) 
          end).
 
 echoer(Socket, Size) ->
-    ct:log("Echoer recv: ~p~n", [ssl:getopts(Socket, [active])]),
+    ?CT_LOG("Echoer recv: ~p~n", [ssl:getopts(Socket, [active])]),
     echo_recv(Socket, Size * 100).
 
 echoer_chunk(Socket, Size) ->
-    ct:log("Echoer recv: ~p~n", [ssl:getopts(Socket, [active])]),
+    ?CT_LOG("Echoer recv: ~p~n", [ssl:getopts(Socket, [active])]),
     echo_recv_chunk(Socket, Size, Size * 100).
 
 echoer_active_once(Socket, Size) ->
-    ct:log("Echoer active once: ~p~n", [ssl:getopts(Socket, [active])]),
+    ?CT_LOG("Echoer active once: ~p~n", [ssl:getopts(Socket, [active])]),
     echo_active_once(Socket, Size * 100).
 
 echoer_active(Socket, Size) ->
-    ct:log("Echoer active: ~p~n", [ssl:getopts(Socket, [active])]),
+    ?CT_LOG("Echoer active: ~p~n", [ssl:getopts(Socket, [active])]),
     echo_active(Socket, Size * 100).
 
 

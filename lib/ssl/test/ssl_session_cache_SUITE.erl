@@ -24,6 +24,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %% Callback functions
@@ -380,7 +381,7 @@ max_table_size(Config) when is_list(Config) ->
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),	
     M = ?CLIENT_CB:size(ClientCache),
-    ct:pal("Cache size ~p",[M]),
+    ?CT_LOG("Cache size ~p",[M]),
     ssl_test_lib:close(Server, 500),
     ssl_test_lib:close(LastClient),
     true = M =< ?MAX_TABLE_SIZE.

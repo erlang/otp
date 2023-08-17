@@ -21,6 +21,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %% Common test
@@ -94,7 +95,7 @@ upgrade_init(CtData, State) ->
 upgrade_upgraded(_, #state{skip = true} = State) ->
     State;
 upgrade_upgraded(_, #state{soft = false, config = Config, result_proxy = Pid} = State) ->
-    ct:pal("Restart upgrade ~n", []),
+    ?CT_PAL("Restart upgrade ~n", []),
     {Server, Client} = restart_start_connection(Config, Pid),
     Result = check_result(Pid, Server, Client),
     ssl_test_lib:close(Server),
@@ -104,7 +105,7 @@ upgrade_upgraded(_, #state{soft = false, config = Config, result_proxy = Pid} = 
 upgrade_upgraded(_, #state{server = Server0, client = Client0,
 			   config = Config, soft = true,
 			   result_proxy = Pid} = State) ->
-    ct:pal("Soft upgrade: ~n", []),
+    ?CT_PAL("Soft upgrade: ~n", []),
     Server0 ! changed_version,
     Client0 ! changed_version,
     Result = check_result(Pid, Server0, Client0),
@@ -117,7 +118,7 @@ upgrade_upgraded(_, #state{server = Server0, client = Client0,
 upgrade_downgraded(_, #state{skip = true} = State) ->
     State;
 upgrade_downgraded(_, #state{soft = false, config = Config, result_proxy = Pid} = State) ->
-    ct:pal("Restart downgrade: ~n", []),
+    ?CT_PAL("Restart downgrade: ~n", []),
     {Server, Client} = restart_start_connection(Config, Pid),
     Result = check_result(Pid, Server, Client),
     ssl_test_lib:close(Server),
@@ -126,7 +127,7 @@ upgrade_downgraded(_, #state{soft = false, config = Config, result_proxy = Pid} 
     ok = Result,
     State;
 upgrade_downgraded(_, #state{server = Server, client = Client, soft = true, result_proxy = Pid} = State) ->
-    ct:pal("Soft downgrade: ~n", []),
+    ?CT_PAL("Soft downgrade: ~n", []),
     Server ! changed_version,
     Client ! changed_version,
     Result = check_result(Pid, Server, Client),
@@ -156,7 +157,7 @@ upgrade_init(_, "8.0.2", _, State) ->
     State#state{skip = true};
 upgrade_init(_, _, CtData, #state{config = Config} = State) ->
     {ok, {_, _, Up, _Down}} = ct_release_test:get_appup(CtData, ssl),
-    ct:pal("Up: ~p", [Up]),
+    ?CT_PAL("Up: ~p", [Up]),
     Soft = is_soft(Up), %% It is symmetrical, if upgrade is soft so is downgrade
     Pid = spawn(?MODULE, result_proxy_init, [[]]),
     case Soft of

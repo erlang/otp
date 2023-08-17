@@ -73,13 +73,13 @@ init_tool(Config) ->
                            [ToolModule, lists:concat([ToolModule,".beam"])]),
                     {skip, "Strange Property testing tool installation"};
                 ToolPath ->
-                    ct:pal("Found property tester ~p at ~ts",
+                    ct:log("Found property tester ~p at ~ts",
                            [ToolModule, ToolPath]),
                     init_tool_extensions(ToolModule),
                     [{property_test_tool, ToolModule} | Config]
             end;
         not_found ->
-            ct:pal("No property tester found",[]),
+            ct:log("No property tester found",[]),
             {skip, "No property testing tool found"}
     end.
 
@@ -208,7 +208,7 @@ compile_tests(Path, Config) ->
         ok ->
             case file:list_dir(".") of
                 {ok,[]} ->
-                    ct:pal("No files found in ~tp", [Path]),
+                    ct:log("No files found in ~tp", [Path]),
                     ok = file:set_cwd(Cwd),
                     {skip, "No files found"};
                 {ok,FileNames} ->
@@ -217,7 +217,7 @@ compile_tests(Path, Config) ->
                     ErlFiles = [F || F<-FileNames,
                                       filename:extension(F) == ".erl"],
                     _ = [file:delete(F) || F<-BeamFiles],
-                    ct:pal("Compiling in ~tp~n"
+                    ct:log("Compiling in ~tp~n"
                            "  Deleted:   ~p~n"
                            "  ErlFiles:  ~tp~n"
                            "  MacroDefs: ~p",
