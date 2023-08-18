@@ -71,6 +71,7 @@ MODULES= \
 	re_testoutput1_split_test \
 	slave_SUITE \
 	sets_SUITE \
+	sets_property_test_SUITE \
 	sets_test_lib \
 	sofs_SUITE \
 	stdlib_SUITE \
