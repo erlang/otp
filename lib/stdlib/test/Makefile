@@ -44,6 +44,7 @@ MODULES= \
 	filename_SUITE \
 	fixtable_SUITE \
 	format_SUITE \
+	gb_sets_property_test_SUITE \
 	gen_event_SUITE \
 	gen_fsm_SUITE \
 	gen_server_SUITE \
