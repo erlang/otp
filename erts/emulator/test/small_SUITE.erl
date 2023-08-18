@@ -521,17 +521,21 @@ div_gen_pairs() ->
     {_, MaxSmall} = determine_small_limits(0),
     NumBitsMaxSmall = num_bits(MaxSmall),
 
-    %% Generate random pairs of smalls.
-    Pairs0 = [{rand:uniform(MaxSmall) * rand_sign(),
-               rand:uniform(MaxSmall) * rand_sign()} ||
-                 _ <- lists:seq(1, 75)],
+    Divisors = [-8,-2,-1,1,2,3,4,5,8,16,17,64,22222333] ++
+        [1 bsl P || P <- lists:seq(8, 12) ++ lists:seq(26, 36)],
 
-    Pairs1 = [{rand:uniform(MaxSmall), N} ||
-                 N <- [-4,-3,-2,-1,1,2,3,5,17,63,64,1111,22222]] ++ Pairs0,
+    %% Generate random pairs of smalls.
+    Pairs0 = [{rand:uniform(MaxSmall),
+               rand:uniform(MaxSmall) * rand_sign()} ||
+                 _ <- lists:seq(1, 50)],
+    Pairs1 = [{rand:uniform(MaxSmall), N} || N <- Divisors] ++ Pairs0,
+    Pairs2 = [{N, M} || N <- lists:seq(0, 7), M <- [-2,-1,1,2,3,4]] ++ Pairs1,
+    Pairs3 = [{abs(M) * (rand:uniform(10)+1) + rand:uniform(1000), M} ||
+                 M <- Divisors] ++ Pairs2,
 
     %% Generate pairs of numbers whose product are bignums.
     [{rand:uniform(MaxSmall),1 bsl Pow} ||
-        Pow <- lists:seq(NumBitsMaxSmall - 4, NumBitsMaxSmall - 1)] ++ Pairs1.
+        Pow <- lists:seq(NumBitsMaxSmall - 4, NumBitsMaxSmall - 1)] ++ Pairs3.
 
 rand_sign() ->
     case rand:uniform() < 0.2 of
@@ -572,6 +576,22 @@ gen_div_function({Name,{A,B}}) ->
            put(prevent_div_rem_fusion, Q),
            R = X rem Y,
            {Q, R};
+        '@Name@'(pos_integer1, X, fixed) when is_integer(X), 0 =< X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(pos_integer2, X, fixed) when is_integer(X), 0 =< X, X < _@APlusOne@ ->
+           Y = _@B@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(pos_integer3, X, fixed) when is_integer(X), 0 =< X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
+           {Q, R};
         '@Name@'(number0, X, Y) when -_@APlusOne@ < X, X < _@APlusOne@,
                                     -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
            Q = X div Y,
@@ -597,21 +617,167 @@ gen_div_function({Name,{A,B}}) ->
            Q = X div Y,
            put(prevent_div_rem_fusion, Q),
            R = X rem Y,
+           {Q, R};
+        '@Name@'(any0, X, fixed) ->
+           Y = _@B@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(any1, X, fixed) ->
+           Y = _@B@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(any2, X, fixed) ->
+           Y = _@B@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(X0, Y0, integer0) ->
+           Q = X0 div Y0,
+           R = X0 rem Y0,
+           if X0 > 0, Y0 > 0 ->
+             <<X:_@NumBitsA@>> = <<X0:_@NumBitsA@>>,
+             <<Y:_@NumBitsB@>> = <<Y0:_@NumBitsB@>>,
+             Q = X div Y,
+             R = X rem Y,
+             {Q, R};
+           true ->
+             {Q, R}
+           end;
+        '@Name@'(X, fixed, integer1) when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(X, fixed, integer2) when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(X, fixed, integer3) when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(X, fixed, pos_integer1) when is_integer(X), 0 =< X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(X, fixed, pos_integer2) when is_integer(X), 0 =< X, X < _@APlusOne@ ->
+           Y = _@B@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(X, fixed, pos_integer3) when is_integer(X), 0 =< X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(X, Y, number0) when -_@APlusOne@ < X, X < _@APlusOne@,
+                                    -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(X, Y, number1) when -_@APlusOne@ < X, X < _@APlusOne@,
+                                    -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(X, fixed, number2) when -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(X, fixed, number3) when -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(X, fixed, number4) when -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(X, fixed, any0) ->
+           Y = _@B@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(X, fixed, any1) ->
+           Y = _@B@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(X, fixed, any2) ->
+           Y = _@B@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
            {Q, R}. ").
 
 test_division([{Name,{A,B}}|T], Mod) ->
     F = fun Mod:Name/3,
     try
-        Res0 = {A div B, A rem B},
-        Res0 = F(integer0, A, B),
-        Res0 = F(integer1, A, fixed),
-        Res0 = F(integer2, A, fixed),
-        Res0 = F(integer3, A, fixed),
-        Res0 = F(number0, A, B),
-        Res0 = F(number1, A, B),
-        Res0 = F(number2, A, fixed),
-        Res0 = F(number3, A, fixed),
-        Res0 = F(number4, A, fixed)
+        PosRes = {A div B, A rem B},
+        NegRes = {-A div B, -A rem B},
+
+        PosRes = F(integer0, A, B),
+        PosRes = F(integer1, A, fixed),
+        PosRes = F(integer2, A, fixed),
+        PosRes = F(integer3, A, fixed),
+        PosRes = F(pos_integer1, A, fixed),
+        PosRes = F(pos_integer2, A, fixed),
+        PosRes = F(pos_integer3, A, fixed),
+        PosRes = F(number0, A, B),
+        PosRes = F(number1, A, B),
+        PosRes = F(number2, A, fixed),
+        PosRes = F(number3, A, fixed),
+        PosRes = F(number4, A, fixed),
+        PosRes = F(any0, A, fixed),
+        PosRes = F(any1, A, fixed),
+        PosRes = F(any2, A, fixed),
+
+        PosRes = F(A, B, integer0),
+        PosRes = F(A, fixed, integer1),
+        PosRes = F(A, fixed, integer2),
+        PosRes = F(A, fixed, integer3),
+        PosRes = F(A, fixed, pos_integer1),
+        PosRes = F(A, fixed, pos_integer2),
+        PosRes = F(A, fixed, pos_integer3),
+        PosRes = F(A, B, number0),
+        PosRes = F(A, B, number1),
+        PosRes = F(A, fixed, number2),
+        PosRes = F(A, fixed, number3),
+        PosRes = F(A, fixed, number4),
+        PosRes = F(A, fixed, any0),
+        PosRes = F(A, fixed, any1),
+        PosRes = F(A, fixed, any2),
+
+        NegRes = F(integer0, -A, B),
+        NegRes = F(integer1, -A, fixed),
+        NegRes = F(integer2, -A, fixed),
+        NegRes = F(integer3, -A, fixed),
+        NegRes = F(number0, -A, B),
+        NegRes = F(number1, -A, B),
+        NegRes = F(number2, -A, fixed),
+        NegRes = F(number3, -A, fixed),
+        NegRes = F(number4, -A, fixed),
+
+        NegRes = F(-A, B, integer0),
+        NegRes = F(-A, fixed, integer1),
+        NegRes = F(-A, fixed, integer2),
+        NegRes = F(-A, fixed, integer3),
+        NegRes = F(-A, B, number0),
+        NegRes = F(-A, B, number1),
+        NegRes = F(-A, fixed, number2),
+        NegRes = F(-A, fixed, number3),
+        NegRes = F(-A, fixed, number4)
     catch
         C:R:Stk ->
             io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
