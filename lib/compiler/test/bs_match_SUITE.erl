@@ -2743,6 +2743,8 @@ bs_match(_Config) ->
 
     {'EXIT',{{case_clause,_},_}} = catch do_bs_match_gh_6755(id(<<"1000">>)),
 
+    {'EXIT',{{badmatch,<<>>},_}} = catch do_bs_match_gh_7467(<<>>),
+
     ok.
 
 do_bs_match_1(_, X) ->
@@ -2813,6 +2815,9 @@ do_bs_match_gh_6755(B) ->
     case B of
         <<"b">> -> b
     end.
+
+do_bs_match_gh_7467(A) ->
+    do_bs_match_gh_7467(<<_:1/bits>> = A).
 
 %% GH-6348/OTP-18297: Allow aliases for binaries.
 -record(ba_foo, {a,b,c}).

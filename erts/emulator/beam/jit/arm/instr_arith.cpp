@@ -696,9 +696,14 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
         if (Support::isPowerOf2(divisor) &&
             std::get<0>(getClampedRange(LHS)) >= 0) {
             int trailing_bits = Support::ctz<Eterm>(divisor);
+            arm::Gp LHS_reg = lhs.reg;
             if (need_div) {
                 comment("optimized div by replacing with right shift");
                 ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                if (need_rem && quotient.reg == lhs.reg) {
+                    LHS_reg = TMP1;
+                    a.mov(LHS_reg, lhs.reg);
+                }
                 a.lsr(quotient.reg, lhs.reg, imm(trailing_bits));
                 a.orr(quotient.reg, quotient.reg, imm(_TAG_IMMED1_SMALL));
             }
@@ -706,7 +711,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                 comment("optimized rem by replacing with masking");
                 auto mask = Support::lsbMask<Uint>(trailing_bits +
                                                    _TAG_IMMED1_SIZE);
-                a.and_(remainder.reg, lhs.reg, imm(mask));
+                a.and_(remainder.reg, LHS_reg, imm(mask));
             }
         } else {
             a.asr(TMP1, lhs.reg, imm(_TAG_IMMED1_SIZE));

@@ -1699,9 +1699,8 @@ validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
             Vst1 = update_bs_unit(Ctx, Unit, Vst0),
             Vst = update_type(fun meet/2, Type, Ctx, Vst1),
             validate_bs_match(Is, Ctx, Unit, Vst);
-        {ensure_exactly,Stride} ->
-            Vst = advance_bs_context(Ctx, Stride, Vst0),
-            validate_bs_match(Is, Ctx, Unit0, Vst);
+        {ensure_exactly,_Stride} ->
+            validate_bs_match(Is, Ctx, Unit0, Vst0);
         {'=:=',nil,Bits,Value} when Bits =< 64, is_integer(Value) ->
             validate_bs_match(Is, Ctx, Unit0, Vst0);
         {Type0,Live,{literal,Flags},Size,Unit,Dst} when Type0 =:= binary;
