@@ -2289,22 +2289,28 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                        seg.size.as<ArgAtom>().get() == am_all) {
                 /* Include the entire binary/bitstring in the
                  * resulting binary. */
-                mov_imm(ARG4, seg.unit);
+                can_fail =
+                        !(exact_type<BeamTypeId::Bitstring>(seg.src) &&
+                          std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit);
+
+                if (can_fail) {
+                    mov_imm(ARG4, seg.unit);
+                }
                 mov_arg(ARG3, seg.src);
                 a.mov(ARG2, c_p);
                 load_erl_bits_state(ARG1);
-                runtime_call<int (*)(ErlBitsState *, Process *, Eterm, Uint),
-                             erts_bs_put_binary_all>();
+                if (can_fail) {
+                    runtime_call<
+                            int (*)(ErlBitsState *, Process *, Eterm, Uint),
+                            erts_bs_put_binary_all>();
+                } else {
+                    runtime_call<void (*)(ErlBitsState *, Process *, Eterm),
+                                 beam_jit_bs_put_binary_all>();
+                }
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
                                                              BSC_VALUE_FVALUE);
-                if (exact_type<BeamTypeId::Bitstring>(seg.src) &&
-                    std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
-                    comment("skipped test for success because units are "
-                            "compatible");
-                    can_fail = false;
-                }
             } else {
                 /* The size is a variable. We have verified that
                  * the value is a non-negative small in the
@@ -2328,7 +2334,10 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                                              BSC_VALUE_FVALUE);
             }
 
-            if (can_fail) {
+            if (!can_fail) {
+                comment("skipped test for success because units are "
+                        "compatible");
+            } else {
                 if (Fail.get() == 0) {
                     mov_imm(ARG4, error_info);
                 }

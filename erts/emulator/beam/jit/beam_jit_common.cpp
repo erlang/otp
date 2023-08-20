@@ -1033,6 +1033,22 @@ Eterm beam_jit_int128_to_big(Process *p, Uint sign, Uint low, Uint high) {
     return make_big(hp);
 }
 
+void beam_jit_bs_put_binary_all(ErlBitsState *EBS, Process *c_p, Eterm arg) {
+    Uint offset, size;
+    byte *base;
+
+    ERTS_GET_BITSTRING(arg, base, offset, size);
+
+    copy_binary_to_buffer(EBS->erts_current_bin,
+                          EBS->erts_bin_offset,
+                          base,
+                          offset,
+                          size);
+    EBS->erts_bin_offset += size;
+
+    BUMP_REDS(c_p, size / ERL_BITS_PER_REDUCTION);
+}
+
 ErtsMessage *beam_jit_decode_dist(Process *c_p, ErtsMessage *msgp) {
     if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
         /*
