@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "9.0"},
+  {vsn, "9.0.2"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -104,6 +104,7 @@
              inet,
              inet_db,
              inet_dns,
+             inet_dns_tsig,
              inet_parse,
              inet_res,
              inet_tcp,
