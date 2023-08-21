@@ -3559,6 +3559,20 @@ range_union_1([]) ->
 finish_constraints(Cs) ->
     finish_constraints_1(Cs, fun smart_collapse/1).
 
+finish_constraints_1([{element_set,{'SizeConstraint',
+                                    {element_set,Root,none}},
+                       {set,[]}=Set}|T],
+                     Collapse) ->
+    %% Rewrite:
+    %%
+    %%     (SIZE (Lower..Upper), ...)
+    %%
+    %% to:
+    %%
+    %%     (SIZE (Lower..Upper, ...))
+
+    C = {element_set,{'SizeConstraint',{element_set,Root,Set}},none},
+    finish_constraints_1([C|T], Collapse);
 finish_constraints_1([{element_set,{Tag,{element_set,_,_}=Set0},none}|T],
 		     Collapse0) ->
     Collapse = collapse_fun(Tag),
