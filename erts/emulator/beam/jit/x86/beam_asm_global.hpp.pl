@@ -90,6 +90,10 @@ my @beam_global_funcs = qw(
     is_ge_lt_shared
     minus_body_shared
     minus_guard_shared
+    mul_add_body_shared
+    mul_add_guard_shared
+    mul_body_shared
+    mul_guard_shared
     new_map_shared
     plus_body_shared
     plus_guard_shared
@@ -98,8 +102,6 @@ my @beam_global_funcs = qw(
     raise_exception
     raise_exception_shared
     store_unaligned
-    times_body_shared
-    times_guard_shared
     unary_minus_body_shared
     unary_minus_guard_shared
     unloaded_fun

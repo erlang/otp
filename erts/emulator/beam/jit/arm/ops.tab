@@ -1256,6 +1256,23 @@ i_get_map_element f S S S
 # Arithmetic instructions.
 #
 
+gc_bif2 Fail1 Live1 u$bif:erlang:stimes/2 S1 S2 Dst1 |
+  gc_bif2 Fail2 Live2 u$bif:erlang:splus/2 S3 S4 Dst2 |
+  equal(Dst1, S3) |
+  equal(Dst1, Dst2) |
+  equal(Fail1, Fail2) =>
+    i_mul_add Fail1 S1 S2 S3 S4 Dst1
+
+gc_bif2 Fail1 Live1 u$bif:erlang:stimes/2 S1 S2 Dst1 |
+  gc_bif2 Fail2 Live2 u$bif:erlang:splus/2 S3 S4 Dst2 |
+  equal(Dst1, S4) |
+  equal(Dst1, Dst2) |
+  equal(Fail1, Fail2) =>
+    i_mul_add Fail1 S1 S2 S4 S3 Dst1
+
+gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst =>
+    i_mul_add Fail S1 S2 Dst i Dst
+
 gc_bif2 Fail Live u$bif:erlang:splus/2 Src1 Src2 Dst =>
     i_plus Fail Live Src1 Src2 Dst
 
@@ -1264,9 +1281,6 @@ gc_bif1 Fail Live u$bif:erlang:sminus/1 Src Dst =>
 
 gc_bif2 Fail Live u$bif:erlang:sminus/2 Src1 Src2 Dst =>
     i_minus Fail Live Src1 Src2 Dst
-
-gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst =>
-    i_times Fail Live S1 S2 Dst
 
 gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst =>
     i_m_div Fail Live S1 S2 Dst
@@ -1332,10 +1346,11 @@ gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst =>
 gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst =>
     i_bsl Fail Live S1 S2 Dst
 
+i_mul_add j s s s s d
+
 i_plus j I s s d
 i_unary_minus j I s d
 i_minus j I s s d
-i_times j I s s d
 
 i_m_div j I s s d
 
