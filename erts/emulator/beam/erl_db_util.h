@@ -577,14 +577,15 @@ ERTS_GLB_INLINE Binary *erts_db_get_match_prog_binary_unchecked(Eterm term);
 
 /** @brief Ensure off-heap header is word aligned, make a temporary copy if
  * not. Needed when inspecting ETS off-heap lists that may contain unaligned
- * ProcBins if table is 'compressed'.
+ * ProcBin and ErtsMRefThing if table is 'compressed'.
  */
-struct erts_tmp_aligned_offheap
+union erts_tmp_aligned_offheap
 {
     ProcBin proc_bin;
+    ErtsMRefThing mref_thing;
 };
 ERTS_GLB_INLINE void erts_align_offheap(union erl_off_heap_ptr*,
-                                        struct erts_tmp_aligned_offheap* tmp);
+                                        union erts_tmp_aligned_offheap* tmp);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -620,20 +621,27 @@ erts_db_get_match_prog_binary(Eterm term)
 
 ERTS_GLB_INLINE void
 erts_align_offheap(union erl_off_heap_ptr* ohp,
-                   struct erts_tmp_aligned_offheap* tmp)
+                   union erts_tmp_aligned_offheap* tmp)
 {
     if ((UWord)ohp->voidp % sizeof(UWord) != 0) {
         /*
-         * ETS store word unaligned ProcBins in its compressed format.
-         * Make a temporary aligned copy.
+         * ETS store word unaligned ProcBin and ErtsMRefThing in its compressed
+         * format. Make a temporary aligned copy.
          *
          * Warning, must pass (void*)-variable to memcpy. Otherwise it will
          * cause Bus error on Sparc due to false compile time assumptions
          * about word aligned memory (type cast is not enough).
          */
-        sys_memcpy(tmp, ohp->voidp, sizeof(*tmp));
-        ASSERT(tmp->proc_bin.thing_word == HEADER_PROC_BIN);
-        ohp->pb = &tmp->proc_bin;
+        sys_memcpy(tmp, ohp->voidp, sizeof(Eterm)); /* thing_word */
+        if (tmp->proc_bin.thing_word == HEADER_PROC_BIN) {
+            sys_memcpy(tmp, ohp->voidp, sizeof(tmp->proc_bin));
+            ohp->pb = &tmp->proc_bin;
+        }
+        else {
+            sys_memcpy(tmp, ohp->voidp, sizeof(tmp->mref_thing));
+            ASSERT(is_magic_ref_thing(&tmp->mref_thing));
+            ohp->mref = &tmp->mref_thing;
+        }
     }
 }
 
