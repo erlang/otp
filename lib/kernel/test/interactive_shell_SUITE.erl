@@ -941,7 +941,8 @@ shell_receive_standard_out(Config) ->
         send_tty(Term,"my_fun(5) -> ok; my_fun(N) -> receive after 100 -> io:format(\"~p\\n\", [N]), my_fun(N+1) end.\n"),
         send_tty(Term, "spawn(shell_default, my_fun, [0]). ABC\n"),
         timer:sleep(1000),
-        check_content(Term, "3\\s+4\\s+.+>\\sABC\\s+..\\s"),
+        check_location(Term, {0, 0}), %% Check that we are at the same location relative to the start.
+        check_content(Term, "3\\s+4\\s+.+>\\sABC"),
         ok
     after
         stop_tty(Term)
