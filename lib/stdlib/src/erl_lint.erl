@@ -430,6 +430,8 @@ format_error({undefined_callback, {_M, F, A}}) ->
 %% --- types and specs ---
 format_error({singleton_typevar, Name}) ->
     io_lib:format("type variable ~w is only used once (is unbound)", [Name]);
+format_error({multiple_definitions_of_type, Type}) ->
+    io_lib:format("annotated type ~w given different type definitions", [Type]);
 format_error({bad_export_type, _ETs}) ->
     io_lib:format("bad export_type declaration", []);
 format_error({duplicated_export_type, {T, A}}) ->
@@ -675,6 +677,9 @@ start(File, Opts) ->
                       true, Opts)},
          {singleton_typevar,
           bool_option(warn_singleton_typevar, nowarn_singleton_typevar,
+                      true, Opts)},
+        {multiple_definitions_of_type,
+          bool_option(warn_multiple_definitions_of_type, nowarn_multiple_definitions_of_type,
                       true, Opts)},
          {match_float_zero,
           bool_option(warn_match_float_zero, nowarn_match_float_zero,
@@ -2961,10 +2966,10 @@ warn_redefined_builtin_type(Anno, TypePair, #lint{compile=Opts}=St) ->
 check_type(Types, St) ->
     {SeenVars, St1} = check_type_1(Types, maps:new(), St),
     maps:fold(fun(Var, {seen_once, Anno}, AccSt) ->
-		      case atom_to_list(Var) of
-			  "_"++_ -> AccSt;
-			  _ -> add_error(Anno, {singleton_typevar, Var}, AccSt)
-		      end;
+                      case atom_to_list(Var) of
+                          "_"++_ -> AccSt;
+                          _ -> add_error(Anno, {singleton_typevar, Var}, AccSt)
+                      end;
                  (Var, {seen_once_union, Anno}, AccSt) ->
                       case is_warn_enabled(singleton_typevar, AccSt) of
                           true ->
@@ -2975,9 +2980,10 @@ check_type(Types, St) ->
                           false ->
                               AccSt
                       end;
-		 (_Var, seen_multiple, AccSt) ->
-		      AccSt
-	      end, St1, SeenVars).
+                 (_Var, seen_multiple, AccSt) ->
+                      AccSt
+              end, St1, SeenVars).
+
 
 check_type_1({type, Anno, TypeName, Args}=Type, SeenVars, #lint{types=Types}=St) ->
     TypePair = {TypeName,
@@ -2994,8 +3000,16 @@ check_type_1({type, Anno, TypeName, Args}=Type, SeenVars, #lint{types=Types}=St)
 check_type_1(Types, SeenVars, St) ->
     check_type_2(Types, SeenVars, St).
 
-check_type_2({ann_type, _A, [_Var, Type]}, SeenVars, St) ->
-    check_type_1(Type, SeenVars, St);
+
+check_type_2({ann_type, _A, [{var, _Anno, Name}, Type]}, SeenVars, St) ->
+    NewSeenVars =
+        case maps:find(Name, SeenVars) of
+            {ok, {seen_once, _}} -> maps:put(Name, seen_multiple, SeenVars);
+            {ok, {seen_once_union, _}} -> maps:put(Name, seen_multiple, SeenVars);
+            {ok, seen_multiple} -> SeenVars;
+            error -> maps:put(Name, seen_multiple, SeenVars)
+        end,
+    check_type_1(Type, NewSeenVars, St);
 check_type_2({remote_type, A, [{atom, _, Mod}, {atom, _, Name}, Args]},
 	   SeenVars, St00) ->
     St0 = check_module_name(Mod, A, St00),
@@ -3294,7 +3308,7 @@ any_control_characters(Cs) ->
            (_) -> false
         end, Cs).
 
-check_specs([FunType|Left], ETag, Arity, St0) ->
+check_specs([FunType|Left]=E, ETag, Arity, St0) ->
     {FunType1, CTypes} =
 	case FunType of
 	    {type, _, bounded_fun, [FT = {type, _, 'fun', _}, Cs]} ->
@@ -3305,14 +3319,115 @@ check_specs([FunType|Left], ETag, Arity, St0) ->
     {type, A, 'fun', [{type, _, product, D}, _]} = FunType1,
     SpecArity = length(D),
     St1 = case Arity =:= SpecArity of
-	      true -> St0;
-	      false -> %% Cannot happen if called from the compiler.
+              true -> St0;
+              false -> %% Cannot happen if called from the compiler.
                   add_error(A, ETag, St0)
-	  end,
+          end,
     St2 = check_type({type, nowarn(), product, [FunType1|CTypes]}, St1),
-    check_specs(Left, ETag, Arity, St2);
+    St3 = check_redefinition_annotated_types(E, St2),
+    check_specs(Left, ETag, Arity, St3);
 check_specs([], _ETag, _Arity, St) ->
     St.
+
+%% Checks that there are no annotated types with the same name and different type
+check_redefinition_annotated_types(E, St) ->
+    case is_warn_enabled(multiple_definitions_of_type, St) of
+        true ->
+            lists:foldl(fun check_annotated_types/2, St, E);
+        false ->
+            St
+    end.
+
+-spec check_annotated_types([InputType], St :: term()) -> TypeAnnotations when
+      InputType       :: {Tag, A, Kind, Args :: [InputType] | any}
+                       | {Tag, A, Args :: [InputType] | any}
+                       | {Tag, A, Op :: term(), Arg1 :: term(), Arg2 :: term()}
+                       | TypeAnnotation,
+      Tag             :: type | ann_type | op | remote_type | atom,
+      A               :: tuple(),
+      Kind            :: binary | nil | 'fun' | range | map | record | tuple
+                       | union | product | is_subset | constraint | term(),
+      TypeAnnotations :: [TypeAnnotation],
+      TypeAnnotation  :: {var, Tag, A, TypeAnnotations} | {var, Tag, A}.
+check_annotated_types([], St) ->
+    St;
+check_annotated_types(T0, St) ->
+    AnnotatedTypes = collect_annotations(T0, []),
+    GroupedAnnTypes = maps:groups_from_list(fun ({var, _, Name, _Type}) -> Name end,
+                                            fun ({var, A, _Name, Type}) -> {A, Type} end,
+                                            AnnotatedTypes),
+    maps:fold(fun add_type_clash_errors/3, St, GroupedAnnTypes).
+
+add_type_clash_errors(_VarName, [], St) ->
+    St;
+add_type_clash_errors(VarName, [{A, Type0} | T], St) ->
+    EqualTypes = fun ({_, Type1}) -> equal_types(Type0, Type1) end,
+    case lists:all(EqualTypes, T) of
+        true ->
+            St;
+        false ->
+            add_error(A, {multiple_definitions_of_type, VarName}, St)
+    end.
+
+equal_types({Tag0, _, Kind0, Args0}, {Tag0, _, Kind0, Args1}) ->
+    equal_types(Args0, Args1);
+equal_types({Tag0, _, Args0}, {Tag0, _, Args1}) ->
+    equal_types(Args0, Args1);
+equal_types({Tag0, _, Op0, Args0, Args1}, {Tag0, _, Op0, Args2, Args3}) ->
+    equal_types(Args0, Args2) andalso equal_types(Args1, Args3);
+equal_types([H0 | T0], [H1 | T1]) ->
+    equal_types(H0, H1) andalso equal_types(T0, T1);
+equal_types({var, Tag0, _, TypeAnnotation0}, {var, Tag0, _, TypeAnnotation1}) ->
+    equal_types(TypeAnnotation0, TypeAnnotation1);
+equal_types({var, Tag0, _}, {var, Tag0, _}) ->
+    true;
+equal_types(T1, T2) ->
+    T1 =:= T2.
+
+-spec collect_annotations(InputType, Acc :: [term()]) -> TypeAnnotations when
+      InputType       :: {Tag, A, Kind, Args :: [InputType] | any}
+                       | {Tag, A, Args :: [InputType] | any}
+                       | {Tag, A, Op :: term(), Arg1 :: term(), Arg2 :: term()}
+                       | TypeAnnotation,
+      Tag             :: type | ann_type | op | remote_type | atom,
+      A               :: tuple(),
+      Kind            :: binary | nil | 'fun' | range | map | record | tuple
+                       | union | product | is_subset | constraint | term(),
+      TypeAnnotations :: [TypeAnnotation],
+      TypeAnnotation  :: {var, Tag, A, TypeAnnotations} | {var, Tag, A}.
+collect_annotations({type, _, bounded_fun, [Type, Args]}, Acc) ->
+    lists:foldl(fun collect_annotations/2, Acc, [Type | Args]);
+collect_annotations({type, A, constraint, [_SubType, Types]}, Acc) when is_list(Types) ->
+    collect_annotations({ann_type, A, Types}, Acc);
+collect_annotations({type, _, _, Args}, Acc) when is_list(Args) ->
+    lists:foldl(fun collect_annotations/2, Acc, Args);
+collect_annotations({user_type, _, _, Args}, Acc) when is_list(Args) ->
+    lists:foldl(fun collect_annotations/2, Acc, Args);
+collect_annotations({ann_type, _, _}=AnnType, Acc) ->
+    [parse_annotation_types(AnnType) | Acc];
+collect_annotations({remote_type, _, [M, N, Args]}, Acc) ->
+    lists:foldl(fun collect_annotations/2, Acc, [M, N, Args]);
+collect_annotations(_, Acc) ->
+    Acc.
+
+%% One should only reach this function from an annotated type. This function
+%% parses annotation types, recursing on items that may contain other annotated
+%% types, and leaves invariant any non-annotated type built from an annotated
+%% type, e.g.,
+%%
+%%   > parse_annotation_types({ann_type, A, [{var, _, VarName}, {type, _A, map, any}]})
+%%   {var, A, VarName, {type, _A, map, any}}
+%%
+parse_annotation_types({type, A, Op, Args}) when is_list(Args) ->
+    {type, A, Op, lists:map(fun parse_annotation_types/1, Args)};
+parse_annotation_types({remote_type, A, [M, N, Args]}) ->
+    {remote_type, A, lists:map(fun parse_annotation_types/1, [M, N | Args])};
+parse_annotation_types({ann_type, _, [{var, A, VarName}, Type]}) ->
+    {var, A, VarName, parse_annotation_types(Type)};
+parse_annotation_types({user_type, A, UserDefinedType, Args}) ->
+    {user_type, A, UserDefinedType, lists:map(fun parse_annotation_types/1, Args)};
+parse_annotation_types(Other) when is_tuple(Other)->
+    Other.
 
 nowarn() ->
     A0 = erl_anno:new(0),

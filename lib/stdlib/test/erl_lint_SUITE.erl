@@ -36,6 +36,7 @@
 -export([all/0, suite/0, groups/0]).
 
 -export([singleton_type_var_errors/1,
+         different_annotated_types_same_variable_errors/1,
          unused_vars_warn_basic/1,
          unused_vars_warn_lc/1,
          unused_vars_warn_rec/1,
@@ -1026,6 +1027,157 @@ singleton_type_var_errors(Config) when is_list(Config) ->
 
     [] = run(Config, Ts),
     ok.
+
+different_annotated_types_same_variable_errors(Config) when is_list(Config) ->
+    Ts = [{repeated_annotated_variables_different_types_error1,
+           <<"-spec repeated_annotated_variables_different_types(X :: integer()) -> X :: boolean().
+              repeated_annotated_variables_different_types(_) ->
+                error.
+             ">>,
+           [],
+           {errors,[{{1,91},erl_lint,{multiple_definitions_of_type, 'X'}}], []}},
+
+          {repeated_annotated_variables_different_types_error_disabled,
+           <<"-spec repeated_annotated_variables_different_types_error_disabled(X :: integer()) -> X :: boolean().
+              repeated_annotated_variables_different_types_error_disabled(_) ->
+                error.
+             ">>,
+           [nowarn_multiple_definitions_of_type],
+           []},
+
+          {repeated_annotated_variables_different_types_multiarg_error,
+           <<"-spec repeated_annotated_variables_different_types_multiarg(X :: integer(), X) -> X :: boolean().
+              repeated_annotated_variables_different_types_multiarg(_, _) ->
+                error.
+             ">>,
+           [],
+           {errors,[{{1,103},erl_lint,{multiple_definitions_of_type, 'X'}}], []}},
+
+          {repeated_annotated_variables_same_types,
+           <<"-spec repeated_annotated_variables_same_types(X :: integer()) -> X :: integer().
+              repeated_annotated_variables_same_types(X) ->
+                X.
+             ">>,
+           [],
+           []},
+
+
+          {repeated_annotated_variables_same_types_multiarg1,
+           <<"-spec repeated_annotated_variables_same_types_multiarg1(X :: integer(), X) -> X.
+              repeated_annotated_variables_same_types_multiarg1(X, _) ->
+                X.
+             ">>,
+           [],
+           []},
+
+          {repeated_annotated_variables_same_types_multiarg2,
+           <<"-spec repeated_annotated_variables_same_types_multiarg2(X, X :: integer()) -> X.
+              repeated_annotated_variables_same_types_multiarg2(_, X) ->
+                X.
+             ">>,
+           [],
+           []},
+
+          {repeated_annotated_variables_same_types_multiarg3,
+           <<"-spec repeated_annotated_variables_same_types_multiarg3(X, X) -> X :: integer().
+              repeated_annotated_variables_same_types_multiarg3(X, _) ->
+                X.
+             ">>,
+           [],
+           []},
+
+          {repeated_annotated_variables_same_types_multiarg4,
+           <<"-spec repeated_annotated_variables_same_types_multiarg4(X :: integer(), X) -> X :: integer().
+              repeated_annotated_variables_same_types_multiarg4(_, X) ->
+                X.
+             ">>,
+           [],
+           []},
+
+          {single_annotated_variable1,
+           <<"-spec single_annotated_variable1(X :: integer()) -> {X, boolean()}.
+              single_annotated_variable1(X) ->
+                {X, true}.
+             ">>,
+           [],
+           []},
+
+          {single_annotated_variable2,
+           <<"-spec single_annotated_variable2(X) -> X :: integer().
+              single_annotated_variable2(X) ->
+                X.
+             ">>,
+           [],
+           []},
+
+          {single_annotated_variable3,
+           <<"-spec single_annotated_variable3(X :: integer()) -> X.
+              single_annotated_variable3(X) ->
+                X.
+             ">>,
+           [],
+           []},
+
+          {repeated_annotated_variables_different_types_in_when1,
+           <<"-spec repeated_annotated_variables_different_types_in_when1(X) -> X :: atom() when X :: integer().
+              repeated_annotated_variables_different_types_in_when1(_) ->
+                error.
+             ">>,
+           [],
+           {errors,[{{1,104},erl_lint,{multiple_definitions_of_type, 'X'}}], []}},
+
+          {repeated_annotated_variables_different_types_in_when2,
+           <<"-spec repeated_annotated_variables_different_types_in_when2(X :: atom()) -> X when X :: integer().
+              repeated_annotated_variables_different_types_in_when2(_) ->
+                error.
+             ">>,
+           [],
+           {errors,[{{1,104},erl_lint,{multiple_definitions_of_type, 'X'}}], []}},
+
+          {repeated_annotated_variables_different_types_in_when3,
+           <<"-spec repeated_annotated_variables_different_types_in_when3(X :: integer()) -> X :: atom() when X :: list().
+              repeated_annotated_variables_different_types_in_when3(_) ->
+                error.
+             ">>,
+           [],
+           {errors,[{{1,117},erl_lint,{multiple_definitions_of_type, 'X'}}], []}},
+
+          {repeated_annotated_variables_same_types_in_when1,
+           <<"-spec repeated_annotated_variables_same_types_in_when1(X :: integer()) -> X when X :: integer().
+              repeated_annotated_variables_same_types_in_when1(X) ->
+                X.
+             ">>,
+           [],
+           []},
+
+          {repeated_annotated_variables_same_types_in_when2,
+           <<"-spec repeated_annotated_variables_same_types_in_when2(X :: integer()) -> X :: integer() when X :: integer().
+              repeated_annotated_variables_same_types_in_when2(X) ->
+                X.
+             ">>,
+           [],
+           []},
+
+          {repeated_annotated_variables_same_types_in_when3,
+           <<"-spec repeated_annotated_variables_same_types_in_when3(X :: integer()) -> X :: integer() when X :: integer().
+              repeated_annotated_variables_same_types_in_when3(X) ->
+                X.
+             ">>,
+           [],
+           []},
+
+          {shared_type_variable_in_when_clause,
+           <<"-spec shared_type_variable_in_when_clause(X) -> X when X :: integer().
+              shared_type_variable_in_when_clause(X) ->
+                X.
+             ">>,
+           [],
+           []}
+          ],
+
+    [] = run(Config, Ts),
+    ok.
+
 
 %% Test warnings for unused functions.
 unused_function(Config) when is_list(Config) ->
