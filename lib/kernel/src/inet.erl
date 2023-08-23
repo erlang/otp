@@ -1183,8 +1183,9 @@ gen_tcp_module(Opts, socket) ->
 udp_options() ->
     [
      debug,
-     tos, tclass,
-     priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode,
+     tos, tclass, priority,
+     reuseaddr, reuseport, reuseport_lb, exclusiveaddruse,
+     sndbuf, recbuf, header, active, buffer, mode,
      recvtos, recvtclass, ttl, recvttl, deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
      add_membership, drop_membership, read_packets, raw,
@@ -1303,8 +1304,9 @@ sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
     debug,
     mode, active, buffer, tos, tclass, ttl,
-    priority, dontroute, reuseaddr, linger,
-    recvtos, recvtclass, recvttl,
+    priority, dontroute,
+    reuseaddr, reuseport, reuseport_lb, exclusiveaddruse,
+    linger, recvtos, recvtclass, recvttl,
     sndbuf, recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
     bind_to_device,
 
