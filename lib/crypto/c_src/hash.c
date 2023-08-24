@@ -83,10 +83,10 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if ((digp = get_digest_type(argv[0])) == NULL)
         return enif_make_badarg(env);
     if (DIGEST_FORBIDDEN_IN_FIPS(digp))
-        return atom_notsup;
+        return RAISE_NOTSUP(env);
 
     if ((md = digp->md.p) == NULL)
-        return atom_notsup;
+        return RAISE_NOTSUP(env);
 
     values[0] = enif_make_int(env, EVP_MD_type(md));
     values[1] = enif_make_int(env, EVP_MD_size(md));

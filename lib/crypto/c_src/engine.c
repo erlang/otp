@@ -402,7 +402,7 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     return ret;
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -427,7 +427,7 @@ ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_badarg(env);
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -463,7 +463,7 @@ ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
  err:
     return enif_make_badarg(env);
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -479,7 +479,7 @@ ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 # endif
     return atom_ok;
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -555,7 +555,7 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
     return ret;
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -584,7 +584,7 @@ ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ERROR_Atom(env, "add_engine_failed");
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -612,7 +612,7 @@ ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
  failed:
     return ERROR_Atom(env, "remove_engine_failed");
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -656,7 +656,7 @@ ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
      return ERROR_Atom(env, "engine_method_not_supported");
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -684,7 +684,7 @@ ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return enif_make_badarg(env);
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -724,7 +724,7 @@ ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     return ret;
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -778,7 +778,7 @@ ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return ret;
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -817,7 +817,7 @@ ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return enif_make_badarg(env);
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -856,7 +856,7 @@ ERL_NIF_TERM engine_get_name_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return enif_make_badarg(env);
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -907,7 +907,7 @@ ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
     return enif_make_list_from_array(env, method_array, i);
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
 
@@ -1035,6 +1035,6 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     return ret;
 
 #else
-    return atom_notsup;
+    return RAISE_NOTSUP(env);
 #endif
 }
