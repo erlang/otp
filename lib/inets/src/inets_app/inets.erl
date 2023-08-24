@@ -47,11 +47,12 @@
 %% Description: Starts the inets application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
-start() -> 
-    application:start(inets).
+start() ->
+    application:ensure_all_started([inets, ssl]).
 
-start(Type) -> 
-    application:start(inets, Type).
+start(Type) ->
+    application:start(inets, Type),
+    application:ensure_all_started(ssl).
 
 
 %%--------------------------------------------------------------------
@@ -92,7 +93,7 @@ start(Service, ServiceConfig, How) ->
 %%
 %% Description: Stops the inets application.
 %%--------------------------------------------------------------------
-stop() -> 
+stop() ->
     application:stop(inets).
 
 
