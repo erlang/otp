@@ -334,7 +334,7 @@ do_op({insert,C}, {LB,{[Bef|Bef0], Aft},LA}, Rs) ->
 %% search mode), we can use the Bef and Aft variables to hold each
 %% part of the line. Bef takes charge of "(search)`$TERMS" and Aft
 %% takes charge of "': $RESULT".
-%% 
+%%
 %% Since multiline support the search mode prompt always looks like:
 %% search: $TERMS
 %%   $ResultLine1
@@ -668,7 +668,8 @@ redraw_line({line, Pbs, L,_}) ->
     redraw(Pbs, L, []).
 
 multi_line_prompt(Pbs) ->
-    lists:duplicate(max(0,prim_tty:npwcwidthstring(Pbs)-3), $ )++".. ".
+    lists:duplicate(max(0,prim_tty:npwcwidthstring(Pbs)-3), $ )
+    ++ "\e[7m  \e[27m ". % <invert>  </invert>
 
 redraw(Pbs, {_,{_,_},_}=L, Rs) ->
     [{redraw_prompt, Pbs, multi_line_prompt(Pbs), L} |Rs].
