@@ -184,16 +184,27 @@ void erts_copy_bits(const byte* src, size_t soffs, int sdir,
                     byte* dst, size_t doffs, int ddir, size_t n);
 int erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t size); 
 
+/*
+ * Calculate the heap space for a binary extracted by
+ * erts_extract_sub_binary().
+ */
+Uint erts_extracted_binary_size(Uint bit_size);
 
 /* Extracts a region from base_bin as a sub-binary or heap binary, whichever
  * is the most appropriate.
  *
- * The caller must ensure that there's enough free space at *hp */
+ * The caller must ensure that there's enough free space at *hp by using
+ * erts_extracted_binary_size().
+ * */
 Eterm erts_extract_sub_binary(Eterm **hp, Eterm base_bin, byte *base_data,
                               Uint bit_offset, Uint num_bits);
 
-/* Pessimistic estimate of the words required for erts_extract_sub_binary */
-#define EXTRACT_SUB_BIN_HEAP_NEED (heap_bin_size(ERL_ONHEAP_BIN_LIMIT))
+/*
+ * Conservative estimate of the number of words required for
+ * erts_extract_sub_binary() when the number of bits is unknown.
+ */
+#define EXTRACT_SUB_BIN_HEAP_NEED \
+    (MAX(ERL_SUB_BIN_SIZE, heap_bin_size(ERL_ONHEAP_BIN_LIMIT)))
 
 /*
  * Flags for bs_create_bin / bs_get_* / bs_put_* / bs_init* instructions.

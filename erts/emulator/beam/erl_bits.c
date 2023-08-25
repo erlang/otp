@@ -2345,6 +2345,22 @@ erts_copy_bits(const byte* src, /* Base pointer to source. */
     }
 }
 
+/*
+ * Calculate sufficient heap space for a binary extracted by
+ * erts_extract_sub_binary().
+ */
+Uint erts_extracted_binary_size(Uint bit_size)
+{
+    Uint byte_size = BYTE_OFFSET(bit_size);
+    ERTS_CT_ASSERT(ERL_SUB_BIN_SIZE <= ERL_ONHEAP_BIN_LIMIT);
+
+    if (BIT_OFFSET(bit_size) == 0 && byte_size <= ERL_ONHEAP_BIN_LIMIT) {
+        return heap_bin_size(byte_size);
+    } else {
+        return ERL_SUB_BIN_SIZE;
+    }
+}
+
 Eterm erts_extract_sub_binary(Eterm **hp, Eterm base_bin, byte *base_data,
                               Uint bit_offset, Uint bit_size)
 {
