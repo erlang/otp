@@ -24,7 +24,7 @@
          init_per_group/2,end_per_group/2,
          byte_split_binary/1,bit_split_binary/1,match_huge_bin/1,
          bs_match_string_edge_case/1,contexts/1,
-         empty_binary/1]).
+         empty_binary/1,small_bitstring/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -32,7 +32,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [byte_split_binary, bit_split_binary, match_huge_bin,
-     bs_match_string_edge_case, contexts, empty_binary].
+     bs_match_string_edge_case, contexts, empty_binary,
+     small_bitstring].
 
 groups() ->
     [].
@@ -112,14 +113,6 @@ bits_to_list([H|_]=List, Mask) ->
 bits_to_list([], _) -> [].
 
 mkbin(L) when is_list(L) -> list_to_binary(L).
-
-make_unaligned_sub_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
-
-id(I) -> I.
 
 match_huge_bin(Config) when is_list(Config) ->
     Bin = <<0:(1 bsl 27),13:8>>,
@@ -280,6 +273,37 @@ do_empty_binary(0) ->
 do_empty_binary(N) ->
     %% The new bs_match instruction would use more heap space
     %% than reserved when matching out an empty binary.
-    <<V1:0/bits, V1:0/bitstring, V2:0/bytes, V2:0/bits>> = <<>>,
+    <<V1:0/bits, V1:0/bitstring, V2:0/bytes, V2:0/bits>> = id(<<>>),
     [0|do_empty_binary(N-1)].
 
+small_bitstring(_Config) ->
+    %% GH-7292: The new bs_match instruction would reserve insufficient
+    %% heap space for small bitstrings.
+    rand_seed(),
+    Bin = rand:bytes(10_000),
+    ok = small_bitstring_1(id(Bin), id(Bin)).
+
+small_bitstring_1(<<A1:1/bits,A2:1/bits,A3:2/bits,
+                    A4:3/bits,A5:1/bits,As0/binary>>,
+                  <<A1:1/bits,A2:1/bits,A3:2/bits,
+                    A4:3/bits,A5:1/bits,As1/binary>>) ->
+    small_bitstring_1(As0, As1);
+small_bitstring_1(<<>>, <<>>) ->
+    ok.
+
+%%%
+%%% Common utilities.
+%%%
+
+rand_seed() ->
+    rand:seed(default),
+    io:format("\n*** rand:export_seed() = ~w\n\n", [rand:export_seed()]),
+    ok.
+
+make_unaligned_sub_binary(Bin0) ->
+    Bin1 = <<0:3,Bin0/binary,31:5>>,
+    Sz = size(Bin0),
+    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
+    Bin.
+
+id(I) -> I.

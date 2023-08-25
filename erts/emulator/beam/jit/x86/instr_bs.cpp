@@ -3829,7 +3829,7 @@ static std::vector<BsmSegment> opt_bsm_segments(
             }
             break;
         case BsmSegment::action::GET_BINARY:
-            heap_need += heap_bin_size((seg.size + 7) / 8);
+            heap_need += erts_extracted_binary_size(seg.size);
             break;
         case BsmSegment::action::GET_TAIL:
             heap_need += EXTRACT_SUB_BIN_HEAP_NEED;

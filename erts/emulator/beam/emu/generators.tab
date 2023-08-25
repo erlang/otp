@@ -1100,7 +1100,7 @@ gen.bs_match(Fail, Ctx, N, List) {
             ASSERT(List[src+3].type == TAG_u);
             ASSERT(List[src+4].type == TAG_u);
             size = List[src+3].val * List[src+4].val;
-            words_needed = heap_bin_size((size + 7) / 8);
+            words_needed = erts_extracted_binary_size(size);
             break;
         case am_integer:
             ASSERT(List[src+3].type == TAG_u);
