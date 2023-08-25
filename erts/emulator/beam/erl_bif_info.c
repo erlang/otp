@@ -163,9 +163,6 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 static Eterm
 current_function(Process* p, ErtsHeapFactory *hfact, Process* rp,
                  int full_info, Uint reserve_size, int flags);
-static Eterm
-current_stacktrace(Process* p, ErtsHeapFactory *hfact, Process* rp,
-                   Uint reserve_size, int flags);
 
 Eterm
 erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail)
@@ -1506,7 +1503,7 @@ process_info_aux(Process *c_p,
 	break;
 
     case ERTS_PI_IX_CURRENT_STACKTRACE:
-	res = current_stacktrace(c_p, hfact, rp, reserve_size, flags);
+	res = erts_current_stacktrace(c_p, hfact, rp, reserve_size, flags);
 	break;
 
     case ERTS_PI_IX_INITIAL_CALL:
@@ -2214,8 +2211,8 @@ current_function(Process *c_p, ErtsHeapFactory *hfact, Process* rp,
     return res;
 }
 
-static Eterm
-current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
+Eterm
+erts_current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
                    Uint reserve_size, int flags)
 {
     Uint sz;

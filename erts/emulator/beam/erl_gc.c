@@ -3725,6 +3725,7 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
             int alive = erts_is_alive;
             erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
             Eterm *o_hp, *hp, args = NIL;
+            ErtsHeapFactory hfact;
 
             /* Build the format message */
             erts_dsprintf(dsbufp, "     Process:            ~p ");
@@ -3737,9 +3738,13 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
             erts_dsprintf(dsbufp, "     Error Logger:       ~p~n");
             erts_dsprintf(dsbufp, "     Message Queue Len:  ~p~n");
             erts_dsprintf(dsbufp, "     GC Info:            ~p~n");
+            erts_dsprintf(dsbufp, "     Stacktrace:         ~p~n");
 
             /* Build the args in reverse order */
-            o_hp = hp = erts_alloc(ERTS_ALC_T_TMP, 2*(alive ? 8 : 7) * sizeof(Eterm));
+            o_hp = hp = erts_alloc(ERTS_ALC_T_TMP, 2*(alive ? 9 : 8) * sizeof(Eterm));
+            erts_factory_proc_init(&hfact, p);
+            args = CONS(hp, erts_current_stacktrace(p, &hfact, p, 0 ,0), args); hp += 2;
+            erts_factory_close(&hfact);
             args = CONS(hp, msg, args); hp += 2;
             args = CONS(hp, make_small((p)->sig_inq.len), args); hp += 2;
             args = CONS(hp, am_true, args); hp += 2;
