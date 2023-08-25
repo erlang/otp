@@ -38,13 +38,6 @@
 #include "big.h"
 #include "atom.h"
 
-#ifndef MAX
-#  define MAX(x, y) (((x) > (y)) ? (x) : (y))
-#endif
-
-#define DECLARE_TMP(VariableName,N,P)  Eterm VariableName[2]
-#define ARG_IS_NOT_TMP(Arg,Tmp) ((Arg) != make_big((Tmp)))
-
 static ERTS_INLINE void maybe_shrink(Process* p, Eterm* hp, Eterm res, Uint alloc)
 {
     Uint actual;
@@ -154,7 +147,7 @@ erts_shift(Process* p, Eterm arg1, Eterm arg2, int right)
 {
     Sint i;
     Sint ires;
-    DECLARE_TMP(tmp_big1,0,p);
+    Eterm tmp_big1[2];
     Eterm* bigp;
     Uint need;
 
@@ -319,8 +312,7 @@ BIF_RETTYPE bnot_1(BIF_ALIST_1)
 Eterm
 erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm res;
     Eterm hdr;
     FloatDef f1, f2;
@@ -529,8 +521,7 @@ erts_unary_minus(Process* p, Eterm arg)
 Eterm
 erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm hdr;
     Eterm res;
     FloatDef f1, f2;
@@ -672,8 +663,7 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 Eterm
 erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm hdr;
     Eterm res;
     FloatDef f1, f2;
@@ -697,8 +687,8 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		    } else if (arg2 == SMALL_ONE) {
 			return(arg1);
 		    } else {
-			DeclareTmpHeap(big_res,3,p);
-			UseTmpHeap(3,p);
+                        Eterm big_res[3];
+
 			/*
 			 * The following code is optimized for the case that
 			 * result is small (which should be the most common case
@@ -706,7 +696,6 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 			 */
 			res = small_times(signed_val(arg1), signed_val(arg2), big_res);
 			if (is_small(res)) {
-			    UnUseTmpHeap(3,p);
 			    return res;
 			} else {
 			    /*
@@ -728,7 +717,6 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 			    if (arity > 1) {
 				*hp = big_res[2];
 			    }
-			    UnUseTmpHeap(3,p);
 			    return res;
 			}
 		    }
@@ -1120,9 +1108,7 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
     Eterm quotient, remainder;
     Eterm lhs, rhs;
     int cmp;
-
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
 
     lhs = arg1;
     rhs = arg2;
@@ -1202,8 +1188,7 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
 Eterm
 erts_int_div(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     int ires;
 
     switch (NUMBER_CODE(arg1, arg2)) {
@@ -1254,8 +1239,7 @@ erts_int_div(Process* p, Eterm arg1, Eterm arg2)
 Eterm
 erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     int ires;
 
     switch (NUMBER_CODE(arg1, arg2)) {
@@ -1306,8 +1290,7 @@ erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
 
 Eterm erts_band(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm* hp;
     int need;
 
@@ -1334,8 +1317,7 @@ Eterm erts_band(Process* p, Eterm arg1, Eterm arg2)
 
 Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm* hp;
     int need;
 
@@ -1362,8 +1344,7 @@ Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2)
 
 Eterm erts_bxor(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm* hp;
     int need;
 
