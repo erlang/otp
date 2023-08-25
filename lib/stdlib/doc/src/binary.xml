@@ -574,41 +574,60 @@ store(Binary, GBSet) ->
       <name name="replace" arity="4" since="OTP R14B"/>
       <fsummary>Replace bytes in a binary according to a pattern.</fsummary>
       <type_desc variable="OnePos">An integer() =&lt; byte_size(<anno>Replacement</anno>)
-      </type_desc>
+        if <anno>Replacement</anno> is given as a binary.</type_desc>
       <desc>
-      <p>Constructs a new binary by replacing the parts in
-      <c><anno>Subject</anno></c> matching <c><anno>Pattern</anno></c> with
-      the content of <c><anno>Replacement</anno></c>.</p>
+        <p>Constructs a new binary by replacing the parts in
+          <c><anno>Subject</anno></c> matching <c><anno>Pattern</anno></c> with
+          <c><anno>Replacement</anno></c> if given as a literal <c>binary()</c>
+          or with the result of applying <c><anno>Replacement</anno></c> to a matching
+          subpart if given as a <c>fun</c>.</p>
 
-      <p>If the matching subpart of <c><anno>Subject</anno></c> giving raise
-      to the replacement is to be inserted in the result, option
-      <c>{insert_replaced, <anno>InsPos</anno>}</c> inserts the matching part
-      into <c><anno>Replacement</anno></c> at the specified position (or
-      positions) before inserting <c><anno>Replacement</anno></c> into
-      <c><anno>Subject</anno></c>.</p>
-
-      <p><em>Example:</em></p>
-
-<code>
-1> binary:replace(&lt;&lt;"abcde"&gt;&gt;,&lt;&lt;"b"&gt;&gt;,&lt;&lt;"[]"&gt;&gt;, [{insert_replaced,1}]).
-&lt;&lt;"a[b]cde"&gt;&gt;
-2> binary:replace(&lt;&lt;"abcde"&gt;&gt;,[&lt;&lt;"b"&gt;&gt;,&lt;&lt;"d"&gt;&gt;],&lt;&lt;"[]"&gt;&gt;,[global,{insert_replaced,1}]).
-&lt;&lt;"a[b]c[d]e"&gt;&gt;
-3> binary:replace(&lt;&lt;"abcde"&gt;&gt;,[&lt;&lt;"b"&gt;&gt;,&lt;&lt;"d"&gt;&gt;],&lt;&lt;"[]"&gt;&gt;,[global,{insert_replaced,[1,1]}]).
-&lt;&lt;"a[bb]c[dd]e"&gt;&gt;
-4> binary:replace(&lt;&lt;"abcde"&gt;&gt;,[&lt;&lt;"b"&gt;&gt;,&lt;&lt;"d"&gt;&gt;],&lt;&lt;"[-]"&gt;&gt;,[global,{insert_replaced,[1,2]}]).
-&lt;&lt;"a[b-b]c[d-d]e"&gt;&gt;</code>
+        <p>If <c><anno>Replacement</anno></c> is given as a <c>binary()</c> and the
+          matching subpart of <c><anno>Subject</anno></c> giving raise
+          to the replacement is to be inserted in the result, option
+          <c>{insert_replaced, <anno>InsPos</anno>}</c> inserts the matching part
+          into <c><anno>Replacement</anno></c> at the specified position (or
+          positions) before inserting <c><anno>Replacement</anno></c> into
+          <c><anno>Subject</anno></c>. If <c><anno>Replacement</anno></c> is given
+          as a <c>fun</c> instead, this option is ignored.</p>
 
         <p>If any position specified in <c><anno>InsPos</anno></c> &gt; size
-        of the replacement binary, a <c>badarg</c> exception is raised.</p>
+          of the replacement binary, a <c>badarg</c> exception is raised.</p>
 
         <p>Options <c>global</c> and <c>{scope, part()}</c> work as for
-        <seemfa marker="#split/3"><c>split/3</c></seemfa>.
-        The return type is always a <c>binary()</c>.</p>
+          <seemfa marker="#split/3"><c>split/3</c></seemfa>.
+          The return type is always a <c>binary()</c>.</p>
 
         <p>For a description of <c><anno>Pattern</anno></c>, see
-        <seemfa marker="#compile_pattern/1"><c>compile_pattern/1</c></seemfa>.
-        </p>
+          <seemfa marker="#compile_pattern/1"><c>compile_pattern/1</c></seemfa>.</p>
+        <p><em>Examples:</em></p>
+
+<pre>
+1> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"X"&gt;&gt;, []).</input>
+&lt;&lt;"aXcde"&gt;&gt;
+
+2> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"X"&gt;&gt;, [global]).</input>
+&lt;&lt;"aXcXe"&gt;&gt;
+
+3> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, &lt;&lt;"b"&gt;&gt;, &lt;&lt;"[]"&gt;&gt;, [{insert_replaced, 1}]).</input>
+&lt;&lt;"a[b]cde"&gt;&gt;
+
+4> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"[]"&gt;&gt;, [global, {insert_replaced, 1}]).</input>
+&lt;&lt;"a[b]c[d]e"&gt;&gt;
+
+5> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"[]"&gt;&gt;, [global, {insert_replaced, [1, 1]}]).</input>
+&lt;&lt;"a[bb]c[dd]e"&gt;&gt;
+
+6> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"[-]"&gt;&gt;, [global, {insert_replaced, [1, 2]}]).</input>
+&lt;&lt;"a[b-b]c[d-d]e"&gt;&gt;
+
+7> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], fun(M) -> &lt;&lt;$[, M/binary, $]&gt;&gt; end, []).</input>
+&lt;&lt;"a[b]cde"&gt;&gt;
+
+8> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], fun(M) -> &lt;&lt;$[, M/binary, $]&gt;&gt; end, [global]).</input>
+&lt;&lt;"a[b]c[d]e"&gt;&gt;
+</pre>
+
       </desc>
     </func>
 
