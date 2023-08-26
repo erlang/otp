@@ -4410,6 +4410,11 @@ from_form({type, _Anno, 'fun', [{type, _, product, Domain}, Range]},
   {Dom1, L1, C1} = list_from_form(Domain, S, D, L, C),
   {Ran1, L2, C2} = from_form(Range, S, D, L1, C1),
   {t_fun(Dom1, Ran1), L2, C2};
+from_form({type, _Anno, 'fun', [{user_type, _, product, Domain}, Range]},
+          S, D, L, C) ->
+  {Dom1, L1, C1} = list_from_form(Domain, S, D, L, C),
+  {Ran1, L2, C2} = from_form(Range, S, D, L1, C1),
+  {t_fun(Dom1, Ran1), L2, C2};
 from_form({type, _Anno, identifier, []}, _S, _D, L, C) ->
   {t_identifier(), L, C};
 from_form({type, _Anno, integer, []}, _S, _D, L, C) ->
@@ -5069,6 +5074,9 @@ t_form_to_string({type, _Anno, 'fun', []}) -> "fun()";
 t_form_to_string({type, _Anno, 'fun', [{type, _, any}, Range]}) ->
   "fun(...) -> " ++ t_form_to_string(Range);
 t_form_to_string({type, _Anno, 'fun', [{type, _, product, Domain}, Range]}) ->
+  "fun((" ++ flat_join(t_form_to_string_list(Domain), ",") ++ ") -> "
+    ++ t_form_to_string(Range) ++ ")";
+t_form_to_string({type, _Anno, 'fun', [{user_type, _, product, Domain}, Range]}) ->
   "fun((" ++ flat_join(t_form_to_string_list(Domain), ",") ++ ") -> "
     ++ t_form_to_string(Range) ++ ")";
 t_form_to_string({type, _Anno, iodata, []}) -> "iodata()";

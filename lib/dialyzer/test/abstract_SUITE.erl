@@ -82,7 +82,15 @@ generated_case(Config) when is_list(Config) ->
 		    {clause,[{location,7},{generated,true}],[{var,7,'_'}],[],
 		     [{call,7,{remote,7,{var,7,'Arg'},{atom,7,fn}},[]}]}]}]}]}],
 	     Config, [], []),
-    %% Location is a line (no column):
+    [] = test([{attribute,1,file,{"product_type.erl",1}},
+                  {attribute,1,module,product_type},
+                  {attribute,3,export,[{product_type_fun,0}]},
+                  {attribute,5,type,{product,{type,{5,20},any,[]},[]}},
+                  {attribute,7,spec,
+                   {{product_type_fun,0},
+                    [{type,7,'fun',[{type,7,product,[]},{user_type,7,product,[]}]}]}},
+                  {function,8,product_type_fun,0,[{clause,7,[],[],[{atom,9,ok}]}]},
+                  {eof,10}], Config, [], []),
     "fileName.erl:3: Function bar/0 has no local return\n" =
         dialyzer:format_warning(W),
     ok.
