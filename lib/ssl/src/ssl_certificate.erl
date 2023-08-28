@@ -203,12 +203,13 @@ file_to_crls(File, DbHandle) ->
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
 validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
-				    extnValue = KeyUse}}, UserState = #{role := Role}) ->
-    case is_valid_extkey_usage(KeyUse, Role) of
+                                    critical = Critical,
+				    extnValue = KeyUse}}, #{pathlen := 1} = UserState) ->
+    case is_valid_extkey_usage(KeyUse, Critical, UserState) of
 	true ->
 	    {valid, UserState};
 	false ->
-	    {fail, {bad_cert, invalid_ext_key_usage}}
+	    {unknown, UserState}
     end;
 validate(_, {extension, _}, UserState) ->
     {unknown, UserState};
@@ -216,14 +217,14 @@ validate(Issuer, {bad_cert, cert_expired}, #{issuer := Issuer}) ->
     {fail, {bad_cert, root_cert_expired}};
 validate(_, {bad_cert, _} = Reason, _) ->
     {fail, Reason};
-validate(Cert, valid, UserState) ->
+validate(Cert, valid, #{pathlen := N} = UserState) ->
     case verify_sign(Cert, UserState) of
         true ->
             case maps:get(cert_ext, UserState, undefined) of
                 undefined ->
-                    {valid, UserState};
+                    {valid, UserState#{pathlen => N-1}};
                 _ ->
-                    verify_cert_extensions(Cert, UserState)
+                    verify_cert_extensions(Cert, UserState#{pathlen => N -1})
             end;
         false ->
             {fail, {bad_cert, invalid_signature}}
@@ -493,13 +494,20 @@ do_find_issuer(IssuerFun, CertDbHandle, CertDb) ->
 	throw:{ok, _} = Return ->
 	    Return
     end.
-	
-is_valid_extkey_usage(KeyUse, client) ->
+
+is_valid_extkey_usage(KeyUse, true, #{role := Role, pathlen := 1}) when is_list(KeyUse) ->
+    is_valid_key_usage(ext_keysage(Role), KeyUse);
+is_valid_key_usage(KeyUse, true, #{role := Role, pathlen := 1}) ->
+    is_valid_key_usage(ext_keysage(Role), [KeyUse]);
+is_valid_key_usage(_, false, _) ->
+    false.
+
+ext_keysage(client) ->
     %% Client wants to verify server
-    is_valid_key_usage(KeyUse,?'id-kp-serverAuth');
-is_valid_extkey_usage(KeyUse, server) ->
+    ?'id-kp-serverAuth'.
+ext_keysage(server) ->
     %% Server wants to verify client
-    is_valid_key_usage(KeyUse, ?'id-kp-clientAuth').
+    ?'id-kp-serverAuth'.
 
 verify_cert_signer(BinCert, SignerTBSCert) ->
     PublicKey = public_key(SignerTBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo),
