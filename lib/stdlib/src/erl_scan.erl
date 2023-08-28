@@ -945,7 +945,7 @@ scan_tqstring_line(Cs, St, Line, Col, Toks, Qs, Tqs, Acc) ->
               fun scan_tqstring_line/6}};
         eof ->
             ContentR = [Acc|Tqs#tqs.content_r],
-            Estr = string:slice(tqstring_chars_r(ContentR), 0, 16),
+            Estr = string:slice(lists_foldl_reverse(ContentR, ""), 0, 16),
             scan_error(
               {string,{$",Tqs#tqs.qs},Estr},%"
               Tqs#tqs.line, Tqs#tqs.col, Line, Col, eof)
@@ -973,8 +973,8 @@ scan_tqstring_finish(Cs, St, Line, Col, Toks, Tqs, IndentR) ->
                      string, St, Chars,
                      lists_duplicate(
                        Qs, $",%"
-                       tqstring_chars_r(
-                         ContentR, lists:duplicate(Qs, $"))))),%"
+                       lists_foldl_reverse(
+                         ContentR, lists_duplicate(Qs, $", []))))),%"
             scan1(Cs, St, Line, Col, [{string,Anno,Content}|Toks]);
         {Tag=indentation, ErrorLine, ErrorCol} ->
             scan_error(
@@ -985,15 +985,6 @@ scan_tqstring_finish(Cs, St, Line, Col, Toks, Tqs, IndentR) ->
               Tag, Line0, incr_column(Col0, Tqs#tqs.qs+N),
               Line, Col, Cs)
     end.
-
-%% Reconstruct the scanned triple-quoted string from content lines
-%%
-tqstring_chars_r(ContentR) ->
-    tqstring_chars_r(ContentR, "").
-%%
-tqstring_chars_r([], Chars) -> Chars;
-tqstring_chars_r([StringR|StringsR], Chars) ->
-    tqstring_chars_r(StringsR, lists:reverse(StringR, Chars)).
 
 %% Strip newline from the last line, but not if it is the only line
 %%
@@ -1563,9 +1554,13 @@ new_column(no_col=Col, _Ncol) ->
 new_column(Col, Ncol) when is_integer(Col) ->
     Ncol.
 
-%% lists:duplicate/3
+%% lists:duplicate/3 (not exported)
 lists_duplicate(0, _, L) -> L;
 lists_duplicate(N, X, L) -> lists_duplicate(N-1, X, [X|L]).
+
+%% lists:foldl/3 over lists:reverse/2
+lists_foldl_reverse(Lists, Acc) ->
+    lists:foldl(fun lists:reverse/2, Acc, Lists).
 
 nl_spcs(2)  -> "\n ";
 nl_spcs(3)  -> "\n  ";
