@@ -164,6 +164,10 @@ static Eterm
 current_function(Process* p, ErtsHeapFactory *hfact, Process* rp,
                  int full_info, Uint reserve_size, int flags);
 
+static Eterm
+current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
+                   Uint reserve_size, int flags);
+
 Eterm
 erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail)
 {
@@ -1503,7 +1507,7 @@ process_info_aux(Process *c_p,
 	break;
 
     case ERTS_PI_IX_CURRENT_STACKTRACE:
-	res = erts_current_stacktrace(c_p, hfact, rp, reserve_size, flags);
+	res = current_stacktrace(c_p, hfact, rp, reserve_size, flags);
 	break;
 
     case ERTS_PI_IX_INITIAL_CALL:
@@ -2211,9 +2215,20 @@ current_function(Process *c_p, ErtsHeapFactory *hfact, Process* rp,
     return res;
 }
 
-Eterm
-erts_current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
+static Eterm
+current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
                    Uint reserve_size, int flags)
+{
+    const int include_i = (p != rp || (flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER));
+    /* We skip current pc when requesting our own stack trace since it will
+     * inevitably point to process_info/1,2 */
+    return erts_build_stacktrace(hfact, rp, reserve_size,
+                                 erts_backtrace_depth, include_i);
+}
+
+Eterm
+erts_build_stacktrace(ErtsHeapFactory* hfact, Process* rp,
+                      Uint reserve_size, int max_depth, int include_i)
 {
     Uint sz;
     struct StackTrace* s;
@@ -2226,16 +2241,13 @@ erts_current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
     Eterm mfa;
     Eterm res = NIL;
 
-    depth = erts_backtrace_depth;
+    depth = max_depth;
     sz = offsetof(struct StackTrace, trace) + sizeof(ErtsCodePtr) * depth;
     s = (struct StackTrace *) erts_alloc(ERTS_ALC_T_TMP, sz);
     s->depth = 0;
     s->pc = NULL;
 
-    /* We skip current pc when requesting our own stack trace since it will
-     * inevitably point to process_info/1,2 */
-    if ((p != rp || (flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)) &&
-        depth > 0 && rp->i) {
+    if (include_i && depth > 0 && rp->i) {
         s->trace[s->depth++] = rp->i;
         depth--;
     }

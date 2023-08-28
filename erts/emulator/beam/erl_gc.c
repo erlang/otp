@@ -3743,7 +3743,10 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
             /* Build the args in reverse order */
             o_hp = hp = erts_alloc(ERTS_ALC_T_TMP, 2*(alive ? 9 : 8) * sizeof(Eterm));
             erts_factory_proc_init(&hfact, p);
-            args = CONS(hp, erts_current_stacktrace(p, &hfact, p, 0 ,0), args); hp += 2;
+            args = CONS(hp, erts_build_stacktrace(&hfact, p, 0,
+                                                  erts_backtrace_depth, 1),
+                        args);
+            hp += 2;
             erts_factory_close(&hfact);
             args = CONS(hp, msg, args); hp += 2;
             args = CONS(hp, make_small((p)->sig_inq.len), args); hp += 2;
