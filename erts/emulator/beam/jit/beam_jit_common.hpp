@@ -243,6 +243,7 @@ struct BeamModuleAssemblerCommon {
             return BeamTypeId::Tuple;
         default:
             ERTS_ASSERT(!"tag_val_def error");
+            return BeamTypeId::None; /* Avoid warning */
         }
     }
 
