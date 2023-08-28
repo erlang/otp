@@ -188,7 +188,7 @@ DEC_NITEMS(DbTableHash* DB, DbTableHashLockAndCounter* LCK_CTR, HashValue HASH)
 #define BUCKET(tb, i) SEGTAB(tb)[SLOT_IX_TO_SEG_IX(i)]->buckets[(i) & EXT_SEGSZ_MASK]
 
 #ifdef DEBUG
-#  define DBG_BUCKET_INACTIVE ((HashDbTerm*)0xdead5107)
+#  define DBG_BUCKET_INACTIVE ((HashDbTerm*)(UWord)0xdead5107)
 #endif
 
 
