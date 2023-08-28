@@ -85,16 +85,17 @@ start_inets(Config) when is_list(Config) ->
     {error,inets_not_started} = inets:services(),
     {error,inets_not_started} = inets:services_info(),
 
-    ok = inets:start(),
+    {ok, [inets | [crypto,asn1,public_key,ssl]=Apps]} = inets:start(),
     
     %% httpc default profile always started
     [_|_] = inets:services(), 
     [_|_] =  inets:services_info(),
 
-    {error,{already_started,inets}} = inets:start(),
+    {ok, []} = inets:start(),
     
     ok = inets:stop(),
     {error,{not_started,inets}} = inets:stop(),
+    lists:all(fun (App) -> ok == application:stop(App) end, Apps),
 
     ok = inets:start(transient),
     ok = inets:stop(),
@@ -110,7 +111,7 @@ start_httpc(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     PrivDir = proplists:get_value(priv_dir, Config),
 
-    ok = inets:start(),
+    {ok, [inets]} = inets:start(),
     {ok, Pid0} = inets:start(httpc, [{profile, foo}]),
 
     Pids0 =  [ServicePid || {_, ServicePid} <- inets:services()],  
@@ -142,13 +143,13 @@ start_httpc(Config) when is_list(Config) ->
     application:load(inets),
     application:set_env(inets, services, [{httpc,[{profile, foo}, 
 						  {data_dir, PrivDir}]}]),
-    ok = inets:start(),
+    {ok, [inets]} = inets:start(),
 
     (?NUM_DEFAULT_SERVICES + 1) = length(inets:services()),
 
     application:unset_env(inets, services),
     ok = inets:stop(),
-    ok = inets:start(),
+    {ok, [inets]} = inets:start(),
 
     {ok, Pid3} = inets:start(httpc, [{profile, foo}]),
     ok = inets:stop(httpc, foo),
@@ -166,7 +167,7 @@ start_httpd(Config) when is_list(Config) ->
     HttpdConf = [{server_name, "httpd_test"}, {server_root, PrivDir},
 		 {document_root, PrivDir}, {bind_address, any}],
     
-    ok = inets:start(),
+    {ok, [inets]} = inets:start(),
     {ok, Pid0} = inets:start(httpd, [{port, 0}, {ipfamily, inet} | HttpdConf]),
     Pids0 =  [ServicePid || {_, ServicePid} <- inets:services()],  
     true = lists:member(Pid0, Pids0),
@@ -204,7 +205,7 @@ start_httpd(Config) when is_list(Config) ->
     application:load(inets),
     application:set_env(inets, 
 			services, [{httpd, [{proplist_file, File0}]}]),
-    ok = inets:start(),
+    {ok, [inets]} = inets:start(),
     (?NUM_DEFAULT_SERVICES + 1) = length(inets:services()),
     application:unset_env(inets, services),
     ok = inets:stop().
@@ -222,7 +223,7 @@ httpd_reload(Config) when is_list(Config) ->
 		 {document_root, PrivDir}, 
 		 {bind_address,  "localhost"}],
 
-    ok = inets:start(),
+    {ok, [inets]} = inets:start(),
 
     {ok, Pid0} = inets:start(httpd, [{port, 0}, 
 				     {ipfamily, inet} | HttpdConf]),
