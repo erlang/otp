@@ -1022,7 +1022,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 
 	{add_rrs, RRs} ->
 	    ?dbg("add_rrs: ~p~n", [RRs]),
-	    {reply, do_add_rrs(RRs, Db, State), State};
+	    {reply, do_add_rrs(RRs, Db, State#state.cache), State};
 
 	{del_rr, RR} when is_record(RR, dns_rr) ->
 	    Cache = State#state.cache,
@@ -1667,14 +1667,11 @@ is_reqname(_) -> false.
 %% #dns_rr.cnt is used to store the access time
 %% instead of number of accesses.
 %%
-do_add_rrs(RRs, Db, State) ->
-    CacheDb = State#state.cache,
-    do_add_rrs(RRs, Db, State, CacheDb).
-
-do_add_rrs([], _Db, _State, _CacheDb) ->
+do_add_rrs([], _Db, _CacheDb) ->
     ok;
-do_add_rrs([RR | RRs], Db, State, CacheDb) ->
-    case alloc_entry(Db, CacheDb, #dns_rr.tm) of
+do_add_rrs([RR | RRs], Db, CacheDb) ->
+    Size = ets:lookup_element(Db, cache_size, 2),
+    case alloc_entry(CacheDb, #dns_rr.tm, Size) of
 	true ->
             %% Add to cache
             %%
@@ -1698,7 +1695,7 @@ do_add_rrs([RR | RRs], Db, State, CacheDb) ->
                             DelRR <- DeleteRRs],
                     ok
             end,
-            do_add_rrs(RRs, Db, State, CacheDb);
+            do_add_rrs(RRs, Db, CacheDb);
 	false ->
 	    ok
     end.
@@ -1745,47 +1742,76 @@ lookup_cache_data(LcDomain, Type) ->
 %% in the table, i.e identical domain, class, type and data.
 %% We embrace that and eliminate duplicates here.
 %%
-%% Look up all matching objects.  The still valid ones
-%% should be returned, and updated with a new cnt time.
-%% All expired ones should be deleted.
+%% Look up all matching objects.
+%% The still valid ones should be returned and updated
+%% in the ETS table with a new access time (#dns_rr.cnt).
+%% All expired ones should be deleted from the ETS table.
 %%
 match_rr(MatchRR) ->
     CacheDb = inet_cache,
     RRs = ets:match_object(CacheDb, MatchRR),
-    match_rr(CacheDb, RRs, times(), #{}, #{}, []).
+    match_rr(CacheDb, RRs, times(), [], []).
 %%
-match_rr(CacheDb, [], _Time, ResultRRs, InsertRRs, DeleteRRs) ->
-    %% We insert first so an RR always is present,
-    %% which may create duplicates
-    _ = [ets:insert(CacheDb, RR) || RR <- maps:values(InsertRRs)],
-    _ = [ets:delete_object(CacheDb, RR) || RR <- DeleteRRs],
-    maps:values(ResultRRs);
-match_rr(CacheDb, [RR | RRs], Time, ResultRRs, InsertRRs, DeleteRRs) ->
+match_rr(CacheDb, [], Time, KeepRRs, DeleteRRs) ->
     %%
-    #dns_rr{ttl = TTL, tm = TM, cnt = Cnt} = RR,
+    %% Keep the first duplicate RR in KeepRRs (reversed)
+    %% that is; the last in RRs
+    ResultRRs = match_rr_dedup(KeepRRs),
+    %%
+    %% We insert before delete so an RR always is present,
+    %% which may create duplicates
+    _ = [ets:insert(CacheDb, RR#dns_rr{cnt = Time})
+         || RR <- ResultRRs,
+            %%
+            %% Insert only if access time changes
+            RR#dns_rr.cnt < Time],
+    _ = [ets:delete_object(CacheDb, RR) || RR <- DeleteRRs],
+    ResultRRs;
+%%
+%% Updating the access time (#dns_rr.cnt) is done by first inserting
+%% an updated RR and then deleting the old, both done above.
+%%
+%% This does not work if the access time for the inserted record
+%% is the same as for the deleted record because then both records
+%% are identical and we end up with the record being deleted
+%% instead of updated.
+%%
+%% When the access time is unchanged, within the time granularity,
+%% the RR should not be updated so it is not put on the delete list
+%% (below) and not re-inserted (above).  Both parts of this
+%% split operation has to use the same condition; RR#dns_rr.cnt < Time,
+%% for this to work.
+%%
+match_rr(CacheDb, [RR | RRs], Time, KeepRRs, DeleteRRs) ->
+    %%
+    #dns_rr{ttl = TTL, tm = TM} = RR,
     if
         TM + TTL < Time ->
-            %% Expired, delete
-            match_rr(
-              CacheDb, RRs, Time,
-              ResultRRs, InsertRRs, [RR | DeleteRRs]);
-        Time =< Cnt ->
-            %% Valid and just updated, return and do not update
-            Key = match_rr_key(RR),
-            match_rr(
-              CacheDb, RRs, Time,
-              ResultRRs#{Key => RR}, InsertRRs, DeleteRRs);
+            %% Expired
+            match_rr(CacheDb, RRs, Time, KeepRRs, [RR | DeleteRRs]);
+        RR#dns_rr.cnt < Time -> % Delete only if access time changes
+            %% Not expired
+            match_rr(CacheDb, RRs, Time, [RR | KeepRRs], [RR | DeleteRRs]);
+        true -> % Cnt == Time since Time is monotonically increasing
+            %% Not expired
+            match_rr(CacheDb, RRs, Time, [RR | KeepRRs], DeleteRRs)
+    end.
+
+%% Remove all duplicate RRs (according to match_rr_key/1)
+%% - keep the first, return reversed list
+%%
+match_rr_dedup(RRs) ->
+    match_rr_dedup(RRs, #{}, []).
+%%
+match_rr_dedup([], _Seen, Acc) ->
+    Acc;
+match_rr_dedup([RR | RRs], Seen, Acc) ->
+    Key = match_rr_key(RR),
+    case erlang:is_map_key(Key, Seen) of
         true ->
-            %% Valid; return and re-insert with updated cnt time.
-            %% The clause above ensures that the cnt field is changed
-            %% which is essential to not accidentally delete
-            %% a record we also insert.
-            Key = match_rr_key(RR),
-            match_rr(
-              CacheDb, RRs, Time,
-              ResultRRs#{Key => RR},
-              InsertRRs#{Key => RR#dns_rr{cnt = Time}},
-              [RR | DeleteRRs])
+            match_rr_dedup(RRs, Seen, Acc);
+        false ->
+            match_rr_dedup(RRs, Seen#{Key => []}, [RR | Acc])
     end.
 
 -compile({inline, [match_rr_key/1]}).
@@ -1927,8 +1953,7 @@ delete_expired(CacheDb, TM) ->
 %% Returns: true if space for a new entry otherwise false
 %% (true if we have a cache since we always make room for new).
 %% -------------------------------------------------------------------
-alloc_entry(Db, CacheDb, TM) ->
-    Size = ets:lookup_element(Db, cache_size, 2),
+alloc_entry(CacheDb, TM, Size) ->
     if
 	Size =< 0 ->
 	    false;
@@ -1947,11 +1972,11 @@ alloc_entry(Db, CacheDb, TM) ->
 %% This deletion should always give some room since
 %% it removes a percentage of the oldest entries.
 %%
-%% Fetch all cnt times, sort them, calculate a limit
+%% Fetch all access times (#dns_rr.cnt), sort them, calculate a limit
 %% as the earliest of the time 1/3 from the oldest to now,
 %% and the 1/10 oldest entry,.
 %%
-%% Delete all entries with a cnt time older than that,
+%% Delete all entries with an access time (#dns_rr.cnt) older than that,
 %% and all expired (tm + ttl < now).
 %%
 delete_oldest(CacheDb, TM, N) ->
