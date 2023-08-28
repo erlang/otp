@@ -351,7 +351,10 @@ parse_file(Epp) ->
     %% added search for tokens to warn for
     case epp_request(Epp, scan_erl_form) of
 	{ok,Toks} ->
-            Warnings = parse_file_warnings(Toks),
+            Warnings =
+                [{warning, {erl_anno:location(Anno),?MODULE,tqstring}}
+                 %% Warn about using 3 or more double qoutes
+                 || {tqstring,Anno,_} <- Toks],
             case erl_parse:parse_form(Toks) of
                 {ok, Form} ->
                     [Form|Warnings] ++ parse_file(Epp);
@@ -371,17 +374,6 @@ parse_file_problem(Epp, Problem, Warnings) ->
 	{eof,Location} ->
 	    [{eof,Location}|Warnings]
     end.
-
-parse_file_warnings(Toks) ->
-    parse_file_warnings(Toks, []).
-%%
-parse_file_warnings([], Acc) -> Acc;
-parse_file_warnings([{tqstring,Anno,_}|Toks], Acc) ->
-    %% Warn about using 3 or more double qoutes
-    Winfo = {erl_anno:location(Anno),?MODULE,tqstring},
-    parse_file_warnings(Toks, [{warning,Winfo}|Acc]);
-parse_file_warnings([_|Toks], Acc) ->
-    parse_file_warnings(Toks, Acc).
 
 -spec default_encoding() -> source_encoding().
 
