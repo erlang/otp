@@ -4228,9 +4228,11 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
 #endif
     {
 #ifdef __WIN32__
-        if (!WriteFile(fd, str, len, &written, NULL)) {
+        Uint32 w;
+        if (!WriteFile(fd, str, len, &w, NULL)) {
             goto error;
         }
+        written = (Sint)w;
 #else
         written = 0;
         do {
