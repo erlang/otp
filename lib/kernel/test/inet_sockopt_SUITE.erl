@@ -1278,14 +1278,14 @@ all_udp_options() ->
      {buffer,1000,2000,true,true},
      {mode,list,binary,true,true},
      {deliver,term,port,true,true},
-     %% broadcast
-     %% dontroute
+     {broadcast,true,false,true,true},
+     {dontroute,true,false,true,true},
      %% multicast_if
      %% multicast_ttl
      %% multicast_loop
      %% add_membership
      %% drop_membership
-     %% read_packets
+     {read_packets,6,7,true,true},
      {high_msgq_watermark,4096,8192,true,true},
      {low_msgq_watermark,2048,4096,true,true}].
 
