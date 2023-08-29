@@ -46,7 +46,8 @@
          shell_history_custom/1, shell_history_custom_errors/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
-         shell_navigation/1, shell_multiline_navigation/1, shell_xnfix/1, shell_delete/1,
+         shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1,
+         shell_xnfix/1, shell_delete/1,
          shell_transpose/1, shell_search/1, shell_insert/1,
          shell_update_window/1, shell_small_window_multiline_navigation/1, shell_huge_input/1,
          shell_invalid_unicode/1, shell_support_ansi_input/1,
@@ -125,7 +126,8 @@ groups() ->
       ]},
      {tty_latin1,[],[{group,tty_tests}]},
      {tty_tests, [parallel],
-      [shell_navigation, shell_multiline_navigation, shell_xnfix, shell_delete,
+      [shell_navigation, shell_multiline_navigation, shell_multiline_prompt,
+       shell_xnfix, shell_delete,
        shell_transpose, shell_search, shell_insert,
        shell_update_window, shell_small_window_multiline_navigation, shell_huge_input,
        shell_support_ansi_input,
@@ -470,6 +472,39 @@ shell_multiline_navigation(Config) ->
     after
         stop_tty(Term)
     end.
+
+shell_multiline_prompt(Config) ->
+    Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{edlin,inverted_space_prompt}"]}|Config]),
+    Term2 = start_tty([{args,["-stdlib","shell_multiline_prompt","\"...> \""]}|Config]),
+    Term3 = start_tty([{args,["-stdlib","shell_multiline_prompt","edlin"]}|Config]),
+
+    try
+        check_location(Term1, {0, 0}),
+        send_tty(Term1,"\na"),
+        check_location(Term1, {0, 1}),
+        check_content(Term1, "   a"),
+        ok
+    after
+        stop_tty(Term1)
+    end,
+    try
+        check_location(Term2, {0, 0}),
+        send_tty(Term2,"\na"),
+        check_location(Term2, {0, 1}),
+        check_content(Term2, "...> a"),
+        ok
+    after
+        stop_tty(Term2)
+    end,
+    try
+        send_tty(Term3,"\na"),
+        check_location(Term3, {0, 1}),
+        check_content(Term3, ".. a"),
+        ok
+    after
+        stop_tty(Term3)
+    end.
+
 shell_clear(Config) ->
 
     Term = start_tty(Config),
