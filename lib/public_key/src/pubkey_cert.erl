@@ -908,24 +908,17 @@ validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyConstraints',
 validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
                                            critical = true,
                                            extnValue = KeyUse} = Extension | Rest],
-		    ValidationState#path_validation_state{last_cert = false}, ExistBasicCon,
+		    #path_validation_state{last_cert = false} = ValidationState, ExistBasicCon,
 		    SelfSigned, UserState0, VerifyFun) ->
     UserState =
         case ext_keyusage_includes_any(KeyUse) of
             true -> %% CA cert that specifies ?anyExtendedKeyUsage should not be marked critical
                 verify_fun(OtpCert, {bad_cert, invalid_ext_key_usage}, UserState0, VerifyFun);
             false ->
-                verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun);
+                verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun)
         end,
     validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
 			UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
-                                           extnValue = KeyUse} = Extension | Rest],
-		    ValidationState, ExistBasicCon,
-		    SelfSigned, UserState0, VerifyFun) ->
-    UserState = verify_fun(OtpCert, {extension, Ext}, UserState0, VerifyFun),
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
-                        UserState, VerifyFun);
 validate_extensions(OtpCert, [#'Extension'{} = Extension | Rest],
 		    ValidationState, ExistBasicCon,
 		    SelfSigned, UserState0, VerifyFun) ->

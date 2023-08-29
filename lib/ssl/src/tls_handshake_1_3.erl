@@ -2943,24 +2943,26 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                 #{cert_ext := CertExt,
                   ocsp_responder_certs := OcspResponderCerts,
                   ocsp_state := OcspState}) ->
-    ValidationFunAndState = 
-        ssl_handshake:validation_fun_and_state(VerifyFun, #{role => Role,
-                                                            certdb => CertDbHandle,
-                                                            certdb_ref => CertDbRef,
-                                                            server_name => ServerName,
-                                                            customize_hostname_check =>
-                                                                CustomizeHostnameCheck,
-                                                            crl_check => CrlCheck,
-                                                            crl_db => CRLDbHandle,
-                                                            signature_algs => filter_tls13_algs(SignAlgos),
-                                                            signature_algs_cert => 
-                                                                filter_tls13_algs(SignAlgosCert),
-                                                            version => Version,
-                                                            issuer => TrustedCert,
-                                                            cert_ext => CertExt,
-                                                            ocsp_responder_certs => OcspResponderCerts,
-                                                            ocsp_state => OcspState
-                                                           }, 
+    ValidationFunAndState =
+        ssl_handshake:validation_fun_and_state(VerifyFun,
+                                               #{role => Role,
+                                                 certdb => CertDbHandle,
+                                                 certdb_ref => CertDbRef,
+                                                 server_name => ServerName,
+                                                 customize_hostname_check =>
+                                                     CustomizeHostnameCheck,
+                                                 crl_check => CrlCheck,
+                                                 crl_db => CRLDbHandle,
+                                                 signature_algs => filter_tls13_algs(SignAlgos),
+                                                 signature_algs_cert =>
+                                                     filter_tls13_algs(SignAlgosCert),
+                                                 version => Version,
+                                                 issuer => TrustedCert,
+                                                 cert_ext => CertExt,
+                                                 ocsp_responder_certs => OcspResponderCerts,
+                                                 ocsp_state => OcspState,
+                                                 path_len => length(Path)
+                                                },
                                                Path, LogLevel),
     Options = [{max_path_length, Depth},
                {verify_fun, ValidationFunAndState}],
