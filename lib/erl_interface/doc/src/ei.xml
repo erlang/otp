@@ -1276,6 +1276,12 @@ ei_x_format("{~a,~i,~d}", "numbers", 12, 3.14159)
 encodes the tuple {numbers,12,3.14159}</pre>
         <p><c>ei_x_format_wo_ver()</c> formats into a buffer,
           without the initial version byte.</p>
+	<change>
+          <p>
+	    Since OTP @OTP-18764@ maps can be encoded with syntax like
+	    <c>"#{k1 => v1, k2 => v2}"</c>.
+	  </p>
+        </change>
       </desc>
     </func>
 
