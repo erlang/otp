@@ -228,7 +228,7 @@ replace(Haystack,Needles0,Replacement,Options) ->
 		      true ->
 			  exit(badtype)
 		  end,
-	true = is_binary(Replacement), % Make badarg instead of function clause
+	true = is_binary(Replacement) orelse is_function(Replacement, 1), % Make badarg instead of function clause
 	{Part,Global,Insert} = get_opts_replace(Options,{nomatch,false,[]}),
 	{Start,End,NewStack} =
 	    case Part of
@@ -254,7 +254,9 @@ replace(Haystack,Needles0,Replacement,Options) ->
 				[X]
 			end
 		end,
-	ReplList = case Insert of
+	ReplList = case is_binary(Replacement) andalso Insert of
+		       false ->
+			   Replacement;
 		       [] ->
 			   Replacement;
 		       Y when is_integer(Y) ->
@@ -274,6 +276,8 @@ do_replace(H,[],_,N) ->
 do_replace(H,[{A,B}|T],Replacement,N) ->
     [part(H,{N,A-N}),
      if
+	 is_function(Replacement) ->
+	     Replacement(part(H, {A, B}));
 	 is_list(Replacement) ->
 	     do_insert(Replacement, part(H,{A,B}));
 	 true ->
