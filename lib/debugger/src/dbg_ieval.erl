@@ -620,8 +620,12 @@ seq([E|Es], Bs0, Ieval) ->
 	{skip,Bs} ->
 	    seq(Es, Bs, Ieval);
 	Bs1 ->
-	    {value,_,Bs} = expr(E, Bs1, Ieval#ieval{top=false}),
-	    seq(Es, Bs, Ieval)
+	    case expr(E, Bs1, Ieval#ieval{top=false}) of
+                {value,_,Bs} ->
+                    seq(Es, Bs, Ieval);
+                {bad_maybe_match,_}=Bad ->
+                    Bad
+            end
     end;
 seq([], Bs, _) ->
     {value,true,Bs}.
@@ -755,6 +759,24 @@ expr({'orelse',Line,E1,E2}, Bs0, Ieval) ->
             exception(error, {badarg,Val}, Bs, Ieval)
     end;
 
+%% Maybe statement without else
+expr({'maybe',Line,Es}, Bs, Ieval) ->
+    case seq(Es, Bs, Ieval#ieval{line=Line}) of
+        {bad_maybe_match,Val} ->
+            {value,Val,Bs};
+        {value,_,_}=Other ->
+            Other
+    end;
+
+%% Maybe statement with else
+expr({'maybe',Line,Es,Cs}, Bs, Ieval) ->
+    case seq(Es, Bs, Ieval#ieval{line=Line}) of
+        {bad_maybe_match,Val} ->
+            case_clauses(Val, Cs, Bs, else_clause, Ieval#ieval{line=Line});
+        {value,_,_}=Other ->
+            Other
+    end;
+
 %% Matching expression
 expr({match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
@@ -764,6 +786,17 @@ expr({match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
 	    {value,Rhs,Bs};
 	nomatch ->
 	    exception(error, {badmatch,Rhs}, Bs1, Ieval)
+    end;
+
+%% Conditional match expression (?=)
+expr({maybe_match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,Rhs,Bs1} = expr(Rhs0, Bs0, Ieval#ieval{top=false}),
+    case match(Lhs, Rhs, Bs1) of
+	{match,Bs} ->
+	    {value,Rhs,Bs};
+	nomatch ->
+            {bad_maybe_match,Rhs}
     end;
 
 %% Construct a fun

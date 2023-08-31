@@ -47,6 +47,7 @@ MODULES= \
 	lc_SUITE \
 	line_number_SUITE \
 	map_SUITE \
+	maybe_SUITE \
 	overridden_bif_SUITE \
 	record_SUITE \
 	trycatch_SUITE \
