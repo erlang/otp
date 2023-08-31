@@ -581,6 +581,13 @@ massage_forms([H | T], Defs) ->
 massage_forms([], _Defs) ->
   [].
 
+massage_type({type, Loc, 'fun',
+              [{type, ArgsLoc, product, ArgTypes}, Ret0]},
+             Defs) ->
+  %% We must make sure that we keep the built-in `product` type here.
+  Args = {type, ArgsLoc, product, massage_type_list(ArgTypes, Defs)},
+  Ret = massage_type(Ret0, Defs),
+  {type, Loc, 'fun', [Args, Ret]};
 massage_type({type, Loc, Name, Args0}, Defs) when is_list(Args0) ->
   case sets:is_element({Name, length(Args0)}, Defs) of
     true ->
