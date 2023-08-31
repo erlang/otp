@@ -9159,8 +9159,8 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 
 	case UDP_OPT_MULTICAST_IF:
             {
-                int          mif   = 0;
-                unsigned int mifSz = sizeof(mif);
+                int            mif   = 0;
+                unsigned int   mifSz = sizeof(mif);
 
                 *ptr++ = opt;
                 /* We use up the 4 (value) places for the domain/family
@@ -9181,7 +9181,8 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
                 }
                 if (IS_SOCKET_ERROR(sock_getopt(desc->s,
                                                 proto, type,
-                                                &mif, &mifSz))) {
+                                                (void *) &mif,
+                                                (void *) &mifSz))) {
                     TRUNCATE_TO(0,ptr);
                     continue;
                 }
@@ -12855,12 +12856,8 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
 static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 {
     int ret = 0;
-#ifdef DEBUG
-    long port = (long) desc->inet.port;  /* Used after driver_exit() */
-#endif
     ASSERT(!INET_IGNORED(INETP(desc)));
-    DEBUGF(("tcp_inet_input(%p) {s=%d\r\n", port, desc->inet.s));
-    /* XXX fprintf(stderr,"tcp_inet_input(%p) {s=%d}\r\n",(long) desc->inet.port, desc->inet.s); */
+    DEBUGF(("tcp_inet_input(%p) {s=%d\r\n", desc->inet.port, desc->inet.s));
     if (desc->inet.state == INET_STATE_ACCEPTING) {
 	SOCKET s;
 	unsigned int len;
@@ -12998,10 +12995,10 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	/* maybe a close op from connection attempt?? */
 	sock_select(INETP(desc),FD_ACCEPT,0);
 	DEBUGF(("tcp_inet_input(%p): s=%d bad state: %04x\r\n", 
-		port, desc->inet.s, desc->inet.state));
+		desc->inet.port, desc->inet.s, desc->inet.state));
     }
  done:
-    DEBUGF(("tcp_inet_input(%p) }\r\n", port));
+    DEBUGF(("tcp_inet_input(%p) }\r\n", desc->inet.port));
     return ret;
 }
 
