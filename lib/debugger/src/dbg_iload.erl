@@ -512,6 +512,13 @@ expr({'receive',Anno,Cs0,To0,ToEs0}, Lc, St) ->
     ToEs1 = exprs(ToEs0, Lc, St),
     Cs1 = icr_clauses(Cs0, Lc, St),
     {'receive',ln(Anno),Cs1,To1,ToEs1};
+expr({'maybe',Anno,Es0}, Lc, St) ->
+    Es1 = exprs(Es0, Lc, St),
+    {'maybe',ln(Anno),Es1};
+expr({'maybe',Anno,Es0,{'else',_ElseAnno,Cs0}}, Lc, St) ->
+    Es1 = exprs(Es0, Lc, St),
+    Cs1 = icr_clauses(Cs0, Lc, St),
+    {'maybe',ln(Anno),Es1,Cs1};
 expr({'fun',Anno,{clauses,Cs0}}, _Lc, St) ->
     %% New R10B-2 format (abstract_v2).
     Cs = fun_clauses(Cs0, St),
@@ -619,6 +626,10 @@ expr({match,Anno,P0,E0}, _Lc, St) ->
     E1 = expr(E0, false, St),
     P1 = pattern(P0, St),
     {match,ln(Anno),P1,E1};
+expr({maybe_match,Anno,P0,E0}, _Lc, St) ->
+    E1 = expr(E0, false, St),
+    P1 = pattern(P0, St),
+    {maybe_match,ln(Anno),P1,E1};
 expr({op,Anno,Op,A0}, _Lc, St) ->
     A1 = expr(A0, false, St),
     {op,ln(Anno),Op,[A1]};
