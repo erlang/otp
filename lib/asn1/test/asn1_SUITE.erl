@@ -191,8 +191,25 @@ init_per_testcase(Func, Config) ->
 
 end_per_testcase(_Func, Config) ->
     CaseDir = proplists:get_value(case_dir, Config),
+    unload_modules(CaseDir),
     asn1_test_lib:rm_dirs([CaseDir]),
     code:del_path(CaseDir).
+
+unload_modules(CaseDir) ->
+    F = fun(Name0, Acc) ->
+                Name1 = filename:rootname(filename:basename(Name0)),
+                Name = list_to_existing_atom(Name1),
+                [Name|Acc]
+        end,
+    Beams1 = lists:usort(filelib:fold_files(CaseDir, "[.]beam\$", true, F, [])),
+    Beams = [M || M <- Beams1, code:is_loaded(M) =/= false],
+    _ = [begin
+             code:purge(M),
+             code:delete(M),
+             code:purge(M),
+             io:format("Unloaded ~p", [M])
+         end || M <- Beams],
+    ok.
 
 %%------------------------------------------------------------------------------
 %% Test runners
