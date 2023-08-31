@@ -78,6 +78,15 @@ badargs(Config) when is_list(Config) ->
 	   binary:match(<<1,2,3>>,<<1>>,
 			[{scope,{16#FFFFFFFFFFFFFFFF,
 				 16#7FFFFFFFFFFFFFFF}}])),
+    badarg = ?MASK_ERROR(binary:match(<<>>,foobar)),
+    badarg = ?MASK_ERROR(binary:match(<<"abc">>,foobar,
+                                      [{scope,{0,0}}])),
+    badarg = ?MASK_ERROR(binary:matches(<<>>,foobar)),
+    badarg = ?MASK_ERROR(binary:matches(<<"abc">>,foobar,
+                                        [{scope,{0,0}}])),
+    badarg = ?MASK_ERROR(binary:replace(<<>>,foobar,<<>>)),
+    badarg = ?MASK_ERROR(binary:replace(<<"abc">>,foobar,<<>>,
+                                        [{scope,{0,0}}])),
     badarg =
 	?MASK_ERROR(
 	   binary:part(<<1,2,3>>,{16#FF,
@@ -237,6 +246,9 @@ badargs(Config) when is_list(Config) ->
     badarg =
 	?MASK_ERROR(
 	   binary:at([1,2,4],2)),
+
+    badarg = ?MASK_ERROR(binary:split(<<>>,foobar)),
+    badarg = ?MASK_ERROR(binary:split(<<"abc">>,foobar,[{scope,{0,0}}])),
 
     badarg = ?MASK_ERROR(binary:encode_hex("abc")),
     badarg = ?MASK_ERROR(binary:encode_hex(123)),
