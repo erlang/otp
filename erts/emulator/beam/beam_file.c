@@ -595,6 +595,8 @@ static void init_fallback_type_table(BeamFile *beam) {
     types->fallback = 1;
 
     types->entries[0].type_union = BEAM_TYPE_ANY;
+    types->entries[0].metadata_flags = 0;
+    types->entries[0].size_unit = 1;
     types->entries[0].min = MAX_SMALL + 1;
     types->entries[0].max = MIN_SMALL - 1;
 }
