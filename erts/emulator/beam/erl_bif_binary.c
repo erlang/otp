@@ -1535,10 +1535,6 @@ binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
     if (parse_match_opts_list(arg3, arg1, &(ctx->hsstart), &(ctx->hsend))) {
 	goto badarg;
     }
-    if (ctx->hsend == 0) {
-	result = do_match_not_found_result(p, arg1, &ctx);
-	BIF_RET(result);
-    }
     if (maybe_binary_match_compile(ctx, arg2, &pat_bin) != BF_OK) {
 	goto badarg;
     }
@@ -1596,10 +1592,6 @@ binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     }
     if (parse_split_opts_list(arg3, arg1, &(ctx->hsstart), &(ctx->hsend), &(ctx->flags))) {
 	goto badarg;
-    }
-    if (ctx->hsend == 0) {
-	result = do_split_not_found_result(p, arg1, &ctx);
-	BIF_RET(result);
     }
     if (maybe_binary_match_compile(ctx, arg2, &pat_bin) != BF_OK) {
 	goto badarg;
