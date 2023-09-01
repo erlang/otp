@@ -596,10 +596,10 @@ handle_request(State, redraw_prompt) ->
 handle_request(State = #state{unicode = U, cols = W}, redraw_prompt_pre_deleted) ->
     {Movement, TextInView, EverythingFitsInView} = in_view(State),
     {_, NewPrompt} = handle_request(State, new_prompt),
-    {Redraw, RedrawState} = insert_buf(NewPrompt#state{xn = false}, unicode:characters_to_binary(TextInView)),
+    {Redraw, RedrawState} = insert_buf(NewPrompt, unicode:characters_to_binary(TextInView)),
     {Output, _} = case State#state.buffer_expand of
                       undefined ->
-                        {[encode(Redraw, U), xnfix(RedrawState, RedrawState#state.buffer_before), Movement], RedrawState};
+                        {[encode(Redraw, U), xnfix(RedrawState), Movement], RedrawState};
                       BufferExpand ->
                           %% If everything fits in the view, then we output the expand buffer after the whole expression.
                           Last = last_or_empty(State#state.lines_after),
