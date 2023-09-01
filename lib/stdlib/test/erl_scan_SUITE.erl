@@ -1314,11 +1314,71 @@ triple_quoted_string(Config) when is_list(Config) ->
           "\n"
           "\"\"\""),
 
+    {ok,[{string,1,""}],3} =
+        erl_scan:string(
+          "\"\"\"\n"
+          " \n"
+          " \"\"\""),
+
+    {ok,[{string,1,""}],3} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "\n"
+          " \"\"\""),
+
+    {ok,[{string,1,""}],3} =
+        erl_scan:string(
+          "\"\"\"\r\n"
+          "  \r\n"
+          "  \"\"\""),
+
+    {error,{{2,2},erl_scan,indentation},{3,6}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          " \n" % One space too little indentation
+          "  \"\"\"", {1,1}, []),
+
     {ok,[{string,1,"\n"}],4} =
         erl_scan:string(
           "\"\"\"\n"
-          "\n\n"
+          "\n"
+          "\n"
           "\"\"\""),
+
+    {ok,[{string,1,"\r\n"}],4} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "  \r\n"
+          "  \n"
+          "  \"\"\""),
+
+    {ok,[{string,1,"\n"}],4} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "  \n"
+          "\r\n"
+          "  \"\"\""),
+
+    {ok,[{string,1,"\r\n"}],4} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "\r\n"
+          "  \n"
+          "  \"\"\""),
+
+    {error,{{3,2},erl_scan,indentation},{4,6}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "  \n"
+          " \r\n"
+          "  \"\"\"", {1,1}, []),
+
+    {error,{{2,3},erl_scan,indentation},{4,7}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "  \n" % One space too little indentation
+          "   \r\n"
+          "   \"\"\"", {1,1}, []),
 
     {ok,[{string,1,"CR LF"}],3} =
         erl_scan:string(
@@ -1340,6 +1400,24 @@ triple_quoted_string(Config) when is_list(Config) ->
           "  this is a\r\n"
           "  very long\r\n"
           "  string\r\n"
+          "  \"\"\""),
+
+    {ok,
+     [{string,1,
+       "this is a string\r\n"
+       "\n"
+       "\r\n"
+       "with three empty lines\n"
+       "\r\n"}],
+     8} =
+        erl_scan:string(
+          "\"\"\"\r\n"
+          "  this is a string\r\n"
+          "\n"
+          "  \r\n"
+          "  with three empty lines\n"
+          "\r\n"
+          "\n"
           "  \"\"\""),
 
     {ok,[{string,1,"  this is a\n    very long\n  string"}],5} =
@@ -1398,32 +1476,34 @@ triple_quoted_string(Config) when is_list(Config) ->
 
     {error,{{1,4},erl_scan,white_space},{2,4}} =
         erl_scan:string(
-          "\"\"\"foo\n"
+          "\"\"\"foo\n" % Only white-space allowed after opening quote seq
           "\"\"\"", {1,1}, []),
 
     {error,{{2,2},erl_scan,indentation},{3,6}} =
         erl_scan:string(
           "\"\"\"\n"
-          " foo\n"
+          " foo\n" % One space too little indentation
           "  \"\"\"", {1,1}, []),
 
     {error,{{2,8},erl_scan,indentation},{3,12}} =
         erl_scan:string(
           "\"\"\"\n"
-          "       \tfoo\n"
+          "       \tfoo\n" % The tab shoud be a space
           "        \"\"\"", {1,1}, []),
 
     {error,{{1,1},erl_scan,{string,{$",3},"\n\tx\n\t\"\""}},{3,4}} =
         erl_scan:string(
           "\"\"\"\n"
           "\tx\n"
-          "\t\"\"", {1,1}, []),
+          "\t\"\"", % Lacking one double-quote char in closing seq
+          {1,1}, []),
 
     {error,{{3,4},erl_scan,{string,$",[]}},{3,5}} =
         erl_scan:string(
           "\"\"\"\n"
           "x\n"
-          "\"\"\"\"", {1,1}, []),
+          "\"\"\"\"", % A string starts at the last char but never ends
+          {1,1}, []),
 
     ok.
 

@@ -961,6 +961,11 @@ scan_tqstring_finish(Cs, St, Line, Col, Toks, Tqs, IndentR) ->
     %% IndentR :: Indentation characters, reversed
     #tqs{ line = Line0, col = Col0, content_r = ContentR } = Tqs,
     NcontentR = strip_last_line_newline_r(ContentR),
+    %% NcontentR is now the string's content lines
+    %% including the characters after the opening quote sequence
+    %% (the 0:th line?), in reversed order, each line reversed.
+    %% Newline has been stripped from the last content line,
+    %% all others has newline characters as from the input.
     case
         tqstring_finish(lists:reverse(IndentR), NcontentR, Line-1)
     of
@@ -996,16 +1001,16 @@ strip_last_line_newline_r([LastLineR|ContentR]) ->
 strip_newline_r("\n\r"++Rcs) -> Rcs;
 strip_newline_r("\n"++Rcs) -> Rcs.
 
-%% Strip indentation from all content lines but the first,
-%% which contains the characters after the start quote chars,
-%% check that they are white space.
-%%
 %% Loop from last to first line and remember the last error,
 %% so the last error that is found will be the one reported,
 %% that is: the first in the string.
 %%
-%% Build the string content by prepending all indentation stripped
-%% lines onto the string: Content.
+%% Build the string content one line at the time by first
+%% prepending the line to Content and then spripping
+%% the defined indentation.
+%%
+%% For the first (0:th) line, strip the newline and then
+%% check that it contains only white space
 %%
 tqstring_finish(Indent, ContentR, Line) ->
     tqstring_finish(Indent, ContentR, Line, undefined, "").
@@ -1035,10 +1040,17 @@ tqstring_finish(
             tqstring_finish(Indent, StringsR, Line-1, Nerror, "")
     end.
 
-%% Strip indentation
+%% Strip the defined indentation from the string content
 %%
 strip_indent(Indent, Cs) ->
-    strip_indent(Indent, Cs, 1).
+    case Cs of
+        %% Allow empty content lines to have no indentation
+        "\r\n"++_ -> Cs;
+        "\n"++_   -> Cs;
+        ""        -> Cs; % The last newline is stripped
+        _ ->
+            strip_indent(Indent, Cs, 1)
+    end.
 %%
 strip_indent([C|Indent], [C|Cs], Col) ->
     strip_indent(Indent, Cs, Col+1);    % Strip
