@@ -1505,6 +1505,24 @@ triple_quoted_string(Config) when is_list(Config) ->
           "\"\"\"\"", % A string starts at the last char but never ends
           {1,1}, []),
 
+    %% Test the real deal in this source code
+    """"
+    ```erlang
+    foo() ->
+        """
+        \foo
+        \bar
+        """.
+    ```
+    """"
+        =
+        "```erlang
+foo() ->
+    \"\"\"
+    \\foo
+    \\bar
+    \"\"\".
+```",
     ok.
 
 test_string(String, ExpectedWithCol) ->
