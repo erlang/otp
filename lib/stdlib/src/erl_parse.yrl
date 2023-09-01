@@ -77,7 +77,7 @@ ssa_check_when_clause
 ssa_check_when_clauses.
 
 Terminals
-char integer float atom string var
+char integer float atom tqstring string var
 
 '(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
@@ -546,7 +546,10 @@ atomic -> atom : '$1'.
 atomic -> strings : '$1'.
 
 strings -> string : '$1'.
+strings -> tqstring : {string,?anno('$1'),element(3, '$1')}.
 strings -> string strings :
+	{string,?anno('$1'),element(3, '$1') ++ element(3, '$2')}.
+strings -> tqstring strings :
 	{string,?anno('$1'),element(3, '$1') ++ element(3, '$2')}.
 
 prefix_op -> '+' : '$1'.
