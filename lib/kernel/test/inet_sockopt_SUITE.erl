@@ -1279,7 +1279,9 @@ all_udp_options() ->
      {mode,list,binary,true,true},
      {deliver,term,port,true,true},
      {broadcast,true,false,true,true},
-     {dontroute,true,false,true,true},
+     {dontroute,true,false,
+      lists:member(OsType, [{unix,linux},{unix,freebsd},{unix,darwin}]),
+      true},
      %% multicast_if
      %% multicast_ttl
      %% multicast_loop
