@@ -327,8 +327,11 @@ rem_bounds({A,B}, _) ->
     %% The sign of the remainder is the same as the sign of the
     %% left-hand side operand; it does not depend on the sign of the
     %% right-hand side operand. Therefore, the range of the remainder
-    %% is the same as the range of the left-hand side operand.
-    {A,B};
+    %% is the range of the left-hand side operand extended to always
+    %% include zero.
+    Min = inf_min(0, A),
+    Max = inf_max(0, B),
+    normalize({Min,Max});
 rem_bounds(_, _) ->
     any.
 

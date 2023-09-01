@@ -133,6 +133,9 @@ division_bounds(_Config) ->
     {-50,50} = beam_bounds:bounds('div', {-50,-15}, {-10,'+inf'}),
     {-20,20} = beam_bounds:bounds('div', {-20,10}, any),
     {-7,7} = beam_bounds:bounds('div', {-5,7}, {'-inf',-1}),
+    {-42,42} = beam_bounds:bounds('div', {42,42}, any),
+    {-42,42} = beam_bounds:bounds('div', {-42,-42}, any),
+
     any = beam_bounds:bounds('div', {'-inf',10}, any),
     any = beam_bounds:bounds('div', {0,'+inf'}, any),
 
@@ -153,15 +156,26 @@ rem_bounds(_Config) ->
 
     {-7,7} = beam_bounds:bounds('rem', {'-inf',10}, {1,8}),
     {0,7} = beam_bounds:bounds('rem', {10,'+inf'}, {1,8}),
+    {0,'+inf'} = beam_bounds:bounds('rem', {17,'+inf'}, any),
 
-    {1,10} = beam_bounds:bounds('rem', {1,10}, {'-inf',10}),
-    {20,'+inf'} = beam_bounds:bounds('rem', {20,'+inf'}, {10,'+inf'}),
+    {0,10} = beam_bounds:bounds('rem', {1,10}, {'-inf',10}),
+    {0,'+inf'} = beam_bounds:bounds('rem', {20,'+inf'}, {10,'+inf'}),
     {'-inf',10} = beam_bounds:bounds('rem', {'-inf',10}, any),
 
     {-11,10} = beam_bounds:bounds('rem', {-11,10}, {'-inf',89}),
     {-11,10} = beam_bounds:bounds('rem', {-11,10}, {7,'+inf'}),
     {-11,10} = beam_bounds:bounds('rem', {-11,10}, {'-inf',113}),
     {-11,10} = beam_bounds:bounds('rem', {-11,10}, {55,'+inf'}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, any),
+
+    {0,0} = beam_bounds:bounds('rem', {0,0}, any),
+    {0,1} = beam_bounds:bounds('rem', {1,1}, any),
+    {0,2} = beam_bounds:bounds('rem', {2,2}, any),
+    {0,3} = beam_bounds:bounds('rem', {2,3}, any),
+
+    {-1,0} = beam_bounds:bounds('rem', {-1,-1}, any),
+    {-7,0} = beam_bounds:bounds('rem', {-7,-7}, any),
+    {-6,0} = beam_bounds:bounds('rem', {-6,-4}, any),
 
     ok.
 

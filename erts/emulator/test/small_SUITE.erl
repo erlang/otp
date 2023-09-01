@@ -860,6 +860,22 @@ gen_div_function({Name,{A,B}}) ->
            put(prevent_div_rem_fusion, Q),
            R = X rem Y,
            {Q, R};
+        '@Name@'(any0, fixed, Y) ->
+           X = _@A@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(any1, fixed, Y) ->
+           X = _@A@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(any2, fixed, Y) ->
+           X = _@A@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
+           {Q, R};
         '@Name@'(X0, Y0, integer0) ->
            Q = X0 div Y0,
            R = X0 rem Y0,
@@ -945,6 +961,22 @@ gen_div_function({Name,{A,B}}) ->
            Q = X div Y,
            put(prevent_div_rem_fusion, Q),
            R = X rem Y,
+           {Q, R};
+        '@Name@'(fixed, Y, any0) ->
+           X = _@A@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(fixed, Y, any1) ->
+           X = _@A@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(fixed, Y, any2) ->
+           X = _@A@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
            {Q, R}. ").
 
 
@@ -969,6 +1001,9 @@ test_division([{Name,{A,B}}|T], Mod) ->
         PosRes = F(any0, A, fixed),
         PosRes = F(any1, A, fixed),
         PosRes = F(any2, A, fixed),
+        PosRes = F(any0, fixed, B),
+        PosRes = F(any1, fixed, B),
+        PosRes = F(any2, fixed, B),
 
         PosRes = F(A, B, integer0),
         PosRes = F(A, fixed, integer1),
@@ -985,6 +1020,9 @@ test_division([{Name,{A,B}}|T], Mod) ->
         PosRes = F(A, fixed, any0),
         PosRes = F(A, fixed, any1),
         PosRes = F(A, fixed, any2),
+        PosRes = F(fixed, B, any0),
+        PosRes = F(fixed, B, any1),
+        PosRes = F(fixed, B, any2),
 
         NegRes = F(integer0, -A, B),
         NegRes = F(integer1, -A, fixed),
