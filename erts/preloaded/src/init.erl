@@ -39,6 +39,7 @@
 %%        -pz Path+      : Add my own paths last.
 %%        -run           : Start own processes.
 %%        -s             : Start own processes.
+%%        -S             : Start own processes and terminate further option processing.
 %% 
 %% Experimental flags:
 %%        -profile_boot    : Use an 'eprof light' to profile boot sequence
@@ -256,25 +257,40 @@ boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
 
-    {Start0,Flags,Args} = parse_boot_args(BootArgs),
+    {Start,Flags,Args} = parse_boot_args(BootArgs),
     %% We don't get to profile parsing of BootArgs
     case b2a(get_flag(profile_boot, Flags, false)) of
         false -> ok;
         true  -> debug_profile_start()
     end,
-    Start = map(fun prepare_run_args/1, Start0),
     boot(Start, Flags, Args).
 
-prepare_run_args({eval, [Expr]}) ->
-    {eval,Expr};
-prepare_run_args({_, L=[]}) ->
-    bs2as(L);
-prepare_run_args({_, L=[_]}) ->
-    bs2as(L);
-prepare_run_args({s, [M,F|Args]}) ->
-    [b2a(M), b2a(F) | bs2as(Args)];
-prepare_run_args({run, [M,F|Args]}) ->
-    [b2a(M), b2a(F) | bs2ss(Args)].
+fold_eval_args([Expr]) -> Expr;
+fold_eval_args(Exprs) -> Exprs.
+
+%% Ensure that when no arguments were explicitly passed on the command line,
+%% an empty arguments list will be passed to the function to be applied.
+interpolate_empty_mfa_args({M, F, []}) -> {M, F, [[]]};
+interpolate_empty_mfa_args({_M, _F, [_Args]} = MFA) -> MFA.
+
+-spec run_args_to_mfa([binary()]) -> {atom(), atom(), [] | [nonempty_list(binary())]} | no_return().
+run_args_to_mfa([]) ->
+    erlang:display_string(
+      "Error! The -S option must be followed by at least a module to start, such as "
+      "`-S Module` or `-S Module Function` to start with a function.\r\n\r\n"
+    ),
+    erlang:error(undef);
+run_args_to_mfa([M]) -> {b2a(M), start, []};
+run_args_to_mfa([M, F]) -> {b2a(M), b2a(F), []};
+run_args_to_mfa([M, F | A]) -> {b2a(M), b2a(F), [A]}.
+
+%% Convert -run / -s / -S arguments to startup instructions, such that
+%% no instructions are emitted if no arguments follow the flag, otherwise,
+%% an `{apply, M, F, A}' instruction is.
+run_args_to_start_instructions([], _Converter) -> [];
+run_args_to_start_instructions(Args, Converter) ->
+    {M, F, A} = run_args_to_mfa(Args),
+    [{apply, M, F, map(Converter, A)}].
 
 b2a(Bin) when is_binary(Bin) ->
     list_to_atom(b2s(Bin));
@@ -1201,15 +1217,10 @@ start_it({eval,Bin}) ->
             erlang:display_string(binary_to_list(iolist_to_binary(Message))),
             erlang:raise(E,R,ST)
     end;
-start_it([M|FA]) ->
+start_it({apply,M,F,Args}) ->
     case code:ensure_loaded(M) of
         {module, M} ->
-            case FA of
-                []       -> M:start();
-                [F]      -> M:F();
-                [F|Args] -> M:F(Args)	% Args is a list
-            end;
-
+            apply(M, F, Args);
         {error, Reason} ->
             Message = [explain_ensure_loaded_error(M, Reason), <<"\r\n\r\n">>],
             erlang:display_string(binary_to_list(iolist_to_binary(Message))),
@@ -1288,6 +1299,7 @@ timer(T) ->
 %% --------------------------------------------------------
 %% Parse the command line arguments and extract things to start, flags
 %% and other arguments. We keep the relative of the groups.
+%% Returns a triplet in the form `{Start, Flags, Args}':
 %% --------------------------------------------------------
 
 parse_boot_args(Args) ->
@@ -1299,13 +1311,23 @@ parse_boot_args([B|Bs], Ss, Fs, As) ->
 	    {reverse(Ss),reverse(Fs),lists:reverse(As, Bs)}; % BIF
 	start_arg ->
 	    {S,Rest} = get_args(Bs, []),
-	    parse_boot_args(Rest, [{s, S}|Ss], Fs, As);
+            Instructions = run_args_to_start_instructions(S, fun bs2as/1),
+            parse_boot_args(Rest, Instructions ++ Ss, Fs, As);
 	start_arg2 ->
 	    {S,Rest} = get_args(Bs, []),
-	    parse_boot_args(Rest, [{run, S}|Ss], Fs, As);
+            Instructions = run_args_to_start_instructions(S, fun bs2ss/1),
+            parse_boot_args(Rest, Instructions ++ Ss, Fs, As);
+	ending_start_arg ->
+            {S,Rest} = get_args(Bs, []),
+            %% Forward any additional arguments to the function we are calling,
+            %% such that no init:get_plain_arguments is needed by it later.
+            MFA = run_args_to_mfa(S ++ Rest),
+            {M, F, A} = interpolate_empty_mfa_args(MFA),
+            StartersWithThis = [{apply, M, F, map(fun bs2ss/1, A)} | Ss],
+            {reverse(StartersWithThis),reverse(Fs),[]};
 	eval_arg ->
 	    {Expr,Rest} = get_args(Bs, []),
-	    parse_boot_args(Rest, [{eval, Expr}|Ss], Fs, As);
+            parse_boot_args(Rest, [{eval, fold_eval_args(Expr)} | Ss], Fs, As);
 	{flag,A} ->
 	    {F,Rest} = get_args(Bs, []),
 	    Fl = {A,F},
@@ -1321,6 +1343,7 @@ parse_boot_args([], Start, Flags, Args) ->
 check(<<"-extra">>) -> start_extra_arg;
 check(<<"-s">>) -> start_arg;
 check(<<"-run">>) -> start_arg2;
+check(<<"-S">>) -> ending_start_arg;
 check(<<"-eval">>) -> eval_arg;
 check(<<"--">>) -> end_args;
 check(<<"-",Flag/binary>>) -> {flag,b2a(Flag)};
@@ -1333,6 +1356,7 @@ get_args([B|Bs], As) ->
 	start_arg2 -> {reverse(As), [B|Bs]};
 	eval_arg -> {reverse(As), [B|Bs]};
 	end_args -> {reverse(As), Bs};
+	ending_start_arg -> {reverse(As), [B|Bs]};
 	{flag,_} -> {reverse(As), [B|Bs]};
 	arg ->
 	    get_args(Bs, [B|As])
