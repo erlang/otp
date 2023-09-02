@@ -1844,6 +1844,44 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         a.cmp(lhs.reg, rhs.reg);
         a.b_lt(resolve_beam_label(Fail, disp1MB));
         a.bind(next);
+    } else if (exact_type<BeamTypeId::Integer>(LHS) && always_small(RHS)) {
+        Label big = a.newLabel(), next = a.newLabel();
+        comment("simplified small test for known integer");
+        emit_is_not_boxed(big, lhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_ge(next);
+        a.b(resolve_beam_label(Fail, disp128MB));
+
+        a.bind(big);
+        {
+            arm::Gp boxed_ptr = emit_ptr_val(TMP1, lhs.reg);
+            const int bitNumber = 2;
+            const int bitValue = NEG_BIG_SUBTAG - POS_BIG_SUBTAG;
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+            ERTS_CT_ASSERT((1 << bitNumber) == bitValue);
+            /* Fail if the bignum is negative. */
+            a.tbnz(TMP1, imm(bitNumber), resolve_beam_label(Fail, disp32K));
+        }
+        a.bind(next);
+    } else if (always_small(LHS) && exact_type<BeamTypeId::Integer>(RHS)) {
+        Label big = a.newLabel(), next = a.newLabel();
+        comment("simplified small test for known integer");
+        emit_is_not_boxed(big, rhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_ge(next);
+        a.b(resolve_beam_label(Fail, disp128MB));
+
+        a.bind(big);
+        {
+            arm::Gp boxed_ptr = emit_ptr_val(TMP1, rhs.reg);
+            const int bitNumber = 2;
+            const int bitValue = NEG_BIG_SUBTAG - POS_BIG_SUBTAG;
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+            ERTS_CT_ASSERT((1 << bitNumber) == bitValue);
+            /* Fail if the bignum is positive. */
+            a.tbz(TMP1, imm(bitNumber), resolve_beam_label(Fail, disp32K));
+        }
+        a.bind(next);
     } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
                        LHS) &&
                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(

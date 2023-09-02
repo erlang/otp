@@ -1803,7 +1803,8 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         return;
     }
 
-    Label generic = a.newLabel(), do_jl = a.newLabel(), next = a.newLabel();
+    Label generic = a.newLabel(), small = a.newLabel(), do_jl = a.newLabel(),
+          next = a.newLabel();
     bool need_generic = !both_small;
 
     mov_arg(ARG2, RHS); /* May clobber ARG1 */
@@ -1833,6 +1834,35 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
                 "bignum");
         need_generic = false;
         emit_is_not_boxed(next, ARG1, dShort);
+    } else if (exact_type<BeamTypeId::Integer>(LHS) && always_small(RHS)) {
+        x86::Gp boxed_ptr;
+        int sign_bit = NEG_BIG_SUBTAG - POS_BIG_SUBTAG;
+        ERTS_CT_ASSERT(NEG_BIG_SUBTAG > POS_BIG_SUBTAG);
+
+        comment("simplified small test for known integer");
+        need_generic = false;
+        emit_is_boxed(small, ARG1, dShort);
+
+        boxed_ptr = emit_ptr_val(ARG1, ARG1);
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+        a.test(RETb, imm(sign_bit));
+        /* Fail if bignum is negative. */
+        a.jne(resolve_beam_label(Fail));
+        a.short_().jmp(next);
+    } else if (always_small(LHS) && exact_type<BeamTypeId::Integer>(RHS)) {
+        x86::Gp boxed_ptr;
+
+        comment("simplified small test for known integer");
+        need_generic = false;
+        emit_is_boxed(small, ARG2, dShort);
+
+        boxed_ptr = emit_ptr_val(ARG2, ARG2);
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+        a.and_(RETb, imm(_TAG_HEADER_MASK));
+        ERTS_CT_ASSERT(_TAG_HEADER_NEG_BIG > _TAG_HEADER_POS_BIG);
+        a.cmp(RETb, imm(_TAG_HEADER_NEG_BIG));
+        /* Fail if bignum is positive. */
+        a.short_().jmp(do_jl);
     } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
                        LHS) &&
                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
@@ -1872,6 +1902,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
     }
 
     /* Both arguments are smalls. */
+    a.bind(small);
     a.cmp(ARG1, ARG2);
     if (need_generic) {
         a.short_().jmp(do_jl);

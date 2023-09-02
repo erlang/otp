@@ -953,6 +953,12 @@ typed_relop(Config) when is_list(Config) ->
     {error,<<0:9>>} = compare_bitstring({binary, <<0:9>>, 0}),
     {binary, 42} = compare_bitstring({binary, <<0:3>>, 42}),
 
+    negative = classify_value(id(-1 bsl 128)),
+    other = classify_value(id(0)),
+    other = classify_value(id(42)),
+    other = classify_value(id(1 bsl 64)),
+    other = classify_value(id(a)),
+
     ok.
 
 compare_integer_pid(N) when is_integer(N) ->
@@ -973,6 +979,11 @@ compare_bitstring({binary, _Res, Data}) ->
     {binary, Data};
 compare_bitstring({text, _Res, Data}) ->
     {text, Data}.
+
+classify_value(N) when is_integer(N), N < 0 ->
+    negative;
+classify_value(_N) ->
+    other.
 
 %%%
 %%% Utilities.
