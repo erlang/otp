@@ -1396,7 +1396,14 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
     a.short_().je(next);
 #endif
 
-    if (always_same_types(X, Y)) {
+    if (exact_type<BeamTypeId::Integer>(X) &&
+        exact_type<BeamTypeId::Integer>(Y)) {
+        /* Fail immediately if one of the operands is a small. */
+        a.mov(RETd, ARG1d);
+        a.or_(RETd, ARG2d);
+        emit_test_boxed(RET);
+        a.jne(resolve_beam_label(Fail));
+    } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
     } else if (Y.isLiteral()) {
         /* Fail immediately unless X is the same type of pointer as
@@ -1471,7 +1478,14 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
     a.cmp(ARG1, ARG2);
     a.je(resolve_beam_label(Fail));
 
-    if (always_same_types(X, Y)) {
+    if (exact_type<BeamTypeId::Integer>(X) &&
+        exact_type<BeamTypeId::Integer>(Y)) {
+        /* Succeed immediately if one of the operands is a small. */
+        a.mov(RETd, ARG1d);
+        a.or_(RETd, ARG2d);
+        emit_test_boxed(RET);
+        a.short_().jne(next);
+    } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
     } else if (Y.isLiteral()) {
         /* Succeed immediately if X is not the same type of pointer as
