@@ -159,6 +159,14 @@ R25= \
 	bs_match_misc \
 	bs_utf
 
+STRIPPED_TYPES= \
+	bs_bincomp \
+	bs_construct \
+	bs_match_bin \
+	bs_match_int \
+	bs_match_tail \
+	bs_match_misc \
+	bs_utf
 
 NATIVE= hibernate
 
@@ -170,6 +178,9 @@ NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
 
 R25_MODULES= $(R25:%=%_r25_SUITE)
 R25_ERL_FILES= $(R25_MODULES:%=%.erl)
+
+STRIPPED_TYPES_MODULES= $(STRIPPED_TYPES:%=%_stripped_types_SUITE)
+STRIPPED_TYPES_ERL_FILES= $(STRIPPED_TYPES_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -203,7 +214,7 @@ ERL_COMPILE_FLAGS := $(filter-out +deterministic,$($(ERL_COMPILE_FLAGS)))
 # ----------------------------------------------------
 
 make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES) \
-  $(KERNEL_ERL_FILES) $(R25_ERL_FILES)
+  $(KERNEL_ERL_FILES) $(R25_ERL_FILES) $(STRIPPED_TYPES_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
 	$(MODULES) $(KERNEL_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
@@ -212,6 +223,8 @@ make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES) \
 	-o$(EBIN) $(NATIVE_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +r25 \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(R25_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +strip_types \
+        $(ERL_COMPILE_FLAGS) -o$(EBIN) $(STRIPPED_TYPES_MODULES) >> $(EMAKEFILE)
 
 
 tests debug opt: make_emakefile
@@ -239,6 +252,9 @@ targets: $(TARGET_FILES)
 %_r25_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
+%_stripped_types_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -254,6 +270,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(KERNEL_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(R25_ERL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(STRIPPED_TYPES_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 

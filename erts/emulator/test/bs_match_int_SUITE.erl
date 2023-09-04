@@ -846,6 +846,8 @@ match_huge_int(Config) when is_list(Config) ->
         bs_match_int_SUITE ->
             do_match_huge_int();
         bs_match_int_r25_SUITE ->
+            do_match_huge_int();
+        bs_match_int_stripped_types_SUITE ->
             do_match_huge_int()
     end.
 

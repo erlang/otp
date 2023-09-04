@@ -918,7 +918,8 @@ asm_passes() ->
        {iff,'S',{listing,"S"}},
        {iff,'to_asm',{done,"S"}}]},
      ?pass(beam_validator_weak),
-     ?pass(beam_asm)
+     ?pass(beam_asm),
+     {iff,strip_types,?pass(beam_strip_types)}
      | binary_passes()].
 
 binary_passes() ->
@@ -1687,6 +1688,13 @@ beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpt
 	{error,Es} ->
 	    {error,St#compile{errors=St#compile.errors ++ [{File,Es}]}}
     end.
+
+beam_strip_types(Beam0, #compile{}=St) ->
+    {ok,_Module,Chunks0} = beam_lib:all_chunks(Beam0),
+    Chunks = [{Tag,Contents} || {Tag,Contents} <- Chunks0,
+                                Tag =/= "Type"],
+    {ok,Beam} = beam_lib:build_module(Chunks),
+    {ok,Beam,St}.
 
 compile_info(File, CompilerOpts, Opts) ->
     IsSlim = member(slim, CompilerOpts),

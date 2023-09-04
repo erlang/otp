@@ -490,7 +490,8 @@ get_data_dir(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Opts = [{return,list}],
     Suffixes = ["_no_opt_SUITE",
-                "_r25_SUITE"],
+                "_r25_SUITE",
+                "_stripped_types_SUITE"],
     lists:foldl(fun(Suffix, Acc) ->
                         Opts = [{return,list}],
                         re:replace(Acc, Suffix, "_SUITE", Opts)
