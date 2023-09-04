@@ -1440,6 +1440,36 @@ protected:
         return Variable<arm::VecD>(tmp);
     }
 
+    void emit_load_args(const ArgSource &Src1,
+                        arm::Gp src1_default,
+                        const ArgSource &Src2,
+                        arm::Gp src2_default,
+                        const ArgSource &Src3,
+                        arm::Gp src3_default) {
+        if (isRegisterBacked(Src1) || !Src1.isRegister()) {
+            auto src1 = load_source(Src1, src1_default);
+            auto [src2, src3] =
+                    load_sources(Src2, src2_default, Src3, src3_default);
+            mov_var(src1_default, src1);
+            mov_var(src2_default, src2);
+            mov_var(src3_default, src3);
+        } else if (isRegisterBacked(Src2) || !Src2.isRegister()) {
+            auto [src1, src3] =
+                    load_sources(Src1, src1_default, Src3, src3_default);
+            auto src2 = load_source(Src2, src2_default);
+            mov_var(src1_default, src1);
+            mov_var(src2_default, src2);
+            mov_var(src3_default, src3);
+        } else {
+            auto [src1, src2] =
+                    load_sources(Src1, src1_default, Src2, src2_default);
+            auto src3 = load_source(Src3, src3_default);
+            mov_var(src1_default, src1);
+            mov_var(src2_default, src2);
+            mov_var(src3_default, src3);
+        }
+    }
+
     template<typename Reg>
     void mov_var(const Variable<Reg> &to, const Variable<Reg> &from) {
         mov_var(to.reg, from);

@@ -108,6 +108,8 @@ my @beam_global_funcs = qw(
     update_map_assoc_shared
     update_map_exact_guard_shared
     update_map_exact_body_shared
+    update_map_single_assoc_shared
+    update_map_single_exact_body_shared
     );
 
 # Labels exported from within process_main
