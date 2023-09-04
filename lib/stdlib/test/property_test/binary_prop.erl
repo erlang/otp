@@ -37,7 +37,7 @@ prop_at() ->
         Byte =:= binary:at(Bin, Pos)
     ).
 
-prop_at_invalid() ->
+prop_at_invalid_index() ->
     ?FORALL(
         {Bin, Pos},
         ?LET(
@@ -73,7 +73,7 @@ prop_bin_to_list_2_3() ->
         List =:= binary:bin_to_list(Bin, Pos, Len)
     ).
 
-prop_bin_to_list_2_3_invalid() ->
+prop_bin_to_list_2_3_invalid_range() ->
     ?FORALL(
         {Bin, {Pos, Len}=PosLen},
         ?LET(
@@ -93,7 +93,7 @@ prop_compile_pattern() ->
         is_tuple(binary:compile_pattern(P))
     ).
 
-prop_compile_pattern_invalid() ->
+prop_compile_pattern_invalid_pattern() ->
     ?FORALL(
         P,
         oneof([
@@ -128,7 +128,7 @@ prop_copy() ->
         end
     ).
 
-prop_copy_2_invalid() ->
+prop_copy_2_invalid_n() ->
     ?FORALL(
         {Bin, N},
         {binary(), neg_integer()},
@@ -161,7 +161,7 @@ prop_decode_hex() ->
         BR =:= binary:decode_hex(BE)
     ).
 
-prop_decode_hex_invalid() ->
+prop_decode_hex_invalid_chars() ->
     ?FORALL(
         Bin,
         ?SUCHTHAT(B, binary(), not is_hex_bin(B)),
@@ -213,7 +213,7 @@ prop_encode_unsigned() ->
         end
     ).
 
-prop_encode_unsigned_invalid() ->
+prop_encode_unsigned_invalid_integer() ->
     ?FORALL(
         I,
         neg_integer(),
@@ -258,7 +258,7 @@ prop_list_to_bin() ->
         Bin =:= binary:list_to_bin(List)
     ).
 
-prop_list_to_bin_invalid() ->
+prop_list_to_bin_invalid_bytes() ->
     ?FORALL(
         List,
         ?SUCHTHAT(
@@ -309,6 +309,13 @@ prop_match_2() ->
         end
     ).
 
+prop_match_2_invalid_pattern() ->
+    ?FORALL(
+        {Bin, Pattern},
+        {binary(), gen_patterns_invalid()},
+        expect_error(fun binary:match/2, [Bin, Pattern])
+    ).
+
 %% --- match/3 --------------------------------------------------------
 prop_match_3() ->
     ?FORALL(
@@ -325,7 +332,7 @@ prop_match_3() ->
         end
     ).
 
-prop_match_3_invalid() ->
+prop_match_3_invalid_scope() ->
     ?FORALL(
         {Bin, Pattern, Opts},
         ?LET(
@@ -335,6 +342,17 @@ prop_match_3_invalid() ->
         ),
         expect_error(fun binary:match/3, [Bin, Pattern, Opts]) andalso
         expect_error(fun binary:match/3, [Bin, binary:compile_pattern(Pattern), Opts])
+    ).
+
+prop_match_3_invalid_pattern() ->
+    ?FORALL(
+        {Bin, Pattern, Opts},
+        ?LET(
+            B,
+            binary(),
+            {B, gen_patterns_invalid(), gen_opts([], [gen_scope_opt(B)])}
+        ),
+        expect_error(fun binary:match/3, [Bin, Pattern, Opts])
     ).
 
 %% --- matches/2 ------------------------------------------------------
@@ -353,6 +371,13 @@ prop_matches_2() ->
         end
     ).
 
+prop_matches_2_invalid_pattern() ->
+    ?FORALL(
+        {Bin, Pattern},
+        {binary(), gen_patterns_invalid()},
+        expect_error(fun binary:matches/2, [Bin, Pattern])
+    ).
+
 %% --- matches/3 ------------------------------------------------------
 prop_matches_3() ->
     ?FORALL(
@@ -369,7 +394,7 @@ prop_matches_3() ->
         end
     ).
 
-prop_matches_3_invalid() ->
+prop_matches_3_invalid_scope() ->
     ?FORALL(
         {Bin, Pattern, Opts},
         ?LET(
@@ -379,6 +404,17 @@ prop_matches_3_invalid() ->
         ),
         expect_error(fun binary:matches/3, [Bin, Pattern, Opts]) andalso
         expect_error(fun binary:matches/3, [Bin, binary:compile_pattern(Pattern), Opts])
+    ).
+
+prop_matches_3_invalid_pattern() ->
+    ?FORALL(
+        {Bin, Pattern, Opts},
+        ?LET(
+            B,
+            binary(),
+            {B, gen_patterns_invalid(), gen_opts([], [gen_scope_opt(B)])}
+        ),
+        expect_error(fun binary:matches/3, [Bin, Pattern, Opts])
     ).
 
 %% --- part/2,3 -------------------------------------------------------
@@ -399,7 +435,7 @@ prop_part() ->
         end
     ).
 
-prop_part_invalid() ->
+prop_part_invalid_range() ->
     ?FORALL(
         {Bin, {Pos, Len}=PosLen},
         ?LET(
@@ -427,6 +463,13 @@ prop_replace_3() ->
        end
     ).
 
+prop_replace_3_invalid_pattern() ->
+    ?FORALL(
+        {Bin, Pattern, Replacement},
+        {binary(), gen_patterns_invalid(), oneof([binary(), function1(binary())])},
+        expect_error(fun binary:replace/3, [Bin, Pattern, Replacement])
+    ).
+
 %% --- replace/4 ------------------------------------------------------
 prop_replace_4() ->
     ?FORALL(
@@ -443,7 +486,7 @@ prop_replace_4() ->
         end
     ).
 
-prop_replace_4_invalid1() ->
+prop_replace_4_invalid_scope() ->
     ?FORALL(
         {Bin, Pattern, Replacement, Opts},
         ?LET(
@@ -455,7 +498,7 @@ prop_replace_4_invalid1() ->
         expect_error(fun binary:replace/4, [Bin, binary:compile_pattern(Pattern), Replacement, Opts])
     ).
 
-prop_replace_4_invalid2() ->
+prop_replace_4_invalid_insert_replaced() ->
     ?FORALL(
         {Bin, Pattern, Replacement, Opts},
         ?LET(
@@ -465,6 +508,17 @@ prop_replace_4_invalid2() ->
         ),
         expect_error(fun binary:replace/4, [Bin, Pattern, Replacement, Opts]) andalso
         expect_error(fun binary:replace/4, [Bin, binary:compile_pattern(Pattern), Replacement, Opts])
+    ).
+
+prop_replace_4_invalid_pattern() ->
+    ?FORALL(
+        {Bin, Pattern, Replacement, Opts},
+        ?LET(
+            {B, R},
+            {binary(), oneof([binary(), function1(binary())])},
+            {B, gen_patterns_invalid(), R, gen_opts([], [global, gen_scope_opt(B), gen_insert_replaced_opt(R)])}
+        ),
+        expect_error(fun binary:replace/4, [Bin, Pattern, Replacement, Opts])
     ).
 
 %% --- split/2 --------------------------------------------------------
@@ -483,6 +537,13 @@ prop_split_2() ->
         end
     ).
 
+prop_split_2_invalid_pattern() ->
+    ?FORALL(
+        {Bin, Pattern},
+        {binary(), gen_patterns_invalid()},
+        expect_error(fun binary:split/2, [Bin, Pattern])
+    ).
+
 %% --- split/3 --------------------------------------------------------
 prop_split_3() ->
     ?FORALL(
@@ -499,7 +560,7 @@ prop_split_3() ->
         end
     ).
 
-prop_split_3_invalid() ->
+prop_split_3_invalid_scope() ->
     ?FORALL(
         {Bin, Pattern, Opts},
         ?LET(
@@ -509,6 +570,17 @@ prop_split_3_invalid() ->
         ),
         expect_error(fun binary:split/3, [Bin, Pattern, Opts]) andalso
         expect_error(fun binary:split/3, [Bin, binary:compile_pattern(Pattern), Opts])
+    ).
+
+prop_split_3_invalid_pattern() ->
+    ?FORALL(
+        {Bin, Pattern, Opts},
+        ?LET(
+            B,
+            binary(),
+            {B, gen_patterns_invalid(), gen_opts([], [global, trim, trim_all, gen_scope_opt(B)])}
+        ),
+        expect_error(fun binary:split/3, [Bin, Pattern, Opts])
     ).
 
 
@@ -607,6 +679,28 @@ gen_pattern(Bin) ->
                 )
             )]).
 
+%% Generator for invalid patterns.
+gen_patterns_invalid() ->
+    ?LET(
+        T,
+        oneof([?SUCHTHAT(T, gen_pattern_invalid(), not is_list(T)), list(oneof([gen_pattern(), gen_pattern_invalid()]))]),
+        case T of
+            [_|_] ->
+                case lists:all(fun(<<_, _/binary>>) -> true; (_) -> false end, T) of
+                    true ->
+                        [gen_pattern_invalid() | T];
+                    false ->
+                        T
+                end;
+            _ ->
+                T
+        end
+    ).
+
+%% Generator for a single invalid pattern.
+gen_pattern_invalid() ->
+    ?SUCHTHAT(T, ct_proper_ext:safe_any(), T =:= <<>> orelse not is_binary(T)).
+
 
 %%%%%%%%%%%%%%%
 %%% Helpers %%%
@@ -640,11 +734,11 @@ opts_to_scope_parts(Bin, Opts) ->
 opts_to_trim(Opts) ->
     case {lists:member(trim_all, Opts), lists:member(trim, Opts)} of
         {true, _} ->
-	    all;
+            all;
         {_, true} ->
-	    rear;
+            rear;
         _ ->
-	    none
+            none
     end.
 
 %% Process a replacement based on the insert_replaced options specified in the given options list
@@ -660,7 +754,7 @@ opts_to_replacement(Replacement, Opts) ->
             split_replacement(Positions, Replacement);
         {insert_replaced, Position} ->
             <<Front:Position/binary, Rear/binary>> = Replacement,
-	    [Front, Rear]
+            [Front, Rear]
     end.
 
 split_replacement(Inserts, Bin) ->
@@ -825,10 +919,10 @@ do_split(Bin, Patterns, Opts) ->
     Splitted2 = lists:droplast(Splitted1) ++ [<<(lists:last(Splitted1))/binary, Rear/binary>>],
     case Trim of
         none ->
-	    Splitted2;
+            Splitted2;
         all ->
             lists:filter(fun(Part) -> Part =/= <<>> end, Splitted2);
-	rear ->
+        rear ->
             lists:reverse(lists:dropwhile(fun(Part) -> Part =:= <<>> end, lists:reverse(Splitted2)))
     end.
 
