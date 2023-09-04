@@ -321,7 +321,9 @@ do_loop_all(Config, _) ->
 	lists:foldr(make_check_fun(Config, accept),[],all_accept_options()),
     ConnectFailures =
 	lists:foldr(make_check_fun(Config, connect),[],all_connect_options()),
-    case ListenFailures++AcceptFailures++ConnectFailures of
+    UdpFailures =
+	lists:foldr(make_check_fun(Config),[],all_udp_options()),
+    case ListenFailures++AcceptFailures++ConnectFailures++UdpFailures of
 	[] ->
 	    ok;
 	Failed ->
@@ -1141,6 +1143,54 @@ make_check_fun(Config, Type) ->
 	    NewAcc
     end.
 
+make_check_fun(_Config) ->
+    fun ({Name,V1,V2,Mand,Chang} = Spec, Acc) ->
+            try
+                {ok,S1} = gen_udp:open(0, [{Name,V1}]),
+                {ok,S2} = gen_udp:open(0, [{Name,V2}]),
+                try
+                    {ok,[{Name,R1}]} = inet:getopts(S1, [Name]),
+                    {ok,[{Name,R2}]} = inet:getopts(S2, [Name]),
+                    case R1 =/= R2 of
+                        true ->
+                            case Chang of
+                                true ->
+                                    ok = inet:setopts(S1, [{Name,V2}]),
+                                    {ok,[{Name,R3}]} =
+                                        inet:getopts(S1, [Name]),
+                                    if
+                                        R3 =/= R1, R3 =:= R2 ->
+                                            Acc;
+                                        true ->
+                                            case Mand of
+                                                true ->
+                                                    exit(
+                                                      {failed_sockopt,
+                                                       {change,Name}});
+                                                false ->
+                                                    [{change,Name}|Acc]
+                                            end
+                                    end;
+                                false ->
+                                    Acc
+                            end;
+                        false ->
+                            case Mand of
+                                true ->
+                                    exit({failed_sockopt, {udp,Name}});
+                                false ->
+                                    [{udp,Name}|Acc]
+                            end
+                    end
+                after
+                    gen_udp:close(S1),
+                    gen_udp:close(S2)
+                end
+            catch Class : Reason : Stacktrace ->
+                    erlang:raise(Class, {fail,Reason,Spec}, Stacktrace)
+            end
+    end.
+
 %% {OptionName,Value1,Value2,Mandatory,Changeable}
 all_listen_options() ->
     OsType = os:type(),
@@ -1209,6 +1259,37 @@ all_connect_options() ->
      {delay_send,false,true,true,true}, 
      {packet_size,0,4,true,true}
     ].
+
+
+all_udp_options() ->
+    OsType = os:type(),
+    OsVersion = os:version(),
+    [{tos,0,1,false,true},
+     {priority,0,1,false,true},
+     {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),false},
+     {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),false},
+     {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),false},
+     {exclusiveaddruse,false,true,
+      mandatory_exclusiveaddruse(OsType,OsVersion),false},
+     {sndbuf,2048,4096,false,true},
+     {recbuf,2048,4096,false,true},
+     {header,2,4,true,true},
+     {active,false,true,true,false},
+     {buffer,1000,2000,true,true},
+     {mode,list,binary,true,true},
+     {deliver,term,port,true,true},
+     {broadcast,true,false,true,true},
+     {dontroute,true,false,
+      lists:member(OsType, [{unix,linux},{unix,freebsd},{unix,darwin}]),
+      true},
+     %% multicast_if
+     %% multicast_ttl
+     %% multicast_loop
+     %% add_membership
+     %% drop_membership
+     {read_packets,6,7,true,true},
+     {high_msgq_watermark,4096,8192,true,true},
+     {low_msgq_watermark,2048,4096,true,true}].
 
 
 %% Mandatory on a lot of system other than those listed below. Please add more...
