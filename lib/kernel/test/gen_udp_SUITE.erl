@@ -43,7 +43,7 @@
          open_fd/1, connect/1, reconnect/1, implicit_inet6/1,
          recvtos/1, recvtosttl/1, recvttl/1, recvtclass/1,
          sendtos/1, sendtosttl/1, sendttl/1, sendtclass/1,
-	 local_basic/1, local_unbound/1,
+	 local_basic/1, local_basic_binary/1, local_unbound/1,
 	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1,
          recv_close/1,
 	 socket_monitor1/1,
@@ -148,6 +148,7 @@ recv_and_send_opts_cases() ->
 local_cases() ->
     [
      local_basic,
+     local_basic_binary,
      local_unbound,
      local_fdopen,
      local_fdopen_unbound,
@@ -1645,10 +1646,12 @@ verify_sets_eq(L1, L2) ->
 
 
 local_basic(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_local_basic(Config) end).
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_local_basic(Config, []) end).
 
+local_basic_binary(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_local_basic(Config, [binary]) end).
 
-do_local_basic(Config) ->
+do_local_basic(Config, Opts) ->
     ?P("begin"),
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
@@ -1658,9 +1661,9 @@ do_local_basic(Config) ->
     _ = file:delete(CFile),
     %%
     ?P("create server socket"),
-    S = ok(?OPEN(Config, 0, [{ifaddr,{local,SFile}},{active,false}])),
+    S = ok(?OPEN(Config, 0, [{ifaddr,{local,SFile}},{active,false}|Opts])),
     ?P("create client socket"),
-    C = ok(?OPEN(Config, 0, [{ifaddr,{local,CFile}},{active,false}])),
+    C = ok(?OPEN(Config, 0, [{ifaddr,{local,CFile}},{active,false}|Opts])),
     SAddr = ok(inet:sockname(S)),
     CAddr = ok(inet:sockname(C)),
     ?P("SockName(s):"
@@ -1811,18 +1814,27 @@ local_handshake(S, SAddr, C, CAddr) ->
     ?P("try (client) send"),
     ok = gen_udp:send(C, SAddr, 0, CData),
     ?P("try (server) recv"),
+    CData1 = local_handshake_data(C, CData),
     case ok(gen_tcp:recv(S, 112)) of
-	{{unspec,<<>>}, 0, CData} when CAddr =:= undefined ->
+	{{unspec,<<>>}, 0, CData1} when CAddr =:= undefined ->
 	    ok;
-	{{local,<<>>}, 0, CData} when CAddr =:= undefined ->
+	{{local,<<>>}, 0, CData1} when CAddr =:= undefined ->
 	    ok;
-	{CAddr, 0, CData} when CAddr =/= undefined ->
+	{CAddr, 0, CData1} when CAddr =/= undefined ->
 	    ok = gen_udp:send(S, CAddr, 0, SData),
-	    {SAddr, 0, SData} = ok(gen_tcp:recv(C, 112)),
+            SData1 = local_handshake_data(S, SData),
+	    {SAddr, 0, SData1} = ok(gen_tcp:recv(C, 112)),
 	    ok
 
     end.
 
+local_handshake_data(S, Data) when is_list(Data) ->
+    case inet:getopts(S, [mode]) of
+        {ok,[{mode,binary}]} ->
+            list_to_binary(Data);
+        {ok,[{mode,list}]} ->
+            Data
+    end.
 
 
 %%-------------------------------------------------------------
