@@ -2772,7 +2772,7 @@ rev([C|L],Acc) -> rev(L,[C|Acc]);
 rev([],Acc) -> Acc.
 
 split(N, L) -> split(N, L, []).
-split(0, L, R) when is_list(L) -> {rev(R),L};
+split(0, L, R) when is_list(L); is_binary(L) -> {rev(R),L};
 split(N, [H|T], R) when is_integer(N), N > 0 -> split(N-1, T, [H|R]).
 
 len(L, N) -> len(L, N, 0).
