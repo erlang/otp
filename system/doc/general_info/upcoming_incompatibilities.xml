@@ -220,6 +220,75 @@ t.erl:6:18: Warning: type variable 'Unknown' is only used once (is unbound)
       </p>
     </section>
 
+    <section>
+      <marker id="triple_quoted_strings"/>
+      <title>Triple-Quoted Strings</title>
+      <p>
+        Before Erlang/OTP 27 a sequence of 3 or more double-quote characters
+        was grouped in pairs each meaning the empty string and if there was
+        an odd number the last character was the start of a string.
+        The empty strings were then concatenated and effectively disappeared.
+      </p>
+      <p>
+        In Erlang/OTP 27; 3 or more double-quote characters
+        are interpreted as the start of a "Triple-Quoted String".  See
+        <url href="https://www.erlang.org/eeps/eep-0064">EEP 64</url>.
+      </p>
+      <p>
+        Here follows some examples of code that would change meaning.
+        Note that all these examples before Erlang/OTP 27.0 was strange
+        since there was no sensible reason to write like that.
+      </p>
+      <pre>
+"""String Content"""
+%% Was interpreted as
+"" "String Content" ""
+%% Which becomes
+"String Content"
+%%
+%% In OTP 27 it is instead a syntax error since no text is allowed
+%% on the line after an opening triple-quote
+      </pre>
+      <pre>
+"""
+String Content
+"""
+%% Was interpreted as
+"" "
+String Content
+" ""
+%% Which becomes
+"
+String Content
+"
+%%
+%% In OTP 27 it is instead interpreted as a
+%% Triple-Quoted String equivalent to
+"String Content"
+      </pre>
+      <pre>
+""""
+++ foo() ++
+""""
+%% Became
+"" ++ foo() ++ ""
+%%
+%% In OTP 27 it is instead interpreted as a
+%% Triple-Quoted String (triple-or-more) equivalent to
+"++ foo() ++"
+      </pre>
+      <p>
+        From Erlang/OTP 26.1 up to 27.0 the compiler issues a warning for
+        a sequence of 3 or more double-quote characters
+        since that is almost certainly a mistake or
+        something like a result of bad automatic code generation.
+        If a users gets that warning, the code should be corrected
+        for example by inserting appropriate spaces between
+        the empty strings, or removing the redundant ones alltogether,
+        which will have the same meaning before and after Erlang/OTP 27.
+      </p>
+    </section>
+
   </section>
 
   <section>
