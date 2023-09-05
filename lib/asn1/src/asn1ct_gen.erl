@@ -101,9 +101,18 @@ pgen_typeorval(Erules, N2nConvEnums, Code) ->
           objects=Objects,objsets=ObjectSets} = Code,
     Rtmod = ct_gen_module(Erules),
     pgen_types(Rtmod,Erules,N2nConvEnums,Module,Types),
-    pgen_values(Values, Module),
-    pgen_objects(Rtmod,Erules,Module,Objects),
-    pgen_objectsets(Rtmod,Erules,Module,ObjectSets),
+    case Erules of
+        #gen{erule=jer} ->
+            pgen_objects(Rtmod, Erules, Module, Objects),
+            pgen_objectsets(Rtmod, Erules, Module, ObjectSets),
+            emit(["typeinfo(Type) ->",nl,
+                  "  exit({error,{asn1,{undefined_type,Type}}}).",nl,nl]),
+            pgen_values(Values, Module);
+        #gen{} ->
+            pgen_values(Values, Module),
+            pgen_objects(Rtmod, Erules, Module, Objects),
+            pgen_objectsets(Rtmod, Erules, Module, ObjectSets)
+    end,
     pgen_partial_decode(Rtmod,Erules,Module),
     %% If the encoding rule is ber, per or uper and jer is also given as option
     %% then we generate "extra" support for jer in the same file
@@ -111,7 +120,10 @@ pgen_typeorval(Erules, N2nConvEnums, Code) ->
         true ->
             NewErules = Erules#gen{erule=jer,jer=false},
             JER_Rtmod = ct_gen_module(NewErules),
-            pgen_types(JER_Rtmod,Erules#gen{erule=jer,jer=false},[],Module,Types);
+            pgen_types(JER_Rtmod, Erules#gen{erule=jer,jer=false},
+                       [], Module, Types),
+            emit(["typeinfo(Type) ->",nl,
+                  "  exit({error,{asn1,{undefined_type,Type}}}).",nl,nl]);
         false ->
             ok
     end.
@@ -129,7 +141,7 @@ pgen_values([], _) ->
     ok.
 
 pgen_types(_, _, _, _, []) ->
-    true;
+    ok;
 pgen_types(Rtmod,Erules,N2nConvEnums,Module,[H|T]) ->
     asn1ct_name:clear(),
     Typedef = asn1_db:dbget(Module,H),
@@ -660,32 +672,24 @@ pgen_exports(#gen{options=Options}=Gen, Code) ->
 	  "         legacy_erlang_types/0]).",nl]),
     emit(["-export([",{asis,?SUPPRESSION_FUNC},"/1]).",nl]),
     case Gen of
+        #gen{erule=Erule,jer=Jer} when Erule =:= jer; Jer ->
+            emit(["-export([typeinfo/1]).",nl]);
+        #gen{} ->
+            ok
+    end,
+    case Gen of
         #gen{erule=ber} ->
             gen_exports(Types, "enc_", 2),
             gen_exports(Types, "dec_", 2),
             gen_exports(Objects, "enc_", 3),
             gen_exports(Objects, "dec_", 3),
             gen_exports(ObjectSets, "getenc_", 1),
-            gen_exports(ObjectSets, "getdec_", 1),
-            case Gen#gen.jer of
-                true ->
-                    gen_exports(Types, "typeinfo_", 0);
-                _ ->
-                    true
-            end;
+            gen_exports(ObjectSets, "getdec_", 1);
         #gen{erule=per} ->
             gen_exports(Types, "enc_", 1),
-            gen_exports(Types, "dec_", 1),
-            case Gen#gen.jer of
-                true ->
-                    gen_exports(Types, "typeinfo_", 0);
-                _ ->
-                    true
-            end;
+            gen_exports(Types, "dec_", 1);
         #gen{erule=jer} ->
-            gen_exports(Types, "typeinfo_", 0),
-            gen_exports(ObjectSets, "typeinfo_", 0)
-%%            gen_exports(Types, "dec_", 1)
+            ok
     end,
 
     A2nNames = [X || {n2n,X} <- Options],
@@ -758,10 +762,7 @@ pgen_dispatcher(Gen, Types) ->
 	       #gen{erule=ber} ->
 		   "iolist_to_binary(element(1, encode_disp(Type, Data)))";
                #gen{erule=jer} ->
-                   ["?JSON_ENCODE(",
-                    {call,jer,encode_jer,[CurrMod,
-                                          "list_to_existing_atom(lists:concat([typeinfo_,Type]))",
-                                          "Data"]},")"];
+                   ["?JSON_ENCODE(",{call,jer,encode_jer,[CurrMod,"Type","Data"]},")"];
 	       #gen{erule=per,aligned=false} when NoFinalPadding ->
 		   asn1ct_func:need({uper,complete_NFP,1}),
 		   "complete_NFP(encode_disp(Type, Data))";
@@ -785,11 +786,7 @@ pgen_dispatcher(Gen, Types) ->
     case Gen#gen.jer of
         true ->
             emit(["jer_encode(Type, Data) ->",nl]),
-            JerCall = ["?JSON_ENCODE(",
-                    {call,jer,encode_jer,
-                     [CurrMod,
-                      "list_to_existing_atom(lists:concat([typeinfo_,Type]))",
-                      "Data"]},")"],
+            JerCall = ["?JSON_ENCODE(",{call,jer,encode_jer,[CurrMod,"Type","Data"]},")"],
             case NoOkWrapper of
                 true ->
                     emit(["  ",JerCall,"."]);
@@ -843,9 +840,7 @@ pgen_dispatcher(Gen, Types) ->
 	    emit(["   Result = ",DecodeDisp,",",nl]),
             result_line(NoOkWrapper, ["Result"]);
 	{#gen{erule=jer},false} ->
-	    emit(["   Result = ",{call,jer,decode_jer,[ CurrMod,
-                                                        "list_to_existing_atom(lists:concat([typeinfo_,Type]))", 
-                                                        DecWrap]},",",nl]),
+	    emit(["   Result = ",{call,jer,decode_jer,[CurrMod,"Type",DecWrap]},",",nl]),
             result_line(NoOkWrapper, ["Result"]);
 
 
@@ -875,9 +870,7 @@ pgen_dispatcher(Gen, Types) ->
 	    emit(["   Result = ",
                   {call,jer,
                    decode_jer,
-                   [CurrMod,
-                    "list_to_existing_atom(lists:concat([typeinfo_,Type]))", 
-                    JerDecWrap]},",",nl]),
+                   [CurrMod,"Type",JerDecWrap]},",",nl]),
             result_line(false, ["Result"]),
             case NoOkWrapper of
                 false ->
