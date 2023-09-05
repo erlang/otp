@@ -37,8 +37,8 @@
 %%%===================================================================
 
 -spec start_link() -> {ok, Pid :: pid()} |
-                      {error, Error :: {already_started, pid()}} |
-                      {error, Error :: term()} |
+                      {error, {already_started, pid()}} |
+                      {error, term()} |
                       ignore.
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
