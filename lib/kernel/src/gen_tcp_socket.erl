@@ -165,16 +165,16 @@ connect_lookup(Domain, Address, Port, Mod, Opts0, Timer) ->
     of
         {Addrs,
          #connect_opts{fd     = Fd,
-                       ifaddr = BindIP,
+                       ifaddr = BindAddr,
                        port   = BindPort,
                        opts   = ConnectOpts}} ->
             %%
-            %% ?DBG([{domain, Domain}, {bind_ip, BindIP}]),
-            BindAddr  = bind_addr(Domain, BindIP, BindPort),
+            %% ?DBG([{domain, Domain}, {bind_ip, BindAddr}]),
+            BindSockaddr = bind_addr(Domain, BindAddr, BindPort),
             ExtraOpts = extra_opts(Fd),
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, ExtraOpts,
-              Timer, BindAddr)
+              Timer, BindSockaddr)
     catch
         throw : {ErrRef, Reason} ->
             ?badarg_exit({error, Reason})
@@ -269,6 +269,8 @@ default_any(Domain, undefined, _Opts) ->
 default_any(_Domain, BindAddr, _Opts) ->
     BindAddr.
 
+bind_addr(Domain, #{family := Domain} = BindSockaddr, _BindPort) ->
+    BindSockaddr;
 bind_addr(Domain, BindIP, BindPort)
   when ((BindIP =:= undefined) andalso (BindPort =:= 0)) ->
     %% *Maybe* Do not bind! On Windows we actually need to bind
@@ -373,19 +375,19 @@ listen(Port, Opts) ->
                     exit(badarg);
                 {ok,
                  #listen_opts{fd      = Fd,
-                              ifaddr  = BindIP,
+                              ifaddr  = BindAddr,
                               port    = BindPort,
                               opts    = ListenOpts,
                               backlog = Backlog}} ->
                     %%
                     Domain    = domain(Mod),
-                    %% ?DBG([{domain, Domain}, {bind_ip, BindIP},
+                    %% ?DBG([{domain, Domain}, {bind_ip, BindAddr},
                     %%       {listen_opts, ListenOpts}, {backlog, Backlog}]),
-                    BindAddr  = bind_addr(Domain, BindIP, BindPort),
+                    BindSockaddr  = bind_addr(Domain, BindAddr, BindPort),
                     ExtraOpts = extra_opts(Fd),
                     listen_open(
                       Domain, ListenOpts, StartOpts, ExtraOpts,
-                      Backlog, BindAddr)
+                      Backlog, BindSockaddr)
             end;
         {error, _} = Error ->
             ?badarg_exit(Error)
@@ -2817,19 +2819,19 @@ handle_recv_error(P, D, ActionsR, Reason) ->
     %% ?DBG({P#params.socket, Reason}),
     {D_1, ActionsR_1} =
         cleanup_recv_reply(P, D#{buffer := <<>>}, ActionsR, Reason),
-    case Reason of
-        closed ->
-            {next_state, 'closed_read', {P, D_1}, reverse(ActionsR_1)};
-        econnreset ->
-            _ = socket_close(P#params.socket),
-            {next_state, 'closed', {P, D_1}, reverse(ActionsR_1)};
-        econnaborted ->
-            _ = socket_close(P#params.socket),
-            {next_state, 'closed', {P, D_1}, reverse(ActionsR_1)};
-        emsgsize ->
+    if
+        Reason =:= timeout;
+        Reason =:= emsgsize ->
             {next_state, 'connected',
              {P, recv_stop(D#{active := false})},
-             reverse(ActionsR_1)}
+             reverse(ActionsR_1)};
+        Reason =:= closed ->
+            %% This may be incorrect with respect to inet_drv.c:s
+            %% default exit_on_close behaviour...
+            {next_state, 'closed_read', {P, D_1}, reverse(ActionsR_1)};
+        true ->
+            _ = socket_close(P#params.socket),
+            {next_state, 'closed', {P, D_1}, reverse(ActionsR_1)}
     end.
 
 %% -------------------------------------------------------------------------
@@ -2872,31 +2874,26 @@ cleanup_recv_reply(
         #{active := _} ->
             ModuleSocket = module_socket(P),
             Owner = P#params.owner,
-            %% ?DBG({ModuleSocket, Reason}),
-            case Reason of
-                timeout ->
-                    %% ?DBG({P#params.socket, 'timeout'}),
+            %% ?DBG({ModuleSocket, {Reason,ShowEconnreset}}),
+            if
+                Reason =:= timeout;
+                Reason =:= emsgsize ->
+                    %% ?DBG({P#params.socket, Reason}),
                     Owner ! {tcp_error, ModuleSocket, Reason},
                     ok;
-                closed when (ShowEconnreset =:= true) ->
-                    %% ?DBG({P#params.socket, 'closed'}),
-                    %% Time to bug-compatible with the inet-driver...
+                Reason =:= closed, ShowEconnreset =:= false;
+                Reason =:= econnreset, ShowEconnreset =:= false ->
+                    %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
+                    Owner ! {tcp_closed, ModuleSocket},
+                    ok;
+                Reason =:= closed -> % ShowEconnreset =:= true
+                    %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
+                    %% Try to be bug-compatible with the inet-driver...
                     Owner ! {tcp_error, ModuleSocket, econnreset},
                     Owner ! {tcp_closed, ModuleSocket},
                     ok;
-                closed ->
-                    %% ?DBG({P#params.socket, 'closed'}),
-                    Owner ! {tcp_closed, ModuleSocket},
-                    ok;
-                emsgsize ->
-                    Owner ! {tcp_error, ModuleSocket, Reason},
-                    ok;
-                econnreset when (ShowEconnreset =:= false) ->
-                    %% ?DBG({P#params.socket, 'do not show econnreset'}),
-                    Owner ! {tcp_closed, ModuleSocket},
-                    ok;
-                _ ->
-                    %% ?DBG({P#params.socket, 'show econnreset'}),
+                true ->
+                    %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
                     Owner ! {tcp_error, ModuleSocket, Reason},
                     Owner ! {tcp_closed, ModuleSocket},
                     ok
