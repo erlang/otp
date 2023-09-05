@@ -508,7 +508,9 @@ prop_part_invalid_range() ->
             {B, gen_part_invalid(B)}
         ),
         expect_error(fun binary:part/2, [Bin, PosLen]) andalso
-        expect_error(fun binary:part/3, [Bin, Pos, Len])
+        expect_error(fun binary:part/3, [Bin, Pos, Len]) andalso
+	expect_error(fun erlang:binary_part/2, [Bin, PosLen]) andalso
+	expect_error(fun erlang:binary_part/3, [Bin, Pos, Len])
     ).
 
 prop_part_invalid_subject() ->
@@ -516,7 +518,9 @@ prop_part_invalid_subject() ->
         {Bin, {Pos, Len}=PosLen},
         {gen_subject_invalid(), gen_part(<<>>)},
         expect_error(fun binary:part/2, [Bin, PosLen]) andalso
-        expect_error(fun binary:part/3, [Bin, Pos, Len])
+        expect_error(fun binary:part/3, [Bin, Pos, Len]) andalso
+	expect_error(fun erlang:binary_part/2, [Bin, PosLen]) andalso
+	expect_error(fun erlang:binary_part/3, [Bin, Pos, Len])
     ).
 
 %% --- replace/3,4 ------------------------------------------------------
