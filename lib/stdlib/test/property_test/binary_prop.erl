@@ -1,4 +1,4 @@
-%%
+%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2021-2023. All Rights Reserved.
@@ -48,6 +48,13 @@ prop_at_invalid_index() ->
         expect_error(fun binary:at/2, [Bin, Pos])
     ).
 
+prop_at_invalid_subject() ->
+    ?FORALL(
+        Bin,
+        gen_subject_invalid(),
+        expect_error(fun binary:at/2, [Bin, 0])
+    ).
+
 %% --- bin_to_list/1 --------------------------------------------------
 prop_bin_to_list_1() ->
     ?FORALL(
@@ -85,6 +92,15 @@ prop_bin_to_list_2_3_invalid_range() ->
         expect_error(fun binary:bin_to_list/3, [Bin, Pos, Len])
     ).
 
+prop_bin_to_list_invalid_subject() ->
+    ?FORALL(
+        Bin,
+        gen_subject_invalid(),
+        expect_error(fun binary:bin_to_list/1, [Bin]) andalso
+        expect_error(fun binary:bin_to_list/2, [Bin, {0, 0}]) andalso
+        expect_error(fun binary:bin_to_list/3, [Bin, 0, 0])
+    ).
+
 %% --- compile_pattern/1 ----------------------------------------------
 prop_compile_pattern() ->
     ?FORALL(
@@ -96,19 +112,7 @@ prop_compile_pattern() ->
 prop_compile_pattern_invalid_pattern() ->
     ?FORALL(
         P,
-        oneof([
-            <<>>,
-            [],
-            ?LET(
-                L,
-                non_empty(list(binary())),
-                case lists:any(fun(P) -> P =:= <<>> end, L) of
-                    true ->
-                        L;
-                    false ->
-                        [<<>> | L]
-                end)
-        ]),
+        gen_patterns_invalid(),
         expect_error(fun binary:compile_pattern/1, [P])
     ).
 
@@ -132,6 +136,14 @@ prop_copy_2_invalid_n() ->
     ?FORALL(
         {Bin, N},
         {binary(), neg_integer()},
+        expect_error(fun binary:copy/2, [Bin, N])
+    ).
+
+prop_copy_invalid_subject() ->
+    ?FORALL(
+        {Bin, N},
+        {gen_subject_invalid(), non_neg_integer()},
+        expect_error(fun binary:copy/1, [Bin]) andalso
         expect_error(fun binary:copy/2, [Bin, N])
     ).
 
@@ -168,6 +180,13 @@ prop_decode_hex_invalid_chars() ->
         expect_error(fun binary:decode_hex/1, [Bin])
     ).
 
+prop_decode_hex_invalid_subject() ->
+    ?FORALL(
+        Bin,
+        gen_subject_invalid(),
+        expect_error(fun binary:decode_hex/1, [Bin])
+    ).
+
 %% --- decode_unsigned/1,2 --------------------------------------------
 prop_decode_unsigned() ->
     ?FORALL(
@@ -183,6 +202,22 @@ prop_decode_unsigned() ->
         end
     ).
 
+prop_decode_unsigned_2_invalid_endianness() ->
+    ?FORALL(
+        {Bin, Endianness},
+        {binary(), ?SUCHTHAT(E, ct_proper_ext:safe_any(), E =/= big andalso E =/= little)},
+        expect_error(fun binary:decode_unsigned/2, [Bin, Endianness])
+    ).
+
+prop_decode_unsigned_invalid_subject() ->
+    ?FORALL(
+        Bin,
+        gen_subject_invalid(),
+        expect_error(fun binary:decode_unsigned/1, [Bin]) andalso
+        expect_error(fun binary:decode_unsigned/2, [Bin, big]) andalso
+        expect_error(fun binary:decode_unsigned/2, [Bin, little])
+    ).
+
 %% --- encode_hex/1,2 -------------------------------------------------
 prop_encode_hex() ->
     ?FORALL(
@@ -196,6 +231,22 @@ prop_encode_hex() ->
             Bin =:= binary:decode_hex(UpperHex) andalso
             check_hex_encoded(Bin, UpperHex, LowerHex)
         end
+    ).
+
+prop_encode_hex_2_invalid_case() ->
+    ?FORALL(
+        {Bin, Case},
+        {binary(), ?SUCHTHAT(C, ct_proper_ext:safe_any(), C =/= lowercase andalso C =/= uppercase)},
+        expect_error(fun binary:encode_hex/2, [Bin, Case])
+    ).
+
+prop_encode_hex_invalid_subject() ->
+    ?FORALL(
+        Bin,
+        gen_subject_invalid(),
+        expect_error(fun binary:encode_hex/1, [Bin]) andalso
+        expect_error(fun binary:encode_hex/2, [Bin, lowercase]) andalso
+        expect_error(fun binary:encode_hex/2, [Bin, uppercase])
     ).
 
 %% --- encode_unsigned/1,2 --------------------------------------------
@@ -222,6 +273,13 @@ prop_encode_unsigned_invalid_integer() ->
         expect_error(fun binary:encode_unsigned/2, [I, little])
     ).
 
+prop_encode_unsigned_2_invalid_endianness() ->
+    ?FORALL(
+        {I, Endianness},
+        {non_neg_integer(), ?SUCHTHAT(E, ct_proper_ext:safe_any(), E =/= big andalso E =/= little)},
+        expect_error(fun binary:encode_unsigned/2, [I, Endianness])
+    ).
+
 %% --- first/1 --------------------------------------------------------
 prop_first() ->
     ?FORALL(
@@ -234,6 +292,13 @@ prop_first() ->
         Byte =:= binary:first(Bin)
     ).
 
+prop_first_invalid_subject() ->
+    ?FORALL(
+        Bin,
+        oneof([<<>>, gen_subject_invalid()]),
+        expect_error(fun binary:first/1, [Bin])
+    ).
+
 %% --- last/1 ---------------------------------------------------------
 prop_last() ->
     ?FORALL(
@@ -244,6 +309,13 @@ prop_last() ->
             {<<B/binary, Bt>>, Bt}
         ),
         Byte =:= binary:last(Bin)
+    ).
+
+prop_last_invalid_subject() ->
+    ?FORALL(
+        Bin,
+        oneof([<<>>, gen_subject_invalid()]),
+        expect_error(fun binary:last/1, [Bin])
     ).
 
 %% --- list_to_bin/1 --------------------------------------------------
@@ -281,6 +353,13 @@ prop_longest_common_prefix() ->
         find_longest_common_prefix(Bins) =:= binary:longest_common_prefix(Bins)
     ).
 
+prop_longest_common_prefix_invalid_subject() ->
+    ?FORALL(
+        Bins,
+        gen_subjects_invalid(),
+        expect_error(fun binary:longest_common_prefix/1, [Bins])
+    ).
+
 %% --- longest_common_suffix/1 ----------------------------------------
 prop_longest_common_suffix() ->
     ?FORALL(
@@ -293,31 +372,15 @@ prop_longest_common_suffix() ->
         find_longest_common_suffix(Bins) =:= binary:longest_common_suffix(Bins)
     ).
 
-%% --- match/2 --------------------------------------------------------
-prop_match_2() ->
+prop_longest_common_suffix_invalid_subject() ->
     ?FORALL(
-        {Bin, Pattern},
-        ?LET(
-            B,
-            binary(),
-            {B, gen_patterns(B)}
-        ),
-        begin
-            Match = binary:match(Bin, Pattern),
-            Match =:= binary:match(Bin, binary:compile_pattern(Pattern)) andalso
-            Match =:= find_match(Bin, Pattern)
-        end
+        Bins,
+        gen_subjects_invalid(),
+        expect_error(fun binary:longest_common_suffix/1, [Bins])
     ).
 
-prop_match_2_invalid_pattern() ->
-    ?FORALL(
-        {Bin, Pattern},
-        {binary(), gen_patterns_invalid()},
-        expect_error(fun binary:match/2, [Bin, Pattern])
-    ).
-
-%% --- match/3 --------------------------------------------------------
-prop_match_3() ->
+%% --- match/2,3 --------------------------------------------------------
+prop_match() ->
     ?FORALL(
         {Bin, Pattern, Opts},
         ?LET(
@@ -326,9 +389,12 @@ prop_match_3() ->
             {B, gen_patterns(B), gen_opts([], [gen_scope_opt(B)])}
         ),
         begin
-            Match = binary:match(Bin, Pattern, Opts),
-            Match =:= binary:match(Bin, binary:compile_pattern(Pattern), Opts) andalso
-            Match =:= find_match(Bin, Pattern, Opts)
+            Match1 = binary:match(Bin, Pattern),
+            Match2 = binary:match(Bin, Pattern, Opts),
+            Match1 =:= binary:match(Bin, binary:compile_pattern(Pattern)) andalso
+            Match1 =:= find_match(Bin, Pattern) andalso
+            Match2 =:= binary:match(Bin, binary:compile_pattern(Pattern), Opts) andalso
+            Match2 =:= find_match(Bin, Pattern, Opts)
         end
     ).
 
@@ -344,7 +410,7 @@ prop_match_3_invalid_scope() ->
         expect_error(fun binary:match/3, [Bin, binary:compile_pattern(Pattern), Opts])
     ).
 
-prop_match_3_invalid_pattern() ->
+prop_match_invalid_pattern() ->
     ?FORALL(
         {Bin, Pattern, Opts},
         ?LET(
@@ -352,34 +418,20 @@ prop_match_3_invalid_pattern() ->
             binary(),
             {B, gen_patterns_invalid(), gen_opts([], [gen_scope_opt(B)])}
         ),
+        expect_error(fun binary:match/2, [Bin, Pattern]) andalso
         expect_error(fun binary:match/3, [Bin, Pattern, Opts])
     ).
 
-%% --- matches/2 ------------------------------------------------------
-prop_matches_2() ->
+prop_match_invalid_subject() ->
     ?FORALL(
-        {Bin, Pattern},
-        ?LET(
-            B,
-            binary(),
-            {B, gen_patterns(B)}
-        ),
-        begin
-            Match = lists:sort(binary:matches(Bin, Pattern)),
-            Match =:= lists:sort(binary:matches(Bin, binary:compile_pattern(Pattern))) andalso
-            Match =:= lists:sort(find_matches(Bin, Pattern))
-        end
+        {Bin, Pattern, Opts},
+        {gen_subject_invalid(), gen_patterns(), gen_opts([], [gen_scope_opt(<<>>)])},
+        expect_error(fun binary:match/2, [Bin, Pattern]) andalso
+        expect_error(fun binary:match/3, [Bin, Pattern, Opts])
     ).
 
-prop_matches_2_invalid_pattern() ->
-    ?FORALL(
-        {Bin, Pattern},
-        {binary(), gen_patterns_invalid()},
-        expect_error(fun binary:matches/2, [Bin, Pattern])
-    ).
-
-%% --- matches/3 ------------------------------------------------------
-prop_matches_3() ->
+%% --- matches/2,3 ------------------------------------------------------
+prop_matches() ->
     ?FORALL(
         {Bin, Pattern, Opts},
         ?LET(
@@ -388,9 +440,12 @@ prop_matches_3() ->
             {B, gen_patterns(B), gen_opts([], [gen_scope_opt(B)])}
         ),
         begin
-            Match = lists:sort(binary:matches(Bin, Pattern, Opts)),
-            Match =:= lists:sort(binary:matches(Bin, binary:compile_pattern(Pattern), Opts)) andalso
-            Match =:= lists:sort(find_matches(Bin, Pattern, Opts))
+            Match1 = lists:sort(binary:matches(Bin, Pattern)),
+            Match2 = lists:sort(binary:matches(Bin, Pattern, Opts)),
+            Match1 =:= lists:sort(binary:matches(Bin, binary:compile_pattern(Pattern))) andalso
+            Match1 =:= lists:sort(find_matches(Bin, Pattern)) andalso
+            Match2 =:= lists:sort(binary:matches(Bin, binary:compile_pattern(Pattern), Opts)) andalso
+            Match2 =:= lists:sort(find_matches(Bin, Pattern, Opts))
         end
     ).
 
@@ -406,7 +461,7 @@ prop_matches_3_invalid_scope() ->
         expect_error(fun binary:matches/3, [Bin, binary:compile_pattern(Pattern), Opts])
     ).
 
-prop_matches_3_invalid_pattern() ->
+prop_matches_invalid_pattern() ->
     ?FORALL(
         {Bin, Pattern, Opts},
         ?LET(
@@ -414,6 +469,15 @@ prop_matches_3_invalid_pattern() ->
             binary(),
             {B, gen_patterns_invalid(), gen_opts([], [gen_scope_opt(B)])}
         ),
+        expect_error(fun binary:matches/2, [Bin, Pattern]) andalso
+        expect_error(fun binary:matches/3, [Bin, Pattern, Opts])
+    ).
+
+prop_matches_invalid_subject() ->
+    ?FORALL(
+        {Bin, Pattern, Opts},
+        {gen_subject_invalid(), gen_patterns(), gen_opts([], [gen_scope_opt(<<>>)])},
+        expect_error(fun binary:matches/2, [Bin, Pattern]) andalso
         expect_error(fun binary:matches/3, [Bin, Pattern, Opts])
     ).
 
@@ -447,42 +511,30 @@ prop_part_invalid_range() ->
         expect_error(fun binary:part/3, [Bin, Pos, Len])
     ).
 
-%% --- replace/3 ------------------------------------------------------
-prop_replace_3() ->
+prop_part_invalid_subject() ->
     ?FORALL(
-       {Bin, Pattern, Replacement},
-       ?LET(
-           {B, R},
-           {binary(), oneof([binary(), function1(binary())])},
-           {B, gen_patterns(B), R}
-       ),
-       begin
-           Replaced = binary:replace(Bin, Pattern, Replacement),
-           Replaced =:= binary:replace(Bin, binary:compile_pattern(Pattern), Replacement) andalso
-           Replaced =:= do_replace(Bin, Pattern, Replacement)
-       end
+        {Bin, {Pos, Len}=PosLen},
+        {gen_subject_invalid(), gen_part(<<>>)},
+        expect_error(fun binary:part/2, [Bin, PosLen]) andalso
+        expect_error(fun binary:part/3, [Bin, Pos, Len])
     ).
 
-prop_replace_3_invalid_pattern() ->
-    ?FORALL(
-        {Bin, Pattern, Replacement},
-        {binary(), gen_patterns_invalid(), oneof([binary(), function1(binary())])},
-        expect_error(fun binary:replace/3, [Bin, Pattern, Replacement])
-    ).
-
-%% --- replace/4 ------------------------------------------------------
-prop_replace_4() ->
+%% --- replace/3,4 ------------------------------------------------------
+prop_replace() ->
     ?FORALL(
         {Bin, Pattern, Replacement, Opts},
         ?LET(
             {B, R},
-            {binary(), oneof([binary(), function1(binary())])},
+            {binary(), gen_replacement()},
             {B, gen_patterns(B), R, gen_opts([], [global, gen_scope_opt(B), gen_insert_replaced_opt(R)])}
         ),
         begin
-            Replaced = binary:replace(Bin, Pattern, Replacement, Opts),
-            Replaced =:= binary:replace(Bin, binary:compile_pattern(Pattern), Replacement, Opts) andalso
-            Replaced =:= do_replace(Bin, Pattern, Replacement, Opts)
+            Replaced1 = binary:replace(Bin, Pattern, Replacement),
+            Replaced2 = binary:replace(Bin, Pattern, Replacement, Opts),
+            Replaced1 =:= binary:replace(Bin, binary:compile_pattern(Pattern), Replacement) andalso
+            Replaced1 =:= do_replace(Bin, Pattern, Replacement) andalso
+            Replaced2 =:= binary:replace(Bin, binary:compile_pattern(Pattern), Replacement, Opts) andalso
+            Replaced2 =:= do_replace(Bin, Pattern, Replacement, Opts)
         end
     ).
 
@@ -491,7 +543,7 @@ prop_replace_4_invalid_scope() ->
         {Bin, Pattern, Replacement, Opts},
         ?LET(
             {B, R},
-            {binary(), oneof([binary(), function1(binary())])},
+            {binary(), gen_replacement()},
             {B, gen_patterns(B), R, gen_opts([gen_scope_invalid_opt(B)], [global, gen_insert_replaced_opt(R)])}
         ),
         expect_error(fun binary:replace/4, [Bin, Pattern, Replacement, Opts]) andalso
@@ -510,42 +562,40 @@ prop_replace_4_invalid_insert_replaced() ->
         expect_error(fun binary:replace/4, [Bin, binary:compile_pattern(Pattern), Replacement, Opts])
     ).
 
-prop_replace_4_invalid_pattern() ->
+prop_replace_invalid_pattern() ->
     ?FORALL(
         {Bin, Pattern, Replacement, Opts},
         ?LET(
             {B, R},
-            {binary(), oneof([binary(), function1(binary())])},
+            {binary(), gen_replacement()},
             {B, gen_patterns_invalid(), R, gen_opts([], [global, gen_scope_opt(B), gen_insert_replaced_opt(R)])}
         ),
+        expect_error(fun binary:replace/3, [Bin, Pattern, Replacement]) andalso
         expect_error(fun binary:replace/4, [Bin, Pattern, Replacement, Opts])
     ).
 
-%% --- split/2 --------------------------------------------------------
-prop_split_2() ->
+prop_replace_invalid_replacement() ->
     ?FORALL(
-        {Bin, Pattern},
+        {Bin, Pattern, Replacement, Opts},
         ?LET(
             B,
             binary(),
-            {B, gen_patterns(B)}
+            {B, gen_patterns(B), gen_replacement_invalid(), gen_opts([], [global, gen_scope_opt(B), gen_insert_replaced_opt(<<>>)])}
         ),
-        begin
-            Split = binary:split(Bin, Pattern),
-            Split =:= binary:split(Bin, binary:compile_pattern(Pattern)) andalso
-            Split =:= do_split(Bin, Pattern)
-        end
+        expect_error(fun binary:replace/3, [Bin, Pattern, Replacement]) andalso
+        expect_error(fun binary:replace/4, [Bin, Pattern, Replacement, Opts])
     ).
 
-prop_split_2_invalid_pattern() ->
+prop_replace_invalid_subject() ->
     ?FORALL(
-        {Bin, Pattern},
-        {binary(), gen_patterns_invalid()},
-        expect_error(fun binary:split/2, [Bin, Pattern])
+        {Bin, Pattern, Replacement, Opts},
+        {gen_subject_invalid(), gen_patterns(), gen_replacement(), gen_opts([], [global, gen_scope_opt(<<>>), gen_insert_replaced_opt(<<>>)])},
+        expect_error(fun binary:replace/3, [Bin, Pattern, Replacement]) andalso
+        expect_error(fun binary:replace/4, [Bin, Pattern, Replacement, Opts])
     ).
 
-%% --- split/3 --------------------------------------------------------
-prop_split_3() ->
+%% --- split/2,3 --------------------------------------------------------
+prop_split() ->
     ?FORALL(
         {Bin, Pattern, Opts},
         ?LET(
@@ -554,9 +604,12 @@ prop_split_3() ->
             {B, gen_patterns(B), gen_opts([], [global, trim, trim_all, gen_scope_opt(B)])}
         ),
         begin
-            Split = binary:split(Bin, Pattern, Opts),
-            Split =:= binary:split(Bin, binary:compile_pattern(Pattern), Opts) andalso
-            Split =:= do_split(Bin, Pattern, Opts)
+            Split1 = binary:split(Bin, Pattern),
+            Split2 = binary:split(Bin, Pattern, Opts),
+            Split1 =:= binary:split(Bin, binary:compile_pattern(Pattern)) andalso
+            Split1 =:= do_split(Bin, Pattern) andalso
+            Split2 =:= binary:split(Bin, binary:compile_pattern(Pattern), Opts) andalso
+            Split2 =:= do_split(Bin, Pattern, Opts)
         end
     ).
 
@@ -572,7 +625,7 @@ prop_split_3_invalid_scope() ->
         expect_error(fun binary:split/3, [Bin, binary:compile_pattern(Pattern), Opts])
     ).
 
-prop_split_3_invalid_pattern() ->
+prop_split_invalid_pattern() ->
     ?FORALL(
         {Bin, Pattern, Opts},
         ?LET(
@@ -580,6 +633,15 @@ prop_split_3_invalid_pattern() ->
             binary(),
             {B, gen_patterns_invalid(), gen_opts([], [global, trim, trim_all, gen_scope_opt(B)])}
         ),
+        expect_error(fun binary:split/2, [Bin, Pattern]) andalso
+        expect_error(fun binary:split/3, [Bin, Pattern, Opts])
+    ).
+
+prop_split_invalid_subject() ->
+    ?FORALL(
+        {Bin, Pattern, Opts},
+        {gen_subject_invalid(), gen_patterns(), gen_opts([], [global, trim, trim_all, gen_scope_opt(<<>>)])},
+        expect_error(fun binary:split/2, [Bin, Pattern]) andalso
         expect_error(fun binary:split/3, [Bin, Pattern, Opts])
     ).
 
@@ -679,16 +741,59 @@ gen_pattern(Bin) ->
                 )
             )]).
 
-%% Generator for invalid patterns.
+%% Generator for invalid patterns
 gen_patterns_invalid() ->
+    oneof([
+        ?SUCHTHAT(T, ct_proper_ext:safe_any(), T =:= <<>> orelse not is_binary(T) andalso not is_list(T)),
+        ?LET(
+            L,
+            list(binary()),
+            case L =:= [] orelse lists:any(fun(E) -> E =:= <<>> end, L) of
+                true ->
+                    L;
+                false ->
+                    [<<>> | L]
+            end
+        ),
+        ?LET(
+            L,
+            list(ct_proper_ext:safe_any()),
+            case L =:= [] orelse lists:any(fun(<<_, _/binary>>) -> false; (_) -> true end, L) of
+                true ->
+                        L;
+                false ->
+                    [?SUCHTHAT(T, ct_proper_ext:safe_any(), T =:= <<>> orelse not is_binary(T)) | L]
+            end
+        )
+    ]).
+
+%% Generator for invalid subjects
+gen_subject_invalid() ->
+    oneof([
+        ?LET(
+            {B, FillInt, FillSize},
+            {bitstring(), range(0, 16#7f), range(1, 7)},
+            case bit_size(B) rem 8 of
+                0 ->
+                    <<B/binary, FillInt:FillSize/integer>>;
+                _ ->
+                    B
+            end
+        ),
+        ?SUCHTHAT(T, ct_proper_ext:safe_any(), not is_binary(T))
+    ]).
+
+%% Generator for invalid subjects or lists containing at least one
+%% invalid subject
+gen_subjects_invalid() ->
     ?LET(
         T,
-        oneof([?SUCHTHAT(T, gen_pattern_invalid(), not is_list(T)), list(oneof([gen_pattern(), gen_pattern_invalid()]))]),
+        ct_proper_ext:safe_any(),
         case T of
             [_|_] ->
-                case lists:all(fun(<<_, _/binary>>) -> true; (_) -> false end, T) of
+                case lists:all(fun erlang:is_binary/1, T) of
                     true ->
-                        [gen_pattern_invalid() | T];
+                        [gen_subject_invalid() | T];
                     false ->
                         T
                 end;
@@ -697,10 +802,13 @@ gen_patterns_invalid() ->
         end
     ).
 
-%% Generator for a single invalid pattern.
-gen_pattern_invalid() ->
-    ?SUCHTHAT(T, ct_proper_ext:safe_any(), T =:= <<>> orelse not is_binary(T)).
+%% Generator for replacements
+gen_replacement() ->
+    oneof([binary(), function1(binary())]).
 
+%% Generator for invalid replacements
+gen_replacement_invalid() ->
+    ?SUCHTHAT(T, ct_proper_ext:safe_any(), not is_binary(T) andalso not is_function(T, 1)).
 
 %%%%%%%%%%%%%%%
 %%% Helpers %%%
