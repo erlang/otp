@@ -44,16 +44,16 @@ jobs:
         run: |
             git clone https://github.com/talentdeficit/jsx
             (cd jsx && rebar3 compile)
-            rm -rf "${GITHUB_WORKSPACE}/erlang.github.io/.git"
             mkdir -p "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
             touch "${GITHUB_WORKSPACE}/erlang.github.io/.nojekyll"
             .github/scripts/sync-github-prs.es erlang/otp "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
 
       - name: Deploy to github pages 🚀
-        uses: JamesIves/github-pages-deploy-action@v4.4.1
-        with:
-          token: ${{ secrets.ERLANG_TOKEN }}
-          branch: master # The branch the action should deploy to.
-          folder: erlang.github.io # The folder the action should deploy.
-          repository-name: erlang/erlang.github.io
-          single-commit: true
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          cd erlang.github.io
+          git add -u
+          git add .
+          git commit -m "Update github pages content"
+          git push origin master
