@@ -50,9 +50,9 @@ jobs:
 
       - name: Deploy to github pages 🚀
         run: |
+          cd erlang.github.io
           git config user.name github-actions
           git config user.email github-actions@github.com
-          cd erlang.github.io
           git add -u
           git add .
           git commit -m "Update github pages content"
