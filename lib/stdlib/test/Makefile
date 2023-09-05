@@ -28,6 +28,7 @@ MODULES= \
 	edlin_context_SUITE \
 	epp_SUITE \
 	erl_anno_SUITE \
+	erl_desugar_interpolation_SUITE \
 	erl_eval_SUITE \
 	erl_expand_records_SUITE \
 	erl_internal_SUITE \

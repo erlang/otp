@@ -512,6 +512,12 @@ expr({'maybe',Anno,Es,{'else',_,Cs}}, Bs0, Lf, Ef, RBs, FUVs) ->
                     apply_error({else_clause,Val}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
             end
     end;
+expr({'interpolation',_,_,_,_}=Interpolation, Bs, Lf, Ef, RBs, FUVs) ->
+    DesugaredInterpolation = erl_desugar_interpolation:expr(Interpolation),
+    expr(DesugaredInterpolation, Bs, Lf, Ef, RBs, FUVs);
+expr({'interpolation_no_subs',_,_,_}=Interpolation, Bs, Lf, Ef, RBs, FUVs) ->
+    DesugaredInterpolation = erl_desugar_interpolation:expr(Interpolation),
+    expr(DesugaredInterpolation, Bs, Lf, Ef, RBs, FUVs);
 expr({op,Anno,Op,A0}, Bs0, Lf, Ef, RBs, FUVs) ->
     {value,A,Bs} = expr(A0, Bs0, Lf, Ef, none, FUVs),
     eval_op(Op, A, Anno, Bs, Ef, RBs);

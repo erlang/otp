@@ -46,6 +46,7 @@
              erl_anno,
 	     erl_bits,
 	     erl_compile,
+             erl_desugar_interpolation,
 	     erl_error,
 	     erl_eval,
              erl_expand_records,
