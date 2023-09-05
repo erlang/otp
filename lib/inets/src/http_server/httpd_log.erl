@@ -30,7 +30,7 @@
 %%%  Internal Application API 
 %%%=========================================================================
 
--spec access_entry(Log        :: term(), % Id of the log
+-spec access_entry(IdLog        :: term(), % Id of the log
 		   NoLog      :: term(), % What to return when no log is found
 		   Info       :: #mod{},
 		   RFC931     :: string(),
@@ -72,7 +72,7 @@ access_entry(Log, NoLog,
     log_entry(Log, NoLog, ConfigDB, MakeEntry).
 
 
--spec error_entry(Log    :: term(), % Id of the log
+-spec error_entry(IdLog    :: term(), % Id of the log
 		  NoLog  :: term(), % What to return when no log is found
 		  Info   :: #mod{},
 		  Date   :: string(), 
@@ -90,7 +90,7 @@ error_entry(Log, NoLog,
     log_entry(Log, NoLog, ConfigDB, MakeEntry).
 
 
--spec error_report_entry(Log      :: term(), 
+-spec error_report_entry(IdLog      :: term(),
 			 NoLog    :: term(), 
 			 ConfigDB :: term(),
 			 Date     :: string(), 
@@ -102,7 +102,7 @@ error_report_entry(Log, NoLog, ConfigDb, Date, ErrorStr) ->
     log_entry(Log, NoLog, ConfigDb, MakeEntry).
 
 
--spec security_entry(Log      :: term(), 
+-spec security_entry(IdLog      :: term(),
 		     NoLog    :: term(), 
 		     ConfigDB :: term(),
 		     Date     :: string(), 
