@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 -export([error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
 	 otp_10990/1, otp_10992/1, otp_11807/1, otp_16480/1, otp_17024/1,
-         text_fun/1]).
+         text_fun/1, triple_quoted_string/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -59,7 +59,7 @@ suite() ->
 
 all() -> 
     [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992,
-     otp_11807, otp_16480, otp_17024, text_fun].
+     otp_11807, otp_16480, otp_17024, text_fun, triple_quoted_string].
 
 groups() -> 
     [{error, [], [error_1, error_2]}].
@@ -90,14 +90,17 @@ error_2(Config) when is_list(Config) ->
 
 error_cases() ->
     ["'a",
-     "\"a",
+     "\"a",%"
      "'\\",
-     "\"\\",
+     "\"\\",%"
      "$",
      "$\\",
      "2.3e",
      "2.3e-",
-     "91#9"
+     "91#9",
+     "\"\"\"x",%"
+     "\"\"\"\n\"\"",%"
+     "\"\"\"\nx\n \"\"\""
     ].
 
 assert_type(N, integer) when is_integer(N) ->
@@ -1299,6 +1302,228 @@ text_fun(Config) when is_list(Config) ->
         erl_scan:string(String(All), 7, [{text_fun, KeepClass('{')}]),
     [Sep1] = lists:filter(fun(T) -> T /= undefined end, Texts(Tokens5)).
 
+triple_quoted_string(Config) when is_list(Config) ->
+    {ok,[{string,1,""}],2} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "\"\"\""),
+
+    {ok,[{string,1,""}],3} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "\n"
+          "\"\"\""),
+
+    {ok,[{string,1,""}],3} =
+        erl_scan:string(
+          "\"\"\"\n"
+          " \n"
+          " \"\"\""),
+
+    {ok,[{string,1,""}],3} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "\n"
+          " \"\"\""),
+
+    {ok,[{string,1,""}],3} =
+        erl_scan:string(
+          "\"\"\"\r\n"
+          "  \r\n"
+          "  \"\"\""),
+
+    {error,{{2,2},erl_scan,indentation},{3,6}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          " \n" % One space too little indentation
+          "  \"\"\"", {1,1}, []),
+
+    {ok,[{string,1,"\n"}],4} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "\n"
+          "\n"
+          "\"\"\""),
+
+    {ok,[{string,1,"\r\n"}],4} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "  \r\n"
+          "  \n"
+          "  \"\"\""),
+
+    {ok,[{string,1,"\n"}],4} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "  \n"
+          "\r\n"
+          "  \"\"\""),
+
+    {ok,[{string,1,"\r\n"}],4} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "\r\n"
+          "  \n"
+          "  \"\"\""),
+
+    {error,{{3,2},erl_scan,indentation},{4,6}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "  \n"
+          " \r\n"
+          "  \"\"\"", {1,1}, []),
+
+    {error,{{2,3},erl_scan,indentation},{4,7}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "  \n" % One space too little indentation
+          "   \r\n"
+          "   \"\"\"", {1,1}, []),
+
+    {ok,[{string,1,"CR LF"}],3} =
+        erl_scan:string(
+          "\"\"\" \t\r\n"
+          "CR LF\r\n"
+          "\"\"\""),
+
+    {ok,[{string,1,"this is a\nvery long\nstring"}],5} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "this is a\n"
+          "very long\n"
+          "string\n"
+          "\"\"\""),
+
+    {ok,[{string,1,"this is a\r\nvery long\r\nstring"}],5} =
+        erl_scan:string(
+          "\"\"\"\r\n"
+          "  this is a\r\n"
+          "  very long\r\n"
+          "  string\r\n"
+          "  \"\"\""),
+
+    {ok,
+     [{string,1,
+       "this is a string\r\n"
+       "\n"
+       "\r\n"
+       "with three empty lines\n"
+       "\r\n"}],
+     8} =
+        erl_scan:string(
+          "\"\"\"\r\n"
+          "  this is a string\r\n"
+          "\n"
+          "  \r\n"
+          "  with three empty lines\n"
+          "\r\n"
+          "\n"
+          "  \"\"\""),
+
+    {ok,[{string,1,"  this is a\n    very long\n  string"}],5} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "\t  this is a\n"
+          "\t    very long\n"
+          "\t  string\n"
+          "\t\"\"\""),
+
+    {ok,[{string,1,"this is a \\\\\nvery long \\\\\nstring\\\\"}],5} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "this is a \\\\\n"
+          "very long \\\\\n"
+          "string\\\\\n"
+          "\"\"\""),
+
+    {ok,[{string,1,
+          "this contains \"quotes\"\n"
+          "and \"\"\"triple quotes\"\"\"\n"
+          " \"\" \"\"\" and\n"
+          "ends here"}],6} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "this contains \"quotes\"\n"
+          "and \"\"\"triple quotes\"\"\"\n"
+          " \"\" \"\"\" and\n"
+          "ends here\n"
+          "\"\"\""),
+
+    {ok,[{string,{1,1},
+          "```erlang\n"
+          "foo() ->\n"
+          "    \"\"\"\n"
+          "    foo\n"
+          "    bar\n"
+          "    \"\"\".\n"
+          "```"}],{9,5}} =
+        erl_scan:string(
+          "\"\"\"\"\n"
+          "```erlang\n"
+          "foo() ->\n"
+          "    \"\"\"\n"
+          "    foo\n"
+          "    bar\n"
+          "    \"\"\".\n"
+          "```\n"
+          "\"\"\"\"", {1,1}, []),
+
+    {ok,[{string,{1,1},"5-quoted"}],{3,8}} =
+        erl_scan:string(
+          "\"\"\"\"\"\n"
+          "  5-quoted\n"
+          "  \"\"\"\"\"", {1,1}, []),
+
+    {error,{{1,4},erl_scan,white_space},{2,4}} =
+        erl_scan:string(
+          "\"\"\"foo\n" % Only white-space allowed after opening quote seq
+          "\"\"\"", {1,1}, []),
+
+    {error,{{2,2},erl_scan,indentation},{3,6}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          " foo\n" % One space too little indentation
+          "  \"\"\"", {1,1}, []),
+
+    {error,{{2,8},erl_scan,indentation},{3,12}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "       \tfoo\n" % The tab shoud be a space
+          "        \"\"\"", {1,1}, []),
+
+    {error,{{1,1},erl_scan,{string,{$",3},"\n\tx\n\t\"\""}},{3,4}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "\tx\n"
+          "\t\"\"", % Lacking one double-quote char in closing seq
+          {1,1}, []),
+
+    {error,{{3,4},erl_scan,{string,$",[]}},{3,5}} =
+        erl_scan:string(
+          "\"\"\"\n"
+          "x\n"
+          "\"\"\"\"", % A string starts at the last char but never ends
+          {1,1}, []),
+
+    %% Test the real deal in this source code
+    """"
+    ```erlang
+    foo() ->
+        """
+        \foo
+        \bar
+        """.
+    ```
+    """"
+        =
+        "```erlang
+foo() ->
+    \"\"\"
+    \\foo
+    \\bar
+    \"\"\".
+```",
+    ok.
 
 test_string(String, ExpectedWithCol) ->
     {ok, ExpectedWithCol, _EndWithCol} = erl_scan_string(String, {1, 1}, []),

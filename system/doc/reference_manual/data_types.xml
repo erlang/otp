@@ -373,6 +373,133 @@ a
     <p>is equivalent to</p>
     <pre>
 "string42"</pre>
+    <p>
+      Strings can also be written as <em>triple-quoted strings</em>,
+      which can be <em>indented</em> over multiple lines to follow
+      the indentation of the surrounding code.
+      They are also <em>verbatim</em>, that is; they don't allow
+      escape sequences, and thereby don't need double quote characters
+      to be escaped.
+    </p>
+    <change>
+      <p>
+        Triple-quoted strings were added in Erlang/OTP 27.
+        Before that 3 consecutive double quote characters
+        had a different meaning.
+        There were absolutely no good reason to write
+        such a character sequence before triple-quoted strings existed,
+        but there <em>are</em> some gotcha:s; see the
+        <seeguide marker="#triple-quoted-strings-warning">
+          Warning
+        </seeguide>
+        at the end of this description of
+        triple-quoted strings.
+      </p>
+    </change>
+    <p>
+      Example, with verbatim double quote characters:
+    </p>
+    <pre>
+"""
+  Line "1"
+  Line "2"
+  """</pre>
+    <p>
+      That is equivalent to the normal single quoted string
+      (which also allows newlines):
+    </p>
+    <pre>
+"Line \"1\"
+Line \"2\""</pre>
+    <p>
+      The opening and the closing line has got the delimiters;
+      the <c>"""</c> characters.  The lines between them
+      are the content lines.  The newline on the opening line
+      is not regarded as string content, nor is the newline
+      on the last content line.
+    </p>
+    <p>
+      The indentation is defined by the white space character
+      sequence preceding the delimiter on the closing line.
+      That character sequence is stripped from all content lines.
+      There can only be white space before the delimiter
+      on the closing line, or else it is regarded as a content line.
+    </p>
+    <p>
+      The opening line is not allowed to have any characters
+      other than white space after the delimiter,
+      and all content lines must start with the defined
+      indentation character sequence,
+      otherwise the string has a syntax error.
+    </p>
+    <p>
+      Here is a larger example:
+    </p>
+    <pre>
+X = """
+      First line starting with two spaces
+    Not escaped: "\t \r \xFF" and """
+    
+    """</pre>
+    <p>
+      That corresponds to the normal string:
+    </p>
+    <pre>
+X = "  First line starting with two spaces
+Not escaped: \"\\t \\r \\xFF\" and \"\"\"
+"</pre>
+    <p>
+      It is possible to write consecutive double quote characters
+      on the beginning of a content line by using more
+      double quote characters as delimiters.
+      This is a string that contains exactly 4 double quote characters,
+      using a delimiter with 5 double quote characters:
+    </p>
+    <pre>
+"""""
+""""
+"""""</pre>
+    <p>
+      These strings are all the empty string:
+    </p>
+    <pre>""</pre>
+    <pre>
+"""
+"""</pre>
+    <pre>
+"""
+  
+  """</pre>
+
+  <marker id="triple-quoted-strings-warning"/>
+  <warning>
+    <p>
+      Before Erlang/OTP 27, when triple-quoted strings were added,
+      the character sequence <c>"""</c> was interpreted as <c>"" "</c>
+      which means concatenate the empty string to the string that follows.
+      All sequences of an odd number of double quote characters had
+      this meaning.
+    </p>
+    <p>
+      Any even number of double quote characters was interpreted as
+      a sequence of empty strings, that were concatenated
+      (to the empty string).
+    </p>
+    <p>
+      There was no reason to write such character sequences.
+      But should that have happended; the meaning probably changed
+      with the introduction of triple-quoted strings.
+    </p>
+    <p>
+      The compiler preprocessor was patched in Erlang/OTP 26.1
+      to warn about 3 or more sequential double quote characters.
+      If the compiler should emit such a warning, please change
+      all such double quote character sequences to have a whitespace
+      after every second character, making the code more readable,
+      and mean the same thing in all releases.
+    </p>
+  </warning>
+
   </section>
 
   <section>
@@ -417,8 +544,8 @@ true</pre>
 
   <section>
     <title>Escape Sequences</title>
-    <p>Within strings and quoted atoms, the following escape sequences
-      are recognized:</p>
+    <p>Within strings (<c>"</c>-delimited) and quoted atoms,
+      the following escape sequences are recognized:</p>
     <table>
       <row>
         <cell align="left" valign="middle"><em>Sequence</em></cell>
@@ -523,11 +650,26 @@ true</pre>
       <tcaption>Recognized Escape Sequences</tcaption>
     </table>
 
-
     <change><p>As of Erlang/OTP 26, the value of <c>$\^?</c> has been
     changed to be 127 (Delete), instead of 31. Previous releases
     would allow any character following <c>$\^</c>; as of Erlang/OTP
     26, only the documented characters are allowed.</p></change>
+
+    <p>
+      Within triple-quoted strings, escape sequences are not recognized.
+      The only text that cannot be written in a triple-quoted string
+      is three consecutive double quote characters at the beginning
+      of a line (preceded only by whitespace).  This limitation can
+      be worked around by using more double quote characters
+      for the string delimiters than in the string.
+      Any number three or above is allowed.
+    </p>
+
+    <change>
+      <p>
+        Triple quoted strings were introduced in Erlang/OTP 27.
+      </p>
+    </change>
   </section>
 
   <section>
