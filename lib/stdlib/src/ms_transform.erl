@@ -234,7 +234,7 @@ transform_from_shell(Dialect, Clauses, BoundEnvironment) ->
       Forms :: [erl_parse:abstract_form() | erl_parse:form_info()],
       Forms2 :: [erl_parse:abstract_form() | erl_parse:form_info()],
       Options :: term(),
-      Errors :: {error, ErrInfo :: [tuple()], WarnInfo :: []},
+      Errors :: {error, ErrInfo :: [tuple()], WarnInfo :: [tuple()]},
       Warnings :: {warning, Forms2, WarnInfo :: [tuple()]}.
 
 parse_transform(Forms, _Options) ->
