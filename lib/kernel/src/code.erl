@@ -187,10 +187,10 @@ ensure_loaded(Mod) when is_atom(Mod) ->
     case erlang:module_loaded(Mod) of
         true -> {module, Mod};
         false ->
-            case get_object_code(Mod) of
-                error -> call({sync_ensure_on_load, Mod});
-                {Mod,Binary,File} ->
-                    load_module(Mod, File, Binary, false, true)
+            case call({get_object_code_for_loading, Mod}) of
+                {module, Mod} -> {module, Mod};
+                {error, What} -> {error, What};
+                {Mod,Binary,File,Ref} -> load_module(Mod, File, Binary, false, Ref)
             end
     end.
 

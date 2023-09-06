@@ -24,7 +24,8 @@
 
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
-	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
+	 replace_path/1, load_file/1, load_abs/1,
+     ensure_loaded/1, ensure_loaded_many/1, ensure_loaded_many_kill/1,
 	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
          soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
@@ -59,7 +60,8 @@ suite() ->
 
 all() ->
     [set_path, get_path, add_path, add_paths, del_path,
-     replace_path, load_file, load_abs, ensure_loaded,
+     replace_path, load_file, load_abs,
+     ensure_loaded, ensure_loaded_many, ensure_loaded_many_kill,
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
      all_available, load_binary, dir_req, object_code, set_path_file,
      upgrade, code_path_cache,
@@ -429,6 +431,52 @@ ensure_loaded(Config) when is_list(Config) ->
 	    {module, code_b_test} = code:ensure_loaded(code_b_test),
 	    ok
     end.
+
+ensure_loaded_many(Config) when is_list(Config) ->
+    with_large_loadpath_peer(Config, fun(Node) ->
+        %% Without special handling for async loading in code server,
+        %% this operation seemed to consistently take 5s+
+        Action = fun() ->
+            Self = self(),
+            Fun = fun() -> code:ensure_loaded(code_b_test), Self ! {done, self()} end,
+            Pids = [spawn(Fun) || _ <- lists:seq(1, 1_000)],
+            [receive {done, Pid} -> ok end || Pid <- Pids],
+            ok
+        end,
+        ok = rpc:call(Node, erlang, apply, [Action, []], 1_000)
+    end).
+
+ensure_loaded_many_kill(Config) when is_list(Config) ->
+    with_large_loadpath_peer(Config, fun(Node) ->
+        Action = fun() ->
+            Self = self(),
+            Fun = fun() -> code:ensure_loaded(code_b_test), Self ! {done, self()} end,
+            sys:suspend(code_server),
+            First = spawn_opt(Fun, [{priority, max}]),
+            Pids = [spawn(Fun) || _ <- lists:seq(1, 1_000)],
+            sys:resume(code_server),
+            exit(First, kill),
+            [receive {done, Pid} -> ok end || Pid <- Pids],
+            {file, _} = code:is_loaded(code_b_test),
+            ok
+        end,
+        ok = rpc:call(Node, erlang, apply, [Action, []])
+    end).
+
+with_large_loadpath_peer(Config, Fun) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = rpc:call(Node, erlang, apply, [fun set_up_large_loadpath/1, [Priv]]),
+    try Fun(Node)
+    after peer:stop(Peer)
+    end.
+
+set_up_large_loadpath(Priv) ->
+    false = code:delete(code_b_test),
+    Dirs = [filename:join(Priv, integer_to_list(N)) || N <- lists:seq(1, 500)],
+    [ok = filelib:ensure_path(Dir) || Dir <- Dirs],
+    [true = code:add_patha(Dir) || Dir <- Dirs],
+    ok.
 
 delete(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
