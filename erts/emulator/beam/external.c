@@ -179,6 +179,8 @@ void erts_late_init_external(void)
     /* pid... */
     memcpy(&lnid[lnid_ix], &pidstr[0], pidstr_len);
 
+    lnid_ix += pidstr_len;
+
     /*
      * Use least significant 32 bits of monotonic time as initial
      * value to hash...
