@@ -403,7 +403,7 @@ void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
          * funs with the same arity. */
         mov_imm(ARG3, MAKE_FUN_HEADER(Arity.get(), 0, 0) & 0xFFFF);
 
-        ASSERT(Tag.as<ArgImmed>().get() != am_safe ||
+        ASSERT(Tag.as<ArgImmed>().get() != am_safe || beam->types.fallback ||
                exact_type<BeamTypeId::Fun>(Func));
         auto target =
                 emit_call_fun(always_one_of<BeamTypeId::AlwaysBoxed>(Func),
@@ -427,7 +427,7 @@ void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
          * funs with the same arity. */
         mov_imm(ARG3, MAKE_FUN_HEADER(Arity.get(), 0, 0) & 0xFFFF);
 
-        ASSERT(Tag.as<ArgImmed>().get() != am_safe ||
+        ASSERT(Tag.as<ArgImmed>().get() != am_safe || beam->types.fallback ||
                exact_type<BeamTypeId::Fun>(Func));
         auto target =
                 emit_call_fun(always_one_of<BeamTypeId::AlwaysBoxed>(Func),
