@@ -496,7 +496,7 @@ static ERTS_INLINE void assert_no_active_writers(Process *p)
 #define ERTS_ABANDON_HEAP_COST 10
 
 static int
-delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int fcalls)
+delay_garbage_collection(Process *p, int need, int fcalls)
 {
     ErlHeapFragment *hfrag;
     Eterm *orig_heap, *orig_hend, *orig_htop, *orig_stop;
@@ -708,7 +708,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 
     if ((p->flags & (F_DISABLE_GC|F_DELAY_GC)) || state & ERTS_PSFLG_EXITING) {
     delay_gc_before_start:
-	return delay_garbage_collection(p, live_hf_end, need, fcalls);
+	return delay_garbage_collection(p, need, fcalls);
     }
 
     ygen_usage = max_young_gen_usage ? max_young_gen_usage : young_gen_usage(p, &ext_msg_usage);
@@ -810,7 +810,7 @@ do_major_collection:
         erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
         /* We have to make sure that we have space for need on the heap */
-        res = delay_garbage_collection(p, live_hf_end, need, fcalls);
+        res = delay_garbage_collection(p, need, fcalls);
         ERTS_MSACC_POP_STATE();
         return res;
     }
