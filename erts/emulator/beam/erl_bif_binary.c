@@ -1965,10 +1965,14 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 	goto badarg;
     }
 
+    ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
+
+    if (bit_size != 0) {
+        goto badarg;
+    }
+
     hp = HeapFragOnlyAlloc(p, EXTRACT_SUB_BIN_HEAP_NEED);
     hp_end = hp + EXTRACT_SUB_BIN_HEAP_NEED;
-
-    ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
 
     result = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
                                      (offset + pos) * 8 + bit_offset,
@@ -2471,13 +2475,13 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
     if (!term_to_Uint(en, &n)) {
 	goto badarg;
     }
-    if (!n) {
-	Eterm res_term = erts_new_heap_binary(p,NULL,0,&bytes);
-	BIF_RET(res_term);
-    }
     ERTS_GET_BINARY_BYTES(bin,bytes,bit_offs,bit_size);
     if (bit_size != 0) {
 	goto badarg;
+    }
+    if (n == 0) {
+        Eterm res_term = erts_new_heap_binary(p, NULL, 0, &bytes);
+        BIF_RET(res_term);
     }
 
     size = binary_size(bin);

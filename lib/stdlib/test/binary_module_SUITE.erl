@@ -125,6 +125,11 @@ badargs(Config) when is_list(Config) ->
 	?MASK_ERROR(
 	   binary_part(make_unaligned(<<1,2,3>>),{16#FF,
 						  -16#7FFF})),
+    badarg = ?MASK_ERROR(binary:part(<<1:1>>, id({0,0}))),
+    badarg = ?MASK_ERROR(binary_part(<<1:1>>, id({0,0}))),
+    badarg = ?MASK_ERROR(binary:part(<<1:1>>, id(0), 0)),
+    badarg = ?MASK_ERROR(binary_part(<<1:1>>, id(0), 0)),
+
     badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{16#FF,
@@ -800,6 +805,8 @@ copy(Config) when is_list(Config) ->
     true = RS =:= RS2,
     false = erts_debug:same(RS, RS2),
     <<>> = ?MASK_ERROR(binary:copy(<<1,2,3>>,0)),
+    badarg = ?MASK_ERROR(binary:copy(<<1:1>>,0)),
+    badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,0)),
     badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,2)),
     badarg = ?MASK_ERROR(binary:copy([],0)),
     <<>> = ?MASK_ERROR(binary:copy(<<>>,0)),
