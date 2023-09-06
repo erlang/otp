@@ -2440,6 +2440,11 @@ void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
     mov_arg(CatchTag, NIL);
 }
 
+void BeamModuleAssembler::emit_try_end_deallocate(const ArgWord &Deallocate) {
+    a.dec(x86::qword_ptr(c_p, offsetof(Process, catches)));
+    emit_deallocate(Deallocate);
+}
+
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
     /* The try_tag in the Y slot in the stack frame has already been
      * cleared. */

@@ -194,6 +194,10 @@ try_end y
 
 try_case_end s
 
+try_end Y | deallocate N => try_end_deallocate N
+
+try_end_deallocate t
+
 # Destructive set tuple element
 
 set_tuple_element s S P

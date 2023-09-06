@@ -2423,6 +2423,28 @@ void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
     a.str(TMP1, getArgRef(CatchTag));
 }
 
+void BeamModuleAssembler::emit_try_end_deallocate(const ArgWord &Deallocate) {
+    a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
+    a.sub(TMP1, TMP1, imm(1));
+    a.str(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
+    if (Deallocate.get() > 0) {
+        add(E, E, Deallocate.get() * sizeof(Eterm));
+    }
+}
+
+void BeamModuleAssembler::emit_try_end_move_deallocate(
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &Deallocate) {
+    a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
+    a.sub(TMP1, TMP1, imm(1));
+    a.str(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
+    mov_arg(Dst, Src);
+    if (Deallocate.get() > 0) {
+        add(E, E, Deallocate.get() * sizeof(Eterm));
+    }
+}
+
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
     /* XREG0 = THE_NON_VALUE
      * XREG1 = error reason/thrown value
