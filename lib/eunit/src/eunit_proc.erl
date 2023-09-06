@@ -336,9 +336,21 @@ clear_timeout(Ref) ->
     erlang:cancel_timer(Ref).
 
 with_timeout(undefined, Default, F, St) ->
-    with_timeout(Default, F, St);
+    with_timeout(scale_timeout(Default, St), F, St);
 with_timeout(Time, _Default, F, St) ->
-    with_timeout(Time, F, St).
+    with_timeout(scale_timeout(Time, St), F, St).
+
+scale_timeout(infinity, _St) ->
+    infinity;
+scale_timeout(Time, St) ->
+    case proplists:get_value(scale_timeouts, St#procstate.options) of
+        undefined ->
+            Time;
+        N when is_integer(N) ->
+            N * Time;
+        N when is_float(N) ->
+            round(N * Time)
+    end.
 
 with_timeout(infinity, F, _St) ->
     %% don't start timers unnecessarily
