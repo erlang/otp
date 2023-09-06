@@ -1296,17 +1296,9 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgLabel &Fail,
      * allocated. */
     a.ldp(TMP1, TMP2, arm::Mem(ARG1));
 
-    if (Arity.get() < 32) {
-        cmp_arg(TMP2, Tag);
-        a.ccmp(TMP1,
-               imm(Arity.get()),
-               imm(NZCV::kNone),
-               imm(arm::CondCode::kEQ));
-    } else {
-        cmp_arg(TMP1, Arity);
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
-        cmp_arg(TMP2, Tag);
-    }
+    cmp_arg(TMP2, Tag);
+    mov_imm(TMP3, Arity.get());
+    a.ccmp(TMP1, TMP3, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
 
     a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
