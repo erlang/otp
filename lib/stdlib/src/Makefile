@@ -57,6 +57,7 @@ MODULES= \
 	digraph \
 	digraph_utils \
 	edlin \
+	edlin_key \
 	edlin_context \
 	edlin_expand \
 	edlin_type_suggestion \

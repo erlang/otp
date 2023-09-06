@@ -1178,7 +1178,7 @@ insert_buf(State, Bin, LineAcc, Acc) ->
 %% This function replicates this regex pattern <<"^[\e",194,155,"]\\[[0-9;:]*m">>
 %% calling re:run/2 nif on compiled regex_pattern was significantly
 %% slower than this implementation.
-ansi_sgr(<<N, $[, Rest/binary>>=Bin) when N =:= $\e; N =:= 194; N =:= 155 ->
+ansi_sgr(<<N, $[, Rest/binary>> = Bin) when N =:= $\e; N =:= 194; N =:= 155 ->
     case ansi_sgr(Rest, 2) of
         {ok, Size} ->
             <<Result:Size/binary, Bin1/binary>> = Bin,

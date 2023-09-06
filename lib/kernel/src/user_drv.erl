@@ -638,10 +638,6 @@ switch_loop(info,{ReadHandle,{data,Cs}}, {Cont, #state{ read = ReadHandle } = St
         {done,{[Line],_,_},_Rest, Rs} ->
             {keep_state, State#state{ tty = io_requests(Rs, State#state.tty) },
              {next_event, internal, {line, Line}}};
-        {undefined,_Char,MoreCs,NewCont,Rs} ->
-            {keep_state,
-             {NewCont, State#state{ tty = io_requests(Rs ++ [beep], State#state.tty)}},
-             {next_event, info, {ReadHandle,{data,MoreCs}}}};
         {more_chars,NewCont,Rs} ->
             {keep_state,
              {NewCont, State#state{ tty = io_requests(Rs, State#state.tty)}}};

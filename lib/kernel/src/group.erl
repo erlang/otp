@@ -583,23 +583,19 @@ get_line(Chars, Pbs, Cont, Drv, Shell, Encoding) ->
 get_line1({done, Cont, Rest, Rs}, Drv, _Shell, _Ls, _Encoding) ->
     send_drv_reqs(Drv, Rs),
     {done, Cont, Rest};
-get_line1({undefined,{_A, Mode, Char}, _Cs, Cont, Rs}, Drv, Shell, Ls0, Encoding)
-  when Mode =:= none, Char =:= $\^O;
-       Mode =:= meta, Char =:= $o ->
+get_line1({open_editor, _Cs, Cont, Rs}, Drv, Shell, Ls0, Encoding) ->
     send_drv_reqs(Drv, Rs),
     Buffer = edlin:current_line(Cont),
     send_drv(Drv, {open_editor, Buffer}),
     receive
-        {Drv, {editor_data, Cs}} ->
+        {Drv, {editor_data, Cs1}} ->
             send_drv_reqs(Drv, edlin:erase_line()),
             {more_chars,NewCont,NewRs} = edlin:start(edlin:prompt(Cont)),
             send_drv_reqs(Drv, NewRs),
-            get_line1(edlin:edit_line(Cs, NewCont), Drv, Shell, Ls0, Encoding)
+            get_line1(edlin:edit_line(Cs1, NewCont), Drv, Shell, Ls0, Encoding)
     end;
 %% Move Up, Down in History: Ctrl+P, Ctrl+N
-get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding)
-  when Mode =:= none, Char =:= $\^P;
-       Mode =:= meta_left_sq_bracket, Char =:= $A ->
+get_line1({history_up,Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
     send_drv_reqs(Drv, Rs),
     case up_stack(save_line(Ls0, edlin:current_line(Cont))) of
         {none,_Ls} ->
@@ -616,9 +612,7 @@ get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding)
                 Ncont),
               Drv, Shell, Ls, Encoding)
     end;
-get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding)
-  when Mode =:= none, Char =:= $\^N;
-       Mode =:= meta_left_sq_bracket, Char =:= $B ->
+get_line1({history_down,Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
     send_drv_reqs(Drv, Rs),
     case down_stack(save_line(Ls0, edlin:current_line(Cont))) of
         {none,_Ls} ->
@@ -646,14 +640,13 @@ get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding)
 %% new modes: search, search_quit, search_found. These are added to
 %% the regular ones (none, meta_left_sq_bracket) and handle special
 %% cases of history search.
-get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls, Encoding)
-  when Mode =:= none, Char =:= $\^R ->
+get_line1({search,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
     send_drv_reqs(Drv, Rs),
     %% drop current line, move to search mode. We store the current
     %% prompt ('N>') and substitute it with the search prompt.
     put(search_quit_prompt, Cont),
     Pbs = prompt_bytes("\033[;1;4msearch:\033[0m ", Encoding),
-    {more_chars,Ncont,_Nrs} = edlin:start(Pbs, search),
+    {more_chars,Ncont,_Nrs} = edlin:start(Pbs, {search,none}),
     get_line1(edlin:edit_line1(Cs, Ncont), Drv, Shell, Ls, Encoding);
 get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
   when Expand =:= expand; Expand =:= expand_full ->
@@ -710,15 +703,10 @@ get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
                  end
          end,
     get_line1(edlin:edit_line(Cs, Cont), Drv, Shell, Ls0, Encoding);
-get_line1({undefined, {_, search_quit, _}, _Cs, _Cont={line, P, Line, none}, Rs}, Drv, Shell, Ls, Encoding) ->
-    get_line1({more_chars, {line, P, Line, search_quit}, Rs}, Drv, Shell, Ls, Encoding);
-get_line1({undefined,_Char,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
-    send_drv_reqs(Drv, Rs),
-    send_drv(Drv, beep),
-    get_line1(edlin:edit_line(Cs, Cont), Drv, Shell, Ls, Encoding);
+
 %% The search item was found and accepted (new line entered on the exact
 %% result found)
-get_line1({_What,{line,_,_Drv,search_found},Rs}, Drv, Shell, Ls0, Encoding) ->
+get_line1({search_found,_Cs,_,Rs}, Drv, Shell, Ls0, Encoding) ->
     SearchResult = get(search_result),
     LineCont = case SearchResult of
                    [] -> {[],{[],[]},[]};
@@ -728,14 +716,12 @@ get_line1({_What,{line,_,_Drv,search_found},Rs}, Drv, Shell, Ls0, Encoding) ->
     Prompt = edlin:prompt(get(search_quit_prompt)),
     send_drv_reqs(Drv, Rs),
     send_drv_reqs(Drv, edlin:erase_line()),
-    send_drv_reqs(Drv, edlin:redraw_line({line, Prompt, LineCont, none})),
+    send_drv_reqs(Drv, edlin:redraw_line({line, Prompt, LineCont, {none,none}})),
     put(search_result, []),
-    %% TODO, do even need to save it, won't it be saved by handling {done...}?
-    Ls = save_line(new_stack(get_lines(Ls0)), edlin:current_line({line, edlin:prompt(get(search_quit_prompt)), LineCont, none})),
-    get_line1({done, LineCont, "\n", Rs}, Drv, Shell, Ls, Encoding);
+    get_line1({done, LineCont, "\n", Rs}, Drv, Shell, Ls0, Encoding);
 %% The search mode has been exited, but the user wants to remain in line
 %% editing mode wherever that was, but editing the search result.
-get_line1({What,{line,_,_,search_quit},Rs}, Drv, Shell, Ls, Encoding) ->
+get_line1({search_quit,_Cs,_,Rs}, Drv, Shell, Ls, Encoding) ->
     %% Load back the old prompt with the correct line number.
     case edlin:prompt(get(search_quit_prompt)) of
         Prompt -> % redraw the line and keep going with the same stack position
@@ -745,20 +731,20 @@ get_line1({What,{line,_,_,search_quit},Rs}, Drv, Shell, Ls, Encoding) ->
                     _  -> [Last|LB] = lists:reverse(SearchResult),
                           {LB, {lists:reverse(Last), []}, []}
                 end,
-            NCont = {line,Prompt,L,none},
+            NCont = {line,Prompt,L,{none,none}},
             put(search_result, []),
             send_drv_reqs(Drv, [delete_line|Rs]),
             send_drv_reqs(Drv, edlin:redraw_line(NCont)),
-            get_line1({What, NCont ,[]}, Drv, Shell, pad_stack(Ls), Encoding)
+            get_line1({more_chars, NCont ,[]}, Drv, Shell, pad_stack(Ls), Encoding)
     end;
-get_line1({What,_Cont={line,_,_,search_cancel},Rs}, Drv, Shell, Ls, Encoding) ->
+get_line1({search_cancel,_Cs,_,Rs}, Drv, Shell, Ls, Encoding) ->
     NCont = get(search_quit_prompt),
     put(search_result, []),
     send_drv_reqs(Drv, [delete_line|Rs]),
     send_drv_reqs(Drv, edlin:redraw_line(NCont)),
-    get_line1({What, NCont, []}, Drv, Shell, Ls, Encoding);
+    get_line1({more_chars, NCont, []}, Drv, Shell, Ls, Encoding);
 %% Search mode is entered.
-get_line1({What,{line,Prompt,{_,{RevCmd0,_},_},search},_Rs},
+get_line1({What,{line,Prompt,{_,{RevCmd0,_},_},{search, none}},_Rs},
           Drv, Shell, Ls0, Encoding) ->
     %% Figure out search direction. ^S and ^R are returned through edlin
     %% whenever we received a search while being already in search mode.
@@ -792,7 +778,7 @@ get_line1({What,{line,Prompt,{_,{RevCmd0,_},_},search},_Rs},
                              send_drv(Drv, {put_expand_no_trim, unicode, unicode:characters_to_binary(Output)}),
                              {Ls2, {[],{RevCmd, []},[]}}
                      end,
-    Cont = {line,Prompt,NewStack,search},
+    Cont = {line,Prompt,NewStack,{search, none}},
     more_data(What, Cont, Drv, Shell, Ls, Encoding);
 get_line1({What,Cont0,Rs}, Drv, Shell, Ls, Encoding) ->
     send_drv_reqs(Drv, Rs),
@@ -804,7 +790,8 @@ more_data(What, Cont0, Drv, Shell, Ls, Encoding) ->
             send_drv_reqs(Drv, edlin:redraw_line(Cont0)),
             more_data(What, Cont0, Drv, Shell, Ls, Encoding);
         {Drv,{data,Cs}} ->
-            get_line1(edlin:edit_line(cast(Cs, list), Cont0),
+            Res = edlin:edit_line(cast(Cs, list), Cont0),
+            get_line1(Res,
                       Drv, Shell, Ls, Encoding);
         {Drv,eof} ->
             get_line1(edlin:edit_line(eof, Cont0), Drv, Shell, Ls, Encoding);
