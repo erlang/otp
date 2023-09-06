@@ -53,7 +53,10 @@ jobs:
           cd erlang.github.io
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add -u
+          git update-index --refresh
           git add .
-          git commit -m "Update github pages content"
-          git push origin master
+          if ! git diff-index --quiet HEAD --; then
+            git add -u
+            git commit -m "Update github pages content"
+            git push origin master
+          fi
