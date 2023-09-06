@@ -23,6 +23,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES =  \
 	cover_SUITE \
 	eprof_SUITE \
+	hprof_SUITE \
 	emacs_SUITE \
 	fprof_SUITE \
 	cprof_SUITE \
