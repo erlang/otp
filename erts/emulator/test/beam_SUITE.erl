@@ -23,8 +23,9 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 packed_registers/1, apply_last/1, apply_last_bif/1,
-         heap_sizes/1, big_lists/1, fconv/1,
-	 select_val/1, swap_temp_apply/1]).
+	 heap_sizes/1, big_lists/1, fconv/1,
+         select_val/1,
+         swap_temp_apply/1, beam_init_yregs/1]).
 
 -export([applied/2,swap_temp_applied/1]).
 
@@ -36,7 +37,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [packed_registers, apply_last, apply_last_bif,
      heap_sizes, big_lists, select_val,
-     swap_temp_apply].
+     swap_temp_apply,
+     beam_init_yregs].
 
 groups() -> 
     [].
@@ -148,8 +150,10 @@ packed_registers(Config) when is_list(Config) ->
             io:put_chars(Dis)
     end,
 
+    %% Executing the generated code in freshly spawned process makes it much
+    %% more likely to crash if there is a bug in init_yregs.
     CombinedSeq = Seq ++ Seq ++ Seq,
-    CombinedSeq = Mod:f(),
+    CombinedSeq = spawn_exec(fun Mod:f/0),
 
     %% Clean up.
     true = code:delete(Mod),
@@ -430,3 +434,27 @@ swap_temp_apply_function(_) ->
 
 swap_temp_applied(Int) ->
     Int+1.
+
+beam_init_yregs(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Mod = ?FUNCTION_NAME,
+    File = filename:join(DataDir, Mod),
+    {ok,Mod,Code} = compile:file(File, [from_asm,no_postopt,binary]),
+    {module,Mod} = code:load_binary(Mod, Mod, Code),
+
+    _ = [ok = spawn_exec(fun Mod:Mod/0) || _ <- lists:seq(1, 10)],
+
+    %% Clean up.
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
+    ok.
+
+%%% Common utilities.
+spawn_exec(F) ->
+    {Pid,Ref} = spawn_monitor(fun() ->
+                                      exit(F())
+                              end),
+    receive
+        {'DOWN',Ref,process,Pid,Result} -> Result
+    end.

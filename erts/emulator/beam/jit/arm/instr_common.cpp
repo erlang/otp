@@ -418,10 +418,9 @@ void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
                                           const Span<ArgVal> &args) {
     unsigned count = Size.get();
     ASSERT(count == args.size());
-
     unsigned i = 0;
-
-    mov_imm(TMP1, NIL);
+    bool x_initialized = false;
+    bool q_initialized = false;
 
     while (i < count) {
         unsigned first_y = args[i].as<ArgYRegister>().get();
@@ -440,7 +439,42 @@ void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
 
         /* Now first_y is the number of the first y register to be initialized
          * and slots is the number of y registers to be initialized. */
+
+        while (slots >= 4 && first_y % 2 == 0 &&
+               first_y <= 2 * MAX_LDP_STP_DISPLACEMENT) {
+            /* `stp` (with vector registers) can only address the
+             *  first 128 Y registers. */
+            if (!q_initialized) {
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == 0x0f);
+                a.movi(a64::v0.d2(), imm(-1));
+                q_initialized = true;
+            }
+            a.stp(a64::q0, a64::q0, getYRef(first_y));
+            first_y += 4;
+            slots -= 4;
+        }
+
+        while (slots >= 2 && q_initialized &&
+               (first_y % 2 == 0 ||
+                first_y * sizeof(Eterm) <= MAX_LDUR_STUR_DISPLACEMENT)) {
+            /* Note that the STR instruction for a vector register
+             * requires the offset to be 16-byte aligned. If it is
+             * not, the STUR instruction must be used. AsmJit
+             * automatically turns STR into STUR when necessary. */
+            a.str(a64::v0, getYRef(first_y));
+            first_y += 2;
+            slots -= 2;
+        }
+
         while (slots >= 2) {
+            /* Either the vector register is not initialized, or first_y
+             * is either not 16-byte aligned or it is out of reach for the
+             * STUR instruction. */
+            if (!x_initialized) {
+                mov_imm(TMP1, NIL);
+                x_initialized = true;
+            }
+
             /* `stp` can only address the first 64 Y registers. */
             if (first_y <= MAX_LDP_STP_DISPLACEMENT) {
                 a.stp(TMP1, TMP1, getYRef(first_y));
@@ -454,7 +488,15 @@ void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
         }
 
         if (slots == 1) {
-            a.str(TMP1, getYRef(first_y));
+            if (q_initialized) {
+                a.str(a64::d0, getYRef(first_y));
+            } else {
+                if (!x_initialized) {
+                    mov_imm(TMP1, NIL);
+                    x_initialized = true;
+                }
+                a.str(TMP1, getYRef(first_y));
+            }
         }
     }
 }
