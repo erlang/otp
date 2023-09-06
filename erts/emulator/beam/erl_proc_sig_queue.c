@@ -5827,6 +5827,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
                           ErtsMonitor **pend_spawn_mon_pp,
                           Eterm reason)
 {
+    int yield = 0;
     int cnt;
     Sint limit;
     ErtsMessage *sig, ***next_nm_sig;
@@ -5969,12 +5970,11 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
             handle_sync_suspend(c_p, sig);
             break;
 
-        case ERTS_SIG_Q_OP_RPC: {
-            int yield = 0;
-            handle_rpc(c_p, (ErtsProcSigRPC *) sig,
-                       cnt, limit, &yield);
+        case ERTS_SIG_Q_OP_RPC:
+            yield = 0;
+            cnt += handle_rpc(c_p, (ErtsProcSigRPC *) sig,
+                              cnt, limit, &yield);
             break;
-        }
 
         case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY: {
             cnt += handle_dist_spawn_reply_exiting(c_p, sig,
@@ -6013,7 +6013,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
             break;
         }
 
-    } while (cnt >= limit && *next_nm_sig);
+    } while (cnt <= limit && !yield && *next_nm_sig);
 
     *redsp += cnt / ERTS_SIG_REDS_CNT_FACTOR;
 
