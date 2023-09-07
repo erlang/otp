@@ -51,7 +51,6 @@ void init_rsa_opts_types(ErlNifEnv* env);
 
 void init_algorithms_types(ErlNifEnv* env)
 {
-    mtx_init_curve_types =  enif_mutex_create("init_curve_types");
 #ifdef HAS_3_0_API
 #else
     init_hash_types(env);
@@ -62,9 +61,21 @@ void init_algorithms_types(ErlNifEnv* env)
     /* ciphers and macs are initiated statically */
 }
 
-void cleanup_algorithms_types(ErlNifEnv* env)
+
+int create_curve_mutex(void)
 {
-    enif_mutex_destroy(mtx_init_curve_types);
+    if (!mtx_init_curve_types) {
+        mtx_init_curve_types =  enif_mutex_create("init_curve_types");
+    }
+    return !!mtx_init_curve_types;
+}
+
+void destroy_curve_mutex(void)
+{
+    if (mtx_init_curve_types) {
+        enif_mutex_destroy(mtx_init_curve_types);
+        mtx_init_curve_types = NULL;
+    }
 }
 
 /*================================================================
