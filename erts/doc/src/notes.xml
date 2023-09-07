@@ -708,6 +708,70 @@
 
 </section>
 
+<section><title>Erts 13.2.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A process optimized for parallel signal delivery could
+	    under some circumstances lose wakeup information. That
+	    is, the processes was not woken up to take care of the
+	    signal, so the signal would not be taken care of until
+	    the process was woken by another signal. Only processes
+	    configured with <seeerl
+	    marker="erlang#process_flag_message_queue_data"><c>message_queue_data</c></seeerl>
+	    set to <c>off_heap</c> utilize this optimization.</p>
+          <p>
+	    Own Id: OTP-18647 Aux Id: PR-7595 </p>
+        </item>
+        <item>
+          <p>
+	    Delivery time of message signals to a process not
+	    executing any <c>receive</c> expressions could become
+	    very long, potentially infinite. For example, a process
+	    checking for messages using <c>process_info(self(),
+	    message_queue_len)</c> or <c>process_info(self(),
+	    messages)</c> and avoiding to execute a <c>receive</c>
+	    expression matching on messages could be very slow in
+	    detecting new messages. Note that you are still
+	    discouraged from using <c>process_info()</c> this way. A
+	    process that wants to check if there are messages
+	    available to handle should execute a <c>receive</c>
+	    expression matching on messages.</p>
+          <p>
+	    Own Id: OTP-18706 Aux Id: GH-7413, PR-7595, ERIERL-979 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing "magic" references in a <c>compressed</c>
+	    ETS table to not keep the referred object alive. The
+	    symptom would be the referred object being garbage
+	    collected prematurely and the reference appearing stale,
+	    not referring to anything. Examples of such magically
+	    referred objects are <c>atomics</c> and NIF resources.</p>
+          <p>
+	    Own Id: OTP-18732 Aux Id: GH-7444, PR-7458 </p>
+        </item>
+        <item>
+          <p>
+	    A constant flow of incoming non-message signals could
+	    prevent a process needing to execute dirty from doing so.</p>
+          <p>
+	    Own Id: OTP-18737 Aux Id: PR-7595 </p>
+        </item>
+        <item>
+          <p>
+	    The cleanup operation of not yet delivered signals to a
+	    terminated process yielded excessively.</p>
+          <p>
+	    Own Id: OTP-18752 Aux Id: PR-7633 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.2.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

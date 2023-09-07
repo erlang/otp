@@ -33,6 +33,21 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 5.3.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>maybe</c> expression is now supported in the
+	    Debugger.</p>
+          <p>
+	    Own Id: OTP-18740 Aux Id: GH-7410, PR-7599 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 5.3.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
