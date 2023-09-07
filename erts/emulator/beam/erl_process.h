@@ -1117,8 +1117,8 @@ struct process {
     ErtsProcSysTaskQs *sys_task_qs;
     ErtsProcSysTask *dirty_sys_tasks;
 
-    erts_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
-    erts_atomic32_t dirty_state; /* Process dirty state flags (see ERTS_PDSFLG_*) */
+    erts_atomic32_t state;      /* Process state flags (see ERTS_PSFLG_*) */
+    erts_atomic32_t xstate; /* Process extra state flags (see ERTS_PXSFLG_*) */
     Uint sig_inq_contention_counter;
     ErtsSignalInQueue sig_inq;
     erts_atomic_t sig_inq_buffers;
@@ -1251,9 +1251,9 @@ void erts_check_for_holes(Process* p);
    process table. Always ACTIVE while EXITING. Never
    SUSPENDED unless also FREE. */
 #define ERTS_PSFLG_EXITING		ERTS_PSFLG_BIT(5)
-/* MAYBE_SELF_SIGS - We might have outstanding signals
-   from ourselves to ourselvs. */
-#define ERTS_PSFLG_MAYBE_SELF_SIGS	ERTS_PSFLG_BIT(6)
+/* MSG_SIG_IN_Q - Have unhandled message signals in signal
+   in-queue */
+#define ERTS_PSFLG_MSG_SIG_IN_Q         ERTS_PSFLG_BIT(6)
 /* ACTIVE - Process "wants" to execute */
 #define ERTS_PSFLG_ACTIVE		ERTS_PSFLG_BIT(7)
 /* IN_RUNQ - Real process (not proxy) struct used in a
@@ -1268,8 +1268,9 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_GC			ERTS_PSFLG_BIT(11)
 /* SYS_TASKS - Have normal system tasks scheduled */
 #define ERTS_PSFLG_SYS_TASKS		ERTS_PSFLG_BIT(12)
-/* SIG_IN_Q - Have unhandled signals in signal in-queue */
-#define ERTS_PSFLG_SIG_IN_Q		ERTS_PSFLG_BIT(13)
+/* NMSG_SIG_IN_Q - Have unhandled non-message signals in
+   signal in-queue */
+#define ERTS_PSFLG_NMSG_SIG_IN_Q        ERTS_PSFLG_BIT(13)
 /* ACTIVE_SYS - Process "wants" to execute normal system
    tasks or handle signals */
 #define ERTS_PSFLG_ACTIVE_SYS		ERTS_PSFLG_BIT(14)
@@ -1326,30 +1327,33 @@ void erts_check_for_holes(Process* p);
 
 
 /*
- * Flags in the dirty_state field.
+ * Flags in the xstate field.
  */
 
-#define ERTS_PDSFLG_IN_CPU_PRQ_MAX 	(((erts_aint32_t) 1) << 0)
-#define ERTS_PDSFLG_IN_CPU_PRQ_HIGH	(((erts_aint32_t) 1) << 1)
-#define ERTS_PDSFLG_IN_CPU_PRQ_NORMAL	(((erts_aint32_t) 1) << 2)
-#define ERTS_PDSFLG_IN_CPU_PRQ_LOW 	(((erts_aint32_t) 1) << 3)
-#define ERTS_PDSFLG_IN_IO_PRQ_MAX 	(((erts_aint32_t) 1) << 4)
-#define ERTS_PDSFLG_IN_IO_PRQ_HIGH	(((erts_aint32_t) 1) << 5)
-#define ERTS_PDSFLG_IN_IO_PRQ_NORMAL	(((erts_aint32_t) 1) << 6)
-#define ERTS_PDSFLG_IN_IO_PRQ_LOW 	(((erts_aint32_t) 1) << 7)
+#define ERTS_PXSFLG_IN_CPU_PRQ_MAX 	(((erts_aint32_t) 1) << 0)
+#define ERTS_PXSFLG_IN_CPU_PRQ_HIGH	(((erts_aint32_t) 1) << 1)
+#define ERTS_PXSFLG_IN_CPU_PRQ_NORMAL	(((erts_aint32_t) 1) << 2)
+#define ERTS_PXSFLG_IN_CPU_PRQ_LOW 	(((erts_aint32_t) 1) << 3)
+#define ERTS_PXSFLG_IN_IO_PRQ_MAX 	(((erts_aint32_t) 1) << 4)
+#define ERTS_PXSFLG_IN_IO_PRQ_HIGH	(((erts_aint32_t) 1) << 5)
+#define ERTS_PXSFLG_IN_IO_PRQ_NORMAL	(((erts_aint32_t) 1) << 6)
+#define ERTS_PXSFLG_IN_IO_PRQ_LOW 	(((erts_aint32_t) 1) << 7)
+/* MAYBE_SELF_SIGS - We might have outstanding signals
+   from ourselves to ourselves. */
+#define ERTS_PXSFLG_MAYBE_SELF_SIGS	(((erts_aint32_t) 1) << 8)
 
-#define ERTS_PDSFLGS_QMASK 		ERTS_PSFLGS_QMASK
-#define ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET 0
-#define ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET ERTS_PSFLGS_QMASK_BITS
+#define ERTS_PXSFLGS_QMASK 		ERTS_PSFLGS_QMASK
+#define ERTS_PXSFLGS_IN_CPU_PRQ_MASK_OFFSET 0
+#define ERTS_PXSFLGS_IN_IO_PRQ_MASK_OFFSET ERTS_PSFLGS_QMASK_BITS
 
-#define ERTS_PDSFLG_IN_CPU_PRQ_MASK 	(ERTS_PDSFLG_IN_CPU_PRQ_MAX	\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_HIGH	\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_NORMAL\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_LOW)
-#define ERTS_PDSFLG_IN_IO_PRQ_MASK 	(ERTS_PDSFLG_IN_CPU_PRQ_MAX	\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_HIGH	\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_NORMAL\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_LOW)
+#define ERTS_PXSFLG_IN_CPU_PRQ_MASK 	(ERTS_PXSFLG_IN_CPU_PRQ_MAX	\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_HIGH	\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_NORMAL\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_LOW)
+#define ERTS_PXSFLG_IN_IO_PRQ_MASK 	(ERTS_PXSFLG_IN_CPU_PRQ_MAX	\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_HIGH	\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_NORMAL\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_LOW)
 
 
 /*
@@ -1588,6 +1592,12 @@ extern int erts_system_profile_ts_type;
 #define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
 #define FS_FLUSHING_SIGS       (1 << 7) /* Currently flushing signals */
 #define FS_FLUSHED_SIGS        (1 << 8) /* Flushing of signals completed */
+#define FS_NON_FETCH_CNT1      (1 << 9) /* First bit of non-fetch signals counter */
+#define FS_NON_FETCH_CNT2      (1 << 10)/* Second bit of non-fetch signals counter */
+#define FS_NON_FETCH_CNT4      (1 << 11)/* Third bit of non-fetch signals counter */
+
+#define FS_NON_FETCH_CNT_MASK \
+    (FS_NON_FETCH_CNT1|FS_NON_FETCH_CNT2|FS_NON_FETCH_CNT4)
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -2100,18 +2110,9 @@ erts_aint32_t erts_proc_sys_schedule(Process *p, erts_aint32_t state,
                                      erts_aint32_t enable_flag);
 int erts_have_non_prio_elev_sys_tasks(Process *c_p, ErtsProcLocks locks);
 
-ERTS_GLB_INLINE void erts_proc_notify_new_message(Process *p, ErtsProcLocks locks);
 ERTS_GLB_INLINE void erts_schedule_dirty_sys_execution(Process *c_p);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE void
-erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
-{
-    /* No barrier needed, due to msg lock */
-    erts_aint32_t state = erts_atomic32_read_nob(&p->state);
-    if (!(state & ERTS_PSFLG_ACTIVE))
-	erts_schedule_process(p, state, locks);
-}
 
 ERTS_GLB_INLINE void
 erts_schedule_dirty_sys_execution(Process *c_p)

@@ -1105,6 +1105,21 @@ erts_process_info(Process *c_p,
 static void
 pi_setup_grow(int **arr, int *def_arr, Uint *sz, int ix);
 
+#ifdef DEBUG
+static int
+empty_or_adj_msgq_signals_only(ErtsMessage *sig)
+{
+    ErtsSignal *s = (ErtsSignal *) sig;
+    for (s = (ErtsSignal *) sig; s; s = (ErtsSignal *) s->common.next) {
+        if (!ERTS_SIG_IS_NON_MSG(s))
+            return 0;
+        if (ERTS_PROC_SIG_OP(s->common.tag) != ERTS_SIG_Q_OP_ADJ_MSGQ)
+            return 0;
+    }
+    return !0;
+}
+#endif
+
 static ERTS_INLINE int
 pi_maybe_flush_signals(Process *c_p, int pi_flags)
 {
@@ -1143,11 +1158,18 @@ pi_maybe_flush_signals(Process *c_p, int pi_flags)
     if (c_p->sig_qs.flags & FS_FLUSHED_SIGS) {
     flushed:
 
+        /*
+         * Even though we've requested a clean sig queue
+         * the middle queue may contain adjust-message-queue
+         * signals since those may be reinserted if yielding.
+         * Such signals does not effect us though.
+         */
         ASSERT(((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
                              | ERTS_PI_FLAG_NEED_MSGQ_LEN))
                 != ERTS_PI_FLAG_NEED_MSGQ_LEN)
-               || !c_p->sig_qs.cont);
-	ASSERT(c_p->sig_qs.flags & FS_FLUSHING_SIGS);
+               || empty_or_adj_msgq_signals_only(c_p->sig_qs.cont));
+
+        ASSERT(c_p->sig_qs.flags & FS_FLUSHING_SIGS);
 
 	c_p->sig_qs.flags &= ~(FS_FLUSHED_SIGS|FS_FLUSHING_SIGS);
         erts_set_gc_state(c_p, !0); /* Allow GC again... */
@@ -1158,15 +1180,22 @@ pi_maybe_flush_signals(Process *c_p, int pi_flags)
 
     if (!(c_p->sig_qs.flags & FS_FLUSHING_SIGS)) {
         int flush_flags = 0;
+        if (erts_atomic32_read_nob(&c_p->xstate)
+            & ERTS_PXSFLG_MAYBE_SELF_SIGS) {
+            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_FROM_ID;
+        }
+	else if (state & ERTS_PSFLG_MSG_SIG_IN_Q) {
+            erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+            erts_proc_sig_fetch(c_p);
+            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+        }
         if (((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
                           | ERTS_PI_FLAG_NEED_MSGQ_LEN))
              == ERTS_PI_FLAG_NEED_MSGQ_LEN)
-            && c_p->sig_qs.cont) {
+            && (flush_flags || c_p->sig_qs.cont)) {
             flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_CLEAN_SIGQ;
         }
-        if (state & ERTS_PSFLG_MAYBE_SELF_SIGS)
-            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_FROM_ID;
-	if (!flush_flags)
+        if (!flush_flags)
 	    return 0; /* done; no need to flush... */
 	erts_proc_sig_init_flush_signals(c_p, flush_flags, c_p->common.id);
         if (c_p->sig_qs.flags & FS_FLUSHED_SIGS)
@@ -1531,7 +1560,7 @@ process_info_aux(Process *c_p,
             ASSERT(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER);
             if (!(state & (ERTS_PSFLG_ACTIVE
                            | ERTS_PSFLG_SIG_Q
-                           | ERTS_PSFLG_SIG_IN_Q))) {
+                           | ERTS_PSFLG_NMSG_SIG_IN_Q))) {
                 int sys_tasks = 0;
                 if (state & ERTS_PSFLG_SYS_TASKS)
                     sys_tasks = erts_have_non_prio_elev_sys_tasks(rp,
@@ -3813,7 +3842,8 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
             erts_aint32_t state = erts_atomic32_read_acqb(&rp->state);
             if (state & (ERTS_PSFLG_EXITING
                          | ERTS_PSFLG_SIG_Q
-                         | ERTS_PSFLG_SIG_IN_Q)) {
+                         | ERTS_PSFLG_MSG_SIG_IN_Q
+                         | ERTS_PSFLG_NMSG_SIG_IN_Q)) {
                 /*
                  * If in exiting state, trap out and send 'is alive'
                  * request and wait for it to complete termination.

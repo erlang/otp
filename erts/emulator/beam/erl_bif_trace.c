@@ -503,6 +503,7 @@ erts_trace_flags(Eterm List,
 static ERTS_INLINE int
 start_trace(Process *c_p, ErtsTracer tracer,
             ErtsPTabElementCommon *common,
+            ErtsProcLocks locks,
             int on, int mask)
 {
     /* We can use the common part of both port+proc without checking what it is
@@ -528,10 +529,17 @@ start_trace(Process *c_p, ErtsTracer tracer,
         }
     }
 
-    if (on)
-        ERTS_TRACE_FLAGS(port) |= mask;
-    else
+    if (!on)
         ERTS_TRACE_FLAGS(port) &= ~mask;
+    else {
+        ERTS_TRACE_FLAGS(port) |= mask;
+        if ((mask & F_TRACE_RECEIVE) && is_internal_pid(common->id)) {
+            Process *proc = (Process *) common;
+            erts_aint32_t state = erts_atomic32_read_nob(&proc->state);
+            if (state & ERTS_PSFLG_MSG_SIG_IN_Q)
+                erts_proc_notify_new_message(proc, locks);
+        }
+    }
 
     if ((ERTS_TRACE_FLAGS(port) & TRACEE_FLAGS) == 0) {
         tracer = erts_tracer_nil;
@@ -606,7 +614,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 	if (!tracee_port)
 	    goto error;
 
-        if (start_trace(p, tracer, &tracee_port->common, on, mask)) {
+        if (start_trace(p, tracer, &tracee_port->common, 0, on, mask)) {
 	    erts_port_release(tracee_port);
 	    goto already_traced;
         }
@@ -629,7 +637,8 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 	if (!tracee_p)
 	    goto error;
 
-        if (start_trace(tracee_p, tracer, &tracee_p->common, on, mask)) {
+        if (start_trace(tracee_p, tracer, &tracee_p->common,
+                        ERTS_PROC_LOCKS_ALL, on, mask)) {
 	    erts_proc_unlock(tracee_p,
 				 (tracee_p == p
 				  ? ERTS_PROC_LOCKS_ALL_MINOR
@@ -721,7 +730,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 		    Process* tracee_p = erts_pix2proc(i);
 		    if (! tracee_p) 
 			continue;
-                    if (!start_trace(p, tracer, &tracee_p->common, on, mask))
+                    if (!start_trace(p, tracer, &tracee_p->common, 0, on, mask))
                         matches++;
 		}
 	    }
@@ -736,7 +745,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 		    state = erts_atomic32_read_nob(&tracee_port->state);
 		    if (state & ERTS_PORT_SFLGS_DEAD)
 			continue;
-                    if (!start_trace(p, tracer, &tracee_port->common, on, mask))
+                    if (!start_trace(p, tracer, &tracee_port->common, 0, on, mask))
                         matches++;
 		}
 	    }

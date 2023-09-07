@@ -53,6 +53,7 @@
          process_info_self_msgq_len/1,
          process_info_self_msgq_len_messages/1,
          process_info_self_msgq_len_more/1,
+         process_info_msgq_len_no_very_long_delay/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -176,7 +177,8 @@ groups() ->
        process_info_self_signal,
        process_info_self_msgq_len,
        process_info_self_msgq_len_messages,
-       process_info_self_msgq_len_more]},
+       process_info_self_msgq_len_more,
+       process_info_msgq_len_no_very_long_delay]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -1526,7 +1528,31 @@ pi_sig_spam_test(SpamFun, PITest, PICheckRes) ->
     after
         _ = erlang:system_flag(schedulers_online, SO)
     end.
-    
+
+process_info_msgq_len_no_very_long_delay(Config) when is_list(Config) ->
+    Tester = self(),
+    P1 = spawn_link(fun () ->
+                            receive after infinity -> ok end
+                    end),
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+    {message_queue_len, 0} = process_info(P1, message_queue_len),
+    P2 = spawn_link(fun () ->
+                            Tester ! hello,
+                            P1 ! hello,
+                            receive after infinity -> ok end
+                    end),
+    receive after 100 -> ok end,
+    {message_queue_len, 1} = process_info(self(), message_queue_len),
+    {message_queue_len, 1} = process_info(P1, message_queue_len),
+    receive hello -> ok end,
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+    unlink(P1),
+    exit(P1, kill),
+    unlink(P2),
+    exit(P2, kill),
+    false = is_process_alive(P1),
+    false = is_process_alive(P2),
+    ok.
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->
