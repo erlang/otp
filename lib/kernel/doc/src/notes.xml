@@ -674,6 +674,22 @@
 
 </section>
 
+<section><title>Kernel 8.5.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    gen_tcp:connect with socket address and socket (inet-)
+	    backend fails because of missing callback function.</p>
+          <p>
+	    Own Id: OTP-18707 Aux Id: #7530 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.5.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

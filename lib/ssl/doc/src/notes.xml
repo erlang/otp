@@ -297,6 +297,32 @@
 
 </section>
 
+<section><title>SSL 10.9.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The API function `ssl:recv/3` has been tightened to
+	    disallow negative length, which has never been documented
+	    to work, but was passed through and caused strange
+	    errors.</p>
+          <p>
+	    Own Id: OTP-18700 Aux Id: GH-7507 </p>
+        </item>
+        <item>
+          <p>
+	    When a client initiated renegotiation was rejected and
+	    the client socket was in active mode the expected error
+	    message to the controlling process was not sent.</p>
+          <p>
+	    Own Id: OTP-18712 Aux Id: GH-7431 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.9.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

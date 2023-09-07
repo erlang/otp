@@ -102,6 +102,23 @@
 
 </section>
 
+<section><title>Crypto 5.1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix VM crash caused by <c>crypto being</c> purged and
+	    reloaded (by init:restart for example) on OS with musl
+	    libc (such as Alpine linux).</p>
+          <p>
+	    Own Id: OTP-18670 Aux Id: GH-7436, PR-7450 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
