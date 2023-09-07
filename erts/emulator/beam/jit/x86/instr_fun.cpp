@@ -206,9 +206,41 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
 
     comment("Move fun environment");
     for (unsigned i = 0; i < num_free; i++) {
-        mov_arg(x86::qword_ptr(RET,
-                               offsetof(ErlFunThing, env) + i * sizeof(Eterm)),
-                env[i]);
+        const ArgVal &next = i + 1 < num_free ? env[i + 1] : ArgNil();
+        switch (ArgVal::memory_relation(env[i], next)) {
+        case ArgVal::Relation::consecutive: {
+            x86::Mem src_ptr = getArgRef(env[i].as<ArgRegister>(), 16);
+            x86::Mem dst_ptr = x86::xmmword_ptr(RET,
+                                                offsetof(ErlFunThing, env) +
+                                                        i * sizeof(Eterm));
+            comment("(moving two items)");
+            vmovups(x86::xmm0, src_ptr);
+            vmovups(dst_ptr, x86::xmm0);
+            i++;
+            break;
+        }
+        case ArgVal::Relation::reverse_consecutive: {
+            if (!hasCpuFeature(CpuFeatures::X86::kAVX)) {
+                goto fallback;
+            }
+            x86::Mem src_ptr = getArgRef(env[i + 1].as<ArgRegister>(), 16);
+            x86::Mem dst_ptr = x86::xmmword_ptr(RET,
+                                                offsetof(ErlFunThing, env) +
+                                                        i * sizeof(Eterm));
+            comment("(moving and swapping two items)");
+            a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+            a.vmovups(dst_ptr, x86::xmm0);
+            i++;
+            break;
+        }
+        case ArgVal::Relation::none:
+        fallback:
+            mov_arg(x86::qword_ptr(RET,
+                                   offsetof(ErlFunThing, env) +
+                                           i * sizeof(Eterm)),
+                    env[i]);
+            break;
+        }
     }
 
     comment("Create boxed ptr");
