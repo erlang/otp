@@ -33,9 +33,7 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     a.b(labels[context_switch_simplified]);
 }
 
-void BeamModuleAssembler::emit_return() {
-    emit_leave_erlang_frame();
-
+void BeamModuleAssembler::emit_dispatch_return() {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
     emit_validate(ArgVal(ArgVal::Word, 1));
@@ -52,6 +50,16 @@ void BeamModuleAssembler::emit_return() {
     a.b_mi(resolve_fragment(ga->get_dispatch_return(), disp1MB));
 
     a.ret(a64::x30);
+}
+
+void BeamModuleAssembler::emit_return() {
+    emit_leave_erlang_frame();
+    emit_dispatch_return();
+}
+
+void BeamModuleAssembler::emit_move_deallocate_return() {
+    a.ldp(XREG0, a64::x30, arm::Mem(E).post(16));
+    emit_dispatch_return();
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {

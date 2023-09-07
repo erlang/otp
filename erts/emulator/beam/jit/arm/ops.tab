@@ -185,6 +185,11 @@ try_end Y | move Src Dst | deallocate N => try_end_move_deallocate Src Dst N
 try_end_deallocate t
 try_end_move_deallocate s d t
 
+move y==0 x==0 | deallocate u==1 | return =>
+    move_deallocate_return
+
+move_deallocate_return
+
 # Destructive set tuple element
 
 set_tuple_element s S P

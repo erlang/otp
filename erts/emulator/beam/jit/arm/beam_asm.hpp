@@ -1249,6 +1249,8 @@ protected:
     void emit_tuple_assertion(const ArgSource &Src, arm::Gp tuple_reg);
 #endif
 
+    void emit_dispatch_return();
+
 #include "beamasm_protos.h"
 
     /* Resolves a BEAM label.
