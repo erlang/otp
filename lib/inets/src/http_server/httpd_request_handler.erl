@@ -148,8 +148,13 @@ continue_init(Manager, ConfigDB, SocketType, Socket, Peername, Sockname,
     {Result, Status} = httpd_manager:new_connection(Manager),
     case Result of
         error ->
+            %% this error might happen when httpd manager is stopped
+            %% during execution of httpd_transport:negotiate; this is
+            %% most likely to happen for TLS requiring more processing
+            %% 'HTTP' as error category(Protocol) because transport
+            %% information is wanted in logs
             httpd_util:error_log(ConfigDB,
-                                 httpd_logger:error_report('TLS', Status,
+                                 httpd_logger:error_report('HTTP', Status,
                                                            Mod, ?LOCATION)),
             exit({shutdown, Status});
         _ ->
