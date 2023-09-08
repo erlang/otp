@@ -128,3 +128,29 @@ pred.is_lt_bif(Bif) {
     }
     return 0;
 }
+
+pred.is_exit_bif(Bif) {
+    BeamFile_ImportEntry *import;
+
+    if (Bif.type != TAG_u || Bif.val >= S->beam.imports.count) {
+        return 0;
+    }
+
+    import = &S->beam.imports.entries[Bif.val];
+    if (import->module != am_erlang) {
+        return 0;
+    } else {
+        switch (import->function) {
+        case am_error:
+            return 1 <= import->arity && import->arity <= 3;
+        case am_exit:
+            return import->arity == 1;
+        case am_throw:
+            return import->arity == 1;
+        case am_nif_error:
+            return import->arity == 1 || import->arity == 2;
+        default:
+            return 0;
+        }
+    }
+}

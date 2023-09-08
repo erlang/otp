@@ -649,6 +649,15 @@ call_ext_only Ar=u Bif=u$is_bif | is_heavy_bif(Bif) =>
     allocate u Ar | i_call_ext Bif | deallocate u | return
 
 #
+# BIFs that always raise an exception need no trailing deallocate and
+# return instructions.
+#
+call_ext_last u Bif u | is_exit_bif(Bif) =>
+    call_light_bif Bif
+call_ext_only Ar=u Bif | is_exit_bif(Bif) =>
+    allocate u Ar | call_light_bif Bif
+
+#
 # The general case for BIFs that have no special requirements.
 #
 
