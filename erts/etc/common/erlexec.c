@@ -183,6 +183,7 @@ static char *plusz_val_switches[] = {
 #endif
 
 #define DEFAULT_SUFFIX	  "smp"
+char *sep = "--";
 
 void usage(const char *switchname);
 static void usage_format(char *format, ...);
@@ -405,7 +406,7 @@ static void add_boot_config(void)
 
 #define NEXT_ARG_CHECK_NAMED(Option) \
     do {                                                                \
-        if (i+1 >= argc || strncmp(argv[i+1], "--", 3) == 0)            \
+        if (i+1 >= argc || strncmp(argv[i+1], sep, 3) == 0)            \
             usage(Option);                                              \
     } while(0)
 
@@ -516,6 +517,9 @@ int main(int argc, char **argv)
 		goto smp_disable;
 	    } else if (strcmp(argv[i], "-extra") == 0) {
 		break;
+            } else if (strcmp(argv[i], "++S") == 0) {
+                /* This is a -S passed on command line */
+		break;
 	    } else if (strcmp(argv[i], "-emu_type") == 0) {
                 NEXT_ARG_CHECK();
                 emu_type = argv[i+1];
@@ -593,7 +597,7 @@ int main(int argc, char **argv)
 
     add_epmd_port();
 
-    add_arg("--");
+    add_arg(sep);
 
     while (i < argc) {
 	if (!process_args) {	/* Copy arguments after '-extra' */
@@ -806,9 +810,7 @@ int main(int argc, char **argv)
 		    }
 		    else
 			add_arg(argv[i]);
-		
 		    break;
-	
 		  case 'v':	/* -version */
 		    if (strcmp(argv[i], "-version") == 0) {
 			add_Eargs("-V");
@@ -1028,6 +1030,17 @@ int main(int argc, char **argv)
 			  i++;
 		      }
 		      break;
+                  case '+':
+                    if (strcmp(argv[i], "++S") == 0) {
+                        /* This is a -S passed on command line */
+			process_args = 0;
+			ADD_BOOT_CONFIG;
+			add_arg("-S");
+                    } else {
+			add_arg(argv[i]);
+                    }
+                    break;
+
 		  default:
 		  the_default:
 		    argv[i][0] = '-'; /* Change +option to -option. */
@@ -1043,6 +1056,7 @@ int main(int argc, char **argv)
     }
 
     efree(emu_name);
+    efree(argv);
 
     if (process_args) {
 	ADD_BOOT_CONFIG;
@@ -1082,14 +1096,14 @@ int main(int argc, char **argv)
     }
 #endif
 
-    add_Eargs("--");
+    add_Eargs(sep);
     add_Eargs("-root");
     add_Eargs(rootdir);
     add_Eargs("-bindir");
     add_Eargs(bindir);
     add_Eargs("-progname");
     add_Eargs(progname);
-    add_Eargs("--");
+    add_Eargs(sep);
     ensure_EargsSz(EargsCnt + argsCnt + 1);
     for (i = 0; i < argsCnt; i++)
 	Eargsp[EargsCnt++] = argsp[i];
@@ -1711,6 +1725,7 @@ static char **build_args_from_string(char *string, int allow_comments)
     int s_alloced = 0;
     int s_pos = 0;
     char *p = string;
+    int has_extra = !!0;
     enum {Start, Build, Build0, BuildSQuoted, BuildDQuoted, AcceptNext, BuildComment} state;
 
 #define ENSURE()					\
@@ -1781,6 +1796,9 @@ static char **build_args_from_string(char *string, int allow_comments)
 	    case '\0':
 		ENSURE();
 		(*cur_s)[s_pos] = '\0';
+                if (strcmp(*cur_s, "-extra") == 0) {
+                    has_extra = !0;
+                }
 		++argc;
 		state = Start;
 		break;
@@ -1852,9 +1870,10 @@ done:
 	efree(argv);
 	return NULL;
     }
-    argv[argc++] = "--"; /* Add a -- separator in order
-                            for flags from different environments
-                            to not effect each other */
+    if (!has_extra)
+        argv[argc++] = sep; /* Add a -- separator in order
+                               for flags from different environments
+                               to not effect each other */
     argv[argc++] = NULL; /* Sure to be large enough */
     return argv;
 #undef ENSURE
@@ -2075,18 +2094,22 @@ get_file_args(char *filename, argv_buf *abp, argv_buf *xabp)
 }
 
 static void
-initial_argv_massage(int *argc, char ***argv)
+initial_argv_massage(int *argc, char ***argvp)
 {
-    argv_buf ab = {0}, xab = {0};
+    argv_buf ab = {0}, xab = {0}, sab = {0};
     int ix, vix, ac;
     char **av;
-    char *sep = "--";
+    char **argv = &(*argvp)[0];
     struct {
 	int argc;
 	char **argv;
     } avv[] = {{INT_MAX, NULL}, {INT_MAX, NULL}, {INT_MAX, NULL},
 	       {INT_MAX, NULL}, {INT_MAX, NULL},
                {INT_MAX, NULL}, {INT_MAX, NULL}};
+
+    /* Save program name */
+    save_arg(&ab, argv[0]);
+
     /*
      * The environment flag containing OTP release is intentionally
      * undocumented and intended for OTP internal use only.
@@ -2105,7 +2128,7 @@ initial_argv_massage(int *argc, char ***argv)
     /* command line */
     if (*argc > 1) {
 	avv[vix].argc = *argc - 1;
-	avv[vix++].argv = &(*argv)[1];
+	avv[vix++].argv = argv + 1;
         avv[vix].argc = 1;
         avv[vix++].argv = &sep;
     }
@@ -2117,30 +2140,7 @@ initial_argv_massage(int *argc, char ***argv)
     av = build_args_from_env("ERL_ZFLAGS");
     if (av)
 	avv[vix++].argv = av;
-
-    if (vix == (*argc > 1 ? 2 : 0)) {
-	/* Only command line argv; check if we can use argv as it is... */
-	ac = *argc;
-	av = *argv;
-	for (ix = 1; ix < ac; ix++) {
-	    if (strcmp(av[ix], "-args_file") == 0) {
-		/* ... no; we need to expand arguments from
-		   file into argument list */
-		goto build_new_argv;
-	    }
-	    if (strcmp(av[ix], "-extra") == 0) {
-		break;
-	    }
-	}
-
-	/* ... yes; we can use argv as it is. */
-	return;
-    }
-
- build_new_argv:
-
-    save_arg(&ab, (*argv)[0]);
-
+    
     vix = 0;
     while (avv[vix].argv) {
 	ac = avv[vix].argc;
@@ -2158,8 +2158,27 @@ initial_argv_massage(int *argc, char ***argv)
 		    ix++;
 		    while (ix < ac && av[ix])
 			save_arg(&xab, av[ix++]);
+                    save_arg(&ab, sep);
 		    break;
-		}
+		} else if (ac != INT_MAX && strcmp(av[ix], "-S") == 0) {
+                    /* If we are looking at command line and find -S */
+                    ix++;
+                    /* We use ++S instead of -S here in order to differentiate
+                       this -S from any passed as environment flags. */
+                    save_arg(&sab, "++S");
+                    while (ix < ac && av[ix]) {
+                        if (strcmp(av[ix], sep) == 0) {
+                            ix++;
+                            /* Escape any -- with \-- so that we know that
+                               this is a literal -- and not one added by erlexec */
+                            save_arg(&sab, "\\--");
+                        } else {
+                            save_arg(&sab, av[ix++]);
+                        }
+                    }
+                    save_arg(&ab, sep);
+		    break;
+                }
 		save_arg(&ab, av[ix++]);
 	    }
 	}
@@ -2181,9 +2200,15 @@ initial_argv_massage(int *argc, char ***argv)
 	efree(xab.argv);
     }
 
+    if (sab.argc) {
+	for (ix = 0; ix < sab.argc; ix++)
+	    save_arg(&ab, sab.argv[ix]);
+	efree(sab.argv);
+    }
+
     save_arg(&ab, NULL);
     trim_argv_buf(&ab);
-    *argv = ab.argv;
+    *argvp = ab.argv;
     *argc = ab.argc - 1;
 }
 

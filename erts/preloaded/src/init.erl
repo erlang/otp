@@ -49,6 +49,8 @@
 
 -module(init).
 
+-feature(maybe_expr, enable).
+
 -export([restart/1,restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0,script_name/0]).
@@ -279,7 +281,7 @@ run_args_to_mfa([]) ->
       "Error! The -S option must be followed by at least a module to start, such as "
       "`-S Module` or `-S Module Function` to start with a function.\r\n\r\n"
     ),
-    erlang:error(undef);
+    halt();
 run_args_to_mfa([M]) -> {b2a(M), start, []};
 run_args_to_mfa([M, F]) -> {b2a(M), b2a(F), []};
 run_args_to_mfa([M, F | A]) -> {b2a(M), b2a(F), [A]}.
@@ -1220,7 +1222,21 @@ start_it({eval,Bin}) ->
 start_it({apply,M,F,Args}) ->
     case code:ensure_loaded(M) of
         {module, M} ->
-            apply(M, F, Args);
+            try apply(M, F, Args)
+            catch error:undef:ST ->
+                    maybe
+                        false ?= erlang:function_exported(M, F, length(Args)),
+                        Message = ["Error! ",atom_to_binary(M),":",
+                                   atom_to_list(F),"/",integer_to_list(length(Args)),
+                                   " is not exported."
+                                   "\r\n\r\n"],
+                        erlang:display_string(binary_to_list(iolist_to_binary(Message)))
+                    end,
+                    erlang:raise(error,undef,ST);
+                  E:R:ST ->
+                    erlang:display({E,R,ST}),
+                    erlang:raise(E,R,ST)
+            end;
         {error, Reason} ->
             Message = [explain_ensure_loaded_error(M, Reason), <<"\r\n\r\n">>],
             erlang:display_string(binary_to_list(iolist_to_binary(Message))),
@@ -1234,8 +1250,9 @@ explain_ensure_loaded_error(M, badfile) ->
          erlang:system_info(otp_release), <<".)">>],
     explain_add_head(M, S);
 explain_ensure_loaded_error(M, nofile) ->
-    S = <<"it cannot be found. Make sure that the module name is correct and\r\n",
-          "that its .beam file is in the code path.">>,
+    S = <<"it cannot be found.\r\n",
+          "Make sure that the module name is correct and that its .beam file\r\n",
+          "is in the code path.">>,
     explain_add_head(M, S);
 explain_ensure_loaded_error(M, Other) ->
     [<<"Error! Failed to load module '", (atom_to_binary(M))/binary,
@@ -1306,7 +1323,7 @@ parse_boot_args(Args) ->
     parse_boot_args(Args, [], [], []).
 
 parse_boot_args([B|Bs], Ss, Fs, As) ->
-    case check(B) of
+    case check(B, Bs) of
 	start_extra_arg ->
 	    {reverse(Ss),reverse(Fs),lists:reverse(As, Bs)}; % BIF
 	start_arg ->
@@ -1322,9 +1339,14 @@ parse_boot_args([B|Bs], Ss, Fs, As) ->
             %% Forward any additional arguments to the function we are calling,
             %% such that no init:get_plain_arguments is needed by it later.
             MFA = run_args_to_mfa(S ++ Rest),
-            {M, F, A} = interpolate_empty_mfa_args(MFA),
-            StartersWithThis = [{apply, M, F, map(fun bs2ss/1, A)} | Ss],
-            {reverse(StartersWithThis),reverse(Fs),[]};
+            {M, F, [Args]} = interpolate_empty_mfa_args(MFA),
+            StartersWithThis = [{apply, M, F,
+                                 %% erlexec escapes and -- passed after -S
+                                 %% so we un-escape it
+                                 [map(fun("\\--") -> "--";
+                                         (A) -> A
+                                      end, map(fun b2s/1, Args))]} | Ss],
+            {reverse(StartersWithThis),reverse(Fs),reverse(As)};
 	eval_arg ->
 	    {Expr,Rest} = get_args(Bs, []),
             parse_boot_args(Rest, [{eval, fold_eval_args(Expr)} | Ss], Fs, As);
@@ -1340,17 +1362,31 @@ parse_boot_args([B|Bs], Ss, Fs, As) ->
 parse_boot_args([], Start, Flags, Args) ->
     {reverse(Start),reverse(Flags),reverse(Args)}.
 
-check(<<"-extra">>) -> start_extra_arg;
-check(<<"-s">>) -> start_arg;
-check(<<"-run">>) -> start_arg2;
-check(<<"-S">>) -> ending_start_arg;
-check(<<"-eval">>) -> eval_arg;
-check(<<"--">>) -> end_args;
-check(<<"-",Flag/binary>>) -> {flag,b2a(Flag)};
-check(_) -> arg.
+check(<<"-extra">>, _Bs) ->
+    start_extra_arg;
+check(<<"-s">>, _Bs) -> start_arg;
+check(<<"-run">>, _Bs) -> start_arg2;
+check(<<"-S">>, Bs) ->
+    case has_end_args(Bs) of
+        true ->
+            {flag, b2a(<<"S">>)};
+        false ->
+            ending_start_arg
+    end;
+check(<<"-eval">>, _Bs) -> eval_arg;
+check(<<"--">>, _Bs) -> end_args;
+check(<<"-",Flag/binary>>, _Bs) -> {flag,b2a(Flag)};
+check(_,_) -> arg.
+
+has_end_args([<<"--">> | _Bs]) ->
+    true;
+has_end_args([_ | Bs]) ->
+    has_end_args(Bs);
+has_end_args([]) ->
+    false.
 
 get_args([B|Bs], As) ->
-    case check(B) of
+    case check(B, Bs) of
 	start_extra_arg -> {reverse(As), [B|Bs]};
 	start_arg -> {reverse(As), [B|Bs]};
 	start_arg2 -> {reverse(As), [B|Bs]};

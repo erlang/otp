@@ -309,6 +309,27 @@ BF</pre>
           arguments and can be retrieved using
           <seemfa marker="#get_plain_arguments/0">
           <c>get_plain_arguments/0</c></seemfa>.</p>
+        <p>Example:</p>
+        <pre>
+% <input>erl -extra +A 1 --</input>
+...
+1> <input>init:get_plain_arguments().</input>
+["+A","1","--"]
+        </pre>
+        <p>The <c>-extra</c> flag can be passed on the command line,
+          through <c>ERL_*FLAGS</c> or <c>-args_file</c>. It only effects
+          the remaining command-line flags in the entity in which it is passed.
+          If multiple <c>-extra</c> flags are passed they are concatenated using
+          the same order rules as <c>ERL_*FLAGS</c> or <c>-args_file</c> in which
+          they are given.
+        </p>
+        <p>Example:</p>
+        <pre>
+% <input>ERL_AFLAGS="-extra a" ERL_ZFLAGS="-extra d" erl -extra b -extra c</input>
+...
+1> <input>init:get_plain_arguments().</input>
+["a","b","-extra","c","d"]
+        </pre>
       </item>
       <tag><c>-S Mod [Func [Arg1, Arg2, ...]]</c></tag>
       <item>
@@ -321,7 +342,7 @@ BF</pre>
           error message.</p>
         <p>Example:</p>
         <pre>
-          % <input>erl -S httpd serve --port 8080 /var/www/html</input></pre>
+% <input>erl -S httpd serve --port 8080 /var/www/html</input></pre>
         <p>This starts the Erlang runtime system and evaluates
           the function <c>httpd:serve(["--port", "8080", "/var/www/html"])</c>.
           All arguments up to the end of the command line will be passed
@@ -331,6 +352,9 @@ BF</pre>
           the user. This means that a <c>-S</c> call that does not
           return blocks further processing; to avoid this, use
           some variant of <c>spawn</c> in such cases.</p>
+        <p>The <c>-S</c> flag is only allowed on the command line. If passed
+          through <c>ERL_*FLAGS</c> or <c>-args_file</c> it will be parsed
+          as a normal command line flag.</p>
       </item>
       <tag><c>-run Mod [Func [Arg1, Arg2, ...]]</c></tag>
       <item>
