@@ -43,6 +43,14 @@
 -compile({inline, [badarg_with_cause/2, badarg_with_info/1,
                    error_with_info/2]}).
 
+
+%% WIP: Dummy export to force STDLIB tests to be run. To be removed.
+-export([dummy/0]).
+
+-spec dummy() -> any().
+dummy() ->
+    ok.
+
 -spec at(Subject, Pos) -> byte() when
       Subject :: binary(),
       Pos :: non_neg_integer().

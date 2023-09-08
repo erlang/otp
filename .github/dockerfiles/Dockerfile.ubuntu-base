@@ -111,7 +111,7 @@ RUN export PATH="$(cat /home/${USER}/LATEST)/${PATH}" && \
     latest erlang/rebar3 && ls -la && \
     (tar xzf rebar3.tar.gz && cd rebar3-* && ./bootstrap && sudo cp rebar3 /usr/bin) && \
     latest proper-testing/proper && \
-    (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make) && \
+    (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make clean && make) && \
     latest talentdeficit/jsx && \
     (tar xzf jsx.tar.gz && mv jsx-* jsx && cd jsx && rebar3 compile)
 
