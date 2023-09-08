@@ -8352,14 +8352,17 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                     break;
 
                 case ERTS_SIG_Q_OP_ALIAS_MSG: {
+                    void *attached;
                     ErlHeapFragment *hfp;
-                    if (type == ERTS_SIG_Q_TYPE_OFF_HEAP)
+                    (void) get_alias_msg_data(sig, NULL, NULL, NULL, &attached);
+                    if (!attached)
+                        break;
+                    if (attached == ERTS_MSG_COMBINED_HFRAG)
                         hfp = &sig->hfrag;
-                    else if (type == ERTS_SIG_Q_TYPE_HEAP_FRAG)
-                        hfp = sig->data.heap_frag;
                     else
-                        break; /* on heap */
+                        hfp = (ErlHeapFragment *) attached;
                     debug_foreach_sig_heap_frags(hfp, oh_func, arg);
+                    break;
                 }
 
                 case ERTS_SIG_Q_OP_DEMONITOR:
