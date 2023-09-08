@@ -62,7 +62,7 @@ jobs:
         uses: actions/cache@v3
         with:
             path: otp_docker_base.tar
-            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}-${{ hashFiles('OTP-VERSION') }}
       - name: Build BASE image
         run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
       - name: Cache pre-built tar archives
