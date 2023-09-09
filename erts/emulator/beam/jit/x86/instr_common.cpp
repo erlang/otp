@@ -1337,6 +1337,37 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgLabel &Fail,
 }
 
 /* Note: This instruction leaves the pointer to the tuple in ARG2. */
+void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
+                                                      const ArgLabel &BadArity,
+                                                      const ArgSource &Src,
+                                                      const ArgWord &Arity) {
+    mov_arg(ARG2, Src);
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
+        /* Fast path for the `error | {ok, Value}` case. */
+        comment("simplified tuple test since the source is always a tuple "
+                "when boxed");
+        /* We must be careful to still leave the pointer to the tuple
+         * in ARG2. */
+        (void)emit_ptr_val(ARG2, ARG2);
+        emit_test_boxed(ARG2);
+        a.jne(resolve_beam_label(NotTuple));
+        ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+        a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.get()));
+        a.jne(resolve_beam_label(BadArity));
+    } else {
+        emit_is_boxed(resolve_beam_label(NotTuple), Src, ARG2);
+        (void)emit_ptr_val(ARG2, ARG2);
+        ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+        a.mov(RETd, emit_boxed_val(ARG2, 0, sizeof(Uint32)));
+        a.test(RETb, imm(_TAG_HEADER_MASK));
+        a.jne(resolve_beam_label(NotTuple));
+        a.cmp(RETd, imm(Arity.get()));
+        a.jne(resolve_beam_label(BadArity));
+    }
+}
+
+/* Note: This instruction leaves the pointer to the tuple in ARG2. */
 void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgWord &Arity) {

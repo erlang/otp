@@ -1420,6 +1420,34 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgLabel &Fail,
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
  * ARG1. */
+void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
+                                                      const ArgLabel &BadArity,
+                                                      const ArgSource &Src,
+                                                      const ArgWord &Arity) {
+    auto src = load_source(Src, ARG1);
+
+    emit_is_boxed(resolve_beam_label(NotTuple, dispUnknown), Src, src.reg);
+
+    emit_untag_ptr(ARG1, src.reg);
+
+    a.ldr(TMP1, arm::Mem(ARG1));
+
+    /* As an optimization for the `error | {ok, Value}` case, skip checking the
+     * header word when we know that the only possible boxed type is a tuple. */
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
+        comment("skipped header test since we know it's a tuple when boxed");
+    } else {
+        ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+        a.tst(TMP1, imm(_TAG_HEADER_MASK));
+        a.b_ne(resolve_beam_label(NotTuple, disp1MB));
+    }
+
+    cmp_arg(TMP1, Arity);
+    a.b_ne(resolve_beam_label(BadArity, disp1MB));
+}
+
+/* Note: This instruction leaves the untagged pointer to the tuple in
+ * ARG1. */
 void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgWord &Arity) {
