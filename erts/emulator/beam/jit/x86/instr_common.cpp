@@ -746,6 +746,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                                           const ArgWord &Arity,
                                           const Span<ArgVal> &args) {
     size_t size = args.size();
+    ArgVal value = ArgWord(0);
 
     ASSERT(arityval(Arity.get()) == size);
 
@@ -784,9 +785,29 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                 }
                 break;
             }
-            case ArgVal::none:
-                mov_arg(dst_ptr, args[i]);
+            case ArgVal::none: {
+                unsigned j;
+                if (value == args[i]) {
+                    a.mov(dst_ptr, RET);
+                    break;
+                }
+                for (j = i + 1; j < size && args[i] == args[j]; j++) {
+                    ;
+                }
+                if (j - i < 2) {
+                    mov_arg(dst_ptr, args[i]);
+                } else {
+                    value = args[i];
+                    mov_arg(RET, value);
+                    while (i < j) {
+                        dst_ptr = x86::qword_ptr(HTOP, (i + 1) * sizeof(Eterm));
+                        a.mov(dst_ptr, RET);
+                        i++;
+                    }
+                    i--;
+                }
                 break;
+            }
             }
         }
     }

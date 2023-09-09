@@ -720,41 +720,46 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
     std::vector<ArgVal> data;
     data.reserve(args.size() + 1);
     data.push_back(Arity);
-
-    bool dst_is_src = false;
-    for (auto arg : args) {
-        data.push_back(arg);
-        dst_is_src |= (arg == Dst);
-    }
-
-    if (dst_is_src) {
-        a.add(TMP1, HTOP, TAG_PRIMARY_BOXED);
-    } else {
-        auto ptr = init_destination(Dst, TMP1);
-        a.add(ptr.reg, HTOP, TAG_PRIMARY_BOXED);
-        flush_var(ptr);
-    }
+    data.insert(data.end(), std::begin(args), std::end(args));
 
     size_t size = data.size();
     unsigned i;
+    ArgVal value = ArgWord(0);
     for (i = 0; i < size - 1; i += 2) {
         if ((i % 128) == 0) {
             check_pending_stubs();
         }
 
-        auto [first, second] = load_sources(data[i], TMP2, data[i + 1], TMP3);
-        a.stp(first.reg, second.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        if (!data[i].isRegister() && data[i] == data[i + 1]) {
+            if (data[i] != value) {
+                value = data[i];
+                mov_arg(TMP1, value);
+            }
+            a.stp(TMP1, TMP1, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else if (data[i] == value) {
+            auto second = load_source(data[i + 1], TMP3);
+            a.stp(TMP1, second.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else if (data[i + 1] == value) {
+            auto first = load_source(data[i], TMP2);
+            a.stp(first.reg, TMP1, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else {
+            auto [first, second] =
+                    load_sources(data[i], TMP2, data[i + 1], TMP3);
+            a.stp(first.reg, second.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        }
     }
 
     if (i < size) {
-        mov_arg(arm::Mem(HTOP).post(sizeof(Eterm)), data[i]);
+        if (data[i] == value) {
+            a.str(TMP1, arm::Mem(HTOP).post(sizeof(Eterm)));
+        } else {
+            mov_arg(arm::Mem(HTOP).post(sizeof(Eterm)), data[i]);
+        }
     }
 
-    if (dst_is_src) {
-        auto ptr = init_destination(Dst, TMP1);
-        mov_var(ptr, TMP1);
-        flush_var(ptr);
-    }
+    auto ptr = init_destination(Dst, TMP1);
+    sub(ptr.reg, HTOP, size * sizeof(Eterm) - TAG_PRIMARY_BOXED);
+    flush_var(ptr);
 }
 
 void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
