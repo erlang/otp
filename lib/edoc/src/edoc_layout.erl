@@ -426,7 +426,7 @@ label_anchor(Content, E) ->
 %% This is currently only done for functions without type spec.
 
 signature(Es, Name) ->
-    [{tt, [Name, "("] ++ seq(fun arg/1, Es) ++ [") -> any()"]}].
+    [{code, [Name, "("] ++ seq(fun arg/1, Es) ++ [") -> any()"]}].
 
 arg(#xmlElement{content = Es}) ->
     [get_text(argName, Es)].
