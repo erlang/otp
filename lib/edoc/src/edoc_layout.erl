@@ -540,7 +540,7 @@ format_spec(Name, Type, Defs, #opts{pretty_printer = erl_pp}=Opts) ->
 format_spec(Sep, Type, Defs, Opts) ->
     %% Very limited formatting.
     Br = if Defs =:= [] -> br; true -> [] end,
-    [{tt, t_clause(Sep, Type, Opts)}, Br].
+    [{code, t_clause(Sep, Type, Opts)}, Br].
 
 t_clause(Name, Type, Opts) ->
     #xmlElement{content = [#xmlElement{name = 'fun', content = C}]} = Type,
