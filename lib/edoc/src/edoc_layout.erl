@@ -782,11 +782,11 @@ author(E=#xmlElement{}) ->
     Mail = get_attrval(email, E),
     URI = get_attrval(website, E),
     (if Name == Mail ->
-	     [{a, [{href, "mailto:" ++ Mail}],[{tt, [Mail]}]}];
+	     [{a, [{href, "mailto:" ++ Mail}],[{code, [Mail]}]}];
 	true ->
 	     if Mail == "" -> [Name];
 		true -> [Name, " (", {a, [{href, "mailto:" ++ Mail}],
-				      [{tt, [Mail]}]}, ")"]
+				      [{code, [Mail]}]}, ")"]
 	     end
      end
      ++ if URI == "" ->
