@@ -745,7 +745,7 @@ behaviours(Es, Name, Opts) ->
                            [br, " Optional callback functions: "]
                            ++ seq(CBFun, OCBs, ["."])
                    end,
-	     [{p, ([{b, ["This module defines the ", {tt, [Name]},
+	     [{p, ([{b, ["This module defines the ", {code, [Name]},
 			 " behaviour."]}]
                    ++ Req ++ Opt)},
 	      ?NL]
