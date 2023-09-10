@@ -752,7 +752,7 @@ behaviours(Es, Name, Opts) ->
      end).
 
 behaviour(E=#xmlElement{content = Es}) ->
-    see(E, [{tt, Es}]).
+    see(E, [{code, Es}]).
 
 callback(E=#xmlElement{}, Opts) ->
     Name = get_attrval(name, E),
