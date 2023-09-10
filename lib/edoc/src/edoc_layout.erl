@@ -672,7 +672,7 @@ equiv(Es, P) ->
 	    case get_content(expr, Es1) of
 		[] -> [];
 		[Expr] ->
-		    Expr1 = [{tt, [Expr]}],
+		    Expr1 = [{code, [Expr]}],
 		    Expr2 = case get_elem(see, Es1) of
 				[] ->
 				    Expr1;
