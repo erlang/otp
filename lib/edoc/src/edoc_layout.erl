@@ -460,7 +460,7 @@ throws(Es, Opts) ->
 	[] -> [];
 	Es1 ->
             %% Doesn't use format_type; keep it short!
-	    [{p, (["throws ", {tt, t_utype(get_elem(type, Es1), Opts)}]
+	    [{p, (["throws ", {code, t_utype(get_elem(type, Es1), Opts)}]
 		  ++ local_defs(get_elem(localdef, Es1), Opts))},
 	     ?NL]
     end.
