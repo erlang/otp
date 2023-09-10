@@ -793,7 +793,7 @@ author(E=#xmlElement{}) ->
 		[];
 	   true ->
 		[" [", {em, ["web site:"]}, " ",
-		 {tt, [{a, [{href, URI}, {target, "_top"}], [URI]}]},
+		 {code, [{a, [{href, URI}, {target, "_top"}], [URI]}]},
 		 "]"]
 	end).
 
