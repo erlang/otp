@@ -757,7 +757,7 @@ behaviour(E=#xmlElement{content = Es}) ->
 callback(E=#xmlElement{}, Opts) ->
     Name = get_attrval(name, E),
     Arity = get_attrval(arity, E),
-    [{tt, [atom(Name, Opts), "/", Arity]}].
+    [{code, [atom(Name, Opts), "/", Arity]}].
 
 authors(Es) ->
     case get_elem(author, Es) of
