@@ -497,7 +497,7 @@ typedef(Es, Opts) ->
     Name = ([t_name(get_elem(erlangName, Es), Opts), "("]
             ++ seq(t_utype_elem_fun(Opts), get_content(argtypes, Es), [")"])),
     (case get_elem(type, Es) of
- 	 [] -> [{b, ["abstract datatype"]}, ": ", {tt, Name}];
+ 	 [] -> [{b, ["abstract datatype"]}, ": ", {code, Name}];
          Type -> format_type(Name, Name, Type, [], Opts)
      end
      ++ local_defs(get_elem(localdef, Es), Opts)).
