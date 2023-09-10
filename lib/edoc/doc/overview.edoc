@@ -598,7 +598,7 @@ The above expansions take place before XML parsing.
 Writing a URL within brackets, as in "`[http://www.w3c.org/]'", will
 generate a hyperlink such as [http://www.w3c.org/], using the URL both
 for the destination and the label of the reference, equivalent to writing
-"`<a href="http://www.w3c.org/"><tt>http://www.w3c.org/</tt></a>'". This
+"`<a href="http://www.w3c.org/"><code>http://www.w3c.org/</code></a>'". This
 short-hand keeps external URL references short and readable. The
 recognized protocols are `http', `ftp', and `file'. This expansion takes
 place before XML parsing.
