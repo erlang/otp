@@ -441,7 +441,7 @@ params(Es) ->
     if As1 == [] ->
 	    [];
        true ->
-	    [ { [{tt, [A]}, ": "] ++  D ++ [br, ?NL] }
+	    [ { [{code, [A]}, ": "] ++  D ++ [br, ?NL] }
 	      || {A, D} <- As1]
     end.
 
