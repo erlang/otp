@@ -232,7 +232,7 @@
 # define HAVE_DH
 #endif
 
-#ifndef OPENSSL_NO_DSA
+#if !defined(OPENSSL_NO_DSA) && !(HAS_LIBRESSL_VSN >= 0x2060100fL)
 # define HAVE_DSA
 #endif
 
@@ -319,6 +319,13 @@
 #  if !defined(OPENSSL_NO_POLY1305)
 #    define HAVE_POLY1305
 #  endif
+# endif
+#endif
+
+#ifdef HAS_LIBRESSL
+# if LIBRESSL_VERSION_NUMBER >= 0x3070000fL
+#   define HAVE_CHACHA20_POLY1305
+#   define HAVE_CHACHA20
 # endif
 #endif
 
