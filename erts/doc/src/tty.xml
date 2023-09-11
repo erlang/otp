@@ -95,7 +95,7 @@ erl</pre>
         <cell align="left" valign="middle">Backward character</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">C-Left</cell>
+        <cell align="left" valign="middle">C-Left<br />M-Left</cell>
         <cell align="left" valign="middle">Backward word</cell>
       </row>
       <row>
@@ -123,7 +123,7 @@ erl</pre>
         <cell align="left" valign="middle">Forward character</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">C-Right</cell>
+        <cell align="left" valign="middle">C-Right<br />M-Right</cell>
         <cell align="left" valign="middle">Forward word</cell>
       </row>
       <row>
@@ -147,6 +147,10 @@ erl</pre>
         <cell align="left" valign="middle">Clears the screen</cell>
       </row>
       <row>
+        <cell align="left" valign="middle">M-c</cell>
+        <cell align="left" valign="middle">Clears the current expression</cell>
+      </row>
+      <row>
         <cell align="left" valign="middle">M-l</cell>
         <cell align="left" valign="middle">Redraw line</cell>
       </row>
@@ -156,7 +160,7 @@ erl</pre>
           buffer</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">C-o</cell>
+        <cell align="left" valign="middle">C-o/M-o</cell>
         <cell align="left" valign="middle">Edit the current line using the editor specified in
           the environment variable <c>VISUAL</c> or <c>EDITOR</c>. The environment variables can
           contain arguments to the editor if needed, for example <c>VISUAL="emacs -nw"</c>.
@@ -169,7 +173,11 @@ erl</pre>
       </row>
       <row>
         <cell align="left" valign="middle">C-r</cell>
-        <cell align="left" valign="middle">Search the shell history</cell>
+        <cell align="left" valign="middle">Search backward in the shell history</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-s</cell>
+        <cell align="left" valign="middle">Search forward in the shell history</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-t</cell>
