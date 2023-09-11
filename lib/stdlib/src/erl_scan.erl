@@ -930,7 +930,7 @@ scan_tqstring_line(Cs, St, Line, Col, Toks, Qs, Tqs, Acc) ->
                               Ncs, St, Line, Ncol, Toks,
                               0, Tqs, Nacc)
                     end;
-                ?UNI255(C) ->
+                ?UNICODE(C) ->
                     scan_tqstring_line(
                       Ncs, St, Line, Ncol, Toks,
                       0, Tqs, Nacc); % Stop searching for end quote chars

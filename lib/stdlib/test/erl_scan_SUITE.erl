@@ -1505,6 +1505,18 @@ triple_quoted_string(Config) when is_list(Config) ->
           "\"\"\"\"", % A string starts at the last char but never ends
           {1,1}, []),
 
+    {ok,[{string,1,[16#D000]}],3} =
+        erl_scan:string(
+          [$",$",$",$\n,
+           16#D000,$\n, % Unicode character
+           $",$",$"]),
+
+    {error,{2,erl_scan,{illegal,character}},2} =
+        erl_scan:string(
+          [$",$",$",$\n,
+           16#FFFF,$\n, % Out of Unicode range
+           $",$",$"]),
+
     %% Test the real deal in this source code
     """"
     ```erlang
