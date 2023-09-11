@@ -25,6 +25,9 @@
 
 #ifdef LIBRESSL_VERSION_NUMBER
 # define HAS_LIBRESSL
+# define HAS_LIBRESSL_VSN LIBRESSL_VERSION_NUMBER
+#else
+# define HAS_LIBRESSL_VSN 0
 #endif
 
 /* Helper macros to construct a OPENSSL_VERSION_NUMBER.
