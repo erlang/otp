@@ -31,9 +31,9 @@
 %% Common code for all JER encoding/decoding
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-encode_jer(Module,InfoFunc,Val) ->
-    Info = Module:InfoFunc(),
-    encode_jer(Info,Val).
+encode_jer(Module, Type, Val) ->
+    Info = Module:typeinfo(Type),
+    encode_jer(Info, Val).
 
 %% {sequence,
 %%    Name::atom() % The record name used for the sequence 
@@ -106,10 +106,11 @@ encode_jer({'ENUMERATED_EXT',_EnumMap},Val) when is_atom(Val) ->
 encode_jer({Type = {'ENUMERATED_EXT',_EnumList},_Constr}, Val) ->
     encode_jer(Type,Val);
 
-encode_jer({typeinfo,{Module,Func}},Val) ->
-    TypeInfo = Module:Func(),
-    encode_jer(TypeInfo,Val);
- 
+
+encode_jer({typeinfo,{Module,Type}},Val) ->
+    TypeInfo = Module:typeinfo(Type),
+    encode_jer(TypeInfo, Val);
+
 encode_jer({sof,Type},Vals) when is_list(Vals) ->
     [encode_jer(Type,Val)||Val <- Vals];
 encode_jer({choice,Choices},{Alt,Value}) ->
@@ -155,7 +156,8 @@ encode_jer({'ObjClassFieldType',_,_},Val) when is_binary(Val)->
     Val;
 encode_jer('ASN1_OPEN_TYPE',Val) when is_binary(Val) ->
     Val;
-    
+encode_jer({container,Type,_Containing}, Val) ->
+    encode_jer(Type, Val);
 encode_jer(Type,Val) ->
     exit({error,{asn1,{{encode,Type},Val}}}).
 
@@ -198,9 +200,9 @@ encode_jer_component([], _, []) ->
 encode_jer_component([], _, Acc) ->
     lists:reverse(Acc).
 
-decode_jer(Module,InfoFunc,Val) ->
-    Info = Module:InfoFunc(),
-    decode_jer(Info,Val).
+decode_jer(Module, Type, Val) ->
+    TypeInfo = Module:typeinfo(Type),
+    decode_jer(TypeInfo, Val).
 %% FIXME probably generate EnumList as a map with binaries as keys
 %% and check if the Value is in the map. Also take the extensionmarker into
 %% account and in that case allow any value but return as binary since it
@@ -221,9 +223,9 @@ decode_jer({'ENUMERATED_EXT',EnumList}, Val) ->
 decode_jer({Type = {'ENUMERATED_EXT',_EnumList},_Constr}, Val) ->
     decode_jer(Type,Val);
 
-decode_jer({typeinfo,{Module,Func}},Val) ->
-    TypeInfo = Module:Func(),
-    decode_jer(TypeInfo,Val); 
+decode_jer({typeinfo,{Module,Type}}, Val) ->
+    TypeInfo = Module:typeinfo(Type),
+    decode_jer(TypeInfo, Val);
 decode_jer({sequence,Sname,_Arity,CompInfos},Value) 
   when is_map(Value) ->    
     DecodedComps = decode_jer_component(CompInfos,Value,[]),
@@ -302,6 +304,8 @@ decode_jer({'ObjClassFieldType',_,_},Bin) when is_binary(Bin) ->
     Bin;
 decode_jer('ASN1_OPEN_TYPE',Bin) when is_binary(Bin) ->
     Bin;
+decode_jer({container,Type,_Containing}, Val) ->
+    decode_jer(Type, Val);
 decode_jer(Type,Val) ->
     exit({error,{asn1,{{decode,Type},Val}}}).
 
