@@ -22,6 +22,22 @@
 %% Test the behavior of gen_udp. Testing udp is really a very unfunny task,
 %% because udp is not deterministic.
 %%
+%% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
+%% application:set_env(kernel, test_inet_backends, true).
+%% S = fun() -> ts:run(kernel, gen_udp_SUITE, [batch]) end.
+%% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
+%% S = fun() -> ct:run_test([{suite, gen_udp_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
+%% G = fun(GROUP) -> ts:run(kernel, gen_udp_SUITE, {group, GROUP}, [batch]) end.
+%% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
+%% G = fun(GROUP) -> ct:run_test([{suite, gen_udp_SUITE}, {group, GROUP}]) end.
+%% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
+%% T = fun(TC) -> ts:run(kernel, gen_udp_SUITE, TC, [batch]) end.
+%% T = fun(TC) -> ct:run_test([{suite, gen_udp_SUITE}, {testcase, TC}]) end.
+%% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
+%% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
+%%
+
 -module(gen_udp_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
@@ -1885,13 +1901,11 @@ recv_close(Config) when is_list(Config) ->
 %% Test that connect/3 has effect.
 connect(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME,
-            %% *Currently* not implemented
-            fun() -> is_not_windows() end,
             fun() -> do_connect(Config) end).
 
 do_connect(Config) when is_list(Config) ->
     ?P("begin"),
-    Addr = {127,0,0,1},
+    {ok, Addr} = ?LIB:which_local_addr(inet),
     ?P("try create first socket"),
     {ok, S1} = ?OPEN(Config, 0),
     {ok, P1} = inet:port(S1),
@@ -1907,11 +1921,18 @@ do_connect(Config) when is_list(Config) ->
     ?P("sleep some"),
     ct:sleep({seconds, 5}),
 
-    ?P("try some doomed connect targets: ~p", [P1]),
-    {error, nxdomain} = gen_udp:connect(S2, "", ?CLOSED_PORT),
-    {error, nxdomain} = gen_udp:connect(S2, '', ?CLOSED_PORT),
-    {error, nxdomain} = gen_udp:connect(S2, ".", ?CLOSED_PORT),
-    {error, nxdomain} = gen_udp:connect(S2, '.', ?CLOSED_PORT),
+    case os:type() of
+	{win32, nt} ->
+	    ok;
+	_ ->
+	    ?P("try some doomed connect targets: ~p", [P1]),
+	    {error, nxdomain} = gen_udp:connect(S2, "", ?CLOSED_PORT),
+	    {error, nxdomain} = gen_udp:connect(S2, '', ?CLOSED_PORT),
+	    {error, nxdomain} = gen_udp:connect(S2, ".", ?CLOSED_PORT),
+	    {error, nxdomain} = gen_udp:connect(S2, '.', ?CLOSED_PORT),
+	    ok
+    end,
+
     ?P("try connect second socket to: ~p, ~p", [Addr, P1]),
     ok = gen_udp:connect(S2, Addr, P1),
     ?P("try send on second socket"),
@@ -1933,30 +1954,37 @@ do_connect(Config) when is_list(Config) ->
 
 reconnect(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME,
-            %% *Currently* not implemented
+            %% %% *Currently* not implemented
             fun() -> is_not_windows() end,
             fun () -> do_reconnect(Config) end).
 
 do_reconnect(Config) ->
-    LoopAddr = {127,0,0,1},
+    {ok, Addr} = ?LIB:which_local_addr(inet),
+    %% LoopAddr = {127,0,0,1},
     XtrnAddr = {8,8,8,8},
     DestPort = 53,
-    {S, Port} = open_port_0(Config, []),
+    {S, Port} = open_port_0(Config, [{ip, Addr}]),
     ?P("Socket: ~w", [S]),
     %% Connect to a loopback destination
-    ok = gen_udp:connect(S, LoopAddr, DestPort),
-    {ok, {LoopAddr,DestPort}} = inet:peername(S),
+    %% ok = gen_udp:connect(S, LoopAddr, DestPort),
+    ok = gen_udp:connect(S, Addr, DestPort),
+    %% {ok, {LoopAddr,DestPort}} = inet:peername(S),
+    %% {ok, {LocalAddr,Port}} = inet:sockname(S),
+    {ok, {Addr,DestPort}} = inet:peername(S),
     {ok, {LocalAddr,Port}} = inet:sockname(S),
-    ?P("Socket addr: ~w", [LocalAddr]),
+    ?P("Socket (local) addr: ~w", [LocalAddr]),
     %% Reconnect to external destination
     ok = gen_udp:connect(S, XtrnAddr, DestPort),
     {ok, {XtrnAddr,DestPort}} = inet:peername(S),
     {ok, {RoutableAddr,Port}} = inet:sockname(S),
+    ?P("Socket (routable) addr: ~p, port: ~p", [RoutableAddr, Port]),
     %% We should have a non-loopback address here
     true = RoutableAddr =/= LocalAddr,
     %% Reconnect to loopback
-    ok = gen_udp:connect(S, LoopAddr, DestPort),
-    {ok, {LoopAddr,DestPort}} = inet:peername(S),
+    %% ok = gen_udp:connect(S, LoopAddr, DestPort),
+    ok = gen_udp:connect(S, Addr, DestPort),
+    %% {ok, {LoopAddr,DestPort}} = inet:peername(S),
+    {ok, {Addr,DestPort}} = inet:peername(S),
     {ok, {LocalAddr,Port}} = inet:sockname(S),
     ok = inet:close(S).
 
