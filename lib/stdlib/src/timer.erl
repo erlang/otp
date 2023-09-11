@@ -601,12 +601,12 @@ do_apply({erlang, exit, [Name, Reason]}, _) ->
 do_apply({M,F,A}, false) ->
     try spawn(M, F, A)
     of _ -> {ok, spawn}
-    catch _:_ -> error
+    catch error:badarg -> error
     end;
 do_apply({M, F, A}, true) ->
     try spawn_monitor(M, F, A)
     of {_, Ref} -> {ok, {spawn, Ref}}
-    catch _:_ -> error
+    catch error:badarg -> error
     end.
 
 %% Get current time in milliseconds,
