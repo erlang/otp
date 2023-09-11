@@ -52,9 +52,11 @@ RUN apt-get install -y git curl && \
     chmod +x /usr/bin/kerl && \
     kerl update releases && \
     LATEST=$(kerl list releases | tail -1 | awk -F '.' '{print $1}') && \
-    echo "/usr/local/lib/erlang-${LATEST}/bin" > /home/${USER}/LATEST && \
     for release in $(seq $(( LATEST - 2 )) $(( LATEST ))); do \
       VSN=$(kerl list releases | grep "^$release" | tail -1); \
+      if [ $release = $LATEST ]; then \
+        echo "/usr/local/lib/erlang-${VSN}/bin" > /home/${USER}/LATEST; \
+      fi && \
       kerl build ${VSN} ${VSN} && \
       kerl install ${VSN} /usr/local/lib/erlang-${VSN}; \
     done && \
@@ -103,7 +105,7 @@ COPY --chown=${USER}:${GROUP} dockerfiles/init.sh /buildroot/
 WORKDIR /buildroot/
 
 ## Install test tools rebar3, proper and jsx
-RUN export PATH="$(cat /home/${USER}/LATEST)/${PATH}" && \
+RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     latest () { \
     local VSN=$(curl -sL "https://api.github.com/repos/$1/tags" | jq -r ".[] | .name" | grep -E '^v?[0-9]' | sort -V | tail -1); \
     curl -sL "https://github.com/$1/archive/$VSN.tar.gz" > $(basename $1).tar.gz; \
