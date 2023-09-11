@@ -107,15 +107,20 @@ jobs:
              "${{ needs.pr-number.outputs.result }}"
 
       - name: Deploy to github pages 🚀
-        uses: JamesIves/github-pages-deploy-action@v4.4.1
-        with:
-          token: ${{ secrets.ERLANG_TOKEN }}
-          branch: master # The branch the action should deploy to.
-          folder: erlang.github.io # The folder the action should deploy.
-          repository-name: erlang/erlang.github.io
-          single-commit: true
+        run: |
+          cd erlang.github.io
+          set -x
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git add -u
+          git update-index --refresh
+          if ! git diff-index --quiet HEAD --; then
+            git commit -m "Update github pages content"
+            git push origin master
+          fi
 
-        ## Append some usefull links and tips to the test results posted by
+        ## Append some useful links and tips to the test results posted by
         ## Publish CT Test Results
       - uses: actions/github-script@v5.1.1
         if: always()
