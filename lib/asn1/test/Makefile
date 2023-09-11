@@ -42,6 +42,7 @@ MODULES= \
 	testChoTypeRefSeq \
 	testChoTypeRefSet \
 	testConstraints \
+	testContaining \
 	testDef \
 	testExtensionDefault \
 	testOpt \

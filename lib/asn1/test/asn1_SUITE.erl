@@ -137,6 +137,7 @@ all() ->
      testNortel,
      test_WS_ParamClass,
      test_modified_x420,
+     testContaining,
 
      %% Some heavy tests.
      testTcapsystem,
@@ -627,7 +628,8 @@ parse(Config) ->
     [asn1_test_lib:compile(M, Config, [abs]) || M <- test_modules()].
 
 per(Config) ->
-    test(Config, fun per/3, [per,uper,{per,[maps]},{uper,[maps]}]).
+    test(Config, fun per/3,
+         [per,uper,{per,[maps]},{uper,[maps]},{per,[jer]}]).
 per(Config, Rule, Opts) ->
     module_test(per_modules(), Config, Rule, Opts).
 
@@ -1138,6 +1140,20 @@ testExtensionAdditionGroup(Config, Rule, Opts) ->
     asn1_test_lib:compile("EUTRA-RRC-Definitions", Config,
 			  [Rule,{record_name_prefix,"RRC-"}|Opts]),
     extensionAdditionGroup:run(Rule).
+
+testContaining(Config) ->
+    test(Config, fun testContaining/3).
+testContaining(Config, Rule, Opts) ->
+    asn1_test_lib:compile("Containing", Config, [Rule|Opts]),
+    testContaining:containing(Rule),
+    case {Rule,have_jsonlib()} of
+        {per,true} ->
+            io:format("Testing with both per and jer...\n"),
+            asn1_test_lib:compile("Containing", Config, [jer,Rule|Opts]),
+            testContaining:containing(per_jer);
+        _ ->
+            ok
+    end.
 
 per_modules() ->
     [X || X <- test_modules()].
