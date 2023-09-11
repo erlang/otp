@@ -642,8 +642,10 @@ gethostbyname(Name,Family,Timeout) ->
     _ = stop_timer(Timer),
     Res.
 
-gethostbyname_tm(Name,Family,Timer) ->
+gethostbyname_tm(Name, Family, Timer) ->
+    %% ?DBG([{name, Name}, {family, Family}, {timer, Timer}]),
     Opts0 = inet_db:res_option(lookup),
+    %% ?DBG([{opts0, Opts0}]),
     Opts =
 	case (lists:member(native, Opts0) orelse
 	      lists:member(string, Opts0) orelse
@@ -653,6 +655,7 @@ gethostbyname_tm(Name,Family,Timer) ->
 	    false ->
 		[string|Opts0]
 	end,
+    %% ?DBG([{opts, Opts}]),
     gethostbyname_tm(Name, Family, Timer, Opts).
 
 
@@ -819,15 +822,22 @@ getaddr(Address, Family) ->
 	{'ok', ip_address()} | {'error', posix()}.
 
 getaddr(Address, Family, Timeout) ->
+    %% ?DBG([{address, Address}, {family, Family}, {timeout, Timeout}]),
     Timer = start_timer(Timeout),
-    Res = getaddr_tm(Address, Family, Timer),
-    _ = stop_timer(Timer),
+    Res   = getaddr_tm(Address, Family, Timer),
+    %% ?DBG([{res, Res}]),
+    _     = stop_timer(Timer),
     Res.
 
 getaddr_tm(Address, Family, Timer) ->
+    %% ?DBG([{address, Address}, {family, Family}, {timer, Timer}]),
     case getaddrs_tm(Address, Family, Timer) of
-	{ok, [IP|_]} -> {ok, IP};
-	Error -> Error
+	{ok, [IP|_]} ->
+	    %% ?DBG([{ip, IP}]),
+	    {ok, IP};
+	Error ->
+	    %% ?DBG([{error, Error}]),
+	    Error
     end.
 
 -spec getaddrs(Host, Family) ->
@@ -1553,6 +1563,7 @@ getaddrs_tm({A,B,C,D,E,F,G,H} = IP, Fam, _) ->
 getaddrs_tm(Address, Family, Timer) when is_atom(Address) ->
     getaddrs_tm(atom_to_list(Address), Family, Timer);
 getaddrs_tm(Address, Family, Timer) ->
+    %% ?DBG([{address, Address}, {family, Family}, {timer, Timer}]),
     case inet_parse:visible_string(Address) of
 	false ->
 	    {error,einval};
@@ -1560,8 +1571,12 @@ getaddrs_tm(Address, Family, Timer) ->
 	    %% Address is a host name or a valid IP address,
 	    %% either way check it with the resolver.
 	    case gethostbyname_tm(Address, Family, Timer) of
-		{ok,Ent} -> {ok,Ent#hostent.h_addr_list};
-		Error -> Error
+		{ok, Ent} ->
+		    %% ?DBG([{ent, Ent}]),
+		    {ok, Ent#hostent.h_addr_list};
+		Error ->
+		    %% ?DBG([{error, Error}]),
+		    Error
 	    end
     end.
 
@@ -1569,32 +1584,47 @@ getaddrs_tm(Address, Family, Timer) ->
 %% gethostbyname with option search
 %%
 gethostbyname_tm(Name, Type, Timer, [string|_]=Opts) ->
+    %% ?DBG([string, {name, Name}, {type, Type}, {timer, Timer}]),
     Result = gethostbyname_string(Name, Type),
     gethostbyname_tm(Name, Type, Timer, Opts, Result);
 gethostbyname_tm(Name, Type, Timer, [dns|_]=Opts) ->
+    %% ?DBG([dns, {name, Name}, {type, Type}, {timer, Timer}]),
     Result = inet_res:gethostbyname_tm(Name, Type, Timer),
+    %% ?DBG([{result, Result}]),
     gethostbyname_tm(Name, Type, Timer, Opts, Result);
 gethostbyname_tm(Name, Type, Timer, [file|_]=Opts) ->
+    %% ?DBG([file, {name, Name}, {type, Type}, {timer, Timer}]),
     Result = inet_hosts:gethostbyname(Name, Type),
+    %% ?DBG([{result, Result}]),
     gethostbyname_tm(Name, Type, Timer, Opts, Result);
 gethostbyname_tm(Name, Type, Timer, [yp|_]=Opts) ->
+    %% ?DBG([yp, {name, Name}, {type, Type}, {timer, Timer}]),
     gethostbyname_tm_native(Name, Type, Timer, Opts);
 gethostbyname_tm(Name, Type, Timer, [nis|_]=Opts) ->
+    %% ?DBG([nis, {name, Name}, {type, Type}, {timer, Timer}]),
     gethostbyname_tm_native(Name, Type, Timer, Opts);
 gethostbyname_tm(Name, Type, Timer, [nisplus|_]=Opts) ->
+    %% ?DBG([niplus, {name, Name}, {type, Type}, {timer, Timer}]),
     gethostbyname_tm_native(Name, Type, Timer, Opts);
 gethostbyname_tm(Name, Type, Timer, [wins|_]=Opts) ->
+    %% ?DBG([wins, {name, Name}, {type, Type}, {timer, Timer}]),
     gethostbyname_tm_native(Name, Type, Timer, Opts);
 gethostbyname_tm(Name, Type, Timer, [native|_]=Opts) ->
+    %% ?DBG([native, {name, Name}, {type, Type}, {timer, Timer}]),
     gethostbyname_tm_native(Name, Type, Timer, Opts);
 gethostbyname_tm(Name, Type, Timer, [_|Opts]) ->
+    %% ?DBG([{name, Name}, {type, Type}, {timer, Timer}]),
     gethostbyname_tm(Name, Type, Timer, Opts);
 %% Make sure we always can look up our own hostname.
 gethostbyname_tm(Name, Type, Timer, []) ->
+    %% ?DBG([{name, Name}, {type, Type}, {timer, Timer}]),
     Result = gethostbyname_self(Name, Type),
+    %% ?DBG([{result, Result}]),
     gethostbyname_tm(Name, Type, Timer, [], Result).
 
 gethostbyname_tm(Name, Type, Timer, Opts, Result) ->
+    %% ?DBG([string, {name, Name}, {type, Type}, {timer, Timer},
+    %% 	  {opts, Opts}, {result, Result}]),
     case Result of
 	{ok,_} ->
 	    Result;
@@ -1607,19 +1637,24 @@ gethostbyname_tm(Name, Type, Timer, Opts, Result) ->
     end.
 
 gethostbyname_tm_native(Name, Type, Timer, Opts) ->
+    %% ?DBG([{name, Name}, {type, Type}, {timer, Timer}, {opts, Opts}]),
     %% Fixme: add (global) timeout to gethost_native
     Result = inet_gethost_native:gethostbyname(Name, Type),
+    %% ?DBG([{result, Result}]),
     gethostbyname_tm(Name, Type, Timer, Opts, Result).
 
 
 
 gethostbyname_self(Name, Type) when is_atom(Name) ->
+    %% ?DBG([{name, Name}, {type, Type}]),
     gethostbyname_self(atom_to_list(Name), Type);
 gethostbyname_self(Name, Type)
   when is_list(Name), Type =:= inet;
        is_list(Name), Type =:= inet6 ->
-    N = inet_db:tolower(Name),
+    %% ?DBG([{name, Name}, {type, Type}]),
+    N    = inet_db:tolower(Name),
     Self = inet_db:gethostname(),
+    %% ?DBG([{n, N}, {self, Self}]),
     %%
     %% This is the final fallback that pretends /etc/hosts has got
     %% a line for the hostname on the loopback address.
@@ -1629,14 +1664,17 @@ gethostbyname_self(Name, Type)
     %%
     case inet_db:tolower(Self) of
 	N ->
+	    %% ?DBG([{n, N}]),
 	    {ok,
 	     make_hostent(
 	       Self, [translate_ip(loopback, Type)], [], Type)};
 	_ ->
 	    case inet_db:res_option(domain) of
 		"" ->
+		    %% ?DBG(['res option empty domain']),
 		    {error,nxdomain};
 		Domain ->
+		    %% ?DBG([{domain, Domain}]),
 		    FQDN = lists:append([Self,".",Domain]),
 		    case inet_db:tolower(FQDN) of
 			N ->
@@ -1645,6 +1683,7 @@ gethostbyname_self(Name, Type)
 			       FQDN,
 			       [translate_ip(loopback, Type)], [], Type)};
 			_ ->
+			    %% ?DBG(['invalid domain', {fqdn, FQDN}]),
 			    {error,nxdomain}
 		    end
 	    end

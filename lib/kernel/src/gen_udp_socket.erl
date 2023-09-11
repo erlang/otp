@@ -124,17 +124,22 @@ close_server(Server) ->
 %% -- connect ----------------------------------------------------------------
 
 connect(?MODULE_socket(_Server, Socket), Address, Port) ->
+    %% ?DBG([{address, Address}, {port, Port}]),
     {Mod, _} = inet:udp_module([], Address),
     Domain   = domain(Mod),
+    %% ?DBG([{mod, Mod}, {domain, Domain}]),
     try
         begin
             Dest =
                 case Mod:getaddr(Address) of
                     {ok, IP} when (Domain =:= local) ->
+			%% ?DBG([{ip, IP}]),
                         dest2sockaddr(IP);
                     {ok, IP} ->
+			%% ?DBG([{ip, IP}]),
                         dest2sockaddr({IP, Port});
                     {error, _Reason} = ERROR ->
+			%% ?DBG(['getaddr', {error, ERROR}]),
                         throw(ERROR)
                 end,
             case os:type() of
@@ -149,6 +154,7 @@ connect(?MODULE_socket(_Server, Socket), Address, Port) ->
                             socket:connect(Socket, Dest)
                     end;
                 _ ->
+		    %% ?DBG(['try connect']),
                     socket:connect(Socket, Dest)
             end
         end
@@ -331,8 +337,9 @@ which_default_bind_address2(Domain) ->
             %% Pick first *non-loopback* interface that is 'up'
             UpNonLoopbackAddrs =
                 [Addr ||
-                    #{flags := Flags} = Addr <-
+                    #{flags := Flags, addr := #{addr := _A}} = Addr <-
                         Addrs,
+		    %% (element(1, A) =/= 169) andalso
                     (not lists:member(loopback, Flags)) andalso
                         lists:member(up, Flags)],
             %% ?DBG([{up_non_loopback_addrs, UpNonLoopbackAddrs}]),
