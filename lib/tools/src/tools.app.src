@@ -41,7 +41,7 @@
   {env, [{file_util_search_methods,[{"", ""}, {"ebin", "esrc"}, {"ebin", "src"}]}
 	]
   },
-  {runtime_dependencies, ["stdlib-3.4","runtime_tools-1.8.14",
-			  "kernel-5.4","erts-9.1","compiler-5.0", "erts-11.0"]}
+  {runtime_dependencies, ["stdlib-4.0","runtime_tools-1.8.14",
+			  "kernel-6.0","erts-9.1","compiler-5.0", "erts-13.0"]}
  ]
 }. 
