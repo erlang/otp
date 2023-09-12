@@ -146,6 +146,8 @@
       <tag><c>f(X)</c></tag>
       <item>
         <p>Removes the binding of variable <c>X</c>.</p>
+        <note><p>If a huge value is stored in a variable binding, you have to both call <c>f(X)</c> and
+    call <c>history(0)</c> or <c>results(0)</c> to free up that memory.</p></note>
       </item>
       <tag><c>h()</c></tag>
       <item>
