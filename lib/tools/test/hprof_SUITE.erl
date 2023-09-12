@@ -135,7 +135,7 @@ set_on_spawn(Config) when is_list(Config) ->
     ?assertMatch({?MODULE, {_, 0}, 1, 9, 9, _}, lists:keyfind(?MODULE, 1, TotalProfile)),
     %% MFA takes 6 more words. This test should be improved to depend less on the internal
     %%  implementation.
-    ?assertMatch({?MODULE, {seq, 1}, 1, 15, 15, _}, lists:keyfind(?MODULE, 1, TotalProfileMFA)).
+    ?assertMatch({?MODULE, {seq, 1}, 1, 13, 13, _}, lists:keyfind(?MODULE, 1, TotalProfileMFA)).
 
 seq(Max) ->
     {Pid, MRef} = spawn_monitor(fun () -> lists:seq(1, Max) end),
