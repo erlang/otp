@@ -56,11 +56,12 @@ $ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
     <p>The current keymap configuration can be fetched through <seeerl marker="#keymap/0">edlin:keymap()</seeerl>.
     If a custom keymap or keymap file is specified, then it will be merged with the default keymap.</p>
   <p>The keymap is a map of maps where the keys in the parent map corresponds to different
-  editing modes in the shell. The valid modes currently supported are normal, search and tab_expand.</p>
+  editing modes in the shell. The valid modes currently supported are <c>normal</c> and <c>search</c>.</p>
   <p>The keys in the child maps are the escape sequences that are sent from the terminal when a key is
   pressed and each value is a valid action as seen below.</p>
   <p>The default atom is used to specify that an action should happen when a key is pressed that does not
   have any mapping. Typically used to exit a mode.</p>
+  See <seeguide marker="erts:tty">tty - A Command-Line Interface</seeguide> for more information about the default keymap.
   </section>
   <section>
     <title>Actions</title>
@@ -225,4 +226,22 @@ $ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
       </item>
     </taglist>
   </section>
+  <datatypes>
+    <datatype>
+      <name name="keymap"/>
+      <desc><p>A map of maps for each shell mode containing key, action pairs.</p></desc>
+    </datatype>
+  </datatypes>
+  <funcs>
+    <func>
+      <name name="keymap" arity="0" since=""/>
+      <fsummary>Get current keymap for the shell.</fsummary>
+      <type name="keymap"/>
+      <desc>
+        <p>Get the current keymap used in the shell. Each key in the parent map represents a <em>shell mode</em> e.g. <c>normal</c> or <c>search</c>.
+        Each map associated with the <em>shell modes</em> contains <em>key sequences</em> represented as strings, paired with an <em>action</em>,
+        which is one of the valid actions mentioned above.</p>
+      </desc>
+    </func>
+  </funcs>
 </erlref>

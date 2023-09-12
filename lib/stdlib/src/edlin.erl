@@ -34,6 +34,7 @@
 
 -export([over_word/3]).
 
+-type keymap() :: #{atom() => #{string()|default => atom()}}.
 
 %% A Continuation has the structure:
 %%	{line,Prompt,{LinesBefore,{ColumnsBefore, ColumnsAfter},LinesAfter},{ShellMode, EscapePrefix}}
@@ -83,6 +84,7 @@ start(Pbs, {_,{_,_},_}=Cont) ->
 start(Pbs, EditState) ->
     {more_chars,{line,Pbs,{[],{[],[]},[]},EditState},[new_prompt, {insert_chars,unicode,Pbs}]}.
 
+-spec keymap() -> keymap().
 keymap() ->
     get(key_map).
 
