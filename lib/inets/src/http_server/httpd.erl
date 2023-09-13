@@ -43,6 +43,8 @@
          info/3,
          info/4
         ]).
+%% Command line interface
+-export([start/1, serve/1]).
 
 -deprecated({parse_query, 1,
             "use uri_string:dissect_query/1 instead"}).
@@ -390,6 +392,119 @@ service_info(Pid) ->
     catch
 	exit:{noproc, _} ->
 	    {error, service_not_available} 
+    end.
+
+%%%--------------------------------------------------------------
+%%% Command line interface
+%%%--------------------------------------------------------------------
+
+parse_ip_address(Input) ->
+    case inet:parse_address(Input) of
+        {ok, Address} -> Address;
+        {error, einval} -> error(badarg)
+    end.
+
+%% Try to locate good mime types to use for the server.
+%% If none were found on the host, uses a slim default.
+default_mime_types() ->
+    Locations = [
+        "/etc/mime.types"
+        % Note nginx installations also occasionally host a `mime.types` file,
+        % but this is usually in nginx's own configuration file format. Apache,
+        % on the other hand, uses the standard format and can be used.
+    ],
+    find_mime_types(Locations).
+
+find_mime_types([Path | Paths]) ->
+    case filelib:is_file(Path) of
+        true -> Path;
+        false -> find_mime_types(Paths)
+    end;
+
+find_mime_types([]) ->
+    [
+        {"html", "text/html"}, {"htm", "text/html"}, {"js", "text/javascript"},
+        {"css","text/css"}, {"gif", "image/gif"}, {"jpg", "image/jpeg"},
+        {"jpeg", "image/jpeg"}, {"png", "image/png"}
+    ].
+
+serve_cli() ->
+    #{
+      arguments => [
+        #{
+          name => directory,
+          type => string,
+          help => "Directory to serve data from.",
+          default => "."
+        },
+        #{
+          name => help,
+          type => boolean,
+          short => $h,
+          long => "-help",
+          help => "Show this description."
+        },
+        #{
+          name => port,
+          type => {integer, [{min, 0}, {max, 65535}]},
+          short => $p,
+          long => "-port",
+          default => 8000,
+          help => (
+            "Port to bind on. Use '0' for the OS to automatically assign "
+            "a port which can then be seen on server startup."
+          )
+        },
+        #{
+          name => address,
+          type => {custom, fun parse_ip_address/1},
+          short => $b,
+          long => "-bind",
+          default => {127, 0, 0, 1},
+          help => "IP address to listen on. Use 0.0.0.0 or :: for all interfaces."
+        }
+      ],
+      help => "Start a HTTP server serving files from DIRECTORY.",
+      handler => fun do_serve/1
+    }.
+
+start(Args) ->
+    %% `-S` without a function and without arguments
+    serve(Args).
+
+serve(Args) ->
+    argparse:run(Args, serve_cli(), #{progname => "erl -S httpd serve"}).
+
+do_serve(#{help := true}) ->
+    io:format("~ts", [argparse:help(serve_cli())]),
+    erlang:halt(0);
+do_serve(#{address := Address, port := Port, directory := Path}) ->
+    AbsPath = string:trim(filename:absname(Path), trailing, "/."),
+    inets:start(),
+    IpFamilyOpts = case Address of 
+        {_, _, _, _} -> [];
+        _ -> [{ipfamily, inet6}]
+    end,
+    {ok, Pid} = start_service(
+      [
+         {bind_address, Address},
+         {document_root, AbsPath},
+         {server_root, AbsPath},
+         {directory_index, ["index.html"]},
+         {port, Port},
+         {mime_type, "application/octet-stream"},
+         {mime_types, default_mime_types()},
+         {modules, [mod_alias, mod_dir, mod_get]}
+      ] ++ IpFamilyOpts
+    ),
+    % This is needed to support random port assignment (--port 0)
+    [{port, ActualPort}] = info(Pid, [port]),
+    io:fwrite("~nStarted HTTP server on http://~s:~w at ~s~n",
+              [inet:ntoa(Address), ActualPort, AbsPath]),
+    receive
+        {From, shutdown} ->
+            ok = stop_service(Pid),
+            From ! done
     end.
 
 %%%--------------------------------------------------------------

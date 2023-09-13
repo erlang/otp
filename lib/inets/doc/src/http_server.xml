@@ -612,6 +612,28 @@ start() ->
 	received.</p>
     </section>
   </section>
+  <section>
+    <title>Serving files from the command line</title>
+    <p>httpd includes functionality to quickly serve files from the command
+      line. In its simplest form, <c>erl -S httpd</c> will serve files in
+      the local directory on localhost.</p>
+    <taglist>
+      <tag><c>--port</c></tag>
+      <item>Sets the port to bind on. Defaults to <c>8000</c>.</item>
+
+      <tag><c>--bind</c></tag>
+      <item>Sets the bind address to listen on. Defaults to <c>127.0.0.1</c>.</item>
+
+      <tag><i>DIRECTORY</i></tag>
+      <item>Sets the directory to serve data from. Defaults to the current directory.</item>
+    </taglist>
+    <p>For example, to serve files from directory <c>test_results</c> on port <c>4000</c>:</p>
+    <code>
+      erl -S httpd serve --port 4000 test_results
+    </code>
+    <p>For a full reference of all options, run
+      <c>erl -S httpd serve --help</c>.</p>
+  </section>
 </chapter>
 
 
