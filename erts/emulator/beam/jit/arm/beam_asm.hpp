@@ -925,6 +925,10 @@ class BeamModuleAssembler : public BeamAssembler,
         invalidate_cache(dst);
     }
 
+    bool is_cache_valid() {
+        return a.offset() == last_destination_offset;
+    }
+
     /* Works as the STR instruction, but also updates the cache. */
     void str_cache(arm::Gp src, arm::Mem dst) {
         if (a.offset() == last_destination_offset &&
@@ -997,6 +1001,10 @@ class BeamModuleAssembler : public BeamAssembler,
         } else {
             /* The cache is invalid. */
             a.ldr(dst, mem);
+            last_destination_offset = a.offset();
+            last_destination_to1 = mem;
+            last_destination_from1 = dst;
+            last_destination_to2 = arm::Mem();
         }
     }
 
@@ -1553,14 +1561,14 @@ protected:
     void mov_arg(arm::Gp to, const ArgVal &from) {
         auto r = load_source(from, to);
         if (r.reg != to) {
-            a.mov(to, r.reg);
+            mov_preserve_cache(to, r.reg);
         }
     }
 
     void mov_arg(const ArgVal &to, arm::Gp from) {
         auto r = init_destination(to, from);
         if (r.reg != from) {
-            a.mov(r.reg, from);
+            mov_preserve_cache(r.reg, from);
         }
         flush_var(r);
     }
@@ -1613,7 +1621,11 @@ protected:
         ASSERT(gp.isGpX());
 
         if (abs_offset <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+            bool valid_cache = is_cache_valid();
             a.ldr(gp, mem);
+            if (valid_cache) {
+                preserve__cache(gp);
+            }
         } else {
             add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
             a.ldr(gp, arm::Mem(SUPER_TMP));
@@ -1653,7 +1665,12 @@ protected:
         ASSERT(gp1 != gp2);
 
         if (abs_offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+            bool valid_cache = is_cache_valid();
             a.ldp(gp1, gp2, mem);
+            if (valid_cache) {
+                preserve__cache(gp1);
+                preserve__cache(gp2);
+            }
         } else if (abs_offset < sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             /* Note that we used `<` instead of `<=`, as we're loading two
              * elements rather than one. */
