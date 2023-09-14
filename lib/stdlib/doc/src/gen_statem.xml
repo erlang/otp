@@ -1039,7 +1039,7 @@ handle_event(_, _, State, Data) ->
 	<note>
 	  <p>
 	    If there are enqueued events to process
-	    when hibrnation is requested,
+	    when hibernation is requested,
 	    this is optimized by not hibernating but instead calling
 	    <seemfa marker="erts:erlang#garbage_collect/0">
 	      <c>erlang:garbage_collect/0</c>
