@@ -469,7 +469,6 @@
        group_leader => pid(),
        time := logger:timestamp(),
        error_logger := #{ emulator := true, tag := atom() }
-            
 
   If the [;;4msystem_logger[0m process dies, this flag will be reset to [;;4m[0m
   [;;4mlogger[0m.
