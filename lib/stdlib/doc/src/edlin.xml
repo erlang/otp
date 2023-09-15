@@ -61,7 +61,7 @@ $ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
   pressed and each value is a valid action as seen below.</p>
   <p>The default atom is used to specify that an action should happen when a key is pressed that does not
   have any mapping. Typically used to exit a mode.</p>
-  See <seeguide marker="erts:tty">tty - A Command-Line Interface</seeguide> for more information about the default keymap.
+  <p>See <seeguide marker="erts:tty">tty - A Command-Line Interface</seeguide> for more information about the default keymap.</p>
   </section>
   <section>
     <title>Actions</title>
