@@ -248,7 +248,9 @@
 	<p>Erlang/OTP adds a either padding of zeroes or padding with random bytes.</p>
       </desc>
     </datatype>
+  </datatypes>
 
+  <datatypes>
     <datatype_title>Digests and hash</datatype_title>
     <datatype>
       <name name="hash_algorithm"/>
@@ -308,7 +310,9 @@
 	<p>The <c>compatibility_only_hash()</c> algorithms are recommended only for compatibility with existing applications.</p>
       </desc>
     </datatype>
+  </datatypes>
 
+  <datatypes>
     <datatype_title>Elliptic Curves</datatype_title>
     <datatype>
       <name name="ec_named_curve"/>
@@ -336,7 +340,9 @@
 	<p>Curve definition details.</p>
       </desc>
     </datatype>
+  </datatypes>
 
+  <datatypes>
     <datatype_title>Keys</datatype_title>
     <datatype>
       <name name="key_integer"/>
@@ -344,7 +350,9 @@
 	<p>Always <c>binary()</c> when used as return value</p>
       </desc>
     </datatype>
+    </datatypes>
 
+    <datatypes>
     <datatype_title>Public/Private Keys</datatype_title>
     <datatype>
       <name name="rsa_public"/>
@@ -416,7 +424,9 @@
         </p>
       </desc>
     </datatype>
+    </datatypes>
 
+    <datatypes>
     <datatype_title>Public Key Ciphers</datatype_title>
 
     <datatype>
@@ -448,6 +458,8 @@
 	<p>Those option forms are kept only for compatibility and should not be used in new code.</p>
       </desc>
     </datatype>
+    </datatypes>
+    <datatypes>
 
     <datatype_title>Public Key Sign and Verify</datatype_title>
 
@@ -473,6 +485,8 @@
 	</warning>
       </desc>
     </datatype>
+    </datatypes>
+    <datatypes>
 
     <datatype_title>Diffie-Hellman Keys and parameters</datatype_title>
     <datatype>
@@ -496,6 +510,8 @@
       <desc>
       </desc>
     </datatype>
+    </datatypes>
+    <datatypes>
 
     <datatype_title>Types for Engines</datatype_title>
 
@@ -536,6 +552,8 @@
 	</p>
       </desc>
     </datatype>
+    </datatypes>
+    <datatypes>
 
     <datatype_title>Internal data types</datatype_title>
 

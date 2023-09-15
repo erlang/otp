@@ -44,6 +44,9 @@
       </desc>
     </datatype>
 
+    </datatypes>
+     <datatypes>
+
     <datatype_title>Error cause</datatype_title>
     <datatype>
       <name name="reason"/>
@@ -62,6 +65,9 @@
 	</p>
       </desc>
     </datatype>
+
+    </datatypes>
+     <datatypes>
 
     <datatype_title>Crypto operations for open_tar</datatype_title>
     <datatype>
