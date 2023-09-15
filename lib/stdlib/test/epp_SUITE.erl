@@ -30,7 +30,7 @@
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
 	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1,
-   deterministic_include/1, nondeterministic_include/1]).
+   deterministic_include/1, nondeterministic_include/1, moduledoc_include/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -73,7 +73,7 @@ all() ->
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
      otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro,
-     deterministic_include, nondeterministic_include].
+     deterministic_include, nondeterministic_include, moduledoc_include].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -126,6 +126,48 @@ file_macro(Config) when is_list(Config) ->
     {attribute,_,b,FileB} = lists:keyfind(b, 3, List),
     "Other source" = FileA = FileB,
     ok.
+
+moduledoc_include(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    ModuleFileContent = <<"-module(moduledoc).
+
+                           -moduledoc {file, \"README.md\"}.
+
+                           -export([]).
+                          ">>,
+    DocFileContent = <<"# README
+
+                        This file is a test
+                       ">>,
+    CreateFile = fun (Dir, File, Content) ->
+                     Dirname = filename:join([PrivDir, Dir]),
+                     ok = create_dir(Dirname),
+                     Filename = filename:join([Dirname, File]),
+                     ok = file:write_file(Filename, Content),
+                     Filename
+                 end,
+
+    %% positive test: checks that all works as expected
+    ModuleName = CreateFile("module_attr", "moduledoc.erl", ModuleFileContent),
+    DocName = CreateFile("module_attr", "README.md", DocFileContent),
+    {ok, List} = epp:parse_file(ModuleName, []),
+    {attribute, _, moduledoc, ModuleDoc} = lists:keyfind(moduledoc, 3, List),
+    ?assertEqual({ok, unicode:characters_to_binary(ModuleDoc)}, file:read_file(DocName)),
+
+    %% negative test: checks that we produce an expected error
+    ModuleErrContent = binary:replace(ModuleFileContent, <<"README">>, <<"NotExistingFile">>),
+    ModuleErrName = CreateFile("module_attr", "moduledoc_err.erl", ModuleErrContent),
+    {ok, ListErr} = epp:parse_file(ModuleErrName, []),
+    {error,{_,epp,{moduledoc,file, "NotExistingFile.md"}}} = lists:keyfind(error, 1, ListErr),
+
+    ok.
+
+create_dir(Dir) ->
+    case file:make_dir(Dir) of
+        ok -> ok;
+        {error, eexist} -> ok;
+        _ -> error
+    end.
 
 deterministic_include(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -930,11 +972,12 @@ scan_file(Config) when is_list(Config) ->
     [FileForm1, ModuleForm, ExportForm,
      FileForm2, FileForm3, FunctionForm,
      {eof,_}] = Toks,
-    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm1,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ]   = FileForm1,
     [{'-',_}, {atom,_,module}, {'(',_} | _ ] = ModuleForm,
     [{'-',_}, {atom,_,export}, {'(',_} | _ ] = ExportForm,
-    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm2,
-    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm3,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ]   = FileForm2,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ]   = FileForm3,
+    [{atom,_,ok}, {'(',_} | _]               = FunctionForm,
     ok.
 
 macs(Epp) ->

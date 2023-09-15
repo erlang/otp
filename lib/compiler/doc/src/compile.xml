@@ -146,6 +146,16 @@
 	      exception at runtime).</p>
           </item>
 
+          <tag><c>no_docs</c><marker id="beam_docs"/></tag>
+          <item>
+            <p>The compiler by default extracts <seeguide marker="system/reference_manual:documentation">documentation</seeguide> from
+              <seeguide marker="system/reference_manual:modules#documentation-attributes"><c>-doc</c> attributes</seeguide>
+              and places them in the <seetype marker="stdlib:beam_lib#chunkid"><c>Docs</c> chunk</seetype> according to <seeguide marker="kernel:eep48_chapter">EEP-48</seeguide>.
+            </p>
+            <p>This option switches off the placement of <seeguide marker="system/reference_manual:modules#documentation-attributes"><c>-doc</c> attributes</seeguide>
+            in the <seetype marker="stdlib:beam_lib#chunkid"><c>Docs</c> chunk</seetype></p>.
+          </item>
+
           <tag><c>binary</c></tag>
           <item>
             <p>The compiler returns the object code in a
@@ -873,6 +883,25 @@ module.beam: module.erl \
                 a module that may load NIFs, as the compiler may inline NIF
                 fallbacks by accident. Use this option to turn off this kind of
                 warnings.</p>
+          </item>
+
+          <tag><c>warn_missing_doc</c><marker id="warn_missing_doc"/></tag>
+          <item>
+              <p>By default, warnings are not emitted when <c>-doc</c>
+                attribute for an exported function is not given. Use this
+                option to turn on this kind of warning.</p>
+          </item>
+
+          <tag><c>nowarn_hidden_doc</c> | <c>{nowarn_hidden_doc,NAs}</c>
+          <marker id="nowarn_hidden_doc"/></tag>
+          <item>
+              <p>By default, warnings are emitted when <c>-doc false</c>
+              attribute is set on a <seeguide marker="system/reference_manual:documentation#What-is-visible-versus-hidden">callback or referenced type</seeguide>. You can set
+              <c>nowarn_hidden_doc</c> to suppress all those warnings,
+              or <c>{nowarn_hidden_doc, NAs}</c> to suppress specific
+              callbacks or types. <c>NAs</c> is a tuple <c>{Name, Arity}</c>
+              or a list of such tuples.
+              </p>
           </item>
 
           <tag><c>warn_missing_spec</c></tag>

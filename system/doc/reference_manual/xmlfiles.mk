@@ -23,6 +23,7 @@ REF_MAN_CHAPTER_FILES = \
 	patterns.xml \
 	modules.xml \
 	functions.xml \
+	documentation.xml \
 	expressions.xml \
 	macros.xml \
 	records.xml \

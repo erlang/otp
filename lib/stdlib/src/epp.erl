@@ -27,8 +27,11 @@
 -export([default_encoding/0, encoding_to_string/1,
          read_encoding_from_binary/1, read_encoding_from_binary/2,
          set_encoding/1, set_encoding/2, read_encoding/1, read_encoding/2]).
+
 -export([interpret_file_attribute/1]).
 -export([normalize_typed_record_fields/1,restore_typed_record_fields/1]).
+
+-include_lib("kernel/include/file.hrl").
 
 %%------------------------------------------------------------------------
 
@@ -234,6 +237,10 @@ format_error({circular,M,A}) ->
     io_lib:format("circular macro '~ts/~p'", [M,A]);
 format_error({include,W,F}) ->
     io_lib:format("can't find include ~s \"~ts\"", [W,F]);
+format_error({Tag, invalid, Alternative}) when Tag =:= moduledoc; Tag =:= doc ->
+    io_lib:format("invalid ~s tag, only ~s allowed", [Tag, Alternative]);
+format_error({Tag, W, Filename}) when Tag =:= moduledoc; Tag =:= doc ->
+    io_lib:format("can't find ~s ~s \"~ts\"", [Tag, W, Filename]);
 format_error({illegal,How,What}) ->
     io_lib:format("~s '-~s'", [How,What]);
 format_error({illegal_function,Macro}) ->
@@ -932,6 +939,12 @@ scan_toks([{'-',_Lh},{atom,_Ld,warning}=Warn|Toks], From, St) ->
     scan_err_warn(Toks, Warn, From, leave_prefix(St));
 scan_toks([{'-',_Lh},{atom,_Li,include}=Inc|Toks], From, St) ->
     scan_include(Toks, Inc, From, St);
+scan_toks([{'-',_Lh},{atom,_Ld,D}=Doc | [{'(', _},{'{',_} | _] = Toks], From, St)
+  when D =:= doc; D =:= moduledoc ->
+    scan_filedoc(coalesce_strings(Toks), Doc, From, St);
+scan_toks([{'-',_Lh},{atom,_Ld,D}=Doc | [{'{',_} | _] = Toks], From, St)
+  when D =:= doc; D =:= moduledoc ->
+    scan_filedoc(coalesce_strings(Toks), Doc, From, St);
 scan_toks([{'-',_Lh},{atom,_Li,include_lib}=IncLib|Toks], From, St) ->
     scan_include_lib(Toks, IncLib, From, St);
 scan_toks([{'-',_Lh},{atom,_Li,ifdef}=IfDef|Toks], From, St) ->
@@ -978,14 +991,73 @@ scan_toks(Toks0, From, St) ->
 	    wait_req_scan(St)
     end.
 
+%% First we parse either ({file, "filename"}) or {file, "filename"} and
+%% return proper errors if syntax is incorrect. Only literal strings are allowed.
+scan_filedoc([{'(', _},{'{',_}, {atom, _,file},
+              {',', _}, {string, _, _} = DocFilename,
+              {'}', _},{')',_},{dot,_} = Dot], DocType, From, St) ->
+    scan_filedoc_content(DocFilename, Dot, DocType, From, St);
+scan_filedoc([{'(', _},{'{',_}, {atom, _,file} | _] = Toks, DocType, From, St) ->
+    T = find_mismatch(['(','{',atom,',',string,'}',')',dot], Toks, DocType),
+    epp_reply(From, {error,{loc(T),epp,{bad,DocType}}}),
+    wait_req_scan(St);
+scan_filedoc([{'(', _},{'{',_}, T | _], DocType, From, St) ->
+    epp_reply(From, {error,{loc(T),epp,{DocType, invalid, file}}}),
+    wait_req_scan(St);
+scan_filedoc([{'{',_}, {atom, _,file},
+              {',', _}, {string, _, _} = DocFilename,
+              {'}', _},{dot,_} = Dot], DocType, From, St) ->
+    scan_filedoc_content(DocFilename, Dot, DocType, From, St);
+scan_filedoc([{'{',_}, {atom, _,file} | _] = Toks, {atom,_,DocType}, From, St) ->
+    T = find_mismatch(['{',{atom, file},',',string,'}',dot], Toks, DocType),
+    epp_reply(From, {error,{loc(T),epp,{bad,DocType}}}),
+    wait_req_scan(St);
+scan_filedoc([{'{',_}, T | _], {atom,_,DocType}, From, St) ->
+    epp_reply(From, {error,{loc(T),epp,{DocType, invalid, file}}}),
+    wait_req_scan(St).
+
+%% Reads the content of the file and rewrites the AST as if
+%% the content had been written in-place.
+scan_filedoc_content({string, _A, DocFilename}, Dot,
+                     {atom,DocLoc,Doc}, From, #epp{name = CurrentFilename} = St) ->
+    %% The head of the path is the dir where the current file is
+    Cwd = hd(St#epp.path),
+    case file:path_open([Cwd], DocFilename, [read, binary]) of
+        {ok, NewF, Pname} ->
+            case file:read_file_info(NewF) of
+                {ok, #file_info{ size = Sz }} ->
+                    {ok, Bin} = file:read(NewF, Sz),
+                    ok = file:close(NewF),
+                    StartLoc = start_loc(St#epp.location),
+                    %% Enter a new file for this doc entry
+                    enter_file_reply(From, Pname, erl_anno:new(StartLoc), StartLoc,
+                                     code, St#epp.deterministic),
+                    epp_reply(From, {ok,
+                                     [{'-',StartLoc}, {atom, StartLoc, Doc}]
+                                     ++ [{string, StartLoc, unicode:characters_to_list(Bin)}, {dot,StartLoc}]}),
+                    %% Restore the previous file
+                    enter_file_reply(From, CurrentFilename,
+                                     erl_anno:new(loc(Dot)), loc(Dot), code,
+                                     St#epp.deterministic),
+                    wait_req_scan(St);
+                {error, _} ->
+                    ok = file:close(NewF),
+                    epp_reply(From, {error,{DocLoc,epp,{Doc, file, DocFilename}}}),
+                    wait_req_scan(St)
+            end;
+        {error, _} ->
+            epp_reply(From, {error,{DocLoc,epp,{Doc, file, DocFilename}}}),
+            wait_req_scan(St)
+    end.
+
 %% Determine whether we have passed the prefix where a -feature
 %% directive is allowed.
 in_prefix({atom, _, Atom}) ->
     %% These directives are allowed inside the prefix
     lists:member(Atom, ['module', 'feature',
                         'if', 'else', 'elif', 'endif', 'ifdef', 'ifndef',
-                        'define', 'undef',
-                        'include', 'include_lib']);
+                        'define', 'undef', 'include', 'include_lib',
+                        'moduledoc', 'doc']);
 in_prefix(_T) ->
     false.
 
@@ -1936,6 +2008,8 @@ find_mismatch([Tag|Tags], [{Tag,_A,_V}=T|Ts], _T0) ->
 find_mismatch([var_or_atom|Tags], [{var,_A,_V}=T|Ts], _T0) ->
     find_mismatch(Tags, Ts, T);
 find_mismatch([var_or_atom|Tags], [{atom,_A,_N}=T|Ts], _T0) ->
+    find_mismatch(Tags, Ts, T);
+find_mismatch([{Tag,Value}|Tags], [{Tag,_A,Value}=T|Ts], _T0) ->
     find_mismatch(Tags, Ts, T);
 find_mismatch(_, Ts, T0) ->
     no_match(Ts, T0).

@@ -31,6 +31,7 @@
 	     beam_dict,
 	     beam_digraph,
 	     beam_disasm,
+         beam_doc,
 	     beam_flatten,
 	     beam_jump,
 	     beam_listing,
@@ -83,5 +84,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-5.0","kernel-8.4","erts-13.0",
+  {runtime_dependencies, ["stdlib-@OTP-18622@","kernel-8.4","erts-13.0",
 			  "crypto-5.1"]}]}.

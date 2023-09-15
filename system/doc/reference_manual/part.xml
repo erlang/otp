@@ -34,6 +34,7 @@
   <xi:include href="patterns.xml"/>
   <xi:include href="modules.xml"/>
   <xi:include href="functions.xml"/>
+  <xi:include href="documentation.xml"/>
   <xi:include href="typespec.xml"/>
   <xi:include href="opaques.xml"/>
   <xi:include href="expressions.xml"/>

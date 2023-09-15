@@ -52,6 +52,7 @@
       <item><c>labeled_exports ("ExpT")</c></item>
       <item><c>labeled_locals ("LocT")</c></item>
       <item><c>locals ("LocT")</c></item>
+      <item><c>documentation ("Docs")</c></item>
     </list>
   </description>
 
@@ -200,7 +201,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     <datatype>
       <name name="chunkid"/>
       <desc>
-        <p>"Attr" | "CInf" | "Dbgi" | "ExpT" | "ImpT" | "LocT" | "AtU8"</p>
+        <p><c>"Attr" | "CInf" | "Dbgi" | "ExpT" | "ImpT" | "LocT" | "AtU8" | "Docs"</c></p>
       </desc>
     </datatype>
     <datatype>
@@ -234,6 +235,15 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
           means that chunk <c>"Abst"</c> is present, but empty.</p>
         <p>For modules compiled with OTP 20 onwards, the <c>abst_code</c> chunk
           is automatically computed from the <c>debug_info</c> chunk.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="docs"/>
+      <desc>
+        <p>
+          <seeguide marker="kernel:eep48_chapter#the--docs--format">
+          EEP-48 documentation format</seeguide>
+        </p>
       </desc>
     </datatype>
     <datatype>
