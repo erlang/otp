@@ -752,7 +752,7 @@
     </func>
 
     <func>
-      <name since="OTP R14B02">Module:terminate(CTHState)</name>
+      <name since="OTP R14B02">Module:terminate(CTHState) -> term()</name>
       <fsummary>Called after the CTH scope ends.</fsummary>
       <type>
         <v>CTHState = term()</v>
