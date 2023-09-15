@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<!DOCTYPE appref SYSTEM "appref.dtd">
 
-<erlref>
+<appref>
   <header>
     <copyright>
       <year>2003</year><year>2020</year>
@@ -32,8 +32,8 @@
     <rev>PA1</rev>
     <file>common_test_app.sgml</file>
   </header>
-  <module since="">common_test</module> 
-  <modulesummary>A framework for automated testing of any target nodes.</modulesummary>
+  <app>common_test</app>
+  <appsummary>A framework for automated testing of any target nodes.</appsummary>
 
   <description>
 
@@ -54,5 +54,5 @@
 
   </description>
 
-</erlref>
+</appref>
 

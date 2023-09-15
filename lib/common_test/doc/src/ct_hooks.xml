@@ -761,7 +761,8 @@
         <p>OPTIONAL</p>
 
         <p>This function is called at the end of a CTH
-          <seeguide marker="ct_hooks_chapter#scope">scope</seeguide>.</p>
+          <seeguide marker="ct_hooks_chapter#scope">scope</seeguide>.
+          The returned term is ignored.</p>
       </desc>
     </func>
 
