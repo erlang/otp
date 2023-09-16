@@ -2555,13 +2555,8 @@ void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
     emit_error(EXC_TRY_CLAUSE, Src);
 }
 
-void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
-                                     const ArgSource &Value) {
-    auto value = load_source(Value, TMP1);
-    mov_arg(ARG2, Trace);
-
-    /* This is an error, attach a stacktrace to the reason. */
-    a.str(value.reg, arm::Mem(c_p, offsetof(Process, fvalue)));
+void BeamGlobalAssembler::emit_raise_shared() {
+    a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, ftrace)));
 
     emit_enter_runtime(0);
@@ -2571,7 +2566,21 @@ void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
 
     emit_leave_runtime(0);
 
-    emit_raise_exception();
+    a.mov(ARG4, ZERO);
+    a.mov(ARG2, a64::x30);
+    a.b(labels[raise_exception_shared]);
+}
+
+void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
+                                     const ArgSource &Value) {
+    auto [value, trace] = load_sources(Value, ARG1, Trace, ARG2);
+    mov_var(ARG1, value);
+    mov_var(ARG2, trace);
+    fragment_call(ga->get_raise_shared());
+
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {

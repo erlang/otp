@@ -2525,11 +2525,7 @@ void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
     emit_error(EXC_TRY_CLAUSE);
 }
 
-void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
-                                     const ArgSource &Value) {
-    mov_arg(ARG3, Value);
-    mov_arg(ARG2, Trace);
-
+void BeamGlobalAssembler::emit_raise_shared() {
     /* This is an error, attach a stacktrace to the reason. */
     a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), ARG3);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, ftrace)), ARG2);
@@ -2541,7 +2537,20 @@ void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
 
     emit_leave_runtime();
 
-    emit_raise_exception();
+    mov_imm(ARG4, 0);
+    a.jmp(labels[raise_exception]);
+}
+
+void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
+                                     const ArgSource &Value) {
+    mov_arg(ARG3, Value);
+    mov_arg(ARG2, Trace);
+
+    fragment_call(resolve_fragment(ga->get_raise_shared()));
+
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {
