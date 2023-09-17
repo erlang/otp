@@ -38,7 +38,7 @@
   <section>
     <title>Key configuration</title>
     <p>You can setup a custom key configuration that overrides the default key configuration.
-    This is done by setting the stdlib application parameter <seeapp marker="stdlib_app#shell_keymap"><c>shell_keymap</c></seeapp> before Erlang is started.
+    This is done by setting the stdlib application parameter <seeapp marker="STDLIB_app#shell_keymap"><c>shell_keymap</c></seeapp> before Erlang is started.
     If you want to have the same keymap in all Erlang shells you can do so by putting a
     <seefile marker="config">config</seefile> file in your user's home directory and then set
     <seecom marker="erts:erl_cmd#ERL_FLAGS">ERL_FLAGS</seecom> to load it at startup.
