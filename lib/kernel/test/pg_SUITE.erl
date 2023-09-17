@@ -60,6 +60,8 @@
     monitor_nonempty_scope/0, monitor_nonempty_scope/1,
     monitor_scope/0, monitor_scope/1,
     monitor/1,
+    monitor_self/1,
+    multi_monitor/1,
     protocol_upgrade/1
 ]).
 
@@ -89,7 +91,7 @@ all() ->
 groups() ->
     [
         {basic, [parallel], [errors, pg, leave_exit_race, single, overlay_missing,
-                             protocol_upgrade]},
+                             protocol_upgrade, monitor_self, multi_monitor]},
         {performance, [], [thundering_herd]},
         {cluster, [parallel], [process_owner_check, two, initial, netsplit, trisplit, foursplit,
             exchange, nolocal, double, scope_restart, missing_scope_join, empty_group_by_remote_leave,
@@ -756,6 +758,49 @@ second_monitor(Msgs) ->
         Msg ->
             second_monitor([Msg | Msgs])
     end.
+
+%% Test for GH-7625: monitor process that joined a group
+monitor_self(Config) when is_list(Config) ->
+    F = fun() ->
+        %% spawned process both monitor and group-joined
+        pg:monitor(?FUNCTION_NAME, ?FUNCTION_NAME),
+        pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, self())
+        end,
+    {Pid, Mon} = spawn_monitor(F),
+    receive
+        {'DOWN', Mon, process, Pid, Reason} ->
+            ?assertEqual(normal, Reason)
+    end,
+    %% if pg crashes, next expression fails the test
+    sync(?FUNCTION_NAME).
+
+%% check same process monitoring several things at once,
+%% and also joining a few groups
+multi_monitor(Config) when is_list(Config) ->
+    F = fun() ->
+        Self = self(),
+        %% spawned process both monitor and group-joined
+        {RefOne, []} = pg:monitor(?FUNCTION_NAME, one),
+        {RefTwo, []} = pg:monitor(?FUNCTION_NAME, two),
+        {RefScope, _} = pg:monitor_scope(?FUNCTION_NAME),
+        ok = pg:join(?FUNCTION_NAME, one, Self),
+        ok = pg:join(?FUNCTION_NAME, two, Self),
+        sync(?FUNCTION_NAME),
+        %% ensure receiving 4 messages: two per group this process
+        [wait_message(Ref, join, Group, [Self], "Local") || {Ref, Group} <-
+            [{RefOne, one}, {RefScope, one}, {RefTwo, two}, {RefScope, two}]]
+        end,
+    {Pid, Mon} = spawn_monitor(F),
+    receive
+        {'DOWN', Mon, process, Pid, Reason} ->
+            ?assertEqual(normal, Reason)
+    end,
+    %% if pg crashes, next expression fails the test
+    sync(?FUNCTION_NAME),
+    %% white box: pg should not have any group or scope monitors
+    {state, _, _, _, SM, GM, _} = sys:get_state(?FUNCTION_NAME),
+    ?assertEqual(#{}, SM),
+    ?assertEqual(#{}, GM).
 
 protocol_upgrade(Config) when is_list(Config) ->
     Scope = ?FUNCTION_NAME,
