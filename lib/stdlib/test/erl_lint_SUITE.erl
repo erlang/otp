@@ -83,7 +83,8 @@
          eep49/1,
          redefined_builtin_type/1,
          tilde_k/1,
-         match_float_zero/1]).
+         match_float_zero/1,
+         undefined_module/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -115,7 +116,8 @@ all() ->
      redefined_builtin_type,
      tilde_k,
      singleton_type_var_errors,
-     match_float_zero].
+     match_float_zero,
+     undefined_module].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -5211,6 +5213,16 @@ match_float_zero(Config) ->
                       {{4,16},erl_lint,match_float_zero}]}}
          ],
     [] = run(Config, Ts),
+
+    ok.
+
+%% GH-7655. When the module definition was missing, spurious
+%% diagnostics would be emitted for each spec.
+undefined_module(Config) ->
+    Code = <<"-spec foo() -> 'ok'.
+              foo() -> ok.
+             ">>,
+    {errors,[{{1,2},erl_lint,undefined_module}],[]} = run_test2(Config, Code, []),
 
     ok.
 

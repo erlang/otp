@@ -3187,19 +3187,26 @@ obsolete_builtin_type({Name, A}) when is_atom(Name), is_integer(A) -> no.
 
 %% spec_decl(Anno, Fun, Types, State) -> State.
 
-spec_decl(Anno, MFA0, TypeSpecs, St00 = #lint{specs = Specs, module = Mod}) ->
+spec_decl(Anno, MFA0, TypeSpecs, #lint{specs = Specs, module = Mod} = St0) ->
     MFA = case MFA0 of
 	      {F, Arity} -> {Mod, F, Arity};
 	      {_M, _F, Arity} -> MFA0
 	  end,
-    St0 = check_module_name(element(1, MFA), Anno, St00),
     St1 = St0#lint{specs = maps:put(MFA, Anno, Specs)},
     case is_map_key(MFA, Specs) of
 	true -> add_error(Anno, {redefine_spec, MFA0}, St1);
 	false ->
             St2 = case MFA of
-                      {Mod, _, _} -> St1;
-                      _ -> add_error(Anno, {bad_module, MFA}, St1)
+                      {Mod, _, _} ->
+                          St1;
+                      _ ->
+                          St1int = case MFA0 of
+                                       {M, _, _} ->
+                                           check_module_name(M, Anno, St1);
+                                       _ ->
+                                           St1
+                                   end,
+                          add_error(Anno, {bad_module, MFA}, St1int)
                   end,
             St3 = St2#lint{type_id = {spec, MFA}},
             check_specs(TypeSpecs, spec_wrong_arity, Arity, St3)
