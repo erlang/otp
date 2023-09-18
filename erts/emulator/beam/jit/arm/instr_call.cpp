@@ -79,16 +79,23 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
     auto src_index = Src.get();
     Sint deallocate = Deallocate.get() * sizeof(Eterm);
 
-    if (src_index == 0 && Support::isInt9(deallocate)) {
+    if (src_index == 0 && deallocate == 8) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(2 * deallocate);
+        a.ldp(dst.reg, a64::x30, src_ref);
+        flush_var(dst);
+        a.b(resolve_beam_label(CallTarget, disp128MB));
+    } else if (src_index == 0 && Support::isInt9(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const arm::Mem src_ref = arm::Mem(E).post(deallocate);
         a.ldr(dst.reg, src_ref);
         flush_var(dst);
+        emit_i_call_only(CallTarget);
     } else {
         mov_arg(Dst, Src);
         emit_deallocate(Deallocate);
+        emit_i_call_only(CallTarget);
     }
-    emit_i_call_only(CallTarget);
 }
 
 void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
@@ -151,16 +158,25 @@ void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
     auto src_index = Src.get();
     Sint deallocate = Deallocate.get() * sizeof(Eterm);
 
-    if (src_index == 0 && Support::isInt9(deallocate)) {
+    if (src_index == 0 && deallocate == 8) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(2 * deallocate);
+        mov_arg(ARG1, Exp);
+        arm::Mem target = emit_setup_dispatchable_call(ARG1);
+        a.ldp(dst.reg, a64::x30, src_ref);
+        flush_var(dst);
+        branch(target);
+    } else if (src_index == 0 && Support::isInt9(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const arm::Mem src_ref = arm::Mem(E).post(deallocate);
         a.ldr(dst.reg, src_ref);
         flush_var(dst);
+        emit_i_call_ext_only(Exp);
     } else {
         mov_arg(Dst, Src);
         emit_deallocate(Deallocate);
+        emit_i_call_ext_only(Exp);
     }
-    emit_i_call_ext_only(Exp);
 }
 
 static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
