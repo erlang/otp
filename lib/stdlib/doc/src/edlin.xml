@@ -36,10 +36,39 @@
     </p>
   </description>
   <section>
+    <title>Key configuration</title>
+    <p>You can setup a custom key configuration that overrides the default key configuration.
+    This is done by setting the stdlib application parameter <seeapp marker="STDLIB_app#shell_keymap"><c>shell_keymap</c></seeapp> before Erlang is started.
+    If you want to have the same keymap in all Erlang shells you can do so by putting a
+    <seefile marker="config">config</seefile> file in your user's home directory and then set
+    <seecom marker="erts:erl_cmd#ERL_FLAGS">ERL_FLAGS</seecom> to load it at startup.
+    For example:
+    </p>
+    <pre>
+$ cat $HOME/.erlang_keymap.config
+[{stdlib,
+  [{shell_keymap,
+    #{ normal => #{ "\^[A" => clear } }
+  }]
+}].
+$ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
+</pre>
+    <p>The current keymap configuration can be fetched through <seeerl marker="#keymap/0">edlin:keymap()</seeerl>.
+    If a custom keymap or keymap file is specified, then it will be merged with the default keymap.</p>
+  <p>The keymap is a map of maps where the keys in the parent map corresponds to different
+  editing modes in the shell. The valid modes currently supported are <c>normal</c> and <c>search</c>.</p>
+  <p>The keys in the child maps are the escape sequences that are sent from the terminal when a key is
+  pressed and each value is a valid action as seen below.</p>
+  <p>The default atom is used to specify that an action should happen when a key is pressed that does not
+  have any mapping. Typically used to exit a mode.</p>
+  <p>See <seeguide marker="erts:tty">tty - A Command-Line Interface</seeguide> for more information about the default keymap.</p>
+  </section>
+  <section>
     <title>Actions</title>
     <p>The commands below are the built-in action requests for switching input modes on the normal
     shell or navigating, or manipulating the line feed. The line feed supports multiple lines.
     </p>
+    
     <taglist>
       <tag><c>auto_blink</c></tag>
       <item>
@@ -197,4 +226,22 @@
       </item>
     </taglist>
   </section>
+  <datatypes>
+    <datatype>
+      <name name="keymap"/>
+      <desc><p>A map of maps for each shell mode containing key, action pairs.</p></desc>
+    </datatype>
+  </datatypes>
+  <funcs>
+    <func>
+      <name name="keymap" arity="0" since=""/>
+      <fsummary>Get current keymap for the shell.</fsummary>
+      <type name="keymap"/>
+      <desc>
+        <p>Get the current keymap used in the shell. Each key in the parent map represents a <em>shell mode</em> e.g. <c>normal</c> or <c>search</c>.
+        Each map associated with the <em>shell modes</em> contains <em>key sequences</em> represented as strings, paired with an <em>action</em>,
+        which is one of the valid actions mentioned above.</p>
+      </desc>
+    </func>
+  </funcs>
 </erlref>

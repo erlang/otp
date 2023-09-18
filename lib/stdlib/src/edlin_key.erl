@@ -21,12 +21,11 @@
 -export([get_key_map/0, get_valid_escape_key/2]).
 -import(lists, [reverse/1, reverse/2]).
 get_key_map() ->
-    KeyMapFile = application:get_env(kernel, shell_keymap, none),
-    case KeyMapFile of
+    KeyMap = application:get_env(stdlib, shell_keymap, none),
+    case KeyMap of
         none -> key_map();
-        _ -> process_lines(KeyMapFile)
+        _ -> merge(KeyMap)
     end.
-
 
 %% Incase we are receiving partial input, we need to wait for the rest of the input.
 %% We return a mode whenever we are waiting for more input.
@@ -113,97 +112,45 @@ get_valid_escape_key(Rest, {invalid, Acc}) ->
 get_valid_escape_key(Rest, Acc) ->
     {invalid, Acc, Rest}.
 
-process_lines(Filename) ->
-    try
-        {ok, Device} = file:open(Filename, [read]),
-        process_lines(Device, none, key_map(),1)
-    catch _:_ ->
-        io:format(standard_error, "Invalid keymap file: ~p~n", [Filename]),
-        key_map()
-    end.
-process_lines(Device, ShellMode, KeyMap,N) ->
-    case io:get_line(Device, '') of
-        eof  ->
-            _ = file:close(Device),
-            KeyMap;
-        Line ->
-            case process_line(Line, N) of
-                skip -> process_lines(Device, ShellMode, KeyMap, N+1);
-                {shell_mode, ShellMode1} ->
-                    process_lines(Device, ShellMode1, KeyMap, N+1);
-                {Key, Function} ->
-                        KeyMap1 = try
-                            Key1 = convert_escape(Key),
-                            %% Test that the key is a valid escape key, unless its the default atom
-                            _ = case Key1 of
-                                default -> skip;
-                                _ -> {key, Key1, []} = get_valid_escape_key(Key1, none)
-                            end,
-                            ShellModeKeyMap = maps:get(ShellMode, KeyMap),
-                            ShellModeKeyMap1 = ShellModeKeyMap#{
-                                Key1 => list_to_atom(Function)
-                            },
-                            KeyMap#{ShellMode => ShellModeKeyMap1}
-                        catch
-                            _:_ ->
-                                io:format(standard_error, "Invalid key ~p in entry ~w:~p~n", [Key,N,Line]),
-                                KeyMap
-                        end,
-                        process_lines(Device, ShellMode, KeyMap1, N+1)
+merge(KeyMap) ->
+    merge(KeyMap, [normal, search, tab_expand], key_map()).
+merge(_, [], KeyMap) ->
+    KeyMap;
+merge(InputKeyMap, [Mode|ShellModes], KeyMap) ->
+    InputKeyMapModeValidated = #{},
+    maps:foreach(fun(Key, Value) when is_list(Key), is_atom(Value) ->
+        try
+            {key, Key, []} = get_valid_escape_key(Key, none),
+            case lists:member(Value,valid_functions()) of
+                true -> InputKeyMapModeValidated#{Key => Value};
+                false -> io:format(standard_error, "Invalid function ~p in entry {~p,~p}~n", [Value, Key, Value])
             end
-    end.
-process_line([$#|_],_) ->
-    skip;
-process_line(Line,N) ->
-    Entry1 = case string:split(string:trim(Line), " #", leading) of
-        [Entry] -> Entry;
-        [Entry, _Comment] -> Entry
-    end,
-    case string:split(string:trim(Entry1), ": ", all) of
-        [Key, Function] ->
-            try
-                case lists:member(list_to_atom(Function),valid_functions()) of
-                    true -> {Key, Function};
-                    false ->
-                        io:format(standard_error, "Invalid function ~p in entry ~w:~p~n", [Function, N, Line]),
-                        skip
-                end
-            catch _:_ ->
-                io:format(standard_error, "Invalid function ~p in entry ~w:~p~n", [Function, N, Line]),
-                skip
+        catch
+            _:_ ->
+                io:format(standard_error, "Invalid key ~p in entry {~p,~p}~n", [Key,Key,Value])
+        end;
+        (default, Value) ->
+            case lists:member(Value,valid_functions()) of
+                true -> InputKeyMapModeValidated#{default => Value};
+                false -> io:format(standard_error, "Invalid function ~p in entry {default,~p}~n", [Value, Value])
             end;
-        ["[search]"] -> {shell_mode, search};
-        ["[tab_expand]"] -> {shell_mode, tab_expand};
-        _ -> skip
-    end.
-convert_escape("default") -> default;
-convert_escape([$\\, $n | Rest]) ->
-    [$\n | convert_escape(Rest)];
-convert_escape([$\\, $r | Rest]) ->
-    [$\r | convert_escape(Rest)];
-convert_escape([$\\, $t | Rest]) ->
-    [$\t | convert_escape(Rest)];
-convert_escape([$^, $[ | Rest]) ->
-    [$\e | convert_escape(Rest)];
-convert_escape([$^, $? | Rest]) ->
-    [$\^? | convert_escape(Rest)];
-convert_escape([$^, C | Rest]) ->
-    [C - $@ | convert_escape(Rest)];
-convert_escape(Same) ->
-    Same.
+        (Key,Value) ->
+            io:format(standard_error, "Invalid entry {~p,~p}~n", [Key, Value])
+    end, maps:get(Mode, InputKeyMap, #{})),
+    KeyMap1 = KeyMap#{Mode => maps:merge(maps:get(Mode, KeyMap), InputKeyMapModeValidated)},
 
+    merge(InputKeyMap, ShellModes, KeyMap1).
 
 %% Default Keymap for erl shell.
 %% This is a keymap that corresponds to what was previously
 %% configured in edlin.erl.
 %% They are now in a map of maps that supports multiple shell modes,
-%% none (normal), search, expand.
+%% normal, search, expand.
 %%
 %% See below for unused keys.
 %%
-
 key_map() -> #{
-        none => normal_map(),
+        normal => normal_map(),
         search => #{
             "\^R" => skip_up,
             "\^S" => skip_down,
@@ -270,8 +217,8 @@ normal_map() ->
         "\^[L" => redraw_line,
         "\^[l" => redraw_line,
         "\^[o" => open_editor,
-        "\^[T" => transpose_word2,
-        "\^[t" => transpose_word2,
+        "\^[T" => transpose_word,
+        "\^[t" => transpose_word,
         "\^[<" => beginning_of_expression,
         "\^[>" => end_of_expression,
 

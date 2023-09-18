@@ -29,10 +29,12 @@
 
 -export([edit_line1/2]).
 -export([inverted_space_prompt/1]).
+-export([keymap/0]).
 -import(lists, [reverse/1, reverse/2]).
 
 -export([over_word/3]).
 
+-type keymap() :: #{atom() => #{string()|default => atom()}}.
 
 %% A Continuation has the structure:
 %%	{line,Prompt,{LinesBefore,{ColumnsBefore, ColumnsAfter},LinesAfter},{ShellMode, EscapePrefix}}
@@ -68,33 +70,41 @@ init(Pid) ->
 %%	{blink,Cont,Requests}
 
 start(Pbs) ->
-    start(Pbs, {none,none}).
+    start(Pbs, {normal,none}).
 
 %% Only two modes used: 'none' and 'search'. Other modes can be
 %% handled inline through specific character handling.
+start(Pbs, {_,{_,_},[]}=Cont) ->
+    %% Skip redraw if the cursor is at the end.
+    {more_chars,{line,Pbs,Cont,{normal,none}},[{insert_chars,unicode,multi_line_prompt(Pbs)}]};
+
 start(Pbs, {_,{_,_},_}=Cont) ->
-    {more_chars,{line,Pbs,Cont,{none,none}},redraw(Pbs, Cont, [])};
+    {more_chars,{line,Pbs,Cont,{normal,none}},redraw(Pbs, Cont, [])};
 
 start(Pbs, EditState) ->
     {more_chars,{line,Pbs,{[],{[],[]},[]},EditState},[new_prompt, {insert_chars,unicode,Pbs}]}.
 
+-spec keymap() -> keymap().
+keymap() ->
+    get(key_map).
+
 edit_line(Cs, {line,P,L,{blink,N_Rs}}) ->
-    edit(Cs, P, L, {none, none}, N_Rs);
+    edit(Cs, P, L, {normal, none}, N_Rs);
 edit_line(Cs, {line,P,L,M}) ->
     edit(Cs, P, L, M, []).
 
 edit_line1(Cs, {line,P,L,{blink,N_Rs}}) ->
-    edit(Cs, P, L, {none, none}, N_Rs);
-edit_line1(Cs, {line,P,{B,{[],[]},A},{none,none}}) ->
+    edit(Cs, P, L, {normal, none}, N_Rs);
+edit_line1(Cs, {line,P,{B,{[],[]},A},{normal,none}}) ->
     [CurrentLine|Lines] = [string:to_graphemes(Line) || Line <- reverse(string:split(Cs, "\n",all))],
     Cont = {Lines ++ B,{reverse(CurrentLine),[]},A},
     Rs = redraw(P, Cont, []),
-    {more_chars, {line,P,Cont,{none,none}},[delete_line|Rs]};
+    {more_chars, {line,P,Cont,{normal,none}},[delete_line|Rs]};
 edit_line1(Cs, {line,P,L,M}) ->
     edit(Cs, P, L, M, []).
 
 edit([C|Cs], P, Line, {blink,_}, [_|Rs]) ->	%Remove blink here
-    edit([C|Cs], P, Line, {none,none}, Rs);
+    edit([C|Cs], P, Line, {normal,none}, Rs);
 edit([], P, L, {blink,N}, Rs) ->
     {blink,{line,P,L, {blink,N}},reverse(Rs)};
 edit([], P, L, EditState, Rs) ->
@@ -109,7 +119,7 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode, EscapePrefix}, Rs0) ->
     case edlin_key:get_valid_escape_key(Buf, EscapePrefix) of
         {escape_prefix, EscapePrefix1} ->
             case ShellMode of
-                tab_expand -> edit(Buf, P, MultiLine, {none, none}, Rs0);
+                tab_expand -> edit(Buf, P, MultiLine, {normal, none}, Rs0);
                 _ -> edit([], P, MultiLine, {ShellMode, EscapePrefix1}, Rs0)
             end;
         {invalid, _I, Rest} ->
@@ -119,22 +129,22 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode, EscapePrefix}, Rs0) ->
             %% we could in theory override it in the keymap,
             %% but lets not for now.
             Op = case ShellMode of
-                none when C1 =:= $) ->
+                normal when C1 =:= $) ->
                     {blink,$),$(};
-                none when C1 =:= $] ->
+                normal when C1 =:= $] ->
                     {blink,$],$[};
-                none when C1 =:= $} ->
+                normal when C1 =:= $} ->
                     {blink,$},${};
-                none -> {insert, C1};
+                normal -> {insert, C1};
                 search when $\s =< C1 ->{insert_search, C1};
                 search -> search_quit;
                 tab_expand -> tab_expand_quit
             end,
             case Op of
                 tab_expand_quit ->
-                    edit(Buf, P, MultiLine, {none,none}, Rs0);
+                    edit(Buf, P, MultiLine, {normal,none}, Rs0);
                 search_quit ->
-                    {search_quit,Cs2,{line,P,MultiLine,{none, none}},reverse(Rs0)};
+                    {search_quit,Cs2,{line,P,MultiLine,{normal, none}},reverse(Rs0)};
                 _ ->
                     case do_op(Op, MultiLine, Rs0) of
                         {blink,N,MultiLine1,Rs} ->
@@ -157,17 +167,17 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode, EscapePrefix}, Rs0) ->
                 {ok, Value0} -> Value0
             end,
             case Value of
-                none -> edit(Cs, P, MultiLine, {none,none}, Rs0);
-                search -> {search,Cs,{line,P,MultiLine,{none, none}},reverse(Rs0)};
-                search_found -> {search_found,Cs,{line,P,MultiLine,{none, none}},reverse(Rs0)};
-                search_cancel -> {search_cancel,Cs,{line,P,MultiLine,{none, none}},reverse(Rs0)};
-                search_quit -> {search_quit,Cs,{line,P,MultiLine,{none, none}},reverse(Rs0)};
-                open_editor -> {open_editor,Cs,{line,P,MultiLine,{none, none}},reverse(Rs0)};
-                history_up -> {history_up,Cs,{line,P,MultiLine,{none, none}},reverse(Rs0)};
-                history_down -> {history_down,Cs,{line,P,MultiLine,{none, none}},reverse(Rs0)};
+                none -> edit(Cs, P, MultiLine, {normal,none}, Rs0);
+                search -> {search,Cs,{line,P,MultiLine,{normal, none}},reverse(Rs0)};
+                search_found -> {search_found,Cs,{line,P,MultiLine,{normal, none}},reverse(Rs0)};
+                search_cancel -> {search_cancel,Cs,{line,P,MultiLine,{normal, none}},reverse(Rs0)};
+                search_quit -> {search_quit,Cs,{line,P,MultiLine,{normal, none}},reverse(Rs0)};
+                open_editor -> {open_editor,Cs,{line,P,MultiLine,{normal, none}},reverse(Rs0)};
+                history_up -> {history_up,Cs,{line,P,MultiLine,{normal, none}},reverse(Rs0)};
+                history_down -> {history_down,Cs,{line,P,MultiLine,{normal, none}},reverse(Rs0)};
                 new_line ->
                     MultiLine1 = {[lists:reverse(Bef)|LB],{[],Aft},LA},
-                    edit(Cs, P, MultiLine1, {none, none}, reverse(redraw(P, MultiLine1, Rs0)));
+                    edit(Cs, P, MultiLine1, {normal, none}, reverse(redraw(P, MultiLine1, Rs0)));
                 new_line_finish ->
                     % Move to end
                     {{LB1,{Bef1,[]},[]}, Rs1} = do_op(end_of_expression, MultiLine, Rs0),
@@ -175,10 +185,10 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode, EscapePrefix}, Rs0) ->
                 redraw_line ->
                     Rs1 = erase_line(Rs0),
                     Rs = redraw(P, MultiLine, Rs1),
-                    edit(Cs, P, MultiLine, {none, none}, Rs);
+                    edit(Cs, P, MultiLine, {normal, none}, Rs);
                 clear ->
                     Rs = redraw(P, MultiLine, [clear|Rs0]),
-                    edit(Cs, P, MultiLine, {none, none}, Rs);
+                    edit(Cs, P, MultiLine, {normal, none}, Rs);
                 tab_expand ->
                     {expand, chars_before(MultiLine), Cs,
                      {line, P, MultiLine, {tab_expand, none}},
@@ -189,7 +199,7 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode, EscapePrefix}, Rs0) ->
                      reverse(Rs0)};
                 tab_expand_quit ->
                     %% When exiting tab expand mode, we want to evaluate the key in normal mode
-                    edit(Buf, P, MultiLine, {none,none}, Rs0);
+                    edit(Buf, P, MultiLine, {normal,none}, Rs0);
                 Op ->
                     Op1 = case ShellMode of
                         search ->
@@ -200,7 +210,7 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode, EscapePrefix}, Rs0) ->
                         {blink,N,MultiLine1,Rs} ->
                             edit(Cs, P, MultiLine1, {blink,N}, Rs);
                         {redraw, MultiLine1, Rs} ->
-                            edit(Cs, P, MultiLine1, {none, none}, redraw(P, MultiLine1, Rs));
+                            edit(Cs, P, MultiLine1, {normal, none}, redraw(P, MultiLine1, Rs));
                         {MultiLine1,Rs} ->
                             edit(Cs, P, MultiLine1, {ShellMode, none}, Rs)
                     end
@@ -294,41 +304,13 @@ do_op(backward_delete_word, {LB,{Bef0, Aft},LA}, Rs) ->
     {Bef,Kill,N} = over_word(Bef1, Kill0, N0),
     put(kill_buffer, Kill),
     {{LB,{Bef,Aft},LA},[{delete_chars,-N}|Rs]};
-do_op(forward_delete_word2, {LB,{Bef, []},[NextLine|LA]}, Rs) ->
-    NewLine = {LB, {Bef, NextLine}, LA},
-    {redraw, NewLine, Rs};
-do_op(forward_delete_word2, {LB,{Bef, Aft0},LA}, Rs) ->
-    {Aft1,Kill0,N0} = over_non_word(Aft0, [], 0),
-    {Aft,Kill,N} = case N0 of
-        0 -> over_word(Aft1, Kill0, N0);
-        _ -> {Aft1,Kill0,N0}
-    end,
-    put(kill_buffer, reverse(Kill)),
-    {{LB, {Bef,Aft}, LA},[{delete_chars,N}|Rs]};
-do_op(backward_delete_word2, {[PrevLine|LB],{[], Aft},LA}, Rs) ->
-    NewLine = {LB, {lists:reverse(PrevLine), Aft}, LA},
-    {redraw, NewLine,Rs};
-do_op(backward_delete_word2, {LB,{Bef0, Aft},LA}, Rs) ->
-    {Bef1,Kill0,N0} = over_non_word(Bef0, [], 0),
-    {Bef,Kill,N} = case N0 of
-        0 -> over_word(Bef1, Kill0, N0);
-        _ -> {Bef1,Kill0,N0}
-    end,
-    put(kill_buffer, Kill),
-    {{LB,{Bef,Aft},LA},[{delete_chars,-N}|Rs]};
 do_op(transpose_char, {LB,{[C1,C2|Bef], []},LA}, Rs) ->
     Len = gc_len(C1)+gc_len(C2),
     {{LB, {[C2,C1|Bef],[]}, LA},[{insert_chars_over, unicode,[C1,C2]},{move_rel,-Len}|Rs]};
 do_op(transpose_char, {LB,{[C2|Bef], [C1|Aft]},LA}, Rs) ->
     Len = gc_len(C2),
     {{LB, {[C2,C1|Bef],Aft}, LA},[{insert_chars_over, unicode,[C1,C2]},{move_rel,-Len}|Rs]};
-do_op(transpose_word, {LB,{Bef0, Aft},LA}, Rs) ->
-    {Bef1,Word2,N0} = over_word(Bef0, [], 0),
-    {Bef2,NonWord,N1} = over_non_word(Bef1, [], N0),
-    {Bef3,Word1,N2} = over_word(Bef2, [], N1),
-    TransposedWords = Word2++NonWord++Word1,
-    {{LB, {reverse(TransposedWords)++Bef3,Aft}, LA},[{insert_chars_over, unicode, TransposedWords}, {move_rel, -N2}|Rs]};
-do_op(transpose_word2, {LB,{Bef0, Aft0},LA}, Rs) ->
+do_op(transpose_word, {LB,{Bef0, Aft0},LA}, Rs) ->
     {Aft1,Word2A,N0} = over_word(Aft0, [], 0),
     {Bef, TransposedWords, Aft, N} = case N0 of
         0 -> {Aft2,NonWord,N1} = over_non_word(Aft1, [], 0),
@@ -367,22 +349,6 @@ do_op(kill_word, {LB,{Bef, Aft0},LA}, Rs) ->
 do_op(backward_kill_word, {LB,{Bef0, Aft},LA}, Rs) ->
     {Bef1,Kill0,N0} = over_non_word(Bef0, [], 0),
     {Bef,Kill,N} = over_word(Bef1, Kill0, N0),
-    put(kill_buffer, Kill),
-    {{LB,{Bef,Aft},LA},[{delete_chars,-N}|Rs]};
-do_op(kill_word2, {LB,{Bef, Aft0},LA}, Rs) ->
-    {Aft1,Kill0,N0} = over_non_word(Aft0, [], 0),
-    {Aft,Kill,N} = case N0 of
-        0 -> over_word(Aft1, Kill0, N0);
-        _ -> {Aft1,Kill0,N0}
-    end,
-    put(kill_buffer, reverse(Kill)),
-    {{LB, {Bef,Aft}, LA},[{delete_chars,N}|Rs]};
-do_op(backward_kill_word2, {LB,{Bef0, Aft},LA}, Rs) ->
-    {Bef1,Kill0,N0} = over_non_word(Bef0, [], 0),
-    {Bef,Kill,N} = case N0 of
-        0 -> over_word(Bef1, Kill0, N0);
-        _ -> {Bef1,Kill0,N0}
-    end,
     put(kill_buffer, Kill),
     {{LB,{Bef,Aft},LA},[{delete_chars,-N}|Rs]};
 do_op(kill_line, {LB, {Bef, Aft}, LA}, Rs) ->
@@ -429,24 +395,6 @@ do_op(backward_word, {[PrevLine|LB],{[], Aft0},LA}, Rs) ->
 do_op(backward_word, {LB,{Bef0, Aft0},LA}, Rs) ->
     {Bef1,Aft1,N0} = over_non_word(Bef0, Aft0, 0),
     {Bef,Aft,N} = over_word(Bef1, Aft1, N0),
-    {{LB, {Bef,Aft}, LA},[{move_rel,-N}|Rs]};
-do_op(forward_word2, {LB,{Bef0, []},[NextLine|LA]}, Rs) ->
-    {{[reverse(Bef0)|LB], {[], NextLine}, LA},[{move_combo, -cp_len(Bef0), 1, 0}|Rs]};
-do_op(forward_word2, {LB,{Bef0, Aft0},LA}, Rs) ->
-    {Aft1,Bef1,N0} = over_non_word(Aft0, Bef0, 0),
-    {Aft, Bef, N} = case N0 of
-        0 -> over_word(Aft1, Bef1, 0);
-        _ -> {Aft1, Bef1, N0}
-    end,
-    {{LB, {Bef,Aft}, LA},[{move_rel,N}|Rs]};
-do_op(backward_word2, {[PrevLine|LB],{[], Aft0},LA}, Rs) ->
-    {{LB, {reverse(PrevLine), []}, [Aft0|LA]},[{move_combo, 0, -1, cp_len(PrevLine)}|Rs]};
-do_op(backward_word2, {LB,{Bef0, Aft0},LA}, Rs) ->
-    {Bef1,Aft1,N0} = over_non_word(Bef0, Aft0, 0),
-    {Bef,Aft,N} = case N0 of
-        0 -> over_word(Bef1, Aft1, N0);
-        _ -> {Bef1, Aft1, N0}
-    end,
     {{LB, {Bef,Aft}, LA},[{move_rel,-N}|Rs]};
 do_op(beginning_of_expression, {[],{[], Aft},LA}, Rs) ->
     {{[], {[],Aft}, LA},Rs};
