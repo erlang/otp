@@ -1212,7 +1212,7 @@ shell_ignore_pager_commands(Config) ->
     end.
 test_valid_keymap(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
-    Term = setup_tty([{args, ["-kernel", "shell_keymap", "\"" ++ DataDir ++ "valid_keymap.toml\""]} | Config]),
+    Term = setup_tty([{args, ["-config", DataDir ++ "valid_keymap.config"]} | Config]),
     try
         check_not_in_content(Term, "Invalid key"),
         check_not_in_content(Term, "Invalid function"),
@@ -1227,27 +1227,16 @@ test_valid_keymap(Config) when is_list(Config) ->
 
 test_invalid_keymap(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
-    Term1 = setup_tty([{args, ["-kernel", "shell_keymap", "\"" ++ DataDir ++ "nope.toml\""]} | Config]),
+    Term1 = setup_tty([{args, ["-config", DataDir ++ "invalid_keymap.config"]} | Config]),
     try
-        check_content(Term1, "Invalid keymap file:"),
+        check_content(Term1, "Invalid key"),
+        check_content(Term1, "Invalid function"),
         send_tty(Term1, "asdf"),
         send_tty(Term1, "C-u"),
         check_content(Term1, ">$"),
         ok
     after
         stop_tty(Term1),
-        ok
-    end,
-    Term2 = setup_tty([{args, ["-kernel", "shell_keymap", "\"" ++ DataDir ++ "invalid_keymap.toml\""]} | Config]),
-    try
-        check_content(Term2, "Invalid key"),
-        check_content(Term2, "Invalid function"),
-        send_tty(Term2, "asdf"),
-        send_tty(Term2, "C-u"),
-        check_content(Term2, ">$"),
-        ok
-    after
-        stop_tty(Term2),
         ok
     end.
 external_editor(Config) ->

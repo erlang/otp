@@ -65,7 +65,11 @@
       <tag><marker id="shell_history_length"/><c>shell_history_length = integer() >= 0</c></tag>
       <item>
         <p>Can be used to determine how many commands are saved by the Erlang
-          shell.</p>
+          shell. See <seeerl marker="edlin"><c>edlin</c></seeerl> for more.</p>
+      </item>
+      <tag><marker id="shell_keymap"/><c>shell_keymap = #{}</c></tag>
+      <item>
+        <p>Can be used to override the default keymap configuration for the shell.</p>
       </item>
       <tag><marker id="shell_prompt_func"/><c>shell_prompt_func = {Mod, Func} | default</c></tag>
       <item>

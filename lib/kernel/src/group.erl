@@ -716,7 +716,7 @@ get_line1({search_found,_Cs,_,Rs}, Drv, Shell, Ls0, Encoding) ->
     Prompt = edlin:prompt(get(search_quit_prompt)),
     send_drv_reqs(Drv, Rs),
     send_drv_reqs(Drv, edlin:erase_line()),
-    send_drv_reqs(Drv, edlin:redraw_line({line, Prompt, LineCont, {none,none}})),
+    send_drv_reqs(Drv, edlin:redraw_line({line, Prompt, LineCont, {normal,none}})),
     put(search_result, []),
     get_line1({done, LineCont, "\n", Rs}, Drv, Shell, Ls0, Encoding);
 %% The search mode has been exited, but the user wants to remain in line
@@ -731,7 +731,7 @@ get_line1({search_quit,_Cs,_,Rs}, Drv, Shell, Ls, Encoding) ->
                     _  -> [Last|LB] = lists:reverse(SearchResult),
                           {LB, {lists:reverse(Last), []}, []}
                 end,
-            NCont = {line,Prompt,L,{none,none}},
+            NCont = {line,Prompt,L,{normal,none}},
             put(search_result, []),
             send_drv_reqs(Drv, [delete_line|Rs]),
             send_drv_reqs(Drv, edlin:redraw_line(NCont)),

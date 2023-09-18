@@ -41,12 +41,16 @@
   <pre>
 erl</pre>
 
-  <p><c><![CDATA[tty]]></c> operates in one of two modes:</p>
+  <p><c><![CDATA[tty]]></c> operates in several different modes:</p>
 
   <list type="bulleted">
     <item>
       <p>Normal mode, in which text lines can be edited and sent to the
       shell.</p>
+    </item>
+    <item>
+      <p>Search mode, in which the user can search for previous commands in
+        the history buffer.</p>
     </item>
     <item>
       <p>Shell break mode, which allows the user to kill the current shell,
@@ -66,6 +70,8 @@ erl</pre>
     <list type="bulleted">
       <item><c>C-a</c> means pressing the <em>Ctrl</em> key and the letter
         <c>a</c> simultaneously.</item>
+      <item><c>C-S-a</c> means pressing the <em>Ctrl</em> key, the <em>Shift</em>
+        key, and the letter <c>a</c> simultaneously.</item>
       <item><c>M-f</c> means pressing the <em>Esc</em> key and the letter
         <c>f</c> in sequence or pressing the <em>Alt</em> key and the letter
         <c>f</c> simultaneously.</item>
@@ -95,7 +101,7 @@ erl</pre>
         <cell align="left" valign="middle">Backward character</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">C-Left</cell>
+        <cell align="left" valign="middle">C-Left<br />M-Left</cell>
         <cell align="left" valign="middle">Backward word</cell>
       </row>
       <row>
@@ -123,7 +129,7 @@ erl</pre>
         <cell align="left" valign="middle">Forward character</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">C-Right</cell>
+        <cell align="left" valign="middle">C-Right<br />M-Right</cell>
         <cell align="left" valign="middle">Forward word</cell>
       </row>
       <row>
@@ -147,6 +153,10 @@ erl</pre>
         <cell align="left" valign="middle">Clears the screen</cell>
       </row>
       <row>
+        <cell align="left" valign="middle">M-c</cell>
+        <cell align="left" valign="middle">Clears the current expression</cell>
+      </row>
+      <row>
         <cell align="left" valign="middle">M-l</cell>
         <cell align="left" valign="middle">Redraw line</cell>
       </row>
@@ -156,7 +166,7 @@ erl</pre>
           buffer</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">C-o</cell>
+        <cell align="left" valign="middle">C-o<br />M-o</cell>
         <cell align="left" valign="middle">Edit the current line using the editor specified in
           the environment variable <c>VISUAL</c> or <c>EDITOR</c>. The environment variables can
           contain arguments to the editor if needed, for example <c>VISUAL="emacs -nw"</c>.
@@ -169,7 +179,11 @@ erl</pre>
       </row>
       <row>
         <cell align="left" valign="middle">C-r</cell>
-        <cell align="left" valign="middle">Search the shell history</cell>
+        <cell align="left" valign="middle">Enter search mode and then search backward in the shell history</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-s</cell>
+        <cell align="left" valign="middle">In search mode, search forward in the shell history</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-t</cell>
@@ -206,6 +220,10 @@ erl</pre>
       <row>
         <cell align="left" valign="middle">M-&gt;<br />M-S-Down</cell>
         <cell align="left" valign="middle">Navigate to the end of the current expression</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Tab<br />C-i</cell>
+        <cell align="left" valign="middle">Autocomplete current expression, or show completion suggestions</cell>
       </row>
       <row>
         <cell align="left" valign="middle">M-c</cell>
