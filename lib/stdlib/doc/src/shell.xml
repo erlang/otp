@@ -44,7 +44,7 @@
       tty - A Command-Line Interface</seeguide> in the ERTS User's Guide
       for a list of all available shortcuts.
       You may also change the shortcuts to suit your preferences more, see
-      <seeguide marker="stdlib:edlin">edlin - line editor in the shell</seeguide>.</p>
+      <seeerl marker="stdlib:edlin">edlin - line editor in the shell</seeerl>.</p>
 
     <p>A history mechanism saves previous commands and their
       values, which can then be incorporated in later commands.
