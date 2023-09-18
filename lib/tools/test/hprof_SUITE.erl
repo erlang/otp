@@ -132,10 +132,16 @@ set_on_spawn(Config) when is_list(Config) ->
     %% only 1 process must be there
     ?assertEqual(1, maps:size(hprof:inspect(Profile)), {set_on_spawn, Profile}),
     %% check per-process stats
-    ?assertMatch({?MODULE, {_, 0}, 1, 9, 9, _}, lists:keyfind(?MODULE, 1, TotalProfile)),
+    case erlang:system_info(wordsize) of
+        8 -> ?assertMatch({?MODULE, {_, 0}, 1, 9, 9, _}, lists:keyfind(?MODULE, 1, TotalProfile));
+        4 -> ?assertMatch({?MODULE, {_, 0}, 1, 10, 10, _}, lists:keyfind(?MODULE, 1, TotalProfile))
+    end,
     %% MFA takes 6 more words. This test should be improved to depend less on the internal
     %%  implementation.
-    ?assertMatch({?MODULE, {seq, 1}, 1, 13, 13, _}, lists:keyfind(?MODULE, 1, TotalProfileMFA)).
+    case erlang:system_info(wordsize) of
+        8 -> ?assertMatch({?MODULE, {seq, 1}, 1, 13, 13, _}, lists:keyfind(?MODULE, 1, TotalProfileMFA));
+        4 -> ?assertMatch({?MODULE, {seq, 1}, 1, 14, 14, _}, lists:keyfind(?MODULE, 1, TotalProfileMFA))
+    end.
 
 seq(Max) ->
     {Pid, MRef} = spawn_monitor(fun () -> lists:seq(1, Max) end),
