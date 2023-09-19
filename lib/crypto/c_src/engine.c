@@ -19,6 +19,7 @@
  */
 
 #include "engine.h"
+#include "info.h"
 
 #ifdef HAS_ENGINE_SUPPORT
 struct engine_ctx {
@@ -110,12 +111,13 @@ static int zero_terminate(ErlNifBinary bin, char **buf) {
 }
 #endif /* HAS_ENGINE_SUPPORT */
 
-int init_engine_ctx(ErlNifEnv *env) {
+int init_engine_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
 #ifdef HAS_ENGINE_SUPPORT
-    engine_ctx_rtype = enif_open_resource_type(env, NULL, "ENGINE_CTX",
-                                                   (ErlNifResourceDtor*) engine_ctx_dtor,
-                                                   ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
-                                                   NULL);
+    engine_ctx_rtype = enif_open_resource_type(env, NULL,
+                                               resource_name("ENGINE_CTX", rt_buf),
+                                               (ErlNifResourceDtor*) engine_ctx_dtor,
+                                               ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                               NULL);
     if (engine_ctx_rtype == NULL) {
         PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
         return 0;

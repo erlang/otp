@@ -25,7 +25,7 @@
 
 #if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC
 
-int init_hmac_ctx(ErlNifEnv *env);
+int init_hmac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf);
 
 ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);

@@ -20,6 +20,7 @@
 
 #include "hash.h"
 #include "digest.h"
+#include "info.h"
 
 #ifdef HAVE_MD5
 #  define MD5_CTX_LEN       (sizeof(MD5_CTX))
@@ -48,9 +49,10 @@ static void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
 }
 #endif
 
-int init_hash_ctx(ErlNifEnv* env) {
+int init_hash_ctx(ErlNifEnv* env, ErlNifBinary* rt_buf) {
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
+    evp_md_ctx_rtype = enif_open_resource_type(env, NULL,
+                                               resource_name("EVP_MD_CTX", rt_buf),
                                                (ErlNifResourceDtor*) evp_md_ctx_dtor,
                                                ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                NULL);

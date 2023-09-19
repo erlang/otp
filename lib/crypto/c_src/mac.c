@@ -24,6 +24,7 @@
 #include "cmac.h"
 #include "hmac.h"
 #include "mac.h"
+#include "info.h"
 
 /***************************
      MAC type declaration
@@ -493,8 +494,6 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  *
  ******************************************************************/
 
-int init_mac_ctx(ErlNifEnv *env);
-
 struct mac_context
 {
 #if defined(HAS_3_0_API)
@@ -508,8 +507,9 @@ static ErlNifResourceType* mac_context_rtype;
 
 static void mac_context_dtor(ErlNifEnv* env, struct mac_context*);
 
-int init_mac_ctx(ErlNifEnv *env) {
-    mac_context_rtype = enif_open_resource_type(env, NULL, "mac_context",
+int init_mac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
+    mac_context_rtype = enif_open_resource_type(env, NULL,
+                                                resource_name("mac_context", rt_buf),
                                                 (ErlNifResourceDtor*) mac_context_dtor,
                                                 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                 NULL);

@@ -19,6 +19,7 @@
  */
 
 #include "cipher.h"
+#include "info.h"
 
 #define NOT_AEAD {{0,0,0}}
 #define AEAD_CTRL {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}
@@ -164,8 +165,9 @@ static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
 #endif
 }
 
-int init_cipher_ctx(ErlNifEnv *env) {
-    evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_CIPHER_CTX",
+int init_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
+    evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL,
+                                                   resource_name("EVP_CIPHER_CTX", rt_buf),
                                                    (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
                                                    ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                    NULL);

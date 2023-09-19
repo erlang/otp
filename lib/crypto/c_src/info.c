@@ -87,6 +87,23 @@ void error_handler(void* null, const char* errstr)
 }
 #endif /* HAVE_DYNAMIC_CRYPTO_LIB */
 
+const char* resource_name(const char *name, ErlNifBinary* buf)
+{
+    /*
+     * Add full OpenSSL version string. This is a simlpe but conservative way
+     * to detect and reject resource takover between different versions
+     * of OpenSSL that might not be binary compatible.
+     */
+    size_t len;
+    for (;;) {
+        len = enif_snprintf((char*)buf->data, buf->size, "%s:%s",
+                            name, OpenSSL_version(OPENSSL_VERSION));
+        if (len < buf->size)
+            return (char*)buf->data;
+        enif_realloc_binary(buf, len + 1 + 20);
+    }
+}
+
 
 ERL_NIF_TERM info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* () */

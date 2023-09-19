@@ -23,7 +23,7 @@
 
 #include "common.h"
 
-int init_hash_ctx(ErlNifEnv *env);
+int init_hash_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf);
 
 ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);

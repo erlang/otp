@@ -73,7 +73,7 @@ struct evp_cipher_ctx {
 
 ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-int init_cipher_ctx(ErlNifEnv *env);
+int init_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf);
 
 void init_cipher_types(ErlNifEnv* env);
 const struct cipher_type_t* get_cipher_type_no_key(ERL_NIF_TERM type);
