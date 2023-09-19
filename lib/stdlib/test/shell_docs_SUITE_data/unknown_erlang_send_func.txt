@@ -1,0 +1,50 @@
+
+  [;1m-spec erlang:send(Dest, Msg) -> Msg[0m
+  [;1m                     when Dest :: send_destination(), Msg :: term().[0m
+
+  Sends a message and returns [;;4mMsg[0m. This is the same as using the 
+  send operator: [;;4mDest ! Msg[0m.
+
+  [;;4mDest[0m can be a remote or local process identifier, an alias, a
+  (local) port, a locally registered name, or a tuple [;;4m{RegName,[0m
+  [;;4mNode}[0m for a registered name at another node.
+
+  The function fails with a [;;4mbadarg[0m run-time error if [;;4mDest[0m is an
+  atom name, but this name is not registered. This is the only case
+  when [;;4msend[0m fails for an unreachable destination [;;4mDest[0m (of
+  correct type).
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.
+
+  [;1m-spec erlang:send(Dest, Msg, Options) -> Res[0m
+  [;1m                     when[0m
+  [;1m                         Dest :: send_destination(),[0m
+  [;1m                         Msg :: term(),[0m
+  [;1m                         Options :: [nosuspend | noconnect],[0m
+  [;1m                         Res :: ok | nosuspend | noconnect.[0m
+
+  Either sends a message and returns [;;4mok[0m, or does not send the
+  message but returns something else (see below). Otherwise the same
+  as [;;4merlang:send/2[0m. For more detailed explanation and warnings,
+  see [;;4merlang:send_nosuspend/2,3[0m.
+
+  Options:
+
+  [;;4m[;;4mnosuspend[0m[0m:
+    If the sender would have to be suspended to do the send, [;;4m[0m
+    [;;4mnosuspend[0m is returned instead.
+
+  [;;4m[;;4mnoconnect[0m[0m:
+    If the destination node would have to be auto-connected to do
+    the send, [;;4mnoconnect[0m is returned instead.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.
+
+  Warning:
+    As with [;;4merlang:send_nosuspend/2,3[0m: use with extreme care.
