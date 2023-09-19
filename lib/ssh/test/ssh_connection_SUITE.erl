@@ -25,8 +25,6 @@
 -include("ssh_connect.hrl").
 -include("ssh_test_lib.hrl").
 
-
-
 -export([
          suite/0,
          all/0,
@@ -90,6 +88,7 @@
          start_exec_direct_fun1_read_write/1,
          start_exec_direct_fun1_read_write_advanced/1,
          start_shell/1,
+         new_shell_dumb_term/1,
          start_shell_pty/1,
          start_shell_exec/1,
          start_shell_exec_direct_fun/1,
@@ -130,6 +129,7 @@ all() ->
      exec_disabled,
      exec_shell_disabled,
      start_shell,
+     new_shell_dumb_term,
      start_shell_pty,
      start_shell_exec,
      start_shell_exec_fun,
@@ -759,6 +759,59 @@ start_shell(Config) when is_list(Config) ->
 						      {user_dir, UserDir}]),
     test_shell_is_enabled(ConnectionRef, <<"Enter command">>), % No pty alloc by erl client
     test_exec_is_disabled(ConnectionRef),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+new_shell_dumb_term(Config) when is_list(Config) ->
+    new_shell_helper(#{term => "dumb",
+                       cmds => ["one_atom_please.\n",
+                                "\^R" % attempt to trigger history search
+                               ],
+                       exp_output =>
+                           [<<"Enter command\r\n">>,
+                            <<"1> ">>,
+                            <<"one_atom_please.\r\n">>,
+                            <<"{simple_eval,one_atom_please}\r\n">>,
+                            <<"2> ">>],
+                       unexp_output =>
+                           [<<"\e[;1;4msearch:\e[0m ">>]},
+                    Config).
+
+new_shell_helper(#{term := Term, cmds := Cmds,
+                   exp_output := ExpectedOutput,
+                   unexp_output := UnexpectedOutput}, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+                                             {subsystems, []},
+                                             {keepalive, true},
+                                             {nodelay, true},
+                                             {shell, fun(U, H) ->
+                                                             start_our_shell2(U, H)
+                                                     end}
+                                            ]),
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_dir, UserDir}]),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success =
+        ssh_connection:ptty_alloc(ConnectionRef, ChannelId,
+                                  [{term, Term}, {hight, 24}, {width,1023}],
+                                  infinity),
+    ok = ssh_connection:shell(ConnectionRef,ChannelId),
+    [ssh_connection:send(ConnectionRef, ChannelId, C) || C <- Cmds],
+    GetTuple = fun(Bin) -> {ssh_cm, ConnectionRef, {data,ChannelId,0,Bin}} end,
+    Msgs = [GetTuple(B) || B <- ExpectedOutput],
+    expected = ssh_test_lib:receive_exec_result(Msgs),
+    UnexpectedMsgs = [GetTuple(C) || C <- UnexpectedOutput],
+    flush_msgs(UnexpectedMsgs),
+
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
@@ -1696,8 +1749,17 @@ do_simple_exec(ConnectionRef) ->
 
 %%--------------------------------------------------------------------
 flush_msgs() ->
+    flush_msgs([]).
+
+flush_msgs(Unexpected) ->
     receive
-        _ -> flush_msgs()
+        M ->
+            case lists:member(M, Unexpected) of
+                true ->
+                    ct:fail("Unexpected message found:  ~p", [M]);
+                _ ->
+                    flush_msgs()
+            end
     after
         500 -> ok
     end.
@@ -1857,6 +1919,11 @@ start_our_shell(_User, _Peer) ->
 		  %% Don't actually loop, just exit
           end).
 
+start_our_shell2(_User, _Peer) ->
+    spawn(fun() ->
+                  io:format("Enter command\n"),
+                  read_write_loop1("> ", 1)
+          end).
 
 ssh_exec_echo(Cmd) ->
     spawn(fun() ->
