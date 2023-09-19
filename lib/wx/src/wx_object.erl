@@ -26,33 +26,33 @@
 %%
 %% @doc wx_object - Generic wx object behaviour
 %%
-%% This is a behaviour module that can be used for "sub classing" 
+%% This is a behaviour module that can be used for "sub classing"
 %% wx objects. It works like a regular gen_server module and creates
-%% a server per object.  
+%% a server per object.
 %%
 %% NOTE: Currently no form of inheritance is implemented.
-%% 
-%% 
+%%
+%%
 %% The user module should export:
-%%   
+%%
 %%   init(Args) should return <br/>
-%%     {wxObject, State} | {wxObject, State, Timeout} |
+%%     {wxWindow, State} | {wxWindow State, Timeout} |
 %%         ignore | {stop, Reason}
 %%
 %%   Asynchronous window event handling: <br/>
 %%   handle_event(#wx{}, State)  should return <br/>
-%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State} 
+%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State}
 %%
 %% The user module can export the following callback functions:
 %%
 %%   handle_call(Msg, {From, Tag}, State) should return <br/>
 %%    {reply, Reply, State} | {reply, Reply, State, Timeout} |
 %%        {noreply, State} | {noreply, State, Timeout} |
-%%        {stop, Reason, Reply, State}  
+%%        {stop, Reason, Reply, State}
 %%
 %%   handle_cast(Msg, State) should return <br/>
 %%    {noreply, State} | {noreply, State, Timeout} |
-%%        {stop, Reason, State}  
+%%        {stop, Reason, State}
 %%
 %% If the above are not exported but called, the wx_object process will crash.
 %% The user module can also export:
