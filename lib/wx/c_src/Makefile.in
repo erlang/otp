@@ -182,7 +182,7 @@ $(TARGET_DIR)/wxe_driver$(SO_EXT): $(WX_OBJECTS)
 
 $(TARGET_DIR)/erl_gl$(SO_EXT): $(GL_OBJECTS)
 	$(V_at)mkdir -p $(TARGET_DIR)
-	$(V_CC) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
+	$(V_CXX) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
 
 $(WEBVIEW_LOADER_DLL_DEST): $(WEBVIEW_LOADER_DLL_ORIG)
 	$(INSTALL_PROGRAM) $< $@
