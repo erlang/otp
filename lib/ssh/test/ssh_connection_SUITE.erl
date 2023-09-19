@@ -89,6 +89,7 @@
          start_exec_direct_fun1_read_write_advanced/1,
          start_shell/1,
          new_shell_dumb_term/1,
+         new_shell_xterm_term/1,
          start_shell_pty/1,
          start_shell_exec/1,
          start_shell_exec_direct_fun/1,
@@ -130,6 +131,7 @@ all() ->
      exec_shell_disabled,
      start_shell,
      new_shell_dumb_term,
+     new_shell_xterm_term,
      start_shell_pty,
      start_shell_exec,
      start_shell_exec_fun,
@@ -778,9 +780,26 @@ new_shell_dumb_term(Config) when is_list(Config) ->
                            [<<"\e[;1;4msearch:\e[0m ">>]},
                     Config).
 
+%%--------------------------------------------------------------------
+new_shell_xterm_term(Config) when is_list(Config) ->
+    new_shell_helper(#{term => "xterm",
+                       cmds => ["one_atom_please.\n",
+                                "\^R" % attempt to trigger history search
+                               ],
+                       exp_output =>
+                           [<<"Enter command\r\n">>,
+                            <<"1> ">>,
+                            <<"one_atom_please.\r\n\e[1022D\e[1B">>,
+                            <<"{simple_eval,one_atom_please}\r\n">>,
+                            <<"2> ">>,
+                            <<"\e[3D\e[J">>,
+                            <<"\e[;1;4msearch:\e[0m ">>,
+                            <<"\r\n  one_atom_please.">>]},
+                    Config).
+
 new_shell_helper(#{term := Term, cmds := Cmds,
-                   exp_output := ExpectedOutput,
-                   unexp_output := UnexpectedOutput}, Config) ->
+                   exp_output := ExpectedOutput} = Settings, Config) ->
+    UnexpectedOutput = maps:get(unexp_output, Settings, []),
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
