@@ -6,7 +6,7 @@ will try to showcase the most important features of the make system.
 
 The guide is mostly aimed towards development on a Unix platform, but
 most things should work also work using WSL on Windows. The guide also
-assumes that you are working in the git repositiory. Many of the
+assumes that you are working in the git repository. Many of the
 scripts and tools described here are not available in the prebuilt tar
 archive that you can download for each release.
 
@@ -246,7 +246,7 @@ and then view `doc/html/index.html`.
 
 The Erlang code loader and compiler are written in Erlang, so in order to
 [bootstrap](https://en.wikipedia.org/wiki/Bootstrapping_(compilers))
-the system a number of compiled `.beam` files are commited into the
+the system a number of compiled `.beam` files are committed into the
 Erlang/OTP git repository.
 
 The Erlang code located in [erts/preloaded/src](../erts/preloaded/src)
@@ -266,7 +266,7 @@ to be a basic Erlang compiler committed into git. This is what is called the
 primary bootstrap. It is quite rare that you need to update this, but if you
 are extending the Erlang language and would like to use the new extensions
 in the Erlang/OTP source code you it needs to be updated. As an example, when
-we added `maps` to Erlang we first needed to have a commited primary bootstrap
+we added `maps` to Erlang we first needed to have a committed primary bootstrap
 that could compile code with maps, before we actually could use maps anywhere.
 To update the primary bootstrap you do like this:
 
@@ -368,7 +368,7 @@ switches are:
 * -rr
   * Start Erlang under [rr](https://rr-project.org/) to record all events. Can be combined with -debug.
 * -rr replay [session]
-  * Load a recording session using `rr replay`, if no session is specified the latest run session is laoded.
+  * Load a recording session using `rr replay`, if no session is specified the latest run session is loaded.
 
 If you want to run tests using `cerl` (for example if you want to run asan on
 the nif_SUITE in emulator) you cannot use the `make test` approach to testing
