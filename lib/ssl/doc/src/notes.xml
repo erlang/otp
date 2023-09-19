@@ -27,6 +27,54 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 11.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid function clause error in ssl:getopts/2 by handling
+	    that inet:getopts may return an empty list during some
+	    circumstances, such as the socket being in a closing
+	    state.</p>
+          <p>
+	    Own Id: OTP-18697 Aux Id: GH-7506 </p>
+        </item>
+        <item>
+          <p>
+	    The API function `ssl:recv/3` has been tightened to
+	    disallow negative length, which has never been documented
+	    to work, but was passed through and caused strange
+	    errors.</p>
+          <p>
+	    Own Id: OTP-18700 Aux Id: GH-7507 </p>
+        </item>
+        <item>
+          <p>
+	    When a client initiated renegotiation was rejected and
+	    the client socket was in active mode the expected error
+	    message to the controlling process was not sent.</p>
+          <p>
+	    Own Id: OTP-18712 Aux Id: GH-7431 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add some guidance for signature algorithms configuration
+	    in ssl applications users guide.</p>
+          <p>
+	    Own Id: OTP-18631</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 11.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

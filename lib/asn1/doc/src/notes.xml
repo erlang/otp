@@ -32,6 +32,41 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The ASN.1 compiler would ignore a constraint such as
+	    <c>(SIZE (1..4), ...)</c>, causing incorrect behavior of
+	    the encoding and decoding function for the PER and UPER
+	    backends. Corrected to handle the constraint in the same
+	    way as <c>(SIZE (1..4, ...))</c>.</p>
+          <p>
+	    Own Id: OTP-18729 Aux Id: PR-7575 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The JER backend has been internally refactored in a
+	    way that is compatible for applications that use the
+	    documented API. However, for a group of ASN.1 modules
+	    that depend on each other (for example,
+	    <c>S1AP-PDU-Descriptions</c>, S1AP-Contents, and so on),
+	    all modules in the group must be recompiled if on of the
+	    group members is recompiled.</p>
+          <p>
+	    Own Id: OTP-18748 Aux Id: ERIERL-957, PR-7637 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

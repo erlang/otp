@@ -31,6 +31,245 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    maps:put with existing key and identical value was not
+	    optimized as a no-op correctly if having the same 32-bit
+	    hash as another key in the map. In practice very rare and
+	    harmless.</p>
+          <p>
+	    Own Id: OTP-18592</p>
+        </item>
+        <item>
+	    <p>Fixed an issue with truncated crash slogans on failed
+	    emulator start.</p>
+          <p>
+	    Own Id: OTP-18623 Aux Id: GH-7344 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug where the emulator was unable to determine
+	    the current <c>cgroup</c> CPU quota.</p>
+          <p>
+	    Own Id: OTP-18645 Aux Id: GH-7401 </p>
+        </item>
+        <item>
+          <p>
+	    A process optimized for parallel signal delivery could
+	    under some circumstances lose wakeup information. That
+	    is, the processes was not woken up to take care of the
+	    signal, so the signal would not be taken care of until
+	    the process was woken by another signal. Only processes
+	    configured with <seeerl
+	    marker="erlang#process_flag_message_queue_data"><c>message_queue_data</c></seeerl>
+	    set to <c>off_heap</c> utilize this optimization.</p>
+          <p>
+	    Own Id: OTP-18647 Aux Id: PR-7595 </p>
+        </item>
+        <item>
+          <p>
+	    Function socket:close/1 could cause a VM crash on
+	    Windows.</p>
+          <p>
+	    Own Id: OTP-18669 Aux Id: OTP-18029 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the ARM JIT where it could accidentally
+	    add garbage trailing bits when creating bitstrings whose
+	    size wasn't an even multiple of 8 bits.</p>
+          <p>
+	    Own Id: OTP-18672 Aux Id: GH-7469 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>erlang:system_info/1</c> documentation to show
+	    correct types.</p>
+          <p>
+	    Own Id: OTP-18674 Aux Id: PR-7472 </p>
+        </item>
+        <item>
+          <p>
+	    Expanded the documentation about how to use the
+	    <c>standard_io</c>, <c>standard_error</c> and <c>user</c>
+	    I/O devices.</p>
+          <p>
+	    Added the types <c>io:standard_io/0</c>,
+	    <c>io:standard:error/0</c> and <c>io:user/0</c>.</p>
+          <p>
+	    Own Id: OTP-18676 Aux Id: PR-7473 GH-7459 </p>
+        </item>
+        <item>
+          <p>
+	    Fix compilation with GNU termcap.</p>
+          <p>
+	    Own Id: OTP-18702 Aux Id: GH-7381 </p>
+        </item>
+        <item>
+          <p>
+	    Delivery time of message signals to a process not
+	    executing any <c>receive</c> expressions could become
+	    very long, potentially infinite. For example, a process
+	    checking for messages using <c>process_info(self(),
+	    message_queue_len)</c> or <c>process_info(self(),
+	    messages)</c> and avoiding to execute a <c>receive</c>
+	    expression matching on messages could be very slow in
+	    detecting new messages. Note that you are still
+	    discouraged from using <c>process_info()</c> this way. A
+	    process that wants to check if there are messages
+	    available to handle should execute a <c>receive</c>
+	    expression matching on messages.</p>
+          <p>
+	    Own Id: OTP-18706 Aux Id: GH-7413, PR-7595, ERIERL-979 </p>
+        </item>
+        <item>
+	    <p>On AArch64 (ARM64), when calculating both the quotient
+	    and remainder with a divisor begin a power two, the
+	    remainder could be incorrectly calculated.</p>
+          <p>
+	    Own Id: OTP-18724 Aux Id: GH-7566, PR-7567 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing "magic" references in a <c>compressed</c>
+	    ETS table to not keep the referred object alive. The
+	    symptom would be the referred object being garbage
+	    collected prematurely and the reference appearing stale,
+	    not referring to anything. Examples of such magically
+	    referred objects are <c>atomics</c> and NIF resources.</p>
+          <p>
+	    Own Id: OTP-18732 Aux Id: GH-7444, PR-7458 </p>
+        </item>
+        <item>
+	    <p>Matching out short bitstrings with a fixed size not
+	    divisible by 8 could could lead to the runtime system
+	    terminating with an "Overrun heap and stack" error.</p>
+          <p>
+	    Own Id: OTP-18733 Aux Id: GH-7292 </p>
+        </item>
+        <item>
+          <p>
+	    A constant flow of incoming non-message signals could
+	    prevent a process needing to execute dirty from doing so.</p>
+          <p>
+	    Own Id: OTP-18737 Aux Id: PR-7595 </p>
+        </item>
+        <item>
+	    <p>A BEAM file usually contains a chunk with the tag
+	    "Type" containing type information that can be used by
+	    the JIT. The <c>beam_lib:strip/1</c> takes care to
+	    preserve that chunk, but a build/release tool that does
+	    customized stripping could accidentally remove the chunk.
+	    Loading a BEAM file without the "Type" chunk could cause
+	    incorrect behavior of the loaded code.</p>
+          <p>
+	    Own Id: OTP-18745 Aux Id: GH-7492, PR-7616 </p>
+        </item>
+        <item>
+          <p>
+	    <c>gen_udp:recv/*</c> for Unix Domain Socket in binary
+	    mode and passive mode has been fixed to not crash.</p>
+          <p>
+	    Own Id: OTP-18747 Aux Id: GH-7605 </p>
+        </item>
+        <item>
+          <p>
+	    The cleanup operation of not yet delivered signals to a
+	    terminated process yielded excessively.</p>
+          <p>
+	    Own Id: OTP-18752 Aux Id: PR-7633 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed minor hashing issue with the <c>local</c> option of
+	    <c>term_to_binary()</c>/<c>term_to_iovec()</c>.</p>
+          <p>
+	    Own Id: OTP-18753 Aux Id: PR-7634 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update gen_tcp_socket and gen_udp_socket to handle
+	    'completion' (socket on Windows).</p>
+          <p>
+	    Own Id: OTP-18586 Aux Id: OTP-18029 </p>
+        </item>
+        <item>
+          <p>
+	    Add support for Unix Domain Sockets (only for STREAM
+	    sockets) on Windows for 'socket'.</p>
+          <p>
+	    Own Id: OTP-18611 Aux Id: OTP-18029, #5024 </p>
+        </item>
+        <item>
+	    <p>In Erlang/OTP 27, by default escripts will be compiled
+	    before being executed. That means that the
+	    <c>compiler</c> application must be installed. It is
+	    possible to force the escript to be interpreted by adding
+	    the directive <c>-mode(interpret).</c> to the escript
+	    file.</p>
+	    <p>In Erlang/OTP 28, support for interpreting an escript
+	    will be removed.</p>
+          <p>
+	    Own Id: OTP-18638</p>
+        </item>
+        <item>
+          <p>
+	    Add basic support for socket ioctl on Windows.</p>
+          <p>
+	    Own Id: OTP-18660</p>
+        </item>
+        <item>
+          <p>
+	    Removed erts/etc/darwin/Info.plist, as it is no longer
+	    necessary after macos 10.12</p>
+          <p>
+	    Own Id: OTP-18661 Aux Id: PR-6112 </p>
+        </item>
+        <item>
+          <p>
+	    Add support for (Windows) socket option exclusiveaddruse.</p>
+          <p>
+	    Own Id: OTP-18686</p>
+        </item>
+        <item>
+          <p>
+	    [socket] Add support for the 'nopush' option.</p>
+          <p>
+	    Own Id: OTP-18687</p>
+        </item>
+        <item>
+          <p>
+	    Add support for socket option 'BSP STATE'.</p>
+          <p>
+	    Own Id: OTP-18693</p>
+        </item>
+        <item>
+          <p>
+	    Add tcp socket options 'keepcnt', 'keepidle' and
+	    'keepintvl'.</p>
+          <p>
+	    Own Id: OTP-18698</p>
+        </item>
+        <item>
+          <p>
+	    Add support for misc (Windows) socket options
+	    ('max_msg_size' and 'maxdg').</p>
+          <p>
+	    Own Id: OTP-18710</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
