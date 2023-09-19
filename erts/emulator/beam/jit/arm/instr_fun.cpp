@@ -197,6 +197,7 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
     }
 
     a.b(resolve_beam_label(Lbl, disp128MB));
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
@@ -437,12 +438,14 @@ void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
         emit_leave_erlang_frame();
 
         a.br(target);
+        mark_unreachable();
     } else {
         emit_deallocate(Deallocate);
         emit_leave_erlang_frame();
 
         const auto &trampoline = lambdas[Tag.as<ArgLambda>().get()].trampoline;
         a.b(resolve_label(trampoline, disp128MB));
+        mark_unreachable();
     }
 }
 

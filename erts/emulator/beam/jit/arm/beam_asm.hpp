@@ -835,7 +835,28 @@ class BeamModuleAssembler : public BeamAssembler,
     size_t last_error_offset = 0;
 
     static constexpr ptrdiff_t STUB_CHECK_INTERVAL = 4 << 10;
+    static constexpr ptrdiff_t STUB_CHECK_INTERVAL_UNREACHABLE =
+            (4 << 10) - 128;
     size_t last_stub_check_offset = 0;
+
+    /* Save the last known unreachable position. */
+    size_t last_unreachable_offset = 0;
+
+    /* Mark this point unreachable. Use at the end of a BEAM
+     * instruction. */
+    void mark_unreachable() {
+        last_unreachable_offset = a.offset();
+    }
+
+    /* Use within BEAM instructions. */
+    void mark_unreachable_check_pending_stubs() {
+        mark_unreachable();
+        check_pending_stubs();
+    }
+
+    bool is_unreachable() {
+        return a.offset() == last_unreachable_offset;
+    }
 
     enum Displacement : size_t {
         /* Pessimistic estimate for helper functions, where we don't know the

@@ -50,6 +50,8 @@ void BeamModuleAssembler::emit_dispatch_return() {
     a.b_mi(resolve_fragment(ga->get_dispatch_return(), disp1MB));
 
     a.ret(a64::x30);
+
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_return() {
@@ -85,6 +87,7 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
         a.ldp(dst.reg, a64::x30, src_ref);
         flush_var(dst);
         a.b(resolve_beam_label(CallTarget, disp128MB));
+        mark_unreachable();
     } else if (src_index == 0 && Support::isInt9(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const arm::Mem src_ref = arm::Mem(E).post(deallocate);
@@ -101,6 +104,7 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
 void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
     emit_leave_erlang_frame();
     a.b(resolve_beam_label(CallTarget, disp128MB));
+    mark_unreachable();
 }
 
 /* Handles save_calls for remote calls. When the active code index is
@@ -143,6 +147,7 @@ void BeamModuleAssembler::emit_i_call_ext_only(const ArgExport &Exp) {
     arm::Mem target = emit_setup_dispatchable_call(ARG1);
     emit_leave_erlang_frame();
     branch(target);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
@@ -166,6 +171,7 @@ void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
         a.ldp(dst.reg, a64::x30, src_ref);
         flush_var(dst);
         branch(target);
+        mark_unreachable();
     } else if (src_index == 0 && Support::isInt9(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const arm::Mem src_ref = arm::Mem(E).post(deallocate);
@@ -229,6 +235,7 @@ void BeamModuleAssembler::emit_i_apply_only() {
 
     emit_leave_erlang_frame();
     branch(target);
+    mark_unreachable();
 }
 
 arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
@@ -281,4 +288,5 @@ void BeamModuleAssembler::emit_apply_last(const ArgWord &Arity,
 
     emit_leave_erlang_frame();
     branch(target);
+    mark_unreachable();
 }

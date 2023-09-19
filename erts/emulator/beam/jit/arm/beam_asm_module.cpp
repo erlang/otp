@@ -417,6 +417,7 @@ void BeamModuleAssembler::emit_int_code_end() {
      *
      * Since the table is potentially very large, we'll emit all stubs that are
      * due within it so we won't have to check on every iteration. */
+    mark_unreachable();
     flush_pending_stubs(_dispatchTable.size() * sizeof(Uint32[8]) +
                         dispUnknown);
 
@@ -426,6 +427,8 @@ void BeamModuleAssembler::emit_int_code_end() {
         a.mov(SUPER_TMP, imm(pair.first));
         a.br(SUPER_TMP);
     }
+
+    mark_unreachable();
 
     /* Emit all remaining stubs. */
     flush_pending_stubs(dispMax);
@@ -615,7 +618,10 @@ void BeamModuleAssembler::check_pending_stubs() {
     /* We shouldn't let too much space pass between checks. */
     ASSERT((last_stub_check_offset + dispMin) >= currOffset);
 
-    if ((last_stub_check_offset + STUB_CHECK_INTERVAL) < currOffset) {
+    if (last_stub_check_offset + STUB_CHECK_INTERVAL < currOffset ||
+        (is_unreachable() &&
+         last_stub_check_offset + STUB_CHECK_INTERVAL_UNREACHABLE <
+                 currOffset)) {
         last_stub_check_offset = currOffset;
 
         flush_pending_stubs(STUB_CHECK_INTERVAL * 2);
@@ -638,7 +644,9 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
                 next = a.newLabel();
 
                 comment("Begin stub section");
-                a.b(next);
+                if (!is_unreachable()) {
+                    a.b(next);
+                }
             }
 
             emit_veneer(veneer);
@@ -663,7 +671,9 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
             next = a.newLabel();
 
             comment("Begin stub section");
-            a.b(next);
+            if (!is_unreachable()) {
+                a.b(next);
+            }
         }
 
         emit_constant(constant);

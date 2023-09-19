@@ -214,6 +214,7 @@ void BeamModuleAssembler::emit_linear_search(arm::Gp comparand,
     /* An invalid label means fallthrough to the next instruction. */
     if (fail.isValid()) {
         a.b(resolve_label(fail, disp128MB));
+        mark_unreachable_check_pending_stubs();
     }
 }
 
@@ -453,6 +454,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
     embed_vararg_rodata(args, TMP2);
     a.ldr(TMP3, arm::Mem(TMP2, TMP1, arm::lsl(3)));
     a.br(TMP3);
+    mark_unreachable_check_pending_stubs();
 
     if (Fail.getType() == ArgVal::Immediate) {
         a.bind(fail);
@@ -504,6 +506,7 @@ bool BeamModuleAssembler::emit_optimized_three_way_select(
     /* An invalid label means fallthrough to the next instruction. */
     if (fail.isValid()) {
         a.b(resolve_label(fail, disp128MB));
+        mark_unreachable_check_pending_stubs();
     }
 
     return true;

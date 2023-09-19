@@ -652,9 +652,11 @@ call_ext_only Ar=u Bif=u$is_bif | is_heavy_bif(Bif) =>
 # return instructions.
 #
 call_ext_last u Bif u | is_exit_bif(Bif) =>
-    call_light_bif Bif
+    call_light_bif Bif | mark_unreachable
 call_ext_only Ar=u Bif | is_exit_bif(Bif) =>
-    allocate u Ar | call_light_bif Bif
+    allocate u Ar | call_light_bif Bif | mark_unreachable
+
+mark_unreachable
 
 #
 # The general case for BIFs that have no special requirements.

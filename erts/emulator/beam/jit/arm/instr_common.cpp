@@ -915,6 +915,7 @@ void BeamModuleAssembler::emit_is_nonempty_list(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_jump(const ArgLabel &Fail) {
     a.b(resolve_beam_label(Fail, disp128MB));
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_is_atom(const ArgLabel &Fail,
@@ -1066,6 +1067,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
     if (arity > MAX_ARG) {
         /* Arity is negative or too large. */
         a.b(resolve_beam_label(Fail, disp128MB));
+        mark_unreachable();
 
         return;
     }
@@ -2554,6 +2556,8 @@ void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
     mov_var(ARG2, trace);
     fragment_call(ga->get_raise_shared());
 
+    mark_unreachable();
+
     /* `line` instructions need to know the latest offset that may throw an
      * exception. See the `line` instruction for details. */
     last_error_offset = a.offset();
@@ -2671,4 +2675,8 @@ void BeamModuleAssembler::emit_i_perf_counter() {
     }
 
     a.bind(next);
+}
+
+void BeamModuleAssembler::emit_mark_unreachable() {
+    mark_unreachable();
 }
