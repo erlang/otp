@@ -13766,8 +13766,8 @@ otp_8212(Config) when is_list(Config) ->
     RemoteMid2    = {deviceName, RemoteMidStr2}, 
     UserMod       = megaco_mess_otp8212_test,
 
-    d("set megaco trace level to max",[]),
-    megaco:enable_trace(max, io),
+    d("(maybe) enable megaco trace at level to max with dest io", []),
+    ?ENABLE_TRACE(Config, max, io),
 
     d("start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),

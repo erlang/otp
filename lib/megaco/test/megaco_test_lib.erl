@@ -71,7 +71,8 @@
          open/3,
          listen/3, connect/3,
 
-         megaco_trace/2
+         megaco_trace/2,
+         enable_trace/3
 
         ]).
 -export([init_per_suite/1,    end_per_suite/1,
@@ -3114,8 +3115,11 @@ stop_node(Node) ->
     end.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% ----------------------------------------------------------------
-%% Gerated a 'megaco_trace' tuple based on Config and a default value
+%% Generates a 'megaco_trace' tuple based on Config and a default
+%% value.
 %%
 
 megaco_trace(Config, Default) ->
@@ -3128,6 +3132,22 @@ megaco_trace(Config, Default) ->
             {Key, Default}
     end.
 
+
+%% ----------------------------------------------------------------
+%% Conditionally enable megaco trace at Level and for Destination.
+%%
+
+enable_trace(Config, Level, Destination) ->
+    Key = megaco_trace,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, disable}} ->
+            p("megaco-trace disabled => skip enabling trace at: ~w; ~w",
+              [Level, Destination]),
+            ok;
+        _ ->
+            megaco:enable_trace(Level, Destination)
+    end.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
