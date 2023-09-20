@@ -606,6 +606,9 @@ typedef struct ErtsAuxWorkData_ {
 	    void *arg;
 	} wait_completed;
     } debug;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    void* lc_aux_arg;
+#endif
 } ErtsAuxWorkData;
 
 #define ERTS_SCHED_AUX_YIELD_DATA(ESDP, NAME) \
