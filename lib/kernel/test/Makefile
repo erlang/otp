@@ -28,6 +28,7 @@ SOCKET_MODULES = \
 	socket_test_lib \
 	socket_test_logger \
 	socket_test_evaluator \
+	socket_test_profile \
 	socket_test_ttest_lib \
 	socket_test_ttest_tcp_gen \
 	socket_test_ttest_tcp_gs \

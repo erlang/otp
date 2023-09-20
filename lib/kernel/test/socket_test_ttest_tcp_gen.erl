@@ -18,6 +18,10 @@
 %% %CopyrightEnd%
 %%
 
+%%
+%% Plain gen_tcp.
+%%
+
 -module(socket_test_ttest_tcp_gen).
 
 -export([

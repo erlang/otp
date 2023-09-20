@@ -93,7 +93,7 @@ echo "$ITERATIONS" |
       # The /dev/null at the end is necessary because erlang "does things" with stdin
       # and this case would cause the 'while read' to "fail" so that we only would
       # loop one time
-      $ESOCK_TTEST/esock-ttest --client --transport $TRANSPORT $ASYNC --active $ACTIVE --msg-id $MSG_ID --scon $SERVER_INFO --runtime $RUNTIME </dev/null
+      $ESOCK_TTEST/esock-ttest --client --profile --transport $TRANSPORT $ASYNC --active $ACTIVE --msg-id $MSG_ID --scon $SERVER_INFO --runtime $RUNTIME </dev/null
       echo ""
 
   done
