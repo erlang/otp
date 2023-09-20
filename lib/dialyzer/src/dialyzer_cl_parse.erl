@@ -107,7 +107,7 @@ cli() ->
                         "In addition, file or directory names can also be included, as in: \n"
                         "dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam">>},
 
-            #{name => output_file, short => $o, long => "--output",
+            #{name => output_file, short => $o, long => "-output",
                 help => <<"When using Dialyzer from the command line, send the analysis "
                         "results to the specified outfile rather than to stdout.">>},
             #{name => output_format, long => "-raw", type => boolean, action => {store, raw},
