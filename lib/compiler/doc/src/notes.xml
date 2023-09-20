@@ -32,6 +32,95 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler could run forever when compiling a call
+	    to <c>is_record/3</c> with a huge positive tuple size.
+	    The call <c>is_record(A, a, 0)</c> would crash the
+	    compiler when used in a function body. When used in a
+	    guard the compiler would emit incorrect code that would
+	    accept <c>{a></c> as a record.</p>
+          <p>
+	    Own Id: OTP-18605 Aux Id: GH-7298, GH-7317 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug that caused dialyzer to crash when
+	    analyzing bogus code that contained the literal atom
+	    <c>undefined</c> in segment sizes.</p>
+          <p>
+	    Own Id: OTP-18629 Aux Id: GH-7325 </p>
+        </item>
+        <item>
+	    <p>The compiler would crash when compiling some modules
+	    that contained a call to <c>erlang:load_nif/2</c>.</p>
+          <p>
+	    Own Id: OTP-18662 Aux Id: GH-7409, PR-7416 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug that caused the compiler to crash on legal
+	    code.</p>
+          <p>
+	    Own Id: OTP-18678 Aux Id: GH-7488 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when attempting to compile a
+	    call to <c>is_list/1</c> in a complex expression.</p>
+          <p>
+	    Own Id: OTP-18689 Aux Id: GH-7504, PR-7518 </p>
+        </item>
+        <item>
+	    <p>A complex guard expression using the <c>or</c>
+	    operator could succeed when it was supposed to fail.</p>
+          <p>
+	    Own Id: OTP-18692 Aux Id: GH-7517, PR-7519 </p>
+        </item>
+        <item>
+	    <p>Compiling nested <c>try</c>/<c>catch</c> and
+	    <c>catch</c> expression could result in an internal
+	    compiler error.</p>
+          <p>
+	    Own Id: OTP-18701 Aux Id: GH-7477, PR-7532 </p>
+        </item>
+        <item>
+	    <p>Using the <c>bnot</c> operator in a complex expression
+	    could cause the compiler to terminate with an internal
+	    consistency failure diagnostic.</p>
+          <p>
+	    Own Id: OTP-18719 Aux Id: GH-7468, PR-7562 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug that caused the compiler to crash in a
+	    binary optimization pass.</p>
+          <p>
+	    Own Id: OTP-18721 Aux Id: PR-7527 </p>
+        </item>
+        <item>
+	    <p>The compiler could terminate with an internal error
+	    when attempting to compile a binary pattern that could
+	    not possibly match.</p>
+          <p>
+	    Own Id: OTP-18725 Aux Id: GH-7467 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Fixed various performance issues related to the alias
+	    optimization pass.</p>
+          <p>
+	    Own Id: OTP-18691 Aux Id: PR-7448 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

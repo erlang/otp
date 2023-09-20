@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2022</year>
+      <year>2004</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,179 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
+
+<section><title>STDLIB 5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler could run forever when compiling a call
+	    to <c>is_record/3</c> with a huge positive tuple size.
+	    The call <c>is_record(A, a, 0)</c> would crash the
+	    compiler when used in a function body. When used in a
+	    guard the compiler would emit incorrect code that would
+	    accept <c>{a></c> as a record.</p>
+          <p>
+	    Own Id: OTP-18605 Aux Id: GH-7298, GH-7317 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>ets:tab2file</c> that could make it fail if
+	    another Erlang process created the same file at the same
+	    time.</p>
+          <p>
+	    Own Id: OTP-18614 Aux Id: GH-7162, PR-7237 </p>
+        </item>
+        <item>
+	    <p>An <c>{else_clause,Value}</c> exception will now be
+	    reported nicely in the shell.</p>
+          <p>
+	    Own Id: OTP-18616 Aux Id: GH-7258 </p>
+        </item>
+        <item>
+          <p>
+	    Correct return value for error case, so that it matches
+	    the documented and intended return value {error,
+	    {already_started, pid()} when local registered names are
+	    used.</p>
+          <p>
+	    Own Id: OTP-18627 Aux Id: PR-7072 </p>
+        </item>
+        <item>
+	    <p> <c>sys:get_state/1,2</c> and
+	    <c>sys:replace_state/2,3</c> has been corrected to handle
+	    a state named <c>error</c> as a state name, not as a
+	    failed system callback. </p><p> For the standard server
+	    behaviours this was an issue only for <c>gen_statem</c>
+	    (and <c>gen_fsm</c>) when the state name was
+	    <c>error</c>, and for <c>gen_server</c> if the complete
+	    state was <c>{error,_}</c>. </p>
+          <p>
+	    Own Id: OTP-18633</p>
+        </item>
+        <item>
+	    <p>Multiple problems were fixed in
+	    <c>filelib:safe_relative_path/2</c>. If its second
+	    argument was a path that contained symbolic links, an
+	    incorrect result patch could be returned. Also, paths
+	    were sometimes falsely considered unsafe.</p>
+          <p>
+	    Own Id: OTP-18655 Aux Id: GH-6460, PR-7208 </p>
+        </item>
+        <item>
+          <p>
+	    Fix deadlock when <c>erl.exe</c> is used as part of a
+	    pipe on Windows and trying to set the encoding of the
+	    <c>standard_io</c> device.</p>
+          <p>
+	    Own Id: OTP-18675 Aux Id: PR-7473 GH-7459 </p>
+        </item>
+        <item>
+          <p>
+	    Expanded the documentation about how to use the
+	    <c>standard_io</c>, <c>standard_error</c> and <c>user</c>
+	    I/O devices.</p>
+          <p>
+	    Added the types <c>io:standard_io/0</c>,
+	    <c>io:standard:error/0</c> and <c>io:user/0</c>.</p>
+          <p>
+	    Own Id: OTP-18676 Aux Id: PR-7473 GH-7459 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>h/2,3</c> to properly render multi-clause
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-18683 Aux Id: PR-7502 </p>
+        </item>
+        <item>
+	    <p>Timers created by <c>timer:apply_after/4</c>,
+	    <c>apply_interval/4</c>, and <c>apply_repeatedly/4</c>
+	    would silently fail to do the apply if it was not
+	    possible to spawn a process when the timer expired. This
+	    has now been corrected, and if the spawn fails, the
+	    system will be taken down producing a crash dump.</p>
+          <p>
+	    Own Id: OTP-18759 Aux Id: GH-7606 </p>
+        </item>
+        <item>
+	    <p>When an Erlang source file lacked a module definition,
+	    there would be a spurious "module name must not be empty"
+	    diagnostic for each spec in the file.</p>
+          <p>
+	    Own Id: OTP-18763 Aux Id: GH-7655 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The argument descriptions for option types in
+	    <c>argparse</c> have been made less ambiguous.</p>
+          <p>
+	    Own Id: OTP-18679 Aux Id: ERIERL-965 </p>
+        </item>
+        <item>
+	    <p>Clarified the documentation of normal shutdown reason
+	    on <c>gen_server:call/2,3</c></p>
+          <p>
+	    Own Id: OTP-18690 Aux Id: PR-7511, GH-7510 </p>
+        </item>
+        <item>
+	    <p>Pattern matching and equivalence (<c>=:=</c>,
+	    <c>=/=</c>) comparisons on <c>0.0</c> will now raise a
+	    warning, as it will no longer be considered equivalent to
+	    <c>-0.0</c> in OTP 27.</p> <p>If a match on <c>0.0</c>
+	    specifically is desired (distinct from <c>-0.0</c>), the
+	    warning can be suppressed by writing <c>+0.0</c>
+	    instead.</p> <p>The arithmetic comparison operators are
+	    unaffected, including arithmetic equality
+	    (<c>==</c>).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18696</p>
+        </item>
+        <item>
+          <p>
+	    The semantics of the <c>gen_{server,statem,event}</c>
+	    behaviour's synchronous start behaviour introduced in
+	    OTP-26.0 with OTP-18471, has been clarified in the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-18705 Aux Id: GH-7524, OTP-18471, GH-6339,
+	    PR-6843 </p>
+        </item>
+        <item>
+          <p>
+	    Added functionality to set a custom multiline prompt.</p>
+          <p>
+	    Own Id: OTP-18736 Aux Id: PR-7564 </p>
+        </item>
+        <item>
+          <p>
+	    A warning for (accidental use of) Triple-Quoted Strings
+	    has been implemented as per <url
+	    href="https://github.com/erlang/eep/blob/master/eeps/eep-0064.md#backwards-incompatibility">EEP
+	    64</url>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18746 Aux Id: PR-7313, PR-7456 </p>
+        </item>
+        <item>
+          <p>
+	    The keyboard shortcuts for the shell are now
+	    configurable.</p>
+          <p>
+	    Own Id: OTP-18754 Aux Id: PR-7604 PR-7647 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>STDLIB 5.0.2</title>
 

@@ -37,7 +37,23 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 4.4.4</title>
+  <section><title>Megaco 4.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make megaco transports handle gen_tcp | gen_udp with
+	    socket backend on Windows (completion).</p>
+          <p>
+	    Own Id: OTP-18599 Aux Id: OTP-18029 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

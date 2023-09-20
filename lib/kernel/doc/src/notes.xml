@@ -31,6 +31,190 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed an issue with truncated crash slogans on failed
+	    emulator start.</p>
+          <p>
+	    Own Id: OTP-18623 Aux Id: GH-7344 </p>
+        </item>
+        <item>
+          <p>
+	    Fix shell:start_interactive function specification.</p>
+          <p>
+	    Own Id: OTP-18628 Aux Id: GH-7280 </p>
+        </item>
+        <item>
+          <p>
+	    Fix code:get_doc/1 to return missing, when it can't find
+	    erts instead of crashing.</p>
+          <p>
+	    Own Id: OTP-18654 Aux Id: PR-7404 </p>
+        </item>
+        <item>
+          <p>
+	    Function socket:close/1 could cause a VM crash on
+	    Windows.</p>
+          <p>
+	    Own Id: OTP-18669 Aux Id: OTP-18029 </p>
+        </item>
+        <item>
+          <p>
+	    Fix deadlock when <c>erl.exe</c> is used as part of a
+	    pipe on Windows and trying to set the encoding of the
+	    <c>standard_io</c> device.</p>
+          <p>
+	    Own Id: OTP-18675 Aux Id: PR-7473 GH-7459 </p>
+        </item>
+        <item>
+          <p>
+	    Expanded the documentation about how to use the
+	    <c>standard_io</c>, <c>standard_error</c> and <c>user</c>
+	    I/O devices.</p>
+          <p>
+	    Added the types <c>io:standard_io/0</c>,
+	    <c>io:standard:error/0</c> and <c>io:user/0</c>.</p>
+          <p>
+	    Own Id: OTP-18676 Aux Id: PR-7473 GH-7459 </p>
+        </item>
+        <item>
+          <p>
+	    Fix logger's overload protection mechanism to only fetch
+	    memory used by messages when needed.</p>
+          <p>
+	    Own Id: OTP-18677 Aux Id: PR-7418 GH-7417 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a number of socket-related issues causing
+	    incompatibilities with gen_tcp and gen_udp respectively.</p>
+          <p>
+	    Own Id: OTP-18685</p>
+        </item>
+        <item>
+          <p>
+	    gen_tcp:connect with socket address and socket (inet-)
+	    backend fails because of missing callback function.</p>
+          <p>
+	    Own Id: OTP-18707 Aux Id: #7530 </p>
+        </item>
+        <item>
+          <p>
+	    The DNS RR cache used by `inet_res` has been fixed to
+	    preserve insert order, which is beneficial when the DNS
+	    server returns RRs in some specific order for e.g load
+	    balancing purposes.</p>
+          <p>
+	    Own Id: OTP-18731 Aux Id: GH-7577, PR-7578 </p>
+        </item>
+        <item>
+          <p>
+	    The options `reuseport`, `reuseport_lb` and
+	    `exclusiveaddruse` were accidentally not allowed for e.g
+	    `gen_udp:open/1,2`, which has now been corrected.</p>
+          <p>
+	    Own Id: OTP-18734 Aux Id: OTP-18344, PR-6522, GH-6461,
+	    GH-7569 </p>
+        </item>
+        <item>
+          <p>
+	    <c>gen_udp:recv/*</c> for Unix Domain Socket in binary
+	    mode and passive mode has been fixed to not crash.</p>
+          <p>
+	    Own Id: OTP-18747 Aux Id: GH-7605 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed issue where cursor would not be placed at the end
+	    of the expression when navigating shell history.</p>
+          <p>
+	    Own Id: OTP-18757 Aux Id: PR-7631 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update gen_tcp_socket and gen_udp_socket to handle
+	    'completion' (socket on Windows).</p>
+          <p>
+	    Own Id: OTP-18586 Aux Id: OTP-18029 </p>
+        </item>
+        <item>
+          <p>
+	    Add support for Unix Domain Sockets (only for STREAM
+	    sockets) on Windows for 'socket'.</p>
+          <p>
+	    Own Id: OTP-18611 Aux Id: OTP-18029, #5024 </p>
+        </item>
+        <item>
+          <p>
+	    Add basic support for socket ioctl on Windows.</p>
+          <p>
+	    Own Id: OTP-18660</p>
+        </item>
+        <item>
+	    <p>The <c>file:location/0</c> type is now exported.</p>
+          <p>
+	    Own Id: OTP-18681</p>
+        </item>
+        <item>
+          <p>
+	    Add support for (Windows) socket option exclusiveaddruse.</p>
+          <p>
+	    Own Id: OTP-18686</p>
+        </item>
+        <item>
+          <p>
+	    [socket] Add support for the 'nopush' option.</p>
+          <p>
+	    Own Id: OTP-18687</p>
+        </item>
+        <item>
+          <p>
+	    Add support for socket option 'BSP STATE'.</p>
+          <p>
+	    Own Id: OTP-18693</p>
+        </item>
+        <item>
+          <p>
+	    Add tcp socket options 'keepcnt', 'keepidle' and
+	    'keepintvl'.</p>
+          <p>
+	    Own Id: OTP-18698</p>
+        </item>
+        <item>
+          <p>
+	    Add support for misc (Windows) socket options
+	    ('max_msg_size' and 'maxdg').</p>
+          <p>
+	    Own Id: OTP-18710</p>
+        </item>
+        <item>
+          <p>
+	    The keyboard shortcuts for the shell are now
+	    configurable.</p>
+          <p>
+	    Own Id: OTP-18754 Aux Id: PR-7604 PR-7647 </p>
+        </item>
+        <item>
+          <p>
+	    Optimized code_server to reduce repeated work when
+	    loading the same module concurrently.</p>
+          <p>
+	    Own Id: OTP-18755 Aux Id: PR-7503 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

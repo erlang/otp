@@ -2257,11 +2257,11 @@
     <func>
       <name name="ioctl" arity="2" clause_i="1" since="OTP 24.2"
 	    anchor="ioctl-gifconf"/>
-      <name name="ioctl" arity="2" clause_i="2" since="OTP @OTP-18660@"
+      <name name="ioctl" arity="2" clause_i="2" since="OTP 26.1"
 	    anchor="ioctl-fion"/>
-      <name name="ioctl" arity="2" clause_i="3" since="OTP @OTP-18660@"
+      <name name="ioctl" arity="2" clause_i="3" since="OTP 26.1"
 	    anchor="ioctl-atmark"/>
-      <name name="ioctl" arity="2" clause_i="4" since="OTP @OTP-18660@"
+      <name name="ioctl" arity="2" clause_i="4" since="OTP 26.1"
 	    anchor="ioctl-atmark"/>
       <fsummary>Control device.</fsummary>
       <desc>
@@ -2418,7 +2418,7 @@
     </func>
 
     <func>
-      <name name="ioctl" arity="3" clause_i="2" since="OTP @OTP-18660@"
+      <name name="ioctl" arity="3" clause_i="2" since="OTP 26.1"
 	    anchor="ioctl-rcvall"/>
       <fsummary>Control device.</fsummary>
       <desc>
@@ -2455,7 +2455,7 @@
     </func>
 
     <func>
-      <name name="ioctl" arity="3" clause_i="3" since="OTP @OTP-18660@"
+      <name name="ioctl" arity="3" clause_i="3" since="OTP 26.1"
 	    anchor="ioctl-rcvall_x"/>
       <fsummary>Control device.</fsummary>
       <desc>

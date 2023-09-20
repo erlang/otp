@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module since="OTP @OTP-18754@">edlin</module>
+  <module since="OTP 26.1">edlin</module>
   <modulesummary>Line and input interpretter for the erlang shell.</modulesummary>
   <description>
     <p>This module reads input, handles any escape sequences that have been configured via edlin_key
@@ -234,7 +234,7 @@ $ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
   </datatypes>
   <funcs>
     <func>
-      <name name="keymap" arity="0" since="OTP @OTP-18754@"/>
+      <name name="keymap" arity="0" since="OTP 26.1"/>
       <fsummary>Get current keymap for the shell.</fsummary>
       <type name="keymap"/>
       <desc>

@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 5.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that caused dialyzer to crash when
+	    analyzing bogus code that contained the literal atom
+	    <c>undefined</c> in segment sizes.</p>
+          <p>
+	    Own Id: OTP-18629 Aux Id: GH-7325 </p>
+        </item>
+        <item>
+	    <p>Dialyzer could crash when attempting to analyze a
+	    module that defined a type called <c>product/</c>.</p>
+          <p>
+	    Own Id: OTP-18738 Aux Id: GH-7584 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
