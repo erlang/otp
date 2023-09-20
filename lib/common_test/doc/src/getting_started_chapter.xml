@@ -95,7 +95,7 @@
     <p>As shown in section 
     <seeguide marker="basics_chapter#External_Interfaces">Common Test Basics</seeguide>,
     the test suite module implements
-      <seeerl marker="common_test">callback functions</seeerl>
+      <seeerl marker="ct_suite">callback functions</seeerl>
       (mandatory or optional) for various purposes, for example:
     </p>
       <list type="bulleted">

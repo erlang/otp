@@ -143,7 +143,7 @@
     </p>
     <p>
       The test suite module must conform to a
-      <seeerl marker="common_test">callback interface</seeerl>
+      <seeerl marker="ct_suite">callback interface</seeerl>
       specified by the <c>Common Test</c> test server. For details, see section
       <seeguide marker="write_test_chapter#intro">Writing Test Suites</seeguide>.
     </p>

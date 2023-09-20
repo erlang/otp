@@ -752,7 +752,7 @@
     </func>
 
     <func>
-      <name since="OTP R14B02">Module:terminate(CTHState)</name>
+      <name since="OTP R14B02">Module:terminate(CTHState) -> term()</name>
       <fsummary>Called after the CTH scope ends.</fsummary>
       <type>
         <v>CTHState = term()</v>
@@ -761,7 +761,8 @@
         <p>OPTIONAL</p>
 
         <p>This function is called at the end of a CTH
-          <seeguide marker="ct_hooks_chapter#scope">scope</seeguide>.</p>
+          <seeguide marker="ct_hooks_chapter#scope">scope</seeguide>.
+          The returned term is ignored.</p>
       </desc>
     </func>
 
