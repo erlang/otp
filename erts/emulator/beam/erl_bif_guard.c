@@ -89,7 +89,7 @@ BIF_RETTYPE abs_1(BIF_ALIST_1)
 	FloatDef f;
 
 	GET_DOUBLE(BIF_ARG_1, f);
-	if (f.fd < 0.0) {
+	if (f.fd <= 0.0) {
 	    hp = HeapFragOnlyAlloc(BIF_P, FLOAT_SIZE_OBJECT);
 	    f.fd = fabs(f.fd);
 	    res = make_float(hp);
