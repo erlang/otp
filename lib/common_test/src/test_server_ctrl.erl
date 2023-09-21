@@ -4084,7 +4084,7 @@ progress(failed, _CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor, "=== Reason: timetrap timeout", []),
-    {failed, #{reason => timetrap_timeout}};
+    {failed, #{reason => {timetrap_timeout, Loc}}};
 
 progress(failed, _CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
 	 Comment0, {St0,St1}) ->
