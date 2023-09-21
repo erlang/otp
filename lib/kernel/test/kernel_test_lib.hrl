@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@
 
 -define(HAS_SUPPORT_IPV4(),      ?LIB:has_support_ipv4()).
 -define(HAS_SUPPORT_IPV6(),      ?LIB:has_support_ipv6()).
--define(WHICH_LOCAL_ADDR(__D__), ?LIB:which_local_addr(__D__)).
+-define(WHICH_LOCAL_ADDR(D),     ?LIB:which_local_addr((D))).
 
 -define(START_NODE(__N__, __A__),
         ?LIB:start_node(__N__, __A__)).
@@ -67,7 +67,7 @@
 
 -define(STOP_NODE(__N__),        ?LIB:stop_node(__N__)).
                          
--define(F(FORMAT, ARGS),         ?LIB:f(FORMAT, ARGS)).
+-define(F(FORMAT, ARGS),         ?LIB:f((FORMAT), (ARGS))).
 -define(P(F),                    ?LIB:print(F)).
 -define(P(F,A),                  ?LIB:print(F, A)).
 -define(FTS(),                   ?LIB:formated_timestamp()).

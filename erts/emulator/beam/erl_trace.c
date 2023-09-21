@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,9 +66,9 @@
 Export exp_send, exp_receive, exp_timeout;
 
 static ErtsTracer system_seq_tracer;
-static Uint default_proc_trace_flags;
+static Uint32 default_proc_trace_flags;
 static ErtsTracer default_proc_tracer;
-static Uint default_port_trace_flags;
+static Uint32 default_port_trace_flags;
 static ErtsTracer default_port_tracer;
 
 static Eterm system_monitor;
@@ -485,8 +485,8 @@ erts_get_system_seq_tracer(void)
 }
 
 static ERTS_INLINE void
-get_default_tracing(Uint *flagsp, ErtsTracer *tracerp,
-                    Uint *default_trace_flags,
+get_default_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
+                    Uint32 *default_trace_flags,
                     ErtsTracer *default_tracer)
 {
     if (!(*default_trace_flags & TRACEE_FLAGS))
@@ -531,9 +531,9 @@ get_default_tracing(Uint *flagsp, ErtsTracer *tracerp,
 }
 
 static ERTS_INLINE void
-erts_change_default_tracing(int setflags, Uint flags,
+erts_change_default_tracing(int setflags, Uint32 flags,
                             const ErtsTracer tracer,
-                            Uint *default_trace_flags,
+                            Uint32 *default_trace_flags,
                             ErtsTracer *default_tracer)
 {
     if (setflags)
@@ -547,31 +547,31 @@ erts_change_default_tracing(int setflags, Uint flags,
 }
 
 void
-erts_change_default_proc_tracing(int setflags, Uint flagsp,
+erts_change_default_proc_tracing(int setflags, Uint32 flags,
                                  const ErtsTracer tracer)
 {
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
     erts_change_default_tracing(
-        setflags, flagsp, tracer,
+        setflags, flags, tracer,
         &default_proc_trace_flags,
         &default_proc_tracer);
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
-erts_change_default_port_tracing(int setflags, Uint flagsp,
+erts_change_default_port_tracing(int setflags, Uint32 flags,
                                  const ErtsTracer tracer)
 {
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
     erts_change_default_tracing(
-        setflags, flagsp, tracer,
+        setflags, flags, tracer,
         &default_port_trace_flags,
         &default_port_tracer);
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
-erts_get_default_proc_tracing(Uint *flagsp, ErtsTracer *tracerp)
+erts_get_default_proc_tracing(Uint32 *flagsp, ErtsTracer *tracerp)
 {
     erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
@@ -583,7 +583,7 @@ erts_get_default_proc_tracing(Uint *flagsp, ErtsTracer *tracerp)
 }
 
 void
-erts_get_default_port_tracing(Uint *flagsp, ErtsTracer *tracerp)
+erts_get_default_port_tracing(Uint32 *flagsp, ErtsTracer *tracerp)
 {
     erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
@@ -976,7 +976,8 @@ erts_trace_return(Process* p, ErtsCodeMFA *mfa,
 {
     Eterm* hp;
     Eterm mfa_tuple;
-    Uint meta_flags, *tracee_flags;
+    Uint32 meta_flags;
+    Uint32 *tracee_flags;
 
     ASSERT(tracer);
     if (ERTS_TRACER_COMPARE(*tracer, erts_tracer_true)) {
@@ -1031,7 +1032,8 @@ erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class, Eterm value,
 {
     Eterm* hp;
     Eterm mfa_tuple, cv;
-    Uint meta_flags, *tracee_flags;
+    Uint32 meta_flags;
+    Uint32 *tracee_flags;
 
     ASSERT(tracer);
     if (ERTS_TRACER_COMPARE(*tracer, erts_tracer_true)) {
@@ -1097,7 +1099,8 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
     int i;
     Uint32 return_flags;
     Eterm pam_result = am_true;
-    Uint meta_flags, *tracee_flags;
+    Uint32 meta_flags;
+    Uint32 *tracee_flags;
     ErtsTracerNif *tnif = NULL;
     Eterm transformed_args[MAX_ARG];
     ErtsTracer pre_ms_tracer = erts_tracer_nil;
@@ -2473,7 +2476,7 @@ init_sys_msg_dispatcher(void)
 {
     erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
-    thr_opts.name = "sys_msg_dispatcher";
+    thr_opts.name = "erts_smsg_disp";
     init_smq_element_alloc();
     sys_message_queue = NULL;
     sys_message_queue_end = NULL;
@@ -3079,7 +3082,7 @@ erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
     }
 }
 
-static void init_tracer_nif()
+static void init_tracer_nif(void)
 {
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
@@ -3092,7 +3095,7 @@ static void init_tracer_nif()
 
 }
 
-int erts_tracer_nif_clear()
+int erts_tracer_nif_clear(void)
 {
 
     erts_rwmtx_rlock(&tracer_mtx);
@@ -3130,7 +3133,7 @@ static int tracer_cmp_fun(void* a, void* b)
 
 static HashValue tracer_hash_fun(void* obj)
 {
-    return make_internal_hash(((ErtsTracerNif*)obj)->module, 0);
+    return erts_internal_hash(((ErtsTracerNif*)obj)->module);
 }
 
 static void *tracer_alloc_fun(void* tmpl)

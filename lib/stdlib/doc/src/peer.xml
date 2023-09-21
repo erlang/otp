@@ -311,7 +311,7 @@ build_image(Dir) ->
           <tag><c>detached</c></tag>
           <item>
             <p>Defines whether to pass the <c>-detached</c> flag to the started peer.
-              This option cannot be set to <c>false</c> using the standard_io alternative
+              This option cannot be set to <c>false</c> using the <c>standard_io</c> alternative
               connection type. Default is <c>true</c>.
             </p>
           </item>

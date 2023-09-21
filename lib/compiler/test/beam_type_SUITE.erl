@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,14 +22,16 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integers/1,numbers/1,coverage/1,booleans/1,setelement/1,
-	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
+         cons/1,tuple/1,
+         record_float/1,binary_float/1,float_compare/1,float_overflow/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
-         not_equal/1,infer_relops/1,binary_unit/1]).
+         not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
+         funs/1,will_succeed/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -51,6 +53,7 @@ groups() ->
        record_float,
        binary_float,
        float_compare,
+       float_overflow,
        arity_checks,
        elixir_binaries,
        find_best,
@@ -70,7 +73,10 @@ groups() ->
        min_max_mixed_types,
        not_equal,
        infer_relops,
-       binary_unit
+       binary_unit,
+       premature_concretization,
+       funs,
+       will_succeed
       ]}].
 
 init_per_suite(Config) ->
@@ -679,6 +685,9 @@ tuple(_Config) ->
     {'EXIT',{function_clause,_}} = catch gh_6458(id({42})),
     {'EXIT',{function_clause,_}} = catch gh_6458(id(a)),
 
+    {'EXIT',{badarg,_}} = catch gh_6927(id({a,b})),
+    {'EXIT',{badarg,_}} = catch gh_6927(id([])),
+
     ok.
 
 do_tuple() ->
@@ -710,6 +719,15 @@ gh_6458({X}) when X; (X orelse false) ->
 gh_6458() ->
     true.
 
+gh_6927(X) ->
+    %% beam_validator would complain because beam_call_types:will_succeed/3
+    %% said `maybe`, but beam_call_types:types/3 returned the type `none`.
+    element(42,
+            case X of
+                {_,_} -> X;
+                _ -> ok
+            end).
+
 -record(x, {a}).
 
 record_float(_Config) ->
@@ -728,10 +746,16 @@ record_float(R, N0) ->
 
 binary_float(_Config) ->
     <<-1/float>> = binary_negate_float(<<1/float>>),
+    {'EXIT',{badarg,_}} = catch binary_float_1(id(64.0), id(0)),
     ok.
 
 binary_negate_float(<<Float/float>>) ->
     <<-Float/float>>.
+
+%% GH-7147.
+binary_float_1(X, Y) ->
+    _ = <<Y:(ceil(64.0 = X))/float, (binary_to_integer(ok))>>,
+    ceil(X) band Y.
 
 float_compare(_Config) ->
     false = do_float_compare(-42.0),
@@ -751,6 +775,46 @@ do_float_compare(X) ->
         T when (T =:= nil) or (T =:= false) -> T;
         _T -> Y > 0
     end.
+
+float_overflow(_Config) ->
+    Res1 = id((1 bsl 1023) * two()),
+    Res1 = float_overflow_1(),
+
+    Res2 = id((-1 bsl 1023) * two()),
+    Res2 = float_overflow_2(),
+
+    {'EXIT',{{bad_filter,[0]},_}} = catch float_overflow_3(),
+
+    ok.
+
+%% GH-7178: There would be an overflow when converting a number range
+%% to a float range.
+float_overflow_1() ->
+    round(
+      try
+          round(float(1 bsl 1023)) * two()
+      catch
+          _:_ ->
+              0.0
+      end
+     ).
+
+float_overflow_2() ->
+    round(
+      try
+          round(float(-1 bsl 1023)) * two()
+      catch
+          _:_ ->
+              0.0
+      end
+     ).
+
+two() -> 2.
+
+float_overflow_3() ->
+    [0 || <<>> <= <<>>,
+          [0 || (floor(1.7976931348623157e308) bsl 1) >= (1.0 + map_size(#{}))]
+    ].
 
 arity_checks(_Config) ->
     %% ERL-549: an unsafe optimization removed a test_arity instruction,
@@ -983,7 +1047,15 @@ sto_1(step_4_3) -> {b, [sto_1(case_3_3)]}.
 %% 3, so we must not subtract 2 on the failure path.
 type_subtraction(Config) when is_list(Config) ->
     true = type_subtraction_1(id(<<"A">>)),
+
+    ok = type_subtraction_2(id(true)),
+    <<"aaaa">> = type_subtraction_2(id(false)),
+    {'EXIT', _} = catch type_subtraction_3(id(false)),
+    ok = catch type_subtraction_4(id(ok)),
+    {'EXIT', _} = catch type_subtraction_4(id(false)),
+
     ok.
+
 
 type_subtraction_1(_x@1) ->
     _a@1 = ts_12(_x@1),
@@ -1009,6 +1081,41 @@ ts_23(_x@1) ->
             2
     end.
 
+type_subtraction_2(X) ->
+    case ts_34(X) of
+        Tuple when element(1, Tuple) =:= ok ->
+            ok;
+        Tuple when element(1, Tuple) =:= error ->
+            element(2, Tuple)
+    end.
+
+ts_34(X) ->
+    case X of
+        true -> {ok};
+        false -> {error, <<"aaaa">>}
+    end.
+
+type_subtraction_3(_V0) when is_boolean(_V0), is_binary(_V0), _V0 andalso _V0 ->
+    ok.
+
+type_subtraction_4(_V0) ->
+    try
+        _V0 = ok
+    catch
+        _ ->
+            <<
+                0
+             || _V0 := _ <- ok,
+                (try ok of
+                    _ when _V0, (_V0 andalso _V0) orelse trunc(ok) ->
+                        ok
+                catch
+                    _ ->
+                        ok
+                end)
+            >>
+    end.
+
 %% GH-4774: The validator didn't update container contents on type subtraction.
 container_subtraction(Config) when is_list(Config) ->
     A = id(baz),
@@ -1030,6 +1137,11 @@ cs_2({bar,baz}) ->
 is_list_opt(_Config) ->
     true = is_list_opt_1(id(<<"application/a2l">>)),
     false = is_list_opt_1(id(<<"">>)),
+
+    ok = is_list_opt_3(id([])),
+    true = is_list_opt_3(id([a])),
+    {'EXIT',{badarg,_}} = catch is_list_opt_3(id(no_list)),
+
     ok.
 
 is_list_opt_1(Type) ->
@@ -1040,6 +1152,16 @@ is_list_opt_1(Type) ->
 
 is_list_opt_2(<<"application/a2l">>) -> [<<"a2l">>];
 is_list_opt_2(_Type) -> nil.
+
+is_list_opt_3([]) ->
+    ok;
+is_list_opt_3(A) ->
+    %% The call to is_list/1 would be optimized to an is_nonempty_list
+    %% instruction, which only exists as a guard test that cannot
+    %% produce boolean value.
+    _ = (Bool = is_list(A)) orelse binary_to_integer(<<"">>),
+    Bool.
+
 
 %% We used to determine the type of `get_tuple_element` at the time of
 %% extraction, which is simple but sometimes throws away type information when 
@@ -1327,6 +1449,65 @@ binary_unit_1() ->
         I = hd([Y || Y <- X, _ <- X, (Foo >= ok)]),
         <<0, I>>
     end.
+
+%% ERIERL-918: A call to a local function (in this case `pm_concretization_3`)
+%% forced the extracted type of `Tagged` to be concretized before we checked
+%% `Status`, passing an unknown type to `pm_concretization_4`.
+premature_concretization(_Config) ->
+    ok = pm_concretization_1(id(tagged), id({tagged, foo})),
+    error = pm_concretization_1(id(flurb), id({tagged, foo})),
+    ok.
+
+pm_concretization_1(Frobnitz, Tagged) ->
+    {Status, NewTagged} = pm_concretization_2(Frobnitz, Tagged),
+    pm_concretization_3(NewTagged),
+    case Status of
+        ok -> pm_concretization_4(NewTagged);
+        error -> error
+    end.
+
+pm_concretization_2(tagged, {tagged, _Nonsense}=T) -> {ok, T};
+pm_concretization_2(_, Tagged) -> {error, Tagged}.
+
+pm_concretization_3(_) -> ok.
+pm_concretization_4(_) -> ok.
+
+funs(_Config) ->
+    {'EXIT',{badarg,_}} = catch gh_7179(),
+    false = is_function(id(fun() -> ok end), 1024),
+
+    {'EXIT',{badarg,_}} = catch gh_7197(),
+
+    ok.
+
+%% GH-7179: The beam_ssa_type pass would crash.
+gh_7179() ->
+    << <<0>> || is_function([0 || <<_>> <= <<>>], -1),
+                [] <- [] >>.
+
+%% GH-7197: The beam_ssa_type pass would crash.
+gh_7197() ->
+    [0 || is_function([ok || <<_>> <= <<>>], get_keys()),
+          fun (_) ->
+                  ok
+          end].
+
+will_succeed(_Config) ->
+    b = will_succeed_1(id(ok), id(#{})),
+    ok.
+
+%% OTP-18576: the beam_call_types:will_succeed/3 check was incorrect for 'bsl',
+%% erroneously stating that it would never fail in some instances.
+will_succeed_1(_V0, _V1)
+  when (1 bsl ((map_size(_V1) bxor 288230376151711743)
+               band 288230376151711743)) =:= _V0 ->
+    a;
+will_succeed_1(_, _) ->
+    b.
+
+%%%
+%%% Common utilities.
+%%%
 
 id(I) ->
     I.

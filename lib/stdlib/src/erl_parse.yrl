@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -820,6 +820,7 @@ Erlang code.
 
 -type abstract_expr() :: af_literal()
                        | af_match(abstract_expr())
+                       | af_maybe_match()
                        | af_variable()
                        | af_tuple(abstract_expr())
                        | af_nil()
@@ -847,7 +848,9 @@ Erlang code.
                        | af_local_fun()
                        | af_remote_fun()
                        | af_fun()
-                       | af_named_fun().
+                       | af_named_fun()
+                       | af_maybe()
+                       | af_maybe_else().
 
 -type af_record_update(T) :: {'record',
                               anno(),
@@ -994,6 +997,9 @@ Erlang code.
 -type af_map_pattern() ::
         {'map', anno(), [af_assoc_exact(af_pattern())]}.
 
+-type af_maybe() :: {'maybe', anno(), af_body()}.
+-type af_maybe_else() :: {'maybe', anno(), af_body(), {'else', anno(), af_clause_seq()}}.
+
 -type abstract_type() :: af_annotated_type()
                        | af_atom()
                        | af_bitstring_type()
@@ -1104,6 +1110,8 @@ Erlang code.
 
 -type af_match(T) :: {'match', anno(), af_pattern(), T}.
 
+-type af_maybe_match() :: {'maybe_match', anno(), af_pattern(), abstract_expr()}.
+
 -type af_variable() :: {'var', anno(), atom()}. % | af_anon_variable()
 
 %-type af_anon_variable() :: {'var', anno(), '_'}.
@@ -1129,7 +1137,7 @@ Erlang code.
 -type binary_op() :: '/' | '*' | 'div' | 'rem' | 'band' | 'and' | '+' | '-'
                    | 'bor' | 'bxor' | 'bsl' | 'bsr' | 'or' | 'xor' | '++'
                    | '--' | '==' | '/=' | '=<' | '<'  | '>=' | '>' | '=:='
-                   | '=/='.
+                   | '=/=' | '!'.
 
 -type af_unary_op(T) :: {'op', anno(), unary_op(), T}.
 
@@ -1491,8 +1499,21 @@ check_clauses(Cs, Name, Arity) ->
     [case C of
          {clause,A,N,As,G,B} when N =:= Name, length(As) =:= Arity ->
              {clause,A,As,G,B};
-         {clause,A,_N,_As,_G,_B} ->
-             ret_err(A, "head mismatch")
+         {clause,A,N,As,_G,_B} when N =:= Name ->
+             Detail = io_lib:format(
+                 "head mismatch: function ~s with arities ~w and ~w is "
+                 "regarded as two distinct functions. Is the number of "
+                 "arguments incorrect or is the semicolon in ~s/~w unwanted?",
+                 [Name, Arity, length(As), Name, Arity]
+             ),
+             ret_err(A, Detail);
+         {clause,A,N,As,_G,_B} ->
+             Detail = io_lib:format(
+                 "head mismatch: previous function ~s/~w is distinct from ~s/~w. "
+                 "Is the semicolon in ~s/~w unwanted?",
+                 [Name, Arity, N, length(As), Name, Arity]
+             ),
+             ret_err(A, Detail)
      end || C <- Cs].
 
 build_try(A,Es,Scs,{Ccs,As}) ->
@@ -1685,16 +1706,16 @@ abstract_list([H|T], String, A, E) ->
             abstract_list(T, [H|String], A, E);
         false ->
             AbstrList = {cons,A,abstract(H, A, E),abstract(T, A, E)},
-            not_string(String, AbstrList, A, E)
+            not_string(String, AbstrList, A)
     end;
 abstract_list([], String, A, _E) ->
     {string, A, lists:reverse(String)};
 abstract_list(T, String, A, E) ->
-    not_string(String, abstract(T, A, E), A, E).
+    not_string(String, abstract(T, A, E), A).
 
-not_string([C|T], Result, A, E) ->
-    not_string(T, {cons, A, {integer, A, C}, Result}, A, E);
-not_string([], Result, _A, _E) ->
+not_string([C|T], Result, A) ->
+    not_string(T, {cons, A, {integer, A, C}, Result}, A);
+not_string([], Result, _A) ->
     Result.
 
 abstract_tuple_list([H|T], A, E) ->

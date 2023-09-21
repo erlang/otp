@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@
 
 -module(wxGLCanvas).
 -include("wxe.hrl").
--export([destroy/1,new/1,new/2,setCurrent/2,swapBuffers/1]).
+-export([createSurface/1,destroy/1,isDisplaySupported/1,new/1,new/2,setCurrent/2,
+  swapBuffers/1]).
 
 %% inherited exports
 -export([cacheBestSize/2,canSetTransparent/1,captureMouse/1,center/1,center/2,
@@ -111,6 +112,22 @@ setCurrent(#wx_ref{type=ThisT}=This,#wx_ref{type=ContextT}=Context) ->
   ?CLASS(ContextT,wxGLContext),
   wxe_util:queue_cmd(This,Context,?get_env(),?wxGLCanvas_SetCurrent),
   wxe_util:rec(?wxGLCanvas_SetCurrent).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxglcanvas.html#wxglcanvascreatesurface">external documentation</a>.
+-spec createSurface(This) -> boolean() when
+	This::wxGLCanvas().
+createSurface(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxGLCanvas),
+  wxe_util:queue_cmd(This,?get_env(),?wxGLCanvas_CreateSurface),
+  wxe_util:rec(?wxGLCanvas_CreateSurface).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxglcanvas.html#wxglcanvasisdisplaysupported">external documentation</a>.
+-spec isDisplaySupported(AttribList) -> boolean() when
+	AttribList::[integer()].
+isDisplaySupported(AttribList)
+ when is_list(AttribList) ->
+  wxe_util:queue_cmd(AttribList,?get_env(),?wxGLCanvas_IsDisplaySupported),
+  wxe_util:rec(?wxGLCanvas_IsDisplaySupported).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxglcanvas.html#wxglcanvasswapbuffers">external documentation</a>.
 -spec swapBuffers(This) -> boolean() when

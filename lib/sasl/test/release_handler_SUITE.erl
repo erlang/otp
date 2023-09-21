@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3230,7 +3230,7 @@ create_fake_release(Dir,RelName,RelVsn,AppDirs) ->
     ok = copy_file(Rel++".boot", filename:join(RelDir,"start.boot")),
 
     %% Use an own 'releases' directory - we don't want to change the
-    %% contents of $OTP_ROOT/releases
+    %% contents of $OTPROOT/releases
     %% Inform SASL about this via sys.config
     ReleasesDir = filename:join(Dir, "releases"),
     Config = [{sasl,[{releases_dir,ReleasesDir}]}],

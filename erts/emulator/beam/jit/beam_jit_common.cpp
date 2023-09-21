@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2021-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,8 @@ static std::string getAtom(Eterm atom) {
     return std::string((char *)ap->name, ap->len);
 }
 
-BeamAssembler::BeamAssembler() : code() {
+BeamAssemblerCommon::BeamAssemblerCommon(BaseAssembler &assembler_)
+        : assembler(assembler_), code() {
     /* Setup with default code info */
     Error err = code.init(Environment::host());
     ERTS_ASSERT(!err && "Failed to init codeHolder");
@@ -54,42 +55,35 @@ BeamAssembler::BeamAssembler() : code() {
                           8);
     ERTS_ASSERT(!err && "Failed to create .rodata section");
 
-    err = code.attach(&a);
-
-    ERTS_ASSERT(!err && "Failed to attach codeHolder");
 #ifdef DEBUG
-    a.addDiagnosticOptions(DiagnosticOptions::kValidateAssembler);
+    assembler.addDiagnosticOptions(DiagnosticOptions::kValidateAssembler);
 #endif
-    a.addEncodingOptions(EncodingOptions::kOptimizeForSize |
-                         EncodingOptions::kOptimizedAlign);
+    assembler.addEncodingOptions(EncodingOptions::kOptimizeForSize |
+                                 EncodingOptions::kOptimizedAlign);
     code.setErrorHandler(this);
 }
 
-BeamAssembler::BeamAssembler(const std::string &log) : BeamAssembler() {
-    if (erts_jit_asm_dump) {
-        setLogger(log + ".asm");
-    }
-}
-
-BeamAssembler::~BeamAssembler() {
+BeamAssemblerCommon::~BeamAssemblerCommon() {
     if (logger.file()) {
         fclose(logger.file());
     }
 }
 
-void *BeamAssembler::getBaseAddress() {
+void *BeamAssemblerCommon::getBaseAddress() {
     ASSERT(code.hasBaseAddress());
     return (void *)code.baseAddress();
 }
 
-size_t BeamAssembler::getOffset() {
-    return a.offset();
+size_t BeamAssemblerCommon::getOffset() {
+    return assembler.offset();
 }
 
-void BeamAssembler::_codegen(JitAllocator *allocator,
-                             const void **executable_ptr,
-                             void **writable_ptr) {
-    Error err = code.flatten();
+void BeamAssemblerCommon::codegen(JitAllocator *allocator,
+                                  const void **executable_ptr,
+                                  void **writable_ptr) {
+    Error err;
+
+    err = code.flatten();
     ERTS_ASSERT(!err && "Could not flatten code");
     err = code.resolveUnresolvedLinks();
     ERTS_ASSERT(!err && "Could not resolve all links");
@@ -121,6 +115,8 @@ void BeamAssembler::_codegen(JitAllocator *allocator,
         ERTS_ASSERT("Failed to allocate module code");
     }
 
+    VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadWrite);
+
     code.relocateToBase((uint64_t)*executable_ptr);
     code.copyFlattenedData(*writable_ptr,
                            code.codeSize(),
@@ -133,59 +129,63 @@ void BeamAssembler::_codegen(JitAllocator *allocator,
 #endif
 }
 
-void *BeamAssembler::getCode(Label label) {
+void *BeamAssemblerCommon::getCode(Label label) {
     ASSERT(label.isValid());
     return (char *)getBaseAddress() + code.labelOffsetFromBase(label);
 }
 
-byte *BeamAssembler::getCode(char *labelName) {
+byte *BeamAssemblerCommon::getCode(char *labelName) {
     return (byte *)getCode(code.labelByName(labelName, strlen(labelName)));
 }
 
-void BeamAssembler::handleError(Error err,
-                                const char *message,
-                                BaseEmitter *origin) {
+void BeamAssemblerCommon::handleError(Error err,
+                                      const char *message,
+                                      BaseEmitter *origin) {
     comment(message);
-    fflush(logger.file());
+
+    if (logger.file() != NULL) {
+        fflush(logger.file());
+    }
+
     ASSERT(0 && "Failed to encode instruction");
 }
 
-void BeamAssembler::embed_rodata(const char *labelName,
-                                 const char *buff,
-                                 size_t size) {
-    Label label = a.newNamedLabel(labelName);
+void BeamAssemblerCommon::embed_rodata(const char *labelName,
+                                       const char *buff,
+                                       size_t size) {
+    Label label = assembler.newNamedLabel(labelName);
 
-    a.section(rodata);
-    a.bind(label);
-    a.embed(buff, size);
-    a.section(code.textSection());
+    assembler.section(rodata);
+    assembler.bind(label);
+    assembler.embed(buff, size);
+    assembler.section(code.textSection());
 }
 
-void BeamAssembler::embed_bss(const char *labelName, size_t size) {
-    Label label = a.newNamedLabel(labelName);
+void BeamAssemblerCommon::embed_bss(const char *labelName, size_t size) {
+    Label label = assembler.newNamedLabel(labelName);
 
     /* Reuse rodata section for now */
-    a.section(rodata);
-    a.bind(label);
+    assembler.section(rodata);
+    assembler.bind(label);
     embed_zeros(size);
-    a.section(code.textSection());
+    assembler.section(code.textSection());
 }
 
-void BeamAssembler::embed_zeros(size_t size) {
+void BeamAssemblerCommon::embed_zeros(size_t size) {
     static constexpr size_t buf_size = 16384;
     static const char zeros[buf_size] = {};
 
     while (size >= buf_size) {
-        a.embed(zeros, buf_size);
+        assembler.embed(zeros, buf_size);
         size -= buf_size;
     }
 
     if (size > 0) {
-        a.embed(zeros, size);
+        assembler.embed(zeros, size);
     }
 }
 
-void BeamAssembler::setLogger(std::string log) {
+void BeamAssemblerCommon::setLogger(const std::string &log) {
     FILE *f = fopen(log.data(), "w+");
 
     /* FIXME: Don't crash when loading multiple modules with the same name.
@@ -198,7 +198,7 @@ void BeamAssembler::setLogger(std::string log) {
     setLogger(f);
 }
 
-void BeamAssembler::setLogger(FILE *log) {
+void BeamAssemblerCommon::setLogger(FILE *log) {
     logger.setFile(log);
     logger.setIndentation(FormatIndentationGroup::kCode, 4);
     code.setLogger(&logger);
@@ -213,7 +213,7 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
     const BeamCodeHeader *code_hdr_exec;
     BeamCodeHeader *code_hdr_rw;
 
-    codegen(allocator, executable_ptr, writable_ptr);
+    BeamAssembler::codegen(allocator, executable_ptr, writable_ptr);
 
     {
         auto offset = code.labelOffsetFromBase(code_header);
@@ -236,6 +236,11 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
     char *module_end = (char *)code.baseAddress() + a.offset();
     code_hdr_rw->functions[functions.size()] = (ErtsCodeInfo *)module_end;
 
+    /* Note that we don't make the module executable yet since we're going to
+     * patch literals et cetera and it's pointless to ping-pong the page
+     * permissions. The user will call `beamasm_seal_module` to do so later
+     * on. */
+
     *out_exec_hdr = code_hdr_exec;
     *out_rw_hdr = code_hdr_rw;
 }
@@ -243,7 +248,8 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
 void BeamModuleAssembler::codegen(JitAllocator *allocator,
                                   const void **executable_ptr,
                                   void **writable_ptr) {
-    _codegen(allocator, executable_ptr, writable_ptr);
+    BeamAssembler::codegen(allocator, executable_ptr, writable_ptr);
+    VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
 }
 
 void BeamModuleAssembler::codegen(char *buff, size_t len) {
@@ -260,7 +266,8 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
                                          Eterm _mod,
                                          int num_labels,
                                          const BeamFile *file)
-        : BeamAssembler(getAtom(_mod)), beam(file), ga(_ga), mod(_mod) {
+        : BeamAssembler(getAtom(_mod)), BeamModuleAssemblerCommon(file, _mod),
+          ga(_ga) {
     rawLabels.reserve(num_labels + 1);
 
     if (logger.file() && beam) {
@@ -362,10 +369,11 @@ void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
     ranges.reserve(functions.size() + 2);
 
     ASSERT((ErtsCodePtr)getBaseAddress() == (ErtsCodePtr)header);
+    ASSERT(functions.size() == header->num_functions);
 
     /* Push info about the header */
     ranges.push_back({.start = (ErtsCodePtr)getBaseAddress(),
-                      .stop = getCode(functions[0]),
+                      .stop = (ErtsCodePtr)&header->functions[functions.size()],
                       .name = module_name + "::codeHeader"});
 
     for (unsigned i = 0; i < functions.size(); i++) {
@@ -480,6 +488,80 @@ const ErtsCodeInfo *BeamModuleAssembler::getOnLoad() {
         return erts_code_to_codeinfo((ErtsCodePtr)getCode(on_load));
     } else {
         return 0;
+    }
+}
+
+unsigned BeamModuleAssembler::patchCatches(char *rw_base) {
+    unsigned catch_no = BEAM_CATCHES_NIL;
+
+    for (const auto &c : catches) {
+        const auto &patch = c.patch;
+        ErtsCodePtr handler;
+
+        handler = (ErtsCodePtr)getCode(c.handler);
+        catch_no = beam_catches_cons(handler, catch_no, nullptr);
+
+        /* Patch the `mov` instruction with the catch tag */
+        auto offset = code.labelOffsetFromBase(patch.where);
+        auto where = (int32_t *)&rw_base[offset + patch.ptr_offs];
+
+        ASSERT(INT_MAX == *where);
+        Eterm catch_term = make_catch(catch_no);
+
+        /* With the current tag scheme, more than 33 million
+         * catches can exist at once. */
+        ERTS_ASSERT(catch_term >> 31 == 0);
+
+        *where = catch_term;
+    }
+
+    return catch_no;
+}
+
+void BeamModuleAssembler::patchImport(char *rw_base,
+                                      unsigned index,
+                                      const Export *import) {
+    for (const auto &patch : imports[index].patches) {
+        auto offset = code.labelOffsetFromBase(patch.where);
+        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
+
+        ASSERT(LLONG_MAX == *where);
+        *where = reinterpret_cast<Eterm>(import) + patch.val_offs;
+    }
+}
+
+void BeamModuleAssembler::patchLambda(char *rw_base,
+                                      unsigned index,
+                                      const ErlFunEntry *fe) {
+    for (const auto &patch : lambdas[index].patches) {
+        auto offset = code.labelOffsetFromBase(patch.where);
+        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
+
+        ASSERT(LLONG_MAX == *where);
+        *where = reinterpret_cast<Eterm>(fe) + patch.val_offs;
+    }
+}
+
+void BeamModuleAssembler::patchLiteral(char *rw_base,
+                                       unsigned index,
+                                       Eterm lit) {
+    for (const auto &patch : literals[index].patches) {
+        auto offset = code.labelOffsetFromBase(patch.where);
+        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
+
+        ASSERT(LLONG_MAX == *where);
+        *where = lit + patch.val_offs;
+    }
+}
+
+void BeamModuleAssembler::patchStrings(char *rw_base,
+                                       const byte *string_table) {
+    for (const auto &patch : strings) {
+        auto offset = code.labelOffsetFromBase(patch.where);
+        auto where = (const byte **)&rw_base[offset + patch.ptr_offs];
+
+        ASSERT(LLONG_MAX == (Eterm)*where);
+        *where = string_table + patch.val_offs;
     }
 }
 
@@ -662,8 +744,8 @@ Uint beam_jit_get_map_elements(Eterm map,
         ASSERT(is_hashmap(map));
 
         while (n--) {
+            erts_ihash_t hx;
             const Eterm *v;
-            Uint32 hx;
 
             hx = fs[2];
             ASSERT(hx == hashmap_make_hash(fs[0]));
@@ -1005,6 +1087,24 @@ Sint beam_jit_bs_bit_size(Eterm term) {
     return (Sint)-1;
 }
 
+Eterm beam_jit_int128_to_big(Process *p, Uint sign, Uint low, Uint high) {
+    Eterm *hp;
+    Uint arity;
+
+    arity = high ? 2 : 1;
+    hp = HeapFragOnlyAlloc(p, BIG_NEED_SIZE(arity));
+    if (sign) {
+        hp[0] = make_neg_bignum_header(arity);
+    } else {
+        hp[0] = make_pos_bignum_header(arity);
+    }
+    BIG_DIGIT(hp, 0) = low;
+    if (arity == 2) {
+        BIG_DIGIT(hp, 1) = high;
+    }
+    return make_big(hp);
+}
+
 ErtsMessage *beam_jit_decode_dist(Process *c_p, ErtsMessage *msgp) {
     if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
         /*
@@ -1024,11 +1124,11 @@ ErtsMessage *beam_jit_decode_dist(Process *c_p, ErtsMessage *msgp) {
 }
 
 /* Remove a (matched) message from the message queue. */
-Sint beam_jit_remove_message(Process *c_p,
-                             Sint FCALLS,
-                             Eterm *HTOP,
-                             Eterm *E,
-                             Uint32 active_code_ix) {
+Sint32 beam_jit_remove_message(Process *c_p,
+                               Sint32 FCALLS,
+                               Eterm *HTOP,
+                               Eterm *E,
+                               Uint32 active_code_ix) {
     ErtsMessage *msgp;
 
     ERTS_CHK_MBUF_SZ(c_p);

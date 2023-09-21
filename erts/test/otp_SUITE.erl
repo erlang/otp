@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -218,17 +218,13 @@ call_to_deprecated(Config) when is_list(Config) ->
     {comment,integer_to_list(length(DeprecatedCalls))++" calls to deprecated functions"}.
 
 call_to_size_1(Config) when is_list(Config) ->
-    %% Applications that do not call erlang:size/1:
-    Apps = [asn1,compiler,debugger,kernel,observer,parsetools,
-            runtime_tools,stdlib,tools],
+    %% Forbid the use of erlang:size/1 in all applications.
+    Apps = all_otp_applications(Config),
     not_recommended_calls(Config, Apps, {erlang,size,1}).
 
 call_to_now_0(Config) when is_list(Config) ->
-    %% Applications that do not call erlang:now/1:
-    Apps = [asn1,common_test,compiler,debugger,dialyzer,
-            kernel,mnesia,observer,parsetools,reltool,
-            runtime_tools,sasl,stdlib,syntax_tools,
-            tools],
+    %% Forbid the use of erlang:now/1 in all applications except et.
+    Apps = all_otp_applications(Config) -- [et],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
 not_recommended_calls(Config, Apps0, MFA) ->
@@ -281,8 +277,19 @@ not_recommended_calls(Config, Apps0, MFA) ->
                     {comment, Mess}
             end;
         _ ->
-            ct:fail({length(CallsToMFA),calls_to_size_1})
+            ct:fail({length(CallsToMFA),calls_to,MFA})
     end.
+
+all_otp_applications(Config) ->
+    Server = proplists:get_value(xref_server, Config),
+    {ok,AllApplications} = xref:q(Server, "A"),
+    OtpAppsMap = get_otp_applications(Config),
+    [App || App <- AllApplications, is_map_key(App, OtpAppsMap)].
+
+get_otp_applications(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    [Current|_] = read_otp_version_table(DataDir),
+    read_version_lines([Current]).
 
 is_present_application(Name, Server) ->
     Q = io_lib:format("~w : App", [Name]),
@@ -494,7 +501,7 @@ test_runtime_dependencies_versions(Config) ->
     IgnoreApps = [],
     IgnoreUndefs = ignore_undefs(),
 
-    FirstVersionForApp = read_otp_version_table(DataDir),
+    FirstVersionForApp = get_first_app_versions(DataDir),
 
     case {element(1, os:type()) =:= unix,
           not is_development_build(DataDir),
@@ -535,7 +542,7 @@ ignore_undefs() ->
                 %% The following functions are optional dependencies for diameter
                 #{{dbg,ctp,0} => true,
                   {dbg,p,2} => true,
-                  {dbg,stop_clear,0} => true,
+                  {dbg,stop,0} => true,
                   {dbg,trace_port,2} => true,
                   {dbg,tracer,2} => true,
                   {erl_prettypr,format,1} => true,
@@ -548,25 +555,9 @@ ignore_undefs() ->
 
 %% Read the otp_versions.table file and create a mapping from application name
 %% the first version for each application.
-read_otp_version_table(DataDir) ->
-    VersionTableFile = filename:join(DataDir, "otp_versions.table"),
-    {ok, Contents} = file:read_file(VersionTableFile),
-    Lines = binary:split(Contents, <<"\n">>, [global,trim]),
-    read_version_lines(Lines, #{}).
-
-read_version_lines([Line|Lines], Map0) ->
-    [<<"OTP-",_/binary>>, <<":">> | Apps] = binary:split(Line, <<" ">>, [global,trim]),
-    Map = lists:foldl(fun(App, Acc) ->
-                              case binary:split(App, <<"-">>) of
-                                  [Name, _Version] ->
-                                      Acc#{binary_to_atom(Name) => binary_to_list(App)};
-                                  [_] ->
-                                      Acc
-                              end
-                      end, Map0, Apps),
-    read_version_lines(Lines, Map);
-read_version_lines([], Map) ->
-    Map.
+get_first_app_versions(DataDir) ->
+    Lines = read_otp_version_table(DataDir),
+    read_version_lines(Lines).
 
 test_runtime_dependencies_versions_rels(IgnoreApps, IgnoreUndefs,
                                         FirstVersionForApp, OtpReleasesWc) ->
@@ -743,3 +734,25 @@ start_xref_server(Server, Mode) ->
             end
     end,
     Server.
+
+read_otp_version_table(DataDir) ->
+    VersionTableFile = filename:join(DataDir, "otp_versions.table"),
+    {ok, Contents} = file:read_file(VersionTableFile),
+    binary:split(Contents, <<"\n">>, [global,trim]).
+
+read_version_lines(Lines) ->
+    read_version_lines(Lines, #{}).
+
+read_version_lines([Line|Lines], Map0) ->
+    [<<"OTP-",_/binary>>, <<":">> | Apps] = binary:split(Line, <<" ">>, [global,trim]),
+    Map = lists:foldl(fun(App, Acc) ->
+                              case binary:split(App, <<"-">>) of
+                                  [Name, _Version] ->
+                                      Acc#{binary_to_atom(Name) => binary_to_list(App)};
+                                  [_] ->
+                                      Acc
+                              end
+                      end, Map0, Apps),
+    read_version_lines(Lines, Map);
+read_version_lines([], Map) ->
+    Map.

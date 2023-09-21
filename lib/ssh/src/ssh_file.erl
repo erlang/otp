@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1052,6 +1052,7 @@ asn1_type(<<"RSA PUBLIC">>) -> 'RSAPublicKey';
 asn1_type(<<"DSA PRIVATE">>) -> 'DSAPrivateKey';
 asn1_type(<<"EC PRIVATE">>) -> 'ECPrivateKey';
 asn1_type(<<"OPENSSH PRIVATE">>) -> 'openssh-key-v1';
+asn1_type(<<"PRIVATE">>) -> 'PrivateKeyInfo';
 asn1_type(_) -> undefined.
 
 %%%================================================================

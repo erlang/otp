@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ init([?CLIENT_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
                                              Host, Port, Socket,
                                              Options, User, CbInfo),
     try
-	State = ssl_gen_statem:ssl_config(State0#state.ssl_options,
+	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
                                           ?CLIENT_ROLE, State0),
         tls_gen_connection:initialize_tls_sender(State),
         gen_statem:enter_loop(?MODULE, [], initial_hello, State)
@@ -178,16 +178,22 @@ user_hello({call, From}, cancel, State) ->
                                                user_canceled),
                                      ?FUNCTION_NAME, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
-           #state{handshake_env = HSEnv,
+           #state{handshake_env =  #handshake_env{continue_status = pause} = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = ssl:update_options(NewOptions, ?CLIENT_ROLE, Options0),
-    State = ssl_gen_statem:ssl_config(Options, ?CLIENT_ROLE, State0),
-    {next_state, wait_sh, State#state{start_or_recv_from = From,
-                                      handshake_env =
-                                          HSEnv#handshake_env{continue_status
-                                                              = continue}
-                                   },
-     [{{timeout, handshake}, Timeout, close}]};
+    try ssl:update_options(NewOptions, ?CLIENT_ROLE, Options0) of
+        Options ->
+            State = ssl_gen_statem:ssl_config(Options, ?CLIENT_ROLE, State0),
+            {next_state, wait_sh, State#state{start_or_recv_from = From,
+                                              handshake_env =
+                                                  HSEnv#handshake_env{continue_status
+                                                                      = continue}
+                                             },
+             [{{timeout, handshake}, Timeout, close}]}
+    catch
+        throw:{error, Reason} ->
+            gen_statem:reply(From, {error, Reason}),
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), ?FUNCTION_NAME, State0)
+    end;
 user_hello(Type, Msg, State) ->
     tls_gen_connection_1_3:user_hello(Type, Msg, State).
 
@@ -288,9 +294,8 @@ wait_sh(internal, #server_hello{} = Hello,
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, wait_sh, State0);
         {State1 = #state{}, start, ServerHello} ->
-            %% hello_retry_request : assert middlebox before going back to start
-            {next_state, hello_retry_middlebox_assert,
-             State1, [{next_event, internal, ServerHello}]};
+            %% hello_retry_request
+            {next_state, start, State1, [{next_event, internal, ServerHello}]};
         {State1, wait_ee} when IsRetry == true ->
             tls_gen_connection:next_event(wait_ee, no_record, State1);
         {State1, wait_ee} when IsRetry == false ->
@@ -311,6 +316,10 @@ hello_middlebox_assert(enter, _, State) ->
     {keep_state, State};
 hello_middlebox_assert(internal, #change_cipher_spec{}, State) ->
     tls_gen_connection:next_event(wait_ee, no_record, State);
+hello_middlebox_assert(internal = Type, #encrypted_extensions{} = Msg,  #state{ssl_options = #{log_level := Level}} = State) ->
+    ssl_logger:log(warning, Level, #{description => "Failed to assert middlebox server message",
+                                     reason => [{missing, #change_cipher_spec{}}]}, ?LOCATION),
+    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State);
 hello_middlebox_assert(info, Msg, State) ->
     tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
 hello_middlebox_assert(Type, Msg, State) ->
@@ -325,9 +334,11 @@ hello_middlebox_assert(Type, Msg, State) ->
 hello_retry_middlebox_assert(enter, _, State) ->
     {keep_state, State};
 hello_retry_middlebox_assert(internal, #change_cipher_spec{}, State) ->
-    tls_gen_connection:next_event(start, no_record, State);
-hello_retry_middlebox_assert(internal, #server_hello{}, State) ->
-    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State, [postpone]);
+    tls_gen_connection:next_event(wait_sh, no_record, State);
+hello_retry_middlebox_assert(internal = Type, #server_hello{} = Msg, #state{ssl_options = #{log_level := Level}} = State) ->
+    ssl_logger:log(warning, Level, #{description => "Failed to assert middlebox server message",
+                                     reason => [{missing, #change_cipher_spec{}}]}, ?LOCATION),
+    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State);
 hello_retry_middlebox_assert(info, Msg, State) ->
     tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
 hello_retry_middlebox_assert(Type, Msg, State) ->
@@ -507,6 +518,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
                                         ocsp_stapling_state = OcspState},
          connection_env = #connection_env{negotiated_version =
                                               NegotiatedVersion},
+         protocol_specific = PS,
          ssl_options = #{ciphers := ClientCiphers,
                          supported_groups := ClientGroups0,
                          use_ticket := UseTicket,
@@ -598,8 +610,17 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
                       HsEnv#handshake_env{tls_handshake_history = HHistory},
                   key_share = ClientKeyShare},
 
-        {State, wait_sh}
-
+        %% If it is a hello_retry and middlebox mode is
+        %% used assert the change_cipher_spec  message
+        %% that the server should send next
+        case (maps:get(hello_retry, PS, false)) andalso
+            (maps:get(middlebox_comp_mode, SslOpts, true))
+        of
+            true ->
+                {State, hello_retry_middlebox_assert};
+            false ->
+                {State, wait_sh}
+        end
     catch
         {Ref, #alert{} = Alert} ->
             Alert
@@ -661,7 +682,6 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
                                                           PSK, State2),
         State4 = ssl_record:step_encryption_state_read(State3),
         {State4, wait_ee}
-
     catch
         {Ref, {State, StateName, ServerHello}} ->
             {State, StateName, ServerHello};
@@ -722,12 +742,11 @@ maybe_send_early_data(#state{
                          handshake_env =
                              #handshake_env{tls_handshake_history = {Hist, _}},
                          protocol_specific = #{sender := _Sender},
-                         ssl_options = #{versions := [Version|_],
+                         ssl_options = #{versions := [?TLS_1_3|_],
                                          use_ticket := UseTicket,
                                          session_tickets := SessionTickets,
                                          early_data := EarlyData} = _SslOpts0
-                        } = State0) when Version =:= {3,4} andalso
-                                         UseTicket =/= [undefined] andalso
+                        } = State0) when UseTicket =/= [undefined] andalso
                                          EarlyData =/= undefined ->
     %% D.4.  Middlebox Compatibility Mode
     State1 = tls_gen_connection_1_3:maybe_queue_change_cipher_spec(State0, last),
@@ -758,12 +777,11 @@ maybe_send_end_of_early_data(
   #state{
      handshake_env = #handshake_env{early_data_accepted = true},
      protocol_specific = #{sender := _Sender},
-     ssl_options = #{versions := [Version|_],
+     ssl_options = #{versions := [?TLS_1_3|_],
                      use_ticket := UseTicket,
                      early_data := EarlyData},
      static_env = #static_env{protocol_cb = Connection}
-    } = State0) when Version =:= {3,4} andalso
-                     UseTicket =/= [undefined] andalso
+    } = State0) when UseTicket =/= [undefined] andalso
                      EarlyData =/= undefined ->
     %% EndOfEarlydata is encrypted with the 0-RTT traffic keys
     State1 = Connection:queue_handshake(#end_of_early_data{}, State0),
@@ -782,7 +800,7 @@ maybe_automatic_session_resumption(#state{ssl_options =
                                                 server_name_indication := SNI}
                                           = SslOpts0
                                          } = State0)
-  when Version >= {3,4} andalso
+  when ?TLS_GTE(Version, ?TLS_1_3) andalso
        SessionTickets =:= auto ->
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     HashAlgos = cipher_hash_algos(AvailableCipherSuites),
@@ -836,12 +854,11 @@ client_private_key(Group, ClientShares) ->
 maybe_check_early_data_indication(EarlyDataIndication,
                                   #state{
                                      handshake_env = HsEnv,
-                                     ssl_options = #{versions := [Version|_],
+                                     ssl_options = #{versions := [?TLS_1_3|_],
                                                      use_ticket := UseTicket,
                                                      early_data := EarlyData}
                                     } = State)
-  when Version =:= {3,4} andalso
-       UseTicket =/= [undefined] andalso
+  when UseTicket =/= [undefined] andalso
        EarlyData =/= undefined andalso
        EarlyDataIndication =/= undefined ->
     signal_user_early_data(State, accepted),
@@ -849,13 +866,12 @@ maybe_check_early_data_indication(EarlyDataIndication,
 maybe_check_early_data_indication(EarlyDataIndication,
                                   #state{
                                      protocol_specific = #{sender := _Sender},
-                                     ssl_options = #{versions := [Version|_],
+                                     ssl_options = #{versions := [?TLS_1_3|_],
                                                      use_ticket := UseTicket,
                                                      early_data := EarlyData}
                                      = _SslOpts0
                                     } = State)
-  when Version =:= {3,4} andalso
-       UseTicket =/= [undefined] andalso
+  when UseTicket =/= [undefined] andalso
        EarlyData =/= undefined andalso
        EarlyDataIndication =:= undefined ->
     signal_user_early_data(State, rejected),

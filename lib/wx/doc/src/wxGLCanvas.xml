@@ -7,7 +7,7 @@
 <erlref>
 <header>
   <copyright>
-    <year>2020</year><year>2021</year>
+    <year>2020</year><year>2023</year>
     <holder>wxWidgets team.</holder></copyright>
   <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
@@ -53,6 +53,21 @@
       </p><p>This is equivalent to <seemfa marker="wxGLContext#setCurrent/2"><c>wxGLContext:setCurrent/2</c></seemfa> called with this window as parameter.
       </p><p>Note: This function may only be called when the window is shown on screen, in particular it can't usually be called from the constructor as the window isn't yet shown at this moment.
       </p><p>Return: false if an error occurred. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="createSurface" arity="1" clause_i="1" since=""/>
+    <fsummary/>
+    <desc/>
+  </func>
+  
+  <func>
+    <name name="isDisplaySupported" arity="1" clause_i="1" since=""/>
+    <fsummary>Determines if a canvas having the specified attributes is available. </fsummary>
+    <desc><p>Determines if a canvas having the specified attributes is available. 
+      </p><p>This only applies for visual attributes, not rendering context attributes. Please, use the new form of this method, using <c>wxGLAttributes</c> (not implemented in wx).
+      </p><p>Return: true if attributes are supported. 
       </p></desc>
   </func>
   

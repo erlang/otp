@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,21 +48,17 @@
          step_encryption_state_read/1,
          step_encryption_state_write/1]).
 
-%% Compression
--export([compress/3, uncompress/3, compressions/0]).
-
 %% Payload encryption/decryption
 -export([cipher/4, cipher/5, decipher/4,
          cipher_aead/4, cipher_aead/5, decipher_aead/5,
          is_correct_mac/2, nonce_seed/3]).
--define(TLS_1_3, {3, 4}).
 
 -export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
--type ssl_version()       :: {integer(), integer()}.
--type ssl_atom_version() :: tls_record:tls_atom_version().
+-type ssl_version()       :: {non_neg_integer(), non_neg_integer()}.
+-type ssl_atom_version()  :: tls_record:tls_atom_version().
 -type connection_states() :: map(). %% Map
--type connection_state() :: map(). %% Map
+-type connection_state()  :: map(). %% Map
 
 %%====================================================================
 %% Connection state handling
@@ -337,24 +333,6 @@ set_pending_cipher_state(#{pending_read := Read,
       pending_write => Write#{cipher_state => ClientState}}.
 
 %%====================================================================
-%% Compression
-%%====================================================================
-
-uncompress(?NULL, Data, CS) ->
-    {Data, CS}.
-
-compress(?NULL, Data, CS) ->
-    {Data, CS}.
-
-%%--------------------------------------------------------------------
--spec compressions() -> [integer()].
-%%
-%% Description: return a list of compressions supported (currently none)
-%%--------------------------------------------------------------------
-compressions() ->
-    [?NULL].
-
-%%====================================================================
 %% Payload encryption/decryption
 %%====================================================================
 
@@ -477,7 +455,6 @@ empty_connection_state(ConnectionEnd, Version,
     SecParams = init_security_parameters(ConnectionEnd, Version),
     #{security_parameters => SecParams,
       beast_mitigation => BeastMitigation,
-      compression_state  => undefined,
       cipher_state  => undefined,
       mac_secret  => undefined,
       secure_renegotiation => undefined,
@@ -496,7 +473,7 @@ init_security_parameters(?SERVER, Version) ->
     #security_parameters{connection_end = ?SERVER,
                          server_random = make_random(Version)}.
 
-make_random({_Major, _Minor} = Version) when Version >= ?TLS_1_3 ->
+make_random(Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
     ssl_cipher:random_bytes(32);
 make_random(_Version) ->
     Secs_since_1970 = calendar:datetime_to_gregorian_seconds(
@@ -517,8 +494,7 @@ record_protocol_role(server) ->
     ?SERVER.
 
 initial_security_params(ConnectionEnd) ->
-    SecParams = #security_parameters{connection_end = ConnectionEnd,
-				     compression_algorithm = ?NULL},
+    SecParams = #security_parameters{connection_end = ConnectionEnd},
     ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, SecParams).
 
 -define(end_additional_data(AAD, Len), << (begin(AAD)end)/binary, ?UINT16(begin(Len)end) >>).

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2021</year>
+      <year>2003</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -209,6 +209,11 @@
       <item><p>To install
         <seeguide marker="ct_hooks_chapter#installing">Common Test Hooks</seeguide> 
       including start arguments.</p></item>
+
+      <tag><c><![CDATA[-ct_hooks_order [test|config]]]></c></tag>
+      <item><p>To modify
+        <seeguide marker="ct_hooks_chapter#installing">Common Test Hooks</seeguide>
+      execution order.</p></item>
 
       <tag><c><![CDATA[-enable_builtin_hooks <bool>]]></c></tag>
       <item><p>To enable or disable
@@ -763,7 +768,7 @@
 	finally function <c>end_per_group</c>. Also, if particular
 	test cases in a group are specified, <c>init_per_group</c>
 	and <c>end_per_group</c>, for the group in question, are
-	called. If a group defined (in <c>Suite:group/0</c>) as
+	called. If a group defined (in <c>Suite:groups/0</c>) as
 	a subgroup of another group, is specified (or if particular test
 	cases of a subgroup are), <c>Common Test</c> calls the configuration
 	functions for the top-level groups and for the subgroup
@@ -883,6 +888,8 @@
  {ct_hooks, CTHModules}.
  {ct_hooks, NodeRefs, CTHModules}.
 
+ {ct_hooks_order, CTHOrder}.
+
  {enable_builtin_hooks, Bool}.
 
  {basic_html, Bool}.
@@ -952,6 +959,7 @@
 		    {CTHModule, CTHInitArgs, CTHPriority}]
  CTHModule       = atom()
  CTHInitArgs     = term()
+ CTHOrder        = test | config
  Dir             = string()
  Suites          = atom() | [atom()] | all
  Suite           = atom()
@@ -1169,7 +1177,7 @@
 	<item>A confirmation when the test run is complete.</item>
 	<item>Some special information, such as error reports, progress
 	  reports, and printouts written with <c>erlang:display/1</c>, or <c>io:format/3</c>
-	  specifically addressed to a receiver other than <c>standard_io</c>
+	  specifically addressed to a receiver other than <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>
 	  (for example, the default group leader process <c>user</c>).</item>
       </list>
 
@@ -1272,8 +1280,8 @@
 	    performed through JavaScript code, automatically inserted into the HTML 
 	    log files. <c>Common Test</c> uses the <url href="http://jquery.com">jQuery</url> 
 	    library and the
-	    <url href="http://tablesorter.com">tablesorter</url> plugin, 
-	    with customized sorting functions, for this implementation.</p>
+	    <url href="https://mottie.github.io/tablesorter/docs/">tablesorter</url>
+	    plugin, with customized sorting functions, for this implementation.</p>
 	</section>
 
 	<section>

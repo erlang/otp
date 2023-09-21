@@ -3,7 +3,7 @@
 %%! +A 1 +SDio 1 +S 1 -mode minimal
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -256,13 +256,18 @@ validate_link(Filename, "seemfa", Line, Link, CachedFiles) ->
     end;
 validate_link(Filename, LinkType = "seetype", Line, Link, CachedFiles) ->
     {App,Mod,Type} = ParsedLink = parse_link(Filename, maps:get(m2a,CachedFiles), Link),
-    Types = maps:get(datatypes,maps:get({App,Mod},CachedFiles)),
-    case lists:member(Type, Types) of
-        false ->
+    case maps:find({App,Mod},CachedFiles) of
+        error ->
             fail(Line, "Could not find documentation for ~s when "
                  "resolving link",[App ++ ":" ++ Mod ++ "#" ++ Type]);
-        _ ->
-            validate_type(Line,LinkType,read_link(Line, ParsedLink, CachedFiles))
+        {ok, AppData} ->
+            case lists:member(Type, maps:get(datatypes,AppData)) of
+                false ->
+                    fail(Line, "Could not find documentation for ~s when "
+                         "resolving link",[App ++ ":" ++ Mod ++ "#" ++ Type]);
+                _ ->
+                    validate_type(Line,LinkType,read_link(Line, ParsedLink, CachedFiles))
+            end
     end;
 validate_link({"jinterface","jinterface_users_guide"},"seefile",_, _, _) ->
     %% Skip links to java documentation

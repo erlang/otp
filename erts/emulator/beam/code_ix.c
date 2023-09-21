@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -276,7 +276,7 @@ int erts_try_seize_code_stage_permission(Process* c_p)
     return try_seize_code_permission(&code_stage_permission, c_p, NULL, NULL);
 }
 
-void erts_release_code_stage_permission() {
+void erts_release_code_stage_permission(void) {
     release_code_permission(&code_stage_permission);
 }
 
@@ -304,7 +304,7 @@ int erts_try_seize_code_load_permission(Process* c_p) {
     return 0;
 }
 
-void erts_release_code_load_permission() {
+void erts_release_code_load_permission(void) {
     erts_release_code_mod_permission();
     erts_release_code_stage_permission();
 }
@@ -349,15 +349,15 @@ static int has_code_permission(struct code_permission *perm)
     return 0;
 }
 
-int erts_has_code_load_permission() {
+int erts_has_code_load_permission(void) {
     return erts_has_code_stage_permission() && erts_has_code_mod_permission();
 }
 
-int erts_has_code_stage_permission() {
+int erts_has_code_stage_permission(void) {
     return has_code_permission(&code_stage_permission);
 }
 
-int erts_has_code_mod_permission() {
+int erts_has_code_mod_permission(void) {
     return has_code_permission(&code_mod_permission);
 }
 #endif
@@ -444,7 +444,17 @@ static ErtsThrPrgrLaterOp global_code_barrier_lop;
 
 static void decrement_blocking_code_barriers(void *ignored) {
     (void)ignored;
-    erts_atomic32_dec_nob(&outstanding_blocking_code_barriers);
+
+    if (erts_atomic32_dec_read_nob(&outstanding_blocking_code_barriers) > 0) {
+        /* We had more than one barrier in the same tick, and can't tell
+         * whether the later ones were issued before any of the managed threads
+         * were woken. Keep telling all managed threads to execute an
+         * instruction barrier on wake-up for one more tick. */
+        erts_atomic32_set_nob(&outstanding_blocking_code_barriers, 1);
+        erts_schedule_thr_prgr_later_op(decrement_blocking_code_barriers,
+                                        NULL,
+                                        &global_code_barrier_lop);
+    }
 }
 
 static void schedule_blocking_code_barriers(void *ignored) {
@@ -455,15 +465,16 @@ static void schedule_blocking_code_barriers(void *ignored) {
      * counter.
      *
      * Note that we increment and decrement instead of setting and clearing
-     * since we might execute several blocking barriers in the same tick. */
-    erts_atomic32_inc_nob(&outstanding_blocking_code_barriers);
-    erts_schedule_thr_prgr_later_op(decrement_blocking_code_barriers,
-                                    NULL,
-                                    &global_code_barrier_lop);
+     * since we might schedule several blocking barriers in the same tick. */
+    if (erts_atomic32_inc_read_nob(&outstanding_blocking_code_barriers) == 1) {
+        erts_schedule_thr_prgr_later_op(decrement_blocking_code_barriers,
+                                        NULL,
+                                        &global_code_barrier_lop);
+    }
 }
 #endif
 
-void erts_blocking_code_barrier()
+void erts_blocking_code_barrier(void)
 {
 #ifdef DEBUG
     erts_debug_unrequire_code_barrier();
@@ -476,7 +487,7 @@ void erts_blocking_code_barrier()
 #endif
 }
 
-void erts_code_ix_finalize_wait() {
+void erts_code_ix_finalize_wait(void) {
 #ifdef CODE_IX_ISSUE_INSTRUCTION_BARRIERS
     if (erts_atomic32_read_nob(&outstanding_blocking_code_barriers) != 0) {
         ERTS_THR_INSTRUCTION_BARRIER;

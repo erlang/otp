@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -5523,7 +5523,7 @@ erts_db_foreach_thr_prgr_offheap(void (*func)(ErlOffHeap *, void *),
 
 /* retrieve max number of ets tables */
 Uint
-erts_db_get_max_tabs()
+erts_db_get_max_tabs(void)
 {
     return db_max_tabs;
 }

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
@@ -70,7 +71,7 @@ init_per_suite(Config) ->
                                 {ok, Engine} ->
                                     [{engine, Engine} |Config];
                                 {error, Reason} ->
-                                    ct:pal("Reason ~p", [Reason]),
+                                    ?CT_PAL("Reason ~p", [Reason]),
                                     {skip, "No dynamic engine support"}
                             catch error:notsup ->
                                     {skip, "No engine support in OpenSSL"}    

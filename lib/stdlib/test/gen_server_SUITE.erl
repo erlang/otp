@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
--export([start/1, crash/1, call/1, send_request/1,
+-export([start/1, crash/1, loop_start_fail/1, call/1, send_request/1,
          send_request_receive_reqid_collection/1,
          send_request_wait_reqid_collection/1,
          send_request_check_reqid_collection/1,
@@ -84,7 +84,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [start, {group,stop}, crash, call, send_request,
+    [start, {group,stop}, crash, loop_start_fail, call, send_request,
      send_request_receive_reqid_collection, send_request_wait_reqid_collection,
      send_request_check_reqid_collection, cast, cast_fast, info, abcast,
      continue,
@@ -159,7 +159,10 @@ end_per_testcase(_Case, Config) ->
 	undefined ->
 	    ok;
 	Peer ->
-	    peer:stop(Peer)
+	    try peer:stop(Peer)
+            catch exit : noproc ->
+                    ok
+            end
     end,
     ok.
 
@@ -172,6 +175,7 @@ start(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     %% anonymous
+    io:format("anonymous~n", []),
     {ok, Pid0} = gen_server:start(gen_server_SUITE, [], []),
     ok = gen_server:call(Pid0, started_p),
     ok = gen_server:call(Pid0, stop),
@@ -179,6 +183,7 @@ start(Config) when is_list(Config) ->
     {'EXIT', {noproc,_}} = (catch gen_server:call(Pid0, started_p, 1)),
 
     %% anonymous with timeout
+    io:format("try init timeout~n", []),
     {ok, Pid00} = gen_server:start(gen_server_SUITE, [],
 				   [{timeout,1000}]),
     ok = gen_server:call(Pid00, started_p),
@@ -187,9 +192,16 @@ start(Config) when is_list(Config) ->
 					[{timeout,100}]),
 
     %% anonymous with ignore
+    io:format("try init ignore~n", []),
     ignore = gen_server:start(gen_server_SUITE, ignore, []),
 
+    %% anonymous with shutdown
+    io:format("try init shutdown~n", []),
+    {error, foobar} =
+        gen_server:start(gen_server_SUITE, {error, foobar}, []),
+
     %% anonymous with stop
+    io:format("try init stop~n", []),
     {error, stopped} = gen_server:start(gen_server_SUITE, stop, []),
 
     %% anonymous linked
@@ -508,6 +520,55 @@ crash(Config) when is_list(Config) ->
     end,
 
     ok.
+
+
+loop_start_fail(Config) ->
+    _ = process_flag(trap_exit, true),
+    loop_start_fail(
+      Config,
+      [{start, []}, {start, [link]},
+       {start_link, []},
+       {start_monitor, [link]}, {start_monitor, []}]).
+
+loop_start_fail(_Config, []) ->
+    ok;
+loop_start_fail(Config, [{Start, Opts} | Start_Opts]) ->
+    loop_start_fail(
+      fun gen_server:Start/3,
+      {ets, {return, {stop, failed_to_start}}}, Opts,
+      fun ({error, failed_to_start}) -> ok end),
+    loop_start_fail(
+      fun gen_server:Start/3,
+      {ets, {return, ignore}}, Opts,
+      fun (ignore) -> ok end),
+    loop_start_fail(
+      fun gen_server:Start/3,
+      {ets, {return, 4711}}, Opts,
+      fun ({error, {bad_return_value, 4711}}) -> ok end),
+    loop_start_fail(
+      fun gen_server:Start/3,
+      {ets, {crash, error, bailout}}, Opts,
+      fun ({error, {bailout, ST}}) when is_list(ST) -> ok end),
+    loop_start_fail(
+      fun gen_server:Start/3,
+      {ets, {crash, exit, bailout}}, Opts,
+      fun ({error, bailout}) -> ok end),
+    loop_start_fail(
+      fun gen_server:Start/3,
+      {ets, {wait, 1000, void}}, [{timeout, 200} | Opts],
+      fun ({error, timeout}) -> ok end),
+    loop_start_fail(Config, Start_Opts).
+
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun) ->
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, 5).
+%%
+loop_start_fail(_GenStartFun, _Arg, _Opts, _ValidateFun, 0) ->
+    ok;
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N) ->
+    ok = ValidateFun(GenStartFun(?MODULE, Arg, Opts)),
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N - 1).
+
+
 
 %% --------------------------------------
 %% Test gen_server:call and handle_call.
@@ -2318,11 +2379,10 @@ undef_init(_Config) ->
     {error, {undef, [{oc_init_server, init, [_], _}|_]}} =
         (catch gen_server:start_link(oc_init_server, [], [])),
     receive
-        {'EXIT', Server,
-         {undef, [{oc_init_server, init, [_], _}|_]}} when is_pid(Server) ->
+        Msg ->
+            ct:fail({unexpected_msg, Msg})
+    after 500 ->
             ok
-    after 1000 ->
-        ct:fail(expected_exit_msg)
     end.
 
 %% The upgrade should fail if code_change is expected in the callback module
@@ -2752,19 +2812,38 @@ spec_init_not_proc_lib(Options) ->
 init([]) ->
     {ok, []};
 init(ignore) ->
+    io:format("init(ignore)~n"),
     ignore;
+init({error, Reason}) ->
+    io:format("init(error) -> ~w~n", [Reason]),
+    {error, Reason};
 init(stop) ->
+    io:format("init(stop)~n"),
     {stop, stopped};
 init(hibernate) ->
+    io:format("init(hibernate)~n"),
     {ok,[],hibernate};
 init(sleep) ->
+    io:format("init(sleep)~n"),
     ct:sleep(1000),
     {ok, []};
 init({continue, Pid}) ->
+    io:format("init(continue) -> ~p~n", [Pid]),
     self() ! {after_continue, Pid},
     {ok, [], {continue, {message, Pid}}};
 init({state,State}) ->
-    {ok,State}.
+    io:format("init(state) -> ~p~n", [State]),
+    {ok,State};
+init({ets,InitResult}) ->
+    ?MODULE = ets:new(?MODULE, [named_table]),
+    case InitResult of
+        {return, Value} ->
+            Value;
+        {crash, Class, Reason} ->
+            erlang:Class(Reason);
+        {wait, Time, Value} ->
+            receive after Time -> Value end
+    end.
 
 handle_call(started_p, _From, State) ->
     io:format("FROZ"),
@@ -2778,6 +2857,7 @@ handle_call({call_within, T}, _From, _) ->
 handle_call(next_call, _From, call_within) ->
     {reply,ok,[]};
 handle_call(next_call, _From, State) ->
+    io:format("handle_call(next_call) -> State: ~p~n", [State]),
     {reply,false,State};
 handle_call(badreturn, _From, _State) ->
     badreturn;

@@ -101,11 +101,6 @@
 	determine which port was picked.</p>
       </item>
 
-      <tag><marker id="prop_server_name"></marker>{server_name, string()}</tag>
-      <item>
-	<p>The name of your server, normally a fully qualified domain name.</p>
-      </item>
-
       <tag><marker id="prop_server_root"></marker>{server_root, path()}</tag>
       <item>
 	<p>Defines the home directory of the server, where log files, and so on,
@@ -126,6 +121,12 @@
       <tag><marker id="prop_bind_address"></marker>{bind_address, ip_address() | hostname() | any}</tag>
       <item>
 	<p>Default is <c>any</c></p>
+      </item>
+
+      <tag><marker id="prop_server_name"></marker>{server_name, string()}</tag>
+      <item>
+	<p>The name of your server, normally a fully qualified domain name.</p>
+        <p>If not given, this defaults to <c>net_adm:localhost()</c>.</p>
       </item>
 
       <tag><marker id="profile"></marker>{profile, atom()}</tag>
@@ -280,7 +281,13 @@
           1590. File suffixes are mapped to MIME types before file delivery.
           The mapping between file suffixes and MIME types can be specified
 	  in the property list.</p>
-	<p>Default is [{"html","text/html"},{"htm","text/html"}].</p>
+        <p>Mime types can also be read from a file. The file should contain
+          lines in the form <c>MediaType [Extensions...]</c>, such as
+          <c>text/html html htm</c>. To configure this, specify
+          the path to it, such as <c>{mime_types, "/etc/mime.types"}</c>.</p>
+        <p>If unset, <c>conf/mime.types</c> under <c>server_root</c>
+          will be used if it exists, otherwise, the default is
+          <c>[{"html","text/html"},{"htm","text/html"}]</c>.</p>
       </item>
 
       <tag><marker id="prop_mime_type"></marker>{mime_type, string()}</tag>

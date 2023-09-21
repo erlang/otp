@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2021. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2023. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -337,12 +337,6 @@ AS_HELP_STRING([--disable-pie], [do no build position independent executables]))
 AC_ARG_WITH(libatomic_ops,
 	    AS_HELP_STRING([--with-libatomic_ops=PATH],
 			   [specify and prefer usage of libatomic_ops in the ethread library]))
-
-m4_define(DEFAULT_SANITIZERS, [address,undefined])
-AC_ARG_ENABLE(sanitizers,
-    AS_HELP_STRING(
-        [--enable-sanitizers@<:@=comma-separated list of sanitizers@:>@],
-	    [Default=DEFAULT_SANITIZERS]))
 
 AC_ARG_ENABLE([silent-rules], [dnl
 AS_HELP_STRING(

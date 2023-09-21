@@ -747,25 +747,12 @@ decorate_tuples_in_sets([], _L, _Opaques, Acc) ->
 -spec t_opaque_from_records(type_table()) -> [erl_type()].
 
 t_opaque_from_records(RecMap) ->
-  OpaqueRecMap =
-    maps:filter(fun(Key, _Value) ->
-		    case Key of
-		      {opaque, _Name, _Arity} -> true;
-		      _  -> false
-		    end
-		end, RecMap),
-  OpaqueTypeMap =
-    maps:map(fun({opaque, Name, _Arity},
-                 {{Module, _FileLocation, _Form, ArgNames}, _Type}) ->
-                 %% Args = args_to_types(ArgNames),
-                 %% List = lists:zip(ArgNames, Args),
-                 %% TmpVarTab = maps:to_list(List),
-                 %% Rep = t_from_form(Type, RecDict, TmpVarTab),
-                 Rep = t_any(), % not used for anything right now
-                 Args = [t_any() || _ <- ArgNames],
-                 t_opaque(Module, Name, Args, Rep)
-	     end, OpaqueRecMap),
-  [OpaqueType || {_Key, OpaqueType} <- maps:to_list(OpaqueTypeMap)].
+  Any = t_any(),
+  [begin
+     Rep = Any,                      % not used for anything right now
+     Args = [Any || _ <- ArgNames],
+     t_opaque(Module, Name, Args, Rep)
+   end || {opaque, Name, _} := {{Module, _, _, ArgNames}, _} <- RecMap].
 
 %%-----------------------------------------------------------------------------
 %% Unit type. Signals non termination.
@@ -2305,7 +2292,7 @@ t_from_term(T) when is_function(T) ->
 t_from_term(T) when is_integer(T) ->   t_integer(T);
 t_from_term(T) when is_map(T) ->
   Pairs = [{t_from_term(K), ?mand, t_from_term(V)}
-	   || {K, V} <- maps:to_list(T)],
+	   || K := V <- T],
   {Stons, Rest} = lists:partition(fun({K,_,_}) -> is_singleton_type(K) end,
 				  Pairs),
   {DefK, DefV}
@@ -4407,6 +4394,8 @@ from_form({type, _Anno, byte, []}, _S, _D, L, C) ->
   {t_byte(), L, C};
 from_form({type, _Anno, char, []}, _S, _D, L, C) ->
   {t_char(), L, C};
+from_form({type, _Anno, dynamic, []}, _S, _D, L, C) ->
+  {t_any(), L, C};
 from_form({type, _Anno, float, []}, _S, _D, L, C) ->
   {t_float(), L, C};
 from_form({type, _Anno, function, []}, _S, _D, L, C) ->
@@ -5075,6 +5064,7 @@ t_form_to_string({type, _Anno, binary, [Base, Unit]} = Type) ->
     _ -> io_lib:format("Badly formed bitstr type ~w", [Type])
   end;
 t_form_to_string({type, _Anno, bitstring, []}) -> "bitstring()";
+t_form_to_string({type, _Anno, dynamic, []}) -> "dynamic()";
 t_form_to_string({type, _Anno, 'fun', []}) -> "fun()";
 t_form_to_string({type, _Anno, 'fun', [{type, _, any}, Range]}) ->
   "fun(...) -> " ++ t_form_to_string(Range);

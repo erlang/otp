@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -864,7 +864,6 @@ export_import(Config) when is_list(Config) ->
     %% warning is written when data is deleted for imported module.
     test_server:capture_start(),
     {ok,f} = cover:compile(f),
-    timer:sleep(10), % capture needs some time
     [Text3] = test_server:capture_get(),
     "WARNING: Deleting data for module f imported from" ++ _ = lists:flatten(Text3),
     test_server:capture_stop(),

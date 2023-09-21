@@ -39,6 +39,7 @@
 %%        -pz Path+      : Add my own paths last.
 %%        -run           : Start own processes.
 %%        -s             : Start own processes.
+%%        -S             : Start own processes and terminate further option processing.
 %% 
 %% Experimental flags:
 %%        -profile_boot    : Use an 'eprof light' to profile boot sequence
@@ -47,6 +48,8 @@
 %%        -code_path_choice : strict | relaxed
 
 -module(init).
+
+-feature(maybe_expr, enable).
 
 -export([restart/1,restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
@@ -106,7 +109,7 @@ debug(_, T, Fun) ->
     Val = Fun(),
     T2 = erlang:monotonic_time(),
     Time = erlang:convert_time_unit(T2 - T1, native, microsecond),
-    erlang:display({'done_in_μs', Time}),
+    erlang:display({done_in_microseconds, Time}),
     Val.
 
 -spec get_configfd(integer()) -> none | term().
@@ -256,25 +259,40 @@ boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
 
-    {Start0,Flags,Args} = parse_boot_args(BootArgs),
+    {Start,Flags,Args} = parse_boot_args(BootArgs),
     %% We don't get to profile parsing of BootArgs
     case b2a(get_flag(profile_boot, Flags, false)) of
         false -> ok;
         true  -> debug_profile_start()
     end,
-    Start = map(fun prepare_run_args/1, Start0),
     boot(Start, Flags, Args).
 
-prepare_run_args({eval, [Expr]}) ->
-    {eval,Expr};
-prepare_run_args({_, L=[]}) ->
-    bs2as(L);
-prepare_run_args({_, L=[_]}) ->
-    bs2as(L);
-prepare_run_args({s, [M,F|Args]}) ->
-    [b2a(M), b2a(F) | bs2as(Args)];
-prepare_run_args({run, [M,F|Args]}) ->
-    [b2a(M), b2a(F) | bs2ss(Args)].
+fold_eval_args([Expr]) -> Expr;
+fold_eval_args(Exprs) -> Exprs.
+
+%% Ensure that when no arguments were explicitly passed on the command line,
+%% an empty arguments list will be passed to the function to be applied.
+interpolate_empty_mfa_args({M, F, []}) -> {M, F, [[]]};
+interpolate_empty_mfa_args({_M, _F, [_Args]} = MFA) -> MFA.
+
+-spec run_args_to_mfa([binary()]) -> {atom(), atom(), [] | [nonempty_list(binary())]} | no_return().
+run_args_to_mfa([]) ->
+    erlang:display_string(
+      "Error! The -S option must be followed by at least a module to start, such as "
+      "`-S Module` or `-S Module Function` to start with a function.\r\n\r\n"
+    ),
+    halt();
+run_args_to_mfa([M]) -> {b2a(M), start, []};
+run_args_to_mfa([M, F]) -> {b2a(M), b2a(F), []};
+run_args_to_mfa([M, F | A]) -> {b2a(M), b2a(F), [A]}.
+
+%% Convert -run / -s / -S arguments to startup instructions, such that
+%% no instructions are emitted if no arguments follow the flag, otherwise,
+%% an `{apply, M, F, A}' instruction is.
+run_args_to_start_instructions([], _Converter) -> [];
+run_args_to_start_instructions(Args, Converter) ->
+    {M, F, A} = run_args_to_mfa(Args),
+    [{apply, M, F, map(Converter, A)}].
 
 b2a(Bin) when is_binary(Bin) ->
     list_to_atom(b2s(Bin));
@@ -303,7 +321,7 @@ code_path_choice() ->
 	{ok,[["relaxed"]]} ->
 	    relaxed;
 	_Else ->
-	    strict
+	    relaxed
     end.
 
 boot(Start,Flags,Args) ->
@@ -315,60 +333,9 @@ boot(Start,Flags,Args) ->
 		   bootpid = BootPid},
     boot_loop(BootPid,State).
 
-%%% Convert a term to a printable string, if possible.
-to_string(X, D) when is_list(X), D < 4 ->			% assume string
-    F = flatten(X, []),
-    case printable_list(F) of
-	true when length(F) > 0 ->  F;
-	_false ->
-            List = [to_string(E, D+1) || E <- X],
-            flatten(["[",join(List),"]"], [])
-    end;
-to_string(X, _D) when is_list(X) ->
-    "[_]";
-to_string(X, _D) when is_atom(X) ->
-    atom_to_list(X);
-to_string(X, _D) when is_pid(X) ->
-    pid_to_list(X);
-to_string(X, _D) when is_float(X) ->
-    float_to_list(X);
-to_string(X, _D) when is_integer(X) ->
-    integer_to_list(X);
-to_string(X, D) when is_tuple(X), D < 4 ->
-    List = [to_string(E, D+1) || E <- tuple_to_list(X)],
-    flatten(["{",join(List),"}"], []);
-to_string(X, _D) when is_tuple(X) ->
-    "{_}";
-to_string(_X, _D) ->
-    "".						% can't do anything with it
-
-%% This is an incorrect and narrow definition of printable characters.
-%% The correct one is in io_lib:printable_list/1
-%%
-printable_list([H|T]) when is_integer(H), H >= 32, H =< 126 ->
-    printable_list(T);
-printable_list([$\n|T]) -> printable_list(T);
-printable_list([$\r|T]) -> printable_list(T);
-printable_list([$\t|T]) -> printable_list(T);
-printable_list([]) -> true;
-printable_list(_) ->  false.
-
-join([] = T) ->
-    T;
-join([_Elem] = T) ->
-    T;
-join([Elem|T]) ->
-    [Elem,","|join(T)].
-
-flatten([H|T], Tail) when is_list(H) ->
-    flatten(H, flatten(T, Tail));
-flatten([H|T], Tail) ->
-    [H|flatten(T, Tail)];
-flatten([], Tail) ->
-    Tail.
-
 things_to_string([X|Rest]) ->
-    " (" ++ to_string(X, 0) ++ ")" ++ things_to_string(Rest);
+    " (" ++ erts_internal:term_to_string(X, 32768) ++ ")" ++
+        things_to_string(Rest);
 things_to_string([]) ->
     "".
 
@@ -1252,15 +1219,24 @@ start_it({eval,Bin}) ->
             erlang:display_string(binary_to_list(iolist_to_binary(Message))),
             erlang:raise(E,R,ST)
     end;
-start_it([M|FA]) ->
+start_it({apply,M,F,Args}) ->
     case code:ensure_loaded(M) of
         {module, M} ->
-            case FA of
-                []       -> M:start();
-                [F]      -> M:F();
-                [F|Args] -> M:F(Args)	% Args is a list
+            try apply(M, F, Args)
+            catch error:undef:ST ->
+                    maybe
+                        false ?= erlang:function_exported(M, F, length(Args)),
+                        Message = ["Error! ",atom_to_binary(M),":",
+                                   atom_to_list(F),"/",integer_to_list(length(Args)),
+                                   " is not exported."
+                                   "\r\n\r\n"],
+                        erlang:display_string(binary_to_list(iolist_to_binary(Message)))
+                    end,
+                    erlang:raise(error,undef,ST);
+                  E:R:ST ->
+                    erlang:display({E,R,ST}),
+                    erlang:raise(E,R,ST)
             end;
-
         {error, Reason} ->
             Message = [explain_ensure_loaded_error(M, Reason), <<"\r\n\r\n">>],
             erlang:display_string(binary_to_list(iolist_to_binary(Message))),
@@ -1274,8 +1250,9 @@ explain_ensure_loaded_error(M, badfile) ->
          erlang:system_info(otp_release), <<".)">>],
     explain_add_head(M, S);
 explain_ensure_loaded_error(M, nofile) ->
-    S = <<"it cannot be found. Make sure that the module name is correct and\r\n",
-          "that its .beam file is in the code path.">>,
+    S = <<"it cannot be found.\r\n",
+          "Make sure that the module name is correct and that its .beam file\r\n",
+          "is in the code path.">>,
     explain_add_head(M, S);
 explain_ensure_loaded_error(M, Other) ->
     [<<"Error! Failed to load module '", (atom_to_binary(M))/binary,
@@ -1339,24 +1316,40 @@ timer(T) ->
 %% --------------------------------------------------------
 %% Parse the command line arguments and extract things to start, flags
 %% and other arguments. We keep the relative of the groups.
+%% Returns a triplet in the form `{Start, Flags, Args}':
 %% --------------------------------------------------------
 
 parse_boot_args(Args) ->
     parse_boot_args(Args, [], [], []).
 
 parse_boot_args([B|Bs], Ss, Fs, As) ->
-    case check(B) of
+    case check(B, Bs) of
 	start_extra_arg ->
 	    {reverse(Ss),reverse(Fs),lists:reverse(As, Bs)}; % BIF
 	start_arg ->
 	    {S,Rest} = get_args(Bs, []),
-	    parse_boot_args(Rest, [{s, S}|Ss], Fs, As);
+            Instructions = run_args_to_start_instructions(S, fun bs2as/1),
+            parse_boot_args(Rest, Instructions ++ Ss, Fs, As);
 	start_arg2 ->
 	    {S,Rest} = get_args(Bs, []),
-	    parse_boot_args(Rest, [{run, S}|Ss], Fs, As);
+            Instructions = run_args_to_start_instructions(S, fun bs2ss/1),
+            parse_boot_args(Rest, Instructions ++ Ss, Fs, As);
+	ending_start_arg ->
+            {S,Rest} = get_args(Bs, []),
+            %% Forward any additional arguments to the function we are calling,
+            %% such that no init:get_plain_arguments is needed by it later.
+            MFA = run_args_to_mfa(S ++ Rest),
+            {M, F, [Args]} = interpolate_empty_mfa_args(MFA),
+            StartersWithThis = [{apply, M, F,
+                                 %% erlexec escapes and -- passed after -S
+                                 %% so we un-escape it
+                                 [map(fun("\\--") -> "--";
+                                         (A) -> A
+                                      end, map(fun b2s/1, Args))]} | Ss],
+            {reverse(StartersWithThis),reverse(Fs),reverse(As)};
 	eval_arg ->
 	    {Expr,Rest} = get_args(Bs, []),
-	    parse_boot_args(Rest, [{eval, Expr}|Ss], Fs, As);
+            parse_boot_args(Rest, [{eval, fold_eval_args(Expr)} | Ss], Fs, As);
 	{flag,A} ->
 	    {F,Rest} = get_args(Bs, []),
 	    Fl = {A,F},
@@ -1369,21 +1362,37 @@ parse_boot_args([B|Bs], Ss, Fs, As) ->
 parse_boot_args([], Start, Flags, Args) ->
     {reverse(Start),reverse(Flags),reverse(Args)}.
 
-check(<<"-extra">>) -> start_extra_arg;
-check(<<"-s">>) -> start_arg;
-check(<<"-run">>) -> start_arg2;
-check(<<"-eval">>) -> eval_arg;
-check(<<"--">>) -> end_args;
-check(<<"-",Flag/binary>>) -> {flag,b2a(Flag)};
-check(_) -> arg.
+check(<<"-extra">>, _Bs) ->
+    start_extra_arg;
+check(<<"-s">>, _Bs) -> start_arg;
+check(<<"-run">>, _Bs) -> start_arg2;
+check(<<"-S">>, Bs) ->
+    case has_end_args(Bs) of
+        true ->
+            {flag, b2a(<<"S">>)};
+        false ->
+            ending_start_arg
+    end;
+check(<<"-eval">>, _Bs) -> eval_arg;
+check(<<"--">>, _Bs) -> end_args;
+check(<<"-",Flag/binary>>, _Bs) -> {flag,b2a(Flag)};
+check(_,_) -> arg.
+
+has_end_args([<<"--">> | _Bs]) ->
+    true;
+has_end_args([_ | Bs]) ->
+    has_end_args(Bs);
+has_end_args([]) ->
+    false.
 
 get_args([B|Bs], As) ->
-    case check(B) of
+    case check(B, Bs) of
 	start_extra_arg -> {reverse(As), [B|Bs]};
 	start_arg -> {reverse(As), [B|Bs]};
 	start_arg2 -> {reverse(As), [B|Bs]};
 	eval_arg -> {reverse(As), [B|Bs]};
 	end_args -> {reverse(As), Bs};
+	ending_start_arg -> {reverse(As), [B|Bs]};
 	{flag,_} -> {reverse(As), [B|Bs]};
 	arg ->
 	    get_args(Bs, [B|As])

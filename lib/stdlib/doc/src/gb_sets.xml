@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2022</year>
+      <year>2001</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -68,48 +68,10 @@
 
   <section>
     <title>Compatibility</title>
-    <p>The following functions in this module also exist and provides
-      the same functionality in the
-      <seeerl marker="sets"><c>sets(3)</c></seeerl> and
-      <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl>
-      modules. That is, by only changing the module name for each call,
-      you can try out different set representations.</p>
-    <list type="bulleted">
-      <item><seemfa marker="#add_element/2"><c>add_element/2</c></seemfa>
-      </item>
-      <item><seemfa marker="#del_element/2"><c>del_element/2</c></seemfa>
-      </item>
-      <item><seemfa marker="#filter/2"><c>filter/2</c></seemfa>
-      </item>
-      <item><seemfa marker="#fold/3"><c>fold/3</c></seemfa>
-      </item>
-      <item><seemfa marker="#from_list/1"><c>from_list/1</c></seemfa>
-      </item>
-      <item><seemfa marker="#intersection/1"><c>intersection/1</c></seemfa>
-      </item>
-      <item><seemfa marker="#intersection/2"><c>intersection/2</c></seemfa>
-      </item>
-      <item><seemfa marker="#is_element/2"><c>is_element/2</c></seemfa>
-      </item>
-      <item><seemfa marker="#is_empty/1"><c>is_empty/1</c></seemfa>
-      </item>
-      <item><seemfa marker="#is_set/1"><c>is_set/1</c></seemfa>
-      </item>
-      <item><seemfa marker="#is_subset/2"><c>is_subset/2</c></seemfa>
-      </item>
-      <item><seemfa marker="#new/0"><c>new/0</c></seemfa>
-      </item>
-      <item><seemfa marker="#size/1"><c>size/1</c></seemfa>
-      </item>
-      <item><seemfa marker="#subtract/2"><c>subtract/2</c></seemfa>
-      </item>
-      <item><seemfa marker="#to_list/1"><c>to_list/1</c></seemfa>
-      </item>
-      <item><seemfa marker="#union/1"><c>union/1</c></seemfa>
-      </item>
-      <item><seemfa marker="#union/2"><c>union/2</c></seemfa>
-      </item>
-    </list>
+    <p>See the <seeerl marker="sets#compatibility">Compatibility Section
+      in the <c>sets(3)</c> module</seeerl> for information about
+      the compatibility of the different implementations of sets in the
+      Standard Library.</p>
   </section>
 
   <datatypes>
@@ -158,6 +120,7 @@
 
     <func>
       <name name="del_element" arity="2" since=""/>
+      <name name="delete_any" arity="2" since=""/>
       <fsummary>Remove a (possibly non-existing) element from a set.</fsummary>
       <desc>
         <p>Returns a new set formed from <c><anno>Set1</anno></c> with
@@ -179,18 +142,8 @@
     </func>
 
     <func>
-      <name name="delete_any" arity="2" since=""/>
-      <fsummary>Remove a (possibly non-existing) element from a set.</fsummary>
-      <desc>
-        <p>Returns a new set formed from <c><anno>Set1</anno></c> with
-          <c><anno>Element</anno></c> removed. If <c><anno>Element</anno></c>
-          is not an element
-          in <c><anno>Set1</anno></c>, nothing is changed.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="difference" arity="2" since=""/>
+      <name  name="subtract" arity="2" since=""/>
       <fsummary>Return the difference of two sets.</fsummary>
       <desc>
         <p>Returns only the elements of <c><anno>Set1</anno></c> that are not
@@ -212,6 +165,15 @@
       <desc>
         <p>Filters elements in <c><anno>Set1</anno></c> using predicate function
           <c><anno>Pred</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="filtermap" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Filter and map set elements.</fsummary>
+      <desc>
+        <p>Filters and maps elements in <c><anno>Set1</anno></c> using function
+          <c><anno>Fun</anno></c>.</p>
       </desc>
     </func>
 
@@ -283,6 +245,7 @@
 
     <func>
       <name name="is_element" arity="2" since=""/>
+      <name name="is_member" arity="2" since=""/>
       <fsummary>Test for membership of a set.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
@@ -300,11 +263,13 @@
     </func>
 
     <func>
-      <name name="is_member" arity="2" since=""/>
-      <fsummary>Test for membership of a set.</fsummary>
+      <name name="is_equal" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Test for equality.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
-          <c><anno>Set</anno></c>, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>Set1</anno></c> and
+          <c><anno>Set2</anno></c> are equal, that is when every element of
+          one set is also a member of the respective other set, otherwise
+          <c>false</c>.</p>
       </desc>
     </func>
 
@@ -374,6 +339,15 @@
     </func>
 
     <func>
+      <name name="map" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Map set elements.</fsummary>
+      <desc>
+        <p>Maps elements in <c><anno>Set1</anno></c> using mapping function
+          <c><anno>Fun</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="new" arity="0" since=""/>
       <fsummary>Return an empty set.</fsummary>
       <desc>
@@ -417,15 +391,6 @@
       <desc>
         <p>Returns the smallest element in <c><anno>Set</anno></c>. Assumes that
           <c><anno>Set</anno></c> is not empty.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name  name="subtract" arity="2" since=""/>
-      <fsummary>Return the difference of two sets.</fsummary>
-      <desc>
-        <p>Returns only the elements of <c><anno>Set1</anno></c> that are not
-          also elements of <c><anno>Set2</anno></c>.</p>
       </desc>
     </func>
 

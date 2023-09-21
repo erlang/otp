@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1040,10 +1040,11 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
     size_t       n, m;
 
     UDBG( ("SUTIL", "esock_encode_sockaddr_un -> entry with"
-           "\r\n.  addrLen: %d"
+           "\r\n   addrLen: %d"
            "\r\n", addrLen) );
 
     n = sockAddrP->sun_path - (char *)sockAddrP; // offsetof
+
     if (addrLen >= n) {
         n = addrLen - n; // sun_path length
         if (255 < n) {
@@ -1055,6 +1056,7 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
             unsigned char *path;
 
             m = esock_strnlen(sockAddrP->sun_path, n);
+
 #ifdef __linux__
             /* Assume that the address is a zero terminated string,
              * except when the first byte is \0 i.e the string length is 0,
@@ -1066,6 +1068,8 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
                 m = n;
             }
 #endif
+
+            UDBG( ("SUTIL", "esock_encode_sockaddr_un -> m: %d\r\n", m) );
 
             /* And finally build the 'path' attribute */
             path = enif_make_new_binary(env, m, &ePath);
@@ -2286,15 +2290,15 @@ ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val)
 
 /* *** esock_decode_level ***
  *
- * Decode option or cmsg level - 'socket' or protocol number.
+ * Decode option or cmsg level - 'socket' or level number.
  *
  */
 extern
-BOOLEAN_T esock_decode_level(ErlNifEnv* env, ERL_NIF_TERM eVal, int *val)
+BOOLEAN_T esock_decode_level(ErlNifEnv* env, ERL_NIF_TERM elevel, int *level)
 {
-    if (COMPARE(esock_atom_socket, eVal) == 0)
-        *val = SOL_SOCKET;
-    else if (! GET_INT(env, eVal, val))
+    if (COMPARE(esock_atom_socket, elevel) == 0)
+        *level = SOL_SOCKET;
+    else if (! GET_INT(env, elevel, level))
         return FALSE;
 
     return TRUE;
@@ -2329,6 +2333,154 @@ ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any)
 }
 
 
+/* Takes an 'errno' value and converts it to a term.
+ *
+ * If the errno can be translated using erl_errno_id,
+ * then we use that value otherwise we use the errno
+ * integer value converted to a term.
+ * Unless there is a specific error code that can be
+ * handled specially.
+ */
+extern
+ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
+{
+    switch (err) {
+#if defined(NO_ERROR)
+    case NO_ERROR:
+        return MKA(env, "no_error");
+        break;
+#endif
+
+#if defined(WSA_IO_PENDING)
+    case WSA_IO_PENDING:
+        return MKA(env, "io_pending");
+        break;
+#endif
+
+#if defined(WSA_IO_INCOMPLETE)
+    case WSA_IO_INCOMPLETE:
+        return MKA(env, "io_incomplete");
+        break;
+#endif
+
+#if defined(WSA_OPERATION_ABORTED)
+    case WSA_OPERATION_ABORTED:
+        return MKA(env, "operation_aborted");
+        break;
+#endif
+
+#if defined(WSA_INVALID_PARAMETER)
+    case WSA_INVALID_PARAMETER:
+        return MKA(env, "invalid_parameter");
+        break;
+#endif
+
+#if defined(ERROR_INVALID_NETNAME)
+    case ERROR_INVALID_NETNAME:
+        return MKA(env, "invalid_netname");
+        break;
+#endif
+
+#if defined(ERROR_NETNAME_DELETED)
+    case ERROR_NETNAME_DELETED:
+        return MKA(env, "netname_deleted");
+        break;
+#endif
+
+#if defined(ERROR_TOO_MANY_CMDS)
+        /* The network command limit has been reached */
+    case ERROR_TOO_MANY_CMDS:
+        return MKA(env, "too_many_cmds");
+        break;
+#endif        
+
+#if defined(ERROR_DUP_NAME)
+        /*  Not connected because a duplicate name exists on the network */
+    case ERROR_DUP_NAME:
+        return MKA(env, "duplicate_name");
+        break;
+#endif        
+
+#if defined(ERROR_MORE_DATA)
+        /*
+         * https://stackoverflow.com/questions/31883438/sockets-using-getqueuedcompletionstatus-and-error-more-data
+         */
+    case ERROR_MORE_DATA:
+        return MKA(env, "more_data");
+        break;
+#endif
+
+#if defined(ERROR_NOT_FOUND)
+    case ERROR_NOT_FOUND:
+        return MKA(env, "not_found");
+        break;
+#endif
+
+#if defined(ERROR_NETWORK_UNREACHABLE)
+    case ERROR_NETWORK_UNREACHABLE:
+        return MKA(env, "network_unreachable");
+        break;
+#endif
+
+#if defined(ERROR_PORT_UNREACHABLE)
+    case ERROR_PORT_UNREACHABLE:
+        return MKA(env, "port_unreachable");
+        break;
+#endif        
+
+    default:
+        {
+            char* str = erl_errno_id(err);
+            if ( strcmp(str, "unknown") == 0 )
+                return MKI(env, err);
+            else
+                return MKA(env, str);
+        }
+        break;
+    }
+
+    /* This is just in case of programming error.
+     * We should not get this far!
+     */
+    return MKI(env, err);
+}
+
+
+
+/* *** esock_make_extra_error_info_term ***
+ * This is used primarily for debugging.
+ * Is supposed to be called via the 'MKEEI' macro.
+ */
+extern
+ERL_NIF_TERM esock_make_extra_error_info_term(ErlNifEnv*   env,
+                                              const char*  file,
+                                              const char*  function,
+                                              const int    line,
+                                              ERL_NIF_TERM rawinfo,
+                                              ERL_NIF_TERM info)
+{
+    ERL_NIF_TERM keys[] = {MKA(env, "file"),
+                           MKA(env, "function"),
+                           MKA(env, "line"),
+                           MKA(env, "raw_info"),
+                           MKA(env, "info")};
+    ERL_NIF_TERM vals[] = {MKS(env, file),
+                           MKS(env, function),
+                           MKI(env, line),
+                           rawinfo,
+                           info};
+    unsigned int numKeys = NUM(keys);
+    unsigned int numVals = NUM(vals);
+    ERL_NIF_TERM map;
+
+    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &map) );
+
+    return map;
+}
+
+
+                                              
 /* Create an error two (2) tuple in the form:
  *
  *          {error, Reason}
@@ -2381,6 +2533,23 @@ extern
 ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err)
 {
     return esock_make_error_str(env, erl_errno_id(err));
+}
+
+
+
+/* Create an error two (2) tuple in the form:
+ *
+ *          {error, {Tag, Reason}}
+ *
+ * Both 'Tag' and 'Reason' are already in the form of an
+ * ERL_NIF_TERM so all we have to do is create "the" tuple.
+ */
+extern
+ERL_NIF_TERM esock_make_error_t2r(ErlNifEnv*   env,
+                                  ERL_NIF_TERM tag,
+                                  ERL_NIF_TERM reason)
+{
+    return MKT2(env, esock_atom_error, MKT2(env, tag, reason));
 }
 
 
@@ -2554,7 +2723,7 @@ MSG_FUNCS
  */
 
 extern
-ErlNifTime esock_timestamp()
+ErlNifTime esock_timestamp(void)
 {
     ErlNifTime monTime = enif_monotonic_time(ERL_NIF_USEC);
     ErlNifTime offTime = enif_time_offset(ERL_NIF_USEC);

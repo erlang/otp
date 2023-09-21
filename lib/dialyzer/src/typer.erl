@@ -93,20 +93,32 @@ cl(["-I",Dir|Opts]) -> {{inc, Dir}, Opts};
 cl(["-I"|_Opts]) -> fatal_error("no include directory specified after -I");
 cl(["-I"++Dir|Opts]) -> {{inc, Dir}, Opts};
 cl(["-T"|Opts]) ->
-  {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
+  {Files, RestOpts} = collect_args(Opts),
   case Files of
     [] -> fatal_error("no file or directory specified after -T");
     [_|_] -> {{trusted, Files}, RestOpts}
   end;
 cl(["-r"|Opts]) ->
-  {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
+  {Files, RestOpts} = collect_args(Opts),
   {{files_r, Files}, RestOpts};
 cl(["-pa",Dir|Opts]) -> {{pa,Dir}, Opts};
 cl(["-pz",Dir|Opts]) -> {{pz,Dir}, Opts};
 cl(["-"++H|_]) -> fatal_error("unknown option -"++H);
 cl(Opts) ->
-  {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
+  {Files, RestOpts} = collect_args(Opts),
   {{files, Files}, RestOpts}.
+
+-spec collect_args([string()]) -> {[string()], [string()]}.
+
+collect_args(List) ->
+    collect_args_1(List, []).
+
+collect_args_1(["-"++_|_] = L, Acc) ->
+    {lists:reverse(Acc), L};
+collect_args_1([Arg|T], Acc) ->
+    collect_args_1(T, [Arg|Acc]);
+collect_args_1([], Acc) ->
+    {lists:reverse(Acc), []}.
 
 process_def_list(L) ->
   case L of

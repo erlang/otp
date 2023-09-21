@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -129,6 +129,16 @@ division_bounds(_Config) ->
     any = beam_bounds:bounds('div', {10,'+inf'}, {0,0}),
     {'EXIT', {badarith, _}} = catch division_bounds_1([], ok),
 
+    {-10,10} = beam_bounds:bounds('div', {0,10}, any),
+    {-50,50} = beam_bounds:bounds('div', {-50,-15}, {-10,'+inf'}),
+    {-20,20} = beam_bounds:bounds('div', {-20,10}, any),
+    {-7,7} = beam_bounds:bounds('div', {-5,7}, {'-inf',-1}),
+    {-42,42} = beam_bounds:bounds('div', {42,42}, any),
+    {-42,42} = beam_bounds:bounds('div', {-42,-42}, any),
+
+    any = beam_bounds:bounds('div', {'-inf',10}, any),
+    any = beam_bounds:bounds('div', {0,'+inf'}, any),
+
     ok.
 
 %% GH-6604: Division by zero could cause type analysis to hang forever as
@@ -146,12 +156,26 @@ rem_bounds(_Config) ->
 
     {-7,7} = beam_bounds:bounds('rem', {'-inf',10}, {1,8}),
     {0,7} = beam_bounds:bounds('rem', {10,'+inf'}, {1,8}),
+    {0,'+inf'} = beam_bounds:bounds('rem', {17,'+inf'}, any),
 
-    any = beam_bounds:bounds('rem', {1,10}, {'-inf',10}),
-    any = beam_bounds:bounds('rem', {1,10}, {10,'+inf'}),
+    {0,10} = beam_bounds:bounds('rem', {1,10}, {'-inf',10}),
+    {0,'+inf'} = beam_bounds:bounds('rem', {20,'+inf'}, {10,'+inf'}),
+    {'-inf',10} = beam_bounds:bounds('rem', {'-inf',10}, any),
 
-    any = beam_bounds:bounds('rem', {-10,10}, {'-inf',10}),
-    any = beam_bounds:bounds('rem', {-10,10}, {10,'+inf'}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {'-inf',89}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {7,'+inf'}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {'-inf',113}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, {55,'+inf'}),
+    {-11,10} = beam_bounds:bounds('rem', {-11,10}, any),
+
+    {0,0} = beam_bounds:bounds('rem', {0,0}, any),
+    {0,1} = beam_bounds:bounds('rem', {1,1}, any),
+    {0,2} = beam_bounds:bounds('rem', {2,2}, any),
+    {0,3} = beam_bounds:bounds('rem', {2,3}, any),
+
+    {-1,0} = beam_bounds:bounds('rem', {-1,-1}, any),
+    {-7,0} = beam_bounds:bounds('rem', {-7,-7}, any),
+    {-6,0} = beam_bounds:bounds('rem', {-6,-4}, any),
 
     ok.
 
@@ -171,8 +195,18 @@ band_bounds(_Config) ->
 bor_bounds(_Config) ->
     test_commutative('bor'),
 
-    any = beam_bounds:bounds('bor', {-10,0},{-1,10}),
-    any = beam_bounds:bounds('bor', {-20,-10}, {-1,10}),
+    {'-inf',15} = beam_bounds:bounds('bor', {-10,7},{3,10}),
+    {'-inf',11} = beam_bounds:bounds('bor', {-10,1},{-1,10}),
+    {'-inf',-1} = beam_bounds:bounds('bor', {-20,-10}, {-2,10}),
+
+    {'-inf',15} = beam_bounds:bounds('bor', {'-inf',10}, {3,5}),
+    {'-inf',-1} = beam_bounds:bounds('bor', {-20,-10}, {-100,-50}),
+
+    any = beam_bounds:bounds('bor', {-20,-10}, {-2,'+inf'}),
+    any = beam_bounds:bounds('bor', {-20,'+inf'}, {-7,-3}),
+
+    {16,'+inf'} = beam_bounds:bounds('bor', {0,8}, {16,'+inf'}),
+    {16,'+inf'} = beam_bounds:bounds('bor', {3,'+inf'}, {16,'+inf'}),
 
     ok.
 
@@ -196,6 +230,17 @@ bnot_bounds(_Config) ->
     {99,'+inf'} = beam_bounds:bounds('bnot', {'-inf',-100}),
     {'-inf',-8} = beam_bounds:bounds('bnot', {7,'+inf'}),
     {'-inf',9} = beam_bounds:bounds('bnot', {-10,'+inf'}),
+    {-1114111,'+inf'} = beam_bounds:bounds('bnot', {'-inf', 1114110}),
+
+    -1 = bnot_bounds_2(0),
+    -43 = bnot_bounds_2_coverage(id(42)),
+    {'EXIT',{badarith,_}} = catch bnot_bounds_2_coverage(id(bad)),
+
+    {'EXIT',{_,_}} = catch bnot_bounds_3(id(true)),
+    {'EXIT',{_,_}} = catch bnot_bounds_3(id(false)),
+    {'EXIT',{_,_}} = catch bnot_bounds_3(id(0)),
+
+    {'EXIT',{{bad_generator,-3},_}} = catch bnot_bounds_4(),
 
     ok.
 
@@ -210,6 +255,21 @@ bnot_bounds_1(R) ->
                       [R,{Min,Max},{HighestMin,LowestMax}]),
             ct:fail(bad_min_or_max)
         end.
+
+%% GH-7145: 'bnot' converged too slowly, effectively hanging the compiler.
+bnot_bounds_2(0) -> -1;
+bnot_bounds_2(N) -> abs(bnot bnot_bounds_2(N)).
+
+bnot_bounds_2_coverage(N) -> bnot N.
+
+%% GH-7468. Would result in a bad_typed_register failure in beam_validator.
+bnot_bounds_3(A) ->
+    (bnot round(((A xor false) andalso 1) + 2)) bsr ok.
+
+%% GH-7468. Would result in a bad_arg_type failure in beam_validator.
+bnot_bounds_4() ->
+    << 0 || A <- [1,2], _ <- bnot round(A + trunc(A))>>.
+
 
 bsr_bounds(_Config) ->
     test_noncommutative('bsr', {-12,12}, {0,7}),
@@ -231,7 +291,12 @@ bsl_bounds(_Config) ->
 
     {2,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {1,10_000}),
     {0,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {-10,10_000}),
+    {'-inf',-20} = beam_bounds:bounds('bsl', {-30,-10}, {1,10_000}),
+    {'-inf',-2} = beam_bounds:bounds('bsl', {-9,-1}, {1,10_000}),
     any = beam_bounds:bounds('bsl', {-7,10}, {1,10_000}),
+
+    {0,'+inf'} = beam_bounds:bounds('bsl', {0,'+inf'}, {0,'+inf'}),
+    {20,'+inf'} = beam_bounds:bounds('bsl', {20,30}, {0,'+inf'}),
 
     any = beam_bounds:bounds('bsl', {-10,100}, {0,'+inf'}),
     any = beam_bounds:bounds('bsl', {-10,100}, {1,'+inf'}),
@@ -244,6 +309,11 @@ bsl_bounds(_Config) ->
 
     {'-inf',-1} = beam_bounds:bounds('bsl', {-10,-1}, {500,1024}),
     {0,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {500,1024}),
+
+    {'-inf',-40} = beam_bounds:bounds('bsl', {'-inf',-10}, {2,64}),
+    {'-inf',224} = beam_bounds:bounds('bsl', {'-inf',7}, {3,5}),
+
+    any = beam_bounds:bounds('bsl', {'-inf',7}, {3,'+inf'}),
 
     ok.
 
@@ -275,6 +345,10 @@ min_bounds(_Config) ->
     {1,100} = min_bounds({1,100}, {100,'+inf'}),
     {100,200} = min_bounds({150,200}, {100,'+inf'}),
 
+    {'-inf',10} = min_bounds({1,10}, any),
+    any = min_bounds({1,'+inf'}, any),
+    {'-inf',777} = min_bounds(any, {'-inf',777}),
+
     ok.
 
 min_bounds(R1, R2) ->
@@ -296,6 +370,10 @@ max_bounds(_Config) ->
     {100,'+inf'} = max_bounds({1,99}, {100,'+inf'}),
     {100,'+inf'} = max_bounds({1,100}, {100,'+inf'}),
     {150,'+inf'} = max_bounds({150,200}, {100,'+inf'}),
+
+    {1,'+inf'} = max_bounds({1,99}, any),
+    {10,'+inf'} = max_bounds({10,'+inf'}, any),
+    any = max_bounds({'-inf',70}, any),
 
     ok.
 
@@ -548,3 +626,10 @@ test_redundant_masking({A,B}=R, M) ->
 test_redundant_masking(A, B, M) when A =< B ->
     A band M =:= A andalso test_redundant_masking(A + 1, B, M);
 test_redundant_masking(_, _, _) -> true.
+
+%%%
+%%% Common utilities.
+%%%
+
+id(I) ->
+    I.

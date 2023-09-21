@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -4884,8 +4884,21 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     erts_thr_progress_block();
 
     success = (!ERTS_PROC_IS_EXITING(net_kernel)
-               & !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
+               && !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
     if (success) {
+        /*
+         * Ensure we don't use a nodename-creation pair with
+         * external identifiers existing in the system.
+         */
+        while (!0) {
+            ErlNode *nep;
+            if (creation < 4)
+                creation = 4;
+            nep = erts_find_node(BIF_ARG_1, creation);
+            if (!nep || erts_node_refc(nep) == 0)
+                break;
+            creation++;
+        }
         inc_no_nodes();
         erts_set_this_node(BIF_ARG_1, (Uint32) creation);
         erts_this_dist_entry->creation = creation;
@@ -5589,6 +5602,9 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
             return 0;
         }
 
+        if (proc == net_kernel)
+            nk_locks |= ERTS_PROC_LOCK_MAIN;
+
         /*
          * Send {auto_connect, Node, DHandle} to net_kernel
          */
@@ -5599,6 +5615,10 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
         msg = TUPLE3(hp, am_auto_connect, dep->sysname, dhandle);
         ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(proc, net_kernel, nk_locks, mp, msg);
+
+        if (proc == net_kernel)
+            nk_locks &= ~ERTS_PROC_LOCK_MAIN;
+
         erts_proc_unlock(net_kernel, nk_locks);
     }
 
@@ -5891,10 +5911,10 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         ok_result = ref;
     else {
         Eterm *hp = HAlloc(BIF_P, 3);
-        Eterm bool = ((monitor_oflags & ERTS_ML_FLG_SPAWN_MONITOR)
+        Eterm spawns_monitor = ((monitor_oflags & ERTS_ML_FLG_SPAWN_MONITOR)
                       ? am_true : am_false);
         ASSERT(BIF_ARG_4 == am_spawn_opt);
-        ok_result = TUPLE2(hp, ref, bool);
+        ok_result = TUPLE2(hp, ref, spawns_monitor);
     }
 
     code = erts_dsig_prepare(&ctx, dep,

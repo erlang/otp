@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -179,6 +179,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #endif
 #define is_not_both_immed(x,y)	(!is_both_immed((x),(y)))
 
+#define is_zero_sized(x)        (is_immed(x) || (x) == ERTS_GLOBAL_LIT_EMPTY_TUPLE)
 
 /* boxed object access methods */
 
@@ -298,8 +299,10 @@ _ET_DECLARE_CHECKED(Uint,atom_val,Eterm)
 /* header (arityval or thing) access methods */
 #define _make_header(sz,tag) ((Uint)(((Uint)(sz) << _HEADER_ARITY_OFFS) + (tag)))
 #define is_header(x)	(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_HEADER)
-#define _unchecked_header_arity(x) \
-    (is_map_header(x) ? MAP_HEADER_ARITY(x) : ((x) >> _HEADER_ARITY_OFFS))
+#define _unchecked_header_arity(x)                                            \
+    (is_map_header(x) ? MAP_HEADER_ARITY(x) :                                 \
+     (is_fun_header(x) ? (ERL_FUN_SIZE - 1) :                                 \
+      ((x) >> _HEADER_ARITY_OFFS)))
 _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define header_arity(x)	_ET_APPLY(header_arity,(x))
 
@@ -330,7 +333,7 @@ _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define is_sane_arity_value(x)	((((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL) && \
 				 (((x) >> _HEADER_ARITY_OFFS) <= MAX_ARITYVAL))
 #define is_not_arity_value(x)	(!is_arity_value((x)))
-#define _unchecked_arityval(x)	_unchecked_header_arity((x))
+#define _unchecked_arityval(x)	((x) >> _HEADER_ARITY_OFFS)
 _ET_DECLARE_CHECKED(Uint,arityval,Eterm)
 #define arityval(x)		_ET_APPLY(arityval,(x))
 
@@ -385,9 +388,35 @@ _ET_DECLARE_CHECKED(Eterm*,binary_val,Wterm)
 /* process binaries stuff (special case of binaries) */
 #define HEADER_PROC_BIN	_make_header(PROC_BIN_SIZE-1,_TAG_HEADER_REFC_BIN)
 
-/* fun objects */
-#define HEADER_FUN              _make_header(ERL_FUN_SIZE-2,_TAG_HEADER_FUN)
-#define is_fun_header(x)        ((x) == HEADER_FUN)
+/* Fun objects.
+ *
+ * These have a special tag scheme to make the representation as compact as
+ * possible. For normal headers, we have:
+ *
+ *     aaaaaaaaaaaaaaaa aaaaaaaaaatttt00       arity:26, tag:4
+ *
+ * Since the arity and number of free variables are both limited to 255, and we
+ * only need one bit to signify whether the fun is local or external, we can
+ * fit all of that information in the header word.
+ *
+ *     0000000effffffff aaaaaaaa00010100       external:1, free:8, arity:8
+ *
+ * Note that the lowest byte contains only the function subtag, and the next
+ * byte after that contains only the arity. This lets us combine the type
+ * and/or arity check into a single comparison without masking, by using 8- or
+ * 16-bit operations on the header word. */
+
+#define FUN_HEADER_ARITY_OFFS (_HEADER_ARITY_OFFS + 2)
+#define FUN_HEADER_NUM_FREE_OFFS (FUN_HEADER_ARITY_OFFS + 8)
+#define FUN_HEADER_EXTERNAL_OFFS (FUN_HEADER_NUM_FREE_OFFS + 8)
+
+#define MAKE_FUN_HEADER(Arity, NumFree, External)                             \
+    (_TAG_HEADER_FUN |                                                        \
+     (((Arity)) << FUN_HEADER_ARITY_OFFS) |                                   \
+     (((NumFree)) << FUN_HEADER_NUM_FREE_OFFS) |                              \
+     ((!!(External)) << FUN_HEADER_EXTERNAL_OFFS))
+
+#define is_fun_header(x)        (((x) & _HEADER_SUBTAG_MASK) == FUN_SUBTAG)
 #define make_fun(x)             make_boxed((Eterm*)(x))
 #define is_any_fun(x)           (is_boxed((x)) && is_fun_header(*boxed_val((x))))
 #define is_not_any_fun(x)       (!is_any_fun((x)))
@@ -408,7 +437,12 @@ _ET_DECLARE_CHECKED(Eterm,bignum_header_neg,Eterm)
 #define _unchecked_bignum_header_arity(x)	_unchecked_header_arity((x))
 _ET_DECLARE_CHECKED(Uint,bignum_header_arity,Eterm)
 #define bignum_header_arity(x)	_ET_APPLY(bignum_header_arity,(x))
-#define BIG_ARITY_MAX		((1 << 19)-1)
+
+#if defined(ARCH_64)
+#  define BIG_ARITY_MAX		((1 << 16)-1)
+#else
+#  define BIG_ARITY_MAX		((1 << 17)-1)
+#endif
 #define make_big(x)	make_boxed((x))
 #define is_big(x)	(is_boxed((x)) && _is_bignum_header(*boxed_val((x))))
 #define is_not_big(x)	(!is_big((x)))
@@ -953,12 +987,12 @@ typedef union {
 
 #define is_ordinary_ref_thing(x)                                        \
     ((*((Eterm *)(x)) == ERTS_REF_THING_HEADER)                         \
-     & (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER))
+     && (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER))
 
 /* the _with_hdr variant usable when header word may be broken (copy_shared) */
 #define is_magic_ref_thing_with_hdr(PTR,HDR)                            \
     (((HDR) == ERTS_REF_THING_HEADER)                                   \
-     & (((ErtsRefThing *) (PTR))->o.marker != ERTS_ORDINARY_REF_MARKER))
+     && (((ErtsRefThing *) (PTR))->o.marker != ERTS_ORDINARY_REF_MARKER))
 
 #else /* Ordinary and magic references of different sizes... */
 
@@ -1167,7 +1201,7 @@ _ET_DECLARE_CHECKED(Eterm*,external_val,Wterm)
 
 #define _unchecked_external_thing_data_words(thing) \
     (_unchecked_thing_arityval((thing)->header) + (1 - EXTERNAL_THING_HEAD_SIZE))
-_ET_DECLARE_CHECKED(Uint,external_thing_data_words,ExternalThing*)
+_ET_DECLARE_CHECKED(Uint,external_thing_data_words,const ExternalThing*)
 #define external_thing_data_words(thing) _ET_APPLY(external_thing_data_words,(thing))
 
 #define _unchecked_external_data_words(x) \
@@ -1267,15 +1301,12 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 
 #define MAP_SZ(sz) (MAP_HEADER_FLATMAP_SZ + 2*sz + 1)
 
-#define MAP0_SZ MAP_SZ(0)
 #define MAP1_SZ MAP_SZ(1)
 #define MAP2_SZ MAP_SZ(2)
 #define MAP3_SZ MAP_SZ(3)
 #define MAP4_SZ MAP_SZ(4)
 #define MAP5_SZ MAP_SZ(5)
-#define MAP0(hp)                                                \
-    (MAP_HEADER(hp, 0, TUPLE0(hp+MAP_HEADER_FLATMAP_SZ)),       \
-     make_flatmap(hp))
+
 #define MAP1(hp, k1, v1)                                                \
     (MAP_HEADER(hp, 1, TUPLE1(hp+1+MAP_HEADER_FLATMAP_SZ, k1)),         \
      (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \

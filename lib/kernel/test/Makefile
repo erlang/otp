@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2022. All Rights Reserved.
+# Copyright Ericsson AB 1997-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,12 +30,15 @@ SOCKET_MODULES = \
 	socket_test_evaluator \
 	socket_test_ttest_lib \
 	socket_test_ttest_tcp_gen \
+	socket_test_ttest_tcp_gs \
 	socket_test_ttest_tcp_socket \
 	socket_test_ttest_tcp_client \
 	socket_test_ttest_tcp_client_gen \
+	socket_test_ttest_tcp_client_gs \
 	socket_test_ttest_tcp_client_socket \
 	socket_test_ttest_tcp_server \
 	socket_test_ttest_tcp_server_gen \
+	socket_test_ttest_tcp_server_gs \
 	socket_test_ttest_tcp_server_socket \
 	socket_SUITE
 
@@ -150,7 +153,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
-COVERFILE=kernel.cover logger.cover
+COVERFILE=kernel.cover logger.cover tty.cover
 
 # ----------------------------------------------------
 # Release directory specification
@@ -214,7 +217,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(APP_FILES) $(EXTRA_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) \
-		kernel.spec kernel_smoke.spec kernel_bench.spec logger.spec \
+		kernel.spec kernel_smoke.spec kernel_bench.spec kernel_gh.spec logger.spec \
 		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

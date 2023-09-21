@@ -91,7 +91,12 @@
 -type float_range() :: 'any' | {'-inf',float()} | {float(),'+inf'}.
 
 -record(t_atom, {elements=any :: 'any' | ordsets:ordset(atom())}).
--record(t_bitstring, {size_unit=1 :: pos_integer()}).
+-record(t_bitstring, {size_unit=1 :: pos_integer(),
+                      %% The appendable flag indicates whether the bitstring
+                      %% originated as <<>> and has only been appended to by
+                      %% `bs_create_bin` with the bitstring as the leftmost
+                      %% fragment.
+                      appendable=false :: boolean()}).
 -record(t_bs_context, {tail_unit=1 :: pos_integer()}).
 -record(t_bs_matchable, {tail_unit=1 :: pos_integer()}).
 -record(t_float, {elements=any :: float_range()}).

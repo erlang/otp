@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ set_token(Type, Val) ->
 get_token() ->
     element(2,process_info(self(),sequential_trace_token)).
 
--spec get_token(Component) -> {Component, Val} when
+-spec get_token(Component) -> [] | {Component, Val} when
       Component :: component(),
       Val :: value().
 get_token(Type) ->

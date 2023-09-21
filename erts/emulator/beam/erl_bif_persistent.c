@@ -971,8 +971,8 @@ cleanup_trap_data(Binary *bp)
 static Uint
 lookup(HashTable* hash_table, Eterm key, Eterm *bucket)
 {
+    erts_ihash_t idx = erts_internal_hash(key);
     Uint mask = hash_table->mask;
-    Uint32 idx = make_internal_hash(key, 0);
     Eterm term;
 
     while (1) {

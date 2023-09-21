@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -503,6 +503,7 @@ erts_trace_flags(Eterm List,
 static ERTS_INLINE int
 start_trace(Process *c_p, ErtsTracer tracer,
             ErtsPTabElementCommon *common,
+            ErtsProcLocks locks,
             int on, int mask)
 {
     /* We can use the common part of both port+proc without checking what it is
@@ -528,10 +529,17 @@ start_trace(Process *c_p, ErtsTracer tracer,
         }
     }
 
-    if (on)
-        ERTS_TRACE_FLAGS(port) |= mask;
-    else
+    if (!on)
         ERTS_TRACE_FLAGS(port) &= ~mask;
+    else {
+        ERTS_TRACE_FLAGS(port) |= mask;
+        if ((mask & F_TRACE_RECEIVE) && is_internal_pid(common->id)) {
+            Process *proc = (Process *) common;
+            erts_aint32_t state = erts_atomic32_read_nob(&proc->state);
+            if (state & ERTS_PSFLG_MSG_SIG_IN_Q)
+                erts_proc_notify_new_message(proc, locks);
+        }
+    }
 
     if ((ERTS_TRACE_FLAGS(port) & TRACEE_FLAGS) == 0) {
         tracer = erts_tracer_nil;
@@ -606,7 +614,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 	if (!tracee_port)
 	    goto error;
 
-        if (start_trace(p, tracer, &tracee_port->common, on, mask)) {
+        if (start_trace(p, tracer, &tracee_port->common, 0, on, mask)) {
 	    erts_port_release(tracee_port);
 	    goto already_traced;
         }
@@ -629,7 +637,8 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 	if (!tracee_p)
 	    goto error;
 
-        if (start_trace(tracee_p, tracer, &tracee_p->common, on, mask)) {
+        if (start_trace(tracee_p, tracer, &tracee_p->common,
+                        ERTS_PROC_LOCKS_ALL, on, mask)) {
 	    erts_proc_unlock(tracee_p,
 				 (tracee_p == p
 				  ? ERTS_PROC_LOCKS_ALL_MINOR
@@ -721,7 +730,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 		    Process* tracee_p = erts_pix2proc(i);
 		    if (! tracee_p) 
 			continue;
-                    if (!start_trace(p, tracer, &tracee_p->common, on, mask))
+                    if (!start_trace(p, tracer, &tracee_p->common, 0, on, mask))
                         matches++;
 		}
 	    }
@@ -736,7 +745,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 		    state = erts_atomic32_read_nob(&tracee_port->state);
 		    if (state & ERTS_PORT_SFLGS_DEAD)
 			continue;
-                    if (!start_trace(p, tracer, &tracee_port->common, on, mask))
+                    if (!start_trace(p, tracer, &tracee_port->common, 0, on, mask))
                         matches++;
 		}
 	    }
@@ -837,7 +846,7 @@ Eterm trace_info_2(BIF_ALIST_2)
 }
 
 static Eterm
-build_trace_flags_term(Eterm **hpp, Uint *szp, Uint trace_flags)
+build_trace_flags_term(Eterm **hpp, Uint *szp, Uint32 trace_flags)
 {
 
 #define ERTS_TFLAG__(F, FN)                             \
@@ -955,7 +964,7 @@ static Eterm
 trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 {
     Eterm tracer;
-    Uint trace_flags = am_false;
+    Uint32 trace_flags = 0;
     Eterm* hp;
 
     if (pid_spec == am_new || pid_spec == am_new_processes) {
@@ -1460,19 +1469,21 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 		       ErtsTracer meta_tracer, int is_blocking)
 {
     const ErtsCodeIndex code_ix = erts_active_code_ix();
-    int matches = 0;
-    int i;
-    int n;
+    Uint i, n, matches;
     BpFunction* fp;
 
     erts_bp_match_export(&finish_bp.e, mfa, specified);
+
     fp = finish_bp.e.matching;
     n = finish_bp.e.matched;
+    matches = 0;
 
     for (i = 0; i < n; i++) {
-        ErtsCodeInfo *ci_rw = fp[i].ci_rw;
+        ErtsCodeInfo *ci_rw;
         Export* ep;
 
+        /* Export entries are always writable, discard const. */
+        ci_rw = (ErtsCodeInfo *)fp[i].code_info;
         ep = ErtsContainerStruct(ci_rw, Export, info);
 
         if (ep->bif_number != -1) {
@@ -1682,13 +1693,17 @@ erts_finish_breakpointing(void)
 	 * deallocate the GenericBp structs for them.
 	 */
 	clean_export_entries(&finish_bp.e);
-	erts_consolidate_bp_data(&finish_bp.e, 0);
-	erts_consolidate_bp_data(&finish_bp.f, 1);
+	erts_consolidate_export_bp_data(&finish_bp.e);
+	erts_consolidate_local_bp_data(&finish_bp.f);
 	erts_bp_free_matched_functions(&finish_bp.e);
 	erts_bp_free_matched_functions(&finish_bp.f);
         consolidate_event_tracing(erts_send_tracing);
 	consolidate_event_tracing(erts_receive_tracing);
-	return 0;
+        return 1;
+    case 4:
+        /* All schedulers have run a code barrier (or will as soon as they
+         * awaken) after updating all breakpoints, it's safe to return now. */
+        return 0;
     default:
 	ASSERT(0);
     }
@@ -1704,7 +1719,9 @@ install_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
+        /* Export entries are always writable, discard const. */
+        ErtsCodeInfo *ci_rw = (ErtsCodeInfo*)fp[i].code_info;
+        Export* ep = ErtsContainerStruct(ci_rw, Export, info);
         erts_activate_export_trampoline(ep, code_ix);
     }
 }
@@ -1718,7 +1735,9 @@ uninstall_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
+        /* Export entries are always writable, discard const. */
+        ErtsCodeInfo *ci_rw = (ErtsCodeInfo*)fp[i].code_info;
+        Export* ep = ErtsContainerStruct(ci_rw, Export, info);
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W));
@@ -1737,7 +1756,9 @@ clean_export_entries(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
+        /* Export entries are always writable, discard const. */
+        ErtsCodeInfo *ci_rw = (ErtsCodeInfo*)fp[i].code_info;
+        Export* ep = ErtsContainerStruct(ci_rw, Export, info);
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             continue;

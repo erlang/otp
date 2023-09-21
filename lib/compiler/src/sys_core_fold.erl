@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -218,15 +218,15 @@ expr(#c_tuple{anno=Anno,es=Es0}=Tuple, Ctxt, Sub) ->
 	    ann_c_tuple(Anno, Es)
     end;
 expr(#c_map{anno=Anno,arg=V0,es=Es0}=Map, Ctxt, Sub) ->
-    Es = pair_list(Es0, Ctxt, descend(Map, Sub)),
+    %% Warn for useless building, but always build the map
+    %% anyway to preserve a possible exception.
     case Ctxt of
-	effect ->
-            warn_useless_building(Map, Sub),
-	    make_effect_seq(Es, Sub);
-	value ->
-	    V = expr(V0, Ctxt, Sub),
-	    ann_c_map(Anno,V,Es)
-    end;
+        effect -> warn_useless_building(Map, Sub);
+        value -> ok
+    end,
+    Es = pair_list(Es0, descend(Map, Sub)),
+    V = expr(V0, value, Sub),
+    ann_c_map(Anno, V, Es);
 expr(#c_binary{segments=Ss}=Bin0, Ctxt, Sub) ->
     %% Warn for useless building, but always build the binary
     %% anyway to preserve a possible exception.
@@ -486,14 +486,12 @@ ifes_list(_FVar, [], _Safe) ->
 expr_list(Es, Ctxt, Sub) ->
     [expr(E, Ctxt, Sub) || E <- Es].
 
-pair_list(Es, Ctxt, Sub) ->
-    [pair(E, Ctxt, Sub) || E <- Es].
+pair_list(Es, Sub) ->
+    [pair(E, Sub) || E <- Es].
 
-pair(#c_map_pair{key=K,val=V}, effect, Sub) ->
-    make_effect_seq([K,V], Sub);
-pair(#c_map_pair{key=K0,val=V0}=Pair, value=Ctxt, Sub) ->
-    K = expr(K0, Ctxt, Sub),
-    V = expr(V0, Ctxt, Sub),
+pair(#c_map_pair{key=K0,val=V0}=Pair, Sub) ->
+    K = expr(K0, value, Sub),
+    V = expr(V0, value, Sub),
     Pair#c_map_pair{key=K,val=V}.
 
 bitstr_list(Es, Sub) ->
@@ -800,8 +798,6 @@ fold_apply(Apply, _, _) -> Apply.
 call(#c_call{args=As0}=Call0, #c_literal{val=M}=M0, #c_literal{val=N}=N0, Sub) ->
     As1 = expr_list(As0, value, Sub),
     case simplify_call(Call0, M, N, As1) of
-        #c_literal{}=Lit ->
-            Lit;
         #c_call{args=As}=Call ->
             case get(no_inline_list_funcs) of
                 true ->
@@ -811,7 +807,11 @@ call(#c_call{args=As0}=Call0, #c_literal{val=M}=M0, #c_literal{val=N}=N0, Sub) -
                         none -> fold_call(Call, M0, N0, As, Sub);
                         Core -> expr(Core, Sub)
                     end
-            end
+            end;
+        #c_let{}=Let ->
+            Let;
+        #c_literal{}=Lit ->
+            Lit
     end;
 call(#c_call{args=As0}=Call, M, N, Sub) ->
     As = expr_list(As0, value, Sub),
@@ -821,6 +821,33 @@ call(#c_call{args=As0}=Call, M, N, Sub) ->
 %% slightly at the cost of making tracing and stack traces incorrect.
 simplify_call(Call, maps, get, [Key, Map]) ->
     rewrite_call(Call, erlang, map_get, [Key, Map]);
+simplify_call(#c_call{anno=Anno0}, maps, get, [Key0, Map, Default]) ->
+    Anno = [compiler_generated | Anno0],
+
+    Key = make_var(Anno),
+    Value = make_var(Anno),
+    Fail = make_var(Anno),
+    Raise = #c_primop{name=#c_literal{val=match_fail},
+                      args=[#c_tuple{es=[#c_literal{val=badmap},
+                                         Fail]}]},
+
+    Cs = [#c_clause{anno=Anno,
+                    pats=[#c_map{es=[#c_map_pair{op=#c_literal{val=exact},
+                                                 key=Key,
+                                                 val=Value}],
+                                 is_pat=true}],
+                    guard=#c_literal{val=true},
+                    body=Value},
+          #c_clause{anno=Anno,
+                    pats=[#c_map{es=[],is_pat=true}],
+                    guard=#c_literal{val=true},
+                    body=Default},
+          #c_clause{anno=Anno,
+                    pats=[Fail],
+                    guard=#c_literal{val=true},
+                    body=Raise}],
+
+    cerl:ann_c_let(Anno, [Key], Key0, #c_case{anno=Anno,arg=Map,clauses=Cs});
 simplify_call(Call, maps, is_key, [Key, Map]) ->
     rewrite_call(Call, erlang, is_map_key, [Key, Map]);
 simplify_call(_Call, maps, new, []) ->

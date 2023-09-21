@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -261,7 +261,11 @@ function_parameter_completion(Config) ->
                             elems:=[#{title:="types",
                                     elems:=[{"integer()",[]}],
                                     options:=[{hide,title}]}],
-                            options:=[{highlight_param,1}]}],
+                            options:=[{highlight_param,1}]},
+                            #{title:=
+                                "complete_function_parameter:multi_arity_fun()",
+                            options:=[],
+                            elems:=[")"]}],
                 options:=[highlight_all]}]} = do_expand("complete_function_parameter:multi_arity_fun("),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"true",[]},{"false",[]}]}]}]}]} = do_expand("complete_function_parameter:multi_arity_fun(1,"),
     {no,[],

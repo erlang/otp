@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -217,7 +217,8 @@ gen_atom() ->
 gen_bs_matchable() ->
     oneof([?LET(Unit, range(1, 16), #t_bs_matchable{tail_unit=Unit}),
            ?LET(Unit, range(1, 16), #t_bs_context{tail_unit=Unit}),
-           ?LET(Unit, range(1, 16), #t_bitstring{size_unit=Unit})]).
+           ?LET({Unit, Appendable}, {range(1, 16), boolean()},
+                #t_bitstring{size_unit=Unit,appendable=Appendable})]).
 
 gen_float() ->
     oneof([?LET({A, B}, {integer(), integer()},

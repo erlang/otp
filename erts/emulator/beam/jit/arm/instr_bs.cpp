@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2320,9 +2320,15 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 estimated_num_bits += seg_size;
             }
         } else if (seg.unit > 0) {
-            auto max = std::min(std::get<1>(getClampedRange(seg.size)),
-                                Sint((ERL_ONHEAP_BIN_LIMIT + 1) * 8));
-            estimated_num_bits += max * seg.unit;
+            if ((seg.unit % 8) == 0) {
+                auto max = std::min(std::get<1>(getClampedRange(seg.size)),
+                                    Sint((ERL_ONHEAP_BIN_LIMIT + 1) * 8));
+                estimated_num_bits += max * seg.unit;
+            } else {
+                /* May create a non-binary bitstring in some cases, suppress
+                 * creation of heap binary. */
+                estimated_num_bits += (ERL_ONHEAP_BIN_LIMIT + 1) * 8;
+            }
         } else {
             switch (seg.type) {
             case am_utf8:
@@ -3674,7 +3680,9 @@ void BeamModuleAssembler::emit_extract_binary(const arm::Gp bitdata,
     mov_imm(TMP3, num_bytes);
     a.rev64(TMP4, bitdata);
     a.stp(TMP2, TMP3, arm::Mem(HTOP).post(sizeof(Eterm[2])));
-    a.str(TMP4, arm::Mem(HTOP).post(sizeof(Eterm[1])));
+    if (num_bytes != 0) {
+        a.str(TMP4, arm::Mem(HTOP).post(sizeof(Eterm[1])));
+    }
     flush_var(dst);
 }
 
@@ -3698,7 +3706,7 @@ static std::vector<BsmSegment> opt_bsm_segments(
             }
             break;
         case BsmSegment::action::GET_BINARY:
-            heap_need += heap_bin_size((seg.size + 7) / 8);
+            heap_need += erts_extracted_binary_size(seg.size);
             break;
         case BsmSegment::action::GET_TAIL:
             heap_need += EXTRACT_SUB_BIN_HEAP_NEED;

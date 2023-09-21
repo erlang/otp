@@ -117,8 +117,7 @@
        number that was picked:</p>
 
     <code type="none">
-      2 > {ok, Pid} = inets:start(httpd, [{port, 0},
-      {server_name,"httpd_test"}, {server_root,"/tmp"},
+      2 > {ok, Pid} = inets:start(httpd, [{port, 0}, {server_root,"/tmp"},
       {document_root,"/tmp/htdocs"}, {bind_address, "localhost"}]).
       {ok, 0.79.0}      </code>
     
@@ -126,7 +125,7 @@
     <code type="none">
       3 >  httpd:info(Pid).
       [{mime_types,[{"html","text/html"},{"htm","text/html"}]},
-      {server_name,"httpd_test"},
+      {server_name,"machine.local"},
       {bind_address, {127,0,0,1}},
       {server_root,"/tmp"},
       {port,59408},
@@ -137,8 +136,7 @@
     </p>
     <code type="none">
     4 > httpd:reload_config([{port, 59408},
-      {server_name,"httpd_test"}, {server_root,"/tmp/www_test"},
-      {document_root,"/tmp/www_test/htdocs"},
+      {server_root,"/tmp/www_test"}, {document_root,"/tmp/www_test/htdocs"},
       {bind_address, "localhost"}], non_disturbing).
     ok.</code>
 
@@ -613,6 +611,28 @@ start() ->
 	the request message that the responding web server or proxy
 	received.</p>
     </section>
+  </section>
+  <section>
+    <title>Serving files from the command line</title>
+    <p>httpd includes functionality to quickly serve files from the command
+      line. In its simplest form, <c>erl -S httpd</c> will serve files in
+      the local directory on localhost.</p>
+    <taglist>
+      <tag><c>--port</c></tag>
+      <item>Sets the port to bind on. Defaults to <c>8000</c>.</item>
+
+      <tag><c>--bind</c></tag>
+      <item>Sets the bind address to listen on. Defaults to <c>127.0.0.1</c>.</item>
+
+      <tag><i>DIRECTORY</i></tag>
+      <item>Sets the directory to serve data from. Defaults to the current directory.</item>
+    </taglist>
+    <p>For example, to serve files from directory <c>test_results</c> on port <c>4000</c>:</p>
+    <code>
+      erl -S httpd serve --port 4000 test_results
+    </code>
+    <p>For a full reference of all options, run
+      <c>erl -S httpd serve --help</c>.</p>
   </section>
 </chapter>
 

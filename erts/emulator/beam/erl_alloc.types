@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2021. All Rights Reserved.
+# Copyright Ericsson AB 2003-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -289,7 +289,7 @@ type    MAP_TRAP        SHORT_LIVED     PROCESSES       map_bif_trap_state
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
-type	PERSISTENT_TERM	LONG_LIVED	CODE		persisten_term
+type	PERSISTENT_TERM	LONG_LIVED	CODE		persistent_term
 type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
 type	PERSISTENT_TERM_TMP SHORT_LIVED	SYSTEM		persistent_term_tmp_table
 
@@ -305,6 +305,8 @@ type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
 type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 
 type	T2B_DETERMINISTIC SHORT_LIVED	PROCESSES	term_to_binary_deterministic
+
+type    DSIG_HNDL_NTFY  SHORT_LIVED     PROCESSES       dirty_signal_handler_notification
 
 #
 # Types used for special emulators

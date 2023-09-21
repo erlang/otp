@@ -29,7 +29,7 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     a.mov(ARG3, a64::x30);
     a.str(ZERO, arm::Mem(c_p, offsetof(Process, current)));
     mov_imm(TMP1, 1);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, arity)));
+    a.strb(TMP1.w(), arm::Mem(c_p, offsetof(Process, arity)));
     a.b(labels[context_switch_simplified]);
 }
 
@@ -40,6 +40,11 @@ void BeamModuleAssembler::emit_return() {
     /* Validate return address and {x,0} */
     emit_validate(ArgVal(ArgVal::Word, 1));
 #endif
+
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(a64::x30, arm::Mem(c_p, offsetof(Process, i)));
+    }
 
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */

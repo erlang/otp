@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -262,14 +262,19 @@ disasm_literals(<<>>, _) -> [].
 %% Disassembles the type table of a BEAM file.
 %%-----------------------------------------------------------------------
 
--spec beam_disasm_types('none' | binary()) -> literals().
+-spec beam_disasm_types('none' | binary()) -> types().
 
 beam_disasm_types(none) ->
     none;
-beam_disasm_types(<<?BEAM_TYPES_VERSION:32,Count:32,Table/binary>>) ->
-    Res = gb_trees:from_orddict(disasm_types(Table, 0)),
-    Count = gb_trees:size(Res),                 %Assertion.
-    Res;
+beam_disasm_types(<<Version:32,Count:32,Table0/binary>>) ->
+    case beam_types:convert_ext(Version, Table0) of
+        none ->
+            ?exit({beam_disasm_types,{unknown_type_version,Version}});
+        Table ->
+            Res = gb_trees:from_orddict(disasm_types(Table, 0)),
+            Count = gb_trees:size(Res),                 %Assertion.
+            Res
+    end;
 beam_disasm_types(<<_/binary>>) ->
     none.
 

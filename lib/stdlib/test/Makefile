@@ -7,6 +7,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	array_SUITE \
+	argparse_SUITE \
 	base64_SUITE \
 	base64_property_test_SUITE \
 	beam_lib_SUITE \
@@ -43,6 +44,7 @@ MODULES= \
 	filename_SUITE \
 	fixtable_SUITE \
 	format_SUITE \
+	gb_sets_property_test_SUITE \
 	gen_event_SUITE \
 	gen_fsm_SUITE \
 	gen_server_SUITE \
@@ -70,6 +72,7 @@ MODULES= \
 	re_testoutput1_split_test \
 	slave_SUITE \
 	sets_SUITE \
+	sets_property_test_SUITE \
 	sets_test_lib \
 	sofs_SUITE \
 	stdlib_SUITE \
@@ -132,7 +135,7 @@ ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 EBIN = .
 
 EMAKEFILE=Emakefile
-COVERFILE=stdlib.cover
+COVERFILE=stdlib.cover tty.cover
 
 # ----------------------------------------------------
 # Targets
@@ -162,7 +165,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) stdlib.spec stdlib_bench.spec error_info.spec $(EMAKEFILE) \
+	$(INSTALL_DATA) stdlib.spec stdlib_bench.spec stdlib_gh.spec error_info.spec $(EMAKEFILE) \
 		$(ERL_FILES) $(COVERFILE) $(EXTRA_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)

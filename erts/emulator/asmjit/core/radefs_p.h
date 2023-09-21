@@ -271,8 +271,12 @@ struct RARegMask {
   }
 
   template<class Operator>
-  inline void op(RegGroup group, uint32_t input) noexcept {
-    _masks[group] = Operator::op(_masks[group], input);
+  inline void op(RegGroup group, RegMask mask) noexcept {
+    _masks[group] = Operator::op(_masks[group], mask);
+  }
+
+  inline void clear(RegGroup group, RegMask mask) noexcept {
+    _masks[group] = _masks[group] & ~mask;
   }
 
   //! \}
@@ -662,7 +666,7 @@ struct LiveRegData {
   uint32_t id;
 
   inline explicit LiveRegData(uint32_t id = BaseReg::kIdBad) noexcept : id(id) {}
-  inline LiveRegData(const LiveRegData& other) noexcept : id(other.id) {}
+  inline LiveRegData(const LiveRegData& other) noexcept = default;
 
   inline void init(const LiveRegData& other) noexcept { id = other.id; }
 

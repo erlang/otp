@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -142,7 +142,7 @@
 -spec init(Config) -> Result when
       Config :: config(),
       Result :: config() | SkipOrFail,
-      SkipOrFail :: {skip,Reason} | {fail,Reason}.
+      SkipOrFail :: {skip,Reason::term()} | {fail,Reason :: term()}.
 %% Initialize ct_release_test.
 %%
 %% This function can be called from any of the

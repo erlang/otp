@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2017-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2017-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ ERL_NIF_TERM WXE_ATOM_wxPrintDialogData;
 ErlNifResourceType* wxeMemEnvRt = NULL;
 int wxe_debug = 0;
 
-extern void wxe_initOpenGL(void * fptr);
+extern void wxe_initOpenGL(void * fptr, void *debug);
 
 // void destroyMemEnv(wxeMemEnv *memenv);
 
@@ -127,9 +127,13 @@ static ERL_NIF_TERM wx_setup_cmd(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM wx_init_opengl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     void * fptr;
+    void * debug;
     if(!get_ptr(env, argv[0], &fptr))
         return enif_make_badarg(env);
-    wxe_initOpenGL(fptr);
+    if(!get_ptr(env, argv[1], &debug))
+        return enif_make_badarg(env);
+
+    wxe_initOpenGL(fptr, debug);
     return WXE_ATOM_ok;
 }
 
@@ -198,7 +202,7 @@ static ErlNifFunc nif_funcs[] =
     {"queue_cmd",13, wx_setup_cmd},
     {"queue_cmd",14, wx_setup_cmd},
     {"queue_cmd",15, wx_setup_cmd},
-    {"init_opengl", 1, wx_init_opengl},
+    {"init_opengl", 2, wx_init_opengl},
     {"make_env", 0, wxe_make_env},
     {"delete_env", 1, wxe_delete_env},
     {"debug_driver", 1, wxe_debug_driver},

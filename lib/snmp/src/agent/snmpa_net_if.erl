@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -235,12 +235,22 @@ init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 		    end,
 		    erlang:raise(C, E, S)
 	    end;
+	{error, {udp_open, {open, PortNo, Reason}}} ->
+            OEFilters = get_open_err_filters(Opts),
+            Class =
+                case lists:member(Reason, OEFilters) of
+                    false ->
+                        error;
+                    true ->
+                        info
+            end,
+            proc_lib:init_ack({error, {Class, udp_open, PortNo, Reason}});
 	{error, Reason} ->
-	    config_err("failed starting net-if: ~n~p", [Reason]),
-	    proc_lib:init_ack({error, Reason});
+	    %% config_err("failed starting net-if: ~n~p", [Reason]),
+	    proc_lib:init_fail({error, Reason}, {exit, normal});
 	Error ->
-	    config_err("failed starting net-if: ~n~p", [Error]),
-	    proc_lib:init_ack({error, Error})
+	    %% config_err("failed starting net-if: ~n~p", [Error]),
+	    proc_lib:init_fail({error, Error}, {exit, normal})
     end.
 
 do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
@@ -256,7 +266,7 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     Vsns = get_vsns(Opts),
     ?vdebug("vsns: ~w",[Vsns]),
 
-    %% Flow control --
+    %% -- Flow control --
     Limit      = get_req_limit(Opts),
     ?vdebug("Limit: ~w", [Limit]),
     FilterOpts = get_filter_opts(Opts),
@@ -475,7 +485,7 @@ gen_udp_open(system, Opts) ->
                     throw({udp_open, {port, PReason}})
             end;
 	{error, OReason} ->
-            throw({udp_open, {open, OReason}})
+            throw({udp_open, {open, 0, OReason}})
     end;
 %% This is for "future compat" since we cannot actually config '0'...
 gen_udp_open(IpPort, Opts) when (IpPort =:= 0) ->
@@ -533,7 +543,7 @@ gen_udp_range_open(Min, Max, Opts) ->
             gen_udp_range_open(Min+1, Max, Opts);
         {error, Reason} ->
             ?vdebug("gen_udp_range_open(~w,~w) -> ~w", [Reason]),
-            throw({udp_open, {open, Reason}})
+            throw({udp_open, {open, Min, Reason}})
     catch
         C:E:S ->
             ?vinfo("gen_udp_range_open(~w,~w) -> failed open socket: "
@@ -819,9 +829,12 @@ handle_udp_error(S, #transport{socket = Socket,
     try inet:sockname(Socket) of
         {ok, {IP, Port}} ->
             error_msg("UDP Error for transport: "
-                      "~n      Socket: ~p (~p, ~p)"
+                      "~n      Socket: ~s"
+                      "~n         Addr: ~p"
+                      "~n         Port: ~p"
                       "~n      Kind:   ~p"
-                      "~n      Error:  ~p", [Socket, IP, Port, Kind, Error]);
+                      "~n      Error:  ~p",
+		      [inet:socket_to_list(Socket), IP, Port, Kind, Error]);
         {error, _} ->
             error_msg("UDP Error for transport: "
                       "~n      Socket: ~p"
@@ -2007,6 +2020,21 @@ socket_opts(Domain, {IpAddr, PortInfo}, SocketOpts, DefaultOpts) ->
             "~n      SocketOpts:  ~p"
             "~n      DefaultOpts: ~p",
             [Domain, IpAddr, PortInfo, SocketOpts, DefaultOpts]),
+    {RequireBind, InetBackend} =
+        case get_inet_backend(SocketOpts, DefaultOpts) of
+            use_default ->
+                {false, []};
+            Backend when (Backend =:= inet) ->
+                {false, [{inet_backend, Backend}]};
+            Backend when (Backend =:= socket) ->
+		{case os:type() of
+		     {win32, nt} ->
+			 true;
+		     _ ->
+			 false
+		 end,
+		 [{inet_backend, Backend}]}
+        end,
     Opts =
         [binary |
          case snmp_conf:tdomain_to_family(Domain) of
@@ -2015,7 +2043,8 @@ socket_opts(Domain, {IpAddr, PortInfo}, SocketOpts, DefaultOpts) ->
              Family ->
                  [Family]
          end ++
-         case get_bind_to_ip_address(SocketOpts, DefaultOpts) of
+         case RequireBind orelse
+	     get_bind_to_ip_address(SocketOpts, DefaultOpts) of
              true ->
                  [{ip, IpAddr}];
              _ ->
@@ -2047,13 +2076,6 @@ socket_opts(Domain, {IpAddr, PortInfo}, SocketOpts, DefaultOpts) ->
                 error_msg("Invalid 'extra socket options' (=> ignored):"
                           "~n   ~p", [BadESO]),
                 []
-        end,
-    InetBackend =
-        case get_inet_backend(SocketOpts, DefaultOpts) of
-            use_default ->
-                [];
-            Backend when (Backend =:= inet) orelse (Backend =:= socket) ->
-                [{inet_backend, Backend}]
         end,
     %% <EPHEMERAL-FOR-FUTUR-USE>
     %% Ephm = get_ephemeral(SocketOpts),
@@ -2100,6 +2122,16 @@ get_filter_opts(O) ->
 
 get_filter_module(O) ->
     snmp_misc:get_option(module, O, ?DEFAULT_FILTER_MODULE).
+
+get_open_err_filters(O) ->
+    case snmp_misc:get_option(open_err_filters, O, []) of
+        Filters when is_list(Filters) ->
+            Filters;
+        Filter when is_atom(Filter) ->
+            [Filter];
+        _ ->
+            []
+    end.
 
 get_recbuf(Opts, DefaultOpts) -> 
     get_socket_opt(recbuf, Opts, DefaultOpts, use_default).
@@ -2153,8 +2185,8 @@ info_msg(F,A) ->
 user_err(F, A) ->
     snmpa_error:user_err(F, A).
  
-config_err(F, A) ->
-    snmpa_error:config_err(F, A).
+%% config_err(F, A) ->
+%%     snmpa_error:config_err(F, A).
  
 
 %% ----------------------------------------------------------------

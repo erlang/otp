@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,7 +79,6 @@ open_write(OpaqueData) ->
     File = OpaqueData,
     Tmp = lists:concat([File,".BUPTMP"]),
     file:delete(Tmp),
-    file:delete(File),
     case disk_log:open([{name, make_ref()},
 			{file, Tmp},
 			{repair, false},
@@ -112,6 +111,7 @@ commit_write(OpaqueData) ->
         ok ->
             case disk_log:close(B#backup.file_desc) of
                 ok ->
+                    file:delete(B#backup.file),
 		    case file:rename(B#backup.tmp_file, B#backup.file) of
 		       ok ->
 			    {ok, B#backup.file};

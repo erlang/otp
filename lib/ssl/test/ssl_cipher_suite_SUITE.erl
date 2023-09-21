@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 %% Callback functions
 -export([all/0,
@@ -530,57 +531,75 @@ end_per_testcase(_TestCase, Config) ->
 init_certs(srp_rsa, Config) ->
     DefConf = ssl_test_lib:default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0}
         = public_key:pkix_test_data(CertChainConf),
-    [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}} | ServerOpts],
-                    client_config => [{srp_identity, {"Test-User", "secret"}} | ClientOpts]}} |
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerOpts = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
+    ClientOpts = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
+    [{tls_config, #{server_config =>
+                        [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}} | ServerOpts],
+                    client_config =>
+                        [{srp_identity, {"Test-User", "secret"}}, {verify, verify_none} | ClientOpts]}} |
      proplists:delete(tls_config, Config)];
 init_certs(srp_anon, Config) ->
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}}],
-                    client_config => [{srp_identity, {"Test-User", "secret"}}]}} |
+                    client_config => [{srp_identity, {"Test-User", "secret"}}, {verify, verify_none}]}} |
      proplists:delete(tls_config, Config)];
 init_certs(rsa_psk, Config) ->
     ClientExt = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
-    {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
-                                                                   [[],[],[{extensions, ClientExt}]]}], 
+    {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain,
+                                                                   [[],[],[{extensions, ClientExt}]]}],
                                                                  Config, "_peer_keyEncipherment"),
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}} | ServerOpts],
                     client_config => [{psk_identity, "Test-User"},
-                                      {user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}} | ClientOpts]}} |
+                                      {user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}},
+                                      {verify, verify_none} | ClientOpts]}} |
      proplists:delete(tls_config, Config)];
 init_certs(rsa, Config) ->
     ClientExt = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
-    {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
-                                                                   [[],[],[{extensions, ClientExt}]]}], 
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_chain,
+                                                                   [[],[],[{extensions, ClientExt}]]}],
                                                                  Config, "_peer_keyEncipherment"),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerOpts = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
+    ClientOpts = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(ecdhe_1_3_rsa_cert, Config) ->
     ClientExt = x509_test:extensions([{key_usage, [digitalSignature]}]),
-    {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
-                                                                   [[],[],[{extensions, ClientExt}]]}], 
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_chain,
+                                                                   [[],[],[{extensions, ClientExt}]]}],
                                                                  Config, "_peer_rsa_digitalsign"),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerOpts = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
+    ClientOpts = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(dhe_dss, Config) ->
     DefConf = ssl_test_lib:default_cert_chain_conf(),
-    CertChainConf = ssl_test_lib:gen_conf(dsa, dsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
+    CertChainConf = ssl_test_lib:gen_conf(dsa, dsa, DefConf, DefConf), 
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0}
         = public_key:pkix_test_data(CertChainConf),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerOpts = ssl_test_lib:sig_algs(dsa, Version) ++  ServerOpts0,
+    ClientOpts = ssl_test_lib:sig_algs(dsa, Version) ++ ClientOpts0,
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(srp_dss, Config) ->
     DefConf = ssl_test_lib:default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(dsa, dsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0}
         = public_key:pkix_test_data(CertChainConf),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerOpts = ssl_test_lib:sig_algs(dsa, Version) ++  ServerOpts0,
+    ClientOpts = ssl_test_lib:sig_algs(dsa, Version) ++ ClientOpts0,
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}} | ServerOpts],
                     client_config => [{srp_identity, {"Test-User", "secret"}} | ClientOpts]}} |
        proplists:delete(tls_config, Config)];
@@ -588,9 +607,12 @@ init_certs(GroupName, Config) when GroupName == dhe_rsa;
                                    GroupName == ecdhe_rsa ->
     DefConf = ssl_test_lib:default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0}
         = public_key:pkix_test_data(CertChainConf),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerOpts = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
+    ClientOpts = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
@@ -598,9 +620,12 @@ init_certs(GroupName, Config) when GroupName == dhe_ecdsa;
                                    GroupName == ecdhe_ecdsa ->
     DefConf = ssl_test_lib:default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(ecdsa, ecdsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0}
         = public_key:pkix_test_data(CertChainConf),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerOpts = ssl_test_lib:sig_algs(ecdsa, Version) ++  ServerOpts0,
+    ClientOpts = ssl_test_lib:sig_algs(ecdsa, Version) ++ ClientOpts0,
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
@@ -609,17 +634,17 @@ init_certs(GroupName, Config) when GroupName == psk;
                                    GroupName == ecdhe_psk ->
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}}],
-                    client_config => [{psk_identity, "Test-User"},
+                    client_config => [{verify, verify_none}, {psk_identity, "Test-User"},
                                       {user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}}]}} |
-     proplists:delete(tls_config, Config)]; 
-init_certs(srp, Config) -> 
+     proplists:delete(tls_config, Config)];
+init_certs(srp, Config) ->
       [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}}],
-                      client_config => [{srp_identity, {"Test-User", "secret"}}]}} |
+                      client_config => [{verify, verify_none},{srp_identity, {"Test-User", "secret"}}]}} |
        proplists:delete(tls_config, Config)];
-init_certs(_GroupName, Config) -> 
+init_certs(_GroupName, Config) ->
     %% Anonymous does not need certs
-     [{tls_config, #{server_config => [],
-                     client_config => []}} |
+     [{tls_config, #{server_config => [{verify, verify_none}],
+                     client_config => [{verify, verify_none}]}} |
        proplists:delete(tls_config, Config)].
 
 %%--------------------------------------------------------------------
@@ -952,9 +977,9 @@ cipher_suite_test(ErlangCipherSuite, Version, Config) ->
       client_config := COpts} = proplists:get_value(tls_config, Config),
     ServerOpts = ssl_test_lib:ssl_options(SOpts, Config),
     ClientOpts = ssl_test_lib:ssl_options(COpts, Config),
-    ct:log("Testing CipherSuite ~p~n", [ErlangCipherSuite]),
-    ct:log("Server Opts ~p~n", [ServerOpts]),
-    ct:log("Client Opts ~p~n", [ClientOpts]),
+    ?CT_LOG("Testing CipherSuite ~p~n", [ErlangCipherSuite]),
+    ?CT_LOG("Server Opts ~p~n", [ServerOpts]),
+    ?CT_LOG("Client Opts ~p~n", [ClientOpts]),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     ConnectionInfo = {ok, {Version, ErlangCipherSuite}},
@@ -978,14 +1003,14 @@ cipher_suite_test(ErlangCipherSuite, Version, Config) ->
 
 
 test_ciphers(Kex, Cipher, Version) ->
-    ssl:filter_cipher_suites(ssl:cipher_suites(all, Version) ++ ssl:cipher_suites(anonymous, Version), 
-                             [{key_exchange, 
-                               fun(Kex0) when Kex0 == Kex -> true; 
-                                  (_) -> false 
-                               end}, 
-                              {cipher,  
-                               fun(Cipher0) when Cipher0 == Cipher -> true; 
-                                  (_) -> false 
+    ssl:filter_cipher_suites(ssl:cipher_suites(all, Version) ++ ssl:cipher_suites(anonymous, Version),
+                             [{key_exchange,
+                               fun(Kex0) when Kex0 == Kex -> true;
+                                  (_) -> false
+                               end},
+                              {cipher,
+                               fun(Cipher0) when Cipher0 == Cipher -> true;
+                                  (_) -> false
                                end}]).
 
 

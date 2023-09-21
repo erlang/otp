@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -206,22 +206,14 @@ jmsingle(Config) ->
     %% Smoke test to check that the emulator starts with the +JMsingle
     %% true/false option and fails with a non-boolean, that is, we
     %% parse the command line correctly.
-    IsAarch64Apple = case erlang:system_info(system_architecture) of
-                         "aarch64-apple" ++ _ -> true;
-                         _ -> false
-                     end,
-    IsNetBSD = case os:type() of
-                   {_,netbsd} -> true;
-                   _ -> false
-               end,
-
-    if
-        IsAarch64Apple or IsNetBSD ->
-            %% +JMsingle true does not work on macOS running
-            %% on Apple Silicon computers nor on NetBSD.
-
-            %% The emulator will dump a core here, so we set the cwd
-            %% to a temporary directory that we delete when the test is done.
+    case os:type() of
+        {_, BSD} when BSD =:= netbsd;
+                      BSD =:= openbsd ->
+            %% +JMsingle true might not work on these platforms, and dump core
+            %% because the emulator cannot be started.
+            %% 
+            %% Set the cwd to a temporary directory that we'll delete when the
+            %% test is done.
             {ok, Cwd} = file:get_cwd(),
             TestDir = filename:join(proplists:get_value(priv_dir, Config),
                                     "jmsingle"),
@@ -235,7 +227,7 @@ jmsingle(Config) ->
                 file:set_cwd(Cwd),
                 file:del_dir_r(TestDir)
             end;
-        true ->
+        {_, _} ->
             run_jmsingle_test("true", true,
                               "Emulator did not start with +JMsingle true")
     end,

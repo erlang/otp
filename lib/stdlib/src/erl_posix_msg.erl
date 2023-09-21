@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -167,7 +167,7 @@ message_1(eunatch) -> <<"protocol driver not attached">>;
 message_1(eusers) -> <<"too many users">>;
 message_1(eversion) -> <<"version mismatch">>;
 message_1(ewouldblock) -> <<"operation would block">>;
-message_1(exdev) -> <<"cross-domain link">>;
+message_1(exdev) -> <<"cross-device link">>;
 message_1(exfull) -> <<"message tables full">>;
 message_1(nxdomain) -> <<"non-existing domain">>;
 message_1(exbadport) -> <<"inet_drv bad port state">>;

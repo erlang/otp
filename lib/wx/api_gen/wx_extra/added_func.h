@@ -95,3 +95,9 @@ public:
   void SetDragSource(wxAuiNotebook* s) { m_dragSource = s; }
   wxAuiNotebook* GetDragSource() const { return m_dragSource; }
 };
+
+class wxGLCanvas : public wxWindow
+{
+public:
+  bool CreateSurface();
+};

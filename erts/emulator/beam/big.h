@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,11 @@ typedef Uint16   ErtsHalfDigit;
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint16   ErtsHalfDigit;
 
+#elif (SIZEOF_VOID_P == 8) && defined(__GNUC__) && (__GNUC__ >= 4)
+typedef __uint128_t ErtsDoubleDigit;
+#define BIG_HAVE_DOUBLE_DIGIT 1
+
 #elif (SIZEOF_VOID_P == 8)
-/* Assume 64-bit machine, does it exist 128 bit long long long ? */
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint32   ErtsHalfDigit;
 #else
@@ -132,6 +135,7 @@ Eterm small_times(Sint, Sint, Eterm*);
 Eterm big_plus(Wterm, Wterm, Eterm*);
 Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
+Eterm big_mul_add(Eterm x, Eterm y, Eterm z, Eterm *r);
 
 int big_div_rem(Eterm lhs, Eterm rhs,
                 Eterm *q_hp, Eterm *q,
@@ -180,18 +184,4 @@ int term_equals_2pow32(Eterm);
 
 Eterm erts_uint64_to_big(Uint64, Eterm **);
 Eterm erts_sint64_to_big(Sint64, Eterm **);
-
-Eterm erts_chars_to_integer(Process *, char*, Uint, const int);
-
-/* How list_to_integer classifies the input, was it even a string? */
-typedef enum {
-    LTI_BAD_STRUCTURE = 0,
-    LTI_NO_INTEGER    = 1,
-    LTI_SOME_INTEGER  = 2,
-    LTI_ALL_INTEGER   = 3
-} LTI_result_t;
-
-LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
-                                  const Uint base,
-                                  Eterm *integer_out, Eterm *tail_out);
 #endif

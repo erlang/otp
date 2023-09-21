@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,7 +84,9 @@
          dyn_node_name_monitor/1,
          async_dist_flag/1,
          async_dist_port_dctrlr/1,
-         async_dist_proc_dctrlr/1]).
+         async_dist_proc_dctrlr/1,
+         creation_selection/1,
+         creation_selection_test/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -118,7 +120,7 @@ all() ->
      start_epmd_false, no_epmd, epmd_module, system_limit,
      hopefull_data_encoding, hopefull_export_fun_bug,
      huge_iovec, is_alive, dyn_node_name_monitor_node, dyn_node_name_monitor,
-     {group, async_dist}].
+     {group, async_dist}, creation_selection].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -520,9 +522,6 @@ nodes2(Config) when is_list(Config) ->
     end,
     ok.
 
-id(X) ->
-    X.
-
 %% Test optimistic distribution flags toward pending connections (DFLAG_DIST_HOPEFULLY)
 optimistic_dflags(Config) when is_list(Config) ->
     {ok, PeerSender, _Sender} = ?CT_PEER(#{connection => 0, args => ["-setcookie", "NONE"]}),
@@ -878,9 +877,12 @@ make_busy(Node, Time) when is_integer(Time) ->
     receive after Own -> ok end,
     until(fun () ->
                   case {DCtrl, process_info(Pid, status)} of
-                      {DPrt, {status, suspended}} when is_port(DPrt) -> true;
-                      {DPid, {status, waiting}} when is_pid(DPid) -> true;
-                      _ -> false
+                      {DPrt, {status, waiting}} when is_port(DPrt) ->
+                          verify_busy(DPrt);
+                      {DPid, {status, waiting}} when is_pid(DPid) ->
+                          true;
+                      _ ->
+                          false
                   end
           end),
     %% then dist entry
@@ -896,6 +898,28 @@ make_busy(Node, Opts, Data) ->
 unmake_busy(Pid) ->
     unlink(Pid),
     exit(Pid, bang).
+
+verify_busy(Port) ->
+    Parent = self(),
+    Pid =
+        spawn_link(
+          fun() ->
+                  port_command(Port, "Just some data"),
+                  Error = {not_busy, Port},
+                  exit(Parent, Error),
+                  error(Error)
+          end),
+    receive after 30 -> ok end,
+    case process_info(Pid, status) of
+        {status, suspended} ->
+            unlink(Pid),
+            exit(Pid, kill),
+            true;
+        {status, _} = WrongStatus ->
+            unlink(Pid),
+            exit(Pid, WrongStatus),
+            error(WrongStatus)
+    end.
 
 do_busy_test(Node, Fun) ->
     Busy = make_busy(Node, 1000),
@@ -2554,7 +2578,19 @@ ensure_dctrl(Node) ->
     end.
 
 dctrl_send(DPrt, Data) when is_port(DPrt) ->
-    port_command(DPrt, Data);
+    try prim_inet:send(DPrt, Data) of
+        ok ->
+            ok;
+        Result ->
+            io:format("~w/2: ~p~n", [?FUNCTION_NAME, Result]),
+            Result
+    catch
+        Class: Reason: Stacktrace ->
+            io:format(
+              "~w/2: ~p: ~p: ~p ~n",
+              [?FUNCTION_NAME, Class, Reason, Stacktrace]),
+            erlang:raise(Class, Reason, Stacktrace)
+    end;
 dctrl_send(DPid, Data) when is_pid(DPid) ->
     Ref = make_ref(),
     DPid ! {send, self(), Ref, Data},
@@ -3247,7 +3283,7 @@ is_alive_tester(Node) ->
             ok
     end.
 
-dyn_node_name_monitor_node(Config) ->
+dyn_node_name_monitor_node(_Config) ->
     %% Test that monitor_node() does not fail when erlang:is_alive() return true
     %% but we have not yet gotten a name...
     Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
@@ -3285,7 +3321,7 @@ dyn_node_name_monitor_node_test(StartOpts, TestNode) ->
     ok.
 
 
-dyn_node_name_monitor(Config) ->
+dyn_node_name_monitor(_Config) ->
     %% Test that monitor() does not fail when erlang:is_alive() return true
     %% but we have not yet gotten a name...
     Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
@@ -3594,12 +3630,130 @@ async_dist_test(Node) ->
 
     ok.
 
+creation_selection(Config) when is_list(Config) ->
+    register(creation_selection_test_supervisor, self()),
+    Name = atom_to_list(?FUNCTION_NAME) ++ "-"
+        ++ integer_to_list(erlang:system_time()),
+    Host = hostname(),
+    Cmd = lists:append(
+            [ct:get_progname(),
+             " -noshell",
+             " -setcookie ", atom_to_list(erlang:get_cookie()),
+             " -pa ", filename:dirname(code:which(?MODULE)),
+             " -s ", atom_to_list(?MODULE), " ",
+             " creation_selection_test ", atom_to_list(node()), " ",
+             atom_to_list(net_kernel:longnames()), " ", Name, " ", Host]),
+    ct:pal("Node command: ~p~n", [Cmd]),
+    Port = open_port({spawn, Cmd}, [exit_status]),
+    Node = list_to_atom(lists:append([Name, "@", Host])),
+    ok = receive_creation_selection_info(Port, Node).
+
+receive_creation_selection_info(Port, Node) ->
+    receive
+        {creation_selection_test, Node, Creations, InvalidCreation,
+         ClashResolvedCreation} = Msg ->
+            ct:log("Test result: ~p~n", [Msg]),
+            %% Verify that creation values are created as expected. The
+            %% list of creations is in reverse start order...
+            MaxC = (1 bsl 32) - 1,
+            MinC = 4,
+            StartOrderCreations = lists:reverse(Creations),
+            InvalidCreation = lists:foldl(fun (C, C) when is_integer(C),
+                                                          MinC =< C,
+                                                          C =< MaxC ->
+                                                  %% Return next expected
+                                                  %% creation...
+                                                  if C == MaxC -> MinC;
+                                                     true -> C+1
+                                                  end
+                                          end,
+                                          hd(StartOrderCreations),
+                                          StartOrderCreations),
+            false = lists:member(ClashResolvedCreation, [InvalidCreation
+                                                        | Creations]),
+            receive
+                {Port, {exit_status, 0}} ->
+                    Port ! {self(), close},
+                    ok;
+                {Port, {exit_status, EStat}} ->
+                    ct:fail({"node exited abnormally: ", EStat})
+            end;
+        {Port, {exit_status, EStat}} ->
+            ct:fail({"node prematurely exited: ", EStat});
+        {Port, {data, Data}} ->
+            ct:log("~ts", [Data]),
+            receive_creation_selection_info(Port, Node)
+    end,
+    ok.
+
+creation_selection_test([TestSupNode, LongNames, Name, Host]) ->
+    try
+        StartArgs = [Name,
+                     case LongNames of
+                         true -> longnames;
+                         false -> shortnames
+                     end],
+        Node = list_to_atom(lists:append([atom_to_list(Name),
+                                          "@", atom_to_list(Host)])),
+        GoDistributed = fun (F) ->
+                                {ok, _} = net_kernel:start(StartArgs),
+                                Node = node(),
+                                Creation = erlang:system_info(creation),
+                                _ = F(Creation),
+                                net_kernel:stop(),
+                                Creation
+                        end,
+        %% We start multiple times to verify that the creation values
+        %% we get from epmd are delivered in sequence. This is a
+        %% must for the test case such as it is written now, but can be
+        %% changed. If changed, this test case must be updated...
+        {Creations,
+         LastCreation} = lists:foldl(fun (_, {Cs, _LC}) ->
+                                             CFun = fun (X) -> X end,
+                                             C = GoDistributed(CFun),
+                                             {[C|Cs], C}
+                                     end, {[], 0}, lists:seq(1, 5)),
+        %% We create a pid with the creation that epmd will offer us the next
+        %% time we start the distribution and then start the distribution
+        %% once more. The node should avoid this creation, since this would
+        %% cause external identifiers in the system with same
+        %% nodename/creation pair as used by the local node, which in turn
+        %% would cause these identifers not to work as expected. That is, the
+        %% node should silently reject this creation and chose another one when
+        %% starting the distribution.
+        InvalidCreation = LastCreation+1,
+        Pid = erts_test_utils:mk_ext_pid({Node, InvalidCreation}, 4711, 0),
+        true = erts_debug:size(Pid) > 0, %% External pid
+        ResultFun = fun (ClashResolvedCreation) ->
+                            pong = net_adm:ping(TestSupNode),
+                            Msg = {creation_selection_test, node(), Creations,
+                                   InvalidCreation, ClashResolvedCreation},
+                            {creation_selection_test_supervisor, TestSupNode}
+                                ! Msg,
+                            %% Wait a bit so the message have time to get
+                            %% through before we take down the distribution...
+                            receive after 500 -> ok end
+                    end,
+        _ = GoDistributed(ResultFun),
+        %% Ensure Pid is not garbage collected before starting the
+        %% distribution...
+        _ = id(Pid),
+        erlang:halt(0)
+    catch
+        Class:Reason:StackTrace ->
+            erlang:display({Class, Reason, StackTrace}),
+            erlang:halt(17)
+    end.
+
 %%% Utilities
+
+id(X) ->
+    X.
 
 wait_until(Fun) ->
     wait_until(Fun, 24*60*60*1000).
 
-wait_until(Fun, Timeout) when Timeout < 0 ->
+wait_until(_Fun, Timeout) when Timeout < 0 ->
     timeout;
 wait_until(Fun, Timeout) ->
     case catch Fun() of
@@ -3770,8 +3924,8 @@ forever(Fun) ->
     Fun(),
     forever(Fun).
 
-abort(Why) ->
-    set_internal_state(abort, Why).
+%% abort(Why) ->
+%%     set_internal_state(abort, Why).
 
 
 start_busy_dist_port_tracer() ->

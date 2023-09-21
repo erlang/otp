@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,6 +73,9 @@
 -define(NULL, 0).
 -define(TRUE, 0).
 -define(FALSE, 1).
+
+
+-define(NO_COMPRESSION, ?NULL).
 
 %% sslv3 is considered insecure due to lack of padding check (Poodle attack)
 %% Keep as interop with legacy software but do not support as default
@@ -201,11 +204,7 @@
         }).
 
 -define(DEFAULT_DEPTH, 10).
-
-
+-define(DEFAULT_OCSP_STAPLING, false).
+-define(DEFAULT_OCSP_NONCE, true).
+-define(DEFAULT_OCSP_RESPONDER_CERTS, []).
 -endif. % -ifdef(ssl_internal).
-
-
-
-
-

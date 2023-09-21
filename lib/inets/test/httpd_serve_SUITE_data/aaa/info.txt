@@ -1,0 +1,1 @@
+This directory serves to test proper redirects for subdirectories.

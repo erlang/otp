@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
+-include("ssl_record.hrl").
 
 %% Callback functions
 -export([all/0,
@@ -53,7 +54,7 @@
 -define(TICKET_STORE_SIZE, 1).
 -define(MASTER_SECRET, "master_secret").
 -define(PRF, sha).
--define(VERSION, {3,4}).
+-define(VERSION, ?TLS_1_3).
 -define(PSK, <<15,168,18,43,216,33,227,142,114,190,70,183,137,57,64,64,66,152,115,94>>).
 -define(WINDOW_SIZE, 1).
 -define(SEED, <<1,2,3,4,5>>).
@@ -267,7 +268,6 @@ get_client_hello(OfferedPSKs) ->
        random = <<1:256>>,
        session_id = <<>>,
        cipher_suites = [?TLS_AES_256_GCM_SHA384],
-       compression_methods = "",
        extensions = Ext0#{pre_shared_key => PreSharedKey}}.
 
 get_replay_expected_result(Config, AcceptResponse) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,6 +89,8 @@
          pkix_countryname/1,
          pkix_emailaddress/0,
          pkix_emailaddress/1,
+         pkix_decode_cert/0,
+         pkix_decode_cert/1,
          pkix_path_validation/0,
          pkix_path_validation/1,
          pkix_path_validation_root_expired/0,
@@ -115,6 +117,8 @@
          pkix_test_data_all_default/1,
          pkix_test_data/0,
          pkix_test_data/1,
+         pkix_is_issuer/0,
+         pkix_is_issuer/1,
          short_cert_issuer_hash/0,
          short_cert_issuer_hash/1,
          short_crl_issuer_hash/0,
@@ -149,6 +153,7 @@ all() ->
      pkix, 
      pkix_countryname, 
      pkix_emailaddress, 
+     pkix_decode_cert,
      pkix_path_validation,
      pkix_path_validation_root_expired,
      pkix_iso_rsa_oid, 
@@ -164,6 +169,7 @@ all() ->
      pkix_dist_point_uri,
      pkix_test_data_all_default,
      pkix_test_data,
+     pkix_is_issuer,
      short_cert_issuer_hash, 
      short_crl_issuer_hash,
      cacerts_load
@@ -795,6 +801,17 @@ pkix_emailaddress(Config) when is_list(Config) ->
     check_emailaddress(Issuer),
     check_emailaddress(Subj).
 
+
+%%--------------------------------------------------------------------
+pkix_decode_cert() ->
+    [{doc, "Test that extension IssuerDistributionPoint is not decoded in 'otp' decoding mode. We want to leave it for later "
+      "to increase interopability for sites that does not use this extension and will not care if it is properly encoded"}].
+pkix_decode_cert(Config) when is_list(Config) ->
+    Der = base64:decode(
+            <<"MIICXDCCAgKgAwIBAgIBATAKBggqhkjOPQQDAjApMRkwFwYDVQQFExBjOTY4NDI4OTMyNzUwOGRiMQwwCgYDVQQMDANURUUwHhcNMjIxMDI5MTczMTA3WhcNMjkwNDE2MjAzNDUzWjAfMR0wGwYDVQQDExRBbmRyb2lkIEtleXN0b3JlIEtleTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFmIQDus/jIZ0cPnRCITCzUUuCjQBw8MetO6154mmTL8O/fFlGgYkZ6C8jSSntKC/lMwaZHxAgW1AGgoCrPuX5ejggEjMIIBHzALBgNVHQ8EBAMCB4AwCAYDVR0fBAEAMIIBBAYKKwYBBAHWeQIBEQSB9TCB8gIBAgoBAQIBAwoBAQQgyvsSa116xqleaXs6xA84wqpAPWFgaaTjCWBnZpHslmoEADBEv4VFQAQ+MDwxFjAUBAxjb20ud2hhdHNhcHACBA0+oAQxIgQgOYfQQ9EK769ahxCzZxQY/lfg4ZtlPJ34JVj+tf/OXUQweqEFMQMCAQKiAwIBA6MEAgIBAKUIMQYCAQYCAQSqAwIBAb+DdwIFAL+FPQgCBgGEJMweob+FPgMCAQC/hUAqMCgEIFNB5rJkaXmnDldlMAeh8xAWlCHsm92fGlZI91reAFrxAQH/CgEAv4VBBQIDAV+Qv4VCBQIDAxUYMAoGCCqGSM49BAMCA0gAMEUCIF0BwvRQipVoaz5SIhsYbIeK+FHbAjWPgOxWgQ6Juq64AiEA83ZLsK37DjZ/tZNRi271VHQqIU8mdqUIMboVUiy3DaM=">>),
+
+    #'OTPCertificate'{} = public_key:pkix_decode_cert(Der, otp).
+
 %%--------------------------------------------------------------------
 pkix_path_validation() ->
     [{doc, "Test PKIX path validation"}].
@@ -822,8 +839,12 @@ pkix_path_validation(Config) when is_list(Config) ->
     
     {error, {bad_cert,invalid_issuer}} = 
 	public_key:pkix_path_validation(Trusted, [Cert2], []),
-    
+   
     {ok, _} = public_key:pkix_path_validation(Trusted, [Cert1, Cert2], []),    
+
+    {error, {bad_cert, duplicate_cert_in_path}} =
+	public_key:pkix_path_validation(Trusted, [Cert1, Cert1, Cert2], []),
+
     {error, issuer_not_found} = public_key:pkix_issuer_id(Cert2, other),
 
     CertK3 = {Cert3,_}  = erl_make_certs:make_cert([{issuer, CertK1}, 
@@ -1231,6 +1252,7 @@ pkix_test_data_all_default(Config) when is_list(Config) ->
     check_conf_member(ServerConf1, [key, cert, cacerts]),
     check_conf_member(ClientConf1, [key, cert, cacerts]).
     
+%%--------------------------------------------------------------------
 
 pkix_test_data() ->
     [{doc, "Test API function pkix_test_data/1"}].
@@ -1275,6 +1297,23 @@ check_conf_member(Conf, [Member | Rest]) ->
             ct:fail({misssing_conf, Member})
     end.
                               
+%%--------------------------------------------------------------------
+pkix_is_issuer() ->
+    [{doc, "Test pubkey_cert:pkix_is_issuer with cert that have diffent cases on countryname"}].
+
+pkix_is_issuer(Config) when is_list(Config) ->
+    Upper = {rdnSequence,
+             [[{'AttributeTypeAndValue',{2,5,4,6},"GB"}],
+              [{'AttributeTypeAndValue',{2,5,4,10},{utf8String,<<"MYORG">>}}],
+              [{'AttributeTypeAndValue',{2,5,4,11},{utf8String,<<"INTERMEDIATE">>}}],
+              [{'AttributeTypeAndValue',{2,5,4,3},{utf8String,<<"INTERMEDIATE">>}}]]},
+    Lower = {rdnSequence,
+             [[{'AttributeTypeAndValue',{2,5,4,6},"gb"}],
+              [{'AttributeTypeAndValue',{2,5,4,10},{utf8String,<<"MYORG">>}}],
+              [{'AttributeTypeAndValue',{2,5,4,11},{utf8String,<<"INTERMEDIATE">>}}],
+              [{'AttributeTypeAndValue',{2,5,4,3},{utf8String,<<"INTERMEDIATE">>}}]]},
+    true = pubkey_cert:is_issuer(Upper, Lower).
+
 %%--------------------------------------------------------------------
 short_cert_issuer_hash() ->
     [{doc, "Test OpenSSL-style hash for certificate issuer"}].

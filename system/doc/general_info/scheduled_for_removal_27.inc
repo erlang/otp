@@ -1,12 +1,14 @@
     <section>
-      <title>-code_path_choice support</title>
+      <title>Vanilla Driver</title>
       <p>
-        This command line option controls if paths given in the command
-        line, boot scripts, and the code server should be interpreted as
-        is (strict) or relaxed.
-      </p>
-      <p>
-        OTP 26 has changed the default value from <c>relaxed</c> to <c>strict</c>
-        and the option is scheduled for removal in OTP 27.
+        The old previously documented support for opening a port to an
+        external resource by passing an atom (or a string) as first
+        argument to
+        <seemfa marker="erts:erlang#open_port/2"><c>open_port()</c></seemfa>,
+        implemented by the vanilla driver, will be removed in OTP 27.
+        This functionality was marked as obsolete about two decades ago
+        and then a few years later the documentation for it was removed.
+        If this functionality is not used with care it might hang or crash
+        the runtime system.
       </p>
     </section>

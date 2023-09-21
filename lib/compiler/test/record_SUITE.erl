@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@ groups() ->
 
 
 init_per_suite(Config) ->
+    _ = id(Config),                  %Make return value unpredicatble.
     test_lib:recompile(?MODULE),
     Config.
 
@@ -270,10 +271,16 @@ record_test_3(Config) when is_list(Config) ->
     false = is_record(#foo{}, barf, 5),
     false = is_record(#foo{}, barf, 6),
     false = is_record({foo}, foo, 5),
+    false = is_record({foo}, foo, -1),
+    false = is_record(id({foo}), foo, -1),
 
     true = erlang:is_record(#foo{}, foo, 5),
+    true = erlang:is_record(#foo{}, id(foo), 5),
     false = erlang:is_record(#foo{}, barf, 5),
     false = erlang:is_record({foo}, foo, 5),
+    false = erlang:is_record({foo}, foo, -1),
+    false = erlang:is_record(id({foo}), foo, -1),
+    false = erlang:is_record({foo}, id(foo), -1),
 
     false = is_record([], foo),
     false = is_record(Config, foo),
@@ -393,6 +400,28 @@ record_test_3(Config) when is_list(Config) ->
 
     true = is_record(Rec, Good, Size) orelse error,
     error = is_record(Rec, Bad, Size) orelse error,
+
+    %% GH-7298: Zero size.
+    TupleA = id({a}),
+
+    false = is_record(TupleA, a, 0),
+    false = is_record(Bad, a, 0),
+
+    ZeroF = fun(A) when is_record(A, a, 0) -> ok;
+               (_) -> error
+            end,
+    error = ZeroF(TupleA),
+    error = ZeroF(Bad),
+
+    %% GH-7317: Huge tuple size used to take forever to compile.
+    false = is_record(TupleA, a, 10_000_000),
+    false = is_record(Bad, a, 10_000_000),
+
+    HugeF = fun(A) when is_record(A, a, 10_000_000) -> ok;
+               (_) -> error
+            end,
+    error = HugeF(TupleA),
+    error = HugeF(Bad),
 
     ok.
 

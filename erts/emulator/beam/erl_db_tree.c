@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3446,6 +3446,7 @@ int db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
     handle->flags = flags;
     handle->bp = (void**) pp;
     handle->new_size = (*pp)->dbterm.size;
+    handle->old_tpl = NULL;
     return 1;
 }
 

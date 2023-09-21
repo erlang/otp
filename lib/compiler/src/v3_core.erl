@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -854,12 +854,8 @@ expr({'catch',L,E0}, St0) ->
     Lanno = lineno_anno(L, St1),
     {#icatch{anno=#a{anno=Lanno},body=Eps ++ [E1]},[],St1};
 expr({'fun',L,{function,F,A}}, St0) ->
-    %% Generate a new name for eta conversion of local funs (`fun local/123`)
-    %% in case `no_shared_fun_wrappers` is given.
-    {Fname,St1} = new_fun_name(St0),
-    Lanno = full_anno(L, St1),
-    Id = {0,0,Fname},
-    {#c_var{anno=Lanno++[{id,Id}],name={F,A}},[],St1};
+    Lanno = full_anno(L, St0),
+    {#c_var{anno=Lanno,name={F,A}},[],St0};
 expr({'fun',L,{function,M,F,A}}, St0) ->
     {As,Aps,St1} = safe_list([M,F,A], St0),
     Lanno = full_anno(L, St1),
@@ -4101,7 +4097,12 @@ insert_nif_start([VF={V,F=#c_fun{body=Body}}|Funs]) ->
         #c_case{} ->
             NifStart = #c_primop{name=#c_literal{val=nif_start},args=[]},
             [{V,F#c_fun{body=#c_seq{arg=NifStart,body=Body}}}
-            |insert_nif_start(Funs)]
+            |insert_nif_start(Funs)];
+        #c_letrec{defs=Defs,body=LetrecBody0}=LR0 ->
+            NifStart = #c_primop{name=#c_literal{val=nif_start},args=[]},
+            LetrecBody = #c_seq{arg=NifStart,body=LetrecBody0},
+            LR = LR0#c_letrec{defs=insert_nif_start(Defs), body=LetrecBody},
+            [{V,F#c_fun{body=LR}}|insert_nif_start(Funs)]
     end;
 insert_nif_start([]) ->
     [].

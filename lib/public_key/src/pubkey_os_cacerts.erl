@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 -module(pubkey_os_cacerts).
 
 -include("public_key.hrl").
--export([load/0, load/1, get/0, clear/0]).
+-export([load/0, load/1, get/0, clear/0, format_error/2]).
 
 -on_load(on_load/0).
 -nifs([os_cacerts/0]).
@@ -35,8 +35,16 @@
 get() ->
     case persistent_term:get(?MODULE, not_loaded) of
         not_loaded ->
-            ok = load(),
-            persistent_term:get(?MODULE);
+            case load() of
+                ok ->
+                    persistent_term:get(?MODULE);
+                {error, Reason} ->
+                    erlang:error(
+                        {failed_load_cacerts, conv_error_reason(Reason)},
+                        none,
+                        [{error_info, #{cause => Reason, module => ?MODULE}}]
+                    )
+            end;
         CaCerts ->
             CaCerts
     end.
@@ -204,7 +212,10 @@ load_nif() ->
         {error, {load_failed, _}}=Error1 ->
             Arch = erlang:system_info(system_architecture),
             ArchLibDir = filename:join([PrivDir, "lib", Arch]),
-            Candidate =  filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
+            Candidate =
+                filelib:wildcard(
+                  filename:join([ArchLibDir,LibName ++ "*" ]),
+                  erl_prim_loader),
             case Candidate of
                 [] -> Error1;
                 _ ->
@@ -213,3 +224,35 @@ load_nif() ->
             end;
         Error1 -> Error1
     end.
+
+%%%
+%%% Error Handling
+%%%
+
+conv_error_reason(enoent) -> enoent;
+conv_error_reason({enotsup, _OS}) -> enotsup;
+conv_error_reason({eopnotsupp, _Reason}) -> eopnotsupp;
+conv_error_reason({eopnotsupp, _Status, _Acc}) -> eopnotsupp.
+
+-spec format_error(Reason, StackTrace) -> ErrorMap when
+      Reason :: term(),
+      StackTrace :: erlang:stacktrace(),
+      ErrorMap :: #{pos_integer() => unicode:chardata(),
+                    general => unicode:chardata(),
+                    reason => unicode:chardata()}.
+
+format_error(Reason, [{_M, _F, _As, Info} | _]) ->
+    ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
+    Cause = maps:get(cause, ErrorInfoMap, none),
+    Message = case Cause of
+        enoent ->
+            "operating system CA bundle could not be located";
+        {enotsup, OS} ->
+            io_lib:format("operating system ~p is not supported", [OS]);
+        {eopnotsupp, SubReason} ->
+            io_lib:format("operation failed because of ~p", [SubReason]);
+        {eopnotsupp, Status, _Acc} ->
+            io_lib:format("operation failed with status ~B", [Status])
+    end,
+    #{general => io_lib:format("Failed to load cacerts: ~s", [Message]),
+      reason => io_lib:format("~p: ~p", [?MODULE, Reason])}.

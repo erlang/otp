@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -822,7 +822,8 @@ tab2file(Table, File, Options) ->
 	    _ -> throw(eaccess)
 	end,
 	Name = make_ref(),
-	case disk_log:open([{name, Name}, {file, File}]) of
+	case disk_log:open([{name, Name}, {file, File},
+                            {repair, truncate}]) of
 	    {ok, Name} ->
 		ok;
 	    {error, Reason} ->

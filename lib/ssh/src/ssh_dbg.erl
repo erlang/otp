@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ start(IoFmtFun) when is_function(IoFmtFun,2) ; is_function(IoFmtFun,3) ->
 
 stop() ->
     try
-        dbg:stop_clear(),
+        dbg:stop(),
         gen_server:stop(?SERVER)
     catch
         _:_ -> ok

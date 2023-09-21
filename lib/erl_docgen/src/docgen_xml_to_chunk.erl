@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -485,12 +485,22 @@ transform_types(Dom,Acc) ->
 
 transform_taglist(Attr,Content) ->
     Items =
-        lists:map(fun({tag,A,C}) ->
-                          {dt,A,C};
+        lists:map(fun({tag,_A,_C}=Tag) ->
+                          transform_tag(Tag);
                      ({item,A,C}) ->
                           {dd,A,C}
                   end, Content),
     {dl,Attr,Items}.
+
+transform_tag({tag, Attr0, C}) ->
+    Attr1 = lists:map(fun({since,Vsn}) ->
+                              {since,
+                               unicode:characters_to_binary(Vsn)};
+                         (A) ->
+                              A
+                      end,
+                      Attr0),
+    {dt,Attr1,C}.
 
 %% if we have {func,[],[{name,...},{name,....},...]}
 %% we convert it to one {func,[],[{name,...}] per arity lowest first.

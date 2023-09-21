@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>2007</year><year>2021</year>
+      <year>2007</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -128,6 +128,7 @@
   [-keep_logs all | NLogs]
   [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
    CTHModuleN CTHOptsN]
+  [-ct_hooks_order test | config]
   [-exit_status ignore_config]
   [-help]</pre>
   </section>
@@ -168,31 +169,8 @@
   [-keep_logs all | NLogs]
   [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
    CTHModuleN CTHOptsN]
+  [-ct_hooks_order test | config]
   [-exit_status ignore_config]</pre>
-  </section>
-
-  <section>
-    <title>Run Tests in Web-Based GUI</title>
-    <pre>
- ct_run -vts [-browser Browser]
-  [-dir TestDir1 TestDir2 .. TestDirN] |
-  [[dir TestDir] -suite Suite [[-group Group] [-case Case]]]
-  [-config ConfigFile1 ConfigFile2 .. ConfigFileN]
-  [-userconfig CallbackModule1 ConfigString1 and CallbackModule2
-    ConfigString2 and .. and CallbackModuleN ConfigStringN]
-  [-logopts LogOpts]
-  [-verbosity GenVLevel | [Category1 VLevel1 and
-   Category2 VLevel2 and .. CategoryN VLevelN]]
-  [-decrypt_key Key] | [-decrypt_file KeyFile]
-  [-include InclDir1 InclDir2 .. InclDirN]
-  [-no_auto_compile]
-  [-abort_if_missing_suites]
-  [-multiply_timetraps Multiplier]
-  [-scale_timetraps]
-  [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
-  [-basic_html]
-  [-no_esc_chars]
-  [-keep_logs all | NLogs]</pre>
   </section>
 
   <section>

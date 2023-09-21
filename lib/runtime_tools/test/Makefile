@@ -5,10 +5,10 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES =  \
 	dyntrace_SUITE \
 	dyntrace_lttng_SUITE \
+	instrument_SUITE \
 	runtime_tools_SUITE \
 	system_information_SUITE \
 	dbg_SUITE \
-	erts_alloc_config_SUITE \
 	scheduler_SUITE \
 	msacc_SUITE \
 	zzz_SUITE

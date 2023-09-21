@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -398,6 +398,10 @@ handle_event(#wx{id=Id, obj=LogWin, event=Ev},
 	    {noreply, State}
     end;
 
+handle_event(#wx{id=?wxID_CLOSE, obj=Obj, event=#wxCommand{type=command_menu_selected}}, State) ->
+    wxWindow:close(Obj, []),
+    {noreply, State};
+
 handle_event(#wx{id=?LOG_CLEAR, userData=TCtrl}, State) ->
     wxTextCtrl:clear(TCtrl),
     {noreply, State};
@@ -697,7 +701,7 @@ handle_event(#wx{id=?REMOVE_NODES}, #state{n_view=Nview, nodes=Ns0} = State) ->
     {noreply, State#state{nodes = Ns}};
 
 handle_event(#wx{id=ID, event = What}, State) ->
-    io:format("~p:~p: Unhandled event: ~p, ~tp ~n", [?MODULE, ?LINE, ID, What]),
+    io:format(user,"~p:~p: Unhandled event: ~p, ~tp ~n", [?MODULE, ?LINE, ID, What]),
     {noreply, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

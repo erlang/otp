@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,11 +51,13 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     }
 
     {
-        /* We have no need of the module pointers as we use `getCode(...)` for
-         * everything. */
-        const void *_ignored_exec;
-        void *_ignored_rw;
-        _codegen(allocator, &_ignored_exec, &_ignored_rw);
+        const void *executable_region;
+        void *writable_region;
+
+        BeamAssembler::codegen(allocator, &executable_region, &writable_region);
+        VirtMem::flushInstructionCache((void *)executable_region,
+                                       code.codeSize());
+        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
     std::vector<AsmRange> ranges;
@@ -113,12 +115,16 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     /* ARG2 is already loaded. */
     load_x_reg_array(ARG3);
     /* ARG4 (live registers) is already loaded. */
-    a.mov(ARG5, FCALLS);
+    a.mov(ARG5.w(), FCALLS);
     runtime_call<5>(erts_garbage_collect_nobump);
-    a.sub(FCALLS, FCALLS, ARG1);
+    a.sub(FCALLS, FCALLS, ARG1.w());
 
     emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
     emit_leave_runtime_frame();
+
+    a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, state.value)));
+    a.tst(TMP1, imm(ERTS_PSFLG_EXITING));
+    a.b_ne(labels[do_schedule]);
 
     a.ret(a64::x30);
 }

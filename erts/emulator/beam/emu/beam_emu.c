@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -266,10 +266,10 @@ void process_main(ErtsSchedulerData *esdp)
     ERTS_DECLARE_DUMMY(Eterm pid);
 #endif
 
-    /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
-     * in all other cases x0 is used.
+    /*
+     * Pointer to X registers: x(0)..x(N).
      */
-    register Eterm* reg = NULL;
+    register Eterm* reg REG_xregs = NULL;
 
     /*
      * Top of heap (next free location); grows upwards.
@@ -552,7 +552,7 @@ void process_main(ErtsSchedulerData *esdp)
      if (I == 0) {
 	 goto do_schedule;
      } else {
-	 ASSERT(!is_value(r(0)));
+	 ASSERT(!is_value(x(0)));
 	 SWAPIN;
 	 Goto(*I);
      }

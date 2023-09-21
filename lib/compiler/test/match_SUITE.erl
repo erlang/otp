@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@
 	 coverage/1,grab_bag/1,literal_binary/1,
          unary_op/1,eq_types/1,match_after_return/1,match_right_tuple/1,
          tuple_size_in_try/1,match_boolean_list/1,
-         heisen_variables/1]).
+         heisen_variables/1,
+         mutable_variables/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,8 +46,8 @@ groups() ->
        grab_bag,literal_binary,unary_op,eq_types,
        match_after_return,match_right_tuple,
        tuple_size_in_try,match_boolean_list,
-       heisen_variables]}].
-
+       heisen_variables,
+       mutable_variables]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -803,6 +804,7 @@ match_map(Config) when is_list(Config) ->
     Map = #{key=>{x,y},ignore=>anything},
     #s{map=Map,t={x,y}} = do_match_map(#s{map=Map}),
     {a,#{k:={a,b,c}}} = do_match_map_2(#{k=>{a,b,c}}),
+    {'EXIT',{{badmatch,whatever},_}} = catch do_match_map_none(id(whatever)),
     ok.
 
 do_match_map(#s{map=#{key:=Val}}=S) ->
@@ -814,6 +816,17 @@ do_match_map_2(Map) ->
 	{a,#{k:=_}}=Tuple ->
 	    Tuple
     end.
+
+do_match_map_none(V) ->
+    %% Cover handling of has_map_fields in beam_validator.
+    #{42 := _} = try
+                     {} = {{} = V}
+                 catch
+                     throw:V ->
+                         #{};
+                     throw:_ ->
+                         V
+                 end.
 
 map_vars_used(Config) when is_list(Config) ->
     {some,value} = do_map_vars_used(a, b, #{{a,b}=>42,v=>{some,value}}),
@@ -845,6 +858,15 @@ coverage(Config) when is_list(Config) ->
 
     %% Cover beam_ssa_opt.
     ok = coverage_6(),
+
+    %% Cover beam_ssa_dead.
+    a = coverage_7(x, x, id(true)),
+    b = coverage_7(x, 0, id(false)),
+
+    {'EXIT',{{badmatch,{42}},_}} = catch coverage_8(id(42)),
+
+    error = coverage_9(id(1)),
+    true = coverage_9(id(0)),
 
     ok.
 
@@ -889,6 +911,29 @@ coverage_6() ->
             %% Cover beam_ssa_opt:make_literal/2.
             error([error,X,V])
     end.
+
+%% Cover beam_ssa_dead:opt_switch_1/3.
+coverage_7(_, _, true)  ->
+    a;
+coverage_7(_, 0, false)  ->
+    b;
+coverage_7(_, _, true)  ->
+    c.
+
+%% Cover beam_ssa_dead:will_succeed_*
+coverage_8(V) ->
+    V =/= (V = {V}).
+
+coverage_9(V) when V == 0 ->
+    -1 /= try ok of
+              _ ->
+                  V
+          catch
+              _ ->
+                  ok
+          end;
+coverage_9(_) ->
+    error.
 
 grab_bag(_Config) ->
     [_|T] = id([a,b,c]),
@@ -1113,6 +1158,7 @@ match_boolean_list(Config) when is_list(Config) ->
              [false | _] -> ok
          end.
 
+
 heisen_variables(_Config) ->
     {'EXIT',{{badmatch,3},_}} = catch gh_6516_scope1(),
     {'EXIT',{{badmatch,3},_}} = catch gh_6516_scope2(),
@@ -1124,5 +1170,26 @@ gh_6516_scope1() ->
 
 gh_6516_scope2() ->
   {X = 4, _ = X = 3}.
+
+%% GH-6873. Bound variables would be overwritten.
+mutable_variables(_Config) ->
+    {'EXIT',{{badmatch,0},_}} = catch mutable_variables_1(),
+
+    F = fun() -> id({tag,whatever}) end,
+    whatever = mutable_variables_2(id({tag,whatever}), F),
+    {'EXIT',{{badmatch,{tag,whatever}},_}} = catch mutable_variables_2(id(a), F),
+
+    ok.
+
+mutable_variables_1() ->
+    Zero = 0,
+    One = 1,
+    Result = One = Zero,
+    {Result,One,Zero}.
+
+mutable_variables_2(Middle, Fun) ->
+    {tag,V} = Middle = Fun(),
+    V.
+
 
 id(I) -> I.

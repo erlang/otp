@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,11 +51,13 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     }
 
     {
-        /* We have no need of the module pointers as we use `getCode(...)` for
-         * everything. */
-        const void *_ignored_exec;
-        void *_ignored_rw;
-        _codegen(allocator, &_ignored_exec, &_ignored_rw);
+        const void *executable_region;
+        void *writable_region;
+
+        BeamAssembler::codegen(allocator, &executable_region, &writable_region);
+        VirtMem::flushInstructionCache((void *)executable_region,
+                                       code.codeSize());
+        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
 #ifndef WIN32
@@ -95,6 +97,8 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
 /* ARG3 = (HTOP + S_RESERVED + bytes needed) !!
  * ARG4 = Live registers */
 void BeamGlobalAssembler::emit_garbage_collect() {
+    Label exiting = a.newLabel();
+
     emit_enter_frame();
 
     /* Convert ARG3 to words needed and move it to the correct argument slot.
@@ -121,14 +125,26 @@ void BeamGlobalAssembler::emit_garbage_collect() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG3);
-    a.mov(ARG5, FCALLS);
+    a.mov(ARG5d, FCALLS);
     runtime_call<5>(erts_garbage_collect_nobump);
-    a.sub(FCALLS, RET);
+    a.sub(FCALLS, RETd);
 
     emit_leave_runtime<Update::eStack | Update::eHeap>();
-    emit_leave_frame();
 
+#ifdef WIN32
+    a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.value)));
+#else
+    a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.counter)));
+#endif
+    a.test(ARG1d, imm(ERTS_PSFLG_EXITING));
+    a.short_().jne(exiting);
+
+    emit_leave_frame();
     a.ret();
+
+    a.bind(exiting);
+    emit_unwind_frame();
+    a.jmp(labels[do_schedule]);
 }
 
 /* Handles trapping to exports from C code, setting registers up in the same

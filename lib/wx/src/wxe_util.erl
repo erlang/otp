@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,14 +37,14 @@
          queue_cmd/11,queue_cmd/12,queue_cmd/13,queue_cmd/14,queue_cmd/15,
          make_env/0, delete_env/1, get_consts/0,
          debug_ping/0, debug_driver/1,
-         init_opengl/1
+         init_opengl/2
         ]).
 
 -nifs([queue_cmd/1,queue_cmd/2,queue_cmd/3,queue_cmd/4,queue_cmd/5,
        queue_cmd/6,queue_cmd/7,queue_cmd/8,queue_cmd/9,queue_cmd/10,
        queue_cmd/11,queue_cmd/12,queue_cmd/13,queue_cmd/14,queue_cmd/15,
        make_env/0, delete_env/1, debug_driver/1, get_consts_impl/0,
-       init_opengl/1
+       init_opengl/2
       ]).
 
 -export([priv_dir/2, opt_error_log/3, init_nif/1]).
@@ -85,7 +85,7 @@ get_consts() ->
     get_consts_impl(),
     rec(?WXE_GET_CONSTS).
 
-init_opengl(_) -> ?NIF_ERROR.
+init_opengl(_,_) -> ?NIF_ERROR.
 get_consts_impl() -> ?NIF_ERROR.
 
 debug_ping() -> queue_cmd(?WXE_DEBUG_PING).

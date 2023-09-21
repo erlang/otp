@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -740,7 +740,7 @@ plan_clears(UsageMap, Graph) ->
                           [] ->
                               Acc
                       end
-              end, #{}, UsageMap).
+              end, #{}, maps:iterator(UsageMap, ordered)).
 
 plan_clears_1([{From, To, branch} | Edges], ActiveRefs, UsageMap) ->
     %% Clear all references that are no longer active on the `To` block.
@@ -790,7 +790,7 @@ insert_markers([], Blocks, Count) ->
 insert_reserve(Lbl, Dst, Anno, Blocks0, Count0) ->
     #{ Lbl := #b_blk{is=Is0}=Blk } = Blocks0,
 
-    Var = #b_var{name={'@ssa_recv_marker', Count0}},
+    Var = #b_var{name=Count0},
     Count = Count0 + 1,
 
     Reserve = #b_set{anno=Anno,op=recv_marker_reserve,args=[],dst=Var},
@@ -808,7 +808,7 @@ insert_reserve_is([I | Is], Reserve, Var) ->
 insert_bind(Lbl, Ref, Marker, Blocks0, Count0) ->
     #{ Lbl := #b_blk{is=Is0,last=Last}=Blk } = Blocks0,
 
-    Ignored = #b_var{name={'@ssa_ignored', Count0}},
+    Ignored = #b_var{name=Count0},
     Count = Count0 + 1,
 
     Bind = #b_set{ op=recv_marker_bind,
@@ -853,7 +853,7 @@ insert_clears(Clears0, Blocks0, Count0) ->
     beam_ssa:insert_on_edges(Insertions, Blocks0, Count).
 
 insert_clears_1([{From, To, Ref} | Clears], Count0, Acc) ->
-    Ignored = #b_var{name={'@ssa_ignored', Count0}},
+    Ignored = #b_var{name=Count0},
     Count = Count0 + 1,
 
     Clear = #b_set{op=recv_marker_clear,args=[Ref],dst=Ignored},

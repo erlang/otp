@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -404,10 +404,6 @@ vi({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_freg_set(Src, Vst0),
     Vst = eat_heap_float(Vst0),
     create_term(#t_float{}, fmove, [], Dst, Vst);
-vi({kill,Reg}, Vst) ->
-    create_tag(initialized, kill, [], Reg, Vst);
-vi({init,Reg}, Vst) ->
-    create_tag(initialized, init, [], Reg, Vst);
 vi({init_yregs,{list,Yregs}}, Vst0) ->
     case ordsets:from_list(Yregs) of
         [] -> error(empty_list);
@@ -590,10 +586,6 @@ vi({allocate,Stk,Live}, Vst) ->
     allocate(uninitialized, Stk, 0, Live, Vst);
 vi({allocate_heap,Stk,Heap,Live}, Vst) ->
     allocate(uninitialized, Stk, Heap, Live, Vst);
-vi({allocate_zero,Stk,Live}, Vst) ->
-    allocate(initialized, Stk, 0, Live, Vst);
-vi({allocate_heap_zero,Stk,Heap,Live}, Vst) ->
-    allocate(initialized, Stk, Heap, Live, Vst);
 vi({deallocate,StkSize}, #vst{current=#st{numy=StkSize}}=Vst) ->
     verify_no_ct(Vst),
     deallocate(Vst);
@@ -704,19 +696,6 @@ vi({call_fun,Live}, Vst) ->
                                          Fun, SuccVst0),
                    validate_body_call('fun', Live+1, SuccVst)
            end);
-vi({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
-    #{ name := Name, arity := TotalArity } = map_get(Lbl, Ft),
-    Arity = TotalArity - NumFree,
-
-    true = Arity >= 0,                          %Assertion.
-
-    Vst = prune_x_regs(NumFree, Vst0),
-    verify_call_args(make_fun, NumFree, Vst),
-    verify_y_init(Vst),
-
-    Type = #t_fun{target={Name,TotalArity},arity=Arity},
-
-    create_term(Type, make_fun, [], {x,0}, Vst);
 vi({make_fun3,{f,Lbl},_,_,Dst,{list,Env}}, #vst{ft=Ft}=Vst0) ->
     _ = [assert_term(E, Vst0) || E <- Env],
     NumFree = length(Env),
@@ -1354,16 +1333,16 @@ validate_body_call(Func, Live,
     verify_call_args(Func, Live, Vst),
 
     SuccFun = fun(SuccVst0) ->
-                      {RetType, ArgTypes, _} = call_types(Func, Live, SuccVst0),
+                      %% Note that we don't try to infer anything from the
+                      %% argument types, as that may cause types to become
+                      %% concrete "too early."
+                      %%
+                      %% See beam_types_SUITE:premature_concretization/1 for
+                      %% details.
+                      {RetType, _, _} = call_types(Func, Live, SuccVst0),
                       true = RetType =/= none,  %Assertion.
 
-                      Args = [{x,X} || X <- lists:seq(0, Live-1)],
-                      ZippedArgs = zip(Args, ArgTypes),
-                      SuccVst1 = foldl(fun({A, T}, V) ->
-                                               update_type(fun meet/2, T, A, V)
-                                       end, SuccVst0, ZippedArgs),
-
-                      SuccVst = schedule_out(0, SuccVst1),
+                      SuccVst = schedule_out(0, SuccVst0),
 
                       create_term(RetType, call, [], {x,0}, SuccVst)
               end,
@@ -1582,7 +1561,7 @@ update_create_bin_list([], Vst) -> Vst.
 update_create_bin_type(append) -> #t_bitstring{};
 update_create_bin_type(private_append) -> #t_bitstring{};
 update_create_bin_type(binary) -> #t_bitstring{};
-update_create_bin_type(float) -> #t_float{};
+update_create_bin_type(float) -> #t_number{};
 update_create_bin_type(integer) -> #t_integer{};
 update_create_bin_type(utf8) -> #t_integer{};
 update_create_bin_type(utf16) -> #t_integer{};
@@ -1720,9 +1699,8 @@ validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
             Vst1 = update_bs_unit(Ctx, Unit, Vst0),
             Vst = update_type(fun meet/2, Type, Ctx, Vst1),
             validate_bs_match(Is, Ctx, Unit, Vst);
-        {ensure_exactly,Stride} ->
-            Vst = advance_bs_context(Ctx, Stride, Vst0),
-            validate_bs_match(Is, Ctx, Unit0, Vst);
+        {ensure_exactly,_Stride} ->
+            validate_bs_match(Is, Ctx, Unit0, Vst0);
         {'=:=',nil,Bits,Value} when Bits =< 64, is_integer(Value) ->
             validate_bs_match(Is, Ctx, Unit0, Vst0);
         {Type0,Live,{literal,Flags},Size,Unit,Dst} when Type0 =:= binary;
@@ -2073,7 +2051,7 @@ init_stack(Tag, Y, Vst) ->
     init_stack(Tag, Y - 1, create_tag(Tag, allocate, [], {y,Y}, Vst)).
 
 trim_stack(From, To, Top, #st{ys=Ys0}=St) when From =:= Top ->
-    Ys = maps:filter(fun({y,Y}, _) -> Y < To end, Ys0),
+    Ys = #{Reg => Val || {y,Y}=Reg := Val <- Ys0, Y < To},
     St#st{numy=To,ys=Ys};
 trim_stack(From, To, Top, St0) ->
     Src = {y, From},
@@ -2128,9 +2106,7 @@ prune_x_regs(Live, #vst{current=St0}=Vst) when is_integer(Live) ->
                              ({y,_}) ->
                                   true
                          end, Fragile0),
-    Xs = maps:filter(fun({x,X}, _) ->
-                             X < Live
-                     end, Xs0),
+    Xs = #{Reg => Val || {x,X}=Reg := Val <- Xs0, X < Live},
     St = St0#st{fragile=Fragile,xs=Xs},
     Vst#vst{current=St}.
 
@@ -2282,12 +2258,14 @@ infer_types(CompareOp, LHS, {Kind,_}=RHS, Vst) when Kind =:= x; Kind =:= y ->
 infer_types(CompareOp, LHS, RHS, #vst{current=#st{vs=Vs}}=Vst0) ->
     case Vs of
         #{ LHS := LEntry, RHS := REntry } ->
-            Vst = infer_types_1(LEntry, RHS, CompareOp, Vst0),
-            infer_types_1(REntry, LHS, CompareOp, Vst);
+            Vst = infer_types_1(LEntry, canonical_value(RHS, Vst0),
+                                CompareOp, Vst0),
+            infer_types_1(REntry, canonical_value(LHS, Vst),
+                          CompareOp, Vst);
         #{ LHS := LEntry } ->
-            infer_types_1(LEntry, RHS, CompareOp, Vst0);
+            infer_types_1(LEntry, canonical_value(RHS, Vst0), CompareOp, Vst0);
         #{ RHS := REntry } ->
-            infer_types_1(REntry, LHS, CompareOp, Vst0);
+            infer_types_1(REntry, canonical_value(LHS, Vst0), CompareOp, Vst0);
         #{} ->
             Vst0
     end.
@@ -2549,6 +2527,8 @@ update_type(Merge, With, #value_ref{}=Ref, Vst0) ->
     case Merge(Current, With) of
         none ->
             throw({type_conflict, Current, With});
+        Current ->
+            Vst0;
         Type ->
             Vst = update_container_type(Type, Ref, Vst0),
             set_type(Type, Ref, Vst)
@@ -2626,12 +2606,9 @@ update_ne_types_1(LHS, RHS, Vst0) ->
             %% If LHS has a specific value after subtraction we can infer types
             %% as if we've made an exact match, which is much stronger than
             %% ne_exact.
-            LType = get_term_type(LHS, Vst),
-            case beam_types:get_singleton_value(LType) of
-                {ok, Value} ->
-                    infer_types(eq_exact, LHS, value_to_literal(Value), Vst);
-                error ->
-                    Vst
+            case canonical_value(LHS, Vst) of
+                LHS -> Vst;
+                Value -> infer_types(eq_exact, LHS, Value, Vst)
             end;
         false ->
             Vst0
@@ -2761,6 +2738,18 @@ value_to_literal(F) when is_float(F) -> {float,F};
 value_to_literal(I) when is_integer(I) -> {integer,I};
 value_to_literal(Other) -> {literal,Other}.
 
+canonical_value(Val, Vst) ->
+    Type = get_term_type(Val, Vst),
+    case beam_types:is_singleton_type(Type) of
+        true ->
+            case beam_types:get_singleton_value(Type) of
+                {ok, Res} -> value_to_literal(Res);
+                error -> Val
+            end;
+        false ->
+            Val
+    end.
+
 %% These are just wrappers around their equivalents in beam_types, which
 %% handle the validator-specific #t_abstract{} type.
 %%
@@ -2819,7 +2808,13 @@ unpack_typed_arg(#tr{r=Reg,t=Type}, Vst) ->
     %% The validator is not yet clever enough to do proper range analysis like
     %% the main type pass, so our types will be a bit cruder here, but they
     %% should at the very least not be in direct conflict.
-    true = none =/= beam_types:meet(get_movable_term_type(Reg, Vst), Type),
+    Current = get_movable_term_type(Reg, Vst),
+    case beam_types:meet(Current, Type) of
+        none ->
+            throw({bad_typed_register, Current, Type});
+        _ ->
+            ok
+    end,
     Reg;
 unpack_typed_arg(Arg, _Vst) ->
     Arg.
@@ -3418,7 +3413,17 @@ bif_types(Op, Ss, Vst) ->
                     Other
             end;
         {_,_} ->
-            beam_call_types:types(erlang, Op, Args)
+            Res0 = beam_call_types:types(erlang, Op, Args),
+            {Ret0, ArgTypes, SubSafe} = Res0,
+
+            %% Match the non-converging range analysis done in
+            %% `beam_ssa_type:opt_ranges/1`. This is safe since the validator
+            %% doesn't have to worry about convergence.
+            case beam_call_types:arith_type({bif, Op}, Args) of
+                any -> Res0;
+                Ret0 -> Res0;
+                Ret -> {meet(Ret, Ret0), ArgTypes, SubSafe}
+            end
     end.
 
 join_tuple_elements(Tuple) ->

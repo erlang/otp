@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,6 +87,11 @@ typedef struct {
 #define CU_BSD_VALUES (6)
 #endif
 
+#if defined(__OpenBSD__)
+#include <sys/types.h>
+#include <sys/sched.h>
+#define CU_OPENBSD_VALUES (6)
+#endif
 
 #define FD_IN		(0)
 #define FD_OUT		(1)
@@ -178,12 +183,17 @@ static int processors_online() {
 void getsysctl(const char *, void *, size_t);
 #endif
 
+#if defined(__OpenBSD__)
+static int getncpu(void);
+static int getncpuonline(void);
+#endif
+
 int main(int argc, char** argv) {
   char cmd;
   int rc;
   int sz;
   unsigned int *rv;
-#if defined(__linux__) || (defined(__APPLE__) && defined(__MACH__)) ||defined(__FreeBSD__)
+#if defined(__linux__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__OpenBSD__)
   unsigned int no_of_cpus = 0;
 #endif
 
@@ -205,6 +215,15 @@ int main(int argc, char** argv) {
     if ( (rv = (unsigned int*)malloc(sizeof(unsigned int)*(2 + 2*no_of_cpus*CU_OSX_VALUES))) == NULL) {
 	error("cpu_sup: malloc error");
     }
+#endif
+
+#if defined(__OpenBSD__)
+    no_of_cpus = getncpu();
+    if ( no_of_cpus == -1 )
+      error("cpu_sup: sysctl error");
+
+    if ( (rv = (unsigned int*)malloc(sizeof(unsigned int)*(2 + 2*no_of_cpus*CU_OPENBSD_VALUES))) == NULL)
+      error("cpu_sup: malloc error");
 #endif
 
 #if defined(__FreeBSD__)
@@ -244,7 +263,7 @@ int main(int argc, char** argv) {
     case AVG5:		bsd_loadavg(1);					break;
     case AVG15:		bsd_loadavg(2);					break;
 #endif
-#if defined(__sun__) || defined(__linux__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)
+#if defined(__sun__) || defined(__linux__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__OpenBSD__)
     case UTIL:		util_measure(&rv,&sz); sendv(rv, sz);		break;
 #endif
     case QUIT:		free((void*)rv); return 0;
@@ -707,8 +726,74 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
 	rv[10] = CU_HARD_IRQ;  rv[11] = cpu_times[CP_INTR + offset];
 	rv += CU_BSD_VALUES*2;
     }
-
+    
+    free((void*) cpu_times);
     *result_sz = 2 + 2*CU_BSD_VALUES * no_of_cpus;
+}
+#endif
+
+/* ---------------------------- *
+ *     OpenBSD stat functions 	*
+ * ---------------------------- */
+
+#if defined(__OpenBSD__)
+static int getncpu(void) {
+    const int mib[] = { CTL_HW, HW_NCPU };
+    int numcpu;
+    size_t size = sizeof(numcpu);
+
+    if (sysctl(mib, sizeof(mib)/sizeof(mib[0]), &numcpu, &size, NULL, 0) == -1)
+        error("cpu_sup: sysctl error");
+
+    return(numcpu);
+}
+
+static int getncpuonline(void) {
+    const int mib[] = { CTL_HW, HW_NCPUONLINE };
+    int numcpu;
+    size_t size = sizeof(numcpu);
+
+    if (sysctl(mib, sizeof(mib)/sizeof(mib[0]), &numcpu, &size, NULL, 0) == -1)
+        error("cpu_sup: sysctl error");
+
+    return(numcpu);
+}
+
+static void util_measure(unsigned int **result_vec, int *result_sz) {
+    static int mib[] = { CTL_KERN, KERN_CPTIME2, 0 };
+    size_t size_cpu_times;
+    int64_t *cpu_times;
+    unsigned int *rv = NULL;
+    int i;
+    int ncpuonline = getncpuonline();
+
+    rv = *result_vec;
+    rv[0] = ncpuonline;
+    rv[1] = CU_OPENBSD_VALUES;
+    ++rv; /* first value is number of cpus */
+    ++rv; /* second value is number of entries */
+
+    size_cpu_times = sizeof(int64_t) * CPUSTATES;
+    cpu_times = malloc(size_cpu_times);
+    if (!cpu_times)
+        error("cpu_sup: malloc error");
+
+    for (i = 0; i < ncpuonline; ++i) {
+        mib[2] = i;
+        if (sysctl(mib, sizeof(mib)/sizeof(mib[0]), cpu_times, &size_cpu_times, NULL, 0) == -1)
+            error("cpu_sup: sysctl error");
+
+        rv[ 0] = CU_CPU_ID;    rv[ 1] = i;
+        rv[ 2] = CU_USER;      rv[ 3] = (unsigned int)cpu_times[CP_USER];
+        rv[ 4] = CU_NICE_USER; rv[ 5] = (unsigned int)cpu_times[CP_NICE];
+        rv[ 6] = CU_KERNEL;    rv[ 7] = (unsigned int)cpu_times[CP_SYS];
+        rv[ 8] = CU_IDLE;      rv[ 9] = (unsigned int)cpu_times[CP_IDLE];
+        rv[10] = CU_HARD_IRQ;  rv[11] = (unsigned int)cpu_times[CP_INTR];
+        rv += CU_OPENBSD_VALUES*2;
+    }
+    free((void*) cpu_times);
+
+    *result_sz = 2 + 2*CU_OPENBSD_VALUES * ncpuonline;
 }
 #endif
 

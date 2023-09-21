@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -790,8 +790,16 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 
 		do_big:
 		    need_heap = BIG_NEED_SIZE(sz);
+#ifdef DEBUG
+                    need_heap++;
+#endif
                     hp = HeapFragOnlyAlloc(p, need_heap);
+
+#ifdef DEBUG
+                    hp[need_heap-1] = ERTS_HOLE_MARKER;
+#endif
 		    res = big_times(arg1, arg2, hp);
+                    ASSERT(hp[need_heap-1] == ERTS_HOLE_MARKER);
 
 		    /*
 		     * Note that the result must be big in this case, since
@@ -856,6 +864,98 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 	}
     default:
 	goto badarith;
+    }
+}
+
+Eterm
+erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp)
+{
+    Eterm tmp_big1[2];
+    Eterm tmp_big2[2];
+    Eterm tmp_big3[2];
+    Eterm hdr;
+    Eterm res;
+    Eterm big_arg1, big_arg2, big_arg3;
+    dsize_t sz1, sz2, sz3, sz;
+    int need_heap;
+    Eterm* hp;
+    Eterm product;
+
+    big_arg1 = arg1;
+    big_arg2 = arg2;
+    big_arg3 = arg3;
+    switch (big_arg1 & _TAG_PRIMARY_MASK) {
+    case TAG_PRIMARY_IMMED1:
+        if (is_not_small(big_arg1)) {
+            break;
+        }
+        big_arg1 = small_to_big(signed_val(big_arg1), tmp_big1);
+        /* Fall through */
+    case TAG_PRIMARY_BOXED:
+        hdr = *boxed_val(big_arg1);
+        switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+        case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+        case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+            switch (big_arg2 & _TAG_PRIMARY_MASK) {
+            case TAG_PRIMARY_IMMED1:
+                if (is_not_small(big_arg2)) {
+                    break;
+                }
+                big_arg2 = small_to_big(signed_val(big_arg2), tmp_big2);
+                /* Fall through */
+            case TAG_PRIMARY_BOXED:
+                hdr = *boxed_val(big_arg2);
+                switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+                case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+                case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+                    switch (big_arg3 & _TAG_PRIMARY_MASK) {
+                    case TAG_PRIMARY_IMMED1:
+                        if (is_not_small(big_arg3)) {
+                            break;
+                        }
+                        big_arg3 = small_to_big(signed_val(big_arg3), tmp_big3);
+                        /* Fall through */
+                    case TAG_PRIMARY_BOXED:
+                        hdr = *boxed_val(big_arg3);
+                        switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+                        case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+                        case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+                            sz1 = big_size(big_arg1);
+                            sz2 = big_size(big_arg2);
+                            sz3 = big_size(big_arg3);
+                            sz = sz1 + sz2;
+                            sz = MAX(sz, sz3) + 1;
+                            need_heap = BIG_NEED_SIZE(sz);
+#ifdef DEBUG
+                            need_heap++;
+#endif
+                            hp = HeapFragOnlyAlloc(p, need_heap);
+
+#ifdef DEBUG
+                            hp[need_heap-1] = ERTS_HOLE_MARKER;
+#endif
+                            res = big_mul_add(big_arg1, big_arg2, big_arg3, hp);
+                            ASSERT(hp[need_heap-1] == ERTS_HOLE_MARKER);
+                            maybe_shrink(p, hp, res, need_heap);
+                            if (is_nil(res)) {
+                                p->freason = SYSTEM_LIMIT;
+                                return THE_NON_VALUE;
+                            }
+                            return res;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /* At least one of the arguments is a float or invalid. */
+    product = erts_mixed_times(p, arg1, arg2);
+    *pp = product;
+    if (is_non_value(product)) {
+        return product;
+    } else {
+        return erts_mixed_plus(p, product, arg3);
     }
 }
 
@@ -1310,6 +1410,6 @@ Eterm erts_bnot(Process* p, Eterm arg)
 } 
 
 /* Needed to remove compiler optimization */
-double erts_get_positive_zero_float() {
+double erts_get_positive_zero_float(void) {
     return 0.0f;
 }

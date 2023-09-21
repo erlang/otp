@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -238,7 +238,9 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
     }
     else {
         /* Ensure signal order is preserved... */
-        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
+        if (state & (ERTS_PSFLG_SIG_Q
+                     | ERTS_PSFLG_NMSG_SIG_IN_Q
+                     | ERTS_PSFLG_MSG_SIG_IN_Q)) {
             Eterm from;
             if (is_internal_port(BIF_ARG_1))
                 from = BIF_ARG_1;
@@ -296,7 +298,9 @@ BIF_RETTYPE erts_internal_port_call_3(BIF_ALIST_3)
 	ERTS_BIF_EXITED(BIF_P);
     else {
         /* Ensure signal order is preserved... */
-        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
+        if (state & (ERTS_PSFLG_SIG_Q
+                     | ERTS_PSFLG_NMSG_SIG_IN_Q
+                     | ERTS_PSFLG_MSG_SIG_IN_Q)) {
             Eterm from;
             if (is_internal_port(BIF_ARG_1))
                 from = BIF_ARG_1;
@@ -352,7 +356,9 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
 	ERTS_BIF_EXITED(BIF_P);
     else {
         /* Ensure signal order is preserved... */
-        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
+        if (state & (ERTS_PSFLG_SIG_Q
+                     | ERTS_PSFLG_NMSG_SIG_IN_Q
+                     | ERTS_PSFLG_MSG_SIG_IN_Q)) {
             Eterm from;
             if (is_internal_port(BIF_ARG_1))
                 from = BIF_ARG_1;

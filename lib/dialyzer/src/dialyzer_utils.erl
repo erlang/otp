@@ -581,6 +581,13 @@ massage_forms([H | T], Defs) ->
 massage_forms([], _Defs) ->
   [].
 
+massage_type({type, Loc, 'fun',
+              [{type, ArgsLoc, product, ArgTypes}, Ret0]},
+             Defs) ->
+  %% We must make sure that we keep the built-in `product` type here.
+  Args = {type, ArgsLoc, product, massage_type_list(ArgTypes, Defs)},
+  Ret = massage_type(Ret0, Defs),
+  {type, Loc, 'fun', [Args, Ret]};
 massage_type({type, Loc, Name, Args0}, Defs) when is_list(Args0) ->
   case sets:is_element({Name, length(Args0)}, Defs) of
     true ->
@@ -1109,7 +1116,7 @@ refold_concrete_pat(Val) ->
       %% N.B.: The key in a map pattern is an expression, *not* a pattern.
       label(cerl:c_map_pattern([cerl:c_map_pair_exact(cerl:abstract(K),
 						      refold_concrete_pat(V))
-				|| {K, V} <- maps:to_list(M)]));
+				|| K := V <- M]));
     _ ->
       cerl:abstract(Val)
   end.
@@ -1179,9 +1186,8 @@ ets_take('$end_of_table', T, F, A) ->
     Key -> ets_take(Key, T, F, A)
   end;
 ets_take(Key, T, F, A) ->
-  Vs = ets:lookup(T, Key),
   Key1 = ets:next(T, Key),
-  true = ets:delete(T, Key),
+  Vs = ets:take(T, Key),
   ets_take(Key1, T, F, F(Vs, A)).
 
 -spec parallelism() -> integer().

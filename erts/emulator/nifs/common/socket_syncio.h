@@ -30,8 +30,10 @@
 
 #include "socket_io.h"
 
-extern int  essio_init(unsigned int numThreads);
+extern int  essio_init(unsigned int     numThreads,
+                       const ESockData* dataP);
 extern void essio_finish(void);
+extern ERL_NIF_TERM essio_info(ErlNifEnv* env);
 
 extern ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
                                        int              fd,
@@ -53,9 +55,11 @@ extern ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
                                   ERL_NIF_TERM     connRef,
                                   ESockAddress*    addrP,
                                   SOCKLEN_T        addrLen);
+/*
 extern ERL_NIF_TERM essio_listen(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  int              backlog);
+*/
 extern ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     sockRef,
@@ -124,12 +128,47 @@ extern ERL_NIF_TERM essio_close(ErlNifEnv*       env,
                                 ESockDescriptor* descP);
 extern ERL_NIF_TERM essio_fin_close(ErlNifEnv*       env,
                                     ESockDescriptor* descP);
-extern ERL_NIF_TERM essio_shutdown(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   int              how);
-extern ERL_NIF_TERM essio_sockname(ErlNifEnv*       env,
-                                   ESockDescriptor* descP);
-extern ERL_NIF_TERM essio_peername(ErlNifEnv*       env,
-                                   ESockDescriptor* descP);
+extern ERL_NIF_TERM essio_cancel_connect(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     opRef);
+extern ERL_NIF_TERM essio_cancel_accept(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     opRef);
+extern ERL_NIF_TERM essio_cancel_send(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     opRef);
+extern ERL_NIF_TERM essio_cancel_recv(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     opRef);
+
+extern ERL_NIF_TERM essio_ioctl2(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 unsigned long    req);
+extern ERL_NIF_TERM essio_ioctl3(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 unsigned long    req,
+                                 ERL_NIF_TERM     arg);
+extern ERL_NIF_TERM essio_ioctl4(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 unsigned long    req,
+                                 ERL_NIF_TERM     ename,
+                                 ERL_NIF_TERM     eval);
+
+extern void essio_dtor(ErlNifEnv*       env,
+                       ESockDescriptor* descP);
+extern void essio_stop(ErlNifEnv*       env,
+                       ESockDescriptor* descP);
+extern void essio_down(ErlNifEnv*           env,
+                       ESockDescriptor*     descP,
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP);
+
+/* Temporary (I hope) workaround */
+extern void essio_down_ctrl(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            const ErlNifPid* pidP);
 
 #endif // SOCKET_SYNCIO_H__

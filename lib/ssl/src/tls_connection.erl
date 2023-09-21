@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,10 +71,10 @@
 %%                                             | Send/Recv Flight 2 or Abbrev Flight 1 - Abbrev Flight 2 part 1 
 %%                                             |
 %%                                New session  | Resumed session
-%%  WAIT_OCSP_STAPELING   CERTIFY  <----------------------------------> ABBRIVIATED
+%%  WAIT_OCSP_STAPLING   CERTIFY  <----------------------------------> ABBREVIATED
 %%  WAIT_CERT_VERIFY   
 %%  <- Possibly Receive  --  |                                              |
-%% OCSP Stapel/CertVerify -> |  Flight 3 part 1                             |
+%% OCSP Staple/CertVerify -> |  Flight 3 part 1                             |
 %%                           |                                              |
 %%                           V                                              |  Abbrev Flight 2 part 2 to Abbrev Flight 3
 %%                         CIPHER                                           |
@@ -149,7 +149,7 @@ init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
                                                 },
                         connection_env = #connection_env{cert_key_alts = CertKeyAlts},
                         ssl_options = SslOptions,
-                        session = Session0} = ssl_gen_statem:ssl_config(State0#state.ssl_options, Role, State0),
+                        session = Session0} = ssl_gen_statem:init_ssl_config(State0#state.ssl_options, Role, State0),
         State = case Role of
                     client ->
                         CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts),
@@ -256,18 +256,23 @@ hello(internal, #server_hello{} = Hello,
         case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
             %% Legacy TLS 1.2 and older
             {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
-                tls_dtls_connection:handle_session(Hello,
-                                                   Version, NewId, ConnectionStates, ProtoExt, Protocol,
-                                                   State#state{
-                                                     handshake_env = HsEnv#handshake_env{
-                                                                       ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
+                tls_dtls_connection:handle_session(
+                  Hello, Version, NewId, ConnectionStates, ProtoExt, Protocol,
+                  State#state{
+                    handshake_env =
+                        HsEnv#handshake_env{
+                          ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
             %% TLS 1.3
             {next_state, wait_sh, SelectedVersion, OcspState} ->
                 %% Continue in TLS 1.3 'wait_sh' state
                 {next_state, wait_sh,
-                 State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =  maps:merge(OcspState0,OcspState)}, 
-                             connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
-                 [{change_callback_module, tls_client_connection_1_3}, {next_event, internal, Hello}]}
+                 State#state{handshake_env =
+                                 HsEnv#handshake_env{ocsp_stapling_state =
+                                                         maps:merge(OcspState0, OcspState)},
+                             connection_env =
+                                 CEnv#connection_env{negotiated_version = SelectedVersion}},
+                 [{change_callback_module, tls_client_connection_1_3},
+                  {next_event, internal, Hello}]}
         end
     catch throw:#alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, hello, State)
@@ -592,7 +597,7 @@ choose_tls_fsm(#{versions := Versions},
                                 }
                  }) ->
     case ssl_handshake:select_supported_version(ClientVersions, Versions) of
-        {3,4} ->
+        ?TLS_1_3 ->
             tls_1_3_fsm;
         _Else ->
             tls_1_0_to_1_2_fsm

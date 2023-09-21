@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2021</year>
+      <year>2023</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -91,19 +91,16 @@
 
     <func>
       <name name="bin_to_list" arity="1" since="OTP R14B"/>
-      <fsummary>Convert a binary to a list of integers.</fsummary>
-      <desc>
-      <p>Same as <c>bin_to_list(<anno>Subject</anno>, {0,byte_size(<anno>Subject</anno>)})</c>.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="bin_to_list" arity="2" since="OTP R14B"/>
+      <name name="bin_to_list" arity="3" since="OTP R14B"/>
       <fsummary>Convert a binary to a list of integers.</fsummary>
+      <type name="part"/>
       <desc>
       <p>Converts <c><anno>Subject</anno></c> to a list of <c>byte()</c>s, each
-      representing the value of one byte. <c>part()</c> denotes which part of
-      the <c>binary()</c> to convert.</p>
+      representing the value of one byte. <c><anno>PosLen</anno></c> or alternatively
+      <c><anno>Pos</anno></c> and <c><anno>Len</anno></c> denote which part of the
+      <c><anno>Subject</anno></c> binary to convert. By default, the entire
+      <c><anno>Subject</anno></c> binary is converted.</p>
 
       <p><em>Example:</em></p>
 
@@ -112,16 +109,9 @@
 "rla"
 %% or [114,108,97] in list notation.</code>
 
-      <p>If <c><anno>PosLen</anno></c> in any way references outside the binary,
-      a <c>badarg</c> exception is raised.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="bin_to_list" arity="3" since="OTP R14B"/>
-      <fsummary>Convert a binary to a list of integers.</fsummary>
-      <desc>
-      <p>Same as<c> bin_to_list(<anno>Subject</anno>, {<anno>Pos</anno>, <anno>Len</anno>})</c>.</p>
+      <p>If <c><anno>PosLen</anno></c> or alternatively <c><anno>Pos</anno></c> and
+      <c><anno>Len</anno></c> in any way reference outside the binary, a <c>badarg</c>
+      exception is raised.</p>
       </desc>
     </func>
 
@@ -149,28 +139,23 @@
       only one element. The order of alternatives in a pattern is
       not significant.</p>
 
-      <p>The list of binaries used for search alternatives must be flat and
-      proper.</p>
+      <p>The list of binaries used for search alternatives must be flat,
+      proper and non-empty.</p>
 
-      <p>If <c><anno>Pattern</anno></c> is not a binary or a flat proper list of
-      binaries with length &gt; 0, a <c>badarg</c> exception is raised.</p>
+      <p>If <c><anno>Pattern</anno></c> is not a binary or a flat proper
+      non-empty list of binaries with length &gt; 0, a <c>badarg</c>
+      exception is raised.</p>
       </desc>
     </func>
 
     <func>
       <name name="copy" arity="1" since="OTP R14B"/>
-      <fsummary>Create a duplicate of a binary.</fsummary>
-      <desc>
-      <p>Same as <c>copy(<anno>Subject</anno>, 1)</c>.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="copy" arity="2" since="OTP R14B"/>
       <fsummary>Duplicate a binary <c>N</c> times and create a new.</fsummary>
       <desc>
       <p>Creates a binary with the content of <c><anno>Subject</anno></c>
-      duplicated <c><anno>N</anno></c> times.</p>
+      duplicated <c><anno>N</anno></c> times. The default for <c><anno>N</anno></c>
+      is <c>1</c>.</p>
 
       <p>This function always creates a new binary, even if <c><anno>N</anno> =
       1</c>. By using <seemfa marker="#copy/1"><c>copy/1</c></seemfa>
@@ -186,29 +171,33 @@
       large binaries are no longer used in any process, deliberate
       copying can be a good idea.</p>
       </note>
+      </desc>
+    </func>
 
-      <p>If <c><anno>N</anno></c> &lt; <c>0</c>, a <c>badarg</c> exception is
-      raised.</p>
+    <func>
+      <name name="decode_hex" arity="1" since="OTP 24.0"/>
+      <fsummary>Decodes a hex encoded binary into a binary.</fsummary>
+      <desc>
+      <p>Decodes a hex encoded binary into a binary.</p>
+
+      <p><em>Example</em></p>
+
+      <code>
+1> binary:decode_hex(&lt;&lt;"66"&gt;&gt;).
+&lt;&lt;"f"&gt;&gt;</code>
       </desc>
     </func>
 
     <func>
       <name name="decode_unsigned" arity="1" since="OTP R14B"/>
-      <fsummary>Decode a whole binary into an integer of arbitrary size.
-      </fsummary>
-      <desc>
-      <p>Same as <c>decode_unsigned(<anno>Subject</anno>, big)</c>.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="decode_unsigned" arity="2" since="OTP R14B"/>
       <fsummary>Decode a whole binary into an integer of arbitrary size.
       </fsummary>
       <desc>
       <p>Converts the binary digit representation, in big endian or little
       endian, of a positive integer in <c><anno>Subject</anno></c> to an Erlang
-      <c>integer()</c>.</p>
+      <c>integer()</c>. The default <c><anno>Endianness</anno></c> is
+      <c>big</c>.</p>
 
       <p><em>Example:</em></p>
 
@@ -219,32 +208,8 @@
     </func>
 
     <func>
-      <name name="encode_unsigned" arity="1" since="OTP R14B"/>
-      <fsummary>Encode an unsigned integer into the minimal binary.</fsummary>
-      <desc>
-      <p>Same as <c>encode_unsigned(<anno>Unsigned</anno>, big)</c>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="encode_unsigned" arity="2" since="OTP R14B"/>
-      <fsummary>Encode an unsigned integer into the minimal binary.</fsummary>
-      <desc>
-      <p>Converts a positive integer to the smallest possible
-      representation in a binary digit representation, either big endian
-      or little endian.</p>
-
-      <p><em>Example:</em></p>
-
-      <code>
-1> binary:encode_unsigned(11111111, big).
-&lt;&lt;169,138,199&gt;&gt;</code>
-      </desc>
-    </func>
-
-    <func>
       <name name="encode_hex" arity="1" since="OTP 24.0"/>
-      <name name="encode_hex" arity="2" since="OTP @OTP-18354@"/>
+      <name name="encode_hex" arity="2" since="OTP 26.0"/>
       <fsummary>Encodes a binary into a hex encoded binary with specified case</fsummary>
       <desc>
         <p>Encodes a binary into a hex encoded binary using the specified case for the hexadecimal digits "a" to "f".</p>
@@ -265,16 +230,20 @@
     </func>
 
     <func>
-      <name name="decode_hex" arity="1" since="OTP 24.0"/>
-      <fsummary>Decodes a hex encoded binary into a binary.</fsummary>
+      <name name="encode_unsigned" arity="1" since="OTP R14B"/>
+      <name name="encode_unsigned" arity="2" since="OTP R14B"/>
+      <fsummary>Encode an unsigned integer into the minimal binary.</fsummary>
       <desc>
-      <p>Decodes a hex encoded binary into a binary.</p>
+      <p>Converts a positive integer to the smallest possible
+      representation in a binary digit representation, either big endian
+      or little endian. The default <c><anno>Endianness</anno></c> is
+      <c>big</c>.</p>
 
-      <p><em>Example</em></p>
+      <p><em>Example:</em></p>
 
       <code>
-1> binary:decode_hex(&lt;&lt;"66"&gt;&gt;).
-&lt;&lt;"f"&gt;&gt;</code>
+1> binary:encode_unsigned(11111111, big).
+&lt;&lt;169,138,199&gt;&gt;</code>
       </desc>
     </func>
 
@@ -324,8 +293,8 @@
 2> binary:longest_common_prefix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"perl"&gt;&gt;]).
 0</code>
 
-      <p>If <c><anno>Binaries</anno></c> is not a flat list of binaries, a
-      <c>badarg</c> exception is raised.</p>
+      <p>If <c><anno>Binaries</anno></c> is not a flat non-empty list of
+      binaries, a <c>badarg</c> exception is raised.</p>
       </desc>
     </func>
 
@@ -345,21 +314,13 @@
 2> binary:longest_common_suffix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"perl"&gt;&gt;]).
 0</code>
 
-      <p>If <c>Binaries</c> is not a flat list of binaries, a <c>badarg</c>
-      exception is raised.</p>
+      <p>If <c>Binaries</c> is not a flat non-empty list of binaries, a
+      <c>badarg</c> exception is raised.</p>
       </desc>
     </func>
 
     <func>
       <name name="match" arity="2" since="OTP R14B"/>
-      <fsummary>Search for the first match of a pattern in a binary.</fsummary>
-      <desc>
-      <p>Same as <c>match(<anno>Subject</anno>, <anno>Pattern</anno>, [])</c>.
-      </p>
-      </desc>
-    </func>
-
-    <func>
       <name name="match" arity="3" since="OTP R14B"/>
       <fsummary>Search for the first match of a pattern in a binary.</fsummary>
       <type name="part"/>
@@ -409,14 +370,6 @@
 
     <func>
       <name name="matches" arity="2" since="OTP R14B"/>
-      <fsummary>Search for all matches of a pattern in a binary.</fsummary>
-      <desc>
-      <p>Same as <c>matches(<anno>Subject</anno>, <anno>Pattern</anno>, [])</c>.
-      </p>
-      </desc>
-    </func>
-
-    <func>
       <name name="matches" arity="3" since="OTP R14B"/>
       <fsummary>Search for all matches of a pattern in a binary.</fsummary>
       <type name="part"/>
@@ -462,7 +415,9 @@
 
     <func>
       <name name="part" arity="2" since="OTP R14B"/>
+      <name name="part" arity="3" since="OTP R14B"/>
       <fsummary>Extract a part of a binary.</fsummary>
+      <type name="part"/>
       <desc>
       <p>Extracts the part of binary <c><anno>Subject</anno></c> described by
       <c><anno>PosLen</anno></c>.</p>
@@ -485,15 +440,6 @@
 
       <p>If <c><anno>PosLen</anno></c> in any way references outside the binary,
       a <c>badarg</c> exception is raised.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="part" arity="3" since="OTP R14B"/>
-      <fsummary>Extract a part of a binary.</fsummary>
-      <desc>
-      <p>Same as <c>part(<anno>Subject</anno>, {<anno>Pos</anno>,
-      <anno>Len</anno>})</c>.</p>
       </desc>
     </func>
 
@@ -563,64 +509,68 @@ store(Binary, GBSet) ->
 
     <func>
       <name name="replace" arity="3" since="OTP R14B"/>
-      <fsummary>Replace bytes in a binary according to a pattern.</fsummary>
-      <desc>
-      <p>Same as <c>replace(<anno>Subject</anno>, <anno>Pattern</anno>, <anno>Replacement</anno>,[])</c>.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="replace" arity="4" since="OTP R14B"/>
       <fsummary>Replace bytes in a binary according to a pattern.</fsummary>
       <type_desc variable="OnePos">An integer() =&lt; byte_size(<anno>Replacement</anno>)
-      </type_desc>
+        if <anno>Replacement</anno> is given as a binary.</type_desc>
       <desc>
-      <p>Constructs a new binary by replacing the parts in
-      <c><anno>Subject</anno></c> matching <c><anno>Pattern</anno></c> with
-      the content of <c><anno>Replacement</anno></c>.</p>
+        <p>Constructs a new binary by replacing the parts in
+          <c><anno>Subject</anno></c> matching <c><anno>Pattern</anno></c> with
+          <c><anno>Replacement</anno></c> if given as a literal <c>binary()</c>
+          or with the result of applying <c><anno>Replacement</anno></c> to a matching
+          subpart if given as a <c>fun</c>.</p>
 
-      <p>If the matching subpart of <c><anno>Subject</anno></c> giving raise
-      to the replacement is to be inserted in the result, option
-      <c>{insert_replaced, <anno>InsPos</anno>}</c> inserts the matching part
-      into <c><anno>Replacement</anno></c> at the specified position (or
-      positions) before inserting <c><anno>Replacement</anno></c> into
-      <c><anno>Subject</anno></c>.</p>
-
-      <p><em>Example:</em></p>
-
-<code>
-1> binary:replace(&lt;&lt;"abcde"&gt;&gt;,&lt;&lt;"b"&gt;&gt;,&lt;&lt;"[]"&gt;&gt;, [{insert_replaced,1}]).
-&lt;&lt;"a[b]cde"&gt;&gt;
-2> binary:replace(&lt;&lt;"abcde"&gt;&gt;,[&lt;&lt;"b"&gt;&gt;,&lt;&lt;"d"&gt;&gt;],&lt;&lt;"[]"&gt;&gt;,[global,{insert_replaced,1}]).
-&lt;&lt;"a[b]c[d]e"&gt;&gt;
-3> binary:replace(&lt;&lt;"abcde"&gt;&gt;,[&lt;&lt;"b"&gt;&gt;,&lt;&lt;"d"&gt;&gt;],&lt;&lt;"[]"&gt;&gt;,[global,{insert_replaced,[1,1]}]).
-&lt;&lt;"a[bb]c[dd]e"&gt;&gt;
-4> binary:replace(&lt;&lt;"abcde"&gt;&gt;,[&lt;&lt;"b"&gt;&gt;,&lt;&lt;"d"&gt;&gt;],&lt;&lt;"[-]"&gt;&gt;,[global,{insert_replaced,[1,2]}]).
-&lt;&lt;"a[b-b]c[d-d]e"&gt;&gt;</code>
+        <p>If <c><anno>Replacement</anno></c> is given as a <c>binary()</c> and the
+          matching subpart of <c><anno>Subject</anno></c> giving raise
+          to the replacement is to be inserted in the result, option
+          <c>{insert_replaced, <anno>InsPos</anno>}</c> inserts the matching part
+          into <c><anno>Replacement</anno></c> at the specified position (or
+          positions) before inserting <c><anno>Replacement</anno></c> into
+          <c><anno>Subject</anno></c>. If <c><anno>Replacement</anno></c> is given
+          as a <c>fun</c> instead, this option is ignored.</p>
 
         <p>If any position specified in <c><anno>InsPos</anno></c> &gt; size
-        of the replacement binary, a <c>badarg</c> exception is raised.</p>
+          of the replacement binary, a <c>badarg</c> exception is raised.</p>
 
         <p>Options <c>global</c> and <c>{scope, part()}</c> work as for
-        <seemfa marker="#split/3"><c>split/3</c></seemfa>.
-        The return type is always a <c>binary()</c>.</p>
+          <seemfa marker="#split/3"><c>split/3</c></seemfa>.
+          The return type is always a <c>binary()</c>.</p>
 
         <p>For a description of <c><anno>Pattern</anno></c>, see
-        <seemfa marker="#compile_pattern/1"><c>compile_pattern/1</c></seemfa>.
-        </p>
+          <seemfa marker="#compile_pattern/1"><c>compile_pattern/1</c></seemfa>.</p>
+        <p><em>Examples:</em></p>
+
+<pre>
+1> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"X"&gt;&gt;, []).</input>
+&lt;&lt;"aXcde"&gt;&gt;
+
+2> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"X"&gt;&gt;, [global]).</input>
+&lt;&lt;"aXcXe"&gt;&gt;
+
+3> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, &lt;&lt;"b"&gt;&gt;, &lt;&lt;"[]"&gt;&gt;, [{insert_replaced, 1}]).</input>
+&lt;&lt;"a[b]cde"&gt;&gt;
+
+4> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"[]"&gt;&gt;, [global, {insert_replaced, 1}]).</input>
+&lt;&lt;"a[b]c[d]e"&gt;&gt;
+
+5> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"[]"&gt;&gt;, [global, {insert_replaced, [1, 1]}]).</input>
+&lt;&lt;"a[bb]c[dd]e"&gt;&gt;
+
+6> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"[-]"&gt;&gt;, [global, {insert_replaced, [1, 2]}]).</input>
+&lt;&lt;"a[b-b]c[d-d]e"&gt;&gt;
+
+7> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], fun(M) -> &lt;&lt;$[, M/binary, $]&gt;&gt; end, []).</input>
+&lt;&lt;"a[b]cde"&gt;&gt;
+
+8> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], fun(M) -> &lt;&lt;$[, M/binary, $]&gt;&gt; end, [global]).</input>
+&lt;&lt;"a[b]c[d]e"&gt;&gt;
+</pre>
+
       </desc>
     </func>
 
     <func>
       <name name="split" arity="2" since="OTP R14B"/>
-      <fsummary>Split a binary according to a pattern.</fsummary>
-      <desc>
-      <p>Same as <c>split(<anno>Subject</anno>, <anno>Pattern</anno>,
-      [])</c>.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="split" arity="3" since="OTP R14B"/>
       <fsummary>Split a binary according to a pattern.</fsummary>
       <desc>

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -190,7 +190,7 @@
       </desc>
     </func>
     <func>
-      <name name="get_supervisor" arity="1" since="OTP 25.1"/>
+      <name name="get_supervisor" arity="1" since="OTP 26.0"/>
       <fsummary>Get the supervisor of an application.</fsummary>
       <desc>
         <p>Returns the <c><anno>Pid</anno></c> of the supervisor running

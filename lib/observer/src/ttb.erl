@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -784,7 +784,7 @@ do_stop(nofetch, Sender, NodeInfo, SessionInfo) ->
       ok,
       NodeInfo),
     stop_ip_to_file_trace_ports(SessionInfo),
-    dbg:stop_clear(),
+    dbg:stop(),
     ets:delete(?history_table),
     Sender ! {?MODULE, stopped};
 
@@ -807,7 +807,7 @@ do_stop({FetchOrFormat, UserDir}, Sender, NodeInfo, SessionInfo) ->
           [],
           NodeInfo),
     stop_ip_to_file_trace_ports(SessionInfo),
-    dbg:stop_clear(),
+    dbg:stop(),
     AllNodes =
         lists:map(
           fun({Node,MetaFile}) ->
@@ -1055,7 +1055,7 @@ format(Files,Out,Handler,DisableSort) when is_list(Files), is_list(hd(Files)) ->
     file:close(Fd),
     ets:delete(?MODULE),
     case StopDbg of
-	true -> dbg:stop_clear();
+	true -> dbg:stop();
 	false -> ok
     end,
     R.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -270,7 +270,7 @@ void BeamModuleAssembler::emit_normal_exit() {
     emit_proc_lc_unrequire();
 
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(EXC_NORMAL));
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
+    a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), imm(0));
     a.mov(ARG1, c_p);
     mov_imm(ARG2, am_normal);
     runtime_call<2>(erts_do_exit_process);
@@ -307,8 +307,8 @@ void BeamModuleAssembler::emit_get_list(const x86::Gp src,
         comment("(moving head and tail together)");
         x86::Mem dst_ptr = getArgRef(Hd, 16);
         x86::Mem src_ptr = getCARRef(boxed_ptr, 16);
-        a.movups(x86::xmm0, src_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        vmovups(x86::xmm0, src_ptr);
+        vmovups(dst_ptr, x86::xmm0);
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -503,8 +503,8 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
     switch (ArgVal::memory_relation(Dst1, Dst2)) {
     case ArgVal::Relation::consecutive: {
         x86::Mem dst_ptr = getArgRef(Dst1, 16);
-        a.movups(x86::xmm0, element_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        vmovups(x86::xmm0, element_ptr);
+        vmovups(dst_ptr, x86::xmm0);
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -525,10 +525,6 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
         mov_arg(Dst2, ARG3);
         break;
     }
-}
-
-void BeamModuleAssembler::emit_init(const ArgYRegister &Dst) {
-    mov_arg(Dst, NIL);
 }
 
 void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
@@ -638,8 +634,8 @@ void BeamModuleAssembler::emit_move_two_words(const ArgSource &Src1,
     switch (ArgVal::memory_relation(Dst1, Dst2)) {
     case ArgVal::Relation::consecutive: {
         x86::Mem dst_ptr = getArgRef(Dst1, 16);
-        a.movups(x86::xmm0, src_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        vmovups(x86::xmm0, src_ptr);
+        vmovups(dst_ptr, x86::xmm0);
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -707,8 +703,8 @@ void BeamModuleAssembler::emit_put_cons(const ArgSource &Hd,
         x86::Mem src_ptr = getArgRef(Hd, 16);
         x86::Mem dst_ptr = x86::xmmword_ptr(HTOP, 0);
         comment("(put head and tail together)");
-        a.movups(x86::xmm0, src_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        vmovups(x86::xmm0, src_ptr);
+        vmovups(dst_ptr, x86::xmm0);
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -769,8 +765,8 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
 
                 comment("(moving two elements at once)");
                 dst_ptr.setSize(16);
-                a.movups(x86::xmm0, src_ptr);
-                a.movups(dst_ptr, x86::xmm0);
+                vmovups(x86::xmm0, src_ptr);
+                vmovups(dst_ptr, x86::xmm0);
                 i++;
                 break;
             }
@@ -1009,8 +1005,7 @@ void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
         comment("skipped header test since we know it's a fun when boxed");
     } else {
         x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-        a.cmp(RET, imm(HEADER_FUN));
+        a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(byte)), imm(FUN_SUBTAG));
         a.jne(resolve_beam_label(Fail));
     }
 }
@@ -1048,16 +1043,10 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
 
-    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Fun) {
-        comment("skipped header test since we know it's a fun when boxed");
-    } else {
-        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-        a.cmp(RETd, imm(HEADER_FUN));
-        a.jne(resolve_beam_label(Fail));
-    }
-
-    a.cmp(emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity), sizeof(byte)),
-          imm(arity));
+    /* Combined header word and arity check: both the tag and arity live in the
+     * lowest 16 bits. */
+    a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint16)),
+          imm(MAKE_FUN_HEADER(arity, 0, 0) & 0xFFFF));
     a.jne(resolve_beam_label(Fail));
 }
 
@@ -1541,13 +1530,13 @@ void BeamGlobalAssembler::emit_arith_eq_shared() {
     a.short_().jne(generic_compare);
 
     boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.movsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vmovsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     boxed_ptr = emit_ptr_val(ARG2, ARG2);
-    a.movsd(x86::xmm1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vmovsd(x86::xmm1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
 
     /* All float terms are finite so our caller only needs to check ZF. We don't
      * need to check for errors (PF). */
-    a.comisd(x86::xmm0, x86::xmm1);
+    vucomisd(x86::xmm0, x86::xmm1);
 
     a.ret();
 
@@ -1646,13 +1635,13 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     a.jne(generic_compare);
 
     boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.movsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vmovsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     boxed_ptr = emit_ptr_val(ARG2, ARG2);
-    a.movsd(x86::xmm1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
-    a.comisd(x86::xmm0, x86::xmm1);
+    vmovsd(x86::xmm1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vucomisd(x86::xmm0, x86::xmm1);
 
-    /* `comisd` doesn't set the flags the same way `test` and friends do, so
-     * they need to be converted for jl/jge/jg to work.
+    /* `vucomisd` doesn't set the flags the same way `test` and
+     * friends do, so they need to be converted for jl/jge/jg to work.
      * NOTE: jg is needed for min/2 to work.
      */
     a.seta(x86::al);
@@ -1921,18 +1910,24 @@ void BeamGlobalAssembler::emit_is_in_range_shared() {
     a.short_().jne(generic_compare);
 
     /* Compare the float to the limits. */
-    a.movsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    vmovsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
     a.sar(ARG3, imm(_TAG_IMMED1_SIZE));
-    a.cvtsi2sd(x86::xmm1, ARG2);
-    a.cvtsi2sd(x86::xmm2, ARG3);
-    a.xor_(x86::ecx, x86::ecx);
-    a.ucomisd(x86::xmm0, x86::xmm2);
-    a.seta(x86::cl);
-    mov_imm(RET, -1);
-    a.ucomisd(x86::xmm1, x86::xmm0);
-    a.cmovbe(RET, x86::rcx);
+    if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
+        a.vcvtsi2sd(x86::xmm1, x86::xmm1, ARG2);
+        a.vcvtsi2sd(x86::xmm2, x86::xmm2, ARG3);
+    } else {
+        a.cvtsi2sd(x86::xmm1, ARG2);
+        a.cvtsi2sd(x86::xmm2, ARG3);
+    }
 
+    mov_imm(RET, -1);
+    mov_imm(x86::rcx, 0);
+    vucomisd(x86::xmm0, x86::xmm2);
+    a.seta(x86::cl);
+    vucomisd(x86::xmm1, x86::xmm0);
+
+    a.cmovbe(RET, x86::rcx);
     a.cmp(RET, imm(0));
 
     a.ret();
@@ -2301,8 +2296,7 @@ void BeamModuleAssembler::emit_catch(const ArgYRegister &CatchTag,
      * with the tagged catch
      */
     a.bind(patch_addr);
-    a.mov(RETd, imm(0x7fffffff));
-
+    a.mov(RETd, imm(INT_MAX));
     mov_arg(CatchTag, RET);
 
     /* Offset = 1 for `mov` payload */
@@ -2398,7 +2392,7 @@ void BeamModuleAssembler::emit_catch_end(const ArgYRegister &CatchTag) {
 
 void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
     a.dec(x86::qword_ptr(c_p, offsetof(Process, catches)));
-    emit_init(CatchTag);
+    mov_arg(CatchTag, NIL);
 }
 
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
@@ -2481,8 +2475,9 @@ void BeamModuleAssembler::emit_raw_raise() {
 }
 
 #define TEST_YIELD_RETURN_OFFSET                                               \
-    (BEAM_ASM_FUNC_PROLOGUE_SIZE + 16 +                                        \
-     (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA ? 4 : 0))
+    (BEAM_ASM_FUNC_PROLOGUE_SIZE + 16u +                                       \
+     (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA ? 4u : 0u) +                \
+     (erts_alcu_enable_code_atags ? 8u : 0u))
 
 /* ARG3 = return address, current_label + TEST_YIELD_RETURN_OFFSET */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
@@ -2490,8 +2485,8 @@ void BeamGlobalAssembler::emit_i_test_yield_shared() {
 
     a.lea(ARG2, x86::qword_ptr(ARG3, mfa_offset));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG2);
-    a.mov(ARG2, x86::qword_ptr(ARG2, offsetof(ErtsCodeMFA, arity)));
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), ARG2);
+    a.movzx(ARG2d, x86::byte_ptr(ARG2, offsetof(ErtsCodeMFA, arity)));
+    a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), ARG2.r8());
 
     a.jmp(labels[context_switch_simplified]);
 }
@@ -2505,8 +2500,19 @@ void BeamModuleAssembler::emit_i_test_yield() {
     emit_enter_frame();
 
     a.lea(ARG3, x86::qword_ptr(current_label, TEST_YIELD_RETURN_OFFSET));
+
+    if (erts_alcu_enable_code_atags) {
+        /* The point-of-origin allocation tags are vastly improved when the
+         * instruction pointer is updated frequently. This has a relatively low
+         * impact on performance but there's little point in doing this unless
+         * the user has requested it -- it's an undocumented feature for
+         * now. */
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG3);
+    }
+
     a.dec(FCALLS);
     a.long_().jle(resolve_fragment(ga->get_i_test_yield_shared()));
+    a.align(AlignMode::kCode, 4);
 
     ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            TEST_YIELD_RETURN_OFFSET);

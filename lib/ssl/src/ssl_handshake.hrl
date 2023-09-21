@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@
                   peer_certificate,
                   own_certificates,
                   private_key,
-                  compression_method,
                   cipher_suite,
                   master_secret,
                   srp_username,
@@ -123,10 +122,9 @@
 
 -record(server_hello, {
 	  server_version,
-	  random,             
+	  random,
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suite,       % cipher_suites
-	  compression_method, % compression_method
 	  extensions
 	 }).
 
@@ -374,6 +372,17 @@
 %% RFC 8422 compliant implementations MUST not support the two formats below
 -define(ECPOINT_ANSIX962_COMPRESSED_PRIME, 1).
 -define(ECPOINT_ANSIX962_COMPRESSED_CHAR2, 2).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 5764 section 4 Datagram Transport Layer Security (DTLS) Extensions
+%% for SRTP (Secure Real-time Transport Protocol) Key Establishment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-define(USE_SRTP_EXT, 14).
+
+-record(use_srtp, {
+    protection_profiles,
+    mki
+   }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ECC RFC 4492 Handshake Messages, Section 5

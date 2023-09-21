@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,15 +14,15 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 
-%% 
+%%
 %% ct:run("../inets_test", httpd_SUITE).
 %%
-
+-compile({no_auto_import,[alias/1]}).
 -module(httpd_SUITE).
 
 -include_lib("kernel/include/file.hrl").
@@ -30,7 +30,7 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("inets/include/httpd.hrl").
 -include("inets_test_lib.hrl").
-
+-include_lib("stdlib/include/assert.hrl").
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
@@ -38,7 +38,7 @@
 -record(httpd_group, {group_name, userlist}).
 -define(MAX_HEADER_SIZE, 256).
 %% Minutes before failed auths timeout.
--define(FAIL_EXPIRE_TIME,1). 
+-define(FAIL_EXPIRE_TIME,1).
 %% Seconds before successful auths timeout.
 -define(AUTH_TIMEOUT,5).
 -define(URL_START, "http://").
@@ -68,7 +68,7 @@ all() ->
      {group, https_auth_api_dets},
      {group, http_auth_api_mnesia},
      {group, https_auth_api_mnesia},
-     {group, http_security}, 
+     {group, http_security},
      {group, https_security},
      {group, http_reload},
      {group, https_reload},
@@ -79,11 +79,8 @@ all() ->
      {group, http_not_sup},
      {group, https_alert},
      {group, https_not_sup},
-     mime_types_format,
-     erl_script_timeout_default,
-     erl_script_timeout_option,
-     erl_script_timeout_proplist,
-     erl_script_alias_all
+     {group, esi},
+     mime_types_format
     ].
 
 groups() ->
@@ -100,7 +97,7 @@ groups() ->
      {https_auth_api, [], [{group, auth_api}]},
      {http_auth_api_dets, [], [{group, auth_api_dets}]},
      {https_auth_api_dets, [], [{group, auth_api_dets}]},
-     {http_auth_api_mnesia, [], [{group, auth_api_mnesia}]}, 
+     {http_auth_api_mnesia, [], [{group, auth_api_mnesia}]},
      {https_auth_api_mnesia, [], [{group, auth_api_mnesia}]},
      {http_security, [], [{group, security}]},
      {https_security, [], [{group, security}]},
@@ -111,12 +108,12 @@ groups() ->
      {http_not_sup, [], [{group, not_sup}]},
      {https_not_sup, [], [{group, not_sup}]},
      {https_alert, [], [tls_alert]},
-     {http_mime_types, [], [alias_1_1, alias_1_0]},
-     {limit, [],  [content_length, max_clients_1_1]},  
-     {custom, [],  [customize, add_default]},  
+     {http_mime_types, [parallel], [alias_1_1, alias_1_0]},
+     {limit, [],  [content_length, max_clients_1_1]},
+     {custom, [],  [customize, add_default]},
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
-		   non_disturbing_1_1, 
+		   non_disturbing_1_1,
 		   non_disturbing_1_0,
            disturbing_1_1,
            disturbing_1_0,
@@ -130,13 +127,19 @@ groups() ->
      {security, [], [security_1_1, security_1_0]},
      {logging, [], [disk_log_internal, disk_log_exists,
              disk_log_bad_size, disk_log_bad_file]},
-     {http_1_1, [],
+     {http_1_1, [], [esi_propagate, esi_atom_leak, {group, http_1_1_parallel}] ++ load()},
+     {http_1_1_parallel, [parallel],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
-       esi_put, esi_patch, esi_post, esi_proagate, esi_atom_leak, esi_headers]
-      ++ http_head() ++ http_get() ++ load()},
-     {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
+       esi_put, esi_patch, esi_post, esi_headers]
+      ++ http_head() ++ http_get()},
+     {http_1_0, [], [{group, http_1_0_parallel} | load()]},
+     {http_1_0_parallel, [parallel], [host, cgi, trace] ++ http_head() ++ http_get()},
      {http_rel_path_script_alias, [], [cgi]},
+     {esi, [], [erl_script_timeout_default,
+                erl_script_timeout_option,
+                erl_script_timeout_proplist,
+                erl_script_alias_all]},
      {not_sup, [], [put_not_sup]}
     ].
 
@@ -148,12 +151,12 @@ basic_groups ()->
 http_head() ->
     [head].
 http_get() ->
-    [alias, 
-     get, 
+    [alias,
+     get,
      bad_dot_paths,
      %%actions, Add configuration so that this test mod_action
-     esi, 
-     bad_hex, 
+     esi,
+     bad_hex,
      missing_CR,
      max_header,
      max_content_length,
@@ -164,10 +167,10 @@ http_get() ->
 
 
 load() ->
-    [light, medium 
+    [light, medium
      %%,heavy
-    ]. 
-    
+    ].
+
 init_per_suite(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
@@ -181,7 +184,7 @@ init_per_suite(Config) ->
     logger:add_handler_filter(default, inets_httpd, {fun logger_filters:domain/2,
                                                      {log, equal,[otp,inets, httpd, httpd_test, error]}}),
     %%logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
-    Inet = 
+    Inet =
 	case (catch ct:get_config(ipv6_hosts)) of
 	    undefined ->
 		inet;
@@ -195,11 +198,11 @@ init_per_suite(Config) ->
 	    _ ->
 		inet
 	end,
-    [{server_root, ServerRoot}, 
+    [{server_root, ServerRoot},
      {doc_root, DocRoot},
      {ipfamily, Inet},
      {node,             node()},
-     {host,             inets_test_lib:hostname()}, 
+     {host,             inets_test_lib:hostname()},
      {address,          getaddr()} | Config].
 
 end_per_suite(_Config) ->
@@ -225,7 +228,7 @@ init_per_group(Group, Config0) when Group == https_basic;
     catch
         _:_ ->
             {skip, "Crypto did not start"}
-    end; 
+    end;
 init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_limit;
 				      Group == http_custom;
@@ -241,9 +244,11 @@ init_per_group(Group, Config0)  when  Group == http_basic;
 				      ->
     ok = start_apps(Group),
     init_httpd(Group, [{http_version, "HTTP/1.0"}, {type, ip_comm} | Config0]);
-init_per_group(http_1_1, Config) ->
+init_per_group(Group, Config) when Group == http_1_1_parallel;
+                                   Group == http_1_1 ->
     [{http_version, "HTTP/1.1"} | Config];
-init_per_group(http_1_0, Config) ->
+init_per_group(Group, Config) when Group == http_1_0_parallel;
+                                   Group == http_1_0 ->
     [{http_version, "HTTP/1.0"} | Config];
 init_per_group(auth_api, Config) -> 
     [{auth_prefix, ""} | Config];
@@ -262,6 +267,9 @@ init_per_group(http_rel_path_script_alias = Group, Config) ->
     init_httpd(Group, [{type, ip_comm},{http_version, "HTTP/1.1"}| Config]);
 init_per_group(not_sup, Config) ->
     [{http_version, "HTTP/1.1"} | Config];
+init_per_group(Group, Config) when Group == esi ->
+    ok = start_apps(Group),
+    Config;
 init_per_group(_, Config) ->
     Config.
 
@@ -274,7 +282,8 @@ end_per_group(Group, _Config)  when  Group == http_basic;
 				     Group == http_security;
 				     Group == http_reload;
                                      Group == http_post;
-                                     Group == http_mime_types
+                                     Group == http_mime_types;
+                                     Group == esi
 				     ->
     inets:stop();
 end_per_group(Group, _Config) when  Group == https_basic;
@@ -303,7 +312,11 @@ init_per_testcase(Case, Config) when Case == host; Case == trace ->
     Cb = case Name of
 	     http_1_0 ->
 		 httpd_1_0;
+	     http_1_0_parallel ->
+		 httpd_1_0;
 	     http_1_1 ->
+		 httpd_1_1;
+	     http_1_1_parallel ->
 		 httpd_1_1
 	 end,
     dbg(
@@ -382,7 +395,7 @@ end_per_testcase(Case, Config) ->
 
 
 dbg(Case, Config, Status) ->
-    Cases = [esi_put],
+    Cases = [],
     case lists:member(Case, Cases) of
 	true ->
 	    case Status of
@@ -395,7 +408,7 @@ dbg(Case, Config, Status) ->
 		    Config;
 		'end' ->
 		    io:format("dbg: stopped~n"),
-		    dbg:stop_clear(),
+		    dbg:stop(),
 		    ok
 	    end;
 	false ->
@@ -987,7 +1000,7 @@ mod_esi_chunk_timeout(Config) when is_list(Config) ->
 					 proplists:get_value(host, Config),
 					 proplists:get_value(node, Config)).
 %%-------------------------------------------------------------------------
-esi_proagate(Config)  when is_list(Config) -> 
+esi_propagate(Config) when is_list(Config) ->
     register(propagate_test, self()),
     ok = http_status("GET /cgi-bin/erl/httpd_example:new_status_and_location ",
                   Config, [{statuscode, 201}]),
@@ -1148,30 +1161,57 @@ alias_1_0(Config) when is_list(Config) ->
 alias() ->
     [{doc, "Test mod_alias"}].
 
-alias(Config) when is_list(Config) -> 
-    ok = http_status("GET /pics/icon.sheet.gif ", Config,
-		     [{statuscode, 200},
-		      {header, "Content-Type","image/gif"},
-		      {header, "Server"},
-		      {header, "Date"}]),
-    
-    ok = http_status("GET / ", Config,
-		     [{statuscode, 200},
-		      {header, "Content-Type","text/html"},
-		      {header, "Server"},
-		      {header, "Date"}]),
-    
-    ok = http_status("GET /misc/ ", Config,
-		     [{statuscode, 200},
-		      {header, "Content-Type","text/html"},
-		      {header, "Server"},
-		      {header, "Date"}]),
+alias(Config) when is_list(Config) ->
+    Cgi = case os:type() of
+        {win32, _} ->
+            "printenv.bat";
+        _ ->
+            "printenv.sh"
+    end,
+    TestURIs200 = [
+                   {"GET /pics/icon.sheet.gif ", 200, "image/gif"},
+                   {"GET /pictures/icon.sheet.gif ", 200, "image/gif"},
+                   {"GET / ", 200, "text/html"},
+                   {"GET /misc/ ", 200, "text/html"},
+                   {"GET /cgi-bin/" ++ Cgi ++ " ", 200, "text/html"},
+                   {"GET /cgi-UNWANTED-bin/" ++ Cgi ++ " ", 200, "text/html"}
+                  ],
+    Test200 =
+        fun({Request, ResultCode, ContentType}) ->
+                ct:log("Request: ~s Expecting: ~p ~s",
+                     [Request, ResultCode, ContentType]),
+                ok = http_status(Request, Config,
+                                 [{statuscode, ResultCode},
+                                  {header, "Content-Type", ContentType},
+                                  {header, "Server"},
+                                  {header, "Date"}])
+        end,
+    [Test200(T) || T <- TestURIs200],
+    TestURIs301 =
+        [
+         %% Check redirection if trailing slash is missing.
+         {"GET /misc ", 301, "text/html", "&#47;misc&#47;$"},
+         %% slash character expected after path(misc) not query component
+         {"GET /misc?test=test ", 301, "text/html", "&#47;misc&#47;\\?test=test$"}
+        ],
+    Test301 =
+        fun({Request, ResultCode, ContentType, TargetLinkRegexp}) ->
+                ct:log("Request: ~s Expecting: ~p ~s RE: ~s",
+                     [Request, ResultCode, ContentType, TargetLinkRegexp]),
+                {ok, [RedirectLink]} =
+                    http_status(Request, Config,
+                                [{statuscode, ResultCode},
+                                 {header, "Content-Type", ContentType},
+                                 {header, "Server"},
+                                 {header, "Date"},
+                                 {fetch_hrefs, true}]),
+                ReResult = re:run(RedirectLink, TargetLinkRegexp),
+                ct:log("RedirectLink = ~p", [RedirectLink]),
+                ?assertMatch({match, _}, ReResult)
+              end,
+    [Test301(T) || T <- TestURIs301],
+    ok.
 
-    %% Check redirection if trailing slash is missing.
-    ok = http_status("GET /misc ", Config,
-		     [{statuscode, 301},
-		      {header, "Location"},
-		      {header, "Content-Type","text/html"}]).
 %%-------------------------------------------------------------------------
 actions() ->
     [{doc, "Test mod_actions"}].
@@ -1333,7 +1373,7 @@ ignore_invalid_header(Config) when is_list(Config) ->
             ssl ->
                 Conf = proplists:get_value(client_config, proplists:get_value(ssl_conf, Config)),
                 {"https://"  ++ Host ++  ":" ++ integer_to_list(Port) ++ "/cgi-bin/erl/httpd_example:ignore_invalid_header",
-                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], [{ssl, Conf}]}
+                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], [{ssl, [{verify, verify_none} | Conf]}]}
         end,
     {ok,{{_,204,_}, _, _}}
         = httpc:request(get, {Url, Header}, [{timeout, 45000} | Opts], [{headers_as_is, true}]).
@@ -1354,9 +1394,7 @@ security(Config) ->
     Node = proplists:get_value(node, Config),
     ServerRoot = proplists:get_value(server_root, Config),
 
-    global:register_name(mod_security_test, self()),   % Receive events
-
-    ct:sleep(5000),
+    yes = global:register_name(mod_security_test, self()),   % Receive events
 
     OpenDir = filename:join([ServerRoot, "htdocs", "open"]),
 
@@ -1572,6 +1610,7 @@ disturbing_1_0(Config) when is_list(Config) ->
     disturbing([{http_version, "HTTP/1.0"} | Config]).
 
 disturbing(Config) when is_list(Config)->
+    LogWatcher = start_log_watcher(),
     Server =  proplists:get_value(server_pid, Config),
     Version = proplists:get_value(http_version, Config),
     Host = proplists:get_value(host, Config),
@@ -1588,12 +1627,13 @@ disturbing(Config) when is_list(Config)->
     Close = list_to_atom((typestr(Type)) ++ "_closed"),
     receive 
 	{Close, Socket} ->
-	    ok;
-	Msg ->
-	    ct:fail({{expected, {Close, Socket}}, {got, Msg}})
-    end,
-    inets_test_lib:close(Type, Socket),
-    [{server_name, "httpd_disturbing_" ++ Version}] =  httpd:info(Server, [server_name]).
+            inets_test_lib:close(Type, Socket),
+            [{server_name, "httpd_disturbing_" ++ Version}] =
+                httpd:info(Server, [server_name]),
+            [] = stop_log_watcher(LogWatcher),
+            [] = inets_test_lib:flush(),
+	    ok
+    end.
 %%-------------------------------------------------------------------------
 non_disturbing_1_1(Config) when is_list(Config) -> 
     non_disturbing([{http_version, "HTTP/1.1"} | Config]).
@@ -1653,7 +1693,6 @@ reload_config_file(Config) when is_list(Config) ->
     ok = file:write_file(HttpdConf, NewConfig),
     ok = httpd:reload_config(HttpdConf, non_disturbing),
     "httpd_test_new" = proplists:get_value(server_name, httpd:info(Server)).
-
 %%-------------------------------------------------------------------------
 mime_types_format(Config) when is_list(Config) -> 
     DataDir = proplists:get_value(data_dir, Config),
@@ -1765,20 +1804,14 @@ mime_types_format(Config) when is_list(Config) ->
      {"hqx","application/mac-binhex40"}]} = httpd_conf:load_mime_types(MimeTypes).
 
 erl_script_timeout_default(Config) when is_list(Config) ->
-    inets:start(),
-    {ok, Pid} =	inets:start(httpd,
-                            [{port, 0},
-                             {server_name,"localhost"},
-                             {server_root,"./"},
-                             {document_root,"./"},
-                             {bind_address, any},
-                             {mimetypes, [{"html", "text/html"}]},
-                             {modules,[mod_esi]},
-                             {erl_script_alias, {"/erl", [httpd_example]}}
-                            ]),
-    Info = httpd:info(Pid),
+    ServerConfig = [
+        {modules, [mod_esi]},
+        {erl_script_alias, {"/erl", [httpd_example]}}
+        | Config
+    ],
+    Httpd = init_httpd(esi, ServerConfig),
 
-    Port = proplists:get_value(port, Info),
+    Port = proplists:get_value(port, Httpd),
 
     %% Default erl_script_timeout is 15.
     %% Verify:  13 =< erl_script_timeout =< 17
@@ -1786,22 +1819,17 @@ erl_script_timeout_default(Config) when is_list(Config) ->
 
     {ok, {_, _, Body}} = httpc:request(get, {Url, []}, [{timeout, 45000}], []),
     ct:log("Response: ~p~n", [Body]),
-    verify_body(Body, 13000),
-    inets:stop().
+    verify_body(Body, 13000).
 
 erl_script_timeout_option(Config) when is_list(Config) ->
-    inets:start(),
-    {ok, Pid} =	inets:start(httpd,
-                            [{port, 0},
-                             {server_name,"localhost"},
-                             {server_root,"./"},
-                             {document_root,"./"},
-                             {bind_address, any},
-                             {mimetypes, [{"html", "text/html"}]},
-                             {modules,[mod_esi]},
-                             {erl_script_timeout, 2},
-                             {erl_script_alias, {"/erl", [httpd_example]}}
-                            ]),
+    ServerConfig = [
+        {modules, [mod_esi]},
+        {erl_script_timeout, 2},
+        {erl_script_alias, {"/erl", [httpd_example]}}
+        | Config
+    ],
+    ServerInfo = init_httpd(esi, ServerConfig),
+    Pid = proplists:get_value(server_pid, ServerInfo),
     Info = httpd:info(Pid),
     verify_timeout(Info, 2),
 
@@ -1812,8 +1840,7 @@ erl_script_timeout_option(Config) when is_list(Config) ->
 
     {ok, {_, _, Body}} = httpc:request(Url),
     ct:log("Response: ~p~n", [Body]),
-    verify_body(Body, 1000),
-    inets:stop().
+    verify_body(Body, 1000).
 
 erl_script_timeout_proplist(Config) when is_list(Config) ->
     HttpdConf = filename:join(get_tmp_dir(Config),
@@ -1831,7 +1858,6 @@ erl_script_timeout_proplist(Config) when is_list(Config) ->
         "].",
     ok = file:write_file(HttpdConf, ServerConfig),
 
-    inets:start(),
     {ok, Pid} =	inets:start(httpd,
                             [{proplist_file, HttpdConf}]),
     Info = httpd:info(Pid),
@@ -1844,8 +1870,7 @@ erl_script_timeout_proplist(Config) when is_list(Config) ->
 
     {ok, {_, _, Body}} = httpc:request(Url),
     ct:log("Response: ~p~n", [Body]),
-    verify_body(Body, 3000),
-    inets:stop().
+    verify_body(Body, 3000).
 
 erl_script_alias_all(Config0) when is_list(Config0) ->
     ok = start_apps(http_basic),
@@ -1854,8 +1879,7 @@ erl_script_alias_all(Config0) when is_list(Config0) ->
                Config0],
     Config2 = init_httpd(http_basic_erl_script_alias_all, Config1),
     ok = http_status("GET /cgi-bin/erl/httpd_example:get ",
-        	     Config2, [{statuscode, 200}]),
-    inets:stop().
+        	     Config2, [{statuscode, 200}]).
 
 tls_alert(Config) when is_list(Config) ->
     SSLOpts = proplists:get_value(client_alert_conf, Config),    
@@ -1924,7 +1948,7 @@ do_max_clients(Config) ->
 	    ok
     end,
     inets_test_lib:close(Type, Socket),
-    ct:sleep(100), %% Avoid possible timing issues
+    ct:sleep(5000), %% Avoid possible timing issues
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
@@ -1933,7 +1957,7 @@ do_max_clients(Config) ->
 				       [{statuscode, 200},
 					{version, Version}]).
 
-setup_server_dirs(ServerRoot, DocRoot, DataDir) ->   
+setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     CgiDir =  filename:join(ServerRoot, "cgi-bin"),
     AuthDir =  filename:join(ServerRoot, "auth"),
     PicsDir =  filename:join(ServerRoot, "icons"),
@@ -1946,33 +1970,33 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     ok = file:make_dir(PicsDir),
     ok = file:make_dir(ConfigDir),
 
-    DocSrc = filename:join(DataDir, "server_root/htdocs"),    
-    AuthSrc = filename:join(DataDir, "server_root/auth"),    
-    CgiSrc =  filename:join(DataDir, "server_root/cgi-bin"),    
-    PicsSrc =  filename:join(DataDir, "server_root/icons"),    
+    DocSrc = filename:join(DataDir, "server_root/htdocs"),
+    AuthSrc = filename:join(DataDir, "server_root/auth"),
+    CgiSrc =  filename:join(DataDir, "server_root/cgi-bin"),
+    PicsSrc =  filename:join(DataDir, "server_root/icons"),
     ConfigSrc = filename:join(DataDir, "server_root/config"),
-    
+
     inets_test_lib:copy_dirs(DocSrc, DocRoot),
     inets_test_lib:copy_dirs(AuthSrc, AuthDir),
     inets_test_lib:copy_dirs(CgiSrc, CgiDir),
     inets_test_lib:copy_dirs(PicsSrc, PicsDir),
     inets_test_lib:copy_dirs(ConfigSrc, ConfigDir),
-        
+
     Cgi = case os:type() of
 	      {win32, _} ->
 		  "cgi_echo.exe";
 	      _ ->
 		  "cgi_echo"
 	  end,
-    
+
     inets_test_lib:copy_file(Cgi, DataDir, CgiDir),
     AbsCgi = filename:join([CgiDir, Cgi]),
     {ok, FileInfo} = file:read_file_info(AbsCgi),
     ok = file:write_file_info(AbsCgi, FileInfo#file_info{mode = 8#00755}),
-    
+
     EnvCGI =  filename:join([ServerRoot, "cgi-bin", "printenv.sh"]),
     {ok, FileInfo1} = file:read_file_info(EnvCGI),
-    ok = file:write_file_info(EnvCGI, 
+    ok = file:write_file_info(EnvCGI,
 			      FileInfo1#file_info{mode = 8#00755}).
 
 setup_tmp_dir(PrivDir) ->
@@ -2002,7 +2026,7 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_basic_auth;
 			Group == http_auth_api;
 			Group == http_auth_api_dets;
-			Group == http_auth_api_mnesia;			
+			Group == http_auth_api_mnesia;
 			Group == http_security;
 			Group == http_logging;
 			Group == http_reload;
@@ -2010,7 +2034,8 @@ start_apps(Group) when  Group == http_basic;
                         Group == http_mime_types;
                         Group == http_rel_path_script_alias;
                         Group == http_not_sup;
-                        Group == http_mime_types->
+                        Group == http_mime_types;
+                        Group == esi ->
     inets_test_lib:start_apps([inets]).
 
 server_start(_, HttpdConfig) ->
@@ -2023,18 +2048,17 @@ init_ssl(Group, Config) ->
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
     ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
     GenCertData = #{client_config := CConf} =
-        public_key:pkix_test_data(#{server_chain => 
-                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}],
-                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}]],
-                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}
-                                                  ]},
-                                    client_chain => 
-                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}],
-                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}]],
-                                          peer => [{key, inets_test_lib:hardcode_rsa_key(6)}]}}),
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}, {digest, sha256}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}, {digest, sha256}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}, {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}, {digest, sha256}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}, {digest, sha256}]],
+                                    peer => [{key, inets_test_lib:hardcode_rsa_key(6)}, {digest, sha256}]}}),
     [_ | CAs] = proplists:get_value(cacerts, CConf),
-    AlertConf = [{cacerts, CAs} |  proplists:delete(cacerts, CConf)],                 
-    Conf = inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),                               
+    AlertConf = [{cacerts, CAs} |  proplists:delete(cacerts, CConf)],
+    Conf = inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
     case start_apps(Group) of
 	ok ->
 	    init_httpd(Group, [{client_alert_conf, AlertConf}, {type, ssl}, {ssl_conf, Conf} | Config]);
@@ -2127,7 +2151,9 @@ server_config(https, Config) ->
     ServerConf = proplists:get_value(server_config, SSLConf),
     [{socket_type, {ssl,
 		    [{nodelay, true} | ServerConf]}}]
-        ++ proplists:delete(socket_type, server_config(http, Config)).
+        ++ proplists:delete(socket_type, server_config(http, Config));
+server_config(esi, Config) ->
+    basic_conf() ++ server_config(http, Config).
 
 config_template(Config, ServerRoot, ScriptPath, Modules) ->
     [{port, 0},
@@ -2143,11 +2169,20 @@ config_template(Config, ServerRoot, ScriptPath, Modules) ->
      {mime_types, [{"html","text/html"},{"htm","text/html"}, {"shtml","text/html"},
 		   {"gif", "image/gif"}]},
      {alias, {"/icons/", filename:join(ServerRoot,"icons") ++ "/"}},
-     {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
-     {script_alias, {"/cgi-bin/", ScriptPath}},
+     {re_write, {"/pic(ture)?s/",  filename:join(ServerRoot,"icons") ++ "/"}},
      {script_alias, {"/htbin/", ScriptPath}},
+     {script_alias, {"/cgi-bin/", ScriptPath}},
+     {script_re_write, {"/cgi-([a-zA-Z-]*)bin/", ScriptPath}},
      {erl_script_alias, {"/cgi-bin/erl", Modules}}
-    ].
+    ] ++ custom_config_options(Config).
+
+custom_config_options([{Name, _} = Option | Rest]) when Name == erl_script_alias;
+                                                        Name == erl_script_timeout ->
+    [Option | custom_config_options(Rest)];
+custom_config_options([_ | Rest]) ->
+    custom_config_options(Rest);
+custom_config_options([]) ->
+    [].
 
 init_httpd(Group, Config0) ->
     Config1 = proplists:delete(port, Config0),
@@ -2627,3 +2662,56 @@ peer(Config) ->
       _ ->
         "false"
    end.   
+
+start_log_watcher() ->
+    Spawner = self(),
+    EventDest = erlang:alias(),
+    HandlerId = ?MODULE,
+    _ =
+        spawn(
+          fun () ->
+                  MonAlias =
+                      monitor(process, Spawner, [{alias,reply_demonitor}]),
+                  EventDest ! {started,EventDest,MonAlias},
+                  receive
+                      {stop,MonAlias} ->
+                          _ = logger:remove_handler(HandlerId),
+                          EventDest ! {stopped,EventDest},
+                          ok;
+                      {'DOWN',MonAlias,_,_,_} ->
+                          _ = logger:remove_handler(HandlerId),
+                          ok
+                  end
+          end),
+    receive
+        {started,EventDest,Watcher} ->
+            Config = #{ config => EventDest },
+            ok = logger:add_handler(HandlerId, ?MODULE, Config),
+            {EventDest,Watcher}
+    end.
+
+stop_log_watcher({EventDest,Watcher}) ->
+    Watcher ! {stop,Watcher},
+    receive
+        {stopped,EventDest} ->
+            true = unalias(EventDest),
+            stop_log_watcher_collect(EventDest)
+    end.
+%%
+stop_log_watcher_collect(EventDest) ->
+    receive
+        {event,EventDest,Event} ->
+            [Event | stop_log_watcher_collect(EventDest)]
+    after 0 ->
+            []
+    end.
+
+log(#{level := Level} = Event, #{ config := EventDest }) ->
+    %% Pass on events of level 'error' or worse
+    case logger:compare_levels(Level, error) of
+        lt ->
+            ok;
+        _ ->
+            EventDest ! {event,EventDest,Event},
+            ok
+    end.

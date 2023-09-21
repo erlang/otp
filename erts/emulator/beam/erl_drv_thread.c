@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -609,6 +609,7 @@ erl_drv_thread_create(char *name,
     struct ErlDrvTid_ *dtid;
     ethr_thr_opts ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
     ethr_thr_opts *use_opts;
+    char name_buff[ETHR_THR_NAME_MAX + 1];
 
     if (!opts && !name)
 	use_opts = NULL;
@@ -616,7 +617,8 @@ erl_drv_thread_create(char *name,
 	if(opts)
 	    ethr_opts.suggested_stack_size = opts->suggested_stack_size;
 
-        ethr_opts.name = name;
+	erts_snprintf(name_buff, sizeof(name_buff), "%s", name);
+	ethr_opts.name = name_buff;
 	use_opts = &ethr_opts;
     }
 

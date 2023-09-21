@@ -1,0 +1,726 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<!-- %ExternalCopyright% -->
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2023</year><year>2023</year>
+      <holder>Maxim Fedorov, WhatsApp Inc.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>hprof</title>
+    <prepared>maximfca@gmail.com</prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="OTP 26.0">hprof</module>
+  <modulesummary>Process Heap Profiling Tool</modulesummary>
+  <description>
+    <p><c>hprof</c> provides convenience helpers for Erlang process heap
+      profiling. Underlying mechanism is the Erlang trace BIFs.</p>
+
+    <p>Heap profiling can be done ad-hoc, to understand heap allocations
+    done by your program, or run in a server-aided mode for deeper
+    introspection of the code running in production.</p>
+
+    <warning><p>
+      Avoid hot code reload for modules that are participating in
+      the memory tracing. Reloading a module turns tracing off,
+      discarding accumulated statistics. <c>hprof</c>
+      may not report correct amounts when code reload happened
+      during profiling session.
+    </p></warning>
+
+    <p>Heap allocations happen for all Erlang terms that do not fit
+      a single machine word. For example, a function returning tuple
+      of 2 elements needs to allocate this tuple on the process heap.
+      Actual consumption is more than 2 machine words, because Erlang
+      runtime needs to store tuple size and other internal information.
+    </p>
+    <note>
+      <p>When profiling is enabled, expect a slowdown in the program
+        execution.</p>
+      <p>
+      For profiling convenience, heap allocations are accumulated for
+      functions that are not enabled in trace pattern. Consider this
+      call stack example:</p>
+      <code type="none"><![CDATA[
+      top_traced_function(...)
+      not_traced_function()
+      bottom_traced_function()
+      ]]></code>
+      <p>Allocations that happened within <c>not_traced_function</c>
+      will be accounted into <c>top_traced_function</c>. However
+      allocations happened within <c>bottom_traced_function</c> are
+      not included in the <c>top_traced_function</c>. If you want to
+      account only own allocations, you need to trace all functions.</p>
+    </note>
+  </description>
+
+  <section>
+    <title>Ad-hoc profiling</title>
+    <p>
+      Basic profiling providing accumulated memory allocation data. You can choose
+      to print per-process statistics, total statistics, or omit printing and
+      extract machine-readable data that you can later sort/print:
+    </p>
+
+    <code type="none"><![CDATA[
+      1> hprof:profile(lists, seq, [1, 16]).
+
+      ****** Process <0.179.0>    -- 100.00 % of total allocations ***
+      MODUL FUN/ARITY   CALLS  WORDS  PER CALL  [     %]
+      lists seq_loop/3      5     32         6  [100.00]
+      32            [ 100.0]
+      ok
+    ]]></code>
+
+    <p>
+      By default tracing is enabled for all functions of all modules. When
+      functions are created in the interactive shell, parts of shell code
+      are also traced. It is however possible to limit the trace to specific
+      functions or modules:
+    </p>
+
+    <code type="none"><![CDATA[
+      1> hprof:profile(fun() -> lists:seq(1, 16) end).
+
+      ****** Process <0.224.0>    -- 100.00 % of total allocations ***
+      MODULE   FUN/ARITY         CALLS  WORDS  PER CALL  [    %]
+      erl_eval match_list/6          1      3         3  [ 3.19]
+      erl_eval do_apply/7            1      3         3  [ 3.19]
+      lists    reverse/1             1      4         4  [ 4.26]
+      erl_eval add_bindings/2        1      5         5  [ 5.32]
+      erl_eval expr_list/7           3      7         2  [ 7.45]
+      erl_eval ret_expr/3            4     16         4  [17.02]
+      erl_eval merge_bindings/4      3     24         8  [25.53]
+      lists    seq_loop/3            5     32         6  [34.04]
+
+      2> hprof:profile(fun() -> lists:seq(1, 16) end, #{pattern => [{lists, seq_loop, '_'}]}).
+      ****** Process <0.247.0>    -- 100.00 % of total allocations ***
+      MODUL FUN/ARITY   CALLS  WORDS  PER CALL  [     %]
+      lists seq_loop/3      5     32         6  [100.00]
+    ]]></code>
+
+    <p>
+      Ad-hoc profiling results may be printed in a few different ways. Following
+      examples are using <c>test</c> module defined like this:
+    </p>
+
+    <code type="erl">
+      -module(test).
+      -export([test_spawn/0]).
+      test_spawn() ->
+          {Pid, MRef} = spawn_monitor(fun () -> lists:seq(1, 32) end),
+          receive
+              {'DOWN', MRef, process, Pid, normal} ->
+                  done
+          end.
+    </code>
+
+    <p>Default format prints per-process statistics.</p>
+    <code type="none"><![CDATA[
+        2> hprof:profile(test, test_spawn, []).
+
+        ****** Process <0.176.0>    -- 23.66 % of total allocations ***
+        MODULE FUN/ARITY        CALLS  WORDS  PER CALL  [    %]
+        erlang spawn_monitor/1      1      2         2  [ 9.09]
+        erlang spawn_opt/4          1      6         6  [27.27]
+        test   test_spawn/0         1     14        14  [63.64]
+                                          22            [100.0]
+
+        ****** Process <0.177.0>    -- 76.34 % of total allocations ***
+        MODULE FUN/ARITY   CALLS  WORDS  PER CALL  [    %]
+        erlang apply/2         1      7         7  [ 9.86]
+        lists  seq_loop/3      9     64         7  [90.14]
+                                     71            [100.0]
+    ]]></code>
+
+    <p>This example prints the combined memory allocation of
+        all processes, sorted by total allocated words in the descending order</p>
+    <code type="none"><![CDATA[
+        5> hprof:profile(test, test_spawn, [], #{report => {total, {words, descending}}}).
+
+        MODULE FUN/ARITY        CALLS  WORDS  PER CALL  [    %]
+        lists  seq_loop/3           9     64         7  [68.82]
+        test   test_spawn/0         1     14        14  [15.05]
+        erlang apply/2              1      7         7  [ 7.53]
+        erlang spawn_opt/4          1      6         6  [ 6.45]
+        erlang spawn_monitor/1      1      2         2  [ 2.15]
+                                          93            [100.0]
+    ]]></code>
+
+    <p>You can also collect the profile for further inspection.</p>
+    <code type="none"><![CDATA[
+      6> {done, ProfileData} = hprof:profile(fun test:test_spawn/0, #{report => return}).
+      <...>
+      7> hprof:format(hprof:inspect(ProfileData, process, {percent, descending})).
+
+      ****** Process <0.223.0>    -- 23.66 % of total allocations ***
+      MODULE FUN/ARITY        CALLS  WORDS  PER CALL  [    %]
+      test   test_spawn/0         1     14        14  [63.64]
+      erlang spawn_opt/4          1      6         6  [27.27]
+      erlang spawn_monitor/1      1      2         2  [ 9.09]
+      22            [100.0]
+
+      ****** Process <0.224.0>    -- 76.34 % of total allocations ***
+      MODULE FUN/ARITY   CALLS  WORDS  PER CALL  [    %]
+      lists  seq_loop/3      9     64         7  [90.14]
+      erlang apply/2         1      7         7  [ 9.86]
+      71            [100.0]
+    ]]></code>
+
+    <p>
+      By default, basic profiling takes into account all processes spawned
+      from the user-provided function (using <c>set_on_spawn</c> argument for
+      trace/3 BIF). You can limit the trace to a single process:
+    </p>
+
+    <code type="none"><![CDATA[
+      2> hprof:profile(test, test_spawn, [], #{set_on_spawn => false}).
+
+      ****** Process <0.183.0>    -- 100.00 % of total allocations ***
+      MODULE FUN/ARITY        CALLS  WORDS  PER CALL  [    %]
+      erlang spawn_monitor/1      1      2         2  [ 9.09]
+      erlang spawn_opt/4          1      6         6  [27.27]
+      test   test_spawn/0         1     14        14  [63.64]
+    ]]></code>
+
+    <marker id="pg_example"/>
+    <p>
+      Erlang programs may perform memory-intensive operations in processes
+      that are different from the original one. You can include multiple, new or
+      even all processes in the trace.
+    </p>
+
+    <code type="none"><![CDATA[
+      7> pg:start_link().
+      {ok,<0.252.0>}
+      8> hprof:profile(fun () -> pg:join(group, self()) end, #{rootset => [pg]}).
+      ****** Process <0.252.0>    -- 52.86 % of total allocations ***
+      MODULE     FUN/ARITY                 CALLS  WORDS  PER CALL  [    %]
+      pg         leave_local_update_ets/5      1      2         2  [ 1.80]
+      gen        reply/2                       1      3         3  [ 2.70]
+      erlang     monitor/2                     1      3         3  [ 2.70]
+      gen_server try_handle_call/4             1      3         3  [ 2.70]
+      gen_server try_dispatch/4                1      3         3  [ 2.70]
+      maps       iterator/1                    2      4         2  [ 3.60]
+      maps       take/2                        1      6         6  [ 5.41]
+      pg         join_local_update_ets/5       1      8         8  [ 7.21]
+      pg         handle_info/2                 1      8         8  [ 7.21]
+      pg         handle_call/3                 1      9         9  [ 8.11]
+      gen_server loop/7                        2      9         4  [ 8.11]
+      ets        lookup/2                      2     10         5  [ 9.01]
+      pg         join_local/3                  1     11        11  [ 9.91]
+      pg         notify_group/5                2     16         8  [14.41]
+      erlang     setelement/3                  2     16         8  [14.41]
+      111            [100.0]
+
+      ****** Process <0.255.0>    -- 47.14 % of total allocations ***
+      MODULE   FUN/ARITY         CALLS  WORDS  PER CALL  [    %]
+      erl_eval match_list/6          1      3         3  [ 3.03]
+      erlang   monitor/2             1      3         3  [ 3.03]
+      lists    reverse/1             2      4         2  [ 4.04]
+      pg       join/3                1      4         4  [ 4.04]
+      erl_eval add_bindings/2        1      5         5  [ 5.05]
+      erl_eval do_apply/7            2      6         3  [ 6.06]
+      gen      call/4                1      8         8  [ 8.08]
+      erl_eval expr_list/7           4     10         2  [10.10]
+      gen      do_call/4             1     16        16  [16.16]
+      erl_eval ret_expr/3            4     16         4  [16.16]
+      erl_eval merge_bindings/4      3     24         8  [24.24]
+      99            [100.0]
+    ]]></code>
+
+    <p>
+      There is no default limit on the profiling time. It is possible to
+      define such limit for ad-hoc profile. If function being profiled
+      does not return in a specified amount of time, process is terminated
+      with <c>kill</c> reason. Any unlinked children started by the
+      user-supplied function are kept, it is developer's responsibility
+      to ensure cleanup.
+    </p>
+
+    <code type="none">
+      9> hprof:profile(timer, sleep, [100000], #{timeout => 1000}).
+    </code>
+
+    <p>By default, only one ad-hoc or server-aided profiling session is allowed
+      at any point in time. It is possible to force multiple ad-hoc sessions
+      concurrently, but it is developer responsibility to ensure non-overlapping
+      trace patterns.
+    </p>
+
+    <code type="none">
+      1> hprof:profile(fun() -> lists:seq(1, 32) end,
+          #{registered => false, pattern => [{lists, '_', '_'}]}).
+    </code>
+
+  </section>
+
+  <section>
+    <title>Server-aided profiling</title>
+    <p>
+      Memory profiling can be done when your system is up and running. You
+      can start the <c>hprof</c> server, add trace patterns and processes
+      to trace while your system handles actual traffic. You can extract
+      the data any time, inspect, and print. The example below traces
+      activity of all processes supervised by kernel:
+    </p>
+
+    <code type="none"><![CDATA[
+      1> hprof:start().
+      {ok,<0.200.0>}
+      2> hprof:enable_trace({all_children, kernel_sup}).
+      34
+      3> hprof:set_pattern('_', '_' , '_').
+      16728
+      4> Sample = hprof:collect().
+      [{gen_server,try_dispatch,4,[{<0.154.0>,2,6}]},
+      {erlang,iolist_to_iovec,1,[{<0.161.0>,1,8}]},
+      <...>
+      5 > hprof:format(hprof:inspect(Sample)).
+
+      ****** Process <0.154.0>    -- 14.21 % of total allocations ***
+      MODULE     FUN/ARITY       CALLS  WORDS  PER CALL  [    %]
+      maps       iterator/1          2      4         2  [15.38]
+      gen_server try_dispatch/4      2      6         3  [23.08]
+      net_kernel handle_info/2       2     16         8  [61.54]
+                                           26            [100.0]
+
+      ****** Process <0.161.0>    -- 85.79 % of total allocations ***
+      MODULE     FUN/ARITY            CALLS  WORDS  PER CALL  [    %]
+      disk_log   handle/2                 2      2         1  [ 1.27]
+      disk_log_1 maybe_start_timer/1      1      3         3  [ 1.91]
+      disk_log_1 mf_write_cache/1         1      3         3  [ 1.91]
+      <...>
+    ]]></code>
+
+    <marker id="inspect_example"/>
+    <p>
+      It is possible to profile the entire running system, and then examine
+      individual processes:
+    </p>
+    <code type="none"><![CDATA[
+      1> hprof:start(), hprof:enable_trace(processes), hprof:set_pattern('_', '_' , '_').
+      9041
+      2> timer:sleep(10000), hprof:disable_trace(processes), Sample = hprof:collect().
+      [{user_drv,server,3,[{<0.64.0>,12,136}]},
+      {user_drv,contains_ctrl_g_or_ctrl_c,1,[{<0.64.0>,80,10}]},
+      <...>
+      3> Inspected = hprof:inspect(Sample, process, words), Shell = maps:get(self(), Inspected).
+      {2743,
+      [{shell,{enc,0},1,2,2,0.07291286912139992},
+      <...>
+      4> hprof:format(Shell).
+
+      MODULE                 FUN/ARITY                             CALLS  WORDS  PER CALL  [    %]
+      <...>
+      erl_lint               start/2                                   2    300       150  [10.94]
+      shell                  used_records/1                          114    342         3  [12.47]
+    ]]></code>
+  </section>
+
+  <datatypes>
+    <datatype>
+      <name name="process"/>
+      <desc>
+        <p>Either process identified (pid), or a registered process name.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="trace_map"/>
+      <desc>
+        <p>Traced functions (with their arities) grouped by module name.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="trace_pattern"/>
+    </datatype>
+    <datatype>
+      <name name="trace_options"/>
+      <desc>
+        <p>Options for enabling heap profiling of the selected processes,
+          see <seemfa marker="#enable_trace/2"><c>enable_trace/2</c></seemfa>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="trace_info"/>
+      <desc>
+        <p>Raw data extracted from tracing BIFs.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="rootset"/>
+    </datatype>
+    <datatype>
+      <name name="profile_options"/>
+      <desc>
+        <p>Ad-hoc profiler options,
+          see <seemfa marker="#profile/2"><c>profile</c></seemfa>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="profile_line"/>
+      <desc>
+        <p>Inspected data for a single function of the specified <c>Module</c>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="profile_result"/>
+      <desc>
+        <p>Profile of a single process, or combined profile of multiple
+          processes, sorted by a selected column.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="sort_by"/>
+    </datatype>
+    <datatype>
+      <name name="column"/>
+      <desc>
+        <p>Column to sort by <seemfa marker="#inspect/3"><c>inspect/3</c></seemfa>, or
+          <seemfa marker="#profile/2"><c>profile</c></seemfa>.</p>
+        <taglist>
+          <tag><c>module</c></tag>
+          <item>Module name.
+          </item>
+          <tag><c>function</c></tag>
+          <item>Function name.
+          </item>
+          <tag><c>calls</c></tag>
+          <item>Number of calls to the function.
+          </item>
+          <tag><c>words</c></tag>
+          <item>Total number of words allocated throughout all calls to the function.
+          </item>
+          <tag><c>words_per_call</c></tag>
+          <item>Number of words allocated on average per function call.
+          </item>
+          <tag><c>percent</c></tag>
+          <item>Percentage of <c>words</c> to a total amount allocated during the
+            entire profile collection.
+          </item>
+        </taglist>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="start" arity="0" since="OTP 26.0"/>
+      <fsummary>Start profiling server.</fsummary>
+      <desc>
+        <p> Starts the server, not supervised.
+            Profiling server stores current trace patterns and
+            ensures a single instance of heap profiler is running.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="start_link" arity="0" since="OTP 26.0"/>
+      <fsummary>Start profiling server.</fsummary>
+      <desc>
+          <p> Starts the server, supervised by the calling process.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="stop" arity="0" since="OTP 26.0"/>
+      <fsummary>Stop profiling server.</fsummary>
+      <desc>
+        <p>Stops the <c>hprof</c>, disabling memory tracing that has
+          been enabled.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_pattern" arity="3" since="OTP 26.0"/>
+      <fsummary>Enables memory tracing for a specific trace pattern.</fsummary>
+      <desc>
+          <p>Turns tracing on for the supplied pattern.
+          Requires running <c>hprof</c>. Patterns are additive, following
+          the same rules as <seemfa marker="erts:erlang#trace_pattern/3">
+          <c>erlang:trace_pattern/3</c></seemfa>. Returns number of functions
+          matching the supplied pattern.</p>
+        <code type="none"><![CDATA[
+1> hprof:set_pattern(lists, seq, '_').
+2
+2> hprof:set_pattern(lists, keyfind, 3).
+1
+3> hprof:get_trace_map().
+#{lists => [{keyfind,3},{seq,2},{seq,3}]}
+        ]]></code>
+        <p>If there are no functions matching the pattern, error
+        is returned</p>
+        <code><![CDATA[
+> hprof:set_pattern(no_module, func, '_').
+{error,{trace_pattern,no_module,func,'_'}}
+        ]]></code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="clear_pattern" arity="3" since="OTP 26.0"/>
+      <fsummary>Disables memory tracing for a specific trace pattern.</fsummary>
+      <desc>
+        <p>Turns tracing off for the supplied pattern.</p>
+        <code type="none"><![CDATA[
+1> hprof:set_pattern(lists, seq, '_').
+2
+2> hprof:clear_pattern(lists, seq, 3).
+1
+3> hprof:get_trace_map().
+#{lists => [{seq,2}]}
+        ]]></code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_trace_map" arity="0" since="OTP 26.0"/>
+      <fsummary>Returns trace map.</fsummary>
+      <desc>
+        <p>Returns a map of module names to functions with their arities.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="enable_trace" arity="1" clause_i="1" since="OTP 26.0"/>
+      <name name="enable_trace" arity="1" clause_i="2" since="OTP 26.0"/>
+      <fsummary>Enables memory tracing for the specified processes</fsummary>
+      <desc><p>
+        The same as <seemfa marker="#enable_trace/2"><c>enable_trace</c>
+      </seemfa><c>(<anno>Spec</anno>, #{set_on_spawn => true})</c>.
+      </p></desc>
+    </func>
+
+    <func>
+      <name name="enable_trace" arity="2" clause_i="1" since="OTP 26.0"/>
+      <name name="enable_trace" arity="2" clause_i="2" since="OTP 26.0"/>
+      <fsummary>Enables memory tracing for the specified processes</fsummary>
+      <desc><p>
+          Similar to <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa>,
+          but supports a few more options for
+          heap tracing convenience.
+        </p>
+        <p><c><anno>Spec</anno></c> is either a process identifier
+          (pid) for a local process, one of the following atoms, or a
+          list of local process identifiers or their registered names:</p>
+        <taglist>
+          <tag><c>processes</c></tag>
+          <item>All currently existing processes and all that will be created
+            in the future.
+          </item>
+          <tag><c>existing_processes</c></tag>
+          <item>All currently existing processes.
+          </item>
+          <tag><c>new_processes</c></tag>
+          <item>All processes that will be created in the future.
+          </item>
+          <tag><c>children</c></tag>
+          <item>All currently running processes that were directly spawned by
+            the specified process. This mode is helpful for tracing workers of
+            a single supervisor.
+          </item>
+          <tag><c>all_children</c></tag>
+          <item>All currently running processes that were spawned by the
+            specified process, or any recursive descendant of it. This mode is
+            designed to facilitate tracing of supervision trees.
+          </item>
+        </taglist>
+        <note><p>
+          Heap profiling server does not keep track of processes that were added
+          to the tracing set. It is permitted to stop the profiling server (wiping
+          out any accumulated data), restart the server, set entirely different
+          tracing pattern keeping the list of traced processes for future use.
+          Use <seemfa marker="#disable_trace/2"><c>disable_trace</c>(processes)</seemfa>
+          to clear the list of traced processes.
+        </p></note>
+        <p>Specify <c><anno>Options</anno></c> to modify heap tracing behaviour:</p>
+        <taglist>
+          <tag><c>set_on_spawn</c></tag>
+          <item>Automatically start heap tracing for processes spawned by the traced
+            process. On by default.</item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="disable_trace" arity="1" clause_i="1" since="OTP 26.0"/>
+      <name name="disable_trace" arity="1" clause_i="2" since="OTP 26.0"/>
+      <fsummary>Disables memory tracing for the specified processes</fsummary>
+      <desc><p>
+        The same as <seemfa marker="#disable_trace/2"><c>disable_trace</c>
+      </seemfa><c>(<anno>Spec</anno>, #{set_on_spawn => true})</c>.
+      </p></desc>
+    </func>
+
+    <func>
+      <name name="disable_trace" arity="2" clause_i="1" since="OTP 26.0"/>
+      <name name="disable_trace" arity="2" clause_i="2" since="OTP 26.0"/>
+      <fsummary>Disables memory tracing for the specified processes</fsummary>
+      <desc><p>Stops accumulating heap traces for specified processes. See
+        <seemfa marker="#enable_trace/2"><c>enable_trace/2</c></seemfa> for
+        options description.
+        </p>
+        <p>Profile accumulated before process is removed from the traced
+        list is retained. This allows to enable tracing for many or even
+        all processes in the system, sleep for a short period of time,
+        then disable tracing for all processes, avoiding system overload,
+        but keeping profile data.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="pause" arity="0" since="OTP 26.0"/>
+      <fsummary>Pauses heap tracing.</fsummary>
+      <desc>
+        <p>Pauses trace collection for all currently traced functions, keeping all
+        traces intact. Use <seemfa marker="#continue/0"><c>continue/0</c></seemfa> to
+        resume trace collection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="continue" arity="0" since="OTP 26.0"/>
+      <fsummary>Resumes heap tracing.</fsummary>
+      <desc>
+        <p>Resumes previously paused heap profiling.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="restart" arity="0" since="OTP 26.0"/>
+      <fsummary>Clears profiling data and restarts tracing.</fsummary>
+      <desc>
+        <p>Clears accumulated profiles. If profiling was paused prior to
+        calling <c>restart</c>, it gets continued.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="profile" arity="1" since="OTP 26.0"/>
+      <name name="profile" arity="2" since="OTP 26.0"/>
+      <name name="profile" arity="3" since="OTP 26.0"/>
+      <name name="profile" arity="4" since="OTP 26.0"/>
+      <fsummary>Produces ad-hoc heap profile for the function.</fsummary>
+      <desc>
+        <p>Produces ad-hoc heap profile for function <c>Fun</c> or
+        <c>Module</c>:<c>Function</c> call. By default, result
+        is formatted to the output device, use <c>report</c> option to change
+        this behaviour.</p>
+        <p>Ad-hoc profiling starts a new instance of <c>hprof</c> server, runs
+        the profiling routine, extracts results and shuts the server down. If
+        <c>hprof</c> is already running (for server-aided profiling), default
+        ad-hoc profiler options block this call to avoid mixing results from
+        several independent instances. Use <c>registered => false</c> option to
+        override this behaviour.</p>
+        <p>Ad-hoc profiler supports following<c>Options</c>:</p>
+        <taglist>
+          <tag><c>device</c></tag>
+          <item>Specifies I/O devices to print the profile to. Useful to redirect
+            text output to console or <c>standard_error</c>.
+          </item>
+          <tag><c>pattern</c></tag>
+          <item>Specifies trace pattern, or a list of trace patterns to enable.
+            By default, all functions (<c>{'_', '_', '_'}</c>) are traced.
+          </item>
+          <tag><c>registered</c></tag>
+          <item>Specifies <c>hprof</c> registered process name. Use <c>false</c>
+            to leave the process unregistered, or <c>{local, myname}</c> to register
+            the process under a different name.
+          </item>
+          <tag><c>report</c></tag>
+          <item>Controls output format. The default is <c>process</c>, printing
+            per-process heap profiling data sorted by percentage of the total
+            allocation. Specify <c>report => return</c> to suppress printing and
+            get the raw data for further evaluation with
+            <seemfa marker="#inspect/3"><c>inspect/3</c></seemfa> and formatting
+            with <seemfa marker="#format/2"><c>format/2</c></seemfa>.
+          </item>
+          <tag><c>rootset</c></tag>
+          <item>Includes extra processes in the trace list. Useful for profiling
+            allocations for <seeerl marker="stdlib:gen_server"><c>gen_server</c></seeerl>,
+            calls, or other allocations caused by inter-process communications. See
+            <seeerl marker="hprof#pg_example">example</seeerl>.
+          </item>
+          <tag><c>set_on_spawn</c></tag>
+          <item>Automatically start heap tracing for processes spawned by the traced
+            process. On by default.
+          </item>
+          <tag><c>timeout</c></tag>
+          <item>Terminate profiling after the specified amount of time (milliseconds).
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="format" arity="1" since="OTP 26.0"/>
+      <name name="format" arity="2" since="OTP 26.0"/>
+      <fsummary>Formats transformed profile to a specified device.</fsummary>
+      <desc>
+        <p>Formats profile transformed with <seemfa marker="#inspect/3"><c>inspect</c>
+        </seemfa> to a specified device.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="inspect" arity="1" clause_i="1" since="OTP 26.0"/>
+      <fsummary>Transforms raw data returned by heap profiler.</fsummary>
+      <desc><p>
+        The same as <seemfa marker="#inspect/3"><c>inspect</c>
+      </seemfa><c>(<anno>Profile</anno>, process, percent)</c>. Transforms
+        raw profile into a map of process identifiers to a tuple containing
+        total count of words allocated, and a list of all traced functions
+        sorted in the ascending order by the allocation percentage.
+      </p></desc>
+    </func>
+
+    <func>
+      <name name="inspect" arity="3" clause_i="1" since="OTP 26.0"/>
+      <fsummary>Transforms raw data returned by heap profiler.</fsummary>
+      <desc>
+        <p>Transforms raw data returned by tracing BIFs into a form
+          convenient for subsequent analysis and formatting. Returns
+          a map of process identifiers with corresponding profile data sorted by
+          the selected column.</p>
+        <p>
+          Inspected profile can be leveraged to print
+          <seeerl marker="hprof#inspect_example">individual process
+            allocations</seeerl>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="inspect" arity="3" clause_i="2" since="OTP 26.0"/>
+      <fsummary>Transforms raw data returned by heap profiler into a summary.</fsummary>
+      <desc>
+        <p>Combines raw profile from multiple processes into a single summary
+          sorted by the selected column.</p>
+        <p>
+          A single profiling session may contain data from thousands or even millions
+          processes. This inspection mode allows to quickly glance through the allocation
+          summary, discarding process identifiers and keeping only totals.
+        </p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

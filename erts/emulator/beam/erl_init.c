@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -343,7 +343,6 @@ erl_init(int ncpu,
     BIN_VH_MIN_SIZE = erts_next_heap_size(BIN_VH_MIN_SIZE, 0);
 
     erts_init_trace();
-    erts_init_bits();
     erts_code_ix_init();
     erts_init_fun_table();
     init_atom_table();
@@ -388,6 +387,7 @@ erl_init(int ncpu,
     erl_nif_init();
     erts_msacc_init();
     beamfile_init();
+    erts_late_init_external();
 }
 
 static Eterm

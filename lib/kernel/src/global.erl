@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -497,6 +497,7 @@ disconnect() ->
 -spec init([]) -> {'ok', state()}.
 
 init([]) ->
+    _ = process_flag(async_dist, true),
     process_flag(trap_exit, true),
 
     %% Monitor all 'nodeup'/'nodedown' messages of visible nodes.
@@ -2760,19 +2761,10 @@ inform_connection_loss(_Node, #state{}) ->
 %% Volatile send (does not bring up connections and does not
 %% preserve signal order) of Msg to global name server at Node...
 %%
+
 gns_volatile_send(Node, Msg) ->
-    To = {global_name_server, Node},
-    case erlang:send(To, Msg, [nosuspend, noconnect]) of
-        ok ->
-            ok;
-        noconnect ->
-            ok;
-        nosuspend ->
-            _ = spawn(fun () ->
-                              _ = erlang:send(To, Msg, [noconnect])
-                      end),
-            ok
-    end.
+    _ = erlang:send({global_name_server, Node}, Msg, [noconnect]),
+    ok.
 
 %%
 %% Volatile multicast of Msg to all global name servers on known nodes
@@ -2784,14 +2776,17 @@ gns_volatile_multicast(Msg, IgnoreNode, MinVer,
     maps:foreach(fun (Node, Ver) when is_atom(Node),
                                       Node =/= IgnoreNode,
                                       Ver >= MinVer ->
-                         gns_volatile_send(Node, Msg);
+                         _ = erlang:send({global_name_server, Node}, Msg,
+                                         [noconnect]);
                      ({pending, Node}, Ver) when AlsoPend == true,
                                                  Node =/= IgnoreNode,
                                                  Ver >= MinVer ->
-                         gns_volatile_send(Node, Msg);
+                         _ = erlang:send({global_name_server, Node}, Msg,
+                                         [noconnect]);
                      (_, _) ->
                          ok
-                 end, Known).
+                 end, Known),
+    ok.
 
 is_node_potentially_known(Node, #state{known = Known}) ->
     maps:is_key(Node, Known) orelse maps:is_key({pending, Node}, Known).

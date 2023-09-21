@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -260,6 +260,7 @@ start_link() -> gen_server:start_link({local, global_group}, global_group,[],[])
 stop() -> gen_server:call(global_group, stop, infinity).
 
 init([]) ->
+    _ = process_flag(async_dist, true),
     process_flag(priority, max),
     ok = net_kernel:monitor_nodes(true, #{connection_id => true}),
     put(registered_names, [undefined]),
@@ -1374,9 +1375,7 @@ make_group_conf(NodeName, KernParamValue) ->
             GMap = if OwnNodes == [] ->
                            all;
                       true ->
-                           maps:from_list(lists:map(fun (Node) ->
-                                                            {Node, ok}
-                                                    end, OwnNodes))
+                           #{Node => ok || Node <- OwnNodes}
                    end,
             #gconf{parameter_value = KernParamValue,
                    node_name = NodeName,

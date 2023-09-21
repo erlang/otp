@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,8 +33,8 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     /* ARG3 already contains the place to jump to. */
 #endif
 
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
+    a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), imm(1));
     a.jmp(labels[context_switch_simplified]);
 }
 
@@ -50,6 +50,14 @@ void BeamModuleAssembler::emit_return() {
     a.mov(ARG3, getCPRef());
     a.mov(getCPRef(), imm(NIL));
 #endif
+
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+#if defined(NATIVE_ERLANG_STACK)
+        a.mov(ARG3, x86::qword_ptr(E));
+#endif
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG3);
+    }
 
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */

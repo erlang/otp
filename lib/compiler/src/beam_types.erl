@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@
 
 -export([limit_depth/1]).
 
--export([decode_ext/1, encode_ext/1]).
+-export([decode_ext/1, encode_ext/1, convert_ext/2]).
 
 %% This is exported to help catch errors in property test generators and is not
 %% meant to be used outside of test suites.
@@ -382,8 +382,11 @@ subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
     end;
 subtract(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     subtract_matchable(T, UnitA, UnitB);
-subtract(#t_bitstring{size_unit=UnitA}=T, #t_bitstring{size_unit=UnitB}) ->
+subtract(#t_bitstring{appendable=App,size_unit=UnitA}=T,
+         #t_bitstring{appendable=App,size_unit=UnitB}) ->
     subtract_matchable(T, UnitA, UnitB);
+subtract(#t_bitstring{}=T, #t_bitstring{}) ->
+    T;
 subtract(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     subtract_matchable(T, UnitA, UnitB);
 subtract(#t_bs_context{tail_unit=UnitA}=T, #t_bs_context{tail_unit=UnitB}) ->
@@ -476,7 +479,7 @@ is_bs_matchable_type(Type) ->
       Result :: {ok, term()} | error.
 get_singleton_value(#t_atom{elements=[Atom]}) ->
     {ok, Atom};
-get_singleton_value(#t_float{elements={Float,Float}}) when Float =/= 0.0 ->
+get_singleton_value(#t_float{elements={Float,Float}}) when Float /= 0 ->
     %% 0.0 is not actually a singleton as it has two encodings: 0.0 and -0.0
     {ok, Float};
 get_singleton_value(#t_integer{elements={Int,Int}}) ->
@@ -549,9 +552,9 @@ get_tuple_element(Index, Es) ->
 %% Helper routine for `update_tuple` / `update_record` instructions, which copy
 %% an existing type and updates a few fields.
 -spec update_tuple(Type, Updates) -> Tuple when
-    Type :: type(),
-    Updates :: [{pos_integer(), type()}, ...],
-    Tuple :: type().
+      Type :: type(),
+      Updates :: [{pos_integer(), type()}, ...],
+      Tuple :: type().
 update_tuple(#t_union{tuple_set=[_|_]=Set0}, [_|_]=Updates) ->
     case Updates of
         [{1, _} | _] ->
@@ -628,7 +631,9 @@ mtfv_1(A) when is_atom(A) ->
 mtfv_1(B) when is_bitstring(B) ->
     case bit_size(B) of
         0 ->
-            #t_bitstring{size_unit=256};
+            %% See the #t_bitstring{} definition in beam_types.hrl for
+            %% why empty binaries are considered appendable.
+            #t_bitstring{size_unit=256,appendable=true};
         Size ->
             #t_bitstring{size_unit=gcd(Size, 256)}
     end;
@@ -647,9 +652,9 @@ mtfv_1(L) when is_list(L) ->
 mtfv_1(M) when is_map(M) ->
     {SKey, SValue} =
         maps:fold(fun(Key, Value, {SKey0, SValue0}) ->
-                        SKey = join(mtfv_1(Key), SKey0),
-                        SValue = join(mtfv_1(Value), SValue0),
-                        {SKey, SValue}
+                          SKey = join(mtfv_1(Key), SKey0),
+                          SValue = join(mtfv_1(Value), SValue0),
+                          {SKey, SValue}
                   end, {none, none}, M),
     #t_map{super_key=SKey,super_value=SValue};
 mtfv_1(T) when is_tuple(T) ->
@@ -821,11 +826,13 @@ glb(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
     T;
 glb(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
     T;
-glb(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
-    #t_bitstring{size_unit=U1 * U2 div gcd(U1, U2)};
-glb(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
+glb(#t_bitstring{size_unit=U1,appendable=A1},
+    #t_bitstring{size_unit=U2,appendable=A2}) ->
+    #t_bitstring{size_unit=U1 * U2 div gcd(U1, U2),appendable=A1 or A2};
+glb(#t_bitstring{size_unit=UnitA,appendable=Appendable}=T,
+    #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
-    T#t_bitstring{size_unit=Unit};
+    T#t_bitstring{size_unit=Unit,appendable=Appendable};
 glb(#t_bs_context{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     #t_bs_context{tail_unit=Unit};
@@ -835,9 +842,10 @@ glb(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
 glb(#t_bs_matchable{tail_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     #t_bs_matchable{tail_unit=Unit};
-glb(#t_bs_matchable{tail_unit=UnitA}, #t_bitstring{size_unit=UnitB}=T) ->
+glb(#t_bs_matchable{tail_unit=UnitA},
+    #t_bitstring{size_unit=UnitB,appendable=Appendable}=T) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
-    T#t_bitstring{size_unit=Unit};
+    T#t_bitstring{size_unit=Unit,appendable=Appendable};
 glb(#t_bs_matchable{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}=T) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     T#t_bs_context{tail_unit=Unit};
@@ -1014,8 +1022,9 @@ lub(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
     end;
 lub(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
 lub(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
-lub(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
-    #t_bitstring{size_unit=gcd(U1, U2)};
+lub(#t_bitstring{size_unit=U1,appendable=A1},
+    #t_bitstring{size_unit=U2,appendable=A2}) ->
+    #t_bitstring{size_unit=gcd(U1, U2),appendable=A1 and A2};
 lub(#t_bitstring{size_unit=U1}, #t_bs_context{tail_unit=U2}) ->
     #t_bs_matchable{tail_unit=gcd(U1, U2)};
 lub(#t_bitstring{size_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
@@ -1128,7 +1137,7 @@ lub_bs_matchable(UnitA, UnitB) ->
 
 lub_tuple_elements(MinSize, EsA, EsB) ->
     Es0 = lub_elements(EsA, EsB),
-    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
+    #{Index => Type || Index := Type <- Es0, Index =< MinSize}.
 
 lub_elements(Es1, Es2) ->
     Keys = if
@@ -1170,14 +1179,23 @@ float_from_range(none) ->
     none;
 float_from_range(any) ->
     #t_float{};
-float_from_range({'-inf','+inf'}) ->
-    #t_float{};
-float_from_range({'-inf',Max}) ->
-    #t_float{elements={'-inf',float(Max)}};
-float_from_range({Min,'+inf'}) ->
-    #t_float{elements={float(Min),'+inf'}};
-float_from_range({Min,Max}) ->
-    #t_float{elements={float(Min),float(Max)}}.
+float_from_range({Min0,Max0}) ->
+    case {safe_float(Min0),safe_float(Max0)} of
+        {'-inf','+inf'} ->
+            #t_float{};
+        {Min,Max} ->
+            #t_float{elements={Min,Max}}
+    end.
+
+safe_float(N) when is_number(N) ->
+    try
+        float(N)
+    catch
+        error:_ when N < 0 -> '-inf';
+        error:_ when N > 0 -> '+inf'
+    end;
+safe_float('-inf'=NegInf) -> NegInf;
+safe_float('+inf'=PosInf) -> PosInf.
 
 integer_from_range(none) ->
     none;
@@ -1359,12 +1377,11 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
     %% union). 'any' is prohibited since it's implicit and should never be
     %% present in the map, and a 'none' element ought to have reduced the
     %% entire tuple to 'none'.
-    maps:fold(fun(Index, Element, _) when is_integer(Index),
-                                          1 =< Index, Index =< Size,
-                                          Index =< ?TUPLE_ELEMENT_LIMIT,
-                                          Element =/= any, Element =/= none ->
-                      verified_type(Element)
-              end, [], Es),
+    _ = [verified_type(Element) ||
+            Index := Element <- Es,
+            is_integer(Index), 1 =< Index, Index =< Size,
+            Index =< ?TUPLE_ELEMENT_LIMIT,
+            Element =/= any, Element =/= none],
     T.
 
 %%%
@@ -1395,6 +1412,28 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
 -define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 13)).
 -define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 14)).
 -define(BEAM_TYPE_HAS_UNIT,        (1 bsl 15)).
+
+-define(BEAM_TYPES_VERSION_26, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_25, 1).
+
+-spec convert_ext(pos_integer(), binary()) -> binary() | 'none'.
+convert_ext(?BEAM_TYPES_VERSION, Types) ->
+    Types;
+convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
+    NumberMask = (?BEAM_TYPE_FLOAT bor ?BEAM_TYPE_INTEGER),
+    Types = << case Min =< Max of
+                   true ->
+                       true = 0 =/= (TypeBits0 band NumberMask), %Assertion.
+                       TypeBits = TypeBits0 bor
+                           ?BEAM_TYPE_HAS_LOWER_BOUND bor
+                           ?BEAM_TYPE_HAS_UPPER_BOUND,
+                       <<TypeBits:16,Min:64/signed,Max:64/signed>>;
+                   false ->
+                       <<TypeBits0:16>>
+               end || <<TypeBits0:16,Min:64/signed,Max:64/signed>> <= Types0 >>,
+    convert_ext(?BEAM_TYPES_VERSION_26, Types);
+convert_ext(_Version, _Types) ->
+    none.
 
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
@@ -1433,15 +1472,16 @@ decode_ext_bits(Input, TypeBit, Type, Acc) ->
     end.
 
 decode_extra(TypeBits, Extra) ->
-    L = [{?BEAM_TYPE_HAS_LOWER_BOUND, 64, '-inf'},
-         {?BEAM_TYPE_HAS_UPPER_BOUND, 64, '+inf'},
-         {?BEAM_TYPE_HAS_UNIT, 8, 1}],
-    mapfoldl(fun({Bit,Size,Default}, Acc0) ->
-                     if
-                         TypeBits band Bit =:= Bit ->
-                             <<Value:Size,Acc/binary>> = Acc0,
-                             {Value,Acc};
-                         true ->
+    L = [{?BEAM_TYPE_HAS_LOWER_BOUND, 64, signed, '-inf'},
+         {?BEAM_TYPE_HAS_UPPER_BOUND, 64, signed, '+inf'},
+         {?BEAM_TYPE_HAS_UNIT, 8, unsigned, 1}],
+    mapfoldl(fun({Bit,Size,Spec,Default}, Acc0) ->
+                     case {TypeBits band Bit, Spec, Acc0} of
+                         {Bit, unsigned, <<Value:Size/unsigned,Acc/binary>>} ->
+                             {Value, Acc};
+                         {Bit, signed, <<Value:Size/signed,Acc/binary>>} ->
+                             {Value, Acc};
+                         {0, _Spec, <<_/binary>>} ->
                              {Default,Acc0}
                      end
              end, Extra, L).

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2021-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,27 +63,28 @@
 #define BEAM_TYPE_HAS_UPPER_BOUND    (1 << 14)
 #define BEAM_TYPE_HAS_UNIT           (1 << 15)
 
+#define BEAM_TYPE_METADATA_MASK      (BEAM_TYPE_HAS_LOWER_BOUND | \
+                                      BEAM_TYPE_HAS_UPPER_BOUND | \
+                                      BEAM_TYPE_HAS_UNIT)
+
 typedef struct {
     /** @brief A set of the possible types (atom, tuple, etc) this term may
      * be. When a single bit is set, the term will always be of that type. */
     int type_union;
 
-    /** @brief Minimum and maximum values. Valid if at least one of
-     * IS_SSMALL(min) and IS_SSMALL(max) is true; otherwise the range is
-     * unknown.
-     *
-     * If and only if min < max, then the value is always a small within
-     * the range min trough max (including the endpoints).
-     *
-     * If and only if IS_SSMALL(min) && !IS_SSMALL(max) is true, then
-     * the value is greater than or equal to min.
-     *
-     * If and only if !IS_SSMALL(min) && IS_SSMALL(max), then the
-     * value is less than or equal to min. */
+    /** @brief A set of metadata presence flags, BEAM_TYPE_HAS_XYZ. */
+    int metadata_flags;
+
+    /** @brief Minimum numerical value. Only valid when the
+     * BEAM_TYPE_HAS_LOWER_BOUND metadata flag is present. */
     Sint64 min;
+
+    /** @brief Maximum numerical value. Only valid when the
+     * BEAM_TYPE_HAS_UPPER_BOUND metadata flag is present. */
     Sint64 max;
 
-    /** @brief Unit for bitstring size. */
+    /** @brief Unit for bitstring size. Only valid when the BEAM_TYPE_HAS_UNIT
+     * metadata flag is present. */
     byte size_unit;
 } BeamType;
 

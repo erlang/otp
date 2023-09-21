@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,66 +29,72 @@ extern "C"
 #include "beam_common.h"
 }
 
-static const Uint32 INTERNAL_HASH_SALT = 3432918353;
-static const Uint32 HCONST_22 = 0x98C475E6UL;
-static const Uint32 HCONST = 0x9E3779B9;
-
-/* ARG3 = incoming hash
- * ARG4 = lower 32
- * ARG5 = upper 32
- * ARG6 = type constant
+/* ARG2 = term
  *
- * Helper function for calculating the internal hash of keys before looking
- * them up in a map.
+ * Helper for calculating the internal hash of keys before looking them up in a
+ * map. This is a manual expansion of `erts_internal_hash`, and all changes to
+ * that function must be mirrored here.
  *
- * This is essentially just a manual expansion of the `UINT32_HASH_2` macro.
- * Whenever the internal hash algorithm is updated, this and all of its users
- * must follow suit.
- *
- * Result is returned in ARG3. */
+ * Result in ARG3. */
 void BeamGlobalAssembler::emit_internal_hash_helper() {
-    x86::Gp hash = ARG3d, lower = ARG4d, upper = ARG5d, constant = ARG6d;
+    x86::Gp key = ARG2, key_hash = ARG3;
 
-    a.add(lower, constant);
-    a.add(upper, constant);
-
-#if defined(ERL_INTERNAL_HASH_CRC32C)
-    a.mov(constant, hash);
-    a.crc32(hash, lower);
-    a.add(hash, constant);
-    a.crc32(hash, upper);
-#else
-    using rounds =
-            std::initializer_list<std::tuple<x86::Gp, x86::Gp, x86::Gp, int>>;
-    for (const auto &round : rounds{{lower, upper, hash, 13},
-                                    {upper, hash, lower, -8},
-                                    {hash, lower, upper, 13},
-                                    {lower, upper, hash, 12},
-                                    {upper, hash, lower, -16},
-                                    {hash, lower, upper, 5},
-                                    {lower, upper, hash, 3},
-                                    {upper, hash, lower, -10},
-                                    {hash, lower, upper, 15}}) {
-        const auto &[r_a, r_b, r_c, shift] = round;
-
-        a.sub(r_a, r_b);
-        a.sub(r_a, r_c);
-
-        /* We have no use for the type constant anymore, reuse its register for
-         * the `a ^= r_c << shift` expression. */
-        a.mov(ARG6d, r_c);
-
-        if (shift > 0) {
-            a.shr(ARG6d, imm(shift));
-        } else {
-            a.shl(ARG6d, imm(-shift));
-        }
-
-        a.xor_(r_a, ARG6d);
+    /* Unsigned multiplication instructions on x86 either use RDX as an
+     * implicit source or clobber it. Sigh. */
+    if (key == x86::rdx) {
+        a.mov(TMP_MEM1q, x86::rdx);
+    } else {
+        ASSERT(key_hash == x86::rdx);
     }
-#endif
 
-    a.ret();
+    /* key_hash = key ^ (key >> 33); */
+    a.mov(ARG4, ARG2);
+    a.shr(ARG4, imm(33));
+    a.mov(x86::rdx, ARG2);
+    a.xor_(x86::rdx, ARG4);
+
+    /* `RDX * ARG6` storing a 128 bit result in ARG4:RDX. We only want the
+     * lower 64 bits in RDX.
+     *
+     * key_hash *= 0xFF51AFD7ED558CCDull */
+    mov_imm(ARG6, 0xFF51AFD7ED558CCDull);
+    a.mulx(ARG4, x86::rdx, ARG6);
+
+    /* key_hash ^= key_hash >> 33; */
+    a.mov(ARG4, x86::rdx);
+    a.shr(ARG4, imm(33));
+    a.xor_(x86::rdx, ARG4);
+
+    /* key_hash *= 0xC4CEB9FE1A85EC53ull */
+    mov_imm(ARG6, 0xC4CEB9FE1A85EC53ull);
+    a.mulx(ARG4, x86::rdx, ARG6);
+
+    /* key_hash ^= key_hash >> 33; */
+    a.mov(ARG4, x86::rdx);
+    a.shr(ARG4, imm(33));
+    a.xor_(x86::rdx, ARG4);
+
+    if (key == x86::rdx) {
+        a.mov(key_hash, x86::rdx);
+        a.mov(key, TMP_MEM1q);
+    }
+
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+    a.mov(TMP_MEM1q, ARG1);
+    a.mov(TMP_MEM2q, ARG2);
+    a.mov(TMP_MEM3q, RET);
+
+    a.mov(ARG1, ARG3);
+    emit_enter_runtime();
+    runtime_call<2>(erts_dbg_hashmap_collision_bonanza);
+    emit_leave_runtime();
+
+    a.mov(ARG3, RET);
+
+    a.mov(ARG1, TMP_MEM1q);
+    a.mov(ARG2, TMP_MEM2q);
+    a.mov(RET, TMP_MEM3q);
+#endif
 }
 
 /* ARG1 = hash map root, ARG2 = key, ARG3 = key hash, RETd = node header
@@ -97,7 +103,7 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
 void BeamGlobalAssembler::emit_hashmap_get_element() {
     Label node_loop = a.newLabel();
 
-    x86::Gp node = ARG1, key = ARG2, key_hash = ARG3d, header_val = RETd,
+    x86::Gp node = ARG1, key = ARG2, key_hash = ARG3, header_val = RETd,
             index = ARG4d, depth = ARG5d;
 
     const int header_shift =
@@ -109,12 +115,13 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
 
     a.bind(node_loop);
     {
-        Label fail = a.newLabel(), leaf_node = a.newLabel(),
-              skip_index_adjustment = a.newLabel(), update_hash = a.newLabel();
+        Label done = a.newLabel(), leaf_node = a.newLabel(),
+              skip_index_adjustment = a.newLabel(),
+              collision_node = a.newLabel();
 
         /* Find out which child we should follow, and shift the hash for the
          * next round. */
-        a.mov(index, key_hash);
+        a.mov(index, key_hash.r32());
         a.and_(index, imm(0xF));
         a.shr(key_hash, imm(4));
         a.inc(depth);
@@ -131,7 +138,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
              * Note that we jump directly to a `RET` instruction, as `BT` only
              * affects CF, and ZF ("not found") is clear at this point. */
             a.bt(header_val, index);
-            a.short_().jnc(fail);
+            a.short_().jnc(done);
 
             /* The actual offset of our entry is the number of bits set (in
              * essence "entries present") before our index in the bitmap. */
@@ -154,11 +161,11 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
         /* Nope, we have to search another node. */
         a.mov(header_val, emit_boxed_val(node, 0, sizeof(Uint32)));
 
-        /* After 8 nodes we've run out of the 32 bits we started with, so we
-         * need to update the hash to keep going. */
-        a.test(depth, imm(0x7));
-        a.short_().jz(update_hash);
-        a.short_().jmp(node_loop);
+        /* After 8/16 nodes we've run out of the hash bits we've started with
+         * and we end up in a collision node. */
+        a.test(depth, imm(HAMT_MAX_LEVEL - 1));
+        a.short_().jnz(node_loop);
+        a.short_().jmp(collision_node);
 
         a.bind(leaf_node);
         {
@@ -168,36 +175,33 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
             a.mov(RET, getCDRRef(node));
 
             /* See comment at the jump. */
-            a.bind(fail);
+            a.bind(done);
             a.ret();
         }
 
-        /* After 8 nodes we've run out of the 32 bits we started with, so we
-         * must calculate a new hash to continue.
-         *
-         * This is a manual expansion `make_map_hash` from utils.c, and all
-         * changes to that function must be mirrored here. */
-        a.bind(update_hash);
+        /* A collision node is a tuple of leafs where we do linear search.*/
+        a.bind(collision_node);
         {
-            a.mov(TMP_MEM1d, depth);
+            Label linear_loop = a.newLabel();
 
-            /* NOTE: ARG3d is always 0 at this point. */
-            a.mov(ARG4d, depth);
-            a.shr(ARG4d, imm(3));
-            mov_imm(ARG5d, 1);
-            a.mov(ARG6d, imm(HCONST_22));
-            a.call(labels[internal_hash_helper]);
+            a.shr(header_val, imm(_HEADER_ARITY_OFFS));
+            a.lea(ARG6d, x86::qword_ptr(header_val, -1));
 
-            a.xor_(ARG3d, imm(INTERNAL_HASH_SALT));
-            a.mov(ARG4d, key.r32());
-            a.mov(ARG5, key);
-            a.shr(ARG5, imm(32));
-            a.mov(ARG6d, imm(HCONST));
-            a.call(labels[internal_hash_helper]);
+            a.bind(linear_loop);
+            {
+                a.mov(ARG3,
+                      x86::qword_ptr(node, ARG6, 3, 8 - TAG_PRIMARY_BOXED));
 
-            a.mov(depth, TMP_MEM1d);
+                emit_ptr_val(ARG3, ARG3);
+                a.cmp(key, getCARRef(ARG3));
+                a.mov(RET, getCDRRef(ARG3));
+                a.short_().jz(done);
 
-            a.jmp(node_loop);
+                a.dec(ARG6d);
+                a.short_().jns(linear_loop);
+            }
+
+            a.ret();
         }
     }
 }
@@ -300,8 +304,8 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
 
             comment("(initializing two elements at once)");
             dst_ptr0.setSize(16);
-            a.movups(x86::xmm0, src_ptr);
-            a.movups(dst_ptr0, x86::xmm0);
+            vmovups(x86::xmm0, src_ptr);
+            vmovups(dst_ptr0, x86::xmm0);
             break;
         }
         case ArgVal::reverse_consecutive: {
@@ -361,9 +365,11 @@ void BeamGlobalAssembler::emit_i_get_map_element_shared() {
 
     a.bind(generic);
     {
+        emit_enter_frame();
         emit_enter_runtime();
         runtime_call<2>(get_map_element);
         emit_leave_runtime();
+        emit_leave_frame();
 
         emit_test_the_non_value(RET);
 
@@ -376,15 +382,9 @@ void BeamGlobalAssembler::emit_i_get_map_element_shared() {
 
     a.bind(hashmap);
     {
-        /* Calculate the internal hash of ARG2 before diving into the HAMT. */
-        a.mov(ARG5, ARG2);
-        a.shr(ARG5, imm(32));
-        a.mov(ARG4d, ARG2d);
-
-        a.mov(ARG3d, imm(INTERNAL_HASH_SALT));
-        a.mov(ARG6d, imm(HCONST));
-        a.call(labels[internal_hash_helper]);
-
+        /* Calculate the internal hash of the key before diving into the
+         * HAMT. */
+        emit_internal_hash_helper();
         emit_hashmap_get_element();
     }
 }

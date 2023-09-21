@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -90,7 +90,8 @@
 -type ifaddrs_filter()     :: all | default | inet | inet6 | packet |
                               ifaddrs_filter_map() |
                               ifaddrs_filter_fun().
--type ifaddrs_filter_map() :: #{family := default | inet | inet6 | packet | all,
+-type ifaddrs_filter_map() :: #{family := default | local |
+                                inet | inet6 | packet | all,
                                 flags  := any | [ifaddrs_flag()]}.
 -type ifaddrs_filter_fun() :: fun((ifaddrs()) -> boolean()).
 

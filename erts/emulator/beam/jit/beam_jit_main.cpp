@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,6 +76,32 @@ static BeamGlobalAssembler *bga;
 static BeamModuleAssembler *bma;
 static CpuInfo cpuinfo;
 
+#if defined(__aarch64__) && !(defined(WIN32) || defined(__APPLE__)) &&         \
+        defined(__GNUC__) && defined(ERTS_THR_INSTRUCTION_BARRIER) &&          \
+        ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION &&                           \
+        ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION
+#    define BEAMASM_MANUAL_ICACHE_FLUSHING
+#endif
+
+#ifdef BEAMASM_MANUAL_ICACHE_FLUSHING
+static UWord min_icache_line_size;
+static UWord min_dcache_line_size;
+#endif
+
+static void init_cache_info() {
+#if defined(__aarch64__) && defined(BEAMASM_MANUAL_ICACHE_FLUSHING)
+    UWord ctr_el0;
+
+    /* DC/IC operate on a cache line basis, so we need to step according to the
+     * _smallest_ data and instruction cache line size.
+     *
+     * Query the "Cache Type Register" MSR to find out what they are. */
+    __asm__ __volatile__("mrs %0, ctr_el0\n" : "=r"(ctr_el0));
+    min_dcache_line_size = (4 << ((ctr_el0 >> 16) & 0xF));
+    min_icache_line_size = (4 << (ctr_el0 & 0xF));
+#endif
+}
+
 /*
  * Enter all BIFs into the export table.
  *
@@ -120,33 +146,47 @@ static void install_bifs(void) {
     }
 }
 
-static JitAllocator *create_allocator(JitAllocator::CreateParams *params) {
+static auto create_allocator(const JitAllocator::CreateParams &params) {
     void *test_ro, *test_rw;
+    bool single_mapped;
     Error err;
 
-#if defined(__APPLE__) && defined(__aarch64__)
-    /* Using a single map will not work on Apple Silicon. */
-    if (params->options == JitAllocatorOptions::kNone) {
-        return nullptr;
-    }
-#endif
-
-    auto *allocator = new JitAllocator(params);
+    auto *allocator = new JitAllocator(&params);
 
     err = allocator->alloc(&test_ro, &test_rw, 1);
+
+    if (err == ErrorCode::kErrorOk) {
+        /* We can get dual-mapped memory when asking for single-mapped memory
+         * if the latter is not possible: return whether that happened. */
+        single_mapped = (test_ro == test_rw);
+    }
+
     allocator->release(test_ro);
 
     if (err == ErrorCode::kErrorOk) {
-        return allocator;
+        return std::make_pair(allocator, single_mapped);
     }
 
     delete allocator;
-    return nullptr;
+    return std::make_pair((JitAllocator *)nullptr, false);
 }
 
 static JitAllocator *pick_allocator() {
-    JitAllocator::CreateParams single_params;
-    single_params.reset();
+    JitAllocator::CreateParams params;
+    JitAllocator *allocator;
+    bool single_mapped;
+
+#if defined(VALGRIND)
+    erts_jit_single_map = 1;
+#elif defined(__APPLE__) && defined(__aarch64__)
+    /* Allocating dual-mapped executable memory on this platform is horribly
+     * slow, and provides little security benefits over the MAP_JIT per-thread
+     * permission scheme. Force single-mapped memory.
+     *
+     * 64-bit x86 still uses dual-mapped memory as it lacks support for per-
+     * thread permissions and thus gets unprotected RWX pages with MAP_JIT. */
+    erts_jit_single_map = 1;
+#endif
 
 #if defined(HAVE_LINUX_PERF_SUPPORT)
     /* `perf` has a hard time showing symbols for dual-mapped memory, so we'll
@@ -156,17 +196,6 @@ static JitAllocator *pick_allocator() {
     }
 #endif
 
-    if (erts_jit_single_map) {
-        if (auto *alloc = create_allocator(&single_params)) {
-            return alloc;
-        }
-
-        ERTS_INTERNAL_ERROR("jit: Failed to allocate executable+writable "
-                            "memory. Either allow this or disable both the "
-                            "'+JPperf' and '+JMsingle' options.");
-    }
-
-#if !defined(VALGRIND)
     /* Default to dual-mapped memory with separate executable and writable
      * regions of the same code. This is required for platforms that enforce
      * W^X, and we prefer it when available to catch errors sooner.
@@ -176,28 +205,34 @@ static JitAllocator *pick_allocator() {
      * file descriptor per block on most platforms. The block sizes do grow
      * over time, but we don't want to waste half a dozen fds just to get to
      * the shell on platforms that are very fd-constrained. */
-    JitAllocator::CreateParams dual_params;
+    params.reset();
+    params.blockSize = 32 << 20;
 
-    dual_params.reset();
-    dual_params.options = JitAllocatorOptions::kUseDualMapping,
-    dual_params.blockSize = 4 << 20;
+    allocator = nullptr;
+    single_mapped = false;
 
-    if (auto *alloc = create_allocator(&dual_params)) {
-        return alloc;
-    } else if (auto *alloc = create_allocator(&single_params)) {
-        return alloc;
+    if (!erts_jit_single_map) {
+        params.options = JitAllocatorOptions::kUseDualMapping;
+        std::tie(allocator, single_mapped) = create_allocator(params);
     }
 
-    ERTS_INTERNAL_ERROR("jit: Cannot allocate executable memory. Use the "
-                        "interpreter instead.");
-#elif defined(VALGRIND)
-    if (auto *alloc = create_allocator(&single_params)) {
-        return alloc;
+    if (allocator == nullptr) {
+        params.options &= ~JitAllocatorOptions::kUseDualMapping;
+        std::tie(allocator, single_mapped) = create_allocator(params);
     }
 
-    ERTS_INTERNAL_ERROR("jit: the valgrind emulator requires the ability to "
-                        "allocate executable+writable memory.");
-#endif
+    if (erts_jit_single_map && !single_mapped) {
+        ERTS_INTERNAL_ERROR("jit: Failed to allocate executable+writable "
+                            "memory. Either allow this or disable both the "
+                            "'+JPperf' and '+JMsingle' options.");
+    }
+
+    if (allocator == nullptr) {
+        ERTS_INTERNAL_ERROR("jit: Cannot allocate executable memory. Use the "
+                            "interpreter instead.");
+    }
+
+    return allocator;
 }
 
 void beamasm_init() {
@@ -248,6 +283,7 @@ void beamasm_init() {
 #endif
 
     beamasm_metadata_early_init();
+    init_cache_info();
 
     /*
      * Ensure that commonly used fields in the PCB can be accessed with
@@ -259,6 +295,7 @@ void beamasm_init() {
     ERTS_CT_ASSERT(offsetof(Process, fcalls) < 128);
     ERTS_CT_ASSERT(offsetof(Process, freason) < 128);
     ERTS_CT_ASSERT(offsetof(Process, fvalue) < 128);
+    ERTS_CT_ASSERT(offsetof(Process, flags) < 128);
 
 #ifdef ERLANG_FRAME_POINTERS
     ERTS_CT_ASSERT(offsetof(Process, frame_pointer) < 128);
@@ -355,7 +392,7 @@ void beamasm_init() {
     beamasm_metadata_late_init();
 }
 
-bool BeamAssembler::hasCpuFeature(uint32_t featureId) {
+bool BeamAssemblerCommon::hasCpuFeature(uint32_t featureId) {
     return cpuinfo.hasFeature(featureId);
 }
 
@@ -380,6 +417,26 @@ extern "C"
 #endif
     }
 
+    void beamasm_unseal_module(const void *executable_region,
+                               void *writable_region,
+                               size_t size) {
+        (void)executable_region;
+        (void)writable_region;
+        (void)size;
+
+        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadWrite);
+    }
+
+    void beamasm_seal_module(const void *executable_region,
+                             void *writable_region,
+                             size_t size) {
+        (void)executable_region;
+        (void)writable_region;
+        (void)size;
+
+        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
+    }
+
     void beamasm_flush_icache(const void *address, size_t size) {
 #ifdef DEBUG
         erts_debug_require_code_barrier();
@@ -391,25 +448,38 @@ extern "C"
 #elif defined(__aarch64__) && defined(__APPLE__)
         /* Issues full memory/instruction barriers on all threads for us. */
         sys_icache_invalidate((char *)address, size);
-#elif defined(__aarch64__) && defined(__GNUC__) &&                             \
-        defined(ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION) &&                  \
-        defined(ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION) &&                  \
-        defined(ERTS_THR_INSTRUCTION_BARRIER)
-        /* Note that we do not issue any barriers here, whether instruction or
-         * memory. This is on purpose as we must issue those on all schedulers
+#elif defined(__aarch64__) && defined(BEAMASM_MANUAL_ICACHE_FLUSHING)
+        /* Note that we do not issue an instruction synchronization barrier
+         * here. This is on purpose as we must issue those on all schedulers
          * and not just the calling thread, and the chances of us forgetting to
-         * do that is much higher if we issue them here. */
-        UWord start = reinterpret_cast<UWord>(address);
-        UWord end = start + size;
+         * do that is much higher if we issue one here. */
+        UWord start, end, stride;
 
-        ETHR_COMPILER_BARRIER;
+        start = reinterpret_cast<UWord>(address);
+        end = start + size;
 
-        for (size_t i = start & ~ERTS_CACHE_LINE_MASK; i < end;
-             i += ERTS_CACHE_LINE_SIZE) {
-            __asm__ __volatile__("dc cvau, %0\n"
-                                 "ic ivau, %0\n" ::"r"(i)
-                                 :);
+        stride = min_dcache_line_size;
+        for (UWord i = start & ~(stride - 1); i < end; i += stride) {
+            __asm__ __volatile__("dc cvau, %0\n" ::"r"(i) :);
         }
+
+        /* We need a special memory barrier between clearing dcache and icache,
+         * or there's a chance that the icache on another core is invalidated
+         * before the dcache, which can then be repopulated with stale data. */
+        __asm__ __volatile__("dsb ish\n" ::: "memory");
+
+        stride = min_icache_line_size;
+        for (UWord i = start & ~(stride - 1); i < end; i += stride) {
+            __asm__ __volatile__("ic ivau, %0\n" ::"r"(i) :);
+        }
+
+        /* Ensures that all cores clear their instruction cache before moving
+         * on. The usual full memory barrier (`dmb sy`) executed by the thread
+         * progress mechanism is not sufficient for this.
+         *
+         * Note that this barrier need not be executed on other cores, it's
+         * enough for them to issue an instruction synchronization barrier. */
+        __asm__ __volatile__("dsb ish\n" ::: "memory");
 #elif (defined(__x86_64__) || defined(_M_X64)) &&                              \
         defined(ERTS_THR_INSTRUCTION_BARRIER)
         /* We don't need to invalidate cache on this platform, but since we
@@ -488,9 +558,11 @@ extern "C"
         delete ba;
     }
 
-    void beamasm_purge_module(const void *native_module_exec,
-                              void *native_module_rw) {
-        jit_allocator->release(const_cast<void *>(native_module_exec));
+    void beamasm_purge_module(const void *executable_region,
+                              void *writable_region,
+                              size_t size) {
+        (void)size;
+        jit_allocator->release(const_cast<void *>(executable_region));
     }
 
     ErtsCodePtr beamasm_get_code(void *instance, int label) {
@@ -526,16 +598,16 @@ extern "C"
     }
 
     void beamasm_codegen(void *instance,
-                         const void **native_module_exec,
-                         void **native_module_rw,
+                         const void **executable_region,
+                         void **writable_region,
                          const BeamCodeHeader *in_hdr,
                          const BeamCodeHeader **out_exec_hdr,
                          BeamCodeHeader **out_rw_hdr) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
 
         ba->codegen(jit_allocator,
-                    native_module_exec,
-                    native_module_rw,
+                    executable_region,
+                    writable_region,
                     in_hdr,
                     out_exec_hdr,
                     out_rw_hdr);
@@ -577,7 +649,7 @@ extern "C"
     void beamasm_patch_import(void *instance,
                               char *rw_base,
                               int index,
-                              BeamInstr import) {
+                              const Export *import) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         ba->patchImport(rw_base, index, import);
     }
@@ -593,7 +665,7 @@ extern "C"
     void beamasm_patch_lambda(void *instance,
                               char *rw_base,
                               int index,
-                              BeamInstr fe) {
+                              const ErlFunEntry *fe) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         ba->patchLambda(rw_base, index, fe);
     }

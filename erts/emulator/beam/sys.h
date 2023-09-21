@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@
 
 #ifndef __SYS_H__
 #define __SYS_H__
-
-#define ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
 
 #if !defined(__GNUC__) || defined(__e2k__)
 #  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
@@ -245,6 +243,7 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *func,
 						 const char* file, int line);
 
+#undef ASSERT
 #ifdef DEBUG
 #  define ASSERT(e) ERTS_ASSERT(e)
 #else
@@ -847,6 +846,7 @@ int sys_double_to_chars(double, char*, size_t);
 int sys_double_to_chars_ext(double, char*, size_t, size_t);
 int sys_double_to_chars_fast(double, char*, int, int, int);
 void sys_get_pid(char *, size_t);
+int sys_get_hostname(char *buf, size_t size);
 
 /* erl_drv_get/putenv have been implicitly 8-bit for so long that we can't
  * change them without breaking things on Windows. Their return values are
@@ -1079,6 +1079,8 @@ ERTS_GLB_INLINE void *sys_memmove(void *dest, const void *src, size_t n);
 ERTS_GLB_INLINE int sys_memcmp(const void *s1, const void *s2, size_t n);
 ERTS_GLB_INLINE void *sys_memset(void *s, int c, size_t n);
 ERTS_GLB_INLINE void *sys_memzero(void *s, size_t n);
+ERTS_GLB_INLINE void *sys_memchr(const void *s, int c, size_t n);
+ERTS_GLB_INLINE void *sys_memrchr(const void *s, int c, size_t n);
 ERTS_GLB_INLINE int sys_strcmp(const char *s1, const char *s2);
 ERTS_GLB_INLINE int sys_strncmp(const char *s1, const char *s2, size_t n);
 ERTS_GLB_INLINE char *sys_strcpy(char *dest, const char *src);
@@ -1111,6 +1113,26 @@ ERTS_GLB_INLINE void *sys_memzero(void *s, size_t n)
 {
     ASSERT(s != NULL);
     return memset(s,'\0',n);
+}
+ERTS_GLB_INLINE void *sys_memchr(const void *s, int c, size_t n)
+{
+    ASSERT(s != NULL);
+    return (void*)memchr(s, c, n);
+}
+ERTS_GLB_INLINE void *sys_memrchr(const void *s, int c, size_t n)
+{
+    ASSERT(s != NULL);
+#ifdef HAVE_MEMRCHR
+    return (void*)memrchr(s, c, n);
+#else
+    {
+        const unsigned char* ptr = (const unsigned char*)s + n;
+        while (ptr != s)
+            if (*(--ptr) == (unsigned char)c)
+                return (void*)ptr;
+        return NULL;
+    }
+#endif
 }
 ERTS_GLB_INLINE int sys_strcmp(const char *s1, const char *s2)
 {

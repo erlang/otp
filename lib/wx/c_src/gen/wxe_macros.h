@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,6 +72,9 @@
 #include <wx/webview.h>
 #if wxUSE_WEBVIEW && wxUSE_WEBVIEW_IE
 #include <wx/msw/webview_ie.h>
+#endif
+#if wxUSE_GLCANVAS_EGL && !wxCHECK_VERSION(3,2,3)
+#include <EGL/egl.h>
 #endif
 
 

@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -627,6 +627,17 @@ $ <input>erl \
           slave node on a remote host; see
           <seeerl marker="stdlib:slave"><c>slave(3)</c></seeerl>.</p>
       </item>
+      <tag><c><![CDATA[-S Mod [Func [Arg1, Arg2, ...]]]]></c> (init
+        flag)</tag>
+      <item>
+        <p>Makes <c><![CDATA[init]]></c> call the specified function.
+          <c><![CDATA[Func]]></c> defaults to <c><![CDATA[start]]></c>.
+          The function is assumed to be of arity 1, taking the list
+          <c><![CDATA[[Arg1,Arg2,...]]]></c> as argument, or an empty list
+          if no arguments are passed. All further arguments occurring after
+          this option are passed to the specified function as strings.
+          See <seeerl marker="init"> <c>init(3)</c></seeerl>.</p>
+      </item>
       <tag><c><![CDATA[-run Mod [Func [Arg1, Arg2, ...]]]]></c> (init
         flag)</tag>
       <item>
@@ -1081,7 +1092,7 @@ $ <input>erl \
       </item>
       <tag><marker id="+pad"/><c>+pad true|false</c></tag>
       <item>
-        <p>Since: OTP @OTP-18374@</p>
+        <p>Since: OTP 25.3</p>
         <p>
           The boolean value used with the <c>+pad</c> parameter determines
           the default value of the
@@ -1131,7 +1142,7 @@ $ <input>erl \
 	however, be changed in the future. The actual value chosen can be
 	checked by calling
 	<seeerl marker="erlang#system_info_process_limit">erlang:system_info(process_limit)</seeerl>.</p>
-	<p>The default value is <c>262144</c></p>
+	<p>The default value is <c>1048576</c></p>
       </item>
       <tag><marker id="+Q"/><marker id="max_ports"/><c><![CDATA[+Q Number]]></c></tag>
       <item>

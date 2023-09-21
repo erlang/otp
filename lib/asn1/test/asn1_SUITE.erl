@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -137,6 +137,7 @@ all() ->
      testNortel,
      test_WS_ParamClass,
      test_modified_x420,
+     testContaining,
 
      %% Some heavy tests.
      testTcapsystem,
@@ -191,8 +192,25 @@ init_per_testcase(Func, Config) ->
 
 end_per_testcase(_Func, Config) ->
     CaseDir = proplists:get_value(case_dir, Config),
+    unload_modules(CaseDir),
     asn1_test_lib:rm_dirs([CaseDir]),
     code:del_path(CaseDir).
+
+unload_modules(CaseDir) ->
+    F = fun(Name0, Acc) ->
+                Name1 = filename:rootname(filename:basename(Name0)),
+                Name = list_to_existing_atom(Name1),
+                [Name|Acc]
+        end,
+    Beams1 = lists:usort(filelib:fold_files(CaseDir, "[.]beam\$", true, F, [])),
+    Beams = [M || M <- Beams1, code:is_loaded(M) =/= false],
+    _ = [begin
+             code:purge(M),
+             code:delete(M),
+             code:purge(M),
+             io:format("Unloaded ~p", [M])
+         end || M <- Beams],
+    ok.
 
 %%------------------------------------------------------------------------------
 %% Test runners
@@ -610,7 +628,8 @@ parse(Config) ->
     [asn1_test_lib:compile(M, Config, [abs]) || M <- test_modules()].
 
 per(Config) ->
-    test(Config, fun per/3, [per,uper,{per,[maps]},{uper,[maps]}]).
+    test(Config, fun per/3,
+         [per,uper,{per,[maps]},{uper,[maps]},{per,[jer]}]).
 per(Config, Rule, Opts) ->
     module_test(per_modules(), Config, Rule, Opts).
 
@@ -1121,6 +1140,20 @@ testExtensionAdditionGroup(Config, Rule, Opts) ->
     asn1_test_lib:compile("EUTRA-RRC-Definitions", Config,
 			  [Rule,{record_name_prefix,"RRC-"}|Opts]),
     extensionAdditionGroup:run(Rule).
+
+testContaining(Config) ->
+    test(Config, fun testContaining/3).
+testContaining(Config, Rule, Opts) ->
+    asn1_test_lib:compile("Containing", Config, [Rule|Opts]),
+    testContaining:containing(Rule),
+    case {Rule,have_jsonlib()} of
+        {per,true} ->
+            io:format("Testing with both per and jer...\n"),
+            asn1_test_lib:compile("Containing", Config, [jer,Rule|Opts]),
+            testContaining:containing(per_jer);
+        _ ->
+            ok
+    end.
 
 per_modules() ->
     [X || X <- test_modules()].

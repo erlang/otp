@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@
          process_info_self_msgq_len/1,
          process_info_self_msgq_len_messages/1,
          process_info_self_msgq_len_more/1,
+         process_info_msgq_len_no_very_long_delay/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -60,6 +61,7 @@
          process_flag_fullsweep_after/1, process_flag_heap_size/1,
          command_line_max_heap_size/1,
 	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
+         more_spawn_opt_max_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
 	 processes_last_call_trap/1, processes_gc_trap/1,
@@ -94,6 +96,8 @@
          alias_bif/1,
          monitor_alias/1,
          spawn_monitor_alias/1,
+         demonitor_aliasmonitor/1,
+         down_aliasmonitor/1,
          monitor_tag/1,
          no_pid_wrap/1]).
 
@@ -119,6 +123,7 @@ all() ->
      process_flag_fullsweep_after, process_flag_heap_size,
      command_line_max_heap_size,
      spawn_opt_heap_size, spawn_opt_max_heap_size,
+     more_spawn_opt_max_heap_size,
      spawn_huge_arglist,
      otp_6237,
      {group, spawn_request},
@@ -172,7 +177,8 @@ groups() ->
        process_info_self_signal,
        process_info_self_msgq_len,
        process_info_self_msgq_len_messages,
-       process_info_self_msgq_len_more]},
+       process_info_self_msgq_len_more,
+       process_info_msgq_len_no_very_long_delay]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -182,7 +188,8 @@ groups() ->
        gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled,
        otp_16436, otp_16642]},
      {alias, [],
-      [alias_bif, monitor_alias, spawn_monitor_alias]}].
+      [alias_bif, monitor_alias, spawn_monitor_alias,
+       demonitor_aliasmonitor, down_aliasmonitor]}].
 
 init_per_suite(Config) ->
     A0 = case application:start(sasl) of
@@ -1082,6 +1089,20 @@ check_proc_infos(A, B) ->
 
     GC = lists:keysearch(garbage_collection, 1, A),
     GC = lists:keysearch(garbage_collection, 1, B),
+    {value, {garbage_collection, GClist}} = GC,
+
+    %% This is not really documented
+    true = is_integer(gv(minor_gcs, GClist)),
+    true = is_integer(gv(fullsweep_after, GClist)),
+    true = is_integer(gv(min_heap_size, GClist)),
+    #{error_logger := Bool1,
+      include_shared_binaries := Bool2,
+      kill := Bool3,
+      size := MaxHeapSize} = gv(max_heap_size, GClist),
+    true = is_boolean(Bool1),
+    true = is_boolean(Bool2),
+    true = is_boolean(Bool3),
+    true = is_integer(MaxHeapSize),
 
     ok.
 
@@ -1507,7 +1528,31 @@ pi_sig_spam_test(SpamFun, PITest, PICheckRes) ->
     after
         _ = erlang:system_flag(schedulers_online, SO)
     end.
-    
+
+process_info_msgq_len_no_very_long_delay(Config) when is_list(Config) ->
+    Tester = self(),
+    P1 = spawn_link(fun () ->
+                            receive after infinity -> ok end
+                    end),
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+    {message_queue_len, 0} = process_info(P1, message_queue_len),
+    P2 = spawn_link(fun () ->
+                            Tester ! hello,
+                            P1 ! hello,
+                            receive after infinity -> ok end
+                    end),
+    receive after 100 -> ok end,
+    {message_queue_len, 1} = process_info(self(), message_queue_len),
+    {message_queue_len, 1} = process_info(P1, message_queue_len),
+    receive hello -> ok end,
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+    unlink(P1),
+    exit(P1, kill),
+    unlink(P2),
+    exit(P2, kill),
+    false = is_process_alive(P1),
+    false = is_process_alive(P2),
+    ok.
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->
@@ -2753,6 +2798,111 @@ flush() ->
     after 0 ->
             ok
     end.
+
+%% Make sure that when maximum allowed heap size is exceeded, the
+%% process will actually terminate.
+%%
+%% Despite the timetrap and limit of number of iterations, bugs
+%% provoked by the test case can cause the runtime system to hang in
+%% this test case.
+more_spawn_opt_max_heap_size(_Config) ->
+    ct:timetrap({minutes,1}),
+    Funs = [fun build_and_bif/0,
+            fun build_bin_and_bif/0,
+            fun build_and_recv_timeout/0,
+            fun build_and_recv_msg/0,
+            fun bif_and_recv_timeout/0,
+            fun bif_and_recv_msg/0
+           ],
+    _ = [begin
+             {Pid,Ref} = spawn_opt(F, [{max_heap_size,
+                                        #{size => 233, kill => true,
+                                          error_logger => false}},
+                                       monitor]),
+             io:format("~p ~p\n", [Pid,F]),
+             receive
+                 {'DOWN',Ref,process,Pid,Reason} ->
+                     killed = Reason
+             end
+         end || F <- Funs],
+    ok.
+
+%% This number should be greater than the default heap size.
+-define(MANY_ITERATIONS, 10_000).
+
+build_and_bif() ->
+    build_and_bif(?MANY_ITERATIONS, []).
+
+build_and_bif(0, Acc0) ->
+    Acc0;
+build_and_bif(N, Acc0) ->
+    Acc = [0|Acc0],
+    _ = erlang:crc32(Acc),
+    build_and_bif(N-1, Acc).
+
+build_bin_and_bif() ->
+    build_bin_and_bif(?MANY_ITERATIONS, <<>>).
+
+build_bin_and_bif(0, Acc0) ->
+    Acc0;
+build_bin_and_bif(N, Acc0) ->
+    Acc = <<0, Acc0/binary>>,
+    _ = erlang:crc32(Acc),
+    build_bin_and_bif(N-1, Acc).
+
+build_and_recv_timeout() ->
+    build_and_recv_timeout(?MANY_ITERATIONS, []).
+
+build_and_recv_timeout(0, Acc0) ->
+    Acc0;
+build_and_recv_timeout(N, Acc0) ->
+    Acc = [0|Acc0],
+    receive
+    after 1 ->
+            ok
+    end,
+    build_and_recv_timeout(N-1, Acc).
+
+build_and_recv_msg() ->
+    build_and_recv_msg(?MANY_ITERATIONS, []).
+
+build_and_recv_msg(0, Acc0) ->
+    Acc0;
+build_and_recv_msg(N, Acc0) ->
+    Acc = [0|Acc0],
+    receive
+        _ ->
+            ok
+    after 0 ->
+            ok
+    end,
+    build_and_recv_msg(N-1, Acc).
+
+bif_and_recv_timeout() ->
+    Bin = <<0:?MANY_ITERATIONS/unit:8>>,
+    bif_and_recv_timeout(Bin).
+
+bif_and_recv_timeout(Bin) ->
+    List = binary_to_list(Bin),
+    receive
+    after 1 ->
+            ok
+    end,
+    List.
+
+bif_and_recv_msg() ->
+    Bin = <<0:?MANY_ITERATIONS/unit:8>>,
+    bif_and_recv_msg(Bin).
+
+bif_and_recv_msg(Bin) ->
+    List = binary_to_list(Bin),
+    receive
+        _ ->
+            ok
+    after 0 ->
+            ok
+    end,
+    List.
 
 %% error_logger report handler proxy
 init(Pid) ->
@@ -4903,6 +5053,51 @@ spawn_monitor_alias_test(Peer, Node, SpawnType, ExitReason) ->
     
             ok
     end.
+
+demonitor_aliasmonitor(Config) when is_list(Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
+    Fun = fun () ->
+                  receive
+                      {alias, Alias} ->
+                          Alias ! {alias_reply, Alias, self()}
+                  end
+          end,
+    LPid = spawn(Fun),
+    RPid = spawn(Node, Fun),
+    AliasMonitor = erlang:monitor(process, LPid, [{alias, explicit_unalias}]),
+    erlang:demonitor(AliasMonitor),
+    LPid ! {alias, AliasMonitor},
+    receive {alias_reply, AliasMonitor, LPid} -> ok end,
+    %% Demonitor signal has been received and cleaned up. Cleanup of
+    %% it erroneously removed it from the alias table which caused
+    %% remote use of the alias to stop working...
+    RPid ! {alias, AliasMonitor},
+    receive {alias_reply, AliasMonitor, RPid} -> ok end,
+    exit(LPid, kill),
+    peer:stop(Peer),
+    false = is_process_alive(LPid),
+    ok.
+
+down_aliasmonitor(Config) when is_list(Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
+    LPid = spawn(fun () -> receive infinty -> ok end end),
+    RPid = spawn(Node,
+                 fun () ->
+                         receive
+                             {alias, Alias} ->
+                                 Alias ! {alias_reply, Alias, self()}
+                         end
+                 end),
+    AliasMonitor = erlang:monitor(process, LPid, [{alias, explicit_unalias}]),
+    exit(LPid, bye),
+    receive {'DOWN', AliasMonitor, process, LPid, bye} -> ok end,
+    %% Down signal has been received and cleaned up. Cleanup of
+    %% it erroneously removed it from the alias table which caused
+    %% remote use of the alias to stop working...
+    RPid ! {alias, AliasMonitor},
+    receive {alias_reply, AliasMonitor, RPid} -> ok end,
+    peer:stop(Peer),
+    ok.
 
 monitor_tag(Config) when is_list(Config) ->
     %% Exit signals with immediate exit reasons are sent

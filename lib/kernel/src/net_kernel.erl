@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 -behaviour(gen_server).
 
 -define(nodedown(N, State), verbose({?MODULE, ?LINE, nodedown, N}, 1, State)).
--define(nodeup(N, State), verbose({?MODULE, ?LINE, nodeup, N}, 1, State)).
+%%-define(nodeup(N, State), verbose({?MODULE, ?LINE, nodeup, N}, 1, State)).
 
 %%-define(dist_debug, true).
 
@@ -577,6 +577,10 @@ init(#{name := Name,
        supervisor := Supervisor,
        dist_listen := DistListen,
        hidden := Hidden}) ->
+    %% We enable async_dist so that we won't need to do the
+    %% nosuspend/spawn trick which just cause even larger
+    %% memory consumption...
+    _ = process_flag(async_dist, true),
     process_flag(trap_exit,true),
     persistent_term:put({?MODULE, publish_type},
                         if Hidden -> hidden;
@@ -794,12 +798,9 @@ handle_call({is_auth, _Node}, From, State) ->
 %%
 %% Not applicable any longer !?
 %%
-handle_call({apply,_Mod,_Fun,_Args}, {From,Tag}, State)
-  when is_pid(From), node(From) =:= node() ->
-    async_gen_server_reply({From,Tag}, not_implemented),
-%    Port = State#state.port,
-%    catch apply(Mod,Fun,[Port|Args]),
-    {noreply,State};
+handle_call({apply,_Mod,_Fun,_Args}, {Pid, _Tag} = From, State)
+  when is_pid(Pid), node(Pid) =:= node() ->
+    async_reply({reply, not_implemented, State}, From);
 
 handle_call(longnames, From, State) ->
     async_reply({reply, get(longnames), State}, From);
@@ -985,7 +986,7 @@ handle_info({auto_connect,Node, DHandle}, State) ->
 %%
 %% accept a new connection.
 %%
-handle_info({accept,AcceptPid,Socket,Family,Proto}, State) ->
+handle_info({accept,AcceptPid,Socket,Family,Proto}=Accept, State) ->
     case get_proto_mod(Family,Proto,State#state.listen) of
 	{ok, Mod} ->
 	    Pid = Mod:accept_connection(AcceptPid,
@@ -993,9 +994,11 @@ handle_info({accept,AcceptPid,Socket,Family,Proto}, State) ->
                                         State#state.node,
 					State#state.allowed,
 					State#state.connecttime),
+            verbose({Accept,Pid}, 2, State),
 	    AcceptPid ! {self(), controller, Pid},
 	    {noreply,State};
 	_ ->
+            verbose({Accept,unsupported_protocol}, 2, State),
 	    AcceptPid ! {self(), unsupported_protocol},
 	    {noreply, State}
     end;
@@ -1012,6 +1015,7 @@ handle_info({dist_ctrlr, Ctrlr, Node, SetupPid} = Msg,
                     andalso (is_port(Ctrlr) orelse is_pid(Ctrlr))
                     andalso (node(Ctrlr) == node()) ->
             link(Ctrlr),
+            verbose(Msg, 2, State),
             ets:insert(sys_dist, Conn#connection{ctrlr = Ctrlr}),
             {noreply, State#state{dist_ctrlrs = DistCtrlrs#{Ctrlr => Node}}};
 	_ ->
@@ -1044,6 +1048,7 @@ handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe} = Nodeup},
                          false -> State
                      end,
             verbose(Nodeup, 1, State1),
+            verbose({nodeup,Node,SetupPid,Conn#connection.ctrlr}, 2, State1),
             {noreply, State1};
 	_ ->
 	    SetupPid ! {self(), bad_request},
@@ -1061,6 +1066,7 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
 	    if
 		MyNode > Node ->
 		    AcceptPid ! {self(),{accept_pending,nok_pending}},
+                    verbose({accept_pending_nok, Node, AcceptPid}, 2, State),
 		    {noreply,State};
 		true ->
 		    %%
@@ -1070,13 +1076,18 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
 		    OldOwner = Conn#connection.owner,
                     case maps:is_key(OldOwner, State#state.conn_owners) of
                         true ->
+                            verbose({remark,OldOwner,AcceptPid}, 2, State),
                             ?debug({net_kernel, remark, old, OldOwner, new, AcceptPid}),
                             exit(OldOwner, remarked),
                             receive
-                                {'EXIT', OldOwner, _} ->
+                                {'EXIT', OldOwner, _} = Exit ->
+                                    verbose(Exit, 2, State),
                                     true
                             end;
                         false ->
+                            verbose(
+                              {accept_pending, OldOwner, inconsistency},
+                              2, State),
                             ok % Owner already exited
                     end,
 		    ets:insert(sys_dist, Conn#connection{owner = AcceptPid}),
@@ -1278,13 +1289,13 @@ do_handle_exit(Pid, Reason, State) ->
     pending_own_exit(Pid, Reason, State),
     ticker_exit(Pid, Reason, State),
     restarter_exit(Pid, Reason, State),
-    verbose({'EXIT', Pid, Reason}, 1, State),
+    verbose({'EXIT', Pid, Reason}, 2, State),
     {noreply,State}.
 
 listen_exit(Pid, Reason, State) ->
     case lists:keymember(Pid, ?LISTEN_ID, State#state.listen) of
 	true ->
-            verbose({listen_exit, Pid, Reason}, 1, State),
+            verbose({listen_exit, Pid, Reason}, 2, State),
 	    error_msg("** Netkernel terminating ... **\n", []),
 	    throw({stop,no_network,State});
 	false ->
@@ -1297,7 +1308,7 @@ accept_exit(Pid, Reason, State) ->
 	{value, ListenR} ->
 	    ListenS = ListenR#listen.listen,
 	    Mod = ListenR#listen.module,
-            verbose({accept_exit, Pid, Reason, Mod}, 1, State),
+            verbose({accept_exit, Pid, Reason, Mod}, 2, State),
 	    AcceptPid = Mod:accept(ListenS),
 	    L = lists:keyreplace(Pid, ?ACCEPT_ID, Listen,
 				 ListenR#listen{accept = AcceptPid}),
@@ -1310,7 +1321,7 @@ conn_own_exit(Pid, Reason, #state{conn_owners = Owners} = State) ->
     case maps:get(Pid, Owners, undefined) of
         undefined -> false;
         Node ->
-            verbose({conn_own_exit, Pid, Reason, Node}, 1, State),
+            verbose({conn_own_exit, Pid, Reason, Node}, 2, State),
             throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
@@ -1318,7 +1329,7 @@ dist_ctrlr_exit(Pid, Reason, #state{dist_ctrlrs = DCs} = State) ->
     case maps:get(Pid, DCs, undefined) of
         undefined -> false;
         Node ->
-            verbose({dist_ctrlr_exit, Pid, Reason, Node}, 1, State),
+            verbose({dist_ctrlr_exit, Pid, Reason, Node}, 2, State),
             throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
@@ -1332,14 +1343,14 @@ pending_own_exit(Pid, Reason, #state{pend_owners = Pend} = State) ->
 		{ok, Conn} when Conn#connection.state =:= up_pending ->
                     verbose(
                       {pending_own_exit, Pid, Reason, Node, up_pending},
-                      1, State),
+                      2, State),
 		    reply_waiting(Node,Conn#connection.waiting, true),
 		    Conn1 = Conn#connection { state = up,
 					      waiting = [],
 					      pending_owner = undefined },
 		    ets:insert(sys_dist, Conn1);
 		_ ->
-                    verbose({pending_own_exit, Pid, Reason, Node}, 1, State),
+                    verbose({pending_own_exit, Pid, Reason, Node}, 2, State),
 		    ok
 	    end,
 	    throw({noreply, State1})
@@ -1348,13 +1359,13 @@ pending_own_exit(Pid, Reason, #state{pend_owners = Pend} = State) ->
 ticker_exit(
   Pid, Reason,
   #state{tick = #tick{ticker = Pid, time = T} = Tck} = State) ->
-    verbose({ticker_exit, Pid, Reason, Tck}, 1, State),
+    verbose({ticker_exit, Pid, Reason, Tck}, 2, State),
     Tckr = restart_ticker(T),
     throw({noreply, State#state{tick = Tck#tick{ticker = Tckr}}});
 ticker_exit(
   Pid, Reason,
   #state{tick = #tick_change{ticker = Pid, time = T} = TckCng} = State) ->
-    verbose({ticker_exit, Pid, Reason, TckCng}, 1, State),
+    verbose({ticker_exit, Pid, Reason, TckCng}, 2, State),
     Tckr = restart_ticker(T),
     throw({noreply, Reason, State#state{tick = TckCng#tick_change{ticker = Tckr}}});
 ticker_exit(_, _, _) ->
@@ -1363,7 +1374,7 @@ ticker_exit(_, _, _) ->
 restarter_exit(Pid, Reason, State) ->
     case State#state.supervisor of
         {restart, Pid} ->
-            verbose({restarter_exit, Pid, Reason}, 1, State),
+            verbose({restarter_exit, Pid, Reason}, 2, State),
 	    error_msg(
               "** Distribution restart failed, net_kernel terminating... **\n",
               []),
@@ -1802,6 +1813,9 @@ setup(Node, ConnId, Type, From, State) ->
 				    MyNode,
 				    State#state.type,
 				    State#state.connecttime),
+                    verbose(
+                      {setup,Node,Type,MyNode,State#state.type,Pid},
+                      2, State),
 		    Addr = LAddr#net_address {
 					      address = undefined,
 					      host = undefined },
@@ -2045,7 +2059,7 @@ start_protos(Node, Ps, CleanHalt, Listen) ->
     end.
 
 start_protos_no_listen(Node, [Proto | Ps], Ls, CleanHalt) ->
-    {Name, "@"++_Host}  = split_node(Node),
+    {Name, "@"++Host}  = split_node(Node),
     Ok = case Name of
              "undefined" ->
                  erts_internal:dynamic_node_name(true),
@@ -2057,9 +2071,14 @@ start_protos_no_listen(Node, [Proto | Ps], Ls, CleanHalt) ->
         true ->
             auth:sync_cookie(),
             Mod = list_to_atom(Proto ++ "_dist"),
+            Address =
+                try Mod:address(Host)
+                catch error:undef ->
+                        Mod:address()
+                end,
             L = #listen {
                    listen = undefined,
-                   address = Mod:address(),
+                   address = Address,
                    accept = undefined,
                    module = Mod },
             start_protos_no_listen(Node, Ps, [L|Ls], CleanHalt);
@@ -2267,7 +2286,7 @@ reply_waiting(_Node, Waiting, Rep) ->
     reply_waiting1(lists:reverse(Waiting), Rep).
 
 reply_waiting1([From|W], Rep) ->
-    async_gen_server_reply(From, Rep),
+    gen_server:reply(From, Rep),
     reply_waiting1(W, Rep);
 reply_waiting1([], _) ->
     ok.
@@ -2373,24 +2392,23 @@ return_call({noreply, _State}=R, _From) ->
 return_call(R, From) ->
     async_reply(R, From).
 
-async_reply({reply, Msg, State}, From) ->
-    async_gen_server_reply(From, Msg),
-    {noreply, State}.
-
-async_gen_server_reply(From, Msg) ->
-    {Pid, Tag} = From,
-    M = {Tag, Msg},
-    try erlang:send(Pid, M, [nosuspend, noconnect]) of
-        ok ->
-            ok;
-        nosuspend ->
-            _ = spawn(fun() -> catch erlang:send(Pid, M, [noconnect]) end),
-	    ok;
-        noconnect ->
-            ok % The gen module takes care of this case.
-    catch
-        _:_ -> ok
-    end.
+-compile({inline, [async_reply/2]}).
+async_reply({reply, _Msg, _State} = Res, _From) ->
+    %% This function call is kept in order to not unnecessarily create a huge diff
+    %% in the code.
+    %%
+    %% Here we used to send the reply explicitly using 'noconnect' and 'nosuspend'.
+    %%
+    %% * 'noconnect' since setting up a connection from net_kernel itself would
+    %%   deadlock when connects were synchronous. Since connects nowadays are
+    %%   asynchronous this is no longer an issue.
+    %% * 'nosuspend' and spawn a process taking care of the reply in case
+    %%   we would have suspended. This in order not to block net_kernel. We now
+    %%   use 'async_dist' enabled and by this prevent the blocking, keep the
+    %%   signal order, avoid one extra copying of the reply, avoid the overhead
+    %%   of creating a process, and avoid the extra memory consumption due to the
+    %%   extra process.
+    Res.
 
 handle_async_response(ResponseType, ReqId, Result, #state{req_map = ReqMap0} = S0) ->
     if ResponseType == down -> ok;
@@ -2404,20 +2422,19 @@ handle_async_response(ResponseType, ReqId, Result, #state{req_map = ReqMap0} = S
                         reply -> Result;
                         down -> {error, noconnection}
                     end,
-            S1 = S0#state{req_map = ReqMap1},
-            async_reply({reply, Reply, S1}, From);
+            gen_server:reply(From, Reply),
+            {noreply, S0#state{req_map = ReqMap1}};
 
         {{setopts_new, Op}, ReqMap1} ->
             case maps:get(Op, ReqMap1) of
                 {setopts_new, From, 1} ->
                     %% Last response for this operation...
+                    gen_server:reply(From, ok),
                     ReqMap2 = maps:remove(Op, ReqMap1),
-                    S1 = S0#state{req_map = ReqMap2},
-                    async_reply({reply, ok, S1}, From);
+                    {noreply, S0#state{req_map = ReqMap2}};
                 {setopts_new, From, N} ->
                     ReqMap2 = ReqMap1#{Op => {setopts_new, From, N-1}},
-                    S1 = S0#state{req_map = ReqMap2},
-                    {noreply, S1}
+                    {noreply, S0#state{req_map = ReqMap2}}
             end
     end.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -421,7 +421,9 @@ trace_profiles() ->
       [{ssl,
         [{listen,2}, {connect,3}, {handshake,2}, {close, 1}]},
        {ssl_gen_statem,
-        [{initial_hello,3}, {connect, 8}, {close, 2}, {terminate_alert, 1}]}
+        [{initial_hello,3}, {connect, 8}, {close, 2}, {terminate_alert, 1}]},
+       {tls_gen_connection,
+        [{start_connection_tree, 5}, {socket_control, 6}]}
       ]},
      {csp, %% OCSP
       fun(M, F, A) -> dbg:tpl(M, F, A, x) end,
@@ -429,27 +431,40 @@ trace_profiles() ->
       [{ssl_handshake, [{maybe_add_certificate_status_request, 4},
                         {client_hello_extensions, 10}, {cert_status_check, 5},
                         {get_ocsp_responder_list, 1}, {handle_ocsp_extension, 2},
-                        {handle_server_hello_extensions, 10},
+                        {path_validation, 10},
+                        {handle_server_hello_extensions, 9},
                         {handle_client_hello_extensions, 10},
                         {cert_status_check, 5}]},
-       {public_key, [{ocsp_extensions, 1}, %%{pkix_decode_cert, 2},
-                     {pkix_ocsp_validate, 5}]},
+       {public_key, [{ocsp_extensions, 1}, {pkix_ocsp_validate, 5},
+                     {ocsp_responder_id, 1}, {otp_cert, 1}]},
+       {pubkey_ocsp, [{find_responder_cert, 2}, {do_verify_ocsp_signature, 4},
+                      {verify_ocsp_response, 3}, {verify_ocsp_nonce, 2},
+                      {verify_ocsp_signature, 5}, {do_verify_ocsp_response, 3},
+                      {is_responder, 2}, {find_single_response, 3},
+                      {ocsp_status, 1}, {match_single_response, 4}]},
        {ssl, [{opt_ocsp, 3}]},
        {ssl_certificate, [{verify_cert_extensions, 4}]},
        {ssl_test_lib, [{init_openssl_server, 3}, {openssl_server_loop, 3}]},
        {tls_connection, [{wait_ocsp_stapling, 3}]},
        {dtls_connection, [{initial_hello, 3}, {hello, 3}, {connection, 3}]},
        {tls_dtls_connection, [{wait_ocsp_stapling, 3}, {certify, 3}]},
-       {tls_handshake, [{ocsp_expect, 1}, {client_hello, 11}]},
+       {tls_handshake, [{ocsp_nonce, 1}, {ocsp_expect, 1}, {client_hello, 11}]},
        {dtls_handshake, [{client_hello, 8}]}]},
      {crt, %% certificates
       fun(M, F, A) -> dbg:tpl(M, F, A, x) end,
       fun(M, F, A) -> dbg:ctpl(M, F, A) end,
-      [{public_key, [{pkix_path_validation, 3}]},
-       {ssl_certificate, [{validate, 3}]},
+      [{public_key, [{pkix_path_validation, 3}, {path_validation, 2},
+                     {pkix_decode_cert, 2}]},
+       {ssl_certificate, [{validate, 3}, {trusted_cert_and_paths, 4},
+                          {certificate_chain, 3}, {certificate_chain, 5},
+                          {issuer, 1}]},
+       {ssl_cipher, [{filter, 3}]},
        {ssl_gen_statem, [{initial_hello, 3}]},
        {ssl_handshake, [{path_validate, 11}, {path_validation, 10},
+                        {select_hashsign, 5}, {get_cert_params, 1},
+                        {cert_curve, 3},
                         {maybe_check_hostname, 3}, {maybe_check_hostname, 3}]},
+       {ssl_pkix_db, [{decode_cert, 2}]},
        {tls_handshake_1_3, [{path_validation, 10}]},
        {tls_server_connection_1_3, [{init,1}]},
        {tls_client_connection_1_3, [{init,1}]},
@@ -494,4 +509,43 @@ trace_profiles() ->
        {dtls_gen_connection,
         [{handle_info,3}]},
        {ssl_gen_statem,
-        [{hibernate_after, 3}, {handle_common_event, 4}]}]}].
+        [{hibernate_after, 3}, {handle_common_event, 4}]}]},
+     {ct, %% common_test
+      fun(M, F, A) -> dbg:tpl(M, F, A, x) end,
+      fun(M, F, A) -> dbg:ctpl(M, F, A) end,
+      [
+       %% {ct_test_support, %% module from test and not src folder, enable it manually if needed
+       %% [{run_ct_run_test, 2},
+       %%  {run_ct_script_start, 2},
+       %%  {run, 2},
+       %%  {init_per_suite, 2},
+       %%  {start_slave, 3}]},
+       {test_server, [
+                      {ts_tc, 3},
+                      {user_callback, 5},
+                      {fw_error_notify, 4},
+                      {get_loc, 1},
+                      {set_tc_state, 1},
+                      {init_per_testcase, 3},
+                      {run_test_case_msgloop, 1},
+                      {run_test_case_eval1, 6},
+                      {do_init_tc_call, 4},
+                      {process_return_val, 6},
+                      {do_end_tc_call, 4},
+                      {end_per_testcase, 3},
+                      {call_end_conf, 7},
+                      {do_call_end_conf, 7},
+                      {call_end_conf, 7},
+                      {handle_tc_exit, 2},
+                      {capture_start, 0},
+                      {capture_stop, 0},
+                      {capture_get, 0},
+                      {fail, 0},
+                      {fail, 1},
+                      {timetrap, 4},
+                      {start_node, 3},
+                      {comment, 1}
+                     ]}
+       %% ,{ct_util, [{mark_process, 0}]}
+      ]
+     }].

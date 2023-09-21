@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -262,21 +262,20 @@ extension_id(?'id-ce-keyUsage') -> 	          'KeyUsage';
 extension_id(?'id-ce-privateKeyUsagePeriod') ->   'PrivateKeyUsagePeriod';
 extension_id(?'id-ce-certificatePolicies') -> 	  'CertificatePolicies';
 extension_id(?'id-ce-policyMappings') -> 	  'PolicyMappings';
-extension_id(?'id-ce-subjectAltName') -> 	  'SubjectAltName'; 	        
-extension_id(?'id-ce-issuerAltName') -> 	  'IssuerAltName'; 	        
+extension_id(?'id-ce-subjectAltName') -> 	  'SubjectAltName';
+extension_id(?'id-ce-issuerAltName') -> 	  'IssuerAltName';
 extension_id(?'id-ce-subjectDirectoryAttributes') -> 	  'SubjectDirectoryAttributes';
-extension_id(?'id-ce-basicConstraints' ) -> 	  'BasicConstraints';	        
-extension_id(?'id-ce-nameConstraints') -> 	  'NameConstraints'; 	        
-extension_id(?'id-ce-policyConstraints') -> 	  'PolicyConstraints'; 	
-extension_id(?'id-ce-cRLDistributionPoints') ->   'CRLDistributionPoints'; 	
-extension_id(?'id-ce-extKeyUsage') -> 	          'ExtKeyUsageSyntax'; 	        
-extension_id(?'id-ce-inhibitAnyPolicy') -> 	  'InhibitAnyPolicy'; 	        
+extension_id(?'id-ce-basicConstraints' ) -> 	  'BasicConstraints';
+extension_id(?'id-ce-nameConstraints') -> 	  'NameConstraints';
+extension_id(?'id-ce-policyConstraints') -> 	  'PolicyConstraints';
+extension_id(?'id-ce-extKeyUsage') -> 	          'ExtKeyUsageSyntax';
+extension_id(?'id-ce-inhibitAnyPolicy') -> 	  'InhibitAnyPolicy';
 extension_id(?'id-ce-freshestCRL') -> 	          'FreshestCRL';
-%% Missing in public_key doc 
+extension_id(?'id-ce-issuingDistributionPoint') -> 'IssuingDistributionPoint';
+%% Missing in public_key doc
 extension_id(?'id-pe-authorityInfoAccess') -> 	  'AuthorityInfoAccessSyntax';
 extension_id(?'id-pe-subjectInfoAccess') -> 	  'SubjectInfoAccessSyntax';
 extension_id(?'id-ce-cRLNumber') -> 	          'CRLNumber';
-extension_id(?'id-ce-issuingDistributionPoint') -> 'IssuingDistributionPoint';
 extension_id(?'id-ce-deltaCRLIndicator') -> 	   'BaseCRLNumber';
 extension_id(?'id-ce-cRLReasons') -> 	          'CRLReason';
 extension_id(?'id-ce-certificateIssuer') -> 	  'CertificateIssuer';

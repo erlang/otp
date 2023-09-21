@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +63,7 @@
 #define DFLAG_NAME_ME          (((Uint64)0x2) << 32)
 #define DFLAG_V4_NC            (((Uint64)0x4) << 32)
 #define DFLAG_ALIAS            (((Uint64)0x8) << 32)
+#define DFLAG_LOCAL_EXT        (((Uint64)0x10) << 32) /* internal */
 
 /*
  * In term_to_binary/2, we will use DFLAG_ATOM_CACHE to mean
@@ -128,7 +129,8 @@
 #define DFLAG_DIST_STRICT_ORDER DFLAG_DIST_HDR_ATOM_CACHE
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
-#define TERM_TO_BINARY_DFLAGS DFLAG_NEW_FLOATS
+#define TERM_TO_BINARY_DFLAGS (DFLAG_NEW_FLOATS                  \
+                               | DFLAG_UTF8_ATOMS)
 
 /* opcodes used in distribution messages */
 enum dop {
@@ -281,10 +283,17 @@ typedef struct TTBEncodeContext_ {
     SysIOVec* iov;
     ErlDrvBinary** binv;
     Eterm *termv;
-    int iovec;
     Uint fragment_size;
     Sint frag_ix;
     ErlIOVec *fragment_eiovs;
+    int iovec;
+    int continue_make_lext_hash;
+    int lext_vlen;
+    byte *lext_hash;
+    union {
+        ErtsBlockHashState block;
+        ErtsIovBlockHashState iov_block;
+    } lext_state;
 #ifdef DEBUG
     int debug_fragments;
     int debug_vlen;
@@ -304,6 +313,8 @@ typedef struct TTBEncodeContext_ {
         (Ctx)->iov = NULL;                                      \
         (Ctx)->binv = NULL;                                     \
         (Ctx)->fragment_size = ~((Uint) 0);                     \
+        (Ctx)->continue_make_lext_hash = 0;                     \
+        (Ctx)->lext_vlen = -1;                                  \
         if ((Flags) & DFLAG_PENDING_CONNECT) {                  \
             (Ctx)->hopefull_flags = 0;                          \
             (Ctx)->hopefull_flagsp = NULL;                      \

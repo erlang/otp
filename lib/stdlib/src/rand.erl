@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1466,7 +1466,7 @@ dummy_seed({A1, A2, A3}) ->
 %% the same sequence in the reverse order.  The generator
 %% CX1 = (A * CX0) rem P
 %% that uses the multiplicative inverse mod P is, indeed,
-%% an exact equevalent to the corresponding MWC generator.
+%% an exact equivalent to the corresponding MWC generator.
 %%
 %% An MWC generator has, due to the power of two multiplier
 %% in the corresponding MCG, got known statistical weaknesses

@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020-2022. All Rights Reserved.
+// Copyright Ericsson AB 2020-2023. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -289,7 +289,7 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
         *dst++ = Rest[i + 1];
     }
 
-    lit = beamfile_add_literal(&S->beam, keys);
+    lit = beamfile_add_literal(&S->beam, keys, 1);
     erts_free(ERTS_ALC_T_LOADER_TMP, tmp);
 
     op->a[0] = Dst;
@@ -341,31 +341,6 @@ gen.skip_utf16(Fail, Ms, Flags) {
     op->a[1] = Fail;
     op->a[2] = Flags;
     return op;
-}
-
-gen.allocate_heap_zero(Ns, Nh, Live) {
-    BeamOp* alloc;
-    BeamOp* init;
-    int i;
-
-    $NewBeamOp(S, alloc);
-    $NewBeamOp(S, init);
-
-    $BeamOpNameArity(alloc, allocate_heap, 3);
-    alloc->a[0] = Ns;
-    alloc->a[1] = Nh;
-    alloc->a[2] = Live;
-    alloc->next = init;
-
-    $BeamOpNameArity(init, init_yregs, 1);
-    $BeamOpArity(init, Ns.val+1);
-    init->a[0] = Ns;
-    for (i = 0; i < Ns.val; i++) {
-	init->a[i+1].type = TAG_y;
-	init->a[i+1].val = i;
-    }
-
-    return alloc;
 }
 
 gen.jump_tab(Src, Fail, Size, Rest) {
@@ -570,6 +545,50 @@ gen.bs_match(Fail, Ctx, N, List) {
     BeamOp* op;
     int fixed_args;
     int i;
+
+    /*
+     * If a BEAM file produced by a later version of Erlang/OTP
+     * is accidentally loaded into an earlier version, ensure
+     * that the loading fails (as opposed to crashing the runtime)
+     * if there are any unknown sub commands.
+     */
+    i = 0;
+    while (i < N.val) {
+        BeamOpArg current = List[i++];
+
+        if (current.type != TAG_a) {
+            goto error;
+        }
+
+        switch (current.val) {
+        case am_ensure_exactly:
+        case am_skip:
+            i += 1;
+            break;
+        case am_ensure_at_least:
+            i += 2;
+            break;
+        case am_get_tail:
+        case am_Eq:
+            i += 3;
+            break;
+        case am_binary:
+        case am_integer:
+            i += 5;
+            break;
+        default: {
+            error:
+            $NewBeamOp(S, op);
+            $BeamOpNameArity(op, bad_bs_match, 1);
+            op->a[0] = current;
+            return op;
+        }
+        }
+    }
+
+    /*
+     * Make sure that we don't attempt to pass any overflow tags to the JIT.
+     */
 
     $NewBeamOp(S, op);
     $BeamOpNameArity(op, i_bs_match, 2);

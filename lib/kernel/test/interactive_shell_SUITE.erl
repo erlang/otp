@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,9 +46,10 @@
          shell_history_custom/1, shell_history_custom_errors/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
-         shell_navigation/1, shell_xnfix/1, shell_delete/1,
+         shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1,
+         shell_xnfix/1, shell_delete/1,
          shell_transpose/1, shell_search/1, shell_insert/1,
-         shell_update_window/1, shell_huge_input/1,
+         shell_update_window/1, shell_small_window_multiline_navigation/1, shell_huge_input/1,
          shell_invalid_unicode/1, shell_support_ansi_input/1,
          shell_invalid_ansi/1, shell_suspend/1, shell_full_queue/1,
          shell_unicode_wrap/1, shell_delete_unicode_wrap/1,
@@ -56,17 +57,19 @@
          shell_expand_location_above/1,
          shell_expand_location_below/1,
          shell_update_window_unicode_wrap/1,
+         shell_receive_standard_out/1,
          shell_standard_error_nlcr/1, shell_clear/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
          external_editor_unicode/1, shell_ignore_pager_commands/1]).
 
+-export([test_invalid_keymap/1, test_valid_keymap/1]).
 %% Exports for custom shell history module
 -export([load/0, add/1]).
 %% For custom prompt testing
 -export([prompt/1]).
-
+-record(tmux, {peer, node, name, orig_location }).
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,3}}].
@@ -106,6 +109,7 @@ groups() ->
      {tty,[],
       [{group,tty_unicode},
        {group,tty_latin1},
+       test_invalid_keymap, test_valid_keymap,
        shell_suspend,
        shell_full_queue,
        external_editor,
@@ -124,10 +128,12 @@ groups() ->
       ]},
      {tty_latin1,[],[{group,tty_tests}]},
      {tty_tests, [parallel],
-      [shell_navigation, shell_xnfix, shell_delete,
+      [shell_navigation, shell_multiline_navigation, shell_multiline_prompt,
+       shell_xnfix, shell_delete,
        shell_transpose, shell_search, shell_insert,
-       shell_update_window, shell_huge_input,
+       shell_update_window, shell_small_window_multiline_navigation, shell_huge_input,
        shell_support_ansi_input,
+       shell_receive_standard_out,
        shell_standard_error_nlcr,
        shell_expand_location_above,
        shell_expand_location_below,
@@ -403,6 +409,102 @@ shell_navigation(Config) ->
         ok
     after
         stop_tty(Term)
+    end.
+shell_multiline_navigation(Config) ->
+    Term = start_tty(Config),
+
+    try
+        [begin
+             check_location(Term, {0, 0}),
+             send_tty(Term,"{aaa,"),
+             check_location(Term, {0,width("{aaa,")}),
+             send_tty(Term,"\n'b"++U++"b',"),
+             check_location(Term, {0, width("'b"++U++"b',")}),
+             send_tty(Term,"\nccc}"),
+             check_location(Term, {-2, 0}), %% Check that cursor jump backward (blink)
+             timer:sleep(1000), %% Wait for cursor to jump back
+             check_location(Term, {0, width("ccc}")}),
+             send_tty(Term,"Home"),
+             check_location(Term, {0, 0}),
+             send_tty(Term,"End"),
+             check_location(Term, {0, width("ccc}")}),
+             send_tty(Term,"Left"),
+             check_location(Term, {0, width("ccc")}),
+             send_tty(Term,"C-Left"),
+             check_location(Term, {0, 0}),
+             send_tty(Term,"C-Left"),
+             check_location(Term, {-1, width("'b"++U++"b',")}),
+             send_tty(Term,"C-Left"),
+             check_location(Term, {-1, 0}),
+             %send_tty(Term,"C-Left"),
+             %check_location(Term, {-1, 0}),
+             %send_tty(Term,"C-Right"),
+             %check_location(Term, {-1, 1}),
+             send_tty(Term,"C-Right"),
+             check_location(Term, {-1, width("'b"++U++"b'")}),
+             send_tty(Term,"C-Up"),
+             check_location(Term, {-2, width("{aaa,")}),
+             send_tty(Term,"C-Down"),
+             send_tty(Term,"C-Down"),
+             check_location(Term, {0, width("ccc}")}),
+             send_tty(Term,"Left"),
+             send_tty(Term,"C-Up"),
+             check_location(Term, {-1, width("'b"++U)}),
+             send_tty(Term,"M-<"),
+             check_location(Term, {-2, 0}),
+             send_tty(Term,"M->"),
+             send_tty(Term,"Left"),
+             check_location(Term, {0,width("ccc")}),
+             send_tty(Term,"Enter"),
+             send_tty(Term,"Right"),
+             check_location(Term, {0,0}),
+             send_tty(Term,"C-h"), % Backspace
+             check_location(Term, {-1,width("ccc}")}),
+             send_tty(Term, "C-Up"),
+             send_tty(Term, "End"),
+             send_tty(Term,"Left"),
+             send_tty(Term,"M-Enter"),
+             check_content(Term, ".. ,"),
+             check_location(Term, {-1,0}),
+             send_tty(Term,"M-c"),
+             check_location(Term, {-3,0}),
+             send_tty(Term,"{'"++U++"',\n\n\nworks}.\n")
+            end || U <- hard_unicode()],
+        ok
+    after
+        stop_tty(Term)
+    end.
+
+shell_multiline_prompt(Config) ->
+    Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{edlin,inverted_space_prompt}"]}|Config]),
+    Term2 = start_tty([{args,["-stdlib","shell_multiline_prompt","\"...> \""]}|Config]),
+    Term3 = start_tty([{args,["-stdlib","shell_multiline_prompt","edlin"]}|Config]),
+
+    try
+        check_location(Term1, {0, 0}),
+        send_tty(Term1,"\na"),
+        check_location(Term1, {0, 1}),
+        check_content(Term1, "   a"),
+        ok
+    after
+        stop_tty(Term1)
+    end,
+    try
+        check_location(Term2, {0, 0}),
+        send_tty(Term2,"\na"),
+        check_location(Term2, {0, 1}),
+        check_content(Term2, "...> a"),
+        ok
+    after
+        stop_tty(Term2)
+    end,
+    try
+        send_tty(Term3,"\na"),
+        check_location(Term3, {0, 1}),
+        check_content(Term3, ".. a"),
+        ok
+    after
+        stop_tty(Term3)
     end.
 
 shell_clear(Config) ->
@@ -727,9 +829,7 @@ shell_transpose(Config) ->
     end.
 
 shell_search(C) ->
-
     Term = start_tty(C),
-    {_Row, Cols} = get_location(Term),
 
     try
         send_tty(Term,"a"),
@@ -743,20 +843,22 @@ shell_search(C) ->
         send_tty(Term,"Enter"),
         check_location(Term, {0, 0}),
         send_tty(Term,"C-r"),
-        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
+        check_content(Term, "search:\\s*\n\\s*'a😀'."),
         send_tty(Term,"C-a"),
-        check_location(Term, {0, width(C, "'a😀'.")}),
+        check_location(Term, {-1, width(C, "'a😀'.")}),
         send_tty(Term,"Enter"),
         send_tty(Term,"C-r"),
-        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
+        check_content(Term, "search:\\s*\n\\s*'a😀'."),
         send_tty(Term,"a"),
-        check_location(Term, {0, - Cols + width(C, "(search)`a': 'a😀'.") }),
+        check_content(Term, "search: a\\s*\n\\s*'a😀'."),
         send_tty(Term,"C-r"),
-        check_location(Term, {0, - Cols + width(C, "(search)`a': a.") }),
+        check_content(Term, "search: a\\s*\n\\s*a."),
         send_tty(Term,"BSpace"),
-        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
+        check_content(Term, "search:\\s*\n\\s*'a😀'."),
         send_tty(Term,"BSpace"),
-        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
+        check_content(Term, "search:\\s*\n\\s*'a😀'."),
+        send_tty(Term,"M-c"),
+        check_location(Term, {-1, 0}),
         ok
     after
         stop_tty(Term),
@@ -811,7 +913,51 @@ shell_update_window(Config) ->
     after
         stop_tty(Term)
     end.
-
+shell_small_window_multiline_navigation(Config) ->
+    Term0 = start_tty(Config),
+    tmux(["resize-window -t ",tty_name(Term0)," -x ",30, " -y ", 6]),
+    {Row, Col} = get_location(Term0),
+    Term = Term0#tmux{orig_location = {Row, Col}},
+    Text = ("xbcdefghijklmabcdefghijklm\n"++
+        "abcdefghijkl\n"++
+        "abcdefghijklmabcdefghijklm\n"++
+        "abcdefghijklmabcdefghijklx"),
+    try
+        send_tty(Term,Text),
+        check_location(Term, {0, -4}),
+        send_tty(Term,"Home"),
+        check_location(Term, {-1, 0}),
+        send_tty(Term, "C-Up"),
+        check_location(Term, {-2, 0}),
+        send_tty(Term, "C-Down"),
+        check_location(Term, {-1, 0}),
+        send_tty(Term, "Left"),
+        check_location(Term, {-1, -4}),
+        send_tty(Term, "Right"),
+        check_location(Term, {-1, 0}),
+        send_tty(Term, "\e[1;4A"),
+        check_location(Term, {-5, 0}),
+        check_content(Term,"xbc"),
+        send_tty(Term, "\e[1;4B"),
+        check_location(Term, {0, -4}),
+        check_content(Term,"klx"),
+        send_tty(Term, " sets:is_e\t"),
+        check_content(Term,"is_element"),
+        check_content(Term,"is_empty"),
+        check_location(Term, {-3, 6}),
+        send_tty(Term, "C-Up"),
+        send_tty(Term,"Home"),
+        check_location(Term, {-2, 0}),
+        send_tty(Term, "sets:is_e\t"),
+        check_content(Term,"is_element"),
+        check_content(Term,"is_empty"),
+        check_location(Term, {-4, 9}),
+        send_tty(Term, "M-Enter"),
+        check_location(Term, {-1, 0}),
+        ok
+    after
+        stop_tty(Term)
+    end.
 shell_huge_input(Config) ->
     Term = start_tty(Config),
 
@@ -826,7 +972,18 @@ shell_huge_input(Config) ->
     after
         stop_tty(Term)
     end.
-
+shell_receive_standard_out(Config) ->
+    Term = start_tty(Config),
+    try
+        send_tty(Term,"my_fun(5) -> ok; my_fun(N) -> receive after 100 -> io:format(\"~p\\n\", [N]), my_fun(N+1) end.\n"),
+        send_tty(Term, "spawn(shell_default, my_fun, [0]). ABC\n"),
+        timer:sleep(1000),
+        check_location(Term, {0, 0}), %% Check that we are at the same location relative to the start.
+        check_content(Term, "3\\s+4\\s+.+>\\sABC"),
+        ok
+    after
+        stop_tty(Term)
+    end.
 %% Test that the shell works when invalid utf-8 (aka latin1) is sent to it
 shell_invalid_unicode(Config) ->
     Term = start_tty(Config),
@@ -969,7 +1126,7 @@ shell_expand_location_below(Config) ->
         %% The expansion does not fit on screen, verify that
         %% expand above mode is used
         check_content(fun() -> get_content(Term, "-S -5") end,
-                      "3> long_module:" ++ FunctionName ++ "\nfunctions"),
+                      "\nfunctions\n"),
         check_content(Term, "3> long_module:" ++ FunctionName ++ "$"),
 
         %% We resize the terminal to make everything fit and test that
@@ -1053,7 +1210,35 @@ shell_ignore_pager_commands(Config) ->
                 ok
             end
     end.
+test_valid_keymap(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir,Config),
+    Term = setup_tty([{args, ["-config", DataDir ++ "valid_keymap.config"]} | Config]),
+    try
+        check_not_in_content(Term, "Invalid key"),
+        check_not_in_content(Term, "Invalid function"),
+        send_tty(Term, "asdf"),
+        send_tty(Term, "C-u"),
+        check_content(Term, ">$"),
+        ok
+    after
+        stop_tty(Term),
+        ok
+    end.
 
+test_invalid_keymap(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir,Config),
+    Term1 = setup_tty([{args, ["-config", DataDir ++ "invalid_keymap.config"]} | Config]),
+    try
+        check_content(Term1, "Invalid key"),
+        check_content(Term1, "Invalid function"),
+        send_tty(Term1, "asdf"),
+        send_tty(Term1, "C-u"),
+        check_content(Term1, ">$"),
+        ok
+    after
+        stop_tty(Term1),
+        ok
+    end.
 external_editor(Config) ->
     case os:find_executable("nano") of
         false -> {skip, "nano is not installed"};
@@ -1063,18 +1248,19 @@ external_editor(Config) ->
                 tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
                 send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
                 send_tty(Term, "\"some text with\nnewline in it\""),
-                check_content(Term,"3> \"some text with\\s*\n.+3>\\s*newline in it\""),
+                check_content(Term,"3> \"some text with\\s*\n.+\\s*newline in it\""),
                 send_tty(Term, "C-O"),
                 check_content(Term,"GNU nano [\\d.]+"),
-                check_content(Term,"newline in it\""),
+                check_content(Term,"\"some text with\\s*\n\\s*newline in it\""),
+                send_tty(Term, "Right"),
                 send_tty(Term, "still"),
                 send_tty(Term, "Enter"),
                 send_tty(Term, "C-O"), %% save in nano
                 send_tty(Term, "Enter"),
                 send_tty(Term, "C-X"), %% quit in nano
-                check_content(Term,"still\n.+3> newline in it\""),
+                check_content(Term,"3> \"still\\s*\n\\s*.+\\s*some text with\\s*\n.+\\s*newline in it\""),
                 send_tty(Term,".\n"),
-                check_content(Term,"\\Q\"some text with\\nstill\\nnewline in it\"\\E"),
+                check_content(Term,"\\Q\"still\\nsome text with\\nnewline in it\"\\E"),
                 ok
             after
                 stop_tty(Term),
@@ -1380,8 +1566,6 @@ npwcwidth(CP) ->
             end
     end.
 
--record(tmux, {peer, node, name, orig_location }).
-
 tmux([Cmd|_] = Command) when is_list(Cmd) ->
     tmux(lists:concat(Command));
 tmux(Command) ->
@@ -1565,6 +1749,33 @@ get_window_size(Term) ->
     [Row, Col] = string:lexemes(string:trim(RowAndCol,both)," "),
     {list_to_integer(Row), list_to_integer(Col)}.
 
+check_not_in_content(Term, NegativeMatch) ->
+    check_not_in_content(Term, NegativeMatch, #{}, 5).
+check_not_in_content(Term, NegativeMatch, Opts, Attempt) ->
+    Opts = #{},
+    OrigContent = case Term of
+        #tmux{} -> get_content(Term);
+        Fun when is_function(Fun,0) -> Fun()
+    end,
+    Content = case maps:find(replace, Opts) of
+                {ok, {RE,Repl} } ->
+                    re:replace(OrigContent, RE, Repl, [global]);
+                error ->
+                    OrigContent
+                end,
+    case re:run(string:trim(Content, both), lists:flatten(NegativeMatch), [unicode]) of
+        {match,_} ->
+            io:format("Failed, found '~ts' in ~n'~ts'~n",
+            [unicode:characters_to_binary(NegativeMatch), Content]),
+            io:format("Failed, found '~w' in ~n'~w'~n",
+                        [unicode:characters_to_binary(NegativeMatch), Content]),
+            ct:fail(match);
+        _ when Attempt =:= 0 ->
+            ok;
+        _ ->
+            timer:sleep(500),
+            check_not_in_content(Term, NegativeMatch, Opts, Attempt - 1)
+    end.
 check_content(Term, Match) ->
     check_content(Term, Match, #{}).
 check_content(Term, Match, Opts) when is_map(Opts) ->
@@ -2125,15 +2336,13 @@ test_remote_job_control(Node) ->
        {expect, "Unknown job"},
        {expect, " --> $"},
        {putline, "c 1"},
-       {expect, "\r\n"},
-       {putline, ""},
        {expect, "\\Q("++RemNode++"@\\E[^)]*\\)[12]> $"},
        {putdata, "\^g"},
        {expect, " --> $"},
        {putline, "j"},
        {expect, "1[*] {shell,start,\\[init]}"},
        {putline, "c"},
-       {expect, "\r\n"},
+       {expect, "\\Q("++RemNode++"@\\E[^)]*\\)[123]> $"},
        {sleep, 100},
        {putline, "35."},
        {expect, "\\Q("++RemNode++"@\\E[^)]*\\)[123]> $"}

@@ -26,7 +26,7 @@
 -record(cp, {name, class, dec, comp, cs, cat}).
 -define(MOD, "unicode_util").
 
-main(_) ->
+main(Args) ->
     %%  Parse main table
     UD = file_open("../uc_spec/UnicodeData.txt"),
     Data0 = foldl(fun parse_unicode_data/2, [], UD),
@@ -66,8 +66,13 @@ main(_) ->
     ok = file:close(WidthF),
 
     %% Make module
+    UpdateTests = case Args of
+                      ["update_tests"] -> true;
+                      _ -> false
+                  end,
+
     {ok, Out} = file:open(?MOD++".erl", [write]),
-    gen_file(Out, Data, ExclData, maps:from_list(Props), WideCs),
+    gen_file(Out, Data, ExclData, maps:from_list(Props), WideCs, UpdateTests),
     ok = file:close(Out),
     ok.
 
@@ -216,7 +221,7 @@ is_default_width(Index, WD) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-gen_file(Fd, Data, ExclData, Props, WideCs) ->
+gen_file(Fd, Data, ExclData, Props, WideCs, UpdateTests) ->
     gen_header(Fd),
     gen_static(Fd),
     gen_norm(Fd),
@@ -225,7 +230,7 @@ gen_file(Fd, Data, ExclData, Props, WideCs) ->
     gen_gc(Fd, Props),
     gen_compose_pairs(Fd, ExclData, Data),
     gen_case_table(Fd, Data),
-    gen_unicode_table(Fd, Data),
+    gen_unicode_table(Fd, Data, UpdateTests),
     gen_width_table(Fd, WideCs),
     ok.
 
@@ -260,7 +265,7 @@ gen_static(Fd) ->
                  "        {U,L,T,F} -> #{upper=>U,lower=>L,title=>T,fold=>F}\n"
                  "    end.\n\n"),
 
-    io:put_chars(Fd, "spec_version() -> {14,0}.\n\n\n"),
+    io:put_chars(Fd, "spec_version() -> {15,0}.\n\n\n"),
     io:put_chars(Fd, "class(Codepoint) when ?IS_CP(Codepoint) -> \n"
                  "    {CCC,_,_,_} = unicode_table(Codepoint),\n    CCC.\n\n"),
 
@@ -929,7 +934,7 @@ case_data(_, _) ->
 def_cp([], CP) -> CP;
 def_cp(CP, _) -> CP.
 
-gen_unicode_table(Fd, Data) ->
+gen_unicode_table(Fd, Data, UpdateTests) ->
     FixCanon = fun(_, #cp{class=CCC, dec=Dec, comp=Comp, cat=Cat}) ->
                        Canon  = decompose(Dec,Data),
                        #{ccc=>CCC, canonical=>Canon, compat=>Comp, cat=>Cat}
@@ -948,11 +953,18 @@ gen_unicode_table(Fd, Data) ->
                                          end, Dict0),
 
     %% Export testfile
-    %% Dict1 = lists:map(fun({Id,{CCC, Canon, Compat, Cat}}) ->
-    %%                           {_, ECat} = lists:keyfind(Cat, 1, category_translate()),
-    %%                           {Id, {CCC, Canon, Compat, ECat}}
-    %%                   end, Dict0),
-    %% file:write_file("../test/unicode_util_SUITE_data/unicode_table.bin", term_to_binary(Dict1, [compressed])),
+    case UpdateTests of
+        true ->
+            Dict1 = lists:map(fun({Id,{CCC, Canon, Compat, Cat}}) ->
+                                      {_, ECat} = lists:keyfind(Cat, 1, category_translate()),
+                                      {Id, {CCC, Canon, Compat, ECat}}
+                              end, Dict0),
+            TestFile = "../test/unicode_util_SUITE_data/unicode_table.bin",
+            io:format("Updating: ~s~n", [TestFile]),
+            file:write_file(TestFile, term_to_binary(Dict1, [compressed]));
+        false ->
+            ignore
+    end,
 
     [io:format(Fd, "unicode_table(~w) -> ~w;~n", [CP, Map]) || {CP,Map} <- NonDef],
     io:format(Fd, "unicode_table(_) -> ~w.~n~n",[Def]),

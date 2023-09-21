@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -108,8 +108,7 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 		     binary(), ssl_record:connection_states(), _,_, #state{}) ->
 			    gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-handle_session(#server_hello{cipher_suite = CipherSuite,
-			     compression_method = Compression}, 
+handle_session(#server_hello{cipher_suite = CipherSuite},
 	       Version, NewId, ConnectionStates, ProtoExt, Protocol0,
 	       #state{session = Session,
 		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv,
@@ -134,11 +133,9 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
     
     case ssl_session:is_new(Session, NewId) of
 	true ->
-	    handle_new_session(NewId, CipherSuite, Compression,
-			       State#state{connection_states = ConnectionStates});
+	    handle_new_session(NewId, CipherSuite, State#state{connection_states = ConnectionStates});
 	false ->
-	    handle_resumed_session(NewId,
-				   State#state{connection_states = ConnectionStates})
+	    handle_resumed_session(NewId, State#state{connection_states = ConnectionStates})
     end.
 
 
@@ -174,12 +171,18 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = ssl:update_options(NewOptions, Role, Options0),
-    State = ssl_gen_statem:ssl_config(Options, Role, State0),
-    {next_state, hello, State#state{start_or_recv_from = From,
-                                    handshake_env = HSEnv#handshake_env{continue_status = continue}
-                                   },
-     [{{timeout, handshake}, Timeout, close}]};
+    try ssl:update_options(NewOptions, Role, Options0) of
+        Options ->
+            State = ssl_gen_statem:ssl_config(Options, Role, State0),
+            {next_state, hello, State#state{start_or_recv_from = From,
+                                            handshake_env = HSEnv#handshake_env{continue_status = continue}
+                                           },
+             [{{timeout, handshake}, Timeout, close}]}
+    catch
+        throw:{error, Reason} ->
+            gen_statem:reply(From, {error, Reason}),
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), ?FUNCTION_NAME, State0)
+    end;
 user_hello(info, {'DOWN', _, _, _, _} = Event, State) ->
     ssl_gen_statem:handle_info(Event, ?FUNCTION_NAME, State);
 user_hello(_, _, _) ->
@@ -255,9 +258,10 @@ abbreviated(internal,
                    handshake_env = HsEnv} = State) ->
     ConnectionStates1 =
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
-    Connection:next_event(?FUNCTION_NAME, no_record, State#state{connection_states = 
-                                                                     ConnectionStates1,                                                   
-                                                                 handshake_env = HsEnv#handshake_env{expecting_finished = true}});
+    Connection:next_event(?FUNCTION_NAME, no_record,
+                          State#state{connection_states =
+                                          ConnectionStates1,
+                                      handshake_env = HsEnv#handshake_env{expecting_finished = true}});
 abbreviated(info, Msg, State) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 abbreviated(internal, #hello_request{}, _) ->
@@ -278,24 +282,28 @@ wait_ocsp_stapling(internal, #certificate{},
 %% Receive OCSP staple message
 wait_ocsp_stapling(internal, #certificate_status{} = CertStatus,
                    #state{static_env = #static_env{protocol_cb = _Connection},
-                          handshake_env = #handshake_env{
-                                             ocsp_stapling_state = OcspState} = HsEnv} = State) ->
-    {next_state, certify, State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =
-                                                                              OcspState#{ocsp_expect => stapled,
-                                                                                         ocsp_response => CertStatus}}}};
+                          handshake_env =
+                              #handshake_env{ocsp_stapling_state = OcspState} = HsEnv} = State) ->
+    {next_state, certify,
+     State#state{handshake_env =
+                     HsEnv#handshake_env{ocsp_stapling_state =
+                                             OcspState#{ocsp_expect => stapled,
+                                                        ocsp_response => CertStatus}}}};
 %% Server did not send OCSP staple message
-wait_ocsp_stapling(internal, Msg, #state{static_env = #static_env{protocol_cb = _Connection},
-                                         handshake_env = #handshake_env{
-                                                            ocsp_stapling_state = OcspState} = HsEnv} = State)
+wait_ocsp_stapling(internal, Msg,
+                   #state{static_env = #static_env{protocol_cb = _Connection},
+                          handshake_env = #handshake_env{
+                                             ocsp_stapling_state = OcspState} = HsEnv} = State)
   when is_record(Msg, server_key_exchange) orelse
        is_record(Msg, hello_request) orelse
        is_record(Msg, certificate_request) orelse
        is_record(Msg, server_hello_done) orelse
        is_record(Msg, client_key_exchange) ->
-    {next_state, certify, State#state{handshake_env =
-                                          HsEnv#handshake_env{ocsp_stapling_state = OcspState#{ocsp_expect => undetermined}}},
+    {next_state, certify,
+     State#state{handshake_env =
+                     HsEnv#handshake_env{ocsp_stapling_state =
+                                             OcspState#{ocsp_expect => undetermined}}},
      [{postpone, true}]};
-
 wait_ocsp_stapling(internal, #hello_request{}, _) ->
     keep_state_and_data;
 wait_ocsp_stapling(Type, Event, State) ->
@@ -821,21 +829,18 @@ override_server_random(Random, _, _) ->
     Random.
 
 new_server_hello(#server_hello{cipher_suite = CipherSuite,
-			      compression_method = Compression,
-			      session_id = SessionId},
-                 #state{session = Session0,
-                        static_env = #static_env{protocol_cb = Connection}} = State0, Connection) ->
+                               session_id = SessionId},
+                 #state{session = Session0} = State0, Connection) ->
     #state{} = State1 = server_certify_and_key_exchange(State0, Connection),
     {State, Actions} = server_hello_done(State1, Connection),
     Session = Session0#session{session_id = SessionId,
-                               cipher_suite = CipherSuite,
-                               compression_method = Compression},
+                               cipher_suite = CipherSuite},
     Connection:next_event(certify, no_record, State#state{session = Session}, Actions).
 
 resumed_server_hello(#state{session = Session,
 			    connection_states = ConnectionStates0,
-                            static_env = #static_env{protocol_cb = Connection},
-			    connection_env = #connection_env{negotiated_version = Version}} = State0, Connection) ->
+			    connection_env = #connection_env{negotiated_version = Version}} = State0,
+                     Connection) ->
 
     case ssl_handshake:master_secret(ssl:tls_version(Version), Session,
 				     ConnectionStates0, server) of
@@ -1601,13 +1606,12 @@ host_id(client, _Host, #{server_name_indication := Hostname}) when is_list(Hostn
 host_id(_, Host, _) ->
     Host.
 
-handle_new_session(NewId, CipherSuite, Compression, 
+handle_new_session(NewId, CipherSuite,
 		   #state{static_env = #static_env{protocol_cb = Connection},
                           session = Session0
 			 } = State0) ->
     Session = Session0#session{session_id = NewId,
-			       cipher_suite = CipherSuite,
-			       compression_method = Compression},
+			       cipher_suite = CipherSuite},
     Connection:next_event(certify, no_record, State0#state{session = Session}).
 
 handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
@@ -1636,8 +1640,9 @@ handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
             throw(Alert)
     end.
 
-make_premaster_secret({MajVer, MinVer}, rsa) ->
+make_premaster_secret(Version, rsa) ->
     Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
+    {MajVer,MinVer} = Version,
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
     undefined.
@@ -1666,23 +1671,21 @@ handle_sni_extension(#state{static_env =
             throw(Alert)
     end.
 
-ensure_tls({254, _} = Version) -> 
+ensure_tls(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:corresponding_tls_version(Version);
 ensure_tls(Version) -> 
     Version.
 
-ocsp_info(#{ocsp_expect := stapled, 
-            ocsp_response := CertStatus} = OcspState,
-            #{ocsp_responder_certs := OcspResponderCerts}, PeerCert) ->
+ocsp_info(#{ocsp_expect := stapled, ocsp_response := CertStatus} = OcspState,
+          #{ocsp_stapling := OcspStapling} = _SslOpts, PeerCert) ->
+    #{ocsp_responder_certs := OcspResponderCerts} = OcspStapling,
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => [CertStatus]},
       ocsp_responder_certs => OcspResponderCerts,
-      ocsp_state => OcspState
-     };
+      ocsp_state => OcspState};
 ocsp_info(#{ocsp_expect := no_staple} = OcspState, _, PeerCert) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
       ocsp_responder_certs => [],
-      ocsp_state => OcspState
-     }.
+      ocsp_state => OcspState}.
 
 select_client_cert_key_pair(Session0,_,
                             [#{private_key := NoKey, certs := [[]] = NoCerts}],

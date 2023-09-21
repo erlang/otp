@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -555,10 +555,6 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 #else
             /* To avoid keeping stale references. */
             c_p->stop[0] = NIL;
-#endif
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-	    /* No longer safe to use this position */
-            erts_msgq_recv_marker_clear(c_p, erts_old_recv_marker_id);
 #endif
             c_p->ftrace = NIL;
 	    return new_pc;
@@ -1729,8 +1725,9 @@ call_fun(Process* p,    /* Current process. */
     code_ix = erts_active_code_ix();
     code_ptr = (funp->entry.disp)->addresses[code_ix];
 
-    if (ERTS_LIKELY(code_ptr != beam_unloaded_fun && funp->arity == arity)) {
-        for (int i = 0, num_free = funp->num_free; i < num_free; i++) {
+    if (ERTS_LIKELY(code_ptr != beam_unloaded_fun &&
+                    fun_arity(funp) == arity)) {
+        for (int i = 0, num_free = fun_num_free(funp); i < num_free; i++) {
             reg[i + arity] = funp->env[i];
         }
 
@@ -1769,7 +1766,7 @@ call_fun(Process* p,    /* Current process. */
             }
         }
 
-        if (funp->arity != arity) {
+        if (fun_arity(funp) != arity) {
             /* There is a fun defined, but the call has the wrong arity. */
             Eterm *hp = HAlloc(p, 3);
             p->freason = EXC_BADARITY;
@@ -1869,7 +1866,7 @@ is_function2(Eterm Term, Uint arity)
 {
     if (is_any_fun(Term)) {
         ErlFunThing *funp = (ErlFunThing*)fun_val(Term);
-        return funp->arity == arity;
+        return fun_arity(funp) == arity;
     }
 
     return 0;
@@ -1877,7 +1874,7 @@ is_function2(Eterm Term, Uint arity)
 
 Eterm get_map_element(Eterm map, Eterm key)
 {
-    Uint32 hx;
+    erts_ihash_t hx;
     const Eterm *vs;
     if (is_flatmap(map)) {
 	flatmap_t *mp;
@@ -1910,7 +1907,7 @@ Eterm get_map_element(Eterm map, Eterm key)
     return vs ? *vs : THE_NON_VALUE;
 }
 
-Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx)
+Eterm get_map_element_hash(Eterm map, Eterm key, erts_ihash_t hx)
 {
     const Eterm *vs;
 
@@ -2082,7 +2079,7 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
     map = reg[live];
 
     if (is_not_flatmap(map)) {
-	Uint32 hx;
+	erts_ihash_t hx;
 	Eterm val;
 
 	ASSERT(is_hashmap(map));
@@ -2325,7 +2322,7 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
     map = reg[live];
 
     if (is_not_flatmap(map)) {
-	Uint32 hx;
+	erts_ihash_t hx;
 	Eterm val;
 
 	/* apparently the compiler does not emit is_map instructions,

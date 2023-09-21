@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -261,63 +261,6 @@ erts_bin_bytes_to_list(Eterm previous, Eterm* hp, const byte* bytes, Uint size, 
 	}
     }
     return previous;
-}
-
-BIF_RETTYPE binary_to_integer_1(BIF_ALIST_1)
-{
-  byte *temp_alloc = NULL;
-  char *bytes;
-  Uint size;
-  Eterm res;
-
-  if ((bytes = (char*)erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc))
-      == NULL )
-    goto binary_to_integer_1_error;
-  
-  size = binary_size(BIF_ARG_1);
-  
-  if ((res = erts_chars_to_integer(BIF_P,bytes,size,10)) != THE_NON_VALUE) {
-    erts_free_aligned_binary_bytes(temp_alloc);
-    return res;
-  }
-
- binary_to_integer_1_error:
-  erts_free_aligned_binary_bytes(temp_alloc);
-  BIF_ERROR(BIF_P, BADARG);
-}
-
-BIF_RETTYPE binary_to_integer_2(BIF_ALIST_2)
-{
-  byte *temp_alloc = NULL;
-  char *bytes;
-  Uint size;
-  int base;
-  Eterm res;
-  
-  if (!is_small(BIF_ARG_2))
-    BIF_ERROR(BIF_P, BADARG);
-
-  base = signed_val(BIF_ARG_2);
-  
-  if (base < 2 || base > 36) 
-    BIF_ERROR(BIF_P, BADARG);
-
-  if ((bytes = (char*)erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc))
-      == NULL )
-    goto binary_to_integer_2_error;
-  
-  size = binary_size(BIF_ARG_1);
-  
-  if ((res = erts_chars_to_integer(BIF_P,bytes,size,base)) != THE_NON_VALUE) {
-    erts_free_aligned_binary_bytes(temp_alloc);
-    return res;
-  }
-
- binary_to_integer_2_error:
-  
-  erts_free_aligned_binary_bytes(temp_alloc);
-  BIF_ERROR(BIF_P, BADARG);
-
 }
 
 static Eterm integer_to_binary(Process *c_p, Eterm num, int base)

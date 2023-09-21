@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2022. All Rights Reserved.
+# Copyright Ericsson AB 1997-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ APPLICATION=stdlib
 XML_APPLICATION_FILES = ref_man.xml
 
 XML_REF3_FILES = \
+	argparse.xml \
 	array.xml \
 	base64.xml \
 	beam_lib.xml \
@@ -43,6 +44,7 @@ XML_REF3_FILES = \
 	dict.xml \
 	digraph.xml \
 	digraph_utils.xml \
+	edlin.xml \
 	edlin_expand.xml \
 	epp.xml \
 	erl_anno.xml \

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@
 -include("beam_ssa.hrl").
 -include("beam_asm.hrl").
 
--import(lists, [all/2,any/2,append/1,duplicate/2,
+-import(lists, [all/2,any/2,append/1,
                 foldl/3,last/1,member/2,partition/2,
                 reverse/1,reverse/2,seq/2,sort/1,sort/2,
                 usort/1,zip/2]).
@@ -255,7 +255,7 @@ make_bs_getpos_map([], _, Count, Acc) ->
     {maps:from_list(Acc),Count}.
 
 make_bs_setpos_map([{Bef,{Ctx,_}=Ps}|T], SavePoints, Count, Acc) ->
-    Ignored = #b_var{name={'@ssa_ignored',Count}},
+    Ignored = #b_var{name=Count},
     Args = [Ctx, get_savepoint(Ps, SavePoints)],
     I = #b_set{op=bs_set_position,dst=Ignored,args=Args},
     make_bs_setpos_map(T, SavePoints, Count+1, [{Bef,I}|Acc]);
@@ -263,7 +263,7 @@ make_bs_setpos_map([], _, Count, Acc) ->
     {maps:from_list(Acc),Count}.
 
 get_savepoint({_,_}=Ps, SavePoints) ->
-    Name = {'@ssa_bs_position', map_get(Ps, SavePoints)},
+    Name = map_get(Ps, SavePoints),
     #b_var{name=Name}.
 
 make_bs_pos_dict([{Ctx,Pts}|T], Count0, Acc0) ->
@@ -680,7 +680,7 @@ sanitize([L|Ls], InBlocks, Count0, Values0, Blocks0) ->
                 no_change ->
                     Blk = sanitize_last(Blk0, Values0),
                     Blocks1 = Blocks0#{L := Blk},
-                    Blocks = sanitize_reachable(Blk0, Blocks1),
+                    Blocks = sanitize_reachable(Blk, Blocks1),
                     sanitize(Ls, InBlocks, Count0, Values0, Blocks);
                 {Is,Last,Count,Values} ->
                     Blk1 = Blk0#b_blk{is=Is,last=Last},
@@ -703,7 +703,7 @@ sanitize_is([#b_set{op=get_map_element,args=Args0}=I0|Is],
     case sanitize_args(Args0, Values) of
         [#b_literal{}=Map,Key] ->
             %% Bind the literal map to a variable.
-            {MapVar,Count} = new_var('@ssa_map', Count0),
+            {MapVar,Count} = new_var(Count0),
             I = I0#b_set{args=[MapVar,Key]},
             Copy = #b_set{op=copy,dst=MapVar,args=[Map]},
             sanitize_is(Is, Last, InBlocks, Blocks, Count,
@@ -815,9 +815,8 @@ do_sanitize_is(#b_set{op=Op,dst=Dst,args=Args0}=I0,
                Is, Last, InBlocks, Blocks, Count, Values, Changed0, Acc) ->
     Args = sanitize_args(Args0, Values),
     case sanitize_instr(Op, Args, I0, Blocks) of
-        {value,Value0} ->
-            Value = #b_literal{val=Value0},
-            sanitize_is(Is, Last, InBlocks, Blocks, Count, Values#{Dst=>Value},
+        {subst,Subst} ->
+            sanitize_is(Is, Last, InBlocks, Blocks, Count, Values#{Dst => Subst},
                         true, Acc);
         {ok,I} ->
             sanitize_is(Is, Last, InBlocks, Blocks, Count, Values, true, [I|Acc]);
@@ -865,20 +864,43 @@ sanitize_arg(Arg, _Values) ->
 sanitize_instr(phi, PhiArgs0, I, Blocks) ->
     PhiArgs = [{V,L} || {V,L} <- PhiArgs0,
                         is_map_key(L, Blocks)],
-    case phi_all_same_literal(PhiArgs) of
+    case phi_all_same(PhiArgs) of
         true ->
             %% (Can only happen when some optimizations have been
             %% turned off.)
             %%
-            %% This phi node always produces the same literal value.
-            %% We must do constant propagation of the value to ensure
-            %% that we can sanitize any instructions that don't accept
-            %% literals (such as `get_hd`). This is necessary for
-            %% correctness, because beam_ssa_codegen:prefer_xregs/2
-            %% does constant propagation and could propagate a literal
-            %% into an instruction that don't accept literals.
-            [{#b_literal{val=Val},_}|_] = PhiArgs,
-            {value,Val};
+            %% This phi node always produces the same literal value or
+            %% variable.
+            %%
+            %% We must do constant propagation of literal values to
+            %% ensure that we can sanitize any instructions that don't
+            %% accept literals (such as `get_hd`). This is necessary
+            %% for correctness, because
+            %% beam_ssa_codegen:prefer_xregs/2 does constant
+            %% propagation and could propagate a literal into an
+            %% instruction that don't accept literals.
+            %%
+            %% The singleton phi nodes generated for the try/catch
+            %% construct are problematic. For example:
+            %%
+            %%   try B = (A = bit_size(iolist_to_binary("a"))) rem 1 of
+            %%      _ -> A;
+            %%      _ -> B
+            %%   after
+            %%      ok
+            %%   end.
+            %%
+            %% The try expression exports three values, resulting in three
+            %% singleton phi nodes (with optimizations disabled):
+            %%
+            %%   _4 = phi { B, ^15 }
+            %%    A = phi { _2, ^15 }
+            %%   _14 = phi { B, ^15 }
+            %%
+            %% All three variable will be assigned to the same register,
+            %% causing the correct variable (`A`) to be overwritten by `_14`.
+            [{Subst,_}|_] = PhiArgs,
+            {subst,Subst};
         false ->
             {ok,I#b_set{args=PhiArgs}}
     end;
@@ -891,7 +913,7 @@ sanitize_instr({bif,Bif}, [#b_literal{val=Lit}], _I) ->
             ok;
         true ->
             try
-                {value,erlang:Bif(Lit)}
+                {subst,#b_literal{val=erlang:Bif(Lit)}}
             catch
                 error:_ ->
                     ok
@@ -900,7 +922,7 @@ sanitize_instr({bif,Bif}, [#b_literal{val=Lit}], _I) ->
 sanitize_instr({bif,Bif}, [#b_literal{val=Lit1},#b_literal{val=Lit2}], _I) ->
     true = erl_bifs:is_pure(erlang, Bif, 2),    %Assertion.
     try
-        {value,erlang:Bif(Lit1, Lit2)}
+        {subst,#b_literal{val=erlang:Bif(Lit1, Lit2)}}
     catch
         error:_ ->
             ok
@@ -913,43 +935,42 @@ sanitize_instr(bs_match, Args, I) ->
     %% other data types as well.
     {ok,I#b_set{op=bs_get,args=Args}};
 sanitize_instr(get_hd, [#b_literal{val=[Hd|_]}], _I) ->
-    {value,Hd};
+    {subst,#b_literal{val=Hd}};
 sanitize_instr(get_tl, [#b_literal{val=[_|Tl]}], _I) ->
-    {value,Tl};
+    {subst,#b_literal{val=Tl}};
 sanitize_instr(get_tuple_element, [#b_literal{val=T},
                                    #b_literal{val=I}], _I)
   when I < tuple_size(T) ->
-    {value,element(I+1, T)};
-sanitize_instr(is_nonempty_list, [#b_literal{val=Lit}], _I) ->
-    {value,case Lit of
-               [_|_] -> true;
-               _ -> false
-           end};
+    {subst,#b_literal{val=element(I+1, T)}};
+sanitize_instr(is_nonempty_list, [#b_literal{val=Term}], _I) ->
+    Lit = case Term of
+              [_|_] -> true;
+              _ -> false
+          end,
+    {subst,#b_literal{val=Lit}};
 sanitize_instr(is_tagged_tuple, [#b_literal{val=Tuple},
                                  #b_literal{val=Arity},
                                  #b_literal{val=Tag}], _I)
   when is_integer(Arity), is_atom(Tag) ->
     if
         tuple_size(Tuple) =:= Arity, element(1, Tuple) =:= Tag ->
-            {value,true};
+            {subst,#b_literal{val=true}};
         true ->
-            {value,false}
+            {subst,#b_literal{val=false}}
     end;
 sanitize_instr(succeeded, [#b_literal{}], _I) ->
-    {value,true};
+    {subst,#b_literal{val=true}};
 sanitize_instr(_, _, _) ->
     ok.
 
-phi_all_same_literal([{#b_literal{}=Arg, _From} | Phis]) ->
-    phi_all_same_literal_1(Phis, Arg);
-phi_all_same_literal([_|_]) ->
-    false.
+phi_all_same([{Arg,_From}|Phis]) ->
+    phi_all_same_1(Phis, Arg).
 
-phi_all_same_literal_1([{Arg, _From} | Phis], Arg) ->
-    phi_all_same_literal_1(Phis, Arg);
-phi_all_same_literal_1([], _Arg) ->
+phi_all_same_1([{Arg,_From}|Phis], Arg) ->
+    phi_all_same_1(Phis, Arg);
+phi_all_same_1([], _Arg) ->
     true;
-phi_all_same_literal_1(_Phis, _Arg) ->
+phi_all_same_1(_Phis, _Arg) ->
     false.
 
 %%% Rewrite certain calls to erlang:error/{1,2} to specialized
@@ -1030,7 +1051,7 @@ expand_mf_instr(#b_set{args=[#b_literal{val=badrecord} | _Args]}=I,
 expand_mf_instr(#b_set{args=[#b_literal{}|_]=Args}=I0, Is, Count0, Acc) ->
     %% We don't have a specialized instruction for this: simulate it with
     %% `erlang:error/1` instead.
-    {Tuple, Count} = new_var('@match_fail', Count0),
+    {Tuple, Count} = new_var(Count0),
     Put = #b_set{op=put_tuple,dst=Tuple,args=Args},
     Call = I0#b_set{op=call,
                     args=[#b_remote{mod=#b_literal{val=erlang},
@@ -1144,7 +1165,7 @@ expand_update_tuple_list_1([], _Src, Count, Acc) ->
 expand_update_tuple_list_1([Index0, Value | Updates], Src, Count0, Acc) ->
     %% Change to the 0-based indexing used by `set_tuple_element`.
     Index = #b_literal{val=(Index0#b_literal.val - 1)},
-    {Dst, Count} = new_var('@ssa_dummy', Count0),
+    {Dst, Count} = new_var(Count0),
     SetOp = #b_set{op=set_tuple_element,
                    dst=Dst,
                    args=[Value, Src, Index]},
@@ -1315,24 +1336,6 @@ need_frame(#b_blk{is=Is,last=#b_ret{arg=Ret}}) ->
 need_frame(#b_blk{is=Is}) ->
     need_frame_1(Is, body).
 
-need_frame_1([#b_set{op=old_make_fun,dst=Fun}|Is], {return,Ret}=Context) ->
-    case need_frame_1(Is, Context) of
-        true ->
-            true;
-        false ->
-            %% Since old_make_fun clobbers X registers, a stack frame is
-            %% needed if any of the following instructions use any
-            %% other variable than the one holding the reference to
-            %% the created fun.
-            Defs = ordsets:from_list([Dst || #b_set{dst=Dst} <- Is]),
-            Blk = #b_blk{is=Is,last=#b_ret{arg=Ret}},
-            Used = ordsets:subtract(beam_ssa:used(Blk), Defs),
-            case Used of
-                [] -> false;
-                [Fun] -> false;
-                [_|_] -> true
-            end
-        end;
 need_frame_1([#b_set{op=new_try_tag}|_], _) ->
     true;
 need_frame_1([#b_set{op=call,dst=Val}]=Is, {return,Ret}) ->
@@ -1526,11 +1529,10 @@ rce_reroute_terminator(#b_switch{list=List0}=Last, Exit, New) ->
 %%  in the exit block following the receive.
 
 recv_fix_common([Msg0|T], Exit, Rm, Blocks0, Count0) ->
-    {Msg,Count1} = new_var('@recv', Count0),
+    {Msg,Count1} = new_var(Count0),
     RPO = beam_ssa:rpo([Exit], Blocks0),
     Blocks1 = beam_ssa:rename_vars(#{Msg0=>Msg}, RPO, Blocks0),
-    N = length(Rm),
-    {MsgVars,Count} = new_vars(duplicate(N, '@recv'), Count1),
+    {MsgVars,Count} = new_vars(length(Rm), Count1),
     PhiArgs = fix_exit_phi_args(MsgVars, Rm, Exit, Blocks1),
     Phi = #b_set{op=phi,dst=Msg,args=PhiArgs},
     ExitBlk0 = map_get(Exit, Blocks1),
@@ -1578,7 +1580,7 @@ fix_receive([L|Ls], Defs, Blocks0, Count0) ->
     {RmDefs,Unused} = beam_ssa:def_unused(RPO, Defs, Blocks0),
     Def = ordsets:subtract(Defs, RmDefs),
     Used = ordsets:subtract(Def, Unused),
-    {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Used], Count0),
+    {NewVars,Count} = new_vars(length(Used), Count0),
     Ren = zip(Used, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk1 = map_get(L, Blocks1),
@@ -1697,8 +1699,8 @@ find_rm_act([]) ->
 %%% Find out which variables need to be stored in Y registers.
 %%%
 
--record(dk, {d :: ordsets:ordset(var_name()),
-             k :: sets:set(var_name())
+-record(dk, {d :: ordsets:ordset(b_var()),
+             k :: sets:set(b_var())
             }).
 
 %% find_yregs(St0) -> St.
@@ -1840,9 +1842,9 @@ used_args([]) -> [].
 
 %%%
 %%% Try to reduce the size of the stack frame, by adding an explicit
-%%% 'copy' instructions for return values from 'call' and 'old_make_fun' that
-%%% need to be saved in Y registers. Here is an example to show
-%%% how that's useful. First, here is the Erlang code:
+%%% 'copy' instructions for return values from 'call' that need to be
+%%% saved in Y registers. Here is an example to show how that's
+%%% useful. First, here is the Erlang code:
 %%%
 %%% f(Pid) ->
 %%%    Res = foo(42),
@@ -1960,20 +1962,19 @@ copy_retval_2([L|Ls], Yregs, Copy0, Blocks0, Count0) ->
 copy_retval_2([], _Yregs, none, Blocks, Count) ->
     {Blocks,Count}.
 
-copy_retval_is([#b_set{op=Op}=I0], false, Yregs, Copy, Count0, Acc0)
-  when Op =:= call; Op =:= old_make_fun ->
+copy_retval_is([#b_set{op=call}=I0], false, Yregs, Copy, Count0, Acc0) ->
     {I,Count,Acc} = place_retval_copy(I0, Yregs, Copy, Count0, Acc0),
     {reverse(Acc, [I]),Count};
 copy_retval_is([#b_set{}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
 copy_retval_is([#b_set{},#b_set{op=succeeded}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
-copy_retval_is([#b_set{op=Op,dst=#b_var{name=RetName}=Dst}=I0|Is], RC, Yregs,
-           Copy0, Count0, Acc0) when Op =:= call; Op =:= old_make_fun ->
+copy_retval_is([#b_set{op=call,dst=#b_var{}=Dst}=I0|Is], RC, Yregs,
+           Copy0, Count0, Acc0) ->
     {I1,Count1,Acc} = place_retval_copy(I0, Yregs, Copy0, Count0, Acc0),
     case sets:is_element(Dst, Yregs) of
         true ->
-            {NewVar,Count} = new_var(RetName, Count1),
+            {NewVar,Count} = new_var(Count1),
             Copy = #b_set{op=copy,dst=Dst,args=[NewVar]},
             I = I1#b_set{dst=NewVar},
             copy_retval_is(Is, RC, Yregs, Copy, Count, [I|Acc]);
@@ -2071,10 +2072,10 @@ place_retval_copy(#b_set{args=[F|Args0]}=I0, Yregs0, RetCopy, Count0, Acc0) ->
 copy_func_args(Args, Yregs, Acc, Count) ->
     copy_func_args_1(reverse(Args), Yregs, Acc, [], Count).
 
-copy_func_args_1([#b_var{name=AName}=A|As], Yregs, InstrAcc, ArgAcc, Count0) ->
+copy_func_args_1([#b_var{}=A|As], Yregs, InstrAcc, ArgAcc, Count0) ->
     case sets:is_element(A, Yregs) of
         true ->
-            {NewVar,Count} = new_var(AName, Count0),
+            {NewVar,Count} = new_var(Count0),
             Copy = #b_set{op=copy,dst=NewVar,args=[A]},
             copy_func_args_1(As, Yregs, [Copy|InstrAcc], [NewVar|ArgAcc], Count);
         false ->
@@ -2440,7 +2441,7 @@ update_act_map([], _, ActMap) -> ActMap.
 rename_vars([], _, _, Blocks, Count) ->
     {[],Blocks,Count};
 rename_vars(Vs, L, RPO, Blocks0, Count0) ->
-    {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Vs], Count0),
+    {NewVars,Count} = new_vars(length(Vs), Count0),
     Ren = zip(Vs, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk0 = map_get(L, Blocks1),
@@ -2655,7 +2656,7 @@ reserve_freg([], Res) -> Res.
 %%  Reserve all remaining variables as X registers.
 %%
 %%  If a variable will need to be in a specific X register for a
-%%  'call' or 'old_make_fun' (and there is nothing that will kill it
+%%  'call' instruction (and there is nothing that will kill it
 %%  between the definition and use), reserve the register using a
 %%  {prefer,{x,X} annotation. That annotation means that the linear
 %%  scan algorithm will place the variable in the preferred register,
@@ -2697,8 +2698,7 @@ reserve_xregs([], _, _, Res) -> Res.
 
 res_place_gc_instrs([#b_set{op=phi}=I|Is], Acc) ->
     res_place_gc_instrs(Is, [I|Acc]);
-res_place_gc_instrs([#b_set{op=Op}=I|Is], Acc)
-  when Op =:= call; Op =:= old_make_fun ->
+res_place_gc_instrs([#b_set{op=call}=I|Is], Acc) ->
     case Acc of
         [] ->
             res_place_gc_instrs(Is, [I|Acc]);
@@ -2765,9 +2765,6 @@ reserve_xregs_is([#b_set{op=Op,dst=Dst,args=Args}=I|Is], Res0, Xs0, Used0) ->
     Used = ordsets:del_element(Dst, Used1),
     case Op of
         call ->
-            Xs = reserve_call_args(tl(Args)),
-            reserve_xregs_is(Is, Res, Xs, Used);
-        old_make_fun ->
             Xs = reserve_call_args(tl(Args)),
             reserve_xregs_is(Is, Res, Xs, Used);
         _ ->
@@ -2870,9 +2867,9 @@ reserve_call_args(Args) ->
     reserve_call_args(Args, 0, #{}).
 
 reserve_call_args([#b_var{}=Var|As], X, Xs) ->
-    reserve_call_args(As, X+1, Xs#{Var=>{x,X}});
+    reserve_call_args(As, X+1, Xs#{Var => {x,X}});
 reserve_call_args([#b_literal{}|As], X, Xs) ->
-    reserve_call_args(As, X+1, Xs);
+    reserve_call_args(As, X+1, Xs#{{x,X} => hole});
 reserve_call_args([], _, Xs) -> Xs.
 
 reserve_xreg(V, Xs, Res) ->
@@ -2898,21 +2895,29 @@ reserve_xreg(V, Xs, Res) ->
 %%  invoking the garbage collector.
 
 res_xregs_prune(Xs, Used, Res) when map_size(Xs) =/= 0 ->
-    %% The number of safe registers is the number of the X registers
-    %% used after this point. The actual number of safe registers may
-    %% be higher than this number, but this is a conservative safe
-    %% estimate.
-    NumSafe = foldl(fun(V, N) ->
-                            case Res of
-                                #{V:={x,_}} -> N + 1;
-                                #{V:=_} -> N;
-                                #{} -> N + 1
+    %% Calculate a conservative estimate for the number of safe
+    %% registers based on the used X register after this point. The
+    %% actual number of safe registers may be higher than this number.
+    NumSafe0 = foldl(fun(V, N) ->
+                             %% Count the number of used variables
+                             %% allocated to X registers.
+                             case Res of
+                                 #{V := {x,_}} -> N + 1;
+                                 #{V := _} -> N;
+                                 #{} -> N + 1
+                             end
+                     end, 0, Used),
+    NumSafe = foldl(fun(X, N) ->
+                            %% Decrement the count if there are holes.
+                            case Xs of
+                                #{{x,X} := hole} -> N - 1;
+                                #{} -> N
                             end
-                    end, 0, Used),
+                    end, NumSafe0, seq(0, NumSafe0-1)),
 
     %% Remove unsafe registers from the list of potential
     %% preferred registers.
-    maps:filter(fun(_, {x,X}) -> X < NumSafe end, Xs);
+    #{Var => Reg || Var := {x,X}=Reg <- Xs, X < NumSafe};
 res_xregs_prune(Xs, _Used, _Res) -> Xs.
 
 %%%
@@ -2985,8 +2990,8 @@ init_free(Res) ->
     #{x:=Xs0} = Free1 = maps:from_list(Free0),
     Xs = init_xregs(Xs0),
     Free = Free1#{x:=Xs},
-    Next = maps:fold(fun(K, V, A) -> [{{next,K},length(V)}|A] end, [], Free),
-    maps:merge(Free, maps:from_list(Next)).
+    Next = #{{next,K} => length(V) || K := V <- Free},
+    maps:merge(Free, Next).
 
 init_free_1([{_,{prefer,{x,_}=Reg}}|Res]) ->
     [{x,Reg}|init_free_1(Res)];
@@ -3221,14 +3226,10 @@ is_yreg({x,_}) -> false;
 is_yreg({z,_}) -> false;
 is_yreg({fr,_}) -> false.
 
-new_vars([Base|Vs0], Count0) ->
-    {V,Count1} = new_var(Base, Count0),
-    {Vs,Count} = new_vars(Vs0, Count1),
-    {[V|Vs],Count};
-new_vars([], Count) -> {[],Count}.
+new_vars(N, Count0) when is_integer(N), N >= 0 ->
+    Count = Count0 + N,
+    Vars = [#b_var{name=I} || I <- lists:seq(Count0, Count-1)],
+    {Vars,Count}.
 
-new_var({Base,Int}, Count)  ->
-    true = is_integer(Int),                     %Assertion.
-    {#b_var{name={Base,Count}},Count+1};
-new_var(Base, Count) ->
-    {#b_var{name={Base,Count}},Count+1}.
+new_var(Count) ->
+    {#b_var{name=Count},Count+1}.

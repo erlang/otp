@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ start_httpd_fd(Config) when is_list(Config) ->
 	    case open_port({spawn_executable, Wrapper},
                            [stderr_to_stdout,{args,Args}]) of
 	    	Port when is_port(Port) ->
-		    wait_node_up(Node, 10),
+		    wait_node_up(Node, 200),
 		    ct:pal("~p", [rpc:call(Node, init, get_argument, [httpd_80])]),
 		    ok  = rpc:call(Node, inets, start, []),
 		    {ok, Pid} = rpc:call(Node, inets, start, [httpd, HttpdConf]),
@@ -117,6 +117,6 @@ wait_node_up(Node, N) ->
 	pong ->
 	    ok;
 	pang ->
-	    ct:sleep(5000),
+	    ct:sleep(250),
 	    wait_node_up(Node, N-1)
     end.

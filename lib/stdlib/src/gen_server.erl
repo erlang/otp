@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@
 
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
-    {stop, Reason :: term()} | ignore.
+    {stop, Reason :: term()} | ignore | {error, Reason :: term()}.
 -callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
@@ -916,16 +916,22 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     CbCache = create_callback_cache(Mod),
     case init_it(Mod, Args) of
 	{ok, {ok, State}} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, State, CbCache, infinity, HibernateAfterTimeout, Debug);
-    {ok, {ok, State, TimeoutOrHibernate}}
+	    proc_lib:init_ack(Starter, {ok, self()}),
+	    loop(
+              Parent, Name, State, CbCache, infinity,
+              HibernateAfterTimeout, Debug);
+        {ok, {ok, State, TimeoutOrHibernate}}
           when ?is_timeout(TimeoutOrHibernate);
                TimeoutOrHibernate =:= hibernate ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, State, CbCache, TimeoutOrHibernate, HibernateAfterTimeout, Debug);
+	    proc_lib:init_ack(Starter, {ok, self()}),
+	    loop(
+              Parent, Name, State, CbCache, TimeoutOrHibernate,
+              HibernateAfterTimeout, Debug);
 	{ok, {ok, State, {continue, _}=Continue}} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, State, CbCache, Continue, HibernateAfterTimeout, Debug);
+	    proc_lib:init_ack(Starter, {ok, self()}),
+	    loop(
+              Parent, Name, State, CbCache, Continue,
+              HibernateAfterTimeout, Debug);
 	{ok, {stop, Reason}} ->
 	    %% For consistency, we must make sure that the
 	    %% registered name (if any) is unregistered before
@@ -934,20 +940,22 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    %% an 'already_started' error if it immediately
 	    %% tried starting the process again.)
 	    gen:unregister_name(Name0),
-	    proc_lib:init_ack(Starter, {error, Reason}),
-	    exit(Reason);
+            exit(Reason);
+	{ok, {error, _Reason} = ERROR} ->
+            %% The point of this clause is that we shall have a silent/graceful
+            %% termination. The error reason will be returned to the
+            %% 'Starter' ({error, Reason}), but *no* crash report.
+	    gen:unregister_name(Name0),
+	    proc_lib:init_fail(Starter, ERROR, {exit, normal});
 	{ok, ignore} ->
 	    gen:unregister_name(Name0),
-	    proc_lib:init_ack(Starter, ignore),
-	    exit(normal);
+            proc_lib:init_fail(Starter, ignore, {exit, normal});
 	{ok, Else} ->
-	    Error = {bad_return_value, Else},
-	    proc_lib:init_ack(Starter, {error, Error}),
-	    exit(Error);
+	    gen:unregister_name(Name0),
+            exit({bad_return_value, Else});
 	{'EXIT', Class, Reason, Stacktrace} ->
 	    gen:unregister_name(Name0),
-	    proc_lib:init_ack(Starter, {error, terminate_reason(Class, Reason, Stacktrace)}),
-	    erlang:raise(Class, Reason, Stacktrace)
+            erlang:raise(Class, Reason, Stacktrace)
     end.
 init_it(Mod, Args) ->
     try
@@ -956,6 +964,7 @@ init_it(Mod, Args) ->
         throw:R -> {ok, R};
         Class:R:S -> {'EXIT', Class, R, S}
     end.
+
 
 %%%========================================================================
 %%% Internal functions
@@ -1309,7 +1318,7 @@ terminate(Class, Reason, Stacktrace, Name, From, Msg, Mod, State, Debug) ->
 
 -spec terminate(_, _, _, _, _, _, _, _, _, _) -> no_return().
 terminate(Class, Reason, Stacktrace, ReportStacktrace, Name, From, Msg, Mod, State, Debug) ->
-    Reply = try_terminate(Mod, terminate_reason(Class, Reason, Stacktrace), State),
+    Reply = try_terminate(Mod, catch_result(Class, Reason, Stacktrace), State),
     case Reply of
 	{'EXIT', C, R, S} ->
 	    error_info(R, S, Name, From, Msg, Mod, State, Debug),
@@ -1332,8 +1341,9 @@ terminate(Class, Reason, Stacktrace, ReportStacktrace, Name, From, Msg, Mod, Sta
 	    erlang:raise(Class, Reason, Stacktrace)
     end.
 
-terminate_reason(error, Reason, Stacktrace) -> {Reason, Stacktrace};
-terminate_reason(exit, Reason, _Stacktrace) -> Reason.
+%% What an old style `catch` would return
+catch_result(error, Reason, Stacktrace) -> {Reason, Stacktrace};
+catch_result(exit, Reason, _Stacktrace) -> Reason.
 
 error_info(_Reason, _ST, application_controller, _From, _Msg, _Mod, _State, _Debug) ->
     %% OTP-5811 Don't send an error report if it's the system process

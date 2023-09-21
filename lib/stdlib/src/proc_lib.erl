@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
          start_monitor/3, start_monitor/4, start_monitor/5,
 	 hibernate/3,
 	 init_ack/1, init_ack/2,
+	 init_fail/2, init_fail/3,
 	 init_p/3,init_p/5,format/1,format/2,format/3,report_cb/2,
 	 initial_call/1,
          translate_initial_call/1,
@@ -273,6 +274,7 @@ exit_reason(exit, Reason, _Stacktrace) ->
 exit_reason(throw, Reason, Stacktrace) ->
     {{nocatch, Reason}, Stacktrace}.
 
+
 -spec start(Module, Function, Args) -> Ret when
       Module :: module(),
       Function :: atom(),
@@ -309,13 +311,19 @@ sync_start({Pid, Ref}, Timeout) ->
 	{ack, Pid, Return} ->
 	    erlang:demonitor(Ref, [flush]),
             Return;
+	{nack, Pid, Return} ->
+            flush_EXIT(Pid),
+            _ = await_DOWN(Pid, Ref),
+            Return;
 	{'DOWN', Ref, process, Pid, Reason} ->
+            flush_EXIT(Pid),
             {error, Reason}
     after Timeout ->
-	    erlang:demonitor(Ref, [flush]),
-            kill_flush(Pid),
+            kill_flush_EXIT(Pid),
+            _ = await_DOWN(Pid, Ref),
             {error, timeout}
     end.
+
 
 -spec start_link(Module, Function, Args) -> Ret when
       Module :: module(),
@@ -334,7 +342,7 @@ start_link(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start_link(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
-    sync_start_link(?MODULE:spawn_link(M, F, A), Timeout).
+    sync_start(?MODULE:spawn_opt(M, F, A, [link,monitor]), Timeout).
 
 -spec start_link(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
@@ -346,18 +354,9 @@ start_link(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
 
 start_link(M,F,A,Timeout,SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
     ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
-    sync_start_link(?MODULE:spawn_opt(M, F, A, [link|SpawnOpts]), Timeout).
+    sync_start(
+      ?MODULE:spawn_opt(M, F, A, [link,monitor|SpawnOpts]), Timeout).
 
-sync_start_link(Pid, Timeout) ->
-    receive
-	{ack, Pid, Return} ->
-            Return;
-	{'EXIT', Pid, Reason} ->
-            {error, Reason}
-    after Timeout ->
-            kill_flush(Pid),
-            {error, timeout}
-    end.
 
 -spec start_monitor(Module, Function, Args) -> {Ret, Mon} when
       Module :: module(),
@@ -393,29 +392,54 @@ start_monitor(M,F,A,Timeout,SpawnOpts) when is_atom(M),
                                             is_atom(F),
                                             is_list(A) ->
     ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
-    sync_start_monitor(?MODULE:spawn_opt(M, F, A, [monitor|SpawnOpts]),
-                       Timeout).
+    sync_start_monitor(
+      ?MODULE:spawn_opt(M, F, A, [monitor|SpawnOpts]), Timeout).
 
 sync_start_monitor({Pid, Ref}, Timeout) ->
     receive
 	{ack, Pid, Return} ->
             {Return, Ref};
+	{nack, Pid, Return} ->
+            flush_EXIT(Pid),
+            self() ! await_DOWN(Pid, Ref),
+            {Return, Ref};
 	{'DOWN', Ref, process, Pid, Reason} = Down ->
+            flush_EXIT(Pid),
             self() ! Down,
             {{error, Reason}, Ref}
     after Timeout ->
-            kill_flush(Pid),
+            kill_flush_EXIT(Pid),
+            self() ! await_DOWN(Pid, Ref),
             {{error, timeout}, Ref}
     end.
 
--spec kill_flush(Pid) -> 'ok' when
-      Pid :: pid().
 
-kill_flush(Pid) ->
+%% We regard the existence of an {'EXIT', Pid, _} message
+%% as proof enough that there was a link that fired and
+%% we had process_flag(trap_exit, true),
+%% so the message should be flushed.
+%% It is the best we can do.
+%%
+%% After an unlink(Pid) an {'EXIT', Pid, _} link message
+%% cannot arrive so receive after 0 will work,
+
+flush_EXIT(Pid) ->
+    unlink(Pid),
+    receive {'EXIT', Pid, _} -> ok after 0 -> ok end.
+
+kill_flush_EXIT(Pid) ->
+    %% unlink/1 has to be called before exit/2
+    %% or we might be killed by the link
     unlink(Pid),
     exit(Pid, kill),
-    receive {'EXIT', Pid, _} -> ok after 0 -> ok end,
-    ok.
+    receive {'EXIT', Pid, _} -> ok after 0 -> ok end.
+
+await_DOWN(Pid, Ref) ->
+    receive
+	{'DOWN', Ref, process, Pid, _} = Down ->
+            Down
+    end.
+
 
 -spec init_ack(Parent, Ret) -> 'ok' when
       Parent :: pid(),
@@ -431,6 +455,27 @@ init_ack(Parent, Return) ->
 init_ack(Return) ->
     [Parent|_] = get('$ancestors'),
     init_ack(Parent, Return).
+
+-spec init_fail(_, _, _) -> no_return().
+init_fail(Parent, Return, Exception) ->
+    _ = Parent ! {nack, self(), Return},
+    case Exception of
+        {error, Reason} ->
+            erlang:error(Reason);
+        {exit, Reason} ->
+            erlang:exit(Reason);
+        {throw, Reason} ->
+            erlang:throw(Reason);
+        {Class, Reason, Stacktrace} ->
+            erlang:error(
+              erlang:raise(Class, Reason, Stacktrace),
+              [Parent, Return, Exception])
+    end.
+
+-spec init_fail(_, _) -> no_return().
+init_fail(Return, Exception) ->
+    [Parent|_] = get('$ancestors'),
+    init_fail(Parent, Return, Exception).
 
 %% -----------------------------------------------------
 %% Fetch the initial call of a proc_lib spawned process.

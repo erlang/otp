@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,11 +58,11 @@ non_local_allowed(_,_,State) ->
 -spec start_interactive() -> ok | {error, already_started}.
 start_interactive() ->
     user_drv:start_shell().
--spec start_interactive(noshell | mfa()) ->
+-spec start_interactive(noshell | {module(), atom(), [term()]}) ->
           ok | {error, already_started};
                        ({remote, string()}) ->
           ok | {error, already_started | noconnection};
-                       ({node(), mfa()} | {remote, string(), mfa()}) ->
+                       ({node(), {module(), atom(), [term()]}} | {remote, string(), {module(), atom(), [term()]}}) ->
           ok | {error, already_started | noconnection | badfile | nofile | on_load_failure}.
 start_interactive({Node, {M, F, A}}) ->
     user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
@@ -482,7 +482,7 @@ expand_expr({call,A,{atom,_,e},[N]}, C) ->
     end;
 expand_expr({call,CA,{atom,VA,v},[N]}, C) ->
     case get_cmd(N, C) of
-        {_,undefined,_} ->
+        {undefined,_,_} ->
             no_command(N);
         {Ces,_V,CommandN} when is_list(Ces) ->
             {call,CA,{atom,VA,v},[{integer,VA,CommandN}]}

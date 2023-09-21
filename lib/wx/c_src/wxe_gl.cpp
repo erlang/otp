@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,14 +44,23 @@ int egl_initiated = 0;
 
 wxeGLC glc;
 typedef void * (*WXE_GL_LOOKUP) (int);
-WXE_GL_LOOKUP wxe_gl_lookup_func = NULL;
+void * wxe_not_loaded(int x);
+WXE_GL_LOOKUP wxe_gl_lookup_func = (WXE_GL_LOOKUP) wxe_not_loaded;
 typedef void * (*WXE_GL_FUNC) (ErlNifEnv*, ErlNifPid*, const ERL_NIF_TERM argv[]);
 
+typedef const char * (*WXE_GL_FUNC_NAME) (int);
+WXE_GL_FUNC_NAME wxe_gl_lookup_func_name;
+
 extern "C" {
-void wxe_initOpenGL(void * fptr) {
+void wxe_initOpenGL(void * fptr, void *name_fptr) {
   wxe_gl_lookup_func = (WXE_GL_LOOKUP) fptr;
+  wxe_gl_lookup_func_name = (WXE_GL_FUNC_NAME) name_fptr;
   enif_set_pid_undefined(&gl_active_pid);
 }
+}
+
+void * wxe_not_loaded(int x) {
+  return NULL;
 }
 
 ErlNifUInt64 wxe_make_hash(ErlNifEnv *env, ErlNifPid *pid)
@@ -113,9 +122,23 @@ void no_context(wxeCommand *event) {
   enif_clear_env(event->env);
 }
 
-void gl_dispatch(wxeCommand *event) {
+void gl_print_cmd(wxeCommand *event)
+{
+  int i;
+  const char *func = wxe_gl_lookup_func_name(event->op);
+  enif_fprintf(stderr, "  %T %d %s(", event->caller, event->op, func);
+  for(i=0; i < event->argc; i++) {
+    wx_print_term(event->env, event->args[i]);
+    if(i < event->argc - 1)
+      enif_fprintf(stderr, ", ");
+  }
+  enif_fprintf(stderr, ")\r\n");
+}
+
+void gl_dispatch(wxeCommand *event)
+{
   WXE_GL_FUNC fptr;
-  if(egl_initiated) {
+  if((fptr = (WXE_GL_FUNC) wxe_gl_lookup_func(event->op))) {
     if(enif_compare_pids(&(event->caller),&gl_active_pid) != 0) {
       ErlNifUInt64 caller_index = wxe_make_hash(event->env, &(event->caller));
       wxe_glc * current = glc[caller_index];
@@ -131,12 +154,10 @@ void gl_dispatch(wxeCommand *event) {
         return;
       }
     }
-  } else {
-    no_context(event);
-    return;
-  }
-  if((fptr = (WXE_GL_FUNC) wxe_gl_lookup_func(event->op))) {
     // enif_fprintf(stderr, "GL: caller %T gl_active %T %d\r\n", event->caller, gl_active_pid, event->op);
+    if(wxe_debug) {
+      gl_print_cmd(event);
+    }
     fptr(event->env, &event->caller, event->args);
   } else {
     enif_send(NULL, &event->caller, event->env,

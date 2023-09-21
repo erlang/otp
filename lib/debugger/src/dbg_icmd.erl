@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -291,7 +291,8 @@ handle_int_msg({break_options, Break}, _Status, _Bs, _Ieval) ->
 handle_int_msg(no_break, _Status, _Bs, _Ieval) ->
     put(breakpoints, []);
 handle_int_msg({no_break,M}, _Status, _Bs, _Ieval) ->
-    put(breakpoints, [ML || {Mod,_L}=ML <- get(breakpoints), Mod=/=M]);
+    put(breakpoints, [B || {{Mod,_L},_Flags}=B <- get(breakpoints),
+                           Mod =/= M]);
 handle_int_msg(stop, exit_at, _Bs, _Ieval) ->
     erlang:exit(normal).
 

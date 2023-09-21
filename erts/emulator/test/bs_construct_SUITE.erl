@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
          bs_append_offheap/1,
-         reductions/1, fp16/1, zero_init/1, error_info/1, little/1]).
+         reductions/1, fp16/1, zero_init/1, error_info/1, little/1,
+         heap_binary_unit/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -44,7 +45,7 @@ all() ->
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
      bad_append, bs_append_overflow, bs_append_offheap,
      reductions, fp16, zero_init,
-     error_info, little].
+     error_info, little, heap_binary_unit].
 
 init_per_suite(Config) ->
     Config.
@@ -779,10 +780,16 @@ dynamic_3(Bef, N, {Int0,Lpad,Rpad,Dynamic}=Data, Count) ->
     Dynamic(Bef, N, Int1, Lpad, Rpad),
     Dynamic(Bef, N, -Int1, Lpad, Rpad),
 
-    %% OTP-7085: Test a small number in a wide field.
+    %% OTP-7085: Test a small number in a wide segment.
     Int2 = Int0 band 16#FFFFFF,
     Dynamic(Bef, N, Int2, Lpad, Rpad),
     Dynamic(Bef, N, -Int2, Lpad, Rpad),
+
+    %% Test a bignum in a short segment.
+    Int4 = ((Lpad bxor Rpad) bsl N) bor Int0,
+    Dynamic(Bef, N, Int4, Lpad, Rpad),
+    Dynamic(Bef, N, -Int4, Lpad, Rpad),
+
     dynamic_3(Bef, N-1, Data, Count+1).
 
 dynamic_big(Bef, N, Int, Lpad, Rpad) ->
@@ -1394,6 +1401,11 @@ error_info(_Config) ->
     Binary = id(<<"abc">>),
     HugeBig = id(1 bsl 1500),
     LongList = lists:seq(1, 100),
+    BadBinary = id(ok),
+    BadSize = case Atom of
+                  a -> 0;
+                  _ -> bad_size
+              end,
 
     {badarg, {1,binary,type,Atom}, _} = ?ERROR_INFO(<<Atom/binary, Binary/binary>>),
     {badarg, {2,binary,type,Atom}, _} = ?ERROR_INFO(<<Binary/binary, Atom/binary>>),
@@ -1416,6 +1428,8 @@ error_info(_Config) ->
     {badarg, {1,binary,size,Atom}, _} = ?ERROR_INFO(<<Binary:Atom/binary>>),
     {badarg, {1,binary,size,NegSize}, _} = ?ERROR_INFO(<<Binary:NegSize/binary>>),
     {badarg, {1,binary,size,HugeNegSize}, _} = ?ERROR_INFO(<<Binary:HugeNegSize/binary>>),
+    {badarg, {1,binary,size,BadSize}, _} = ?ERROR_INFO(<<Binary:BadSize/binary>>),
+    {badarg, {1,binary,size,BadSize}, _} = ?ERROR_INFO(<<BadBinary:BadSize/binary>>),
     {badarg, {1,binary,short,Binary}, _} = ?ERROR_INFO(<<Binary:10/binary>>),
     {badarg, {1,binary,short,Binary}, _} = ?ERROR_INFO(<<Binary:(id(10))/binary>>),
     {badarg, {1,binary,type,Atom}, _} = ?ERROR_INFO(<<Atom/binary>>),
@@ -1658,6 +1672,35 @@ do_little_1(126, I) -> <<I:126/little-integer>>;
 do_little_1(127, I) -> <<I:127/little-integer>>;
 do_little_1(128, I) -> <<I:128/little-integer>>.
 
+%% GH-7469: The unit of variable-sized segments wasn't checked properly,
+%% resulting in the creation of heap binaries for non-binary bitstrings.
+heap_binary_unit(_Config) ->
+    {ok, 14524} = heap_binary_unit_1(id(<<184,188,2,66,172,19,0,3>>)),
+    ok.
+
+heap_binary_unit_1(<<2:2/integer,Rest:62/bitstring>>) ->
+    heap_binary_unit_2(<<2:2/integer>>, Rest).
+
+heap_binary_unit_2(Variant, Rest) ->
+    VariantSize = bit_size(Variant),
+    ClockHiSize = 8 - VariantSize,
+    ClockSize = 8 + ClockHiSize,
+    case Rest of
+        <<ClockHi:ClockHiSize/bitstring,
+          ClockLo:8/bitstring,
+          _:48/bitstring>> ->
+            case
+                <<ClockHi:ClockHiSize/bitstring,
+                  ClockLo:8/bitstring>>
+            of
+                <<Clock:ClockSize/integer-unsigned>> ->
+                    {ok, Clock};
+                Bin1 ->
+                    {error1, Bin1}
+            end;
+        Bin2 ->
+            {error2, Bin2}
+    end.
 
 %%%
 %%% Common utilities.

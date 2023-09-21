@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -262,24 +262,11 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(no_bsm4, Os) ->
-    %% bsm4 instructions are only used when type optimization has determined
-    %% that a match instruction won't fail.
-    expand_opt(no_type_opt, Os);
-expand_opt(r22, Os) ->
-    expand_opt(r23, [no_bs_create_bin, no_shared_fun_wrappers,
-                     no_swap | expand_opt(no_bsm4, Os)]);
-expand_opt(r23, Os) ->
-    expand_opt(no_make_fun3, [no_bs_create_bin, no_ssa_opt_float,
-                              no_recv_opt, no_init_yregs |
-                              expand_opt(r24, Os)]);
 expand_opt(r24, Os) ->
-    expand_opt(no_type_opt, [no_bs_create_bin, no_ssa_opt_ranges |
+    expand_opt(no_type_opt, [no_badrecord, no_bs_create_bin, no_ssa_opt_ranges |
                              expand_opt(r25, Os)]);
 expand_opt(r25, Os) ->
     [no_ssa_opt_update_tuple, no_bs_match, no_min_max_bifs | Os];
-expand_opt(no_make_fun3, Os) ->
-    [no_make_fun3, no_fun_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_type_opt=O, Os) ->
@@ -865,10 +852,7 @@ kernel_passes() ->
      {iff,clint,?pass(core_lint_module)},
 
      %% Kernel Erlang and code generation.
-     ?pass(v3_kernel),
-     {iff,dkern,{listing,"kernel"}},
-     {iff,'to_kernel',{done,"kernel"}},
-     {pass,beam_kernel_to_ssa},
+     ?pass(core_to_ssa),
      {iff,dssa,{listing,"ssa"}},
      {iff,ssalint,{pass,beam_ssa_lint}},
      {delay,
@@ -934,7 +918,8 @@ asm_passes() ->
        {iff,'S',{listing,"S"}},
        {iff,'to_asm',{done,"S"}}]},
      ?pass(beam_validator_weak),
-     ?pass(beam_asm)
+     ?pass(beam_asm),
+     {iff,strip_types,?pass(beam_strip_types)}
      | binary_passes()].
 
 binary_passes() ->
@@ -1509,10 +1494,16 @@ is_obsolete(r18) -> true;
 is_obsolete(r19) -> true;
 is_obsolete(r20) -> true;
 is_obsolete(r21) -> true;
+is_obsolete(r22) -> true;
+is_obsolete(r23) -> true;
 is_obsolete(no_bsm3) -> true;
 is_obsolete(no_get_hd_tl) -> true;
 is_obsolete(no_put_tuple2) -> true;
 is_obsolete(no_utf8_atoms) -> true;
+is_obsolete(no_swap) -> true;
+is_obsolete(no_init_yregs) -> true;
+is_obsolete(no_shared_fun_wrappers) -> true;
+is_obsolete(no_make_fun3) -> true;
 is_obsolete(_) -> false.
 
 core(Forms, #compile{options=Opts}=St) ->
@@ -1527,8 +1518,8 @@ core_fold_module_after_inlining(Code0, #compile{options=Opts}=St) ->
     {ok,Code,_Ws} = sys_core_fold:module(Code0, Opts),
     {ok,Code,St}.
 
-v3_kernel(Code0, #compile{options=Opts,warnings=Ws0}=St) ->
-    {ok,Code,Ws} = v3_kernel:module(Code0, Opts),
+core_to_ssa(Code0, #compile{options=Opts,warnings=Ws0}=St) ->
+    {ok,Code,Ws} = beam_core_to_ssa:module(Code0, Opts),
     case Ws =:= [] orelse test_core_inliner(St) of
 	false ->
 	    {ok,Code,St#compile{warnings=Ws0++Ws}};
@@ -1698,6 +1689,13 @@ beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpt
 	    {error,St#compile{errors=St#compile.errors ++ [{File,Es}]}}
     end.
 
+beam_strip_types(Beam0, #compile{}=St) ->
+    {ok,_Module,Chunks0} = beam_lib:all_chunks(Beam0),
+    Chunks = [{Tag,Contents} || {Tag,Contents} <- Chunks0,
+                                Tag =/= "Type"],
+    {ok,Beam} = beam_lib:build_module(Chunks),
+    {ok,Beam,St}.
+
 compile_info(File, CompilerOpts, Opts) ->
     IsSlim = member(slim, CompilerOpts),
     IsDeterministic = member(deterministic, CompilerOpts),
@@ -1838,7 +1836,7 @@ ignore_warning({_Location,Pass,{Category,_}}, Ignore) ->
     IgnoreMod = case Pass of
                     v3_core -> true;
                     sys_core_fold -> true;
-                    v3_kernel -> true;
+                    beam_core_to_ssa -> true;
                     _ -> false
                 end,
     IgnoreMod andalso sets:is_element(Category, Ignore);
@@ -2094,13 +2092,14 @@ pre_load() ->
 	 beam_block,
 	 beam_call_types,
 	 beam_clean,
+         beam_core_to_ssa,
 	 beam_dict,
 	 beam_digraph,
 	 beam_flatten,
 	 beam_jump,
-	 beam_kernel_to_ssa,
 	 beam_opcodes,
 	 beam_ssa,
+	 beam_ssa_alias,
 	 beam_ssa_bc_size,
 	 beam_ssa_bool,
 	 beam_ssa_bsm,
@@ -2108,6 +2107,7 @@ pre_load() ->
 	 beam_ssa_dead,
 	 beam_ssa_opt,
 	 beam_ssa_pre_codegen,
+	 beam_ssa_private_append,
 	 beam_ssa_recv,
 	 beam_ssa_share,
 	 beam_ssa_throw,
@@ -2131,7 +2131,6 @@ pre_load() ->
 	 sys_core_alias,
 	 sys_core_bsm,
 	 sys_core_fold,
-	 v3_core,
-	 v3_kernel],
+	 v3_core],
     _ = code:ensure_modules_loaded(L),
     ok.

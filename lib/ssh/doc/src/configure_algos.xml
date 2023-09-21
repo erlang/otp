@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2017</year>
-      <year>2021</year>
+      <year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -432,7 +432,7 @@
     <section>
       <title>Example 8</title>
       <p>In this example, we need to use a diffie-hellman-group1-sha1 key exchange algorithm
-      although it is unsage and disabled by default.
+      although it is unsafe and disabled by default.
       </p>
       <p>We use the
       <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>

@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2022. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2023. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -1356,6 +1356,19 @@ if test "x$enable_esock_rcvsndtimeo" = "xyes"; then
 fi
 
 
+dnl *** ESOCK_USE_EXTERNDED_ERROR_INFO ***
+
+AC_ARG_ENABLE(esock_extended_error_info,
+AS_HELP_STRING([--enable-esock-extended-error-info], [enable use of extended error info])
+AS_HELP_STRING([--disable-esock-extended-error-info], [disable use of extended error info (default)]))
+
+dnl Temporary! Currently we require eei to be *explicitly*
+dnl disabled (for debug reasons).
+if test "x$enable_esock_extended_error_info" != "xno"; then
+    AC_DEFINE(ESOCK_USE_EXTENDED_ERROR_INFO, [1], [Use extended error info])
+fi
+
+
 dnl *** ESOCK_COUNTER_SIZE ***
 
 AC_ARG_WITH(esock-counter-size, 
@@ -2168,7 +2181,7 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		dlvsym pread pwrite memmove strerror strerror_r strncasecmp \
 		gethrtime localtime_r gmtime_r mprotect madvise posix_madvise \
-		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
+		mmap mremap memcpy memrchr mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
 		setlocale nl_langinfo poll mlockall ppoll vsyslog])
 
@@ -2855,7 +2868,26 @@ AS_IF([test ${enable_jit} != no],
            JIT_ARCH=x86
            ;;
         arm64)
-           JIT_ARCH=arm
+           case "$OPSYS" in
+              win32|darwin)
+                # These platforms have dedicated system calls for clearing
+                # instruction cache, and don't require us to manually issue
+                # instruction barriers on all threads.
+                JIT_ARCH=arm
+              ;;
+              *)
+                # We need to use `DC CVAU`, `IC IVAU`, and `ISB SY` to clear
+                # instruction cache. These have already been tested as part of
+                # ETHR_CHK_GCC_ATOMIC_OPS([]).
+
+                if test "$ethr_arm_isb_sy_instr_val$ethr_arm_dc_cvau_instr_val$ethr_arm_ic_ivau_instr_val" = "111"; then
+                  JIT_ARCH=arm
+                else
+                  enable_jit=no
+                  AC_MSG_WARN([JIT disabled due to lack of cache-clearing instructions])
+                fi
+              ;;
+           esac
            ;;
         *)
            if test ${enable_jit} = yes; then
@@ -2919,24 +2951,13 @@ AS_IF([test ${enable_jit} != no],
       # https://undeadly.org/cgi?action=article;sid=20180310000858
       enable_native_stack=no
     ],
-    [win32*],
     [
-      # Windows never messes with the stack, so it's safe by default.
+      # Windows never messes with the stack under any circumstances (and RSP
+      # can safely be used as a general-purpose register).
+      #
+      # On other platforms we'll wrangle sigaltstack(2) to let signals execute
+      # on an alternate stack.
       enable_native_stack=yes
-    ],
-    [
-      # Use the native stack if we can safely redirect OS signals to a
-      # different stack.
-      AC_MSG_CHECKING([for safe signal delivery])
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <signal.h>]], [[#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-         #define __DARWIN__ 1
-         #endif
-         #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
-         #error "Unknown libc. Assume musl, which does not allow safe signals"
-         #endif]])],[AC_MSG_RESULT([yes])
-         enable_native_stack=yes],[AC_MSG_RESULT([no, disabling native stack in JIT])
-         enable_native_stack=no
-      ])
     ])
 
   case "$JIT_ARCH" in
@@ -3539,26 +3560,6 @@ dnl ----------------------------------------------------------------------
 if test "x$GCC" = xyes; then
   CFLAGS="$WERRORFLAGS $CFLAGS"
 fi
-
-dnl ----------------------------------------------------------------------
-dnl Enable -fsanitize= flags.
-dnl ----------------------------------------------------------------------
-
-m4_define(DEFAULT_SANITIZERS, [address,undefined])
-AC_ARG_ENABLE(
-    sanitizers,
-    AS_HELP_STRING(
-        [--enable-sanitizers@<:@=comma-separated list of sanitizers@:>@],
-	    [Default=DEFAULT_SANITIZERS]),
-[
-case "$enableval" in
-    no) sanitizers= ;;
-    yes) sanitizers="-fsanitize=DEFAULT_SANITIZERS" ;;
-    *) sanitizers="-fsanitize=$enableval" ;;
-esac
-CFLAGS="$CFLAGS $sanitizers"
-LDFLAGS="$LDFLAGS $sanitizers"
-])
 
 dnl ----------------------------------------------------------------------
 dnl Enable build determinism flag

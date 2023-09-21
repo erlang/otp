@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2021. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2023. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -1251,10 +1251,15 @@
 
   <xsl:template match="taglist/tag">
     <xsl:param name="chapnum"/>
-    <dt>
+    <dt class="title-link">
       <strong>
         <xsl:apply-templates/>
       </strong>
+      <xsl:if test="string-length(@since) > 0">
+	<div class="title-since since">
+	  <xsl:value-of select="@since"/>
+	</div>
+      </xsl:if>
     </dt>
   </xsl:template>
 

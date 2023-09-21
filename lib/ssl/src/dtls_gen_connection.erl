@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,9 +72,8 @@
 
 %% See thread @ http://lists.cluenet.de/pipermail/ipv6-ops/2011-June/005755.html
 %% 1280 - headers
--define(PMTUEstimate, 1200).
-
-
+-define(PMTUEstimate_UDP, 1200).
+-define(PMTUEstimate_SCTP, 16384). % 2^14  RFC 6083
 
 %%====================================================================
 %% Internal application API
@@ -109,14 +108,20 @@ next_record(#state{handshake_env =
 next_record(#state{protocol_buffers =
 		       #protocol_buffers{dtls_cipher_texts = [#ssl_tls{epoch = Epoch} = CT | Rest]}
 		   = Buffers,
-		   connection_states = #{current_read := #{epoch := Epoch}} = ConnectionStates} = State) ->
+		   connection_states = #{current_read := #{epoch := Epoch}} = ConnectionStates,
+                   static_env = #static_env{data_tag = DataTag}} = State) ->
     CurrentRead = dtls_record:get_connection_state_by_epoch(Epoch, ConnectionStates, read),
-    case dtls_record:replay_detect(CT, CurrentRead) of
-        false ->
-            decode_cipher_text(State) ;
+    case is_reliable(DataTag) of
         true ->
-            %% Ignore replayed record
-            next_record(State#state{protocol_buffers = Buffers#protocol_buffers{dtls_cipher_texts = Rest}})
+            decode_cipher_text(State) ;
+        false ->
+            case dtls_record:replay_detect(CT, CurrentRead) of
+                false ->
+                    decode_cipher_text(State);
+                true ->
+                    %% Ignore replayed record
+                    next_record(State#state{protocol_buffers = Buffers#protocol_buffers{dtls_cipher_texts = Rest}})
+            end
     end;
 next_record(#state{protocol_buffers =
 		       #protocol_buffers{dtls_cipher_texts = [#ssl_tls{epoch = Epoch} | Rest]}
@@ -157,6 +162,11 @@ next_record(#state{protocol_specific = #{active_n_toggle := true,
 next_record(State) ->
     {no_record, State}.
 
+is_reliable(udp) ->
+    false;
+is_reliable(sctp) ->
+    true.
+   
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
 
@@ -245,7 +255,8 @@ new_flight() ->
       handshakes_after_change_cipher_spec => []}.
 
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
-                                                      transport_cb = Transport},
+                                                      transport_cb = Transport,
+                                                      data_tag = DataTag}, 
                              connection_env = #connection_env{negotiated_version = Version},
                              flight_buffer = #{handshakes := Flight,
 					       change_cipher_spec := undefined},
@@ -253,7 +264,7 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
+    MaxSize = mtu(MaxFragmentLength, DataTag),
     {Encoded, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight), Version, MaxSize, Epoch, ConnectionStates0),
     send_packets(Transport, Socket, MaxSize, Encoded),
@@ -261,7 +272,8 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
    {State0#state{connection_states = ConnectionStates}, []};
 
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
-                                                      transport_cb = Transport},
+                                                      transport_cb = Transport,
+                                                      data_tag = DataTag},
                              connection_env = #connection_env{negotiated_version = Version},
 			     flight_buffer = #{handshakes := [_|_] = Flight0,
 					       change_cipher_spec := ChangeCipher,
@@ -270,7 +282,7 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
+    MaxSize = mtu(MaxFragmentLength, DataTag),
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch, ConnectionStates0),
     {EncChangeCipher, ConnectionStates} = encode_change_cipher(ChangeCipher, Version, Epoch, ConnectionStates1),
@@ -280,7 +292,8 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
     {State0#state{connection_states = ConnectionStates}, []};
 
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
-                                                      transport_cb = Transport},
+                                                      transport_cb = Transport,
+                                                     data_tag = DataTag},
                              connection_env = #connection_env{negotiated_version = Version},
 			     flight_buffer = #{handshakes := [_|_] = Flight0,
 					       change_cipher_spec := ChangeCipher,
@@ -289,7 +302,7 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
+    MaxSize = mtu(MaxFragmentLength, DataTag),
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch-1, ConnectionStates0),
     {EncChangeCipher, ConnectionStates2} = 
@@ -303,7 +316,8 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
     {State0#state{connection_states = ConnectionStates}, []};
 
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
-                                                      transport_cb = Transport},
+                                                      transport_cb = Transport,
+                                                      data_tag = DataTag},
                              connection_env = #connection_env{negotiated_version = Version},
 			     flight_buffer = #{handshakes := [],
 					       change_cipher_spec := ChangeCipher,
@@ -312,7 +326,7 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
+    MaxSize = mtu(MaxFragmentLength, DataTag),
     {EncChangeCipher, ConnectionStates1} = 
 	encode_change_cipher(ChangeCipher, Version, Epoch-1, ConnectionStates0),
     {HsAfter, ConnectionStates} =
@@ -321,6 +335,12 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
     ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsAfter]),
     {State0#state{connection_states = ConnectionStates}, []}.
+
+
+mtu(MaxFragmentLength, udp) ->
+    min(MaxFragmentLength, ?PMTUEstimate_UDP);
+mtu(MaxFragmentLength, sctp) ->
+    min(MaxFragmentLength, ?PMTUEstimate_SCTP).
 
 %%% DTLS record protocol level application data messages 
 
@@ -545,10 +565,9 @@ handle_info({CloseTag, Socket}, StateName,
     %% with widespread implementation practice.
     case (Active == false) andalso (CTs =/= []) of
         false ->
-            case Version of
-                {254, N} when N =< 253 ->
+            if (?DTLS_GTE(Version, ?DTLS_1_2)) ->
                     ok;
-                _ ->
+               true ->
                     %% As invalidate_sessions here causes performance issues,
                     %% we will conform to the widespread implementation
                     %% practice and go against the spec
@@ -634,7 +653,7 @@ next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
                                          ssl_options = SslOpts} = State0) ->
     case dtls_record:get_dtls_records(Data,
                                       {DataTag, StateName, Version, 
-                                       [dtls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS]}, 
+                                       [dtls_record:protocol_version_name(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS]},
                                       Buf0, SslOpts) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,

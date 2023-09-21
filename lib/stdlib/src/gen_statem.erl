@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,6 +96,9 @@
     enter_loop_opt/0,
     start_ret/0,
     start_mon_ret/0]).
+
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+
 
 %%%==========================================================================
 %%% Interface functions.
@@ -225,8 +228,9 @@
     {ok, State :: StateType, Data :: DataType} |
     {ok, State :: StateType, Data :: DataType,
      Actions :: [action()] | action()} |
-    'ignore' |
-    {'stop', Reason :: term()}.
+        'ignore' |
+        {'stop', Reason :: term()} |
+        {'error', Reason :: term()}.
 
 %% Old, not advertised
 -type state_function_result() ::
@@ -341,6 +345,22 @@
 	    CurrentState :: state(),
 	    data()) ->
     event_handler_result(state()). % New state
+%% The following fun() should have the same type as the previous callback,
+%% but ...
+%% the type language cannot express a fun() with multiple clauses
+%% so we have to specify the union fun() here.  Furthermore this
+%% type is only used for record field #params.callback_mode
+%% so the type checker can verify that we use correct arguments
+%% (could, but all end up in term() so that will be in vain),
+%% but the return value comes from some Module:handle_event/4
+%% function so we cannot assume it is correct, and a type checker
+%% cannot make the connection between such an external function
+%% and this type anyway...
+-type handle_event_fun() ::
+        fun (('enter'                  | event_type(),
+              (OldState :: state())    | event_content(),
+              CurrentState :: state(),
+              data()) -> term()).
 
 %% Clean up before the server terminates.
 -callback terminate(
@@ -406,6 +426,15 @@
    ]).
 
 
+%% Helper function for #params.callback_mode, that caches callback_mode()
+-compile({inline, [params_callback_mode/2]}).
+params_callback_mode(CallbackMode, Modules) ->
+    case CallbackMode of
+        state_functions -> CallbackMode;
+        handle_event_function ->
+            Module = hd(Modules),
+            fun Module:handle_event/4
+end.
 
 %% Type validation functions
 %% - return true if the value is of the type, false otherwise
@@ -488,7 +517,8 @@ event_type(Type) ->
     end).
 
 -record(params,
-        {callback_mode = state_functions :: callback_mode(),
+        {callback_mode = state_functions ::
+           'state_functions' | handle_event_fun(),
          state_enter = false :: boolean(),
          parent :: pid(),
          modules = [?MODULE] :: nonempty_list(module()),
@@ -641,15 +671,15 @@ call(ServerRef, Request) ->
 	  {'dirty_timeout',T :: timeout()}) ->
 		  Reply :: term().
 call(ServerRef, Request, infinity = T = Timeout) ->
-    call_dirty(ServerRef, Request, Timeout, T);
+    call(ServerRef, Request, Timeout, T);
 call(ServerRef, Request, {dirty_timeout, T} = Timeout) ->
-    call_dirty(ServerRef, Request, Timeout, T);
+    call(ServerRef, Request, Timeout, T);
 call(ServerRef, Request, {clean_timeout, T} = Timeout) ->
-    call_clean(ServerRef, Request, Timeout, T);
+    call(ServerRef, Request, Timeout, T);
 call(ServerRef, Request, {_, _} = Timeout) ->
     erlang:error(badarg, [ServerRef,Request,Timeout]);
 call(ServerRef, Request, Timeout) ->
-    call_clean(ServerRef, Request, Timeout, Timeout).
+    call(ServerRef, Request, Timeout, Timeout).
 
 -spec send_request(ServerRef::server_ref(), Request::term()) ->
         ReqId::request_id().
@@ -896,7 +926,8 @@ enter_loop(Module, Opts, State, Data, Server, Actions) ->
 wrap_cast(Event) ->
     {'$gen_cast',Event}.
 
-call_dirty(ServerRef, Request, Timeout, T) ->
+-compile({inline, [call/4]}).
+call(ServerRef, Request, Timeout, T) ->
     try gen:call(ServerRef, '$gen_call', Request, T) of
         {ok,Reply} ->
             Reply
@@ -908,63 +939,6 @@ call_dirty(ServerRef, Request, Timeout, T) ->
               %% Wrap the reason according to tradition
               {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
               Stacktrace)
-    end.
-
-call_clean(ServerRef, Request, Timeout, T)
-  when (is_pid(ServerRef)
-        andalso (node(ServerRef) == node()))
-       orelse (element(2, ServerRef) == node()
-               andalso is_atom(element(1, ServerRef))
-               andalso (tuple_size(ServerRef) =:= 2)) ->
-    %% No need to use a proxy locally since we know alias will be
-    %% used as of OTP 24 which will prevent garbage responses...
-    call_dirty(ServerRef, Request, Timeout, T);
-call_clean(ServerRef, Request, Timeout, T) ->
-    %% Call server through proxy process to dodge any late reply
-    %%
-    %% We still need a proxy in the distributed case since we may
-    %% communicate with a node that does not understand aliases.
-    %% This can be removed when alias support is mandatory.
-    %% Probably in OTP 26.
-    Ref = make_ref(),
-    Self = self(),
-    Pid = spawn(
-            fun () ->
-                    Self !
-                        try gen:call(
-                              ServerRef, '$gen_call', Request, T) of
-                            Result ->
-                                {Ref,Result}
-                        catch Class:Reason:Stacktrace ->
-                                {Ref,Class,Reason,Stacktrace}
-                        end
-            end),
-    Mref = monitor(process, Pid),
-    receive
-        {Ref,Result} ->
-            demonitor(Mref, [flush]),
-            case Result of
-                {ok,Reply} ->
-                    Reply
-            end;
-        {Ref,Class,Reason,Stacktrace} when Class =:= exit ->
-            %% 'gen' raises 'exit' for problems
-            demonitor(Mref, [flush]),
-            %% Pretend it happened in this process
-            erlang:raise(
-              Class,
-              %% Wrap the reason according to tradition
-              {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
-              Stacktrace);
-        {Ref,Class,Reason,Stacktrace} ->
-            demonitor(Mref, [flush]),
-            %% Pretend it happened in this process
-            erlang:raise(Class, Reason, Stacktrace);
-        {'DOWN',Mref,_,_,Reason} ->
-            %% There is a theoretical possibility that the
-            %% proxy process gets killed between try--of and !
-            %% so this clause is in case of that
-            exit(Reason)
     end.
 
 replies([{reply,From,Reply}|Replies]) ->
@@ -1027,12 +1001,12 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
               Name, Debug, HibernateAfterTimeout);
 	Class:Reason:Stacktrace ->
 	    gen:unregister_name(ServerRef),
-	    proc_lib:init_ack(Starter, {error,Reason}),
 	    error_info(
 	      Class, Reason, Stacktrace, Debug,
               #params{parent = Parent, name = Name, modules = [Module]},
               #state{}, []),
-	    erlang:raise(Class, Reason, Stacktrace)
+            proc_lib:init_fail(
+              Starter, {error,Reason}, {Class,Reason,Stacktrace})
     end.
 
 %%---------------------------------------------------------------------------
@@ -1054,21 +1028,24 @@ init_result(
               State, Data, Actions);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
-	    proc_lib:init_ack(Starter, {error,Reason}),
-	    exit(Reason);
+            exit(Reason);
+	{error, _Reason} = ERROR ->
+            %% The point of this clause is that we shall have a *silent*
+            %% termination. The error reason will be returned to the
+            %% 'Starter' ({error, Reason}), but *no* crash report.
+	    gen:unregister_name(ServerRef),
+	    proc_lib:init_fail(Starter, ERROR, {exit,normal});
 	ignore ->
 	    gen:unregister_name(ServerRef),
-	    proc_lib:init_ack(Starter, ignore),
-	    exit(normal);
+            proc_lib:init_fail(Starter, ignore, {exit,normal});
 	_ ->
 	    gen:unregister_name(ServerRef),
-	    Error = {bad_return_from_init,Result},
-	    proc_lib:init_ack(Starter, {error,Error}),
+	    Reason = {bad_return_from_init,Result},
 	    error_info(
-	      error, Error, ?STACKTRACE(), Debug,
+	      error, Reason, ?STACKTRACE(), Debug,
               #params{parent = Parent, name = Name, modules = [Module]},
               #state{}, []),
-	    exit(Error)
+            exit(Reason)
     end.
 
 %%%==========================================================================
@@ -1424,8 +1401,8 @@ loop_state_callback(
 	case CallbackMode of
 	    state_functions ->
 		Module:State(Type, Content, Data);
-	    handle_event_function ->
-		Module:handle_event(Type, Content, State, Data)
+            HandleEventFun when is_function(HandleEventFun, 4) ->
+		HandleEventFun(Type, Content, State, Data)
 	end
     of
 	Result ->
@@ -2550,7 +2527,7 @@ callback_mode_result(
         true ->
             P#params{
               modules = Modules,
-              callback_mode = CallbackMode,
+              callback_mode = params_callback_mode(CallbackMode, Modules),
               state_enter = StateEnter}
     end.
 
@@ -3074,9 +3051,6 @@ cancel_timer(TimeoutType, Timers) ->
 %% Return a list of all pending timeouts
 list_timeouts(Timers) ->
     {maps:size(Timers) - 1, % Subtract fixed key 't0q'
-     maps:fold(
-       fun (t0q, _, Acc) ->
-               Acc;
-           (TimeoutType, {_TimerRef,TimeoutMsg}, Acc) ->
-               [{TimeoutType,TimeoutMsg}|Acc]
-       end, [], Timers)}.
+     [{TimeoutType, TimeoutMsg}
+      || TimeoutType := {_TimerRef, TimeoutMsg} <- Timers,
+         TimeoutType =/= t0q]}.

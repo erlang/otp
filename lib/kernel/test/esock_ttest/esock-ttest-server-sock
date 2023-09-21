@@ -3,7 +3,7 @@
 # 
 #  %CopyrightBegin%
 #  
-#  Copyright Ericsson AB 2019-2021. All Rights Reserved.
+#  Copyright Ericsson AB 2019-2023. All Rights Reserved.
 #  
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
 #  %CopyrightEnd%
 # 
 
-EMU=$ERL_TOP/erts/emulator
-EMU_TEST=$EMU/test
-ESOCK_TTEST=$EMU_TEST/esock_ttest
+KERNEL=$ERL_TOP/lib/kernel
+KERNEL_TEST=$KERNEL/test
+ESOCK_TTEST=$KERNEL_TEST/esock_ttest
 
 #  $1 - async  - boolean()
 #  $2 - active - once | boolean()

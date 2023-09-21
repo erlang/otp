@@ -4,14 +4,14 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2022</year>
+      <year>2006</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -35,7 +35,7 @@
   <description>
     <p>Dialyzer is a static analysis tool that identifies software
       discrepancies, such as definite type errors, code that has become dead
-      or unreachable because of programming error, and unnecessary tests,
+      or unreachable because of programming errors, and unnecessary tests,
       in single Erlang modules or entire (sets of) applications.</p>
 
     <p>Dialyzer starts its analysis from either
@@ -55,10 +55,6 @@
 
     <code type="none">
 dialyzer --help</code>
-
-    <p>For more details about the operation of Dialyzer, see section
-      <seeguide marker="dialyzer_chapter#dialyzer_gui">
-      Using Dialyzer from the GUI</seeguide> in the User's Guide.</p>
 
     <p><em>Exit status of the command-line version:</em></p>
 
@@ -85,12 +81,12 @@ dialyzer --help</code>
 dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
          [--error_location flag] [files_or_dirs] [--fullpath]
-         [--get_warnings] [--gui] [--help] [-I include_dir]*
-         [--incremental] [--no_check_plt] [--no_indentation] [-o outfile]
-         [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
-         [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
-         [--shell] [--src] [--statistics] [--verbose] [--version]
-         [-Wwarn]*</code>
+         [--get_warnings] [--help] [-I include_dir]*
+         [--incremental] [--metrics_file] [--no_check_plt] [--no_indentation]
+         [--no_spec] [-o outfile] [--output_plt file] [-pa dir]* [--plt plt]
+         [--plt_info] [--plts plt*] [--quiet] [-r dirs] [--raw]
+         [--remove_from_plt] [--shell] [--src] [--statistics] [--verbose]
+         [--version] [--warning_apps applications] [-Wwarn]*</code>
 
     <note>
       <p>* denotes that multiple occurrences of the option are possible.</p>
@@ -110,6 +106,18 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
           files.</p>
       </item>
       <tag><c>--apps applications</c></tag>
+      <item>
+        <p> By default, warnings will be reported to all applications given by
+          <c>--apps</c>. However, if <c>--warning_apps</c> is used, only those applications
+          given to <c>--warning_apps</c> will have warnings reported. All applications
+          given by <c>--apps</c>, but not <c>--warning_apps</c>, will be analysed to provide
+          context to the analysis, but warnings will not be reported for them.
+          For example, you may want to include libraries you depend on in the
+          analysis with <c>--apps</c> so discrepancies in their usage can be found,
+          but only include your own code with <c>--warning_apps</c> so that
+          discrepancies are only reported in code that you own.</p>
+      </item>
+      <tag><c>--warning_apps applications</c></tag>
       <item>
         <p>This option is typically used when building or modifying a PLT as
           in:</p>
@@ -173,9 +181,6 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
         <p>Make Dialyzer emit warnings even when manipulating the PLT.
           Warnings are only emitted for files that are analyzed.</p>
       </item>
-      <tag><c>--gui</c></tag>
-      <item>
-        <p>Use the GUI.</p></item>
       <tag><c>--help</c> (or <c>-h</c>)</tag>
       <item>
         <p>Print this message and exit.</p>
@@ -209,11 +214,23 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
 	<p>Do not insert line breaks in types, contracts, and Erlang
 	  Code when formatting warnings.</p>
       </item>
+      <tag><c>--no_spec</c></tag>
+      <item>
+	<p>Ignore functions specs. This is useful for debugging when
+	one suspects that some specs are incorrect.</p>
+      </item>
       <tag><c>-o outfile</c> (or
         <c>--output outfile</c>)</tag>
       <item>
         <p>When using Dialyzer from the command line, send the analysis
           results to the specified outfile rather than to <c>stdout</c>.</p>
+      </item>
+      <tag><c>--metrics_file file</c></tag>
+      <item>
+        <p> Write metrics about Dialyzer's incrementality (for example, total number of
+          modules considered, how many modules were changed since the PLT was
+          last updated, how many modules needed to be analyzed) to a file. This
+          can be useful for tracking and debugging Dialyzer's incrementality.</p>
       </item>
       <tag><c>--output_plt file</c></tag>
       <item>
@@ -280,10 +297,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
           the PLT. Notice that this can cause a reanalysis of the remaining
           dependent files.</p>
       </item>
-      <tag><c>--shell</c></tag>
-      <item>
-        <p>Do not disable the Erlang shell while running the GUI.</p>
-      </item>
       <tag><c>--src</c></tag>
       <item>
         <p>Override the default, which is to analyze BEAM files, and
@@ -316,9 +329,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     </taglist>
 
     <note>
-      <p>** options <c>-D</c> and <c>-I</c> work both
-        from the command line and in the Dialyzer GUI; the syntax of
-        defines and includes is the same as that used by
+      <p>** the syntax of defines and includes is the same as that used by
         <seecom marker="erts:erlc">erlc(1)</seecom>.</p>
     </note>
 
@@ -458,9 +469,8 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
 
   <section>
     <title>Using Dialyzer from Erlang</title>
-    <p>Dialyzer can be used directly from Erlang. Both the GUI and the
-      command-line versions are also available. The options are similar to the
-      ones given from the command line, see section
+    <p>Dialyzer can be used directly from Erlang. The options are
+      similar to the ones given from the command line, see section
       <seeerl marker="#command_line">
       Using Dialyzer from the Command Line</seeerl>.</p>
   </section>
@@ -483,6 +493,32 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     <p>Currently the only option used is the
     <seeerl marker="#error_location"><c>error_location</c></seeerl> option.
     </p>
+
+    <p><em>Dialyzer configuration file:</em></p>
+
+    <p>Dialyzer's configuration file may also be used to augment the default
+       options and those given directly to the Dialyzer command. It is commonly
+       used to avoid repeating options which would otherwise need to be given
+       explicitly to Dialyzer on every invocation.
+    </p>
+
+    <p>The location of the configuration file can be set via the
+      <c>DIALYZER_CONFIG</c> environment variable, and defaults to
+        within the <c>user_config</c> from <seemfa marker="stdlib:filename#basedir/3">
+        <c>filename:basedir/3</c></seemfa>.
+    </p>
+
+    <p>An example configuration file's contents might be:</p>
+
+    <code type="none">
+      {incremental,
+        {default_apps,[stdlib,kernel,erts]},
+        {default_warning_apps,[stdlib]}
+      }.
+      {warnings, [no_improper_lists]}.
+      {add_pathsa,["/users/samwise/potatoes/ebin"]}.
+      {add_pathsz,["/users/smeagol/fish/ebin"]}.
+    </code>
   </section>
 
   <section>
@@ -530,11 +566,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       options are also enumerated, see type <seetype marker="#warn_option">
       <c>warn_option()</c></seetype>.</p>
 
-    <note>
-      <p>Warning option <c>-Wrace_conditions</c> has no effect when
-        set in source files.</p>
-    </note>
-
     <p>Attribute <c>-dialyzer()</c> can also be used for turning on
       warnings. For example, if a module has been fixed regarding
       unmatched returns, adding the following line can help in assuring
@@ -574,6 +605,12 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <name name="file_location"></name>
     </datatype>
     <datatype>
+      <name name="filename_opt"></name>
+    </datatype>
+    <datatype>
+      <name name="format_option"></name>
+    </datatype>
+    <datatype>
       <name name="warn_option"></name>
       <desc>
 	<p>See section <seeerl
@@ -608,15 +645,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
           locations are formatted as <c>Line:Column</c> if the column
           number is available, otherwise locations are formatted as
           <c>Line</c> even if the column number is available.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="gui" arity="0" since=""></name>
-      <name name="gui" arity="1" since=""></name>
-      <fsummary>Dialyzer GUI version.</fsummary>
-      <desc>
-        <p>Dialyzer GUI version.</p>
       </desc>
     </func>
 

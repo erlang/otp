@@ -155,8 +155,6 @@ description_txt(?DECRYPTION_FAILED_RESERVED) ->
     "Decryption Failed Reserved";
 description_txt(?RECORD_OVERFLOW) ->
     "Record Overflow";
-description_txt(?DECOMPRESSION_FAILURE) ->
-    "Decompression Failure";
 description_txt(?HANDSHAKE_FAILURE) ->
     "Handshake Failure";
 description_txt(?NO_CERTIFICATE_RESERVED) ->
@@ -226,8 +224,6 @@ description_atom(?DECRYPTION_FAILED_RESERVED) ->
     decryption_failed_reserved;
 description_atom(?RECORD_OVERFLOW) ->
     record_overflow;
-description_atom(?DECOMPRESSION_FAILURE) ->
-    decompression_failure;
 description_atom(?HANDSHAKE_FAILURE) ->
     handshake_failure;
 description_atom(?NO_CERTIFICATE_RESERVED) ->

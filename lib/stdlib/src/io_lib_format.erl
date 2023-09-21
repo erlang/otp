@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,10 +116,11 @@ args([]) ->
     [].
 
 print([#{control_char := C, width := F, adjust := Ad, precision := P,
-         pad_char := Pad, encoding := Encoding, strings := Strings,
-         maps_order := MapsOrder} | Cs]) ->
+         pad_char := Pad, encoding := Encoding, strings := Strings
+        } = Map | Cs]) ->
+    MapsOrder = maps:get(maps_order, Map, undefined),
     print(C, F, Ad, P, Pad, Encoding, Strings, MapsOrder) ++ print(Cs);
-print([C | Cs]) ->
+print([C | Cs]) when is_integer(C) ->
     [C | print(Cs)];
 print([]) ->
     [].
@@ -288,8 +289,9 @@ build_small([]) -> [].
 
 build_limited([#{control_char := C, args := As, width := F, adjust := Ad,
                  precision := P, pad_char := Pad, encoding := Enc,
-                 strings := Str, maps_order := Ord} | Cs],
+                 strings := Str} = Map | Cs],
               NumOfPs0, Count0, MaxLen0, I) ->
+    Ord = maps:get(maps_order, Map, undefined),
     MaxChars = if
                    MaxLen0 < 0 -> MaxLen0;
                    true -> MaxLen0 div Count0

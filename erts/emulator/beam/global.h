@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -734,8 +734,8 @@ do {						\
 
 typedef struct ErtsPStack_ {
     byte* pstart;
-    int offs;   /* "stack pointer" as byte offset from pstart */
-    int size;   /* allocated size in bytes */
+    SWord offs;   /* "stack pointer" as byte offset from pstart */
+    SWord size;   /* allocated size in bytes */
     ErtsAlcType_t alloc_type;
 }ErtsPStack;
 
@@ -746,7 +746,7 @@ void erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes);
 #define PSTACK_DECLARE(s, DEF_PSTACK_SIZE) \
 PSTACK_TYPE PSTK_DEF_STACK(s)[DEF_PSTACK_SIZE];                            \
 ErtsPStack s = { (byte*)PSTK_DEF_STACK(s), /* pstart */                    \
-                 -(int)sizeof(PSTACK_TYPE), /* offs */                     \
+                 -(SWord)sizeof(PSTACK_TYPE), /* offs */                   \
                  DEF_PSTACK_SIZE*sizeof(PSTACK_TYPE), /* size */           \
                  ERTS_ALC_T_ESTACK   /* alloc_type */                      \
 }
@@ -1147,10 +1147,10 @@ Uint size_shared(Eterm);
 
 #ifdef ERTS_COPY_REGISTER_LOCATION
 
-#define copy_shared_perform(U, V, X, Y, Z) \
-    copy_shared_perform_x((U), (V), (X), (Y), (Z), __FILE__, __LINE__)
 Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*,
                             char *file, int line);
+#define copy_shared_perform(U, V, X, Y, Z) \
+    copy_shared_perform_x((U), (V), (X), (Y), (Z), __FILE__, __LINE__)
 
 Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*,
                     char *file, int line);
@@ -1159,16 +1159,21 @@ Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_
 #define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
     copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea,__FILE__,__LINE__)
 
+Eterm* copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*,
+                     char *file, int line);
 #define copy_shallow(R, SZ, HPP, OH) \
     copy_shallow_x((R), (SZ), (HPP), (OH), __FILE__, __LINE__)
-Eterm copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*,
+
+Eterm copy_shallow_obj_x(Eterm, Uint, Eterm**, ErlOffHeap*,
                      char *file, int line);
+#define copy_shallow_obj(R, SZ, HPP, OH) \
+    copy_shallow_obj_x((R), (SZ), (HPP), (OH), __FILE__, __LINE__)
 
 #else
 
+Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 #define copy_shared_perform(U, V, X, Y, Z) \
     copy_shared_perform_x((U), (V), (X), (Y), (Z))
-Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 
 Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*);
 #define copy_struct(Obj,Sz,HPP,OH) \
@@ -1176,9 +1181,13 @@ Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_
 #define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
     copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea)
 
+Eterm* copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
 #define copy_shallow(R, SZ, HPP, OH) \
     copy_shallow_x((R), (SZ), (HPP), (OH))
-Eterm copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
+
+Eterm copy_shallow_obj_x(Eterm, Uint, Eterm**, ErlOffHeap*);
+#define copy_shallow_obj(R, SZ, HPP, OH) \
+    copy_shallow_obj_x((R), (SZ), (HPP), (OH))
 
 #endif
 
@@ -1457,6 +1466,7 @@ Eterm erts_debug_persistent_term_xtra_info(Process* c_p);
 
 /* external.c */
 void erts_init_external(void);
+void erts_late_init_external(void);
 
 /* erl_map.c */
 void erts_init_map(void);
@@ -1588,6 +1598,7 @@ Eterm erts_unary_minus(Process* p, Eterm arg1);
 Eterm erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_mixed_times(Process* p, Eterm arg1, Eterm arg2);
+Eterm erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp);
 Eterm erts_mixed_div(Process* p, Eterm arg1, Eterm arg2);
 
 int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r);

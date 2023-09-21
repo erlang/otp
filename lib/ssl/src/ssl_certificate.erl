@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022 All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@
 -include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
 -export([trusted_cert_and_paths/4,
@@ -345,13 +346,14 @@ available_cert_key_pairs(CertKeyGroups) ->
 
 %% Create the prioritized list of cert key pairs that
 %% are availble for use in the negotiated version
-available_cert_key_pairs(CertKeyGroups, {3, 4}) ->
+available_cert_key_pairs(CertKeyGroups, ?TLS_1_3) ->
     RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
-available_cert_key_pairs(CertKeyGroups, {3, 3}) ->
+available_cert_key_pairs(CertKeyGroups, ?TLS_1_2) ->
      RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
-available_cert_key_pairs(CertKeyGroups, {3, N}) when N < 3->
+available_cert_key_pairs(CertKeyGroups, Version)
+  when ?TLS_LT(Version, ?TLS_1_2) ->
     RevAlgos = [dsa, rsa, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
 
@@ -581,10 +583,12 @@ verify_cert_extensions(Cert, UserState, [], _) ->
     {valid, UserState#{issuer => Cert}};
 verify_cert_extensions(Cert, #{ocsp_responder_certs := ResponderCerts,
                                ocsp_state := OscpState,
-                               issuer := Issuer} = UserState, 
-                       [#certificate_status{response = OcspResponsDer} | Exts], Context) ->
+                               issuer := Issuer} = UserState,
+                       [#certificate_status{response = OcspResponsDer} | Exts],
+                       Context) ->
     #{ocsp_nonce := Nonce} = OscpState,
-    case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponsDer, ResponderCerts, Nonce) of
+    case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponsDer,
+                                       ResponderCerts, Nonce) of
         valid ->
             verify_cert_extensions(Cert, UserState, Exts, Context);
         {bad_cert, _} = Status ->
@@ -594,21 +598,22 @@ verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
     %% Skip unknown extensions!
     verify_cert_extensions(Cert, UserState, Exts, Context).
 
-verify_sign(_, #{version := {_, Minor}}) when Minor < 3 ->
+verify_sign(_, #{version := Version})
+            when ?TLS_LT(Version, ?TLS_1_2) ->
     %% This verification is not applicable pre TLS-1.2 
     true; 
-verify_sign(Cert, #{version := {3, 3},
+verify_sign(Cert, #{version := ?TLS_1_2,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := {3, 3},
+verify_sign(Cert, #{version := ?TLS_1_2,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := {3, 4},
+verify_sign(Cert, #{version := ?TLS_1_3,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs);
-verify_sign(Cert, #{version := {3, 4},
+verify_sign(Cert, #{version := ?TLS_1_3,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs).
 
@@ -832,11 +837,14 @@ cert_auth_member(ChainSubjects, CertAuths) ->
 handle_trace(crt,
              {call, {?MODULE, validate, [Cert, StatusOrExt| _]}}, Stack) ->
     {io_lib:format("[~W] StatusOrExt = ~W", [Cert, 3, StatusOrExt, 10]), Stack};
+    %% {io_lib:format("(~s) StatusOrExt = ~W",
+    %%                [ssl_test_lib:format_cert(Cert), StatusOrExt, 10]), Stack};
 handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
                           [Cert,
                            _UserState,
                            [], _Context]}}, Stack) ->
     {io_lib:format(" no more extensions [~W]", [Cert, 3]), Stack};
+    %% {io_lib:format(" no more extensions (~s)", [ssl_test_lib:format_cert(Cert)]), Stack};
 handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
                           [Cert,
                            #{ocsp_responder_certs := _ResponderCerts,
@@ -847,7 +855,11 @@ handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
     {io_lib:format("#2 OcspState = ~W Issuer = [~W] OcspResponsDer = ~W [~W]",
                    [OcspState, 10, Issuer, 3, OcspResponsDer, 2, Cert, 3]),
      Stack};
+    %% {io_lib:format("#2 OcspState = ~W Issuer = (~s) OcspResponsDer = ~W (~s)",
+    %%                [OcspState, 10, ssl_test_lib:format_cert(Issuer),
+    %%                 OcspResponsDer, 2, ssl_test_lib:format_cert(Cert)]),
 handle_trace(crt, {return_from,
                    {ssl_certificate, verify_cert_extensions, 4},
                    {valid, #{issuer := Issuer}}}, Stack) ->
     {io_lib:format(" extensions valid Issuer = ~W", [Issuer, 3]), Stack}.
+    %% {io_lib:format(" extensions valid Issuer = ~s", [ssl_test_lib:format_cert(Issuer)]), Stack}.

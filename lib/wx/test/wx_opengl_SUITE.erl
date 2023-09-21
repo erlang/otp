@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 	 init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
--export([canvas/1, glu_tesselation/1]).
+-export([canvas/1, glu_tesselation/1, debugMessage/1]).
 
 -include("wx_test_lib.hrl").
 -include_lib("wx/include/gl.hrl").
@@ -55,7 +55,7 @@ end_per_testcase(Func,Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 
 all() -> 
-    [canvas, glu_tesselation].
+    [canvas, glu_tesselation, debugMessage].
 
 groups() -> 
     [].
@@ -101,15 +101,8 @@ canvas(Config) ->
                            %% ?WX_GL_CORE_PROFILE,
 			   ?WX_GL_DEPTH_SIZE,24,0]}],
     Canvas = ?mt(wxGLCanvas, wxGLCanvas:new(Frame, [{style,?wxFULL_REPAINT_ON_RESIZE}|Attrs])),
-    SetContext =
-        try %% 3.0 API
-            Context = wxGLContext:new(Canvas),
-            fun() -> ?m(true, wxGLCanvas:setCurrent(Canvas, Context)) end
-        catch _:Reason:ST -> %% 2.8 API
-                io:format("Using old api: ~p~n  ~p~n",[Reason, ST]),
-                ?m(false, wx:is_null(wxGLCanvas:getContext(Canvas))),
-                fun() -> ?m(ok, wxGLCanvas:setCurrent(Canvas)) end
-        end,
+    Context = wxGLContext:new(Canvas),
+    SetContext = fun() -> ?m(true, wxGLCanvas:setCurrent(Canvas, Context)) end,
 
     wxFrame:connect(Frame, show),
     ?m(true, wxWindow:show(Frame)),
@@ -241,14 +234,8 @@ glu_tesselation(Config) ->
     after 1000 -> exit(show_timeout)
     end,
 
-    try %% 3.0 API
-        Context = wxGLContext:new(Canvas),
-        wxGLCanvas:setCurrent(Canvas, Context)
-    catch _:Reason:ST -> %% 2.8 API
-            io:format("Using old api: ~p~n  ~p~n",[Reason, ST]),
-            ?m(false, wx:is_null(wxGLCanvas:getContext(Canvas))),
-            ?m(ok, wxGLCanvas:setCurrent(Canvas))
-    end,
+    Context = wxGLContext:new(Canvas),
+    wxGLCanvas:setCurrent(Canvas, Context),
 
     Simple = ?m({_,_}, glu:tesselate({0.0,0.0,1.0}, [{-1.0,0.0,0.0},{1.0,0.0,0.0},{0.0,1.0,0.0}])),
     io:format("Simple ~p~n",[Simple]),
@@ -268,4 +255,50 @@ glu_tesselation(Config) ->
     
     wx_test_lib:wx_destroy(Frame, Config).
 
-    
+debugMessage(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+debugMessage(Config) ->
+    WX = ?mr(wx_ref, wx:new()),
+    Frame = wxFrame:new(WX,1,"Hello 3D-World",[]),
+    case {?wxMAJOR_VERSION, ?wxMINOR_VERSION} of
+        {WxMajor,WxMinor} when WxMajor >= 3, WxMinor >= 2 ->
+            Attrs = [{attribList, [?WX_GL_RGBA,?WX_GL_DOUBLEBUFFER,?WX_GL_DEBUG,0]}],
+            Canvas = ?mt(wxGLCanvas, wxGLCanvas:new(Frame, Attrs)),
+            wxFrame:connect(Frame, show),
+            ?m(true, wxWindow:show(Frame)),
+
+            receive #wx{event=#wxShow{}} -> ok
+            after 1000 -> exit(show_timeout)
+            end,
+
+            Context = wxGLContext:new(Canvas),
+            wxGLCanvas:setCurrent(Canvas, Context),
+
+            case {gl:getIntegerv(?GL_MAJOR_VERSION),gl:getIntegerv(?GL_MINOR_VERSION)} of
+                {[Major|_], [Minor|_]} when Major >= 4, Minor >= 3 ->
+                    io:format("~nVersion: ~p~n", [{Major,Minor}]),
+                    ByteCount = 5000,
+                    Count = 10,
+                    %% Before any log insertion:
+                    A = gl:getDebugMessageLog(Count, ByteCount),
+                    io:format( "A = ~p~n", [ A ] ),
+
+                    Msg1 = "Hello!",
+                    gl:debugMessageInsert(?GL_DEBUG_SOURCE_APPLICATION, ?GL_DEBUG_TYPE_ERROR,
+                                          10, ?GL_DEBUG_SEVERITY_HIGH, Msg1),
+                    Msg2 = "Goodbye...",
+                    gl:debugMessageInsert(?GL_DEBUG_SOURCE_APPLICATION, ?GL_DEBUG_TYPE_ERROR,
+                                          11, ?GL_DEBUG_SEVERITY_HIGH, Msg2),
+
+                    B = gl:getDebugMessageLog(Count, ByteCount),
+                    io:format("B = ~p~n", [B]),
+
+                    C = gl:getDebugMessageLog(Count, ByteCount),
+                    io:format("C = ~p~n", [C]);
+                Versions ->
+                    io:format("Not supported version: ~p~n", [Versions])
+            end;
+        _ -> ok
+    end,
+    wx_test_lib:wx_destroy(Frame, Config).
+
+

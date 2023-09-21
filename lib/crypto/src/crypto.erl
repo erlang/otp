@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -685,8 +685,6 @@ hash_final_xof(Context, Length) ->
 -type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
 
 -type cmac_cipher_algorithm() :: aes_128_cbc    | aes_192_cbc    | aes_256_cbc    | aes_cbc
-                               | aes_128_cfb128 | aes_192_cfb128 | aes_256_cfb128 | aes_cfb128
-                               | aes_128_cfb8   | aes_192_cfb8   | aes_256_cfb8   | aes_cfb8
                                | blowfish_cbc
                                | des_cbc | des_ede3_cbc
                                | rc2_cbc
@@ -2126,13 +2124,15 @@ on_load() ->
 			      filename:join(
 				[PrivDir,
 				 "lib",
-				 LibTypeName ++ "*"])) /= []) orelse
+				 LibTypeName ++ "*"]),
+                              erl_prim_loader) /= []) orelse
 			  (filelib:wildcard(
 			     filename:join(
 			       [PrivDir,
 				"lib",
 				erlang:system_info(system_architecture),
-				LibTypeName ++ "*"])) /= []) of
+				LibTypeName ++ "*"]),
+                             erl_prim_loader) /= []) of
 			  true -> LibTypeName;
 			  false -> LibBaseName
 		      end
@@ -2147,7 +2147,10 @@ on_load() ->
 			 filename:join([PrivDir, "lib",
 					erlang:system_info(system_architecture)]),
 		     Candidate =
-			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ]),erl_prim_loader),
+			 filelib:wildcard(
+                           filename:join(
+                             [ArchLibDir,LibName ++ "*" ]),
+                           erl_prim_loader),
 		     case Candidate of
 			 [] -> Error1;
 			 _ ->
@@ -2369,14 +2372,12 @@ nif_curve_params(CurveName) when is_atom(CurveName) ->
         x448   -> {evp,CurveName};
         x25519 -> {evp,CurveName};
         _ ->
-            Spec =
-                try
-                    crypto_ec_curves:curve(CurveName)
-                catch
-                    _:_ ->
-                        undefined
-                end,
-            {Spec, CurveName}
+            try
+                crypto_ec_curves:curve_with_name(CurveName)
+            catch
+                _:_ ->
+                    {undefined, CurveName}
+            end
     end.
 
 

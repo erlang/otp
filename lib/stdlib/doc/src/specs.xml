@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <specs xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="../specs/specs_argparse.xml"/>
   <xi:include href="../specs/specs_array.xml"/>
   <xi:include href="../specs/specs_base64.xml"/>
   <xi:include href="../specs/specs_beam_lib.xml"/>
@@ -10,6 +11,7 @@
   <xi:include href="../specs/specs_dict.xml"/>
   <xi:include href="../specs/specs_digraph.xml"/>
   <xi:include href="../specs/specs_digraph_utils.xml"/>
+  <xi:include href="../specs/specs_edlin.xml"/>
   <xi:include href="../specs/specs_edlin_expand.xml"/>
   <xi:include href="../specs/specs_epp.xml"/>
   <xi:include href="../specs/specs_erl_anno.xml"/>

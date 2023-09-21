@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -566,6 +566,7 @@ is_type(bool, 0) -> true;
 is_type(boolean, 0) -> true;
 is_type(byte, 0) -> true;
 is_type(char, 0) -> true;
+is_type(dynamic, 0) -> true;
 is_type(float, 0) -> true;
 is_type(function, 0) -> true;
 is_type(identifier, 0) -> true;

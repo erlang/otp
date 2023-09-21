@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -606,6 +606,8 @@ configure([{timetrap,Time}|Rest],Info,SuiteInfo,Scope,PostInitHook,Config) ->
     configure(Rest,Info,SuiteInfo,Scope,PostInitHook1,Config);
 configure([{ct_hooks,Hook}|Rest],Info,SuiteInfo,Scope,PostInitHook,Config) ->
     configure(Rest,Info,SuiteInfo,Scope,PostInitHook,[{ct_hooks,Hook}|Config]);
+configure([{ct_hooks_order,Order}|Rest],Info,SuiteInfo,Scope,PostInitHook,Config) ->
+    configure(Rest,Info,SuiteInfo,Scope,PostInitHook,[{ct_hooks_order,Order}|Config]);
 configure([_|Rest],Info,SuiteInfo,Scope,PostInitHook,Config) ->
     configure(Rest,Info,SuiteInfo,Scope,PostInitHook,Config);
 configure([],_,_,_,PostInitHook,Config) ->
@@ -663,6 +665,10 @@ end_tc(Mod, Fun, Args) ->
     %% Have to keep end_tc/3 for backwards compatibility issues
     end_tc(Mod, Fun, Args, '$end_tc_dummy').
 end_tc(?MODULE,error_in_suite,{Result,[Args]},Return) ->
+    case proplists:get_value(force_failed, Args) of
+		undefined -> ok;
+		_ -> add_to_stats(failed)
+    end,
     %% this clause gets called if CT has encountered a suite that
     %% can't be executed
     FinalNotify =
@@ -1219,9 +1225,9 @@ get_all(Mod, ConfTests) ->
                     expand_tests(Mod, Tests)
             catch
                 throw:{error,Error} ->
-                    [{?MODULE,error_in_suite,[[{error,Error}]]}];
+                    [{?MODULE,error_in_suite,[[{error,Error},{force_failed,true}]]}];
                 _:Error:S ->
-                    [{?MODULE,error_in_suite,[[{error,{Error,S}}]]}]
+                    [{?MODULE,error_in_suite,[[{error,{Error,S}},{force_failed,true}]]}]
             end;
         Skip = {skip,_Reason} ->
 	    Skip;

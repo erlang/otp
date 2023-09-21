@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -315,6 +315,13 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
               {next_event, internal,
                {application_packets, {self(),undefined}, Data}}]}
     end;
+connection({call, From}, get_application_traffic_secret, State) ->
+    CurrentWrite = maps:get(current_write, State#data.connection_states),
+    SecurityParams = maps:get(security_parameters, CurrentWrite),
+    ApplicationTrafficSecret =
+        SecurityParams#security_parameters.application_traffic_secret,
+    hibernate_after(?FUNCTION_NAME, State,
+                    [{reply, From, {ok, ApplicationTrafficSecret}}]);
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
 connection(internal, {post_handshake_data, From, HSData}, StateData) ->
@@ -568,7 +575,7 @@ maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
 maybe_update_cipher_key(StateData, _) ->
     StateData.
 
-update_bytes_sent(Version, StateData, _) when Version < {3,4} ->
+update_bytes_sent(Version, StateData, _) when ?TLS_LT(Version, ?TLS_1_3) ->
     StateData;
 %% Count bytes sent in TLS 1.3 for AES-GCM
 update_bytes_sent(_, #data{static = #static{key_update_at = seq_num_wrap}} = StateData, _) ->
@@ -581,20 +588,12 @@ update_bytes_sent(_, #data{static = #static{bytes_sent = Sent} = Static} = State
 %% approximately 2^-57 for Authenticated Encryption (AE) security.  For
 %% ChaCha20/Poly1305, the record sequence number would wrap before the
 %% safety limit is reached.
-key_update_at(Version, #{security_parameters :=
+key_update_at(?TLS_1_3, #{security_parameters :=
                              #security_parameters{
-                                bulk_cipher_algorithm = CipherAlgo}}, KeyUpdateAt)
-  when Version >= {3,4} ->
-    case CipherAlgo of
-        ?AES_GCM ->
-            KeyUpdateAt;
-        ?CHACHA20_POLY1305 ->
-            seq_num_wrap;
-        ?AES_CCM ->
-            KeyUpdateAt;
-        ?AES_CCM_8 ->
-            KeyUpdateAt
-    end;
+                                bulk_cipher_algorithm = ?CHACHA20_POLY1305}}, _KeyUpdateAt) ->
+    seq_num_wrap;
+key_update_at(?TLS_1_3, _, KeyUpdateAt) ->
+    KeyUpdateAt;
 key_update_at(_, _, KeyUpdateAt) ->
     KeyUpdateAt.
 
@@ -617,11 +616,11 @@ set_opts(SocketOptions, [{packet, N}]) ->
 
 time_to_rekey(Version, _Data,
               #{current_write := #{sequence_number := ?MAX_SEQUENCE_NUMBER}},
-              _, _, _) when Version >= {3,4} ->
+              _, _, _) when ?TLS_GTE(Version, ?TLS_1_3) ->
     key_update;
-time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when Version >= {3,4} ->
+time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when ?TLS_GTE(Version, ?TLS_1_3) ->
     false;
-time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when Version >= {3,4} ->
+time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when ?TLS_GTE(Version, ?TLS_1_3) ->
     DataSize = iolist_size(Data),
     case (BytesSent + DataSize) > KeyUpdateAt of
         true ->

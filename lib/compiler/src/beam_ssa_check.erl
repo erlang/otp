@@ -285,8 +285,9 @@ env_post1(_Pattern, _Actual, _Env) ->
     ?DP("Failed to match ~p <-> ~p~n", [_Pattern, _Actual]),
     error({internal_pattern_match_error,env_post1}).
 
-post_bitstring(Bytes, Actual, _Env) ->
-    Actual = build_bitstring(Bytes, <<>>).
+post_bitstring(Bytes, Actual, Env) ->
+    Actual = build_bitstring(Bytes, <<>>),
+    Env.
 
 %% Convert the parsed literal binary to an actual bitstring.
 build_bitstring([{integer,_,V}|Bytes], Acc) ->

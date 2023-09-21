@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2021</year>
+      <year>1997</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -281,14 +281,15 @@
         <c><![CDATA[agent_net_if_options() = [agent_net_if_option()] <optional>]]></c></tag>
       <item>
 	<p><c>agent_net_if_option() =
-	{bind_to,         bind_to()} |  
-	{sndbuf,          sndbuf()} |  
-	{recbuf,          recbuf()} |  
-	{no_reuse,        no_reuse()} | 
-	{req_limit,       req_limit()} |
-	{filter,          agent_net_if_filter_options()} |
-	{extra_sock_opts, extra_socket_options()} |
-	{inet_backend,    inet | socket}</c></p>
+	{bind_to,          bind_to()} |  
+	{sndbuf,           sndbuf()} |  
+	{recbuf,           recbuf()} |  
+	{no_reuse,         no_reuse()} | 
+	{req_limit,        req_limit()} |
+	{filter,           agent_net_if_filter_options()} |
+	{open_err_filters, agent_net_if_open_err_filters()} |
+	{extra_sock_opts,  extra_socket_options()} |
+	{inet_backend,     inet_backend()}</c></p>
         <p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>agent_net_if_module()</c>.</p>
@@ -327,6 +328,25 @@
 	  <seeerl marker="snmpa_network_interface_filter">snmpa_network_interface_filter
 	    </seeerl> behaviour.</p>
 	<p>Default is <c>snmpa_net_if_filter</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ni_open_err_filters"></marker>
+        <c><![CDATA[agent_net_if_open_err_filters() = [agent_net_if_open_err_filter()] <optional>]]></c></tag>
+      <item>
+	<p><c>agent_net_if_open_err_filter() = atom()</c></p>
+	<p>During agent initiation, the transports UDP sockets are opened.
+	If this operation fails, the net-if (and the agent) fails to start
+	(crash). This (filter) list contains error (reasons) that will
+	make net-if fail "nicely".
+	This (filter) list, is supposed to contain errors that can be
+	returned by
+	<seemfa marker="kernel:gen_udp#open/1">gen_udp:open/1,2</seemfa>.
+	The effect is that any error returned by
+	<seemfa marker="kernel:gen_udp#open/1">gen_udp:open</seemfa>
+	which *are* in this list, will be considered
+	"non-fatal" and will only result in an info message, rather than
+	an error message. Net If, and the agent, will still crash,
+	but will produce a less obnoxious message. </p>
       </item>
 
       <tag><marker id="agent_mibs"></marker>
@@ -821,13 +841,13 @@ in so far as it will be converted to the new format if found.
         <c><![CDATA[manager_net_if_options() = [manager_net_if_option()] <optional>]]></c></tag>
       <item>
 	<p><c>manager_net_if_option() =
-	    {bind_to,         bind_to()}  |
-            {sndbuf,          sndbuf()}   |
-            {recbuf,          recbuf()}   |
-            {no_reuse,        no_reuse()} |
-            {filter,          manager_net_if_filter_options()} |
-	    {extra_sock_opts, extra_socket_options()} |
-	    {inet_backend,    inet | socket}</c></p>
+	{bind_to,         bind_to()}  |
+	{sndbuf,          sndbuf()}   |
+	{recbuf,          recbuf()}   |
+	{no_reuse,        no_reuse()} |
+	{filter,          manager_net_if_filter_options()} |
+	{extra_sock_opts, extra_socket_options()} |
+	{inet_backend,    inet_backend()}</c></p>
         <p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>manager_net_if_module()</c>. </p>
@@ -968,6 +988,15 @@ in so far as it will be converted to the new format if found.
 	its a list). Its the users responsibility to ensure that these
 	are valid options and does not conflict with the "normal" options. </p>
         <p>Default is <c>[]</c>.</p>
+      </item>
+
+      <tag><marker id="inet_backend"></marker>
+        <c><![CDATA[inet_backend() = inet | socket <optional>]]></c></tag>
+      <item>
+	<p>Choose the inet-backend. </p>
+	<p>This option make it possible to use net_if (gen_udp) with a
+	different inet-backend ('inet' or 'socket'). </p>
+        <p>Default is <c>inet</c>.</p>
       </item>
 
       <tag><marker id="note_store"></marker>

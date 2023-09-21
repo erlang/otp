@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
+-include("ssl_record.hrl").
 
 %% Internal application API
 -export([is_new/2,
@@ -89,7 +90,7 @@ client_select_session({_, _, #{versions := Versions,
     HVersion = RecordCb:highest_protocol_version(Versions),
 
     case LVersion of
-        {3, 4} ->
+        ?TLS_1_3 ->
             %% Session reuse is not supported, do pure legacy
             %% middlebox comp mode negotiation, by providing either
             %% empty session id (no middle box) or random id (middle
@@ -199,14 +200,13 @@ is_resumable(SuggestedSessionId, SessIdTracker,
     case ssl_server_session_cache:reuse_session(SessIdTracker, SuggestedSessionId) of
 	#session{cipher_suite = CipherSuite,
                  own_certificates =  [SessionOwnCert | _],
-		 compression_method = Compression,
 		 is_resumable = IsResumable,
 		 peer_certificate = PeerCert} = Session ->
 	    case resumable(IsResumable)
 		andalso is_owncert(SessionOwnCert, OwnCertKeyPairs)
 		andalso reusable_options(Options, Session)
 		andalso ReuseFun(SuggestedSessionId, PeerCert,
-				 Compression, CipherSuite)
+				 ?NO_COMPRESSION, CipherSuite)
 	    of
 		true  -> {true, Session};
 		false -> {false, undefined}
@@ -241,7 +241,7 @@ record_cb(dtls) ->
 legacy_session_id() ->
     crypto:strong_rand_bytes(32).
 
-maybe_handle_middlebox({3, 4}, #session{session_id = ?EMPTY_ID} = Session, Options)->
+maybe_handle_middlebox(?TLS_1_3, #session{session_id = ?EMPTY_ID} = Session, Options)->
     case maps:get(middlebox_comp_mode, Options,true) of
         true ->
             Session#session{session_id = legacy_session_id()};

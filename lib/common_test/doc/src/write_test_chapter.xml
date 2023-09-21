@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2022</year>
+      <year>2003</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -73,7 +73,7 @@
     </p>
 
     <p>The callback functions to be implemented by the test suite are
-      all listed in module <seeerl marker="common_test">common_test
+      all listed in module <seeerl marker="ct_suite">ct_suite
       </seeerl>. They are also described in more detail later in this User's Guide.
     </p>
 
@@ -515,14 +515,14 @@
       <c>{group,GroupName,Properties,SubGroups}</c>
       Where, <c>SubGroups</c> is a list of tuples, <c>{GroupName,Properties}</c> or
       <c>{GroupName,Properties,SubGroups}</c> representing the subgroups.
-      Any subgroups defined in <c>group/0</c> for a group, that are not specified
+      Any subgroups defined in <c>groups/0</c> for a group, that are not specified
       in the <c>SubGroups</c> list, executes with their predefined
       properties.</p>
 
     <p><em>Example:</em></p>
     <pre>
- groups() -> {tests1, [], [{tests2, [], [t2a,t2b]},
-                           {tests3, [], [t31,t3b]}]}.</pre>
+ groups() -> [{tests1, [], [{tests2, [], [t2a,t2b]},
+                           {tests3, [], [t31,t3b]}]}].</pre>
     <p>To execute group <c>tests1</c> twice with different properties for <c>tests2</c>
       each time:</p>
     <pre>
@@ -957,7 +957,7 @@
     When the timetrap function returns, the time-out is triggered, <em>unless</em>
     the return value is a valid timetrap time, such as an integer,
     or a <c>{SecMinOrHourTag,Time}</c> tuple (for details, see module
-    <seeerl marker="common_test">common_test</seeerl>). If a time value
+    <seeerl marker="ct_suite">ct_suite</seeerl>). If a time value
     is returned, a new timetrap is started to generate a time-out after
     the specified time.</p>
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ init([?SERVER_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
         tls_gen_connection_1_3:initial_state(?SERVER_ROLE, Sender,
                                              Host, Port, Socket, Options, User, CbInfo),
     try
-	State = ssl_gen_statem:ssl_config(State0#state.ssl_options, ?SERVER_ROLE, State0),
+	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options, ?SERVER_ROLE, State0),
         tls_gen_connection:initialize_tls_sender(State),
         gen_statem:enter_loop(?MODULE, [], initial_hello, State)
     catch throw:Error ->
@@ -170,20 +170,26 @@ user_hello({call, From}, cancel, State) ->
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env = #handshake_env{continue_status = {pause, ClientVersions}} = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = #{versions := Versions} = ssl:update_options(NewOptions, ?SERVER_ROLE, Options0),
-    State = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
-    case ssl_handshake:select_supported_version(ClientVersions, Versions) of
-        {3,4} ->
-            {next_state, start, State#state{start_or_recv_from = From,
-                                            handshake_env = HSEnv#handshake_env{continue_status = continue}},
-             [{{timeout, handshake}, Timeout, close}]};
-        undefined ->
-            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State);
-        _Else ->
-            {next_state, hello, State#state{start_or_recv_from = From,
-                                            handshake_env = HSEnv#handshake_env{continue_status = continue}},
-             [{change_callback_module, tls_connection},
-              {{timeout, handshake}, Timeout, close}]}
+    try ssl:update_options(NewOptions, ?SERVER_ROLE, Options0) of
+        Options = #{versions := Versions} ->
+            State = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
+            case ssl_handshake:select_supported_version(ClientVersions, Versions) of
+                ?TLS_1_3 ->
+                    {next_state, start, State#state{start_or_recv_from = From,
+                                                    handshake_env = HSEnv#handshake_env{continue_status = continue}},
+                     [{{timeout, handshake}, Timeout, close}]};
+                undefined ->
+                    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State);
+                _Else ->
+                    {next_state, hello, State#state{start_or_recv_from = From,
+                                                    handshake_env = HSEnv#handshake_env{continue_status = continue}},
+                     [{change_callback_module, tls_connection},
+                      {{timeout, handshake}, Timeout, close}]}
+            end
+    catch
+        throw:{error, Reason} ->
+            gen_statem:reply(From, {error, Reason}),
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), ?FUNCTION_NAME, State0)
     end;
 user_hello(Type, Msg, State) ->
     tls_gen_connection_1_3:user_hello(Type, Msg, State).
@@ -210,7 +216,7 @@ start(internal, #client_hello{extensions = #{client_hello_versions :=
                                                  #client_hello_versions{versions = ClientVersions}
                                             }} = Hello,
       #state{ssl_options = #{handshake := full}} = State) ->
-    case tls_record:is_acceptable_version({3,4}, ClientVersions) of
+    case tls_record:is_acceptable_version(?TLS_1_3, ClientVersions) of
         true ->
             handle_client_hello(Hello, State);
         false ->
@@ -429,7 +435,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         Groups = Maybe(tls_handshake_1_3:select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups,
                                         ClientShares#key_share_client_hello.client_shares)),
-        CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, {3,4}),
+        CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, ?TLS_1_3),
         #session{own_certificates = [Cert|_]} = Session =
             Maybe(select_server_cert_key_pair(Session0, CertKeyPairs, ClientSignAlgs,
                                               ClientSignAlgsCert, CertAuths, State0,
@@ -877,7 +883,7 @@ select_cipher_suite(_, [], _) ->
 select_cipher_suite(true, ClientCiphers, ServerCiphers) ->
     select_cipher_suite(false, ServerCiphers, ClientCiphers);
 select_cipher_suite(false, [Cipher|ClientCiphers], ServerCiphers) ->
-    case lists:member(Cipher, tls_v1:exclusive_suites(4)) andalso
+    case lists:member(Cipher, tls_v1:exclusive_suites(?TLS_1_3)) andalso
         lists:member(Cipher, ServerCiphers) of
         true ->
             {ok, Cipher};

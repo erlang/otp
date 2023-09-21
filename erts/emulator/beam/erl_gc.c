@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -460,7 +460,13 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 
 	val[0] = result;
 	cost = garbage_collect(p, live_hf_end, 0, val, 1, p->fcalls, 0);
-	result = val[0];
+        if (ERTS_PROC_IS_EXITING(p)) {
+            result = THE_NON_VALUE;
+        }
+        else {
+            result = val[0];
+        }
+
     }
     BUMP_REDS(p, cost);
 
@@ -490,7 +496,7 @@ static ERTS_INLINE void assert_no_active_writers(Process *p)
 #define ERTS_ABANDON_HEAP_COST 10
 
 static int
-delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int fcalls)
+delay_garbage_collection(Process *p, int need, int fcalls)
 {
     ErlHeapFragment *hfrag;
     Eterm *orig_heap, *orig_hend, *orig_htop, *orig_stop;
@@ -702,7 +708,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 
     if ((p->flags & (F_DISABLE_GC|F_DELAY_GC)) || state & ERTS_PSFLG_EXITING) {
     delay_gc_before_start:
-	return delay_garbage_collection(p, live_hf_end, need, fcalls);
+	return delay_garbage_collection(p, need, fcalls);
     }
 
     ygen_usage = max_young_gen_usage ? max_young_gen_usage : young_gen_usage(p, &ext_msg_usage);
@@ -804,7 +810,7 @@ do_major_collection:
         erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
         /* We have to make sure that we have space for need on the heap */
-        res = delay_garbage_collection(p, live_hf_end, need, fcalls);
+        res = delay_garbage_collection(p, need, fcalls);
         ERTS_MSACC_POP_STATE();
         return res;
     }
@@ -1373,6 +1379,8 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
     Uint debug_tmp = 0;
 #endif
 
+    need += S_RESERVED;
+
     /*
      * Check if we have gone past the max heap size limit
      */
@@ -1393,7 +1401,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
             heap_size += OLD_HEND(p) - OLD_HEAP(p);
 
         /* Add potential new young heap size */
-        extra_heap_size = next_heap_size(p, stack_size + size_before, 0);
+        extra_heap_size = next_heap_size(p, stack_size + MAX(size_before,need), 0);
         heap_size += extra_heap_size;
 
         if (has_reached_max_heap_size(p, heap_size))
@@ -1413,13 +1421,13 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
          * This improved Estone by more than 1200 estones on my computer
          * (Ultra Sparc 10).
          */
-        Uint new_sz = erts_next_heap_size(size_before, 1);
+        Uint n_old_sz = erts_next_heap_size(size_before, 1);
 
         /* Create new, empty old_heap */
         n_old = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
-					  sizeof(Eterm)*new_sz);
+					  sizeof(Eterm)*n_old_sz);
 
-        OLD_HEND(p) = n_old + new_sz;
+        OLD_HEND(p) = n_old + n_old_sz;
         OLD_HEAP(p) = OLD_HTOP(p) = n_old;
     }
 
@@ -1435,7 +1443,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 	Uint stack_size, size_after, adjust_size, need_after, new_sz, new_mature;
 
 	stack_size = STACK_START(p) - STACK_TOP(p);
-	new_sz = stack_size + size_before;
+	new_sz = stack_size + MAX(size_before, need);
         new_sz = next_heap_size(p, new_sz, 0);
 
 	prev_old_htop = p->old_htop;
@@ -1456,8 +1464,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
         GEN_GCS(p)++;
         need_after = ((HEAP_TOP(p) - HEAP_START(p))
                       + need
-                      + stack_size
-                      + S_RESERVED);
+                      + stack_size);
 	
         /*
          * Excessively large heaps should be shrunk, but

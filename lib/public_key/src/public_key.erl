@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,6 +69,8 @@
          cacerts_load/1,
          cacerts_clear/0
 	]).
+%% Tracing
+-export([handle_trace/3]).
 
 %%----------------
 %% Moved to ssh
@@ -77,7 +79,6 @@
           {ssh_hostkey_fingerprint,1, "use ssh:hostkey_fingerprint/1 instead"},
           {ssh_hostkey_fingerprint,2, "use ssh:hostkey_fingerprint/2 instead"}
          ]).
-
 -export([ssh_curvename2oid/1, oid2ssh_curvename/1]).
 %% When removing for OTP-25.0, remember to also remove
 %%   - most of pubkey_ssh.erl except
@@ -159,7 +160,7 @@
 -type oid()                  :: tuple().
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
--type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | {revoked, crl_reason()} | atom().
+-type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | duplicate_cert_in_path | {revoked, crl_reason()} | atom().
 
 -type combined_cert()        :: #cert{}.
 -type cert()                 :: der_cert() | otp_cert().
@@ -1160,7 +1161,12 @@ pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
                                                                 MaxPathDefault, 
                                                                 [{verify_fun, {VerifyFun, UserState1}} | 
                                                                  proplists:delete(verify_fun, Options)]),
-            path_validation(CertChain, ValidationState)
+            case exists_duplicate_cert(CertChain) of
+                true ->
+                    {error, {bad_cert, duplicate_cert_in_path}};
+                false ->
+                    path_validation(CertChain, ValidationState)
+            end
     catch
         throw:{bad_cert, _} = Result ->
             {error, Result}
@@ -1373,14 +1379,37 @@ pkix_test_root_cert(Name, Opts) ->
 
 %% Description: Validate OCSP staple response
 %%--------------------------------------------------------------------
-pkix_ocsp_validate(DerCert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) when is_binary(DerCert) ->
-    pkix_ocsp_validate(pkix_decode_cert(DerCert, otp),  IssuerCert, OcspRespDer, ResponderCerts, NonceExt);
-pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt) when is_binary(DerIssuerCert) ->
-    pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer, ResponderCerts, NonceExt);
+pkix_ocsp_validate(DerCert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt)
+  when is_binary(DerCert) ->
+    pkix_ocsp_validate(pkix_decode_cert(DerCert, otp),  IssuerCert, OcspRespDer,
+                       ResponderCerts, NonceExt);
+pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt)
+  when is_binary(DerIssuerCert) ->
+    pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer,
+                       ResponderCerts, NonceExt);
 pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) ->
-    case  ocsp_responses(OcspRespDer, ResponderCerts, NonceExt) of
+    OcspResponse = pubkey_ocsp:decode_ocsp_response(OcspRespDer),
+    OcspCertResponses =
+        case OcspResponse of
+            {ok, BasicOcspResponse = #'BasicOCSPResponse'{certs = Certs}} ->
+                OcspResponseCerts = [otp_cert(C) || C <- Certs],
+                UserResponderCerts =
+                    [otp_cert(pkix_decode_cert(C, plain)) || C <- ResponderCerts],
+                pubkey_ocsp:verify_ocsp_response(
+                  BasicOcspResponse, OcspResponseCerts ++ UserResponderCerts,
+                  NonceExt);
+            {error, _} = Error ->
+                Error
+        end,
+    case OcspCertResponses of
         {ok, Responses} ->
-            ocsp_status(Cert, IssuerCert, Responses);
+            case pubkey_ocsp:find_single_response(
+                   otp_cert(Cert), otp_cert(IssuerCert), Responses) of
+                {ok, #'SingleResponse'{certStatus = CertStatus}} ->
+                    pubkey_ocsp:ocsp_status(CertStatus);
+                {error, no_matched_response = Reason} ->
+                    {bad_cert, {revocation_status_undetermined, Reason}}
+            end;
         {error, Reason} ->
             {bad_cert, {revocation_status_undetermined, Reason}}
     end.
@@ -1395,12 +1424,12 @@ ocsp_extensions(Nonce) ->
              erlang:is_record(Extn, 'Extension')].
 
 %%--------------------------------------------------------------------
--spec ocsp_responder_id(#'Certificate'{}) -> binary().
+-spec ocsp_responder_id(binary()) -> binary().
 %%
 %% Description: Get the OCSP responder ID der
 %%--------------------------------------------------------------------
-ocsp_responder_id(Cert) ->
-    pubkey_ocsp:get_ocsp_responder_id(Cert).
+ocsp_responder_id(CertDer) ->
+    pubkey_ocsp:get_ocsp_responder_id(pkix_decode_cert(CertDer, plain)).
 
 %%--------------------------------------------------------------------
 -spec cacerts_get() -> [combined_cert()].
@@ -1529,6 +1558,20 @@ do_pem_entry_decode({Asn1Type,_, _} = PemEntry, Password) ->
     Der = pubkey_pem:decipher(PemEntry, Password),
     der_decode(Asn1Type, Der).
 
+%% The only way a path with duplicates could be somehow wrongly
+%% passed is if the certs are located together and also are
+%% self-signed. This is what we need to possible protect against. We
+%% only check for togetherness here as it helps with the case not
+%% otherwise caught. It can result in a different error message for
+%% cases already failing before but that is not important, the
+%% important thing is that it will be rejected.
+exists_duplicate_cert([]) ->
+    false;
+exists_duplicate_cert([Cert, Cert | _]) ->
+    true;
+exists_duplicate_cert([_ | Rest]) ->
+    exists_duplicate_cert(Rest).
+
 path_validation([], #path_validation_state{working_public_key_algorithm
 					   = Algorithm,
 					   working_public_key =
@@ -1618,7 +1661,9 @@ otp_cert(Der) when is_binary(Der) ->
 otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert;
 otp_cert(#cert{otp = OtpCert}) ->
-    OtpCert.
+    OtpCert;
+otp_cert(#'Certificate'{} = Cert) ->
+    pkix_decode_cert(der_encode('Certificate', Cert), otp).
 
 der_cert(#'OTPCertificate'{} = Cert) ->
     pkix_encode('OTPCertificate', Cert, otp);
@@ -2027,18 +2072,39 @@ format_details([]) ->
     no_relevant_crls;
 format_details(Details) ->
     Details.
-  
-ocsp_status(Cert, IssuerCert, Responses) ->
-    case pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses) of
-        {ok, #'SingleResponse'{certStatus = CertStatus}} ->
-            pubkey_ocsp:ocsp_status(CertStatus);
-        {error, no_matched_response = Reason} ->
-            {bad_cert, {revocation_status_undetermined, Reason}}
-    end.
-
-ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
-    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, 
-                                     ResponderCerts, Nonce).
 
 subject_public_key_info(Alg, PubKey) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, ocsp_responder_id, [Cert]}}, Stack) ->
+    {io_lib:format("pkix_decode_cert(Cert, plain) = ~W", [Cert, 5]),
+    %% {io_lib:format("pkix_decode_cert(Cert, plain) = ~s", [ssl_test_lib:format_cert(Cert)]),
+     Stack};
+handle_trace(csp,
+             {return_from, {?MODULE, ocsp_responder_id, 1}, Return},
+             Stack) ->
+    {io_lib:format("OCSP Responder ID = ~P", [Return, 10]), Stack};
+handle_trace(crt,
+             {call, {?MODULE, pkix_decode_cert, [Cert, _Type]}}, Stack) ->
+    {io_lib:format("Cert = ~W", [Cert, 5]), Stack};
+    %% {io_lib:format("Cert = ~s", [ssl_test_lib:format_cert(Cert)]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, pkix_ocsp_validate, [Cert, IssuerCert | _]}}, Stack) ->
+    {io_lib:format("#2 OCSP validation started~nCert = ~W IssuerCert = ~W",
+                   [Cert, 7, IssuerCert, 7]), Stack};
+    %% {io_lib:format("#2 OCSP validation started~nCert = ~s IssuerCert = ~s",
+    %%                [ssl_test_lib:format_cert(Cert),
+    %%                 ssl_test_lib:format_cert(IssuerCert)]), Stack};
+handle_trace(csp,
+             {call, {?MODULE, otp_cert, [Cert]}}, Stack) ->
+    {io_lib:format("Cert = ~W", [Cert, 5]), Stack};
+    %% {io_lib:format("Cert = ~s", [ssl_test_lib:format_cert(otp_cert(Cert))]), Stack};
+handle_trace(csp,
+             {return_from, {?MODULE, pkix_ocsp_validate, 5}, Return},
+             Stack) ->
+    {io_lib:format("#2 OCSP validation result = ~p", [Return]), Stack}.

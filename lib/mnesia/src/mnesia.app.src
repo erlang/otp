@@ -51,4 +51,4 @@
 	       ]},
   {applications, [kernel, stdlib]},
   {mod, {mnesia_app, []}},
-  {runtime_dependencies, ["stdlib-3.4","kernel-5.3","erts-9.0"]}]}.
+  {runtime_dependencies, ["stdlib-5.0","kernel-5.3","erts-9.0"]}]}.

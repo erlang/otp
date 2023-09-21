@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
@@ -126,7 +128,7 @@ end_per_suite(_Config) ->
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_protocol_version(GroupName) of
 	true ->
-            ct:log("Ciphers: ~p~n ", [ssl:cipher_suites(default, GroupName)]),
+            ?CT_LOG("Ciphers: ~p~n ", [ssl:cipher_suites(default, GroupName)]),
             ssl_test_lib:init_per_group(GroupName,
                                         [{client_type, erlang},
                                          {server_type, erlang},
@@ -180,7 +182,7 @@ client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
 
 ecc_default_order(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                          {client_chain, Default}],
                                                         ecdhe_ecdsa, ecdhe_ecdsa,
@@ -195,7 +197,7 @@ ecc_default_order(Config) ->
 
 ecc_default_order_custom_curves(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                          {client_chain, Default}],
                                                         ecdhe_ecdsa, ecdhe_ecdsa,
@@ -210,7 +212,7 @@ ecc_default_order_custom_curves(Config) ->
 
 ecc_client_order(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                          {client_chain, Default}],
                                                         ecdhe_ecdsa, ecdhe_ecdsa,
@@ -225,7 +227,7 @@ ecc_client_order(Config) ->
 
 ecc_client_order_custom_curves(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                         {client_chain, Default}],
                                                         ecdhe_ecdsa, ecdhe_ecdsa,
@@ -252,7 +254,7 @@ ecc_unknown_curve(Config) ->
 
 client_ecdh_rsa_server_ecdhe_ecdsa_server_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                        {client_chain, Default}],
                                                         ecdh_rsa, ecdhe_ecdsa, Config),
@@ -266,7 +268,7 @@ client_ecdh_rsa_server_ecdhe_ecdsa_server_custom(Config) ->
 
 client_ecdh_rsa_server_ecdhe_rsa_server_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                          {client_chain, Default}],
                                                         ecdh_rsa, ecdhe_rsa, Config),
@@ -281,7 +283,7 @@ client_ecdh_rsa_server_ecdhe_rsa_server_custom(Config) ->
 
 client_ecdhe_rsa_server_ecdhe_ecdsa_server_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                          {client_chain, Default}],
                                                         ecdhe_rsa, ecdhe_ecdsa, Config),
@@ -295,7 +297,7 @@ client_ecdhe_rsa_server_ecdhe_ecdsa_server_custom(Config) ->
 
 client_ecdhe_rsa_server_ecdhe_rsa_server_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                          {client_chain, Default}],
                                                         ecdhe_rsa, ecdhe_rsa, Config),
@@ -309,7 +311,7 @@ client_ecdhe_rsa_server_ecdhe_rsa_server_custom(Config) ->
      end.
 client_ecdhe_rsa_server_ecdh_rsa_server_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     Ext = x509_test:extensions([{key_usage, [keyEncipherment]}]),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, [[], [], [{extensions, Ext}]]},
                                                          {client_chain, Default}],
@@ -327,7 +329,7 @@ client_ecdhe_rsa_server_ecdh_rsa_server_custom(Config) ->
 
 client_ecdhe_ecdsa_server_ecdhe_ecdsa_server_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                        {client_chain, Default}],
                                                         ecdhe_ecdsa, ecdhe_ecdsa, Config),
@@ -341,7 +343,7 @@ client_ecdhe_ecdsa_server_ecdhe_ecdsa_server_custom(Config) ->
 
 client_ecdhe_ecdsa_server_ecdhe_rsa_server_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                          {client_chain, Default}],
                                                         ecdhe_ecdsa, ecdhe_rsa, Config),
@@ -355,7 +357,7 @@ client_ecdhe_ecdsa_server_ecdhe_rsa_server_custom(Config) ->
 
 client_ecdhe_ecdsa_server_ecdhe_ecdsa_client_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                        {client_chain, Default}],
                                                         ecdhe_ecdsa, ecdhe_ecdsa, Config),
@@ -369,7 +371,7 @@ client_ecdhe_ecdsa_server_ecdhe_ecdsa_client_custom(Config) ->
 
 client_ecdhe_rsa_server_ecdhe_ecdsa_client_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
-    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(1))),
+    DefaultCurve = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(?TLS_1_0))),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                          {client_chain, Default}],
                                                          ecdhe_rsa, ecdhe_ecdsa, Config),

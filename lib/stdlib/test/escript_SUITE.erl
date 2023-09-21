@@ -89,25 +89,28 @@ basic(Config) when is_list(Config) ->
     run(Config, Dir, "factorial_compile_main 7",
 	<<"factorial 7 = 5040\nExitCode:0">>),
     run(Config, Dir, "factorial_warning 20",
-	[data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
-		    "factorial 20 = 2432902008176640000\nExitCode:0">>]),
-    run_with_opts(Config, Dir, "-s", "factorial_warning",
-		  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
-                              "%   12| bar() ->\n"
-                              "%     | ^\n\n"
-                              "ExitCode:0">>]),
-    run_with_opts(Config, Dir, "-s -i", "factorial_warning",
-		  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
-                              "%   12| bar() ->\n"
-                              "%     | ^\n\n"
-                              "ExitCode:0">>]),
-    run_with_opts(Config, Dir, "-c -s", "factorial_warning",
-		  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
-                              "%   12| bar() ->\n"
-                              "%     | ^\n\n"
-                              "ExitCode:0">>]),
+        [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
+                    "%   12| bar() ->\n"
+                    "%     | ^\n\n"
+                    "factorial 20 = 2432902008176640000\n"
+                    "ExitCode:0">>]),
+    run_with_opts(Config, Dir, "-i", "factorial_warning 20",
+                  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
+                              "factorial 20 = 2432902008176640000\nExitCode:0">>]),
+    Warnings = [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
+                           "%   12| bar() ->\n"
+                           "%     | ^\n\n"
+                           "ExitCode:0">>],
+    run_with_opts(Config, Dir, "-s", "factorial_warning", Warnings),
+    run_with_opts(Config, Dir, "-s -i", "factorial_warning", Warnings),
+    run_with_opts(Config, Dir, "-c -s", "factorial_warning", Warnings),
     run(Config, Dir, "filesize "++filename:join(proplists:get_value(data_dir, Config),"filesize"),
-	[data_dir,<<"filesize:11:1: Warning: function id/1 is unused\n324\nExitCode:0">>]),
+	[data_dir,<<"filesize:11:1: Warning: function id/1 is unused\n"
+                    "%   11| id(I) -> I.\n"
+                    "%     | ^\n"
+                    "\n"
+                    "324\n"
+                    "ExitCode:0">>]),
     run(Config, Dir, "test_script_name",
 	[data_dir,<<"test_script_name\nExitCode:0">>]),
     run(Config, Dir, "tail_rec 1000",
@@ -128,18 +131,19 @@ errors(Config) when is_list(Config) ->
 	[data_dir,<<"compile_error:5:12: syntax error before: '*'\n">>,
 	 data_dir,<<"compile_error:8:9: syntax error before: blarf\n">>,
 	 <<"escript: There were compilation errors.\nExitCode:127">>]),
-    run(Config, Dir, "lint_error",
-	[data_dir,<<"lint_error:6:1: function main/1 already defined\n">>,
-	 data_dir,"lint_error:8:10: variable 'ExitCode' is unbound\n",
-	 <<"escript: There were compilation errors.\nExitCode:127">>]),
-    run_with_opts(Config, Dir, "-s", "lint_error",
-		  [data_dir,<<"lint_error:6:1: function main/1 already defined\n"
-                              "%    6| main(Args) ->\n"
-                              "%     | ^\n\n">>,
-		   data_dir,("lint_error:8:10: variable 'ExitCode' is unbound\n"
-                             "%    8|     halt(ExitCode).\n"
-                             "%     |          ^\n\n"),
-		   <<"escript: There were compilation errors.\nExitCode:127">>]),
+    CompileErrors = [data_dir,<<"lint_error:6:1: function main/1 already defined\n"
+                                "%    6| main(Args) ->\n"
+                                "%     | ^\n\n">>,
+                     data_dir,("lint_error:8:10: variable 'ExitCode' is unbound\n"
+                               "%    8|     halt(ExitCode).\n"
+                               "%     |          ^\n\n"),
+                     <<"escript: There were compilation errors.\nExitCode:127">>],
+    run(Config, Dir, "lint_error", CompileErrors),
+    run_with_opts(Config, Dir, "-i", "lint_error",
+                  [data_dir,<<"lint_error:6:1: function main/1 already defined\n">>,
+                   data_dir,"lint_error:8:10: variable 'ExitCode' is unbound\n",
+                   <<"escript: There were compilation errors.\nExitCode:127">>]),
+    run_with_opts(Config, Dir, "-s", "lint_error", CompileErrors),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -172,7 +172,6 @@
 %%
 %% connection_state :: map()
 %%
-%%   compression_state            - not used
 %%   mac_secret                   - not used
 %%   sequence_number              - not used
 %%   secure_renegotiation         - not used, no renegotiation_info in TLS 1.3
@@ -190,7 +189,6 @@
 %%   mac_algorithm                - not used
 %%   prf_algorithm                - not used
 %%   hash_size                    - not used
-%%   compression_algorithm        - not used
 %%   master_secret                - used for multiple secret types in TLS 1.3
 %%   client_random                - not used
 %%   server_random                - not used

@@ -3,7 +3,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2022. All Rights Reserved.
+# Copyright Ericsson AB 1997-2023. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -172,7 +172,7 @@ then
     echo "The tests will start in a few seconds..."
     sleep 45
     cd "$ERL_TOP/release/tests/test_server"
-    erl -eval "ts:install(),erlang:halt()"
+    erl -noinput -eval "ts:install(),erlang:halt()"
     erl -noinput -eval "ts:run([all_tests,batch]),erlang:halt()"
     exit $?
 fi

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -48,6 +48,11 @@
       that while <c>sets</c> considers two elements as different if they
       do not match (<c>=:=</c>), this module considers two elements as
       different if and only if they do not compare equal (<c>==</c>).</p>
+
+    <p>See the <seeerl marker="sets#compatibility">Compatibility Section
+      in the <c>sets(3)</c> module</seeerl> for more information about
+      the compatibility of the different implementations of sets in the
+      Standard Library.</p>
   </description>
 
   <datatypes>
@@ -83,6 +88,15 @@
       <desc>
         <p>Filters elements in <c><anno>Ordset1</anno></c> with boolean function
           <c><anno>Pred</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="filtermap" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Filter and map set elements.</fsummary>
+      <desc>
+        <p>Filters and maps elements in <c><anno>Ordset1</anno></c> with function
+          <c><anno>Fun</anno></c>.</p>
       </desc>
     </func>
 
@@ -151,6 +165,17 @@
     </func>
 
     <func>
+      <name name="is_equal" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Test for equality.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Ordset1</anno></c> and
+          <c><anno>Ordset2</anno></c> are equal, that is when every element of
+          one set is also a member of the respective other set, otherwise
+          <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="is_set" arity="1" since=""/>
       <fsummary>Test for an <c>Ordset</c>.</fsummary>
       <desc>
@@ -168,6 +193,15 @@
         <p>Returns <c>true</c> when every element of <c><anno>Ordset1</anno></c>
           is also a member of <c><anno>Ordset2</anno></c>, otherwise
           <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="map" arity="2" since="OTP @OTP-18622@"/>
+      <fsummary>Map set elements.</fsummary>
+      <desc>
+        <p>Maps elements in <c><anno>Ordset1</anno></c> with mapping function
+          <c><anno>Fun</anno></c>.</p>
       </desc>
     </func>
 

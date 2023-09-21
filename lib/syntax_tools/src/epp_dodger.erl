@@ -434,8 +434,7 @@ parse_form(Dev, L0, Parser, Options) ->
     %% This as the *potential* to read options for enabling/disabling
     %% features for the parsing of the file.
     {ok, {_Ftrs, ResWordFun}} =
-        erl_features:keyword_fun(Options,
-                                 fun erl_scan:f_reserved_word/1),
+        erl_features:keyword_fun(Options, fun reserved_word/1),
 
     case io:scan_erl_form(Dev, "", L0, [{reserved_word_fun,ResWordFun}]) of
         {ok, Ts, L1} ->
@@ -517,6 +516,8 @@ quickscan_form([{'-', _Anno}, {'else', AnnoA} | _Ts]) ->
     kill_form(AnnoA);
 quickscan_form([{'-', _Anno}, {atom, AnnoA, endif} | _Ts]) ->
     kill_form(AnnoA);
+quickscan_form([{'-', _Anno}, {atom, AnnoA, feature} | _Ts]) ->
+   kill_form(AnnoA);
 quickscan_form([{'-', Anno}, {'?', _}, {Type, _, _}=N | [{'(', _} | _]=Ts])
   when Type =:= atom; Type =:= var ->
     %% minus, macro and open parenthesis at start of form - assume that
@@ -930,3 +931,11 @@ errormsg(String) ->
 
 
 %% =====================================================================
+
+%% See #7266: The dodger currently does not process feature attributes
+%% correctly, so temporarily consider the `else` and `maybe` atoms
+%% always as keywords
+-spec reserved_word(Atom :: atom()) -> boolean().
+reserved_word('else') -> true;
+reserved_word('maybe') -> true;
+reserved_word(Atom) -> erl_scan:f_reserved_word(Atom).

@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2022</year>
+      <year>2001</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -171,11 +171,37 @@ $> erl
           to query terms, like <c>enif_is_atom</c>, <c>enif_is_identical</c>,
           and <c>enif_compare</c>.</p>
         <p>All terms of type <c>ERL_NIF_TERM</c> belong to an environment of
-          type <seecref marker="#ErlNifEnv"><c>ErlNifEnv</c></seecref>. The
-          lifetime of a term is controlled by the lifetime of its environment
-          object. All API functions that read or write terms has the
-          environment that the term belongs to as the first function
-          argument.</p>
+          type <seecref marker="#ErlNifEnv"><c>ErlNifEnv</c></seecref>,
+          except atoms created during loading (by callbacks
+          <seecref marker="#load"><c>load</c></seecref> or
+          <seecref marker="#upgrade"><c>upgrade</c></seecref>). The lifetime of
+          a term is controlled by the lifetime of its environment object. All
+          API functions that read or write terms have the environment that the
+          term belongs to as the first function argument. However, the atoms
+          created during loading can be referred as a term in any <c>ErlNifEnv</c>.
+          That is, the best practice it to create all your atoms during
+          loading and store them in static/global variables, for example:</p>
+          <code type="none"><![CDATA[
+#include <erl_nif.h>
+
+ERL_NIF_TERM world_atom;
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    world_atom = enif_make_atom(env, "world");
+    return 0;
+}
+
+static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM hello_string = enif_make_string(env, "Hello", ERL_NIF_LATIN1);
+    return enif_make_tuple2(env, hello_string, world_atom);
+}
+
+static ErlNifFunc nif_funcs[] = { { "hello", 0, hello } };
+
+ERL_NIF_INIT(niftest, nif_funcs, load, NULL, NULL, NULL)
+]]></code>
       </item>
       <tag>Binaries</tag>
       <item>
@@ -1332,7 +1358,7 @@ typedef struct {
     <func>
       <name since="OTP 24.0"><ret>int</ret>
         <nametext>enif_dynamic_resource_call(ErlNifEnv* caller_env,
-	ERL_NIF_MODULE rt_module, ERL_NIF_MODULE rt_name, ERL_NIF_TERM resource,
+	ERL_NIF_TERM rt_module, ERL_NIF_TERM rt_name, ERL_NIF_TERM resource,
 	void* call_data)</nametext>
       </name>
       <fsummary>Call a resource in another module.</fsummary>
@@ -1621,7 +1647,7 @@ enif_free_iovec(iovec);]]></code>
 
 
     <func>
-      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_get_string_length(ErlNifEnv *env,
+      <name since="OTP 26.0"><ret>int</ret><nametext>enif_get_string_length(ErlNifEnv *env,
         ERL_NIF_TERM list, unsigned *len, ErlNifCharEncoding encoding)</nametext>
       </name>
       <fsummary>Get the length of a C-string <c>list</c>.</fsummary>
@@ -2369,7 +2395,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom(ErlNifEnv *env,
+      <name since="OTP 26.0"><ret>int</ret><nametext>enif_make_new_atom(ErlNifEnv *env,
         const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create a new or existing atom term.</fsummary>
@@ -2386,7 +2412,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom_len(ErlNifEnv *env,
+      <name since="OTP 26.0"><ret>int</ret><nametext>enif_make_new_atom_len(ErlNifEnv *env,
         const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create a new or existing atom term.</fsummary>
@@ -2936,7 +2962,9 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
         <p>Notice that <c>enif_open_resource_type</c> is only allowed to be
           called in the two callbacks
           <seecref marker="#load"><c>load</c></seecref> and
-          <seecref marker="#upgrade"><c>upgrade</c></seecref>.</p>
+          <seecref marker="#upgrade"><c>upgrade</c></seecref>. The resource type
+          is only created or taken over if the calling <c>load</c>/<c>upgrade</c>
+          function returns successfully.</p>
 	<p>See also <seecref marker="#enif_open_resource_type_x">
 	  <c>enif_open_resource_type_x</c></seecref>.</p>
       </desc>
@@ -3500,7 +3528,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name since="OTP @OTP-17771@">
+      <name since="OTP 26.0">
         <ret>int</ret><nametext>enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...)</nametext>
       </name>
       <fsummary>

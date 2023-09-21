@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@
 
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
-	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
+	 replace_path/1, load_file/1, load_abs/1,
+     ensure_loaded/1, ensure_loaded_many/1, ensure_loaded_many_kill/1,
 	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
          soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
@@ -40,7 +41,7 @@
 	 on_load_deleted/1,
 	 big_boot_embedded/1,
          module_status/1,
-	 get_mode/1,
+	 get_mode/1, code_path_cache/1,
 	 normalized_paths/1, mult_embedded_flags/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
@@ -59,10 +60,11 @@ suite() ->
 
 all() ->
     [set_path, get_path, add_path, add_paths, del_path,
-     replace_path, load_file, load_abs, ensure_loaded,
+     replace_path, load_file, load_abs,
+     ensure_loaded, ensure_loaded_many, ensure_loaded_many_kill,
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
      all_available, load_binary, dir_req, object_code, set_path_file,
-     upgrade,
+     upgrade, code_path_cache,
      sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
@@ -316,6 +318,68 @@ replace_path(Config) when is_list(Config) ->
 
     ok.
 
+code_path_cache(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    non_existing = code:which(?TESTMOD), % verify dummy name not in path
+    code:purge(?TESTMOD), % ensure no previous version in memory
+    code:delete(?TESTMOD),
+    code:purge(?TESTMOD),
+
+    Original = code:get_path(),
+    Dir = filename:join(PrivDir, "myebin"),
+    filelib:ensure_path(Dir),
+    ToBeReplacedDir1 = filename:join(PrivDir, "tobereplaced-1/ebin"),
+    ToBeReplacedDir2 = filename:join(PrivDir, "tobereplaced-2/ebin"),
+    filelib:ensure_path(ToBeReplacedDir1),
+    filelib:ensure_path(ToBeReplacedDir2),
+
+    File = filename:join(Dir, ?TESTMODOBJ),
+    {ok,?TESTMOD,Bin} = compile:forms(dummy_ast(), []),
+
+    %% Adding a cached path and re-adding for clearing
+    [begin
+        error = code:get_object_code(?TESTMOD),
+        true = code:Fun(Dir, cache),
+        error = code:get_object_code(?TESTMOD),
+        ok = file:write_file(File, Bin),
+        error = code:get_object_code(?TESTMOD),
+        true = code:Fun(Dir, cache),
+        {_,_,_} = code:get_object_code(?TESTMOD),
+        code:del_path(Dir),
+        ok = file:delete(File)
+     end || Fun <- [add_path, add_patha, add_pathz]],
+
+    Original = code:get_path(),
+
+    %% Adding several cached paths and explicit cache clearing
+    [begin
+        error = code:get_object_code(?TESTMOD),
+        ok = code:Fun([Dir, ToBeReplacedDir1], cache),
+        error = code:get_object_code(?TESTMOD),
+        ok = file:write_file(File, Bin),
+        error = code:get_object_code(?TESTMOD),
+        ok = code:clear_cache(),
+        {_,_,_} = code:get_object_code(?TESTMOD),
+        ok = code:del_paths([Dir, ToBeReplacedDir1]),
+        ok = file:delete(File)
+     end || Fun <- [add_paths, add_pathsa, add_pathsz]],
+
+    Original = code:get_path(),
+
+    %% Replacing a non-cached path with cache and set_path for clearing
+    error = code:get_object_code(?TESTMOD),
+    true = code:add_path(ToBeReplacedDir1),
+    true = code:replace_path(tobereplaced, ToBeReplacedDir2, cache),
+    error = code:get_object_code(?TESTMOD),
+    ok = file:write_file(filename:join(ToBeReplacedDir2, ?TESTMODOBJ), Bin),
+    error = code:get_object_code(?TESTMOD),
+    true = code:set_path(code:get_path(), nocache),
+    {_,_,_} = code:get_object_code(?TESTMOD),
+
+    true = code:set_path(Original),
+    ok.
+
 %% OTP-3977.
 dir_disappeared(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -367,6 +431,52 @@ ensure_loaded(Config) when is_list(Config) ->
 	    {module, code_b_test} = code:ensure_loaded(code_b_test),
 	    ok
     end.
+
+ensure_loaded_many(Config) when is_list(Config) ->
+    with_large_loadpath_peer(Config, fun(Node) ->
+        %% Without special handling for async loading in code server,
+        %% this operation seemed to consistently take 5s+
+        Action = fun() ->
+            Self = self(),
+            Fun = fun() -> code:ensure_loaded(code_b_test), Self ! {done, self()} end,
+            Pids = [spawn(Fun) || _ <- lists:seq(1, 1_000)],
+            [receive {done, Pid} -> ok end || Pid <- Pids],
+            ok
+        end,
+        ok = rpc:call(Node, erlang, apply, [Action, []], 1_000)
+    end).
+
+ensure_loaded_many_kill(Config) when is_list(Config) ->
+    with_large_loadpath_peer(Config, fun(Node) ->
+        Action = fun() ->
+            Self = self(),
+            Fun = fun() -> code:ensure_loaded(code_b_test), Self ! {done, self()} end,
+            sys:suspend(code_server),
+            First = spawn_opt(Fun, [{priority, max}]),
+            Pids = [spawn(Fun) || _ <- lists:seq(1, 1_000)],
+            sys:resume(code_server),
+            exit(First, kill),
+            [receive {done, Pid} -> ok end || Pid <- Pids],
+            {file, _} = code:is_loaded(code_b_test),
+            ok
+        end,
+        ok = rpc:call(Node, erlang, apply, [Action, []])
+    end).
+
+with_large_loadpath_peer(Config, Fun) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = rpc:call(Node, erlang, apply, [fun set_up_large_loadpath/1, [Priv]]),
+    try Fun(Node)
+    after peer:stop(Peer)
+    end.
+
+set_up_large_loadpath(Priv) ->
+    false = code:delete(code_b_test),
+    Dirs = [filename:join(Priv, integer_to_list(N)) || N <- lists:seq(1, 500)],
+    [ok = filelib:ensure_path(Dir) || Dir <- Dirs],
+    [true = code:add_patha(Dir) || Dir <- Dirs],
+    ok.
 
 delete(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
@@ -1144,6 +1254,12 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     {ok, _} = zip:create(Archive, [Base],
 			       [{compress, []}, {cwd, PrivDir}]),
 
+    %% Create a directory and a file outside of the archive.
+    OtherFile = filename:join([RootDir,VsnBase,"other","other.txt"]),
+    OtherContents = ?MODULE:module_info(md5),
+    filelib:ensure_dir(OtherFile),
+    ok = file:write_file(OtherFile, OtherContents),
+
     %% Set up ERL_LIBS and start a peer node.
     {ok, Peer, Node} = ?CT_PEER(["-env", "ERL_LIBS", RootDir]),
     CodePath = rpc:call(Node, code, get_path, []),
@@ -1159,7 +1275,7 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     %% Get the lib dir for the app.
     AppLibDir = rpc:call(Node, code, lib_dir, [App]),
     io:format("AppLibDir: ~p\n", [AppLibDir]),
-    AppLibDir = filename:join(Archive, Base),
+    AppLibDir = filename:join(RootDir, VsnBase),
 
     %% Access the app priv dir
     AppPrivDir = rpc:call(Node, code, priv_dir, [App]),
@@ -1167,6 +1283,13 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     io:format("AppPrivFile: ~p\n", [AppPrivFile]),
     {ok, _Bin, _} =
 	rpc:call(Node, erl_prim_loader, get_file, [AppPrivFile]),
+
+    %% Read back the other text file.
+    OtherDirPath = rpc:call(Node, code, lib_dir, [App,other]),
+    OtherFilePath = filename:join(OtherDirPath, "other.txt"),
+    io:format("OtherFilePath: ~p\n", [OtherFilePath]),
+    {ok, OtherContents, _} =
+	rpc:call(Node, erl_prim_loader, get_file, [OtherFilePath]),
 
     %% Use the app
     Tab = code_archive_tab,
@@ -1673,9 +1796,9 @@ on_load_self_call(_Config) ->
     ok.
 
 on_load_do_load(Mod, Code) ->
-    spawn(fun() ->
-		  {module,Mod} = code:load_binary(Mod, "", Code)
-	  end),
+    spawn_link(fun() ->
+                       {module,Mod} = code:load_binary(Mod, "", Code)
+               end),
     receive
 	Any -> Any
     end.
@@ -1766,9 +1889,9 @@ on_load_deleted(_Config) ->
 			    "  receive _ -> ok end.\n"]),
 		 merl:print(Tree),
 		 {ok,Mod,Code} = merl:compile(Tree),
-		 spawn(fun() ->
-			       {module,Mod} = code:load_binary(Mod, "", Code)
-		       end),
+		 spawn_link(fun() ->
+                                    {module,Mod} = code:load_binary(Mod, "", Code)
+                            end),
 		 receive after 1 -> ok end,
 		 {module,OtherMod} = code:load_binary(OtherMod, "",
 						      OtherCode),
@@ -1791,10 +1914,10 @@ delete_before_reload(Mod, Reload) ->
     {ok,Mod,Code1} = merl:compile(Tree1),
 
     Self = self(),
-    spawn(fun() ->
-		  {module,Mod} = code:load_binary(Mod, "", Code1),
-		  Mod:f(Self)
-	  end),
+    spawn_link(fun() ->
+                       {module,Mod} = code:load_binary(Mod, "", Code1),
+                       Mod:f(Self)
+               end),
     receive started -> ok end,
 
     true = code:delete(Mod),

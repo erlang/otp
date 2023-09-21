@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -163,6 +163,7 @@ handle_call({?util, D, PC}, {Client, _Tag},
 	when Flavor == sunos;
 	     Flavor == linux;
 	     Flavor == freebsd;
+	     Flavor == openbsd;
 	     Flavor == darwin ->
     case measurement_server_call(State#state.server, {?util, D, PC, Client}) of
 	{error, Reason} -> 
@@ -495,9 +496,6 @@ measurement_server_init() ->
 
 measurement_server_loop(State) ->
     receive
-	{_, quit} ->
-	    State#internal.port ! {self(), ?quit}, 
-	    ok;
 	{'DOWN',Monitor,process,_,_} ->
 	    measurement_server_loop(State#internal{ util = lists:keydelete(
 		Monitor,
@@ -528,6 +526,14 @@ measurement_server_loop(State) ->
         {'EXIT', OldPid, _n} when State#internal.port == OldPid ->
 	    {ok, NewPid} = port_server_start_link(),
 	    measurement_server_loop(State#internal{port = NewPid});
+        {'EXIT', _, normal} ->
+            case State#internal.port of
+                not_used ->
+                    ok;
+                Srv ->
+                    Srv ! {self(), ?quit},
+                    ok
+            end;
 	_Other ->
 	    measurement_server_loop(State)
     end.
@@ -608,8 +614,8 @@ port_server_loop(Port, Timeout) ->
 
 	% Close port and this server
 	{Pid, ?quit} ->
-	    port_command(Port, ?quit),
-	    port_close(Port),
+            Port ! {self(), {command, ?quit}},
+	    Port ! {self(), close},
 	    Pid ! {self(), {data, quit}},
 	    ok;
 

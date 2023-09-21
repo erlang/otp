@@ -21,6 +21,8 @@
 # Added in OTP 26.
 #
 file:pid2name/1 since=26 remove=27
+disk_log:inc_wrap_file/1 since=26 remove=28
+dbg:stop_clear/0 since=26 remove=27
 
 #
 # Added in OTP 25.
@@ -74,8 +76,8 @@ ssl:cipher_suites/0 since=21 remove=24
 
 http_uri:parse/1 since=23 remove=25
 http_uri:parse/2 since=23 remove=25
-http_uri:encode/1 since=23 remove=26
-http_uri:decode/1 since=23 remove=26
+http_uri:encode/1 since=23 remove=27
+http_uri:decode/1 since=23 remove=27
 http_uri:scheme_defaults/0 since=23 remove=25
 httpd:parse_query/1 since=23
 pg2:_/_ since=23 remove=24

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -919,10 +919,13 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
         {
             BeamCodeHeader *code_hdr_rw;
 
+            erts_unseal_module(&modp->curr);
+
             code_hdr_rw = erts_writable_code_ptr(&modp->curr,
                                                  modp->curr.code_hdr);
-
             code_hdr_rw->on_load = NULL;
+
+            erts_seal_module(&modp->curr);
         }
 
 	mods[0].modp = modp;
@@ -1945,21 +1948,14 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
                 purge_state.module = BIF_ARG_1;
                 erts_mtx_unlock(&purge_state.mtx);
 
-                /* Because fun calls always land in the latest instance, there
-                 * is no need to set up purge markers if there's current code
-                 * for this module. */
-                if (!modp->curr.code_hdr) {
-                    /* Set up "pending purge" markers for the funs in this
-                     * module. Processes trying to call these funs will be
-                     * suspended _before_ calling them, which will then either
-                     * crash or succeed when resumed after the purge finishes
-                     * or is aborted.
-                     *
-                     * This guarantees that we won't get any more direct
-                     * references into the code while checking for such
-                     * funs. */
-                    erts_fun_purge_prepare(&modp->old);
-                }
+                /* Set up "pending purge" markers for the funs in this module.
+                 * Processes trying to call these funs will be suspended
+                 * _before_ calling them, which will then either crash or
+                 * succeed when resumed after the purge finishes or is aborted.
+                 *
+                 * This guarantees that we won't get any more direct references
+                 * into the code while checking for such funs. */
+                erts_fun_purge_prepare(&modp->old);
 
                 res = am_true;
             }
@@ -2054,6 +2050,8 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
             if (!modp->old.code_hdr) {
                 ERTS_BIF_PREP_RET(ret, am_false);
             } else {
+                literals = (modp->old.code_hdr)->literal_area;
+
                 /* Unload any NIF library. */
                 if (modp->old.nif) {
                     erts_unload_nif(modp->old.nif);
@@ -2074,16 +2072,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
                                     modp->old.code_length,
                                     code_ix);
 
-                {
-                    BeamCodeHeader *code_hdr_rw;
-
-                    code_hdr_rw = erts_writable_code_ptr(&modp->old,
-                                                         modp->old.code_hdr);
-
-                    literals = code_hdr_rw->literal_area;
-                    code_hdr_rw->literal_area = NULL;
-                }
-
                 erts_remove_from_ranges(modp->old.code_hdr);
 
                 if (modp->old.code_hdr->are_nifs) {
@@ -2098,8 +2086,9 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
                 __lsan_unregister_root_region(modp->old.code_hdr,
                                               modp->old.code_length);
 #   endif
-                beamasm_purge_module(modp->old.native_module_exec,
-                                     modp->old.native_module_rw);
+                beamasm_purge_module(modp->old.executable_region,
+                                     modp->old.writable_region,
+                                     modp->old.code_length);
 #endif
 
                 modp->old.code_hdr = NULL;

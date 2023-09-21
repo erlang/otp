@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,6 +81,7 @@
          filter_cipher_suites/2,
          prepend_cipher_suites/2, 
          append_cipher_suites/2,
+         signature_algs/2,
          eccs/0, 
          eccs/1, 
          versions/0, 
@@ -180,16 +181,14 @@
                                      des_cbc |
                                      '3des_ede_cbc'.
 
--type hash()                     :: sha |
-                                    sha2() |
+-type hash()                     :: sha2() |
                                     legacy_hash(). % exported
 
--type sha2()                    ::  sha224 |
-                                    sha256 |
-                                    sha384 |
-                                    sha512.
+-type sha2()                    :: sha256 |
+                                   sha384 |
+                                   sha512.
 
--type legacy_hash()             :: md5.
+-type legacy_hash()             :: sha224 | sha | md5.
 
 -type sign_algo()               :: rsa | dsa | ecdsa | eddsa. % exported
 
@@ -247,7 +246,9 @@
                                  brainpoolP256r1 |
                                  secp256k1 |
                                  secp256r1 |
-                                 sect239k1 |
+                                 legacy_named_curve(). % exported
+
+-type legacy_named_curve()  ::   sect239k1 |
                                  sect233k1 |
                                  sect233r1 |
                                  secp224k1 |
@@ -261,9 +262,9 @@
                                  sect163r2 |
                                  secp160k1 |
                                  secp160r1 |
-                                 secp160r2. % exported
+                                 secp160r2.
 
--type group() :: secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
+-type group() :: x25519 | x448 | secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
                  ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192. % exported
 
 -type srp_param_type()        :: srp_1024 |
@@ -402,6 +403,7 @@
 -type middlebox_comp_mode()      :: boolean().
 -type client_early_data()        :: binary().
 -type server_early_data()        :: disabled | enabled.
+-type use_srtp()                 :: #{protection_profiles := [binary()], mki => binary()}.
 -type spawn_opts()               :: [erlang:spawn_opt_option()].
 
 %% -------------------------------------------------------------------------------------------------------
@@ -423,7 +425,8 @@
                                 {certificate_authorities, client_certificate_authorities()} |
                                 {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()} |
-                                {early_data, client_early_data()}.
+                                {early_data, client_early_data()} |
+                                {use_srtp, use_srtp()}.
                                 %% {ocsp_stapling, ocsp_stapling()} |
                                 %% {ocsp_responder_certs, ocsp_responder_certs()} |
                                 %% {ocsp_nonce, ocsp_nonce()}.
@@ -475,7 +478,8 @@
                                 {stateless_tickets_seed, stateless_tickets_seed()} |
                                 {anti_replay, anti_replay()} |
                                 {cookie, cookie()} |
-                                {early_data, server_early_data()}.
+                                {early_data, server_early_data()} |
+                                {use_srtp, use_srtp()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()] | [public_key:combined_cert()].
 -type server_cafile()            :: file:filename().
@@ -875,7 +879,7 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
 %%--------------------------------------------------------------------
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
-      Length :: integer(),
+      Length :: non_neg_integer(),
       Data :: binary() | list() | HttpPacket,
       HttpPacket :: any().
 
@@ -884,13 +888,15 @@ recv(Socket, Length) ->
 
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
-      Length :: integer(),
+      Length :: non_neg_integer(),
       Data :: binary() | list() | HttpPacket,
       Timeout :: timeout(),
       HttpPacket :: any().
 
-recv(#sslsocket{pid = [Pid|_]}, Length, Timeout) when is_pid(Pid),
-						  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
+recv(#sslsocket{pid = [Pid|_]}, Length, Timeout)
+  when is_pid(Pid) andalso
+       (is_integer(Length) andalso Length >= 0) andalso
+       ((is_integer(Timeout) andalso Timeout >= 0) orelse Timeout == infinity) ->
     ssl_gen_statem:recv(Pid, Length, Timeout);
 recv(#sslsocket{pid = {dtls,_}}, _, _) ->
     {error,enotconn};
@@ -995,7 +1001,7 @@ peercert(#sslsocket{pid = {_Listen, #config{}}}) ->
 -spec negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, Reason} when
       SslSocket :: sslsocket(),
       Protocol :: binary(),
-      Reason :: protocol_not_negotiated.
+      Reason :: protocol_not_negotiated | closed.
 %%
 %% Description: Returns the protocol that has been negotiated. If no
 %% protocol has been negotiated will return {error, protocol_not_negotiated}
@@ -1006,7 +1012,7 @@ negotiated_protocol(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
 %%--------------------------------------------------------------------
 -spec cipher_suites(Description, Version) -> ciphers() when
       Description :: default | all | exclusive | anonymous | exclusive_anonymous,
-      Version :: protocol_version().
+      Version :: protocol_version() | ssl_record:ssl_version().
 
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
@@ -1015,17 +1021,17 @@ cipher_suites(Description, Version) when Version == 'tlsv1.3';
                                   Version == 'tlsv1.2';
                                   Version == 'tlsv1.1';
                                   Version == tlsv1 ->
-    cipher_suites(Description, tls_record:protocol_version(Version));
+    cipher_suites(Description, tls_record:protocol_version_name(Version));
 cipher_suites(Description, Version)  when Version == 'dtlsv1.2';
                                    Version == 'dtlsv1'->
-    cipher_suites(Description, dtls_record:protocol_version(Version));
+    cipher_suites(Description, dtls_record:protocol_version_name(Version));
 cipher_suites(Description, Version) ->
     [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- supported_suites(Description, Version)].
 
 %%--------------------------------------------------------------------
 -spec cipher_suites(Description, Version, rfc | openssl) -> [string()] when
       Description :: default | all | exclusive | anonymous,
-      Version :: protocol_version().
+      Version :: protocol_version() | ssl_record:ssl_version().
 
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
@@ -1034,10 +1040,10 @@ cipher_suites(Description, Version, StringType) when  Version == 'tlsv1.3';
                                                Version == 'tlsv1.2';
                                                Version == 'tlsv1.1';
                                                Version == tlsv1 ->
-    cipher_suites(Description, tls_record:protocol_version(Version), StringType);
+    cipher_suites(Description, tls_record:protocol_version_name(Version), StringType);
 cipher_suites(Description, Version, StringType)  when Version == 'dtlsv1.2';
                                                Version == 'dtlsv1'->
-    cipher_suites(Description, dtls_record:protocol_version(Version), StringType);
+    cipher_suites(Description, dtls_record:protocol_version_name(Version), StringType);
 cipher_suites(Description, Version, rfc) ->
     [ssl_cipher_format:suite_map_to_str(ssl_cipher_format:suite_bin_to_map(Suite))
      || Suite <- supported_suites(Description, Version)];
@@ -1102,6 +1108,41 @@ append_cipher_suites(Filters, Suites) ->
     (Suites -- Deferred) ++  Deferred.
 
 %%--------------------------------------------------------------------
+-spec signature_algs(Description, Version) -> [signature_algs()] when
+      Description :: default | all | exclusive,
+      Version :: protocol_version().
+
+%% Description: Returns possible signature algorithms/schemes
+%% for TLS/DTLS version
+%%--------------------------------------------------------------------
+
+signature_algs(default, 'tlsv1.3') ->
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'), 
+                                   tls_record:protocol_version_name('tlsv1.2')]);
+signature_algs(default, 'tlsv1.2') ->
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]);
+signature_algs(all, 'tlsv1.3') ->
+   tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'), 
+                                  tls_record:protocol_version_name('tlsv1.2')]) ++ 
+        tls_v1:legacy_signature_algs_pre_13();
+signature_algs(all, 'tlsv1.2') ->
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]) ++ 
+        tls_v1:legacy_signature_algs_pre_13();
+signature_algs(exclusive, 'tlsv1.3') ->
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3')]);
+signature_algs(exclusive, 'tlsv1.2') ->
+    Algs = tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]),
+    Algs ++ tls_v1:legacy_signature_algs_pre_13();
+signature_algs(Description, 'dtlsv1.2') ->
+    signature_algs(Description, 'tlsv1.2');
+signature_algs(Description, Version) when Description == default;
+                                          Description == all;
+                                          Description == exclusive->
+    {error, {signature_algs_not_supported_in_protocol_version, Version}};
+signature_algs(Description,_) ->
+    {error, {badarg, Description}}.
+
+%%--------------------------------------------------------------------
 -spec eccs() -> NamedCurves when
       NamedCurves :: [named_curve()].
 
@@ -1139,14 +1180,14 @@ eccs_filter_supported(Curves) ->
 %% Description: returns all supported groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
 groups() ->
-    tls_v1:groups(4).
+    tls_v1:groups().
 
 %%--------------------------------------------------------------------
 -spec groups(default) -> [group()].
 %% Description: returns the default groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
 groups(default) ->
-    tls_v1:default_groups(4).
+    tls_v1:default_groups().
 
 %%--------------------------------------------------------------------
 -spec getopts(SslSocket, OptionNames) ->
@@ -1283,8 +1324,21 @@ getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}},
 %%
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
-shutdown(#sslsocket{pid = {dtls, #config{}}},_) ->
-    {error, enotconn};
+shutdown(#sslsocket{pid = {dtls, #config{transport_info = Info}}}, _) ->
+    Transport = element(1, Info),
+    %% enotconn is what gen_tcp:shutdown on a listen socket will result with.
+    %% shutdown really is handling TCP functionality not present
+    %% with gen_udp or gen_sctp, but if a callback wrapper is supplied let
+    %% the error be the same as for gen_tcp as a wrapper could have
+    %% supplied it own logic and this is backwards compatible.
+    case Transport of
+        gen_udp ->
+            {error, notsup};
+        gen_sctp ->
+            {error, notsup};
+        _  ->
+            {error, enotconn}
+    end;
 shutdown(#sslsocket{pid = {Listen, #config{transport_info = Info}}}, How) ->
     Transport = element(1, Info),
     Transport:shutdown(Listen, How);    
@@ -1333,8 +1387,8 @@ versions() ->
     SupportedTLSVsns = [tls_record:protocol_version(Vsn) || Vsn <- ConfTLSVsns,  TLSCryptoSupported(Vsn)],
     SupportedDTLSVsns = [dtls_record:protocol_version(Vsn) || Vsn <- ConfDTLSVsns, DTLSCryptoSupported(Vsn)],
 
-    AvailableTLSVsns = [Vsn || Vsn <- ImplementedTLSVsns, TLSCryptoSupported(tls_record:protocol_version(Vsn))],
-    AvailableDTLSVsns = [Vsn || Vsn <- ImplementedDTLSVsns, DTLSCryptoSupported(dtls_record:protocol_version(Vsn))],
+    AvailableTLSVsns = [Vsn || Vsn <- ImplementedTLSVsns, TLSCryptoSupported(tls_record:protocol_version_name(Vsn))],
+    AvailableDTLSVsns = [Vsn || Vsn <- ImplementedDTLSVsns, DTLSCryptoSupported(dtls_record:protocol_version_name(Vsn))],
                                     
     [{ssl_app, ?VSN}, 
      {supported, SupportedTLSVsns}, 
@@ -1351,13 +1405,18 @@ versions() ->
 %%
 %% Description: Initiates a renegotiation.
 %%--------------------------------------------------------------------
-renegotiate(#sslsocket{pid = [Pid, Sender |_]}) when is_pid(Pid),
+renegotiate(#sslsocket{pid = [Pid, Sender |_]} = Socket) when is_pid(Pid),
                                                      is_pid(Sender) ->
-    case tls_sender:renegotiate(Sender) of
-        {ok, Write} ->
-            tls_dtls_connection:renegotiation(Pid, Write);
-        Error ->
-            Error
+    case ssl:connection_information(Socket, [protocol]) of
+        {ok, [{protocol, 'tlsv1.3'}]} ->
+            {error, notsup};
+        _ ->
+            case tls_sender:renegotiate(Sender) of
+                {ok, Write} ->
+                    tls_dtls_connection:renegotiation(Pid, Write);
+                Error ->
+                    Error
+            end
     end;
 renegotiate(#sslsocket{pid = [Pid |_]}) when is_pid(Pid) ->
     tls_dtls_connection:renegotiation(Pid);
@@ -1423,9 +1482,9 @@ format_error({error, Reason}) ->
 format_error(Reason) ->
     do_format_error(Reason).
 
-tls_version({3, _} = Version) ->
+tls_version(Version) when ?TLS_1_X(Version) ->
     Version;
-tls_version({254, _} = Version) ->
+tls_version(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:corresponding_tls_version(Version).
 
 %%--------------------------------------------------------------------
@@ -1475,20 +1534,20 @@ str_to_suite(CipherSuiteName) ->
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
-supported_suites(exclusive, {3,Minor}) ->
-    tls_v1:exclusive_suites(Minor);
-supported_suites(exclusive, {254, Minor}) ->
-    dtls_v1:exclusive_suites(Minor);
+supported_suites(exclusive, Version) when ?TLS_1_X(Version) ->
+    tls_v1:exclusive_suites(Version);
+supported_suites(exclusive, Version) when ?DTLS_1_X(Version) ->
+    dtls_v1:exclusive_suites(Version);
 supported_suites(default, Version) ->  
     ssl_cipher:suites(Version);
 supported_suites(all, Version) ->  
     ssl_cipher:all_suites(Version);
 supported_suites(anonymous, Version) ->
     ssl_cipher:anonymous_suites(Version);
-supported_suites(exclusive_anonymous, {3, Minor}) ->
-    tls_v1:exclusive_anonymous_suites(Minor);
-supported_suites(exclusive_anonymous, {254, Minor}) ->
-    dtls_v1:exclusive_anonymous_suites(Minor).
+supported_suites(exclusive_anonymous, Version) when ?TLS_1_X(Version) ->
+    tls_v1:exclusive_anonymous_suites(Version);
+supported_suites(exclusive_anonymous, Version) when ?DTLS_1_X(Version) ->
+    dtls_v1:exclusive_anonymous_suites(Version).
 
 do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_gen_connection) ->
     tls_socket:listen(Transport, Port, Config);
@@ -1551,6 +1610,7 @@ ssl_options() ->
      srp_identity,
      supported_groups,
      use_ticket,
+     use_srtp,
      user_lookup_fun,
      verify, verify_fun,
      versions
@@ -1583,7 +1643,8 @@ process_options(UserSslOpts, SslOpts0, Env) ->
     SslOpts15 = opt_supported_groups(UserSslOptsMap, SslOpts14, Env),
     SslOpts16 = opt_crl(UserSslOptsMap, SslOpts15, Env),
     SslOpts17 = opt_handshake(UserSslOptsMap, SslOpts16, Env),
-    SslOpts = opt_process(UserSslOptsMap, SslOpts17, Env),
+    SslOpts18 = opt_use_srtp(UserSslOptsMap, SslOpts17, Env),
+    SslOpts = opt_process(UserSslOptsMap, SslOpts18, Env),
     SslOpts.
 
 -spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
@@ -1595,9 +1656,7 @@ handle_options(Transport, Socket, Opts0, Role, Host) ->
     {UserSslOptsList, SockOpts0} = split_options(Opts0, ssl_options()),
 
     Env = #{role => Role, host => Host},
-    SslOptsPost = process_options(UserSslOptsList, #{}, Env),
-
-    SslOpts = maybe_client_warn_no_verify(SslOptsPost, Role),
+    SslOpts = process_options(UserSslOptsList, #{}, Env),
 
     %% Handle special options
     #{protocol := Protocol} = SslOpts,
@@ -1663,7 +1722,7 @@ validate_versions(tls, Vsns0) ->
     Validate =
         fun(Version) ->
                 try tls_record:sufficient_crypto_support(Version) of
-                    true -> tls_record:protocol_version(Version);
+                    true -> tls_record:protocol_version_name(Version);
                     false -> option_error(insufficient_crypto_support,
                                           {Version, {versions, Vsns0}})
                 catch error:function_clause ->
@@ -1679,8 +1738,8 @@ validate_versions(dtls, Vsns0) ->
         fun(Version) ->
                 try tls_record:sufficient_crypto_support(
                       dtls_v1:corresponding_tls_version(
-                        dtls_record:protocol_version(Version))) of
-                    true -> dtls_record:protocol_version(Version);
+                        dtls_record:protocol_version_name(Version))) of
+                    true -> dtls_record:protocol_version_name(Version);
                     false-> option_error(insufficient_crypto_support,
                                          {Version, {versions, Vsns0}})
                 catch error:function_clause ->
@@ -1692,34 +1751,50 @@ validate_versions(dtls, Vsns0) ->
     lists:sort(fun dtls_record:is_higher/2, Vsns).
 
 opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
-    {Verify, Opts} =
-        case get_opt_of(verify, [verify_none, verify_peer], verify_none, UserOpts, Opts0) of
-            {default, verify_none} when Role =:= client ->
-                {verify_none, Opts0#{warn_verify_none => true, verify => verify_none}};
+    {Verify, Opts1} =
+        case get_opt_of(verify, [verify_none, verify_peer], default_verify(Role), UserOpts, Opts0) of
+            {old, Val} ->
+                {Val, Opts0};
             {_, verify_none} ->
-                {verify_none, Opts0#{verify => verify_none}};
+                {verify_none, Opts0#{verify => verify_none, verify_fun => {none_verify_fun(), []}}};
             {_, verify_peer} ->
                 %% If 'verify' is changed from verify_none to verify_peer, (via update_options/3)
                 %% the 'verify_fun' must also be changed to undefined.
-                %% i.e remove the default verify_none fun
-                {verify_peer, Opts0#{verify => verify_peer, verify_fun => undefined}}
+                %% i.e remove verify_none fun
+                Temp = Opts0#{verify => verify_peer, verify_fun => undefined},
+                {verify_peer, maps:remove(fail_if_no_peer_cert, Temp)}
         end,
-    {_, PartialChain} = get_opt_fun(partial_chain, 1, fun(_) -> unknown_ca end, UserOpts, Opts),
+    Opts2 = opt_cacerts(UserOpts, Opts1, Env),
+    {_, PartialChain} = get_opt_fun(partial_chain, 1, fun(_) -> unknown_ca end, UserOpts, Opts2),
 
-    {_, FailNoPeerCert} = get_opt_bool(fail_if_no_peer_cert, false, UserOpts, Opts),
+    DefFailNoPeer = Role =:= server andalso Verify =:= verify_peer,
+    {_, FailNoPeerCert} = get_opt_bool(fail_if_no_peer_cert, DefFailNoPeer, UserOpts, Opts2),
     assert_server_only(Role, FailNoPeerCert, fail_if_no_peer_cert),
     option_incompatible(FailNoPeerCert andalso Verify =:= verify_none,
                         [{verify, verify_none}, {fail_if_no_peer_cert, true}]),
 
-    Opts1 = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts),
+    Opts = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts2),
 
-    opt_verify_fun(UserOpts, Opts1#{partial_chain => PartialChain,
-                                    fail_if_no_peer_cert => FailNoPeerCert},
-                   Env).
+    case Role of
+        client ->
+            opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain},
+                           Env);
+        server ->
+            opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain,
+                                           fail_if_no_peer_cert => FailNoPeerCert},
+                           Env)
+    end.
+
+default_verify(client) ->
+    %% Server authenication is by default requiered
+    verify_peer;
+default_verify(server) ->
+    %% Client certification is an optional part of the protocol
+    verify_none.
 
 opt_verify_fun(UserOpts, Opts, _Env) ->
-    DefVerifyNoneFun = {default_verify_fun(), []},
-    VerifyFun = case get_opt(verify_fun, DefVerifyNoneFun, UserOpts, Opts) of
+    %%DefVerifyNoneFun = {default_verify_fun(), []},
+    VerifyFun = case get_opt(verify_fun, undefined, UserOpts, Opts) of
                     {_, {F,_} = FA} when is_function(F, 3); is_function(F, 4) ->
                         FA;
                     {_, UserFun} when is_function(UserFun, 1) ->
@@ -1731,22 +1806,22 @@ opt_verify_fun(UserOpts, Opts, _Env) ->
                 end,
     Opts#{verify_fun => VerifyFun}.
 
-default_verify_fun() ->
-    fun(_, {bad_cert, _}, UserState) ->
+none_verify_fun() ->
+     fun(_, {bad_cert, _}, UserState) ->
+             {valid, UserState};
+        (_, {extension, #'Extension'{critical = true}}, UserState) ->
+             %% This extension is marked as critical, so
+             %% certificate verification should fail if we don't
+             %% understand the extension.  However, this is
+             %% `verify_none', so let's accept it anyway.
+             {valid, UserState};
+        (_, {extension, _}, UserState) ->
+             {unknown, UserState};
+        (_, valid, UserState) ->
             {valid, UserState};
-       (_, {extension, #'Extension'{critical = true}}, UserState) ->
-            %% This extension is marked as critical, so
-            %% certificate verification should fail if we don't
-            %% understand the extension.  However, this is
-            %% `verify_none', so let's accept it anyway.
-            {valid, UserState};
-       (_, {extension, _}, UserState) ->
-            {unknown, UserState};
-       (_, valid, UserState) ->
-            {valid, UserState};
-       (_, valid_peer, UserState) ->
-            {valid, UserState}
-    end.
+        (_, valid_peer, UserState) ->
+             {valid, UserState}
+     end.
 
 convert_verify_fun() ->
     fun(_,{bad_cert, _} = Reason, OldFun) ->
@@ -1763,16 +1838,15 @@ convert_verify_fun() ->
     end.
 
 opt_certs(UserOpts, #{log_level := LogLevel} = Opts0, Env) ->
-    Opts = case get_opt_list(certs_keys, [], UserOpts, Opts0) of
-               {Where, []} when Where =/= new ->
-                   opt_old_certs(UserOpts, #{}, Opts0, Env);
-               {old, [CertKey]} ->
-                   opt_old_certs(UserOpts, CertKey, Opts0, Env);
-               {Where, CKs} when is_list(CKs) ->
-                   warn_override(Where, UserOpts, certs_keys, [cert,certfile,key,keyfile,password], LogLevel),
-                   Opts0#{certs_keys => [check_cert_key(CK, #{}, LogLevel) || CK <- CKs]}
-           end,
-    opt_cacerts(UserOpts, Opts, Env).
+    case get_opt_list(certs_keys, [], UserOpts, Opts0) of
+        {Where, []} when Where =/= new ->
+            opt_old_certs(UserOpts, #{}, Opts0, Env);
+        {old, [CertKey]} ->
+            opt_old_certs(UserOpts, CertKey, Opts0, Env);
+        {Where, CKs} when is_list(CKs) ->
+            warn_override(Where, UserOpts, certs_keys, [cert,certfile,key,keyfile,password], LogLevel),
+            Opts0#{certs_keys => [check_cert_key(CK, #{}, LogLevel) || CK <- CKs]}
+    end.
 
 opt_old_certs(UserOpts, CertKeys, #{log_level := LogLevel}=SSLOpts, _Env) ->
     CK = check_cert_key(UserOpts, CertKeys, LogLevel),
@@ -1909,23 +1983,32 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
           anti_replay => AntiReplay, stateless_tickets_seed => STS}.
 
 opt_ocsp(UserOpts, #{versions := _Versions} = Opts, #{role := Role}) ->
-    {_, Stapling} = get_opt_bool(ocsp_stapling, false, UserOpts, Opts),
+    {Stapling, SMap} =
+        case get_opt(ocsp_stapling, ?DEFAULT_OCSP_STAPLING, UserOpts, Opts) of
+            {old, Map} when is_map(Map) -> {true, Map};
+            {_, Bool} when is_boolean(Bool) -> {Bool, #{}};
+            {_, Value} -> option_error(ocsp_stapling, Value)
+        end,
     assert_client_only(Role, Stapling, ocsp_stapling),
-
-    {_, Nonce} = get_opt_bool(ocsp_nonce, true, UserOpts, Opts),
-    option_incompatible(Stapling =:= false andalso Nonce =:= false, [{ocsp_nonce, false}, {ocsp_stapling, false}]),
-
-    {_, ORC} = get_opt_list(ocsp_responder_certs, [], UserOpts, Opts),
-    option_incompatible(Stapling =:= false andalso ORC =/= [], [ocsp_responder_certs, {ocsp_stapling, false}]),
-    %% FIXME should not be decoded in users process !!
-    Decode = fun(CertDer) ->
-                     try public_key:pkix_decode_cert(CertDer, plain)
-                     catch _:_ -> option_error(ocsp_responder_certs, ORC)
-                     end
-             end,
-    Certs = [Decode(CertDer) || CertDer <- ORC],
-    %% FIXME make it one option?
-    Opts#{ocsp_stapling => Stapling, ocsp_nonce => Nonce, ocsp_responder_certs => Certs}.
+    {_, Nonce} = get_opt_bool(ocsp_nonce, ?DEFAULT_OCSP_NONCE, UserOpts, SMap),
+    option_incompatible(Stapling =:= false andalso Nonce =:= false,
+                        [{ocsp_nonce, false}, {ocsp_stapling, false}]),
+    {_, ORC} = get_opt_list(ocsp_responder_certs, ?DEFAULT_OCSP_RESPONDER_CERTS,
+                            UserOpts, SMap),
+    CheckBinary = fun(Cert) when is_binary(Cert) -> ok;
+                     (_Cert) -> option_error(ocsp_responder_certs, ORC)
+                  end,
+    [CheckBinary(C) || C <- ORC],
+    option_incompatible(Stapling =:= false andalso ORC =/= [],
+                        [ocsp_responder_certs, {ocsp_stapling, false}]),
+    case Stapling of
+        true ->
+            Opts#{ocsp_stapling =>
+                      #{ocsp_nonce => Nonce,
+                        ocsp_responder_certs => ORC}};
+        false ->
+            Opts
+    end.
 
 opt_sni(UserOpts, #{versions := _Versions} = Opts, #{role := server}) ->
     {_, SniHosts} = get_opt_list(sni_hosts, [], UserOpts, Opts),
@@ -1982,7 +2065,7 @@ server_name_indication_default(_) ->
 opt_signature_algs(UserOpts, #{versions := Versions} = Opts, _Env) ->
     [TlsVersion|_] = TlsVsns = [tls_version(V) || V <- Versions],
     SA = case get_opt_list(signature_algs, undefined, UserOpts, Opts) of
-             {default, undefined} when TlsVersion >= {3,3} ->
+             {default, undefined} when ?TLS_GTE(TlsVersion, ?TLS_1_2) ->
                  DefAlgs = tls_v1:default_signature_algs(TlsVsns),
                  handle_hashsigns_option(DefAlgs, TlsVersion);
              {new, Algs} ->
@@ -2048,7 +2131,7 @@ validate_protocols(true, Opt, List) ->
     lists:foreach(Check, List).
 
 opt_mitigation(UserOpts, #{versions := Versions} = Opts, _Env) ->
-    DefBeast = case lists:last(Versions) > {3,1} of
+    DefBeast = case ?TLS_GT(lists:last(Versions), ?TLS_1_0) of
                    true -> disabled;
                    false -> one_n_minus_one
                end,
@@ -2233,6 +2316,44 @@ opt_handshake(UserOpts, Opts, _Env) ->
 
     Opts#{handshake => HS, max_handshake_size => MHSS}.
 
+opt_use_srtp(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
+    UseSRTP = case get_opt_map(use_srtp, undefined, UserOpts, Opts) of
+                  {old, UseSRTP0} ->
+                      UseSRTP0;
+                  {default, undefined} ->
+                      undefined;
+                  {new, UseSRTP1} ->
+                      assert_protocol_dep(use_srtp, Protocol, [dtls]),
+                      validate_use_srtp(UseSRTP1)
+              end,
+    case UseSRTP of
+        #{} -> Opts#{use_srtp => UseSRTP};
+        _ -> Opts
+    end.
+
+validate_use_srtp(#{protection_profiles := [_|_] = PPs} = UseSRTP) ->
+    case maps:keys(UseSRTP) -- [protection_profiles, mki] of
+        [] -> ok;
+        Extra -> option_error(use_srtp, {unknown_parameters, Extra})
+    end,
+    IsValidProfile = fun(<<_, _>>) -> true; (_) -> false end,
+    case lists:all(IsValidProfile, PPs) of
+        true -> ok;
+        false -> option_error(use_srtp, {invalid_protection_profiles, PPs})
+    end,
+    case UseSRTP of
+        #{mki := MKI} when not is_binary(MKI) ->
+            option_error(use_srtp, {invalid_mki, MKI});
+        #{mki := _} ->
+            UseSRTP;
+        #{} ->
+            UseSRTP#{mki => <<>>}
+    end;
+
+validate_use_srtp(#{} = UseSRTP) ->
+    option_error(use_srtp, {no_protection_profiles, UseSRTP}).
+
+
 opt_process(UserOpts, Opts0, _Env) ->
     Opts1 = set_opt_list(receiver_spawn_opts, [], UserOpts, Opts0),
     Opts2 = set_opt_list(sender_spawn_opts, [], UserOpts, Opts1),
@@ -2315,6 +2436,12 @@ set_opt_bool(Opt, Default, UserOpts, Opts) ->
         Default -> Opts;
         Value when is_boolean(Value) -> Opts#{Opt => Value};
         Value -> option_error(Opt, Value)
+    end.
+
+get_opt_map(Opt, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {new, Err} when not is_map(Err) -> option_error(Opt, Err);
+        Res -> Res
     end.
 
 set_opt_int(Opt, Min, Max, Default, UserOpts, Opts) ->
@@ -2420,6 +2547,12 @@ option_error(Tag, What) ->
 throw_error(Err) ->
     throw({error, Err}).
 
+assert_protocol_dep(Option, Protocol, AllowedProtos) ->
+    case lists:member(Protocol, AllowedProtos) of
+        true -> ok;
+        false -> option_incompatible([Option, {protocol, Protocol}])
+    end.
+
 assert_version_dep(Option, Vsns, AllowedVsn) ->
     assert_version_dep(true, Option, Vsns, AllowedVsn).
 
@@ -2451,20 +2584,13 @@ warn_override(_, _UserOpts, _NewOpt, _OldOpts, _LogLevel) ->
     ok.
 
 is_dtls_configured(Versions) ->
-    Fun = fun (Version) when Version =:= {254, 253} orelse
-                             Version =:= {254, 255} ->
-                  true;
-              (_) ->
-                  false
-          end,
-    lists:any(Fun, Versions).
-
+    lists:any(fun (Ver) -> ?DTLS_1_X(Ver) end, Versions).
 
 handle_hashsigns_option(Value, Version) ->
     try
-        if Version >= {3,4} ->
+        if ?TLS_GTE(Version, ?TLS_1_3) ->
                 tls_v1:signature_schemes(Version, Value);
-           Version =:= {3,3} ->
+           (Version =:= ?TLS_1_2) ->
                 tls_v1:signature_algs(Version, Value);
            true ->
                 undefined
@@ -2527,11 +2653,11 @@ handle_cipher_option(Value, Versions)  when is_list(Value) ->
 	    option_error(ciphers, Value)
     end.
 
-binary_cipher_suites([{3,4} = Version], []) -> 
+binary_cipher_suites([?TLS_1_3], []) ->
     %% Defaults to all supported suites that does
     %% not require explicit configuration TLS-1.3
     %% only mode.
-    default_binary_suites(exclusive, Version);
+    default_binary_suites(exclusive, ?TLS_1_3);
 binary_cipher_suites([Version| _], []) -> 
     %% Defaults to all supported suites that does
     %% not require explicit configuration
@@ -2561,15 +2687,15 @@ binary_cipher_suites(Versions, Ciphers0)  ->
     Ciphers = [ssl_cipher_format:suite_openssl_str_to_map(C) || C <- string:lexemes(Ciphers0, ":")],
     binary_cipher_suites(Versions, Ciphers).
 
-default_binary_suites(exclusive, {_, Minor}) ->
-    ssl_cipher:filter_suites(tls_v1:exclusive_suites(Minor));
+default_binary_suites(exclusive, Version) ->
+    ssl_cipher:filter_suites(tls_v1:exclusive_suites(Version));
 default_binary_suites(default, Version) ->
     ssl_cipher:filter_suites(ssl_cipher:suites(Version)).
 
-all_suites([{3, 4 = Minor}]) ->
-    tls_v1:exclusive_suites(Minor);
-all_suites([{3, 4} = Version0, Version1 |_]) ->
-    all_suites([Version0]) ++
+all_suites([?TLS_1_3]) ->
+    tls_v1:exclusive_suites(?TLS_1_3);
+all_suites([?TLS_1_3, Version1 |_]) ->
+    all_suites([?TLS_1_3]) ++
         ssl_cipher:all_suites(Version1) ++
         ssl_cipher:anonymous_suites(Version1);
 all_suites([Version|_]) ->
@@ -2597,8 +2723,9 @@ tuple_to_map_mac(chacha20_poly1305, _) ->
 tuple_to_map_mac(_, MAC) ->
     MAC.
 
-handle_eccs_option(Value, {_Major, Minor}) when is_list(Value) ->
-    try tls_v1:ecc_curves(Minor, Value) of
+%% TODO: remove Version
+handle_eccs_option(Value, _Version0) when is_list(Value) ->
+    try tls_v1:ecc_curves(Value) of
         Curves ->
             option_error(Curves =:= [], eccs, none_valid),
             #elliptic_curves{elliptic_curve_list = Curves}
@@ -2607,9 +2734,9 @@ handle_eccs_option(Value, {_Major, Minor}) when is_list(Value) ->
         error:_ -> option_error(eccs, Value)
     end.
 
-handle_supported_groups_option(Value, Version) when is_list(Value) ->
-    {_Major, Minor} = tls_version(Version),
-    try tls_v1:groups(Minor, Value) of
+%% TODO: remove Version
+handle_supported_groups_option(Value, _Version0) when is_list(Value) ->
+    try tls_v1:groups(Value) of
         Groups ->
             option_error(Groups =:= [], supported_groups, none_valid),
             #supported_groups{supported_groups = Groups}
@@ -2629,9 +2756,10 @@ handle_supported_groups_option(Value, Version) when is_list(Value) ->
                      | InetError
                      | OtherReason) -> string()
               when
-      FileType   :: cacertfile | certfile | keyfile | dhfile,
-      OtherReason     :: term(),
-      InetError :: inet:posix() | system_limit.
+      FileType    :: cacertfile | certfile | keyfile | dhfile,
+      OtherReason :: term(),
+      Error       :: term(),
+      InetError   :: inet:posix() | system_limit.
 
 do_format_error(Reason) when is_list(Reason) ->
     Reason;
@@ -2639,16 +2767,34 @@ do_format_error(closed) ->
     "TLS connection is closed";
 do_format_error({tls_alert, {_, Description}}) ->
     Description;
-do_format_error({options,{FileType, File, Reason}}) when FileType == cacertfile;
-						      FileType == certfile;
-                                                         FileType == keyfile;
-						      FileType == dhfile ->
+do_format_error({options,{FileType, File, Reason}})
+  when FileType == cacertfile;
+       FileType == certfile;
+       FileType == keyfile;
+       FileType == dhfile ->
     Error = file_error_format(Reason),
     file_desc(FileType) ++ File ++ ": " ++ Error;
 do_format_error ({options, {socket_options, Option, Error}}) ->
     lists:flatten(io_lib:format("Invalid transport socket option ~p: ~s", [Option, do_format_error(Error)]));
 do_format_error({options, {socket_options, Option}}) ->
     lists:flatten(io_lib:format("Invalid socket option: ~p", [Option]));
+do_format_error({options, incompatible, Opts}) ->
+    lists:flatten(io_lib:format("Options (or their values) can not be combined: ~p", [Opts]));
+do_format_error({option, Reason, Opts}) ->
+    lists:flatten(io_lib:format("Invalid option ~w ~w", [Opts, Reason]));
+do_format_error({options, Reason, Opts}) ->
+    lists:flatten(io_lib:format("Invalid option ~w ~w", [Opts, Reason]));
+do_format_error({options, {missing_version=R, Opts}}) ->
+    lists:flatten(io_lib:format("Invalid option ~w ~w", [Opts, R]));
+do_format_error({options, {option_not_a_key_value_tuple=R, Opts}}) ->
+    lists:flatten(io_lib:format("Invalid option ~w ~w", [Opts, R]));
+do_format_error({options, {no_supported_algorithms=R, Opts}}) ->
+    lists:flatten(io_lib:format("Invalid option ~w ~w", [Opts, R]));
+do_format_error({options, {no_supported_signature_schemes=R, Opts}}) ->
+    lists:flatten(io_lib:format("Invalid option ~w ~w", [Opts, R]));
+do_format_error({options, {insufficient_crypto_support=R, Opts}}) ->
+    lists:flatten(io_lib:format("Invalid option ~w ~w", [Opts, R]));
+
 do_format_error({options, Options}) ->
     lists:flatten(io_lib:format("Invalid TLS option: ~p", [Options]));
 
@@ -2751,7 +2897,6 @@ map_log_level(true) ->
 map_log_level(false) ->
     none.
 
-
 include_security_info([]) ->
     false;
 include_security_info([Item | Items]) ->
@@ -2767,18 +2912,6 @@ add_filter(undefined, Filters) ->
     Filters;
 add_filter(Filter, Filters) ->
     [Filter | Filters].
-
-maybe_client_warn_no_verify(#{verify := verify_none,
-                             warn_verify_none := true,
-                             log_level := LogLevel} = Opts, client) ->
-    ssl_logger:log(warning, LogLevel,
-                   #{description => "Server authenticity is not verified since certificate path validation is not enabled",
-                     reason => "The option {verify, verify_peer} and one of the options 'cacertfile' or "
-                     "'cacerts' are required to enable this."}, ?LOCATION),
-    maps:without([warn_verify_none], Opts);
-maybe_client_warn_no_verify(Opts,_) ->
-    %% Warning not needed. Note client certificate validation is optional in TLS
-    Opts.
 
 unambiguous_path(Value) ->
     AbsName = filename:absname(Value),
@@ -2800,11 +2933,10 @@ unambiguous_path(Value) ->
 %%%#
 %%%# Tracing
 %%%#
+handle_trace(csp, {call, {?MODULE, opt_ocsp, [UserOpts | _]}}, Stack) ->
+    {format_ocsp_params(UserOpts), Stack};
 handle_trace(csp, {return_from, {?MODULE, opt_ocsp, 3}, Return}, Stack) ->
-    #{ocsp_stapling := Stapling, ocsp_nonce := Nonce,
-      ocsp_responder_certs := Certs} = Return,
-    {io_lib:format("Stapling = ~w Nonce = ~W Certs = ~W",
-                   [Stapling, Nonce, 5, Certs, 5]), Stack};
+    {format_ocsp_params(Return), Stack};
 handle_trace(rle, {call, {?MODULE, listen, Args}}, Stack0) ->
     Role = server,
     {io_lib:format("(*~w) Args = ~W", [Role, Args, 10]), [{role, Role} | Stack0]};
@@ -2812,3 +2944,9 @@ handle_trace(rle, {call, {?MODULE, connect, Args}}, Stack0) ->
     Role = client,
     {io_lib:format("(*~w) Args = ~W", [Role, Args, 10]), [{role, Role} | Stack0]}.
 
+format_ocsp_params(Map) ->
+    Stapling = maps:get(ocsp_stapling, Map, '?'),
+    Nonce = maps:get(ocsp_nonce, Map, '?'),
+    Certs = maps:get(ocsp_responder_certs, Map, '?'),
+    io_lib:format("Stapling = ~W Nonce = ~W Certs = ~W",
+                   [Stapling, 5, Nonce, 5, Certs, 5]).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,8 @@
 	 read_link_info/1, read_link_info/2,
 	 read_link/1, read_link_all/1,
 	 make_link/2, make_symlink/2,
-	 read_file/1, write_file/2, write_file/3]).
+	 read_file/1, read_file/2,
+	 write_file/2, write_file/3]).
 %% Specialized
 -export([ipread_s32bu_p32bu/3]).
 %% Generic file contents.
@@ -70,7 +71,7 @@
 
 %% Types that can be used from other modules -- alphabetically ordered.
 -export_type([date_time/0, fd/0, file_info/0, filename/0, filename_all/0,
-              io_device/0, mode/0, name/0, name_all/0, posix/0]).
+              io_device/0, location/0, mode/0, name/0, name_all/0, posix/0]).
 
 %%% Includes and defines
 -include("file_int.hrl").
@@ -125,6 +126,7 @@
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
 -type delete_option() :: 'raw'.
+-type read_file_option() :: 'raw'.
 -type sendfile_option() :: {chunk_size, non_neg_integer()}
 			 | {use_threads, boolean()}.
 -type file_info_option() :: {'time', 'local'} | {'time', 'universal'}
@@ -218,15 +220,14 @@ delete(Name) ->
       Reason :: posix() | badarg.
 
 delete(Name, Opts) when is_list(Opts) ->
-    Args = [file_name(Name), Opts],
-    case check_args(Args) of
+    FileName = file_name(Name),
+    case check_args(Opts) of
         ok ->
             case lists:member(raw, Opts) of
                 true ->
-                    [FileName|_] = Args,
                     ?PRIM_FILE:delete(FileName);
                 false ->
-                    call(delete, Args)
+                    call(delete, [FileName])
             end;
         Error ->
             Error
@@ -418,6 +419,26 @@ list_dir_all(Name) ->
 read_file(Name) ->
     check_and_call(read_file, [file_name(Name)]).
 
+-spec read_file(Filename, Opts) -> {ok, Binary} | {error, Reason} when
+      Filename :: name_all(),
+      Opts :: [read_file_option()],
+      Binary :: binary(),
+      Reason :: posix() | badarg | terminated | system_limit.
+
+read_file(Name, Opts) when is_list(Opts) ->
+    FileName = file_name(Name),
+    case check_args(Opts) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    ?PRIM_FILE:read_file(FileName);
+                false ->
+                    call(read_file, [FileName])
+            end;
+        Error ->
+            Error
+    end.
+
 -spec make_link(Existing, New) -> ok | {error, Reason} when
       Existing :: name_all(),
       New :: name_all(),
@@ -582,7 +603,7 @@ allocate(#file_descriptor{module = Module} = Handle, Offset, Length) ->
     Module:allocate(Handle, Offset, Length).
 
 -spec read(IoDevice, Number) -> {ok, Data} | eof | {error, Reason} when
-      IoDevice :: io_device() | atom(),
+      IoDevice :: io_device() | io:device(),
       Number :: non_neg_integer(),
       Data :: string() | binary(),
       Reason :: posix()
@@ -604,7 +625,7 @@ read(_, _) ->
     {error, badarg}.
 
 -spec read_line(IoDevice) -> {ok, Data} | eof | {error, Reason} when
-      IoDevice :: io_device() | atom(),
+      IoDevice :: io_device() | io:device(),
       Data :: string() | binary(),
       Reason :: posix()
               | badarg
@@ -668,7 +689,7 @@ pread(_, _, _) ->
     {error, badarg}.
 
 -spec write(IoDevice, Bytes) -> ok | {error, Reason} when
-      IoDevice :: io_device() | atom(),
+      IoDevice :: io_device() | io:device(),
       Bytes :: iodata(),
       Reason :: posix() | badarg | terminated.
 

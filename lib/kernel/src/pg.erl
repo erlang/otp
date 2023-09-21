@@ -305,7 +305,7 @@ handle_call({leave_local, Group, PidOrPids}, _From, #state{scope = Scope, local 
 
 handle_call(monitor, {Pid, _Tag}, #state{scope = Scope, scope_monitors = ScopeMon} = State) ->
     %% next line could also be done with iterating over process state, but it appears to be slower
-    Local = maps:from_list([{G,P} || [G,P] <- ets:match(Scope, {'$1', '$2', '_'})]),
+    Local = #{G => P || [G,P] <- ets:match(Scope, {'$1', '$2', '_'})},
     MRef = erlang:monitor(process, Pid), %% monitor the monitor, to discard it upon termination, and generate MRef
     {reply, {MRef, Local}, State#state{scope_monitors = ScopeMon#{MRef => Pid}}};
 

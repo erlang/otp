@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2018</year><year>2022</year>
+      <year>2018</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -40,48 +40,97 @@
     the functions,
     e.g. <seemfa marker="#recv/3"><c>recv/3</c></seemfa>, 
     have a time-out argument. </p>
+
     <marker id="asynchronous-call"/>
     <note>
       <p>
-        Some functions allow for an <i>asynchronous</i> call.
-        This is achieved by setting the <c>Timeout</c> argument to
-        <c>nowait</c>. For instance, if calling the
+	Some functions allow for an <i>asynchronous</i> call.
+	This is achieved by setting the <c>Timeout</c> argument to
+	<c>nowait</c> or to a
+	(<seetype marker="socket#select_handle">select</seetype>
+	or
+	<seetype marker="socket#completion_handle">completion</seetype>)
+	<i>handle</i>.
+      </p>
+      <p>
+	For instance, if calling the
         <seeerl marker="#recv-nowait"><c>recv/3</c></seeerl>
         function with Timeout set to <c>nowait</c>
         (<c>recv(Sock, 0, nowait)</c>)
-        when there is actually nothing to read, it will return with
-        <c>{select, </c>
-        <seetype marker="#select_info"><c>SelectInfo</c></seetype><c>}</c>
-        (<c>SelectInfo</c> contains the
-        <seetype marker="socket#select_handle">SelectHandle</seetype>).
-        When data eventually arrives a 'select' message
-        will be sent to the caller:
+	when there is actually nothing to read, it will return with either
+	one of:
       </p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{completion, </c>
+	<seetype marker="#completion_info"><c>CompletionInfo</c></seetype><c>}</c></item>
+	<tag></tag>
+	<item><c>{select, </c>
+	<seetype marker="#select_info"><c>SelectInfo</c></seetype><c>}</c></item>
+      </taglist>
+      <p>
+	<c>CompletionInfo</c> contains the
+	<seetype marker="socket#completion_handle">CompletionHandle</seetype>
+	and
+	<c>SelectInfo</c> contains the
+	<seetype marker="socket#select_handle">SelectHandle</seetype>.
+      </p>
+      <p>
+	We have two different implementations.
+	One on <i>Unix</i> (<c>select</c>, based directly on the synchronous
+	standard socket interface)
+	and one on <i>Windows</i> (<c>completion</c>, based on the
+	asynchronous I/O Completion Ports).
+      </p>
+      <p>
+	These two implementations have a slightly different behaviour
+	and message interface.
+      </p>
+      <p>
+	The difference will only manifest for the user, if calls are made
+	with the timeout argument set to 'nowait' (see above).
+      </p>
+
+      <p>
+	When an completion message is received (<em>with</em> the result of the
+	operation), that means that the operation (connect, send, recv, ...)
+	has been <em>completed</em> (successfully or otherwise).
+	When a select message is received, that only means that the operation
+	<em>can now be completed</em>, via a call to, for instance,
+	<seemfa marker="#connect/1"><c>connect/1</c></seemfa>.
+      </p>
+
+      <p>The completion message has the format:</p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{'$socket', socket(), completion, {CompletionHandle, CompletionStatus}}</c></item>
+      </taglist>
+      <p>The select message has the format: </p>
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
 	<item><c>{'$socket', socket(), select, SelectHandle}</c></item>
       </taglist>
       <p>
-	The caller can now call the <c>recv</c> function again
-        and probably expect data
-        (it is really up to the OS network protocol implementation).
-      </p>
-      <p>
-	Note that all other users are <em>locked out</em> until the
-	'current user' has called the function (<c>recv</c> in this case)
-        and its return value shows that the operation has completed.
-        An operation can also be cancelled with
+	Note that, on select "system", all other users are <em>locked out</em>
+	until the 'current user' has called the function (<c>recv</c>
+	for instance) and its return value shows that the operation has
+	completed.
+        Such an operation can also be cancelled with
 	<seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>.
       </p>
       <p>
-	Instead of <c>Timeout = nowait</c> it is equivalent to	create a
-	<seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>)
+	Instead of <c>Timeout = nowait</c> it is equivalent to create a
+	<seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	or
+	<seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>
 	with
 	<seemfa marker="erts:erlang#make_ref/0"><c>make_ref()</c></seemfa>
 	and give as <c>Timeout</c>.
-	This will then be the <c>SelectHandle</c> in the 'select' message,
-	which enables a compiler optimization for receiving
+	This will then be the <c>Handle</c> in the 'completion' or 'select'
+	message, which enables a compiler optimization for receiving
 	a message containing a newly created <c>reference()</c>
 	(ignore the part of the message queue that had arrived
 	before the the <c>reference()</c> was created).
@@ -98,9 +147,11 @@
       If, for instance, the socket has been closed (by another process),
       <c>Info</c> will be <c>{SelectHandle, closed}</c>. </p>
     </note>
+
     <note>
-      <p>There is currently <em>no</em> support for Windows. </p>
-      <p>Support for IPv6 has been implemented but <em>not</em> tested. </p>
+      <p>The Windows support has currently <em>pre-release</em> status. </p>
+      <p>Support for IPv6 has been implemented but not <em>fully</em>
+      tested. </p>
       <p>SCTP has only been partly implemented (and not tested). </p>
     </note>
   </description>
@@ -108,6 +159,16 @@
   <datatypes>
     <datatype>
       <name name="invalid"/>
+    </datatype>
+    <datatype>
+      <name name="eei"/>
+      <desc>
+	<p>
+	  Extended Error Info.
+	  A term containing additional (error) info <em>if</em>
+	  the socket nif has been configured to produce it.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="domain"/>
@@ -206,6 +267,41 @@
         </p>
       </desc>
     </datatype>
+
+    <datatype>
+      <name name="completion_tag"/>
+      <desc>
+	<p>
+          A tag that describes the ongoing (completion) operation,
+          contained in the returned
+          <seetype marker="#completion_info"><c>completion_info()</c></seetype>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="completion_handle"/>
+      <desc>
+	<p>
+	  A <c>reference()</c> that uniquely identifies
+	  the (completion) operation, contained in the returned
+          <seetype marker="#completion_info"><c>completion_info()</c></seetype>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="completion_info"/>
+      <desc>
+        <p>
+          Returned by an operation that requires the caller to wait
+          for a
+          <seeerl marker="#asynchronous-call">completion message</seeerl>
+          containing the
+	  <seetype marker="#completion_handle"><c>CompletionHandle</c></seetype>
+	  <em>and</em> the result of the operation; the <c>CompletionStatus</c>.
+        </p>
+      </desc>
+    </datatype>
+
     <datatype>
       <name name="info"/>
       <desc>
@@ -438,25 +534,63 @@
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)}
 	    </c>
 	    - Receive buffer size.
-	    The value <c>default</c> is only valid to <em>set</em>.
-	    <c>N</c> specifies the number of read attempts to do
-	    in a tight loop before assuming no more data is pending.
+            <p>
+	      The value <c>default</c> is only valid to <em>set</em>.
+            </p>
+            <p>
+	      <c>N</c> specifies the number of read attempts to do
+	      in a tight loop before assuming no more data is pending.
+            </p>
+            <p>
+              This is the allocation size for the receive buffer
+              used when calling the OS protocol stack's receive API,
+              when no specific size (size 0) is requested.
+              When the receive function returns the receive buffer
+              is reallocated to the actually received size.
+              If the data is copied or shrinked in place is up to
+              the allocator, and can to some extent be configured
+              in the Erlang VM.
+            </p>
+            <p>
+              The similar socket option; <c>{socket,rcvbuf}</c>
+              is a related option for the OS' protocol stack
+              that on Unix corresponds to <c>SOL_SOCKET,SO_RCVBUF</c>.
+            </p>
 	  </item>
 	  <tag><c>rcvctrlbuf</c></tag>
 	  <item>
 	    <c>
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
 	    </c>
-	    - Buffer size for received ancillary messages.
-	    The value <c>default</c> is only valid to <em>set</em>.
+	    - Allocation size for the ancillary data buffer used
+            when calling the OS protocol stack's receive API.
+            <p>
+	      The value <c>default</c> is only valid to <em>set</em>.
+            </p>
 	  </item>
 	  <tag><c>sndctrlbuf</c></tag>
 	  <item>
 	    <c>
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
 	    </c>
-	    - Buffer size for sent ancillary messages.
-	    The value <c>default</c> is only valid to <em>set</em>.
+	    - Allocation size for the ancillary data buffer used
+            when calling the OS protocol stack's
+            <seemfa marker="#sendmsg/2">sendmsg</seemfa>
+            API.
+            <p>
+	      The value <c>default</c> is only valid to <em>set</em>.
+            </p>
+            <p>
+              It is the user's responsibility to set a buffer size
+              that has room for the encoded ancillary data
+              in the message to send.
+            </p>
+            <p>
+              See <seemfa marker="#sendmsg/2">sendmsg</seemfa> and
+              also the <c>ctrl</c> field of the
+              <seetype marker="#msg_send"><c>msg_send()</c></seetype>
+              type.
+            </p>
 	  </item>
 	  <tag><c>fd</c></tag>
 	  <item>
@@ -1383,6 +1517,24 @@
 	  if no connection has been accepted after
 	  <c><anno>Timeout</anno></c> milliseconds.
 	</p>
+	<note>
+	  <p>On unix, note that if multiple calls are made <em>only</em>
+	  the <em>last</em> call is "valid": </p>
+	  <code>
+	    {select, {select_info, _Handle}} = socket:accept(LSock, nowait),
+	    {error, timeout} = socket:accept(LSock, 500),
+	    . 
+            .
+	    .
+	  </code>
+	  <p>In the example above, <c>Handle</c> is <em>not</em> valid once
+	  the second (accept-) call has been made (the first call is
+	  automatically "cancelled" and an abort messaage sent,
+	  when the second call is made).
+	  After the (accept-) call
+	  resulting in the timeout has been made, there is no longer an
+	  active accept call!</p>
+	</note>
       </desc>
     </func>
 
@@ -1399,42 +1551,99 @@
 	</p>
 	<p>
 	  When there is no pending connection to return,
-	  the function will return
-	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>,
-	  and the caller will later receive a select message,
-	  <c>{'$socket', Socket, select, SelectHandle}</c> (
-	  with the
-	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
-	  contained in the
-	  <seetype marker="#select_info">
-	    <c><anno>SelectInfo</anno></c>
-	  </seetype>
-	  ) when a client connects.
-	  A subsequent call to <c>accept/1,2</c>
-	  will then return the socket.
+	  the function will return (on <i>Unix</i>)
+	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>
+	  or (on <i>Windows</i>)
+	  <seetype marker="#completion_info"><c>{completion, <anno>CompletionInfo</anno>}</c></seetype>,
+	  and the caller will later receive either one of these messages
+	  (depending on the platform) when the client connects:
 	</p>
+	<taglist>
+	  <tag><c>select</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket', Socket, select, SelectHandle}</c>
+	      (with the
+	      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	      contained in the
+	      <seetype marker="#select_info"><c><anno>SelectInfo</anno></c></seetype>).
+	    </p>
+	    <p>
+	      A subsequent call to <c>accept/1,2</c> will then return the
+	      socket.
+	    </p>
+	  </item>
+	  <tag><c>completion</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket', Socket, completion, {CompletionHandle, CompletionStatus}}</c>
+	      (with the
+	      <seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>
+	      contained in the
+	      <seetype marker="#completion_info"><c><anno>CompletionInfo</anno></c></seetype>).
+	    </p>
+	    <p>
+	      The <em>result</em> of the accept will be in the
+	      <c>CompletionStatus</c>.
+	    </p>
+	  </item>
+	</taglist>
 	<p>
-	  If the time-out argument is <c>SelectHandle</c>,
+	  If the time-out argument is a <c>Handle</c>,
 	  that term will be contained in a returned
-	  <c><anno>SelectInfo</anno></c>
-	  and the corresponding select message.
-	  The <c>SelectHandle</c> is presumed to be
+	  <c><anno>SelectInfo</anno></c> or <c><anno>CompletionInfo</anno></c>
+	  and the corresponding select or completion message.
+	  The <c>Handle</c> is presumed to be
 	  unique to this call.
 	</p>
 	<p>
-	  If the time-out argument is <c>nowait</c>, and a
-	  <c><anno>SelectInfo</anno></c> is returned,
-	  it will contain a
-	  <seetype marker="socket#select_handle">
-	    <c>select_handle()</c>
-	  </seetype> generated by the call.
-	</p>
+	If the time-out argument is <c>nowait</c>:</p>
+	<taglist>
+	  <tag>On <i>Unix</i></tag>
+	  <item>
+	    <p>
+	      And a <c><anno>SelectInfo</anno></c> is returned,
+	      it will contain a
+	      <seetype marker="socket#select_handle"><c>select_handle()</c></seetype>
+	      generated by the call.
+	    </p>
+	  </item>
+	  <tag>On <i>Windows</i></tag>
+	  <item>
+	    <p>
+	      And a <c><anno>CompletionInfo</anno></c> is returned,
+	      it will contain a
+	      <seetype marker="socket#completion_handle"><c>completion_handle()</c></seetype>
+	      generated by the call.
+	    </p>
+	  </item>
+	</taglist>
         <p>
 	  If the caller doesn't want to wait for a connection,
           it must immediately call
 	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>
           to cancel the operation.
 	</p>
+
+	<note>
+	  <p>On unix, note that if multiple calls are made <em>only</em>
+	  the <em>last</em> call is "valid": </p>
+	  <code>
+	    {select, {select_info, _Handle1}} = socket:accept(LSock, nowait),
+	    {select, {select_info, _Handle2}} = socket:accept(LSock, nowait),
+	    receive
+	        {'$socket', LSock, select, Handle2} ->
+	             {ok, ASock} = socket:accept(LSock, nowait),
+	             . 
+                     .
+	             .
+	    end
+	  </code>
+	  <p>In the example above, only <c>Handle2</c> is valid once the
+	  second (accept-) call has been made (the first call is
+	  automatically "cancelled" and an abort messaage sent,
+	  when the second call is made). </p>
+	</note>
       </desc>
     </func>
 
@@ -1467,7 +1676,73 @@
     </func>
 
     <func>
-      <name name="cancel" arity="2" since="OTP 22.1"/>
+      <name name="cancel" arity="2" clause_i="1" since="OTP 22.1"/>
+      <fsummary>Cancel an asynchronous request.</fsummary>
+      <desc>
+	<p>Cancel an asynchronous (select) request.</p>
+	<p>
+	  Call this function in order to cancel a previous
+	  asynchronous call to, e.g.
+	  <seemfa marker="#recv/3"><c>recv/3</c></seemfa>.
+	</p>
+        <p>
+          An ongoing asynchronous operation blocks the socket
+          until the operation has been finished in good order,
+          or until it has been cancelled by this function.
+        </p>
+        <p>
+          Any other process that tries an operation
+          of the same basic type (accept / send / recv) will be
+          enqueued and notified with the regular <c>select</c>
+          mechanism for asynchronous operations
+          when the current operation and all enqueued before it
+          has been completed.
+        </p>
+        <p>
+	  If <c><anno>SelectInfo</anno></c> does not match an
+          operation in progress for the calling process,
+          this function returns
+          <c>{error,&nbsp;{invalid,&nbsp;SelectInfo}}</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cancel" arity="2" clause_i="2" since="OTP 26.0"/>
+      <fsummary>Cancel an asynchronous request.</fsummary>
+      <desc>
+	<p>Cancel an asynchronous (completion) request.</p>
+	<p>
+	  Call this function in order to cancel a previous
+	  asynchronous call to, e.g.
+	  <seemfa marker="#recv/3"><c>recv/3</c></seemfa>.
+	</p>
+        <p>
+          An ongoing asynchronous operation blocks the socket
+          until the operation has been finished in good order,
+          or until it has been cancelled by this function.
+        </p>
+        <p>
+          Any other process that tries an operation
+          of the same basic type (accept / send / recv) will be
+          enqueued and notified with the regular <c>select</c>
+          mechanism for asynchronous operations
+          when the current operation and all enqueued before it
+          has been completed.
+        </p>
+        <p>
+	  If <c><anno>CompletionInfo</anno></c> does not match an
+          operation in progress for the calling process,
+          this function returns
+          <c>{error,&nbsp;{invalid,&nbsp;CompletionInfo}}</c>.
+        </p>
+      </desc>
+    </func>
+
+    <!--
+    <func>
+      <name name="cancel" arity="2" clause_i="1" since="OTP 22.1"/>
+      <name name="cancel" arity="2" clause_i="2" since="OTP 26.0"/>
       <fsummary>Cancel an asynchronous request.</fsummary>
       <desc>
 	<p>Cancel an asynchronous request.</p>
@@ -1490,13 +1765,15 @@
           has been completed.
         </p>
         <p>
-          If <c><anno>SelectInfo</anno></c> does not match an
+	  If <c><anno>SelectInfo</anno></c> or
+	  <c><anno>CompletionInfo</anno></c> does not match an
           operation in progress for the calling process,
           this function returns
-          <c>{error,&nbsp;{invalid,&nbsp;SelectInfo}}</c>.
+          <c>{error,&nbsp;{invalid,&nbsp; SelectInfo | CompletionInfo}}</c>.
         </p>
       </desc>
     </func>
+    -->
 
     <func>
       <name name="close" arity="1" since="OTP 22.0"/>
@@ -1533,6 +1810,11 @@
 	  If a connection attempt is already in progress
 	  (by another process), <c>{error, already}</c> is returned.
 	</p>
+	<note>
+	  <p>
+	    On <i>Windows</i> the socket has to be <em>bound</em>.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -1549,6 +1831,9 @@
 	  after <c><anno>Timeout</anno></c> milliseconds.
 	</p>
 	<note>
+	  <p>
+	    On <i>Windows</i> the socket has to be <em>bound</em>.
+	  </p>
 	  <p>
 	    Note that when this call has returned
 	    <c>{error, timeout}</c> the connection state of the socket
@@ -1620,6 +1905,9 @@
 	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>
           to cancel the operation.
 	</p>
+	<note>
+	  <p>On <i>Windows</i> the socket has to be <em>bound</em>.</p>
+	</note>
      </desc>
     </func>
 
@@ -1646,6 +1934,11 @@
 	  but that incurs more overhead since the connect address
 	  and time-out are processed in vain.
 	</p>
+	<note>
+	  <p>
+	    <em>Not</em> used on <i>Windows</i>.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -1962,22 +2255,86 @@
     </func>
 
     <func>
-      <name name="ioctl" arity="2" since="OTP 24.2"/>
+      <name name="ioctl" arity="2" clause_i="1" since="OTP 24.2"
+	    anchor="ioctl-gifconf"/>
+      <name name="ioctl" arity="2" clause_i="2" since="OTP 26.1"
+	    anchor="ioctl-fion"/>
+      <name name="ioctl" arity="2" clause_i="3" since="OTP 26.1"
+	    anchor="ioctl-atmark"/>
+      <name name="ioctl" arity="2" clause_i="4" since="OTP 26.1"
+	    anchor="ioctl-atmark"/>
       <fsummary>Control device.</fsummary>
       <desc>
         <p>Retrieve socket (device) parameters.</p>
+	<p>This function retrieves a specific parameter,
+	according to <c>GetRequest</c> argument. </p>
+        <taglist>
+          <tag><c>gifconf</c></tag>
+          <item>
+	    <p>Return a list of interface (transport layer) addresses. </p>
+	    <p>Result, a list of interfaces, map with name and address. </p>
+          </item>
+
+          <tag><c>nread</c></tag>
+          <item>
+	    <p>Get the number of bytes that are immediately available
+	    for	reading. </p>
+	    <p>Result, number of bytes, is a <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>nwrite</c></tag>
+          <item>
+	    <p>The number of bytes in the send queue. </p>
+	    <p>Result, number of bytes, is a <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>nspace</c></tag>
+          <item>
+	    <p>Get the free space in the send queue. </p>
+	    <p>Result, number of bytes, is a <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>atmark</c></tag>
+          <item>
+	    <p>Test if there is oob (out-of-bound) data waiting to be read. </p>
+	    <p>Result is a <c>boolean()</c>. </p>
+          </item>
+
+          <tag><c>tcp_info</c></tag>
+          <item>
+	    <p>Return miscellaneous TCP related information for a
+	    <em>connected</em> socket. </p>
+	    <p>Result is a <c>map()</c>. </p>
+          </item>
+
+	</taglist>
+
+	<note>
+	  <p>To see if a ioctl request is supported on the
+	  current platform: </p>
+	  <code>
+	    Request = nread,
+	    {ok, true} = socket:is_supported(ioctl_requests, Request),
+	    . 
+	    .
+	    .
+	  </code>
+	</note>
+
       </desc>
     </func>
 
     <func>
-      <name name="ioctl" arity="3" since="OTP 24.2"/>
+      <name name="ioctl" arity="3" clause_i="1" since="OTP 24.2"
+	    anchor="ioctl-misc-get"/>
       <fsummary>Control device.</fsummary>
       <desc>
-	<p>Retrieve socket (device) parameters.
-	This function retrieves a specific parameter,
+	<p>Retrieve socket (device) parameters. </p>
+	<p>This function retrieves a specific parameter,
 	according to <c>GetRequest</c> argument. The third
-	argument is the (lookup) "key", identifying the
-	interface (usually the name of the interface).</p>
+	argument is a the (lookup) "key", identifying the
+	interface (usually the name of the interface) or a
+	command to set.</p>
         <taglist>
           <tag><c>gifname</c></tag>
           <item>
@@ -1995,7 +2352,8 @@
           <tag><c>gifaddr</c></tag>
           <item>
 	    <p>Get the address of the interface with the specified name.
-	    Result, address of the interface, is a <c>socket:sockaddr()</c>. </p>
+	    Result, address of the interface,
+	    is a <c>socket:sockaddr()</c>. </p>
           </item>
 
           <tag><c>gifdstaddr</c></tag>
@@ -2053,6 +2411,86 @@
 	    <p>Result, the active flag word of the interface,
 	    is an list of <c>socket:ioctl_device_flag() | integer()</c>. </p>
           </item>
+
+	</taglist>
+
+      </desc>
+    </func>
+
+    <func>
+      <name name="ioctl" arity="3" clause_i="2" since="OTP 26.1"
+	    anchor="ioctl-rcvall"/>
+      <fsummary>Control device.</fsummary>
+      <desc>
+	<p>Set socket (device) parameters. </p>
+	<p>This function sets a specific parameter,
+	according to <c>SetRequest</c> argument. The third
+	argument is the value to set.</p>
+        <taglist>
+          <tag><c>rcvall</c></tag>
+          <item>
+	    <p>Enables (or disables) a socket to receive all IPv4 or IPv6
+	    packages passing through a network interface. </p>
+	    <p>The socket has to be either one of: </p>
+	    <taglist>
+	      <tag>An IPv4 socket</tag>
+	      <item>
+		<p>Created with the address family of <c>inet</c>,
+		socket type of <c>raw</c> and protocol set to <c>ip</c>. </p>
+	      </item>
+	      <tag>An IPv6 socket</tag>
+	      <item>
+		<p>Created with the address family of <c>inet6</c>,
+		socket type of <c>raw</c> and protocol set to <c>ipv6</c>. </p>
+	      </item>
+	    </taglist>
+	    <p>The socket must also be bound to an (explicit) local IPv4
+	    or IPv6 interface (<c>any</c> not allowed). </p>
+	    <p>Setting this IOCTL requires admin privileges. </p>
+          </item>
+
+	</taglist>
+
+      </desc>
+    </func>
+
+    <func>
+      <name name="ioctl" arity="3" clause_i="3" since="OTP 26.1"
+	    anchor="ioctl-rcvall_x"/>
+      <fsummary>Control device.</fsummary>
+      <desc>
+	<p>Set socket (device) parameters. </p>
+	<p>This function sets a specific parameter,
+	according to <c>SetRequest</c> argument. The third
+	argument is the value to set.</p>
+        <taglist>
+          <tag><c>rcvall_igmpmcall</c></tag>
+          <item>
+	    <p>Enables (or disables) a socket to receive IGMP multicast
+	    IP traffic, <em>without</em> receiving any other IP traffic. </p>
+	    <p>The socket has to be created with the address family of
+	    <c>inet</c>, socket type of <c>raw</c> and protocol set
+	    to <c>igmp</c>. </p>
+	    <p>The socket must also be bound to an (explicit) local interface
+	    (<c>any</c> not allowed). </p>
+	    <p>Must have a sufficiently large buffer. </p>
+	    <p>Setting this IOCTL requires admin privileges. </p>
+          </item>
+
+          <tag><c>rcvall_mcall</c></tag>
+          <item>
+	    <p>Enables (or disables) a socket to receive all multicast
+	    IP traffic (as in; all IP packets destined for IP addresses
+	    in the range of 224.0.0.0 to 239.255.255.255). </p>
+	    <p>The socket has to be created with the address family of
+	    <c>inet</c>, socket type of <c>raw</c> and protocol set
+	    to <c>udp</c>. </p>
+	    <p>The socket must also be bound to an (explicit) local interface
+	    (<c>any</c> not allowed). And bind to port zero</p>
+	    <p>Must have a sufficiently large buffer. </p>
+	    <p>Setting this IOCTL requires admin privileges. </p>
+          </item>
+
 	</taglist>
 
       </desc>
@@ -2151,6 +2589,9 @@
       <fsummary>Listen for connections on a socket.</fsummary>
       <desc>
         <p>Listen for connections on a socket.</p>
+	<note>
+	  <p>On <i>Windows</i> the socket has to be <em>bound</em>.</p>
+	</note>
       </desc>
     </func>
 
@@ -2266,7 +2707,7 @@
 	    <br/>Defaults to <c>false</c>. </p>
 	  </item>
 
-	  <tag><c>use_registry></c></tag>
+	  <tag><c>use_registry</c></tag>
 	  <item>
 	    <p>Enable or disable use of the socket registry for this socket.
 	    This overrides the global value.
@@ -2466,7 +2907,8 @@
       <desc>
         <p>
           Receives data from a socket,
-          but returns a select continuation if the data
+	  but returns a <c>select</c> or <c>completion</c> continuation
+	  if the data
           could not be returned immediately.
         </p>
 	<p>
@@ -2474,44 +2916,72 @@
 	  <seeerl marker="#recv-infinity">
             infinite time-out <c>recv/1,2,3,4</c>
           </seeerl>
-	  but if the data cannot be delivered immediately,
-	  the function returns
-	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
-	  and the caller will then receive a select message,
-	  <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c>
-          ( with the
-	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
-	  contained in the
-	  <seetype marker="#select_info">
-	    <c><anno>SelectInfo</anno></c>
-	  </seetype>
-	  ) when data has arrived.
-	  A subsequent call to <c>recv/1,2,3,4</c>
-	  will then return the data.
+	  but if the data can be delivered immediately,
+	  the function returns (on <i>Unix</i>) 
+	  <seetype marker="#select_info"><c>{select, &nbsp;<anno>SelectInfo</anno>}</c></seetype>
+	  or (on <i>Windows</i>)
+	  <seetype marker="#completion_info"><c>{completion, &nbsp;<anno>CompletionInfo</anno>}</c></seetype>,
+	  and the caller will then receive one of these messages:
 	</p>
+
+	<taglist>
+	  <tag><c>select</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c>
+	      (with the
+	      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	      that was contained in the
+	      <seetype marker="#select_info"><c><anno>SelectInfo</anno></c></seetype>)
+	      when data has arrived.
+	    </p>
+	    <p>
+	      A subsequent call to <c>recv/1,2,3,4</c>
+	      will then return the data.
+	    </p>
+	  </item>
+	  <tag><c>completion</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket', Socket, completion, {CompletionHandle, CompletionStatus}}</c>
+	      (with the
+	      <seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>
+	      contained in the
+	      <seetype marker="#completion_info"><c><anno>CompletionInfo</anno></c></seetype>).
+	    </p>
+	    <p>
+	      The <em>result</em> of the receive will be in the
+	      <c>CompletionStatus</c>.
+	    </p>
+	  </item>
+	</taglist>
+	
 	<p>
-	  If the time-out argument is <c>SelectHandle</c>,
+	  If <c>Handle</c> is a
+	  <seetype marker="#select_handle"><c>select_handle()</c></seetype> or
+	  <seetype marker="#completion_handle"><c>completion_handle()</c></seetype>,
 	  that term will be contained in a returned
-	  <c><anno>SelectInfo</anno></c>
-	  and the corresponding select message.
-	  The <c>SelectHandle</c> is presumed to be
-	  unique to this call.
+	  <c><anno>SelectInfo</anno></c> or <c><anno>CompletionInfo</anno></c>
+	  and the corresponding (select or completion) message.
+	  The <c>Handle</c> is presumed to be unique to this call.
 	</p>
 	<p>
 	  If the time-out argument is <c>nowait</c>, and a
-	  <c><anno>SelectInfo</anno></c> is returned,
+	  <c><anno>SelectInfo</anno></c> or
+	  <c><anno>CompletionInfo</anno></c> is returned,
 	  it will contain a
-	  <seetype marker="socket#select_handle">
-	    <c>select_handle()</c>
-	  </seetype> generated by the call.
+	  <seetype marker="socket#select_handle"><c>select_handle()</c></seetype>
+	  or
+	  <seetype marker="socket#completion_handle"><c>completion_handle()</c></seetype>
+	  generated by the call.
 	</p>
 	<p>
-	  Note that for a socket of type <c>stream</c>,
+	  Note that for a socket of type <c>stream</c> (on <i>Unix</i>),
           if <c><anno>Length</anno>&nbsp;&gt;&nbsp;0</c>
 	  and only part of that amount of data is available,
 	  the function will return
 	  <seetype marker="#select_info">
-	    <c>{ok, {<anno>Data</anno>, <anno>SelectInfo</anno></c>
+	    <c>{ok, {<anno>Data</anno>, <anno>SelectInfo</anno>}}</c>
 	  </seetype>
 	  with partial data.  If the caller doesn't want to wait
 	  for more data, it must immediately call
@@ -2605,7 +3075,7 @@
       <desc>
         <p>
           Receives a message from a socket,
-          but returns a select continuation if no message
+          but returns a select continuation or a completion term if no message
           could be returned immediately.
         </p>
 	<p>
@@ -2613,36 +3083,63 @@
 	  <seeerl marker="#recvfrom-infinity">
             infinite time-out <c>recvfrom/1,2,3,4</c>
           </seeerl>
-	  but if no message cannot delivered immediately,
-	  the function returns
-	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
-	  and the caller will then receive a select message,
-	  <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c>
-          ( with the
-	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
-	  contained in the
-	  <seetype marker="#select_info">
-	    <c><anno>SelectInfo</anno></c>
-	  </seetype>
-	  ) when data has arrived.
-	  A subsequent call to <c>recvfrom/1,2,3,4</c>
-	  will then return the message.
+	  but if no message can be delivered immediately,
+	  the function returns (on <i>/Unix</i>)
+	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>
+	  or (on <i>Windows</i>) <seetype marker="#completion_info"><c>{completion, &nbsp;<anno>CompletionInfo</anno>}</c></seetype>,
+	  and the caller will then receive one of these messages:
 	</p>
+
+	<taglist>
+	  <tag><c>select</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c>
+	      (with the
+	      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	      that was contained in the
+	      <seetype marker="#select_info"><c><anno>SelectInfo</anno></c></seetype>)
+	      when data has arrived.
+	    </p>
+	    <p>
+	      A subsequent call to <c>recvfrom/1,2,3,4</c>
+	      will then return the message.
+	    </p>
+	  </item>
+	  <tag><c>completion</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket', Socket, completion, {CompletionHandle, CompletionStatus}}</c>
+	      (with the
+	      <seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>
+	      contained in the
+	      <seetype marker="#completion_info"><c><anno>CompletionInfo</anno></c></seetype>).
+	    </p>
+	    <p>
+	      The <em>result</em> of the receive will be in the
+	      <c>CompletionStatus</c>.
+	    </p>
+	  </item>
+	</taglist>
+	
 	<p>
-	  If the time-out argument is <c>SelectHandle</c>,
+	  If the <c>Handle</c> is a
+	  <seetype marker="#select_handle"><c>select_handle()</c></seetype> or
+	  <seetype marker="#completion_handle"><c>completion_handle()</c></seetype>,
 	  that term will be contained in a returned
-	  <c><anno>SelectInfo</anno></c>
-	  and the corresponding select message.
-	  The <c>SelectHandle</c> is presumed to be
-	  unique to this call.
+	  <c><anno>SelectInfo</anno></c> or <c><anno>CompletionInfo</anno></c>
+	  and the corresponding (select or completion) message.
+	  The <c>Handle</c> is presumed to be unique to this call.
 	</p>
 	<p>
 	  If the time-out argument is <c>nowait</c>, and a
-	  <c><anno>SelectInfo</anno></c> is returned,
+	  <c><anno>SelectInfo</anno></c> or
+	  <c><anno>CompletionInfo</anno></c> is returned,
 	  it will contain a
-	  <seetype marker="socket#select_handle">
-	    <c>select_handle()</c>
-	  </seetype> generated by the call.
+	  <seetype marker="socket#select_handle"><c>select_handle()</c></seetype>
+	  or
+	  <seetype marker="socket#completion_handle"><c>completion_handle()</c></seetype>
+	  generated by the call.
 	</p>
         <p>
 	  If the caller doesn't want to wait for the data,
@@ -2745,44 +3242,70 @@
       <desc>
         <p>
           Receives a message from a socket,
-          but returns a select continuation if no message
+          but returns a select continuation or a completion term if no message
           could be returned immediately.
         </p>
 	<p>
 	  The same as
-	  <seeerl marker="#recvfrom-infinity">
-            infinite time-out <c>recvfrom/1,2,3,4</c>
+	  <seeerl marker="#recvmsg-infinity">
+            infinite time-out <c>recvmsg/1,2,3,4</c>
           </seeerl>
-	  but if no message cannot delivered immediately,
-	  the function returns
-	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
-	  and the caller will then receive a select message,
-	  <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c>
-          ( with the
-	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
-	  contained in the
-	  <seetype marker="#select_info">
-	    <c><anno>SelectInfo</anno></c>
-	  </seetype>
-	  ) when data has arrived.
-	  A subsequent call to <c>recvmsg/1,2,3,4,5</c>
-	  will then return the data.
+	  but if no message can delivered immediately,
+	  the function returns (on <i>Unix</i>)
+	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>
+	  or (on <i>Windows</i>) <seetype marker="#completion_info"><c>{completion, &nbsp;<anno>CompletionInfo</anno>}</c></seetype>,
+	  and the caller will then receive one of these messages:
 	</p>
+
+	<taglist>
+	  <tag><c>select</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c>
+	      (with the
+	      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	      that was contained in the
+	      <seetype marker="#select_info"><c><anno>SelectInfo</anno></c></seetype>)
+	      when data has arrived.
+	    </p>
+	    <p>
+	      A subsequent call to <c>recvmsg/1,2,3,4,5</c>
+	      will then return the data.
+	    </p>
+	  </item>
+	  <tag><c>completion</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket', Socket, completion, {CompletionHandle, CompletionStatus}}</c>
+	      (with the
+	      <seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>
+	      contained in the
+	      <seetype marker="#completion_info"><c><anno>CompletionInfo</anno></c></seetype>).
+	    </p>
+	    <p>
+	      The <em>result</em> of the receive will be in the
+	      <c>CompletionStatus</c>.
+	    </p>
+	  </item>
+	</taglist>
 	<p>
-	  If the time-out argument is <c>SelectHandle</c>,
+	  If the <c>Handle</c> is a
+	  <seetype marker="#select_handle"><c>select_handle()</c></seetype> or
+	  <seetype marker="#completion_handle"><c>completion_handle()</c></seetype>,
 	  that term will be contained in a returned
-	  <c><anno>SelectInfo</anno></c>
-	  and the corresponding select message.
-	  The <c>SelectHandle</c> is presumed to be
-	  unique to this call.
+	  <c><anno>SelectInfo</anno></c> or <c><anno>CompletionInfo</anno></c>
+	  and the corresponding (select or completion) message.
+	  The <c>Handle</c> is presumed to be unique to this call.
 	</p>
 	<p>
 	  If the time-out argument is <c>nowait</c>, and a
-	  <c><anno>SelectInfo</anno></c> is returned,
+	  <c><anno>SelectInfo</anno></c> or
+	  <c><anno>CompletionInfo</anno></c> is returned,
 	  it will contain a
-	  <seetype marker="socket#select_handle">
-	    <c>select_handle()</c>
-	  </seetype> generated by the call.
+	  <seetype marker="socket#select_handle"><c>select_handle()</c></seetype>
+	  or
+	  <seetype marker="socket#completion_handle"><c>completion_handle()</c></seetype>
+	  generated by the call.
 	</p>
         <p>
 	  If the caller doesn't want to wait for the data,
@@ -2932,7 +3455,7 @@
       <desc>
         <p>
           Sends data on a connected socket,
-          but returns a select continuation if the data
+          but returns completion <em>or</em> a select continuation if the data
           could not be sent immediately.
         </p>
 	<p>
@@ -2942,43 +3465,67 @@
           </seeerl>
 	  but if the data is not immediately accepted by
 	  the platform network layer, the function returns
-	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
-	  and the caller will then receive a select message,
-	  <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c> (
-	  with the
-	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
-	  that was contained in the
-	  <seetype marker="#select_info">
-	    <c><anno>SelectInfo</anno></c>
-	  </seetype>
-	  ) when there is room for more data.
-	  A subsequent call to <c>send/2-4</c> will then send the data.
-	</p>
+	  (on <i>Unix</i>) <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype> or (on <i>Windows</i>) <seetype marker="#completion_info"><c>{completion,&nbsp;<anno>CompletionInfo</anno>}</c></seetype>,
+	  and the caller will then receive one of these messages: </p>
+
+	<taglist>
+	  <tag><c>select</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c> (
+	      with the
+	      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	      that was contained in the
+	      <seetype marker="#select_info">
+		<c><anno>SelectInfo</anno></c>
+	      </seetype>
+	      ) when there is room for more data. </p>
+	      <p>A subsequent call to <c>send/2-4</c> will then send the data.
+	      </p>
+	  </item>
+	  <tag><c>completion</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket', Socket, completion, {CompletionHandle, CompletionStatus}}</c>
+	      (with the
+	      <seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>
+	      contained in the
+	      <seetype marker="#completion_info"><c><anno>CompletionInfo</anno></c></seetype>).
+	    </p>
+	    <p>
+	      The <em>result</em> of the send will be in the
+	      <c>CompletionStatus</c>.
+	    </p>
+	  </item>
+	</taglist>
 	<p>
-	  If <c>SelectHandle</c> is a
-          <seetype marker="#select_handle"><c>select_handle()</c></seetype>,
+	  If <c>Handle</c> is a
+	  <seetype marker="#select_handle"><c>select_handle()</c></seetype> or
+	  <seetype marker="#completion_handle"><c>completion_handle()</c></seetype>,
 	  that term will be contained in a returned
-	  <c><anno>SelectInfo</anno></c>
-	  and the corresponding select message.
-	  The <c>SelectHandle</c> is presumed to be
+	  <c><anno>SelectInfo</anno></c> or <c><anno>CompletionInfo</anno></c>
+	  and the corresponding select or completion message.
+	  The <c>Handle</c> is presumed to be
 	  unique to this call.
 	</p>
 	<p>
-	  If <c>SelectHandle</c> is <c>nowait</c>, and a
-	  <c><anno>SelectInfo</anno></c> is returned,
+	  If <c>Handle</c> is <c>nowait</c>, and a
+	  <c><anno>SelectInfo</anno></c> or
+	  <c><anno>CompletionInfo</anno></c> is returned,
 	  it will contain a
-	  <seetype marker="socket#select_handle">
-	    <c>select_handle()</c>
-	  </seetype> generated by the call.
+	  <seetype marker="socket#select_handle"><c>select_handle()</c></seetype>
+	  or
+	  <seetype marker="socket#completion_handle"><c>completion_handle()</c></seetype>
+	  generated by the call.
 	</p>
 	<p>
 	  If some of the data was sent, the function will return
 	  <seetype marker="#select_info">
 	    <c>
-              {ok,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
+              {select,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
             </c>
 	  </seetype>
-          which can only happen for a socket of
+          which can only happen (on <i>Unix</i>) for a socket of
           <seetype marker="#type">type <c>stream</c></seetype>.
 	  If the caller does not want to wait to send the rest of the data,
 	  it should immediately cancel the operation with
@@ -3091,7 +3638,13 @@
           The return value indicates the result from
           the platform's network layer.
           See <seeerl marker="#send-infinity"><c>send/2,3,4</c></seeerl>.
-        </p>
+	</p>
+	<note>
+	  <p>
+	    On Windows, this function can only be used with
+	    datagram and raw sockets.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -3116,6 +3669,12 @@
 	  if no data or only some of it
           was accepted by the platform's network layer.
 	</p>
+	<note>
+	  <p>
+	    On Windows, this function can only be used with
+	    datagram and raw sockets.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -3129,7 +3688,7 @@
       <desc>
         <p>
           Sends a message on a socket,
-          but returns a select continuation if the data
+          but returns completion <em>or</em> a select continuation if the data
           could not be sent immediately.
         </p>
 	<p>
@@ -3138,41 +3697,66 @@
             infinity time-out <c>sendmsg/2,3</c>
           </seeerl>
 	  but if the data is not immediately accepted by
-	  the platform network layer, the function returns
-	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
-	  and the caller will then receive a select message,
-	  <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c> (
-	  with the
-	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
-	  that was contained in the
-	  <seetype marker="#select_info">
-	    <c><anno>SelectInfo</anno></c>
-	  </seetype>
-	  ) when there is room for more data.
-	  A subsequent call to <c>sendmsg/2-4</c> will then send the data.
+	  the platform network layer,
+	  the function returns
+	  (on <i>Unix</i>) <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype> or (on <i>Windows</i>) <seetype marker="#completion_info"><c>{completion,&nbsp;<anno>CompletionInfo</anno>}</c></seetype>,
+	  and the caller will then receive one of these messages:
 	</p>
+
+	<taglist>
+	  <tag><c>select</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c> (
+	      with the
+	      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	      that was contained in the
+	      <seetype marker="#select_info">
+		<c><anno>SelectInfo</anno></c>
+	      </seetype>
+	      ) when there is room for more data.
+	      A subsequent call to <c>sendmsg/2-4</c> will then send the data.
+	    </p>
+	  </item>
+	  <tag><c>completion</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket', Socket, completion, {CompletionHandle, CompletionStatus}}</c>
+	      (with the
+	      <seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>
+	      contained in the
+	      <seetype marker="#completion_info"><c><anno>CompletionInfo</anno></c></seetype>).
+	    </p>
+	    <p>
+	      The <em>result</em> of the send will be in the
+	      <c>CompletionStatus</c>.
+	    </p>
+	  </item>
+	</taglist>
 	<p>
-	  If <c>SelectHandle</c>, is a
-          <seetype marker="#select_handle"><c>select_handle()</c></seetype>,
+	  If <c>Handle</c>, is a
+          <seetype marker="#select_handle"><c>select_handle()</c></seetype> or
+	  <seetype marker="#completion_handle"><c>completion_handle()</c></seetype>,
 	  that term will be contained in a returned
-	  <c><anno>SelectInfo</anno></c>
-	  and the corresponding select message.
-	  The <c>SelectHandle</c> is presumed to be
+	  <c><anno>SelectInfo</anno></c> or <c><anno>CompletionInfo</anno></c>
+	  and the corresponding select or completion message.
+	  The <c>Handle</c> is presumed to be
 	  unique to this call.
 	</p>
 	<p>
-	  If <c>SelectHandle</c> is <c>nowait</c>, and a
-	  <c><anno>SelectInfo</anno></c> is returned,
+	  If <c>Timeout</c> is <c>nowait</c>, and a
+	  <c><anno>SelectInfo</anno></c> or
+	  <c><anno>CompletionInfo</anno></c> is returned,
 	  it will contain a
-	  <seetype marker="socket#select_handle">
-	    <c>select_handle()</c>
-	  </seetype> generated by the call.
+	  <seetype marker="socket#select_handle"><c>select_handle()</c></seetype> or
+	  <seetype marker="socket#completion_handle"><c>completion_handle()</c></seetype>
+	  generated by the call.
 	</p>
 	<p>
 	  If some of the data was sent, the function will return
 	  <seetype marker="#select_info">
 	    <c>
-              {ok,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
+              {select,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
             </c>
 	  </seetype>
           which can only happen for a socket of
@@ -3181,6 +3765,12 @@
 	  it should immediately cancel the operation with
 	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>.
         </p>
+	<note>
+	  <p>
+	    On Windows, this function can only be used with
+	    datagram and raw sockets.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -3296,7 +3886,7 @@
       <desc>
         <p>
           Sends data on a socket,
-          but returns a select continuation if the data
+          but returns completion <em>or</em> a select continuation if the data
           could not be sent immediately.
         </p>
 	<p>
@@ -3307,43 +3897,67 @@
 	  but if the data is not immediately accepted
 	  by the platform network layer,
 	  the function returns
-	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
-	  and the caller will then receive a select message,
-	  <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c> (
-	  with the
-	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
-	  that was contained in the
-	  <seetype marker="#select_info">
-	    <c><anno>SelectInfo</anno></c>
-	  </seetype>
-	  ) when there is room for more data.
-	  A subsequent call to <c>sendto/3-5</c> will then send the data.
-	</p>
+	  (on <i>Unix</i>) <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype> or (on <i>Windows</i>) <seetype marker="#completion_info"><c>{completion,&nbsp;<anno>CompletionInfo</anno>}</c></seetype>,
+	and the caller will then receive one of these messages: </p>
+
+	<taglist>
+	  <tag><c>select</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c> (
+	      with the
+	      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	      that was contained in the
+	      <seetype marker="#select_info">
+		<c><anno>SelectInfo</anno></c>
+	      </seetype>
+	      ) when there is room for more data. </p>
+	      <p>A subsequent call to <c>send/2-4</c> will then send the data.
+	      </p>
+	  </item>
+	  <tag><c>completion</c> message</tag>
+	  <item>
+	    <p>
+	      <c>{'$socket', Socket, completion, {CompletionHandle, CompletionStatus}}</c>
+	      (with the
+	      <seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>
+	      contained in the
+	      <seetype marker="#completion_info"><c><anno>CompletionInfo</anno></c></seetype>).
+	    </p>
+	    <p>
+	      The <em>result</em> of the send will be in the
+	      <c>CompletionStatus</c>.
+	    </p>
+	  </item>
+	</taglist>
 	<p>
-	  If <c>SelectHandle</c> is a
-          <seetype marker="#select_handle"><c>select_handle()</c></seetype>,
+	  If <c>Handle</c> is a
+	  <seetype marker="#select_handle"><c>select_handle()</c></seetype> or
+	  <seetype marker="#completion_handle"><c>completion_handle()</c></seetype>,
 	  that term will be contained in a returned
-	  <c><anno>SelectInfo</anno></c>
-	  and the corresponding select message.
-	  The <c>SelectHandle</c> is presumed to be
+	  <c><anno>SelectInfo</anno></c> or <c><anno>CompletionInfo</anno></c>
+	  and the corresponding select or completion message.
+	  The <c>Handle</c> is presumed to be
 	  unique to this call.
 	</p>
 	<p>
-	  If <c>SelectHandle</c> is <c>nowait</c>, and a
-	  <c><anno>SelectInfo</anno></c> is returned,
+	  If <c>Handle</c> is <c>nowait</c>, and a
+	  <c><anno>SelectInfo</anno></c> or
+	  <c><anno>CompletionInfo</anno></c> is returned,
 	  it will contain a
-	  <seetype marker="socket#select_handle">
-	    <c>select_handle()</c>
-	  </seetype> generated by the call.
+	  <seetype marker="socket#select_handle"><c>select_handle()</c></seetype>
+	  or
+	  <seetype marker="socket#completion_handle"><c>completion_handle()</c></seetype>
+	  generated by the call.
 	</p>
 	<p>
 	  If some of the data was sent, the function will return
 	  <seetype marker="#select_info">
 	    <c>
-              {ok,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
+              {select,&nbsp;{<anno>RestData</anno>,&nbsp;<anno>SelectInfo</anno>},
             </c>
 	  </seetype>
-          which can only happen for a socket of
+          which can only happen (on <i>Unix</i>) for a socket of
           <seetype marker="#type">type <c>stream</c></seetype>.
 	  If the caller does not want to wait to send the rest of the data,
 	  it should immediately cancel the operation with

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -315,6 +315,7 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
     /* a64::x30 now points 4 bytes into the ErtsCodeInfo struct for the
      * function. Put the address of the MFA into ARG1. */
     a.add(ARG1, a64::x30, offsetof(ErtsCodeInfo, mfa) - 4);
+
     mov_imm(TMP1, EXC_FUNCTION_CLAUSE);
     a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
     a.str(ARG1, arm::Mem(c_p, offsetof(Process, current)));
@@ -329,7 +330,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
                                            const ArgAtom &Module,
                                            const ArgAtom &Function,
                                            const ArgWord &Arity) {
-    ErtsCodeInfo info;
+    ErtsCodeInfo info = {};
 
     /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
      * label is always encoded as a word, even though the signature ought to
@@ -339,7 +340,6 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     info.mfa.module = Module.get();
     info.mfa.function = Function.get();
     info.mfa.arity = Arity.get();
-    info.gen_bp = NULL;
 
     comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
 
@@ -395,7 +395,7 @@ void BeamModuleAssembler::bind_veneer_target(const Label &target) {
         ASSERT(veneer.target == target);
 
         if (!code.isLabelBound(veneer.anchor)) {
-            ASSERT(a.offset() <= veneer.latestOffset);
+            ASSERT((ssize_t)a.offset() <= veneer.latestOffset);
             a.bind(veneer.anchor);
 
             /* TODO: remove from pending stubs? */
@@ -473,80 +473,6 @@ void BeamModuleAssembler::emit_trace_jump(const ArgWord &) {
 
 void BeamModuleAssembler::emit_call_error_handler() {
     emit_nyi("call_error_handler should never be called");
-}
-
-unsigned BeamModuleAssembler::patchCatches(char *rw_base) {
-    unsigned catch_no = BEAM_CATCHES_NIL;
-
-    for (const auto &c : catches) {
-        const auto &patch = c.patch;
-        ErtsCodePtr handler;
-
-        handler = (ErtsCodePtr)getCode(c.handler);
-        catch_no = beam_catches_cons(handler, catch_no, nullptr);
-
-        /* Patch the `mov` instruction with the catch tag */
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset];
-
-        ASSERT(LLONG_MAX == *where);
-        Eterm catch_term = make_catch(catch_no);
-
-        /* With the current tag scheme, more than 33 million
-         * catches can exist at once. */
-        ERTS_ASSERT(catch_term >> 31 == 0);
-
-        *where = catch_term;
-    }
-
-    return catch_no;
-}
-
-void BeamModuleAssembler::patchImport(char *rw_base,
-                                      unsigned index,
-                                      BeamInstr I) {
-    for (const auto &patch : imports[index].patches) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset];
-
-        ASSERT(LLONG_MAX == *where);
-        *where = I + patch.val_offs;
-    }
-}
-
-void BeamModuleAssembler::patchLambda(char *rw_base,
-                                      unsigned index,
-                                      BeamInstr I) {
-    for (const auto &patch : lambdas[index].patches) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset];
-
-        ASSERT(LLONG_MAX == *where);
-        *where = I + patch.val_offs;
-    }
-}
-
-void BeamModuleAssembler::patchLiteral(char *rw_base,
-                                       unsigned index,
-                                       Eterm lit) {
-    for (const auto &patch : literals[index].patches) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset];
-
-        ASSERT(LLONG_MAX == *where);
-        *where = lit + patch.val_offs;
-    }
-}
-
-void BeamModuleAssembler::patchStrings(char *rw_base,
-                                       const byte *string_table) {
-    for (const auto &patch : strings) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (const byte **)&rw_base[offset];
-
-        ASSERT(LLONG_MAX == (Eterm)*where);
-        *where = string_table + patch.val_offs;
-    }
 }
 
 const Label &BeamModuleAssembler::resolve_beam_label(const ArgLabel &Lbl,
@@ -804,30 +730,37 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
     } else if (value.isLabel()) {
         a.embedLabel(rawLabels.at(value.as<ArgLabel>().get()));
     } else {
-        a.embedUInt64(LLONG_MAX);
-
         switch (value.getType()) {
         case ArgVal::BytePtr:
-            strings.push_back({anchor, value.as<ArgBytePtr>().get()});
+            strings.push_back({anchor, 0, value.as<ArgBytePtr>().get()});
+            a.embedUInt64(LLONG_MAX);
             break;
         case ArgVal::Catch: {
             auto handler = rawLabels[value.as<ArgCatch>().get()];
-            catches.push_back({{anchor, 0}, handler});
+            catches.push_back({{anchor, 0, 0}, handler});
+
+            /* Catches are limited to 32 bits, but since we don't want to load
+             * 32-bit argument values due to displacement limits, we'll store
+             * this as a 64-bit value with the upper bits cleared. */
+            a.embedUInt64(INT_MAX);
             break;
         }
         case ArgVal::Export: {
             auto index = value.as<ArgExport>().get();
-            imports[index].patches.push_back({anchor, 0});
+            imports[index].patches.push_back({anchor, 0, 0});
+            a.embedUInt64(LLONG_MAX);
             break;
         }
         case ArgVal::FunEntry: {
             auto index = value.as<ArgLambda>().get();
-            lambdas[index].patches.push_back({anchor, 0});
+            lambdas[index].patches.push_back({anchor, 0, 0});
+            a.embedUInt64(LLONG_MAX);
             break;
         }
         case ArgVal::Literal: {
             auto index = value.as<ArgLiteral>().get();
-            literals[index].patches.push_back({anchor, 0});
+            literals[index].patches.push_back({anchor, 0, 0});
+            a.embedUInt64(LLONG_MAX);
             break;
         }
         default:

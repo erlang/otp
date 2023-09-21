@@ -3,7 +3,9 @@
   [;1m                     when[0m
   [;1m                         Module :: module(),[0m
   [;1m                         Binary :: binary(),[0m
-  [;1m                         Reason :: badfile | not_purged | on_load.[0m
+  [;1m                         Reason ::[0m
+  [;1m                             badfile | not_purged | on_load |[0m
+  [;1m                             {features_not_allowed, [atom()]}.[0m
 
   If [;;4mBinary[0m contains the object code for module [;;4mModule[0m, this BIF
   loads that object code. If the code for module [;;4mModule[0m already
@@ -28,6 +30,10 @@
     must be executed before [;;4mBinary[0m can become the current code.
     Any previous current code for [;;4mModule[0m will remain until the [;;4m[0m
     [;;4mon_load[0m call has finished.
+
+  [;;4mnot_allowed[0m:
+    The code in [;;4mBinary[0m has been compiled with features that are
+    currently not enabled in the runtime system.
 
   Warning:
     This BIF is intended for the code server (see [;;4mcode(3)[0m) and

@@ -7,7 +7,7 @@
 <erlref>
 <header>
   <copyright>
-    <year>2020</year><year>2021</year>
+    <year>2020</year><year>2023</year>
     <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
   <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
@@ -928,10 +928,10 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDebugMessageControl.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="debugMessageInsert" arity="6" clause_i="1" since=""/>
+    <name name="debugMessageInsert" arity="5" clause_i="1" since=""/>
     <fsummary>inject an application-supplied message into the debug message queue</fsummary>
     <desc>
-    <p><seemfa marker="gl#debugMessageInsert/6"><c>gl:debugMessageInsert/6</c></seemfa> inserts a user-supplied message into the debug output queue. <c>Source</c> specifies the source that will be used to classify the message and must be <c>?GL_DEBUG_SOURCE_APPLICATION</c> or <c>?GL_DEBUG_SOURCE_THIRD_PARTY</c>. All other sources are reserved for use by the GL implementation. <c>Type</c> indicates the type of the message to be inserted and may be one of <c>?GL_DEBUG_TYPE_ERROR</c>, <c>?GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR</c>, <c>?GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR</c>, <c>?GL_DEBUG_TYPE_PORTABILITY</c>, <c>?GL_DEBUG_TYPE_PERFORMANCE</c>, <c>?GL_DEBUG_TYPE_MARKER</c>, <c>?GL_DEBUG_TYPE_PUSH_GROUP</c>, <c>?GL_DEBUG_TYPE_POP_GROUP</c>, or <c>?GL_DEBUG_TYPE_OTHER</c>. <c>Severity</c> indicates the severity of the message and may be <c>?GL_DEBUG_SEVERITY_LOW</c>, <c>?GL_DEBUG_SEVERITY_MEDIUM</c>, <c>?GL_DEBUG_SEVERITY_HIGH</c> or <c>?GL_DEBUG_SEVERITY_NOTIFICATION</c>. <c>Id</c> is available for application defined use and may be any value. This value will be recorded and used to identify the message. </p>
+    <p><seemfa marker="gl#debugMessageInsert/5"><c>gl:debugMessageInsert/5</c></seemfa> inserts a user-supplied message into the debug output queue. <c>Source</c> specifies the source that will be used to classify the message and must be <c>?GL_DEBUG_SOURCE_APPLICATION</c> or <c>?GL_DEBUG_SOURCE_THIRD_PARTY</c>. All other sources are reserved for use by the GL implementation. <c>Type</c> indicates the type of the message to be inserted and may be one of <c>?GL_DEBUG_TYPE_ERROR</c>, <c>?GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR</c>, <c>?GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR</c>, <c>?GL_DEBUG_TYPE_PORTABILITY</c>, <c>?GL_DEBUG_TYPE_PERFORMANCE</c>, <c>?GL_DEBUG_TYPE_MARKER</c>, <c>?GL_DEBUG_TYPE_PUSH_GROUP</c>, <c>?GL_DEBUG_TYPE_POP_GROUP</c>, or <c>?GL_DEBUG_TYPE_OTHER</c>. <c>Severity</c> indicates the severity of the message and may be <c>?GL_DEBUG_SEVERITY_LOW</c>, <c>?GL_DEBUG_SEVERITY_MEDIUM</c>, <c>?GL_DEBUG_SEVERITY_HIGH</c> or <c>?GL_DEBUG_SEVERITY_NOTIFICATION</c>. <c>Id</c> is available for application defined use and may be any value. This value will be recorded and used to identify the message. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDebugMessageInsert.xhtml">External documentation.</url></p></desc>
   </func>
@@ -1798,11 +1798,8 @@
   <func>
     <name name="getInternalformati64v" arity="4" clause_i="1" since=""/>
     <name name="getInternalformativ" arity="4" clause_i="1" since=""/>
-    <fsummary>retrieve information about implementation-dependent support for internal formats</fsummary>
-    <desc>
-    <p><seemfa marker="gl#getInternalformativ/4"><c>gl:getInternalformativ/4</c></seemfa> and <seemfa marker="gl#getInternalformativ/4"><c>gl:getInternalformati64v/4</c></seemfa> retrieve information about implementation-dependent support for internal formats. <c>Target</c> indicates the target with which the internal format will be used and must be one of <c>?GL_RENDERBUFFER</c>, <c>?GL_TEXTURE_2D_MULTISAMPLE</c>, or <c>?GL_TEXTURE_2D_MULTISAMPLE_ARRAY</c>, corresponding to usage as a renderbuffer, two-dimensional multisample texture or two-dimensional multisample array texture, respectively. </p>
-    
-    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetInternalFormat.xhtml">External documentation.</url></p></desc>
+    <fsummary/>
+    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="getLightfv" arity="2" clause_i="1" since=""/>

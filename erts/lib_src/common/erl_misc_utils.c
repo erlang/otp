@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1126,7 +1126,7 @@ get_cgroup_path(const char *controller, const char **path) {
          * This fails if any of the fs options contain a hyphen, but this is
          * not likely to happen on a cgroup, so we just skip such lines. */
         if (sscanf(line_buf,
-                   "%*d %*d %*d:%*d %4095s %4095s %*s %*[^-]- "
+                   "%*d %*d %*d:%*d %4095s %4095s %*s%*[^-]- "
                    "%63s %*s %511[^\n]\n",
                    root_path, mount_path,
                    fs_type, fs_flags) != 4) {

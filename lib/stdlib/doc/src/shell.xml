@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,7 +42,9 @@
       evaluated and a value is returned. The shell provides an Emacs like set of
       shortcuts for editing the text of the current line. See <seeguide marker="erts:tty">
       tty - A Command-Line Interface</seeguide> in the ERTS User's Guide
-      for a list of all available shortcuts.</p>
+      for a list of all available shortcuts.
+      You may also change the shortcuts to suit your preferences more, see
+      <seeerl marker="stdlib:edlin">edlin - line editor in the shell</seeerl>.</p>
 
     <p>A history mechanism saves previous commands and their
       values, which can then be incorporated in later commands.
@@ -957,7 +959,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="start_interactive" arity="0" since="OTP @OTP-17932@"/>
+      <name name="start_interactive" arity="0" since="OTP 26.0"/>
       <fsummary>Start the interactive shell</fsummary>
       <desc>
         <p>Starts the interactive shell if it has not already been started.
@@ -967,9 +969,9 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="start_interactive" arity="1" clause_i="1" since="OTP @OTP-17932@"/>
-      <name name="start_interactive" arity="1" clause_i="2" since="OTP @OTP-17932@"/>
-      <name name="start_interactive" arity="1" clause_i="3" since="OTP @OTP-17932@"/>
+      <name name="start_interactive" arity="1" clause_i="1" since="OTP 26.0"/>
+      <name name="start_interactive" arity="1" clause_i="2" since="OTP 26.0"/>
+      <name name="start_interactive" arity="1" clause_i="3" since="OTP 26.0"/>
       <fsummary>Start the interactive shell</fsummary>
       <desc>
         <p>Starts the interactive shell if it has not already been started.
@@ -1075,7 +1077,7 @@ q                 - quit erlang
     </func>
 
     <func>
-        <name name="whereis" arity="0" since="OTP @OTP-17932@"/>
+        <name name="whereis" arity="0" since="OTP 26.0"/>
         <fsummary>Return the current shell process.</fsummary>
         <desc>
             <p>Returns the current shell process on the node where the

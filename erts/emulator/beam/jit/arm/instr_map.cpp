@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,60 +29,50 @@ extern "C"
 #include "beam_common.h"
 }
 
-static const Uint32 INTERNAL_HASH_SALT = 3432918353;
-static const Uint32 HCONST_22 = 0x98C475E6UL;
-static const Uint32 HCONST = 0x9E3779B9;
-
-/* ARG3 = incoming hash
- * ARG6 = lower 32
- * ARG7 = upper 32
- * ARG8 = type constant
+/* ARG2 = term
  *
- * Helper function for calculating the internal hash of keys before looking
- * them up in a map.
+ * Helper for calculating the internal hash of keys before looking them up in a
+ * map. This is a manual expansion of `erts_internal_hash`, and all changes to
+ * that function must be mirrored here.
  *
- * This is essentially just a manual expansion of the `UINT32_HASH_2` macro.
- * Whenever the internal hash algorithm is updated, this and all of its users
- * must follow suit.
- *
- * Result is returned in ARG3. All arguments are clobbered. */
+ * Result in ARG3. Clobbers TMP1. */
 void BeamGlobalAssembler::emit_internal_hash_helper() {
-    a64::Gp hash = ARG3.w(), lower = ARG6.w(), upper = ARG7.w(),
-            constant = ARG8.w();
+    a64::Gp key = ARG2, key_hash = ARG3;
 
-    a.add(lower, lower, constant);
-    a.add(upper, upper, constant);
+    /* key_hash = key ^ (key >> 33); */
+    a.eor(key_hash, key, key, arm::lsr(33));
 
-#if defined(ERL_INTERNAL_HASH_CRC32C)
-    a.crc32cw(lower, hash, lower);
-    a.add(hash, hash, lower);
-    a.crc32cw(hash, hash, upper);
-#else
-    using rounds =
-            std::initializer_list<std::tuple<a64::Gp, a64::Gp, a64::Gp, int>>;
-    for (const auto &round : rounds{{lower, upper, hash, 13},
-                                    {upper, hash, lower, -8},
-                                    {hash, lower, upper, 13},
-                                    {lower, upper, hash, 12},
-                                    {upper, hash, lower, -16},
-                                    {hash, lower, upper, 5},
-                                    {lower, upper, hash, 3},
-                                    {upper, hash, lower, -10},
-                                    {hash, lower, upper, 15}}) {
-        const auto &[r_a, r_b, r_c, shift] = round;
+    /* key_hash *= 0xFF51AFD7ED558CCDull */
+    mov_imm(TMP1, 0xFF51AFD7ED558CCDull);
+    a.mul(key_hash, key_hash, TMP1);
 
-        a.sub(r_a, r_a, r_b);
-        a.sub(r_a, r_a, r_c);
+    /* key_hash ^= key_hash >> 33; */
+    a.eor(key_hash, key_hash, key_hash, arm::lsr(33));
 
-        if (shift > 0) {
-            a.eor(r_a, r_a, r_c, arm::lsr(shift));
-        } else {
-            a.eor(r_a, r_a, r_c, arm::lsl(-shift));
-        }
-    }
+    /* key_hash *= 0xC4CEB9FE1A85EC53ull */
+    mov_imm(TMP1, 0xC4CEB9FE1A85EC53ull);
+    a.mul(key_hash, key_hash, TMP1);
+
+    /* key_hash ^= key_hash >> 33; */
+    a.eor(key_hash, key_hash, key_hash, arm::lsr(33));
+
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    a.stp(ARG1, ARG2, TMP_MEM1q);
+    a.str(ARG4, TMP_MEM3q);
+
+    a.mov(ARG1, ARG3);
+    runtime_call<2>(erts_dbg_hashmap_collision_bonanza);
+    a.mov(ARG3, ARG1);
+
+    a.ldp(ARG1, ARG2, TMP_MEM1q);
+    a.ldr(ARG4, TMP_MEM3q);
+
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
 #endif
-
-    a.ret(a64::x30);
 }
 
 /* ARG1 = untagged hash map root
@@ -95,7 +85,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
     Label node_loop = a.newLabel();
 
     arm::Gp node = ARG1, key = ARG2, key_hash = ARG3, header_val = ARG4,
-            depth = TMP4, index = TMP5;
+            depth = TMP5, index = TMP6;
 
     const int header_shift =
             (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ + MAP_HEADER_ARITY_SZ);
@@ -107,8 +97,9 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
 
     a.bind(node_loop);
     {
-        Label fail = a.newLabel(), leaf_node = a.newLabel(),
-              skip_index_adjustment = a.newLabel(), update_hash = a.newLabel();
+        Label done = a.newLabel(), leaf_node = a.newLabel(),
+              skip_index_adjustment = a.newLabel(),
+              collision_node = a.newLabel();
 
         /* Find out which child we should follow, and shift the hash for the
          * next round. */
@@ -128,7 +119,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
              * Note that we jump directly to the return sequence as ZF is clear
              * at this point. */
             a.lsr(TMP1, header_val, index);
-            a.tbz(TMP1, imm(0), fail);
+            a.tbz(TMP1, imm(0), done);
 
             /* The actual offset of our entry is the number of bits set (in
              * essence "entries present") before our index in the bitmap. Clear
@@ -152,11 +143,11 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
          * word. */
         a.ldr(header_val, arm::Mem(node).post(sizeof(Eterm)));
 
-        /* After 8 nodes we've run out of the 32 bits we started with, so we
-         * need to update the hash to keep going. */
-        a.tst(depth, imm(0x7));
-        a.b_eq(update_hash);
-        a.b(node_loop);
+        /* After 8/16 nodes we've run out of the hash bits we've started with
+         * and we end up in a collision node. */
+        a.cmp(depth, imm(HAMT_MAX_LEVEL));
+        a.b_ne(node_loop);
+        a.b(collision_node);
 
         a.bind(leaf_node);
         {
@@ -166,36 +157,33 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
             a.cmp(TMP1, key);
 
             /* See comment at the jump. */
-            a.bind(fail);
+            a.bind(done);
             a.ret(a64::x30);
         }
 
-        /* After 8 nodes we've run out of the 32 bits we started with, so we
-         * must calculate a new hash to continue.
-         *
-         * This is a manual expansion `make_map_hash` from utils.c, and all
-         * changes to that function must be mirrored here. */
-        a.bind(update_hash);
+        /* A collision node is a tuple of leafs where we do linear search.*/
+        a.bind(collision_node);
         {
-            emit_enter_runtime_frame();
+            Label linear_loop = a.newLabel();
 
-            /* NOTE: ARG3 (key_hash) is always 0 at this point. */
-            a.lsr(ARG6, depth, imm(3));
-            mov_imm(ARG7, 1);
-            mov_imm(ARG8, HCONST_22);
-            a.bl(labels[internal_hash_helper]);
+            a.lsr(TMP1, header_val, imm(_HEADER_ARITY_OFFS - 3));
 
-            mov_imm(TMP1, INTERNAL_HASH_SALT);
-            a.eor(ARG3, ARG3, TMP1);
+            a.bind(linear_loop);
+            {
+                a.sub(TMP1, TMP1, imm(8));
 
-            a.mov(ARG6.w(), key.w());
-            a.lsr(ARG7, key, imm(32));
-            mov_imm(ARG8, HCONST);
-            a.bl(labels[internal_hash_helper]);
+                a.ldr(TMP2, arm::Mem(node, TMP1));
 
-            emit_leave_runtime_frame();
+                emit_untag_ptr(TMP2, TMP2);
+                a.ldp(TMP3, TMP4, arm::Mem(TMP2));
+                a.cmp(key, TMP3);
+                a.csel(ARG1, node, TMP4, imm(arm::CondCode::kNE));
+                a.b_eq(done);
 
-            a.b(node_loop);
+                a.cbnz(TMP1, linear_loop);
+            }
+
+            a.ret(a64::x30);
         }
     }
 }
@@ -359,17 +347,9 @@ void BeamGlobalAssembler::emit_i_get_map_element_shared() {
 
     a.bind(hashmap);
     {
-        emit_enter_runtime_frame();
-
-        /* Calculate the internal hash of ARG2 before diving into the HAMT. */
-        mov_imm(ARG3, INTERNAL_HASH_SALT);
-        a.mov(ARG6.w(), ARG2.w());
-        a.lsr(ARG7, ARG2, imm(32));
-        mov_imm(ARG8, HCONST);
-        a.bl(labels[internal_hash_helper]);
-
-        emit_leave_runtime_frame();
-
+        /* Calculate the internal hash of the key before diving into the
+         * HAMT. */
+        emit_internal_hash_helper();
         emit_hashmap_get_element();
     }
 }
@@ -513,7 +493,6 @@ void BeamGlobalAssembler::emit_i_get_map_element_hash_shared() {
     a.and_(TMP1, ARG4, imm(_HEADER_MAP_SUBTAG_MASK));
     a.cmp(TMP1, imm(HAMT_SUBTAG_HEAD_FLATMAP));
     a.b_ne(hashmap);
-
     emit_flatmap_get_element();
 
     a.bind(hashmap);

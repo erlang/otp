@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@
 	 match_front/2, match_rear/2,
 	 match_0_9/1]).
 
+-deprecated([{stop_clear,0, "use dbg:stop/0 instead"}]).
 
 %%% Shell callable utility
 fun2ms(ShellFun) when is_function(ShellFun) ->
@@ -582,14 +583,14 @@ c(M, F, A, Flags) ->
 	    Mref = erlang:monitor(process, Pid),
 	    receive
 		{'DOWN', Mref, _, _, Reason} ->
-		    stop_clear(),
+		    stop(),
 		    {error, Reason};
 		{Pid, Res} ->
 		    erlang:demonitor(Mref, [flush]),
 		    %% 'sleep' prevents the tracer (recv_all_traces) from
 		    %% receiving garbage {'EXIT',...} when dbg i stopped.
 		    timer:sleep(1),
-		    stop_clear(),
+		    stop(),
 		    Res
 	    end
     end.
@@ -1953,6 +1954,6 @@ h(stop) ->
 h(stop_clear) ->
     help_display(
       ["stop_clear() -> ok",
-       " - Stops the dbg server and the tracing of all processes,",
+       " - Deprecated. Stops the dbg server and the tracing of all processes,",
        "   and clears all trace patterns."]).
 

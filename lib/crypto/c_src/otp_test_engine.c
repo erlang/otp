@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2017-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2017-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@
     PACKED_OPENSSL_VERSION(MAJ,MIN,FIX,('a'-1))
 
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0) \
-    || defined(LIBRESSL_VERSION_NUMBER)
+    || (defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x3050000fL)
 # define OLD
 #endif
 

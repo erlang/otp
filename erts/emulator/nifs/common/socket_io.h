@@ -33,9 +33,19 @@
 #define ESOCK_IO_OK               0
 #define ESOCK_IO_ERR_UNSUPPORTED -1
 
-typedef int (*ESockIOInit)(unsigned int numThreads);
+typedef int (*ESockIOInit)(unsigned int     numThreads,
+                           const ESockData* dataP);
 
 typedef void (*ESockIOFinish)(void);
+
+
+typedef ERL_NIF_TERM (*ESockIOInfo)(ErlNifEnv* env);
+typedef ERL_NIF_TERM (*ESockIOCommand)(ErlNifEnv*   env,
+                                       ERL_NIF_TERM command,
+                                       ERL_NIF_TERM cdata);
+typedef ERL_NIF_TERM (*ESockIOSupports0)(ErlNifEnv* env);
+typedef ERL_NIF_TERM (*ESockIOSupports1)(ErlNifEnv*   env,
+                                         ERL_NIF_TERM key);
 
 
 typedef ERL_NIF_TERM (*ESockIOOpenWithFd)(ErlNifEnv*       env,
@@ -150,5 +160,73 @@ typedef ERL_NIF_TERM (*ESockIOSockName)(ErlNifEnv*       env,
 typedef ERL_NIF_TERM (*ESockIOPeerName)(ErlNifEnv*       env,
                                         ESockDescriptor* descP);
 
+typedef ERL_NIF_TERM (*ESockIOCancelConnect)(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     opRef);
+
+typedef ERL_NIF_TERM (*ESockIOCancelAccept)(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     sockRef,
+                                            ERL_NIF_TERM     opRef);
+
+typedef ERL_NIF_TERM (*ESockIOCancelSend)(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     sockRef,
+                                           ERL_NIF_TERM     opRef);
+
+typedef ERL_NIF_TERM (*ESockIOCancelRecv)(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     sockRef,
+                                          ERL_NIF_TERM     opRef);
+
+typedef ERL_NIF_TERM (*ESockIOSetopt)(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      int              level,
+                                      int              opt,
+                                      ERL_NIF_TERM     eVal);
+typedef ERL_NIF_TERM (*ESockIOSetoptNative)(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            int              level,
+                                            int              opt,
+                                            ERL_NIF_TERM     eVal);
+typedef ERL_NIF_TERM (*ESockIOSetoptOtp)(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              eOpt,
+                                         ERL_NIF_TERM     eVal);
+
+typedef ERL_NIF_TERM (*ESockIOGetopt)(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      int              level,
+                                      int              opt);
+typedef ERL_NIF_TERM (*ESockIOGetoptNative)(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            int              level,
+                                            int              opt,
+                                            ERL_NIF_TERM     valueSpec);
+typedef ERL_NIF_TERM (*ESockIOGetoptOtp)(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              eOpt);
+
+typedef ERL_NIF_TERM (*ESockIOIoctl_2)(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       unsigned long    req);
+typedef ERL_NIF_TERM (*ESockIOIoctl_3)(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       unsigned long    req,
+                                       ERL_NIF_TERM     arg);
+typedef ERL_NIF_TERM (*ESockIOIoctl_4)(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       unsigned long    req,
+                                       ERL_NIF_TERM     arg1,
+                                       ERL_NIF_TERM     arg2);
+
+typedef void (*ESockIODTor)(ErlNifEnv*       env,
+                            ESockDescriptor* descP);
+typedef void (*ESockIOStop)(ErlNifEnv*       env,
+                            ESockDescriptor* descP);
+typedef void (*ESockIODown)(ErlNifEnv*           env,
+                            ESockDescriptor*     descP,
+                            const ErlNifPid*     pidP,
+                            const ErlNifMonitor* monP);
 
 #endif // SOCKET_IO_H__

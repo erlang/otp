@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ suite() -> [{ct_hooks,[ts_install_cth]},
             {timetrap,{seconds,60}}].
 
 all() -> [tc_basic, tc_no_trace, tc_api_profile, tc_rle_profile,
-         tc_budget_option, tc_write, tc_file_option, tc_check_profiles].
+          tc_budget_option, tc_write, tc_file_option, tc_check_profiles].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -110,7 +110,9 @@ tc_basic(_Config) ->
     ok = ssl_trace:stop(),
     undefined = whereis(ssl_trace),
 
-    {ok, [api, crt, csp, hbn, kdt, rle, ssn]} = ssl_trace:start(),
+    {ok, EnabledProfiles} = ssl_trace:start(),
+    [true = lists:member(ExpectedProfile, EnabledProfiles) ||
+        ExpectedProfile <- [api, crt, csp, hbn, kdt, rle, ssn]],
     {ok, [api]} = ssl_trace:on(api),
     {ok, []} = ssl_trace:off(api),
     ok = ssl_trace:stop(),
@@ -138,7 +140,6 @@ tc_api_profile(Config) ->
         #{
           call =>
               [{"    (server) -> ssl:handshake/2", ssl, handshake},
-               {"    (client) -> ssl_gen_statem:connect/8", ssl_gen_statem, connect},
                {"    (server) -> ssl_gen_statem:initial_hello/3",
                 ssl_gen_statem, initial_hello},
                {"    (client) -> ssl_gen_statem:initial_hello/3",
@@ -161,7 +162,8 @@ tc_api_profile(Config) ->
                "rle ('?') -> ssl:listen/2 (*server) Args",
                "rle ('?') -> ssl:connect/3 (*client) Args",
                "rle ('?') -> tls_sender:init/3 (*server)",
-               "rle ('?') -> tls_sender:init/3 (*client)"]},
+               "rle ('?') -> tls_sender:init/3 (*client)",
+               "api (client) -> ssl_gen_statem:connect/8"]},
     TracesAfterDisconnect =
         #{
           call =>
@@ -197,8 +199,8 @@ tc_api_profile(Config) ->
     {ok, Delta} = ssl_trace:off(Off),
     [Server, Client] = ssl_connect(Config),
     UnhandledTraceCnt1 =
-        #{call => 0, processed => 0, exception_from => no_trace_received,
-          return_from => 0},
+        #{call => 2, processed => 0, exception_from => no_trace_received,
+          return_from => 2},
     check_trace_map(Ref, TracesAfterConnect, UnhandledTraceCnt1),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
@@ -264,7 +266,7 @@ tc_budget_option(Config) ->
         true ->
             ok;
         _ ->
-            ?FAIL("Expected ~w traces, but found ~w",
+            ?CT_FAIL("Expected ~w traces, but found ~w",
                   [ExpectedTraceCnt, ActualTraceCnt])
     end.
 
@@ -283,7 +285,7 @@ tc_file_option(Config) ->
         true ->
             ok;
         _ ->
-            ?FAIL("Expected ~w traces, but found ~w",
+            ?CT_FAIL("Expected ~w traces, but found ~w",
                   [ExpectedTraceCnt, ActualTraceCnt])
     end.
 
@@ -300,7 +302,7 @@ tc_write(_Config) ->
         true ->
             ok;
         _ ->
-            ?FAIL("Expected ~w traces, but found ~w",
+            ?CT_FAIL("Expected ~w traces, but found ~w",
                   [ExpectedTraceCnt, ActualTraceCnt])
     end.
 
@@ -370,7 +372,7 @@ receive_map(Ref,
 check_trace_map(Ref, ExpectedTraces) ->
     Received = receive_map(Ref),
     L = [check_key(Type, ExpectedTraces, maps:get(Type, Received)) ||
-                  Type <- maps:keys(Received)],
+            Type <- maps:keys(Received)],
     maps:from_list(L).
 
 check_trace_map(Ref, ExpectedTraces, ExpectedRemainders) ->
@@ -379,14 +381,14 @@ check_trace_map(Ref, ExpectedTraces, ExpectedRemainders) ->
         true ->
             ok;
         _ ->
-            ?FAIL("Expected trace remainders = ~w ~n"
+            ?CT_FAIL("Expected trace remainders = ~w ~n"
                  "Actual trace remainders = ~w",
                  [ExpectedRemainders, ActualRemainders])
     end.
 
 check_key(Type, ExpectedTraces, ReceivedPerType) ->
     ReceivedPerTypeCnt = length(ReceivedPerType),
-    ?LOG("Received Type = ~w Messages# = ~w", [Type, ReceivedPerTypeCnt]),
+    ?CT_LOG("Received Type = ~w Messages# = ~w", [Type, ReceivedPerTypeCnt]),
     case ReceivedPerTypeCnt > 0 of
         true ->
             ExpectedPerType = maps:get(Type, ExpectedTraces, []),
@@ -413,7 +415,7 @@ check_key(Type, ExpectedTraces, ReceivedPerType) ->
                 case Result of
                     false ->
                         F = "Trace not found: {~s, ~w, ~w}",
-                        ?FAIL(F, [ExpectedString, Module, Function]);
+                        ?CT_FAIL(F, [ExpectedString, Module, Function]);
                     _ -> ok
                 end,
                 Result
@@ -431,7 +433,7 @@ check_key(Type, ExpectedTraces, ReceivedPerType) ->
                 case Result of
                     false ->
                         F = "Processed trace not found: ~s",
-                        ?FAIL(F, [ExpectedString]);
+                        ?CT_FAIL(F, [ExpectedString]);
                     _ -> ok
                 end,
                 Result
@@ -450,7 +452,7 @@ check_trace(processed, ExpectedPerType, ReceivedPerType) ->
     P1 = ?CHECK_PROCESSED_TRACE([_Timestamp, _Pid, Txt], Expected),
     true = lists:all(P1, ExpectedPerType);
 check_trace(Type, _ExpectedPerType, _ReceivedPerType) ->
-    ?FAIL("Type = ~w not checked", [Type]),
+    ?CT_FAIL("Type = ~w not checked", [Type]),
     ok.
 
 count_line(Filename) ->
@@ -460,7 +462,7 @@ count_line(Filename) ->
             file:close(IoDevice),
             Count;
         {error, Reason} ->
-            ?PAL("~s open error  reason:~s~n", [Filename, Reason]),
+            ?CT_PAL("~s open error  reason:~s~n", [Filename, Reason]),
             ct:fail(Reason)
     end.
 
@@ -471,7 +473,7 @@ count_line(IoDevice, Count) ->
     end.
 
 ssl_connect(Config) when is_list(Config) ->
-    ?LOG("Establishing connection for producing traces", []),
+    ?CT_LOG("Establishing connection for producing traces", []),
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -489,5 +491,5 @@ ssl_connect(Config) when is_list(Config) ->
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
 				   {options, [{keepalive, true},{active, false}
 					      | ClientOpts]}]),
-    ?LOG("Testcase ~p, Client ~p  Server ~p ~n", [self(), Client, Server]),
+    ?CT_LOG("Testcase ~p, Client ~p  Server ~p ~n", [self(), Client, Server]),
     [Server, Client].

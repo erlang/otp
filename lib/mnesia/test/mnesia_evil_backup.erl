@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ global_backup_checkpoint(Config) when is_list(Config) ->
     ?match(ok, mnesia:backup_checkpoint(cp_name, File)),
     ?match({error, _}, mnesia:backup_checkpoint(cp_name_nonexist, File)),
     ?match(ok, mnesia:backup_checkpoint(cp_name, File2, mnesia_backup)),
-    ?match({error, _}, file:delete(File)),
+    ?match(ok, file:delete(File)),
     ?match(ok, file:delete(File2)),
     ?verify_mnesia(Nodes, []).
 
@@ -761,7 +761,10 @@ sops_with_checkpoint(Config) when is_list(Config) ->
     ?match(ok, mnesia:dirty_write({Tab,8,-8})),
 
     ?match({atomic,ok}, mnesia:delete_table(Tab)),
+    ?match(true, filelib:is_file(File2)),
     ?match({error,_}, mnesia:backup_checkpoint(cp2, File2)),
+    ?match(true, filelib:is_file(File2)),
+
     ?match({'EXIT',_}, mnesia:dirty_write({Tab,9,-9})),
 
     ?match({atomic,_}, mnesia:restore(File1, [{default_op, recreate_tables}])),
@@ -772,6 +775,7 @@ sops_with_checkpoint(Config) when is_list(Config) ->
 		     end
 	   end,
     [Test(N) || N <- mnesia:dirty_all_keys(Tab)],
+    ok = file:delete(File2),
     ?match({aborted,enoent}, mnesia:restore(File2, [{default_op, recreate_tables}])),
 
     %% Mnesia crashes when deleting a table during backup

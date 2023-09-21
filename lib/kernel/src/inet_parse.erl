@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -386,14 +386,9 @@ port_proto([$/ | Proto], Port) when Port =/= 0 ->
 %% Check if a String is a string with visible characters #21..#7E
 %% visible_string(String) -> Bool
 %%
-visible_string([H|T]) ->
-    is_vis1([H|T]);
-visible_string(_) ->
-    false.
-
-is_vis1([C | Cs]) when C >= 16#21, C =< 16#7e -> is_vis1(Cs);
-is_vis1([]) -> true;
-is_vis1(_) -> false.
+visible_string([C | Cs]) when C >= 16#21, C =< 16#7e -> visible_string(Cs);
+visible_string([]) -> true;
+visible_string(_) -> false.
 
 %%
 %% Check if a String is a domain name according to RFC XXX.

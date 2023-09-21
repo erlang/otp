@@ -32,6 +32,71 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 2.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed the type specification for
+	    <c>instrument:carriers/0,1</c></p>
+          <p>
+	    Own Id: OTP-18499 Aux Id: PR-6946 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>dbg:tracer(file, Filename)</c> as a convenient way
+	    to trace to a file in clean text.</p>
+          <p>
+	    Own Id: OTP-18211 Aux Id: PR-6143 </p>
+        </item>
+        <item>
+	    <p> Handling of <c>on_load</c> modules during boot has
+	    been improved by adding an extra step in the boot order
+	    for embedded mode that runs all <c>on_load</c> handlers,
+	    instead of relying on explicit invocation of them, later,
+	    when the kernel supervision tree starts. </p><p> This is
+	    mostly a code improvement and OTP internal simplification
+	    to avoid future bugs and to simplify code maintenance.
+	    </p>
+          <p>
+	    Own Id: OTP-18447</p>
+        </item>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+        <item>
+	    <p>The <c>instrument</c> module has been moved from
+	    <c>tools</c> to <c>runtime_tools</c>.</p>
+          <p>
+	    Own Id: OTP-18487 Aux Id: PR-6829 </p>
+        </item>
+        <item>
+          <p>
+	    Removed the experimental <c>erts_alloc_config</c> module.
+	    It no longer produced good configurations and cannot be
+	    fixed in a reasonably backwards compatible manner. It has
+	    since OTP 25 been deprecated and scheduled for removal in
+	    OTP 26.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18549 Aux Id: PR-7105 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.19</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +49,8 @@
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
 
-module(Module, Opts) ->
+module(Module0, Opts) ->
+    {Module,NifInfo} = isolate_nifs(Module0),
     FuncDb = case proplists:get_value(no_module_opt, Opts, false) of
                  false -> build_func_db(Module);
                  true -> #{}
@@ -64,10 +65,12 @@ module(Module, Opts) ->
     Phases = [{once, Order, prologue_passes(Opts)},
               {module, module_passes(Opts)},
               {fixpoint, Order, repeated_passes(Opts)},
-              {once, Order, epilogue_passes(Opts)}],
+              {once, Order, early_epilogue_passes(Opts)},
+              {module, epilogue_module_passes(Opts)},
+              {once, Order, late_epilogue_passes(Opts)}],
 
     StMap = run_phases(Phases, StMap0, FuncDb),
-    {ok, finish(Module, StMap)}.
+    {ok, restore_nifs(finish(Module, StMap), NifInfo)}.
 
 run_phases([{module, Passes} | Phases], StMap0, FuncDb0) ->
     {StMap, FuncDb} = compile:run_sub_passes(Passes, {StMap0, FuncDb0}),
@@ -270,18 +273,32 @@ repeated_passes(Opts) ->
           ?PASS(ssa_opt_tail_phis),
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_tuple_size),
+          ?PASS(ssa_opt_merge_updates),
           ?PASS(ssa_opt_record),
           ?PASS(ssa_opt_try),
           ?PASS(ssa_opt_type_continue)],        %Must run after ssa_opt_dead to
                                                 %clean up phi nodes.
     passes_1(Ps, Opts).
 
-epilogue_passes(Opts) ->
+epilogue_module_passes(Opts) ->
+    Ps0 = [{ssa_opt_alias,
+            fun({StMap, FuncDb}) ->
+                    beam_ssa_alias:opt(StMap, FuncDb)
+            end},
+           {ssa_opt_private_append,
+            fun({StMap, FuncDb}) ->
+                    beam_ssa_private_append:opt(StMap, FuncDb)
+            end}],
+    passes_1(Ps0, Opts).
+
+early_epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
-          ?PASS(ssa_opt_sw),
+          ?PASS(ssa_opt_sw)],
+    passes_1(Ps, Opts).
 
-          %% Run live one more time to clean up after the previous
+late_epilogue_passes(Opts) ->
+    Ps = [%% Run live one more time to clean up after the previous
           %% epilogue passes.
           ?PASS(ssa_opt_live),
           ?PASS(ssa_opt_bsm),
@@ -318,13 +335,7 @@ passes_1(Ps, Opts0) ->
 -spec build_func_db(#b_module{}) -> func_info_db().
 build_func_db(#b_module{body=Fs,attributes=Attr,exports=Exports0}) ->
     Exports = fdb_exports(Attr, Exports0),
-    try
-        fdb_fs(Fs, Exports, #{})
-    catch
-        %% All module-level optimizations are invalid when a NIF can override a
-        %% function, so we have to bail out.
-        throw:load_nif -> #{}
-    end.
+    fdb_fs(Fs, Exports, #{}).
 
 fdb_exports([{on_load, L} | Attrs], Exports) ->
     %% Functions marked with on_load must be treated as exported to prevent
@@ -365,15 +376,8 @@ fdb_is([#b_set{op=call,
                args=[#b_local{}=Callee | _]} | Is],
        Caller, FuncDb) ->
     fdb_is(Is, Caller, fdb_update(Caller, Callee, FuncDb));
-fdb_is([#b_set{op=call,
-               args=[#b_remote{mod=#b_literal{val=erlang},
-                               name=#b_literal{val=load_nif}},
-                     _Path, _LoadInfo]} | _Is], _Caller, _FuncDb) ->
-    throw(load_nif);
-fdb_is([#b_set{op=MakeFun,
-               args=[#b_local{}=Callee | _]} | Is],
-       Caller, FuncDb) when MakeFun =:= make_fun;
-                            MakeFun =:= old_make_fun ->
+fdb_is([#b_set{op=make_fun,args=[#b_local{}=Callee | _]} | Is],
+       Caller, FuncDb) ->
     %% The make_fun instruction's type depends on the return type of the
     %% function in question, so we treat this as a function call.
     fdb_is(Is, Caller, fdb_update(Caller, Callee, FuncDb));
@@ -453,6 +457,50 @@ ssa_opt_ranges({#opt_st{ssa=Blocks}=St, FuncDb}) ->
     {St#opt_st{ssa=beam_ssa_type:opt_ranges(Blocks)}, FuncDb}.
 
 %%%
+%%% Merges updates that cannot fail, for example two consecutive updates of the
+%%% same record.
+%%%
+
+ssa_opt_merge_updates({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    Linear = merge_updates_bs(Linear0),
+    {St#opt_st{ssa=Linear}, FuncDb}.
+
+%% As update_record is always converted from setelement/3 operations they can
+%% only occur alone in their blocks at this point, so we don't need to look
+%% deeper than this.
+merge_updates_bs([{LblA,
+                   #b_blk{is=[#b_set{op=update_record,
+                                     dst=DstA,
+                                     args=[SpecA, Size, Src | ListA]}],
+                          last=#b_br{bool=#b_literal{val=true},
+                                     succ=LblB}}=BlkA},
+                  {LblB,
+                   #b_blk{is=[#b_set{op=update_record,
+                                     args=[SpecB, Size, DstA | ListB]}=Update0]
+                          }=BlkB} | Bs]) ->
+    Spec = case SpecA =:= SpecB of
+               true -> SpecA;
+               false -> #b_literal{val=copy}
+           end,
+    List = merge_update_record_lists(ListA ++ ListB, #{}),
+    Update = Update0#b_set{args=[Spec, Size, Src | List]},
+
+    %% Note that we retain the first update_record in case it's used elsewhere,
+    %% it's too rare to warrant special handling here.
+    [{LblA, BlkA}, {LblB, BlkB#b_blk{is=[Update]}}| merge_updates_bs(Bs)];
+merge_updates_bs([{Lbl, Blk} | Bs]) ->
+    [{Lbl, Blk} | merge_updates_bs(Bs)];
+merge_updates_bs([]) ->
+    [].
+
+merge_update_record_lists([Index, Value | List], Updates) ->
+    merge_update_record_lists(List, Updates#{ Index => Value });
+merge_update_record_lists([], Updates) ->
+    maps:fold(fun(K, V, Acc) ->
+                      [K, V | Acc]
+              end, [], Updates).
+
+%%%
 %%% Split blocks before certain instructions to enable more optimizations.
 %%%
 %%% Splitting before element/2 enables the optimization that swaps
@@ -467,7 +515,6 @@ ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
            (#b_set{op=call}) -> true;
            (#b_set{op=bs_init_writable}) -> true;
            (#b_set{op=make_fun}) -> true;
-           (#b_set{op=old_make_fun}) -> true;
            (_) -> false
         end,
     RPO = beam_ssa:rpo(Blocks0),
@@ -667,7 +714,7 @@ opt_tail_phi_arg({PredL,Sub0}, Is0, Ret0, {Blocks0,Count0,Cost0}) ->
     {Blocks,Count,Cost}.
 
 new_names([#b_set{dst=Dst}=I|Is], Sub0, Count0, Acc) ->
-    {NewDst,Count} = new_var(Dst, Count0),
+    {NewDst,Count} = new_var(Count0),
     Sub = Sub0#{Dst=>NewDst},
     new_names(Is, Sub, Count, [I#b_set{dst=NewDst}|Acc]);
 new_names([], Sub, Count, Acc) ->
@@ -975,7 +1022,7 @@ cse_successors([#b_set{op={succeeded,_},args=[Src]},Bif|_], Blk, EsSucc, M0) ->
             %% We must remove the substitution for Src from the failure branch.
             #b_blk{last=#b_br{succ=Succ,fail=Fail}} = Blk,
             M = cse_successors_1([Succ], EsSucc, M0),
-            EsFail = maps:filter(fun(_, Val) -> Val =/= Src end, EsSucc),
+            EsFail = #{Var => Val || Var := Val <- EsSucc, Val =/= Src},
             cse_successors_1([Fail], EsFail, M);
         false ->
             %% There can't be any replacement for Src in EsSucc. No need for
@@ -1193,8 +1240,9 @@ are_map_keys_literals([]) ->
 %%% bother implementing a new instruction?
 %%%
 
+-type fr_status() :: 'original' | 'copy'.
 -record(fs,
-        {regs=#{} :: #{beam_ssa:b_var():=beam_ssa:b_var()},
+        {regs=#{} :: #{beam_ssa:b_var() := {beam_ssa:b_var(),fr_status()}},
          non_guards :: gb_sets:set(beam_ssa:label()),
          bs :: beam_ssa:block_map(),
          preds :: #{beam_ssa:label() => [beam_ssa:label()]}
@@ -1287,7 +1335,7 @@ float_number([B|Bs0], Count0) ->
 float_conv([{L,#b_blk{is=Is0,last=Last}=Blk0}|Bs0], Fail, Count0) ->
     case Is0 of
         [#b_set{op={float,convert}}=Conv] ->
-            {Bool,Count1} = new_var('@ssa_bool', Count0),
+            {Bool,Count1} = new_var(Count0),
             Succeeded = #b_set{op={succeeded,body},dst=Bool,
                                args=[Conv#b_set.dst]},
             Is = [Conv,Succeeded],
@@ -1350,7 +1398,7 @@ float_optimizable_is(_) ->
 float_opt_is([#b_set{op={succeeded,_},args=[Src]}=I0],
              #fs{regs=Rs}=Fs, Count, Acc) ->
     case Rs of
-        #{Src:=Fr} ->
+        #{Src := {Fr,_}} ->
             I = I0#b_set{args=[Fr]},
             {reverse(Acc, [I]),Fs,Count};
         #{} ->
@@ -1385,9 +1433,9 @@ float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0,anno=Anno}=I0,
               Ts, ArgTypes, #fs{regs=Rs0}=Fs, Count0) ->
     {As1,Rs1,Count1} = float_load(As0, Ts, ArgTypes, Anno, Rs0, Count0, []),
     {As,Is0} = unzip(As1),
-    {FrDst,Count2} = new_var('@fr', Count1),
+    {FrDst,Count2} = new_var(Count1),
     I = I0#b_set{op={float,Op},dst=FrDst,args=As},
-    Rs = Rs1#{Dst=>FrDst},
+    Rs = Rs1#{Dst => {FrDst,original}},
     Is = append(Is0) ++ [I],
     {Is,Fs#fs{regs=Rs},Count2}.
 
@@ -1399,17 +1447,17 @@ float_load([], [], [], _Anno, Rs, Count, Acc) ->
 
 float_reg_arg(A, T, AT, Anno0, Rs, Count0) ->
     case Rs of
-        #{A:=Fr} ->
+        #{A := {Fr,_}} ->
             {{Fr,[]},Rs,Count0};
         #{} ->
-            {Dst,Count} = new_var('@fr_copy', Count0),
+            {Dst,Count} = new_var(Count0),
             I0 = float_load_reg(T, A, Dst),
             Anno = case AT of
-                       any-> Anno0;
+                       any -> Anno0;
                        _ -> Anno0#{arg_types => #{0 => AT}}
                    end,
             I = I0#b_set{anno=Anno},
-            {{Dst,[I]},Rs#{A=>Dst},Count}
+            {{Dst,[I]},Rs#{A => {Dst,copy}},Count}
     end.
 
 float_load_reg(convert, #b_var{}=Src, Dst) ->
@@ -1427,9 +1475,9 @@ float_load_reg(float, Src, Dst) ->
     #b_set{op={float,put},dst=Dst,args=[Src]}.
 
 float_flush_regs(#fs{regs=Rs}) ->
-    maps:fold(fun(_, #b_var{name={'@fr_copy',_}}, Acc) ->
+    maps:fold(fun(_, {#b_var{},copy}, Acc) ->
                       Acc;
-                 (Dst, Fr, Acc) ->
+                 (Dst, {Fr,original}, Acc) ->
                       [#b_set{op={float,get},dst=Dst,args=[Fr]}|Acc]
               end, [], Rs).
 
@@ -2302,7 +2350,7 @@ opt_tup_size_1(_, _, _, Count, Acc) ->
 opt_tup_size_2(PreIs, TupleSizeIs, PreL, EqL, Tuple, Fail, Count0, Acc) ->
     IsTupleL = Count0,
     TupleSizeL = Count0 + 1,
-    Bool = #b_var{name={'@ssa_bool',Count0+2}},
+    Bool = #b_var{name=Count0+2},
     Count = Count0 + 3,
 
     True = #b_literal{val=true},
@@ -2343,7 +2391,7 @@ opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
     case Sw0 of
         #b_switch{arg=Arg,fail=Fail,list=[{Lit,Lbl}]} ->
             %% Rewrite a single value switch to a br.
-            {Bool,Count} = new_var('@ssa_bool', Count0),
+            {Bool,Count} = new_var(Count0),
             IsEq = #b_set{op={bif,'=:='},dst=Bool,args=[Arg,Lit]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsEq],last=Br},
@@ -2352,7 +2400,7 @@ opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
                   list=[{#b_literal{val=B1},Lbl},{#b_literal{val=B2},Lbl}]}
           when B1 =:= not B2 ->
             %% Replace with is_boolean test.
-            {Bool,Count} = new_var('@ssa_bool', Count0),
+            {Bool,Count} = new_var(Count0),
             IsBool = #b_set{op={bif,is_boolean},dst=Bool,args=[Arg]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsBool],last=Br},
@@ -3007,6 +3055,8 @@ collect_arg_literals([V|Vs], Info, X, Acc0) ->
 collect_arg_literals([], _Info, _X, Acc) ->
     Acc.
 
+unfold_literals([?EXCEPTION_BLOCK|Ls], LitMap, SafeMap, Blocks) ->
+    unfold_literals(Ls, LitMap, SafeMap,Blocks);
 unfold_literals([L|Ls], LitMap, SafeMap0, Blocks0) ->
     {Blocks,Safe} =
         case map_get(L, SafeMap0) of
@@ -3050,11 +3100,10 @@ unfold_lit_is([#b_set{op=match_fail,
     {reverse(Acc, [I | Is]), false};
 unfold_lit_is([#b_set{op=Op,args=Args0}=I0|Is], LitMap, Acc) ->
     %% Using a register instead of a literal is a clear win only for
-    %% `call` and `old_make_fun` instructions. Substituting into other
-    %% instructions is unlikely to be an improvement.
+    %% `call` instructions. Substituting into other instructions is
+    %% unlikely to be an improvement.
     Unfold = case Op of
                  call -> true;
-                 old_make_fun -> true;
                  _ -> false
              end,
     I = case Unfold of
@@ -3433,8 +3482,8 @@ is_viable_match(#b_set{op=bs_match,args=Args}) ->
 build_bs_ensure_match(L, {_,Size,Unit}, Count0, Blocks0) ->
     BsMatchL = Count0,
     Count1 = Count0 + 1,
-    {NewCtx,Count2} = new_var('@context', Count1),
-    {SuccBool,Count} = new_var('@ssa_bool', Count2),
+    {NewCtx,Count2} = new_var(Count1),
+    {SuccBool,Count} = new_var(Count2),
 
     BsMatchBlk0 = map_get(L, Blocks0),
 
@@ -3512,10 +3561,127 @@ sub_arg(Old, Sub) ->
         #{} -> Old
     end.
 
-new_var(#b_var{name={Base,N}}, Count) ->
-    true = is_integer(N),                       %Assertion.
-    {#b_var{name={Base,Count}},Count+1};
-new_var(#b_var{name=Base}, Count) ->
-    {#b_var{name={Base,Count}},Count+1};
-new_var(Base, Count) when is_atom(Base) ->
-    {#b_var{name={Base,Count}},Count+1}.
+new_var(Count) ->
+    {#b_var{name=Count},Count+1}.
+
+%%%
+%%% NIF handling
+%%%
+%%% NIFs are problematic for the SSA optimization passes as when a
+%%% loaded NIF replaces a function, essentially all bets are off as
+%%% callers of the NIF cannot make any assumptions on the result of
+%%% calling the NIF.
+%%%
+%%% A safe way to handle NIFs, but still allow optimization of
+%%% functions not calling NIFs is to make calls to NIFs look like
+%%% external calls. For the beam_ssa_opt compiler pass this is handled
+%%% by the functions isolate_nifs/1 and restore_nifs/2.
+%%%
+%%% The function isolate_nifs/1 transforms the input #b_module{} by
+%%% rewriting all calls to NIFs in the module to calls to external
+%%% functions with the same names.  As this also removes all callers
+%%% to the NIF, all non-exported NIFs are forcibly exported, to avoid
+%%% them being removed as dead code.
+%%%
+%%% As all passes know how handle external calls, this allows for safe
+%%% optimization of the module. That a NIF function can contain BEAM
+%%% code which calls other functions in the module is not a problem,
+%%% at worst it leads to missed optimizations.
+%%%
+%%% When all sub-passes of beam_ssa_opt have been executed
+%%% restore_nifs/2 undoes the module transforms done by
+%%% isolate_nifs/1. To avoid extra book-keeping to keep track of
+%%% rewritten calls for use by restore_nifs/2, the module to which the
+%%% calls are redirected is given a name, '\nnifs', which cannot be
+%%% created by the user.
+%%%
+-define(ISOLATION_MODULE, #b_literal{val='\nnifs'}).
+
+isolate_nifs(#b_module{body=Body0, exports=Exports0}=Module0) ->
+    %% Scan to find NIFs
+    NIFs = foldl(fun(#b_function{}=F, Acc) ->
+                         case is_nif(F) of
+                             true ->
+                                 sets:add_element(get_func_id(F), Acc);
+                             false ->
+                                 Acc
+                         end
+                 end, sets:new([{version,2}]), Body0),
+
+    %% Determine the set of previously not exported NIFs which should
+    %% be exported.
+    ExportsSet = foldl(fun({N,A}, Acc) ->
+                               FA = #b_local{name=#b_literal{val=N},arity=A},
+                               sets:add_element(FA, Acc)
+                       end, sets:new([{version,2}]), Exports0),
+    NIFsToExport = sets:subtract(NIFs, ExportsSet),
+    Exports = Exports0 ++ [{N,A}
+                           || #b_local{name=#b_literal{val=N},arity=A}
+                                  <- sets:to_list(NIFsToExport)],
+
+    %% Replace all calls to the NIFs with a call to an external
+    %% function with the same name, but with a module name which
+    %% cannot be created by the user ('\nnifs').
+    CallReplacer =
+        fun(#b_set{op=call,args=[#b_local{name=N,arity=A}=Callee|Rest]}=I)->
+                case sets:is_element(Callee, NIFs) of
+                    true ->
+                        Args = [#b_remote{mod=?ISOLATION_MODULE,
+                                          name=N,arity=A}|Rest],
+                        I#b_set{args=Args};
+                    false ->
+                        I
+                end;
+           (I) ->
+                I
+        end,
+    #b_module{body=Body} = map_module_instrs(CallReplacer, Module0),
+    NIFsAsExternal = sets:fold(fun(#b_local{name=N,arity=A}, Acc) ->
+                                       R = #b_remote{mod=?ISOLATION_MODULE,
+                                                     name=N,arity=A},
+                                       sets:add_element(R, Acc)
+                               end, sets:new([{version,2}]), NIFs),
+    {Module0#b_module{exports=Exports,body=Body},
+     {NIFsToExport, NIFsAsExternal}}.
+
+map_module_instrs(Fun, #b_module{body=Body}=Module) ->
+    Module#b_module{body=[map_module_instrs_f(Fun, F) || F <- Body]}.
+
+map_module_instrs_f(Fun, #b_function{bs=Bs}=F) ->
+    F#b_function{bs=#{Lbl => map_module_instrs_b(Fun, Blk) || Lbl:=Blk <- Bs}}.
+
+map_module_instrs_b(Fun, #b_blk{is=Is}=Blk) ->
+    Blk#b_blk{is=[Fun(I) || I <- Is]}.
+
+restore_nifs(#b_module{exports=Exports0}=Module0, {NIFsToExport, NIFs}) ->
+    %% Remove the NIFs which where were forcibly exported by
+    %% isolate_nifs/1 from the export list.
+    Exports = [E
+               || E={N,A} <- Exports0,
+                  not sets:is_element(#b_local{name=#b_literal{val=N},
+                                               arity=A}, NIFsToExport)],
+
+    %% Restore all calls that were turned into calls to external
+    %% functions in the '\nnifs' module by converting them to local
+    %% calls.
+    CallRestorer =
+        fun(#b_set{op=call,args=[#b_remote{name=N,arity=A}=Callee|Rest]}=I)->
+                case sets:is_element(Callee, NIFs) of
+                    true ->
+                        I#b_set{args=[#b_local{name=N,arity=A}|Rest]};
+                    false ->
+                        I
+                end;
+           (I) ->
+                I
+        end,
+    #b_module{body=Body} = map_module_instrs(CallRestorer, Module0),
+    Module0#b_module{exports=Exports,body=Body}.
+
+%%%
+%%% Predicate to check if a function is the stub for a nif.
+%%%
+is_nif(#b_function{bs=#{0:=#b_blk{is=[#b_set{op=nif_start}|_]}}}) ->
+    true;
+is_nif(_) ->
+    false.

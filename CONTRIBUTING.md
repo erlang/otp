@@ -154,7 +154,7 @@ If you want to change the setting only for the Erlang mode, you can use a hook l
 ### After you have submitted your pull request
 
 * Follow the discussion following your pull request, answer questions, discuss and implement
-changes requested by reviewers.
+changes requested by reviewers. Smaller changes should be squashed into their associated commits.
 
 * If your pull requests introduces new public functions, they need to be tagged with the
 OTP release in which they _will_ appear in the `since` tag in the functions' documentation.

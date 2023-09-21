@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@
 
 -export([all/0, suite/0, groups/0]).
 
--export([unused_vars_warn_basic/1,
+-export([singleton_type_var_errors/1,
+         unused_vars_warn_basic/1,
          unused_vars_warn_lc/1,
          unused_vars_warn_rec/1,
          unused_vars_warn_fun/1,
@@ -81,7 +82,9 @@
          unused_type2/1,
          eep49/1,
          redefined_builtin_type/1,
-         tilde_k/1]).
+         tilde_k/1,
+         match_float_zero/1,
+         undefined_module/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -111,7 +114,10 @@ all() ->
      underscore_match, unused_record, unused_type2,
      eep49,
      redefined_builtin_type,
-     tilde_k].
+     tilde_k,
+     singleton_type_var_errors,
+     match_float_zero,
+     undefined_module].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -900,6 +906,126 @@ unused_import(Config) when is_list(Config) ->
            ">>,
 	   [warn_unused_import],
 	   {warnings,[{{1,22},erl_lint,{unused_import,{{foldl,3},lists}}}]}}],
+    [] = run(Config, Ts),
+    ok.
+
+%% Test singleton type variables
+singleton_type_var_errors(Config) when is_list(Config) ->
+    Ts = [{singleton_error1,
+           <<"-spec test_singleton_typevars_in_union(Opts) -> term() when
+                      Opts :: {ok, Unknown} | {error, Unknown}.
+                test_singleton_typevars_in_union(_) ->
+                  error.
+             ">>,
+           [],
+           {warnings,[{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]}},
+
+          {singleton_error2,
+           <<"-spec test_singleton_list_typevars_in_union([Opts]) -> term() when
+                      Opts :: {ok, Unknown} | {error, Unknown}.
+                test_singleton_list_typevars_in_union(_) ->
+                    error.">>,
+           [],
+           {warnings,[{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]}},
+
+          {singleton_error3,
+           <<"-spec test_singleton_list_typevars_in_list([Opts]) -> term() when
+                      Opts :: {ok, Unknown}.
+                test_singleton_list_typevars_in_list(_) ->
+                    error.">>,
+           [],
+           {errors,
+            [{{2,36},erl_lint,{singleton_typevar,'Unknown'}}],[]}},
+
+          {singleton_error4,
+           <<"-spec test_singleton_list_typevars_in_list_with_type_subst([{ok, Unknown}]) -> term().
+                test_singleton_list_typevars_in_list_with_type_subst(_) ->
+                    error.">>,
+           [],
+           {errors,[{{1,86},erl_lint,{singleton_typevar,'Unknown'}}],[]}},
+
+          {singleton_error5,
+           <<"-spec test_singleton_buried_typevars_in_union(Opts) -> term() when
+                      Opts :: {ok, Foo} | {error, Foo},
+                      Foo  :: {true, X} | {false, X}.
+                test_singleton_buried_typevars_in_union(_) ->
+                    error.">>,
+           [],
+           {warnings,[{{3,38},erl_lint,{singleton_typevar,'X'}}]}},
+
+          {singleton_error6,
+           <<"-spec test_multiple_subtypes_to_same_typevar(Opts) -> term() when
+                      Opts :: {Foo, Bar} | Y,
+                      Foo  :: X,
+                      Bar  :: X,
+                      Y    :: Z.
+                test_multiple_subtypes_to_same_typevar(_) ->
+                    error.">>,
+           [],
+           {errors,[{{5,31},erl_lint,{singleton_typevar,'Z'}}],[]}},
+
+          {singleton_error7,
+           <<"-spec test_duplicate_non_terminal_var_in_union(Opts) -> term() when
+                      Opts :: {ok, U, U} | {error, U, U},
+                      U    :: Foo.
+                test_duplicate_non_terminal_var_in_union(_) ->
+                    error.">>,
+           [],
+           {errors,[{{3,31},erl_lint,{singleton_typevar,'Foo'}}],[]}},
+
+          {singleton_error8,
+           <<"-spec test_unused_outside_union(Opts) -> term() when
+                    Unused :: Unknown,
+                    A :: Unknown,
+                    Opts :: {Unknown | A}.
+              test_unused_outside_union(_) ->
+                  error.">>,
+           [],
+           {errors,[{{2,21},erl_lint,{singleton_typevar,'Unused'}}],[]}},
+
+          {singleton_disabled_warning,
+           <<"-spec test_singleton_typevars_in_union(Opts) -> term() when
+                      Opts :: {ok, Unknown} | {error, Unknown}.
+                test_singleton_typevars_in_union(_) ->
+                  error.
+             ">>,
+           [nowarn_singleton_typevar],
+           []},
+
+          {singleton_ok1,
+           <<"-spec test_multiple_occurrences_singleton(Opts) -> term() when
+                      Opts :: {Foo, Foo}.
+                test_multiple_occurrences_singleton(_) ->
+                    ok.">>,
+           [],
+           []},
+
+          {singleton_ok2,
+           <<"-spec id(X) -> X.
+                id(X) ->
+                    X.">>,
+           [],
+           []},
+
+          {singleton_ok3,
+           <<"-spec ok(Opts) -> term() when
+                    Opts :: {Unknown, {ok, Unknown} | {error, Unknown}}.
+              ok(_) ->
+                  error.">>,
+           [],
+           []},
+
+          {singleton_ok4,
+           <<"-spec ok(Opts) -> term() when
+                    Union :: {ok, Unknown} | {error, Unknown},
+                    Opts :: {{tag, Unknown} | Union}.
+              ok(_) ->
+                  error.">>,
+           [],
+           []}
+
+          ],
+
     [] = run(Config, Ts),
     ok.
 
@@ -2832,14 +2958,6 @@ otp_10436(Config) when is_list(Config) ->
     {warnings,[{{4,14},erl_lint,{not_exported_opaque,{t2,0}}},
                {{4,14},erl_lint,{unused_type,{t2,0}}}]} =
         run_test2(Config, Ts, []),
-    Ts2 = <<"-module(otp_10436_2).
-             -export_type([t1/0, t2/0]).
-             -opaque t1() :: term().
-             -opaque t2() :: any().
-         ">>,
-    {warnings,[{{3,15},erl_lint,{underspecified_opaque,{t1,0}}},
-               {{4,15},erl_lint,{underspecified_opaque,{t2,0}}}]} =
-        run_test2(Config, Ts2, []),
     ok.
 
 %% OTP-11254. M:F/A could crash the linter.
@@ -4989,7 +5107,39 @@ redefined_builtin_type(Config) ->
                       {{5,16},erl_lint,{redefine_builtin_type,{port,0}}},
                       {{6,16},erl_lint,{redefine_builtin_type,{float,0}}},
                       {{7,16},erl_lint,{redefine_builtin_type,{iodata,0}}}
-                     ]}}
+                     ]}},
+          {redef6,
+           <<"-spec bar(function()) -> bar().
+              bar({function, F}) -> F().
+              -type function() :: {function, fun(() -> bar())}.
+              -type bar() :: {bar, binary()}.
+             ">>,
+           [],
+           {warnings,[{{3,16},erl_lint,
+                       {redefine_builtin_type,{function,0}}}]}},
+          {redef7,
+           <<"-type function() :: {function, fun(() -> bar())}.
+              -type bar() :: {bar, binary()}.
+              -spec bar(function()) -> bar().
+              bar({function, F}) -> F().
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{function,0}}}]}},
+          {redef8,
+           <<"-type function() :: {function, fun(() -> atom())}.
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{function,0}}},
+                      {{1,22},erl_lint,
+                       {unused_type,{function,0}}}]}},
+          {redef9,
+           <<"-spec foo() -> fun().
+              foo() -> fun() -> ok end.
+             ">>,
+           [],
+           []}
          ],
     [] = run(Config, Ts),
     ok.
@@ -5034,6 +5184,45 @@ tilde_k(Config) ->
           }
          ],
     [] = run(Config, Ts),
+
+    ok.
+
+match_float_zero(Config) ->
+    Ts = [{float_zero_1,
+           <<"t(+0.0) -> ok.\n"
+             "k(-0.0) -> ok.\n">>,
+           [],
+           []},
+          {float_zero_2,
+           <<"t(0.0) -> ok.\n"
+             "k({0.0}) -> ok.\n">>,
+           [],
+           {warnings,[{{1,23},erl_lint,match_float_zero},
+                      {{2,4},erl_lint,match_float_zero}]}},
+          {float_zero_3,
+           <<"t(A) when A =:= 0.0 -> ok;\n" %% Should warn.
+             "t(A) when A =:= {0.0} -> ok.\n" %% Should warn.
+             "k(A) -> A =:= 0.0.\n" %% Should warn.
+             "q(A) -> A =:= {0.0}.\n" %% Should warn.
+             "z(A) when A =:= +0.0 -> ok;\n" %% Should not warn.
+             "z(A) when A =:= {+0.0} -> ok.\n">>, %% Should not warn.
+           [],
+           {warnings,[{{1,37},erl_lint,match_float_zero},
+                      {{2,18},erl_lint,match_float_zero},
+                      {{3,15},erl_lint,match_float_zero},
+                      {{4,16},erl_lint,match_float_zero}]}}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+%% GH-7655. When the module definition was missing, spurious
+%% diagnostics would be emitted for each spec.
+undefined_module(Config) ->
+    Code = <<"-spec foo() -> 'ok'.
+              foo() -> ok.
+             ">>,
+    {errors,[{{1,2},erl_lint,undefined_module}],[]} = run_test2(Config, Code, []),
 
     ok.
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -374,6 +374,7 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
                                                    NIL,
                                                    THE_NON_VALUE);
        amdp->origin.flags = mon->flags & ERTS_ML_STATE_ALIAS_MASK;
+       mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
        erts_monitor_tree_replace(&ERTS_P_MONITORS(c_p), mon, &amdp->origin);
        break;
    }
@@ -3345,77 +3346,6 @@ BIF_RETTYPE integer_to_list_2(BIF_ALIST_2)
 
 /**********************************************************************/
 
-/*
- * Converts a list of ascii base10 digits to an integer fully or partially.
- * Returns result and the remaining tail.
- * On error returns: {error,not_a_list}, or {error, no_integer}
- */
-
-BIF_RETTYPE string_list_to_integer_1(BIF_ALIST_1)
-{
-     Eterm res;
-     Eterm tail;
-     Eterm *hp;
-     /* must be a list */
-     switch (erts_list_to_integer(BIF_P, BIF_ARG_1, 10, &res, &tail)) {
-     /* HAlloc after erts_list_to_integer as it might HAlloc itself (bignum) */
-     case LTI_BAD_STRUCTURE:
-	 hp = HAlloc(BIF_P,3);
-	 BIF_RET(TUPLE2(hp, am_error, am_not_a_list));
-     case LTI_NO_INTEGER:
-	 hp = HAlloc(BIF_P,3);
-	 BIF_RET(TUPLE2(hp, am_error, am_no_integer));
-     default:
-	 hp = HAlloc(BIF_P,3);
-	 BIF_RET(TUPLE2(hp, res, tail));
-     }
-}
-
-BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
- {
-   /* Using erts_list_to_integer is about twice as fast as using
-      erts_chars_to_integer because we do not have to copy the 
-      entire list */
-     Eterm res;
-     Eterm dummy;
-     /* must be a list */
-     if (erts_list_to_integer(BIF_P, BIF_ARG_1, 10,
-                              &res, &dummy) != LTI_ALL_INTEGER) {
-	 BIF_ERROR(BIF_P,BADARG);
-     }
-     BIF_RET(res);
- }
-
-BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
-{
-  /* Bif implementation is about 50% faster than pure erlang,
-     and since we have erts_chars_to_integer now it is simpler
-     as well. This could be optimized further if we did not have to
-     copy the list to buf. */
-    Sint i;
-    Eterm res, dummy;
-    int base;
-
-    i = erts_list_length(BIF_ARG_1);
-    if (i < 0 || is_not_small(BIF_ARG_2)) {
-        BIF_ERROR(BIF_P, BADARG);
-    }
-
-    base = signed_val(BIF_ARG_2);
-
-    if (base < 2 || base > 36) {
-        BIF_ERROR(BIF_P, BADARG);
-    }
-
-    if (erts_list_to_integer(BIF_P, BIF_ARG_1, base,
-                             &res, &dummy) != LTI_ALL_INTEGER) {
-        BIF_ERROR(BIF_P,BADARG);
-    }
-    BIF_RET(res);
-}
-
-/**********************************************************************/
-
 static int do_float_to_charbuf(Process *p, Eterm efloat, Eterm list, 
 			char *fbuf, int sizeof_fbuf) {
 
@@ -4184,22 +4114,44 @@ BIF_RETTYPE display_1(BIF_ALIST_1)
 }
 
 /*
- * erts_debug:display/1 is for debugging erlang:display/1
+ * erts_internal:term_to_string/2 is an internal and undocumented function for
+ * formatting terms during init or other times when io_lib is unavailable.
+ * It can also be used to debug functions that rely on the internal term
+ * printing such as erlang:display/1
  */
-BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
+BIF_RETTYPE erts_internal_term_to_string_2(BIF_ALIST_2)
 {
+    erts_dsprintf_buf_t *dsbufp;
+    int limit;
     int pres;
     Eterm res;
     Eterm *hp;
-    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
-    pres = erts_dsprintf(dsbufp, "%.*T\n", INT_MAX, BIF_ARG_1);
-    if (pres < 0)
-	erts_exit(ERTS_ERROR_EXIT, "Failed to convert term to string: %d (%s)\n",
-		 -pres, erl_errno_id(-pres));
-    hp = HAlloc(BIF_P, 2*dsbufp->str_len); /* we need length * 2 heap words */
+
+    if (is_small(BIF_ARG_2) &&
+        (signed_val(BIF_ARG_2) > 1 &&
+         signed_val(BIF_ARG_2) < INT_MAX)) {
+        limit = signed_val(BIF_ARG_2);
+    } else if (BIF_ARG_2 == am_undefined) {
+        limit = INT_MAX;
+    } else {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    dsbufp = erts_create_tmp_dsbuf(64);
+    pres = erts_dsprintf(dsbufp, "%.*T", limit, BIF_ARG_1);
+
+    if (pres < 0) {
+        erts_exit(ERTS_ERROR_EXIT,
+                  "Failed to convert term to string: %d (%s)\n",
+                  -pres,
+                  erl_errno_id(-pres));
+    }
+
+    hp = HAlloc(BIF_P, 2 * dsbufp->str_len);
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);
-    erts_printf("%s", dsbufp->str);
+
     erts_destroy_tmp_dsbuf(dsbufp);
+
     BIF_RET(res);
 }
 
@@ -4276,9 +4228,11 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
 #endif
     {
 #ifdef __WIN32__
-        if (!WriteFile(fd, str, len, &written, NULL)) {
+        Uint32 w;
+        if (!WriteFile(fd, str, len, &w, NULL)) {
             goto error;
         }
+        written = (Sint)w;
 #else
         written = 0;
         do {

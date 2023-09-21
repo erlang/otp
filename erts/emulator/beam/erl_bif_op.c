@@ -254,7 +254,7 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2)
     if (is_any_fun(arg1)) {
 	ErlFunThing* funp = (ErlFunThing *) fun_val(arg1);
 
-	if (funp->arity == (Uint) arity) {
+	if (fun_arity(funp) == (Uint) arity) {
 	    BIF_RET(am_true);
 	}
     }

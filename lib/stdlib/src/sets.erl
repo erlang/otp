@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,9 +44,9 @@
 -export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
 -export([is_element/2,add_element/2,del_element/2]).
 -export([union/2,union/1,intersection/2,intersection/1]).
--export([is_disjoint/2]).
+-export([is_equal/2, is_disjoint/2]).
 -export([subtract/2,is_subset/2]).
--export([fold/3,filter/2]).
+-export([fold/3,filter/2,map/2,filtermap/2]).
 -export([new/1, from_list/2]).
 
 -export_type([set/0, set/1]).
@@ -145,6 +145,25 @@ size(#set{size=Size}) -> Size.
       Set :: set().
 is_empty(#{}=S) -> map_size(S)=:=0;
 is_empty(#set{size=Size}) -> Size=:=0.
+
+%% is_equal(Set1, Set2) -> boolean().
+%%  Return 'true' if Set1 and Set2 contain the same elements,
+%%  otherwise 'false'.
+-spec is_equal(Set1, Set2) -> boolean() when
+      Set1 :: set(),
+      Set2 :: set().
+is_equal(S1, S2) ->
+    case size(S1) =:= size(S2) of
+        true when S1 =:= S2 ->
+            true;
+        true ->
+            canonicalize_v2(S1) =:= canonicalize_v2(S2);
+        false ->
+            false
+    end.
+
+canonicalize_v2(S) ->
+    from_list(to_list(S), [{version, 2}]).
 
 %% to_list(Set) -> [Elem].
 %%  Return the elements in Set as a list.
@@ -358,31 +377,51 @@ is_disjoint_1(Set, Iter) ->
       Set2 :: set(Element),
       Set3 :: set(Element).
 
-subtract(#{}=S1, #{}=S2) ->
-    Next = maps:next(maps:iterator(S1)),
-    subtract_heuristic(Next, [], [], floor(map_size(S1) * 0.75), S1, S2);
-subtract(S1, S2) ->
-    filter(fun (E) -> not is_element(E, S2) end, S1).
+subtract(#{}=LHS, #{}=RHS) ->
+    LSize = map_size(LHS),
+    RSize = map_size(RHS),
 
-%% If we are keeping more than 75% of the keys, then it is
-%% cheaper to delete them. Stop accumulating and start deleting.
+    case RSize =< (LSize div 4) of
+        true ->
+            %% If we're guaranteed to keep more than 75% of the keys, it's
+            %% always cheaper to delete them one-by-one from the start.
+            Next = maps:next(maps:iterator(RHS)),
+            subtract_decided(Next, LHS, RHS);
+        false ->
+            %% We might delete more than 25% of the keys. Dynamically
+            %% transition to deleting elements one-by-one if we can determine
+            %% that we'll keep more than 75%.
+            KeepThreshold = (LSize * 3) div 4,
+            Next = maps:next(maps:iterator(LHS)),
+            subtract_heuristic(Next, [], [], KeepThreshold, LHS, RHS)
+    end;
+subtract(LHS, RHS) ->
+    filter(fun (E) -> not is_element(E, RHS) end, LHS).
+
 subtract_heuristic(Next, _Keep, Delete, 0, Acc, Reference) ->
-  subtract_decided(Next, remove_keys(Delete, Acc), Reference);
-subtract_heuristic({Key, _Value, Iterator}, Keep, Delete, KeepCount, Acc, Reference) ->
+    %% We've kept more than 75% of the keys, transition to removing them
+    %% one-by-one.
+    subtract_decided(Next, remove_keys(Delete, Acc), Reference);
+subtract_heuristic({Key, _Value, Iterator}, Keep, Delete,
+                   KeepCount, Acc, Reference) ->
     Next = maps:next(Iterator),
     case Reference of
-        #{Key := _} ->
-            subtract_heuristic(Next, Keep, [Key | Delete], KeepCount, Acc, Reference);
+        #{ Key := _ } ->
+            subtract_heuristic(Next, Keep, [Key | Delete],
+                               KeepCount, Acc, Reference);
         _ ->
-            subtract_heuristic(Next, [Key | Keep], Delete, KeepCount - 1, Acc, Reference)
+            subtract_heuristic(Next, [Key | Keep], Delete,
+                               KeepCount - 1, Acc, Reference)
     end;
 subtract_heuristic(none, Keep, _Delete, _Count, _Acc, _Reference) ->
     maps:from_keys(Keep, ?VALUE).
 
 subtract_decided({Key, _Value, Iterator}, Acc, Reference) ->
     case Reference of
-        #{Key := _} ->
-            subtract_decided(maps:next(Iterator), maps:remove(Key, Acc), Reference);
+        #{ Key := _ } ->
+            subtract_decided(maps:next(Iterator),
+                             maps:remove(Key, Acc),
+                             Reference);
         _ ->
             subtract_decided(maps:next(Iterator), Acc, Reference)
     end;
@@ -446,22 +485,45 @@ fold_1(Fun, Acc, Iter) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 filter(F, #{}=D) when is_function(F, 1)->
-    maps:from_keys(filter_1(F, maps:iterator(D)), ?VALUE);
+    %% For this purpose, it is more efficient to use
+    %% maps:from_keys than a map comprehension.
+    maps:from_keys([K || K := _ <- D, F(K)], ?VALUE);
 filter(F, #set{}=D) when is_function(F, 1)->
     filter_set(F, D).
 
-filter_1(Fun, Iter) ->
-    case maps:next(Iter) of
-        {K, _, NextIter} ->
-            case Fun(K) of
-                true ->
-                    [K | filter_1(Fun, NextIter)];
-                false ->
-                    filter_1(Fun, NextIter)
-            end;
-        none ->
-            []
-    end.
+%% map(Fun, Set) -> Set.
+%%  Map Set with Map.
+-spec map(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> Element2),
+      Set1 :: set(Element1),
+      Set2 :: set(Element2).
+map(F, #{}=D) when is_function(F, 1) ->
+    %% For this purpose, it is more efficient to use
+    %% maps:from_keys than a map comprehension.
+    maps:from_keys([F(K) || K := _ <- D], ?VALUE);
+map(F, #set{}=D) when is_function(F, 1) ->
+    fold(fun(E, Acc) -> add_element(F(E), Acc) end,
+         sets:new([{version, 1}]),
+         D).
+
+%% filtermap(Fun, Set) -> Set.
+%%  Filter and map Set with Fun.
+-spec filtermap(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> boolean() | {true, Element2}),
+      Set1 :: set(Element1),
+      Set2 :: set(Element1 | Element2).
+filtermap(F, #{}=D) when is_function(F, 1) ->
+    maps:from_keys(lists:filtermap(F, to_list(D)), ?VALUE);
+filtermap(F, #set{}=D) when is_function(F, 1) ->
+    fold(fun(E0, Acc) ->
+             case F(E0) of
+                 true -> add_element(E0, Acc);
+                 {true, E1} -> add_element(E1, Acc);
+                 false -> Acc
+             end
+         end,
+         sets:new([{version, 1}]),
+         D).
 
 %% get_slot(Hashdb, Key) -> Slot.
 %%  Get the slot.  First hash on the new range, if we hit a bucket

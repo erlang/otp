@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -497,10 +497,11 @@ typedef struct {
 typedef struct {
     int detached;			/* boolean (default false) */
     int suggested_stack_size;		/* kilo words (default sys dependent) */
-    char *name;                         /* max 14 char long (default no-name) */
+    char *name;                         /* max 15 char long (default no-name) */
 } ethr_thr_opts;
 
 #define ETHR_THR_OPTS_DEFAULT_INITER {0, -1, NULL}
+#define ETHR_THR_NAME_MAX 15
 
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 #  define ETHR_NEED_SPINLOCK_PROTOTYPES__

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2022</year>
+      <year>2004</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,6 +33,71 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 5.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The call <c>int:no_break(Module)</c> did not remove
+	    any breakpoints.</p>
+          <p>
+	    Own Id: OTP-18644 Aux Id: GH-7336 </p>
+        </item>
+        <item>
+	    <p>The <c>maybe</c> expression is now supported in the
+	    Debugger.</p>
+          <p>
+	    Own Id: OTP-18740 Aux Id: GH-7410, PR-7599 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 5.3.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>maybe</c> expression is now supported in the
+	    Debugger.</p>
+          <p>
+	    Own Id: OTP-18740 Aux Id: GH-7410, PR-7599 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 5.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The call <c>int:no_break(Module)</c> did not remove
+	    any breakpoints.</p>
+          <p>
+	    Own Id: OTP-18644 Aux Id: GH-7336 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 5.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that would cause analysis to crash.</p>
+          <p>
+	    Own Id: OTP-18372 Aux Id: GH-6580 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 5.3</title>
 
     <section><title>Improvements and New Features</title>
@@ -50,6 +115,21 @@
 	    <c>filename:basedir/2</c> for more details.</p>
           <p>
 	    Own Id: OTP-17554 Aux Id: GH-5016 PR-5408 OTP-17821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 5.2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The call <c>int:no_break(Module)</c> did not remove
+	    any breakpoints.</p>
+          <p>
+	    Own Id: OTP-18644 Aux Id: GH-7336 </p>
         </item>
       </list>
     </section>
@@ -1072,5 +1152,3 @@
     </section>
   </section>
 </chapter>
-
-

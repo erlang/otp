@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,8 @@ groups() ->
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
        pe_ref1, copyright, testXSEIF, export_simple1, export,
-       default_attrs_bug, xml_ns, scan_splits_string_bug]},
+       default_attrs_bug, xml_ns, scan_splits_string_bug,
+       allow_entities_test]},
      {eventp_tests, [], [sax_parse_and_export]},
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
@@ -77,10 +78,9 @@ init_per_suite(Config) ->
     ok=erl_tar:extract("misc.tar.gz",[compressed]),
     ok = change_mode(["cpd", "misc"]),
     file:set_cwd(filename:join(datadir(Config),xpath)),
-    TestServerIncludeDir=filename:join(filename:dirname(code:priv_dir(test_server)), "include"),
-    {ok, xpath_lib} = compile:file(xpath_lib, [{i, TestServerIncludeDir}]),
-    {ok, xpath_text} = compile:file(xpath_text, [{i, TestServerIncludeDir}]),
-    {ok, xpath_abbrev} = compile:file(xpath_abbrev, [{i, TestServerIncludeDir}]),
+    {ok, xpath_lib} = compile:file(xpath_lib, []),
+    {ok, xpath_text} = compile:file(xpath_text, []),
+    {ok, xpath_abbrev} = compile:file(xpath_abbrev, []),
     Config.
 
 
@@ -624,6 +624,15 @@ ticket_9664_schema(Config) ->
 ticket_9664_dtd(Config) ->
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[]),
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[{validation, true}]),
+    ok.
+
+
+allow_entities_test(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "lol_1_test.xml"), %% Depth 9
+    %% Disallow entities
+    {'EXIT',{fatal, {{error,entities_not_allowed}, _, _, _}}} = 
+        (catch xmerl_scan:file(File, [{allow_entities, false}])),
     ok.
 
 

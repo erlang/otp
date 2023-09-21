@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -484,7 +484,7 @@ receive_exec_result(Msgs) when is_list(Msgs) ->
                             receive_exec_result(Msgs);
                         Other ->
                             ct:log("~p:~p unexpected Other ~p", [?MODULE,?FUNCTION_NAME,Other]),
-                            {unexpected_msg, Other}
+                            receive_exec_result(Msgs)
                     end
             end
     after 

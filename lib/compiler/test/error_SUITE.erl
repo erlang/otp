@@ -22,8 +22,8 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1,
-	 transforms/1,maps_warnings/1,bad_utf8/1,bad_decls/1]).
+	 head_mismatch_line/1, head_mismatch_same_function_name/1, warnings_as_errors/1,
+	 bif_clashes/1, transforms/1,maps_warnings/1,bad_utf8/1,bad_decls/1]).
 
 %% Used by transforms/1 test case.
 -export([parse_transform/2]).
@@ -35,7 +35,8 @@ all() ->
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [head_mismatch_line,warnings_as_errors,bif_clashes,
+      [head_mismatch_line,head_mismatch_same_function_name,
+       warnings_as_errors,bif_clashes,
        transforms,maps_warnings,bad_utf8,bad_decls]}].
 
 init_per_suite(Config) ->
@@ -177,6 +178,19 @@ bif_clashes(Config) when is_list(Config) ->
 head_mismatch_line(Config) when is_list(Config) ->
     [E|_] = get_compilation_errors(Config, "head_mismatch_line"),
     {{26,1}, Mod, Reason} = E,
+    ("head mismatch: previous function foo/1 is distinct from bar/1. "
+     "Is the semicolon in foo/1 unwanted?") = lists:flatten(Reason),
+    Mod:format_error(Reason),
+    ok.
+
+%% Tests that a head mismatch with the same function name reports a different error from above.
+%% https://github.com/erlang/otp/pull/7383#issuecomment-1586564294
+head_mismatch_same_function_name(Config) when is_list(Config) ->
+    [E|_] = get_compilation_errors(Config, "head_mismatch_same_function_name"),
+    {{25,1}, Mod, Reason} = E,
+    ("head mismatch: function foo with arities 1 and 2 is regarded as "
+     "two distinct functions. Is the number of arguments incorrect "
+     "or is the semicolon in foo/1 unwanted?") = lists:flatten(Reason),
     Mod:format_error(Reason),
     ok.
 

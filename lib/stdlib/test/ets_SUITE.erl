@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,6 +100,7 @@
 -export([otp_9932/1]).
 -export([otp_9423/1]).
 -export([otp_10182/1]).
+-export([compress_magic_ref/1]).
 -export([ets_all/1]).
 -export([massive_ets_all/1]).
 -export([take/1]).
@@ -173,6 +174,7 @@ all() ->
      otp_10182,
      otp_9932,
      otp_9423,
+     compress_magic_ref,
      ets_all,
      massive_ets_all,
      take,
@@ -1110,8 +1112,8 @@ delete_all_objects_trap(Opts, Mode) ->
                                   false;
                               "delete_all_objects done" ->
                                   ct:fail("No trap detected");
-                              M ->
-                                  %%io:format("Ignored msg: ~p\n", [M]),
+                              _M ->
+                                  %%io:format("Ignored msg: ~p\n", [_M]),
                                   true
                           end
                   end),
@@ -2407,13 +2409,19 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
 
     Big32 = 16#12345678,
     Big64 = 16#123456789abcdef0,
-    Values = { 623, -27, 0, Big32, -Big32, Big64, -Big64, Big32*Big32,
+    RefcBin = list_to_binary(lists:seq(1,100)),
+    BigMap1 = maps:from_list([{N,N} || N <- lists:seq(1,33)]),
+    BigMap2 = BigMap1#{key => RefcBin, RefcBin => value},
+    Values = { 623, -27, Big32, -Big32, Big64, -Big64, Big32*Big32,
 	       -Big32*Big32, Big32*Big64, -Big32*Big64, Big64*Big64, -Big64*Big64,
 	       "A", "Sverker", [], {12,-132}, {},
-	       <<45,232,0,12,133>>, <<234,12,23>>, list_to_binary(lists:seq(1,100)),
+	       <<45,232,0,12,133>>, <<234,12,23>>, RefcBin,
 	       (fun(X) -> X*Big32 end),
-	       make_ref(), make_ref(), self(), ok, update_element, 28, 29 },
-    Length = size(Values),
+	       make_ref(), make_ref(), self(), ok, update_element,
+               #{a => value, "hello" => "world", 1.0 => RefcBin },
+               BigMap1, BigMap2},
+    Length = tuple_size(Values),
+    29 = Length,
 
     PosValArgF = fun(ToIx, ResList, [Pos | PosTail], Rand, MeF) ->
 			 NextIx = (ToIx+Rand) rem Length,
@@ -2433,7 +2441,12 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
                       true = ets:update_element(Tab, Key, PosValArg),
                       ArgHash = erlang:phash2({Tab,Key,PosValArg}),
                       NewTuple = update_tuple(PosValArg,Tuple),
-                      [NewTuple] = ets:lookup(Tab,Key)
+                      [NewTuple] = ets:lookup(Tab,Key),
+                      [begin
+                           Elem = element(I, NewTuple),
+                           Elem = ets:lookup_element(Tab, Key, I)
+                       end
+                       || I <- lists:seq(1, tuple_size(NewTuple))]
 	      end,
 
     LoopF = fun(_FromIx, Incr, _Times, Checksum, _MeF) when Incr >= Length ->
@@ -5517,30 +5530,30 @@ insert_trap_delete_run3(Traps, {Opts, InsertFunc, Mode}, NKeys) ->
 %% Rename table during trapping ets:insert
 insert_trap_rename(Config) when is_list(Config) ->
     repeat_for_opts(fun(Opts) ->
-                            [insert_trap_rename_run1(InsertFunc)
+                            [insert_trap_rename_run1(Opts, InsertFunc)
                              || InsertFunc <- [insert, insert_new]]
                     end,
                     [all_non_stim_types, write_concurrency, compressed]),
     ok.
 
-insert_trap_rename_run1(InsertFunc) ->
+insert_trap_rename_run1(Opts, InsertFunc) ->
     NKeys = 50_000 + rand:uniform(50_000),
     %% First measure how many traps the insert op will do
-    Traps0 = insert_trap_rename_run3(unlimited, InsertFunc, NKeys),
+    Traps0 = insert_trap_rename_run3(Opts, unlimited, InsertFunc, NKeys),
     %% Then do again and rename table at different moments
     Decr = (Traps0 div 5) + 1,
-    insert_trap_rename_run2(Traps0-1, Decr, InsertFunc, NKeys),
+    insert_trap_rename_run2(Opts, Traps0-1, Decr, InsertFunc, NKeys),
     ok.
 
-insert_trap_rename_run2(Traps, _Decr, InsertFunc, NKeys) when Traps =< 1 ->
-    insert_trap_rename_run3(1, InsertFunc, NKeys),
+insert_trap_rename_run2(Opts, Traps, _Decr, InsertFunc, NKeys) when Traps =< 1 ->
+    insert_trap_rename_run3(Opts, 1, InsertFunc, NKeys),
     ok;
-insert_trap_rename_run2(Traps, Decr, InsertFunc, NKeys) ->
-    insert_trap_rename_run3(Traps, InsertFunc, NKeys),
-    insert_trap_rename_run2(Traps - Decr, Decr, InsertFunc, NKeys).
+insert_trap_rename_run2(Opts, Traps, Decr, InsertFunc, NKeys) ->
+    insert_trap_rename_run3(Opts, Traps, InsertFunc, NKeys),
+    insert_trap_rename_run2(Opts, Traps - Decr, Decr, InsertFunc, NKeys).
 
 
-insert_trap_rename_run3(Traps, InsertFunc, NKeys) ->
+insert_trap_rename_run3(Opts, Traps, InsertFunc, NKeys) ->
     io:format("insert_trap_rename_run(~p, ~p)\n", [Traps, InsertFunc]),
     TabName = insert_trap_rename,
     TabRenamed = insert_trap_rename_X,
@@ -5550,7 +5563,7 @@ insert_trap_rename_run3(Traps, InsertFunc, NKeys) ->
     OwnerFun =
         fun() ->
                 erlang:trace(Tester, true, [running]),
-                ets:new(TabName, [named_table, public]),
+                ets_new(TabName, [named_table, public | Opts]),
                 Tester ! {ets_new, ets:whereis(TabName)},
                 io:format("Wait for ets:~p/2 to yield...\n", [InsertFunc]),
                 GotTraps = repeat_while(
@@ -7788,6 +7801,28 @@ otp_10182(Config) when is_list(Config) ->
               ets:delete(Db),
               In = Out
       end).
+
+%% Verify magic refs in compressed table are reference counted correctly
+compress_magic_ref(Config) when is_list(Config)->
+    F = fun(Opts) ->
+                T = ets:new(banana, Opts),
+                ets:insert(T, {key, atomics:new(2, [])}),
+                erlang:garbage_collect(),  % make really sure no ref on heap
+                [{_, Ref}] = ets:lookup(T, key),
+                #{size := 2} = atomics:info(Ref), % Still alive!
+
+                %% Now test ets:delete will deallocate if last ref
+                WeakRef = term_to_binary(Ref),
+                erlang:garbage_collect(),  % make sure no Ref on heap
+                ets:delete(T, key),
+                StaleRef = binary_to_term(WeakRef),
+                badarg = try atomics:info(StaleRef)
+                         catch error:badarg -> badarg end,
+                ets:delete(T),
+                ok
+          end,
+    repeat_for_opts(F, [[set, ordered_set], compressed]),
+    ok.
 
 %% Test that ets:all include/exclude tables that we know are created/deleted
 ets_all(Config) when is_list(Config) ->

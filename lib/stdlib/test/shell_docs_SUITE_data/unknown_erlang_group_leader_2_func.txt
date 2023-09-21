@@ -16,3 +16,8 @@
 
   See also [;;4mgroup_leader/0[0m and OTP design principles related to
   starting and stopping applications.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.

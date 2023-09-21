@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -53,9 +53,6 @@
        Erlang programs. Uses trace to file to minimize runtime
        performance impact, and displays time for calling and called 
        functions.</item>
-      <tag><em>instrument</em></tag>
-      <item>Utility functions for obtaining and analysing resource usage
-       in an instrumented Erlang runtime system.</item>
       <tag><em>lcnt</em></tag>
       <item>A lock profiling tool for the Erlang runtime system.</item>
       <tag><em>make</em></tag>

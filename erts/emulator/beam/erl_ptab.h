@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,8 +59,6 @@ typedef struct {
 	erts_atomic_t atmc;
 	Sint sint;
     } refc;
-    ErtsTracer tracer;
-    Uint trace_flags;
     erts_atomic_t timer;
     union {
 	/* --- While being alive --- */
@@ -78,6 +76,8 @@ typedef struct {
 	/* --- While being released --- */
 	ErtsThrPrgrLaterOp release;
     } u;
+    ErtsTracer tracer;
+    Uint32 trace_flags;
 } ErtsPTabElementCommon;
 
 typedef struct ErtsPTabDeletedElement_ ErtsPTabDeletedElement;

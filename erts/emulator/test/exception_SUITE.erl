@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -316,9 +316,7 @@ top_of_stacktrace(Conf) when is_list(Conf) ->
     ok.
 
 maxbig() ->
-    %% We assume that the maximum arity is (1 bsl 19) - 1.
-    Ws = erlang:system_info(wordsize),
-    (((1 bsl ((16777184 * (Ws div 4))-1)) - 1) bsl 1) + 1.
+    erlang:system_info(max_integer).
 
 maxbig_gc() ->
     Maxbig = maxbig(),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@
          more_add/1,
          open_ret_val_error/1,
          open_ret_val_success/1,
+         plain_ldap_socket_info/1,
          search_filter_and/1,
          search_filter_and_not/1,
          search_filter_equalityMatch/1,
@@ -63,6 +64,7 @@
          search_extensible_match_without_dn/1,
          search_paged_results/1,
          ssl_connection/1,
+         ssl_conn_socket_info/1,
          start_tls_on_ssl_should_fail/1,
          start_tls_twice_should_fail/1,
          tcp_connection/1,
@@ -81,8 +83,8 @@
          suite/0
         ]).
 
-%%-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("eldap/include/eldap.hrl").
 -include_lib("eldap/ebin/ELDAPv3.hrl").
 
@@ -159,7 +161,9 @@ connection_tests() ->
      client_side_bind_timeout,
      client_side_add_timeout,
      client_side_search_timeout,
-     close_after_tcp_error
+     close_after_tcp_error,
+     ssl_conn_socket_info,
+     plain_ldap_socket_info
     ].
 
 
@@ -185,9 +189,38 @@ init_per_suite(Config) ->
 	    false ->
 		undefined
 	end,
-    [{ssl_available, SSL_available},
-     {ldap_server,   LDAP_server},
-     {ldaps_server,  LDAPS_server} | Config].
+    log_ldap_servers([{ssl_available, SSL_available},
+                      {ldap_server,   LDAP_server},
+                      {ldaps_server,  LDAPS_server} | Config]).
+
+
+log_ldap_servers(Config) ->
+    case true == (catch
+                      lists:member({save_eldap_data,3},
+                                   eldap_collect_labmachine_info_SUITE:module_info(exports)))
+    of
+        true ->
+            HostName = 
+                case inet:gethostname() of
+                    {ok,Name} -> string:to_lower(Name);
+                    _ -> "undefined"
+                end,
+            Entry =
+                     [{hostname,           HostName},
+                      {type,               host},
+                      {date,               date()},
+                      {time,               time()},
+                      {os_type,            os:type()},
+                      {os_version,         os:version()},
+                      {ldap_server,        proplists:get_value(ldap_server, Config)},
+                      {ldaps_server,       proplists:get_value(ldaps_server, Config)}
+                     ],
+            eldap_collect_labmachine_info_SUITE:save_eldap_data(HostName, Entry, Config),
+            Config;
+        false ->
+            Config
+    end.
+
 
 end_per_suite(_Config) ->
     try ssl:stop()
@@ -259,7 +292,7 @@ end_per_group(start_tls_api, Config) -> clear_db(Config);
 end_per_group(_Group, Config) -> Config.
 
 
-init_per_testcase(ssl_connection, Config) ->
+init_per_testcase(TC, Config) when TC == ssl_connection; TC == ssl_conn_socket_info ->
     case proplists:get_value(ssl_available,Config) of
 	true ->
 	    SSL_Port = 9999,
@@ -292,7 +325,7 @@ init_per_testcase(ssl_connection, Config) ->
 		    ct:log("SSL listening to port ~p (process ~p)",[SSL_Port, Listener]),
 		    [{ssl_listener,Listener},
 		     {ssl_listen_port,SSL_Port},
-		     {ssl_connect_opts,[]}
+		     {ssl_connect_opts,[{verify, verify_none}]}
 		     | Config];
 		{no_ok,SSL_Other,Listener} ->
 		    ct:log("ssl:listen on port ~p failed: ~p",[SSL_Port,SSL_Other]),
@@ -420,6 +453,35 @@ ssl_connection(Config) ->
 			     {sslopts,SSLOpts}|Opts]) of
 	{ok,_H} -> ok;
 	Other -> ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
+%%%----------------------------------------------------------------
+ssl_conn_socket_info(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(ssl_listen_port, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
+    SSLOpts = proplists:get_value(ssl_connect_opts, Config),
+    case eldap:open([Host], [{port,Port},
+			     {ssl,true},
+			     {timeout,5000},
+			     {sslopts,SSLOpts}|Opts]) of
+	{ok,H} ->
+            #{socket := Socket, socket_type := ssl} = eldap:info(H),
+            ?assertMatch({ok, _Data}, ssl:connection_information(Socket));
+	Other -> ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
+%%%----------------------------------------------------------------
+plain_ldap_socket_info(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
+    T = 1000,
+    case eldap:open([Host], [{timeout,T},{port,Port}|Opts]) of
+        {ok,H} ->
+            ?assertMatch(#{socket := _, socket_type := tcp},
+                          eldap:info(H));
+        Other -> ct:fail("eldap:open failed: ~p",[Other])
     end.
 
 %%%----------------------------------------------------------------

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,18 +60,20 @@ extern "C"
 
 using namespace asmjit;
 
-class BeamAssembler : public ErrorHandler {
+struct BeamAssembler : public BeamAssemblerCommon {
+    BeamAssembler() : BeamAssemblerCommon(a) {
+        Error err = code.attach(&a);
+        ERTS_ASSERT(!err && "Failed to attach codeHolder");
+    }
+
+    BeamAssembler(const std::string &log) : BeamAssembler() {
+        if (erts_jit_asm_dump) {
+            setLogger(log + ".asm");
+        }
+    }
+
 protected:
-    /* Holds code and relocation information. */
-    CodeHolder code;
-
     a64::Assembler a;
-
-    FileLogger logger;
-
-    Section *rodata = nullptr;
-
-    /* * * * * * * * * */
 
     /* Points at x_reg_array inside an ErtsSchedulerRegisters struct, allowing
      * the aux_regs field to be addressed with an 8-bit displacement. */
@@ -79,7 +81,7 @@ protected:
 
     const arm::Gp E = a64::x20;
     const arm::Gp c_p = a64::x21;
-    const arm::Gp FCALLS = a64::x22;
+    const arm::Gp FCALLS = a64::w22;
     const arm::Gp HTOP = a64::x23;
 
     /* Local copy of the active code index.
@@ -223,27 +225,6 @@ protected:
 
         kNone = 0
     };
-
-public:
-    static bool hasCpuFeature(uint32_t featureId);
-
-    BeamAssembler();
-    BeamAssembler(const std::string &log);
-
-    ~BeamAssembler();
-
-    void *getBaseAddress();
-    size_t getOffset();
-
-protected:
-    void _codegen(JitAllocator *allocator,
-                  const void **executable_ptr,
-                  void **writable_ptr);
-
-    void *getCode(Label label);
-    byte *getCode(char *labelName);
-
-    void handleError(Error err, const char *message, BaseEmitter *origin);
 
 #ifdef JIT_HARD_DEBUG
     constexpr arm::Mem getInitialSPRef() const {
@@ -705,13 +686,23 @@ protected:
         a.cmp(SUPER_TMP, imm(TAG_PRIMARY_IMMED1));
     }
 
+    arm::Gp follow_size(const arm::Gp &reg, const arm::Gp &size) {
+        ASSERT(reg.isGpX());
+
+        if (size.isGpW()) {
+            return reg.w();
+        }
+
+        return reg;
+    }
+
     template<typename T>
     void mov_imm(arm::Gp to, T value) {
         static_assert(std::is_integral<T>::value || std::is_pointer<T>::value);
         if (value) {
             a.mov(to, imm(value));
         } else {
-            a.mov(to, ZERO);
+            a.mov(to, follow_size(ZERO, to));
         }
     }
 
@@ -735,8 +726,10 @@ protected:
                 a.sub(to, src, imm(val & 0xFFF000));
             }
         } else {
-            mov_imm(SUPER_TMP, val);
-            a.sub(to, src, SUPER_TMP);
+            arm::Gp super_tmp = follow_size(SUPER_TMP, to);
+
+            mov_imm(super_tmp, val);
+            a.sub(to, src, super_tmp);
         }
     }
 
@@ -755,8 +748,10 @@ protected:
                 a.add(to, src, imm(val & 0xFFF000));
             }
         } else {
-            mov_imm(SUPER_TMP, val);
-            a.add(to, src, SUPER_TMP);
+            arm::Gp super_tmp = follow_size(SUPER_TMP, to);
+
+            mov_imm(super_tmp, val);
+            a.add(to, src, super_tmp);
         }
     }
 
@@ -766,8 +761,10 @@ protected:
         } else if (Support::isUInt12(-val)) {
             a.adds(to, src, imm(-val));
         } else {
-            mov_imm(SUPER_TMP, val);
-            a.subs(to, src, SUPER_TMP);
+            arm::Gp super_tmp = follow_size(SUPER_TMP, to);
+
+            mov_imm(super_tmp, val);
+            a.subs(to, src, super_tmp);
         }
     }
 
@@ -776,13 +773,11 @@ protected:
             a.cmp(src, imm(val));
         } else if (Support::isUInt12(-val)) {
             a.cmn(src, imm(-val));
-        } else if (src.isGpW()) {
-            mov_imm(SUPER_TMP.w(), val);
-            a.cmp(src, SUPER_TMP.w());
         } else {
-            ERTS_ASSERT(src.isGpX());
-            mov_imm(SUPER_TMP, val);
-            a.cmp(src, SUPER_TMP);
+            arm::Gp super_tmp = follow_size(SUPER_TMP, src);
+
+            mov_imm(super_tmp, val);
+            a.cmp(src, super_tmp);
         }
     }
 
@@ -823,124 +818,18 @@ protected:
             add(to, arm::GpX(mem.baseId()), offset);
         }
     }
-
-public:
-    void embed_rodata(const char *labelName, const char *buff, size_t size);
-    void embed_bss(const char *labelName, size_t size);
-    void embed_zeros(size_t size);
-
-    void setLogger(std::string log);
-    void setLogger(FILE *log);
-
-    void comment(const char *format) {
-        if (logger.file()) {
-            a.commentf("# %s", format);
-        }
-    }
-
-    template<typename... Ts>
-    void comment(const char *format, Ts... args) {
-        if (logger.file()) {
-            char buff[1024];
-            erts_snprintf(buff, sizeof(buff), format, args...);
-            a.commentf("# %s", buff);
-        }
-    }
-
-    struct AsmRange {
-        ErtsCodePtr start;
-        ErtsCodePtr stop;
-        const std::string name;
-
-        struct LineData {
-            ErtsCodePtr start;
-            const std::string file;
-            unsigned line;
-        };
-
-        const std::vector<LineData> lines;
-    };
-
-    void embed(void *data, uint32_t size) {
-        a.embed((char *)data, size);
-    }
 };
 
 #include "beam_asm_global.hpp"
 
-class BeamModuleAssembler : public BeamAssembler {
-    typedef unsigned BeamLabel;
-
-    /* Map of BEAM label number to asmjit Label. These should not be used
-     * directly by most instructions because of displacement limits, use
-     * `resolve_beam_label` instead. */
-    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
-    LabelMap rawLabels;
+class BeamModuleAssembler : public BeamAssembler,
+                            public BeamModuleAssemblerCommon {
+    BeamGlobalAssembler *ga;
 
     /* Sequence number used to create unique named labels by
      * resolve_label(). Only used when assembly output has been
      * requested. */
     long labelSeq = 0;
-
-    struct patch {
-        Label where;
-        uint64_t val_offs;
-    };
-
-    struct patch_catch {
-        struct patch patch;
-        Label handler;
-    };
-    std::vector<struct patch_catch> catches;
-
-    /* Map of import entry to patch labels and mfa */
-    struct patch_import {
-        std::vector<struct patch> patches;
-        ErtsCodeMFA mfa;
-    };
-    typedef std::unordered_map<unsigned, struct patch_import> ImportMap;
-    ImportMap imports;
-
-    /* Map of fun entry to patch labels */
-    struct patch_lambda {
-        std::vector<struct patch> patches;
-        Label trampoline;
-    };
-    typedef std::unordered_map<unsigned, struct patch_lambda> LambdaMap;
-    LambdaMap lambdas;
-
-    /* Map of literals to patch labels */
-    struct patch_literal {
-        std::vector<struct patch> patches;
-    };
-    typedef std::unordered_map<unsigned, struct patch_literal> LiteralMap;
-    LiteralMap literals;
-
-    /* All string patches */
-    std::vector<struct patch> strings;
-
-    /* All functions that have been seen so far */
-    std::vector<BeamLabel> functions;
-
-    /* The BEAM file we've been loaded from, if any. */
-    const BeamFile *beam;
-
-    BeamGlobalAssembler *ga;
-
-    /* Used by emit to populate the labelToMFA map */
-    Label current_label;
-
-    /* The offset of our BeamCodeHeader, if any. */
-    Label code_header;
-
-    /* The module's on_load function, if any. */
-    Label on_load;
-
-    /* The end of the last function. Note that the dispatch table, constants,
-     * and veneers may follow. */
-    Label code_end;
-
-    Eterm mod;
 
     /* Save the last PC for an error. */
     size_t last_error_offset = 0;
@@ -1184,246 +1073,12 @@ public:
     const ErtsCodeInfo *getOnLoad(void);
 
     unsigned patchCatches(char *rw_base);
-    void patchLambda(char *rw_base, unsigned index, BeamInstr I);
+    void patchLambda(char *rw_base, unsigned index, const ErlFunEntry *fe);
     void patchLiteral(char *rw_base, unsigned index, Eterm lit);
-    void patchImport(char *rw_base, unsigned index, BeamInstr I);
+    void patchImport(char *rw_base, unsigned index, const Export *import);
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
-    const auto &getTypeEntry(const ArgSource &arg) const {
-        auto typeIndex =
-                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
-        ASSERT(typeIndex < beam->types.count);
-        return beam->types.entries[typeIndex];
-    }
-
-    auto getTypeUnion(const ArgSource &arg) const {
-        if (arg.isRegister()) {
-            return static_cast<BeamTypeId>(getTypeEntry(arg).type_union);
-        }
-
-        Eterm constant =
-                arg.isImmed()
-                        ? arg.as<ArgImmed>().get()
-                        : beamfile_get_literal(beam,
-                                               arg.as<ArgLiteral>().get());
-
-        switch (tag_val_def(constant)) {
-        case ATOM_DEF:
-            return BeamTypeId::Atom;
-        case BINARY_DEF:
-            return BeamTypeId::Bitstring;
-        case FLOAT_DEF:
-            return BeamTypeId::Float;
-        case FUN_DEF:
-            return BeamTypeId::Fun;
-        case BIG_DEF:
-        case SMALL_DEF:
-            return BeamTypeId::Integer;
-        case LIST_DEF:
-            return BeamTypeId::Cons;
-        case MAP_DEF:
-            return BeamTypeId::Map;
-        case NIL_DEF:
-            return BeamTypeId::Nil;
-        case EXTERNAL_PID_DEF:
-        case PID_DEF:
-            return BeamTypeId::Pid;
-        case EXTERNAL_PORT_DEF:
-        case PORT_DEF:
-            return BeamTypeId::Port;
-        case EXTERNAL_REF_DEF:
-        case REF_DEF:
-            return BeamTypeId::Reference;
-        case TUPLE_DEF:
-            return BeamTypeId::Tuple;
-        default:
-            ERTS_ASSERT(!"tag_val_def error");
-        }
-    }
-
-    auto getClampedRange(const ArgSource &arg) const {
-        if (arg.isSmall()) {
-            Sint value = arg.as<ArgSmall>().getSigned();
-            return std::make_pair(value, value);
-        } else {
-            const auto &entry = getTypeEntry(arg);
-
-            if (entry.min <= entry.max) {
-                return std::make_pair(entry.min, entry.max);
-            } else if (IS_SSMALL(entry.min) && !IS_SSMALL(entry.max)) {
-                return std::make_pair(entry.min, MAX_SMALL);
-            } else if (!IS_SSMALL(entry.min) && IS_SSMALL(entry.max)) {
-                return std::make_pair(MIN_SMALL, entry.max);
-            } else {
-                return std::make_pair(MIN_SMALL, MAX_SMALL);
-            }
-        }
-    }
-
-    int getSizeUnit(const ArgSource &arg) const {
-        const auto &entry = getTypeEntry(arg);
-        ASSERT(maybe_one_of<BeamTypeId::Bitstring>(arg));
-        return entry.size_unit;
-    }
-
-    bool hasLowerBound(const ArgSource &arg) const {
-        const auto &entry = getTypeEntry(arg);
-        return IS_SSMALL(entry.min) && !IS_SSMALL(entry.max);
-    }
-
-    bool hasUpperBound(const ArgSource &arg) const {
-        const auto &entry = getTypeEntry(arg);
-        return !IS_SSMALL(entry.min) && IS_SSMALL(entry.max);
-    }
-
-    bool always_small(const ArgSource &arg) const {
-        if (arg.isSmall()) {
-            return true;
-        } else if (!exact_type<BeamTypeId::Integer>(arg)) {
-            return false;
-        }
-
-        const auto &entry = getTypeEntry(arg);
-        return entry.min <= entry.max;
-    }
-
-    bool always_immediate(const ArgSource &arg) const {
-        return always_one_of<BeamTypeId::AlwaysImmediate>(arg) ||
-               always_small(arg);
-    }
-
-    bool always_same_types(const ArgSource &lhs, const ArgSource &rhs) const {
-        using integral = std::underlying_type_t<BeamTypeId>;
-        auto lhs_types = static_cast<integral>(getTypeUnion(lhs));
-        auto rhs_types = static_cast<integral>(getTypeUnion(rhs));
-
-        /* We can only be certain that the types are the same when there's
-         * one possible type. For example, if one is a number and the other
-         * is an integer, they could differ if the former is a float. */
-        if ((lhs_types & (lhs_types - 1)) == 0) {
-            return lhs_types == rhs_types;
-        }
-
-        return false;
-    }
-
-    template<BeamTypeId... Types>
-    bool never_one_of(const ArgSource &arg) const {
-        using integral = std::underlying_type_t<BeamTypeId>;
-        auto types = static_cast<integral>(BeamTypeIdUnion<Types...>::value());
-        auto type_union = static_cast<integral>(getTypeUnion(arg));
-        return static_cast<BeamTypeId>(type_union & types) == BeamTypeId::None;
-    }
-
-    template<BeamTypeId... Types>
-    bool maybe_one_of(const ArgSource &arg) const {
-        return !never_one_of<Types...>(arg);
-    }
-
-    template<BeamTypeId... Types>
-    bool always_one_of(const ArgSource &arg) const {
-        /* Providing a single type to this function is not an error per se, but
-         * `exact_type` provides a bit more error checking for that use-case,
-         * so we want to encourage its use. */
-        static_assert(!BeamTypeIdUnion<Types...>::is_single_typed(),
-                      "always_one_of expects a union of several primitive "
-                      "types, use exact_type instead");
-
-        using integral = std::underlying_type_t<BeamTypeId>;
-        auto types = static_cast<integral>(BeamTypeIdUnion<Types...>::value());
-        auto type_union = static_cast<integral>(getTypeUnion(arg));
-        return type_union == (type_union & types);
-    }
-
-    template<BeamTypeId Type>
-    bool exact_type(const ArgSource &arg) const {
-        /* Rejects `exact_type<BeamTypeId::List>(...)` and similar, as it's
-         * almost always an error to exactly match a union of several types.
-         *
-         * On the off chance that you _do_ need to match a union exactly, use
-         * `masked_types<T>(arg) == T` instead. */
-        static_assert(BeamTypeIdUnion<Type>::is_single_typed(),
-                      "exact_type expects exactly one primitive type, use "
-                      "always_one_of instead");
-
-        using integral = std::underlying_type_t<BeamTypeId>;
-        auto type_union = static_cast<integral>(getTypeUnion(arg));
-        return type_union == (type_union & static_cast<integral>(Type));
-    }
-
-    template<BeamTypeId Mask>
-    BeamTypeId masked_types(const ArgSource &arg) const {
-        static_assert((Mask != BeamTypeId::AlwaysBoxed &&
-                       Mask != BeamTypeId::AlwaysImmediate),
-                      "using masked_types with AlwaysBoxed or AlwaysImmediate "
-                      "is almost always an error, use exact_type, "
-                      "maybe_one_of, or never_one_of instead");
-        static_assert((Mask == BeamTypeId::MaybeBoxed ||
-                       Mask == BeamTypeId::MaybeImmediate ||
-                       Mask == BeamTypeId::AlwaysBoxed ||
-                       Mask == BeamTypeId::AlwaysImmediate),
-                      "masked_types expects a mask type like MaybeBoxed or "
-                      "MaybeImmediate, use exact_type, maybe_one_of, or"
-                      "never_one_of instead");
-
-        using integral = std::underlying_type_t<BeamTypeId>;
-        auto mask = static_cast<integral>(Mask);
-        auto type_union = static_cast<integral>(getTypeUnion(arg));
-        return static_cast<BeamTypeId>(type_union & mask);
-    }
-
-    bool is_sum_small_if_args_are_small(const ArgSource &LHS,
-                                        const ArgSource &RHS) {
-        Sint min, max;
-        auto [min1, max1] = getClampedRange(LHS);
-        auto [min2, max2] = getClampedRange(RHS);
-        min = min1 + min2;
-        max = max1 + max2;
-        return IS_SSMALL(min) && IS_SSMALL(max);
-    }
-
-    bool is_diff_small_if_args_are_small(const ArgSource &LHS,
-                                         const ArgSource &RHS) {
-        Sint min, max;
-        auto [min1, max1] = getClampedRange(LHS);
-        auto [min2, max2] = getClampedRange(RHS);
-        min = min1 - max2;
-        max = max1 - min2;
-        return IS_SSMALL(min) && IS_SSMALL(max);
-    }
-
-    bool is_product_small_if_args_are_small(const ArgSource &LHS,
-                                            const ArgSource &RHS) {
-        auto [min1, max1] = getClampedRange(LHS);
-        auto [min2, max2] = getClampedRange(RHS);
-        auto mag1 = std::max(std::abs(min1), std::abs(max1));
-        auto mag2 = std::max(std::abs(min2), std::abs(max2));
-
-        /*
-         * mag1 * mag2 <= MAX_SMALL
-         * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
-         */
-        ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
-        return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
-    }
-
-    bool is_bsl_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            auto [min1, max1] = getClampedRange(LHS);
-            auto [min2, max2] = getClampedRange(RHS);
-
-            if (min1 < 0 || max1 == 0 || min2 < 0) {
-                return false;
-            }
-
-            return max2 < Support::clz(max1) - _TAG_IMMED1_SIZE;
-        }
-    }
-
-    /* Helpers */
     void emit_gc_test(const ArgWord &Stack,
                       const ArgWord &Heap,
                       const ArgWord &Live);
@@ -1436,8 +1091,7 @@ protected:
     arm::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
 
     arm::Gp emit_call_fun(bool skip_box_test = false,
-                          bool skip_fun_test = false,
-                          bool skip_arity_test = false);
+                          bool skip_header_test = false);
 
     void emit_is_boxed(Label Fail, arm::Gp Src) {
         BeamAssembler::emit_is_boxed(Fail, Src);
@@ -1473,6 +1127,15 @@ protected:
                              const ArgSource &RHS,
                              const a64::Gp rhs_reg,
                              const Label next);
+
+    void emit_div_rem_literal(Sint divisor,
+                              const ArgSource &Dividend,
+                              arm::Gp dividend,
+                              arm::Gp quotient,
+                              arm::Gp remainder,
+                              const Label &generic,
+                              bool need_div,
+                              bool need_rem);
 
     void emit_div_rem(const ArgLabel &Fail,
                       const ArgSource &LHS,
@@ -1971,10 +1634,9 @@ protected:
     }
 };
 
-void beamasm_metadata_update(
-        std::string module_name,
-        ErtsCodePtr base_address,
-        size_t code_size,
-        const std::vector<BeamAssembler::AsmRange> &ranges);
+void beamasm_metadata_update(std::string module_name,
+                             ErtsCodePtr base_address,
+                             size_t code_size,
+                             const std::vector<AsmRange> &ranges);
 void beamasm_metadata_early_init();
 void beamasm_metadata_late_init();

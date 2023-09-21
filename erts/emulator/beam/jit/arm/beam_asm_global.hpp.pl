@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2022. All Rights Reserved.
+# Copyright Ericsson AB 2022-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,12 +92,16 @@ my @beam_global_funcs = qw(
     i_loop_rec_shared
     i_test_yield_shared
     i_bxor_body_shared
+    int128_to_big_shared
     int_div_rem_body_shared
     int_div_rem_guard_shared
-    internal_hash_helper
     is_in_range_shared
     is_ge_lt_shared
     minus_body_shared
+    mul_add_body_shared
+    mul_add_guard_shared
+    mul_body_shared
+    mul_guard_shared
     new_map_shared
     update_map_assoc_shared
     unloaded_fun
@@ -107,8 +111,6 @@ my @beam_global_funcs = qw(
     raise_exception
     raise_exception_shared
     store_unaligned
-    times_body_shared
-    times_guard_shared
     unary_minus_body_shared
     update_map_exact_guard_shared
     update_map_exact_body_shared
@@ -194,6 +196,7 @@ $decl_emit_funcs
     void emit_bif_element_helper(Label fail);
     void emit_bif_tuple_size_helper(Label fail);
 
+    void emit_internal_hash_helper();
     void emit_flatmap_get_element();
     void emit_hashmap_get_element();
 

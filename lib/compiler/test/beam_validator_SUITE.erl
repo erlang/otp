@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,8 @@
          bs_saved_position_units/1,parent_container/1,
          container_performance/1,
          infer_relops/1,
-         not_equal_inference/1,bad_bin_unit/1]).
+         not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
+         inert_update_type/1,range_inference/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -78,7 +79,8 @@ groups() ->
        missing_return_type,will_succeed,
        bs_saved_position_units,parent_container,
        container_performance,infer_relops,
-       not_equal_inference,bad_bin_unit]}].
+       not_equal_inference,bad_bin_unit,singleton_inference,
+       inert_update_type,range_inference]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -151,8 +153,8 @@ stack(Config) when is_list(Config) ->
     Errors = do_val(stack, Config),
     [{{t,a,2},{return,9,{stack_frame,2}}},
      {{t,b,2},{{deallocate,2},4,{allocated,none}}},
-     {{t,bad_1,0},{{allocate_zero,2,10},4,{{x,9},not_live}}},
-     {{t,bad_2,0},{{move,{y,0},{x,0}},5,{unassigned,{y,0}}}},
+     {{t,bad_1,0},{{allocate,2,10},4,{{x,9},not_live}}},
+     {{t,bad_2,0},{{move,{y,0},{x,0}},6,{unassigned,{y,0}}}},
      {{t,c,2},{{deallocate,2},10,{allocated,none}}},
      {{t,d,2},
       {{allocate,2,2},5,{existing_stack_frame,{size,2}}}},
@@ -201,7 +203,7 @@ uninit(Config) when is_list(Config) ->
       {{call,1,{f,8}},5,{uninitialized_reg,{y,0}}}},
      {{t,sum_3,2},
       {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
-       6,
+       7,
        {unassigned,{y,0}}}}] = Errors,
     ok.
 
@@ -210,7 +212,7 @@ unsafe_catch(Config) when is_list(Config) ->
     [{{t,small,2},
       {{bs_put_integer,{f,0},{integer,16},1,
         {field_flags,[unsigned,big]},{y,0}},
-       20,
+       21,
        {unassigned,{y,0}}}}] = Errors,
     ok.
 
@@ -227,7 +229,7 @@ overwrite_catchtag(Config) when is_list(Config) ->
 overwrite_trytag(Config) when is_list(Config) ->
     Errors = do_val(overwrite_trytag, Config),
     [{{overwrite_trytag,foo,1},
-      {{kill,{y,2}},8,{trytag,_}}}] = Errors,
+      {{init_yregs,{list,[{y,2}]}},9,{trytag,_}}}] = Errors,
     ok.
 
 accessing_tags(Config) when is_list(Config) ->
@@ -249,11 +251,11 @@ bad_catch_try(Config) when is_list(Config) ->
      {{bad_catch_try,bad_3,1},
       {{catch_end,{y,1}},9,{invalid_tag,{y,1},{t_atom,[kalle]}}}},
      {{bad_catch_try,bad_4,1},
-      {{'try',{x,0},{f,15}},5,{invalid_tag_register,{x,0}}}},
+      {{'try',{x,0},{f,15}},6,{invalid_tag_register,{x,0}}}},
      {{bad_catch_try,bad_5,1},
-      {{try_case,{y,1}},12,{invalid_tag,{y,1},any}}},
+      {{try_case,{y,1}},13,{invalid_tag,{y,1},any}}},
      {{bad_catch_try,bad_6,1},
-      {{move,{integer,1},{y,1}},7,
+      {{move,{integer,1},{y,1}},8,
        {invalid_store,{y,1}}}}] = Errors,
     ok.
 
@@ -325,7 +327,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{try_case_end,{x,0}},166,ambiguous_catch_try_state}}] = Errors,
+      {{try_case_end,{x,0}},152,ambiguous_catch_try_state}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
@@ -532,7 +534,7 @@ bad_try_catch_nesting(Config) ->
     Errors = do_val(bad_try_catch_nesting, Config),
     [{{bad_try_catch_nesting,main,2},
       {{'try',{y,2},{f,3}},
-       8,
+       9,
        {bad_try_catch_nesting,{y,2},[{{y,1},{trytag,[5]}}]}}}] = Errors,
     ok.
 
@@ -541,33 +543,33 @@ receive_stacked(Config) ->
     Errors = do_val(Mod, Config),
     [{{receive_stacked,f1,0},
       {{loop_rec_end,{f,3}},
-       18,
+       19,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f2,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f3,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f4,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f5,0},
       {{loop_rec_end,{f,23}},
-       22,
+       23,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f6,0},
       {{gc_bif,byte_size,{f,29},0,[{y,_}],{x,0}},
-       13,
+       14,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f7,0},
       {{loop_rec_end,{f,33}},
-       21,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f8,0},
       {{loop_rec_end,{f,38}},
-       21,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m1,0},
       {{loop_rec_end,{f,43}},
-       20,
+       21,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m2,0},
       {{loop_rec_end,{f,48}},
@@ -1099,6 +1101,50 @@ bad_bin_unit_2() ->
        || <<X:(is_number(<<(<<(0 bxor 0)>>)>>) orelse 1)>> <= <<>>,
        #{X := _} <- ok
    ].
+
+%% GH-6962: Type inference with singleton types in registers was weaker than
+%% inference on their corresponding literals.
+singleton_inference(Config) ->
+    Mod = ?FUNCTION_NAME,
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "singleton_inference.erl"),
+
+    {ok, Mod} = compile:file(File, [no_copt, no_bool_opt, no_ssa_opt]),
+
+    ok = Mod:test(),
+
+    ok.
+
+%% GH-6969: A type was made concrete even though that added no additional
+%% information.
+inert_update_type(_Config) ->
+    hello(<<"string">>, id(42)).
+
+hello(A, B) ->
+    mike([{sys_period, {A, B}}, {some_atom, B}]).
+
+mike([Head | _Rest]) -> joe(Head).
+
+joe({Name, 42}) -> Name;
+joe({sys_period, {A, _B}}) -> {41, 42, A}.
+
+range_inference(_Config) ->
+    ok = range_inference_1(id(<<$a>>)),
+    ok = range_inference_1(id(<<0>>)),
+    ok = range_inference_1(id(<<1114111/utf8>>)),
+
+    ok.
+
+range_inference_1(<<X/utf8>>) ->
+    case 9223372036854775807 - abs(X) of
+        Y when X < Y ->
+            ok;
+        9223372036854775807 ->
+            ok;
+        -2147483648 ->
+            ok
+    end.
 
 id(I) ->
     I.

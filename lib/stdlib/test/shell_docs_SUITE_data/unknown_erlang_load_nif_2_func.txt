@@ -45,3 +45,11 @@
   [;;4m[;;4mold_code[0m[0m:
     The call to [;;4mload_nif/2[0m was made from the old code of a
     module that has been upgraded; this is not allowed.
+
+  If the [;;4m-nifs()[0m attribute is used (which is recommended), all
+  NIFs in the dynamic library much be declared as such for [;;4m[0m
+  [;;4mload_nif/2[0m to succeed. On the other hand, all functions declared
+  with the [;;4m-nifs()[0m attribute do not have to be implemented by the
+  dynamic library. This allows a target independent Erlang file to
+  contain fallback implementations for functions that may lack NIF
+  support depending on target OS/hardware platform.

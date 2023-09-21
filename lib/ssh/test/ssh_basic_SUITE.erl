@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1584,7 +1584,8 @@ new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
 		    ct:log("Matched echo ~ts",[RecStr]),
 		    new_do_shell(IO, N, More);
 		false ->
-		    ct:fail("*** Expected ~p, but got ~p",[string:strip(ExpStr),RecStr])
+		    ct:log("*** Expected ~p, but got ~p",[string:strip(ExpStr),RecStr]),
+            new_do_shell(IO, N, Ops)
 	    end
     after 30000 ->
 	    ct:log("Message queue of ~p:~n~p",

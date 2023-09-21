@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -589,16 +589,34 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
-	am_is_binary,
-	&is_binary_1,
-	1,
-	DBIF_ALL
+        am_is_binary,
+        &is_binary_1,
+        1,
+        DBIF_ALL
     },
     {
-	am_is_function,
-	&is_function_1,
-	1,
-	DBIF_ALL
+        am_is_bitstring,
+        &is_bitstring_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_is_boolean,
+        &is_boolean_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_is_function,
+        &is_function_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_is_function,
+        &is_function_2,
+        2,
+        DBIF_ALL
     },
     {
 	am_is_record,
@@ -697,6 +715,12 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+	am_tuple_size,
+	&tuple_size_1,
+	1,
+	DBIF_ALL
+    },
+    {
 	am_binary_part,
 	&binary_part_2,
 	2,
@@ -721,10 +745,22 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
-	am_float,
-	&float_1,
-	1,
-	DBIF_ALL
+        am_float,
+        &float_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_ceil,
+        &ceil_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_floor,
+        &floor_1,
+        1,
+        DBIF_ALL
     },
     {
 	am_Plus,
@@ -911,8 +947,8 @@ static Eterm dmc_lookup_bif_reversed(void *f);
 static int cmp_uint(void *a, void *b);
 static int cmp_guard_bif(void *a, void *b);
 static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info);
-static Uint my_size_object(Eterm t);
-static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap);
+static Uint my_size_object(Eterm t, int is_hashmap_node);
+static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap, int);
 
 /* Guard subroutines */
 static void
@@ -2508,7 +2544,8 @@ restart:
 		top = HAllocX(build_proc, sz, HEAP_XTRA);
 		if (in_flags & ERTS_PAM_CONTIGUOUS_TUPLE) {
 		    ASSERT(is_tuple(term));
-		    *esp++ = copy_shallow(tuple_val(term), sz, &top, &MSO(build_proc));
+		    *esp++ = make_tuple(copy_shallow(tuple_val(term), sz, &top,
+                                                     &MSO(build_proc)));
 		}
 		else {
 		    *esp++ = copy_struct(term, sz, &top, &MSO(build_proc));
@@ -3196,9 +3233,27 @@ both_size_set:
 
     handle->new_size = handle->new_size - oldval_sz + newval_sz;
 
-    /* write new value in old dbterm, finalize will make a flat copy */
+    /*
+     * Write new value in old dbterm, finalize will make a flat copy.
+     */
+    if (!(handle->flags & DB_MUST_RESIZE)) {
+        const size_t nbytes = (arityval(handle->dbterm->tpl[0]) + 1) * sizeof(Eterm);
+        /*
+         * First time here. Save the original tuple array in order to make
+         * fast size calculations of untouched elements.
+         */
+        ASSERT(!handle->tb->common.compress);
+        ASSERT(!handle->old_tpl);
+        if (nbytes > sizeof(handle->old_tpl_dflt)) {
+            handle->old_tpl = erts_alloc(ERTS_ALC_T_TMP, nbytes);
+        } else {
+            handle->old_tpl = handle->old_tpl_dflt;
+        }
+        sys_memcpy(handle->old_tpl, handle->dbterm->tpl, nbytes);
+        handle->flags |= DB_MUST_RESIZE;
+    }
+    ASSERT(!!handle->old_tpl != !!handle->tb->common.compress);
     handle->dbterm->tpl[position] = newval;
-    handle->flags |= DB_MUST_RESIZE;
 }
 
 static ERTS_INLINE byte* db_realloc_term(DbTableCommon* tb, void* old,
@@ -3232,9 +3287,7 @@ void db_free_term(DbTable *tb, void* basep, Uint offset)
 	size = db_alloced_size_comp(db);
     }
     else {
-	ErlOffHeap tmp_oh;
-	tmp_oh.first = db->first_oh;
-	erts_cleanup_offheap(&tmp_oh);
+        erts_cleanup_offheap_list(db->first_oh);
 	size = offset + offsetof(DbTerm,tpl) + db->size*sizeof(Eterm);
     }
     erts_db_free(ERTS_ALC_T_DB_TERM, tb, basep, size);
@@ -3260,9 +3313,7 @@ void db_free_term_no_tab(int compress, void* basep, Uint offset)
 	size = db_alloced_size_comp(db);
     }
     else {
-	ErlOffHeap tmp_oh;
-	tmp_oh.first = db->first_oh;
-	erts_cleanup_offheap(&tmp_oh);
+        erts_cleanup_offheap_list(db->first_oh);
 	size = offset + offsetof(DbTerm,tpl) + db->size*sizeof(Eterm);
     }
     erts_db_free(ERTS_ALC_T_DB_TERM, NULL, basep, size);
@@ -3352,6 +3403,38 @@ static void* copy_to_comp(int keypos, Eterm obj, DbTerm* dest,
     return top.cp;
 }
 
+static ERTS_INLINE
+Eterm copy_ets_element(Eterm obj, int sz, Eterm **hpp, ErlOffHeap *off_heap)
+{
+#ifdef DEBUG
+    const Eterm* const hp_start = *hpp;
+#endif
+    Eterm copy;
+
+    if (sz == 0) {
+        ASSERT(is_immed(obj) || obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+        return obj;
+    }
+    ASSERT(is_not_immed(obj));
+
+    if (is_list(obj) && is_immed(CAR(list_val(obj)))) {
+        /* copy_struct() would put this last,
+           but we need the top term to be first in block */
+        Eterm* src = list_val(obj);
+        Eterm* dst = *hpp;
+
+        CAR(dst) = CAR(src);
+        *hpp += 2;
+        CDR(dst) = copy_struct(CDR(src), sz-2, hpp, off_heap);
+        copy = make_list(dst);
+    }
+    else {
+        copy = copy_struct(obj, sz, hpp, off_heap);
+    }
+    ASSERT(ptr_val(copy) == hp_start);
+    return copy;
+}
+
 /*
 ** Copy the object into a possibly new DbTerm, 
 ** offset is the offset of the DbTerm from the start
@@ -3364,14 +3447,28 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
     byte* basep;
     DbTerm* newp;
     Eterm* top;
-    int size = size_object(obj);
+    Eterm* source_ptr;
+    Eterm* dest_ptr;
+    int arity, i, size;
     ErlOffHeap tmp_offheap;
+    Uint elem_sizes_dflt[8];
+    Uint* elem_sizes = elem_sizes_dflt;
+
+    /* Calculate sizes of all elements and total size */
+    source_ptr = tuple_val(obj);
+    arity = arityval(*source_ptr);
+    if (arity > sizeof(elem_sizes_dflt) / sizeof(elem_sizes_dflt[0])) {
+        elem_sizes = erts_alloc(ERTS_ALC_T_TMP, arity * sizeof(*elem_sizes));
+    }
+    size = arity + 1;
+    for (i = 0; i < arity; i++) {
+        elem_sizes[i] = size_object(source_ptr[i+1]);
+        size += elem_sizes[i];
+    }
 
     if (old != 0) {
 	basep = ((byte*) old) - offset;
-	tmp_offheap.first  = old->first_oh;
-	erts_cleanup_offheap(&tmp_offheap);
-	old->first_oh = tmp_offheap.first;
+	erts_cleanup_offheap_list(old->first_oh);
 	if (size == old->size) {
 	    newp = old;
 	}
@@ -3388,14 +3485,26 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
 			      (offset + sizeof(DbTerm) + sizeof(Eterm)*(size-1)));
 	newp = (DbTerm*) (basep + offset);
     }
+
+    /*
+     * Do the actual copy. Lay out elements in order after the top tuple.
+     * This is relied upon by db_copy_element_from_ets.
+     */
     newp->size = size;
     top = newp->tpl;
-    tmp_offheap.first  = NULL;
-    copy_struct(obj, size, &top, &tmp_offheap);
+    tmp_offheap.first = NULL;
+    *top++ = *source_ptr++; // copy the header
+    dest_ptr = top + arity;
+    for (i = 0; i < arity; ++i) {
+        *top++ = copy_ets_element(source_ptr[i], elem_sizes[i], &dest_ptr,
+                                  &tmp_offheap);
+    }
     newp->first_oh = tmp_offheap.first;
 #ifdef DEBUG_CLONE
     newp->debug_clone = NULL;
 #endif
+    if (elem_sizes != elem_sizes_dflt)
+        erts_free(ERTS_ALC_T_TMP, elem_sizes);
     return basep;
 }
 
@@ -3438,6 +3547,7 @@ void* db_store_term_comp(DbTableCommon *tb, /* May be NULL */
     return basep;
 }
 
+static Uint db_element_size(DbTerm *obj, Eterm* tpl, Uint pos);
 
 void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
 {
@@ -3449,6 +3559,8 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
 	 sizeof(DbTerm)+sizeof(Eterm)*(handle->new_size-1));
     byte* newp = erts_db_alloc(ERTS_ALC_T_DB_TERM, tbl, alloc_sz);
     byte* oldp = *(handle->bp);
+
+    ASSERT(handle->flags & DB_MUST_RESIZE);
 
     sys_memcpy(newp, oldp, offset);  /* copy only hash/tree header */
     *(handle->bp) = newp;
@@ -3467,16 +3579,36 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
     }
     else {
 	ErlOffHeap tmp_offheap;
-	Eterm* tpl = handle->dbterm->tpl;
-	Eterm* top = newDbTerm->tpl;
+	DbTerm* src = handle->dbterm;
+        const Uint arity = arityval(src->tpl[0]);
+        Eterm* top = &newDbTerm->tpl[arity+1];
+        int i;
+
+        ASSERT(handle->old_tpl);
 
 	tmp_offheap.first = NULL;
+        newDbTerm->tpl[0] = src->tpl[0];
+        for (i = 1; i <= arity; ++i) {
+            Uint sz;
+            if (is_immed(src->tpl[i])) {
+                newDbTerm->tpl[i] = src->tpl[i];
+            }
+            else {
+                if (src->tpl[i] != handle->old_tpl[i]) {
+                    sz = size_object(src->tpl[i]);
+                }
+                else {
+                    sz = db_element_size(src, handle->old_tpl, i);
+                }
+                newDbTerm->tpl[i] = copy_ets_element(src->tpl[i], sz, &top,
+                                                     &tmp_offheap);
+            }
+        }
+        ASSERT((byte*)top == (newp + alloc_sz));
+        newDbTerm->first_oh = tmp_offheap.first;
 
-	{
-	    copy_struct(make_tuple(tpl), handle->new_size, &top, &tmp_offheap);
-	    newDbTerm->first_oh = tmp_offheap.first;
-	    ASSERT((byte*)top == (newp + alloc_sz));
-	}
+        if (handle->old_tpl != handle->old_tpl_dflt)
+            erts_free(ERTS_ALC_T_TMP, handle->old_tpl);
     }
 }
 
@@ -3517,44 +3649,86 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
     return make_tuple(hp);
 }
 
-Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p,
-			       DbTerm* obj, Uint pos,
-			       Eterm** hpp, Uint extra)
-{
+Eterm db_copy_element_from_ets(DbTableCommon *tb, Process *p, DbTerm *obj,
+                               Uint pos, Eterm **hpp, Uint extra) {
     if (is_immed(obj->tpl[pos])) {
-	*hpp = HAlloc(p, extra);
-	return obj->tpl[pos];
+        *hpp = HAlloc(p, extra);
+        return obj->tpl[pos];
     }
-    if (tb->compress && pos != tb->keypos) {
-	byte* ext = elem2ext(obj->tpl, pos);
-	Sint sz = erts_decode_ext_size_ets(ext, db_alloced_size_comp(obj)) + extra;
-	Eterm copy;
-        ErtsHeapFactory factory;
+    if (tb->compress) {
+        if (pos == tb->keypos) {
+            Uint sz = size_object(obj->tpl[pos]);
+            *hpp = HAlloc(p, sz + extra);
+            return copy_struct(obj->tpl[pos], sz, hpp, &MSO(p));
+        }
+        else {
+            byte *ext = elem2ext(obj->tpl, pos);
+            Sint sz =
+                erts_decode_ext_size_ets(ext, db_alloced_size_comp(obj)) + extra;
+            Eterm copy;
+            ErtsHeapFactory factory;
 
-        erts_factory_proc_prealloc_init(&factory, p, sz);
-        copy = erts_decode_ext_ets(&factory, ext);
-	*hpp = erts_produce_heap(&factory, extra, 0);
-        erts_factory_close(&factory);
+            erts_factory_proc_prealloc_init(&factory, p, sz);
+            copy = erts_decode_ext_ets(&factory, ext);
+            *hpp = erts_produce_heap(&factory, extra, 0);
+            erts_factory_close(&factory);
 #ifdef DEBUG_CLONE
-	ASSERT(EQ(copy, obj->debug_clone[pos]));
+            ASSERT(EQ(copy, obj->debug_clone[pos]));
 #endif
-	return copy;
-    }
-    else {
-	Uint sz = size_object(obj->tpl[pos]);
-	*hpp = HAlloc(p, sz + extra);
-	return copy_struct(obj->tpl[pos], sz, hpp, &MSO(p));
+            return copy;
+        }
+    } else {
+        Uint sz = db_element_size(obj, obj->tpl, pos);
+        *hpp = HAlloc(p, sz + extra);
+        return copy_shallow_obj(obj->tpl[pos], sz, hpp, &MSO(p));
     }
 }
 
+/*
+ * Return the size of an element of an uncompressed ETS record.
+ * Relies on each element of the ETS record being laid out contiguously,
+ * and starting with the top term.
+ */
+static Uint db_element_size(DbTerm *obj, Eterm* tpl, Uint pos) {
+    Eterm *start_ptr;
+    Eterm *end_ptr;
+    Eterm elem;
+    Uint arity, i, sz;
+
+    elem = tpl[pos];
+    if (is_zero_sized(elem))
+        return 0;
+
+    ASSERT(is_boxed(elem) || is_list(elem));
+    start_ptr = ptr_val(elem);
+    ASSERT(!erts_is_literal(elem, start_ptr));
+
+    arity = arityval(tpl[0]);
+    for (i = pos + 1; i <= arity; ++i) {
+        elem = tpl[i];
+        if (!is_zero_sized(elem)) {
+            ASSERT(is_boxed(elem) || is_list(elem));
+            end_ptr = ptr_val(elem);
+            ASSERT(!erts_is_literal(elem, end_ptr));
+            goto done;
+        }
+    }
+    end_ptr = obj->tpl + obj->size;
+
+done:
+    sz = end_ptr - start_ptr;
+    ASSERT(sz == size_object(tpl[pos]));
+    return sz;
+
+}
 
 /* Our own "cleanup_offheap"
- * as refc-binaries may be unaligned in compressed terms
+ * as ProcBin and ErtsMRefThing may be unaligned in compressed terms
 */
 void db_cleanup_offheap_comp(DbTerm* obj)
 {
     union erl_off_heap_ptr u;
-    struct erts_tmp_aligned_offheap tmp;
+    union erts_tmp_aligned_offheap tmp;
 
     for (u.hdr = obj->first_oh; u.hdr; u.hdr = u.hdr->next) {
         erts_align_offheap(&u, &tmp);
@@ -3950,11 +4124,11 @@ static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
         if (is_immed(t)) {
 	    tmp = t;
 	} else {
-	    sz = my_size_object(t);
+	    sz = my_size_object(t, 0);
             if (sz) {
                 emb = new_message_buffer(sz);
                 hp = emb->mem;
-                tmp = my_copy_struct(t,&hp,&(emb->off_heap));
+                tmp = my_copy_struct(t,&hp,&(emb->off_heap), 0);
                 emb->next = context->save;
                 context->save = emb;
             }
@@ -5492,33 +5666,39 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info)
 /*
  ** Simple size object that takes care of function calls and constant tuples
  */
-static Uint my_size_object(Eterm t) 
+static Uint my_size_object(Eterm t, int is_hashmap_node)
 {
     Uint sum = 0;
-    Eterm tmp;
     Eterm *p;
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
-	sum += 2 + my_size_object(CAR(list_val(t))) + 
-	    my_size_object(CDR(list_val(t)));
+	sum += 2 + my_size_object(CAR(list_val(t)), 0) +
+	    my_size_object(CDR(list_val(t)), 0);
 	break;
     case TAG_PRIMARY_BOXED:
         if (is_tuple(t)) {
-            if (tuple_val(t)[0] == make_arityval(1) && is_tuple(tmp = tuple_val(t)[1])) {
-                Uint i,n;
-                p = tuple_val(tmp);
-                n = arityval(p[0]);
-                sum += 1 + n;
-                for (i = 1; i <= n; ++i)
-                    sum += my_size_object(p[i]);
-            } else if (tuple_val(t)[0] == make_arityval(2) &&
-                       is_atom(tmp = tuple_val(t)[1]) &&
-                       tmp == am_const) {
+            Eterm* tpl = tuple_val(t);
+            Uint i,n;
+
+            if (is_hashmap_node) {
+                /* hashmap collision node, no matchspec syntax here */
+            }
+            else if (tpl[0] == make_arityval(1) && is_tuple(tpl[1])) {
+                tpl = tuple_val(tpl[1]);
+            }
+            else if (tpl[0] == make_arityval(2) && tpl[1] == am_const) {
                 sum += size_object(tuple_val(t)[2]);
-            } else {
+                break;
+            }
+            else {
                 erts_exit(ERTS_ERROR_EXIT,"Internal error, sizing unrecognized object in "
                           "(d)ets:match compilation.");
             }
+
+            n = arityval(tpl[0]);
+            sum += 1 + n;
+            for (i = 1; i <= n; ++i)
+                sum += my_size_object(tpl[i], 0);
             break;
         } else if (is_map(t)) {
             if (is_flatmap(t)) {
@@ -5531,7 +5711,7 @@ static Uint my_size_object(Eterm t)
                 n = arityval(p[0]);
                 sum += 1 + n;
                 for (int i = 1; i <= n; ++i)
-                    sum += my_size_object(p[i]);
+                    sum += my_size_object(p[i], 0);
 
                 /* Calculate size of values */
                 p = (Eterm *)mp;
@@ -5539,18 +5719,19 @@ static Uint my_size_object(Eterm t)
                 sum += n + 3;
                 p += 3; /* hdr + size + keys words */
                 while (n--) {
-                    sum += my_size_object(*p++);
+                    sum += my_size_object(*p++, 0);
                 }
             } else {
                 Eterm *head = (Eterm *)hashmap_val(t);
                 Eterm hdr = *head;
                 Uint sz;
+
                 sz    = hashmap_bitcount(MAP_HEADER_VAL(hdr));
                 sum  += 1 + sz + header_arity(hdr);
                 head += 1 + header_arity(hdr);
 
                 while(sz-- > 0) {
-                    sum += my_size_object(head[sz]);
+                    sum += my_size_object(head[sz], 1);
                 }
             }
             break;
@@ -5563,46 +5744,54 @@ static Uint my_size_object(Eterm t)
     return sum;
 }
 
-static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
+static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap,
+                            int is_hashmap_node)
 {
     Eterm ret = NIL, a, b;
     Eterm *p;
     Uint sz;
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
-	a = my_copy_struct(CAR(list_val(t)), hp, off_heap);
-	b = my_copy_struct(CDR(list_val(t)), hp, off_heap);
+	a = my_copy_struct(CAR(list_val(t)), hp, off_heap, 0);
+	b = my_copy_struct(CDR(list_val(t)), hp, off_heap, 0);
 	ret = CONS(*hp, a, b);
 	*hp += 2;
 	break;
     case TAG_PRIMARY_BOXED:
 	if (is_tuple(t)) {
-	    if (tuple_val(t)[0] == make_arityval(1) &&
-		is_tuple(a = tuple_val(t)[1])) {
-		Uint i,n;
-		p = tuple_val(a);
-		n = arityval(p[0]);
-                if (n == 0) {
-                    ret = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-                } else {
-                    Eterm *savep = *hp;
-                    ret = make_tuple(savep);
-                    *hp += n + 1;
-                    *savep++ = make_arityval(n);
-                    for(i = 1; i <= n; ++i)
-                        *savep++ = my_copy_struct(p[i], hp, off_heap);
-                }
+            Eterm* tpl = tuple_val(t);
+            Uint i,n;
+            Eterm *savep;
+
+            if (is_hashmap_node) {
+                /* hashmap collision node, no matchspec syntax here */
+            }
+            else if (tpl[0] == make_arityval(1) && is_tuple(tpl[1])) {
+                /* A {{...}} expression */
+                tpl = tuple_val(tpl[1]);
 	    }
-            else if (tuple_val(t)[0] == make_arityval(2) &&
-                     tuple_val(t)[1] == am_const) {
+            else if (tpl[0] == make_arityval(2) && tpl[1] == am_const) {
 		/* A {const, XXX} expression */
-		b = tuple_val(t)[2];
+		b = tpl[2];
 		sz = size_object(b);
 		ret = copy_struct(b,sz,hp,off_heap);
+                break;
 	    } else {
 		erts_exit(ERTS_ERROR_EXIT, "Trying to constant-copy non constant expression "
 			 "0x%bex in (d)ets:match compilation.", t);
 	    }
+            n = arityval(tpl[0]);
+            if (n == 0) {
+                ret = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+            } else {
+                savep = *hp;
+                ret = make_tuple(savep);
+                *hp += n + 1;
+                *savep++ = tpl[0];
+                for(i = 1; i <= n; ++i)
+                    *savep++ = my_copy_struct(tpl[i], hp, off_heap, 0);
+            }
+
         } else if (is_map(t)) {
             if (is_flatmap(t)) {
                 Uint i,n;
@@ -5623,7 +5812,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
                     *hp += n + 1;
                     *savep++ = make_arityval(n);
                     for(i = 1; i <= n; ++i)
-                        *savep++ = my_copy_struct(p[i], hp, off_heap);
+                        *savep++ = my_copy_struct(p[i], hp, off_heap, 0);
                 }
                 savep = *hp;
                 ret = make_flatmap(savep);
@@ -5635,7 +5824,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
                 *savep++ = keys;
                 p += 3; /* hdr + size + keys words */
                 for (i = 0; i < n; i++)
-                    *savep++ = my_copy_struct(p[i], hp, off_heap);
+                    *savep++ = my_copy_struct(p[i], hp, off_heap, 0);
                 erts_usort_flatmap((flatmap_t*)flatmap_val(ret));
             } else {
                 Eterm *head = hashmap_val(t);
@@ -5652,7 +5841,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
                     *savep++ = *head++;  /* map size */
 
                 for (int i = 0; i < sz; i++) {
-                    *savep++ = my_copy_struct(head[i],hp,off_heap);
+                    *savep++ = my_copy_struct(head[i],hp,off_heap, 1);
                 }
             }
 	} else {
@@ -5829,9 +6018,7 @@ DbTerm* db_alloc_tmp_uncompressed(DbTableCommon* tb, DbTerm* org)
 
 void db_free_tmp_uncompressed(DbTerm* obj)
 {
-    ErlOffHeap off_heap;
-    off_heap.first = obj->first_oh;
-    erts_cleanup_offheap(&off_heap);
+    erts_cleanup_offheap_list(obj->first_oh);
 #ifdef DEBUG_CLONE
     ASSERT(obj->debug_clone == NULL);
 #endif

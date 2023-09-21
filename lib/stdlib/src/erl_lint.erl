@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -320,6 +320,9 @@ format_error({illegal_guard_local_call, {F,A}}) ->
     io_lib:format("call to local/imported function ~tw/~w is illegal in guard",
 		  [F,A]);
 format_error(illegal_guard_expr) -> "illegal guard expression";
+format_error(match_float_zero) ->
+    "matching on the float 0.0 will no longer also match -0.0 in OTP 27. If "
+    "you specifically intend to match 0.0 alone, write +0.0 instead.";
 %% --- maps ---
 format_error(illegal_map_construction) ->
     "only association operators '=>' are allowed in map construction";
@@ -483,9 +486,6 @@ format_error({deprecated_builtin_type, {Name, Arity},
                   [Name, Arity, Rel, UseS]);
 format_error({not_exported_opaque, {TypeName, Arity}}) ->
     io_lib:format("opaque type ~tw~s is not exported",
-                  [TypeName, gen_type_paren(Arity)]);
-format_error({underspecified_opaque, {TypeName, Arity}}) ->
-    io_lib:format("opaque type ~tw~s is underspecified and therefore meaningless",
                   [TypeName, gen_type_paren(Arity)]);
 format_error({bad_dialyzer_attribute,Term}) ->
     io_lib:format("badly formed dialyzer attribute: ~tw", [Term]);
@@ -672,13 +672,19 @@ start(File, Opts) ->
                       false, Opts)},
          {redefined_builtin_type,
           bool_option(warn_redefined_builtin_type, nowarn_redefined_builtin_type,
+                      true, Opts)},
+         {singleton_typevar,
+          bool_option(warn_singleton_typevar, nowarn_singleton_typevar,
+                      true, Opts)},
+         {match_float_zero,
+          bool_option(warn_match_float_zero, nowarn_match_float_zero,
                       true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
     Enabled = ordsets:from_list(Enabled1),
     Calls = case ordsets:is_element(unused_function, Enabled) of
 		true ->
-		    maps:from_list([{{module_info,1},pseudolocals()}]);
+		    #{{module_info,1} => pseudolocals()};
 		false ->
 		    undefined
 	    end,
@@ -1414,7 +1420,7 @@ check_unused_records(Forms, St0) ->
                                          maps:remove(Used, Recs)
                                  end, St1#lint.records, UsedRecords),
             Unused = [{Name,Anno} ||
-                         {Name,{Anno,_Fields}} <- maps:to_list(URecs),
+                         Name := {Anno,_Fields} <- URecs,
                          element(1, loc(Anno, St1)) =:= FirstFile],
             foldl(fun ({N,Anno}, St) ->
                           add_warning(Anno, {unused_record, N}, St)
@@ -1704,7 +1710,12 @@ pattern({var,Anno,V}, _Vt, Old, St) ->
     pat_var(V, Anno, Old, [], St);
 pattern({char,_Anno,_C}, _Vt, _Old, St) -> {[],[],St};
 pattern({integer,_Anno,_I}, _Vt, _Old, St) -> {[],[],St};
-pattern({float,_Anno,_F}, _Vt, _Old, St) -> {[],[],St};
+pattern({float,Anno,F}, _Vt, _Old, St0) ->
+    St = case F == 0 andalso is_warn_enabled(match_float_zero, St0) of
+             true -> add_warning(Anno, match_float_zero, St0);
+             false -> St0
+         end,
+    {[], [], St};
 pattern({atom,Anno,A}, _Vt, _Old, St) ->
     {[],[],keyword_warning(Anno, A, St)};
 pattern({string,_Anno,_S}, _Vt, _Old, St) -> {[],[],St};
@@ -1799,14 +1810,14 @@ is_pattern_expr_1({integer,_Anno,_I}) -> true;
 is_pattern_expr_1({float,_Anno,_F}) -> true;
 is_pattern_expr_1({atom,_Anno,_A}) -> true;
 is_pattern_expr_1({tuple,_Anno,Es}) ->
-    all(fun is_pattern_expr/1, Es);
+    all(fun is_pattern_expr_1/1, Es);
 is_pattern_expr_1({nil,_Anno}) -> true;
 is_pattern_expr_1({cons,_Anno,H,T}) ->
     is_pattern_expr_1(H) andalso is_pattern_expr_1(T);
 is_pattern_expr_1({op,_Anno,Op,A}) ->
     erl_internal:arith_op(Op, 1) andalso is_pattern_expr_1(A);
 is_pattern_expr_1({op,_Anno,Op,A1,A2}) ->
-    erl_internal:arith_op(Op, 2) andalso all(fun is_pattern_expr/1, [A1,A2]);
+    erl_internal:arith_op(Op, 2) andalso all(fun is_pattern_expr_1/1, [A1,A2]);
 is_pattern_expr_1(_Other) -> false.
 
 pattern_map(Ps, Vt0, Old, St0) ->
@@ -2149,6 +2160,9 @@ gexpr({op,_,'andalso',L,R}, Vt, St) ->
     gexpr_list([L,R], Vt, St);
 gexpr({op,_,'orelse',L,R}, Vt, St) ->
     gexpr_list([L,R], Vt, St);
+gexpr({op,_Anno,EqOp,L,R}, Vt, St0) when EqOp =:= '=:='; EqOp =:= '=/=' ->
+    St1 = expr_check_match_zero(R, expr_check_match_zero(L, St0)),
+    gexpr_list([L,R], Vt, St1);
 gexpr({op,Anno,Op,L,R}, Vt, St0) ->
     {Avt,St1} = gexpr_list([L,R], Vt, St0),
     case is_gexpr_op(Op, 2) of
@@ -2565,6 +2579,9 @@ expr({op,Anno,Op,L,R}, Vt, St0) when Op =:= 'orelse'; Op =:= 'andalso' ->
     {Evt2,St2} = expr(R, Vt1, St1),
     Evt3 = vtupdate(vtunsafe({Op,Anno}, Evt2, Vt1), Evt2),
     {vtmerge(Evt1, Evt3),St2};
+expr({op,_Anno,EqOp,L,R}, Vt, St0) when EqOp =:= '=:='; EqOp =:= '=/=' ->
+    St = expr_check_match_zero(R, expr_check_match_zero(L, St0)),
+    expr_list([L,R], Vt, St);                   %They see the same variables
 expr({op,_Anno,_Op,L,R}, Vt, St) ->
     expr_list([L,R], Vt, St);                   %They see the same variables
 %% The following are not allowed to occur anywhere!
@@ -2573,6 +2590,20 @@ expr({remote,_Anno,M,_F}, _Vt, St) ->
 expr({ssa_check_when,_Anno,_WantedResult,_Args,_Tag,_Exprs}, _Vt, St) ->
     {[], St}.
 
+%% Checks whether 0.0 occurs naked in the LHS or RHS of an equality check. Note
+%% that we do not warn when it's being used as arguments for expressions in
+%% in general: `A =:= abs(0.0)` is fine.
+expr_check_match_zero({float,Anno,F}, St) ->
+    case F == 0 andalso is_warn_enabled(match_float_zero, St) of
+        true -> add_warning(Anno, match_float_zero, St);
+        false -> St
+    end;
+expr_check_match_zero({cons,_Anno,H,T}, St) ->
+    expr_check_match_zero(H, expr_check_match_zero(T, St));
+expr_check_match_zero({tuple,_Anno,Es}, St) ->
+    foldl(fun expr_check_match_zero/2, St, Es);
+expr_check_match_zero(_Expr, St) ->
+    St.
 
 %% expr_list(Expressions, Variables, State) ->
 %%      {UsedVarTable,State}
@@ -2906,16 +2937,7 @@ type_def(Attr, Anno, TypeName, ProtoType, Args, St0) ->
                 true ->
                     add_error(Anno, {redefine_type, TypePair}, St0);
                 false ->
-                    St1 = case
-                              Attr =:= opaque andalso
-                              is_underspecified(ProtoType, Arity)
-                          of
-                              true ->
-                                  Warn = {underspecified_opaque, TypePair},
-                                  add_warning(Anno, Warn, St0);
-                              false -> St0
-                          end,
-                    StoreType(St1)
+                    StoreType(St0)
 	    end
     end.
 
@@ -2936,10 +2958,6 @@ warn_redefined_builtin_type(Anno, TypePair, #lint{compile=Opts}=St) ->
             St
     end.
 
-is_underspecified({type,_,term,[]}, 0) -> true;
-is_underspecified({type,_,any,[]}, 0) -> true;
-is_underspecified(_ProtType, _Arity) -> false.
-
 check_type(Types, St) ->
     {SeenVars, St1} = check_type_1(Types, maps:new(), St),
     maps:fold(fun(Var, {seen_once, Anno}, AccSt) ->
@@ -2947,6 +2965,16 @@ check_type(Types, St) ->
 			  "_"++_ -> AccSt;
 			  _ -> add_error(Anno, {singleton_typevar, Var}, AccSt)
 		      end;
+                 (Var, {seen_once_union, Anno}, AccSt) ->
+                      case is_warn_enabled(singleton_typevar, AccSt) of
+                          true ->
+                              case atom_to_list(Var) of
+                                  "_"++_ -> AccSt;
+                                  _ -> add_warning(Anno, {singleton_typevar, Var}, AccSt)
+                              end;
+                          false ->
+                              AccSt
+                      end;
 		 (_Var, seen_multiple, AccSt) ->
 		      AccSt
 	      end, St1, SeenVars).
@@ -2987,6 +3015,7 @@ check_type_2({var, A, Name}, SeenVars, St) ->
     NewSeenVars =
 	case maps:find(Name, SeenVars) of
 	    {ok, {seen_once, _}} -> maps:put(Name, seen_multiple, SeenVars);
+	    {ok, {seen_once_union, _}} -> maps:put(Name, seen_multiple, SeenVars);
 	    {ok, seen_multiple} -> SeenVars;
 	    error -> maps:put(Name, {seen_once, A}, SeenVars)
 	end,
@@ -3033,12 +3062,35 @@ check_type_2({type, A, record, [Name|Fields]}, SeenVars, St) ->
 	    check_record_types(A, Atom, Fields, SeenVars, St1);
 	_ -> {SeenVars, add_error(A, {type_syntax, record}, St)}
     end;
-check_type_2({type, _A, Tag, Args}, SeenVars, St) when Tag =:= product;
-                                                     Tag =:= union;
-                                                     Tag =:= tuple ->
+check_type_2({type, _A, Tag, Args}=_F, SeenVars, St) when Tag =:= product;
+                                                          Tag =:= tuple ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
-			check_type_1(T, AccSeenVars, AccSt)
-		end, {SeenVars, St}, Args);
+                        check_type_1(T, AccSeenVars, AccSt)
+                end, {SeenVars, St}, Args);
+check_type_2({type, _A, union, Args}=_F, SeenVars0, St) ->
+    lists:foldl(fun(T, {AccSeenVars0, AccSt}) ->
+                        {SeenVars1, St0} = check_type_1(T, SeenVars0, AccSt),
+                        AccSeenVars = maps:merge_with(
+                                        fun (K, {seen_once, Anno}, {seen_once, _}) ->
+                                                case SeenVars0 of
+                                                    #{K := _} ->
+                                                        %% Unused outside of this union.
+                                                        {seen_once, Anno};
+                                                    #{} ->
+                                                        {seen_once_union, Anno}
+                                                end;
+                                            (_K, {seen_once, Anno}, {seen_once_union, _}) ->
+                                                {seen_once_union, Anno};
+                                            (_K, {seen_once_union, _}=R, {seen_once, _}) -> R;
+                                            (_K, {seen_once_union, _}=R, {seen_once_union, _}) -> R;
+                                            (_K, {seen_once_union, _}, Else) -> Else;
+                                            (_K, {seen_once, _}, Else) -> Else;
+                                            (_K, Else, {seen_once_union, _}) -> Else;
+                                            (_K, Else, {seen_once, _}) -> Else;
+                                            (_K, Else1, _Else2)        -> Else1
+                                        end, AccSeenVars0, SeenVars1),
+                        {AccSeenVars, St0}
+                end, {SeenVars0, St}, Args);
 check_type_2({type, Anno, TypeName, Args}, SeenVars, St) ->
     #lint{module = Module, types=Types} = St,
     Arity = length(Args),
@@ -3057,7 +3109,12 @@ check_type_2({type, Anno, TypeName, Args}, SeenVars, St) ->
                           add_warning(Anno, W, St)
                   end;
               _ ->
-                  St
+                  case is_default_type(TypePair) of
+                      true ->
+                          used_type(TypePair, Anno, St);
+                      false ->
+                          St
+                  end
           end,
     check_type_2({type, nowarn(), product, Args}, SeenVars, St1);
 check_type_2({user_type, A, TypeName, Args}, SeenVars, St) ->
@@ -3130,19 +3187,26 @@ obsolete_builtin_type({Name, A}) when is_atom(Name), is_integer(A) -> no.
 
 %% spec_decl(Anno, Fun, Types, State) -> State.
 
-spec_decl(Anno, MFA0, TypeSpecs, St00 = #lint{specs = Specs, module = Mod}) ->
+spec_decl(Anno, MFA0, TypeSpecs, #lint{specs = Specs, module = Mod} = St0) ->
     MFA = case MFA0 of
 	      {F, Arity} -> {Mod, F, Arity};
 	      {_M, _F, Arity} -> MFA0
 	  end,
-    St0 = check_module_name(element(1, MFA), Anno, St00),
     St1 = St0#lint{specs = maps:put(MFA, Anno, Specs)},
     case is_map_key(MFA, Specs) of
 	true -> add_error(Anno, {redefine_spec, MFA0}, St1);
 	false ->
             St2 = case MFA of
-                      {Mod, _, _} -> St1;
-                      _ -> add_error(Anno, {bad_module, MFA}, St1)
+                      {Mod, _, _} ->
+                          St1;
+                      _ ->
+                          St1int = case MFA0 of
+                                       {M, _, _} ->
+                                           check_module_name(M, Anno, St1);
+                                       _ ->
+                                           St1
+                                   end,
+                          add_error(Anno, {bad_module, MFA}, St1int)
                   end,
             St3 = St2#lint{type_id = {spec, MFA}},
             check_specs(TypeSpecs, spec_wrong_arity, Arity, St3)
@@ -3340,7 +3404,7 @@ check_unused_types_1(Forms, #lint{types=Ts}=St) ->
 
 reached_types(#lint{usage = Usage}) ->
     Es = [{From, {type, To}} ||
-             {To, UsedTs} <- maps:to_list(Usage#usage.used_types),
+             To := UsedTs <- Usage#usage.used_types,
              #used_type{at = From} <- UsedTs],
     Initial = initially_reached_types(Es),
     G = sofs:family_to_digraph(sofs:rel2fam(sofs:relation(Es))),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -520,14 +520,14 @@ default_port(https) ->
     443.
 
 
--spec cookie_header(Url) -> [HttpHeader] | {error, Reason} when
+-spec cookie_header(Url) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
       HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
       Reason     :: term().
 cookie_header(Url) ->
     cookie_header(Url, default_profile()).
 
--spec cookie_header(Url, ProfileOrOpts) -> [HttpHeader] | {error, Reason} when
+-spec cookie_header(Url, ProfileOrOpts) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
       HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
       ProfileOrOpts :: Profile | Opts,
@@ -545,7 +545,7 @@ cookie_header(Url, Opts) when is_list(Opts) ->
 %% request to Url using profile Profile. If no profile is specified, the default
 %% profile is used.
 %%
--spec cookie_header(Url, Opts, Profile) -> [HttpHeader] | {error, Reason} when
+-spec cookie_header(Url, Opts, Profile) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
       HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
       Profile    :: atom() | pid(),
@@ -955,10 +955,12 @@ http_options([{Tag, Default, Idx, Post} | Defaults], HttpOptions, Acc) ->
 	false ->
 	    DefaultVal = 
 		case Default of
-		    {value, Val} ->
-			Val;
-		    {field, DefaultIdx} ->
-			element(DefaultIdx, Acc)
+            {value, Val} ->
+                Val;
+            {value_lazy, ValFn} ->
+                ValFn();
+            {field, DefaultIdx} ->
+                element(DefaultIdx, Acc)
 		end,
 	    Acc2 = setelement(Idx, Acc, DefaultVal),
 	    http_options(Defaults, HttpOptions, Acc2)
@@ -983,11 +985,12 @@ http_options_default() ->
     AutoRedirectPost =  boolfun(),
 
     SslPost = fun(Value) when is_list(Value) ->
-		      {ok, {?HTTP_DEFAULT_SSL_KIND, Value}};
-		 ({ssl, SslOptions}) when is_list(SslOptions) ->
-		      {ok, {?HTTP_DEFAULT_SSL_KIND, SslOptions}};
+                      {ok, {ssl, Value}};
+                 ({ssl, SslOptions}) when is_list(SslOptions) ->
+		      {ok, {ssl, SslOptions}};
+                 %% backwards compat
 		 ({essl, SslOptions}) when is_list(SslOptions) ->
-		      {ok, {essl, SslOptions}};
+		      {ok, {ssl, SslOptions}};
 		 (_) ->
 		      error
 	      end,
@@ -1008,14 +1011,17 @@ http_options_default() ->
 		error
 	end,
 
-    Ssl = ssl_verify_host_options(true),
+    SslOptsLazyFn = fun() ->
+        {ssl, ssl_verify_host_options(true)}
+    end,
 
     UrlDecodePost =  boolfun(),
     [
      {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
      {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
      {autoredirect,    {value, true},                  #http_options.autoredirect,    AutoRedirectPost},
-     {ssl,             {value, {?HTTP_DEFAULT_SSL_KIND, Ssl}}, #http_options.ssl,     SslPost},
+     %% can crash if no os bundle is present. therefore the options are only evaluated on demand
+     {ssl,             {value_lazy, SslOptsLazyFn},    #http_options.ssl,             SslPost},
      {proxy_auth,      {value, undefined},             #http_options.proxy_auth,      ProxyAuthPost},
      {relaxed,         {value, false},                 #http_options.relaxed,         RelaxedPost},
      {url_encode,      {value, false},                 #http_options.url_encode,      UrlDecodePost},

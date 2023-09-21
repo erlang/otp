@@ -173,7 +173,7 @@ erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail)
     union erl_off_heap_ptr u;
     Eterm res = tail;
     Eterm tuple;
-    struct erts_tmp_aligned_offheap tmp;
+    union erts_tmp_aligned_offheap tmp;
 
     for (u.hdr = oh->first; u.hdr; u.hdr = u.hdr->next) {
         erts_align_offheap(&u, &tmp);
@@ -1105,6 +1105,21 @@ erts_process_info(Process *c_p,
 static void
 pi_setup_grow(int **arr, int *def_arr, Uint *sz, int ix);
 
+#ifdef DEBUG
+static int
+empty_or_adj_msgq_signals_only(ErtsMessage *sig)
+{
+    ErtsSignal *s = (ErtsSignal *) sig;
+    for (s = (ErtsSignal *) sig; s; s = (ErtsSignal *) s->common.next) {
+        if (!ERTS_SIG_IS_NON_MSG(s))
+            return 0;
+        if (ERTS_PROC_SIG_OP(s->common.tag) != ERTS_SIG_Q_OP_ADJ_MSGQ)
+            return 0;
+    }
+    return !0;
+}
+#endif
+
 static ERTS_INLINE int
 pi_maybe_flush_signals(Process *c_p, int pi_flags)
 {
@@ -1143,11 +1158,18 @@ pi_maybe_flush_signals(Process *c_p, int pi_flags)
     if (c_p->sig_qs.flags & FS_FLUSHED_SIGS) {
     flushed:
 
+        /*
+         * Even though we've requested a clean sig queue
+         * the middle queue may contain adjust-message-queue
+         * signals since those may be reinserted if yielding.
+         * Such signals does not effect us though.
+         */
         ASSERT(((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
                              | ERTS_PI_FLAG_NEED_MSGQ_LEN))
                 != ERTS_PI_FLAG_NEED_MSGQ_LEN)
-               || !c_p->sig_qs.cont);
-	ASSERT(c_p->sig_qs.flags & FS_FLUSHING_SIGS);
+               || empty_or_adj_msgq_signals_only(c_p->sig_qs.cont));
+
+        ASSERT(c_p->sig_qs.flags & FS_FLUSHING_SIGS);
 
 	c_p->sig_qs.flags &= ~(FS_FLUSHED_SIGS|FS_FLUSHING_SIGS);
         erts_set_gc_state(c_p, !0); /* Allow GC again... */
@@ -1158,15 +1180,22 @@ pi_maybe_flush_signals(Process *c_p, int pi_flags)
 
     if (!(c_p->sig_qs.flags & FS_FLUSHING_SIGS)) {
         int flush_flags = 0;
+        if (erts_atomic32_read_nob(&c_p->xstate)
+            & ERTS_PXSFLG_MAYBE_SELF_SIGS) {
+            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_FROM_ID;
+        }
+	else if (state & ERTS_PSFLG_MSG_SIG_IN_Q) {
+            erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+            erts_proc_sig_fetch(c_p);
+            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+        }
         if (((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
                           | ERTS_PI_FLAG_NEED_MSGQ_LEN))
              == ERTS_PI_FLAG_NEED_MSGQ_LEN)
-            && c_p->sig_qs.cont) {
+            && (flush_flags || c_p->sig_qs.cont)) {
             flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_CLEAN_SIGQ;
         }
-        if (state & ERTS_PSFLG_MAYBE_SELF_SIGS)
-            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_FROM_ID;
-	if (!flush_flags)
+        if (!flush_flags)
 	    return 0; /* done; no need to flush... */
 	erts_proc_sig_init_flush_signals(c_p, flush_flags, c_p->common.id);
         if (c_p->sig_qs.flags & FS_FLUSHED_SIGS)
@@ -1531,7 +1560,7 @@ process_info_aux(Process *c_p,
             ASSERT(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER);
             if (!(state & (ERTS_PSFLG_ACTIVE
                            | ERTS_PSFLG_SIG_Q
-                           | ERTS_PSFLG_SIG_IN_Q))) {
+                           | ERTS_PSFLG_NMSG_SIG_IN_Q))) {
                 int sys_tasks = 0;
                 if (state & ERTS_PSFLG_SYS_TASKS)
                     sys_tasks = erts_have_non_prio_elev_sys_tasks(rp,
@@ -1954,8 +1983,8 @@ process_info_aux(Process *c_p,
 	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(rp->min_vheap_size)); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 
-	t = TUPLE2(hp, am_max_heap_size, t); hp += 3;
-	res = CONS(hp, mhs_map, res); hp += 2;
+	t = TUPLE2(hp, am_max_heap_size, mhs_map); hp += 3;
+	res = CONS(hp, t, res); hp += 2;
 	break;
     }
 
@@ -3360,6 +3389,11 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #endif
     } else if (ERTS_IS_ATOM_STR("system_logger", BIF_ARG_1)) {
         BIF_RET(erts_get_system_logger());
+    } else if (ERTS_IS_ATOM_STR("max_integer", BIF_ARG_1)) {
+        Eterm *hp = HAlloc(BIF_P, BIG_ARITY_MAX+1);
+        hp[0] = make_pos_bignum_header(BIG_ARITY_MAX);
+        sys_memset(hp + 1, 0xff, BIG_ARITY_MAX*sizeof(Eterm));
+        BIF_RET(make_big(hp));
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -3674,7 +3708,7 @@ fun_info_2(BIF_ALIST_2)
         hp = HAlloc(p, 3);
         break;
     case am_pid:
-        val = is_local_fun(funp) ? funp->creator : am_undefined;
+        val = is_local_fun(funp) ? erts_init_process_id : am_undefined;
         hp = HAlloc(p, 3);
         break;
     case am_module:
@@ -3702,7 +3736,7 @@ fun_info_2(BIF_ALIST_2)
         break;
     case am_env:
         {
-            Uint num_free = funp->num_free;
+            Uint num_free = fun_num_free(funp);
             int i;
 
             hp = HAlloc(p, 3 + 2 * num_free);
@@ -3724,7 +3758,7 @@ fun_info_2(BIF_ALIST_2)
         hp = HAlloc(p, 3);
         break;
     case am_arity:
-        val = make_small(funp->arity);
+        val = make_small(fun_arity(funp));
         hp = HAlloc(p, 3);
         break;
     case am_name:
@@ -3763,7 +3797,7 @@ fun_info_mfa_1(BIF_ALIST_1)
                 BIF_RET(TUPLE3(hp,
                                funp->entry.fun->module,
                                NIL,
-                               make_small(funp->arity)));
+                               make_small(fun_arity(funp))));
             }
         } else {
             ASSERT(is_external_fun(funp) && funp->next == NULL);
@@ -3773,7 +3807,7 @@ fun_info_mfa_1(BIF_ALIST_1)
         BIF_RET(TUPLE3(hp,
                        mfa->module,
                        mfa->function,
-                       make_small(funp->arity)));
+                       make_small(fun_arity(funp))));
     }
 
     BIF_ERROR(p, BADARG);
@@ -3808,7 +3842,8 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
             erts_aint32_t state = erts_atomic32_read_acqb(&rp->state);
             if (state & (ERTS_PSFLG_EXITING
                          | ERTS_PSFLG_SIG_Q
-                         | ERTS_PSFLG_SIG_IN_Q)) {
+                         | ERTS_PSFLG_MSG_SIG_IN_Q
+                         | ERTS_PSFLG_NMSG_SIG_IN_Q)) {
                 /*
                  * If in exiting state, trap out and send 'is alive'
                  * request and wait for it to complete termination.
@@ -4275,6 +4310,13 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
             BIF_RET(am_ok);
         }
 #endif
+        else if (ERTS_IS_ATOM_STR("hashmap_collision_bonanza", BIF_ARG_1)) {
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+            return am_true;
+#else
+            return am_false;
+#endif
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
@@ -4520,7 +4562,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		BIF_RET(erts_debug_reader_groups_map(BIF_P, (int) groups));
 	    }
 	    else if (ERTS_IS_ATOM_STR("internal_hash", tp[1])) {
-		Uint hash = (Uint) make_internal_hash(tp[2], 0);
+		Uint hash = (Uint) erts_internal_hash(tp[2]);
 		Uint hsz = 0;
 		Eterm* hp;
 		erts_bld_uint(NULL, &hsz, hash);
@@ -5339,16 +5381,19 @@ erts_get_ethread_info(Process *c_p)
 
 static BIF_RETTYPE
 gather_histograms_helper(Process * c_p, Eterm arg_tuple,
-                         int gather(Process *, int, int, int, UWord, Eterm))
+                         int gather(Process *, int, int, int, UWord, int, Eterm))
 {
     SWord hist_start, hist_width, aux_work_tid;
     int msg_count, alloc_num;
     Eterm *args;
+    int flags;
 
-    /* This is an internal BIF, so the error checking is mostly left to erlang
-     * code. */
+    /* This is an internal BIF so the error checking is mostly left to erlang
+     * code, we'll just make sure we won't crash the emulator outright. */
+    if (!is_tuple_arity(arg_tuple, 6)) {
+        BIF_ERROR(c_p, BADARG);
+    }
 
-    ASSERT(is_tuple_arity(arg_tuple, 5));
     args = tuple_val(arg_tuple);
 
     for (alloc_num = ERTS_ALC_A_MIN; alloc_num <= ERTS_ALC_A_MAX; alloc_num++) {
@@ -5364,12 +5409,14 @@ gather_histograms_helper(Process * c_p, Eterm arg_tuple,
     aux_work_tid = signed_val(args[2]);
     hist_width = signed_val(args[3]);
     hist_start = signed_val(args[4]);
+    flags = signed_val(args[5]);
 
     if (aux_work_tid < 0 || erts_no_aux_work_threads <= aux_work_tid) {
         BIF_ERROR(c_p, BADARG);
     }
 
-    msg_count = gather(c_p, alloc_num, aux_work_tid, hist_width, hist_start, args[5]);
+    msg_count = gather(c_p, alloc_num, aux_work_tid, hist_width, hist_start,
+                       flags, args[6]);
 
     BIF_RET(make_small(msg_count));
 }

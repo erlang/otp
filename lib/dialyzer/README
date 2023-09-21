@@ -15,11 +15,7 @@ The DIALYZER, a DIscrepancy AnaLYZer for ERlang programs.
 --
 -----------------------------------------------
 
-You can use Dialyzer either in its GUI mode, simply by:
-
-	./dialyzer
-
-or in its command-line mode, as e.g. by:
+You can use Dialyzer in its command-line mode by:
 
 	./dialyzer -r OTP_DIR/lib/inets
 

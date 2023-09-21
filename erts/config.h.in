@@ -89,6 +89,9 @@
 /* Socket address dl length */
 #undef ESOCK_SDL_LEN
 
+/* Use extended error info */
+#undef ESOCK_USE_EXTENDED_ERROR_INFO
+
 /* Interface hwaddr supported */
 #undef ESOCK_USE_HWADDR
 
@@ -823,6 +826,9 @@
 
 /* Define to 1 if you have the `memmove' function. */
 #undef HAVE_MEMMOVE
+
+/* Define to 1 if you have the `memrchr' function. */
+#undef HAVE_MEMRCHR
 
 /* Define if the pthread.h header file is in pthread/mit directory. */
 #undef HAVE_MIT_PTHREAD_H

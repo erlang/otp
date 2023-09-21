@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -306,9 +306,6 @@ typedef struct {
     signed char used_ix;
     signed char unused;
     signed char pending_set_save_ix;
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    signed char old_recv_marker_ix;
-#endif
 } ErtsRecvMarkerBlock;
 
 /* Size of default message buffer (erl_message.c) */
@@ -373,7 +370,7 @@ typedef struct {
     Uint32 flags;
 } ErtsSignalPrivQueues;
 
-typedef struct {
+typedef struct ErtsSignalInQueue_ {
     ErtsMessage* first;
     ErtsMessage** last;  /* point to the last next pointer */
     Sint len;            /* number of messages in queue */
@@ -410,7 +407,8 @@ typedef struct {
     ErtsSignalInQueueBuffer slots[ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS];
     ErtsThrPrgrLaterOp free_item;
     erts_atomic64_t nonempty_slots;
-    erts_atomic64_t nonmsg_slots;
+    erts_atomic32_t nonmsgs_in_slots;
+    erts_atomic32_t msgs_in_slots;
     /*
      * dirty_refc is incremented by dirty schedulers that access the
      * buffer array to prevent deallocation while they are accessing
@@ -450,14 +448,17 @@ typedef struct erl_trace_message_queue__ {
 #endif
 
 /* Add one message last in message queue */
-#define LINK_MESSAGE(p, msg) \
+#define LINK_MESSAGE(p, msg, ps)                                        \
     do {                                                                \
         ASSERT(ERTS_SIG_IS_MSG(msg));                                   \
-        ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), "before");               \
+        ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), &(p)->sig_inq, "before");\
         *(p)->sig_inq.last = (msg);                                     \
         (p)->sig_inq.last = &(msg)->next;                               \
         (p)->sig_inq.len++;                                             \
-        ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), "after");                \
+        if (!((ps) & ERTS_PSFLG_MSG_SIG_IN_Q))                          \
+            (void) erts_atomic32_read_bor_nob(&(p)->state,              \
+                                              ERTS_PSFLG_MSG_SIG_IN_Q); \
+        ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), &(p)->sig_inq, "after"); \
     } while(0)
 
 #define ERTS_HEAP_FRAG_SIZE(DATA_WORDS) \

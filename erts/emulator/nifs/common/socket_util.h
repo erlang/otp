@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,30 @@
 
 #define ESOCK_ABORT(E)  esock_abort(E, __func__, __FILE__, __LINE__)
 #define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
+
+#define MKEEI(E, RI, I) \
+    esock_make_extra_error_info_term((E),          \
+                                     __FILE__,     \
+                                     __FUNCTION__, \
+                                     __LINE__,     \
+                                     (RI), (I))
+
+#if defined(ESOCK_USE_EXTENDED_ERROR_INFO)
+#define ENO2T(E, ENO) MKEEI((E),                                \
+                            MKI((E), (ENO)),                    \
+                            esock_errno_to_term((E), (ENO)))
+#else
+#define ENO2T(E, ENO) esock_errno_to_term((E), (ENO))
+#endif
+
+
+extern
+ERL_NIF_TERM esock_make_extra_error_info_term(ErlNifEnv*   env,
+                                              const char*  file,
+                                              const char*  function,
+                                              const int    line,
+                                              ERL_NIF_TERM rawinfo,
+                                              ERL_NIF_TERM info);
 
 extern
 unsigned int esock_get_uint_from_map(ErlNifEnv*   env,
@@ -247,6 +271,8 @@ ERL_NIF_TERM esock_self(ErlNifEnv* env);
 extern
 ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any);
 extern
+ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err);
+extern
 ERL_NIF_TERM esock_make_error(ErlNifEnv* env, ERL_NIF_TERM reason);
 extern
 ERL_NIF_TERM esock_make_error_closed(ErlNifEnv* env);
@@ -254,6 +280,9 @@ extern
 ERL_NIF_TERM esock_make_error_str(ErlNifEnv* env, char* reason);
 extern
 ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err);
+extern
+ERL_NIF_TERM esock_make_error_t2r(ErlNifEnv* env,
+                                  ERL_NIF_TERM tag, ERL_NIF_TERM reason);
 extern
 ERL_NIF_TERM esock_make_error_invalid(ErlNifEnv* env, ERL_NIF_TERM what);
 extern

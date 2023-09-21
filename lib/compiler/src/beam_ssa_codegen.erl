@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,14 +34,14 @@
                 splitwith/2,takewhile/2]).
 
 -record(cg, {lcount=1 :: beam_label(),          %Label counter
-	     functable=#{} :: #{fa()=>beam_label()},
-             labels=#{} :: #{ssa_label()=>0|beam_label()},
+	     functable=#{} :: #{fa() => beam_label()},
+             labels=#{} :: #{ssa_label() => 0|beam_label()},
              used_labels=gb_sets:empty() :: gb_sets:set(ssa_label()),
-             regs=#{} :: #{beam_ssa:var_name()=>ssa_register()},
+             regs=#{} :: #{beam_ssa:b_var() => ssa_register()},
              ultimate_fail=1 :: beam_label(),
              catches=gb_sets:empty() :: gb_sets:set(ssa_label()),
              fc_label=1 :: beam_label()
-             }).
+            }).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_asm:module_code()}.
@@ -68,7 +68,7 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
                    stack=none :: 'none' | pos_integer(),
                    words=#need{} :: #need{},
                    live :: 'undefined' | pos_integer(),
-                   def_yregs=[] :: [yreg()]
+                   def_yregs=[] :: [b_var()]
                   }).
 
 -record(cg_br, {bool :: beam_ssa:value(),
@@ -157,13 +157,11 @@ assert_exception_block(Blocks) ->
 add_parameter_annos([{label, _}=Entry | Body], Anno) ->
     ParamTypes = maps:get(parameter_info, Anno, #{}),
 
-    Annos = maps:fold(
-        fun(K, V, Acc) when is_map_key(K, ParamTypes) ->
-                Info = map_get(K, ParamTypes),
-                [{'%', {var_info, V, Info}} | Acc];
-           (_K, _V, Acc) ->
-                Acc
-        end, [], maps:get(registers, Anno)),
+    Annos = [begin
+                 Info = map_get(K, ParamTypes),
+                 {'%', {var_info, V, Info}}
+             end || K := V <- map_get(registers, Anno),
+                    is_map_key(K, ParamTypes)],
 
     [Entry | sort(Annos)] ++ Body.
 
@@ -405,7 +403,6 @@ classify_heap_need(match_fail) -> gc;
 classify_heap_need(nif_start) -> neutral;
 classify_heap_need(nop) -> neutral;
 classify_heap_need(new_try_tag) -> neutral;
-classify_heap_need(old_make_fun) -> gc;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
 classify_heap_need(raw_raise) -> gc;
@@ -430,9 +427,9 @@ classify_heap_need(wait_timeout) -> gc.
 %%% since the BEAM interpreter have more optimized instructions
 %%% operating on X registers than on Y registers.
 %%%
-%%% In call and 'call' and 'old_make_fun' instructions there is also the
-%%% possibility that a 'move' instruction can be eliminated because
-%%% a value is already in the correct X register.
+%%% In call instructions there is also the possibility that a 'move'
+%%% instruction can be eliminated because a value is already in the
+%%% correct X register.
 %%%
 %%% Because of the new 'swap' instruction introduced in OTP 23, it
 %%% is always beneficial to prefer X register over Y registers. That
@@ -482,9 +479,6 @@ prefer_xregs_is([#cg_set{op=copy,dst=Dst,args=[Src]}=I|Is], St, Copies0, Acc) ->
 prefer_xregs_is([#cg_set{op=call,dst=Dst}=I0|Is], St, Copies, Acc) ->
     I = prefer_xregs_call(I0, Copies, St),
     prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
-prefer_xregs_is([#cg_set{op=old_make_fun,dst=Dst}=I0|Is], St, Copies, Acc) ->
-    I = prefer_xregs_call(I0, Copies, St),
-    prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
 prefer_xregs_is([#cg_set{op=Op}=I|Is], St, Copies0, Acc)
   when Op =:= bs_checked_get;
        Op =:= bs_checked_skip;
@@ -515,13 +509,11 @@ prefer_xregs_prune(#cg_set{anno=#{clobbers:=true}}, _, _) ->
     #{};
 prefer_xregs_prune(#cg_set{dst=Dst}, Copies, St) ->
     DstReg = beam_arg(Dst, St),
-    F = fun(_, Alias) ->
-                beam_arg(Alias, St) =/= DstReg
-        end,
-    maps:filter(F, Copies).
+    #{V => Alias || V := Alias <- Copies,
+                    beam_arg(Alias, St) =/= DstReg}.
 
 %% prefer_xregs_call(Instruction, Copies, St) -> Instruction.
-%%  Given a 'call' or 'old_make_fun' instruction rewrite the arguments
+%%  Given a 'call' instruction rewrite the arguments
 %%  to use an X register instead of a Y register if a value is
 %%  is available in both.
 
@@ -548,12 +540,11 @@ do_prefer_xreg(#b_var{}=A, Copies, St) ->
 do_prefer_xreg(A, _, _) -> A.
 
 merge_copies(Copies0, Copies1) when map_size(Copies0) =< map_size(Copies1) ->
-    maps:filter(fun(K, V) ->
-                        case Copies1 of
-                            #{K:=V} -> true;
-                            #{} -> false
-                        end
-                end, Copies0);
+    #{K => V || K := V <- Copies0,
+                case Copies1 of
+                    #{K := V} -> true;
+                    #{} -> false
+                end};
 merge_copies(Copies0, Copies1) ->
     merge_copies(Copies1, Copies0).
 
@@ -1176,8 +1167,14 @@ cg_block([#cg_set{op=bs_create_bin,dst=Dst0,args=Args0,anno=Anno}=I,
                _ ->
                    Unit0
            end,
+    TypeInfo = case Anno of
+                   #{result_type := #t_bitstring{appendable=true}=Type} ->
+                       [{'%',{var_info,Dst,[{type,Type}]}}];
+                   _ ->
+                       []
+               end,
     Is = [Line,{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Args}}],
-    {Is,St};
+    {Is++TypeInfo,St};
 cg_block([#cg_set{op=bs_start_match,
                   dst=Ctx0,
                   args=[#b_literal{val=new},Bin0]}=I,
@@ -1269,9 +1266,22 @@ cg_block([#cg_set{op=is_tagged_tuple,anno=Anno,dst=Bool,args=Args0}], {Bool,Fail
             [Src,{integer,Arity},Tag] = typed_args(Args0, Anno, St),
             {[{test,is_tagged_tuple,ensure_label(Fail, St),[Src,Arity,Tag]}],St}
     end;
-cg_block([#cg_set{op=is_nonempty_list,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
+cg_block([#cg_set{op=is_nonempty_list,dst=Bool0,args=Args0}=Set], {Bool0,Fail0}, St) ->
+    Fail = ensure_label(Fail0, St),
     Args = beam_args(Args0, St),
-    {[{test,is_nonempty_list,ensure_label(Fail, St),Args}],St};
+    case beam_args([Bool0|Args0], St) of
+        [{z,0}|Args] ->
+            {[{test,is_nonempty_list,Fail,Args}],St};
+        [Dst|Args] ->
+            %% This instruction was a call to is_list/1, which was
+            %% rewritten to an is_nonempty_list test by
+            %% beam_ssa_type. BEAM has no is_nonempty_list instruction
+            %% that will return a boolean, so we must revert it to an
+            %% is_list/1 call.
+            #cg_set{anno=#{was_bif_is_list := true}} = Set, %Assertion.
+            {[{bif,is_list,Fail0,Args,Dst},
+              {test,is_eq_exact,Fail,[Dst,{atom,true}]}],St}
+    end;
 cg_block([#cg_set{op=has_map_field,dst=Dst0,args=Args0}], {Dst0,Fail0}, St) ->
     Fail = ensure_label(Fail0, St),
     case beam_args([Dst0|Args0], St) of
@@ -1299,28 +1309,19 @@ cg_block([#cg_set{op=call}=Call|T], Context, St0) ->
     {Is0,St1} = cg_call(Call, body, none, St0),
     {Is1,St} = cg_block(T, Context, St1),
     {Is0++Is1,St};
-cg_block([#cg_set{anno=Anno,op=MakeFun,dst=Dst0,args=[Local|Args0]}|T],
-         Context, St0) when MakeFun =:= make_fun;
-                            MakeFun =:= old_make_fun ->
+cg_block([#cg_set{anno=Anno,op=make_fun,dst=Dst0,args=[Local|Args0]}|T],
+         Context, St0) ->
     #b_local{name=#b_literal{val=Func},arity=Arity} = Local,
     [Dst|Args] = beam_args([Dst0|Args0], St0),
     {FuncLbl,St1} = local_func_label(Func, Arity, St0),
-    Is0 = case MakeFun of
-              make_fun ->
-                  [{make_fun3,{f,FuncLbl},0,0,Dst,{list,Args}}];
-              old_make_fun ->
-                  setup_args(Args) ++
-                      [{make_fun2,{f,FuncLbl},0,0,length(Args)}
-                       | copy({x,0}, Dst)]
-          end,
+    Is0 = [{make_fun3,{f,FuncLbl},0,0,Dst,{list,Args}}],
     Is1 = case Anno of
-             #{ result_type := Type } ->
-                 Info = {var_info, Dst, [{fun_type, Type}]},
-                 Is0 ++ [{'%', Info}];
-             #{} ->
-                 Is0
+              #{result_type := Type} ->
+                  Info = {var_info, Dst, [{fun_type, Type}]},
+                  Is0 ++ [{'%', Info}];
+              #{} ->
+                  Is0
           end,
-
     {Is2,St} = cg_block(T, Context, St1),
     {Is1++Is2,St};
 cg_block([#cg_set{op=copy}|_]=T0, Context, St0) ->
@@ -1449,6 +1450,12 @@ cg_copy_1([], _St) -> [].
                           element(1, Val) =:= atom orelse
                           element(1, Val) =:= literal)).
 
+bif_to_test(min, Args, Fail, St) ->
+    %% The min/2 and max/2 BIFs can only be rewritten to tests when
+    %% both arguments are known to be booleans.
+    bif_to_test('and', Args, Fail, St);
+bif_to_test(max, Args, Fail, St) ->
+    bif_to_test('or', Args, Fail, St);
 bif_to_test('or', [V1,V2], {f,Lbl}=Fail, St0) when Lbl =/= 0 ->
     {SuccLabel,St} = new_label(St0),
     {[{test,is_eq_exact,{f,SuccLabel},[V1,{atom,false}]},
@@ -1607,8 +1614,6 @@ alloc(#need{h=Words,l=Lambdas,f=Floats}) ->
 is_call([#cg_set{op=call,args=[#b_var{}|Args]}|_]) ->
     {yes,1+length(Args)};
 is_call([#cg_set{op=call,args=[_|Args]}|_]) ->
-    {yes,length(Args)};
-is_call([#cg_set{op=old_make_fun,args=[_|Args]}|_]) ->
     {yes,length(Args)};
 is_call(_) ->
     no.
@@ -1807,6 +1812,18 @@ cg_instr(bs_get_position, [Ctx], Dst, Set) ->
 cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
     [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];
+cg_instr(put_map, [{atom,exact},SrcBadMap|_Ss], _Dst, #cg_set{anno=Anno}=Set) ->
+    %% GH-7283: An exact `put_map` without a failure label was not
+    %% handled. The absence of the failure label can only mean that
+    %% the source is known not to be a valid map. (None of the current
+    %% optimization passes can figure out that the key is always
+    %% present in the map and that the operation therefore can never
+    %% fail.)
+    Live = get_live(Set),
+    [{test_heap,3,Live},
+     {put_tuple2,{x,0},{list,[{atom,badmap},SrcBadMap]}},
+     line(Anno),
+     {call_ext_last,1,{extfunc,erlang,error,1},1}];
 cg_instr(is_nonempty_list, Ss, Dst, Set) ->
     #cg_set{anno=#{was_bif_is_list := true}} = Set, %Assertion.
 

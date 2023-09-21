@@ -85,7 +85,8 @@
          ssh_hostkey_fingerprint_sha512/1,
          ssh_hostkey_fingerprint_list/1,
 
-         chk_known_hosts/1
+         chk_known_hosts/1,
+         ssh_hostkey_pkcs8/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -106,6 +107,7 @@ all() ->
      {group, option_space},
      {group, ssh_hostkey_fingerprint},
      {group, ssh_public_key_decode_encode},
+     {group, pkcs8},
      chk_known_hosts
     ].
 
@@ -146,6 +148,7 @@ groups() ->
      {old_format,  [], [check_dsa_disabled, check_rsa_sha1_disabled | ?tests_old++[{group,passphrase}] ]},
      {passphrase,  [], ?tests_old},
      {option_space,[], [{group,new_format}]},
+     {pkcs8, [], [ssh_hostkey_pkcs8]},
 
      {ssh_hostkey_fingerprint, [],
       [ssh_hostkey_fingerprint_md5_implicit,
@@ -190,6 +193,11 @@ init_per_group(new_format, Config) ->
 init_per_group(old_format, Config) ->
     Dir = filename:join(proplists:get_value(data_dir,Config), "old_format"),
     [{fmt,old_format},
+     {key_src_dir,Dir} | Config];
+
+init_per_group(pkcs8, Config) ->
+    Dir = filename:join(proplists:get_value(data_dir,Config), "pkcs8"),
+    [{fmt,pkcs8},
      {key_src_dir,Dir} | Config];
 
 init_per_group(option_space, Config) ->
@@ -237,6 +245,8 @@ end_per_group(_, Config) ->
     Config.
 
 %%%----------------------------------------------------------------
+init_per_testcase(ssh_hostkey_pkcs8, Config0) ->
+    setup_user_system_dir(rsa_sha2, rsa_sha2, Config0);
 init_per_testcase(connect_rsa_sha2_to_rsa_sha2, Config0) ->
     setup_user_system_dir(rsa_sha2, rsa_sha2, Config0);
 init_per_testcase(connect_rsa_sha1_to_dsa, Config0) ->
@@ -423,6 +433,12 @@ check_dsa_disabled(Config) ->
 check_rsa_sha1_disabled(Config) ->
     try_connect_disabled(Config).
 
+
+%%%----------------------------------------------------------------
+
+%% Check of different host keys left to later
+ssh_hostkey_pkcs8(Config) ->
+    try_connect(Config).
 
 %%%----------------------------------------------------------------
 

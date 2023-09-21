@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -358,7 +358,8 @@ t_get_3(Config) when is_list(Config) ->
     DefaultValue = maps:get(key3, Map, DefaultValue),
 
     %% error case
-    ?badmap(a,get,[[a,b],a,def]) = (catch maps:get([a,b],id(a),def)),
+    {'EXIT', {{badmap,a}, _}} = (catch maps:get([a,b],id(a),def)),
+
     ok.
 
 t_without_2(_Config) ->

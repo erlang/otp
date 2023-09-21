@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %% Callback functions
@@ -296,13 +297,13 @@ session_reused(Config) when  is_list(Config)->
 %%--------------------------------------------------------------------
 
 assert_alpn(Socket, Protocol) ->
-    ct:log("Negotiated Protocol ~p, Expecting: ~p ~n",
+    ?CT_LOG("Negotiated Protocol ~p, Expecting: ~p ~n",
 		       [ssl:negotiated_protocol(Socket), Protocol]),
     Protocol = ssl:negotiated_protocol(Socket).
 
 assert_alpn_and_renegotiate_and_send_data(Socket, Protocol, Data) ->
     assert_alpn(Socket, Protocol),
-    ct:log("Renegotiating ~n", []),
+    ?CT_LOG("Renegotiating ~n", []),
     ok = ssl:renegotiate(Socket),
     ssl:send(Socket, Data),
     assert_alpn(Socket, Protocol),
@@ -317,7 +318,7 @@ ssl_receive_and_assert_alpn(Socket, Protocol, Data) ->
     ssl_receive(Socket, Data).
 
 ssl_send(Socket, Data) ->
-    ct:log("Connection info: ~p~n",
+    ?CT_LOG("Connection info: ~p~n",
                [ssl:connection_information(Socket)]),
     ssl:send(Socket, Data).
 
@@ -325,11 +326,11 @@ ssl_receive(Socket, Data) ->
     ssl_receive(Socket, Data, []).
 
 ssl_receive(Socket, Data, Buffer) ->
-    ct:log("Connection info: ~p~n",
+    ?CT_LOG("Connection info: ~p~n",
            [ssl:connection_information(Socket)]),
     receive
     {ssl, Socket, MoreData} ->
-        ct:log("Received ~p~n",[MoreData]),
+        ?CT_LOG("Received ~p~n",[MoreData]),
         NewBuffer = Buffer ++ MoreData,
         case NewBuffer of
             Data ->

@@ -120,7 +120,7 @@
 
    • [;;4mestale[0m - Stale remote file handle
 
-   • [;;4mexdev[0m - Cross-domain link
+   • [;;4mexdev[0m - Cross-device link
 
 [;1mPerformance[0m
 

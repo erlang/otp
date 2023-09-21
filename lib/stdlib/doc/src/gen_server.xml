@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -106,6 +106,15 @@ gen_server:abcast     -----> Module:handle_cast/2
       <seeguide marker="system/reference_manual:processes#errors">
       Processes</seeguide> in the Reference Manual for details
       regarding error handling using exit signals.</p>
+
+    <note><p>
+      For some important information about distributed signals, see the
+      <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+        <i>Blocking Signaling Over Distribution</i></seeguide> section in the
+      <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
+      Blocking signaling can, for example, cause call timeouts in
+      <c>gen_server</c> to be significantly delayed.
+    </p></note>
 
   </description>
 
@@ -336,30 +345,48 @@ gen_server:abcast     -----> Module:handle_cast/2
             <p>
               A process with the specified <c>ServerName</c> exists already
               with the process identifier <c>OtherPid</c>.
-              This <c>gen_server</c> was not started.
+              This <c>gen_server</c> was not started,
+              or rather exited with reason <c>normal</c> before
+              calling
+              <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.
+            </p>
+          </item>
+          <tag><c>{error,timeout}</c></tag>
+          <item>
+            <p>
+              The <c>gen_server</c> process failed to initialize since
+              <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+              did not return within the
+              <seetype marker="#start_opt">start timeout</seetype>.
+              The <c>gen_server</c> process was killed with
+              <seemfa marker="erts:erlang#exit/2"><c>exit(_, kill)</c></seemfa>.
             </p>
           </item>
           <tag><c>ignore</c></tag>
           <item>
             <p>
+              The <c>gen_server</c> process failed to initialize since
               <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
-              returned <c>ignore</c>, the <c>gen_server</c> process
-              is terminated.  An exit signal <c>normal</c> is sent
-              to linked processes and ports.
+              returned <c>ignore</c>.
             </p>
           </item>
           <tag><c>{error,<anno>Reason</anno>}</c></tag>
           <item>
             <p>
+              The <c>gen_server</c> process failed to initialize since
               <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
-              returned <c>{stop,<anno>Reason</anno>}</c>
-              or failed with <c><anno>Reason</anno></c>.
-              The <c>gen_server</c> process is terminated and
-              an exit signal with the same <c><anno>Reason</anno></c>
-              is sent to linked processes and ports.
+              returned <c>{stop,<anno>Reason</anno>}</c>,
+              <c>{error,<anno>Reason</anno>}</c>,
+              or it failed with reason <c><anno>Reason</anno></c>.
             </p>
           </item>
         </taglist>
+        <p>
+          See
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+          about the exit reason for the <c>gen_server</c> process
+          when it fails to initialize.
+        </p>
       </desc>
     </datatype>
 
@@ -638,11 +665,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <item>
             <p>
               The server stopped during the call by returning
-              <c>{stop,Reason,_}</c> from its
-              <seemfa marker="#Module:handle_call/3">
-                <c>Module:handle_call/3</c>
-              </seemfa>
-              callback, without replying.  See also
+              <c>{stop,Reason,_}</c> from one of its callbacks
+              without replying to this call. See also
               <seemfa marker="#stop/3"><c>stop/3</c></seemfa>.
             </p>
           </item>
@@ -650,14 +674,11 @@ gen_server:abcast     -----> Module:handle_cast/2
           <item>
             <p>
               The server process exited during the call,
-              with reason <c>Reason</c>.  Either by returning
-              <c>{stop,Reason,_}</c> from its
-              <seemfa marker="#Module:handle_call/3">
-                <c>Module:handle_call/3</c>
-              </seemfa>
-              callback (without replying),
-              by raising an exception,
-              or due to getting an exit signal it did not trap.
+              with reason <c>Reason</c>. Either by returning
+              <c>{stop,Reason,_}</c> from one of its callbacks
+              (without replying to this call), by raising an
+              exception, or due to getting an exit signal it
+              did not trap.
             </p>
           </item>
         </taglist>
@@ -732,7 +753,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           must correspond to requests that have been made using
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa> or
           <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>,
-          and all request must have been made by the process calling this
+          and all requests must have been made by the process calling this
           function.
 	</p>
         <p>
@@ -988,7 +1009,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           that have been made using
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa> or
           <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>,
-          and all request must have been made by the process calling this
+          and all requests must have been made by the process calling this
           function.
 	</p>
         <p>
@@ -1257,7 +1278,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           Creates a <c>gen_server</c> process as part of a supervision tree.
           This function is to be called, directly or indirectly, by
           the supervisor. For example, it ensures that
-          the <c>gen_server</c> process is linked to the supervisor.
+          the <c>gen_server</c> process is spawned as linked
+          to the caller (supervisor).
         </p>
         <p>
           The <c>gen_server</c> process calls
@@ -1265,7 +1287,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           to initialize.
           To ensure a synchronized startup procedure,
           <c>start_link/3,4</c> does not return until
-          <c>Module:init/1</c> has returned.
+          <c>Module:init/1</c> has returned or failed.
         </p>
         <p>
           Using the argument <c><anno>ServerName</anno></c>
@@ -1294,6 +1316,48 @@ gen_server:abcast     -----> Module:handle_cast/2
           See type
           <seetype marker="#start_ret"><c>start_ret()</c></seetype>
           for a description this function's return values.
+        </p>
+        <p>
+          If <c>start_link/3,4</c> returns <c>ignore</c> or <c>{error,_}</c>,
+          the started <c>gen_server</c> process has terminated.
+          If an <c>'EXIT'</c> message was delivered to the calling process
+          (due to the process link), that message has been consumed.
+	</p>
+        <warning>
+          <p>
+            Before OTP 26.0, if the started <c>gen_server</c> process
+            returned e.g. <c>{stop,Reason}</c> from
+            <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+            this function could return <c>{error,Reason}</c>
+            <em>before</em> the started <c>gen_statem</c> process
+            had terminated so starting again might fail
+            because VM resources such as the registered name
+            was not yet unregistered.  An <c>'EXIT'</c> message
+            could arrive later to the process calling this function.
+          </p>
+          <p>
+            But if the started <c>gen_server</c> process instead
+            failed during
+            <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+            a process link <c>{'EXIT',Pid,Reason}</c> message
+            caused this function to return <c>{error,Reason}</c>
+            so the <c>'EXIT'</c> message had been consumed
+            and the started <c>gen_statem</c> process had terminated.
+          </p>
+          <p>
+            Since it was impossible to tell the difference
+            between these two cases from
+            <c>start_link/3,4</c>'s return value,
+            this inconsistency was cleaned up in OTP 26.0.
+          </p>
+        </warning>
+	<p>
+          The difference between returning
+          <c>{stop,_}</c> and <c>{error,_}</c> from
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+          is that <c>{error,_}</c> results in a graceful ("silent")
+          termination since the <c>gen_server</c> process
+          exits with reason <c>normal</c>.
         </p>
       </desc>
     </func>
@@ -1417,7 +1481,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           that have been made using
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa> or
           <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>,
-          and all request must have been made by the process calling this
+          and all requests must have been made by the process calling this
           function.
 	</p>
         <p>
@@ -1454,7 +1518,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  The difference between
           <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>
 	  and <c>wait_response/3</c> is that <c>receive_response/3</c>
-	  abandons requests at timeout so that a potential future
+	  abandons requests at timeout so that potential future
 	  responses are ignored, while <c>wait_response/3</c> does not.
 	</p>
         <p>
@@ -1916,6 +1980,7 @@ format_status(Status) ->
         <v>&nbsp;&nbsp;| {ok,State,hibernate}</v>
         <v>&nbsp;&nbsp;| {ok,State,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason}</v>
+        <v>&nbsp;&nbsp;| {error,Reason}</v>
         <v>&nbsp;&nbsp;| ignore</v>
         <v>&nbsp;State = term()</v>
         <v>
@@ -1960,22 +2025,34 @@ format_status(Status) ->
           </item>
           <tag>
             <c>{stop,Reason}</c><br/>
+          </tag>
+          <item>
+            <p>
+              Initialization failed.  The <c>gen_server</c> process
+              exits with reason <c>Reason</c>.
+            </p>
+          </item>
+          <tag>
+            <c>{error,Reason}</c><br/>
             <c>ignore</c>
           </tag>
           <item>
             <p>
-              Initialization failed.
-              An exit signal with this <c>Reason</c>
-              (or with reason <c>normal</c> if <c>ignore</c> is returned)
-              is sent to linked processes and ports,
-              notably to the process starting the gen_server when
-              <seemfa marker="#start_link/3">
-                <c>start_link/3,4</c>
-              </seemfa>
-              is used.
+              Initialization failed.  The <c>gen_server</c> process
+              exits with reason <c>normal</c>.
+            </p>
+            <p>
+              <c>{error,Reason}</c> was introduced in OTP 26.0.
             </p>
           </item>
         </taglist>
+        <p>
+          See function
+          <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>'s
+          return value
+          <seetype marker="#start_ret"><c>start_ret()</c></seetype>
+          in these different cases.
+        </p>
       </desc>
     </func>
 

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2022. All Rights Reserved.
+# Copyright Ericsson AB 1996-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,7 +87,6 @@ bif erlang:link/1
 bif erlang:list_to_atom/1
 bif erlang:list_to_binary/1
 bif erlang:list_to_float/1
-bif erlang:list_to_integer/1
 bif erlang:list_to_pid/1
 bif erlang:list_to_port/1
 bif erlang:list_to_ref/1
@@ -446,7 +445,6 @@ bif erts_debug:same/2
 bif erts_debug:flat_size/1
 bif erts_debug:get_internal_state/1
 bif erts_debug:set_internal_state/2
-bif erts_debug:display/1
 bif erts_debug:dist_ext_to_term/2
 bif erts_debug:instructions/0
 bif erts_debug:interpreter_size/0
@@ -476,7 +474,6 @@ bif error_logger:warning_map/0
 bif erlang:get_module_info/1
 bif erlang:get_module_info/2
 ubif erlang:is_boolean/1
-bif string:list_to_integer/1
 bif string:list_to_float/1
 bif erlang:make_fun/3
 bif erlang:iolist_size/1
@@ -612,10 +609,7 @@ bif erlang:dt_append_vm_tag_data/1
 bif erlang:finish_loading/1
 bif erlang:insert_element/3
 bif erlang:delete_element/2
-bif erlang:binary_to_integer/1
-bif erlang:binary_to_integer/2
 bif erlang:integer_to_binary/1
-bif erlang:list_to_integer/2
 bif erlang:float_to_binary/1
 bif erlang:float_to_binary/2
 bif erlang:binary_to_float/1
@@ -779,8 +773,13 @@ bif erlang:monitor/3
 bif erlang:error/3
 bif maps:from_keys/2
 
+# New in 24 (in a patch)
+bif erts_internal:binary_to_integer/2
+bif erts_internal:list_to_integer/2
+
 #
 # New in 26
 #
 ubif erlang:min/2
 ubif erlang:max/2
+bif erts_internal:term_to_string/2

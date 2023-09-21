@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,6 +127,15 @@
 #  define HAS_EVP_PKEY_CTX
 #  define HAVE_EVP_CIPHER_CTX_COPY
 # endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3070200fL
+#   define HAVE_PKEY_new_raw_private_key
+# endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3030300fL
+#   define HAVE_EVP_PKEY_new_CMAC_key
+# endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3040100fL
+#   define HAVE_DigestSign_as_single_op
+# endif
 #endif
 
 #if defined(HAS_EVP_PKEY_CTX)                                           \
@@ -223,7 +232,7 @@
 # define HAVE_DH
 #endif
 
-#ifndef OPENSSL_NO_DSA
+#if !defined(OPENSSL_NO_DSA) && !(HAS_LIBRESSL_VSN >= 0x2060100fL)
 # define HAVE_DSA
 #endif
 
@@ -310,6 +319,13 @@
 #  if !defined(OPENSSL_NO_POLY1305)
 #    define HAVE_POLY1305
 #  endif
+# endif
+#endif
+
+#ifdef HAS_LIBRESSL
+# if LIBRESSL_VERSION_NUMBER >= 0x3070000fL
+#   define HAVE_CHACHA20_POLY1305
+#   define HAVE_CHACHA20
 # endif
 #endif
 
@@ -456,12 +472,6 @@ do {                                                    \
 /* FIPS is not supported for versions < 1.0.1.  If FIPS_SUPPORT is enabled
    there are some warnings/errors for thoose
 */
-# undef FIPS_SUPPORT
-#endif
-
-/* Disable FIPS for 3.0 temporaryly until the support is added */
-#if defined(FIPS_SUPPORT) &&                                            \
-    defined(HAS_3_0_API)
 # undef FIPS_SUPPORT
 #endif
 

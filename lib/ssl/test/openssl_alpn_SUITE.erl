@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -194,7 +194,7 @@ erlang_client_alpn_openssl_server_alpn(Config) when is_list(Config) ->
 
 erlang_server_alpn_openssl_client_alpn(Config) when is_list(Config) ->
     ClientOpts = proplists:get_value(client_rsa_opts, Config),
-    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Protocol = <<"spdy/2">>,
     Server = ssl_test_lib:start_server(erlang, [{from, self()}],
                                        [{server_opts, [{alpn_preferred_protocols,
@@ -414,7 +414,7 @@ erlang_client_alpn_npn_openssl_server_alpn_npn(Config) when is_list(Config) ->
                                   [{client_opts,
                                     [{alpn_advertised_protocols, [AlpnProtocol]},
                                      {client_preferred_next_protocols,
-                                      {client, [<<"spdy/3">>, <<"http/1.1">>]}}]} | ClientOpts] ++ Config),
+                                      {client, [<<"spdy/3">>, <<"http/1.1">>]}} | ClientOpts]}]  ++ Config),
     case ssl:negotiated_protocol(CSocket) of
         {ok, AlpnProtocol} ->
             ok;

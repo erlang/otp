@@ -747,7 +747,6 @@ ac_user_opts='
 enable_option_checking
 enable_megaco_reentrant_flex_scanner
 enable_megaco_flex_scanner_lineno
-enable_sanitizers
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1382,8 +1381,6 @@ Optional Features:
   --disable-megaco-reentrant-flex-scanner  disable reentrant megaco flex scanner
   --enable-megaco-flex-scanner-lineno  enable megaco flex scanner lineno
   --disable-megaco-flex-scanner-lineno  disable megaco flex scanner lineno
-  --enable-sanitizers[=comma-separated list of sanitizers]
-                          Default=address,undefined
 
 Some influential environment variables:
   CC          C compiler command
@@ -4428,23 +4425,6 @@ printf "%s\n" "no" >&6; }
 fi
 
 fi
-
-
-
-# Check whether --enable-sanitizers was given.
-if test ${enable_sanitizers+y}
-then :
-  enableval=$enable_sanitizers;
-case "$enableval" in
-    no) sanitizers= ;;
-    yes) sanitizers="-fsanitize=address,undefined" ;;
-    *) sanitizers="-fsanitize=$enableval" ;;
-esac
-CFLAGS="$CFLAGS $sanitizers"
-LDFLAGS="$LDFLAGS $sanitizers"
-
-fi
-
 
 ac_header= ac_cache=
 for ac_item in $ac_header_c_list

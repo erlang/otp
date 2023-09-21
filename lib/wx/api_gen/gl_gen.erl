@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -358,7 +358,10 @@ handle_arg_opt({c_only,Opt},P) -> P#arg{where=c, alt=Opt};
 handle_arg_opt(list_binary, P) -> P#arg{alt=list_binary};
 handle_arg_opt(string,  P=#arg{type=T}) -> P#arg{type=T#type{base=string}};
 handle_arg_opt({string,Max,Sz}, P=#arg{type=T}) ->
-    P#arg{type=T#type{base=string, size={Max,Sz}}}.
+    P#arg{type=T#type{base=string, size={Max,Sz}}};
+handle_arg_opt({size, Sz}, P=#arg{type=T}) ->
+    P#arg{type=T#type{size={Sz,Sz}}}.
+
 
 parse_type([], _Os) -> void;
 parse_type(C, Os) -> 

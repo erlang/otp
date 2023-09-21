@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -601,12 +601,12 @@ do_apply({erlang, exit, [Name, Reason]}, _) ->
 do_apply({M,F,A}, false) ->
     try spawn(M, F, A)
     of _ -> {ok, spawn}
-    catch _:_ -> error
+    catch error:badarg -> error
     end;
 do_apply({M, F, A}, true) ->
     try spawn_monitor(M, F, A)
     of {_, Ref} -> {ok, {spawn, Ref}}
-    catch _:_ -> error
+    catch error:badarg -> error
     end.
 
 %% Get current time in milliseconds,

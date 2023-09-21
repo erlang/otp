@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,6 +95,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"proc_msgq",				"pid"			},
     {	"proc_btm",				"pid"			},
     {	"dist_entry_links",			"address"		},
+    {   "nif_load",                             NULL                    },
     {   "update_persistent_term_permission",    NULL                    },
     {   "persistent_term_delete_permission",    NULL                    },
     {   "code_stage_permission",                NULL                    },
@@ -146,7 +147,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
     {   "dyn_lock_check",                       NULL                    },
-    {   "nif_load",                             NULL                    },
     {	"alcu_allocator",			"index"			},
     {	"mseg",					NULL			},
     {	"get_time",				NULL			},

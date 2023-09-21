@@ -159,11 +159,34 @@ init([]) ->
                none -> []
            end,
 
+    %% Start the file server early, if possible, so on_load functions
+    %% can do file server operations.
+    %%
+    %% This is a workaround.  The combination of having a remote
+    %% file server i.e the file server on a master node, with on_load
+    %% functions that uses file operations over the file server,
+    %% will not, and cannot work.
+    %%
+    %% A "proper" solution will have to sort out how code loading
+    %% over all code server backends should interact with all
+    %% file server backends and nif on_load functions
+    %% that need to find a shared object file.
+    %%
+    case init:get_argument(master) of
+        {ok, [[_MasterNode]]} ->
+            EarlyFile = [],
+            LateFile = [File];
+        _ ->
+            EarlyFile = [File],
+            LateFile = []
+    end,
+
     case init:get_argument(mode) of
         {ok, [["minimal"]|_]} ->
             {ok, {SupFlags,
-                  [Code, StdError, OnLoad] ++
-                      [File | Peer] ++
+                  [Code, StdError | EarlyFile] ++
+                      [OnLoad | LateFile] ++
+                      Peer ++
                       [User, LoggerSup, Config, RefC, SafeSup]}};
         _ ->
             DistChildren =
@@ -190,8 +213,9 @@ init([]) ->
             CompileServer = start_compile_server(),
 
             {ok, {SupFlags,
-                  [Code, StdError, OnLoad, InetDb | DistChildren] ++
-                      [File, SigSrv | Peer] ++
+                  [Code, StdError | EarlyFile] ++
+                      [OnLoad, InetDb | DistChildren] ++ LateFile ++
+                      [SigSrv | Peer] ++
                       [User, LoggerSup, Config, RefC, SafeSup] ++
                       Timer ++ CompileServer}}
     end;

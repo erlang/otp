@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,8 +78,8 @@ void BeamModuleAssembler::emit_error(int reason) {
 void BeamModuleAssembler::emit_error(int reason, const ArgSource &Src) {
     auto src = load_source(Src, TMP2);
 
-    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
     mov_imm(TMP1, reason);
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
     a.stp(TMP1, src.reg, arm::Mem(c_p, offsetof(Process, freason)));
     emit_raise_exception();
 }
@@ -240,7 +240,7 @@ void BeamModuleAssembler::emit_normal_exit() {
 
     mov_imm(TMP1, EXC_NORMAL);
     a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
-    a.str(ZERO, arm::Mem(c_p, offsetof(Process, arity)));
+    a.strb(ZERO.w(), arm::Mem(c_p, offsetof(Process, arity)));
     a.mov(ARG1, c_p);
     mov_imm(ARG2, am_normal);
     runtime_call<2>(erts_do_exit_process);
@@ -412,11 +412,6 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
     arm::Mem element_ptr = arm::Mem(ARG1, Element.get());
     safe_ldp(dst1.reg, dst2.reg, element_ptr);
     flush_vars(dst1, dst2);
-}
-
-void BeamModuleAssembler::emit_init(const ArgYRegister &Y) {
-    mov_imm(TMP1, NIL);
-    a.str(TMP1, getArgRef(Y));
 }
 
 void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
@@ -1015,8 +1010,8 @@ void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
         comment("skipped header test since we know it's a fun when boxed");
     } else {
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-        a.cmp(TMP1, imm(HEADER_FUN));
+        a.ldurb(TMP1.w(), emit_boxed_val(boxed_ptr));
+        a.cmp(TMP1, imm(FUN_SUBTAG));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 }
@@ -1058,16 +1053,9 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
 
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
 
-    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Fun) {
-        comment("skipped header test since we know it's a fun when boxed");
-    } else {
-        a.ldur(TMP2, emit_boxed_val(boxed_ptr));
-        a.cmp(TMP2, imm(HEADER_FUN));
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
-    }
-
-    a.ldurb(TMP2.w(), emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity)));
-    emit_branch_if_ne(TMP2, arity, resolve_beam_label(Fail, dispUnknown));
+    a.ldurh(TMP2.w(), emit_boxed_val(boxed_ptr));
+    cmp(TMP2, MAKE_FUN_HEADER(arity, 0, 0) & 0xFFFF);
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
@@ -1416,8 +1404,12 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
 
     bool is_empty_binary = false;
     if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-        is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+        auto unit = getSizeUnit(X);
+        if (unit != 0 && std::gcd(unit, 8) == 8) {
+            Eterm literal =
+                    beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+            is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+        }
     }
 
     if (is_empty_binary) {
@@ -2387,8 +2379,8 @@ void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
     a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
     a.sub(TMP1, TMP1, imm(1));
     a.str(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
-
-    emit_init(CatchTag);
+    mov_imm(TMP1, NIL);
+    a.str(TMP1, getArgRef(CatchTag));
 }
 
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
@@ -2481,7 +2473,8 @@ void BeamModuleAssembler::emit_raw_raise() {
 }
 
 #define TEST_YIELD_RETURN_OFFSET                                               \
-    (BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(Uint32[3]))
+    (BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(Uint32[3]) +                         \
+     (erts_alcu_enable_code_atags ? sizeof(Uint32) : 0))
 
 /* ARG3 = current_label */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
@@ -2489,8 +2482,8 @@ void BeamGlobalAssembler::emit_i_test_yield_shared() {
     a.add(ARG3, ARG3, imm(TEST_YIELD_RETURN_OFFSET));
 
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, current)));
-    a.ldr(ARG2, arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
-    a.str(ARG2, arm::Mem(c_p, offsetof(Process, arity)));
+    a.ldr(ARG2.w(), arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
+    a.strb(ARG2.w(), arm::Mem(c_p, offsetof(Process, arity)));
 
     a.b(labels[context_switch_simplified]);
 }
@@ -2502,6 +2495,16 @@ void BeamModuleAssembler::emit_i_test_yield() {
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 
     a.adr(ARG3, current_label);
+
+    if (erts_alcu_enable_code_atags) {
+        /* The point-of-origin allocation tags are vastly improved when the
+         * instruction pointer is updated frequently. This has a relatively low
+         * impact on performance but there's little point in doing this unless
+         * the user has requested it -- it's an undocumented feature for
+         * now. */
+        a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
     a.subs(FCALLS, FCALLS, imm(1));
     a.b_le(resolve_fragment(ga->get_i_test_yield_shared(), disp1MB));
 

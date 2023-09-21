@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -254,7 +254,7 @@ void BeamGlobalAssembler::emit_i_length_common(Label fail, int state_size) {
         a.add(ARG2, ARG2, imm(state_size));
 
         a.str(ZERO, arm::Mem(c_p, offsetof(Process, current)));
-        a.str(ARG2, arm::Mem(c_p, offsetof(Process, arity)));
+        a.strb(ARG2.w(), arm::Mem(c_p, offsetof(Process, arity)));
 
         /* We'll find our way back through the entry address (ARG3). */
         a.b(labels[context_switch_simplified]);
@@ -360,9 +360,6 @@ static Eterm debug_call_light_bif(Process *c_p,
  * ARG8 = BIF pointer
  */
 void BeamGlobalAssembler::emit_call_light_bif_shared() {
-    /* We use the HTOP, FCALLS, and XREG1 registers as they are not
-     * used on the runtime-stack and are caller save. */
-
     arm::Mem entry_mem = TMP_MEM1q, export_mem = TMP_MEM2q,
              mbuf_mem = TMP_MEM3q;
 
@@ -539,7 +536,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
             a.ldr(ARG2, mbuf_mem);
             load_x_reg_array(ARG4);
             a.ldr(ARG5, export_mem);
-            a.ldr(ARG5, arm::Mem(ARG5, offsetof(Export, info.mfa.arity)));
+            a.ldrb(ARG5.w(), arm::Mem(ARG5, offsetof(Export, info.mfa.arity)));
             runtime_call<5>(erts_gc_after_bif_call_lhf);
 
             emit_leave_runtime<Update::eReductions | Update::eStack |
@@ -558,9 +555,9 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
 
     a.bind(yield);
     {
-        a.ldr(ARG2, arm::Mem(ARG4, offsetof(Export, info.mfa.arity)));
+        a.ldrb(ARG2.w(), arm::Mem(ARG4, offsetof(Export, info.mfa.arity)));
         lea(ARG4, arm::Mem(ARG4, offsetof(Export, info.mfa)));
-        a.str(ARG2, arm::Mem(c_p, offsetof(Process, arity)));
+        a.strb(ARG2.w(), arm::Mem(c_p, offsetof(Process, arity)));
         a.str(ARG4, arm::Mem(c_p, offsetof(Process, current)));
 
         /* We'll find our way back through ARG3 (entry address). */
@@ -639,6 +636,12 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     a.mov(XREG0, ARG1);
 
     emit_leave_erlang_frame();
+
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(a64::x30, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
     a.ret(a64::x30);
 
     a.bind(check_trap);
@@ -701,8 +704,8 @@ void BeamGlobalAssembler::emit_call_bif_shared(void) {
     emit_enter_runtime_frame();
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, current)));
     /* `call_bif` wants arity in ARG5. */
-    a.ldr(ARG5, arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
-    a.str(ARG5, arm::Mem(c_p, offsetof(Process, arity)));
+    a.ldr(ARG5.w(), arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
+    a.strb(ARG5.w(), arm::Mem(c_p, offsetof(Process, arity)));
     a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
 
     /* The corresponding leave can be found in the epilogue. */
@@ -882,6 +885,11 @@ void BeamGlobalAssembler::emit_dispatch_nif(void) {
 void BeamGlobalAssembler::emit_call_nif_yield_helper() {
     Label yield = a.newLabel();
 
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
     a.subs(FCALLS, FCALLS, imm(1));
     a.b_le(yield);
     a.b(labels[call_nif_shared]);
@@ -891,8 +899,8 @@ void BeamGlobalAssembler::emit_call_nif_yield_helper() {
         int mfa_offset = sizeof(ErtsCodeMFA);
         int arity_offset = offsetof(ErtsCodeMFA, arity) - mfa_offset;
 
-        a.ldur(TMP1, arm::Mem(ARG3, arity_offset));
-        a.str(TMP1, arm::Mem(c_p, offsetof(Process, arity)));
+        a.ldur(TMP1.w(), arm::Mem(ARG3, arity_offset));
+        a.strb(TMP1.w(), arm::Mem(c_p, offsetof(Process, arity)));
 
         a.sub(TMP1, ARG3, imm(mfa_offset));
         a.str(TMP1, arm::Mem(c_p, offsetof(Process, current)));

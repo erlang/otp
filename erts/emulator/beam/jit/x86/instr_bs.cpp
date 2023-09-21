@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1137,8 +1137,10 @@ void BeamGlobalAssembler::emit_bs_get_utf8_short_shared() {
         a.pop(x86::rcx);
     }
 
-    a.test(RET, RET);
-    a.short_().jns(ascii);
+    /* `test rax, rax` is a shorter instruction but can cause a warning
+     * in valgrind if there are any uninitialized bits in rax. */
+    a.bt(RET, imm(63));
+    a.short_().jnc(ascii);
 
     /* The bs_get_utf8_shared fragment expects the contents in RETd. */
     a.shr(RET, imm(32));
@@ -1364,7 +1366,7 @@ void BeamModuleAssembler::emit_bs_get_utf8(const ArgRegister &Ctx,
 
     a.bind(multi_byte);
 
-    if (BeamAssembler::hasCpuFeature(CpuFeatures::X86::kBMI2)) {
+    if (hasCpuFeature(CpuFeatures::X86::kBMI2)) {
         /* This CPU supports the PEXT and SHRX instructions. */
         safe_fragment_call(ga->get_bs_get_utf8_shared());
         a.short_().jmp(check);
@@ -1373,7 +1375,7 @@ void BeamModuleAssembler::emit_bs_get_utf8(const ArgRegister &Ctx,
     /* Take care of unaligned binaries and binaries with less than 32
      * bits left. */
     a.bind(fallback);
-    if (BeamAssembler::hasCpuFeature(CpuFeatures::X86::kBMI2)) {
+    if (hasCpuFeature(CpuFeatures::X86::kBMI2)) {
         /* This CPU supports the PEXT and SHRX instructions. */
         safe_fragment_call(ga->get_bs_get_utf8_short_shared());
     } else {
@@ -2442,7 +2444,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
 
         if (seg.effectiveSize < 0 && seg.type != am_append &&
             seg.type != am_private_append) {
-            sizeReg = FCALLS;
+            /* We need a callee-save register for the size. We'll pick the
+             * active code index register because it's not used in any capacity
+             * here. Note that we have to spill it since `save_calls` may be
+             * enabled and we'll lose that information if we blindly re-read
+             * the index. */
+            sizeReg = active_code_ix;
             need_error_handler = true;
         }
 
@@ -2513,6 +2520,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         error = a.newLabel();
         a.bind(error);
         bs_maybe_leave_runtime(runtime_entered);
+
+        if (sizeReg.isValid()) {
+            a.mov(sizeReg, TMP_MEM5q);
+        }
+
         comment("handle error");
         if (Fail.get() != 0) {
             a.jmp(resolve_beam_label(Fail));
@@ -2529,6 +2541,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
      * word. */
     if (sizeReg.isValid()) {
         comment("calculate sizes");
+        a.mov(TMP_MEM5q, sizeReg);
         mov_imm(sizeReg, num_bits);
     }
 
@@ -2606,9 +2619,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             bool can_fail = true;
             comment("size binary/integer/float/string");
 
-            if (std::get<0>(getClampedRange(seg.size)) >= 0) {
-                /* Can't fail if size is always positive. */
-                can_fail = false;
+            if (always_small(seg.size)) {
+                auto min = std::get<0>(getClampedRange(seg.size));
+                if (min >= 0) {
+                    can_fail = false;
+                }
             }
 
             if (can_fail && Fail.get() == 0) {
@@ -3316,6 +3331,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
     }
 
     bs_maybe_leave_runtime(runtime_entered);
+
+    if (sizeReg.isValid()) {
+        a.mov(sizeReg, TMP_MEM5q);
+    }
+
     comment("done");
     a.mov(RET, TMP_MEM1q);
     mov_arg(Dst, RET);
@@ -3781,8 +3801,12 @@ void BeamModuleAssembler::emit_extract_binary(const x86::Gp bitdata,
     a.mov(x86::qword_ptr(HTOP, sizeof(Eterm)), imm(num_bytes));
     a.mov(RET, bitdata);
     a.bswap(RET);
-    a.mov(x86::qword_ptr(HTOP, 2 * sizeof(Eterm)), RET);
-    a.add(HTOP, imm(sizeof(Eterm[3])));
+    if (num_bytes == 0) {
+        a.add(HTOP, imm(sizeof(Eterm[2])));
+    } else {
+        a.mov(x86::qword_ptr(HTOP, 2 * sizeof(Eterm)), RET);
+        a.add(HTOP, imm(sizeof(Eterm[3])));
+    }
 }
 
 static std::vector<BsmSegment> opt_bsm_segments(
@@ -3805,7 +3829,7 @@ static std::vector<BsmSegment> opt_bsm_segments(
             }
             break;
         case BsmSegment::action::GET_BINARY:
-            heap_need += heap_bin_size((seg.size + 7) / 8);
+            heap_need += erts_extracted_binary_size(seg.size);
             break;
         case BsmSegment::action::GET_TAIL:
             heap_need += EXTRACT_SUB_BIN_HEAP_NEED;

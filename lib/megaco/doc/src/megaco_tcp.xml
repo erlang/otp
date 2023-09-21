@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2021</year>
+      <year>2000</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -56,12 +56,24 @@
       <type>
         <v>TransportRef = pid() | regname()</v>
         <v>OptionListPerPort = [Option]</v>
-        <v>Option = {port, integer()} | {options, list()} | {receive_handle, term()} | {inet_backend, default | inet | socket}</v>
+	<v>Option = {port,           integer()} |
+	            {options,        list()} |
+		    {receive_handle, term()} |
+	            {inet_backend,   default | inet | socket}</v>
       </type>
       <desc>
         <p>This function is used for starting new TPKT listening socket
           for TCP/IP.  The option list contains the socket
           definitions.</p>
+	<taglist>
+	  <tag><c><![CDATA[inet_backend]]></c></tag>
+	  <item>
+	    <p>Choose the inet-backend. </p>
+	    <p>This option make it possible to use a
+	    different inet-backend ('default', 'inet' or 'socket'). </p>
+	    <p>Default is <c>default</c> (system default).</p>
+	  </item>
+	</taglist>
       </desc>
     </func>
 
@@ -99,6 +111,13 @@
 	      <item><p>process_received_message</p></item>
 	    </taglist>
 	    <p>Default value is <em>megaco</em>. </p>
+	  </item>
+	  <tag><c><![CDATA[inet_backend]]></c></tag>
+	  <item>
+	    <p>Choose the inet-backend. </p>
+	    <p>This option make it possible to use a
+	    different inet-backend ('default', 'inet' or 'socket'). </p>
+	    <p>Default is <c>default</c> (system default).</p>
 	  </item>
 	</taglist>
       </desc>

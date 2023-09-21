@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2022</year>
+      <year>1997</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1597,7 +1597,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                 This since setting <c>SO_REUSEADDR</c> on Windows more or less
                 has the same behavior as setting both <c>SO_REUSEADDR</c> and
                 <c>SO_REUSEPORT</c> on BSD. This behavior was introduced as
-                of OTP @OTP-18344@.
+                of OTP 26.0.
               </p>
               <change>
                 <p>
@@ -1614,7 +1614,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                     if <c>{reuseaddr, true}</c> was set.
                   </item>
                   <item>
-                    Between OTP 25.2 and up to the predecessor of OTP @OTP-18344@,
+                    Between OTP 25.2 and up to the predecessor of OTP 26.0,
                     the underlying <c>SO_REUSEADDR</c> socket option was only
                     set on UDP sockets if <c>{reuseaddr, true}</c> was set, and
                     silently ignored on other sockets.
@@ -1645,7 +1645,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                 This since setting <c>SO_REUSEADDR</c> on Windows more or less
                 has the same behavior as setting both <c>SO_REUSEADDR</c> and
                 <c>SO_REUSEPORT</c> on BSD. The <c>reuseport</c> option was
-                introduced as of OTP @OTP-18344@.
+                introduced as of OTP 26.0.
               </p>
               <p>
                 See also the
@@ -1997,7 +1997,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
       <item><c>eusers</c> - Too many users</item>
       <item><c>eversion</c> - Version mismatch</item>
       <item><c>ewouldblock</c> - Operation would block</item>
-      <item><c>exdev</c> - Cross-domain link</item>
+      <item><c>exdev</c> - Cross-device link</item>
       <item><c>exfull</c> - Message tables full</item>
       <item><c>nxdomain</c> - Hostname or domain name cannot be found</item>
     </list>

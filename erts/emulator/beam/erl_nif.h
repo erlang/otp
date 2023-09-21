@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@
  * If you're not on the OTP team, you should use a placeholder like
  * erts-@MyName@ instead.
  */
-#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-17771:OTP-18334@"
+#define ERL_NIF_MIN_ERTS_VERSION "erts-14.0"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
