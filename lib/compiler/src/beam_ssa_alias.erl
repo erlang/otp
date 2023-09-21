@@ -23,7 +23,7 @@
 
 -export([opt/2]).
 
--import(lists, [foldl/3, reverse/1, zip/2]).
+-import(lists, [any/2, foldl/3, reverse/1, zip/2]).
 
 %% The maximum number of iterations when calculating alias
 %% information.
@@ -127,14 +127,33 @@
 -spec opt(st_map(), func_info_db()) -> {st_map(), func_info_db()}.
 
 opt(StMap0, FuncDb0) ->
-    %% Ignore functions which are not in the function db (never
-    %% called) or are stubs for nifs.
-    Funs = [ F || F <- maps:keys(StMap0),
-                  is_map_key(F, FuncDb0), not is_nif(F, StMap0)],
-    Liveness = liveness(Funs, StMap0),
-    KillsMap = killsets(Liveness, StMap0),
+    case any_huge_function(StMap0) of
+        true ->
+            %% This pass as currently implemented can be very slow for
+            %% huge functions.
+            {StMap0, FuncDb0};
+        false ->
+            %% Ignore functions which are not in the function db (never
+            %% called) or are stubs for nifs.
+            Funs = [ F || F <- maps:keys(StMap0),
+                          is_map_key(F, FuncDb0), not is_nif(F, StMap0)],
+            Liveness = liveness(Funs, StMap0),
+            KillsMap = killsets(Liveness, StMap0),
 
-    aa(Funs, KillsMap, StMap0, FuncDb0).
+            aa(Funs, KillsMap, StMap0, FuncDb0)
+    end.
+
+%%%
+%%% Predicate to check whether there any huge functions in this
+%%% compilation unit.
+%%%
+
+-spec any_huge_function(st_map()) -> boolean().
+
+any_huge_function(StMap) ->
+    any(fun(#opt_st{ssa=Code}) ->
+                length(Code) > 2000
+        end, maps:values(StMap)).
 
 %%%
 %%% Calculate liveness for each function using the standard iterative
