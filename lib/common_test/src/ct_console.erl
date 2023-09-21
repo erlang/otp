@@ -138,7 +138,7 @@ size_on_terminal([]) -> 0.
 
 %% @doc Elide framework code from the given traceback.
 -spec elide_framework_code(list()) -> list().
-elide_framework_code([{test_server, _Function, _Arguments, _Location} | Rest]) ->
+elide_framework_code([{test_server, _Function, _Location} | Rest]) ->
     elide_framework_code(Rest);
 elide_framework_code([Frame | Rest]) ->
     [Frame | elide_framework_code(Rest)];
