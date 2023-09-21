@@ -44,12 +44,15 @@ print_results(#{total := #{passed := OkN, failed := FailedN,
 
 print_failed_test_results([#{reason := Reason, module := Module, function := Function} | Rest]) ->
     io:fwrite(user, "=> test case ~s:~s:~n", [Module, Function]),
-    {CrashReason, Traceback} = Reason,
+    {CrashReason, Traceback} = format_failure_reason(Reason),
     io:fwrite(user, "~tp~n~tp~n~n", [CrashReason, elide_framework_code(Traceback)]),
     print_failed_test_results(Rest);
 
 print_failed_test_results([]) ->
     ok.
+
+format_failure_reason({'EXIT', Reason, Traceback}) -> {{'EXIT', Reason}, Traceback};
+format_failure_reason({_Reason, _Traceback} = Result) -> Result.
 
 -spec result_padding_color(non_neg_integer(), non_neg_integer()) -> string().
 result_padding_color(_Ok, 0) -> mc(?TERM_GREEN);
