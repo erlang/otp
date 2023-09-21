@@ -367,6 +367,7 @@ reload_error(Config) when is_list(Config) ->
 
     %%false= check_process_code(Pid, nif_mod),
     true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,5,105}] = nif_mod_call_history(),
 
     true = lists:member(?MODULE, erlang:system_info(taints)),
@@ -404,6 +405,7 @@ upgrade(Config) when is_list(Config) ->
     upgraded = call(Pid,upgrade),
     false = check_process_code(Pid, nif_mod),
     true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,7,107}] = nif_mod_call_history(),
 
     1 = nif_mod:lib_version(),
@@ -425,6 +427,7 @@ upgrade(Config) when is_list(Config) ->
     upgraded = call(Pid,upgrade),
     false = check_process_code(Pid, nif_mod),
     true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,12,112}] = nif_mod_call_history(),
 
     1 = nif_mod:lib_version(),
@@ -438,6 +441,7 @@ upgrade(Config) when is_list(Config) ->
     {'DOWN', MRef, process, Pid, normal} = receive_any(),
     false = check_process_code(Pid, nif_mod),
     true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,14,114}] = nif_mod_call_history(),
 
     %% Module upgrade with different lib version
@@ -467,6 +471,7 @@ upgrade(Config) when is_list(Config) ->
     upgraded = call(Pid2,upgrade),
     false = check_process_code(Pid2, nif_mod),
     true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,6,106}] = nif_mod_call_history(),
 
     2 = nif_mod:lib_version(),
@@ -493,6 +498,7 @@ upgrade(Config) when is_list(Config) ->
     upgraded = call(Pid2,upgrade),
     false = check_process_code(Pid2, nif_mod),
     true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok end,
     [{unload,2,6,206}] = nif_mod_call_history(),
 
     1 = nif_mod:lib_version(),
@@ -506,6 +512,7 @@ upgrade(Config) when is_list(Config) ->
     {'DOWN', MRef2, process, Pid2, normal} = receive_any(),
     false= check_process_code(Pid2, nif_mod),
     true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,4,104}] = nif_mod_call_history(),
 
     true = lists:member(?MODULE, erlang:system_info(taints)),
@@ -528,6 +535,7 @@ t_on_load(Config) when is_list(Config) ->
     ets:insert(nif_SUITE, {lib_version, 1}),
     API = proplists:get_value(nif_api_version, Config, ""),
     ets:insert(nif_SUITE, {nif_api_version, API}),
+    ets:insert(nif_SUITE, {tester, self()}),
     {module,nif_mod} = code:load_binary(nif_mod,File,Bin),
     hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
     [{load,1,1,101},{get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
@@ -545,6 +553,7 @@ t_on_load(Config) when is_list(Config) ->
     upgraded = call(Pid,upgrade),
     false = check_process_code(Pid, nif_mod),
     true = code:soft_purge(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,7,107}] = nif_mod_call_history(),
 
     1 = nif_mod:lib_version(),
@@ -563,6 +572,7 @@ t_on_load(Config) when is_list(Config) ->
     upgraded = call(Pid,upgrade),
     false = check_process_code(Pid, nif_mod),
     true = code:soft_purge(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,12,112}] = nif_mod_call_history(),
 
     1 = nif_mod:lib_version(),
@@ -576,6 +586,7 @@ t_on_load(Config) when is_list(Config) ->
     {'DOWN', MRef, process, Pid, normal} = receive_any(),
     false = check_process_code(Pid, nif_mod),
     true = code:soft_purge(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,14,114}] = nif_mod_call_history(),
 
     %% Module upgrade with different lib version
@@ -599,6 +610,7 @@ t_on_load(Config) when is_list(Config) ->
     upgraded = call(Pid2,upgrade),
     false = check_process_code(Pid2, nif_mod),
     true = code:soft_purge(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,6,106}] = nif_mod_call_history(),
 
     2 = nif_mod:lib_version(),
@@ -620,6 +632,7 @@ t_on_load(Config) when is_list(Config) ->
     upgraded = call(Pid2,upgrade),
     false = check_process_code(Pid2, nif_mod),
     true = code:soft_purge(nif_mod),
+    receive unloaded -> ok end,
     [{unload,2,6,206}] = nif_mod_call_history(),
 
     1 = nif_mod:lib_version(),
@@ -633,6 +646,7 @@ t_on_load(Config) when is_list(Config) ->
     {'DOWN', MRef2, process, Pid2, normal} = receive_any(),
     false= check_process_code(Pid2, nif_mod),
     true = code:soft_purge(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,4,104}] = nif_mod_call_history(),
 
     true = lists:member(?MODULE, erlang:system_info(taints)),
@@ -1217,7 +1231,7 @@ monitor_process_purge(Config) ->
 
     monitor_process_purge_do(Config, NifModBin, resource_dtor_A),
     erlang:garbage_collect(),
-    receive after 10 -> ok end,
+    receive unloaded -> ok end,
     [{{resource_dtor_A_v1,_},1,4,104},
      {unload,1,5,105}] = nif_mod_call_history(),
 
@@ -1225,7 +1239,7 @@ monitor_process_purge(Config) ->
     %% prevented NIF lib from being unloaded.
     monitor_process_purge_do(Config, NifModBin, null),
     erlang:garbage_collect(),
-    receive after 10 -> ok end,
+    receive unloaded -> ok end,
     [{unload,1,4,104}] = nif_mod_call_history(),
     ok.
 
@@ -1417,7 +1431,7 @@ t_dynamic_resource_call(Config) ->
     true = erlang:delete_module(nif_mod),
     true = erlang:purge_module(nif_mod),
 
-    receive after 10 -> ok end,
+    receive unloaded -> ok end,
     [{{resource_dtor_A_v1,_},1,2,102},
      {unload,1,3,103}] = nif_mod_call_history(),
 
@@ -1450,6 +1464,7 @@ dynamic_resource_call_do(Config, NifModBin) ->
 
     {0, 1002} = dynamic_resource_call(nif_mod, with_dyncall, R, 1000),
     true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,3,103}] = nif_mod_call_history(),
 
     %% Upgrade resource type with missing dyncall implementation.
@@ -1461,6 +1476,7 @@ dynamic_resource_call_do(Config, NifModBin) ->
 
     {1, 1000} = dynamic_resource_call(nif_mod, with_dyncall, R, 1000),
     true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok end,
     [{unload,2,2,202}] = nif_mod_call_history(),
 
     keep_alive(R),
@@ -2286,6 +2302,7 @@ resource_takeover(Config) when is_list(Config) ->
                               ]),
     ?CHECK([{upgrade,2,1,201}], nif_mod_call_history()),
     true = erlang:purge_module(nif_mod),
+    timeout = receive unloaded -> error after 10 -> timeout end,
     ?CHECK([], nif_mod_call_history()),  % BGX2 keeping lib loaded
 
     BinA2 = read_resource(0,A2),
@@ -2299,6 +2316,7 @@ resource_takeover(Config) when is_list(Config) ->
     ?CHECK([], nif_mod_call_history()),    % no dtor
 
     ok = forget_resource(BGX2),  % calling dtor in orphan library v1 still loaded
+    receive unloaded -> ok end,
     ?CHECK([{{resource_dtor_B_v1,BinBGX2},1,6,106}, {unload,1,7,107}],
            nif_mod_call_history()),
 
@@ -2346,12 +2364,14 @@ resource_takeover(Config) when is_list(Config) ->
     {NGZ1,_BinNGZ1} = make_resource(4,Holder,"NGZ1"),
 
     false = code:purge(nif_mod),
+    timeout = receive unloaded -> error after 10 -> timeout end,
     [] = nif_mod_call_history(),
 
     ok = forget_resource(NGY1),
     [] = nif_mod_call_history(),
 
     ok = forget_resource(BGY1),  % calling dtor in orphan library v2 still loaded
+    receive unloaded -> ok end,
     [{{resource_dtor_B_v2,BinBGY1},2,8,208},{unload,2,9,209}] = nif_mod_call_history(),
 
     %% Module upgrade with other lib-version
@@ -2374,9 +2394,11 @@ resource_takeover(Config) when is_list(Config) ->
     %%false= check_process_code(Pid, nif_mod),
     false = code:purge(nif_mod),
     %% no unload here as we still have instances with destructors
+    timeout = receive unloaded -> error after 10 -> timeout end,
     [] = nif_mod_call_history(),
 
     ok = forget_resource(BGZ1),  % calling dtor in orphan library v2 still loaded
+    receive unloaded -> ok end,
     [{{resource_dtor_B_v2,BinBGZ1},2,10,210},{unload,2,11,211}] = nif_mod_call_history(),
 
     ok = forget_resource(NGZ1),
@@ -2474,9 +2496,11 @@ resource_takeover(Config) when is_list(Config) ->
     %% Test rolback after failed initial load
     %%
     false = code:purge(nif_mod),
+    receive unloaded -> ok end,
     [{unload,1,_,_}] = nif_mod_call_history(),
     true = code:delete(nif_mod),
     false = code:purge(nif_mod),
+    timeout = receive unloaded -> error after 10 -> timeout end,
     [] = nif_mod_call_history(),
 
 

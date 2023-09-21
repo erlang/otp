@@ -2497,17 +2497,41 @@ static void deref_nifmod(struct erl_module_nif* lib)
 }
 
 static ErtsStaticNif* is_static_nif_module(Eterm mod_atom);
+static void close_dynlib_aux(void* lib);
 static void call_on_unload_thr(void* lib);
 static void really_close_dynlib(struct erl_module_nif* lib);
 
 static void close_dynlib(struct erl_module_nif* lib)
 {
+    Uint sched_id;
     ASSERT(lib != NULL);
     ASSERT(lib->mod == NULL);
     ASSERT(erts_refc_read(&lib->dynlib_refc,0) == 0);
 
     if (lib->flags & ERTS_MOD_NIF_FLG_ON_HALT)
         uninstall_on_halt_callback(&lib->on_halt);
+
+    /* Schedule rest as aux work in order to seize code mod permission. */
+    sched_id = erts_get_scheduler_id();
+    if (!sched_id)
+        sched_id = 1;
+    erts_schedule_misc_aux_work(sched_id, close_dynlib_aux, lib);
+}
+
+static void close_dynlib_aux(void* vlib)
+{
+    struct erl_module_nif* lib = vlib;
+
+    /* Seize code modification permission to avoid unload-load race.
+     * Once we are commited to unload, we must run all unload callbacks
+     * and do dlclose before anyone is allowed to reload the same dynamic lib.
+     *
+     * A more fine grained solution would be nice to allow code mod operations
+     * that do not affect this dynamic lib.
+     */
+    if (!erts_try_seize_code_mod_permission_aux(close_dynlib_aux, vlib)) {
+        return;
+    }
 
     if (!lib->unload_thr_callback) {
         really_close_dynlib(lib);
@@ -2549,6 +2573,8 @@ static void really_close_dynlib(struct erl_module_nif* lib)
       erts_sys_ddll_close(lib->handle);
       lib->handle = NULL;
     }
+
+    erts_release_code_mod_permission();
 
     deref_nifmod(lib);
 }

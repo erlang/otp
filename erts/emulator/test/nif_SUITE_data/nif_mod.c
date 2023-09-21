@@ -52,6 +52,8 @@ static ERL_NIF_TERM am_resource_dtor_B;
 static ERL_NIF_TERM am_resource_down_D;
 static ERL_NIF_TERM am_resource_dyncall;
 static ERL_NIF_TERM am_return;
+static ERL_NIF_TERM am_unloaded;
+static ERL_NIF_TERM am_tester;
 
 static NifModPrivData* priv_data(ErlNifEnv* env)
 {
@@ -68,6 +70,8 @@ static void init(ErlNifEnv* env)
     am_resource_down_D = enif_make_atom(env, "resource_down_D");
     am_resource_dyncall = enif_make_atom(env, "resource_dyncall");
     am_return = enif_make_atom(env, "return");
+    am_unloaded = enif_make_atom(env, "unloaded");
+    am_tester = enif_make_atom(env, "tester");
 }
 
 static void add_call_with_arg(ErlNifEnv* env, NifModPrivData* data, const char* func_name,
@@ -238,8 +242,12 @@ static void do_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info, int* retvalp)
 	    open_resource_type(env, arity, arr);
 	    break;
 	case 2:
-	    CHECK(arr[0] == am_return);
-	    CHECK(enif_get_int(env, arr[1], retvalp));
+	    if (arr[0] == am_return)
+                CHECK(enif_get_int(env, arr[1], retvalp));
+	    else if (arr[0] == am_tester)
+                CHECK(enif_get_local_pid(env, arr[1], &data->tester_pid));
+            else
+                CHECK(0);
 	    break;
 	default:
 	    CHECK(0);
@@ -261,6 +269,7 @@ static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
     data->mtx = enif_mutex_create("nif_mod_priv_data"); 
     data->ref_cnt = 1;
     data->call_history = NULL;
+    enif_self(env, &data->tester_pid);
 
     add_call(env, data, "load");
 
@@ -301,6 +310,7 @@ static void unload(ErlNifEnv* env, void* priv)
     NifModPrivData* data = (NifModPrivData*) priv;
 
     add_call(env, data, "unload");
+    enif_send(env, &data->tester_pid, NULL, am_unloaded);
     NifModPrivData_release(data);
 }
 #endif /*  NIF_LIB_VER != 3 */
