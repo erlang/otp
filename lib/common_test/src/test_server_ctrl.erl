@@ -3039,7 +3039,7 @@ run_test_cases_loop([], _Config, _TimetrapData, _, _Status, TestResults) ->
 %%--------------------------------------------------------------------
 %% various help functions
 
--spec update_test_results(list(), boolean(), map()) -> list().
+-spec update_test_results(list(), HasFailed :: boolean(), map()) -> list().
 update_test_results(Results, false, _Metadata) -> Results;
 update_test_results(Results, true, Metadata) -> [Metadata | Results].
 
