@@ -1183,7 +1183,7 @@ get_object_code(#state{path=Path} = St, Mod) when is_atom(Mod) ->
     case erl_prim_loader:is_basename(ModStr) of
         true ->
             ModFile = ModStr ++ objfile_extension(),
-            case find_module(Path, [], ModFile, get_file) of
+            case find_module(Path, [], ModFile, fun erl_prim_loader:get_file/1) of
                 {{ok,Binary,_}, File, NewPath} ->
                     {Binary, File, St#state{path=NewPath}};
 
@@ -1262,7 +1262,7 @@ which(#state{path=Path} = St, Mod) when is_atom(Mod) ->
     case erl_prim_loader:is_basename(ModStr) of
         true ->
             ModFile = ModStr ++ objfile_extension(),
-            case find_module(Path, [], ModFile, read_file_info) of
+            case find_module(Path, [], ModFile, fun erl_prim_loader:read_file_info/1) of
                 {_Result, File, NewPath} ->
                     {File, St#state{path=NewPath}};
 
@@ -1279,7 +1279,7 @@ find_module([{Dir, Cache0}|Tail], Acc, ModFile, Fun) ->
         {true, Cache1} ->
             File = filename:append(Dir, ModFile),
 
-            case erl_prim_loader:Fun(File) of
+            case Fun(File) of
                 error ->
                     find_module(Tail, [{Dir, Cache1} | Acc], ModFile, Fun);
 
