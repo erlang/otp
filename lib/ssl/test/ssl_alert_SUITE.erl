@@ -134,7 +134,7 @@ alert_details_not_too_big(Config) when is_list(Config) ->
                                                                                      line => 1710}}, server, "TLS", cipher),
     case byte_size(term_to_binary(Txt)) < (byte_size(term_to_binary(ReasonText)) - PrefixLen) of
         true ->
-            ?CT_PAL("~s", [Txt]);
+            ?CT_LOG("~s", [Txt]);
         false ->
             ct:fail(ssl_alert_text_too_big)
     end.
