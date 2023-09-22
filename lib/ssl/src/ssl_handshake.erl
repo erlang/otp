@@ -2148,27 +2148,13 @@ digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 
-do_digitally_signed(Version, Msg, HashAlgo, #{algorithm := _KeyAlg, 
-                                              sign_fun := Sign} = Key, SignAlgo) when is_function(Sign) ->
-    Sign(Version, Msg, HashAlgo, Key, SignAlgo);
-do_digitally_signed(Version, Msg, HashAlgo, #{algorithm := _KeyAlg,
-                                              sign_fun := {Mod, Fun}} = Key, SignAlgo) ->
-    Mod:Fun(Version, Msg, HashAlgo, Key, SignAlgo);
 do_digitally_signed(Version, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
                                              #'RSASSA-PSS-params'{}}, SignAlgo) when ?TLS_GTE(Version, ?TLS_1_2) ->
     Options = signature_options(SignAlgo, HashAlgo),
     public_key:sign(Msg, HashAlgo, Key, Options);
-do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
-    public_key:encrypt_private(Digest, Key,
-			       [{rsa_pad, rsa_pkcs1_padding}]);
-do_digitally_signed(Version, {digest, Digest}, _,
-                    #{algorithm := rsa} = Engine, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
-    crypto:private_encrypt(rsa, Digest, maps:remove(algorithm, Engine),
-                           rsa_pkcs1_padding);
-do_digitally_signed(_, Msg, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    crypto:sign(Alg, HashAlgo, Msg, maps:remove(algorithm, Engine), Options);
-do_digitally_signed(Version, {digest, _} = Msg , HashAlgo, Key, _) when ?TLS_LTE(Version,?TLS_1_1) ->
+do_digitally_signed(Version, {digest, Digest}, _HashAlgo, Key, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
+    public_key:encrypt_private(Digest, Key);
+do_digitally_signed(Version, {digest, _} = Msg, HashAlgo, Key, _) when ?TLS_LTE(Version, ?TLS_1_1) ->
     public_key:sign(Msg, HashAlgo, Key);
 do_digitally_signed(_, Msg, HashAlgo, Key, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),

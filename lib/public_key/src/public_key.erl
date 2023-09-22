@@ -630,14 +630,15 @@ encrypt_private(PlainText, Key) ->
                                        Key :: rsa_private_key(),
                                        Options :: crypto:pk_encrypt_decrypt_opts(),
                                        CipherText :: binary() .
-encrypt_private(PlainText,
-		#'RSAPrivateKey'{modulus = N, publicExponent = E,
-				 privateExponent = D} = Key,
-		Options)
+encrypt_private(PlainText, Key, Options)
   when is_binary(PlainText),
-       is_integer(N), is_integer(E), is_integer(D),
        is_list(Options) ->
-    crypto:private_encrypt(rsa, PlainText, format_rsa_private_key(Key), default_options(Options)).
+    Opts = default_options(Options),
+    case format_sign_key(Key) of
+        {extern, {Mod, Fun}} -> Mod:Fun(PlainText, Opts);
+        {extern, Fun} -> Fun(PlainText, Opts);
+        {rsa, SignKey} -> crypto:private_encrypt(rsa, PlainText, SignKey, Opts)
+    end.
 
 %%--------------------------------------------------------------------
 %% Description: List available group sizes among the pre-computed dh groups
@@ -833,6 +834,10 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
     case format_sign_key(Key) of
 	badarg ->
 	    erlang:error(badarg, [DigestOrPlainText, DigestType, Key, Options]);
+    {extern, {Mod, Fun}} ->
+        Mod:Fun(DigestOrPlainText, DigestType, Options);
+    {extern, Fun} when is_function(Fun) ->
+        Fun(DigestOrPlainText, DigestType, Options);
 	{Algorithm, CryptoKey} ->
 	    try crypto:sign(Algorithm, DigestType, DigestOrPlainText, CryptoKey, Options)
             catch %% Compatible with old error schema
@@ -1493,6 +1498,11 @@ format_pkix_sign_key({#'RSAPrivateKey'{} = Key, _}) ->
     Key;
 format_pkix_sign_key(Key) ->
     Key.
+
+format_sign_key(#{sign_fun := KeyFun}) ->
+    {extern, KeyFun};
+format_sign_key(#{algorithm := Algo, engine := _} = Engine) ->
+    {Algo,  maps:remove(algorithm, Engine)};
 format_sign_key(Key = #'RSAPrivateKey'{}) ->
     {rsa, format_rsa_private_key(Key)};
 format_sign_key(#'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->

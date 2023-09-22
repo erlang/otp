@@ -119,7 +119,7 @@ client_auth_custom_sign(Config) when is_list(Config) ->
     ClientKeyFilePath =  proplists:get_value(keyfile, ClientOpts0),
     [ClientKeyEntry] = ssl_test_lib:pem_to_der(ClientKeyFilePath),
     ClientKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ClientKeyEntry)),
-    ClientSignFun = choose_sign_fun(ClientKey),
+    ClientSignFun = choose_sign_fun(ClientKey, Version),
 
     ClientCustomKey = {key, #{algorithm => CompatibleKeyAlg, sign_fun => ClientSignFun}},
     ClientOpts = [ ClientCustomKey | proplists:delete(key, proplists:delete(keyfile, ClientOpts0))],
@@ -128,7 +128,7 @@ client_auth_custom_sign(Config) when is_list(Config) ->
     ServerKeyFilePath =  proplists:get_value(keyfile, ServerOpts0),
     [ServerKeyEntry] = ssl_test_lib:pem_to_der(ServerKeyFilePath),
     ServerKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ServerKeyEntry)),
-    ServerSignFun = choose_sign_fun(ServerKey),
+    ServerSignFun = choose_sign_fun(ServerKey, Version),
 
     ServerCustomKey = {key, #{algorithm => CompatibleKeyAlg, sign_fun => ServerSignFun}},
     ServerOpts = [ ServerCustomKey, {verify, verify_peer} | ServerOpts0],
@@ -554,29 +554,20 @@ group_config(Config, ServerOpts, ClientOpts) ->
                  [{groups,"P-256:X25519"} | ClientOpts]}
         end.
 
-choose_sign_fun(#'RSAPrivateKey'{} = Key) ->
-    fun (_, {digest, Digest}, _HashAlgo, _KeyOpts, rsa) ->
-            public_key:encrypt_private(Digest, Key, [{rsa_pad, rsa_pkcs1_padding}]);
-        (_, Msg, HashAlgo, _KeyOpts, SignAlgo) ->
-            Options = signature_options(SignAlgo, HashAlgo),
-            public_key:sign(Msg, HashAlgo, Key, Options)
+choose_sign_fun(#'RSAPrivateKey'{} = Key, Version)
+when (Version == 'dtlsv1') or (Version == 'tlsv1') or (Version == 'tlsv1.1') ->
+    fun (PlainText, Options) ->
+        public_key:encrypt_private(PlainText, Key, Options)
     end;
-choose_sign_fun({#'RSAPrivateKey'{} = Key, #'RSASSA-PSS-params'{}}) ->
-    fun(_, Msg, HashAlgo, _KeyOpts, SignAlgo) ->
-        Options = signature_options(SignAlgo, HashAlgo),
+choose_sign_fun(#'RSAPrivateKey'{} = Key, _) ->
+    fun (Msg, HashAlgo, Options) ->
         public_key:sign(Msg, HashAlgo, Key, Options)
     end;
-choose_sign_fun(Key) ->
-    fun
-        (_, Msg, HashAlgo, _KeyOpts, SignAlgo) ->
-            Options = signature_options(SignAlgo, HashAlgo),
-            public_key:sign(Msg, HashAlgo, Key, Options)
+choose_sign_fun({#'RSAPrivateKey'{} = Key, #'RSASSA-PSS-params'{}}, _) ->
+    fun(Msg, HashAlgo, Options) ->
+        public_key:sign(Msg, HashAlgo, Key, Options)
+    end;
+choose_sign_fun(Key, _) ->
+    fun (Msg, HashAlgo, Options) ->
+        public_key:sign(Msg, HashAlgo, Key, Options)
     end.
-
-signature_options(SignAlgo, HashAlgo) when SignAlgo =:= rsa_pss_rsae orelse
-                                           SignAlgo =:= rsa_pss_pss ->
-    [{rsa_padding, rsa_pkcs1_pss_padding},
-     {rsa_pss_saltlen, -1},
-     {rsa_mgf1_md, HashAlgo}];
-signature_options(_, _) ->
-    [].
