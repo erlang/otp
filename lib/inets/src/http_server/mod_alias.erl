@@ -54,7 +54,6 @@ do(#mod{data = Data} = Info) ->
 
 do_alias(#mod{config_db   = ConfigDB, 
 	      request_uri = ReqURI,
-	      socket_type = SocketType,
 	      data        = Data}) ->
     {ShortPath, Path, AfterPath} = 
 	real_name(ConfigDB, ReqURI, which_alias(ConfigDB)),
@@ -63,12 +62,8 @@ do_alias(#mod{config_db   = ConfigDB,
     case file:read_file_info(ShortPath) of 
 	{ok, FileInfo} when ((FileInfo#file_info.type =:= directory) andalso 
 			     (LastChar =/= $/)) ->
-	    ServerName = which_server_name(ConfigDB), 
-	    Port = port_string(which_port(ConfigDB)),
-	    Protocol = get_protocol(SocketType),
             {ReqPath, ReqQuery} = httpd_util:split_path(ReqURI),
-            URL = Protocol ++ ServerName ++ Port ++ ReqPath ++ "/" ++
-                ["?" ++ ReqQuery || [] /= ReqQuery],
+            URL = ReqPath ++ "/" ++ ["?" ++ ReqQuery || [] /= ReqQuery],
 	    ReasonPhrase = httpd_util:reason_phrase(301),
 	    Message = httpd_util:message(301, URL, ConfigDB),
 	    {proceed,
@@ -85,18 +80,6 @@ do_alias(#mod{config_db   = ConfigDB,
 	_NoFile ->
 	    {proceed, [{real_name, {Path, AfterPath}} | Data]}
     end.
-
-port_string(80) ->
-    "";
-port_string(Port) ->
-    ":" ++ integer_to_list(Port).
-
-get_protocol(ip_comm) ->
-    "http://";
-get_protocol({ip_comm, _}) ->
-    "http://";
-get_protocol({ssl, _}) ->
-    "https://".
 
 %% real_name
 
@@ -282,12 +265,6 @@ is_directory_index_list(_) ->
 
 which_alias(ConfigDB) ->
     httpd_util:multi_lookup(ConfigDB, alias). 
-
-which_server_name(ConfigDB) ->
-    httpd_util:lookup(ConfigDB, server_name).
-
-which_port(ConfigDB) ->
-    httpd_util:lookup(ConfigDB, port, 80). 
 
 which_document_root(ConfigDB) ->
     Root = httpd_util:lookup(ConfigDB, document_root, ""),
