@@ -56,7 +56,18 @@ print_failed_test_results([#{reason := Reason, module := Module, function := Fun
 print_failed_test_results([]) ->
     ok.
 
+%% @doc
+%% Format the reason why a test failed into the expected tuple format with the
+%% following two elements:
+%%
+%% - The reason why the test failed, such as an explicit `test_case_failed' or
+%%   `badmatch' errors.
+%% - The traceback of the test, as a list. Can be empty. When explicitly
+%%   failing a test, this will instead contain a string describing why the test
+%%   was failed.
+%% @end
 format_failure_reason({'EXIT', Reason, Traceback}) -> {{'EXIT', Reason}, Traceback};
+format_failure_reason({Reason, undefined}) -> {Reason, []};
 format_failure_reason({_Reason, _Traceback} = Result) -> Result.
 
 -spec result_padding_color(non_neg_integer(), non_neg_integer(), boolean()) -> string().
