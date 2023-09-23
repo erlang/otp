@@ -525,8 +525,7 @@ results(State) ->
               handler. To use this mode, pass the <c>-verbose</c> flag to <c>ct_run</c>.
               <c>-verbose</c> is the short form of disabling the builtin
               configuration of the hook and reconfiguring it:</p>
-            <p>
-            <p><c>-enable_builtin_hooks false -ct_hooks cth_log_redirect [{mode,replace}]</c></p>
+            <p><c>-enable_builtin_hooks false -ct_hooks cth_log_redirect [{mode,add}]</c></p>
           </item>
         </taglist>
        </item>
