@@ -1964,25 +1964,25 @@ loop(Cnt, Acc, Config) ->
                 _ ->
                     %% queue is expected to be empty
                     queue_check(),
-                    ct:pal("~n~s|", [Acc ++ "x"]),
+                    ct:log("~n~s|", [Acc ++ "x"]),
                     fail
             end;
         {ok, NotOk} ->
-            ct:pal("200 OK was not received~n~p", [NotOk]),
+            ct:log("200 OK was not received~n~p", [NotOk]),
             fail;
         Error ->
-            ct:pal("Error: ~p",[Error]),
+            ct:log("Error: ~p",[Error]),
             fail
     end.
 
 queue_check() ->
     receive
         {http, {ReqId, {_Result, _Head, Data}}} when is_binary(Data) ->
-            ct:pal("Unexpected data received: ~p ",
+            ct:log("Unexpected data received: ~p ",
                       [ReqId]),
             queue_check();
         X ->
-            ct:pal("Caught unexpected something else: ~p",[X]),
+            ct:log("Caught unexpected something else: ~p",[X]),
             queue_check()
     after 5000 ->
             done
@@ -2272,7 +2272,7 @@ receive_replys([ID|IDs]) ->
 	{http, {ID, {{_, 200, _}, [_|_], _}}} ->
 	    receive_replys(IDs);
 	{http, {Other, {{_, 200, _}, [_|_], _}}} ->
-	    ct:pal("~p",[{recived_canceld_id, Other}])
+	    ct:log("~p",[{recived_canceld_id, Other}])
     end.
 
 inet_version() ->
@@ -2978,12 +2978,12 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 					  false -> exit({bad_resp,Req,Resp})
 				      end;
 				  {ok, {{_,EC,Reason},_,Resp}}  ->
-				      ct:pal("[~w] ~w response: "
+				      ct:log("[~w] ~w response: "
 					       "~s~n~s~n",
 					       [Id, EC, Reason, Resp]),
 				      exit({bad_resp,Req,Resp});
 				  Crap ->
-				      ct:pal("[~w] bad response: ~p",
+				      ct:log("[~w] bad response: ~p",
 					       [Id, Crap]),
 				      exit({bad_resp, Req, Crap})
 			      end

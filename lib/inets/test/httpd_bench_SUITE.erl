@@ -88,7 +88,7 @@ init_per_suite(Config) ->
 	init_ssl(Config),
 	[{iter, 10}, {server_node, Node}, {server_host, Host} | Config]
     catch E:R:ST ->
-            ct:pal("~p:~p:~p",[E,R,ST]),
+            ct:log("~p:~p:~p",[E,R,ST]),
 	    {skipped, "Benchmark machines only"}
     end.
 
@@ -306,7 +306,7 @@ run_test(Client, File, Config) ->
     Pid ! go,
     receive
 	{Pid,{{tps, Tps}, {mbps, MBps}}} ->
-	    ct:pal("Tps: ~p  Bps~p", [Tps, MBps]),
+	    ct:log("Tps: ~p  Bps~p", [Tps, MBps]),
 	    {ok, {Tps, MBps}}
     end.
 
@@ -425,7 +425,7 @@ wget_client(Config) ->
 wget_client([KeepAlive, WgetFile, _URL, Protocol, ProtocolOpts, _], _) ->
     process_flag(trap_exit, true),
     Cmd = wget_N(KeepAlive, WgetFile, Protocol, ProtocolOpts),
-    %%ct:pal("Wget cmd: ~p", [Cmd]),
+    %%ct:log("Wget cmd: ~p", [Cmd]),
     Port = open_port({spawn, Cmd}, [stderr_to_stdout]), 
     wait_for_wget(Port).
 
