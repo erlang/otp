@@ -132,7 +132,7 @@ script_start(Args) ->
 			    _ -> ""
 			end
 		end,
-            Header = io_lib:format("common test~s starting", [CTVsn]),
+            Header = io_lib:format("Common Test~s starting", [CTVsn]),
             ct_console:print_header(Header),
             io:format("cwd: ~ts~n", [Cwd]),
 	    Self = self(),
@@ -902,7 +902,7 @@ run_test1(StartOpts) when is_list(StartOpts) ->
 	undefined ->
 	    Tracing = start_trace(StartOpts),
 	    {ok,Cwd} = file:get_cwd(),
-	    ct_console:print_header("common test starting"),
+	    ct_console:print_header("Common Test starting"),
 	    io:format("cwd: ~ts~n", [Cwd]),
 	    Res =
 		case ct_repeat:loop_test(func, StartOpts) of
@@ -1393,7 +1393,7 @@ run_testspec1_fun(TestSpec) ->
 
 run_testspec1(TestSpec) ->
     {ok,Cwd} = file:get_cwd(),
-    ct_console:print_header("common test starting"),
+    ct_console:print_header("Common Test starting"),
     io:format("cwd: ~ts~n", [Cwd]),
     case catch run_testspec2(TestSpec) of
 	{'EXIT',Reason} ->
