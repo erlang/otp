@@ -3,7 +3,7 @@
 -module(ct_console).
 -export([print_header/1, print_results/1, pluralize/3]).
 
-%% Colored output formatting charaters
+%% Colored output formatting characters
 % If adding a new format here, make sure to add it to `size_on_terminal/1`.
 -define(TERM_BOLD, "\033[;1m").
 -define(TERM_BOLD_GREEN, "\033[;1;32m").
