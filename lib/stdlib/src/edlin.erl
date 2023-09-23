@@ -28,7 +28,6 @@
 -export([current_line/1, current_chars/1]).
 
 -export([edit_line1/2]).
--export([inverted_space_prompt/1]).
 -export([keymap/0]).
 -import(lists, [reverse/1, reverse/2]).
 
@@ -616,27 +615,22 @@ redraw_line({line, Pbs, L,_}) ->
 multi_line_prompt(Pbs) ->
     case application:get_env(stdlib, shell_multiline_prompt, default) of
         default -> %% Default multiline prompt
-            default_multiline_prompt(Pbs);
+            shell:default_multiline_prompt(Pbs);
         {M,F} when is_atom(M), is_atom(F) ->
             case catch apply(M,F,[Pbs]) of
                 Prompt when is_list(Prompt) -> Prompt;
                 _ ->
                     application:set_env(stdlib, shell_multiline_prompt, default),
                     io:format("Invalid call: ~p:~p/1~n", [M,F]),
-                    default_multiline_prompt(Pbs)
+                    shell:default_multiline_prompt(Pbs)
             end;
         Prompt when is_list(Prompt) ->
-            lists:duplicate(max(0,prim_tty:npwcwidthstring(Pbs) - prim_tty:npwcwidthstring(Prompt)), $\s) ++ Prompt;
+            lists:duplicate(max(0,shell:prompt_width(Pbs) - shell:prompt_width(Prompt)), $\s) ++ Prompt;
         Prompt ->
             application:set_env(stdlib, shell_multiline_prompt, default),
             io:format("Invalid multiline prompt: ~p~n", [Prompt]),
-            default_multiline_prompt(Pbs)
+            shell:default_multiline_prompt(Pbs)
     end.
-
-default_multiline_prompt(Pbs) ->
-    lists:duplicate(max(0,prim_tty:npwcwidthstring(Pbs) - 3), $\s) ++ ".. ".
-inverted_space_prompt(Pbs) ->
-    "\e[7m" ++ lists:duplicate(prim_tty:npwcwidthstring(Pbs) - 1, $\s) ++ "\e[27m ".
 
 redraw(Pbs, {_,{_,_},_}=L, Rs) ->
     [{redraw_prompt, Pbs, multi_line_prompt(Pbs), L} |Rs].

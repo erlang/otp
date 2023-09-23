@@ -476,7 +476,7 @@ shell_multiline_navigation(Config) ->
     end.
 
 shell_multiline_prompt(Config) ->
-    Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{edlin,inverted_space_prompt}"]}|Config]),
+    Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{shell,inverted_space_prompt}"]}|Config]),
     Term2 = start_tty([{args,["-stdlib","shell_multiline_prompt","\"...> \""]}|Config]),
     Term3 = start_tty([{args,["-stdlib","shell_multiline_prompt","edlin"]}|Config]),
 
