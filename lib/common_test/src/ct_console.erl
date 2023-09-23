@@ -63,7 +63,7 @@ format_failure_reason({_Reason, _Traceback} = Result) -> Result.
 result_padding_color(_Ok, 0, ShouldColor) -> mc(?TERM_GREEN, ShouldColor);
 result_padding_color(_Ok, _Failed, ShouldColor) -> mc(?TERM_RED, ShouldColor).
 
--spec format_if_nonzero(non_neg_integer(), io_lib:format(), [term()]) -> string().
+-spec format_if_nonzero(non_neg_integer(), io:format(), [term()]) -> string().
 format_if_nonzero(0, _Format, _Data) -> "";
 format_if_nonzero(_, Format, Data) -> io_lib:format(Format, Data).
 
