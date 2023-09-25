@@ -937,12 +937,12 @@ $ <input>erl \
       <tag><c><![CDATA[+hms Size]]></c></tag>
       <item>
         <p>Sets the default heap size of processes to the size
-          <c><![CDATA[Size]]></c>.</p>
+          <c><![CDATA[Size]]></c> words.</p>
       </item>
       <tag><c><![CDATA[+hmbs Size]]></c></tag>
       <item>
         <p>Sets the default binary virtual heap size of processes to the size
-          <c><![CDATA[Size]]></c>.</p>
+          <c><![CDATA[Size]]></c> words.</p>
       </item>
       <tag><marker id="+hmax"/><c><![CDATA[+hmax Size]]></c></tag>
       <item>
