@@ -622,7 +622,7 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 %%%
 %%%================================================================
 
--type hash_algorithm() :: sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash() .
+-type hash_algorithm() :: sha1() | sha2() | sha512_224 | sha512_256 | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash() .
 -type hash_xof_algorithm() :: sha3_xof() .
 
 -spec hash_info(Type) -> Result
