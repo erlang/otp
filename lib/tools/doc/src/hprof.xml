@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module since="OTP 26.0">hprof</module>
+  <module since="OTP @OTP-18756@">hprof</module>
   <modulesummary>Process Heap Profiling Tool</modulesummary>
   <description>
     <p><c>hprof</c> provides convenience helpers for Erlang process heap
@@ -425,7 +425,7 @@
 
   <funcs>
     <func>
-      <name name="start" arity="0" since="OTP 26.0"/>
+      <name name="start" arity="0" since="OTP @OTP-18756@"/>
       <fsummary>Start profiling server.</fsummary>
       <desc>
         <p> Starts the server, not supervised.
@@ -434,14 +434,14 @@
       </desc>
     </func>
     <func>
-      <name name="start_link" arity="0" since="OTP 26.0"/>
+      <name name="start_link" arity="0" since="OTP @OTP-18756@"/>
       <fsummary>Start profiling server.</fsummary>
       <desc>
           <p> Starts the server, supervised by the calling process.</p>
       </desc>
     </func>
     <func>
-      <name name="stop" arity="0" since="OTP 26.0"/>
+      <name name="stop" arity="0" since="OTP @OTP-18756@"/>
       <fsummary>Stop profiling server.</fsummary>
       <desc>
         <p>Stops the <c>hprof</c>, disabling memory tracing that has
@@ -450,7 +450,7 @@
     </func>
 
     <func>
-      <name name="set_pattern" arity="3" since="OTP 26.0"/>
+      <name name="set_pattern" arity="3" since="OTP @OTP-18756@"/>
       <fsummary>Enables memory tracing for a specific trace pattern.</fsummary>
       <desc>
           <p>Turns tracing on for the supplied pattern.
@@ -476,7 +476,7 @@
     </func>
 
     <func>
-      <name name="clear_pattern" arity="3" since="OTP 26.0"/>
+      <name name="clear_pattern" arity="3" since="OTP @OTP-18756@"/>
       <fsummary>Disables memory tracing for a specific trace pattern.</fsummary>
       <desc>
         <p>Turns tracing off for the supplied pattern.</p>
@@ -492,7 +492,7 @@
     </func>
 
     <func>
-      <name name="get_trace_map" arity="0" since="OTP 26.0"/>
+      <name name="get_trace_map" arity="0" since="OTP @OTP-18756@"/>
       <fsummary>Returns trace map.</fsummary>
       <desc>
         <p>Returns a map of module names to functions with their arities.</p>
@@ -500,8 +500,8 @@
     </func>
 
     <func>
-      <name name="enable_trace" arity="1" clause_i="1" since="OTP 26.0"/>
-      <name name="enable_trace" arity="1" clause_i="2" since="OTP 26.0"/>
+      <name name="enable_trace" arity="1" clause_i="1" since="OTP @OTP-18756@"/>
+      <name name="enable_trace" arity="1" clause_i="2" since="OTP @OTP-18756@"/>
       <fsummary>Enables memory tracing for the specified processes</fsummary>
       <desc><p>
         The same as <seemfa marker="#enable_trace/2"><c>enable_trace</c>
@@ -510,8 +510,8 @@
     </func>
 
     <func>
-      <name name="enable_trace" arity="2" clause_i="1" since="OTP 26.0"/>
-      <name name="enable_trace" arity="2" clause_i="2" since="OTP 26.0"/>
+      <name name="enable_trace" arity="2" clause_i="1" since="OTP @OTP-18756@"/>
+      <name name="enable_trace" arity="2" clause_i="2" since="OTP @OTP-18756@"/>
       <fsummary>Enables memory tracing for the specified processes</fsummary>
       <desc><p>
           Similar to <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa>,
@@ -561,8 +561,8 @@
     </func>
 
     <func>
-      <name name="disable_trace" arity="1" clause_i="1" since="OTP 26.0"/>
-      <name name="disable_trace" arity="1" clause_i="2" since="OTP 26.0"/>
+      <name name="disable_trace" arity="1" clause_i="1" since="OTP @OTP-18756@"/>
+      <name name="disable_trace" arity="1" clause_i="2" since="OTP @OTP-18756@"/>
       <fsummary>Disables memory tracing for the specified processes</fsummary>
       <desc><p>
         The same as <seemfa marker="#disable_trace/2"><c>disable_trace</c>
@@ -571,8 +571,8 @@
     </func>
 
     <func>
-      <name name="disable_trace" arity="2" clause_i="1" since="OTP 26.0"/>
-      <name name="disable_trace" arity="2" clause_i="2" since="OTP 26.0"/>
+      <name name="disable_trace" arity="2" clause_i="1" since="OTP @OTP-18756@"/>
+      <name name="disable_trace" arity="2" clause_i="2" since="OTP @OTP-18756@"/>
       <fsummary>Disables memory tracing for the specified processes</fsummary>
       <desc><p>Stops accumulating heap traces for specified processes. See
         <seemfa marker="#enable_trace/2"><c>enable_trace/2</c></seemfa> for
@@ -587,7 +587,7 @@
     </func>
 
     <func>
-      <name name="pause" arity="0" since="OTP 26.0"/>
+      <name name="pause" arity="0" since="OTP @OTP-18756@"/>
       <fsummary>Pauses heap tracing.</fsummary>
       <desc>
         <p>Pauses trace collection for all currently traced functions, keeping all
@@ -597,7 +597,7 @@
     </func>
 
     <func>
-      <name name="continue" arity="0" since="OTP 26.0"/>
+      <name name="continue" arity="0" since="OTP @OTP-18756@"/>
       <fsummary>Resumes heap tracing.</fsummary>
       <desc>
         <p>Resumes previously paused heap profiling.</p>
@@ -605,7 +605,7 @@
     </func>
 
     <func>
-      <name name="restart" arity="0" since="OTP 26.0"/>
+      <name name="restart" arity="0" since="OTP @OTP-18756@"/>
       <fsummary>Clears profiling data and restarts tracing.</fsummary>
       <desc>
         <p>Clears accumulated profiles. If profiling was paused prior to
@@ -614,10 +614,10 @@
     </func>
 
     <func>
-      <name name="profile" arity="1" since="OTP 26.0"/>
-      <name name="profile" arity="2" since="OTP 26.0"/>
-      <name name="profile" arity="3" since="OTP 26.0"/>
-      <name name="profile" arity="4" since="OTP 26.0"/>
+      <name name="profile" arity="1" since="OTP @OTP-18756@"/>
+      <name name="profile" arity="2" since="OTP @OTP-18756@"/>
+      <name name="profile" arity="3" since="OTP @OTP-18756@"/>
+      <name name="profile" arity="4" since="OTP @OTP-18756@"/>
       <fsummary>Produces ad-hoc heap profile for the function.</fsummary>
       <desc>
         <p>Produces ad-hoc heap profile for function <c>Fun</c> or
@@ -671,8 +671,8 @@
     </func>
 
     <func>
-      <name name="format" arity="1" since="OTP 26.0"/>
-      <name name="format" arity="2" since="OTP 26.0"/>
+      <name name="format" arity="1" since="OTP @OTP-18756@"/>
+      <name name="format" arity="2" since="OTP @OTP-18756@"/>
       <fsummary>Formats transformed profile to a specified device.</fsummary>
       <desc>
         <p>Formats profile transformed with <seemfa marker="#inspect/3"><c>inspect</c>
@@ -681,7 +681,7 @@
     </func>
 
     <func>
-      <name name="inspect" arity="1" clause_i="1" since="OTP 26.0"/>
+      <name name="inspect" arity="1" clause_i="1" since="OTP @OTP-18756@"/>
       <fsummary>Transforms raw data returned by heap profiler.</fsummary>
       <desc><p>
         The same as <seemfa marker="#inspect/3"><c>inspect</c>
@@ -693,7 +693,7 @@
     </func>
 
     <func>
-      <name name="inspect" arity="3" clause_i="1" since="OTP 26.0"/>
+      <name name="inspect" arity="3" clause_i="1" since="OTP @OTP-18756@"/>
       <fsummary>Transforms raw data returned by heap profiler.</fsummary>
       <desc>
         <p>Transforms raw data returned by tracing BIFs into a form
@@ -709,7 +709,7 @@
     </func>
 
     <func>
-      <name name="inspect" arity="3" clause_i="2" since="OTP 26.0"/>
+      <name name="inspect" arity="3" clause_i="2" since="OTP @OTP-18756@"/>
       <fsummary>Transforms raw data returned by heap profiler into a summary.</fsummary>
       <desc>
         <p>Combines raw profile from multiple processes into a single summary
