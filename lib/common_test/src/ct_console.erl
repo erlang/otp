@@ -49,8 +49,8 @@ print_results(#{total := #{passed := OkN, failed := FailedN,
 
 print_failed_test_results([#{reason := Reason, module := Module, function := Function} | Rest]) ->
     io:fwrite(user, "=> test case ~s:~s:~n", [Module, Function]),
-    {CrashReason, Traceback} = format_failure_reason(Reason),
-    io:fwrite(user, "~tp~n~tp~n~n", [CrashReason, elide_framework_code(Traceback)]),
+    {CrashReason, TracebackOrDetail} = format_failure_reason(Reason),
+    io:fwrite(user, "~tp~n~tp~n~n", [CrashReason, elide_framework_code(TracebackOrDetail)]),
     print_failed_test_results(Rest);
 
 print_failed_test_results([]) ->
@@ -61,7 +61,7 @@ print_failed_test_results([]) ->
 %% following two elements:
 %%
 %% - The reason why the test failed, such as an explicit `test_case_failed' or
-%%   `badmatch' errors.
+%%   `badmatch' errors, or some other value returned by the test.
 %% - The traceback of the test, as a list. Can be empty. When explicitly
 %%   failing a test, this will instead contain a string describing why the test
 %%   was failed.
@@ -153,14 +153,20 @@ size_on_terminal([Items | Rest]) when is_list(Items) -> size_on_terminal(Items) 
 size_on_terminal([Char | Rest]) when is_integer(Char) -> 1 + size_on_terminal(Rest);
 size_on_terminal([]) -> 0.
 
-%% @doc Elide framework code from the given traceback.
+%% @doc
+%% Elide framework code from the given traceback or exit reason. If the test
+%% was failed explicitly due to some reason that did not generate a traceback,
+%% such as an explicit fail, the given argument is passed through unchanged.
+%% @end
 -spec elide_framework_code(list()) -> list().
 elide_framework_code([{test_server, _Function, _Location} | Rest]) ->
     elide_framework_code(Rest);
 elide_framework_code([Frame | Rest]) ->
     [Frame | elide_framework_code(Rest)];
 elide_framework_code([]) ->
-    [].
+    [];
+elide_framework_code(Value) ->
+    Value.
 
 
 %% @doc Turn the given seconds into a human-readable string.
