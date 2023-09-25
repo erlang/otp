@@ -48,12 +48,11 @@
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
 start() ->
-    application:ensure_all_started([inets, ssl]).
+    application:start(inets, temporary).
 
 start(Type) ->
-    application:start(inets, Type),
-    application:ensure_all_started(ssl).
-
+    application:ensure_all_started(ssl),
+    application:start(inets, Type).
 
 %%--------------------------------------------------------------------
 %% Function: start(Service, ServiceConfig [, How]) -> {ok, Pid} | 
