@@ -104,10 +104,6 @@ client_auth_custom_sign() ->
 
 client_auth_custom_sign(Config) when is_list(Config) ->
     KeyAlg =  proplists:get_value(cert_key_alg, Config),
-    % 'rsa_pss_rsae' is not an expected config value here, 
-    % using rsa or rsa_pss_pss instad seams to work,
-    % Not sure how to modify SSL to add it in the acceptable key pair groups...
-    CompatibleKeyAlg = case KeyAlg of rsa_pss_rsae -> rsa_pss_pss; _ -> KeyAlg end,
     Version = proplists:get_value(version,Config),
     ClientOpts0 =  case Version of
                       'tlsv1.3' ->
@@ -121,7 +117,7 @@ client_auth_custom_sign(Config) when is_list(Config) ->
     ClientKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ClientKeyEntry)),
     ClientSignFun = choose_sign_fun(ClientKey, Version),
 
-    ClientCustomKey = {key, #{algorithm => CompatibleKeyAlg, sign_fun => ClientSignFun}},
+    ClientCustomKey = {key, #{algorithm => KeyAlg, sign_fun => ClientSignFun}},
     ClientOpts = [ ClientCustomKey | proplists:delete(key, proplists:delete(keyfile, ClientOpts0))],
 
     ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
@@ -130,7 +126,7 @@ client_auth_custom_sign(Config) when is_list(Config) ->
     ServerKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ServerKeyEntry)),
     ServerSignFun = choose_sign_fun(ServerKey, Version),
 
-    ServerCustomKey = {key, #{algorithm => CompatibleKeyAlg, sign_fun => ServerSignFun}},
+    ServerCustomKey = {key, #{algorithm => KeyAlg, sign_fun => ServerSignFun}},
     ServerOpts = [ ServerCustomKey, {verify, verify_peer} | ServerOpts0],
 
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).

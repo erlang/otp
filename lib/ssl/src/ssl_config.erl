@@ -61,6 +61,7 @@ group_pairs([#{certs := []}]) ->
     #{eddsa => [],
       ecdsa => [],
       rsa_pss_pss => [],
+      rsa_pss_rsae => [],
       rsa => [],
       dsa => []
      };
@@ -68,6 +69,7 @@ group_pairs(Pairs) ->
     group_pairs(Pairs, #{eddsa => [],
                          ecdsa => [],
                          rsa_pss_pss => [],
+                         rsa_pss_rsae => [],
                          rsa => [],
                          dsa => []
                         }).
@@ -100,11 +102,13 @@ group_pairs([], Group) ->
 prioritize_groups(#{eddsa := EDDSA,
                     ecdsa := ECDSA,
                     rsa_pss_pss := RSAPSS,
+                    rsa_pss_rsae := RSAPSSRSAE,
                     rsa := RSA,
                     dsa := DSA} = CertKeyGroups) ->
     CertKeyGroups#{eddsa => prio_eddsa(EDDSA),
                    ecdsa => prio_ecdsa(ECDSA),
                    rsa_pss_pss => prio_rsa_pss(RSAPSS),
+                   rsa_pss_rsae => prio_rsa_pss(RSAPSSRSAE),
                    rsa => prio_rsa(RSA),
                    dsa => prio_dsa(DSA)}.
 

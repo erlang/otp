@@ -830,6 +830,9 @@ sign(DigestOrPlainText, DigestType, Key) ->
 sign(Digest, none, Key = #'DSAPrivateKey'{}, Options) when is_binary(Digest) ->
     %% Backwards compatible
     sign({digest, Digest}, sha, Key, Options);
+sign(DigestOrPlainText, DigestType, Key, SignAlgo) when is_atom(SignAlgo) ->
+    Options = signature_options(SignAlgo, DigestType),
+    sign(DigestOrPlainText, DigestType, Key, Options);
 sign(DigestOrPlainText, DigestType, Key, Options) ->
     case format_sign_key(Key) of
 	badarg ->
@@ -1492,6 +1495,18 @@ set_padding(Pad, Opts) ->
                                    T =/= rsa_padding,
                                    T =/= rsa_pad]
     ].
+
+signature_options(SignAlgo, HashAlgo) when SignAlgo =:= rsa_pss_rsae orelse
+                                           SignAlgo =:= rsa_pss_pss ->
+    pss_options(HashAlgo);
+signature_options(_, _) ->
+    [].
+
+pss_options(HashAlgo) ->
+    %% of the digest algorithm: rsa_pss_saltlen = -1
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, -1},
+     {rsa_mgf1_md, HashAlgo}].
 
 format_pkix_sign_key({#'RSAPrivateKey'{} = Key, _}) ->
     %% Params are handled in option arg
