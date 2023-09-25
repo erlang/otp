@@ -200,13 +200,14 @@ AC_SUBST(GLIB_LIBS)
 AC_SUBST(OBJC_CC)
 AC_SUBST(OBJC_CFLAGS)
 
+EXTRA_LDFLAGS=
+
 case $host_os in
     darwin*)
-	LDFLAGS="$MAC_MIN -bundle -flat_namespace -undefined warning -fPIC $LDFLAGS"
-	# Check sizof_void_p as future will hold 64bit MacOS wx
-	if test $ac_cv_sizeof_void_p = 4; then
-	    LDFLAGS="-m32 $LDFLAGS"
-	fi		   
+        # beam.smp has not been built yet, so we must not use the
+        # -bundle_loader option in the configuration tests.
+	LDFLAGS="$MAC_MIN -bundle $LDFLAGS"
+	EXTRA_LDFLAGS=" -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
 	GL_LIBS="-framework OpenGL"
 	;;
     win32)
@@ -666,6 +667,8 @@ saved_LIBS=$LIBS
 
 if test X"$WX_HAVE_STATIC_LIBS" = X"true" ; then
    LIBS=$WX_LIBS_STATIC   
+else
+   LIBS=$WX_LIBS
 fi
 
 AC_LINK_IFELSE([AC_LANG_SOURCE([[
@@ -702,6 +705,8 @@ if test X"$CAN_LINK_WX" != X"yes" ; then
 fi
 
 ]) dnl - if test "$WXERL_CAN_BUILD_DRIVER" != "false"
+
+LDFLAGS="$LDFLAGS$EXTRA_LDFLAGS"
 
 AC_SUBST(WXERL_CAN_BUILD_DRIVER)
 
