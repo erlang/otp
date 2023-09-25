@@ -61,8 +61,8 @@ This is the short story though, for the experienced and impatient:
     *   Get, build and install OpenSSL v1.1.1d or later (up to 1.1.1d
         tried & working) with static libs.
 
-    *   Get, build and install wxWidgets-3.1.3 or later (up to 3.1.3
-        tried & working) with static libs.
+    *   Get, build and install wxWidgets-3.2.2.1 or later (up to that
+        version tried & working) with static libs.
 
     *   Get the Erlang source distribution (from
         <http://www.erlang.org/download.html>) and unpack with `tar`
@@ -152,20 +152,20 @@ the different tools:
 *   wxWidgets (optional)
     You need this to build wx to use gui's in debugger and observer.
 
-    We recommend v3.1.4 or later.
-    Unpack into `c:/opt/local64/pgm/wxWidgets-3.1.4`
+    We recommend v3.2.2.1 or later.
+    Unpack into `c:/opt/local64/pgm/wxWidgets-3.2.2.1`
 
-    If the `wxUSE_POSTSCRIPT` isn't enabled in  `c:/opt/local64/pgm/wxWidgets-3.1.4/include/wx/msw/setup.h`,
+    If the `wxUSE_POSTSCRIPT` isn't enabled in  `c:/opt/local64/pgm/wxWidgets-3.2.2.1/include/wx/msw/setup.h`,
     enable it.
 
     We recommend to enable for wxWebView wxUSE_WEBVIEW_EDGE.
     *   Download the nuget package 'Microsoft.Web.WebView2' (Version 0.9.488 or newer)
     *   Extract the package (it's a zip archive) to wxWidgets/3rdparty/webview2 (you should have 3rdparty/webview2/build/native/include/WebView2.h file after unpacking it)
-    *   Enable wxUSE_WEBVIEW_EDGE in `c:/opt/local64/pgm/wxWidgets-3.1.4/include/wx/msw/setup.h`
+    *   Enable wxUSE_WEBVIEW_EDGE in `c:/opt/local64/pgm/wxWidgets-3.2.2.1/include/wx/msw/setup.h`
 
     Build with:
 
-        C:\...\> cd c:\opt\local64\pgm\wxWidgets-3.1.4\build\msw
+        C:\...\> cd c:\opt\local64\pgm\wxWidgets-3.2.2.1\build\msw
         C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
     Remove the `TARGET_CPU=amd64` for 32bit build.
