@@ -341,16 +341,16 @@ available_cert_key_pairs(CertKeyGroups) ->
     %% To be able to find possible TLS session pre TLS-1.3
     %% that may be reused. At this point the version is
     %% not negotiated.
-    RevAlgos = [dsa, rsa, rsa_pss_rsae, rsa_pss_pss, ecdsa],
+    RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
 
 %% Create the prioritized list of cert key pairs that
 %% are availble for use in the negotiated version
 available_cert_key_pairs(CertKeyGroups, ?TLS_1_3) ->
-    RevAlgos = [rsa, rsa_pss_rsae, rsa_pss_pss, ecdsa, eddsa],
+    RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
 available_cert_key_pairs(CertKeyGroups, ?TLS_1_2) ->
-     RevAlgos = [dsa, rsa, rsa_pss_rsae, rsa_pss_pss, ecdsa],
+     RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
 available_cert_key_pairs(CertKeyGroups, Version)
   when ?TLS_LT(Version, ?TLS_1_2) ->

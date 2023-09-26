@@ -348,11 +348,11 @@
 -type cert_pem()                  :: file:filename().
 -type key()                       :: {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' |'PrivateKeyInfo', 
                                            public_key:der_encoded()} | 
-                                     #{algorithm := rsa | rsa_pss_rsae | rsa_pss_pss | dss | ecdsa,
+                                     #{algorithm := rsa | dss | ecdsa, 
                                        engine := crypto:engine_ref(), 
                                        key_id := crypto:key_id(), 
                                        password => crypto:password()} |
-                                     #{algorithm := rsa | rsa_pss_rsae | rsa_pss_pss | dss | ecdsa,
+                                     #{algorithm := rsa | dss | ecdsa, 
                                        sign_fun := custom_sign()}. % exported
 -type key_pem()                   :: file:filename().
 -type key_pem_password()          :: iodata() | fun(() -> iodata()).
