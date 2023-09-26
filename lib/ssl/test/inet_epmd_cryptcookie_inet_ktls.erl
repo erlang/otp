@@ -103,7 +103,8 @@ accept_controller(_NetAddress, Controller, Socket) ->
 
 %% ------------------------------------------------------------
 accepted(NetAddress, _Timer, Socket) ->
-    inet_epmd_dist:hs_data(NetAddress, Socket).
+    input_handler_setup(
+      inet_epmd_dist:hs_data(NetAddress, Socket)).
 
 %% ------------------------------------------------------------
 connect(NetAddress, _Timer, Options) ->
@@ -123,7 +124,8 @@ connect(NetAddress, _Timer, Options) ->
             inet_ktls_info(Socket, cryptcookie:ktls_info(CipherState)),
         ok ?= inet_tls_dist:set_ktls(KtlsInfo),
         ok ?= inet:setopts(Socket, [{packet, 2}, {mode, list}]),
-        inet_epmd_dist:hs_data(NetAddress, Socket)
+        input_handler_setup(
+          inet_epmd_dist:hs_data(NetAddress, Socket))
     else
         {error, _} = Error ->
             Error
@@ -203,6 +205,63 @@ stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
         {error, Reason} ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason})
     end.
+
+%% ------------------------------------------------------------
+
+input_handler_setup(#hs_data{} = HsData) ->
+    case init:get_argument(inet_ktls) of
+        {ok, [["port"]]} ->  % No input_handler process
+            %% Just use the distribution port
+            HsData;
+        {ok, [["input_handler"]]} ->  % Set up an input_handler process
+            %% Add an f_handshake_complete fun that spawns the input handler
+            %% and calls the f_setopts_post_nodeup fun
+            #hs_data{
+               socket = Socket,
+               f_setopts_post_nodeup = FSetoptsPostNodeup} = HsData,
+            HsData#hs_data{
+              f_setopts_post_nodeup =
+                  fun (S) when S =:= Socket ->
+                          ok
+                  end,
+              f_handshake_complete =
+                  fun (S, _Node, DHandle) when S =:= Socket ->
+                          handshake_complete(S, FSetoptsPostNodeup, DHandle)
+                  end}
+    end;
+input_handler_setup({error, _} = Error) ->
+    Error.
+
+handshake_complete(Socket, FSetoptsPostNodeup, DHandle) ->
+    InputHandler =
+        spawn_link(
+          fun () ->
+                  input_handler(Socket, DHandle)
+          end),
+    ok = ?DRIVER:controlling_process(Socket, InputHandler),
+    ok = erlang:dist_ctrl_input_handler(DHandle, InputHandler),
+    ok = FSetoptsPostNodeup(Socket).
+
+input_handler(Socket, DHandle) ->
+    receive
+         {tcp, Socket, Data} ->
+             erlang:dist_ctrl_put_data(DHandle, Data);
+         {tcp_error, Socket, _Error} = Reason ->
+             ?DRIVER:close(Socket),
+             exit(Reason);
+         {tcp_closed, Socket} = Reason ->
+             ?DRIVER:close(Socket),
+             exit(Reason);
+         Other ->
+             Reason = {unexpected_message, Other},
+             error_report([?FUNCTION_NAME, {reason, Reason}]),
+             input_handler(Socket, DHandle)
+     end.
+
+%% ------------------------------------------------------------
+
+error_report(Report) ->
+    error_logger:error_report(Report).
 
 %% ------------------------------------------------------------
 supported() ->

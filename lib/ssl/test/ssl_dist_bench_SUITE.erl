@@ -78,6 +78,7 @@ groups() ->
      {cryptcookie_socket_ktls, categories()},
      {dist_cryptcookie_inet,   categories()},
      {cryptcookie_inet_ktls,   categories()},
+     {cryptcookie_inet_ktls_ih, categories()},
      %%
      %% categories()
      {setup, [{repeat, 1}],
@@ -111,7 +112,8 @@ cryptcookie_backends() ->
     [{group, dist_cryptcookie_socket},
      {group, cryptcookie_socket_ktls},
      {group, dist_cryptcookie_inet},
-     {group, cryptcookie_inet_ktls}].
+     {group, cryptcookie_inet_ktls},
+     {group, cryptcookie_inet_ktls_ih}].
 
 categories() ->
     [{group, setup},
@@ -291,7 +293,22 @@ init_per_group(cryptcookie_inet_ktls, Config) ->
         ok ->
             [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Inet-kTLS"},
              {ssl_dist_args,
-              "-proto_dist inet_epmd -inet_epmd cryptcookie_inet_ktls"}
+              "-proto_dist inet_epmd -inet_epmd cryptcookie_inet_ktls "
+              "-inet_ktls port"}
+            | Config];
+        Problem ->
+            {skip, Problem}
+    catch
+        Class : Reason : Stacktrace ->
+            {fail, {Class, Reason, Stacktrace}}
+    end;
+init_per_group(cryptcookie_inet_ktls_ih, Config) ->
+    try inet_epmd_cryptcookie_inet_ktls:supported() of
+        ok ->
+            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Inet-kTLS-IH"},
+             {ssl_dist_args,
+              "-proto_dist inet_epmd -inet_epmd cryptcookie_inet_ktls "
+              "-inet_ktls input_handler"}
             | Config];
         Problem ->
             {skip, Problem}

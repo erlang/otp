@@ -4386,13 +4386,13 @@ dist_get_stat_1(BIF_ALIST_1)
 BIF_RETTYPE
 dist_ctrl_input_handler_2(BIF_ALIST_2)
 {
-    DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(BIF_P);
     Uint32 conn_id;
+    DistEntry *dep = erts_dhandle_to_dist_entry(BIF_ARG_1, &conn_id);
 
     if (!dep)
         BIF_ERROR(BIF_P, EXC_NOTSUP);
 
-    if (erts_dhandle_to_dist_entry(BIF_ARG_1, &conn_id) != dep)
+    if ((ERTS_PROC_GET_DIST_ENTRY(BIF_P) != dep) && !is_internal_port(dep->cid))
         BIF_ERROR(BIF_P, BADARG);
 
     if (is_not_internal_pid(BIF_ARG_2))

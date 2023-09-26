@@ -1927,16 +1927,22 @@ end</code>
 	  channel.
 	</p>
 	<note><p>
-	  Only the process registered as distribution
-	  controller for the distribution channel identified by
-	  <c><anno>DHandle</anno></c> is allowed to call this
-	  function.
+          When the distribution controller for the distribution
+          channel identified by <c><anno>DHandle</anno></c> is a
+          process, it is the only process allowed to call this
+          function.
+          This function is also allowed to be called when the
+          distribution controller for the distribution channel
+          identified by <c><anno>DHandle</anno></c> is a port.
+          The data received by the port should in this case be delivered to
+          the process identified by <c><anno>InputHandler</anno></c>
+          which in turn should call
+          <seemfa marker="erlang#dist_ctrl_put_data/2"><c>erlang:dist_ctrl_put_data/2</c></seemfa>.
 	</p></note>
 	<p>
 	  This function is used when implementing an alternative
-	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrieved
-	  via the callback
+	  distribution carrier. <c><anno>DHandle</anno></c> is
+	  retrieved via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
 	  <seeguide marker="erts:alt_dist#distribution_module">ERTS
@@ -1967,9 +1973,8 @@ end</code>
 	</p></note>
 	<p>
 	  This function is used when implementing an alternative
-	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrieved
-	  via the callback
+	  distribution carrier. <c><anno>DHandle</anno></c> is
+	  retrieved via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
 	  <seeguide marker="erts:alt_dist#distribution_module">ERTS
