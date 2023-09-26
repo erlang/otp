@@ -2150,22 +2150,13 @@ digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
 
 do_digitally_signed(Version, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
                                              #'RSASSA-PSS-params'{}}, SignAlgo) when ?TLS_GTE(Version, ?TLS_1_2) ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    public_key:sign(Msg, HashAlgo, Key, Options);
+    public_key:sign(Msg, HashAlgo, Key, SignAlgo);
 do_digitally_signed(Version, {digest, Digest}, _HashAlgo, Key, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
     public_key:encrypt_private(Digest, Key);
 do_digitally_signed(Version, {digest, _} = Msg, HashAlgo, Key, _) when ?TLS_LTE(Version, ?TLS_1_1) ->
     public_key:sign(Msg, HashAlgo, Key);
 do_digitally_signed(_, Msg, HashAlgo, Key, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    public_key:sign(Msg, HashAlgo, Key, Options).
-
-    
-signature_options(SignAlgo, HashAlgo) when SignAlgo =:= rsa_pss_rsae orelse
-                                           SignAlgo =:= rsa_pss_pss ->
-    pss_options(HashAlgo);
-signature_options(_, _) ->
-    [].
+    public_key:sign(Msg, HashAlgo, Key, SignAlgo).
 
 verify_options(SignAlgo, HashAlgo, _KeyParams)
   when SignAlgo =:= rsa_pss_rsae orelse
