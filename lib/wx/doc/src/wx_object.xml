@@ -15,55 +15,55 @@
 <modulesummary>wx_object - Generic wx object behaviour.</modulesummary>
 <description>
 <p>wx_object - Generic wx object behaviour</p>
- 
-  <p>This is a behaviour module that can be used for "sub classing"  
-wx objects. It works like a regular gen_server module and creates  
+
+  <p>This is a behaviour module that can be used for "sub classing"
+wx objects. It works like a regular gen_server module and creates
 a server per object.</p>
- 
+
   <p>NOTE: Currently no form of inheritance is implemented.</p>
- 
- 
+
+
   <p>The user module should export:</p>
- 
-    <p>init(Args) should return <br/>      
-{wxObject, State} | {wxObject, State, Timeout} |          
+
+    <p>init(Args) should return <br/>
+{wxWindow, State} | {wxWindow, State, Timeout} |
 ignore | {stop, Reason}</p>
- 
+
     <p>Asynchronous window event handling: <br/>
-    handle_event(#wx{}, State)  should return <br/>     
+    handle_event(#wx{}, State)  should return <br/>
 {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State}</p>
- 
+
   <p>The user module can export the following callback functions:</p>
- 
-    <p>handle_call(Msg, {From, Tag}, State) should return <br/>     
-{reply, Reply, State} | {reply, Reply, State, Timeout} |         
-{noreply, State} | {noreply, State, Timeout} |         
+
+    <p>handle_call(Msg, {From, Tag}, State) should return <br/>
+{reply, Reply, State} | {reply, Reply, State, Timeout} |
+{noreply, State} | {noreply, State, Timeout} |
 {stop, Reason, Reply, State}</p>
- 
-    <p>handle_cast(Msg, State) should return <br/>     
-{noreply, State} | {noreply, State, Timeout} |         
+
+    <p>handle_cast(Msg, State) should return <br/>
+{noreply, State} | {noreply, State, Timeout} |
 {stop, Reason, State}</p>
- 
-  <p>If the above are not exported but called, the wx_object process will crash.  
+
+  <p>If the above are not exported but called, the wx_object process will crash.
 The user module can also export:</p>
- 
+
     <p>Info is message e.g. {'EXIT', P, R}, {nodedown, N}, ...  <br/>
-    handle_info(Info, State)  should return , ...  <br/>     
+    handle_info(Info, State)  should return , ...  <br/>
 {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State}</p>
- 
-  <p>If a message is sent to the wx_object process when handle_info is not  
+
+  <p>If a message is sent to the wx_object process when handle_info is not
 exported, the message will be dropped and ignored.</p>
- 
+
     <p>When stop is returned in one of the functions above with Reason =
   normal | shutdown | Term, terminate(State) is called. It lets the
   user module clean up, it is always called when server terminates or
   when wx_object() in the driver is deleted. If the Parent process
-  terminates the Module:terminate/2 function is called. <br/>  
+  terminates the Module:terminate/2 function is called. <br/>
 terminate(Reason, State)</p>
- 
- 
+
+
   <p>Example:</p>
- 
+
   <pre>  -module(myDialog).
   -export([new/2, show/1, destroy/1]).  %% API
   -export([init/1, handle_call/3, handle_event/2,
