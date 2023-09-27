@@ -93,6 +93,8 @@
          system_replace_state/2
         ]).
 
+-behaviour(sys).
+
 %% Origin node will listen to the specified port (port 0 is auto-select),
 %%  or specified IP/Port, and expect peer node to connect to this port.
 -type connection() ::

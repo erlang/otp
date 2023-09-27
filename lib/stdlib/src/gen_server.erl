@@ -115,6 +115,8 @@
 	 system_replace_state/2,
 	 format_status/2]).
 
+-behaviour(sys).
+
 %% logger callback
 -export([format_log/1, format_log/2]).
 

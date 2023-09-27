@@ -54,6 +54,8 @@
     system_replace_state/2,
     format_status/2]).
 
+-behaviour(sys).
+
 %% Internal callbacks
 -export(
    [wakeup_from_hibernate/3]).

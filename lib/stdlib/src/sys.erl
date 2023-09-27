@@ -91,6 +91,33 @@
          | {FuncId :: term(), Func :: dbg_fun(), FuncState :: term()}}.
 
 %%-----------------------------------------------------------------
+%% Callbacks
+%%-----------------------------------------------------------------
+
+-callback system_code_change(Misc, Module, OldVsn, Extra) -> {ok, NMisc} when
+      Misc :: term(),
+      OldVsn :: undefined | term(),
+      Module :: atom(),
+      Extra :: term(),
+      NMisc :: term().
+-callback system_continue(Parent, Debug, Misc) -> no_return() when
+      Parent :: pid(),
+      Debug :: [dbg_opt()],
+      Misc :: term().
+-callback system_get_state(Misc) -> {ok, State} when
+      Misc :: term(), State :: term().
+-callback system_replace_state(StateFun, Misc) -> {ok, NState, NMisc} when
+      Misc :: term(),
+      NState :: term(),
+      NMisc :: term(),
+      StateFun :: fun((State :: term()) -> NState).
+-callback system_terminate(Reason, Parent, Debug, Misc) -> no_return() when
+      Reason :: term(),
+      Parent :: pid(),
+      Debug :: [dbg_opt()],
+      Misc :: term().
+
+%%-----------------------------------------------------------------
 %% System messages
 %%-----------------------------------------------------------------
 -spec suspend(Name) -> 'ok' when
