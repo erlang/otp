@@ -40,6 +40,40 @@
          ModData#mod.data]).
 
 %%%=========================================================================
+%%%  Types
+%%%=========================================================================
+-type env() :: {server_software, string()} |
+               {server_name, string()} |
+               {gateway_interface, string()} |
+               {server_protocol, string()} |
+               {server_port, integer()} |
+               {request_method, string() } |
+               {remote_adress, inet:ip_address()}  |
+               {peer_cert, undefined | no_peercert | public_key:der_encoded()} |
+               {script_name, string()} |
+               {http_LowerCaseHTTPHeaderName, string()}.
+
+%%%=========================================================================
+%%%  Callbacks
+%%%=========================================================================
+-callback 'Function'(SessionID, Env, Input) -> {continue, State} | _
+                        when
+                            SessionID :: term(),
+                            Env :: [env()],
+                            Input :: string() | ChunkedData,
+                            ChunkedData ::
+                                {first, Data :: binary()} |
+                                {continue,
+                                 Data :: binary(),
+                                 State :: term()} |
+                                {last,
+                                 Data :: binary(),
+                                 State :: term()},
+                            State :: term().
+
+-optional_callbacks(['Function'/3]).
+
+%%%=========================================================================
 %%%  API 
 %%%=========================================================================
 
