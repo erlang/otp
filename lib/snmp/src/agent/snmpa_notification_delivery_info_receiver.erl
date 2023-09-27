@@ -20,17 +20,29 @@
 
 -module(snmpa_notification_delivery_info_receiver).
 
--export([behaviour_info/1]).
 -export([verify/1]).
 
-behaviour_info(callbacks) ->
-    [
-     {delivery_targets, 3},
-     {delivery_info,    4}
-    ];
-behaviour_info(_) ->
-    undefined.
+-type transportDomain() :: snmpa_conf:transportDomain().
+-type transportAddressWithPort() :: snmpa_conf:transportAddressWithPort().
 
+
+-callback delivery_info(Tag, Targets, DeliveryResult, Extra) -> snmp:void() when
+      Tag :: term(),
+      Targets :: [Target],
+      Target ::
+        {transportDomain(),
+         transportAddressWithPort()},
+      DeliveryResult ::
+          no_response | got_response,
+      Extra :: term().
+-callback delivery_targets(Tag, Targets, Extra) -> snmp:void() when
+      Tag :: term(),
+      Targets :: [Target],
+      Target ::
+        {transportDomain(),
+         transportAddressWithPort()},
+      Extra :: term().
 
 verify(Module) ->
     snmp_misc:verify_behaviour(?MODULE, Module).
+
