@@ -237,6 +237,9 @@ server_loop(N0, Eval_0, Bs00, RT, FT, Ds00, History0, Results0) ->
                     if
                         HB ->
                             garb(self());
+                        Results < Results0 ->
+                            erlang:display({garb}),
+                            garb(self());
                         true ->
                             ok
                     end,
