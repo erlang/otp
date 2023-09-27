@@ -1,5 +1,4 @@
 -module(ct_suite).
-
 %%------------------------------------------------------------------
 %% Test Suite Behaviour
 %% ------------------------------------------------------------------
@@ -117,6 +116,20 @@
     {fail, Reason :: term()} |
     {save_config, SaveConfig :: ct_config()}.
 
+-callback 'Testcase'(Config) ->
+                        term() |
+                        {skip, Reason} |
+                        {comment, Comment} |
+                        {save_config, SaveConfig} |
+                        {skip_and_save, Reason, SaveConfig}
+                        when
+                            Config :: ct_config(),
+                            SaveConfig :: ct_config(),
+                            Reason :: term(),
+                            Comment :: string().
+
+-callback 'Testcase'() -> [ct_info()].
+
 %% only all/0 is mandatory
 -optional_callbacks([groups/0,
                      suite/0,
@@ -126,5 +139,7 @@
                      init_per_group/2,
                      end_per_group/2,
                      init_per_testcase/2,
-                     end_per_testcase/2
+                     end_per_testcase/2,
+                     'Testcase'/1,
+                     'Testcase'/0
                     ]).
