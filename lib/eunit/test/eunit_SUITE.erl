@@ -24,11 +24,15 @@
 	 app_test/1, appup_test/1, eunit_test/1, eunit_exact_test/1,
          fixture_test/1, primitive_test/1, surefire_utf8_test/1,
          surefire_latin_test/1, surefire_c0_test/1, surefire_ensure_dir_test/1,
-	 stacktrace_at_timeout_test/1]).
+         stacktrace_at_timeout_test/1, scale_timeouts_test/1]).
+
+%% Two eunit tests:
+-export([times_out_test_/0, times_out_default_test/0]).
 
 -export([sample_gen/0]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -define(TIMEOUT, 1000).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -36,7 +40,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [app_test, appup_test, eunit_test, eunit_exact_test, primitive_test,
      fixture_test, surefire_utf8_test, surefire_latin_test, surefire_c0_test,
-     surefire_ensure_dir_test, stacktrace_at_timeout_test].
+     surefire_ensure_dir_test, stacktrace_at_timeout_test,
+     scale_timeouts_test].
 
 groups() ->
     [].
@@ -203,3 +208,51 @@ check_surefire(Module) ->
 	%% Check that file is valid XML
 	xmerl_scan:file(File),
 	Chars.
+
+scale_timeouts_test(_Config) ->
+    %% Scaling with integers
+    %% The times_out_test_ will timeout after 1 second.
+    %% Scale it up by a factor of 2 and check that at least 2s have passed.
+    Millis1 = run_eunit_test_that_times_out(times_out_test_,
+                                            [{scale_timeouts, 2}]),
+    ?assert(Millis1 >= 2000, #{duration => Millis1}),
+    ?assert(Millis1 <  5000, #{duration => Millis1}),
+
+    %% Scaling with float: should get rounded
+    %% Scaling down should work too
+    Millis2 = run_eunit_test_that_times_out(times_out_test_,
+                                            [{scale_timeouts, 0.25}]),
+    ?assert(Millis2 >= 250, #{duration => Millis2}),
+    ?assert(Millis2 < 1000, #{duration => Millis2}),
+
+    %% It should be possible to scale the default timeout as well
+    Millis3 = run_eunit_test_that_times_out(times_out_default_test,
+                                            [{scale_timeouts, 0.01}]),
+    ?assert(Millis3 > 0, #{duration => Millis3}),
+    ?assert(Millis3 < 1000, #{duration => Millis3}),
+    ok.
+
+run_eunit_test_that_times_out(TestFn, Options) ->
+    T0 = erlang:monotonic_time(millisecond),
+    %% Expect error due to the timeout:
+    case lists:suffix("_test_", atom_to_list(TestFn)) of
+        true ->
+            error = eunit:test({generator, ?MODULE, TestFn}, Options);
+        false ->
+            error = eunit:test({?MODULE, TestFn}, Options)
+    end,
+    T1 = erlang:monotonic_time(millisecond),
+    T1 - T0.
+
+%% an eunit test generator:
+times_out_test_() ->
+    {timeout, 1, % the fun should timeout after this many seconds
+     fun() -> timer:sleep(10_000) % long enough to cause a timeout
+     end}.
+
+%% an eunit test:
+times_out_default_test() ->
+    %% The default timeout for an xyz_test/0 is 5s,
+    %% so this is long enough to cause a time out.
+    timer:sleep(20_000).
+
