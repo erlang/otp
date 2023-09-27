@@ -31,12 +31,11 @@
 	 info_msg/2
 	]).
 
--export([behaviour_info/1]).
+-callback warning_msg(Format :: string(), Data :: [term()]) -> ok.
+-callback info_msg(Format :: string(), Data :: [term()]) -> ok.
+-callback error_msg(Format :: string(), Data :: [term()]) -> ok.
 
-behaviour_info(callbacks) ->
-    [{error_msg, 2}, {warning_msg, 2}, {info_msg, 2}];
-behaviour_info(_) ->
-    undefined.
+-optional_callbacks([warning_msg/2, error_msg/2, info_msg/2]).
 
 %%-------------------------------------------------------------------
 %% error_msg(Format, Data) -> ok | exit(Reason)
