@@ -120,5 +120,9 @@
 	      RTargetName :: snmpm:target_name(), 
 	      AgentConfig :: [snmpm:agent_config()]}.
 
+-callback handle_invalid_result(In, Out) -> no_return() when
+      In :: {Fun :: atom(), Args :: list()},
+      Out :: {crash, CrashInfo} | {result, InvalidResult :: term()},
+      CrashInfo :: {ErrorType :: atom(), Error :: term(), Stacktrace :: erlang:stacktrace()}.
 
-
+-optional_callbacks([handle_invalid_result/2]).
