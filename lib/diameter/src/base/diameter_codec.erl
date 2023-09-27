@@ -42,6 +42,14 @@
 -define(FLAGS(R,P,E,T), ?BIT(R):1, ?BIT(P):1, ?BIT(E):1, ?BIT(T):1, 0:4).
 -define(FLAG(B,D), (if is_boolean(B) -> B; true -> 0 /= (D) end)).
 
+%% A diameter record created by the diameter compiler
+-type record() :: term().
+
+-type message() :: record() | maybe_improper_list().
+-type packet() :: #diameter_packet{}.
+
+-export_type([message/0, packet/0]).
+
 -type u32() :: 0..16#FFFFFFFF.
 -type u24() :: 0..16#FFFFFF.
 -type u1()  :: 0..1.
