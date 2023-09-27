@@ -6,7 +6,7 @@ Introduction
 
 This document describes how to build and install Erlang/OTP-%OTP-REL%.
 Erlang/OTP should be possible to build from source on any Unix/Linux system,
-including OS X. You are advised to read the whole document
+including macOS. You are advised to read the whole document
 before attempting to build and install Erlang/OTP.
 
 The source code can be downloaded from the official site of Erlang/OTP or GitHub.
@@ -38,7 +38,7 @@ These are the tools you need in order to unpack and build Erlang/OTP.
 
 Build the same way as when building the unpacked tar file.
 
-#### Building on OS X ####
+#### Building on macOS ####
 
 *   Xcode -- Download and install via the Mac App Store.
     Read about [Building on a Mac][] before proceeding.
@@ -533,7 +533,7 @@ Other useful information can be found at our GitHub wiki:
 
 Build the same way as when building the unpacked tar file.
 
-#### OS X (Darwin) ####
+#### macOS (Darwin) ####
 
 Make sure that the command `hostname` returns a valid fully qualified host
 name (this is configured in `/etc/hostconfig`). Otherwise you might experience
@@ -549,21 +549,24 @@ If you have Xcode 4.3, or later, you will also need to download
 
 #### Building with wxErlang ####
 
-If you want to build the `wx` application, you will need to get wxWidgets-3.0
-(`wxWidgets-3.0.3.tar.bz2` from <https://github.com/wxWidgets/wxWidgets/releases/download/v3.0.3/wxWidgets-3.0.3.tar.bz2>) or get it from github with bug fixes:
+wxWidgets-3.2.x is recommended for building the `wx` application
+(wxWidgets-3.0.x will also work). Download it from
+<https://www.wxwidgets.org/downloads> or from
+<https://github.com/wxWidgets/wxWidgets>. It is recommended to use the
+latest release in the 3.2 series, which at the time of writing
+is 3.2.2.1.
 
-    $ git clone --branch WX_3_0_BRANCH git@github.com:wxWidgets/wxWidgets.git
+Note that the wxWidgets-3.3 versions are experimental, but they should
+also work if 3.0 compatibility is enabled by adding
+`--enable-compat30` to the `configure` commands below.
 
-The wxWidgets-3.1 version should also work if 2.8 compatibility is enabled,
-add `--enable-compat28` to configure commands below.
-
-Configure and build wxWidgets (shared library on linux):
+On all other platforms, a shared library is built as follows:
 
     $ ./configure --prefix=/usr/local
     $ make && sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-Configure and build wxWidgets (static library on linux):
+On Linux, a static library is built as follows:
 
     $ export CFLAGS=-fPIC
     $ export CXXFLAGS=-fPIC
@@ -571,26 +574,28 @@ Configure and build wxWidgets (static library on linux):
     $ make && sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-Configure and build wxWidgets (on Mavericks - 10.9):
+On macOs, a static library compatible with macOS 13 (Ventura) and later is built
+as follows:
 
-    $ ./configure --with-cocoa --prefix=/usr/local
-    or without support for old versions and with static libs
-    $ ./configure --with-cocoa --prefix=/usr/local --with-macosx-version-min=10.9 --disable-shared
+    $ ./configure --prefix=/usr/local --with-macosx-version-min=13.0 --disable-shared
     $ make
     $ sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-Check that you got the correct wx-config
+Verify that the build and installation succeeded:
 
     $ which wx-config && wx-config --version-full
 
-Build Erlang/OTP
+Expected output is `/usr/local/bin/wx-config` on one line, followed by the full
+version number. For example, if you built version 3.2.2.1, the expected output is:
 
-    $ export PATH=/usr/local/bin:$PATH
-    $ cd $ERL_TOP
-    $ ./configure
-    $ make
-    $ sudo make install
+    /usr/local/bin/wx-config
+    3.2.2.1
+
+Build Erlang/OTP in the usual way. To verify that `wx` application is
+working run the following command:
+
+    $ erl -run wx demo
 
 
 #### Pre-built Source Release ####
@@ -780,6 +785,6 @@ Operating system
    [cross build]: INSTALL-CROSS.md
    [Required Utilities]: #Required-Utilities
    [Optional Utilities]: #Optional-Utilities
-   [Building on a Mac]: #Advanced-configuration-and-build-of-ErlangOTP_Building_OS-X-Darwin
+   [Building on a Mac]: #Advanced-configuration-and-build-of-ErlangOTP_Building_macOS-Darwin
    [Building with wxErlang]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Building-with-wxErlang
    [libatomic_ops]: https://github.com/ivmai/libatomic_ops/
