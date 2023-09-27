@@ -19,37 +19,39 @@
 %%
 -module(snmpm_network_interface_filter).
 
--export([behaviour_info/1]).
 -export([verify/1]).
 
+-type transportDomain() :: snmpa_conf:transportDomain().
+-type transportAddressWithPort() :: snmpa_conf:transportAddressWithPort().
+-type pdu_type() :: snmpm:pdu_type().
 
-behaviour_info(callbacks) ->
-    [{accept_recv,     2}, 
-     {accept_send,     2},
-     {accept_recv_pdu, 3},
-     {accept_send_pdu, 3}];
-behaviour_info(_) ->
-    undefined.
-
-
-%% accept_recv(address(), port()) -> boolean() 
-%% Called at the reception of a message 
+%% accept_recv(address(), port()) -> boolean()
+%% Called at the reception of a message
 %% (before *any* processing has been done).
-%% 
+-callback accept_recv(Domain, Addr) -> boolean() when
+                             Domain :: transportDomain(),
+                             Addr :: transportAddressWithPort().
 %% accept_send(address(), port()) -> boolean()
-%% Called before the sending of a message 
+%% Called before the sending of a message
 %% (after *all* processing has been done).
-%% 
+-callback accept_send(Domain, Addr) -> boolean() when
+                             Domain :: transportDomain(),
+                             Addr :: transportAddressWithPort().
 %% accept_recv_pdu(Addr, Port, pdu_type()) -> boolean()
-%% Called after the basic message processing (MPD) has been done, 
-%% but before the pdu is handed over to the master-agent for 
+%% Called after the basic message processing (MPD) has been done,
+%% but before the pdu is handed over to the master-agent for
 %% primary processing.
-%% 
+-callback accept_recv_pdu(Domain, Addr, PduType) -> boolean() when
+                                 Domain :: transportDomain(),
+                                 Addr :: transportAddressWithPort(),
+                                 PduType :: pdu_type().
 %% accept_send_pdu(Addr, Port, pdu_type()) -> boolean()
 %% Called before the basic message processing (MPD) is done, 
 %% when a pdu has been received from the master-agent.
-%% 
-
+-callback accept_send_pdu(Domain, Addr, PduType) -> boolean() when
+                                 Domain :: transportDomain(),
+                                 Addr :: transportAddressWithPort(),
+                                 PduType :: pdu_type().
 
 verify(Module) ->
     snmp_misc:verify_behaviour(?MODULE, Module).
