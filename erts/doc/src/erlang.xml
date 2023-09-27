@@ -357,6 +357,7 @@
   </datatypes>
 
   <datatypes>
+    <datatype_title>Other Datatypes</datatype_title>
     <datatype>
       <name name="ext_binary" prefix="true"/>
       <desc>
