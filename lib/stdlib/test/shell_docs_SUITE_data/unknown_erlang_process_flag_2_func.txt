@@ -63,9 +63,9 @@
   [;1m                      when Module :: atom(), OldModule :: atom().[0m
 
   Used by a process to redefine the error handler for undefined
-  function calls and undefined registered processes. Inexperienced
-  users are not to use this flag, as code auto-loading depends on
-  the correct operation of the error handling module.
+  function calls and undefined registered processes. Use this flag
+  with substantial caution, as code auto-loading depends on the
+  correct operation of the error handling module.
 
   Returns the old value of the flag.
 

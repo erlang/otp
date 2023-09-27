@@ -1,0 +1,10 @@
+
+[;1m  setnode/2[0m
+
+  The documentation for setnode/2 is hidden. This probably means
+  that it is internal and not to be used by other applications.
+
+[;1m  setnode/3[0m
+
+  The documentation for setnode/3 is hidden. This probably means
+  that it is internal and not to be used by other applications.

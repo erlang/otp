@@ -1,7 +1,7 @@
 
   [;1m-spec read(IoDevice, Number) -> {ok, Data} | eof | {error, Reason}[0m
   [;1m              when[0m
-  [;1m                  IoDevice :: io_device() | atom(),[0m
+  [;1m                  IoDevice :: io_device() | io:device(),[0m
   [;1m                  Number :: non_neg_integer(),[0m
   [;1m                  Data :: string() | binary(),[0m
   [;1m                  Reason ::[0m
@@ -21,8 +21,8 @@
   be moved much more than this number when reading a Unicode file.
 
   Also, if [;;4mencoding[0m is set to something else than [;;4mlatin1[0m, the [;;4m[0m
-  [;;4mread/3[0m call fails if the data contains characters larger than
-  255, which is why module [;;4mio(3)[0m is to be preferred when reading
+  [;;4mread/2[0m call fails if the data contains characters larger than
+  255, which is why [;;4mio:get_chars/3[0m is to be preferred when reading
   such a file.
 
   The function returns:

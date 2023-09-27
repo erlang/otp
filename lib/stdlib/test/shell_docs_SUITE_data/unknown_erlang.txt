@@ -1,6 +1,8 @@
 
 [;1m	erlang[0m
 
+  The Erlang BIFs and predefined types.
+
   By convention, most Built-In Functions (BIFs) and all predefined
   types are included in this module. Some of the BIFs and all of the
   predefined types are viewed more or less as part of the Erlang

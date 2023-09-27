@@ -1,0 +1,116 @@
+
+  [;1m-spec halt() -> no_return().[0m
+
+  The same as calling [;;4mhalt(0, [])[0m. Example:
+
+    > halt().
+    os_prompt%
+
+  [;1m-spec halt(Status :: non_neg_integer()) -> no_return().[0m
+
+  The same as calling [;;4mhalt(Status, [])[0m. Example:
+
+    > halt(17).
+    os_prompt% echo $?
+    17
+    os_prompt%
+
+  [;1m-spec halt(Abort :: abort) -> no_return().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  The same as calling [;;4mhalt(abort, [])[0m.
+
+  [;1m-spec halt(CrashDumpSlogan :: string()) -> no_return().[0m
+
+  The same as calling [;;4mhalt(CrashDumpSlogan, [])[0m.
+
+  [;1m-spec halt(Status :: non_neg_integer(), Options :: halt_options()) ->[0m
+  [;1m              no_return().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  Types:
+    -type halt_options() :: [{flush, boolean()}].
+
+  Halt the runtime system with status code [;;4mStatus[0m.
+
+  Note:
+    On many platforms, the OS supports only status codes 0-255. A
+    too large status code is truncated by clearing the high bits.
+
+  Currently the following options are valid:
+
+  [;;4m[;;4m{flush, EnableFlushing}[0m[0m:
+    If [;;4mEnableFlushing[0m equals [;;4mtrue[0m, which also is the default
+    behavior, the runtime system will perform the following
+    operations before terminating:
+
+     • Flush all outstanding output.
+
+     • Send all Erlang ports exit signals and wait for them to
+       exit.
+
+     • Wait for all async threads to complete all outstanding
+       async jobs.
+
+     • Call all installed NIF on halt callbacks.
+
+     • Wait for all ongoing NIF calls with the delay halt
+       setting enabled to return.
+
+     • Call all installed [;;4matexit[0m/[;;4mon_exit[0m callbacks.
+
+    If [;;4mEnableFlushing[0m equals [;;4mfalse[0m, the runtime system will
+    terminate immediately without performing any of the above
+    listed operations.
+
+    Change:
+      Runtime systems prior to OTP 26.0 called all installed [;;4m[0m
+      [;;4matexit[0m/[;;4mon_exit[0m callbacks also when [;;4mflush[0m was
+      disabled, but as of OTP 26.0 this is no longer the case.
+
+  [;1m-spec halt(Abort :: abort, Options :: halt_options()) -> no_return().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  Types:
+    -type halt_options() :: [{flush, boolean()}].
+
+  Halt the Erlang runtime system by aborting and produce a core dump
+  if core dumping has been enabled in the environment that the
+  runtime system is executing in.
+
+  Note:
+    The [;;4m{flush, boolean()}[0m option will be ignored, and flushing
+    will be disabled.
+
+  [;1m-spec halt(CrashDumpSlogan :: string(), Options :: halt_options()) ->[0m
+  [;1m              no_return().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  Types:
+    -type halt_options() :: [{flush, boolean()}].
+
+  Halt the Erlang runtime system and generate an Erlang crash dump.
+  The string [;;4mCrashDumpSlogan[0m will be used as slogan in the Erlang
+  crash dump created. The slogan will be trunkated if [;;4m[0m
+  [;;4mCrashDumpSlogan[0m is longer than 1023 characters.
+
+  Note:
+    The [;;4m{flush, boolean()}[0m option will be ignored, and flushing
+    will be disabled.
+
+  Behavior changes compared to earlier versions:
+
+   • Before OTP 24.2, the slogan was truncated if [;;4m[0m
+     [;;4mCrashDumpSlogan[0m was longer than 200 characters. Now it will
+     be truncated if longer than 1023 characters.
+
+   • Before OTP 20.1, only code points in the range 0-255 were
+     accepted in the slogan. Now any Unicode string is valid.

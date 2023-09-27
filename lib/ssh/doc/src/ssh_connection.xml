@@ -91,6 +91,9 @@
       </desc>
     </datatype>
 
+    </datatypes>
+     <datatypes>
+
     <datatype_title>SSH Connection Protocol: General</datatype_title>
     <datatype>
       <name name="event"/>
@@ -116,6 +119,9 @@
     </datatype>
 
 
+    </datatypes>
+     <datatypes>
+
     <datatype_title>Data Transfer (RFC 4254, section 5.2)</datatype_title>
     <datatype>
       <name name="data_ch_msg"/>
@@ -126,6 +132,9 @@
       </desc>
     </datatype>
 
+
+    </datatypes>
+     <datatypes>
 
     <datatype_title>Closing a Channel (RFC 4254, section 5.3)</datatype_title>
     <datatype>
@@ -146,6 +155,9 @@
       </desc>
     </datatype>
 
+
+    </datatypes>
+     <datatypes>
 
     <datatype_title>Requesting a Pseudo-Terminal (RFC 4254, section 6.2)</datatype_title>
     <datatype>
@@ -169,6 +181,9 @@
     </datatype>
 
 
+    </datatypes>
+     <datatypes>
+
     <datatype_title>Environment Variable Passing (RFC 4254, section 6.4)</datatype_title>
     <datatype>
       <name name="env_ch_msg"/>
@@ -180,6 +195,9 @@
       </desc>
     </datatype>
 
+
+    </datatypes>
+     <datatypes>
 
     <datatype_title>Starting a Shell or Command (RFC 4254, section 6.5)</datatype_title>
     <datatype>
@@ -202,6 +220,9 @@
     </datatype>
 
 
+    </datatypes>
+     <datatypes>
+
     <datatype_title>Window Dimension Change Message (RFC 4254, section 6.7)</datatype_title>
     <datatype>
       <name name="window_change_ch_msg"/>
@@ -212,6 +233,9 @@
       </desc>
     </datatype>
      
+    </datatypes>
+     <datatypes>
+
     <datatype_title>Signals (RFC 4254, section 6.9)</datatype_title>
     <datatype>
       <name name="signal_ch_msg"/>
@@ -225,6 +249,9 @@
       </desc>
     </datatype>
 
+
+    </datatypes>
+     <datatypes>
 
     <datatype_title>Returning Exit Status (RFC 4254, section 6.10)</datatype_title>
     <datatype>

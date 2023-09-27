@@ -367,12 +367,25 @@ transform([{pre,Attr,Content}|T],Acc) ->
 
 %% transform <funcs> with <func> as children
 transform([{funcs,_Attr,Content}|T],Acc) ->
-    Fns = {functions,[],transform_funcs(Content, [])},
+    FnAttr =
+        case lists:keyfind(fsdescription, 1, Content) of
+            false -> [];
+            {fsdescription, _, FSDescr} ->
+                {_, _, Title} = lists:keyfind(h1, 1, FSDescr),
+                [{title, unicode:characters_to_binary(Title)}]
+        end,
+    Fns = {functions, FnAttr, transform_funcs(Content, [])},
     transform(T,[Fns|Acc]);
 %% transform <datatypes> with <datatype> as children
 transform([{datatypes,_Attr,Content}|T],Acc) ->
     Dts = transform(Content, []),
-    transform(T,[{datatypes,[],Dts}|Acc]);
+    DtAttr =
+        case lists:keyfind(datatype_title, 1, Content) of
+            false -> [];
+            {datatype_title, _, Title} ->
+                [{title,unicode:characters_to_binary(Title)}]
+        end,
+    transform(T,[{datatypes,DtAttr,Dts}|Acc]);
 transform([{datatype,_Attr,Content}|T],Acc) ->
     transform(T,transform_datatype(Content, []) ++ Acc);
 %% Ignore <datatype_title>
@@ -560,7 +573,7 @@ func2func({func,Attr,Contents}) ->
                 _ = VerifyNameList(NameList,fun([]) -> ok end),
 
                 FAs = [TagsToFA(FAttr) || {name,FAttr,[]} <- NameList ],
-                SortedFAs = lists:usort(FAs),
+                SortedFAs = lists:reverse(lists:usort(FAs)),
                 FAClauses = lists:usort([{TagsToFA(FAttr),proplists:get_value(clause_i,FAttr)}
                                          || {name,FAttr,[]} <- NameList ]),
 
@@ -584,7 +597,7 @@ func2func({func,Attr,Contents}) ->
                           fun(FA) ->
                                   MakeFunc(FA, MD, [])
                           end, tl(SortedFAs)),
-                [Base | Equiv];
+                lists:reverse([Base | Equiv]);
             NameList ->
                 %% Manual style function docs
                 FAs = lists:foldl(
@@ -599,7 +612,7 @@ func2func({func,Attr,Contents}) ->
 
                 _ = VerifyNameList(NameList,fun([_|_]) -> ok end),
 
-                SortedFAs = lists:usort(maps:to_list(FAs)),
+                SortedFAs = lists:reverse(lists:usort(maps:to_list(FAs))),
 
                 {{BaseF, BaseA}, BaseSig} = hd(SortedFAs),
 
@@ -608,12 +621,14 @@ func2func({func,Attr,Contents}) ->
                                   {meta,SinceMD}],
                         ContentsNoName},
 
+                {EquivKind, EquivF} = func_to_atom(BaseF),
+
                 Equiv = [{function,
                           [{name,F},{arity,A},
                            {signature,Signature},
-                           {meta,SinceMD#{ equiv => {function,list_to_atom(BaseF),BaseA}}}],[]}
+                           {meta,SinceMD#{ equiv => {EquivKind,EquivF,BaseA}}}],[]}
                          || {{F,A},Signature} <- tl(SortedFAs)],
-                [Base | Equiv]
+                lists:reverse([Base | Equiv])
         end,
     transform(Functions,[]).
 
@@ -699,6 +714,8 @@ to_chunk(Dom, Source, Module, AST) ->
                    fun({Tag,_,Content}) when Tag =:= description;
                                              Tag =:= section ->
                            Content;
+                      ({modulesummary, _, Content}) ->
+                           [{p, [], Content}];
                       ({_,_,_}) ->
                            []
                    end, Mcontent),
@@ -709,83 +726,97 @@ to_chunk(Dom, Source, Module, AST) ->
 
     Anno = erl_anno:set_file(atom_to_list(Module)++".erl",erl_anno:new(0)),
 
-    Types = lists:flatten([Types || {datatypes,[],Types} <- Mcontent]),
-
     TypeEntries =
-        lists:map(
-          fun({datatype,Attr,Descr}) ->
-                  {function, TypeName} = func_to_atom(proplists:get_value(name,Attr)),
-                  TypeArity = case proplists:get_value(n_vars,Attr) of
-                                  undefined ->
-                                      find_type_arity(TypeName, TypeMap);
-                                  Arity ->
-                                      list_to_integer(Arity)
-                              end,
-                  TypeArgs = lists:join(",",[lists:concat(["Arg",I]) || I <- lists:seq(1,TypeArity)]),
-                  {TypeSignature, MetaSig} =
-                      case proplists:get_value(signature,Attr) of
-                          undefined ->
-                              PlaceholderSig =
-                                  iolist_to_binary(
-                                    io_lib:format("-type ~p(~s) :: term().",
-                                                  [TypeName,TypeArgs])),
-                              {[PlaceholderSig],
-                               case maps:get({TypeName, TypeArity}, TypeMap, undefined) of
-                                   undefined ->
-                                       #{};
-                                   Sig ->
-                                       #{ signature => [Sig] }
-                               end};
-                          Signature ->
-                              {Signature, #{}}
-                      end,
+        lists:flatmap(
+          fun({datatypes, DTsAttr, Types}) ->
+                  TitleMD = case proplists:get_value(title, DTsAttr) of
+                                undefined -> #{};
+                                Title ->
+                                    #{ title => Title }
+                            end,
+                  lists:map(
+                    fun({datatype,Attr,Descr}) ->
+                            {function, TypeName} = func_to_atom(proplists:get_value(name,Attr)),
+                            TypeArity = case proplists:get_value(n_vars,Attr) of
+                                            undefined ->
+                                                find_type_arity(TypeName, TypeMap);
+                                            Arity ->
+                                                list_to_integer(Arity)
+                                        end,
+                            TypeArgs = lists:join(",",[lists:concat(["Arg",I]) || I <- lists:seq(1,TypeArity)]),
+                            {TypeSignature, MetaSig} =
+                                case proplists:get_value(signature,Attr) of
+                                    undefined ->
+                                        PlaceholderSig =
+                                            iolist_to_binary(
+                                              io_lib:format("-type ~p(~s) :: term().",
+                                                            [TypeName,TypeArgs])),
+                                        {[PlaceholderSig],
+                                         case maps:get({TypeName, TypeArity}, TypeMap, undefined) of
+                                             undefined ->
+                                                 TitleMD#{};
+                                             Sig ->
+                                                 TitleMD#{ signature => [Sig] }
+                                         end};
+                                    Signature ->
+                                        {Signature, TitleMD#{}}
+                                end,
 
-                  MetaDepr
-                      = case apply(otp_internal,obsolete_type,[Module, TypeName, TypeArity]) of
-                            %% apply/3 in order to silence dialyzer
-                            {deprecated, Text} ->
-                                MetaSig#{ deprecated =>
-                                              unicode:characters_to_binary(
-                                                erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Text})) };
-                            {deprecated, Replacement, Rel} ->
-                                MetaSig#{ deprecated =>
-                                              unicode:characters_to_binary(
-                                                erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Replacement, Rel})) };
-                            {removed, _Text} ->
-                                %% Just skip
-                                MetaSig;
-                            no ->
-                                MetaSig
-                        end,
+                            MetaDepr
+                                = case apply(otp_internal,obsolete_type,[Module, TypeName, TypeArity]) of
+                                      %% apply/3 in order to silence dialyzer
+                                      {deprecated, Text} ->
+                                          MetaSig#{ deprecated =>
+                                                        unicode:characters_to_binary(
+                                                          erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Text})) };
+                                      {deprecated, Replacement, Rel} ->
+                                          MetaSig#{ deprecated =>
+                                                        unicode:characters_to_binary(
+                                                          erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Replacement, Rel})) };
+                                      {removed, _Text} ->
+                                          %% Just skip
+                                          MetaSig;
+                                      no ->
+                                          MetaSig
+                                  end,
 
-                  docs_v1_entry(type, Anno, TypeName, TypeArity, TypeSignature, MetaDepr, Descr)
-          end, Types),
-
-    Functions = lists:flatten([Functions || {functions,[],Functions} <- Mcontent]),
+                            docs_v1_entry(type, Anno, TypeName, TypeArity, TypeSignature, MetaDepr, Descr)
+                    end, Types);
+             (_) -> []
+          end, Mcontent),
 
     FuncEntrys =
-        lists:map(
-          fun({function,Attr,Fdoc}) ->
-                  {Type, Name} = func_to_atom(proplists:get_value(name,Attr)),
-                  Arity = proplists:get_value(arity,Attr),
-                  Signature = proplists:get_value(signature,Attr),
-                  FMeta = proplists:get_value(meta,Attr),
-                  MetaWSpec = add_spec(AST,FMeta),
-                  MetaDepr
-                      = case apply(otp_internal,obsolete,[Module, Name, Arity]) of
-                            %% apply/3 in order to silence dialyzer
-                            {deprecated, Text} ->
-                                MetaWSpec#{ deprecated =>
-                                                unicode:characters_to_binary(
-                                                  erl_lint:format_error({deprecated,{Module,Name,Arity}, Text})) };
-                            {deprecated, Replacement, Rel} ->
-                                MetaWSpec#{ deprecated =>
-                                                unicode:characters_to_binary(
-                                                  erl_lint:format_error({deprecated,{Module,Name,Arity}, Replacement, Rel})) };
-                            _ -> MetaWSpec
-                        end,
-                  docs_v1_entry(Type, Anno, Name, Arity, Signature, MetaDepr, Fdoc)
-          end, Functions),
+        lists:flatmap(
+          fun({functions, FsAttr, Functions}) ->
+                  TitleMD = case proplists:get_value(title, FsAttr) of
+                                undefined -> #{};
+                                Title ->
+                                    #{ title => Title }
+                            end,
+                  lists:map(
+                    fun({function,Attr,Fdoc}) ->
+                            {Type, Name} = func_to_atom(proplists:get_value(name,Attr)),
+                            Arity = proplists:get_value(arity,Attr),
+                            Signature = proplists:get_value(signature,Attr),
+                            FMeta = maps:merge(proplists:get_value(meta,Attr),TitleMD),
+                            MetaWSpec = add_spec(AST,FMeta),
+                            MetaDepr
+                                = case apply(otp_internal,obsolete,[Module, Name, Arity]) of
+                                      %% apply/3 in order to silence dialyzer
+                                      {deprecated, Text} ->
+                                          MetaWSpec#{ deprecated =>
+                                                          unicode:characters_to_binary(
+                                                            erl_lint:format_error({deprecated,{Module,Name,Arity}, Text})) };
+                                      {deprecated, Replacement, Rel} ->
+                                          MetaWSpec#{ deprecated =>
+                                                          unicode:characters_to_binary(
+                                                            erl_lint:format_error({deprecated,{Module,Name,Arity}, Replacement, Rel})) };
+                                      _ -> MetaWSpec
+                                  end,
+                            docs_v1_entry(Type, Anno, Name, Arity, Signature, MetaDepr, Fdoc)
+                    end, Functions);
+             (_) -> []
+          end, Mcontent),
 
     docs_v1(ModuleDocs, Anno, TypeMeta, FuncEntrys ++ TypeEntries).
 
