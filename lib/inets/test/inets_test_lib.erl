@@ -547,7 +547,7 @@ tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
     Timestamp = inets_lib:formated_timestamp(),
-    ct:pal("*** ~s ~p ~p " ++ F ++ "~n", 
+    ct:log("*** ~s ~p ~p " ++ F ++ "~n", 
 		       [Timestamp, node(), self() | A]).
 
 tsf(Reason) ->

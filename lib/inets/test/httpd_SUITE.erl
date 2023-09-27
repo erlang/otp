@@ -579,7 +579,7 @@ verify_href(Config) when is_list(Config) ->
     Version = proplists:get_value(http_version, Config),
     Host = proplists:get_value(host, Config),
     Go = fun(Path, User, Password, Opts) ->
-                 ct:pal("Navigating to ~p", [Path]),
+                 ct:log("Navigating to ~p", [Path]),
                  auth_status(auth_request(Path, User, Password, Version, Host),
                              Config, Opts)
          end,
@@ -1658,7 +1658,7 @@ non_disturbing(Config) when is_list(Config)->
     Transport = type(Type),
     receive 
 	{Transport, Socket, Msg} ->
-	    ct:pal("Received message ~p~n", [Msg]),
+	    ct:log("Received message ~p~n", [Msg]),
 	    ok
     after 2000 ->
 	  ct:fail(timeout)  
@@ -2087,7 +2087,7 @@ server_config(http_limit, Config) ->
             {disable_chunked_transfer_encoding_send, true},
 	    %% Make sure option checking code is run
 	    {max_content_length, 100000002}]  ++ server_config(http, Config),
-    ct:pal("Received message ~p~n", [Conf]),
+    ct:log("Received message ~p~n", [Conf]),
     Conf;
 server_config(http_custom, Config) ->
     [{customize, ?MODULE}]  ++ server_config(http, Config);

@@ -71,16 +71,16 @@ start_httpd_fd(Config) when is_list(Config) ->
 	    Skip;
 	{Node, NodeArg} ->
 	    InetPort = inets_test_lib:inet_port(node()),
-	    ct:pal("Node: ~p  Port ~p~n", [Node, InetPort]),
+	    ct:log("Node: ~p  Port ~p~n", [Node, InetPort]),
       	    Wrapper = filename:join(DataDir, "setuid_socket_wrap"),
             Args = ["-s","-httpd_80,0:" ++ integer_to_list(InetPort),
                     "-p",os:find_executable("erl"),"--" | NodeArg],
-	    ct:pal("cmd: ~p ~p~n", [Wrapper, Args]),
+	    ct:log("cmd: ~p ~p~n", [Wrapper, Args]),
 	    case open_port({spawn_executable, Wrapper},
                            [stderr_to_stdout,{args,Args}]) of
 	    	Port when is_port(Port) ->
 		    wait_node_up(Node, 200),
-		    ct:pal("~p", [rpc:call(Node, init, get_argument, [httpd_80])]),
+		    ct:log("~p", [rpc:call(Node, init, get_argument, [httpd_80])]),
 		    ok  = rpc:call(Node, inets, start, []),
 		    {ok, Pid} = rpc:call(Node, inets, start, [httpd, HttpdConf]),
 		    [{port, InetPort}] = rpc:call(Node, httpd, info, [Pid, [port]]),
@@ -112,7 +112,7 @@ setup_node_info(Node) ->
 wait_node_up(Node, 0) ->
     ct:fail({failed_to_start_node, Node});
 wait_node_up(Node, N) ->
-    ct:pal("(Node ~p: net_adm:ping(~p)~n", [node(), Node]),
+    ct:log("(Node ~p: net_adm:ping(~p)~n", [node(), Node]),
     case net_adm:ping(Node) of
 	pong ->
 	    ok;
