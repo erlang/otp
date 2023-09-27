@@ -104,10 +104,7 @@ client_auth_custom_sign() ->
 
 client_auth_custom_sign(Config) when is_list(Config) ->
     KeyAlg =  proplists:get_value(cert_key_alg, Config),
-    % 'rsa_pss_rsae' is not an expected config value here, 
-    % using rsa or rsa_pss_pss instad seams to work,
-    % Not sure how to modify SSL to add it in the acceptable key pair groups...
-    CompatibleKeyAlg = case KeyAlg of rsa_pss_rsae -> rsa_pss_pss; _ -> KeyAlg end,
+    CompatibleKeyAlg = case KeyAlg of rsa_pss_rsae -> rsa; _ -> KeyAlg end,
     Version = proplists:get_value(version,Config),
     ClientOpts0 =  case Version of
                       'tlsv1.3' ->
