@@ -1,0 +1,21 @@
+
+  [;1m-spec binary_to_list(Binary) -> [byte()] when Binary :: binary().[0m
+
+  Returns a list of integers corresponding to the bytes of [;;4mBinary[0m.
+
+  [;1m-spec binary_to_list(Binary, Start, Stop) -> [byte()][0m
+  [;1m                        when[0m
+  [;1m                            Binary :: binary(),[0m
+  [;1m                            Start :: pos_integer(),[0m
+  [;1m                            Stop :: pos_integer().[0m
+
+  As [;;4mbinary_to_list/1[0m, but returns a list of integers
+  corresponding to the bytes from position [;;4mStart[0m to position [;;4mStop[0m
+  in [;;4mBinary[0m. The positions in the binary are numbered starting
+  from 1.
+
+  Note:
+    The one-based indexing for binaries used by this function is
+    deprecated. New code is to use [;;4mbinary:bin_to_list/3[0m in
+    STDLIB instead. All functions in module [;;4mbinary[0m consistently
+    use zero-based indexing.

@@ -1,6 +1,8 @@
 
 [;1m	sofs[0m
 
+  Functions for manipulating sets of sets.
+
   This module provides operations on finite sets and relations
   represented as sets. Intuitively, a set is a collection of
   elements; every element belongs to the set, and the set contains

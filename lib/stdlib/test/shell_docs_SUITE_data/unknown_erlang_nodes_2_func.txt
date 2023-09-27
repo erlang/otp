@@ -77,5 +77,4 @@
     [{c@localhost,#{connection_id => 13892108,node_type => hidden}},
      {b@localhost,#{connection_id => 3067553,node_type => visible}},
      {a@localhost,#{connection_id => undefined,node_type => this}}]
-    (a@localhost)2> 
-            
+    (a@localhost)2>

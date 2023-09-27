@@ -48,7 +48,7 @@
 <!ELEMENT fsdescription   (marker*,title,(%block;|quote|br|marker|
                                warning|note|change|dont|do|section)*) >
 <!ATTLIST fsdescription    ghlink CDATA #IMPLIED>
-<!ELEMENT datatypes           (datatype_title?,datatype)+ >
+<!ELEMENT datatypes           (datatype_title?,datatype+) >
 <!ELEMENT datatype_title      (#PCDATA) >
 <!ELEMENT datatype            (name+,desc?) >
 <!ATTLIST datatype             ghlink CDATA #IMPLIED>

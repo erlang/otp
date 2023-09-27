@@ -1,0 +1,122 @@
+
+  [;1m-spec nodes() -> Nodes when Nodes :: [node()].[0m
+
+  Returns a list of all nodes connected to this node through normal
+  connections (that is, hidden nodes are not listed). Same as 
+  nodes(visible).
+
+  [;1m-spec nodes(Arg) -> Nodes[0m
+  [;1m               when[0m
+  [;1m                   Arg :: NodeType | [NodeType],[0m
+  [;1m                   NodeType ::[0m
+  [;1m                       visible | hidden | connected | this | known,[0m
+  [;1m                   Nodes :: [node()].[0m
+
+  Returns a list of nodes according to the argument specified. The
+  returned result, when the argument is a list, is the list of nodes
+  satisfying the disjunction(s) of the list elements.
+
+  [;;4mNodeType[0ms:
+
+  [;;4m[;;4mvisible[0m[0m:
+    Nodes connected to this node through normal connections.
+
+  [;;4m[;;4mhidden[0m[0m:
+    Nodes connected to this node through hidden connections.
+
+  [;;4m[;;4mconnected[0m[0m:
+    All nodes connected to this node.
+
+  [;;4m[;;4mthis[0m[0m:
+    This node.
+
+  [;;4m[;;4mknown[0m[0m:
+    Nodes that are known to this node. That is, connected nodes
+    and nodes referred to by process identifiers, port
+    identifiers, and references located on this node. The set of
+    known nodes is garbage collected. Notice that this garbage
+    collection can be delayed. For more information, see [;;4m[0m
+    [;;4merlang:system_info(delayed_node_table_gc)[0m.
+
+  Some equalities: [;;4m[node()] = nodes(this)[0m, [;;4mnodes(connected) =[0m
+  [;;4mnodes([visible, hidden])[0m, and [;;4mnodes() = nodes(visible)[0m.
+
+  [;1m-spec nodes(Arg, InfoOpts) -> [NodeInfo][0m
+  [;1m               when[0m
+  [;1m                   NodeType ::[0m
+  [;1m                       visible | hidden | connected | this | known,[0m
+  [;1m                   Arg :: NodeType | [NodeType],[0m
+  [;1m                   InfoOpts ::[0m
+  [;1m                       #{connection_id => boolean(),[0m
+  [;1m                         node_type => boolean()},[0m
+  [;1m                   NodeTypeInfo :: visible | hidden | this | known,[0m
+  [;1m                   ConnectionId :: undefined | integer(),[0m
+  [;1m                   Info ::[0m
+  [;1m                       #{connection_id => ConnectionId,[0m
+  [;1m                         node_type => NodeTypeInfo},[0m
+  [;1m                   NodeInfo :: {node(), Info}.[0m
+
+[;;4mSince[0m:
+  OTP 25.1
+
+  Returns a list of [;;4mNodeInfo[0m tuples. The first element is the node
+  name. Nodes to be included in the list are determined by the first
+  argument [;;4mArg[0m in the same way as for [;;4mnodes(Arg)[0m. The second
+  element of [;;4mNodeInfo[0m tuples is a map containing further
+  information about the node identified by the first element. The
+  information present in this map is determined by the [;;4mInfoOpts[0m
+  map passed as the second argument. Currently the following
+  associations are allowed in the [;;4mInfoOpts[0m map:
+
+  [;;4m[;;4mconnection_id => boolean()[0m[0m:
+    If the value of the association equals [;;4mtrue[0m, the [;;4mInfo[0m map
+    in the returned result will contain the key [;;4mconnection_id[0m
+    associated with the value [;;4mConnectionId[0m. If [;;4mConnectionId[0m
+    equals [;;4mundefined[0m, the node is not connected to the node
+    which the caller is executing on, or is the node which the
+    caller is executing on. If [;;4mConnectionId[0m is an integer, the
+    node is currently connected to the node which the caller is
+    executing on.
+
+    The integer connection identifier value together with a node
+    name identifies a specific connection instance to the node
+    with that node name. The connection identifier value is node
+    local. That is, on the other node the connection identifier
+    will not be the same value. If a connection is taken down
+    and then taken up again, the connection identifier value will
+    change for the connection to that node. The amount of values
+    for connection identifiers are limited, so it is possible to
+    see the same value for different instances, but quite
+    unlikely. It is undefined how the value change between two
+    consecutive connection instances.
+
+  [;;4m[;;4mnode_type => boolean()[0m[0m:
+    If the value of the association equals [;;4mtrue[0m, the [;;4mInfo[0m map
+    in the returned result will contain the key [;;4mnode_type[0m
+    associated with the value [;;4mNodeTypeInfo[0m. Currently the
+    following node types exist:
+
+    [;;4m[;;4mvisible[0m[0m:
+      The node is connected to the node of the calling process
+      through an ordinary visible connection. That is, the node
+      name would appear in the result returned by [;;4mnodes/0[0m.
+
+    [;;4m[;;4mhidden[0m[0m:
+      The node is connected to the node of the calling process
+      through a hidden connection. That is, the node name would 
+      not appear in the result returned by [;;4mnodes/0[0m.
+
+    [;;4m[;;4mthis[0m[0m:
+      This is the node of the calling process.
+
+    [;;4m[;;4mknown[0m[0m:
+      The node is not connected but known to the node of the
+      calling process.
+
+  Example:
+
+    (a@localhost)1> nodes([this, connected], #{connection_id=>true, node_type=>true}). 
+    [{c@localhost,#{connection_id => 13892108,node_type => hidden}},
+     {b@localhost,#{connection_id => 3067553,node_type => visible}},
+     {a@localhost,#{connection_id => undefined,node_type => this}}]
+    (a@localhost)2>

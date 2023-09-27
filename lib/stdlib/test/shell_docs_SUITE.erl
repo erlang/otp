@@ -309,9 +309,17 @@ render_module(Mod, #docs_v1{ docs = Docs } = D) ->
       fun({_Type,_Anno,_Sig,none,_Meta}, Acc) ->
               Acc;
          ({{function,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
-              FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
-              Acc#{ sanitize(FName) =>
-                        unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D, Opts))};
+              FAName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
+              FName = SMod ++ "_"++atom_to_list(Name)++"_func.txt",
+              FADocs = unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D, Opts)),
+              FDocs = unicode:characters_to_binary(shell_docs:render(Mod, Name, D, Opts)),
+              case string:equal(FADocs,FDocs) of
+                  true -> 
+                      Acc#{ sanitize(FAName) => FADocs };
+                  false ->
+                      Acc#{ sanitize(FAName) => FADocs,
+                            sanitize(FName) => FDocs}
+              end;
          ({{type,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
               FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_type.txt",
               Acc#{ sanitize(FName) =>

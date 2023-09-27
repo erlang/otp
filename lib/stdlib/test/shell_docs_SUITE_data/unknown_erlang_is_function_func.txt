@@ -1,0 +1,14 @@
+
+  [;1m-spec is_function(Term) -> boolean() when Term :: term().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is a fun, otherwise [;;4mfalse[0m.
+
+  Allowed in guard tests.
+
+  [;1m-spec is_function(Term, Arity) -> boolean()[0m
+  [;1m                     when Term :: term(), Arity :: arity().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is a fun that can be applied with [;;4mArity[0m
+  number of arguments, otherwise [;;4mfalse[0m.
+
+  Allowed in guard tests.

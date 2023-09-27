@@ -354,8 +354,9 @@
         <p>An Erlang <seeguide marker="system/reference_manual:data_types#tuple">tuple</seeguide>.</p>
       </desc>
     </datatype>
+  </datatypes>
 
-    <datatype_title>Other Datatypes</datatype_title>
+  <datatypes>
     <datatype>
       <name name="ext_binary" prefix="true"/>
       <desc>

@@ -1,7 +1,7 @@
 
   [;1m-spec read_line(IoDevice) -> {ok, Data} | eof | {error, Reason}[0m
   [;1m                   when[0m
-  [;1m                       IoDevice :: io_device() | atom(),[0m
+  [;1m                       IoDevice :: io_device() | io:device(),[0m
   [;1m                       Data :: string() | binary(),[0m
   [;1m                       Reason ::[0m
   [;1m                           posix() |[0m
@@ -26,7 +26,7 @@
 
   If [;;4mencoding[0m is set to something else than [;;4mlatin1[0m, the [;;4m[0m
   [;;4mread_line/1[0m call fails if the data contains characters larger
-  than 255, why module [;;4mio(3)[0m is to be preferred when reading such
+  than 255, why [;;4mio:get_line/2[0m is to be preferred when reading such
   a file.
 
   The function returns:
