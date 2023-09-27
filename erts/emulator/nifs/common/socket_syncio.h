@@ -86,6 +86,12 @@ extern ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
                                   int              flags,
                                   ERL_NIF_TERM     eIOV,
                                   const ESockData* dataP);
+extern ERL_NIF_TERM essio_sendv(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     sendRef,
+                                ERL_NIF_TERM     eIOV,
+                                const ESockData* dataP);
 extern
 ERL_NIF_TERM essio_sendfile_start(ErlNifEnv*       env,
                                   ESockDescriptor* descP,

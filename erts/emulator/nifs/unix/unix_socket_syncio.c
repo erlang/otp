@@ -104,6 +104,7 @@
 #define sock_sendmsg(s,msghdr,flag)     sendmsg((s),(msghdr),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
     sendto((s),(buf),(blen),(flag),(addr),(alen))
+#define sock_sendv(s,iov,iovcnt)        writev((s), (iov), (iovcnt))
 #define sock_shutdown(s, how)           shutdown((s), (how))
 
 
@@ -2266,6 +2267,175 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
 
     return res;
 
+}
+
+
+/* ========================================================================
+ */
+extern
+ERL_NIF_TERM essio_sendv(ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         ERL_NIF_TERM     sockRef,
+                         ERL_NIF_TERM     sendRef,
+                         ERL_NIF_TERM     eIOV,
+                         const ESockData* dataP)
+{
+    ERL_NIF_TERM  eres;
+    ErlNifIOVec  *iovec = NULL;
+    ssize_t       dataSize, sendv_result;
+    ERL_NIF_TERM  writerCheck, tail;
+    BOOLEAN_T     dataInTail;
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->connectorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    /* Ensure that we either have no current writer or we are it,
+     * or enqueue this process if there is a current writer  */
+    if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_sendv {%d} -> writer check failed: "
+                "\r\n   %T\r\n", descP->sock, writerCheck) );
+        return writerCheck;
+    }
+
+
+    /* Extract the 'iov', which must be an erlang:iovec(),
+     * from which we take at most IOV_MAX binaries
+     */
+    if (! enif_inspect_iovec(NULL, dataP->iov_max, eIOV, &tail, &iovec)) {
+        SSDBG( descP, ("UNIX-ESSIO",
+                       "essio_sendv {%d} -> iov inspection failed\r\n",
+                       descP->sock) );
+
+        return esock_make_invalid(env, esock_atom_iov);
+    }
+
+    if (iovec == NULL) {
+        SSDBG( descP, ("UNIX-ESSIO",
+                       "essio_sendv {%d} -> not an iov\r\n",
+                       descP->sock) );
+
+        return esock_make_invalid(env, esock_atom_iov);
+    }
+
+    // ESOCK_ASSERT( iovec != NULL );
+
+    dataInTail = (! enif_is_empty_list(env, tail));    
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_sendv {%d} ->"
+                   "\r\n   iovcnt: %lu"
+                   "\r\n   tail:   %s"
+                   "\r\n", descP->sock,
+                   (unsigned long) iovec->iovcnt, B2S(dataInTail)) );
+
+    /* We now have an allocated iovec - verify vector size */
+
+    if (iovec->iovcnt > dataP->iov_max) {
+        if (descP->type == SOCK_STREAM) {
+            iovec->iovcnt = dataP->iov_max;
+        } else {
+            /* We can not send the whole packet in one sendv() call */
+            SSDBG( descP, ("UNIX-ESSIO",
+                           "essio_sendv {%d} -> iovcnt > iov_max\r\n",
+                           descP->sock) );
+
+            FREE_IOVEC( iovec );
+
+            return esock_make_invalid(env, esock_atom_iov);
+        }
+    }
+
+    dataSize = 0;
+    {
+        ERL_NIF_TERM h,   t;
+        ErlNifBinary bin;
+        size_t       i;
+
+        /* Find out if there is remaining data in the tail.
+         * Skip empty binaries otherwise break.
+         * If 'tail' after loop exit is the empty list
+         * there was no more data.  Otherwise there is more
+         * data or the 'iov' is invalid.
+         */
+        for (;;) {
+            if (enif_get_list_cell(env, tail, &h, &t) &&
+                enif_inspect_binary(env, h, &bin) &&
+                (bin.size == 0)) {
+                tail = t;
+                continue;
+            } else
+                break;
+        }
+
+        if (dataInTail &&
+            (descP->type != SOCK_STREAM)) {
+            /* We can not send the whole packet in one sendmsg() call */
+            SSDBG( descP, ("UNIX-ESSIO",
+                           "essio_sendv {%d} -> invalid tail\r\n",
+                           descP->sock) );
+
+            FREE_IOVEC( iovec );
+
+            return esock_make_invalid(env, esock_atom_iov);
+
+        }
+
+        /* Calculate the data size */
+
+        for (i = 0;  i < iovec->iovcnt;  i++) {
+            size_t len = iovec->iov[i].iov_len;
+            dataSize += len;
+            if (dataSize < len) {
+                /* Overflow */
+                SSDBG( descP, ("UNIX-ESSIO", "essio_sendv {%d} -> Overflow"
+                               "\r\n   i:         %lu"
+                               "\r\n   len:       %lu"
+                               "\r\n   dataSize:  %ld"
+                               "\r\n", descP->sock, (unsigned long) i,
+                               (unsigned long) len, (long) dataSize) );
+
+                FREE_IOVEC( iovec );
+
+                return esock_make_invalid(env, esock_atom_iov);
+
+            }
+        }
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_sendv {%d} -> iovec size verified"
+            "\r\n   iov length: %lu"
+            "\r\n   data size:  %u"
+            "\r\n",
+            descP->sock,
+            (unsigned long) iovec->iovcnt, (long) dataSize) );
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
+
+    /* And now, try to send the message */
+    sendv_result = sock_sendv(descP->sock, iovec->iov, iovec->iovcnt);
+
+    eres = send_check_result(env, descP, sendv_result,
+                             dataSize, dataInTail,
+                             sockRef, sendRef);
+
+    FREE_IOVEC( iovec );
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_sendv {%d} -> done"
+                   "\r\n   data size:    %lu"
+                   "\r\n   data in tail: %s"
+                   "\r\n", descP->sock,
+                   dataSize, B2S(dataInTail)) );
+
+    return eres;
 }
 
 

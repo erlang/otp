@@ -816,6 +816,8 @@ extern ESockCmsgSpec* esock_lookup_cmsg_spec(ESockCmsgSpec* table,
                                              size_t         num,
                                              ERL_NIF_TERM   eType);
 
+
+
 /* *** Sendfile 'stuff' ***
  */
 #ifdef HAVE_SENDFILE

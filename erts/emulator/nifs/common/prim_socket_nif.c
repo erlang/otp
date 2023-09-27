@@ -912,6 +912,7 @@ const int esock_ioctl_flags_length = NUM(esock_ioctl_flags);
 /* #define sock_send(s,buf,len,flag)      send((s),(buf),(len),(flag)) */
 /* #define sock_sendto(s,buf,blen,flag,addr,alen) \
    sendto((s),(buf),(blen),(flag),(addr),(alen)) */
+/* #define sock_sendv(s,iov,iovlen)    writev((s),(iov),(iovlen)) */
 #define sock_setopt(s,l,o,v,ln)        setsockopt((s),(l),(o),(v),(ln))
 #define sock_shutdown(s, how)          shutdown((s), (how))
 
@@ -1024,6 +1025,7 @@ ESockSendfileCounters initESockSendfileCounters =
  * nif_send
  * nif_sendto
  * nif_sendmsg
+ * nif_sendv
  * nif_sendfile
  * nif_recv
  * nif_recvfrom
@@ -1104,6 +1106,7 @@ typedef struct {
     ESockIOSend                  send;
     ESockIOSendTo                sendto;
     ESockIOSendMsg               sendmsg;
+    ESockIOSendv                 sendv;
     ESockIOSendFileStart         sendfile_start;
     ESockIOSendFileContinue      sendfile_cont;
     ESockIOSendFileDeferredClose sendfile_dc;
@@ -2241,6 +2244,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(sendmsg);                         \
     GLOBAL_ATOM_DECL(sendsrcaddr);                     \
     GLOBAL_ATOM_DECL(sendto);                          \
+    GLOBAL_ATOM_DECL(sendv);                           \
     GLOBAL_ATOM_DECL(seqpacket);                       \
     GLOBAL_ATOM_DECL(setfib);                          \
     GLOBAL_ATOM_DECL(set_peer_primary_addr);           \
@@ -2572,12 +2576,19 @@ static ESockIoBackend io_backend = {0};
                        (SOCKR), (SENDR),                  \
                        (DP), (F), (TAP), (TAL)) :         \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
-#define ESOCK_IO_SENDMSG(ENV, D,                                \
-                         SOCKR, SENDR, EM, F, EIOV)             \
-    ((io_backend.sendmsg != NULL) ?                             \
-     io_backend.sendmsg((ENV), (D),                             \
-                        (SOCKR), (SENDR),                       \
-                        (EM), (F), (EIOV), &data) :             \
+#define ESOCK_IO_SENDMSG(ENV, D,                        \
+                         SOCKR, SENDR, EM, F, EIOV)     \
+    ((io_backend.sendmsg != NULL) ?                     \
+     io_backend.sendmsg((ENV), (D),                     \
+                        (SOCKR), (SENDR),               \
+                        (EM), (F), (EIOV), &data) :     \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_SENDV(ENV, D,                   \
+                       SOCKR, SENDR, EIOV)               \
+    ((io_backend.sendv != NULL) ?                        \
+     io_backend.sendv((ENV), (D),                        \
+                      (SOCKR), (SENDR),                  \
+                      (EIOV), &data) :                   \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SENDFILE_START(ENV, D,                         \
                                 SOR, SNR,                       \
@@ -3894,9 +3905,10 @@ extern ErlNifEnv* esock_alloc_env(const char* slogan)
  * nif_connect(Sock, SockAddr)
  * nif_listen(Sock, Backlog)
  * nif_accept(LSock, Ref)
- * nif_send(Sock, SendRef, Data, Flags)
- * nif_sendto(Sock, SendRef, Data, Dest, Flags)
- * nif_sendmsg(Sock, SendRef, Msg, Flags)
+ * nif_send(Sock, Data, Flags, SendRef)
+ * nif_sendto(Sock, Data, Dest, Flags, SendRef)
+ * nif_sendmsg(Sock, Msg, Flags, SendRef, IOV)
+ * nif_sendv(Sock, IOV, SendRef)
  * nif_sendfile(Sock, SendRef, Offset, Count, InFileRef)
  * nif_sendfile(Sock, SendRef, Offset, Count)
  * nif_sendfile(Sock)
@@ -5759,6 +5771,69 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
     MUNLOCK(descP->writeMtx);
 
     SSDBG( descP, ("SOCKET", "nif_sendmsg(%T) -> done with"
+                   "\r\n   res: %T"
+                   "\r\n", sockRef, res) );
+
+    return res;
+
+}
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_sendv
+ *
+ * Description:
+ * Send a message (in the form of a list of binaries = I/O vector) on a
+ * socket.
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ * IOV          - List of binaries
+ * SendRef      - A unique id reference() for this (sendv) request.
+ */
+
+static
+ERL_NIF_TERM nif_sendv(ErlNifEnv*         env,
+                       int                argc,
+                       const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM     res, sockRef, sendRef, eIOV;
+    ESockDescriptor* descP;
+
+    ESOCK_ASSERT( argc == 3 );
+
+    SGDBG( ("SOCKET", "nif_sendv -> entry with argc: %d\r\n", argc) );
+
+    sockRef = argv[0]; // We need this in case we send abort (to the caller)
+    eIOV    = argv[1];
+    sendRef = argv[2];
+
+    if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
+        SGDBG( ("SOCKET", "nif_sendv -> get resource failed\r\n") );
+        return enif_make_badarg(env);
+    }
+
+    /* Extract arguments and perform preliminary validation */
+
+    if (! enif_is_ref(env, sendRef)) {
+        SSDBG( descP, ("SOCKET", "nif_sendv -> argv decode failed\r\n") );
+        return enif_make_badarg(env);
+    }
+
+    MLOCK(descP->writeMtx);
+
+    SSDBG( descP,
+           ("SOCKET", "nif_sendv(%T), {%d,0x%X} ->"
+            "\r\n   sendRef: %T"
+            "\r\n",
+            sockRef, descP->sock, descP->writeState, sendRef) );
+    
+    res = ESOCK_IO_SENDV(env, descP, sockRef, sendRef, eIOV);
+
+    MUNLOCK(descP->writeMtx);
+
+    SSDBG( descP, ("SOCKET", "nif_sendv(%T) -> done with"
                    "\r\n   res: %T"
                    "\r\n", sockRef, res) );
 
@@ -10462,6 +10537,12 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
+            if (COMPARE(op, esock_atom_sendv) == 0) {
+                MLOCK(descP->writeMtx);
+                result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
+                MUNLOCK(descP->writeMtx);
+                return result;
+            }
         }
     }
 
@@ -13492,6 +13573,7 @@ ErlNifFunc esock_funcs[] =
     {"nif_send",                4, nif_send, 0},
     {"nif_sendto",              5, nif_sendto, 0},
     {"nif_sendmsg",             5, nif_sendmsg, 0},
+    {"nif_sendv",               3, nif_sendv, 0},
     {"nif_sendfile",            5, nif_sendfile, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_sendfile",            4, nif_sendfile, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_sendfile",            1, nif_sendfile, ERL_NIF_DIRTY_JOB_IO_BOUND},
@@ -13555,12 +13637,14 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     unsigned int  ioNumThreads, ioNumThreadsDef;
 
     /* +++ Local atoms and error reason atoms +++ */
+    // ESOCK_EPRINTF("\r\n[ESOCK] create local atoms\r\n");
 #define LOCAL_ATOM_DECL(A) atom_##A = MKA(env, #A)
     LOCAL_ATOMS;
     // LOCAL_ERROR_REASON_ATOMS;
 #undef LOCAL_ATOM_DECL
 
     /* Global atom(s) and error reason atom(s) */
+    // ESOCK_EPRINTF("\r\n[ESOCK] create global atoms\r\n");
 #define GLOBAL_ATOM_DECL(A) esock_atom_##A = MKA(env, #A)
     GLOBAL_ATOMS;
     GLOBAL_ERROR_REASON_ATOMS;
@@ -13568,6 +13652,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     esock_atom_socket_tag = MKA(env, "$socket");
 
+    // ESOCK_EPRINTF("\r\n[ESOCK] get registry pid\r\n");
     if (! esock_extract_pid_from_map(env, load_info,
                                      atom_registry,
                                      &data.regPid)) {
@@ -13576,18 +13661,21 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     }
 
     /* --esock-disable-registry */
+    // ESOCK_EPRINTF("\r\n[ESOCK] get use-registry\r\n");
     data.useReg =
         esock_get_bool_from_map(env, load_info,
                                 esock_atom_use_registry,
                                 ESOCK_USE_SOCKET_REGISTRY);
 
     /* --esock-enable-iow */
+    // ESOCK_EPRINTF("\r\n[ESOCK] get enable-iow\r\n");
     data.iow =
         esock_get_bool_from_map(env, load_info,
                                 atom_iow,
                                 ESOCK_NIF_IOW_DEFAULT);
 
     /* --enable-extended-error-info */
+    // ESOCK_EPRINTF("\r\n[ESOCK] maybe enable eei\r\n");
 #if defined(ESOCK_USE_EXTENDED_ERROR_INFO)
     data.eei = TRUE;
 #else
@@ -13595,6 +13683,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 #endif
 
     /* --esock-debug-file=<filename> */
+    // ESOCK_EPRINTF("\r\n[ESOCK] debug filename\r\n");
     {
         char *debug_filename;
 
@@ -13617,9 +13706,11 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
             FREE(debug_filename);
     }
 
+    // ESOCK_EPRINTF("\r\n[ESOCK] create protocols mutex\r\n");
     data.protocolsMtx = MCREATE("esock.protocols");
 
     /* +++ Global Counters +++ */
+    // ESOCK_EPRINTF("\r\n[ESOCK] create global counters mutex (and init counters)\r\n");
     data.cntMtx         = MCREATE("esock.gcnt");
     data.numSockets     = 0;
     data.numTypeDGrams  = 0;
@@ -13634,6 +13725,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.numProtoSCTP   = 0;
 
 
+    // ESOCK_EPRINTF("\r\n[ESOCK] init opts and cmsg tables\r\n");
     initOpts();
     initCmsgTables();
 
@@ -13664,6 +13756,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 #endif
 
 
+    // ESOCK_EPRINTF("\r\n[ESOCK] init IOV max\r\n");
     data.iov_max =
 #if defined(NO_SYSCONF) || (! defined(_SC_IOV_MAX))
 #   ifdef IOV_MAX
@@ -13679,6 +13772,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
 
     /* This is (currently) intended for Windows use */
+    // ESOCK_EPRINTF("\r\n[ESOCK] (win) system info\r\n");
     enif_system_info(&sysInfo, sizeof(ErlNifSysInfo));
 
     /* We should have a config options for this:
@@ -13686,6 +13780,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
      *
      * ESOCK_IO_NUM_THREADS
      */
+    // ESOCK_EPRINTF("\r\n[ESOCK] (win) number of schedulers\r\n");
     ioNumThreadsDef =
         (unsigned int) (sysInfo.scheduler_threads > 0) ?
         2*sysInfo.scheduler_threads : 2;
@@ -13694,6 +13789,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                            atom_io_num_threads,
                                            ioNumThreadsDef);
     
+    // ESOCK_EPRINTF("\r\n[ESOCK] init I/O backend callbacks\r\n");
 #ifdef __WIN32__
 
     io_backend.init           = esaio_init;
@@ -13713,6 +13809,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.send           = esaio_send;
     io_backend.sendto         = esaio_sendto;
     io_backend.sendmsg        = esaio_sendmsg;
+    io_backend.sendv          = esaio_sendv;
     io_backend.sendfile_start = NULL;
     io_backend.sendfile_cont  = NULL;
     io_backend.sendfile_dc    = NULL;
@@ -13763,6 +13860,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.send           = essio_send;
     io_backend.sendto         = essio_sendto;
     io_backend.sendmsg        = essio_sendmsg;
+    io_backend.sendv          = essio_sendv;
     io_backend.sendfile_start = essio_sendfile_start;
     io_backend.sendfile_cont  = essio_sendfile_cont;
     io_backend.sendfile_dc    = essio_sendfile_deferred_close;
@@ -13796,16 +13894,21 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
 #endif
 
+    // ESOCK_EPRINTF("\r\n[ESOCK] init I/O backend\r\n");
     if (ESOCK_IO_INIT(ioNumThreads) != ESOCK_IO_OK) {
         esock_error_msg("Failed initiating I/O backend");
         return 1; // Failure
     }
 
+    // ESOCK_EPRINTF("\r\n[ESOCK] open socket (nif) resource\r\n");
     esocks = enif_open_resource_type_x(env,
                                        "sockets",
                                        &esockInit,
                                        ERL_NIF_RT_CREATE,
                                        NULL);
+
+    /* ESOCK_EPRINTF("\r\n[ESOCK] open socket (nif) resource res: 0x%lX\r\n", */
+    /*               esocks); */
 
     if (esocks != NULL) {
         int ores;
