@@ -41,7 +41,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/common_test-$(VSN)
 # ----------------------------------------------------
 
 BEHAVIOUR_MODULES= \
-	ct_suite
+	ct_suite ct_hooks
 
 MODULES= \
 	ct \
@@ -70,7 +70,6 @@ MODULES= \
 	ct_config_plain \
 	ct_config_xml \
 	ct_slave \
-        ct_hooks\
         ct_hooks_lock\
 	cth_log_redirect\
 	cth_surefire \
@@ -172,3 +171,6 @@ release_docs_spec: docs
 
 # Include dependencies -- list below added by Kostis Sagonas
 $(EBIN)/cth_log_redirect.beam: ../../kernel/include/logger.hrl ../../kernel/src/logger_internal.hrl
+$(EBIN)/cth_log_redirect.beam: ../ebin/ct_hooks.beam
+$(EBIN)/cth_conn_log.beam: ../ebin/ct_hooks.beam
+$(EBIN)/cth_surefire.beam: ../ebin/ct_hooks.beam

@@ -44,6 +44,7 @@
 -include("../../kernel/src/logger_internal.hrl").
 
 -behaviour(gen_server).
+-behaviour(ct_hooks).
 
 -record(eh_state, {log_func,
 		   curr_suite,
@@ -58,7 +59,7 @@ id(_Opts) ->
 init(?MODULE, _Opts) ->
     ct_util:mark_process(),
     ok = start_log_handler(),
-    tc_log_async.
+    {ok, tc_log_async}.
 
 pre_init_per_suite(Suite, Config, State) ->
     set_curr_func({Suite,init_per_suite}, Config),

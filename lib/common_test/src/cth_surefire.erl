@@ -47,7 +47,10 @@
 -export([terminate/1]).
 
 %% Gen server callbacks
--export([init/1, handle_call/3]).
+-export([init/1, handle_call/3, handle_cast/2]).
+
+-behaviour(gen_server).
+-behaviour(ct_hooks).
 
 -record(state, { filepath, axis, properties, package, hostname,
 		 curr_suite, curr_suite_file, curr_suite_ast, curr_suite_ts, curr_group = [],
@@ -76,7 +79,7 @@
 %% the execution time of diameter_traffic_SUITE from 30 min to 5 min.
 init(Path, Opts) ->
     {ok, Pid} = gen_server:start(?MODULE, [Path, Opts], []),
-    Pid.
+    {ok, Pid}.
 
 init([Path, Opts]) ->
     ct_util:mark_process(),
@@ -100,6 +103,10 @@ handle_call({Function, Args}, _From, State)
 handle_call({Function, Args}, _From, State) ->
     {Reply,NewState} = apply(?MODULE, Function, Args ++ [State]),
     {reply,Reply,NewState}.
+
+%% Ignore any cast
+handle_cast(_What, State) ->
+    {noreply, State}.
 
 id(Opts) ->
     case proplists:get_value(path, Opts) of
