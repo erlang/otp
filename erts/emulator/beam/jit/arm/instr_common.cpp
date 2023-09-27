@@ -558,10 +558,10 @@ void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
     }
 }
 
-void BeamModuleAssembler::emit_store_two_xregs(const ArgXRegister &Src1,
-                                               const ArgYRegister &Dst1,
-                                               const ArgXRegister &Src2,
-                                               const ArgYRegister &Dst2) {
+void BeamModuleAssembler::emit_store_two_values(const ArgSource &Src1,
+                                                const ArgYRegister &Dst1,
+                                                const ArgSource &Src2,
+                                                const ArgYRegister &Dst2) {
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
     auto dst1 = init_destination(Dst1, src1.reg);
     auto dst2 = init_destination(Dst2, src2.reg);
@@ -580,28 +580,6 @@ void BeamModuleAssembler::emit_load_two_xregs(const ArgYRegister &Src1,
 
     safe_ldp(dst1.reg, dst2.reg, Src1, Src2);
     flush_vars(dst1, dst2);
-}
-
-void BeamModuleAssembler::emit_move_two_yregs(const ArgYRegister &Src1,
-                                              const ArgYRegister &Dst1,
-                                              const ArgYRegister &Src2,
-                                              const ArgYRegister &Dst2) {
-    /* Optimize fetching of source Y registers. */
-    switch (ArgVal::memory_relation(Src1, Src2)) {
-    case ArgVal::Relation::consecutive:
-        safe_ldp(TMP1, TMP2, Src1, Src2);
-        break;
-    case ArgVal::Relation::reverse_consecutive:
-        safe_ldp(TMP2, TMP1, Src2, Src1);
-        break;
-    case ArgVal::Relation::none:
-        a.ldr(TMP1, getArgRef(Src1));
-        a.ldr(TMP2, getArgRef(Src2));
-        break;
-    }
-
-    /* Destination registers are always in consecutive order. */
-    safe_stp(TMP1, TMP2, Dst1, Dst2);
 }
 
 void BeamModuleAssembler::emit_swap(const ArgRegister &R1,

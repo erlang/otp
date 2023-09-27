@@ -95,6 +95,11 @@ trim t t
 
 test_heap I t
 
+# Use a move instruction for initializating a single Y register, since
+# that can open up more optimizations (for example, combining a move +
+# trim to move_trim).
+init_yregs Size=u==1 Regs=* => init_yregs_move(Size, Regs)
+
 init_yregs I *
 
 # Selecting values.
@@ -321,18 +326,9 @@ system_limit_body
 #
 # Optimize moves of consecutive memory addresses.
 #
-move Src=c Dst => i_move Src Dst
 move Src SrcDst | move SrcDst2 Dst |
   equal(SrcDst, SrcDst2) =>
     i_move Src SrcDst | move SrcDst Dst
-
-# Optimize two moves from X registers to Y registers when destination
-# Y registers are consecutive.
-
-move S1=x D1=y | move S2=x D2=y | consecutive_words(D1, D2) =>
-    store_two_xregs S1 D1 S2 D2
-move S1=x D1=y | move S2=x D2=y | consecutive_words(D2, D1) =>
-    store_two_xregs S2 D2 S1 D1
 
 # Optimize two moves from Y registers to X registers when source Y
 # registers are consecutive.
@@ -347,14 +343,13 @@ move S1=y D1=x | move S2=y D2=x |
   distinct(D1, D2) =>
     load_two_xregs S2 D2 S1 D1
 
-# Optimize two moves of Y registers when destinations are consecutive.
-move S1=y D1=y | move S2=y D2=y |
-  consecutive_words(D1, D2) =>
-    move_two_yregs S1 D1 S2 D2
+# Optimize storing two values in Y registers when destination Y
+# registers are consecutive.
 
-move S1=y D1=y | move S2=y D2=y |
-  consecutive_words(D2, D1) =>
-    move_two_yregs S2 D2 S1 D1
+move S1 D1=y | move S2 D2=y | consecutive_words(D1, D2) =>
+    store_two_values S1 D1 S2 D2
+move S1 D1=y | move S2 D2=y | consecutive_words(D2, D1) =>
+    store_two_values S2 D2 S1 D1
 
 move Src Dst | trim N u => move_trim Src Dst N
 
@@ -363,9 +358,8 @@ move_trim s d t
 move Src Dst => i_move Src Dst
 
 i_move s d
-store_two_xregs x y x y
+store_two_values s y s y
 load_two_xregs y x y x
-move_two_yregs y y y y
 
 #
 # Swap instructions.
