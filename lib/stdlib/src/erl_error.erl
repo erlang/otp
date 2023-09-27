@@ -37,6 +37,15 @@
                             stack_trim_fun => stack_trim_fun(),
                             format_fun => format_fun()}.
 
+-callback format_error(Reason, StackTrace) -> ErrorDescription when
+      Reason :: term(),
+      StackTrace :: erlang:stacktrace(),
+      ArgumentPosition :: pos_integer(),
+      ErrorDescription :: #{ ArgumentPosition =>
+                                 unicode:chardata(),
+                             general => unicode:chardata(),
+                             reason => unicode:chardata()}.
+
 -spec format_exception(Class, Reason, StackTrace) -> unicode:chardata() when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
