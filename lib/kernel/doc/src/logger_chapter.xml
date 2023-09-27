@@ -390,7 +390,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
     <p>A handler is defined as a module exporting at least the
       following callback function:</p>
 
-    <pre><seemfa marker="logger#HModule:log/2">log(LogEvent, Config) -> void()</seemfa></pre>
+    <pre><seemfa marker="logger#Module:log/2">log(LogEvent, Config) -> void()</seemfa></pre>
 
     <p>This function is called when a log event has passed through all
       primary filters, and all handler filters attached to the handler
@@ -453,25 +453,25 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       handler's destination. The handler callback receives the
       formatter information as part of the handler configuration,
       which is passed as the second argument
-      to <seemfa marker="logger#HModule:log/2">
+      to <seemfa marker="logger#Module:log/2">
 	<c>HModule:log/2</c></seemfa>.</p>
     <p>The formatter information consist of a formatter
       module, <c>FModule</c> and its
       configuration, <c>FConfig</c>. <c>FModule</c> must export the
       following function, which can be called by the handler:</p>
-    <pre><seemfa marker="logger#FModule:format/2">format(LogEvent,FConfig)
+    <pre><seemfa marker="logger_formatter#Module:format/2">format(LogEvent,FConfig)
 	-> FormattedLogEntry</seemfa></pre>
     <p>The formatter information for a handler is set as a part of its
       configuration when the handler is added. It can also be changed
       during runtime
       with <seemfa marker="logger#set_handler_config/3">
-	<c>logger:set_handler_config(HandlerId,formatter,{FModule,FConfig})</c>
+	<c>logger:set_handler_config(HandlerId,formatter,{Module,FConfig})</c>
       </seemfa>, which overwrites the current formatter information,
       or with <seemfa marker="logger#update_formatter_config/2">
 	<c>logger:update_formatter_config/2,3</c></seemfa>, which
 	only modifies the formatter configuration.</p>
     <p>If the formatter module exports the optional callback
-      function <seemfa marker="logger#FModule:check_config/1">
+      function <seemfa marker="logger_formatter#Module:check_config/1">
 	<c>check_config(FConfig)</c></seemfa>, Logger calls this
       function when the formatter information is set or modified, to
       verify the validity of the formatter configuration.</p>
