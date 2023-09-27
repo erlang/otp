@@ -127,6 +127,10 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType);
 
 static int max_files = 1024;
 
+static DWORD dwOriginalOutMode = 0;
+static DWORD dwOriginalInMode = 0;
+static DWORD dwOriginalErrMode = 0;
+
 static BOOL use_named_pipes;
 
 static OSVERSIONINFO int_os_version;	/* Version information for Win32. */
@@ -206,6 +210,9 @@ erts_sys_misc_mem_sz(void)
  */
 void sys_tty_reset(int exit_code)
 {
+    SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), dwOriginalInMode);
+    SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), dwOriginalOutMode);
+    SetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), dwOriginalErrMode);
 }
 
 void erl_sys_args(int* argc, char** argv)
@@ -301,14 +308,12 @@ int erts_set_signal(Eterm signal, Eterm type) {
     return 0;
 }
 
-static DWORD dwOriginalOutMode = 0;
-static DWORD dwOriginalInMode = 0;
-
 static void
 init_console(void)
 {
     GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwOriginalOutMode);
     GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &dwOriginalInMode);
+    GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &dwOriginalErrMode);
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 }
