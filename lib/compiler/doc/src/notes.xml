@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler could become extremely slow for modules
+	    containing huge functions.</p>
+          <p>
+	    Own Id: OTP-18770 Aux Id: GH-7667, PR-7672 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
