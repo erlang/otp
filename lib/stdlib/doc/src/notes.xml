@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Garbage collect the shell process when reducing the
+	    amount of saved history and results.</p>
+          <p>
+	    Own Id: OTP-18773 Aux Id: PR-7691 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
