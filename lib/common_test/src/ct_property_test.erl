@@ -86,7 +86,7 @@ init_tool(Config) ->
 init_tool_extensions(proper) ->
     ProperExtDir = code:lib_dir(common_test, proper_ext),
     true = code:add_patha(ProperExtDir),
-    ct:pal("Added ~ts to code path~n", [ProperExtDir]),
+    ct:log("Added ~ts to code path~n", [ProperExtDir]),
     ok;
 init_tool_extensions(_) ->
     ok.

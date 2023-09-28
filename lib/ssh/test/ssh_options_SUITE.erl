@@ -1514,7 +1514,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    [_|_] = Connections,
 
 	    %% N w try one more than allowed:
-	    ct:pal("Info Report expected here (if not disabled) ...",[]),
+	    ct:log("Info Report expected here (if not disabled) ...",[]),
 	    try Connect(Host,Port)
 	    of
 		_ConnectionRef1 ->

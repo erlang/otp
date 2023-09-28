@@ -929,11 +929,11 @@ client_close_after_hello(Config0) ->
             {send, hello}
            ]) || _ <- lists:seq(1,MaxSessions+100)],
 
-    ct:pal("=== Tried to start ~p sessions.", [length(Cs)]),
+    ct:log("=== Tried to start ~p sessions.", [length(Cs)]),
 
-    ssh_info:print(fun ct:pal/2),
+    ssh_info:print(fun ct:log/2),
     {Parents, Conns, Handshakers} = find_handshake_parent(server_port(Config)),
-    ct:pal("Found (Port=~p):~n"
+    ct:log("Found (Port=~p):~n"
            "  Connections  (length ~p): ~p~n"
            "  Handshakers  (length ~p): ~p~n"
            "  with parents (length ~p): ~p",
@@ -944,12 +944,12 @@ client_close_after_hello(Config0) ->
     if
         length(Handshakers)>0 ->
             lists:foreach(fun(P) -> exit(P,some_reason) end, Parents),
-            ct:pal("After sending exits; now going to sleep", []),
+            ct:log("After sending exits; now going to sleep", []),
             timer:sleep((SleepSec+15)*1000),
-            ct:pal("After sleeping", []),
-            ssh_info:print(fun ct:pal/2),
+            ct:log("After sleeping", []),
+            ssh_info:print(fun ct:log/2),
             {Parents2, Conns2, Handshakers2} = find_handshake_parent(server_port(Config)),
-            ct:pal("Found (Port=~p):~n"
+            ct:log("Found (Port=~p):~n"
                    "  Connections  (length ~p): ~p~n"
                    "  Handshakers  (length ~p): ~p~n"
                    "  with parents (length ~p): ~p",
@@ -961,10 +961,10 @@ client_close_after_hello(Config0) ->
                 Handshakers2==[] andalso Conns2==Conns0 ->
                     ok;
                 Handshakers2=/=[] ->
-                    ct:pal("Handshakers still alive: ~p", [Handshakers2]),
+                    ct:log("Handshakers still alive: ~p", [Handshakers2]),
                     {fail, handshakers_alive};
                 true ->
-                    ct:pal("Connections before: ~p~n"
+                    ct:log("Connections before: ~p~n"
                            "Connections after: ~p", [Conns0,Conns2]),
                     {fail, connections_bad}
             end;

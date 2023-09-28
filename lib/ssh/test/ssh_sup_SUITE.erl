@@ -229,7 +229,7 @@ killed_acceptor_restarts(Config) ->
     ct:log("~s",[lists:flatten(ssh_info:string())]),
 
     %% Make acceptor restart:
-    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [AccPid]),
+    ct:log("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [AccPid]),
     exit(AccPid, kill),
     ?wait_match(undefined, process_info(AccPid)),
 
@@ -239,7 +239,7 @@ killed_acceptor_restarts(Config) ->
                 AccPid1,
                 500, 30),
 
-    ct:pal("... now there should not be any SUPERVISOR REPORT.~n", []),
+    ct:log("... now there should not be any SUPERVISOR REPORT.~n", []),
 
     true = (AccPid1 =/= AccPid2),
 
@@ -454,7 +454,7 @@ check_sshc_system_tree(SysSup, Connection, _LocalIP, _LocalPort, _Config) ->
                 supervisor:which_children(ChSup),
                 [ChPid1,ChPid2]),
 
-    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid1]),
+    ct:log("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid1]),
     exit(ChPid1, kill),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,ChSup,supervisor, [ssh_channel_sup]},
@@ -468,7 +468,7 @@ check_sshc_system_tree(SysSup, Connection, _LocalIP, _LocalPort, _Config) ->
                 supervisor:which_children(ChSup),
                 [ChPid2]),
 
-    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid2]),
+    ct:log("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid2]),
     exit(ChPid2, kill),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,ChSup,supervisor, [ssh_channel_sup]},
@@ -479,7 +479,7 @@ check_sshc_system_tree(SysSup, Connection, _LocalIP, _LocalPort, _Config) ->
 
     ?wait_match([], supervisor:which_children(ChSup)),
 
-    ct:pal("... now there should not be any SUPERVISOR REPORT.~n", []).
+    ct:log("... now there should not be any SUPERVISOR REPORT.~n", []).
 
 
 
