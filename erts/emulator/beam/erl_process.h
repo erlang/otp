@@ -2941,3 +2941,7 @@ float erts_sched_local_random_float(Uint additional_seed)
 void erts_halt(int code);
 extern erts_atomic32_t erts_halt_progress;
 extern int erts_halt_code;
+
+extern Eterm
+erts_build_stacktrace(ErtsHeapFactory *hfact, Process* rp,
+                      Uint reserve_size, int max_depth, int include_i);

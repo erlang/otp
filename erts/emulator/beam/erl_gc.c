@@ -3724,7 +3724,8 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
         if (max_heap_flags & MAX_HEAP_SIZE_LOG) {
             int alive = erts_is_alive;
             erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-            Eterm *o_hp, *hp, args = NIL;
+            Eterm *hp, args = NIL, stacktrace;
+            ErtsHeapFactory hfact;
 
             /* Build the format message */
             erts_dsprintf(dsbufp, "     Process:            ~p ");
@@ -3737,9 +3738,14 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
             erts_dsprintf(dsbufp, "     Error Logger:       ~p~n");
             erts_dsprintf(dsbufp, "     Message Queue Len:  ~p~n");
             erts_dsprintf(dsbufp, "     GC Info:            ~p~n");
+            erts_dsprintf(dsbufp, "     Stacktrace:         ~p~n");
 
             /* Build the args in reverse order */
-            o_hp = hp = erts_alloc(ERTS_ALC_T_TMP, 2*(alive ? 8 : 7) * sizeof(Eterm));
+            erts_factory_tmp_init(&hfact, NULL, 0, ERTS_ALC_T_TMP);
+            stacktrace = erts_build_stacktrace(&hfact, p, 0,
+                                               erts_backtrace_depth, 1);
+            hp = erts_produce_heap(&hfact, 2*(alive ? 9 : 8), 0);
+            args = CONS(hp, stacktrace, args); hp += 2;
             args = CONS(hp, msg, args); hp += 2;
             args = CONS(hp, make_small((p)->sig_inq.len), args); hp += 2;
             args = CONS(hp, am_true, args); hp += 2;
@@ -3750,9 +3756,10 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
                 args = CONS(hp, erts_this_node->sysname, args); hp += 2;
             }
             args = CONS(hp, p->common.id, args); hp += 2;
+            ASSERT(hp == hfact.hp);
 
             erts_send_error_term_to_logger(p->group_leader, dsbufp, args);
-            erts_free(ERTS_ALC_T_TMP, o_hp);
+            erts_factory_close(&hfact);
         }
 
         if (IS_TRACED_FL(p, F_TRACE_GC))
