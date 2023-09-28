@@ -44,6 +44,9 @@ server(Ancestors, Drv, Shell, Options) ->
     process_flag(trap_exit, true),
     _ = [put('$ancestors', Ancestors) || Shell =/= {}],
     edlin:init(),
+    % make sure that the function starting shell read-eval-print loop is called
+    % before group_history:load(), so it has a chance to influence shell history loading
+    ShellPid = start_shell(Shell),
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
@@ -52,7 +55,7 @@ server(Ancestors, Drv, Shell, Options) ->
     put(echo, proplists:get_value(echo, Options, true)),
     put(expand_below, proplists:get_value(expand_below, Options, true)),
 
-    server_loop(Drv, start_shell(Shell), []).
+    server_loop(Drv, ShellPid, []).
 
 whereis_shell() ->
     case node(group_leader()) of
