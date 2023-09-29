@@ -611,8 +611,7 @@ void BeamModuleAssembler::emit_swap2(const ArgRegister &R1,
     mov_var(arg2, arg3);
     mov_var(arg3, TMP4);
 
-    flush_vars(arg1, arg2);
-    flush_var(arg3);
+    flush_vars(arg1, arg2, arg3);
 }
 
 void BeamModuleAssembler::emit_swap3(const ArgRegister &R1,
@@ -628,8 +627,8 @@ void BeamModuleAssembler::emit_swap3(const ArgRegister &R1,
     mov_var(arg3, arg4);
     mov_var(arg4, TMP5);
 
-    flush_vars(arg1, arg2);
-    flush_vars(arg3, arg4);
+    flush_vars(arg1, arg2, arg3);
+    flush_var(arg4);
 }
 
 void BeamModuleAssembler::emit_swap4(const ArgRegister &R1,
@@ -648,9 +647,8 @@ void BeamModuleAssembler::emit_swap4(const ArgRegister &R1,
     mov_var(arg4, arg5);
     mov_var(arg5, TMP6);
 
-    flush_vars(arg1, arg2);
-    flush_vars(arg3, arg4);
-    flush_var(arg5);
+    flush_vars(arg1, arg2, arg3);
+    flush_vars(arg4, arg5);
 }
 
 void BeamModuleAssembler::emit_node(const ArgRegister &Dst) {
