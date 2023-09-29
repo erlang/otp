@@ -1511,25 +1511,54 @@ protected:
         }
     }
 
+    enum Relation { none, consecutive, reverse_consecutive };
+
+    static Relation memory_relation(const arm::Mem &mem1,
+                                    const arm::Mem &mem2) {
+        if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
+            mem1.baseId() == mem2.baseId()) {
+            if (mem1.offset() + 8 == mem2.offset()) {
+                return consecutive;
+            } else if (mem1.offset() == mem2.offset() + 8) {
+                return reverse_consecutive;
+            }
+        }
+        return none;
+    }
+
     void flush_vars(const Variable<arm::Gp> &to1,
                     const Variable<arm::Gp> &to2) {
         const arm::Mem &mem1 = to1.mem;
         const arm::Mem &mem2 = to2.mem;
 
-        if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
-            mem1.baseId() == mem2.baseId()) {
-            if (mem1.offset() + 8 == mem2.offset()) {
-                stp_cache(to1.reg, to2.reg, mem1);
-                return;
-            } else if (mem1.offset() == mem2.offset() + 8) {
-                stp_cache(to2.reg, to1.reg, mem2);
-                return;
-            }
+        switch (memory_relation(to1.mem, to2.mem)) {
+        case Relation::consecutive:
+            stp_cache(to1.reg, to2.reg, mem1);
+            break;
+        case Relation::reverse_consecutive:
+            stp_cache(to2.reg, to1.reg, mem2);
+            break;
+        case Relation::none:
+            /* Not possible to optimize with stp. */
+            flush_var(to1);
+            flush_var(to2);
+            break;
         }
+    }
 
-        /* Not possible to optimize with stp. */
-        flush_var(to1);
-        flush_var(to2);
+    void flush_vars(const Variable<arm::Gp> &to1,
+                    const Variable<arm::Gp> &to2,
+                    const Variable<arm::Gp> &to3) {
+        if (memory_relation(to2.mem, to3.mem) != Relation::none) {
+            flush_vars(to2, to3);
+            flush_var(to1);
+        } else if (memory_relation(to1.mem, to3.mem) != Relation::none) {
+            flush_vars(to1, to3);
+            flush_var(to2);
+        } else {
+            flush_vars(to1, to2);
+            flush_var(to3);
+        }
     }
 
     void mov_arg(const ArgVal &To, const ArgVal &From) {
