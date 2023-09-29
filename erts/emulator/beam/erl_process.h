@@ -2031,7 +2031,7 @@ void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t ps
 void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 Eterm erts_process_info(Process *c_p, ErtsHeapFactory *hfact,
                         Process *rp, ErtsProcLocks rp_locks,
-                        int *item_ix, int item_ix_len,
+                        int *item_ix, Eterm *item_extra, int item_len,
                         int flags, Uint reserve_size, Uint *reds);
 
 typedef struct {

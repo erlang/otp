@@ -778,6 +778,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_FULLSWEEP_AFTER                      35
 #define ERTS_PI_IX_PARENT                               36
 #define ERTS_PI_IX_ASYNC_DIST                           37
+#define ERTS_PI_IX_DICTIONARY_LOOKUP                    38
 
 #define ERTS_PI_FLAG_SINGELTON                          (1 << 0)
 #define ERTS_PI_FLAG_ALWAYS_WRAP                        (1 << 1)
@@ -785,6 +786,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_FLAG_NEED_MSGQ_LEN                      (1 << 3)
 #define ERTS_PI_FLAG_FORCE_SIG_SEND                     (1 << 4)
 #define ERTS_PI_FLAG_REQUEST_FOR_OTHER                  (1 << 5)
+#define ERTS_PI_FLAG_KEY_TUPLE2                         (1 << 6)
 
 #define ERTS_PI_UNRESERVE(RS, SZ) \
     (ASSERT((RS) >= (SZ)), (RS) -= (SZ))
@@ -835,7 +837,8 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_magic_ref, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
     {am_fullsweep_after, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_parent, 0, 0, ERTS_PROC_LOCK_MAIN},
-    {am_async_dist, 0, 0, ERTS_PROC_LOCK_MAIN}
+    {am_async_dist, 0, 0, ERTS_PROC_LOCK_MAIN},
+    {am_dictionary, 3, ERTS_PI_FLAG_FORCE_SIG_SEND|ERTS_PI_FLAG_KEY_TUPLE2, ERTS_PROC_LOCK_MAIN},
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(pi_args[0])))
@@ -847,11 +850,21 @@ static ErtsProcessInfoArgs pi_args[] = {
 #endif
 
 static ERTS_INLINE Eterm
-pi_ix2arg(int ix)
+pi_ix2arg(Eterm **hpp, int ix, Eterm extra)
 {
+    Eterm res;
     if (ix < 0 || ERTS_PI_ARGS <= ix)
 	return am_undefined;
-    return pi_args[ix].name;
+
+    if (!(pi_args[ix].flags & ERTS_PI_FLAG_KEY_TUPLE2))
+        return pi_args[ix].name;
+
+    ASSERT(hpp != NULL);
+    ASSERT(*hpp != NULL);
+    ASSERT(is_value(extra));
+    res = TUPLE2(*hpp, pi_args[ix].name, extra);
+    *hpp += 3;
+    return res;
 }
 
 static ERTS_INLINE int
@@ -879,7 +892,7 @@ pi_ix2locks(int ix)
 }
 
 static ERTS_INLINE int
-pi_arg2ix(Eterm arg)
+pi_arg2ix(Eterm arg, Eterm *extrap)
 {
     switch (arg) {
     case am_registered_name:
@@ -959,6 +972,17 @@ pi_arg2ix(Eterm arg)
     case am_async_dist:
         return ERTS_PI_IX_ASYNC_DIST;
     default:
+        if (is_tuple_arity(arg, 2)) {
+            Eterm *tpl = tuple_val(arg);
+            if (extrap)
+                *extrap = tpl[2];
+            switch (tpl[1]) {
+            case am_dictionary:
+                return ERTS_PI_IX_DICTIONARY_LOOKUP;
+            default:
+                break;
+            }
+        }
         return -1;
     }
 }
@@ -1005,7 +1029,10 @@ process_info_init(void)
     { /* Make sure the process_info argument mappings are consistent */
 	int ix;
 	for (ix = 0; ix < ERTS_PI_ARGS; ix++) {
-	    ASSERT(pi_arg2ix(pi_ix2arg(ix)) == ix);
+            Eterm heap[3];
+            Eterm *hp = &heap[0];
+	    ASSERT(pi_arg2ix(pi_ix2arg(&hp, ix, am_ok), NULL) == ix);
+            ASSERT(hp <= &heap[3]);
 	}
     }
 #endif
@@ -1018,6 +1045,7 @@ process_info_aux(Process *c_p,
 		 Process *rp,
 		 ErtsProcLocks rp_locks,
 		 int item_ix,
+                 Eterm extra,
                  Sint *msgq_len_p,
 		 int flags,
                  Uint *reserve_sizep,
@@ -1029,7 +1057,8 @@ erts_process_info(Process *c_p,
                   Process *rp,
                   ErtsProcLocks rp_locks,
                   int *item_ix,
-                  int item_ix_len,
+                  Eterm *item_extra,
+                  int item_len,
                   int flags,
                   Uint reserve_size,
                   Uint *reds)
@@ -1040,8 +1069,27 @@ erts_process_info(Process *c_p,
     Sint msgq_len = -1;
 
     if (ERTS_PI_FLAG_SINGELTON & flags) {
-        ASSERT(item_ix_len == 1);
-	res = process_info_aux(c_p, hfact, rp, rp_locks, item_ix[0],
+        Eterm extra;
+        ASSERT(item_len == 1);
+        if (!item_extra) {
+            extra = THE_NON_VALUE;
+            ASSERT(!(pi_ix2flags(item_ix[0]) & ERTS_PI_FLAG_KEY_TUPLE2));
+        }
+        else {
+            extra = item_extra[0];
+            ASSERT(pi_ix2flags(item_ix[0]) & ERTS_PI_FLAG_KEY_TUPLE2);
+            ASSERT(is_value(extra));
+            if ((flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)
+                && is_not_immed(extra)) {
+                Eterm *hp;
+                Uint sz = size_object(extra);
+                ASSERT(sz);
+                ERTS_PI_UNRESERVE(reserve_size, sz);
+                hp = erts_produce_heap(hfact, sz, reserve_size);
+                extra = copy_struct(extra, sz, &hp, hfact->off_heap); 
+            }
+        }
+	res = process_info_aux(c_p, hfact, rp, rp_locks, item_ix[0], extra,
                                &msgq_len, flags, &reserve_size, reds);
         return res;
     }
@@ -1057,19 +1105,21 @@ erts_process_info(Process *c_p,
      * the queue contain bad distribution messages).
      */
     if (flags & ERTS_PI_FLAG_WANT_MSGS) {
-	ix = pi_arg2ix(am_messages);
+	ix = pi_arg2ix(am_messages, NULL);
 	ASSERT(part_res[ix] == THE_NON_VALUE);
-	res = process_info_aux(c_p, hfact, rp, rp_locks, ix,
+	res = process_info_aux(c_p, hfact, rp, rp_locks, ix, THE_NON_VALUE,
                                &msgq_len, flags, &reserve_size, reds);
 	ASSERT(res != am_undefined);
 	ASSERT(res != THE_NON_VALUE);
         part_res[ix] = res;
     }
 
-    for (item_ix_ix = item_ix_len - 1; item_ix_ix >= 0; item_ix_ix--) {
+    for (item_ix_ix = item_len - 1; item_ix_ix >= 0; item_ix_ix--) {
 	ix = item_ix[item_ix_ix];
+        if (pi_ix2flags(ix) & ERTS_PI_FLAG_KEY_TUPLE2)
+            continue;
 	if (part_res[ix] == THE_NON_VALUE) {
-	    res = process_info_aux(c_p, hfact, rp, rp_locks, ix,
+	    res = process_info_aux(c_p, hfact, rp, rp_locks, ix, THE_NON_VALUE,
                                    &msgq_len, flags, &reserve_size, reds);
             ASSERT(res != am_undefined);
 	    ASSERT(res != THE_NON_VALUE);
@@ -1079,31 +1129,53 @@ erts_process_info(Process *c_p,
 
     res = NIL;
 
-    for (item_ix_ix = item_ix_len - 1; item_ix_ix >= 0; item_ix_ix--) {
+    for (item_ix_ix = item_len - 1; item_ix_ix >= 0; item_ix_ix--) {
+        Eterm *hp, val;
 	ix = item_ix[item_ix_ix];
-	ASSERT(part_res[ix] != THE_NON_VALUE);
-	/*
-	 * If we should ignore the value of registered_name,
-	 * its value is nil. For more info, see comment in the
-	 * beginning of process_info_aux().
-	 */
-	if (is_nil(part_res[ix])) {
-	    ASSERT(!(flags & ERTS_PI_FLAG_ALWAYS_WRAP));
-	    ASSERT(pi_ix2arg(ix) == am_registered_name);
+        if (pi_ix2flags(ix) & ERTS_PI_FLAG_KEY_TUPLE2) {
+            Eterm extra = item_extra[item_ix_ix];
+            ASSERT(is_value(extra));
+            ASSERT(part_res[ix] == THE_NON_VALUE);
+            if ((flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)
+                && is_not_immed(extra)) {
+                Uint sz = size_object(extra);
+                ASSERT(sz);
+                ERTS_PI_UNRESERVE(reserve_size, sz);
+                hp = erts_produce_heap(hfact, sz, reserve_size);
+                extra = copy_struct(extra, sz, &hp, hfact->off_heap); 
+            }
+            val = process_info_aux(c_p, hfact, rp, rp_locks, ix, extra,
+                                   &msgq_len, flags, &reserve_size, reds);
+        }
+        else {
+            ASSERT(part_res[ix] != THE_NON_VALUE);
+            /*
+             * If we should ignore the value of registered_name,
+             * its value is nil. For more info, see comment in the
+             * beginning of process_info_aux().
+             */
+            if (is_nil(part_res[ix])) {
+                ASSERT(!(flags & ERTS_PI_FLAG_ALWAYS_WRAP));
+                ASSERT(pi_ix2arg(NULL, ix, THE_NON_VALUE) == am_registered_name);
+                continue;
+            }
+            val = part_res[ix];
 	}
-	else {
-            Eterm *hp;
-            ERTS_PI_UNRESERVE(reserve_size, 2);
-            hp = erts_produce_heap(hfact, 2, reserve_size);
-	    res = CONS(hp, part_res[ix], res);
-	}
+
+        ERTS_PI_UNRESERVE(reserve_size, 2);
+        hp = erts_produce_heap(hfact, 2, reserve_size);
+        res = CONS(hp, val, res);
     }
 
     return res;
 }
 
 static void
-pi_setup_grow(int **arr, int *def_arr, Uint *sz, int ix);
+pi_setup_grow(int **arr, int *def_arr, Eterm **extra_arr,
+              Eterm *def_extra_arr, Uint *sz, int ix);
+static void
+pi_setup_init_extra(Eterm **extra_arr, Eterm *def_extra_arr, Uint sz);
+
 
 #ifdef DEBUG
 static int
@@ -1225,7 +1297,9 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 {
     ErtsHeapFactory hfact;
     int def_arr[ERTS_PI_DEF_ARR_SZ];
+    Eterm def_extra_arr[ERTS_PI_DEF_ARR_SZ];
     int *item_ix = &def_arr[0];
+    Eterm *item_extra = NULL;
     Process *rp = NULL;
     erts_aint32_t state;
     BIF_RETTYPE ret;
@@ -1238,8 +1312,9 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 
     ERTS_CT_ASSERT(ERTS_PI_DEF_ARR_SZ > 0);
 
-    if (is_atom(opt)) {
-	int ix = pi_arg2ix(opt);
+    if (is_atom(opt) || is_tuple_arity(opt, 2)) {
+        Eterm extra = THE_NON_VALUE;
+	int ix = pi_arg2ix(opt, &extra);
         item_ix[0] = ix;
         len = 1;
         locks = pi_ix2locks(ix);
@@ -1248,6 +1323,11 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         flags |= pi_ix2flags(ix);
         if (ix < 0)
             goto badarg;
+        if (flags & ERTS_PI_FLAG_KEY_TUPLE2) {
+            ASSERT(is_value(extra));
+            item_extra = &def_extra_arr[0];
+            item_extra[0] = extra;
+        }
     }
     else {
         Eterm list = opt;
@@ -1259,23 +1339,34 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         flags = 0;
 
         while (is_list(list)) {
+            int item_flags;
+            Eterm extra = THE_NON_VALUE;
             Eterm *consp = list_val(list);
             Eterm arg = CAR(consp);
-            int ix = pi_arg2ix(arg);
+            int ix = pi_arg2ix(arg, &extra);
             if (ix < 0)
                 goto badarg;
 
             if (len >= size)
-                pi_setup_grow(&item_ix, def_arr, &size, len);
+                pi_setup_grow(&item_ix, def_arr, &item_extra,
+                              def_extra_arr, &size, len);
 
-            item_ix[len++] = ix;
+            item_ix[len] = ix;
 
             locks |= pi_ix2locks(ix);
-            flags |= pi_ix2flags(ix);
+            item_flags = pi_ix2flags(ix);
+            flags |= item_flags;
             reserve_size += pi_ix2rsz(ix);
             reserve_size += 3; /* 2-tuple */
             reserve_size += 2; /* cons */
-
+            if (item_flags & ERTS_PI_FLAG_KEY_TUPLE2) {
+                ASSERT(is_value(extra));
+                if (!item_extra)
+                    pi_setup_init_extra(&item_extra, def_extra_arr, size);
+                ASSERT(item_extra);
+                item_extra[len] = extra;
+            }
+            len++;
             list = CDR(consp);
         }
 
@@ -1345,8 +1436,8 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 
     erts_factory_proc_init(&hfact, c_p);
 
-    res = erts_process_info(c_p, &hfact, rp, locks, item_ix, len,
-                            flags, reserve_size, &reds);
+    res = erts_process_info(c_p, &hfact, rp, locks, item_ix, item_extra,
+                            len, flags, reserve_size, &reds);
 
     erts_factory_close(&hfact);
 
@@ -1384,6 +1475,9 @@ done:
     if (item_ix != def_arr)
         erts_free(ERTS_ALC_T_TMP, item_ix);
 
+    if (item_extra && item_extra != def_extra_arr)
+        erts_free(ERTS_ALC_T_TMP, item_extra);
+
     return ret;
 
 badarg:
@@ -1418,6 +1512,7 @@ send_signal: {
          */
         erts_msgq_set_save_end(c_p);
         enqueued = erts_proc_sig_send_process_info_request(c_p, pid, item_ix,
+                                                           item_extra,
                                                            len, need_msgq_len,
                                                            flags, reserve_size,
                                                            ref);
@@ -1432,19 +1527,54 @@ send_signal: {
 }
 
 static void
-pi_setup_grow(int **arr, int *def_arr, Uint *sz, int ix)
+pi_setup_grow(int **arr, int *def_arr, Eterm **extra_arr,
+              Eterm *def_extra_arr, Uint *sz, int ix)
 {
     *sz = (ix+1) + ERTS_PI_DEF_ARR_SZ;
-    if (*arr != def_arr)
+    if (*arr != def_arr) {
         *arr = erts_realloc(ERTS_ALC_T_TMP, *arr, (*sz)*sizeof(int));
+        if (*extra_arr) {
+            Eterm *new_extra_arr;
+            int i;
+            ASSERT(*extra_arr != def_extra_arr);
+            new_extra_arr = erts_realloc(ERTS_ALC_T_TMP, *extra_arr,
+                                         (*sz)*sizeof(Eterm));
+            for (i = ix; i < *sz; i++)
+                new_extra_arr[i] = THE_NON_VALUE;
+            *extra_arr = new_extra_arr;
+        }
+    }
     else {
         int *new_arr = erts_alloc(ERTS_ALC_T_TMP, (*sz)*sizeof(int));
         sys_memcpy((void *) new_arr, (void *) def_arr,
                    sizeof(int)*ERTS_PI_DEF_ARR_SZ);
         *arr = new_arr;
+        if (*extra_arr) {
+            int i;
+            Eterm *new_extra_arr = erts_alloc(ERTS_ALC_T_TMP,
+                                              (*sz)*sizeof(Eterm));
+            ASSERT(*extra_arr == def_extra_arr);
+            sys_memcpy((void *) new_extra_arr, (void *) def_extra_arr,
+                       sizeof(Eterm)*ERTS_PI_DEF_ARR_SZ);
+            for (i = ERTS_PI_DEF_ARR_SZ; i < *sz; i++)
+                new_extra_arr[i] = THE_NON_VALUE;
+            *extra_arr = new_extra_arr;
+        }
     }
 }
 
+static void
+pi_setup_init_extra(Eterm **extra_arr, Eterm *def_extra_arr, Uint sz)
+{
+    Eterm *new_extra_arr;
+    int i;
+    new_extra_arr = (sz > ERTS_PI_DEF_ARR_SZ
+                     ? (Eterm *) erts_alloc(ERTS_ALC_T_TMP, sz*sizeof(Eterm))
+                     : def_extra_arr);
+    for (i = 0; i < sz; i++)
+        new_extra_arr[i] = THE_NON_VALUE;
+    *extra_arr = new_extra_arr;
+}
 
 BIF_RETTYPE process_info_2(BIF_ALIST_2)
 {
@@ -1462,12 +1592,14 @@ process_info_aux(Process *c_p,
 		 Process *rp,
 		 ErtsProcLocks rp_locks,
 		 int item_ix,
+                 Eterm extra,
                  Sint *msgq_len_p,
 		 int flags,
                  Uint *reserve_sizep,
                  Uint *reds)
 {
-    Eterm *hp;
+    Eterm *hp = NULL /* silence code checker... */;
+    Eterm key;
     Eterm res = NIL;
     Uint reserved;
     Uint reserve_size = *reserve_sizep;
@@ -2174,16 +2306,39 @@ process_info_aux(Process *c_p,
 	break;
     }
 
+    case ERTS_PI_IX_DICTIONARY_LOOKUP: {
+        Uint sz;
+
+        ASSERT(is_value(extra));
+        res = ((ERTS_TRACE_FLAGS(rp) & F_SENSITIVE)
+               ? am_undefined
+               : erts_pd_hash_get(rp, extra));
+        sz = (!(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER) || is_immed(res)
+              ? 0
+              : size_object(res));
+
+        /* Allocate 3 words extra for key 2-tuple... */
+        hp = erts_produce_heap(hfact, sz + 3, reserve_size);
+
+        if (sz)
+            res = copy_struct(res, sz, &hp, hfact->off_heap);
+
+        break;
+    }
+
     default:
 	return THE_NON_VALUE; /* will produce badarg */
 
     }
 
+    key = pi_ix2arg(&hp, item_ix, extra);
+
     ERTS_PI_UNRESERVE(reserve_size, 3);
     *reserve_sizep = reserve_size;
     hp = erts_produce_heap(hfact, 3, reserve_size);
+    res = TUPLE2(hp, key, res);
 
-    return TUPLE2(hp, pi_ix2arg(item_ix), res);
+    return res;
 }
 #undef MI_INC
 
