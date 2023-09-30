@@ -905,6 +905,17 @@ class BeamModuleAssembler : public BeamAssembler,
         }
     };
 
+    struct EmbeddedLabel {
+        ssize_t latestOffset;
+        Label anchor;
+
+        Label label;
+
+        constexpr bool operator>(const EmbeddedLabel &other) const {
+            return latestOffset > other.latestOffset;
+        }
+    };
+
     /* ArgVal -> Constant
      *
      * `_pending_constants` points directly into this container, which is
@@ -922,6 +933,11 @@ class BeamModuleAssembler : public BeamAssembler,
                                 std::deque<std::reference_wrapper<const T>>,
                                 std::greater<const T &>>;
 
+    /* Index of Label -> EmbeddedLabel
+     *
+     * `_pending_labels` points directly into this container. */
+    std::unordered_map<uint32_t, EmbeddedLabel> _embedded_labels;
+
     /* All pending stubs, segregated by type and sorted by `latestOffset` in
      * ascending order.
      *
@@ -929,6 +945,7 @@ class BeamModuleAssembler : public BeamAssembler,
      * different sizes and alignment requirements. */
     PendingStubs<Constant> _pending_constants;
     PendingStubs<Veneer> _pending_veneers;
+    PendingStubs<EmbeddedLabel> _pending_labels;
 
     /* Maps code pointers to thunks that jump to them, letting us treat global
      * fragments as if they were local. */
@@ -1050,6 +1067,8 @@ class BeamModuleAssembler : public BeamAssembler,
             mov_imm(dst, value);
         }
     }
+
+    arm::Mem embed_label(const Label &label, enum Displacement disp);
 
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
@@ -1328,6 +1347,10 @@ protected:
     /* Emits pending veneers when appropriate. Must be called at least once
      * every `STUB_CHECK_INTERVAL` bytes for veneers and constants to work. */
     void check_pending_stubs();
+
+    /* Unconditionally emits all pending labels. Must only be called when
+     * the current code position is unreachable. */
+    void flush_pending_labels();
 
     /* Calls the given shared fragment, ensuring that the redzone is unused and
      * that the return address forms a valid CP. */

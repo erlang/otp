@@ -412,6 +412,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
                                              const ArgWord &Size,
                                              const Span<ArgVal> &args) {
     Label fail;
+    Label data = a.newLabel();
     auto src = load_source(Src, TMP1);
 
     ASSERT(Size.get() == args.size());
@@ -451,10 +452,25 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         a.b_hs(fail);
     }
 
-    embed_vararg_rodata(args, TMP2);
+    bool embedInText = args.size() <= 6;
+    if (embedInText) {
+        a.adr(TMP2, data);
+    } else {
+        embed_vararg_rodata(args, TMP2);
+    }
+
     a.ldr(TMP3, arm::Mem(TMP2, TMP1, arm::lsl(3)));
     a.br(TMP3);
+
     mark_unreachable_check_pending_stubs();
+
+    a.bind(data);
+    if (embedInText) {
+        for (const ArgVal &arg : args) {
+            ASSERT(arg.getType() ==  ArgVal::Label);
+            a.embedLabel(rawLabels[arg.as<ArgLabel>().get()]);
+        }
+    }
 
     if (Fail.getType() == ArgVal::Immediate) {
         a.bind(fail);
