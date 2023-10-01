@@ -382,7 +382,7 @@ fe80::204:acff:fe17:bf38
       <desc>
 	<p>If <c><anno>MRef</anno></c> is a reference that the
 	calling process obtained by calling
-	<seemfa marker="#monitor/1"><c>monitor/1</c></seemfa>, 
+	<seemfa marker="#monitor/1"><c>monitor/1</c></seemfa>,
 	this monitor is turned off.
 	If the monitoring is already turned off, nothing happens.</p>
 	<p>The returned value is one of the following:</p>
@@ -461,7 +461,15 @@ fe80::204:acff:fe17:bf38
         address.</fsummary>
       <desc>
         <p>Returns a <c>hostent</c> record for the host with the specified
-          address.</p></desc>
+            address.</p>
+
+        <p>Note that this function accepts argument formats the same as its C
+        counterpart. Specifically, in addition to dotted quad ip addresses in
+        the form of strings or tuples; strings may be given where the format
+        of an ip address is in decimal, hex, or octal forrmat, for which a
+        hostent record will be returned without performing name resolution.
+        </p>
+      </desc>
     </func>
 
     <func>
