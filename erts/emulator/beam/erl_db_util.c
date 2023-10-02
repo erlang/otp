@@ -3983,7 +3983,6 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         flatmap_t *m = (flatmap_t *)flatmap_val(t);
         Eterm *values = flatmap_get_values(m);
         int textpos = DMC_STACK_NUM(*text);
-        int stackpos = context->stack_used;
 
         nelems = flatmap_get_size(m);
 
@@ -3991,8 +3990,20 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
             return ret;
         }
 
+        if (constant_values) {
+            /* We may have to convert all values to individual matchPushC
+               instructions, if we do that then more stack will be needed
+               than estimated, so we artificially bump the needed stack here
+               so that dmc_tuple thinks that dmc_array has used the needed stack. */
+            context->stack_used += nelems;
+        }
+
         if ((ret = dmc_tuple(context, heap, text, m->keys, &constant_keys)) != retOk) {
             return ret;
+        }
+
+        if (constant_values) {
+            context->stack_used -= nelems;
         }
 
         if (constant_values && constant_keys) {
@@ -4000,30 +4011,21 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
             return retOk;
         }
 
-        /* If all values were constants, then nothing was emitted by the
-           first dmc_array, so we reset the pc and emit all values as
-           constants and then re-emit the keys. */
         if (constant_values) {
-            DMC_STACK_NUM(*text) = textpos;
-            context->stack_used = stackpos;
-            ASSERT(!constant_keys);
-            for (int i = nelems; i--;) {
-                do_emit_constant(context, text, values[i]);
-            }
-            dmc_tuple(context, heap, text, m->keys, &constant_keys);
+            /* If all values were constants, then nothing was emitted by the
+               first dmc_array, so we insert the constants at the start of the
+               stack and place the dmc_tuple after. */
+            dmc_rearrange_constants(context, text, textpos, values, nelems);
         } else if (constant_keys) {
-            Eterm *p = tuple_val(m->keys);
-            Uint nelems = arityval(*p);
-            ASSERT(!constant_values);
-            p++;
-            for (int i = nelems; i--;)
-                do_emit_constant(context, text, p[i]);
-            DMC_PUSH2(*text, matchMkTuple, nelems);
-            context->stack_used -= nelems - 1;
+            /* If all keys were constant we just want to emit the key tuple.
+               Since do_emit_constant expects tuples to be wrapped in 1 arity
+               tuples we need give do_emit_constant {keys} */
+            Eterm wrapTuple[2] = {make_arityval(1), m->keys};
+            do_emit_constant(context, text, make_tuple(wrapTuple));
         }
 
         DMC_PUSH2(*text, matchMkFlatMap, nelems);
-        context->stack_used -= nelems;  /* n values + 1 key-tuple => 1 map */
+        context->stack_used -= (nelems + 1) - 1;  /* n values + 1 key-tuple - 1 map ptr => 1 map */
         *constant = 0;
         return retOk;
     } else {

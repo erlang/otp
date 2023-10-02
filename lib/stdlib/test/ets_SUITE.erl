@@ -44,6 +44,7 @@
          select_bound_chunk/1, t_delete_all_objects/1, t_test_ms/1,
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,
          t_select_pam_stack_overflow_bug/1,
+         t_select_flatmap_term_copy_bug/1,
          t_ets_dets/1]).
 -export([t_insert_list/1, t_insert_list_bag/1, t_insert_list_duplicate_bag/1,
          t_insert_list_set/1, t_insert_list_delete_set/1,
@@ -152,6 +153,7 @@ all() ->
      t_test_ms, t_select_delete, t_select_replace,
      t_select_replace_next_bug,
      t_select_pam_stack_overflow_bug,
+     t_select_flatmap_term_copy_bug,
      t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
      t_named_select, select_fixtab_owner_change,
      select_fail, t_insert_new, t_repair_continuation,
@@ -1913,6 +1915,29 @@ t_select_pam_stack_overflow_bug(Config) ->
     ets:delete(T),
     ok.
 
+%% When a variable was used as key in ms body, the matched value would
+%% not be copied to the heap of the calling process.
+t_select_flatmap_term_copy_bug(_Config) ->
+    T = ets:new(a,[]),
+    ets:insert(T, {list_to_binary(lists:duplicate(36,$a))}),
+    V1 = ets:select(T, [{{'$1'},[],[#{ '$1' => a }]}]),
+    erlang:garbage_collect(),
+    V1 = ets:select(T, [{{'$1'},[],[#{ '$1' => a }]}]),
+    erlang:garbage_collect(),
+    V2 = ets:select(T, [{{'$1'},[],[#{ a => '$1' }]}]),
+    erlang:garbage_collect(),
+    V2 = ets:select(T, [{{'$1'},[],[#{ a => '$1' }]}]),
+    erlang:garbage_collect(),
+    V3 = ets:select(T, [{{'$1'},[],[#{ '$1' => '$1' }]}]),
+    erlang:garbage_collect(),
+    V3 = ets:select(T, [{{'$1'},[],[#{ '$1' => '$1' }]}]),
+    erlang:garbage_collect(),
+    V4 = ets:select(T, [{{'$1'},[],[#{ a => a }]}]),
+    erlang:garbage_collect(),
+    V4 = ets:select(T, [{{'$1'},[],[#{ a => a }]}]),
+    erlang:garbage_collect(),
+    ets:delete(T),
+    ok.
 
 %% Test that partly bound keys gives faster matches.
 partly_bound(Config) when is_list(Config) ->
