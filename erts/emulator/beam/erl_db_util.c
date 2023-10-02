@@ -3977,9 +3977,9 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         Eterm t, int *constant)
 {
     int nelems;
-    int constant_values, constant_keys;
     DMCRet ret;
     if (is_flatmap(t)) {
+        int constant_values, constant_keys;
         flatmap_t *m = (flatmap_t *)flatmap_val(t);
         Eterm *values = flatmap_get_values(m);
         int textpos = DMC_STACK_NUM(*text);
@@ -4030,54 +4030,114 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         return retOk;
     } else {
         DECLARE_WSTACK(wstack);
+        DMC_STACK_TYPE(UWord) instr_save;
         Eterm *kv;
-        int c;
+        int c = 0;
         int textpos = DMC_STACK_NUM(*text);
-        int stackpos = context->stack_used;
+        int preventive_bumps = 0;
 
         ASSERT(is_hashmap(t));
 
         hashmap_iterator_init(&wstack, t, 1);
-        constant_values = 1;
         nelems = hashmap_size(t);
 
-        /* Check if all keys and values are constants */
-        while ((kv=hashmap_iterator_prev(&wstack)) != NULL && constant_values) {
+        /* Check if all keys and values are constants. We do preventive_bumps for
+           all constants we find so that if we find a non-constant, the stack
+           depth will be correct. */
+        while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
             if ((ret = dmc_expr(context, heap, text, CAR(kv), &c)) != retOk) {
                 DESTROY_WSTACK(wstack);
                 return ret;
             }
-            if (!c)
-                constant_values = 0;
+
+            if (!c) break;
+
+            ++context->stack_used;
+            ++preventive_bumps;
+
             if ((ret = dmc_expr(context, heap, text, CDR(kv), &c)) != retOk) {
                 DESTROY_WSTACK(wstack);
                 return ret;
             }
-            if (!c)
-                constant_values = 0;
+                        
+            if (!c) break;
+
+            ++context->stack_used;
+            ++preventive_bumps;
+            
         }
 
-        if (constant_values) {
+        context->stack_used -= preventive_bumps;
+
+        /* c is true if we iterated through the entire hashmap without
+           encountering any variables */
+        if (c) {
             ASSERT(DMC_STACK_NUM(*text) == textpos);
             *constant = 1;
             DESTROY_WSTACK(wstack);
             return retOk;
         }
 
-        /* reset the program to the original position and re-emit everything */
-        DMC_STACK_NUM(*text) = textpos;
-        context->stack_used = stackpos;
-
-        *constant = 0;
-
+        /* Reset the iterator */
         hashmap_iterator_init(&wstack, t, 1);
 
-        while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
-            /* push key */
-            if ((ret = dmc_expr(context, heap, text, CAR(kv), &c)) != retOk) {
+        /* If we found any constants before the variable. */
+        if (preventive_bumps != 0) {
+
+            /* Save all the instructions needed for the non-constant we
+               found in the body. */
+            DMC_INIT_STACK(instr_save);
+            while (DMC_STACK_NUM(*text) > textpos) {
+                DMC_PUSH(instr_save, DMC_POP(*text));
+            }
+
+            /* Re-emit all the constants, we use the preventive_bumps counter to
+               know how many constants we found before the first variable. */
+            while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
+                do_emit_constant(context, text, CAR(kv));
+                if (--preventive_bumps == 0) {
+                    break;
+                }
+                do_emit_constant(context, text, CDR(kv));
+                if (--preventive_bumps == 0) {
+                    preventive_bumps = -1;
+                    break;
+                }
+            }
+
+            /* Emit the non-constant we found */
+            while(!DMC_EMPTY(instr_save)) {
+                DMC_PUSH(*text, DMC_POP(instr_save));
+            }
+
+            DMC_FREE(instr_save);
+
+        } else {
+            preventive_bumps = -1;
+        }
+
+        /* If the first variable was a key, we skip the key this iteration
+           and only emit only the value (CDR). */
+        if (preventive_bumps == -1) {
+            kv=hashmap_iterator_prev(&wstack);
+            if ((ret = dmc_expr(context, heap, text, CDR(kv), &c)) != retOk) {
                 DESTROY_WSTACK(wstack);
                 return ret;
             }
+            if (c) {
+                do_emit_constant(context, text, CDR(kv));
+            }
+        }
+
+        /* Emit the remaining key-value pairs in the hashmap */
+        while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
+        
+            /* push key */
+            if ((ret = dmc_expr(context, heap, text, CAR(kv), &c)) != retOk) {
+                    DESTROY_WSTACK(wstack);
+                    return ret;
+                }
+
             if (c) {
                 do_emit_constant(context, text, CAR(kv));
             }
@@ -4087,13 +4147,16 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
                 DESTROY_WSTACK(wstack);
                 return ret;
             }
+            
             if (c) {
                 do_emit_constant(context, text, CDR(kv));
             }
         }
+        ASSERT(preventive_bumps <= 0);
         DMC_PUSH2(*text, matchMkHashMap, nelems);
         context->stack_used -= 2*nelems - 1;  /* n keys & values => 1 map */
         DESTROY_WSTACK(wstack);
+        *constant = 0;
         return retOk;
     }
 }

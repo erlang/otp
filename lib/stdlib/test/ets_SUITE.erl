@@ -45,6 +45,7 @@
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,
          t_select_pam_stack_overflow_bug/1,
          t_select_flatmap_term_copy_bug/1,
+         t_select_hashmap_term_copy_bug/1,
          t_ets_dets/1]).
 -export([t_insert_list/1, t_insert_list_bag/1, t_insert_list_duplicate_bag/1,
          t_insert_list_set/1, t_insert_list_delete_set/1,
@@ -154,6 +155,7 @@ all() ->
      t_select_replace_next_bug,
      t_select_pam_stack_overflow_bug,
      t_select_flatmap_term_copy_bug,
+     t_select_hashmap_term_copy_bug,
      t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
      t_named_select, select_fixtab_owner_change,
      select_fail, t_insert_new, t_repair_continuation,
@@ -1938,6 +1940,108 @@ t_select_flatmap_term_copy_bug(_Config) ->
     erlang:garbage_collect(),
     ets:delete(T),
     ok.
+
+%% When a variable was used as key or value in ms body,
+%% the matched value would not be copied to the heap of
+%% the calling process.
+t_select_hashmap_term_copy_bug(_Config) ->
+
+    T = ets:new(a,[]),
+    Dollar1 = list_to_binary(lists:duplicate(36,$a)),
+    ets:insert(T, {Dollar1}),
+
+    {LargeMapSize, FlatmapSize} =
+        case erlang:system_info(emu_type) of
+            debug -> {40, 3};
+            _ -> {250, 32}
+        end,
+
+    LM = maps:from_keys(lists:seq(1,LargeMapSize), 1),
+
+    lists:foreach(
+      fun(Key) ->
+              V = ets:select(T, [{{'$1'},[], [LM#{ Key => '$1' }]}]),
+              erlang:garbage_collect(),
+              V = ets:select(T, [{{'$1'},[], [LM#{ Key => '$1' }]}]),
+              erlang:garbage_collect(),
+
+              V = [LM#{ Key => Dollar1 }]
+      end, maps:keys(LM)),
+    
+    %% Create a hashmap with enough keys before and after the '$1' for it to
+    %% remain a hashmap when we remove those keys.
+    LMWithDollar = make_lm_with_dollar(LM#{ '$1' => a }, LargeMapSize, FlatmapSize),
+
+    %% Test that hashmap with '$1' in first position works
+    %% We rely on that fact that maps:keys return the keys
+    %% in iteration order.
+    lists:foldl(
+      fun
+          (Key, M = #{ '$1' := A }) when map_size(M) > FlatmapSize ->
+
+              V = ets:select(T, [{{'$1'},[], [M]}]),
+              erlang:garbage_collect(),
+              V = ets:select(T, [{{'$1'},[], [M]}]),
+              erlang:garbage_collect(),
+
+              V = [(maps:remove('$1',M))#{ Dollar1 => A }],
+
+              maps:remove(Key, M);
+          (_, M) when map_size(M) > FlatmapSize ->
+              M
+      end, LMWithDollar, maps:keys(LMWithDollar)),
+
+    %% Test that hashmap with '$1' in last position works
+    %% We rely on that fact that maps:keys return the keys
+    %% in iteration order.
+    lists:foldl(
+      fun
+          (Key, M = #{ '$1' := A }) ->
+
+              V = ets:select(T, [{{'$1'},[], [M]}]),
+              erlang:garbage_collect(),
+              V = ets:select(T, [{{'$1'},[], [M]}]),
+              erlang:garbage_collect(),
+
+              V = [(maps:remove('$1',M))#{ Dollar1 => A }],
+
+              maps:remove(Key, M);
+          (_, M) when map_size(M) > FlatmapSize ->
+              M
+      end, LMWithDollar, lists:reverse(maps:keys(LMWithDollar))),
+    
+    %% Test hashmap with a key-value pair that are variable
+    V3 = ets:select(T, [{{'$1'},[], [LM#{ '$1' => '$1' }]}]),
+    erlang:garbage_collect(),
+    V3 = ets:select(T, [{{'$1'},[], [LM#{ '$1' => '$1' }]}]),
+    erlang:garbage_collect(),
+
+    V3 = [LM#{ Dollar1 => Dollar1 }],
+
+    %% Test hashmap with all constant keys and values
+    V4 = ets:select(T, [{{'$1'},[], [LM#{ a => a }]}]),
+    erlang:garbage_collect(),
+    V4 = ets:select(T, [{{'$1'},[], [LM#{ a => a }]}]),
+    erlang:garbage_collect(),
+
+    V4 = [LM#{ a => a }],
+
+    ets:delete(T),
+    ok.
+
+%% Create a hashmap that always has FlatmapSize keys before and after '$1'.
+%% Since the atom index of '$1' is used as hash, we cannot know before the
+%% code is run where exactly it will be placed, so in the rare cases when
+%% there isn't enough keys in the map, we insert more until there are enough.
+make_lm_with_dollar(Map, LargeMapSize, FlatmapSize) ->
+    {KeysBefore, KeysAfter} = lists:splitwith(fun erlang:is_integer/1, maps:keys(Map)),
+    if length(KeysBefore) =< FlatmapSize;
+       length(KeysAfter) - 1 =< FlatmapSize ->
+            NewMap = maps:from_keys(lists:seq(LargeMapSize, LargeMapSize*2), 1),
+            make_lm_with_dollar(maps:merge(Map, NewMap), LargeMapSize*2, FlatmapSize);
+       true ->
+            Map
+    end.
 
 %% Test that partly bound keys gives faster matches.
 partly_bound(Config) when is_list(Config) ->
