@@ -976,7 +976,7 @@ static DWORD WINAPI timer_thread(void *data) {
 }
 
 static void start_timeout(int timeout) {
-    if (CreateThread(NULL, 0, timer_thread, (void*)timeout, 0, NULL) == NULL) {
+    if (CreateThread(NULL, 0, timer_thread, (void*)(DWORD_PTR)timeout, 0, NULL) == NULL) {
         fprintf(stderr,"erl_call: Failed to start timer thread\n");
         exit(1);
     }

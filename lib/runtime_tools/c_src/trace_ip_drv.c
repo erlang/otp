@@ -50,8 +50,13 @@
 #    define ASSERT(X)
 #endif 
 
-#define sock2event(s) ((ErlDrvEvent)(long)(s))
-#define event2sock(p) ((SOCKET)(long)(p))
+#ifdef __WIN32__
+# define sock2event(s) ((ErlDrvEvent)(INT_PTR)(s))
+# define event2sock(p) ((SOCKET)(INT_PTR)(p))
+#else
+# define sock2event(s) ((ErlDrvEvent)(long)(s))
+# define event2sock(p) ((SOCKET)(long)(p))
+#endif
 
 #include "erl_driver.h"
 
@@ -432,7 +437,7 @@ static void trace_ip_ready_input(ErlDrvData handle, ErlDrvEvent fd)
      * but better make sure.
      */
 
-    if ((SOCKET)(long)fd == data->fd) {
+    if (event2sock(fd) == data->fd) {
 #ifdef __WIN32__
 	close_client(data);
 #else
@@ -496,7 +501,7 @@ static void trace_ip_ready_output(ErlDrvData handle, ErlDrvEvent fd)
 
     ASSERT(!(data->flags & FLAG_LISTEN_PORT) &&
 	   data->que[data->questart] != NULL &&
-	   (SOCKET)(long)fd == data->fd);
+	   event2sock(fd) == data->fd);
     
     tim = data->que[data->questart];
     towrite = tim->siz - tim->written;
@@ -906,7 +911,7 @@ static int my_driver_select(TraceIpData *desc, SOCKET fd, int flags, enum MySele
 
 static void stop_select(ErlDrvEvent event, void* _)
 {
-    closesocket((SOCKET)(long)event);
+    closesocket(event2sock(event));
 }
 
 #endif /* !__WIN32__ */
