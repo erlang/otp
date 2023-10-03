@@ -273,7 +273,7 @@ expand_uri(Cs, L, As) ->
     expand(Cs, L, [$[ | As]).
 
 expand_uri([$] | Cs], L, Us, As) ->
-    expand(Cs, L, push_uri(Us, ">tt/<" ++ Us ++ ">tt<", As));
+    expand(Cs, L, push_uri(Us, ">edoc/<" ++ Us ++ ">edoc<", As));
 expand_uri([$\s = C | Cs], L, Us, As) ->
     expand_uri(Cs, 0, L, [C], Us, As);
 expand_uri([$\t = C | Cs], L, Us, As) ->
