@@ -150,7 +150,9 @@ void output_drive_info(char* drive){
 	    }
 	    else
 		if (fpGetDiskFreeSpaceEx(drive,&availbytes,&totbytes,&totbytesfree)){
-		    sprintf(answer,"%s DRIVE_FIXED %I64u %I64u %I64u\n",drive,availbytes,totbytes,totbytesfree);
+		    sprintf(answer,"%s DRIVE_FIXED %I64u %I64u %I64u\n",
+                            drive, availbytes.QuadPart, totbytes.QuadPart,
+                            totbytesfree.QuadPart);
 		    return_answer(answer);
 		}
 		else {
