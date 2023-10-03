@@ -44,6 +44,297 @@
                          state = [], groups = []}).
 
 %% -------------------------------------------------------------------------
+%% Callbacks
+%% -------------------------------------------------------------------------
+-callback id(Opts) -> Id when Opts :: term(), Id :: term().
+
+-callback init(Id, Opts) -> {ok, State} | {ok, State, Priority} when
+      Id :: reference() | term(),
+      Opts :: term(),
+      State :: term(),
+      Priority :: integer().
+
+-callback on_tc_skip(SuiteName, TestName, Reason, CTHState) -> NewCTHState when
+      SuiteName :: atom(),
+      TestName :: init_per_suite | end_per_suite |
+                  {init_per_group, GroupName} |
+                  {end_per_group, GroupName} |
+                  {FuncName, GroupName} |
+                  FuncName,
+      FuncName :: atom(),
+      GroupName :: atom(),
+      Reason :: {tc_auto_skip | tc_user_skip, term()},
+      CTHState :: term(),
+      NewCTHState :: term().
+
+-callback on_tc_fail(SuiteName, TestName, Reason, CTHState) -> NewCTHState when
+      SuiteName :: atom(),
+      TestName :: init_per_suite | end_per_suite |
+                  {init_per_group, GroupName} |
+                  {end_per_group, GroupName} |
+                  {FuncName, GroupName} |
+                  FuncName,
+      FuncName :: atom(),
+      GroupName :: atom(),
+      Reason :: term(),
+      CTHState :: term(),
+      NewCTHState :: term().
+
+-callback post_end_per_suite(SuiteName, Config, Return, CTHState) -> Result when
+      SuiteName :: atom(),
+      Config :: [{Key,Value}],
+      Return :: Config | SkipOrFail | term(),
+      NewReturn :: Config | SkipOrFail | term(),
+      SkipOrFail :: {fail,Reason} | {skip, Reason},
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewReturn, NewCTHState},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback pre_end_per_suite(SuiteName, EndData, CTHState) -> Result when
+      SuiteName :: atom(),
+      EndData :: Config | SkipOrFail,
+      Config :: [{Key, Value}],
+      NewConfig :: [{Key, Value}],
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewConfig | SkipOrFail,
+                 NewCTHState},
+      SkipOrFail :: {fail, Reason} | {skip, Reason},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback post_end_per_group(SuiteName, GroupName, Config, Return, CTHState) -> Result when
+      SuiteName :: atom(),
+      GroupName :: atom(),
+      Config :: [{Key, Value}],
+      Return :: Config | SkipOrFail | term(),
+      NewReturn :: Config | SkipOrFail | term(),
+      SkipOrFail :: {fail, Reason} | {skip, Reason},
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewReturn, NewCTHState},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback pre_end_per_group(SuiteName, GroupName, EndData, CTHState) -> Result when
+      SuiteName :: atom(),
+      GroupName :: atom(),
+      EndData :: Config | SkipOrFail,
+      Config :: [{Key, Value}],
+      NewConfig :: [{Key, Value}],
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewConfig | SkipOrFail, NewCTHState},
+      SkipOrFail :: {fail, Reason} | {skip, Reason},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback post_end_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -> Result when
+      SuiteName :: atom(),
+      TestcaseName :: atom(),
+      Config :: [{Key, Value}],
+      Return :: Config | SkipOrFail | term(),
+      NewReturn :: Config | SkipOrFail | term(),
+      SkipOrFail :: {fail, Reason} |
+                    {skip, Reason},
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewReturn, NewCTHState},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback pre_end_per_testcase(SuiteName, TestcaseName, EndData, CTHState) -> Result when
+      SuiteName :: atom(),
+      TestcaseName :: atom(),
+      EndData :: Config,
+      Config :: [{Key, Value}],
+      NewConfig :: [{Key, Value}],
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewConfig, NewCTHState},
+      Key :: atom(),
+      Value :: term().
+
+-callback post_init_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -> Result when
+      SuiteName :: atom(),
+      TestcaseName :: atom(),
+      Config :: [{Key, Value}],
+      Return :: Config | SkipOrFail | term(),
+      NewReturn :: Config | SkipOrFail | term(),
+      SkipOrFail :: {fail, Reason} |
+                    {skip, Reason},
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewReturn, NewCTHState},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback pre_init_per_testcase(SuiteName, TestcaseName, InitData, CTHState) -> Result when
+      SuiteName :: atom(),
+      TestcaseName :: atom(),
+      InitData :: Config | SkipOrFail,
+      Config :: [{Key, Value}],
+      NewConfig :: [{Key, Value}],
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewConfig | SkipOrFail, NewCTHState},
+      SkipOrFail :: {fail, Reason} |
+                    {skip, Reason},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback post_init_per_group(SuiteName, GroupName, Config, Return, CTHState) -> Result when
+      SuiteName :: atom(),
+      GroupName :: atom(),
+      Config :: [{Key, Value}],
+      Return :: Config | SkipOrFail | term(),
+      NewReturn :: Config | SkipOrFail | term(),
+      SkipOrFail :: {fail, Reason} | {skip, Reason},
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewReturn, NewCTHState},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback pre_init_per_group(SuiteName, GroupName, InitData, CTHState) -> Result when
+      SuiteName :: atom(),
+      GroupName :: atom(),
+      InitData :: Config | SkipOrFail,
+      Config :: [{Key, Value}],
+      NewConfig :: [{Key, Value}],
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewConfig | SkipOrFail,
+                 NewCTHState},
+      SkipOrFail :: {fail, Reason} | {skip, Reason},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback post_init_per_suite(SuiteName, Config, Return, CTHState) -> Result when
+      SuiteName :: atom(),
+      Config :: [{Key, Value}],
+      Return :: Config | SkipOrFail | term(),
+      NewReturn :: Config | SkipOrFail | term(),
+      SkipOrFail :: {fail, Reason} |
+                    {skip, Reason} |
+                    term(),
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {NewReturn, NewCTHState},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback pre_init_per_suite(SuiteName, InitData, CTHState) -> Result when
+      SuiteName :: atom(),
+      InitData :: Config | SkipOrFail,
+      Config :: [{Key, Value}],
+      NewConfig :: [{Key, Value}],
+      CTHState :: term(),
+      NewCTHState :: term(),
+      Result :: {Return, NewCTHState},
+      Return :: NewConfig | SkipOrFail,
+      SkipOrFail :: {fail, Reason} | {skip, Reason},
+      Key :: atom(),
+      Value :: term(),
+      Reason :: term().
+
+-callback post_all(SuiteName, Return, GroupDefs) -> NewReturn when
+      SuiteName :: atom(),
+      Return :: Tests | {skip, Reason},
+      NewReturn :: Tests | {skip, Reason},
+      Tests :: [TestCase |
+                {testcase, TestCase, TCRepeatProps} |
+                {group, GroupName} |
+                {group, GroupName, Properties} |
+                {group, GroupName, Properties, SubGroups}],
+      TestCase :: atom(),
+      TCRepeatProps :: [{repeat, N} |
+                        {repeat_until_ok, N} |
+                        {repeat_until_fail, N}],
+      GroupName :: atom(),
+      Properties :: GroupProperties | default,
+      SubGroups :: [{GroupName, Properties} |
+                    {GroupName, Properties, SubGroups}],
+      Shuffle :: shuffle | {shuffle, Seed},
+      Seed :: {integer(), integer(), integer()},
+      GroupRepeatType ::
+        repeat | repeat_until_all_ok |
+        repeat_until_all_fail |
+        repeat_until_any_ok |
+        repeat_until_any_fail,
+      N :: integer() | forever,
+      GroupDefs :: [Group],
+      Group ::
+        {GroupName, GroupProperties,
+         GroupsAndTestCases},
+      GroupProperties ::
+          [parallel | sequence | Shuffle |
+           {GroupRepeatType, N}],
+      GroupsAndTestCases ::
+            [Group | {group, GroupName} | TestCase],
+      Reason :: term().
+
+-callback post_groups(SuiteName, GroupDefs) -> NewGroupDefs when
+      SuiteName :: atom(),
+      GroupDefs :: [Group],
+      NewGroupDefs :: [Group],
+      Group ::
+        {GroupName, Properties,
+         GroupsAndTestCases},
+      GroupName :: atom(),
+      Properties :: [parallel | sequence | Shuffle | {GroupRepeatType, N}],
+      GroupsAndTestCases :: [Group |
+                             {group, GroupName} |
+                             TestCase |
+                             {testcase, TestCase, TCRepeatProps}],
+      TestCase :: atom(),
+      TCRepeatProps :: [{repeat, N} |
+                        {repeat_until_ok, N} |
+                        {repeat_until_fail, N}],
+      Shuffle :: shuffle | {shuffle, Seed},
+      Seed :: {integer(), integer(), integer()},
+      GroupRepeatType ::
+        repeat | repeat_until_all_ok |
+        repeat_until_all_fail |
+        repeat_until_any_ok |
+        repeat_until_any_fail,
+      N :: integer() | forever.
+
+-callback terminate(CTHState) -> term() when CTHState :: term().
+
+-optional_callbacks(
+   [id/1,
+    on_tc_fail/4,
+    on_tc_skip/4,
+    post_all/3,
+    post_end_per_group/5,
+    post_end_per_suite/4,
+    post_end_per_testcase/5,
+    post_groups/2,
+    post_init_per_group/5,
+    post_init_per_suite/4,
+    post_init_per_testcase/5,
+    pre_end_per_group/4,
+    pre_end_per_suite/3,
+    pre_end_per_testcase/4,
+    pre_init_per_group/4,
+    pre_init_per_suite/3,
+    pre_init_per_testcase/4,
+    terminate/1]).
+
+%% -------------------------------------------------------------------------
 %% API Functions
 %% -------------------------------------------------------------------------
 
