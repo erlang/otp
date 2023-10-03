@@ -20,6 +20,8 @@
 
 -module(diameter_transport).
 
+-include_lib("diameter/include/diameter.hrl").
+
 %%
 %% This module implements a transport start function that
 %% evaluates its config argument.
@@ -29,6 +31,16 @@
 -export([start/3,
          select/3,
          eval/3]).
+
+-callback start({Type, Ref}, Svc, Config) ->
+    {ok, Pid} | {ok, Pid, LAddrs} | {error, Reason} when
+      Type :: connect | accept,
+      Ref :: diameter:transport_ref(),
+      Svc :: #diameter_service{},
+      Config :: term(),
+      Pid :: pid(),
+      LAddrs :: [inet:ip_address()],
+      Reason :: term().
 
 %% start/3
 
