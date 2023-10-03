@@ -3359,31 +3359,11 @@ check_annotated_types(T0, St) ->
                                             AnnotatedTypes),
     maps:fold(fun add_type_clash_errors/3, St, GroupedAnnTypes).
 
-add_type_clash_errors(_VarName, [], St) ->
-    St;
-add_type_clash_errors(VarName, [{A, Type0} | T], St) ->
-    EqualTypes = fun ({_, Type1}) -> equal_types(Type0, Type1) end,
-    case lists:all(EqualTypes, T) of
-        true ->
-            St;
-        false ->
-            add_error(A, {multiple_definitions_of_type, VarName}, St)
-    end.
-
-equal_types({Tag0, _, Kind0, Args0}, {Tag0, _, Kind0, Args1}) ->
-    equal_types(Args0, Args1);
-equal_types({Tag0, _, Args0}, {Tag0, _, Args1}) ->
-    equal_types(Args0, Args1);
-equal_types({Tag0, _, Op0, Args0, Args1}, {Tag0, _, Op0, Args2, Args3}) ->
-    equal_types(Args0, Args2) andalso equal_types(Args1, Args3);
-equal_types([H0 | T0], [H1 | T1]) ->
-    equal_types(H0, H1) andalso equal_types(T0, T1);
-equal_types({var, Tag0, _, TypeAnnotation0}, {var, Tag0, _, TypeAnnotation1}) ->
-    equal_types(TypeAnnotation0, TypeAnnotation1);
-equal_types({var, Tag0, _}, {var, Tag0, _}) ->
-    true;
-equal_types(T1, T2) ->
-    T1 =:= T2.
+add_type_clash_errors(VarName, [{A, _Type0} | _]=Types, St) when length(Types) > 1 ->
+    add_error(A, {multiple_definitions_of_type, VarName}, St);
+add_type_clash_errors(_VarName, _Types, St) ->
+    %% case Types == [] or length(Types) == 1
+    St.
 
 -spec collect_annotations(InputType, Acc :: [term()]) -> TypeAnnotations when
       InputType       :: {Tag, A, Kind, Args :: [InputType] | any}
