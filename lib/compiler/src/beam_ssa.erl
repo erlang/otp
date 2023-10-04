@@ -663,7 +663,6 @@ rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
       Blocks :: block_map(),
       Count0 :: label(),
       Blocks0 :: block_map(),
-      Blocks :: block_map(),
       Count :: label().
 
 split_blocks(Ls, P, Blocks, Count) when is_map(Blocks) ->

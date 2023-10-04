@@ -210,8 +210,8 @@
 
 %%% ---------------------------------
 
--spec get_rc() -> [{Par :: atom(), Val :: any()} |
-                   {Par :: atom(), Val1 :: any(), Val2 :: any()}].
+-spec get_rc() -> [{Par, Val :: any()} |
+                   {Par, Val1 :: any(), Val2 :: any()}] when Par :: atom().
 
 get_rc() ->
     inet_db:get_rc().

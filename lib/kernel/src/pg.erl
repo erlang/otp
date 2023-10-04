@@ -350,12 +350,14 @@ handle_cast(_, _State) ->
     erlang:error(badarg).
 
 -spec handle_info(
-    {discover, Peer :: pid()} |
-    {discover, Peer :: pid(), any()} |
-    {join, Peer :: pid(), group(), pid() | [pid()]} |
-    {leave, Peer :: pid(), pid() | [pid()], [group()]} |
+    {discover, Peer} |
+    {discover, Peer, any()} |
+    {join, Peer, group(), pid() | [pid()]} |
+    {leave, Peer, pid() | [pid()], [group()]} |
     {'DOWN', reference(), process, pid(), term()} |
-    {nodedown, node()} | {nodeup, node()}, State :: state()) -> {noreply, state()}.
+    {nodedown, node()} | {nodeup, node()}, State) -> {noreply, state()} when
+      Peer :: pid(),
+      State :: state().
 
 %% remote pid or several pids joining the group
 handle_info({join, Peer, Group, PidOrPids}, #state{scope = Scope, remote = Remote, scope_monitors = ScopeMon,
