@@ -216,9 +216,8 @@ on_tc_fail(_TC, _Reason, State) ->
 
 %% Called when a test case is skipped.
 -spec on_tc_skip(TC :: end_per_suite | init_per_group | end_per_group | atom(),
-		 {tc_auto_skip, {failed, {Mod :: atom(), Function :: atom(), 
-					  Reason :: term()}}} |
-		 {tc_user_skip, {skipped, Reason :: term()}},
+		 {tc_auto_skip, {failed, {Mod :: atom(), Function :: atom(),  Reason :: term()}}} |
+		 {tc_user_skip, {skipped, Reason }},
 		 State :: #state{}) ->
 	NewState :: #state{}.
 on_tc_skip(_TC, _Reason, State) ->
