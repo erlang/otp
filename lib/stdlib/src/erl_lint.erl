@@ -431,7 +431,7 @@ format_error({undefined_callback, {_M, F, A}}) ->
 format_error({singleton_typevar, Name}) ->
     io_lib:format("type variable ~w is only used once (is unbound)", [Name]);
 format_error({multiple_definitions_of_type, Type}) ->
-    io_lib:format("annotated type ~w given different type definitions", [Type]);
+    io_lib:format("annotated type ~w given multiple type definitions", [Type]);
 format_error({bad_export_type, _ETs}) ->
     io_lib:format("bad export_type declaration", []);
 format_error({duplicated_export_type, {T, A}}) ->
@@ -2965,13 +2965,14 @@ warn_redefined_builtin_type(Anno, TypePair, #lint{compile=Opts}=St) ->
 
 check_type(Types, St) ->
     {SeenVars, St1} = check_type_1(Types, maps:new(), St),
+    SingletonWarningEnabled = is_warn_enabled(singleton_typevar, St),
     maps:fold(fun(Var, {seen_once, Anno}, AccSt) ->
                       case atom_to_list(Var) of
                           "_"++_ -> AccSt;
                           _ -> add_error(Anno, {singleton_typevar, Var}, AccSt)
                       end;
                  (Var, {seen_once_union, Anno}, AccSt) ->
-                      case is_warn_enabled(singleton_typevar, AccSt) of
+                      case SingletonWarningEnabled of
                           true ->
                               case atom_to_list(Var) of
                                   "_"++_ -> AccSt;

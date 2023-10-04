@@ -1021,6 +1021,13 @@ singleton_type_var_errors(Config) when is_list(Config) ->
               ok(_) ->
                   error.">>,
            [],
+           []},
+
+          {singleton_ok5,
+           <<"-spec ok(Opts) -> Opts :: term().
+              ok(_) ->
+                  error.">>,
+           [],
            []}
 
           ],
