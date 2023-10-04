@@ -59,6 +59,7 @@
   <xi:include href="logger.xml"/>
   <xi:include href="logger_filters.xml"/>
   <xi:include href="logger_formatter.xml"/>
+  <xi:include href="logger_handler.xml"/>
   <xi:include href="logger_std_h.xml"/>
   <xi:include href="logger_disk_log_h.xml"/>
   <xi:include href="net.xml"/>

@@ -26,6 +26,8 @@
 %%% API
 -export([filesync/1]).
 
+-behaviour(logger_handler).
+
 %% logger_h_common callbacks
 -export([init/2, check_config/4, reset_state/2,
          filesync/3, write/4, handle_info/3, terminate/3]).
@@ -70,7 +72,7 @@ removing_handler(Config) ->
 %%% Log a string or report
 -spec log(LogEvent,Config) -> ok when
       LogEvent :: logger:log_event(),
-      Config :: logger:handler_config().
+      Config :: logger_handler:config().
 
 log(LogEvent,Config) ->
     logger_h_common:log(LogEvent,Config).

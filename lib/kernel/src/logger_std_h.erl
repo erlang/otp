@@ -28,6 +28,8 @@
 %% API
 -export([filesync/1]).
 
+-behaviour(logger_handler).
+
 %% logger_h_common callbacks
 -export([init/2, check_config/4, config_changed/3, reset_state/2,
          filesync/3, write/4, handle_info/3, terminate/3]).
@@ -58,7 +60,7 @@ filesync(Name) ->
 %%%-----------------------------------------------------------------
 %%% Handler being added
 -spec adding_handler(Config) -> {ok,Config} | {error,Reason} when
-      Config :: logger:handler_config(),
+      Config :: logger_handler:config(),
       Reason :: term().
 
 adding_handler(Config) ->
@@ -69,9 +71,9 @@ adding_handler(Config) ->
 -spec changing_config(SetOrUpdate, OldConfig, NewConfig) ->
                               {ok,Config} | {error,Reason} when
       SetOrUpdate :: set | update,
-      OldConfig :: logger:handler_config(),
-      NewConfig :: logger:handler_config(),
-      Config :: logger:handler_config(),
+      OldConfig :: logger_handler:config(),
+      NewConfig :: logger_handler:config(),
+      Config :: logger_handler:config(),
       Reason :: term().
 
 changing_config(SetOrUpdate, OldConfig, NewConfig) ->
@@ -80,7 +82,7 @@ changing_config(SetOrUpdate, OldConfig, NewConfig) ->
 %%%-----------------------------------------------------------------
 %%% Handler being removed
 -spec removing_handler(Config) -> ok when
-      Config :: logger:handler_config().
+      Config :: logger_handler:config().
 
 removing_handler(Config) ->
     logger_h_common:removing_handler(Config).
@@ -89,7 +91,7 @@ removing_handler(Config) ->
 %%% Log a string or report
 -spec log(LogEvent, Config) -> ok when
       LogEvent :: logger:log_event(),
-      Config :: logger:handler_config().
+      Config :: logger_handler:config().
 
 log(LogEvent, Config) ->
     logger_h_common:log(LogEvent, Config).
@@ -97,7 +99,7 @@ log(LogEvent, Config) ->
 %%%-----------------------------------------------------------------
 %%% Remove internal fields from configuration
 -spec filter_config(Config) -> Config when
-      Config :: logger:handler_config().
+      Config :: logger_handler:config().
 
 filter_config(Config) ->
     logger_h_common:filter_config(Config).

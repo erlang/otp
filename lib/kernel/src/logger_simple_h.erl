@@ -21,6 +21,8 @@
 
 -export([adding_handler/1, removing_handler/1, log/2]).
 
+-behaviour(logger_handler).
+
 %% This module implements a simple handler for logger. It is the
 %% default used during system start.
 

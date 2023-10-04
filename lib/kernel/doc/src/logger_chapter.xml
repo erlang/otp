@@ -390,7 +390,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
     <p>A handler is defined as a module exporting at least the
       following callback function:</p>
 
-    <pre><seemfa marker="logger#Module:log/2">log(LogEvent, Config) -> void()</seemfa></pre>
+    <pre><seemfa marker="logger_handler#Module:log/2">log(LogEvent, Config) -> void()</seemfa></pre>
 
     <p>This function is called when a log event has passed through all
       primary filters, and all handler filters attached to the handler
@@ -408,9 +408,8 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       handler module can export the optional callback
       functions <c>adding_handler/1</c>, <c>changing_config/3</c>,
       <c>filter_config/1</c>, and <c>removing_handler/1</c>. See
-      section <seeerl marker="logger#handler_callback_functions">Handler
-      Callback Functions</seeerl> in the logger(3) manual page for
-      more information about these function.</p>
+      <seeerl marker="logger_handler">logger_handler(3)</seeerl>
+      for more information about these function.</p>
 
     <p>The following built-in handlers exist:</p>
 
@@ -453,7 +452,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       handler's destination. The handler callback receives the
       formatter information as part of the handler configuration,
       which is passed as the second argument
-      to <seemfa marker="logger#Module:log/2">
+      to <seemfa marker="logger_handler#Module:log/2">
 	<c>HModule:log/2</c></seemfa>.</p>
     <p>The formatter information consist of a formatter
       module, <c>FModule</c> and its
@@ -594,8 +593,8 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       </list>
       <p>The configuration for a handler is a map with the following keys:</p>
       <taglist>
-	<tag><c>id = </c><seetype marker="logger#handler_id">
-	    <c>logger:handler_id()</c></seetype></tag>
+	<tag><c>id = </c><seetype marker="logger_handler#id">
+	    <c>logger_handler:id()</c></seetype></tag>
 	<item>
 	  <p>Automatically inserted by Logger. The value is the same
 	    as the <c>HandlerId</c> specified when adding the handler,
@@ -1062,8 +1061,7 @@ ok</pre>
 
   <section>
     <title>Example: Implement a handler</title>
-    <p>Section <seeerl marker="logger#handler_callback_functions">Handler
-	Callback Functions</seeerl> in the logger(3) manual page
+    <p><seeerl marker="logger_handler">logger_handler(3)</seeerl>
 	describes the callback functions that can be implemented for a
 	Logger handler.</p>
     <p>A handler callback module must export:</p>
