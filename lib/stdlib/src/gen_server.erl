@@ -168,28 +168,36 @@
 %%%=========================================================================
 
 -callback init(Args :: term()) ->
-    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
-    {stop, Reason :: term()} | ignore | {error, Reason :: term()}.
+    {ok, State} | {ok, State, timeout() | hibernate | {continue, term()}} |
+    {stop, Reason} | ignore | {error, Reason} when
+      State :: term(),
+      Reason :: term().
 -callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
-    {reply, Reply :: term(), NewState :: term()} |
-    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate | {continue, term()}} |
-    {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
-    {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
-    {stop, Reason :: term(), NewState :: term()}.
+    {reply, Reply, NewState} |
+    {reply, Reply, NewState, timeout() | hibernate | {continue, term()}} |
+    {noreply, NewState} |
+    {noreply, NewState, timeout() | hibernate | {continue, term()}} |
+    {stop, Reason, Reply, NewState} |
+    {stop, Reason, NewState} when
+      Reason :: term(),
+      Reply  :: term(),
+      NewState :: term().
 -callback handle_cast(Request :: term(), State :: term()) ->
-    {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
-    {stop, Reason :: term(), NewState :: term()}.
+    {noreply, NewState} |
+    {noreply, NewState, timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), NewState} when
+      NewState :: term().
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
-    {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
-    {stop, Reason :: term(), NewState :: term()}.
+    {noreply, NewState} |
+    {noreply, NewState, timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), NewState} when
+      NewState :: term().
 -callback handle_continue(Info :: term(), State :: term()) ->
-    {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
-    {stop, Reason :: term(), NewState :: term()}.
+    {noreply, NewState} |
+    {noreply, NewState, timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), NewState} when
+      NewState :: term().
 -callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
                                term()),
                     State :: term()) ->

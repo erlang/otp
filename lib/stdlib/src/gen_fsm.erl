@@ -136,31 +136,41 @@
 %%% ---------------------------------------------------
 
 -callback init(Args :: term()) ->
-    {ok, StateName :: atom(), StateData :: term()} |
-    {ok, StateName :: atom(), StateData :: term(), timeout() | hibernate} |
-    {stop, Reason :: term()} | ignore.
+    {ok, StateName, StateData} |
+    {ok, StateName, StateData, timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore when
+      StateName :: atom(),
+      StateData :: term().
 -callback handle_event(Event :: term(), StateName :: atom(),
                        StateData :: term()) ->
-    {next_state, NextStateName :: atom(), NewStateData :: term()} |
-    {next_state, NextStateName :: atom(), NewStateData :: term(),
+    {next_state, NextStateName, NewStateData} |
+    {next_state, NextStateName, NewStateData,
      timeout() | hibernate} |
-    {stop, Reason :: term(), NewStateData :: term()}.
+    {stop, Reason :: term(), NewStateData} when
+      NextStateName :: atom(),
+      NewStateData :: term().
 -callback handle_sync_event(Event :: term(), From :: {pid(), Tag :: term()},
                             StateName :: atom(), StateData :: term()) ->
-    {reply, Reply :: term(), NextStateName :: atom(), NewStateData :: term()} |
-    {reply, Reply :: term(), NextStateName :: atom(), NewStateData :: term(),
+    {reply, Reply, NextStateName, NewStateData} |
+    {reply, Reply, NextStateName, NewStateData,
      timeout() | hibernate} |
-    {next_state, NextStateName :: atom(), NewStateData :: term()} |
-    {next_state, NextStateName :: atom(), NewStateData :: term(),
+    {next_state, NextStateName, NewStateData} |
+    {next_state, NextStateName, NewStateData,
      timeout() | hibernate} |
-    {stop, Reason :: term(), Reply :: term(), NewStateData :: term()} |
-    {stop, Reason :: term(), NewStateData :: term()}.
+    {stop, Reason, Reply, NewStateData} |
+    {stop, Reason, NewStateData} when
+      NextStateName :: atom(),
+      NewStateData  :: term(),
+      Reason        :: term(),
+      Reply         :: term().
 -callback handle_info(Info :: term(), StateName :: atom(),
                       StateData :: term()) ->
-    {next_state, NextStateName :: atom(), NewStateData :: term()} |
-    {next_state, NextStateName :: atom(), NewStateData :: term(),
+    {next_state, NextStateName, NewStateData} |
+    {next_state, NextStateName, NewStateData,
      timeout() | hibernate} |
-    {stop, Reason :: normal | term(), NewStateData :: term()}.
+    {stop, Reason :: normal | term(), NewStateData} when
+      NextStateName :: atom(),
+      NewStateData :: term().
 -callback terminate(Reason :: normal | shutdown | {shutdown, term()}
 		    | term(), StateName :: atom(), StateData :: term()) ->
     term().

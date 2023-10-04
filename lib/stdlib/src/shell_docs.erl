@@ -422,7 +422,7 @@ render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the type documentation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec get_type_doc(Module :: module(), Type :: atom(), Arity :: arity()) ->
+-spec get_type_doc(Module :: module(), Type, Arity) ->
           [{{Type,Arity}, Anno, Signature, chunk_elements(), Metadata}] when
       Type :: atom(),
       Arity :: arity(),
@@ -493,7 +493,7 @@ render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the callback documentation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec get_callback_doc(Module :: module(), Callback :: atom(), Arity :: arity()) ->
+-spec get_callback_doc(Module :: module(), Callback, Arity) ->
           [{{Callback,Arity}, Anno, Signature, chunk_elements(), Metadata}] when
       Callback :: atom(),
       Arity :: arity(),
@@ -774,10 +774,11 @@ render_docs(Elem,State,Pos,Ind,D) ->
 %%% have two newlines at the end.
 -spec render_element(Elem :: chunk_element(),
                      Stack :: [chunk_element_type()],
-                     Pos :: non_neg_integer(),
+                     Pos,
                      Indent :: non_neg_integer(),
                      Config :: #config{}) ->
-          {unicode:chardata(), Pos :: non_neg_integer()}.
+          {unicode:chardata(), Pos} when
+      Pos :: non_neg_integer().
 
 render_element({IgnoreMe,_,Content}, State, Pos, Ind,D)
   when IgnoreMe =:= a ->

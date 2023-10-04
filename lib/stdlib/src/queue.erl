@@ -140,9 +140,11 @@ in_r(X, Q) ->
 %% Take from head/front
 %%
 %% O(1) amortized, O(len(Q)) worst case
--spec out(Q1 :: queue(Item)) ->
-                 {{value, Item}, Q2 :: queue(Item)} |
-                 {empty, Q1 :: queue(Item)}.
+-spec out(Q1) ->
+                 {{value, Item}, Q2} |
+                 {empty, Q1} when
+      Q1 :: queue(Item),
+      Q2 :: queue(Item).
 out({[],[]}=Q) ->
     {empty,Q};
 out({[V],[]}) ->
@@ -160,9 +162,11 @@ out(Q) ->
 %% Take from tail/rear
 %%
 %% O(1) amortized, O(len(Q)) worst case
--spec out_r(Q1 :: queue(Item)) ->
-                 {{value, Item}, Q2 :: queue(Item)} |
-                 {empty, Q1 :: queue(Item)}.
+-spec out_r(Q1) ->
+                 {{value, Item}, Q2} |
+                 {empty, Q1} when
+      Q1 :: queue(Item),
+      Q2 :: queue(Item).
 out_r({[],[]}=Q) ->
     {empty,Q};
 out_r({[],[V]}) ->

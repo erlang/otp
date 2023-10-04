@@ -87,27 +87,32 @@
 %% gen_event:stop(Handler) -> ok 
 
 -callback init(InitArgs :: term()) ->
-    {ok, State :: term()} |
-    {ok, State :: term(), hibernate} |
-    {error, Reason :: term()}.
+    {ok, State} |
+    {ok, State, hibernate} |
+    {error, Reason :: term()} when
+      State :: term().
 -callback handle_event(Event :: term(), State :: term()) ->
-    {ok, NewState :: term()} |
-    {ok, NewState :: term(), hibernate} |
-    {swap_handler, Args1 :: term(), NewState :: term(),
+    {ok, NewState} |
+    {ok, NewState, hibernate} |
+    {swap_handler, Args1 :: term(), NewState,
      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
-    remove_handler.
+    remove_handler when
+      NewState :: term().
 -callback handle_call(Request :: term(), State :: term()) ->
-    {ok, Reply :: term(), NewState :: term()} |
-    {ok, Reply :: term(), NewState :: term(), hibernate} |
-    {swap_handler, Reply :: term(), Args1 :: term(), NewState :: term(),
+    {ok, Reply, NewState} |
+    {ok, Reply, NewState, hibernate} |
+    {swap_handler, Reply, Args1 :: term(), NewState,
      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
-    {remove_handler, Reply :: term()}.
+    {remove_handler, Reply} when
+      NewState :: term(),
+      Reply :: term().
 -callback handle_info(Info :: term(), State :: term()) ->
-    {ok, NewState :: term()} |
-    {ok, NewState :: term(), hibernate} |
-    {swap_handler, Args1 :: term(), NewState :: term(),
+    {ok, NewState} |
+    {ok, NewState, hibernate} |
+    {swap_handler, Args1 :: term(), NewState,
      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
-    remove_handler.
+    remove_handler when
+      NewState :: term().
 -callback terminate(Args :: (term() | {stop, Reason :: term()} |
                              stop | remove_handler |
                              {error, {'EXIT', Reason :: term()}} |
