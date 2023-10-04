@@ -914,6 +914,7 @@ do_primary_git ()
 	    -name '*.app' -o -name '*.appup' |
         xargs git reset HEAD
 	git commit --no-verify -m 'Update primary bootstrap'
+        git checkout HEAD -- bootstrap
 	echo "Primary bootstrap updated and commited."
     else
 	echo ""
