@@ -116,7 +116,9 @@
 -export([print_mib_info/0, print_mib_tables/0, print_mib_variables/0]).
 
 -export_type([
-              me/0, 
+              me/0,
+
+              pdu_type/0,
 
 	      %% Agent config types
 	      mib_storage/0, 
@@ -153,7 +155,7 @@
 -type table_name()    :: atom().
 -type variable_name() :: atom().
 -type mib_info()      :: {mib_module(), [table_name()], [variable_name()]}.
-
+-type pdu_type()      :: snmp:pdu_type().
 
 %%-----------------------------------------------------------------
 %% This utility function is used to convert an old SNMP application

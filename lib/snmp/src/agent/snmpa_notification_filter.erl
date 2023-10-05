@@ -19,12 +19,9 @@
 %%
 -module(snmpa_notification_filter).
 
--export([behaviour_info/1]).
 
-behaviour_info(callbacks) ->
-    [{handle_notification, 2}];
-behaviour_info(_) ->
-    undefined.
+-type notification() :: term().
+-type trap() :: term().
 
 %% handle_notification(Notification, Data) -> Reply
 %% Notification -> notification() | trap()
@@ -35,3 +32,10 @@ behaviour_info(_) ->
 %% send -> This means it is ok for this filter to send the notification as is
 %% {send, NewNotif} -> Send this notification instead
 %% dont_sent -> Dont send this notification. 
+-callback handle_notification(Notif, Data) -> Reply when
+      Reply :: send |
+               {send, NewNotif} |
+               dont_send,
+      Notif :: notification() | trap(),
+      NewNotif :: notification() | trap(),
+      Data :: term().

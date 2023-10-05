@@ -89,6 +89,7 @@
 	      trappdu/0, 
 	      mib/0, 
 	      mib_name/0,
+              pdu_type/0,
 
               error_status/0,
               error_index/0,
@@ -141,6 +142,9 @@
 -type mib_name()      :: string().
 -type pdu()           :: #pdu{}.
 -type trappdu()       :: #trappdu{}.
+-type pdu_type()      :: 'get-request' | 'get-next-request' | 'get-response' |
+                         'set-request' | 'trap' | 'get-bulk-request' | 'inform-request' |
+                         'report'.
 
 %% We should really specify all of these, but they are so numerous...
 %% See the validate_err/1 function in the snmpa_agent.

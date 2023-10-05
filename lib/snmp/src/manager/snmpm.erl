@@ -103,9 +103,9 @@
 -export_type([
 	      register_timeout/0, 
 	      agent_config/0, 
-	      target_name/0
+	      target_name/0,
+              pdu_type/0
 	     ]).
-
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
@@ -134,6 +134,7 @@
 			{sec_name,         snmp:sec_name()}    | % Optional
 			{sec_level,        snmp:sec_level()}.    % Optional
 -type target_name() :: string().
+-type pdu_type() :: snmp:pdu_type() | 'trappdu'.
 
 
 %% This function is called when the snmp application

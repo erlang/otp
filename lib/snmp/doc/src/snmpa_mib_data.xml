@@ -173,16 +173,21 @@
     </func>
 
     <func>
-      <name since="OTP R16B01">Module:unload_mib(State, Filename) -> {ok, NewState} | {error, Reason}</name>
+      <name since="OTP R16B01">Module:unload_mib(State, Filename, MeOverride, TwOverride) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Unload mib from the mib-server</fsummary>
       <type>
         <v>State = NewState = term()</v>
         <v>Filename = filename()</v>
+        <v>MeOverride = boolean()</v>
+        <v>TeOverride = boolean()</v>
         <v>Reason = not_loaded | term()</v>
       </type>
       <desc>
         <p>Unload the mib specified by the <c>Filename</c> argument 
-	from the mib-server. </p>
+	from the mib-server.
+        The <c>MeOverride</c> and <c>TeOverride</c> arguments 
+	specifies how the mib-server shall handle duplicate mib- and trap-
+	entries. </p>
 
         <marker id="lookup"></marker>
       </desc>
