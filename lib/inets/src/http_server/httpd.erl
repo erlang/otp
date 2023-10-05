@@ -50,6 +50,41 @@
             "use uri_string:dissect_query/1 instead"}).
 
 %%%========================================================================
+%%% Types
+%%%========================================================================
+-type property() :: atom().
+-type ets_table() :: ets:tid().
+
+%%%========================================================================
+%%% Callbacks
+%%%========================================================================
+-callback do(ModData) -> {proceed, OldData} | {proceed, NewData} | {break, NewData} | done when
+      ModData :: [{data,NewData} | {'Body', Body} | {'Head',Head}],
+      OldData :: list(),
+      NewData :: [{response, {StatusCode, Body}}],
+      StatusCode :: integer(),
+      Body :: iolist() | nobody | {Fun, FunArg},
+      Head :: [HeaderOption],
+      HeaderOption :: {Option, Value} | {code, StatusCode},
+      Option :: accept_ranges | allow,
+      Value :: string(),
+      FunArg :: [term()],
+      Fun :: fun((FunArg) -> sent | close | Body).
+
+-callback remove(ConfigDB) -> ok | {error, Reason} when
+      ConfigDB :: ets_table(), Reason :: term().
+
+-callback store({Option, Value}, Config) ->
+    {ok, {Option, NewValue}} | {error, Reason} when
+      Option :: property(),
+      Config :: [{Option, Value}],
+      Value :: term(),
+      NewValue :: term(),
+      Reason :: term().
+
+-optional_callbacks([remove/1, store/2]).
+
+%%%========================================================================
 %%% API
 %%%========================================================================
 

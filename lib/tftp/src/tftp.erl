@@ -226,6 +226,7 @@
 	 service_info/1
 	]).
 
+-include("tftp.hrl").
 
 -type peer() :: {PeerType :: inet | inet6,
 		 PeerHost :: inet:ip_address(),
@@ -267,9 +268,6 @@
     {error, {Code :: error_code(), string()}}.
 
 -callback abort(Code :: error_code(), string(), State :: term()) -> 'ok'.
-
--include("tftp.hrl").
-
 
 %%-------------------------------------------------------------------
 %% read_file(RemoteFilename, LocalFilename, Options) ->

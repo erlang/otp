@@ -39,7 +39,8 @@ XML_CHAPTER_FILES = \
 	notes.xml
 
 XML_REF3_FILES = \
-	tftp.xml
+	tftp.xml \
+	tftp_logger.xml
 
 XML_PART_FILES = \
 	usersguide.xml

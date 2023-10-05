@@ -36,9 +36,27 @@
 
 -define(VMODULE,"SEC").
 
+
 %%====================================================================
 %% Internal application API
-%%====================================================================	     
+%%====================================================================
+-callback event(What, Port, Dir, Data) -> term() when
+      What :: auth_fail | user_block | user_unblock,
+      Port :: integer(),
+      Dir :: string(),
+      Data :: [Info],
+      Info :: {Name :: term(), Value :: term()}.
+-callback event(What, Address, Port, Dir, Data) -> term() when
+      What :: auth_fail | user_block | user_unblock,
+      Port :: integer(),
+      Address :: inet:ip4_address() | string(),
+      Dir :: string(),
+      Data :: [Info],
+      Info :: {Name :: term(), Value :: term()}.
+
+%%====================================================================
+%% Internal application API
+%%====================================================================
 do(Info) ->
     %% Check and see if any user has been authorized.
     case proplists:get_value(remote_user, Info#mod.data,not_defined_user) of

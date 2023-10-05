@@ -61,7 +61,7 @@
 	<tag><c>{server_port, integer()}</c></tag>
 	<item><p>Servers port number.</p></item>
 	
-	<tag><c>{request_method, "GET | "PUT" | "DELETE" | "POST" | "PATCH"}</c></tag>
+	<tag><c>{request_method, "GET" | "PUT" | "DELETE" | "POST" | "PATCH"}</c></tag>
 	<item><p>HTTP request method.</p></item>
 		
 	<tag><c>{remote_adress, inet:ip_address()} </c></tag>
@@ -127,7 +127,7 @@
      to the server process by calling <c>mod_esi:deliver/2</c>.</fsummary>
      <type>
        <v>SessionID = term()</v>
-       <v>Env = env()</v>
+       <v>Env = [env()]</v>
        <v>Input = string() | chunked_data()</v>
        <v>chunked_data() = {first, Data::binary()} |
        {continue, Data::binary(), State::term()} |
