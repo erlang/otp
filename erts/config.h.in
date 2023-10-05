@@ -609,6 +609,10 @@
    don't. */
 #undef HAVE_DECL_TIME2POSIX
 
+/* Define to 1 if you have the declaration of `VMADDR_CID_LOCAL`,
+   and to 0 if you don't. */
+#undef HAVE_DECL_VMADDR_CID_LOCAL
+
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
 #undef HAVE_DIRENT_H
@@ -799,6 +803,9 @@
 
 /* Define to 1 if you have the <linux/types.h> header file. */
 #undef HAVE_LINUX_TYPES_H
+
+/* Define to 1 if you have the <linux/vm_sockets.h> header file. */
+#undef HAVE_LINUX_VM_SOCKETS_H
 
 /* Define to 1 if you have the `localtime_r' function. */
 #undef HAVE_LOCALTIME_R

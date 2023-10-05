@@ -113,6 +113,7 @@
               sockaddr_un/0,
               sockaddr_ll/0,
               sockaddr_dl/0,
+              sockaddr_vm/0,
               sockaddr_unspec/0,
               sockaddr_native/0,
 
@@ -136,6 +137,9 @@
               ipv6_pmtudisc/0,
               ipv6_hops/0,
               ipv6_pktinfo/0,
+
+              vsock_port_number/0,
+              vsock_context_id/0,
 
               sctp_assocparams/0,
               sctp_event_subscribe/0,
@@ -220,7 +224,7 @@
 
 
 %% We support only a subset of all domains.
--type domain() :: inet | inet6 | local | unspec.
+-type domain() :: inet | inet6 | local | vsock | unspec.
 
 %% We support only a subset of all types.
 %% RDM - Reliably Delivered Messages
@@ -302,6 +306,12 @@
           ifindex := integer()
          }.
 
+-type vsock_port_number() ::
+        0..16#FFFFFFFF.
+
+-type vsock_context_id() ::
+        0..16#FFFFFFFF.
+
 -type sctp_assocparams() ::
         #{assoc_id                := integer(),
           asocmaxrxt              := 0..16#ffff,
@@ -373,6 +383,11 @@
           alen     := non_neg_integer(),
           slen     := non_neg_integer(),
           data     := binary()}.
+-type sockaddr_vm() ::
+        #{family   := 'vsock',
+          port     := vsock_port_number(),
+          cid      := 'any' | 'local' | 'host' | 'hypervisor' |
+                      vsock_context_id()}.
 -type sockaddr_unspec() ::
         #{family := 'unspec', addr := binary()}.
 -type sockaddr_native() ::
@@ -383,6 +398,7 @@
         sockaddr_un()      |
         sockaddr_ll()      |
         sockaddr_dl()      |
+        sockaddr_vm()      |
         sockaddr_unspec()  |
         sockaddr_native().
 
@@ -864,7 +880,7 @@ which_sockets() ->
     ?REGISTRY:which_sockets(true).
 
 -spec which_sockets(FilterRule) -> [socket()] when
-	FilterRule :: 'inet' | 'inet6' | 'local' |
+	FilterRule :: 'inet' | 'inet6' | 'vsock' | 'local' |
 	'stream' | 'dgram' | 'seqpacket' |
 	'sctp' | 'tcp' | 'udp' |
 	pid() |
@@ -873,6 +889,7 @@ which_sockets() ->
 which_sockets(Domain)
   when Domain =:= inet;
        Domain =:= inet6;
+       Domain =:= vsock;
        Domain =:= local ->
     ?REGISTRY:which_sockets({domain, Domain});
 
@@ -1059,7 +1076,7 @@ i() ->
 -spec i(InfoKeys) -> ok when
         InfoKeys :: info_keys();
        (Domain) -> ok when
-        Domain :: inet | inet6 | local;
+        Domain :: inet | inet6 | vsock | local;
        (Proto) -> ok when
         Proto :: sctp | tcp | udp;
        (Type) -> ok when
@@ -1069,6 +1086,7 @@ i(InfoKeys) when is_list(InfoKeys) ->
     do_i(which_sockets(), InfoKeys);
 i(Domain) when (Domain =:= inet) orelse
 	       (Domain =:= inet6) orelse
+	       (Domain =:= vsock) orelse
 	       (Domain =:= local) ->
     do_i(which_sockets(Domain), default_info_keys());
 i(Proto) when (Proto =:= tcp) orelse
@@ -1081,7 +1099,7 @@ i(Type) when (Type =:= dgram) orelse
     do_i(which_sockets(Type), default_info_keys()).
 
 -spec i(Domain, InfoKeys) -> ok when
-        Domain :: inet | inet6 | local,
+        Domain :: inet | inet6 | vsock | local,
 	InfoKeys :: info_keys();
        (Proto, InfoKeys) -> ok when
 	Proto :: sctp | tcp | udp,
@@ -1093,6 +1111,7 @@ i(Type) when (Type =:= dgram) orelse
 i(Domain, InfoKeys)
   when ((Domain =:= inet) orelse
 	(Domain =:= inet6) orelse
+	(Domain =:= vsock) orelse
 	(Domain =:= local)) andalso
        is_list(InfoKeys) ->
     do_i(which_sockets(Domain), InfoKeys);
@@ -1249,6 +1268,11 @@ fmt_sockaddr(#{family := Fam,
 	{0,0,0,0,0,0,0,1} -> "localhost:" ++ fmt_port(Port, Proto);
 	IP                -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto)
     end;
+fmt_sockaddr(#{family := vsock, port := Port, cid := 16#ffffffff}, Proto) ->
+    % Display the "any" CID as -1 for consistency with VMADDR_CID_ANY
+    "vsock[-1]:" ++ fmt_port(Port, Proto);
+fmt_sockaddr(#{family := vsock, port := Port, cid := Cid}, Proto) ->
+    "vsock[" ++ integer_to_list(Cid) ++ "]:" ++ fmt_port(Port, Proto);
 fmt_sockaddr(#{family := local,
 	       path   := Path}, _Proto) ->
     "local:" ++ 
@@ -1575,6 +1599,9 @@ bind(?socket(SockRef), Addr) when is_reference(SockRef) ->
                        Domain =:= inet6 ->
                     prim_socket:bind(
                       SockRef, #{family => Domain, addr => Addr});
+                {ok, vsock} when Addr =:= any ->
+                    prim_socket:bind(
+                      SockRef, #{family => vsock, port => any, cid => any});
                 {ok, _Domain} ->
                     {error, eafnosupport};
                 {error, _} = ERROR ->
