@@ -87,13 +87,6 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       see <seeerl marker="logger_filters">logger_filters</seeerl>.</item>
     </list>
 
-    <note>
-      <p>Since Logger is new in Erlang/OTP 21.0, we do reserve the right
-	to introduce changes to the Logger API and functionality in
-	patches following this release. These changes might or might not
-	be backwards compatible with the initial version.</p>
-    </note>
-
   </description>
 
   <datatypes>

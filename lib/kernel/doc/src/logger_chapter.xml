@@ -30,7 +30,7 @@
     <file>logger_chapter.xml</file>
   </header>
 
-  <p>Erlang/OTP 21.0 provides a standard API for logging
+  <p>Erlang provides a standard API for logging
     through <c>Logger</c>, which is part of the Kernel
     application. Logger consists of the API for issuing log events,
     and a customizable backend where log handlers, filters and
@@ -47,13 +47,6 @@
   <p>By configuration, you can also modify or disable the default
     handler, replace it by a custom handler, and install additional
     handlers.</p>
-
-  <note>
-    <p>Since Logger is new in Erlang/OTP 21.0, we do reserve the right
-      to introduce changes to the Logger API and functionality in
-      patches following this release. These changes might or might not
-      be backwards compatible with the initial version.</p>
-  </note>
 
   <section>
     <title>Overview</title>
