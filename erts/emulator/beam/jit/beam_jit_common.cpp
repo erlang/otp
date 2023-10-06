@@ -1196,7 +1196,6 @@ Sint32 beam_jit_remove_message(Process *c_p,
         Sint tok_label = 0;
         Sint tok_lastcnt = 0;
         Sint tok_serial = 0;
-        Sint len = erts_proc_sig_privqs_len(c_p);
 
         dtrace_proc_str(c_p, receiver_name);
         token2 = SEQ_TRACE_TOKEN(c_p);
@@ -1208,7 +1207,7 @@ Sint32 beam_jit_remove_message(Process *c_p,
         DTRACE6(message_receive,
                 receiver_name,
                 size_object(ERL_MESSAGE_TERM(msgp)),
-                len, /* This is NOT message queue len, but its something... */
+                c_p->sig_qs.mq_len,
                 tok_label,
                 tok_lastcnt,
                 tok_serial);

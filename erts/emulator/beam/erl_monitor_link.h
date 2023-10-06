@@ -517,7 +517,7 @@ typedef struct {
 
 struct ErtsMonLnkNode__ {
     union {
-        ErtsSignalCommon signal;
+        ErtsNonMsgSignal signal;
         ErtsMonLnkTreeNode tree;
         ErtsMonLnkListNode list;
     } node;

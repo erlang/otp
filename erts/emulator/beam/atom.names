@@ -410,6 +410,7 @@ atom load_failure
 atom local
 atom logger
 atom long_gc
+atom long_message_queue
 atom long_schedule
 atom low
 atom Lt='<'

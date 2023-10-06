@@ -428,6 +428,8 @@ Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
 Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
 Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
+Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
+Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_off);
 struct erts_system_monitor_flags_t erts_system_monitor_flags;
 
 /* system performance monitor */
@@ -9562,7 +9564,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	state = erts_atomic32_read_nob(&p->state);
 
         if ((state & ERTS_PSFLG_MSG_SIG_IN_Q)
-            && ERTS_MSG_RECV_TRACED(p)
+            && ((p->sig_qs.flags & FS_MON_MSGQ_LEN)
+                || ERTS_MSG_RECV_TRACED(p))
             && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
             if (!(state & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_ACTIVE_SYS))) {
                 goto sched_out_fetch_signals;
@@ -10005,7 +10008,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                             erts_runq_unlock(rq);
                             erts_proc_lock(p, (ERTS_PROC_LOCK_MAIN
                                                | ERTS_PROC_LOCK_MSGQ));
-                            if (ERTS_MSG_RECV_TRACED(p)
+                            if (((p->sig_qs.flags & FS_MON_MSGQ_LEN)
+                                 || ERTS_MSG_RECV_TRACED(p))
                                 && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
                                 erts_proc_sig_fetch(p);
                             }
@@ -10043,7 +10047,16 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	erts_proc_lock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
 
-	state = erts_atomic32_read_nob(&p->state);
+        if (erts_system_monitor_long_msgq_off < 0) {
+            if (p->sig_qs.flags & FS_MON_MSGQ_LEN)
+                p->sig_qs.flags &= ~(FS_MON_MSGQ_LEN|FS_MON_MSGQ_LEN_LONG);
+        }
+        else {
+            if (!(p->sig_qs.flags & FS_MON_MSGQ_LEN))
+                p->sig_qs.flags |= FS_MON_MSGQ_LEN;
+        }
+
+        state = erts_atomic32_read_nob(&p->state);
 
 	if (erts_sched_stat.enabled) {
 	    int prio;
@@ -12482,13 +12495,14 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
     p->sig_qs.recv_mrk_blk = NULL;
-    p->sig_qs.len = 0;
+    p->sig_qs.mq_len = 0;
+    p->sig_qs.mlenoffs = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
     p->sig_inq_contention_counter = 0;
     p->sig_inq.first = NULL;
     p->sig_inq.last = &p->sig_inq.first;
-    p->sig_inq.len = 0;
+    p->sig_inq.mlenoffs = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
     ASSERT(erts_atomic_read_nob(&p->sig_inq_buffers) == (erts_aint_t)NULL);
@@ -12999,13 +13013,14 @@ void erts_init_empty_process(Process *p)
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
     p->sig_qs.recv_mrk_blk = NULL;
-    p->sig_qs.len = 0;
+    p->sig_qs.mq_len = 0;
+    p->sig_qs.mlenoffs = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
     p->sig_inq_contention_counter = 0;
     p->sig_inq.first = NULL;
     p->sig_inq.last = &p->sig_inq.first;
-    p->sig_inq.len = 0;
+    p->sig_inq.mlenoffs = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
     erts_atomic_init_nob(&p->sig_inq_buffers, (erts_aint_t)NULL);
@@ -13085,7 +13100,8 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(ERTS_P_LT_MONITORS(p) == NULL);
     ASSERT(ERTS_P_LINKS(p) == NULL);
     ASSERT(p->sig_qs.first == NULL);
-    ASSERT(p->sig_qs.len == 0);
+    ASSERT(p->sig_qs.mq_len == 0);
+    ASSERT(p->sig_qs.mlenoffs == 0);
     ASSERT(p->bif_timers == NULL);
     ASSERT(p->dictionary == NULL);
     ASSERT(p->catches == 0);
@@ -13095,7 +13111,7 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->parent == am_undefined);
 
     ASSERT(p->sig_inq.first == NULL);
-    ASSERT(p->sig_inq.len == 0);
+    ASSERT(p->sig_inq.mlenoffs == 0);
 
     /* Thing that erts_cleanup_empty_process() cleans up */
 

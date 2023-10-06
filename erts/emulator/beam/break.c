@@ -316,7 +316,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
         len = erts_proc_sig_fetch(p);
         erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
     } else {
-        len = p->sig_qs.len;
+        len = p->sig_qs.mq_len;
     }
     erts_print(to, to_arg, "Message queue length: %d\n", len);
 
@@ -324,14 +324,13 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
        and we can do it safely */
     if (!ERTS_IS_CRASH_DUMPING && p->sig_qs.first != NULL && !garbing
         && (locks & ERTS_PROC_LOCK_MAIN)) {
+        ErtsMessage *mp;
 	erts_print(to, to_arg, "Message queue: [");
-        ERTS_FOREACH_SIG_PRIVQS(
-            p, mp,
-            {
-                if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
-                    erts_print(to, to_arg, mp->next ? "%T," : "%T",
-                               ERL_MESSAGE_TERM(mp));
-            });
+        for (mp = p->sig_qs.first; mp; mp = mp->next) {
+            if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
+                erts_print(to, to_arg, mp->next ? "%T," : "%T",
+                           ERL_MESSAGE_TERM(mp));
+        }
 	erts_print(to, to_arg, "]\n");
     }
 
