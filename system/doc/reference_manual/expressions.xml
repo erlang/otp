@@ -840,7 +840,7 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
       whether two terms are indistinguishable. While the other operators
       consider the same <em>numbers</em> equal even when their types differ
       (<c>1 == 1.0</c> is true), the term equivalence operators return whether
-      there exists any function that can tell their arguments apart.</p>
+      or not there exists a way to tell the arguments apart.</p>
 
     <p>For example, while the terms <c>0</c> and <c>0.0</c> represent the same
       <em>number</em>, we can tell them apart by using the <c>is_integer/1</c>
@@ -855,8 +855,9 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
 
     <p>The term equivalence operators are useful when reasoning about terms as 
       opaque values, for example in associative containers or memoized
-      functions where using the equal-to operator (<c>==</c>) can result in
-      subtly incorrect results.</p>
+      functions where using the equal-to operator (<c>==</c>) risks producing
+      incorrect results as a consequence of mixing up numbers of different
+      types.</p>
 
     <p>Term comparison operators return the Boolean value of the
       expression, <c>true</c> or <c>false</c>.</p>
