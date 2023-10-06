@@ -339,11 +339,12 @@ handle_call({get_object_code,Mod}, _From, St0) when is_atom(Mod) ->
 handle_call({get_object_code_for_loading,Mod}, From, St0) when is_atom(Mod) ->
     case erlang:module_loaded(Mod) of
         true -> {reply, {module, Mod}, St0};
-        false ->
+        false when St0#state.mode =:= interactive ->
             case wait_loading(St0, Mod, From) of
                 {true, St1} -> {noreply, St1};
                 false -> get_object_code_for_loading(St0, Mod, From)
-            end
+            end;
+        false -> {reply, {error,embedded}, St0}
     end;
 
 handle_call(stop,_From, S) ->
