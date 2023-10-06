@@ -160,6 +160,17 @@
     </func>
 
     <func>
+      <name name="get_label" arity="1" since="OTP 26.2"/>
+      <fsummary>Returns the user-set process label.</fsummary>
+      <desc>
+        <p>Returns either <c>undefined</c> or the label for the process
+        <anno>Pid</anno> set with <seemfa marker="#set_label/1">
+        <c>proc_lib:set_label/1</c></seemfa>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="hibernate" arity="3" since=""/>
       <fsummary>Hibernate a process until a message is sent to it.</fsummary>
       <desc>
@@ -326,6 +337,23 @@ init(Parent) ->
             keeping the fun would prevent code upgrade for the module, and that
             a significant amount of memory could be wasted.</p>
         </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_label" arity="1" since="OTP 26.2"/>
+      <fsummary>Set process label.</fsummary>
+      <desc>
+        <p>Set a label for the current process.
+        The primary purpose is to aid in debugging unregistered processes.
+        The process label can be used in tools and crash reports to identify processes
+        but it doesn't have to be unique or an atom, as a registered name needs to be.
+        The process label can be any term, for example <c>{worker_process, 1..N}</c>.
+        </p>
+        <p>
+          Use <seemfa marker="#get_label/1">
+          <c>proc_lib:get_label/1</c></seemfa> to lookup the process description.
+        </p>
       </desc>
     </func>
 

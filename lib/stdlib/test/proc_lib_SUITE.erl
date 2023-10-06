@@ -30,8 +30,8 @@
          sync_start_monitor/1, sync_start_monitor_link/1,
          sync_start_timeout/1, sync_start_link_timeout/1,
          sync_start_monitor_link_timeout/1,
-         spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1, sp6/1, sp7/1,
-         sp8/1, sp9/1, sp10/1,
+         spawn_opt/1, sp1/0, sp1_with_label/0, sp2/0, sp3/1, sp4/2,
+         sp5/1, sp6/1, sp7/1, sp8/1, sp9/1, sp10/1,
          '\x{447}'/0, hibernate/1, stop/1, t_format/1, t_format_arbitrary/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
@@ -135,11 +135,18 @@ crash_1(_Config) ->
     ct:sleep(100),
     {?MODULE,sp2,[]} = proc_lib:initial_call(Pid4),
     {?MODULE,sp2,0} = proc_lib:translate_initial_call(Pid4),
+    {test, sp2} = proc_lib:get_label(Pid4),
+    %% Check this, if changed fix c.erl and runtime_tools
+    %% which uses the 'internal' dictionary name as an optimization.
+    {_, {test, sp2}} = process_info(Pid4, {dictionary, '$process_label'}),
+
     Pid4 ! die,
     Exp4 = [{initial_call,{?MODULE,sp2,[]}},
+            {process_label, {test, sp2}},
 	    {ancestors,[self()]},
 	    {error_info,{exit,die,{stacktrace}}}],
-    Links4 = [[{initial_call,{?MODULE,sp1,[]}},
+    Links4 = [[{initial_call,{?MODULE,sp1_with_label,[]}},
+               {process_label, {test, sp1_with_label}},
 	       {ancestors,[Pid4,self()]}]],
     analyse_crash(Pid4, Exp4, Links4),
 
@@ -380,13 +387,20 @@ spawn_opt(Config) when is_list(Config) ->
 
 
 sp1() ->
-    receive 
+    receive
 	die -> exit(die);
 	_ -> sp1()
     end.
 
+sp1_with_label() ->
+    ok = proc_lib:set_label({test, ?FUNCTION_NAME}),
+    sp1().
+
 sp2() ->
-    _Pid = proc_lib:spawn_link(?MODULE, sp1, []),
+    ok = proc_lib:set_label({test, ?FUNCTION_NAME}),
+    {test, ?FUNCTION_NAME} = proc_lib:get_label(self()),
+
+    _Pid = proc_lib:spawn_link(?MODULE, sp1_with_label, []),
     receive 
 	die -> exit(die);
 	_ -> sp1()

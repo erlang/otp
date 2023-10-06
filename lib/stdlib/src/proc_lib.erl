@@ -35,6 +35,7 @@
 	 init_p/3,init_p/5,format/1,format/2,format/3,report_cb/2,
 	 initial_call/1,
          translate_initial_call/1,
+         set_label/1, get_label/1,
 	 stop/1, stop/3]).
 
 %% Internal exports.
@@ -523,6 +524,32 @@ translate_initial_call(DictOrPid) ->
     end.
 
 %% -----------------------------------------------------
+%% [get] set_label/1
+%% Add and fetch process id's to aid in debugging
+%% -----------------------------------------------------
+
+-spec set_label(Label) -> ok when
+      Label :: term().
+set_label(Label) ->
+    put('$process_label', Label),
+    ok.
+
+-spec get_label(Pid) -> undefined | term() when
+      Pid :: pid().
+get_label(Pid) ->
+    case Pid == self() of
+        true ->
+            get('$process_label');
+        false ->
+            try get_process_info(Pid, {dictionary, '$process_label'}) of
+                {process_label, Id} -> Id;
+                _ -> undefined
+            catch _:_ -> %% Old Node
+                    undefined
+            end
+    end.
+
+%% -----------------------------------------------------
 %% Fetch the initial call information exactly as stored
 %% in the process dictionary.
 %% -----------------------------------------------------
@@ -530,26 +557,26 @@ translate_initial_call(DictOrPid) ->
 raw_initial_call({X,Y,Z}) when is_integer(X), is_integer(Y), is_integer(Z) ->
     raw_initial_call(c:pid(X,Y,Z));
 raw_initial_call(Pid) when is_pid(Pid) ->
-    case get_process_info(Pid, dictionary) of
-	{dictionary,Dict} ->
-	    raw_init_call(Dict);
-	_ ->
-	    false
+    case get_dictionary(Pid, '$initial_call') of
+	{_,_,_}=MFA -> MFA;
+	_ -> false
     end;
 raw_initial_call(ProcInfo) when is_list(ProcInfo) ->
-    case lists:keyfind(dictionary, 1, ProcInfo) of
-	{dictionary,Dict} ->
-	    raw_init_call(Dict);
-	_ ->
-	    false
-    end.
-
-raw_init_call(Dict) ->
-    case lists:keyfind('$initial_call', 1, Dict) of
-	{_,{_,_,_}=MFA} ->
-	    MFA;
-	_ ->
-	    false
+    case lists:keyfind({dictionary, '$initial_call'}, 1, ProcInfo) of
+        {{dictionary,_}, {_,_,_}=MFA} ->
+            MFA;
+        false ->
+            case lists:keyfind(dictionary, 1, ProcInfo) of
+                {dictionary,Dict} ->
+                    case lists:keyfind('$initial_call', 1, Dict) of
+                        {_,{_,_,_}=MFA} ->
+                            MFA;
+                        _ ->
+                            false
+                    end;
+                _ ->
+                    false
+            end
     end.
 
 %% -----------------------------------------------------
@@ -596,30 +623,25 @@ my_info(Class, Reason, StartF, Stacktrace) ->
      my_info_1(Class, Reason, Stacktrace)].
 
 my_info_1(Class, Reason, Stacktrace) ->
+    Keys = [registered_name, dictionary, message_queue_len,
+            links, trap_exit, status, heap_size, stack_size, reductions],
+    PInfo = get_process_info(self(), Keys),
+    {dictionary, Dict} = lists:keyfind(dictionary,1,PInfo),
     [{pid, self()},
-     get_process_info(self(), registered_name),         
+     lists:keyfind(registered_name,1,PInfo),
+     {process_label, get_label(self())},
      {error_info, {Class,Reason,Stacktrace}},
-     get_ancestors(self()),        
-     get_process_info(self(), message_queue_len),
+     {ancestors, get_ancestors()},
+     lists:keyfind(message_queue_len,1,PInfo),
      get_messages(self()),
-     get_process_info(self(), links),
-     get_cleaned_dictionary(self()),
-     get_process_info(self(), trap_exit),
-     get_process_info(self(), status),
-     get_process_info(self(), heap_size),
-     get_process_info(self(), stack_size),
-     get_process_info(self(), reductions)
+     lists:keyfind(links, 1, PInfo),
+     {dictionary, cleaned_dict(Dict)},
+     lists:keyfind(trap_exit, 1, PInfo),
+     lists:keyfind(status, 1, PInfo),
+     lists:keyfind(heap_size, 1, PInfo),
+     lists:keyfind(stack_size, 1, PInfo),
+     lists:keyfind(reductions, 1, PInfo)
     ].
-
--spec get_ancestors(pid()) -> {'ancestors', [pid()]}.
-
-get_ancestors(Pid) ->
-    case get_dictionary(Pid,'$ancestors') of
-	{'$ancestors',Ancestors} ->
-	    {ancestors,Ancestors};
-	_ ->
-	    {ancestors,[]}
-    end.
 
 %% The messages and the dictionary are possibly limited too much if
 %% some error handles output the messages or the dictionary using ~P
@@ -654,12 +676,6 @@ receive_messages(N) ->
             []
     end.
 
-get_cleaned_dictionary(Pid) ->
-    case get_process_info(Pid,dictionary) of
-	{dictionary,Dict} -> {dictionary,cleaned_dict(Dict)};
-	_                 -> {dictionary,[]}
-    end.
-
 cleaned_dict(Dict) ->
     CleanDict = clean_dict(Dict),
     error_logger:limit_term(CleanDict).
@@ -668,65 +684,107 @@ clean_dict([{'$ancestors',_}|Dict]) ->
     clean_dict(Dict);
 clean_dict([{'$initial_call',_}|Dict]) ->
     clean_dict(Dict);
+clean_dict([{'$process_label',_}|Dict]) ->
+    clean_dict(Dict);
 clean_dict([E|Dict]) ->
     [E|clean_dict(Dict)];
 clean_dict([]) ->
     [].
 
 get_dictionary(Pid,Tag) ->
-    case get_process_info(Pid,dictionary) of
-	{dictionary,Dict} ->
-	    case lists:keysearch(Tag,1,Dict) of
-		{value,Value} -> Value;
-		_             -> undefined
-	    end;
+    try get_process_info(Pid, {dictionary, Tag}) of
+	{{dictionary,Tag},Value} ->
+            Value;
 	_ ->
 	    undefined
+    catch _:_ -> %% rpc to old node
+            case get_process_info(Pid,dictionary) of
+                {dictionary,Dict} ->
+                    case lists:keysearch(Tag,1,Dict) of
+                        {value,Value} -> Value;
+                        _ -> undefined
+                    end;
+                _ ->
+                    undefined
+            end
     end.
 
 linked_info(Pid) ->
   make_neighbour_reports1(neighbours(Pid)).
   
 make_neighbour_reports1([P|Ps]) ->
-  ReportBody = make_neighbour_report(P),
-  %%
-  %%  Process P might have been deleted.
-  %%
-  case lists:member(undefined, ReportBody) of
-    true ->
-      make_neighbour_reports1(Ps);
-    false ->
-      [{neighbour, ReportBody}|make_neighbour_reports1(Ps)]
-  end;
+    %%
+    %%  Process P might have been deleted.
+    %%
+    case make_neighbour_report(P) of
+        undefined ->
+            make_neighbour_reports1(Ps);
+        ReportBody ->
+            [{neighbour, ReportBody}|make_neighbour_reports1(Ps)]
+    end;
 make_neighbour_reports1([]) ->
-  [].
+    [].
   
 %% Do not include messages or process dictionary, even if
 %% error_logger_format_depth is unlimited.
 make_neighbour_report(Pid) ->
-  [{pid, Pid},
-   get_process_info(Pid, registered_name),          
-   get_initial_call(Pid),
-   get_process_info(Pid, current_function),
-   get_ancestors(Pid),
-   get_process_info(Pid, message_queue_len),
-   %% get_messages(Pid),
-   get_process_info(Pid, links),
-   %% get_cleaned_dictionary(Pid),
-   get_process_info(Pid, trap_exit),
-   get_process_info(Pid, status),
-   get_process_info(Pid, heap_size),
-   get_process_info(Pid, stack_size),
-   get_process_info(Pid, reductions),
-   get_process_info(Pid, current_stacktrace)
-  ].
- 
-get_initial_call(Pid) ->
-    case get_dictionary(Pid, '$initial_call') of
-	{'$initial_call', {M, F, A}} ->
+    Keys = [registered_name,
+            initial_call, current_function,
+            message_queue_len, links, trap_exit,
+            status, heap_size, stack_size, reductions,
+            current_stacktrace
+           ],
+    ProcInfo = get_process_info(Pid, Keys),
+    
+    DictKeys = [{dictionary, '$process_label'},
+                {dictionary, '$initial_call'},
+                {dictionary, '$ancestors'}],
+
+    DictInfo = try get_process_info(Pid, DictKeys)
+            catch _:_ -> %% old node
+                    get_process_info(Pid, dictionary)
+            end,
+    case ProcInfo =:= undefined orelse DictInfo =:= undefined of
+        true -> undefined;
+        false ->
+            [{pid, Pid},
+             lists:keyfind(registered_name,1,ProcInfo),
+             dict_find_info('$process_label', DictInfo, undefined),
+             get_initial_call(DictInfo, ProcInfo),
+             lists:keyfind(current_function, 1, ProcInfo),
+             dict_find_info('$ancestors', DictInfo, []),
+             lists:keyfind(message_queue_len, 1, ProcInfo),
+             lists:keyfind(links, 1, ProcInfo),
+             lists:keyfind(trap_exit, 1, ProcInfo),
+             lists:keyfind(status, 1, ProcInfo),
+             lists:keyfind(heap_size, 1, ProcInfo),
+             lists:keyfind(stack_size, 1, ProcInfo),
+             lists:keyfind(reductions, 1, ProcInfo),
+             lists:keyfind(current_stacktrace, 1, ProcInfo)
+            ]
+    end.
+
+get_initial_call(DictInfo, ProcInfo) ->
+    case dict_find_info('$initial_call', DictInfo, undefined) of
+	{initial_call, {M, F, A}} ->
 	    {initial_call, {M, F, make_dummy_args(A, [])}};
-	_ ->
-	    get_process_info(Pid, initial_call)
+	_R ->
+	    lists:keyfind(initial_call, 1, ProcInfo)
+    end.
+
+dict_find_info(DictKey, Dict, Default) ->
+    [$$|KeyList] = atom_to_list(DictKey),
+    InfoKey = list_to_existing_atom(KeyList),
+    case lists:keyfind({dictionary, DictKey}, 1, Dict) of
+        false ->
+            case lists:keyfind(DictKey, 1, Dict) of
+                {DictKey, V} -> {InfoKey, V};
+                false -> {InfoKey, Default}
+            end;
+        {{dictionary,DictKey}, undefined} ->
+            {InfoKey,Default};
+        {{dictionary,DictKey}, V} ->
+            {InfoKey,V}
     end.
 
 %%  neighbours(Pid) = list of Pids
@@ -781,14 +839,14 @@ no_trap([]) ->
   [].
  
 get_process_info(Pid, Tag) ->
- translate_process_info(Tag, catch proc_info(Pid, Tag)).
+    translate_process_info(Tag, catch proc_info(Pid, Tag)).
 
-translate_process_info(registered_name, []) ->
-  {registered_name, []};
+translate_process_info({dictionary, '$process_label'} = Tag, {Tag, Value}) ->
+    {process_label, Value};
 translate_process_info(_ , {'EXIT', _}) ->
-  undefined;
+    undefined;
 translate_process_info(_, Result) ->
-  Result.
+    Result.
 
 %%% -----------------------------------------------------------
 %%% Misc. functions
@@ -801,7 +859,6 @@ get_my_name() ->
     end.
 
 -spec get_ancestors() -> [pid()].
-
 get_ancestors() ->
     case get('$ancestors') of
 	A when is_list(A) -> A;
@@ -998,6 +1055,8 @@ format_report(Rep, Indent0, Extra, Limit) ->
 format_rep([{initial_call,InitialCall}|Rep], Indent, Extra, Limit) ->
     [format_mfa(Indent, InitialCall, Extra, Limit)|
      format_rep(Rep, Indent, Extra, Limit)];
+format_rep([{process_label,undefined}|Rep], Indent, Extra, Limit) ->
+    format_rep(Rep, Indent, Extra, Limit);
 format_rep([{Tag,Data}|Rep], Indent, Extra, Limit) ->
     [format_tag(Indent, Tag, Data, Extra, Limit)|
      format_rep(Rep, Indent, Extra, Limit)];
