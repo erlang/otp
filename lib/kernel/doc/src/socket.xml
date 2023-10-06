@@ -392,6 +392,10 @@
       <desc></desc>
     </datatype>
     <datatype>
+      <name name="sockaddr_vm"/>
+      <desc></desc>
+    </datatype>
+    <datatype>
       <name name="sockaddr_unspec"/>
       <desc></desc>
     </datatype>
@@ -417,6 +421,14 @@
     </datatype>
     <datatype>
       <name name="in6_scope_id"/>
+      <desc></desc>
+    </datatype>
+    <datatype>
+      <name name="vsock_port_number"/>
+      <desc></desc>
+    </datatype>
+    <datatype>
+      <name name="vsock_context_id"/>
       <desc></desc>
     </datatype>
     <datatype>
