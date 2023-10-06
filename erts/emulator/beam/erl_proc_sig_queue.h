@@ -866,7 +866,11 @@ erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to,
  * @param[in]     item_ix       Info index array to pass to
  *                              erts_process_info()
  *
- * @param[in]     len           Length of info index array
+ * @param[in]     item_extra    Extra terms array to pass to
+ *                              erts_process_info()
+ *
+ * @param[in]     len           Length of info index array and
+ *                              extra array if such is provided
  *
  * @param[in]     need_msgq_len Non-zero if message queue
  *                              length is needed; otherwise,
@@ -892,6 +896,7 @@ int
 erts_proc_sig_send_process_info_request(Process *c_p,
                                         Eterm to,
                                         int *item_ix,
+                                        Eterm *item_extra,
                                         int len,
                                         int need_msgq_len,
                                         int flags,

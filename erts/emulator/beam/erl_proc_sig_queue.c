@@ -200,7 +200,9 @@ typedef struct {
     Uint reserve_size;
     Uint len;
     int flags;
-    int item_ix[1]; /* of len size in reality... */
+    int *item_ix;
+    Eterm *item_extra;
+    ErlHeapFragment *extra_hfrag;
 } ErtsProcessInfoSig;
 
 #define ERTS_PROC_SIG_PI_MSGQ_LEN_IGNORE        ((Sint) -1)
@@ -507,6 +509,14 @@ destroy_sig_group_leader(ErtsSigGroupLeader *sgl)
 {
     erts_cleanup_offheap(&sgl->oh);
     erts_free(ERTS_ALC_T_SIG_DATA, sgl);
+}
+
+static void
+destroy_process_info_sig(ErtsProcessInfoSig *pis)
+{
+    if (pis->extra_hfrag)
+        erts_cleanup_offheap(&pis->extra_hfrag->off_heap);
+    erts_free(ERTS_ALC_T_SIG_DATA, pis);
 }
 
 static ERTS_INLINE void
@@ -2684,15 +2694,88 @@ int
 erts_proc_sig_send_process_info_request(Process *c_p,
                                         Eterm to,
                                         int *item_ix,
+                                        Eterm *item_extra,
                                         int len,
                                         int need_msgq_len,
                                         int flags,
                                         Uint reserve_size,
                                         Eterm ref)
 {
-    Uint size = sizeof(ErtsProcessInfoSig) + (len - 1) * sizeof(int);
-    ErtsProcessInfoSig *pis = erts_alloc(ERTS_ALC_T_SIG_DATA, size);
+    Uint size, item_ix_offs, extra_offs, extra_hfrag_offs,
+        extra_hsz = 0, *extra_hszs = NULL;
+    ErtsProcessInfoSig *pis;
     int res;
+
+    if (item_extra) {
+        int i;
+        extra_hszs = erts_alloc(ERTS_ALC_T_TMP, sizeof(Uint)*len);
+        for (i = 0; i < len; i++) {
+            Eterm extra = item_extra[i];
+            extra_hszs[i] = (is_non_value(extra) || is_immed(extra)
+                             ? 0
+                             : size_object(extra));
+            extra_hsz += extra_hszs[i];
+        }
+    }
+
+    size = ERTS_ALC_WORD_ALIGN_SIZE(sizeof(ErtsProcessInfoSig));
+    item_ix_offs = size;
+    size += ERTS_ALC_WORD_ALIGN_SIZE(len * sizeof(int));
+    if (!item_extra) {
+        extra_offs = 0;
+        extra_hfrag_offs = 0;
+    }
+    else {
+        extra_offs = size;
+        size += ERTS_ALC_WORD_ALIGN_SIZE(len * sizeof(Eterm));
+        extra_hfrag_offs = size;
+        if (extra_hsz)
+            size += ERTS_HEAP_FRAG_SIZE(extra_hsz);
+    }
+    pis = erts_alloc(ERTS_ALC_T_SIG_DATA, size);
+    pis->item_ix = (int *) (((char *) pis) + item_ix_offs);
+    if (!item_extra) {
+        ASSERT(!extra_offs);
+        pis->item_extra = NULL;
+        pis->extra_hfrag = NULL;
+    }
+    else {
+        int i;
+        Eterm *extra_hp;
+        ErlOffHeap *extra_off_heap;
+#ifdef DEBUG
+        Eterm *end_hp = NULL;
+#endif
+        ASSERT(extra_offs);
+        pis->item_extra = (Eterm *) (((char *) pis) + extra_offs);
+        if (!extra_hsz) {
+            extra_hp = NULL;
+            extra_off_heap = NULL;
+            pis->extra_hfrag = NULL;
+        }
+        else {
+            pis->extra_hfrag = (ErlHeapFragment *) (((char *) pis)
+                                                    + extra_hfrag_offs);
+            ERTS_INIT_HEAP_FRAG(pis->extra_hfrag, extra_hsz, extra_hsz);
+            extra_hp = &pis->extra_hfrag->mem[0];
+#ifdef DEBUG
+            end_hp = extra_hp + extra_hsz;
+#endif
+            extra_off_heap = &pis->extra_hfrag->off_heap;
+        }
+        for (i = 0; i < len; i++) {
+            if (!extra_hsz || !extra_hszs[i]) {
+                pis->item_extra[i] = item_extra[i];
+            }
+            else {
+                pis->item_extra[i] = copy_struct(item_extra[i], extra_hszs[i],
+                                                 &extra_hp, extra_off_heap);
+            }
+        }
+        ASSERT(extra_hp == end_hp);
+        erts_free(ERTS_ALC_T_TMP, extra_hszs);
+        reserve_size += sizeof(Eterm)*extra_hsz;
+    }
 
     ASSERT(c_p);
     ASSERT(item_ix);
@@ -2730,7 +2813,7 @@ erts_proc_sig_send_process_info_request(Process *c_p,
     if (res) {
         (void) maybe_elevate_sig_handling_prio(c_p, -1, to);
     } else {
-        erts_free(ERTS_ALC_T_SIG_DATA, pis);
+        destroy_process_info_sig(pis);
     }
 
     return res;
@@ -4713,12 +4796,17 @@ destroy_process_info_request(Process *c_p, ErtsProcessInfoSig *pisig)
                 = (ErtsProcessInfoSig *) (((char *) marker)
                                           - offsetof(ErtsProcessInfoSig,
                                                      marker));
-            erts_free(ERTS_ALC_T_SIG_DATA, pisig2);
+            destroy_process_info_sig(pisig2);
         }
     }
 
-    if (dealloc_pisig)
-        erts_free(ERTS_ALC_T_SIG_DATA, pisig);
+    if (dealloc_pisig) {
+        destroy_process_info_sig(pisig);
+    }
+    else if (pisig->extra_hfrag) {
+        erts_cleanup_offheap(&pisig->extra_hfrag->off_heap);
+        pisig->extra_hfrag = NULL;
+    }
 }
 
 static int
@@ -4826,7 +4914,7 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
             erts_factory_selfcontained_message_init(&hfact, mp, &hfrag->mem[0]);
 
             res = erts_process_info(c_p, &hfact, c_p, ERTS_PROC_LOCK_MAIN,
-                                    pisig->item_ix, pisig->len,
+                                    pisig->item_ix, pisig->item_extra, pisig->len,
                                     pisig->flags, reserve_size, &reds);
 
             hp = erts_produce_heap(&hfact,
