@@ -20494,15 +20494,22 @@ then :
   printf "%s\n" "#define HAVE_SYS_UN_H 1" >>confdefs.h
 
 fi
+
+vsock_header_include=
 ac_fn_c_check_header_compile "$LINENO" "linux/vm_sockets.h" "ac_cv_header_linux_vm_sockets_h" "#include <sys/socket.h>"
 if test "x$ac_cv_header_linux_vm_sockets_h" = xyes
 then :
   printf "%s\n" "#define HAVE_LINUX_VM_SOCKETS_H 1" >>confdefs.h
-
+  vsock_header_include="#include <linux/vm_sockets.h>"
 fi
-
+ac_fn_c_check_header_compile "$LINENO" "sys/vsock.h" "ac_cv_header_sys_vsock_h" "#include <sys/socket.h>"
+if test "x$ac_cv_header_sys_vsock_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_SYS_VSOCK_H 1" >>confdefs.h
+  vsock_header_include="#include <sys/vsock.h>"
+fi
 ac_fn_check_decl "$LINENO" "VMADDR_CID_LOCAL" "ac_cv_have_decl_VMADDR_CID_LOCAL" "#include <sys/socket.h>
-#include <linux/vm_sockets.h>
+$vsock_header_include
 " "$ac_c_undeclared_builtin_options" "CFLAGS"
 if test "x$ac_cv_have_decl_VMADDR_CID_LOCAL" = xyes
 then :

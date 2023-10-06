@@ -79,8 +79,11 @@
 #include <netpacket/packet.h>
 #endif
 
-#ifdef HAVE_LINUX_VM_SOCKETS_H
+#if defined(HAVE_LINUX_VM_SOCKETS_H)
 #include <linux/vm_sockets.h>
+#define HAS_AF_VSOCK 1
+#elif defined(HAVE_SYS_VSOCK_H)
+#include <sys/vsock.h>
 #define HAS_AF_VSOCK 1
 #endif
 

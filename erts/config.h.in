@@ -1147,6 +1147,9 @@
 /* Define to 1 if you have the <sys/un.h> header file. */
 #undef HAVE_SYS_UN_H
 
+/* Define to 1 if you have the <sys/vsock.h> header file. */
+#undef HAVE_SYS_VSOCK_H
+
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
 #undef HAVE_SYS_WAIT_H
 
