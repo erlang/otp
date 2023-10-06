@@ -1268,11 +1268,11 @@ fmt_sockaddr(#{family := Fam,
 	{0,0,0,0,0,0,0,1} -> "localhost:" ++ fmt_port(Port, Proto);
 	IP                -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto)
     end;
-fmt_sockaddr(#{family := vsock, port := Port, cid := 16#ffffffff}, Proto) ->
+fmt_sockaddr(#{family := vsock, port := Port, cid := 16#ffffffff}, _Proto) ->
     % Display the "any" CID as -1 for consistency with VMADDR_CID_ANY
-    "vsock[-1]:" ++ fmt_port(Port, Proto);
-fmt_sockaddr(#{family := vsock, port := Port, cid := Cid}, Proto) ->
-    "vsock[" ++ integer_to_list(Cid) ++ "]:" ++ fmt_port(Port, Proto);
+    "vsock[-1]:" ++ integer_to_list(Port);
+fmt_sockaddr(#{family := vsock, port := Port, cid := Cid}, _Proto) ->
+    "vsock[" ++ integer_to_list(Cid) ++ "]:" ++ integer_to_list(Port);
 fmt_sockaddr(#{family := local,
 	       path   := Path}, _Proto) ->
     "local:" ++ 
