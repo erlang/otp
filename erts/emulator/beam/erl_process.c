@@ -12560,15 +12560,24 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         p->u.initial.function = tp[2];
         p->u.initial.arity = (Uint) unsigned_val(tp[3]);
 
+        ASSERT(locks & ERTS_PROC_LOCK_MAIN);
         ASSERT(locks & ERTS_PROC_LOCK_MSGQ);
         /*
          * Pass the (on external format) encoded argument list as
          * *first* message to the process. Note that this message
          * *must* be first in the message queue of the newly
          * spawned process!
+         *
+         * After the argument list, pass the message 'dist_spawn_init'.
+         * This makes it possible for the spawned process to detect a
+         * decode failure of the argument list. If 'dist_spawn_init'
+         * appears as first message, the decode of the argument list has
+         * failed and the process should be terminated abnormally.
          */
         erts_queue_dist_message(p, locks, so->edep, so->ede_hfrag,
                                 token, parent_id);
+        erts_queue_message(p, locks, erts_alloc_message(0, NULL),
+                           am_dist_spawn_init, am_system);
 
         erts_proc_unlock(p, locks & ERTS_PROC_LOCKS_ALL_MINOR);
     
