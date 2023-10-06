@@ -2044,10 +2044,11 @@ void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 #define ERTS_PI_FLAG_NEED_MSGQ                          (1 << 3)
 #define ERTS_PI_FLAG_FORCE_SIG_SEND                     (1 << 4)
 #define ERTS_PI_FLAG_REQUEST_FOR_OTHER                  (1 << 5)
+#define ERTS_PI_FLAG_KEY_TUPLE2                         (1 << 6)
 
 Eterm erts_process_info(Process *c_p, ErtsHeapFactory *hfact,
                         Process *rp, ErtsProcLocks rp_locks,
-                        int *item_ix, int item_ix_len,
+                        int *item_ix, Eterm *item_extra, int item_len,
                         int flags, Uint reserve_size, Uint *reds);
 
 typedef struct {

@@ -355,6 +355,16 @@ erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
 #define ERTS_ALC_DATA_ALIGN_SIZE(SZ) \
   (((((SZ) - 1) / 8) + 1) * 8)
 
+#if defined(ARCH_64)
+#define ERTS_ALC_WORD_ALIGN_SIZE(SZ) \
+    ERTS_ALC_DATA_ALIGN_SIZE((SZ))
+#elif defined(ARCH_32)
+#define ERTS_ALC_WORD_ALIGN_SIZE(SZ) \
+    (((((SZ) - 1) / 4) + 1) * 4)
+#else
+#error "Not supported word size"
+#endif
+
 #define ERTS_ALC_CACHE_LINE_ALIGN_SIZE(SZ) \
   (((((SZ) - 1) / ERTS_CACHE_LINE_SIZE) + 1) * ERTS_CACHE_LINE_SIZE)
 

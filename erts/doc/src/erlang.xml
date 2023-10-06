@@ -6930,6 +6930,11 @@ receive_replies(ReqId, N, Acc) ->
           <item>
             <p><c><anno>Dictionary</anno></c> is the process dictionary.</p>
           </item>
+          <tag><c>{{dictionary, <anno>Key</anno>}, <anno>Value</anno>}</c></tag>
+          <item>
+            <p><c><anno>Value</anno></c> associated with <c><anno>Key</anno></c> 
+               in the process dictionary.</p>
+          </item>
           <tag><c>{error_handler, <anno>Module</anno>}</c></tag>
           <item>
             <p><c><anno>Module</anno></c> is the error handler module used by
