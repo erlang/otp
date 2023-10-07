@@ -470,9 +470,23 @@ fe80::204:acff:fe17:bf38
       </fsummary>
       <desc>
         <p>Returns a <c>hostent</c> record for the host with the specified
-          hostname.</p>
-        <p>If resolver option <c>inet6</c> is <c>true</c>,
-          an IPv6 address is looked up.</p>
+	hostname.</p>
+
+	<p>This function uses the resolver,
+	which is often the native (OS) resolver. </p>
+
+	<p>If resolver option <c>inet6</c> is <c>true</c>, an IPv6 address
+	is looked up.</p>
+
+	<p>See 
+	<seeguide marker="erts:inet_cfg">ERTS User's Guide:
+	Inet Configuration</seeguide> for information about the
+	resolver configuration.</p>
+
+	<p>A quirk of many resolver(s) is that an integer string is
+	interpreted as an IP address.
+	For instance, the integer string "3232235521" and the string
+	"192.168.0.1" is equal to the IP address <c>{192,168,0,1}</c>. </p>
       </desc>
     </func>
 
@@ -482,7 +496,20 @@ fe80::204:acff:fe17:bf38
       </fsummary>
       <desc>
         <p>Returns a <c>hostent</c> record for the host with the specified
-          name, restricted to the specified address family.</p>
+	name, restricted to the specified address family.</p>
+
+	<p>This function uses the resolver,
+	which is often the native (OS) resolver. </p>
+
+	<p>See 
+	<seeguide marker="erts:inet_cfg">ERTS User's Guide:
+	Inet Configuration</seeguide> for information about the
+	resolver configuration.</p>
+
+	<p>A quirk of many resolver(s) is that an integer string is
+	interpreted as an IP address.
+	For instance, the integer string "3232235521" and the string
+	"192.168.0.1" is equal to the IP address <c>{192,168,0,1}</c>. </p>
       </desc>
     </func>
 

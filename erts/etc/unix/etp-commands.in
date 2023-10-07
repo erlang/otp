@@ -1616,10 +1616,22 @@ define etp-sigq-flags-int
 # Args: int
 #
   if ($arg0 & ~((1 << 9)-1))
-    printf "GARBAGE<%x> ", ($arg0 & ~((1 << 9)-1))
+    printf "GARBAGE<%x> ", ($arg0 & ~((1 << 11)-1))
+  end
+  if ($arg0 & (1 << 10))
+    printf "mon-msgq-len-long "
+  end
+  if ($arg0 & (1 << 9))
+    printf "mon-msgq-len "
+  end
+  if ($arg0 & (1 << 8))
+    printf "flushed-sigs "
+  end
+  if ($arg0 & (1 << 7))
+    printf "flushing-sigs "
   end
   if ($arg0 & (1 << 6))
-    printf "delayed-sigq-len "
+    printf "UNUSED<2> "
   end
   if ($arg0 & (1 << 5))
     printf "wait-handle-sig "
@@ -1628,7 +1640,7 @@ define etp-sigq-flags-int
     printf "handling-sig "
   end
   if ($arg0 & (1 << 3))
-    printf "local-signals-only "
+    printf "UNUSED<1> "
   end
   if ($arg0 & (1 << 2))
     printf "offheap-msgq-changing "
@@ -2734,7 +2746,7 @@ define etp-process-info-int
     printf "0\n"
   end
   printf "  Mbuf size: %ld\n", $etp_proc->mbuf_sz
-  printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($etp_proc->sig_qs.len + $etp_proc->sig_inq.len), $etp_proc->sig_qs.len, $etp_proc->sig_inq.len
+  printf "  Msgq len: %ld\n", $etp_proc->sig_qs.mq_len
   if (!($arg1))
     printf "  Msgq Flags: "
     etp-sigq-flags $etp_proc
@@ -2939,7 +2951,7 @@ define etp-process-memory-info
       printf " | none "
     end
     printf "] [Mbuf: %5ld", $etp_pmem_proc->mbuf_sz
-    printf " | %3ld (%3ld | %3ld)", ($etp_pmem_proc->sig_qs.len + $etp_pmem_proc->sig_inq.len), $etp_pmem_proc->sig_qs.len, $etp_pmem_proc->sig_inq.len
+    printf " | %3ld", $etp_pmem_proc->sig_qs.mq_len
     printf "] "
     if ($etp_pmem_proc->i)
       printf " I: "

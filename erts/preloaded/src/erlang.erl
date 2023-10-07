@@ -347,6 +347,8 @@
       'busy_port' |
       'busy_dist_port' |
       {'long_gc', non_neg_integer()} |
+      {'long_message_queue', {Disable :: non_neg_integer(),
+                              Enable :: pos_integer()}} |
       {'long_schedule', non_neg_integer()} |
       {'large_heap', non_neg_integer()}.
 
@@ -2690,6 +2692,7 @@ process_flag(_Flag, _Value) ->
       current_location |
       current_stacktrace |
       dictionary |
+      {dictionary, Key :: term()} |
       error_handler |
       garbage_collection |
       garbage_collection_info |
@@ -2733,6 +2736,7 @@ process_flag(_Flag, _Value) ->
                      {line, Line :: pos_integer()}]}} |
       {current_stacktrace, Stack :: [stack_item()]} |
       {dictionary, Dictionary :: [{Key :: term(), Value :: term()}]} |
+      {{dictionary, Key :: term()}, Value :: term()} |
       {error_handler, Module :: module()} |
       {garbage_collection, GCInfo :: [{atom(),non_neg_integer()}]} |
       {garbage_collection_info, GCInfo :: [{atom(),non_neg_integer()}]} |

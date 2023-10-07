@@ -48,6 +48,8 @@
 #define ERTS_INACT_WR_PB_LEAVE_LIMIT 10
 #define ERTS_INACT_WR_PB_LEAVE_PERCENTAGE 10
 
+#define ERTS_LONG_GC_MAX_NMSIGS 1000
+
 #if defined(DEBUG) || 0
 #define ERTS_GC_DEBUG
 #else
@@ -649,22 +651,29 @@ young_gen_usage(Process *p, Uint *ext_msg_usage)
 	}							\
     } while (0)
 
-
 static ERTS_INLINE void
 check_for_possibly_long_gc(Process *p, Uint ygen_usage)
 {
     int major;
-    Uint sz;
+    Sint sz;
 
     major = (p->flags & F_NEED_FULLSWEEP) || GEN_GCS(p) >= MAX_GEN_GCS(p);
 
     sz = ygen_usage;
     sz += p->hend - p->stop;
-    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ)
-        sz += erts_proc_sig_privqs_len(p);
     if (major)
 	sz += p->old_htop - p->old_heap;
-
+    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+        Sint len, max_len = ERTS_POTENTIALLY_LONG_GC_HSIZE - sz;
+        if (max_len < 0)
+            len = -1;
+        else
+            len = erts_proc_sig_privqs_len(p, max_len, ERTS_LONG_GC_MAX_NMSIGS);
+        if (len < 0)
+            sz = ERTS_POTENTIALLY_LONG_GC_HSIZE;
+        else
+            sz += (Uint) len;
+    }
     if (sz >= ERTS_POTENTIALLY_LONG_GC_HSIZE) {
         ASSERT(!(p->flags & (F_DISABLE_GC|F_DELAY_GC)));
 	p->flags |= major ? F_DIRTY_MAJOR_GC : F_DIRTY_MINOR_GC;
@@ -2690,16 +2699,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
         }
 #endif
 
-	size = n + erts_proc_sig_privqs_len(p);
-	if (p->sig_qs.cont) {
-	    /*
-	     * We do not know the exact size needed since
-	     * alias-message signals are not included in
-	     * length of private queues. We might have to
-	     * resize while inspecting the signal queue...
-	     */
-	    size += 128;
-	}
+	size = n + erts_proc_sig_privqs_len(p, -1, -1);
 	if (size > rootset->size) {
 	    ERTS_GC_ASSERT(roots == rootset->def);
 	    roots = erts_alloc(ERTS_ALC_T_ROOTSET,
@@ -2719,25 +2719,19 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	}
 	mp = p->sig_qs.cont;
 	while (mp) {
-	    if (size <= n) {
-		Roots *old_roots = roots;
-		size += 128;
-		roots = erts_alloc(ERTS_ALC_T_ROOTSET,
-				   size*sizeof(Roots));
-		sys_memcpy(roots, old_roots, n*sizeof(Roots));
-		if (old_roots != rootset->def)
-		    erts_free(ERTS_ALC_T_ROOTSET, old_roots);
-		rootset->size = size;
-	    }
+	    ASSERT(n < size);
 	    if (ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached) {
 		roots[n].v = mp->m;
 		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ;
 		n++;
 	    }
 	    else if (ERTS_SIG_IS_HEAP_ALIAS_MSG(mp)) {
-		/* Exclude message slot... */
-		roots[n].v = &mp->m[1];
-		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ - 1;
+		/*
+                 * Exclude message and token slots since they do
+                 * not yet contain valid Erlang terms...
+                 */
+		roots[n].v = &mp->m[2];
+		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ - 2;
 		n++;
 	    }
 	    mp = mp->next;
@@ -3402,21 +3396,25 @@ offset_message(ErtsMessage *mp, Sint offs, char* area, Uint area_size)
                 }
                 break;
             }
+            mesg = ERL_MESSAGE_TOKEN(mp);
+            if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
+                ERL_MESSAGE_TOKEN(mp) = offset_ptr(mesg, offs);
+            }
+            ASSERT((is_nil(ERL_MESSAGE_TOKEN(mp)) ||
+                    is_tuple(ERL_MESSAGE_TOKEN(mp)) ||
+                    is_atom(ERL_MESSAGE_TOKEN(mp))));
         }
-        mesg = ERL_MESSAGE_TOKEN(mp);
-        if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
-            ERL_MESSAGE_TOKEN(mp) = offset_ptr(mesg, offs);
-        }
+        /*
+         * In the alias message case, both reference to actual message and
+         * reference to a potential token are contained in the 'from'
+         * entry...
+         */
         mesg = ERL_MESSAGE_FROM(mp);
         if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
             ERL_MESSAGE_FROM(mp) = offset_ptr(mesg, offs);
         }
 
         ERTS_OFFSET_DT_UTAG(mp, area, area_size, offs);
-	
-        ASSERT((is_nil(ERL_MESSAGE_TOKEN(mp)) ||
-                is_tuple(ERL_MESSAGE_TOKEN(mp)) ||
-                is_atom(ERL_MESSAGE_TOKEN(mp))));
     }
 }
 
@@ -3747,7 +3745,7 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
             hp = erts_produce_heap(&hfact, 2*(alive ? 9 : 8), 0);
             args = CONS(hp, stacktrace, args); hp += 2;
             args = CONS(hp, msg, args); hp += 2;
-            args = CONS(hp, make_small((p)->sig_inq.len), args); hp += 2;
+            args = CONS(hp, make_small((p)->sig_qs.mq_len), args); hp += 2;
             args = CONS(hp, am_true, args); hp += 2;
             args = CONS(hp, (max_heap_flags & MAX_HEAP_SIZE_KILL ? am_true : am_false), args); hp += 2;
             args = CONS(hp, make_small(total_heap_size), args); hp += 2;

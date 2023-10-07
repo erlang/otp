@@ -2038,6 +2038,8 @@ void erts_system_monitor_clear(Process *c_p) {
     erts_system_monitor_large_heap = 0;
     erts_system_monitor_flags.busy_port = 0;
     erts_system_monitor_flags.busy_dist_port = 0;
+    erts_system_monitor_long_msgq_on = ERTS_SWORD_MAX;
+    erts_system_monitor_long_msgq_off = -1;
     if (c_p) {
 	erts_thr_progress_unblock();
 	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
@@ -2059,7 +2061,18 @@ static Eterm system_monitor_get(Process *p)
 	Eterm long_gc = NIL;
 	Eterm long_schedule = NIL;
 	Eterm large_heap = NIL;
+        Eterm long_msgq_off = NIL;
+        Eterm long_msgq_on = NIL;
 
+        if (erts_system_monitor_long_msgq_off >= 0) {
+            ASSERT(erts_system_monitor_long_msgq_on
+                   > erts_system_monitor_long_msgq_off);
+	    hsz += 2+3+3;
+	    (void) erts_bld_uint(NULL, &hsz,
+                                 (Sint) erts_system_monitor_long_msgq_off);
+	    (void) erts_bld_uint(NULL, &hsz,
+                                 (Sint) erts_system_monitor_long_msgq_on);
+        }
 	if (erts_system_monitor_long_gc != 0) {
 	    hsz += 2+3;
 	    (void) erts_bld_uint(NULL, &hsz, erts_system_monitor_long_gc);
@@ -2074,6 +2087,12 @@ static Eterm system_monitor_get(Process *p)
 	}
 
 	hp = HAlloc(p, hsz);
+        if (erts_system_monitor_long_msgq_off >= 0) {
+	    long_msgq_off = erts_bld_uint(&hp, NULL,
+                                          (Sint) erts_system_monitor_long_msgq_off);
+	    long_msgq_on =  erts_bld_uint(&hp, NULL,
+                                          (Sint) erts_system_monitor_long_msgq_on);
+        }
 	if (erts_system_monitor_long_gc != 0) {
 	    long_gc = erts_bld_uint(&hp, NULL, erts_system_monitor_long_gc);
 	}
@@ -2085,6 +2104,13 @@ static Eterm system_monitor_get(Process *p)
 	    large_heap = erts_bld_uint(&hp, NULL, erts_system_monitor_large_heap);
 	}
 	res = NIL;
+        if (long_msgq_off != NIL) {
+	    Eterm t;
+            ASSERT(long_msgq_on != NIL);
+            t = TUPLE2(hp, long_msgq_off, long_msgq_on); hp += 3;
+            t = TUPLE2(hp, am_long_message_queue, t); hp += 3;
+	    res = CONS(hp, t, res); hp += 2;
+        }
 	if (long_gc != NIL) {
 	    Eterm t = TUPLE2(hp, am_long_gc, long_gc); hp += 3;
 	    res = CONS(hp, t, res); hp += 2;
@@ -2148,6 +2174,7 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
     if (is_not_list(list)) goto error;
     else {
 	Uint long_gc, long_schedule, large_heap;
+        Sint long_msgq_on, long_msgq_off;
 	int busy_port, busy_dist_port;
 
 	system_blocked = 1;
@@ -2159,7 +2186,8 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 	    goto error;
 
 	for (long_gc = 0, long_schedule = 0, large_heap = 0, 
-		 busy_port = 0, busy_dist_port = 0;
+		 busy_port = 0, busy_dist_port = 0,
+                 long_msgq_on = ERTS_SWORD_MAX, long_msgq_off = -1;
 	     is_list(list);
 	     list = CDR(list_val(list))) {
 	    Eterm t = CAR(list_val(list));
@@ -2176,6 +2204,14 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 		    if (! term_to_Uint(tp[2], &large_heap)) goto error;
 		    if (large_heap < 16384) large_heap = 16384;
 		    /* 16 Kword is not an unnatural heap size */
+                } else if (tp[1] == am_long_message_queue) {
+                    if (!is_tuple_arity(tp[2], 2)) goto error;
+                    tp = tuple_val(tp[2]);
+		    if (!term_to_Sint(tp[1], &long_msgq_off)) goto error;
+		    if (!term_to_Sint(tp[2], &long_msgq_on)) goto error;
+                    if (long_msgq_off < 0) goto error;
+                    if (long_msgq_on <= 0) goto error;
+                    if (long_msgq_off >= long_msgq_on) goto error;
 		} else goto error;
 	    } else if (t == am_busy_port) {
 		busy_port = !0;
@@ -2191,6 +2227,8 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 	erts_system_monitor_large_heap = large_heap;
 	erts_system_monitor_flags.busy_port = !!busy_port;
 	erts_system_monitor_flags.busy_dist_port = !!busy_dist_port;
+        erts_system_monitor_long_msgq_off = long_msgq_off;
+        erts_system_monitor_long_msgq_on = long_msgq_on;
 
 	erts_thr_progress_unblock();
 	BIF_RET(prev);

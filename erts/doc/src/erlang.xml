@@ -6930,6 +6930,11 @@ receive_replies(ReqId, N, Acc) ->
           <item>
             <p><c><anno>Dictionary</anno></c> is the process dictionary.</p>
           </item>
+          <tag><c>{{dictionary, <anno>Key</anno>}, <anno>Value</anno>}</c></tag>
+          <item>
+            <p><c><anno>Value</anno></c> associated with <c><anno>Key</anno></c> 
+               in the process dictionary.</p>
+          </item>
           <tag><c>{error_handler, <anno>Module</anno>}</c></tag>
           <item>
             <p><c><anno>Module</anno></c> is the error handler module used by
@@ -11642,6 +11647,46 @@ Metadata = #{ pid => pid(),
               New tuples can be added, and the order of the tuples in
               the <c>Info</c> list can be changed at any time without
               prior notice.</p>
+          </item>
+          <tag><c>{long_message_queue, {Disable, Enable}}</c></tag>
+          <item>
+            <p>
+              If the message queue length of a process in the system reach
+              <c><anno>Enable</anno></c> length, a <c>long_message_queue</c>
+              monitor message is sent to the process identified by
+              <c><anno>MonitorPid</anno></c>. The monitor message will be on
+              the form <c>{monitor, Pid, long_message_queue, Long}</c>, where
+              <c>Pid</c> is the process identifier of the process that got
+              a long message queue and <c>Long</c> will equal <c>true</c>
+              indicating that it is in a <i>long message queue</i> state. No
+              more <c>long_message_queue</c> monitor messages will be sent
+              due to the process identified by <c>Pid</c> until its message
+              queue length falls down to a length of
+              <c><anno>Disable</anno></c> length. When this happens, a
+              <c>long_message_queue</c> monitor message with <c>Long</c> equal
+              to <c>false</c> will be sent to the process identified by
+              <c><anno>MonitorPid</anno></c> indicating that the process is no
+              longer in a <i>long message queue</i> state. As of this, if the
+              message queue length should again reach
+              <c><anno>Enable</anno></c> length, a new <c>long_message_queue</c>
+              monitor message with <c>Long</c> set to <c>true</c> will again
+              be sent. That is, a <c>long_message_queue</c> monitor message
+              is sent when a process enters or leaves a <i>long message
+              queue</i> state where these state changes are defined by the
+              <c><anno>Enable</anno></c> and <c><anno>Disable</anno></c>
+              parameters.
+            </p>
+            <p>
+              <c><anno>Enable</anno></c> length must be an integer larger than
+              zero and <c><anno>Disable</anno></c> length must be an integer
+              larger than or equal to zero. <c><anno>Disable</anno></c> length
+              must also be smaller than <c><anno>Enable</anno></c> length. If
+              the above is not satisfied the operation will fail with a
+              <c>badarg</c> error exception. You are recommended to use a much
+              smaller value for <c><anno>Disable</anno></c> length than
+              <c><anno>Enable</anno></c> length in order not to be flooded with
+              <c>long_message_queue</c> monitor messages.
+            </p>
           </item>
           <tag><c>{long_schedule, Time}</c></tag>
           <item>
