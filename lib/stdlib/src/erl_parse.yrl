@@ -519,7 +519,8 @@ maybe_match_exprs -> maybe_match ',' maybe_match_exprs : ['$1' | '$3'].
 maybe_match_exprs -> expr : ['$1'].
 maybe_match_exprs -> expr ',' maybe_match_exprs : ['$1' | '$3'].
 
-maybe_match -> expr '?=' expr : {maybe_match,?anno('$2'),'$1','$3'}.
+maybe_match -> expr clause_guard '?=' expr :
+    {maybe_match,?anno('$3'),'$1','$2','$4'}.
 
 argument_list -> '(' ')' : {[],?anno('$1')}.
 argument_list -> '(' exprs ')' : {'$2',?anno('$1')}.
@@ -1110,7 +1111,7 @@ Erlang code.
 
 -type af_match(T) :: {'match', anno(), af_pattern(), T}.
 
--type af_maybe_match() :: {'maybe_match', anno(), af_pattern(), abstract_expr()}.
+-type af_maybe_match() :: {'maybe_match', anno(), af_pattern(), af_guard_seq(), abstract_expr()}.
 
 -type af_variable() :: {'var', anno(), atom()}. % | af_anon_variable()
 

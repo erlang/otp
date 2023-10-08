@@ -709,7 +709,7 @@ lexpr({'maybe',_,Es}, _, Opts) ->
     {list,[{step,'maybe',body(Es, Opts)},{reserved,'end'}]};
 lexpr({'maybe',_,Es,{'else',_,Cs}}, _, Opts) ->
     {list,[{step,'maybe',body(Es, Opts)},{step,'else',cr_clauses(Cs, Opts)},{reserved,'end'}]};
-lexpr({maybe_match,_,Lhs,Rhs}, _, Opts) ->
+lexpr({maybe_match,_,Lhs,_G,Rhs}, _, Opts) ->
     Pl = lexpr(Lhs, 0, Opts),
     Rl = lexpr(Rhs, 0, Opts),
     {list,[{cstep,[Pl,leaf(" ?=")],Rl}]};

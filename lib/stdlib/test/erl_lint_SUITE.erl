@@ -84,7 +84,8 @@
          redefined_builtin_type/1,
          tilde_k/1,
          match_float_zero/1,
-         undefined_module/1]).
+         undefined_module/1,
+         maybe_expression_guard/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -117,7 +118,8 @@ all() ->
      tilde_k,
      singleton_type_var_errors,
      match_float_zero,
-     undefined_module].
+     undefined_module,
+     maybe_expression_guard].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -5224,6 +5226,43 @@ undefined_module(Config) ->
              ">>,
     {errors,[{{1,2},erl_lint,undefined_module}],[]} = run_test2(Config, Code, []),
 
+    ok.
+
+maybe_expression_guard(Config) when is_list(Config) ->
+    EnableMaybe = {feature,maybe_expr,enable},
+    Ts = [{maybe_expression_guard1,
+            <<"-export([t/0]).
+                t() ->
+                    ok =
+                        maybe
+                            Int when Int > 0, Int < 2 ?= int(),
+                            ok
+                        else
+                            _ ->
+                                error
+                        end.
+
+                int() -> 1.
+                ">>,
+            [EnableMaybe],
+            []},
+            {maybe_expression_guard2,
+            <<"-export([t/0]).
+                t() ->
+                    error =
+                        maybe
+                            Int when Int =:= 0 ?= int(),
+                            ok
+                        else
+                            _ ->
+                                error
+                        end.
+
+                int() -> 1.
+                ">>,
+            [EnableMaybe],
+            []}],
+    [] = run(Config, Ts),
     ok.
 
 %%%
