@@ -159,96 +159,144 @@
 
 %%%-----------------------------------------------------------------
 %%% API
-emergency(X) ->
-    log(emergency,X).
-emergency(X,Y) ->
-    log(emergency,X,Y).
-emergency(X,Y,Z) ->
-    log(emergency,X,Y,Z).
 
-alert(X) ->
-    log(alert,X).
-alert(X,Y) ->
-    log(alert,X,Y).
-alert(X,Y,Z) ->
-    log(alert,X,Y,Z).
+-spec emergency(String :: unicode:chardata()) -> ok;
+               (Report :: report()) -> ok.
+emergency(StringOrReport) ->
+    log(emergency,StringOrReport).
+-spec emergency(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+               (Report :: report(), Metadata :: metadata()) -> ok;
+               (Format :: io:format(), Args :: [term()]) -> ok;
+               (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+emergency(FormatOrFun,Args) ->
+    log(emergency,FormatOrFun,Args).
+-spec emergency(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+               (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+emergency(FormatOrFun,Args,Metadata) ->
+    log(emergency,FormatOrFun,Args,Metadata).
 
-critical(X) ->
-    log(critical,X).
-critical(X,Y) ->
-    log(critical,X,Y).
-critical(X,Y,Z) ->
-    log(critical,X,Y,Z).
+-spec alert(String :: unicode:chardata()) -> ok;
+           (Report :: report()) -> ok.
+alert(StringOrReport) ->
+    log(alert,StringOrReport).
+-spec alert(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+           (Report :: report(), Metadata :: metadata()) -> ok;
+           (Format :: io:format(), Args :: [term()]) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+alert(FormatOrFun,Args) ->
+    log(alert,FormatOrFun,Args).
+-spec alert(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+alert(FormatOrFun,Args,Metadata) ->
+    log(alert,FormatOrFun,Args,Metadata).
 
-error(X) ->
-    log(error,X).
-error(X,Y) ->
-    log(error,X,Y).
-error(X,Y,Z) ->
-    log(error,X,Y,Z).
+-spec critical(String :: unicode:chardata()) -> ok;
+              (Report :: report()) -> ok.
+critical(StringOrReport) ->
+    log(critical,StringOrReport).
+-spec critical(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+              (Report :: report(), Metadata :: metadata()) -> ok;
+              (Format :: io:format(), Args :: [term()]) -> ok;
+              (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+critical(FormatOrFun,Args) ->
+    log(critical,FormatOrFun,Args).
+-spec critical(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+              (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+critical(FormatOrFun,Args,Metadata) ->
+    log(critical,FormatOrFun,Args,Metadata).
 
-warning(X) ->
-    log(warning,X).
-warning(X,Y) ->
-    log(warning,X,Y).
-warning(X,Y,Z) ->
-    log(warning,X,Y,Z).
+-spec error(String :: unicode:chardata()) -> ok;
+           (Report :: report()) -> ok.
+error(StringOrReport) ->
+    log(error,StringOrReport).
+-spec error(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+           (Report :: report(), Metadata :: metadata()) -> ok;
+           (Format :: io:format(), Args :: [term()]) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+error(FormatOrFun,Args) ->
+    log(error,FormatOrFun,Args).
+-spec error(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+error(FormatOrFun,Args,Metadata) ->
+    log(error,FormatOrFun,Args,Metadata).
 
-notice(X) ->
-    log(notice,X).
-notice(X,Y) ->
-    log(notice,X,Y).
-notice(X,Y,Z) ->
-    log(notice,X,Y,Z).
+-spec warning(String :: unicode:chardata()) -> ok;
+             (Report :: report()) -> ok.
+warning(StringOrReport) ->
+    log(warning,StringOrReport).
+-spec warning(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+             (Report :: report(), Metadata :: metadata()) -> ok;
+             (Format :: io:format(), Args :: [term()]) -> ok;
+             (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+warning(FormatOrFun,Args) ->
+    log(warning,FormatOrFun,Args).
+-spec warning(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+             (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+warning(FormatOrFun,Args,Metadata) ->
+    log(warning,FormatOrFun,Args,Metadata).
 
-info(X) ->
-    log(info,X).
-info(X,Y) ->
-    log(info,X,Y).
-info(X,Y,Z) ->
-    log(info,X,Y,Z).
+-spec notice(String :: unicode:chardata()) -> ok;
+            (Report :: report()) -> ok.
+notice(StringOrReport) ->
+    log(notice,StringOrReport).
+-spec notice(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+            (Report :: report(), Metadata :: metadata()) -> ok;
+            (Format :: io:format(), Args :: [term()]) -> ok;
+            (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+notice(FormatOrFun,Args) ->
+    log(notice,FormatOrFun,Args).
+-spec notice(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+            (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+notice(FormatOrFun,Args,Metadata) ->
+    log(notice,FormatOrFun,Args,Metadata).
 
-debug(X) ->
-    log(debug,X).
-debug(X,Y) ->
-    log(debug,X,Y).
-debug(X,Y,Z) ->
-    log(debug,X,Y,Z).
+-spec info(String :: unicode:chardata()) -> ok;
+          (Report :: report()) -> ok.
+info(StringOrReport) ->
+    log(info,StringOrReport).
+-spec info(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+          (Report :: report(), Metadata :: metadata()) -> ok;
+          (Format :: io:format(), Args :: [term()]) -> ok;
+          (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+info(FormatOrFun,Args) ->
+    log(info,FormatOrFun,Args).
+-spec info(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+          (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+info(FormatOrFun,Args,Metadata) ->
+    log(info,FormatOrFun,Args,Metadata).
 
--spec log(Level,StringOrReport) -> ok when
-      Level :: level(),
-      StringOrReport :: unicode:chardata() | report().
+-spec debug(String :: unicode:chardata()) -> ok;
+           (Report :: report()) -> ok.
+debug(StringOrReport) ->
+    log(debug,StringOrReport).
+-spec debug(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+           (Report :: report(), Metadata :: metadata()) -> ok;
+           (Format :: io:format(), Args :: [term()]) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+debug(FormatOrFun,Args) ->
+    log(debug,FormatOrFun,Args).
+-spec debug(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+debug(FormatOrFun,Args,Metadata) ->
+    log(debug,FormatOrFun,Args,Metadata).
+
+-spec log(Level :: level(), String :: unicode:chardata()) -> ok;
+         (Level :: level(), Report :: report()) -> ok.
 log(Level, StringOrReport) ->
     do_log(Level,StringOrReport,#{}).
 
--spec log(Level,StringOrReport,Metadata) -> ok when
-      Level :: level(),
-      StringOrReport :: unicode:chardata() | report(),
-      Metadata :: metadata();
-         (Level,Format,Args) -> ok when
-      Level :: level(),
-      Format :: io:format(),
-      Args ::[term()];
-         (Level,Fun,FunArgs) -> ok when
-      Level :: level(),
-      Fun :: msg_fun(),
-      FunArgs :: term().
+-spec log(Level :: level(), String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+         (Level :: level(), Report :: report(), Metadata :: metadata()) -> ok;
+         (Level :: level(), Format :: io:format(), Args :: [term()]) -> ok;
+         (Level :: level(), Fun :: msg_fun(), FunArgs :: term()) -> ok.
 log(Level, StringOrReport, Metadata)
   when is_map(Metadata), not is_function(StringOrReport) ->
     do_log(Level,StringOrReport,Metadata);
 log(Level, FunOrFormat, Args) ->
     do_log(Level,{FunOrFormat,Args},#{}).
 
--spec log(Level,Format, Args, Metadata) -> ok when
-      Level :: level(),
-      Format :: io:format(),
-      Args :: [term()],
-      Metadata :: metadata();
-         (Level,Fun,FunArgs,Metadata) -> ok when
-      Level :: level(),
-      Fun :: msg_fun(),
-      FunArgs :: term(),
-      Metadata :: metadata().
+-spec log(Level :: level(), Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+         (Level :: level(), Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 log(Level, FunOrFormat, Args, Metadata) ->
     do_log(Level,{FunOrFormat,Args},Metadata).
 
