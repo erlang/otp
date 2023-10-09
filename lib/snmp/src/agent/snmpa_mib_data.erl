@@ -50,12 +50,12 @@
 
 -callback sync(State :: term()) -> ok.
 
--callback load_mib(State :: term(), FileName :: string(), 
+-callback load_mib(State :: term(), FileName :: filename(),
 		   MeOverride :: boolean(), 
 		   TeOverride :: boolean()) -> 
     {ok, NewState :: term()} | {error, Reason :: already_loaded | term()}.
 
--callback unload_mib(State :: term(), FileName :: string(), 
+-callback unload_mib(State :: term(), FileName :: filename(),
 		   MeOverride :: boolean(), 
 		   TeOverride :: boolean()) -> 
     {ok, NewState :: term()} | {error, Reason :: not_loaded | term()}.
@@ -90,10 +90,10 @@
     {ok, Mib :: string()} | {error, Reason :: term()}.
 
 -callback which_mibs(State :: term()) -> 
-    [{MibName :: atom(), Filename :: string()}].
+    [{MibName :: atom(), Filename :: filename()}].
 
 -callback whereis_mib(State :: term(), MibName :: atom()) -> 
-    {ok, Filename :: string()} | {error, Reason :: term()}.
+    {ok, Filename :: filename()} | {error, Reason :: term()}.
 
 -callback info(State :: term()) -> list().
 
@@ -106,5 +106,12 @@
 		      State :: term()) -> 
     NewState :: term().
 
+%% Backwards-compatibility callback
+-callback unload_mib(State, Filename) -> {ok, NewState} | {error, Reason} when
+      State :: term(),
+      Filename :: filename(),
+      NewState :: term(),
+      Reason :: not_loaded | term().
 
+-optional_callbacks([unload_mib/2]).
 
