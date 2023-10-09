@@ -46,6 +46,8 @@ XML_FILES = \
 	$(BOOK_FILES) $(XML_NOTES_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
 
+TOP_SPECS_FILE = specs.xml
+
 $(XMLDIR)/%.xml: ../../internal_doc/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@
 
