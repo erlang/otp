@@ -12742,6 +12742,21 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         erts_queue_message(p, locks, erts_alloc_message(0, NULL),
                            am_dist_spawn_init, am_system);
 
+        /*
+         * The process was created with msgq-lock locked and no siq-inq
+         * buffers installed. The msgq-lock has not been released, so
+         * sig-inq buffers cannot have been installed yet. Since the
+         * above messages already exist in the *single* outer signal
+         * queue, no other messages can be reordered past them...
+         */
+        ASSERT(erts_atomic_read_nob(&p->sig_inq_buffers) == (erts_aint_t)NULL);
+
+        /*
+         * ... but we anyway move the messages into the message queue
+         * since we already got the msgq-lock at this point.
+         */
+        erts_proc_sig_fetch(p);
+
         erts_proc_unlock(p, locks & ERTS_PROC_LOCKS_ALL_MINOR);
     
         if (so->flags & SPO_LINK) {
