@@ -111,6 +111,10 @@ handle_pr(_Repo, Target,
                              ok = filelib:ensure_dir(CTLogsIndex),
                              ok = file:write_file(CTLogsIndex, ["No test logs found for ", Sha])
                     end,
+                    %% If we ever want to de-duplicate the docs, this command will create a
+                    %% stable md5sum.
+                    %% (cd $dir && find doc lib erts-* -type f \! -path "lib/jinterface-*" \! -name erlresolvelinks.js \! -name index.html \! -name release_notes.html \! -name users_guide.html \! -name internal_docs.html \! -name "*.eix" -exec md5sum {} \;) | sort -k 2 | awk "{print $1}" | md5sum
+                    %% where $dir is the pr directory.
                     DocIndex = filename:join([PRDir,"doc","index.html"]),
                     case file:read_file_info(DocIndex) of
                         {ok, _} -> ok;
