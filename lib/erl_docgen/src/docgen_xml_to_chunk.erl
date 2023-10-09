@@ -43,7 +43,7 @@ main([_Application, FromBeam, _Escript, ToChunk]) ->
     ok = file:write_file(ToChunk, term_to_binary(EmptyDocs,[compressed])),
     ok;
 main([Application, FromXML, FromBeam, Escript, ToChunk]) ->
-    _ = erlang:process_flag(max_heap_size,20 * 1000 * 1000),
+    _ = erlang:process_flag(max_heap_size,40 * 1000 * 1000),
     case docs(Application, FromXML, FromBeam) of
         {error, not_erlref} ->
             %% The XML files was not a erlref, so we generate
@@ -215,7 +215,9 @@ build_dom({characters, String},
                 {"&plusmn;",[177]},
                 {"&ouml;","ö"},
                 {"&auml;","ä"},
-                {"&aring;","å"}
+                {"&aring;","å"},
+                {"&eacute;","é"},
+                {"&shy;",[173]}
                ],
 
     NoHtmlEnt =
@@ -365,6 +367,10 @@ transform([{anno,[],Content}|T],Acc) ->
     transform([Content|T],Acc);
 
 %% transform <c> to <code>
+transform([{c,[],[{See,Attr,Content}]}|T],Acc)
+  when See =:= seemfa; See =:= seeerl; See =:= seetype; See =:= seeapp;
+       See =:= seecom; See =:= seecref; See =:= seefile; See =:= seeguide ->
+    transform([{See,Attr,[{c,[],Content}]}|T],Acc);
 transform([{c,[],Content}|T],Acc) ->
     transform(T, [{code,[],transform(Content,[])}|Acc]);
 
@@ -570,6 +576,10 @@ func2func({func,Attr,Contents}) ->
                                       lists:join(",",lists:usort(Sinces))) }
         end,
 
+    NameAnchors =
+        lists:flatten([unicode:characters_to_binary(proplists:get_value(anchor,FAttr,[])) || {name,FAttr,[]} <- NameList]),
+    Anchors = [{a,[{id,Anchor}],[]} || Anchor <- NameAnchors, Anchor =/= <<>>],
+
     Functions =
         case NameList of
             [{name,_,[]}|_] ->
@@ -599,7 +609,7 @@ func2func({func,Attr,Contents}) ->
                                     Doc}
                            end,
 
-                Base = MakeFunc(hd(SortedFAs), SinceMD, ContentsNoName),
+                Base = MakeFunc(hd(SortedFAs), SinceMD, Anchors ++ ContentsNoName),
 
                 {BaseF,BaseA} = hd(SortedFAs),
                 MD = SinceMD#{ equiv => {function,list_to_atom(BaseF),list_to_integer(BaseA)}},
@@ -629,7 +639,7 @@ func2func({func,Attr,Contents}) ->
                 Base = {function,[{name,BaseF},{arity,BaseA},
                                   {signature,BaseSig},
                                   {meta,SinceMD}],
-                        ContentsNoName},
+                        Anchors ++ ContentsNoName},
 
                 {EquivKind, EquivF} = func_to_atom(BaseF),
 
