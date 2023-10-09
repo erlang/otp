@@ -109,7 +109,7 @@
     <p>This module has been reworked in Erlang/OTP 20 to
     handle <seetype marker="unicode#chardata">
     <c>unicode:chardata()</c></seetype> and operate on grapheme
-    clusters. The <seeerl marker="#oldapi"> <c>old
+    clusters. The <seeerl marker="#obsolete-api-functions"> <c>old
     functions</c></seeerl> that only work on Latin-1 lists as input
     are still available but should not be used, they will be
     deprecated in a future release.
@@ -128,6 +128,9 @@
   </datatypes>
 
   <funcs>
+    <fsdescription>
+        <title>Functions</title>
+    </fsdescription>
 
     <func>
       <name name="casefold" arity="1" since="OTP 20.0"/>
@@ -660,7 +663,6 @@ ÖÄÅ</pre>
 
   <funcs>
     <fsdescription>
-      <marker id="oldapi"/>
       <title>Obsolete API functions</title>
       <p>Here follows the function of the old API.
       These functions only work on a list of Latin-1 characters.
@@ -681,7 +683,7 @@ ÖÄÅ</pre>
         <p>Returns a string, where <c><anno>String</anno></c> is centered in the
           string and surrounded by blanks or <c><anno>Character</anno></c>.
 	  The resulting string has length <c><anno>Number</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#pad/3"><c>pad/3</c></seemfa>.
 	</p>
@@ -696,7 +698,7 @@ ÖÄÅ</pre>
         <p>Returns a string consisting of <c><anno>Number</anno></c> characters
           <c><anno>Character</anno></c>. Optionally, the string can end with
           string <c><anno>Tail</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="lists#duplicate/2"><c>lists:duplicate/2</c></seemfa>.</p>
       </desc>
@@ -710,7 +712,7 @@ ÖÄÅ</pre>
         <p>Returns the index of the first occurrence of
           <c><anno>Character</anno></c> in <c><anno>String</anno></c>. Returns
           <c>0</c> if <c><anno>Character</anno></c> does not occur.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#find/2"><c>find/2</c></seemfa>.</p>
       </desc>
@@ -724,7 +726,7 @@ ÖÄÅ</pre>
           <c><anno>String2</anno></c> to form a new string
           <c><anno>String3</anno></c>, which is returned.</p>
 	<p>
-	  This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	  This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	  Use <c>[<anno>String1</anno>, <anno>String2</anno>]</c> as
 	  <c>Data</c> argument, and call
 	  <seemfa marker="unicode#characters_to_list/2">
@@ -742,7 +744,7 @@ ÖÄÅ</pre>
       <desc>
         <p>Returns a string containing <c><anno>String</anno></c> repeated
           <c><anno>Number</anno></c> times.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="lists#duplicate/2"><c>lists:duplicate/2</c></seemfa>.</p>
       </desc>
@@ -755,7 +757,7 @@ ÖÄÅ</pre>
         <p>Returns the length of the maximum initial segment of
           <c><anno>String</anno></c>, which consists entirely of characters
           not from <c><anno>Chars</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#take/3"><c>take/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -771,7 +773,7 @@ ÖÄÅ</pre>
       <desc>
         <p>Returns a string with the elements of <c><anno>StringList</anno></c>
           separated by the string in <c><anno>Separator</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="lists#join/2"><c>lists:join/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -791,7 +793,7 @@ ÖÄÅ</pre>
           fixed. If <c>length(<anno>String</anno>)</c> &lt;
           <c><anno>Number</anno></c>, then <c><anno>String</anno></c> is padded
           with blanks or <c><anno>Character</anno></c>s.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#pad/2"><c>pad/2</c></seemfa> or
 	<seemfa marker="#pad/3"><c>pad/3</c></seemfa>.</p>
@@ -807,7 +809,7 @@ ÖÄÅ</pre>
       <fsummary>Return the length of a string.</fsummary>
       <desc>
         <p>Returns the number of characters in <c><anno>String</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#length/1"><c>length/1</c></seemfa>.</p>
       </desc>
@@ -821,7 +823,7 @@ ÖÄÅ</pre>
         <p>Returns the index of the last occurrence of
           <c><anno>Character</anno></c> in <c><anno>String</anno></c>. Returns
           <c>0</c> if <c><anno>Character</anno></c> does not occur.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#find/3"><c>find/3</c></seemfa>.</p>
       </desc>
@@ -837,7 +839,7 @@ ÖÄÅ</pre>
           fixed. If the length of <c>(<anno>String</anno>)</c> &lt;
           <c><anno>Number</anno></c>, then <c><anno>String</anno></c> is padded
           with blanks or <c><anno>Character</anno></c>s.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#pad/3"><c>pad/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -855,7 +857,7 @@ ÖÄÅ</pre>
           <c><anno>SubString</anno></c> begins in <c><anno>String</anno></c>.
           Returns <c>0</c> if <c><anno>SubString</anno></c>
           does not exist in <c><anno>String</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#find/3"><c>find/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -872,7 +874,7 @@ ÖÄÅ</pre>
         <p>Returns the length of the maximum initial segment of
           <c><anno>String</anno></c>, which consists entirely of characters
           from <c><anno>Chars</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#take/2"><c>take/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -890,7 +892,7 @@ ÖÄÅ</pre>
           <c><anno>SubString</anno></c> begins in <c><anno>String</anno></c>.
           Returns <c>0</c> if <c><anno>SubString</anno></c>
           does not exist in <c><anno>String</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#find/2"><c>find/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -912,7 +914,7 @@ ÖÄÅ</pre>
           or <c>both</c>, indicates from which direction blanks are to be
           removed. <c>strip/1</c> is equivalent to
           <c>strip(String, both)</c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#trim/3"><c>trim/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -930,7 +932,7 @@ ÖÄÅ</pre>
         <p>Returns a substring of <c><anno>String</anno></c>, starting at
           position <c><anno>Start</anno></c> to the end of the string, or to
           and including position <c><anno>Stop</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#slice/3"><c>slice/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -948,7 +950,7 @@ sub_string("Hello World", 4, 8).
         <p>Returns a substring of <c><anno>String</anno></c>, starting at
           position <c><anno>Start</anno></c>, and ending at the end of the
           string or at length <c><anno>Length</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#slice/3"><c>slice/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -966,7 +968,7 @@ sub_string("Hello World", 4, 8).
         <p>Returns the word in position <c><anno>Number</anno></c> of
           <c><anno>String</anno></c>. Words are separated by blanks or
           <c><anno>Character</anno></c>s.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#nth_lexeme/3"><c>nth_lexeme/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
@@ -990,7 +992,7 @@ sub_string("Hello World", 4, 8).
         <p>The specified string or character is case-converted. Notice that
           the supported character set is ISO/IEC 8859-1 (also called Latin 1);
           all values outside this set are unchanged</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl> use
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl> use
 	<seemfa marker="#lowercase/1"><c>lowercase/1</c></seemfa>,
 	<seemfa marker="#uppercase/1"><c>uppercase/1</c></seemfa>,
 	<seemfa marker="#titlecase/1"><c>titlecase/1</c></seemfa> or
@@ -1012,7 +1014,7 @@ sub_string("Hello World", 4, 8).
           adjacent separator characters in <c><anno>String</anno></c>
           are treated as one. That is, there are no empty
           strings in the resulting list of tokens.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#lexemes/2"><c>lexemes/2</c></seemfa>.</p>
       </desc>
@@ -1025,7 +1027,7 @@ sub_string("Hello World", 4, 8).
       <desc>
         <p>Returns the number of words in <c><anno>String</anno></c>, separated
           by blanks or <c><anno>Character</anno></c>.</p>
-	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
+	<p>This function is <seeerl marker="#obsolete-api-functions">obsolete</seeerl>.
 	Use
 	<seemfa marker="#lexemes/2"><c>lexemes/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
