@@ -111,6 +111,12 @@
       </desc>
     </datatype>
     <datatype>
+      <name name="dynamic" n_vars="0"/>
+      <desc>
+        <p>The <seeguide marker="system/reference_manual:typespec#dynamic">dynamic</seeguide> type.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="float" n_vars="0"/>
       <desc>
         <p>An Erlang <seeguide marker="system/reference_manual:data_types#number">float</seeguide>.</p>
