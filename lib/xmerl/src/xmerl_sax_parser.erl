@@ -42,6 +42,58 @@
 -export([default_continuation_cb/1]).
 
 %%----------------------------------------------------------------------
+%% Types
+%%----------------------------------------------------------------------
+-type options() :: [{continuation_fun, continuation_fun()} |
+                    {continuation_state, continuation_state()} |
+                    {event_fun, event_fun()} |
+                    {event_state, event_state()} |
+                    {file_type, normal | dtd} |
+                    {encoding, utf | {utf16, big} | {utf16,little} | latin1 | list } |
+                    skip_external_dtd | disallow_entities |
+                    {entity_recurse_limit, non_neg_integer()} |
+                    {external_entities, all | file | none} |
+                    {fail_undeclared_ref, boolean()}].
+-type continuation_state() :: term().
+-type continuation_fun() :: fun((continuation_state()) ->
+                                       {NewBytes :: binary() | list(),
+                                        continuation_state()}).
+-type event_state() :: term().
+-type event_fun() :: fun((event(), event_location(), event_state()) -> event_state()).
+-type event_location() :: {CurrentLocation :: string(),
+                           Entityname :: string(),
+                           LineNo :: integer()}.
+-type event() :: startDocument | endDocument |
+                 {startPrefixMapping, Prefix :: string(), Uri :: string()} |
+                 {endPrefixMapping, Prefix :: string()} |
+                 {startElement, Uri :: string(), LocalName :: string(),
+                  QualifiedName :: string(), Attributes :: string()} |
+                 {endElement, Uri :: string(), LocalName :: string(), QualifiedName :: string()} |
+                 {characters, string()} |
+                 {ignorableWhitespace, string()} |
+                 {processingInstruction, Target :: string(), Data :: string()} |
+                 {comment, string()} |
+                 startCDATA |
+                 endCDATA |
+                 {startDTD, Name :: string(), PublicId :: string(), SystemId :: string()} |
+                 endDTD |
+                 {startEntity, SysId :: string()} |
+                 {endEntity, SysId :: string()} |
+                 {elementDecl, Name :: string(), Model :: string()} |
+                 {attributeDecl, ElementName :: string(), AttributeName :: string(),
+                  Type :: string(), Mode :: string(), Value :: string()} |
+                 {internalEntityDecl, Name :: string(), Value :: string()} |
+                 {externalEntityDecl, Name :: string(), PublicId :: string(), SystemId :: string()} |
+                 {unparsedEntityDecl, Name :: string(), PublicId :: string(), SystemId :: string(), Ndata :: string()} |
+                 {notationDecl, Name :: string(), PublicId :: string(), SystemId :: string()}.
+
+-type unicode_char() :: char().
+-type unicode_binary() :: binary().
+-type latin1_binary() :: unicode:latin1_binary().
+
+-export_type([options/0, unicode_char/0, unicode_binary/0, latin1_binary/0]).
+
+%%----------------------------------------------------------------------
 %% Macros
 %%----------------------------------------------------------------------
 
@@ -63,6 +115,16 @@
 %%           EventState = term()
 %% Description: Parse file containing an XML document.
 %%----------------------------------------------------------------------
+-spec file(Name, Options) -> {ok, EventState, Rest} | ErrorOrUserReturn when
+      Name :: file:filename(),
+      Options :: options(),
+      EventState :: event_state(),
+      Rest :: unicode_binary() | latin1_binary(),
+      ErrorOrUserReturn :: {Tag, Location, Reason, EndTags, EventState},
+      Tag :: fatal_error | atom(),
+      Location :: event_location(),
+      Reason :: term(),
+      EndTags :: term().
 file(Name,Options) ->
     case file:open(Name, [raw, read_ahead, read,binary])  of
         {error, Reason} ->
@@ -94,6 +156,16 @@ file(Name,Options) ->
 %%           EventState = term()
 %% Description: Parse a stream containing an XML document.
 %%----------------------------------------------------------------------
+-spec stream(Xml, Options) -> {ok, EventState, Rest} | ErrorOrUserReturn when
+      Xml :: unicode_binary() | latin1_binary() | [unicode_char],
+      Options :: options(),
+      EventState :: event_state(),
+      Rest :: unicode_binary() | latin1_binary(),
+      ErrorOrUserReturn :: {Tag, Location, Reason, EndTags, EventState},
+      Tag :: fatal_error | atom(),
+      Location :: event_location(),
+      Reason :: term(),
+      EndTags :: term().
 stream(Xml, Options) ->
     stream(Xml, Options, stream).
 

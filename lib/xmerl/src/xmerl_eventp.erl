@@ -24,9 +24,21 @@
 %% of XML documents in streams and for parsing in SAX style.
 %% Each contain more elaborate settings of xmerl_scan that makes usage of
 %% the customization functions.
-%% 
+-module(xmerl_eventp).
+-vsn('0.19').
+-date('03-09-17').
+
+-export([stream/2,stream_sax/4, file_sax/4, string_sax/4]).
+
+% -export([cont/3, rules_read/3,rules_write/4,fetch/2,close/1]).
+
+-include("xmerl.hrl").
+-include("xmerl_internal.hrl").
+-include_lib("kernel/include/file.hrl").
+
 %% @type xmlElement() = #xmlElement{}.
-%%
+-type xmlElement() :: #xmlElement{}.
+
 %% @type option_list(). <p>Options allow to customize the behaviour of the
 %%     scanner.
 %% See also <a href="xmerl_examples.html">tutorial</a> on customization
@@ -108,18 +120,7 @@
 %%    <dd>Set to 'true' if xmerl should add to elements missing attributes
 %%    with a defined default value (default 'false').</dd>
 %% </dl> 
-%% 
--module(xmerl_eventp).
--vsn('0.19').
--date('03-09-17').
-
--export([stream/2,stream_sax/4, file_sax/4, string_sax/4]).
-
-% -export([cont/3, rules_read/3,rules_write/4,fetch/2,close/1]).
-
--include("xmerl.hrl").
--include("xmerl_internal.hrl").
--include_lib("kernel/include/file.hrl").
+-type option_list() :: [{atom(),term()}].
 
 %% @spec stream(Fname::string(), Options::option_list()) -> xmlElement()
 %%
@@ -129,6 +130,7 @@
 %% Note that the <code>continuation_fun</code>, <code>acc_fun</code>,
 %% <code>fetch_fun</code>, <code>rules</code> and <code>close_fun</code>
 %% options cannot be user defined using this parser.
+-spec stream(Fname::string(), Options::option_list()) -> {xmlElement(), list()} | {error, Reason :: term()}.
 stream(Fname, Options) ->
     AccF = fun(X, Acc, S) -> acc(X,Acc,S) end,
     case file:open(Fname, [read, raw, binary]) of

@@ -41,46 +41,6 @@
 % xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("descendant-or-self::node()")).
 % xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).
 %% </pre>
-%%
-%% @type nodeEntity() =
-%%      #xmlElement{}
-%%    | #xmlAttribute{}
-%%    | #xmlText{} 
-%%    | #xmlPI{}
-%%    | #xmlComment{}
-%%    | #xmlNsNode{}
-%%    | #xmlDocument{}
-%%
-%% @type docNodes() =   #xmlElement{}
-%%    | #xmlAttribute{}
-%%    | #xmlText{} 
-%%    | #xmlPI{}
-%%    | #xmlComment{}
-%%    | #xmlNsNode{}
-%%
-%% @type docEntity() =  #xmlDocument{} | [docNodes()]
-%%
-%% @type xPathString() = string()
-%%
-%% @type parentList() = [{atom(), integer()}]
-%%
-%% @type option_list(). <p>Options allows to customize the behaviour of the
-%%     XPath scanner.
-%% </p>
-%% <p>
-%% Possible options are:
-%% </p>
-%% <dl>
-%%  <dt><code>{namespace, #xmlNamespace}</code></dt>
-%%    <dd>Set namespace nodes, from XmlNamspace, in xmlContext</dd>
-%%  <dt><code>{namespace, Nodes}</code></dt>
-%%    <dd>Set namespace nodes in xmlContext.</dd>
-%% </dl>
-
-%%  <dt><code>{bindings, Bs}</code></dt>
-%%   <dd></dd>
-%% <dt><code>{functions, Fs}</code></dt>
-%%   <dd></dd>
 -module(xmerl_xpath).
 
 
@@ -109,7 +69,65 @@
 -define(context(C), #state{context = C}).
 
 
+%% @type nodeEntity() =
+%%      #xmlElement{}
+%%    | #xmlAttribute{}
+%%    | #xmlText{} 
+%%    | #xmlPI{}
+%%    | #xmlComment{}
+%%    | #xmlNsNode{}
+%%    | #xmlDocument{}
+-type nodeEntity() ::
+        #xmlElement{}
+      | #xmlAttribute{}
+      | #xmlText{} 
+      | #xmlPI{}
+      | #xmlComment{}
+      | #xmlNsNode{}
+      | #xmlDocument{}.
 
+%% @type docNodes() =   #xmlElement{}
+%%    | #xmlAttribute{}
+%%    | #xmlText{} 
+%%    | #xmlPI{}
+%%    | #xmlComment{}
+%%    | #xmlNsNode{}
+-type docNodes() :: #xmlElement{}
+                  | #xmlAttribute{}
+                  | #xmlText{}
+                  | #xmlPI{}
+                  | #xmlComment{}
+                  | #xmlNsNode{}.
+
+
+%% @type docEntity() =  #xmlDocument{} | [docNodes()]
+-type docEntity() :: #xmlDocument{} | [docNodes()].
+
+%% @type xPathString() = string()
+-type xPathString() :: string().
+
+%% @type parentList() = [{atom(), integer()}]
+-type parentList() :: [{atom(), integer()}].
+
+%%
+%% @type option_list(). <p>Options allows to customize the behaviour of the
+%%     XPath scanner.
+%% </p>
+%% <p>
+%% Possible options are:
+%% </p>
+%% <dl>
+%%  <dt><code>{namespace, #xmlNamespace}</code></dt>
+%%    <dd>Set namespace nodes, from XmlNamspace, in xmlContext</dd>
+%%  <dt><code>{namespace, Nodes}</code></dt>
+%%    <dd>Set namespace nodes in xmlContext.</dd>
+%% </dl>
+-type option_list() :: [{atom(),term()}].
+
+%%  <dt><code>{bindings, Bs}</code></dt>
+%%   <dd></dd>
+%% <dt><code>{functions, Fs}</code></dt>
+%%   <dd></dd>
 
 %% @spec string(Str, Doc) -> [docEntity()] | Scalar
 %% @equiv string(Str,Doc, [])
@@ -133,6 +151,14 @@ string(Str, Doc, Options) ->
 %% @doc Extracts the nodes from the parsed XML tree according to XPath.
 %%   xmlObj is a record with fields type and value,
 %%   where type is boolean | number | string
+-spec string(Str,Node,Parents,Doc,Options) ->
+          docEntity() | Scalar when
+      Str :: xPathString(),
+      Node :: nodeEntity(),
+      Parents :: parentList(),
+      Doc :: nodeEntity(),
+      Options :: option_list(),
+      Scalar :: #xmlObj{}.
 string(Str, Node, Parents, Doc, Options) ->
 %% record with fields type and value,
 %%                where type is boolean | number | string

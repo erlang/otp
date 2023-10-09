@@ -24,33 +24,6 @@
 %% of XML Schema second edition 28 october 2004. For an introduction to
 %% XML Schema study <a href="http://www.w3.org/TR/xmlschema-0/">part 0.</a>
 %% An XML structure is validated by xmerl_xsd:validate/[2,3].
-%% @type global_state(). <p>The global state of the validator. It is 
-%% represented by the <code>#xsd_state{}</code> record.
-%% </p>
-%% @type option_list(). <p>Options allow to customize the behaviour of the 
-%% validation.
-%% </p>
-%% <p>
-%% Possible options are :
-%% </p>
-%% <dl>
-%%   <dt><code>{tab2file,boolean()}</code></dt>
-%%      <dd>Enables saving of abstract structure on file for debugging
-%%         purpose.</dd>
-%%   <dt><code>{xsdbase,filename()}</code></dt>
-%%      <dd>XSD Base directory.</dd>
-%%   <dt><code>{fetch_fun,FetchFun}</code></dt>
-%%      <dd>Call back function to fetch an external resource.</dd>
-%%   <dt><code>{fetch_path,PathList}</code></dt>
-%%      <dd>PathList is a list of directories to search when fetching files.
-%%          If the file in question is not in the fetch_path, the URI will
-%%          be used as a file name.</dd>
-%%   <dt><code>{state,State}</code></dt>
-%%      <dd>It is possible by this option to provide a state with process
-%%          information from an earlier validation.</dd> 
-%% </dl>
-%% @type filename() = string()
-%% @end
 %%%-------------------------------------------------------------------
 -module(xmerl_xsd).
 
@@ -85,6 +58,43 @@
 	       splitwith/2,mapfoldl/3,keysearch/3,keymember/3,
 	       keyreplace/4,keydelete/3]).
 
+%%----------------------------------------------------------------------
+%% Types
+%%----------------------------------------------------------------------
+
+%% @type global_state(). <p>The global state of the validator. It is 
+%% represented by the <code>#xsd_state{}</code> record.
+%% </p>
+-type global_state() :: #xsd_state{}.
+
+%% @type option_list(). <p>Options allow to customize the behaviour of the 
+%% validation.
+%% </p>
+%% <p>
+%% Possible options are :
+%% </p>
+%% <dl>
+%%   <dt><code>{tab2file,boolean()}</code></dt>
+%%      <dd>Enables saving of abstract structure on file for debugging
+%%         purpose.</dd>
+%%   <dt><code>{xsdbase,filename()}</code></dt>
+%%      <dd>XSD Base directory.</dd>
+%%   <dt><code>{fetch_fun,FetchFun}</code></dt>
+%%      <dd>Call back function to fetch an external resource.</dd>
+%%   <dt><code>{fetch_path,PathList}</code></dt>
+%%      <dd>PathList is a list of directories to search when fetching files.
+%%          If the file in question is not in the fetch_path, the URI will
+%%          be used as a file name.</dd>
+%%   <dt><code>{state,State}</code></dt>
+%%      <dd>It is possible by this option to provide a state with process
+%%          information from an earlier validation.</dd> 
+%% </dl>
+-type option_list() :: [{xsdbase,filename()} | 
+                        {atom(),term()}].
+
+%% @type filename() = string()
+%% @end
+-type filename() :: string().
 
 
 %%======================================================================
@@ -124,6 +134,14 @@ validate(Xml,State) ->
 %% </p>
 %% <p> Observe that E2 may differ from E if for instance there are default
 %% values defined in <code>my_XML_Schema.xsd</code>.</p>
+-spec validate(Element,State,Options) -> Result when
+      Element :: #xmlElement{},
+      Options :: option_list(),
+      Result :: {ValidElement,global_state()} | {error,Reasons},
+      ValidElement :: #xmlElement{},
+      State :: global_state(),
+      Reasons :: [ErrorReason] | ErrorReason,
+      ErrorReason :: term().
 validate(Xml,State,Opts) when is_record(State,xsd_state) ->
     S2 = initiate_state2(State,Opts),
     S3 = validation_options(S2,Opts),

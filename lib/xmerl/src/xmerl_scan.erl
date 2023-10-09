@@ -27,9 +27,38 @@
 %%     It returns records of the type defined in xmerl.hrl.
 %% See also <a href="xmerl_examples.html">tutorial</a> on customization
 %% functions.
+
+-module(xmerl_scan).
+-vsn('0.20').
+-date('03-09-16').
+
+%% main API
+-export([string/1, string/2,
+	 file/1, file/2]).
+
+%% access functions for various states
+-export([user_state/1, user_state/2,
+	 event_state/1, event_state/2,
+	 hook_state/1, hook_state/2,
+	 rules_state/1, rules_state/2,
+	 fetch_state/1, fetch_state/2,
+	 cont_state/1, cont_state/2]).
+
+%% helper functions. To xmerl_lib ??
+-export([accumulate_whitespace/4]).
+
+-export_type([xmlElement/0]).
+
+%-define(debug, 1).
+-include("xmerl.hrl").		% record def, macros
+-include("xmerl_internal.hrl").
+-include_lib("kernel/include/file.hrl").
+
 %% @type global_state(). <p>
 %% The global state of the scanner, represented by the #xmerl_scanner{} record.
 %% </p>
+-type global_state() :: #xmerl_scanner{}.
+
 %% @type option_list(). <p>Options allow to customize the behaviour of the
 %%     scanner.
 %% See also <a href="xmerl_examples.html">tutorial</a> on customization
@@ -114,43 +143,22 @@
 %%    <dd>Set to 'false' if xmerl_scan should fail when there is an ENTITY declaration
 %%        in the XML document (default 'true').</dd>
 %% </dl>
+-type option_list() :: [{atom(),term()}].
+
 %% @type xmlElement() = #xmlElement{}.
 %% The record definition is found in xmerl.hrl.
+-type xmlElement() :: #xmlElement{}.
+
 %% @type xmlDocument() = #xmlDocument{}.
 %% The record definition is found in xmerl.hrl.
+-type xmlDocument() :: #xmlDocument{}.
+
 %% @type document() = xmlElement() | xmlDocument(). <p>
 %% The document returned by <code>xmerl_scan:string/[1,2]</code> and
 %% <code>xmerl_scan:file/[1,2]</code>. The type of the returned record depends on
 %% the value of the document option passed to the function.
 %% </p>
-
--module(xmerl_scan).
--vsn('0.20').
--date('03-09-16').
-
-%% main API
--export([string/1, string/2,
-	 file/1, file/2]).
-
-%% access functions for various states
--export([user_state/1, user_state/2,
-	 event_state/1, event_state/2,
-	 hook_state/1, hook_state/2,
-	 rules_state/1, rules_state/2,
-	 fetch_state/1, fetch_state/2,
-	 cont_state/1, cont_state/2]).
-
-%% helper functions. To xmerl_lib ??
--export([accumulate_whitespace/4]).
-
--export_type([xmlElement/0]).
-
-%-define(debug, 1).
--include("xmerl.hrl").		% record def, macros
--include("xmerl_internal.hrl").
--include_lib("kernel/include/file.hrl").
-
--type xmlElement() :: #xmlElement{}.
+-type document() :: xmlElement() | xmlDocument().
 
 -define(fatal(Reason, S),
 	if
@@ -198,6 +206,7 @@ cont_state(#xmerl_scanner{fun_states = #xmerl_fun_states{cont = S}}) -> S.
 %%% @spec user_state(UserState, S::global_state()) -> global_state()
 %%% @doc For controlling the UserState, to be used in a user function.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-spec user_state(UserState :: term(), S :: global_state()) -> global_state().
 user_state(X, S) ->
     S#xmerl_scanner{user_state = X}.
 
@@ -252,6 +261,8 @@ file(F) ->
 %% @spec file(Filename::string(), Options::option_list()) -> {document(),Rest}
 %%   Rest = list()
 %%% @doc Parse file containing an XML document
+-spec file(Filename :: string(), Options :: option_list()) ->
+          {document(), Rest :: list()} | {error, Reason :: term()}.
 file(F, Options) ->
     ExtCharset=case lists:keysearch(encoding,1,Options) of
 		   {value,{_,Val}} -> Val;
