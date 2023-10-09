@@ -355,7 +355,7 @@ gui_cmd('Next', State) ->
     int:next((State#state.focus)#pinfo.pid),
     State;
 gui_cmd('Continue', State) ->
-    int:continue((State#state.focus)#pinfo.pid),
+    _ = int:continue((State#state.focus)#pinfo.pid),
     State;
 gui_cmd('Finish ', State) ->
     int:finish((State#state.focus)#pinfo.pid),
@@ -714,7 +714,7 @@ load_settings2(Settings, State) ->
     lists:foreach(fun(Break) ->
 			  {{Mod, Line}, [Status, Action, _, Cond]} =
 			      Break,
-			  int:break(Mod, Line),
+			  _ = int:break(Mod, Line),
 			  if
 			      Status =:= inactive ->
 				  int:disable_break(Mod, Line);
