@@ -202,7 +202,7 @@
       <desc>
 	<taglist>
           <tag>
-	    <marker id="hardening_client_options--silently_accept_hosts"/>
+	    <marker id="hardening_client_options-silently_accept_hosts"/>
 	    <c>silently_accept_hosts</c>
 	  </tag>
 	  <item>
@@ -771,7 +771,7 @@
 	</p>
 	<taglist>
 	  <tag>
-	    <marker id="hardening_daemon_options--max_sessions"/>
+	    <marker id="hardening_daemon_options-max_sessions"/>
 	    <c>max_sessions</c>
 	  </tag>
 	  <item>
@@ -794,7 +794,7 @@
 	  </item>
 	
 	  <tag>
-	    <marker id="hardening_daemon_options--max_channels"/>
+	    <marker id="hardening_daemon_options-max_channels"/>
 	    <c>max_channels</c>
 	  </tag>
 	  <item>
@@ -805,7 +805,7 @@
 	  </item>
 
 	  <tag>
-	    <marker id="hardening_daemon_options--parallel_login"/>
+	    <marker id="hardening_daemon_options-parallel_login"/>
 	    <c>parallel_login</c>
 	  </tag>
 	  <item>
@@ -825,7 +825,7 @@
 	  </item>
 
 	  <tag>
-	    <marker id="hardening_daemon_options--minimal_remote_max_packet_size"/>
+	    <marker id="hardening_daemon_options-minimal_remote_max_packet_size"/>
 	    <c>minimal_remote_max_packet_size</c>
 	  </tag>
 	  <item>

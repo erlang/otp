@@ -226,7 +226,7 @@ $ cat log/erlang.log
       <section>
         <title>See also</title>
         <list>
-          <item><seeerl marker="logger_std_h#description">logger_std_h&apos;s Description</seeerl></item>
+          <item><seeerl marker="logger_std_h">logger_std_h</seeerl></item>
           <item><seeguide marker="logger_chapter#handlers">Handlers</seeguide> in the Logging User&apos;s Guide</item>
         </list>
       </section>
@@ -280,7 +280,7 @@ ok
     <section>
       <title>See also</title>
         <list>
-          <item><seeerl marker="logger_std_h#description">logger_std_h&apos;s Description</seeerl></item>
+          <item><seeerl marker="logger_std_h">logger_std_h</seeerl></item>
           <item><seeguide marker="logger_chapter#filters">Filters</seeguide> in the Logging User&apos;s Guide</item>
         </list>
       </section>

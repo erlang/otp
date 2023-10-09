@@ -60,11 +60,11 @@
 
     <p>
       At the end of this module documentation there are also some
-      <seeerl marker="#niche_algorithms">
+      <seeerl marker="#niche-algorithms-api">
         niche algorithms
       </seeerl>
       to be used without this module's normal
-      <seeerl marker="#plug_in_api">
+      <seeerl marker="#plug-in-framework-api">
         plug-in framework API
       </seeerl>
       that may be useful for special purposes like
@@ -417,7 +417,6 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 
   <funcs>
     <fsdescription>
-      <marker id="plug_in_api"/>
       <title>Plug-in framework API</title>
     </fsdescription>
     <func>
@@ -804,12 +803,11 @@ end.</pre>
 
   <funcs>
     <fsdescription>
-      <marker id="niche_algorithms"/>
       <title>Niche algorithms API</title>
       <p>
         This section contains special purpose algorithms
         that does not use the
-        <seeerl marker="#plug_in_api">plug-in framework API</seeerl>,
+        <seeerl marker="#plug-in-framework-api">plug-in framework API</seeerl>,
         for example for speed reasons.
       </p>
       <p>
@@ -1031,7 +1029,7 @@ end.</pre>
             It is easy to accidentally mess up the fairly good
             statistical properties of this generator when doing either.
             See the recepies at the start of this
-            <seeerl marker="#niche_algorithms">
+            <seeerl marker="#niche-algorithms-api">
               Niche algorithms API
             </seeerl>
             description.
@@ -1115,7 +1113,7 @@ end.</pre>
           or bit mask extracting the lowest bits to produce numbers
           in a range 16 bits or less.
           See the recepies at the start of this
-          <seeerl marker="#niche_algorithms">
+          <seeerl marker="#niche-algorithms-api">
             Niche algorithms API
           </seeerl>
           description.
@@ -1124,7 +1122,7 @@ end.</pre>
           On a typical 64 bit Erlang VM this generator executes
           in below 8% (1/13) of the time
           for the default algorithm in the
-          <seeerl marker="#plug_in_api">
+          <seeerl marker="#plug-in-framework-api">
             plug-in framework API
           </seeerl>
           of this module.  With the
@@ -1182,7 +1180,7 @@ end.</pre>
           of your generated values.
           Therefore it is in general safer to shift out low bits.
           See the recepies at the start of this
-          <seeerl marker="#niche_algorithms">
+          <seeerl marker="#niche-algorithms-api">
             Niche algorithms API
           </seeerl>
           description.
@@ -1217,7 +1215,7 @@ end.</pre>
           It is in general general better to use the high bits
           from this scrambler than the low.
           See the recepies at the start of this
-          <seeerl marker="#niche_algorithms">
+          <seeerl marker="#niche-algorithms-api">
             Niche algorithms API
           </seeerl>
           description.

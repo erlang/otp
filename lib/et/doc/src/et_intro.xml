@@ -106,7 +106,7 @@
       </item>
 
       <item>
-        <p>documentation of basic tracing in <c>erlang:trace/4</c> and
+        <p>documentation of basic tracing in <c>erlang:trace/3</c> and
         <c>erlang:trace_pattern/3</c> and then the utilities derived
         from these: <c>dbg</c>, <c>observer</c>, <c>invisio</c> and
         <c>et</c>.</p>

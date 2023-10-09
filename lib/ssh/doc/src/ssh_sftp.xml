@@ -293,7 +293,7 @@
 	in the ssh Users Guide.
 	</p>
 	<p>The <c>crypto</c> mode option is explained in the data types section above, see
-	<seeerl marker="#Crypto operations for open_tar">Crypto operations for open_tar</seeerl>.
+	<seeerl marker="#crypto-operations-for-open_tar">Crypto operations for open_tar</seeerl>.
 	Encryption is assumed if the <c>Mode</c> contains <c>write</c>, and
 	decryption if the <c>Mode</c> contains <c>read</c>.
 	</p>

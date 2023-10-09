@@ -1179,7 +1179,7 @@ Error: fun containing local Erlang function calls
         <note>
           <p>This function has limited use in normal code. It is used by the
             <seeerl marker="dets"><c>dets</c></seeerl> module
-            to perform the <c>dets:select()</c> operations.</p>
+            to perform the <c>dets:select/1</c> operations.</p>
         </note>
       </desc>
     </func>
@@ -1215,7 +1215,7 @@ ets:select(Table, MatchSpec),</code>
         <note>
           <p>This function has limited use in normal code. It is used by the
             <seeerl marker="dets"><c>dets</c></seeerl> module
-            to perform the <c>dets:select()</c> operations and by
+            to perform the <c>dets:select/1</c> operations and by
             Mnesia during transactions.</p>
         </note>
       </desc>

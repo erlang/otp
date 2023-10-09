@@ -391,7 +391,8 @@ R.]]></code>
     <p>If <c>QH2</c> is a call to the function for
       <seeerl marker="gb_trees"><c>gb_trees</c></seeerl>, as defined
       in section <seeerl marker="#implementing_a_qlc_table">Implementing
-      a QLC Table</seeerl>, then <c>gb_table:table/1</c>, the
+      a QLC Table</seeerl>, then <seeerl marker="#gb_table"><c>gb_table:table/1</c>
+      </seeerl>, the
       iterator for the gb-tree is initiated for each answer to
       <c>QH1</c>. The objects of the gb-tree are then returned one
       by one. This is probably the most efficient way of traversing
@@ -452,6 +453,7 @@ R.]]></code>
       how to use function <seemfa marker="#table/2"><c>table/2</c></seemfa>,
       the implementation of a QLC table for the <seeerl
       marker="gb_trees"><c>gb_trees</c></seeerl> module is given:</p>
+      <marker id="gb_table"/>
 
     <code type="none">
 <![CDATA[-module(gb_table).
@@ -1294,7 +1296,7 @@ ets:match_spec_run(
               <item>
                 <p>Other modules can provide a nullary
                   <c><anno>TraverseFun</anno></c>. An example is
-                  <c>gb_table:table/1</c> in section
+                  <seeerl marker="#gb_table"><c>gb_table:table/1</c></seeerl> in section
                   <seeerl marker="#implementing_a_qlc_table">Implementing a
                   QLC Table</seeerl>.</p>
               </item>

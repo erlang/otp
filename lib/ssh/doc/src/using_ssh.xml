@@ -172,7 +172,7 @@ ok
 {channels,[]}
 7></pre>
 
-    <p>See <seeerl marker="ssh_connection#description">ssh_connection</seeerl> and
+    <p>See <seeerl marker="ssh_connection">ssh_connection</seeerl> and
     <seemfa marker="ssh_connection#exec/4">ssh_connection:exec/4</seemfa>
     for finding documentation of the channel messages.</p>
 

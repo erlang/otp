@@ -62,22 +62,22 @@
     <section>
       <title>Counters and parallelism</title>
       <taglist>
-	<tag><seeerl marker="ssh#hardening_daemon_options--max_sessions">max_sessions</seeerl></tag>
+	<tag><seeerl marker="ssh#hardening_daemon_options-max_sessions">max_sessions</seeerl></tag>
 	<item>
 	  The maximum number of simultaneous sessions that are accepted at any time for this daemon.
 	  This includes sessions that are being authorized. The default is that an unlimited number of
 	  simultaneous sessions are allowed. It is a good candidate to set if the capacity of the server
 	  is low or a capacity margin is needed.
 	</item>
-	<tag><seeerl marker="ssh#hardening_daemon_options--max_channels">max_channels</seeerl></tag>
+	<tag><seeerl marker="ssh#hardening_daemon_options-max_channels">max_channels</seeerl></tag>
 	<item>
 	  The maximum number of channels that are accepted for each connection. The default is unlimited.
 	</item>
-	<tag><seeerl marker="ssh#hardening_daemon_options--parallel_login">parallel_login</seeerl></tag>
+	<tag><seeerl marker="ssh#hardening_daemon_options-parallel_login">parallel_login</seeerl></tag>
 	<item>
 	  If set to false (the default value), only one login is handled at a time.
 	  If set to true, the number of simultaneous login attempts are limited by the value of the
-	  <seeerl marker="ssh#hardening_daemon_options--max_sessions">max_sessions</seeerl> option.
+	  <seeerl marker="ssh#hardening_daemon_options-max_sessions">max_sessions</seeerl> option.
 	</item>
       </taglist>
     </section>
@@ -140,7 +140,7 @@
 	  <item>
 	    For the default handler ssh_file, store the valid host keys in the file
 	    <seeerl marker="ssh_file#FILE-known_hosts"><c>known_hosts</c></seeerl> and set the option
-	    <seeerl marker="ssh#hardening_client_options--silently_accept_hosts">silently_accept_hosts</seeerl>
+	    <seeerl marker="ssh#hardening_client_options-silently_accept_hosts">silently_accept_hosts</seeerl>
 	    to <c>false</c>.
 	  </item>
 	  <item>or, write a specialized key handler using the <seeerl marker="ssh_client_key_api">SSH client key API</seeerl>
@@ -153,7 +153,7 @@
       <item>
 	<list>
 	  <item>
-	    <seeerl marker="ssh#hardening_client_options--silently_accept_hosts">silently_accept_hosts</seeerl>
+	    <seeerl marker="ssh#hardening_client_options-silently_accept_hosts">silently_accept_hosts</seeerl>
 	    <list>
 	      <item><seetype marker="ssh#accept_callback"><c>accept_callback()</c></seetype></item>
 	      <item><seetype marker="ssh#accept_hosts"><c>{HashAlgoSpec, accept_callback()}</c></seetype></item>

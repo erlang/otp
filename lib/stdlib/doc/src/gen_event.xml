@@ -598,7 +598,7 @@ gen_event:stop             ----->  Module:terminate/2
 	</p>
 	<p>
 	  The return value <c>Reply</c> is defined in the return value
-	  of <c>Module:handle_call/3</c>.
+	  of <c>Module:handle_call/2</c>.
 	</p>
 	<p>
 	  If the specified event handler is not
@@ -810,7 +810,7 @@ gen_event:stop             ----->  Module:terminate/2
 	</p>
         <p>
 	  <c>Request</c> is any term that is passed as one of
-          the arguments to <c>Module:handle_call/3</c>.
+          the arguments to <c>Module:handle_call/2</c>.
 	</p>
       </desc>
     </func>
@@ -1147,7 +1147,7 @@ gen_event:stop             ----->  Module:terminate/2
 	</p>
 	<p>
 	  The return value <c>Reply</c> is defined in the return value
-	  of <c>Module:handle_call/3</c>.
+	  of <c>Module:handle_call/2</c>.
 	</p>
 	<p>
 	  If the specified event handler is not

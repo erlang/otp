@@ -211,7 +211,7 @@
 	<p>If there existed a previous persistent term associated with
 	key <c><anno>Key</anno></c>, a global GC has been initiated
 	when <c>erase/1</c> returns. See <seeerl
-	marker="#description">Description</seeerl>.</p>
+	marker="persistent_term">Description</seeerl>.</p>
       </desc>
     </func>
 
@@ -286,7 +286,7 @@
 	<p>If there existed a previous persistent term associated with
 	key <c><anno>Key</anno></c>, a global GC has been initiated
 	when <c>put/2</c> returns. See <seeerl
-	marker="#description">Description</seeerl>.</p>
+	marker="persistent_term">Description</seeerl>.</p>
       </desc>
     </func>
   </funcs>

@@ -267,7 +267,7 @@ ok]]></code>
         system by making use of the built-in trace support in the
         Erlang emulator. These Erlang traces can be directed to files
         or to ports. See the reference manual for
-        <c>erlang:trace/4</c>, <c>erlang:trace_pattern/3</c>,
+        <c>erlang:trace/3</c>, <c>erlang:trace_pattern/3</c>,
         <c>dbg</c> and <c>ttb</c> for more info.</p>
 
         <p>There are also corresponding trace client types that can

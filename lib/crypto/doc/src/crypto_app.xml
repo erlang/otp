@@ -62,8 +62,8 @@
   <section>
     <title>CONFIGURATION</title>
     <p>The following configuration parameters are defined for the
-    crypto application. See <c>app(3)</c> for more information about
-    configuration parameters.</p>
+      crypto application. See <seefile marker="kernel:app"><c>app(3)</c></seefile>
+      for more information about configuration parameters.</p>
     <taglist>
       <tag><c>fips_mode = boolean()</c></tag>
       <item>

@@ -44,7 +44,7 @@
       BIFs listed with module prefix are not auto-imported.</p>
 
     <p>Predefined types are listed in the
-      <seeerl marker="#Predefined datatypes">Predefined datatypes</seeerl>
+      <seeerl marker="#predefined-datatypes">Predefined datatypes</seeerl>
       section of this reference manual and in the
       <seeguide marker="system/reference_manual:typespec">Types and Function Specifications</seeguide>
       section of the Erlang Reference Manual.</p>
@@ -363,7 +363,6 @@
   </datatypes>
 
   <datatypes>
-    <datatype_title>Other Datatypes</datatype_title>
     <datatype>
       <name name="ext_binary" prefix="true"/>
       <desc>

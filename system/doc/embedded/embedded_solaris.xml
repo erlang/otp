@@ -173,7 +173,7 @@ esac</pre>
         be combined with a call to <c>erl_call</c>, for example:</p>
       <pre>
         $SOME_PATH/erl_call -n Node init stop</pre>
-      <p>To take Erlang down gracefully, see the <c>erl_call(1)</c>
+      <p>To take Erlang down gracefully, see the <seecom marker="erl_interface:erl_call"><c>erl_call(1)</c></seecom>
         manual page in <c>erl_interface</c> for details on the use
 	of <c>erl_call</c>. However,
 	that requires that Erlang runs as a distributed node, which is
@@ -414,7 +414,7 @@ chown root mod_syslog]]></code>
       <title>Related Documents</title>
       <p>See the <c>os_mon(3)</c> application,
       the <c>application(3)</c> manual page in Kernel,
-      and the <c>erl(1)</c> manual page in ERTS.</p>
+      and the <seecom marker="erts:erl"><c>erl(1)</c></seecom> manual page in ERTS.</p>
     </section>
   </section>
 

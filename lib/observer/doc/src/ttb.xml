@@ -179,7 +179,7 @@ ttb:p(all, call).</input></pre>
        <tag><c>timer</c></tag>
        <item><p>Indicates that the trace is to be
           automatically stopped after <c>MSec</c> milliseconds. <c>StopOpts</c>
-          are passed to command <c>ttb:stop/2</c> if specified (default is <c>[]</c>).
+          are passed to command <c>ttb:stop/1</c> if specified (default is <c>[]</c>).
           Notice that the timing is approximate, as delays related to
           network communication are always present. The timer starts after
           <c>ttb:p/2</c> is issued, so you can set up your trace patterns before.</p></item>
