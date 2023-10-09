@@ -42,6 +42,12 @@
 
 -include("ct_util.hrl").
 
+-type connection() :: handle() | {ct:target_name(), connection_type()} | ct:target_name().
+-type connection_type() :: telnet | ts1 | ts2.
+-type handle() :: ct:handle().
+-type prompt_regexp() :: string().
+-export_type([connection/0, connection_type/0, handle/0, prompt_regexp/0]).
+
 -record(state,{host,
 	       port,
 	       teln_pid,

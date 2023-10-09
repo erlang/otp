@@ -31,6 +31,39 @@
 	 unregister_agents/2, unregister_usm_users/1, unregister_usm_users/2,
 	 load_mibs/1, unload_mibs/1]).
 
+-type agent_config() :: {Item :: term(), Value :: term()}.
+-type agent_ip() :: ip().
+-type agent_name() :: atom().
+-type agent_port() :: integer().
+-type call_back_module() :: atom().
+-type error_index() :: integer().
+-type error_status() :: noError | atom().
+-type ip() :: string() | {integer(), integer(), integer(), integer()}.
+-type manager_ip() :: ip().
+-type oid() :: [byte()].
+-type oids() :: [oid()].
+-type rel_path() :: string().
+-type sec_type() :: none | minimum | semi.
+-type snmp_app_agent_params() :: term().
+-type snmp_app_manager_params() :: term().
+-type snmpreply() :: {error_status(), error_index(), varbinds()}.
+-type user_data() :: term().
+-type user_name() :: atom().
+-type usm_config() :: {Item :: term(), Value :: term()}.
+-type usm_user_name() :: string().
+-type value_type() :: o | i | u | g | s.
+-type var_and_val() :: {oid(), value_type(), term()}.
+-type varbind() :: term().
+-type varbinds() :: [varbind()].
+-type varsandvals() :: [var_and_val()].
+
+-export_type([agent_config/0, agent_ip/0, agent_name/0, agent_port/0,
+              call_back_module/0, error_index/0, error_status/0, ip/0,
+              manager_ip/0, oid/0, oids/0, rel_path/0, sec_type/0,
+              snmp_app_agent_params/0, snmp_app_manager_params/0, snmpreply/0,
+              user_data/0, user_name/0, usm_config/0, usm_user_name/0,
+              value_type/0, var_and_val/0, varbind/0, varbinds/0, varsandvals/0]).
+
 %% Manager values
 -define(CT_SNMP_LOG_FILE, "ct_snmp_set.log").
 -define(MGR_PORT, 5000).
