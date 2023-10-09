@@ -16,10 +16,11 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: tibdex/github-app-token@v1.8.0
+        uses: actions/create-github-app-token@v1
         with:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PEM }}
+
       - uses: actions/add-to-project@v0.4.0
         with:
           project-url: https://github.com/orgs/erlang/projects/13
