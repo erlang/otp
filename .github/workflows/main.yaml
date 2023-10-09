@@ -42,13 +42,26 @@ jobs:
         id: apps
         run: |
           .github/scripts/path-filters.sh > .github/scripts/path-filters.yaml
+          ## Print path-filters for debug purposes
+          cat .github/scripts/path-filters.yaml
           ALL_APPS=$(grep '^[a-z_]*:' .github/scripts/path-filters.yaml | sed 's/:.*$//')
           ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
           echo "all=${ALL_APPS}" >> $GITHUB_OUTPUT
       - uses: dorny/paths-filter@v2.11.1
-        id: changes
+        id: app-changes
         with:
           filters: .github/scripts/path-filters.yaml
+      - name: Override changes
+        id: changes
+        env:
+            ALL_APPS: ${{ steps.apps.outputs.all }}
+            CHANGED_APPS: ${{ steps.app-changes.outputs.changes }}
+        run: |
+          if ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') }}; then
+              echo "changes=${ALL_APPS}" >> "$GITHUB_OUTPUT"
+          else
+              echo "changes=${CHANGED_APPS}" >> "$GITHUB_OUTPUT"
+          fi
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_archive.tar.gz
       - name: Upload source tar archive
