@@ -34,7 +34,7 @@
   </description>  
   <funcs>
      <func>
-      <name since="OTP 18.1.1">response_default_headers() -> [Header] </name>
+      <name since="OTP 18.1.1">Module:response_default_headers() -> [Header] </name>
       <fsummary>Provide default headers for the HTTP servers responses.</fsummary>
       <type>
         <v>Header = {HeaderName :: string(), HeaderValue::string()}</v>
@@ -48,7 +48,7 @@
     </func>
     
     <func>
-      <name since="OTP 17.5.6">response_header({HeaderName, HeaderValue}) ->  {true, Header} | false </name>
+      <name since="OTP 17.5.6">Module:response_header({HeaderName, HeaderValue}) ->  {true, Header} | false </name>
       <fsummary>Filter and possible alter HTTP response headers.</fsummary>
       <type>
         <v>Header = {HeaderName :: string(), HeaderValue::string()}</v>
@@ -61,7 +61,7 @@
     </func>
    
     <func>
-      <name since="OTP 17.5.6">request_header({HeaderName, HeaderValue}) ->   {true, Header} | false </name>
+      <name since="OTP 17.5.6">Module:request_header({HeaderName, HeaderValue}) ->   {true, Header} | false </name>
       <fsummary>Filter and possible alter HTTP request headers.</fsummary>
       <type>
 	<v>Header = {HeaderName :: string(), HeaderValue::string()}</v>

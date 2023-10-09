@@ -52,7 +52,7 @@
   </description>
   <funcs>
     <func>
-      <name since="">config_err(Format, Args) -> void()</name>
+      <name since="">Module:config_err(Format, Args) -> void()</name>
       <fsummary>Called if a configuration error occurs</fsummary>
       <type>
         <v>Format = string()</v>
@@ -68,7 +68,7 @@
       </desc>
     </func>
     <func>
-      <name since="">user_err(Format, Args) -> void()</name>
+      <name since="">Module:user_err(Format, Args) -> void()</name>
       <fsummary>Called if a user related error occurs</fsummary>
       <type>
         <v>Format = string()</v>

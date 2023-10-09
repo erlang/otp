@@ -101,7 +101,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
   </section>
   <funcs>
     <func>
-      <name since="">accept_recv(Domain, Addr) -> boolean()</name>
+      <name since="">Module:accept_recv(Domain, Addr) -> boolean()</name>
       <fsummary>Shall the received message be accepted</fsummary>
       <type>
 	<v>Domain = transportDomain()</v>
@@ -116,7 +116,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
       </desc>
     </func>
     <func>
-      <name since="">accept_send(Domain, Addr) -> boolean()</name>
+      <name since="">Module:accept_send(Domain, Addr) -> boolean()</name>
       <fsummary>Shall the message be sent</fsummary>
       <type>
 	<v>Domain = transportDomain()</v>
@@ -131,7 +131,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
       </desc>
     </func>
     <func>
-      <name since="">accept_recv_pdu(Domain, Addr, PduType) -> boolean()</name>
+      <name since="">Module:accept_recv_pdu(Domain, Addr, PduType) -> boolean()</name>
       <fsummary>Shall the received pdu be accepted</fsummary>
       <type>
 	<v>Domain = transportDomain()</v>
@@ -148,15 +148,14 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
       </desc>
     </func>
     <func>
-      <name since="">accept_send_pdu(Targets, PduType) -> Reply</name>
+      <name since="">Module:accept_send_pdu(Targets, PduType) -> Reply</name>
       <fsummary>Shall the pdu be sent</fsummary>
       <type>
-        <v>Targets = targets()</v>
-        <v>targets() = [target()]</v>
-        <v>target() = {Domain, Addr}</v>
+        <v>Targets = [Target]</v>
+        <v>Target = {Domain, Addr}</v>
 	<v>Domain = transportDomain()</v>
 	<v>Addr = transportAddressWithPort()</v>
-        <v>PduType = pdu_type() > 0</v>
+        <v>PduType = pdu_type()</v>
         <v>Reply = boolean() | NewTargets</v>
         <v>NewTargets = targets()</v>
       </type>
