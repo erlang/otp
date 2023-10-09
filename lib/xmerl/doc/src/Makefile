@@ -79,6 +79,8 @@ XML_FILES= \
 
 XML_GEN_FILES = $(XML_CHAPTER_GEN_FILES)
 
+TOP_SPECS_FILE = specs.xml
+
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
