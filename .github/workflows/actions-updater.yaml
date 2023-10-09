@@ -14,7 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v1.8.0
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PEM }}
+
       - name: Run GitHub Actions Version Updater
         uses: saadmk11/github-actions-version-updater@v0.8.1
         with:
-          token: ${{ secrets.ACTIONS_UPDATER_SECRET }}
+          token: ${{ steps.generate_token.outputs.token }}
