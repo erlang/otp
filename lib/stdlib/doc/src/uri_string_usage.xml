@@ -194,7 +194,7 @@
     </p>
     <pre>
     1> uri_string:allowed_characters().
-    <![CDATA[{scheme,
+    <![CDATA[[{scheme,
      "+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"},
     {userinfo,
      "!$%&'()*+,-.0123456789:;=ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},

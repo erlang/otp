@@ -254,7 +254,7 @@
       <desc>
         <p><c>split/3</c> splits <c>String</c> in <c>N</c> chunks
           using <c>RegExp</c>. <c>split/3</c> is equivalent to
-          <c>regexp:split/2</c> with the exception that <c>N</c>
+          <c>re:split/3</c> with the exception that <c>N</c>
           defines the maximum number of fields in
           <c>FieldList</c>.</p>
       </desc>

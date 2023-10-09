@@ -96,11 +96,10 @@
       </desc>
     </func>
     <func>
-      <name since="">close(Handle, Msg) -> ok</name>
+      <name since="">close(Handle) -> ok</name>
       <fsummary></fsummary>
       <type>
         <v>Handle = socket_handle()</v>
-        <v>Msg</v>
       </type>
       <desc>
         <p>This function is used for closing an active UDP socket.</p>

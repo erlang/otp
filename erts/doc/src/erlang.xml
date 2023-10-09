@@ -191,7 +191,7 @@
       <name name="maybe_improper_list" n_vars="0"/>
       <desc>
         <p>An Erlang <seeguide marker="system/reference_manual:data_types#list">list</seeguide>
-          that is not guaranteed to end with a <seetype marker="#nil">[]</seetype>, and where the
+          that is not guaranteed to end with a <seetype marker="#nil"><c>[]</c></seetype>, and where the
           list elements can be of any type.
         </p>
       </desc>
@@ -200,7 +200,7 @@
       <name name="maybe_improper_list" n_vars="2"/>
       <desc>
         <p>An Erlang <seeguide marker="system/reference_manual:data_types#list">list</seeguide>,
-          that is not guaranteed to end with a <seetype marker="#nil">[]</seetype>,
+          that is not guaranteed to end with a <seetype marker="#nil"><c>[]</c></seetype>,
           and where the list elements are of the type <c><anno>ContentType</anno></c>.
         </p>
       </desc>

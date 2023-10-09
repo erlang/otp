@@ -237,7 +237,7 @@
 	<p>The <c>cryptolib_padding</c> are paddings that may be present in the underlying cryptolib
 	linked to the Erlang/OTP crypto app.
 	</p>
-	<p>For OpenSSL, see the	<url href="http:www.openssl.org">OpenSSL documentation</url>.
+	<p>For OpenSSL, see the	<url href="https://openssl.org">OpenSSL documentation</url>.
 	and find <c>EVP_CIPHER_CTX_set_padding()</c> in cryptolib for your linked version.
 	</p>
       </desc>

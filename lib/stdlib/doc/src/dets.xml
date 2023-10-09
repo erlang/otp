@@ -376,7 +376,7 @@
             <p><c>{bchunk_format, binary()}</c> - An opaque binary
               describing the format of the objects returned by
               <c>bchunk/2</c>. The binary can be used as argument to
-              <c>is_compatible_chunk_format/2</c>.</p>
+              <c>is_compatible_bchunk_format/2</c>.</p>
           </item>
           <item>
             <p><c>{hash, Hash}</c> - Describes which BIF is
