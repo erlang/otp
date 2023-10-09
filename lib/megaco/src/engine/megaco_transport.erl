@@ -25,9 +25,20 @@
 
 -module(megaco_transport).
 
--export([behaviour_info/1]).
+-callback send_message(Handle, Msg) -> ok | {cancel, Reason :: term()} | Error when
+      Handle :: term(),
+      Msg :: iodata(),
+      Error :: term().
 
-behaviour_info(callbacks) ->
-    [{send_message,2}];
-behaviour_info(_) ->
-    undefined.
+-callback send_message(Handle, Msg, Resend) -> ok | {cancel, Reason :: term()} | Error  when
+      Handle :: term(),
+      Msg :: iodata(),
+      Resend :: boolean(),
+      Error :: term().
+
+-callback resend_message(Handle, Msg) -> ok | {cancel, Reason :: term()} | Error when
+      Handle :: term(),
+      Msg :: iodata(),
+      Error :: term().
+
+-optional_callbacks([{send_message,3},{resend_message,2}]).
