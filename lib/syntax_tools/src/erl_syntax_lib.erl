@@ -29,8 +29,6 @@
 %% This module contains utility functions for working with the
 %% abstract data type defined in the module {@link erl_syntax}.
 %%
-%% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
-%% tree. See the {@link erl_syntax} module for details.
 
 -module(erl_syntax_lib).
 
@@ -52,6 +50,11 @@
 -export_type([info_pair/0]).
 
 %% =====================================================================
+%% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
+%% tree. See the {@link erl_syntax} module for details.
+-type syntaxTree() :: erl_syntax:syntaxTree().
+
+%% =====================================================================
 %% @spec map(Function, Tree::syntaxTree()) -> syntaxTree()
 %%
 %%          Function = (syntaxTree()) -> syntaxTree()
@@ -62,8 +65,8 @@
 %%
 %% @see map_subtrees/2
 
--spec map(fun((erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree()),
-	  erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree().
+-spec map(fun((syntaxTree()) -> syntaxTree()),
+	  syntaxTree()) -> syntaxTree().
 
 map(F, Tree) ->
     case erl_syntax:subtrees(Tree) of
@@ -88,8 +91,8 @@ map(F, Tree) ->
 %%
 %% @see map/2
 
--spec map_subtrees(fun((erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree()),
-		   erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree().
+-spec map_subtrees(fun((syntaxTree()) -> syntaxTree()),
+		   syntaxTree()) -> syntaxTree().
 
 map_subtrees(F, Tree) ->
     case erl_syntax:subtrees(Tree) of
@@ -115,8 +118,8 @@ map_subtrees(F, Tree) ->
 %% @see fold_subtrees/3
 %% @see foldl_listlist/3
 
--spec fold(fun((erl_syntax:syntaxTree(), term()) -> term()),
-	   term(), erl_syntax:syntaxTree()) -> term().
+-spec fold(fun((syntaxTree(), term()) -> term()),
+	   term(), syntaxTree()) -> term().
 
 fold(F, S, Tree) ->
     case erl_syntax:subtrees(Tree) of
@@ -150,8 +153,8 @@ fold_2(_, S, []) ->
 %%
 %% @see fold/3
 
--spec fold_subtrees(fun((erl_syntax:syntaxTree(), term()) -> term()),
-		    term(), erl_syntax:syntaxTree()) -> term().
+-spec fold_subtrees(fun((syntaxTree(), term()) -> term()),
+		    term(), syntaxTree()) -> term().
 
 fold_subtrees(F, S, Tree) ->
     foldl_listlist(F, S, erl_syntax:subtrees(Tree)).
@@ -197,8 +200,8 @@ foldl(_, S, []) ->
 %% @see map/2
 %% @see fold/3
 
--spec mapfold(fun((erl_syntax:syntaxTree(), term()) -> {erl_syntax:syntaxTree(), term()}),
-	      term(), erl_syntax:syntaxTree()) -> {erl_syntax:syntaxTree(), term()}.
+-spec mapfold(fun((syntaxTree(), term()) -> {syntaxTree(), term()}),
+	      term(), syntaxTree()) -> {syntaxTree(), term()}.
 
 mapfold(F, S, Tree) ->
     case erl_syntax:subtrees(Tree) of
@@ -238,10 +241,10 @@ mapfold_2(_, S, []) ->
 %%
 %% @see mapfold/3
 
--spec mapfold_subtrees(fun((erl_syntax:syntaxTree(), term()) ->
-			      {erl_syntax:syntaxTree(), term()}),
-		       term(), erl_syntax:syntaxTree()) ->
-        {erl_syntax:syntaxTree(), term()}.
+-spec mapfold_subtrees(fun((syntaxTree(), term()) ->
+			      {syntaxTree(), term()}),
+		       term(), syntaxTree()) ->
+        {syntaxTree(), term()}.
 
 mapfold_subtrees(F, S, Tree) ->
     case erl_syntax:subtrees(Tree) of
@@ -281,11 +284,13 @@ mapfoldl(F, S, [L | Ls]) ->
 mapfoldl(_, S, []) ->
     {[], S}.
 
+%% =====================================================================
+%% @type set(T) = //stdlib/sets:set(T)
+-type set(T) :: sets:set(T).
 
 %% =====================================================================
 %% @spec variables(syntaxTree()) -> set(atom())
 %%
-%% @type set(T) = //stdlib/sets:set(T)
 %%
 %% @doc Returns the names of variables occurring in a syntax tree, The
 %% result is a set of variable names represented by atoms. Macro names
@@ -293,7 +298,7 @@ mapfoldl(_, S, []) ->
 %%
 %% @see //stdlib/sets
 
--spec variables(erl_syntax:syntaxTree()) -> sets:set(atom()).
+-spec variables(syntaxTree()) -> set(atom()).
 
 variables(Tree) ->
     variables(Tree, sets:new()).
@@ -348,7 +353,7 @@ default_variable_name(N) ->
 %%
 %% @see new_variable_name/2
 
--spec new_variable_name(sets:set(atom())) -> atom().
+-spec new_variable_name(set(atom())) -> atom().
 
 new_variable_name(S) ->
     new_variable_name(fun default_variable_name/1, S).
@@ -374,7 +379,7 @@ new_variable_name(S) ->
 %% @see //stdlib/sets
 %% @see //stdlib/random
 
--spec new_variable_name(fun((integer()) -> atom()), sets:set(atom())) -> atom().
+-spec new_variable_name(fun((integer()) -> atom()), set(atom())) -> atom().
 
 new_variable_name(F, S) ->
     R = start_range(S),
@@ -427,7 +432,7 @@ generate(_Key, Range) ->
 %% 
 %% @see new_variable_name/1
 
--spec new_variable_names(integer(), sets:set(atom())) -> [atom()].
+-spec new_variable_names(integer(), set(atom())) -> [atom()].
 
 new_variable_names(N, S) ->
     new_variable_names(N, fun default_variable_name/1, S).
@@ -443,7 +448,7 @@ new_variable_names(N, S) ->
 %% 
 %% @see new_variable_name/2
 
--spec new_variable_names(integer(), fun((integer()) -> atom()), sets:set(atom())) ->
+-spec new_variable_names(integer(), fun((integer()) -> atom()), set(atom())) ->
 	[atom()].
 
 new_variable_names(N, F, S) when is_integer(N) ->
@@ -457,12 +462,12 @@ new_variable_names(N, Names, R, F, S) when N > 0 ->
 new_variable_names(0, Names, _, _, _) ->
     Names.
 
+%% @type ordset(T) = //stdlib/ordsets:ordset(T)
+-type ordset(T) :: ordsets:ordset(T).
 
 %% =====================================================================
 %% @spec annotate_bindings(Tree::syntaxTree(),
 %%                         Bindings::ordset(atom())) -> syntaxTree()
-%%
-%% @type ordset(T) = //stdlib/ordsets:ordset(T)
 %%
 %% @doc Adds or updates annotations on nodes in a syntax tree.
 %% `Bindings' specifies the set of bound variables in the
@@ -485,8 +490,8 @@ new_variable_names(0, Names, _, _, _) ->
 %% @see annotate_bindings/1
 %% @see //stdlib/ordsets
 
--spec annotate_bindings(erl_syntax:syntaxTree(), ordsets:ordset(atom())) ->
-        erl_syntax:syntaxTree().
+-spec annotate_bindings(syntaxTree(), ordset(atom())) ->
+        syntaxTree().
 
 annotate_bindings(Tree, Env) ->
     {Tree1, _, _} = vann(Tree, Env),
@@ -504,7 +509,7 @@ annotate_bindings(Tree, Env) ->
 %%
 %% @see annotate_bindings/2
 
--spec annotate_bindings(erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree().
+-spec annotate_bindings(syntaxTree()) -> syntaxTree().
 
 annotate_bindings(Tree) ->
     As = erl_syntax:get_ann(Tree),
@@ -916,7 +921,7 @@ delete_binding_anns([]) ->
 %% @see //erts/erlang:error/1
 %% @see //erts/erlang:error/2
 
--spec is_fail_expr(erl_syntax:syntaxTree()) -> boolean().
+-spec is_fail_expr(syntaxTree()) -> boolean().
 
 is_fail_expr(E) ->          
     case erl_syntax:type(E) of
@@ -1137,8 +1142,8 @@ collect_attribute(N, V, Info) ->
 		warnings       = []   :: [term()],
 		functions      = []   :: [{atom(), arity()}]}).
 
--type field_default() :: 'none' | erl_syntax:syntaxTree().
--type field_type()    :: 'none' | erl_syntax:syntaxTree().
+-type field_default() :: 'none' | syntaxTree().
+-type field_type()    :: 'none' | syntaxTree().
 
 new_finfo() ->
     #forms{}.
@@ -1240,7 +1245,7 @@ list_value(List) ->
 %% @see erl_syntax:error_marker_info/1
 %% @see erl_syntax:warning_marker_info/1
 
--spec analyze_form(erl_syntax:syntaxTree()) -> {atom(), term()} | atom().
+-spec analyze_form(syntaxTree()) -> {atom(), term()} | atom().
 
 analyze_form(Node) ->
     case erl_syntax:type(Node) of
@@ -1312,7 +1317,7 @@ analyze_form(Node) ->
 %% @see analyze_record_attribute/1
 %% @see analyze_wild_attribute/1
 
--spec analyze_attribute(erl_syntax:syntaxTree()) ->
+-spec analyze_attribute(syntaxTree()) ->
         'preprocessor' | {atom(), term()}.  % XXX: underspecified
 
 analyze_attribute(Node) ->
@@ -1369,7 +1374,7 @@ analyze_attribute(_, Node) ->
 %%
 %% @see analyze_attribute/1
 
--spec analyze_module_attribute(erl_syntax:syntaxTree()) ->
+-spec analyze_module_attribute(syntaxTree()) ->
         atom() | {atom(), [atom()]}.
 
 analyze_module_attribute(Node) ->
@@ -1418,7 +1423,7 @@ analyze_variable_list(Node) ->
 -type functionN()    :: atom() | {atom(), arity()}.
 -type functionName() :: functionN() | {atom(), functionN()}.
 
--spec analyze_export_attribute(erl_syntax:syntaxTree()) -> [functionName()].
+-spec analyze_export_attribute(syntaxTree()) -> [functionName()].
 
 analyze_export_attribute(Node) ->
     case erl_syntax:type(Node) of
@@ -1460,7 +1465,7 @@ analyze_function_name_list(Node) ->
 %% The evaluation throws `syntax_error' if
 %% `Node' does not represent a well-formed function name.
 
--spec analyze_function_name(erl_syntax:syntaxTree()) -> functionName().
+-spec analyze_function_name(syntaxTree()) -> functionName().
 
 analyze_function_name(Node) ->
     case erl_syntax:type(Node) of
@@ -1521,7 +1526,7 @@ append_arity(_A, Name) ->
 %%
 %% @see analyze_attribute/1
 
--spec analyze_import_attribute(erl_syntax:syntaxTree()) ->
+-spec analyze_import_attribute(syntaxTree()) ->
         {atom(), [functionName()]} | atom().
 
 analyze_import_attribute(Node) ->
@@ -1558,7 +1563,7 @@ analyze_import_attribute(Node) ->
 %% The evaluation throws `syntax_error' if
 %% `Node' does not represent a well-formed type name.
 
--spec analyze_type_name(erl_syntax:syntaxTree()) -> typeName().
+-spec analyze_type_name(syntaxTree()) -> typeName().
 
 analyze_type_name(Node) ->
     case erl_syntax:type(Node) of
@@ -1606,7 +1611,7 @@ analyze_type_name(Node) ->
 %%
 %% @see analyze_attribute/1
 
--spec analyze_wild_attribute(erl_syntax:syntaxTree()) -> {atom(), term()}.
+-spec analyze_wild_attribute(syntaxTree()) -> {atom(), term()}.
 
 analyze_wild_attribute(Node) ->
     case erl_syntax:type(Node) of
@@ -1666,7 +1671,7 @@ analyze_wild_attribute(Node) ->
 
 -type fields() :: [field()].
 
--spec analyze_record_attribute(erl_syntax:syntaxTree()) -> {atom(), fields()}.
+-spec analyze_record_attribute(syntaxTree()) -> {atom(), fields()}.
 
 analyze_record_attribute(Node) ->
     case erl_syntax:type(Node) of
@@ -1736,10 +1741,10 @@ analyze_record_attribute_tuple(Node) ->
 %% @see analyze_record_attribute/1
 %% @see analyze_record_field/1
 
--type info() :: {atom(), [{atom(), erl_syntax:syntaxTree()}]}
+-type info() :: {atom(), [{atom(), syntaxTree()}]}
               | {atom(), atom()} | atom().
 
--spec analyze_record_expr(erl_syntax:syntaxTree()) -> {atom(), info()} | atom().
+-spec analyze_record_expr(syntaxTree()) -> {atom(), info()} | atom().
 
 analyze_record_expr(Node) ->
     case erl_syntax:type(Node) of
@@ -1811,7 +1816,7 @@ analyze_record_expr(Node) ->
 %% @see analyze_record_attribute/1
 %% @see analyze_record_expr/1
 
--spec analyze_record_field(erl_syntax:syntaxTree()) -> field().
+-spec analyze_record_field(syntaxTree()) -> field().
 
 analyze_record_field(Node) ->
     case erl_syntax:type(Node) of
@@ -1848,7 +1853,7 @@ analyze_record_field(Node) ->
 %%
 %% @see analyze_attribute/1
 
--spec analyze_file_attribute(erl_syntax:syntaxTree()) -> {string(), integer()}.
+-spec analyze_file_attribute(syntaxTree()) -> {string(), integer()}.
 
 analyze_file_attribute(Node) ->
     case erl_syntax:type(Node) of
@@ -1883,7 +1888,7 @@ analyze_file_attribute(Node) ->
 %% `Node' does not represent a well-formed function
 %% definition.
 
--spec analyze_function(erl_syntax:syntaxTree()) -> {atom(), arity()}.
+-spec analyze_function(syntaxTree()) -> {atom(), arity()}.
 
 analyze_function(Node) ->
     case erl_syntax:type(Node) of
@@ -1917,7 +1922,7 @@ analyze_function(Node) ->
 %%
 %% @see analyze_function_name/1
 
--spec analyze_implicit_fun(erl_syntax:syntaxTree()) -> functionName().
+-spec analyze_implicit_fun(syntaxTree()) -> functionName().
 
 analyze_implicit_fun(Node) ->
     case erl_syntax:type(Node) of
@@ -1950,7 +1955,7 @@ analyze_implicit_fun(Node) ->
 
 -type appFunName() :: {atom(), arity()} | {atom(), {atom(), arity()}}.
 
--spec analyze_application(erl_syntax:syntaxTree()) -> appFunName() | arity().
+-spec analyze_application(syntaxTree()) -> appFunName() | arity().
 
 analyze_application(Node) ->
     case erl_syntax:type(Node) of
@@ -1992,7 +1997,7 @@ analyze_application(Node) ->
 
 -type typeName() :: atom() | {module(), {atom(), arity()}} | {atom(), arity()}.
 
--spec analyze_type_application(erl_syntax:syntaxTree()) -> typeName().
+-spec analyze_type_application(syntaxTree()) -> typeName().
 
 analyze_type_application(Node) ->
     case erl_syntax:type(Node) of
@@ -2071,7 +2076,7 @@ function_name_expansions(A, Name, Ack) ->
 %% Standalone comments in form lists are removed; any other standalone
 %% comments are changed into null-comments (no text, no indentation).
 
--spec strip_comments(erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree().
+-spec strip_comments(syntaxTree()) -> syntaxTree().
 
 strip_comments(Tree) ->
     map(fun strip_comments_1/1, Tree).
@@ -2093,7 +2098,7 @@ strip_comments_1(T) ->
 %% @spec to_comment(Tree) -> syntaxTree()
 %% @equiv to_comment(Tree, "% ")
 
--spec to_comment(erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree().
+-spec to_comment(syntaxTree()) -> syntaxTree().
 
 to_comment(Tree) ->
     to_comment(Tree, "% ").
@@ -2109,7 +2114,7 @@ to_comment(Tree) ->
 %% @see to_comment/3
 %% @see erl_prettypr:format/1
 
--spec to_comment(erl_syntax:syntaxTree(), string()) -> erl_syntax:syntaxTree().
+-spec to_comment(syntaxTree(), string()) -> syntaxTree().
 
 to_comment(Tree, Prefix) ->
     F = fun (T) -> erl_prettypr:format(T) end,
@@ -2140,9 +2145,9 @@ to_comment(Tree, Prefix) ->
 %% @see to_comment/1
 %% @see to_comment/2
 
--spec to_comment(erl_syntax:syntaxTree(), string(),
-		 fun((erl_syntax:syntaxTree()) -> string())) ->
-        erl_syntax:syntaxTree().
+-spec to_comment(syntaxTree(), string(),
+		 fun((syntaxTree()) -> string())) ->
+        syntaxTree().
 
 to_comment(Tree, Prefix, F) ->
     erl_syntax:comment(split_lines(F(Tree), Prefix)).
@@ -2157,7 +2162,7 @@ to_comment(Tree, Prefix, F) ->
 %% @see limit/3
 %% @see erl_syntax:text/1
 
--spec limit(erl_syntax:syntaxTree(), integer()) -> erl_syntax:syntaxTree().
+-spec limit(syntaxTree(), integer()) -> syntaxTree().
 
 limit(Tree, Depth) ->
     limit(Tree, Depth, erl_syntax:text("...")).
@@ -2187,8 +2192,8 @@ limit(Tree, Depth) ->
 %%
 %% @see limit/2
 
--spec limit(erl_syntax:syntaxTree(), integer(), erl_syntax:syntaxTree()) ->
-        erl_syntax:syntaxTree().
+-spec limit(syntaxTree(), integer(), syntaxTree()) ->
+        syntaxTree().
 
 limit(_Tree, Depth, Node) when Depth < 0 ->
     Node;
