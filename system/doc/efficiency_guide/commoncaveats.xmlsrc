@@ -108,7 +108,7 @@
     words. When the record is copied to the newly created process,
     sharing will be lost and the size of the copied <c>data</c> field
     will be 131070 heap words. More details about <seeguide
-    marker="processes#loss-of-sharing">loss off sharing</seeguide> are
+    marker="eff_guide_processes#loss-of-sharing">loss off sharing</seeguide> are
     found in a later section.</p>
 
     <p>To avoid the problem, outside of the fun extract only the

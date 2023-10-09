@@ -103,13 +103,13 @@ gen_server:abcast     -----> Module:handle_cast/2
       as a result of a function in the callback module returning
       <c>{stop,Reason,NewState}</c>, an exit signal with this <c>Reason</c>
       is sent to linked processes and ports. See
-      <seeguide marker="system/reference_manual:processes#errors">
+      <seeguide marker="system/reference_manual:ref_man_processes#errors">
       Processes</seeguide> in the Reference Manual for details
       regarding error handling using exit signals.</p>
 
     <note><p>
       For some important information about distributed signals, see the
-      <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+      <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
         <i>Blocking Signaling Over Distribution</i></seeguide> section in the
       <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
       Blocking signaling can, for example, cause call timeouts in

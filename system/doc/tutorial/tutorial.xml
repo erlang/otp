@@ -27,7 +27,7 @@
     <docno></docno>
     <date></date>
     <rev></rev>
-    <file>introduction.xml</file>
+    <file>tutorial.xml</file>
   </header>
   <marker id="interoperability tutorial"></marker>
   <p>This section informs on interoperability, that is, information

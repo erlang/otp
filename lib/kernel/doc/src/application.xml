@@ -51,7 +51,7 @@
       the tree is to be located in an <em>application callback module</em>,
       exporting a predefined set of functions.</p>
     <p>For details about applications and behaviours, see
-    <seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide>.</p>
+    <seeguide marker="system/design_principles:design_principles">OTP Design Principles</seeguide>.</p>
   </description>
   <datatypes>
     <datatype>
@@ -670,7 +670,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
 
   <section>
     <title>See Also</title>
-    <p><seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide>,
+    <p><seeguide marker="system/design_principles:design_principles">OTP Design Principles</seeguide>,
       <seeapp marker="kernel_app">kernel(6)</seeapp>,
       <seefile marker="app">app(4)</seefile></p>
   </section>

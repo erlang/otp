@@ -382,7 +382,7 @@ module.beam: module.erl \
             <p>The compiler will emit informational warnings about selective
               receive optimizations (both successful and unsuccessful). For
               more information, see the section about
-              <seeguide marker="system/efficiency_guide:processes#receiving-messages">
+              <seeguide marker="system/efficiency_guide:eff_guide_processes#receiving-messages">
               selective receive optimization</seeguide> in the Efficiency
               Guide.</p>
           </item>

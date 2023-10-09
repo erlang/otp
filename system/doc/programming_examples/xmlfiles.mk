@@ -20,7 +20,7 @@
 PROG_EX_CHAPTER_FILES = \
 	bit_syntax.xml \
 	list_comprehensions.xml \
-	records.xml
+	prog_ex_records.xml
 
 PROG_EX_CHAPTER_GEN_FILES = \
 	funs.xml

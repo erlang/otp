@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 #
 TUTORIAL_CHAPTER_FILES = \
-	introduction.xml\
+	tutorial.xml\
 	overview.xml\
 	debugging.xml
 

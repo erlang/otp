@@ -126,7 +126,7 @@ ok
     <section>
       <title>Example</title>
       <p>The simple server from
-      <seeguide marker="des_princ#ch1">Overview</seeguide>,
+      <seeguide marker="design_principles#ch1">Overview</seeguide>,
       implemented using <c>sys</c> and <c>proc_lib</c> so it fits into a
       supervision tree:</p>
       <marker id="ex"></marker>

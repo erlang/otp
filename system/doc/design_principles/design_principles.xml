@@ -27,7 +27,7 @@
     <docno></docno>
     <date></date>
     <rev></rev>
-    <file>des_princ.xml</file>
+    <file>design_principles.xml</file>
   </header>
   <marker id="otp design principles"></marker>
   <p>The <em>OTP design principles</em> define how to

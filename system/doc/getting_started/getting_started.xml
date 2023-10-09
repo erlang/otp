@@ -27,7 +27,7 @@
     <docno></docno>
     <date></date>
     <rev></rev>
-    <file>intro.xml</file>
+    <file>getting_started.xml</file>
   </header>
   <marker id="getting started"></marker>
 
@@ -37,7 +37,7 @@
       Also, parts that are greatly simplified are indicated with *manual*.
       This means that a lot more information on the subject is to be found in
       the Erlang book or in
-      <seeguide marker="system/reference_manual:introduction#erlang ref manual">
+      <seeguide marker="system/reference_manual:reference_manual#erlang ref manual">
       Erlang Reference Manual</seeguide>.</p>
 
   <section>
@@ -64,7 +64,7 @@
       <item>How to communicate with the outside world and software
         written in other languages (ports);
         this is described in
-        <seeguide marker="system/tutorial:introduction#interoperability tutorial">
+        <seeguide marker="system/tutorial:tutorial#interoperability tutorial">
         Interoperability Tutorial</seeguide>.</item>
       <item>Erlang libraries (for example, file handling).</item>
       <item>OTP and (in consequence) the Mnesia database.</item>

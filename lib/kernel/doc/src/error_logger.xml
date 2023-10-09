@@ -47,7 +47,7 @@
     </note>
 
     <p>The Erlang <em>error logger</em> is an event manager (see
-      <seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide> and
+      <seeguide marker="system/design_principles:design_principles">OTP Design Principles</seeguide> and
       <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>),
       registered as <c>error_logger</c>.</p>
     <p>Error logger is no longer started by default, but is

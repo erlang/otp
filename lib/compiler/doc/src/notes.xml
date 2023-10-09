@@ -1161,12 +1161,12 @@
 	    <p>Selective receive optimization will now be applied
 	    much more often.</p>
 	    <p>The new <seeguide
-	    marker="system/efficiency_guide:processes#recv_opt_info"><c>recv_opt_info</c></seeguide>
+	    marker="system/efficiency_guide:eff_guide_processes#recv_opt_info"><c>recv_opt_info</c></seeguide>
 	    compile flag can be used to print diagnostics relating to
 	    this optimization.</p>
           <p>
 	    You can read more about the <seeguide
-	    marker="system/efficiency_guide:processes#receiving-messages">selective
+	    marker="system/efficiency_guide:eff_guide_processes#receiving-messages">selective
 	    receive optimization</seeguide> in the Efficiency Guide.</p>
           <p>
 	    Own Id: OTP-10391 Aux Id: OTP-16226 </p>

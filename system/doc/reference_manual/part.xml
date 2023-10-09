@@ -28,21 +28,21 @@
     <date>2003-01-11</date>
     <rev></rev>
   </header>
-  <xi:include href="introduction.xml"/>
+  <xi:include href="reference_manual.xml"/>
   <xi:include href="character_set.xml"/>
   <xi:include href="data_types.xml"/>
   <xi:include href="patterns.xml"/>
   <xi:include href="modules.xml"/>
-  <xi:include href="functions.xml"/>
+  <xi:include href="ref_man_functions.xml"/>
   <xi:include href="documentation.xml"/>
   <xi:include href="typespec.xml"/>
   <xi:include href="opaques.xml"/>
   <xi:include href="expressions.xml"/>
   <xi:include href="macros.xml"/>
-  <xi:include href="records.xml"/>
+  <xi:include href="ref_man_records.xml"/>
   <xi:include href="errors.xml"/>
   <xi:include href="features.xml"/>
-  <xi:include href="processes.xml"/>
+  <xi:include href="ref_man_processes.xml"/>
   <xi:include href="distributed.xml"/>
   <xi:include href="code_loading.xml"/>
   <xi:include href="ports.xml"/>

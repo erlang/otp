@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <xi:include href="intro.xml"/>
+  <xi:include href="getting_started.xml"/>
   <xi:include href="seq_prog.xml"/>
   <xi:include href="conc_prog.xml"/>
   <xi:include href="robustness.xml"/>

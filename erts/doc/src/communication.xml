@@ -43,7 +43,7 @@
     <title>Passing of Signals</title>
     <p>
       This information has been moved to the
-      <seeguide marker="system/reference_manual:processes#signal-delivery">
+      <seeguide marker="system/reference_manual:ref_man_processes#signal-delivery">
 	<i>Signals</i> section of the <i>Processes</i> chapter
 	in the <i>Erlang Reference Manual</i></seeguide>.
     </p>
@@ -53,7 +53,7 @@
     <title>Synchronous Communication</title>
     <p>
       This information has been moved to the
-      <seeguide marker="system/reference_manual:processes#sync-comm">
+      <seeguide marker="system/reference_manual:ref_man_processes#sync-comm">
 	<i>Signals</i> section of the <i>Processes</i> chapter
 	in the <i>Erlang Reference Manual</i></seeguide>.
     </p>

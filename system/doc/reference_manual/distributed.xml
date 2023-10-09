@@ -184,7 +184,7 @@ dilbert@uab</pre>
       contains functions for this purpose. For more information about
       C nodes, see the <seeguide marker="erl_interface:ei_users_guide">
       Erl_Interface</seeguide> application and
-      <seeguide marker="system/tutorial:introduction#interoperability tutorial">
+      <seeguide marker="system/tutorial:tutorial#interoperability tutorial">
       Interoperability Tutorial.</seeguide>.</p>
   </section>
 

@@ -131,7 +131,7 @@
     <datatype>
       <name name="identifier" n_vars="0"/>
       <desc>
-        <p>An unique identifier for some entity, for example a <seeguide marker="system/reference_manual:processes">process</seeguide>, <seeguide marker="system/reference_manual:ports#ports">port</seeguide> or <seemfa marker="#monitor/2">monitor</seemfa>.</p>
+        <p>An unique identifier for some entity, for example a <seeguide marker="system/reference_manual:ref_man_processes">process</seeguide>, <seeguide marker="system/reference_manual:ports#ports">port</seeguide> or <seemfa marker="#monitor/2">monitor</seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -703,7 +703,7 @@ client(ServerPid, Request) ->
 	</p>
 	<p>
 	  For more information on process aliases see the
-	  <seeguide marker="system/reference_manual:processes#process-aliases"><i>Process
+	  <seeguide marker="system/reference_manual:ref_man_processes#process-aliases"><i>Process
 	  Aliases</i></seeguide> section of the <i>Erlang
 	  Reference Manual</i>.
 	</p>
@@ -1690,7 +1690,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           if this cleanup is wanted.</p>
         <note><p>
           For some important information about distributed signals, see the
-          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
             <i>Blocking Signaling Over Distribution</i></seeguide> section in the
           <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         </p></note>
@@ -2308,7 +2308,7 @@ example_fun(A1, A2) ->
         </warning>
         <note><p>
           For some important information about distributed signals, see the
-          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
             <i>Blocking Signaling Over Distribution</i></seeguide> section in the
           <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         </p></note>
@@ -2577,7 +2577,7 @@ of Floating Point Numbers</seeguide>.</p>
               <p>In Erlang/OTP 27, we plan to change the return value so that
                 it always points to the local <c>init</c> process, regardless
                 of which process or node the fun was originally created on. See
-                <seeguide marker="system/general_info:upcoming_incompatibilities#fun_creator_pid">
+                <seeguide marker="system/general_info:upcoming_incompatibilities#fun-creator-pid-will-always-be-local-init-process">
                   Upcoming Potential Incompatibilities
                 </seeguide>.
               </p>
@@ -2962,7 +2962,7 @@ uncompiled code with the same arity are mapped to the same list by
           their application master.</p>
         <p>Setting the group leader follows the signal ordering guarantees
           described in the
-          <seeguide marker="system/reference_manual:processes#signals">
+          <seeguide marker="system/reference_manual:ref_man_processes#signals">
           Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
         <p>See also
           <seemfa marker="#group_leader/0"><c>group_leader/0</c></seemfa>
@@ -2971,7 +2971,7 @@ uncompiled code with the same arity are mapped to the same list by
           applications.</p>
         <note><p>
           For some important information about distributed signals, see the
-          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
             <i>Blocking Signaling Over Distribution</i></seeguide> section in the
           <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         </p></note>
@@ -3571,7 +3571,7 @@ is_process_alive(P2Pid),
 % P2 is not alive (the call above always return false)
 </pre>
        <p>See the documentation about
-        <seeguide marker="system/reference_manual:processes#signals">signals</seeguide>
+        <seeguide marker="system/reference_manual:ref_man_processes#signals">signals</seeguide>
        and <seemfa marker="#exit/2">erlang:exit/2</seemfa> for more
        information about signals and exit signals.</p>
       </desc>
@@ -3664,10 +3664,10 @@ is_process_alive(P2Pid),
 
 	<p>
 	  If one of the participants of a link terminates, it will
-	  <seeguide marker="system/reference_manual:processes#sending_exit_signals">send
+	  <seeguide marker="system/reference_manual:ref_man_processes#sending_exit_signals">send
 	  an exit signal</seeguide> to the other participant. The exit
 	  signal will contain the
-	  <seeguide marker="system/reference_manual:processes#link_exit_signal_reason">exit
+	  <seeguide marker="system/reference_manual:ref_man_processes#link_exit_signal_reason">exit
 	  reason</seeguide> of the terminated participant. Other cases when
 	  exit signals are triggered due to a link are when no linkee exist
 	  (<c>noproc</c> exit reason) and when the connection between linked
@@ -3683,14 +3683,14 @@ is_process_alive(P2Pid),
 	</p>
 	<list>
 	  <item>
-            <seeguide marker="system/reference_manual:processes#links">Links</seeguide>
+            <seeguide marker="system/reference_manual:ref_man_processes#links">Links</seeguide>
 	  </item>
 	  <item>
-	    <seeguide marker="system/reference_manual:processes#sending_exit_signals">Sending
+	    <seeguide marker="system/reference_manual:ref_man_processes#sending_exit_signals">Sending
 	    Exit Signals</seeguide>
 	  </item>
 	  <item>
-	    <seeguide marker="system/reference_manual:processes#receiving_exit_signals">Receiving
+	    <seeguide marker="system/reference_manual:ref_man_processes#receiving_exit_signals">Receiving
 	    Exit Signals</seeguide>
 	  </item>
 	</list>
@@ -3708,7 +3708,7 @@ is_process_alive(P2Pid),
 	  case. The <c>noproc</c>
 	  <seeguide marker="system/reference_manual:errors#exceptions">
 	  exception</seeguide> is not to be confused with an
-	  <seeguide marker="system/reference_manual:processes#sending_exit_signals">exit
+	  <seeguide marker="system/reference_manual:ref_man_processes#sending_exit_signals">exit
 	  signal</seeguide> with exit reason <c>noproc</c>. Currently it is "cheap"
 	  to check if the linkee exists when it is supposed to reside on
 	  the same node as the calling process.
@@ -3725,7 +3725,7 @@ is_process_alive(P2Pid),
 
         <note><p>
           For some important information about distributed signals, see the
-          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
             <i>Blocking Signaling Over Distribution</i></seeguide> section in the
           <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         </p></note>
@@ -4741,7 +4741,7 @@ RealSystem = system + MissedSystem</code>
         </note>
         <note><p>
           For some important information about distributed signals, see the
-          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
             <i>Blocking Signaling Over Distribution</i></seeguide> section in the
           <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         </p></note>
@@ -4845,7 +4845,7 @@ client(ServerPid, Request) ->
 	    </p>
 	    <p>
 	      For more information on process aliases see the
-	      <seeguide marker="system/reference_manual:processes#process-aliases"><i>Process
+	      <seeguide marker="system/reference_manual:ref_man_processes#process-aliases"><i>Process
 	      Aliases</i></seeguide> section of the <i>Erlang Reference
 	      Manual</i>.
 	    </p>
@@ -4862,7 +4862,7 @@ client(ServerPid, Request) ->
 	    <p>
 	      An example of how the <c>{tag, UserDefinedTag}</c> option can
 	      be used in order to enable the new
-	      <seeguide marker="system/efficiency_guide:processes#receiving-messages">selective
+	      <seeguide marker="system/efficiency_guide:eff_guide_processes#receiving-messages">selective
 	      receive optimization</seeguide>, introduced in OTP 24, when making
 	      multiple requests to different servers:
 	    </p>
@@ -6847,7 +6847,7 @@ receive_replies(ReqId, N, Acc) ->
           be included multiple times in <c><anno>ItemList</anno></c>.</p>
         <p>Getting process information follows the signal ordering guarantees
           described in the
-          <seeguide marker="system/reference_manual:processes#signals">
+          <seeguide marker="system/reference_manual:ref_man_processes#signals">
           Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
         <note>
           <p>If <c>registered_name</c> is part of <c><anno>ItemList</anno></c>
@@ -7387,7 +7387,7 @@ end</pre>
       <desc>
         <p>Registers the name <c><anno>RegName</anno></c> with a process
           identifier (pid) or a port identifier in the
-          <seeguide marker="system/reference_manual:processes#runtime-service">
+          <seeguide marker="system/reference_manual:ref_man_processes#runtime-service">
             <c>name registry</c></seeguide>.
           <c><anno>RegName</anno></c>, which must be an atom, can be used
           instead of the pid or port identifier in send operator
@@ -7397,7 +7397,7 @@ end</pre>
 > <input>register(db, Pid).</input>
 true</pre>
         <p>The registered name is considered a
-          <seeguide marker="system/reference_manual:processes#visible-resources">
+          <seeguide marker="system/reference_manual:ref_man_processes#visible-resources">
             Directly Visible Erlang Resource</seeguide> and is automatically
             unregistered when the process terminates.</p>
         <p>Failures:</p>
@@ -7532,7 +7532,7 @@ true</pre>
 	unreachable destination <c><anno>Dest</anno></c> (of correct type).</p>
         <note><p>
           For some important information about distributed signals, see the
-          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
             <i>Blocking Signaling Over Distribution</i></seeguide> section in the
           <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         </p></note>
@@ -7565,7 +7565,7 @@ true</pre>
         </taglist>
         <note><p>
           For some important information about distributed signals, see the
-          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
             <i>Blocking Signaling Over Distribution</i></seeguide> section in the
           <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         </p></note>
@@ -8530,7 +8530,7 @@ true</pre>
 	</p>
         <note><p>
           For some important information about distributed signals, see the
-          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
             <i>Blocking Signaling Over Distribution</i></seeguide> section in the
           <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         </p></note>
@@ -10193,7 +10193,7 @@ Metadata = #{ pid => pid(),
             <c>allocator</c></tag>
           <item>
             <p>Returns <c>{<anno>Allocator</anno>, <anno>Version</anno>,
-              <anno>Features</anno>, <anno>Settings</anno></c>, where:</p>
+              <anno>Features</anno>, <anno>Settings</anno></c>}, where:</p>
             <list type="bulleted">
               <item>
                 <p><c><anno>Allocator</anno></c> corresponds to the
@@ -12129,7 +12129,7 @@ hello
               A good example of when you want to use the <c>local</c> option, is
               when you want to make a request from a process to a port
               <seecref marker="erl_driver">driver</seecref> and utilize the
-              <seeguide marker="system/efficiency_guide:processes#receiving-messages">selective
+              <seeguide marker="system/efficiency_guide:eff_guide_processes#receiving-messages">selective
 	      receive optimization</seeguide> when receiving the reply. In
               this scenario you want to create a reference, serialize the
               reference on the external term format using the <c>local</c>
@@ -13735,7 +13735,7 @@ improper_end</pre>
 	</p>
 	<p>
 	  For more information on process aliases see the
-	  <seeguide marker="system/reference_manual:processes#process-aliases"><i>Process
+	  <seeguide marker="system/reference_manual:ref_man_processes#process-aliases"><i>Process
 	  Aliases</i></seeguide> section of the <i>Erlang Reference
 	  Manual</i>.
 	</p>
@@ -13893,14 +13893,14 @@ improper_end</pre>
 	</p>
 	<list>
 	  <item>
-            <seeguide marker="system/reference_manual:processes#links">Links</seeguide>
+            <seeguide marker="system/reference_manual:ref_man_processes#links">Links</seeguide>
 	  </item>
 	  <item>
-	    <seeguide marker="system/reference_manual:processes#sending_exit_signals">Sending
+	    <seeguide marker="system/reference_manual:ref_man_processes#sending_exit_signals">Sending
 	    Exit Signals</seeguide>
 	  </item>
 	  <item>
-	    <seeguide marker="system/reference_manual:processes#receiving_exit_signals">Receiving
+	    <seeguide marker="system/reference_manual:ref_man_processes#receiving_exit_signals">Receiving
 	    Exit Signals</seeguide>
 	  </item>
 	</list>
@@ -13941,7 +13941,7 @@ end</code>
 	</p>
         <note><p>
           For some important information about distributed signals, see the
-          <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+          <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
             <i>Blocking Signaling Over Distribution</i></seeguide> section in the
           <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         </p></note>
@@ -13959,7 +13959,7 @@ end</code>
         <p>Removes the <seemfa marker="#register/2"><c>registered name</c></seemfa>
           <c><anno>RegName</anno></c> associated with a
           process identifier or a port identifier from the
-          <seeguide marker="system/reference_manual:processes#runtime-service">
+          <seeguide marker="system/reference_manual:ref_man_processes#runtime-service">
             <c>name registry</c></seeguide>. For example:</p>
         <pre>
 > <input>unregister(db).</input>
@@ -13981,7 +13981,7 @@ true</pre>
         <p>Returns the process identifier or port identifier with
           the <seemfa marker="#register/2"><c>registered name</c></seemfa>
           <c>RegName</c> from the
-          <seeguide marker="system/reference_manual:processes#runtime-service">
+          <seeguide marker="system/reference_manual:ref_man_processes#runtime-service">
             <c>name registry</c></seeguide>.
           Returns <c>undefined</c> if the name is not registered. Example:</p>
         <pre>

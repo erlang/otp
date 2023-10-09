@@ -1651,7 +1651,7 @@ DiB == gen_digest(ChA, ICA)?
       corresponding <c>UNLINK_ID_ACK</c> signal <em>must</em> be
       sent before any other signals are sent to the sender of the
       <c>UNLINK_ID</c> signal. Together with
-      <seeguide marker="system/reference_manual:processes#signal-delivery">the
+      <seeguide marker="system/reference_manual:ref_man_processes#signal-delivery">the
       signal ordering guarantee</seeguide> of Erlang this makes it
       possible for the sender of the <c>UNLINK_ID</c> signal to know
       the order of other signals which is essential for the protocol.
@@ -1686,7 +1686,7 @@ DiB == gen_digest(ChA, ICA)?
       <tag>Active Flag</tag>
       <item>
 	If set, the link is active and the process will react on
-	<seeguide marker="system/reference_manual:processes#receiving_exit_signals">incoming
+	<seeguide marker="system/reference_manual:ref_man_processes#receiving_exit_signals">incoming
 	exit signals</seeguide> issued due to the link. If not set,
 	the link is inactive and incoming exit signals, issued due
 	to the link, will be ignored. That is, the processes are

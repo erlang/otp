@@ -27,7 +27,7 @@
     <docno></docno>
     <date></date>
     <rev></rev>
-    <file>introduction.xml</file>
+    <file>reference_manual.xml</file>
   </header>
   <marker id="erlang ref manual"></marker>
 

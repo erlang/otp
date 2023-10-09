@@ -28,15 +28,15 @@
     <date>2002-09-23</date>
     <rev></rev>
   </header>
-  <xi:include href="introduction.xml"/>
+  <xi:include href="efficiency_guide.xml"/>
   <xi:include href="myths.xml"/>
   <xi:include href="commoncaveats.xml"/>
   <xi:include href="binaryhandling.xml"/>
   <xi:include href="maps.xml"/>
   <xi:include href="listhandling.xml"/>
-  <xi:include href="functions.xml"/>
+  <xi:include href="eff_guide_functions.xml"/>
   <xi:include href="tablesDatabases.xml"/>
-  <xi:include href="processes.xml"/>
+  <xi:include href="eff_guide_processes.xml"/>
   <xi:include href="drivers.xml"/>
   <xi:include href="advanced.xml"/>
   <xi:include href="profiling.xml"/>

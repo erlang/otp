@@ -21,13 +21,13 @@ EFF_GUIDE_CHAPTER_FILES = \
 	advanced.xml \
 	commoncaveats.xml \
 	binaryhandling.xml \
-	functions.xml \
-	introduction.xml \
+	eff_guide_functions.xml \
+	efficiency_guide.xml \
 	listhandling.xml \
 	maps.xml \
         myths.xml \
 	part.xml \
-	processes.xml \
+	eff_guide_processes.xml \
 	profiling.xml \
 	tablesDatabases.xml \
 	drivers.xml \

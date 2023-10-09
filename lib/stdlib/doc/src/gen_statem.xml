@@ -377,13 +377,13 @@ erlang:'!'            -----> Module:StateName/3
       If the <c>gen_statem</c> process terminates, e.g. as a result of a
       function in the callback module returning <c>{stop,Reason}</c>, an exit
       signal with this <c>Reason</c> is sent to linked processes and ports. See
-      <seeguide marker="system/reference_manual:processes#errors">
+      <seeguide marker="system/reference_manual:ref_man_processes#errors">
       Processes</seeguide> in the Reference Manual for details regarding error
       handling using exit signals.
     </p>
     <note><p>
       For some important information about distributed signals, see the
-      <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+      <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
         <i>Blocking Signaling Over Distribution</i></seeguide> section in the
       <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
       Blocking signaling can, for example, cause call timeouts in
@@ -1791,7 +1791,7 @@ handle_event(_, _, State, Data) ->
           Previous issue with late replies that could occur when having
           network issues or using <c>dirty_timeout</c> is now prevented
           by use of
-          <seeguide marker="system/reference_manual:processes#process-aliases"><i>process
+          <seeguide marker="system/reference_manual:ref_man_processes#process-aliases"><i>process
           aliases</i></seeguide>. <c>{clean_timeout, <anno>T</anno>}</c>
           and <c>{dirty_timeout, <anno>T</anno>}</c> therefore no longer
           serves any purpose and will work the same as

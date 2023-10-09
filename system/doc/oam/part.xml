@@ -32,6 +32,6 @@
     <rev>A</rev>
     <file></file>
   </header>
-  <xi:include href="oam_intro.xml"/>
+  <xi:include href="oam.xml"/>
 </part>
 

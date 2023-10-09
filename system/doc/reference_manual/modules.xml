@@ -45,7 +45,7 @@ fact(N) when N>0 ->  % beginning of function declaration
 fact(0) ->           %  |
     1.               % end of function declaration</pre>
     <p>For a description of function declarations, see
-    <seeguide marker="functions">Function Declaration Syntax</seeguide>.</p>
+    <seeguide marker="ref_man_functions">Function Declaration Syntax</seeguide>.</p>
   </section>
 
   <section>
@@ -214,7 +214,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 -record(Record,Fields).</pre>
       <p>Record definitions are allowed anywhere in a module,
         also among the function declarations.
-	Read more in <seeguide marker="records">Records</seeguide>.</p>
+	Read more in <seeguide marker="ref_man_records">Records</seeguide>.</p>
     </section>
 
     <section>

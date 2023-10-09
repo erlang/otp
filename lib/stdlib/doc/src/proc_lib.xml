@@ -33,7 +33,7 @@
     adhering to the OTP design principles.</modulesummary>
   <description>
     <p>This module is used to start processes adhering to
-      the <seeguide marker="system/design_principles:des_princ">
+      the <seeguide marker="system/design_principles:design_principles">
       OTP Design Principles</seeguide>. Specifically, the functions in this
       module are used by the OTP standard behaviors (for example,
       <c>gen_server</c> and <c>gen_statem</c>)

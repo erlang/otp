@@ -33,7 +33,7 @@
     <p>This section contains examples on using records, funs, list
       comprehensions, and the bit syntax.</p>
   </description>
-  <xi:include href="records.xml"/>
+  <xi:include href="prog_ex_records.xml"/>
   <xi:include href="funs.xml"/>
   <xi:include href="list_comprehensions.xml"/>
   <xi:include href="bit_syntax.xml"/>

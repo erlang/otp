@@ -21,7 +21,7 @@
 DESIGN_PRINCIPLES_CHAPTER_FILES = \
 	applications.xml \
 	appup_cookbook.xml \
-	des_princ.xml \
+	design_principles.xml \
 	distributed_applications.xml \
 	events.xml \
 	statem.xml \

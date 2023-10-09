@@ -27,7 +27,7 @@
     <docno></docno>
     <date></date>
     <rev></rev>
-    <file>records.xml</file>
+    <file>ref_man_records.xml</file>
   </header>
   <p>A record is a data structure for storing a fixed number of
     elements. It has named fields and is similar to a struct in C.
@@ -37,7 +37,7 @@
     <seeerl marker="stdlib:shell">shell(3)</seeerl>
     manual page in STDLIB.</p>
   <p>More examples are provided in
-    <seeguide marker="system/programming_examples:records">
+    <seeguide marker="system/programming_examples:prog_ex_records">
     Programming Examples</seeguide>.</p>
 
   <section>

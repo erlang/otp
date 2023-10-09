@@ -18,18 +18,18 @@
 # %CopyrightEnd%
 #
 REF_MAN_CHAPTER_FILES = \
-	introduction.xml \
+	reference_manual.xml \
 	data_types.xml \
 	patterns.xml \
 	modules.xml \
-	functions.xml \
+	ref_man_functions.xml \
 	documentation.xml \
 	expressions.xml \
 	macros.xml \
-	records.xml \
+	ref_man_records.xml \
 	errors.xml \
 	features.xml \
-	processes.xml \
+	ref_man_processes.xml \
 	distributed.xml \
 	code_loading.xml \
 	ports.xml \

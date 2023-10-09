@@ -63,7 +63,7 @@
       <marker id="erl_signal_server"/>
       <title>OS Signal Event Handler</title>
       <p>Asynchronous OS signals may be subscribed to via the Kernel applications event manager
-          (see <seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide> and
+          (see <seeguide marker="system/design_principles:design_principles">OTP Design Principles</seeguide> and
           <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>) registered as <c>erl_signal_server</c>.
           A default signal handler is installed which handles the following signals:</p>
           <taglist>

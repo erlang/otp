@@ -252,14 +252,14 @@ phone_number
     <p>
       The BIF <seemfa marker="erts:erlang#self/0"><c>self/0</c></seemfa>
       returns the PID of the calling process. When
-      <seeguide marker="processes#process-creation">creating a new
+      <seeguide marker="ref_man_processes#process-creation">creating a new
       process</seeguide>, the parent process will be able to get the PID
       of the child process either via the return value, as is the case
       when calling the <seemfa marker="erts:erlang#spawn/3"><c>spawn/3</c></seemfa>
       BIF, or via a message, which is the case when calling the
       <seemfa marker="erts:erlang#spawn_request/5"><c>spawn_request/5</c></seemfa>
       BIF. A PID is typically used when when sending a process a
-      <seeguide marker="processes#signals">signal</seeguide>. The
+      <seeguide marker="ref_man_processes#signals">signal</seeguide>. The
       <seemfa marker="erts:erlang#is_pid/1"><c>is_pid/1</c></seemfa>
       BIF can be used to test whether a term is a PID. 
     </p>
@@ -281,7 +281,7 @@ loop() ->
 I am &lt;0.58.0>
 who_are_you</pre>
     <p>Read more about processes in
-      <seeguide marker="processes">Processes</seeguide>.</p>
+      <seeguide marker="ref_man_processes">Processes</seeguide>.</p>
   </section>
 
   <section>
@@ -701,8 +701,8 @@ new(Name, Age) ->
 1> <input>person:new(ernie, 44).</input>
 {person,ernie,44}</pre>
     <p>Read more about records in
-      <seeguide marker="records">Records</seeguide>. More examples can be
-      found in <seeguide marker="system/programming_examples:records">
+      <seeguide marker="ref_man_records">Records</seeguide>. More examples can be
+      found in <seeguide marker="system/programming_examples:prog_ex_records">
       Programming Examples</seeguide>.</p>
   </section>
 

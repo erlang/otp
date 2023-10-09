@@ -38,7 +38,7 @@
    </p>
   <list type="bulleted">
     <item><p><seeguide marker="macros">Preprocessor</seeguide></p></item>
-    <item><p><seeguide marker="records">Records</seeguide></p></item>
+    <item><p><seeguide marker="ref_man_records">Records</seeguide></p></item>
   </list>
 
   <section>
@@ -363,7 +363,7 @@ spawn(m, init, [])</code>
     between using the implicitly or fully qualified function name.
     The latter always refers to the latest version of the module.
     See <seeguide marker="code_loading">Compilation and Code Loading
-    </seeguide> and <seeguide marker="functions#eval">
+    </seeguide> and <seeguide marker="ref_man_functions#eval">
     Function Evaluation</seeguide>.</p>
 
     <section>
@@ -676,7 +676,7 @@ end</pre>
       sequentially against the patterns from top to bottom. If no
       match was found, the matching sequence is repeated for the second
       message in the queue, and so on. Messages are queued in the
-      <seeguide marker="processes#message-queue-order">order they were
+      <seeguide marker="ref_man_processes#message-queue-order">order they were
       received</seeguide>. If a match succeeds, that
       is, if the <c>Pattern</c> matches and the optional guard sequence
       <c>GuardSeq</c> is true, then the message is removed from the message
@@ -1727,7 +1727,7 @@ end</pre>
     <p>A fun expression begins with the keyword <c>fun</c> and ends
       with the keyword <c>end</c>. Between them is to be a function
       declaration, similar to a
-      <seeguide marker="functions#syntax">regular function declaration</seeguide>,
+      <seeguide marker="ref_man_functions#syntax">regular function declaration</seeguide>,
       except that the function name is optional and is to be a variable, if
       any.</p>
     <p>Variables in a fun head shadow the function name and both shadow

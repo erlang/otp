@@ -27,7 +27,7 @@
     <docno></docno>
     <date>1997-11-01</date>
     <rev>A</rev>
-    <file>oam_intro.xml</file>
+    <file>oam.xml</file>
   </header>
   <marker id="oam principles"></marker>
   <p>The Operation and Maintenance (OAM) support in OTP consists of a

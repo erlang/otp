@@ -52,7 +52,7 @@
     <title>Example</title>
     <p>An example of a simple server written in plain Erlang is
       provided in
-      <seeguide marker="des_princ#ch1">Overview</seeguide>.
+      <seeguide marker="design_principles#ch1">Overview</seeguide>.
       The server can be reimplemented using <c>gen_server</c>,
       resulting in this callback module:</p>
     <marker id="ex"></marker>

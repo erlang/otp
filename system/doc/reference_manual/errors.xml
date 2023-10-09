@@ -62,7 +62,7 @@
     <p>A process that terminates emits an <em>exit signal</em> with
       an <em>exit reason</em> that describes why the process terminated.
       Normally, some information about any erroneous termination is printed
-      to the terminal. See <seeguide marker="processes#term">
+      to the terminal. See <seeguide marker="ref_man_processes#term">
       Process Termination</seeguide> in the Processes chapter for more details
       on termination.</p>
   </section>
@@ -186,7 +186,7 @@
       <title>Error Handling Between Processes</title>
       <p>Processes can monitor other processes and detect process
         terminations, see
-        <seeguide marker="processes#errors">Processes</seeguide>.</p>
+        <seeguide marker="ref_man_processes#errors">Processes</seeguide>.</p>
     </section>
   </section>
 

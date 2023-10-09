@@ -30,7 +30,7 @@
     <file>ports.xml</file>
   </header>
   <p>Examples of how to use ports and port drivers are provided in
-    <seeguide marker="system/tutorial:introduction#interoperability tutorial">
+    <seeguide marker="system/tutorial:tutorial#interoperability tutorial">
     Interoperability Tutorial</seeguide>.
     For information about the BIFs mentioned, see the
     <seeerl marker="erts:erlang">erlang(3)</seeerl> manual

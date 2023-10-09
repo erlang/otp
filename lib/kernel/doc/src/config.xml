@@ -165,7 +165,7 @@ myconfig2.config:
     <title>See Also</title>
     <p><seefile marker="app"><c>app(4)</c></seefile>,
       <seecom marker="erts:erl"><c>erts:erl(1)</c></seecom>,
-      <seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide></p>
+      <seeguide marker="system/design_principles:design_principles">OTP Design Principles</seeguide></p>
   </section>
 </fileref>
 

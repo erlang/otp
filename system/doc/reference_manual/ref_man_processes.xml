@@ -27,7 +27,7 @@
     <docno></docno>
     <date></date>
     <rev></rev>
-    <file>processes.xml</file>
+    <file>ref_man_processes.xml</file>
   </header>
 
   <section>
@@ -545,11 +545,11 @@ spawn(Module, Name, Args) -> pid()
       <p>
 	The order of messages in the message queue of a process reflects the
 	order in which the signals corresponding to the messages has been
-	received since <seeguide marker="processes#receiving-signals">all
+	received since <seeguide marker="#receiving-signals">all
 	signals	that add messages to the message queue add them at the end of
 	the message queue</seeguide>. Messages corresponding to signals from
 	the same sender are also ordered in the same order as the signals were
-	sent due to the <seeguide marker="processes#signal-delivery">signal
+	sent due to the <seeguide marker="#signal-delivery">signal
 	ordering guarantee</seeguide> of the language.
       </p>
 
@@ -749,10 +749,10 @@ spawn(Module, Name, Args) -> pid()
     </p>
     <p>
       If one of the participants of a link terminates, it will
-      <seeguide marker="system/reference_manual:processes#sending_exit_signals">send
+      <seeguide marker="#sending_exit_signals">send
       an exit signal</seeguide> to the other participant. The exit
       signal will contain the
-      <seeguide marker="system/reference_manual:processes#link_exit_signal_reason">exit
+      <seeguide marker="#link_exit_signal_reason">exit
       reason</seeguide> of the terminated participant.
     </p>
     <p>
@@ -780,7 +780,7 @@ spawn(Module, Name, Args) -> pid()
       program structures where some processes are supervising other
       processes, for example, restarting them if they terminate
       abnormally.</p>
-    <p>See <seeguide marker="system/design_principles:des_princ#otp design principles">
+    <p>See <seeguide marker="system/design_principles:design_principles#otp design principles">
       OTP Design Principles</seeguide> for more information about
       OTP supervision trees, which use this feature.</p>
 

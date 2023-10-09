@@ -17,4 +17,4 @@
 # 
 # %CopyrightEnd%
 #
-OAM_CHAPTER_FILES = oam_intro.xml
+OAM_CHAPTER_FILES = oam.xml

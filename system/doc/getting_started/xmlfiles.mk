@@ -19,7 +19,7 @@
 #
 GETTING_STARTED_CHAPTER_FILES = \
 	conc_prog.xml \
-	intro.xml \
+	getting_started.xml \
 	records_macros.xml \
 	robustness.xml \
 	seq_prog.xml

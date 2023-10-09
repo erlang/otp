@@ -55,7 +55,7 @@
       </p></note>
       <note><p>
         For some important information about distributed signals, see the
-        <seeguide marker="system/reference_manual:processes#blocking-signaling-over-distribution">
+        <seeguide marker="system/reference_manual:ref_man_processes#blocking-signaling-over-distribution">
           Blocking Signaling Over Distribution</seeguide> section in the
         <i>Processes</i> chapter of the <i>Erlang Reference Manual</i>.
         Blocking signaling can, for example, cause timeouts in <c>rpc</c>
