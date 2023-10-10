@@ -1072,7 +1072,7 @@ Transport: TLS
 	<v>| location | pragma | retry_after</v>
 	<v>| server | trailer | transfer_encoding</v>
         <v>Value = string()</v>
-        <v>Fun = fun( Arg ) -> sent| close | Body </v>
+        <v>Fun = fun(( Arg ) -> sent| close | Body) </v>
         <v>Arg = [term()]</v>
       </type>
       <desc>

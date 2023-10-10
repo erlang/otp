@@ -178,7 +178,7 @@
       </desc>
     </func>
     <func>
-      <name since="">upgrade_receive_handle(ControlPid) -> ok</name>
+      <name since="">upgrade_receive_handle(ControlPid, NewHandle) -> ok</name>
       <fsummary></fsummary>
       <type>
         <v>ControlPid = pid()</v>

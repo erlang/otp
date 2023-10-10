@@ -3073,6 +3073,11 @@ tuple_to_list(_Tuple) ->
                    | (LogicalCpuId :: {logical, non_neg_integer()}).
 -type info_list() :: [].
 
+-type garbage_collection_defaults() :: [{max_heap_size, non_neg_integer()} |
+                                        {min_bin_heap_size, non_neg_integer()} |
+                                        {min_heap_size, non_neg_integer()} |
+                                        {fullsweep_after, non_neg_integer()}].
+
 %% Note: changing the ordering number of a clause will change the docs!
 %% Shadowed by erl_bif_types: erlang:system_info/1
 -spec erlang:system_info
@@ -3123,7 +3128,7 @@ tuple_to_list(_Tuple) ->
          (ets_count) -> pos_integer();
          (ets_limit) -> pos_integer();
          (fullsweep_after) -> {fullsweep_after, non_neg_integer()};
-         (garbage_collection) -> [{atom(), integer()}];
+         (garbage_collection) -> garbage_collection_defaults();
          (heap_sizes) -> [non_neg_integer()];
          (heap_type) -> private;
          (info) -> binary();
@@ -3153,14 +3158,7 @@ tuple_to_list(_Tuple) ->
          (process_count) -> pos_integer();
          (process_limit) -> pos_integer();
          (procs) -> binary();
-         (scheduler_bind_type) -> spread |
-                                  processor_spread |
-                                  thread_spread |
-                                  thread_no_node_processor_spread |
-                                  no_node_processor_spread |
-                                  no_node_thread_spread |
-                                  no_spread |
-                                  unbound;
+         (scheduler_bind_type) -> scheduler_bind_type();
          (scheduler_bindings) ->  tuple();
          (scheduler_id) -> SchedulerId :: pos_integer();
          (schedulers | schedulers_online) -> pos_integer();

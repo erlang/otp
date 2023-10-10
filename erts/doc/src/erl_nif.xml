@@ -1802,14 +1802,15 @@ enif_free_iovec(iovec);]]></code>
            <c>NULL</c> or a ErlNifIOVec structure that should be used if
            possible. e.g.
         </p>
-        <code type="none">
+        <code type="none"><![CDATA[
 /* Don't use a pre-allocated structure */
 ErlNifIOVec *iovec = NULL;
-enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
+enif_inspect_iovec(env, max_elements, term, &tail, &iovec);
 
 /* Use a stack-allocated vector as an optimization for vectors with few elements */
-ErlNifIOVec vec, *iovec = &amp;vec;
-enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
+ErlNifIOVec vec, *iovec = &vec;
+enif_inspect_iovec(env, max_elements, term, &tail, &iovec);
+]]>
 </code>
         <p>The contents of the <c>iovec</c> is valid until the called nif
            function returns. If the <c>iovec</c> should be valid after the nif

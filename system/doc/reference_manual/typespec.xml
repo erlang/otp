@@ -89,6 +89,7 @@
       the set of all Erlang terms and the bottom-most element, <c>none()</c>,
       denotes the empty set of terms.
     </p>
+    <marker id="dynamic"/>
     <p>
       To facilitate <url href="https://en.wikipedia.org/wiki/Gradual_typing">
       gradual typing</url> of Erlang, the type <c>dynamic()</c> is provided.
