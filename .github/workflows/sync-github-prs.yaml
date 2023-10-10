@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   schedule:
   ## In UTC
-  - cron: '* */12 * * *'
+  - cron: '0 */4 * * *'
 
 jobs:
 
