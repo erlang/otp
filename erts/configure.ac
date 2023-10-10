@@ -2861,6 +2861,10 @@ AS_IF([test ${enable_jit} != no],
                 # instruction cache, and don't require us to manually issue
                 # instruction barriers on all threads.
                 JIT_ARCH=arm
+                if test ${enable_jit} != yes -a "$OPSYS" == "darwin"; then
+                  enable_jit=no
+                  AC_MSG_WARN([By default, JIT is disabled because it does not work on macOS Sonoma 14])
+                fi
               ;;
               *)
                 # We need to use `DC CVAU`, `IC IVAU`, and `ISB SY` to clear
