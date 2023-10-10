@@ -242,7 +242,7 @@ lookup_element(_, _, _) ->
 lookup_element(_, _, _, _) ->
   erlang:nif_error(undef).
 
--spec match(Table, Pattern) -> [Match] when
+-spec match(Table, Pattern) -> Match when
       Table :: table(),
       Pattern :: match_pattern(),
       Match :: [term()].
@@ -250,7 +250,7 @@ lookup_element(_, _, _, _) ->
 match(_, _) ->
     erlang:nif_error(undef).
 
--spec match(Table, Pattern, Limit) -> {[Match], Continuation} |
+-spec match(Table, Pattern, Limit) -> {Match, Continuation} |
                                        '$end_of_table'  when
       Table :: table(),
       Pattern :: match_pattern(),
@@ -261,7 +261,7 @@ match(_, _) ->
 match(_, _, _) ->
     erlang:nif_error(undef).
 
--spec match(Continuation) -> {[Match], Continuation} |
+-spec match(Continuation) -> {Match, Continuation} |
                                 '$end_of_table'  when
       Match :: [term()],
       Continuation :: continuation().
