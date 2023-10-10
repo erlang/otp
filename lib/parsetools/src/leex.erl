@@ -66,6 +66,85 @@
 -record(dfa_state, {no,nfa=[],trans=[],accept=noaccept}).
 
 %%%
+%%% Functions that generated scanner exports,
+%%% only used for documentation purposes
+%%%
+-export([string/1, string/2, token/2, token/3, tokens/2, tokens/3]).
+-spec string(String) -> StringRet when
+      String :: string(),
+      StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
+      Tokens :: [Token],
+      Token :: term(),
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      EndLoc :: erl_anno:location().
+string(_String) -> error(undef).
+-spec string(String, StartLoc) -> StringRet when
+      String :: string(),
+      StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
+      Tokens :: [Token],
+      Token :: term(),
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      StartLoc :: erl_anno:location(),
+      EndLoc :: erl_anno:location().
+string(_String, _StartLoc) -> error(undef).
+-spec token(Cont, Chars) ->
+    {more, Cont1} | {done, TokenRet, RestChars} when
+      Cont :: [] | Cont1,
+      Cont1 :: tuple(),
+      Chars :: string() | eof,
+      RestChars :: string() | eof,
+      TokenRet :: {ok, Token, EndLoc} |
+                  {eof, EndLoc} |
+                  ErrorInfo,
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      Token :: term(),
+      EndLoc :: erl_anno:location().
+token(_Cont, _Chars) -> error(undef).
+-spec token(Cont, Chars, StartLoc) ->
+    {more, Cont1} | {done, TokenRet, RestChars} when
+      Cont :: [] | Cont1,
+      Cont1 :: tuple(),
+      Chars :: string() | eof,
+      RestChars :: string() | eof,
+      TokenRet :: {ok, Token, EndLoc} |
+                  {eof, EndLoc} |
+                  ErrorInfo,
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      Token :: term(),
+      StartLoc :: erl_anno:location(),
+      EndLoc :: erl_anno:location().
+token(_Cont, _Chars, _StartLoc) -> error(undef).
+-spec tokens(Cont, Chars) ->
+    {more, Cont1} | {done, TokensRet, RestChars} when
+      Cont :: [] | Cont1,
+      Cont1 :: tuple(),
+      Chars :: string() | eof,
+      RestChars :: string() | eof,
+      TokensRet :: {ok, Tokens, EndLoc} |
+                   {eof, EndLoc} |
+                   ErrorInfo,
+      Tokens :: [Token],
+      Token :: term(),
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      EndLoc :: erl_anno:location().
+tokens(_Cont, _Chars) -> error(undef).
+-spec tokens(Cont, Chars, StartLoc) ->
+    {more, Cont1} | {done, TokensRet, RestChars} when
+      Cont :: [] | Cont1,
+      Cont1 :: tuple(),
+      Chars :: string() | eof,
+      RestChars :: string() | eof,
+      TokensRet :: {ok, Tokens, EndLoc} |
+                   {eof, EndLoc} |
+                   ErrorInfo,
+      Tokens :: [Token],
+      Token :: term(),
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      StartLoc :: erl_anno:location(),
+      EndLoc :: erl_anno:location().
+tokens(_Cont, _Chars, _StartLoc) -> error(undef).
+
+%%%
 %%% Exported functions
 %%%
 

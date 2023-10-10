@@ -87,13 +87,6 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       see <seeerl marker="logger_filters">logger_filters</seeerl>.</item>
     </list>
 
-    <note>
-      <p>Since Logger is new in Erlang/OTP 21.0, we do reserve the right
-	to introduce changes to the Logger API and functionality in
-	patches following this release. These changes might or might not
-	be backwards compatible with the initial version.</p>
-    </note>
-
   </description>
 
   <datatypes>
@@ -134,40 +127,21 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     <datatype>
       <name name="handler_config"/>
       <desc>
-	<p>Handler configuration data for Logger. The following
-	  default values apply:</p>
-	<list>
-	  <item><c>level => all</c></item>
-	  <item><c>filter_default => log</c></item>
-	  <item><c>filters => []</c></item>
-	  <item><c>formatter => {logger_formatter, DefaultFormatterConfig</c>}</item>
-	</list>
-	<p>In addition to these, the following fields are
-	  automatically inserted by Logger, values taken from the
-	  two first parameters
-	  to <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>:</p>
-	<list>
-	  <item><c>id => HandlerId</c></item>
-	  <item><c>module => Module</c></item>
-	</list>
-	<p>These are read-only and cannot be changed in runtime.</p>
-	<p>Handler specific configuration data is inserted by the
-	  handler callback itself, in a sub structure associated with
-	  the field named <c>config</c>. See
-	  the <seeerl marker="logger_std_h"><c>logger_std_h(3)</c></seeerl>
-	  and <seeerl marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seeerl>
-	  manual pages for information about the specific configuration
-	  for these handlers.</p>
-	<p>See the <seetype marker="logger_formatter#config">
-	    <c>logger_formatter(3)</c></seetype> manual page for
-	  information about the default configuration for this
-	  formatter.</p>
+	  <p>Handler configuration data for Logger.</p>
+          <note>
+              <p>DEPRECATED: Use <seetype marker="logger_handler#config"><c>logger_handler:config()</c></seetype> instead.
+              </p>
+          </note>
       </desc>
     </datatype>
     <datatype>
       <name name="handler_id"/>
       <desc>
-	<p>A unique identifier for a handler instance.</p>
+	  <p>A unique identifier for a handler instance.</p>
+          <note>
+              <p>DEPRECATED: Use <seetype marker="logger_handler#id"><c>logger_handler:id()</c></seetype> instead.
+              </p>
+          </note>
       </desc>
     </datatype>
     <datatype>
@@ -837,8 +811,8 @@ start(_, []) ->
 	  the rest, use <seemfa marker="#update_handler_config/3">
 	    <c>update_handler_config/3</c></seemfa>.</p>
 	<p>See the definition of
-	  the <seetype marker="#handler_config">
-	    <c>handler_config()</c></seetype> type for more
+	  the <seetype marker="logger_handler#config">
+	    <c>logger_handler:config()</c></seetype> type for more
 	  information about the different parameters.</p>
       </desc>
     </func>
@@ -1073,8 +1047,8 @@ logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
 	  use <seemfa marker="#set_handler_config/3">
 	    <c>set_handler_config/3</c></seemfa>.</p>
 	<p>See the definition of
-	  the <seetype marker="#handler_config">
-	    <c>handler_config()</c></seetype> type for more
+	  the <seetype marker="logger_handler#config">
+	    <c>logger_handler:config()</c></seetype> type for more
 	  information about the different parameters.</p>
       </desc>
     </func>
@@ -1134,7 +1108,6 @@ logger:set_proxy_config(maps:merge(Old, Config)).
     </func>
   </funcs>
 
- 
   <funcs>
     <fsdescription>
       <marker id="misc_API"/>
@@ -1203,208 +1176,6 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 
   </funcs>
 
- 
-
-  <funcs>
-    <fsdescription>
-      <marker id="handler_callback_functions"/>
-      <title>Handler Callback Functions</title>
-      <p>The following functions are to be exported from a handler
-        callback module.</p>
-    </fsdescription>
-    <func>
-      <name since="OTP 21.0">HModule:adding_handler(Config1) -> {ok, Config2} | {error,
-	Reason}</name>
-      <fsummary>An instance of this handler is about to be added.</fsummary>
-      <type>
-	<v>Config1 = Config2 =
-	  <seetype marker="#handler_config">handler_config()</seetype></v>
-	<v>Reason = term()</v>
-      </type>
-      <desc>
-	<p>This callback function is optional.</p>
-	<p>The function is called on a temporary process when a new
-	  handler is about to be added. The purpose is to verify the
-	  configuration and initiate all resources needed by the
-	  handler.</p>
-	<p>The handler identity is associated with the <c>id</c> key
-	  in <c>Config1</c>.</p>
-	<p>If everything succeeds, the callback function can add
-	  possible default values or internal state values to the
-	  configuration, and return the adjusted map
-	  in <c>{ok,Config2}</c>.</p>
-	<p>If the configuration is faulty, or if the initiation fails,
-	  the callback function must return <c>{error,Reason}</c>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="OTP 21.2">HModule:changing_config(SetOrUpdate, OldConfig, NewConfig) -> {ok, Config} | {error, Reason}</name>
-      <fsummary>The configuration for this handler is about to change.</fsummary>
-      <type>
-	<v>SetOrUpdate = set | update</v>
-	<v>OldConfig = NewConfig = Config =
-	  <seetype marker="#handler_config">handler_config()</seetype></v>
-	<v>Reason = term()</v>
-      </type>
-      <desc>
-	<p>This callback function is optional.</p>
-	<p>The function is called on a temporary process when the
-	  configuration for a handler is about to change. The purpose
-	  is to verify and act on the new configuration.</p>
-	<p><c>OldConfig</c> is the existing configuration
-	  and <c>NewConfig</c> is the new configuration.</p>
-	<p>The handler identity is associated with the <c>id</c> key
-	  in <c>OldConfig</c>.</p>
-	<p><c>SetOrUpdate</c> has the value <c>set</c> if the
-	  configuration change originates from a call to
-	  <seemfa marker="#set_handler_config/2">
-	    <c>set_handler_config/2,3</c></seemfa>, and <c>update</c>
-	  if it originates from <seemfa marker="#update_handler_config/2">
-	    <c>update_handler_config/2,3</c></seemfa>. The handler can
-	  use this parameter to decide how to update the value of
-	  the <c>config</c> field, that is, the handler specific
-	  configuration data. Typically, if <c>SetOrUpdate</c>
-	  equals <c>set</c>, values that are not specified must be
-	  given their default values. If <c>SetOrUpdate</c>
-	  equals <c>update</c>, the values found in <c>OldConfig</c>
-	  must be used instead.</p>
-	<p>If everything succeeds, the callback function must return a
-	  possibly adjusted configuration in <c>{ok,Config}</c>.</p>
-	<p>If the configuration is faulty, the callback function must
-	  return <c>{error,Reason}</c>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="OTP 21.2">HModule:filter_config(Config) -> FilteredConfig</name>
-      <fsummary>Remove internal data from configuration.</fsummary>
-      <type>
-	<v>Config = FilteredConfig =
-	  <seetype marker="#handler_config">handler_config()</seetype></v>
-      </type>
-      <desc>
-	<p>This callback function is optional.</p>
-	<p>The function is called when one of the Logger API functions
-	  for fetching the handler configuration is called, for
-	  example
-	  <seemfa marker="#get_handler_config/1">
-	    <c>logger:get_handler_config/1</c></seemfa>.</p>
-	<p>It allows the handler to remove internal data fields from
-	  its configuration data before it is returned to the
-	  caller.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="OTP 21.0">HModule:log(LogEvent, Config) -> void()</name>
-      <fsummary>Log the given log event.</fsummary>
-      <type>
-	<v>LogEvent =
-	  <seetype marker="#log_event">log_event()</seetype></v>
-	<v>Config =
-	  <seetype marker="#handler_config">handler_config()</seetype></v>
-      </type>
-      <desc>
-	<p>This callback function is mandatory.</p>
-	<p>The function is called when all primary filters and all
-	  handler filters for the handler in question have passed for
-	  the given log event. It is called on the client process, that
-	  is, the process that issued the log event.</p>
-	<p>The handler identity is associated with the <c>id</c> key
-	  in <c>Config</c>.</p>
-	<p>The handler must log the event.</p>
-	<p>The return value from this function is ignored by
-	  Logger.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="OTP 21.0">HModule:removing_handler(Config) -> ok</name>
-      <fsummary>The given handler is about to be removed.</fsummary>
-      <type>
-	<v>Config =
-	  <seetype marker="#handler_config">handler_config()</seetype></v>
-      </type>
-      <desc>
-	<p>This callback function is optional.</p>
-	<p>The function is called on a temporary process when a
-	  handler is about to be removed. The purpose is to release
-	  all resources used by the handler.</p>
-	<p>The handler identity is associated with the <c>id</c> key
-	  in <c>Config</c>.</p>
-	<p>The return value is ignored by Logger.</p>
-      </desc>
-    </func>
-
-  </funcs>
-
- 
-
-  <funcs>
-    <fsdescription>
-      <marker id="formatter_callback_functions"/>
-      <title>Formatter Callback Functions</title>
-      <p>The following functions are to be exported from a formatter
-        callback module.</p>
-    </fsdescription>
-    <func>
-      <name since="OTP 21.0">FModule:check_config(FConfig) -> ok | {error, Reason}</name>
-      <fsummary>Validate the given formatter configuration.</fsummary>
-      <type>
-	<v>FConfig =
-	  <seetype marker="#formatter_config">formatter_config()</seetype></v>
-	<v>Reason = term()</v>
-      </type>
-      <desc>
-	<p>This callback function is optional.</p>
-	<p>The function is called by a Logger when formatter
-	  configuration is set or modified. The formatter must
-	  validate the given configuration and return <c>ok</c> if it
-	  is correct, and <c>{error,Reason}</c> if it is faulty.</p>
-	<p>The following Logger API functions can trigger this callback:</p>
-	<list>
-	  <item><seemfa marker="logger#add_handler/3">
-	      <c>logger:add_handler/3</c></seemfa></item>
-	  <item><seemfa marker="logger#set_handler_config/2">
-	      <c>logger:set_handler_config/2,3</c></seemfa></item>
-	  <item><seemfa marker="logger#update_handler_config/2">
-	      <c>logger:update_handler_config/2,3</c></seemfa></item>
-	  <item><seemfa marker="logger#update_formatter_config/2">
-	      <c>logger:update_formatter_config/2</c></seemfa></item>
-	</list>
-	<p>See <seeerl marker="logger_formatter">
-	    <c>logger_formatter(3)</c></seeerl>
-	  for an example implementation. <c>logger_formatter</c> is the
-	  default formatter used by Logger.</p>
-      </desc>
-    </func>
-    <func>
-      <name since="OTP 21.0">FModule:format(LogEvent, FConfig) -> FormattedLogEntry</name>
-      <fsummary>Format the given log event.</fsummary>
-      <type>
-	<v>LogEvent =
-	  <seetype marker="#log_event">log_event()</seetype></v>
-	<v>FConfig =
-	  <seetype marker="#formatter_config">formatter_config()</seetype></v>
-	<v>FormattedLogEntry =
-	  <seetype marker="unicode#chardata">unicode:chardata()</seetype></v>
-      </type>
-      <desc>
-	<p>This callback function is mandatory.</p>
-	<p>The function can be called by a log handler to convert a
-	  log event term to a printable string. The returned value
-	  can, for example, be printed as a log entry to the console
-	  or a file using <seemfa marker="stdlib:io#put_chars/1">
-	    <c>io:put_chars/1,2</c></seemfa>.</p>
-	<p>See <seeerl marker="logger_formatter">
-	    <c>logger_formatter(3)</c></seeerl>
-	  for an example implementation. <c>logger_formatter</c> is the
-	  default formatter used by Logger.</p>
-      </desc>
-    </func>
-  </funcs>
-
   <section>
     <title>See Also</title>
     <p>
@@ -1413,6 +1184,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
       <seeerl marker="stdlib:io"><c>io(3)</c></seeerl>,
       <seeerl marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seeerl>,
       <seeerl marker="logger_filters"><c>logger_filters(3)</c></seeerl>,
+      <seeerl marker="logger_handler"><c>logger_handler(3)</c></seeerl>,
       <seeerl marker="logger_formatter"><c>logger_formatter(3)</c></seeerl>,
       <seeerl marker="logger_std_h"><c>logger_std_h(3)</c></seeerl>,
       <seeerl marker="stdlib:unicode"><c>unicode(3)</c></seeerl>

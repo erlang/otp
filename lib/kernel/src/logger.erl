@@ -103,7 +103,6 @@
 -type location() :: #{mfa  := {module(),atom(),non_neg_integer()},
                       file := file:filename(),
                       line := non_neg_integer()}.
--type handler_id() :: atom().
 -type filter_id() :: atom().
 -type filter() :: {fun((log_event(),filter_arg()) ->
                               filter_return()),filter_arg()}.
@@ -113,17 +112,10 @@
                             metadata => metadata(),
                             filter_default => log | stop,
                             filters => [{filter_id(),filter()}]}.
--type handler_config() :: #{id => handler_id(),
-                            config => term(),
-                            level => level() | all | none,
-                            module => module(),
-                            filter_default => log | stop,
-                            filters => [{filter_id(),filter()}],
-                            formatter => {module(),formatter_config()}}.
 -type timestamp() :: integer().
 -type formatter_config() :: #{atom() => term()}.
 
--type config_handler() :: {handler, handler_id(), module(), handler_config()}.
+-type config_handler() :: {handler, logger_handler:id(), module(), logger_handler:config()}.
 
 -type config_logger() :: [{handler,default,undefined} |
                           config_handler() |
@@ -141,6 +133,10 @@
                         overload_kill_mem_size => pos_integer(),
                         overload_kill_restart_after =>
                             non_neg_integer() | infinity}.
+
+%% Kept for backwards compatibility
+-type handler_id() :: logger_handler:id().
+-type handler_config() :: logger_handler:config().
 
 -export_type([log_event/0,
               level/0,
@@ -374,7 +370,7 @@ add_primary_filter(FilterId,Filter) ->
     logger_server:add_filter(primary,{FilterId,Filter}).
 
 -spec add_handler_filter(HandlerId,FilterId,Filter) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FilterId :: filter_id(),
       Filter :: filter().
 add_handler_filter(HandlerId,FilterId,Filter) ->
@@ -387,20 +383,20 @@ remove_primary_filter(FilterId) ->
     logger_server:remove_filter(primary,FilterId).
 
 -spec remove_handler_filter(HandlerId,FilterId) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FilterId :: filter_id().
 remove_handler_filter(HandlerId,FilterId) ->
     logger_server:remove_filter(HandlerId,FilterId).
 
 -spec add_handler(HandlerId,Module,Config) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Module :: module(),
-      Config :: handler_config().
+      Config :: logger_handler:config().
 add_handler(HandlerId,Module,Config) ->
     logger_server:add_handler(HandlerId,Module,Config).
 
 -spec remove_handler(HandlerId) -> ok | {error,term()} when
-      HandlerId :: handler_id().
+      HandlerId :: logger_handler:id().
 remove_handler(HandlerId) ->
     logger_server:remove_handler(HandlerId).
 
@@ -422,31 +418,31 @@ set_primary_config(Config) ->
 
 
 -spec set_handler_config(HandlerId,level,Level) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Level :: level() | all | none,
       Return :: ok | {error,term()};
                         (HandlerId,filter_default,FilterDefault) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FilterDefault :: log | stop,
       Return :: ok | {error,term()};
                         (HandlerId,filters,Filters) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Filters :: [{filter_id(),filter()}],
       Return :: ok | {error,term()};
                         (HandlerId,formatter,Formatter) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Formatter :: {module(), formatter_config()},
       Return :: ok | {error,term()};
                         (HandlerId,config,Config) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Config :: term(),
       Return :: ok | {error,term()}.
 set_handler_config(HandlerId,Key,Value) ->
     logger_server:set_config(HandlerId,Key,Value).
 
 -spec set_handler_config(HandlerId,Config) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
-      Config :: handler_config().
+      HandlerId :: logger_handler:id(),
+      Config :: logger_handler:config().
 set_handler_config(HandlerId,Config) ->
     logger_server:set_config(HandlerId,Config).
 
@@ -461,31 +457,31 @@ update_primary_config(Config) ->
     logger_server:update_config(primary,Config).
 
 -spec update_handler_config(HandlerId,level,Level) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Level :: level() | all | none,
       Return :: ok | {error,term()};
                         (HandlerId,filter_default,FilterDefault) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FilterDefault :: log | stop,
       Return :: ok | {error,term()};
                         (HandlerId,filters,Filters) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Filters :: [{filter_id(),filter()}],
       Return :: ok | {error,term()};
                         (HandlerId,formatter,Formatter) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Formatter :: {module(), formatter_config()},
       Return :: ok | {error,term()};
                         (HandlerId,config,Config) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Config :: term(),
       Return :: ok | {error,term()}.
 update_handler_config(HandlerId,Key,Value) ->
     logger_server:update_config(HandlerId,Key,Value).
 
 -spec update_handler_config(HandlerId,Config) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
-      Config :: handler_config().
+      HandlerId :: logger_handler:id(),
+      Config :: logger_handler:config().
 update_handler_config(HandlerId,Config) ->
     logger_server:update_config(HandlerId,Config).
 
@@ -501,8 +497,8 @@ get_primary_config() ->
     maps:remove(handlers,Config).
 
 -spec get_handler_config(HandlerId) -> {ok,Config} | {error,term()} when
-      HandlerId :: handler_id(),
-      Config :: handler_config().
+      HandlerId :: logger_handler:id(),
+      Config :: logger_handler:config().
 get_handler_config(HandlerId) ->
     case logger_config:get(?LOGGER_TABLE,HandlerId) of
         {ok,#{module:=Module}=Config} ->
@@ -514,7 +510,7 @@ get_handler_config(HandlerId) ->
     end.
 
 -spec get_handler_config() -> [Config] when
-      Config :: handler_config().
+      Config :: logger_handler:config().
 get_handler_config() ->
     [begin
          {ok,Config} = get_handler_config(HandlerId),
@@ -522,7 +518,7 @@ get_handler_config() ->
      end || HandlerId <- get_handler_ids()].
 
 -spec get_handler_ids() -> [HandlerId] when
-      HandlerId :: handler_id().
+      HandlerId :: logger_handler:id().
 get_handler_ids() ->
     {ok,#{handlers:=HandlerIds}} = logger_config:get(?LOGGER_TABLE,primary),
     HandlerIds.
@@ -535,14 +531,14 @@ get_proxy_config() ->
 
 -spec update_formatter_config(HandlerId,FormatterConfig) ->
                                      ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FormatterConfig :: formatter_config().
 update_formatter_config(HandlerId,FormatterConfig) ->
     logger_server:update_formatter_config(HandlerId,FormatterConfig).
 
 -spec update_formatter_config(HandlerId,Key,Value) ->
                                      ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Key :: atom(),
       Value :: term().
 update_formatter_config(HandlerId,Key,Value) ->
@@ -652,7 +648,7 @@ unset_process_metadata() ->
     ok.
 
 -spec get_config() -> #{primary=>primary_config(),
-                        handlers=>[handler_config()],
+                        handlers=>[logger_handler:config()],
                         proxy=>olp_config(),
                         module_levels=>[{module(),level() | all | none}]}.
 get_config() ->
@@ -674,7 +670,7 @@ i() ->
     i_modules(Modules,M).
 
 -spec i(What) -> ok when
-      What :: primary | handlers | proxy | modules | handler_id().
+      What :: primary | handlers | proxy | modules | logger_handler:id().
 i(primary) ->
     i_primary(get_primary_config(),modifier());
 i(handlers) ->

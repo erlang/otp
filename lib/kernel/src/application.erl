@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 -module(application).
-
 -export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,
 	 start/1, start/2,
 	 start_boot/1, start_boot/2, stop/1, 
@@ -67,6 +66,25 @@
 
 -callback stop(State :: term()) ->
     term().
+
+-callback config_change(Changed, New, Removed) -> ok when
+      Changed :: [{Par, Val}],
+      New :: [{Par, Val}],
+      Removed :: [Par],
+      Par :: atom(),
+      Val :: term().
+
+-callback prep_stop(State) -> NewState when
+      State :: term(), NewState :: term().
+
+-callback start_phase(Phase, StartType, PhaseArgs) ->
+    ok | {error, Reason} when
+      Phase :: atom(),
+      StartType :: start_type(),
+      PhaseArgs :: term(),
+      Reason :: term().
+
+-optional_callbacks([config_change/3, prep_stop/1, start_phase/3]).
 
 %%%-----------------------------------------------------------------
 %%% This module is API towards application_controller and

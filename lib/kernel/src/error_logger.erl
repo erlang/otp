@@ -106,8 +106,8 @@ stop() ->
 
 %%%-----------------------------------------------------------------
 %%% Callbacks for logger
--spec adding_handler(logger:handler_config()) ->
-                            {ok,logger:handler_config()} | {error,term()}.
+-spec adding_handler(logger_handler:config()) ->
+                            {ok,logger_handler:config()} | {error,term()}.
 adding_handler(#{id:=?MODULE}=Config) ->
     case start() of
         ok ->
@@ -116,12 +116,12 @@ adding_handler(#{id:=?MODULE}=Config) ->
             Error
     end.
 
--spec removing_handler(logger:handler_config()) -> ok.
+-spec removing_handler(logger_handler:config()) -> ok.
 removing_handler(#{id:=?MODULE}) ->
     stop(),
     ok.
 
--spec log(logger:log_event(),logger:handler_config()) -> ok.
+-spec log(logger:log_event(),logger_handler:config()) -> ok.
 log(#{level:=Level,msg:=Msg,meta:=Meta},_Config) ->
     do_log(Level,Msg,Meta).
 

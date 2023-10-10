@@ -780,7 +780,7 @@ escape_char($e) -> $\\e;        %\\e = ESC
 escape_char($s) -> $\\s;        %\\s = SPC
 escape_char($d) -> $\\d;        %\\d = DEL
 escape_char(C) -> C.
-      ">>,
+      ">>, % "
     Dir = ?privdir,
     XrlFile = filename:join(Dir, "erlang_scan.xrl"),
     ok = file:write_file(XrlFile, Xrl),
