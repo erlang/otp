@@ -8,8 +8,7 @@
 
 -spec loop(Args) -> ok when
       Args :: [{Module, Args}],
-      Module :: module(),
-      Args :: any().
+      Module :: module().
 loop([{Module, Args} | Rest]) ->
     Module:init(Args),
     loop(Rest);

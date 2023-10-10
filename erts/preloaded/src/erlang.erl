@@ -1185,7 +1185,7 @@ float_to_binary(_Float) ->
       Float :: float(),
       Options :: [Option],
       Option  :: {decimals, Decimals :: 0..253} |
-                 {scientific, Decimals :: 0..249} |
+                 {scientific, ScientificDecimals :: 0..249} |
                  compact |
                  short.
 float_to_binary(_Float, _Options) ->
@@ -1202,7 +1202,7 @@ float_to_list(_Float) ->
       Float :: float(),
       Options :: [Option],
       Option  :: {decimals, Decimals :: 0..253} |
-                 {scientific, Decimals :: 0..249} |
+                 {scientific, ScientificDecimals :: 0..249} |
                  compact |
                  short.
 float_to_list(_Float, _Options) ->

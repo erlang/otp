@@ -2705,7 +2705,7 @@ install_fallback(Opaque) ->
 -spec install_fallback(Src::term(), Mod::module()|[Opt]) ->
           result() when
       Opt :: Module | Scope | Dir,
-      Module :: {'module', Mod::module()},
+      Module :: {'module', module()},
       Scope :: {'scope', 'global' | 'local'},
       Dir :: {'mnesia_dir', Dir::string()}.
 install_fallback(Opaque, Mod) ->

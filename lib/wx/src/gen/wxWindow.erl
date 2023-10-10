@@ -1859,8 +1859,8 @@ getDPI(#wx_ref{type=ThisT}=This) ->
 %% 
 -spec fromDIP(D, W) -> integer() when
 	D::integer(), W::wxWindow();
-      (Sz, W) -> {W::integer(), H::integer()} when
-	Sz::{W::integer(), H::integer()}, W::wxWindow();
+      (Sz, Wx :: wxWindow()) -> {W::integer(), H::integer()} when
+	Sz::{W::integer(), H::integer()};
       (This, D) -> integer() when
 	This::wxWindow(), D::integer();
       (This, Sz) -> {W::integer(), H::integer()} when
@@ -1896,13 +1896,16 @@ fromDIP(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz)
 %% 	This::wxWindow(), Sz::{W::integer(), H::integer()}.<br />
 %% 
 -spec toDIP(D, W) -> integer() when
-	D::integer(), W::wxWindow();
-      (Sz, W) -> {W::integer(), H::integer()} when
-	Sz::{W::integer(), H::integer()}, W::wxWindow();
+      D::integer(), W::wxWindow();
+
+      (Sz, Wx :: wxWindow()) -> {W::integer(), H::integer()} when
+      Sz::{W::integer(), H::integer()};
+
       (This, D) -> integer() when
-	This::wxWindow(), D::integer();
+      This::wxWindow(), D::integer();
+
       (This, Sz) -> {W::integer(), H::integer()} when
-	This::wxWindow(), Sz::{W::integer(), H::integer()}.
+      This::wxWindow(), Sz::{W::integer(), H::integer()}.
 toDIP(D,#wx_ref{type=WT}=W)
  when is_integer(D) ->
   ?CLASS(WT,wxWindow),
