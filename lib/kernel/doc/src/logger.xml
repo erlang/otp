@@ -1388,15 +1388,19 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 	<v>FConfig =
 	  <seetype marker="#formatter_config">formatter_config()</seetype></v>
 	<v>FormattedLogEntry =
-	  <seetype marker="unicode#chardata">unicode:chardata()</seetype></v>
+          <seetype marker="unicode#chardata">unicode:chardata()</seetype>
+          | binary()</v>
       </type>
       <desc>
 	<p>This callback function is mandatory.</p>
-	<p>The function can be called by a log handler to convert a
-	  log event term to a printable string. The returned value
+	<p>The function is called by a log handler to convert a
+	  log event term to e.g. a printable string. The returned value
 	  can, for example, be printed as a log entry to the console
 	  or a file using <seemfa marker="stdlib:io#put_chars/1">
 	    <c>io:put_chars/1,2</c></seemfa>.</p>
+	<p>A binary return value is passed as-is to the handler. Anything else
+	  is assumed to be Unicode character data and will be validated as
+	  such.</p>
 	<p>See <seeerl marker="logger_formatter">
 	    <c>logger_formatter(3)</c></seeerl>
 	  for an example implementation. <c>logger_formatter</c> is the
