@@ -49,7 +49,7 @@
 
 -type abstract_code() :: [erl_parse:abstract_form()].
 
--type forms() :: abstract_code() | cerl:c_module() | beam_disasm:asm_form().
+-type forms() :: abstract_code() | cerl:c_module().
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
