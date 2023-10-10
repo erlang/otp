@@ -801,11 +801,11 @@ Expr1 <input>op</input> Expr2</pre>
       </row>
       <row>
         <cell align="left" valign="middle">=:=</cell>
-        <cell align="left" valign="middle">Exactly equal to</cell>
+        <cell align="left" valign="middle">Term equivalence</cell>
       </row>
       <row>
         <cell align="left" valign="middle">=/=</cell>
-        <cell align="left" valign="middle">Exactly not equal to</cell>
+        <cell align="left" valign="middle">Term non-equivalence</cell>
       </row>
       <tcaption>Term Comparison Operators.</tcaption>
     </table>
@@ -836,6 +836,29 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
       depending on the size of the float because otherwise comparison of large
       floats and integers would lose their transitivity.</p>
 
+    <p>The term equivalence operators, <c>=:=</c> and <c>=/=</c>, return
+      whether two terms are indistinguishable. While the other operators
+      consider the same <em>numbers</em> equal even when their types differ
+      (<c>1 == 1.0</c> is true), the term equivalence operators return whether
+      or not there exists a way to tell the arguments apart.</p>
+
+    <p>For example, while the terms <c>0</c> and <c>0.0</c> represent the same
+      <em>number</em>, we can tell them apart by using the <c>is_integer/1</c>
+      function. Hence, <c>=:=</c> and <c>=/=</c> consider them different.</p>
+
+    <p>Furthermore, the terms <c>0.0</c> and <c>-0.0</c> also represent the
+      same <em>number</em>, but they yield different results when converted to
+      string form through <c>float_to_list/1</c>: when given the former it
+      returns a string without a sign, and when given the latter it returns a
+      string with a sign. Therefore, <c>=:=</c> and <c>=/=</c> consider
+      them different.</p>
+
+    <p>The term equivalence operators are useful when reasoning about terms as 
+      opaque values, for example in associative containers or memoized
+      functions where using the equal-to operator (<c>==</c>) risks producing
+      incorrect results as a consequence of mixing up numbers of different
+      types.</p>
+
     <p>Term comparison operators return the Boolean value of the
       expression, <c>true</c> or <c>false</c>.</p>
 
@@ -845,17 +868,35 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
 true
 2> <input>1=:=1.0.</input>
 false
-3> <input>1 > a.</input>
+3> <input>0=:=0.0.</input>
 false
-4> <input>#{c => 3} > #{a => 1, b => 2}.</input>
+4> <input>0.0=:=-0.0.</input>
 false
-5> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
+5> <input>0.0=:=+0.0.</input>
 true
-6> <input>&lt;&lt;2:2>> &lt; &lt;&lt;128>>.</input>
+6> <input>1 > a.</input>
+false
+7> <input>#{c => 3} > #{a => 1, b => 2}.</input>
+false
+8> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
 true
-7> <input>&lt;&lt;3:2>> &lt; &lt;&lt;128>>.</input>
+9> <input>&lt;&lt;2:2>> &lt; &lt;&lt;128>>.</input>
+true
+10> <input>&lt;&lt;3:2>> &lt; &lt;&lt;128>>.</input>
 false
 </pre>
+    <note>
+      <p>Prior to OTP 27, the term equivalence operators had a bug where they
+        considered <c>0.0</c> and <c>-0.0</c> to be the same term.</p>
+      <p>This was fixed in OTP 27 but legacy code may have expected them to
+        be considered the same. To help users catch errors that may arise from
+        an upgrade, the compiler raises a warning when <c>0.0</c> is
+        pattern-matched or used in a term equivalence test.</p>
+      <p>If you need to match <c>0.0</c> specifically, then the warning can be
+        silenced by writing <c>+0.0</c> instead, which produces the same term
+        but makes the compiler interpret the match as being done on
+        purpose.</p>
+    </note>
   </section>
 
   <section>
