@@ -32,7 +32,7 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
-<section><title>Xmerl 1.3.31.1</title>
+<section><title>Xmerl 1.3.32</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -41,12 +41,13 @@
 	    <c>xmerl_sax_parser</c> so one can limit the behaviour of
 	    the parsers to avoid some XML security issues. </p> <p>
 	    <c>xmerl_scan</c> gets one new option: </p> <taglist>
-	    <tag>{allow_entities, Boolean}</tag> <item>Gives the
-	    possibility to disallow entities by setting this option
-	    to false (<c>true</c> is default)</item> </taglist> <p>
-	    <c>xmerl_sax_parser</c> gets the following options: </p>
-	    <taglist> <tag><c>disallow_entities</c></tag> <item>Don't
-	    allow entities in document</item>
+	    <tag><c>{allow_entities, Boolean}</c></tag> <item>Gives
+	    the possibility to disallow entities by setting this
+	    option to false (<c>true</c> is default)</item>
+	    </taglist> <p> <c>xmerl_sax_parser</c> gets the following
+	    options: </p> <taglist>
+	    <tag><c>disallow_entities</c></tag> <item>Don't allow
+	    entities in document</item>
 	    <tag><c>{entity_recurse_limit, N}</c></tag> <item>Set a
 	    limit on entity recursion depth (default is 3)</item>
 	    <tag><c>{external_entities, AllowedType}</c></tag>
@@ -69,7 +70,7 @@
 
 </section>
 
-<section><title>Xmerl 1.3.32</title>
+<section><title>Xmerl 1.3.31.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -78,13 +79,12 @@
 	    <c>xmerl_sax_parser</c> so one can limit the behaviour of
 	    the parsers to avoid some XML security issues. </p> <p>
 	    <c>xmerl_scan</c> gets one new option: </p> <taglist>
-	    <tag><c>{allow_entities, Boolean}</c></tag> <item>Gives
-	    the possibility to disallow entities by setting this
-	    option to false (<c>true</c> is default)</item>
-	    </taglist> <p> <c>xmerl_sax_parser</c> gets the following
-	    options: </p> <taglist>
-	    <tag><c>disallow_entities</c></tag> <item>Don't allow
-	    entities in document</item>
+	    <tag>{allow_entities, Boolean}</tag> <item>Gives the
+	    possibility to disallow entities by setting this option
+	    to false (<c>true</c> is default)</item> </taglist> <p>
+	    <c>xmerl_sax_parser</c> gets the following options: </p>
+	    <taglist> <tag><c>disallow_entities</c></tag> <item>Don't
+	    allow entities in document</item>
 	    <tag><c>{entity_recurse_limit, N}</c></tag> <item>Set a
 	    limit on entity recursion depth (default is 3)</item>
 	    <tag><c>{external_entities, AllowedType}</c></tag>
