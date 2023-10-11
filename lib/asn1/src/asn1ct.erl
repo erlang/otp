@@ -1220,12 +1220,6 @@ compile(File, _OutFile, Options) ->
 	{error,_Reason} ->
 	    error;
 	ok -> 
-	    ok;
-	ParseRes when is_tuple(ParseRes) ->
-	    io:format("~p~n",[ParseRes]),
-	    ok;
-	ScanRes when is_list(ScanRes) ->
-	    io:format("~p~n",[ScanRes]),
 	    ok
     end.
 
