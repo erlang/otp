@@ -7510,9 +7510,22 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
 			break;
 		    /* Fall through... */
                 case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
-                case ERTS_SIG_Q_OP_ALIAS_MSG:
                     debug_foreach_sig_heap_frags(&sig->hfrag, oh_func, arg);
                     break;
+
+                case ERTS_SIG_Q_OP_ALIAS_MSG: {
+                    void *attached;
+                    ErlHeapFragment *hfp;
+                    (void) get_alias_msg_data(sig, NULL, NULL, NULL, &attached);
+                    if (!attached)
+                        break;
+                    if (attached == ERTS_MSG_COMBINED_HFRAG)
+                        hfp = &sig->hfrag;
+                    else
+                        hfp = (ErlHeapFragment *) attached;
+                    debug_foreach_sig_heap_frags(hfp, oh_func, arg);
+                    break;
+                }
 
                 case ERTS_SIG_Q_OP_DEMONITOR:
                     if (type == ERTS_SIG_Q_TYPE_DIST_PROC_DEMONITOR) {
