@@ -989,10 +989,11 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                                          protocol_cb = Connection,
                                                                          trackers = Trackers},
                                                 connection_env  = #connection_env{user_application = {_Mon, Pid}},
+                                                handshake_env = #handshake_env{renegotiation = Type},
                                                 socket_options = Opts,
 						start_or_recv_from = RecvFrom} = State) ->
     Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
+    alert_user(Pids, Transport, Trackers, Socket, Type, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
 
 handle_alert(#alert{level = ?FATAL} = Alert0, StateName,
 	     #state{static_env = #static_env{role = Role,
@@ -1796,9 +1797,11 @@ send_user(Pid, Msg) ->
     Pid ! Msg,
     ok.
 
-alert_user(Pids, Transport, Trackers, Socket, connection, Opts, Pid, From, Alert, Role, StateName, Connection) ->
+alert_user(Pids, Transport, Trackers, Socket, _, Opts, Pid, From, Alert, Role, connection = StateName, Connection) ->
     alert_user(Pids, Transport, Trackers, Socket, Opts#socket_options.active, Pid, From, Alert, Role, StateName, Connection);
-alert_user(Pids, Transport, Trackers, Socket,_, _, _, From, Alert, Role, StateName, Connection) ->
+alert_user(Pids, Transport, Trackers, Socket, {true, internal}, Opts, Pid, From, Alert, Role, StateName, Connection) ->
+    alert_user(Pids, Transport, Trackers, Socket, Opts#socket_options.active, Pid, From, Alert, Role, StateName, Connection);
+alert_user(Pids, Transport, Trackers, Socket, _, _, _, From, Alert, Role, StateName, Connection) ->
     alert_user(Pids, Transport, Trackers, Socket, From, Alert, Role, StateName, Connection).
 
 alert_user(Pids, Transport, Trackers, Socket, From, Alert, Role, StateName, Connection) ->
