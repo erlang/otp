@@ -979,25 +979,30 @@ dist_spawn_request(_Node, _MFA, _Opts, _Type) ->
 
 dist_spawn_init(MFA) ->
     %%
-    %% The argument list is passed as a message
-    %% to the newly created process. This since
-    %% it might be large and require a substantial
-    %% amount of work to decode. This way we put
-    %% this work on the newly created process
-    %% (which can execute in parallel with all
-    %% other tasks) instead of on the distribution
-    %% channel code which is a bottleneck in the
-    %% system.
-    %% 
-    %% erl_create_process() ensures that the
-    %% argument list to use in apply is
-    %% guaranteed to be the first message in the
-    %% message queue.
+    %% The argument list is passed as a message to the newly created process.
+    %% This since it might be large and require a substantial amount of work
+    %% to decode. This way we put this work on the newly created process
+    %% (which can execute in parallel with all other tasks) instead of on the
+    %% distribution channel code which is a bottleneck in the system.
+    %%
+    %% erl_create_process() adds two messages to the message queue. These two
+    %% messages are guaranteed to be first in the message queue. First the
+    %% argument list to use followed by a 'dist_spawn_init' message. The
+    %% 'dist_spawn_init' message makes it possible to detect decode failures
+    %% of the argument list.
     %%
     {M, F, _NoA} = MFA,
     receive
-        A ->
-            erlang:apply(M, F, A)
+        A when A =/= dist_spawn_init ->
+            receive dist_spawn_init -> ok end,
+            erlang:apply(M, F, A);
+        dist_spawn_init ->
+            %% Missing argument list due to faulty encoding of the argument
+            %% list. The failed decode operation of the argument list caused
+            %% the message to be removed from the message queue and also
+            %% scheduled a take down of the connection. We, however, need to
+            % ensure that this process is terminated...
+            exit(argument_list_decode_failure)
     end.
 
 %%
