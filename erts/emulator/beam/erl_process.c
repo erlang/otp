@@ -12806,15 +12806,39 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         p->u.initial.function = tp[2];
         p->u.initial.arity = (Uint) unsigned_val(tp[3]);
 
+        ASSERT(locks & ERTS_PROC_LOCK_MAIN);
         ASSERT(locks & ERTS_PROC_LOCK_MSGQ);
         /*
          * Pass the (on external format) encoded argument list as
          * *first* message to the process. Note that this message
          * *must* be first in the message queue of the newly
          * spawned process!
+         *
+         * After the argument list, pass the message 'dist_spawn_init'.
+         * This makes it possible for the spawned process to detect a
+         * decode failure of the argument list. If 'dist_spawn_init'
+         * appears as first message, the decode of the argument list has
+         * failed and the process should be terminated abnormally.
          */
         erts_queue_dist_message(p, locks, so->edep, so->ede_hfrag,
                                 token, parent_id);
+        erts_queue_message(p, locks, erts_alloc_message(0, NULL),
+                           am_dist_spawn_init, am_system);
+
+        /*
+         * The process was created with msgq-lock locked and no siq-inq
+         * buffers installed. The msgq-lock has not been released, so
+         * sig-inq buffers cannot have been installed yet. Since the
+         * above messages already exist in the *single* outer signal
+         * queue, no other messages can be reordered past them...
+         */
+        ASSERT(erts_atomic_read_nob(&p->sig_inq_buffers) == (erts_aint_t)NULL);
+
+        /*
+         * ... but we anyway move the messages into the message queue
+         * since we already got the msgq-lock at this point.
+         */
+        erts_proc_sig_fetch(p);
 
         erts_proc_unlock(p, locks & ERTS_PROC_LOCKS_ALL_MINOR);
     

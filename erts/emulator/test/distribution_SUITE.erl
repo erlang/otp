@@ -63,6 +63,7 @@
          bad_dist_ext_control/1,
          bad_dist_ext_connection_id/1,
          bad_dist_ext_size/1,
+         bad_dist_ext_spawn_request_arg_list/1,
 	 start_epmd_false/1, no_epmd/1, epmd_module/1,
          bad_dist_fragments/1,
          exit_dist_fragments/1,
@@ -134,7 +135,8 @@ groups() ->
      {bad_dist_ext, [],
       [bad_dist_ext_receive, bad_dist_ext_process_info,
        bad_dist_ext_size,
-       bad_dist_ext_control, bad_dist_ext_connection_id]},
+       bad_dist_ext_control, bad_dist_ext_connection_id,
+       bad_dist_ext_spawn_request_arg_list]},
      {message_latency, [],
       [message_latency_large_message,
        message_latency_large_link_exit,
@@ -1969,6 +1971,8 @@ test_system_limit(Config) when is_list(Config) ->
 -define(DOP_PAYLOAD_EXIT2_TT, 27).
 -define(DOP_PAYLOAD_MONITOR_P_EXIT, 28).
 
+-define(DOP_SPAWN_REQUEST, 29).
+
 start_monitor(Offender,P) ->
     Parent = self(),
     Q = spawn(Offender,
@@ -2537,6 +2541,53 @@ bad_dist_ext_size(Config) when is_list(Config) ->
     peer_stop(OffenderPeer, Offender),
     peer_stop(VictimPeer, Victim).
 
+bad_dist_ext_spawn_request_arg_list(Config) when is_list(Config) ->
+    {ok, OffenderPeer, Offender} = ?CT_PEER(["-connect_all", "false"]),
+    {ok, VictimPeer, Victim} = ?CT_PEER(["-connect_all", "false"]),
+    Parent = self(),
+    start_node_monitors([Offender,Victim]),
+    SuccessfulSpawn = make_ref(),
+    BrokenSpawn = make_ref(),
+    P = spawn_link(
+          Offender,
+          fun () ->
+                  ReqId1 = make_ref(),
+                  dctrl_dop_spawn_request(Victim, ReqId1, self(), group_leader(),
+                                          {erlang, send, 2}, [],
+                                          dmsg_ext([self(), SuccessfulSpawn])),
+                  receive SuccessfulSpawn -> Parent ! SuccessfulSpawn end,
+                  receive BrokenSpawn -> ok end,
+                  ReqId2 = make_ref(),
+                  dctrl_dop_spawn_request(Victim, ReqId2, self(), group_leader(),
+                                          {erlang, send, 2}, [],
+                                          dmsg_bad_atom_cache_ref()),
+                  Parent ! BrokenSpawn,
+                  receive after infinity -> ok end
+          end),
+    receive SuccessfulSpawn -> ok end,
+    verify_up(Offender, Victim),
+    P ! BrokenSpawn,
+    receive BrokenSpawn -> ok end,
+    verify_down(Offender, connection_closed, Victim, killed),
+    [] = erpc:call(
+           Victim,
+           fun () ->
+                   lists:filter(
+                     fun (Proc) ->
+                             case process_info(Proc, current_function) of
+                                 {current_function,
+                                  {erts_internal, dist_spawn_init, 1}} ->
+                                     true;
+                                 _ ->
+                                     false
+                             end
+                     end,
+                     processes())
+           end),
+    unlink(P),
+    peer:stop(OffenderPeer),
+    peer:stop(VictimPeer),
+    ok.
 
 bad_dist_struct_check_msgs([]) ->
     receive
@@ -2611,6 +2662,15 @@ dctrl_dop_send(To, Msg) ->
                [dmsg_hdr(),
                 dmsg_ext({?DOP_SEND, ?COOKIE, To}),
                 dmsg_ext(Msg)]).
+
+dctrl_dop_spawn_request(Node, ReqId, From, GL, MFA, OptList, ArgListExt) ->
+    %% {29, ReqId, From, GroupLeader, {Module, Function, Arity}, OptList}
+    %%
+    %% Followed by ArgList.
+    dctrl_send(ensure_dctrl(Node),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_SPAWN_REQUEST, ReqId, From, GL, MFA, OptList}),
+                ArgListExt]).
 
 send_bad_structure(Offender,Victim,Bad,WhereToPutSelf) ->
     send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,[]).
