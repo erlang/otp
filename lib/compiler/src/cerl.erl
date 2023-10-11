@@ -13,13 +13,11 @@
 %% @copyright 1999-2002 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Core Erlang abstract syntax trees.
-%%
 %% <p> This module defines an abstract data type for representing Core
 %% Erlang source code as syntax trees.</p>
 %%
 %% <p>A recommended starting point for the first-time user is the
-%% documentation of the function <a
-%% href="#type-1"><code>type/1</code></a>.</p>
+%% documentation of the function {@link type/1}.</p>
 %%
 %% <h3><b>NOTES:</b></h3>
 %%
@@ -49,9 +47,9 @@
 %% @type cerl(). An abstract Core Erlang syntax tree.
 %%
 %% <p>Every abstract syntax tree has a <em>type</em>, given by the
-%% function <a href="#type-1"><code>type/1</code></a>.  In addition,
-%% each syntax tree has a list of <em>user annotations</em> (cf.  <a
-%% href="#get_ann-1"><code>get_ann/1</code></a>), which are included
+%% function {@link type/1}.  In addition,
+%% each syntax tree has a list of <em>user annotations</em>
+%% (cf. {@link get_ann/1}), which are included
 %% in the Core Erlang syntax.</p>
 
 -module(cerl).
@@ -192,6 +190,11 @@
 %% the annotation field only).
 %% =====================================================================
 
+-type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitstr' | 'call' | 'case'
+               | 'catch'   | 'clause' | 'cons'   | 'fun'    | 'let'  | 'letrec'
+               | 'literal' | 'map'  | 'map_pair' | 'module' | 'primop'
+               | 'receive' | 'seq'    | 'try'    | 'tuple'  | 'values' | 'var'.
+
 %% @spec type(Node::cerl()) -> atom()
 %%
 %% @doc Returns the type tag of <code>Node</code>. Current node types
@@ -264,12 +267,6 @@
 %% @see data_type/1
 %% @see subtrees/1
 %% @see meta/1
-
--type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitstr' | 'call' | 'case'
-               | 'catch'   | 'clause' | 'cons'   | 'fun'    | 'let'  | 'letrec'
-               | 'literal' | 'map'  | 'map_pair' | 'module' | 'primop'
-               | 'receive' | 'seq'    | 'try'    | 'tuple'  | 'values' | 'var'.
-
 -spec type(cerl()) -> ctype().
 
 type(#c_alias{}) -> alias;

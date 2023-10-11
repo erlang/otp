@@ -27,6 +27,10 @@
 	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
          unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1,
          file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
+         file_read_stdin_unicode_translation_error_binary_mode/1,
+         file_read_stdin_unicode_translation_error_list_mode/1,
+         file_read_line_stdin_unicode_translation_error_binary_mode/1,
+         file_read_line_stdin_unicode_translation_error_list_mode/1,
          io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1,
          io_get_chars_file_read_stdin_binary_mode/1,
          file_read_stdin_latin1_binary_mode/1,
@@ -63,6 +67,10 @@ all() ->
      shell_slogan, raw_stdout, raw_stdout_isatty,
      file_read_stdin_binary_mode,
      file_read_stdin_list_mode,
+     file_read_stdin_unicode_translation_error_binary_mode,
+     file_read_stdin_unicode_translation_error_list_mode,
+     file_read_line_stdin_unicode_translation_error_binary_mode,
+     file_read_line_stdin_unicode_translation_error_list_mode,
      io_get_chars_stdin_binary_mode,
      io_get_chars_stdin_list_mode,
      io_get_chars_file_read_stdin_binary_mode,
@@ -311,6 +319,54 @@ file_read_stdin_list_mode(_Config) ->
 
     ok.
 
+%% Test that reading from stdin using file:read returns
+%% correct error when in binary mode
+file_read_stdin_unicode_translation_error_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read(standard_io, 3) end, [binary]),
+
+    erlang:port_command(ErlPort, <<"ęö€"/utf8>>),
+    {ok, "error: {no_translation,unicode,latin1}\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read returns
+%% correct error when in list mode
+file_read_stdin_unicode_translation_error_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read(standard_io, 3) end, [list]),
+
+    erlang:port_command(ErlPort, <<"ęö€"/utf8>>),
+    {ok, "error: {no_translation,unicode,latin1}\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read_line returns
+%% correct error when in binary mode
+file_read_line_stdin_unicode_translation_error_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read_line(standard_io) end, [binary]),
+
+    erlang:port_command(ErlPort, <<"ę\nö\n€"/utf8>>),
+    {ok, "error: {no_translation,unicode,latin1}\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read_line returns
+%% correct error when in list mode
+file_read_line_stdin_unicode_translation_error_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read_line(standard_io) end, [list]),
+
+    erlang:port_command(ErlPort, <<"ę\nö\n€"/utf8>>),
+    {ok, "error: {no_translation,unicode,latin1}\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
 %% Test that reading from stdin using file:read works when io is in binary mode
 io_get_chars_stdin_binary_mode(_Config) ->
     {ok, P, ErlPort} = start_stdin_node(
@@ -493,7 +549,8 @@ start_stdin_node(ReadFun, IoOptions, ExtraArgs) ->
              " -pa ", filename:dirname(code:which(?MODULE)),
              " -s ", atom_to_list(?MODULE), " read_raw_from_stdin ", integer_to_list(Port)]),
     ct:log("~p~n", [Cmd]),
-    ErlPort = open_port({spawn, Cmd}, [stream, eof, stderr_to_stdout]),
+    ErlPort = open_port({spawn, Cmd}, [stream, eof, stderr_to_stdout,
+                                       {env, [{"LC_CTYPE","en_US.UTF-8"}]}]),
     {ok, P} = gen_tcp:accept(L),
     gen_tcp:send(P, term_to_binary(IoOptions)),
     gen_tcp:send(P, term_to_binary(ReadFun)),
@@ -526,6 +583,10 @@ read_raw_from_stdin(ReadFun, P) ->
         {ok, Fmt, Char} ->
             gen_tcp:send(P, unicode:characters_to_binary(
                               io_lib:format("got: "++Fmt++"\n",[Char]))),
+            read_raw_from_stdin(ReadFun, P);
+        {error, Reason} ->
+            gen_tcp:send(P, unicode:characters_to_binary(
+                              io_lib:format("error: ~p\n",[Reason]))),
             read_raw_from_stdin(ReadFun, P)
     end.
 

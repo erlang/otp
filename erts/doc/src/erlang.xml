@@ -111,6 +111,12 @@
       </desc>
     </datatype>
     <datatype>
+      <name name="dynamic" n_vars="0"/>
+      <desc>
+        <p>The <seeguide marker="system/reference_manual:typespec#dynamic">dynamic</seeguide> type.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="float" n_vars="0"/>
       <desc>
         <p>An Erlang <seeguide marker="system/reference_manual:data_types#number">float</seeguide>.</p>
@@ -185,7 +191,7 @@
       <name name="maybe_improper_list" n_vars="0"/>
       <desc>
         <p>An Erlang <seeguide marker="system/reference_manual:data_types#list">list</seeguide>
-          that is not guaranteed to end with a <seetype marker="#nil">[]</seetype>, and where the
+          that is not guaranteed to end with a <seetype marker="#nil"><c>[]</c></seetype>, and where the
           list elements can be of any type.
         </p>
       </desc>
@@ -194,7 +200,7 @@
       <name name="maybe_improper_list" n_vars="2"/>
       <desc>
         <p>An Erlang <seeguide marker="system/reference_manual:data_types#list">list</seeguide>,
-          that is not guaranteed to end with a <seetype marker="#nil">[]</seetype>,
+          that is not guaranteed to end with a <seetype marker="#nil"><c>[]</c></seetype>,
           and where the list elements are of the type <c><anno>ContentType</anno></c>.
         </p>
       </desc>
@@ -10468,6 +10474,7 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="45" since="OTP R13B04"/>  <!-- min_bin_vheap_size -->
       <name name="system_info" arity="1" clause_i="60" since=""/>  <!-- procs -->
       <fsummary>Information about the default process heap settings.</fsummary>
+      <type name="garbage_collection_defaults"/>
       <type name="message_queue_data"/>
       <type name="max_heap_size"/>
       <desc>
@@ -10900,6 +10907,7 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="70" since=""/>  <!-- threads -->
       <name name="system_info" arity="1" clause_i="71" since=""/>  <!-- thread_pool_size -->
       <fsummary>Information about system schedulers.</fsummary>
+      <type name="scheduler_bind_type"/>
       <desc>
         <marker id="system_info_scheduler_tags"/>
         <p>Returns information about schedulers, scheduling and threads in the

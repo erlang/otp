@@ -102,7 +102,7 @@
     <taglist>
       <tag><marker id="ei_term"/><c>ei_term</c></tag>
        <item>
-	 <code type="none">
+	 <code type="c">
 typedef struct {
     char ei_type;
     int arity;
@@ -150,7 +150,7 @@ typedef struct {
       </item>
       <tag><marker id="erlang_char_encoding"/><c>erlang_char_encoding</c></tag>
        <item>
-	 <code type="none">
+	 <code type="c">
 typedef enum {
     ERLANG_ASCII = 1,
     ERLANG_LATIN1 = 2,
@@ -783,14 +783,14 @@ typedef enum {
           list can contain another list or tuple.</p>
         <p>For example, to encode the list
           <c>[c, d, [e | f]]</c>:</p>
-        <pre>
+        <code type="c">
 ei_encode_list_header(buf, &amp;i, 3);
 ei_encode_atom(buf, &amp;i, "c");
 ei_encode_atom(buf, &amp;i, "d");
 ei_encode_list_header(buf, &amp;i, 1);
 ei_encode_atom(buf, &amp;i, "e");
 ei_encode_atom(buf, &amp;i, "f");
-ei_encode_empty_list(buf, &amp;i);</pre>
+ei_encode_empty_list(buf, &amp;i);</code>
         <note>
           <p>It may seem that there is no way to create a list without
             knowing the number of elements in advance. But indeed
@@ -799,12 +799,12 @@ ei_encode_empty_list(buf, &amp;i);</pre>
             Using this, a list can be written as conses.</p>
         </note>
         <p>To encode a list, without knowing the arity in advance:</p>
-        <pre>
+        <code type="c">
 while (something()) {
     ei_x_encode_list_header(&amp;x, 1);
     ei_x_encode_ulong(&amp;x, i); /* just an example */
 }
-ei_x_encode_empty_list(&amp;x);</pre>
+ei_x_encode_empty_list(&amp;x);</code>
       </desc>
     </func>
 
@@ -849,12 +849,12 @@ ei_x_encode_empty_list(&amp;x);</pre>
 	</p>
         <p>For example, to encode the map <c>#{a => "Apple", b =>
           "Banana"}</c>:</p>
-        <pre>
+        <code type="c">
 ei_x_encode_map_header(&amp;x, 2);
 ei_x_encode_atom(&amp;x, "a");
 ei_x_encode_string(&amp;x, "Apple");
 ei_x_encode_atom(&amp;x, "b");
-ei_x_encode_string(&amp;x, "Banana");</pre>
+ei_x_encode_string(&amp;x, "Banana");</code>
 	<p>A correctly encoded map cannot have duplicate keys.</p>
       </desc>
     </func>
@@ -961,12 +961,12 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
           elements of the tuple. Tuples and lists are encoded
           recursively, so that a tuple can contain another tuple or list.</p>
         <p>For example, to encode the tuple <c>{a, {b, {}}}</c>:</p>
-        <pre>
+        <code type="c">
 ei_encode_tuple_header(buf, &amp;i, 2);
 ei_encode_atom(buf, &amp;i, "a");
 ei_encode_tuple_header(buf, &amp;i, 2);
 ei_encode_atom(buf, &amp;i, "b");
-ei_encode_tuple_header(buf, &amp;i, 0);</pre>
+ei_encode_tuple_header(buf, &amp;i, 0);</code>
       </desc>
     </func>
 
@@ -1271,9 +1271,9 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
 ~d  A double float, double float
 ~p  An Erlang pid, erlang_pid*</pre>
         <p>For example, to encode a tuple with some stuff:</p>
-        <pre>
+        <code type="c">
 ei_x_format("{~a,~i,~d}", "numbers", 12, 3.14159)
-encodes the tuple {numbers,12,3.14159}</pre>
+encodes the tuple {numbers,12,3.14159}</code>
         <p><c>ei_x_format_wo_ver()</c> formats into a buffer,
           without the initial version byte.</p>
 	<change>

@@ -22,8 +22,8 @@
 
 %% @doc This module is the interface to the XML parser, it handles XML 1.0.
 %%     The XML parser is activated through
-%%     <tt>xmerl_scan:string/[1,2]</tt> or
-%%     <tt>xmerl_scan:file/[1,2]</tt>.
+%%     <code>xmerl_scan:string/[1,2]</code> or
+%%     <code>xmerl_scan:file/[1,2]</code>.
 %%     It returns records of the type defined in xmerl.hrl.
 %% See also <a href="xmerl_examples.html">tutorial</a> on customization
 %% functions.
@@ -119,8 +119,8 @@
 %% @type xmlDocument() = #xmlDocument{}.
 %% The record definition is found in xmerl.hrl.
 %% @type document() = xmlElement() | xmlDocument(). <p>
-%% The document returned by <tt>xmerl_scan:string/[1,2]</tt> and
-%% <tt>xmerl_scan:file/[1,2]</tt>. The type of the returned record depends on
+%% The document returned by <code>xmerl_scan:string/[1,2]</code> and
+%% <code>xmerl_scan:file/[1,2]</code>. The type of the returned record depends on
 %% the value of the document option passed to the function.
 %% </p>
 

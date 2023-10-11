@@ -1069,6 +1069,7 @@ $ <input>erl \
       </item>
       <tag><marker id="+JMsingle"/><c>+JMsingle true|false</c></tag>
       <item>
+        <p>Since: OTP-26.0</p>
         <p>Enables or disables the use of single-mapped RWX memory for JIT
           code. The default is to map JIT:ed machine code into two
           regions sharing the same physical pages, where one region is

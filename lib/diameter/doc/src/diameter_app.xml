@@ -320,7 +320,7 @@ or &peer_down; callback.</p>
 <v>Action = Send | Discard | {eval_packet, Action, PostF}</v>
 <v>Send = {send, &packet; | &message;}</v>
 <v>Discard = {discard, Reason} | discard</v>
-<v>PostF = &mod_eval;}</v>
+<v>PostF = &mod_eval;</v>
 </type>
 <desc>
 <p>
@@ -372,7 +372,7 @@ discarded}</c>.</p>
 <v>Action = Send | Discard | {eval_packet, Action, PostF}</v>
 <v>Send = {send, &packet; | &message;}</v>
 <v>Discard = {discard, Reason} | discard</v>
-<v>PostF = &mod_eval;}</v>
+<v>PostF = &mod_eval;</v>
 </type>
 <desc>
 <p>

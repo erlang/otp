@@ -1089,6 +1089,8 @@ ts_keys_1([], Acc) ->
 foldl(Fun, Acc, Tab) ->
     foldl(Fun, Acc, Tab, read).
 
+-spec foldl(Fun, Acc0, Tab::table(), LockKind :: lock_kind()) -> Acc when
+      Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldl(Fun, Acc, Tab, LockKind) when is_function(Fun) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -1130,6 +1132,8 @@ do_foldl(A, O, Tab, Key, Fun, Acc, Type, Stored) ->  %% Type is set or bag
       Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldr(Fun, Acc, Tab) ->
     foldr(Fun, Acc, Tab, read).
+-spec foldr(Fun, Acc0, Tab::table(), LockKind::lock_kind()) -> Acc when
+      Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldr(Fun, Acc, Tab, LockKind) when is_function(Fun) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->

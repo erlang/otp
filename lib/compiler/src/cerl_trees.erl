@@ -14,8 +14,7 @@
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Basic functions on Core Erlang abstract syntax trees.
 %%
-%% <p>Syntax trees are defined in the module <a
-%% href="cerl"><code>cerl</code></a>.</p>
+%% <p>Syntax trees are defined in the module {@link cerl}.</p>
 %%
 %% @type cerl() = cerl:cerl()
 
@@ -63,6 +62,7 @@
 	       update_c_map_pair/4
 	   ]).
 
+-type cerl() :: cerl:cerl().
 
 %% ---------------------------------------------------------------------
 
@@ -72,7 +72,7 @@
 %% node has depth zero, the tree representing "<code>{foo,
 %% bar}</code>" has depth one, etc.
 
--spec depth(cerl:cerl()) -> non_neg_integer().
+-spec depth(cerl()) -> non_neg_integer().
 
 depth(T) ->
     case subtrees(T) of
@@ -91,7 +91,7 @@ depth_1(Ts) ->
 %%
 %% @doc Returns the number of nodes in <code>Tree</code>.
 
--spec size(cerl:cerl()) -> non_neg_integer().
+-spec size(cerl()) -> non_neg_integer().
 
 size(T) ->
     fold(fun (_, S) -> S + 1 end, 0, T).
@@ -109,7 +109,7 @@ size(T) ->
 %%
 %% @see mapfold/3
 
--spec map(fun((cerl:cerl()) -> cerl:cerl()), cerl:cerl()) -> cerl:cerl().
+-spec map(fun((cerl()) -> cerl()), cerl()) -> cerl().
 
 map(F, T) ->
     F(map_1(F, T)).
@@ -225,7 +225,7 @@ map_pairs(_, []) ->
 %%
 %% @see mapfold/3
 
--spec fold(fun((cerl:cerl(), term()) -> term()), term(), cerl:cerl()) -> term().
+-spec fold(fun((cerl(), term()) -> term()), term(), cerl()) -> term().
 
 fold(F, S, T) ->
     F(T, fold_1(F, S, T)).
@@ -348,8 +348,8 @@ fold_pairs(_, S, []) ->
 %% @see fold/3
 %% @see mapfold/4
 
--spec mapfold(fun((cerl:cerl(), term()) -> {cerl:cerl(), term()}),
-	      term(), cerl:cerl()) -> {cerl:cerl(), term()}.
+-spec mapfold(fun((cerl(), term()) -> {cerl(), term()}),
+	      term(), cerl()) -> {cerl(), term()}.
 
 mapfold(F, S0, T) ->
   mapfold(fun(T0, A) -> {T0, A} end, F, S0, T).
@@ -373,9 +373,9 @@ mapfold(F, S0, T) ->
 %% If <code>skip</code> is returned, it returns the tree and accumulator
 %% as is.
 
--spec mapfold(fun((cerl:cerl(), term()) -> {cerl:cerl(), term()} | skip),
-              fun((cerl:cerl(), term()) -> {cerl:cerl(), term()}),
-	      term(), cerl:cerl()) -> {cerl:cerl(), term()}.
+-spec mapfold(fun((cerl(), term()) -> {cerl(), term()} | skip),
+              fun((cerl(), term()) -> {cerl(), term()}),
+	      term(), cerl()) -> {cerl(), term()}.
 
 mapfold(Pre, Post, S00, T0) ->
     case Pre(T0, S00) of
@@ -525,7 +525,7 @@ mapfold_pairs(_, _, S, []) ->
 %% @see free_variables/1
 %% @see next_free_variable_name/1
 
--spec variables(cerl:cerl()) -> [cerl:var_name()].
+-spec variables(cerl()) -> [cerl:var_name()].
 
 variables(T) ->
     variables(T, false).
@@ -539,7 +539,7 @@ variables(T) ->
 %% @see next_free_variable_name/1
 %% @see variables/1
 
--spec free_variables(cerl:cerl()) -> [cerl:var_name()].
+-spec free_variables(cerl()) -> [cerl:var_name()].
 
 free_variables(T) ->
     variables(T, true).
@@ -712,7 +712,7 @@ var_list_names([], A) ->
 %% @see variables/1
 %% @see free_variables/1
 
--spec next_free_variable_name(cerl:cerl()) -> integer().
+-spec next_free_variable_name(cerl()) -> integer().
 
 next_free_variable_name(T) ->
     1 + next_free(T, -1).
@@ -811,7 +811,7 @@ next_free_in_defs([], Max) ->
 %%
 %% @equiv label(Tree, 0)
 
--spec label(cerl:cerl()) -> {cerl:cerl(), integer()}.
+-spec label(cerl()) -> {cerl(), integer()}.
 
 label(T) ->
     label(T, 0).
@@ -840,7 +840,7 @@ label(T) ->
 %% @see label/1
 %% @see size/1
 
--spec label(cerl:cerl(), integer()) -> {cerl:cerl(), integer()}.
+-spec label(cerl(), integer()) -> {cerl(), integer()}.
 
 label(T, N) ->
     label(T, N, #{}).
@@ -1024,7 +1024,7 @@ filter_labels([A | As]) ->
 filter_labels([]) ->
     [].
 
--spec get_label(cerl:cerl()) -> 'top' | integer().
+-spec get_label(cerl()) -> 'top' | integer().
 
 get_label(T) ->
     case get_ann(T) of

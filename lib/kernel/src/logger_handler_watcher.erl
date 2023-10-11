@@ -43,7 +43,7 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
--spec register_handler(Id::logger:handler_id(),Pid::pid()) -> ok.
+-spec register_handler(Id :: logger_handler:id(), Pid :: pid()) -> ok.
 register_handler(Id,Pid) ->
     gen_server:call(?SERVER,{register,Id,Pid}).
 

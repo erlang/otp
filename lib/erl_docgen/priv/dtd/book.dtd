@@ -41,9 +41,9 @@
 <!ELEMENT preamble	      (contents?,preface?) >
 <!ELEMENT preface	      (title?,(%block;|quote|br|marker|warning|note|change|dont|do|table)*) >
 
-<!ELEMENT insidecover         (#PCDATA|br|theheader|vfill|vspace|tt|bold|
+<!ELEMENT insidecover         (#PCDATA|br|theheader|vfill|vspace|code|bold|
 			       include)* >
-<!ELEMENT tt                  (#PCDATA|br|theheader|vfill)* >
+<!ELEMENT code                (#PCDATA|br|theheader|vfill)* >
 <!ELEMENT bold                (#PCDATA|br|theheader|vfill)* >
 <!ELEMENT vfill               EMPTY >
 <!ELEMENT theheader           EMPTY >

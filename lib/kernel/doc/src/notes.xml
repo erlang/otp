@@ -1237,7 +1237,7 @@
 	    A bug in <c>inet_res</c> has been fixed where a missing
 	    internal <c>{ok,_}</c> wrapper caused
 	    <c>inet_res:resolve/*</c> to return a calculated host
-	    name instead of an `<c>{ok,Msg}</c> tuple, when resolving
+	    name instead of an <c>{ok,Msg}</c> tuple, when resolving
 	    an IP address or a host name that is an IP address
 	    string.</p>
           <p>

@@ -40,8 +40,8 @@
     <seeguide marker="#preTAG">&lt;pre&gt;</seeguide>,
     <seeguide marker="#codeTAG">&lt;code&gt;</seeguide>,
     <seeguide marker="#listTAG">&lt;list&gt;</seeguide>,
-    <seeguide marker="#taglistTAG">&lt;taglist&gt;</seeguide>,
-    <seeguide marker="#codeincludeTAG">&lt;codeinclude&gt;</seeguide> and
+    <seeguide marker="#taglistTAG">&lt;taglist&gt;</seeguide> and
+    <seeguide marker="#codeincludeTAG">&lt;codeinclude&gt;</seeguide>
   </p>
 
   <section>

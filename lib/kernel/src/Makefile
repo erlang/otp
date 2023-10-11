@@ -119,6 +119,7 @@ MODULES = \
         logger \
         logger_backend \
         logger_config \
+	logger_handler \
 	logger_handler_watcher \
 	logger_std_h \
 	logger_disk_log_h \
@@ -185,6 +186,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 ERL_COMPILE_FLAGS += -Werror
 ERL_COMPILE_FLAGS += -I../include
+ERL_COMPILE_FLAGS += -pa ../ebin
 
 
 # ----------------------------------------------------
@@ -283,14 +285,14 @@ $(EBIN)/local_tcp.beam: inet_int.hrl
 $(EBIN)/logger.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_backend.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_config.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_disk_log_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
+$(EBIN)/logger_disk_log_h.beam: $(EBIN)/logger_handler.beam logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
 $(EBIN)/logger_filters.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_formatter.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_olp.beam: logger_olp.hrl logger_internal.hrl
 $(EBIN)/logger_proxy.beam: logger_internal.hrl
 $(EBIN)/logger_server.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_simple_h.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_std_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
+$(EBIN)/logger_simple_h.beam: $(EBIN)/logger_handler.beam logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_std_h.beam: $(EBIN)/logger_handler.beam logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
 $(EBIN)/logger_h_common.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl
 $(EBIN)/net_kernel.beam: ../include/net_address.hrl
 $(EBIN)/os.beam: ../include/file.hrl

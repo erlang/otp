@@ -39,6 +39,17 @@
 -type metakey() :: atom() | [atom()].
 
 %%%-----------------------------------------------------------------
+%%% Callbacks
+-callback check_config(FConfig) -> ok | {error, Reason} when
+      FConfig :: logger:formatter_config(),
+      Reason :: term().
+
+-callback format(LogEvent, FConfig) -> FormattedLogEntry when
+      LogEvent :: logger:log_event(),
+      FConfig :: logger:formatter_config(),
+      FormattedLogEntry :: unicode:chardata().
+
+%%%-----------------------------------------------------------------
 %%% API
 -spec format(LogEvent,Config) -> unicode:chardata() when
       LogEvent :: logger:log_event(),

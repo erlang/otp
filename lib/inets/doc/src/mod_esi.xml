@@ -128,8 +128,8 @@
      <type>
        <v>SessionID = term()</v>
        <v>Env = [env()]</v>
-       <v>Input = string() | chunked_data()</v>
-       <v>chunked_data() = {first, Data::binary()} |
+       <v>Input = string() | ChunkedData</v>
+       <v>ChunkedData = {first, Data::binary()} |
        {continue, Data::binary(), State::term()} |
        {last, Data::binary(), State::term()} </v>
        <v>State = term()</v>

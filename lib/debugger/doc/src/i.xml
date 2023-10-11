@@ -175,7 +175,7 @@
       <name since="">ia(X,Y,Z) -> ok | no_proc</name>
       <fsummary>Attache to a process.</fsummary>
       <type>
-	<v>X = Y = Z = int()</v>
+	<v>X = Y = Z = integer()</v>
       </type>
       <desc>
 	<p>Same as <c>ia(Pid)</c>, where <c>Pid</c> is the result of
@@ -202,7 +202,7 @@
       <name since="">ia(X,Y,Z, Function) -> ok | no_proc</name>
       <fsummary>Attache to a process.</fsummary>
       <type>
-	<v>X = Y = Z = int()</v>
+	<v>X = Y = Z = integer()</v>
 	<v>Function = {Module,Name}</v>
 	<v>&nbsp;Module = Name = atom()</v>
       </type>
@@ -221,7 +221,7 @@
       <fsummary>Create a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
-	<v>Line = int()</v>
+	<v>Line = integer()</v>
       </type>
       <desc>
 	<p>Creates a breakpoint at <c>Line</c> in <c>Module</c>.</p>
@@ -234,7 +234,7 @@
       <fsummary>Create breakpoints in the specified function.</fsummary>
       <type>
 	<v>Module = Name = atom()</v>
-	<v>Arity = int()</v>
+	<v>Arity = integer()</v>
       </type>
       <desc>
 	<p>Creates breakpoints at the first line of every clause of 
@@ -266,7 +266,7 @@
       <fsummary>Delete a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
-	<v>Line = int()</v>
+	<v>Line = integer()</v>
       </type>
       <desc>
 	<p>Deletes the breakpoint at <c>Line</c> in <c>Module</c>.</p>
@@ -279,7 +279,7 @@
       <fsummary>Delete breakpoints from the specified function.</fsummary>
       <type>
 	<v>Module = Name = atom()</v>
-	<v>Arity = int()</v>
+	<v>Arity = integer()</v>
       </type>
       <desc>
 	<p>Deletes the breakpoints at the first line of every clause of 
@@ -292,7 +292,7 @@
       <fsummary>Make a breakpoint inactive.</fsummary>
       <type>
 	<v>Module = atom()</v>
-	<v>Line = int()</v>
+	<v>Line = integer()</v>
       </type>
       <desc>
 	<p>Makes the breakpoint at <c>Line</c> in <c>Module</c> inactive.</p>
@@ -304,7 +304,7 @@
       <fsummary>Make a breakpoint active.</fsummary>
       <type>
 	<v>Module = atom()</v>
-	<v>Line = int()</v>
+	<v>Line = integer()</v>
       </type>
       <desc>
 	<p>Makes the breakpoint at <c>Line</c> in <c>Module</c> active.</p>
@@ -316,7 +316,7 @@
       <fsummary>Set the trigger action of a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
-	<v>Line = int()</v>
+	<v>Line = integer()</v>
 	<v>Action = enable | disable | delete</v>
       </type>
       <desc>
@@ -330,7 +330,7 @@
       <fsummary>Set the conditional test of a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
-	<v>Line = int()</v>
+	<v>Line = integer()</v>
 	<v>Function = {Module,Name}</v>
 	<v>&nbsp;Name = atom()</v>
       </type>

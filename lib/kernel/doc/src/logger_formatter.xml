@@ -336,6 +336,70 @@ exit_reason: "It crashed"</code>
     </func>
   </funcs>
 
+  <funcs>
+    <fsdescription>
+      <marker id="formatter_callback_functions"/>
+      <title>Formatter Callback Functions</title>
+      <p>The following functions are to be exported from a formatter
+        callback module.</p>
+    </fsdescription>
+    <func>
+      <name since="OTP 21.0">Module:check_config(FConfig) -> ok | {error, Reason}</name>
+      <fsummary>Validate the given formatter configuration.</fsummary>
+      <type>
+	<v>FConfig =
+	  <seetype marker="logger#formatter_config">formatter_config()</seetype></v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+	<p>This callback function is optional.</p>
+	<p>The function is called by a Logger when formatter
+	  configuration is set or modified. The formatter must
+	  validate the given configuration and return <c>ok</c> if it
+	  is correct, and <c>{error,Reason}</c> if it is faulty.</p>
+	<p>The following Logger API functions can trigger this callback:</p>
+	<list>
+	  <item><seemfa marker="logger#add_handler/3">
+	      <c>logger:add_handler/3</c></seemfa></item>
+	  <item><seemfa marker="logger#set_handler_config/2">
+	      <c>logger:set_handler_config/2,3</c></seemfa></item>
+	  <item><seemfa marker="logger#update_handler_config/2">
+	      <c>logger:update_handler_config/2,3</c></seemfa></item>
+	  <item><seemfa marker="logger#update_formatter_config/2">
+	      <c>logger:update_formatter_config/2</c></seemfa></item>
+	</list>
+	<p>See <seeerl marker="logger_formatter">
+	    <c>logger_formatter(3)</c></seeerl>
+	  for an example implementation. <c>logger_formatter</c> is the
+	  default formatter used by Logger.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 21.0">Module:format(LogEvent, FConfig) -> FormattedLogEntry</name>
+      <fsummary>Format the given log event.</fsummary>
+      <type>
+	<v>LogEvent =
+	  <seetype marker="logger#log_event">log_event()</seetype></v>
+	<v>FConfig =
+	  <seetype marker="logger#formatter_config">formatter_config()</seetype></v>
+	<v>FormattedLogEntry =
+	  <seetype marker="unicode#chardata">unicode:chardata()</seetype></v>
+      </type>
+      <desc>
+	<p>This callback function is mandatory.</p>
+	<p>The function can be called by a log handler to convert a
+	  log event term to a printable string. The returned value
+	  can, for example, be printed as a log entry to the console
+	  or a file using <seemfa marker="stdlib:io#put_chars/1">
+	    <c>io:put_chars/1,2</c></seemfa>.</p>
+	<p>See <seeerl marker="logger_formatter">
+	    <c>logger_formatter(3)</c></seeerl>
+	  for an example implementation. <c>logger_formatter</c> is the
+	  default formatter used by Logger.</p>
+      </desc>
+    </func>
+  </funcs>
+
   <section>
     <title>See Also</title>
     <p>
