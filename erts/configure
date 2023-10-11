@@ -20642,7 +20642,6 @@ fi
 printf "%s\n" "#define HAVE_DECL_IPV6_V6ONLY $ac_have_decl" >>confdefs.h
 
 
-
 ac_fn_c_check_header_compile "$LINENO" "linux/vm_sockets.h" "ac_cv_header_linux_vm_sockets_h" "#include <sys/socket.h>
 "
 if test "x$ac_cv_header_linux_vm_sockets_h" = xyes
