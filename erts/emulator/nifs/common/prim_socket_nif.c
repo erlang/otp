@@ -8137,21 +8137,27 @@ ERL_NIF_TERM esock_setopt_str_opt(ErlNifEnv*       env,
     ESOCK_ASSERT( val != NULL );
 
     if ((optLen = GET_STR(env, eVal, val, max)) > 0) {
+
         optLen--;
 
         result =
             esock_setopt_level_opt(env, descP, level, opt,
                                    val, optLen);
+
     } else if (enif_inspect_binary(env, eVal, &bin)) {
-        optLen = esock_strnlen(bin.data, max - 1);
+
+        optLen = esock_strnlen((char*) bin.data, max - 1);
         sys_memcpy(val, bin.data, optLen);
         val[optLen] = '\0';
 
         result =
             esock_setopt_level_opt(env, descP, level, opt,
                                    val, optLen);
+
     } else {
+
         result = esock_make_invalid(env, esock_atom_value);
+
     }
 
     FREE(val);
