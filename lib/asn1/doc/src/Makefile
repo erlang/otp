@@ -57,6 +57,8 @@ XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
 
 XML_GEN_FILES = $(GEN_XML:%=$(XMLDIR)/%)
 
+TOP_SPECS_FILE = specs.xml
+
 IMAGE_FILES = \
 	exclusive_Win_But.gif \
 	selective_Window2.gif \

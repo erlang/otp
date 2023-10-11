@@ -30,7 +30,7 @@
     <checked></checked>
     <date>97-10-14</date>
     <rev>A</rev>
-    <file>asn1.sgml</file>
+    <file>asn1ct.xml</file>
   </header>
   <module since="">asn1ct</module>
   <modulesummary>ASN.1 compiler and compile-time support functions</modulesummary>
@@ -73,21 +73,9 @@
 
   <funcs>
     <func>
-      <name since="">compile(Asn1module) -> ok | {error, Reason}</name>
-      <name since="">compile(Asn1module, Options) -> ok | {error, Reason}</name>
+      <name name="compile" arity="1" since=""/>
+      <name name="compile" arity="2" since=""/>
       <fsummary>Compiles an ASN.1 module and generates encode/decode functions according to encoding rules BER or PER.</fsummary>
-      <type>
-        <v>Asn1module = atom() | string()</v>
-        <v>Options = [Option| OldOption]</v>
-        <v>Option = ber | per | uper | jer | der | compact_bit_string |
-	legacy_bit_string | legacy_erlang_types |
-	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} |
-	asn1config | undec_rest | no_ok_wrapper |
-	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors | deterministic</v>
-        <v>OldOption = ber | per</v> 
-        <v>Reason = term()</v>
-        <v>Prefix = string()</v>
-      </type>
       <desc>
         <p>Compiles the <c>ASN.1</c> module <c>Asn1module</c> and generates 
           an Erlang module <c>Asn1module.erl</c> with encode and decode 
@@ -371,13 +359,8 @@ File3.asn</pre>
     </func>
 
     <func>
-      <name since="">value(Module, Type) -> {ok, Value} | {error, Reason}</name>
+      <name name="value" arity="2" since=""/>
       <fsummary>Creates an ASN.1 value for test purposes.</fsummary>
-      <type>
-        <v>Module = Type = atom()</v>
-        <v>Value = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Returns an Erlang term that is an example of a valid Erlang 
           representation of a value of the <c>ASN.1</c> type <c>Type</c>. The value
@@ -396,16 +379,10 @@ File3.asn</pre>
     </func>
 
     <func>
-      <name since="">test(Module) -> ok | {error, Reason}</name>
-      <name since="">test(Module, Type | Options) -> ok | {error, Reason}</name>
-      <name since="">test(Module, Type, Value | Options) -> ok | {error, Reason}</name>
+      <name name="test" arity="1" since=""/>
+      <name name="test" arity="2" since=""/>
+      <name name="test" arity="3" since=""/>
       <fsummary>Performs a test of encode and decode for types in an ASN.1 module.</fsummary>
-      <type>
-        <v>Module = Type = atom()</v>
-        <v>Value = term()</v>
-        <v>Options = [{i, IncludeDir}]</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Performs a test of encode and decode of types in <c>Module</c>.
           The generated functions are called by this function.
