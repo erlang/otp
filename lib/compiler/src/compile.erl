@@ -49,7 +49,7 @@
 
 -type abstract_code() :: [erl_parse:abstract_form()].
 
--type forms() :: abstract_code() | cerl:c_module() | beam_disasm:asm_form().
+-type forms() :: abstract_code() | cerl:c_module().
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
@@ -82,22 +82,24 @@
 
 -define(DEFAULT_OPTIONS, [verbose,report_errors,report_warnings]).
 
--spec file(module() | file:filename()) -> comp_ret().
+-spec file(module() | file:filename()) ->
+          CompRet :: comp_ret().
 
 file(File) -> file(File, ?DEFAULT_OPTIONS).
 
--spec file(module() | file:filename(), [option()] | option()) -> comp_ret().
+-spec file(module() | file:filename(), Options :: [option()] | option()) ->
+          CompRet :: comp_ret().
 
 file(File, Opts) when is_list(Opts) ->
     do_compile({file,File}, Opts++env_default_opts());
 file(File, Opt) ->
     file(File, [Opt|?DEFAULT_OPTIONS]).
 
--spec forms(abstract_code()) -> comp_ret().
+-spec forms(forms()) -> CompRet :: comp_ret().
 
 forms(Forms) -> forms(Forms, ?DEFAULT_OPTIONS).
 
--spec forms(forms(), [option()] | option()) -> comp_ret().
+-spec forms(forms(), Options :: [option()] | option()) -> CompRet :: comp_ret().
 
 forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts++env_default_opts()]);
@@ -108,7 +110,7 @@ forms(Forms, Opt) when is_atom(Opt) ->
 %% would have generated a Beam file, false otherwise (if only a binary or a
 %% listing file would have been generated).
 
--spec output_generated([option()]) -> boolean().
+-spec output_generated(Options :: [option()]) -> boolean().
 
 output_generated(Opts) ->
     noenv_output_generated(Opts++env_default_opts()).
@@ -118,7 +120,7 @@ output_generated(Opts) ->
 %% for default options.
 %%
 
--spec noenv_file(module() | file:filename(), [option()] | option()) -> comp_ret().
+-spec noenv_file(module() | file:filename(), Options :: [option()] | option()) -> comp_ret().
 
 noenv_file(File, Opts) when is_list(Opts) ->
     do_compile({file,File}, Opts);
@@ -132,7 +134,7 @@ noenv_forms(Forms, Opts) when is_list(Opts) ->
 noenv_forms(Forms, Opt) when is_atom(Opt) ->
     noenv_forms(Forms, [Opt|?DEFAULT_OPTIONS]).
 
--spec noenv_output_generated([option()]) -> boolean().
+-spec noenv_output_generated(Options :: [option()]) -> boolean().
 
 noenv_output_generated(Opts) ->
     {_,Passes} = passes(file, expand_opts(Opts)),
@@ -282,7 +284,7 @@ expand_opt({check_ssa,Tag}, Os) ->
     [check_ssa, Tag | Os];
 expand_opt(O, Os) -> [O|Os].
 
--spec format_error(error_description()) -> iolist().
+-spec format_error(ErrorDescription :: error_description()) -> string().
 
 format_error({obsolete_option,Ver}) ->
     io_lib:fwrite("the ~p option is no longer supported", [Ver]);
