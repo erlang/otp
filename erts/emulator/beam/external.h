@@ -68,6 +68,7 @@
 #define ATOM_INTERNAL_REF3 'K'
 #define BINARY_INTERNAL_REF 'J'
 #define BIT_BINARY_INTERNAL_REF 'L'
+#define MAGIC_REF_INTERNAL_REF 'N'
 #define COMPRESSED        'P'
 
 #if 0
