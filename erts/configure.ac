@@ -2357,7 +2357,7 @@ AC_CHECK_DECLS([IN6ADDR_ANY_INIT, IN6ADDR_LOOPBACK_INIT, IPV6_V6ONLY], [], [],
 		#include <netinet/in.h>
 	       ])
 
-
+dnl Checks for AF_VSOCK socket support
 AC_CHECK_HEADERS(linux/vm_sockets.h sys/vsock.h,[],[],[#include <sys/socket.h>])
 AC_CHECK_DECLS([VMADDR_CID_LOCAL], [], [], [
     #include <sys/socket.h>
