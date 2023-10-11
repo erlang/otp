@@ -496,13 +496,14 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, LineCont0, Encoding) ->
                  false ->
                      %% get_line_echo_off only deals with lists,
                      %% so convert to list before calling it.
-                     get_line_echo_off(cast(Buf0, list, Encoding), Pbs, Drv, Shell)
+                     get_line_echo_off(cast(Buf0, list), Encoding, Pbs, Drv, Shell)
              end,
     case Result of
         {done,LineCont1,Buf} ->
             get_chars_apply(Pbs, M, F, Xa, Drv, Shell, append(Buf, [], Encoding),
                             State, LineCont1, Encoding);
-
+        {no_translation, unicode, latin1} ->
+            {error,{error,{no_translation, unicode, latin1}}, []};
         interrupted ->
             {error,{error,interrupted},[]};
         terminated ->
@@ -543,20 +544,25 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
     end.
 
 get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
-    try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
-        {stop,Result,Rest} ->
-            {ok, Result, append(Rest,[],Encoding)};
-        State1 ->
-            case get_chars_echo_off(Pbs, Drv, Shell) of
-                interrupted ->
-                    {error,{error,interrupted},[]};
-                terminated ->
-                    {exit,terminated};
-                Buf ->
-                    get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf, State1, Encoding)
+    case check_encoding(Buf0, Encoding) of
+        false ->
+            {error,{error,{no_translation,unicode,Encoding}},[]};
+        true ->
+            try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
+                {stop,Result,Rest} ->
+                    {ok, Result, append(Rest,[],Encoding)};
+                State1 ->
+                    case get_chars_echo_off(Pbs, Drv, Shell) of
+                        interrupted ->
+                            {error,{error,interrupted},[]};
+                        terminated ->
+                            {exit,terminated};
+                        Buf ->
+                            get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf, State1, Encoding)
+                    end
+            catch _:_ ->
+                    {error,{error,err_func(M, F, Xa)},[]}
             end
-    catch _:_ ->
-            {error,{error,err_func(M, F, Xa)},[]}
     end.
 
 %% Convert error code to make it look as before
@@ -816,9 +822,19 @@ more_data(What, Cont0, Drv, Shell, Ls, Encoding) ->
             get_line1(edlin:edit_line([], Cont0), Drv, Shell, Ls, Encoding)
     end.
 
-get_line_echo_off(Chars, Pbs, Drv, Shell) ->
+get_line_echo_off(Chars, ToEnc, Pbs, Drv, Shell) ->
     send_drv_reqs(Drv, [{put_chars, unicode,Pbs}]),
-    get_line_echo_off1(edit_line(Chars,[]), Drv, Shell).
+    case get_line_echo_off1(edit_line(Chars,[]), Drv, Shell) of
+        {done, Line, _Rest} = Res when ToEnc =:= latin1 ->
+            case check_encoding(Line, ToEnc) of
+                false ->
+                    {no_translation, unicode, ToEnc};
+                true ->
+                    Res
+            end;
+        Res ->
+            Res
+    end.
 
 get_line_echo_off1({Chars,[]}, Drv, Shell) ->
     receive
@@ -1055,3 +1071,18 @@ append(eof, L, _) ->
     L;
 append(B, L, FromEnc) ->
     unicode:characters_to_list(B, FromEnc) ++ L.
+
+check_encoding(eof, _) ->
+    true;
+check_encoding(ListOrBinary, unicode) when is_list(ListOrBinary); is_binary(ListOrBinary) ->
+    true;
+check_encoding(List, latin1) when is_list(List) ->
+    is_latin1(List).
+
+is_latin1([H|T]) when 0 =< H, H =< 255 ->
+    is_latin1(T);
+is_latin1([]) ->
+    true;
+is_latin1(_) ->
+    false.
+
