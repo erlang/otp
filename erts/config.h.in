@@ -609,8 +609,8 @@
    don't. */
 #undef HAVE_DECL_TIME2POSIX
 
-/* Define to 1 if you have the declaration of `VMADDR_CID_LOCAL`,
-   and to 0 if you don't. */
+/* Define to 1 if you have the declaration of `VMADDR_CID_LOCAL', and to 0 if
+   you don't. */
 #undef HAVE_DECL_VMADDR_CID_LOCAL
 
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
