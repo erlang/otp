@@ -95,19 +95,32 @@
 %%   in tree T, V is the value associated with X in T, and T1 is the
 %%   tree T with key X deleted. Assumes that the tree T is nonempty.
 %%
+%% - smaller(K, T): returns {Key, Value} pair, where Key is the
+%%   greatest key strictly less than K, or `none' if no such key exists.
+%%
+%% - larger(K, T): returns {Key, Value} pair, where Key is the
+%%   least key strictly greater than K, or `none' if no such key exists.
+%%
 %% - iterator(T): returns an iterator that can be used for traversing
-%%   the entries of tree T; see `next'. The implementation of this is
-%%   very efficient; traversing the whole tree using `next' is only
-%%   slightly slower than getting the list of all elements using
-%%   `to_list' and traversing that. The main advantage of the iterator
+%%   the entries of tree T; see `next'. Equivalent to iterator(T, ordered).
+%%
+%% - iterator(T, Order): returns an iterator that can be used for traversing
+%%   the entries of tree T in either ordered or reversed direction; see `next'.
+%%   The implementation of this is very efficient; traversing the whole tree
+%%   using `next' is only slightly slower than getting the list of all elements
+%%   using `to_list' and traversing that. The main advantage of the iterator
 %%   approach is that it does not require the complete list of all
 %%   elements to be built in memory at one time.
 %%
 %% - iterator_from(K, T): returns an iterator that can be used for
 %%   traversing the entries of tree T with key greater than or
-%%   equal to K; see `next'.
+%%   equal to K; see `next'. Equivalent to iterator_from(K, T, ordered).
 %%
-%% - next(S): returns {X, V, S1} where X is the smallest key referred to
+%% - iterator_from(K, T, Order): returns an iterator that can be used for
+%%   traversing the entries of tree T in either ordered or reversed direction,
+%%   starting from the key equal to or closest to K; see `next'.
+%%
+%% - next(S): returns {X, V, S1} where X is the next key referred to
 %%   by the iterator S, and S1 is the new iterator to be used for
 %%   traversing the remaining entries, or the atom `none' if no entries
 %%   remain.
@@ -122,8 +135,9 @@
 	 update/3, enter/3, delete/2, delete_any/2, balance/1,
 	 is_defined/2, keys/1, values/1, to_list/1, from_orddict/1,
 	 smallest/1, largest/1, take/2, take_any/2,
-         take_smallest/1, take_largest/1,
-	 iterator/1, iterator_from/2, next/1, map/2]).
+         take_smallest/1, take_largest/1, smaller/2, larger/2,
+         iterator/1, iterator/2, iterator_from/2, iterator_from/3,
+         next/1, map/2]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -164,7 +178,7 @@
                           | {K, V, gb_tree_node(K, V), gb_tree_node(K, V)}.
 -opaque tree(Key, Value) :: {non_neg_integer(), gb_tree_node(Key, Value)}.
 -type tree() :: tree(_, _).
--opaque iter(Key, Value) :: [gb_tree_node(Key, Value)].
+-opaque iter(Key, Value) :: {ordered | reversed, [gb_tree_node(Key, Value)]}.
 -type iter() :: iter(_, _).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -511,6 +525,46 @@ largest_1({_Key, _Value, _Smaller, Larger}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-spec smaller(Key1, Tree) -> none | {Key2, Value} when
+    Key1 :: Key,
+    Key2 :: Key,
+    Tree :: tree(Key, Value).
+smaller(Key, {_, TreeNode}) ->
+    smaller_1(Key, TreeNode).
+
+smaller_1(_Key, nil) ->
+    none;
+smaller_1(Key, {Key1, Value, _Smaller, Larger}) when Key > Key1 ->
+    case smaller_1(Key, Larger) of
+        none ->
+            {Key1, Value};
+        Entry ->
+            Entry
+    end;
+smaller_1(Key, {_Key, _Value, Smaller, _Larger}) ->
+    smaller_1(Key, Smaller).
+
+-spec larger(Key1, Tree) -> none | {Key2, Value} when
+    Key1 :: Key,
+    Key2 :: Key,
+    Tree :: tree(Key, Value).
+larger(Key, {_, TreeNode}) ->
+    larger_1(Key, TreeNode).
+
+larger_1(_Key, nil) ->
+    none;
+larger_1(Key, {Key1, Value, Smaller, _Larger}) when Key < Key1 ->
+    case larger_1(Key, Smaller) of
+        none ->
+            {Key1, Value};
+        Entry ->
+            Entry
+    end;
+larger_1(Key, {_Key, _Value, _Smaller, Larger}) ->
+    larger_1(Key, Larger).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 -spec to_list(Tree) -> [{Key, Value}] when
       Tree :: tree(Key, Value).
 			   
@@ -553,20 +607,34 @@ values(nil, L) -> L.
       Tree :: tree(Key, Value),
       Iter :: iter(Key, Value).
 
-iterator({_, T}) ->
-    iterator_1(T).
+iterator(Tree) ->
+    iterator(Tree, ordered).
 
-iterator_1(T) ->
-    iterator(T, []).
+-spec iterator(Tree, Order) -> Iter when
+      Tree :: tree(Key, Value),
+      Iter :: iter(Key, Value),
+      Order :: ordered | reversed.
+
+iterator({_, T}, ordered) ->
+    {ordered, iterator_1(T, [])};
+iterator({_, T}, reversed) ->
+    {reversed, iterator_r(T, [])}.
 
 %% The iterator structure is really just a list corresponding to
 %% the call stack of an in-order traversal. This is quite fast.
 
-iterator({_, _, nil, _} = T, As) ->
+iterator_1({_, _, nil, _} = T, As) ->
     [T | As];
-iterator({_, _, L, _} = T, As) ->
-    iterator(L, [T | As]);
-iterator(nil, As) ->
+iterator_1({_, _, L, _} = T, As) ->
+    iterator_1(L, [T | As]);
+iterator_1(nil, As) ->
+    As.
+
+iterator_r({_, _, _, nil} = T, As) ->
+    [T | As];
+iterator_r({_, _, _, R} = T, As) ->
+    iterator_r(R, [T | As]);
+iterator_r(nil, As) ->
     As.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -575,19 +643,35 @@ iterator(nil, As) ->
       Tree :: tree(Key, Value),
       Iter :: iter(Key, Value).
 
-iterator_from(S, {_, T}) ->
-    iterator_1_from(S, T).
+iterator_from(Key, Tree) ->
+    iterator_from(Key, Tree, ordered).
 
-iterator_1_from(S, T) ->
-    iterator_from(S, T, []).
+-spec iterator_from(Key, Tree, Order) -> Iter when
+      Tree :: tree(Key, Value),
+      Iter :: iter(Key, Value),
+      Order :: ordered | reversed.
 
-iterator_from(S, {K, _, _, T}, As) when K < S ->
-    iterator_from(S, T, As);
-iterator_from(_, {_, _, nil, _} = T, As) ->
+iterator_from(S, {_, T}, ordered) ->
+    {ordered, iterator_from_1(S, T, [])};
+iterator_from(S, {_, T}, reversed) ->
+    {reversed, iterator_from_r(S, T, [])}.
+
+iterator_from_1(S, {K, _, _, T}, As) when K < S ->
+    iterator_from_1(S, T, As);
+iterator_from_1(_, {_, _, nil, _} = T, As) ->
     [T | As];
-iterator_from(S, {_, _, L, _} = T, As) ->
-    iterator_from(S, L, [T | As]);
-iterator_from(_, nil, As) ->
+iterator_from_1(S, {_, _, L, _} = T, As) ->
+    iterator_from_1(S, L, [T | As]);
+iterator_from_1(_, nil, As) ->
+    As.
+
+iterator_from_r(S, {K, _, T, _}, As) when K > S ->
+    iterator_from_r(S, T, As);
+iterator_from_r(_, {_, _, _, nil} = T, As) ->
+    [T | As];
+iterator_from_r(S, {_, _, _, R} = T, As) ->
+    iterator_from_r(S, R, [T | As]);
+iterator_from_r(_, nil, As) ->
     As.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -596,9 +680,11 @@ iterator_from(_, nil, As) ->
       Iter1 :: iter(Key, Value),
       Iter2 :: iter(Key, Value).
 
-next([{X, V, _, T} | As]) ->
-    {X, V, iterator(T, As)};
-next([]) ->
+next({ordered, [{X, V, _, T} | As]}) ->
+    {X, V, {ordered, iterator_1(T, As)}};
+next({reversed, [{X, V, T, _} | As]}) ->
+    {X, V, {reversed, iterator_r(T, As)}};
+next({_, []}) ->
     none.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

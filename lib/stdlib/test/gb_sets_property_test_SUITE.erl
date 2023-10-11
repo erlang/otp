@@ -33,8 +33,10 @@ all() -> [
           insert_case,
           is_member_case,
           iterator_case, iterator_from_case,
+          larger_case,
           largest_case,
           singleton_case,
+          smaller_case,
           smallest_case,
           take_largest_case,
           take_smallest_case
@@ -76,11 +78,17 @@ iterator_case(Config) ->
 iterator_from_case(Config) ->
     do_proptest(prop_iterator_from, Config).
 
+larger_case(Config) ->
+    do_proptest(prop_larger, Config).
+
 largest_case(Config) ->
     do_proptest(prop_largest, Config).
 
 singleton_case(Config) ->
     do_proptest(prop_singleton, Config).
+
+smaller_case(Config) ->
+    do_proptest(prop_smaller, Config).
 
 smallest_case(Config) ->
     do_proptest(prop_smallest, Config).

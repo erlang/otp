@@ -123,17 +123,30 @@
 %%   set S, and S1 is the set S with element X deleted. Assumes that the
 %%   set S is nonempty.
 %%
+%% - smaller(X, S): returns {`found', X1}, where X1 is the greatest element
+%%   strictly less than X, or `none' if no such element exists.
+%%
+%% - larger(X, S): returns {`found', X1}, where X1 is the least element
+%%   strictly greater than K, or `none' if no such element exists.
+%%
 %% - iterator(S): returns an iterator that can be used for traversing
-%%   the entries of set S; see `next'. The implementation of this is
-%%   very efficient; traversing the whole set using `next' is only
-%%   slightly slower than getting the list of all elements using
-%%   `to_list' and traversing that. The main advantage of the iterator
+%%   the entries of set S; see `next'. Equivalent to iterator(T, ordered).
+%%
+%% - iterator(S, Order): returns an iterator that can be used for traversing
+%%   the entries of set S in either ordered or reversed direction; see `next'.
+%%   The implementation of this is very efficient; traversing the whole set
+%%   using `next' is only slightly slower than getting the list of all elements
+%%   using `to_list' and traversing that. The main advantage of the iterator
 %%   approach is that it does not require the complete list of all
 %%   elements to be built in memory at one time.
 %%
 %% - iterator_from(X, S): returns an iterator that can be used for
 %%   traversing the elements of set S greater than or equal to X;
-%%   see `next'.
+%%   see `next'. Equivalent to iterator_from(X, S, ordered).
+%%
+%% - iterator_from(X, S, Order): returns an iterator that can be used for
+%%   traversing the elements of set S in either ordered or reversed direction,
+%%   starting from the element equal to or closest to X; see `next'.
 %%
 %% - next(T): returns {X, T1} where X is the smallest element referred
 %%   to by the iterator T, and T1 is the new iterator to be used for
@@ -156,9 +169,9 @@
 	 union/1, intersection/2, intersection/1, is_equal/2,
 	 is_disjoint/2, difference/2, is_subset/2, to_list/1,
 	 from_list/1, from_ordset/1, smallest/1, largest/1,
-	 take_smallest/1, take_largest/1, iterator/1,
-	 iterator_from/2, next/1, filter/2, fold/3, map/2,
-	 filtermap/2, is_set/1]).
+	 take_smallest/1, take_largest/1, smaller/2, larger/2,
+         iterator/1, iterator/2, iterator_from/2, iterator_from/3,
+         next/1, filter/2, fold/3, map/2, filtermap/2, is_set/1]).
 
 %% `sets' compatibility aliases:
 
@@ -201,7 +214,7 @@
 -type gb_set_node(Element) :: 'nil' | {Element, _, _}.
 -opaque set(Element) :: {non_neg_integer(), gb_set_node(Element)}.
 -type set() :: set(_).
--opaque iter(Element) :: [gb_set_node(Element)].
+-opaque iter(Element) :: {ordered | reversed, [gb_set_node(Element)]}.
 -type iter() :: iter(_).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -495,6 +508,44 @@ largest_1({Key, _Smaller, nil}) ->
 largest_1({_Key, _Smaller, Larger}) ->
     largest_1(Larger).
 
+-spec smaller(Element1, Set) -> none | {found, Element2} when
+    Element1 :: Element,
+    Element2 :: Element,
+    Set :: set(Element).
+smaller(Key, {_, T}) ->
+    smaller_1(Key, T).
+
+smaller_1(_Key, nil) ->
+    none;
+smaller_1(Key, {Key1, _Smaller, Larger}) when Key > Key1 ->
+    case smaller_1(Key, Larger) of
+        none ->
+            {found, Key1};
+        Found ->
+            Found
+    end;
+smaller_1(Key, {_Key, Smaller, _Larger}) ->
+    smaller_1(Key, Smaller).
+
+-spec larger(Element1, Set) -> none | {found, Element2} when
+    Element1 :: Element,
+    Element2 :: Element,
+    Set :: set(Element).
+larger(Key, {_, T}) ->
+    larger_1(Key, T).
+
+larger_1(_Key, nil) ->
+    none;
+larger_1(Key, {Key1, Smaller, _Larger}) when Key < Key1 ->
+    case larger_1(Key, Smaller) of
+        none ->
+            {found, Key1};
+        Found ->
+            Found
+    end;
+larger_1(Key, {_Key, _Smaller, Larger}) ->
+    larger_1(Key, Larger).
+
 -spec to_list(Set) -> List when
       Set :: set(Element),
       List :: [Element].
@@ -512,42 +563,80 @@ to_list(nil, L) -> L.
       Set :: set(Element),
       Iter :: iter(Element).
 
-iterator({_, T}) ->
-    iterator(T, []).
+iterator(Set) ->
+    iterator(Set, ordered).
+
+-spec iterator(Set, Order) -> Iter when
+      Set :: set(Element),
+      Iter :: iter(Element),
+      Order :: ordered | reversed.
+
+iterator({_, T}, ordered) ->
+    {ordered, iterator_1(T, [])};
+iterator({_, T}, reversed) ->
+    {reversed, iterator_r(T, [])}.
 
 %% The iterator structure is really just a list corresponding to the
 %% call stack of an in-order traversal. This is quite fast.
 
-iterator({_, nil, _} = T, As) ->
+iterator_1({_, nil, _} = T, As) ->
     [T | As];
-iterator({_, L, _} = T, As) ->
-    iterator(L, [T | As]);
-iterator(nil, As) ->
+iterator_1({_, L, _} = T, As) ->
+    iterator_1(L, [T | As]);
+iterator_1(nil, As) ->
+    As.
+
+iterator_r({_, _, nil} = T, As) ->
+    [T | As];
+iterator_r({_, _, R} = T, As) ->
+    iterator_r(R, [T | As]);
+iterator_r(nil, As) ->
     As.
 
 -spec iterator_from(Element, Set) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element).
 
-iterator_from(S, {_, T}) ->
-    iterator_from(S, T, []).
+iterator_from(Element, Set) ->
+    iterator_from(Element, Set, ordered).
 
-iterator_from(S, {K, _, T}, As) when K < S ->
-    iterator_from(S, T, As);
-iterator_from(_, {_, nil, _} = T, As) ->
+-spec iterator_from(Element, Set, Order) -> Iter when
+      Set :: set(Element),
+      Iter :: iter(Element),
+      Order :: ordered | reversed.
+
+iterator_from(S, {_, T}, ordered) ->
+    {ordered, iterator_from_1(S, T, [])};
+iterator_from(S, {_, T}, reversed) ->
+    {reversed, iterator_from_r(S, T, [])}.
+
+iterator_from_1(S, {K, _, T}, As) when K < S ->
+    iterator_from_1(S, T, As);
+iterator_from_1(_, {_, nil, _} = T, As) ->
     [T | As];
-iterator_from(S, {_, L, _} = T, As) ->
-    iterator_from(S, L, [T | As]);
-iterator_from(_, nil, As) ->
+iterator_from_1(S, {_, L, _} = T, As) ->
+    iterator_from_1(S, L, [T | As]);
+iterator_from_1(_, nil, As) ->
+    As.
+
+iterator_from_r(S, {K, T, _}, As) when K > S ->
+    iterator_from_r(S, T, As);
+iterator_from_r(_, {_, _, nil} = T, As) ->
+    [T | As];
+iterator_from_r(S, {_, _, R} = T, As) ->
+    iterator_from_r(S, R, [T | As]);
+iterator_from_r(_, nil, As) ->
     As.
 
 -spec next(Iter1) -> {Element, Iter2} | 'none' when
       Iter1 :: iter(Element),
       Iter2 :: iter(Element).
 
-next([{X, _, T} | As]) ->
-    {X, iterator(T, As)};
-next([]) ->
+next({ordered, [{X, _, T} | As]}) ->
+    {X, {ordered, iterator_1(T, As)}};
+next({reversed, [{X, T, _} | As]}) ->
+    {X, {reversed, iterator_r(T, As)}};
+next({_, []}) ->
     none.
 
 

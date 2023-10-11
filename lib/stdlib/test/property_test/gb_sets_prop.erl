@@ -59,6 +59,31 @@ prop_balance() ->
         gb_sets:is_equal(S, gb_sets:balance(S))
     ).
 
+%% --- ceiling/2 -------------------------------------------------------
+prop_ceiling() ->
+    ?FORALL(
+        {S, O, L},
+        ?LET(
+            {L1, L2},
+            {ct_proper_ext:safe_list(),
+             non_empty(ct_proper_ext:safe_list())},
+            {gb_sets:from_list(L1), lists:usort(L1), L1 ++ L2}
+        ),
+        lists:all(
+            fun(E) ->
+                gb_sets:ceiling(E, S) =:= do_ceiling(E, O)
+            end,
+            L
+         )
+    ).
+
+do_ceiling(_, []) ->
+    none;
+do_ceiling(E, [X | _]) when X >= E ->
+    {found, X};
+do_ceiling(E, [X | R]) when X < E ->
+    do_ceiling(E, R).
+
 %% --- delete/2 -------------------------------------------------------
 prop_delete() ->
     ?FORALL(
@@ -117,6 +142,31 @@ prop_difference() ->
         ),
         gb_sets:difference(S1, S2) =:= gb_sets:subtract(S1, S2)
     ).
+
+%% --- floor/2 -------------------------------------------------------
+prop_floor() ->
+    ?FORALL(
+        {S, O, L},
+        ?LET(
+            {L1, L2},
+            {ct_proper_ext:safe_list(),
+             non_empty(ct_proper_ext:safe_list())},
+            {gb_sets:from_list(L1), lists:reverse(lists:usort(L1)), L1 ++ L2}
+        ),
+        lists:all(
+            fun(E) ->
+                gb_sets:floor(E, S) =:= do_floor(E, O)
+            end,
+            L
+         )
+    ).
+
+do_floor(_, []) ->
+    none;
+do_floor(E, [X | _]) when X =< E ->
+    {found, X};
+do_floor(E, [X | R]) when X > E ->
+    do_floor(E, R).
 
 %% --- from_ordset/1 --------------------------------------------------
 prop_from_ordset() ->
@@ -182,17 +232,29 @@ prop_iterator() ->
                 {gb_sets:from_list(L1), L1}
             end
         ),
-        do_iterate(gb_sets:iterator(S), L)
+        do_iterate(gb_sets:iterator(S), L, ordered)
+    ),
+    ?FORALL(
+        {S, L},
+        ?LET(
+            L,
+            ct_proper_ext:safe_list(),
+            begin
+                L1 = lists:usort(L),
+                {gb_sets:from_list(L1), lists:reverse(L1)}
+            end
+        ),
+        do_iterate(gb_sets:iterator(S, reversed), L, reversed)
     ).
 
-do_iterate(none, L) ->
+do_iterate(none, L, _) ->
     L =:= [];
-do_iterate(I, []) ->
+do_iterate(I, [], _) ->
     none =:= gb_sets:next(I);
-do_iterate(I0, L0) ->
+do_iterate(I0, L0, Order) ->
     {E, I1} = gb_sets:next(I0),
     lists:member(E, L0) andalso
-    do_iterate_from(E, I1, lists:delete(E, L0)).
+    do_iterate_from(E, I1, lists:delete(E, L0), Order).
 
 %% --- iterator_from/2 ------------------------------------------------
 %%
@@ -213,18 +275,65 @@ prop_iterator_from() ->
                 {gb_sets:from_list(L1), L2, F}
             end
         ),
-        do_iterate_from(From, gb_sets:iterator_from(From, S), L)
+        do_iterate_from(From, gb_sets:iterator_from(From, S), L, ordered)
+    ),
+    ?FORALL(
+        {S, L, From},
+        ?LET(
+            {L, E},
+            {ct_proper_ext:safe_list(), ct_proper_ext:safe_any()},
+            begin
+                L1 = lists:usort(L),
+                L2 = lists:dropwhile(fun(X) -> X > E end, lists:reverse(L1)),
+                F = case L2 of
+                        [] -> E;
+                        _ -> oneof([E, hd(L2)])
+                    end,
+                {gb_sets:from_list(L1), L2, F}
+            end
+        ),
+        do_iterate_from(From, gb_sets:iterator_from(From, S, reversed), L, reversed)
     ).
 
-do_iterate_from(_Min, none, L) ->
+do_iterate_from(_From, none, L, _) ->
     L =:= [];
-do_iterate_from(_Min, I, []) ->
+do_iterate_from(_From, I, [], _) ->
     none =:= gb_sets:next(I);
-do_iterate_from(Min, I0, L0) ->
+do_iterate_from(From, I0, L0, ordered) ->
     {E, I1} = gb_sets:next(I0),
     lists:member(E, L0) andalso
-    Min =< E andalso
-    do_iterate_from(E, I1, lists:delete(E, L0)).
+    From =< E andalso
+    do_iterate_from(E, I1, lists:delete(E, L0), ordered);
+do_iterate_from(From, I0, L0, reversed) ->
+    {E, I1} = gb_sets:next(I0),
+    lists:member(E, L0) andalso
+    From >= E andalso
+    do_iterate_from(E, I1, lists:delete(E, L0), reversed).
+
+%% --- larger/2 -------------------------------------------------------
+prop_larger() ->
+    ?FORALL(
+        {S, O, L},
+        ?LET(
+            {L1, L2},
+            {ct_proper_ext:safe_list(),
+             non_empty(ct_proper_ext:safe_list())},
+            {gb_sets:from_list(L1), lists:usort(L1), L1 ++ L2}
+        ),
+        lists:all(
+            fun(E) ->
+                gb_sets:larger(E, S) =:= do_larger(E, O)
+            end,
+            L
+         )
+    ).
+
+do_larger(_, []) ->
+    none;
+do_larger(E, [X | _]) when X > E ->
+    {found, X};
+do_larger(E, [X | R]) when X =< E ->
+    do_larger(E, R).
 
 %% --- largest/1 ------------------------------------------------------
 prop_largest() ->
@@ -248,6 +357,31 @@ prop_singleton() ->
         ct_proper_ext:safe_any(),
         [E] =:= gb_sets:to_list(gb_sets:singleton(E))
     ).
+
+%% --- smaller/2 -------------------------------------------------------
+prop_smaller() ->
+    ?FORALL(
+        {S, O, L},
+        ?LET(
+            {L1, L2},
+            {ct_proper_ext:safe_list(),
+             non_empty(ct_proper_ext:safe_list())},
+            {gb_sets:from_list(L1), lists:reverse(lists:usort(L1)), L1 ++ L2}
+        ),
+        lists:all(
+            fun(E) ->
+                gb_sets:smaller(E, S) =:= do_smaller(E, O)
+            end,
+            L
+         )
+    ).
+
+do_smaller(_, []) ->
+    none;
+do_smaller(E, [X | _]) when X < E ->
+    {found, X};
+do_smaller(E, [X | R]) when X >= E ->
+    do_smaller(E, R).
 
 %% --- smallest/1 -----------------------------------------------------
 prop_smallest() ->
