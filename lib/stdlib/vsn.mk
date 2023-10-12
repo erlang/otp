@@ -1,1 +1,1 @@
-STDLIB_VSN = 4.3.1.2
+STDLIB_VSN = 4.3.1.3
