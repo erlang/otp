@@ -18,6 +18,8 @@ name: Build and check Erlang/OTP
 on:
   push:
   pull_request:
+  schedule:
+      - cron: 0 1 * * *
 
 env:
     ## Equivalent to github.event_name == 'pull_request' ? github.base_ref : github.ref_name
@@ -33,7 +35,7 @@ jobs:
         changes: ${{ steps.changes.outputs.changes }}
         all: ${{ steps.apps.outputs.all }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -42,23 +44,36 @@ jobs:
         id: apps
         run: |
           .github/scripts/path-filters.sh > .github/scripts/path-filters.yaml
+          ## Print path-filters for debug purposes
+          cat .github/scripts/path-filters.yaml
           ALL_APPS=$(grep '^[a-z_]*:' .github/scripts/path-filters.yaml | sed 's/:.*$//')
           ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
           echo "all=${ALL_APPS}" >> $GITHUB_OUTPUT
-      - uses: dorny/paths-filter@v2
-        id: changes
+      - uses: dorny/paths-filter@v2.11.1
+        id: app-changes
         with:
           filters: .github/scripts/path-filters.yaml
+      - name: Override changes
+        id: changes
+        env:
+            ALL_APPS: ${{ steps.apps.outputs.all }}
+            CHANGED_APPS: ${{ steps.app-changes.outputs.changes }}
+        run: |
+          if ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') }} || ${{ github.event_name == 'schedule' }}; then
+              echo "changes=${ALL_APPS}" >> "$GITHUB_OUTPUT"
+          else
+              echo "changes=${CHANGED_APPS}" >> "$GITHUB_OUTPUT"
+          fi
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_archive.tar.gz
       - name: Upload source tar archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: otp_git_archive
           path: otp_archive.tar.gz
       - name: Cache pre-built tar archives
         id: pre-built-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v3.3.2
         with:
             path: |
                 otp_src.tar.gz
@@ -66,7 +81,7 @@ jobs:
             key: prebuilt-${{ github.ref_name }}-${{ github.sha }}
             restore-keys: |
                 prebuilt-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v2.11.1
         id: cache
         with:
           filters: |
@@ -93,7 +108,7 @@ jobs:
               '${{ steps.cache.outputs.deleted_files }}' \
               '${{ steps.changes.outputs.changes }}'
       - name: Upload restored cache
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         if: runner.debug == 1
         with:
           name: restored-cache
@@ -120,7 +135,7 @@ jobs:
             bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
           gzip otp_cache.tar
       - name: Upload pre-built tar archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: otp_prebuilt
           path: |
@@ -134,16 +149,16 @@ jobs:
     env:
       WXWIDGETS_VERSION: 3.1.5
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
 
       - name: Download source archive
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
         with:
           name: otp_prebuilt
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v3.3.2
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-12
@@ -169,7 +184,7 @@ jobs:
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: otp_prebuilt_macos_x86-64
           path: otp/otp_macos_*_x86-64.tar.gz
@@ -182,9 +197,9 @@ jobs:
     runs-on: macos-12
     needs: pack
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       - name: Download source archive
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
         with:
           name: otp_prebuilt
 
@@ -203,7 +218,7 @@ jobs:
           xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
 
       - name: Upload framework
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: ios_framework_${{ env.TARGET_ARCH }}
           path: otp/liberlang.xcframework
@@ -218,7 +233,7 @@ jobs:
     runs-on: windows-2022
     needs: pack
     steps:
-      - uses: Vampire/setup-wsl@v2
+      - uses: Vampire/setup-wsl@v2.0.1
         with:
           distribution: Ubuntu-18.04
 
@@ -232,7 +247,7 @@ jobs:
           IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
 
       - name: Cache wxWidgets
-        uses: actions/cache@v3
+        uses: actions/cache@v3.3.2
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
@@ -274,7 +289,7 @@ jobs:
           nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
       - name: Download source archive
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
         with:
           name: otp_prebuilt
 
@@ -302,7 +317,7 @@ jobs:
           ./otp_build installer_win32
 
       - name: Upload installer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
@@ -314,7 +329,7 @@ jobs:
     if: contains(needs.pack.outputs.changes, 'emulator')
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -341,13 +356,13 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
             TYPE: ${{ matrix.type }}
       - name: Download source archive
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
         with:
           name: otp_prebuilt
       - name: Build ${{ matrix.type }} image
@@ -361,7 +376,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -383,12 +398,12 @@ jobs:
             rm -rf man
             tar czf ../otp_doc_html.tar.gz *
       - name: Upload html documentation archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
       - name: Upload man documentation archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
@@ -403,7 +418,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -432,7 +447,7 @@ jobs:
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -469,7 +484,7 @@ jobs:
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
           tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         if: always()
         with:
           name: ${{ matrix.type }}_test_results
@@ -481,12 +496,12 @@ jobs:
     if: always() # Run even if the need has failed
     needs: test
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Download test results
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
       - name: Merge test results
         run: |
           shopt -s nullglob
@@ -516,14 +531,14 @@ jobs:
               -e 's:\(file="erts/\)make_test_dir/[^/]*:\1test:g' \
               make_test_dir/*_junit.xml
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         if: always()
         with:
           name: test_results
           path: test_results.tar.gz
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: Unit Test Results
           path: |
@@ -547,19 +562,19 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "vsn=${VSN}" >> $GITHUB_OUTPUT
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
 
       ## Publish the pre-built archive and docs
       - name: Download source archive
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
         with:
           name: otp_prebuilt
       - name: Download html docs
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
         with:
           name: otp_doc_html
       - name: Download man docs
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
         with:
           name: otp_doc_man
 
@@ -597,7 +612,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: Event File
           path: ${{ github.event_path }}

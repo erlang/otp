@@ -1,6 +1,6 @@
 name: Sync all github releases with erlang.org
 
-## Sync all github releases + prs every hour
+## Sync all github releases every hour
 on:
   workflow_dispatch:
   schedule:
@@ -15,7 +15,7 @@ jobs:
     concurrency: sync-github-releases
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       ## We need to login to the package registry in order to pull
       ## the base debian image.
       - name: Docker login
@@ -26,34 +26,3 @@ jobs:
         run: >
           .github/scripts/sync-github-releases.sh ${{ github.repository }}
           "Bearer ${{ secrets.GITHUB_TOKEN }}" "^[2-9][1-9]\\..*" 25m
-
-  sync-prs:
-    if: github.repository == 'erlang/otp'
-    concurrency: erlang.github.io-deploy
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.ERLANG_TOKEN }}
-          repository: 'erlang/erlang.github.io'
-          path: erlang.github.io
-      - uses: actions/checkout@v3
-      - name: Update PRs
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        run: |
-            git clone https://github.com/talentdeficit/jsx
-            (cd jsx && rebar3 compile)
-            rm -rf "${GITHUB_WORKSPACE}/erlang.github.io/.git"
-            mkdir -p "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
-            touch "${GITHUB_WORKSPACE}/erlang.github.io/.nojekyll"
-            .github/scripts/sync-github-prs.es erlang/otp "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
-
-      - name: Deploy to github pages 🚀
-        uses: JamesIves/github-pages-deploy-action@v4.4.1
-        with:
-          token: ${{ secrets.ERLANG_TOKEN }}
-          branch: master # The branch the action should deploy to.
-          folder: erlang.github.io # The folder the action should deploy.
-          repository-name: erlang/erlang.github.io
-          single-commit: true

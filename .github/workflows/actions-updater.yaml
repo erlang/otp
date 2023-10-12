@@ -1,22 +1,29 @@
-name: GitHub Actions Updater
+name: GitHub Actions Version Updater
 
+# Controls when the action will run.
 on:
+  workflow_dispatch:
   schedule:
-    # Automatically run on the 1st of every month
-    - cron:  '0 0 1 * *'
+    # Automatically run on every Sunday
+    - cron:  '0 0 * * 0'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@v1.5.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PEM }}
+
+      - uses: actions/checkout@v4.1.0
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
 
       - name: Run GitHub Actions Version Updater
-        uses: saadmk11/github-actions-version-updater@v0.7.3
+        uses: saadmk11/github-actions-version-updater@v0.8.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit_message: "Updating GitHub actions to their latest versions"
-          pull_request_labels: "team:IS"
+          token: ${{ steps.generate_token.outputs.token }}
