@@ -50,9 +50,7 @@ runs:
             path: |
                 otp_src.tar.gz
                 otp_cache.tar.gz
-            key: prebuilt-${{ github.job }}-${{ github.ref_name }}-${{ github.sha }}
-            restore-keys: |
-                prebuilt-${{ github.ref_name }}-${{ github.sha }}
+            key: prebuilt-${{ github.ref_name }}-${{ github.sha }}
       - name: Build image
         if: inputs.BUILD_IMAGE == 'true'
         shell: bash -euxo pipefail {0}
