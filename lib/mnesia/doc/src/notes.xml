@@ -207,6 +207,21 @@
 
 </section>
 
+  <section><title>Mnesia 4.20.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not delete old backup file if the new backup fails.</p>
+          <p>
+	    Own Id: OTP-18711 Aux Id: ERIERL-963 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>Mnesia 4.20.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
