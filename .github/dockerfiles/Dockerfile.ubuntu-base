@@ -48,7 +48,7 @@ RUN mkdir /buildroot /tests /otp && chown ${USER}:${GROUP} /buildroot /tests /ot
 ## We install the latest version of the previous three releases in order to do
 ## backwards compatability testing of Erlang.
 RUN apt-get install -y git curl && \
-    curl -L https://raw.githubusercontent.com/kerl/kerl/master/kerl > /usr/bin/kerl && \
+    curl -L https://raw.githubusercontent.com/kerl/kerl/3.1.0/kerl > /usr/bin/kerl && \
     chmod +x /usr/bin/kerl && \
     kerl update releases && \
     LATEST=$(kerl list releases | tail -1 | awk -F '.' '{print $1}') && \
